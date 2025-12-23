@@ -16,13 +16,13 @@
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
 
-	// Form state
+	// Form state - use null for new rows to show placeholder
 	let formData = {
 		date: trip?.date || defaultDate,
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
-		distance_km: trip?.distance_km || 0,
-		odometer: trip?.odometer || 0,
+		distance_km: trip?.distance_km ?? (isNew ? null : 0),
+		odometer: trip?.odometer ?? (isNew ? null : 0),
 		purpose: trip?.purpose || '',
 		fuel_liters: trip?.fuel_liters || null,
 		fuel_cost_eur: trip?.fuel_cost_eur || null,
@@ -36,17 +36,19 @@
 
 	// Auto-update ODO when km changes (unless user manually edited ODO)
 	function handleKmChange(event: Event) {
-		const km = parseFloat((event.target as HTMLInputElement).value) || 0;
+		const inputValue = (event.target as HTMLInputElement).value;
+		const km = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 		formData.distance_km = km;
 		// Always auto-calculate ODO if not manually edited (previousOdometer can be 0)
-		if (!manualOdoEdit) {
+		if (!manualOdoEdit && km !== null) {
 			formData.odometer = previousOdometer + km;
 		}
 	}
 
 	function handleOdoChange(event: Event) {
 		manualOdoEdit = true;
-		formData.odometer = parseFloat((event.target as HTMLInputElement).value) || 0;
+		const inputValue = (event.target as HTMLInputElement).value;
+		formData.odometer = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 	}
 
 	function handleEdit() {
@@ -54,7 +56,13 @@
 	}
 
 	function handleSave() {
-		onSave(formData);
+		// Ensure numeric fields have proper values (convert null to 0)
+		const dataToSave = {
+			...formData,
+			distance_km: formData.distance_km ?? 0,
+			odometer: formData.odometer ?? 0
+		};
+		onSave(dataToSave);
 		isEditing = false;
 	}
 
@@ -116,10 +124,10 @@
 			/>
 		</td>
 		<td>
-			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="0.1" min="0" />
+			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="0.1" min="0" placeholder="0.0" />
 		</td>
 		<td>
-			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="0.1" min="0" />
+			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="0.1" min="0" placeholder="0.0" />
 		</td>
 		<td>
 			<input type="text" bind:value={formData.purpose} placeholder="Účel" />
