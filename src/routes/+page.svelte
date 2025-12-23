@@ -143,10 +143,6 @@
 				/>
 			{/if}
 		</div>
-
-		<div class="actions">
-			<a href="/settings" class="button">Nastavenia</a>
-		</div>
 	{:else}
 		<div class="no-vehicle">
 			<h2>Žiadne vozidlo</h2>
@@ -247,11 +243,6 @@
 		padding: 2rem;
 		color: #7f8c8d;
 		font-style: italic;
-	}
-
-	.actions {
-		display: flex;
-		gap: 1rem;
 	}
 
 	.no-vehicle {
