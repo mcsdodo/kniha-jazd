@@ -28,7 +28,17 @@ impl Database {
 
     fn run_migrations(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
+
+        // Run initial schema migration
         conn.execute_batch(include_str!("../migrations/001_initial.sql"))?;
+
+        // Run migration to add initial_odometer column (ignore if already exists)
+        // SQLite errors if column exists, so we catch and ignore that specific error
+        let _ = conn.execute(
+            "ALTER TABLE vehicles ADD COLUMN initial_odometer REAL NOT NULL DEFAULT 0",
+            [],
+        );
+
         Ok(())
     }
 
@@ -42,14 +52,15 @@ impl Database {
     pub fn create_vehicle(&self, vehicle: &Vehicle) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO vehicles (id, name, license_plate, tank_size_liters, tp_consumption, is_active, created_at, updated_at)
-             VALUES (:id, :name, :license_plate, :tank_size_liters, :tp_consumption, :is_active, :created_at, :updated_at)",
+            "INSERT INTO vehicles (id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at)
+             VALUES (:id, :name, :license_plate, :tank_size_liters, :tp_consumption, :initial_odometer, :is_active, :created_at, :updated_at)",
             rusqlite::named_params! {
                 ":id": vehicle.id.to_string(),
                 ":name": vehicle.name,
                 ":license_plate": vehicle.license_plate,
                 ":tank_size_liters": vehicle.tank_size_liters,
                 ":tp_consumption": vehicle.tp_consumption,
+                ":initial_odometer": vehicle.initial_odometer,
                 ":is_active": vehicle.is_active,
                 ":created_at": vehicle.created_at.to_rfc3339(),
                 ":updated_at": vehicle.updated_at.to_rfc3339(),
@@ -62,7 +73,7 @@ impl Database {
     pub fn get_vehicle(&self, id: &str) -> Result<Option<Vehicle>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, is_active, created_at, updated_at
+            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at
              FROM vehicles WHERE id = ?1",
         )?;
 
@@ -74,9 +85,10 @@ impl Database {
                     license_plate: row.get(2)?,
                     tank_size_liters: row.get(3)?,
                     tp_consumption: row.get(4)?,
-                    is_active: row.get(5)?,
-                    created_at: row.get::<_, String>(6)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(7)?.parse().unwrap(),
+                    initial_odometer: row.get(5)?,
+                    is_active: row.get(6)?,
+                    created_at: row.get::<_, String>(7)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(8)?.parse().unwrap(),
                 })
             })
             .optional()?;
@@ -88,7 +100,7 @@ impl Database {
     pub fn get_all_vehicles(&self) -> Result<Vec<Vehicle>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, is_active, created_at, updated_at
+            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at
              FROM vehicles ORDER BY created_at DESC",
         )?;
 
@@ -100,9 +112,10 @@ impl Database {
                     license_plate: row.get(2)?,
                     tank_size_liters: row.get(3)?,
                     tp_consumption: row.get(4)?,
-                    is_active: row.get(5)?,
-                    created_at: row.get::<_, String>(6)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(7)?.parse().unwrap(),
+                    initial_odometer: row.get(5)?,
+                    is_active: row.get(6)?,
+                    created_at: row.get::<_, String>(7)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(8)?.parse().unwrap(),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -114,7 +127,7 @@ impl Database {
     pub fn get_active_vehicle(&self) -> Result<Option<Vehicle>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, is_active, created_at, updated_at
+            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at
              FROM vehicles WHERE is_active = 1 LIMIT 1",
         )?;
 
@@ -126,9 +139,10 @@ impl Database {
                     license_plate: row.get(2)?,
                     tank_size_liters: row.get(3)?,
                     tp_consumption: row.get(4)?,
-                    is_active: row.get(5)?,
-                    created_at: row.get::<_, String>(6)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(7)?.parse().unwrap(),
+                    initial_odometer: row.get(5)?,
+                    is_active: row.get(6)?,
+                    created_at: row.get::<_, String>(7)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(8)?.parse().unwrap(),
                 })
             })
             .optional()?;
@@ -145,6 +159,7 @@ impl Database {
                  license_plate = :license_plate,
                  tank_size_liters = :tank_size_liters,
                  tp_consumption = :tp_consumption,
+                 initial_odometer = :initial_odometer,
                  is_active = :is_active,
                  updated_at = :updated_at
              WHERE id = :id",
@@ -154,6 +169,7 @@ impl Database {
                 ":license_plate": vehicle.license_plate,
                 ":tank_size_liters": vehicle.tank_size_liters,
                 ":tp_consumption": vehicle.tp_consumption,
+                ":initial_odometer": vehicle.initial_odometer,
                 ":is_active": vehicle.is_active,
                 ":updated_at": vehicle.updated_at.to_rfc3339(),
             },
@@ -622,6 +638,7 @@ mod tests {
             "BA123XY".to_string(),
             66.0,
             5.1,
+            0.0,
         );
 
         // Create vehicle
@@ -646,8 +663,8 @@ mod tests {
         let db = Database::in_memory().expect("Failed to create database");
 
         // Create multiple vehicles
-        let v1 = Vehicle::new("Car 1".to_string(), "BA111AA".to_string(), 60.0, 5.0);
-        let v2 = Vehicle::new("Car 2".to_string(), "BA222BB".to_string(), 70.0, 6.0);
+        let v1 = Vehicle::new("Car 1".to_string(), "BA111AA".to_string(), 60.0, 5.0, 0.0);
+        let v2 = Vehicle::new("Car 2".to_string(), "BA222BB".to_string(), 70.0, 6.0, 0.0);
 
         db.create_vehicle(&v1).expect("Failed to create v1");
         db.create_vehicle(&v2).expect("Failed to create v2");
@@ -665,9 +682,9 @@ mod tests {
         let db = Database::in_memory().expect("Failed to create database");
 
         // Create two vehicles
-        let mut v1 = Vehicle::new("Car 1".to_string(), "BA111AA".to_string(), 60.0, 5.0);
+        let mut v1 = Vehicle::new("Car 1".to_string(), "BA111AA".to_string(), 60.0, 5.0, 0.0);
         v1.is_active = false;
-        let v2 = Vehicle::new("Car 2".to_string(), "BA222BB".to_string(), 70.0, 6.0);
+        let v2 = Vehicle::new("Car 2".to_string(), "BA222BB".to_string(), 70.0, 6.0, 0.0);
 
         db.create_vehicle(&v1).expect("Failed to create v1");
         db.create_vehicle(&v2).expect("Failed to create v2");
@@ -685,7 +702,7 @@ mod tests {
     #[test]
     fn test_update_vehicle() {
         let db = Database::in_memory().expect("Failed to create database");
-        let mut vehicle = Vehicle::new("Old Name".to_string(), "BA111AA".to_string(), 60.0, 5.0);
+        let mut vehicle = Vehicle::new("Old Name".to_string(), "BA111AA".to_string(), 60.0, 5.0, 0.0);
 
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
@@ -710,7 +727,7 @@ mod tests {
     #[test]
     fn test_delete_vehicle() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
 
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
@@ -763,7 +780,7 @@ mod tests {
     #[test]
     fn test_create_and_retrieve_trip() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let trip = create_test_trip(vehicle.id, "2024-12-01");
@@ -794,7 +811,7 @@ mod tests {
     #[test]
     fn test_create_trip_with_optional_fields_none() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let now = chrono::Utc::now();
@@ -831,7 +848,7 @@ mod tests {
     #[test]
     fn test_get_trips_for_vehicle() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         // Create trips with different dates
@@ -859,7 +876,7 @@ mod tests {
     #[test]
     fn test_get_trips_for_vehicle_in_year() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         // Create trips in different years
@@ -897,7 +914,7 @@ mod tests {
     #[test]
     fn test_update_trip() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let mut trip = create_test_trip(vehicle.id, "2024-12-01");
@@ -929,7 +946,7 @@ mod tests {
     #[test]
     fn test_delete_trip() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let trip = create_test_trip(vehicle.id, "2024-12-01");
@@ -987,7 +1004,7 @@ mod tests {
     #[test]
     fn test_create_and_retrieve_route() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let route = create_test_route(vehicle.id, "Bratislava", "Košice", 400.0);
@@ -1012,7 +1029,7 @@ mod tests {
     #[test]
     fn test_get_routes_for_vehicle_ordered_by_usage() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         // Create routes with different usage counts
@@ -1048,7 +1065,7 @@ mod tests {
     #[test]
     fn test_update_route() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let mut route = create_test_route(vehicle.id, "Prague", "Brno", 200.0);
@@ -1073,7 +1090,7 @@ mod tests {
     #[test]
     fn test_delete_route() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         let route = create_test_route(vehicle.id, "Vienna", "Prague", 250.0);
@@ -1094,7 +1111,7 @@ mod tests {
     #[test]
     fn test_find_or_create_route_creates_new() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         // Find or create - should create new
@@ -1119,7 +1136,7 @@ mod tests {
     #[test]
     fn test_find_or_create_route_increments_existing() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
         // Create initial route

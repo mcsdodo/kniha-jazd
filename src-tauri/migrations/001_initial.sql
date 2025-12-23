@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
     license_plate TEXT NOT NULL,
     tank_size_liters REAL NOT NULL,
     tp_consumption REAL NOT NULL,
+    initial_odometer REAL NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

@@ -16,13 +16,15 @@ export async function createVehicle(
 	name: string,
 	license_plate: string,
 	tank_size_liters: number,
-	tp_consumption: number
+	tp_consumption: number,
+	initial_odometer: number
 ): Promise<Vehicle> {
 	return await invoke('create_vehicle', {
 		name,
 		licensePlate: license_plate,
 		tankSize: tank_size_liters,
-		tpConsumption: tp_consumption
+		tpConsumption: tp_consumption,
+		initialOdometer: initial_odometer
 	});
 }
 

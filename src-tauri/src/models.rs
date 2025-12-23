@@ -11,6 +11,7 @@ pub struct Vehicle {
     pub license_plate: String,
     pub tank_size_liters: f64,
     pub tp_consumption: f64, // l/100km from technical passport
+    pub initial_odometer: f64, // Starting ODO for "Prvý záznam"
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -22,6 +23,7 @@ impl Vehicle {
         license_plate: String,
         tank_size_liters: f64,
         tp_consumption: f64,
+        initial_odometer: f64,
     ) -> Self {
         let now = Utc::now();
         Self {
@@ -30,6 +32,7 @@ impl Vehicle {
             license_plate,
             tank_size_liters,
             tp_consumption,
+            initial_odometer,
             is_active: true,
             created_at: now,
             updated_at: now,

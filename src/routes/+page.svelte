@@ -121,6 +121,7 @@
 					{trips}
 					tankSize={$activeVehicleStore.tank_size_liters}
 					tpConsumption={$activeVehicleStore.tp_consumption}
+					initialOdometer={$activeVehicleStore.initial_odometer}
 					onTripsChanged={handleTripsChanged}
 				/>
 			{/if}

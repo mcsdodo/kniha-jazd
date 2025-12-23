@@ -32,8 +32,9 @@ pub fn create_vehicle(
     license_plate: String,
     tank_size: f64,
     tp_consumption: f64,
+    initial_odometer: f64,
 ) -> Result<Vehicle, String> {
-    let vehicle = Vehicle::new(name, license_plate, tank_size, tp_consumption);
+    let vehicle = Vehicle::new(name, license_plate, tank_size, tp_consumption, initial_odometer);
     db.create_vehicle(&vehicle).map_err(|e| e.to_string())?;
     Ok(vehicle)
 }

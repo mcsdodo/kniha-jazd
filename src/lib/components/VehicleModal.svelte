@@ -6,7 +6,8 @@
 		name: string,
 		licensePlate: string,
 		tankSize: number,
-		tpConsumption: number
+		tpConsumption: number,
+		initialOdometer: number
 	) => void;
 	export let onClose: () => void;
 
@@ -14,9 +15,10 @@
 	let licensePlate = vehicle?.license_plate || '';
 	let tankSize = vehicle?.tank_size_liters || 0;
 	let tpConsumption = vehicle?.tp_consumption || 0;
+	let initialOdometer = vehicle?.initial_odometer || 0;
 
 	function handleSave() {
-		onSave(name, licensePlate, tankSize, tpConsumption);
+		onSave(name, licensePlate, tankSize, tpConsumption, initialOdometer);
 	}
 
 	function handleBackgroundClick(event: MouseEvent) {
@@ -70,6 +72,18 @@
 					step="0.1"
 					min="0"
 					placeholder="napr. 5.1"
+				/>
+			</div>
+
+			<div class="form-group">
+				<label for="initial-odometer">Počiatočný stav ODO (km)</label>
+				<input
+					type="number"
+					id="initial-odometer"
+					bind:value={initialOdometer}
+					step="0.1"
+					min="0"
+					placeholder="napr. 50000"
 				/>
 			</div>
 		</div>

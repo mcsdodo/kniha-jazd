@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { vehiclesStore } from '$lib/stores/vehicles';
+	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import * as api from '$lib/api';
 	import type { Vehicle, Settings } from '$lib/types';
@@ -47,7 +47,8 @@
 		name: string,
 		licensePlate: string,
 		tankSize: number,
-		tpConsumption: number
+		tpConsumption: number,
+		initialOdometer: number
 	) {
 		try {
 			if (editingVehicle) {
@@ -58,17 +59,26 @@
 					license_plate: licensePlate,
 					tank_size_liters: tankSize,
 					tp_consumption: tpConsumption,
+					initial_odometer: initialOdometer,
 					updated_at: new Date().toISOString()
 				};
 				await api.updateVehicle(updatedVehicle);
 			} else {
 				// Create new vehicle
-				await api.createVehicle(name, licensePlate, tankSize, tpConsumption);
+				await api.createVehicle(name, licensePlate, tankSize, tpConsumption, initialOdometer);
 			}
 
 			// Reload vehicles
 			const vehicles = await api.getVehicles();
 			vehiclesStore.set(vehicles);
+
+			// Update activeVehicleStore if we edited the active vehicle
+			if (editingVehicle && $activeVehicleStore?.id === editingVehicle.id) {
+				const updatedActive = vehicles.find((v) => v.id === editingVehicle.id);
+				if (updatedActive) {
+					activeVehicleStore.set(updatedActive);
+				}
+			}
 
 			closeVehicleModal();
 		} catch (error) {

@@ -6,6 +6,7 @@ export interface Vehicle {
 	license_plate: string;
 	tank_size_liters: number;
 	tp_consumption: number;
+	initial_odometer: number;
 	is_active: boolean;
 	created_at: string;
 	updated_at: string;
