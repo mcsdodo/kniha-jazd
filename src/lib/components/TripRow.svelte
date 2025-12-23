@@ -16,13 +16,22 @@
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
 	export let dragDisabled: boolean = false;
-	export let onDragStart: () => void = () => {};
+	export let tripId: string = '';
+	export let onDragStart: (e: DragEvent) => void = () => {};
 	export let onDragEnd: () => void = () => {};
 	export let onDragOver: (e: DragEvent) => void = () => {};
 	export let onDragLeave: () => void = () => {};
 	export let onDrop: (e: DragEvent) => void = () => {};
 	export let isDragTarget: boolean = false;
 	export let isDragging: boolean = false;
+
+	function handleDragStart(e: DragEvent) {
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', tripId);
+		}
+		onDragStart(e);
+	}
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -233,7 +242,7 @@
 						class="drag-handle"
 						title="Presunúť záznam"
 						draggable="true"
-						on:dragstart={onDragStart}
+						on:dragstart={handleDragStart}
 						on:dragend={onDragEnd}
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -263,13 +272,23 @@
 	}
 
 	tr.drag-target {
-		background-color: #e3f2fd;
-		box-shadow: inset 0 2px 0 #3498db;
+		position: relative;
+	}
+
+	tr.drag-target::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		background-color: #3498db;
+		z-index: 10;
 	}
 
 	tr.dragging {
-		opacity: 0.5;
-		background-color: #f5f5f5;
+		opacity: 0.4;
+		background-color: #e0e0e0;
 	}
 
 	tr.editing {

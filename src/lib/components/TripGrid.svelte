@@ -163,7 +163,7 @@
 	let draggedTripId: string | null = null;
 	let dropTargetIndex: number | null = null;
 
-	function handleDragStart(tripId: string) {
+	function handleDragStart(e: DragEvent, tripId: string) {
 		draggedTripId = tripId;
 	}
 
@@ -174,18 +174,28 @@
 
 	function handleDragOver(event: DragEvent, index: number) {
 		event.preventDefault();
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = 'move';
+		}
 		dropTargetIndex = index;
 	}
 
-	function handleDragLeave() {
-		dropTargetIndex = null;
+	function handleDragLeave(event: DragEvent) {
+		// Only clear if leaving the row entirely (not entering a child)
+		const relatedTarget = event.relatedTarget as HTMLElement;
+		if (!relatedTarget || !event.currentTarget || !(event.currentTarget as HTMLElement).contains(relatedTarget)) {
+			dropTargetIndex = null;
+		}
 	}
 
 	async function handleDrop(event: DragEvent, targetIndex: number) {
 		event.preventDefault();
-		if (!draggedTripId) return;
 
-		const currentIndex = sortedTrips.findIndex(t => t.id === draggedTripId);
+		// Get dragged trip ID from dataTransfer or state
+		const droppedTripId = event.dataTransfer?.getData('text/plain') || draggedTripId;
+		if (!droppedTripId) return;
+
+		const currentIndex = sortedTrips.findIndex(t => t.id === droppedTripId);
 		if (currentIndex === -1 || currentIndex === targetIndex) {
 			draggedTripId = null;
 			dropTargetIndex = null;
@@ -197,7 +207,7 @@
 		const newDate = targetTrip ? targetTrip.date : sortedTrips[0]?.date || new Date().toISOString().split('T')[0];
 
 		try {
-			await reorderTrip(draggedTripId, targetIndex, newDate);
+			await reorderTrip(droppedTripId, targetIndex, newDate);
 			await recalculateAllOdo();
 			onTripsChanged();
 		} catch (error) {
@@ -397,7 +407,7 @@
 						{dragDisabled}
 					/>
 				{/if}
-					<!-- Trip rows -->
+				<!-- Trip rows -->
 				{#each sortedTrips as trip, index (trip.id)}
 					<TripRow
 						{trip}
@@ -413,7 +423,8 @@
 						onEditStart={() => handleEditStart(trip.id)}
 						onEditEnd={handleEditEnd}
 						{dragDisabled}
-						onDragStart={() => handleDragStart(trip.id)}
+						tripId={trip.id}
+						onDragStart={(e) => handleDragStart(e, trip.id)}
 						onDragEnd={handleDragEnd}
 						onDragOver={(e) => handleDragOver(e, index)}
 						onDragLeave={handleDragLeave}
