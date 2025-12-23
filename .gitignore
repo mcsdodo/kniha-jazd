@@ -1,56 +1,26 @@
-# Dependencies
-node_modules/
+node_modules
 
-# Build outputs
-dist/
-build/
-.svelte-kit/
-
-# Tauri
-src-tauri/target/
-src-tauri/WixTools/
-src-tauri/Cargo.lock
-
-# Environment
-.env
-.env.*
-!.env.example
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
 
 # OS
 .DS_Store
 Thumbs.db
-Desktop.ini
 
-# Logs
-*.log
-npm-debug.log*
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
 
-# Test coverage
-coverage/
-.nyc_output/
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
 
-# Playwright
-playwright-report/
-test-results/
-
-# SQLite databases (user data)
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
-
-# Original Excel file (reference only, not part of app)
-_tasks/01-init/kniha_jazd.xlsx
-
-# Local overrides
-CLAUDE.local.md
-
-# Claude Code local settings
-.claude/
+# Claude
+.claude
