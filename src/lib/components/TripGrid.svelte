@@ -235,6 +235,7 @@
 					<th>Účel</th>
 					<th>PHM (L)</th>
 					<th>Cena €</th>
+					<th>l/100km</th>
 					<th>Zostatok</th>
 					<th>Iné €</th>
 					<th>Akcie</th>
@@ -247,7 +248,8 @@
 						{routes}
 						isNew={true}
 						previousOdometer={lastOdometer}
-						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || 0 : 0}
+						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
+						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
@@ -259,6 +261,7 @@
 						{routes}
 						isNew={false}
 						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : 0}
+						consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 						zostatok={fuelRemaining.get(trip.id) || 0}
 						onSave={(data) => handleUpdate(trip, data)}
 						onCancel={() => {}}
@@ -267,7 +270,7 @@
 				{/each}
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="11">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
+						<td colspan="12">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
 				<!-- Synthetic "Prvý záznam" row - starting values -->
@@ -280,6 +283,7 @@
 					<td class="purpose">Prvý záznam</td>
 					<td>-</td>
 					<td>-</td>
+					<td class="number">{tpConsumption.toFixed(2)}</td>
 					<td class="number">{tankSize.toFixed(1)}</td>
 					<td>-</td>
 					<td></td>
