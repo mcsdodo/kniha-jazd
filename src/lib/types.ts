@@ -25,6 +25,7 @@ export interface Trip {
 	fuel_cost_eur?: number | null;
 	other_costs_eur?: number | null;
 	other_costs_note?: string | null;
+	sort_order: number;
 	created_at: string;
 	updated_at: string;
 }

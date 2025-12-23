@@ -43,6 +43,7 @@ pub fn run() {
       commands::create_trip,
       commands::update_trip,
       commands::delete_trip,
+      commands::reorder_trip,
       commands::get_routes,
       commands::get_compensation_suggestion,
       commands::get_settings,

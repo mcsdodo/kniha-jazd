@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Trip, Route } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 
@@ -11,6 +11,12 @@
 
 	let routes: Route[] = [];
 	let showNewRow = false;
+	let editingTripId: string | null = null;
+	let insertAtSortOrder: number | null = null;
+	let insertDate: string | null = null;
+
+	// Drag disabled when editing or adding new row
+	$: dragDisabled = showNewRow || editingTripId !== null;
 
 	onMount(async () => {
 		await loadRoutes();
@@ -41,9 +47,14 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
-				null
+				null,
+				insertAtSortOrder // Pass insert position if set
 			);
 			showNewRow = false;
+			insertAtSortOrder = null;
+			insertDate = null;
+			// Recalculate ODO for all trips
+			await recalculateAllOdo();
 			onTripsChanged();
 			await loadRoutes(); // Refresh routes after adding trip
 		} catch (error) {
@@ -130,14 +141,81 @@
 
 	function handleCancelNew() {
 		showNewRow = false;
+		insertAtSortOrder = null;
+		insertDate = null;
 	}
 
-	// Sort trips by date descending (newest first), using odometer as tiebreaker
-	$: sortedTrips = [...trips].sort((a, b) => {
-		const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-		if (dateDiff !== 0) return dateDiff;
-		return b.odometer - a.odometer;
-	});
+	function handleEditStart(tripId: string) {
+		editingTripId = tripId;
+	}
+
+	function handleEditEnd() {
+		editingTripId = null;
+	}
+
+	function handleInsertAbove(targetTrip: Trip) {
+		insertAtSortOrder = targetTrip.sort_order;
+		insertDate = targetTrip.date;
+		showNewRow = true;
+	}
+
+	async function handleMoveUp(trip: Trip, currentIndex: number) {
+		if (currentIndex <= 0) return;
+		await moveTrip(trip, currentIndex - 1);
+	}
+
+	async function handleMoveDown(trip: Trip, currentIndex: number) {
+		if (currentIndex >= sortedTrips.length - 1) return;
+		await moveTrip(trip, currentIndex + 1);
+	}
+
+	async function moveTrip(trip: Trip, newIndex: number) {
+		// Get new date from trip at target position (or keep same)
+		const targetTrip = sortedTrips[newIndex];
+		const newDate = targetTrip ? targetTrip.date : trip.date;
+
+		try {
+			await reorderTrip(trip.id, newIndex, newDate);
+			// Recalculate ODO for all trips after reorder
+			await recalculateAllOdo();
+			onTripsChanged();
+		} catch (error) {
+			console.error('Failed to reorder trip:', error);
+			alert('Nepodarilo sa zmeniť poradie');
+			onTripsChanged(); // Refresh to revert
+		}
+	}
+
+	// Recalculate ODO for all trips after reordering
+	async function recalculateAllOdo() {
+		// Sort by sort_order ascending, then reverse for chronological (oldest first)
+		const chronological = [...trips]
+			.sort((a, b) => a.sort_order - b.sort_order)
+			.reverse();
+
+		let runningOdo = initialOdometer;
+		for (const trip of chronological) {
+			runningOdo += trip.distance_km;
+			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
+				await updateTrip(
+					trip.id,
+					trip.date,
+					trip.origin,
+					trip.destination,
+					trip.distance_km,
+					runningOdo,
+					trip.purpose,
+					trip.fuel_liters,
+					trip.fuel_cost_eur,
+					trip.other_costs_eur,
+					trip.other_costs_note
+				);
+			}
+		}
+	}
+
+	// Sort trips by sort_order ascending (0 = top/newest)
+	$: sortedTrips = [...trips].sort((a, b) => a.sort_order - b.sort_order);
 
 	// Get the last ODO value (from the most recent trip, or initial ODO if no trips)
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
@@ -277,20 +355,25 @@
 				</tr>
 			</thead>
 			<tbody>
+				<!-- New row (not part of drag zone) -->
 				{#if showNewRow}
 					<TripRow
 						trip={null}
 						{routes}
 						isNew={true}
-						previousOdometer={lastOdometer}
-						defaultDate={defaultNewDate}
+						previousOdometer={insertAtSortOrder !== null
+							? (sortedTrips.find(t => t.sort_order === insertAtSortOrder)?.odometer || lastOdometer)
+							: lastOdometer}
+						defaultDate={insertDate || defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
+						{dragDisabled}
 					/>
 				{/if}
+				<!-- Trip rows -->
 				{#each sortedTrips as trip, index (trip.id)}
 					<TripRow
 						{trip}
@@ -302,8 +385,17 @@
 						onSave={(data) => handleUpdate(trip, data)}
 						onCancel={() => {}}
 						onDelete={handleDelete}
+						onInsertAbove={() => handleInsertAbove(trip)}
+						onEditStart={() => handleEditStart(trip.id)}
+						onEditEnd={handleEditEnd}
+						onMoveUp={() => handleMoveUp(trip, index)}
+						onMoveDown={() => handleMoveDown(trip, index)}
+						canMoveUp={index > 0}
+						canMoveDown={index < sortedTrips.length - 1}
+						{dragDisabled}
 					/>
 				{/each}
+				<!-- Empty state -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
 						<td colspan="12">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>

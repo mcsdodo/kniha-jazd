@@ -117,9 +117,23 @@ pub fn create_trip(
     fuel_cost: Option<f64>,
     other_costs: Option<f64>,
     other_costs_note: Option<String>,
+    insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Determine sort_order
+    let sort_order = if let Some(position) = insert_at_position {
+        // Shift existing trips down to make room
+        db.shift_trips_from_position(&vehicle_id, position)
+            .map_err(|e| e.to_string())?;
+        position
+    } else {
+        // Insert at top (sort_order = 0), shift all existing down
+        db.shift_trips_from_position(&vehicle_id, 0)
+            .map_err(|e| e.to_string())?;
+        0
+    };
 
     let now = Utc::now();
     let trip = Trip {
@@ -135,6 +149,7 @@ pub fn create_trip(
         fuel_cost_eur: fuel_cost,
         other_costs_eur: other_costs,
         other_costs_note,
+        sort_order,
         created_at: now,
         updated_at: now,
     };
@@ -186,6 +201,7 @@ pub fn update_trip(
         fuel_cost_eur,
         other_costs_eur,
         other_costs_note,
+        sort_order: existing.sort_order,
         created_at: existing.created_at,
         updated_at: Utc::now(),
     };
@@ -197,6 +213,30 @@ pub fn update_trip(
 #[tauri::command]
 pub fn delete_trip(db: State<Database>, id: String) -> Result<(), String> {
     db.delete_trip(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn reorder_trip(
+    db: State<Database>,
+    trip_id: String,
+    new_sort_order: i32,
+    new_date: String,
+) -> Result<Vec<Trip>, String> {
+    let parsed_date = NaiveDate::parse_from_str(&new_date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Get the trip to find its vehicle_id
+    let trip = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Trip not found")?;
+
+    // Reorder trips in database
+    db.reorder_trip(&trip_id, new_sort_order, parsed_date)
+        .map_err(|e| e.to_string())?;
+
+    // Return updated trip list
+    db.get_trips_for_vehicle(&trip.vehicle_id.to_string())
+        .map_err(|e| e.to_string())
 }
 
 // ============================================================================
