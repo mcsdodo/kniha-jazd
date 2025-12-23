@@ -22,6 +22,40 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2025-12-23: Calculation Logic Fixes
+
+### BIZ-011: Legal Limit Based on Average Consumption
+
+**Context:** Should the 20% over-limit warning use the last fill-up rate or overall average?
+
+**Decision:** Use **average consumption** (total_fuel / total_km × 100) for legal compliance check.
+
+**Reasoning:** Legal compliance is about the overall picture, not a single fill-up. If average is 6.00 and limit is 6.12 (5.1 × 1.2), we're compliant even if one fill-up was higher.
+
+---
+
+### BIZ-010: Retroactive Consumption Rate Application
+
+**Context:** When a fill-up occurs, which trips should use that rate?
+
+**Decision:** Apply the rate **retroactively** to ALL trips since the previous fill-up.
+
+**Example:** If trips A, B, C happen, then fill-up on C gives rate 6.0 → A, B, and C all show 6.0 l/100km.
+
+**Reasoning:** Matches Excel behavior. The rate represents the consumption for that entire period.
+
+---
+
+### BIZ-009: Same-Day Trip Ordering
+
+**Context:** Multiple trips on the same date need deterministic ordering for correct calculations.
+
+**Decision:** Sort by date, then by **odometer** as tiebreaker.
+
+**Reasoning:** Odometer is sequential and represents actual trip order. Using created_at would fail for imported data.
+
+---
+
 ### BIZ-008: ODO Auto-Calculation
 
 **Context:** Manual ODO entry is error-prone and redundant since ODO = previous ODO + km driven.
