@@ -22,6 +22,46 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2025-12-23: UI/UX Decisions
+
+### ADR-007: Database Backup/Restore
+
+**Context:** User needs ability to backup and restore database for data safety.
+
+**Decision:**
+- Backups stored in `{app_data_dir}/backups/`
+- Manual trigger only (no auto-backup)
+- Filename: `kniha-jazd-backup-YYYY-MM-DD-HHmmss.db`
+- Restore: Full DB replacement with confirmation showing date, counts, warning
+- Keep all backups (no auto-deletion)
+
+**Reasoning:** Simple, transparent backup system. User controls when to backup/restore.
+
+---
+
+### ADR-006: Navigation Header
+
+**Context:** Settings button was buried at bottom of page, requiring scroll.
+
+**Decision:** Top header bar with "Kniha jázd | Nastavenia" navigation links.
+
+**Reasoning:** Always visible, no scrolling needed, clear app structure.
+
+---
+
+### ADR-005: Totals Section Redesign
+
+**Context:** Original single-row totals were cramped and unclear.
+
+**Decision:**
+- Two-row layout for totals
+- Rename "Km" to "Celkovo najazdené" for clarity
+- Show fuel totals and cost summary on separate row
+
+**Reasoning:** Better readability, clearer labels for legal documentation.
+
+---
+
 ## 2025-12-23: Calculation Logic Fixes
 
 ### BIZ-011: Legal Limit Based on Average Consumption

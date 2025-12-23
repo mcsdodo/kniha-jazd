@@ -159,30 +159,54 @@
 		showNewRow = true;
 	}
 
-	async function handleMoveUp(trip: Trip, currentIndex: number) {
-		if (currentIndex <= 0) return;
-		await moveTrip(trip, currentIndex - 1);
+	// Native HTML5 drag-drop state
+	let draggedTripId: string | null = null;
+	let dropTargetIndex: number | null = null;
+
+	function handleDragStart(tripId: string) {
+		draggedTripId = tripId;
 	}
 
-	async function handleMoveDown(trip: Trip, currentIndex: number) {
-		if (currentIndex >= sortedTrips.length - 1) return;
-		await moveTrip(trip, currentIndex + 1);
+	function handleDragEnd() {
+		draggedTripId = null;
+		dropTargetIndex = null;
 	}
 
-	async function moveTrip(trip: Trip, newIndex: number) {
-		// Get new date from trip at target position (or keep same)
-		const targetTrip = sortedTrips[newIndex];
-		const newDate = targetTrip ? targetTrip.date : trip.date;
+	function handleDragOver(event: DragEvent, index: number) {
+		event.preventDefault();
+		dropTargetIndex = index;
+	}
+
+	function handleDragLeave() {
+		dropTargetIndex = null;
+	}
+
+	async function handleDrop(event: DragEvent, targetIndex: number) {
+		event.preventDefault();
+		if (!draggedTripId) return;
+
+		const currentIndex = sortedTrips.findIndex(t => t.id === draggedTripId);
+		if (currentIndex === -1 || currentIndex === targetIndex) {
+			draggedTripId = null;
+			dropTargetIndex = null;
+			return;
+		}
+
+		// Get new date from trip at target position
+		const targetTrip = sortedTrips[targetIndex];
+		const newDate = targetTrip ? targetTrip.date : sortedTrips[0]?.date || new Date().toISOString().split('T')[0];
 
 		try {
-			await reorderTrip(trip.id, newIndex, newDate);
-			// Recalculate ODO for all trips after reorder
+			await reorderTrip(draggedTripId, targetIndex, newDate);
 			await recalculateAllOdo();
 			onTripsChanged();
 		} catch (error) {
 			console.error('Failed to reorder trip:', error);
 			alert('Nepodarilo sa zmeniť poradie');
-			onTripsChanged(); // Refresh to revert
+			onTripsChanged();
+		} finally {
+			draggedTripId = null;
+			dropTargetIndex = null;
 		}
 	}
 
@@ -373,7 +397,7 @@
 						{dragDisabled}
 					/>
 				{/if}
-				<!-- Trip rows -->
+					<!-- Trip rows -->
 				{#each sortedTrips as trip, index (trip.id)}
 					<TripRow
 						{trip}
@@ -388,11 +412,14 @@
 						onInsertAbove={() => handleInsertAbove(trip)}
 						onEditStart={() => handleEditStart(trip.id)}
 						onEditEnd={handleEditEnd}
-						onMoveUp={() => handleMoveUp(trip, index)}
-						onMoveDown={() => handleMoveDown(trip, index)}
-						canMoveUp={index > 0}
-						canMoveDown={index < sortedTrips.length - 1}
 						{dragDisabled}
+						onDragStart={() => handleDragStart(trip.id)}
+						onDragEnd={handleDragEnd}
+						onDragOver={(e) => handleDragOver(e, index)}
+						onDragLeave={handleDragLeave}
+						onDrop={(e) => handleDrop(e, index)}
+						isDragTarget={dropTargetIndex === index && draggedTripId !== trip.id}
+						isDragging={draggedTripId === trip.id}
 					/>
 				{/each}
 				<!-- Empty state -->

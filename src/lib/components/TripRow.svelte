@@ -15,11 +15,14 @@
 	export let onInsertAbove: () => void = () => {};
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
-	export let onMoveUp: () => void = () => {};
-	export let onMoveDown: () => void = () => {};
-	export let canMoveUp: boolean = true;
-	export let canMoveDown: boolean = true;
 	export let dragDisabled: boolean = false;
+	export let onDragStart: () => void = () => {};
+	export let onDragEnd: () => void = () => {};
+	export let onDragOver: (e: DragEvent) => void = () => {};
+	export let onDragLeave: () => void = () => {};
+	export let onDrop: (e: DragEvent) => void = () => {};
+	export let isDragTarget: boolean = false;
+	export let isDragging: boolean = false;
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -184,7 +187,14 @@
 		</td>
 	</tr>
 {:else if trip}
-	<tr on:dblclick={handleEdit}>
+	<tr
+		on:dblclick={handleEdit}
+		on:dragover={onDragOver}
+		on:dragleave={onDragLeave}
+		on:drop={onDrop}
+		class:drag-target={isDragTarget}
+		class:dragging={isDragging}
+	>
 		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		<td>{trip.origin}</td>
 		<td>{trip.destination}</td>
@@ -196,49 +206,47 @@
 		<td class="number calculated">{consumptionRate.toFixed(2)}</td>
 		<td class="number calculated">{zostatok.toFixed(1)}</td>
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
-		<td class="actions icon-actions">
-			<button
-				class="icon-btn insert"
-				on:click|stopPropagation={onInsertAbove}
-				title="Vložiť záznam nad"
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<line x1="12" y1="5" x2="12" y2="19"></line>
-					<line x1="5" y1="12" x2="19" y2="12"></line>
-				</svg>
-			</button>
-			<button
-				class="icon-btn delete"
-				on:click|stopPropagation={handleDeleteClick}
-				title="Odstrániť záznam"
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<polyline points="3 6 5 6 21 6"></polyline>
-					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-				</svg>
-			</button>
-			{#if !dragDisabled}
+		<td class="actions">
+			<span class="icon-actions">
 				<button
-					class="icon-btn move"
-					on:click|stopPropagation={onMoveUp}
-					disabled={!canMoveUp}
-					title="Posunúť hore"
+					class="icon-btn insert"
+					on:click|stopPropagation={onInsertAbove}
+					title="Vložiť záznam nad"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="18 15 12 9 6 15"></polyline>
+						<line x1="12" y1="5" x2="12" y2="19"></line>
+						<line x1="5" y1="12" x2="19" y2="12"></line>
 					</svg>
 				</button>
 				<button
-					class="icon-btn move"
-					on:click|stopPropagation={onMoveDown}
-					disabled={!canMoveDown}
-					title="Posunúť dolu"
+					class="icon-btn delete"
+					on:click|stopPropagation={handleDeleteClick}
+					title="Odstrániť záznam"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="6 9 12 15 18 9"></polyline>
+						<polyline points="3 6 5 6 21 6"></polyline>
+						<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 					</svg>
 				</button>
-			{/if}
+				{#if !dragDisabled}
+					<span
+						class="drag-handle"
+						title="Presunúť záznam"
+						draggable="true"
+						on:dragstart={onDragStart}
+						on:dragend={onDragEnd}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="9" cy="5" r="1"></circle>
+							<circle cx="9" cy="12" r="1"></circle>
+							<circle cx="9" cy="19" r="1"></circle>
+							<circle cx="15" cy="5" r="1"></circle>
+							<circle cx="15" cy="12" r="1"></circle>
+							<circle cx="15" cy="19" r="1"></circle>
+						</svg>
+					</span>
+				{/if}
+			</span>
 		</td>
 	</tr>
 {/if}
@@ -249,9 +257,19 @@
 		transition: background-color 0.2s;
 	}
 
-	tr:hover:not(.editing) {
+	tr:hover:not(.editing):not(.dragging) {
 		background-color: #f8f9fa;
 		cursor: pointer;
+	}
+
+	tr.drag-target {
+		background-color: #e3f2fd;
+		box-shadow: inset 0 2px 0 #3498db;
+	}
+
+	tr.dragging {
+		opacity: 0.5;
+		background-color: #f5f5f5;
 	}
 
 	tr.editing {
@@ -362,12 +380,23 @@
 		background-color: rgba(244, 67, 54, 0.1);
 	}
 
-	.icon-btn.move:hover:not(:disabled) {
-		color: #3498db;
+	.drag-handle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.25rem;
+		color: #9e9e9e;
+		cursor: grab;
+		border-radius: 4px;
+		transition: color 0.2s, background-color 0.2s;
 	}
 
-	.icon-btn:disabled {
-		opacity: 0.3;
-		cursor: not-allowed;
+	.drag-handle:hover {
+		color: #616161;
+		background-color: rgba(0, 0, 0, 0.05);
+	}
+
+	.drag-handle:active {
+		cursor: grabbing;
 	}
 </style>
