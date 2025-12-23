@@ -144,7 +144,7 @@
 		</td>
 	</tr>
 {:else if trip}
-	<tr on:click={handleEdit}>
+	<tr on:dblclick={handleEdit}>
 		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		<td>{trip.origin}</td>
 		<td>{trip.destination}</td>
@@ -162,12 +162,13 @@
 
 <style>
 	tr {
-		cursor: pointer;
+		cursor: default;
 		transition: background-color 0.2s;
 	}
 
 	tr:hover:not(.editing) {
 		background-color: #f8f9fa;
+		cursor: pointer;
 	}
 
 	tr.editing {

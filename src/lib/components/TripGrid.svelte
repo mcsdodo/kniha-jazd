@@ -53,6 +53,7 @@
 
 	async function handleUpdate(trip: Trip, tripData: Partial<Trip>) {
 		try {
+			// Update the edited trip
 			await updateTrip(
 				trip.id,
 				tripData.date!,
@@ -66,11 +67,51 @@
 				tripData.other_costs_eur,
 				null
 			);
+
+			// Cascade ODO updates to newer trips
+			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
+
 			onTripsChanged();
-			await loadRoutes(); // Refresh routes after updating trip
+			await loadRoutes();
 		} catch (error) {
 			console.error('Failed to update trip:', error);
 			alert('Nepodarilo sa aktualizovať záznam');
+		}
+	}
+
+	// Recalculate ODO for all trips newer than the edited one
+	async function recalculateNewerTripsOdo(editedTripId: string, newOdo: number) {
+		// Sort by date ascending (oldest first) for correct ODO calculation
+		const chronological = [...trips].sort(
+			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+		);
+
+		// Find the index of the edited trip
+		const editedIndex = chronological.findIndex((t) => t.id === editedTripId);
+		if (editedIndex === -1 || editedIndex === chronological.length - 1) return;
+
+		// Update ODO for all newer trips
+		let runningOdo = newOdo;
+		for (let i = editedIndex + 1; i < chronological.length; i++) {
+			const t = chronological[i];
+			runningOdo = runningOdo + t.distance_km;
+
+			// Only update if ODO actually changed
+			if (Math.abs(t.odometer - runningOdo) > 0.01) {
+				await updateTrip(
+					t.id,
+					t.date,
+					t.origin,
+					t.destination,
+					t.distance_km,
+					runningOdo,
+					t.purpose,
+					t.fuel_liters,
+					t.fuel_cost_eur,
+					t.other_costs_eur,
+					t.other_costs_note
+				);
+			}
 		}
 	}
 
