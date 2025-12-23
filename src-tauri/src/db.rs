@@ -1,4 +1,4 @@
-use crate::models::{Trip, Vehicle};
+use crate::models::{Route, Trip, Vehicle};
 use rusqlite::{Connection, OptionalExtension, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -336,6 +336,190 @@ impl Database {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM trips WHERE id = ?1", [id])?;
         Ok(())
+    }
+
+    // Route CRUD operations
+
+    /// Create a new route in the database
+    pub fn create_route(&self, route: &Route) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km, usage_count, last_used)
+             VALUES (:id, :vehicle_id, :origin, :destination, :distance_km, :usage_count, :last_used)",
+            rusqlite::named_params! {
+                ":id": route.id.to_string(),
+                ":vehicle_id": route.vehicle_id.to_string(),
+                ":origin": route.origin,
+                ":destination": route.destination,
+                ":distance_km": route.distance_km,
+                ":usage_count": route.usage_count,
+                ":last_used": route.last_used.to_rfc3339(),
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Get a route by its UUID string
+    pub fn get_route(&self, id: &str) -> Result<Option<Route>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, vehicle_id, origin, destination, distance_km, usage_count, last_used
+             FROM routes WHERE id = ?1",
+        )?;
+
+        let route = stmt
+            .query_row([id], |row| {
+                Ok(Route {
+                    id: row.get::<_, String>(0)?.parse().unwrap(),
+                    vehicle_id: row.get::<_, String>(1)?.parse().unwrap(),
+                    origin: row.get(2)?,
+                    destination: row.get(3)?,
+                    distance_km: row.get(4)?,
+                    usage_count: row.get(5)?,
+                    last_used: row.get::<_, String>(6)?.parse().unwrap(),
+                })
+            })
+            .optional()?;
+
+        Ok(route)
+    }
+
+    /// Get all routes for a vehicle, ordered by usage_count DESC (most used first for autocomplete)
+    pub fn get_routes_for_vehicle(&self, vehicle_id: &str) -> Result<Vec<Route>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, vehicle_id, origin, destination, distance_km, usage_count, last_used
+             FROM routes WHERE vehicle_id = ?1 ORDER BY usage_count DESC",
+        )?;
+
+        let routes = stmt
+            .query_map([vehicle_id], |row| {
+                Ok(Route {
+                    id: row.get::<_, String>(0)?.parse().unwrap(),
+                    vehicle_id: row.get::<_, String>(1)?.parse().unwrap(),
+                    origin: row.get(2)?,
+                    destination: row.get(3)?,
+                    distance_km: row.get(4)?,
+                    usage_count: row.get(5)?,
+                    last_used: row.get::<_, String>(6)?.parse().unwrap(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(routes)
+    }
+
+    /// Update an existing route (e.g., increment usage_count)
+    pub fn update_route(&self, route: &Route) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE routes
+             SET vehicle_id = :vehicle_id,
+                 origin = :origin,
+                 destination = :destination,
+                 distance_km = :distance_km,
+                 usage_count = :usage_count,
+                 last_used = :last_used
+             WHERE id = :id",
+            rusqlite::named_params! {
+                ":id": route.id.to_string(),
+                ":vehicle_id": route.vehicle_id.to_string(),
+                ":origin": route.origin,
+                ":destination": route.destination,
+                ":distance_km": route.distance_km,
+                ":usage_count": route.usage_count,
+                ":last_used": route.last_used.to_rfc3339(),
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Delete a route by its UUID string
+    pub fn delete_route(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM routes WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Find existing route with same origin/destination, or create new one
+    /// If found: increment usage_count, update last_used
+    /// If not found: create new route with usage_count=1
+    pub fn find_or_create_route(
+        &self,
+        vehicle_id: &str,
+        origin: &str,
+        destination: &str,
+        distance_km: f64,
+    ) -> Result<Route> {
+        let conn = self.conn.lock().unwrap();
+
+        // Try to find existing route
+        let mut stmt = conn.prepare(
+            "SELECT id, vehicle_id, origin, destination, distance_km, usage_count, last_used
+             FROM routes
+             WHERE vehicle_id = ?1 AND origin = ?2 AND destination = ?3",
+        )?;
+
+        let existing_route = stmt
+            .query_row([vehicle_id, origin, destination], |row| {
+                Ok(Route {
+                    id: row.get::<_, String>(0)?.parse().unwrap(),
+                    vehicle_id: row.get::<_, String>(1)?.parse().unwrap(),
+                    origin: row.get(2)?,
+                    destination: row.get(3)?,
+                    distance_km: row.get(4)?,
+                    usage_count: row.get(5)?,
+                    last_used: row.get::<_, String>(6)?.parse().unwrap(),
+                })
+            })
+            .optional()?;
+
+        if let Some(mut route) = existing_route {
+            // Update existing route: increment usage_count and update last_used
+            route.usage_count += 1;
+            route.last_used = chrono::Utc::now();
+
+            conn.execute(
+                "UPDATE routes
+                 SET usage_count = :usage_count,
+                     last_used = :last_used
+                 WHERE id = :id",
+                rusqlite::named_params! {
+                    ":id": route.id.to_string(),
+                    ":usage_count": route.usage_count,
+                    ":last_used": route.last_used.to_rfc3339(),
+                },
+            )?;
+
+            Ok(route)
+        } else {
+            // Create new route
+            let route = Route {
+                id: uuid::Uuid::new_v4(),
+                vehicle_id: vehicle_id.parse().unwrap(),
+                origin: origin.to_string(),
+                destination: destination.to_string(),
+                distance_km,
+                usage_count: 1,
+                last_used: chrono::Utc::now(),
+            };
+
+            conn.execute(
+                "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km, usage_count, last_used)
+                 VALUES (:id, :vehicle_id, :origin, :destination, :distance_km, :usage_count, :last_used)",
+                rusqlite::named_params! {
+                    ":id": route.id.to_string(),
+                    ":vehicle_id": route.vehicle_id.to_string(),
+                    ":origin": route.origin,
+                    ":destination": route.destination,
+                    ":distance_km": route.distance_km,
+                    ":usage_count": route.usage_count,
+                    ":last_used": route.last_used.to_rfc3339(),
+                },
+            )?;
+
+            Ok(route)
+        }
     }
 }
 
@@ -717,5 +901,203 @@ mod tests {
             .expect("Failed to get trips");
 
         assert_eq!(trips.len(), 0);
+    }
+
+    // Route CRUD tests
+
+    fn create_test_route(vehicle_id: uuid::Uuid, origin: &str, destination: &str, distance_km: f64) -> Route {
+        Route {
+            id: uuid::Uuid::new_v4(),
+            vehicle_id,
+            origin: origin.to_string(),
+            destination: destination.to_string(),
+            distance_km,
+            usage_count: 1,
+            last_used: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn test_create_and_retrieve_route() {
+        let db = Database::in_memory().expect("Failed to create database");
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let route = create_test_route(vehicle.id, "Bratislava", "Košice", 400.0);
+
+        // Create route
+        db.create_route(&route).expect("Failed to create route");
+
+        // Retrieve it
+        let retrieved = db
+            .get_route(&route.id.to_string())
+            .expect("Failed to get route")
+            .expect("Route not found");
+
+        assert_eq!(retrieved.id, route.id);
+        assert_eq!(retrieved.vehicle_id, vehicle.id);
+        assert_eq!(retrieved.origin, "Bratislava");
+        assert_eq!(retrieved.destination, "Košice");
+        assert_eq!(retrieved.distance_km, 400.0);
+        assert_eq!(retrieved.usage_count, 1);
+    }
+
+    #[test]
+    fn test_get_routes_for_vehicle_ordered_by_usage() {
+        let db = Database::in_memory().expect("Failed to create database");
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        // Create routes with different usage counts
+        let mut route1 = create_test_route(vehicle.id, "A", "B", 50.0);
+        route1.usage_count = 5;
+
+        let mut route2 = create_test_route(vehicle.id, "B", "C", 100.0);
+        route2.usage_count = 10;
+
+        let mut route3 = create_test_route(vehicle.id, "C", "D", 75.0);
+        route3.usage_count = 3;
+
+        db.create_route(&route1).expect("Failed to create route1");
+        db.create_route(&route2).expect("Failed to create route2");
+        db.create_route(&route3).expect("Failed to create route3");
+
+        // Get routes for vehicle
+        let routes = db
+            .get_routes_for_vehicle(&vehicle.id.to_string())
+            .expect("Failed to get routes");
+
+        assert_eq!(routes.len(), 3);
+
+        // Verify ordering: DESC by usage_count (most used first)
+        assert_eq!(routes[0].usage_count, 10);
+        assert_eq!(routes[0].origin, "B");
+        assert_eq!(routes[1].usage_count, 5);
+        assert_eq!(routes[1].origin, "A");
+        assert_eq!(routes[2].usage_count, 3);
+        assert_eq!(routes[2].origin, "C");
+    }
+
+    #[test]
+    fn test_update_route() {
+        let db = Database::in_memory().expect("Failed to create database");
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let mut route = create_test_route(vehicle.id, "Prague", "Brno", 200.0);
+        db.create_route(&route).expect("Failed to create route");
+
+        // Update route (e.g., increment usage count)
+        route.usage_count = 5;
+        route.distance_km = 205.0; // Updated distance
+
+        db.update_route(&route).expect("Failed to update route");
+
+        // Retrieve and verify
+        let updated = db
+            .get_route(&route.id.to_string())
+            .expect("Failed to get route")
+            .expect("Route not found");
+
+        assert_eq!(updated.usage_count, 5);
+        assert_eq!(updated.distance_km, 205.0);
+    }
+
+    #[test]
+    fn test_delete_route() {
+        let db = Database::in_memory().expect("Failed to create database");
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let route = create_test_route(vehicle.id, "Vienna", "Prague", 250.0);
+        db.create_route(&route).expect("Failed to create route");
+
+        // Delete route
+        db.delete_route(&route.id.to_string())
+            .expect("Failed to delete route");
+
+        // Verify it's gone
+        let result = db
+            .get_route(&route.id.to_string())
+            .expect("Failed to query route");
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_or_create_route_creates_new() {
+        let db = Database::in_memory().expect("Failed to create database");
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        // Find or create - should create new
+        let route = db
+            .find_or_create_route(&vehicle.id.to_string(), "Bratislava", "Vienna", 80.0)
+            .expect("Failed to find or create route");
+
+        assert_eq!(route.origin, "Bratislava");
+        assert_eq!(route.destination, "Vienna");
+        assert_eq!(route.distance_km, 80.0);
+        assert_eq!(route.usage_count, 1);
+
+        // Verify it's in the database
+        let retrieved = db
+            .get_route(&route.id.to_string())
+            .expect("Failed to get route")
+            .expect("Route not found");
+
+        assert_eq!(retrieved.id, route.id);
+    }
+
+    #[test]
+    fn test_find_or_create_route_increments_existing() {
+        let db = Database::in_memory().expect("Failed to create database");
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        // Create initial route
+        let route1 = db
+            .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
+            .expect("Failed to create route");
+
+        assert_eq!(route1.usage_count, 1);
+
+        // Find or create again - should increment usage count
+        let route2 = db
+            .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
+            .expect("Failed to find route");
+
+        assert_eq!(route2.id, route1.id); // Same route
+        assert_eq!(route2.usage_count, 2); // Incremented
+
+        // Verify in database
+        let retrieved = db
+            .get_route(&route2.id.to_string())
+            .expect("Failed to get route")
+            .expect("Route not found");
+
+        assert_eq!(retrieved.usage_count, 2);
+    }
+
+    #[test]
+    fn test_get_nonexistent_route_returns_none() {
+        let db = Database::in_memory().expect("Failed to create database");
+
+        let result = db
+            .get_route("00000000-0000-0000-0000-000000000000")
+            .expect("Failed to query route");
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_routes_for_nonexistent_vehicle() {
+        let db = Database::in_memory().expect("Failed to create database");
+
+        let routes = db
+            .get_routes_for_vehicle("00000000-0000-0000-0000-000000000000")
+            .expect("Failed to get routes");
+
+        assert_eq!(routes.len(), 0);
     }
 }
