@@ -138,6 +138,16 @@
 	// Get the last ODO value (from the most recent trip, or initial ODO if no trips)
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
+	// Default date for new entry: max date + 1 day
+	$: defaultNewDate = (() => {
+		if (sortedTrips.length === 0) {
+			return new Date().toISOString().split('T')[0];
+		}
+		const maxDate = new Date(sortedTrips[0].date);
+		maxDate.setDate(maxDate.getDate() + 1);
+		return maxDate.toISOString().split('T')[0];
+	})();
+
 	// Calculate "Použitá spotreba" for each trip
 	// This is the consumption rate from the last fill-up, carried forward
 	$: consumptionRates = calculateConsumptionRates(trips);
@@ -265,6 +275,7 @@
 						{routes}
 						isNew={true}
 						previousOdometer={lastOdometer}
+						defaultDate={defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
 						onSave={handleSaveNew}

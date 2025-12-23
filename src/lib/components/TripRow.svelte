@@ -8,6 +8,7 @@
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
 	export let zostatok: number = 0;
+	export let defaultDate: string = new Date().toISOString().split('T')[0]; // For new rows
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
@@ -17,7 +18,7 @@
 
 	// Form state
 	let formData = {
-		date: trip?.date || new Date().toISOString().split('T')[0],
+		date: trip?.date || defaultDate,
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
 		distance_km: trip?.distance_km || 0,
