@@ -103,4 +103,7 @@ pub struct TripStats {
     pub last_consumption_rate: f64, // From last fill-up period (for margin calculation)
     pub margin_percent: Option<f64>, // None if no fill-up yet
     pub is_over_limit: bool,
+    pub total_km: f64,
+    pub total_fuel_liters: f64,
+    pub total_fuel_cost_eur: f64,
 }

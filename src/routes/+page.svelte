@@ -70,7 +70,9 @@
 				<h2>Aktívne vozidlo</h2>
 				{#if stats}
 					<div class="stats">
-						<span class="stat">Zostatok: {stats.zostatok_liters.toFixed(1)}L</span>
+						<span class="stat">Km: {stats.total_km.toLocaleString('sk-SK')}</span>
+						<span class="stat-separator">|</span>
+						<span class="stat">PHM: {stats.total_fuel_liters.toFixed(1)}L / {stats.total_fuel_cost_eur.toFixed(2)}€</span>
 						<span class="stat-separator">|</span>
 						<span class="stat">Spotreba: {stats.avg_consumption_rate.toFixed(2)} L/100km</span>
 						{#if stats.margin_percent !== null}
@@ -79,6 +81,8 @@
 								Odchýlka: {stats.margin_percent.toFixed(1)}%
 							</span>
 						{/if}
+						<span class="stat-separator">|</span>
+						<span class="stat">Zostatok: {stats.zostatok_liters.toFixed(1)}L</span>
 					</div>
 				{/if}
 			</div>

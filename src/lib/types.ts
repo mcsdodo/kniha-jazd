@@ -61,4 +61,7 @@ export interface TripStats {
 	last_consumption_rate: number; // From last fill-up period (for margin)
 	margin_percent: number | null; // null if no fill-up yet
 	is_over_limit: boolean;
+	total_km: number;
+	total_fuel_liters: number;
+	total_fuel_cost_eur: number;
 }

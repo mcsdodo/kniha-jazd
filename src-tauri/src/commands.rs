@@ -279,11 +279,15 @@ pub fn calculate_trip_stats(
             last_consumption_rate: 0.0,
             margin_percent: None,
             is_over_limit: false,
+            total_km: 0.0,
+            total_fuel_liters: 0.0,
+            total_fuel_cost_eur: 0.0,
         });
     }
 
-    // Calculate average consumption: total_fuel / total_km * 100
+    // Calculate totals
     let total_fuel: f64 = trips.iter().filter_map(|t| t.fuel_liters).sum();
+    let total_fuel_cost: f64 = trips.iter().filter_map(|t| t.fuel_cost_eur).sum();
     let total_km: f64 = trips.iter().map(|t| t.distance_km).sum();
     let avg_consumption_rate = if total_km > 0.0 {
         (total_fuel / total_km) * 100.0
@@ -362,5 +366,8 @@ pub fn calculate_trip_stats(
         last_consumption_rate,
         margin_percent: display_margin,
         is_over_limit,
+        total_km,
+        total_fuel_liters: total_fuel,
+        total_fuel_cost_eur: total_fuel_cost,
     })
 }
