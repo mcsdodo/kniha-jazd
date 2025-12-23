@@ -53,3 +53,10 @@ export interface Settings {
 	buffer_trip_purpose: string;
 	updated_at: string;
 }
+
+export interface TripStats {
+	zostatok_liters: number;
+	consumption_rate: number;
+	margin_percent: number | null; // null if no fill-up yet
+	is_over_limit: boolean;
+}

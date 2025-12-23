@@ -92,3 +92,11 @@ impl Default for Settings {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TripStats {
+    pub zostatok_liters: f64,
+    pub consumption_rate: f64,
+    pub margin_percent: Option<f64>, // None if no fill-up yet
+    pub is_over_limit: bool,
+}

@@ -1,16 +1,18 @@
 <script lang="ts">
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import TripGrid from '$lib/components/TripGrid.svelte';
-	import { getTrips } from '$lib/api';
-	import type { Trip } from '$lib/types';
+	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
+	import { getTrips, calculateTripStats } from '$lib/api';
+	import type { Trip, TripStats } from '$lib/types';
 	import { onMount } from 'svelte';
 
 	let trips: Trip[] = [];
 	let loading = true;
+	let stats: TripStats | null = null;
 
-	// Placeholder stats - will be calculated properly later
-	let zostatok = 0.0;
-	let spotreba = 0.0;
+	// For compensation suggestion
+	let bufferKm = 0.0;
+	let currentLocation = '';
 
 	onMount(async () => {
 		await loadTrips();
@@ -25,9 +27,25 @@
 		try {
 			loading = true;
 			trips = await getTrips($activeVehicleStore.id);
-			// TODO: Calculate real stats from trips
-			zostatok = 43.5; // Placeholder
-			spotreba = 6.02; // Placeholder
+			stats = await calculateTripStats($activeVehicleStore.id);
+
+			// Calculate buffer km if over limit
+			if (stats.is_over_limit && stats.margin_percent !== null) {
+				// Calculate buffer km needed to get to 18% target
+				const targetMargin = 0.18;
+				const actualRate = stats.consumption_rate;
+				const tpRate = $activeVehicleStore.tp_consumption;
+
+				// Find last trip location
+				if (trips.length > 0) {
+					const lastTrip = trips[trips.length - 1];
+					currentLocation = lastTrip.destination;
+				}
+
+				// Simple buffer calculation - we need to dilute the consumption
+				// This is a simplified version, the real calculation would need last fill-up data
+				bufferKm = 100; // Placeholder - should be calculated properly
+			}
 		} catch (error) {
 			console.error('Failed to load trips:', error);
 		} finally {
@@ -50,11 +68,19 @@
 		<div class="vehicle-info">
 			<div class="vehicle-header">
 				<h2>Aktívne vozidlo</h2>
-				<div class="stats">
-					<span class="stat">Zostatok: {zostatok.toFixed(1)}L</span>
-					<span class="stat-separator">|</span>
-					<span class="stat">Spotreba: {spotreba.toFixed(2)}</span>
-				</div>
+				{#if stats}
+					<div class="stats">
+						<span class="stat">Zostatok: {stats.zostatok_liters.toFixed(1)}L</span>
+						<span class="stat-separator">|</span>
+						<span class="stat">Spotreba: {stats.consumption_rate.toFixed(2)} L/100km</span>
+						{#if stats.margin_percent !== null}
+							<span class="stat-separator">|</span>
+							<span class="stat" class:warning={stats.is_over_limit}>
+								Odchýlka: {stats.margin_percent.toFixed(1)}%
+							</span>
+						{/if}
+					</div>
+				{/if}
 			</div>
 			<div class="info-grid">
 				<div class="info-item">
@@ -75,6 +101,16 @@
 				</div>
 			</div>
 		</div>
+
+		{#if stats?.is_over_limit && stats.margin_percent !== null}
+			<CompensationBanner
+				vehicleId={$activeVehicleStore.id}
+				marginPercent={stats.margin_percent}
+				{bufferKm}
+				{currentLocation}
+				onTripAdded={handleTripsChanged}
+			/>
+		{/if}
 
 		<div class="trip-section">
 			{#if loading}
@@ -133,6 +169,11 @@
 
 	.stat {
 		font-weight: 600;
+	}
+
+	.stat.warning {
+		color: #d39e00;
+		font-weight: 700;
 	}
 
 	.stat-separator {

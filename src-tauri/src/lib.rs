@@ -47,6 +47,7 @@ pub fn run() {
       commands::get_compensation_suggestion,
       commands::get_settings,
       commands::save_settings,
+      commands::calculate_trip_stats,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

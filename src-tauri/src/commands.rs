@@ -1,7 +1,11 @@
 //! Tauri commands to expose Rust functionality to the frontend
 
+use crate::calculations::{
+    calculate_consumption_rate, calculate_margin_percent, calculate_spotreba, calculate_zostatok,
+    is_within_legal_limit,
+};
 use crate::db::Database;
-use crate::models::{Route, Settings, Trip, Vehicle};
+use crate::models::{Route, Settings, Trip, TripStats, Vehicle};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{NaiveDate, Utc};
 use tauri::State;
@@ -199,4 +203,107 @@ pub fn save_settings(
 
     db.save_settings(&settings).map_err(|e| e.to_string())?;
     Ok(settings)
+}
+
+// ============================================================================
+// Trip Statistics Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn calculate_trip_stats(
+    vehicle_id: String,
+    db: State<Database>,
+) -> Result<TripStats, String> {
+    // Get vehicle
+    let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    // Get all trips for this vehicle, sorted by date
+    let mut trips = db
+        .get_trips_for_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?;
+    trips.sort_by(|a, b| a.date.cmp(&b.date));
+
+    // If no trips, return default values
+    if trips.is_empty() {
+        return Ok(TripStats {
+            zostatok_liters: vehicle.tank_size_liters,
+            consumption_rate: 0.0,
+            margin_percent: None,
+            is_over_limit: false,
+        });
+    }
+
+    // Find the last fill-up to calculate current consumption rate
+    let mut last_fillup_idx = None;
+    for (idx, trip) in trips.iter().enumerate().rev() {
+        if trip.is_fillup() {
+            last_fillup_idx = Some(idx);
+            break;
+        }
+    }
+
+    // Calculate consumption rate and margin from last fill-up
+    let (consumption_rate, margin_percent) = if let Some(idx) = last_fillup_idx {
+        let fillup_trip = &trips[idx];
+        let fuel_liters = fillup_trip.fuel_liters.unwrap();
+
+        // Calculate total distance since last fill-up
+        // We need to look back to the previous fill-up (or start of trips)
+        let mut km_since_last_fillup = 0.0;
+        let mut prev_fillup_idx = None;
+        for i in (0..idx).rev() {
+            if trips[i].is_fillup() {
+                prev_fillup_idx = Some(i);
+                break;
+            }
+        }
+
+        // Sum up distances from previous fill-up to current fill-up
+        let start_idx = prev_fillup_idx.map(|i| i + 1).unwrap_or(0);
+        for trip in &trips[start_idx..=idx] {
+            km_since_last_fillup += trip.distance_km;
+        }
+
+        let rate = calculate_consumption_rate(fuel_liters, km_since_last_fillup);
+        let margin = calculate_margin_percent(rate, vehicle.tp_consumption);
+
+        (rate, Some(margin))
+    } else {
+        // No fill-up yet, use TP consumption
+        (vehicle.tp_consumption, None)
+    };
+
+    // Calculate current zostatok by processing all trips sequentially
+    let mut current_zostatok = vehicle.tank_size_liters; // Start with full tank
+
+    for trip in &trips {
+        // Calculate spotreba for this trip
+        let spotreba = calculate_spotreba(trip.distance_km, consumption_rate);
+
+        // Update zostatok
+        current_zostatok = calculate_zostatok(
+            current_zostatok,
+            spotreba,
+            trip.fuel_liters,
+            vehicle.tank_size_liters,
+        );
+    }
+
+    // Check if over legal limit
+    let is_over_limit = if let Some(margin) = margin_percent {
+        !is_within_legal_limit(margin)
+    } else {
+        false
+    };
+
+    Ok(TripStats {
+        zostatok_liters: current_zostatok,
+        consumption_rate,
+        margin_percent,
+        is_over_limit,
+    })
 }

@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -114,9 +114,11 @@ export async function getRoutes(vehicleId: string): Promise<Route[]> {
 
 // Compensation suggestion
 export async function getCompensationSuggestion(
-	vehicleId: string
-): Promise<CompensationSuggestion | null> {
-	return await invoke('get_compensation_suggestion', { vehicleId });
+	vehicleId: string,
+	bufferKm: number,
+	currentLocation: string
+): Promise<CompensationSuggestion> {
+	return await invoke('get_compensation_suggestion', { vehicleId, bufferKm, currentLocation });
 }
 
 // Settings commands
@@ -134,4 +136,9 @@ export async function saveSettings(
 		companyIco,
 		bufferTripPurpose
 	});
+}
+
+// Trip statistics
+export async function calculateTripStats(vehicleId: string): Promise<TripStats> {
+	return await invoke('calculate_trip_stats', { vehicleId });
 }
