@@ -47,7 +47,7 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
-				null,
+				tripData.other_costs_note,
 				insertAtSortOrder // Pass insert position if set
 			);
 			showNewRow = false;
@@ -77,7 +77,7 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
-				null
+				tripData.other_costs_note
 			);
 
 			// Cascade ODO updates to newer trips
@@ -159,64 +159,75 @@
 		showNewRow = true;
 	}
 
-	// Native HTML5 drag-drop state
+	// HTML5 drag-drop state (requires dragDropEnabled: false in tauri.conf.json)
 	let draggedTripId: string | null = null;
+	let draggedTripIndex: number | null = null;
 	let dropTargetIndex: number | null = null;
 
 	function handleDragStart(e: DragEvent, tripId: string) {
+		if (dragDisabled) return;
 		draggedTripId = tripId;
+		draggedTripIndex = sortedTrips.findIndex(t => t.id === tripId);
 	}
 
 	function handleDragEnd() {
-		draggedTripId = null;
-		dropTargetIndex = null;
+		resetDragState();
 	}
 
-	function handleDragOver(event: DragEvent, index: number) {
-		event.preventDefault();
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = 'move';
+	function handleDragOver(e: DragEvent, index: number) {
+		e.preventDefault();
+		if (draggedTripId === null) return;
+
+		// Determine drop position based on mouse position within the row
+		const row = e.currentTarget as HTMLElement;
+		const rect = row.getBoundingClientRect();
+		const midY = rect.top + rect.height / 2;
+
+		if (e.clientY < midY) {
+			dropTargetIndex = index;
+		} else {
+			dropTargetIndex = index + 1;
 		}
-		dropTargetIndex = index;
 	}
 
-	function handleDragLeave(event: DragEvent) {
-		// Only clear if leaving the row entirely (not entering a child)
-		const relatedTarget = event.relatedTarget as HTMLElement;
-		if (!relatedTarget || !event.currentTarget || !(event.currentTarget as HTMLElement).contains(relatedTarget)) {
-			dropTargetIndex = null;
-		}
+	function handleDragLeave() {
+		// Only clear if we're leaving the drag area entirely
 	}
 
-	async function handleDrop(event: DragEvent, targetIndex: number) {
-		event.preventDefault();
-
-		// Get dragged trip ID from dataTransfer or state
-		const droppedTripId = event.dataTransfer?.getData('text/plain') || draggedTripId;
-		if (!droppedTripId) return;
-
-		const currentIndex = sortedTrips.findIndex(t => t.id === droppedTripId);
-		if (currentIndex === -1 || currentIndex === targetIndex) {
-			draggedTripId = null;
-			dropTargetIndex = null;
+	function handleDrop(e: DragEvent, index: number) {
+		e.preventDefault();
+		if (draggedTripId === null || draggedTripIndex === null) {
+			resetDragState();
 			return;
 		}
 
-		// Get new date from trip at target position
+		// Don't reorder if dropped at same position
+		if (dropTargetIndex !== null && dropTargetIndex !== draggedTripIndex && dropTargetIndex !== draggedTripIndex + 1) {
+			const targetIndex = dropTargetIndex > draggedTripIndex ? dropTargetIndex - 1 : dropTargetIndex;
+			performReorder(draggedTripId, targetIndex);
+		}
+
+		resetDragState();
+	}
+
+	function resetDragState() {
+		draggedTripId = null;
+		draggedTripIndex = null;
+		dropTargetIndex = null;
+	}
+
+	async function performReorder(tripId: string, targetIndex: number) {
 		const targetTrip = sortedTrips[targetIndex];
 		const newDate = targetTrip ? targetTrip.date : sortedTrips[0]?.date || new Date().toISOString().split('T')[0];
 
 		try {
-			await reorderTrip(droppedTripId, targetIndex, newDate);
+			await reorderTrip(tripId, targetIndex, newDate);
 			await recalculateAllOdo();
 			onTripsChanged();
 		} catch (error) {
 			console.error('Failed to reorder trip:', error);
 			alert('Nepodarilo sa zmeniť poradie');
 			onTripsChanged();
-		} finally {
-			draggedTripId = null;
-			dropTargetIndex = null;
 		}
 	}
 
@@ -385,20 +396,19 @@
 					<th>l/100km</th>
 					<th>Zostatok</th>
 					<th>Iné €</th>
+					<th>Iné pozn.</th>
 					<th>Akcie</th>
 				</tr>
 			</thead>
 			<tbody>
-				<!-- New row (not part of drag zone) -->
-				{#if showNewRow}
+				<!-- New row at top (when adding via "Nový záznam" button) -->
+				{#if showNewRow && insertAtSortOrder === null}
 					<TripRow
 						trip={null}
 						{routes}
 						isNew={true}
-						previousOdometer={insertAtSortOrder !== null
-							? (sortedTrips.find(t => t.sort_order === insertAtSortOrder)?.odometer || lastOdometer)
-							: lastOdometer}
-						defaultDate={insertDate || defaultNewDate}
+						previousOdometer={lastOdometer}
+						defaultDate={defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
 						onSave={handleSaveNew}
@@ -409,6 +419,22 @@
 				{/if}
 				<!-- Trip rows -->
 				{#each sortedTrips as trip, index (trip.id)}
+					<!-- New row inserted above this trip -->
+					{#if showNewRow && insertAtSortOrder === trip.sort_order}
+						<TripRow
+							trip={null}
+							{routes}
+							isNew={true}
+							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
+							defaultDate={insertDate || trip.date}
+							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
+							zostatok={fuelRemaining.get(trip.id) || tankSize}
+							onSave={handleSaveNew}
+							onCancel={handleCancelNew}
+							onDelete={() => {}}
+							{dragDisabled}
+						/>
+					{/if}
 					<TripRow
 						{trip}
 						{routes}
@@ -436,7 +462,7 @@
 				<!-- Empty state -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="12">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
+						<td colspan="13">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
 				<!-- Synthetic "Prvý záznam" row - starting values -->
@@ -451,6 +477,7 @@
 					<td>-</td>
 					<td class="number">{tpConsumption.toFixed(2)}</td>
 					<td class="number">{tankSize.toFixed(1)}</td>
+					<td>-</td>
 					<td>-</td>
 					<td></td>
 				</tr>
@@ -529,18 +556,19 @@
 	}
 
 	/* Column widths - total should be 100% */
-	th:nth-child(1) { width: 9%; }   /* Dátum */
-	th:nth-child(2) { width: 14%; }  /* Odkiaľ */
-	th:nth-child(3) { width: 14%; }  /* Kam */
-	th:nth-child(4) { width: 5%; }   /* Km */
-	th:nth-child(5) { width: 6%; }   /* ODO */
-	th:nth-child(6) { width: 10%; }  /* Účel */
-	th:nth-child(7) { width: 6%; }   /* PHM (L) */
-	th:nth-child(8) { width: 6%; }   /* Cena € */
-	th:nth-child(9) { width: 6%; }   /* l/100km */
-	th:nth-child(10) { width: 6%; }  /* Zostatok */
-	th:nth-child(11) { width: 5%; }  /* Iné € */
-	th:nth-child(12) { width: 13%; } /* Akcie */
+	th:nth-child(1) { width: 6%; }   /* Dátum */
+	th:nth-child(2) { width: 16%; }  /* Odkiaľ */
+	th:nth-child(3) { width: 16%; }  /* Kam */
+	th:nth-child(4) { width: 4%; text-align: right; }   /* Km */
+	th:nth-child(5) { width: 5%; text-align: right; }   /* ODO */
+	th:nth-child(6) { width: 12%; }  /* Účel */
+	th:nth-child(7) { width: 4%; text-align: right; }   /* PHM (L) */
+	th:nth-child(8) { width: 4%; text-align: right; }   /* Cena € */
+	th:nth-child(9) { width: 5%; text-align: right; }   /* l/100km */
+	th:nth-child(10) { width: 5%; text-align: right; }  /* Zostatok */
+	th:nth-child(11) { width: 4%; text-align: right; }  /* Iné € */
+	th:nth-child(12) { width: 10%; }  /* Iné pozn. */
+	th:nth-child(13) { width: 9%; text-align: center; } /* Akcie */
 
 	tbody tr.empty td {
 		padding: 2rem;

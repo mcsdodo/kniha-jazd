@@ -29,6 +29,11 @@
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
 			e.dataTransfer.setData('text/plain', tripId);
+			// Create a drag image from the parent row
+			const row = (e.target as HTMLElement).closest('tr');
+			if (row) {
+				e.dataTransfer.setDragImage(row, 50, 20);
+			}
 		}
 		onDragStart(e);
 	}
@@ -46,7 +51,8 @@
 		purpose: trip?.purpose || '',
 		fuel_liters: trip?.fuel_liters || null,
 		fuel_cost_eur: trip?.fuel_cost_eur || null,
-		other_costs_eur: trip?.other_costs_eur || null
+		other_costs_eur: trip?.other_costs_eur || null,
+		other_costs_note: trip?.other_costs_note || ''
 	};
 
 	// Get unique locations from routes
@@ -104,7 +110,8 @@
 				purpose: trip?.purpose || '',
 				fuel_liters: trip?.fuel_liters || null,
 				fuel_cost_eur: trip?.fuel_cost_eur || null,
-				other_costs_eur: trip?.other_costs_eur || null
+				other_costs_eur: trip?.other_costs_eur || null,
+				other_costs_note: trip?.other_costs_note || ''
 			};
 			isEditing = false;
 			onEditEnd();
@@ -190,6 +197,13 @@
 				placeholder="0.00"
 			/>
 		</td>
+		<td>
+			<input
+				type="text"
+				bind:value={formData.other_costs_note}
+				placeholder=""
+			/>
+		</td>
 		<td class="actions">
 			<button class="save" on:click={handleSave}>Uložiť</button>
 			<button class="cancel" on:click={handleCancel}>Zrušiť</button>
@@ -197,6 +211,9 @@
 	</tr>
 {:else if trip}
 	<tr
+		draggable={!dragDisabled}
+		on:dragstart={handleDragStart}
+		on:dragend={onDragEnd}
 		on:dblclick={handleEdit}
 		on:dragover={onDragOver}
 		on:dragleave={onDragLeave}
@@ -215,6 +232,7 @@
 		<td class="number calculated">{consumptionRate.toFixed(2)}</td>
 		<td class="number calculated">{zostatok.toFixed(1)}</td>
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
+		<td>{trip.other_costs_note || ''}</td>
 		<td class="actions">
 			<span class="icon-actions">
 				<button
@@ -242,6 +260,8 @@
 						class="drag-handle"
 						title="Presunúť záznam"
 						draggable="true"
+						role="button"
+						tabindex="0"
 						on:dragstart={handleDragStart}
 						on:dragend={onDragEnd}
 					>
@@ -272,18 +292,7 @@
 	}
 
 	tr.drag-target {
-		position: relative;
-	}
-
-	tr.drag-target::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 3px;
-		background-color: #3498db;
-		z-index: 10;
+		box-shadow: inset 0 3px 0 0 #3498db;
 	}
 
 	tr.dragging {
