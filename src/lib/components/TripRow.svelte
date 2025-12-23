@@ -15,6 +15,10 @@
 	export let onInsertAbove: () => void = () => {};
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
+	export let onMoveUp: () => void = () => {};
+	export let onMoveDown: () => void = () => {};
+	export let canMoveUp: boolean = true;
+	export let canMoveDown: boolean = true;
 	export let dragDisabled: boolean = false;
 
 	let isEditing = isNew;
@@ -214,16 +218,26 @@
 				</svg>
 			</button>
 			{#if !dragDisabled}
-				<div class="drag-handle" title="Presunúť záznam">
-					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-						<circle cx="9" cy="6" r="1.5"></circle>
-						<circle cx="15" cy="6" r="1.5"></circle>
-						<circle cx="9" cy="12" r="1.5"></circle>
-						<circle cx="15" cy="12" r="1.5"></circle>
-						<circle cx="9" cy="18" r="1.5"></circle>
-						<circle cx="15" cy="18" r="1.5"></circle>
+				<button
+					class="icon-btn move"
+					on:click|stopPropagation={onMoveUp}
+					disabled={!canMoveUp}
+					title="Posunúť hore"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="18 15 12 9 6 15"></polyline>
 					</svg>
-				</div>
+				</button>
+				<button
+					class="icon-btn move"
+					on:click|stopPropagation={onMoveDown}
+					disabled={!canMoveDown}
+					title="Posunúť dolu"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="6 9 12 15 18 9"></polyline>
+					</svg>
+				</button>
 			{/if}
 		</td>
 	</tr>
@@ -348,21 +362,12 @@
 		background-color: rgba(244, 67, 54, 0.1);
 	}
 
-	.drag-handle {
-		display: inline-flex;
-		padding: 0.25rem;
-		cursor: grab;
-		color: #9e9e9e;
-		border-radius: 4px;
-		transition: color 0.2s, background-color 0.2s;
+	.icon-btn.move:hover:not(:disabled) {
+		color: #3498db;
 	}
 
-	.drag-handle:hover {
-		color: #616161;
-		background-color: rgba(0, 0, 0, 0.05);
-	}
-
-	.drag-handle:active {
-		cursor: grabbing;
+	.icon-btn:disabled {
+		opacity: 0.3;
+		cursor: not-allowed;
 	}
 </style>
