@@ -249,7 +249,7 @@ mod tests {
     // =========================================================================
     // Excel Verification Tests
     // These tests verify calculations match the Excel file from _tasks/01-init/
-    // Vehicle: Mercedes BA123XY, tank=66L, TP=5.1 l/100km, initial_odo=38057
+    // Vehicle: Example car, tank=66L, TP=5.1 l/100km, initial_odo=38057
     // =========================================================================
 
     /// Test the full trip sequence from Excel to verify calculations match
@@ -415,7 +415,7 @@ mod tests {
     // =========================================================================
 
     /// Full integration test simulating Excel data entry and verification
-    /// Excel data: Vehicle Mercedes BA123XY, tank=66L, TP=5.1, initial_odo=38057
+    /// Excel data: Vehicle example, tank=66L, TP=5.1, initial_odo=38057
     #[test]
     fn test_excel_integration_full_flow() {
         // Vehicle parameters from Excel

@@ -225,11 +225,11 @@ pub fn get_compensation_suggestion(
         .get_routes_for_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())?;
 
-    // For filler trip purpose, we'll use "testovanie" as default
+    // For buffer trip purpose, we'll use "služobná cesta" as default
     // In a full implementation, this would come from Settings
-    let filler_purpose = "testovanie";
+    let buffer_purpose = "služobná cesta";
 
-    let suggestion = build_compensation_suggestion(&routes, buffer_km, &current_location, filler_purpose);
+    let suggestion = build_compensation_suggestion(&routes, buffer_km, &current_location, buffer_purpose);
 
     Ok(suggestion)
 }

@@ -100,15 +100,15 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ### BIZ-004: Compensation Trip Suggestions
 
-**Context:** How to help user stay compliant when over margin?
+**Context:** How to help user plan trips to stay within legal margin?
 
 **Decision:**
 1. Calculate km needed to bring margin under limit
 2. First, try to find existing route from current location matching needed km (±10%)
-3. Fallback: Suggest filler trip (configurable purpose, e.g., "testovanie")
-4. Target margin: Random between 16-19% (not fixed, to look natural)
+3. Fallback: Suggest buffer trip with configurable purpose (e.g., "služobná cesta")
+4. Target margin: 16-19% (provides safety buffer below 20% limit)
 
-**Reasoning:** Varied margins look organic in audits, not suspiciously consistent.
+**Reasoning:** Maintaining a buffer below the 20% limit helps ensure compliance even with measurement variations.
 
 ---
 

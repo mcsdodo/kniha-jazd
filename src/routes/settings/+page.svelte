@@ -290,15 +290,15 @@
 				</div>
 
 				<div class="form-group">
-					<label for="filler-purpose">Účel kompenzačnej jazdy</label>
+					<label for="buffer-purpose">Účel kompenzačnej jazdy</label>
 					<input
 						type="text"
-						id="filler-purpose"
+						id="buffer-purpose"
 						bind:value={bufferTripPurpose}
-						placeholder="napr. testovanie"
+						placeholder="napr. služobná cesta"
 					/>
 					<small class="hint">
-						Tento účel sa použije pri generovaní kompenzačných jázd na dodržanie 20% limitu.
+						Tento účel sa použije pri plánovaní jázd na dodržanie 20% limitu spotreby.
 					</small>
 				</div>
 

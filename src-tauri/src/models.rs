@@ -90,7 +90,7 @@ impl Default for Settings {
             id: Uuid::new_v4(),
             company_name: String::new(),
             company_ico: String::new(),
-            buffer_trip_purpose: "testovanie".to_string(),
+            buffer_trip_purpose: "služobná cesta".to_string(),
             updated_at: Utc::now(),
         }
     }

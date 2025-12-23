@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS settings (
     id TEXT PRIMARY KEY,
     company_name TEXT NOT NULL DEFAULT '',
     company_ico TEXT NOT NULL DEFAULT '',
-    buffer_trip_purpose TEXT NOT NULL DEFAULT 'testovanie',
+    buffer_trip_purpose TEXT NOT NULL DEFAULT 'služobná cesta',
     updated_at TEXT NOT NULL
 );
 

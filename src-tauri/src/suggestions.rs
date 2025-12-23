@@ -42,12 +42,12 @@ pub fn find_matching_route(routes: &[Route], target_km: f64) -> Option<&Route> {
 /// Logic:
 /// 1. Try to find a matching route using find_matching_route(routes, buffer_km)
 /// 2. If found: Use route's origin/destination/distance, purpose is first word of origin
-/// 3. If not found: Create filler trip (current_location → current_location, buffer_km, filler_purpose)
+/// 3. If not found: Create buffer trip (current_location → current_location, buffer_km, buffer_purpose)
 pub fn build_compensation_suggestion(
     routes: &[Route],
     buffer_km: f64,
     current_location: &str,
-    filler_purpose: &str,
+    buffer_purpose: &str,
 ) -> CompensationSuggestion {
     // Try to find a matching route
     if let Some(route) = find_matching_route(routes, buffer_km) {
@@ -69,12 +69,12 @@ pub fn build_compensation_suggestion(
         };
     }
 
-    // Fall back to filler trip
+    // Fall back to buffer trip
     CompensationSuggestion {
         origin: current_location.to_string(),
         destination: current_location.to_string(),
         distance_km: buffer_km,
-        purpose: filler_purpose.to_string(),
+        purpose: buffer_purpose.to_string(),
         is_buffer: true,
     }
 }
@@ -265,25 +265,25 @@ mod tests {
     }
 
     #[test]
-    fn test_build_compensation_suggestion_falls_back_to_filler() {
+    fn test_build_compensation_suggestion_falls_back_to_buffer() {
         let routes: Vec<Route> = vec![]; // No routes available
 
         let suggestion = build_compensation_suggestion(
             &routes,
             42.0,
             "Trnava Namestie",
-            "testovanie",
+            "služobná cesta",
         );
 
-        // Should create filler trip
+        // Should create buffer trip
         assert_eq!(suggestion.origin, "Trnava Namestie");
         assert_eq!(suggestion.destination, "Trnava Namestie");
         assert_eq!(suggestion.distance_km, 42.0);
-        assert_eq!(suggestion.purpose, "testovanie");
+        assert_eq!(suggestion.purpose, "služobná cesta");
     }
 
     #[test]
-    fn test_build_compensation_suggestion_filler_uses_current_location() {
+    fn test_build_compensation_suggestion_buffer_uses_current_location() {
         let vehicle_id = Uuid::new_v4();
         let routes = vec![Route {
             id: Uuid::new_v4(),
