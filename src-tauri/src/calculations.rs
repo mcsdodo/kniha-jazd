@@ -16,6 +16,19 @@ pub fn calculate_spotreba(distance_km: f64, consumption_rate: f64) -> f64 {
     distance_km * consumption_rate / 100.0
 }
 
+/// Calculate remaining fuel in tank (zostatok)
+/// Formula: previous - spotreba + fuel_added (capped at tank_size)
+/// Returns remaining fuel, never negative, never exceeding tank_size
+pub fn calculate_zostatok(
+    previous: f64,
+    spotreba: f64,
+    fuel_added: Option<f64>,
+    tank_size: f64,
+) -> f64 {
+    let new_zostatok = previous - spotreba + fuel_added.unwrap_or(0.0);
+    new_zostatok.min(tank_size).max(0.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,5 +73,33 @@ mod tests {
         // Edge case: 0 consumption rate = 0 liters
         let spotreba = calculate_spotreba(370.0, 0.0);
         assert_eq!(spotreba, 0.0);
+    }
+
+    #[test]
+    fn test_zostatok_normal_trip() {
+        // Start with 50L, use 5L, no refill = 45L remaining
+        let zostatok = calculate_zostatok(50.0, 5.0, None, 66.0);
+        assert!((zostatok - 45.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_zostatok_with_fillup() {
+        // Start with 30L, use 5L, add 40L = 65L (under 66L tank)
+        let zostatok = calculate_zostatok(30.0, 5.0, Some(40.0), 66.0);
+        assert!((zostatok - 65.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_zostatok_caps_at_tank_size() {
+        // Start with 30L, use 5L, add 50L = would be 75L but capped at 66L
+        let zostatok = calculate_zostatok(30.0, 5.0, Some(50.0), 66.0);
+        assert!((zostatok - 66.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_zostatok_near_zero() {
+        // Start with 5L, use 4.5L = 0.5L remaining
+        let zostatok = calculate_zostatok(5.0, 4.5, None, 66.0);
+        assert!((zostatok - 0.5).abs() < 0.01);
     }
 }
