@@ -343,6 +343,7 @@
 		width: 100%;
 		border-collapse: collapse;
 		font-size: 0.875rem;
+		table-layout: auto;
 	}
 
 	thead {
@@ -357,6 +358,17 @@
 		font-weight: 600;
 		color: #2c3e50;
 		border-bottom: 2px solid #e0e0e0;
+		white-space: nowrap;
+	}
+
+	/* Make address columns wider */
+	th:nth-child(2), th:nth-child(3) {
+		min-width: 150px;
+	}
+
+	/* Compact numeric columns */
+	th:nth-child(4), th:nth-child(5), th:nth-child(7), th:nth-child(8), th:nth-child(9), th:nth-child(10), th:nth-child(11) {
+		width: 80px;
 	}
 
 	tbody tr.empty td {
