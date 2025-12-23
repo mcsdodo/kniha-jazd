@@ -109,6 +109,18 @@ export async function deleteTrip(id: string): Promise<void> {
 	return await invoke('delete_trip', { id });
 }
 
+export async function reorderTrip(
+	tripId: string,
+	newSortOrder: number,
+	newDate: string
+): Promise<Trip[]> {
+	return await invoke('reorder_trip', {
+		tripId,
+		newSortOrder,
+		newDate
+	});
+}
+
 // Route commands
 export async function getRoutes(vehicleId: string): Promise<Route[]> {
 	return await invoke('get_routes', { vehicleId });
