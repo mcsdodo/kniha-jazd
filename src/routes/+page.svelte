@@ -116,7 +116,12 @@
 			{#if loading}
 				<p class="loading">Načítavam...</p>
 			{:else}
-				<TripGrid vehicleId={$activeVehicleStore.id} {trips} onTripsChanged={handleTripsChanged} />
+				<TripGrid
+					vehicleId={$activeVehicleStore.id}
+					{trips}
+					tankSize={$activeVehicleStore.tank_size_liters}
+					onTripsChanged={handleTripsChanged}
+				/>
 			{/if}
 		</div>
 

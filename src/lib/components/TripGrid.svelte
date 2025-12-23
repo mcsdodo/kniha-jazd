@@ -141,6 +141,11 @@
 	// This is the consumption rate from the last fill-up, carried forward
 	$: consumptionRates = calculateConsumptionRates(trips);
 
+	// Calculate "Zostatok" (remaining fuel) for each trip
+	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates);
+
+	export let tankSize: number = 66; // Default tank size, should be passed from vehicle
+
 	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
 		const rates = new Map<string, number>();
 
@@ -168,6 +173,43 @@
 
 		return rates;
 	}
+
+	function calculateFuelRemaining(tripList: Trip[], rates: Map<string, number>): Map<string, number> {
+		const remaining = new Map<string, number>();
+
+		// Sort chronologically (oldest first)
+		const chronological = [...tripList].sort(
+			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+		);
+
+		let zostatok = 0; // Start with empty tank (or could be initial value)
+
+		for (const trip of chronological) {
+			const rate = rates.get(trip.id) || 0;
+
+			// Calculate fuel used for this trip: spotreba = km * rate / 100
+			const spotreba = rate > 0 ? (trip.distance_km * rate) / 100 : 0;
+
+			// Subtract fuel used
+			zostatok = zostatok - spotreba;
+
+			// Add fuel if this was a fill-up
+			if (trip.fuel_liters && trip.fuel_liters > 0) {
+				zostatok = zostatok + trip.fuel_liters;
+				// Cap at tank size
+				if (zostatok > tankSize) {
+					zostatok = tankSize;
+				}
+			}
+
+			// Don't go negative
+			if (zostatok < 0) zostatok = 0;
+
+			remaining.set(trip.id, zostatok);
+		}
+
+		return remaining;
+	}
 </script>
 
 <div class="trip-grid">
@@ -191,6 +233,7 @@
 					<th>PHM (L)</th>
 					<th>Cena €</th>
 					<th>Spotreba</th>
+					<th>Zostatok</th>
 					<th>Iné €</th>
 					<th>Akcie</th>
 				</tr>
@@ -203,6 +246,7 @@
 						isNew={true}
 						previousOdometer={lastOdometer}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || 0 : 0}
+						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || 0 : 0}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
@@ -215,6 +259,7 @@
 						isNew={false}
 						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : 0}
 						consumptionRate={consumptionRates.get(trip.id) || 0}
+						zostatok={fuelRemaining.get(trip.id) || 0}
 						onSave={(data) => handleUpdate(trip, data)}
 						onCancel={() => {}}
 						onDelete={handleDelete}
@@ -222,7 +267,7 @@
 				{/each}
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="11">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
+						<td colspan="12">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
 			</tbody>
