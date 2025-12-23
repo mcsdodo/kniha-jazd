@@ -134,8 +134,49 @@ pub fn create_trip(
 }
 
 #[tauri::command]
-pub fn update_trip(db: State<Database>, trip: Trip) -> Result<(), String> {
-    db.update_trip(&trip).map_err(|e| e.to_string())
+#[allow(clippy::too_many_arguments)]
+pub fn update_trip(
+    db: State<Database>,
+    id: String,
+    date: String,
+    origin: String,
+    destination: String,
+    distance_km: f64,
+    odometer: f64,
+    purpose: String,
+    fuel_liters: Option<f64>,
+    fuel_cost_eur: Option<f64>,
+    other_costs_eur: Option<f64>,
+    other_costs_note: Option<String>,
+) -> Result<Trip, String> {
+    let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Get the existing trip to preserve vehicle_id and created_at
+    let existing = db
+        .get_trip(&id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {}", id))?;
+
+    let trip = Trip {
+        id: trip_uuid,
+        vehicle_id: existing.vehicle_id,
+        date: trip_date,
+        origin,
+        destination,
+        distance_km,
+        odometer,
+        purpose,
+        fuel_liters,
+        fuel_cost_eur,
+        other_costs_eur,
+        other_costs_note,
+        created_at: existing.created_at,
+        updated_at: Utc::now(),
+    };
+
+    db.update_trip(&trip).map_err(|e| e.to_string())?;
+    Ok(trip)
 }
 
 #[tauri::command]
