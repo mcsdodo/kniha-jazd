@@ -232,7 +232,6 @@
 					<th>Účel</th>
 					<th>PHM (L)</th>
 					<th>Cena €</th>
-					<th>Spotreba</th>
 					<th>Zostatok</th>
 					<th>Iné €</th>
 					<th>Akcie</th>
@@ -245,7 +244,6 @@
 						{routes}
 						isNew={true}
 						previousOdometer={lastOdometer}
-						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || 0 : 0}
 						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || 0 : 0}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
@@ -258,7 +256,6 @@
 						{routes}
 						isNew={false}
 						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : 0}
-						consumptionRate={consumptionRates.get(trip.id) || 0}
 						zostatok={fuelRemaining.get(trip.id) || 0}
 						onSave={(data) => handleUpdate(trip, data)}
 						onCancel={() => {}}
@@ -267,7 +264,7 @@
 				{/each}
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="12">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
+						<td colspan="11">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
 			</tbody>
