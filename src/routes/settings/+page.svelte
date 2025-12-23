@@ -138,7 +138,6 @@
 <div class="settings-page">
 	<div class="header">
 		<h1>Nastavenia</h1>
-		<a href="/" class="back-link">← Späť na hlavnú stránku</a>
 	</div>
 
 	<div class="sections">
@@ -263,16 +262,6 @@
 	.header h1 {
 		margin: 0 0 0.5rem 0;
 		color: #2c3e50;
-	}
-
-	.back-link {
-		color: #3498db;
-		text-decoration: none;
-		font-size: 0.875rem;
-	}
-
-	.back-link:hover {
-		text-decoration: underline;
 	}
 
 	.sections {
