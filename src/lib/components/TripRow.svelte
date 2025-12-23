@@ -82,10 +82,19 @@
 			onDelete(trip.id);
 		}
 	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			handleSave();
+		} else if (event.key === 'Escape') {
+			handleCancel();
+		}
+	}
 </script>
 
 {#if isEditing}
-	<tr class="editing">
+	<tr class="editing" on:keydown={handleKeydown}>
 		<td>
 			<input type="date" bind:value={formData.date} />
 		</td>
