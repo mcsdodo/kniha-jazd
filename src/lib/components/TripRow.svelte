@@ -12,6 +12,10 @@
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
+	export let onInsertAbove: () => void = () => {};
+	export let onEditStart: () => void = () => {};
+	export let onEditEnd: () => void = () => {};
+	export let dragDisabled: boolean = false;
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -53,6 +57,7 @@
 
 	function handleEdit() {
 		isEditing = true;
+		onEditStart();
 	}
 
 	function handleSave() {
@@ -64,6 +69,9 @@
 		};
 		onSave(dataToSave);
 		isEditing = false;
+		if (!isNew) {
+			onEditEnd();
+		}
 	}
 
 	function handleCancel() {
@@ -83,6 +91,7 @@
 				other_costs_eur: trip?.other_costs_eur || null
 			};
 			isEditing = false;
+			onEditEnd();
 		}
 	}
 
@@ -183,8 +192,39 @@
 		<td class="number calculated">{consumptionRate.toFixed(2)}</td>
 		<td class="number calculated">{zostatok.toFixed(1)}</td>
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
-		<td class="actions">
-			<button class="delete" on:click|stopPropagation={handleDeleteClick}>Odstrániť</button>
+		<td class="actions icon-actions">
+			<button
+				class="icon-btn insert"
+				on:click|stopPropagation={onInsertAbove}
+				title="Vložiť záznam nad"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<line x1="12" y1="5" x2="12" y2="19"></line>
+					<line x1="5" y1="12" x2="19" y2="12"></line>
+				</svg>
+			</button>
+			<button
+				class="icon-btn delete"
+				on:click|stopPropagation={handleDeleteClick}
+				title="Odstrániť záznam"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<polyline points="3 6 5 6 21 6"></polyline>
+					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+				</svg>
+			</button>
+			{#if !dragDisabled}
+				<div class="drag-handle" title="Presunúť záznam">
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+						<circle cx="9" cy="6" r="1.5"></circle>
+						<circle cx="15" cy="6" r="1.5"></circle>
+						<circle cx="9" cy="12" r="1.5"></circle>
+						<circle cx="15" cy="12" r="1.5"></circle>
+						<circle cx="9" cy="18" r="1.5"></circle>
+						<circle cx="15" cy="18" r="1.5"></circle>
+					</svg>
+				</div>
+			{/if}
 		</td>
 	</tr>
 {/if}
@@ -272,5 +312,57 @@
 
 	.delete:hover {
 		background-color: #da190b;
+	}
+
+	.icon-actions {
+		display: flex;
+		gap: 0.25rem;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.icon-btn {
+		background: none;
+		border: none;
+		padding: 0.25rem;
+		cursor: pointer;
+		color: #9e9e9e;
+		border-radius: 4px;
+		transition: color 0.2s, background-color 0.2s;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		margin: 0;
+	}
+
+	.icon-btn:hover {
+		background-color: rgba(0, 0, 0, 0.05);
+	}
+
+	.icon-btn.insert:hover {
+		color: #3498db;
+	}
+
+	.icon-btn.delete:hover {
+		color: #f44336;
+		background-color: rgba(244, 67, 54, 0.1);
+	}
+
+	.drag-handle {
+		display: inline-flex;
+		padding: 0.25rem;
+		cursor: grab;
+		color: #9e9e9e;
+		border-radius: 4px;
+		transition: color 0.2s, background-color 0.2s;
+	}
+
+	.drag-handle:hover {
+		color: #616161;
+		background-color: rgba(0, 0, 0, 0.05);
+	}
+
+	.drag-handle:active {
+		cursor: grabbing;
 	}
 </style>
