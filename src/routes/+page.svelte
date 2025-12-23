@@ -33,7 +33,7 @@
 			if (stats.is_over_limit && stats.margin_percent !== null) {
 				// Calculate buffer km needed to get to 18% target
 				const targetMargin = 0.18;
-				const actualRate = stats.consumption_rate;
+				const actualRate = stats.last_consumption_rate;
 				const tpRate = $activeVehicleStore.tp_consumption;
 
 				// Find last trip location
@@ -72,7 +72,7 @@
 					<div class="stats">
 						<span class="stat">Zostatok: {stats.zostatok_liters.toFixed(1)}L</span>
 						<span class="stat-separator">|</span>
-						<span class="stat">Spotreba: {stats.consumption_rate.toFixed(2)} L/100km</span>
+						<span class="stat">Spotreba: {stats.avg_consumption_rate.toFixed(2)} L/100km</span>
 						{#if stats.margin_percent !== null}
 							<span class="stat-separator">|</span>
 							<span class="stat" class:warning={stats.is_over_limit}>

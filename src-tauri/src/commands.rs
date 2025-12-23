@@ -273,11 +273,21 @@ pub fn calculate_trip_stats(
     if trips.is_empty() {
         return Ok(TripStats {
             zostatok_liters: vehicle.tank_size_liters,
-            consumption_rate: 0.0,
+            avg_consumption_rate: 0.0,
+            last_consumption_rate: 0.0,
             margin_percent: None,
             is_over_limit: false,
         });
     }
+
+    // Calculate average consumption: total_fuel / total_km * 100
+    let total_fuel: f64 = trips.iter().filter_map(|t| t.fuel_liters).sum();
+    let total_km: f64 = trips.iter().map(|t| t.distance_km).sum();
+    let avg_consumption_rate = if total_km > 0.0 {
+        (total_fuel / total_km) * 100.0
+    } else {
+        0.0
+    };
 
     // Find the last fill-up to calculate current consumption rate
     let mut last_fillup_idx = None;
@@ -288,12 +298,12 @@ pub fn calculate_trip_stats(
         }
     }
 
-    // Calculate consumption rate and margin from last fill-up
-    let (consumption_rate, margin_percent) = if let Some(idx) = last_fillup_idx {
+    // Calculate last consumption rate and margin from last fill-up
+    let (last_consumption_rate, margin_percent) = if let Some(idx) = last_fillup_idx {
         let fillup_trip = &trips[idx];
         let fuel_liters = fillup_trip.fuel_liters.unwrap();
 
-        // Calculate total distance since last fill-up
+        // Calculate total distance since previous fill-up
         // We need to look back to the previous fill-up (or start of trips)
         let mut km_since_last_fillup = 0.0;
         let mut prev_fillup_idx = None;
@@ -320,11 +330,13 @@ pub fn calculate_trip_stats(
     };
 
     // Calculate current zostatok by processing all trips sequentially
+    // Note: For accurate zostatok, we should use per-period rates, but for header display
+    // we use the last consumption rate as a reasonable approximation
     let mut current_zostatok = vehicle.tank_size_liters; // Start with full tank
 
     for trip in &trips {
         // Calculate spotreba for this trip
-        let spotreba = calculate_spotreba(trip.distance_km, consumption_rate);
+        let spotreba = calculate_spotreba(trip.distance_km, last_consumption_rate);
 
         // Update zostatok
         current_zostatok = calculate_zostatok(
@@ -335,7 +347,7 @@ pub fn calculate_trip_stats(
         );
     }
 
-    // Check if over legal limit
+    // Check if over legal limit (based on LAST fill-up consumption)
     let is_over_limit = if let Some(margin) = margin_percent {
         !is_within_legal_limit(margin)
     } else {
@@ -344,7 +356,8 @@ pub fn calculate_trip_stats(
 
     Ok(TripStats {
         zostatok_liters: current_zostatok,
-        consumption_rate,
+        avg_consumption_rate,
+        last_consumption_rate,
         margin_percent,
         is_over_limit,
     })

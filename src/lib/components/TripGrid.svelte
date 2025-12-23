@@ -82,10 +82,12 @@
 
 	// Recalculate ODO for all trips newer than the edited one
 	async function recalculateNewerTripsOdo(editedTripId: string, newOdo: number) {
-		// Sort by date ascending (oldest first) for correct ODO calculation
-		const chronological = [...trips].sort(
-			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-		);
+		// Sort by date ascending (oldest first), using odometer as tiebreaker
+		const chronological = [...trips].sort((a, b) => {
+			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+			if (dateDiff !== 0) return dateDiff;
+			return a.odometer - b.odometer;
+		});
 
 		// Find the index of the edited trip
 		const editedIndex = chronological.findIndex((t) => t.id === editedTripId);
@@ -130,10 +132,12 @@
 		showNewRow = false;
 	}
 
-	// Sort trips by date descending (newest first)
-	$: sortedTrips = [...trips].sort(
-		(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-	);
+	// Sort trips by date descending (newest first), using odometer as tiebreaker
+	$: sortedTrips = [...trips].sort((a, b) => {
+		const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+		if (dateDiff !== 0) return dateDiff;
+		return b.odometer - a.odometer;
+	});
 
 	// Get the last ODO value (from the most recent trip, or initial ODO if no trips)
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
@@ -161,10 +165,12 @@
 	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
 		const rates = new Map<string, number>();
 
-		// Sort chronologically (oldest first)
-		const chronological = [...tripList].sort(
-			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-		);
+		// Sort chronologically (oldest first), using odometer as tiebreaker for same-day trips
+		const chronological = [...tripList].sort((a, b) => {
+			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+			if (dateDiff !== 0) return dateDiff;
+			return a.odometer - b.odometer;
+		});
 
 		// Two-pass algorithm:
 		// 1. Find fill-ups and calculate rates for each period
@@ -206,10 +212,12 @@
 	function calculateFuelRemaining(tripList: Trip[], rates: Map<string, number>): Map<string, number> {
 		const remaining = new Map<string, number>();
 
-		// Sort chronologically (oldest first)
-		const chronological = [...tripList].sort(
-			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-		);
+		// Sort chronologically (oldest first), using odometer as tiebreaker for same-day trips
+		const chronological = [...tripList].sort((a, b) => {
+			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+			if (dateDiff !== 0) return dateDiff;
+			return a.odometer - b.odometer;
+		});
 
 		// Start with full tank (from "Prvý záznam")
 		let zostatok = tankSize;
