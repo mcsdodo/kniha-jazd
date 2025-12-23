@@ -7,9 +7,24 @@ use crate::calculations::{
 use crate::db::Database;
 use crate::models::{Route, Settings, Trip, TripStats, Vehicle};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
-use chrono::{NaiveDate, Utc};
-use tauri::State;
+use chrono::{NaiveDate, Utc, Local};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use tauri::{Manager, State};
 use uuid::Uuid;
+
+// ============================================================================
+// Backup Types
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupInfo {
+    pub filename: String,
+    pub created_at: String,
+    pub size_bytes: u64,
+    pub vehicle_count: i32,
+    pub trip_count: i32,
+}
 
 // ============================================================================
 // Vehicle Commands
@@ -370,4 +385,191 @@ pub fn calculate_trip_stats(
         total_fuel_liters: total_fuel,
         total_fuel_cost_eur: total_fuel_cost,
     })
+}
+
+// ============================================================================
+// Backup Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn create_backup(app: tauri::AppHandle, db: State<Database>) -> Result<BackupInfo, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backup_dir = app_dir.join("backups");
+
+    // Create backup directory if it doesn't exist
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+
+    // Generate backup filename with timestamp
+    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
+    let filename = format!("kniha-jazd-backup-{}.db", timestamp);
+    let backup_path = backup_dir.join(&filename);
+
+    // Copy current database to backup
+    let db_path = app_dir.join("kniha-jazd.db");
+    fs::copy(&db_path, &backup_path).map_err(|e| e.to_string())?;
+
+    // Get file size
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    // Get counts from current database
+    let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
+    let vehicle_count = vehicles.len() as i32;
+
+    // Count trips across all vehicles
+    let mut trip_count = 0;
+    for vehicle in &vehicles {
+        let trips = db.get_trips_for_vehicle(&vehicle.id.to_string()).map_err(|e| e.to_string())?;
+        trip_count += trips.len() as i32;
+    }
+
+    Ok(BackupInfo {
+        filename,
+        created_at: Local::now().to_rfc3339(),
+        size_bytes: metadata.len(),
+        vehicle_count,
+        trip_count,
+    })
+}
+
+#[tauri::command]
+pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backup_dir = app_dir.join("backups");
+
+    if !backup_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut backups = Vec::new();
+
+    for entry in fs::read_dir(&backup_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+
+        if path.extension().map(|e| e == "db").unwrap_or(false) {
+            let filename = path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+
+            let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+
+            // Parse timestamp from filename: kniha-jazd-backup-YYYY-MM-DD-HHMMSS.db
+            let created_at = if filename.starts_with("kniha-jazd-backup-") {
+                let date_part = filename
+                    .trim_start_matches("kniha-jazd-backup-")
+                    .trim_end_matches(".db");
+                // Convert YYYY-MM-DD-HHMMSS to ISO format
+                if date_part.len() >= 17 {
+                    format!(
+                        "{}-{}-{}T{}:{}:{}",
+                        &date_part[0..4],
+                        &date_part[5..7],
+                        &date_part[8..10],
+                        &date_part[11..13],
+                        &date_part[13..15],
+                        &date_part[15..17]
+                    )
+                } else {
+                    Local::now().to_rfc3339()
+                }
+            } else {
+                Local::now().to_rfc3339()
+            };
+
+            // We can't easily get counts from backup without opening it
+            // So we'll return 0 for now - the get_backup_info command will show actual counts
+            backups.push(BackupInfo {
+                filename,
+                created_at,
+                size_bytes: metadata.len(),
+                vehicle_count: 0,
+                trip_count: 0,
+            });
+        }
+    }
+
+    // Sort by filename descending (newest first)
+    backups.sort_by(|a, b| b.filename.cmp(&a.filename));
+
+    Ok(backups)
+}
+
+#[tauri::command]
+pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<BackupInfo, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backup_path = app_dir.join("backups").join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    // Open backup database to get counts
+    let conn = rusqlite::Connection::open(&backup_path).map_err(|e| e.to_string())?;
+
+    let vehicle_count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM vehicles", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let trip_count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM trips", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    // Parse timestamp from filename
+    let created_at = if filename.starts_with("kniha-jazd-backup-") {
+        let date_part = filename
+            .trim_start_matches("kniha-jazd-backup-")
+            .trim_end_matches(".db");
+        if date_part.len() >= 17 {
+            format!(
+                "{}-{}-{}T{}:{}:{}",
+                &date_part[0..4],
+                &date_part[5..7],
+                &date_part[8..10],
+                &date_part[11..13],
+                &date_part[13..15],
+                &date_part[15..17]
+            )
+        } else {
+            Local::now().to_rfc3339()
+        }
+    } else {
+        Local::now().to_rfc3339()
+    };
+
+    Ok(BackupInfo {
+        filename,
+        created_at,
+        size_bytes: metadata.len(),
+        vehicle_count,
+        trip_count,
+    })
+}
+
+#[tauri::command]
+pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backup_path = app_dir.join("backups").join(&filename);
+    let db_path = app_dir.join("kniha-jazd.db");
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    // Auto-backup current database before restore
+    let backup_dir = app_dir.join("backups");
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+
+    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
+    let auto_backup_filename = format!("kniha-jazd-pre-restore-{}.db", timestamp);
+    let auto_backup_path = backup_dir.join(&auto_backup_filename);
+
+    fs::copy(&db_path, &auto_backup_path).map_err(|e| format!("Failed to create pre-restore backup: {}", e))?;
+
+    // Copy backup over current database
+    fs::copy(&backup_path, &db_path).map_err(|e| e.to_string())?;
+
+    Ok(())
 }

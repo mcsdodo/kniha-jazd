@@ -65,3 +65,11 @@ export interface TripStats {
 	total_fuel_liters: number;
 	total_fuel_cost_eur: number;
 }
+
+export interface BackupInfo {
+	filename: string;
+	created_at: string;
+	size_bytes: number;
+	vehicle_count: number;
+	trip_count: number;
+}

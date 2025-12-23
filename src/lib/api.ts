@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -143,4 +143,21 @@ export async function saveSettings(
 // Trip statistics
 export async function calculateTripStats(vehicleId: string): Promise<TripStats> {
 	return await invoke('calculate_trip_stats', { vehicleId });
+}
+
+// Backup commands
+export async function createBackup(): Promise<BackupInfo> {
+	return await invoke('create_backup');
+}
+
+export async function listBackups(): Promise<BackupInfo[]> {
+	return await invoke('list_backups');
+}
+
+export async function getBackupInfo(filename: string): Promise<BackupInfo> {
+	return await invoke('get_backup_info', { filename });
+}
+
+export async function restoreBackup(filename: string): Promise<void> {
+	return await invoke('restore_backup', { filename });
 }

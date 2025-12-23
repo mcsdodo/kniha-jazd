@@ -69,20 +69,33 @@
 			<div class="vehicle-header">
 				<h2>Aktívne vozidlo</h2>
 				{#if stats}
-					<div class="stats">
-						<span class="stat">Km: {stats.total_km.toLocaleString('sk-SK')}</span>
-						<span class="stat-separator">|</span>
-						<span class="stat">PHM: {stats.total_fuel_liters.toFixed(1)}L / {stats.total_fuel_cost_eur.toFixed(2)}€</span>
-						<span class="stat-separator">|</span>
-						<span class="stat">Spotreba: {stats.avg_consumption_rate.toFixed(2)} L/100km</span>
-						{#if stats.margin_percent !== null}
-							<span class="stat-separator">|</span>
-							<span class="stat" class:warning={stats.is_over_limit}>
-								Odchýlka: {stats.margin_percent.toFixed(1)}%
+					<div class="stats-container">
+						<div class="stats-row">
+							<span class="stat">
+								<span class="stat-label">Celkovo najazdené:</span>
+								<span class="stat-value">{stats.total_km.toLocaleString('sk-SK')} km</span>
 							</span>
-						{/if}
-						<span class="stat-separator">|</span>
-						<span class="stat">Zostatok: {stats.zostatok_liters.toFixed(1)}L</span>
+							<span class="stat">
+								<span class="stat-label">PHM:</span>
+								<span class="stat-value">{stats.total_fuel_liters.toFixed(1)} L / {stats.total_fuel_cost_eur.toFixed(2)} €</span>
+							</span>
+						</div>
+						<div class="stats-row">
+							<span class="stat">
+								<span class="stat-label">Spotreba:</span>
+								<span class="stat-value">{stats.avg_consumption_rate.toFixed(2)} L/100km</span>
+							</span>
+							{#if stats.margin_percent !== null}
+								<span class="stat" class:warning={stats.is_over_limit}>
+									<span class="stat-label">Odchýlka:</span>
+									<span class="stat-value">{stats.margin_percent.toFixed(1)}%</span>
+								</span>
+							{/if}
+							<span class="stat">
+								<span class="stat-label">Zostatok:</span>
+								<span class="stat-value">{stats.zostatok_liters.toFixed(1)} L</span>
+							</span>
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -130,10 +143,6 @@
 				/>
 			{/if}
 		</div>
-
-		<div class="actions">
-			<a href="/settings" class="button">Nastavenia</a>
-		</div>
 	{:else}
 		<div class="no-vehicle">
 			<h2>Žiadne vozidlo</h2>
@@ -159,8 +168,8 @@
 
 	.vehicle-header {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
+		flex-direction: column;
+		gap: 1rem;
 		margin-bottom: 1rem;
 	}
 
@@ -170,25 +179,35 @@
 		color: #2c3e50;
 	}
 
-	.stats {
+	.stats-container {
 		display: flex;
+		flex-direction: column;
 		gap: 0.5rem;
+	}
+
+	.stats-row {
+		display: flex;
+		gap: 1.5rem;
 		align-items: center;
 		font-size: 0.875rem;
-		color: #2c3e50;
 	}
 
 	.stat {
+		display: flex;
+		gap: 0.25rem;
+	}
+
+	.stat-label {
+		color: #7f8c8d;
+	}
+
+	.stat-value {
 		font-weight: 600;
+		color: #2c3e50;
 	}
 
-	.stat.warning {
+	.stat.warning .stat-value {
 		color: #d39e00;
-		font-weight: 700;
-	}
-
-	.stat-separator {
-		color: #bdc3c7;
 	}
 
 	.info-grid {
@@ -224,11 +243,6 @@
 		padding: 2rem;
 		color: #7f8c8d;
 		font-style: italic;
-	}
-
-	.actions {
-		display: flex;
-		gap: 1rem;
 	}
 
 	.no-vehicle {

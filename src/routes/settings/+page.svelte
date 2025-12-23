@@ -3,7 +3,7 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import * as api from '$lib/api';
-	import type { Vehicle, Settings } from '$lib/types';
+	import type { Vehicle, Settings, BackupInfo } from '$lib/types';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -17,6 +17,12 @@
 	// Export state
 	let selectedYear = new Date().getFullYear();
 
+	// Backup state
+	let backups: BackupInfo[] = [];
+	let loadingBackups = false;
+	let backupInProgress = false;
+	let restoreConfirmation: BackupInfo | null = null;
+
 	onMount(async () => {
 		// Load settings
 		const loadedSettings = await api.getSettings();
@@ -26,6 +32,9 @@
 			companyIco = loadedSettings.company_ico;
 			bufferTripPurpose = loadedSettings.buffer_trip_purpose;
 		}
+
+		// Load backups
+		await loadBackups();
 	});
 
 	function openAddVehicleModal() {
@@ -133,12 +142,87 @@
 			`Export do PDF pre rok ${selectedYear} bude implementovaný v ďalšej fáze.\n\nTáto funkcia vyexportuje všetky jazdy za zvolený rok do PDF súboru v súlade so slovenskou legislatívou.`
 		);
 	}
+
+	// Backup functions
+	async function loadBackups() {
+		loadingBackups = true;
+		try {
+			backups = await api.listBackups();
+		} catch (error) {
+			console.error('Failed to load backups:', error);
+		} finally {
+			loadingBackups = false;
+		}
+	}
+
+	async function handleCreateBackup() {
+		backupInProgress = true;
+		try {
+			const backup = await api.createBackup();
+			await loadBackups();
+			alert(`Záloha vytvorená: ${backup.filename}`);
+		} catch (error) {
+			console.error('Failed to create backup:', error);
+			alert('Nepodarilo sa vytvoriť zálohu: ' + error);
+		} finally {
+			backupInProgress = false;
+		}
+	}
+
+	async function handleRestoreClick(backup: BackupInfo) {
+		try {
+			// Get full backup info with counts
+			restoreConfirmation = await api.getBackupInfo(backup.filename);
+		} catch (error) {
+			console.error('Failed to get backup info:', error);
+			alert('Nepodarilo sa načítať informácie o zálohe: ' + error);
+		}
+	}
+
+	async function handleConfirmRestore() {
+		if (!restoreConfirmation) return;
+
+		try {
+			await api.restoreBackup(restoreConfirmation.filename);
+			restoreConfirmation = null;
+			alert('Záloha bola úspešne obnovená. Aplikácia sa reštartuje.');
+			// Reload the app to pick up restored data
+			window.location.reload();
+		} catch (error) {
+			console.error('Failed to restore backup:', error);
+			alert('Nepodarilo sa obnoviť zálohu: ' + error);
+		}
+	}
+
+	function cancelRestore() {
+		restoreConfirmation = null;
+	}
+
+	function formatBackupDate(isoDate: string): string {
+		try {
+			const date = new Date(isoDate);
+			return date.toLocaleString('sk-SK', {
+				day: '2-digit',
+				month: '2-digit',
+				year: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		} catch {
+			return isoDate;
+		}
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
 </script>
 
 <div class="settings-page">
 	<div class="header">
 		<h1>Nastavenia</h1>
-		<a href="/" class="back-link">← Späť na hlavnú stránku</a>
 	</div>
 
 	<div class="sections">
@@ -243,11 +327,62 @@
 				</p>
 			</div>
 		</section>
+
+		<!-- Backup Section -->
+		<section class="settings-section">
+			<h2>Záloha databázy</h2>
+			<div class="section-content">
+				<button class="button" on:click={handleCreateBackup} disabled={backupInProgress}>
+					{backupInProgress ? 'Vytváram zálohu...' : 'Zálohovať'}
+				</button>
+
+				<div class="backup-list">
+					<h3>Dostupné zálohy</h3>
+					{#if loadingBackups}
+						<p class="placeholder">Načítavam...</p>
+					{:else if backups.length === 0}
+						<p class="placeholder">Žiadne zálohy. Vytvorte prvú zálohu.</p>
+					{:else}
+						{#each backups as backup}
+							<div class="backup-item">
+								<div class="backup-info">
+									<span class="backup-date">{formatBackupDate(backup.created_at)}</span>
+									<span class="backup-size">{formatFileSize(backup.size_bytes)}</span>
+								</div>
+								<button class="button-small" on:click={() => handleRestoreClick(backup)}>
+									Obnoviť
+								</button>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</div>
+		</section>
 	</div>
 </div>
 
 {#if showVehicleModal}
 	<VehicleModal vehicle={editingVehicle} onSave={handleSaveVehicle} onClose={closeVehicleModal} />
+{/if}
+
+{#if restoreConfirmation}
+	<div class="modal-overlay" on:click={cancelRestore} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && cancelRestore()}>
+		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
+			<h2>Potvrdiť obnovenie</h2>
+			<div class="modal-content">
+				<p><strong>Dátum zálohy:</strong> {formatBackupDate(restoreConfirmation.created_at)}</p>
+				<p><strong>Veľkosť:</strong> {formatFileSize(restoreConfirmation.size_bytes)}</p>
+				<p><strong>Obsahuje:</strong> {restoreConfirmation.vehicle_count} vozidiel, {restoreConfirmation.trip_count} jázd</p>
+				<p class="warning-text">
+					Aktuálne dáta budú prepísané! Pred obnovením sa automaticky vytvorí záloha aktuálneho stavu.
+				</p>
+			</div>
+			<div class="modal-actions">
+				<button class="button-small" on:click={cancelRestore}>Zrušiť</button>
+				<button class="button-small danger" on:click={handleConfirmRestore}>Obnoviť zálohu</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <style>
@@ -263,16 +398,6 @@
 	.header h1 {
 		margin: 0 0 0.5rem 0;
 		color: #2c3e50;
-	}
-
-	.back-link {
-		color: #3498db;
-		text-decoration: none;
-		font-size: 0.875rem;
-	}
-
-	.back-link:hover {
-		text-decoration: underline;
 	}
 
 	.sections {
@@ -446,5 +571,96 @@
 
 	.button-small.danger:hover {
 		background-color: #fdd;
+	}
+
+	.button:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.backup-list {
+		margin-top: 1rem;
+	}
+
+	.backup-list h3 {
+		font-size: 1rem;
+		color: #2c3e50;
+		margin: 0 0 0.75rem 0;
+	}
+
+	.backup-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem;
+		border: 1px solid #e0e0e0;
+		border-radius: 4px;
+		background: #fafafa;
+		margin-bottom: 0.5rem;
+	}
+
+	.backup-info {
+		display: flex;
+		gap: 1rem;
+	}
+
+	.backup-date {
+		font-weight: 500;
+		color: #2c3e50;
+	}
+
+	.backup-size {
+		color: #7f8c8d;
+		font-size: 0.875rem;
+	}
+
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: white;
+		padding: 1.5rem;
+		border-radius: 8px;
+		max-width: 400px;
+		width: 90%;
+	}
+
+	.modal h2 {
+		margin: 0 0 1rem 0;
+		font-size: 1.25rem;
+		color: #2c3e50;
+	}
+
+	.modal-content {
+		margin-bottom: 1.5rem;
+	}
+
+	.modal-content p {
+		margin: 0.5rem 0;
+	}
+
+	.warning-text {
+		color: #c0392b;
+		font-weight: 500;
+		margin-top: 1rem !important;
+		padding: 0.75rem;
+		background: #fee;
+		border-radius: 4px;
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: flex-end;
 	}
 </style>

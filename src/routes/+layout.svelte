@@ -1,6 +1,7 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import { getVehicles, getActiveVehicle, setActiveVehicle } from '$lib/api';
 
@@ -41,7 +42,13 @@
 <div class="app">
 	<header>
 		<div class="header-content">
-			<h1>Kniha Jázd</h1>
+			<div class="header-left">
+				<h1>Kniha Jázd</h1>
+				<nav class="main-nav">
+					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>Kniha jázd</a>
+					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>Nastavenia</a>
+				</nav>
+			</div>
 			<div class="vehicle-selector">
 				<label for="vehicle-select">Vozidlo:</label>
 				<select
@@ -99,6 +106,36 @@
 		margin: 0;
 		font-size: 1.5rem;
 		font-weight: 600;
+	}
+
+	.header-left {
+		display: flex;
+		align-items: center;
+		gap: 2rem;
+	}
+
+	.main-nav {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.nav-link {
+		color: rgba(255, 255, 255, 0.7);
+		text-decoration: none;
+		padding: 0.5rem 1rem;
+		border-radius: 4px;
+		font-weight: 500;
+		transition: all 0.2s;
+	}
+
+	.nav-link:hover {
+		color: white;
+		background: rgba(255, 255, 255, 0.1);
+	}
+
+	.nav-link.active {
+		color: white;
+		background: rgba(255, 255, 255, 0.2);
 	}
 
 	.vehicle-selector {
