@@ -263,11 +263,13 @@ pub fn calculate_trip_stats(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Vehicle not found".to_string())?;
 
-    // Get all trips for this vehicle, sorted by date
+    // Get all trips for this vehicle, sorted by date + odometer (for same-day trips)
     let mut trips = db
         .get_trips_for_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())?;
-    trips.sort_by(|a, b| a.date.cmp(&b.date));
+    trips.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| a.odometer.partial_cmp(&b.odometer).unwrap_or(std::cmp::Ordering::Equal))
+    });
 
     // If no trips, return default values
     if trips.is_empty() {
@@ -298,13 +300,12 @@ pub fn calculate_trip_stats(
         }
     }
 
-    // Calculate last consumption rate and margin from last fill-up
-    let (last_consumption_rate, margin_percent) = if let Some(idx) = last_fillup_idx {
+    // Calculate last consumption rate from last fill-up (for current period tracking)
+    let last_consumption_rate = if let Some(idx) = last_fillup_idx {
         let fillup_trip = &trips[idx];
         let fuel_liters = fillup_trip.fuel_liters.unwrap();
 
         // Calculate total distance since previous fill-up
-        // We need to look back to the previous fill-up (or start of trips)
         let mut km_since_last_fillup = 0.0;
         let mut prev_fillup_idx = None;
         for i in (0..idx).rev() {
@@ -320,13 +321,10 @@ pub fn calculate_trip_stats(
             km_since_last_fillup += trip.distance_km;
         }
 
-        let rate = calculate_consumption_rate(fuel_liters, km_since_last_fillup);
-        let margin = calculate_margin_percent(rate, vehicle.tp_consumption);
-
-        (rate, Some(margin))
+        calculate_consumption_rate(fuel_liters, km_since_last_fillup)
     } else {
         // No fill-up yet, use TP consumption
-        (vehicle.tp_consumption, None)
+        vehicle.tp_consumption
     };
 
     // Calculate current zostatok by processing all trips sequentially
@@ -347,18 +345,22 @@ pub fn calculate_trip_stats(
         );
     }
 
-    // Check if over legal limit (based on LAST fill-up consumption)
-    let is_over_limit = if let Some(margin) = margin_percent {
-        !is_within_legal_limit(margin)
+    // Check if over legal limit based on AVERAGE consumption (legal compliance)
+    let avg_margin = calculate_margin_percent(avg_consumption_rate, vehicle.tp_consumption);
+    let is_over_limit = if total_fuel > 0.0 {
+        !is_within_legal_limit(avg_margin)
     } else {
         false
     };
+
+    // Use average margin for legal compliance display
+    let display_margin = if total_fuel > 0.0 { Some(avg_margin) } else { None };
 
     Ok(TripStats {
         zostatok_liters: current_zostatok,
         avg_consumption_rate,
         last_consumption_rate,
-        margin_percent,
+        margin_percent: display_margin,
         is_over_limit,
     })
 }
