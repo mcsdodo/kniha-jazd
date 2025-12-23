@@ -120,6 +120,7 @@ pub fn create_trip(
         fuel_cost_eur: fuel_cost,
         other_costs_eur: other_costs,
         other_costs_note,
+        sort_order: 0,
         created_at: now,
         updated_at: now,
     };
@@ -171,6 +172,7 @@ pub fn update_trip(
         fuel_cost_eur,
         other_costs_eur,
         other_costs_note,
+        sort_order: existing.sort_order,
         created_at: existing.created_at,
         updated_at: Utc::now(),
     };

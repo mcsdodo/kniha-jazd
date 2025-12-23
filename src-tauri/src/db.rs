@@ -39,6 +39,22 @@ impl Database {
             [],
         );
 
+        // Run migration to add sort_order column (ignore if already exists)
+        let _ = conn.execute(
+            "ALTER TABLE trips ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+
+        // Initialize sort_order for existing trips based on chronological order (newest = 0)
+        // This only affects rows where sort_order = 0 and there are multiple trips
+        let _ = conn.execute_batch(
+            "UPDATE trips SET sort_order = (
+                SELECT COUNT(*) FROM trips t2
+                WHERE t2.vehicle_id = trips.vehicle_id
+                AND (t2.date > trips.date OR (t2.date = trips.date AND t2.odometer > trips.odometer))
+            ) WHERE sort_order = 0",
+        );
+
         Ok(())
     }
 
@@ -190,8 +206,8 @@ impl Database {
     pub fn create_trip(&self, trip: &Trip) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO trips (id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, created_at, updated_at)
-             VALUES (:id, :vehicle_id, :date, :origin, :destination, :distance_km, :odometer, :purpose, :fuel_liters, :fuel_cost_eur, :other_costs_eur, :other_costs_note, :created_at, :updated_at)",
+            "INSERT INTO trips (id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at)
+             VALUES (:id, :vehicle_id, :date, :origin, :destination, :distance_km, :odometer, :purpose, :fuel_liters, :fuel_cost_eur, :other_costs_eur, :other_costs_note, :sort_order, :created_at, :updated_at)",
             rusqlite::named_params! {
                 ":id": trip.id.to_string(),
                 ":vehicle_id": trip.vehicle_id.to_string(),
@@ -205,6 +221,7 @@ impl Database {
                 ":fuel_cost_eur": trip.fuel_cost_eur,
                 ":other_costs_eur": trip.other_costs_eur,
                 ":other_costs_note": trip.other_costs_note,
+                ":sort_order": trip.sort_order,
                 ":created_at": trip.created_at.to_rfc3339(),
                 ":updated_at": trip.updated_at.to_rfc3339(),
             },
@@ -216,7 +233,7 @@ impl Database {
     pub fn get_trip(&self, id: &str) -> Result<Option<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at
              FROM trips WHERE id = ?1",
         )?;
 
@@ -235,8 +252,9 @@ impl Database {
                     fuel_cost_eur: row.get(9)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    created_at: row.get::<_, String>(12)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(13)?.parse().unwrap(),
+                    sort_order: row.get(12)?,
+                    created_at: row.get::<_, String>(13)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(14)?.parse().unwrap(),
                 })
             })
             .optional()?;
@@ -244,12 +262,12 @@ impl Database {
         Ok(trip)
     }
 
-    /// Get all trips for a vehicle, ordered by date DESC (newest first)
+    /// Get all trips for a vehicle, ordered by sort_order ASC (0 = top/newest)
     pub fn get_trips_for_vehicle(&self, vehicle_id: &str) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, created_at, updated_at
-             FROM trips WHERE vehicle_id = ?1 ORDER BY date DESC",
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at
+             FROM trips WHERE vehicle_id = ?1 ORDER BY sort_order ASC",
         )?;
 
         let trips = stmt
@@ -267,8 +285,9 @@ impl Database {
                     fuel_cost_eur: row.get(9)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    created_at: row.get::<_, String>(12)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(13)?.parse().unwrap(),
+                    sort_order: row.get(12)?,
+                    created_at: row.get::<_, String>(13)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(14)?.parse().unwrap(),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -280,7 +299,7 @@ impl Database {
     pub fn get_trips_for_vehicle_in_year(&self, vehicle_id: &str, year: i32) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at
              FROM trips
              WHERE vehicle_id = ?1 AND strftime('%Y', date) = ?2
              ORDER BY date ASC",
@@ -301,8 +320,9 @@ impl Database {
                     fuel_cost_eur: row.get(9)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    created_at: row.get::<_, String>(12)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(13)?.parse().unwrap(),
+                    sort_order: row.get(12)?,
+                    created_at: row.get::<_, String>(13)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(14)?.parse().unwrap(),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -326,6 +346,7 @@ impl Database {
                  fuel_cost_eur = :fuel_cost_eur,
                  other_costs_eur = :other_costs_eur,
                  other_costs_note = :other_costs_note,
+                 sort_order = :sort_order,
                  updated_at = :updated_at
              WHERE id = :id",
             rusqlite::named_params! {
@@ -341,6 +362,7 @@ impl Database {
                 ":fuel_cost_eur": trip.fuel_cost_eur,
                 ":other_costs_eur": trip.other_costs_eur,
                 ":other_costs_note": trip.other_costs_note,
+                ":sort_order": trip.sort_order,
                 ":updated_at": trip.updated_at.to_rfc3339(),
             },
         )?;
@@ -772,6 +794,7 @@ mod tests {
             fuel_cost_eur: Some(25.5),
             other_costs_eur: Some(5.0),
             other_costs_note: Some("Parking fee".to_string()),
+            sort_order: 0,
             created_at: now,
             updated_at: now,
         }
@@ -828,6 +851,7 @@ mod tests {
             fuel_cost_eur: None,
             other_costs_eur: None,
             other_costs_note: None,
+            sort_order: 0,
             created_at: now,
             updated_at: now,
         };
@@ -851,10 +875,13 @@ mod tests {
         let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
-        // Create trips with different dates
-        let trip1 = create_test_trip(vehicle.id, "2024-12-01");
-        let trip2 = create_test_trip(vehicle.id, "2024-12-15");
-        let trip3 = create_test_trip(vehicle.id, "2024-12-10");
+        // Create trips with different dates and explicit sort_order (0 = top/newest)
+        let mut trip1 = create_test_trip(vehicle.id, "2024-12-01");
+        trip1.sort_order = 2; // oldest, bottom
+        let mut trip2 = create_test_trip(vehicle.id, "2024-12-15");
+        trip2.sort_order = 0; // newest, top
+        let mut trip3 = create_test_trip(vehicle.id, "2024-12-10");
+        trip3.sort_order = 1; // middle
 
         db.create_trip(&trip1).expect("Failed to create trip1");
         db.create_trip(&trip2).expect("Failed to create trip2");
@@ -867,10 +894,10 @@ mod tests {
 
         assert_eq!(trips.len(), 3);
 
-        // Verify ordering: DESC (newest first)
-        assert_eq!(trips[0].date.to_string(), "2024-12-15");
-        assert_eq!(trips[1].date.to_string(), "2024-12-10");
-        assert_eq!(trips[2].date.to_string(), "2024-12-01");
+        // Verify ordering: by sort_order ASC (0 = top/newest)
+        assert_eq!(trips[0].date.to_string(), "2024-12-15"); // sort_order 0
+        assert_eq!(trips[1].date.to_string(), "2024-12-10"); // sort_order 1
+        assert_eq!(trips[2].date.to_string(), "2024-12-01"); // sort_order 2
     }
 
     #[test]
