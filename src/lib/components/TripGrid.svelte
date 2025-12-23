@@ -156,22 +156,38 @@
 			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
 		);
 
-		// Start with TP consumption rate (from "Prvý záznam")
-		let currentRate = tpConsumption;
-		let kmSinceLastFillup = 0;
+		// Two-pass algorithm:
+		// 1. Find fill-ups and calculate rates for each period
+		// 2. Apply rates RETROACTIVELY to all trips in that period
+
+		// First pass: identify periods and calculate rates
+		const periods: { tripIds: string[]; rate: number }[] = [];
+		let currentPeriodTrips: string[] = [];
+		let kmInPeriod = 0;
 
 		for (const trip of chronological) {
-			// If this trip has a fill-up, calculate new rate
-			if (trip.fuel_liters && trip.fuel_liters > 0 && kmSinceLastFillup > 0) {
-				currentRate = (trip.fuel_liters / kmSinceLastFillup) * 100;
-				kmSinceLastFillup = 0; // Reset for next period
+			currentPeriodTrips.push(trip.id);
+			kmInPeriod += trip.distance_km;
+
+			// If this trip has a fill-up, calculate rate for this period
+			if (trip.fuel_liters && trip.fuel_liters > 0 && kmInPeriod > 0) {
+				const rate = (trip.fuel_liters / kmInPeriod) * 100;
+				periods.push({ tripIds: [...currentPeriodTrips], rate });
+				currentPeriodTrips = [];
+				kmInPeriod = 0;
 			}
+		}
 
-			// Store the rate for this trip
-			rates.set(trip.id, currentRate);
+		// Handle remaining trips (no fill-up yet) - use TP rate
+		if (currentPeriodTrips.length > 0) {
+			periods.push({ tripIds: currentPeriodTrips, rate: tpConsumption });
+		}
 
-			// Accumulate km for next fill-up calculation
-			kmSinceLastFillup += trip.distance_km;
+		// Second pass: apply rates to all trips in each period
+		for (const period of periods) {
+			for (const tripId of period.tripIds) {
+				rates.set(tripId, period.rate);
+			}
 		}
 
 		return rates;
