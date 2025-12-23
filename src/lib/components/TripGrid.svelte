@@ -135,8 +135,8 @@
 		(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
 	);
 
-	// Get the last ODO value (from the most recent trip)
-	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : 0;
+	// Get the last ODO value (from the most recent trip, or initial ODO if no trips)
+	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
 	// Calculate "Použitá spotreba" for each trip
 	// This is the consumption rate from the last fill-up, carried forward
@@ -146,6 +146,7 @@
 	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates);
 
 	export let tankSize: number = 66; // Default tank size, should be passed from vehicle
+	export let initialOdometer: number = 0; // Starting ODO for "Prvý záznam"
 
 	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
 		const rates = new Map<string, number>();
@@ -260,7 +261,7 @@
 						{trip}
 						{routes}
 						isNew={false}
-						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : 0}
+						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 						consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 						zostatok={fuelRemaining.get(trip.id) || 0}
 						onSave={(data) => handleUpdate(trip, data)}
@@ -279,7 +280,7 @@
 					<td>-</td>
 					<td>-</td>
 					<td>-</td>
-					<td>-</td>
+					<td class="number">{initialOdometer.toFixed(1)}</td>
 					<td class="purpose">Prvý záznam</td>
 					<td>-</td>
 					<td>-</td>
@@ -336,14 +337,14 @@
 	}
 
 	.table-container {
-		overflow-x: auto;
+		width: 100%;
 	}
 
 	table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: 0.875rem;
-		table-layout: auto;
+		table-layout: fixed;
 	}
 
 	thead {
@@ -353,23 +354,28 @@
 	}
 
 	th {
-		padding: 0.75rem 0.5rem;
+		padding: 0.75rem 0.25rem;
 		text-align: left;
 		font-weight: 600;
 		color: #2c3e50;
 		border-bottom: 2px solid #e0e0e0;
-		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	/* Make address columns wider */
-	th:nth-child(2), th:nth-child(3) {
-		min-width: 150px;
-	}
-
-	/* Compact numeric columns */
-	th:nth-child(4), th:nth-child(5), th:nth-child(7), th:nth-child(8), th:nth-child(9), th:nth-child(10), th:nth-child(11) {
-		width: 80px;
-	}
+	/* Column widths - total should be 100% */
+	th:nth-child(1) { width: 9%; }   /* Dátum */
+	th:nth-child(2) { width: 14%; }  /* Odkiaľ */
+	th:nth-child(3) { width: 14%; }  /* Kam */
+	th:nth-child(4) { width: 5%; }   /* Km */
+	th:nth-child(5) { width: 6%; }   /* ODO */
+	th:nth-child(6) { width: 10%; }  /* Účel */
+	th:nth-child(7) { width: 6%; }   /* PHM (L) */
+	th:nth-child(8) { width: 6%; }   /* Cena € */
+	th:nth-child(9) { width: 6%; }   /* l/100km */
+	th:nth-child(10) { width: 6%; }  /* Zostatok */
+	th:nth-child(11) { width: 5%; }  /* Iné € */
+	th:nth-child(12) { width: 13%; } /* Akcie */
 
 	tbody tr.empty td {
 		padding: 2rem;
@@ -385,8 +391,10 @@
 	}
 
 	tbody tr.first-record td {
-		padding: 0.5rem;
+		padding: 0.5rem 0.25rem;
 		border-bottom: 1px solid #e0e0e0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	tbody tr.first-record td.purpose {

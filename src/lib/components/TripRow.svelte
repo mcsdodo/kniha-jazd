@@ -37,7 +37,8 @@
 	function handleKmChange(event: Event) {
 		const km = parseFloat((event.target as HTMLInputElement).value) || 0;
 		formData.distance_km = km;
-		if (!manualOdoEdit && previousOdometer > 0) {
+		// Always auto-calculate ODO if not manually edited (previousOdometer can be 0)
+		if (!manualOdoEdit) {
 			formData.odometer = previousOdometer + km;
 		}
 	}
@@ -207,18 +208,15 @@
 
 	input {
 		width: 100%;
-		padding: 0.5rem;
+		padding: 0.375rem;
 		border: 1px solid #ddd;
 		border-radius: 4px;
-		font-size: 0.875rem;
-	}
-
-	input[type='date'] {
-		min-width: 140px;
+		font-size: 0.8rem;
+		box-sizing: border-box;
 	}
 
 	input[type='number'] {
-		min-width: 80px;
+		text-align: right;
 	}
 
 	button {

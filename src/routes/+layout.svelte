@@ -130,9 +130,7 @@
 	main {
 		flex: 1;
 		overflow: auto;
-		padding: 2rem;
-		max-width: 1200px;
-		margin: 0 auto;
+		padding: 1rem 2rem;
 		width: 100%;
 		box-sizing: border-box;
 	}
