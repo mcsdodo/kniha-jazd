@@ -102,9 +102,23 @@ pub fn create_trip(
     fuel_cost: Option<f64>,
     other_costs: Option<f64>,
     other_costs_note: Option<String>,
+    insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Determine sort_order
+    let sort_order = if let Some(position) = insert_at_position {
+        // Shift existing trips down to make room
+        db.shift_trips_from_position(&vehicle_id, position)
+            .map_err(|e| e.to_string())?;
+        position
+    } else {
+        // Insert at top (sort_order = 0), shift all existing down
+        db.shift_trips_from_position(&vehicle_id, 0)
+            .map_err(|e| e.to_string())?;
+        0
+    };
 
     let now = Utc::now();
     let trip = Trip {
@@ -120,7 +134,7 @@ pub fn create_trip(
         fuel_cost_eur: fuel_cost,
         other_costs_eur: other_costs,
         other_costs_note,
-        sort_order: 0,
+        sort_order,
         created_at: now,
         updated_at: now,
     };

@@ -47,9 +47,14 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
-				null
+				null,
+				insertAtSortOrder // Pass insert position if set
 			);
 			showNewRow = false;
+			insertAtSortOrder = null;
+			insertDate = null;
+			// Recalculate ODO for all trips
+			await recalculateAllOdo();
 			onTripsChanged();
 			await loadRoutes(); // Refresh routes after adding trip
 		} catch (error) {

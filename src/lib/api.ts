@@ -60,7 +60,8 @@ export async function createTrip(
 	fuelLiters?: number | null,
 	fuelCostEur?: number | null,
 	otherCostsEur?: number | null,
-	otherCostsNote?: string | null
+	otherCostsNote?: string | null,
+	insertAtPosition?: number | null
 ): Promise<Trip> {
 	return await invoke('create_trip', {
 		vehicleId,
@@ -73,7 +74,8 @@ export async function createTrip(
 		fuelLiters,
 		fuelCostEur,
 		otherCostsEur,
-		otherCostsNote
+		otherCostsNote,
+		insertAtPosition
 	});
 }
 
