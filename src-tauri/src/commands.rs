@@ -1,7 +1,7 @@
 //! Tauri commands to expose Rust functionality to the frontend
 
 use crate::db::Database;
-use crate::models::{Route, Trip, Vehicle};
+use crate::models::{Route, Settings, Trip, Vehicle};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{NaiveDate, Utc};
 use tauri::State;
@@ -171,4 +171,32 @@ pub fn get_compensation_suggestion(
     let suggestion = build_compensation_suggestion(&routes, buffer_km, &current_location, filler_purpose);
 
     Ok(suggestion)
+}
+
+// ============================================================================
+// Settings Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn get_settings(db: State<Database>) -> Result<Option<Settings>, String> {
+    db.get_settings().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_settings(
+    db: State<Database>,
+    company_name: String,
+    company_ico: String,
+    buffer_trip_purpose: String,
+) -> Result<Settings, String> {
+    let settings = Settings {
+        id: Uuid::new_v4(),
+        company_name,
+        company_ico,
+        buffer_trip_purpose,
+        updated_at: Utc::now(),
+    };
+
+    db.save_settings(&settings).map_err(|e| e.to_string())?;
+    Ok(settings)
 }

@@ -1,0 +1,207 @@
+<script lang="ts">
+	import type { Vehicle } from '$lib/types';
+
+	export let vehicle: Vehicle | null = null;
+	export let onSave: (
+		name: string,
+		licensePlate: string,
+		tankSize: number,
+		tpConsumption: number
+	) => void;
+	export let onClose: () => void;
+
+	let name = vehicle?.name || '';
+	let licensePlate = vehicle?.license_plate || '';
+	let tankSize = vehicle?.tank_size_liters || 0;
+	let tpConsumption = vehicle?.tp_consumption || 0;
+
+	function handleSave() {
+		onSave(name, licensePlate, tankSize, tpConsumption);
+	}
+
+	function handleBackgroundClick(event: MouseEvent) {
+		if (event.target === event.currentTarget) {
+			onClose();
+		}
+	}
+</script>
+
+<div class="modal-backdrop" on:click={handleBackgroundClick} role="button" tabindex="-1">
+	<div class="modal-content">
+		<div class="modal-header">
+			<h2>{vehicle ? 'Upraviť vozidlo' : 'Pridať vozidlo'}</h2>
+			<button class="close-button" on:click={onClose}>&times;</button>
+		</div>
+
+		<div class="modal-body">
+			<div class="form-group">
+				<label for="name">Názov vozidla</label>
+				<input type="text" id="name" bind:value={name} placeholder="napr. Škoda Octavia" />
+			</div>
+
+			<div class="form-group">
+				<label for="license-plate">Evidenčné číslo (EČV)</label>
+				<input
+					type="text"
+					id="license-plate"
+					bind:value={licensePlate}
+					placeholder="napr. BA123XY"
+				/>
+			</div>
+
+			<div class="form-group">
+				<label for="tank-size">Objem nádrže (litre)</label>
+				<input
+					type="number"
+					id="tank-size"
+					bind:value={tankSize}
+					step="0.1"
+					min="0"
+					placeholder="napr. 66"
+				/>
+			</div>
+
+			<div class="form-group">
+				<label for="tp-consumption">Spotreba z TP (l/100km)</label>
+				<input
+					type="number"
+					id="tp-consumption"
+					bind:value={tpConsumption}
+					step="0.1"
+					min="0"
+					placeholder="napr. 5.1"
+				/>
+			</div>
+		</div>
+
+		<div class="modal-footer">
+			<button class="button button-secondary" on:click={onClose}>Zrušiť</button>
+			<button class="button button-primary" on:click={handleSave}>Uložiť</button>
+		</div>
+	</div>
+</div>
+
+<style>
+	.modal-backdrop {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal-content {
+		background: white;
+		border-radius: 8px;
+		width: 90%;
+		max-width: 500px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.5rem;
+		border-bottom: 1px solid #e0e0e0;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
+		color: #2c3e50;
+	}
+
+	.close-button {
+		background: none;
+		border: none;
+		font-size: 2rem;
+		color: #7f8c8d;
+		cursor: pointer;
+		padding: 0;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
+	}
+
+	.close-button:hover {
+		color: #2c3e50;
+	}
+
+	.modal-body {
+		padding: 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.form-group label {
+		font-weight: 500;
+		color: #2c3e50;
+		font-size: 0.875rem;
+	}
+
+	.form-group input {
+		padding: 0.75rem;
+		border: 1px solid #d5dbdb;
+		border-radius: 4px;
+		font-size: 1rem;
+		font-family: inherit;
+	}
+
+	.form-group input:focus {
+		outline: none;
+		border-color: #3498db;
+		box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+	}
+
+	.modal-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+		padding: 1.5rem;
+		border-top: 1px solid #e0e0e0;
+	}
+
+	.button {
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 4px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-size: 1rem;
+	}
+
+	.button-secondary {
+		background-color: #ecf0f1;
+		color: #2c3e50;
+	}
+
+	.button-secondary:hover {
+		background-color: #d5dbdb;
+	}
+
+	.button-primary {
+		background-color: #3498db;
+		color: white;
+	}
+
+	.button-primary:hover {
+		background-color: #2980b9;
+	}
+</style>

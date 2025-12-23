@@ -1,4 +1,4 @@
-use crate::models::{Route, Trip, Vehicle};
+use crate::models::{Route, Settings, Trip, Vehicle};
 use rusqlite::{Connection, OptionalExtension, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -520,6 +520,73 @@ impl Database {
 
             Ok(route)
         }
+    }
+
+    // Settings CRUD operations
+
+    /// Get settings from database (returns None if not found)
+    pub fn get_settings(&self) -> Result<Option<Settings>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, company_name, company_ico, buffer_trip_purpose, updated_at
+             FROM settings LIMIT 1",
+        )?;
+
+        let settings = stmt
+            .query_row([], |row| {
+                Ok(Settings {
+                    id: row.get::<_, String>(0)?.parse().unwrap(),
+                    company_name: row.get(1)?,
+                    company_ico: row.get(2)?,
+                    buffer_trip_purpose: row.get(3)?,
+                    updated_at: row.get::<_, String>(4)?.parse().unwrap(),
+                })
+            })
+            .optional()?;
+
+        Ok(settings)
+    }
+
+    /// Save settings (upsert - insert or update)
+    pub fn save_settings(&self, settings: &Settings) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+
+        // Check if settings exist
+        let exists: bool = conn
+            .query_row("SELECT COUNT(*) > 0 FROM settings", [], |row| row.get(0))
+            .unwrap_or(false);
+
+        if exists {
+            // Update existing settings
+            conn.execute(
+                "UPDATE settings
+                 SET company_name = :company_name,
+                     company_ico = :company_ico,
+                     buffer_trip_purpose = :buffer_trip_purpose,
+                     updated_at = :updated_at",
+                rusqlite::named_params! {
+                    ":company_name": settings.company_name,
+                    ":company_ico": settings.company_ico,
+                    ":buffer_trip_purpose": settings.buffer_trip_purpose,
+                    ":updated_at": settings.updated_at.to_rfc3339(),
+                },
+            )?;
+        } else {
+            // Insert new settings
+            conn.execute(
+                "INSERT INTO settings (id, company_name, company_ico, buffer_trip_purpose, updated_at)
+                 VALUES (:id, :company_name, :company_ico, :buffer_trip_purpose, :updated_at)",
+                rusqlite::named_params! {
+                    ":id": settings.id.to_string(),
+                    ":company_name": settings.company_name,
+                    ":company_ico": settings.company_ico,
+                    ":buffer_trip_purpose": settings.buffer_trip_purpose,
+                    ":updated_at": settings.updated_at.to_rfc3339(),
+                },
+            )?;
+        }
+
+        Ok(())
     }
 }
 

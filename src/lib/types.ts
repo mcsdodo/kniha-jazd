@@ -45,3 +45,11 @@ export interface CompensationSuggestion {
 	purpose: string;
 	is_buffer: boolean;
 }
+
+export interface Settings {
+	id: string;
+	company_name: string;
+	company_ico: string;
+	buffer_trip_purpose: string;
+	updated_at: string;
+}

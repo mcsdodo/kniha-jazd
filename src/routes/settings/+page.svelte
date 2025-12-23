@@ -1,5 +1,128 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { vehiclesStore } from '$lib/stores/vehicles';
+	import VehicleModal from '$lib/components/VehicleModal.svelte';
+	import * as api from '$lib/api';
+	import type { Vehicle, Settings } from '$lib/types';
+
+	let showVehicleModal = false;
+	let editingVehicle: Vehicle | null = null;
+
+	// Settings state
+	let settings: Settings | null = null;
+	let companyName = '';
+	let companyIco = '';
+	let bufferTripPurpose = '';
+
+	// Export state
+	let selectedYear = new Date().getFullYear();
+
+	onMount(async () => {
+		// Load settings
+		const loadedSettings = await api.getSettings();
+		if (loadedSettings) {
+			settings = loadedSettings;
+			companyName = loadedSettings.company_name;
+			companyIco = loadedSettings.company_ico;
+			bufferTripPurpose = loadedSettings.buffer_trip_purpose;
+		}
+	});
+
+	function openAddVehicleModal() {
+		editingVehicle = null;
+		showVehicleModal = true;
+	}
+
+	function openEditVehicleModal(vehicle: Vehicle) {
+		editingVehicle = vehicle;
+		showVehicleModal = true;
+	}
+
+	function closeVehicleModal() {
+		showVehicleModal = false;
+		editingVehicle = null;
+	}
+
+	async function handleSaveVehicle(
+		name: string,
+		licensePlate: string,
+		tankSize: number,
+		tpConsumption: number
+	) {
+		try {
+			if (editingVehicle) {
+				// Update existing vehicle
+				const updatedVehicle: Vehicle = {
+					...editingVehicle,
+					name,
+					license_plate: licensePlate,
+					tank_size_liters: tankSize,
+					tp_consumption: tpConsumption,
+					updated_at: new Date().toISOString()
+				};
+				await api.updateVehicle(updatedVehicle);
+			} else {
+				// Create new vehicle
+				await api.createVehicle(name, licensePlate, tankSize, tpConsumption);
+			}
+
+			// Reload vehicles
+			const vehicles = await api.getVehicles();
+			vehiclesStore.set(vehicles);
+
+			closeVehicleModal();
+		} catch (error) {
+			console.error('Failed to save vehicle:', error);
+			alert('Nepodarilo sa uložiť vozidlo: ' + error);
+		}
+	}
+
+	async function handleDeleteVehicle(vehicle: Vehicle) {
+		if (!confirm(`Naozaj chcete odstrániť vozidlo "${vehicle.name}"?`)) {
+			return;
+		}
+
+		try {
+			await api.deleteVehicle(vehicle.id);
+
+			// Reload vehicles
+			const vehicles = await api.getVehicles();
+			vehiclesStore.set(vehicles);
+		} catch (error) {
+			console.error('Failed to delete vehicle:', error);
+			alert('Nepodarilo sa odstrániť vozidlo: ' + error);
+		}
+	}
+
+	async function handleSetActiveVehicle(vehicle: Vehicle) {
+		try {
+			await api.setActiveVehicle(vehicle.id);
+
+			// Reload vehicles
+			const vehicles = await api.getVehicles();
+			vehiclesStore.set(vehicles);
+		} catch (error) {
+			console.error('Failed to set active vehicle:', error);
+			alert('Nepodarilo sa nastaviť aktívne vozidlo: ' + error);
+		}
+	}
+
+	async function handleSaveSettings() {
+		try {
+			const savedSettings = await api.saveSettings(companyName, companyIco, bufferTripPurpose);
+			settings = savedSettings;
+			alert('Nastavenia boli úspešne uložené');
+		} catch (error) {
+			console.error('Failed to save settings:', error);
+			alert('Nepodarilo sa uložiť nastavenia: ' + error);
+		}
+	}
+
+	function handleExportPDF() {
+		alert(
+			`Export do PDF pre rok ${selectedYear} bude implementovaný v ďalšej fáze.\n\nTáto funkcia vyexportuje všetky jazdy za zvolený rok do PDF súboru v súlade so slovenskou legislatívou.`
+		);
+	}
 </script>
 
 <div class="settings-page">
@@ -9,6 +132,7 @@
 	</div>
 
 	<div class="sections">
+		<!-- Vehicles Section -->
 		<section class="settings-section">
 			<h2>Vozidlá</h2>
 			<div class="section-content">
@@ -27,8 +151,20 @@
 									{/if}
 								</div>
 								<div class="vehicle-actions">
-									<button class="button-small">Upraviť</button>
-									<button class="button-small danger">Odstrániť</button>
+									<button class="button-small" on:click={() => openEditVehicleModal(vehicle)}>
+										Upraviť
+									</button>
+									{#if !vehicle.is_active}
+										<button
+											class="button-small primary"
+											on:click={() => handleSetActiveVehicle(vehicle)}
+										>
+											Nastaviť ako aktívne
+										</button>
+									{/if}
+									<button class="button-small danger" on:click={() => handleDeleteVehicle(vehicle)}>
+										Odstrániť
+									</button>
 								</div>
 							</div>
 						{/each}
@@ -36,21 +172,73 @@
 				{:else}
 					<p class="placeholder">Žiadne vozidlá. Vytvorte prvé vozidlo.</p>
 				{/if}
-				<button class="button">+ Pridať vozidlo</button>
+				<button class="button" on:click={openAddVehicleModal}>+ Pridať vozidlo</button>
 			</div>
 		</section>
 
+		<!-- Company Settings Section -->
 		<section class="settings-section">
 			<h2>Nastavenia spoločnosti</h2>
 			<div class="section-content">
-				<p class="placeholder">
-					Nastavenia spoločnosti (názov, IČO, účel vyrovnávacích jázd) budú implementované v
-					ďalšej fáze.
+				<div class="form-group">
+					<label for="company-name">Názov spoločnosti</label>
+					<input
+						type="text"
+						id="company-name"
+						bind:value={companyName}
+						placeholder="napr. Moja firma s.r.o."
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="company-ico">IČO</label>
+					<input type="text" id="company-ico" bind:value={companyIco} placeholder="napr. 12345678" />
+				</div>
+
+				<div class="form-group">
+					<label for="filler-purpose">Účel kompenzačnej jazdy</label>
+					<input
+						type="text"
+						id="filler-purpose"
+						bind:value={bufferTripPurpose}
+						placeholder="napr. testovanie"
+					/>
+					<small class="hint">
+						Tento účel sa použije pri generovaní kompenzačných jázd na dodržanie 20% limitu.
+					</small>
+				</div>
+
+				<button class="button" on:click={handleSaveSettings}>Uložiť nastavenia</button>
+			</div>
+		</section>
+
+		<!-- Export Section -->
+		<section class="settings-section">
+			<h2>Export</h2>
+			<div class="section-content">
+				<div class="form-group">
+					<label for="export-year">Rok pre export</label>
+					<select id="export-year" bind:value={selectedYear}>
+						{#each Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i) as year}
+							<option value={year}>{year}</option>
+						{/each}
+					</select>
+				</div>
+
+				<button class="button" on:click={handleExportPDF}>Exportovať PDF</button>
+
+				<p class="hint">
+					Export vytvorí PDF súbor so všetkými jazdami za zvolený rok v súlade so slovenskou
+					legislatívou.
 				</p>
 			</div>
 		</section>
 	</div>
 </div>
+
+{#if showVehicleModal}
+	<VehicleModal vehicle={editingVehicle} onSave={handleSaveVehicle} onClose={closeVehicleModal} />
+{/if}
 
 <style>
 	.settings-page {
@@ -157,6 +345,42 @@
 	.vehicle-actions {
 		display: flex;
 		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.form-group label {
+		font-weight: 500;
+		color: #2c3e50;
+		font-size: 0.875rem;
+	}
+
+	.form-group input,
+	.form-group select {
+		padding: 0.75rem;
+		border: 1px solid #d5dbdb;
+		border-radius: 4px;
+		font-size: 1rem;
+		font-family: inherit;
+	}
+
+	.form-group input:focus,
+	.form-group select:focus {
+		outline: none;
+		border-color: #3498db;
+		box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+	}
+
+	.hint {
+		font-size: 0.75rem;
+		color: #7f8c8d;
+		font-style: italic;
+		margin: 0;
 	}
 
 	.placeholder {
@@ -174,6 +398,7 @@
 		font-weight: 500;
 		cursor: pointer;
 		transition: background-color 0.2s;
+		font-size: 1rem;
 	}
 
 	.button:hover {
@@ -193,6 +418,15 @@
 
 	.button-small:hover {
 		background-color: #d5dbdb;
+	}
+
+	.button-small.primary {
+		background-color: #d4edda;
+		color: #155724;
+	}
+
+	.button-small.primary:hover {
+		background-color: #c3e6cb;
 	}
 
 	.button-small.danger {
