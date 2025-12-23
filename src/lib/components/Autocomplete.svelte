@@ -48,11 +48,13 @@
 				break;
 			case 'Enter':
 				event.preventDefault();
+				event.stopPropagation(); // Don't trigger row save
 				if (selectedIndex >= 0 && selectedIndex < filteredSuggestions.length) {
 					selectSuggestion(filteredSuggestions[selectedIndex]);
 				}
 				break;
 			case 'Escape':
+				event.stopPropagation(); // Don't trigger row cancel
 				showDropdown = false;
 				break;
 		}
