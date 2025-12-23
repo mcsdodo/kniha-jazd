@@ -49,6 +49,53 @@ pub fn is_within_legal_limit(margin_percent: f64) -> bool {
     margin_percent <= LEGAL_LIMIT + EPSILON
 }
 
+/// Calculate buffer km needed to reach target margin
+/// When consumption is over the target margin, this calculates how many additional
+/// kilometers are needed to bring the consumption rate down to the target.
+///
+/// # Arguments
+/// * `liters_filled` - Liters filled at the fill-up
+/// * `km_driven` - Kilometers driven since last fill-up
+/// * `tp_rate` - Technical passport consumption rate (l/100km)
+/// * `target_margin` - Target margin as decimal (e.g., 0.18 for 18%)
+///
+/// # Returns
+/// * Positive number: additional km needed to reach target margin
+/// * 0.0: if already under target or tp_rate is 0
+///
+/// # Formula
+/// 1. target_rate = tp_rate * (1.0 + target_margin)
+/// 2. required_km = (liters_filled * 100.0) / target_rate
+/// 3. buffer_km = required_km - km_driven
+/// 4. Return 0.0 if result is negative (already under target)
+pub fn calculate_buffer_km(
+    liters_filled: f64,
+    km_driven: f64,
+    tp_rate: f64,
+    target_margin: f64,
+) -> f64 {
+    // Handle edge case: tp_rate is 0
+    if tp_rate <= 0.0 {
+        return 0.0;
+    }
+
+    // Calculate target consumption rate at the desired margin
+    let target_rate = tp_rate * (1.0 + target_margin);
+
+    // Calculate required km to achieve target rate
+    let required_km = (liters_filled * 100.0) / target_rate;
+
+    // Calculate buffer (additional km needed)
+    let buffer_km = required_km - km_driven;
+
+    // Return 0.0 if already under target (negative buffer)
+    if buffer_km < 0.0 {
+        0.0
+    } else {
+        buffer_km
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,5 +207,42 @@ mod tests {
         // Edge case: tp_rate = 0 should return 0.0
         let margin = calculate_margin_percent(6.0, 0.0);
         assert_eq!(margin, 0.0);
+    }
+
+    #[test]
+    fn test_buffer_km_over_margin() {
+        // 65.49L filled, 820km driven, TP=5.1, target=18%
+        // Target rate = 5.1 * 1.18 = 6.018
+        // Required km = 65.49 * 100 / 6.018 = 1088.29
+        // Buffer = 1088.29 - 820 = 268.29 km
+        let buffer = calculate_buffer_km(65.49, 820.0, 5.1, 0.18);
+        assert!((buffer - 268.29).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_buffer_km_already_under_target() {
+        // 50L filled, 1000km driven, TP=5.1, target=18%
+        // Target rate = 5.1 * 1.18 = 6.018
+        // Required km = 50 * 100 / 6.018 = 830.93
+        // Buffer = 830.93 - 1000 = -169.07 km (negative, so return 0.0)
+        let buffer = calculate_buffer_km(50.0, 1000.0, 5.1, 0.18);
+        assert_eq!(buffer, 0.0);
+    }
+
+    #[test]
+    fn test_buffer_km_zero_tp_rate() {
+        // Edge case: tp_rate = 0 should return 0.0
+        let buffer = calculate_buffer_km(50.0, 800.0, 0.0, 0.18);
+        assert_eq!(buffer, 0.0);
+    }
+
+    #[test]
+    fn test_buffer_km_example_case() {
+        // Example from task: 50L filled, 800km driven, TP=5.1, target=18%
+        // Target rate = 5.1 * 1.18 = 6.018
+        // Required km = 50 * 100 / 6.018 = 830.93
+        // Buffer = 830.93 - 800 = 30.93 km
+        let buffer = calculate_buffer_km(50.0, 800.0, 5.1, 0.18);
+        assert!((buffer - 30.93).abs() < 1.0);
     }
 }
