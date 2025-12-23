@@ -186,6 +186,30 @@ pub fn delete_trip(db: State<Database>, id: String) -> Result<(), String> {
     db.delete_trip(&id).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn reorder_trip(
+    db: State<Database>,
+    trip_id: String,
+    new_sort_order: i32,
+    new_date: String,
+) -> Result<Vec<Trip>, String> {
+    let parsed_date = NaiveDate::parse_from_str(&new_date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Get the trip to find its vehicle_id
+    let trip = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Trip not found")?;
+
+    // Reorder trips in database
+    db.reorder_trip(&trip_id, new_sort_order, parsed_date)
+        .map_err(|e| e.to_string())?;
+
+    // Return updated trip list
+    db.get_trips_for_vehicle(&trip.vehicle_id.to_string())
+        .map_err(|e| e.to_string())
+}
+
 // ============================================================================
 // Route Commands
 // ============================================================================

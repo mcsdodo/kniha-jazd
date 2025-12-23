@@ -376,6 +376,63 @@ impl Database {
         Ok(())
     }
 
+    /// Reorder a trip to a new position, adjusting other trips' sort_order
+    pub fn reorder_trip(
+        &self,
+        trip_id: &str,
+        new_sort_order: i32,
+        new_date: chrono::NaiveDate,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+
+        // Get current trip info
+        let (vehicle_id, old_sort_order): (String, i32) = conn.query_row(
+            "SELECT vehicle_id, sort_order FROM trips WHERE id = ?1",
+            [trip_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        if old_sort_order < new_sort_order {
+            // Moving down: decrement sort_order for trips between old and new position
+            conn.execute(
+                "UPDATE trips SET sort_order = sort_order - 1
+                 WHERE vehicle_id = ?1 AND sort_order > ?2 AND sort_order <= ?3",
+                rusqlite::params![vehicle_id, old_sort_order, new_sort_order],
+            )?;
+        } else if old_sort_order > new_sort_order {
+            // Moving up: increment sort_order for trips between new and old position
+            conn.execute(
+                "UPDATE trips SET sort_order = sort_order + 1
+                 WHERE vehicle_id = ?1 AND sort_order >= ?2 AND sort_order < ?3",
+                rusqlite::params![vehicle_id, new_sort_order, old_sort_order],
+            )?;
+        }
+
+        // Update the moved trip
+        conn.execute(
+            "UPDATE trips SET sort_order = ?1, date = ?2, updated_at = ?3 WHERE id = ?4",
+            rusqlite::params![
+                new_sort_order,
+                new_date.to_string(),
+                chrono::Utc::now().to_rfc3339(),
+                trip_id
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    /// Shift all trips at or after a position down by 1 (for insertion)
+    pub fn shift_trips_from_position(&self, vehicle_id: &str, from_position: i32) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE trips SET sort_order = sort_order + 1
+             WHERE vehicle_id = ?1 AND sort_order >= ?2",
+            rusqlite::params![vehicle_id, from_position],
+        )?;
+        Ok(())
+    }
+
     // Route CRUD operations
 
     /// Create a new route in the database
