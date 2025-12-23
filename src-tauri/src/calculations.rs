@@ -29,6 +29,26 @@ pub fn calculate_zostatok(
     new_zostatok.min(tank_size).max(0.0)
 }
 
+/// Calculate margin percentage vs TP consumption
+/// Formula: (consumption_rate / tp_rate - 1.0) * 100.0
+/// Returns percentage over the TP (technical passport) rate
+/// Returns 0.0 if tp_rate <= 0.0 to handle edge case
+pub fn calculate_margin_percent(consumption_rate: f64, tp_rate: f64) -> f64 {
+    if tp_rate <= 0.0 {
+        return 0.0;
+    }
+    (consumption_rate / tp_rate - 1.0) * 100.0
+}
+
+/// Check if consumption is within legal limit (max 20% over TP)
+/// Returns true if margin_percent <= 20.0
+/// Uses small epsilon (0.001) to handle floating point precision issues
+pub fn is_within_legal_limit(margin_percent: f64) -> bool {
+    const LEGAL_LIMIT: f64 = 20.0;
+    const EPSILON: f64 = 0.001;
+    margin_percent <= LEGAL_LIMIT + EPSILON
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,5 +121,44 @@ mod tests {
         // Start with 5L, use 4.5L = 0.5L remaining
         let zostatok = calculate_zostatok(5.0, 4.5, None, 66.0);
         assert!((zostatok - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_margin_under_limit() {
+        // 6.0 / 5.1 = 17.647% over TP rate
+        let margin = calculate_margin_percent(6.0, 5.1);
+        assert!((margin - 17.647).abs() < 0.1);
+        assert!(is_within_legal_limit(margin));
+    }
+
+    #[test]
+    fn test_margin_at_limit() {
+        // 6.12 / 5.1 = exactly 20%
+        let margin = calculate_margin_percent(6.12, 5.1);
+        assert!((margin - 20.0).abs() < 0.1);
+        assert!(is_within_legal_limit(margin));
+    }
+
+    #[test]
+    fn test_margin_over_limit() {
+        // 6.5 / 5.1 = 27.45% over TP rate
+        let margin = calculate_margin_percent(6.5, 5.1);
+        assert!((margin - 27.45).abs() < 0.1);
+        assert!(!is_within_legal_limit(margin));
+    }
+
+    #[test]
+    fn test_margin_under_tp() {
+        // 4.5 / 5.1 = -11.76% (better than TP)
+        let margin = calculate_margin_percent(4.5, 5.1);
+        assert!(margin < 0.0);
+        assert!(is_within_legal_limit(margin));
+    }
+
+    #[test]
+    fn test_margin_zero_tp_rate() {
+        // Edge case: tp_rate = 0 should return 0.0
+        let margin = calculate_margin_percent(6.0, 0.0);
+        assert_eq!(margin, 0.0);
     }
 }
