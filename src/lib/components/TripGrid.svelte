@@ -136,6 +136,38 @@
 
 	// Get the last ODO value (from the most recent trip)
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : 0;
+
+	// Calculate "Použitá spotreba" for each trip
+	// This is the consumption rate from the last fill-up, carried forward
+	$: consumptionRates = calculateConsumptionRates(trips);
+
+	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
+		const rates = new Map<string, number>();
+
+		// Sort chronologically (oldest first)
+		const chronological = [...tripList].sort(
+			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+		);
+
+		let currentRate = 0;
+		let kmSinceLastFillup = 0;
+
+		for (const trip of chronological) {
+			// If this trip has a fill-up, calculate new rate
+			if (trip.fuel_liters && trip.fuel_liters > 0 && kmSinceLastFillup > 0) {
+				currentRate = (trip.fuel_liters / kmSinceLastFillup) * 100;
+				kmSinceLastFillup = 0; // Reset for next period
+			}
+
+			// Store the rate for this trip
+			rates.set(trip.id, currentRate);
+
+			// Accumulate km for next fill-up calculation
+			kmSinceLastFillup += trip.distance_km;
+		}
+
+		return rates;
+	}
 </script>
 
 <div class="trip-grid">
@@ -158,6 +190,7 @@
 					<th>Účel</th>
 					<th>PHM (L)</th>
 					<th>Cena €</th>
+					<th>Spotreba</th>
 					<th>Iné €</th>
 					<th>Akcie</th>
 				</tr>
@@ -169,6 +202,7 @@
 						{routes}
 						isNew={true}
 						previousOdometer={lastOdometer}
+						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || 0 : 0}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
@@ -180,6 +214,7 @@
 						{routes}
 						isNew={false}
 						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : 0}
+						consumptionRate={consumptionRates.get(trip.id) || 0}
 						onSave={(data) => handleUpdate(trip, data)}
 						onCancel={() => {}}
 						onDelete={handleDelete}
@@ -187,7 +222,7 @@
 				{/each}
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="10">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
+						<td colspan="11">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
 			</tbody>

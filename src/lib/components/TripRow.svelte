@@ -6,6 +6,7 @@
 	export let routes: Route[] = [];
 	export let isNew: boolean = false;
 	export let previousOdometer: number = 0;
+	export let consumptionRate: number = 0;
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
@@ -129,6 +130,9 @@
 				placeholder="0.00"
 			/>
 		</td>
+		<td class="number calculated">
+			{consumptionRate > 0 ? consumptionRate.toFixed(2) : '-'}
+		</td>
 		<td>
 			<input
 				type="number"
@@ -153,6 +157,7 @@
 		<td>{trip.purpose}</td>
 		<td class="number">{trip.fuel_liters?.toFixed(2) || ''}</td>
 		<td class="number">{trip.fuel_cost_eur?.toFixed(2) || ''}</td>
+		<td class="number calculated">{consumptionRate > 0 ? consumptionRate.toFixed(2) : '-'}</td>
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
 		<td class="actions">
 			<button class="delete" on:click|stopPropagation={handleDeleteClick}>Odstrániť</button>
@@ -183,6 +188,11 @@
 
 	td.number {
 		text-align: right;
+	}
+
+	td.calculated {
+		color: #7f8c8d;
+		font-style: italic;
 	}
 
 	td.actions {
