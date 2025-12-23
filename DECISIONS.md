@@ -22,6 +22,16 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+### BIZ-008: ODO Auto-Calculation
+
+**Context:** Manual ODO entry is error-prone and redundant since ODO = previous ODO + km driven.
+
+**Decision:** Auto-calculate ODO when km is entered: `ODO = previousODO + km`. User can still manually override.
+
+**Reasoning:** Reduces data entry errors, matches Excel workflow where this was a formula.
+
+---
+
 ## 2024-12-23: Business Logic Decisions
 
 ### BIZ-007: Fill-up Detection

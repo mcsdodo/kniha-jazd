@@ -21,7 +21,7 @@ export async function createVehicle(
 	return await invoke('create_vehicle', {
 		name,
 		licensePlate: license_plate,
-		tankSizeLiters: tank_size_liters,
+		tankSize: tank_size_liters,
 		tpConsumption: tp_consumption
 	});
 }

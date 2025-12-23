@@ -5,11 +5,13 @@
 	export let trip: Trip | null = null;
 	export let routes: Route[] = [];
 	export let isNew: boolean = false;
+	export let previousOdometer: number = 0;
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
 
 	let isEditing = isNew;
+	let manualOdoEdit = false; // Track if user manually edited ODO
 
 	// Form state
 	let formData = {
@@ -28,6 +30,20 @@
 	$: locationSuggestions = Array.from(
 		new Set([...routes.map((r) => r.origin), ...routes.map((r) => r.destination)])
 	).sort();
+
+	// Auto-update ODO when km changes (unless user manually edited ODO)
+	function handleKmChange(event: Event) {
+		const km = parseFloat((event.target as HTMLInputElement).value) || 0;
+		formData.distance_km = km;
+		if (!manualOdoEdit && previousOdometer > 0) {
+			formData.odometer = previousOdometer + km;
+		}
+	}
+
+	function handleOdoChange(event: Event) {
+		manualOdoEdit = true;
+		formData.odometer = parseFloat((event.target as HTMLInputElement).value) || 0;
+	}
 
 	function handleEdit() {
 		isEditing = true;
@@ -87,10 +103,10 @@
 			/>
 		</td>
 		<td>
-			<input type="number" bind:value={formData.distance_km} step="0.1" min="0" />
+			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="0.1" min="0" />
 		</td>
 		<td>
-			<input type="number" bind:value={formData.odometer} step="0.1" min="0" />
+			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="0.1" min="0" />
 		</td>
 		<td>
 			<input type="text" bind:value={formData.purpose} placeholder="Účel" />

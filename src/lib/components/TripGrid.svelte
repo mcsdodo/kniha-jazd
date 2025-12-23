@@ -92,6 +92,9 @@
 	$: sortedTrips = [...trips].sort(
 		(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
 	);
+
+	// Get the last ODO value (from the most recent trip)
+	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : 0;
 </script>
 
 <div class="trip-grid">
@@ -124,16 +127,18 @@
 						trip={null}
 						{routes}
 						isNew={true}
+						previousOdometer={lastOdometer}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
 					/>
 				{/if}
-				{#each sortedTrips as trip (trip.id)}
+				{#each sortedTrips as trip, index (trip.id)}
 					<TripRow
 						{trip}
 						{routes}
 						isNew={false}
+						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : 0}
 						onSave={(data) => handleUpdate(trip, data)}
 						onCancel={() => {}}
 						onDelete={handleDelete}
