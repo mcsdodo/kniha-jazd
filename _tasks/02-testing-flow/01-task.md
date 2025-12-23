@@ -7,7 +7,4 @@ I fill the excel as follows:
 l/100km, zostatok are calculated automatically.
 
 
-The first entry is always artificial. This app should have it too. It is populated with (only values mentioned, all the rest is '-' and non-editable):
-1. purpose: "Prvy zaznam"
-2. l/100km: value from TP
-3. zostatok: value from TP
+I need you tu run a test-run to get the values from excel, fill in the APP, verify if the calculations match what's in the excel and report back any discrepancies.

@@ -120,6 +120,7 @@
 					vehicleId={$activeVehicleStore.id}
 					{trips}
 					tankSize={$activeVehicleStore.tank_size_liters}
+					tpConsumption={$activeVehicleStore.tp_consumption}
 					onTripsChanged={handleTripsChanged}
 				/>
 			{/if}

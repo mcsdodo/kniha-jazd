@@ -7,6 +7,7 @@
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
 	export let onTripsChanged: () => void;
+	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
 
 	let routes: Route[] = [];
 	let showNewRow = false;
@@ -154,7 +155,8 @@
 			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
 		);
 
-		let currentRate = 0;
+		// Start with TP consumption rate (from "Prvý záznam")
+		let currentRate = tpConsumption;
 		let kmSinceLastFillup = 0;
 
 		for (const trip of chronological) {
@@ -182,7 +184,8 @@
 			(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
 		);
 
-		let zostatok = 0; // Start with empty tank (or could be initial value)
+		// Start with full tank (from "Prvý záznam")
+		let zostatok = tankSize;
 
 		for (const trip of chronological) {
 			const rate = rates.get(trip.id) || 0;
@@ -267,6 +270,20 @@
 						<td colspan="11">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
+				<!-- Synthetic "Prvý záznam" row - starting values -->
+				<tr class="first-record">
+					<td>-</td>
+					<td>-</td>
+					<td>-</td>
+					<td>-</td>
+					<td>-</td>
+					<td class="purpose">Prvý záznam</td>
+					<td>-</td>
+					<td>-</td>
+					<td class="number">{tankSize.toFixed(1)}</td>
+					<td>-</td>
+					<td></td>
+				</tr>
 			</tbody>
 		</table>
 	</div>
@@ -343,5 +360,27 @@
 		text-align: center;
 		color: #7f8c8d;
 		font-style: italic;
+	}
+
+	tbody tr.first-record {
+		background-color: #f5f5f5;
+		color: #7f8c8d;
+		font-style: italic;
+	}
+
+	tbody tr.first-record td {
+		padding: 0.5rem;
+		border-bottom: 1px solid #e0e0e0;
+	}
+
+	tbody tr.first-record td.purpose {
+		font-weight: 500;
+		color: #2c3e50;
+	}
+
+	tbody tr.first-record td.number {
+		text-align: right;
+		font-style: normal;
+		color: #2c3e50;
 	}
 </style>
