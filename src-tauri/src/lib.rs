@@ -1,9 +1,12 @@
 mod calculations;
+mod commands;
 mod db;
 mod error;
 mod export;
 mod models;
 mod suggestions;
+
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,8 +19,33 @@ pub fn run() {
             .build(),
         )?;
       }
+
+      // Initialize database
+      let app_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+      std::fs::create_dir_all(&app_dir).expect("Failed to create app data directory");
+      let db_path = app_dir.join("kniha-jazd.db");
+      let db = db::Database::new(db_path).expect("Failed to initialize database");
+
+      // Manage database state
+      app.manage(db);
+
       Ok(())
     })
+    .invoke_handler(tauri::generate_handler![
+      commands::get_vehicles,
+      commands::get_active_vehicle,
+      commands::create_vehicle,
+      commands::update_vehicle,
+      commands::delete_vehicle,
+      commands::set_active_vehicle,
+      commands::get_trips,
+      commands::get_trips_for_year,
+      commands::create_trip,
+      commands::update_trip,
+      commands::delete_trip,
+      commands::get_routes,
+      commands::get_compensation_suggestion,
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

@@ -4,12 +4,13 @@ use crate::models::Route;
 use rand::Rng;
 
 /// Represents a suggested compensation trip to adjust fuel consumption
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CompensationSuggestion {
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
     pub purpose: String,
+    pub is_buffer: bool,
 }
 
 /// Generate random target margin between 16-19%
@@ -64,6 +65,7 @@ pub fn build_compensation_suggestion(
             destination: route.destination.clone(),
             distance_km: route.distance_km,
             purpose,
+            is_buffer: false,
         };
     }
 
@@ -73,6 +75,7 @@ pub fn build_compensation_suggestion(
         destination: current_location.to_string(),
         distance_km: buffer_km,
         purpose: filler_purpose.to_string(),
+        is_buffer: true,
     }
 }
 
