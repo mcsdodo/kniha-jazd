@@ -55,6 +55,12 @@ impl Database {
             ) WHERE sort_order = 0",
         );
 
+        // Rename filler_trip_purpose to buffer_trip_purpose (ignore if already renamed)
+        let _ = conn.execute(
+            "ALTER TABLE settings RENAME COLUMN filler_trip_purpose TO buffer_trip_purpose",
+            [],
+        );
+
         Ok(())
     }
 
