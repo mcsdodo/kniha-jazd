@@ -367,7 +367,7 @@
 
 {#if restoreConfirmation}
 	<div class="modal-overlay" on:click={cancelRestore} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && cancelRestore()}>
-		<div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
+		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
 			<h2>Potvrdiť obnovenie</h2>
 			<div class="modal-content">
 				<p><strong>Dátum zálohy:</strong> {formatBackupDate(restoreConfirmation.created_at)}</p>
