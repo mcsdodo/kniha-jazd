@@ -3,6 +3,7 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import * as api from '$lib/api';
+	import { getYearsWithTrips } from '$lib/api';
 	import type { Vehicle, Settings, BackupInfo } from '$lib/types';
 
 	let showVehicleModal = false;
@@ -16,6 +17,24 @@
 
 	// Export state
 	let selectedYear = new Date().getFullYear();
+	let exportYears: number[] = [];
+
+	async function loadExportYears() {
+		if (!$activeVehicleStore) {
+			exportYears = [];
+			return;
+		}
+		try {
+			exportYears = await getYearsWithTrips($activeVehicleStore.id);
+			// Set default to most recent year with data
+			if (exportYears.length > 0 && !exportYears.includes(selectedYear)) {
+				selectedYear = exportYears[0];
+			}
+		} catch (error) {
+			console.error('Failed to load export years:', error);
+			exportYears = [];
+		}
+	}
 
 	// Backup state
 	let backups: BackupInfo[] = [];
@@ -33,9 +52,17 @@
 			bufferTripPurpose = loadedSettings.buffer_trip_purpose;
 		}
 
+		// Load export years
+		await loadExportYears();
+
 		// Load backups
 		await loadBackups();
 	});
+
+	// Reload export years when active vehicle changes
+	$: if ($activeVehicleStore) {
+		loadExportYears();
+	}
 
 	function openAddVehicleModal() {
 		editingVehicle = null;
@@ -312,14 +339,20 @@
 			<div class="section-content">
 				<div class="form-group">
 					<label for="export-year">Rok pre export</label>
-					<select id="export-year" bind:value={selectedYear}>
-						{#each Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i) as year}
-							<option value={year}>{year}</option>
-						{/each}
-					</select>
+					{#if exportYears.length > 0}
+						<select id="export-year" bind:value={selectedYear}>
+							{#each exportYears as year}
+								<option value={year}>{year}</option>
+							{/each}
+						</select>
+					{:else}
+						<p class="no-data">Žiadne dáta na export</p>
+					{/if}
 				</div>
 
-				<button class="button" on:click={handleExportPDF}>Exportovať PDF</button>
+				{#if exportYears.length > 0}
+					<button class="button" on:click={handleExportPDF}>Exportovať PDF</button>
+				{/if}
 
 				<p class="hint">
 					Export vytvorí PDF súbor so všetkými jazdami za zvolený rok v súlade so slovenskou
@@ -519,6 +552,12 @@
 	}
 
 	.placeholder {
+		color: #7f8c8d;
+		font-style: italic;
+		margin: 0;
+	}
+
+	.no-data {
 		color: #7f8c8d;
 		font-style: italic;
 		margin: 0;
