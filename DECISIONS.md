@@ -22,6 +22,23 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2025-12-25: Year Picker
+
+### ADR-009: Year-Scoped Vehicle Logbook
+
+**Context:** Each year is a standalone "kniha jázd" for legal purposes.
+
+**Decision:**
+- Year picker in header next to vehicle dropdown
+- Stats and trips scoped to selected year
+- App starts on current calendar year
+- Export only shows years with actual data
+- ODO carries over from previous year, zostatok starts fresh (full tank assumption)
+
+**Reasoning:** Slovak legal requirements treat each year as independent logbook. Fresh zostatok per year simplifies accounting.
+
+---
+
 ## 2025-12-25: Architecture Refactor
 
 ### ADR-008: Remove Frontend Calculation Duplication
