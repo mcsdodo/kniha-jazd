@@ -49,8 +49,12 @@ export async function getTripsForYear(vehicleId: string, year: number): Promise<
 	return await invoke('get_trips_for_year', { vehicleId, year });
 }
 
-export async function getTripGridData(vehicleId: string): Promise<TripGridData> {
-	return await invoke('get_trip_grid_data', { vehicleId });
+export async function getYearsWithTrips(vehicleId: string): Promise<number[]> {
+	return await invoke('get_years_with_trips', { vehicleId });
+}
+
+export async function getTripGridData(vehicleId: string, year: number): Promise<TripGridData> {
+	return await invoke('get_trip_grid_data', { vehicleId, year });
 }
 
 export async function createTrip(
@@ -161,8 +165,8 @@ export async function saveSettings(
 }
 
 // Trip statistics
-export async function calculateTripStats(vehicleId: string): Promise<TripStats> {
-	return await invoke('calculate_trip_stats', { vehicleId });
+export async function calculateTripStats(vehicleId: string, year: number): Promise<TripStats> {
+	return await invoke('calculate_trip_stats', { vehicleId, year });
 }
 
 // Backup commands
