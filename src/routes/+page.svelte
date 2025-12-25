@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTrips, calculateTripStats } from '$lib/api';
+	import { getTripsForYear, calculateTripStats } from '$lib/api';
 	import type { Trip, TripStats } from '$lib/types';
 	import { onMount } from 'svelte';
 
@@ -30,8 +31,8 @@
 			if (isInitial) {
 				initialLoading = true;
 			}
-			trips = await getTrips($activeVehicleStore.id);
-			stats = await calculateTripStats($activeVehicleStore.id);
+			trips = await getTripsForYear($activeVehicleStore.id, $selectedYearStore);
+			stats = await calculateTripStats($activeVehicleStore.id, $selectedYearStore);
 
 			// Calculate buffer km if over limit
 			if (stats.is_over_limit && stats.margin_percent !== null) {
@@ -62,8 +63,8 @@
 		await loadTrips(false);
 	}
 
-	// Reload trips when active vehicle changes (initial load for new vehicle)
-	$: if ($activeVehicleStore) {
+	// Reload trips when active vehicle or selected year changes
+	$: if ($activeVehicleStore && $selectedYearStore) {
 		loadTrips(true);
 	}
 </script>
