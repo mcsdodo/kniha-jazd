@@ -76,6 +76,12 @@ kniha-jazd/
 3. **Zostatok:** Fuel remaining = previous - (km × rate/100) + refueled
 4. **Compensation:** When over margin, suggest trips to bring it down to 16-19%
 
+## Database Location
+
+- **Windows:** `%APPDATA%\com.tauri.dev\kniha-jazd.db`
+  - Example: `C:\Users\<username>\AppData\Roaming\com.tauri.dev\kniha-jazd.db`
+- **Backups:** `%APPDATA%\com.tauri.dev\backups\`
+
 ## Common Commands
 
 ```bash

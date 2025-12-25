@@ -17,8 +17,25 @@
 	let insertAtSortOrder: number | null = null;
 	let insertDate: string | null = null;
 
-	// Disable reorder buttons when editing or adding new row
-	$: reorderDisabled = showNewRow || editingTripId !== null;
+	// Sorting state
+	type SortColumn = 'manual' | 'date';
+	type SortDirection = 'asc' | 'desc';
+	let sortColumn: SortColumn = 'manual';
+	let sortDirection: SortDirection = 'desc'; // desc = newest first for date
+
+	function toggleSort(column: SortColumn) {
+		if (sortColumn === column) {
+			// Toggle direction
+			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+		} else {
+			// Switch column, default direction
+			sortColumn = column;
+			sortDirection = column === 'date' ? 'desc' : 'asc';
+		}
+	}
+
+	// Disable reorder buttons when editing, adding new row, or not in manual sort mode
+	$: reorderDisabled = showNewRow || editingTripId !== null || sortColumn !== 'manual';
 
 	onMount(async () => {
 		await loadRoutes();
@@ -186,8 +203,21 @@
 		}
 	}
 
-	// Sort trips by sort_order ascending (0 = top/newest)
-	$: sortedTrips = [...trips].sort((a, b) => a.sort_order - b.sort_order);
+	// Manual order (for warnings calculation - always by sort_order)
+	$: manualOrderTrips = [...trips].sort((a, b) => a.sort_order - b.sort_order);
+
+	// Display order (based on current sort settings)
+	$: sortedTrips = [...trips].sort((a, b) => {
+		if (sortColumn === 'manual') {
+			return a.sort_order - b.sort_order;
+		} else if (sortColumn === 'date') {
+			const dateA = new Date(a.date).getTime();
+			const dateB = new Date(b.date).getTime();
+			const diff = dateA - dateB;
+			return sortDirection === 'asc' ? diff : -diff;
+		}
+		return 0;
+	});
 
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
@@ -206,11 +236,11 @@
 	// Calculate remaining fuel for each trip
 	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates);
 
-	// Check if date is out of order (light red highlight)
-	$: dateWarnings = calculateDateWarnings(sortedTrips);
+	// Check if date is out of order in MANUAL order (light red highlight)
+	$: dateWarnings = calculateDateWarnings(manualOrderTrips);
 
 	// Check if consumption is over limit (light orange highlight)
-	$: consumptionWarnings = calculateConsumptionWarnings(sortedTrips, consumptionRates);
+	$: consumptionWarnings = calculateConsumptionWarnings(manualOrderTrips, consumptionRates);
 
 	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
 		const rates = new Map<string, number>();
@@ -325,7 +355,12 @@
 		<table>
 			<thead>
 				<tr>
-					<th>Dátum</th>
+					<th class="sortable" on:click={() => toggleSort('date')}>
+						Dátum
+						{#if sortColumn === 'date'}
+							<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
 					<th>Odkiaľ</th>
 					<th>Kam</th>
 					<th>Km</th>
@@ -337,7 +372,12 @@
 					<th>Zostatok</th>
 					<th>Iné €</th>
 					<th>Iné pozn.</th>
-					<th>Akcie</th>
+					<th class="sortable" on:click={() => toggleSort('manual')}>
+						Akcie
+						{#if sortColumn === 'manual'}
+							<span class="sort-indicator">⋮</span>
+						{/if}
+					</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -488,6 +528,22 @@
 		border-bottom: 2px solid #e0e0e0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	th.sortable {
+		cursor: pointer;
+		user-select: none;
+		transition: background-color 0.2s;
+	}
+
+	th.sortable:hover {
+		background-color: #e9ecef;
+	}
+
+	.sort-indicator {
+		margin-left: 0.25rem;
+		font-size: 0.75rem;
+		color: #3498db;
 	}
 
 	/* Column widths - total should be 100% */
