@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { Trip, Route } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip } from '$lib/api';
+	import {
+		calculateConsumptionRates,
+		calculateFuelRemaining,
+		calculateDateWarnings,
+		calculateConsumptionWarnings
+	} from '$lib/calculations';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 
@@ -239,137 +245,18 @@
 	})();
 
 	// Calculate consumption rates for each trip
-	$: consumptionData = calculateConsumptionRates(trips);
+	$: consumptionData = calculateConsumptionRates(trips, tpConsumption);
 	$: consumptionRates = consumptionData.rates;
 	$: estimatedRates = consumptionData.estimated; // Set of trip IDs with estimated (TP) rate
 
 	// Calculate remaining fuel for each trip
-	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates);
+	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates, tankSize);
 
 	// Check if date is out of order in MANUAL order (light red highlight)
 	$: dateWarnings = calculateDateWarnings(manualOrderTrips);
 
 	// Check if consumption is over limit (light orange highlight)
-	$: consumptionWarnings = calculateConsumptionWarnings(manualOrderTrips, consumptionRates);
-
-	function calculateConsumptionRates(tripList: Trip[]): { rates: Map<string, number>; estimated: Set<string> } {
-		const rates = new Map<string, number>();
-		const estimated = new Set<string>(); // Trips with estimated (TP) rate
-		const chronological = [...tripList].sort((a, b) => {
-			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-			if (dateDiff !== 0) return dateDiff;
-			return a.odometer - b.odometer;
-		});
-
-		const periods: { tripIds: string[]; rate: number; isEstimated: boolean }[] = [];
-		let currentPeriodTrips: string[] = [];
-		let kmInPeriod = 0;
-		let fuelInPeriod = 0; // Sum of all fillups (partial + full) in span
-
-		for (const trip of chronological) {
-			currentPeriodTrips.push(trip.id);
-			kmInPeriod += trip.distance_km;
-
-			// Accumulate fuel from any fillup (partial or full)
-			if (trip.fuel_liters && trip.fuel_liters > 0) {
-				fuelInPeriod += trip.fuel_liters;
-
-				// Only calculate rate when span ends with FULL TANK
-				if (trip.full_tank && kmInPeriod > 0) {
-					const rate = (fuelInPeriod / kmInPeriod) * 100;
-					periods.push({ tripIds: [...currentPeriodTrips], rate, isEstimated: false });
-					currentPeriodTrips = [];
-					kmInPeriod = 0;
-					fuelInPeriod = 0;
-				}
-				// Partial fillup: continue accumulating, don't close span
-			}
-		}
-
-		// Remaining trips without full tank fillup use TP rate (estimated)
-		if (currentPeriodTrips.length > 0) {
-			periods.push({ tripIds: currentPeriodTrips, rate: tpConsumption, isEstimated: true });
-		}
-
-		for (const period of periods) {
-			for (const tripId of period.tripIds) {
-				rates.set(tripId, period.rate);
-				if (period.isEstimated) {
-					estimated.add(tripId);
-				}
-			}
-		}
-
-		return { rates, estimated };
-	}
-
-	function calculateFuelRemaining(tripList: Trip[], rates: Map<string, number>): Map<string, number> {
-		const remaining = new Map<string, number>();
-		const chronological = [...tripList].sort((a, b) => {
-			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-			if (dateDiff !== 0) return dateDiff;
-			return a.odometer - b.odometer;
-		});
-
-		let zostatok = tankSize;
-		for (const trip of chronological) {
-			const rate = rates.get(trip.id) || 0;
-			const spotreba = rate > 0 ? (trip.distance_km * rate) / 100 : 0;
-			zostatok = zostatok - spotreba;
-
-			if (trip.fuel_liters && trip.fuel_liters > 0) {
-				if (trip.full_tank) {
-					// Full tank fillup: reset to tank size
-					zostatok = tankSize;
-				} else {
-					// Partial fillup: add fuel directly, no cap
-					zostatok = zostatok + trip.fuel_liters;
-				}
-			}
-
-			if (zostatok < 0) zostatok = 0;
-			remaining.set(trip.id, zostatok);
-		}
-
-		return remaining;
-	}
-
-	// Check if each row's date fits between neighbors (by sort_order)
-	function calculateDateWarnings(sorted: Trip[]): Set<string> {
-		const warnings = new Set<string>();
-
-		for (let i = 0; i < sorted.length; i++) {
-			const trip = sorted[i];
-			const prevTrip = i > 0 ? sorted[i - 1] : null;
-			const nextTrip = i < sorted.length - 1 ? sorted[i + 1] : null;
-
-			// sort_order 0 = newest (should have highest date)
-			// Check: prevTrip.date >= trip.date >= nextTrip.date
-			if (prevTrip && trip.date > prevTrip.date) {
-				warnings.add(trip.id);
-			}
-			if (nextTrip && trip.date < nextTrip.date) {
-				warnings.add(trip.id);
-			}
-		}
-
-		return warnings;
-	}
-
-	// Check if consumption rate exceeds 120% of TP rate (legal limit)
-	function calculateConsumptionWarnings(sorted: Trip[], rates: Map<string, number>): Set<string> {
-		const warnings = new Set<string>();
-		const limit = tpConsumption * 1.2; // 120% of TP rate
-
-		for (const trip of sorted) {
-			const rate = rates.get(trip.id);
-			if (rate && rate > limit) {
-				warnings.add(trip.id);
-			}
-		}
-
-		return warnings;
-	}
+	$: consumptionWarnings = calculateConsumptionWarnings(manualOrderTrips, consumptionRates, tpConsumption);
 </script>
 
 <div class="trip-grid">

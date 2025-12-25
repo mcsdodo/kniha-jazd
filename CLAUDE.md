@@ -38,15 +38,24 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 ### Running Tests
 
 ```bash
-# Rust backend tests
+# Rust backend tests (76 tests)
 cd src-tauri && cargo test
 
-# Frontend tests
+# Frontend tests (Vitest)
 npm test
-
-# E2E tests
-npm run test:e2e
+npm run test:run  # Single run without watch
 ```
+
+### Test Coverage
+
+**Backend (Rust):**
+- `calculations.rs` - 41 tests: consumption rate, spotreba, zostatok, margin, Excel verification
+- `suggestions.rs` - 11 tests: route matching, compensation suggestions
+- `db.rs` - 24 tests: CRUD operations
+
+**Frontend (TypeScript):**
+- `src/lib/calculations.ts` - Pure functions extracted for testability
+- `src/lib/calculations.test.ts` - Unit tests mirroring Rust tests
 
 ## Project Structure
 
