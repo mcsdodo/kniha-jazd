@@ -319,6 +319,7 @@ pub fn save_settings(
 #[tauri::command]
 pub fn calculate_trip_stats(
     vehicle_id: String,
+    year: i32,
     db: State<Database>,
 ) -> Result<TripStats, String> {
     // Get vehicle
@@ -330,7 +331,7 @@ pub fn calculate_trip_stats(
 
     // Get all trips for this vehicle, sorted by date + odometer (for same-day trips)
     let mut trips = db
-        .get_trips_for_vehicle(&vehicle_id)
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
     trips.sort_by(|a, b| {
         a.date.cmp(&b.date).then_with(|| a.odometer.partial_cmp(&b.odometer).unwrap_or(std::cmp::Ordering::Equal))
