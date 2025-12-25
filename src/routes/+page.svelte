@@ -7,7 +7,7 @@
 	import { onMount } from 'svelte';
 
 	let trips: Trip[] = [];
-	let loading = true;
+	let initialLoading = true; // Only true for first load, keeps TripGrid mounted during refreshes
 	let stats: TripStats | null = null;
 
 	// For compensation suggestion
@@ -15,17 +15,21 @@
 	let currentLocation = '';
 
 	onMount(async () => {
-		await loadTrips();
+		await loadTrips(true);
 	});
 
-	async function loadTrips() {
+	async function loadTrips(isInitial = false) {
 		if (!$activeVehicleStore) {
-			loading = false;
+			initialLoading = false;
 			return;
 		}
 
 		try {
-			loading = true;
+			// Only show loading placeholder on initial load, not refreshes
+			// This prevents TripGrid from unmounting and losing scroll position
+			if (isInitial) {
+				initialLoading = true;
+			}
 			trips = await getTrips($activeVehicleStore.id);
 			stats = await calculateTripStats($activeVehicleStore.id);
 
@@ -49,17 +53,18 @@
 		} catch (error) {
 			console.error('Failed to load trips:', error);
 		} finally {
-			loading = false;
+			initialLoading = false;
 		}
 	}
 
 	async function handleTripsChanged() {
-		await loadTrips();
+		// Don't pass isInitial=true to keep TripGrid mounted (preserves scroll position)
+		await loadTrips(false);
 	}
 
-	// Reload trips when active vehicle changes
+	// Reload trips when active vehicle changes (initial load for new vehicle)
 	$: if ($activeVehicleStore) {
-		loadTrips();
+		loadTrips(true);
 	}
 </script>
 
@@ -130,7 +135,7 @@
 		{/if}
 
 		<div class="trip-section">
-			{#if loading}
+			{#if initialLoading}
 				<p class="loading">Načítavam...</p>
 			{:else}
 				<TripGrid
