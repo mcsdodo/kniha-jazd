@@ -10,6 +10,13 @@ Vehicle logbook (Kniha jázd) desktop app for Slovak legal compliance - tracks t
 - **UI Language:** Slovak (i18n-ready)
 - **Code Language:** English
 
+## Architecture: Backend-Only Calculations
+
+All business logic and calculations live in Rust backend only (ADR-008):
+- **`get_trip_grid_data`** - Returns trips + pre-calculated rates, warnings, fuel remaining
+- **Frontend is display-only** - Calls Tauri commands, renders results
+- **No calculation duplication** - Tauri IPC is local/fast, no need for client-side calculations
+
 ## Core Principle: Test-Driven Development
 
 **MANDATORY WORKFLOW FOR ALL CODE CHANGES:**
@@ -38,24 +45,18 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 ### Running Tests
 
 ```bash
-# Rust backend tests (76 tests)
+# Rust backend tests (61 tests)
 cd src-tauri && cargo test
-
-# Frontend tests (Vitest)
-npm test
-npm run test:run  # Single run without watch
 ```
 
 ### Test Coverage
 
-**Backend (Rust):**
+**Backend (Rust) - Single Source of Truth:**
 - `calculations.rs` - 41 tests: consumption rate, spotreba, zostatok, margin, Excel verification
 - `suggestions.rs` - 11 tests: route matching, compensation suggestions
-- `db.rs` - 24 tests: CRUD operations
+- `db.rs` - 9 tests: CRUD operations
 
-**Frontend (TypeScript):**
-- `src/lib/calculations.ts` - Pure functions extracted for testability
-- `src/lib/calculations.test.ts` - Unit tests mirroring Rust tests
+All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 
 ## Project Structure
 
