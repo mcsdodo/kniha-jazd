@@ -6,6 +6,7 @@
 
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
+	export let year: number = new Date().getFullYear();
 	export let onTripsChanged: () => void | Promise<void>;
 	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
 	export let tankSize: number = 66;
@@ -22,7 +23,7 @@
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
 		try {
-			gridData = await getTripGridData(vehicleId);
+			gridData = await getTripGridData(vehicleId, year);
 			// Convert backend data to Maps/Sets for efficient lookup
 			consumptionRates = new Map(Object.entries(gridData.rates));
 			estimatedRates = new Set(gridData.estimated_rates);

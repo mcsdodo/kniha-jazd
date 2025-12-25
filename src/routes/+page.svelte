@@ -142,6 +142,7 @@
 				<TripGrid
 					vehicleId={$activeVehicleStore.id}
 					{trips}
+					year={$selectedYearStore}
 					tankSize={$activeVehicleStore.tank_size_liters}
 					tpConsumption={$activeVehicleStore.tp_consumption}
 					initialOdometer={$activeVehicleStore.initial_odometer}
