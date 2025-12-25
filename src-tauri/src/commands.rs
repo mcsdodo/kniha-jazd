@@ -117,6 +117,7 @@ pub fn create_trip(
     fuel_cost: Option<f64>,
     other_costs: Option<f64>,
     other_costs_note: Option<String>,
+    full_tank: Option<bool>,
     insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
@@ -149,6 +150,7 @@ pub fn create_trip(
         fuel_cost_eur: fuel_cost,
         other_costs_eur: other_costs,
         other_costs_note,
+        full_tank: full_tank.unwrap_or(true), // Default to true (full tank)
         sort_order,
         created_at: now,
         updated_at: now,
@@ -178,6 +180,7 @@ pub fn update_trip(
     fuel_cost_eur: Option<f64>,
     other_costs_eur: Option<f64>,
     other_costs_note: Option<String>,
+    full_tank: Option<bool>,
 ) -> Result<Trip, String> {
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
@@ -201,6 +204,7 @@ pub fn update_trip(
         fuel_cost_eur,
         other_costs_eur,
         other_costs_note,
+        full_tank: full_tank.unwrap_or(existing.full_tank), // Preserve existing if not provided
         sort_order: existing.sort_order,
         created_at: existing.created_at,
         updated_at: Utc::now(),

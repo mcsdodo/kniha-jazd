@@ -25,6 +25,7 @@ export interface Trip {
 	fuel_cost_eur?: number | null;
 	other_costs_eur?: number | null;
 	other_costs_note?: string | null;
+	full_tank: boolean; // true = full tank fillup, false = partial
 	sort_order: number;
 	created_at: string;
 	updated_at: string;

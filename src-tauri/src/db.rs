@@ -61,6 +61,13 @@ impl Database {
             [],
         );
 
+        // Add full_tank column (true = full tank fillup, false = partial)
+        // Default 1 ensures existing data is treated as full tank
+        let _ = conn.execute(
+            "ALTER TABLE trips ADD COLUMN full_tank INTEGER NOT NULL DEFAULT 1",
+            [],
+        );
+
         Ok(())
     }
 
@@ -212,8 +219,8 @@ impl Database {
     pub fn create_trip(&self, trip: &Trip) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO trips (id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at)
-             VALUES (:id, :vehicle_id, :date, :origin, :destination, :distance_km, :odometer, :purpose, :fuel_liters, :fuel_cost_eur, :other_costs_eur, :other_costs_note, :sort_order, :created_at, :updated_at)",
+            "INSERT INTO trips (id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at)
+             VALUES (:id, :vehicle_id, :date, :origin, :destination, :distance_km, :odometer, :purpose, :fuel_liters, :fuel_cost_eur, :other_costs_eur, :other_costs_note, :full_tank, :sort_order, :created_at, :updated_at)",
             rusqlite::named_params! {
                 ":id": trip.id.to_string(),
                 ":vehicle_id": trip.vehicle_id.to_string(),
@@ -227,6 +234,7 @@ impl Database {
                 ":fuel_cost_eur": trip.fuel_cost_eur,
                 ":other_costs_eur": trip.other_costs_eur,
                 ":other_costs_note": trip.other_costs_note,
+                ":full_tank": trip.full_tank,
                 ":sort_order": trip.sort_order,
                 ":created_at": trip.created_at.to_rfc3339(),
                 ":updated_at": trip.updated_at.to_rfc3339(),
@@ -239,7 +247,7 @@ impl Database {
     pub fn get_trip(&self, id: &str) -> Result<Option<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
              FROM trips WHERE id = ?1",
         )?;
 
@@ -258,9 +266,10 @@ impl Database {
                     fuel_cost_eur: row.get(9)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    sort_order: row.get(12)?,
-                    created_at: row.get::<_, String>(13)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(14)?.parse().unwrap(),
+                    full_tank: row.get(12)?,
+                    sort_order: row.get(13)?,
+                    created_at: row.get::<_, String>(14)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(15)?.parse().unwrap(),
                 })
             })
             .optional()?;
@@ -272,7 +281,7 @@ impl Database {
     pub fn get_trips_for_vehicle(&self, vehicle_id: &str) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
              FROM trips WHERE vehicle_id = ?1 ORDER BY sort_order ASC",
         )?;
 
@@ -291,9 +300,10 @@ impl Database {
                     fuel_cost_eur: row.get(9)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    sort_order: row.get(12)?,
-                    created_at: row.get::<_, String>(13)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(14)?.parse().unwrap(),
+                    full_tank: row.get(12)?,
+                    sort_order: row.get(13)?,
+                    created_at: row.get::<_, String>(14)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(15)?.parse().unwrap(),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -305,7 +315,7 @@ impl Database {
     pub fn get_trips_for_vehicle_in_year(&self, vehicle_id: &str, year: i32) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, sort_order, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
              FROM trips
              WHERE vehicle_id = ?1 AND strftime('%Y', date) = ?2
              ORDER BY date ASC",
@@ -326,9 +336,10 @@ impl Database {
                     fuel_cost_eur: row.get(9)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    sort_order: row.get(12)?,
-                    created_at: row.get::<_, String>(13)?.parse().unwrap(),
-                    updated_at: row.get::<_, String>(14)?.parse().unwrap(),
+                    full_tank: row.get(12)?,
+                    sort_order: row.get(13)?,
+                    created_at: row.get::<_, String>(14)?.parse().unwrap(),
+                    updated_at: row.get::<_, String>(15)?.parse().unwrap(),
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -352,6 +363,7 @@ impl Database {
                  fuel_cost_eur = :fuel_cost_eur,
                  other_costs_eur = :other_costs_eur,
                  other_costs_note = :other_costs_note,
+                 full_tank = :full_tank,
                  sort_order = :sort_order,
                  updated_at = :updated_at
              WHERE id = :id",
@@ -368,6 +380,7 @@ impl Database {
                 ":fuel_cost_eur": trip.fuel_cost_eur,
                 ":other_costs_eur": trip.other_costs_eur,
                 ":other_costs_note": trip.other_costs_note,
+                ":full_tank": trip.full_tank,
                 ":sort_order": trip.sort_order,
                 ":updated_at": trip.updated_at.to_rfc3339(),
             },

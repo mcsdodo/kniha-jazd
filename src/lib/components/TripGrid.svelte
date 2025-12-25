@@ -67,6 +67,7 @@
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
 				tripData.other_costs_note,
+				tripData.full_tank,
 				insertAtSortOrder
 			);
 			showNewRow = false;
@@ -94,7 +95,8 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
-				tripData.other_costs_note
+				tripData.other_costs_note,
+				tripData.full_tank
 			);
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
 			onTripsChanged();
@@ -122,7 +124,8 @@
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
 					t.id, t.date, t.origin, t.destination, t.distance_km, runningOdo,
-					t.purpose, t.fuel_liters, t.fuel_cost_eur, t.other_costs_eur, t.other_costs_note
+					t.purpose, t.fuel_liters, t.fuel_cost_eur, t.other_costs_eur, t.other_costs_note,
+					t.full_tank
 				);
 			}
 		}
@@ -158,12 +161,14 @@
 		showNewRow = true;
 	}
 
-	// Move trip up (swap with previous row)
+	// Move trip up (swap with previous row - lower sort_order)
 	async function handleMoveUp(tripId: string, currentIndex: number) {
 		if (reorderDisabled || currentIndex === 0) return;
 
 		try {
-			await reorderTrip(tripId, currentIndex - 1);
+			// Get the sort_order of the trip above us
+			const targetSortOrder = sortedTrips[currentIndex - 1].sort_order;
+			await reorderTrip(tripId, targetSortOrder);
 			await recalculateAllOdo();
 			await onTripsChanged();
 		} catch (error) {
@@ -172,12 +177,14 @@
 		}
 	}
 
-	// Move trip down (swap with next row)
+	// Move trip down (swap with next row - higher sort_order)
 	async function handleMoveDown(tripId: string, currentIndex: number) {
 		if (reorderDisabled || currentIndex >= sortedTrips.length - 1) return;
 
 		try {
-			await reorderTrip(tripId, currentIndex + 1);
+			// Get the sort_order of the trip below us
+			const targetSortOrder = sortedTrips[currentIndex + 1].sort_order;
+			await reorderTrip(tripId, targetSortOrder);
 			await recalculateAllOdo();
 			await onTripsChanged();
 		} catch (error) {
@@ -197,7 +204,8 @@
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
 					trip.id, trip.date, trip.origin, trip.destination, trip.distance_km, runningOdo,
-					trip.purpose, trip.fuel_liters, trip.fuel_cost_eur, trip.other_costs_eur, trip.other_costs_note
+					trip.purpose, trip.fuel_liters, trip.fuel_cost_eur, trip.other_costs_eur, trip.other_costs_note,
+					trip.full_tank
 				);
 			}
 		}
@@ -231,7 +239,9 @@
 	})();
 
 	// Calculate consumption rates for each trip
-	$: consumptionRates = calculateConsumptionRates(trips);
+	$: consumptionData = calculateConsumptionRates(trips);
+	$: consumptionRates = consumptionData.rates;
+	$: estimatedRates = consumptionData.estimated; // Set of trip IDs with estimated (TP) rate
 
 	// Calculate remaining fuel for each trip
 	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates);
@@ -242,41 +252,55 @@
 	// Check if consumption is over limit (light orange highlight)
 	$: consumptionWarnings = calculateConsumptionWarnings(manualOrderTrips, consumptionRates);
 
-	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
+	function calculateConsumptionRates(tripList: Trip[]): { rates: Map<string, number>; estimated: Set<string> } {
 		const rates = new Map<string, number>();
+		const estimated = new Set<string>(); // Trips with estimated (TP) rate
 		const chronological = [...tripList].sort((a, b) => {
 			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
 			if (dateDiff !== 0) return dateDiff;
 			return a.odometer - b.odometer;
 		});
 
-		const periods: { tripIds: string[]; rate: number }[] = [];
+		const periods: { tripIds: string[]; rate: number; isEstimated: boolean }[] = [];
 		let currentPeriodTrips: string[] = [];
 		let kmInPeriod = 0;
+		let fuelInPeriod = 0; // Sum of all fillups (partial + full) in span
 
 		for (const trip of chronological) {
 			currentPeriodTrips.push(trip.id);
 			kmInPeriod += trip.distance_km;
 
-			if (trip.fuel_liters && trip.fuel_liters > 0 && kmInPeriod > 0) {
-				const rate = (trip.fuel_liters / kmInPeriod) * 100;
-				periods.push({ tripIds: [...currentPeriodTrips], rate });
-				currentPeriodTrips = [];
-				kmInPeriod = 0;
+			// Accumulate fuel from any fillup (partial or full)
+			if (trip.fuel_liters && trip.fuel_liters > 0) {
+				fuelInPeriod += trip.fuel_liters;
+
+				// Only calculate rate when span ends with FULL TANK
+				if (trip.full_tank && kmInPeriod > 0) {
+					const rate = (fuelInPeriod / kmInPeriod) * 100;
+					periods.push({ tripIds: [...currentPeriodTrips], rate, isEstimated: false });
+					currentPeriodTrips = [];
+					kmInPeriod = 0;
+					fuelInPeriod = 0;
+				}
+				// Partial fillup: continue accumulating, don't close span
 			}
 		}
 
+		// Remaining trips without full tank fillup use TP rate (estimated)
 		if (currentPeriodTrips.length > 0) {
-			periods.push({ tripIds: currentPeriodTrips, rate: tpConsumption });
+			periods.push({ tripIds: currentPeriodTrips, rate: tpConsumption, isEstimated: true });
 		}
 
 		for (const period of periods) {
 			for (const tripId of period.tripIds) {
 				rates.set(tripId, period.rate);
+				if (period.isEstimated) {
+					estimated.add(tripId);
+				}
 			}
 		}
 
-		return rates;
+		return { rates, estimated };
 	}
 
 	function calculateFuelRemaining(tripList: Trip[], rates: Map<string, number>): Map<string, number> {
@@ -294,8 +318,13 @@
 			zostatok = zostatok - spotreba;
 
 			if (trip.fuel_liters && trip.fuel_liters > 0) {
-				zostatok = zostatok + trip.fuel_liters;
-				if (zostatok > tankSize) zostatok = tankSize;
+				if (trip.full_tank) {
+					// Full tank fillup: reset to tank size
+					zostatok = tankSize;
+				} else {
+					// Partial fillup: add fuel directly, no cap
+					zostatok = zostatok + trip.fuel_liters;
+				}
 			}
 
 			if (zostatok < 0) zostatok = 0;
@@ -432,6 +461,7 @@
 						canMoveDown={!reorderDisabled && index < sortedTrips.length - 1}
 						hasDateWarning={dateWarnings.has(trip.id)}
 						hasConsumptionWarning={consumptionWarnings.has(trip.id)}
+						isEstimatedRate={estimatedRates.has(trip.id)}
 					/>
 				{/each}
 				<!-- Empty state -->

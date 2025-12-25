@@ -123,16 +123,19 @@ def main():
         # Since we're importing chronologically (oldest first), reverse the order
         sort_order = len(df) - 3 - imported - 1  # -3 for header rows, -1 for 0-indexing
 
+        # Default full_tank to 1 (true) for all imported trips
+        full_tank = 1
+
         cursor.execute("""
             INSERT INTO trips (
                 id, vehicle_id, date, origin, destination, distance_km, odometer,
                 purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note,
-                created_at, updated_at, sort_order
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                full_tank, created_at, updated_at, sort_order
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             trip_id, vehicle_id, date, origin, destination, distance_km, odometer,
             purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note,
-            now, now, sort_order
+            full_tank, now, now, sort_order
         ))
 
         imported += 1

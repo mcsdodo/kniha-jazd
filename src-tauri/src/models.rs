@@ -54,6 +54,7 @@ pub struct Trip {
     pub fuel_cost_eur: Option<f64>,
     pub other_costs_eur: Option<f64>,
     pub other_costs_note: Option<String>,
+    pub full_tank: bool, // true = full tank fillup, false = partial
     pub sort_order: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

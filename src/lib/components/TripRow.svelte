@@ -21,6 +21,7 @@
 	export let canMoveDown: boolean = false;
 	export let hasDateWarning: boolean = false;
 	export let hasConsumptionWarning: boolean = false;
+	export let isEstimatedRate: boolean = false;
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -36,7 +37,8 @@
 		fuel_liters: trip?.fuel_liters || null,
 		fuel_cost_eur: trip?.fuel_cost_eur || null,
 		other_costs_eur: trip?.other_costs_eur || null,
-		other_costs_note: trip?.other_costs_note || ''
+		other_costs_note: trip?.other_costs_note || '',
+		full_tank: trip?.full_tank ?? true // Default to full tank
 	};
 
 	// Get unique locations from routes
@@ -95,7 +97,8 @@
 				fuel_liters: trip?.fuel_liters || null,
 				fuel_cost_eur: trip?.fuel_cost_eur || null,
 				other_costs_eur: trip?.other_costs_eur || null,
-				other_costs_note: trip?.other_costs_note || ''
+				other_costs_note: trip?.other_costs_note || '',
+				full_tank: trip?.full_tank ?? true
 			};
 			isEditing = false;
 			onEditEnd();
@@ -148,7 +151,7 @@
 		<td>
 			<input type="text" bind:value={formData.purpose} placeholder="Účel" />
 		</td>
-		<td>
+		<td class="fuel-cell">
 			<input
 				type="number"
 				bind:value={formData.fuel_liters}
@@ -156,6 +159,13 @@
 				min="0"
 				placeholder="0.00"
 			/>
+			{#if formData.fuel_liters}
+				<label class="full-tank-label">
+					<input type="checkbox" bind:checked={formData.full_tank} />
+					<span class="checkmark"></span>
+					<span class="label-text">Plná</span>
+				</label>
+			{/if}
 		</td>
 		<td>
 			<input
@@ -205,9 +215,21 @@
 		<td class="number">{trip.distance_km.toFixed(1)}</td>
 		<td class="number">{trip.odometer.toFixed(1)}</td>
 		<td>{trip.purpose}</td>
-		<td class="number">{trip.fuel_liters?.toFixed(2) || ''}</td>
+		<td class="number">
+			{#if trip.fuel_liters}
+				{trip.fuel_liters.toFixed(2)}
+				{#if !trip.full_tank}
+					<span class="partial-indicator" title="Čiastočné tankovanie">*</span>
+				{/if}
+			{/if}
+		</td>
 		<td class="number">{trip.fuel_cost_eur?.toFixed(2) || ''}</td>
-		<td class="number calculated">{consumptionRate.toFixed(2)}</td>
+		<td class="number calculated" class:estimated={isEstimatedRate}>
+			{consumptionRate.toFixed(2)}
+			{#if isEstimatedRate}
+				<span class="estimated-indicator" title="Odhad podľa TP">~</span>
+			{/if}
+		</td>
 		<td class="number calculated">{zostatok.toFixed(1)}</td>
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
 		<td>{trip.other_costs_note || ''}</td>
@@ -406,5 +428,47 @@
 	.icon-btn:disabled {
 		opacity: 0.3;
 		cursor: not-allowed;
+	}
+
+	/* Fuel cell with checkbox */
+	.fuel-cell {
+		position: relative;
+	}
+
+	.full-tank-label {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: #666;
+		cursor: pointer;
+	}
+
+	.full-tank-label input[type='checkbox'] {
+		width: auto;
+		margin: 0;
+		cursor: pointer;
+	}
+
+	.full-tank-label .label-text {
+		white-space: nowrap;
+	}
+
+	/* Partial fillup indicator */
+	.partial-indicator {
+		color: #ff9800;
+		font-weight: bold;
+		margin-left: 0.25rem;
+	}
+
+	/* Estimated rate styling */
+	td.estimated {
+		color: #9e9e9e;
+	}
+
+	.estimated-indicator {
+		color: #9e9e9e;
+		margin-left: 0.125rem;
 	}
 </style>
