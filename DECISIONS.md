@@ -22,6 +22,36 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2025-12-25: Architecture Refactor
+
+### ADR-008: Remove Frontend Calculation Duplication
+
+**Context:** Frontend (`src/lib/calculations.ts`) duplicated Rust backend calculations (`src-tauri/src/calculations.rs`) "for instant UI responsiveness."
+
+**Problem:**
+- ~500 lines of duplicate code
+- 21 frontend tests duplicating 41 backend tests
+- Risk of logic divergence between frontend and backend
+- Double maintenance burden
+
+**Options considered:**
+1. Keep duplication - test both implementations
+2. Move all to Rust - frontend calls Tauri commands
+3. Move all to frontend - backend becomes thin data layer
+
+**Decision:** Move all calculations to Rust backend only.
+
+**Reasoning:**
+- Tauri IPC is local and fast (microseconds, not network)
+- No other clients will ever exist - single desktop app
+- Rust backend already has 41 well-tested calculation functions
+- Single source of truth eliminates divergence risk
+- Frontend becomes simpler display-only logic
+
+**Implementation:** Add `get_trip_grid_data` Tauri command returning pre-calculated values.
+
+---
+
 ## 2025-12-23: UI/UX Decisions
 
 ### ADR-007: Database Backup/Restore
