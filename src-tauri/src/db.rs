@@ -347,6 +347,21 @@ impl Database {
         Ok(trips)
     }
 
+    /// Get distinct years that have trips for a vehicle, ordered DESC (newest first)
+    pub fn get_years_with_trips(&self, vehicle_id: &str) -> Result<Vec<i32>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT CAST(strftime('%Y', date) AS INTEGER) as year
+             FROM trips WHERE vehicle_id = ?1 ORDER BY year DESC",
+        )?;
+
+        let years = stmt
+            .query_map([vehicle_id], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<i32>, _>>()?;
+
+        Ok(years)
+    }
+
     /// Update an existing trip
     pub fn update_trip(&self, trip: &Trip) -> Result<()> {
         let conn = self.conn.lock().unwrap();

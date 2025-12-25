@@ -40,6 +40,7 @@ pub fn run() {
       commands::set_active_vehicle,
       commands::get_trips,
       commands::get_trips_for_year,
+      commands::get_years_with_trips,
       commands::create_trip,
       commands::update_trip,
       commands::delete_trip,

@@ -104,6 +104,14 @@ pub fn get_trips_for_year(
 }
 
 #[tauri::command]
+pub fn get_years_with_trips(
+    db: State<Database>,
+    vehicle_id: String,
+) -> Result<Vec<i32>, String> {
+    db.get_years_with_trips(&vehicle_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub fn create_trip(
     db: State<Database>,
