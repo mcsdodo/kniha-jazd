@@ -2,11 +2,11 @@
 	import type { Trip, Route } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip } from '$lib/api';
 	import TripRow from './TripRow.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
-	export let onTripsChanged: () => void;
+	export let onTripsChanged: () => void | Promise<void>;
 	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
 
 	let routes: Route[] = [];
@@ -183,10 +183,9 @@
 		const rect = row.getBoundingClientRect();
 		const midY = rect.top + rect.height / 2;
 
-		if (e.clientY < midY) {
-			dropTargetIndex = index;
-		} else {
-			dropTargetIndex = index + 1;
+		const newDropTarget = e.clientY < midY ? index : index + 1;
+		if (newDropTarget !== dropTargetIndex) {
+			dropTargetIndex = newDropTarget;
 		}
 	}
 
@@ -196,14 +195,17 @@
 
 	function handleDrop(e: DragEvent, index: number) {
 		e.preventDefault();
-		if (draggedTripId === null || draggedTripIndex === null) {
+
+		if (draggedTripId === null || draggedTripIndex === null || dropTargetIndex === null) {
 			resetDragState();
 			return;
 		}
 
-		// Don't reorder if dropped at same position
-		if (dropTargetIndex !== null && dropTargetIndex !== draggedTripIndex && dropTargetIndex !== draggedTripIndex + 1) {
-			const targetIndex = dropTargetIndex > draggedTripIndex ? dropTargetIndex - 1 : dropTargetIndex;
+		// Calculate final target index
+		const targetIndex = dropTargetIndex > draggedTripIndex ? dropTargetIndex - 1 : dropTargetIndex;
+
+		// Only reorder if actually moving to a different position
+		if (targetIndex !== draggedTripIndex) {
 			performReorder(draggedTripId, targetIndex);
 		}
 
@@ -217,17 +219,38 @@
 	}
 
 	async function performReorder(tripId: string, targetIndex: number) {
-		const targetTrip = sortedTrips[targetIndex];
-		const newDate = targetTrip ? targetTrip.date : sortedTrips[0]?.date || new Date().toISOString().split('T')[0];
+		// Save scroll position and lock scrolling during update
+		const scrollY = window.scrollY;
+		const html = document.documentElement;
+		const originalOverflow = html.style.overflow;
+		const originalPosition = html.style.position;
+		const originalTop = html.style.top;
+		const originalWidth = html.style.width;
+
+		// Lock scroll by fixing the html element
+		html.style.overflow = 'hidden';
+		html.style.position = 'fixed';
+		html.style.top = `-${scrollY}px`;
+		html.style.width = '100%';
 
 		try {
-			await reorderTrip(tripId, targetIndex, newDate);
+			// Only update sort_order, don't change date
+			await reorderTrip(tripId, targetIndex);
 			await recalculateAllOdo();
-			onTripsChanged();
+			await onTripsChanged();
+			await tick();
 		} catch (error) {
 			console.error('Failed to reorder trip:', error);
 			alert('Nepodarilo sa zmeniť poradie');
-			onTripsChanged();
+			await onTripsChanged();
+			await tick();
+		} finally {
+			// Restore scroll position
+			html.style.overflow = originalOverflow;
+			html.style.position = originalPosition;
+			html.style.top = originalTop;
+			html.style.width = originalWidth;
+			window.scrollTo(0, scrollY);
 		}
 	}
 

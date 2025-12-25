@@ -387,7 +387,6 @@ impl Database {
         &self,
         trip_id: &str,
         new_sort_order: i32,
-        new_date: chrono::NaiveDate,
     ) -> Result<()> {
         let conn = self.conn.lock().unwrap();
 
@@ -414,12 +413,11 @@ impl Database {
             )?;
         }
 
-        // Update the moved trip
+        // Update the moved trip's sort_order only (keep date unchanged)
         conn.execute(
-            "UPDATE trips SET sort_order = ?1, date = ?2, updated_at = ?3 WHERE id = ?4",
+            "UPDATE trips SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
             rusqlite::params![
                 new_sort_order,
-                new_date.to_string(),
                 chrono::Utc::now().to_rfc3339(),
                 trip_id
             ],

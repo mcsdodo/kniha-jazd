@@ -113,13 +113,11 @@ export async function deleteTrip(id: string): Promise<void> {
 
 export async function reorderTrip(
 	tripId: string,
-	newSortOrder: number,
-	newDate: string
+	newSortOrder: number
 ): Promise<Trip[]> {
 	return await invoke('reorder_trip', {
 		tripId,
-		newSortOrder,
-		newDate
+		newSortOrder
 	});
 }
 
