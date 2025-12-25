@@ -3,9 +3,29 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
-	import { getVehicles, getActiveVehicle, setActiveVehicle } from '$lib/api';
+	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
+	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
 
 	let { children } = $props();
+
+	let availableYears: number[] = [];
+
+	async function loadYears() {
+		if (!$activeVehicleStore) {
+			availableYears = [];
+			return;
+		}
+		try {
+			const yearsWithData = await getYearsWithTrips($activeVehicleStore.id);
+			const currentYear = new Date().getFullYear();
+			// Combine current year with years that have data, deduplicate, sort descending
+			const allYears = new Set([currentYear, ...yearsWithData]);
+			availableYears = [...allYears].sort((a, b) => b - a);
+		} catch (error) {
+			console.error('Failed to load years:', error);
+			availableYears = [new Date().getFullYear()];
+		}
+	}
 
 	onMount(async () => {
 		try {
@@ -15,6 +35,7 @@
 			]);
 			vehiclesStore.set(vehicles);
 			activeVehicleStore.set(activeVehicle);
+			await loadYears();
 		} catch (error) {
 			console.error('Failed to load initial data:', error);
 		}
@@ -28,10 +49,17 @@
 				await setActiveVehicle(vehicleId);
 				const activeVehicle = $vehiclesStore.find((v) => v.id === vehicleId) || null;
 				activeVehicleStore.set(activeVehicle);
+				resetToCurrentYear();
+				await loadYears();
 			} catch (error) {
 				console.error('Failed to set active vehicle:', error);
 			}
 		}
+	}
+
+	function handleYearChange(event: Event) {
+		const select = event.target as HTMLSelectElement;
+		selectedYearStore.set(parseInt(select.value, 10));
 	}
 </script>
 
@@ -49,20 +77,36 @@
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>Nastavenia</a>
 				</nav>
 			</div>
-			<div class="vehicle-selector">
-				<label for="vehicle-select">Vozidlo:</label>
-				<select
-					id="vehicle-select"
-					value={$activeVehicleStore?.id || ''}
-					onchange={handleVehicleChange}
-				>
-					<option value="">-- Vyberte vozidlo --</option>
-					{#each $vehiclesStore as vehicle}
-						<option value={vehicle.id}>
-							{vehicle.name} ({vehicle.license_plate})
-						</option>
-					{/each}
-				</select>
+			<div class="header-right">
+				<div class="vehicle-selector">
+					<label for="vehicle-select">Vozidlo:</label>
+					<select
+						id="vehicle-select"
+						value={$activeVehicleStore?.id || ''}
+						onchange={handleVehicleChange}
+					>
+						<option value="">-- Vyberte vozidlo --</option>
+						{#each $vehiclesStore as vehicle}
+							<option value={vehicle.id}>
+								{vehicle.name} ({vehicle.license_plate})
+							</option>
+						{/each}
+					</select>
+				</div>
+				{#if $activeVehicleStore}
+					<div class="year-selector">
+						<label for="year-select">Rok:</label>
+						<select
+							id="year-select"
+							value={$selectedYearStore}
+							onchange={handleYearChange}
+						>
+							{#each availableYears as year}
+								<option value={year}>{year}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</header>
@@ -138,7 +182,19 @@
 		background: rgba(255, 255, 255, 0.2);
 	}
 
+	.header-right {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
 	.vehicle-selector {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.year-selector {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
