@@ -75,3 +75,12 @@ export interface BackupInfo {
 	vehicle_count: number;
 	trip_count: number;
 }
+
+export interface TripGridData {
+	trips: Trip[];
+	rates: Record<string, number>; // tripId -> l/100km
+	estimated_rates: string[]; // tripIds using TP rate (estimated)
+	fuel_remaining: Record<string, number>; // tripId -> zostatok
+	date_warnings: string[]; // tripIds with date ordering issues
+	consumption_warnings: string[]; // tripIds over 120% TP
+}

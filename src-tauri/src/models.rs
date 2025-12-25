@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,4 +109,21 @@ pub struct TripStats {
     pub total_km: f64,
     pub total_fuel_liters: f64,
     pub total_fuel_cost_eur: f64,
+}
+
+/// Pre-calculated data for the trip grid display.
+/// Eliminates need for frontend to duplicate calculation logic.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TripGridData {
+    pub trips: Vec<Trip>,
+    /// Consumption rate (l/100km) for each trip, keyed by trip ID
+    pub rates: HashMap<String, f64>,
+    /// Trip IDs that use estimated (TP) rate instead of calculated
+    pub estimated_rates: HashSet<String>,
+    /// Fuel remaining (zostatok) after each trip, keyed by trip ID
+    pub fuel_remaining: HashMap<String, f64>,
+    /// Trip IDs with date ordering issues
+    pub date_warnings: HashSet<String>,
+    /// Trip IDs with consumption over 120% of TP rate
+    pub consumption_warnings: HashSet<String>,
 }

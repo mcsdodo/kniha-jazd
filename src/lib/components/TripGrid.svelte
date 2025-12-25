@@ -1,12 +1,6 @@
 <script lang="ts">
-	import type { Trip, Route } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip } from '$lib/api';
-	import {
-		calculateConsumptionRates,
-		calculateFuelRemaining,
-		calculateDateWarnings,
-		calculateConsumptionWarnings
-	} from '$lib/calculations';
+	import type { Trip, Route, TripGridData } from '$lib/types';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 
@@ -16,6 +10,34 @@
 	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
 	export let tankSize: number = 66;
 	export let initialOdometer: number = 0;
+
+	// Pre-calculated grid data from backend
+	let gridData: TripGridData | null = null;
+	let consumptionRates: Map<string, number> = new Map();
+	let estimatedRates: Set<string> = new Set();
+	let fuelRemaining: Map<string, number> = new Map();
+	let dateWarnings: Set<string> = new Set();
+	let consumptionWarnings: Set<string> = new Set();
+
+	// Fetch grid data from backend whenever trips change
+	async function loadGridData() {
+		try {
+			gridData = await getTripGridData(vehicleId);
+			// Convert backend data to Maps/Sets for efficient lookup
+			consumptionRates = new Map(Object.entries(gridData.rates));
+			estimatedRates = new Set(gridData.estimated_rates);
+			fuelRemaining = new Map(Object.entries(gridData.fuel_remaining));
+			dateWarnings = new Set(gridData.date_warnings);
+			consumptionWarnings = new Set(gridData.consumption_warnings);
+		} catch (error) {
+			console.error('Failed to load grid data:', error);
+		}
+	}
+
+	// Reload grid data when trips change
+	$: if (trips) {
+		loadGridData();
+	}
 
 	let routes: Route[] = [];
 	let showNewRow = false;
@@ -217,9 +239,6 @@
 		}
 	}
 
-	// Manual order (for warnings calculation - always by sort_order)
-	$: manualOrderTrips = [...trips].sort((a, b) => a.sort_order - b.sort_order);
-
 	// Display order (based on current sort settings)
 	$: sortedTrips = [...trips].sort((a, b) => {
 		if (sortColumn === 'manual') {
@@ -243,20 +262,6 @@
 		maxDate.setDate(maxDate.getDate() + 1);
 		return maxDate.toISOString().split('T')[0];
 	})();
-
-	// Calculate consumption rates for each trip
-	$: consumptionData = calculateConsumptionRates(trips, tpConsumption);
-	$: consumptionRates = consumptionData.rates;
-	$: estimatedRates = consumptionData.estimated; // Set of trip IDs with estimated (TP) rate
-
-	// Calculate remaining fuel for each trip
-	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates, tankSize);
-
-	// Check if date is out of order in MANUAL order (light red highlight)
-	$: dateWarnings = calculateDateWarnings(manualOrderTrips);
-
-	// Check if consumption is over limit (light orange highlight)
-	$: consumptionWarnings = calculateConsumptionWarnings(manualOrderTrips, consumptionRates, tpConsumption);
 </script>
 
 <div class="trip-grid">

@@ -53,6 +53,7 @@ pub fn run() {
       commands::list_backups,
       commands::get_backup_info,
       commands::restore_backup,
+      commands::get_trip_grid_data,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

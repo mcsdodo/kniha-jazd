@@ -5,7 +5,8 @@ use crate::calculations::{
     is_within_legal_limit,
 };
 use crate::db::Database;
-use crate::models::{Route, Settings, Trip, TripStats, Vehicle};
+use crate::models::{Route, Settings, Trip, TripGridData, TripStats, Vehicle};
+use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{NaiveDate, Utc, Local};
 use serde::{Deserialize, Serialize};
@@ -426,6 +427,230 @@ pub fn calculate_trip_stats(
         total_fuel_liters: total_fuel,
         total_fuel_cost_eur: total_fuel_cost,
     })
+}
+
+/// Get pre-calculated trip grid data for frontend display.
+/// This is the single source of truth for all grid calculations.
+#[tauri::command]
+pub fn get_trip_grid_data(
+    db: State<Database>,
+    vehicle_id: String,
+) -> Result<TripGridData, String> {
+    // Get vehicle for TP consumption and tank size
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    // Get trips sorted by sort_order (for display)
+    let trips = db
+        .get_trips_for_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?;
+
+    if trips.is_empty() {
+        return Ok(TripGridData {
+            trips: vec![],
+            rates: HashMap::new(),
+            estimated_rates: HashSet::new(),
+            fuel_remaining: HashMap::new(),
+            date_warnings: HashSet::new(),
+            consumption_warnings: HashSet::new(),
+        });
+    }
+
+    // Sort chronologically for calculations (by date, then odometer)
+    let mut chronological = trips.clone();
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Calculate consumption rates per period
+    let (rates, estimated_rates) =
+        calculate_period_rates(&chronological, vehicle.tp_consumption);
+
+    // Calculate fuel remaining for each trip
+    let fuel_remaining =
+        calculate_fuel_remaining(&chronological, &rates, vehicle.tank_size_liters);
+
+    // Calculate date warnings (trips sorted by sort_order)
+    let date_warnings = calculate_date_warnings(&trips);
+
+    // Calculate consumption warnings
+    let consumption_warnings =
+        calculate_consumption_warnings(&trips, &rates, vehicle.tp_consumption);
+
+    Ok(TripGridData {
+        trips,
+        rates,
+        estimated_rates,
+        fuel_remaining,
+        date_warnings,
+        consumption_warnings,
+    })
+}
+
+/// Calculate consumption rates for each trip based on fill-up periods.
+/// Only calculates actual rate when a period ends with a full tank fillup.
+fn calculate_period_rates(
+    chronological: &[Trip],
+    tp_consumption: f64,
+) -> (HashMap<String, f64>, HashSet<String>) {
+    let mut rates = HashMap::new();
+    let mut estimated = HashSet::new();
+
+    struct Period {
+        trip_ids: Vec<String>,
+        rate: f64,
+        is_estimated: bool,
+    }
+
+    let mut periods: Vec<Period> = vec![];
+    let mut current_trip_ids: Vec<String> = vec![];
+    let mut km_in_period = 0.0;
+    let mut fuel_in_period = 0.0;
+
+    for trip in chronological {
+        current_trip_ids.push(trip.id.to_string());
+        km_in_period += trip.distance_km;
+
+        if let Some(fuel) = trip.fuel_liters {
+            if fuel > 0.0 {
+                fuel_in_period += fuel;
+
+                // Only close period on full tank fillup
+                if trip.full_tank && km_in_period > 0.0 {
+                    let rate = (fuel_in_period / km_in_period) * 100.0;
+                    periods.push(Period {
+                        trip_ids: current_trip_ids.clone(),
+                        rate,
+                        is_estimated: false,
+                    });
+                    current_trip_ids.clear();
+                    km_in_period = 0.0;
+                    fuel_in_period = 0.0;
+                }
+            }
+        }
+    }
+
+    // Remaining trips use TP rate (estimated)
+    if !current_trip_ids.is_empty() {
+        periods.push(Period {
+            trip_ids: current_trip_ids,
+            rate: tp_consumption,
+            is_estimated: true,
+        });
+    }
+
+    // Assign rates to trips
+    for period in periods {
+        for trip_id in period.trip_ids {
+            rates.insert(trip_id.clone(), period.rate);
+            if period.is_estimated {
+                estimated.insert(trip_id);
+            }
+        }
+    }
+
+    (rates, estimated)
+}
+
+/// Calculate fuel remaining after each trip.
+fn calculate_fuel_remaining(
+    chronological: &[Trip],
+    rates: &HashMap<String, f64>,
+    tank_size: f64,
+) -> HashMap<String, f64> {
+    let mut remaining = HashMap::new();
+    let mut zostatok = tank_size;
+
+    for trip in chronological {
+        let trip_id = trip.id.to_string();
+        let rate = rates.get(&trip_id).copied().unwrap_or(0.0);
+        let spotreba = if rate > 0.0 {
+            (trip.distance_km * rate) / 100.0
+        } else {
+            0.0
+        };
+
+        zostatok -= spotreba;
+
+        if let Some(fuel) = trip.fuel_liters {
+            if fuel > 0.0 {
+                if trip.full_tank {
+                    zostatok = tank_size;
+                } else {
+                    zostatok += fuel;
+                }
+            }
+        }
+
+        // Clamp to valid range
+        zostatok = zostatok.max(0.0).min(tank_size);
+        remaining.insert(trip_id, zostatok);
+    }
+
+    remaining
+}
+
+/// Check if each trip's date is out of order relative to neighbors.
+/// Trips should be sorted by sort_order (0 = newest at top).
+fn calculate_date_warnings(trips_by_sort_order: &[Trip]) -> HashSet<String> {
+    let mut warnings = HashSet::new();
+
+    for i in 0..trips_by_sort_order.len() {
+        let trip = &trips_by_sort_order[i];
+        let prev = if i > 0 {
+            Some(&trips_by_sort_order[i - 1])
+        } else {
+            None
+        };
+        let next = if i < trips_by_sort_order.len() - 1 {
+            Some(&trips_by_sort_order[i + 1])
+        } else {
+            None
+        };
+
+        // sort_order 0 = newest (should have highest date)
+        // Check: prev.date >= trip.date >= next.date
+        if let Some(p) = prev {
+            if trip.date > p.date {
+                warnings.insert(trip.id.to_string());
+            }
+        }
+        if let Some(n) = next {
+            if trip.date < n.date {
+                warnings.insert(trip.id.to_string());
+            }
+        }
+    }
+
+    warnings
+}
+
+/// Check if any trip's consumption rate exceeds 120% of TP rate.
+fn calculate_consumption_warnings(
+    trips: &[Trip],
+    rates: &HashMap<String, f64>,
+    tp_consumption: f64,
+) -> HashSet<String> {
+    let mut warnings = HashSet::new();
+    let limit = tp_consumption * 1.2;
+
+    for trip in trips {
+        let trip_id = trip.id.to_string();
+        if let Some(&rate) = rates.get(&trip_id) {
+            if rate > limit {
+                warnings.insert(trip_id);
+            }
+        }
+    }
+
+    warnings
 }
 
 // ============================================================================
