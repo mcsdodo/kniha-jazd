@@ -444,6 +444,7 @@ pub fn calculate_trip_stats(
 pub fn get_trip_grid_data(
     db: State<Database>,
     vehicle_id: String,
+    year: i32,
 ) -> Result<TripGridData, String> {
     // Get vehicle for TP consumption and tank size
     let vehicle = db
@@ -453,7 +454,7 @@ pub fn get_trip_grid_data(
 
     // Get trips sorted by sort_order (for display)
     let trips = db
-        .get_trips_for_vehicle(&vehicle_id)
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
     if trips.is_empty() {
