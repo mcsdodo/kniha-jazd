@@ -1,6 +1,6 @@
 **Date:** 2025-12-25
 **Subject:** Year picker - standalone yearly logbooks
-**Status:** Planning
+**Status:** Complete
 
 ## Problem
 
