@@ -15,28 +15,12 @@
 	export let onInsertAbove: () => void = () => {};
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
-	export let dragDisabled: boolean = false;
-	export let tripId: string = '';
-	export let onDragStart: (e: DragEvent) => void = () => {};
-	export let onDragEnd: () => void = () => {};
-	export let onDragOver: (e: DragEvent) => void = () => {};
-	export let onDragLeave: () => void = () => {};
-	export let onDrop: (e: DragEvent) => void = () => {};
-	export let isDragTarget: boolean = false;
-	export let isDragging: boolean = false;
-
-	function handleDragStart(e: DragEvent) {
-		if (e.dataTransfer) {
-			e.dataTransfer.effectAllowed = 'move';
-			e.dataTransfer.setData('text/plain', tripId);
-			// Create a drag image from the parent row
-			const row = (e.target as HTMLElement).closest('tr');
-			if (row) {
-				e.dataTransfer.setDragImage(row, 50, 20);
-			}
-		}
-		onDragStart(e);
-	}
+	export let onMoveUp: () => void = () => {};
+	export let onMoveDown: () => void = () => {};
+	export let canMoveUp: boolean = false;
+	export let canMoveDown: boolean = false;
+	export let hasDateWarning: boolean = false;
+	export let hasConsumptionWarning: boolean = false;
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -211,15 +195,9 @@
 	</tr>
 {:else if trip}
 	<tr
-		draggable={!dragDisabled}
-		on:dragstart={handleDragStart}
-		on:dragend={onDragEnd}
 		on:dblclick={handleEdit}
-		on:dragover={onDragOver}
-		on:dragleave={onDragLeave}
-		on:drop={onDrop}
-		class:drag-target={isDragTarget}
-		class:dragging={isDragging}
+		class:date-warning={hasDateWarning}
+		class:consumption-warning={hasConsumptionWarning}
 	>
 		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		<td>{trip.origin}</td>
@@ -235,6 +213,26 @@
 		<td>{trip.other_costs_note || ''}</td>
 		<td class="actions">
 			<span class="icon-actions">
+				<button
+					class="icon-btn move-up"
+					on:click|stopPropagation={onMoveUp}
+					title="Presunúť hore"
+					disabled={!canMoveUp}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="18 15 12 9 6 15"></polyline>
+					</svg>
+				</button>
+				<button
+					class="icon-btn move-down"
+					on:click|stopPropagation={onMoveDown}
+					title="Presunúť dole"
+					disabled={!canMoveDown}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="6 9 12 15 18 9"></polyline>
+					</svg>
+				</button>
 				<button
 					class="icon-btn insert"
 					on:click|stopPropagation={onInsertAbove}
@@ -255,26 +253,6 @@
 						<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 					</svg>
 				</button>
-				{#if !dragDisabled}
-					<span
-						class="drag-handle"
-						title="Presunúť záznam"
-						draggable="true"
-						role="button"
-						tabindex="0"
-						on:dragstart={handleDragStart}
-						on:dragend={onDragEnd}
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<circle cx="9" cy="5" r="1"></circle>
-							<circle cx="9" cy="12" r="1"></circle>
-							<circle cx="9" cy="19" r="1"></circle>
-							<circle cx="15" cy="5" r="1"></circle>
-							<circle cx="15" cy="12" r="1"></circle>
-							<circle cx="15" cy="19" r="1"></circle>
-						</svg>
-					</span>
-				{/if}
 			</span>
 		</td>
 	</tr>
@@ -286,23 +264,35 @@
 		transition: background-color 0.2s;
 	}
 
-	tr:hover:not(.editing):not(.dragging) {
+	tr:hover:not(.editing) {
 		background-color: #f8f9fa;
 		cursor: pointer;
-	}
-
-	tr.drag-target {
-		box-shadow: inset 0 3px 0 0 #3498db;
-	}
-
-	tr.dragging {
-		opacity: 0.4;
-		background-color: #e0e0e0;
 	}
 
 	tr.editing {
 		background-color: #e3f2fd;
 		cursor: default;
+	}
+
+	tr.date-warning {
+		background-color: #ffebee; /* light red */
+	}
+
+	tr.date-warning:hover:not(.editing) {
+		background-color: #ffcdd2; /* slightly darker red on hover */
+	}
+
+	tr.consumption-warning {
+		background-color: #fff3e0; /* light orange */
+	}
+
+	tr.consumption-warning:hover:not(.editing) {
+		background-color: #ffe0b2; /* slightly darker orange on hover */
+	}
+
+	/* If both warnings apply, date warning takes priority */
+	tr.date-warning.consumption-warning {
+		background-color: #ffebee;
 	}
 
 	td {
@@ -408,23 +398,13 @@
 		background-color: rgba(244, 67, 54, 0.1);
 	}
 
-	.drag-handle {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.25rem;
-		color: #9e9e9e;
-		cursor: grab;
-		border-radius: 4px;
-		transition: color 0.2s, background-color 0.2s;
+	.icon-btn.move-up:hover:not(:disabled),
+	.icon-btn.move-down:hover:not(:disabled) {
+		color: #2196f3;
 	}
 
-	.drag-handle:hover {
-		color: #616161;
-		background-color: rgba(0, 0, 0, 0.05);
-	}
-
-	.drag-handle:active {
-		cursor: grabbing;
+	.icon-btn:disabled {
+		opacity: 0.3;
+		cursor: not-allowed;
 	}
 </style>

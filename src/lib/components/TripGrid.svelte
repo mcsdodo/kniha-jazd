@@ -2,12 +2,14 @@
 	import type { Trip, Route } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip } from '$lib/api';
 	import TripRow from './TripRow.svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
 	export let onTripsChanged: () => void | Promise<void>;
 	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
+	export let tankSize: number = 66;
+	export let initialOdometer: number = 0;
 
 	let routes: Route[] = [];
 	let showNewRow = false;
@@ -15,8 +17,8 @@
 	let insertAtSortOrder: number | null = null;
 	let insertDate: string | null = null;
 
-	// Drag disabled when editing or adding new row
-	$: dragDisabled = showNewRow || editingTripId !== null;
+	// Disable reorder buttons when editing or adding new row
+	$: reorderDisabled = showNewRow || editingTripId !== null;
 
 	onMount(async () => {
 		await loadRoutes();
@@ -48,15 +50,14 @@
 				tripData.fuel_cost_eur,
 				tripData.other_costs_eur,
 				tripData.other_costs_note,
-				insertAtSortOrder // Pass insert position if set
+				insertAtSortOrder
 			);
 			showNewRow = false;
 			insertAtSortOrder = null;
 			insertDate = null;
-			// Recalculate ODO for all trips
 			await recalculateAllOdo();
 			onTripsChanged();
-			await loadRoutes(); // Refresh routes after adding trip
+			await loadRoutes();
 		} catch (error) {
 			console.error('Failed to create trip:', error);
 			alert('Nepodarilo sa vytvoriť záznam');
@@ -65,7 +66,6 @@
 
 	async function handleUpdate(trip: Trip, tripData: Partial<Trip>) {
 		try {
-			// Update the edited trip
 			await updateTrip(
 				trip.id,
 				tripData.date!,
@@ -79,10 +79,7 @@
 				tripData.other_costs_eur,
 				tripData.other_costs_note
 			);
-
-			// Cascade ODO updates to newer trips
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
-
 			onTripsChanged();
 			await loadRoutes();
 		} catch (error) {
@@ -91,39 +88,24 @@
 		}
 	}
 
-	// Recalculate ODO for all trips newer than the edited one
 	async function recalculateNewerTripsOdo(editedTripId: string, newOdo: number) {
-		// Sort by date ascending (oldest first), using odometer as tiebreaker
 		const chronological = [...trips].sort((a, b) => {
 			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
 			if (dateDiff !== 0) return dateDiff;
 			return a.odometer - b.odometer;
 		});
 
-		// Find the index of the edited trip
 		const editedIndex = chronological.findIndex((t) => t.id === editedTripId);
 		if (editedIndex === -1 || editedIndex === chronological.length - 1) return;
 
-		// Update ODO for all newer trips
 		let runningOdo = newOdo;
 		for (let i = editedIndex + 1; i < chronological.length; i++) {
 			const t = chronological[i];
 			runningOdo = runningOdo + t.distance_km;
-
-			// Only update if ODO actually changed
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					t.id,
-					t.date,
-					t.origin,
-					t.destination,
-					t.distance_km,
-					runningOdo,
-					t.purpose,
-					t.fuel_liters,
-					t.fuel_cost_eur,
-					t.other_costs_eur,
-					t.other_costs_note
+					t.id, t.date, t.origin, t.destination, t.distance_km, runningOdo,
+					t.purpose, t.fuel_liters, t.fuel_cost_eur, t.other_costs_eur, t.other_costs_note
 				);
 			}
 		}
@@ -159,104 +141,35 @@
 		showNewRow = true;
 	}
 
-	// HTML5 drag-drop state (requires dragDropEnabled: false in tauri.conf.json)
-	let draggedTripId: string | null = null;
-	let draggedTripIndex: number | null = null;
-	let dropTargetIndex: number | null = null;
-
-	function handleDragStart(e: DragEvent, tripId: string) {
-		if (dragDisabled) return;
-		draggedTripId = tripId;
-		draggedTripIndex = sortedTrips.findIndex(t => t.id === tripId);
-	}
-
-	function handleDragEnd() {
-		resetDragState();
-	}
-
-	function handleDragOver(e: DragEvent, index: number) {
-		e.preventDefault();
-		if (draggedTripId === null) return;
-
-		// Determine drop position based on mouse position within the row
-		const row = e.currentTarget as HTMLElement;
-		const rect = row.getBoundingClientRect();
-		const midY = rect.top + rect.height / 2;
-
-		const newDropTarget = e.clientY < midY ? index : index + 1;
-		if (newDropTarget !== dropTargetIndex) {
-			dropTargetIndex = newDropTarget;
-		}
-	}
-
-	function handleDragLeave() {
-		// Only clear if we're leaving the drag area entirely
-	}
-
-	function handleDrop(e: DragEvent, index: number) {
-		e.preventDefault();
-
-		if (draggedTripId === null || draggedTripIndex === null || dropTargetIndex === null) {
-			resetDragState();
-			return;
-		}
-
-		// Calculate final target index
-		const targetIndex = dropTargetIndex > draggedTripIndex ? dropTargetIndex - 1 : dropTargetIndex;
-
-		// Only reorder if actually moving to a different position
-		if (targetIndex !== draggedTripIndex) {
-			performReorder(draggedTripId, targetIndex);
-		}
-
-		resetDragState();
-	}
-
-	function resetDragState() {
-		draggedTripId = null;
-		draggedTripIndex = null;
-		dropTargetIndex = null;
-	}
-
-	async function performReorder(tripId: string, targetIndex: number) {
-		// Save scroll position and lock scrolling during update
-		const scrollY = window.scrollY;
-		const html = document.documentElement;
-		const originalOverflow = html.style.overflow;
-		const originalPosition = html.style.position;
-		const originalTop = html.style.top;
-		const originalWidth = html.style.width;
-
-		// Lock scroll by fixing the html element
-		html.style.overflow = 'hidden';
-		html.style.position = 'fixed';
-		html.style.top = `-${scrollY}px`;
-		html.style.width = '100%';
+	// Move trip up (swap with previous row)
+	async function handleMoveUp(tripId: string, currentIndex: number) {
+		if (reorderDisabled || currentIndex === 0) return;
 
 		try {
-			// Only update sort_order, don't change date
-			await reorderTrip(tripId, targetIndex);
+			await reorderTrip(tripId, currentIndex - 1);
 			await recalculateAllOdo();
 			await onTripsChanged();
-			await tick();
 		} catch (error) {
-			console.error('Failed to reorder trip:', error);
-			alert('Nepodarilo sa zmeniť poradie');
-			await onTripsChanged();
-			await tick();
-		} finally {
-			// Restore scroll position
-			html.style.overflow = originalOverflow;
-			html.style.position = originalPosition;
-			html.style.top = originalTop;
-			html.style.width = originalWidth;
-			window.scrollTo(0, scrollY);
+			console.error('Failed to move trip:', error);
+			alert('Nepodarilo sa presunúť záznam');
 		}
 	}
 
-	// Recalculate ODO for all trips after reordering
+	// Move trip down (swap with next row)
+	async function handleMoveDown(tripId: string, currentIndex: number) {
+		if (reorderDisabled || currentIndex >= sortedTrips.length - 1) return;
+
+		try {
+			await reorderTrip(tripId, currentIndex + 1);
+			await recalculateAllOdo();
+			await onTripsChanged();
+		} catch (error) {
+			console.error('Failed to move trip:', error);
+			alert('Nepodarilo sa presunúť záznam');
+		}
+	}
+
 	async function recalculateAllOdo() {
-		// Sort by sort_order ascending, then reverse for chronological (oldest first)
 		const chronological = [...trips]
 			.sort((a, b) => a.sort_order - b.sort_order)
 			.reverse();
@@ -266,17 +179,8 @@
 			runningOdo += trip.distance_km;
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					trip.id,
-					trip.date,
-					trip.origin,
-					trip.destination,
-					trip.distance_km,
-					runningOdo,
-					trip.purpose,
-					trip.fuel_liters,
-					trip.fuel_cost_eur,
-					trip.other_costs_eur,
-					trip.other_costs_note
+					trip.id, trip.date, trip.origin, trip.destination, trip.distance_km, runningOdo,
+					trip.purpose, trip.fuel_liters, trip.fuel_cost_eur, trip.other_costs_eur, trip.other_costs_note
 				);
 			}
 		}
@@ -285,10 +189,8 @@
 	// Sort trips by sort_order ascending (0 = top/newest)
 	$: sortedTrips = [...trips].sort((a, b) => a.sort_order - b.sort_order);
 
-	// Get the last ODO value (from the most recent trip, or initial ODO if no trips)
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
-	// Default date for new entry: max date + 1 day
 	$: defaultNewDate = (() => {
 		if (sortedTrips.length === 0) {
 			return new Date().toISOString().split('T')[0];
@@ -298,31 +200,26 @@
 		return maxDate.toISOString().split('T')[0];
 	})();
 
-	// Calculate "Použitá spotreba" for each trip
-	// This is the consumption rate from the last fill-up, carried forward
+	// Calculate consumption rates for each trip
 	$: consumptionRates = calculateConsumptionRates(trips);
 
-	// Calculate "Zostatok" (remaining fuel) for each trip
+	// Calculate remaining fuel for each trip
 	$: fuelRemaining = calculateFuelRemaining(trips, consumptionRates);
 
-	export let tankSize: number = 66; // Default tank size, should be passed from vehicle
-	export let initialOdometer: number = 0; // Starting ODO for "Prvý záznam"
+	// Check if date is out of order (light red highlight)
+	$: dateWarnings = calculateDateWarnings(sortedTrips);
+
+	// Check if consumption is over limit (light orange highlight)
+	$: consumptionWarnings = calculateConsumptionWarnings(sortedTrips, consumptionRates);
 
 	function calculateConsumptionRates(tripList: Trip[]): Map<string, number> {
 		const rates = new Map<string, number>();
-
-		// Sort chronologically (oldest first), using odometer as tiebreaker for same-day trips
 		const chronological = [...tripList].sort((a, b) => {
 			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
 			if (dateDiff !== 0) return dateDiff;
 			return a.odometer - b.odometer;
 		});
 
-		// Two-pass algorithm:
-		// 1. Find fill-ups and calculate rates for each period
-		// 2. Apply rates RETROACTIVELY to all trips in that period
-
-		// First pass: identify periods and calculate rates
 		const periods: { tripIds: string[]; rate: number }[] = [];
 		let currentPeriodTrips: string[] = [];
 		let kmInPeriod = 0;
@@ -331,7 +228,6 @@
 			currentPeriodTrips.push(trip.id);
 			kmInPeriod += trip.distance_km;
 
-			// If this trip has a fill-up, calculate rate for this period
 			if (trip.fuel_liters && trip.fuel_liters > 0 && kmInPeriod > 0) {
 				const rate = (trip.fuel_liters / kmInPeriod) * 100;
 				periods.push({ tripIds: [...currentPeriodTrips], rate });
@@ -340,12 +236,10 @@
 			}
 		}
 
-		// Handle remaining trips (no fill-up yet) - use TP rate
 		if (currentPeriodTrips.length > 0) {
 			periods.push({ tripIds: currentPeriodTrips, rate: tpConsumption });
 		}
 
-		// Second pass: apply rates to all trips in each period
 		for (const period of periods) {
 			for (const tripId of period.tripIds) {
 				rates.set(tripId, period.rate);
@@ -357,42 +251,65 @@
 
 	function calculateFuelRemaining(tripList: Trip[], rates: Map<string, number>): Map<string, number> {
 		const remaining = new Map<string, number>();
-
-		// Sort chronologically (oldest first), using odometer as tiebreaker for same-day trips
 		const chronological = [...tripList].sort((a, b) => {
 			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
 			if (dateDiff !== 0) return dateDiff;
 			return a.odometer - b.odometer;
 		});
 
-		// Start with full tank (from "Prvý záznam")
 		let zostatok = tankSize;
-
 		for (const trip of chronological) {
 			const rate = rates.get(trip.id) || 0;
-
-			// Calculate fuel used for this trip: spotreba = km * rate / 100
 			const spotreba = rate > 0 ? (trip.distance_km * rate) / 100 : 0;
-
-			// Subtract fuel used
 			zostatok = zostatok - spotreba;
 
-			// Add fuel if this was a fill-up
 			if (trip.fuel_liters && trip.fuel_liters > 0) {
 				zostatok = zostatok + trip.fuel_liters;
-				// Cap at tank size
-				if (zostatok > tankSize) {
-					zostatok = tankSize;
-				}
+				if (zostatok > tankSize) zostatok = tankSize;
 			}
 
-			// Don't go negative
 			if (zostatok < 0) zostatok = 0;
-
 			remaining.set(trip.id, zostatok);
 		}
 
 		return remaining;
+	}
+
+	// Check if each row's date fits between neighbors (by sort_order)
+	function calculateDateWarnings(sorted: Trip[]): Set<string> {
+		const warnings = new Set<string>();
+
+		for (let i = 0; i < sorted.length; i++) {
+			const trip = sorted[i];
+			const prevTrip = i > 0 ? sorted[i - 1] : null;
+			const nextTrip = i < sorted.length - 1 ? sorted[i + 1] : null;
+
+			// sort_order 0 = newest (should have highest date)
+			// Check: prevTrip.date >= trip.date >= nextTrip.date
+			if (prevTrip && trip.date > prevTrip.date) {
+				warnings.add(trip.id);
+			}
+			if (nextTrip && trip.date < nextTrip.date) {
+				warnings.add(trip.id);
+			}
+		}
+
+		return warnings;
+	}
+
+	// Check if consumption rate exceeds 120% of TP rate (legal limit)
+	function calculateConsumptionWarnings(sorted: Trip[], rates: Map<string, number>): Set<string> {
+		const warnings = new Set<string>();
+		const limit = tpConsumption * 1.2; // 120% of TP rate
+
+		for (const trip of sorted) {
+			const rate = rates.get(trip.id);
+			if (rate && rate > limit) {
+				warnings.add(trip.id);
+			}
+		}
+
+		return warnings;
 	}
 </script>
 
@@ -437,7 +354,6 @@
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
-						{dragDisabled}
 					/>
 				{/if}
 				<!-- Trip rows -->
@@ -455,7 +371,6 @@
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
-							{dragDisabled}
 						/>
 					{/if}
 					<TripRow
@@ -471,15 +386,12 @@
 						onInsertAbove={() => handleInsertAbove(trip)}
 						onEditStart={() => handleEditStart(trip.id)}
 						onEditEnd={handleEditEnd}
-						{dragDisabled}
-						tripId={trip.id}
-						onDragStart={(e) => handleDragStart(e, trip.id)}
-						onDragEnd={handleDragEnd}
-						onDragOver={(e) => handleDragOver(e, index)}
-						onDragLeave={handleDragLeave}
-						onDrop={(e) => handleDrop(e, index)}
-						isDragTarget={dropTargetIndex === index && draggedTripId !== trip.id}
-						isDragging={draggedTripId === trip.id}
+						onMoveUp={() => handleMoveUp(trip.id, index)}
+						onMoveDown={() => handleMoveDown(trip.id, index)}
+						canMoveUp={!reorderDisabled && index > 0}
+						canMoveDown={!reorderDisabled && index < sortedTrips.length - 1}
+						hasDateWarning={dateWarnings.has(trip.id)}
+						hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 					/>
 				{/each}
 				<!-- Empty state -->
