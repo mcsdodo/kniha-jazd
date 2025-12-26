@@ -311,14 +311,14 @@ impl Database {
         Ok(trips)
     }
 
-    /// Get all trips for a vehicle in a specific year, ordered by date ASC (chronological)
+    /// Get all trips for a vehicle in a specific year, ordered by sort_order ASC
     pub fn get_trips_for_vehicle_in_year(&self, vehicle_id: &str, year: i32) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
              FROM trips
              WHERE vehicle_id = ?1 AND strftime('%Y', date) = ?2
-             ORDER BY date ASC",
+             ORDER BY sort_order ASC",
         )?;
 
         let trips = stmt

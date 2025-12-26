@@ -8,7 +8,7 @@
 
 	let { children } = $props();
 
-	let availableYears: number[] = [];
+	let availableYears = $state<number[]>([]);
 
 	async function loadYears() {
 		if (!$activeVehicleStore) {

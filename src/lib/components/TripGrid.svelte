@@ -35,8 +35,8 @@
 		}
 	}
 
-	// Reload grid data when trips change
-	$: if (trips) {
+	// Reload grid data when trips or year change
+	$: if (trips || year) {
 		loadGridData();
 	}
 
