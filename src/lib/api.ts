@@ -185,3 +185,7 @@ export async function getBackupInfo(filename: string): Promise<BackupInfo> {
 export async function restoreBackup(filename: string): Promise<void> {
 	return await invoke('restore_backup', { filename });
 }
+
+export async function deleteBackup(filename: string): Promise<void> {
+	return await invoke('delete_backup', { filename });
+}

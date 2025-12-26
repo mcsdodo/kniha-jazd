@@ -41,6 +41,7 @@
 	let loadingBackups = false;
 	let backupInProgress = false;
 	let restoreConfirmation: BackupInfo | null = null;
+	let deleteConfirmation: BackupInfo | null = null;
 
 	onMount(async () => {
 		// Load settings
@@ -225,6 +226,27 @@
 		restoreConfirmation = null;
 	}
 
+	async function handleDeleteClick(backup: BackupInfo) {
+		deleteConfirmation = backup;
+	}
+
+	async function handleConfirmDelete() {
+		if (!deleteConfirmation) return;
+
+		try {
+			await api.deleteBackup(deleteConfirmation.filename);
+			deleteConfirmation = null;
+			await loadBackups();
+		} catch (error) {
+			console.error('Failed to delete backup:', error);
+			alert('Nepodarilo sa odstrániť zálohu: ' + error);
+		}
+	}
+
+	function cancelDelete() {
+		deleteConfirmation = null;
+	}
+
 	function formatBackupDate(isoDate: string): string {
 		try {
 			const date = new Date(isoDate);
@@ -382,9 +404,14 @@
 									<span class="backup-date">{formatBackupDate(backup.created_at)}</span>
 									<span class="backup-size">{formatFileSize(backup.size_bytes)}</span>
 								</div>
-								<button class="button-small" on:click={() => handleRestoreClick(backup)}>
-									Obnoviť
-								</button>
+								<div class="backup-actions">
+									<button class="button-small" on:click={() => handleRestoreClick(backup)}>
+										Obnoviť
+									</button>
+									<button class="button-small danger" on:click={() => handleDeleteClick(backup)}>
+										Odstrániť
+									</button>
+								</div>
 							</div>
 						{/each}
 					{/if}
@@ -413,6 +440,25 @@
 			<div class="modal-actions">
 				<button class="button-small" on:click={cancelRestore}>Zrušiť</button>
 				<button class="button-small danger" on:click={handleConfirmRestore}>Obnoviť zálohu</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if deleteConfirmation}
+	<div class="modal-overlay" on:click={cancelDelete} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && cancelDelete()}>
+		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
+			<h2>Potvrdiť odstránenie</h2>
+			<div class="modal-content">
+				<p><strong>Dátum zálohy:</strong> {formatBackupDate(deleteConfirmation.created_at)}</p>
+				<p><strong>Veľkosť:</strong> {formatFileSize(deleteConfirmation.size_bytes)}</p>
+				<p class="warning-text">
+					Táto záloha bude trvalo odstránená!
+				</p>
+			</div>
+			<div class="modal-actions">
+				<button class="button-small" on:click={cancelDelete}>Zrušiť</button>
+				<button class="button-small danger" on:click={handleConfirmDelete}>Odstrániť</button>
 			</div>
 		</div>
 	</div>
@@ -641,6 +687,11 @@
 	.backup-info {
 		display: flex;
 		gap: 1rem;
+	}
+
+	.backup-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.backup-date {

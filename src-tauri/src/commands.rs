@@ -849,3 +849,16 @@ pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), Str
 
     Ok(())
 }
+
+#[tauri::command]
+pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backup_path = app_dir.join("backups").join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    fs::remove_file(&backup_path).map_err(|e| e.to_string())?;
+    Ok(())
+}

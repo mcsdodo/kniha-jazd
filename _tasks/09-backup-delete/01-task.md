@@ -1,6 +1,6 @@
 **Date:** 2025-12-26
 **Subject:** Add ability to delete backups
-**Status:** Planning
+**Status:** Complete
 
 ## User Story
 
