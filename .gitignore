@@ -29,3 +29,6 @@ vite.config.ts.timestamp-*
 .worktrees/
 
 kniha_jazd.xlsx
+
+# Generated databases
+scripts/*.db
