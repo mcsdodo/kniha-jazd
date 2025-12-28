@@ -12,12 +12,12 @@ Output:
 To use for screenshots:
     1. Run this script to generate showcase-kniha-jazd.db
     2. Backup your real database:
-       copy %APPDATA%\\com.tauri.dev\\kniha-jazd.db %APPDATA%\\com.tauri.dev\\kniha-jazd.db.bak
+       copy %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db.bak
     3. Copy showcase DB:
-       copy scripts\\showcase-kniha-jazd.db %APPDATA%\\com.tauri.dev\\kniha-jazd.db
+       copy scripts\\showcase-kniha-jazd.db %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db
     4. Launch app and take screenshots
     5. Restore your real database:
-       copy %APPDATA%\\com.tauri.dev\\kniha-jazd.db.bak %APPDATA%\\com.tauri.dev\\kniha-jazd.db
+       copy %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db.bak %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db
 """
 
 import sqlite3

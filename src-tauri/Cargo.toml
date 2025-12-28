@@ -1,10 +1,10 @@
 [package]
-name = "app"
+name = "kniha-jazd"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Vehicle logbook desktop app for Slovak tax compliance"
+authors = ["mcsdodo"]
+license = "GPL-3.0"
+repository = "https://github.com/mcsdodo/kniha-jazd"
 edition = "2021"
 rust-version = "1.77.2"
 
