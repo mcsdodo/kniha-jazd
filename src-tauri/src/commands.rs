@@ -869,6 +869,85 @@ pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), Stri
 // ============================================================================
 
 #[tauri::command]
+pub async fn export_to_browser(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+    vehicle_id: String,
+    year: i32,
+    license_plate: String,
+) -> Result<(), String> {
+    // Get vehicle
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    // Get settings
+    let settings = db
+        .get_settings()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Settings not found - please configure company info first".to_string())?;
+
+    // Get trips
+    let trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+
+    if trips.is_empty() {
+        return Err("No trips found for this year".to_string());
+    }
+
+    // Sort chronologically
+    let mut chronological = trips.clone();
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Calculate rates and fuel remaining
+    let (rates, estimated_rates) =
+        calculate_period_rates(&chronological, vehicle.tp_consumption);
+    let fuel_remaining =
+        calculate_fuel_remaining(&chronological, &rates, vehicle.tank_size_liters);
+
+    let grid_data = TripGridData {
+        trips,
+        rates,
+        estimated_rates,
+        fuel_remaining,
+        date_warnings: HashSet::new(),
+        consumption_warnings: HashSet::new(),
+    };
+
+    let totals = ExportTotals::calculate(&chronological, vehicle.tp_consumption);
+
+    let export_data = ExportData {
+        vehicle,
+        settings,
+        grid_data,
+        year,
+        totals,
+    };
+
+    let html = generate_html(export_data)?;
+
+    // Write to temp file
+    let temp_dir = std::env::temp_dir();
+    let filename = format!("kniha-jazd-{}-{}.html", license_plate, year);
+    let temp_path = temp_dir.join(&filename);
+
+    fs::write(&temp_path, html).map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    // Open in default browser
+    open::that(&temp_path).map_err(|e| format!("Failed to open browser: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn export_html(
     db: State<'_, Database>,
     vehicle_id: String,
