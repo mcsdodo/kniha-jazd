@@ -11,6 +11,8 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_fs::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -56,6 +58,7 @@ pub fn run() {
       commands::restore_backup,
       commands::delete_backup,
       commands::get_trip_grid_data,
+      commands::export_pdf,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

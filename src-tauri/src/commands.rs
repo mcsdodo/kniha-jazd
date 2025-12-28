@@ -5,6 +5,7 @@ use crate::calculations::{
     is_within_legal_limit,
 };
 use crate::db::Database;
+use crate::export::{generate_pdf, ExportTotals, PdfExportData};
 use crate::models::{Route, Settings, Trip, TripGridData, TripStats, Vehicle};
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
@@ -861,4 +862,75 @@ pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), Stri
 
     fs::remove_file(&backup_path).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ============================================================================
+// PDF Export Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn export_pdf(
+    db: State<'_, Database>,
+    vehicle_id: String,
+    year: i32,
+) -> Result<Vec<u8>, String> {
+    // Get vehicle
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    // Get settings
+    let settings = db
+        .get_settings()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Settings not found - please configure company info first".to_string())?;
+
+    // Get trip grid data (reuses existing calculation logic)
+    let trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+
+    if trips.is_empty() {
+        return Err("No trips found for this year".to_string());
+    }
+
+    // Sort chronologically for calculations
+    let mut chronological = trips.clone();
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Calculate rates and fuel remaining
+    let (rates, estimated_rates) =
+        calculate_period_rates(&chronological, vehicle.tp_consumption);
+    let fuel_remaining =
+        calculate_fuel_remaining(&chronological, &rates, vehicle.tank_size_liters);
+
+    let grid_data = TripGridData {
+        trips,
+        rates,
+        estimated_rates,
+        fuel_remaining,
+        date_warnings: HashSet::new(),
+        consumption_warnings: HashSet::new(),
+    };
+
+    // Calculate totals for footer
+    let totals = ExportTotals::calculate(&chronological, vehicle.tp_consumption);
+
+    // Generate PDF
+    let pdf_data = PdfExportData {
+        vehicle,
+        settings,
+        grid_data,
+        year,
+        totals,
+    };
+
+    generate_pdf(pdf_data)
 }

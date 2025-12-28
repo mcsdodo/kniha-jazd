@@ -60,6 +60,161 @@ impl ExportTotals {
     }
 }
 
+use genpdf::fonts;
+use genpdf::{elements, style, Document, Element, SimplePageDecorator, Size};
+
+/// Generate PDF bytes for the logbook export
+pub fn generate_pdf(data: PdfExportData) -> Result<Vec<u8>, String> {
+    // Load fonts from embedded bytes
+    let regular_bytes = include_bytes!("../assets/fonts/DejaVuSans.ttf");
+    let bold_bytes = include_bytes!("../assets/fonts/DejaVuSans-Bold.ttf");
+
+    let regular = fonts::FontData::new(regular_bytes.to_vec(), None)
+        .map_err(|e| format!("Failed to load regular font: {}", e))?;
+    let bold = fonts::FontData::new(bold_bytes.to_vec(), None)
+        .map_err(|e| format!("Failed to load bold font: {}", e))?;
+
+    let font_family = fonts::FontFamily {
+        regular,
+        bold,
+        italic: fonts::FontData::new(regular_bytes.to_vec(), None)
+            .map_err(|e| format!("Failed to load italic font: {}", e))?,
+        bold_italic: fonts::FontData::new(bold_bytes.to_vec(), None)
+            .map_err(|e| format!("Failed to load bold-italic font: {}", e))?,
+    };
+
+    // Create document with landscape A4 (297x210mm)
+    let mut doc = Document::new(font_family);
+    doc.set_paper_size(Size::new(297, 210)); // Landscape A4
+
+    // Set up page margins using SimplePageDecorator
+    let mut decorator = SimplePageDecorator::new();
+    decorator.set_margins(10);
+    doc.set_page_decorator(decorator);
+
+    // Add title
+    doc.push(
+        elements::Paragraph::new("KNIHA JÁZD")
+            .styled(style::Style::new().bold().with_font_size(16)),
+    );
+    doc.push(elements::Break::new(0.5));
+
+    // Add company info
+    let company_line = format!(
+        "Firma: {} | IČO: {}",
+        data.settings.company_name,
+        data.settings.company_ico
+    );
+    doc.push(elements::Paragraph::new(company_line));
+
+    // Add vehicle info
+    let vehicle_line = format!(
+        "Vozidlo: {} | ŠPZ: {} | Nádrž: {} L | TP spotreba: {} l/100km",
+        data.vehicle.name,
+        data.vehicle.license_plate,
+        data.vehicle.tank_size_liters,
+        data.vehicle.tp_consumption
+    );
+    doc.push(elements::Paragraph::new(vehicle_line));
+
+    // Add year
+    doc.push(elements::Paragraph::new(format!("Rok: {}", data.year)));
+    doc.push(elements::Break::new(1.0));
+
+    // Build trip table
+    let table = build_trip_table(&data);
+    doc.push(table);
+
+    doc.push(elements::Break::new(1.0));
+
+    // Add footer with totals
+    let footer = build_footer(&data.totals);
+    doc.push(footer);
+
+    // Render to bytes
+    let mut buffer = Vec::new();
+    doc.render(&mut buffer)
+        .map_err(|e| format!("Failed to render PDF: {}", e))?;
+
+    Ok(buffer)
+}
+
+fn build_trip_table(data: &PdfExportData) -> elements::TableLayout {
+    let mut table = elements::TableLayout::new(vec![
+        1, // Dátum
+        2, // Odkiaľ
+        2, // Kam
+        2, // Účel
+        1, // Km
+        1, // ODO
+        1, // PHM (L)
+        1, // € PHM
+        1, // € Iné
+        2, // Poznámka
+        1, // Zostatok
+        1, // Spotreba
+    ]);
+    table.set_cell_decorator(elements::FrameCellDecorator::new(true, true, false));
+
+    // Header row
+    let headers = vec![
+        "Dátum", "Odkiaľ", "Kam", "Účel", "Km", "ODO",
+        "PHM (L)", "€ PHM", "€ Iné", "Poznámka", "Zostatok", "Spotreba",
+    ];
+
+    let mut header_row = table.row();
+    for h in headers {
+        header_row.push_element(
+            elements::Paragraph::new(h)
+                .styled(style::Style::new().bold().with_font_size(8)),
+        );
+    }
+    header_row.push().expect("Failed to push header row");
+
+    // Data rows
+    for trip in &data.grid_data.trips {
+        let trip_id = trip.id.to_string();
+        let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
+        let zostatok = data.grid_data.fuel_remaining.get(&trip_id).copied().unwrap_or(0.0);
+
+        let mut row = table.row();
+        row.push_element(cell(&trip.date.format("%d.%m.%Y").to_string()));
+        row.push_element(cell(&trip.origin));
+        row.push_element(cell(&trip.destination));
+        row.push_element(cell(&trip.purpose));
+        row.push_element(cell(&format!("{:.0}", trip.distance_km)));
+        row.push_element(cell(&format!("{:.0}", trip.odometer)));
+        row.push_element(cell(&trip.fuel_liters.map(|f| format!("{:.2}", f)).unwrap_or_default()));
+        row.push_element(cell(&trip.fuel_cost_eur.map(|f| format!("{:.2}", f)).unwrap_or_default()));
+        row.push_element(cell(&trip.other_costs_eur.map(|f| format!("{:.2}", f)).unwrap_or_default()));
+        row.push_element(cell(trip.other_costs_note.as_deref().unwrap_or("")));
+        row.push_element(cell(&format!("{:.1}", zostatok)));
+        row.push_element(cell(&format!("{:.2}", rate)));
+        row.push().expect("Failed to push data row");
+    }
+
+    table
+}
+
+fn cell(text: &str) -> impl Element {
+    elements::Paragraph::new(text).styled(style::Style::new().with_font_size(7))
+}
+
+fn build_footer(totals: &ExportTotals) -> impl Element {
+    let footer_text = format!(
+        "SPOLU: {:.0} km | PHM: {:.2} L / {:.2} € | Iné náklady: {:.2} € | \
+         Priemerná spotreba: {:.2} l/100km | Odchýlka oproti TP: {:.1}%",
+        totals.total_km,
+        totals.total_fuel_liters,
+        totals.total_fuel_cost,
+        totals.total_other_costs,
+        totals.avg_consumption,
+        totals.deviation_percent
+    );
+
+    elements::Paragraph::new(footer_text).styled(style::Style::new().bold().with_font_size(9))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

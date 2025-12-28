@@ -3,9 +3,11 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats } from '$lib/api';
+	import { getTripsForYear, calculateTripStats, exportPdf } from '$lib/api';
 	import type { Trip, TripStats } from '$lib/types';
 	import { onMount } from 'svelte';
+
+	let exporting = false;
 
 	let trips: Trip[] = [];
 	let initialLoading = true; // Only true for first load, keeps TripGrid mounted during refreshes
@@ -67,13 +69,39 @@
 	$: if ($activeVehicleStore && $selectedYearStore) {
 		loadTrips(true);
 	}
+
+	async function handleExport() {
+		if (!$activeVehicleStore || exporting) return;
+
+		try {
+			exporting = true;
+			const saved = await exportPdf(
+				$activeVehicleStore.id,
+				$selectedYearStore,
+				$activeVehicleStore.license_plate
+			);
+			if (saved) {
+				// PDF saved successfully
+			}
+		} catch (error) {
+			console.error('Export failed:', error);
+			alert('Export zlyhal: ' + error);
+		} finally {
+			exporting = false;
+		}
+	}
 </script>
 
 <div class="main-page">
 	{#if $activeVehicleStore}
 		<div class="vehicle-info">
 			<div class="vehicle-header">
-				<h2>Aktívne vozidlo</h2>
+				<div class="header-row">
+					<h2>Aktívne vozidlo</h2>
+					<button class="export-btn" onclick={handleExport} disabled={exporting || trips.length === 0}>
+						{exporting ? 'Exportujem...' : 'Export PDF'}
+					</button>
+				</div>
 				{#if stats}
 					<div class="stats-container">
 						<div class="stats-row">
@@ -178,6 +206,32 @@
 		flex-direction: column;
 		gap: 1rem;
 		margin-bottom: 1rem;
+	}
+
+	.header-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.export-btn {
+		padding: 0.5rem 1rem;
+		background-color: #27ae60;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.export-btn:hover:not(:disabled) {
+		background-color: #219653;
+	}
+
+	.export-btn:disabled {
+		background-color: #bdc3c7;
+		cursor: not-allowed;
 	}
 
 	.vehicle-info h2 {
