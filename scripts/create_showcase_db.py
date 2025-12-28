@@ -157,21 +157,29 @@ def create_db():
     ]
 
     odometer = 45000.0  # Starting from initial_odometer
-    sort_order = 0
 
+    # First pass: calculate odometers
+    trip_records = []
     for date_str, origin, dest, km, fuel, cost, purpose in trips_data:
-        trip_id = str(uuid.uuid4())
         odometer += km
+        trip_records.append((date_str, origin, dest, km, odometer, fuel, cost, purpose))
+
+    # Assign sort_order in REVERSE (newest first, sort_order 0 = newest)
+    # This matches the app's expectation for display order
+    num_trips = len(trip_records)
+
+    for i, (date_str, origin, dest, km, odo, fuel, cost, purpose) in enumerate(trip_records):
+        trip_id = str(uuid.uuid4())
+        sort_order = num_trips - 1 - i  # Reverse: first trip gets highest sort_order
 
         cursor.execute("""
             INSERT INTO trips (id, vehicle_id, date, origin, destination, distance_km, odometer,
                              purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note,
                              sort_order, full_tank, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (trip_id, vehicle_id, date_str, origin, dest, km, odometer,
+        """, (trip_id, vehicle_id, date_str, origin, dest, km, odo,
               purpose, fuel, cost, None, None,
               sort_order, 1, now, now))
-        sort_order += 1
 
     # --- Routes (for autocomplete) ---
     routes = [
