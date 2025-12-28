@@ -3,7 +3,7 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats, exportPdf } from '$lib/api';
+	import { getTripsForYear, calculateTripStats, exportHtml } from '$lib/api';
 	import type { Trip, TripStats } from '$lib/types';
 	import { onMount } from 'svelte';
 
@@ -75,13 +75,13 @@
 
 		try {
 			exporting = true;
-			const saved = await exportPdf(
+			const saved = await exportHtml(
 				$activeVehicleStore.id,
 				$selectedYearStore,
 				$activeVehicleStore.license_plate
 			);
 			if (saved) {
-				// PDF saved successfully
+				// HTML saved and opened in browser
 			}
 		} catch (error) {
 			console.error('Export failed:', error);

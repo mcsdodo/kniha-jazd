@@ -3,6 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
+import { openPath } from '@tauri-apps/plugin-opener';
 import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData } from './types';
 
 // Vehicle commands
@@ -192,19 +193,19 @@ export async function deleteBackup(filename: string): Promise<void> {
 	return await invoke('delete_backup', { filename });
 }
 
-// PDF Export
-export async function exportPdf(
+// HTML Export (user can print to PDF from browser)
+export async function exportHtml(
 	vehicleId: string,
 	year: number,
 	licensePlate: string
 ): Promise<boolean> {
-	// Get PDF bytes from backend
-	const pdfBytes: number[] = await invoke('export_pdf', { vehicleId, year });
+	// Get HTML from backend
+	const html: string = await invoke('export_html', { vehicleId, year });
 
 	// Show save dialog
 	const filePath = await save({
-		defaultPath: `kniha-jazd-${licensePlate}-${year}.pdf`,
-		filters: [{ name: 'PDF', extensions: ['pdf'] }]
+		defaultPath: `kniha-jazd-${licensePlate}-${year}.html`,
+		filters: [{ name: 'HTML', extensions: ['html'] }]
 	});
 
 	if (!filePath) {
@@ -212,6 +213,11 @@ export async function exportPdf(
 	}
 
 	// Write file
-	await writeFile(filePath, new Uint8Array(pdfBytes));
+	const encoder = new TextEncoder();
+	await writeFile(filePath, encoder.encode(html));
+
+	// Open in default browser
+	await openPath(filePath);
+
 	return true;
 }

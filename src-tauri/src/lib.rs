@@ -13,6 +13,7 @@ pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_opener::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -58,7 +59,7 @@ pub fn run() {
       commands::restore_backup,
       commands::delete_backup,
       commands::get_trip_grid_data,
-      commands::export_pdf,
+      commands::export_html,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

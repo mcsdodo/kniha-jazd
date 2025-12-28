@@ -5,7 +5,7 @@ use crate::calculations::{
     is_within_legal_limit,
 };
 use crate::db::Database;
-use crate::export::{generate_pdf, ExportTotals, PdfExportData};
+use crate::export::{generate_html, ExportData, ExportTotals};
 use crate::models::{Route, Settings, Trip, TripGridData, TripStats, Vehicle};
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
@@ -865,15 +865,15 @@ pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), Stri
 }
 
 // ============================================================================
-// PDF Export Commands
+// HTML Export Commands
 // ============================================================================
 
 #[tauri::command]
-pub async fn export_pdf(
+pub async fn export_html(
     db: State<'_, Database>,
     vehicle_id: String,
     year: i32,
-) -> Result<Vec<u8>, String> {
+) -> Result<String, String> {
     // Get vehicle
     let vehicle = db
         .get_vehicle(&vehicle_id)
@@ -923,8 +923,8 @@ pub async fn export_pdf(
     // Calculate totals for footer
     let totals = ExportTotals::calculate(&chronological, vehicle.tp_consumption);
 
-    // Generate PDF
-    let pdf_data = PdfExportData {
+    // Generate HTML
+    let export_data = ExportData {
         vehicle,
         settings,
         grid_data,
@@ -932,5 +932,5 @@ pub async fn export_pdf(
         totals,
     };
 
-    generate_pdf(pdf_data)
+    generate_html(export_data)
 }

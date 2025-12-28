@@ -1,9 +1,9 @@
-//! PDF export functionality for Kniha jázd
+//! HTML export functionality for Kniha jázd
 
 use crate::models::{Settings, Trip, TripGridData, Vehicle};
 
-/// Data needed to generate the PDF export
-pub struct PdfExportData {
+/// Data needed to generate the HTML export
+pub struct ExportData {
     pub vehicle: Vehicle,
     pub settings: Settings,
     pub grid_data: TripGridData,
@@ -60,159 +60,299 @@ impl ExportTotals {
     }
 }
 
-use genpdf::fonts;
-use genpdf::{elements, style, Document, Element, SimplePageDecorator, Size};
+/// Generate HTML string for the logbook export
+pub fn generate_html(data: ExportData) -> Result<String, String> {
+    let mut rows = String::new();
 
-/// Generate PDF bytes for the logbook export
-pub fn generate_pdf(data: PdfExportData) -> Result<Vec<u8>, String> {
-    // Load fonts from embedded bytes
-    let regular_bytes = include_bytes!("../assets/fonts/DejaVuSans.ttf");
-    let bold_bytes = include_bytes!("../assets/fonts/DejaVuSans-Bold.ttf");
-
-    let regular = fonts::FontData::new(regular_bytes.to_vec(), None)
-        .map_err(|e| format!("Failed to load regular font: {}", e))?;
-    let bold = fonts::FontData::new(bold_bytes.to_vec(), None)
-        .map_err(|e| format!("Failed to load bold font: {}", e))?;
-
-    let font_family = fonts::FontFamily {
-        regular,
-        bold,
-        italic: fonts::FontData::new(regular_bytes.to_vec(), None)
-            .map_err(|e| format!("Failed to load italic font: {}", e))?,
-        bold_italic: fonts::FontData::new(bold_bytes.to_vec(), None)
-            .map_err(|e| format!("Failed to load bold-italic font: {}", e))?,
-    };
-
-    // Create document with landscape A4 (297x210mm)
-    let mut doc = Document::new(font_family);
-    doc.set_paper_size(Size::new(297, 210)); // Landscape A4
-
-    // Set up page margins using SimplePageDecorator
-    let mut decorator = SimplePageDecorator::new();
-    decorator.set_margins(10);
-    doc.set_page_decorator(decorator);
-
-    // Add title
-    doc.push(
-        elements::Paragraph::new("KNIHA JÁZD")
-            .styled(style::Style::new().bold().with_font_size(16)),
-    );
-    doc.push(elements::Break::new(0.5));
-
-    // Add company info
-    let company_line = format!(
-        "Firma: {} | IČO: {}",
-        data.settings.company_name,
-        data.settings.company_ico
-    );
-    doc.push(elements::Paragraph::new(company_line));
-
-    // Add vehicle info
-    let vehicle_line = format!(
-        "Vozidlo: {} | ŠPZ: {} | Nádrž: {} L | TP spotreba: {} l/100km",
-        data.vehicle.name,
-        data.vehicle.license_plate,
-        data.vehicle.tank_size_liters,
-        data.vehicle.tp_consumption
-    );
-    doc.push(elements::Paragraph::new(vehicle_line));
-
-    // Add year
-    doc.push(elements::Paragraph::new(format!("Rok: {}", data.year)));
-    doc.push(elements::Break::new(1.0));
-
-    // Build trip table
-    let table = build_trip_table(&data);
-    doc.push(table);
-
-    doc.push(elements::Break::new(1.0));
-
-    // Add footer with totals
-    let footer = build_footer(&data.totals);
-    doc.push(footer);
-
-    // Render to bytes
-    let mut buffer = Vec::new();
-    doc.render(&mut buffer)
-        .map_err(|e| format!("Failed to render PDF: {}", e))?;
-
-    Ok(buffer)
-}
-
-fn build_trip_table(data: &PdfExportData) -> elements::TableLayout {
-    let mut table = elements::TableLayout::new(vec![
-        1, // Dátum
-        2, // Odkiaľ
-        2, // Kam
-        2, // Účel
-        1, // Km
-        1, // ODO
-        1, // PHM (L)
-        1, // € PHM
-        1, // € Iné
-        2, // Poznámka
-        1, // Zostatok
-        1, // Spotreba
-    ]);
-    table.set_cell_decorator(elements::FrameCellDecorator::new(true, true, false));
-
-    // Header row
-    let headers = vec![
-        "Dátum", "Odkiaľ", "Kam", "Účel", "Km", "ODO",
-        "PHM (L)", "€ PHM", "€ Iné", "Poznámka", "Zostatok", "Spotreba",
-    ];
-
-    let mut header_row = table.row();
-    for h in headers {
-        header_row.push_element(
-            elements::Paragraph::new(h)
-                .styled(style::Style::new().bold().with_font_size(8)),
-        );
-    }
-    header_row.push().expect("Failed to push header row");
-
-    // Data rows
     for trip in &data.grid_data.trips {
         let trip_id = trip.id.to_string();
         let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
-        let zostatok = data.grid_data.fuel_remaining.get(&trip_id).copied().unwrap_or(0.0);
+        let zostatok = data
+            .grid_data
+            .fuel_remaining
+            .get(&trip_id)
+            .copied()
+            .unwrap_or(0.0);
 
-        let mut row = table.row();
-        row.push_element(cell(&trip.date.format("%d.%m.%Y").to_string()));
-        row.push_element(cell(&trip.origin));
-        row.push_element(cell(&trip.destination));
-        row.push_element(cell(&trip.purpose));
-        row.push_element(cell(&format!("{:.0}", trip.distance_km)));
-        row.push_element(cell(&format!("{:.0}", trip.odometer)));
-        row.push_element(cell(&trip.fuel_liters.map(|f| format!("{:.2}", f)).unwrap_or_default()));
-        row.push_element(cell(&trip.fuel_cost_eur.map(|f| format!("{:.2}", f)).unwrap_or_default()));
-        row.push_element(cell(&trip.other_costs_eur.map(|f| format!("{:.2}", f)).unwrap_or_default()));
-        row.push_element(cell(trip.other_costs_note.as_deref().unwrap_or("")));
-        row.push_element(cell(&format!("{:.1}", zostatok)));
-        row.push_element(cell(&format!("{:.2}", rate)));
-        row.push().expect("Failed to push data row");
+        let fuel_liters = trip
+            .fuel_liters
+            .map(|f| format!("{:.1}", f))
+            .unwrap_or_default();
+        let fuel_cost = trip
+            .fuel_cost_eur
+            .map(|f| format!("{:.2}", f))
+            .unwrap_or_default();
+        let other_costs = trip
+            .other_costs_eur
+            .map(|f| format!("{:.2}", f))
+            .unwrap_or_default();
+        let other_note = trip.other_costs_note.as_deref().unwrap_or("");
+
+        rows.push_str(&format!(
+            r#"        <tr>
+          <td>{}</td>
+          <td>{}</td>
+          <td>{}</td>
+          <td>{}</td>
+          <td class="num">{:.0}</td>
+          <td class="num">{:.0}</td>
+          <td class="num">{}</td>
+          <td class="num">{}</td>
+          <td class="num">{}</td>
+          <td>{}</td>
+          <td class="num">{:.1}</td>
+          <td class="num">{:.2}</td>
+        </tr>
+"#,
+            trip.date.format("%d.%m.%Y"),
+            html_escape(&trip.origin),
+            html_escape(&trip.destination),
+            html_escape(&trip.purpose),
+            trip.distance_km,
+            trip.odometer,
+            fuel_liters,
+            fuel_cost,
+            other_costs,
+            html_escape(other_note),
+            zostatok,
+            rate
+        ));
     }
 
-    table
-}
+    let html = format!(
+        r#"<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <title>Kniha jázd - {} - {}</title>
+  <style>
+    @media print {{
+      @page {{
+        size: A4 landscape;
+        margin: 10mm;
+      }}
+      body {{
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }}
+    }}
 
-fn cell(text: &str) -> impl Element {
-    elements::Paragraph::new(text).styled(style::Style::new().with_font_size(7))
-}
+    * {{
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }}
 
-fn build_footer(totals: &ExportTotals) -> impl Element {
-    let footer_text = format!(
-        "SPOLU: {:.0} km | PHM: {:.2} L / {:.2} € | Iné náklady: {:.2} € | \
-         Priemerná spotreba: {:.2} l/100km | Odchýlka oproti TP: {:.1}%",
-        totals.total_km,
-        totals.total_fuel_liters,
-        totals.total_fuel_cost,
-        totals.total_other_costs,
-        totals.avg_consumption,
-        totals.deviation_percent
+    body {{
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.3;
+      padding: 15px;
+      max-width: 297mm;
+    }}
+
+    h1 {{
+      font-size: 18px;
+      margin-bottom: 10px;
+      text-align: center;
+    }}
+
+    .header {{
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }}
+
+    .header-section {{
+      flex: 1;
+    }}
+
+    .header-section p {{
+      margin: 2px 0;
+    }}
+
+    .label {{
+      font-weight: bold;
+      color: #555;
+    }}
+
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }}
+
+    th, td {{
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      text-align: left;
+    }}
+
+    th {{
+      background: #e8e8e8;
+      font-weight: bold;
+      text-align: center;
+    }}
+
+    td.num {{
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }}
+
+    tr:nth-child(even) {{
+      background: #fafafa;
+    }}
+
+    .footer {{
+      margin-top: 15px;
+      padding: 10px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 11px;
+    }}
+
+    .footer-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }}
+
+    .footer-item {{
+      text-align: center;
+    }}
+
+    .footer-value {{
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+    }}
+
+    .footer-label {{
+      font-size: 9px;
+      color: #666;
+    }}
+
+    .print-hint {{
+      text-align: center;
+      margin-top: 20px;
+      color: #999;
+      font-size: 10px;
+    }}
+
+    @media print {{
+      .print-hint {{
+        display: none;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <h1>KNIHA JÁZD</h1>
+
+  <div class="header">
+    <div class="header-section">
+      <p><span class="label">Firma:</span> {}</p>
+      <p><span class="label">IČO:</span> {}</p>
+    </div>
+    <div class="header-section">
+      <p><span class="label">Vozidlo:</span> {}</p>
+      <p><span class="label">ŠPZ:</span> {}</p>
+    </div>
+    <div class="header-section">
+      <p><span class="label">Nádrž:</span> {} L</p>
+      <p><span class="label">TP spotreba:</span> {} l/100km</p>
+    </div>
+    <div class="header-section">
+      <p><span class="label">Rok:</span> {}</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Dátum</th>
+        <th>Odkiaľ</th>
+        <th>Kam</th>
+        <th>Účel</th>
+        <th>Km</th>
+        <th>ODO</th>
+        <th>PHM L</th>
+        <th>€ PHM</th>
+        <th>€ Iné</th>
+        <th>Poznámka</th>
+        <th>Zost.</th>
+        <th>Spotr.</th>
+      </tr>
+    </thead>
+    <tbody>
+{}    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="footer-grid">
+      <div class="footer-item">
+        <div class="footer-value">{:.0} km</div>
+        <div class="footer-label">Celkom km</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} L / {:.2} €</div>
+        <div class="footer-label">Celkom PHM</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} €</div>
+        <div class="footer-label">Iné náklady</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} l/100km</div>
+        <div class="footer-label">Priemerná spotreba</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.1}%</div>
+        <div class="footer-label">Odchýlka od TP</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{} l/100km</div>
+        <div class="footer-label">TP norma</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="print-hint">Pre export do PDF použite Ctrl+P → Uložiť ako PDF</p>
+</body>
+</html>
+"#,
+        data.vehicle.license_plate,
+        data.year,
+        html_escape(&data.settings.company_name),
+        html_escape(&data.settings.company_ico),
+        html_escape(&data.vehicle.name),
+        html_escape(&data.vehicle.license_plate),
+        data.vehicle.tank_size_liters,
+        data.vehicle.tp_consumption,
+        data.year,
+        rows,
+        data.totals.total_km,
+        data.totals.total_fuel_liters,
+        data.totals.total_fuel_cost,
+        data.totals.total_other_costs,
+        data.totals.avg_consumption,
+        data.totals.deviation_percent,
+        data.vehicle.tp_consumption
     );
 
-    elements::Paragraph::new(footer_text).styled(style::Style::new().bold().with_font_size(9))
+    Ok(html)
+}
+
+/// Escape HTML special characters
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 #[cfg(test)]
@@ -221,7 +361,12 @@ mod tests {
     use chrono::{NaiveDate, Utc};
     use uuid::Uuid;
 
-    fn make_trip(km: f64, fuel: Option<f64>, fuel_cost: Option<f64>, other_cost: Option<f64>) -> Trip {
+    fn make_trip(
+        km: f64,
+        fuel: Option<f64>,
+        fuel_cost: Option<f64>,
+        other_cost: Option<f64>,
+    ) -> Trip {
         Trip {
             id: Uuid::new_v4(),
             vehicle_id: Uuid::new_v4(),
@@ -296,5 +441,12 @@ mod tests {
 
         assert_eq!(totals.total_km, 100.0);
         assert_eq!(totals.deviation_percent, 100.0); // Defaults to 100% when tp is 0
+    }
+
+    #[test]
+    fn test_html_escape() {
+        assert_eq!(html_escape("a & b"), "a &amp; b");
+        assert_eq!(html_escape("<script>"), "&lt;script&gt;");
+        assert_eq!(html_escape("\"test\""), "&quot;test&quot;");
     }
 }
