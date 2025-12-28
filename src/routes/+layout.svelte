@@ -21,6 +21,12 @@
 			// Combine current year with years that have data, deduplicate, sort descending
 			const allYears = new Set([currentYear, ...yearsWithData]);
 			availableYears = [...allYears].sort((a, b) => b - a);
+
+			// If current selection has no data, switch to most recent year with data
+			if (yearsWithData.length > 0 && !yearsWithData.includes($selectedYearStore)) {
+				const mostRecentWithData = Math.max(...yearsWithData);
+				selectedYearStore.set(mostRecentWithData);
+			}
 		} catch (error) {
 			console.error('Failed to load years:', error);
 			availableYears = [new Date().getFullYear()];

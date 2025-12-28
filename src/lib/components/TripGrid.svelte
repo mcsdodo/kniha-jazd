@@ -50,16 +50,16 @@
 	type SortColumn = 'manual' | 'date';
 	type SortDirection = 'asc' | 'desc';
 	let sortColumn: SortColumn = 'manual';
-	let sortDirection: SortDirection = 'desc'; // desc = newest first for date
+	let sortDirection: SortDirection = 'desc'; // desc = newest first (higher sort_order at top)
 
 	function toggleSort(column: SortColumn) {
 		if (sortColumn === column) {
 			// Toggle direction
 			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
 		} else {
-			// Switch column, default direction
+			// Switch column, default to desc (newest first)
 			sortColumn = column;
-			sortDirection = column === 'date' ? 'desc' : 'asc';
+			sortDirection = 'desc';
 		}
 	}
 
@@ -242,15 +242,15 @@
 
 	// Display order (based on current sort settings)
 	$: sortedTrips = [...trips].sort((a, b) => {
+		let diff: number;
 		if (sortColumn === 'manual') {
-			return a.sort_order - b.sort_order;
-		} else if (sortColumn === 'date') {
+			diff = a.sort_order - b.sort_order;
+		} else {
 			const dateA = new Date(a.date).getTime();
 			const dateB = new Date(b.date).getTime();
-			const diff = dateA - dateB;
-			return sortDirection === 'asc' ? diff : -diff;
+			diff = dateA - dateB;
 		}
-		return 0;
+		return sortDirection === 'asc' ? diff : -diff;
 	});
 
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
