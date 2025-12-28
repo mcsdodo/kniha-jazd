@@ -14,7 +14,7 @@ Thanks for your interest in contributing to Kniha Jázd!
 
 ```bash
 # Clone the repo
-git clone https://github.com/USER/kniha-jazd.git
+git clone https://github.com/mcsdodo/kniha-jazd.git
 cd kniha-jazd
 
 # Install dependencies
