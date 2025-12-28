@@ -505,7 +505,7 @@ pub fn get_trip_grid_data(
 
 /// Calculate consumption rates for each trip based on fill-up periods.
 /// Only calculates actual rate when a period ends with a full tank fillup.
-fn calculate_period_rates(
+pub(crate) fn calculate_period_rates(
     chronological: &[Trip],
     tp_consumption: f64,
 ) -> (HashMap<String, f64>, HashSet<String>) {
@@ -570,7 +570,7 @@ fn calculate_period_rates(
 }
 
 /// Calculate fuel remaining after each trip.
-fn calculate_fuel_remaining(
+pub(crate) fn calculate_fuel_remaining(
     chronological: &[Trip],
     rates: &HashMap<String, f64>,
     tank_size: f64,
