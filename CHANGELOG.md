@@ -24,6 +24,6 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Automatický výpočet ODO z predchádzajúcej jazdy
 - Pamätanie trás s automatickým dopĺňaním vzdialenosti
 - Zálohovanie a obnova databázy
-- Export do PDF
+- Export (HTML náhľad s tlačou do PDF)
 - Podpora pre čiastočné tankovanie
 - Ročné prehľady (každý rok = samostatná kniha jázd)

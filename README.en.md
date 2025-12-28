@@ -17,7 +17,7 @@ Automatically calculates fuel consumption, monitors the legal 20% over-consumpti
 - **Route memory** - Frequent routes auto-complete
 - **Yearly overviews** - Each year = separate logbook
 - **Backup and restore** - Simple database management
-- **PDF export** - For accounting and tax purposes
+- **Export** - HTML preview with print-to-PDF (Ctrl+P)
 
 ## Installation
 

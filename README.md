@@ -17,7 +17,7 @@ Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou
 - **Pamätanie trás** - Časté trasy sa automaticky dopĺňajú
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Zálohovanie a obnova** - Jednoduchá správa databázy
-- **Export do PDF** - Pre účtovníctvo a daňové účely
+- **Export** - HTML náhľad s tlačou do PDF (Ctrl+P)
 
 ## Inštalácia
 
