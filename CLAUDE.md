@@ -88,9 +88,9 @@ kniha-jazd/
 
 ## Database Location
 
-- **Windows:** `%APPDATA%\com.tauri.dev\kniha-jazd.db`
-  - Example: `C:\Users\<username>\AppData\Roaming\com.tauri.dev\kniha-jazd.db`
-- **Backups:** `%APPDATA%\com.tauri.dev\backups\`
+- **Windows:** `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
+  - Example: `C:\Users\<username>\AppData\Roaming\com.notavailable.kniha-jazd\kniha-jazd.db`
+- **Backups:** `%APPDATA%\com.notavailable.kniha-jazd\backups\`
 
 ## Common Commands
 
@@ -117,3 +117,36 @@ npm run lint && npm run format
 **IMPORTANT:** When making architectural or business logic decisions during conversations, brainstorming, or debugging - add them to `DECISIONS.md`.
 
 Format: Date, context, decision, reasoning. Keep it simple and sequential.
+
+## Documentation Requirements
+
+**MANDATORY: Keep user-facing docs in sync with code changes.**
+
+When implementing or modifying features, update:
+
+1. **README.md** (Slovak) - Feature list, usage instructions
+2. **README.en.md** (English) - Mirror Slovak changes
+3. **CHANGELOG.md** - Document what changed
+
+### What Requires Documentation Update
+
+- New features → Add to feature list + usage section
+- Changed behavior → Update affected sections
+- New UI elements → Update screenshots if significant change
+- Removed features → Remove from docs
+
+### CHANGELOG Format
+
+```markdown
+## [Unreleased]
+### Pridané
+- New feature description
+
+### Zmenené
+- Changed behavior description
+
+### Opravené
+- Bug fix description
+```
+
+Keep entries concise. Write CHANGELOG in Slovak (matches primary audience).
