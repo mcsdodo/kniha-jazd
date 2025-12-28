@@ -7,14 +7,14 @@ Usage:
     python scripts/create_showcase_db.py
 
 Output:
-    scripts/showcase-kniha-jazd.db
+    scripts/kniha-jazd.db
 
 To use for screenshots:
-    1. Run this script to generate showcase-kniha-jazd.db
+    1. Run this script to generate kniha-jazd.db
     2. Backup your real database:
        copy %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db.bak
     3. Copy showcase DB:
-       copy scripts\\showcase-kniha-jazd.db %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db
+       copy scripts\\kniha-jazd.db %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db
     4. Launch app and take screenshots
     5. Restore your real database:
        copy %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db.bak %APPDATA%\\com.notavailable.kniha-jazd\\kniha-jazd.db
@@ -27,7 +27,7 @@ from pathlib import Path
 
 # Output path
 SCRIPT_DIR = Path(__file__).parent
-OUTPUT_DB = SCRIPT_DIR / "showcase-kniha-jazd.db"
+OUTPUT_DB = SCRIPT_DIR / "kniha-jazd.db"
 
 # Schema from migrations
 SCHEMA = """
@@ -137,7 +137,7 @@ def create_db():
         ("2024-01-08", "Bratislava", "Nitra", 92, None, None, "obchodné rokovanie"),
         ("2024-01-08", "Nitra", "Bratislava", 92, None, None, "návrat"),
         ("2024-01-15", "Bratislava", "Senec", 28, None, None, "dodávka tovaru"),
-        ("2024-01-15", "Senec", "Bratislava", 28, 32.5, 52.00, "návrat + tankovanie"),  # Fill-up
+        ("2024-01-15", "Senec", "Bratislava", 28, 19.6, 31.36, "návrat + tankovanie"),  # Fill-up: 5.6 l/100km (110%)
 
         # February
         ("2024-02-05", "Bratislava", "Trenčín", 128, None, None, "školenie"),
@@ -145,7 +145,7 @@ def create_db():
         ("2024-02-12", "Bratislava", "Malacky", 42, None, None, "audit"),
         ("2024-02-12", "Malacky", "Bratislava", 42, None, None, "návrat"),
         ("2024-02-20", "Bratislava", "Dunajská Streda", 48, None, None, "stretnutie"),
-        ("2024-02-20", "Dunajská Streda", "Bratislava", 48, 35.2, 56.32, "návrat + tankovanie"),  # Fill-up
+        ("2024-02-20", "Dunajská Streda", "Bratislava", 48, 28.9, 46.24, "návrat + tankovanie"),  # Fill-up: 6.63 l/100km (130%) - OVER LIMIT
 
         # March
         ("2024-03-04", "Bratislava", "Žilina", 198, None, None, "konferencia"),
@@ -153,7 +153,7 @@ def create_db():
         ("2024-03-11", "Bratislava", "Pezinok", 22, None, None, "obhliadka"),
         ("2024-03-11", "Pezinok", "Bratislava", 22, None, None, "návrat"),
         ("2024-03-18", "Bratislava", "Trnava", 55, None, None, "stretnutie s klientom"),
-        ("2024-03-18", "Trnava", "Bratislava", 55, 38.0, 60.80, "návrat + tankovanie"),  # Fill-up
+        ("2024-03-18", "Trnava", "Bratislava", 55, 32.0, 51.20, "návrat + tankovanie"),  # Fill-up: 5.82 l/100km (114%)
     ]
 
     odometer = 45000.0  # Starting from initial_odometer
