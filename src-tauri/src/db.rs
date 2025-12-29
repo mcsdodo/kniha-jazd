@@ -1607,4 +1607,47 @@ mod tests {
         assert_eq!(unassigned.len(), 1);
         assert_eq!(unassigned[0].file_name, "1.jpg");
     }
+
+    #[test]
+    fn test_get_pending_receipts() {
+        let db = Database::in_memory().unwrap();
+
+        // Create receipts with different statuses
+        let receipt1 = Receipt::new("path1.jpg".to_string(), "pending1.jpg".to_string());
+        let mut receipt2 = Receipt::new("path2.jpg".to_string(), "pending2.jpg".to_string());
+        let mut receipt3 = Receipt::new("path3.jpg".to_string(), "parsed.jpg".to_string());
+        let mut receipt4 = Receipt::new("path4.jpg".to_string(), "needs_review.jpg".to_string());
+
+        // receipt1 stays Pending (default)
+        // receipt2 stays Pending
+        receipt3.status = ReceiptStatus::Parsed;
+        receipt4.status = ReceiptStatus::NeedsReview;
+
+        db.create_receipt(&receipt1).unwrap();
+        db.create_receipt(&receipt2).unwrap();
+        db.create_receipt(&receipt3).unwrap();
+        db.create_receipt(&receipt4).unwrap();
+
+        // Only pending receipts should be returned
+        let pending = db.get_pending_receipts().unwrap();
+        assert_eq!(pending.len(), 2);
+
+        // Should be ordered by scanned_at ASC
+        let file_names: Vec<&str> = pending.iter().map(|r| r.file_name.as_str()).collect();
+        assert!(file_names.contains(&"pending1.jpg"));
+        assert!(file_names.contains(&"pending2.jpg"));
+    }
+
+    #[test]
+    fn test_get_pending_receipts_empty() {
+        let db = Database::in_memory().unwrap();
+
+        // Create only non-pending receipts
+        let mut receipt = Receipt::new("path.jpg".to_string(), "parsed.jpg".to_string());
+        receipt.status = ReceiptStatus::Parsed;
+        db.create_receipt(&receipt).unwrap();
+
+        let pending = db.get_pending_receipts().unwrap();
+        assert_eq!(pending.len(), 0);
+    }
 }

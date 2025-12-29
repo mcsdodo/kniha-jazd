@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip } from '$lib/types';
@@ -7,20 +7,41 @@
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+
+	interface ProcessingProgress {
+		current: number;
+		total: number;
+		file_name: string;
+	}
 
 	let receipts = $state<Receipt[]>([]);
 	let settings = $state<ReceiptSettings | null>(null);
 	let loading = $state(true);
 	let syncing = $state(false);
 	let processing = $state(false);
+	let processingProgress = $state<ProcessingProgress | null>(null);
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let receiptToAssign = $state<Receipt | null>(null);
 
+	let unlistenProgress: UnlistenFn | null = null;
+
 	onMount(async () => {
+		// Listen for processing progress events
+		unlistenProgress = await listen<ProcessingProgress>('receipt-processing-progress', (event) => {
+			processingProgress = event.payload;
+		});
+
 		await loadSettings();
 		await loadReceipts();
+	});
+
+	onDestroy(() => {
+		if (unlistenProgress) {
+			unlistenProgress();
+		}
 	});
 
 	async function loadSettings() {
@@ -78,6 +99,7 @@
 		}
 
 		processing = true;
+		processingProgress = null;
 		try {
 			const result = await api.processPendingReceipts();
 			await loadReceipts();
@@ -96,6 +118,7 @@
 			toast.error('Nepodarilo sa spracovať: ' + error);
 		} finally {
 			processing = false;
+			processingProgress = null;
 		}
 	}
 
@@ -245,7 +268,13 @@
 					onclick={handleProcessPending}
 					disabled={processing || syncing || !settings?.gemini_api_key}
 				>
-					{processing ? 'Spracovávam...' : `Spracovať čakajúce (${pendingCount})`}
+					{#if processing && processingProgress}
+						Spracovávam {processingProgress.current}/{processingProgress.total}...
+					{:else if processing}
+						Spracovávam...
+					{:else}
+						Spracovať čakajúce ({pendingCount})
+					{/if}
 				</button>
 			{/if}
 		</div>

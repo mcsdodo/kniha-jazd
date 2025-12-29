@@ -12,7 +12,7 @@ use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{NaiveDate, Utc, Local};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
 
 // ============================================================================
@@ -1134,6 +1134,13 @@ pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Re
     })
 }
 
+#[derive(Clone, Serialize)]
+pub struct ProcessingProgress {
+    pub current: usize,
+    pub total: usize,
+    pub file_name: String,
+}
+
 #[tauri::command]
 pub async fn process_pending_receipts(
     app: tauri::AppHandle,
@@ -1148,18 +1155,31 @@ pub async fn process_pending_receipts(
     // Get all pending receipts
     let mut pending_receipts = db.get_pending_receipts().map_err(|e| e.to_string())?;
     let mut errors = Vec::new();
+    let total = pending_receipts.len();
 
     // Process each pending receipt with Gemini
-    for receipt in &mut pending_receipts {
-        if let Err(e) = process_receipt_with_gemini(receipt, &api_key).await {
-            log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
-            errors.push(SyncError {
-                file_name: receipt.file_name.clone(),
-                error: e,
-            });
+    for (index, receipt) in pending_receipts.iter_mut().enumerate() {
+        // Emit progress event
+        let _ = app.emit("receipt-processing-progress", ProcessingProgress {
+            current: index + 1,
+            total,
+            file_name: receipt.file_name.clone(),
+        });
+
+        match process_receipt_with_gemini(receipt, &api_key).await {
+            Ok(()) => {
+                // Only update DB on success
+                db.update_receipt(receipt).map_err(|e| e.to_string())?;
+            }
+            Err(e) => {
+                log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
+                errors.push(SyncError {
+                    file_name: receipt.file_name.clone(),
+                    error: e,
+                });
+                // Don't update DB - leave receipt in Pending state for retry
+            }
         }
-        // Update in DB regardless of success/failure
-        db.update_receipt(receipt).map_err(|e| e.to_string())?;
     }
 
     Ok(SyncResult {
