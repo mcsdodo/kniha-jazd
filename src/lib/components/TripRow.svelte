@@ -5,6 +5,7 @@
 
 	export let trip: Trip | null = null;
 	export let routes: Route[] = [];
+	export let purposeSuggestions: string[] = [];
 	export let isNew: boolean = false;
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
@@ -183,7 +184,12 @@
 			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="0.1" min="0" placeholder="0.0" />
 		</td>
 		<td>
-			<input type="text" bind:value={formData.purpose} placeholder="Účel" />
+			<Autocomplete
+				bind:value={formData.purpose}
+				suggestions={purposeSuggestions}
+				placeholder="Účel"
+				onSelect={(value) => (formData.purpose = value)}
+			/>
 		</td>
 		<td class="fuel-cell">
 			<input

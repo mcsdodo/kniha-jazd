@@ -69,6 +69,11 @@
 	// Disable reorder buttons when editing, adding new row, or not in manual sort mode
 	$: reorderDisabled = showNewRow || editingTripId !== null || sortColumn !== 'manual';
 
+	// Get unique purposes from trips for autocomplete (trim to avoid duplicates with trailing spaces)
+	$: purposeSuggestions = Array.from(
+		new Set(trips.map((t) => t.purpose.trim()).filter((p) => p !== ''))
+	).sort();
+
 	onMount(async () => {
 		await loadRoutes();
 	});
@@ -337,6 +342,7 @@
 					<TripRow
 						trip={null}
 						{routes}
+						{purposeSuggestions}
 						isNew={true}
 						previousOdometer={lastOdometer}
 						defaultDate={defaultNewDate}
@@ -354,6 +360,7 @@
 						<TripRow
 							trip={null}
 							{routes}
+							{purposeSuggestions}
 							isNew={true}
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 							defaultDate={insertDate || trip.date}
@@ -385,6 +392,7 @@
 						<TripRow
 							{trip}
 							{routes}
+							{purposeSuggestions}
 							isNew={false}
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
