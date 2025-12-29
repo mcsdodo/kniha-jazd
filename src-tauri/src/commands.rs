@@ -1069,8 +1069,6 @@ pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, St
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let local = LocalSettings::load(&app_dir);
 
-    // For now, only local settings are supported
-    // TODO: Add DB settings and merge with override priority
     Ok(ReceiptSettings {
         gemini_api_key: local.gemini_api_key.clone(),
         receipts_folder_path: local.receipts_folder_path.clone(),
@@ -1103,7 +1101,7 @@ pub struct SyncError {
 }
 
 #[tauri::command]
-pub fn sync_receipts(app: tauri::AppHandle, db: State<Database>) -> Result<SyncResult, String> {
+pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<SyncResult, String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_dir);
 
@@ -1117,10 +1115,9 @@ pub fn sync_receipts(app: tauri::AppHandle, db: State<Database>) -> Result<SyncR
     let mut new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
     let mut errors = Vec::new();
 
-    // Process each new receipt with Gemini
-    // NOTE: Uses blocking HTTP. For many receipts, consider async with progress events.
+    // Process each new receipt with Gemini (async)
     for receipt in &mut new_receipts {
-        if let Err(e) = process_receipt_with_gemini(receipt, &api_key) {
+        if let Err(e) = process_receipt_with_gemini(receipt, &api_key).await {
             log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
             errors.push(SyncError {
                 file_name: receipt.file_name.clone(),
@@ -1145,6 +1142,35 @@ pub fn update_receipt(db: State<Database>, receipt: Receipt) -> Result<(), Strin
 #[tauri::command]
 pub fn delete_receipt(db: State<Database>, id: String) -> Result<(), String> {
     db.delete_receipt(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn reprocess_receipt(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+    id: String,
+) -> Result<Receipt, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_dir);
+
+    let api_key = settings.gemini_api_key
+        .ok_or("Gemini API key not configured")?;
+
+    let mut receipt = db.get_receipt_by_id(&id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Receipt not found")?;
+
+    // Clear previous error and reprocess
+    receipt.error_message = None;
+
+    // Process with async Gemini API
+    if let Err(e) = process_receipt_with_gemini(&mut receipt, &api_key).await {
+        receipt.error_message = Some(e.clone());
+        receipt.status = ReceiptStatus::NeedsReview;
+    }
+
+    db.update_receipt(&receipt).map_err(|e| e.to_string())?;
+    Ok(receipt)
 }
 
 #[tauri::command]

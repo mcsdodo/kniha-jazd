@@ -932,6 +932,13 @@ impl Database {
         let mut stmt = conn.prepare(&sql)?;
         stmt.query_row([file_path], Self::row_to_receipt).optional()
     }
+
+    pub fn get_receipt_by_id(&self, id: &str) -> Result<Option<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+        let sql = format!("SELECT {} FROM receipts WHERE id = ?1", Self::RECEIPT_SELECT_COLS);
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_row([id], Self::row_to_receipt).optional()
+    }
 }
 
 #[cfg(test)]
