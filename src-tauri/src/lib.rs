@@ -3,6 +3,7 @@ mod commands;
 mod db;
 mod error;
 mod export;
+mod gemini;
 mod models;
 mod settings;
 mod suggestions;
