@@ -120,6 +120,14 @@ Use skills in `.claude/skills/` for documentation workflows:
 | `/changelog` | Update `CHANGELOG.md` [Unreleased] section |
 | `/release` | Bump version, update changelog, tag, build |
 
-**MANDATORY:** After completing any feature, fix, or change - run `/changelog` to update the [Unreleased] section.
+**MANDATORY FINAL STEP:** After completing any feature, fix, or change:
+1. Commit all code changes
+2. Run `/changelog` to update the [Unreleased] section
+3. Commit the changelog update
+
+**WARNING:** Do NOT mark a task as complete without updating the changelog. This applies to:
+- Task plans (include changelog as final task)
+- Subagent-driven development (final step before finishing)
+- Any implementation work
 
 Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
