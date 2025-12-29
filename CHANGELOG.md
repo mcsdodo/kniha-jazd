@@ -13,6 +13,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Súhrnný panel overenia na stránke Doklady ("X/Y overených, Z neoverených")
 - Indikátor chýbajúceho dokladu (⚠) pri jazdách s tankovaním bez spárovanej účtenky
 - Legenda pod tabuľkou jázd vysvetľujúca všetky indikátory
+- Notifikácia pri načítaní jázd s chýbajúcimi dokladmi
+- Počet dokladov vyžadujúcich pozornosť vedľa odkazu "Doklady" v navigácii
 - Manuálne pridelenie dokladov - modálne okno výberu jazdy pre neoverené doklady
 - Hromadné spracovanie čakajúcich dokladov - tlačidlo "Spracovať čakajúce" na stránke Doklady
 - E2E testovanie s Playwright
