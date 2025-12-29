@@ -2,11 +2,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip } from '$lib/types';
+	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { selectedYearStore } from '$lib/stores/year';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 	interface ProcessingProgress {
@@ -25,6 +26,7 @@
 	let receiptToDelete = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let receiptToAssign = $state<Receipt | null>(null);
+	let verification = $state<VerificationResult | null>(null);
 
 	let unlistenProgress: UnlistenFn | null = null;
 
@@ -36,6 +38,7 @@
 
 		await loadSettings();
 		await loadReceipts();
+		await loadVerification();
 	});
 
 	onDestroy(() => {
@@ -64,6 +67,21 @@
 		}
 	}
 
+	async function loadVerification() {
+		const vehicle = $activeVehicleStore;
+		if (!vehicle) return;
+
+		try {
+			verification = await api.verifyReceipts(vehicle.id, $selectedYearStore);
+		} catch (error) {
+			console.error('Failed to verify receipts:', error);
+		}
+	}
+
+	function getVerificationForReceipt(receiptId: string): ReceiptVerification | null {
+		return verification?.receipts.find(v => v.receipt_id === receiptId) ?? null;
+	}
+
 	async function handleSync() {
 		if (!settings?.gemini_api_key || !settings?.receipts_folder_path) {
 			toast.error('Najprv nastavte priečinok a API kľúč v Nastaveniach');
@@ -74,6 +92,7 @@
 		try {
 			const result = await api.syncReceipts();
 			await loadReceipts();
+			await loadVerification();
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {
@@ -161,20 +180,6 @@
 			return date.toLocaleDateString('sk-SK');
 		} catch {
 			return dateStr;
-		}
-	}
-
-	function getStatusBadge(status: string): { text: string; class: string } {
-		switch (status) {
-			case 'Parsed':
-				return { text: 'Spracovaný', class: 'success' };
-			case 'NeedsReview':
-				return { text: 'Na kontrolu', class: 'warning' };
-			case 'Assigned':
-				return { text: 'Pridelený', class: 'info' };
-			case 'Pending':
-			default:
-				return { text: 'Čaká', class: 'neutral' };
 		}
 	}
 
@@ -299,7 +304,7 @@
 			class:active={filter === 'unassigned'}
 			onclick={() => (filter = 'unassigned')}
 		>
-			Nepridelené ({receipts.filter((r) => r.status !== 'Assigned').length})
+			Neoverené ({verification?.unmatched ?? receipts.filter((r) => r.status !== 'Assigned').length})
 		</button>
 		<button
 			class="filter-btn"
@@ -310,6 +315,17 @@
 		</button>
 	</div>
 
+	{#if verification}
+		<div class="verification-summary" class:all-matched={verification.unmatched === 0}>
+			{#if verification.unmatched === 0}
+				<span class="status-ok">✓ {verification.matched}/{verification.total} dokladov overených</span>
+			{:else}
+				<span class="status-ok">✓ {verification.matched}/{verification.total} overených</span>
+				<span class="status-warning">⚠ {verification.unmatched} neoverených</span>
+			{/if}
+		</div>
+	{/if}
+
 	{#if loading}
 		<p class="placeholder">Načítavam...</p>
 	{:else if filteredReceipts.length === 0}
@@ -317,11 +333,17 @@
 	{:else}
 		<div class="receipts-list">
 			{#each filteredReceipts as receipt}
-				{@const badge = getStatusBadge(receipt.status)}
+				{@const verif = getVerificationForReceipt(receipt.id)}
 				<div class="receipt-card">
 					<div class="receipt-header">
 						<span class="file-name">{receipt.file_name}</span>
-						<span class="badge {badge.class}">{badge.text}</span>
+						{#if verif?.matched}
+							<span class="badge success">Overený</span>
+						{:else if receipt.status === 'NeedsReview'}
+							<span class="badge warning">Na kontrolu</span>
+						{:else}
+							<span class="badge danger">Neoverený</span>
+						{/if}
 					</div>
 					<div class="receipt-details">
 						<div class="detail-row">
@@ -367,12 +389,17 @@
 						{#if receipt.error_message}
 							<div class="error-message">{receipt.error_message}</div>
 						{/if}
+						{#if verif?.matched}
+							<div class="matched-trip">
+								Jazda: {verif.matched_trip_date} | {verif.matched_trip_route}
+							</div>
+						{/if}
 					</div>
 					<div class="receipt-actions">
 						<button class="button-small" onclick={() => handleOpenFile(receipt.file_path)}>
 							Otvoriť
 						</button>
-						{#if receipt.status !== 'Assigned'}
+						{#if !verif?.matched}
 							<button
 								class="button-small"
 								onclick={() => handleReprocess(receipt)}
@@ -523,6 +550,41 @@
 	.badge.neutral {
 		background: #e9ecef;
 		color: #495057;
+	}
+
+	.badge.danger {
+		background: #f8d7da;
+		color: #721c24;
+	}
+
+	.verification-summary {
+		display: flex;
+		gap: 1rem;
+		padding: 0.75rem 1rem;
+		background: #f8f9fa;
+		border-radius: 4px;
+		margin-bottom: 1rem;
+	}
+
+	.verification-summary.all-matched {
+		background: #d4edda;
+	}
+
+	.status-ok {
+		color: #155724;
+		font-weight: 500;
+	}
+
+	.status-warning {
+		color: #856404;
+		font-weight: 500;
+	}
+
+	.matched-trip {
+		font-size: 0.875rem;
+		color: #28a745;
+		margin-top: 0.5rem;
+		grid-column: 1 / -1;
 	}
 
 	.receipt-details {
