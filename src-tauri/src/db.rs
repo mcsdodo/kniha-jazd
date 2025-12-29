@@ -886,6 +886,17 @@ impl Database {
         Ok(receipts)
     }
 
+    pub fn get_pending_receipts(&self) -> Result<Vec<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+        let sql = format!(
+            "SELECT {} FROM receipts WHERE status = 'Pending' ORDER BY scanned_at ASC",
+            Self::RECEIPT_SELECT_COLS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let receipts = stmt.query_map([], Self::row_to_receipt)?.collect::<Result<Vec<_>, _>>()?;
+        Ok(receipts)
+    }
+
     pub fn update_receipt(&self, receipt: &Receipt) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let status_str = match receipt.status {

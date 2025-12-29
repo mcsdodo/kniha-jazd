@@ -12,6 +12,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Pridelenie dokladov k jazdám - modálne okno výberu jazdy so zoradením podľa dátumu
 - Výber dokladu pri vytváraní/úprave jazdy - automatické vyplnenie litrov a ceny
 - Indikátor dokladov v navigácii
+- Hromadné spracovanie čakajúcich dokladov - tlačidlo "Spracovať čakajúce" na stránke Doklady
 - E2E testovanie s Playwright
 - Podpora lokálneho súboru nastavení (prepísanie predvolených hodnôt)
 

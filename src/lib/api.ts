@@ -218,6 +218,10 @@ export async function syncReceipts(): Promise<SyncResult> {
 	return await invoke('sync_receipts');
 }
 
+export async function processPendingReceipts(): Promise<SyncResult> {
+	return await invoke('process_pending_receipts');
+}
+
 export async function updateReceipt(receipt: Receipt): Promise<void> {
 	return await invoke('update_receipt', { receipt });
 }

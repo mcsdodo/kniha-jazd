@@ -66,6 +66,7 @@ pub fn run() {
       commands::get_receipts,
       commands::get_unassigned_receipts,
       commands::sync_receipts,
+      commands::process_pending_receipts,
       commands::update_receipt,
       commands::delete_receipt,
       commands::reprocess_receipt,

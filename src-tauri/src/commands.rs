@@ -1135,6 +1135,40 @@ pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Re
 }
 
 #[tauri::command]
+pub async fn process_pending_receipts(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+) -> Result<SyncResult, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_dir);
+
+    let api_key = settings.gemini_api_key
+        .ok_or("Gemini API key not configured")?;
+
+    // Get all pending receipts
+    let mut pending_receipts = db.get_pending_receipts().map_err(|e| e.to_string())?;
+    let mut errors = Vec::new();
+
+    // Process each pending receipt with Gemini
+    for receipt in &mut pending_receipts {
+        if let Err(e) = process_receipt_with_gemini(receipt, &api_key).await {
+            log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
+            errors.push(SyncError {
+                file_name: receipt.file_name.clone(),
+                error: e,
+            });
+        }
+        // Update in DB regardless of success/failure
+        db.update_receipt(receipt).map_err(|e| e.to_string())?;
+    }
+
+    Ok(SyncResult {
+        processed: pending_receipts,
+        errors,
+    })
+}
+
+#[tauri::command]
 pub fn update_receipt(db: State<Database>, receipt: Receipt) -> Result<(), String> {
     db.update_receipt(&receipt).map_err(|e| e.to_string())
 }

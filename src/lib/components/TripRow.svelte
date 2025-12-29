@@ -29,6 +29,7 @@
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
+	let showReceiptPicker = false;
 
 	// Form state - use null for new rows to show placeholder
 	let formData = {
@@ -165,6 +166,8 @@
 		if (receipt.total_price_eur != null) {
 			formData.fuel_cost_eur = receipt.total_price_eur;
 		}
+		// Close modal
+		showReceiptPicker = false;
 		// Notify parent for assignment tracking
 		onReceiptSelected(receipt);
 	}
@@ -214,7 +217,9 @@
 					min="0"
 					placeholder="0.00"
 				/>
-				<ReceiptPicker tripDate={formData.date} onSelect={handleReceiptSelect} />
+				<button type="button" class="picker-btn" on:click={() => showReceiptPicker = true}>
+					Doklad
+				</button>
 			</div>
 			{#if formData.fuel_liters}
 				<label class="full-tank-label">
@@ -335,6 +340,14 @@
 			</span>
 		</td>
 	</tr>
+{/if}
+
+{#if showReceiptPicker}
+	<ReceiptPicker
+		tripDate={formData.date}
+		onSelect={handleReceiptSelect}
+		onClose={() => showReceiptPicker = false}
+	/>
 {/if}
 
 <style>
@@ -538,5 +551,19 @@
 	.estimated-indicator {
 		color: #9e9e9e;
 		margin-left: 0.125rem;
+	}
+
+	.picker-btn {
+		padding: 0.25rem 0.5rem;
+		font-size: 0.7rem;
+		background: #ecf0f1;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.picker-btn:hover {
+		background: #d5dbdb;
 	}
 </style>

@@ -12,6 +12,7 @@
 	let settings = $state<ReceiptSettings | null>(null);
 	let loading = $state(true);
 	let syncing = $state(false);
+	let processing = $state(false);
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
@@ -67,6 +68,34 @@
 			toast.error('Nepodarilo sa synchronizovať: ' + error);
 		} finally {
 			syncing = false;
+		}
+	}
+
+	async function handleProcessPending() {
+		if (!settings?.gemini_api_key) {
+			toast.error('Najprv nastavte API kľúč v Nastaveniach');
+			return;
+		}
+
+		processing = true;
+		try {
+			const result = await api.processPendingReceipts();
+			await loadReceipts();
+
+			if (result.processed.length > 0) {
+				if (result.errors.length > 0) {
+					toast.success(`Spracovaných ${result.processed.length} dokladov (${result.errors.length} chýb)`);
+				} else {
+					toast.success(`Spracovaných ${result.processed.length} dokladov`);
+				}
+			} else {
+				toast.success('Žiadne čakajúce doklady');
+			}
+		} catch (error) {
+			console.error('Failed to process pending receipts:', error);
+			toast.error('Nepodarilo sa spracovať: ' + error);
+		} finally {
+			processing = false;
 		}
 	}
 
@@ -200,15 +229,25 @@
 	);
 
 	let isConfigured = $derived(settings?.gemini_api_key && settings?.receipts_folder_path);
+	let pendingCount = $derived(receipts.filter((r) => r.status === 'Pending').length);
 </script>
 
 <div class="doklady-page">
 	<div class="header">
 		<h1>Doklady</h1>
 		<div class="header-actions">
-			<button class="button" onclick={handleSync} disabled={syncing || !isConfigured}>
+			<button class="button" onclick={handleSync} disabled={syncing || processing || !isConfigured}>
 				{syncing ? 'Synchronizujem...' : 'Sync'}
 			</button>
+			{#if pendingCount > 0}
+				<button
+					class="button secondary"
+					onclick={handleProcessPending}
+					disabled={processing || syncing || !settings?.gemini_api_key}
+				>
+					{processing ? 'Spracovávam...' : `Spracovať čakajúce (${pendingCount})`}
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -557,6 +596,14 @@
 	.button:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
+	}
+
+	.button.secondary {
+		background-color: #27ae60;
+	}
+
+	.button.secondary:hover:not(:disabled) {
+		background-color: #219a52;
 	}
 
 	.button-small {
