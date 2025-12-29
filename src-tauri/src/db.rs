@@ -71,6 +71,38 @@ impl Database {
         Ok(())
     }
 
+    /// Populate routes table from existing trips (used after backup restore)
+    pub fn populate_routes_from_trips(&self) -> Result<usize> {
+        let conn = self.conn.lock().unwrap();
+
+        // Only populate if routes table is empty
+        let routes_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM routes", [], |row| row.get(0))?;
+
+        if routes_count > 0 {
+            return Ok(0); // Already has routes, don't overwrite
+        }
+
+        // Populate routes from trips (group by vehicle_id, origin, destination)
+        let rows_inserted = conn.execute(
+            "INSERT OR IGNORE INTO routes (id, vehicle_id, origin, destination, distance_km, usage_count, last_used)
+             SELECT
+                 lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
+                 vehicle_id,
+                 origin,
+                 destination,
+                 AVG(distance_km),
+                 COUNT(*),
+                 MAX(date)
+             FROM trips
+             WHERE origin != '' AND destination != ''
+             GROUP BY vehicle_id, origin, destination",
+            [],
+        )?;
+
+        Ok(rows_inserted)
+    }
+
     pub fn connection(&self) -> std::sync::MutexGuard<Connection> {
         self.conn.lock().unwrap()
     }

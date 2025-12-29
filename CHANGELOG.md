@@ -14,6 +14,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ### Opravené
 - Oprava reaktivity dropdown-u pre výber roku
 - Export: dummy riadky (0 km) sa nezapočítavajú do súčtov
+- Autocomplete pre odkiaľ/kam: oprava generovania trás pri úprave jázd
 
 ## [0.1.0] - 2024-12-28
 

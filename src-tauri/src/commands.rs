@@ -221,6 +221,11 @@ pub fn update_trip(
     };
 
     db.update_trip(&trip).map_err(|e| e.to_string())?;
+
+    // Update or create route for autocomplete (same as create_trip)
+    db.find_or_create_route(&trip.vehicle_id.to_string(), &trip.origin, &trip.destination, distance_km)
+        .map_err(|e| e.to_string())?;
+
     Ok(trip)
 }
 
