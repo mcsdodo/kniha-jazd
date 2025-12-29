@@ -9,9 +9,11 @@
 pub struct Receipt {
     pub id: Uuid,
     pub vehicle_id: Option<Uuid>,      // Set when assigned to a trip
-    pub trip_id: Option<Uuid>,         // Set when assigned to a trip
-    pub file_path: String,             // Original image path
-    pub file_name: String,             // Just the filename for display
+    pub trip_id: Option<Uuid>,         // Set when assigned - UNIQUE constraint
+    pub file_path: String,             // Original image path - UNIQUE constraint
+    pub file_hash: String,             // SHA-256 of file content for duplicate detection
+    pub file_name: String,             // Just filename for display
+    pub file_size_bytes: u64,          // For validation
     pub scanned_at: DateTime<Utc>,
 
     // Parsed fields (None = uncertain/failed)
@@ -22,23 +24,46 @@ pub struct Receipt {
     pub station_address: Option<String>,
 
     // Status tracking
-    pub status: ReceiptStatus,         // Pending, Parsed, NeedsReview, Assigned
-    pub confidence_flags: Vec<String>, // ["liters_uncertain", "date_unclear"]
-    pub raw_ocr_text: Option<String>,  // For debugging/manual review
-    pub error_message: Option<String>, // If parsing failed
+    pub status: ReceiptStatus,
+    pub confidence: FieldConfidence,   // Typed enum, not strings
+    pub raw_ocr_text: Option<String>,  // Local only - never sent to analytics
+    pub error_message: Option<String>,
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ReceiptStatus {
     Pending,      // File detected, not yet parsed
     Parsed,       // Successfully parsed with high confidence
     NeedsReview,  // Parsed but has uncertain fields
     Assigned,     // Linked to a trip
 }
+
+/// Typed confidence levels - avoids string inconsistencies
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FieldConfidence {
+    pub liters: ConfidenceLevel,
+    pub total_price: ConfidenceLevel,
+    pub date: ConfidenceLevel,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub enum ConfidenceLevel {
+    #[default]
+    Unknown,  // Not yet parsed
+    High,     // Clearly visible, high certainty
+    Medium,   // Partially visible, reasonable guess
+    Low,      // Very uncertain, needs review
+}
 ```
+
+### Database Constraints
+
+- `file_path` UNIQUE - prevents reprocessing same file
+- `trip_id` UNIQUE WHERE NOT NULL - prevents double-assign (one receipt per trip)
+- Indexes on: `status`, `trip_id`, `receipt_date`
 
 ### New `StationProfile` entity (for fine-tuning)
 
@@ -87,7 +112,8 @@ Location: `%APPDATA%/com.notavailable.kniha-jazd/local.settings.json`
 - On app startup, check if override file exists
 - If field is set in override file, use it (even if DB has a value)
 - Override file is gitignored, used for local development
-- UI shows "(override)" indicator if value comes from file
+- UI: when value comes from override file, show field as **read-only** with "(override)" label
+- UI: when no override, field is editable and saves to DB
 
 ---
 
@@ -116,6 +142,10 @@ Location: `%APPDATA%/com.notavailable.kniha-jazd/local.settings.json`
 ---
 
 ## Gemini API Integration
+
+**API:** REST (Google Generative AI API)
+**Model:** `gemini-2.0-flash-lite` (fast, cheap, vision-capable)
+**Client:** `reqwest` blocking (simpler for desktop app)
 
 ### Prompt structure
 
@@ -283,6 +313,13 @@ tests/
 5. **Error handling**
    - Failed parse shows NeedsReview with message
    - Manual entry fallback works
+
+6. **Negative cases**
+   - Missing API key → sync disabled, helpful error message
+   - Missing/invalid folder path → sync fails gracefully
+   - API timeout → receipt marked NeedsReview with error
+   - Unsupported file format → skipped silently
+   - Attempt to assign already-assigned receipt → error or warning
 
 ### Tauri + Playwright setup
 

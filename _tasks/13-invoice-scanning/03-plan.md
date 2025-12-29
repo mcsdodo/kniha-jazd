@@ -162,13 +162,30 @@ impl Default for ReceiptStatus {
     }
 }
 
+/// Typed confidence levels - prevents string inconsistencies
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub enum ConfidenceLevel {
+    #[default]
+    Unknown,
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FieldConfidence {
+    pub liters: ConfidenceLevel,
+    pub total_price: ConfidenceLevel,
+    pub date: ConfidenceLevel,
+}
+
 /// A scanned fuel receipt (bloček)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Receipt {
     pub id: Uuid,
     pub vehicle_id: Option<Uuid>,      // Set when assigned
-    pub trip_id: Option<Uuid>,         // Set when assigned
-    pub file_path: String,             // Full path to image
+    pub trip_id: Option<Uuid>,         // Set when assigned (UNIQUE when not null)
+    pub file_path: String,             // Full path to image (UNIQUE)
     pub file_name: String,             // Just filename for display
     pub scanned_at: DateTime<Utc>,
 
@@ -181,8 +198,8 @@ pub struct Receipt {
 
     // Status tracking
     pub status: ReceiptStatus,
-    pub confidence_flags: Vec<String>, // e.g., ["liters_uncertain", "date_unclear"]
-    pub raw_ocr_text: Option<String>,  // For debugging
+    pub confidence: FieldConfidence,   // Typed struct, not strings
+    pub raw_ocr_text: Option<String>,  // For debugging (local only)
     pub error_message: Option<String>, // If parsing failed
 
     pub created_at: DateTime<Utc>,
@@ -205,7 +222,7 @@ impl Receipt {
             station_name: None,
             station_address: None,
             status: ReceiptStatus::Pending,
-            confidence_flags: Vec::new(),
+            confidence: FieldConfidence::default(),
             raw_ocr_text: None,
             error_message: None,
             created_at: now,
@@ -225,6 +242,13 @@ In `src/lib/types.ts`, add at the end:
 
 ```typescript
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
+export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
+
+export interface FieldConfidence {
+	liters: ConfidenceLevel;
+	total_price: ConfidenceLevel;
+	date: ConfidenceLevel;
+}
 
 export interface Receipt {
 	id: string;
@@ -239,7 +263,7 @@ export interface Receipt {
 	station_name: string | null;
 	station_address: string | null;
 	status: ReceiptStatus;
-	confidence_flags: string[];
+	confidence: FieldConfidence;
 	raw_ocr_text: string | null;
 	error_message: string | null;
 	created_at: string;
@@ -285,8 +309,8 @@ In `src-tauri/src/db.rs`, in the `run_migrations` function, add after the full_t
             "CREATE TABLE IF NOT EXISTS receipts (
                 id TEXT PRIMARY KEY,
                 vehicle_id TEXT,
-                trip_id TEXT,
-                file_path TEXT NOT NULL,
+                trip_id TEXT UNIQUE,
+                file_path TEXT NOT NULL UNIQUE,
                 file_name TEXT NOT NULL,
                 scanned_at TEXT NOT NULL,
                 liters REAL,
@@ -295,7 +319,7 @@ In `src-tauri/src/db.rs`, in the `run_migrations` function, add after the full_t
                 station_name TEXT,
                 station_address TEXT,
                 status TEXT NOT NULL DEFAULT 'Pending',
-                confidence_flags TEXT NOT NULL DEFAULT '[]',
+                confidence TEXT NOT NULL DEFAULT '{\"liters\":\"Unknown\",\"total_price\":\"Unknown\",\"date\":\"Unknown\"}',
                 raw_ocr_text TEXT,
                 error_message TEXT,
                 created_at TEXT NOT NULL,
@@ -304,15 +328,16 @@ In `src-tauri/src/db.rs`, in the `run_migrations` function, add after the full_t
                 FOREIGN KEY (trip_id) REFERENCES trips(id)
             );
             CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status);
-            CREATE INDEX IF NOT EXISTS idx_receipts_trip ON receipts(trip_id);"
+            CREATE INDEX IF NOT EXISTS idx_receipts_trip ON receipts(trip_id);
+            CREATE INDEX IF NOT EXISTS idx_receipts_date ON receipts(receipt_date);"
         )?;
 ```
 
-**Step 2: Add Receipt to imports at top of db.rs**
+**Step 2: Add Receipt types to imports at top of db.rs**
 
 Change the import line:
 ```rust
-use crate::models::{Receipt, ReceiptStatus, Route, Settings, Trip, Vehicle};
+use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Route, Settings, Trip, Vehicle};
 ```
 
 **Step 3: Add CRUD functions for receipts**
@@ -329,7 +354,7 @@ Add these functions to the Database impl (after existing CRUD functions):
         conn.execute(
             "INSERT INTO receipts (id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                 liters, total_price_eur, receipt_date, station_name, station_address,
-                status, confidence_flags, raw_ocr_text, error_message, created_at, updated_at)
+                status, confidence, raw_ocr_text, error_message, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             (
                 receipt.id.to_string(),
@@ -344,7 +369,7 @@ Add these functions to the Database impl (after existing CRUD functions):
                 &receipt.station_name,
                 &receipt.station_address,
                 serde_json::to_string(&receipt.status).unwrap().trim_matches('"'),
-                serde_json::to_string(&receipt.confidence_flags).unwrap(),
+                serde_json::to_string(&receipt.confidence).unwrap(),
                 &receipt.raw_ocr_text,
                 &receipt.error_message,
                 receipt.created_at.to_rfc3339(),
@@ -359,7 +384,7 @@ Add these functions to the Database impl (after existing CRUD functions):
         let mut stmt = conn.prepare(
             "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                     liters, total_price_eur, receipt_date, station_name, station_address,
-                    status, confidence_flags, raw_ocr_text, error_message, created_at, updated_at
+                    status, confidence, raw_ocr_text, error_message, created_at, updated_at
              FROM receipts ORDER BY scanned_at DESC"
         )?;
 
@@ -380,7 +405,7 @@ Add these functions to the Database impl (after existing CRUD functions):
                 station_name: row.get(9)?,
                 station_address: row.get(10)?,
                 status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
-                confidence_flags: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
+                confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
                 raw_ocr_text: row.get(13)?,
                 error_message: row.get(14)?,
                 created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
@@ -400,7 +425,7 @@ Add these functions to the Database impl (after existing CRUD functions):
         let mut stmt = conn.prepare(
             "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                     liters, total_price_eur, receipt_date, station_name, station_address,
-                    status, confidence_flags, raw_ocr_text, error_message, created_at, updated_at
+                    status, confidence, raw_ocr_text, error_message, created_at, updated_at
              FROM receipts WHERE trip_id IS NULL ORDER BY receipt_date DESC, scanned_at DESC"
         )?;
 
@@ -421,7 +446,7 @@ Add these functions to the Database impl (after existing CRUD functions):
                 station_name: row.get(9)?,
                 station_address: row.get(10)?,
                 status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
-                confidence_flags: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
+                confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
                 raw_ocr_text: row.get(13)?,
                 error_message: row.get(14)?,
                 created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
@@ -442,7 +467,7 @@ Add these functions to the Database impl (after existing CRUD functions):
             "UPDATE receipts SET
                 vehicle_id = ?2, trip_id = ?3, liters = ?4, total_price_eur = ?5,
                 receipt_date = ?6, station_name = ?7, station_address = ?8,
-                status = ?9, confidence_flags = ?10, raw_ocr_text = ?11,
+                status = ?9, confidence = ?10, raw_ocr_text = ?11,
                 error_message = ?12, updated_at = ?13
              WHERE id = ?1",
             (
@@ -455,7 +480,7 @@ Add these functions to the Database impl (after existing CRUD functions):
                 &receipt.station_name,
                 &receipt.station_address,
                 serde_json::to_string(&receipt.status).unwrap().trim_matches('"'),
-                serde_json::to_string(&receipt.confidence_flags).unwrap(),
+                serde_json::to_string(&receipt.confidence).unwrap(),
                 &receipt.raw_ocr_text,
                 &receipt.error_message,
                 Utc::now().to_rfc3339(),
@@ -475,7 +500,7 @@ Add these functions to the Database impl (after existing CRUD functions):
         let mut stmt = conn.prepare(
             "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                     liters, total_price_eur, receipt_date, station_name, station_address,
-                    status, confidence_flags, raw_ocr_text, error_message, created_at, updated_at
+                    status, confidence, raw_ocr_text, error_message, created_at, updated_at
              FROM receipts WHERE file_path = ?1"
         )?;
 
@@ -496,7 +521,7 @@ Add these functions to the Database impl (after existing CRUD functions):
                 station_name: row.get(9)?,
                 station_address: row.get(10)?,
                 status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
-                confidence_flags: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
+                confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
                 raw_ocr_text: row.get(13)?,
                 error_message: row.get(14)?,
                 created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
@@ -1141,7 +1166,7 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
         flags.push("date_uncertain".to_string());
     }
 
-    receipt.confidence_flags = flags.clone();
+    receipt.confidence = flags.clone();
 
     // Set status: NeedsReview if any uncertainty, otherwise Parsed
     if flags.is_empty() {
@@ -1178,7 +1203,7 @@ mod tests {
         assert_eq!(receipt.liters, Some(45.5));
         assert_eq!(receipt.total_price_eur, Some(72.50));
         assert_eq!(receipt.status, ReceiptStatus::Parsed);
-        assert!(receipt.confidence_flags.is_empty());
+        assert!(receipt.confidence.is_empty());
     }
 
     #[test]
@@ -1201,8 +1226,8 @@ mod tests {
         apply_extraction_to_receipt(&mut receipt, extracted);
 
         assert_eq!(receipt.status, ReceiptStatus::NeedsReview);
-        assert!(receipt.confidence_flags.contains(&"liters_uncertain".to_string()));
-        assert!(receipt.confidence_flags.contains(&"date_uncertain".to_string()));
+        assert!(receipt.confidence.contains(&"liters_uncertain".to_string()));
+        assert!(receipt.confidence.contains(&"date_uncertain".to_string()));
     }
 }
 ```
@@ -1606,13 +1631,13 @@ Create directory and file `src/routes/doklady/+page.svelte`:
 						</div>
 						<div class="detail-row">
 							<span class="label">Litre:</span>
-							<span class="value" class:uncertain={receipt.confidence_flags.includes('liters_uncertain')}>
+							<span class="value" class:uncertain={receipt.confidence.includes('liters_uncertain')}>
 								{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
 							</span>
 						</div>
 						<div class="detail-row">
 							<span class="label">Cena:</span>
-							<span class="value" class:uncertain={receipt.confidence_flags.includes('price_uncertain')}>
+							<span class="value" class:uncertain={receipt.confidence.includes('price_uncertain')}>
 								{receipt.total_price_eur != null ? `${receipt.total_price_eur.toFixed(2)} €` : '??'}
 							</span>
 						</div>
