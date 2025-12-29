@@ -22,8 +22,11 @@ Add internationalization support with Slovak as primary language and English as 
 - `src/lib/i18n/` folder with typesafe-i18n setup
 - `sk/index.ts` - Slovak translations (base language)
 - `en/index.ts` - English translations
-- Language stored in SQLite `settings` table
-- Svelte store (`localeStore`) synced with backend
+- **Language stored in localStorage** (key: `kniha-jazd-locale`)
+  - Simpler than modifying backend Settings table
+  - Avoids schema migrations
+  - Instant language switching without network calls
+- Svelte store (`localeStore`) manages locale state
 - All components use `$LL.key()` syntax
 
 ### Backend (Rust)
@@ -34,10 +37,10 @@ Add internationalization support with Slovak as primary language and English as 
 
 ### Language Detection Flow
 
-1. App starts → check saved `locale` in settings table
+1. App starts → check localStorage for saved `locale`
 2. If none → detect via `navigator.language.startsWith('sk') ? 'sk' : 'en'`
 3. Initialize typesafe-i18n with detected/saved locale
-4. Settings page shows language dropdown, saves to DB on change
+4. Settings page shows language dropdown, saves to localStorage on change
 
 ## Translation Structure
 

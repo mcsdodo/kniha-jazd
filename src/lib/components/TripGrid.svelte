@@ -4,6 +4,7 @@
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
@@ -116,7 +117,7 @@
 			await loadRoutes();
 		} catch (error) {
 			console.error('Failed to create trip:', error);
-			toast.error('Nepodarilo sa vytvoriť záznam');
+			toast.error($LL.toast.errorCreateTrip());
 		}
 	}
 
@@ -142,7 +143,7 @@
 			await loadRoutes();
 		} catch (error) {
 			console.error('Failed to update trip:', error);
-			toast.error('Nepodarilo sa aktualizovať záznam');
+			toast.error($LL.toast.errorUpdateTrip());
 		}
 	}
 
@@ -176,7 +177,7 @@
 			onTripsChanged();
 		} catch (error) {
 			console.error('Failed to delete trip:', error);
-			toast.error('Nepodarilo sa odstrániť záznam');
+			toast.error($LL.toast.errorDeleteTrip());
 		}
 	}
 
@@ -212,7 +213,7 @@
 			await onTripsChanged();
 		} catch (error) {
 			console.error('Failed to move trip:', error);
-			toast.error('Nepodarilo sa presunúť záznam');
+			toast.error($LL.toast.errorMoveTrip());
 		}
 	}
 
@@ -228,7 +229,7 @@
 			await onTripsChanged();
 		} catch (error) {
 			console.error('Failed to move trip:', error);
-			toast.error('Nepodarilo sa presunúť záznam');
+			toast.error($LL.toast.errorMoveTrip());
 		}
 	}
 
@@ -260,7 +261,7 @@
 		destination: '-',
 		distance_km: 0,
 		odometer: initialOdometer,
-		purpose: 'Prvý záznam',
+		purpose: $LL.trips.firstRecord(),
 		fuel_liters: null,
 		fuel_cost_eur: null,
 		other_costs_eur: null,
@@ -308,9 +309,9 @@
 
 <div class="trip-grid">
 	<div class="header">
-		<h2>Jazdy ({trips.length})</h2>
+		<h2>{$LL.trips.title()} ({trips.length})</h2>
 		<button class="new-record" on:click={handleNewRecord} disabled={showNewRow}>
-			Nový záznam
+			{$LL.trips.newRecord()}
 		</button>
 	</div>
 
@@ -318,13 +319,13 @@
 		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0}
 			<div class="table-legend">
 				{#if partialCount > 0}
-					<span class="legend-item"><span class="partial-indicator">*</span> čiastočné tankovanie ({partialCount})</span>
+					<span class="legend-item"><span class="partial-indicator">*</span> {$LL.trips.legend.partialFillup()} ({partialCount})</span>
 				{/if}
 				{#if missingReceiptCount > 0}
-					<span class="legend-item"><span class="no-receipt-indicator">⚠</span> bez dokladu ({missingReceiptCount})</span>
+					<span class="legend-item"><span class="no-receipt-indicator">⚠</span> {$LL.trips.legend.noReceipt()} ({missingReceiptCount})</span>
 				{/if}
 				{#if consumptionWarningCount > 0}
-					<span class="legend-item"><span class="consumption-warning-sample"></span> vysoká spotreba ({consumptionWarningCount})</span>
+					<span class="legend-item"><span class="consumption-warning-sample"></span> {$LL.trips.legend.highConsumption()} ({consumptionWarningCount})</span>
 				{/if}
 			</div>
 		{/if}
@@ -332,24 +333,24 @@
 			<thead>
 				<tr>
 					<th class="sortable" on:click={() => toggleSort('date')}>
-						Dátum
+						{$LL.trips.columns.date()}
 						{#if sortColumn === 'date'}
 							<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
 						{/if}
 					</th>
-					<th>Odkiaľ</th>
-					<th>Kam</th>
-					<th>Km</th>
-					<th>ODO</th>
-					<th>Účel</th>
-					<th>PHM (L)</th>
-					<th>Cena €</th>
-					<th>l/100km</th>
-					<th>Zostatok</th>
-					<th>Iné €</th>
-					<th>Iné pozn.</th>
+					<th>{$LL.trips.columns.origin()}</th>
+					<th>{$LL.trips.columns.destination()}</th>
+					<th>{$LL.trips.columns.km()}</th>
+					<th>{$LL.trips.columns.odo()}</th>
+					<th>{$LL.trips.columns.purpose()}</th>
+					<th>{$LL.trips.columns.fuelLiters()}</th>
+					<th>{$LL.trips.columns.fuelCost()}</th>
+					<th>{$LL.trips.columns.consumptionRate()}</th>
+					<th>{$LL.trips.columns.remaining()}</th>
+					<th>{$LL.trips.columns.otherCosts()}</th>
+					<th>{$LL.trips.columns.otherCostsNote()}</th>
 					<th class="sortable" on:click={() => toggleSort('manual')}>
-						Akcie
+						{$LL.trips.columns.actions()}
 						{#if sortColumn === 'manual'}
 							<span class="sort-indicator">⋮</span>
 						{/if}
@@ -437,7 +438,7 @@
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="13">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
+						<td colspan="13">{$LL.trips.emptyState()}</td>
 					</tr>
 				{/if}
 			</tbody>

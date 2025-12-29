@@ -4,6 +4,7 @@
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { onMount } from 'svelte';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	interface Props {
 		receipt: Receipt;
@@ -24,7 +25,7 @@
 	async function loadTrips() {
 		const vehicle = $activeVehicleStore;
 		if (!vehicle) {
-			error = 'Nie je vybraté vozidlo';
+			error = $LL.tripSelector.noVehicleSelected();
 			loading = false;
 			return;
 		}
@@ -40,7 +41,7 @@
 			});
 		} catch (e) {
 			console.error('Failed to load trips:', e);
-			error = 'Nepodarilo sa načítať jazdy';
+			error = $LL.tripSelector.loadError();
 		} finally {
 			loading = false;
 		}
@@ -95,7 +96,7 @@
 		aria-modal="true"
 		tabindex="-1"
 	>
-		<h2>Prideliť doklad k jazde</h2>
+		<h2>{$LL.tripSelector.title()}</h2>
 		<div class="receipt-info">
 			<span class="file-name">{receipt.file_name}</span>
 			<span class="separator">|</span>
@@ -109,11 +110,11 @@
 		</div>
 
 		{#if loading}
-			<p class="placeholder">Načítavam jazdy...</p>
+			<p class="placeholder">{$LL.tripSelector.loadingTrips()}</p>
 		{:else if error}
 			<p class="error">{error}</p>
 		{:else if trips.length === 0}
-			<p class="placeholder">Žiadne jazdy na pridelenie.</p>
+			<p class="placeholder">{$LL.tripSelector.noTrips()}</p>
 		{:else}
 			<div class="trip-list">
 				{#each trips as trip}
@@ -129,7 +130,7 @@
 						<span class="date">{formatDate(trip.date)}</span>
 						<span class="route">{trip.origin} → {trip.destination}</span>
 						{#if disabled}
-							<span class="existing">už má: {trip.fuel_liters?.toFixed(2)} L</span>
+							<span class="existing">{$LL.tripSelector.alreadyHas()} {trip.fuel_liters?.toFixed(2)} L</span>
 						{/if}
 					</button>
 				{/each}
@@ -137,7 +138,7 @@
 		{/if}
 
 		<div class="modal-actions">
-			<button class="button-small" onclick={onClose}>Zrušiť</button>
+			<button class="button-small" onclick={onClose}>{$LL.common.cancel()}</button>
 		</div>
 	</div>
 </div>

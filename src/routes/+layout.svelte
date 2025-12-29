@@ -4,14 +4,17 @@
 	import { page } from '$app/stores';
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
+	import { localeStore } from '$lib/stores/locale';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	let { children } = $props();
 
 	let availableYears = $state<number[]>([]);
+	let i18nReady = $state(false);
 
 	async function loadYears() {
 		if (!$activeVehicleStore) {
@@ -37,6 +40,10 @@
 	}
 
 	onMount(async () => {
+		// Initialize i18n first
+		localeStore.init();
+		i18nReady = true;
+
 		try {
 			const [vehicles, activeVehicle] = await Promise.all([
 				getVehicles(),
@@ -76,26 +83,27 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
+{#if i18nReady}
 <div class="app">
 	<header>
 		<div class="header-content">
 			<div class="header-left">
-				<h1>Kniha Jázd</h1>
+				<h1>{$LL.app.title()}</h1>
 				<nav class="main-nav">
-					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>Kniha jázd</a>
-					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>Doklady<ReceiptIndicator /></a>
-					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>Nastavenia</a>
+					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>{$LL.app.nav.logbook()}</a>
+					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<ReceiptIndicator /></a>
+					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>{$LL.app.nav.settings()}</a>
 				</nav>
 			</div>
 			<div class="header-right">
 				<div class="vehicle-selector">
-					<label for="vehicle-select">Vozidlo:</label>
+					<label for="vehicle-select">{$LL.app.vehicleLabel()}</label>
 					<select
 						id="vehicle-select"
 						value={$activeVehicleStore?.id || ''}
 						onchange={handleVehicleChange}
 					>
-						<option value="">-- Vyberte vozidlo --</option>
+						<option value="">{$LL.app.vehiclePlaceholder()}</option>
 						{#each $vehiclesStore as vehicle}
 							<option value={vehicle.id}>
 								{vehicle.name} ({vehicle.license_plate})
@@ -105,7 +113,7 @@
 				</div>
 				{#if $activeVehicleStore}
 					<div class="year-selector">
-						<label for="year-select">Rok:</label>
+						<label for="year-select">{$LL.app.yearLabel()}</label>
 						<select
 							id="year-select"
 							value={$selectedYearStore}
@@ -125,6 +133,7 @@
 		{@render children()}
 	</main>
 </div>
+{/if}
 
 <Toast />
 <GlobalConfirm />

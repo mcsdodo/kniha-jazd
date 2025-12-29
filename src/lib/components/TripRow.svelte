@@ -2,6 +2,7 @@
 	import type { Trip, Route } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	export let trip: Trip | null = null;
 	export let routes: Route[] = [];
@@ -138,9 +139,9 @@
 	function handleDeleteClick() {
 		if (trip?.id) {
 			confirmStore.show({
-				title: 'Odstrániť záznam',
-				message: 'Naozaj chcete odstrániť tento záznam?',
-				confirmText: 'Odstrániť',
+				title: $LL.confirm.deleteRecordTitle(),
+				message: $LL.confirm.deleteRecordMessage(),
+				confirmText: $LL.common.delete(),
 				danger: true,
 				onConfirm: () => onDelete(trip!.id)
 			});
@@ -167,7 +168,7 @@
 			<Autocomplete
 				bind:value={formData.origin}
 				suggestions={locationSuggestions}
-				placeholder="Odkiaľ"
+				placeholder={$LL.trips.originPlaceholder()}
 				onSelect={handleOriginSelect}
 			/>
 		</td>
@@ -175,7 +176,7 @@
 			<Autocomplete
 				bind:value={formData.destination}
 				suggestions={locationSuggestions}
-				placeholder="Kam"
+				placeholder={$LL.trips.destinationPlaceholder()}
 				onSelect={handleDestinationSelect}
 			/>
 		</td>
@@ -189,7 +190,7 @@
 			<Autocomplete
 				bind:value={formData.purpose}
 				suggestions={purposeSuggestions}
-				placeholder="Účel"
+				placeholder={$LL.trips.purposePlaceholder()}
 				onSelect={(value) => (formData.purpose = value)}
 			/>
 		</td>
@@ -205,7 +206,7 @@
 				<label class="full-tank-label">
 					<input type="checkbox" bind:checked={formData.full_tank} />
 					<span class="checkmark"></span>
-					<span class="label-text">Plná</span>
+					<span class="label-text">{$LL.trips.fullTank()}</span>
 				</label>
 			{/if}
 		</td>
@@ -241,8 +242,8 @@
 			/>
 		</td>
 		<td class="actions">
-			<button class="save" on:click={handleSave}>Uložiť</button>
-			<button class="cancel" on:click={handleCancel}>Zrušiť</button>
+			<button class="save" on:click={handleSave}>{$LL.common.save()}</button>
+			<button class="cancel" on:click={handleCancel}>{$LL.common.cancel()}</button>
 		</td>
 	</tr>
 {:else if trip}
@@ -261,10 +262,10 @@
 			{#if trip.fuel_liters}
 				{trip.fuel_liters.toFixed(2)}
 				{#if !trip.full_tank}
-					<span class="partial-indicator" title="Čiastočné tankovanie">*</span>
+					<span class="partial-indicator" title={$LL.trips.partialFillup()}>*</span>
 				{/if}
 				{#if !hasMatchingReceipt}
-					<span class="no-receipt-indicator" title="Bez dokladu">⚠</span>
+					<span class="no-receipt-indicator" title={$LL.trips.noReceipt()}>⚠</span>
 				{/if}
 			{/if}
 		</td>
@@ -272,7 +273,7 @@
 		<td class="number calculated" class:estimated={isEstimatedRate}>
 			{consumptionRate.toFixed(2)}
 			{#if isEstimatedRate}
-				<span class="estimated-indicator" title="Odhad podľa TP">~</span>
+				<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
 			{/if}
 		</td>
 		<td class="number calculated">{zostatok.toFixed(1)}</td>
@@ -283,7 +284,7 @@
 				<button
 					class="icon-btn move-up"
 					on:click|stopPropagation={onMoveUp}
-					title="Presunúť hore"
+					title={$LL.trips.moveUp()}
 					disabled={!canMoveUp}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -293,7 +294,7 @@
 				<button
 					class="icon-btn move-down"
 					on:click|stopPropagation={onMoveDown}
-					title="Presunúť dole"
+					title={$LL.trips.moveDown()}
 					disabled={!canMoveDown}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -303,7 +304,7 @@
 				<button
 					class="icon-btn insert"
 					on:click|stopPropagation={onInsertAbove}
-					title="Vložiť záznam nad"
+					title={$LL.trips.insertAbove()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<line x1="12" y1="5" x2="12" y2="19"></line>
@@ -313,7 +314,7 @@
 				<button
 					class="icon-btn delete"
 					on:click|stopPropagation={handleDeleteClick}
-					title="Odstrániť záznam"
+					title={$LL.trips.deleteRecord()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<polyline points="3 6 5 6 21 6"></polyline>

@@ -7,6 +7,7 @@
 	import type { Trip, TripStats } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	let exporting = false;
 
@@ -89,7 +90,7 @@
 			);
 		} catch (error) {
 			console.error('Export failed:', error);
-			toast.error('Export zlyhal: ' + error);
+			toast.error($LL.toast.errorExport({ error: String(error) }));
 		} finally {
 			exporting = false;
 		}
@@ -101,36 +102,36 @@
 		<div class="vehicle-info">
 			<div class="vehicle-header">
 				<div class="header-row">
-					<h2>Aktívne vozidlo</h2>
+					<h2>{$LL.home.activeVehicle()}</h2>
 					<button class="export-btn" onclick={handleExport} disabled={exporting || trips.length === 0}>
-						{exporting ? 'Exportujem...' : 'Export pre tlač'}
+						{exporting ? $LL.home.exporting() : $LL.home.exportForPrint()}
 					</button>
 				</div>
 				{#if stats}
 					<div class="stats-container">
 						<div class="stats-row">
 							<span class="stat">
-								<span class="stat-label">Celkovo najazdené:</span>
+								<span class="stat-label">{$LL.stats.totalDriven()}:</span>
 								<span class="stat-value">{stats.total_km.toLocaleString('sk-SK')} km</span>
 							</span>
 							<span class="stat">
-								<span class="stat-label">PHM:</span>
+								<span class="stat-label">{$LL.stats.fuel()}:</span>
 								<span class="stat-value">{stats.total_fuel_liters.toFixed(1)} L / {stats.total_fuel_cost_eur.toFixed(2)} €</span>
 							</span>
 						</div>
 						<div class="stats-row">
 							<span class="stat">
-								<span class="stat-label">Spotreba:</span>
+								<span class="stat-label">{$LL.stats.consumption()}:</span>
 								<span class="stat-value">{stats.avg_consumption_rate.toFixed(2)} L/100km</span>
 							</span>
 							{#if stats.margin_percent !== null}
 								<span class="stat" class:warning={stats.is_over_limit}>
-									<span class="stat-label">Odchýlka:</span>
+									<span class="stat-label">{$LL.stats.deviation()}:</span>
 									<span class="stat-value">{stats.margin_percent.toFixed(1)}%</span>
 								</span>
 							{/if}
 							<span class="stat">
-								<span class="stat-label">Zostatok:</span>
+								<span class="stat-label">{$LL.stats.remaining()}:</span>
 								<span class="stat-value">{stats.zostatok_liters.toFixed(1)} L</span>
 							</span>
 						</div>
@@ -139,19 +140,19 @@
 			</div>
 			<div class="info-grid">
 				<div class="info-item">
-					<span class="label">Názov:</span>
+					<span class="label">{$LL.vehicle.name()}:</span>
 					<span class="value">{$activeVehicleStore.name}</span>
 				</div>
 				<div class="info-item">
-					<span class="label">ŠPZ:</span>
+					<span class="label">{$LL.vehicle.licensePlate()}:</span>
 					<span class="value">{$activeVehicleStore.license_plate}</span>
 				</div>
 				<div class="info-item">
-					<span class="label">Objem nádrže:</span>
+					<span class="label">{$LL.vehicle.tankSize()}:</span>
 					<span class="value">{$activeVehicleStore.tank_size_liters} L</span>
 				</div>
 				<div class="info-item">
-					<span class="label">Spotreba (TP):</span>
+					<span class="label">{$LL.vehicle.tpConsumption()}:</span>
 					<span class="value">{$activeVehicleStore.tp_consumption} L/100km</span>
 				</div>
 			</div>
@@ -169,7 +170,7 @@
 
 		<div class="trip-section">
 			{#if initialLoading}
-				<p class="loading">Načítavam...</p>
+				<p class="loading">{$LL.common.loading()}</p>
 			{:else}
 				<TripGrid
 					vehicleId={$activeVehicleStore.id}
@@ -186,9 +187,9 @@
 		</div>
 	{:else}
 		<div class="no-vehicle">
-			<h2>Žiadne vozidlo</h2>
-			<p>Prosím, vyberte vozidlo z hlavného menu alebo ho vytvorte v nastaveniach.</p>
-			<a href="/settings" class="button">Prejsť do nastavení</a>
+			<h2>{$LL.home.noVehicle()}</h2>
+			<p>{$LL.home.noVehicleDescription()}</p>
+			<a href="/settings" class="button">{$LL.home.goToSettings()}</a>
 		</div>
 	{/if}
 </div>

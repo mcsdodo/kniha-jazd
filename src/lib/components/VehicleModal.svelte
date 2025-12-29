@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Vehicle } from '$lib/types';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	export let vehicle: Vehicle | null = null;
 	export let onSave: (
@@ -31,66 +32,66 @@
 <div class="modal-backdrop" on:click={handleBackgroundClick} role="button" tabindex="-1">
 	<div class="modal-content">
 		<div class="modal-header">
-			<h2>{vehicle ? 'Upraviť vozidlo' : 'Pridať vozidlo'}</h2>
+			<h2>{vehicle ? $LL.vehicleModal.editTitle() : $LL.vehicleModal.addTitle()}</h2>
 			<button class="close-button" on:click={onClose}>&times;</button>
 		</div>
 
 		<div class="modal-body">
 			<div class="form-group">
-				<label for="name">Názov vozidla</label>
-				<input type="text" id="name" bind:value={name} placeholder="napr. Škoda Octavia" />
+				<label for="name">{$LL.vehicleModal.nameLabel()}</label>
+				<input type="text" id="name" bind:value={name} placeholder={$LL.vehicleModal.namePlaceholder()} />
 			</div>
 
 			<div class="form-group">
-				<label for="license-plate">Evidenčné číslo (EČV)</label>
+				<label for="license-plate">{$LL.vehicleModal.licensePlateLabel()}</label>
 				<input
 					type="text"
 					id="license-plate"
 					bind:value={licensePlate}
-					placeholder="napr. BA123XY"
+					placeholder={$LL.vehicleModal.licensePlatePlaceholder()}
 				/>
 			</div>
 
 			<div class="form-group">
-				<label for="tank-size">Objem nádrže (litre)</label>
+				<label for="tank-size">{$LL.vehicleModal.tankSizeLabel()}</label>
 				<input
 					type="number"
 					id="tank-size"
 					bind:value={tankSize}
 					step="0.1"
 					min="0"
-					placeholder="napr. 66"
+					placeholder={$LL.vehicleModal.tankSizePlaceholder()}
 				/>
 			</div>
 
 			<div class="form-group">
-				<label for="tp-consumption">Spotreba z TP (l/100km)</label>
+				<label for="tp-consumption">{$LL.vehicleModal.tpConsumptionLabel()}</label>
 				<input
 					type="number"
 					id="tp-consumption"
 					bind:value={tpConsumption}
 					step="0.1"
 					min="0"
-					placeholder="napr. 5.1"
+					placeholder={$LL.vehicleModal.tpConsumptionPlaceholder()}
 				/>
 			</div>
 
 			<div class="form-group">
-				<label for="initial-odometer">Počiatočný stav ODO (km)</label>
+				<label for="initial-odometer">{$LL.vehicleModal.initialOdometerLabel()}</label>
 				<input
 					type="number"
 					id="initial-odometer"
 					bind:value={initialOdometer}
 					step="0.1"
 					min="0"
-					placeholder="napr. 50000"
+					placeholder={$LL.vehicleModal.initialOdometerPlaceholder()}
 				/>
 			</div>
 		</div>
 
 		<div class="modal-footer">
-			<button class="button button-secondary" on:click={onClose}>Zrušiť</button>
-			<button class="button button-primary" on:click={handleSave}>Uložiť</button>
+			<button class="button button-secondary" on:click={onClose}>{$LL.common.cancel()}</button>
+			<button class="button button-primary" on:click={handleSave}>{$LL.common.save()}</button>
 		</div>
 	</div>
 </div>

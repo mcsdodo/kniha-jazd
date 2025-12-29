@@ -3,6 +3,7 @@
 	import * as api from '$lib/api';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	let needsAttentionCount = $state(0);
 	let loading = $state(true);
@@ -51,7 +52,7 @@
 </script>
 
 {#if !loading && needsAttentionCount > 0}
-	<span class="badge" title="Doklady vyžadujúce pozornosť">{needsAttentionCount}</span>
+	<span class="badge" title={$LL.receipts.filterNeedsReview()}>{needsAttentionCount}</span>
 {/if}
 
 <style>

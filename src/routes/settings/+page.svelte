@@ -6,6 +6,9 @@
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Vehicle, Settings, BackupInfo } from '$lib/types';
+	import LL from '$lib/i18n/i18n-svelte';
+	import { localeStore } from '$lib/stores/locale';
+	import type { Locales } from '$lib/i18n/i18n-types';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -15,6 +18,16 @@
 	let companyName = '';
 	let companyIco = '';
 	let bufferTripPurpose = '';
+
+	// Language state
+	let selectedLocale: Locales = 'sk';
+
+	function handleLocaleChange(event: Event) {
+		const select = event.target as HTMLSelectElement;
+		const newLocale = select.value as Locales;
+		localeStore.change(newLocale);
+		selectedLocale = newLocale;
+	}
 
 
 	// Backup state
@@ -27,18 +40,26 @@
 	// Vehicle delete confirmation
 	let vehicleToDelete: Vehicle | null = null;
 
-	onMount(async () => {
-		// Load settings
-		const loadedSettings = await api.getSettings();
-		if (loadedSettings) {
-			settings = loadedSettings;
-			companyName = loadedSettings.company_name;
-			companyIco = loadedSettings.company_ico;
-			bufferTripPurpose = loadedSettings.buffer_trip_purpose;
-		}
+	onMount(() => {
+		// Initialize selected locale from store
+		const unsubscribe = localeStore.subscribe((locale) => {
+			selectedLocale = locale;
+		});
 
-		// Load backups
-		await loadBackups();
+		// Load settings and backups (async operations)
+		(async () => {
+			const loadedSettings = await api.getSettings();
+			if (loadedSettings) {
+				settings = loadedSettings;
+				companyName = loadedSettings.company_name;
+				companyIco = loadedSettings.company_ico;
+				bufferTripPurpose = loadedSettings.buffer_trip_purpose;
+			}
+
+			await loadBackups();
+		})();
+
+		return () => unsubscribe();
 	});
 
 	function openAddVehicleModal() {
@@ -95,10 +116,10 @@
 			}
 
 			closeVehicleModal();
-			toast.success('Vozidlo bolo úspešne uložené');
+			toast.success($LL.toast.vehicleSaved());
 		} catch (error) {
 			console.error('Failed to save vehicle:', error);
-			toast.error('Nepodarilo sa uložiť vozidlo: ' + error);
+			toast.error($LL.toast.errorSaveVehicle({ error: String(error) }));
 		}
 	}
 
@@ -116,10 +137,10 @@
 			// Reload vehicles
 			const vehicles = await api.getVehicles();
 			vehiclesStore.set(vehicles);
-			toast.success('Vozidlo bolo odstránené');
+			toast.success($LL.toast.vehicleDeleted());
 		} catch (error) {
 			console.error('Failed to delete vehicle:', error);
-			toast.error('Nepodarilo sa odstrániť vozidlo: ' + error);
+			toast.error($LL.toast.errorDeleteVehicle({ error: String(error) }));
 		}
 	}
 
@@ -136,7 +157,7 @@
 			vehiclesStore.set(vehicles);
 		} catch (error) {
 			console.error('Failed to set active vehicle:', error);
-			toast.error('Nepodarilo sa nastaviť aktívne vozidlo: ' + error);
+			toast.error($LL.toast.errorSetActiveVehicle({ error: String(error) }));
 		}
 	}
 
@@ -144,10 +165,10 @@
 		try {
 			const savedSettings = await api.saveSettings(companyName, companyIco, bufferTripPurpose);
 			settings = savedSettings;
-			toast.success('Nastavenia boli úspešne uložené');
+			toast.success($LL.toast.settingsSaved());
 		} catch (error) {
 			console.error('Failed to save settings:', error);
-			toast.error('Nepodarilo sa uložiť nastavenia: ' + error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
 		}
 	}
 
@@ -169,10 +190,10 @@
 		try {
 			await api.createBackup();
 			await loadBackups();
-			toast.success('Záloha bola úspešne vytvorená');
+			toast.success($LL.toast.backupCreated());
 		} catch (error) {
 			console.error('Failed to create backup:', error);
-			toast.error('Nepodarilo sa vytvoriť zálohu: ' + error);
+			toast.error($LL.toast.errorCreateBackup({ error: String(error) }));
 		} finally {
 			backupInProgress = false;
 		}
@@ -184,7 +205,7 @@
 			restoreConfirmation = await api.getBackupInfo(backup.filename);
 		} catch (error) {
 			console.error('Failed to get backup info:', error);
-			toast.error('Nepodarilo sa načítať informácie o zálohe: ' + error);
+			toast.error($LL.toast.errorGetBackupInfo({ error: String(error) }));
 		}
 	}
 
@@ -194,12 +215,12 @@
 		try {
 			await api.restoreBackup(restoreConfirmation.filename);
 			restoreConfirmation = null;
-			toast.success('Záloha bola úspešne obnovená. Aplikácia sa reštartuje.');
+			toast.success($LL.toast.backupRestored());
 			// Reload the app to pick up restored data
 			setTimeout(() => window.location.reload(), 1500);
 		} catch (error) {
 			console.error('Failed to restore backup:', error);
-			toast.error('Nepodarilo sa obnoviť zálohu: ' + error);
+			toast.error($LL.toast.errorRestoreBackup({ error: String(error) }));
 		}
 	}
 
@@ -218,10 +239,10 @@
 			await api.deleteBackup(deleteConfirmation.filename);
 			deleteConfirmation = null;
 			await loadBackups();
-			toast.success('Záloha bola odstránená');
+			toast.success($LL.toast.backupDeleted());
 		} catch (error) {
 			console.error('Failed to delete backup:', error);
-			toast.error('Nepodarilo sa odstrániť zálohu: ' + error);
+			toast.error($LL.toast.errorDeleteBackup({ error: String(error) }));
 		}
 	}
 
@@ -254,13 +275,27 @@
 
 <div class="settings-page">
 	<div class="header">
-		<h1>Nastavenia</h1>
+		<h1>{$LL.settings.title()}</h1>
 	</div>
 
 	<div class="sections">
+		<!-- Language Section -->
+		<section class="settings-section">
+			<h2>{$LL.settings.languageSection()}</h2>
+			<div class="section-content">
+				<div class="form-group">
+					<label for="language-select">{$LL.settings.language()}</label>
+					<select id="language-select" value={selectedLocale} on:change={handleLocaleChange}>
+						<option value="sk">Slovenčina</option>
+						<option value="en">English</option>
+					</select>
+				</div>
+			</div>
+		</section>
+
 		<!-- Vehicles Section -->
 		<section class="settings-section">
-			<h2>Vozidlá</h2>
+			<h2>{$LL.settings.vehiclesSection()}</h2>
 			<div class="section-content">
 				{#if $vehiclesStore.length > 0}
 					<div class="vehicle-list">
@@ -273,85 +308,85 @@
 										{vehicle.tank_size_liters}L | {vehicle.tp_consumption} L/100km
 									</span>
 									{#if vehicle.is_active}
-										<span class="badge active">Aktívne</span>
+										<span class="badge active">{$LL.vehicle.active()}</span>
 									{/if}
 								</div>
 								<div class="vehicle-actions">
 									<button class="button-small" on:click={() => openEditVehicleModal(vehicle)}>
-										Upraviť
+										{$LL.common.edit()}
 									</button>
 									{#if !vehicle.is_active}
 										<button
 											class="button-small primary"
 											on:click={() => handleSetActiveVehicle(vehicle)}
 										>
-											Nastaviť ako aktívne
+											{$LL.vehicle.setAsActive()}
 										</button>
 									{/if}
 									<button class="button-small danger" on:click={() => handleDeleteVehicleClick(vehicle)}>
-										Odstrániť
+										{$LL.common.delete()}
 									</button>
 								</div>
 							</div>
 						{/each}
 					</div>
 				{:else}
-					<p class="placeholder">Žiadne vozidlá. Vytvorte prvé vozidlo.</p>
+					<p class="placeholder">{$LL.settings.noVehicles()}</p>
 				{/if}
-				<button class="button" on:click={openAddVehicleModal}>+ Pridať vozidlo</button>
+				<button class="button" on:click={openAddVehicleModal}>{$LL.settings.addVehicle()}</button>
 			</div>
 		</section>
 
 		<!-- Company Settings Section -->
 		<section class="settings-section">
-			<h2>Nastavenia spoločnosti</h2>
+			<h2>{$LL.settings.companySection()}</h2>
 			<div class="section-content">
 				<div class="form-group">
-					<label for="company-name">Názov spoločnosti</label>
+					<label for="company-name">{$LL.settings.companyName()}</label>
 					<input
 						type="text"
 						id="company-name"
 						bind:value={companyName}
-						placeholder="napr. Moja firma s.r.o."
+						placeholder={$LL.settings.companyNamePlaceholder()}
 					/>
 				</div>
 
 				<div class="form-group">
-					<label for="company-ico">IČO</label>
-					<input type="text" id="company-ico" bind:value={companyIco} placeholder="napr. 12345678" />
+					<label for="company-ico">{$LL.settings.companyIco()}</label>
+					<input type="text" id="company-ico" bind:value={companyIco} placeholder={$LL.settings.companyIcoPlaceholder()} />
 				</div>
 
 				<div class="form-group">
-					<label for="buffer-purpose">Účel kompenzačnej jazdy</label>
+					<label for="buffer-purpose">{$LL.settings.bufferTripPurpose()}</label>
 					<input
 						type="text"
 						id="buffer-purpose"
 						bind:value={bufferTripPurpose}
-						placeholder="napr. služobná cesta"
+						placeholder={$LL.settings.bufferTripPurposePlaceholder()}
 					/>
 					<small class="hint">
-						Tento účel sa použije pri plánovaní jázd na dodržanie 20% limitu spotreby.
+						{$LL.settings.bufferTripPurposeHint()}
 					</small>
 				</div>
 
-				<button class="button" on:click={handleSaveSettings}>Uložiť nastavenia</button>
+				<button class="button" on:click={handleSaveSettings}>{$LL.settings.saveSettings()}</button>
 			</div>
 		</section>
 
 		<!-- Backup Section -->
 		<section class="settings-section">
-			<h2>Záloha databázy</h2>
+			<h2>{$LL.settings.backupSection()}</h2>
 			<div class="section-content">
 				<button class="button" on:click={handleCreateBackup} disabled={backupInProgress}>
-					{backupInProgress ? 'Vytváram zálohu...' : 'Zálohovať'}
+					{backupInProgress ? $LL.settings.creatingBackup() : $LL.settings.createBackup()}
 				</button>
 
 				<div class="backup-list">
-					<h3>Dostupné zálohy</h3>
+					<h3>{$LL.settings.availableBackups()}</h3>
 					{#if loadingBackups}
-						<p class="placeholder">Načítavam...</p>
+						<p class="placeholder">{$LL.common.loading()}</p>
 					{:else if backups.length === 0}
-						<p class="placeholder">Žiadne zálohy. Vytvorte prvú zálohu.</p>
+						<p class="placeholder">{$LL.settings.noBackups()}</p>
 					{:else}
 						{#each backups as backup}
 							<div class="backup-item">
@@ -361,10 +396,10 @@
 								</div>
 								<div class="backup-actions">
 									<button class="button-small" on:click={() => handleRestoreClick(backup)}>
-										Obnoviť
+										{$LL.settings.restore()}
 									</button>
 									<button class="button-small danger" on:click={() => handleDeleteClick(backup)}>
-										Odstrániť
+										{$LL.common.delete()}
 									</button>
 								</div>
 							</div>
@@ -382,9 +417,10 @@
 
 {#if vehicleToDelete}
 	<ConfirmModal
-		title="Odstrániť vozidlo"
-		message={`Naozaj chcete odstrániť vozidlo "${vehicleToDelete.name}"?`}
-		confirmText="Odstrániť"
+		title={$LL.confirm.deleteVehicleTitle()}
+		message={$LL.confirm.deleteVehicleMessage({ name: vehicleToDelete.name })}
+		confirmText={$LL.common.delete()}
+		cancelText={$LL.common.cancel()}
 		danger={true}
 		onConfirm={handleConfirmDeleteVehicle}
 		onCancel={cancelDeleteVehicle}
@@ -394,18 +430,18 @@
 {#if restoreConfirmation}
 	<div class="modal-overlay" on:click={cancelRestore} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && cancelRestore()}>
 		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
-			<h2>Potvrdiť obnovenie</h2>
+			<h2>{$LL.backup.confirmRestoreTitle()}</h2>
 			<div class="modal-content">
-				<p><strong>Dátum zálohy:</strong> {formatBackupDate(restoreConfirmation.created_at)}</p>
-				<p><strong>Veľkosť:</strong> {formatFileSize(restoreConfirmation.size_bytes)}</p>
-				<p><strong>Obsahuje:</strong> {restoreConfirmation.vehicle_count} vozidiel, {restoreConfirmation.trip_count} jázd</p>
+				<p><strong>{$LL.backup.backupDate()}</strong> {formatBackupDate(restoreConfirmation.created_at)}</p>
+				<p><strong>{$LL.backup.backupSize()}</strong> {formatFileSize(restoreConfirmation.size_bytes)}</p>
+				<p><strong>{$LL.backup.backupContains()}</strong> {$LL.backup.vehiclesAndTrips({ vehicles: restoreConfirmation.vehicle_count, trips: restoreConfirmation.trip_count })}</p>
 				<p class="warning-text">
-					Aktuálne dáta budú prepísané! Ak si chcete zachovať aktuálny stav, vytvorte si najprv zálohu manuálne.
+					{$LL.backup.restoreWarning()}
 				</p>
 			</div>
 			<div class="modal-actions">
-				<button class="button-small" on:click={cancelRestore}>Zrušiť</button>
-				<button class="button-small danger" on:click={handleConfirmRestore}>Obnoviť zálohu</button>
+				<button class="button-small" on:click={cancelRestore}>{$LL.common.cancel()}</button>
+				<button class="button-small danger" on:click={handleConfirmRestore}>{$LL.backup.restoreBackup()}</button>
 			</div>
 		</div>
 	</div>
@@ -414,17 +450,17 @@
 {#if deleteConfirmation}
 	<div class="modal-overlay" on:click={cancelDelete} role="button" tabindex="0" on:keydown={(e) => e.key === 'Escape' && cancelDelete()}>
 		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
-			<h2>Potvrdiť odstránenie</h2>
+			<h2>{$LL.backup.confirmDeleteTitle()}</h2>
 			<div class="modal-content">
-				<p><strong>Dátum zálohy:</strong> {formatBackupDate(deleteConfirmation.created_at)}</p>
-				<p><strong>Veľkosť:</strong> {formatFileSize(deleteConfirmation.size_bytes)}</p>
+				<p><strong>{$LL.backup.backupDate()}</strong> {formatBackupDate(deleteConfirmation.created_at)}</p>
+				<p><strong>{$LL.backup.backupSize()}</strong> {formatFileSize(deleteConfirmation.size_bytes)}</p>
 				<p class="warning-text">
-					Táto záloha bude trvalo odstránená!
+					{$LL.backup.deleteWarning()}
 				</p>
 			</div>
 			<div class="modal-actions">
-				<button class="button-small" on:click={cancelDelete}>Zrušiť</button>
-				<button class="button-small danger" on:click={handleConfirmDelete}>Odstrániť</button>
+				<button class="button-small" on:click={cancelDelete}>{$LL.common.cancel()}</button>
+				<button class="button-small danger" on:click={handleConfirmDelete}>{$LL.common.delete()}</button>
 			</div>
 		</div>
 	</div>

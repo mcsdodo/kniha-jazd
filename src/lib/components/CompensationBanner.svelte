@@ -3,6 +3,7 @@
 	import type { CompensationSuggestion } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	export let vehicleId: string;
 	export let marginPercent: number;
@@ -51,7 +52,7 @@
 			onTripAdded();
 		} catch (error) {
 			console.error('Failed to add compensation trip:', error);
-			toast.error('Nepodarilo sa pridať jazdu. Skúste to znova.');
+			toast.error($LL.toast.errorAddCompensationTrip());
 		} finally {
 			adding = false;
 		}
@@ -61,44 +62,44 @@
 <div class="compensation-banner">
 	<div class="warning-header">
 		<span class="warning-icon">⚠️</span>
-		<h3>Prekročený zákonný limit spotreby</h3>
+		<h3>{$LL.compensation.title()}</h3>
 	</div>
 	<div class="warning-content">
 		<p class="margin-info">
-			Aktuálna odchýlka: <strong>{marginPercent.toFixed(1)}%</strong> (limit: 20%)
+			{@html $LL.compensation.currentDeviation({ percent: marginPercent.toFixed(1) })}
 		</p>
-		<p class="buffer-info">Potrebných dodatočných km: <strong>{bufferKm.toFixed(0)} km</strong></p>
+		<p class="buffer-info">{@html $LL.compensation.additionalKmNeeded({ km: bufferKm.toFixed(0) })}</p>
 
 		{#if loading}
-			<p class="loading-text">Hľadám vhodný návrh jazdy...</p>
+			<p class="loading-text">{$LL.compensation.searchingSuggestion()}</p>
 		{:else if suggestion}
 			<div class="suggestion">
-				<h4>Návrh kompenzačnej jazdy:</h4>
+				<h4>{$LL.compensation.suggestionTitle()}</h4>
 				<div class="suggestion-details">
 					<div class="detail-row">
-						<span class="label">Začiatok:</span>
+						<span class="label">{$LL.compensation.origin()}</span>
 						<span class="value">{suggestion.origin}</span>
 					</div>
 					<div class="detail-row">
-						<span class="label">Cieľ:</span>
+						<span class="label">{$LL.compensation.destination()}</span>
 						<span class="value">{suggestion.destination}</span>
 					</div>
 					<div class="detail-row">
-						<span class="label">Vzdialenosť:</span>
+						<span class="label">{$LL.compensation.distance()}</span>
 						<span class="value">{suggestion.distance_km.toFixed(1)} km</span>
 					</div>
 					<div class="detail-row">
-						<span class="label">Účel:</span>
+						<span class="label">{$LL.compensation.purpose()}</span>
 						<span class="value">{suggestion.purpose}</span>
 					</div>
 					{#if suggestion.is_buffer}
 						<p class="buffer-note">
-							Poznámka: Toto je kompenzačná jazda (rovnaká poloha začiatku a cieľa)
+							{$LL.compensation.bufferNote()}
 						</p>
 					{/if}
 				</div>
 				<button class="add-button" on:click={handleAddTrip} disabled={adding}>
-					{adding ? 'Pridávam...' : 'Pridať jazdu'}
+					{adding ? $LL.compensation.adding() : $LL.compensation.addTrip()}
 				</button>
 			</div>
 		{/if}

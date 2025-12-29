@@ -9,6 +9,7 @@
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import LL from '$lib/i18n/i18n-svelte';
 
 	interface ProcessingProgress {
 		current: number;
@@ -61,7 +62,7 @@
 			receipts = await api.getReceipts();
 		} catch (error) {
 			console.error('Failed to load receipts:', error);
-			toast.error('Nepodarilo sa načítať doklady');
+			toast.error($LL.toast.errorLoadReceipts());
 		} finally {
 			loading = false;
 		}
@@ -84,7 +85,7 @@
 
 	async function handleSync() {
 		if (!settings?.gemini_api_key || !settings?.receipts_folder_path) {
-			toast.error('Najprv nastavte priečinok a API kľúč v Nastaveniach');
+			toast.error($LL.toast.errorSetApiKeyFirst());
 			return;
 		}
 
@@ -96,16 +97,16 @@
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {
-					toast.success(`Načítaných ${result.processed.length} dokladov (${result.errors.length} chýb)`);
+					toast.success($LL.toast.receiptsLoadedWithErrors({ count: result.processed.length, errors: result.errors.length }));
 				} else {
-					toast.success(`Načítaných ${result.processed.length} nových dokladov`);
+					toast.success($LL.toast.receiptsLoaded({ count: result.processed.length }));
 				}
 			} else {
-				toast.success('Žiadne nové doklady');
+				toast.success($LL.toast.noNewReceipts());
 			}
 		} catch (error) {
 			console.error('Failed to sync receipts:', error);
-			toast.error('Nepodarilo sa synchronizovať: ' + error);
+			toast.error($LL.toast.errorSyncReceipts({ error: String(error) }));
 		} finally {
 			syncing = false;
 		}
@@ -113,7 +114,7 @@
 
 	async function handleProcessPending() {
 		if (!settings?.gemini_api_key) {
-			toast.error('Najprv nastavte API kľúč v Nastaveniach');
+			toast.error($LL.toast.errorSetApiKeyOnlyFirst());
 			return;
 		}
 
@@ -125,16 +126,16 @@
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {
-					toast.success(`Spracovaných ${result.processed.length} dokladov (${result.errors.length} chýb)`);
+					toast.success($LL.toast.receiptsProcessedWithErrors({ count: result.processed.length, errors: result.errors.length }));
 				} else {
-					toast.success(`Spracovaných ${result.processed.length} dokladov`);
+					toast.success($LL.toast.receiptsProcessed({ count: result.processed.length }));
 				}
 			} else {
-				toast.success('Žiadne čakajúce doklady');
+				toast.success($LL.toast.noPendingReceipts());
 			}
 		} catch (error) {
 			console.error('Failed to process pending receipts:', error);
-			toast.error('Nepodarilo sa spracovať: ' + error);
+			toast.error($LL.toast.errorProcessReceipts({ error: String(error) }));
 		} finally {
 			processing = false;
 			processingProgress = null;
@@ -150,10 +151,10 @@
 		try {
 			await api.deleteReceipt(receiptToDelete.id);
 			await loadReceipts();
-			toast.success('Doklad bol odstránený');
+			toast.success($LL.toast.receiptDeleted());
 		} catch (error) {
 			console.error('Failed to delete receipt:', error);
-			toast.error('Nepodarilo sa odstrániť doklad');
+			toast.error($LL.toast.errorDeleteReceipt());
 		} finally {
 			receiptToDelete = null;
 		}
@@ -164,10 +165,10 @@
 		try {
 			await api.reprocessReceipt(receipt.id);
 			await loadReceipts();
-			toast.success(`Doklad "${receipt.file_name}" bol znovu spracovaný`);
+			toast.success($LL.toast.receiptReprocessed({ name: receipt.file_name }));
 		} catch (error) {
 			console.error('Failed to reprocess receipt:', error);
-			toast.error(`Nepodarilo sa spracovať "${receipt.file_name}": ` + error);
+			toast.error($LL.toast.errorReprocessReceipt({ name: receipt.file_name, error: String(error) }));
 		} finally {
 			reprocessingIds = new Set([...reprocessingIds].filter((id) => id !== receipt.id));
 		}
@@ -186,13 +187,13 @@
 	function getConfidenceInfo(level: ConfidenceLevel): { class: string; label: string } {
 		switch (level) {
 			case 'High':
-				return { class: 'confidence-high', label: 'Vysoká istota' };
+				return { class: 'confidence-high', label: $LL.receipts.confidenceHigh() };
 			case 'Medium':
-				return { class: 'confidence-medium', label: 'Stredná istota' };
+				return { class: 'confidence-medium', label: $LL.receipts.confidenceMedium() };
 			case 'Low':
-				return { class: 'confidence-low', label: 'Nízka istota' };
+				return { class: 'confidence-low', label: $LL.receipts.confidenceLow() };
 			default:
-				return { class: 'confidence-unknown', label: 'Neznáma istota' };
+				return { class: 'confidence-unknown', label: $LL.receipts.confidenceUnknown() };
 		}
 	}
 
@@ -201,13 +202,13 @@
 			await openPath(filePath);
 		} catch (error) {
 			console.error('Failed to open file:', error);
-			toast.error('Nepodarilo sa otvoriť súbor');
+			toast.error($LL.toast.errorOpenFile());
 		}
 	}
 
 	function handleAssignClick(receipt: Receipt) {
 		if (!$activeVehicleStore) {
-			toast.error('Najprv vyberte vozidlo');
+			toast.error($LL.toast.errorSelectVehicleFirst());
 			return;
 		}
 		receiptToAssign = receipt;
@@ -240,10 +241,10 @@
 
 			await loadReceipts();
 			receiptToAssign = null;
-			toast.success('Doklad bol pridelený k jazde');
+			toast.success($LL.toast.receiptAssigned());
 		} catch (error) {
 			console.error('Failed to assign receipt:', error);
-			toast.error('Nepodarilo sa prideliť doklad: ' + error);
+			toast.error($LL.toast.errorAssignReceipt({ error: String(error) }));
 		}
 	}
 
@@ -262,10 +263,10 @@
 
 <div class="doklady-page">
 	<div class="header">
-		<h1>Doklady</h1>
+		<h1>{$LL.receipts.title()}</h1>
 		<div class="header-actions">
 			<button class="button" onclick={handleSync} disabled={syncing || processing || !isConfigured}>
-				{syncing ? 'Synchronizujem...' : 'Sync'}
+				{syncing ? $LL.receipts.syncing() : $LL.receipts.sync()}
 			</button>
 			{#if pendingCount > 0}
 				<button
@@ -274,11 +275,11 @@
 					disabled={processing || syncing || !settings?.gemini_api_key}
 				>
 					{#if processing && processingProgress}
-						Spracovávam {processingProgress.current}/{processingProgress.total}...
+						{$LL.receipts.processingProgress({ current: processingProgress.current, total: processingProgress.total })}
 					{:else if processing}
-						Spracovávam...
+						{$LL.receipts.processing()}
 					{:else}
-						Spracovať čakajúce ({pendingCount})
+						{$LL.receipts.processPending({ count: pendingCount })}
 					{/if}
 				</button>
 			{/if}
@@ -287,49 +288,46 @@
 
 	{#if !isConfigured}
 		<div class="config-warning">
-			<p>Funkcia dokladov nie je nakonfigurovaná.</p>
-			<p>
-				Nastavte <strong>priečinok s dokladmi</strong> a <strong>Gemini API kľúč</strong> v súbore
-				<code>local.settings.json</code> v priečinku aplikácie.
-			</p>
+			<p>{$LL.receipts.notConfigured()}</p>
+			<p>{$LL.receipts.configurePrompt()}</p>
 		</div>
 	{/if}
 
 	<div class="filters">
 		<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
-			Všetky ({receipts.length})
+			{$LL.receipts.filterAll()} ({receipts.length})
 		</button>
 		<button
 			class="filter-btn"
 			class:active={filter === 'unassigned'}
 			onclick={() => (filter = 'unassigned')}
 		>
-			Neoverené ({verification?.unmatched ?? receipts.filter((r) => r.status !== 'Assigned').length})
+			{$LL.receipts.filterUnassigned()} ({verification?.unmatched ?? receipts.filter((r) => r.status !== 'Assigned').length})
 		</button>
 		<button
 			class="filter-btn"
 			class:active={filter === 'needs_review'}
 			onclick={() => (filter = 'needs_review')}
 		>
-			Na kontrolu ({receipts.filter((r) => r.status === 'NeedsReview').length})
+			{$LL.receipts.filterNeedsReview()} ({receipts.filter((r) => r.status === 'NeedsReview').length})
 		</button>
 	</div>
 
 	{#if verification}
 		<div class="verification-summary" class:all-matched={verification.unmatched === 0}>
 			{#if verification.unmatched === 0}
-				<span class="status-ok">✓ {verification.matched}/{verification.total} dokladov overených</span>
+				<span class="status-ok">✓ {$LL.receipts.allVerified({ count: verification.matched, total: verification.total })}</span>
 			{:else}
-				<span class="status-ok">✓ {verification.matched}/{verification.total} overených</span>
-				<span class="status-warning">⚠ {verification.unmatched} neoverených</span>
+				<span class="status-ok">✓ {$LL.receipts.verified({ count: verification.matched, total: verification.total })}</span>
+				<span class="status-warning">⚠ {$LL.receipts.unverified({ count: verification.unmatched })}</span>
 			{/if}
 		</div>
 	{/if}
 
 	{#if loading}
-		<p class="placeholder">Načítavam...</p>
+		<p class="placeholder">{$LL.common.loading()}</p>
 	{:else if filteredReceipts.length === 0}
-		<p class="placeholder">Žiadne doklady. Kliknite na Sync pre načítanie nových.</p>
+		<p class="placeholder">{$LL.receipts.noReceipts()}</p>
 	{:else}
 		<div class="receipts-list">
 			{#each filteredReceipts as receipt}
@@ -338,16 +336,16 @@
 					<div class="receipt-header">
 						<span class="file-name">{receipt.file_name}</span>
 						{#if verif?.matched}
-							<span class="badge success">Overený</span>
+							<span class="badge success">{$LL.receipts.statusVerified()}</span>
 						{:else if receipt.status === 'NeedsReview'}
-							<span class="badge warning">Na kontrolu</span>
+							<span class="badge warning">{$LL.receipts.statusNeedsReview()}</span>
 						{:else}
-							<span class="badge danger">Neoverený</span>
+							<span class="badge danger">{$LL.receipts.statusUnverified()}</span>
 						{/if}
 					</div>
 					<div class="receipt-details">
 						<div class="detail-row">
-							<span class="label">Dátum:</span>
+							<span class="label">{$LL.receipts.date()}</span>
 							<span class="value-with-confidence">
 								<span class="value">{formatDate(receipt.receipt_date)}</span>
 								<span
@@ -357,7 +355,7 @@
 							</span>
 						</div>
 						<div class="detail-row">
-							<span class="label">Litre:</span>
+							<span class="label">{$LL.receipts.liters()}</span>
 							<span class="value-with-confidence">
 								<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
 									{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
@@ -369,7 +367,7 @@
 							</span>
 						</div>
 						<div class="detail-row">
-							<span class="label">Cena:</span>
+							<span class="label">{$LL.receipts.price()}</span>
 							<span class="value-with-confidence">
 								<span class="value" class:uncertain={receipt.confidence.total_price === 'Low'}>
 									{receipt.total_price_eur != null ? `${receipt.total_price_eur.toFixed(2)} €` : '??'}
@@ -382,7 +380,7 @@
 						</div>
 						{#if receipt.station_name}
 							<div class="detail-row">
-								<span class="label">Stanica:</span>
+								<span class="label">{$LL.receipts.station()}</span>
 								<span class="value">{receipt.station_name}</span>
 							</div>
 						{/if}
@@ -391,13 +389,13 @@
 						{/if}
 						{#if verif?.matched}
 							<div class="matched-trip">
-								Jazda: {verif.matched_trip_date} | {verif.matched_trip_route}
+								{$LL.receipts.trip()} {verif.matched_trip_date} | {verif.matched_trip_route}
 							</div>
 						{/if}
 					</div>
 					<div class="receipt-actions">
 						<button class="button-small" onclick={() => handleOpenFile(receipt.file_path)}>
-							Otvoriť
+							{$LL.receipts.open()}
 						</button>
 						{#if !verif?.matched}
 							<button
@@ -405,12 +403,12 @@
 								onclick={() => handleReprocess(receipt)}
 								disabled={reprocessingIds.has(receipt.id)}
 							>
-								{reprocessingIds.has(receipt.id) ? 'Spracovávam...' : 'Znovu spracovať'}
+								{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
 							</button>
-							<button class="button-small" onclick={() => handleAssignClick(receipt)}>Prideliť k jazde</button>
+							<button class="button-small" onclick={() => handleAssignClick(receipt)}>{$LL.receipts.assignToTrip()}</button>
 						{/if}
 						<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
-							Zmazať
+							{$LL.common.delete()}
 						</button>
 					</div>
 				</div>
@@ -421,9 +419,9 @@
 
 {#if receiptToDelete}
 	<ConfirmModal
-		title="Odstrániť doklad"
-		message={`Naozaj chcete odstrániť doklad "${receiptToDelete.file_name}"?`}
-		confirmText="Odstrániť"
+		title={$LL.confirm.deleteReceiptTitle()}
+		message={$LL.confirm.deleteReceiptMessage({ name: receiptToDelete.file_name })}
+		confirmText={$LL.common.delete()}
 		danger={true}
 		onConfirm={handleConfirmDelete}
 		onCancel={() => (receiptToDelete = null)}
