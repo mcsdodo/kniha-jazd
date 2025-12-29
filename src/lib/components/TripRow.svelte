@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Trip, Route } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
+	import { confirmStore } from '$lib/stores/confirm';
 
 	export let trip: Trip | null = null;
 	export let routes: Route[] = [];
@@ -106,8 +107,14 @@
 	}
 
 	function handleDeleteClick() {
-		if (trip?.id && confirm('Naozaj chcete odstrániť tento záznam?')) {
-			onDelete(trip.id);
+		if (trip?.id) {
+			confirmStore.show({
+				title: 'Odstrániť záznam',
+				message: 'Naozaj chcete odstrániť tento záznam?',
+				confirmText: 'Odstrániť',
+				danger: true,
+				onConfirm: () => onDelete(trip!.id)
+			});
 		}
 	}
 

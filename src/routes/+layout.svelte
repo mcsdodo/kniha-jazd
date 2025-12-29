@@ -5,6 +5,8 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
+	import Toast from '$lib/components/Toast.svelte';
+	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 
 	let { children } = $props();
 
@@ -121,6 +123,9 @@
 		{@render children()}
 	</main>
 </div>
+
+<Toast />
+<GlobalConfirm />
 
 <style>
 	:global(body) {

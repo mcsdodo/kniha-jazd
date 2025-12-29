@@ -2,6 +2,7 @@
 	import { getCompensationSuggestion, createTrip } from '$lib/api';
 	import type { CompensationSuggestion } from '$lib/types';
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/stores/toast';
 
 	export let vehicleId: string;
 	export let marginPercent: number;
@@ -50,7 +51,7 @@
 			onTripAdded();
 		} catch (error) {
 			console.error('Failed to add compensation trip:', error);
-			alert('Nepodarilo sa pridať jazdu. Skúste to znova.');
+			toast.error('Nepodarilo sa pridať jazdu. Skúste to znova.');
 		} finally {
 			adding = false;
 		}

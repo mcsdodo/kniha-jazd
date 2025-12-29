@@ -3,6 +3,7 @@
 	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/stores/toast';
 
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
@@ -107,7 +108,7 @@
 			await loadRoutes();
 		} catch (error) {
 			console.error('Failed to create trip:', error);
-			alert('Nepodarilo sa vytvoriť záznam');
+			toast.error('Nepodarilo sa vytvoriť záznam');
 		}
 	}
 
@@ -132,7 +133,7 @@
 			await loadRoutes();
 		} catch (error) {
 			console.error('Failed to update trip:', error);
-			alert('Nepodarilo sa aktualizovať záznam');
+			toast.error('Nepodarilo sa aktualizovať záznam');
 		}
 	}
 
@@ -166,7 +167,7 @@
 			onTripsChanged();
 		} catch (error) {
 			console.error('Failed to delete trip:', error);
-			alert('Nepodarilo sa odstrániť záznam');
+			toast.error('Nepodarilo sa odstrániť záznam');
 		}
 	}
 
@@ -202,7 +203,7 @@
 			await onTripsChanged();
 		} catch (error) {
 			console.error('Failed to move trip:', error);
-			alert('Nepodarilo sa presunúť záznam');
+			toast.error('Nepodarilo sa presunúť záznam');
 		}
 	}
 
@@ -218,7 +219,7 @@
 			await onTripsChanged();
 		} catch (error) {
 			console.error('Failed to move trip:', error);
-			alert('Nepodarilo sa presunúť záznam');
+			toast.error('Nepodarilo sa presunúť záznam');
 		}
 	}
 
@@ -389,7 +390,6 @@
 		background: white;
 		border-radius: 8px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		overflow: hidden;
 	}
 
 	.header {

@@ -2,8 +2,9 @@
 	import { onMount } from 'svelte';
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import * as api from '$lib/api';
-	import { getYearsWithTrips } from '$lib/api';
+	import { toast } from '$lib/stores/toast';
 	import type { Vehicle, Settings, BackupInfo } from '$lib/types';
 
 	let showVehicleModal = false;
@@ -15,26 +16,6 @@
 	let companyIco = '';
 	let bufferTripPurpose = '';
 
-	// Export state
-	let selectedYear = new Date().getFullYear();
-	let exportYears: number[] = [];
-
-	async function loadExportYears() {
-		if (!$activeVehicleStore) {
-			exportYears = [];
-			return;
-		}
-		try {
-			exportYears = await getYearsWithTrips($activeVehicleStore.id);
-			// Set default to most recent year with data
-			if (exportYears.length > 0 && !exportYears.includes(selectedYear)) {
-				selectedYear = exportYears[0];
-			}
-		} catch (error) {
-			console.error('Failed to load export years:', error);
-			exportYears = [];
-		}
-	}
 
 	// Backup state
 	let backups: BackupInfo[] = [];
@@ -42,6 +23,9 @@
 	let backupInProgress = false;
 	let restoreConfirmation: BackupInfo | null = null;
 	let deleteConfirmation: BackupInfo | null = null;
+
+	// Vehicle delete confirmation
+	let vehicleToDelete: Vehicle | null = null;
 
 	onMount(async () => {
 		// Load settings
@@ -53,17 +37,9 @@
 			bufferTripPurpose = loadedSettings.buffer_trip_purpose;
 		}
 
-		// Load export years
-		await loadExportYears();
-
 		// Load backups
 		await loadBackups();
 	});
-
-	// Reload export years when active vehicle changes
-	$: if ($activeVehicleStore) {
-		loadExportYears();
-	}
 
 	function openAddVehicleModal() {
 		editingVehicle = null;
@@ -111,34 +87,44 @@
 
 			// Update activeVehicleStore if we edited the active vehicle
 			if (editingVehicle && $activeVehicleStore?.id === editingVehicle.id) {
-				const updatedActive = vehicles.find((v) => v.id === editingVehicle.id);
+				const editedId = editingVehicle.id;
+				const updatedActive = vehicles.find((v) => v.id === editedId);
 				if (updatedActive) {
 					activeVehicleStore.set(updatedActive);
 				}
 			}
 
 			closeVehicleModal();
+			toast.success('Vozidlo bolo úspešne uložené');
 		} catch (error) {
 			console.error('Failed to save vehicle:', error);
-			alert('Nepodarilo sa uložiť vozidlo: ' + error);
+			toast.error('Nepodarilo sa uložiť vozidlo: ' + error);
 		}
 	}
 
-	async function handleDeleteVehicle(vehicle: Vehicle) {
-		if (!confirm(`Naozaj chcete odstrániť vozidlo "${vehicle.name}"?`)) {
-			return;
-		}
+	function handleDeleteVehicleClick(vehicle: Vehicle) {
+		vehicleToDelete = vehicle;
+	}
+
+	async function handleConfirmDeleteVehicle() {
+		if (!vehicleToDelete) return;
 
 		try {
-			await api.deleteVehicle(vehicle.id);
+			await api.deleteVehicle(vehicleToDelete.id);
+			vehicleToDelete = null;
 
 			// Reload vehicles
 			const vehicles = await api.getVehicles();
 			vehiclesStore.set(vehicles);
+			toast.success('Vozidlo bolo odstránené');
 		} catch (error) {
 			console.error('Failed to delete vehicle:', error);
-			alert('Nepodarilo sa odstrániť vozidlo: ' + error);
+			toast.error('Nepodarilo sa odstrániť vozidlo: ' + error);
 		}
+	}
+
+	function cancelDeleteVehicle() {
+		vehicleToDelete = null;
 	}
 
 	async function handleSetActiveVehicle(vehicle: Vehicle) {
@@ -150,7 +136,7 @@
 			vehiclesStore.set(vehicles);
 		} catch (error) {
 			console.error('Failed to set active vehicle:', error);
-			alert('Nepodarilo sa nastaviť aktívne vozidlo: ' + error);
+			toast.error('Nepodarilo sa nastaviť aktívne vozidlo: ' + error);
 		}
 	}
 
@@ -158,18 +144,13 @@
 		try {
 			const savedSettings = await api.saveSettings(companyName, companyIco, bufferTripPurpose);
 			settings = savedSettings;
-			alert('Nastavenia boli úspešne uložené');
+			toast.success('Nastavenia boli úspešne uložené');
 		} catch (error) {
 			console.error('Failed to save settings:', error);
-			alert('Nepodarilo sa uložiť nastavenia: ' + error);
+			toast.error('Nepodarilo sa uložiť nastavenia: ' + error);
 		}
 	}
 
-	function handleExportPDF() {
-		alert(
-			`Export do PDF pre rok ${selectedYear} bude implementovaný v ďalšej fáze.\n\nTáto funkcia vyexportuje všetky jazdy za zvolený rok do PDF súboru v súlade so slovenskou legislatívou.`
-		);
-	}
 
 	// Backup functions
 	async function loadBackups() {
@@ -186,12 +167,12 @@
 	async function handleCreateBackup() {
 		backupInProgress = true;
 		try {
-			const backup = await api.createBackup();
+			await api.createBackup();
 			await loadBackups();
-			alert(`Záloha vytvorená: ${backup.filename}`);
+			toast.success('Záloha bola úspešne vytvorená');
 		} catch (error) {
 			console.error('Failed to create backup:', error);
-			alert('Nepodarilo sa vytvoriť zálohu: ' + error);
+			toast.error('Nepodarilo sa vytvoriť zálohu: ' + error);
 		} finally {
 			backupInProgress = false;
 		}
@@ -203,7 +184,7 @@
 			restoreConfirmation = await api.getBackupInfo(backup.filename);
 		} catch (error) {
 			console.error('Failed to get backup info:', error);
-			alert('Nepodarilo sa načítať informácie o zálohe: ' + error);
+			toast.error('Nepodarilo sa načítať informácie o zálohe: ' + error);
 		}
 	}
 
@@ -213,12 +194,12 @@
 		try {
 			await api.restoreBackup(restoreConfirmation.filename);
 			restoreConfirmation = null;
-			alert('Záloha bola úspešne obnovená. Aplikácia sa reštartuje.');
+			toast.success('Záloha bola úspešne obnovená. Aplikácia sa reštartuje.');
 			// Reload the app to pick up restored data
-			window.location.reload();
+			setTimeout(() => window.location.reload(), 1500);
 		} catch (error) {
 			console.error('Failed to restore backup:', error);
-			alert('Nepodarilo sa obnoviť zálohu: ' + error);
+			toast.error('Nepodarilo sa obnoviť zálohu: ' + error);
 		}
 	}
 
@@ -237,9 +218,10 @@
 			await api.deleteBackup(deleteConfirmation.filename);
 			deleteConfirmation = null;
 			await loadBackups();
+			toast.success('Záloha bola odstránená');
 		} catch (error) {
 			console.error('Failed to delete backup:', error);
-			alert('Nepodarilo sa odstrániť zálohu: ' + error);
+			toast.error('Nepodarilo sa odstrániť zálohu: ' + error);
 		}
 	}
 
@@ -306,7 +288,7 @@
 											Nastaviť ako aktívne
 										</button>
 									{/if}
-									<button class="button-small danger" on:click={() => handleDeleteVehicle(vehicle)}>
+									<button class="button-small danger" on:click={() => handleDeleteVehicleClick(vehicle)}>
 										Odstrániť
 									</button>
 								</div>
@@ -356,34 +338,6 @@
 			</div>
 		</section>
 
-		<!-- Export Section -->
-		<section class="settings-section">
-			<h2>Export</h2>
-			<div class="section-content">
-				<div class="form-group">
-					<label for="export-year">Rok pre export</label>
-					{#if exportYears.length > 0}
-						<select id="export-year" bind:value={selectedYear}>
-							{#each exportYears as year}
-								<option value={year}>{year}</option>
-							{/each}
-						</select>
-					{:else}
-						<p class="no-data">Žiadne dáta na export</p>
-					{/if}
-				</div>
-
-				{#if exportYears.length > 0}
-					<button class="button" on:click={handleExportPDF}>Exportovať PDF</button>
-				{/if}
-
-				<p class="hint">
-					Export vytvorí PDF súbor so všetkými jazdami za zvolený rok v súlade so slovenskou
-					legislatívou.
-				</p>
-			</div>
-		</section>
-
 		<!-- Backup Section -->
 		<section class="settings-section">
 			<h2>Záloha databázy</h2>
@@ -424,6 +378,17 @@
 
 {#if showVehicleModal}
 	<VehicleModal vehicle={editingVehicle} onSave={handleSaveVehicle} onClose={closeVehicleModal} />
+{/if}
+
+{#if vehicleToDelete}
+	<ConfirmModal
+		title="Odstrániť vozidlo"
+		message={`Naozaj chcete odstrániť vozidlo "${vehicleToDelete.name}"?`}
+		confirmText="Odstrániť"
+		danger={true}
+		onConfirm={handleConfirmDeleteVehicle}
+		onCancel={cancelDeleteVehicle}
+	/>
 {/if}
 
 {#if restoreConfirmation}

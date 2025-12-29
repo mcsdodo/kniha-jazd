@@ -6,6 +6,7 @@
 	import { getTripsForYear, calculateTripStats, openExportPreview } from '$lib/api';
 	import type { Trip, TripStats } from '$lib/types';
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/stores/toast';
 
 	let exporting = false;
 
@@ -82,7 +83,7 @@
 			);
 		} catch (error) {
 			console.error('Export failed:', error);
-			alert('Export zlyhal: ' + error);
+			toast.error('Export zlyhal: ' + error);
 		} finally {
 			exporting = false;
 		}
