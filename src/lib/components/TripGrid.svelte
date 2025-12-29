@@ -21,6 +21,9 @@
 	let dateWarnings: Set<string> = new Set();
 	let consumptionWarnings: Set<string> = new Set();
 
+	// Track if we've shown the missing receipts toast for this session
+	let shownMissingReceiptsToast = false;
+
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
 		try {
@@ -31,6 +34,13 @@
 			fuelRemaining = new Map(Object.entries(gridData.fuel_remaining));
 			dateWarnings = new Set(gridData.date_warnings);
 			consumptionWarnings = new Set(gridData.consumption_warnings);
+
+			// Show toast for missing receipts (only once per session)
+			if (!shownMissingReceiptsToast && gridData.missing_receipts.length > 0) {
+				const count = gridData.missing_receipts.length;
+				toast.info(`${count} ${count === 1 ? 'jazda bez dokladu' : 'jazdy bez dokladov'}`);
+				shownMissingReceiptsToast = true;
+			}
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}

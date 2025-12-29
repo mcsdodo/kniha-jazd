@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as api from '$lib/api';
-	import { goto } from '$app/navigation';
+	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { selectedYearStore } from '$lib/stores/year';
 
-	let unassignedCount = $state(0);
+	let needsAttentionCount = $state(0);
 	let loading = $state(true);
 
 	onMount(() => {
@@ -13,45 +14,59 @@
 		return () => clearInterval(interval);
 	});
 
+	// Reload when vehicle or year changes
+	$effect(() => {
+		if ($activeVehicleStore || $selectedYearStore) {
+			loadCount();
+		}
+	});
+
 	async function loadCount() {
+		const vehicle = $activeVehicleStore;
+		if (!vehicle) {
+			needsAttentionCount = 0;
+			loading = false;
+			return;
+		}
+
 		try {
-			const receipts = await api.getUnassignedReceipts();
-			unassignedCount = receipts.length;
+			// Get receipts and verification
+			const [receipts, verification] = await Promise.all([
+				api.getReceipts(),
+				api.verifyReceipts(vehicle.id, $selectedYearStore)
+			]);
+
+			// Count: unverified + needs_review
+			const needsReviewCount = receipts.filter(r => r.status === 'NeedsReview').length;
+			const unverifiedCount = verification.unmatched;
+
+			needsAttentionCount = needsReviewCount + unverifiedCount;
 		} catch (error) {
-			console.error('Failed to load unassigned receipts:', error);
+			console.error('Failed to load receipt count:', error);
+			needsAttentionCount = 0;
 		} finally {
 			loading = false;
 		}
 	}
-
-	function handleClick() {
-		goto('/doklady?filter=unassigned');
-	}
 </script>
 
-{#if !loading && unassignedCount > 0}
-	<button class="indicator" onclick={handleClick} title="Nepridelene doklady">
-		{unassignedCount}
-	</button>
+{#if !loading && needsAttentionCount > 0}
+	<span class="badge" title="Doklady vyžadujúce pozornosť">{needsAttentionCount}</span>
 {/if}
 
 <style>
-	.indicator {
-		display: flex;
+	.badge {
+		display: inline-flex;
 		align-items: center;
-		gap: 0.25rem;
-		padding: 0.5rem 0.75rem;
+		justify-content: center;
+		min-width: 1.25rem;
+		height: 1.25rem;
+		padding: 0 0.375rem;
 		background: #e74c3c;
 		color: white;
-		border: none;
-		border-radius: 20px;
-		font-size: 0.875rem;
+		border-radius: 10px;
+		font-size: 0.75rem;
 		font-weight: 600;
-		cursor: pointer;
-		transition: background 0.2s;
-	}
-
-	.indicator:hover {
-		background: #c0392b;
+		margin-left: 0.25rem;
 	}
 </style>
