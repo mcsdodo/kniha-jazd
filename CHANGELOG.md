@@ -9,9 +9,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Pridané
 - Modul Doklady - skenovanie účteniek z priečinka a automatická extrakcia údajov pomocou AI (Gemini)
-- Pridelenie dokladov k jazdám - modálne okno výberu jazdy so zoradením podľa dátumu
-- Výber dokladu pri vytváraní/úprave jazdy - automatické vyplnenie litrov a ceny
-- Indikátor dokladov v navigácii
+- Automatické overovanie dokladov - párovanie účteniek s jazdami podľa dátumu, litrov a ceny
+- Súhrnný panel overenia na stránke Doklady ("X/Y overených, Z neoverených")
+- Indikátor chýbajúceho dokladu (⚠) pri jazdách s tankovaním bez spárovanej účtenky
+- Legenda pod tabuľkou jázd vysvetľujúca všetky indikátory
+- Manuálne pridelenie dokladov - modálne okno výberu jazdy pre neoverené doklady
 - Hromadné spracovanie čakajúcich dokladov - tlačidlo "Spracovať čakajúce" na stránke Doklady
 - E2E testovanie s Playwright
 - Podpora lokálneho súboru nastavení (prepísanie predvolených hodnôt)
