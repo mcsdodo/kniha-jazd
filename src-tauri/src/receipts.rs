@@ -6,7 +6,7 @@ use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus};
 use chrono::NaiveDate;
 use std::path::Path;
 
-const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
+const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "pdf"];
 
 /// Scan folder for new receipt images and return count of new files found
 pub fn scan_folder_for_new_receipts(
@@ -69,15 +69,15 @@ pub fn scan_folder_for_new_receipts(
     Ok(new_receipts)
 }
 
-/// Process a pending receipt with Gemini API
-pub fn process_receipt_with_gemini(
+/// Process a pending receipt with Gemini API (async)
+pub async fn process_receipt_with_gemini(
     receipt: &mut Receipt,
     api_key: &str,
 ) -> Result<(), String> {
     let client = GeminiClient::new(api_key.to_string());
     let path = Path::new(&receipt.file_path);
 
-    match client.extract_from_image(path) {
+    match client.extract_from_image(path).await {
         Ok(extracted) => {
             apply_extraction_to_receipt(receipt, extracted);
             Ok(())

@@ -2,7 +2,6 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,21 +138,21 @@ fn get_response_schema() -> serde_json::Value {
 
 pub struct GeminiClient {
     api_key: String,
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 impl GeminiClient {
     pub fn new(api_key: String) -> Self {
         Self {
             api_key,
-            client: reqwest::blocking::Client::new(),
+            client: reqwest::Client::new(),
         }
     }
 
-    /// Extract receipt data from an image file
-    pub fn extract_from_image(&self, image_path: &Path) -> Result<ExtractedReceipt, String> {
+    /// Extract receipt data from an image file (async)
+    pub async fn extract_from_image(&self, image_path: &Path) -> Result<ExtractedReceipt, String> {
         // Read and encode image
-        let image_data = fs::read(image_path)
+        let image_data = tokio::fs::read(image_path).await
             .map_err(|e| format!("Failed to read image: {}", e))?;
         let base64_image = STANDARD.encode(&image_data);
 
@@ -162,6 +161,7 @@ impl GeminiClient {
             Some("jpg") | Some("jpeg") => "image/jpeg",
             Some("png") => "image/png",
             Some("webp") => "image/webp",
+            Some("pdf") => "application/pdf",
             _ => "image/jpeg", // Default
         };
 
@@ -195,16 +195,18 @@ impl GeminiClient {
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
+            .await
             .map_err(|e| format!("API request failed: {}", e))?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().unwrap_or_default();
+            let error_text = response.text().await.unwrap_or_default();
             return Err(format!("API error {}: {}", status, error_text));
         }
 
         let gemini_response: GeminiResponse = response
             .json()
+            .await
             .map_err(|e| format!("Failed to parse API response: {}", e))?;
 
         // Extract JSON from response
