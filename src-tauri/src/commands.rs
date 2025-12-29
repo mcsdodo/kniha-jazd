@@ -835,16 +835,6 @@ pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), Str
         return Err(format!("Backup not found: {}", filename));
     }
 
-    // Auto-backup current database before restore
-    let backup_dir = app_dir.join("backups");
-    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
-
-    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
-    let auto_backup_filename = format!("kniha-jazd-pre-restore-{}.db", timestamp);
-    let auto_backup_path = backup_dir.join(&auto_backup_filename);
-
-    fs::copy(&db_path, &auto_backup_path).map_err(|e| format!("Failed to create pre-restore backup: {}", e))?;
-
     // Copy backup over current database
     fs::copy(&backup_path, &db_path).map_err(|e| e.to_string())?;
 

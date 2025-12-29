@@ -255,7 +255,8 @@
 				month: '2-digit',
 				year: 'numeric',
 				hour: '2-digit',
-				minute: '2-digit'
+				minute: '2-digit',
+				second: '2-digit'
 			});
 		} catch {
 			return isoDate;
@@ -434,7 +435,7 @@
 				<p><strong>Veľkosť:</strong> {formatFileSize(restoreConfirmation.size_bytes)}</p>
 				<p><strong>Obsahuje:</strong> {restoreConfirmation.vehicle_count} vozidiel, {restoreConfirmation.trip_count} jázd</p>
 				<p class="warning-text">
-					Aktuálne dáta budú prepísané! Pred obnovením sa automaticky vytvorí záloha aktuálneho stavu.
+					Aktuálne dáta budú prepísané! Ak si chcete zachovať aktuálny stav, vytvorte si najprv zálohu manuálne.
 				</p>
 			</div>
 			<div class="modal-actions">
