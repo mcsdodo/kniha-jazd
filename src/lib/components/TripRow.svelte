@@ -47,6 +47,33 @@
 		new Set([...routes.map((r) => r.origin), ...routes.map((r) => r.destination)])
 	).sort();
 
+	// Find matching route and auto-fill distance
+	function tryAutoFillDistance() {
+		if (!formData.origin || !formData.destination) return;
+
+		const matchingRoute = routes.find(
+			(r) => r.origin === formData.origin && r.destination === formData.destination
+		);
+
+		if (matchingRoute && formData.distance_km === null) {
+			formData.distance_km = matchingRoute.distance_km;
+			// Also update ODO if not manually edited
+			if (!manualOdoEdit) {
+				formData.odometer = previousOdometer + matchingRoute.distance_km;
+			}
+		}
+	}
+
+	function handleOriginSelect(value: string) {
+		formData.origin = value;
+		tryAutoFillDistance();
+	}
+
+	function handleDestinationSelect(value: string) {
+		formData.destination = value;
+		tryAutoFillDistance();
+	}
+
 	// Auto-update ODO when km changes (unless user manually edited ODO)
 	function handleKmChange(event: Event) {
 		const inputValue = (event.target as HTMLInputElement).value;
@@ -138,7 +165,7 @@
 				bind:value={formData.origin}
 				suggestions={locationSuggestions}
 				placeholder="Odkiaľ"
-				onSelect={(value) => (formData.origin = value)}
+				onSelect={handleOriginSelect}
 			/>
 		</td>
 		<td>
@@ -146,7 +173,7 @@
 				bind:value={formData.destination}
 				suggestions={locationSuggestions}
 				placeholder="Kam"
-				onSelect={(value) => (formData.destination = value)}
+				onSelect={handleDestinationSelect}
 			/>
 		</td>
 		<td>

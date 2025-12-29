@@ -84,7 +84,7 @@
 				<button
 					class="suggestion"
 					class:selected={i === selectedIndex}
-					on:click={() => selectSuggestion(suggestion)}
+					on:mousedown|preventDefault={() => selectSuggestion(suggestion)}
 					type="button"
 				>
 					{suggestion}
