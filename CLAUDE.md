@@ -150,3 +150,13 @@ When implementing or modifying features, update:
 ```
 
 Keep entries concise. Write CHANGELOG in Slovak (matches primary audience).
+
+### When to Update CHANGELOG
+
+**Update `## [Unreleased]` immediately when implementing changes:**
+
+- New features → `### Pridané`
+- Changed behavior → `### Zmenené`
+- Bug fixes → `### Opravené`
+
+Do this as part of the commit, not later. When releasing, move [Unreleased] items to a new version section.
