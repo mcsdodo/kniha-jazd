@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
 Import trips from Excel file into the kniha-jazd database.
-Deletes all existing trips and imports from the Excel file.
+Deletes existing trips for the imported year only, then imports from Excel.
 
-Usage: python scripts/import_excel.py [excel_file]
-Default: _tasks/01-init/kniha_jazd.xlsx
+Usage: python scripts/import_excel.py [excel_file] [sheet_name]
+Default file: _tasks/01-init/kniha_jazd.xlsx
+Default sheet: Kniha - 2023 - MB
 """
 
 import sqlite3
@@ -23,8 +24,9 @@ if sys.platform == 'win32':
 # Database path
 DB_PATH = os.path.join(os.environ['APPDATA'], 'com.tauri.dev', 'kniha-jazd.db')
 
-# Default Excel file
+# Defaults
 DEFAULT_EXCEL = os.path.join(os.path.dirname(__file__), '..', '_tasks', '01-init', 'kniha_jazd.xlsx')
+DEFAULT_SHEET = 'Kniha - 2023 - MB'
 
 
 def parse_date(date_val) -> str:
@@ -51,6 +53,7 @@ def parse_float(val) -> float | None:
 
 def main():
     excel_file = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_EXCEL
+    sheet_name = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_SHEET
     excel_file = os.path.abspath(excel_file)
 
     if not os.path.exists(excel_file):
@@ -61,8 +64,8 @@ def main():
         print(f"Error: Database not found: {DB_PATH}")
         sys.exit(1)
 
-    print(f"Reading Excel file: {excel_file}")
-    df = pd.read_excel(excel_file, header=None)
+    print(f"Reading Excel file: {excel_file} (sheet: {sheet_name})")
+    df = pd.read_excel(excel_file, sheet_name=sheet_name, header=None)
 
     # Connect to database
     conn = sqlite3.connect(DB_PATH)
@@ -77,20 +80,35 @@ def main():
     vehicle_id = row[0]
     print(f"Using vehicle ID: {vehicle_id}")
 
-    # Delete all existing trips
-    cursor.execute("DELETE FROM trips WHERE vehicle_id = ?", (vehicle_id,))
-    deleted_count = cursor.rowcount
-    print(f"Deleted {deleted_count} existing trips")
-
-    # Also clear routes (they'll be regenerated)
-    cursor.execute("DELETE FROM routes WHERE vehicle_id = ?", (vehicle_id,))
-
     # Import trips from Excel
     # Row 0: Header info
     # Row 1: Column names
     # Row 2: First record (initial state - skip)
     # Rows 3-70: Trip data
     # Row 71: Total (skip)
+
+    # First pass: determine year from data
+    import_year = None
+    for i in range(3, len(df)):
+        row = df.iloc[i].tolist()
+        date_val = row[0]
+        if pd.isna(date_val) or str(date_val).lower() == 'total':
+            continue
+        date = parse_date(date_val)
+        import_year = date[:4]  # Extract YYYY from YYYY-MM-DD
+        break
+
+    if not import_year:
+        print("Error: No valid dates found in Excel data")
+        sys.exit(1)
+
+    # Delete only trips for the imported year
+    cursor.execute(
+        "DELETE FROM trips WHERE vehicle_id = ? AND strftime('%Y', date) = ?",
+        (vehicle_id, import_year)
+    )
+    deleted_count = cursor.rowcount
+    print(f"Deleted {deleted_count} existing trips for year {import_year}")
 
     now = datetime.now(timezone.utc).isoformat()
     imported = 0

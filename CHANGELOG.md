@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-29
+
 ### Pridané
 - Možnosť vymazať zálohy
 - Výber roku v hlavičke aplikácie
