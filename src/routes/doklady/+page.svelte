@@ -2,9 +2,11 @@
 	import { onMount } from 'svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Receipt, ReceiptSettings, ConfidenceLevel } from '$lib/types';
+	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
+	import { activeVehicleStore } from '$lib/stores/vehicles';
 
 	let receipts = $state<Receipt[]>([]);
 	let settings = $state<ReceiptSettings | null>(null);
@@ -13,6 +15,7 @@
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
+	let receiptToAssign = $state<Receipt | null>(null);
 
 	onMount(async () => {
 		await loadSettings();
@@ -145,6 +148,48 @@
 		}
 	}
 
+	function handleAssignClick(receipt: Receipt) {
+		if (!$activeVehicleStore) {
+			toast.error('Najprv vyberte vozidlo');
+			return;
+		}
+		receiptToAssign = receipt;
+	}
+
+	async function handleAssignToTrip(trip: Trip) {
+		if (!receiptToAssign || !$activeVehicleStore) return;
+
+		try {
+			// Assign receipt to trip
+			await api.assignReceiptToTrip(receiptToAssign.id, trip.id, $activeVehicleStore.id);
+
+			// Update trip with fuel data from receipt if available
+			if (receiptToAssign.liters != null || receiptToAssign.total_price_eur != null) {
+				await api.updateTrip(
+					trip.id,
+					trip.date,
+					trip.origin,
+					trip.destination,
+					trip.distance_km,
+					trip.odometer,
+					trip.purpose,
+					receiptToAssign.liters,
+					receiptToAssign.total_price_eur,
+					trip.other_costs_eur ?? null,
+					trip.other_costs_note ?? null,
+					trip.full_tank
+				);
+			}
+
+			await loadReceipts();
+			receiptToAssign = null;
+			toast.success('Doklad bol pridelený k jazde');
+		} catch (error) {
+			console.error('Failed to assign receipt:', error);
+			toast.error('Nepodarilo sa prideliť doklad: ' + error);
+		}
+	}
+
 	// Svelte 5: use $derived instead of $:
 	let filteredReceipts = $derived(
 		receipts.filter((r) => {
@@ -267,7 +312,7 @@
 							>
 								{reprocessingIds.has(receipt.id) ? 'Spracovávam...' : 'Znovu spracovať'}
 							</button>
-							<button class="button-small">Prideliť k jazde</button>
+							<button class="button-small" onclick={() => handleAssignClick(receipt)}>Prideliť k jazde</button>
 						{/if}
 						<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
 							Zmazať
@@ -287,6 +332,14 @@
 		danger={true}
 		onConfirm={handleConfirmDelete}
 		onCancel={() => (receiptToDelete = null)}
+	/>
+{/if}
+
+{#if receiptToAssign}
+	<TripSelectorModal
+		receipt={receiptToAssign}
+		onSelect={handleAssignToTrip}
+		onClose={() => (receiptToAssign = null)}
 	/>
 {/if}
 

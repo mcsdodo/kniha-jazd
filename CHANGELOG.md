@@ -9,6 +9,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Pridané
 - Modul Doklady - skenovanie účteniek z priečinka a automatická extrakcia údajov pomocou AI (Gemini)
+- Pridelenie dokladov k jazdám - modálne okno výberu jazdy so zoradením podľa dátumu
+- Výber dokladu pri vytváraní/úprave jazdy - automatické vyplnenie litrov a ceny
 - Indikátor dokladov v navigácii
 - E2E testovanie s Playwright
 - Podpora lokálneho súboru nastavení (prepísanie predvolených hodnôt)

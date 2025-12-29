@@ -1,9 +1,11 @@
 <script lang="ts">
-	import type { Trip, Route } from '$lib/types';
+	import type { Trip, Route, Receipt } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
+	import ReceiptPicker from './ReceiptPicker.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 
 	export let trip: Trip | null = null;
+	export let onReceiptSelected: (receipt: Receipt) => void = () => {};
 	export let routes: Route[] = [];
 	export let purposeSuggestions: string[] = [];
 	export let isNew: boolean = false;
@@ -154,6 +156,18 @@
 			handleCancel();
 		}
 	}
+
+	function handleReceiptSelect(receipt: Receipt) {
+		// Auto-fill fuel fields from receipt
+		if (receipt.liters != null) {
+			formData.fuel_liters = receipt.liters;
+		}
+		if (receipt.total_price_eur != null) {
+			formData.fuel_cost_eur = receipt.total_price_eur;
+		}
+		// Notify parent for assignment tracking
+		onReceiptSelected(receipt);
+	}
 </script>
 
 {#if isEditing}
@@ -192,13 +206,16 @@
 			/>
 		</td>
 		<td class="fuel-cell">
-			<input
-				type="number"
-				bind:value={formData.fuel_liters}
-				step="0.01"
-				min="0"
-				placeholder="0.00"
-			/>
+			<div class="fuel-input-row">
+				<input
+					type="number"
+					bind:value={formData.fuel_liters}
+					step="0.01"
+					min="0"
+					placeholder="0.00"
+				/>
+				<ReceiptPicker tripDate={formData.date} onSelect={handleReceiptSelect} />
+			</div>
 			{#if formData.fuel_liters}
 				<label class="full-tank-label">
 					<input type="checkbox" bind:checked={formData.full_tank} />
@@ -473,6 +490,17 @@
 	/* Fuel cell with checkbox */
 	.fuel-cell {
 		position: relative;
+	}
+
+	.fuel-input-row {
+		display: flex;
+		gap: 0.25rem;
+		align-items: center;
+	}
+
+	.fuel-input-row input {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.full-tank-label {
