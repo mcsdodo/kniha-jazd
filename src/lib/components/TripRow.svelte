@@ -24,6 +24,7 @@
 	export let hasDateWarning: boolean = false;
 	export let hasConsumptionWarning: boolean = false;
 	export let isEstimatedRate: boolean = false;
+	export let hasMatchingReceipt: boolean = true;
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -261,6 +262,9 @@
 				{trip.fuel_liters.toFixed(2)}
 				{#if !trip.full_tank}
 					<span class="partial-indicator" title="Čiastočné tankovanie">*</span>
+				{/if}
+				{#if !hasMatchingReceipt}
+					<span class="no-receipt-indicator" title="Bez dokladu">⚠</span>
 				{/if}
 			{/if}
 		</td>
@@ -501,6 +505,13 @@
 		color: #ff9800;
 		font-weight: bold;
 		margin-left: 0.25rem;
+	}
+
+	/* No receipt indicator */
+	.no-receipt-indicator {
+		color: #e67e22;
+		margin-left: 0.25rem;
+		cursor: help;
 	}
 
 	/* Estimated rate styling */

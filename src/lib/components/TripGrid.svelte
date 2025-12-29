@@ -412,6 +412,7 @@
 							hasDateWarning={dateWarnings.has(trip.id)}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
+							hasMatchingReceipt={!gridData?.missing_receipts.includes(trip.id)}
 						/>
 					{/if}
 				{/each}
@@ -423,6 +424,11 @@
 				{/if}
 			</tbody>
 		</table>
+		<div class="table-legend">
+			<span class="legend-item"><span class="partial-indicator">*</span> čiastočné tankovanie</span>
+			<span class="legend-item"><span class="no-receipt-indicator">⚠</span> bez dokladu</span>
+			<span class="legend-item"><span class="consumption-warning-sample"></span> vysoká spotreba</span>
+		</div>
 	</div>
 </div>
 
@@ -554,5 +560,40 @@
 		text-align: right;
 		font-style: normal;
 		color: #2c3e50;
+	}
+
+	.table-legend {
+		display: flex;
+		gap: 1.5rem;
+		padding: 0.75rem 1rem;
+		background: #f8f9fa;
+		border-radius: 4px;
+		margin-top: 1rem;
+		font-size: 0.875rem;
+		color: #666;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.partial-indicator {
+		color: #ff9800;
+		font-weight: bold;
+	}
+
+	.no-receipt-indicator {
+		color: #e67e22;
+	}
+
+	.consumption-warning-sample {
+		display: inline-block;
+		width: 12px;
+		height: 12px;
+		background: #fff3e0;
+		border: 1px solid #ffe0b2;
+		border-radius: 2px;
 	}
 </style>
