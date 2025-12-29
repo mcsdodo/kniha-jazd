@@ -1,7 +1,9 @@
-use crate::models::{Route, Settings, Trip, Vehicle};
+use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Route, Settings, Trip, Vehicle};
+use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{Connection, OptionalExtension, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
+use uuid::Uuid;
 
 pub struct Database {
     conn: Mutex<Connection>,
@@ -67,6 +69,34 @@ impl Database {
             "ALTER TABLE trips ADD COLUMN full_tank INTEGER NOT NULL DEFAULT 1",
             [],
         );
+
+        // Add receipts table
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS receipts (
+                id TEXT PRIMARY KEY,
+                vehicle_id TEXT,
+                trip_id TEXT UNIQUE,
+                file_path TEXT NOT NULL UNIQUE,
+                file_name TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                liters REAL,
+                total_price_eur REAL,
+                receipt_date TEXT,
+                station_name TEXT,
+                station_address TEXT,
+                status TEXT NOT NULL DEFAULT 'Pending',
+                confidence TEXT NOT NULL DEFAULT '{\"liters\":\"Unknown\",\"total_price\":\"Unknown\",\"date\":\"Unknown\"}',
+                raw_ocr_text TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
+                FOREIGN KEY (trip_id) REFERENCES trips(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status);
+            CREATE INDEX IF NOT EXISTS idx_receipts_trip ON receipts(trip_id);
+            CREATE INDEX IF NOT EXISTS idx_receipts_date ON receipts(receipt_date);"
+        )?;
 
         Ok(())
     }
@@ -747,6 +777,161 @@ impl Database {
 
         Ok(())
     }
+
+    // ========================================================================
+    // Receipt Operations
+    // ========================================================================
+
+    /// Helper to avoid row-to-struct duplication
+    fn row_to_receipt(row: &rusqlite::Row) -> rusqlite::Result<Receipt> {
+        let status_str: String = row.get(11)?;
+        let status = match status_str.as_str() {
+            "Pending" => ReceiptStatus::Pending,
+            "Parsed" => ReceiptStatus::Parsed,
+            "NeedsReview" => ReceiptStatus::NeedsReview,
+            "Assigned" => ReceiptStatus::Assigned,
+            _ => ReceiptStatus::Pending,
+        };
+
+        let confidence_str: String = row.get(12)?;
+        let confidence: FieldConfidence = serde_json::from_str(&confidence_str).unwrap_or_default();
+
+        Ok(Receipt {
+            id: Uuid::parse_str(&row.get::<_, String>(0)?).unwrap(),
+            vehicle_id: row.get::<_, Option<String>>(1)?.map(|s| Uuid::parse_str(&s).unwrap()),
+            trip_id: row.get::<_, Option<String>>(2)?.map(|s| Uuid::parse_str(&s).unwrap()),
+            file_path: row.get(3)?,
+            file_name: row.get(4)?,
+            scanned_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                .unwrap()
+                .with_timezone(&Utc),
+            liters: row.get(6)?,
+            total_price_eur: row.get(7)?,
+            receipt_date: row.get::<_, Option<String>>(8)?
+                .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap()),
+            station_name: row.get(9)?,
+            station_address: row.get(10)?,
+            status,
+            confidence,
+            raw_ocr_text: row.get(13)?,
+            error_message: row.get(14)?,
+            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
+                .unwrap()
+                .with_timezone(&Utc),
+            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
+                .unwrap()
+                .with_timezone(&Utc),
+        })
+    }
+
+    const RECEIPT_SELECT_COLS: &'static str =
+        "id, vehicle_id, trip_id, file_path, file_name, scanned_at,
+         liters, total_price_eur, receipt_date, station_name, station_address,
+         status, confidence, raw_ocr_text, error_message, created_at, updated_at";
+
+    pub fn create_receipt(&self, receipt: &Receipt) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let status_str = match receipt.status {
+            ReceiptStatus::Pending => "Pending",
+            ReceiptStatus::Parsed => "Parsed",
+            ReceiptStatus::NeedsReview => "NeedsReview",
+            ReceiptStatus::Assigned => "Assigned",
+        };
+        conn.execute(
+            "INSERT INTO receipts (id, vehicle_id, trip_id, file_path, file_name, scanned_at,
+                liters, total_price_eur, receipt_date, station_name, station_address,
+                status, confidence, raw_ocr_text, error_message, created_at, updated_at)
+             VALUES (:id, :vehicle_id, :trip_id, :file_path, :file_name, :scanned_at,
+                :liters, :total_price_eur, :receipt_date, :station_name, :station_address,
+                :status, :confidence, :raw_ocr_text, :error_message, :created_at, :updated_at)",
+            rusqlite::named_params! {
+                ":id": receipt.id.to_string(),
+                ":vehicle_id": receipt.vehicle_id.map(|id| id.to_string()),
+                ":trip_id": receipt.trip_id.map(|id| id.to_string()),
+                ":file_path": &receipt.file_path,
+                ":file_name": &receipt.file_name,
+                ":scanned_at": receipt.scanned_at.to_rfc3339(),
+                ":liters": receipt.liters,
+                ":total_price_eur": receipt.total_price_eur,
+                ":receipt_date": receipt.receipt_date.map(|d| d.to_string()),
+                ":station_name": &receipt.station_name,
+                ":station_address": &receipt.station_address,
+                ":status": status_str,
+                ":confidence": serde_json::to_string(&receipt.confidence).unwrap(),
+                ":raw_ocr_text": &receipt.raw_ocr_text,
+                ":error_message": &receipt.error_message,
+                ":created_at": receipt.created_at.to_rfc3339(),
+                ":updated_at": receipt.updated_at.to_rfc3339(),
+            },
+        )?;
+        Ok(())
+    }
+
+    pub fn get_all_receipts(&self) -> Result<Vec<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+        let sql = format!("SELECT {} FROM receipts ORDER BY scanned_at DESC", Self::RECEIPT_SELECT_COLS);
+        let mut stmt = conn.prepare(&sql)?;
+        let receipts = stmt.query_map([], Self::row_to_receipt)?.collect::<Result<Vec<_>, _>>()?;
+        Ok(receipts)
+    }
+
+    pub fn get_unassigned_receipts(&self) -> Result<Vec<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+        let sql = format!(
+            "SELECT {} FROM receipts WHERE trip_id IS NULL ORDER BY receipt_date DESC, scanned_at DESC",
+            Self::RECEIPT_SELECT_COLS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let receipts = stmt.query_map([], Self::row_to_receipt)?.collect::<Result<Vec<_>, _>>()?;
+        Ok(receipts)
+    }
+
+    pub fn update_receipt(&self, receipt: &Receipt) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let status_str = match receipt.status {
+            ReceiptStatus::Pending => "Pending",
+            ReceiptStatus::Parsed => "Parsed",
+            ReceiptStatus::NeedsReview => "NeedsReview",
+            ReceiptStatus::Assigned => "Assigned",
+        };
+        conn.execute(
+            "UPDATE receipts SET
+                vehicle_id = :vehicle_id, trip_id = :trip_id, liters = :liters, total_price_eur = :total_price_eur,
+                receipt_date = :receipt_date, station_name = :station_name, station_address = :station_address,
+                status = :status, confidence = :confidence, raw_ocr_text = :raw_ocr_text,
+                error_message = :error_message, updated_at = :updated_at
+             WHERE id = :id",
+            rusqlite::named_params! {
+                ":id": receipt.id.to_string(),
+                ":vehicle_id": receipt.vehicle_id.map(|id| id.to_string()),
+                ":trip_id": receipt.trip_id.map(|id| id.to_string()),
+                ":liters": receipt.liters,
+                ":total_price_eur": receipt.total_price_eur,
+                ":receipt_date": receipt.receipt_date.map(|d| d.to_string()),
+                ":station_name": &receipt.station_name,
+                ":station_address": &receipt.station_address,
+                ":status": status_str,
+                ":confidence": serde_json::to_string(&receipt.confidence).unwrap(),
+                ":raw_ocr_text": &receipt.raw_ocr_text,
+                ":error_message": &receipt.error_message,
+                ":updated_at": Utc::now().to_rfc3339(),
+            },
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_receipt(&self, id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM receipts WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn get_receipt_by_file_path(&self, file_path: &str) -> Result<Option<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+        let sql = format!("SELECT {} FROM receipts WHERE file_path = ?1", Self::RECEIPT_SELECT_COLS);
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_row([file_path], Self::row_to_receipt).optional()
+    }
 }
 
 #[cfg(test)]
@@ -1333,5 +1518,75 @@ mod tests {
             .expect("Failed to get routes");
 
         assert_eq!(routes.len(), 0);
+    }
+
+    // Receipt CRUD tests
+
+    #[test]
+    fn test_receipt_crud() {
+        let db = Database::in_memory().unwrap();
+
+        // Create receipt
+        let receipt = Receipt::new(
+            "C:\\test\\receipt.jpg".to_string(),
+            "receipt.jpg".to_string(),
+        );
+        db.create_receipt(&receipt).unwrap();
+
+        // Get all receipts
+        let receipts = db.get_all_receipts().unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].file_name, "receipt.jpg");
+        assert_eq!(receipts[0].status, ReceiptStatus::Pending);
+
+        // Get by file path
+        let found = db.get_receipt_by_file_path("C:\\test\\receipt.jpg").unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, receipt.id);
+
+        // Update receipt
+        let mut updated = receipt.clone();
+        updated.liters = Some(45.5);
+        updated.total_price_eur = Some(72.50);
+        updated.status = ReceiptStatus::Parsed;
+        db.update_receipt(&updated).unwrap();
+
+        let receipts = db.get_all_receipts().unwrap();
+        assert_eq!(receipts[0].liters, Some(45.5));
+        assert_eq!(receipts[0].status, ReceiptStatus::Parsed);
+
+        // Delete receipt
+        db.delete_receipt(&receipt.id.to_string()).unwrap();
+        let receipts = db.get_all_receipts().unwrap();
+        assert_eq!(receipts.len(), 0);
+    }
+
+    #[test]
+    fn test_get_unassigned_receipts() {
+        let db = Database::in_memory().unwrap();
+
+        // First create a vehicle and trip to satisfy foreign key
+        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let trip = create_test_trip(vehicle.id, "2024-12-01");
+        db.create_trip(&trip).expect("Failed to create trip");
+
+        // Create two receipts
+        let receipt1 = Receipt::new("path1.jpg".to_string(), "1.jpg".to_string());
+        let mut receipt2 = Receipt::new("path2.jpg".to_string(), "2.jpg".to_string());
+
+        // Assign one to the real trip
+        receipt2.trip_id = Some(trip.id);
+        receipt2.vehicle_id = Some(vehicle.id);
+        receipt2.status = ReceiptStatus::Assigned;
+
+        db.create_receipt(&receipt1).unwrap();
+        db.create_receipt(&receipt2).unwrap();
+
+        // Only unassigned should be returned
+        let unassigned = db.get_unassigned_receipts().unwrap();
+        assert_eq!(unassigned.len(), 1);
+        assert_eq!(unassigned[0].file_name, "1.jpg");
     }
 }
