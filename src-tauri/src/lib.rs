@@ -4,6 +4,7 @@ mod db;
 mod error;
 mod export;
 mod models;
+mod settings;
 mod suggestions;
 
 use tauri::Manager;
