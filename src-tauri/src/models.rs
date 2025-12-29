@@ -126,6 +126,8 @@ pub struct TripGridData {
     pub date_warnings: HashSet<String>,
     /// Trip IDs with consumption over 120% of TP rate
     pub consumption_warnings: HashSet<String>,
+    /// Trip IDs that have fuel but are missing a matching receipt
+    pub missing_receipts: HashSet<String>,
 }
 
 /// Status of a scanned receipt
@@ -214,4 +216,23 @@ impl Receipt {
     pub fn is_assigned(&self) -> bool {
         self.trip_id.is_some()
     }
+}
+
+/// Verification status of a single receipt against trips
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReceiptVerification {
+    pub receipt_id: String,
+    pub matched: bool,
+    pub matched_trip_id: Option<String>,
+    pub matched_trip_date: Option<String>,
+    pub matched_trip_route: Option<String>,
+}
+
+/// Result of verifying all receipts for a vehicle/year
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationResult {
+    pub total: usize,
+    pub matched: usize,
+    pub unmatched: usize,
+    pub receipts: Vec<ReceiptVerification>,
 }

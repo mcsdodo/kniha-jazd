@@ -9,7 +9,7 @@ use crate::export::{generate_html, ExportData, ExportTotals};
 use crate::models::{Route, Settings, Trip, TripGridData, TripStats, Vehicle};
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
-use chrono::{NaiveDate, Utc, Local};
+use chrono::{Datelike, NaiveDate, Utc, Local};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::{Emitter, Manager, State};
@@ -471,8 +471,12 @@ pub fn get_trip_grid_data(
             fuel_remaining: HashMap::new(),
             date_warnings: HashSet::new(),
             consumption_warnings: HashSet::new(),
+            missing_receipts: HashSet::new(),
         });
     }
+
+    // Get all receipts for matching
+    let receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
 
     // Sort chronologically for calculations (by date, then odometer)
     let mut chronological = trips.clone();
@@ -499,6 +503,9 @@ pub fn get_trip_grid_data(
     let consumption_warnings =
         calculate_consumption_warnings(&trips, &rates, vehicle.tp_consumption);
 
+    // Calculate missing receipts (trips with fuel but no matching receipt)
+    let missing_receipts = calculate_missing_receipts(&trips, &receipts);
+
     Ok(TripGridData {
         trips,
         rates,
@@ -506,6 +513,7 @@ pub fn get_trip_grid_data(
         fuel_remaining,
         date_warnings,
         consumption_warnings,
+        missing_receipts,
     })
 }
 
@@ -667,6 +675,34 @@ fn calculate_consumption_warnings(
     }
 
     warnings
+}
+
+/// Find trips with fuel that don't have a matching receipt.
+/// A trip has a matching receipt if date, liters, and price all match exactly.
+/// Trips without fuel don't need receipts.
+fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
+    let mut missing = HashSet::new();
+
+    for trip in trips {
+        // Trips without fuel don't need receipts
+        if trip.fuel_liters.is_none() {
+            continue;
+        }
+
+        // Check if any receipt matches this trip exactly
+        let has_match = receipts.iter().any(|r| {
+            let date_match = r.receipt_date.as_ref() == Some(&trip.date);
+            let liters_match = r.liters == trip.fuel_liters;
+            let price_match = r.total_price_eur == trip.fuel_cost_eur;
+            date_match && liters_match && price_match
+        });
+
+        if !has_match {
+            missing.insert(trip.id.to_string());
+        }
+    }
+
+    missing
 }
 
 // ============================================================================
@@ -954,6 +990,7 @@ pub async fn export_to_browser(
         fuel_remaining,
         date_warnings: HashSet::new(),
         consumption_warnings: HashSet::new(),
+        missing_receipts: HashSet::new(),
     };
 
     let totals = ExportTotals::calculate(&chronological, vehicle.tp_consumption);
@@ -1031,6 +1068,7 @@ pub async fn export_html(
         fuel_remaining,
         date_warnings: HashSet::new(),
         consumption_warnings: HashSet::new(),
+        missing_receipts: HashSet::new(),
     };
 
     // Calculate totals for footer
@@ -1052,7 +1090,7 @@ pub async fn export_html(
 // Receipt Commands
 // ============================================================================
 
-use crate::models::{Receipt, ReceiptStatus};
+use crate::models::{Receipt, ReceiptStatus, ReceiptVerification, VerificationResult};
 use crate::receipts::{process_receipt_with_gemini, scan_folder_for_new_receipts};
 use crate::settings::LocalSettings;
 
@@ -1247,4 +1285,87 @@ pub fn assign_receipt_to_trip(
     db.update_receipt(receipt).map_err(|e| e.to_string())?;
 
     Ok(receipt.clone())
+}
+
+/// Verify receipts against trips by matching date, liters, and price.
+/// Returns verification status for each receipt in the given year.
+#[tauri::command]
+pub fn verify_receipts(
+    db: State<Database>,
+    vehicle_id: String,
+    year: i32,
+) -> Result<VerificationResult, String> {
+    // Get all receipts and filter by year
+    let all_receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
+    let receipts_for_year: Vec<_> = all_receipts
+        .into_iter()
+        .filter(|r| {
+            r.receipt_date
+                .map(|d| d.year() == year)
+                .unwrap_or(false)
+        })
+        .collect();
+
+    // Get all trips with fuel for this vehicle/year
+    let trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+    let trips_with_fuel: Vec<_> = trips
+        .into_iter()
+        .filter(|t| t.fuel_liters.is_some())
+        .collect();
+
+    let mut verifications = Vec::new();
+    let mut matched_count = 0;
+
+    for receipt in &receipts_for_year {
+        let mut matched = false;
+        let mut matched_trip_id = None;
+        let mut matched_trip_date = None;
+        let mut matched_trip_route = None;
+
+        // Try to find a matching trip by exact date, liters, and price
+        if let (Some(receipt_date), Some(receipt_liters), Some(receipt_price)) =
+            (receipt.receipt_date, receipt.liters, receipt.total_price_eur)
+        {
+            for trip in &trips_with_fuel {
+                if let (Some(trip_liters), Some(trip_price)) =
+                    (trip.fuel_liters, trip.fuel_cost_eur)
+                {
+                    // Match by exact date, liters (within small tolerance), and price (within small tolerance)
+                    let date_match = trip.date == receipt_date;
+                    let liters_match = (trip_liters - receipt_liters).abs() < 0.01;
+                    let price_match = (trip_price - receipt_price).abs() < 0.01;
+
+                    if date_match && liters_match && price_match {
+                        matched = true;
+                        matched_trip_id = Some(trip.id.to_string());
+                        matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
+                        matched_trip_route = Some(format!("{} - {}", trip.origin, trip.destination));
+                        break;
+                    }
+                }
+            }
+        }
+
+        if matched {
+            matched_count += 1;
+        }
+
+        verifications.push(ReceiptVerification {
+            receipt_id: receipt.id.to_string(),
+            matched,
+            matched_trip_id,
+            matched_trip_date,
+            matched_trip_route,
+        });
+    }
+
+    let total = verifications.len();
+    Ok(VerificationResult {
+        total,
+        matched: matched_count,
+        unmatched: total - matched_count,
+        receipts: verifications,
+    })
 }

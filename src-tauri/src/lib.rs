@@ -71,6 +71,7 @@ pub fn run() {
       commands::delete_receipt,
       commands::reprocess_receipt,
       commands::assign_receipt_to_trip,
+      commands::verify_receipts,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
