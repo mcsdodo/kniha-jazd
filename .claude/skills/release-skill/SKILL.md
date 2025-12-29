@@ -37,19 +37,25 @@ Example:
 - New feature...
 ```
 
-## 4. Commit, Tag, and Push
+## 4. Build Release
+
+Build BEFORE committing to verify everything works:
+
+```bash
+npm run tauri build
+```
+
+If build fails, fix issues and retry. Don't proceed until build succeeds.
+
+## 5. Commit, Tag, and Push
+
+Only after successful build:
 
 ```bash
 git add -A
 git commit -m "chore: release vX.Y.Z"
 git tag vX.Y.Z
 git push && git push --tags
-```
-
-## 5. Build Release
-
-```bash
-npm run tauri build
 ```
 
 ## 6. Report Results
@@ -59,6 +65,5 @@ Show the path to the built installer:
 
 ## Notes
 
-- If build fails, fix issues and re-run build only (don't re-tag)
 - Cargo.lock will auto-update - include it in the commit
 - CHANGELOG is in Slovak (Pridane, Zmenene, Opravene)
