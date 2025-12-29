@@ -1,0 +1,312 @@
+import type { Translation } from '../i18n-types';
+
+const en = {
+	// Common
+	common: {
+		save: 'Save',
+		cancel: 'Cancel',
+		delete: 'Delete',
+		edit: 'Edit',
+		add: 'Add',
+		close: 'Close',
+		confirm: 'Confirm',
+		loading: 'Loading...',
+		noData: 'No data',
+		yes: 'Yes',
+		no: 'No',
+	},
+
+	// App header & navigation
+	app: {
+		title: 'Trip Logbook',
+		nav: {
+			logbook: 'Logbook',
+			receipts: 'Receipts',
+			settings: 'Settings',
+		},
+		vehicleLabel: 'Vehicle:',
+		vehiclePlaceholder: '-- Select vehicle --',
+		yearLabel: 'Year:',
+	},
+
+	// Home page
+	home: {
+		activeVehicle: 'Active vehicle',
+		exportForPrint: 'Export for print',
+		exporting: 'Exporting...',
+		noVehicle: 'No vehicle',
+		noVehicleDescription: 'Please select a vehicle from the main menu or create one in settings.',
+		goToSettings: 'Go to settings',
+	},
+
+	// Stats
+	stats: {
+		totalDriven: 'Total driven',
+		fuel: 'Fuel',
+		consumption: 'Consumption',
+		deviation: 'Deviation',
+		remaining: 'Remaining',
+	},
+
+	// Vehicle info
+	vehicle: {
+		name: 'Name',
+		licensePlate: 'License plate',
+		tankSize: 'Tank size',
+		tpConsumption: 'Consumption (TP)',
+		initialOdometer: 'Initial ODO',
+		active: 'Active',
+		setAsActive: 'Set as active',
+	},
+
+	// Vehicle modal
+	vehicleModal: {
+		addTitle: 'Add vehicle',
+		editTitle: 'Edit vehicle',
+		namePlaceholder: 'e.g. Škoda Octavia',
+		licensePlatePlaceholder: 'e.g. BA123XY',
+		tankSizePlaceholder: 'e.g. 66',
+		tpConsumptionPlaceholder: 'e.g. 5.1',
+		initialOdometerPlaceholder: 'e.g. 50000',
+		nameLabel: 'Vehicle name',
+		licensePlateLabel: 'License plate',
+		tankSizeLabel: 'Tank size (liters)',
+		tpConsumptionLabel: 'TP consumption (l/100km)',
+		initialOdometerLabel: 'Initial ODO (km)',
+	},
+
+	// Trip grid
+	trips: {
+		title: 'Trips',
+		count: '({count})',
+		newRecord: 'New record',
+		firstRecord: 'First record',
+		emptyState: 'No records. Click "New record" to add a trip.',
+		// Column headers
+		columns: {
+			date: 'Date',
+			origin: 'From',
+			destination: 'To',
+			km: 'Km',
+			odo: 'ODO',
+			purpose: 'Purpose',
+			fuelLiters: 'Fuel (L)',
+			fuelCost: 'Cost €',
+			consumptionRate: 'l/100km',
+			remaining: 'Remaining',
+			otherCosts: 'Other €',
+			otherCostsNote: 'Other note',
+			actions: 'Actions',
+		},
+		// Placeholders
+		originPlaceholder: 'From',
+		destinationPlaceholder: 'To',
+		purposePlaceholder: 'Purpose',
+		// Actions
+		moveUp: 'Move up',
+		moveDown: 'Move down',
+		insertAbove: 'Insert record above',
+		deleteRecord: 'Delete record',
+		// Checkbox
+		fullTank: 'Full',
+		// Tooltips/indicators
+		partialFillup: 'Partial fillup',
+		noReceipt: 'No receipt',
+		estimatedRate: 'Estimated from TP',
+		// Legend
+		legend: {
+			partialFillup: 'partial fillup',
+			noReceipt: 'no receipt',
+			highConsumption: 'high consumption',
+		},
+	},
+
+	// Compensation banner
+	compensation: {
+		title: 'Legal consumption limit exceeded',
+		currentDeviation: 'Current deviation: {percent}% (limit: 20%)',
+		additionalKmNeeded: 'Additional km needed: {km} km',
+		searchingSuggestion: 'Searching for a suitable trip suggestion...',
+		suggestionTitle: 'Compensation trip suggestion:',
+		origin: 'Start:',
+		destination: 'Destination:',
+		distance: 'Distance:',
+		purpose: 'Purpose:',
+		bufferNote: 'Note: This is a compensation trip (same start and destination)',
+		addTrip: 'Add trip',
+		adding: 'Adding...',
+	},
+
+	// Settings page
+	settings: {
+		title: 'Settings',
+		// Vehicles section
+		vehiclesSection: 'Vehicles',
+		noVehicles: 'No vehicles. Create your first vehicle.',
+		addVehicle: '+ Add vehicle',
+		// Company section
+		companySection: 'Company settings',
+		companyName: 'Company name',
+		companyNamePlaceholder: 'e.g. My Company Ltd.',
+		companyIco: 'Company ID',
+		companyIcoPlaceholder: 'e.g. 12345678',
+		bufferTripPurpose: 'Compensation trip purpose',
+		bufferTripPurposePlaceholder: 'e.g. business trip',
+		bufferTripPurposeHint: 'This purpose will be used when planning trips to stay within the 20% consumption limit.',
+		saveSettings: 'Save settings',
+		// Backup section
+		backupSection: 'Database backup',
+		createBackup: 'Backup',
+		creatingBackup: 'Creating backup...',
+		availableBackups: 'Available backups',
+		noBackups: 'No backups. Create your first backup.',
+		restore: 'Restore',
+		// Language section
+		languageSection: 'Language',
+		language: 'Application language',
+	},
+
+	// Backup modals
+	backup: {
+		confirmRestoreTitle: 'Confirm restore',
+		backupDate: 'Backup date:',
+		backupSize: 'Size:',
+		backupContains: 'Contains:',
+		vehiclesAndTrips: '{vehicles} vehicles, {trips} trips',
+		restoreWarning: 'Current data will be overwritten! If you want to preserve the current state, create a backup first.',
+		restoreBackup: 'Restore backup',
+		confirmDeleteTitle: 'Confirm deletion',
+		deleteWarning: 'This backup will be permanently deleted!',
+	},
+
+	// Confirm dialogs
+	confirm: {
+		deleteVehicleTitle: 'Delete vehicle',
+		deleteVehicleMessage: 'Are you sure you want to delete vehicle "{name}"?',
+		deleteRecordTitle: 'Delete record',
+		deleteRecordMessage: 'Are you sure you want to delete this record?',
+		deleteReceiptTitle: 'Delete receipt',
+		deleteReceiptMessage: 'Are you sure you want to delete receipt "{name}"?',
+	},
+
+	// Receipts page
+	receipts: {
+		title: 'Receipts',
+		sync: 'Sync',
+		syncing: 'Syncing...',
+		processPending: 'Process pending ({count})',
+		processing: 'Processing...',
+		processingProgress: 'Processing {current}/{total}...',
+		// Config warning
+		notConfigured: 'Receipts feature is not configured.',
+		configurePrompt: 'Set the receipts folder and Gemini API key in the local.settings.json file in the app folder.',
+		// Filters
+		filterAll: 'All',
+		filterUnassigned: 'Unverified',
+		filterNeedsReview: 'Needs review',
+		// Verification summary
+		allVerified: '{count}/{total} receipts verified',
+		verified: '{count}/{total} verified',
+		unverified: '{count} unverified',
+		// Receipt details
+		date: 'Date:',
+		liters: 'Liters:',
+		price: 'Price:',
+		station: 'Station:',
+		trip: 'Trip:',
+		// Confidence
+		confidenceHigh: 'High confidence',
+		confidenceMedium: 'Medium confidence',
+		confidenceLow: 'Low confidence',
+		confidenceUnknown: 'Unknown confidence',
+		// Status badges
+		statusVerified: 'Verified',
+		statusNeedsReview: 'Needs review',
+		statusUnverified: 'Unverified',
+		// Actions
+		open: 'Open',
+		reprocess: 'Reprocess',
+		reprocessing: 'Processing...',
+		assignToTrip: 'Assign to trip',
+		// Empty state
+		noReceipts: 'No receipts. Click Sync to load new ones.',
+	},
+
+	// Trip selector modal
+	tripSelector: {
+		title: 'Assign receipt to trip',
+		noVehicleSelected: 'No vehicle selected',
+		loadingTrips: 'Loading trips...',
+		loadError: 'Failed to load trips',
+		noTrips: 'No trips to assign.',
+		alreadyHas: 'already has:',
+	},
+
+	// Toast messages
+	toast: {
+		// Success
+		vehicleSaved: 'Vehicle saved successfully',
+		vehicleDeleted: 'Vehicle deleted',
+		settingsSaved: 'Settings saved successfully',
+		backupCreated: 'Backup created successfully',
+		backupRestored: 'Backup restored successfully. The app will restart.',
+		backupDeleted: 'Backup deleted',
+		receiptDeleted: 'Receipt deleted',
+		receiptReprocessed: 'Receipt "{name}" reprocessed',
+		receiptAssigned: 'Receipt assigned to trip',
+		receiptsLoaded: 'Loaded {count} new receipts',
+		receiptsLoadedWithErrors: 'Loaded {count} receipts ({errors} errors)',
+		receiptsProcessed: 'Processed {count} receipts',
+		receiptsProcessedWithErrors: 'Processed {count} receipts ({errors} errors)',
+		noNewReceipts: 'No new receipts',
+		noPendingReceipts: 'No pending receipts',
+		// Errors
+		errorSaveVehicle: 'Failed to save vehicle: {error}',
+		errorDeleteVehicle: 'Failed to delete vehicle: {error}',
+		errorSetActiveVehicle: 'Failed to set active vehicle: {error}',
+		errorSaveSettings: 'Failed to save settings: {error}',
+		errorCreateBackup: 'Failed to create backup: {error}',
+		errorGetBackupInfo: 'Failed to load backup info: {error}',
+		errorRestoreBackup: 'Failed to restore backup: {error}',
+		errorDeleteBackup: 'Failed to delete backup: {error}',
+		errorLoadReceipts: 'Failed to load receipts',
+		errorSyncReceipts: 'Failed to sync: {error}',
+		errorProcessReceipts: 'Failed to process: {error}',
+		errorDeleteReceipt: 'Failed to delete receipt',
+		errorReprocessReceipt: 'Failed to process "{name}": {error}',
+		errorAssignReceipt: 'Failed to assign receipt: {error}',
+		errorOpenFile: 'Failed to open file',
+		errorCreateTrip: 'Failed to create record',
+		errorUpdateTrip: 'Failed to update record',
+		errorDeleteTrip: 'Failed to delete record',
+		errorMoveTrip: 'Failed to move record',
+		errorAddCompensationTrip: 'Failed to add trip. Please try again.',
+		errorExport: 'Export failed: {error}',
+		errorSelectVehicleFirst: 'Please select a vehicle first',
+		errorSetApiKeyFirst: 'Set folder and API key in Settings first',
+		errorSetApiKeyOnlyFirst: 'Set API key in Settings first',
+	},
+
+	// PDF export labels
+	export: {
+		title: 'Trip Logbook',
+		vehicle: 'Vehicle',
+		year: 'Year',
+		company: 'Company',
+		ico: 'Company ID',
+		date: 'Date',
+		origin: 'From',
+		destination: 'To',
+		distance: 'Distance',
+		odometer: 'ODO',
+		purpose: 'Purpose',
+		fuelLiters: 'Fuel (L)',
+		fuelCost: 'Cost €',
+		otherCosts: 'Other €',
+		otherCostsNote: 'Note',
+		total: 'Total',
+		page: 'Page',
+	},
+} satisfies Translation;
+
+export default en;
