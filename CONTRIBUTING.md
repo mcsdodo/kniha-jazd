@@ -64,6 +64,48 @@ Use conventional commits:
 - `refactor:` code refactoring
 - `test:` adding tests
 
+## Claude Code Setup
+
+This project includes custom skills and slash commands for [Claude Code](https://claude.com/claude-code).
+
+### Slash Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/task-plan` | Create planning folder in `_tasks/` with brainstorming |
+| `/decision` | Add ADR/BIZ entry to `DECISIONS.md` |
+| `/changelog` | Update `CHANGELOG.md` [Unreleased] section |
+| `/release` | Bump version, tag, push, build |
+
+### Directory Structure
+
+```
+.claude/
+├── commands/           # User-invocable slash commands
+│   ├── task-plan.md
+│   ├── decision.md
+│   ├── changelog.md
+│   └── release.md
+└── skills/             # Auto-invoked by Claude based on context
+    ├── task-plan-skill/SKILL.md
+    ├── decision-skill/SKILL.md
+    ├── changelog-skill/SKILL.md
+    └── release-skill/SKILL.md
+```
+
+### How It Works
+
+- **Commands** (`/command`) - Manual invocation by typing in Claude Code
+- **Skills** - Claude auto-invokes based on task context and description
+
+Skills use `-skill` suffix due to [a bug](https://github.com/anthropics/claude-code/issues/14945) where same-name skill/command conflicts. See `_tasks/_TECH_DEBT/01-skill-command-name-conflict.md`.
+
+### Key Files
+
+- `CLAUDE.md` - Project instructions loaded every conversation
+- `DECISIONS.md` - Architecture Decision Records (ADRs)
+- `_tasks/` - Feature planning and implementation docs
+
 ## Questions?
 
 Open an issue for discussion before starting major work.
