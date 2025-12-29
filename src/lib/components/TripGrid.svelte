@@ -1,12 +1,9 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, Receipt } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData, assignReceiptToTrip } from '$lib/api';
+	import type { Trip, Route, TripGridData } from '$lib/types';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
-
-	// Track pending receipt assignment (for when a receipt is selected in TripRow)
-	let pendingReceiptAssignment: Receipt | null = null;
 
 	export let vehicleId: string;
 	export let trips: Trip[] = [];
@@ -95,7 +92,7 @@
 
 	async function handleSaveNew(tripData: Partial<Trip>) {
 		try {
-			const newTrip = await createTrip(
+			await createTrip(
 				vehicleId,
 				tripData.date!,
 				tripData.origin!,
@@ -110,18 +107,6 @@
 				tripData.full_tank,
 				insertAtSortOrder
 			);
-
-			// If a receipt was selected, assign it to the new trip
-			if (pendingReceiptAssignment && newTrip) {
-				try {
-					await assignReceiptToTrip(pendingReceiptAssignment.id, newTrip.id, vehicleId);
-					toast.success('Doklad bol pridelený k jazde');
-				} catch (e) {
-					console.error('Failed to assign receipt:', e);
-					toast.error('Jazda uložená, ale nepodarilo sa prideliť doklad');
-				}
-				pendingReceiptAssignment = null;
-			}
 
 			showNewRow = false;
 			insertAtSortOrder = null;
@@ -152,18 +137,6 @@
 				tripData.full_tank
 			);
 
-			// If a receipt was selected, assign it to the trip
-			if (pendingReceiptAssignment) {
-				try {
-					await assignReceiptToTrip(pendingReceiptAssignment.id, trip.id, vehicleId);
-					toast.success('Doklad bol pridelený k jazde');
-				} catch (e) {
-					console.error('Failed to assign receipt:', e);
-					toast.error('Jazda uložená, ale nepodarilo sa prideliť doklad');
-				}
-				pendingReceiptAssignment = null;
-			}
-
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
 			onTripsChanged();
 			await loadRoutes();
@@ -171,10 +144,6 @@
 			console.error('Failed to update trip:', error);
 			toast.error('Nepodarilo sa aktualizovať záznam');
 		}
-	}
-
-	function handleReceiptSelected(receipt: Receipt) {
-		pendingReceiptAssignment = receipt;
 	}
 
 	async function recalculateNewerTripsOdo(editedTripId: string, newOdo: number) {
@@ -384,7 +353,6 @@
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
-						onReceiptSelected={handleReceiptSelected}
 					/>
 				{/if}
 				<!-- Trip rows -->
@@ -403,7 +371,6 @@
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
-							onReceiptSelected={handleReceiptSelected}
 						/>
 					{/if}
 					{#if isFirstRecord(trip)}
@@ -445,7 +412,6 @@
 							hasDateWarning={dateWarnings.has(trip.id)}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
-							onReceiptSelected={handleReceiptSelected}
 						/>
 					{/if}
 				{/each}

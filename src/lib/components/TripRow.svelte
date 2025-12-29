@@ -1,11 +1,9 @@
 <script lang="ts">
-	import type { Trip, Route, Receipt } from '$lib/types';
+	import type { Trip, Route } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
-	import ReceiptPicker from './ReceiptPicker.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 
 	export let trip: Trip | null = null;
-	export let onReceiptSelected: (receipt: Receipt) => void = () => {};
 	export let routes: Route[] = [];
 	export let purposeSuggestions: string[] = [];
 	export let isNew: boolean = false;
@@ -29,7 +27,6 @@
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
-	let showReceiptPicker = false;
 
 	// Form state - use null for new rows to show placeholder
 	let formData = {
@@ -158,19 +155,6 @@
 		}
 	}
 
-	function handleReceiptSelect(receipt: Receipt) {
-		// Auto-fill fuel fields from receipt
-		if (receipt.liters != null) {
-			formData.fuel_liters = receipt.liters;
-		}
-		if (receipt.total_price_eur != null) {
-			formData.fuel_cost_eur = receipt.total_price_eur;
-		}
-		// Close modal
-		showReceiptPicker = false;
-		// Notify parent for assignment tracking
-		onReceiptSelected(receipt);
-	}
 </script>
 
 {#if isEditing}
@@ -209,18 +193,13 @@
 			/>
 		</td>
 		<td class="fuel-cell">
-			<div class="fuel-input-row">
-				<input
-					type="number"
-					bind:value={formData.fuel_liters}
-					step="0.01"
-					min="0"
-					placeholder="0.00"
-				/>
-				<button type="button" class="picker-btn" on:click={() => showReceiptPicker = true}>
-					Doklad
-				</button>
-			</div>
+			<input
+				type="number"
+				bind:value={formData.fuel_liters}
+				step="0.01"
+				min="0"
+				placeholder="0.00"
+			/>
 			{#if formData.fuel_liters}
 				<label class="full-tank-label">
 					<input type="checkbox" bind:checked={formData.full_tank} />
@@ -340,14 +319,6 @@
 			</span>
 		</td>
 	</tr>
-{/if}
-
-{#if showReceiptPicker}
-	<ReceiptPicker
-		tripDate={formData.date}
-		onSelect={handleReceiptSelect}
-		onClose={() => showReceiptPicker = false}
-	/>
 {/if}
 
 <style>
@@ -505,17 +476,6 @@
 		position: relative;
 	}
 
-	.fuel-input-row {
-		display: flex;
-		gap: 0.25rem;
-		align-items: center;
-	}
-
-	.fuel-input-row input {
-		flex: 1;
-		min-width: 0;
-	}
-
 	.full-tank-label {
 		display: flex;
 		align-items: center;
@@ -551,19 +511,5 @@
 	.estimated-indicator {
 		color: #9e9e9e;
 		margin-left: 0.125rem;
-	}
-
-	.picker-btn {
-		padding: 0.25rem 0.5rem;
-		font-size: 0.7rem;
-		background: #ecf0f1;
-		border: 1px solid #ddd;
-		border-radius: 4px;
-		cursor: pointer;
-		white-space: nowrap;
-	}
-
-	.picker-btn:hover {
-		background: #d5dbdb;
 	}
 </style>
