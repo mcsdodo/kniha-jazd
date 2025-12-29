@@ -29,4 +29,7 @@ vite.config.ts.timestamp-*
 kniha_jazd.xlsx
 
 # Generated databases
-scripts/*.db.claude/settings.local.json
+scripts/*.db
+.claude/settings.local.json
+scripts/compare_import.py
+scripts/import_excel.py
