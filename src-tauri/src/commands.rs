@@ -5,7 +5,7 @@ use crate::calculations::{
     is_within_legal_limit,
 };
 use crate::db::Database;
-use crate::export::{generate_html, ExportData, ExportTotals};
+use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{Route, Settings, Trip, TripGridData, TripStats, Vehicle};
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
@@ -908,6 +908,7 @@ pub async fn export_to_browser(
     license_plate: String,
     sort_column: String,
     sort_direction: String,
+    labels: ExportLabels,
 ) -> Result<(), String> {
     // Get vehicle
     let vehicle = db
@@ -1001,6 +1002,7 @@ pub async fn export_to_browser(
         grid_data,
         year,
         totals,
+        labels,
     };
 
     let html = generate_html(export_data)?;
@@ -1023,6 +1025,7 @@ pub async fn export_html(
     db: State<'_, Database>,
     vehicle_id: String,
     year: i32,
+    labels: ExportLabels,
 ) -> Result<String, String> {
     // Get vehicle
     let vehicle = db
@@ -1081,6 +1084,7 @@ pub async fn export_html(
         grid_data,
         year,
         totals,
+        labels,
     };
 
     generate_html(export_data)

@@ -4,10 +4,10 @@
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
 	import { getTripsForYear, calculateTripStats, openExportPreview } from '$lib/api';
-	import type { Trip, TripStats } from '$lib/types';
+	import type { Trip, TripStats, ExportLabels } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
-	import LL from '$lib/i18n/i18n-svelte';
+	import LL, { locale } from '$lib/i18n/i18n-svelte';
 
 	let exporting = false;
 
@@ -81,12 +81,46 @@
 
 		try {
 			exporting = true;
+
+			// Build export labels from translations
+			const labels: ExportLabels = {
+				lang: $locale,
+				page_title: $LL.export.pageTitle(),
+				header_company: $LL.export.headerCompany(),
+				header_ico: $LL.export.headerIco(),
+				header_vehicle: $LL.export.headerVehicle(),
+				header_license_plate: $LL.export.headerLicensePlate(),
+				header_tank_size: $LL.export.headerTankSize(),
+				header_tp_consumption: $LL.export.headerTpConsumption(),
+				header_year: $LL.export.headerYear(),
+				col_date: $LL.export.colDate(),
+				col_origin: $LL.export.colOrigin(),
+				col_destination: $LL.export.colDestination(),
+				col_purpose: $LL.export.colPurpose(),
+				col_km: $LL.export.colKm(),
+				col_odo: $LL.export.colOdo(),
+				col_fuel_liters: $LL.export.colFuelLiters(),
+				col_fuel_cost: $LL.export.colFuelCost(),
+				col_other_costs: $LL.export.colOtherCosts(),
+				col_note: $LL.export.colNote(),
+				col_remaining: $LL.export.colRemaining(),
+				col_consumption: $LL.export.colConsumption(),
+				footer_total_km: $LL.export.footerTotalKm(),
+				footer_total_fuel: $LL.export.footerTotalFuel(),
+				footer_other_costs: $LL.export.footerOtherCosts(),
+				footer_avg_consumption: $LL.export.footerAvgConsumption(),
+				footer_deviation: $LL.export.footerDeviation(),
+				footer_tp_norm: $LL.export.footerTpNorm(),
+				print_hint: $LL.export.printHint()
+			};
+
 			await openExportPreview(
 				$activeVehicleStore.id,
 				$selectedYearStore,
 				$activeVehicleStore.license_plate,
 				sortColumn,
-				sortDirection
+				sortDirection,
+				labels
 			);
 		} catch (error) {
 			console.error('Export failed:', error);

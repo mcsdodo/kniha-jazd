@@ -902,73 +902,113 @@ type RootTranslation = {
 	}
 	'export': {
 		/**
-		 * K​n​i​h​a​ ​j​á​z​d
+		 * K​N​I​H​A​ ​J​Á​Z​D
 		 */
-		title: string
+		pageTitle: string
 		/**
-		 * V​o​z​i​d​l​o
+		 * F​i​r​m​a​:
 		 */
-		vehicle: string
+		headerCompany: string
 		/**
-		 * R​o​k
+		 * I​Č​O​:
 		 */
-		year: string
+		headerIco: string
 		/**
-		 * S​p​o​l​o​č​n​o​s​ť
+		 * V​o​z​i​d​l​o​:
 		 */
-		company: string
+		headerVehicle: string
 		/**
-		 * I​Č​O
+		 * Š​P​Z​:
 		 */
-		ico: string
+		headerLicensePlate: string
+		/**
+		 * N​á​d​r​ž​:
+		 */
+		headerTankSize: string
+		/**
+		 * T​P​ ​s​p​o​t​r​e​b​a​:
+		 */
+		headerTpConsumption: string
+		/**
+		 * R​o​k​:
+		 */
+		headerYear: string
 		/**
 		 * D​á​t​u​m
 		 */
-		date: string
+		colDate: string
 		/**
 		 * O​d​k​i​a​ľ
 		 */
-		origin: string
+		colOrigin: string
 		/**
 		 * K​a​m
 		 */
-		destination: string
+		colDestination: string
 		/**
-		 * V​z​d​i​a​l​e​n​o​s​ť
+		 * Ú​č​e​l
 		 */
-		distance: string
+		colPurpose: string
 		/**
-		 * S​t​a​v​ ​k​m
+		 * K​m
 		 */
-		odometer: string
+		colKm: string
 		/**
-		 * Ú​č​e​l​ ​j​a​z​d​y
+		 * O​D​O
 		 */
-		purpose: string
+		colOdo: string
 		/**
-		 * P​H​M​ ​(​L​)
+		 * P​H​M​ ​L
 		 */
-		fuelLiters: string
+		colFuelLiters: string
 		/**
-		 * C​e​n​a​ ​€
+		 * €​ ​P​H​M
 		 */
-		fuelCost: string
+		colFuelCost: string
 		/**
-		 * I​n​é​ ​€
+		 * €​ ​I​n​é
 		 */
-		otherCosts: string
+		colOtherCosts: string
 		/**
-		 * P​o​z​n​.
+		 * P​o​z​n​á​m​k​a
 		 */
-		otherCostsNote: string
+		colNote: string
 		/**
-		 * C​e​l​k​o​m
+		 * Z​o​s​t​.
 		 */
-		total: string
+		colRemaining: string
 		/**
-		 * S​t​r​a​n​a
+		 * S​p​o​t​r​.
 		 */
-		page: string
+		colConsumption: string
+		/**
+		 * C​e​l​k​o​m​ ​k​m
+		 */
+		footerTotalKm: string
+		/**
+		 * C​e​l​k​o​m​ ​P​H​M
+		 */
+		footerTotalFuel: string
+		/**
+		 * I​n​é​ ​n​á​k​l​a​d​y
+		 */
+		footerOtherCosts: string
+		/**
+		 * P​r​i​e​m​e​r​n​á​ ​s​p​o​t​r​e​b​a
+		 */
+		footerAvgConsumption: string
+		/**
+		 * O​d​c​h​ý​l​k​a​ ​o​d​ ​T​P
+		 */
+		footerDeviation: string
+		/**
+		 * T​P​ ​n​o​r​m​a
+		 */
+		footerTpNorm: string
+		/**
+		 * P​r​e​ ​e​x​p​o​r​t​ ​d​o​ ​P​D​F​ ​p​o​u​ž​i​t​e​ ​C​t​r​l​+​P​ ​→​ ​U​l​o​ž​i​ť​ ​a​k​o​ ​P​D​F
+		 */
+		printHint: string
 	}
 }
 
@@ -1825,73 +1865,113 @@ export type TranslationFunctions = {
 	}
 	'export': {
 		/**
-		 * Kniha jázd
+		 * KNIHA JÁZD
 		 */
-		title: () => LocalizedString
+		pageTitle: () => LocalizedString
 		/**
-		 * Vozidlo
+		 * Firma:
 		 */
-		vehicle: () => LocalizedString
+		headerCompany: () => LocalizedString
 		/**
-		 * Rok
+		 * IČO:
 		 */
-		year: () => LocalizedString
+		headerIco: () => LocalizedString
 		/**
-		 * Spoločnosť
+		 * Vozidlo:
 		 */
-		company: () => LocalizedString
+		headerVehicle: () => LocalizedString
 		/**
-		 * IČO
+		 * ŠPZ:
 		 */
-		ico: () => LocalizedString
+		headerLicensePlate: () => LocalizedString
+		/**
+		 * Nádrž:
+		 */
+		headerTankSize: () => LocalizedString
+		/**
+		 * TP spotreba:
+		 */
+		headerTpConsumption: () => LocalizedString
+		/**
+		 * Rok:
+		 */
+		headerYear: () => LocalizedString
 		/**
 		 * Dátum
 		 */
-		date: () => LocalizedString
+		colDate: () => LocalizedString
 		/**
 		 * Odkiaľ
 		 */
-		origin: () => LocalizedString
+		colOrigin: () => LocalizedString
 		/**
 		 * Kam
 		 */
-		destination: () => LocalizedString
+		colDestination: () => LocalizedString
 		/**
-		 * Vzdialenosť
+		 * Účel
 		 */
-		distance: () => LocalizedString
+		colPurpose: () => LocalizedString
 		/**
-		 * Stav km
+		 * Km
 		 */
-		odometer: () => LocalizedString
+		colKm: () => LocalizedString
 		/**
-		 * Účel jazdy
+		 * ODO
 		 */
-		purpose: () => LocalizedString
+		colOdo: () => LocalizedString
 		/**
-		 * PHM (L)
+		 * PHM L
 		 */
-		fuelLiters: () => LocalizedString
+		colFuelLiters: () => LocalizedString
 		/**
-		 * Cena €
+		 * € PHM
 		 */
-		fuelCost: () => LocalizedString
+		colFuelCost: () => LocalizedString
 		/**
-		 * Iné €
+		 * € Iné
 		 */
-		otherCosts: () => LocalizedString
+		colOtherCosts: () => LocalizedString
 		/**
-		 * Pozn.
+		 * Poznámka
 		 */
-		otherCostsNote: () => LocalizedString
+		colNote: () => LocalizedString
 		/**
-		 * Celkom
+		 * Zost.
 		 */
-		total: () => LocalizedString
+		colRemaining: () => LocalizedString
 		/**
-		 * Strana
+		 * Spotr.
 		 */
-		page: () => LocalizedString
+		colConsumption: () => LocalizedString
+		/**
+		 * Celkom km
+		 */
+		footerTotalKm: () => LocalizedString
+		/**
+		 * Celkom PHM
+		 */
+		footerTotalFuel: () => LocalizedString
+		/**
+		 * Iné náklady
+		 */
+		footerOtherCosts: () => LocalizedString
+		/**
+		 * Priemerná spotreba
+		 */
+		footerAvgConsumption: () => LocalizedString
+		/**
+		 * Odchýlka od TP
+		 */
+		footerDeviation: () => LocalizedString
+		/**
+		 * TP norma
+		 */
+		footerTpNorm: () => LocalizedString
+		/**
+		 * Pre export do PDF použite Ctrl+P → Uložiť ako PDF
+		 */
+		printHint: () => LocalizedString
 	}
 }
 

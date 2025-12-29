@@ -146,3 +146,41 @@ export interface VerificationResult {
 	unmatched: number;
 	receipts: ReceiptVerification[];
 }
+
+// Export labels passed to Rust for HTML export
+export interface ExportLabels {
+	// Language code for HTML lang attribute
+	lang: string;
+	// Page title
+	page_title: string;
+	// Header labels
+	header_company: string;
+	header_ico: string;
+	header_vehicle: string;
+	header_license_plate: string;
+	header_tank_size: string;
+	header_tp_consumption: string;
+	header_year: string;
+	// Column headers
+	col_date: string;
+	col_origin: string;
+	col_destination: string;
+	col_purpose: string;
+	col_km: string;
+	col_odo: string;
+	col_fuel_liters: string;
+	col_fuel_cost: string;
+	col_other_costs: string;
+	col_note: string;
+	col_remaining: string;
+	col_consumption: string;
+	// Footer labels
+	footer_total_km: string;
+	footer_total_fuel: string;
+	footer_other_costs: string;
+	footer_avg_consumption: string;
+	footer_deviation: string;
+	footer_tp_norm: string;
+	// Print hint
+	print_hint: string;
+}

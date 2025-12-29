@@ -1,6 +1,46 @@
 //! HTML export functionality for Kniha jázd
 
 use crate::models::{Settings, Trip, TripGridData, Vehicle};
+use serde::{Deserialize, Serialize};
+
+/// Labels for HTML export (passed from frontend for i18n support)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportLabels {
+    // Language code for HTML lang attribute
+    pub lang: String,
+    // Page title
+    pub page_title: String,
+    // Header labels
+    pub header_company: String,
+    pub header_ico: String,
+    pub header_vehicle: String,
+    pub header_license_plate: String,
+    pub header_tank_size: String,
+    pub header_tp_consumption: String,
+    pub header_year: String,
+    // Column headers
+    pub col_date: String,
+    pub col_origin: String,
+    pub col_destination: String,
+    pub col_purpose: String,
+    pub col_km: String,
+    pub col_odo: String,
+    pub col_fuel_liters: String,
+    pub col_fuel_cost: String,
+    pub col_other_costs: String,
+    pub col_note: String,
+    pub col_remaining: String,
+    pub col_consumption: String,
+    // Footer labels
+    pub footer_total_km: String,
+    pub footer_total_fuel: String,
+    pub footer_other_costs: String,
+    pub footer_avg_consumption: String,
+    pub footer_deviation: String,
+    pub footer_tp_norm: String,
+    // Print hint
+    pub print_hint: String,
+}
 
 /// Data needed to generate the HTML export
 pub struct ExportData {
@@ -9,6 +49,7 @@ pub struct ExportData {
     pub grid_data: TripGridData,
     pub year: i32,
     pub totals: ExportTotals,
+    pub labels: ExportLabels,
 }
 
 /// Calculated totals for the export footer
@@ -130,12 +171,14 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         ));
     }
 
+    let l = &data.labels;
+
     let html = format!(
         r#"<!DOCTYPE html>
-<html lang="sk">
+<html lang="{lang}">
 <head>
   <meta charset="UTF-8">
-  <title>Kniha jázd - {} - {}</title>
+  <title>{page_title} - {license_plate} - {year}</title>
   <style>
     @media print {{
       @page {{
@@ -261,97 +304,122 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
   </style>
 </head>
 <body>
-  <h1>KNIHA JÁZD</h1>
+  <h1>{page_title}</h1>
 
   <div class="header">
     <div class="header-section">
-      <p><span class="label">Firma:</span> {}</p>
-      <p><span class="label">IČO:</span> {}</p>
+      <p><span class="label">{header_company}</span> {company_name}</p>
+      <p><span class="label">{header_ico}</span> {company_ico}</p>
     </div>
     <div class="header-section">
-      <p><span class="label">Vozidlo:</span> {}</p>
-      <p><span class="label">ŠPZ:</span> {}</p>
+      <p><span class="label">{header_vehicle}</span> {vehicle_name}</p>
+      <p><span class="label">{header_license_plate}</span> {license_plate}</p>
     </div>
     <div class="header-section">
-      <p><span class="label">Nádrž:</span> {} L</p>
-      <p><span class="label">TP spotreba:</span> {} l/100km</p>
+      <p><span class="label">{header_tank_size}</span> {tank_size} L</p>
+      <p><span class="label">{header_tp_consumption}</span> {tp_consumption} l/100km</p>
     </div>
     <div class="header-section">
-      <p><span class="label">Rok:</span> {}</p>
+      <p><span class="label">{header_year}</span> {year}</p>
     </div>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th>Dátum</th>
-        <th>Odkiaľ</th>
-        <th>Kam</th>
-        <th>Účel</th>
-        <th>Km</th>
-        <th>ODO</th>
-        <th>PHM L</th>
-        <th>€ PHM</th>
-        <th>€ Iné</th>
-        <th>Poznámka</th>
-        <th>Zost.</th>
-        <th>Spotr.</th>
+        <th>{col_date}</th>
+        <th>{col_origin}</th>
+        <th>{col_destination}</th>
+        <th>{col_purpose}</th>
+        <th>{col_km}</th>
+        <th>{col_odo}</th>
+        <th>{col_fuel_liters}</th>
+        <th>{col_fuel_cost}</th>
+        <th>{col_other_costs}</th>
+        <th>{col_note}</th>
+        <th>{col_remaining}</th>
+        <th>{col_consumption}</th>
       </tr>
     </thead>
     <tbody>
-{}    </tbody>
+{rows}    </tbody>
   </table>
 
   <div class="footer">
     <div class="footer-grid">
       <div class="footer-item">
-        <div class="footer-value">{:.0} km</div>
-        <div class="footer-label">Celkom km</div>
+        <div class="footer-value">{total_km:.0} km</div>
+        <div class="footer-label">{footer_total_km}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} L / {:.2} €</div>
-        <div class="footer-label">Celkom PHM</div>
+        <div class="footer-value">{total_fuel:.2} L / {total_fuel_cost:.2} €</div>
+        <div class="footer-label">{footer_total_fuel}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} €</div>
-        <div class="footer-label">Iné náklady</div>
+        <div class="footer-value">{other_costs:.2} €</div>
+        <div class="footer-label">{footer_other_costs}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} l/100km</div>
-        <div class="footer-label">Priemerná spotreba</div>
+        <div class="footer-value">{avg_consumption:.2} l/100km</div>
+        <div class="footer-label">{footer_avg_consumption}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.1}%</div>
-        <div class="footer-label">Odchýlka od TP</div>
+        <div class="footer-value">{deviation:.1}%</div>
+        <div class="footer-label">{footer_deviation}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{} l/100km</div>
-        <div class="footer-label">TP norma</div>
+        <div class="footer-value">{tp_consumption} l/100km</div>
+        <div class="footer-label">{footer_tp_norm}</div>
       </div>
     </div>
   </div>
 
-  <p class="print-hint">Pre export do PDF použite Ctrl+P → Uložiť ako PDF</p>
+  <p class="print-hint">{print_hint}</p>
 </body>
 </html>
 "#,
-        data.vehicle.license_plate,
-        data.year,
-        html_escape(&data.settings.company_name),
-        html_escape(&data.settings.company_ico),
-        html_escape(&data.vehicle.name),
-        html_escape(&data.vehicle.license_plate),
-        data.vehicle.tank_size_liters,
-        data.vehicle.tp_consumption,
-        data.year,
-        rows,
-        data.totals.total_km,
-        data.totals.total_fuel_liters,
-        data.totals.total_fuel_cost,
-        data.totals.total_other_costs,
-        data.totals.avg_consumption,
-        data.totals.deviation_percent,
-        data.vehicle.tp_consumption
+        lang = html_escape(&l.lang),
+        page_title = html_escape(&l.page_title),
+        license_plate = html_escape(&data.vehicle.license_plate),
+        year = data.year,
+        header_company = html_escape(&l.header_company),
+        company_name = html_escape(&data.settings.company_name),
+        header_ico = html_escape(&l.header_ico),
+        company_ico = html_escape(&data.settings.company_ico),
+        header_vehicle = html_escape(&l.header_vehicle),
+        vehicle_name = html_escape(&data.vehicle.name),
+        header_license_plate = html_escape(&l.header_license_plate),
+        header_tank_size = html_escape(&l.header_tank_size),
+        tank_size = data.vehicle.tank_size_liters,
+        header_tp_consumption = html_escape(&l.header_tp_consumption),
+        tp_consumption = data.vehicle.tp_consumption,
+        header_year = html_escape(&l.header_year),
+        col_date = html_escape(&l.col_date),
+        col_origin = html_escape(&l.col_origin),
+        col_destination = html_escape(&l.col_destination),
+        col_purpose = html_escape(&l.col_purpose),
+        col_km = html_escape(&l.col_km),
+        col_odo = html_escape(&l.col_odo),
+        col_fuel_liters = html_escape(&l.col_fuel_liters),
+        col_fuel_cost = html_escape(&l.col_fuel_cost),
+        col_other_costs = html_escape(&l.col_other_costs),
+        col_note = html_escape(&l.col_note),
+        col_remaining = html_escape(&l.col_remaining),
+        col_consumption = html_escape(&l.col_consumption),
+        rows = rows,
+        total_km = data.totals.total_km,
+        total_fuel = data.totals.total_fuel_liters,
+        total_fuel_cost = data.totals.total_fuel_cost,
+        footer_total_km = html_escape(&l.footer_total_km),
+        footer_total_fuel = html_escape(&l.footer_total_fuel),
+        other_costs = data.totals.total_other_costs,
+        footer_other_costs = html_escape(&l.footer_other_costs),
+        avg_consumption = data.totals.avg_consumption,
+        footer_avg_consumption = html_escape(&l.footer_avg_consumption),
+        deviation = data.totals.deviation_percent,
+        footer_deviation = html_escape(&l.footer_deviation),
+        footer_tp_norm = html_escape(&l.footer_tp_norm),
+        print_hint = html_escape(&l.print_hint),
     );
 
     Ok(html)

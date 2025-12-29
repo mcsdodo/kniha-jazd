@@ -18,6 +18,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Hromadné spracovanie čakajúcich dokladov - tlačidlo "Spracovať čakajúce" na stránke Doklady
 - E2E testovanie s Playwright
 - Podpora lokálneho súboru nastavení (prepísanie predvolených hodnôt)
+- Internacionalizácia (i18n) - podpora slovenčiny a angličtiny v celej aplikácii vrátane PDF exportu
 
 ### Opravené
 - Poradie krokov v release workflow (build až po push)

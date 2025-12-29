@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, SyncResult, VerificationResult } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, SyncResult, VerificationResult, ExportLabels } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -196,9 +196,10 @@ export async function openExportPreview(
 	year: number,
 	licensePlate: string,
 	sortColumn: string,
-	sortDirection: string
+	sortDirection: string,
+	labels: ExportLabels
 ): Promise<void> {
-	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection });
+	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection, labels });
 }
 
 // Receipt commands

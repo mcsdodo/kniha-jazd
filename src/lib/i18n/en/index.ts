@@ -287,25 +287,40 @@ const en = {
 		errorSetApiKeyOnlyFirst: 'Set API key in Settings first',
 	},
 
-	// PDF export labels
+	// PDF export labels (passed to Rust)
 	export: {
-		title: 'Trip Logbook',
-		vehicle: 'Vehicle',
-		year: 'Year',
-		company: 'Company',
-		ico: 'Company ID',
-		date: 'Date',
-		origin: 'From',
-		destination: 'To',
-		distance: 'Distance',
-		odometer: 'ODO',
-		purpose: 'Purpose',
-		fuelLiters: 'Fuel (L)',
-		fuelCost: 'Cost €',
-		otherCosts: 'Other €',
-		otherCostsNote: 'Note',
-		total: 'Total',
-		page: 'Page',
+		// Page title
+		pageTitle: 'TRIP LOGBOOK',
+		// Header labels
+		headerCompany: 'Company:',
+		headerIco: 'ID:',
+		headerVehicle: 'Vehicle:',
+		headerLicensePlate: 'Plate:',
+		headerTankSize: 'Tank:',
+		headerTpConsumption: 'TP consumption:',
+		headerYear: 'Year:',
+		// Column headers
+		colDate: 'Date',
+		colOrigin: 'From',
+		colDestination: 'To',
+		colPurpose: 'Purpose',
+		colKm: 'Km',
+		colOdo: 'ODO',
+		colFuelLiters: 'Fuel L',
+		colFuelCost: '€ Fuel',
+		colOtherCosts: '€ Other',
+		colNote: 'Note',
+		colRemaining: 'Rem.',
+		colConsumption: 'Cons.',
+		// Footer labels
+		footerTotalKm: 'Total km',
+		footerTotalFuel: 'Total fuel',
+		footerOtherCosts: 'Other costs',
+		footerAvgConsumption: 'Average consumption',
+		footerDeviation: 'Deviation from TP',
+		footerTpNorm: 'TP norm',
+		// Print hint
+		printHint: 'To export to PDF use Ctrl+P → Save as PDF',
 	},
 } satisfies Translation;
 

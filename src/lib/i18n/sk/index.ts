@@ -289,23 +289,38 @@ const sk = {
 
 	// PDF export labels (passed to Rust)
 	export: {
-		title: 'Kniha jázd',
-		vehicle: 'Vozidlo',
-		year: 'Rok',
-		company: 'Spoločnosť',
-		ico: 'IČO',
-		date: 'Dátum',
-		origin: 'Odkiaľ',
-		destination: 'Kam',
-		distance: 'Vzdialenosť',
-		odometer: 'Stav km',
-		purpose: 'Účel jazdy',
-		fuelLiters: 'PHM (L)',
-		fuelCost: 'Cena €',
-		otherCosts: 'Iné €',
-		otherCostsNote: 'Pozn.',
-		total: 'Celkom',
-		page: 'Strana',
+		// Page title
+		pageTitle: 'KNIHA JÁZD',
+		// Header labels
+		headerCompany: 'Firma:',
+		headerIco: 'IČO:',
+		headerVehicle: 'Vozidlo:',
+		headerLicensePlate: 'ŠPZ:',
+		headerTankSize: 'Nádrž:',
+		headerTpConsumption: 'TP spotreba:',
+		headerYear: 'Rok:',
+		// Column headers
+		colDate: 'Dátum',
+		colOrigin: 'Odkiaľ',
+		colDestination: 'Kam',
+		colPurpose: 'Účel',
+		colKm: 'Km',
+		colOdo: 'ODO',
+		colFuelLiters: 'PHM L',
+		colFuelCost: '€ PHM',
+		colOtherCosts: '€ Iné',
+		colNote: 'Poznámka',
+		colRemaining: 'Zost.',
+		colConsumption: 'Spotr.',
+		// Footer labels
+		footerTotalKm: 'Celkom km',
+		footerTotalFuel: 'Celkom PHM',
+		footerOtherCosts: 'Iné náklady',
+		footerAvgConsumption: 'Priemerná spotreba',
+		footerDeviation: 'Odchýlka od TP',
+		footerTpNorm: 'TP norma',
+		// Print hint
+		printHint: 'Pre export do PDF použite Ctrl+P → Uložiť ako PDF',
 	},
 } satisfies BaseTranslation;
 
