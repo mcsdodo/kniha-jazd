@@ -5,6 +5,7 @@ mod error;
 mod export;
 mod gemini;
 mod models;
+mod receipts;
 mod settings;
 mod suggestions;
 
