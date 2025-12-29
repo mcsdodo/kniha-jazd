@@ -21,9 +21,6 @@
 	let dateWarnings: Set<string> = new Set();
 	let consumptionWarnings: Set<string> = new Set();
 
-	// Track if we've shown the missing receipts toast for this session
-	let shownMissingReceiptsToast = false;
-
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
 		try {
@@ -34,13 +31,6 @@
 			fuelRemaining = new Map(Object.entries(gridData.fuel_remaining));
 			dateWarnings = new Set(gridData.date_warnings);
 			consumptionWarnings = new Set(gridData.consumption_warnings);
-
-			// Show toast for missing receipts (only once per session)
-			if (!shownMissingReceiptsToast && gridData.missing_receipts.length > 0) {
-				const count = gridData.missing_receipts.length;
-				toast.info(`${count} ${count === 1 ? 'jazda bez dokladu' : 'jazdy bez dokladov'}`);
-				shownMissingReceiptsToast = true;
-			}
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -301,6 +291,11 @@
 
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
+	// Legend counts
+	$: partialCount = trips.filter(t => t.fuel_liters && !t.full_tank).length;
+	$: missingReceiptCount = gridData?.missing_receipts.length ?? 0;
+	$: consumptionWarningCount = consumptionWarnings.size;
+
 	$: defaultNewDate = (() => {
 		if (sortedTrips.length === 0) {
 			return new Date().toISOString().split('T')[0];
@@ -320,6 +315,19 @@
 	</div>
 
 	<div class="table-container">
+		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0}
+			<div class="table-legend">
+				{#if partialCount > 0}
+					<span class="legend-item"><span class="partial-indicator">*</span> čiastočné tankovanie ({partialCount})</span>
+				{/if}
+				{#if missingReceiptCount > 0}
+					<span class="legend-item"><span class="no-receipt-indicator">⚠</span> bez dokladu ({missingReceiptCount})</span>
+				{/if}
+				{#if consumptionWarningCount > 0}
+					<span class="legend-item"><span class="consumption-warning-sample"></span> vysoká spotreba ({consumptionWarningCount})</span>
+				{/if}
+			</div>
+		{/if}
 		<table>
 			<thead>
 				<tr>
@@ -434,11 +442,6 @@
 				{/if}
 			</tbody>
 		</table>
-		<div class="table-legend">
-			<span class="legend-item"><span class="partial-indicator">*</span> čiastočné tankovanie</span>
-			<span class="legend-item"><span class="no-receipt-indicator">⚠</span> bez dokladu</span>
-			<span class="legend-item"><span class="consumption-warning-sample"></span> vysoká spotreba</span>
-		</div>
 	</div>
 </div>
 
@@ -576,9 +579,10 @@
 		display: flex;
 		gap: 1.5rem;
 		padding: 0.75rem 1rem;
-		background: #f8f9fa;
+		background: #fff3e0;
+		border: 1px solid #ffe0b2;
 		border-radius: 4px;
-		margin-top: 1rem;
+		margin-bottom: 0.75rem;
 		font-size: 0.875rem;
 		color: #666;
 	}
