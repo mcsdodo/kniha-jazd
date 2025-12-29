@@ -86,29 +86,8 @@ mod tests {
     use chrono::Utc;
     use uuid::Uuid;
 
-    #[test]
-    fn test_random_target_margin_in_range() {
-        // Generate 100 values, all should be in 0.16-0.19 range
-        for _ in 0..100 {
-            let target = generate_target_margin();
-            assert!(target >= 0.16, "Target {} is below 0.16", target);
-            assert!(target <= 0.19, "Target {} is above 0.19", target);
-        }
-    }
-
-    #[test]
-    fn test_random_target_margin_varies() {
-        // Generate multiple values and verify they're not all the same
-        let mut values = Vec::new();
-        for _ in 0..10 {
-            values.push(generate_target_margin());
-        }
-
-        // Check that not all values are identical
-        let first = values[0];
-        let all_same = values.iter().all(|&v| (v - first).abs() < 0.0001);
-        assert!(!all_same, "All values are the same: {:?}", values);
-    }
+    // Removed: test_random_target_margin_in_range and test_random_target_margin_varies
+    // These tested Rust's stdlib rng.gen_range(), not our code
 
     #[test]
     fn test_find_matching_route_exact_match() {

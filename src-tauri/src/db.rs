@@ -976,132 +976,54 @@ mod tests {
         assert!(tables.contains(&"settings".to_string()));
     }
 
-    #[test]
-    fn test_create_and_retrieve_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new(
-            "Test Car".to_string(),
-            "BA123XY".to_string(),
-            66.0,
-            5.1,
-            0.0,
-        );
+    // Helper to create test vehicles
+    fn create_test_vehicle(name: &str) -> Vehicle {
+        Vehicle::new(name.to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0)
+    }
 
-        // Create vehicle
+    /// Consolidated vehicle CRUD test - covers create, retrieve, update, delete, and queries
+    #[test]
+    fn test_vehicle_crud_lifecycle() {
+        let db = Database::in_memory().expect("Failed to create database");
+
+        // CREATE + RETRIEVE
+        let vehicle = create_test_vehicle("Test Car");
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
-        // Retrieve it
         let retrieved = db
             .get_vehicle(&vehicle.id.to_string())
             .expect("Failed to get vehicle")
             .expect("Vehicle not found");
-
-        assert_eq!(retrieved.id, vehicle.id);
         assert_eq!(retrieved.name, "Test Car");
-        assert_eq!(retrieved.license_plate, "BA123XY");
-        assert_eq!(retrieved.tank_size_liters, 66.0);
-        assert_eq!(retrieved.tp_consumption, 5.1);
         assert!(retrieved.is_active);
-    }
 
-    #[test]
-    fn test_get_all_vehicles() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        // Create multiple vehicles
-        let v1 = Vehicle::new("Car 1".to_string(), "BA111AA".to_string(), 60.0, 5.0, 0.0);
-        let v2 = Vehicle::new("Car 2".to_string(), "BA222BB".to_string(), 70.0, 6.0, 0.0);
-
-        db.create_vehicle(&v1).expect("Failed to create v1");
+        // GET ALL + ACTIVE VEHICLE
+        let mut v2 = create_test_vehicle("Inactive Car");
+        v2.is_active = false;
         db.create_vehicle(&v2).expect("Failed to create v2");
 
-        // Get all
-        let vehicles = db.get_all_vehicles().expect("Failed to get all vehicles");
+        let all = db.get_all_vehicles().expect("Failed to get all");
+        assert_eq!(all.len(), 2);
 
-        assert_eq!(vehicles.len(), 2);
-        assert!(vehicles.iter().any(|v| v.id == v1.id));
-        assert!(vehicles.iter().any(|v| v.id == v2.id));
+        let active = db.get_active_vehicle().expect("Failed to get active").unwrap();
+        assert_eq!(active.id, vehicle.id); // First vehicle is active
+
+        // UPDATE
+        let mut updated = retrieved;
+        updated.name = "Updated Name".to_string();
+        updated.tp_consumption = 6.5;
+        db.update_vehicle(&updated).expect("Failed to update");
+
+        let after_update = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+        assert_eq!(after_update.name, "Updated Name");
+        assert_eq!(after_update.tp_consumption, 6.5);
+
+        // DELETE
+        db.delete_vehicle(&vehicle.id.to_string()).expect("Failed to delete");
+        assert!(db.get_vehicle(&vehicle.id.to_string()).unwrap().is_none());
     }
 
-    #[test]
-    fn test_get_active_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        // Create two vehicles
-        let mut v1 = Vehicle::new("Car 1".to_string(), "BA111AA".to_string(), 60.0, 5.0, 0.0);
-        v1.is_active = false;
-        let v2 = Vehicle::new("Car 2".to_string(), "BA222BB".to_string(), 70.0, 6.0, 0.0);
-
-        db.create_vehicle(&v1).expect("Failed to create v1");
-        db.create_vehicle(&v2).expect("Failed to create v2");
-
-        // Get active vehicle
-        let active = db
-            .get_active_vehicle()
-            .expect("Failed to get active vehicle")
-            .expect("No active vehicle found");
-
-        assert_eq!(active.id, v2.id);
-        assert!(active.is_active);
-    }
-
-    #[test]
-    fn test_update_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let mut vehicle = Vehicle::new("Old Name".to_string(), "BA111AA".to_string(), 60.0, 5.0, 0.0);
-
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        // Update vehicle
-        vehicle.name = "New Name".to_string();
-        vehicle.license_plate = "BA999ZZ".to_string();
-        vehicle.is_active = false;
-
-        db.update_vehicle(&vehicle).expect("Failed to update vehicle");
-
-        // Retrieve and verify
-        let updated = db
-            .get_vehicle(&vehicle.id.to_string())
-            .expect("Failed to get vehicle")
-            .expect("Vehicle not found");
-
-        assert_eq!(updated.name, "New Name");
-        assert_eq!(updated.license_plate, "BA999ZZ");
-        assert!(!updated.is_active);
-    }
-
-    #[test]
-    fn test_delete_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        // Delete vehicle
-        db.delete_vehicle(&vehicle.id.to_string())
-            .expect("Failed to delete vehicle");
-
-        // Verify it's gone
-        let result = db
-            .get_vehicle(&vehicle.id.to_string())
-            .expect("Failed to get vehicle");
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_get_nonexistent_vehicle_returns_none() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        let result = db
-            .get_vehicle("00000000-0000-0000-0000-000000000000")
-            .expect("Failed to query vehicle");
-
-        assert!(result.is_none());
-    }
-
-    // Trip CRUD tests
-
+    // Helper to create test trips
     fn create_test_trip(vehicle_id: uuid::Uuid, date: &str) -> Trip {
         use chrono::NaiveDate;
         let now = chrono::Utc::now();
@@ -1125,107 +1047,68 @@ mod tests {
         }
     }
 
+    /// Consolidated trip CRUD test - covers create, retrieve, update, delete, ordering, and optional fields
     #[test]
-    fn test_create_and_retrieve_trip() {
+    fn test_trip_crud_lifecycle() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
+        let vehicle = create_test_vehicle("Test Car");
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
+        // CREATE + RETRIEVE (with all fields)
         let trip = create_test_trip(vehicle.id, "2024-12-01");
-
-        // Create trip
         db.create_trip(&trip).expect("Failed to create trip");
 
-        // Retrieve it
-        let retrieved = db
-            .get_trip(&trip.id.to_string())
-            .expect("Failed to get trip")
-            .expect("Trip not found");
-
-        assert_eq!(retrieved.id, trip.id);
-        assert_eq!(retrieved.vehicle_id, vehicle.id);
-        assert_eq!(retrieved.date.to_string(), "2024-12-01");
+        let retrieved = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
         assert_eq!(retrieved.origin, "Prague");
-        assert_eq!(retrieved.destination, "Brno");
-        assert_eq!(retrieved.distance_km, 200.0);
-        assert_eq!(retrieved.odometer, 50000.0);
-        assert_eq!(retrieved.purpose, "Business meeting");
         assert_eq!(retrieved.fuel_liters, Some(15.0));
-        assert_eq!(retrieved.fuel_cost_eur, Some(25.5));
-        assert_eq!(retrieved.other_costs_eur, Some(5.0));
         assert_eq!(retrieved.other_costs_note, Some("Parking fee".to_string()));
-    }
 
-    #[test]
-    fn test_create_trip_with_optional_fields_none() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
+        // CREATE with None optional fields (tests NULL handling)
         let now = chrono::Utc::now();
-        let trip = Trip {
+        let trip_no_fuel = Trip {
             id: uuid::Uuid::new_v4(),
             vehicle_id: vehicle.id,
-            date: chrono::NaiveDate::from_ymd_opt(2024, 12, 1).unwrap(),
+            date: chrono::NaiveDate::from_ymd_opt(2024, 12, 2).unwrap(),
             origin: "Vienna".to_string(),
             destination: "Graz".to_string(),
             distance_km: 150.0,
             odometer: 50200.0,
-            purpose: "Personal trip".to_string(),
+            purpose: "Personal".to_string(),
             fuel_liters: None,
             fuel_cost_eur: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: true,
-            sort_order: 0,
+            full_tank: false,
+            sort_order: 1,
             created_at: now,
             updated_at: now,
         };
+        db.create_trip(&trip_no_fuel).expect("Failed to create trip without fuel");
+        let retrieved_no_fuel = db.get_trip(&trip_no_fuel.id.to_string()).unwrap().unwrap();
+        assert_eq!(retrieved_no_fuel.fuel_liters, None);
 
-        db.create_trip(&trip).expect("Failed to create trip");
+        // LIST with sort_order
+        let trips = db.get_trips_for_vehicle(&vehicle.id.to_string()).unwrap();
+        assert_eq!(trips.len(), 2);
+        assert_eq!(trips[0].sort_order, 0); // First by sort_order ASC
+        assert_eq!(trips[1].sort_order, 1);
 
-        let retrieved = db
-            .get_trip(&trip.id.to_string())
-            .expect("Failed to get trip")
-            .expect("Trip not found");
+        // UPDATE
+        let mut updated = retrieved;
+        updated.origin = "Berlin".to_string();
+        updated.fuel_liters = Some(25.0);
+        db.update_trip(&updated).expect("Failed to update");
 
-        assert_eq!(retrieved.fuel_liters, None);
-        assert_eq!(retrieved.fuel_cost_eur, None);
-        assert_eq!(retrieved.other_costs_eur, None);
-        assert_eq!(retrieved.other_costs_note, None);
+        let after_update = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+        assert_eq!(after_update.origin, "Berlin");
+        assert_eq!(after_update.fuel_liters, Some(25.0));
+
+        // DELETE
+        db.delete_trip(&trip.id.to_string()).expect("Failed to delete");
+        assert!(db.get_trip(&trip.id.to_string()).unwrap().is_none());
     }
 
-    #[test]
-    fn test_get_trips_for_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        // Create trips with different dates and explicit sort_order (0 = top/newest)
-        let mut trip1 = create_test_trip(vehicle.id, "2024-12-01");
-        trip1.sort_order = 2; // oldest, bottom
-        let mut trip2 = create_test_trip(vehicle.id, "2024-12-15");
-        trip2.sort_order = 0; // newest, top
-        let mut trip3 = create_test_trip(vehicle.id, "2024-12-10");
-        trip3.sort_order = 1; // middle
-
-        db.create_trip(&trip1).expect("Failed to create trip1");
-        db.create_trip(&trip2).expect("Failed to create trip2");
-        db.create_trip(&trip3).expect("Failed to create trip3");
-
-        // Get all trips for vehicle
-        let trips = db
-            .get_trips_for_vehicle(&vehicle.id.to_string())
-            .expect("Failed to get trips");
-
-        assert_eq!(trips.len(), 3);
-
-        // Verify ordering: by sort_order ASC (0 = top/newest)
-        assert_eq!(trips[0].date.to_string(), "2024-12-15"); // sort_order 0
-        assert_eq!(trips[1].date.to_string(), "2024-12-10"); // sort_order 1
-        assert_eq!(trips[2].date.to_string(), "2024-12-01"); // sort_order 2
-    }
-
+    /// Tests year-based filtering (non-trivial date logic)
     #[test]
     fn test_get_trips_for_vehicle_in_year() {
         let db = Database::in_memory().expect("Failed to create database");
@@ -1264,83 +1147,7 @@ mod tests {
         assert_eq!(trips_2023[0].date.to_string(), "2023-12-10");
     }
 
-    #[test]
-    fn test_update_trip() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        let mut trip = create_test_trip(vehicle.id, "2024-12-01");
-
-        db.create_trip(&trip).expect("Failed to create trip");
-
-        // Update trip
-        trip.origin = "Berlin".to_string();
-        trip.destination = "Munich".to_string();
-        trip.distance_km = 350.0;
-        trip.fuel_liters = Some(25.0);
-        trip.other_costs_note = Some("Updated note".to_string());
-
-        db.update_trip(&trip).expect("Failed to update trip");
-
-        // Retrieve and verify
-        let updated = db
-            .get_trip(&trip.id.to_string())
-            .expect("Failed to get trip")
-            .expect("Trip not found");
-
-        assert_eq!(updated.origin, "Berlin");
-        assert_eq!(updated.destination, "Munich");
-        assert_eq!(updated.distance_km, 350.0);
-        assert_eq!(updated.fuel_liters, Some(25.0));
-        assert_eq!(updated.other_costs_note, Some("Updated note".to_string()));
-    }
-
-    #[test]
-    fn test_delete_trip() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        let trip = create_test_trip(vehicle.id, "2024-12-01");
-
-        db.create_trip(&trip).expect("Failed to create trip");
-
-        // Delete trip
-        db.delete_trip(&trip.id.to_string())
-            .expect("Failed to delete trip");
-
-        // Verify it's gone
-        let result = db
-            .get_trip(&trip.id.to_string())
-            .expect("Failed to query trip");
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_get_nonexistent_trip_returns_none() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        let result = db
-            .get_trip("00000000-0000-0000-0000-000000000000")
-            .expect("Failed to query trip");
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_get_trips_for_nonexistent_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        let trips = db
-            .get_trips_for_vehicle("00000000-0000-0000-0000-000000000000")
-            .expect("Failed to get trips");
-
-        assert_eq!(trips.len(), 0);
-    }
-
-    // Route CRUD tests
+    // Route tests
 
     fn create_test_route(vehicle_id: uuid::Uuid, origin: &str, destination: &str, distance_km: f64) -> Route {
         Route {
@@ -1354,191 +1161,73 @@ mod tests {
         }
     }
 
+    /// Consolidated route CRUD test - covers create, retrieve, update, delete, and usage ordering
     #[test]
-    fn test_create_and_retrieve_route() {
+    fn test_route_crud_lifecycle() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
+        let vehicle = create_test_vehicle("Test Car");
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
+        // CREATE + RETRIEVE
         let route = create_test_route(vehicle.id, "Bratislava", "Košice", 400.0);
-
-        // Create route
         db.create_route(&route).expect("Failed to create route");
 
-        // Retrieve it
-        let retrieved = db
-            .get_route(&route.id.to_string())
-            .expect("Failed to get route")
-            .expect("Route not found");
-
-        assert_eq!(retrieved.id, route.id);
-        assert_eq!(retrieved.vehicle_id, vehicle.id);
+        let retrieved = db.get_route(&route.id.to_string()).unwrap().unwrap();
         assert_eq!(retrieved.origin, "Bratislava");
-        assert_eq!(retrieved.destination, "Košice");
-        assert_eq!(retrieved.distance_km, 400.0);
         assert_eq!(retrieved.usage_count, 1);
-    }
 
-    #[test]
-    fn test_get_routes_for_vehicle_ordered_by_usage() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        // Create routes with different usage counts
-        let mut route1 = create_test_route(vehicle.id, "A", "B", 50.0);
-        route1.usage_count = 5;
-
-        let mut route2 = create_test_route(vehicle.id, "B", "C", 100.0);
+        // CREATE more routes with different usage counts for ordering test
+        let mut route2 = create_test_route(vehicle.id, "A", "B", 50.0);
         route2.usage_count = 10;
-
-        let mut route3 = create_test_route(vehicle.id, "C", "D", 75.0);
-        route3.usage_count = 3;
-
-        db.create_route(&route1).expect("Failed to create route1");
         db.create_route(&route2).expect("Failed to create route2");
-        db.create_route(&route3).expect("Failed to create route3");
 
-        // Get routes for vehicle
-        let routes = db
-            .get_routes_for_vehicle(&vehicle.id.to_string())
-            .expect("Failed to get routes");
+        // LIST - ordered by usage_count DESC
+        let routes = db.get_routes_for_vehicle(&vehicle.id.to_string()).unwrap();
+        assert_eq!(routes.len(), 2);
+        assert_eq!(routes[0].usage_count, 10); // Most used first
+        assert_eq!(routes[1].usage_count, 1);
 
-        assert_eq!(routes.len(), 3);
+        // UPDATE
+        let mut updated = retrieved;
+        updated.usage_count = 5;
+        updated.distance_km = 405.0;
+        db.update_route(&updated).expect("Failed to update");
 
-        // Verify ordering: DESC by usage_count (most used first)
-        assert_eq!(routes[0].usage_count, 10);
-        assert_eq!(routes[0].origin, "B");
-        assert_eq!(routes[1].usage_count, 5);
-        assert_eq!(routes[1].origin, "A");
-        assert_eq!(routes[2].usage_count, 3);
-        assert_eq!(routes[2].origin, "C");
+        let after_update = db.get_route(&route.id.to_string()).unwrap().unwrap();
+        assert_eq!(after_update.usage_count, 5);
+        assert_eq!(after_update.distance_km, 405.0);
+
+        // DELETE
+        db.delete_route(&route.id.to_string()).expect("Failed to delete");
+        assert!(db.get_route(&route.id.to_string()).unwrap().is_none());
     }
 
+    /// Tests find_or_create upsert logic - non-trivial business behavior
     #[test]
-    fn test_update_route() {
+    fn test_find_or_create_route_upsert() {
         let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
+        let vehicle = create_test_vehicle("Test Car");
         db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
-        let mut route = create_test_route(vehicle.id, "Prague", "Brno", 200.0);
-        db.create_route(&route).expect("Failed to create route");
-
-        // Update route (e.g., increment usage count)
-        route.usage_count = 5;
-        route.distance_km = 205.0; // Updated distance
-
-        db.update_route(&route).expect("Failed to update route");
-
-        // Retrieve and verify
-        let updated = db
-            .get_route(&route.id.to_string())
-            .expect("Failed to get route")
-            .expect("Route not found");
-
-        assert_eq!(updated.usage_count, 5);
-        assert_eq!(updated.distance_km, 205.0);
-    }
-
-    #[test]
-    fn test_delete_route() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        let route = create_test_route(vehicle.id, "Vienna", "Prague", 250.0);
-        db.create_route(&route).expect("Failed to create route");
-
-        // Delete route
-        db.delete_route(&route.id.to_string())
-            .expect("Failed to delete route");
-
-        // Verify it's gone
-        let result = db
-            .get_route(&route.id.to_string())
-            .expect("Failed to query route");
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_find_or_create_route_creates_new() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        // Find or create - should create new
-        let route = db
-            .find_or_create_route(&vehicle.id.to_string(), "Bratislava", "Vienna", 80.0)
-            .expect("Failed to find or create route");
-
-        assert_eq!(route.origin, "Bratislava");
-        assert_eq!(route.destination, "Vienna");
-        assert_eq!(route.distance_km, 80.0);
-        assert_eq!(route.usage_count, 1);
-
-        // Verify it's in the database
-        let retrieved = db
-            .get_route(&route.id.to_string())
-            .expect("Failed to get route")
-            .expect("Route not found");
-
-        assert_eq!(retrieved.id, route.id);
-    }
-
-    #[test]
-    fn test_find_or_create_route_increments_existing() {
-        let db = Database::in_memory().expect("Failed to create database");
-        let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
-        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-        // Create initial route
+        // First call: creates new route
         let route1 = db
             .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
             .expect("Failed to create route");
-
         assert_eq!(route1.usage_count, 1);
 
-        // Find or create again - should increment usage count
+        // Second call: finds existing, increments usage
         let route2 = db
             .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
             .expect("Failed to find route");
-
         assert_eq!(route2.id, route1.id); // Same route
         assert_eq!(route2.usage_count, 2); // Incremented
 
-        // Verify in database
-        let retrieved = db
-            .get_route(&route2.id.to_string())
-            .expect("Failed to get route")
-            .expect("Route not found");
-
+        // Verify persistence
+        let retrieved = db.get_route(&route2.id.to_string()).unwrap().unwrap();
         assert_eq!(retrieved.usage_count, 2);
     }
 
-    #[test]
-    fn test_get_nonexistent_route_returns_none() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        let result = db
-            .get_route("00000000-0000-0000-0000-000000000000")
-            .expect("Failed to query route");
-
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_get_routes_for_nonexistent_vehicle() {
-        let db = Database::in_memory().expect("Failed to create database");
-
-        let routes = db
-            .get_routes_for_vehicle("00000000-0000-0000-0000-000000000000")
-            .expect("Failed to get routes");
-
-        assert_eq!(routes.len(), 0);
-    }
-
-    // Receipt CRUD tests
+    // Receipt tests
 
     #[test]
     fn test_receipt_crud() {

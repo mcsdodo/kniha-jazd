@@ -229,13 +229,8 @@ impl GeminiClient {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_extraction_prompt_is_valid() {
-        // Just verify the prompt compiles and has expected content
-        assert!(EXTRACTION_PROMPT.contains("liters"));
-        assert!(EXTRACTION_PROMPT.contains("total price"));
-        assert!(EXTRACTION_PROMPT.contains("DD.MM.YYYY")); // Slovak date format
-    }
+    // Removed: test_extraction_prompt_is_valid
+    // Asserting string.contains() doesn't test behavior
 
     #[test]
     fn test_extracted_receipt_deserialization() {
