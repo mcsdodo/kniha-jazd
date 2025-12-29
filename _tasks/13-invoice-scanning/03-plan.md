@@ -276,6 +276,16 @@ export interface ReceiptSettings {
 	gemini_api_key_from_override: boolean;
 	receipts_folder_from_override: boolean;
 }
+
+export interface SyncError {
+	file_name: string;
+	error: string;
+}
+
+export interface SyncResult {
+	processed: Receipt[];
+	errors: SyncError[];
+}
 ```
 
 **Step 3: Verify Rust compiles**
@@ -349,6 +359,41 @@ Add these functions to the Database impl (after existing CRUD functions):
     // Receipt Operations
     // ========================================================================
 
+    /// Helper to avoid row-to-struct duplication
+    fn row_to_receipt(row: &rusqlite::Row) -> rusqlite::Result<Receipt> {
+        Ok(Receipt {
+            id: Uuid::parse_str(&row.get::<_, String>(0)?).unwrap(),
+            vehicle_id: row.get::<_, Option<String>>(1)?.map(|s| Uuid::parse_str(&s).unwrap()),
+            trip_id: row.get::<_, Option<String>>(2)?.map(|s| Uuid::parse_str(&s).unwrap()),
+            file_path: row.get(3)?,
+            file_name: row.get(4)?,
+            scanned_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                .unwrap()
+                .with_timezone(&Utc),
+            liters: row.get(6)?,
+            total_price_eur: row.get(7)?,
+            receipt_date: row.get::<_, Option<String>>(8)?
+                .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap()),
+            station_name: row.get(9)?,
+            station_address: row.get(10)?,
+            status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
+            confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
+            raw_ocr_text: row.get(13)?,
+            error_message: row.get(14)?,
+            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
+                .unwrap()
+                .with_timezone(&Utc),
+            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
+                .unwrap()
+                .with_timezone(&Utc),
+        })
+    }
+
+    const RECEIPT_SELECT_COLS: &'static str =
+        "id, vehicle_id, trip_id, file_path, file_name, scanned_at,
+         liters, total_price_eur, receipt_date, station_name, station_address,
+         status, confidence, raw_ocr_text, error_message, created_at, updated_at";
+
     pub fn create_receipt(&self, receipt: &Receipt) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -381,83 +426,20 @@ Add these functions to the Database impl (after existing CRUD functions):
 
     pub fn get_all_receipts(&self) -> Result<Vec<Receipt>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                    liters, total_price_eur, receipt_date, station_name, station_address,
-                    status, confidence, raw_ocr_text, error_message, created_at, updated_at
-             FROM receipts ORDER BY scanned_at DESC"
-        )?;
-
-        let receipts = stmt.query_map([], |row| {
-            Ok(Receipt {
-                id: Uuid::parse_str(&row.get::<_, String>(0)?).unwrap(),
-                vehicle_id: row.get::<_, Option<String>>(1)?.map(|s| Uuid::parse_str(&s).unwrap()),
-                trip_id: row.get::<_, Option<String>>(2)?.map(|s| Uuid::parse_str(&s).unwrap()),
-                file_path: row.get(3)?,
-                file_name: row.get(4)?,
-                scanned_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                liters: row.get(6)?,
-                total_price_eur: row.get(7)?,
-                receipt_date: row.get::<_, Option<String>>(8)?
-                    .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap()),
-                station_name: row.get(9)?,
-                station_address: row.get(10)?,
-                status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
-                confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
-                raw_ocr_text: row.get(13)?,
-                error_message: row.get(14)?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
-
+        let sql = format!("SELECT {} FROM receipts ORDER BY scanned_at DESC", Self::RECEIPT_SELECT_COLS);
+        let mut stmt = conn.prepare(&sql)?;
+        let receipts = stmt.query_map([], Self::row_to_receipt)?.collect::<Result<Vec<_>, _>>()?;
         Ok(receipts)
     }
 
     pub fn get_unassigned_receipts(&self) -> Result<Vec<Receipt>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                    liters, total_price_eur, receipt_date, station_name, station_address,
-                    status, confidence, raw_ocr_text, error_message, created_at, updated_at
-             FROM receipts WHERE trip_id IS NULL ORDER BY receipt_date DESC, scanned_at DESC"
-        )?;
-
-        let receipts = stmt.query_map([], |row| {
-            Ok(Receipt {
-                id: Uuid::parse_str(&row.get::<_, String>(0)?).unwrap(),
-                vehicle_id: row.get::<_, Option<String>>(1)?.map(|s| Uuid::parse_str(&s).unwrap()),
-                trip_id: row.get::<_, Option<String>>(2)?.map(|s| Uuid::parse_str(&s).unwrap()),
-                file_path: row.get(3)?,
-                file_name: row.get(4)?,
-                scanned_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                liters: row.get(6)?,
-                total_price_eur: row.get(7)?,
-                receipt_date: row.get::<_, Option<String>>(8)?
-                    .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap()),
-                station_name: row.get(9)?,
-                station_address: row.get(10)?,
-                status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
-                confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
-                raw_ocr_text: row.get(13)?,
-                error_message: row.get(14)?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
-
+        let sql = format!(
+            "SELECT {} FROM receipts WHERE trip_id IS NULL ORDER BY receipt_date DESC, scanned_at DESC",
+            Self::RECEIPT_SELECT_COLS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let receipts = stmt.query_map([], Self::row_to_receipt)?.collect::<Result<Vec<_>, _>>()?;
         Ok(receipts)
     }
 
@@ -497,41 +479,9 @@ Add these functions to the Database impl (after existing CRUD functions):
 
     pub fn get_receipt_by_file_path(&self, file_path: &str) -> Result<Option<Receipt>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                    liters, total_price_eur, receipt_date, station_name, station_address,
-                    status, confidence, raw_ocr_text, error_message, created_at, updated_at
-             FROM receipts WHERE file_path = ?1"
-        )?;
-
-        stmt.query_row([file_path], |row| {
-            Ok(Receipt {
-                id: Uuid::parse_str(&row.get::<_, String>(0)?).unwrap(),
-                vehicle_id: row.get::<_, Option<String>>(1)?.map(|s| Uuid::parse_str(&s).unwrap()),
-                trip_id: row.get::<_, Option<String>>(2)?.map(|s| Uuid::parse_str(&s).unwrap()),
-                file_path: row.get(3)?,
-                file_name: row.get(4)?,
-                scanned_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                liters: row.get(6)?,
-                total_price_eur: row.get(7)?,
-                receipt_date: row.get::<_, Option<String>>(8)?
-                    .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap()),
-                station_name: row.get(9)?,
-                station_address: row.get(10)?,
-                status: serde_json::from_str(&format!("\"{}\"", row.get::<_, String>(11)?)).unwrap(),
-                confidence: serde_json::from_str(&row.get::<_, String>(12)?).unwrap(),
-                raw_ocr_text: row.get(13)?,
-                error_message: row.get(14)?,
-                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-                updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
-                    .unwrap()
-                    .with_timezone(&Utc),
-            })
-        }).optional()
+        let sql = format!("SELECT {} FROM receipts WHERE file_path = ?1", Self::RECEIPT_SELECT_COLS);
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_row([file_path], Self::row_to_receipt).optional()
     }
 ```
 
@@ -1310,8 +1260,21 @@ pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, Stri
     db.get_unassigned_receipts().map_err(|e| e.to_string())
 }
 
+/// Result of sync operation - includes both successes and errors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncResult {
+    pub processed: Vec<Receipt>,
+    pub errors: Vec<SyncError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncError {
+    pub file_name: String,
+    pub error: String,
+}
+
 #[tauri::command]
-pub fn sync_receipts(app: tauri::AppHandle, db: State<Database>) -> Result<Vec<Receipt>, String> {
+pub fn sync_receipts(app: tauri::AppHandle, db: State<Database>) -> Result<SyncResult, String> {
     let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_dir);
 
@@ -1323,17 +1286,26 @@ pub fn sync_receipts(app: tauri::AppHandle, db: State<Database>) -> Result<Vec<R
 
     // Scan for new files
     let mut new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
+    let mut errors = Vec::new();
 
     // Process each new receipt with Gemini
+    // NOTE: Uses blocking HTTP. For many receipts, consider async with progress events.
     for receipt in &mut new_receipts {
         if let Err(e) = process_receipt_with_gemini(receipt, &api_key) {
             log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
+            errors.push(SyncError {
+                file_name: receipt.file_name.clone(),
+                error: e,
+            });
         }
         // Update in DB regardless of success/failure
         db.update_receipt(receipt).map_err(|e| e.to_string())?;
     }
 
-    Ok(new_receipts)
+    Ok(SyncResult {
+        processed: new_receipts,
+        errors,
+    })
 }
 
 #[tauri::command]
@@ -1401,7 +1373,7 @@ export async function getUnassignedReceipts(): Promise<Receipt[]> {
 	return await invoke('get_unassigned_receipts');
 }
 
-export async function syncReceipts(): Promise<Receipt[]> {
+export async function syncReceipts(): Promise<SyncResult> {
 	return await invoke('sync_receipts');
 }
 
@@ -1427,7 +1399,7 @@ export async function assignReceiptToTrip(
 Update the import line:
 
 ```typescript
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, SyncResult } from './types';
 ```
 
 **Step 5: Verify compilation**
@@ -1505,10 +1477,15 @@ Create directory and file `src/routes/doklady/+page.svelte`:
 
 		syncing = true;
 		try {
-			const newReceipts = await api.syncReceipts();
+			const result = await api.syncReceipts();
 			await loadReceipts();
-			if (newReceipts.length > 0) {
-				toast.success(`Načítaných ${newReceipts.length} nových dokladov`);
+
+			if (result.processed.length > 0) {
+				if (result.errors.length > 0) {
+					toast.success(`Načítaných ${result.processed.length} dokladov (${result.errors.length} chýb)`);
+				} else {
+					toast.success(`Načítaných ${result.processed.length} nových dokladov`);
+				}
 			} else {
 				toast.success('Žiadne nové doklady');
 			}
@@ -1631,13 +1608,13 @@ Create directory and file `src/routes/doklady/+page.svelte`:
 						</div>
 						<div class="detail-row">
 							<span class="label">Litre:</span>
-							<span class="value" class:uncertain={receipt.confidence.includes('liters_uncertain')}>
+							<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
 								{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
 							</span>
 						</div>
 						<div class="detail-row">
 							<span class="label">Cena:</span>
-							<span class="value" class:uncertain={receipt.confidence.includes('price_uncertain')}>
+							<span class="value" class:uncertain={receipt.confidence.total_price === 'Low'}>
 								{receipt.total_price_eur != null ? `${receipt.total_price_eur.toFixed(2)} €` : '??'}
 							</span>
 						</div>
@@ -2070,29 +2047,419 @@ git commit -m "test(e2e): add Doklady page tests"
 
 ---
 
-## Phase 4: Trip Integration (Future)
+## Phase 4: Trip Integration
 
-The remaining tasks for Phase 4 and 5 cover:
+> **NOTE:** Re-evaluate this phase after completing Phase 1-3. Implementation experience may reveal simpler approaches or new requirements.
 
-### Task 4.1: Receipt Picker for Trip Row
-- Add dropdown to TripRow.svelte for selecting a receipt when entering fuel
-- Filter by date proximity (±3 days)
-- Auto-fill liters and price from selected receipt
+### Task 4.1: Trip Selector Modal Component
 
-### Task 4.2: Assign from Doklady Page
-- Add "Prideliť k jazde" button that opens trip selector modal
-- Show trips for active vehicle, filter by date
-- Link receipt to trip and update trip fuel fields
+**Files:**
+- Create: `src/lib/components/TripSelectorModal.svelte`
 
-### Task 4.3: Smart Date Matching
-- Sort receipts by date proximity to trip date
-- Highlight best matches in picker
+**Step 1: Create modal component**
 
-### Task 5.1: Station Profiles (Future Enhancement)
-- Add StationProfile model
-- Auto-detect station from receipt
-- Store user corrections as few-shot examples
-- Station management UI
+```svelte
+<script lang="ts">
+	import type { Trip, Receipt } from '$lib/types';
+	import * as api from '$lib/api';
+	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { selectedYearStore } from '$lib/stores/year';
+
+	export let receipt: Receipt;
+	export let onSelect: (trip: Trip) => void;
+	export let onClose: () => void;
+
+	let trips: Trip[] = [];
+	let loading = true;
+
+	// Load trips for active vehicle
+	$: if ($activeVehicleStore) {
+		loadTrips();
+	}
+
+	async function loadTrips() {
+		loading = true;
+		try {
+			const gridData = await api.getTripGridData($activeVehicleStore!.id, $selectedYearStore);
+			// Filter to trips with fuel (fillups) and sort by date proximity to receipt
+			trips = gridData.trips
+				.filter(t => t.fuel_liters != null || canBeAssigned(t))
+				.sort((a, b) => dateProximity(a.date, receipt.receipt_date) - dateProximity(b.date, receipt.receipt_date));
+		} catch (error) {
+			console.error('Failed to load trips:', error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	function canBeAssigned(trip: Trip): boolean {
+		// Trip can be assigned if it doesn't have fuel data yet
+		return trip.fuel_liters == null;
+	}
+
+	function dateProximity(tripDate: string, receiptDate: string | null): number {
+		if (!receiptDate) return Infinity;
+		const t = new Date(tripDate).getTime();
+		const r = new Date(receiptDate).getTime();
+		return Math.abs(t - r);
+	}
+
+	function formatDate(dateStr: string): string {
+		return new Date(dateStr).toLocaleDateString('sk-SK');
+	}
+
+	function isWithin3Days(tripDate: string, receiptDate: string | null): boolean {
+		if (!receiptDate) return false;
+		const diff = Math.abs(new Date(tripDate).getTime() - new Date(receiptDate).getTime());
+		return diff <= 3 * 24 * 60 * 60 * 1000; // 3 days in ms
+	}
+</script>
+
+<div class="modal-overlay" on:click={onClose}>
+	<div class="modal" on:click|stopPropagation>
+		<h2>Prideliť doklad k jazde</h2>
+		<p class="receipt-info">
+			📄 {receipt.file_name} | {receipt.liters?.toFixed(2) ?? '??'} L | {receipt.total_price_eur?.toFixed(2) ?? '??'} €
+		</p>
+
+		{#if loading}
+			<p>Načítavam jazdy...</p>
+		{:else if trips.length === 0}
+			<p>Žiadne jazdy na pridelenie.</p>
+		{:else}
+			<div class="trip-list">
+				{#each trips as trip}
+					<button
+						class="trip-item"
+						class:highlight={isWithin3Days(trip.date, receipt.receipt_date)}
+						class:has-fuel={trip.fuel_liters != null}
+						on:click={() => onSelect(trip)}
+						disabled={trip.fuel_liters != null}
+					>
+						<span class="date">{formatDate(trip.date)}</span>
+						<span class="route">{trip.origin} → {trip.destination}</span>
+						{#if trip.fuel_liters != null}
+							<span class="existing">už má: {trip.fuel_liters.toFixed(2)} L</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="modal-actions">
+			<button class="button-small" on:click={onClose}>Zrušiť</button>
+		</div>
+	</div>
+</div>
+
+<style>
+	/* Modal styles similar to existing modals */
+	.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+	.modal { background: white; padding: 1.5rem; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+	.receipt-info { background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin-bottom: 1rem; }
+	.trip-list { display: flex; flex-direction: column; gap: 0.5rem; }
+	.trip-item { display: flex; gap: 1rem; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; text-align: left; }
+	.trip-item:hover:not(:disabled) { background: #f5f5f5; }
+	.trip-item.highlight { border-color: #3498db; background: #ebf5fb; }
+	.trip-item:disabled { opacity: 0.5; cursor: not-allowed; }
+	.date { font-weight: 500; min-width: 80px; }
+	.route { flex: 1; }
+	.existing { color: #7f8c8d; font-size: 0.875rem; }
+	.modal-actions { margin-top: 1rem; display: flex; justify-content: flex-end; }
+</style>
+```
+
+**Step 2: Commit**
+
+```bash
+git add src/lib/components/TripSelectorModal.svelte
+git commit -m "feat(ui): add TripSelectorModal for receipt-to-trip assignment"
+```
+
+---
+
+### Task 4.2: Integrate Assignment into Doklady Page
+
+**Files:**
+- Modify: `src/routes/doklady/+page.svelte`
+
+**Step 1: Add assignment handler**
+
+Import TripSelectorModal and add state:
+
+```svelte
+import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
+import { activeVehicleStore } from '$lib/stores/vehicles';
+
+let receiptToAssign: Receipt | null = $state(null);
+
+function handleAssignClick(receipt: Receipt) {
+	if (!$activeVehicleStore) {
+		toast.error('Najprv vyberte vozidlo');
+		return;
+	}
+	receiptToAssign = receipt;
+}
+
+async function handleAssignToTrip(trip: Trip) {
+	if (!receiptToAssign || !$activeVehicleStore) return;
+
+	try {
+		// Assign receipt to trip
+		await api.assignReceiptToTrip(
+			receiptToAssign.id,
+			trip.id,
+			$activeVehicleStore.id
+		);
+
+		// Update trip with fuel data from receipt
+		if (receiptToAssign.liters != null || receiptToAssign.total_price_eur != null) {
+			await api.updateTrip(
+				trip.id,
+				trip.date,
+				trip.origin,
+				trip.destination,
+				trip.distance_km,
+				trip.odometer,
+				trip.purpose,
+				receiptToAssign.liters,
+				receiptToAssign.total_price_eur,
+				trip.other_costs_eur,
+				trip.other_costs_note,
+				trip.full_tank
+			);
+		}
+
+		await loadReceipts();
+		receiptToAssign = null;
+		toast.success('Doklad bol pridelený k jazde');
+	} catch (error) {
+		console.error('Failed to assign receipt:', error);
+		toast.error('Nepodarilo sa prideliť doklad: ' + error);
+	}
+}
+```
+
+**Step 2: Update button and add modal**
+
+Change the placeholder button:
+```svelte
+<button class="button-small" onclick={() => handleAssignClick(receipt)}>
+	Prideliť k jazde
+</button>
+```
+
+Add modal at end of component:
+```svelte
+{#if receiptToAssign}
+	<TripSelectorModal
+		receipt={receiptToAssign}
+		onSelect={handleAssignToTrip}
+		onClose={() => (receiptToAssign = null)}
+	/>
+{/if}
+```
+
+**Step 3: Commit**
+
+```bash
+git add src/routes/doklady/+page.svelte
+git commit -m "feat(doklady): integrate receipt-to-trip assignment"
+```
+
+---
+
+### Task 4.3: Receipt Picker in TripRow
+
+**Files:**
+- Create: `src/lib/components/ReceiptPicker.svelte`
+- Modify: `src/lib/components/TripRow.svelte`
+
+**Step 1: Create ReceiptPicker dropdown**
+
+```svelte
+<script lang="ts">
+	import type { Receipt } from '$lib/types';
+	import * as api from '$lib/api';
+
+	export let tripDate: string;
+	export let onSelect: (receipt: Receipt) => void;
+
+	let receipts: Receipt[] = [];
+	let open = false;
+	let loading = true;
+
+	async function loadReceipts() {
+		try {
+			const all = await api.getUnassignedReceipts();
+			// Sort by date proximity to trip
+			receipts = all.sort((a, b) => {
+				const aDiff = a.receipt_date ? Math.abs(new Date(a.receipt_date).getTime() - new Date(tripDate).getTime()) : Infinity;
+				const bDiff = b.receipt_date ? Math.abs(new Date(b.receipt_date).getTime() - new Date(tripDate).getTime()) : Infinity;
+				return aDiff - bDiff;
+			});
+		} catch (error) {
+			console.error('Failed to load receipts:', error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	function handleOpen() {
+		open = true;
+		loadReceipts();
+	}
+
+	function handleSelect(receipt: Receipt) {
+		onSelect(receipt);
+		open = false;
+	}
+
+	function formatDate(d: string | null): string {
+		return d ? new Date(d).toLocaleDateString('sk-SK') : '--';
+	}
+</script>
+
+<div class="receipt-picker">
+	<button type="button" class="picker-button" on:click={handleOpen}>
+		📄 Vybrať doklad
+	</button>
+
+	{#if open}
+		<div class="dropdown">
+			{#if loading}
+				<div class="dropdown-item">Načítavam...</div>
+			{:else if receipts.length === 0}
+				<div class="dropdown-item">Žiadne nepridelené doklady</div>
+			{:else}
+				{#each receipts.slice(0, 5) as receipt}
+					<button class="dropdown-item" on:click={() => handleSelect(receipt)}>
+						<span>{receipt.file_name}</span>
+						<span>{formatDate(receipt.receipt_date)}</span>
+						<span>{receipt.liters?.toFixed(1) ?? '??'} L</span>
+					</button>
+				{/each}
+			{/if}
+			<button class="dropdown-item manual" on:click={() => (open = false)}>
+				Zadať manuálne
+			</button>
+		</div>
+	{/if}
+</div>
+
+<style>
+	.receipt-picker { position: relative; }
+	.picker-button { padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #ecf0f1; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+	.dropdown { position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100; min-width: 250px; }
+	.dropdown-item { display: flex; gap: 0.5rem; padding: 0.5rem; width: 100%; text-align: left; border: none; background: none; cursor: pointer; border-bottom: 1px solid #eee; }
+	.dropdown-item:hover { background: #f5f5f5; }
+	.dropdown-item.manual { color: #7f8c8d; font-style: italic; }
+</style>
+```
+
+**Step 2: Integrate into TripRow**
+
+In TripRow.svelte, add near the fuel inputs:
+
+```svelte
+import ReceiptPicker from './ReceiptPicker.svelte';
+
+function handleReceiptSelect(receipt: Receipt) {
+	formData.fuel_liters = receipt.liters;
+	formData.fuel_cost_eur = receipt.total_price_eur;
+	// TODO: Also call assignReceiptToTrip after save
+}
+```
+
+Add picker next to fuel inputs:
+```svelte
+<ReceiptPicker tripDate={formData.date} onSelect={handleReceiptSelect} />
+```
+
+**Step 3: Commit**
+
+```bash
+git add src/lib/components/ReceiptPicker.svelte src/lib/components/TripRow.svelte
+git commit -m "feat(triprow): add receipt picker for fuel auto-fill"
+```
+
+---
+
+### Task 4.4: E2E Tests for Assignment Flow
+
+**Files:**
+- Create: `tests/e2e/receipt-assignment.spec.ts`
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Receipt to Trip Assignment', () => {
+	// NOTE: These tests require mocked backend responses
+	// See Task 3.3 for mock setup
+
+	test('assign button opens trip selector modal', async ({ page }) => {
+		await page.goto('/doklady');
+		// Assuming there's an unassigned receipt
+		await page.click('button:has-text("Prideliť k jazde")');
+		await expect(page.locator('h2:has-text("Prideliť doklad")')).toBeVisible();
+	});
+
+	test('selecting trip closes modal and updates status', async ({ page }) => {
+		await page.goto('/doklady');
+		await page.click('button:has-text("Prideliť k jazde")');
+		// Click first available trip
+		await page.click('.trip-item:not(:disabled)');
+		// Modal should close
+		await expect(page.locator('.modal-overlay')).not.toBeVisible();
+		// Receipt should show as assigned
+		await expect(page.locator('.badge:has-text("Pridelený")')).toBeVisible();
+	});
+
+	test('receipt picker in trip row auto-fills fuel data', async ({ page }) => {
+		await page.goto('/');
+		// Start editing a trip row
+		await page.click('.trip-row'); // Adjust selector
+		await page.click('button:has-text("Vybrať doklad")');
+		// Select a receipt
+		await page.click('.dropdown-item:first-child');
+		// Fuel fields should be populated
+		await expect(page.locator('input[name="fuel_liters"]')).not.toHaveValue('');
+	});
+});
+```
+
+**Step 4: Commit**
+
+```bash
+git add tests/e2e/receipt-assignment.spec.ts
+git commit -m "test(e2e): add receipt assignment flow tests"
+```
+
+---
+
+## Phase 5: Station Fine-tuning (Deferred)
+
+> **NOTE:** This phase is optional enhancement. Implement only if Phase 1-4 proves station-specific parsing issues in practice.
+
+### Task 5.1: StationProfile Model
+- Add StationProfile struct to models.rs
+- DB migration for station_profiles table
+- CRUD operations
+
+### Task 5.2: Auto-detect Station
+- Parse station name from Gemini response
+- Match against known StationProfile by keywords
+- Append prompt_hints to Gemini request
+
+### Task 5.3: User Corrections Capture
+- When user edits parsed values, prompt "Save as example?"
+- Store correction as ExampleExtraction in StationProfile
+- Use examples as few-shot in future prompts
+
+### Task 5.4: Station Management UI
+- Add "Stanice" section to Settings
+- List profiles with example counts
+- Edit hints, view/delete examples
 
 ---
 
