@@ -14,6 +14,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_opener::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -67,6 +68,7 @@ pub fn run() {
       commands::sync_receipts,
       commands::update_receipt,
       commands::delete_receipt,
+      commands::reprocess_receipt,
       commands::assign_receipt_to_trip,
     ])
     .run(tauri::generate_context!())
