@@ -127,3 +127,91 @@ pub struct TripGridData {
     /// Trip IDs with consumption over 120% of TP rate
     pub consumption_warnings: HashSet<String>,
 }
+
+/// Status of a scanned receipt
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ReceiptStatus {
+    Pending,     // File detected, not yet parsed
+    Parsed,      // Successfully parsed with high confidence
+    NeedsReview, // Parsed but has uncertain fields
+    Assigned,    // Linked to a trip
+}
+
+impl Default for ReceiptStatus {
+    fn default() -> Self {
+        Self::Pending
+    }
+}
+
+/// Typed confidence levels - prevents string inconsistencies
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub enum ConfidenceLevel {
+    #[default]
+    Unknown,
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FieldConfidence {
+    pub liters: ConfidenceLevel,
+    pub total_price: ConfidenceLevel,
+    pub date: ConfidenceLevel,
+}
+
+/// A scanned fuel receipt (blocek)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Receipt {
+    pub id: Uuid,
+    pub vehicle_id: Option<Uuid>,  // Set when assigned
+    pub trip_id: Option<Uuid>,     // Set when assigned (UNIQUE when not null)
+    pub file_path: String,         // Full path to image (UNIQUE)
+    pub file_name: String,         // Just filename for display
+    pub scanned_at: DateTime<Utc>,
+
+    // Parsed fields (None = uncertain/failed)
+    pub liters: Option<f64>,
+    pub total_price_eur: Option<f64>,
+    pub receipt_date: Option<NaiveDate>,
+    pub station_name: Option<String>,
+    pub station_address: Option<String>,
+
+    // Status tracking
+    pub status: ReceiptStatus,
+    pub confidence: FieldConfidence, // Typed struct, not strings
+    pub raw_ocr_text: Option<String>, // For debugging (local only)
+    pub error_message: Option<String>, // If parsing failed
+
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl Receipt {
+    pub fn new(file_path: String, file_name: String) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4(),
+            vehicle_id: None,
+            trip_id: None,
+            file_path,
+            file_name,
+            scanned_at: now,
+            liters: None,
+            total_price_eur: None,
+            receipt_date: None,
+            station_name: None,
+            station_address: None,
+            status: ReceiptStatus::Pending,
+            confidence: FieldConfidence::default(),
+            raw_ocr_text: None,
+            error_message: None,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub fn is_assigned(&self) -> bool {
+        self.trip_id.is_some()
+    }
+}

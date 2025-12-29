@@ -84,3 +84,49 @@ export interface TripGridData {
 	date_warnings: string[]; // tripIds with date ordering issues
 	consumption_warnings: string[]; // tripIds over 120% TP
 }
+
+export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
+export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
+
+export interface FieldConfidence {
+	liters: ConfidenceLevel;
+	total_price: ConfidenceLevel;
+	date: ConfidenceLevel;
+}
+
+export interface Receipt {
+	id: string;
+	vehicle_id: string | null;
+	trip_id: string | null;
+	file_path: string;
+	file_name: string;
+	scanned_at: string;
+	liters: number | null;
+	total_price_eur: number | null;
+	receipt_date: string | null;
+	station_name: string | null;
+	station_address: string | null;
+	status: ReceiptStatus;
+	confidence: FieldConfidence;
+	raw_ocr_text: string | null;
+	error_message: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ReceiptSettings {
+	gemini_api_key: string | null;
+	receipts_folder_path: string | null;
+	gemini_api_key_from_override: boolean;
+	receipts_folder_from_override: boolean;
+}
+
+export interface SyncError {
+	file_name: string;
+	error: string;
+}
+
+export interface SyncResult {
+	processed: Receipt[];
+	errors: SyncError[];
+}
