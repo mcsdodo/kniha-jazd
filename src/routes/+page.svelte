@@ -14,6 +14,10 @@
 	let initialLoading = true; // Only true for first load, keeps TripGrid mounted during refreshes
 	let stats: TripStats | null = null;
 
+	// Sort state from TripGrid (for export)
+	let sortColumn: 'manual' | 'date' = 'manual';
+	let sortDirection: 'asc' | 'desc' = 'asc';
+
 	// For compensation suggestion
 	let bufferKm = 0.0;
 	let currentLocation = '';
@@ -79,7 +83,9 @@
 			await openExportPreview(
 				$activeVehicleStore.id,
 				$selectedYearStore,
-				$activeVehicleStore.license_plate
+				$activeVehicleStore.license_plate,
+				sortColumn,
+				sortDirection
 			);
 		} catch (error) {
 			console.error('Export failed:', error);
@@ -173,6 +179,8 @@
 					tpConsumption={$activeVehicleStore.tp_consumption}
 					initialOdometer={$activeVehicleStore.initial_odometer}
 					onTripsChanged={handleTripsChanged}
+					bind:sortColumn
+					bind:sortDirection
 				/>
 			{/if}
 		</div>

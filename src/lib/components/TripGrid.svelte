@@ -47,20 +47,22 @@
 	let insertAtSortOrder: number | null = null;
 	let insertDate: string | null = null;
 
-	// Sorting state
+	// Sorting state (exported for parent access)
 	type SortColumn = 'manual' | 'date';
 	type SortDirection = 'asc' | 'desc';
-	let sortColumn: SortColumn = 'manual';
-	let sortDirection: SortDirection = 'desc'; // desc = newest first (higher sort_order at top)
+	export let sortColumn: SortColumn = 'manual';
+	export let sortDirection: SortDirection = 'asc'; // asc = newest first (sort_order 0 = newest)
 
 	function toggleSort(column: SortColumn) {
 		if (sortColumn === column) {
 			// Toggle direction
 			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
 		} else {
-			// Switch column, default to desc (newest first)
+			// Switch column, default to newest first
+			// For manual: asc (sort_order 0 = newest)
+			// For date: desc (highest date = newest)
 			sortColumn = column;
-			sortDirection = 'desc';
+			sortDirection = column === 'manual' ? 'asc' : 'desc';
 		}
 	}
 
@@ -241,8 +243,29 @@
 		}
 	}
 
+	// Synthetic "Prvý záznam" trip (starting point)
+	const FIRST_RECORD_ID = '__first_record__';
+	$: firstRecordTrip = {
+		id: FIRST_RECORD_ID,
+		vehicle_id: vehicleId,
+		date: `${year}-01-01`,
+		origin: '-',
+		destination: '-',
+		distance_km: 0,
+		odometer: initialOdometer,
+		purpose: 'Prvý záznam',
+		fuel_liters: null,
+		fuel_cost_eur: null,
+		other_costs_eur: null,
+		other_costs_note: null,
+		full_tank: true,
+		sort_order: 999999, // Always last in manual sort
+		created_at: '',
+		updated_at: ''
+	} as Trip;
+
 	// Display order (based on current sort settings)
-	$: sortedTrips = [...trips].sort((a, b) => {
+	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
 		let diff: number;
 		if (sortColumn === 'manual') {
 			diff = a.sort_order - b.sort_order;
@@ -253,6 +276,11 @@
 		}
 		return sortDirection === 'asc' ? diff : -diff;
 	});
+
+	// Helper to check if a trip is the synthetic first record
+	function isFirstRecord(trip: Trip): boolean {
+		return trip.id === FIRST_RECORD_ID;
+	}
 
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
@@ -321,8 +349,8 @@
 				{/if}
 				<!-- Trip rows -->
 				{#each sortedTrips as trip, index (trip.id)}
-					<!-- New row inserted above this trip -->
-					{#if showNewRow && insertAtSortOrder === trip.sort_order}
+					<!-- New row inserted above this trip (not for first record) -->
+					{#if showNewRow && insertAtSortOrder === trip.sort_order && !isFirstRecord(trip)}
 						<TripRow
 							trip={null}
 							{routes}
@@ -336,50 +364,53 @@
 							onDelete={() => {}}
 						/>
 					{/if}
-					<TripRow
-						{trip}
-						{routes}
-						isNew={false}
-						previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
-						consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
-						zostatok={fuelRemaining.get(trip.id) || 0}
-						onSave={(data) => handleUpdate(trip, data)}
-						onCancel={() => {}}
-						onDelete={handleDelete}
-						onInsertAbove={() => handleInsertAbove(trip)}
-						onEditStart={() => handleEditStart(trip.id)}
-						onEditEnd={handleEditEnd}
-						onMoveUp={() => handleMoveUp(trip.id, index)}
-						onMoveDown={() => handleMoveDown(trip.id, index)}
-						canMoveUp={!reorderDisabled && index > 0}
-						canMoveDown={!reorderDisabled && index < sortedTrips.length - 1}
-						hasDateWarning={dateWarnings.has(trip.id)}
-						hasConsumptionWarning={consumptionWarnings.has(trip.id)}
-						isEstimatedRate={estimatedRates.has(trip.id)}
-					/>
+					{#if isFirstRecord(trip)}
+						<!-- Synthetic "Prvý záznam" row -->
+						<tr class="first-record">
+							<td>{trip.date.split('-').reverse().join('.')}</td>
+							<td>-</td>
+							<td>-</td>
+							<td class="number">0</td>
+							<td class="number">{trip.odometer.toFixed(0)}</td>
+							<td class="purpose">{trip.purpose}</td>
+							<td>-</td>
+							<td>-</td>
+							<td class="number">{tpConsumption.toFixed(2)}</td>
+							<td class="number">{tankSize.toFixed(1)}</td>
+							<td>-</td>
+							<td>-</td>
+							<td></td>
+						</tr>
+					{:else}
+						<TripRow
+							{trip}
+							{routes}
+							isNew={false}
+							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
+							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
+							zostatok={fuelRemaining.get(trip.id) || 0}
+							onSave={(data) => handleUpdate(trip, data)}
+							onCancel={() => {}}
+							onDelete={handleDelete}
+							onInsertAbove={() => handleInsertAbove(trip)}
+							onEditStart={() => handleEditStart(trip.id)}
+							onEditEnd={handleEditEnd}
+							onMoveUp={() => handleMoveUp(trip.id, index)}
+							onMoveDown={() => handleMoveDown(trip.id, index)}
+							canMoveUp={!reorderDisabled && index > 0 && !isFirstRecord(sortedTrips[index - 1])}
+							canMoveDown={!reorderDisabled && index < sortedTrips.length - 1 && !isFirstRecord(sortedTrips[index + 1])}
+							hasDateWarning={dateWarnings.has(trip.id)}
+							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
+							isEstimatedRate={estimatedRates.has(trip.id)}
+						/>
+					{/if}
 				{/each}
-				<!-- Empty state -->
+				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
 						<td colspan="13">Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.</td>
 					</tr>
 				{/if}
-				<!-- Synthetic "Prvý záznam" row - starting values -->
-				<tr class="first-record">
-					<td>-</td>
-					<td>-</td>
-					<td>-</td>
-					<td>-</td>
-					<td class="number">{initialOdometer.toFixed(1)}</td>
-					<td class="purpose">Prvý záznam</td>
-					<td>-</td>
-					<td>-</td>
-					<td class="number">{tpConsumption.toFixed(2)}</td>
-					<td class="number">{tankSize.toFixed(1)}</td>
-					<td>-</td>
-					<td>-</td>
-					<td></td>
-				</tr>
 			</tbody>
 		</table>
 	</div>

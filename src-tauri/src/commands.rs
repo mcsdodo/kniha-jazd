@@ -865,11 +865,13 @@ pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), Stri
 
 #[tauri::command]
 pub async fn export_to_browser(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     db: State<'_, Database>,
     vehicle_id: String,
     year: i32,
     license_plate: String,
+    sort_column: String,
+    sort_direction: String,
 ) -> Result<(), String> {
     // Get vehicle
     let vehicle = db
@@ -884,16 +886,38 @@ pub async fn export_to_browser(
         .ok_or_else(|| "Settings not found - please configure company info first".to_string())?;
 
     // Get trips
-    let trips = db
+    let mut trips = db
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
-    if trips.is_empty() {
-        return Err("No trips found for this year".to_string());
-    }
+    // Create synthetic "Prvý záznam" (first record) trip
+    let first_record_date = NaiveDate::from_ymd_opt(year, 1, 1)
+        .ok_or_else(|| "Invalid year".to_string())?;
+    let first_record = Trip {
+        id: Uuid::nil(), // Special marker for first record
+        vehicle_id: vehicle.id,
+        date: first_record_date,
+        origin: "-".to_string(),
+        destination: "-".to_string(),
+        distance_km: 0.0,
+        odometer: vehicle.initial_odometer,
+        purpose: "Prvý záznam".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        full_tank: true,
+        sort_order: 999999, // Always last in manual sort
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    trips.push(first_record);
 
-    // Sort chronologically
-    let mut chronological = trips.clone();
+    // Sort chronologically for calculations (excluding first record which has 0 km)
+    let mut chronological: Vec<_> = trips.iter()
+        .filter(|t| t.id != Uuid::nil())
+        .cloned()
+        .collect();
     chronological.sort_by(|a, b| {
         a.date.cmp(&b.date).then_with(|| {
             a.odometer
@@ -901,6 +925,21 @@ pub async fn export_to_browser(
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
     });
+
+    // Apply user's sort settings for display (including first record)
+    let is_ascending = sort_direction == "asc";
+    if sort_column == "date" {
+        trips.sort_by(|a, b| {
+            let cmp = a.date.cmp(&b.date);
+            if is_ascending { cmp } else { cmp.reverse() }
+        });
+    } else {
+        // manual sort by sort_order
+        trips.sort_by(|a, b| {
+            let cmp = a.sort_order.cmp(&b.sort_order);
+            if is_ascending { cmp } else { cmp.reverse() }
+        });
+    }
 
     // Calculate rates and fuel remaining
     let (rates, estimated_rates) =

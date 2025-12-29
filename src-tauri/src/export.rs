@@ -76,10 +76,6 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     let mut rows = String::new();
 
     for trip in &data.grid_data.trips {
-        // Skip dummy rows (0 km distance)
-        if ExportTotals::is_dummy_trip(trip) {
-            continue;
-        }
         let trip_id = trip.id.to_string();
         let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
         let zostatok = data

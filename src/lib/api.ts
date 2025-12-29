@@ -194,7 +194,9 @@ export async function deleteBackup(filename: string): Promise<void> {
 export async function openExportPreview(
 	vehicleId: string,
 	year: number,
-	licensePlate: string
+	licensePlate: string,
+	sortColumn: string,
+	sortDirection: string
 ): Promise<void> {
-	await invoke('export_to_browser', { vehicleId, year, licensePlate });
+	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection });
 }

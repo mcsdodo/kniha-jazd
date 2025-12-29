@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- Predvolené radenie: najnovšie záznamy hore
+- "Prvý záznam" sa radí spolu s ostatnými jazdami pri zoradení podľa dátumu
+- Export používa aktuálne nastavenie radenia a obsahuje "Prvý záznam"
+
 ## [0.2.0] - 2025-12-29
 
 ### Pridané
