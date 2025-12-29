@@ -107,56 +107,13 @@ npm run lint && npm run format
 
 ## Documentation
 
-- Task planning: `_tasks/` folder (see `_tasks/CLAUDE.md`)
-- **Decisions log:** [`DECISIONS.md`](DECISIONS.md) - all ADRs and business logic decisions
-- Keep docs close to code (locality principle)
-- Update docs after code changes
+Use skills in `.claude/skills/` for documentation workflows:
 
-## Recording Decisions
+| Skill | Purpose |
+|-------|---------|
+| `/task-plan` | Create `_tasks/{NN}-feature/` planning folder (runs brainstorming first) |
+| `/decision` | Add ADR/BIZ entry to `DECISIONS.md` |
+| `/changelog` | Update `CHANGELOG.md` [Unreleased] section |
+| `/release` | Bump version, update changelog, tag, build |
 
-**IMPORTANT:** When making architectural or business logic decisions during conversations, brainstorming, or debugging - add them to `DECISIONS.md`.
-
-Format: Date, context, decision, reasoning. Keep it simple and sequential.
-
-## Documentation Requirements
-
-**MANDATORY: Keep user-facing docs in sync with code changes.**
-
-When implementing or modifying features, update:
-
-1. **README.md** (Slovak) - Feature list, usage instructions
-2. **README.en.md** (English) - Mirror Slovak changes
-3. **CHANGELOG.md** - Document what changed
-
-### What Requires Documentation Update
-
-- New features → Add to feature list + usage section
-- Changed behavior → Update affected sections
-- New UI elements → Update screenshots if significant change
-- Removed features → Remove from docs
-
-### CHANGELOG Format
-
-```markdown
-## [Unreleased]
-### Pridané
-- New feature description
-
-### Zmenené
-- Changed behavior description
-
-### Opravené
-- Bug fix description
-```
-
-Keep entries concise. Write CHANGELOG in Slovak (matches primary audience).
-
-### When to Update CHANGELOG
-
-**Update `## [Unreleased]` immediately when implementing changes:**
-
-- New features → `### Pridané`
-- Changed behavior → `### Zmenené`
-- Bug fixes → `### Opravené`
-
-Do this as part of the commit, not later. When releasing, move [Unreleased] items to a new version section.
+Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.

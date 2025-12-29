@@ -1,5 +1,5 @@
 ---
-name: release
+name: release-skill
 description: Bump version, update changelog, commit, tag, push, and build release installer
 ---
 
