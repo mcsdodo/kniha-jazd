@@ -26,16 +26,19 @@ impl ExportTotals {
     /// Calculate totals from a list of trips
     ///
     /// # Arguments
-    /// * `trips` - List of trips to summarize
+    /// * `trips` - List of trips to summarize (excludes dummy rows with 0 km)
     /// * `tp_consumption` - Vehicle's technical passport consumption rate (l/100km)
     ///
     /// # Returns
     /// ExportTotals with all calculated values
     pub fn calculate(trips: &[Trip], tp_consumption: f64) -> Self {
-        let total_km: f64 = trips.iter().map(|t| t.distance_km).sum();
-        let total_fuel_liters: f64 = trips.iter().filter_map(|t| t.fuel_liters).sum();
-        let total_fuel_cost: f64 = trips.iter().filter_map(|t| t.fuel_cost_eur).sum();
-        let total_other_costs: f64 = trips.iter().filter_map(|t| t.other_costs_eur).sum();
+        // Filter out dummy rows (trips with 0 km distance)
+        let real_trips: Vec<_> = trips.iter().filter(|t| t.distance_km > 0.0).collect();
+
+        let total_km: f64 = real_trips.iter().map(|t| t.distance_km).sum();
+        let total_fuel_liters: f64 = real_trips.iter().filter_map(|t| t.fuel_liters).sum();
+        let total_fuel_cost: f64 = real_trips.iter().filter_map(|t| t.fuel_cost_eur).sum();
+        let total_other_costs: f64 = real_trips.iter().filter_map(|t| t.other_costs_eur).sum();
 
         let avg_consumption = if total_km > 0.0 {
             (total_fuel_liters / total_km) * 100.0
@@ -49,14 +52,22 @@ impl ExportTotals {
             100.0 // 100% = exactly at TP rate (no deviation)
         };
 
+        // Normalize near-zero values to avoid -0.00 display
+        let normalize = |v: f64| if v.abs() < 0.001 { 0.0 } else { v };
+
         Self {
-            total_km,
-            total_fuel_liters,
-            total_fuel_cost,
-            total_other_costs,
-            avg_consumption,
+            total_km: normalize(total_km),
+            total_fuel_liters: normalize(total_fuel_liters),
+            total_fuel_cost: normalize(total_fuel_cost),
+            total_other_costs: normalize(total_other_costs),
+            avg_consumption: normalize(avg_consumption),
             deviation_percent,
         }
+    }
+
+    /// Check if a trip is a dummy/placeholder row (0 km distance)
+    pub fn is_dummy_trip(trip: &Trip) -> bool {
+        trip.distance_km <= 0.0
     }
 }
 
@@ -65,6 +76,10 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     let mut rows = String::new();
 
     for trip in &data.grid_data.trips {
+        // Skip dummy rows (0 km distance)
+        if ExportTotals::is_dummy_trip(trip) {
+            continue;
+        }
         let trip_id = trip.id.to_string();
         let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
         let zostatok = data
@@ -448,5 +463,30 @@ mod tests {
         assert_eq!(html_escape("a & b"), "a &amp; b");
         assert_eq!(html_escape("<script>"), "&lt;script&gt;");
         assert_eq!(html_escape("\"test\""), "&quot;test&quot;");
+    }
+
+    #[test]
+    fn test_export_totals_excludes_dummy_rows() {
+        // Dummy row (0 km) should be excluded from totals
+        let trips = vec![
+            make_trip(0.0, None, None, Some(999.0)),  // Dummy row - should be excluded
+            make_trip(100.0, Some(6.0), Some(10.0), Some(5.0)),
+            make_trip(200.0, Some(12.0), Some(20.0), None),
+        ];
+
+        let totals = ExportTotals::calculate(&trips, 5.0);
+
+        // Should only count trips with km > 0
+        assert_eq!(totals.total_km, 300.0);      // 100 + 200, not 0 + 100 + 200
+        assert_eq!(totals.total_fuel_liters, 18.0);
+        assert_eq!(totals.total_fuel_cost, 30.0);
+        assert_eq!(totals.total_other_costs, 5.0); // Only from second trip, dummy's 999 excluded
+    }
+
+    #[test]
+    fn test_is_dummy_trip() {
+        assert!(ExportTotals::is_dummy_trip(&make_trip(0.0, None, None, None)));
+        assert!(!ExportTotals::is_dummy_trip(&make_trip(1.0, None, None, None)));
+        assert!(!ExportTotals::is_dummy_trip(&make_trip(100.0, None, None, None)));
     }
 }

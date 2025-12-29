@@ -96,7 +96,7 @@
 				<div class="header-row">
 					<h2>Aktívne vozidlo</h2>
 					<button class="export-btn" onclick={handleExport} disabled={exporting || trips.length === 0}>
-						{exporting ? 'Exportujem...' : 'Export PDF'}
+						{exporting ? 'Exportujem...' : 'Export pre tlač'}
 					</button>
 				</div>
 				{#if stats}
