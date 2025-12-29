@@ -2,8 +2,9 @@
 	import { onMount } from 'svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Receipt, ReceiptSettings } from '$lib/types';
+	import type { Receipt, ReceiptSettings, ConfidenceLevel } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import { openPath } from '@tauri-apps/plugin-opener';
 
 	let receipts = $state<Receipt[]>([]);
 	let settings = $state<ReceiptSettings | null>(null);
@@ -11,6 +12,7 @@
 	let syncing = $state(false);
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
+	let reprocessingIds = $state<Set<string>>(new Set());
 
 	onMount(async () => {
 		await loadSettings();
@@ -31,7 +33,7 @@
 			receipts = await api.getReceipts();
 		} catch (error) {
 			console.error('Failed to load receipts:', error);
-			toast.error('Nepodarilo sa nacitat doklady');
+			toast.error('Nepodarilo sa načítať doklady');
 		} finally {
 			loading = false;
 		}
@@ -39,7 +41,7 @@
 
 	async function handleSync() {
 		if (!settings?.gemini_api_key || !settings?.receipts_folder_path) {
-			toast.error('Najprv nastavte priecinok a API kluc v Nastaveniach');
+			toast.error('Najprv nastavte priečinok a API kľúč v Nastaveniach');
 			return;
 		}
 
@@ -50,16 +52,16 @@
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {
-					toast.success(`Nacitanych ${result.processed.length} dokladov (${result.errors.length} chyb)`);
+					toast.success(`Načítaných ${result.processed.length} dokladov (${result.errors.length} chýb)`);
 				} else {
-					toast.success(`Nacitanych ${result.processed.length} novych dokladov`);
+					toast.success(`Načítaných ${result.processed.length} nových dokladov`);
 				}
 			} else {
-				toast.success('Ziadne nove doklady');
+				toast.success('Žiadne nové doklady');
 			}
 		} catch (error) {
 			console.error('Failed to sync receipts:', error);
-			toast.error('Nepodarilo sa synchronizovat: ' + error);
+			toast.error('Nepodarilo sa synchronizovať: ' + error);
 		} finally {
 			syncing = false;
 		}
@@ -74,12 +76,26 @@
 		try {
 			await api.deleteReceipt(receiptToDelete.id);
 			await loadReceipts();
-			toast.success('Doklad bol odstraneny');
+			toast.success('Doklad bol odstránený');
 		} catch (error) {
 			console.error('Failed to delete receipt:', error);
-			toast.error('Nepodarilo sa odstranit doklad');
+			toast.error('Nepodarilo sa odstrániť doklad');
 		} finally {
 			receiptToDelete = null;
+		}
+	}
+
+	async function handleReprocess(receipt: Receipt) {
+		reprocessingIds = new Set([...reprocessingIds, receipt.id]);
+		try {
+			await api.reprocessReceipt(receipt.id);
+			await loadReceipts();
+			toast.success(`Doklad "${receipt.file_name}" bol znovu spracovaný`);
+		} catch (error) {
+			console.error('Failed to reprocess receipt:', error);
+			toast.error(`Nepodarilo sa spracovať "${receipt.file_name}": ` + error);
+		} finally {
+			reprocessingIds = new Set([...reprocessingIds].filter((id) => id !== receipt.id));
 		}
 	}
 
@@ -96,14 +112,36 @@
 	function getStatusBadge(status: string): { text: string; class: string } {
 		switch (status) {
 			case 'Parsed':
-				return { text: 'Spracovany', class: 'success' };
+				return { text: 'Spracovaný', class: 'success' };
 			case 'NeedsReview':
 				return { text: 'Na kontrolu', class: 'warning' };
 			case 'Assigned':
-				return { text: 'Prideleny', class: 'info' };
+				return { text: 'Pridelený', class: 'info' };
 			case 'Pending':
 			default:
-				return { text: 'Caka', class: 'neutral' };
+				return { text: 'Čaká', class: 'neutral' };
+		}
+	}
+
+	function getConfidenceInfo(level: ConfidenceLevel): { class: string; label: string } {
+		switch (level) {
+			case 'High':
+				return { class: 'confidence-high', label: 'Vysoká istota' };
+			case 'Medium':
+				return { class: 'confidence-medium', label: 'Stredná istota' };
+			case 'Low':
+				return { class: 'confidence-low', label: 'Nízka istota' };
+			default:
+				return { class: 'confidence-unknown', label: 'Neznáma istota' };
+		}
+	}
+
+	async function handleOpenFile(filePath: string) {
+		try {
+			await openPath(filePath);
+		} catch (error) {
+			console.error('Failed to open file:', error);
+			toast.error('Nepodarilo sa otvoriť súbor');
 		}
 	}
 
@@ -131,24 +169,24 @@
 
 	{#if !isConfigured}
 		<div class="config-warning">
-			<p>Funkcia dokladov nie je nakongurovana.</p>
+			<p>Funkcia dokladov nie je nakonfigurovaná.</p>
 			<p>
-				Nastavte <strong>priecinok s dokladmi</strong> a <strong>Gemini API kluc</strong> v subore
-				<code>local.settings.json</code> v priecinku aplikacie.
+				Nastavte <strong>priečinok s dokladmi</strong> a <strong>Gemini API kľúč</strong> v súbore
+				<code>local.settings.json</code> v priečinku aplikácie.
 			</p>
 		</div>
 	{/if}
 
 	<div class="filters">
 		<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
-			Vsetky ({receipts.length})
+			Všetky ({receipts.length})
 		</button>
 		<button
 			class="filter-btn"
 			class:active={filter === 'unassigned'}
 			onclick={() => (filter = 'unassigned')}
 		>
-			Nepridelene ({receipts.filter((r) => r.status !== 'Assigned').length})
+			Nepridelené ({receipts.filter((r) => r.status !== 'Assigned').length})
 		</button>
 		<button
 			class="filter-btn"
@@ -160,9 +198,9 @@
 	</div>
 
 	{#if loading}
-		<p class="placeholder">Nacitavam...</p>
+		<p class="placeholder">Načítavam...</p>
 	{:else if filteredReceipts.length === 0}
-		<p class="placeholder">Ziadne doklady. Kliknite na Sync pre nacitanie novych.</p>
+		<p class="placeholder">Žiadne doklady. Kliknite na Sync pre načítanie nových.</p>
 	{:else}
 		<div class="receipts-list">
 			{#each filteredReceipts as receipt}
@@ -174,19 +212,37 @@
 					</div>
 					<div class="receipt-details">
 						<div class="detail-row">
-							<span class="label">Datum:</span>
-							<span class="value">{formatDate(receipt.receipt_date)}</span>
+							<span class="label">Dátum:</span>
+							<span class="value-with-confidence">
+								<span class="value">{formatDate(receipt.receipt_date)}</span>
+								<span
+									class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
+									title={getConfidenceInfo(receipt.confidence.date).label}
+								></span>
+							</span>
 						</div>
 						<div class="detail-row">
 							<span class="label">Litre:</span>
-							<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
-								{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
+							<span class="value-with-confidence">
+								<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
+									{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
+								</span>
+								<span
+									class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
+									title={getConfidenceInfo(receipt.confidence.liters).label}
+								></span>
 							</span>
 						</div>
 						<div class="detail-row">
 							<span class="label">Cena:</span>
-							<span class="value" class:uncertain={receipt.confidence.total_price === 'Low'}>
-								{receipt.total_price_eur != null ? `${receipt.total_price_eur.toFixed(2)} EUR` : '??'}
+							<span class="value-with-confidence">
+								<span class="value" class:uncertain={receipt.confidence.total_price === 'Low'}>
+									{receipt.total_price_eur != null ? `${receipt.total_price_eur.toFixed(2)} €` : '??'}
+								</span>
+								<span
+									class="confidence-dot {getConfidenceInfo(receipt.confidence.total_price).class}"
+									title={getConfidenceInfo(receipt.confidence.total_price).label}
+								></span>
 							</span>
 						</div>
 						{#if receipt.station_name}
@@ -200,11 +256,21 @@
 						{/if}
 					</div>
 					<div class="receipt-actions">
+						<button class="button-small" onclick={() => handleOpenFile(receipt.file_path)}>
+							Otvoriť
+						</button>
 						{#if receipt.status !== 'Assigned'}
-							<button class="button-small">Pridelit k jazde</button>
+							<button
+								class="button-small"
+								onclick={() => handleReprocess(receipt)}
+								disabled={reprocessingIds.has(receipt.id)}
+							>
+								{reprocessingIds.has(receipt.id) ? 'Spracovávam...' : 'Znovu spracovať'}
+							</button>
+							<button class="button-small">Prideliť k jazde</button>
 						{/if}
 						<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
-							Zmazat
+							Zmazať
 						</button>
 					</div>
 				</div>
@@ -215,9 +281,9 @@
 
 {#if receiptToDelete}
 	<ConfirmModal
-		title="Odstranit doklad"
-		message={`Naozaj chcete odstranit doklad "${receiptToDelete.file_name}"?`}
-		confirmText="Odstranit"
+		title="Odstrániť doklad"
+		message={`Naozaj chcete odstrániť doklad "${receiptToDelete.file_name}"?`}
+		confirmText="Odstrániť"
 		danger={true}
 		onConfirm={handleConfirmDelete}
 		onCancel={() => (receiptToDelete = null)}
@@ -355,6 +421,12 @@
 		font-size: 0.875rem;
 	}
 
+	.value-with-confidence {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
 	.value {
 		font-weight: 500;
 		color: #2c3e50;
@@ -362,6 +434,34 @@
 
 	.value.uncertain {
 		color: #e67e22;
+	}
+
+	.confidence-dot {
+		display: inline-block;
+		width: 10px;
+		height: 10px;
+		min-width: 10px;
+		min-height: 10px;
+		border-radius: 50%;
+		cursor: help;
+		flex-shrink: 0;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+	}
+
+	.confidence-high {
+		background-color: #27ae60;
+	}
+
+	.confidence-medium {
+		background-color: #f39c12;
+	}
+
+	.confidence-low {
+		background-color: #e74c3c;
+	}
+
+	.confidence-unknown {
+		background-color: #95a5a6;
 	}
 
 	.error-message {

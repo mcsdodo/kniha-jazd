@@ -226,6 +226,10 @@ export async function deleteReceipt(id: string): Promise<void> {
 	return await invoke('delete_receipt', { id });
 }
 
+export async function reprocessReceipt(id: string): Promise<Receipt> {
+	return await invoke('reprocess_receipt', { id });
+}
+
 export async function assignReceiptToTrip(
 	receiptId: string,
 	tripId: string,
