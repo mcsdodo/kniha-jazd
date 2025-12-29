@@ -105,6 +105,10 @@ npm run tauri build      # Production build
 npm run lint && npm run format
 ```
 
+## Git Worktrees
+
+Worktree directory: `.worktrees/` (project-local, gitignored)
+
 ## Documentation
 
 Use skills in `.claude/skills/` for documentation workflows:
