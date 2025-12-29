@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, SyncResult } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, SyncResult, VerificationResult } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -240,4 +240,8 @@ export async function assignReceiptToTrip(
 	vehicleId: string
 ): Promise<Receipt> {
 	return await invoke('assign_receipt_to_trip', { receiptId, tripId, vehicleId });
+}
+
+export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {
+	return await invoke('verify_receipts', { vehicleId, year });
 }

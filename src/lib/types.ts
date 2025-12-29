@@ -83,6 +83,7 @@ export interface TripGridData {
 	fuel_remaining: Record<string, number>; // tripId -> zostatok
 	date_warnings: string[]; // tripIds with date ordering issues
 	consumption_warnings: string[]; // tripIds over 120% TP
+	missing_receipts: string[]; // tripIds missing receipts
 }
 
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
@@ -129,4 +130,19 @@ export interface SyncError {
 export interface SyncResult {
 	processed: Receipt[];
 	errors: SyncError[];
+}
+
+export interface ReceiptVerification {
+	receipt_id: string;
+	matched: boolean;
+	matched_trip_id: string | null;
+	matched_trip_date: string | null;
+	matched_trip_route: string | null;
+}
+
+export interface VerificationResult {
+	total: number;
+	matched: number;
+	unmatched: number;
+	receipts: ReceiptVerification[];
 }
