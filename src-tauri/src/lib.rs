@@ -61,6 +61,13 @@ pub fn run() {
       commands::get_trip_grid_data,
       commands::export_html,
       commands::export_to_browser,
+      commands::get_receipt_settings,
+      commands::get_receipts,
+      commands::get_unassigned_receipts,
+      commands::sync_receipts,
+      commands::update_receipt,
+      commands::delete_receipt,
+      commands::assign_receipt_to_trip,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

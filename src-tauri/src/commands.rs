@@ -1047,3 +1047,124 @@ pub async fn export_html(
 
     generate_html(export_data)
 }
+
+// ============================================================================
+// Receipt Commands
+// ============================================================================
+
+use crate::models::{Receipt, ReceiptStatus};
+use crate::receipts::{process_receipt_with_gemini, scan_folder_for_new_receipts};
+use crate::settings::LocalSettings;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReceiptSettings {
+    pub gemini_api_key: Option<String>,
+    pub receipts_folder_path: Option<String>,
+    pub gemini_api_key_from_override: bool,
+    pub receipts_folder_from_override: bool,
+}
+
+#[tauri::command]
+pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let local = LocalSettings::load(&app_dir);
+
+    // For now, only local settings are supported
+    // TODO: Add DB settings and merge with override priority
+    Ok(ReceiptSettings {
+        gemini_api_key: local.gemini_api_key.clone(),
+        receipts_folder_path: local.receipts_folder_path.clone(),
+        gemini_api_key_from_override: local.gemini_api_key.is_some(),
+        receipts_folder_from_override: local.receipts_folder_path.is_some(),
+    })
+}
+
+#[tauri::command]
+pub fn get_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
+    db.get_all_receipts().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
+    db.get_unassigned_receipts().map_err(|e| e.to_string())
+}
+
+/// Result of sync operation - includes both successes and errors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncResult {
+    pub processed: Vec<Receipt>,
+    pub errors: Vec<SyncError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncError {
+    pub file_name: String,
+    pub error: String,
+}
+
+#[tauri::command]
+pub fn sync_receipts(app: tauri::AppHandle, db: State<Database>) -> Result<SyncResult, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_dir);
+
+    let folder_path = settings.receipts_folder_path
+        .ok_or("Receipts folder not configured")?;
+
+    let api_key = settings.gemini_api_key
+        .ok_or("Gemini API key not configured")?;
+
+    // Scan for new files
+    let mut new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
+    let mut errors = Vec::new();
+
+    // Process each new receipt with Gemini
+    // NOTE: Uses blocking HTTP. For many receipts, consider async with progress events.
+    for receipt in &mut new_receipts {
+        if let Err(e) = process_receipt_with_gemini(receipt, &api_key) {
+            log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
+            errors.push(SyncError {
+                file_name: receipt.file_name.clone(),
+                error: e,
+            });
+        }
+        // Update in DB regardless of success/failure
+        db.update_receipt(receipt).map_err(|e| e.to_string())?;
+    }
+
+    Ok(SyncResult {
+        processed: new_receipts,
+        errors,
+    })
+}
+
+#[tauri::command]
+pub fn update_receipt(db: State<Database>, receipt: Receipt) -> Result<(), String> {
+    db.update_receipt(&receipt).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_receipt(db: State<Database>, id: String) -> Result<(), String> {
+    db.delete_receipt(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn assign_receipt_to_trip(
+    db: State<Database>,
+    receipt_id: String,
+    trip_id: String,
+    vehicle_id: String,
+) -> Result<Receipt, String> {
+    let mut receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
+    let receipt = receipts
+        .iter_mut()
+        .find(|r| r.id.to_string() == receipt_id)
+        .ok_or("Receipt not found")?;
+
+    receipt.trip_id = Some(Uuid::parse_str(&trip_id).map_err(|e| e.to_string())?);
+    receipt.vehicle_id = Some(Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?);
+    receipt.status = ReceiptStatus::Assigned;
+
+    db.update_receipt(receipt).map_err(|e| e.to_string())?;
+
+    Ok(receipt.clone())
+}

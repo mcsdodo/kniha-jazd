@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, SyncResult } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -199,4 +199,37 @@ export async function openExportPreview(
 	sortDirection: string
 ): Promise<void> {
 	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection });
+}
+
+// Receipt commands
+export async function getReceiptSettings(): Promise<ReceiptSettings> {
+	return await invoke('get_receipt_settings');
+}
+
+export async function getReceipts(): Promise<Receipt[]> {
+	return await invoke('get_receipts');
+}
+
+export async function getUnassignedReceipts(): Promise<Receipt[]> {
+	return await invoke('get_unassigned_receipts');
+}
+
+export async function syncReceipts(): Promise<SyncResult> {
+	return await invoke('sync_receipts');
+}
+
+export async function updateReceipt(receipt: Receipt): Promise<void> {
+	return await invoke('update_receipt', { receipt });
+}
+
+export async function deleteReceipt(id: string): Promise<void> {
+	return await invoke('delete_receipt', { id });
+}
+
+export async function assignReceiptToTrip(
+	receiptId: string,
+	tripId: string,
+	vehicleId: string
+): Promise<Receipt> {
+	return await invoke('assign_receipt_to_trip', { receiptId, tripId, vehicleId });
 }
