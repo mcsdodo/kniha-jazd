@@ -7,6 +7,7 @@
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
+	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
 
 	let { children } = $props();
 
@@ -82,10 +83,12 @@
 				<h1>Kniha Jázd</h1>
 				<nav class="main-nav">
 					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>Kniha jázd</a>
+					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>Doklady</a>
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>Nastavenia</a>
 				</nav>
 			</div>
 			<div class="header-right">
+				<ReceiptIndicator />
 				<div class="vehicle-selector">
 					<label for="vehicle-select">Vozidlo:</label>
 					<select
