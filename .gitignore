@@ -33,3 +33,8 @@ scripts/*.db
 .claude/settings.local.json
 scripts/compare_import.py
 scripts/import_excel.py
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
