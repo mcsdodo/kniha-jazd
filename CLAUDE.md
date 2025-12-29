@@ -120,4 +120,6 @@ Use skills in `.claude/skills/` for documentation workflows:
 | `/changelog` | Update `CHANGELOG.md` [Unreleased] section |
 | `/release` | Bump version, update changelog, tag, build |
 
+**MANDATORY:** After completing any feature, fix, or change - run `/changelog` to update the [Unreleased] section.
+
 Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
