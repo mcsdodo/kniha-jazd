@@ -7,6 +7,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- Modul Doklady - skenovanie účteniek z priečinka a automatická extrakcia údajov pomocou AI (Gemini)
+- Indikátor dokladov v navigácii
+- E2E testovanie s Playwright
+- Podpora lokálneho súboru nastavení (prepísanie predvolených hodnôt)
+
+### Opravené
+- Poradie krokov v release workflow (build až po push)
+
 ## [0.3.0] - 2025-12-29
 
 ### Zmenené
