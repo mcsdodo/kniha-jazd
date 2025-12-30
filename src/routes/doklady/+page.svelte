@@ -294,7 +294,12 @@
 	{#if !isConfigured}
 		<div class="config-warning">
 			<p>{$LL.receipts.notConfigured()}</p>
-			<p>{$LL.receipts.configurePrompt()}</p>
+			<p>{$LL.receipts.configurePrompt()} <code class="filename">{$LL.receipts.configurePromptFile()}</code> {$LL.receipts.configurePromptSuffix()}</p>
+			<pre class="config-sample">{`{
+    "gemini_api_key": "YOUR_API_KEY_HERE",
+    "receipts_folder_path": "C:\\\\Users\\\\YourUsername\\\\Documents\\\\Receipts"
+}`}</pre>
+			<p class="config-note">{$LL.receipts.configNote()}</p>
 			<button class="config-path-btn" onclick={() => openPath(configFolderPath)}>
 				<code>{configFolderPath}</code>
 				<span class="open-icon">📂 {$LL.receipts.openConfigFolder()}</span>
@@ -480,6 +485,31 @@
 		padding: 0.2rem 0.4rem;
 		border-radius: 3px;
 		font-size: 0.875rem;
+	}
+
+	.config-warning code.filename {
+		background: #e9ecef;
+		font-weight: 600;
+		color: #495057;
+	}
+
+	.config-sample {
+		background: #f8f9fa;
+		color: #212529;
+		border: 1px solid #dee2e6;
+		padding: 1rem;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		overflow-x: auto;
+		margin: 0.75rem 0;
+		font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+	}
+
+	.config-note {
+		font-size: 0.8rem;
+		color: #856404;
+		font-style: italic;
+		margin: 0.25rem 0 0.5rem 0 !important;
 	}
 
 	.config-path-btn {

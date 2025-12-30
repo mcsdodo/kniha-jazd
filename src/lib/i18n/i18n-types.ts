@@ -594,9 +594,21 @@ type RootTranslation = {
 		 */
 		notConfigured: string
 		/**
-		 * N​a​s​t​a​v​t​e​ ​p​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i​ ​a​ ​G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č​ ​v​ ​s​ú​b​o​r​e​ ​l​o​c​a​l​.​s​e​t​t​i​n​g​s​.​j​s​o​n​:
+		 * V​y​t​v​o​r​t​e​ ​s​ú​b​o​r​ ​s​ ​n​á​z​v​o​m
 		 */
 		configurePrompt: string
+		/**
+		 * l​o​c​a​l​.​s​e​t​t​i​n​g​s​.​j​s​o​n
+		 */
+		configurePromptFile: string
+		/**
+		 * s​ ​n​a​s​l​e​d​u​j​ú​c​i​m​ ​o​b​s​a​h​o​m​:
+		 */
+		configurePromptSuffix: string
+		/**
+		 * P​o​z​n​á​m​k​a​:​ ​N​a​ ​W​i​n​d​o​w​s​ ​p​o​u​ž​í​v​a​j​t​e​ ​d​v​o​j​i​t​é​ ​s​p​ä​t​n​é​ ​l​o​m​k​y​ ​(​\​\​)​ ​v​ ​c​e​s​t​á​c​h​.
+		 */
+		configNote: string
 		/**
 		 * O​t​v​o​r​i​ť​ ​p​r​i​e​č​i​n​o​k
 		 */
@@ -1587,9 +1599,21 @@ export type TranslationFunctions = {
 		 */
 		notConfigured: () => LocalizedString
 		/**
-		 * Nastavte priečinok s dokladmi a Gemini API kľúč v súbore local.settings.json:
+		 * Vytvorte súbor s názvom
 		 */
 		configurePrompt: () => LocalizedString
+		/**
+		 * local.settings.json
+		 */
+		configurePromptFile: () => LocalizedString
+		/**
+		 * s nasledujúcim obsahom:
+		 */
+		configurePromptSuffix: () => LocalizedString
+		/**
+		 * Poznámka: Na Windows používajte dvojité spätné lomky (\\) v cestách.
+		 */
+		configNote: () => LocalizedString
 		/**
 		 * Otvoriť priečinok
 		 */

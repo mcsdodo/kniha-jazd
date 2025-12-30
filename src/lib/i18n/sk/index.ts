@@ -199,7 +199,10 @@ const sk = {
 		processingProgress: 'Spracovávam {current:number}/{total:number}...',
 		// Config warning
 		notConfigured: 'Funkcia dokladov nie je nakonfigurovaná.',
-		configurePrompt: 'Nastavte priečinok s dokladmi a Gemini API kľúč v súbore local.settings.json:',
+		configurePrompt: 'Vytvorte súbor s názvom',
+		configurePromptFile: 'local.settings.json',
+		configurePromptSuffix: 's nasledujúcim obsahom:',
+		configNote: 'Poznámka: Na Windows používajte dvojité spätné lomky (\\\\) v cestách.',
 		openConfigFolder: 'Otvoriť priečinok',
 		// Filters
 		filterAll: 'Všetky',

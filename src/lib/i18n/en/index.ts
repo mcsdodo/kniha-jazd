@@ -199,7 +199,10 @@ const en = {
 		processingProgress: 'Processing {current}/{total}...',
 		// Config warning
 		notConfigured: 'Receipts feature is not configured.',
-		configurePrompt: 'Set the receipts folder and Gemini API key in the local.settings.json file:',
+		configurePrompt: 'Create a file named',
+		configurePromptFile: 'local.settings.json',
+		configurePromptSuffix: 'with the following content:',
+		configNote: 'Note: On Windows, use double backslashes (\\\\) in paths.',
 		openConfigFolder: 'Open folder',
 		// Filters
 		filterAll: 'All',
