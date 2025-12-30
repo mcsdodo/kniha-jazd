@@ -12,6 +12,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Automatická detekcia štruktúry priečinka s bločkami (plochá vs. ročná)
 - Upozornenie pri neplatnej štruktúre priečinka (mix súborov a priečinkov)
 - Indikátor nezhody dátumu - keď dátum z OCR nezodpovedá priečinku
+- Rozdelenie synchronizácie dokladov na dve tlačidlá: "Skenovať priečinok" a "Rozpoznať dáta"
+- Zobrazenie počtu čakajúcich dokladov na tlačidle OCR
+- Priebežný ukazovateľ spracovania OCR (X/Y)
 
 ### Zmenené
 - Zjednodušenie príkazov (commands) - príkazy teraz len odkazujú na skills
