@@ -54,6 +54,17 @@
 		}
 	});
 
+	// Reload receipts when year changes
+	let previousYear = $state<number | null>(null);
+	$effect(() => {
+		const currentYear = $selectedYearStore;
+		if (previousYear !== null && previousYear !== currentYear) {
+			loadReceipts();
+			loadVerification();
+		}
+		previousYear = currentYear;
+	});
+
 	async function loadSettings() {
 		try {
 			settings = await api.getReceiptSettings();
@@ -268,14 +279,24 @@
 		}
 	}
 
+	// Helper to check if receipt is verified (matched to a trip)
+	function isReceiptVerified(receiptId: string): boolean {
+		const verif = verification?.receipts.find(v => v.receipt_id === receiptId);
+		return verif?.matched ?? false;
+	}
+
 	// Svelte 5: use $derived instead of $:
 	let filteredReceipts = $derived(
 		receipts.filter((r) => {
-			if (filter === 'unassigned') return r.status !== 'Assigned';
+			if (filter === 'unassigned') return !isReceiptVerified(r.id);
 			if (filter === 'needs_review') return r.status === 'NeedsReview';
 			return true;
 		})
 	);
+
+	// Counts for filter badges
+	let unassignedCount = $derived(receipts.filter((r) => !isReceiptVerified(r.id)).length);
+	let needsReviewCount = $derived(receipts.filter((r) => r.status === 'NeedsReview').length);
 
 	let isConfigured = $derived(settings?.gemini_api_key && settings?.receipts_folder_path);
 	let pendingCount = $derived(receipts.filter((r) => r.status === 'Pending').length);
@@ -337,14 +358,14 @@
 			class:active={filter === 'unassigned'}
 			onclick={() => (filter = 'unassigned')}
 		>
-			{$LL.receipts.filterUnassigned()} ({verification?.unmatched ?? receipts.filter((r) => r.status !== 'Assigned').length})
+			{$LL.receipts.filterUnassigned()} ({unassignedCount})
 		</button>
 		<button
 			class="filter-btn"
 			class:active={filter === 'needs_review'}
 			onclick={() => (filter = 'needs_review')}
 		>
-			{$LL.receipts.filterNeedsReview()} ({receipts.filter((r) => r.status === 'NeedsReview').length})
+			{$LL.receipts.filterNeedsReview()} ({needsReviewCount})
 		</button>
 	</div>
 
