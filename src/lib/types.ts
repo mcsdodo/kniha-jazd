@@ -107,6 +107,7 @@ export interface Receipt {
 	receipt_date: string | null;
 	station_name: string | null;
 	station_address: string | null;
+	source_year: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)
 	status: ReceiptStatus;
 	confidence: FieldConfidence;
 	raw_ocr_text: string | null;
@@ -130,6 +131,7 @@ export interface SyncError {
 export interface SyncResult {
 	processed: Receipt[];
 	errors: SyncError[];
+	warning: string | null; // Warning message for invalid folder structure
 }
 
 export interface ReceiptVerification {

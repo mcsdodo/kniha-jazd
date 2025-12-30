@@ -204,6 +204,11 @@ const en = {
 		configurePromptSuffix: 'with the following content:',
 		configNote: 'Note: On Windows, use double backslashes (\\\\) in paths.',
 		openConfigFolder: 'Open folder',
+		// Folder structure warnings
+		folderStructureWarning: 'Invalid folder structure',
+		folderStructureHint: 'Folder must contain either only files, or only folders named with years (2024, 2025, ...)',
+		// Date mismatch warning
+		dateMismatch: 'Receipt date ({receiptYear}) does not match folder ({folderYear})',
 		// Filters
 		filterAll: 'All',
 		filterUnassigned: 'Unverified',

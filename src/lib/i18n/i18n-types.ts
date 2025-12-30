@@ -614,6 +614,20 @@ type RootTranslation = {
 		 */
 		openConfigFolder: string
 		/**
+		 * N​e​p​l​a​t​n​á​ ​š​t​r​u​k​t​ú​r​a​ ​p​r​i​e​č​i​n​k​a
+		 */
+		folderStructureWarning: string
+		/**
+		 * P​r​i​e​č​i​n​o​k​ ​m​u​s​í​ ​o​b​s​a​h​o​v​a​ť​ ​b​u​ď​ ​l​e​n​ ​s​ú​b​o​r​y​,​ ​a​l​e​b​o​ ​l​e​n​ ​p​r​i​e​č​i​n​k​y​ ​s​ ​n​á​z​v​a​m​i​ ​r​o​k​o​v​ ​(​2​0​2​4​,​ ​2​0​2​5​,​ ​.​.​.​)
+		 */
+		folderStructureHint: string
+		/**
+		 * D​á​t​u​m​ ​d​o​k​l​a​d​u​ ​(​{​r​e​c​e​i​p​t​Y​e​a​r​}​)​ ​n​e​z​o​d​p​o​v​e​d​á​ ​p​r​i​e​č​i​n​k​u​ ​(​{​f​o​l​d​e​r​Y​e​a​r​}​)
+		 * @param {number} folderYear
+		 * @param {number} receiptYear
+		 */
+		dateMismatch: RequiredParams<'folderYear' | 'receiptYear'>
+		/**
 		 * V​š​e​t​k​y
 		 */
 		filterAll: string
@@ -1618,6 +1632,18 @@ export type TranslationFunctions = {
 		 * Otvoriť priečinok
 		 */
 		openConfigFolder: () => LocalizedString
+		/**
+		 * Neplatná štruktúra priečinka
+		 */
+		folderStructureWarning: () => LocalizedString
+		/**
+		 * Priečinok musí obsahovať buď len súbory, alebo len priečinky s názvami rokov (2024, 2025, ...)
+		 */
+		folderStructureHint: () => LocalizedString
+		/**
+		 * Dátum dokladu ({receiptYear}) nezodpovedá priečinku ({folderYear})
+		 */
+		dateMismatch: (arg: { folderYear: number, receiptYear: number }) => LocalizedString
 		/**
 		 * Všetky
 		 */

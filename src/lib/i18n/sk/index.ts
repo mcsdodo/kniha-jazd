@@ -204,6 +204,11 @@ const sk = {
 		configurePromptSuffix: 's nasledujúcim obsahom:',
 		configNote: 'Poznámka: Na Windows používajte dvojité spätné lomky (\\\\) v cestách.',
 		openConfigFolder: 'Otvoriť priečinok',
+		// Folder structure warnings
+		folderStructureWarning: 'Neplatná štruktúra priečinka',
+		folderStructureHint: 'Priečinok musí obsahovať buď len súbory, alebo len priečinky s názvami rokov (2024, 2025, ...)',
+		// Date mismatch warning
+		dateMismatch: 'Dátum dokladu ({receiptYear:number}) nezodpovedá priečinku ({folderYear:number})',
 		// Filters
 		filterAll: 'Všetky',
 		filterUnassigned: 'Neoverené',

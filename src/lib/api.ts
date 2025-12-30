@@ -207,8 +207,8 @@ export async function getReceiptSettings(): Promise<ReceiptSettings> {
 	return await invoke('get_receipt_settings');
 }
 
-export async function getReceipts(): Promise<Receipt[]> {
-	return await invoke('get_receipts');
+export async function getReceipts(year?: number): Promise<Receipt[]> {
+	return await invoke('get_receipts', { year: year ?? null });
 }
 
 export async function getUnassignedReceipts(): Promise<Receipt[]> {

@@ -30,6 +30,7 @@
 	let receiptToAssign = $state<Receipt | null>(null);
 	let verification = $state<VerificationResult | null>(null);
 	let configFolderPath = $state<string>('');
+	let folderStructureWarning = $state<string | null>(null);
 
 	let unlistenProgress: UnlistenFn | null = null;
 
@@ -64,7 +65,7 @@
 	async function loadReceipts() {
 		loading = true;
 		try {
-			receipts = await api.getReceipts();
+			receipts = await api.getReceipts($selectedYearStore);
 		} catch (error) {
 			console.error('Failed to load receipts:', error);
 			toast.error($LL.toast.errorLoadReceipts());
@@ -99,6 +100,9 @@
 			const result = await api.syncReceipts();
 			await loadReceipts();
 			await loadVerification();
+
+			// Handle folder structure warning
+			folderStructureWarning = result.warning;
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {
@@ -200,6 +204,21 @@
 			default:
 				return { class: 'confidence-unknown', label: $LL.receipts.confidenceUnknown() };
 		}
+	}
+
+	/**
+	 * Check if a receipt has a date mismatch between source_year (folder) and receipt_date (OCR).
+	 * Returns null if no mismatch, or { receiptYear, folderYear } if there's a mismatch.
+	 */
+	function getDateMismatch(receipt: Receipt): { receiptYear: number; folderYear: number } | null {
+		if (!receipt.receipt_date || !receipt.source_year) {
+			return null;
+		}
+		const receiptYear = new Date(receipt.receipt_date).getFullYear();
+		if (receiptYear !== receipt.source_year) {
+			return { receiptYear, folderYear: receipt.source_year };
+		}
+		return null;
 	}
 
 	async function handleOpenFile(filePath: string) {
@@ -307,6 +326,14 @@
 		</div>
 	{/if}
 
+	{#if folderStructureWarning}
+		<div class="folder-structure-warning">
+			<div class="warning-title">{$LL.receipts.folderStructureWarning()}</div>
+			<div class="warning-details">{folderStructureWarning}</div>
+			<div class="warning-hint">{$LL.receipts.folderStructureHint()}</div>
+		</div>
+	{/if}
+
 	<div class="filters">
 		<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
 			{$LL.receipts.filterAll()} ({receipts.length})
@@ -346,6 +373,7 @@
 		<div class="receipts-list">
 			{#each filteredReceipts as receipt}
 				{@const verif = getVerificationForReceipt(receipt.id)}
+				{@const dateMismatch = getDateMismatch(receipt)}
 				<div class="receipt-card">
 					<div class="receipt-header">
 						<span class="file-name">{receipt.file_name}</span>
@@ -366,6 +394,12 @@
 									class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
 									title={getConfidenceInfo(receipt.confidence.date).label}
 								></span>
+								{#if dateMismatch}
+									<span
+										class="date-mismatch-icon"
+										title={$LL.receipts.dateMismatch({ receiptYear: dateMismatch.receiptYear, folderYear: dateMismatch.folderYear })}
+									>⚠</span>
+								{/if}
 							</span>
 						</div>
 						<div class="detail-row">
@@ -786,5 +820,37 @@
 
 	.button-small.danger:hover {
 		background-color: #fdd;
+	}
+
+	.folder-structure-warning {
+		background: #f8d7da;
+		border: 1px solid #f5c6cb;
+		padding: 1rem;
+		border-radius: 8px;
+		margin-bottom: 1.5rem;
+	}
+
+	.folder-structure-warning .warning-title {
+		font-weight: 600;
+		color: #721c24;
+		margin-bottom: 0.5rem;
+	}
+
+	.folder-structure-warning .warning-details {
+		color: #721c24;
+		font-size: 0.875rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.folder-structure-warning .warning-hint {
+		color: #856404;
+		font-size: 0.8rem;
+		font-style: italic;
+	}
+
+	.date-mismatch-icon {
+		color: #e67e22;
+		cursor: help;
+		font-size: 0.875rem;
 	}
 </style>
