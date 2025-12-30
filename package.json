@@ -15,7 +15,9 @@
 		"test": "vitest",
 		"test:run": "vitest run",
 		"test:e2e": "playwright test",
-		"test:e2e:ui": "playwright test --ui"
+		"test:e2e:ui": "playwright test --ui",
+		"test:backend": "cd src-tauri && cargo test",
+		"test:all": "npm run test:run && npm run test:backend"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.57.0",

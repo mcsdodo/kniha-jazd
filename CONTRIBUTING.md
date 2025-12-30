@@ -27,7 +27,7 @@ npm run tauri dev
 ### Running Tests
 
 ```bash
-# Rust backend tests (61 tests)
+# Rust backend tests (72 tests)
 cd src-tauri && cargo test
 ```
 

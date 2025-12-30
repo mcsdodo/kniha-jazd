@@ -93,6 +93,32 @@ Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc po
 3. AI rozpozná dátum, litre a sumu
 4. Priraďte bloky k jazdám
 
+## Často kladené otázky (FAQ)
+
+**Kde sú uložené moje dáta?**
+Všetky dáta sú uložené lokálne v SQLite databáze:
+- Windows: `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
+- macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/kniha-jazd.db`
+
+**Zostatok paliva ukazuje zápornú hodnotu?**
+Zostatok sa počíta z natankovaných litrov mínus spotreba. Ak je záporný, skontrolujte:
+- Či ste zadali správny počet km
+- Či ste zaznamenali všetky tankovania
+
+**Rozpoznávanie blokov nefunguje?**
+1. Skontrolujte, či máte správny Gemini API kľúč v `local.settings.json`
+2. Overte, že priečinok s bločkami existuje
+3. Podporované formáty: JPG, PNG, WebP, PDF
+
+**Ako preniesť dáta na nový počítač?**
+1. V nastaveniach vytvorte zálohu
+2. Skopírujte súbor `.backup` na nový počítač
+3. V nastaveniach obnovte zo zálohy
+
+## Súkromie
+
+Všetky dáta zostávajú na vašom počítači. Jediné externé pripojenie je pri použití AI rozpoznávania blokov - vtedy sa obrázky posielajú do Gemini API (Google). Túto funkciu nemusíte používať.
+
 ## Pre vývojárov
 
 Pozrite [README.en.md](README.en.md) pre dokumentáciu v angličtine.

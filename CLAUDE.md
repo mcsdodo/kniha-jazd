@@ -17,6 +17,25 @@ All business logic and calculations live in Rust backend only (ADR-008):
 - **Frontend is display-only** - Calls Tauri commands, renders results
 - **No calculation duplication** - Tauri IPC is local/fast, no need for client-side calculations
 
+```
+┌─────────────────────────────────────────────────┐
+│              SvelteKit Frontend                 │
+│         (Display only - no calculations)        │
+├─────────────────────────────────────────────────┤
+│              Tauri IPC Bridge                   │
+├─────────────────────────────────────────────────┤
+│              Rust Backend                       │
+│  ┌──────────────┐  ┌──────────────┐            │
+│  │calculations  │  │ suggestions  │            │
+│  └──────────────┘  └──────────────┘            │
+│  ┌──────────────┐  ┌──────────────┐            │
+│  │     db       │  │   export     │            │
+│  └──────────────┘  └──────────────┘            │
+├─────────────────────────────────────────────────┤
+│              SQLite Database                    │
+└─────────────────────────────────────────────────┘
+```
+
 ## Core Principle: Test-Driven Development
 
 **MANDATORY WORKFLOW FOR ALL CODE CHANGES:**
@@ -63,6 +82,33 @@ cd src-tauri && cargo test
 
 All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 
+### Code Patterns
+
+**Adding a New Tauri Command:**
+1. Add function to `commands.rs` with `#[tauri::command]`
+2. Register in `main.rs` `invoke_handler`
+3. Call from Svelte component via `invoke("command_name", { args })`
+
+**Adding a New Calculation:**
+1. Write test in `calculations.rs`
+2. Implement in `calculations.rs`
+3. Expose via `get_trip_grid_data` or new command
+4. Frontend receives pre-calculated value (no client-side calculation)
+
+**Adding UI Text:**
+1. Add key to `src/lib/i18n/sk/index.ts` (Slovak primary)
+2. Add key to `src/lib/i18n/en/index.ts` (English)
+3. Use `{LL.key()}` in Svelte components
+
+### Common Pitfalls
+
+- **Don't duplicate calculations in frontend** - ADR-008 prohibits this
+- **Don't use `git add -A`** - only stage files from current session (except `/release`)
+- **Don't skip changelog** - every feature/fix needs `/changelog` update
+- **Don't write tests for CRUD** - focus on business logic only
+- **Don't forget Slovak UI text** - all user-facing strings go through i18n
+- **Don't hardcode year** - app supports year picker, use year parameter
+
 ## Project Structure
 
 ```
@@ -83,6 +129,19 @@ kniha-jazd/
 │   └── routes/          # Pages
 └── _tasks/              # Planning docs
 ```
+
+### Key Files Quick Reference
+
+| File | Purpose | When to Modify |
+|------|---------|----------------|
+| `calculations.rs` | All consumption/margin math | Adding/changing calculations |
+| `suggestions.rs` | Compensation trip logic | Route matching, suggestions |
+| `db.rs` | SQLite CRUD operations | Schema changes, queries |
+| `commands.rs` | Tauri command handlers | New frontend→backend calls |
+| `export.rs` | HTML/PDF generation | Report format changes |
+| `models.rs` | Data structures | Adding fields to Trip/Vehicle |
+| `+page.svelte` files | Page UI | Visual/interaction changes |
+| `i18n/sk/index.ts` | Slovak translations | New UI text |
 
 ## Key Business Rules
 
@@ -160,3 +219,14 @@ Use skills in `.claude/skills/` for documentation workflows:
 - NOT for: refactoring, bug fixes, or changes that follow existing decisions
 
 Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
+
+### Task Completion Checklist
+
+Before marking any task complete:
+- [ ] Tests pass? (`npm run test:backend`)
+- [ ] Code committed with descriptive message?
+- [ ] `/changelog` run to update [Unreleased]?
+- [ ] Changelog committed?
+
+For significant decisions during task:
+- [ ] `/decision` run to record ADR/BIZ entry?

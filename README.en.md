@@ -93,6 +93,32 @@ The app supports automatic recognition of gas station receipts using AI (Gemini)
 3. AI will recognize date, liters, and total amount
 4. Assign receipts to trips
 
+## FAQ
+
+**Where is my data stored?**
+All data is stored locally in a SQLite database:
+- Windows: `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
+- macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/kniha-jazd.db`
+
+**Fuel remaining shows negative value?**
+Remaining fuel is calculated from filled liters minus consumption. If negative, check:
+- Whether you entered correct km
+- Whether you recorded all fill-ups
+
+**Receipt recognition not working?**
+1. Verify your Gemini API key in `local.settings.json`
+2. Check that the receipts folder exists
+3. Supported formats: JPG, PNG, WebP, PDF
+
+**How to transfer data to a new computer?**
+1. Create a backup in Settings
+2. Copy the `.backup` file to the new computer
+3. Restore from backup in Settings
+
+## Privacy
+
+All data stays on your computer. The only external connection is when using AI receipt recognition - receipt images are sent to the Gemini API (Google). This feature is optional.
+
 ## For Developers
 
 ### Tech Stack
@@ -121,7 +147,7 @@ npm run tauri dev
 ### Running Tests
 
 ```bash
-# Rust backend tests (61 tests)
+# Rust backend tests (72 tests)
 cd src-tauri && cargo test
 ```
 
