@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- Filtrovanie dokladov podľa roku - podpora pre ročnú štruktúru priečinkov (2024/, 2025/)
+- Automatická detekcia štruktúry priečinka s bločkami (plochá vs. ročná)
+- Upozornenie pri neplatnej štruktúre priečinka (mix súborov a priečinkov)
+- Indikátor nezhody dátumu - keď dátum z OCR nezodpovedá priečinku
+
 ### Zmenené
 - Zjednodušenie príkazov (commands) - príkazy teraz len odkazujú na skills
 
