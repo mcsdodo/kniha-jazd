@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-30
+
 ### Pridané
 - Modul Doklady - skenovanie účteniek z priečinka a automatická extrakcia údajov pomocou AI (Gemini)
 - Automatické overovanie dokladov - párovanie účteniek s jazdami podľa dátumu, litrov a ceny
