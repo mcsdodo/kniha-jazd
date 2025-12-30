@@ -594,9 +594,13 @@ type RootTranslation = {
 		 */
 		notConfigured: string
 		/**
-		 * N​a​s​t​a​v​t​e​ ​p​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i​ ​a​ ​G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č​ ​v​ ​s​ú​b​o​r​e​ ​l​o​c​a​l​.​s​e​t​t​i​n​g​s​.​j​s​o​n​ ​v​ ​p​r​i​e​č​i​n​k​u​ ​a​p​l​i​k​á​c​i​e​.
+		 * N​a​s​t​a​v​t​e​ ​p​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i​ ​a​ ​G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č​ ​v​ ​s​ú​b​o​r​e​ ​l​o​c​a​l​.​s​e​t​t​i​n​g​s​.​j​s​o​n​:
 		 */
 		configurePrompt: string
+		/**
+		 * O​t​v​o​r​i​ť​ ​p​r​i​e​č​i​n​o​k
+		 */
+		openConfigFolder: string
 		/**
 		 * V​š​e​t​k​y
 		 */
@@ -1583,9 +1587,13 @@ export type TranslationFunctions = {
 		 */
 		notConfigured: () => LocalizedString
 		/**
-		 * Nastavte priečinok s dokladmi a Gemini API kľúč v súbore local.settings.json v priečinku aplikácie.
+		 * Nastavte priečinok s dokladmi a Gemini API kľúč v súbore local.settings.json:
 		 */
 		configurePrompt: () => LocalizedString
+		/**
+		 * Otvoriť priečinok
+		 */
+		openConfigFolder: () => LocalizedString
 		/**
 		 * Všetky
 		 */

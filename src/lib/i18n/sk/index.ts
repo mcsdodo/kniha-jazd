@@ -199,7 +199,8 @@ const sk = {
 		processingProgress: 'Spracovávam {current:number}/{total:number}...',
 		// Config warning
 		notConfigured: 'Funkcia dokladov nie je nakonfigurovaná.',
-		configurePrompt: 'Nastavte priečinok s dokladmi a Gemini API kľúč v súbore local.settings.json v priečinku aplikácie.',
+		configurePrompt: 'Nastavte priečinok s dokladmi a Gemini API kľúč v súbore local.settings.json:',
+		openConfigFolder: 'Otvoriť priečinok',
 		// Filters
 		filterAll: 'Všetky',
 		filterUnassigned: 'Neoverené',

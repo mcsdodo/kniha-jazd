@@ -38,3 +38,5 @@ scripts/import_excel.py
 test-results/
 playwright-report/
 playwright/.cache/
+
+local.settings.json

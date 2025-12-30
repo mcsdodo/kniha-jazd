@@ -6,6 +6,7 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
+	import { appDataDir } from '@tauri-apps/api/path';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -28,6 +29,7 @@
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let receiptToAssign = $state<Receipt | null>(null);
 	let verification = $state<VerificationResult | null>(null);
+	let configFolderPath = $state<string>('');
 
 	let unlistenProgress: UnlistenFn | null = null;
 
@@ -36,6 +38,9 @@
 		unlistenProgress = await listen<ProcessingProgress>('receipt-processing-progress', (event) => {
 			processingProgress = event.payload;
 		});
+
+		// Get app data directory for config file location
+		configFolderPath = await appDataDir();
 
 		await loadSettings();
 		await loadReceipts();
@@ -290,6 +295,10 @@
 		<div class="config-warning">
 			<p>{$LL.receipts.notConfigured()}</p>
 			<p>{$LL.receipts.configurePrompt()}</p>
+			<button class="config-path-btn" onclick={() => openPath(configFolderPath)}>
+				<code>{configFolderPath}</code>
+				<span class="open-icon">📂 {$LL.receipts.openConfigFolder()}</span>
+			</button>
 		</div>
 	{/if}
 
@@ -471,6 +480,37 @@
 		padding: 0.2rem 0.4rem;
 		border-radius: 3px;
 		font-size: 0.875rem;
+	}
+
+	.config-path-btn {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: #fff;
+		border: 1px solid #ddd;
+		border-radius: 6px;
+		cursor: pointer;
+		text-align: left;
+		width: 100%;
+		transition: all 0.2s ease;
+	}
+
+	.config-path-btn:hover {
+		background: #f0f0f0;
+		border-color: #007bff;
+	}
+
+	.config-path-btn code {
+		word-break: break-all;
+		color: #666;
+	}
+
+	.config-path-btn .open-icon {
+		color: #007bff;
+		font-weight: 500;
 	}
 
 	.filters {
