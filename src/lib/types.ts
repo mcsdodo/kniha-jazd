@@ -134,6 +134,11 @@ export interface SyncResult {
 	warning: string | null; // Warning message for invalid folder structure
 }
 
+export interface ScanResult {
+	new_count: number;
+	warning: string | null;
+}
+
 export interface ReceiptVerification {
 	receipt_id: string;
 	matched: boolean;

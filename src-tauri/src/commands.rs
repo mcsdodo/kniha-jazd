@@ -1095,7 +1095,7 @@ pub async fn export_html(
 // ============================================================================
 
 use crate::models::{Receipt, ReceiptStatus, ReceiptVerification, VerificationResult};
-use crate::receipts::{process_receipt_with_gemini, scan_folder_for_new_receipts};
+use crate::receipts::{detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts, FolderStructure};
 use crate::settings::LocalSettings;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1146,6 +1146,39 @@ pub struct SyncResult {
 pub struct SyncError {
     pub file_name: String,
     pub error: String,
+}
+
+/// Result of scanning folder for new receipts (no OCR)
+#[derive(Clone, Serialize)]
+pub struct ScanResult {
+    pub new_count: usize,
+    pub warning: Option<String>,
+}
+
+/// Scan folder for new receipts without OCR processing
+/// Returns count of new files found and any folder structure warnings
+#[tauri::command]
+pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<ScanResult, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_dir);
+
+    let folder_path = settings.receipts_folder_path
+        .ok_or("Receipts folder not configured")?;
+
+    // Scan for new files (this also inserts them into DB as Pending)
+    let new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
+
+    // Check folder structure for warnings
+    let structure = detect_folder_structure(&folder_path);
+    let warning = match structure {
+        FolderStructure::Invalid(msg) => Some(msg),
+        _ => None,
+    };
+
+    Ok(ScanResult {
+        new_count: new_receipts.len(),
+        warning,
+    })
 }
 
 #[tauri::command]

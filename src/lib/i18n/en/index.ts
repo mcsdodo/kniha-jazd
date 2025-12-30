@@ -192,6 +192,13 @@ const en = {
 	// Receipts page
 	receipts: {
 		title: 'Receipts',
+		// Scan button
+		scanFolder: 'Scan folder',
+		scanning: 'Scanning...',
+		// OCR button
+		recognizeData: 'Recognize data',
+		recognizing: 'Recognizing {current}/{total}...',
+		// Legacy (kept for compatibility)
 		sync: 'Sync',
 		syncing: 'Syncing...',
 		processPending: 'Process pending ({count})',
@@ -267,7 +274,8 @@ const en = {
 		receiptsLoadedWithErrors: 'Loaded {count} receipts ({errors} errors)',
 		receiptsProcessed: 'Processed {count} receipts',
 		receiptsProcessedWithErrors: 'Processed {count} receipts ({errors} errors)',
-		noNewReceipts: 'No new receipts',
+		foundNewReceipts: 'Found {count} new files',
+		noNewReceipts: 'No new files',
 		noPendingReceipts: 'No pending receipts',
 		// Errors
 		errorSaveVehicle: 'Failed to save vehicle: {error}',

@@ -192,6 +192,13 @@ const sk = {
 	// Receipts page (doklady)
 	receipts: {
 		title: 'Doklady',
+		// Scan button
+		scanFolder: 'Skenovať priečinok',
+		scanning: 'Skenujem...',
+		// OCR button
+		recognizeData: 'Rozpoznať dáta',
+		recognizing: 'Rozpoznávam {current:number}/{total:number}...',
+		// Legacy (kept for compatibility)
 		sync: 'Načítať',
 		syncing: 'Synchronizujem...',
 		processPending: 'Spracovať čakajúce ({count:number})',
@@ -267,7 +274,8 @@ const sk = {
 		receiptsLoadedWithErrors: 'Načítaných {count:number} dokladov ({errors:number} chýb)',
 		receiptsProcessed: 'Spracovaných {count:number} dokladov',
 		receiptsProcessedWithErrors: 'Spracovaných {count:number} dokladov ({errors:number} chýb)',
-		noNewReceipts: 'Žiadne nové doklady',
+		foundNewReceipts: 'Nájdených {count:number} nových súborov',
+		noNewReceipts: 'Žiadne nové súbory',
 		noPendingReceipts: 'Žiadne čakajúce doklady',
 		// Errors
 		errorSaveVehicle: 'Nepodarilo sa uložiť vozidlo: {error:string}',

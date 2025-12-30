@@ -89,32 +89,28 @@
 		return verification?.receipts.find(v => v.receipt_id === receiptId) ?? null;
 	}
 
-	async function handleSync() {
-		if (!settings?.gemini_api_key || !settings?.receipts_folder_path) {
+	async function handleScan() {
+		if (!settings?.receipts_folder_path) {
 			toast.error($LL.toast.errorSetApiKeyFirst());
 			return;
 		}
 
 		syncing = true;
 		try {
-			const result = await api.syncReceipts();
+			const result = await api.scanReceipts();
 			await loadReceipts();
 			await loadVerification();
 
 			// Handle folder structure warning
 			folderStructureWarning = result.warning;
 
-			if (result.processed.length > 0) {
-				if (result.errors.length > 0) {
-					toast.success($LL.toast.receiptsLoadedWithErrors({ count: result.processed.length, errors: result.errors.length }));
-				} else {
-					toast.success($LL.toast.receiptsLoaded({ count: result.processed.length }));
-				}
+			if (result.new_count > 0) {
+				toast.success($LL.toast.foundNewReceipts({ count: result.new_count }));
 			} else {
 				toast.success($LL.toast.noNewReceipts());
 			}
 		} catch (error) {
-			console.error('Failed to sync receipts:', error);
+			console.error('Failed to scan receipts:', error);
 			toast.error($LL.toast.errorSyncReceipts({ error: String(error) }));
 		} finally {
 			syncing = false;
@@ -289,24 +285,22 @@
 	<div class="header">
 		<h1>{$LL.receipts.title()}</h1>
 		<div class="header-actions">
-			<button class="button" onclick={handleSync} disabled={syncing || processing || !isConfigured}>
-				{syncing ? $LL.receipts.syncing() : $LL.receipts.sync()}
+			<button class="button" onclick={handleScan} disabled={syncing || processing || !settings?.receipts_folder_path}>
+				{syncing ? $LL.receipts.scanning() : $LL.receipts.scanFolder()}
 			</button>
-			{#if pendingCount > 0}
-				<button
-					class="button secondary"
-					onclick={handleProcessPending}
-					disabled={processing || syncing || !settings?.gemini_api_key}
-				>
-					{#if processing && processingProgress}
-						{$LL.receipts.processingProgress({ current: processingProgress.current, total: processingProgress.total })}
-					{:else if processing}
-						{$LL.receipts.processing()}
-					{:else}
-						{$LL.receipts.processPending({ count: pendingCount })}
-					{/if}
-				</button>
-			{/if}
+			<button
+				class="button secondary"
+				onclick={handleProcessPending}
+				disabled={processing || syncing || !settings?.gemini_api_key || pendingCount === 0}
+			>
+				{#if processing && processingProgress}
+					{$LL.receipts.recognizing({ current: processingProgress.current, total: processingProgress.total })}
+				{:else if processing}
+					{$LL.receipts.processing()}
+				{:else}
+					{$LL.receipts.recognizeData()}{#if pendingCount > 0} ({pendingCount}){/if}
+				{/if}
+			</button>
 		</div>
 	</div>
 

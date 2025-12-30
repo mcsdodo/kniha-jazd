@@ -567,6 +567,24 @@ type RootTranslation = {
 		 */
 		title: string
 		/**
+		 * S​k​e​n​o​v​a​ť​ ​p​r​i​e​č​i​n​o​k
+		 */
+		scanFolder: string
+		/**
+		 * S​k​e​n​u​j​e​m​.​.​.
+		 */
+		scanning: string
+		/**
+		 * R​o​z​p​o​z​n​a​ť​ ​d​á​t​a
+		 */
+		recognizeData: string
+		/**
+		 * R​o​z​p​o​z​n​á​v​a​m​ ​{​c​u​r​r​e​n​t​}​/​{​t​o​t​a​l​}​.​.​.
+		 * @param {number} current
+		 * @param {number} total
+		 */
+		recognizing: RequiredParams<'current' | 'total'>
+		/**
 		 * N​a​č​í​t​a​ť
 		 */
 		sync: string
@@ -812,7 +830,12 @@ type RootTranslation = {
 		 */
 		receiptsProcessedWithErrors: RequiredParams<'count' | 'errors'>
 		/**
-		 * Ž​i​a​d​n​e​ ​n​o​v​é​ ​d​o​k​l​a​d​y
+		 * N​á​j​d​e​n​ý​c​h​ ​{​c​o​u​n​t​}​ ​n​o​v​ý​c​h​ ​s​ú​b​o​r​o​v
+		 * @param {number} count
+		 */
+		foundNewReceipts: RequiredParams<'count'>
+		/**
+		 * Ž​i​a​d​n​e​ ​n​o​v​é​ ​s​ú​b​o​r​y
 		 */
 		noNewReceipts: string
 		/**
@@ -1589,6 +1612,22 @@ export type TranslationFunctions = {
 		 */
 		title: () => LocalizedString
 		/**
+		 * Skenovať priečinok
+		 */
+		scanFolder: () => LocalizedString
+		/**
+		 * Skenujem...
+		 */
+		scanning: () => LocalizedString
+		/**
+		 * Rozpoznať dáta
+		 */
+		recognizeData: () => LocalizedString
+		/**
+		 * Rozpoznávam {current}/{total}...
+		 */
+		recognizing: (arg: { current: number, total: number }) => LocalizedString
+		/**
 		 * Načítať
 		 */
 		sync: () => LocalizedString
@@ -1817,7 +1856,11 @@ export type TranslationFunctions = {
 		 */
 		receiptsProcessedWithErrors: (arg: { count: number, errors: number }) => LocalizedString
 		/**
-		 * Žiadne nové doklady
+		 * Nájdených {count} nových súborov
+		 */
+		foundNewReceipts: (arg: { count: number }) => LocalizedString
+		/**
+		 * Žiadne nové súbory
 		 */
 		noNewReceipts: () => LocalizedString
 		/**
