@@ -86,6 +86,32 @@ The app supports automatic recognition of gas station receipts using AI (Gemini)
 
    > **Tip:** On Windows, open the folder with `Win+R` → `%APPDATA%\com.notavailable.kniha-jazd`
 
+#### Receipt Folder Structure
+
+The app supports two ways to organize receipts:
+
+**Flat structure** - all files directly in the folder:
+```
+/receipts/
+  receipt1.jpg
+  receipt2.png
+```
+→ Receipts are shown in all years
+
+**Year-based structure** - files in year subfolders:
+```
+/receipts/
+  2024/
+    receipt1.jpg
+  2025/
+    receipt2.png
+```
+→ Receipts are filtered by selected year
+
+**Notes:**
+- Mixed structure (files + folders) shows a warning and receipts won't load
+- OCR date takes priority over folder year (helps identify misfiled receipts)
+
 #### Usage
 
 1. Save receipt photos to the configured folder

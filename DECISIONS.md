@@ -22,6 +22,29 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2025-12-30: Receipt Organization
+
+### ADR-010: Receipt Year Filtering
+
+**Context:** Users may organize receipts in different folder structures - either flat (all files in one folder) or year-based (files in YYYY subfolders like `2024/`, `2025/`). The app needs to handle both cases and filter receipts by year while maintaining clear behavior.
+
+**Decision:**
+- **Flat mode:** Files directly in receipts folder → shown in all years (no year filtering)
+- **Year-based mode:** Files in YYYY subfolders (e.g., `2024/`) → filtered by selected year
+- **Invalid structure:** Mixed content (files + folders) or non-year folders → warning shown, files not loaded
+- **Year determination priority:**
+  1. Primary: Use `receipt_date.year()` from OCR recognition
+  2. Fallback: Use `source_year` from folder name (for unprocessed receipts)
+- **Mismatch warning:** When folder year differs from OCR-detected receipt date year, show indicator to user
+
+**Reasoning:**
+- Users have different organizational preferences; supporting both flat and year-based is flexible
+- OCR date is more accurate than folder placement (user may misfile receipts)
+- Folder year serves as fallback for new/unprocessed receipts before OCR runs
+- Warning on mismatch helps users identify misfiled receipts without blocking workflow
+
+---
+
 ## 2025-12-25: Year Picker
 
 ### ADR-009: Year-Scoped Vehicle Logbook

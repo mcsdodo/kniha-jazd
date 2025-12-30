@@ -86,6 +86,32 @@ Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc po
 
    > **Tip:** Na Windows môžete otvoriť priečinok príkazom `Win+R` → `%APPDATA%\com.notavailable.kniha-jazd`
 
+#### Štruktúra priečinka s bločkami
+
+Aplikácia podporuje dva spôsoby organizácie bločkov:
+
+**Plochá štruktúra** - všetky súbory priamo v priečinku:
+```
+/bloky/
+  blocok1.jpg
+  blocok2.png
+```
+→ Bločky sa zobrazujú vo všetkých rokoch
+
+**Ročná štruktúra** - súbory v podpriečinkoch podľa roku:
+```
+/bloky/
+  2024/
+    blocok1.jpg
+  2025/
+    blocok2.png
+```
+→ Bločky sa filtrujú podľa vybraného roku
+
+**Poznámky:**
+- Miešaná štruktúra (súbory + priečinky) zobrazí upozornenie a bločky sa nenačítajú
+- Dátum z OCR má prednosť pred rokom priečinka (pomáha odhaliť nesprávne zaradené bločky)
+
 #### Použitie
 
 1. Uložte fotky blokov do nastaveného priečinka
