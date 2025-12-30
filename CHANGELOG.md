@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-30
+
 ### Pridané
 - Filtrovanie dokladov podľa roku - podpora pre ročnú štruktúru priečinkov (2024/, 2025/)
 - Automatická detekcia štruktúry priečinka s bločkami (plochá vs. ročná)
