@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- Zjednodušenie príkazov (commands) - príkazy teraz len odkazujú na skills
+
+### Opravené
+- Preklad tlačidla "Sync" na "Načítať" na stránke Doklady
+
 ## [0.5.0] - 2025-12-30
 
 ### Pridané
