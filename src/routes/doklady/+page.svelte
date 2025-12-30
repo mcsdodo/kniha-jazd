@@ -97,6 +97,13 @@
 		}
 	}
 
+	// Refresh all receipt data and update nav badge
+	async function refreshReceiptData() {
+		await loadReceipts();
+		await loadVerification();
+		triggerReceiptRefresh();
+	}
+
 	function getVerificationForReceipt(receiptId: string): ReceiptVerification | null {
 		return verification?.receipts.find(v => v.receipt_id === receiptId) ?? null;
 	}
@@ -110,9 +117,7 @@
 		syncing = true;
 		try {
 			const result = await api.scanReceipts();
-			await loadReceipts();
-			await loadVerification();
-			triggerReceiptRefresh(); // Update nav badge
+			await refreshReceiptData();
 
 			// Handle folder structure warning
 			folderStructureWarning = result.warning;
@@ -140,9 +145,7 @@
 		processingProgress = null;
 		try {
 			const result = await api.processPendingReceipts();
-			await loadReceipts();
-			await loadVerification();
-			triggerReceiptRefresh(); // Update nav badge
+			await refreshReceiptData();
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {
@@ -170,7 +173,7 @@
 		if (!receiptToDelete) return;
 		try {
 			await api.deleteReceipt(receiptToDelete.id);
-			await loadReceipts();
+			await refreshReceiptData();
 			toast.success($LL.toast.receiptDeleted());
 		} catch (error) {
 			console.error('Failed to delete receipt:', error);
@@ -184,7 +187,7 @@
 		reprocessingIds = new Set([...reprocessingIds, receipt.id]);
 		try {
 			await api.reprocessReceipt(receipt.id);
-			await loadReceipts();
+			await refreshReceiptData();
 			toast.success($LL.toast.receiptReprocessed({ name: receipt.file_name }));
 		} catch (error) {
 			console.error('Failed to reprocess receipt:', error);
@@ -274,7 +277,7 @@
 				);
 			}
 
-			await loadReceipts();
+			await refreshReceiptData();
 			receiptToAssign = null;
 			toast.success($LL.toast.receiptAssigned());
 		} catch (error) {
