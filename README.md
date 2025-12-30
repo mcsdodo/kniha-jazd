@@ -18,6 +18,7 @@ Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Zálohovanie a obnova** - Jednoduchá správa databázy
 - **Export** - HTML náhľad s tlačou do PDF (Ctrl+P)
+- **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc
 
 ## Inštalácia
 
@@ -60,6 +61,42 @@ Aplikácia vypočíta spotrebu automaticky.
 
 - Margin pod 20% = v poriadku
 - Margin nad 20% = upozornenie + návrhy kompenzačných jázd
+
+### 5. Doklady (AI rozpoznávanie blokov)
+
+Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc pomocou AI (Gemini).
+
+#### Nastavenie
+
+1. **Získajte Gemini API kľúč:**
+   - Navštívte [Google AI Studio](https://aistudio.google.com/apikey)
+   - Vytvorte nový API kľúč (bezplatný tier stačí pre bežné použitie)
+
+2. **Konfigurácia cez UI:**
+   - Nastavenia → Doklady (Receipts)
+   - Zadajte API kľúč a cestu k priečinku s obrázkami blokov
+
+3. **Alternatíva: Konfiguračný súbor** (pre vývojárov alebo automatizáciu):
+
+   Vytvorte súbor `local.settings.json` v:
+   - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
+   - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
+
+   ```json
+   {
+     "gemini_api_key": "AIza...",
+     "receipts_folder_path": "C:\\Cesta\\K\\Blokom"
+   }
+   ```
+
+   > **Poznámka:** Hodnoty v `local.settings.json` majú prednosť pred nastaveniami v UI.
+
+#### Použitie
+
+1. Uložte fotky blokov do nastaveného priečinka
+2. Otvorte sekciu "Doklady" a kliknite na "Sync"
+3. AI rozpozná dátum, litre a sumu
+4. Priraďte bloky k jazdám
 
 ## Pre vývojárov
 

@@ -18,6 +18,7 @@ Automatically calculates fuel consumption, monitors the legal 20% over-consumpti
 - **Yearly overviews** - Each year = separate logbook
 - **Backup and restore** - Simple database management
 - **Export** - HTML preview with print-to-PDF (Ctrl+P)
+- **Receipts (AI OCR)** - Automatic recognition of gas station receipts
 
 ## Installation
 
@@ -60,6 +61,42 @@ The app calculates consumption automatically.
 
 - Margin under 20% = OK
 - Margin over 20% = warning + compensation trip suggestions
+
+### 5. Receipts (AI OCR Recognition)
+
+The app supports automatic recognition of gas station receipts using AI (Gemini).
+
+#### Setup
+
+1. **Get a Gemini API key:**
+   - Visit [Google AI Studio](https://aistudio.google.com/apikey)
+   - Create a new API key (free tier is sufficient for typical usage)
+
+2. **Configure via UI:**
+   - Settings → Receipts (Doklady)
+   - Enter your API key and path to the folder with receipt images
+
+3. **Alternative: Configuration file** (for developers or automation):
+
+   Create `local.settings.json` in:
+   - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
+   - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
+
+   ```json
+   {
+     "gemini_api_key": "AIza...",
+     "receipts_folder_path": "C:\\Path\\To\\Receipts"
+   }
+   ```
+
+   > **Note:** Values in `local.settings.json` take priority over UI settings.
+
+#### Usage
+
+1. Save receipt photos to the configured folder
+2. Open the "Doklady" section and click "Sync"
+3. AI will recognize date, liters, and total amount
+4. Assign receipts to trips
 
 ## For Developers
 
