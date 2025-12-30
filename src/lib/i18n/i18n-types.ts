@@ -567,7 +567,7 @@ type RootTranslation = {
 		 */
 		title: string
 		/**
-		 * S​y​n​c
+		 * N​a​č​í​t​a​ť
 		 */
 		sync: string
 		/**
@@ -707,7 +707,7 @@ type RootTranslation = {
 		 */
 		assignToTrip: string
 		/**
-		 * Ž​i​a​d​n​e​ ​d​o​k​l​a​d​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​S​y​n​c​ ​p​r​e​ ​n​a​č​í​t​a​n​i​e​ ​n​o​v​ý​c​h​.
+		 * Ž​i​a​d​n​e​ ​d​o​k​l​a​d​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​N​a​č​í​t​a​ť​ ​p​r​e​ ​n​a​č​í​t​a​n​i​e​ ​n​o​v​ý​c​h​.
 		 */
 		noReceipts: string
 	}
@@ -1575,7 +1575,7 @@ export type TranslationFunctions = {
 		 */
 		title: () => LocalizedString
 		/**
-		 * Sync
+		 * Načítať
 		 */
 		sync: () => LocalizedString
 		/**
@@ -1707,7 +1707,7 @@ export type TranslationFunctions = {
 		 */
 		assignToTrip: () => LocalizedString
 		/**
-		 * Žiadne doklady. Kliknite na Sync pre načítanie nových.
+		 * Žiadne doklady. Kliknite na Načítať pre načítanie nových.
 		 */
 		noReceipts: () => LocalizedString
 	}
