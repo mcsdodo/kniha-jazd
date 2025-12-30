@@ -45,16 +45,21 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 ### Running Tests
 
 ```bash
-# Rust backend tests (61 tests)
+# Rust backend tests (72 tests)
 cd src-tauri && cargo test
 ```
 
 ### Test Coverage
 
-**Backend (Rust) - Single Source of Truth:**
-- `calculations.rs` - 41 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `suggestions.rs` - 11 tests: route matching, compensation suggestions
-- `db.rs` - 9 tests: CRUD operations
+**Backend (Rust) - Single Source of Truth (72 tests):**
+- `calculations.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
+- `suggestions.rs` - 9 tests: route matching, compensation suggestions
+- `db.rs` - 10 tests: CRUD lifecycle tests (consolidated)
+- `commands.rs` - 10 tests: receipt matching
+- `export.rs` - 7 tests: export totals, HTML escaping
+- `receipts.rs` - 3 tests: extraction confidence
+- `gemini.rs` - 3 tests: JSON deserialization
+- `settings.rs` - 3 tests: local settings loading
 
 All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 
@@ -129,5 +134,12 @@ Use skills in `.claude/skills/` for documentation workflows:
 - Task plans (include changelog as final task)
 - Subagent-driven development (final step before finishing)
 - Any implementation work
+
+**Use `/decision` when:**
+- Choosing between multiple valid approaches (document why this one)
+- Defining new business logic rules (calculations, limits, validation)
+- Making architectural choices (patterns, structure, tech stack)
+- After debugging reveals non-obvious requirements
+- NOT for: refactoring, bug fixes, or changes that follow existing decisions
 
 Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
