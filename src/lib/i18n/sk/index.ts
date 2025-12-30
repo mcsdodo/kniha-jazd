@@ -192,7 +192,7 @@ const sk = {
 	// Receipts page (doklady)
 	receipts: {
 		title: 'Doklady',
-		sync: 'Sync',
+		sync: 'Načítať',
 		syncing: 'Synchronizujem...',
 		processPending: 'Spracovať čakajúce ({count:number})',
 		processing: 'Spracovávam...',
@@ -233,7 +233,7 @@ const sk = {
 		reprocessing: 'Spracovávam...',
 		assignToTrip: 'Prideliť k jazde',
 		// Empty state
-		noReceipts: 'Žiadne doklady. Kliknite na Sync pre načítanie nových.',
+		noReceipts: 'Žiadne doklady. Kliknite na Načítať pre načítanie nových.',
 	},
 
 	// Trip selector modal
