@@ -9,6 +9,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Pridané
 - Dokumentácia nastavenia Doklady (AI OCR) v README - konfigurácia Gemini API kľúča a priečinka s účtenkami
+- Zobrazenie cesty ku konfiguračnému priečinku v upozornení na stránke Doklady s tlačidlom na otvorenie priečinka
+- Vzorový konfiguračný súbor `local.settings.json.sample` s príkladom Windows cesty (pozor na dvojité spätné lomky)
 
 ## [0.4.0] - 2025-12-30
 
