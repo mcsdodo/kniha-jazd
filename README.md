@@ -155,6 +155,8 @@ Pozrite [README.en.md](README.en.md) pre dokumentáciu v angličtine.
 - **Backend:** Tauri (Rust)
 - **Databáza:** SQLite
 
+Pre detailnú architektúru pozrite [ARCHITECTURE.md](ARCHITECTURE.md) (v angličtine).
+
 ### Lokálne spustenie
 
 ```bash

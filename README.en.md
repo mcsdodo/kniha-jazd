@@ -155,10 +155,9 @@ All data stays on your computer. The only external connection is when using AI r
 
 ### Architecture
 
-All business logic lives in the Rust backend (see [DECISIONS.md](DECISIONS.md) ADR-008):
-- `src-tauri/src/calculations.rs` - Core consumption calculations
-- `src-tauri/src/suggestions.rs` - Compensation trip logic
-- Frontend is display-only, calls Tauri commands
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
+
+**Key principle:** All business logic lives in the Rust backend (ADR-008). Frontend is display-only.
 
 ### Local Development
 
