@@ -72,13 +72,8 @@ The app supports automatic recognition of gas station receipts using AI (Gemini)
    - Visit [Google AI Studio](https://aistudio.google.com/apikey)
    - Create a new API key (free tier is sufficient for typical usage)
 
-2. **Configure via UI:**
-   - Settings → Receipts (Doklady)
-   - Enter your API key and path to the folder with receipt images
+2. **Create configuration file** `local.settings.json`:
 
-3. **Alternative: Configuration file** (for developers or automation):
-
-   Create `local.settings.json` in:
    - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
    - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
 
@@ -89,7 +84,7 @@ The app supports automatic recognition of gas station receipts using AI (Gemini)
    }
    ```
 
-   > **Note:** Values in `local.settings.json` take priority over UI settings.
+   > **Tip:** On Windows, open the folder with `Win+R` → `%APPDATA%\com.notavailable.kniha-jazd`
 
 #### Usage
 

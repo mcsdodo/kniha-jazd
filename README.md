@@ -72,13 +72,8 @@ Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc po
    - Navštívte [Google AI Studio](https://aistudio.google.com/apikey)
    - Vytvorte nový API kľúč (bezplatný tier stačí pre bežné použitie)
 
-2. **Konfigurácia cez UI:**
-   - Nastavenia → Doklady (Receipts)
-   - Zadajte API kľúč a cestu k priečinku s obrázkami blokov
+2. **Vytvorte konfiguračný súbor** `local.settings.json`:
 
-3. **Alternatíva: Konfiguračný súbor** (pre vývojárov alebo automatizáciu):
-
-   Vytvorte súbor `local.settings.json` v:
    - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
    - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
 
@@ -89,7 +84,7 @@ Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc po
    }
    ```
 
-   > **Poznámka:** Hodnoty v `local.settings.json` majú prednosť pred nastaveniami v UI.
+   > **Tip:** Na Windows môžete otvoriť priečinok príkazom `Win+R` → `%APPDATA%\com.notavailable.kniha-jazd`
 
 #### Použitie
 

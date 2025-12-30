@@ -110,6 +110,23 @@ npm run tauri build      # Production build
 npm run lint && npm run format
 ```
 
+## Git Guidelines
+
+**Only commit files you changed in THIS session.** Before committing:
+1. Run `git status` to see all modified files
+2. Stage only files related to your current task
+3. Do NOT include unrelated staged files from previous sessions
+
+```bash
+# Good: stage specific files
+git add src-tauri/src/db.rs src-tauri/src/commands.rs
+
+# Bad: stage everything blindly
+git add -A  # Only use for releases or when you've reviewed ALL changes
+```
+
+**Exception:** `/release` intentionally uses `git add -A` because releases should include all pending changes.
+
 ## Git Worktrees
 
 Worktree directory: `.worktrees/` (project-local, gitignored)
