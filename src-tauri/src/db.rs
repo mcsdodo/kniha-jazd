@@ -965,6 +965,32 @@ impl Database {
         let mut stmt = conn.prepare(&sql)?;
         stmt.query_row([id], Self::row_to_receipt).optional()
     }
+
+    /// Get receipts filtered by year.
+    /// Filtering logic:
+    /// - If receipt_date is set: include if receipt_date.year() == year
+    /// - If receipt_date is None but source_year is set: include if source_year == year
+    /// - If both are None: include in ALL years (flat mode, unprocessed receipts)
+    pub fn get_receipts_for_year(&self, year: i32) -> Result<Vec<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+        // SQL logic:
+        // 1. receipt_date exists and year matches -> include
+        // 2. receipt_date is NULL, source_year exists and matches -> include
+        // 3. both NULL -> include (flat mode)
+        let sql = format!(
+            "SELECT {} FROM receipts WHERE
+                (receipt_date IS NOT NULL AND CAST(strftime('%Y', receipt_date) AS INTEGER) = ?1)
+                OR (receipt_date IS NULL AND source_year = ?1)
+                OR (receipt_date IS NULL AND source_year IS NULL)
+             ORDER BY receipt_date DESC, scanned_at DESC",
+            Self::RECEIPT_SELECT_COLS
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let receipts = stmt
+            .query_map([year], Self::row_to_receipt)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(receipts)
+    }
 }
 
 #[cfg(test)]
@@ -1421,5 +1447,175 @@ mod tests {
         let after_update = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
         assert_eq!(after_update.source_year, Some(2024));
         assert_eq!(after_update.liters, Some(45.0));
+    }
+
+    // ========================================================================
+    // Year filtering tests for get_receipts_for_year
+    // ========================================================================
+
+    /// Helper to create a receipt with specific date and source_year
+    fn create_receipt_for_year_test(
+        file_path: &str,
+        receipt_date: Option<NaiveDate>,
+        source_year: Option<i32>,
+    ) -> Receipt {
+        let mut receipt = Receipt::new_with_source_year(
+            file_path.to_string(),
+            file_path.to_string(),
+            source_year,
+        );
+        receipt.receipt_date = receipt_date;
+        receipt
+    }
+
+    /// Test: Receipt with receipt_date in 2024 should be included for year=2024
+    #[test]
+    fn test_get_receipts_for_year_filters_by_receipt_date() {
+        let db = Database::in_memory().unwrap();
+
+        // Receipt dated 2024-05-01
+        let receipt = create_receipt_for_year_test(
+            "r1.jpg",
+            Some(NaiveDate::from_ymd_opt(2024, 5, 1).unwrap()),
+            Some(2024),
+        );
+        db.create_receipt(&receipt).unwrap();
+
+        // Receipt dated 2023-12-31 (should NOT be included for 2024)
+        let receipt2 = create_receipt_for_year_test(
+            "r2.jpg",
+            Some(NaiveDate::from_ymd_opt(2023, 12, 31).unwrap()),
+            Some(2024), // source_year is 2024, but date is 2023
+        );
+        db.create_receipt(&receipt2).unwrap();
+
+        let receipts_2024 = db.get_receipts_for_year(2024).unwrap();
+        assert_eq!(receipts_2024.len(), 1);
+        assert_eq!(receipts_2024[0].file_name, "r1.jpg");
+    }
+
+    /// Test: Receipt with receipt_date takes precedence over source_year
+    #[test]
+    fn test_get_receipts_for_year_date_overrides_source_year() {
+        let db = Database::in_memory().unwrap();
+
+        // Receipt dated 2024 but from 2025 folder - should be in 2024 (date wins)
+        let receipt = create_receipt_for_year_test(
+            "r1.jpg",
+            Some(NaiveDate::from_ymd_opt(2024, 5, 1).unwrap()),
+            Some(2025), // From 2025 folder, but date is 2024
+        );
+        db.create_receipt(&receipt).unwrap();
+
+        let receipts_2024 = db.get_receipts_for_year(2024).unwrap();
+        assert_eq!(receipts_2024.len(), 1);
+
+        let receipts_2025 = db.get_receipts_for_year(2025).unwrap();
+        assert_eq!(receipts_2025.len(), 0);
+    }
+
+    /// Test: Receipt with no receipt_date falls back to source_year
+    #[test]
+    fn test_get_receipts_for_year_fallback_to_source_year() {
+        let db = Database::in_memory().unwrap();
+
+        // No date, source_year = 2024
+        let receipt = create_receipt_for_year_test(
+            "r1.jpg",
+            None, // No receipt_date
+            Some(2024),
+        );
+        db.create_receipt(&receipt).unwrap();
+
+        // No date, source_year = 2025 (should NOT be in 2024)
+        let receipt2 = create_receipt_for_year_test(
+            "r2.jpg",
+            None,
+            Some(2025),
+        );
+        db.create_receipt(&receipt2).unwrap();
+
+        let receipts_2024 = db.get_receipts_for_year(2024).unwrap();
+        assert_eq!(receipts_2024.len(), 1);
+        assert_eq!(receipts_2024[0].file_name, "r1.jpg");
+    }
+
+    /// Test: Receipt with neither receipt_date nor source_year shows in ALL years (flat mode)
+    #[test]
+    fn test_get_receipts_for_year_flat_mode_shows_everywhere() {
+        let db = Database::in_memory().unwrap();
+
+        // Flat mode receipt: no date, no source_year
+        let receipt = create_receipt_for_year_test(
+            "flat.jpg",
+            None,
+            None,
+        );
+        db.create_receipt(&receipt).unwrap();
+
+        // Should appear in any year query
+        let receipts_2024 = db.get_receipts_for_year(2024).unwrap();
+        assert_eq!(receipts_2024.len(), 1);
+        assert_eq!(receipts_2024[0].file_name, "flat.jpg");
+
+        let receipts_2023 = db.get_receipts_for_year(2023).unwrap();
+        assert_eq!(receipts_2023.len(), 1);
+
+        let receipts_2025 = db.get_receipts_for_year(2025).unwrap();
+        assert_eq!(receipts_2025.len(), 1);
+    }
+
+    /// Test: Combined scenario with all filtering cases
+    #[test]
+    fn test_get_receipts_for_year_combined_filtering() {
+        let db = Database::in_memory().unwrap();
+
+        // Case 1: Date 2024-05-01, source_year 2024 -> Show in 2024 (date matches)
+        let r1 = create_receipt_for_year_test(
+            "r1.jpg",
+            Some(NaiveDate::from_ymd_opt(2024, 5, 1).unwrap()),
+            Some(2024),
+        );
+        db.create_receipt(&r1).unwrap();
+
+        // Case 2: Date 2024-05-01, source_year 2025 -> Show in 2024 (date wins)
+        let r2 = create_receipt_for_year_test(
+            "r2.jpg",
+            Some(NaiveDate::from_ymd_opt(2024, 5, 1).unwrap()),
+            Some(2025),
+        );
+        db.create_receipt(&r2).unwrap();
+
+        // Case 3: No date, source_year 2024 -> Show in 2024 (fallback)
+        let r3 = create_receipt_for_year_test("r3.jpg", None, Some(2024));
+        db.create_receipt(&r3).unwrap();
+
+        // Case 4: No date, source_year 2025 -> NOT in 2024
+        let r4 = create_receipt_for_year_test("r4.jpg", None, Some(2025));
+        db.create_receipt(&r4).unwrap();
+
+        // Case 5: No date, no source_year -> Show in ALL years (flat)
+        let r5 = create_receipt_for_year_test("r5.jpg", None, None);
+        db.create_receipt(&r5).unwrap();
+
+        // Case 6: Date 2023-12-31, source_year 2024 -> NOT in 2024 (date is 2023)
+        let r6 = create_receipt_for_year_test(
+            "r6.jpg",
+            Some(NaiveDate::from_ymd_opt(2023, 12, 31).unwrap()),
+            Some(2024),
+        );
+        db.create_receipt(&r6).unwrap();
+
+        // Query for 2024: Should include r1, r2, r3, r5
+        let receipts_2024 = db.get_receipts_for_year(2024).unwrap();
+        let names: Vec<&str> = receipts_2024.iter().map(|r| r.file_name.as_str()).collect();
+
+        assert_eq!(receipts_2024.len(), 4, "Expected 4 receipts for 2024, got: {:?}", names);
+        assert!(names.contains(&"r1.jpg"), "r1 should be included (date matches)");
+        assert!(names.contains(&"r2.jpg"), "r2 should be included (date wins over source_year)");
+        assert!(names.contains(&"r3.jpg"), "r3 should be included (fallback to source_year)");
+        assert!(names.contains(&"r5.jpg"), "r5 should be included (flat mode)");
+        assert!(!names.contains(&"r4.jpg"), "r4 should NOT be included (source_year is 2025)");
+        assert!(!names.contains(&"r6.jpg"), "r6 should NOT be included (date is 2023)");
     }
 }

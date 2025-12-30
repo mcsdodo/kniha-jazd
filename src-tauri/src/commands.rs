@@ -1119,9 +1119,15 @@ pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, St
     })
 }
 
+/// Get receipts, optionally filtered by year.
+/// - If year is provided: returns receipts for that year (by receipt_date, or source_year if date is None)
+/// - If year is None: returns all receipts (for backward compatibility)
 #[tauri::command]
-pub fn get_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
-    db.get_all_receipts().map_err(|e| e.to_string())
+pub fn get_receipts(db: State<Database>, year: Option<i32>) -> Result<Vec<Receipt>, String> {
+    match year {
+        Some(y) => db.get_receipts_for_year(y).map_err(|e| e.to_string()),
+        None => db.get_all_receipts().map_err(|e| e.to_string()),
+    }
 }
 
 #[tauri::command]
