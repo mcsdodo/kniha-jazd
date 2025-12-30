@@ -3,6 +3,7 @@
 	import * as api from '$lib/api';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
+	import { receiptRefreshTrigger } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	let needsAttentionCount = $state(0);
@@ -15,11 +16,13 @@
 		return () => clearInterval(interval);
 	});
 
-	// Reload when vehicle or year changes
+	// Reload when vehicle, year, or refresh trigger changes
 	$effect(() => {
-		if ($activeVehicleStore || $selectedYearStore) {
-			loadCount();
-		}
+		// Access all reactive dependencies
+		const _vehicle = $activeVehicleStore;
+		const _year = $selectedYearStore;
+		const _trigger = $receiptRefreshTrigger;
+		loadCount();
 	});
 
 	async function loadCount() {

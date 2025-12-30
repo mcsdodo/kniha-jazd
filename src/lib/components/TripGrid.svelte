@@ -4,6 +4,7 @@
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
+	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let vehicleId: string;
@@ -141,6 +142,7 @@
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
 			onTripsChanged();
 			await loadRoutes();
+			triggerReceiptRefresh(); // Update nav badge after trip change
 		} catch (error) {
 			console.error('Failed to update trip:', error);
 			toast.error($LL.toast.errorUpdateTrip());
@@ -175,6 +177,7 @@
 		try {
 			await deleteTrip(id);
 			onTripsChanged();
+			triggerReceiptRefresh(); // Update nav badge after trip deletion
 		} catch (error) {
 			console.error('Failed to delete trip:', error);
 			toast.error($LL.toast.errorDeleteTrip());

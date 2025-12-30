@@ -9,6 +9,7 @@
 	import { appDataDir } from '@tauri-apps/api/path';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
+	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import LL from '$lib/i18n/i18n-svelte';
 
@@ -111,6 +112,7 @@
 			const result = await api.scanReceipts();
 			await loadReceipts();
 			await loadVerification();
+			triggerReceiptRefresh(); // Update nav badge
 
 			// Handle folder structure warning
 			folderStructureWarning = result.warning;
@@ -139,6 +141,8 @@
 		try {
 			const result = await api.processPendingReceipts();
 			await loadReceipts();
+			await loadVerification();
+			triggerReceiptRefresh(); // Update nav badge
 
 			if (result.processed.length > 0) {
 				if (result.errors.length > 0) {

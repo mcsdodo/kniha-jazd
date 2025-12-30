@@ -21,6 +21,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Opravené
 - Preklad tlačidla "Sync" na "Načítať" na stránke Doklady
+- Aktualizácia počtu dokladov v navigácii pri zmene dát (skenovanie, OCR, úprava jázd)
+- Prepínanie roku a filtrov na stránke Doklady
 
 ## [0.5.0] - 2025-12-30
 
