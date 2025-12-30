@@ -179,6 +179,10 @@ pub struct Receipt {
     pub station_name: Option<String>,
     pub station_address: Option<String>,
 
+    // Year folder support: which year folder the receipt came from (e.g., 2024 from "2024/" folder)
+    // None = flat folder structure, Some(year) = from year subfolder
+    pub source_year: Option<i32>,
+
     // Status tracking
     pub status: ReceiptStatus,
     pub confidence: FieldConfidence, // Typed struct, not strings
@@ -191,6 +195,14 @@ pub struct Receipt {
 
 impl Receipt {
     pub fn new(file_path: String, file_name: String) -> Self {
+        Self::new_with_source_year(file_path, file_name, None)
+    }
+
+    pub fn new_with_source_year(
+        file_path: String,
+        file_name: String,
+        source_year: Option<i32>,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
@@ -204,6 +216,7 @@ impl Receipt {
             receipt_date: None,
             station_name: None,
             station_address: None,
+            source_year,
             status: ReceiptStatus::Pending,
             confidence: FieldConfidence::default(),
             raw_ocr_text: None,

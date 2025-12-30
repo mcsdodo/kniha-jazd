@@ -98,6 +98,13 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_receipts_date ON receipts(receipt_date);"
         )?;
 
+        // Add source_year column for year-based folder structure support
+        // None = flat folder, Some(year) = from year subfolder (e.g., 2024/)
+        let _ = conn.execute(
+            "ALTER TABLE receipts ADD COLUMN source_year INTEGER",
+            [],
+        );
+
         Ok(())
     }
 
@@ -784,7 +791,12 @@ impl Database {
 
     /// Helper to avoid row-to-struct duplication
     fn row_to_receipt(row: &rusqlite::Row) -> rusqlite::Result<Receipt> {
-        let status_str: String = row.get(11)?;
+        // Column indices:
+        // 0: id, 1: vehicle_id, 2: trip_id, 3: file_path, 4: file_name, 5: scanned_at
+        // 6: liters, 7: total_price_eur, 8: receipt_date, 9: station_name, 10: station_address
+        // 11: source_year, 12: status, 13: confidence, 14: raw_ocr_text, 15: error_message
+        // 16: created_at, 17: updated_at
+        let status_str: String = row.get(12)?;
         let status = match status_str.as_str() {
             "Pending" => ReceiptStatus::Pending,
             "Parsed" => ReceiptStatus::Parsed,
@@ -793,7 +805,7 @@ impl Database {
             _ => ReceiptStatus::Pending,
         };
 
-        let confidence_str: String = row.get(12)?;
+        let confidence_str: String = row.get(13)?;
         let confidence: FieldConfidence = serde_json::from_str(&confidence_str).unwrap_or_default();
 
         Ok(Receipt {
@@ -811,14 +823,15 @@ impl Database {
                 .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap()),
             station_name: row.get(9)?,
             station_address: row.get(10)?,
+            source_year: row.get(11)?,
             status,
             confidence,
-            raw_ocr_text: row.get(13)?,
-            error_message: row.get(14)?,
-            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
+            raw_ocr_text: row.get(14)?,
+            error_message: row.get(15)?,
+            created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
                 .unwrap()
                 .with_timezone(&Utc),
-            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(16)?)
+            updated_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(17)?)
                 .unwrap()
                 .with_timezone(&Utc),
         })
@@ -827,7 +840,7 @@ impl Database {
     const RECEIPT_SELECT_COLS: &'static str =
         "id, vehicle_id, trip_id, file_path, file_name, scanned_at,
          liters, total_price_eur, receipt_date, station_name, station_address,
-         status, confidence, raw_ocr_text, error_message, created_at, updated_at";
+         source_year, status, confidence, raw_ocr_text, error_message, created_at, updated_at";
 
     pub fn create_receipt(&self, receipt: &Receipt) -> Result<()> {
         let conn = self.conn.lock().unwrap();
@@ -840,10 +853,10 @@ impl Database {
         conn.execute(
             "INSERT INTO receipts (id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                 liters, total_price_eur, receipt_date, station_name, station_address,
-                status, confidence, raw_ocr_text, error_message, created_at, updated_at)
+                source_year, status, confidence, raw_ocr_text, error_message, created_at, updated_at)
              VALUES (:id, :vehicle_id, :trip_id, :file_path, :file_name, :scanned_at,
                 :liters, :total_price_eur, :receipt_date, :station_name, :station_address,
-                :status, :confidence, :raw_ocr_text, :error_message, :created_at, :updated_at)",
+                :source_year, :status, :confidence, :raw_ocr_text, :error_message, :created_at, :updated_at)",
             rusqlite::named_params! {
                 ":id": receipt.id.to_string(),
                 ":vehicle_id": receipt.vehicle_id.map(|id| id.to_string()),
@@ -856,6 +869,7 @@ impl Database {
                 ":receipt_date": receipt.receipt_date.map(|d| d.to_string()),
                 ":station_name": &receipt.station_name,
                 ":station_address": &receipt.station_address,
+                ":source_year": receipt.source_year,
                 ":status": status_str,
                 ":confidence": serde_json::to_string(&receipt.confidence).unwrap(),
                 ":raw_ocr_text": &receipt.raw_ocr_text,
@@ -909,7 +923,7 @@ impl Database {
             "UPDATE receipts SET
                 vehicle_id = :vehicle_id, trip_id = :trip_id, liters = :liters, total_price_eur = :total_price_eur,
                 receipt_date = :receipt_date, station_name = :station_name, station_address = :station_address,
-                status = :status, confidence = :confidence, raw_ocr_text = :raw_ocr_text,
+                source_year = :source_year, status = :status, confidence = :confidence, raw_ocr_text = :raw_ocr_text,
                 error_message = :error_message, updated_at = :updated_at
              WHERE id = :id",
             rusqlite::named_params! {
@@ -921,6 +935,7 @@ impl Database {
                 ":receipt_date": receipt.receipt_date.map(|d| d.to_string()),
                 ":station_name": &receipt.station_name,
                 ":station_address": &receipt.station_address,
+                ":source_year": receipt.source_year,
                 ":status": status_str,
                 ":confidence": serde_json::to_string(&receipt.confidence).unwrap(),
                 ":raw_ocr_text": &receipt.raw_ocr_text,
@@ -1338,5 +1353,73 @@ mod tests {
 
         let pending = db.get_pending_receipts().unwrap();
         assert_eq!(pending.len(), 0);
+    }
+
+    /// Test Receipt creation with source_year (year folder support)
+    #[test]
+    fn test_receipt_with_source_year() {
+        // Test creation with source_year
+        let receipt = Receipt::new_with_source_year(
+            "C:\\2024\\receipt.jpg".to_string(),
+            "receipt.jpg".to_string(),
+            Some(2024),
+        );
+        assert_eq!(receipt.source_year, Some(2024));
+        assert_eq!(receipt.file_name, "receipt.jpg");
+
+        // Test creation without source_year (flat folder)
+        let receipt_flat = Receipt::new_with_source_year(
+            "C:\\receipts\\receipt.jpg".to_string(),
+            "receipt.jpg".to_string(),
+            None,
+        );
+        assert_eq!(receipt_flat.source_year, None);
+
+        // Original constructor should default to None
+        let receipt_default = Receipt::new(
+            "C:\\receipts\\receipt.jpg".to_string(),
+            "receipt.jpg".to_string(),
+        );
+        assert_eq!(receipt_default.source_year, None);
+    }
+
+    /// Test DB round-trip with source_year field
+    #[test]
+    fn test_receipt_db_roundtrip_with_source_year() {
+        let db = Database::in_memory().unwrap();
+
+        // Create receipt with source_year
+        let receipt = Receipt::new_with_source_year(
+            "C:\\2024\\receipt1.jpg".to_string(),
+            "receipt1.jpg".to_string(),
+            Some(2024),
+        );
+        db.create_receipt(&receipt).unwrap();
+
+        // Retrieve and verify source_year is preserved
+        let retrieved = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+        assert_eq!(retrieved.source_year, Some(2024));
+        assert_eq!(retrieved.file_name, "receipt1.jpg");
+
+        // Create receipt without source_year
+        let receipt_flat = Receipt::new_with_source_year(
+            "C:\\flat\\receipt2.jpg".to_string(),
+            "receipt2.jpg".to_string(),
+            None,
+        );
+        db.create_receipt(&receipt_flat).unwrap();
+
+        // Retrieve and verify source_year is None
+        let retrieved_flat = db.get_receipt_by_id(&receipt_flat.id.to_string()).unwrap().unwrap();
+        assert_eq!(retrieved_flat.source_year, None);
+
+        // Update receipt and verify source_year persists
+        let mut updated = retrieved;
+        updated.liters = Some(45.0);
+        db.update_receipt(&updated).unwrap();
+
+        let after_update = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+        assert_eq!(after_update.source_year, Some(2024));
+        assert_eq!(after_update.liters, Some(45.0));
     }
 }

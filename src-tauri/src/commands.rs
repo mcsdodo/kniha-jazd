@@ -1446,6 +1446,7 @@ mod tests {
             receipt_date: date,
             station_name: None,
             station_address: None,
+            source_year: None,
             status: ReceiptStatus::Parsed,
             confidence: FieldConfidence {
                 liters: ConfidenceLevel::High,
