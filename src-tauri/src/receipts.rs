@@ -8,9 +8,141 @@ use std::path::Path;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "pdf"];
 
+/// Result of detecting the folder structure for receipt scanning
+#[derive(Debug, Clone, PartialEq)]
+pub enum FolderStructure {
+    /// Flat structure: only image files at root level
+    Flat,
+    /// Year-based structure: only folders named with 4-digit years (e.g., "2024", "2025")
+    YearBased(Vec<i32>),
+    /// Invalid/mixed structure that cannot be processed
+    Invalid(String),
+}
+
+/// Detect the folder structure for receipt scanning
+pub fn detect_folder_structure(path: &str) -> FolderStructure {
+    let dir_path = Path::new(path);
+
+    if !dir_path.exists() || !dir_path.is_dir() {
+        return FolderStructure::Invalid(format!("Path is not a valid directory: {}", path));
+    }
+
+    let entries = match std::fs::read_dir(dir_path) {
+        Ok(entries) => entries,
+        Err(e) => return FolderStructure::Invalid(format!("Failed to read directory: {}", e)),
+    };
+
+    let mut has_files = false;
+    let mut year_folders: Vec<i32> = Vec::new();
+    let mut non_year_folders: Vec<String> = Vec::new();
+
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        let file_name = entry
+            .file_name()
+            .to_string_lossy()
+            .to_string();
+
+        if entry_path.is_file() {
+            // Check if it's a supported image file
+            let extension = entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.to_lowercase());
+
+            if extension
+                .map(|e| SUPPORTED_EXTENSIONS.contains(&e.as_str()))
+                .unwrap_or(false)
+            {
+                has_files = true;
+            }
+            // Ignore non-supported files (they don't affect folder structure detection)
+        } else if entry_path.is_dir() {
+            // Check if folder name is a 4-digit year
+            if file_name.len() == 4 && file_name.chars().all(|c| c.is_ascii_digit()) {
+                if let Ok(year) = file_name.parse::<i32>() {
+                    year_folders.push(year);
+                }
+            } else {
+                non_year_folders.push(file_name);
+            }
+        }
+    }
+
+    // Determine structure based on what we found
+    match (has_files, year_folders.is_empty(), non_year_folders.is_empty()) {
+        // Only files (no folders) -> Flat
+        (true, true, true) => FolderStructure::Flat,
+
+        // Only year folders (no files, no other folders) -> YearBased
+        (false, false, true) => {
+            year_folders.sort();
+            FolderStructure::YearBased(year_folders)
+        }
+
+        // Empty folder (no files, no folders) -> Flat (nothing to scan)
+        (false, true, true) => FolderStructure::Flat,
+
+        // Files + year folders -> Invalid (mixed)
+        (true, false, _) => FolderStructure::Invalid(
+            "Mixed structure: contains both image files and year folders".to_string()
+        ),
+
+        // Files + non-year folders -> Invalid (mixed)
+        (true, _, false) => FolderStructure::Invalid(
+            format!("Mixed structure: contains both image files and non-year folders: {}",
+                    non_year_folders.join(", "))
+        ),
+
+        // Only non-year folders -> Invalid
+        (false, true, false) => FolderStructure::Invalid(
+            format!("Invalid folder names (expected 4-digit years): {}",
+                    non_year_folders.join(", "))
+        ),
+
+        // Year folders + non-year folders -> Invalid
+        (false, false, false) => FolderStructure::Invalid(
+            format!("Mixed folder types: year folders and non-year folders: {}",
+                    non_year_folders.join(", "))
+        ),
+    }
+}
+
 /// Scan folder for new receipt images and return count of new files found
+/// Supports both flat folder structure and year-based folder structure.
 pub fn scan_folder_for_new_receipts(
     folder_path: &str,
+    db: &Database,
+) -> Result<Vec<Receipt>, String> {
+    // Detect folder structure first
+    let structure = detect_folder_structure(folder_path);
+
+    match structure {
+        FolderStructure::Flat => {
+            // Scan files directly in folder, no source_year
+            scan_files_in_folder(folder_path, None, db)
+        }
+        FolderStructure::YearBased(years) => {
+            // Scan each year folder with source_year set
+            let mut all_receipts = Vec::new();
+            for year in years {
+                let year_folder = Path::new(folder_path).join(year.to_string());
+                let year_path = year_folder.to_string_lossy().to_string();
+                let receipts = scan_files_in_folder(&year_path, Some(year), db)?;
+                all_receipts.extend(receipts);
+            }
+            Ok(all_receipts)
+        }
+        FolderStructure::Invalid(reason) => {
+            Err(format!("Invalid folder structure: {}", reason))
+        }
+    }
+}
+
+/// Scan files in a single folder and create receipts
+fn scan_files_in_folder(
+    folder_path: &str,
+    source_year: Option<i32>,
     db: &Database,
 ) -> Result<Vec<Receipt>, String> {
     let path = Path::new(folder_path);
@@ -54,14 +186,14 @@ pub fn scan_folder_for_new_receipts(
             continue;
         }
 
-        // Create new receipt record
+        // Create new receipt record with source_year
         let file_name = file_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
 
-        let receipt = Receipt::new(file_path_str, file_name);
+        let receipt = Receipt::new_with_source_year(file_path_str, file_name, source_year);
         db.create_receipt(&receipt).map_err(|e| e.to_string())?;
         new_receipts.push(receipt);
     }
@@ -136,6 +268,253 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
 mod tests {
     use super::*;
     use crate::gemini::ExtractionConfidence;
+    use tempfile::TempDir;
+    use std::fs::{self, File};
+
+    // Helper to create a temp directory with specific structure
+    fn create_test_folder_structure(
+        files: &[&str],
+        folders: &[&str],
+    ) -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+
+        for file in files {
+            let file_path = temp_dir.path().join(file);
+            if let Some(parent) = file_path.parent() {
+                if parent != temp_dir.path() {
+                    fs::create_dir_all(parent).unwrap();
+                }
+            }
+            File::create(file_path).unwrap();
+        }
+
+        for folder in folders {
+            fs::create_dir_all(temp_dir.path().join(folder)).unwrap();
+        }
+
+        temp_dir
+    }
+
+    // ===========================================
+    // Folder Structure Detection Tests
+    // ===========================================
+
+    #[test]
+    fn test_detect_flat_structure_with_images() {
+        let temp = create_test_folder_structure(
+            &["a.jpg", "b.png", "c.jpeg"],
+            &[],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        assert_eq!(result, FolderStructure::Flat);
+    }
+
+    #[test]
+    fn test_detect_flat_structure_empty_folder() {
+        let temp = create_test_folder_structure(&[], &[]);
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        // Empty folder is treated as Flat (nothing to scan)
+        assert_eq!(result, FolderStructure::Flat);
+    }
+
+    #[test]
+    fn test_detect_flat_structure_ignores_non_image_files() {
+        let temp = create_test_folder_structure(
+            &["receipt.jpg", "notes.txt", "data.json"],
+            &[],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        // Only considers supported image files
+        assert_eq!(result, FolderStructure::Flat);
+    }
+
+    #[test]
+    fn test_detect_year_based_structure() {
+        let temp = create_test_folder_structure(
+            &[],
+            &["2024", "2025"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        assert_eq!(result, FolderStructure::YearBased(vec![2024, 2025]));
+    }
+
+    #[test]
+    fn test_detect_year_based_structure_single_year() {
+        let temp = create_test_folder_structure(
+            &[],
+            &["2024"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        assert_eq!(result, FolderStructure::YearBased(vec![2024]));
+    }
+
+    #[test]
+    fn test_detect_year_based_structure_sorted() {
+        let temp = create_test_folder_structure(
+            &[],
+            &["2025", "2023", "2024"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        // Years should be sorted
+        assert_eq!(result, FolderStructure::YearBased(vec![2023, 2024, 2025]));
+    }
+
+    #[test]
+    fn test_detect_invalid_mixed_files_and_year_folders() {
+        let temp = create_test_folder_structure(
+            &["receipt.jpg"],
+            &["2024"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        match result {
+            FolderStructure::Invalid(reason) => {
+                assert!(reason.contains("Mixed"), "Expected 'Mixed' in reason: {}", reason);
+            }
+            _ => panic!("Expected Invalid, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_detect_invalid_non_year_folders() {
+        let temp = create_test_folder_structure(
+            &[],
+            &["January", "misc"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        match result {
+            FolderStructure::Invalid(reason) => {
+                assert!(reason.contains("January"), "Expected 'January' in reason: {}", reason);
+                assert!(reason.contains("misc"), "Expected 'misc' in reason: {}", reason);
+            }
+            _ => panic!("Expected Invalid, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_detect_invalid_mixed_year_and_non_year_folders() {
+        let temp = create_test_folder_structure(
+            &[],
+            &["2024", "misc"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        match result {
+            FolderStructure::Invalid(reason) => {
+                assert!(reason.contains("misc"), "Expected 'misc' in reason: {}", reason);
+            }
+            _ => panic!("Expected Invalid, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_detect_invalid_path_not_exists() {
+        let result = detect_folder_structure("/nonexistent/path/to/folder");
+        match result {
+            FolderStructure::Invalid(reason) => {
+                assert!(reason.contains("not a valid directory"),
+                    "Expected 'not a valid directory' in reason: {}", reason);
+            }
+            _ => panic!("Expected Invalid, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_detect_invalid_files_with_non_year_folders() {
+        let temp = create_test_folder_structure(
+            &["receipt.jpg"],
+            &["backup"],
+        );
+
+        let result = detect_folder_structure(temp.path().to_str().unwrap());
+        match result {
+            FolderStructure::Invalid(reason) => {
+                assert!(reason.contains("Mixed") || reason.contains("non-year"),
+                    "Expected mixed/non-year in reason: {}", reason);
+            }
+            _ => panic!("Expected Invalid, got {:?}", result),
+        }
+    }
+
+    // ===========================================
+    // Scanning Tests with Folder Structures
+    // ===========================================
+
+    #[test]
+    fn test_scan_year_folders_populates_source_year() {
+        let temp = create_test_folder_structure(
+            &["2024/receipt1.jpg", "2025/receipt2.jpg"],
+            &[],
+        );
+
+        let db = crate::db::Database::in_memory().unwrap();
+        let receipts = scan_folder_for_new_receipts(
+            temp.path().to_str().unwrap(),
+            &db
+        ).unwrap();
+
+        assert_eq!(receipts.len(), 2);
+
+        // Find the receipt from 2024 folder
+        let receipt_2024 = receipts.iter()
+            .find(|r| r.file_path.contains("2024"))
+            .expect("Should find receipt from 2024 folder");
+        assert_eq!(receipt_2024.source_year, Some(2024));
+
+        // Find the receipt from 2025 folder
+        let receipt_2025 = receipts.iter()
+            .find(|r| r.file_path.contains("2025"))
+            .expect("Should find receipt from 2025 folder");
+        assert_eq!(receipt_2025.source_year, Some(2025));
+    }
+
+    #[test]
+    fn test_scan_flat_folder_has_no_source_year() {
+        let temp = create_test_folder_structure(
+            &["receipt1.jpg", "receipt2.png"],
+            &[],
+        );
+
+        let db = crate::db::Database::in_memory().unwrap();
+        let receipts = scan_folder_for_new_receipts(
+            temp.path().to_str().unwrap(),
+            &db
+        ).unwrap();
+
+        assert_eq!(receipts.len(), 2);
+        for receipt in &receipts {
+            assert_eq!(receipt.source_year, None, "Flat folder should not set source_year");
+        }
+    }
+
+    #[test]
+    fn test_scan_invalid_structure_returns_error() {
+        let temp = create_test_folder_structure(
+            &["receipt.jpg"],
+            &["2024"],
+        );
+
+        let db = crate::db::Database::in_memory().unwrap();
+        let result = scan_folder_for_new_receipts(
+            temp.path().to_str().unwrap(),
+            &db
+        );
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Invalid folder structure"), "Expected 'Invalid folder structure' in error: {}", err);
+    }
+
+    // ===========================================
+    // Existing Extraction Tests
+    // ===========================================
 
     #[test]
     fn test_apply_extraction_high_confidence() {
