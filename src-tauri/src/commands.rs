@@ -1481,8 +1481,26 @@ pub fn preview_trip_calculation(
 
     // Create a virtual trip for preview
     let preview_trip_id = Uuid::new_v4();
-    let preview_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap(); // Placeholder date
     let now = Utc::now();
+
+    // Determine the date and odometer for the preview trip to place it correctly
+    // in chronological order for rate calculations
+    let (preview_date, preview_odometer) = if let Some(sort_order) = insert_at_sort_order {
+        // Inserting above a specific trip - use that trip's date and odometer - 0.5
+        // (so it sorts just before the target trip on same date)
+        trips
+            .iter()
+            .find(|t| t.sort_order == sort_order)
+            .map(|t| (t.date, t.odometer - 0.5))
+            .unwrap_or_else(|| (NaiveDate::from_ymd_opt(year, 12, 31).unwrap(), 0.0))
+    } else {
+        // New row at top - use the most recent trip's date and odometer + 0.5
+        trips
+            .iter()
+            .max_by_key(|t| (t.date, t.odometer as i64))
+            .map(|t| (t.date, t.odometer + 0.5))
+            .unwrap_or_else(|| (Utc::now().date_naive(), 0.0))
+    };
 
     let virtual_trip = Trip {
         id: preview_trip_id,
@@ -1491,7 +1509,7 @@ pub fn preview_trip_calculation(
         origin: "Preview".to_string(),
         destination: "Preview".to_string(),
         distance_km: distance_km as f64,
-        odometer: 0.0, // Not used for calculations
+        odometer: preview_odometer,
         purpose: "Preview".to_string(),
         fuel_liters,
         fuel_cost_eur: None,

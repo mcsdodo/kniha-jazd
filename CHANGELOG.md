@@ -12,6 +12,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Živý náhľad spotreby pri úprave jázd - zostatok paliva a spotreba sa aktualizujú pri každom stlačení klávesy
 
 ### Opravené
+- Živý náhľad spotreby: správne umiestnenie náhľadovej jazdy v chronologickom poradí pre výpočet spotreby
 - Zjednotená výška vstupných polí v riadku úprav (tabuľka jázd)
 - Pridané medzery medzi vstupnými poľami v riadku úprav
 - Km a ODO zobrazené ako celé čísla (bez desatinných miest)
