@@ -12,7 +12,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Živý náhľad spotreby pri úprave jázd - zostatok paliva a spotreba sa aktualizujú pri každom stlačení klávesy
 
 ### Zmenené
-- Živý náhľad spotreby: percento marže sa zobrazuje len pri prekročení 20% limitu
+- Živý náhľad spotreby: percento marže sa zobrazuje vždy - zelená farba pri dodržaní limitu, červená pri prekročení 20%
 
 ### Opravené
 - Živý náhľad spotreby: náhľad sa zobrazí hneď pri začatí úpravy riadku (nie len po zmene hodnoty)

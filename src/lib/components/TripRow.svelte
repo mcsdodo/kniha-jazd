@@ -242,11 +242,9 @@
 		<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
 			{#if previewData}
 				~{previewData.consumptionRate.toFixed(2)}
-				{#if previewData.isOverLimit}
-					<span class="margin over-limit">
-						(+{previewData.marginPercent.toFixed(0)}%)
-					</span>
-				{/if}
+				<span class="margin" class:over-limit={previewData.isOverLimit} class:within-limit={!previewData.isOverLimit}>
+					({previewData.marginPercent >= 0 ? '+' : ''}{previewData.marginPercent.toFixed(0)}%)
+				</span>
 			{:else}
 				{consumptionRate.toFixed(2)}
 			{/if}
@@ -433,6 +431,10 @@
 	.margin.over-limit {
 		color: #e74c3c;
 		font-weight: 500;
+	}
+
+	.margin.within-limit {
+		color: #27ae60;
 	}
 
 	td.actions {
