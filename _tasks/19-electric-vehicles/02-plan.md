@@ -1,0 +1,329 @@
+**Date:** 2026-01-01
+**Subject:** Implementation Plan - Electric Vehicle Support
+**Status:** Planning
+
+---
+
+# Implementation Plan
+
+## Overview
+
+Implement BEV and PHEV support in 3 phases, with each phase delivering working functionality. The key principle is **parallel implementation** - energy calculations are separate from fuel calculations to avoid breaking existing ICE functionality.
+
+## Pre-Implementation
+
+- [ ] Create feature branch: `feature/electric-vehicles`
+- [ ] Verify all existing tests pass: `cargo test`
+
+---
+
+## Phase 1: Foundation (Models + Calculations)
+
+**Goal:** Add data structures and calculation logic without changing any existing code paths.
+
+### 1.1 Add VehicleType Enum
+
+**File:** `src-tauri/src/models.rs`
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub enum VehicleType {
+    #[default]
+    Ice,
+    Bev,
+    Phev,
+}
+```
+
+- [ ] Add enum definition
+- [ ] Implement Display trait for UI
+- [ ] Add to Vehicle struct as `vehicle_type: VehicleType`
+
+### 1.2 Extend Vehicle Model
+
+**File:** `src-tauri/src/models.rs`
+
+Add optional fields (None for vehicle types that don't use them):
+
+- [ ] `battery_capacity_kwh: Option<f64>`
+- [ ] `baseline_consumption_kwh: Option<f64>`
+- [ ] Make `tank_size_liters` and `tp_consumption` optional (will be None for BEV)
+
+### 1.3 Extend Trip Model
+
+**File:** `src-tauri/src/models.rs`
+
+- [ ] `energy_kwh: Option<f64>` - Energy charged
+- [ ] `energy_cost_eur: Option<f64>` - Charging cost
+- [ ] `full_charge: bool` - Charged to target SoC
+- [ ] Add `is_charge()` helper method
+
+### 1.4 Create Energy Calculations Module
+
+**File:** `src-tauri/src/calculations_energy.rs` (NEW)
+
+- [ ] `calculate_consumption_rate_kwh(kwh, km) -> f64`
+- [ ] `calculate_energy_used(distance_km, rate) -> f64`
+- [ ] `calculate_battery_remaining(previous, used, charged, capacity) -> f64`
+- [ ] `kwh_to_percent(kwh, capacity) -> f64`
+- [ ] Add unit tests (minimum 7 tests from technical-analysis.md)
+
+### 1.5 Create PHEV Calculations Module
+
+**File:** `src-tauri/src/calculations_phev.rs` (NEW)
+
+- [ ] Define `PhevTripConsumption` struct
+- [ ] `calculate_phev_trip_consumption(...)` - electricity first, then fuel
+- [ ] Add unit tests (minimum 4 tests from technical-analysis.md)
+
+### 1.6 Database Migration
+
+**File:** `src-tauri/migrations/YYYYMMDD_add_ev_support.sql` (NEW)
+
+```sql
+ALTER TABLE vehicles ADD COLUMN vehicle_type TEXT NOT NULL DEFAULT 'Ice';
+ALTER TABLE vehicles ADD COLUMN battery_capacity_kwh REAL;
+ALTER TABLE vehicles ADD COLUMN baseline_consumption_kwh REAL;
+
+ALTER TABLE trips ADD COLUMN energy_kwh REAL;
+ALTER TABLE trips ADD COLUMN energy_cost_eur REAL;
+ALTER TABLE trips ADD COLUMN full_charge INTEGER DEFAULT 0;
+
+CREATE INDEX idx_vehicles_type ON vehicles(vehicle_type);
+```
+
+- [ ] Create migration file
+- [ ] Update db.rs to read/write new fields
+- [ ] Test migration on fresh and existing databases
+
+### 1.7 Register New Modules
+
+**File:** `src-tauri/src/main.rs`
+
+- [ ] Add `mod calculations_energy;`
+- [ ] Add `mod calculations_phev;`
+
+### Phase 1 Verification
+
+- [ ] `cargo test` - all existing tests pass
+- [ ] New calculation tests pass
+- [ ] App starts without errors
+- [ ] Existing ICE vehicles work unchanged
+
+---
+
+## Phase 2: BEV Support
+
+**Goal:** Full BEV functionality - create vehicle, track trips, see battery state.
+
+### 2.1 Update Vehicle Commands
+
+**File:** `src-tauri/src/commands.rs`
+
+- [ ] `create_vehicle` - accept vehicle_type and battery fields
+- [ ] `update_vehicle` - handle battery fields
+- [ ] `get_vehicle` - return new fields
+
+### 2.2 Update Trip Commands
+
+**File:** `src-tauri/src/commands.rs`
+
+- [ ] `create_trip` - accept energy fields
+- [ ] `update_trip` - handle energy fields
+- [ ] Validate: BEV trips should not have fuel_liters
+
+### 2.3 Extend TripGridData
+
+**File:** `src-tauri/src/models.rs`
+
+Add to `TripGridData`:
+- [ ] `energy_rates: HashMap<String, f64>`
+- [ ] `battery_remaining_kwh: HashMap<String, f64>`
+- [ ] `battery_remaining_percent: HashMap<String, f64>`
+- [ ] `estimated_energy_rates: HashSet<String>`
+
+### 2.4 Update get_trip_grid_data
+
+**File:** `src-tauri/src/commands.rs`
+
+- [ ] Check vehicle type before processing
+- [ ] For BEV: calculate energy consumption instead of fuel
+- [ ] For BEV: populate energy-related HashMaps
+- [ ] For BEV: skip margin calculation
+
+### 2.5 Vehicle Form UI
+
+**File:** `src/lib/components/VehicleForm.svelte` (or similar)
+
+- [ ] Add vehicle type selector (dropdown)
+- [ ] Show/hide fields based on type:
+  - ICE: tank + TP consumption
+  - BEV: battery + baseline consumption
+  - PHEV: all fields
+- [ ] Validation: required fields per type
+
+### 2.6 Trip Form UI
+
+**File:** `src/lib/components/TripForm.svelte` (or similar)
+
+- [ ] For BEV: show energy fields instead of fuel fields
+- [ ] Energy (kWh) input
+- [ ] Energy cost (€) input
+- [ ] Full charge checkbox
+
+### 2.7 Trip Grid UI
+
+**File:** `src/routes/+page.svelte` (or trip grid component)
+
+- [ ] Conditional columns based on vehicle type
+- [ ] For BEV: show Energy used, Battery remaining (kWh / %)
+- [ ] For BEV: hide fuel columns
+- [ ] For BEV: hide margin column
+
+### 2.8 Update Export
+
+**File:** `src-tauri/src/export.rs`
+
+- [ ] Check vehicle type in export
+- [ ] BEV: show energy columns instead of fuel
+- [ ] Update column headers for Slovak (kWh, Batéria, etc.)
+
+### Phase 2 Verification
+
+- [ ] Create BEV vehicle with battery settings
+- [ ] Add trips with charging data
+- [ ] Battery remaining calculates correctly
+- [ ] Export shows energy data correctly
+- [ ] ICE vehicles still work unchanged
+
+---
+
+## Phase 3: PHEV Support
+
+**Goal:** Full PHEV functionality - dual fuel tracking, electricity-first logic.
+
+### 3.1 PHEV Trip Processing
+
+**File:** `src-tauri/src/commands.rs`
+
+- [ ] For PHEV: use `calculate_phev_trip_consumption`
+- [ ] Track both battery_remaining and fuel_remaining
+- [ ] Calculate km_on_electricity and km_on_fuel
+
+### 3.2 PHEV Margin Calculation
+
+**File:** `src-tauri/src/commands.rs`
+
+- [ ] Calculate margin for fuel portion only
+- [ ] Use km_on_fuel (not total km) for fuel consumption rate
+- [ ] Add consumption warning if fuel margin > 20%
+
+### 3.3 Vehicle Form UI - PHEV
+
+- [ ] When PHEV selected: show ALL fields
+- [ ] Both tank + TP consumption
+- [ ] Both battery + baseline consumption
+
+### 3.4 Trip Form UI - PHEV
+
+- [ ] Show both fuel AND energy sections
+- [ ] All fields optional (trip may have charge, refuel, both, or neither)
+- [ ] Clear visual separation between sections
+
+### 3.5 Trip Grid UI - PHEV
+
+- [ ] Show both fuel and energy columns
+- [ ] Consider column grouping or tabs
+- [ ] Show margin only for fuel (with clear indication)
+
+### 3.6 PHEV Export
+
+- [ ] Show both fuel and energy data
+- [ ] Separate sections or columns for each fuel type
+- [ ] Show km on electricity vs km on fuel
+
+### Phase 3 Verification
+
+- [ ] Create PHEV vehicle with all settings
+- [ ] Add trip with charge only - uses electricity
+- [ ] Add trip with no charge - continues on battery until depleted
+- [ ] Add trip after battery depleted - uses fuel only
+- [ ] Refuel and charge in same trip works
+- [ ] Margin shows for fuel only
+- [ ] Export shows both fuel types
+
+---
+
+## Phase 4: Polish & Edge Cases
+
+### 4.1 Initial Battery State
+
+- [ ] Add `initial_battery_kwh` to Vehicle (like `initial_odometer`)
+- [ ] Or assume full battery for first record
+
+### 4.2 Suggestions for PHEV
+
+- [ ] Compensation suggestions should consider electricity-first logic
+- [ ] Only suggest when fuel margin is over limit (not electricity)
+
+### 4.3 Statistics
+
+- [ ] Update TripStats for energy totals
+- [ ] Cost comparison: fuel vs electricity
+
+### 4.4 Edge Cases
+
+- [ ] Zero battery capacity edge case
+- [ ] Zero baseline consumption edge case
+- [ ] Negative battery remaining (should clamp to 0)
+- [ ] Battery > capacity (should clamp)
+
+---
+
+## Testing Strategy
+
+### Unit Tests (Rust)
+
+| Module | Tests |
+|--------|-------|
+| `calculations_energy.rs` | 7+ tests |
+| `calculations_phev.rs` | 4+ tests |
+| `db.rs` | CRUD for new fields |
+| `commands.rs` | BEV/PHEV trip processing |
+
+### Integration Tests
+
+- [ ] BEV vehicle lifecycle (create → trips → export)
+- [ ] PHEV vehicle lifecycle
+- [ ] Migration on existing database
+- [ ] ICE regression test
+
+### Manual Testing
+
+- [ ] Create each vehicle type
+- [ ] Full trip sequence for each type
+- [ ] Export verification
+- [ ] Year picker works with EV vehicles
+
+---
+
+## Rollback Plan
+
+If issues found after deployment:
+1. Database migration is additive (no data loss)
+2. New fields are all nullable/optional
+3. Existing ICE vehicles continue to work
+4. Can disable EV UI without backend changes
+
+---
+
+## Post-Implementation
+
+- [ ] Run `/changelog` to update CHANGELOG.md
+- [ ] Update README.md with EV feature description
+- [ ] Consider `/decision` for key architectural choices made
+
+---
+
+*Plan created: 2026-01-01*
+*Based on: [technical-analysis.md](./technical-analysis.md)*
