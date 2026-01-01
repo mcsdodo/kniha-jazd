@@ -154,6 +154,15 @@ export interface VerificationResult {
 	receipts: ReceiptVerification[];
 }
 
+// Live preview result for trip editing
+export interface PreviewResult {
+	zostatok: number;
+	consumptionRate: number;
+	marginPercent: number;
+	isOverLimit: boolean;
+	isEstimatedRate: boolean;
+}
+
 // Export labels passed to Rust for HTML export
 export interface ExportLabels {
 	// Language code for HTML lang attribute

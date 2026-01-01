@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData } from '$lib/api';
+	import type { Trip, Route, TripGridData, PreviewResult } from '$lib/types';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -48,6 +48,10 @@
 	let editingTripId: string | null = null;
 	let insertAtSortOrder: number | null = null;
 	let insertDate: string | null = null;
+
+	// Live preview state
+	let previewData: PreviewResult | null = null;
+	let previewingTripId: string | null = null; // Which row is previewing (null = new row)
 
 	// Sorting state (exported for parent access)
 	type SortColumn = 'manual' | 'date';
@@ -113,6 +117,9 @@
 			showNewRow = false;
 			insertAtSortOrder = null;
 			insertDate = null;
+			// Clear preview
+			previewData = null;
+			previewingTripId = null;
 			await recalculateAllOdo();
 			onTripsChanged();
 			await loadRoutes();
@@ -188,6 +195,9 @@
 		showNewRow = false;
 		insertAtSortOrder = null;
 		insertDate = null;
+		// Clear preview
+		previewData = null;
+		previewingTripId = null;
 	}
 
 	function handleEditStart(tripId: string) {
@@ -196,12 +206,41 @@
 
 	function handleEditEnd() {
 		editingTripId = null;
+		// Clear preview
+		previewData = null;
+		previewingTripId = null;
 	}
 
 	function handleInsertAbove(targetTrip: Trip) {
 		insertAtSortOrder = targetTrip.sort_order;
 		insertDate = targetTrip.date;
 		showNewRow = true;
+	}
+
+	// Live preview calculation handler
+	async function handlePreviewRequest(
+		tripId: string | null,
+		sortOrder: number | null,
+		km: number,
+		fuel: number | null,
+		fullTank: boolean
+	) {
+		try {
+			previewData = await previewTripCalculation(
+				vehicleId,
+				year,
+				km,
+				fuel,
+				fullTank,
+				sortOrder,
+				tripId
+			);
+			previewingTripId = tripId;
+		} catch (error) {
+			console.error('Preview calculation failed:', error);
+			// Don't show error toast - preview is non-critical
+			previewData = null;
+		}
 	}
 
 	// Move trip up (swap with previous row - lower sort_order)
@@ -375,6 +414,8 @@
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
+						previewData={previewingTripId === null ? previewData : null}
+						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
 					/>
 				{/if}
 				<!-- Trip rows -->
@@ -393,6 +434,8 @@
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
+							previewData={previewingTripId === null ? previewData : null}
+							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtSortOrder, km, fuel, fullTank)}
 						/>
 					{/if}
 					{#if isFirstRecord(trip)}
@@ -435,6 +478,8 @@
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
 							hasMatchingReceipt={!gridData?.missing_receipts.includes(trip.id)}
+							previewData={previewingTripId === trip.id ? previewData : null}
+							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sort_order, km, fuel, fullTank)}
 						/>
 					{/if}
 				{/each}

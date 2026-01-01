@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -259,4 +259,25 @@ export interface WindowSize {
 
 export async function getOptimalWindowSize(): Promise<WindowSize> {
 	return await invoke('get_optimal_window_size');
+}
+
+// Live Preview
+export async function previewTripCalculation(
+	vehicleId: string,
+	year: number,
+	distanceKm: number,
+	fuelLiters: number | null,
+	fullTank: boolean,
+	insertAtSortOrder: number | null,
+	editingTripId: string | null
+): Promise<PreviewResult> {
+	return await invoke('preview_trip_calculation', {
+		vehicleId,
+		year,
+		distanceKm,
+		fuelLiters,
+		fullTank,
+		insertAtSortOrder,
+		editingTripId
+	});
 }

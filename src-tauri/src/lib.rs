@@ -74,6 +74,7 @@ pub fn run() {
       commands::assign_receipt_to_trip,
       commands::verify_receipts,
       commands::get_optimal_window_size,
+      commands::preview_trip_calculation,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

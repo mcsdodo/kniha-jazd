@@ -249,3 +249,20 @@ pub struct VerificationResult {
     pub unmatched: usize,
     pub receipts: Vec<ReceiptVerification>,
 }
+
+/// Preview result for live calculation feedback during trip editing.
+/// Provides instant feedback on fuel consumption and remaining fuel.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewResult {
+    /// Fuel remaining after this trip (liters)
+    pub zostatok: f64,
+    /// Consumption rate for the fill-up period this trip belongs to (l/100km)
+    pub consumption_rate: f64,
+    /// Percentage over TP rate (e.g., 18.5 means 18.5% over TP)
+    pub margin_percent: f64,
+    /// True if margin exceeds 20% legal limit
+    pub is_over_limit: bool,
+    /// True if rate is estimated (no full-tank fill-up yet in this period)
+    pub is_estimated_rate: bool,
+}

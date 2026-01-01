@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route } from '$lib/types';
+	import type { Trip, Route, PreviewResult } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -26,6 +26,9 @@
 	export let hasConsumptionWarning: boolean = false;
 	export let isEstimatedRate: boolean = false;
 	export let hasMatchingReceipt: boolean = true;
+	// Live preview props
+	export let previewData: PreviewResult | null = null;
+	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
@@ -86,6 +89,20 @@
 		if (!manualOdoEdit && km !== null) {
 			formData.odometer = previousOdometer + km;
 		}
+		// Request live preview calculation
+		onPreviewRequest(km ?? 0, formData.fuel_liters, formData.full_tank);
+	}
+
+	// Request preview when fuel changes
+	function handleFuelChange(event: Event) {
+		const inputValue = (event.target as HTMLInputElement).value;
+		formData.fuel_liters = inputValue === '' ? null : (parseFloat(inputValue) || null);
+		onPreviewRequest(formData.distance_km ?? 0, formData.fuel_liters, formData.full_tank);
+	}
+
+	// Request preview when full_tank changes
+	function handleFullTankChange() {
+		onPreviewRequest(formData.distance_km ?? 0, formData.fuel_liters, formData.full_tank);
 	}
 
 	function handleOdoChange(event: Event) {
@@ -197,14 +214,15 @@
 		<td class="fuel-cell">
 			<input
 				type="number"
-				bind:value={formData.fuel_liters}
+				value={formData.fuel_liters}
+				on:input={handleFuelChange}
 				step="0.01"
 				min="0"
 				placeholder="0.00"
 			/>
 			{#if formData.fuel_liters}
 				<label class="full-tank-label">
-					<input type="checkbox" bind:checked={formData.full_tank} />
+					<input type="checkbox" bind:checked={formData.full_tank} on:change={handleFullTankChange} />
 					<span class="checkmark"></span>
 					<span class="label-text">{$LL.trips.fullTank()}</span>
 				</label>
@@ -219,11 +237,24 @@
 				placeholder="0.00"
 			/>
 		</td>
-		<td class="number calculated">
-			{consumptionRate.toFixed(2)}
+		<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
+			{#if previewData}
+				~{previewData.consumptionRate.toFixed(2)}
+				{#if previewData.marginPercent > 0}
+					<span class="margin" class:over-limit={previewData.isOverLimit}>
+						(+{previewData.marginPercent.toFixed(0)}%)
+					</span>
+				{/if}
+			{:else}
+				{consumptionRate.toFixed(2)}
+			{/if}
 		</td>
-		<td class="number calculated">
-			{zostatok.toFixed(1)}
+		<td class="number calculated" class:preview={previewData}>
+			{#if previewData}
+				~{previewData.zostatok.toFixed(1)}
+			{:else}
+				{zostatok.toFixed(1)}
+			{/if}
 		</td>
 		<td>
 			<input
@@ -381,6 +412,25 @@
 	td.calculated {
 		color: #7f8c8d;
 		font-style: italic;
+	}
+
+	/* Live preview styling */
+	td.preview {
+		opacity: 0.85;
+	}
+
+	td.over-limit {
+		background-color: #fff3e0;
+	}
+
+	.margin {
+		font-size: 0.75rem;
+		margin-left: 0.25rem;
+	}
+
+	.margin.over-limit {
+		color: #e74c3c;
+		font-weight: 500;
 	}
 
 	td.actions {

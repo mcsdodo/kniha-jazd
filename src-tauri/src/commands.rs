@@ -6,7 +6,7 @@ use crate::calculations::{
 };
 use crate::db::Database;
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
-use crate::models::{Route, Settings, Trip, TripGridData, TripStats, Vehicle};
+use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle};
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{Datelike, NaiveDate, Utc, Local};
@@ -1449,6 +1449,124 @@ pub fn get_optimal_window_size() -> WindowSize {
         .unwrap_or(1080);
 
     WindowSize { width, height }
+}
+
+// ============================================================================
+// Live Preview Commands
+// ============================================================================
+
+/// Calculate preview values for a trip being edited/created.
+/// Returns consumption rate, zostatok, and margin without saving.
+#[tauri::command]
+pub fn preview_trip_calculation(
+    db: State<Database>,
+    vehicle_id: String,
+    year: i32,
+    distance_km: i32,
+    fuel_liters: Option<f64>,
+    full_tank: bool,
+    insert_at_sort_order: Option<i32>,
+    editing_trip_id: Option<String>,
+) -> Result<PreviewResult, String> {
+    // Get vehicle for TP consumption and tank size
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    // Get existing trips
+    let mut trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+
+    // Create a virtual trip for preview
+    let preview_trip_id = Uuid::new_v4();
+    let preview_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap(); // Placeholder date
+    let now = Utc::now();
+
+    let virtual_trip = Trip {
+        id: preview_trip_id,
+        vehicle_id: Uuid::parse_str(&vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
+        date: preview_date,
+        origin: "Preview".to_string(),
+        destination: "Preview".to_string(),
+        distance_km: distance_km as f64,
+        odometer: 0.0, // Not used for calculations
+        purpose: "Preview".to_string(),
+        fuel_liters,
+        fuel_cost_eur: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        full_tank,
+        sort_order: insert_at_sort_order.unwrap_or(0),
+        created_at: now,
+        updated_at: now,
+    };
+
+    // Handle editing vs inserting
+    if let Some(edit_id) = &editing_trip_id {
+        // Replace existing trip with virtual trip (keeping the ID for lookup)
+        if let Some(pos) = trips.iter().position(|t| t.id.to_string() == *edit_id) {
+            let existing = &trips[pos];
+            // Create a modified trip with the new values but same ID
+            let modified_trip = Trip {
+                id: existing.id,
+                vehicle_id: existing.vehicle_id,
+                date: existing.date,
+                origin: existing.origin.clone(),
+                destination: existing.destination.clone(),
+                distance_km: distance_km as f64,
+                odometer: existing.odometer,
+                purpose: existing.purpose.clone(),
+                fuel_liters,
+                fuel_cost_eur: existing.fuel_cost_eur,
+                other_costs_eur: existing.other_costs_eur,
+                other_costs_note: existing.other_costs_note.clone(),
+                full_tank,
+                sort_order: existing.sort_order,
+                created_at: existing.created_at,
+                updated_at: now,
+            };
+            trips[pos] = modified_trip;
+        }
+    } else {
+        // Insert new virtual trip at the specified position
+        trips.push(virtual_trip);
+    }
+
+    // Sort chronologically for calculations
+    trips.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Calculate rates and remaining fuel using existing logic
+    let (rates, estimated_rates) = calculate_period_rates(&trips, vehicle.tp_consumption);
+    let fuel_remaining = calculate_fuel_remaining(&trips, &rates, vehicle.tank_size_liters);
+
+    // Find the preview trip in results
+    let target_id = if let Some(edit_id) = editing_trip_id {
+        edit_id
+    } else {
+        preview_trip_id.to_string()
+    };
+
+    let consumption_rate = rates.get(&target_id).copied().unwrap_or(vehicle.tp_consumption);
+    let zostatok = fuel_remaining.get(&target_id).copied().unwrap_or(vehicle.tank_size_liters);
+    let is_estimated_rate = estimated_rates.contains(&target_id);
+    let margin_percent = calculate_margin_percent(consumption_rate, vehicle.tp_consumption);
+    let is_over_limit = !is_within_legal_limit(margin_percent);
+
+    Ok(PreviewResult {
+        zostatok,
+        consumption_rate,
+        margin_percent,
+        is_over_limit,
+        is_estimated_rate,
+    })
 }
 
 // ============================================================================
