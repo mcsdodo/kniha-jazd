@@ -181,10 +181,10 @@
 			/>
 		</td>
 		<td>
-			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="0.1" min="0" placeholder="0.0" />
+			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="1" min="0" placeholder="0" />
 		</td>
 		<td>
-			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="0.1" min="0" placeholder="0.0" />
+			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" />
 		</td>
 		<td>
 			<Autocomplete
@@ -255,8 +255,8 @@
 		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		<td>{trip.origin}</td>
 		<td>{trip.destination}</td>
-		<td class="number">{trip.distance_km.toFixed(1)}</td>
-		<td class="number">{trip.odometer.toFixed(1)}</td>
+		<td class="number">{trip.distance_km.toFixed(0)}</td>
+		<td class="number">{trip.odometer.toFixed(0)}</td>
 		<td>{trip.purpose}</td>
 		<td class="number">
 			{#if trip.fuel_liters}
@@ -390,10 +390,10 @@
 
 	input {
 		width: 100%;
-		padding: 0.375rem;
+		padding: 0.5rem;
 		border: 1px solid #ddd;
 		border-radius: 4px;
-		font-size: 0.8rem;
+		font-size: 0.875rem;
 		box-sizing: border-box;
 	}
 

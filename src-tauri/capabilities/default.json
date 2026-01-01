@@ -13,6 +13,9 @@
       "allow": [
         { "path": "**" }
       ]
-    }
+    },
+    "core:window:allow-set-size",
+    "core:window:allow-inner-size",
+    "core:window:allow-center"
   ]
 }

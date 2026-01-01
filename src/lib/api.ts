@@ -250,3 +250,13 @@ export async function assignReceiptToTrip(
 export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {
 	return await invoke('verify_receipts', { vehicleId, year });
 }
+
+// Window
+export interface WindowSize {
+	width: number;
+	height: number;
+}
+
+export async function getOptimalWindowSize(): Promise<WindowSize> {
+	return await invoke('get_optimal_window_size');
+}

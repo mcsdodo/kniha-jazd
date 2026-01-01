@@ -171,6 +171,10 @@ npm run lint && npm run format
 
 ## Git Guidelines
 
+**When to commit:**
+  - **Planned tasks (with todos):** Commit after completing task items as part of workflow
+  - **Quick fixes/ad-hoc changes:** Ask user before committing - they may want to review first
+
 **Only commit files you changed in THIS session.** Before committing:
 1. Run `git status` to see all modified files
 2. Stage only files related to your current task

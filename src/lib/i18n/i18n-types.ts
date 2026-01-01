@@ -91,6 +91,10 @@ type RootTranslation = {
 		 * R​o​k​:
 		 */
 		yearLabel: string
+		/**
+		 * O​p​t​i​m​á​l​n​a​ ​v​e​ľ​k​o​s​ť​ ​o​k​n​a
+		 */
+		resetWindowSize: string
 	}
 	home: {
 		/**
@@ -1143,6 +1147,10 @@ export type TranslationFunctions = {
 		 * Rok:
 		 */
 		yearLabel: () => LocalizedString
+		/**
+		 * Optimálna veľkosť okna
+		 */
+		resetWindowSize: () => LocalizedString
 	}
 	home: {
 		/**

@@ -7,8 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- Tlačidlo na obnovenie optimálnej veľkosti okna (zobrazí sa len ak okno nemá predvolenú veľkosť)
+
 ### Opravené
-- Pridané medzery medzi vstupnými poľami v riadku úprav (tabuľka jázd)
+- Zjednotená výška vstupných polí v riadku úprav (tabuľka jázd)
+- Pridané medzery medzi vstupnými poľami v riadku úprav
+- Km a ODO zobrazené ako celé čísla (bez desatinných miest)
 
 ## [0.6.0] - 2025-12-30
 

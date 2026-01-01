@@ -5,13 +5,18 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
 	import { localeStore } from '$lib/stores/locale';
-	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
+	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
+	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 
 	let { children } = $props();
+
+	// Window size tracking (no defaults - loaded from backend)
+	let optimalSize = $state<WindowSize | null>(null);
+	let isOptimalSize = $state(true);
 
 	let availableYears = $state<number[]>([]);
 	let i18nReady = $state(false);
@@ -39,6 +44,24 @@
 		}
 	}
 
+	async function checkWindowSize() {
+		if (!optimalSize) return;
+		const win = getCurrentWindow();
+		const size = await win.innerSize();
+		// Allow small tolerance (±5px) for OS quirks
+		isOptimalSize =
+			Math.abs(size.width - optimalSize.width) <= 5 &&
+			Math.abs(size.height - optimalSize.height) <= 5;
+	}
+
+	async function resetWindowSize() {
+		if (!optimalSize) return;
+		const win = getCurrentWindow();
+		await win.setSize(new LogicalSize(optimalSize.width, optimalSize.height));
+		await win.center();
+		isOptimalSize = true;
+	}
+
 	onMount(async () => {
 		// Initialize i18n first
 		localeStore.init();
@@ -52,6 +75,12 @@
 			vehiclesStore.set(vehicles);
 			activeVehicleStore.set(activeVehicle);
 			await loadYears();
+
+			// Load optimal window size and start tracking
+			optimalSize = await getOptimalWindowSize();
+			await checkWindowSize();
+			const win = getCurrentWindow();
+			await win.onResized(checkWindowSize);
 		} catch (error) {
 			console.error('Failed to load initial data:', error);
 		}
@@ -124,6 +153,18 @@
 							{/each}
 						</select>
 					</div>
+				{/if}
+				{#if optimalSize && !isOptimalSize}
+					<button
+						class="resize-btn"
+						onclick={resetWindowSize}
+						title={$LL.app.resetWindowSize()}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="3" width="18" height="18" rx="2"/>
+							<path d="M9 3v18M3 9h18"/>
+						</svg>
+					</button>
 				{/if}
 			</div>
 		</div>
@@ -240,6 +281,23 @@
 		outline: none;
 		border-color: #3498db;
 		box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+	}
+
+	.resize-btn {
+		background: rgba(255, 255, 255, 0.1);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 4px;
+		padding: 0.375rem;
+		cursor: pointer;
+		color: rgba(255, 255, 255, 0.7);
+		display: flex;
+		align-items: center;
+		transition: all 0.2s;
+	}
+
+	.resize-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
+		color: white;
 	}
 
 	main {

@@ -1414,6 +1414,44 @@ pub fn verify_receipts(
 }
 
 // ============================================================================
+// Window Commands
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WindowSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Returns the optimal window size from tauri.conf.json (embedded at compile time)
+#[tauri::command]
+pub fn get_optimal_window_size() -> WindowSize {
+    // Parse tauri.conf.json at compile time
+    let config_str = include_str!("../tauri.conf.json");
+
+    // Simple parsing - find width and height values
+    let width = config_str
+        .find("\"width\":")
+        .and_then(|i| {
+            let rest = &config_str[i + 8..];
+            let end = rest.find(',')?;
+            rest[..end].trim().parse().ok()
+        })
+        .unwrap_or(1980);
+
+    let height = config_str
+        .find("\"height\":")
+        .and_then(|i| {
+            let rest = &config_str[i + 9..];
+            let end = rest.find(',')?;
+            rest[..end].trim().parse().ok()
+        })
+        .unwrap_or(1080);
+
+    WindowSize { width, height }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

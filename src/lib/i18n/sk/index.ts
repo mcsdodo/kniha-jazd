@@ -27,6 +27,7 @@ const sk = {
 		vehicleLabel: 'Vozidlo:',
 		vehiclePlaceholder: '-- Vyberte vozidlo --',
 		yearLabel: 'Rok:',
+		resetWindowSize: 'Optimálna veľkosť okna',
 	},
 
 	// Home page
