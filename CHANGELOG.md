@@ -11,6 +11,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Tlačidlo na obnovenie optimálnej veľkosti okna (zobrazí sa len ak okno nemá predvolenú veľkosť)
 - Živý náhľad spotreby pri úprave jázd - zostatok paliva a spotreba sa aktualizujú pri každom stlačení klávesy
 
+### Zmenené
+- Živý náhľad spotreby: percento marže sa zobrazuje len pri prekročení 20% limitu
+
 ### Opravené
 - Živý náhľad spotreby: správne umiestnenie náhľadovej jazdy v chronologickom poradí pre výpočet spotreby
 - Zjednotená výška vstupných polí v riadku úprav (tabuľka jázd)

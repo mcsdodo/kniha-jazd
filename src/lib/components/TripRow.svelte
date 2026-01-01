@@ -240,8 +240,8 @@
 		<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
 			{#if previewData}
 				~{previewData.consumptionRate.toFixed(2)}
-				{#if previewData.marginPercent > 0}
-					<span class="margin" class:over-limit={previewData.isOverLimit}>
+				{#if previewData.isOverLimit}
+					<span class="margin over-limit">
 						(+{previewData.marginPercent.toFixed(0)}%)
 					</span>
 				{/if}
