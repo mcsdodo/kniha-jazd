@@ -114,6 +114,8 @@
 	function handleEdit() {
 		isEditing = true;
 		onEditStart();
+		// Trigger preview immediately with current values
+		onPreviewRequest(formData.distance_km ?? 0, formData.fuel_liters, formData.full_tank);
 	}
 
 	function handleSave() {

@@ -15,6 +15,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Živý náhľad spotreby: percento marže sa zobrazuje len pri prekročení 20% limitu
 
 ### Opravené
+- Živý náhľad spotreby: náhľad sa zobrazí hneď pri začatí úpravy riadku (nie len po zmene hodnoty)
 - Živý náhľad spotreby: správne umiestnenie náhľadovej jazdy v chronologickom poradí pre výpočet spotreby
 - Zjednotená výška vstupných polí v riadku úprav (tabuľka jázd)
 - Pridané medzery medzi vstupnými poľami v riadku úprav
