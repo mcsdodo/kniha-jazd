@@ -342,6 +342,12 @@
 		cursor: default;
 	}
 
+	tr.editing td input,
+	tr.editing td :global(.autocomplete) {
+		margin: 0 0.125rem;
+		width: calc(100% - 0.25rem);
+	}
+
 	tr.date-warning {
 		background-color: #ffebee; /* light red */
 	}

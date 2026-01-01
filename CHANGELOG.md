@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- Pridané medzery medzi vstupnými poľami v riadku úprav (tabuľka jázd)
+
 ## [0.6.0] - 2025-12-30
 
 ### Pridané
