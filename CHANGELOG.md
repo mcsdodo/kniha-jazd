@@ -9,6 +9,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Pridané
 - Tlačidlo na obnovenie optimálnej veľkosti okna (zobrazí sa len ak okno nemá predvolenú veľkosť)
+- Živý náhľad spotreby pri úprave jázd - zostatok paliva a spotreba sa aktualizujú pri každom stlačení klávesy
 
 ### Opravené
 - Zjednotená výška vstupných polí v riadku úprav (tabuľka jázd)
