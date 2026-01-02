@@ -31,11 +31,13 @@ Add support for Battery Electric Vehicles (BEV) and Plug-in Hybrid Electric Vehi
    - `vehicle_type`: Ice | Bev | Phev
    - `battery_capacity_kwh`: Battery size in kWh (BEV, PHEV)
    - `baseline_consumption_kwh`: User-defined kWh/100km (BEV, PHEV)
+   - `initial_battery_percent`: Starting battery % for first record (optional, default 100%)
 
 3. **Trip Tracking (New Fields)**
    - `energy_kwh`: Energy charged during trip
    - `energy_cost_eur`: Cost of charging
    - `full_charge`: Whether charged to 100%
+   - `soc_override_percent`: Manual battery % override for degradation tracking (optional)
 
 4. **Consumption Logic**
    - BEV: Same formula as ICE, just kWh instead of liters
@@ -54,6 +56,13 @@ Add support for Battery Electric Vehicles (BEV) and Plug-in Hybrid Electric Vehi
 - Parallel implementation - don't break fuel when adding energy
 - Database migration must be backward compatible
 
+### Constraints
+
+1. **Vehicle type is immutable** - Once trips exist for a vehicle, `vehicle_type` cannot be changed
+2. **Year boundaries** - Each year starts and ends with 100% battery (accounting convention)
+3. **No carry-over** - Battery state does not carry over between years
+4. **PHEV compensation out of scope** - Compensation suggestions for PHEVs deferred (see `_TECH_DEBT/02-phev-compensation-suggestions.md`)
+
 ## Out of Scope
 
 - Charging receipt scanning (future enhancement)
@@ -64,10 +73,15 @@ Add support for Battery Electric Vehicles (BEV) and Plug-in Hybrid Electric Vehi
 
 - [ ] User can create BEV vehicle with battery capacity and baseline consumption
 - [ ] User can create PHEV vehicle with both fuel and battery settings
+- [ ] User can set optional initial battery % for BEV/PHEV
 - [ ] BEV trips track energy charged and show battery remaining
 - [ ] PHEV trips correctly split consumption between electricity and fuel
 - [ ] No margin warnings for electricity consumption
 - [ ] PHEV shows margin warnings for fuel portion only
+- [ ] Vehicle type cannot be changed after trips exist (UI disabled, backend rejects)
+- [ ] User can set SoC override on trip (visible only in edit form)
+- [ ] Trips with SoC override show indicator in grid
+- [ ] Year boundary: first trip uses initial_battery_percent or 100%
 - [ ] Export (PDF) correctly shows energy data for BEV/PHEV
 - [ ] All existing ICE functionality unchanged
 - [ ] All existing tests pass
@@ -76,6 +90,8 @@ Add support for Battery Electric Vehicles (BEV) and Plug-in Hybrid Electric Vehi
 
 - [research.md](./research.md) - Slovak legislation and accounting research
 - [technical-analysis.md](./technical-analysis.md) - Implementation design and code structure
+- [02-plan.md](./02-plan.md) - Phased implementation plan
+- [PHEV Compensation Tech Debt](../_TECH_DEBT/02-phev-compensation-suggestions.md) - Deferred feature
 
 ## Estimated Effort
 

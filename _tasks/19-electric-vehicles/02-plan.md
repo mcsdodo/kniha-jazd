@@ -47,6 +47,7 @@ Add optional fields (None for vehicle types that don't use them):
 
 - [ ] `battery_capacity_kwh: Option<f64>`
 - [ ] `baseline_consumption_kwh: Option<f64>`
+- [ ] `initial_battery_percent: Option<f64>` - Initial SoC for first record (default: 100%)
 - [ ] Make `tank_size_liters` and `tp_consumption` optional (will be None for BEV)
 
 ### 1.3 Extend Trip Model
@@ -56,7 +57,9 @@ Add optional fields (None for vehicle types that don't use them):
 - [ ] `energy_kwh: Option<f64>` - Energy charged
 - [ ] `energy_cost_eur: Option<f64>` - Charging cost
 - [ ] `full_charge: bool` - Charged to target SoC
+- [ ] `soc_override_percent: Option<f64>` - Manual SoC override for battery degradation
 - [ ] Add `is_charge()` helper method
+- [ ] Add `has_soc_override()` helper method
 
 ### 1.4 Create Energy Calculations Module
 
@@ -84,10 +87,12 @@ Add optional fields (None for vehicle types that don't use them):
 ALTER TABLE vehicles ADD COLUMN vehicle_type TEXT NOT NULL DEFAULT 'Ice';
 ALTER TABLE vehicles ADD COLUMN battery_capacity_kwh REAL;
 ALTER TABLE vehicles ADD COLUMN baseline_consumption_kwh REAL;
+ALTER TABLE vehicles ADD COLUMN initial_battery_percent REAL;
 
 ALTER TABLE trips ADD COLUMN energy_kwh REAL;
 ALTER TABLE trips ADD COLUMN energy_cost_eur REAL;
 ALTER TABLE trips ADD COLUMN full_charge INTEGER DEFAULT 0;
+ALTER TABLE trips ADD COLUMN soc_override_percent REAL;
 
 CREATE INDEX idx_vehicles_type ON vehicles(vehicle_type);
 ```
@@ -122,7 +127,9 @@ CREATE INDEX idx_vehicles_type ON vehicles(vehicle_type);
 
 - [ ] `create_vehicle` - accept vehicle_type and battery fields
 - [ ] `update_vehicle` - handle battery fields
+- [ ] `update_vehicle` - **BLOCK vehicle_type change if trips exist** (immutable after first trip)
 - [ ] `get_vehicle` - return new fields
+- [ ] Add validation: BEV requires battery fields, ICE requires fuel fields
 
 ### 2.2 Update Trip Commands
 
@@ -141,6 +148,7 @@ Add to `TripGridData`:
 - [ ] `battery_remaining_kwh: HashMap<String, f64>`
 - [ ] `battery_remaining_percent: HashMap<String, f64>`
 - [ ] `estimated_energy_rates: HashSet<String>`
+- [ ] `soc_override_trips: HashSet<String>` - Trips with manual SoC override
 
 ### 2.4 Update get_trip_grid_data
 
@@ -156,11 +164,13 @@ Add to `TripGridData`:
 **File:** `src/lib/components/VehicleForm.svelte` (or similar)
 
 - [ ] Add vehicle type selector (dropdown)
+- [ ] **Disable vehicle type selector when editing vehicle with existing trips**
 - [ ] Show/hide fields based on type:
   - ICE: tank + TP consumption
-  - BEV: battery + baseline consumption
+  - BEV: battery + baseline consumption + initial battery %
   - PHEV: all fields
 - [ ] Validation: required fields per type
+- [ ] Add optional "Počiatočný stav batérie %" field (default 100%)
 
 ### 2.6 Trip Form UI
 
@@ -170,6 +180,8 @@ Add to `TripGridData`:
 - [ ] Energy (kWh) input
 - [ ] Energy cost (€) input
 - [ ] Full charge checkbox
+- [ ] SoC override (%) input - collapsible/hidden by default, only in edit form
+- [ ] When SoC override is set, show info that this affects all subsequent trips
 
 ### 2.7 Trip Grid UI
 
@@ -179,6 +191,7 @@ Add to `TripGridData`:
 - [ ] For BEV: show Energy used, Battery remaining (kWh / %)
 - [ ] For BEV: hide fuel columns
 - [ ] For BEV: hide margin column
+- [ ] Show indicator (🔧) next to battery % when trip has SoC override
 
 ### 2.8 Update Export
 
@@ -256,27 +269,38 @@ Add to `TripGridData`:
 
 ## Phase 4: Polish & Edge Cases
 
-### 4.1 Initial Battery State
+### 4.1 Year Boundary Handling
 
-- [ ] Add `initial_battery_kwh` to Vehicle (like `initial_odometer`)
-- [ ] Or assume full battery for first record
+**Logic:** Each year starts/ends with 100% battery (accounting convention)
 
-### 4.2 Suggestions for PHEV
+- [ ] First trip of year: use `initial_battery_percent` if set, else 100%
+- [ ] Year-over-year: no carry-over (each year resets to 100%)
+- [ ] When switching year in year picker: recalculate from that year's first trip
 
-- [ ] Compensation suggestions should consider electricity-first logic
-- [ ] Only suggest when fuel margin is over limit (not electricity)
+### 4.2 SoC Override Processing
 
-### 4.3 Statistics
+- [ ] When trip has `soc_override_percent`, use it instead of calculated value
+- [ ] Override applies to current trip AND all subsequent trips
+- [ ] Add to `TripGridData.soc_override_trips` HashSet for UI indicator
+
+### 4.3 Suggestions for PHEV
+
+**OUT OF SCOPE** - See `_tasks/_TECH_DEBT/` for future implementation
+
+Compensation suggestions for PHEV are complex due to electricity-first logic and deferred to future work.
+
+### 4.4 Statistics
 
 - [ ] Update TripStats for energy totals
 - [ ] Cost comparison: fuel vs electricity
 
-### 4.4 Edge Cases
+### 4.5 Edge Cases
 
 - [ ] Zero battery capacity edge case
 - [ ] Zero baseline consumption edge case
 - [ ] Negative battery remaining (should clamp to 0)
 - [ ] Battery > capacity (should clamp)
+- [ ] SoC override validation (must be 0-100)
 
 ---
 
@@ -289,7 +313,15 @@ Add to `TripGridData`:
 | `calculations_energy.rs` | 7+ tests |
 | `calculations_phev.rs` | 4+ tests |
 | `db.rs` | CRUD for new fields |
-| `commands.rs` | BEV/PHEV trip processing |
+| `commands.rs` | BEV/PHEV trip processing, vehicle type immutability |
+
+### Validation Tests
+
+- [ ] Vehicle type change blocked when trips exist
+- [ ] SoC override must be 0-100
+- [ ] initial_battery_percent must be 0-100
+- [ ] BEV requires battery fields, rejects fuel fields
+- [ ] Year boundary: first trip of year uses correct initial state
 
 ### Integration Tests
 

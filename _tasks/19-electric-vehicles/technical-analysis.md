@@ -14,6 +14,10 @@
 | **Battery tracking** | kWh primary, derive % for display |
 | **PHEV consumption** | Electricity first (until depleted), then fuel |
 | **Implementation** | Parallel systems - don't break fuel when adding energy |
+| **Year boundaries** | 100% battery at year start and end (accounting convention) |
+| **Vehicle type change** | **Prohibited** after trips exist - immutable once data is recorded |
+| **SoC override** | Optional per-trip field for manual correction (battery degradation) |
+| **PHEV compensation** | Out of scope - see `_tasks/_TECH_DEBT/` |
 
 ---
 
@@ -133,6 +137,7 @@ pub struct Vehicle {
     // Energy system (BEV + PHEV) - new fields
     pub battery_capacity_kwh: Option<f64>,      // None for ICE
     pub baseline_consumption_kwh: Option<f64>,  // kWh/100km, user-defined, None for ICE
+    pub initial_battery_percent: Option<f64>,   // Initial SoC % for first record (BEV/PHEV)
 
     pub initial_odometer: f64,
     pub is_active: bool,
@@ -149,6 +154,11 @@ pub struct Vehicle {
 | `tp_consumption` | Required | None | Required |
 | `battery_capacity_kwh` | None | Required | Required |
 | `baseline_consumption_kwh` | None | Required | Required |
+| `initial_battery_percent` | None | Optional (default 100%) | Optional (default 100%) |
+
+**Validation Rules:**
+- `vehicle_type` is **immutable** once any trip exists for the vehicle
+- `initial_battery_percent` must be 0-100 if provided
 
 ### Trip Model
 
@@ -173,6 +183,11 @@ pub struct Trip {
     pub energy_cost_eur: Option<f64>,      // Cost of charging
     pub full_charge: bool,                  // Charged to 100% (or target SoC)
 
+    // SoC override for battery degradation tracking (BEV + PHEV)
+    // When set, this value is used as the battery SoC "from now on" instead of calculated
+    // Allows user to correct for battery degradation or measurement errors
+    pub soc_override_percent: Option<f64>, // Manual SoC override (0-100)
+
     // Existing
     pub other_costs_eur: Option<f64>,
     pub other_costs_note: Option<String>,
@@ -189,8 +204,41 @@ impl Trip {
     pub fn is_charge(&self) -> bool {
         self.energy_kwh.is_some()
     }
+
+    pub fn has_soc_override(&self) -> bool {
+        self.soc_override_percent.is_some()
+    }
 }
 ```
+
+**SoC Override Behavior:**
+- When `soc_override_percent` is set, the trip is marked with an indicator in the UI
+- The override value replaces calculated battery remaining for this trip and all subsequent trips
+- Only visible in trip edit form (not in trip grid)
+- Used for: battery degradation, measurement correction, mid-year battery replacement
+- Grid shows small icon (e.g., 🔧) next to battery % when override is active
+
+### Year Boundary Logic
+
+Battery state handling at year boundaries:
+
+```
+Year Start (first trip of year):
+  if vehicle.initial_battery_percent is set AND this is first year:
+    battery_remaining = capacity × initial_battery_percent / 100
+  else:
+    battery_remaining = capacity (assume 100%)
+
+Year End:
+  Accounting convention: battery ends at 100%
+  (No carry-over to next year - each year starts fresh at 100%)
+
+When viewing previous year:
+  Calculate from that year's first trip forward
+  No dependency on current year's data
+```
+
+**Rationale:** Slovak accounting convention - similar to how fuel tank is assumed full at year end for tax purposes. Simplifies year-over-year tracking and avoids complex carry-over logic.
 
 ### TripStats Model
 
@@ -232,6 +280,7 @@ pub struct TripGridData {
     pub battery_remaining_kwh: HashMap<String, f64>,
     pub battery_remaining_percent: HashMap<String, f64>,
     pub estimated_energy_rates: HashSet<String>,    // Trips using baseline rate
+    pub soc_override_trips: HashSet<String>,        // Trips with manual SoC override
 
     // Shared
     pub date_warnings: HashSet<String>,
@@ -562,6 +611,7 @@ mod tests {
 ALTER TABLE vehicles ADD COLUMN vehicle_type TEXT NOT NULL DEFAULT 'Ice';
 ALTER TABLE vehicles ADD COLUMN battery_capacity_kwh REAL;
 ALTER TABLE vehicles ADD COLUMN baseline_consumption_kwh REAL;
+ALTER TABLE vehicles ADD COLUMN initial_battery_percent REAL;  -- Initial SoC for first record
 
 -- Make existing fuel fields nullable (for BEV)
 -- Note: SQLite doesn't support ALTER COLUMN, need to recreate table or leave as-is
@@ -571,6 +621,7 @@ ALTER TABLE vehicles ADD COLUMN baseline_consumption_kwh REAL;
 ALTER TABLE trips ADD COLUMN energy_kwh REAL;
 ALTER TABLE trips ADD COLUMN energy_cost_eur REAL;
 ALTER TABLE trips ADD COLUMN full_charge INTEGER DEFAULT 0;
+ALTER TABLE trips ADD COLUMN soc_override_percent REAL;  -- Manual SoC override for battery degradation
 
 -- Index for efficient queries
 CREATE INDEX idx_vehicles_type ON vehicles(vehicle_type);
@@ -618,29 +669,38 @@ CREATE INDEX idx_vehicles_type ON vehicles(vehicle_type);
 | TP consumption (l/100km) | ✅ | ❌ | ✅ |
 | Battery capacity (kWh) | ❌ | ✅ | ✅ |
 | Baseline consumption (kWh/100km) | ❌ | ✅ | ✅ |
+| Initial battery % | ❌ | ✅ (optional) | ✅ (optional) |
+
+**Note:** Vehicle type selector is disabled/hidden once trips exist for the vehicle.
 
 ### Trip Form
 
-| Field | ICE | BEV | PHEV |
-|-------|-----|-----|------|
-| Fuel (L) | ✅ | ❌ | ✅ |
-| Fuel cost (€) | ✅ | ❌ | ✅ |
-| Full tank | ✅ | ❌ | ✅ |
-| Energy (kWh) | ❌ | ✅ | ✅ |
-| Energy cost (€) | ❌ | ✅ | ✅ |
-| Full charge | ❌ | ✅ | ✅ |
+| Field | ICE | BEV | PHEV | Notes |
+|-------|-----|-----|------|-------|
+| Fuel (L) | ✅ | ❌ | ✅ | |
+| Fuel cost (€) | ✅ | ❌ | ✅ | |
+| Full tank | ✅ | ❌ | ✅ | |
+| Energy (kWh) | ❌ | ✅ | ✅ | |
+| Energy cost (€) | ❌ | ✅ | ✅ | |
+| Full charge | ❌ | ✅ | ✅ | |
+| SoC override (%) | ❌ | ✅ | ✅ | Hidden in grid, only in edit form |
+
+**SoC override field:**
+- Not visible in trip grid (only when editing trip)
+- When set, a small indicator (🔧) appears next to battery % in grid
+- Used for battery degradation correction - value applies "from this trip onwards"
 
 ### Trip Grid Columns
 
-| Column | ICE | BEV | PHEV |
-|--------|-----|-----|------|
-| Spotreba (L) | ✅ | ❌ | ✅ |
-| Zostatok (L) | ✅ | ❌ | ✅ |
-| l/100km | ✅ | ❌ | ✅ |
-| Marža % | ✅ | ❌ | ✅ (fuel only) |
-| Energy used (kWh) | ❌ | ✅ | ✅ |
-| Battery (kWh / %) | ❌ | ✅ | ✅ |
-| kWh/100km | ❌ | ✅ | ✅ |
+| Column | ICE | BEV | PHEV | Notes |
+|--------|-----|-----|------|-------|
+| Spotreba (L) | ✅ | ❌ | ✅ | |
+| Zostatok (L) | ✅ | ❌ | ✅ | |
+| l/100km | ✅ | ❌ | ✅ | |
+| Marža % | ✅ | ❌ | ✅ (fuel only) | |
+| Energy used (kWh) | ❌ | ✅ | ✅ | |
+| Battery (kWh / %) | ❌ | ✅ | ✅ | Shows 🔧 if SoC override |
+| kWh/100km | ❌ | ✅ | ✅ | |
 
 ---
 
