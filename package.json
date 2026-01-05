@@ -17,7 +17,9 @@
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",
 		"test:backend": "cd src-tauri && cargo test",
-		"test:all": "npm run test:run && npm run test:backend"
+		"test:integration": "wdio run tests/integration/wdio.conf.ts",
+		"test:integration:build": "npm run tauri build -- --debug && npm run test:integration",
+		"test:all": "npm run test:backend && npm run test:run && npm run test:integration"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.57.0",
@@ -26,6 +28,10 @@
 		"@sveltejs/kit": "^2.49.1",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tauri-apps/cli": "^2.9.6",
+		"@wdio/cli": "^9.23.0",
+		"@wdio/local-runner": "^9.23.0",
+		"@wdio/mocha-framework": "^9.23.0",
+		"@wdio/spec-reporter": "^9.20.0",
 		"svelte": "^5.45.6",
 		"svelte-check": "^4.3.4",
 		"typescript": "^5.9.3",
