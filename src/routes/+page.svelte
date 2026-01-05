@@ -166,7 +166,7 @@
 							{/if}
 							<span class="stat">
 								<span class="stat-label">{$LL.stats.remaining()}:</span>
-								<span class="stat-value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
+								<span class="stat-value">{stats.fuel_remaining_liters.toFixed(1)} L</span>
 							</span>
 						</div>
 					</div>

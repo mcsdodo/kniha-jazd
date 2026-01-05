@@ -100,7 +100,6 @@ impl Default for Settings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TripStats {
     pub fuel_remaining_liters: f64,
     pub avg_consumption_rate: f64,  // Average: total_fuel / total_km * 100
