@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva (12 nových testov)
+
 ## [0.8.0] - 2026-01-05
 
 ### Pridané

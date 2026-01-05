@@ -76,12 +76,12 @@ npm run test:all
 
 ### Test Coverage
 
-**Backend (Rust) - Single Source of Truth (93 tests):**
+**Backend (Rust) - Single Source of Truth (105 tests):**
 - `calculations.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `receipts.rs` - 17 tests: extraction, confidence, matching
-- `db.rs` - 17 tests: CRUD lifecycle, year carryover
-- `commands.rs` - 10 tests: receipt matching, trip operations
-- `suggestions.rs` - 8 tests: route matching, compensation suggestions
+- `commands.rs` - 22 tests: receipt matching, period rates, warnings, fuel remaining
+- `receipts.rs` - 17 tests: folder detection, extraction, scanning
+- `db.rs` - 17 tests: CRUD lifecycle, year filtering
+- `suggestions.rs` - 9 tests: route matching, compensation suggestions
 - `export.rs` - 7 tests: export totals, HTML escaping
 - `gemini.rs` - 3 tests: JSON deserialization
 - `settings.rs` - 3 tests: local settings loading

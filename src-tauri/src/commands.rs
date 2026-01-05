@@ -1907,4 +1907,348 @@ mod tests {
 
         assert_eq!(missing.len(), 1, "Receipt without price should not match");
     }
+
+    // ========================================================================
+    // Period rate calculation tests (calculate_period_rates)
+    // ========================================================================
+
+    /// Helper to create a trip with specific km, fuel, and full_tank flag
+    fn make_trip_detailed(
+        date: NaiveDate,
+        distance_km: f64,
+        fuel_liters: Option<f64>,
+        full_tank: bool,
+        sort_order: i32,
+    ) -> Trip {
+        let now = Utc::now();
+        Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: Uuid::new_v4(),
+            date,
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km,
+            odometer: 10000.0 + distance_km,
+            purpose: "business".to_string(),
+            fuel_liters,
+            fuel_cost_eur: fuel_liters.map(|l| l * 1.5),
+            other_costs_eur: None,
+            other_costs_note: None,
+            full_tank,
+            sort_order,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn test_period_rates_partial_fillup_doesnt_close_period() {
+        // Business rule: Only full_tank=true closes a consumption period
+        // Partial fillups (full_tank=false) accumulate fuel but don't close
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 6.0;
+
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, None, false, 3),                           // 100km, no fuel
+            make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(20.0), false, 2), // 100km, 20L PARTIAL
+            make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap(), 100.0, None, false, 1), // 100km, no fuel
+            make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap().succ_opt().unwrap(), 100.0, Some(30.0), true, 0), // 100km, 30L FULL
+        ];
+
+        let (rates, estimated) = calculate_period_rates(&trips, tp_rate);
+
+        // All 4 trips should get same rate: 50L / 400km * 100 = 12.5 l/100km
+        // The partial fillup at trip 2 should NOT create a separate period
+        let expected_rate = 50.0 / 400.0 * 100.0; // 12.5
+        for trip in &trips {
+            let rate = rates.get(&trip.id.to_string()).unwrap();
+            assert!(
+                (rate - expected_rate).abs() < 0.01,
+                "All trips should have rate {:.2}, got {:.2}",
+                expected_rate,
+                rate
+            );
+            assert!(
+                !estimated.contains(&trip.id.to_string()),
+                "All trips should have calculated (not estimated) rate"
+            );
+        }
+    }
+
+    #[test]
+    fn test_period_rates_full_fillup_closes_period() {
+        // Full tank fillups should close periods and create new rate calculations
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 6.0;
+
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, None, false, 3),                           // Period 1: 100km
+            make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(10.0), true, 2),  // Period 1: closes with 10L -> rate = 10/200*100 = 5.0
+            make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap(), 200.0, None, false, 1), // Period 2: 200km
+            make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap().succ_opt().unwrap(), 200.0, Some(16.0), true, 0), // Period 2: closes with 16L -> rate = 16/400*100 = 4.0
+        ];
+
+        let (rates, _) = calculate_period_rates(&trips, tp_rate);
+
+        // Period 1 (trips 0-1): rate = 10L / 200km * 100 = 5.0
+        let rate_period1 = 10.0 / 200.0 * 100.0;
+        assert!(
+            (rates.get(&trips[0].id.to_string()).unwrap() - rate_period1).abs() < 0.01,
+            "Trip 0 should have period 1 rate"
+        );
+        assert!(
+            (rates.get(&trips[1].id.to_string()).unwrap() - rate_period1).abs() < 0.01,
+            "Trip 1 should have period 1 rate"
+        );
+
+        // Period 2 (trips 2-3): rate = 16L / 400km * 100 = 4.0
+        let rate_period2 = 16.0 / 400.0 * 100.0;
+        assert!(
+            (rates.get(&trips[2].id.to_string()).unwrap() - rate_period2).abs() < 0.01,
+            "Trip 2 should have period 2 rate"
+        );
+        assert!(
+            (rates.get(&trips[3].id.to_string()).unwrap() - rate_period2).abs() < 0.01,
+            "Trip 3 should have period 2 rate"
+        );
+    }
+
+    #[test]
+    fn test_period_rates_no_fullup_uses_tp_rate() {
+        // When no full-tank fillup exists, use TP rate (estimated)
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 6.0;
+
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, None, false, 1),
+            make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(15.0), false, 0), // Partial only
+        ];
+
+        let (rates, estimated) = calculate_period_rates(&trips, tp_rate);
+
+        // All trips should use TP rate (estimated)
+        for trip in &trips {
+            let rate = rates.get(&trip.id.to_string()).unwrap();
+            assert!(
+                (rate - tp_rate).abs() < 0.01,
+                "Should use TP rate when no full fillup"
+            );
+            assert!(
+                estimated.contains(&trip.id.to_string()),
+                "Trips should be marked as estimated"
+            );
+        }
+    }
+
+    // ========================================================================
+    // Date warning tests (calculate_date_warnings)
+    // ========================================================================
+
+    #[test]
+    fn test_date_warnings_detects_out_of_order() {
+        // Trips sorted by sort_order (0 = newest/top), but dates out of order
+        let trips = vec![
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(), 50.0, None, false, 0), // Top: Jun 15
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(), 50.0, None, false, 1), // Middle: Jun 10 - WRONG! Should be between 15 and 20
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(), 50.0, None, false, 2), // Bottom: Jun 20
+        ];
+
+        let warnings = calculate_date_warnings(&trips);
+
+        // Jun 10 (middle) has earlier date than Jun 15 (top) - that's wrong for sort_order
+        // Jun 10 also has earlier date than Jun 20 (bottom) - wrong again
+        assert!(
+            warnings.contains(&trips[1].id.to_string()),
+            "Jun 10 trip should be flagged (out of order)"
+        );
+    }
+
+    #[test]
+    fn test_date_warnings_correct_order_no_warnings() {
+        // Trips in correct order: newest (highest date) at sort_order 0
+        let trips = vec![
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(), 50.0, None, false, 0), // Top: Jun 20 (newest)
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(), 50.0, None, false, 1), // Middle: Jun 15
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(), 50.0, None, false, 2), // Bottom: Jun 10 (oldest)
+        ];
+
+        let warnings = calculate_date_warnings(&trips);
+
+        assert!(
+            warnings.is_empty(),
+            "No warnings expected for correctly ordered trips"
+        );
+    }
+
+    // ========================================================================
+    // Consumption warning tests (calculate_consumption_warnings)
+    // ========================================================================
+
+    #[test]
+    fn test_consumption_warnings_over_120_percent() {
+        // Trip with rate > 120% of TP should be flagged
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 5.0; // TP rate
+        let limit = tp_rate * 1.2; // 6.0
+
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, Some(7.5), true, 0), // Rate = 7.5 l/100km > 6.0 limit
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), 7.5);
+
+        let warnings = calculate_consumption_warnings(&trips, &rates, tp_rate);
+
+        assert!(
+            warnings.contains(&trips[0].id.to_string()),
+            "Trip with rate {:.1} > limit {:.1} should be flagged",
+            7.5,
+            limit
+        );
+    }
+
+    #[test]
+    fn test_consumption_warnings_at_limit_not_flagged() {
+        // Trip with rate exactly at 120% should NOT be flagged (not OVER)
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 5.0;
+        let at_limit_rate = tp_rate * 1.2; // Exactly 6.0
+
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, Some(6.0), true, 0),
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), at_limit_rate);
+
+        let warnings = calculate_consumption_warnings(&trips, &rates, tp_rate);
+
+        assert!(
+            warnings.is_empty(),
+            "Trip at exactly 120% limit should NOT be flagged (limit is 'greater than', not 'greater or equal')"
+        );
+    }
+
+    #[test]
+    fn test_consumption_warnings_under_limit_not_flagged() {
+        // Trip with rate under limit should not be flagged
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 5.0;
+
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, Some(5.0), true, 0), // Rate = 5.0 < 6.0 limit
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), 5.0);
+
+        let warnings = calculate_consumption_warnings(&trips, &rates, tp_rate);
+
+        assert!(
+            warnings.is_empty(),
+            "Trip under limit should not be flagged"
+        );
+    }
+
+    // ========================================================================
+    // Fuel remaining tests (calculate_fuel_remaining)
+    // ========================================================================
+
+    #[test]
+    fn test_fuel_remaining_basic_trip() {
+        // Start with 50L, drive 100km at 6 l/100km = 6L used, end with 44L
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, None, false, 0),
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), 6.0);
+
+        let remaining = calculate_fuel_remaining(&trips, &rates, 50.0, 66.0);
+
+        let expected = 50.0 - 6.0; // 44L
+        let actual = remaining.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            (actual - expected).abs() < 0.01,
+            "Expected {:.1}L remaining, got {:.1}L",
+            expected,
+            actual
+        );
+    }
+
+    #[test]
+    fn test_fuel_remaining_with_partial_fillup() {
+        // Partial fillup adds fuel but doesn't fill tank
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, Some(30.0), false, 0), // 100km, add 30L partial
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), 6.0);
+
+        let remaining = calculate_fuel_remaining(&trips, &rates, 20.0, 66.0);
+
+        // Start: 20L, use 6L, add 30L = 44L
+        let expected = 20.0 - 6.0 + 30.0; // 44L
+        let actual = remaining.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            (actual - expected).abs() < 0.01,
+            "Partial fillup: expected {:.1}L, got {:.1}L",
+            expected,
+            actual
+        );
+    }
+
+    #[test]
+    fn test_fuel_remaining_with_full_fillup() {
+        // Full tank fillup fills to tank_size regardless of fuel added
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tank_size = 66.0;
+        let trips = vec![
+            make_trip_detailed(base_date, 100.0, Some(30.0), true, 0), // Full tank
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), 6.0);
+
+        let remaining = calculate_fuel_remaining(&trips, &rates, 20.0, tank_size);
+
+        // Full tank = always ends at tank_size
+        let actual = remaining.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            (actual - tank_size).abs() < 0.01,
+            "Full fillup should result in full tank ({:.1}L), got {:.1}L",
+            tank_size,
+            actual
+        );
+    }
+
+    #[test]
+    fn test_fuel_remaining_clamps_to_zero() {
+        // Can't go negative - clamps to 0
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let trips = vec![
+            make_trip_detailed(base_date, 500.0, None, false, 0), // 500km at 6 l/100km = 30L, but only have 10L
+        ];
+
+        let mut rates = std::collections::HashMap::new();
+        rates.insert(trips[0].id.to_string(), 6.0);
+
+        let remaining = calculate_fuel_remaining(&trips, &rates, 10.0, 66.0);
+
+        let actual = remaining.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            *actual >= 0.0,
+            "Fuel remaining should not go negative, got {:.1}L",
+            actual
+        );
+        assert!(
+            (actual - 0.0).abs() < 0.01,
+            "Should clamp to 0, got {:.1}L",
+            actual
+        );
+    }
 }
