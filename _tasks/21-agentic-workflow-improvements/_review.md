@@ -11,7 +11,7 @@
 | 1 | 2026-01-05 | Critical review - overengineering check | Major cuts, simplifications |
 | 2 | 2026-01-05 | Refinement - validate cuts, fix scripts | Script improvements, file simplification |
 | 3 | 2026-01-05 | Edge case analysis | No blockers, minor improvements identified |
-| 4 | Pending | Final polish (if needed) | - |
+| 4 | 2026-01-05 | Final polish | **APPROVED** - implementation checklist, test plan, file cleanup |
 
 ---
 
@@ -763,3 +763,237 @@ These are nice-to-have improvements that can be added later if issues arise:
 4. **Test count** - Show "105 tests passed" summary
 
 **Recommendation:** Implement base version first, add polish in future iteration if needed.
+
+---
+
+## Iteration 4: Final Polish
+
+**Status:** Complete
+
+### Executive Summary
+
+The proposal is **APPROVED FOR IMPLEMENTATION**. After 3 rigorous review iterations, all major concerns have been addressed. The simplified scope (2 hooks, 1 skill, 1 CLAUDE.md minor edit) is practical and ready to ship.
+
+**Final verdict:** No blockers. Implementation can proceed.
+
+---
+
+### 1. Documentation Quality Assessment
+
+**Is `05-final-roadmap.md` clear enough to implement from?**
+
+**YES** - The document is implementation-ready:
+
+| Component | Location | Clarity |
+|-----------|----------|---------|
+| pre-commit.ps1 script | Lines 81-127 | Copy-paste ready |
+| post-commit-reminder.ps1 script | Lines 148-175 | Copy-paste ready |
+| settings.json config | Lines 63-77 + 136-144 | Complete, needs merge |
+| verify-skill template | Lines 188-229 | Clear, slightly verbose |
+| Implementation checklist | Lines 313-327 | Exact task order |
+
+**Minor clarifications identified but not blocking:**
+- Line 98-99: `$CLAUDE_PROJECT_DIR` fallback is correct (hooks run from project root)
+- Line 273-280: CLAUDE.md edit location is accurate (line 114 to ~line 63)
+
+---
+
+### 2. File Cleanup Recommendations
+
+**Minimal set needed for implementation:**
+
+| File | Action | Reason |
+|------|--------|--------|
+| `05-final-roadmap.md` | **KEEP** - mark as FINAL | Primary implementation guide |
+| `_review.md` | **KEEP** | Review history, edge case analysis |
+| `01-analysis.md` | **ARCHIVE** | Initial analysis, superseded |
+| `02-hooks-proposal.md` | **ARCHIVE** | Original 5-hook proposal, cut to 2 |
+| `03-skills-proposal.md` | **ARCHIVE** | Original 5-skill proposal, cut to 1 |
+| `04-documentation-proposal.md` | **ARCHIVE** | CLAUDE.md restructure cancelled |
+
+**Archive implementation:** Add header to superseded files:
+```markdown
+> **STATUS: SUPERSEDED** - See `05-final-roadmap.md` for final implementation.
+```
+
+---
+
+### 3. Implementation Checklist (Exact Order)
+
+**Phase 1: Create Hooks (~1.5 hours)**
+
+1. [ ] Create `.claude/hooks/` directory
+2. [ ] Create `.claude/hooks/pre-commit.ps1` (use script from roadmap lines 81-127)
+3. [ ] Create `.claude/hooks/post-commit-reminder.ps1` (use script from roadmap lines 148-175)
+4. [ ] Create `.claude/settings.json` with merged PreToolUse and PostToolUse config:
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": [{
+         "matcher": "Bash",
+         "hooks": [{
+           "type": "command",
+           "command": "pwsh -NoProfile -File .claude/hooks/pre-commit.ps1",
+           "timeout": 120000
+         }]
+       }],
+       "PostToolUse": [{
+         "matcher": "Bash",
+         "hooks": [{
+           "type": "command",
+           "command": "pwsh -NoProfile -File .claude/hooks/post-commit-reminder.ps1",
+           "timeout": 5000
+         }]
+       }]
+     }
+   }
+   ```
+5. [ ] Test: Add failing test to calculations.rs, attempt commit (should block)
+6. [ ] Test: Remove failing test, commit (should succeed + show reminder)
+
+**Phase 2: Create Skill & Edit Docs (~30 min)**
+
+7. [ ] Create `.claude/skills/verify-skill/SKILL.md` (use simplified template below)
+8. [ ] Edit CLAUDE.md: Move Common Pitfalls (lines 114-121) to after line 63
+9. [ ] Edit CLAUDE.md: Add "Trigger" column to skills table (lines 228-233)
+10. [ ] Add one-line cross-reference to 4 existing skills:
+    ```markdown
+    ## Project Context
+    See CLAUDE.md for project constraints (ADR-008, TDD, changelog requirements).
+    ```
+11. [ ] Run `/changelog` to document the changes
+12. [ ] Commit all changes
+
+---
+
+### 4. Test Plan
+
+**Test 1: Pre-commit blocks failing tests**
+```powershell
+# Add failing test to src-tauri/src/calculations.rs:
+#[test]
+fn test_hook_verification_DELETE_ME() {
+    assert!(false, "This test should fail - delete after testing");
+}
+
+# Attempt commit
+git add -A && git commit -m "test: verify hook blocks"
+
+# Expected output:
+# === Pre-commit: Running backend tests ===
+# ... test failures ...
+# COMMIT BLOCKED: Tests failed!
+
+# Verify commit was prevented
+```
+
+**Test 2: Post-commit reminder appears**
+```powershell
+# After successful commit (with passing tests):
+# Expected output:
+# === REMINDER: Update Changelog ===
+# Run /changelog to update CHANGELOG.md [Unreleased] section
+```
+
+**Test 3: Changelog commits skip reminder**
+```powershell
+git commit -m "docs: update changelog for hook feature"
+# Expected: NO reminder (message contains "changelog")
+```
+
+**Test 4: verify-skill invocable**
+```
+# In Claude session:
+/verify
+
+# Expected: Skill runs, shows test results, git status, changelog check
+```
+
+**Success Criteria:**
+
+| Metric | Target | Verification |
+|--------|--------|--------------|
+| Failing tests block commits | 100% | Test 1 |
+| Reminder shown after commits | 100% | Test 2 |
+| Changelog commits skip reminder | 100% | Test 3 |
+| verify-skill works | Invocable | Test 4 |
+| New files created | 4 files | Directory listing |
+| Implementation time | <3 hours | Track |
+
+---
+
+### 5. Final Simplifications
+
+**verify-skill simplification:** The roadmap template (lines 188-229) includes a redundant "Quick Verification" section. Simplified template:
+
+```markdown
+---
+name: verify-skill
+description: Use before claiming work is complete - runs tests, checks git status, verifies changelog
+---
+
+# Verification Before Completion
+
+Run this before saying "task complete" or "done".
+
+## Checklist
+
+### 1. Tests Pass
+```bash
+npm run test:backend
+```
+Do NOT proceed if tests fail.
+
+### 2. Code Committed
+```bash
+git status
+```
+All work-related files should be committed.
+
+### 3. Changelog Updated
+Check CHANGELOG.md [Unreleased] section has entry for this work.
+If not, run /changelog.
+
+See CLAUDE.md for project constraints.
+```
+
+This reduces the skill from 42 lines to 26 lines while retaining full functionality.
+
+---
+
+### 6. Closing Assessment
+
+**Risk Analysis:**
+
+| Risk | Likelihood | Mitigation |
+|------|------------|------------|
+| PowerShell execution policy | Low | Document `Set-ExecutionPolicy RemoteSigned` |
+| Settings merge issues | None | Confirmed compatible in Iteration 3 |
+| Hook timeout | None | 2-minute timeout, tests run in 0.06s |
+| Script errors | Low | Error handling included in scripts |
+
+**Final Verdict: APPROVED FOR IMPLEMENTATION**
+
+The proposal has been through 3 rigorous review iterations:
+- Original 5 hooks reduced to 2 (essential only)
+- Original 5 skills reduced to 1 (verify-skill only)
+- CLAUDE.md restructure cancelled (minor edit only)
+- All edge cases analyzed and handled
+- Scripts include error handling
+- Test plan documented
+
+**Total estimated time:** 2-3 hours
+**Confidence level:** HIGH
+
+---
+
+### 7. Post-Implementation Checklist
+
+After implementation is complete:
+
+- [ ] All 4 tests pass
+- [ ] Hooks do not interfere with normal git operations
+- [ ] verify-skill appears in available skills list
+- [ ] CLAUDE.md changes are non-breaking
+- [ ] `/changelog` entry added for this feature
+- [ ] Original proposal files marked as superseded
