@@ -76,7 +76,7 @@
 }
 ```
 
-**pre-commit.ps1 (with error handling from Iteration 2):**
+**pre-commit.ps1 (with error handling from Iterations 2-3):**
 
 ```powershell
 # Pre-commit hook: Block commits if backend tests fail
@@ -107,6 +107,13 @@ Write-Host "`n=== Pre-commit: Running backend tests ===" -ForegroundColor Cyan
 
 Push-Location $srcTauri
 try {
+    # Check cargo availability (Iteration 3 improvement)
+    $cargoPath = Get-Command cargo -ErrorAction SilentlyContinue
+    if (-not $cargoPath) {
+        Write-Host "Warning: cargo not found in PATH" -ForegroundColor Yellow
+        exit 0
+    }
+
     cargo test 2>&1 | Tee-Object -Variable testOutput
     if ($LASTEXITCODE -ne 0) {
         Write-Host "`nCOMMIT BLOCKED: Tests failed!" -ForegroundColor Red
@@ -343,28 +350,30 @@ The following were in the original proposal but are CUT:
 ## Summary
 
 **Original proposal:** 4 phases, ~1 day, 10+ new files
-**Revised plan (after Iteration 2):** 2 phases, ~2 hours, 4 new files
+**Revised plan (after Iterations 2-3):** 2 phases, ~2 hours, 4 new files
 
-| Metric | Original | Iteration 1 | Iteration 2 |
-|--------|----------|-------------|-------------|
-| Hooks | 5 | 2 | 2 (with improved scripts) |
-| New skills | 5 | 1 | 1 |
-| CLAUDE.md changes | Full restructure | One section move | One section move |
-| Time estimate | 1 day | 3 hours | 2 hours |
-| Files created | 10+ | 4 | 4 |
+| Metric | Original | Iteration 1 | Iteration 2 | Iteration 3 |
+|--------|----------|-------------|-------------|-------------|
+| Hooks | 5 | 2 | 2 (improved scripts) | 2 (+ cargo check) |
+| New skills | 5 | 1 | 1 | 1 |
+| CLAUDE.md changes | Full restructure | One section move | One section move | One section move |
+| Time estimate | 1 day | 3 hours | 2 hours | 2 hours |
+| Files created | 10+ | 4 | 4 | 4 |
+| Blockers | N/A | N/A | None | **None** |
 
-**Key Iteration 2 improvements:**
-- Added error handling to PowerShell scripts (path validation, stdin parsing)
-- Added hook verification test procedure
-- Documented skip mechanism options
-- Confirmed all Iteration 1 cuts were correct
+**Key Iteration 3 findings:**
+- All edge cases handled or have safe fallback (exit 0)
+- Settings.json precedence confirmed compatible with settings.local.json
+- Real-world workflows validated (new command, bug fix, WIP)
+- Added cargo PATH check to pre-commit script
+- **No breaking scenarios identified**
 
-The 80/20 rule wins. Ready for implementation.
+The 80/20 rule wins. **Ready for implementation.**
 
 ---
 
 ## References
 
-- `_review.md` - Iteration 1 & 2 reviews with full rationale
+- `_review.md` - Iterations 1, 2 & 3 reviews with full rationale and edge case analysis
 - `02-hooks-proposal.md` - Original hook specs (historical)
 - `03-skills-proposal.md` - Original skill specs (historical, verify-skill only used)

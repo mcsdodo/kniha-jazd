@@ -10,8 +10,8 @@
 |-----------|------|-------|-------------|
 | 1 | 2026-01-05 | Critical review - overengineering check | Major cuts, simplifications |
 | 2 | 2026-01-05 | Refinement - validate cuts, fix scripts | Script improvements, file simplification |
-| 3 | Pending | Refinement | - |
-| 4 | Pending | Final polish | - |
+| 3 | 2026-01-05 | Edge case analysis | No blockers, minor improvements identified |
+| 4 | Pending | Final polish (if needed) | - |
 
 ---
 
@@ -515,3 +515,251 @@ Iteration 1 made the right calls. The path forward is clear:
 4. **Document skip mechanism**
 
 Total effort: ~2 hours. No further simplification needed - ready for implementation.
+
+---
+
+## Iteration 3: Edge Case Analysis
+
+**Status:** Complete
+
+### Executive Summary
+
+The simplified proposal from iterations 1-2 is robust. Most edge cases are already handled or have reasonable fallback behavior (exit 0 = don't block). A few defensive improvements are recommended but none are blockers.
+
+**Verdict:** Ready for implementation with minor script improvements.
+
+---
+
+### 1. Pre-Commit Hook Edge Cases
+
+| Edge Case | Behavior | Assessment |
+|-----------|----------|------------|
+| Tests take > 2 minutes | Timeout, hook returns error | **OK** - Current tests run in 0.06s. 2-minute timeout is 2000x buffer. |
+| Compilation errors | `cargo test` fails with exit 1 | **OK** - Blocked correctly. User sees error. |
+| Test failures | `cargo test` fails with exit 1 | **OK** - Blocked correctly. User sees failures. |
+| Cargo not in PATH | Script errors, but `LASTEXITCODE` may be 0 | **ISSUE** - See fix below |
+| Running from subdirectory | `$CLAUDE_PROJECT_DIR` used | **OK** - Script uses env var or `Get-Location` |
+| Partial commits (`git add -p`) | Hook triggers on `git commit` | **OK** - Tests run on full state, appropriate |
+| `git commit --amend` | Matches `^git commit` | **OK** - Tests still run, appropriate |
+| `git commit -m "msg"` | Matches pattern | **OK** |
+| `git merge --commit` | Doesn't match `^git commit` | **OK** - Merge commits bypass, intentional |
+| Empty stdin | `if (-not $inputText) { exit 0 }` | **OK** - Exits gracefully |
+| Malformed JSON stdin | `try-catch` returns exit 0 | **OK** - Doesn't block on parse errors |
+| src-tauri missing | `Test-Path` check, exit 0 | **OK** - Warning shown, doesn't block |
+
+#### Issue: Cargo Not in PATH
+
+**Problem:** If `cargo` is not in PATH, the command fails silently and `$LASTEXITCODE` may not be set correctly.
+
+**Fix:** Add explicit cargo check:
+
+```powershell
+# Add after Push-Location
+$cargoPath = Get-Command cargo -ErrorAction SilentlyContinue
+if (-not $cargoPath) {
+    Write-Host "Warning: cargo not found in PATH" -ForegroundColor Yellow
+    Pop-Location
+    exit 0  # Don't block if cargo unavailable
+}
+```
+
+**Severity:** Low - this is a development environment issue, not a runtime edge case.
+
+---
+
+### 2. Changelog Reminder Edge Cases
+
+| Edge Case | Behavior | Assessment |
+|-----------|----------|------------|
+| `git commit --amend` | Matches `^git commit` | **OK** - Shows reminder (appropriate) |
+| Merge commits | Doesn't match `^git commit` | **OK** - No reminder for merges |
+| Commit message contains "changelog" | Skipped via `-match 'changelog\|CHANGELOG'` | **OK** |
+| Commit message contains "CHANGELOG.md" | Skipped | **OK** |
+| Multiple commits in sequence | Reminder shown each time | **OK** - Appropriate behavior |
+| Commit fails (blocked by pre-commit) | PostToolUse doesn't run | **OK** - No false reminder |
+
+**No issues found.** The changelog reminder is well-designed.
+
+---
+
+### 3. verify-skill Edge Cases
+
+| Edge Case | Behavior | Assessment |
+|-----------|----------|------------|
+| Flaky tests | User sees failure, can retry | **OK** - Agent decides action |
+| Untracked files in git status | Shown in output | **MINOR** - Not necessarily a problem |
+| No changes to commit | `git status` shows clean | **OK** |
+| Changelog already updated | User verifies manually | **OK** |
+
+**Analysis:** The verify-skill is a checklist, not an automated gate. Edge cases are handled by human judgment.
+
+**Minor improvement:** Add note to skill that untracked files are informational, not necessarily errors:
+
+```markdown
+### 2. Code Committed
+```bash
+git status
+```
+All work-related files should be committed. Untracked files may be acceptable (e.g., generated files, temp files).
+```
+
+**Severity:** Very low - this is documentation clarity.
+
+---
+
+### 4. Settings.json Precedence and Merge Concerns
+
+**Question:** Will hook config merge correctly with existing `settings.local.json`?
+
+**Current `settings.local.json`:**
+```json
+{
+  "permissions": { "allow": [...] },
+  "outputStyle": "Explanatory"
+}
+```
+
+**Proposed `settings.json`:**
+```json
+{
+  "hooks": { "PreToolUse": [...], "PostToolUse": [...] }
+}
+```
+
+**Behavior:** Claude Code merges settings with this precedence:
+1. `settings.local.json` (highest)
+2. `settings.json` (committed)
+3. `~/.claude/settings.json` (user global)
+
+**Assessment:** **No conflict.** Different keys (`permissions`, `outputStyle` vs `hooks`) will merge correctly.
+
+**Skip mechanism confirmed:** Adding empty `"hooks": {}` to `settings.local.json` would override and disable all hooks.
+
+---
+
+### 5. Real-World Workflow Walkthroughs
+
+#### Scenario 1: "Add a new Tauri command"
+
+| Step | Hook Behavior | Friction? |
+|------|---------------|-----------|
+| 1. Write test in `commands.rs` | None | No |
+| 2. Write implementation | None | No |
+| 3. `git add` files | None | No |
+| 4. `git commit` | Pre-commit runs tests | **Blocked if test fails** |
+| 5. Tests pass, commit succeeds | Post-commit shows reminder | Helpful |
+| 6. Run `/changelog` | None | No |
+| 7. Commit changelog | Reminder shown but skipped (contains "changelog") | No |
+
+**Verdict:** Workflow is clean. No unnecessary friction.
+
+#### Scenario 2: "Fix a bug"
+
+| Step | Hook Behavior | Friction? |
+|------|---------------|-----------|
+| 1. Identify bug | None | No |
+| 2. Write failing test | None | No |
+| 3. Fix code | None | No |
+| 4. `git commit` | Tests run | **Blocked if not fixed** |
+| 5. Tests pass | Reminder shown | Helpful |
+| 6. `/changelog` | None | No |
+
+**Verdict:** Perfect TDD enforcement.
+
+#### Scenario 3: "WIP commit"
+
+| Step | Hook Behavior | Friction? |
+|------|---------------|-----------|
+| 1. Partial work done | None | No |
+| 2. Want to save WIP | Tests will fail | **FRICTION** |
+
+**Solutions (all documented):**
+1. `git commit --no-verify` - Hook doesn't match this pattern (but git bypasses too)
+2. Temporarily move `settings.json`
+3. Add empty hooks to `settings.local.json`
+4. Use `git stash` instead of WIP commit
+
+**Verdict:** Minor friction, but acceptable. WIP commits bypassing tests is intentional.
+
+**Potential improvement:** Could add pattern exception for commits containing "WIP" or "wip":
+
+```powershell
+if ($json.tool_input.command -match 'WIP|wip|\[skip tests\]') {
+    Write-Host "Skipping tests for WIP commit" -ForegroundColor Yellow
+    exit 0
+}
+```
+
+**Recommendation:** Do NOT add this. It defeats the purpose of TDD enforcement. If someone wants WIP, they can use documented skip mechanisms.
+
+---
+
+### 6. Breaking Scenarios Identified
+
+| Scenario | Severity | Mitigation |
+|----------|----------|------------|
+| Cargo not in PATH | Low | Add check, warn, don't block |
+| PowerShell not installed | Medium | Documented requirement for Windows |
+| Very slow test compilation (cold cache) | Low | 2-minute timeout sufficient |
+| Stdin encoding issues | Very low | UTF-8 default on Windows |
+
+**No breaking scenarios identified for normal development workflow.**
+
+---
+
+### 7. Recommended Script Improvements
+
+**pre-commit.ps1 - Add cargo check:**
+
+```powershell
+Push-Location $srcTauri
+try {
+    # Check cargo availability
+    $cargoPath = Get-Command cargo -ErrorAction SilentlyContinue
+    if (-not $cargoPath) {
+        Write-Host "Warning: cargo not found in PATH" -ForegroundColor Yellow
+        exit 0
+    }
+
+    cargo test 2>&1 | Tee-Object -Variable testOutput
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "`nCOMMIT BLOCKED: Tests failed!" -ForegroundColor Red
+        exit 2
+    }
+    Write-Host "Tests passed. Proceeding with commit." -ForegroundColor Green
+} finally {
+    Pop-Location
+}
+```
+
+**Severity:** Low priority improvement.
+
+---
+
+### 8. Confirmation of Readiness
+
+| Criterion | Status |
+|-----------|--------|
+| Pre-commit hook handles edge cases | **READY** (minor improvement optional) |
+| Post-commit reminder handles edge cases | **READY** |
+| verify-skill is appropriately scoped | **READY** |
+| Settings merge correctly | **CONFIRMED** |
+| Skip mechanism documented | **CONFIRMED** |
+| No breaking scenarios | **CONFIRMED** |
+
+**Verdict: READY FOR IMPLEMENTATION**
+
+No blockers identified. The simplified proposal from iterations 1-2 is robust and handles real-world edge cases appropriately.
+
+---
+
+### 9. Optional Improvements (Not Required)
+
+These are nice-to-have improvements that can be added later if issues arise:
+
+1. **Cargo PATH check** - Add explicit cargo availability check
+2. **Timing info** - Show test execution time in output
+3. **Colored test output** - Preserve cargo's colored output (currently captured)
+4. **Test count** - Show "105 tests passed" summary
+
+**Recommendation:** Implement base version first, add polish in future iteration if needed.
