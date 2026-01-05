@@ -9,7 +9,7 @@
 | Iteration | Date | Focus | Key Changes |
 |-----------|------|-------|-------------|
 | 1 | 2026-01-05 | Critical review - overengineering check | Major cuts, simplifications |
-| 2 | Pending | Refinement | - |
+| 2 | 2026-01-05 | Refinement - validate cuts, fix scripts | Script improvements, file simplification |
 | 3 | Pending | Refinement | - |
 | 4 | Pending | Final polish | - |
 
@@ -252,3 +252,266 @@ The original proposals suffer from "comprehensive-itis" - the desire to cover ev
 - 1-day effort becomes 3-hour effort
 
 The 80/20 rule wins. Focus on what actually enforces quality (pre-commit hook) and prevents mistakes (changelog reminder, verify-skill). Everything else is documentation that already exists or bureaucracy that won't be followed.
+
+---
+
+## Iteration 2: Refinement Review
+
+**Status:** Complete
+
+### Executive Summary
+
+Iteration 1 cuts were correct. The simplified roadmap is practical (~2 hours). However, the PowerShell hook scripts need error handling improvements, and the proposal files remain too verbose for what's now a small task.
+
+---
+
+### 1. Validation of Iteration 1 Cuts
+
+| Cut | Verdict | Reasoning |
+|-----|---------|-----------|
+| tdd-skill | **CORRECT** | Pre-commit hook enforces tests. TDD is already in CLAUDE.md lines 39-62. Skill would be redundant documentation. |
+| CLAUDE.md restructure | **CORRECT** | Current file is 264 lines but well-organized. ADR-008/TDD already near top (lines 13-62). Moving Common Pitfalls up is sufficient. |
+| review-skill | **CORRECT** | superpowers:requesting-code-review exists |
+| debug-skill | **CORRECT** | superpowers:systematic-debugging exists |
+| pre-implementation-skill | **CORRECT** | task-plan-skill already handles this |
+| SessionStart hook | **CORRECT** | Doesn't exist in Claude Code |
+| Idle notification | **CORRECT** | Would be noise |
+| Write/Edit linting | **CORRECT** | Too slow, errors visible in dev |
+
+**No cuts went too far.** The simplified scope is appropriate.
+
+---
+
+### 2. Roadmap Practicality Assessment
+
+**Time estimates are realistic:**
+
+| Task | Estimate | Notes |
+|------|----------|-------|
+| Pre-commit hook | 45 min | Script is straightforward with fixes below |
+| Post-commit reminder | 20 min | Simple pattern matching |
+| verify-skill | 20 min | Content already drafted |
+| CLAUDE.md tweak | 10 min | Move one section |
+| Skip documentation | 15 min | Just document options |
+| **Total** | **~2 hours** | Achievable in single session |
+
+**verify-skill is well-defined:** The simplified version in 05-final-roadmap.md lines 120-161 is appropriately scoped - just three checks.
+
+**No hidden dependencies:** Hooks are independent, skill is standalone.
+
+---
+
+### 3. Hook Script Quality Issues
+
+**CRITICAL: Scripts need error handling improvements.**
+
+#### Issue 1: Missing path validation
+
+Current `pre-commit.ps1` uses `Push-Location src-tauri` without checking if directory exists.
+
+**Fix:** Use `$CLAUDE_PROJECT_DIR` and validate path:
+
+```powershell
+$projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { Get-Location }
+$srcTauri = Join-Path $projectDir "src-tauri"
+
+if (-not (Test-Path $srcTauri)) {
+    Write-Host "Warning: src-tauri not found" -ForegroundColor Yellow
+    exit 0  # Don't block on unexpected structure
+}
+```
+
+#### Issue 2: No stdin error handling
+
+Scripts assume stdin is valid JSON. If empty or malformed, ConvertFrom-Json throws.
+
+**Fix:** Wrap in try-catch:
+
+```powershell
+$inputText = [Console]::In.ReadToEnd()
+if (-not $inputText) { exit 0 }
+
+try {
+    $json = $inputText | ConvertFrom-Json
+} catch {
+    Write-Host "Warning: Could not parse hook input" -ForegroundColor Yellow
+    exit 0
+}
+```
+
+#### Issue 3: Timeout consideration
+
+120000ms (2 minutes) is sufficient for 72-105 tests. Current test suite runs in ~30 seconds. Document this expectation.
+
+---
+
+### 4. Missing Details
+
+#### Skip mechanism needs documentation:
+
+Options for skipping hooks:
+1. **Temporary rename:** Rename `.claude/settings.json` to skip all hooks
+2. **Local override:** Add empty hooks in `.claude/settings.local.json`
+3. **Git native:** `git commit --no-verify` bypasses detection (command won't match pattern)
+
+Add this to CLAUDE.md or hooks documentation.
+
+#### Test instructions needed:
+
+How to verify hooks work:
+1. Create temporary failing test in `calculations.rs`:
+   ```rust
+   #[test]
+   fn test_hook_verification() {
+       assert!(false, "This test should fail");
+   }
+   ```
+2. Attempt `git commit` - should be blocked
+3. Remove failing test, commit should succeed
+
+---
+
+### 5. File Simplification Required
+
+**Proposal files are still too verbose for a 2-hour task:**
+
+| File | Current | Target | Action |
+|------|---------|--------|--------|
+| `02-hooks-proposal.md` | 429 lines | ~100 | Remove hooks 3-5, keep only essential |
+| `03-skills-proposal.md` | 1054 lines | ~50 | Keep only verify-skill (Part 3.5) |
+| `04-documentation-proposal.md` | 593 lines | DELETE | Replace with single CLAUDE.md edit |
+| `05-final-roadmap.md` | 287 lines | ~100 | Already simplified, minor cleanup |
+
+**Recommendation:** Don't spend time rewriting these files. Mark them as historical/superseded and use `05-final-roadmap.md` as the implementation guide.
+
+---
+
+### 6. Refined Hook Scripts
+
+**Recommended pre-commit.ps1:**
+
+```powershell
+# Pre-commit hook: Block commits if backend tests fail
+# Exit 0 = allow, Exit 2 = block
+
+$inputText = [Console]::In.ReadToEnd()
+if (-not $inputText) { exit 0 }
+
+try {
+    $json = $inputText | ConvertFrom-Json
+} catch {
+    exit 0  # Don't block on parse errors
+}
+
+if ($json.tool_input.command -notmatch '^git commit') {
+    exit 0
+}
+
+$projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+$srcTauri = Join-Path $projectDir "src-tauri"
+
+if (-not (Test-Path $srcTauri)) {
+    Write-Host "Warning: src-tauri not found at $srcTauri" -ForegroundColor Yellow
+    exit 0
+}
+
+Write-Host "`n=== Pre-commit: Running backend tests ===" -ForegroundColor Cyan
+
+Push-Location $srcTauri
+try {
+    cargo test 2>&1 | Tee-Object -Variable testOutput
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "`nCOMMIT BLOCKED: Tests failed!" -ForegroundColor Red
+        exit 2
+    }
+    Write-Host "Tests passed. Proceeding with commit." -ForegroundColor Green
+} finally {
+    Pop-Location
+}
+exit 0
+```
+
+**Recommended post-commit-reminder.ps1:**
+
+```powershell
+# Post-commit reminder: Prompt for changelog update
+
+$inputText = [Console]::In.ReadToEnd()
+if (-not $inputText) { exit 0 }
+
+try {
+    $json = $inputText | ConvertFrom-Json
+} catch {
+    exit 0
+}
+
+if ($json.tool_input.command -notmatch '^git commit') {
+    exit 0
+}
+
+if ($json.tool_input.command -match 'changelog|CHANGELOG') {
+    exit 0  # Skip if this is a changelog commit
+}
+
+Write-Host ""
+Write-Host "=== REMINDER: Update Changelog ===" -ForegroundColor Yellow
+Write-Host "Run /changelog to update CHANGELOG.md [Unreleased] section" -ForegroundColor White
+Write-Host ""
+
+exit 0
+```
+
+---
+
+### 7. Updated Implementation Checklist
+
+**Phase 1: Hooks (1.5 hours)**
+
+- [ ] Create `.claude/hooks/` directory
+- [ ] Create `pre-commit.ps1` with error handling (use refined script above)
+- [ ] Create `post-commit-reminder.ps1`
+- [ ] Create `.claude/settings.json`:
+  ```json
+  {
+    "hooks": {
+      "PreToolUse": [{
+        "matcher": "Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "pwsh -NoProfile -File .claude/hooks/pre-commit.ps1",
+          "timeout": 120000
+        }]
+      }],
+      "PostToolUse": [{
+        "matcher": "Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "pwsh -NoProfile -File .claude/hooks/post-commit-reminder.ps1",
+          "timeout": 5000
+        }]
+      }]
+    }
+  }
+  ```
+- [ ] Test: Add failing test, attempt commit (should block)
+- [ ] Test: Remove failing test, commit (should succeed + show reminder)
+
+**Phase 2: Skill & Doc (30 min)**
+
+- [ ] Create `.claude/skills/verify-skill/SKILL.md` (use simplified version from 05-final-roadmap.md)
+- [ ] Move Common Pitfalls section in CLAUDE.md (line 114 to ~line 50)
+- [ ] Add skill trigger hints to Documentation table
+- [ ] Add skip mechanism note to CLAUDE.md
+
+---
+
+### 8. Conclusion
+
+Iteration 1 made the right calls. The path forward is clear:
+
+1. **Implement 2 hooks** with robust error handling
+2. **Create 1 skill** (verify-skill)
+3. **Make 1 minor CLAUDE.md edit** (move Common Pitfalls)
+4. **Document skip mechanism**
+
+Total effort: ~2 hours. No further simplification needed - ready for implementation.

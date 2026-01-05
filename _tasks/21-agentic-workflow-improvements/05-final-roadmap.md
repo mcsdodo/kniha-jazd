@@ -1,6 +1,6 @@
 **Date:** 2026-01-05
 **Subject:** Final Roadmap - Agentic Workflow Improvements
-**Status:** Revised after Iteration 1 Review
+**Status:** Revised after Iteration 2 Review
 
 ---
 
@@ -76,12 +76,48 @@
 }
 ```
 
-**pre-commit.ps1 requirements:**
-- Detect `git commit` commands (not other Bash commands)
-- Run `cargo test` in src-tauri directory
-- Exit 2 to block commit on failure
-- Handle edge cases: wrong directory, cargo not found
-- Provide clear error messages
+**pre-commit.ps1 (with error handling from Iteration 2):**
+
+```powershell
+# Pre-commit hook: Block commits if backend tests fail
+# Exit 0 = allow, Exit 2 = block
+
+$inputText = [Console]::In.ReadToEnd()
+if (-not $inputText) { exit 0 }
+
+try {
+    $json = $inputText | ConvertFrom-Json
+} catch {
+    exit 0  # Don't block on parse errors
+}
+
+if ($json.tool_input.command -notmatch '^git commit') {
+    exit 0
+}
+
+$projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+$srcTauri = Join-Path $projectDir "src-tauri"
+
+if (-not (Test-Path $srcTauri)) {
+    Write-Host "Warning: src-tauri not found at $srcTauri" -ForegroundColor Yellow
+    exit 0
+}
+
+Write-Host "`n=== Pre-commit: Running backend tests ===" -ForegroundColor Cyan
+
+Push-Location $srcTauri
+try {
+    cargo test 2>&1 | Tee-Object -Variable testOutput
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "`nCOMMIT BLOCKED: Tests failed!" -ForegroundColor Red
+        exit 2
+    }
+    Write-Host "Tests passed. Proceeding with commit." -ForegroundColor Green
+} finally {
+    Pop-Location
+}
+exit 0
+```
 
 **Why:** Only item that actually enforces TDD.
 
@@ -101,10 +137,35 @@
 }]
 ```
 
-**post-commit-reminder.ps1 requirements:**
-- Detect successful `git commit` commands
-- Skip if commit message mentions CHANGELOG
-- Display prominent reminder to run /changelog
+**post-commit-reminder.ps1 (with error handling from Iteration 2):**
+
+```powershell
+# Post-commit reminder: Prompt for changelog update
+
+$inputText = [Console]::In.ReadToEnd()
+if (-not $inputText) { exit 0 }
+
+try {
+    $json = $inputText | ConvertFrom-Json
+} catch {
+    exit 0
+}
+
+if ($json.tool_input.command -notmatch '^git commit') {
+    exit 0
+}
+
+if ($json.tool_input.command -match 'changelog|CHANGELOG') {
+    exit 0  # Skip if this is a changelog commit
+}
+
+Write-Host ""
+Write-Host "=== REMINDER: Update Changelog ===" -ForegroundColor Yellow
+Write-Host "Run /changelog to update CHANGELOG.md [Unreleased] section" -ForegroundColor White
+Write-Host ""
+
+exit 0
+```
 
 **Why:** Addresses most common workflow gap.
 
@@ -164,17 +225,39 @@ See CLAUDE.md for project constraints.
 
 ### Task 1.4: Add Hook Skip Mechanism (15 min)
 
-Document in CLAUDE.md or create `.claude/settings.local.json`:
+**Options for skipping hooks (document in CLAUDE.md):**
 
-```json
-{
-  "hooks": {
-    "PreToolUse": []
-  }
-}
-```
+1. **Local override** - Add empty hooks in `.claude/settings.local.json`:
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": [],
+       "PostToolUse": []
+     }
+   }
+   ```
 
-This allows disabling hooks locally for WIP commits.
+2. **Temporary rename** - Rename `.claude/settings.json` to `.claude/settings.json.bak`
+
+3. **Git native** - Use `git commit --no-verify` (hook won't match the command pattern)
+
+### Task 1.5: Test Hooks (15 min)
+
+**Verification steps:**
+
+1. Add temporary failing test to `src-tauri/src/calculations.rs`:
+   ```rust
+   #[test]
+   fn test_hook_verification_DELETE_ME() {
+       assert!(false, "This test should fail - delete after testing");
+   }
+   ```
+
+2. Attempt `git commit` - should see "COMMIT BLOCKED: Tests failed!"
+
+3. Remove the failing test
+
+4. Commit again - should succeed and show changelog reminder
 
 ---
 
@@ -222,24 +305,19 @@ Files: task-plan-skill, decision-skill, changelog-skill, release-skill
 
 ## Implementation Checklist (Simplified)
 
-### Phase 1: Essential Automation
+### Phase 1: Essential Automation (~1.5 hours)
 - [ ] Create `.claude/hooks/` directory
-- [ ] Create `.claude/hooks/pre-commit.ps1` with error handling
-- [ ] Create `.claude/settings.json` with PreToolUse hook
-- [ ] Test: try commit with failing test (should block)
-- [ ] Test: try commit with passing tests (should succeed)
-- [ ] Create `.claude/hooks/post-commit-reminder.ps1`
-- [ ] Add PostToolUse hook to settings.json
-- [ ] Test: commit non-changelog file (should show reminder)
-- [ ] Test: commit changelog (should NOT show reminder)
-- [ ] Create `.claude/skills/verify-skill/SKILL.md`
-- [ ] Test: invoke /verify skill
-- [ ] Document skip mechanism
+- [ ] Create `.claude/hooks/pre-commit.ps1` (use script from Task 1.1)
+- [ ] Create `.claude/hooks/post-commit-reminder.ps1` (use script from Task 1.2)
+- [ ] Create `.claude/settings.json` with PreToolUse and PostToolUse hooks
+- [ ] Create `.claude/skills/verify-skill/SKILL.md` (use template from Task 1.3)
+- [ ] Test hooks (Task 1.5): failing test blocks, passing test shows reminder
+- [ ] Document skip mechanism in hooks README or CLAUDE.md
 
-### Phase 2: Documentation Updates
-- [ ] Move Common Pitfalls section in CLAUDE.md
-- [ ] Add trigger hints to skills table
-- [ ] Add cross-reference line to 4 existing skills
+### Phase 2: Documentation Updates (~30 min)
+- [ ] Move Common Pitfalls section in CLAUDE.md (line 114 to ~line 63)
+- [ ] Add trigger hints to skills table in CLAUDE.md
+- [ ] Add one-line cross-reference to 4 existing skills
 
 ---
 
@@ -265,22 +343,28 @@ The following were in the original proposal but are CUT:
 ## Summary
 
 **Original proposal:** 4 phases, ~1 day, 10+ new files
-**Revised plan:** 2 phases, ~3 hours, 4 new files
+**Revised plan (after Iteration 2):** 2 phases, ~2 hours, 4 new files
 
-| Metric | Original | Revised |
-|--------|----------|---------|
-| Hooks | 5 | 2 |
-| New skills | 5 | 1 |
-| CLAUDE.md changes | Full restructure | One section move |
-| Time estimate | 1 day | 3 hours |
-| Files created | 10+ | 4 |
+| Metric | Original | Iteration 1 | Iteration 2 |
+|--------|----------|-------------|-------------|
+| Hooks | 5 | 2 | 2 (with improved scripts) |
+| New skills | 5 | 1 | 1 |
+| CLAUDE.md changes | Full restructure | One section move | One section move |
+| Time estimate | 1 day | 3 hours | 2 hours |
+| Files created | 10+ | 4 | 4 |
 
-The 80/20 rule wins.
+**Key Iteration 2 improvements:**
+- Added error handling to PowerShell scripts (path validation, stdin parsing)
+- Added hook verification test procedure
+- Documented skip mechanism options
+- Confirmed all Iteration 1 cuts were correct
+
+The 80/20 rule wins. Ready for implementation.
 
 ---
 
 ## References
 
-- `_review.md` - Critical review explaining cuts
-- `02-hooks-proposal.md` - Original hook specs (use selectively)
-- `03-skills-proposal.md` - Original skill specs (verify-skill only)
+- `_review.md` - Iteration 1 & 2 reviews with full rationale
+- `02-hooks-proposal.md` - Original hook specs (historical)
+- `03-skills-proposal.md` - Original skill specs (historical, verify-skill only used)
