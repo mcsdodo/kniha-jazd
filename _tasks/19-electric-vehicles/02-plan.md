@@ -269,13 +269,38 @@ Add to `TripGridData`:
 
 ## Phase 4: Polish & Edge Cases
 
-### 4.1 Year Boundary Handling
+### 4.1 Year Boundary Handling (CARRYOVER)
 
-**Logic:** Each year starts/ends with 100% battery (accounting convention)
+**Logic:** Fuel/battery carries over between years. Ideally end year with full tank/charge, but if not - carry over the remaining amount.
 
-- [ ] First trip of year: use `initial_battery_percent` if set, else 100%
-- [ ] Year-over-year: no carry-over (each year resets to 100%)
-- [ ] When switching year in year picker: recalculate from that year's first trip
+**ICE vehicles (current - needs fix):**
+- [ ] Fix: Currently starts each year with full tank (wrong)
+- [ ] Add `get_year_end_zostatok(vehicle_id, year)` to calculate ending fuel state
+- [ ] First trip of year: use previous year's ending zostatok
+- [ ] If no previous year data: use full tank (initial state)
+
+**BEV vehicles:**
+- [ ] First trip of year: use previous year's ending battery kWh
+- [ ] If no previous year data: use `initial_battery_percent × capacity` (default 100%)
+- [ ] When switching year in year picker: recalculate from carryover state
+
+**PHEV vehicles:**
+- [ ] Carry over BOTH fuel AND battery from previous year
+- [ ] Same logic as ICE for fuel, same as BEV for battery
+
+**Implementation:**
+```rust
+fn get_year_start_state(vehicle_id, year) -> (Option<f64>, Option<f64>) {
+    // (fuel_liters, battery_kwh)
+    if year == first_year_with_trips {
+        return (full_tank, full_battery);
+    }
+    // Calculate ending state of previous year
+    let prev_year_trips = get_trips_for_vehicle_in_year(vehicle_id, year - 1);
+    // Process all trips to get final zostatok
+    return calculate_year_end_state(prev_year_trips);
+}
+```
 
 ### 4.2 SoC Override Processing
 

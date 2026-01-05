@@ -406,7 +406,14 @@ pub fn calculate_trip_stats(
     // Calculate current zostatok by processing all trips sequentially
     // Note: For accurate zostatok, we should use per-period rates, but for header display
     // we use the last consumption rate as a reasonable approximation
-    let mut current_zostatok = vehicle.tank_size_liters; // Start with full tank
+    // Start with carryover from previous year (or full tank if no previous data)
+    let mut current_zostatok = get_year_start_zostatok(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.tank_size_liters,
+        vehicle.tp_consumption,
+    )?;
 
     for trip in &trips {
         // Calculate spotreba for this trip
@@ -442,6 +449,54 @@ pub fn calculate_trip_stats(
         total_fuel_liters: total_fuel,
         total_fuel_cost_eur: total_fuel_cost,
     })
+}
+
+/// Get the starting zostatok for a year (carryover from previous year).
+/// If there are trips in the previous year, calculates the ending zostatok of that year.
+/// Otherwise, returns full tank (initial state for the vehicle).
+fn get_year_start_zostatok(
+    db: &Database,
+    vehicle_id: &str,
+    year: i32,
+    tank_size: f64,
+    tp_consumption: f64,
+) -> Result<f64, String> {
+    // Try to get trips from previous year
+    let prev_year = year - 1;
+    let prev_trips = db
+        .get_trips_for_vehicle_in_year(vehicle_id, prev_year)
+        .map_err(|e| e.to_string())?;
+
+    if prev_trips.is_empty() {
+        // No previous year data - start with full tank
+        return Ok(tank_size);
+    }
+
+    // Sort previous year's trips chronologically
+    let mut chronological = prev_trips;
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Calculate rates for previous year
+    let (rates, _) = calculate_period_rates(&chronological, tp_consumption);
+
+    // Get the starting zostatok for the previous year (recursive carryover)
+    let prev_year_start = get_year_start_zostatok(db, vehicle_id, prev_year, tank_size, tp_consumption)?;
+
+    // Calculate ending zostatok of previous year
+    let prev_year_end = calculate_year_end_zostatok(
+        &chronological,
+        &rates,
+        prev_year_start,
+        tank_size,
+    );
+
+    Ok(prev_year_end)
 }
 
 /// Get pre-calculated trip grid data for frontend display.
@@ -492,9 +547,18 @@ pub fn get_trip_grid_data(
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, vehicle.tp_consumption);
 
+    // Calculate initial zostatok (carryover from previous year or full tank)
+    let initial_zostatok = get_year_start_zostatok(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.tank_size_liters,
+        vehicle.tp_consumption,
+    )?;
+
     // Calculate fuel remaining for each trip
     let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, vehicle.tank_size_liters);
+        calculate_fuel_remaining(&chronological, &rates, initial_zostatok, vehicle.tank_size_liters);
 
     // Calculate date warnings (trips sorted by sort_order)
     let date_warnings = calculate_date_warnings(&trips);
@@ -583,14 +647,53 @@ pub(crate) fn calculate_period_rates(
     (rates, estimated)
 }
 
+/// Calculate the ending fuel state (zostatok) for a year.
+/// Returns the zostatok after processing all trips in chronological order.
+pub(crate) fn calculate_year_end_zostatok(
+    chronological: &[Trip],
+    rates: &HashMap<String, f64>,
+    initial_zostatok: f64,
+    tank_size: f64,
+) -> f64 {
+    let mut zostatok = initial_zostatok;
+
+    for trip in chronological {
+        let trip_id = trip.id.to_string();
+        let rate = rates.get(&trip_id).copied().unwrap_or(0.0);
+        let spotreba = if rate > 0.0 {
+            (trip.distance_km * rate) / 100.0
+        } else {
+            0.0
+        };
+
+        zostatok -= spotreba;
+
+        if let Some(fuel) = trip.fuel_liters {
+            if fuel > 0.0 {
+                if trip.full_tank {
+                    zostatok = tank_size;
+                } else {
+                    zostatok += fuel;
+                }
+            }
+        }
+
+        zostatok = zostatok.max(0.0).min(tank_size);
+    }
+
+    zostatok
+}
+
 /// Calculate fuel remaining after each trip.
+/// `initial_zostatok` is the fuel level at the start of the period (carryover from previous year).
 pub(crate) fn calculate_fuel_remaining(
     chronological: &[Trip],
     rates: &HashMap<String, f64>,
+    initial_zostatok: f64,
     tank_size: f64,
 ) -> HashMap<String, f64> {
     let mut remaining = HashMap::new();
-    let mut zostatok = tank_size;
+    let mut zostatok = initial_zostatok;
 
     for trip in chronological {
         let trip_id = trip.id.to_string();
@@ -981,8 +1084,18 @@ pub async fn export_to_browser(
     // Calculate rates and fuel remaining
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, vehicle.tp_consumption);
+
+    // Get initial zostatok (carryover from previous year)
+    let initial_zostatok = get_year_start_zostatok(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.tank_size_liters,
+        vehicle.tp_consumption,
+    )?;
+
     let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, vehicle.tank_size_liters);
+        calculate_fuel_remaining(&chronological, &rates, initial_zostatok, vehicle.tank_size_liters);
 
     let grid_data = TripGridData {
         trips,
@@ -1061,8 +1174,18 @@ pub async fn export_html(
     // Calculate rates and fuel remaining
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, vehicle.tp_consumption);
+
+    // Get initial zostatok (carryover from previous year)
+    let initial_zostatok = get_year_start_zostatok(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.tank_size_liters,
+        vehicle.tp_consumption,
+    )?;
+
     let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, vehicle.tank_size_liters);
+        calculate_fuel_remaining(&chronological, &rates, initial_zostatok, vehicle.tank_size_liters);
 
     let grid_data = TripGridData {
         trips,
@@ -1563,7 +1686,17 @@ pub fn preview_trip_calculation(
 
     // Calculate rates and remaining fuel using existing logic
     let (rates, estimated_rates) = calculate_period_rates(&trips, vehicle.tp_consumption);
-    let fuel_remaining = calculate_fuel_remaining(&trips, &rates, vehicle.tank_size_liters);
+
+    // Get initial zostatok (carryover from previous year)
+    let initial_zostatok = get_year_start_zostatok(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.tank_size_liters,
+        vehicle.tp_consumption,
+    )?;
+
+    let fuel_remaining = calculate_fuel_remaining(&trips, &rates, initial_zostatok, vehicle.tank_size_liters);
 
     // Find the preview trip in results
     let target_id = if let Some(edit_id) = editing_trip_id {
