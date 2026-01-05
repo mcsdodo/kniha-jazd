@@ -43,6 +43,7 @@ jobs:
         run: cargo test
 
   # Integration tests - full Tauri app tests
+  # Note: tauri-driver only supports Windows currently
   integration-tests:
     name: Integration Tests (${{ matrix.platform }})
     needs: backend-tests
@@ -52,9 +53,10 @@ jobs:
         include:
           - platform: windows-latest
             binary: src-tauri/target/debug/kniha-jazd.exe
-          - platform: macos-latest
-            binary: src-tauri/target/debug/bundle/macos/Kniha Jázd.app/Contents/MacOS/Kniha Jázd
-          # Linux requires additional WebKitGTK driver setup - skip for now
+          # macOS: tauri-driver not supported yet (v2.0.4)
+          # - platform: macos-latest
+          #   binary: src-tauri/target/debug/bundle/macos/Kniha Jázd.app/Contents/MacOS/Kniha Jázd
+          # Linux: WebKitGTK driver setup complex - skip for now
           # - platform: ubuntu-latest
           #   binary: src-tauri/target/debug/kniha-jazd
 
@@ -77,11 +79,6 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-
-      # macOS: Enable Safari WebDriver
-      - name: Enable Safari WebDriver (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: sudo safaridriver --enable
 
       # Windows: Install Edge WebDriver via winget
       - name: Install Edge WebDriver (Windows)
