@@ -58,14 +58,14 @@ export interface Settings {
 }
 
 export interface TripStats {
-	zostatok_liters: number;
-	avg_consumption_rate: number;  // Average: total_fuel / total_km * 100
-	last_consumption_rate: number; // From last fill-up period (for margin)
-	margin_percent: number | null; // null if no fill-up yet
-	is_over_limit: boolean;
-	total_km: number;
-	total_fuel_liters: number;
-	total_fuel_cost_eur: number;
+	fuelRemainingLiters: number;
+	avgConsumptionRate: number;  // Average: total_fuel / total_km * 100
+	lastConsumptionRate: number; // From last fill-up period (for margin)
+	marginPercent: number | null; // null if no fill-up yet
+	isOverLimit: boolean;
+	totalKm: number;
+	totalFuelLiters: number;
+	totalFuelCostEur: number;
 }
 
 export interface BackupInfo {
@@ -80,7 +80,7 @@ export interface TripGridData {
 	trips: Trip[];
 	rates: Record<string, number>; // tripId -> l/100km
 	estimated_rates: string[]; // tripIds using TP rate (estimated)
-	fuel_remaining: Record<string, number>; // tripId -> zostatok
+	fuel_remaining: Record<string, number>; // tripId -> fuel remaining
 	date_warnings: string[]; // tripIds with date ordering issues
 	consumption_warnings: string[]; // tripIds over 120% TP
 	missing_receipts: string[]; // tripIds missing receipts
@@ -156,7 +156,7 @@ export interface VerificationResult {
 
 // Live preview result for trip editing
 export interface PreviewResult {
-	zostatok: number;
+	fuelRemaining: number;
 	consumptionRate: number;
 	marginPercent: number;
 	isOverLimit: boolean;

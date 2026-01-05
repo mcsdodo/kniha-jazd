@@ -119,7 +119,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     for trip in &data.grid_data.trips {
         let trip_id = trip.id.to_string();
         let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
-        let zostatok = data
+        let fuel_remaining = data
             .grid_data
             .fuel_remaining
             .get(&trip_id)
@@ -166,7 +166,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             fuel_cost,
             other_costs,
             html_escape(other_note),
-            zostatok,
+            fuel_remaining,
             rate
         ));
     }

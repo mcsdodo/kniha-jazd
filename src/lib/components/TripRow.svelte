@@ -10,7 +10,7 @@
 	export let isNew: boolean = false;
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
-	export let zostatok: number = 0;
+	export let fuelRemaining: number = 0;
 	export let defaultDate: string = new Date().toISOString().split('T')[0]; // For new rows
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
@@ -251,9 +251,9 @@
 		</td>
 		<td class="number calculated" class:preview={previewData}>
 			{#if previewData}
-				~{previewData.zostatok.toFixed(1)}
+				~{previewData.fuelRemaining.toFixed(1)}
 			{:else}
-				{zostatok.toFixed(1)}
+				{fuelRemaining.toFixed(1)}
 			{/if}
 		</td>
 		<td>
@@ -307,7 +307,7 @@
 				<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
 			{/if}
 		</td>
-		<td class="number calculated">{zostatok.toFixed(1)}</td>
+		<td class="number calculated">{fuelRemaining.toFixed(1)}</td>
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
 		<td>{trip.other_costs_note || ''}</td>
 		<td class="actions">

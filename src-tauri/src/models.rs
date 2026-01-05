@@ -100,8 +100,9 @@ impl Default for Settings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TripStats {
-    pub zostatok_liters: f64,
+    pub fuel_remaining_liters: f64,
     pub avg_consumption_rate: f64,  // Average: total_fuel / total_km * 100
     pub last_consumption_rate: f64, // From last fill-up period (for margin calculation)
     pub margin_percent: Option<f64>, // None if no fill-up yet
@@ -120,7 +121,7 @@ pub struct TripGridData {
     pub rates: HashMap<String, f64>,
     /// Trip IDs that use estimated (TP) rate instead of calculated
     pub estimated_rates: HashSet<String>,
-    /// Fuel remaining (zostatok) after each trip, keyed by trip ID
+    /// Fuel remaining after each trip, keyed by trip ID
     pub fuel_remaining: HashMap<String, f64>,
     /// Trip IDs with date ordering issues
     pub date_warnings: HashSet<String>,
@@ -256,7 +257,7 @@ pub struct VerificationResult {
 #[serde(rename_all = "camelCase")]
 pub struct PreviewResult {
     /// Fuel remaining after this trip (liters)
-    pub zostatok: f64,
+    pub fuel_remaining: f64,
     /// Consumption rate for the fill-up period this trip belongs to (l/100km)
     pub consumption_rate: f64,
     /// Percentage over TP rate (e.g., 18.5 means 18.5% over TP)

@@ -410,7 +410,7 @@
 						previousOdometer={lastOdometer}
 						defaultDate={defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
-						zostatok={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
+						fuelRemaining={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
@@ -430,7 +430,7 @@
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 							defaultDate={insertDate || trip.date}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
-							zostatok={fuelRemaining.get(trip.id) || tankSize}
+							fuelRemaining={fuelRemaining.get(trip.id) || tankSize}
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
@@ -463,7 +463,7 @@
 							isNew={false}
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
-							zostatok={fuelRemaining.get(trip.id) || 0}
+							fuelRemaining={fuelRemaining.get(trip.id) || 0}
 							onSave={(data) => handleUpdate(trip, data)}
 							onCancel={() => {}}
 							onDelete={handleDelete}

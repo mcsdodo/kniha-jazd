@@ -1,7 +1,7 @@
 //! Tauri commands to expose Rust functionality to the frontend
 
 use crate::calculations::{
-    calculate_consumption_rate, calculate_margin_percent, calculate_spotreba, calculate_zostatok,
+    calculate_consumption_rate, calculate_margin_percent, calculate_fuel_used, calculate_fuel_level,
     is_within_legal_limit,
 };
 use crate::db::Database;
@@ -346,7 +346,7 @@ pub fn calculate_trip_stats(
     // If no trips, return default values
     if trips.is_empty() {
         return Ok(TripStats {
-            zostatok_liters: vehicle.tank_size_liters,
+            fuel_remaining_liters: vehicle.tank_size_liters,
             avg_consumption_rate: 0.0,
             last_consumption_rate: 0.0,
             margin_percent: None,
@@ -403,8 +403,8 @@ pub fn calculate_trip_stats(
         vehicle.tp_consumption
     };
 
-    // Calculate current zostatok by processing all trips sequentially
-    // Note: For accurate zostatok, we should use per-period rates, but for header display
+    // Calculate current fuel level by processing all trips sequentially
+    // Note: For accurate fuel level, we should use per-period rates, but for header display
     // we use the last consumption rate as a reasonable approximation
     // Start with carryover from previous year (or full tank if no previous data)
     let mut current_fuel = get_year_start_fuel_remaining(
@@ -416,13 +416,13 @@ pub fn calculate_trip_stats(
     )?;
 
     for trip in &trips {
-        // Calculate spotreba for this trip
-        let spotreba = calculate_spotreba(trip.distance_km, last_consumption_rate);
+        // Calculate fuel used for this trip
+        let fuel_used = calculate_fuel_used(trip.distance_km, last_consumption_rate);
 
-        // Update zostatok
-        current_fuel = calculate_zostatok(
+        // Update fuel level
+        current_fuel = calculate_fuel_level(
             current_fuel,
-            spotreba,
+            fuel_used,
             trip.fuel_liters,
             vehicle.tank_size_liters,
         );
@@ -440,7 +440,7 @@ pub fn calculate_trip_stats(
     let display_margin = if total_fuel > 0.0 { Some(avg_margin) } else { None };
 
     Ok(TripStats {
-        zostatok_liters: current_fuel,
+        fuel_remaining_liters: current_fuel,
         avg_consumption_rate,
         last_consumption_rate,
         margin_percent: display_margin,
@@ -548,7 +548,7 @@ pub fn get_trip_grid_data(
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, vehicle.tp_consumption);
 
-    // Calculate initial zostatok (carryover from previous year or full tank)
+    // Calculate initial fuel (carryover from previous year or full tank)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
@@ -1049,7 +1049,7 @@ pub async fn export_to_browser(
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, vehicle.tp_consumption);
 
-    // Get initial zostatok (carryover from previous year)
+    // Get initial fuel (carryover from previous year)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
@@ -1139,7 +1139,7 @@ pub async fn export_html(
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, vehicle.tp_consumption);
 
-    // Get initial zostatok (carryover from previous year)
+    // Get initial fuel (carryover from previous year)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
@@ -1543,7 +1543,7 @@ pub fn get_optimal_window_size() -> WindowSize {
 // ============================================================================
 
 /// Calculate preview values for a trip being edited/created.
-/// Returns consumption rate, zostatok, and margin without saving.
+/// Returns consumption rate, fuel remaining, and margin without saving.
 #[tauri::command]
 pub fn preview_trip_calculation(
     db: State<Database>,
@@ -1651,7 +1651,7 @@ pub fn preview_trip_calculation(
     // Calculate rates and remaining fuel using existing logic
     let (rates, estimated_rates) = calculate_period_rates(&trips, vehicle.tp_consumption);
 
-    // Get initial zostatok (carryover from previous year)
+    // Get initial fuel (carryover from previous year)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
@@ -1670,13 +1670,13 @@ pub fn preview_trip_calculation(
     };
 
     let consumption_rate = rates.get(&target_id).copied().unwrap_or(vehicle.tp_consumption);
-    let zostatok = fuel_remaining.get(&target_id).copied().unwrap_or(vehicle.tank_size_liters);
+    let fuel_remaining_value = fuel_remaining.get(&target_id).copied().unwrap_or(vehicle.tank_size_liters);
     let is_estimated_rate = estimated_rates.contains(&target_id);
     let margin_percent = calculate_margin_percent(consumption_rate, vehicle.tp_consumption);
     let is_over_limit = !is_within_legal_limit(margin_percent);
 
     Ok(PreviewResult {
-        zostatok,
+        fuel_remaining: fuel_remaining_value,
         consumption_rate,
         margin_percent,
         is_over_limit,
