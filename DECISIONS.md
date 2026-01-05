@@ -4,6 +4,30 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-01-05: Fuel Carryover
+
+### BIZ-012: Year-End Fuel Carryover Between Years
+
+**Context:** ADR-009 originally specified "zostatok starts fresh (full tank assumption)" for each new year. However, this didn't reflect reality - fuel doesn't magically reset on January 1st.
+
+**Previous behavior:** Each year started with full tank assumption, ignoring actual fuel state from December 31st.
+
+**Decision:** Fuel (zostatok) now carries over from the previous year's ending state.
+
+**Implementation:**
+- `get_year_start_zostatok()` calculates carryover from previous year's last trip
+- If no previous year data exists, falls back to full tank assumption
+- This also prepares for EV support where battery SoC carries over between years
+
+**Reasoning:**
+- Matches real-world behavior (fuel doesn't reset on Jan 1)
+- Provides accurate consumption tracking across year boundaries
+- Enables proper EV battery state tracking (future feature)
+
+**Note:** This supersedes the "zostatok starts fresh" part of ADR-009. The ODO carryover behavior from ADR-009 remains unchanged.
+
+---
+
 ## Template for New Decisions
 
 ```markdown

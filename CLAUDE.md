@@ -64,21 +64,32 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 ### Running Tests
 
 ```bash
-# Rust backend tests (72 tests)
+# Rust backend tests (93 tests)
 cd src-tauri && cargo test
+
+# E2E integration tests (requires debug build)
+npm run test:integration:build
+
+# All tests (backend + integration)
+npm run test:all
 ```
 
 ### Test Coverage
 
-**Backend (Rust) - Single Source of Truth (72 tests):**
+**Backend (Rust) - Single Source of Truth (93 tests):**
 - `calculations.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `suggestions.rs` - 9 tests: route matching, compensation suggestions
-- `db.rs` - 10 tests: CRUD lifecycle tests (consolidated)
-- `commands.rs` - 10 tests: receipt matching
+- `receipts.rs` - 17 tests: extraction, confidence, matching
+- `db.rs` - 17 tests: CRUD lifecycle, year carryover
+- `commands.rs` - 10 tests: receipt matching, trip operations
+- `suggestions.rs` - 8 tests: route matching, compensation suggestions
 - `export.rs` - 7 tests: export totals, HTML escaping
-- `receipts.rs` - 3 tests: extraction confidence
 - `gemini.rs` - 3 tests: JSON deserialization
 - `settings.rs` - 3 tests: local settings loading
+
+**Integration Tests (WebdriverIO + tauri-driver):**
+- `tests/integration/` - Full app E2E tests via WebDriver protocol
+- Runs against debug build of Tauri app
+- CI: Windows only (tauri-driver limitation)
 
 All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 
@@ -127,6 +138,10 @@ kniha-jazd/
 │   │   ├── stores/      # Svelte state
 │   │   └── i18n/        # Translations
 │   └── routes/          # Pages
+├── tests/
+│   ├── integration/     # WebdriverIO + tauri-driver E2E tests
+│   └── e2e/             # Playwright smoke tests (frontend only)
+├── .github/workflows/   # CI/CD pipelines
 └── _tasks/              # Planning docs
 ```
 
@@ -165,9 +180,21 @@ npm run tauri dev        # Start app in dev mode
 # Build
 npm run tauri build      # Production build
 
+# Testing
+npm run test:backend     # Rust unit tests (93 tests)
+npm run test:integration # E2E tests (needs debug build)
+npm run test:all         # All tests
+
 # Linting (NOT in agent instructions - use tools)
 npm run lint && npm run format
 ```
+
+## CI/CD
+
+GitHub Actions workflow (`.github/workflows/test.yml`):
+- **Backend tests**: Run on Windows, macOS, Linux
+- **Integration tests**: Run on Windows only (tauri-driver limitation)
+- Triggered on push/PR to `main` branch
 
 ## Git Guidelines
 
@@ -227,7 +254,7 @@ Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
 ### Task Completion Checklist
 
 Before marking any task complete:
-- [ ] Tests pass? (`npm run test:backend`)
+- [ ] Tests pass? (`npm run test:backend` or `npm run test:all`)
 - [ ] Code committed with descriptive message?
 - [ ] `/changelog` run to update [Unreleased]?
 - [ ] Changelog committed?

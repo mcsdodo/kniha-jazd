@@ -1,5 +1,7 @@
 **English** | [Slovensky](README.md)
 
+[![Tests](https://github.com/mcsdodo/kniha-jazd/actions/workflows/test.yml/badge.svg)](https://github.com/mcsdodo/kniha-jazd/actions/workflows/test.yml)
+
 # Kniha Jázd (Vehicle Logbook)
 
 Desktop application for tracking business vehicle trips for Slovak sole proprietors and small businesses.
@@ -172,8 +174,11 @@ npm run tauri dev
 ### Running Tests
 
 ```bash
-# Rust backend tests (72 tests)
+# Rust backend tests (93 tests)
 cd src-tauri && cargo test
+
+# E2E integration tests
+npm run test:integration:build
 ```
 
 ### Building

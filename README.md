@@ -1,5 +1,7 @@
 [English](README.en.md) | **Slovensky**
 
+[![Tests](https://github.com/mcsdodo/kniha-jazd/actions/workflows/test.yml/badge.svg)](https://github.com/mcsdodo/kniha-jazd/actions/workflows/test.yml)
+
 # Kniha Jázd
 
 Desktopová aplikácia na evidenciu jázd služobných vozidiel pre SZČO a malé firmy.
