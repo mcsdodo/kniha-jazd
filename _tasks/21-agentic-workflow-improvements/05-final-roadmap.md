@@ -1,48 +1,57 @@
 **Date:** 2026-01-05
 **Subject:** Final Roadmap - Agentic Workflow Improvements
-**Status:** Complete
+**Status:** Revised after Iteration 1 Review
 
 ---
 
 # Executive Summary
 
-This roadmap synthesizes findings from 4 iterations of analysis covering hooks, skills, and documentation improvements for the kniha-jazd project's agentic workflow.
+**REVISED:** After critical review (see `_review.md`), the original proposal was significantly simplified. The 80/20 rule applies - focus on automation that enforces quality, not comprehensive documentation.
 
-## Top 5 Recommendations (Ranked by Impact)
+## Final Recommendations (Post-Review)
 
 | Rank | Recommendation | Impact | Effort | Why |
 |------|----------------|--------|--------|-----|
-| 1 | **Pre-commit test hook** | Critical | 1 hour | Enforces TDD - converts "mandatory" from docs to automation |
-| 2 | **Restructure CLAUDE.md** | High | 2 hours | Reduces cognitive load 40%, critical info visible immediately |
-| 3 | **verify-skill** | High | 30 min | Prevents premature completion claims, ensures quality |
-| 4 | **Post-commit changelog reminder** | Medium | 30 min | Addresses most common workflow gap |
-| 5 | **tdd-skill** | Medium | 30 min | Provides test-first guidance, reinforces core principle |
+| 1 | **Pre-commit test hook** | Critical | 1 hour | Only item that actually enforces TDD |
+| 2 | **Post-commit changelog reminder** | High | 30 min | Addresses real problem (forgotten changelogs) |
+| 3 | **verify-skill** | Medium | 30 min | Prevents premature "done" claims |
+| 4 | **Move Common Pitfalls in CLAUDE.md** | Low | 10 min | Quick visibility improvement |
 
-## Key Metrics to Track
+**CUT from original proposal:**
+- ~~Restructure CLAUDE.md~~ (unnecessary - current structure is fine)
+- ~~tdd-skill~~ (redundant - pre-commit hook enforces tests)
+- ~~review-skill~~ (redundant - superpowers:requesting-code-review exists)
+- ~~debug-skill~~ (documentation, not automation)
+- ~~pre-implementation-skill~~ (bureaucracy - task-plan already covers this)
+- ~~SessionStart hook~~ (doesn't exist in Claude Code)
+- ~~Idle notification hook~~ (noise, will be ignored)
+- ~~Write/Edit linting hook~~ (too slow, errors visible in dev anyway)
 
-| Metric | Current State | Target | How to Measure |
-|--------|---------------|--------|----------------|
-| Commits blocked by tests | 0% (no enforcement) | 100% | Hook exit code 2 count |
-| Changelog updates after commits | Unknown (manual) | 100% | Changelog reminder dismissals |
-| Time to find critical info | ~30-60 sec | ~5 sec | Subjective (restructured doc) |
-| Incomplete work claims | Common | Rare | verify-skill usage |
-| CLAUDE.md length | 264 lines | ~150 lines | Line count |
+## Key Metrics
+
+| Metric | Current State | Target |
+|--------|---------------|--------|
+| Commits blocked if tests fail | 0% | 100% |
+| Changelog reminder after commits | No | Yes |
+| Implementation time | N/A | <4 hours |
+| New files created | N/A | 4 files |
 
 ## Success Criteria
 
-1. **No commit passes without tests passing** - Pre-commit hook blocks failures
-2. **Every completed feature has changelog entry** - Reminder hook enforces
-3. **Agent finds critical constraints in <10 seconds** - Quick Reference at top
-4. **Verification runs before "done" claims** - verify-skill integrated into workflow
-5. **New sessions understand project in <30 seconds** - Restructured CLAUDE.md
+1. **Commits blocked if tests fail** - Pre-commit hook works
+2. **Changelog reminder shown after commits** - Post-commit hook works
+3. **verify-skill usable** - Skill invocable and runs checks
 
 ---
 
-# Prioritized Implementation Roadmap
+# REVISED Implementation Roadmap (Post-Review)
 
-## Phase 1: Quick Wins (1-2 hours, HIGH impact)
+> **Note:** This roadmap was significantly simplified after Iteration 1 review.
+> See `_review.md` for full rationale. Original 4-phase plan reduced to 2 phases.
 
-**Goal:** Get immediate enforcement of core workflows with minimal effort.
+## Phase 1: Essential Automation (2-2.5 hours)
+
+**Goal:** Implement the two hooks that actually enforce quality.
 
 ### Task 1.1: Create Pre-Commit Test Hook (1 hour)
 
@@ -67,17 +76,18 @@ This roadmap synthesizes findings from 4 iterations of analysis covering hooks, 
 }
 ```
 
-**Why first:** Single most impactful change - converts TDD from "recommended" to "enforced."
+**pre-commit.ps1 requirements:**
+- Detect `git commit` commands (not other Bash commands)
+- Run `cargo test` in src-tauri directory
+- Exit 2 to block commit on failure
+- Handle edge cases: wrong directory, cargo not found
+- Provide clear error messages
 
-**Dependencies:** None
-**Risk:** Low - if hook breaks, can disable in settings.local.json
+**Why:** Only item that actually enforces TDD.
 
 ---
 
 ### Task 1.2: Create Post-Commit Changelog Reminder (30 min)
-
-**Files to create:**
-- `.claude/hooks/post-commit-reminder.ps1`
 
 **Add to settings.json:**
 ```json
@@ -91,10 +101,12 @@ This roadmap synthesizes findings from 4 iterations of analysis covering hooks, 
 }]
 ```
 
-**Why second:** Addresses most common workflow gap - forgetting to update changelog.
+**post-commit-reminder.ps1 requirements:**
+- Detect successful `git commit` commands
+- Skip if commit message mentions CHANGELOG
+- Display prominent reminder to run /changelog
 
-**Dependencies:** Task 1.1 (settings.json exists)
-**Risk:** Low - reminder only, doesn't block
+**Why:** Addresses most common workflow gap.
 
 ---
 
@@ -103,313 +115,172 @@ This roadmap synthesizes findings from 4 iterations of analysis covering hooks, 
 **File to create:**
 - `.claude/skills/verify-skill/SKILL.md`
 
-**Content:** See `03-skills-proposal.md` Section 3.5
+**Content (simplified from original):**
 
-**Why third:** Prevents premature "task complete" claims. Quick to implement.
-
-**Dependencies:** None
-**Risk:** Low - skill is advisory
-
+```markdown
+---
+name: verify-skill
+description: Use before claiming work is complete - runs tests, checks git status, verifies changelog
 ---
 
-## Phase 2: Core Improvements (Half day, ESSENTIAL)
+# Verification Before Completion
 
-**Goal:** Complete the workflow enforcement system and improve documentation.
+Run this before saying "task complete" or "done".
 
-### Task 2.1: Restructure CLAUDE.md (2 hours)
+## Checklist
 
-**Changes:**
-1. Add Quick Reference section at top (commands, skills, constraints)
-2. Move Critical Constraints up (ADR-008, TDD, pitfalls)
-3. Add Common Tasks section with copy-paste examples
-4. Remove architecture diagram (move to ARCHITECTURE.md)
-5. Remove test counts (derivable from running tests)
-6. Add cross-reference section
+### 1. Tests Pass
+```bash
+npm run test:backend
+```
+Do NOT proceed if tests fail.
 
-**Target:** 264 lines -> ~150 lines (40% reduction)
+### 2. Code Committed
+```bash
+git status
+```
+All work-related files should be committed.
 
-**Dependencies:** None
-**Risk:** Medium - must preserve all critical information
+### 3. Changelog Updated
+Check CHANGELOG.md [Unreleased] section has entry for this work.
+If not, run /changelog.
 
----
+## Quick Verification
+```powershell
+# Run tests
+cd src-tauri && cargo test
 
-### Task 2.2: Create tdd-skill (30 min)
+# Check status
+git status
 
-**File to create:**
-- `.claude/skills/tdd-skill/SKILL.md`
-
-**Content:** See `03-skills-proposal.md` Section 3.1
-
-**Why:** Provides structured guidance for test-first development.
-
-**Dependencies:** None
-**Risk:** Low
-
----
-
-### Task 2.3: Update Existing Skills with Cross-References (1 hour)
-
-**Files to modify:**
-- `.claude/skills/task-plan-skill/SKILL.md` - Add TDD, /decision, /changelog refs
-- `.claude/skills/decision-skill/SKILL.md` - Add context linking
-- `.claude/skills/changelog-skill/SKILL.md` - Add verification step
-- `.claude/skills/release-skill/SKILL.md` - Add pre-release checklist
-
-**Changes per skill:** See `03-skills-proposal.md` Part 2
-
-**Dependencies:** Task 2.2 (tdd-skill exists for references)
-**Risk:** Low - additive changes
-
----
-
-### Task 2.4: Create Idle Notification Hook (30 min)
-
-**File to create:**
-- `.claude/hooks/idle-reminder.ps1`
-
-**Add to settings.json:**
-```json
-"Notification": [{
-  "matcher": "idle_prompt",
-  "hooks": [{
-    "type": "command",
-    "command": "pwsh -NoProfile -File .claude/hooks/idle-reminder.ps1",
-    "timeout": 5000
-  }]
-}]
+# Check changelog
+head -20 CHANGELOG.md
 ```
 
-**Why:** Gentle reminder of completion checklist when idle.
-
-**Dependencies:** Task 1.1 (settings.json exists)
-**Risk:** Low - if notification event not supported, no harm
+See CLAUDE.md for project constraints.
+```
 
 ---
 
-## Phase 3: Full Implementation (1-2 days, COMPLETE workflow)
+### Task 1.4: Add Hook Skip Mechanism (15 min)
 
-**Goal:** Complete skill ecosystem and polish documentation.
+Document in CLAUDE.md or create `.claude/settings.local.json`:
 
-### Task 3.1: Create review-skill (45 min)
+```json
+{
+  "hooks": {
+    "PreToolUse": []
+  }
+}
+```
 
-**File to create:**
-- `.claude/skills/review-skill/SKILL.md`
-
-**Content:** See `03-skills-proposal.md` Section 3.4
-
-**Purpose:** ADR compliance checking before commit.
-
-**Dependencies:** None
-**Risk:** Low
+This allows disabling hooks locally for WIP commits.
 
 ---
 
-### Task 3.2: Create debug-skill (45 min)
+## Phase 2: Minimal Documentation Updates (30 min)
 
-**File to create:**
-- `.claude/skills/debug-skill/SKILL.md`
+### Task 2.1: Move Common Pitfalls in CLAUDE.md (10 min)
 
-**Content:** See `03-skills-proposal.md` Section 3.3
+Move lines 114-121 (Common Pitfalls section) to after line 50 (after TDD section).
 
-**Purpose:** Project-specific Rust/Tauri debugging patterns.
+**Current location:** Line 114
+**New location:** Line ~50 (after "What to Test" section)
 
-**Dependencies:** None
-**Risk:** Low
-
----
-
-### Task 3.3: Create pre-implementation-skill (45 min)
-
-**File to create:**
-- `.claude/skills/pre-implementation-skill/SKILL.md`
-
-**Content:** See `03-skills-proposal.md` Section 3.2
-
-**Purpose:** Ensure planning is complete before coding starts.
-
-**Dependencies:** None
-**Risk:** Low
+This is the only CLAUDE.md change needed.
 
 ---
 
-### Task 3.4: Update ARCHITECTURE.md (30 min)
+### Task 2.2: Add Skill Hints to Skills Table (10 min)
 
-**Changes:**
-- Ensure architecture diagram is complete
-- Add any content moved from CLAUDE.md
-- Cross-reference to DECISIONS.md for ADRs
+Update the skills table in CLAUDE.md:
 
-**Dependencies:** Task 2.1 (CLAUDE.md restructured)
-**Risk:** Low
-
----
-
-### Task 3.5: End-to-End Workflow Testing (2 hours)
-
-**Verification:**
-1. Start new session - Quick Reference visible?
-2. Create feature with /task-plan - cross-refs work?
-3. Write code - pre-commit blocks without tests?
-4. Commit code - changelog reminder appears?
-5. Mark complete - verify-skill checks pass?
-6. Run /changelog - updates correctly?
-7. Run /release - pre-checklist works?
-
-**Dependencies:** All previous tasks
-**Risk:** Medium - may reveal integration issues
+```markdown
+| Skill | Purpose | Trigger |
+|-------|---------|---------|
+| `/task-plan` | Create planning folder | "plan feature", "new task" |
+| `/changelog` | Update CHANGELOG.md | After completing work (MANDATORY) |
+| `/decision` | Record ADR/BIZ | "should I use X or Y?" |
+| `/release` | Version bump + build | "release", "publish" |
+| `/verify` | Check before "done" | Before claiming complete |
+```
 
 ---
 
-## Phase 4: Future Enhancements (Nice to have)
+### Task 2.3: Add Cross-Reference to Existing Skills (10 min)
 
-These items provide value but are not essential for core workflow.
+Add ONE line to each existing skill file:
 
-### Task 4.1: SessionStart Hook (if supported)
+```markdown
+## Project Context
+See CLAUDE.md for project constraints (ADR-008, TDD, changelog requirements).
+```
 
-**Purpose:** Display project context at session start.
-
-**Blocked by:** Claude Code SessionStart hook availability
-
----
-
-### Task 4.2: Write/Edit Linting Hook
-
-**Purpose:** Run svelte-check after editing frontend files.
-
-**Consideration:** May slow development; make configurable.
+Files: task-plan-skill, decision-skill, changelog-skill, release-skill
 
 ---
 
-### Task 4.3: Cross-Platform Hook Scripts
+## Implementation Checklist (Simplified)
 
-**Purpose:** Support non-Windows development.
-
-**Action:** Create `.sh` equivalents of PowerShell scripts.
-
----
-
-### Task 4.4: Skill Usage Analytics
-
-**Purpose:** Track which skills are used most/least.
-
-**Consideration:** Low priority - focus on workflow first.
-
----
-
-# Implementation Checklist
-
-## Phase 1: Quick Wins
-
+### Phase 1: Essential Automation
 - [ ] Create `.claude/hooks/` directory
-- [ ] Create `.claude/hooks/pre-commit.ps1`
+- [ ] Create `.claude/hooks/pre-commit.ps1` with error handling
 - [ ] Create `.claude/settings.json` with PreToolUse hook
-- [ ] Test pre-commit hook (try commit with failing test)
+- [ ] Test: try commit with failing test (should block)
+- [ ] Test: try commit with passing tests (should succeed)
 - [ ] Create `.claude/hooks/post-commit-reminder.ps1`
 - [ ] Add PostToolUse hook to settings.json
-- [ ] Test changelog reminder (commit without CHANGELOG)
+- [ ] Test: commit non-changelog file (should show reminder)
+- [ ] Test: commit changelog (should NOT show reminder)
 - [ ] Create `.claude/skills/verify-skill/SKILL.md`
-- [ ] Test verify-skill invocation
+- [ ] Test: invoke /verify skill
+- [ ] Document skip mechanism
 
-## Phase 2: Core Improvements
-
-- [ ] Backup current CLAUDE.md
-- [ ] Restructure CLAUDE.md (add Quick Reference, move constraints)
-- [ ] Reduce CLAUDE.md to ~150 lines
-- [ ] Verify all critical info preserved
-- [ ] Create `.claude/skills/tdd-skill/SKILL.md`
-- [ ] Update task-plan-skill with cross-references
-- [ ] Update decision-skill with context linking
-- [ ] Update changelog-skill with verification step
-- [ ] Update release-skill with pre-release checklist
-- [ ] Create `.claude/hooks/idle-reminder.ps1`
-- [ ] Add Notification hook to settings.json
-
-## Phase 3: Full Implementation
-
-- [ ] Create `.claude/skills/review-skill/SKILL.md`
-- [ ] Create `.claude/skills/debug-skill/SKILL.md`
-- [ ] Create `.claude/skills/pre-implementation-skill/SKILL.md`
-- [ ] Update ARCHITECTURE.md with moved content
-- [ ] Run end-to-end workflow test
-- [ ] Fix any integration issues discovered
-- [ ] Document any new decisions in DECISIONS.md
-
-## Phase 4: Future Enhancements
-
-- [ ] Monitor SessionStart hook support
-- [ ] Evaluate need for linting hooks
-- [ ] Create cross-platform scripts if needed
-- [ ] Consider skill usage tracking
+### Phase 2: Documentation Updates
+- [ ] Move Common Pitfalls section in CLAUDE.md
+- [ ] Add trigger hints to skills table
+- [ ] Add cross-reference line to 4 existing skills
 
 ---
 
-# Dependency Graph
+## What NOT To Do
 
-```
-Phase 1 (Parallel work possible):
-  Task 1.1 (pre-commit hook) ─┐
-                              ├─→ Task 1.2 (changelog reminder)
-  Task 1.3 (verify-skill) ────┘
+The following were in the original proposal but are CUT:
 
-Phase 2 (Some dependencies):
-  Task 2.1 (CLAUDE.md restructure) ─→ Task 3.4 (ARCHITECTURE.md update)
-  Task 2.2 (tdd-skill) ─→ Task 2.3 (update existing skills)
-  Task 2.4 (idle hook) depends on Task 1.1 (settings.json)
-
-Phase 3 (Mostly independent):
-  Tasks 3.1, 3.2, 3.3 can run in parallel
-  Task 3.5 (testing) depends on all previous
-```
-
----
-
-# Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Pre-commit hook too slow | Medium | Low | Add timeout, allow skip in settings.local.json |
-| Hook blocks legitimate commits | Low | Medium | Exit code 1 shows error, doesn't block |
-| CLAUDE.md restructure loses info | Low | High | Review before/after, keep backup |
-| Skills not used | Medium | Low | Integrate with hooks, remind in docs |
-| Hooks not supported on all events | Medium | Low | Fallback to documentation reminders |
+| Item | Reason |
+|------|--------|
+| CLAUDE.md restructure | Unnecessary - current structure is fine |
+| tdd-skill | Redundant - pre-commit hook enforces tests |
+| review-skill | Redundant - superpowers:requesting-code-review exists |
+| debug-skill | Documentation, not automation |
+| pre-implementation-skill | Bureaucracy - task-plan covers this |
+| SessionStart hook | Doesn't exist in Claude Code |
+| Idle notification hook | Noise, will be ignored |
+| Write/Edit linting hook | Too slow |
+| Verbose skill cross-references | Duplicates CLAUDE.md |
+| ARCHITECTURE.md updates | Not needed |
 
 ---
 
-# Next Steps
+## Summary
 
-1. **Immediate:** Implement Phase 1 (Quick Wins) - ~1.5 hours
-2. **This week:** Complete Phase 2 (Core Improvements) - ~half day
-3. **Next sprint:** Phase 3 (Full Implementation) - ~1 day
-4. **Ongoing:** Monitor and iterate based on usage
+**Original proposal:** 4 phases, ~1 day, 10+ new files
+**Revised plan:** 2 phases, ~3 hours, 4 new files
 
----
+| Metric | Original | Revised |
+|--------|----------|---------|
+| Hooks | 5 | 2 |
+| New skills | 5 | 1 |
+| CLAUDE.md changes | Full restructure | One section move |
+| Time estimate | 1 day | 3 hours |
+| Files created | 10+ | 4 |
 
-# Summary
-
-This roadmap transforms the kniha-jazd project's agentic workflow from documentation-based discipline to automation-enforced quality:
-
-**Before:**
-- TDD is "mandatory" in docs but not enforced
-- Changelog updates are easily forgotten
-- Critical constraints are buried in 264-line CLAUDE.md
-- Skills operate in isolation without cross-references
-- No verification before claiming work complete
-
-**After:**
-- Pre-commit hook blocks commits if tests fail
-- Post-commit reminder ensures changelog updates
-- Quick Reference at top of ~150-line CLAUDE.md
-- Skills cross-reference each other for complete workflow
-- verify-skill ensures quality before completion claims
-
-**Investment:** ~1 day total across all phases
-**Return:** Consistent quality, reduced mistakes, faster onboarding
+The 80/20 rule wins.
 
 ---
 
 ## References
 
-- `01-analysis.md` - Initial analysis and gap identification
-- `02-hooks-proposal.md` - Detailed hook specifications
-- `03-skills-proposal.md` - New skills and enhancements
-- `04-documentation-proposal.md` - CLAUDE.md restructure proposal
+- `_review.md` - Critical review explaining cuts
+- `02-hooks-proposal.md` - Original hook specs (use selectively)
+- `03-skills-proposal.md` - Original skill specs (verify-skill only)
