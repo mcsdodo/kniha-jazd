@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-05
+
+### Pridané
+- E2E integračné testy pomocou tauri-driver + WebdriverIO
+- Automatická CI pipeline pre testovanie (GitHub Actions)
+- Podpora pre izolovanú testovaciu databázu cez premennú prostredia `KNIHA_JAZD_DATA_DIR`
+
 ### Opravené
 - Zostatok paliva sa správne prenáša medzi rokmi (predtým sa každý rok začínal s plnou nádržou)
 
