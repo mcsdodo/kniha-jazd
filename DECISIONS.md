@@ -28,24 +28,6 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
-## Template for New Decisions
-
-```markdown
-### [ADR|BIZ]-NNN: Title
-
-**Context:** What situation prompted this decision?
-
-**Options considered:** (if applicable)
-1. Option A
-2. Option B
-
-**Decision:** What was decided?
-
-**Reasoning:** Why this choice?
-```
-
----
-
 ## 2025-12-30: Receipt Organization
 
 ### ADR-010: Receipt Year Filtering
