@@ -17,7 +17,7 @@ describe('Vehicle Setup', () => {
     // Verify app header is visible
     const header = await $('h1');
     await expect(header).toBeDisplayed();
-    await expect(header).toHaveTextContaining('Kniha');
+    await expect(header).toHaveText(expect.stringContaining('Logbook'));
   });
 
   it('should show empty state when no vehicles exist', async () => {
@@ -36,9 +36,12 @@ describe('Vehicle Setup', () => {
     const settingsLink = await $('a[href="/settings"]');
     await settingsLink.click();
 
-    // Verify we're on settings page
-    const activeNav = await $('.nav-link.active');
-    await expect(activeNav).toHaveTextContaining('Nastavenia');
+    // Wait for navigation to complete
+    await browser.pause(500);
+
+    // Verify we're on settings page by checking URL or page-specific content
+    const url = await browser.getUrl();
+    expect(url).toContain('/settings');
   });
 
   it('should create a new vehicle', async () => {

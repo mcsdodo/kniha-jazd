@@ -76,27 +76,28 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: sudo safaridriver --enable
 
-      # Windows: Install Edge WebDriver
+      # Windows: Install Edge WebDriver via winget
       - name: Install Edge WebDriver (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          # Get Edge version
-          $edgeVersion = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
-          $majorVersion = $edgeVersion.Split('.')[0]
-          Write-Host "Edge version: $edgeVersion (major: $majorVersion)"
+          # Install Edge WebDriver via winget
+          winget install Microsoft.EdgeDriver --accept-source-agreements --accept-package-agreements
 
-          # Download matching Edge WebDriver
-          $driverUrl = "https://msedgedriver.azureedge.net/$edgeVersion/edgedriver_win64.zip"
-          Write-Host "Downloading from: $driverUrl"
-
-          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
-          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
-
-          # Add to PATH
-          $driverPath = (Get-Location).Path + "\edgedriver"
-          echo "$driverPath" >> $env:GITHUB_PATH
-          Write-Host "Added $driverPath to PATH"
+          # Find and add to PATH
+          $driverPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Microsoft.EdgeDriver_Microsoft.Winget.Source_8wekyb3d8bbwe"
+          if (Test-Path $driverPath) {
+            echo "$driverPath" >> $env:GITHUB_PATH
+            Write-Host "Added $driverPath to PATH"
+          } else {
+            # Fallback: Download directly
+            $edgeVersion = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
+            $driverUrl = "https://msedgedriver.azureedge.net/$edgeVersion/edgedriver_win64.zip"
+            Write-Host "Downloading from: $driverUrl"
+            Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
+            Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
+            echo "$PWD\edgedriver" >> $env:GITHUB_PATH
+          }
 
       # Linux: Install WebKitGTK dependencies
       - name: Install Linux dependencies

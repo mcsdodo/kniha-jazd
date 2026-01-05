@@ -109,6 +109,8 @@ export const config: Options.Testrunner = {
       'msedgedriver.exe',
       'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedgedriver.exe',
       join(process.env.USERPROFILE || '', 'AppData', 'Local', 'Programs', 'msedgedriver', 'msedgedriver.exe'),
+      // WinGet installation path
+      join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Packages', 'Microsoft.EdgeDriver_Microsoft.Winget.Source_8wekyb3d8bbwe', 'msedgedriver.exe'),
     ].filter(Boolean) as string[];
 
     let nativeDriverArg: string[] = [];
