@@ -14,7 +14,7 @@
 | **Battery tracking** | kWh primary, derive % for display |
 | **PHEV consumption** | Electricity first (until depleted), then fuel |
 | **Implementation** | Parallel systems - don't break fuel when adding energy |
-| **Year boundaries** | 100% battery at year start and end (accounting convention) |
+| **Year boundaries** | Carryover between years (consistent with existing ICE behavior) |
 | **Vehicle type change** | **Prohibited** after trips exist - immutable once data is recorded |
 | **SoC override** | Optional per-trip field for manual correction (battery degradation) |
 | **PHEV compensation** | Out of scope - see `_tasks/_TECH_DEBT/` |
@@ -220,25 +220,31 @@ impl Trip {
 
 ### Year Boundary Logic
 
-Battery state handling at year boundaries:
+Battery/fuel state carries over between years (consistent with existing ICE implementation):
 
 ```
 Year Start (first trip of year):
-  if vehicle.initial_battery_percent is set AND this is first year:
+  if previous_year has trips:
+    // Carryover: use ending state from previous year
+    battery_remaining = get_year_end_battery(vehicle_id, year - 1)
+    fuel_remaining = get_year_end_fuel(vehicle_id, year - 1)
+  else if vehicle.initial_battery_percent is set:
+    // First year with initial state
     battery_remaining = capacity × initial_battery_percent / 100
   else:
-    battery_remaining = capacity (assume 100%)
+    // First year, no initial state - assume full
+    battery_remaining = capacity (100%)
 
 Year End:
-  Accounting convention: battery ends at 100%
-  (No carry-over to next year - each year starts fresh at 100%)
+  Calculate final state by processing all trips in the year
+  This value becomes the starting point for next year
 
-When viewing previous year:
-  Calculate from that year's first trip forward
-  No dependency on current year's data
+SoC Override consideration:
+  If any trip has soc_override_percent, year-end state must reflect that override
+  The override affects this trip and all subsequent calculations
 ```
 
-**Rationale:** Slovak accounting convention - similar to how fuel tank is assumed full at year end for tax purposes. Simplifies year-over-year tracking and avoids complex carry-over logic.
+**Rationale:** Matches existing ICE behavior where fuel carries over. The `get_year_start_fuel_remaining()` function in `commands.rs` already implements this pattern for ICE vehicles.
 
 ### TripStats Model
 
@@ -309,12 +315,12 @@ src-tauri/src/
 │   ├── calculate_battery_remaining()
 │   └── // NO margin functions - not applicable
 │
-├── calculations_phev.rs         # NEW - PHEV combined logic
-│   ├── calculate_phev_trip_consumption()
-│   └── // Orchestrates fuel + energy based on battery state
-│
-└── trip_processor.rs            # NEW - routes to correct calculator
-    └── process_trips_for_vehicle()
+└── calculations_phev.rs         # NEW - PHEV combined logic
+    ├── calculate_phev_trip_consumption()
+    └── // Orchestrates fuel + energy based on battery state
+
+// Note: Vehicle type routing handled directly in commands.rs (get_trip_grid_data)
+// No separate trip_processor.rs needed - keeps logic centralized
 ```
 
 ### calculations_energy.rs
