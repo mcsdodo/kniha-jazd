@@ -8,6 +8,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
+- **Podpora elektrických vozidiel (BEV) a plug-in hybridov (PHEV)**
+  - Nový typ vozidla s výberom: ICE (spaľovacie), BEV (elektrické), PHEV (hybridné)
+  - Kapacita batérie, základná spotreba (kWh/100km), počiatočný stav batérie (%)
+  - Výpočty energie: spotreba kWh, zostatok batérie v kWh aj percentách
+  - Podpora pre nabíjanie: čiastočné/plné nabitie, manuálna korekcia stavu batérie (SoC override)
+  - 23 nových unit testov pre výpočty energie a PHEV
 - Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva, prenos paliva medzi rokmi (15 nových testov)
 - Claude Code hooks: automatické spustenie testov pred commitom, pripomienka na changelog
 - Nový skill `/verify` pre kontrolu pred dokončením úlohy
