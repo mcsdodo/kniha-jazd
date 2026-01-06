@@ -18,6 +18,9 @@ pub struct ExportLabels {
     pub header_tank_size: String,
     pub header_tp_consumption: String,
     pub header_year: String,
+    // Header labels for BEV
+    pub header_battery_capacity: String,
+    pub header_baseline_consumption: String,
     // Column headers
     pub col_date: String,
     pub col_origin: String,
@@ -31,6 +34,11 @@ pub struct ExportLabels {
     pub col_note: String,
     pub col_remaining: String,
     pub col_consumption: String,
+    // Column headers for BEV
+    pub col_energy_kwh: String,
+    pub col_energy_cost: String,
+    pub col_battery_remaining: String,
+    pub col_energy_rate: String,
     // Footer labels
     pub footer_total_km: String,
     pub footer_total_fuel: String,
@@ -38,6 +46,10 @@ pub struct ExportLabels {
     pub footer_avg_consumption: String,
     pub footer_deviation: String,
     pub footer_tp_norm: String,
+    // Footer labels for BEV
+    pub footer_total_energy: String,
+    pub footer_avg_energy_rate: String,
+    pub footer_baseline_norm: String,
     // Print hint
     pub print_hint: String,
 }
@@ -61,6 +73,11 @@ pub struct ExportTotals {
     pub total_other_costs: f64,
     pub avg_consumption: f64,
     pub deviation_percent: f64,
+    // Energy totals (for BEV/PHEV)
+    pub total_energy_kwh: f64,
+    pub total_energy_cost: f64,
+    pub avg_energy_rate: f64,
+    pub energy_deviation_percent: f64,
 }
 
 impl ExportTotals {
@@ -69,10 +86,11 @@ impl ExportTotals {
     /// # Arguments
     /// * `trips` - List of trips to summarize (excludes dummy rows with 0 km)
     /// * `tp_consumption` - Vehicle's technical passport consumption rate (l/100km)
+    /// * `baseline_consumption_kwh` - Vehicle's baseline energy consumption (kWh/100km) for BEV
     ///
     /// # Returns
     /// ExportTotals with all calculated values
-    pub fn calculate(trips: &[Trip], tp_consumption: f64) -> Self {
+    pub fn calculate(trips: &[Trip], tp_consumption: f64, baseline_consumption_kwh: f64) -> Self {
         // Filter out dummy rows (trips with 0 km distance)
         let real_trips: Vec<_> = trips.iter().filter(|t| t.distance_km > 0.0).collect();
 
@@ -80,9 +98,17 @@ impl ExportTotals {
         let total_fuel_liters: f64 = real_trips.iter().filter_map(|t| t.fuel_liters).sum();
         let total_fuel_cost: f64 = real_trips.iter().filter_map(|t| t.fuel_cost_eur).sum();
         let total_other_costs: f64 = real_trips.iter().filter_map(|t| t.other_costs_eur).sum();
+        let total_energy_kwh: f64 = real_trips.iter().filter_map(|t| t.energy_kwh).sum();
+        let total_energy_cost: f64 = real_trips.iter().filter_map(|t| t.energy_cost_eur).sum();
 
         let avg_consumption = if total_km > 0.0 {
             (total_fuel_liters / total_km) * 100.0
+        } else {
+            0.0
+        };
+
+        let avg_energy_rate = if total_km > 0.0 {
+            (total_energy_kwh / total_km) * 100.0
         } else {
             0.0
         };
@@ -91,6 +117,12 @@ impl ExportTotals {
             (avg_consumption / tp_consumption) * 100.0
         } else {
             100.0 // 100% = exactly at TP rate (no deviation)
+        };
+
+        let energy_deviation_percent = if baseline_consumption_kwh > 0.0 && total_energy_kwh > 0.0 {
+            (avg_energy_rate / baseline_consumption_kwh) * 100.0
+        } else {
+            100.0 // 100% = exactly at baseline rate (no deviation)
         };
 
         // Normalize near-zero values to avoid -0.00 display
@@ -103,6 +135,10 @@ impl ExportTotals {
             total_other_costs: normalize(total_other_costs),
             avg_consumption: normalize(avg_consumption),
             deviation_percent,
+            total_energy_kwh: normalize(total_energy_kwh),
+            total_energy_cost: normalize(total_energy_cost),
+            avg_energy_rate: normalize(avg_energy_rate),
+            energy_deviation_percent,
         }
     }
 
@@ -390,9 +426,9 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         vehicle_name = html_escape(&data.vehicle.name),
         header_license_plate = html_escape(&l.header_license_plate),
         header_tank_size = html_escape(&l.header_tank_size),
-        tank_size = data.vehicle.tank_size_liters,
+        tank_size = data.vehicle.tank_size_liters.unwrap_or(0.0),
         header_tp_consumption = html_escape(&l.header_tp_consumption),
-        tp_consumption = data.vehicle.tp_consumption,
+        tp_consumption = data.vehicle.tp_consumption.unwrap_or(0.0),
         header_year = html_escape(&l.header_year),
         col_date = html_escape(&l.col_date),
         col_origin = html_escape(&l.col_origin),
@@ -457,9 +493,13 @@ mod tests {
             purpose: "test".to_string(),
             fuel_liters: fuel,
             fuel_cost_eur: fuel_cost,
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: other_cost,
             other_costs_note: None,
-            full_tank: true,
             sort_order: 0,
             created_at: Utc::now(),
             updated_at: Utc::now(),
@@ -473,7 +513,7 @@ mod tests {
             make_trip(200.0, Some(12.0), Some(20.0), Some(5.0)),
         ];
 
-        let totals = ExportTotals::calculate(&trips, 5.0);
+        let totals = ExportTotals::calculate(&trips, 5.0, 0.0);
 
         assert_eq!(totals.total_km, 300.0);
         assert_eq!(totals.total_fuel_liters, 18.0);
@@ -488,7 +528,7 @@ mod tests {
     #[test]
     fn test_export_totals_no_trips() {
         let trips: Vec<Trip> = vec![];
-        let totals = ExportTotals::calculate(&trips, 5.0);
+        let totals = ExportTotals::calculate(&trips, 5.0, 0.0);
 
         assert_eq!(totals.total_km, 0.0);
         assert_eq!(totals.total_fuel_liters, 0.0);
@@ -503,7 +543,7 @@ mod tests {
             make_trip(200.0, None, None, None),
         ];
 
-        let totals = ExportTotals::calculate(&trips, 5.0);
+        let totals = ExportTotals::calculate(&trips, 5.0, 0.0);
 
         assert_eq!(totals.total_km, 300.0);
         assert_eq!(totals.total_fuel_liters, 0.0);
@@ -516,7 +556,7 @@ mod tests {
         let trips = vec![make_trip(100.0, Some(6.0), Some(10.0), None)];
 
         // Edge case: tp_consumption = 0 should not panic
-        let totals = ExportTotals::calculate(&trips, 0.0);
+        let totals = ExportTotals::calculate(&trips, 0.0, 0.0);
 
         assert_eq!(totals.total_km, 100.0);
         assert_eq!(totals.deviation_percent, 100.0); // Defaults to 100% when tp is 0
@@ -538,7 +578,7 @@ mod tests {
             make_trip(200.0, Some(12.0), Some(20.0), None),
         ];
 
-        let totals = ExportTotals::calculate(&trips, 5.0);
+        let totals = ExportTotals::calculate(&trips, 5.0, 0.0);
 
         // Should only count trips with km > 0
         assert_eq!(totals.total_km, 300.0);      // 100 + 200, not 0 + 100 + 200

@@ -1,4 +1,6 @@
 mod calculations;
+mod calculations_energy;
+mod calculations_phev;
 mod commands;
 mod db;
 mod error;
@@ -55,6 +57,7 @@ pub fn run() {
       commands::delete_trip,
       commands::reorder_trip,
       commands::get_routes,
+      commands::get_purposes,
       commands::get_compensation_suggestion,
       commands::get_settings,
       commands::save_settings,

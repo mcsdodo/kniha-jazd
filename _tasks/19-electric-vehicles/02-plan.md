@@ -159,12 +159,24 @@ Add to `TripGridData`:
 - [ ] For BEV: populate energy-related HashMaps
 - [ ] For BEV: skip margin calculation
 
-### 2.5 Vehicle Form UI
+### 2.5 Add i18n Translations
+
+**Files:** `src/lib/i18n/sk/index.ts`, `src/lib/i18n/en/index.ts`
+
+Add Slovak (primary) and English translations for new UI elements:
+
+- [ ] Vehicle type labels: "Typ vozidla", "Elektrické vozidlo (BEV)", "Plug-in hybrid (PHEV)"
+- [ ] Battery fields: "Kapacita batérie (kWh)", "Základná spotreba (kWh/100km)", "Počiatočný stav batérie (%)"
+- [ ] Trip fields: "Energia (kWh)", "Náklady na nabíjanie (€)", "Plné nabitie"
+- [ ] Grid columns: "Batéria", "Spotreba (kWh/100km)"
+- [ ] SoC override: "Korekcia stavu batérie (%)"
+
+### 2.6 Vehicle Form UI
 
 **File:** `src/lib/components/VehicleForm.svelte` (or similar)
 
 - [ ] Add vehicle type selector (dropdown)
-- [ ] **Disable vehicle type selector when editing vehicle with existing trips**
+- [ ] **Disable vehicle type selector when editing vehicle with existing trips** (see test in Testing Strategy)
 - [ ] Show/hide fields based on type:
   - ICE: tank + TP consumption
   - BEV: battery + baseline consumption + initial battery %
@@ -172,7 +184,7 @@ Add to `TripGridData`:
 - [ ] Validation: required fields per type
 - [ ] Add optional "Počiatočný stav batérie %" field (default 100%)
 
-### 2.6 Trip Form UI
+### 2.7 Trip Form UI
 
 **File:** `src/lib/components/TripForm.svelte` (or similar)
 
@@ -183,7 +195,7 @@ Add to `TripGridData`:
 - [ ] SoC override (%) input - collapsible/hidden by default, only in edit form
 - [ ] When SoC override is set, show info that this affects all subsequent trips
 
-### 2.7 Trip Grid UI
+### 2.8 Trip Grid UI
 
 **File:** `src/routes/+page.svelte` (or trip grid component)
 
@@ -193,7 +205,7 @@ Add to `TripGridData`:
 - [ ] For BEV: hide margin column
 - [ ] Show indicator (🔧) next to battery % when trip has SoC override
 
-### 2.8 Update Export
+### 2.9 Update Export
 
 **File:** `src-tauri/src/export.rs`
 
@@ -273,11 +285,7 @@ Add to `TripGridData`:
 
 **Logic:** Fuel/battery carries over between years. Ideally end year with full tank/charge, but if not - carry over the remaining amount.
 
-**ICE vehicles (current - needs fix):**
-- [ ] Fix: Currently starts each year with full tank (wrong)
-- [ ] Add `get_year_end_zostatok(vehicle_id, year)` to calculate ending fuel state
-- [ ] First trip of year: use previous year's ending zostatok
-- [ ] If no previous year data: use full tank (initial state)
+> **Note:** ICE carryover is already implemented via `get_year_start_fuel_remaining()` in `commands.rs`. BEV/PHEV follow the same pattern.
 
 **BEV vehicles:**
 - [ ] First trip of year: use previous year's ending battery kWh
@@ -298,15 +306,19 @@ fn get_year_start_state(vehicle_id, year) -> (Option<f64>, Option<f64>) {
     // Calculate ending state of previous year
     let prev_year_trips = get_trips_for_vehicle_in_year(vehicle_id, year - 1);
     // Process all trips to get final zostatok
+    // Note: If any trip has soc_override_percent, year-end must reflect that override
     return calculate_year_end_state(prev_year_trips);
 }
 ```
 
 ### 4.2 SoC Override Processing
 
+> **Note:** Core SoC override logic should be integrated into Phase 2.4 (`get_trip_grid_data`) to ensure feature works when UI is available. This section covers edge cases and verification.
+
 - [ ] When trip has `soc_override_percent`, use it instead of calculated value
 - [ ] Override applies to current trip AND all subsequent trips
 - [ ] Add to `TripGridData.soc_override_trips` HashSet for UI indicator
+- [ ] Verify override persists across year boundaries
 
 ### 4.3 Suggestions for PHEV
 
@@ -339,6 +351,9 @@ Compensation suggestions for PHEV are complex due to electricity-first logic and
 | `calculations_phev.rs` | 4+ tests |
 | `db.rs` | CRUD for new fields |
 | `commands.rs` | BEV/PHEV trip processing, vehicle type immutability |
+
+**Required test for vehicle type immutability:**
+- [ ] `test_update_vehicle_blocks_type_change_when_trips_exist` - Verify that `update_vehicle` returns error when attempting to change `vehicle_type` for a vehicle that has existing trips
 
 ### Validation Tests
 

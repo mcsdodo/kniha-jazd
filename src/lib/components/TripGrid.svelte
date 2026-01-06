@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, PreviewResult } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
+	import type { Trip, Route, TripGridData, PreviewResult, VehicleType } from '$lib/types';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -14,25 +14,49 @@
 	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
 	export let tankSize: number = 66;
 	export let initialOdometer: number = 0;
+	// EV support
+	export let vehicleType: VehicleType = 'Ice';
+	export let batteryCapacityKwh: number = 0;
+	export let baselineConsumptionKwh: number = 0;
+
+	// Derived: show columns based on vehicle type
+	$: showFuelColumns = vehicleType === 'Ice' || vehicleType === 'Phev';
+	$: showEnergyColumns = vehicleType === 'Bev' || vehicleType === 'Phev';
 
 	// Pre-calculated grid data from backend
 	let gridData: TripGridData | null = null;
+	// Fuel data
 	let consumptionRates: Map<string, number> = new Map();
 	let estimatedRates: Set<string> = new Set();
 	let fuelRemaining: Map<string, number> = new Map();
-	let dateWarnings: Set<string> = new Set();
 	let consumptionWarnings: Set<string> = new Set();
+	// Energy data (BEV/PHEV)
+	let energyRates: Map<string, number> = new Map();
+	let estimatedEnergyRates: Set<string> = new Set();
+	let batteryRemainingKwh: Map<string, number> = new Map();
+	let batteryRemainingPercent: Map<string, number> = new Map();
+	let socOverrideTrips: Set<string> = new Set();
+	// Shared
+	let dateWarnings: Set<string> = new Set();
 
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
 		try {
 			gridData = await getTripGridData(vehicleId, year);
 			// Convert backend data to Maps/Sets for efficient lookup
+			// Fuel
 			consumptionRates = new Map(Object.entries(gridData.rates));
 			estimatedRates = new Set(gridData.estimated_rates);
 			fuelRemaining = new Map(Object.entries(gridData.fuel_remaining));
-			dateWarnings = new Set(gridData.date_warnings);
 			consumptionWarnings = new Set(gridData.consumption_warnings);
+			// Energy
+			energyRates = new Map(Object.entries(gridData.energy_rates));
+			estimatedEnergyRates = new Set(gridData.estimated_energy_rates);
+			batteryRemainingKwh = new Map(Object.entries(gridData.battery_remaining_kwh));
+			batteryRemainingPercent = new Map(Object.entries(gridData.battery_remaining_percent));
+			socOverrideTrips = new Set(gridData.soc_override_trips);
+			// Shared
+			dateWarnings = new Set(gridData.date_warnings);
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -75,13 +99,12 @@
 	// Disable reorder buttons when editing, adding new row, or not in manual sort mode
 	$: reorderDisabled = showNewRow || editingTripId !== null || sortColumn !== 'manual';
 
-	// Get unique purposes from trips for autocomplete (trim to avoid duplicates with trailing spaces)
-	$: purposeSuggestions = Array.from(
-		new Set(trips.map((t) => t.purpose.trim()).filter((p) => p !== ''))
-	).sort();
+	// Purpose suggestions loaded from backend (across all years)
+	let purposeSuggestions: string[] = [];
 
 	onMount(async () => {
 		await loadRoutes();
+		await loadPurposes();
 	});
 
 	async function loadRoutes() {
@@ -89,6 +112,14 @@
 			routes = await getRoutes(vehicleId);
 		} catch (error) {
 			console.error('Failed to load routes:', error);
+		}
+	}
+
+	async function loadPurposes() {
+		try {
+			purposeSuggestions = await getPurposes(vehicleId);
+		} catch (error) {
+			console.error('Failed to load purposes:', error);
 		}
 	}
 
@@ -106,11 +137,18 @@
 				tripData.distance_km!,
 				tripData.odometer!,
 				tripData.purpose!,
+				// Fuel fields
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
+				tripData.full_tank,
+				// Energy fields
+				tripData.energy_kwh,
+				tripData.energy_cost_eur,
+				tripData.full_charge,
+				null, // socOverridePercent - rarely used on new trips
+				// Other
 				tripData.other_costs_eur,
 				tripData.other_costs_note,
-				tripData.full_tank,
 				insertAtSortOrder
 			);
 
@@ -123,6 +161,7 @@
 			await recalculateAllOdo();
 			onTripsChanged();
 			await loadRoutes();
+			await loadPurposes();
 		} catch (error) {
 			console.error('Failed to create trip:', error);
 			toast.error($LL.toast.errorCreateTrip());
@@ -139,16 +178,24 @@
 				tripData.distance_km!,
 				tripData.odometer!,
 				tripData.purpose!,
+				// Fuel fields
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
+				tripData.full_tank,
+				// Energy fields
+				tripData.energy_kwh,
+				tripData.energy_cost_eur,
+				tripData.full_charge,
+				trip.soc_override_percent, // Preserve existing SoC override
+				// Other
 				tripData.other_costs_eur,
-				tripData.other_costs_note,
-				tripData.full_tank
+				tripData.other_costs_note
 			);
 
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
 			onTripsChanged();
 			await loadRoutes();
+			await loadPurposes();
 			triggerReceiptRefresh(); // Update nav badge after trip change
 		} catch (error) {
 			console.error('Failed to update trip:', error);
@@ -173,8 +220,10 @@
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
 					t.id, t.date, t.origin, t.destination, t.distance_km, runningOdo,
-					t.purpose, t.fuel_liters, t.fuel_cost_eur, t.other_costs_eur, t.other_costs_note,
-					t.full_tank
+					t.purpose,
+					t.fuel_liters, t.fuel_cost_eur, t.full_tank,
+					t.energy_kwh, t.energy_cost_eur, t.full_charge, t.soc_override_percent,
+					t.other_costs_eur, t.other_costs_note
 				);
 			}
 		}
@@ -286,8 +335,10 @@
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
 					trip.id, trip.date, trip.origin, trip.destination, trip.distance_km, runningOdo,
-					trip.purpose, trip.fuel_liters, trip.fuel_cost_eur, trip.other_costs_eur, trip.other_costs_note,
-					trip.full_tank
+					trip.purpose,
+					trip.fuel_liters, trip.fuel_cost_eur, trip.full_tank,
+					trip.energy_kwh, trip.energy_cost_eur, trip.full_charge, trip.soc_override_percent,
+					trip.other_costs_eur, trip.other_costs_note
 				);
 			}
 		}
@@ -306,9 +357,15 @@
 		purpose: $LL.trips.firstRecord(),
 		fuel_liters: null,
 		fuel_cost_eur: null,
+		full_tank: true,
+		// Energy fields
+		energy_kwh: null,
+		energy_cost_eur: null,
+		full_charge: false,
+		soc_override_percent: null,
+		// Other
 		other_costs_eur: null,
 		other_costs_note: null,
-		full_tank: true,
 		sort_order: 999999, // Always last in manual sort
 		created_at: '',
 		updated_at: ''
@@ -385,10 +442,18 @@
 					<th>{$LL.trips.columns.km()}</th>
 					<th>{$LL.trips.columns.odo()}</th>
 					<th>{$LL.trips.columns.purpose()}</th>
-					<th>{$LL.trips.columns.fuelLiters()}</th>
-					<th>{$LL.trips.columns.fuelCost()}</th>
-					<th>{$LL.trips.columns.consumptionRate()}</th>
-					<th>{$LL.trips.columns.remaining()}</th>
+					{#if showFuelColumns}
+						<th>{$LL.trips.columns.fuelLiters()}</th>
+						<th>{$LL.trips.columns.fuelCost()}</th>
+						<th>{$LL.trips.columns.consumptionRate()}</th>
+						<th>{$LL.trips.columns.remaining()}</th>
+					{/if}
+					{#if showEnergyColumns}
+						<th>{$LL.trips.columns.energyKwh()}</th>
+						<th>{$LL.trips.columns.energyCost()}</th>
+						<th>{$LL.trips.columns.energyRate()}</th>
+						<th>{$LL.trips.columns.batteryRemaining()}</th>
+					{/if}
 					<th>{$LL.trips.columns.otherCosts()}</th>
 					<th>{$LL.trips.columns.otherCostsNote()}</th>
 					<th class="sortable" on:click={() => toggleSort('manual')}>
@@ -411,6 +476,10 @@
 						defaultDate={defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						fuelRemaining={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
+						{vehicleType}
+						energyRate={sortedTrips.length > 0 ? energyRates.get(sortedTrips[0].id) || baselineConsumptionKwh : baselineConsumptionKwh}
+						batteryRemainingKwh={sortedTrips.length > 0 ? batteryRemainingKwh.get(sortedTrips[0].id) || batteryCapacityKwh : batteryCapacityKwh}
+						batteryRemainingPercent={sortedTrips.length > 0 ? batteryRemainingPercent.get(sortedTrips[0].id) || 100 : 100}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
@@ -431,6 +500,10 @@
 							defaultDate={insertDate || trip.date}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelRemaining={fuelRemaining.get(trip.id) || tankSize}
+							{vehicleType}
+							energyRate={energyRates.get(trip.id) || baselineConsumptionKwh}
+							batteryRemainingKwh={batteryRemainingKwh.get(trip.id) || batteryCapacityKwh}
+							batteryRemainingPercent={batteryRemainingPercent.get(trip.id) || 100}
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
@@ -447,10 +520,18 @@
 							<td class="number">0</td>
 							<td class="number">{trip.odometer.toFixed(0)}</td>
 							<td class="purpose">{trip.purpose}</td>
-							<td>-</td>
-							<td>-</td>
-							<td class="number">{tpConsumption.toFixed(2)}</td>
-							<td class="number">{tankSize.toFixed(1)}</td>
+							{#if showFuelColumns}
+								<td>-</td>
+								<td>-</td>
+								<td class="number">{tpConsumption.toFixed(2)}</td>
+								<td class="number">{tankSize.toFixed(1)}</td>
+							{/if}
+							{#if showEnergyColumns}
+								<td>-</td>
+								<td>-</td>
+								<td class="number">{baselineConsumptionKwh.toFixed(2)}</td>
+								<td class="number">{batteryCapacityKwh.toFixed(1)} kWh</td>
+							{/if}
 							<td>-</td>
 							<td>-</td>
 							<td></td>
@@ -464,6 +545,12 @@
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelRemaining={fuelRemaining.get(trip.id) || 0}
+							{vehicleType}
+							energyRate={energyRates.get(trip.id) || baselineConsumptionKwh}
+							batteryRemainingKwh={batteryRemainingKwh.get(trip.id) || 0}
+							batteryRemainingPercent={batteryRemainingPercent.get(trip.id) || 0}
+							isEstimatedEnergyRate={estimatedEnergyRates.has(trip.id)}
+							hasSocOverride={socOverrideTrips.has(trip.id)}
 							onSave={(data) => handleUpdate(trip, data)}
 							onCancel={() => {}}
 							onDelete={handleDelete}
@@ -486,7 +573,7 @@
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="13">{$LL.trips.emptyState()}</td>
+						<td colspan={9 + (showFuelColumns ? 4 : 0) + (showEnergyColumns ? 4 : 0)}>{$LL.trips.emptyState()}</td>
 					</tr>
 				{/if}
 			</tbody>

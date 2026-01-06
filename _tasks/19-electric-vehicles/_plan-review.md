@@ -125,3 +125,28 @@
 **Exit reason:** All issues identified, no Critical blockers remaining
 **Next step:** User reviews findings, then implements document updates
 
+---
+
+## Document Updates Applied - 2026-01-06
+
+All identified issues have been resolved:
+
+### `01-task.md`
+- ✅ Lines 62-63: Changed "no carry-over" to "carryover (matching ICE)"
+- ✅ Line 84: Updated year boundary acceptance criterion
+
+### `technical-analysis.md`
+- ✅ Line 17: Changed "100% at year start" to "carryover"
+- ✅ Lines 221-247: Rewrote Year Boundary Logic section for carryover
+- ✅ Line 316: Removed `trip_processor.rs` - routing handled in commands.rs
+
+### `02-plan.md`
+- ✅ Phase 4.1: Removed incorrect "ICE needs fix" block
+- ✅ Phase 4.1: Added SoC override consideration to year-end calculation
+- ✅ Phase 2.5: Added explicit i18n task with Slovak translations
+- ✅ Phase 4.2: Added note about integrating core logic into Phase 2.4
+- ✅ Testing Strategy: Added explicit vehicle type immutability test
+- ✅ Renumbered sections 2.5-2.9
+
+**Plan Status:** Ready for implementation
+

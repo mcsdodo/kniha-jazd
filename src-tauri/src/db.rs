@@ -1,9 +1,27 @@
-use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Route, Settings, Trip, Vehicle};
+use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Route, Settings, Trip, Vehicle, VehicleType};
 use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{Connection, OptionalExtension, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
+
+/// Parse vehicle type from database string
+fn parse_vehicle_type(s: &str) -> VehicleType {
+    match s {
+        "Bev" => VehicleType::Bev,
+        "Phev" => VehicleType::Phev,
+        _ => VehicleType::Ice, // Default to ICE for existing vehicles
+    }
+}
+
+/// Convert vehicle type to database string
+fn vehicle_type_to_string(vt: &VehicleType) -> &'static str {
+    match vt {
+        VehicleType::Ice => "Ice",
+        VehicleType::Bev => "Bev",
+        VehicleType::Phev => "Phev",
+    }
+}
 
 pub struct Database {
     conn: Mutex<Connection>,
@@ -105,6 +123,111 @@ impl Database {
             [],
         );
 
+        // === Migration 005: Add Electric Vehicle (EV) support ===
+        // Vehicle EV fields
+        let _ = conn.execute(
+            "ALTER TABLE vehicles ADD COLUMN vehicle_type TEXT NOT NULL DEFAULT 'Ice'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE vehicles ADD COLUMN battery_capacity_kwh REAL",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE vehicles ADD COLUMN baseline_consumption_kwh REAL",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE vehicles ADD COLUMN initial_battery_percent REAL",
+            [],
+        );
+        // Trip energy fields
+        let _ = conn.execute(
+            "ALTER TABLE trips ADD COLUMN energy_kwh REAL",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE trips ADD COLUMN energy_cost_eur REAL",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE trips ADD COLUMN full_charge INTEGER DEFAULT 0",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE trips ADD COLUMN soc_override_percent REAL",
+            [],
+        );
+        // Index for vehicle type queries
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_vehicles_type ON vehicles(vehicle_type)",
+            [],
+        );
+
+        // === Migration 006: Make fuel fields nullable for BEV support ===
+        // Check if tank_size_liters is still NOT NULL by trying to insert NULL
+        // SQLite doesn't have a direct way to check column nullability
+        let needs_migration = conn
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='vehicles'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map(|sql| sql.contains("tank_size_liters REAL NOT NULL"))
+            .unwrap_or(false);
+
+        if needs_migration {
+            // Recreate vehicles table with nullable fuel fields
+            // Must disable foreign keys to drop the old table (trips references vehicles)
+            conn.execute_batch(
+                "PRAGMA foreign_keys = OFF;
+
+                DROP TABLE IF EXISTS vehicles_new;
+
+                -- Create new table with nullable fuel fields
+                CREATE TABLE vehicles_new (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    license_plate TEXT NOT NULL,
+                    vehicle_type TEXT NOT NULL DEFAULT 'Ice',
+                    tank_size_liters REAL,
+                    tp_consumption REAL,
+                    battery_capacity_kwh REAL,
+                    baseline_consumption_kwh REAL,
+                    initial_battery_percent REAL,
+                    initial_odometer REAL NOT NULL DEFAULT 0,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                -- Copy data from old table
+                INSERT INTO vehicles_new (
+                    id, name, license_plate, vehicle_type,
+                    tank_size_liters, tp_consumption,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent,
+                    initial_odometer, is_active, created_at, updated_at
+                )
+                SELECT
+                    id, name, license_plate, vehicle_type,
+                    tank_size_liters, tp_consumption,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent,
+                    initial_odometer, is_active, created_at, updated_at
+                FROM vehicles;
+
+                -- Drop old table
+                DROP TABLE vehicles;
+
+                -- Rename new table
+                ALTER TABLE vehicles_new RENAME TO vehicles;
+
+                -- Recreate index
+                CREATE INDEX IF NOT EXISTS idx_vehicles_type ON vehicles(vehicle_type);
+
+                PRAGMA foreign_keys = ON;"
+            )?;
+        }
+
         Ok(())
     }
 
@@ -171,18 +294,25 @@ impl Database {
     pub fn get_vehicle(&self, id: &str) -> Result<Option<Vehicle>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at
+            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at,
+                    COALESCE(vehicle_type, 'Ice') as vehicle_type,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent
              FROM vehicles WHERE id = ?1",
         )?;
 
         let vehicle = stmt
             .query_row([id], |row| {
+                let vehicle_type_str: String = row.get(9)?;
                 Ok(Vehicle {
                     id: row.get::<_, String>(0)?.parse().unwrap(),
                     name: row.get(1)?,
                     license_plate: row.get(2)?,
+                    vehicle_type: parse_vehicle_type(&vehicle_type_str),
                     tank_size_liters: row.get(3)?,
                     tp_consumption: row.get(4)?,
+                    battery_capacity_kwh: row.get(10)?,
+                    baseline_consumption_kwh: row.get(11)?,
+                    initial_battery_percent: row.get(12)?,
                     initial_odometer: row.get(5)?,
                     is_active: row.get(6)?,
                     created_at: row.get::<_, String>(7)?.parse().unwrap(),
@@ -198,18 +328,25 @@ impl Database {
     pub fn get_all_vehicles(&self) -> Result<Vec<Vehicle>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at
+            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at,
+                    COALESCE(vehicle_type, 'Ice') as vehicle_type,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent
              FROM vehicles ORDER BY created_at DESC",
         )?;
 
         let vehicles = stmt
             .query_map([], |row| {
+                let vehicle_type_str: String = row.get(9)?;
                 Ok(Vehicle {
                     id: row.get::<_, String>(0)?.parse().unwrap(),
                     name: row.get(1)?,
                     license_plate: row.get(2)?,
+                    vehicle_type: parse_vehicle_type(&vehicle_type_str),
                     tank_size_liters: row.get(3)?,
                     tp_consumption: row.get(4)?,
+                    battery_capacity_kwh: row.get(10)?,
+                    baseline_consumption_kwh: row.get(11)?,
+                    initial_battery_percent: row.get(12)?,
                     initial_odometer: row.get(5)?,
                     is_active: row.get(6)?,
                     created_at: row.get::<_, String>(7)?.parse().unwrap(),
@@ -225,18 +362,25 @@ impl Database {
     pub fn get_active_vehicle(&self) -> Result<Option<Vehicle>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at
+            "SELECT id, name, license_plate, tank_size_liters, tp_consumption, initial_odometer, is_active, created_at, updated_at,
+                    COALESCE(vehicle_type, 'Ice') as vehicle_type,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent
              FROM vehicles WHERE is_active = 1 LIMIT 1",
         )?;
 
         let vehicle = stmt
             .query_row([], |row| {
+                let vehicle_type_str: String = row.get(9)?;
                 Ok(Vehicle {
                     id: row.get::<_, String>(0)?.parse().unwrap(),
                     name: row.get(1)?,
                     license_plate: row.get(2)?,
+                    vehicle_type: parse_vehicle_type(&vehicle_type_str),
                     tank_size_liters: row.get(3)?,
                     tp_consumption: row.get(4)?,
+                    battery_capacity_kwh: row.get(10)?,
+                    baseline_consumption_kwh: row.get(11)?,
+                    initial_battery_percent: row.get(12)?,
                     initial_odometer: row.get(5)?,
                     is_active: row.get(6)?,
                     created_at: row.get::<_, String>(7)?.parse().unwrap(),
@@ -316,7 +460,8 @@ impl Database {
     pub fn get_trip(&self, id: &str) -> Result<Option<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at,
+                    energy_kwh, energy_cost_eur, COALESCE(full_charge, 0) as full_charge, soc_override_percent
              FROM trips WHERE id = ?1",
         )?;
 
@@ -333,9 +478,13 @@ impl Database {
                     purpose: row.get(7)?,
                     fuel_liters: row.get(8)?,
                     fuel_cost_eur: row.get(9)?,
+                    full_tank: row.get(12)?,
+                    energy_kwh: row.get(16)?,
+                    energy_cost_eur: row.get(17)?,
+                    full_charge: row.get(18)?,
+                    soc_override_percent: row.get(19)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    full_tank: row.get(12)?,
                     sort_order: row.get(13)?,
                     created_at: row.get::<_, String>(14)?.parse().unwrap(),
                     updated_at: row.get::<_, String>(15)?.parse().unwrap(),
@@ -350,7 +499,8 @@ impl Database {
     pub fn get_trips_for_vehicle(&self, vehicle_id: &str) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at,
+                    energy_kwh, energy_cost_eur, COALESCE(full_charge, 0) as full_charge, soc_override_percent
              FROM trips WHERE vehicle_id = ?1 ORDER BY sort_order ASC",
         )?;
 
@@ -367,9 +517,13 @@ impl Database {
                     purpose: row.get(7)?,
                     fuel_liters: row.get(8)?,
                     fuel_cost_eur: row.get(9)?,
+                    full_tank: row.get(12)?,
+                    energy_kwh: row.get(16)?,
+                    energy_cost_eur: row.get(17)?,
+                    full_charge: row.get(18)?,
+                    soc_override_percent: row.get(19)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    full_tank: row.get(12)?,
                     sort_order: row.get(13)?,
                     created_at: row.get::<_, String>(14)?.parse().unwrap(),
                     updated_at: row.get::<_, String>(15)?.parse().unwrap(),
@@ -384,7 +538,8 @@ impl Database {
     pub fn get_trips_for_vehicle_in_year(&self, vehicle_id: &str, year: i32) -> Result<Vec<Trip>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at
+            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank, sort_order, created_at, updated_at,
+                    energy_kwh, energy_cost_eur, COALESCE(full_charge, 0) as full_charge, soc_override_percent
              FROM trips
              WHERE vehicle_id = ?1 AND strftime('%Y', date) = ?2
              ORDER BY sort_order ASC",
@@ -403,9 +558,13 @@ impl Database {
                     purpose: row.get(7)?,
                     fuel_liters: row.get(8)?,
                     fuel_cost_eur: row.get(9)?,
+                    full_tank: row.get(12)?,
+                    energy_kwh: row.get(16)?,
+                    energy_cost_eur: row.get(17)?,
+                    full_charge: row.get(18)?,
+                    soc_override_percent: row.get(19)?,
                     other_costs_eur: row.get(10)?,
                     other_costs_note: row.get(11)?,
-                    full_tank: row.get(12)?,
                     sort_order: row.get(13)?,
                     created_at: row.get::<_, String>(14)?.parse().unwrap(),
                     updated_at: row.get::<_, String>(15)?.parse().unwrap(),
@@ -603,6 +762,23 @@ impl Database {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(routes)
+    }
+
+    /// Get all unique trip purposes for a vehicle (across all years)
+    pub fn get_purposes_for_vehicle(&self, vehicle_id: &str) -> Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT TRIM(purpose) as purpose
+             FROM trips
+             WHERE vehicle_id = ?1 AND TRIM(purpose) != ''
+             ORDER BY purpose",
+        )?;
+
+        let purposes = stmt
+            .query_map([vehicle_id], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(purposes)
     }
 
     /// Update an existing route (e.g., increment usage_count)
@@ -1052,12 +1228,12 @@ mod tests {
         // UPDATE
         let mut updated = retrieved;
         updated.name = "Updated Name".to_string();
-        updated.tp_consumption = 6.5;
+        updated.tp_consumption = Some(6.5);
         db.update_vehicle(&updated).expect("Failed to update");
 
         let after_update = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
         assert_eq!(after_update.name, "Updated Name");
-        assert_eq!(after_update.tp_consumption, 6.5);
+        assert_eq!(after_update.tp_consumption, Some(6.5));
 
         // DELETE
         db.delete_vehicle(&vehicle.id.to_string()).expect("Failed to delete");
@@ -1079,9 +1255,13 @@ mod tests {
             purpose: "Business meeting".to_string(),
             fuel_liters: Some(15.0),
             fuel_cost_eur: Some(25.5),
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: Some(5.0),
             other_costs_note: Some("Parking fee".to_string()),
-            full_tank: true,
             sort_order: 0,
             created_at: now,
             updated_at: now,
@@ -1117,9 +1297,13 @@ mod tests {
             purpose: "Personal".to_string(),
             fuel_liters: None,
             fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: false,
             sort_order: 1,
             created_at: now,
             updated_at: now,

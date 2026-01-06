@@ -1,11 +1,20 @@
 // TypeScript interfaces matching Rust models
 
+export type VehicleType = 'Ice' | 'Bev' | 'Phev';
+
 export interface Vehicle {
 	id: string;
 	name: string;
 	license_plate: string;
-	tank_size_liters: number;
-	tp_consumption: number;
+	vehicle_type: VehicleType;
+	// Fuel fields (ICE + PHEV)
+	tank_size_liters: number | null;
+	tp_consumption: number | null;
+	// Battery fields (BEV + PHEV)
+	battery_capacity_kwh: number | null;
+	baseline_consumption_kwh: number | null;
+	initial_battery_percent: number | null;
+	// Common
 	initial_odometer: number;
 	is_active: boolean;
 	created_at: string;
@@ -21,11 +30,18 @@ export interface Trip {
 	distance_km: number;
 	odometer: number;
 	purpose: string;
+	// Fuel fields (ICE + PHEV)
 	fuel_liters?: number | null;
 	fuel_cost_eur?: number | null;
+	full_tank: boolean; // true = full tank fillup, false = partial
+	// Energy fields (BEV + PHEV)
+	energy_kwh?: number | null;
+	energy_cost_eur?: number | null;
+	full_charge: boolean;
+	soc_override_percent?: number | null;
+	// Other
 	other_costs_eur?: number | null;
 	other_costs_note?: string | null;
-	full_tank: boolean; // true = full tank fillup, false = partial
 	sort_order: number;
 	created_at: string;
 	updated_at: string;
@@ -78,11 +94,19 @@ export interface BackupInfo {
 
 export interface TripGridData {
 	trips: Trip[];
+	// Fuel data (ICE + PHEV)
 	rates: Record<string, number>; // tripId -> l/100km
 	estimated_rates: string[]; // tripIds using TP rate (estimated)
 	fuel_remaining: Record<string, number>; // tripId -> fuel remaining
-	date_warnings: string[]; // tripIds with date ordering issues
 	consumption_warnings: string[]; // tripIds over 120% TP
+	// Energy data (BEV + PHEV)
+	energy_rates: Record<string, number>; // tripId -> kWh/100km
+	estimated_energy_rates: string[]; // tripIds using baseline rate
+	battery_remaining_kwh: Record<string, number>; // tripId -> kWh
+	battery_remaining_percent: Record<string, number>; // tripId -> %
+	soc_override_trips: string[]; // tripIds with manual SoC override
+	// Warnings
+	date_warnings: string[]; // tripIds with date ordering issues
 	missing_receipts: string[]; // tripIds missing receipts
 }
 
@@ -177,6 +201,9 @@ export interface ExportLabels {
 	header_tank_size: string;
 	header_tp_consumption: string;
 	header_year: string;
+	// Header labels for BEV
+	header_battery_capacity: string;
+	header_baseline_consumption: string;
 	// Column headers
 	col_date: string;
 	col_origin: string;
@@ -190,6 +217,11 @@ export interface ExportLabels {
 	col_note: string;
 	col_remaining: string;
 	col_consumption: string;
+	// Column headers for BEV
+	col_energy_kwh: string;
+	col_energy_cost: string;
+	col_battery_remaining: string;
+	col_energy_rate: string;
 	// Footer labels
 	footer_total_km: string;
 	footer_total_fuel: string;
@@ -197,6 +229,10 @@ export interface ExportLabels {
 	footer_avg_consumption: string;
 	footer_deviation: string;
 	footer_tp_norm: string;
+	// Footer labels for BEV
+	footer_total_energy: string;
+	footer_avg_energy_rate: string;
+	footer_baseline_norm: string;
 	// Print hint
 	print_hint: string;
 }

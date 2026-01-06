@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult } from '$lib/types';
+	import type { Trip, Route, PreviewResult, VehicleType } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -11,6 +11,14 @@
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
 	export let fuelRemaining: number = 0;
+	// Energy fields (BEV/PHEV)
+	export let vehicleType: VehicleType = 'Ice';
+	export let energyRate: number = 0;
+	export let batteryRemainingKwh: number = 0;
+	export let batteryRemainingPercent: number = 0;
+	export let isEstimatedEnergyRate: boolean = false;
+	export let hasSocOverride: boolean = false;
+
 	export let defaultDate: string = new Date().toISOString().split('T')[0]; // For new rows
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
@@ -30,6 +38,10 @@
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
 
+	// Derived: show fuel/energy fields based on vehicle type
+	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
+	$: showEnergyFields = vehicleType === 'Bev' || vehicleType === 'Phev';
+
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
 
@@ -41,11 +53,18 @@
 		distance_km: trip?.distance_km ?? (isNew ? null : 0),
 		odometer: trip?.odometer ?? (isNew ? null : 0),
 		purpose: trip?.purpose || '',
+		// Fuel fields
 		fuel_liters: trip?.fuel_liters || null,
 		fuel_cost_eur: trip?.fuel_cost_eur || null,
+		full_tank: trip?.full_tank ?? true, // Default to full tank
+		// Energy fields
+		energy_kwh: trip?.energy_kwh || null,
+		energy_cost_eur: trip?.energy_cost_eur || null,
+		full_charge: trip?.full_charge ?? false,
+		soc_override_percent: trip?.soc_override_percent || null,
+		// Other
 		other_costs_eur: trip?.other_costs_eur || null,
-		other_costs_note: trip?.other_costs_note || '',
-		full_tank: trip?.full_tank ?? true // Default to full tank
+		other_costs_note: trip?.other_costs_note || ''
 	};
 
 	// Get unique locations from routes
@@ -146,9 +165,13 @@
 				purpose: trip?.purpose || '',
 				fuel_liters: trip?.fuel_liters || null,
 				fuel_cost_eur: trip?.fuel_cost_eur || null,
+				full_tank: trip?.full_tank ?? true, // Default to full tank
+				energy_kwh: trip?.energy_kwh || null,
+				energy_cost_eur: trip?.energy_cost_eur || null,
+				full_charge: trip?.full_charge ?? false,
+				soc_override_percent: trip?.soc_override_percent || null,
 				other_costs_eur: trip?.other_costs_eur || null,
-				other_costs_note: trip?.other_costs_note || '',
-				full_tank: trip?.full_tank ?? true
+				other_costs_note: trip?.other_costs_note || ''
 			};
 			isEditing = false;
 			onEditEnd();
@@ -213,49 +236,101 @@
 				onSelect={(value) => (formData.purpose = value)}
 			/>
 		</td>
-		<td class="fuel-cell">
-			<input
-				type="number"
-				value={formData.fuel_liters}
-				on:input={handleFuelChange}
-				step="0.01"
-				min="0"
-				placeholder="0.00"
-			/>
-			{#if formData.fuel_liters}
-				<label class="full-tank-label">
-					<input type="checkbox" bind:checked={formData.full_tank} on:change={handleFullTankChange} />
-					<span class="checkmark"></span>
-					<span class="label-text">{$LL.trips.fullTank()}</span>
-				</label>
-			{/if}
-		</td>
-		<td>
-			<input
-				type="number"
-				bind:value={formData.fuel_cost_eur}
-				step="0.01"
-				min="0"
-				placeholder="0.00"
-			/>
-		</td>
-		<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
-			{#if previewData}
-				~{previewData.consumptionRate.toFixed(2)}
-				<span class="margin" class:over-limit={previewData.isOverLimit} class:within-limit={!previewData.isOverLimit}>
-					({previewData.marginPercent >= 0 ? '+' : ''}{previewData.marginPercent.toFixed(0)}%)
-				</span>
-			{:else}
-				{consumptionRate.toFixed(2)}
-			{/if}
-		</td>
-		<td class="number calculated" class:preview={previewData}>
-			{#if previewData}
-				~{previewData.fuelRemaining.toFixed(1)}
-			{:else}
-				{fuelRemaining.toFixed(1)}
-			{/if}
-		</td>
+		{#if showFuelFields}
+			<td class="fuel-cell">
+				<input
+					type="number"
+					value={formData.fuel_liters}
+					on:input={handleFuelChange}
+					step="0.01"
+					min="0"
+					placeholder="0.00"
+				/>
+				{#if formData.fuel_liters}
+					<label class="full-tank-label">
+						<input type="checkbox" bind:checked={formData.full_tank} on:change={handleFullTankChange} />
+						<span class="checkmark"></span>
+						<span class="label-text">{$LL.trips.fullTank()}</span>
+					</label>
+				{/if}
+			</td>
+			<td>
+				<input
+					type="number"
+					bind:value={formData.fuel_cost_eur}
+					step="0.01"
+					min="0"
+					placeholder="0.00"
+				/>
+			</td>
+			<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
+				{#if previewData}
+					~{previewData.consumptionRate.toFixed(2)}
+					<span class="margin" class:over-limit={previewData.isOverLimit} class:within-limit={!previewData.isOverLimit}>
+						({previewData.marginPercent >= 0 ? '+' : ''}{previewData.marginPercent.toFixed(0)}%)
+					</span>
+				{:else}
+					{consumptionRate.toFixed(2)}
+				{/if}
+			</td>
+			<td class="number calculated" class:preview={previewData}>
+				{#if previewData}
+					~{previewData.fuelRemaining.toFixed(1)}
+				{:else}
+					{fuelRemaining.toFixed(1)}
+				{/if}
+			</td>
+		{/if}
+		{#if showEnergyFields}
+			<td class="energy-cell">
+				<input
+					type="number"
+					bind:value={formData.energy_kwh}
+					step="0.1"
+					min="0"
+					placeholder="0.0"
+				/>
+				{#if formData.energy_kwh}
+					<label class="full-charge-label">
+						<input type="checkbox" bind:checked={formData.full_charge} />
+						<span class="checkmark"></span>
+						<span class="label-text">{$LL.trips.fullCharge()}</span>
+					</label>
+				{/if}
+			</td>
+			<td>
+				<input
+					type="number"
+					bind:value={formData.energy_cost_eur}
+					step="0.01"
+					min="0"
+					placeholder="0.00"
+				/>
+			</td>
+			<td class="number calculated">
+				{energyRate.toFixed(2)}
+			</td>
+			<td class="number calculated soc-cell">
+				{batteryRemainingKwh.toFixed(1)} kWh
+				<span class="battery-percent">({batteryRemainingPercent.toFixed(0)}%)</span>
+				{#if !isNew}
+					<details class="soc-override-details">
+						<summary title={$LL.trips.socOverrideHint()}>⚡</summary>
+						<div class="soc-override-input">
+							<input
+								type="number"
+								bind:value={formData.soc_override_percent}
+								step="1"
+								min="0"
+								max="100"
+								placeholder="%"
+							/>
+							<span class="soc-hint">{$LL.trips.socOverrideHint()}</span>
+						</div>
+					</details>
+				{/if}
+			</td>
+		{/if}
 		<td>
 			<input
 				type="number"
@@ -289,25 +364,51 @@
 		<td class="number">{trip.distance_km.toFixed(0)}</td>
 		<td class="number">{trip.odometer.toFixed(0)}</td>
 		<td>{trip.purpose}</td>
-		<td class="number">
-			{#if trip.fuel_liters}
-				{trip.fuel_liters.toFixed(2)}
-				{#if !trip.full_tank}
-					<span class="partial-indicator" title={$LL.trips.partialFillup()}>*</span>
+		{#if showFuelFields}
+			<td class="number">
+				{#if trip.fuel_liters}
+					{trip.fuel_liters.toFixed(2)}
+					{#if !trip.full_tank}
+						<span class="partial-indicator" title={$LL.trips.partialFillup()}>*</span>
+					{/if}
+					{#if !hasMatchingReceipt}
+						<span class="no-receipt-indicator" title={$LL.trips.noReceipt()}>⚠</span>
+					{/if}
 				{/if}
-				{#if !hasMatchingReceipt}
-					<span class="no-receipt-indicator" title={$LL.trips.noReceipt()}>⚠</span>
+			</td>
+			<td class="number">{trip.fuel_cost_eur?.toFixed(2) || ''}</td>
+			<td class="number calculated" class:estimated={isEstimatedRate}>
+				{consumptionRate.toFixed(2)}
+				{#if isEstimatedRate}
+					<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
 				{/if}
-			{/if}
-		</td>
-		<td class="number">{trip.fuel_cost_eur?.toFixed(2) || ''}</td>
-		<td class="number calculated" class:estimated={isEstimatedRate}>
-			{consumptionRate.toFixed(2)}
-			{#if isEstimatedRate}
-				<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
-			{/if}
-		</td>
-		<td class="number calculated">{fuelRemaining.toFixed(1)}</td>
+			</td>
+			<td class="number calculated">{fuelRemaining.toFixed(1)}</td>
+		{/if}
+		{#if showEnergyFields}
+			<td class="number">
+				{#if trip.energy_kwh}
+					{trip.energy_kwh.toFixed(1)}
+					{#if !trip.full_charge}
+						<span class="partial-indicator" title={$LL.trips.partialCharge()}>*</span>
+					{/if}
+				{/if}
+			</td>
+			<td class="number">{trip.energy_cost_eur?.toFixed(2) || ''}</td>
+			<td class="number calculated" class:estimated={isEstimatedEnergyRate}>
+				{energyRate.toFixed(2)}
+				{#if isEstimatedEnergyRate}
+					<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
+				{/if}
+			</td>
+			<td class="number calculated" class:soc-override={hasSocOverride}>
+				{batteryRemainingKwh.toFixed(1)} kWh
+				<span class="battery-percent">({batteryRemainingPercent.toFixed(0)}%)</span>
+				{#if hasSocOverride}
+					<span class="soc-indicator" title={$LL.trips.socOverride()}>⚡</span>
+				{/if}
+			</td>
+		{/if}
 		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
 		<td>{trip.other_costs_note || ''}</td>
 		<td class="actions">
@@ -583,5 +684,98 @@
 	.estimated-indicator {
 		color: #9e9e9e;
 		margin-left: 0.125rem;
+	}
+
+	/* Energy cell with checkbox */
+	.energy-cell {
+		position: relative;
+	}
+
+	.full-charge-label {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: #666;
+		cursor: pointer;
+	}
+
+	.full-charge-label input[type='checkbox'] {
+		width: auto;
+		margin: 0;
+		cursor: pointer;
+	}
+
+	.full-charge-label .label-text {
+		white-space: nowrap;
+	}
+
+	/* Battery percent display */
+	.battery-percent {
+		font-size: 0.75rem;
+		color: #7f8c8d;
+		margin-left: 0.125rem;
+	}
+
+	/* SoC override styling */
+	td.soc-override {
+		color: #3498db;
+	}
+
+	.soc-indicator {
+		color: #3498db;
+		margin-left: 0.125rem;
+		cursor: help;
+	}
+
+	/* SoC override input (expandable) */
+	.soc-cell {
+		position: relative;
+	}
+
+	.soc-override-details {
+		display: inline-block;
+		margin-left: 0.25rem;
+	}
+
+	.soc-override-details summary {
+		cursor: pointer;
+		color: #7f8c8d;
+		font-size: 0.875rem;
+		list-style: none;
+	}
+
+	.soc-override-details summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.soc-override-details[open] summary {
+		color: #3498db;
+	}
+
+	.soc-override-input {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		padding: 0.5rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		z-index: 10;
+		min-width: 160px;
+	}
+
+	.soc-override-input input {
+		width: 60px;
+		margin-bottom: 0.25rem;
+	}
+
+	.soc-hint {
+		display: block;
+		font-size: 0.7rem;
+		color: #7f8c8d;
+		line-height: 1.2;
 	}
 </style>
