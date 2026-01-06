@@ -40,6 +40,20 @@
 	// Vehicle delete confirmation
 	let vehicleToDelete: Vehicle | null = null;
 
+	// Track vehicles with trips (for blocking type change)
+	let vehiclesWithTrips: Set<string> = new Set();
+
+	async function checkVehiclesWithTrips() {
+		const newSet = new Set<string>();
+		for (const vehicle of $vehiclesStore) {
+			const years = await api.getYearsWithTrips(vehicle.id);
+			if (years.length > 0) {
+				newSet.add(vehicle.id);
+			}
+		}
+		vehiclesWithTrips = newSet;
+	}
+
 	onMount(() => {
 		// Initialize selected locale from store
 		const unsubscribe = localeStore.subscribe((locale) => {
@@ -57,6 +71,7 @@
 			}
 
 			await loadBackups();
+			await checkVehiclesWithTrips();
 		})();
 
 		return () => unsubscribe();
@@ -77,29 +92,47 @@
 		editingVehicle = null;
 	}
 
-	async function handleSaveVehicle(
-		name: string,
-		licensePlate: string,
-		tankSize: number,
-		tpConsumption: number,
-		initialOdometer: number
-	) {
+	async function handleSaveVehicle(data: {
+		name: string;
+		licensePlate: string;
+		initialOdometer: number;
+		vehicleType: import('$lib/types').VehicleType;
+		tankSizeLiters: number | null;
+		tpConsumption: number | null;
+		batteryCapacityKwh: number | null;
+		baselineConsumptionKwh: number | null;
+		initialBatteryPercent: number | null;
+	}) {
 		try {
 			if (editingVehicle) {
 				// Update existing vehicle
 				const updatedVehicle: Vehicle = {
 					...editingVehicle,
-					name,
-					license_plate: licensePlate,
-					tank_size_liters: tankSize,
-					tp_consumption: tpConsumption,
-					initial_odometer: initialOdometer,
+					name: data.name,
+					license_plate: data.licensePlate,
+					vehicle_type: data.vehicleType,
+					tank_size_liters: data.tankSizeLiters,
+					tp_consumption: data.tpConsumption,
+					battery_capacity_kwh: data.batteryCapacityKwh,
+					baseline_consumption_kwh: data.baselineConsumptionKwh,
+					initial_battery_percent: data.initialBatteryPercent,
+					initial_odometer: data.initialOdometer,
 					updated_at: new Date().toISOString()
 				};
 				await api.updateVehicle(updatedVehicle);
 			} else {
 				// Create new vehicle
-				await api.createVehicle(name, licensePlate, tankSize, tpConsumption, initialOdometer);
+				await api.createVehicle(
+					data.name,
+					data.licensePlate,
+					data.initialOdometer,
+					data.vehicleType,
+					data.tankSizeLiters,
+					data.tpConsumption,
+					data.batteryCapacityKwh,
+					data.baselineConsumptionKwh,
+					data.initialBatteryPercent
+				);
 			}
 
 			// Reload vehicles
@@ -305,8 +338,15 @@
 									<strong>{vehicle.name}</strong>
 									<span class="license-plate">{vehicle.license_plate}</span>
 									<span class="details">
-										{vehicle.tank_size_liters}L | {vehicle.tp_consumption} L/100km
+										{#if vehicle.vehicle_type === 'Ice'}
+											{vehicle.tank_size_liters ?? 0}L | {vehicle.tp_consumption ?? 0} L/100km
+										{:else if vehicle.vehicle_type === 'Bev'}
+											{vehicle.battery_capacity_kwh ?? 0} kWh | {vehicle.baseline_consumption_kwh ?? 0} kWh/100km
+										{:else}
+											{vehicle.tank_size_liters ?? 0}L + {vehicle.battery_capacity_kwh ?? 0} kWh
+										{/if}
 									</span>
+									<span class="badge type-{vehicle.vehicle_type.toLowerCase()}">{vehicle.vehicle_type}</span>
 									{#if vehicle.is_active}
 										<span class="badge active">{$LL.vehicle.active()}</span>
 									{/if}
@@ -412,7 +452,12 @@
 </div>
 
 {#if showVehicleModal}
-	<VehicleModal vehicle={editingVehicle} onSave={handleSaveVehicle} onClose={closeVehicleModal} />
+	<VehicleModal
+		vehicle={editingVehicle}
+		hasTrips={editingVehicle ? vehiclesWithTrips.has(editingVehicle.id) : false}
+		onSave={handleSaveVehicle}
+		onClose={closeVehicleModal}
+	/>
 {/if}
 
 {#if vehicleToDelete}
@@ -556,6 +601,21 @@
 	.badge.active {
 		background-color: #d4edda;
 		color: #155724;
+	}
+
+	.badge.type-ice {
+		background-color: #e3f2fd;
+		color: #1565c0;
+	}
+
+	.badge.type-bev {
+		background-color: #e8f5e9;
+		color: #2e7d32;
+	}
+
+	.badge.type-phev {
+		background-color: #fff3e0;
+		color: #e65100;
 	}
 
 	.vehicle-actions {

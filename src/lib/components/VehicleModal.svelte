@@ -1,25 +1,49 @@
 <script lang="ts">
-	import type { Vehicle } from '$lib/types';
+	import type { Vehicle, VehicleType } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let vehicle: Vehicle | null = null;
-	export let onSave: (
-		name: string,
-		licensePlate: string,
-		tankSize: number,
-		tpConsumption: number,
-		initialOdometer: number
-	) => void;
+	export let hasTrips = false; // Whether vehicle has trips (type change blocked)
+	export let onSave: (data: {
+		name: string;
+		licensePlate: string;
+		initialOdometer: number;
+		vehicleType: VehicleType;
+		tankSizeLiters: number | null;
+		tpConsumption: number | null;
+		batteryCapacityKwh: number | null;
+		baselineConsumptionKwh: number | null;
+		initialBatteryPercent: number | null;
+	}) => void;
 	export let onClose: () => void;
 
 	let name = vehicle?.name || '';
 	let licensePlate = vehicle?.license_plate || '';
-	let tankSize = vehicle?.tank_size_liters || 0;
-	let tpConsumption = vehicle?.tp_consumption || 0;
+	let vehicleType: VehicleType = vehicle?.vehicle_type || 'Ice';
+	let tankSizeLiters = vehicle?.tank_size_liters ?? 0;
+	let tpConsumption = vehicle?.tp_consumption ?? 0;
+	let batteryCapacityKwh = vehicle?.battery_capacity_kwh ?? 0;
+	let baselineConsumptionKwh = vehicle?.baseline_consumption_kwh ?? 0;
+	let initialBatteryPercent = vehicle?.initial_battery_percent ?? 100;
 	let initialOdometer = vehicle?.initial_odometer || 0;
 
+	// Show fuel fields for ICE and PHEV
+	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
+	// Show battery fields for BEV and PHEV
+	$: showBatteryFields = vehicleType === 'Bev' || vehicleType === 'Phev';
+
 	function handleSave() {
-		onSave(name, licensePlate, tankSize, tpConsumption, initialOdometer);
+		onSave({
+			name,
+			licensePlate,
+			initialOdometer,
+			vehicleType,
+			tankSizeLiters: showFuelFields ? tankSizeLiters : null,
+			tpConsumption: showFuelFields ? tpConsumption : null,
+			batteryCapacityKwh: showBatteryFields ? batteryCapacityKwh : null,
+			baselineConsumptionKwh: showBatteryFields ? baselineConsumptionKwh : null,
+			initialBatteryPercent: showBatteryFields ? initialBatteryPercent : null,
+		});
 	}
 
 	function handleBackgroundClick(event: MouseEvent) {
@@ -53,27 +77,15 @@
 			</div>
 
 			<div class="form-group">
-				<label for="tank-size">{$LL.vehicleModal.tankSizeLabel()}</label>
-				<input
-					type="number"
-					id="tank-size"
-					bind:value={tankSize}
-					step="0.1"
-					min="0"
-					placeholder={$LL.vehicleModal.tankSizePlaceholder()}
-				/>
-			</div>
-
-			<div class="form-group">
-				<label for="tp-consumption">{$LL.vehicleModal.tpConsumptionLabel()}</label>
-				<input
-					type="number"
-					id="tp-consumption"
-					bind:value={tpConsumption}
-					step="0.1"
-					min="0"
-					placeholder={$LL.vehicleModal.tpConsumptionPlaceholder()}
-				/>
+				<label for="vehicle-type">{$LL.vehicleModal.vehicleTypeLabel()}</label>
+				<select id="vehicle-type" bind:value={vehicleType} disabled={hasTrips}>
+					<option value="Ice">{$LL.vehicle.vehicleTypeIce()}</option>
+					<option value="Bev">{$LL.vehicle.vehicleTypeBev()}</option>
+					<option value="Phev">{$LL.vehicle.vehicleTypePhev()}</option>
+				</select>
+				{#if hasTrips}
+					<span class="hint">{$LL.vehicle.typeChangeBlocked()}</span>
+				{/if}
 			</div>
 
 			<div class="form-group">
@@ -87,6 +99,73 @@
 					placeholder={$LL.vehicleModal.initialOdometerPlaceholder()}
 				/>
 			</div>
+
+			{#if showFuelFields}
+				<div class="section-header">{$LL.vehicleModal.fuelSection()}</div>
+				<div class="form-group">
+					<label for="tank-size">{$LL.vehicleModal.tankSizeLabel()}</label>
+					<input
+						type="number"
+						id="tank-size"
+						bind:value={tankSizeLiters}
+						step="0.1"
+						min="0"
+						placeholder={$LL.vehicleModal.tankSizePlaceholder()}
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="tp-consumption">{$LL.vehicleModal.tpConsumptionLabel()}</label>
+					<input
+						type="number"
+						id="tp-consumption"
+						bind:value={tpConsumption}
+						step="0.1"
+						min="0"
+						placeholder={$LL.vehicleModal.tpConsumptionPlaceholder()}
+					/>
+				</div>
+			{/if}
+
+			{#if showBatteryFields}
+				<div class="section-header">{$LL.vehicleModal.batterySection()}</div>
+				<div class="form-group">
+					<label for="battery-capacity">{$LL.vehicleModal.batteryCapacityLabel()}</label>
+					<input
+						type="number"
+						id="battery-capacity"
+						bind:value={batteryCapacityKwh}
+						step="0.1"
+						min="0"
+						placeholder={$LL.vehicleModal.batteryCapacityPlaceholder()}
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="baseline-consumption">{$LL.vehicleModal.baselineConsumptionLabel()}</label>
+					<input
+						type="number"
+						id="baseline-consumption"
+						bind:value={baselineConsumptionKwh}
+						step="0.1"
+						min="0"
+						placeholder={$LL.vehicleModal.baselineConsumptionPlaceholder()}
+					/>
+				</div>
+
+				<div class="form-group">
+					<label for="initial-battery">{$LL.vehicleModal.initialBatteryLabel()}</label>
+					<input
+						type="number"
+						id="initial-battery"
+						bind:value={initialBatteryPercent}
+						step="1"
+						min="0"
+						max="100"
+						placeholder={$LL.vehicleModal.initialBatteryPlaceholder()}
+					/>
+				</div>
+			{/if}
 		</div>
 
 		<div class="modal-footer">
@@ -115,6 +194,8 @@
 		border-radius: 8px;
 		width: 90%;
 		max-width: 500px;
+		max-height: 90vh;
+		overflow-y: auto;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 	}
 
@@ -158,6 +239,15 @@
 		gap: 1rem;
 	}
 
+	.section-header {
+		font-weight: 600;
+		color: #2c3e50;
+		font-size: 0.9rem;
+		margin-top: 0.5rem;
+		padding-bottom: 0.25rem;
+		border-bottom: 1px solid #e0e0e0;
+	}
+
 	.form-group {
 		display: flex;
 		flex-direction: column;
@@ -170,7 +260,8 @@
 		font-size: 0.875rem;
 	}
 
-	.form-group input {
+	.form-group input,
+	.form-group select {
 		padding: 0.75rem;
 		border: 1px solid #d5dbdb;
 		border-radius: 4px;
@@ -178,10 +269,23 @@
 		font-family: inherit;
 	}
 
-	.form-group input:focus {
+	.form-group input:focus,
+	.form-group select:focus {
 		outline: none;
 		border-color: #3498db;
 		box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+	}
+
+	.form-group select:disabled {
+		background-color: #f5f5f5;
+		color: #999;
+		cursor: not-allowed;
+	}
+
+	.hint {
+		font-size: 0.75rem;
+		color: #7f8c8d;
+		font-style: italic;
 	}
 
 	.modal-footer {

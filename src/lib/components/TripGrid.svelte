@@ -106,11 +106,18 @@
 				tripData.distance_km!,
 				tripData.odometer!,
 				tripData.purpose!,
+				// Fuel fields
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
+				tripData.full_tank,
+				// Energy fields (null for ICE)
+				null, // energyKwh
+				null, // energyCostEur
+				null, // fullCharge
+				null, // socOverridePercent
+				// Other
 				tripData.other_costs_eur,
 				tripData.other_costs_note,
-				tripData.full_tank,
 				insertAtSortOrder
 			);
 
@@ -139,11 +146,18 @@
 				tripData.distance_km!,
 				tripData.odometer!,
 				tripData.purpose!,
+				// Fuel fields
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
+				tripData.full_tank,
+				// Energy fields (null for ICE, Phase 2.7 will add proper values)
+				null, // energyKwh
+				null, // energyCostEur
+				null, // fullCharge
+				null, // socOverridePercent
+				// Other
 				tripData.other_costs_eur,
-				tripData.other_costs_note,
-				tripData.full_tank
+				tripData.other_costs_note
 			);
 
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
@@ -173,8 +187,10 @@
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
 					t.id, t.date, t.origin, t.destination, t.distance_km, runningOdo,
-					t.purpose, t.fuel_liters, t.fuel_cost_eur, t.other_costs_eur, t.other_costs_note,
-					t.full_tank
+					t.purpose,
+					t.fuel_liters, t.fuel_cost_eur, t.full_tank,
+					t.energy_kwh, t.energy_cost_eur, t.full_charge, t.soc_override_percent,
+					t.other_costs_eur, t.other_costs_note
 				);
 			}
 		}
@@ -286,8 +302,10 @@
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
 					trip.id, trip.date, trip.origin, trip.destination, trip.distance_km, runningOdo,
-					trip.purpose, trip.fuel_liters, trip.fuel_cost_eur, trip.other_costs_eur, trip.other_costs_note,
-					trip.full_tank
+					trip.purpose,
+					trip.fuel_liters, trip.fuel_cost_eur, trip.full_tank,
+					trip.energy_kwh, trip.energy_cost_eur, trip.full_charge, trip.soc_override_percent,
+					trip.other_costs_eur, trip.other_costs_note
 				);
 			}
 		}
@@ -306,9 +324,15 @@
 		purpose: $LL.trips.firstRecord(),
 		fuel_liters: null,
 		fuel_cost_eur: null,
+		full_tank: true,
+		// Energy fields
+		energy_kwh: null,
+		energy_cost_eur: null,
+		full_charge: false,
+		soc_override_percent: null,
+		// Other
 		other_costs_eur: null,
 		other_costs_note: null,
-		full_tank: true,
 		sort_order: 999999, // Always last in manual sort
 		created_at: '',
 		updated_at: ''

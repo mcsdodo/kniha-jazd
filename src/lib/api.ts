@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult } from './types';
+import type { Vehicle, Trip, Route, CompensationSuggestion, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -14,17 +14,25 @@ export async function getActiveVehicle(): Promise<Vehicle | null> {
 
 export async function createVehicle(
 	name: string,
-	license_plate: string,
-	tank_size_liters: number,
-	tp_consumption: number,
-	initial_odometer: number
+	licensePlate: string,
+	initialOdometer: number,
+	vehicleType: VehicleType = 'Ice',
+	tankSizeLiters?: number | null,
+	tpConsumption?: number | null,
+	batteryCapacityKwh?: number | null,
+	baselineConsumptionKwh?: number | null,
+	initialBatteryPercent?: number | null
 ): Promise<Vehicle> {
 	return await invoke('create_vehicle', {
 		name,
-		licensePlate: license_plate,
-		tankSize: tank_size_liters,
-		tpConsumption: tp_consumption,
-		initialOdometer: initial_odometer
+		licensePlate,
+		initialOdometer,
+		vehicleType,
+		tankSizeLiters,
+		tpConsumption,
+		batteryCapacityKwh,
+		baselineConsumptionKwh,
+		initialBatteryPercent
 	});
 }
 
@@ -65,11 +73,18 @@ export async function createTrip(
 	distanceKm: number,
 	odometer: number,
 	purpose: string,
+	// Fuel fields (ICE + PHEV)
 	fuelLiters?: number | null,
-	fuelCostEur?: number | null,
-	otherCostsEur?: number | null,
-	otherCostsNote?: string | null,
+	fuelCost?: number | null,
 	fullTank?: boolean | null,
+	// Energy fields (BEV + PHEV)
+	energyKwh?: number | null,
+	energyCostEur?: number | null,
+	fullCharge?: boolean | null,
+	socOverridePercent?: number | null,
+	// Other
+	otherCosts?: number | null,
+	otherCostsNote?: string | null,
 	insertAtPosition?: number | null
 ): Promise<Trip> {
 	return await invoke('create_trip', {
@@ -81,10 +96,14 @@ export async function createTrip(
 		odometer,
 		purpose,
 		fuelLiters,
-		fuelCostEur,
-		otherCostsEur,
-		otherCostsNote,
+		fuelCost,
 		fullTank,
+		energyKwh,
+		energyCostEur,
+		fullCharge,
+		socOverridePercent,
+		otherCosts,
+		otherCostsNote,
 		insertAtPosition
 	});
 }
@@ -97,11 +116,18 @@ export async function updateTrip(
 	distanceKm: number,
 	odometer: number,
 	purpose: string,
+	// Fuel fields (ICE + PHEV)
 	fuelLiters?: number | null,
 	fuelCostEur?: number | null,
+	fullTank?: boolean | null,
+	// Energy fields (BEV + PHEV)
+	energyKwh?: number | null,
+	energyCostEur?: number | null,
+	fullCharge?: boolean | null,
+	socOverridePercent?: number | null,
+	// Other
 	otherCostsEur?: number | null,
-	otherCostsNote?: string | null,
-	fullTank?: boolean | null
+	otherCostsNote?: string | null
 ): Promise<Trip> {
 	return await invoke('update_trip', {
 		id,
@@ -113,9 +139,13 @@ export async function updateTrip(
 		purpose,
 		fuelLiters,
 		fuelCostEur,
+		fullTank,
+		energyKwh,
+		energyCostEur,
+		fullCharge,
+		socOverridePercent,
 		otherCostsEur,
-		otherCostsNote,
-		fullTank
+		otherCostsNote
 	});
 }
 
