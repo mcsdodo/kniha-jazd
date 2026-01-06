@@ -256,6 +256,9 @@ Use skills in `.claude/skills/` for workflows:
 | `/changelog` | After completing any work | Update `CHANGELOG.md` [Unreleased] section |
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
 | `/release` | Publishing new version | Bump version, update changelog, tag, build |
+| `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
+| `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
+| `/test-review` | After feature complete | Check test coverage, add missing tests |
 
 **MANDATORY FINAL STEP:** After completing any feature, fix, or change:
 1. Commit all code changes
