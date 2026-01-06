@@ -278,16 +278,32 @@ pub struct TripStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TripGridData {
     pub trips: Vec<Trip>,
+
+    // Fuel data (ICE + PHEV)
     /// Consumption rate (l/100km) for each trip, keyed by trip ID
     pub rates: HashMap<String, f64>,
     /// Trip IDs that use estimated (TP) rate instead of calculated
     pub estimated_rates: HashSet<String>,
     /// Fuel remaining after each trip, keyed by trip ID
     pub fuel_remaining: HashMap<String, f64>,
-    /// Trip IDs with date ordering issues
-    pub date_warnings: HashSet<String>,
     /// Trip IDs with consumption over 120% of TP rate
     pub consumption_warnings: HashSet<String>,
+
+    // Energy data (BEV + PHEV)
+    /// Energy consumption rate (kWh/100km) for each trip, keyed by trip ID
+    pub energy_rates: HashMap<String, f64>,
+    /// Trip IDs that use estimated (baseline) energy rate
+    pub estimated_energy_rates: HashSet<String>,
+    /// Battery remaining (kWh) after each trip, keyed by trip ID
+    pub battery_remaining_kwh: HashMap<String, f64>,
+    /// Battery remaining (%) after each trip, keyed by trip ID
+    pub battery_remaining_percent: HashMap<String, f64>,
+    /// Trip IDs with manual SoC override
+    pub soc_override_trips: HashSet<String>,
+
+    // Shared warnings
+    /// Trip IDs with date ordering issues
+    pub date_warnings: HashSet<String>,
     /// Trip IDs that have fuel but are missing a matching receipt
     pub missing_receipts: HashSet<String>,
 }

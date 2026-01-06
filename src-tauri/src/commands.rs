@@ -6,7 +6,7 @@ use crate::calculations::{
 };
 use crate::db::Database;
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
-use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle};
+use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{Datelike, NaiveDate, Utc, Local};
@@ -43,21 +43,93 @@ pub fn get_active_vehicle(db: State<Database>) -> Result<Option<Vehicle>, String
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn create_vehicle(
     db: State<Database>,
     name: String,
     license_plate: String,
-    tank_size: f64,
-    tp_consumption: f64,
     initial_odometer: f64,
+    // Vehicle type: "Ice", "Bev", or "Phev"
+    vehicle_type: Option<String>,
+    // Fuel fields (ICE + PHEV)
+    tank_size_liters: Option<f64>,
+    tp_consumption: Option<f64>,
+    // Battery fields (BEV + PHEV)
+    battery_capacity_kwh: Option<f64>,
+    baseline_consumption_kwh: Option<f64>,
+    initial_battery_percent: Option<f64>,
 ) -> Result<Vehicle, String> {
-    let vehicle = Vehicle::new(name, license_plate, tank_size, tp_consumption, initial_odometer);
+    // Parse vehicle type (default to ICE for backward compatibility)
+    let vt = match vehicle_type.as_deref() {
+        Some("Bev") | Some("BEV") => VehicleType::Bev,
+        Some("Phev") | Some("PHEV") => VehicleType::Phev,
+        _ => VehicleType::Ice,
+    };
+
+    // Validate required fields based on vehicle type
+    match vt {
+        VehicleType::Ice => {
+            if tank_size_liters.is_none() || tp_consumption.is_none() {
+                return Err("ICE vehicles require tank_size_liters and tp_consumption".to_string());
+            }
+        }
+        VehicleType::Bev => {
+            if battery_capacity_kwh.is_none() || baseline_consumption_kwh.is_none() {
+                return Err("BEV vehicles require battery_capacity_kwh and baseline_consumption_kwh".to_string());
+            }
+        }
+        VehicleType::Phev => {
+            if tank_size_liters.is_none() || tp_consumption.is_none()
+                || battery_capacity_kwh.is_none() || baseline_consumption_kwh.is_none() {
+                return Err("PHEV vehicles require both fuel and battery fields".to_string());
+            }
+        }
+    }
+
+    let now = Utc::now();
+    let vehicle = Vehicle {
+        id: Uuid::new_v4(),
+        name,
+        license_plate,
+        vehicle_type: vt,
+        tank_size_liters,
+        tp_consumption,
+        battery_capacity_kwh,
+        baseline_consumption_kwh,
+        initial_battery_percent,
+        initial_odometer,
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+    };
+
     db.create_vehicle(&vehicle).map_err(|e| e.to_string())?;
     Ok(vehicle)
 }
 
 #[tauri::command]
 pub fn update_vehicle(db: State<Database>, vehicle: Vehicle) -> Result<(), String> {
+    // Check if vehicle type is being changed when trips exist
+    let existing = db
+        .get_vehicle(&vehicle.id.to_string())
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Vehicle not found: {}", vehicle.id))?;
+
+    if existing.vehicle_type != vehicle.vehicle_type {
+        // Check if this vehicle has any trips
+        let trips = db
+            .get_trips_for_vehicle(&vehicle.id.to_string())
+            .map_err(|e| e.to_string())?;
+
+        if !trips.is_empty() {
+            return Err(
+                "Cannot change vehicle type after trips have been recorded. \
+                Vehicle type is immutable once data exists."
+                    .to_string(),
+            );
+        }
+    }
+
     db.update_vehicle(&vehicle).map_err(|e| e.to_string())
 }
 
@@ -123,15 +195,29 @@ pub fn create_trip(
     distance_km: f64,
     odometer: f64,
     purpose: String,
+    // Fuel fields (ICE + PHEV)
     fuel_liters: Option<f64>,
     fuel_cost: Option<f64>,
+    full_tank: Option<bool>,
+    // Energy fields (BEV + PHEV)
+    energy_kwh: Option<f64>,
+    energy_cost_eur: Option<f64>,
+    full_charge: Option<bool>,
+    soc_override_percent: Option<f64>,
+    // Other
     other_costs: Option<f64>,
     other_costs_note: Option<String>,
-    full_tank: Option<bool>,
     insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Validate: SoC override must be 0-100 if provided
+    if let Some(soc) = soc_override_percent {
+        if !(0.0..=100.0).contains(&soc) {
+            return Err("SoC override must be between 0 and 100".to_string());
+        }
+    }
 
     // Determine sort_order
     let sort_order = if let Some(position) = insert_at_position {
@@ -158,12 +244,11 @@ pub fn create_trip(
         purpose,
         fuel_liters,
         fuel_cost_eur: fuel_cost,
-        full_tank: full_tank.unwrap_or(true), // Default to true (full tank)
-        // Energy fields (BEV/PHEV) - TODO: Phase 2 will add these as parameters
-        energy_kwh: None,
-        energy_cost_eur: None,
-        full_charge: false,
-        soc_override_percent: None,
+        full_tank: full_tank.unwrap_or(false),
+        energy_kwh,
+        energy_cost_eur,
+        full_charge: full_charge.unwrap_or(false),
+        soc_override_percent,
         other_costs_eur: other_costs,
         other_costs_note,
         sort_order,
@@ -191,14 +276,28 @@ pub fn update_trip(
     distance_km: f64,
     odometer: f64,
     purpose: String,
+    // Fuel fields (ICE + PHEV)
     fuel_liters: Option<f64>,
     fuel_cost_eur: Option<f64>,
+    full_tank: Option<bool>,
+    // Energy fields (BEV + PHEV)
+    energy_kwh: Option<f64>,
+    energy_cost_eur: Option<f64>,
+    full_charge: Option<bool>,
+    soc_override_percent: Option<f64>,
+    // Other
     other_costs_eur: Option<f64>,
     other_costs_note: Option<String>,
-    full_tank: Option<bool>,
 ) -> Result<Trip, String> {
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Validate: SoC override must be 0-100 if provided
+    if let Some(soc) = soc_override_percent {
+        if !(0.0..=100.0).contains(&soc) {
+            return Err("SoC override must be between 0 and 100".to_string());
+        }
+    }
 
     // Get the existing trip to preserve vehicle_id and created_at
     let existing = db
@@ -217,13 +316,11 @@ pub fn update_trip(
         purpose,
         fuel_liters,
         fuel_cost_eur,
-        full_tank: full_tank.unwrap_or(existing.full_tank), // Preserve existing if not provided
-        // Energy fields (BEV/PHEV) - TODO: Phase 2 will add these as parameters
-        // For now, preserve existing values
-        energy_kwh: existing.energy_kwh,
-        energy_cost_eur: existing.energy_cost_eur,
-        full_charge: existing.full_charge,
-        soc_override_percent: existing.soc_override_percent,
+        full_tank: full_tank.unwrap_or(existing.full_tank),
+        energy_kwh,
+        energy_cost_eur,
+        full_charge: full_charge.unwrap_or(existing.full_charge),
+        soc_override_percent,
         other_costs_eur,
         other_costs_note,
         sort_order: existing.sort_order,
@@ -541,8 +638,13 @@ pub fn get_trip_grid_data(
             rates: HashMap::new(),
             estimated_rates: HashSet::new(),
             fuel_remaining: HashMap::new(),
-            date_warnings: HashSet::new(),
             consumption_warnings: HashSet::new(),
+            energy_rates: HashMap::new(),
+            estimated_energy_rates: HashSet::new(),
+            battery_remaining_kwh: HashMap::new(),
+            battery_remaining_percent: HashMap::new(),
+            soc_override_trips: HashSet::new(),
+            date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
         });
     }
@@ -591,13 +693,28 @@ pub fn get_trip_grid_data(
     // Calculate missing receipts (trips with fuel but no matching receipt)
     let missing_receipts = calculate_missing_receipts(&trips, &receipts);
 
+    // For BEV/PHEV: calculate energy data
+    // TODO: Phase 2.4 will implement full BEV calculations based on vehicle type
+    // For now, populate SoC override trips (works for all vehicle types)
+    let soc_override_trips: HashSet<String> = trips
+        .iter()
+        .filter(|t| t.soc_override_percent.is_some())
+        .map(|t| t.id.to_string())
+        .collect();
+
     Ok(TripGridData {
         trips,
         rates,
         estimated_rates,
         fuel_remaining,
-        date_warnings,
         consumption_warnings,
+        // Energy fields - empty for ICE, Phase 2.4 will populate for BEV/PHEV
+        energy_rates: HashMap::new(),
+        estimated_energy_rates: HashSet::new(),
+        battery_remaining_kwh: HashMap::new(),
+        battery_remaining_percent: HashMap::new(),
+        soc_override_trips,
+        date_warnings,
         missing_receipts,
     })
 }
@@ -1095,8 +1212,13 @@ pub async fn export_to_browser(
         rates,
         estimated_rates,
         fuel_remaining,
-        date_warnings: HashSet::new(),
         consumption_warnings: HashSet::new(),
+        energy_rates: HashMap::new(),
+        estimated_energy_rates: HashSet::new(),
+        battery_remaining_kwh: HashMap::new(),
+        battery_remaining_percent: HashMap::new(),
+        soc_override_trips: HashSet::new(),
+        date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
     };
 
@@ -1189,8 +1311,13 @@ pub async fn export_html(
         rates,
         estimated_rates,
         fuel_remaining,
-        date_warnings: HashSet::new(),
         consumption_warnings: HashSet::new(),
+        energy_rates: HashMap::new(),
+        estimated_energy_rates: HashSet::new(),
+        battery_remaining_kwh: HashMap::new(),
+        battery_remaining_percent: HashMap::new(),
+        soc_override_trips: HashSet::new(),
+        date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
     };
 
