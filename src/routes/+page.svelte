@@ -47,7 +47,7 @@
 				// Calculate buffer km needed to get to 18% target
 				const targetMargin = 0.18;
 				const actualRate = stats.last_consumption_rate;
-				const tpRate = $activeVehicleStore.tp_consumption;
+				const tpRate = $activeVehicleStore.tp_consumption ?? 0;
 
 				// Find last trip location
 				if (trips.length > 0) {
@@ -210,9 +210,12 @@
 					vehicleId={$activeVehicleStore.id}
 					{trips}
 					year={$selectedYearStore}
-					tankSize={$activeVehicleStore.tank_size_liters}
-					tpConsumption={$activeVehicleStore.tp_consumption}
+					tankSize={$activeVehicleStore.tank_size_liters ?? 0}
+					tpConsumption={$activeVehicleStore.tp_consumption ?? 0}
 					initialOdometer={$activeVehicleStore.initial_odometer}
+					vehicleType={$activeVehicleStore.vehicle_type}
+					batteryCapacityKwh={$activeVehicleStore.battery_capacity_kwh ?? 0}
+					baselineConsumptionKwh={$activeVehicleStore.baseline_consumption_kwh ?? 0}
 					onTripsChanged={handleTripsChanged}
 					bind:sortColumn
 					bind:sortDirection

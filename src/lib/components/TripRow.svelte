@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult } from '$lib/types';
+	import type { Trip, Route, PreviewResult, VehicleType } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -11,6 +11,14 @@
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
 	export let fuelRemaining: number = 0;
+	// Energy fields (BEV/PHEV)
+	export let vehicleType: VehicleType = 'Ice';
+	export let energyRate: number = 0;
+	export let batteryRemainingKwh: number = 0;
+	export let batteryRemainingPercent: number = 0;
+	export let isEstimatedEnergyRate: boolean = false;
+	export let hasSocOverride: boolean = false;
+
 	export let defaultDate: string = new Date().toISOString().split('T')[0]; // For new rows
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
@@ -30,6 +38,10 @@
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
 
+	// Derived: show fuel/energy fields based on vehicle type
+	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
+	$: showEnergyFields = vehicleType === 'Bev' || vehicleType === 'Phev';
+
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
 
@@ -41,11 +53,17 @@
 		distance_km: trip?.distance_km ?? (isNew ? null : 0),
 		odometer: trip?.odometer ?? (isNew ? null : 0),
 		purpose: trip?.purpose || '',
+		// Fuel fields
 		fuel_liters: trip?.fuel_liters || null,
 		fuel_cost_eur: trip?.fuel_cost_eur || null,
+		full_tank: trip?.full_tank ?? false,
+		// Energy fields
+		energy_kwh: trip?.energy_kwh || null,
+		energy_cost_eur: trip?.energy_cost_eur || null,
+		full_charge: trip?.full_charge ?? false,
+		// Other
 		other_costs_eur: trip?.other_costs_eur || null,
-		other_costs_note: trip?.other_costs_note || '',
-		full_tank: trip?.full_tank ?? true // Default to full tank
+		other_costs_note: trip?.other_costs_note || ''
 	};
 
 	// Get unique locations from routes
@@ -146,9 +164,12 @@
 				purpose: trip?.purpose || '',
 				fuel_liters: trip?.fuel_liters || null,
 				fuel_cost_eur: trip?.fuel_cost_eur || null,
+				full_tank: trip?.full_tank ?? false,
+				energy_kwh: trip?.energy_kwh || null,
+				energy_cost_eur: trip?.energy_cost_eur || null,
+				full_charge: trip?.full_charge ?? false,
 				other_costs_eur: trip?.other_costs_eur || null,
-				other_costs_note: trip?.other_costs_note || '',
-				full_tank: trip?.full_tank ?? true
+				other_costs_note: trip?.other_costs_note || ''
 			};
 			isEditing = false;
 			onEditEnd();

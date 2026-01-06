@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, PreviewResult } from '$lib/types';
+	import type { Trip, Route, TripGridData, PreviewResult, VehicleType } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
@@ -14,25 +14,49 @@
 	export let tpConsumption: number = 5.1; // Vehicle's TP consumption rate
 	export let tankSize: number = 66;
 	export let initialOdometer: number = 0;
+	// EV support
+	export let vehicleType: VehicleType = 'Ice';
+	export let batteryCapacityKwh: number = 0;
+	export let baselineConsumptionKwh: number = 0;
+
+	// Derived: show columns based on vehicle type
+	$: showFuelColumns = vehicleType === 'Ice' || vehicleType === 'Phev';
+	$: showEnergyColumns = vehicleType === 'Bev' || vehicleType === 'Phev';
 
 	// Pre-calculated grid data from backend
 	let gridData: TripGridData | null = null;
+	// Fuel data
 	let consumptionRates: Map<string, number> = new Map();
 	let estimatedRates: Set<string> = new Set();
 	let fuelRemaining: Map<string, number> = new Map();
-	let dateWarnings: Set<string> = new Set();
 	let consumptionWarnings: Set<string> = new Set();
+	// Energy data (BEV/PHEV)
+	let energyRates: Map<string, number> = new Map();
+	let estimatedEnergyRates: Set<string> = new Set();
+	let batteryRemainingKwh: Map<string, number> = new Map();
+	let batteryRemainingPercent: Map<string, number> = new Map();
+	let socOverrideTrips: Set<string> = new Set();
+	// Shared
+	let dateWarnings: Set<string> = new Set();
 
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
 		try {
 			gridData = await getTripGridData(vehicleId, year);
 			// Convert backend data to Maps/Sets for efficient lookup
+			// Fuel
 			consumptionRates = new Map(Object.entries(gridData.rates));
 			estimatedRates = new Set(gridData.estimated_rates);
 			fuelRemaining = new Map(Object.entries(gridData.fuel_remaining));
-			dateWarnings = new Set(gridData.date_warnings);
 			consumptionWarnings = new Set(gridData.consumption_warnings);
+			// Energy
+			energyRates = new Map(Object.entries(gridData.energy_rates));
+			estimatedEnergyRates = new Set(gridData.estimated_energy_rates);
+			batteryRemainingKwh = new Map(Object.entries(gridData.battery_remaining_kwh));
+			batteryRemainingPercent = new Map(Object.entries(gridData.battery_remaining_percent));
+			socOverrideTrips = new Set(gridData.soc_override_trips);
+			// Shared
+			dateWarnings = new Set(gridData.date_warnings);
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -110,11 +134,11 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.full_tank,
-				// Energy fields (null for ICE)
-				null, // energyKwh
-				null, // energyCostEur
-				null, // fullCharge
-				null, // socOverridePercent
+				// Energy fields
+				tripData.energy_kwh,
+				tripData.energy_cost_eur,
+				tripData.full_charge,
+				null, // socOverridePercent - rarely used on new trips
 				// Other
 				tripData.other_costs_eur,
 				tripData.other_costs_note,
@@ -150,11 +174,11 @@
 				tripData.fuel_liters,
 				tripData.fuel_cost_eur,
 				tripData.full_tank,
-				// Energy fields (null for ICE, Phase 2.7 will add proper values)
-				null, // energyKwh
-				null, // energyCostEur
-				null, // fullCharge
-				null, // socOverridePercent
+				// Energy fields
+				tripData.energy_kwh,
+				tripData.energy_cost_eur,
+				tripData.full_charge,
+				trip.soc_override_percent, // Preserve existing SoC override
 				// Other
 				tripData.other_costs_eur,
 				tripData.other_costs_note
