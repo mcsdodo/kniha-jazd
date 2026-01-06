@@ -1,7 +1,7 @@
 # Task: Test Completeness for Business Logic
 
 **Date:** 2026-01-05
-**Status:** Planning
+**Status:** Complete
 **Goal:** Ensure all business rules from DECISIONS.md are verified through tests
 
 ## Background
@@ -35,8 +35,8 @@ While test coverage is good numerically, some business logic from DECISIONS.md l
 
 ## Acceptance Criteria
 
-- [ ] Partial fill-up logic has explicit test
-- [ ] Warning calculations have tests
-- [ ] Year carryover has 2-case test
-- [ ] At least 2 more integration test specs implemented
-- [ ] All tests pass on CI
+- [x] Partial fill-up logic has explicit test
+- [x] Warning calculations have tests
+- [x] Year carryover has 2-case test (3 tests added)
+- [ ] ~~At least 2 more integration test specs implemented~~ (Deferred - see `_review.md`)
+- [x] All tests pass on CI (108 tests pass)

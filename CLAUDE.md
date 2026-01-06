@@ -73,7 +73,7 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 ### Running Tests
 
 ```bash
-# Rust backend tests (93 tests)
+# Rust backend tests (108 tests)
 cd src-tauri && cargo test
 
 # E2E integration tests (requires debug build)
@@ -85,12 +85,12 @@ npm run test:all
 
 ### Test Coverage
 
-**Backend (Rust) - Single Source of Truth (105 tests):**
+**Backend (Rust) - Single Source of Truth (108 tests):**
 - `calculations.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `commands.rs` - 22 tests: receipt matching, period rates, warnings, fuel remaining
+- `commands.rs` - 25 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
 - `receipts.rs` - 17 tests: folder detection, extraction, scanning
 - `db.rs` - 17 tests: CRUD lifecycle, year filtering
-- `suggestions.rs` - 9 tests: route matching, compensation suggestions
+- `suggestions.rs` - 8 tests: route matching, compensation suggestions
 - `export.rs` - 7 tests: export totals, HTML escaping
 - `gemini.rs` - 3 tests: JSON deserialization
 - `settings.rs` - 3 tests: local settings loading

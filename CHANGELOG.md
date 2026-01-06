@@ -8,7 +8,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
-- Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva (12 nových testov)
+- Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva, prenos paliva medzi rokmi (15 nových testov)
 - Claude Code hooks: automatické spustenie testov pred commitom, pripomienka na changelog
 - Nový skill `/verify` pre kontrolu pred dokončením úlohy
 

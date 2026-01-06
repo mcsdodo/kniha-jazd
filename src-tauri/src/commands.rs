@@ -2251,4 +2251,158 @@ mod tests {
             actual
         );
     }
+
+    // ========================================================================
+    // Year carryover tests (get_year_start_fuel_remaining)
+    // ========================================================================
+
+    #[test]
+    fn test_year_start_fuel_no_previous_year_data() {
+        // When no trips exist in the previous year, should return full tank
+        let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            50.0,  // tank_size
+            6.0,   // tp_consumption
+            0.0,
+        );
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        // Query for 2025 with no 2024 data
+        let result = get_year_start_fuel_remaining(
+            &db,
+            &vehicle.id.to_string(),
+            2025,
+            50.0,  // tank_size
+            6.0,   // tp_consumption
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 50.0, "Should return full tank when no previous year data");
+    }
+
+    #[test]
+    fn test_year_start_fuel_with_previous_year_full_tank() {
+        // When previous year ends with full tank fillup, should return tank_size
+        let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            50.0,
+            6.0,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let now = Utc::now();
+        let trip_2024 = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            date: NaiveDate::from_ymd_opt(2024, 12, 15).unwrap(),
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km: 100.0,
+            odometer: 10000.0,
+            purpose: "test".to_string(),
+            fuel_liters: Some(6.0),
+            fuel_cost_eur: Some(10.0),
+            other_costs_eur: None,
+            other_costs_note: None,
+            full_tank: true,  // Full tank fillup -> ends at 50L
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        };
+        db.create_trip(&trip_2024).expect("Failed to create trip");
+
+        let result = get_year_start_fuel_remaining(
+            &db,
+            &vehicle.id.to_string(),
+            2025,
+            50.0,
+            6.0,
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 50.0, "Full tank fillup should end at tank_size");
+    }
+
+    #[test]
+    fn test_year_start_fuel_partial_tank_carryover() {
+        // Test that partial tank fillups carry over correctly
+        let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            50.0,  // tank_size
+            6.0,   // tp_consumption (6 l/100km)
+            0.0,
+        );
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let now = Utc::now();
+
+        // Trip 1: Drive 100km, full tank fillup with 6L
+        // Starts at 50L (no prior year), uses 6L, ends at 50L (full tank)
+        let trip1 = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            date: NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km: 100.0,
+            odometer: 10000.0,
+            purpose: "test".to_string(),
+            fuel_liters: Some(6.0),
+            fuel_cost_eur: Some(10.0),
+            other_costs_eur: None,
+            other_costs_note: None,
+            full_tank: true,
+            sort_order: 1,
+            created_at: now,
+            updated_at: now,
+        };
+
+        // Trip 2: Drive 200km, partial fillup with 10L
+        // Rate from trip1 is 6%, so uses 12L, starts at 50L, ends at 50-12+10=48L
+        let trip2 = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            date: NaiveDate::from_ymd_opt(2024, 12, 20).unwrap(),
+            origin: "B".to_string(),
+            destination: "C".to_string(),
+            distance_km: 200.0,
+            odometer: 10200.0,
+            purpose: "test".to_string(),
+            fuel_liters: Some(10.0),
+            fuel_cost_eur: Some(16.0),
+            other_costs_eur: None,
+            other_costs_note: None,
+            full_tank: false,  // Partial fillup
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        };
+
+        db.create_trip(&trip1).expect("Failed to create trip1");
+        db.create_trip(&trip2).expect("Failed to create trip2");
+
+        let result = get_year_start_fuel_remaining(
+            &db,
+            &vehicle.id.to_string(),
+            2025,
+            50.0,
+            6.0,
+        );
+
+        assert!(result.is_ok());
+        // After trip1: full tank (50L)
+        // Trip2 uses 12L at 6% rate, adds 10L partial = 50 - 12 + 10 = 48L
+        let fuel = result.unwrap();
+        assert!((fuel - 48.0).abs() < 0.1, "Expected ~48L, got {}", fuel);
+    }
 }
