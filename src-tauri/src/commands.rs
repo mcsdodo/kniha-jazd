@@ -4,6 +4,9 @@ use crate::calculations::{
     calculate_consumption_rate, calculate_margin_percent, calculate_fuel_used, calculate_fuel_level,
     is_within_legal_limit,
 };
+use crate::calculations_energy::{
+    calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
+};
 use crate::db::Database;
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
@@ -693,14 +696,25 @@ pub fn get_trip_grid_data(
     // Calculate missing receipts (trips with fuel but no matching receipt)
     let missing_receipts = calculate_missing_receipts(&trips, &receipts);
 
-    // For BEV/PHEV: calculate energy data
-    // TODO: Phase 2.4 will implement full BEV calculations based on vehicle type
-    // For now, populate SoC override trips (works for all vehicle types)
+    // Populate SoC override trips (works for all vehicle types)
     let soc_override_trips: HashSet<String> = trips
         .iter()
         .filter(|t| t.soc_override_percent.is_some())
         .map(|t| t.id.to_string())
         .collect();
+
+    // For BEV/PHEV: calculate energy data
+    let (energy_rates, estimated_energy_rates, battery_remaining_kwh, battery_remaining_percent) =
+        if vehicle.vehicle_type.uses_electricity() {
+            calculate_energy_grid_data(
+                &chronological,
+                &vehicle,
+                &soc_override_trips,
+            )
+        } else {
+            // ICE vehicle - no energy data
+            (HashMap::new(), HashSet::new(), HashMap::new(), HashMap::new())
+        };
 
     Ok(TripGridData {
         trips,
@@ -708,11 +722,10 @@ pub fn get_trip_grid_data(
         estimated_rates,
         fuel_remaining,
         consumption_warnings,
-        // Energy fields - empty for ICE, Phase 2.4 will populate for BEV/PHEV
-        energy_rates: HashMap::new(),
-        estimated_energy_rates: HashSet::new(),
-        battery_remaining_kwh: HashMap::new(),
-        battery_remaining_percent: HashMap::new(),
+        energy_rates,
+        estimated_energy_rates,
+        battery_remaining_kwh,
+        battery_remaining_percent,
         soc_override_trips,
         date_warnings,
         missing_receipts,
@@ -823,6 +836,102 @@ pub(crate) fn calculate_fuel_remaining(
     }
 
     remaining
+}
+
+/// Calculate energy data for BEV/PHEV vehicles.
+/// Returns (energy_rates, estimated_energy_rates, battery_remaining_kwh, battery_remaining_percent)
+fn calculate_energy_grid_data(
+    chronological: &[Trip],
+    vehicle: &Vehicle,
+    soc_override_trips: &HashSet<String>,
+) -> (
+    HashMap<String, f64>,
+    HashSet<String>,
+    HashMap<String, f64>,
+    HashMap<String, f64>,
+) {
+    let mut energy_rates = HashMap::new();
+    let mut estimated_energy_rates = HashSet::new();
+    let mut battery_kwh = HashMap::new();
+    let mut battery_percent = HashMap::new();
+
+    let capacity = vehicle.battery_capacity_kwh.unwrap_or(0.0);
+    let baseline_rate = vehicle.baseline_consumption_kwh.unwrap_or(0.0);
+
+    if capacity <= 0.0 {
+        return (energy_rates, estimated_energy_rates, battery_kwh, battery_percent);
+    }
+
+    // Initial battery state: use initial_battery_percent if set, otherwise 100%
+    let initial_percent = vehicle.initial_battery_percent.unwrap_or(100.0);
+    let mut current_battery = capacity * initial_percent / 100.0;
+
+    // Track charge periods for rate calculation (similar to fuel periods)
+    let mut period_energy = 0.0;
+    let mut period_km = 0.0;
+    let mut period_trip_ids: Vec<String> = Vec::new();
+
+    for trip in chronological {
+        let trip_id = trip.id.to_string();
+
+        // Check for SoC override - this resets the battery state
+        if let Some(override_percent) = trip.soc_override_percent {
+            current_battery = capacity * override_percent / 100.0;
+        }
+
+        // Calculate energy used for this trip
+        let energy_used = calculate_energy_used(trip.distance_km, baseline_rate);
+
+        // Update battery (subtract used, add charged)
+        current_battery = calculate_battery_remaining(
+            current_battery,
+            energy_used,
+            trip.energy_kwh,
+            capacity,
+        );
+
+        // Store battery remaining
+        battery_kwh.insert(trip_id.clone(), current_battery);
+        battery_percent.insert(trip_id.clone(), kwh_to_percent(current_battery, capacity));
+
+        // Track period for rate calculation
+        period_km += trip.distance_km;
+        period_trip_ids.push(trip_id.clone());
+
+        // If this trip has a charge and is marked as full charge, close the period
+        if trip.energy_kwh.is_some() && trip.full_charge {
+            let charged = trip.energy_kwh.unwrap_or(0.0);
+            period_energy += charged;
+
+            // Calculate rate for this period
+            let rate = if period_km > 0.0 {
+                (period_energy / period_km) * 100.0
+            } else {
+                baseline_rate
+            };
+
+            // Apply rate to all trips in period
+            for id in &period_trip_ids {
+                energy_rates.insert(id.clone(), rate);
+            }
+
+            // Reset period
+            period_energy = 0.0;
+            period_km = 0.0;
+            period_trip_ids.clear();
+        } else if let Some(charged) = trip.energy_kwh {
+            // Partial charge - accumulate but don't close period
+            period_energy += charged;
+        }
+    }
+
+    // Handle remaining trips without a full charge - use baseline rate (estimated)
+    for id in &period_trip_ids {
+        energy_rates.insert(id.clone(), baseline_rate);
+        estimated_energy_rates.insert(id.clone());
+    }
+
+    (energy_rates, estimated_energy_rates, battery_kwh, battery_percent)
 }
 
 /// Check if each trip's date is out of order relative to neighbors.
