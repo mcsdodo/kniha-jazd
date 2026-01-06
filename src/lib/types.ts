@@ -201,6 +201,9 @@ export interface ExportLabels {
 	header_tank_size: string;
 	header_tp_consumption: string;
 	header_year: string;
+	// Header labels for BEV
+	header_battery_capacity: string;
+	header_baseline_consumption: string;
 	// Column headers
 	col_date: string;
 	col_origin: string;
@@ -214,6 +217,11 @@ export interface ExportLabels {
 	col_note: string;
 	col_remaining: string;
 	col_consumption: string;
+	// Column headers for BEV
+	col_energy_kwh: string;
+	col_energy_cost: string;
+	col_battery_remaining: string;
+	col_energy_rate: string;
 	// Footer labels
 	footer_total_km: string;
 	footer_total_fuel: string;
@@ -221,6 +229,10 @@ export interface ExportLabels {
 	footer_avg_consumption: string;
 	footer_deviation: string;
 	footer_tp_norm: string;
+	// Footer labels for BEV
+	footer_total_energy: string;
+	footer_avg_energy_rate: string;
+	footer_baseline_norm: string;
 	// Print hint
 	print_hint: string;
 }

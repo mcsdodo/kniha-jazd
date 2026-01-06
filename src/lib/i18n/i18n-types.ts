@@ -1103,6 +1103,14 @@ type RootTranslation = {
 		 */
 		headerYear: string
 		/**
+		 * B​a​t​é​r​i​a​:
+		 */
+		headerBatteryCapacity: string
+		/**
+		 * Z​á​k​l​a​d​.​ ​s​p​o​t​r​e​b​a​:
+		 */
+		headerBaselineConsumption: string
+		/**
 		 * D​á​t​u​m
 		 */
 		colDate: string
@@ -1151,6 +1159,22 @@ type RootTranslation = {
 		 */
 		colConsumption: string
 		/**
+		 * k​W​h
+		 */
+		colEnergyKwh: string
+		/**
+		 * €​ ​E​n​e​r​g​.
+		 */
+		colEnergyCost: string
+		/**
+		 * B​a​t​é​r​i​a
+		 */
+		colBatteryRemaining: string
+		/**
+		 * k​W​h​/​1​0​0
+		 */
+		colEnergyRate: string
+		/**
 		 * C​e​l​k​o​m​ ​k​m
 		 */
 		footerTotalKm: string
@@ -1174,6 +1198,18 @@ type RootTranslation = {
 		 * T​P​ ​n​o​r​m​a
 		 */
 		footerTpNorm: string
+		/**
+		 * C​e​l​k​o​m​ ​e​n​e​r​g​i​a
+		 */
+		footerTotalEnergy: string
+		/**
+		 * P​r​i​e​m​e​r​n​á​ ​s​p​o​t​r​e​b​a
+		 */
+		footerAvgEnergyRate: string
+		/**
+		 * Z​á​k​l​a​d​.​ ​n​o​r​m​a
+		 */
+		footerBaselineNorm: string
 		/**
 		 * P​r​e​ ​e​x​p​o​r​t​ ​d​o​ ​P​D​F​ ​p​o​u​ž​i​t​e​ ​C​t​r​l​+​P​ ​→​ ​U​l​o​ž​i​ť​ ​a​k​o​ ​P​D​F
 		 */
@@ -2230,6 +2266,14 @@ export type TranslationFunctions = {
 		 */
 		headerYear: () => LocalizedString
 		/**
+		 * Batéria:
+		 */
+		headerBatteryCapacity: () => LocalizedString
+		/**
+		 * Základ. spotreba:
+		 */
+		headerBaselineConsumption: () => LocalizedString
+		/**
 		 * Dátum
 		 */
 		colDate: () => LocalizedString
@@ -2278,6 +2322,22 @@ export type TranslationFunctions = {
 		 */
 		colConsumption: () => LocalizedString
 		/**
+		 * kWh
+		 */
+		colEnergyKwh: () => LocalizedString
+		/**
+		 * € Energ.
+		 */
+		colEnergyCost: () => LocalizedString
+		/**
+		 * Batéria
+		 */
+		colBatteryRemaining: () => LocalizedString
+		/**
+		 * kWh/100
+		 */
+		colEnergyRate: () => LocalizedString
+		/**
 		 * Celkom km
 		 */
 		footerTotalKm: () => LocalizedString
@@ -2301,6 +2361,18 @@ export type TranslationFunctions = {
 		 * TP norma
 		 */
 		footerTpNorm: () => LocalizedString
+		/**
+		 * Celkom energia
+		 */
+		footerTotalEnergy: () => LocalizedString
+		/**
+		 * Priemerná spotreba
+		 */
+		footerAvgEnergyRate: () => LocalizedString
+		/**
+		 * Základ. norma
+		 */
+		footerBaselineNorm: () => LocalizedString
 		/**
 		 * Pre export do PDF použite Ctrl+P → Uložiť ako PDF
 		 */

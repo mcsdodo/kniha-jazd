@@ -351,6 +351,9 @@ const en = {
 		headerTankSize: 'Tank:',
 		headerTpConsumption: 'TP consumption:',
 		headerYear: 'Year:',
+		// Header labels for BEV
+		headerBatteryCapacity: 'Battery:',
+		headerBaselineConsumption: 'Baseline cons.:',
 		// Column headers
 		colDate: 'Date',
 		colOrigin: 'From',
@@ -364,6 +367,11 @@ const en = {
 		colNote: 'Note',
 		colRemaining: 'Rem.',
 		colConsumption: 'Cons.',
+		// Column headers for BEV
+		colEnergyKwh: 'kWh',
+		colEnergyCost: '€ Energy',
+		colBatteryRemaining: 'Battery',
+		colEnergyRate: 'kWh/100',
 		// Footer labels
 		footerTotalKm: 'Total km',
 		footerTotalFuel: 'Total fuel',
@@ -371,6 +379,10 @@ const en = {
 		footerAvgConsumption: 'Average consumption',
 		footerDeviation: 'Deviation from TP',
 		footerTpNorm: 'TP norm',
+		// Footer labels for BEV
+		footerTotalEnergy: 'Total energy',
+		footerAvgEnergyRate: 'Average consumption',
+		footerBaselineNorm: 'Baseline norm',
 		// Print hint
 		printHint: 'To export to PDF use Ctrl+P → Save as PDF',
 	},

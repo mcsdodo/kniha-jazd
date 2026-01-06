@@ -433,10 +433,18 @@
 					<th>{$LL.trips.columns.km()}</th>
 					<th>{$LL.trips.columns.odo()}</th>
 					<th>{$LL.trips.columns.purpose()}</th>
-					<th>{$LL.trips.columns.fuelLiters()}</th>
-					<th>{$LL.trips.columns.fuelCost()}</th>
-					<th>{$LL.trips.columns.consumptionRate()}</th>
-					<th>{$LL.trips.columns.remaining()}</th>
+					{#if showFuelColumns}
+						<th>{$LL.trips.columns.fuelLiters()}</th>
+						<th>{$LL.trips.columns.fuelCost()}</th>
+						<th>{$LL.trips.columns.consumptionRate()}</th>
+						<th>{$LL.trips.columns.remaining()}</th>
+					{/if}
+					{#if showEnergyColumns}
+						<th>{$LL.trips.columns.energyKwh()}</th>
+						<th>{$LL.trips.columns.energyCost()}</th>
+						<th>{$LL.trips.columns.energyRate()}</th>
+						<th>{$LL.trips.columns.batteryRemaining()}</th>
+					{/if}
 					<th>{$LL.trips.columns.otherCosts()}</th>
 					<th>{$LL.trips.columns.otherCostsNote()}</th>
 					<th class="sortable" on:click={() => toggleSort('manual')}>
@@ -459,6 +467,10 @@
 						defaultDate={defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						fuelRemaining={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
+						{vehicleType}
+						energyRate={sortedTrips.length > 0 ? energyRates.get(sortedTrips[0].id) || baselineConsumptionKwh : baselineConsumptionKwh}
+						batteryRemainingKwh={sortedTrips.length > 0 ? batteryRemainingKwh.get(sortedTrips[0].id) || batteryCapacityKwh : batteryCapacityKwh}
+						batteryRemainingPercent={sortedTrips.length > 0 ? batteryRemainingPercent.get(sortedTrips[0].id) || 100 : 100}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
@@ -479,6 +491,10 @@
 							defaultDate={insertDate || trip.date}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelRemaining={fuelRemaining.get(trip.id) || tankSize}
+							{vehicleType}
+							energyRate={energyRates.get(trip.id) || baselineConsumptionKwh}
+							batteryRemainingKwh={batteryRemainingKwh.get(trip.id) || batteryCapacityKwh}
+							batteryRemainingPercent={batteryRemainingPercent.get(trip.id) || 100}
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
@@ -495,10 +511,18 @@
 							<td class="number">0</td>
 							<td class="number">{trip.odometer.toFixed(0)}</td>
 							<td class="purpose">{trip.purpose}</td>
-							<td>-</td>
-							<td>-</td>
-							<td class="number">{tpConsumption.toFixed(2)}</td>
-							<td class="number">{tankSize.toFixed(1)}</td>
+							{#if showFuelColumns}
+								<td>-</td>
+								<td>-</td>
+								<td class="number">{tpConsumption.toFixed(2)}</td>
+								<td class="number">{tankSize.toFixed(1)}</td>
+							{/if}
+							{#if showEnergyColumns}
+								<td>-</td>
+								<td>-</td>
+								<td class="number">{baselineConsumptionKwh.toFixed(2)}</td>
+								<td class="number">{batteryCapacityKwh.toFixed(1)} kWh</td>
+							{/if}
 							<td>-</td>
 							<td>-</td>
 							<td></td>
@@ -512,6 +536,12 @@
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelRemaining={fuelRemaining.get(trip.id) || 0}
+							{vehicleType}
+							energyRate={energyRates.get(trip.id) || baselineConsumptionKwh}
+							batteryRemainingKwh={batteryRemainingKwh.get(trip.id) || 0}
+							batteryRemainingPercent={batteryRemainingPercent.get(trip.id) || 0}
+							isEstimatedEnergyRate={estimatedEnergyRates.has(trip.id)}
+							hasSocOverride={socOverrideTrips.has(trip.id)}
 							onSave={(data) => handleUpdate(trip, data)}
 							onCancel={() => {}}
 							onDelete={handleDelete}
@@ -534,7 +564,7 @@
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan="13">{$LL.trips.emptyState()}</td>
+						<td colspan={9 + (showFuelColumns ? 4 : 0) + (showEnergyColumns ? 4 : 0)}>{$LL.trips.emptyState()}</td>
 					</tr>
 				{/if}
 			</tbody>

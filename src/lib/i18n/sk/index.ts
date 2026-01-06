@@ -351,6 +351,9 @@ const sk = {
 		headerTankSize: 'Nádrž:',
 		headerTpConsumption: 'TP spotreba:',
 		headerYear: 'Rok:',
+		// Header labels for BEV
+		headerBatteryCapacity: 'Batéria:',
+		headerBaselineConsumption: 'Základ. spotreba:',
 		// Column headers
 		colDate: 'Dátum',
 		colOrigin: 'Odkiaľ',
@@ -364,6 +367,11 @@ const sk = {
 		colNote: 'Poznámka',
 		colRemaining: 'Zost.',
 		colConsumption: 'Spotr.',
+		// Column headers for BEV
+		colEnergyKwh: 'kWh',
+		colEnergyCost: '€ Energ.',
+		colBatteryRemaining: 'Batéria',
+		colEnergyRate: 'kWh/100',
 		// Footer labels
 		footerTotalKm: 'Celkom km',
 		footerTotalFuel: 'Celkom PHM',
@@ -371,6 +379,10 @@ const sk = {
 		footerAvgConsumption: 'Priemerná spotreba',
 		footerDeviation: 'Odchýlka od TP',
 		footerTpNorm: 'TP norma',
+		// Footer labels for BEV
+		footerTotalEnergy: 'Celkom energia',
+		footerAvgEnergyRate: 'Priemerná spotreba',
+		footerBaselineNorm: 'Základ. norma',
 		// Print hint
 		printHint: 'Pre export do PDF použite Ctrl+P → Uložiť ako PDF',
 	},

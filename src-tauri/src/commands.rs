@@ -1300,6 +1300,7 @@ pub async fn export_to_browser(
     // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
     let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+    let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
 
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, tp_consumption);
@@ -1331,7 +1332,7 @@ pub async fn export_to_browser(
         missing_receipts: HashSet::new(),
     };
 
-    let totals = ExportTotals::calculate(&chronological, tp_consumption);
+    let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
 
     let export_data = ExportData {
         vehicle,
@@ -1399,6 +1400,7 @@ pub async fn export_html(
     // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
     let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+    let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
 
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, tp_consumption);
@@ -1431,7 +1433,7 @@ pub async fn export_html(
     };
 
     // Calculate totals for footer
-    let totals = ExportTotals::calculate(&chronological, tp_consumption);
+    let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
 
     // Generate HTML
     let export_data = ExportData {
