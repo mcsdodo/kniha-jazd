@@ -158,9 +158,14 @@ pub fn create_trip(
         purpose,
         fuel_liters,
         fuel_cost_eur: fuel_cost,
+        full_tank: full_tank.unwrap_or(true), // Default to true (full tank)
+        // Energy fields (BEV/PHEV) - TODO: Phase 2 will add these as parameters
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
         other_costs_eur: other_costs,
         other_costs_note,
-        full_tank: full_tank.unwrap_or(true), // Default to true (full tank)
         sort_order,
         created_at: now,
         updated_at: now,
@@ -212,9 +217,15 @@ pub fn update_trip(
         purpose,
         fuel_liters,
         fuel_cost_eur,
+        full_tank: full_tank.unwrap_or(existing.full_tank), // Preserve existing if not provided
+        // Energy fields (BEV/PHEV) - TODO: Phase 2 will add these as parameters
+        // For now, preserve existing values
+        energy_kwh: existing.energy_kwh,
+        energy_cost_eur: existing.energy_cost_eur,
+        full_charge: existing.full_charge,
+        soc_override_percent: existing.soc_override_percent,
         other_costs_eur,
         other_costs_note,
-        full_tank: full_tank.unwrap_or(existing.full_tank), // Preserve existing if not provided
         sort_order: existing.sort_order,
         created_at: existing.created_at,
         updated_at: Utc::now(),
@@ -335,6 +346,11 @@ pub fn calculate_trip_stats(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Vehicle not found".to_string())?;
 
+    // Extract fuel fields (ICE vehicles only for now)
+    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+
     // Get all trips for this vehicle, sorted by date + odometer (for same-day trips)
     let mut trips = db
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
@@ -346,7 +362,7 @@ pub fn calculate_trip_stats(
     // If no trips, return default values
     if trips.is_empty() {
         return Ok(TripStats {
-            fuel_remaining_liters: vehicle.tank_size_liters,
+            fuel_remaining_liters: tank_size,
             avg_consumption_rate: 0.0,
             last_consumption_rate: 0.0,
             margin_percent: None,
@@ -400,7 +416,7 @@ pub fn calculate_trip_stats(
         calculate_consumption_rate(fuel_liters, km_since_last_fillup)
     } else {
         // No fill-up yet, use TP consumption
-        vehicle.tp_consumption
+        tp_consumption
     };
 
     // Calculate current fuel level by processing all trips sequentially
@@ -411,8 +427,8 @@ pub fn calculate_trip_stats(
         &db,
         &vehicle_id,
         year,
-        vehicle.tank_size_liters,
-        vehicle.tp_consumption,
+        tank_size,
+        tp_consumption,
     )?;
 
     for trip in &trips {
@@ -424,12 +440,12 @@ pub fn calculate_trip_stats(
             current_fuel,
             fuel_used,
             trip.fuel_liters,
-            vehicle.tank_size_liters,
+            tank_size,
         );
     }
 
     // Check if over legal limit based on AVERAGE consumption (legal compliance)
-    let avg_margin = calculate_margin_percent(avg_consumption_rate, vehicle.tp_consumption);
+    let avg_margin = calculate_margin_percent(avg_consumption_rate, tp_consumption);
     let is_over_limit = if total_fuel > 0.0 {
         !is_within_legal_limit(avg_margin)
     } else {
@@ -544,29 +560,33 @@ pub fn get_trip_grid_data(
         })
     });
 
-    // Calculate consumption rates per period
+    // Calculate consumption rates per period (ICE vehicles only for now)
+    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+
     let (rates, estimated_rates) =
-        calculate_period_rates(&chronological, vehicle.tp_consumption);
+        calculate_period_rates(&chronological, tp_consumption);
 
     // Calculate initial fuel (carryover from previous year or full tank)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
         year,
-        vehicle.tank_size_liters,
-        vehicle.tp_consumption,
+        tank_size,
+        tp_consumption,
     )?;
 
     // Calculate fuel remaining for each trip
     let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, initial_fuel, vehicle.tank_size_liters);
+        calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
 
     // Calculate date warnings (trips sorted by sort_order)
     let date_warnings = calculate_date_warnings(&trips);
 
     // Calculate consumption warnings
     let consumption_warnings =
-        calculate_consumption_warnings(&trips, &rates, vehicle.tp_consumption);
+        calculate_consumption_warnings(&trips, &rates, tp_consumption);
 
     // Calculate missing receipts (trips with fuel but no matching receipt)
     let missing_receipts = calculate_missing_receipts(&trips, &receipts);
@@ -1008,9 +1028,14 @@ pub async fn export_to_browser(
         purpose: "Prvý záznam".to_string(),
         fuel_liters: None,
         fuel_cost_eur: None,
+        full_tank: true,
+        // Energy fields (BEV/PHEV) - not applicable to first record
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        full_tank: true,
         sort_order: 999999, // Always last in manual sort
         created_at: Utc::now(),
         updated_at: Utc::now(),
@@ -1045,21 +1070,25 @@ pub async fn export_to_browser(
         });
     }
 
-    // Calculate rates and fuel remaining
+    // Calculate rates and fuel remaining (ICE vehicles only for now)
+    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+
     let (rates, estimated_rates) =
-        calculate_period_rates(&chronological, vehicle.tp_consumption);
+        calculate_period_rates(&chronological, tp_consumption);
 
     // Get initial fuel (carryover from previous year)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
         year,
-        vehicle.tank_size_liters,
-        vehicle.tp_consumption,
+        tank_size,
+        tp_consumption,
     )?;
 
     let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, initial_fuel, vehicle.tank_size_liters);
+        calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
 
     let grid_data = TripGridData {
         trips,
@@ -1071,7 +1100,7 @@ pub async fn export_to_browser(
         missing_receipts: HashSet::new(),
     };
 
-    let totals = ExportTotals::calculate(&chronological, vehicle.tp_consumption);
+    let totals = ExportTotals::calculate(&chronological, tp_consumption);
 
     let export_data = ExportData {
         vehicle,
@@ -1135,21 +1164,25 @@ pub async fn export_html(
         })
     });
 
-    // Calculate rates and fuel remaining
+    // Calculate rates and fuel remaining (ICE vehicles only for now)
+    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+
     let (rates, estimated_rates) =
-        calculate_period_rates(&chronological, vehicle.tp_consumption);
+        calculate_period_rates(&chronological, tp_consumption);
 
     // Get initial fuel (carryover from previous year)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
         year,
-        vehicle.tank_size_liters,
-        vehicle.tp_consumption,
+        tank_size,
+        tp_consumption,
     )?;
 
     let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, initial_fuel, vehicle.tank_size_liters);
+        calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
 
     let grid_data = TripGridData {
         trips,
@@ -1162,7 +1195,7 @@ pub async fn export_html(
     };
 
     // Calculate totals for footer
-    let totals = ExportTotals::calculate(&chronological, vehicle.tp_consumption);
+    let totals = ExportTotals::calculate(&chronological, tp_consumption);
 
     // Generate HTML
     let export_data = ExportData {
@@ -1600,9 +1633,14 @@ pub fn preview_trip_calculation(
         purpose: "Preview".to_string(),
         fuel_liters,
         fuel_cost_eur: None,
+        full_tank,
+        // Energy fields (BEV/PHEV) - TODO: Phase 2 will add preview support
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        full_tank,
         sort_order: insert_at_sort_order.unwrap_or(0),
         created_at: now,
         updated_at: now,
@@ -1625,9 +1663,14 @@ pub fn preview_trip_calculation(
                 purpose: existing.purpose.clone(),
                 fuel_liters,
                 fuel_cost_eur: existing.fuel_cost_eur,
+                full_tank,
+                // Preserve energy fields from existing trip
+                energy_kwh: existing.energy_kwh,
+                energy_cost_eur: existing.energy_cost_eur,
+                full_charge: existing.full_charge,
+                soc_override_percent: existing.soc_override_percent,
                 other_costs_eur: existing.other_costs_eur,
                 other_costs_note: existing.other_costs_note.clone(),
-                full_tank,
                 sort_order: existing.sort_order,
                 created_at: existing.created_at,
                 updated_at: now,
@@ -1648,19 +1691,23 @@ pub fn preview_trip_calculation(
         })
     });
 
-    // Calculate rates and remaining fuel using existing logic
-    let (rates, estimated_rates) = calculate_period_rates(&trips, vehicle.tp_consumption);
+    // Calculate rates and remaining fuel (ICE vehicles only for now)
+    // TODO: Phase 2 will add BEV/PHEV preview support
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+
+    let (rates, estimated_rates) = calculate_period_rates(&trips, tp_consumption);
 
     // Get initial fuel (carryover from previous year)
     let initial_fuel = get_year_start_fuel_remaining(
         &db,
         &vehicle_id,
         year,
-        vehicle.tank_size_liters,
-        vehicle.tp_consumption,
+        tank_size,
+        tp_consumption,
     )?;
 
-    let fuel_remaining = calculate_fuel_remaining(&trips, &rates, initial_fuel, vehicle.tank_size_liters);
+    let fuel_remaining = calculate_fuel_remaining(&trips, &rates, initial_fuel, tank_size);
 
     // Find the preview trip in results
     let target_id = if let Some(edit_id) = editing_trip_id {
@@ -1669,10 +1716,10 @@ pub fn preview_trip_calculation(
         preview_trip_id.to_string()
     };
 
-    let consumption_rate = rates.get(&target_id).copied().unwrap_or(vehicle.tp_consumption);
-    let fuel_remaining_value = fuel_remaining.get(&target_id).copied().unwrap_or(vehicle.tank_size_liters);
+    let consumption_rate = rates.get(&target_id).copied().unwrap_or(tp_consumption);
+    let fuel_remaining_value = fuel_remaining.get(&target_id).copied().unwrap_or(tank_size);
     let is_estimated_rate = estimated_rates.contains(&target_id);
-    let margin_percent = calculate_margin_percent(consumption_rate, vehicle.tp_consumption);
+    let margin_percent = calculate_margin_percent(consumption_rate, tp_consumption);
     let is_over_limit = !is_within_legal_limit(margin_percent);
 
     Ok(PreviewResult {
@@ -1709,9 +1756,13 @@ mod tests {
             purpose: "business".to_string(),
             fuel_liters: Some(liters),
             fuel_cost_eur: Some(cost),
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: true,
             sort_order: 0,
             created_at: now,
             updated_at: now,
@@ -1732,9 +1783,13 @@ mod tests {
             purpose: "business".to_string(),
             fuel_liters: None,
             fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: false,
             sort_order: 0,
             created_at: now,
             updated_at: now,
@@ -1932,9 +1987,13 @@ mod tests {
             purpose: "business".to_string(),
             fuel_liters,
             fuel_cost_eur: fuel_liters.map(|l| l * 1.5),
+            full_tank,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank,
             sort_order,
             created_at: now,
             updated_at: now,
@@ -2309,9 +2368,13 @@ mod tests {
             purpose: "test".to_string(),
             fuel_liters: Some(6.0),
             fuel_cost_eur: Some(10.0),
+            full_tank: true,  // Full tank fillup -> ends at 50L
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: true,  // Full tank fillup -> ends at 50L
             sort_order: 0,
             created_at: now,
             updated_at: now,
@@ -2359,9 +2422,13 @@ mod tests {
             purpose: "test".to_string(),
             fuel_liters: Some(6.0),
             fuel_cost_eur: Some(10.0),
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: true,
             sort_order: 1,
             created_at: now,
             updated_at: now,
@@ -2380,9 +2447,13 @@ mod tests {
             purpose: "test".to_string(),
             fuel_liters: Some(10.0),
             fuel_cost_eur: Some(16.0),
+            full_tank: false,  // Partial fillup
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            full_tank: false,  // Partial fillup
             sort_order: 0,
             created_at: now,
             updated_at: now,
