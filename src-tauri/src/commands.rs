@@ -7,6 +7,7 @@ use crate::calculations::{
 use crate::calculations_energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
 };
+use crate::calculations_phev::calculate_phev_trip_consumption;
 use crate::db::Database;
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
@@ -247,7 +248,7 @@ pub fn create_trip(
         purpose,
         fuel_liters,
         fuel_cost_eur: fuel_cost,
-        full_tank: full_tank.unwrap_or(false),
+        full_tank: full_tank.unwrap_or(true), // Default to full tank
         energy_kwh,
         energy_cost_eur,
         full_charge: full_charge.unwrap_or(false),
@@ -671,13 +672,8 @@ pub fn get_trip_grid_data(
         })
     });
 
-    // Calculate consumption rates per period (ICE vehicles only for now)
-    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
     let tank_size = vehicle.tank_size_liters.unwrap_or_default();
-
-    let (rates, estimated_rates) =
-        calculate_period_rates(&chronological, tp_consumption);
 
     // Calculate initial fuel (carryover from previous year or full tank)
     let initial_fuel = get_year_start_fuel_remaining(
@@ -688,19 +684,8 @@ pub fn get_trip_grid_data(
         tp_consumption,
     )?;
 
-    // Calculate fuel remaining for each trip
-    let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
-
     // Calculate date warnings (trips sorted by sort_order)
     let date_warnings = calculate_date_warnings(&trips);
-
-    // Calculate consumption warnings
-    let consumption_warnings =
-        calculate_consumption_warnings(&trips, &rates, tp_consumption);
-
-    // Calculate missing receipts (trips with fuel but no matching receipt)
-    let missing_receipts = calculate_missing_receipts(&trips, &receipts);
 
     // Populate SoC override trips (works for all vehicle types)
     let soc_override_trips: HashSet<String> = trips
@@ -709,18 +694,72 @@ pub fn get_trip_grid_data(
         .map(|t| t.id.to_string())
         .collect();
 
-    // For BEV/PHEV: calculate energy data
-    let (energy_rates, estimated_energy_rates, battery_remaining_kwh, battery_remaining_percent) =
-        if vehicle.vehicle_type.uses_electricity() {
-            calculate_energy_grid_data(
-                &chronological,
-                &vehicle,
-                &soc_override_trips,
+    // Calculate missing receipts (trips with fuel but no matching receipt)
+    let missing_receipts = calculate_missing_receipts(&trips, &receipts);
+
+    // Calculate rates, fuel, and energy based on vehicle type
+    let (
+        rates,
+        estimated_rates,
+        fuel_remaining,
+        consumption_warnings,
+        energy_rates,
+        estimated_energy_rates,
+        battery_remaining_kwh,
+        battery_remaining_percent,
+    ) = match vehicle.vehicle_type {
+        VehicleType::Ice => {
+            // ICE: Fuel calculations only
+            let (rates, estimated_rates) =
+                calculate_period_rates(&chronological, tp_consumption);
+            let fuel_remaining =
+                calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
+            let consumption_warnings =
+                calculate_consumption_warnings(&trips, &rates, tp_consumption);
+            (
+                rates,
+                estimated_rates,
+                fuel_remaining,
+                consumption_warnings,
+                HashMap::new(),
+                HashSet::new(),
+                HashMap::new(),
+                HashMap::new(),
             )
-        } else {
-            // ICE vehicle - no energy data
-            (HashMap::new(), HashSet::new(), HashMap::new(), HashMap::new())
-        };
+        }
+        VehicleType::Bev => {
+            // BEV: Energy calculations only, no fuel
+            let (energy_rates, estimated_energy_rates, battery_kwh, battery_percent) =
+                calculate_energy_grid_data(&chronological, &vehicle);
+            (
+                HashMap::new(),
+                HashSet::new(),
+                HashMap::new(),
+                HashSet::new(), // No consumption warnings for BEV
+                energy_rates,
+                estimated_energy_rates,
+                battery_kwh,
+                battery_percent,
+            )
+        }
+        VehicleType::Phev => {
+            // PHEV: Both fuel and energy, using PHEV-specific calculations
+            let phev_data = calculate_phev_grid_data(&chronological, &vehicle, initial_fuel);
+            // Calculate consumption warnings for fuel portion only
+            let consumption_warnings =
+                calculate_consumption_warnings(&trips, &phev_data.fuel_rates, tp_consumption);
+            (
+                phev_data.fuel_rates,
+                phev_data.estimated_fuel_rates,
+                phev_data.fuel_remaining,
+                consumption_warnings,
+                phev_data.energy_rates,
+                phev_data.estimated_energy_rates,
+                phev_data.battery_remaining_kwh,
+                phev_data.battery_remaining_percent,
+            )
+        }
+    };
 
     Ok(TripGridData {
         trips,
@@ -844,12 +883,11 @@ pub(crate) fn calculate_fuel_remaining(
     remaining
 }
 
-/// Calculate energy data for BEV/PHEV vehicles.
+/// Calculate energy data for BEV vehicles.
 /// Returns (energy_rates, estimated_energy_rates, battery_remaining_kwh, battery_remaining_percent)
 fn calculate_energy_grid_data(
     chronological: &[Trip],
     vehicle: &Vehicle,
-    soc_override_trips: &HashSet<String>,
 ) -> (
     HashMap<String, f64>,
     HashSet<String>,
@@ -938,6 +976,160 @@ fn calculate_energy_grid_data(
     }
 
     (energy_rates, estimated_energy_rates, battery_kwh, battery_percent)
+}
+
+/// PHEV grid data calculation result
+struct PhevGridData {
+    /// Fuel consumption rates (l/100km) - only for km_on_fuel portion
+    fuel_rates: HashMap<String, f64>,
+    /// Trip IDs with estimated fuel rates
+    estimated_fuel_rates: HashSet<String>,
+    /// Fuel remaining after each trip (liters)
+    fuel_remaining: HashMap<String, f64>,
+    /// Energy consumption rates (kWh/100km)
+    energy_rates: HashMap<String, f64>,
+    /// Trip IDs with estimated energy rates
+    estimated_energy_rates: HashSet<String>,
+    /// Battery remaining (kWh)
+    battery_remaining_kwh: HashMap<String, f64>,
+    /// Battery remaining (%)
+    battery_remaining_percent: HashMap<String, f64>,
+}
+
+/// Calculate PHEV grid data - tracks both fuel and battery state.
+/// Uses electricity first until battery depleted, then fuel.
+/// Fuel consumption rate is calculated only for the km driven on fuel.
+fn calculate_phev_grid_data(
+    chronological: &[Trip],
+    vehicle: &Vehicle,
+    initial_fuel: f64,
+) -> PhevGridData {
+    let mut fuel_rates = HashMap::new();
+    let mut estimated_fuel_rates = HashSet::new();
+    let mut fuel_remaining = HashMap::new();
+    let mut energy_rates = HashMap::new();
+    let mut estimated_energy_rates = HashSet::new();
+    let mut battery_kwh = HashMap::new();
+    let mut battery_percent = HashMap::new();
+
+    let capacity = vehicle.battery_capacity_kwh.unwrap_or(0.0);
+    let baseline_energy = vehicle.baseline_consumption_kwh.unwrap_or(18.0); // kWh/100km
+    let tp_consumption = vehicle.tp_consumption.unwrap_or(7.0); // l/100km
+    let tank_size = vehicle.tank_size_liters.unwrap_or(50.0);
+
+    // Initial battery state
+    let initial_percent = vehicle.initial_battery_percent.unwrap_or(100.0);
+    let mut current_battery = capacity * initial_percent / 100.0;
+    let mut current_fuel = initial_fuel;
+
+    // Fuel period tracking - only count km_on_fuel for rate calculation
+    let mut fuel_period_km = 0.0;
+    let mut fuel_period_liters = 0.0;
+    let mut fuel_period_trip_ids: Vec<String> = Vec::new();
+
+    // Energy period tracking
+    let mut energy_period_km = 0.0;
+    let mut energy_period_kwh = 0.0;
+    let mut energy_period_trip_ids: Vec<String> = Vec::new();
+
+    for trip in chronological {
+        let trip_id = trip.id.to_string();
+
+        // Check for SoC override
+        if let Some(override_percent) = trip.soc_override_percent {
+            current_battery = capacity * override_percent / 100.0;
+        }
+
+        // Use PHEV calculation to split km between electric and fuel
+        let phev_result = calculate_phev_trip_consumption(
+            trip.distance_km,
+            current_battery,
+            current_fuel,
+            trip.energy_kwh,
+            trip.fuel_liters,
+            baseline_energy,
+            tp_consumption,
+            capacity,
+            tank_size,
+        );
+
+        // Update state
+        current_battery = phev_result.battery_remaining_kwh;
+        current_fuel = phev_result.fuel_remaining_liters;
+
+        // Store remaining values
+        battery_kwh.insert(trip_id.clone(), current_battery);
+        battery_percent.insert(trip_id.clone(), kwh_to_percent(current_battery, capacity));
+        fuel_remaining.insert(trip_id.clone(), current_fuel);
+
+        // Track fuel period (only km_on_fuel counts)
+        if phev_result.km_on_fuel > 0.0 {
+            fuel_period_km += phev_result.km_on_fuel;
+            fuel_period_trip_ids.push(trip_id.clone());
+        }
+
+        // Track energy period (only km_on_electricity counts)
+        if phev_result.km_on_electricity > 0.0 {
+            energy_period_km += phev_result.km_on_electricity;
+            energy_period_trip_ids.push(trip_id.clone());
+        }
+
+        // Close fuel period on full tank
+        if trip.fuel_liters.is_some() && trip.full_tank {
+            fuel_period_liters += trip.fuel_liters.unwrap_or(0.0);
+            let rate = if fuel_period_km > 0.0 {
+                (fuel_period_liters / fuel_period_km) * 100.0
+            } else {
+                tp_consumption
+            };
+            for id in &fuel_period_trip_ids {
+                fuel_rates.insert(id.clone(), rate);
+            }
+            fuel_period_km = 0.0;
+            fuel_period_liters = 0.0;
+            fuel_period_trip_ids.clear();
+        } else if let Some(liters) = trip.fuel_liters {
+            fuel_period_liters += liters;
+        }
+
+        // Close energy period on full charge
+        if trip.energy_kwh.is_some() && trip.full_charge {
+            energy_period_kwh += trip.energy_kwh.unwrap_or(0.0);
+            let rate = if energy_period_km > 0.0 {
+                (energy_period_kwh / energy_period_km) * 100.0
+            } else {
+                baseline_energy
+            };
+            for id in &energy_period_trip_ids {
+                energy_rates.insert(id.clone(), rate);
+            }
+            energy_period_km = 0.0;
+            energy_period_kwh = 0.0;
+            energy_period_trip_ids.clear();
+        } else if let Some(kwh) = trip.energy_kwh {
+            energy_period_kwh += kwh;
+        }
+    }
+
+    // Handle remaining trips - use baseline rates (estimated)
+    for id in &fuel_period_trip_ids {
+        fuel_rates.insert(id.clone(), tp_consumption);
+        estimated_fuel_rates.insert(id.clone());
+    }
+    for id in &energy_period_trip_ids {
+        energy_rates.insert(id.clone(), baseline_energy);
+        estimated_energy_rates.insert(id.clone());
+    }
+
+    PhevGridData {
+        fuel_rates,
+        estimated_fuel_rates,
+        fuel_remaining,
+        energy_rates,
+        estimated_energy_rates,
+        battery_remaining_kwh: battery_kwh,
+        battery_remaining_percent: battery_percent,
+    }
 }
 
 /// Check if each trip's date is out of order relative to neighbors.
@@ -2773,9 +2965,8 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
         let trips = vec![make_bev_trip(date, 100.0, None, false, 0)];
 
-        let soc_overrides = std::collections::HashSet::new();
         let (energy_rates, estimated_rates, battery_kwh, battery_percent) =
-            calculate_energy_grid_data(&trips, &vehicle, &soc_overrides);
+            calculate_energy_grid_data(&trips, &vehicle);
 
         // Trip 100km at 18 kWh/100km = 18 kWh used
         // Start at 75 kWh, end at 75 - 18 = 57 kWh
@@ -2806,9 +2997,8 @@ mod tests {
             make_bev_trip(date, 100.0, Some(40.0), true, 0), // Drive 100km, charge 40 kWh full
         ];
 
-        let soc_overrides = std::collections::HashSet::new();
         let (energy_rates, estimated_rates, battery_kwh, _) =
-            calculate_energy_grid_data(&trips, &vehicle, &soc_overrides);
+            calculate_energy_grid_data(&trips, &vehicle);
 
         // Start: 37.5 kWh (50%)
         // Drive 100km at 18 kWh/100km = 18 kWh used
@@ -2841,8 +3031,7 @@ mod tests {
             make_bev_trip(date, 10.0, Some(50.0), true, 0), // Short drive, big charge
         ];
 
-        let soc_overrides = std::collections::HashSet::new();
-        let (_, _, battery_kwh, _) = calculate_energy_grid_data(&trips, &vehicle, &soc_overrides);
+        let (_, _, battery_kwh, _) = calculate_energy_grid_data(&trips, &vehicle);
 
         // Should be capped at capacity (75 kWh)
         let remaining = battery_kwh.get(&trips[0].id.to_string()).unwrap();

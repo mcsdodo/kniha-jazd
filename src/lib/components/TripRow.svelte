@@ -56,11 +56,12 @@
 		// Fuel fields
 		fuel_liters: trip?.fuel_liters || null,
 		fuel_cost_eur: trip?.fuel_cost_eur || null,
-		full_tank: trip?.full_tank ?? false,
+		full_tank: trip?.full_tank ?? true, // Default to full tank
 		// Energy fields
 		energy_kwh: trip?.energy_kwh || null,
 		energy_cost_eur: trip?.energy_cost_eur || null,
 		full_charge: trip?.full_charge ?? false,
+		soc_override_percent: trip?.soc_override_percent || null,
 		// Other
 		other_costs_eur: trip?.other_costs_eur || null,
 		other_costs_note: trip?.other_costs_note || ''
@@ -164,10 +165,11 @@
 				purpose: trip?.purpose || '',
 				fuel_liters: trip?.fuel_liters || null,
 				fuel_cost_eur: trip?.fuel_cost_eur || null,
-				full_tank: trip?.full_tank ?? false,
+				full_tank: trip?.full_tank ?? true, // Default to full tank
 				energy_kwh: trip?.energy_kwh || null,
 				energy_cost_eur: trip?.energy_cost_eur || null,
 				full_charge: trip?.full_charge ?? false,
+				soc_override_percent: trip?.soc_override_percent || null,
 				other_costs_eur: trip?.other_costs_eur || null,
 				other_costs_note: trip?.other_costs_note || ''
 			};
@@ -308,9 +310,25 @@
 			<td class="number calculated">
 				{energyRate.toFixed(2)}
 			</td>
-			<td class="number calculated">
+			<td class="number calculated soc-cell">
 				{batteryRemainingKwh.toFixed(1)} kWh
 				<span class="battery-percent">({batteryRemainingPercent.toFixed(0)}%)</span>
+				{#if !isNew}
+					<details class="soc-override-details">
+						<summary title={$LL.trips.socOverrideHint()}>⚡</summary>
+						<div class="soc-override-input">
+							<input
+								type="number"
+								bind:value={formData.soc_override_percent}
+								step="1"
+								min="0"
+								max="100"
+								placeholder="%"
+							/>
+							<span class="soc-hint">{$LL.trips.socOverrideHint()}</span>
+						</div>
+					</details>
+				{/if}
 			</td>
 		{/if}
 		<td>
@@ -709,5 +727,55 @@
 		color: #3498db;
 		margin-left: 0.125rem;
 		cursor: help;
+	}
+
+	/* SoC override input (expandable) */
+	.soc-cell {
+		position: relative;
+	}
+
+	.soc-override-details {
+		display: inline-block;
+		margin-left: 0.25rem;
+	}
+
+	.soc-override-details summary {
+		cursor: pointer;
+		color: #7f8c8d;
+		font-size: 0.875rem;
+		list-style: none;
+	}
+
+	.soc-override-details summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.soc-override-details[open] summary {
+		color: #3498db;
+	}
+
+	.soc-override-input {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		background: white;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		padding: 0.5rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		z-index: 10;
+		min-width: 160px;
+	}
+
+	.soc-override-input input {
+		width: 60px;
+		margin-bottom: 0.25rem;
+	}
+
+	.soc-hint {
+		display: block;
+		font-size: 0.7rem;
+		color: #7f8c8d;
+		line-height: 1.2;
 	}
 </style>

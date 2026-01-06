@@ -164,6 +164,70 @@ impl Database {
             [],
         );
 
+        // === Migration 006: Make fuel fields nullable for BEV support ===
+        // Check if tank_size_liters is still NOT NULL by trying to insert NULL
+        // SQLite doesn't have a direct way to check column nullability
+        let needs_migration = conn
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='vehicles'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .map(|sql| sql.contains("tank_size_liters REAL NOT NULL"))
+            .unwrap_or(false);
+
+        if needs_migration {
+            // Recreate vehicles table with nullable fuel fields
+            // Must disable foreign keys to drop the old table (trips references vehicles)
+            conn.execute_batch(
+                "PRAGMA foreign_keys = OFF;
+
+                DROP TABLE IF EXISTS vehicles_new;
+
+                -- Create new table with nullable fuel fields
+                CREATE TABLE vehicles_new (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    license_plate TEXT NOT NULL,
+                    vehicle_type TEXT NOT NULL DEFAULT 'Ice',
+                    tank_size_liters REAL,
+                    tp_consumption REAL,
+                    battery_capacity_kwh REAL,
+                    baseline_consumption_kwh REAL,
+                    initial_battery_percent REAL,
+                    initial_odometer REAL NOT NULL DEFAULT 0,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                -- Copy data from old table
+                INSERT INTO vehicles_new (
+                    id, name, license_plate, vehicle_type,
+                    tank_size_liters, tp_consumption,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent,
+                    initial_odometer, is_active, created_at, updated_at
+                )
+                SELECT
+                    id, name, license_plate, vehicle_type,
+                    tank_size_liters, tp_consumption,
+                    battery_capacity_kwh, baseline_consumption_kwh, initial_battery_percent,
+                    initial_odometer, is_active, created_at, updated_at
+                FROM vehicles;
+
+                -- Drop old table
+                DROP TABLE vehicles;
+
+                -- Rename new table
+                ALTER TABLE vehicles_new RENAME TO vehicles;
+
+                -- Recreate index
+                CREATE INDEX IF NOT EXISTS idx_vehicles_type ON vehicles(vehicle_type);
+
+                PRAGMA foreign_keys = ON;"
+            )?;
+        }
+
         Ok(())
     }
 
