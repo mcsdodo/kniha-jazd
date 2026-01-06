@@ -2712,4 +2712,136 @@ mod tests {
         let fuel = result.unwrap();
         assert!((fuel - 48.0).abs() < 0.1, "Expected ~48L, got {}", fuel);
     }
+
+    // ========================================================================
+    // BEV energy calculation tests (calculate_energy_grid_data)
+    // ========================================================================
+
+    /// Helper to create a BEV trip with energy data
+    fn make_bev_trip(
+        date: NaiveDate,
+        distance_km: f64,
+        energy_kwh: Option<f64>,
+        full_charge: bool,
+        sort_order: i32,
+    ) -> Trip {
+        let now = Utc::now();
+        Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: Uuid::new_v4(),
+            date,
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km,
+            odometer: 10000.0 + (sort_order as f64) * distance_km,
+            purpose: "business".to_string(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh,
+            energy_cost_eur: energy_kwh.map(|e| e * 0.30), // ~0.30€/kWh
+            full_charge,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn test_bev_energy_calculation_single_trip() {
+        // BEV with 75 kWh battery, 18 kWh/100km baseline
+        let vehicle = Vehicle::new_bev(
+            "Test BEV".to_string(),
+            "BEV-001".to_string(),
+            75.0,  // battery capacity
+            18.0,  // baseline consumption
+            10000.0,
+            Some(100.0), // Start at 100% = 75 kWh
+        );
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let trips = vec![make_bev_trip(date, 100.0, None, false, 0)];
+
+        let soc_overrides = std::collections::HashSet::new();
+        let (energy_rates, estimated_rates, battery_kwh, battery_percent) =
+            calculate_energy_grid_data(&trips, &vehicle, &soc_overrides);
+
+        // Trip 100km at 18 kWh/100km = 18 kWh used
+        // Start at 75 kWh, end at 75 - 18 = 57 kWh
+        let remaining = battery_kwh.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            (remaining - 57.0).abs() < 0.1,
+            "Expected 57 kWh remaining, got {}",
+            remaining
+        );
+
+        // Should use baseline rate (estimated)
+        assert!(estimated_rates.contains(&trips[0].id.to_string()));
+    }
+
+    #[test]
+    fn test_bev_energy_with_charge() {
+        let vehicle = Vehicle::new_bev(
+            "Test BEV".to_string(),
+            "BEV-001".to_string(),
+            75.0,
+            18.0,
+            10000.0,
+            Some(50.0), // Start at 50% = 37.5 kWh
+        );
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let trips = vec![
+            make_bev_trip(date, 100.0, Some(40.0), true, 0), // Drive 100km, charge 40 kWh full
+        ];
+
+        let soc_overrides = std::collections::HashSet::new();
+        let (energy_rates, estimated_rates, battery_kwh, _) =
+            calculate_energy_grid_data(&trips, &vehicle, &soc_overrides);
+
+        // Start: 37.5 kWh (50%)
+        // Drive 100km at 18 kWh/100km = 18 kWh used
+        // Add charge: 37.5 - 18 + 40 = 59.5 kWh
+        // (Charge happens during trip via calculate_battery_remaining)
+        let remaining = battery_kwh.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            (remaining - 59.5).abs() < 0.1,
+            "Expected ~59.5 kWh remaining, got {}",
+            remaining
+        );
+
+        // With full charge, should have calculated rate (not estimated)
+        assert!(!estimated_rates.contains(&trips[0].id.to_string()));
+    }
+
+    #[test]
+    fn test_bev_battery_clamps_to_capacity() {
+        let vehicle = Vehicle::new_bev(
+            "Test BEV".to_string(),
+            "BEV-001".to_string(),
+            75.0,
+            18.0,
+            10000.0,
+            Some(90.0), // Start at 90% = 67.5 kWh
+        );
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let trips = vec![
+            make_bev_trip(date, 10.0, Some(50.0), true, 0), // Short drive, big charge
+        ];
+
+        let soc_overrides = std::collections::HashSet::new();
+        let (_, _, battery_kwh, _) = calculate_energy_grid_data(&trips, &vehicle, &soc_overrides);
+
+        // Should be capped at capacity (75 kWh)
+        let remaining = battery_kwh.get(&trips[0].id.to_string()).unwrap();
+        assert!(
+            *remaining <= 75.0,
+            "Battery should not exceed capacity, got {}",
+            remaining
+        );
+    }
 }
