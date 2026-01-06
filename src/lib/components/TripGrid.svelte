@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Trip, Route, TripGridData, PreviewResult, VehicleType } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -99,13 +99,12 @@
 	// Disable reorder buttons when editing, adding new row, or not in manual sort mode
 	$: reorderDisabled = showNewRow || editingTripId !== null || sortColumn !== 'manual';
 
-	// Get unique purposes from trips for autocomplete (trim to avoid duplicates with trailing spaces)
-	$: purposeSuggestions = Array.from(
-		new Set(trips.map((t) => t.purpose.trim()).filter((p) => p !== ''))
-	).sort();
+	// Purpose suggestions loaded from backend (across all years)
+	let purposeSuggestions: string[] = [];
 
 	onMount(async () => {
 		await loadRoutes();
+		await loadPurposes();
 	});
 
 	async function loadRoutes() {
@@ -113,6 +112,14 @@
 			routes = await getRoutes(vehicleId);
 		} catch (error) {
 			console.error('Failed to load routes:', error);
+		}
+	}
+
+	async function loadPurposes() {
+		try {
+			purposeSuggestions = await getPurposes(vehicleId);
+		} catch (error) {
+			console.error('Failed to load purposes:', error);
 		}
 	}
 
@@ -154,6 +161,7 @@
 			await recalculateAllOdo();
 			onTripsChanged();
 			await loadRoutes();
+			await loadPurposes();
 		} catch (error) {
 			console.error('Failed to create trip:', error);
 			toast.error($LL.toast.errorCreateTrip());
@@ -187,6 +195,7 @@
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
 			onTripsChanged();
 			await loadRoutes();
+			await loadPurposes();
 			triggerReceiptRefresh(); // Update nav badge after trip change
 		} catch (error) {
 			console.error('Failed to update trip:', error);

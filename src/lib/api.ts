@@ -168,6 +168,11 @@ export async function getRoutes(vehicleId: string): Promise<Route[]> {
 	return await invoke('get_routes', { vehicleId });
 }
 
+// Purpose suggestions (across all years)
+export async function getPurposes(vehicleId: string): Promise<string[]> {
+	return await invoke('get_purposes', { vehicleId });
+}
+
 // Compensation suggestion
 export async function getCompensationSuggestion(
 	vehicleId: string,

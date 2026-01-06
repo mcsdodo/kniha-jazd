@@ -376,6 +376,12 @@ pub fn get_routes(db: State<Database>, vehicle_id: String) -> Result<Vec<Route>,
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn get_purposes(db: State<Database>, vehicle_id: String) -> Result<Vec<String>, String> {
+    db.get_purposes_for_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())
+}
+
 // ============================================================================
 // Calculation Commands
 // ============================================================================

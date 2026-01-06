@@ -700,6 +700,23 @@ impl Database {
         Ok(routes)
     }
 
+    /// Get all unique trip purposes for a vehicle (across all years)
+    pub fn get_purposes_for_vehicle(&self, vehicle_id: &str) -> Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT TRIM(purpose) as purpose
+             FROM trips
+             WHERE vehicle_id = ?1 AND TRIM(purpose) != ''
+             ORDER BY purpose",
+        )?;
+
+        let purposes = stmt
+            .query_map([vehicle_id], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(purposes)
+    }
+
     /// Update an existing route (e.g., increment usage_count)
     pub fn update_route(&self, route: &Route) -> Result<()> {
         let conn = self.conn.lock().unwrap();
