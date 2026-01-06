@@ -83,14 +83,29 @@ npm run test:integration:build
 npm run test:all
 ```
 
+### Test Organization
+
+Tests are split into separate `*_tests.rs` files using the `#[path]` attribute pattern:
+
+```rust
+// In calculations.rs
+#[cfg(test)]
+#[path = "calculations_tests.rs"]
+mod tests;
+```
+
+This keeps source files clean while maintaining private access (tests are still submodules).
+
+**When adding tests:** Write tests in `*_tests.rs` companion file, not in the source file.
+
 ### Test Coverage
 
 **Backend (Rust) - Single Source of Truth (108 tests):**
-- `calculations.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
+- `calculations_tests.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
 - `commands.rs` - 25 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
-- `receipts.rs` - 17 tests: folder detection, extraction, scanning
+- `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
 - `db.rs` - 17 tests: CRUD lifecycle, year filtering
-- `suggestions.rs` - 8 tests: route matching, compensation suggestions
+- `suggestions_tests.rs` - 8 tests: route matching, compensation suggestions
 - `export.rs` - 7 tests: export totals, HTML escaping
 - `gemini.rs` - 3 tests: JSON deserialization
 - `settings.rs` - 3 tests: local settings loading
@@ -110,7 +125,7 @@ All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 3. Call from Svelte component via `invoke("command_name", { args })`
 
 **Adding a New Calculation:**
-1. Write test in `calculations.rs`
+1. Write test in `calculations_tests.rs`
 2. Implement in `calculations.rs`
 3. Expose via `get_trip_grid_data` or new command
 4. Frontend receives pre-calculated value (no client-side calculation)
@@ -126,11 +141,16 @@ All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 kniha-jazd/
 ├── src-tauri/           # Rust backend
 │   ├── src/
-│   │   ├── db.rs        # SQLite operations
-│   │   ├── models.rs    # Vehicle, Trip structs
-│   │   ├── calculations.rs  # Core logic (MOST IMPORTANT)
-│   │   ├── suggestions.rs   # Compensation trip logic
-│   │   └── export.rs    # PDF generation
+│   │   ├── calculations.rs       # Core logic (MOST IMPORTANT)
+│   │   ├── calculations_tests.rs # Tests for calculations
+│   │   ├── suggestions.rs        # Compensation trip logic
+│   │   ├── suggestions_tests.rs  # Tests for suggestions
+│   │   ├── receipts.rs           # Receipt scanning
+│   │   ├── receipts_tests.rs     # Tests for receipts
+│   │   ├── commands.rs           # Tauri command handlers
+│   │   ├── db.rs                 # SQLite operations
+│   │   ├── models.rs             # Vehicle, Trip structs
+│   │   └── export.rs             # PDF generation
 │   └── migrations/      # DB schema
 ├── src/                 # SvelteKit frontend
 │   ├── lib/
@@ -150,7 +170,11 @@ kniha-jazd/
 | File | Purpose | When to Modify |
 |------|---------|----------------|
 | `calculations.rs` | All consumption/margin math | Adding/changing calculations |
+| `calculations_tests.rs` | Tests for calculations | Adding calculation tests |
 | `suggestions.rs` | Compensation trip logic | Route matching, suggestions |
+| `suggestions_tests.rs` | Tests for suggestions | Adding suggestion tests |
+| `receipts.rs` | Receipt folder scanning | Receipt processing logic |
+| `receipts_tests.rs` | Tests for receipts | Adding receipt tests |
 | `db.rs` | SQLite CRUD operations | Schema changes, queries |
 | `commands.rs` | Tauri command handlers | New frontend→backend calls |
 | `export.rs` | HTML/PDF generation | Report format changes |
