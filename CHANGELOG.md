@@ -17,6 +17,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - `/test-review` - kontrola pokrytia testami s konvergenciou
 - Analýza best practices pre iteratívne review workflow (`_tasks/23-iterative-review-analysis/`)
 
+### Zmenené
+- Review skills prepracované na dvojfázový workflow: najprv analýza a dokumentácia zistení, potom aplikácia schválených zmien po manuálnom review používateľom
+
 ## [0.8.0] - 2026-01-05
 
 ### Pridané
