@@ -1,6 +1,6 @@
 [package]
 name = "kniha-jazd"
-version = "0.8.0"
+version = "0.9.0"
 description = "Vehicle logbook desktop app for Slovak tax compliance"
 authors = ["mcsdodo"]
 license = "GPL-3.0"

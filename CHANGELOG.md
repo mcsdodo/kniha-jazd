@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-01-07
+
 ### Pridané
 - **Podpora elektrických vozidiel (BEV) a plug-in hybridov (PHEV)**
   - Nový typ vozidla s výberom: ICE (spaľovacie), BEV (elektrické), PHEV (hybridné)
