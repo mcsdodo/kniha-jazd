@@ -58,6 +58,17 @@ const en = {
 		initialOdometer: 'Initial ODO',
 		active: 'Active',
 		setAsActive: 'Set as active',
+		// Vehicle types
+		vehicleType: 'Vehicle type',
+		vehicleTypeIce: 'Combustion (ICE)',
+		vehicleTypeBev: 'Electric (BEV)',
+		vehicleTypePhev: 'Plug-in hybrid (PHEV)',
+		// Battery fields
+		batteryCapacity: 'Battery capacity (kWh)',
+		baselineConsumption: 'Baseline consumption (kWh/100km)',
+		initialBatteryPercent: 'Initial battery state (%)',
+		// Type change warning
+		typeChangeBlocked: 'Vehicle type cannot be changed after trips are recorded',
 	},
 
 	// Vehicle modal
@@ -69,11 +80,21 @@ const en = {
 		tankSizePlaceholder: 'e.g. 66',
 		tpConsumptionPlaceholder: 'e.g. 5.1',
 		initialOdometerPlaceholder: 'e.g. 50000',
+		batteryCapacityPlaceholder: 'e.g. 75',
+		baselineConsumptionPlaceholder: 'e.g. 18',
+		initialBatteryPlaceholder: 'e.g. 100',
 		nameLabel: 'Vehicle name',
 		licensePlateLabel: 'License plate',
 		tankSizeLabel: 'Tank size (liters)',
 		tpConsumptionLabel: 'TP consumption (l/100km)',
 		initialOdometerLabel: 'Initial ODO (km)',
+		vehicleTypeLabel: 'Vehicle type',
+		batteryCapacityLabel: 'Battery capacity (kWh)',
+		baselineConsumptionLabel: 'Baseline consumption (kWh/100km)',
+		initialBatteryLabel: 'Initial battery state (%)',
+		// Section headers
+		fuelSection: 'Fuel',
+		batterySection: 'Battery',
 	},
 
 	// Trip grid
@@ -98,6 +119,12 @@ const en = {
 			otherCosts: 'Other €',
 			otherCostsNote: 'Other note',
 			actions: 'Actions',
+			// Energy columns (BEV/PHEV)
+			energyKwh: 'Energy (kWh)',
+			energyCost: 'Charge cost €',
+			energyRate: 'kWh/100km',
+			batteryRemaining: 'Battery',
+			batteryPercent: 'Battery %',
 		},
 		// Placeholders
 		originPlaceholder: 'From',
@@ -110,10 +137,17 @@ const en = {
 		deleteRecord: 'Delete record',
 		// Checkbox
 		fullTank: 'Full',
+		fullCharge: 'Full charge',
+		// SoC override
+		socOverride: 'Battery state correction (%)',
+		socOverrideHint: 'Manually set battery state to correct deviations',
+		socOverrideIndicator: 'Manual SoC correction',
 		// Tooltips/indicators
 		partialFillup: 'Partial fillup',
+		partialCharge: 'Partial charge',
 		noReceipt: 'No receipt',
 		estimatedRate: 'Estimated from TP',
+		estimatedEnergyRate: 'Estimated from baseline consumption',
 		// Legend
 		legend: {
 			partialFillup: 'partial fillup',
@@ -317,6 +351,9 @@ const en = {
 		headerTankSize: 'Tank:',
 		headerTpConsumption: 'TP consumption:',
 		headerYear: 'Year:',
+		// Header labels for BEV
+		headerBatteryCapacity: 'Battery:',
+		headerBaselineConsumption: 'Baseline cons.:',
 		// Column headers
 		colDate: 'Date',
 		colOrigin: 'From',
@@ -330,6 +367,11 @@ const en = {
 		colNote: 'Note',
 		colRemaining: 'Rem.',
 		colConsumption: 'Cons.',
+		// Column headers for BEV
+		colEnergyKwh: 'kWh',
+		colEnergyCost: '€ Energy',
+		colBatteryRemaining: 'Battery',
+		colEnergyRate: 'kWh/100',
 		// Footer labels
 		footerTotalKm: 'Total km',
 		footerTotalFuel: 'Total fuel',
@@ -337,6 +379,10 @@ const en = {
 		footerAvgConsumption: 'Average consumption',
 		footerDeviation: 'Deviation from TP',
 		footerTpNorm: 'TP norm',
+		// Footer labels for BEV
+		footerTotalEnergy: 'Total energy',
+		footerAvgEnergyRate: 'Average consumption',
+		footerBaselineNorm: 'Baseline norm',
 		// Print hint
 		printHint: 'To export to PDF use Ctrl+P → Save as PDF',
 	},

@@ -59,8 +59,8 @@ Add support for Battery Electric Vehicles (BEV) and Plug-in Hybrid Electric Vehi
 ### Constraints
 
 1. **Vehicle type is immutable** - Once trips exist for a vehicle, `vehicle_type` cannot be changed
-2. **Year boundaries** - Each year starts and ends with 100% battery (accounting convention)
-3. **No carry-over** - Battery state does not carry over between years
+2. **Year boundaries with carryover** - Fuel/battery state carries over between years (consistent with existing ICE behavior)
+3. **Initial state for first year** - If no previous year data, use `initial_battery_percent` (default 100%) for BEV/PHEV
 4. **PHEV compensation out of scope** - Compensation suggestions for PHEVs deferred (see `_TECH_DEBT/02-phev-compensation-suggestions.md`)
 
 ## Out of Scope
@@ -81,7 +81,7 @@ Add support for Battery Electric Vehicles (BEV) and Plug-in Hybrid Electric Vehi
 - [ ] Vehicle type cannot be changed after trips exist (UI disabled, backend rejects)
 - [ ] User can set SoC override on trip (visible only in edit form)
 - [ ] Trips with SoC override show indicator in grid
-- [ ] Year boundary: first trip uses initial_battery_percent or 100%
+- [ ] Year boundary: first trip uses carryover from previous year (or initial_battery_percent/100% for first year)
 - [ ] Export (PDF) correctly shows energy data for BEV/PHEV
 - [ ] All existing ICE functionality unchanged
 - [ ] All existing tests pass

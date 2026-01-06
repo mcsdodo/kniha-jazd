@@ -8,6 +8,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
+- **Podpora elektrických vozidiel (BEV) a plug-in hybridov (PHEV)**
+  - Nový typ vozidla s výberom: ICE (spaľovacie), BEV (elektrické), PHEV (hybridné)
+  - Kapacita batérie, základná spotreba (kWh/100km), počiatočný stav batérie (%)
+  - Výpočty energie: spotreba kWh, zostatok batérie v kWh aj percentách
+  - Podpora pre nabíjanie: čiastočné/plné nabitie, manuálna korekcia stavu batérie (SoC override)
+  - Podmienené stĺpce v tabuľke jázd: palivo pre ICE/PHEV, energia pre BEV/PHEV
+  - Export podporuje BEV vozidlá s energetickými štítkami a súhrnmi
+  - 26 nových unit testov pre výpočty energie a PHEV (vrátane calculate_energy_grid_data)
+  - Integračné testy pre vytváranie BEV vozidiel cez UI
+  - **PHEV integrácia výpočtov** - elektrina sa spotrebúva najprv, potom palivo; marža sa počíta len z km na palivo
+  - **UI pre SoC override** - rozbaľovací vstup (⚡) v bunke batérie pri úprave existujúcej jazdy
 - Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva, prenos paliva medzi rokmi (15 nových testov)
 - Claude Code hooks: automatické spustenie testov pred commitom, pripomienka na changelog
 - Nový skill `/verify` pre kontrolu pred dokončením úlohy
@@ -19,6 +30,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Zmenené
 - Review skills prepracované na dvojfázový workflow: najprv analýza a dokumentácia zistení, potom aplikácia schválených zmien po manuálnom review používateľom
+
+### Opravené
+- Autocomplete účelu jazdy teraz funguje naprieč všetkými rokmi (predtým len v aktuálnom roku)
+- Priradenie dokladu k jazde používa správne poradie parametrov (oprava chyby energyKwh)
+- Priradenie dokladu k jazde štandardne nastaví plnú nádrž (predtým čiastočné tankovanie)
+- **Vytvorenie BEV vozidla** - opravená chyba NOT NULL constraint na tank_size_liters (migrácia 006)
+- **Predvolená hodnota plnej nádrže** - opravená regresia z false na true pri vytváraní nových jázd
 
 ## [0.8.0] - 2026-01-05
 

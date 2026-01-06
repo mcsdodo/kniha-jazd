@@ -173,6 +173,38 @@ type RootTranslation = {
 		 * N​a​s​t​a​v​i​ť​ ​a​k​o​ ​a​k​t​í​v​n​e
 		 */
 		setAsActive: string
+		/**
+		 * T​y​p​ ​v​o​z​i​d​l​a
+		 */
+		vehicleType: string
+		/**
+		 * S​p​a​ľ​o​v​a​c​i​e​ ​(​I​C​E​)
+		 */
+		vehicleTypeIce: string
+		/**
+		 * E​l​e​k​t​r​i​c​k​é​ ​(​B​E​V​)
+		 */
+		vehicleTypeBev: string
+		/**
+		 * P​l​u​g​-​i​n​ ​h​y​b​r​i​d​ ​(​P​H​E​V​)
+		 */
+		vehicleTypePhev: string
+		/**
+		 * K​a​p​a​c​i​t​a​ ​b​a​t​é​r​i​e​ ​(​k​W​h​)
+		 */
+		batteryCapacity: string
+		/**
+		 * Z​á​k​l​a​d​n​á​ ​s​p​o​t​r​e​b​a​ ​(​k​W​h​/​1​0​0​k​m​)
+		 */
+		baselineConsumption: string
+		/**
+		 * P​o​č​i​a​t​o​č​n​ý​ ​s​t​a​v​ ​b​a​t​é​r​i​e​ ​(​%​)
+		 */
+		initialBatteryPercent: string
+		/**
+		 * T​y​p​ ​v​o​z​i​d​l​a​ ​n​i​e​ ​j​e​ ​m​o​ž​n​é​ ​z​m​e​n​i​ť​ ​p​o​ ​v​y​t​v​o​r​e​n​í​ ​z​á​z​n​a​m​o​v
+		 */
+		typeChangeBlocked: string
 	}
 	vehicleModal: {
 		/**
@@ -204,6 +236,18 @@ type RootTranslation = {
 		 */
 		initialOdometerPlaceholder: string
 		/**
+		 * n​a​p​r​.​ ​7​5
+		 */
+		batteryCapacityPlaceholder: string
+		/**
+		 * n​a​p​r​.​ ​1​8
+		 */
+		baselineConsumptionPlaceholder: string
+		/**
+		 * n​a​p​r​.​ ​1​0​0
+		 */
+		initialBatteryPlaceholder: string
+		/**
 		 * N​á​z​o​v​ ​v​o​z​i​d​l​a
 		 */
 		nameLabel: string
@@ -223,6 +267,30 @@ type RootTranslation = {
 		 * P​o​č​i​a​t​o​č​n​ý​ ​s​t​a​v​ ​O​D​O​ ​(​k​m​)
 		 */
 		initialOdometerLabel: string
+		/**
+		 * T​y​p​ ​v​o​z​i​d​l​a
+		 */
+		vehicleTypeLabel: string
+		/**
+		 * K​a​p​a​c​i​t​a​ ​b​a​t​é​r​i​e​ ​(​k​W​h​)
+		 */
+		batteryCapacityLabel: string
+		/**
+		 * Z​á​k​l​a​d​n​á​ ​s​p​o​t​r​e​b​a​ ​(​k​W​h​/​1​0​0​k​m​)
+		 */
+		baselineConsumptionLabel: string
+		/**
+		 * P​o​č​i​a​t​o​č​n​ý​ ​s​t​a​v​ ​b​a​t​é​r​i​e​ ​(​%​)
+		 */
+		initialBatteryLabel: string
+		/**
+		 * P​a​l​i​v​o
+		 */
+		fuelSection: string
+		/**
+		 * B​a​t​é​r​i​a
+		 */
+		batterySection: string
 	}
 	trips: {
 		/**
@@ -299,6 +367,26 @@ type RootTranslation = {
 			 * A​k​c​i​e
 			 */
 			actions: string
+			/**
+			 * E​n​e​r​g​i​a​ ​(​k​W​h​)
+			 */
+			energyKwh: string
+			/**
+			 * C​e​n​a​ ​n​a​b​.​ ​€
+			 */
+			energyCost: string
+			/**
+			 * k​W​h​/​1​0​0​k​m
+			 */
+			energyRate: string
+			/**
+			 * B​a​t​é​r​i​a
+			 */
+			batteryRemaining: string
+			/**
+			 * B​a​t​é​r​i​a​ ​%
+			 */
+			batteryPercent: string
 		}
 		/**
 		 * O​d​k​i​a​ľ
@@ -333,9 +421,29 @@ type RootTranslation = {
 		 */
 		fullTank: string
 		/**
+		 * P​l​n​é​ ​n​a​b​i​t​i​e
+		 */
+		fullCharge: string
+		/**
+		 * K​o​r​e​k​c​i​a​ ​s​t​a​v​u​ ​b​a​t​é​r​i​e​ ​(​%​)
+		 */
+		socOverride: string
+		/**
+		 * M​a​n​u​á​l​n​e​ ​n​a​s​t​a​v​e​n​i​e​ ​s​t​a​v​u​ ​b​a​t​é​r​i​e​ ​p​r​e​ ​k​o​r​e​k​c​i​u​ ​o​d​c​h​ý​l​o​k
+		 */
+		socOverrideHint: string
+		/**
+		 * M​a​n​u​á​l​n​a​ ​k​o​r​e​k​c​i​a​ ​S​o​C
+		 */
+		socOverrideIndicator: string
+		/**
 		 * Č​i​a​s​t​o​č​n​é​ ​t​a​n​k​o​v​a​n​i​e
 		 */
 		partialFillup: string
+		/**
+		 * Č​i​a​s​t​o​č​n​é​ ​n​a​b​i​t​i​e
+		 */
+		partialCharge: string
 		/**
 		 * B​e​z​ ​d​o​k​l​a​d​u
 		 */
@@ -344,6 +452,10 @@ type RootTranslation = {
 		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​T​P
 		 */
 		estimatedRate: string
+		/**
+		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​z​á​k​l​a​d​n​e​j​ ​s​p​o​t​r​e​b​y
+		 */
+		estimatedEnergyRate: string
 		legend: {
 			/**
 			 * č​i​a​s​t​o​č​n​é​ ​t​a​n​k​o​v​a​n​i​e
@@ -991,6 +1103,14 @@ type RootTranslation = {
 		 */
 		headerYear: string
 		/**
+		 * B​a​t​é​r​i​a​:
+		 */
+		headerBatteryCapacity: string
+		/**
+		 * Z​á​k​l​a​d​.​ ​s​p​o​t​r​e​b​a​:
+		 */
+		headerBaselineConsumption: string
+		/**
 		 * D​á​t​u​m
 		 */
 		colDate: string
@@ -1039,6 +1159,22 @@ type RootTranslation = {
 		 */
 		colConsumption: string
 		/**
+		 * k​W​h
+		 */
+		colEnergyKwh: string
+		/**
+		 * €​ ​E​n​e​r​g​.
+		 */
+		colEnergyCost: string
+		/**
+		 * B​a​t​é​r​i​a
+		 */
+		colBatteryRemaining: string
+		/**
+		 * k​W​h​/​1​0​0
+		 */
+		colEnergyRate: string
+		/**
 		 * C​e​l​k​o​m​ ​k​m
 		 */
 		footerTotalKm: string
@@ -1062,6 +1198,18 @@ type RootTranslation = {
 		 * T​P​ ​n​o​r​m​a
 		 */
 		footerTpNorm: string
+		/**
+		 * C​e​l​k​o​m​ ​e​n​e​r​g​i​a
+		 */
+		footerTotalEnergy: string
+		/**
+		 * P​r​i​e​m​e​r​n​á​ ​s​p​o​t​r​e​b​a
+		 */
+		footerAvgEnergyRate: string
+		/**
+		 * Z​á​k​l​a​d​.​ ​n​o​r​m​a
+		 */
+		footerBaselineNorm: string
 		/**
 		 * P​r​e​ ​e​x​p​o​r​t​ ​d​o​ ​P​D​F​ ​p​o​u​ž​i​t​e​ ​C​t​r​l​+​P​ ​→​ ​U​l​o​ž​i​ť​ ​a​k​o​ ​P​D​F
 		 */
@@ -1229,6 +1377,38 @@ export type TranslationFunctions = {
 		 * Nastaviť ako aktívne
 		 */
 		setAsActive: () => LocalizedString
+		/**
+		 * Typ vozidla
+		 */
+		vehicleType: () => LocalizedString
+		/**
+		 * Spaľovacie (ICE)
+		 */
+		vehicleTypeIce: () => LocalizedString
+		/**
+		 * Elektrické (BEV)
+		 */
+		vehicleTypeBev: () => LocalizedString
+		/**
+		 * Plug-in hybrid (PHEV)
+		 */
+		vehicleTypePhev: () => LocalizedString
+		/**
+		 * Kapacita batérie (kWh)
+		 */
+		batteryCapacity: () => LocalizedString
+		/**
+		 * Základná spotreba (kWh/100km)
+		 */
+		baselineConsumption: () => LocalizedString
+		/**
+		 * Počiatočný stav batérie (%)
+		 */
+		initialBatteryPercent: () => LocalizedString
+		/**
+		 * Typ vozidla nie je možné zmeniť po vytvorení záznamov
+		 */
+		typeChangeBlocked: () => LocalizedString
 	}
 	vehicleModal: {
 		/**
@@ -1260,6 +1440,18 @@ export type TranslationFunctions = {
 		 */
 		initialOdometerPlaceholder: () => LocalizedString
 		/**
+		 * napr. 75
+		 */
+		batteryCapacityPlaceholder: () => LocalizedString
+		/**
+		 * napr. 18
+		 */
+		baselineConsumptionPlaceholder: () => LocalizedString
+		/**
+		 * napr. 100
+		 */
+		initialBatteryPlaceholder: () => LocalizedString
+		/**
 		 * Názov vozidla
 		 */
 		nameLabel: () => LocalizedString
@@ -1279,6 +1471,30 @@ export type TranslationFunctions = {
 		 * Počiatočný stav ODO (km)
 		 */
 		initialOdometerLabel: () => LocalizedString
+		/**
+		 * Typ vozidla
+		 */
+		vehicleTypeLabel: () => LocalizedString
+		/**
+		 * Kapacita batérie (kWh)
+		 */
+		batteryCapacityLabel: () => LocalizedString
+		/**
+		 * Základná spotreba (kWh/100km)
+		 */
+		baselineConsumptionLabel: () => LocalizedString
+		/**
+		 * Počiatočný stav batérie (%)
+		 */
+		initialBatteryLabel: () => LocalizedString
+		/**
+		 * Palivo
+		 */
+		fuelSection: () => LocalizedString
+		/**
+		 * Batéria
+		 */
+		batterySection: () => LocalizedString
 	}
 	trips: {
 		/**
@@ -1354,6 +1570,26 @@ export type TranslationFunctions = {
 			 * Akcie
 			 */
 			actions: () => LocalizedString
+			/**
+			 * Energia (kWh)
+			 */
+			energyKwh: () => LocalizedString
+			/**
+			 * Cena nab. €
+			 */
+			energyCost: () => LocalizedString
+			/**
+			 * kWh/100km
+			 */
+			energyRate: () => LocalizedString
+			/**
+			 * Batéria
+			 */
+			batteryRemaining: () => LocalizedString
+			/**
+			 * Batéria %
+			 */
+			batteryPercent: () => LocalizedString
 		}
 		/**
 		 * Odkiaľ
@@ -1388,9 +1624,29 @@ export type TranslationFunctions = {
 		 */
 		fullTank: () => LocalizedString
 		/**
+		 * Plné nabitie
+		 */
+		fullCharge: () => LocalizedString
+		/**
+		 * Korekcia stavu batérie (%)
+		 */
+		socOverride: () => LocalizedString
+		/**
+		 * Manuálne nastavenie stavu batérie pre korekciu odchýlok
+		 */
+		socOverrideHint: () => LocalizedString
+		/**
+		 * Manuálna korekcia SoC
+		 */
+		socOverrideIndicator: () => LocalizedString
+		/**
 		 * Čiastočné tankovanie
 		 */
 		partialFillup: () => LocalizedString
+		/**
+		 * Čiastočné nabitie
+		 */
+		partialCharge: () => LocalizedString
 		/**
 		 * Bez dokladu
 		 */
@@ -1399,6 +1655,10 @@ export type TranslationFunctions = {
 		 * Odhad podľa TP
 		 */
 		estimatedRate: () => LocalizedString
+		/**
+		 * Odhad podľa základnej spotreby
+		 */
+		estimatedEnergyRate: () => LocalizedString
 		legend: {
 			/**
 			 * čiastočné tankovanie
@@ -2006,6 +2266,14 @@ export type TranslationFunctions = {
 		 */
 		headerYear: () => LocalizedString
 		/**
+		 * Batéria:
+		 */
+		headerBatteryCapacity: () => LocalizedString
+		/**
+		 * Základ. spotreba:
+		 */
+		headerBaselineConsumption: () => LocalizedString
+		/**
 		 * Dátum
 		 */
 		colDate: () => LocalizedString
@@ -2054,6 +2322,22 @@ export type TranslationFunctions = {
 		 */
 		colConsumption: () => LocalizedString
 		/**
+		 * kWh
+		 */
+		colEnergyKwh: () => LocalizedString
+		/**
+		 * € Energ.
+		 */
+		colEnergyCost: () => LocalizedString
+		/**
+		 * Batéria
+		 */
+		colBatteryRemaining: () => LocalizedString
+		/**
+		 * kWh/100
+		 */
+		colEnergyRate: () => LocalizedString
+		/**
 		 * Celkom km
 		 */
 		footerTotalKm: () => LocalizedString
@@ -2077,6 +2361,18 @@ export type TranslationFunctions = {
 		 * TP norma
 		 */
 		footerTpNorm: () => LocalizedString
+		/**
+		 * Celkom energia
+		 */
+		footerTotalEnergy: () => LocalizedString
+		/**
+		 * Priemerná spotreba
+		 */
+		footerAvgEnergyRate: () => LocalizedString
+		/**
+		 * Základ. norma
+		 */
+		footerBaselineNorm: () => LocalizedString
 		/**
 		 * Pre export do PDF použite Ctrl+P → Uložiť ako PDF
 		 */

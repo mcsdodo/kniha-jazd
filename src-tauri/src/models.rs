@@ -3,15 +3,54 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use uuid::Uuid;
+
+/// Vehicle powertrain type - determines which fields are required/displayed
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum VehicleType {
+    #[default]
+    Ice,  // Internal combustion engine (existing behavior)
+    Bev,  // Battery electric vehicle
+    Phev, // Plug-in hybrid electric vehicle
+}
+
+impl fmt::Display for VehicleType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VehicleType::Ice => write!(f, "ICE"),
+            VehicleType::Bev => write!(f, "BEV"),
+            VehicleType::Phev => write!(f, "PHEV"),
+        }
+    }
+}
+
+impl VehicleType {
+    /// Returns true if this vehicle type uses fuel (ICE or PHEV)
+    pub fn uses_fuel(&self) -> bool {
+        matches!(self, VehicleType::Ice | VehicleType::Phev)
+    }
+
+    /// Returns true if this vehicle type uses electricity (BEV or PHEV)
+    pub fn uses_electricity(&self) -> bool {
+        matches!(self, VehicleType::Bev | VehicleType::Phev)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Vehicle {
     pub id: Uuid,
     pub name: String,
     pub license_plate: String,
-    pub tank_size_liters: f64,
-    pub tp_consumption: f64, // l/100km from technical passport
+    pub vehicle_type: VehicleType,
+    // Fuel system (ICE + PHEV) - None for BEV
+    pub tank_size_liters: Option<f64>,
+    pub tp_consumption: Option<f64>, // l/100km from technical passport
+    // Energy system (BEV + PHEV) - None for ICE
+    pub battery_capacity_kwh: Option<f64>,
+    pub baseline_consumption_kwh: Option<f64>, // kWh/100km, user-defined
+    pub initial_battery_percent: Option<f64>,  // Initial SoC % for first record (default: 100%)
+    // Common fields
     pub initial_odometer: f64, // Starting ODO for "Prvý záznam"
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -19,7 +58,19 @@ pub struct Vehicle {
 }
 
 impl Vehicle {
+    /// Create a new ICE vehicle (backward compatible constructor)
     pub fn new(
+        name: String,
+        license_plate: String,
+        tank_size_liters: f64,
+        tp_consumption: f64,
+        initial_odometer: f64,
+    ) -> Self {
+        Self::new_ice(name, license_plate, tank_size_liters, tp_consumption, initial_odometer)
+    }
+
+    /// Create a new ICE (Internal Combustion Engine) vehicle
+    pub fn new_ice(
         name: String,
         license_plate: String,
         tank_size_liters: f64,
@@ -31,8 +82,68 @@ impl Vehicle {
             id: Uuid::new_v4(),
             name,
             license_plate,
-            tank_size_liters,
-            tp_consumption,
+            vehicle_type: VehicleType::Ice,
+            tank_size_liters: Some(tank_size_liters),
+            tp_consumption: Some(tp_consumption),
+            battery_capacity_kwh: None,
+            baseline_consumption_kwh: None,
+            initial_battery_percent: None,
+            initial_odometer,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    /// Create a new BEV (Battery Electric Vehicle)
+    pub fn new_bev(
+        name: String,
+        license_plate: String,
+        battery_capacity_kwh: f64,
+        baseline_consumption_kwh: f64,
+        initial_odometer: f64,
+        initial_battery_percent: Option<f64>,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4(),
+            name,
+            license_plate,
+            vehicle_type: VehicleType::Bev,
+            tank_size_liters: None,
+            tp_consumption: None,
+            battery_capacity_kwh: Some(battery_capacity_kwh),
+            baseline_consumption_kwh: Some(baseline_consumption_kwh),
+            initial_battery_percent,
+            initial_odometer,
+            is_active: true,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    /// Create a new PHEV (Plug-in Hybrid Electric Vehicle)
+    pub fn new_phev(
+        name: String,
+        license_plate: String,
+        tank_size_liters: f64,
+        tp_consumption: f64,
+        battery_capacity_kwh: f64,
+        baseline_consumption_kwh: f64,
+        initial_odometer: f64,
+        initial_battery_percent: Option<f64>,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4(),
+            name,
+            license_plate,
+            vehicle_type: VehicleType::Phev,
+            tank_size_liters: Some(tank_size_liters),
+            tp_consumption: Some(tp_consumption),
+            battery_capacity_kwh: Some(battery_capacity_kwh),
+            baseline_consumption_kwh: Some(baseline_consumption_kwh),
+            initial_battery_percent,
             initial_odometer,
             is_active: true,
             created_at: now,
@@ -51,19 +162,70 @@ pub struct Trip {
     pub distance_km: f64,
     pub odometer: f64,
     pub purpose: String,
+    // Fuel system (ICE + PHEV)
     pub fuel_liters: Option<f64>,
     pub fuel_cost_eur: Option<f64>,
+    pub full_tank: bool, // true = full tank fillup, false = partial
+    // Energy system (BEV + PHEV)
+    pub energy_kwh: Option<f64>,       // Energy charged
+    pub energy_cost_eur: Option<f64>,  // Cost of charging
+    pub full_charge: bool,             // Charged to 100% (or target SoC)
+    pub soc_override_percent: Option<f64>, // Manual SoC override for battery degradation (0-100)
+    // Other costs
     pub other_costs_eur: Option<f64>,
     pub other_costs_note: Option<String>,
-    pub full_tank: bool, // true = full tank fillup, false = partial
     pub sort_order: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
 impl Trip {
+    /// Returns true if this trip includes a fuel fillup
     pub fn is_fillup(&self) -> bool {
         self.fuel_liters.is_some()
+    }
+
+    /// Returns true if this trip includes a battery charge
+    pub fn is_charge(&self) -> bool {
+        self.energy_kwh.is_some()
+    }
+
+    /// Returns true if this trip has a manual SoC override
+    pub fn has_soc_override(&self) -> bool {
+        self.soc_override_percent.is_some()
+    }
+
+    /// Create a test ICE trip with default values
+    #[cfg(test)]
+    pub fn test_ice_trip(
+        date: NaiveDate,
+        distance_km: f64,
+        fuel_liters: Option<f64>,
+        full_tank: bool,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4(),
+            vehicle_id: Uuid::new_v4(),
+            date,
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km,
+            odometer: 10000.0,
+            purpose: "test".to_string(),
+            fuel_liters,
+            fuel_cost_eur: fuel_liters.map(|l| l * 1.5), // ~1.50€/L
+            full_tank,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        }
     }
 }
 
@@ -116,16 +278,32 @@ pub struct TripStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TripGridData {
     pub trips: Vec<Trip>,
+
+    // Fuel data (ICE + PHEV)
     /// Consumption rate (l/100km) for each trip, keyed by trip ID
     pub rates: HashMap<String, f64>,
     /// Trip IDs that use estimated (TP) rate instead of calculated
     pub estimated_rates: HashSet<String>,
     /// Fuel remaining after each trip, keyed by trip ID
     pub fuel_remaining: HashMap<String, f64>,
-    /// Trip IDs with date ordering issues
-    pub date_warnings: HashSet<String>,
     /// Trip IDs with consumption over 120% of TP rate
     pub consumption_warnings: HashSet<String>,
+
+    // Energy data (BEV + PHEV)
+    /// Energy consumption rate (kWh/100km) for each trip, keyed by trip ID
+    pub energy_rates: HashMap<String, f64>,
+    /// Trip IDs that use estimated (baseline) energy rate
+    pub estimated_energy_rates: HashSet<String>,
+    /// Battery remaining (kWh) after each trip, keyed by trip ID
+    pub battery_remaining_kwh: HashMap<String, f64>,
+    /// Battery remaining (%) after each trip, keyed by trip ID
+    pub battery_remaining_percent: HashMap<String, f64>,
+    /// Trip IDs with manual SoC override
+    pub soc_override_trips: HashSet<String>,
+
+    // Shared warnings
+    /// Trip IDs with date ordering issues
+    pub date_warnings: HashSet<String>,
     /// Trip IDs that have fuel but are missing a matching receipt
     pub missing_receipts: HashSet<String>,
 }
