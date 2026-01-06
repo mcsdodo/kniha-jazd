@@ -13,7 +13,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Kapacita batérie, základná spotreba (kWh/100km), počiatočný stav batérie (%)
   - Výpočty energie: spotreba kWh, zostatok batérie v kWh aj percentách
   - Podpora pre nabíjanie: čiastočné/plné nabitie, manuálna korekcia stavu batérie (SoC override)
-  - 23 nových unit testov pre výpočty energie a PHEV
+  - 26 nových unit testov pre výpočty energie a PHEV (vrátane calculate_energy_grid_data)
+  - Integračné testy pre vytváranie BEV vozidiel cez UI
 - Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva, prenos paliva medzi rokmi (15 nových testov)
 - Claude Code hooks: automatické spustenie testov pred commitom, pripomienka na changelog
 - Nový skill `/verify` pre kontrolu pred dokončením úlohy
