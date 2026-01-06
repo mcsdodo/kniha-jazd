@@ -11,6 +11,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Testy pre biznis logiku: čiastočné tankovanie, varovania o dátume/spotrebe, zostatok paliva, prenos paliva medzi rokmi (15 nových testov)
 - Claude Code hooks: automatické spustenie testov pred commitom, pripomienka na changelog
 - Nový skill `/verify` pre kontrolu pred dokončením úlohy
+- Nové review skills pre iteratívnu kontrolu kvality:
+  - `/plan-review` - kontrola plánov pred implementáciou (úplnosť, realizovateľnosť)
+  - `/code-review` - kontrola kódu s automatickým spustením testov
+  - `/test-review` - kontrola pokrytia testami s konvergenciou
+- Analýza best practices pre iteratívne review workflow (`_tasks/23-iterative-review-analysis/`)
 
 ## [0.8.0] - 2026-01-05
 
