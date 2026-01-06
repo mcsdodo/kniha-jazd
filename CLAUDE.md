@@ -61,6 +61,15 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 - UI rendering (unless behavior-critical)
 - Getters/setters
 
+### Common Pitfalls
+
+- **Don't duplicate calculations in frontend** - ADR-008 prohibits this
+- **Don't use `git add -A`** - only stage files from current session (except `/release`)
+- **Don't skip changelog** - every feature/fix needs `/changelog` update
+- **Don't write tests for CRUD** - focus on business logic only
+- **Don't forget Slovak UI text** - all user-facing strings go through i18n
+- **Don't hardcode year** - app supports year picker, use year parameter
+
 ### Running Tests
 
 ```bash
@@ -110,15 +119,6 @@ All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 1. Add key to `src/lib/i18n/sk/index.ts` (Slovak primary)
 2. Add key to `src/lib/i18n/en/index.ts` (English)
 3. Use `{LL.key()}` in Svelte components
-
-### Common Pitfalls
-
-- **Don't duplicate calculations in frontend** - ADR-008 prohibits this
-- **Don't use `git add -A`** - only stage files from current session (except `/release`)
-- **Don't skip changelog** - every feature/fix needs `/changelog` update
-- **Don't write tests for CRUD** - focus on business logic only
-- **Don't forget Slovak UI text** - all user-facing strings go through i18n
-- **Don't hardcode year** - app supports year picker, use year parameter
 
 ## Project Structure
 
@@ -223,14 +223,15 @@ Worktree directory: `.worktrees/` (project-local, gitignored)
 
 ## Documentation
 
-Use skills in `.claude/skills/` for documentation workflows:
+Use skills in `.claude/skills/` for workflows:
 
-| Skill | Purpose |
-|-------|---------|
-| `/task-plan` | Create `_tasks/{NN}-feature/` planning folder (runs brainstorming first) |
-| `/decision` | Add ADR/BIZ entry to `DECISIONS.md` |
-| `/changelog` | Update `CHANGELOG.md` [Unreleased] section |
-| `/release` | Bump version, update changelog, tag, build |
+| Skill | When to Use | Purpose |
+|-------|-------------|---------|
+| `/task-plan` | Starting new feature | Create `_tasks/{NN}-feature/` planning folder |
+| `/decision` | Making architectural choices | Add ADR/BIZ entry to `DECISIONS.md` |
+| `/changelog` | After completing any work | Update `CHANGELOG.md` [Unreleased] section |
+| `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
+| `/release` | Publishing new version | Bump version, update changelog, tag, build |
 
 **MANDATORY FINAL STEP:** After completing any feature, fix, or change:
 1. Commit all code changes
