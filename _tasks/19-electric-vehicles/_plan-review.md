@@ -59,3 +59,69 @@
 
 ---
 
+## Iteration 2 - 2026-01-06
+
+**User clarification:** Carryover IS correct behavior (already implemented for ICE). Plan is correct; task/tech-analysis need updating.
+
+### Critical Issues - RESOLVED
+
+| ID | Original Issue | Resolution |
+|----|----------------|------------|
+| CRITICAL-1 | Year boundary contradiction | **PLAN IS CORRECT.** Task and technical-analysis need updating to match carryover behavior. |
+
+### Important Issues - Updated
+
+| ID | Issue | Status | Resolution |
+|----|-------|--------|------------|
+| IMPORTANT-1 | i18n translations not explicit | **VALID** | Add i18n task before Phase 2.5 UI work |
+| IMPORTANT-2 | `trip_processor.rs` orphaned | **VALID** | Decide: add to plan OR remove from tech-analysis |
+| IMPORTANT-3 | Vehicle type immutability untested | **VALID** | Add explicit test to Testing Strategy |
+| IMPORTANT-4 | SoC override processing too late | **VALID** | Move from Phase 4.2 to Phase 2.4 |
+| IMPORTANT-5 | ICE year boundary fix out of scope | **INVALID** | Removed - ICE is already correct |
+
+### New Issues Found
+
+| ID | Issue | Resolution |
+|----|-------|------------|
+| NEW-1 | Phase 4.1 "ICE needs fix" is wrong | Remove ICE section from Phase 4.1 - already correct |
+| NEW-2 | Year-end calculation missing SoC override | Add note that year-end must respect SoC overrides |
+| NEW-3 | Acceptance criteria line 84 contradicts carryover | Update to reflect carryover behavior |
+
+### Documents Requiring Updates
+
+#### `01-task.md`
+| Lines | Change |
+|-------|--------|
+| 62-63 | Change "no carry-over" to "carryover (matching ICE)" |
+| 84 | Update year boundary acceptance criterion |
+
+#### `technical-analysis.md`
+| Lines | Change |
+|-------|--------|
+| 17 | Change "100% at year start" to "carries over" |
+| 223-241 | Rewrite Year Boundary Logic section for carryover |
+| 316 | Decide on `trip_processor.rs` |
+
+#### `02-plan.md`
+| Location | Change |
+|----------|--------|
+| Phase 4.1 ICE block | Remove - ICE is already correct |
+| Phase 4.1 | Add SoC override consideration for year-end |
+| Phase 4.2 | Move SoC override to Phase 2.4 |
+| Phase 2-3 | Add explicit i18n task |
+| Testing Strategy | Add vehicle type immutability test |
+
+### Final Verdict
+
+**Ready for implementation?** Yes - with document updates listed above
+
+**Confidence:** High - plan structure is sound, changes are synchronization/refinement only
+
+---
+
+## Review Complete
+
+**Iterations:** 2
+**Exit reason:** All issues identified, no Critical blockers remaining
+**Next step:** User reviews findings, then implements document updates
+
