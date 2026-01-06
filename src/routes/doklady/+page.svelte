@@ -269,10 +269,10 @@
 					trip.distance_km,
 					trip.odometer,
 					trip.purpose,
-					// Fuel fields
+					// Fuel fields - default to full tank when assigning receipt
 					receiptToAssign.liters,
 					receiptToAssign.total_price_eur,
-					trip.full_tank,
+					trip.full_tank ?? true,
 					// Energy fields (not from receipts)
 					trip.energy_kwh,
 					trip.energy_cost_eur,
