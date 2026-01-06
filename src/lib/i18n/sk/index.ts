@@ -58,6 +58,17 @@ const sk = {
 		initialOdometer: 'Počiatočný stav ODO',
 		active: 'Aktívne',
 		setAsActive: 'Nastaviť ako aktívne',
+		// Vehicle types
+		vehicleType: 'Typ vozidla',
+		vehicleTypeIce: 'Spaľovacie (ICE)',
+		vehicleTypeBev: 'Elektrické (BEV)',
+		vehicleTypePhev: 'Plug-in hybrid (PHEV)',
+		// Battery fields
+		batteryCapacity: 'Kapacita batérie (kWh)',
+		baselineConsumption: 'Základná spotreba (kWh/100km)',
+		initialBatteryPercent: 'Počiatočný stav batérie (%)',
+		// Type change warning
+		typeChangeBlocked: 'Typ vozidla nie je možné zmeniť po vytvorení záznamov',
 	},
 
 	// Vehicle modal
@@ -69,11 +80,21 @@ const sk = {
 		tankSizePlaceholder: 'napr. 66',
 		tpConsumptionPlaceholder: 'napr. 5.1',
 		initialOdometerPlaceholder: 'napr. 50000',
+		batteryCapacityPlaceholder: 'napr. 75',
+		baselineConsumptionPlaceholder: 'napr. 18',
+		initialBatteryPlaceholder: 'napr. 100',
 		nameLabel: 'Názov vozidla',
 		licensePlateLabel: 'Evidenčné číslo (EČV)',
 		tankSizeLabel: 'Objem nádrže (litre)',
 		tpConsumptionLabel: 'Spotreba z TP (l/100km)',
 		initialOdometerLabel: 'Počiatočný stav ODO (km)',
+		vehicleTypeLabel: 'Typ vozidla',
+		batteryCapacityLabel: 'Kapacita batérie (kWh)',
+		baselineConsumptionLabel: 'Základná spotreba (kWh/100km)',
+		initialBatteryLabel: 'Počiatočný stav batérie (%)',
+		// Section headers
+		fuelSection: 'Palivo',
+		batterySection: 'Batéria',
 	},
 
 	// Trip grid
@@ -98,6 +119,12 @@ const sk = {
 			otherCosts: 'Iné €',
 			otherCostsNote: 'Iné pozn.',
 			actions: 'Akcie',
+			// Energy columns (BEV/PHEV)
+			energyKwh: 'Energia (kWh)',
+			energyCost: 'Cena nab. €',
+			energyRate: 'kWh/100km',
+			batteryRemaining: 'Batéria',
+			batteryPercent: 'Batéria %',
 		},
 		// Placeholders
 		originPlaceholder: 'Odkiaľ',
@@ -110,10 +137,17 @@ const sk = {
 		deleteRecord: 'Odstrániť záznam',
 		// Checkbox
 		fullTank: 'Plná',
+		fullCharge: 'Plné nabitie',
+		// SoC override
+		socOverride: 'Korekcia stavu batérie (%)',
+		socOverrideHint: 'Manuálne nastavenie stavu batérie pre korekciu odchýlok',
+		socOverrideIndicator: 'Manuálna korekcia SoC',
 		// Tooltips/indicators
 		partialFillup: 'Čiastočné tankovanie',
+		partialCharge: 'Čiastočné nabitie',
 		noReceipt: 'Bez dokladu',
 		estimatedRate: 'Odhad podľa TP',
+		estimatedEnergyRate: 'Odhad podľa základnej spotreby',
 		// Legend
 		legend: {
 			partialFillup: 'čiastočné tankovanie',
