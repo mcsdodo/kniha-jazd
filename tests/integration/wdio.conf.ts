@@ -200,6 +200,42 @@ export const config: any = {
   },
 
   /**
+   * Before all tests in a worker: Wait for app to be ready
+   * This runs once per spec file (each spec gets a fresh session)
+   */
+  before: async function () {
+    // Wait for DOM to be ready
+    await browser.waitUntil(
+      async () => {
+        const header = await $('h1');
+        return header.isDisplayed();
+      },
+      {
+        timeout: 30000,
+        timeoutMsg: 'App did not load within 30 seconds'
+      }
+    );
+
+    // Wait for Tauri v2 IPC bridge to be available
+    // In Tauri v2 with withGlobalTauri: true, API is at window.__TAURI__.core.invoke
+    await browser.waitUntil(
+      async () => {
+        return browser.execute(() => {
+          return typeof (window as any).__TAURI__ !== 'undefined' &&
+                 typeof (window as any).__TAURI__.core !== 'undefined' &&
+                 typeof (window as any).__TAURI__.core.invoke === 'function';
+        });
+      },
+      {
+        timeout: 10000,
+        timeoutMsg: 'Tauri IPC bridge did not initialize within 10 seconds'
+      }
+    );
+
+    console.log('App ready for testing');
+  },
+
+  /**
    * Before each test: Fresh database
    */
   beforeTest: async function () {
@@ -235,6 +271,36 @@ export const config: any = {
         await new Promise(r => setTimeout(r, 200));
       }
     }
+
+    // After DB cleanup, refresh the app to pick up fresh state
+    await browser.refresh();
+
+    // Wait for app to be ready again after refresh
+    await browser.waitUntil(
+      async () => {
+        const header = await $('h1');
+        return header.isDisplayed();
+      },
+      {
+        timeout: 10000,
+        timeoutMsg: 'App did not reload after DB cleanup'
+      }
+    );
+
+    // Wait for Tauri v2 IPC to be available
+    await browser.waitUntil(
+      async () => {
+        return browser.execute(() => {
+          return typeof (window as any).__TAURI__ !== 'undefined' &&
+                 typeof (window as any).__TAURI__.core !== 'undefined' &&
+                 typeof (window as any).__TAURI__.core.invoke === 'function';
+        });
+      },
+      {
+        timeout: 5000,
+        timeoutMsg: 'Tauri IPC not ready after DB cleanup'
+      }
+    );
   },
 };
 

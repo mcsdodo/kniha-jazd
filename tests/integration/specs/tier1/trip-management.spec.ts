@@ -327,17 +327,17 @@ describe('Tier 1: Trip Management', () => {
           if (!window.__TAURI__) {
             throw new Error('Tauri not available');
           }
-          return await window.__TAURI__.invoke('update_trip', {
+          return await window.__TAURI__.core.invoke('update_trip', {
             id: tripId,
             date,
             origin,
             destination,
-            distance_km: distanceKm,
+            distanceKm,
             odometer,
             purpose,
-            fuel_liters: fuelLiters,
-            fuel_cost_eur: fuelCostEur,
-            full_tank: fullTank,
+            fuelLiters,
+            fuelCostEur,
+            fullTank,
           });
         },
         trip.id as string,
@@ -422,7 +422,7 @@ describe('Tier 1: Trip Management', () => {
         if (!window.__TAURI__) {
           throw new Error('Tauri not available');
         }
-        return await window.__TAURI__.invoke('delete_trip', { id: tripId });
+        return await window.__TAURI__.core.invoke('delete_trip', { id: tripId });
       }, trip2.id as string);
 
       // Verify we now have 1 trip
@@ -600,9 +600,9 @@ describe('Tier 1: Trip Management', () => {
           if (!window.__TAURI__) {
             throw new Error('Tauri not available');
           }
-          return await window.__TAURI__.invoke('reorder_trip', {
-            trip_id: tripId,
-            new_sort_order: newPosition,
+          return await window.__TAURI__.core.invoke('reorder_trip', {
+            tripId: tripId,
+            newSortOrder: newPosition,
           });
         },
         trip2.id as string,

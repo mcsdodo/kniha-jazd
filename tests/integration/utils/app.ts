@@ -4,9 +4,12 @@
 
 /**
  * Wait for the app to be fully loaded and ready
- * Checks for the main header element
+ * Checks for:
+ * 1. Main header element (DOM ready)
+ * 2. Tauri IPC bridge (window.__TAURI__ available)
  */
 export async function waitForAppReady(): Promise<void> {
+  // First wait for DOM to be ready (h1 visible)
   await browser.waitUntil(
     async () => {
       const header = await $('h1');
@@ -15,6 +18,22 @@ export async function waitForAppReady(): Promise<void> {
     {
       timeout: 30000,
       timeoutMsg: 'App did not load within 30 seconds'
+    }
+  );
+
+  // Then wait for Tauri v2 IPC bridge to be available
+  // In Tauri v2 with withGlobalTauri: true, API is at window.__TAURI__.core.invoke
+  await browser.waitUntil(
+    async () => {
+      return browser.execute(() => {
+        return typeof (window as any).__TAURI__ !== 'undefined' &&
+               typeof (window as any).__TAURI__.core !== 'undefined' &&
+               typeof (window as any).__TAURI__.core.invoke === 'function';
+      });
+    },
+    {
+      timeout: 10000,
+      timeoutMsg: 'Tauri IPC bridge did not initialize within 10 seconds'
     }
   );
 }

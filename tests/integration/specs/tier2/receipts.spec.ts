@@ -54,14 +54,14 @@ async function seedReceipt(receipt: {
       }
       // Use create_receipt command if available, otherwise mock
       try {
-        return await window.__TAURI__.invoke('create_receipt', {
-          vehicle_id: vehicleId,
-          file_path: filePath,
-          file_name: fileName,
+        return await window.__TAURI__.core.invoke('create_receipt', {
+          vehicleId,
+          filePath,
+          fileName,
           liters,
-          total_price_eur: totalPriceEur,
-          receipt_date: receiptDate,
-          station_name: stationName,
+          totalPriceEur,
+          receiptDate,
+          stationName,
           status: status || 'Parsed',
         });
       } catch {
@@ -91,8 +91,8 @@ async function getReceipts(vehicleId?: string): Promise<Array<{ id: string; stat
       throw new Error('Tauri not available');
     }
     try {
-      return await window.__TAURI__.invoke('get_receipts', {
-        vehicle_id: vId,
+      return await window.__TAURI__.core.invoke('get_receipts', {
+        vehicleId: vId,
       });
     } catch {
       return [];
@@ -111,9 +111,9 @@ async function assignReceiptToTrip(receiptId: string, tripId: string): Promise<v
       if (!window.__TAURI__) {
         throw new Error('Tauri not available');
       }
-      return await window.__TAURI__.invoke('assign_receipt_to_trip', {
-        receipt_id: rId,
-        trip_id: tId,
+      return await window.__TAURI__.core.invoke('assign_receipt_to_trip', {
+        receiptId: rId,
+        tripId: tId,
       });
     },
     receiptId,
@@ -129,7 +129,7 @@ async function deleteReceipt(receiptId: string): Promise<void> {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.invoke('delete_receipt', {
+    return await window.__TAURI__.core.invoke('delete_receipt', {
       id: rId,
     });
   }, receiptId);
