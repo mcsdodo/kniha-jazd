@@ -10,6 +10,18 @@ Vehicle logbook (Kniha jázd) desktop app for Slovak legal compliance - tracks t
 - **UI Language:** Slovak (i18n-ready)
 - **Code Language:** English
 
+## Skill Overrides
+
+When external skills (e.g., `superpowers:brainstorming`, `superpowers:writing-plans`) specify file paths or conventions that conflict with this project's structure, **ALWAYS use this project's conventions**:
+
+| Skill Default | Project Convention |
+|---------------|-------------------|
+| `docs/plans/` | `_tasks/{NN}-feature/` (via `/task-plan`) |
+| Inline decisions | `DECISIONS.md` (via `/decision`) |
+| Generic changelog | `CHANGELOG.md` (via `/changelog`) |
+
+**Rule:** Project-specific paths in this file override generic skill defaults.
+
 ## Architecture: Backend-Only Calculations
 
 All business logic and calculations live in Rust backend only (ADR-008):
