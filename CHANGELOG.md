@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-01-07
+
 ### Pridané
 - **Filtrovanie dokladov podľa vozidla** - na stránke Doklady sa zobrazujú len nepriradené bločky + bločky aktuálneho vozidla
 - Automatický výber vozidla pri štarte aplikácie (ak nie je nastavené, vyberie sa prvé)
