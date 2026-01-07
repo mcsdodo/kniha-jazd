@@ -113,7 +113,8 @@ impl Database {
             );
             CREATE INDEX IF NOT EXISTS idx_receipts_status ON receipts(status);
             CREATE INDEX IF NOT EXISTS idx_receipts_trip ON receipts(trip_id);
-            CREATE INDEX IF NOT EXISTS idx_receipts_date ON receipts(receipt_date);"
+            CREATE INDEX IF NOT EXISTS idx_receipts_date ON receipts(receipt_date);
+            CREATE INDEX IF NOT EXISTS idx_receipts_vehicle ON receipts(vehicle_id);"
         )?;
 
         // Add source_year column for year-based folder structure support
@@ -1167,6 +1168,49 @@ impl Database {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(receipts)
     }
+
+    /// Get receipts filtered by vehicle - returns unassigned receipts + receipts assigned to the given vehicle.
+    /// Optionally filter by year using the same logic as get_receipts_for_year.
+    pub fn get_receipts_for_vehicle(
+        &self,
+        vehicle_id: &Uuid,
+        year: Option<i32>,
+    ) -> Result<Vec<Receipt>> {
+        let conn = self.conn.lock().unwrap();
+
+        let sql = match year {
+            Some(y) => format!(
+                "SELECT {} FROM receipts
+                 WHERE (vehicle_id IS NULL OR vehicle_id = ?1)
+                   AND (
+                     (receipt_date IS NOT NULL AND CAST(strftime('%Y', receipt_date) AS INTEGER) = ?2)
+                     OR (receipt_date IS NULL AND source_year = ?2)
+                     OR (receipt_date IS NULL AND source_year IS NULL)
+                   )
+                 ORDER BY receipt_date DESC, scanned_at DESC",
+                Self::RECEIPT_SELECT_COLS
+            ),
+            None => format!(
+                "SELECT {} FROM receipts
+                 WHERE (vehicle_id IS NULL OR vehicle_id = ?1)
+                 ORDER BY receipt_date DESC, scanned_at DESC",
+                Self::RECEIPT_SELECT_COLS
+            ),
+        };
+
+        let mut stmt = conn.prepare(&sql)?;
+
+        let receipts = match year {
+            Some(y) => stmt
+                .query_map(rusqlite::params![vehicle_id.to_string(), y], Self::row_to_receipt)?
+                .collect::<Result<Vec<_>, _>>()?,
+            None => stmt
+                .query_map([vehicle_id.to_string()], Self::row_to_receipt)?
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+
+        Ok(receipts)
+    }
 }
 
 #[cfg(test)]
@@ -1801,5 +1845,87 @@ mod tests {
         assert!(names.contains(&"r5.jpg"), "r5 should be included (flat mode)");
         assert!(!names.contains(&"r4.jpg"), "r4 should NOT be included (source_year is 2025)");
         assert!(!names.contains(&"r6.jpg"), "r6 should NOT be included (date is 2023)");
+    }
+
+    // Receipt vehicle filtering tests
+
+    #[test]
+    fn test_get_receipts_for_vehicle_returns_unassigned_and_own() {
+        let db = Database::in_memory().unwrap();
+
+        // Create vehicles
+        let vehicle_a = create_test_vehicle("Car A");
+        let vehicle_b = create_test_vehicle("Car B");
+        db.create_vehicle(&vehicle_a).unwrap();
+        db.create_vehicle(&vehicle_b).unwrap();
+
+        // Create receipts: unassigned, assigned to A, assigned to B
+        let unassigned = Receipt::new("path1.jpg".to_string(), "receipt1.jpg".to_string());
+        let mut receipt_a = Receipt::new("path2.jpg".to_string(), "receipt2.jpg".to_string());
+        receipt_a.vehicle_id = Some(vehicle_a.id);
+        let mut receipt_b = Receipt::new("path3.jpg".to_string(), "receipt3.jpg".to_string());
+        receipt_b.vehicle_id = Some(vehicle_b.id);
+
+        db.create_receipt(&unassigned).unwrap();
+        db.create_receipt(&receipt_a).unwrap();
+        db.create_receipt(&receipt_b).unwrap();
+
+        let results = db.get_receipts_for_vehicle(&vehicle_a.id, None).unwrap();
+
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().any(|r| r.id == unassigned.id));
+        assert!(results.iter().any(|r| r.id == receipt_a.id));
+        assert!(!results.iter().any(|r| r.id == receipt_b.id));
+    }
+
+    #[test]
+    fn test_get_receipts_for_vehicle_excludes_other_vehicles() {
+        let db = Database::in_memory().unwrap();
+
+        let vehicle_a = create_test_vehicle("Car A");
+        let vehicle_b = create_test_vehicle("Car B");
+        db.create_vehicle(&vehicle_a).unwrap();
+        db.create_vehicle(&vehicle_b).unwrap();
+
+        let mut receipt_b = Receipt::new("path.jpg".to_string(), "receipt.jpg".to_string());
+        receipt_b.vehicle_id = Some(vehicle_b.id);
+        db.create_receipt(&receipt_b).unwrap();
+
+        let results = db.get_receipts_for_vehicle(&vehicle_a.id, None).unwrap();
+
+        // Should be empty - no unassigned receipts, no receipts for vehicle A
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_get_receipts_for_vehicle_with_year_filter() {
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = create_test_vehicle("Car A");
+        db.create_vehicle(&vehicle).unwrap();
+
+        // Receipt with date in 2024
+        let mut receipt_2024 = Receipt::new_with_source_year(
+            "path1.jpg".to_string(),
+            "r1.jpg".to_string(),
+            Some(2024),
+        );
+        receipt_2024.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap());
+
+        // Receipt with date in 2025
+        let mut receipt_2025 = Receipt::new_with_source_year(
+            "path2.jpg".to_string(),
+            "r2.jpg".to_string(),
+            Some(2025),
+        );
+        receipt_2025.receipt_date = Some(NaiveDate::from_ymd_opt(2025, 6, 15).unwrap());
+
+        db.create_receipt(&receipt_2024).unwrap();
+        db.create_receipt(&receipt_2025).unwrap();
+
+        let results = db.get_receipts_for_vehicle(&vehicle.id, Some(2024)).unwrap();
+
+        assert!(results.iter().any(|r| r.id == receipt_2024.id));
+        assert!(!results.iter().any(|r| r.id == receipt_2025.id));
     }
 }
