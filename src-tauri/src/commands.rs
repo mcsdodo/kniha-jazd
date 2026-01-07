@@ -1900,16 +1900,19 @@ pub fn assign_receipt_to_trip(
     Ok(receipt.clone())
 }
 
-/// Verify receipts against trips by matching date, liters, and price.
-/// Returns verification status for each receipt in the given year.
-#[tauri::command]
-pub fn verify_receipts(
-    db: State<Database>,
-    vehicle_id: String,
+/// Internal verify_receipts logic (testable without State wrapper)
+pub fn verify_receipts_internal(
+    db: &Database,
+    vehicle_id: &str,
     year: i32,
 ) -> Result<VerificationResult, String> {
-    // Get all receipts and filter by year
-    let all_receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
+    let vehicle_uuid =
+        Uuid::parse_str(vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
+
+    // Get receipts filtered by vehicle (unassigned + this vehicle's receipts)
+    let all_receipts = db
+        .get_receipts_for_vehicle(&vehicle_uuid, Some(year))
+        .map_err(|e| e.to_string())?;
     let receipts_for_year: Vec<_> = all_receipts
         .into_iter()
         .filter(|r| {
@@ -1918,6 +1921,17 @@ pub fn verify_receipts(
                 .unwrap_or(false)
         })
         .collect();
+
+    verify_receipts_with_data(db, vehicle_id, year, receipts_for_year)
+}
+
+/// Helper to perform verification with pre-fetched receipts
+fn verify_receipts_with_data(
+    db: &Database,
+    vehicle_id: &str,
+    year: i32,
+    receipts_for_year: Vec<Receipt>,
+) -> Result<VerificationResult, String> {
 
     // Get all trips with fuel for this vehicle/year
     let trips = db
@@ -1981,6 +1995,18 @@ pub fn verify_receipts(
         unmatched: total - matched_count,
         receipts: verifications,
     })
+}
+
+/// Verify receipts against trips by matching date, liters, and price.
+/// Returns verification status for each receipt in the given year.
+/// Only considers receipts that are unassigned or assigned to this vehicle.
+#[tauri::command]
+pub fn verify_receipts(
+    db: State<Database>,
+    vehicle_id: String,
+    year: i32,
+) -> Result<VerificationResult, String> {
+    verify_receipts_internal(&db, &vehicle_id, year)
 }
 
 // ============================================================================
@@ -3053,6 +3079,83 @@ mod tests {
             *remaining <= 75.0,
             "Battery should not exceed capacity, got {}",
             remaining
+        );
+    }
+
+    // ========================================================================
+    // verify_receipts vehicle filtering tests
+    // ========================================================================
+
+    #[test]
+    fn test_verify_receipts_filters_by_vehicle() {
+        use crate::models::{Receipt, Vehicle, VehicleType};
+
+        let db = Database::in_memory().unwrap();
+
+        // Create two vehicles
+        let now = Utc::now();
+        let vehicle_a = Vehicle {
+            id: Uuid::new_v4(),
+            name: "Vehicle A".to_string(),
+            license_plate: "AA-001-AA".to_string(),
+            vehicle_type: VehicleType::Ice,
+            tank_size_liters: Some(50.0),
+            tp_consumption: Some(6.0),
+            initial_odometer: 10000.0,
+            battery_capacity_kwh: None,
+            baseline_consumption_kwh: None,
+            initial_battery_percent: None,
+            is_active: false,
+            created_at: now,
+            updated_at: now,
+        };
+        let vehicle_b = Vehicle {
+            id: Uuid::new_v4(),
+            name: "Vehicle B".to_string(),
+            license_plate: "BB-002-BB".to_string(),
+            vehicle_type: VehicleType::Ice,
+            tank_size_liters: Some(50.0),
+            tp_consumption: Some(6.0),
+            initial_odometer: 10000.0,
+            battery_capacity_kwh: None,
+            baseline_consumption_kwh: None,
+            initial_battery_percent: None,
+            is_active: false,
+            created_at: now,
+            updated_at: now,
+        };
+        db.create_vehicle(&vehicle_a).unwrap();
+        db.create_vehicle(&vehicle_b).unwrap();
+
+        // Create receipts:
+        // - 1 unassigned (should be counted for both vehicles)
+        // - 1 assigned to vehicle A
+        // - 1 assigned to vehicle B (should NOT be counted when viewing A)
+        let mut receipt_unassigned =
+            Receipt::new("path1.jpg".to_string(), "unassigned.jpg".to_string());
+        receipt_unassigned.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap());
+
+        let mut receipt_a = Receipt::new("path2.jpg".to_string(), "vehicle_a.jpg".to_string());
+        receipt_a.vehicle_id = Some(vehicle_a.id);
+        receipt_a.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 16).unwrap());
+
+        let mut receipt_b = Receipt::new("path3.jpg".to_string(), "vehicle_b.jpg".to_string());
+        receipt_b.vehicle_id = Some(vehicle_b.id);
+        receipt_b.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 17).unwrap());
+
+        db.create_receipt(&receipt_unassigned).unwrap();
+        db.create_receipt(&receipt_a).unwrap();
+        db.create_receipt(&receipt_b).unwrap();
+
+        // Verify receipts for vehicle A
+        let result = verify_receipts_internal(&db, &vehicle_a.id.to_string(), 2024).unwrap();
+
+        // Should only count unassigned + vehicle A's receipts = 2
+        // Vehicle B's receipt should NOT be included
+        assert_eq!(
+            result.total, 2,
+            "Expected 2 receipts (unassigned + vehicle A), got {}",
+            result.total
         );
     }
 }
