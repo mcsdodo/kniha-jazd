@@ -86,3 +86,61 @@
 - Integration between `verifyReceipts` and vehicle-filtered receipts
 - Interaction between year filtering and vehicle filtering
 - Potential Tauri IPC serialization issues
+
+---
+
+## Iteration 2
+
+### New Findings
+
+#### Critical
+
+No new critical findings.
+
+#### Important
+
+1. **[Important] Missing database index on `vehicle_id` (Performance)**
+
+   The schema in `db.rs` (lines 114-116) creates indexes on `status`, `trip_id`, and `receipt_date`, but NOT on `vehicle_id`. The new query `WHERE (vehicle_id IS NULL OR vehicle_id = ?1)` will cause full table scans.
+
+   **Fix needed:** Add `CREATE INDEX IF NOT EXISTS idx_receipts_vehicle ON receipts(vehicle_id);`
+
+2. **[Important] Doklady page does NOT re-fetch on vehicle change (Functionality)**
+
+   In `doklady/+page.svelte` (lines 58-67), the `$effect` only watches `$selectedYearStore`, NOT `$activeVehicleStore`. When user switches vehicles, receipts won't reload automatically.
+
+   **Fix needed:** Add `$activeVehicleStore` to the effect dependencies in Task 4.
+
+3. **[Important] Badge count inconsistency with `verify_receipts` (UX)**
+
+   `verify_receipts` in `commands.rs` (lines 1897-1906) fetches ALL receipts and filters only by year, not vehicle. After plan's changes:
+   - Doklady shows filtered receipts (e.g., 2)
+   - Badge shows ALL receipts count (e.g., 5)
+
+   **Fix needed:** Update `ReceiptIndicator` to use new `getReceiptsForVehicle` or update `verify_receipts` command.
+
+4. **[Important] Missing error handling for non-existent vehicle_id**
+
+   Task 2's command handles invalid UUID format, but not the case where vehicle_id is valid but doesn't exist. Behavior is acceptable (returns empty vec) but should be documented.
+
+#### Minor
+
+1. **[Minor] Source year filtering inconsistency**
+
+   Plan's SQL handles `source_year` for year filtering, but `verify_receipts` only filters by `receipt_date.year()`, ignoring `source_year`. Could cause inconsistent counts.
+
+2. **[Minor] No handling of concurrent vehicle switching**
+
+   Rapid vehicle switches could cause race conditions in `loadReceipts()` calls. Low priority as unlikely in practice.
+
+### Coverage Assessment
+
+**Newly reviewed:**
+- Database schema and indexes
+- Svelte reactivity patterns in Doklady page
+- Store synchronization between components
+- `verify_receipts` command behavior
+
+**Remaining areas:**
+- Tauri IPC edge cases (low priority)
+- Concurrent request handling (low priority)
