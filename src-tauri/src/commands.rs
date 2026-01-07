@@ -1686,6 +1686,20 @@ pub fn get_receipts(db: State<Database>, year: Option<i32>) -> Result<Vec<Receip
     }
 }
 
+/// Get receipts filtered by vehicle - returns unassigned receipts + receipts for specified vehicle.
+/// Optionally filter by year.
+#[tauri::command]
+pub fn get_receipts_for_vehicle(
+    db: State<Database>,
+    vehicle_id: String,
+    year: Option<i32>,
+) -> Result<Vec<Receipt>, String> {
+    let vehicle_uuid =
+        Uuid::parse_str(&vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
+    db.get_receipts_for_vehicle(&vehicle_uuid, year)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
     db.get_unassigned_receipts().map_err(|e| e.to_string())
