@@ -10,6 +10,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * Get specs based on TIER environment variable
+ * - TIER=1: Run tier1 + existing (fast, critical tests for PRs)
+ * - TIER=2: Run tier1 + tier2 + existing
+ * - TIER=3 or unset: Run all tiers
+ */
+function getSpecs(): string[] {
+  const tier = process.env.TIER;
+
+  if (tier === '1') {
+    return ['./specs/tier1/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
+  } else if (tier === '2') {
+    return ['./specs/tier1/**/*.spec.ts', './specs/tier2/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
+  }
+  // Default: run all specs
+  return ['./specs/**/*.spec.ts'];
+}
+
+/**
  * Get the path to the test database
  */
 export function getTestDbPath(): string {
@@ -72,7 +90,7 @@ export const config: any = {
     }
   },
 
-  specs: ['./specs/**/*.spec.ts'],
+  specs: getSpecs(),
   exclude: [],
 
   maxInstances: 1, // Tauri apps run one at a time
@@ -100,7 +118,7 @@ export const config: any = {
 
   mochaOpts: {
     ui: 'bdd',
-    timeout: 60000,
+    timeout: 30000, // 30s per test - most tests should complete within 10s
   },
 
   /**
