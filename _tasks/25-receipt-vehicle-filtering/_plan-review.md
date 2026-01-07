@@ -2,7 +2,7 @@
 
 **Target:** `_tasks/25-receipt-vehicle-filtering/02-plan.md`
 **Started:** 2026-01-07
-**Status:** In Progress
+**Status:** Complete
 **Focus:** Completeness, feasibility, clarity
 
 ## Iteration 1
@@ -284,3 +284,43 @@ No new important findings (duplicates of iterations 1-3).
 2. Correct method name in implementation
 3. Add vehicle deletion cascade/cleanup logic
 4. Add Doklady reactivity to vehicle changes
+
+---
+
+## Resolution
+
+**Addressed:** 16 findings (4 Critical, 12 Important)
+**Skipped:** 8 findings (all Minor - user decision)
+**Status:** Complete
+
+### Applied Changes
+
+#### Critical
+1. **Test helper functions** → Rewrote tests to use `Database::in_memory()`, `create_test_vehicle()`, `Receipt::new()` patterns
+2. **Wrong method name** → Changed `map_receipt_row` to `row_to_receipt` in implementation
+3. **FK constraint blocks deletion** → Added Task 2b: Vehicle deletion cleanup (unassign receipts before delete)
+4. **Orphaned receipts** → Covered by Task 2b cleanup logic
+
+#### Important
+1. **Test file location** → Changed to `src-tauri/src/db_tests.rs` per CLAUDE.md convention
+2. **ReceiptIndicator NOT no-op** → Rewrote Task 5 with explicit vehicle filtering requirement
+3. **filteredReceipts interaction** → Added clarification note in Task 4 Step 3
+4. **No active vehicle edge case** → Handled in Task 4 Step 1 (`if (!vehicle) receipts = []`)
+5. **i18n key not used** → Updated Task 6 to use `$LL.app.noVehicles()` with translation keys
+6. **Auto-select breaks parallel loading** → Rewrote Task 7 to preserve `Promise.all` pattern
+7. **Missing database index** → Added Step 0 in Task 1 to create index
+8. **Doklady no re-fetch on vehicle change** → Added Step 2 in Task 4 with `$activeVehicleStore` dependency
+9. **Badge count inconsistency** → Addressed in Task 5 by using `getReceiptsForVehicle`
+10. **Error handling for non-existent vehicle_id** → Acceptable behavior (returns empty vec)
+11. **No loading state during vehicle switch** → Added `loading = true` in Task 4 and Task 5
+12. **ReceiptIndicator needs vehicle filtering** → Explicitly added in Task 5 Steps 1-3
+
+### Skipped Items (Minor)
+- Year parameter handling - low risk, TypeScript/Tauri IPC handles correctly
+- Commit message style - cosmetic
+- Missing Uuid import mention - already imported in codebase
+- Duplicate year filtering SQL - acceptable duplication for clarity
+- Manual testing steps vague - sufficient for developer guidance
+- Source year filtering inconsistency - edge case, low impact
+- Concurrent vehicle switching race - unlikely in practice
+- Auto-select missing year reset - added to Task 7
