@@ -400,9 +400,13 @@ impl Database {
             "UPDATE vehicles
              SET name = :name,
                  license_plate = :license_plate,
+                 vehicle_type = :vehicle_type,
                  tank_size_liters = :tank_size_liters,
                  tp_consumption = :tp_consumption,
                  initial_odometer = :initial_odometer,
+                 battery_capacity_kwh = :battery_capacity_kwh,
+                 baseline_consumption_kwh = :baseline_consumption_kwh,
+                 initial_battery_percent = :initial_battery_percent,
                  is_active = :is_active,
                  updated_at = :updated_at
              WHERE id = :id",
@@ -410,9 +414,13 @@ impl Database {
                 ":id": vehicle.id.to_string(),
                 ":name": vehicle.name,
                 ":license_plate": vehicle.license_plate,
+                ":vehicle_type": vehicle_type_to_string(&vehicle.vehicle_type),
                 ":tank_size_liters": vehicle.tank_size_liters,
                 ":tp_consumption": vehicle.tp_consumption,
                 ":initial_odometer": vehicle.initial_odometer,
+                ":battery_capacity_kwh": vehicle.battery_capacity_kwh,
+                ":baseline_consumption_kwh": vehicle.baseline_consumption_kwh,
+                ":initial_battery_percent": vehicle.initial_battery_percent,
                 ":is_active": vehicle.is_active,
                 ":updated_at": vehicle.updated_at.to_rfc3339(),
             },
@@ -1312,6 +1320,34 @@ mod tests {
         let receipts = db.get_all_receipts().unwrap();
         assert_eq!(receipts.len(), 1);
         assert!(receipts[0].vehicle_id.is_none());
+    }
+
+    #[test]
+    fn test_update_vehicle_can_change_type_when_no_trips() {
+        let db = Database::in_memory().unwrap();
+
+        // Create ICE vehicle
+        let mut vehicle = create_test_vehicle("Test Car");
+        assert_eq!(vehicle.vehicle_type, VehicleType::Ice);
+        db.create_vehicle(&vehicle).unwrap();
+
+        // Change type to BEV (no trips exist)
+        vehicle.vehicle_type = VehicleType::Bev;
+        vehicle.battery_capacity_kwh = Some(75.0);
+        vehicle.baseline_consumption_kwh = Some(18.0);
+        vehicle.initial_battery_percent = Some(100.0);
+        vehicle.tank_size_liters = None;
+        vehicle.tp_consumption = None;
+        db.update_vehicle(&vehicle).unwrap();
+
+        // Verify type was changed
+        let updated = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+        assert_eq!(
+            updated.vehicle_type,
+            VehicleType::Bev,
+            "Vehicle type should be BEV after update"
+        );
+        assert_eq!(updated.battery_capacity_kwh, Some(75.0));
     }
 
     // Helper to create test trips
