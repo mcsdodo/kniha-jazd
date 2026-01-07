@@ -14,6 +14,7 @@ import {
   seedVehicle,
   seedTrip,
   getTripGridData,
+  setActiveVehicle,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -104,9 +105,8 @@ describe('Tier 1: Year Handling', () => {
         purpose: TripPurposes.delivery,
       });
 
-      // Refresh to see the trips
-      await browser.refresh();
-      await waitForAppReady();
+      // Set this vehicle as active so the year picker shows its years
+      await setActiveVehicle(vehicle.id as string);
 
       // Verify we can see the year picker
       const yearPicker = await $(Nav.yearPicker);

@@ -408,6 +408,20 @@ export async function getActiveVehicle(): Promise<Vehicle | null> {
 }
 
 /**
+ * Set a vehicle as the active vehicle
+ * @param vehicleId The ID of the vehicle to set as active
+ */
+export async function setActiveVehicle(vehicleId: string): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  await invokeTauri<void>('set_active_vehicle', { id: vehicleId });
+  await browser.refresh();
+  await waitForAppReady();
+}
+
+/**
  * Get trip grid data for a vehicle and year
  * Returns raw snake_case format from Rust/Tauri
  */

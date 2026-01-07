@@ -16,6 +16,7 @@ import {
   seedVehicle,
   seedTrip,
   getTripGridData,
+  setActiveVehicle,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -60,7 +61,8 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       });
 
       // Trip 2: Refuel with consumption 6.5 l/100km (under TP rate of 7.0)
-      // 6.5 liters for 100km = 6.5 l/100km
+      // Period: 100km (trip1) + 50km (trip2) = 150km total
+      // Rate = (fuel / km) * 100 = (9.75 / 150) * 100 = 6.5 l/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
         date: `${year}-01-15`,
@@ -69,8 +71,8 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
         distanceKm: 50,
         odometer: 10150,
         purpose: TripPurposes.business,
-        fuelLiters: 6.5,
-        fuelCostEur: 9.75,
+        fuelLiters: 9.75, // For 150km total: (9.75/150)*100 = 6.5 l/100km
+        fuelCostEur: 14.63,
         fullTank: true,
       });
 
@@ -154,7 +156,8 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
 
       // Trip 2: Refuel with consumption 8.5 l/100km (over 20% margin)
       // TP rate: 7.0, Legal limit: 8.4, Actual: 8.5 (21.4% over)
-      // 8.5 liters for 100km = 8.5 l/100km
+      // Period: 100km (trip1) + 50km (trip2) = 150km total
+      // Rate = (fuel / km) * 100 = (12.75 / 150) * 100 = 8.5 l/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
         date: `${year}-02-15`,
@@ -163,14 +166,13 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
         distanceKm: 50,
         odometer: 20150,
         purpose: TripPurposes.business,
-        fuelLiters: 8.5,
-        fuelCostEur: 12.75,
+        fuelLiters: 12.75, // For 150km total: (12.75/150)*100 = 8.5 l/100km
+        fuelCostEur: 19.13,
         fullTank: true,
       });
 
-      // Refresh to see the trips in UI
-      await browser.refresh();
-      await waitForAppReady();
+      // Ensure this vehicle is active (tests share DB, first test's vehicle may still be active)
+      await setActiveVehicle(vehicle.id as string);
 
       // Get grid data via IPC to verify calculations
       const gridData = await getTripGridData(vehicle.id as string, year);

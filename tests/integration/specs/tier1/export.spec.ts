@@ -16,6 +16,7 @@ import {
   seedTrip,
   seedSettings,
   getTripGridData,
+  setActiveVehicle,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -235,9 +236,8 @@ describe('Tier 1: Export', () => {
         purpose: TripPurposes.conference,
       });
 
-      // Refresh to see the trips
-      await browser.refresh();
-      await waitForAppReady();
+      // Set this vehicle as active and refresh to see the trips
+      await setActiveVehicle(vehicle.id as string);
 
       // Verify totals via grid data first
       const gridData = await getTripGridData(vehicle.id as string, year);

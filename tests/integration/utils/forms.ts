@@ -82,7 +82,36 @@ export async function clickButtonByText(text: string): Promise<void> {
 // =============================================================================
 
 /**
+ * Wait for a specific year to be available in the year picker
+ * This is useful after seeding data when the year picker options may need to refresh
+ */
+export async function waitForYearOption(year: number, timeout = 10000): Promise<void> {
+  await browser.waitUntil(
+    async () => {
+      const yearPicker = await $(Nav.yearPicker);
+      const exists = await yearPicker.isExisting();
+      if (!exists) return false;
+
+      const options = await yearPicker.$$('option');
+      for (const option of options) {
+        const value = await option.getAttribute('value');
+        if (value === year.toString()) {
+          return true;
+        }
+      }
+      return false;
+    },
+    {
+      timeout,
+      timeoutMsg: `Year ${year} not available in year picker within ${timeout}ms`,
+      interval: 500,
+    }
+  );
+}
+
+/**
  * Select a specific year in the year picker
+ * Waits for the year to be available first (handles dynamic population)
  */
 export async function selectYear(year: number): Promise<void> {
   const yearPicker = await $(Nav.yearPicker);
@@ -91,6 +120,9 @@ export async function selectYear(year: number): Promise<void> {
   if (!exists) {
     throw new Error('Year picker not found on page');
   }
+
+  // Wait for the year option to be available (handles async year picker population)
+  await waitForYearOption(year);
 
   await yearPicker.selectByAttribute('value', year.toString());
   await browser.pause(500); // Wait for data to reload
