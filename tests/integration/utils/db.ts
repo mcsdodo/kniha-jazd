@@ -45,15 +45,17 @@ function generateUuid(): string {
 // =============================================================================
 
 /**
- * Tauri invoke interface (available in browser context)
+ * Tauri v2 global interface (requires withGlobalTauri: true in tauri.conf.json)
  */
-interface TauriInvoke {
-  invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
+interface TauriGlobal {
+  core: {
+    invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
+  };
 }
 
 declare global {
   interface Window {
-    __TAURI__?: TauriInvoke;
+    __TAURI__?: TauriGlobal;
   }
 }
 
@@ -68,9 +70,11 @@ declare global {
 async function ensureAppReady(): Promise<boolean> {
   try {
     await waitForAppReady();
-    // Verify Tauri is available
+    // Verify Tauri v2 core.invoke is available
     const tauriAvailable = await browser.execute(() => {
-      return typeof window.__TAURI__ !== 'undefined';
+      return typeof window.__TAURI__ !== 'undefined' &&
+             typeof window.__TAURI__.core !== 'undefined' &&
+             typeof window.__TAURI__.core.invoke === 'function';
     });
     return tauriAvailable;
   } catch {
@@ -79,7 +83,7 @@ async function ensureAppReady(): Promise<boolean> {
 }
 
 /**
- * Execute a Tauri command via browser context
+ * Execute a Tauri command via browser context (Tauri v2 API)
  */
 async function invokeTauri<T>(
   cmd: string,
@@ -87,11 +91,11 @@ async function invokeTauri<T>(
 ): Promise<T> {
   const result = await browser.execute(
     async (command: string, commandArgs: Record<string, unknown>) => {
-      if (!window.__TAURI__) {
+      if (!window.__TAURI__ || !window.__TAURI__.core) {
         throw new Error('Tauri not available in browser context');
       }
       try {
-        return await window.__TAURI__.invoke(command, commandArgs);
+        return await window.__TAURI__.core.invoke(command, commandArgs);
       } catch (e) {
         // Return error as string so it can be caught on the Node side
         throw new Error(`Tauri command '${command}' failed: ${e}`);
@@ -101,24 +105,6 @@ async function invokeTauri<T>(
     args
   );
   return result as T;
-}
-
-/**
- * Convert camelCase to snake_case for Tauri command parameters
- */
-function toSnakeCase(str: string): string {
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
-
-/**
- * Convert an object's keys from camelCase to snake_case
- */
-function keysToSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    result[toSnakeCase(key)] = value;
-  }
-  return result;
 }
 
 // =============================================================================
@@ -152,17 +138,17 @@ export async function seedVehicle(data: SeedVehicleData): Promise<Vehicle> {
     throw new Error('App not ready for seeding');
   }
 
-  // Convert to snake_case for Rust command
+  // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
   const args = {
     name: data.name,
-    license_plate: data.licensePlate,
-    initial_odometer: data.initialOdometer,
-    vehicle_type: data.vehicleType || 'Ice',
-    tank_size_liters: data.tankSizeLiters,
-    tp_consumption: data.tpConsumption,
-    battery_capacity_kwh: data.batteryCapacityKwh,
-    baseline_consumption_kwh: data.baselineConsumptionKwh,
-    initial_battery_percent: data.initialBatteryPercent,
+    licensePlate: data.licensePlate,
+    initialOdometer: data.initialOdometer,
+    vehicleType: data.vehicleType || 'Ice',
+    tankSizeLiters: data.tankSizeLiters,
+    tpConsumption: data.tpConsumption,
+    batteryCapacityKwh: data.batteryCapacityKwh,
+    baselineConsumptionKwh: data.baselineConsumptionKwh,
+    initialBatteryPercent: data.initialBatteryPercent,
   };
 
   const vehicle = await invokeTauri<Vehicle>('create_vehicle', args);
@@ -232,25 +218,25 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
     throw new Error('App not ready for seeding');
   }
 
-  // Convert to snake_case for Rust command
+  // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
   const args = {
-    vehicle_id: data.vehicleId,
+    vehicleId: data.vehicleId,
     date: data.date,
     origin: data.origin,
     destination: data.destination,
-    distance_km: data.distanceKm,
+    distanceKm: data.distanceKm,
     odometer: data.odometer,
     purpose: data.purpose,
-    fuel_liters: data.fuelLiters,
-    fuel_cost: data.fuelCostEur,
-    full_tank: data.fullTank,
-    energy_kwh: data.energyKwh,
-    energy_cost_eur: data.energyCostEur,
-    full_charge: data.fullCharge,
-    soc_override_percent: data.socOverridePercent,
-    other_costs: data.otherCostsEur,
-    other_costs_note: data.otherCostsNote,
-    insert_at_position: data.insertAtPosition,
+    fuelLiters: data.fuelLiters,
+    fuelCost: data.fuelCostEur,
+    fullTank: data.fullTank,
+    energyKwh: data.energyKwh,
+    energyCostEur: data.energyCostEur,
+    fullCharge: data.fullCharge,
+    socOverridePercent: data.socOverridePercent,
+    otherCosts: data.otherCostsEur,
+    otherCostsNote: data.otherCostsNote,
+    insertAtPosition: data.insertAtPosition,
   };
 
   const trip = await invokeTauri<Trip>('create_trip', args);
@@ -327,10 +313,11 @@ export async function seedSettings(data: SeedSettingsData): Promise<Settings> {
     throw new Error('App not ready for seeding');
   }
 
+  // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
   const args = {
-    company_name: data.companyName,
-    company_ico: data.companyIco,
-    buffer_trip_purpose: data.bufferTripPurpose || 'Sluzobna cesta',
+    companyName: data.companyName,
+    companyIco: data.companyIco,
+    bufferTripPurpose: data.bufferTripPurpose || 'Sluzobna cesta',
   };
 
   const settings = await invokeTauri<Settings>('save_settings', args);
@@ -433,7 +420,7 @@ export async function getTripGridData(
     throw new Error('App not ready');
   }
   return invokeTauri<TripGridDataRaw>('get_trip_grid_data', {
-    vehicle_id: vehicleId,
+    vehicleId,
     year,
   });
 }

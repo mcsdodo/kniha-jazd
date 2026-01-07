@@ -30,7 +30,7 @@ async function getSettings(): Promise<{
       throw new Error('Tauri not available');
     }
     try {
-      return await window.__TAURI__.invoke('get_settings');
+      return await window.__TAURI__.core.invoke('get_settings');
     } catch {
       return null;
     }
@@ -52,10 +52,10 @@ async function saveSettings(settings: {
       if (!window.__TAURI__) {
         throw new Error('Tauri not available');
       }
-      return await window.__TAURI__.invoke('save_settings', {
-        company_name: name,
-        company_ico: ico,
-        buffer_trip_purpose: purpose || 'Sluzobna cesta',
+      return await window.__TAURI__.core.invoke('save_settings', {
+        companyName: name,
+        companyIco: ico,
+        bufferTripPurpose: purpose || 'Sluzobna cesta',
       });
     },
     settings.companyName,
@@ -73,7 +73,7 @@ async function setLocale(locale: 'sk' | 'en'): Promise<void> {
       throw new Error('Tauri not available');
     }
     try {
-      return await window.__TAURI__.invoke('set_locale', { locale: loc });
+      return await window.__TAURI__.core.invoke('set_locale', { locale: loc });
     } catch {
       // Fallback: try using localStorage for locale preference
       localStorage.setItem('kniha-jazd-locale', loc);

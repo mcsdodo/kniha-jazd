@@ -26,7 +26,7 @@ async function createBackup(): Promise<{ id: string; filename: string; created_a
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.invoke('create_backup');
+    return await window.__TAURI__.core.invoke('create_backup');
   });
 
   return result as { id: string; filename: string; created_at: string };
@@ -41,7 +41,7 @@ async function getBackups(): Promise<Array<{ id: string; filename: string; creat
       throw new Error('Tauri not available');
     }
     try {
-      return await window.__TAURI__.invoke('get_backups');
+      return await window.__TAURI__.core.invoke('get_backups');
     } catch {
       return [];
     }
@@ -58,7 +58,7 @@ async function restoreBackup(backupId: string): Promise<void> {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.invoke('restore_backup', { backup_id: bId });
+    return await window.__TAURI__.core.invoke('restore_backup', { backupId: bId });
   }, backupId);
 }
 
@@ -70,7 +70,7 @@ async function deleteBackup(backupId: string): Promise<void> {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.invoke('delete_backup', { backup_id: bId });
+    return await window.__TAURI__.core.invoke('delete_backup', { backupId: bId });
   }, backupId);
 }
 
