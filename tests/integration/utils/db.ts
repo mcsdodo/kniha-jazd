@@ -17,6 +17,7 @@ import type {
   Trip,
   Receipt,
   Settings,
+  TripGridDataRaw,
 } from '../fixtures/types';
 import type { TestScenario } from '../fixtures/scenarios';
 import { waitForAppReady } from './app';
@@ -421,16 +422,17 @@ export async function getActiveVehicle(): Promise<Vehicle | null> {
 
 /**
  * Get trip grid data for a vehicle and year
+ * Returns raw snake_case format from Rust/Tauri
  */
 export async function getTripGridData(
   vehicleId: string,
   year: number
-): Promise<{ trips: Trip[] }> {
+): Promise<TripGridDataRaw> {
   const ready = await ensureAppReady();
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<{ trips: Trip[] }>('get_trip_grid_data', {
+  return invokeTauri<TripGridDataRaw>('get_trip_grid_data', {
     vehicle_id: vehicleId,
     year,
   });

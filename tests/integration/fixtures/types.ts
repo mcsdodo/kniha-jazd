@@ -33,7 +33,8 @@ export interface Vehicle {
 }
 
 /**
- * Trip data structure matching Rust Trip struct
+ * Trip data structure (camelCase - for TypeScript fixtures and internal use)
+ * Factory functions use this format for developer convenience
  */
 export interface Trip {
   id?: string; // UUID, generated if not provided
@@ -59,6 +60,33 @@ export interface Trip {
   sortOrder?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/**
+ * Trip data structure (snake_case - Rust/Tauri IPC response format)
+ * This is the raw format returned by Tauri commands
+ */
+export interface TripRaw {
+  id?: string;
+  vehicle_id?: string;
+  date: string;
+  origin: string;
+  destination: string;
+  distance_km: number;
+  odometer: number;
+  purpose: string;
+  fuel_liters?: number;
+  fuel_cost_eur?: number;
+  full_tank?: boolean;
+  energy_kwh?: number;
+  energy_cost_eur?: number;
+  full_charge?: boolean;
+  soc_override_percent?: number;
+  other_costs_eur?: number;
+  other_costs_note?: string;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
@@ -145,7 +173,7 @@ export interface TripStats {
 }
 
 /**
- * Pre-calculated data for trip grid display
+ * Pre-calculated data for trip grid display (camelCase version)
  */
 export interface TripGridData {
   trips: Trip[];
@@ -163,6 +191,28 @@ export interface TripGridData {
   // Shared warnings
   dateWarnings: string[];
   missingReceipts: string[];
+}
+
+/**
+ * Pre-calculated data for trip grid display (snake_case - matches Rust/Tauri IPC response)
+ * This is the raw format returned by Tauri commands
+ */
+export interface TripGridDataRaw {
+  trips: TripRaw[];
+  // Fuel data (ICE + PHEV)
+  rates: Record<string, number>;
+  estimated_rates: string[];
+  fuel_remaining: Record<string, number>;
+  consumption_warnings: string[];
+  // Energy data (BEV + PHEV)
+  energy_rates: Record<string, number>;
+  estimated_energy_rates: string[];
+  battery_remaining_kwh: Record<string, number>;
+  battery_remaining_percent: Record<string, number>;
+  soc_override_trips: string[];
+  // Shared warnings
+  date_warnings: string[];
+  missing_receipts: string[];
 }
 
 /**
