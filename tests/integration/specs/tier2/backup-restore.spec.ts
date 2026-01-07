@@ -8,7 +8,7 @@
  * - Deleting backups
  */
 
-import { waitForAppReady, navigateTo } from '../../utils/app';
+import { waitForAppReady } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
 import {
   seedVehicle,
@@ -19,9 +19,20 @@ import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 
 /**
+ * Backup info structure matching Rust BackupInfo struct
+ */
+interface BackupInfo {
+  filename: string;
+  created_at: string;
+  size_bytes: number;
+  vehicle_count: number;
+  trip_count: number;
+}
+
+/**
  * Create a backup via Tauri IPC
  */
-async function createBackup(): Promise<{ id: string; filename: string; created_at: string }> {
+async function createBackup(): Promise<BackupInfo> {
   const result = await browser.execute(async () => {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
@@ -29,49 +40,52 @@ async function createBackup(): Promise<{ id: string; filename: string; created_a
     return await window.__TAURI__.core.invoke('create_backup');
   });
 
-  return result as { id: string; filename: string; created_at: string };
+  return result as BackupInfo;
 }
 
 /**
  * Get list of backups via Tauri IPC
+ * Note: The actual Tauri command is 'list_backups', not 'get_backups'
  */
-async function getBackups(): Promise<Array<{ id: string; filename: string; created_at: string; size_bytes: number }>> {
+async function listBackups(): Promise<BackupInfo[]> {
   const result = await browser.execute(async () => {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
     try {
-      return await window.__TAURI__.core.invoke('get_backups');
+      return await window.__TAURI__.core.invoke('list_backups');
     } catch {
       return [];
     }
   });
 
-  return result as Array<{ id: string; filename: string; created_at: string; size_bytes: number }>;
+  return result as BackupInfo[];
 }
 
 /**
  * Restore from backup via Tauri IPC
+ * Note: The Tauri command uses 'filename' parameter, not 'backupId'
  */
-async function restoreBackup(backupId: string): Promise<void> {
-  await browser.execute(async (bId: string) => {
+async function restoreBackup(filename: string): Promise<void> {
+  await browser.execute(async (fname: string) => {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.core.invoke('restore_backup', { backupId: bId });
-  }, backupId);
+    return await window.__TAURI__.core.invoke('restore_backup', { filename: fname });
+  }, filename);
 }
 
 /**
  * Delete a backup via Tauri IPC
+ * Note: The Tauri command uses 'filename' parameter, not 'backupId'
  */
-async function deleteBackup(backupId: string): Promise<void> {
-  await browser.execute(async (bId: string) => {
+async function deleteBackup(filename: string): Promise<void> {
+  await browser.execute(async (fname: string) => {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.core.invoke('delete_backup', { backupId: bId });
-  }, backupId);
+    return await window.__TAURI__.core.invoke('delete_backup', { filename: fname });
+  }, filename);
 }
 
 describe('Tier 2: Backup & Restore', () => {
@@ -117,46 +131,22 @@ describe('Tier 2: Backup & Restore', () => {
       });
 
       // Get initial backup count
-      const initialBackups = await getBackups();
+      const initialBackups = await listBackups();
       const initialCount = initialBackups.length;
 
-      // Navigate to backups page
-      await navigateTo('backups');
-      await browser.pause(500);
+      // Create backup via IPC directly (no UI page for backups exists)
+      const backup = await createBackup();
 
-      // Find and click create backup button
-      const createBackupBtn = await $('button*=Vytvorit');
-      if (await createBackupBtn.isExisting()) {
-        await createBackupBtn.click();
-        await browser.pause(2000); // Wait for backup to complete
+      // BackupInfo has filename, not id
+      expect(backup.filename).toBeDefined();
+      expect(backup.created_at).toBeDefined();
+      expect(backup.size_bytes).toBeGreaterThan(0);
 
-        // Verify backup was created via Tauri IPC
-        const backups = await getBackups();
-        expect(backups.length).toBe(initialCount + 1);
-
-        // Verify the new backup has correct metadata
-        const latestBackup = backups[0]; // Assuming sorted by date desc
-        expect(latestBackup.filename).toBeDefined();
-        expect(latestBackup.created_at).toBeDefined();
-        expect(latestBackup.size_bytes).toBeGreaterThan(0);
-
-        // Verify backup appears in UI
-        const body = await $('body');
-        const text = await body.getText();
-        expect(text).toContain(latestBackup.filename.substring(0, 10)); // Partial match
-      } else {
-        // Create backup via IPC directly
-        const backup = await createBackup();
-
-        expect(backup.id).toBeDefined();
-        expect(backup.filename).toBeDefined();
-        expect(backup.created_at).toBeDefined();
-
-        // Verify backup appears in list
-        const backups = await getBackups();
-        const createdBackup = backups.find((b) => b.id === backup.id);
-        expect(createdBackup).toBeDefined();
-      }
+      // Verify backup appears in list
+      const backups = await listBackups();
+      expect(backups.length).toBe(initialCount + 1);
+      const createdBackup = backups.find((b) => b.filename === backup.filename);
+      expect(createdBackup).toBeDefined();
     });
   });
 
@@ -186,7 +176,7 @@ describe('Tier 2: Backup & Restore', () => {
 
       // Create a backup with current state
       const backup = await createBackup();
-      expect(backup.id).toBeDefined();
+      expect(backup.filename).toBeDefined();
 
       // Add more data after backup
       const additionalVehicleData = createTestIceVehicle({
@@ -210,35 +200,13 @@ describe('Tier 2: Backup & Restore', () => {
       const vehiclesAfterAdd = await getVehicles();
       expect(vehiclesAfterAdd.length).toBeGreaterThan(initialVehicleCount);
 
-      // Navigate to backups page
-      await navigateTo('backups');
-      await browser.pause(500);
+      // Restore via IPC directly (no UI page for backups exists)
+      await restoreBackup(backup.filename);
+      await browser.pause(1000);
 
-      // Find and click restore button for our backup
-      const restoreBtn = await $('button*=Obnovit');
-      if (await restoreBtn.isExisting()) {
-        await restoreBtn.click();
-        await browser.pause(300);
-
-        // Confirm restore action
-        const confirmBtn = await $('button*=Potvrdit');
-        if (await confirmBtn.isExisting()) {
-          await confirmBtn.click();
-          await browser.pause(2000); // Wait for restore to complete
-
-          // Refresh page after restore
-          await browser.refresh();
-          await waitForAppReady();
-        }
-      } else {
-        // Restore via IPC directly
-        await restoreBackup(backup.id);
-        await browser.pause(1000);
-
-        // Refresh to see changes
-        await browser.refresh();
-        await waitForAppReady();
-      }
+      // Refresh to see changes
+      await browser.refresh();
+      await waitForAppReady();
 
       // Verify data was restored - vehicle count should match initial state
       // Note: This may not work perfectly if other tests are running concurrently
@@ -267,42 +235,20 @@ describe('Tier 2: Backup & Restore', () => {
     it('should delete backup from list', async () => {
       // Create a backup to delete
       const backup = await createBackup();
-      expect(backup.id).toBeDefined();
+      expect(backup.filename).toBeDefined();
 
       // Get initial backup count
-      const initialBackups = await getBackups();
+      const initialBackups = await listBackups();
       const initialCount = initialBackups.length;
 
-      // Navigate to backups page
-      await navigateTo('backups');
-      await browser.pause(500);
+      // Delete via IPC directly (no UI page for backups exists)
+      await deleteBackup(backup.filename);
 
-      // Find and click delete button for the backup
-      const deleteBtn = await $('button*=Vymazat');
-      if (await deleteBtn.isExisting()) {
-        await deleteBtn.click();
-        await browser.pause(300);
-
-        // Confirm deletion
-        const confirmBtn = await $('button*=Potvrdit');
-        if (await confirmBtn.isExisting()) {
-          await confirmBtn.click();
-          await browser.pause(1000);
-        }
-
-        // Verify backup was deleted
-        const remainingBackups = await getBackups();
-        expect(remainingBackups.length).toBe(initialCount - 1);
-      } else {
-        // Delete via IPC directly
-        await deleteBackup(backup.id);
-
-        // Verify deletion
-        const remainingBackups = await getBackups();
-        const deletedBackup = remainingBackups.find((b) => b.id === backup.id);
-        expect(deletedBackup).toBeUndefined();
-        expect(remainingBackups.length).toBe(initialCount - 1);
-      }
+      // Verify deletion
+      const remainingBackups = await listBackups();
+      const deletedBackup = remainingBackups.find((b) => b.filename === backup.filename);
+      expect(deletedBackup).toBeUndefined();
+      expect(remainingBackups.length).toBe(initialCount - 1);
     });
   });
 });

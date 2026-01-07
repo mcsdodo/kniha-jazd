@@ -20,7 +20,7 @@ export const Nav = {
   backupsLink: 'a[href="/backups"]',
 
   /** Year picker */
-  yearPicker: '#year-picker',
+  yearPicker: '#year-select',
   yearOption: (year: number) => `option[value="${year}"]`,
 } as const;
 
