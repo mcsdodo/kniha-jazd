@@ -588,7 +588,6 @@ export function createNeedsCompensationScenario(
 // Re-export types and factories for convenience
 // =============================================================================
 
-export type { TestScenario };
 export {
   createSkodaOctavia,
   createSkodaEnyaq,

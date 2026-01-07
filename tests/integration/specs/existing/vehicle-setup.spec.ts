@@ -7,7 +7,7 @@
  * Tests use unique identifiers to prevent data collisions.
  */
 
-import { waitForAppReady, navigateTo } from '../utils/app';
+import { waitForAppReady, navigateTo } from '../../utils/app';
 
 /**
  * Generate a unique test ID to prevent data collisions between test runs

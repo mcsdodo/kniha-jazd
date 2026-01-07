@@ -6,8 +6,52 @@
  * Tests use unique identifiers to prevent data collisions.
  */
 
-import { waitForAppReady, navigateTo } from '../utils/app';
-import { createBevVehicleViaUI, testBevVehicle } from '../fixtures/seed-data';
+import { waitForAppReady, navigateTo } from '../../utils/app';
+
+/**
+ * Helper to create a BEV vehicle via UI interactions
+ */
+async function createBevVehicleViaUI(options: { name: string; licensePlate: string }): Promise<void> {
+  // Navigate to settings
+  const settingsLink = await $('a[href="/settings"]');
+  await settingsLink.click();
+  await browser.pause(500);
+
+  // Open add vehicle modal
+  const addVehicleBtn = await $('button*=vozidlo');
+  if (await addVehicleBtn.isDisplayed()) {
+    await addVehicleBtn.click();
+    await browser.pause(300);
+
+    // Fill basic info
+    const nameInput = await $('#name');
+    await nameInput.setValue(options.name);
+
+    const plateInput = await $('#license-plate');
+    await plateInput.setValue(options.licensePlate);
+
+    // Select BEV
+    const typeDropdown = await $('#vehicle-type');
+    await typeDropdown.selectByAttribute('value', 'Bev');
+    await browser.pause(300);
+
+    // Fill ODO
+    const odometerInput = await $('#initial-odometer');
+    await odometerInput.setValue('5000');
+
+    // Fill battery fields
+    const batteryCapacity = await $('#battery-capacity');
+    await batteryCapacity.setValue('75');
+
+    const baselineConsumption = await $('#baseline-consumption');
+    await baselineConsumption.setValue('18');
+
+    // Save
+    const saveBtn = await $('button*=Uložiť');
+    await saveBtn.click();
+    await browser.pause(1000);
+  }
+}
 
 /**
  * Generate a unique test ID to prevent data collisions between test runs
