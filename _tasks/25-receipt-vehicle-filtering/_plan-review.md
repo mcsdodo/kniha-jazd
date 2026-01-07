@@ -144,3 +144,52 @@ No new critical findings.
 **Remaining areas:**
 - Tauri IPC edge cases (low priority)
 - Concurrent request handling (low priority)
+
+---
+
+## Iteration 3
+
+### New Findings
+
+#### Critical
+
+1. **[Critical] Foreign Key Constraint blocks vehicle deletion (Data Integrity)**
+
+   The `receipts` table has `FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)` (db.rs:111) but NO cascade behavior. When a vehicle is deleted:
+   - `delete_vehicle()` just runs `DELETE FROM vehicles WHERE id = ?1`
+   - This will FAIL if any receipts have that `vehicle_id` assigned
+
+   Plan Task 7 (lines 352-359) tries to handle "deleted vehicle" case, but deletion itself will error first.
+
+   **Fix needed:** Either:
+   - Add `ON DELETE SET NULL` to FK constraint in migration, OR
+   - Add manual cleanup: `UPDATE receipts SET vehicle_id = NULL WHERE vehicle_id = ?` before vehicle deletion
+
+2. **[Critical] Orphaned receipts after vehicle deletion scenario**
+
+   If FK constraint is bypassed/changed, receipts with `vehicle_id` pointing to non-existent vehicle become orphaned:
+   - They won't appear in ANY vehicle's filtered view (not NULL, not matching)
+   - Users lose access to these receipts entirely
+
+   **Fix needed:** Add cleanup query or ensure receipts are unassigned before vehicle deletion.
+
+#### Important
+
+1. **[Important] No loading state during vehicle switch (UX)**
+
+   When vehicle changes trigger `loadReceipts()`, there's no explicit `loading = true` set. Users may briefly see stale receipts from previous vehicle.
+
+   **Fix needed:** Ensure all triggers of `loadReceipts()` set loading state first.
+
+#### Minor
+
+No new minor findings.
+
+### Coverage Assessment
+
+**Newly reviewed:**
+- Vehicle deletion scenarios and FK constraints
+- Orphaned data handling
+- UI loading states during transitions
+
+**Review comprehensive:** All critical code paths examined.
