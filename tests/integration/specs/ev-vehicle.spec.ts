@@ -3,10 +3,18 @@
  *
  * Tests the BEV/PHEV vehicle creation and management flow.
  * Each test is independent and sets up its own preconditions.
+ * Tests use unique identifiers to prevent data collisions.
  */
 
 import { waitForAppReady, navigateTo } from '../utils/app';
 import { createBevVehicleViaUI, testBevVehicle } from '../fixtures/seed-data';
+
+/**
+ * Generate a unique test ID to prevent data collisions between test runs
+ */
+function uniqueTestId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+}
 
 describe('Electric Vehicle Support', () => {
   beforeEach(async () => {
@@ -92,6 +100,11 @@ describe('Electric Vehicle Support', () => {
   });
 
   it('should create a BEV vehicle successfully', async () => {
+    // Generate unique identifiers for this test run
+    const testId = uniqueTestId();
+    const vehicleName = `Tesla Model 3 ${testId}`;
+    const licensePlate = `EV-${testId.substring(0, 7)}`;
+
     // Navigate to settings
     const settingsLink = await $('a[href="/settings"]');
     await settingsLink.click();
@@ -103,12 +116,12 @@ describe('Electric Vehicle Support', () => {
       await addVehicleBtn.click();
       await browser.pause(300);
 
-      // Fill basic info
+      // Fill basic info with unique values
       const nameInput = await $('#name');
-      await nameInput.setValue('Tesla Model 3');
+      await nameInput.setValue(vehicleName);
 
       const plateInput = await $('#license-plate');
-      await plateInput.setValue('EV-TEST');
+      await plateInput.setValue(licensePlate);
 
       // Select BEV
       const typeDropdown = await $('#vehicle-type');
@@ -137,16 +150,19 @@ describe('Electric Vehicle Support', () => {
       // Verify vehicle was created - look for the name in the list
       const body = await $('body');
       const text = await body.getText();
-      expect(text).toContain('Tesla Model 3');
+      expect(text).toContain(vehicleName);
       expect(text).toContain('BEV');
     }
   });
 
   it('should show BEV badge in vehicle list', async () => {
+    // Generate unique identifiers for this test run
+    const testId = uniqueTestId();
+
     // Create a BEV vehicle first (each test is independent)
     await createBevVehicleViaUI({
-      name: 'Badge Test BEV',
-      licensePlate: 'BADGE-BEV'
+      name: `Badge Test BEV ${testId}`,
+      licensePlate: `B-${testId.substring(0, 7)}`
     });
 
     // Look for the BEV badge in the vehicle list
@@ -157,10 +173,14 @@ describe('Electric Vehicle Support', () => {
   });
 
   it('should block vehicle type change when trips exist', async () => {
+    // Generate unique identifiers for this test run
+    const testId = uniqueTestId();
+    const vehicleName = `Type Change Test BEV ${testId}`;
+
     // Create a BEV vehicle first (each test is independent)
     await createBevVehicleViaUI({
-      name: 'Type Change Test BEV',
-      licensePlate: 'TYPE-CHG'
+      name: vehicleName,
+      licensePlate: `T-${testId.substring(0, 7)}`
     });
 
     // Note: This test verifies the UI behavior for editing a vehicle.

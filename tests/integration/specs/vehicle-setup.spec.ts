@@ -4,9 +4,17 @@
  * Tests the core flow of creating a vehicle and verifying it appears in the app.
  * This is the proof-of-concept test to verify the integration test setup works.
  * Each test is independent and sets up its own preconditions.
+ * Tests use unique identifiers to prevent data collisions.
  */
 
 import { waitForAppReady, navigateTo } from '../utils/app';
+
+/**
+ * Generate a unique test ID to prevent data collisions between test runs
+ */
+function uniqueTestId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+}
 
 describe('Vehicle Setup', () => {
   beforeEach(async () => {
@@ -45,6 +53,11 @@ describe('Vehicle Setup', () => {
   });
 
   it('should create a new vehicle', async () => {
+    // Generate unique identifiers for this test run
+    const testId = uniqueTestId();
+    const vehicleName = `Test Auto E2E ${testId}`;
+    const licensePlate = `E2E-${testId.substring(0, 7)}`;
+
     // Navigate to settings page first (each test is independent)
     await navigateTo('settings');
 
@@ -56,15 +69,15 @@ describe('Vehicle Setup', () => {
       await addVehicleBtn.click();
       await browser.pause(300);
 
-      // Fill in vehicle details
+      // Fill in vehicle details with unique values
       const nameInput = await $('input[name="name"], #name, input[placeholder*="názov"]');
       if (await nameInput.isDisplayed()) {
-        await nameInput.setValue('Test Auto E2E');
+        await nameInput.setValue(vehicleName);
       }
 
       const plateInput = await $('input[name="licensePlate"], #licensePlate, input[placeholder*="EČV"]');
       if (await plateInput.isDisplayed()) {
-        await plateInput.setValue('E2E-TEST');
+        await plateInput.setValue(licensePlate);
       }
 
       const tankInput = await $('input[name="tankSize"], #tankSize');
@@ -91,7 +104,7 @@ describe('Vehicle Setup', () => {
         // Verify vehicle was created - should see vehicle name somewhere
         const body = await $('body');
         const text = await body.getText();
-        expect(text).toContain('Test Auto E2E');
+        expect(text).toContain(vehicleName);
       }
     } else {
       // If no add button, maybe vehicles already exist or different UI state
