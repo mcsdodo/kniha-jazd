@@ -72,6 +72,7 @@ pub fn run() {
       commands::export_to_browser,
       commands::get_receipt_settings,
       commands::get_receipts,
+      commands::get_receipts_for_vehicle,
       commands::get_unassigned_receipts,
       commands::scan_receipts,
       commands::sync_receipts,
