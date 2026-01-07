@@ -119,9 +119,12 @@ jobs:
       - name: Build Tauri app (debug)
         run: npm run tauri build -- --debug
 
-      - name: Run integration tests
+      - name: Run integration tests (Tier 1 for PRs, all for main)
         env:
           TAURI_BINARY: ${{ matrix.binary }}
+          # PRs: Run only tier1 tests (fast, critical)
+          # Main branch: Run all tiers
+          TIER: ${{ github.event_name == 'pull_request' && '1' || '' }}
         run: npm run test:integration
 
       - name: Upload test screenshots

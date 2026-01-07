@@ -8,7 +8,7 @@
 import { waitForAppReady, fillField, clickButton } from '../utils/app';
 
 /**
- * Default test vehicle data
+ * Default test vehicle data (ICE vehicle)
  */
 export const testVehicle = {
   name: 'Test Vehicle',
@@ -16,6 +16,18 @@ export const testVehicle = {
   tankSize: 50,
   tpConsumption: 7.0,
   initialOdometer: 10000
+};
+
+/**
+ * Default test BEV (Battery Electric Vehicle) data
+ */
+export const testBevVehicle = {
+  name: 'Test BEV',
+  licensePlate: 'BEV-123',
+  batteryCapacity: 75,
+  baselineConsumption: 18,
+  initialOdometer: 5000,
+  initialBattery: 90
 };
 
 /**
@@ -30,6 +42,15 @@ export const testTrip = {
 };
 
 /**
+ * Navigate to settings page if not already there
+ */
+export async function navigateToSettings(): Promise<void> {
+  const settingsLink = await $('a[href="/settings"]');
+  await settingsLink.click();
+  await browser.pause(500);
+}
+
+/**
  * Create a vehicle through the UI
  * Returns when vehicle is created and visible
  */
@@ -38,11 +59,15 @@ export async function createVehicleViaUI(options: Partial<typeof testVehicle> = 
 
   await waitForAppReady();
 
+  // Navigate to settings first
+  await navigateToSettings();
+
   // Click "Pridať vozidlo" or similar button
   const addButton = await $('button*=vozidlo');
   if (await addButton.isDisplayed()) {
     await addButton.click();
   }
+  await browser.pause(300);
 
   // Fill in the vehicle form
   await fillField('input[name="name"], #name', data.name);
@@ -56,6 +81,59 @@ export async function createVehicleViaUI(options: Partial<typeof testVehicle> = 
 
   // Wait for vehicle to appear
   await browser.pause(500);
+}
+
+/**
+ * Create a BEV (Battery Electric Vehicle) through the UI
+ * Returns when vehicle is created and visible
+ */
+export async function createBevVehicleViaUI(options: Partial<typeof testBevVehicle> = {}): Promise<void> {
+  const data = { ...testBevVehicle, ...options };
+
+  await waitForAppReady();
+
+  // Navigate to settings first
+  await navigateToSettings();
+
+  // Click "Pridať vozidlo" or similar button
+  const addButton = await $('button*=vozidlo');
+  if (await addButton.isDisplayed()) {
+    await addButton.click();
+  }
+  await browser.pause(300);
+
+  // Fill basic info
+  const nameInput = await $('#name');
+  await nameInput.setValue(data.name);
+
+  const plateInput = await $('#license-plate');
+  await plateInput.setValue(data.licensePlate);
+
+  // Select BEV vehicle type
+  const typeDropdown = await $('#vehicle-type');
+  await typeDropdown.selectByAttribute('value', 'Bev');
+  await browser.pause(300);
+
+  // Fill ODO
+  const odometerInput = await $('#initial-odometer');
+  await odometerInput.setValue(data.initialOdometer.toString());
+
+  // Fill battery fields
+  const batteryCapacity = await $('#battery-capacity');
+  await batteryCapacity.setValue(data.batteryCapacity.toString());
+
+  const baselineConsumption = await $('#baseline-consumption');
+  await baselineConsumption.setValue(data.baselineConsumption.toString());
+
+  const initialBattery = await $('#initial-battery');
+  await initialBattery.setValue(data.initialBattery.toString());
+
+  // Submit the form
+  const saveBtn = await $('button*=Uložiť');
+  await saveBtn.click();
+
+  // Wait for vehicle to appear
+  await browser.pause(1000);
 }
 
 /**
