@@ -39,4 +39,7 @@ test-results/
 playwright-report/
 playwright/.cache/
 
+# Integration test screenshots
+tests/integration/screenshots/
+
 local.settings.json
