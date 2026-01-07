@@ -55,15 +55,24 @@
 		}
 	});
 
-	// Reload receipts when year changes
+	// Reload receipts when year OR vehicle changes
 	let previousYear = $state<number | null>(null);
+	let previousVehicleId = $state<string | null>(null);
 	$effect(() => {
 		const currentYear = $selectedYearStore;
-		if (previousYear !== null && previousYear !== currentYear) {
+		const currentVehicle = $activeVehicleStore;
+		const currentVehicleId = currentVehicle?.id ?? null;
+
+		const yearChanged = previousYear !== null && previousYear !== currentYear;
+		const vehicleChanged = previousVehicleId !== null && previousVehicleId !== currentVehicleId;
+
+		if (yearChanged || vehicleChanged) {
 			loadReceipts();
 			loadVerification();
 		}
+
 		previousYear = currentYear;
+		previousVehicleId = currentVehicleId;
 	});
 
 	async function loadSettings() {
@@ -77,7 +86,12 @@
 	async function loadReceipts() {
 		loading = true;
 		try {
-			receipts = await api.getReceipts($selectedYearStore);
+			const vehicle = $activeVehicleStore;
+			if (vehicle) {
+				receipts = await api.getReceiptsForVehicle(vehicle.id, $selectedYearStore);
+			} else {
+				receipts = [];
+			}
 		} catch (error) {
 			console.error('Failed to load receipts:', error);
 			toast.error($LL.toast.errorLoadReceipts());

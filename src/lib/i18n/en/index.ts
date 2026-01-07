@@ -26,6 +26,7 @@ const en = {
 		},
 		vehicleLabel: 'Vehicle:',
 		vehiclePlaceholder: '-- Select vehicle --',
+		noVehicles: '-- No vehicles --',
 		yearLabel: 'Year:',
 		resetWindowSize: 'Optimal window size',
 	},

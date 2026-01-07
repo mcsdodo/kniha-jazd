@@ -88,6 +88,10 @@ type RootTranslation = {
 		 */
 		vehiclePlaceholder: string
 		/**
+		 * -​-​ ​Ž​i​a​d​n​e​ ​v​o​z​i​d​l​á​ ​-​-
+		 */
+		noVehicles: string
+		/**
 		 * R​o​k​:
 		 */
 		yearLabel: string
@@ -1291,6 +1295,10 @@ export type TranslationFunctions = {
 		 * -- Vyberte vozidlo --
 		 */
 		vehiclePlaceholder: () => LocalizedString
+		/**
+		 * -- Žiadne vozidlá --
+		 */
+		noVehicles: () => LocalizedString
 		/**
 		 * Rok:
 		 */
