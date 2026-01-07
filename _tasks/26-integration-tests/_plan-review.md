@@ -462,3 +462,81 @@ The plan is well-structured with clear task breakdown, but has fundamental gaps 
 3. **Unicode/Slovak (C7, L1)** - Missing for Slovak business app
 
 After addressing these, the plan will be implementation-ready.
+
+---
+
+## Resolution
+
+**Date:** 2026-01-07
+**Status:** Complete
+**Addressed:** All 35 findings
+**Skipped:** 0 findings
+
+### Applied Changes
+
+All findings have been addressed in the updated `02-plan.md`:
+
+#### Critical (7) - All Addressed
+
+| Finding | Resolution |
+|---------|------------|
+| [C1] DB Seeding Returns Fake IDs | Task 2 now specifies Tauri IPC implementation via browser context |
+| [C2] Test Count Mismatch | Header clarifies "38 new + 10 existing = 48 tests"; Appendix shows actual count is 54 |
+| [C3] Database Cleanup Timing | Task 2 documents seeding happens AFTER app initialization via browser context |
+| [C4] Test Interdependency | New Task 0 added to fix existing test interdependencies before migration |
+| [C5] No Timeout Budget | Header adds performance budget (< 15 min total, 30s per test) |
+| [C6] Nullable Field Edge Cases | Tasks 7-8 expanded with nullable field tests for BEV/PHEV |
+| [C7] Unicode/Diacritic Testing | Task 1 fixtures now include Slovak diacritics ("Škoda", "Košice") |
+
+#### Important (15) - All Addressed
+
+| Finding | Resolution |
+|---------|------------|
+| [I1] Migration Strategy Unclear | Task 1 step 4 documents which existing tests to keep vs merge |
+| [I2] Drag-and-Drop Flaky | Task 3 test 7 changed to keyboard shortcuts with fallback note |
+| [I3] Export Verification Vague | Task 6 includes complete code example for window switching |
+| [I4] Receipt Mock Not Specified | Task 1 step 9 defines complete receipt fixture fields |
+| [I5] Tier Filtering Unspecified | Task 14 includes TypeScript implementation example |
+| [I6] PHEV Tests Incomplete | Task 8 expanded from 2 to 5 tests (fuel-only, energy-only, mixed) |
+| [I7] Existing Tests Will Break | New Task 0 fixes interdependencies before migration |
+| [I8] Screenshots Dir Not Created | Task 1 creates directory; Task 14 adds `onPrepare` creation |
+| [I9] Scenario Factory Undefined | Task 1 step 10 defines underLimit, overLimit, yearTransition scenarios |
+| [I10] Race Condition in Cleanup | Task 2 step 1 adds retry logic with 3 attempts |
+| [I11] Receipt Vehicle Filtering | Task 10 expanded with test 5 for vehicle filtering |
+| [L1] Slovak UI Hardcoded | Task 1 step 13 adds `ensureLanguage()` helper |
+| [L2] Error Messages Not Specified | Task 1 step 14 adds CSS class-based error detection |
+| [I14] Form Recovery | Documented as out of scope in Appendix |
+| [I15] Simultaneous UI Ops | Documented as out of scope in Appendix |
+
+#### Minor (13) - All Addressed
+
+| Finding | Resolution |
+|---------|------------|
+| [M1] Form Helpers Exist | Task 1 step 11 clarifies "extend, don't replace" |
+| [M2] Screenshots .gitignore | Task 1 step 3 adds verification step |
+| [M3] Duplicate Compensation Test | Task 4 reduced from 3 to 2 tests; compensation moved to Task 13 |
+| [M4] CI Update Missing | Task 15 includes CI workflow update with tiered approach |
+| [M5] Missing TypeScript Interfaces | Task 1 step 6 creates `fixtures/types.ts` |
+| [M6] Hardcoded 2024 Dates | Task 1 step 8 uses year parameter in trip factory |
+| [M7] Inconsistent Selectors | Task 1 step 12 standardizes selector strategy |
+| [M8] CI Script Confusion | Task 15 step 4 documents all three scripts |
+| [S1] API Key Exposure Risk | Task 2 step 3 sets `KNIHA_JAZD_MOCK_GEMINI` env var |
+| [S2] Sensitive Test Data | Task 2 step 4 specifies fake company/IČO values |
+| [M11] Negative Number Tests | Task 13 validation.spec.ts test 2 added |
+| [M12] Offline Testing | Documented as out of scope in Appendix |
+| [M13] Leap Year Edge Case | Task 13 validation.spec.ts test 3 added |
+
+### Plan Changes Summary
+
+1. **New Task 0** - Fix existing test interdependencies
+2. **Task 1 expanded** - 14 detailed steps with code examples
+3. **Task 2 rewritten** - Complete Tauri IPC seeding implementation
+4. **Tasks 4, 7, 8, 10, 13 expanded** - Additional tests for edge cases
+5. **Task 14 detailed** - Tier filtering with code example
+6. **Task 15 enhanced** - CI workflow updates
+7. **Appendix added** - Test count summary and out-of-scope items
+8. **Final test count** - 54 tests (6 more than original 48)
+
+### Final Status
+
+**Plan is now implementation-ready.**
