@@ -17,6 +17,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Vymazanie vozidla najprv odpojí všetky priradené bločky (predtým zlyhalo kvôli FK constraint)
 - Indikátor bločkov v navigácii teraz počíta len bločky pre aktívne vozidlo (predtým počítal všetky)
 - Výber vozidla už nezobrazuje prázdnu možnosť (ak existujú vozidlá)
+- Overovanie bločkov (`verifyReceipts`) teraz počíta len bločky pre aktívne vozidlo (predtým počítalo všetky)
 
 ## [0.9.0] - 2026-01-07
 
