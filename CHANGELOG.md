@@ -18,6 +18,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Indikátor bločkov v navigácii teraz počíta len bločky pre aktívne vozidlo (predtým počítal všetky)
 - Výber vozidla už nezobrazuje prázdnu možnosť (ak existujú vozidlá)
 - Overovanie bločkov (`verifyReceipts`) teraz počíta len bločky pre aktívne vozidlo (predtým počítalo všetky)
+- Zmena typu vozidla (ICE → BEV/PHEV) teraz funguje správne ak vozidlo nemá žiadne jazdy
 
 ## [0.9.0] - 2026-01-07
 
