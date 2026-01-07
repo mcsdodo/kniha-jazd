@@ -332,6 +332,68 @@
 
 28. [ ] **[S2] Sensitive Test Data** - Fixtures: Use obviously fake company/IČO values.
 
+---
+
+## Iteration 4
+
+### New Findings
+
+#### Critical
+
+29. [ ] **[C6] No Edge Case Testing for Nullable/Optional Fields**
+    - **Location:** Tasks 3-8 (trip/vehicle tests)
+    - **Issue:** Trip struct has nullable fields (`fuel_liters`, `energy_kwh`, `other_costs_eur`). No tests for:
+      - Creating BEV trips with `fuel_liters = null`
+      - Creating ICE trips with `energy_kwh = null`
+      - Setting `fuel_cost_eur` without `fuel_liters`
+    - **Suggested Resolution:** Add tests for null/empty optional field combinations in BEV, ICE, PHEV variants.
+
+30. [ ] **[C7] No Unicode/Diacritic Testing**
+    - **Location:** Tasks 9-12 (text input fields)
+    - **Issue:** Fixtures use ASCII names ("Test Vehicle"). No tests for Slovak diacritics:
+      - Vehicle names: "Škoda Fabia"
+      - Origin/destination: "Košice", "Spišská Nová Ves"
+      - Purpose: "Služobná cesta"
+    - **Suggested Resolution:** Add at least one test with Slovak diacritical marks per form.
+
+#### Important
+
+31. [ ] **[I14] Incomplete Form Submission Recovery Not Tested**
+    - **Location:** Task 3 (trip management)
+    - **Issue:** No test for form state when browser loses focus, network delays cause duplicate save, or user presses back mid-form.
+    - **Suggested Resolution:** Add test for form state recovery.
+
+32. [ ] **[I15] Simultaneous UI Operations Not Tested**
+    - **Location:** Tasks 7-8 (BEV/PHEV)
+    - **Issue:** No tests for rapid clicking, drag-drop while save in progress, year picker change while loading.
+    - **Suggested Resolution:** Add stress test or rapid-action scenario.
+
+#### Minor
+
+33. [ ] **[M11] No Negative Number Boundary Tests**
+    - **Location:** Task 3 (trip creation)
+    - **Issue:** No tests for invalid inputs: `distance_km = -100`, `odometer = -1`, `fuel_liters = -50`.
+    - **Suggested Resolution:** Add validation test cases for negative numbers in Task 13.
+
+34. [ ] **[M12] No Offline/Slow Network Testing**
+    - **Location:** All tasks
+    - **Issue:** No mention of network disabled, slow network (>5s latency), timeout during save.
+    - **Suggested Resolution:** Optional - note as future enhancement.
+
+### Coverage Assessment
+
+**Quality Gate: FAIL** - 2 new critical gaps found:
+- C6: Optional field edge cases
+- C7: Unicode/diacritics (important for Slovak app)
+
+---
+
+## Review Summary (Updated)
+
+**Status:** Ready for User Review
+**Iterations:** 4
+**Total Findings:** 7 Critical, 15 Important, 12 Minor
+
 ### Recommendation
 
 **Needs Revisions** - Plan is architecturally sound but has critical gaps in:
@@ -340,5 +402,63 @@
 2. **Test Count Clarification** (C2) - Resolve 38 vs 48 discrepancy
 3. **Language Handling** (L1) - Add strategy to prevent locale-dependent failures
 4. **Existing Test Fixes** (C4, I7) - Address interdependencies before migration
+5. **Edge Case Testing** (C6, C7) - Add nullable field and Unicode tests
 
 **After addressing Critical + Important issues, plan is ready for implementation.**
+
+---
+
+## Iteration 5 (Final - Out of Scope Items Noted)
+
+### Findings (Mostly Out of Scope)
+
+Iteration 5 examined: accessibility, print/PDF, date/time edge cases, database migrations, installation/upgrade paths.
+
+**Out of Scope for Integration Test Plan:**
+- Accessibility testing (keyboard navigation, screen readers) - would be separate a11y audit
+- Database migration versioning - app architecture issue, not test plan
+- Upgrade path testing - separate test category, not part of this plan's requirements
+- DST/timezone edge cases - low priority for Slovak business app with local dates
+
+**Potentially In Scope (Minor):**
+- **[M13] Leap Year Edge Case** - No test for February 29 date entry. Could add to Task 13 validation tests if desired.
+
+### Coverage Assessment
+
+**Quality Gate: PASS (with scope clarification)**
+
+The review has examined all areas relevant to the integration test plan requirements. Additional findings relate to:
+- Application architecture (migrations)
+- Separate testing categories (accessibility, upgrade paths)
+- Low-probability edge cases (DST, leap year)
+
+These are noted for future consideration but don't block this plan's implementation.
+
+---
+
+## Final Review Summary
+
+**Status:** Ready for User Review
+**Iterations:** 5 (max reached)
+**Total Findings:** 7 Critical, 15 Important, 13 Minor
+
+### Priority Actions Required
+
+| Priority | Findings | Action |
+|----------|----------|--------|
+| **Must Fix** | C1, C2, C3 | DB seeding strategy, test count, cleanup timing |
+| **Should Fix** | C4, C5, C6, C7 | Interdependencies, timeout, edge cases, Unicode |
+| **Can Defer** | I1-I15 | Migration, flaky tests, verification details |
+| **Optional** | M1-M13 | Minor improvements |
+
+### Overall Assessment
+
+**Recommendation: NEEDS REVISIONS**
+
+The plan is well-structured with clear task breakdown, but has fundamental gaps in Task 1-2 (infrastructure) that would block Tasks 3-17 (test implementation). The critical issues are:
+
+1. **DB Seeding (C1, C3)** - Without working seeding, ~80% of tests cannot be written
+2. **Test Count (C2)** - Scope unclear (38 vs 48 tests)
+3. **Unicode/Slovak (C7, L1)** - Missing for Slovak business app
+
+After addressing these, the plan will be implementation-ready.
