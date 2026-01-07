@@ -2,9 +2,11 @@
  * Electric Vehicle Integration Tests
  *
  * Tests the BEV/PHEV vehicle creation and management flow.
+ * Each test is independent and sets up its own preconditions.
  */
 
-import { waitForAppReady } from '../utils/app';
+import { waitForAppReady, navigateTo } from '../utils/app';
+import { createBevVehicleViaUI, testBevVehicle } from '../fixtures/seed-data';
 
 describe('Electric Vehicle Support', () => {
   beforeEach(async () => {
@@ -141,42 +143,43 @@ describe('Electric Vehicle Support', () => {
   });
 
   it('should show BEV badge in vehicle list', async () => {
-    // Navigate to settings (assumes BEV was created in previous test)
-    const settingsLink = await $('a[href="/settings"]');
-    await settingsLink.click();
-    await browser.pause(500);
+    // Create a BEV vehicle first (each test is independent)
+    await createBevVehicleViaUI({
+      name: 'Badge Test BEV',
+      licensePlate: 'BADGE-BEV'
+    });
 
-    // Look for the BEV badge
+    // Look for the BEV badge in the vehicle list
     const bevBadge = await $('.badge.type-bev');
-    if (await bevBadge.isExisting()) {
-      await expect(bevBadge).toBeDisplayed();
-      const text = await bevBadge.getText();
-      expect(text).toContain('BEV');
-    }
+    await expect(bevBadge).toBeDisplayed();
+    const text = await bevBadge.getText();
+    expect(text).toContain('BEV');
   });
 
   it('should block vehicle type change when trips exist', async () => {
-    // This test requires a vehicle with trips
-    // For now, just verify the UI shows the warning when appropriate
+    // Create a BEV vehicle first (each test is independent)
+    await createBevVehicleViaUI({
+      name: 'Type Change Test BEV',
+      licensePlate: 'TYPE-CHG'
+    });
 
-    // Navigate to settings
-    const settingsLink = await $('a[href="/settings"]');
-    await settingsLink.click();
-    await browser.pause(500);
+    // Note: This test verifies the UI behavior for editing a vehicle.
+    // The type dropdown should be enabled for vehicles without trips,
+    // and disabled for vehicles with trips.
+    // Since we just created a vehicle with no trips, it should be editable.
 
-    // Find an existing vehicle and try to edit it
+    // Find the edit button for the vehicle we just created
     const editBtn = await $('button*=Upraviť');
     if (await editBtn.isDisplayed()) {
       await editBtn.click();
       await browser.pause(300);
 
-      // Check if type dropdown is disabled or shows warning
+      // Check if type dropdown is enabled (no trips yet)
       const typeDropdown = await $('#vehicle-type');
       const isDisabled = await typeDropdown.getAttribute('disabled');
 
-      // If disabled, there's a vehicle with trips
-      // If not disabled, this vehicle has no trips yet
-      console.log('Vehicle type dropdown disabled:', isDisabled);
+      // For a new vehicle without trips, type should be editable
+      expect(isDisabled).toBeNull();
 
       // Close modal
       const closeBtn = await $('button.close-button');

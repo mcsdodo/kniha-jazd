@@ -3,9 +3,10 @@
  *
  * Tests the core flow of creating a vehicle and verifying it appears in the app.
  * This is the proof-of-concept test to verify the integration test setup works.
+ * Each test is independent and sets up its own preconditions.
  */
 
-import { waitForAppReady } from '../utils/app';
+import { waitForAppReady, navigateTo } from '../utils/app';
 
 describe('Vehicle Setup', () => {
   beforeEach(async () => {
@@ -20,14 +21,13 @@ describe('Vehicle Setup', () => {
     await expect(header).toHaveText(expect.stringContaining('Logbook'));
   });
 
-  it('should show empty state when no vehicles exist', async () => {
-    // With a fresh database, we should see the "add vehicle" prompt
-    // or an empty vehicle list
+  it('should display app content on main page', async () => {
+    // Verify the app renders content on the main page
+    // Note: This test does not assume empty/fresh database state
     const content = await $('body');
     const text = await content.getText();
 
-    // App should show something indicating we need to add a vehicle
-    // or show the main interface ready for input
+    // App should render some content
     expect(text.length).toBeGreaterThan(0);
   });
 
@@ -45,12 +45,16 @@ describe('Vehicle Setup', () => {
   });
 
   it('should create a new vehicle', async () => {
+    // Navigate to settings page first (each test is independent)
+    await navigateTo('settings');
+
     // Look for the add vehicle button/form
     // This test verifies the full vehicle creation flow
     const addVehicleBtn = await $('button*=vozidlo');
 
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
+      await browser.pause(300);
 
       // Fill in vehicle details
       const nameInput = await $('input[name="name"], #name, input[placeholder*="názov"]');
