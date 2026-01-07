@@ -246,6 +246,10 @@ export async function getReceipts(year?: number): Promise<Receipt[]> {
 	return await invoke('get_receipts', { year: year ?? null });
 }
 
+export async function getReceiptsForVehicle(vehicleId: string, year?: number): Promise<Receipt[]> {
+	return await invoke('get_receipts_for_vehicle', { vehicleId, year: year ?? null });
+}
+
 export async function getUnassignedReceipts(): Promise<Receipt[]> {
 	return await invoke('get_unassigned_receipts');
 }

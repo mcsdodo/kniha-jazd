@@ -34,9 +34,9 @@
 		}
 
 		try {
-			// Get receipts and verification
+			// Get receipts (filtered by vehicle) and verification
 			const [receipts, verification] = await Promise.all([
-				api.getReceipts(),
+				api.getReceiptsForVehicle(vehicle.id, $selectedYearStore),
 				api.verifyReceipts(vehicle.id, $selectedYearStore)
 			]);
 

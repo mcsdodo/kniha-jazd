@@ -68,12 +68,38 @@
 		i18nReady = true;
 
 		try {
-			const [vehicles, activeVehicle] = await Promise.all([
+			// PRESERVE parallel loading for performance
+			const [vehicles, persistedActiveVehicle] = await Promise.all([
 				getVehicles(),
 				getActiveVehicle()
 			]);
 			vehiclesStore.set(vehicles);
+
+			let activeVehicle = persistedActiveVehicle;
+
+			// Auto-select first vehicle if none set but vehicles exist
+			if (!activeVehicle && vehicles.length > 0) {
+				activeVehicle = vehicles[0];
+				await setActiveVehicle(activeVehicle.id);
+			}
+
+			// Handle deleted vehicle: if persisted ID not in list, select first
+			if (activeVehicle && !vehicles.find(v => v.id === activeVehicle!.id)) {
+				if (vehicles.length > 0) {
+					activeVehicle = vehicles[0];
+					await setActiveVehicle(activeVehicle.id);
+				} else {
+					activeVehicle = null;
+				}
+			}
+
 			activeVehicleStore.set(activeVehicle);
+
+			// Reset year to current after auto-select to avoid stale year
+			if (activeVehicle) {
+				resetToCurrentYear();
+			}
+
 			await loadYears();
 
 			// Load optimal window size and start tracking
@@ -132,7 +158,9 @@
 						value={$activeVehicleStore?.id || ''}
 						onchange={handleVehicleChange}
 					>
-						<option value="">{$LL.app.vehiclePlaceholder()}</option>
+						{#if $vehiclesStore.length === 0}
+							<option value="">{$LL.app.noVehicles()}</option>
+						{/if}
 						{#each $vehiclesStore as vehicle}
 							<option value={vehicle.id}>
 								{vehicle.name} ({vehicle.license_plate})
