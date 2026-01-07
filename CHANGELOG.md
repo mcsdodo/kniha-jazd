@@ -10,6 +10,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [0.10.0] - 2026-01-07
 
 ### Pridané
+- **Komplexná sada integračných testov** (61 testov) - pokrýva kritické používateľské scenáre
+  - Tier 1 (39 testov): Jazdy, spotreba, export, BEV/PHEV, prechod medzi rokmi
+  - Tier 2 (13 testov): Zálohovanie, doklady, nastavenia, správa vozidiel
+  - Tier 3 (9 testov): Kompenzačné jazdy, validácia, viac vozidiel, prázdne stavy
+- **Stupňované spúšťanie testov** - Tier 1 pre PR (rýchla spätná väzba), všetky pre main
+- **Seedovanie DB cez Tauri IPC** - testy seedujú dáta priamo cez invoke() bez priameho prístupu k DB
 - **Filtrovanie dokladov podľa vozidla** - na stránke Doklady sa zobrazujú len nepriradené bločky + bločky aktuálneho vozidla
 - Automatický výber vozidla pri štarte aplikácie (ak nie je nastavené, vyberie sa prvé)
 - Databázový index na `vehicle_id` pre rýchlejšie vyhľadávanie dokladov

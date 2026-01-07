@@ -1,6 +1,6 @@
-import type { Options } from '@wdio/types';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { spawn, ChildProcess } from 'child_process';
-import { mkdtempSync, rmSync, existsSync, unlinkSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, unlinkSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -8,6 +8,31 @@ import { fileURLToPath } from 'url';
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+/**
+ * Get specs based on TIER environment variable
+ * - TIER=1: Run tier1 + existing (fast, critical tests for PRs)
+ * - TIER=2: Run tier1 + tier2 + existing
+ * - TIER=3 or unset: Run all tiers
+ */
+function getSpecs(): string[] {
+  const tier = process.env.TIER;
+
+  if (tier === '1') {
+    return ['./specs/tier1/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
+  } else if (tier === '2') {
+    return ['./specs/tier1/**/*.spec.ts', './specs/tier2/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
+  }
+  // Default: run all specs
+  return ['./specs/**/*.spec.ts'];
+}
+
+/**
+ * Get the path to the test database
+ */
+export function getTestDbPath(): string {
+  return join(testDataDir, 'kniha-jazd.db');
+}
 
 let tauriDriver: ChildProcess | null = null;
 let testDataDir: string = '';
@@ -53,7 +78,9 @@ async function waitForPort(port: number, timeout = 10000): Promise<void> {
   throw new Error(`Timeout waiting for port ${port}`);
 }
 
-export const config: Options.Testrunner = {
+// WebdriverIO configuration
+// Note: Using 'any' type as WebdriverIO types don't fully cover all valid options
+export const config: any = {
   runner: 'local',
   autoCompileOpts: {
     autoCompile: true,
@@ -63,7 +90,7 @@ export const config: Options.Testrunner = {
     }
   },
 
-  specs: ['./specs/**/*.spec.ts'],
+  specs: getSpecs(),
   exclude: [],
 
   maxInstances: 1, // Tauri apps run one at a time
@@ -91,7 +118,7 @@ export const config: Options.Testrunner = {
 
   mochaOpts: {
     ui: 'bdd',
-    timeout: 60000,
+    timeout: 30000, // 30s per test - most tests should complete within 10s
   },
 
   /**
@@ -102,6 +129,15 @@ export const config: Options.Testrunner = {
     testDataDir = mkdtempSync(join(tmpdir(), 'kniha-jazd-test-'));
     process.env.KNIHA_JAZD_DATA_DIR = testDataDir;
     console.log(`Test data directory: ${testDataDir}`);
+
+    // Mock Gemini API to avoid real API calls during tests
+    process.env.KNIHA_JAZD_MOCK_GEMINI = 'true';
+
+    // Create screenshots directory if it doesn't exist
+    const screenshotsDir = join(__dirname, 'screenshots');
+    if (!existsSync(screenshotsDir)) {
+      mkdirSync(screenshotsDir, { recursive: true });
+    }
 
     // Find msedgedriver (required on Windows for WebView2)
     const edgeDriverPaths = [
@@ -167,11 +203,37 @@ export const config: Options.Testrunner = {
    * Before each test: Fresh database
    */
   beforeTest: async function () {
-    // Delete existing test DB for clean slate
-    const dbPath = join(testDataDir, 'kniha-jazd.db');
-    if (existsSync(dbPath)) {
-      unlinkSync(dbPath);
-      console.log('Cleaned up test database');
+    // Wait for any pending operations to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Delete existing test DB for clean slate with retry logic
+    const dbPath = getTestDbPath();
+    const maxRetries = 3;
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        if (existsSync(dbPath)) {
+          unlinkSync(dbPath);
+          console.log('Cleaned up test database');
+        }
+        // Also clean up the WAL and SHM files if they exist
+        const walPath = dbPath + '-wal';
+        const shmPath = dbPath + '-shm';
+        if (existsSync(walPath)) {
+          unlinkSync(walPath);
+        }
+        if (existsSync(shmPath)) {
+          unlinkSync(shmPath);
+        }
+        break;
+      } catch (e) {
+        if (i === maxRetries - 1) {
+          console.error(`Failed to clean up test database after ${maxRetries} retries:`, e);
+          throw e;
+        }
+        console.log(`Retry ${i + 1}/${maxRetries} cleaning up test database...`);
+        await new Promise(r => setTimeout(r, 200));
+      }
     }
   },
 };
