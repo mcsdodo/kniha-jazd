@@ -193,3 +193,94 @@ No new minor findings.
 - UI loading states during transitions
 
 **Review comprehensive:** All critical code paths examined.
+
+---
+
+## Iteration 4
+
+### New Findings
+
+#### Critical
+
+No new critical findings (previous findings confirmed).
+
+#### Important
+
+No new important findings (duplicates of iterations 1-3).
+
+#### Minor
+
+1. **[Minor] Auto-select missing year reset (Task 7)**
+
+   Plan's auto-select logic doesn't reset `selectedYearStore` after selecting a new vehicle. Old year value may persist from previous session.
+
+   **Fix needed:** Call `resetToCurrentYear()` or similar after auto-select.
+
+### Coverage Assessment
+
+**Quality gate met:** No new critical or important findings. Minor enhancement identified.
+
+---
+
+## Review Summary
+
+**Status:** Ready for User Review
+**Iterations:** 4
+**Total Findings:** 4 Critical, 12 Important, 8 Minor
+
+### All Findings (Consolidated)
+
+#### Critical
+
+1. [ ] **Test helper functions don't exist** (Task 1) - Tests won't compile. Use `Database::in_memory()`, `create_test_vehicle()` → `Vehicle`, manual `db.create_vehicle()`.
+
+2. [ ] **Wrong method name** (Task 1) - `map_receipt_row` → `row_to_receipt`.
+
+3. [ ] **FK constraint blocks vehicle deletion** - No cascade on `receipts.vehicle_id`. Deletion fails if receipts assigned.
+
+4. [ ] **Orphaned receipts after deletion** - If vehicle deleted, its receipts become inaccessible. Need cleanup logic.
+
+#### Important
+
+1. [ ] **Test file location** (Task 1) - Should use separate `*_tests.rs` file per CLAUDE.md convention.
+
+2. [ ] **ReceiptIndicator is NOT a no-op** (Task 5) - Uses `getReceipts()` which returns ALL receipts. Must change.
+
+3. [ ] **Doklady filteredReceipts interaction unclear** (Task 4) - Clarify how backend filtering + tab filtering interact.
+
+4. [ ] **Missing edge case: no active vehicle** (Task 4) - Handle case before Tasks 6/7 complete.
+
+5. [ ] **i18n key not used** (Task 6) - Hardcoded "No vehicles" should use `$LL.app.vehiclePlaceholder()`.
+
+6. [ ] **Auto-select breaks parallel loading** (Task 7) - Sequential calls slower than current `Promise.all`.
+
+7. [ ] **Missing database index on vehicle_id** - Add `idx_receipts_vehicle` for performance.
+
+8. [ ] **Doklady doesn't re-fetch on vehicle change** (Task 4) - Add `$activeVehicleStore` to effect dependencies.
+
+9. [ ] **Badge count inconsistency** (Task 5) - `verify_receipts` not vehicle-aware. Badge shows wrong count.
+
+10. [ ] **Missing error handling for non-existent vehicle_id** (Task 2) - Document expected behavior.
+
+11. [ ] **No loading state during vehicle switch** - Set `loading = true` before fetch.
+
+12. [ ] **ReceiptIndicator needs vehicle filtering** - Task 5 must use `getReceiptsForVehicle`.
+
+#### Minor
+
+1. [ ] Year parameter handling (`year ?? null` vs `undefined`)
+2. [ ] Commit message style could be more concise
+3. [ ] Missing Uuid import mention in Task 2
+4. [ ] Duplicate year filtering SQL could be shared
+5. [ ] Manual testing steps vague
+6. [ ] Source year filtering inconsistency with `verify_receipts`
+7. [ ] No handling of concurrent vehicle switching (race condition)
+8. [ ] Auto-select missing year reset
+
+### Recommendation
+
+**Needs Revisions** - Plan has 4 critical issues that will cause compilation failures and data integrity problems. Must address:
+1. Fix test helper patterns to match codebase
+2. Correct method name in implementation
+3. Add vehicle deletion cascade/cleanup logic
+4. Add Doklady reactivity to vehicle changes
