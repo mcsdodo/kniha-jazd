@@ -273,8 +273,9 @@ export async function assertEnabled(selector: string, timeout = 5000): Promise<v
  */
 export async function assertTripHasConsumptionWarning(tripRowIndex: number): Promise<void> {
   const rows = await $$(TripGrid.dataRows);
-  if (tripRowIndex >= rows.length) {
-    throw new Error(`Trip row ${tripRowIndex} does not exist (${rows.length} rows total)`);
+  const rowCount = await rows.length;
+  if (tripRowIndex >= rowCount) {
+    throw new Error(`Trip row ${tripRowIndex} does not exist (${rowCount} rows total)`);
   }
 
   const row = rows[tripRowIndex];
@@ -291,8 +292,9 @@ export async function assertTripHasConsumptionWarning(tripRowIndex: number): Pro
  */
 export async function assertTripNoConsumptionWarning(tripRowIndex: number): Promise<void> {
   const rows = await $$(TripGrid.dataRows);
-  if (tripRowIndex >= rows.length) {
-    throw new Error(`Trip row ${tripRowIndex} does not exist (${rows.length} rows total)`);
+  const rowCount = await rows.length;
+  if (tripRowIndex >= rowCount) {
+    throw new Error(`Trip row ${tripRowIndex} does not exist (${rowCount} rows total)`);
   }
 
   const row = rows[tripRowIndex];
@@ -341,7 +343,7 @@ export async function assertSelectedOption(
  */
 export async function assertTripCount(expectedCount: number): Promise<void> {
   const rows = await $$(TripGrid.dataRows);
-  const actualCount = rows.length;
+  const actualCount = await rows.length;
 
   if (actualCount !== expectedCount) {
     throw new Error(`Expected ${expectedCount} trips, but found ${actualCount}`);
