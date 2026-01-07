@@ -10,14 +10,14 @@ src-tauri/src/commands/
 ├── mod.rs              # Re-exports all commands + shared types
 ├── vehicle.rs          # 6 commands (~125 lines)
 ├── trip.rs             # 7 commands (~200 lines)
-├── route.rs            # 2 commands (~20 lines)
+├── route.rs            # 2 commands: get_routes, get_purposes (~20 lines)
 ├── calculation.rs      # 1 command (~25 lines)
 ├── settings.rs         # 2 commands (~35 lines)
-├── grid.rs             # 2 commands + 7 helpers (~850 lines)
+├── grid.rs             # 2 commands + 10 helpers (~700 lines)
 ├── grid_tests.rs       # Tests (existing tests from commands.rs)
 ├── backup.rs           # 5 commands (~200 lines)
 ├── export.rs           # 2 commands (~250 lines)
-├── receipts.rs         # 11 commands (~1,450 lines)
+├── receipts.rs         # 11 commands (~300 lines)
 ├── window.rs           # 1 command (~60 lines)
 └── preview.rs          # 1 command (~160 lines)
 ```
@@ -110,13 +110,36 @@ pub use backup::BackupInfo;
 pub use receipts::{ProcessingProgress, ReceiptSettings, ScanResult, SyncResult};
 ```
 
+### Struct Definitions to Move
+
+These types are defined in `commands.rs` and must move to their respective modules:
+
+| Struct | Source Location | Target Module |
+|--------|-----------------|---------------|
+| `BackupInfo` | lines 26-34 | `backup.rs` |
+| `ReceiptSettings` | lines 1657-1663 | `receipts.rs` |
+| `SyncResult` | lines 1695-1699 | `receipts.rs` |
+| `SyncError` | lines 1701-1705 | `receipts.rs` |
+| `ScanResult` | lines 1708-1712 | `receipts.rs` |
+| `ProcessingProgress` | lines 1774-1779 | `receipts.rs` |
+| `WindowSize` | lines 1976-1980 | `window.rs` |
+| `PhevGridData` | lines 981-997 | `grid.rs` (internal) |
+
 ### Internal Helper Visibility
 
 ```rust
-// commands/grid.rs - helpers used by export.rs and preview.rs
+// commands/grid.rs - helpers used internally and by export.rs/preview.rs
+// Public to crate (used by export.rs/preview.rs):
 pub(crate) fn calculate_period_rates(...) { ... }
 pub(crate) fn calculate_fuel_remaining(...) { ... }
 pub(crate) fn get_year_start_fuel_remaining(...) { ... }
+
+// Private to grid.rs (only used by get_trip_grid_data):
+fn calculate_energy_grid_data(...) { ... }      // ~90 lines
+fn calculate_phev_grid_data(...) { ... }        // ~135 lines
+fn calculate_date_warnings(...) { ... }         // ~35 lines
+fn calculate_consumption_warnings(...) { ... }  // ~20 lines
+fn calculate_missing_receipts(...) { ... }      // ~25 lines
 
 // commands/export.rs - importing helpers from sibling module
 use super::grid::{calculate_period_rates, calculate_fuel_remaining, ...};
@@ -128,6 +151,11 @@ use super::grid::{calculate_period_rates, calculate_fuel_remaining, ...};
 // commands/grid.rs
 #[cfg(test)]
 #[path = "grid_tests.rs"]
+mod tests;
+
+// db/mod.rs - test module for all db tests
+#[cfg(test)]
+#[path = "db_tests.rs"]
 mod tests;
 ```
 
@@ -187,6 +215,27 @@ All command submodules use:
 | — | `src-tauri/src/commands/` (11 files) |
 | — | `src-tauri/src/db/` (8 files) |
 | `src-tauri/src/lib.rs` | NO CHANGES (Rust finds mod.rs automatically) |
+
+### Re-export Verification
+
+After creating `commands/mod.rs`, verify all 40 commands are re-exported. Check against `lib.rs` invoke_handler:
+
+```rust
+// All these must be re-exported from commands/mod.rs:
+// Vehicle (6): get_vehicles, create_vehicle, update_vehicle, delete_vehicle, get_vehicle_statistics, get_years_with_trips
+// Trip (7): get_trips, create_trip, update_trip, delete_trip, reorder_trips, search_similar_trips, get_trip_years
+// Route (2): get_routes, get_purposes
+// Calculation (1): calculate_trip
+// Settings (2): get_settings, save_settings
+// Grid (2): get_trip_grid_data, calculate_trip_stats
+// Backup (5): get_backups, create_backup, restore_backup, delete_backup, get_backup_settings
+// Export (2): export_to_browser, export_html
+// Receipts (11): get_receipt_settings, get_receipts, get_unassigned_receipts, scan_receipts,
+//                sync_receipts, process_pending_receipts, update_receipt, delete_receipt,
+//                reprocess_receipt, assign_receipt_to_trip, verify_receipts
+// Window (1): set_window_size
+// Preview (1): get_receipt_preview
+```
 
 ## Risk Mitigation
 

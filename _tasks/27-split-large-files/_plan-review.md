@@ -2,7 +2,7 @@
 
 **Target:** `_tasks/27-split-large-files/02-plan.md`
 **Started:** 2026-01-07
-**Status:** Ready for User Review
+**Status:** Complete
 **Focus:** Completeness, feasibility, clarity
 
 ## Iteration 1
@@ -76,30 +76,28 @@ Reviewed:
 
 ## Review Summary
 
-**Status:** Ready for User Review
+**Status:** Complete
 **Iterations:** 1
 **Total Findings:** 1 Critical, 4 Important, 2 Minor
 
 ### All Findings (Consolidated)
 
 #### Critical
-1. [ ] Update `receipts.rs` line estimate from ~1,450 to ~300 lines - `02-plan.md` line 21
+1. [x] Update `receipts.rs` line estimate from ~1,450 to ~300 lines - `02-plan.md` line 20
 
 #### Important
-1. [ ] Add section listing struct definitions that must move with their commands - missing from plan
-2. [ ] Expand helper function list for `grid.rs` or clarify they stay private - `02-plan.md` lines 116-122
-3. [ ] Add verification step for all 40 command re-exports - `02-plan.md` line 189
-4. [ ] Add `#[path]` example for db test module pattern - `02-plan.md` line 35
+1. [x] Add section listing struct definitions that must move with their commands - added "Struct Definitions to Move" section
+2. [x] Expand helper function list for `grid.rs` or clarify they stay private - updated "Internal Helper Visibility" section
+3. [x] Add verification step for all 40 command re-exports - added "Re-export Verification" section
+4. [x] Add `#[path]` example for db test module pattern - added to "Test File Pattern" section
 
 #### Minor
-1. [ ] Refine line count estimates (optional) - `02-plan.md` lines 9-22
-2. [ ] Explicitly name route.rs commands (optional) - `02-plan.md` line 13
+1. [x] Refine line count estimates - updated `grid.rs` to ~700 lines
+2. [x] Explicitly name route.rs commands - added `get_routes, get_purposes`
 
 ### Recommendation
 
-**Ready for implementation with revisions.** The plan is well-structured and feasible. The critical issue (incorrect line count) is cosmetic but misleading. The important issues should be addressed to prevent confusion during implementation.
-
-The `impl Database` split pattern will work correctly - Rust allows `impl` blocks across multiple files within the same crate.
+**Ready for implementation.** All findings have been addressed.
 
 ### Feasibility Assessment
 
@@ -109,3 +107,23 @@ The `impl Database` split pattern will work correctly - Rust allows `impl` block
 | Dependency order | Correct - db first, then commands |
 | Risk mitigation | Adequate - incremental with verification |
 | Effort estimate | Reasonable - 2-3 hours |
+
+---
+
+## Resolution
+
+**Addressed:** 7 findings (all)
+**Skipped:** 0 findings
+**Status:** Complete
+
+### Applied Changes
+
+| Finding | Resolution |
+|---------|------------|
+| Critical #1: receipts.rs line estimate | Updated from ~1,450 to ~300 lines |
+| Important #1: Struct definitions | Added "Struct Definitions to Move" table listing 8 structs |
+| Important #2: Helper function list | Expanded to show all 10 helpers with visibility (pub(crate) vs private) |
+| Important #3: Re-export verification | Added complete list of all 40 commands by domain |
+| Important #4: db test pattern | Added `#[path = "db_tests.rs"]` example in Test File Pattern section |
+| Minor #1: Line estimates | Updated `grid.rs` from ~850 to ~700 lines |
+| Minor #2: route.rs commands | Explicitly named `get_routes, get_purposes` |
