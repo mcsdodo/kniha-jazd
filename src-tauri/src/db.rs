@@ -420,9 +420,15 @@ impl Database {
         Ok(())
     }
 
-    /// Delete a vehicle by its UUID string
+    /// Delete a vehicle by its UUID string.
+    /// First unassigns any receipts from the vehicle to prevent FK constraint errors.
     pub fn delete_vehicle(&self, id: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
+        // Unassign all receipts from this vehicle before deletion
+        conn.execute(
+            "UPDATE receipts SET vehicle_id = NULL WHERE vehicle_id = ?1",
+            [id],
+        )?;
         conn.execute("DELETE FROM vehicles WHERE id = ?1", [id])?;
         Ok(())
     }
@@ -1282,6 +1288,30 @@ mod tests {
         // DELETE
         db.delete_vehicle(&vehicle.id.to_string()).expect("Failed to delete");
         assert!(db.get_vehicle(&vehicle.id.to_string()).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_delete_vehicle_unassigns_receipts_first() {
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = create_test_vehicle("Car A");
+        db.create_vehicle(&vehicle).unwrap();
+
+        // Create receipt assigned to this vehicle
+        let mut receipt = Receipt::new("path.jpg".to_string(), "receipt.jpg".to_string());
+        receipt.vehicle_id = Some(vehicle.id);
+        db.create_receipt(&receipt).unwrap();
+
+        // Should succeed - receipts unassigned before vehicle deleted
+        db.delete_vehicle(&vehicle.id.to_string()).unwrap();
+
+        // Verify vehicle is deleted
+        assert!(db.get_vehicle(&vehicle.id.to_string()).unwrap().is_none());
+
+        // Verify receipt still exists but unassigned
+        let receipts = db.get_all_receipts().unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert!(receipts[0].vehicle_id.is_none());
     }
 
     // Helper to create test trips
