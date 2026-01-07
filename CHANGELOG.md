@@ -7,8 +7,16 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Filtrovanie dokladov podľa vozidla** - na stránke Doklady sa zobrazujú len nepriradené bločky + bločky aktuálneho vozidla
+- Automatický výber vozidla pri štarte aplikácie (ak nie je nastavené, vyberie sa prvé)
+- Databázový index na `vehicle_id` pre rýchlejšie vyhľadávanie dokladov
+
 ### Opravené
 - Automatický výpočet spotreby a zostatku paliva pri použití autocomplete pre trasu (predtým sa prepočítalo len pri manuálnej zmene km)
+- Vymazanie vozidla najprv odpojí všetky priradené bločky (predtým zlyhalo kvôli FK constraint)
+- Indikátor bločkov v navigácii teraz počíta len bločky pre aktívne vozidlo (predtým počítal všetky)
+- Výber vozidla už nezobrazuje prázdnu možnosť (ak existujú vozidlá)
 
 ## [0.9.0] - 2026-01-07
 
