@@ -86,6 +86,8 @@
 			if (!manualOdoEdit) {
 				formData.odometer = previousOdometer + matchingRoute.distance_km;
 			}
+			// Trigger live preview calculation for consumption/zostatok
+			onPreviewRequest(matchingRoute.distance_km, formData.fuel_liters, formData.full_tank);
 		}
 	}
 
