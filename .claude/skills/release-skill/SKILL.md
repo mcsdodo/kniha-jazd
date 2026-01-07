@@ -37,7 +37,18 @@ Example:
 - New feature...
 ```
 
-## 4. Build Release
+## 4. Run Tests
+
+Run tests BEFORE building to verify nothing is broken:
+
+```bash
+npm run test:backend
+npm run test:integration:tier1
+```
+
+If tests fail, fix issues and retry. Don't proceed until tests pass.
+
+## 5. Build Release
 
 Build BEFORE committing to verify everything works:
 
@@ -47,7 +58,7 @@ npm run tauri build
 
 If build fails, fix issues and retry. Don't proceed until build succeeds.
 
-## 5. Commit, Tag, and Push
+## 6. Commit, Tag, and Push
 
 Only after successful build:
 
@@ -58,7 +69,7 @@ git tag vX.Y.Z
 git push && git push --tags
 ```
 
-## 6. Report Results
+## 7. Report Results
 
 Show the path to the built installer:
 - NSIS installer: `src-tauri/target/release/bundle/nsis/Kniha Jázd_X.Y.Z_x64-setup.exe`

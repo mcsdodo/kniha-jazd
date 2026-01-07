@@ -91,6 +91,9 @@ cd src-tauri && cargo test
 # E2E integration tests (requires debug build)
 npm run test:integration:build
 
+# Integration tests - Tier 1 only (fast, for quick checks)
+npm run test:integration:tier1
+
 # All tests (backend + integration)
 npm run test:all
 ```
@@ -122,9 +125,11 @@ This keeps source files clean while maintaining private access (tests are still 
 - `gemini.rs` - 3 tests: JSON deserialization
 - `settings.rs` - 3 tests: local settings loading
 
-**Integration Tests (WebdriverIO + tauri-driver):**
+**Integration Tests (WebdriverIO + tauri-driver) - 61 tests:**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol
+- **Tiered execution**: Tier 1 (39 tests) for PRs, all tiers for main
 - Runs against debug build of Tauri app
+- DB seeding via Tauri IPC (no direct DB access)
 - CI: Windows only (tauri-driver limitation)
 
 All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
