@@ -459,6 +459,10 @@ export async function fillVehicleForm(options: VehicleFormOptions): Promise<void
     initialBatteryPercent,
   } = options;
 
+  // Wait for modal to be visible
+  const modalContent = await $('.modal-content');
+  await modalContent.waitForDisplayed({ timeout: 5000 });
+
   // Fill basic fields
   await fillField(Settings.vehicleForm.name, name);
   await fillField(Settings.vehicleForm.licensePlate, licensePlate);
@@ -495,6 +499,10 @@ export async function fillVehicleForm(options: VehicleFormOptions): Promise<void
  * Save the vehicle form
  */
 export async function saveVehicleForm(): Promise<void> {
+  // Wait for modal footer to be visible before clicking
+  const modalFooter = await $('.modal-footer');
+  await modalFooter.waitForDisplayed({ timeout: 5000 });
+
   await clickButton(Settings.saveBtn);
   await browser.pause(500); // Wait for save to complete
 }

@@ -21,7 +21,10 @@ async function createBevVehicleViaUI(options: { name: string; licensePlate: stri
   const addVehicleBtn = await $('button*=vehicle');
   if (await addVehicleBtn.isDisplayed()) {
     await addVehicleBtn.click();
-    await browser.pause(300);
+
+    // Wait for modal to be visible
+    const modalContent = await $('.modal-content');
+    await modalContent.waitForDisplayed({ timeout: 5000 });
 
     // Fill basic info
     const nameInput = await $('#name');
@@ -46,8 +49,9 @@ async function createBevVehicleViaUI(options: { name: string; licensePlate: stri
     const baselineConsumption = await $('#baseline-consumption');
     await baselineConsumption.setValue('18');
 
-    // Save
-    const saveBtn = await $('button*=Save');
+    // Save - use specific modal selector
+    const saveBtn = await $('.modal-footer button.button-primary');
+    await saveBtn.waitForClickable({ timeout: 5000 });
     await saveBtn.click();
     await browser.pause(1000);
   }
@@ -127,7 +131,10 @@ describe('Electric Vehicle Support', () => {
     const addVehicleBtn = await $('button*=vehicle');
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
-      await browser.pause(300);
+
+      // Wait for modal to be visible
+      const modalContent = await $('.modal-content');
+      await modalContent.waitForDisplayed({ timeout: 5000 });
 
       // Select PHEV
       const typeDropdown = await $('#vehicle-type');
@@ -158,7 +165,10 @@ describe('Electric Vehicle Support', () => {
     const addVehicleBtn = await $('button*=vehicle');
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
-      await browser.pause(300);
+
+      // Wait for modal to be visible
+      const modalContent = await $('.modal-content');
+      await modalContent.waitForDisplayed({ timeout: 5000 });
 
       // Fill basic info with unique values
       const nameInput = await $('#name');
@@ -186,8 +196,9 @@ describe('Electric Vehicle Support', () => {
       const initialBattery = await $('#initial-battery');
       await initialBattery.setValue('90');
 
-      // Save
-      const saveBtn = await $('button*=Save');
+      // Save - use specific modal selector
+      const saveBtn = await $('.modal-footer button.button-primary');
+      await saveBtn.waitForClickable({ timeout: 5000 });
       await saveBtn.click();
       await browser.pause(1000);
 

@@ -3,6 +3,7 @@
 	export let suggestions: string[] = [];
 	export let placeholder: string = '';
 	export let onSelect: (value: string) => void;
+	export let testId: string = '';
 
 	let showDropdown = false;
 	let filteredSuggestions: string[] = [];
@@ -73,6 +74,7 @@
 		type="text"
 		{value}
 		{placeholder}
+		data-testid={testId || undefined}
 		on:input={handleInput}
 		on:keydown={handleKeydown}
 		on:blur={handleBlur}
