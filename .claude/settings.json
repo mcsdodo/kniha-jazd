@@ -1,6 +1,10 @@
 {
   "permissions": {
-    "allow": ["Bash(cargo:*)", "Bash(npm:*)", "Bash(git:*)"]
+    "allow": [
+      "Bash(cargo:*)",
+      "Bash(npm:*)",
+      "Bash(git:*)"
+    ]
   },
   "hooks": {
     "PreToolUse": [
@@ -27,5 +31,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "rust-analyzer@claude-code-lsps": true
   }
 }
