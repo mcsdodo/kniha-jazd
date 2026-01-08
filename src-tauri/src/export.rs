@@ -21,6 +21,9 @@ pub struct ExportLabels {
     // Header labels for BEV
     pub header_battery_capacity: String,
     pub header_baseline_consumption: String,
+    // VIN and Driver
+    pub header_vin: String,
+    pub header_driver: String,
     // Column headers
     pub col_date: String,
     pub col_origin: String,
@@ -357,6 +360,8 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     </div>
     <div class="header-section">
       <p><span class="label">{header_year}</span> {year}</p>
+      <p><span class="label">{header_vin}</span> {vin}</p>
+      <p><span class="label">{header_driver}</span> {driver_name}</p>
     </div>
   </div>
 
@@ -455,6 +460,10 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         deviation = data.totals.deviation_percent,
         footer_deviation = html_escape(&l.footer_deviation),
         footer_tp_norm = html_escape(&l.footer_tp_norm),
+        header_vin = html_escape(&l.header_vin),
+        vin = html_escape(data.vehicle.vin.as_deref().unwrap_or("")),
+        header_driver = html_escape(&l.header_driver),
+        driver_name = html_escape(data.vehicle.driver_name.as_deref().unwrap_or("")),
         print_hint = html_escape(&l.print_hint),
     );
 

@@ -102,6 +102,8 @@
 		batteryCapacityKwh: number | null;
 		baselineConsumptionKwh: number | null;
 		initialBatteryPercent: number | null;
+		vin: string | null;
+		driverName: string | null;
 	}) {
 		try {
 			if (editingVehicle) {
@@ -117,6 +119,8 @@
 					baseline_consumption_kwh: data.baselineConsumptionKwh,
 					initial_battery_percent: data.initialBatteryPercent,
 					initial_odometer: data.initialOdometer,
+					vin: data.vin,
+					driver_name: data.driverName,
 					updated_at: new Date().toISOString()
 				};
 				await api.updateVehicle(updatedVehicle);
@@ -131,7 +135,9 @@
 					data.tpConsumption,
 					data.batteryCapacityKwh,
 					data.baselineConsumptionKwh,
-					data.initialBatteryPercent
+					data.initialBatteryPercent,
+					data.vin,
+					data.driverName
 				);
 			}
 

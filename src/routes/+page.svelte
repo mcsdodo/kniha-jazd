@@ -96,6 +96,9 @@
 				// BEV header labels
 				header_battery_capacity: $LL.export.headerBatteryCapacity(),
 				header_baseline_consumption: $LL.export.headerBaselineConsumption(),
+				// VIN and Driver
+				header_vin: 'VIN:',
+				header_driver: $LL.vehicleModal.driverLabel() + ':',
 				col_date: $LL.export.colDate(),
 				col_origin: $LL.export.colOrigin(),
 				col_destination: $LL.export.colDestination(),
@@ -201,6 +204,18 @@
 					<span class="label">{$LL.vehicle.tpConsumption()}:</span>
 					<span class="value">{$activeVehicleStore.tp_consumption} L/100km</span>
 				</div>
+				{#if $activeVehicleStore.vin}
+				<div class="info-item">
+					<span class="label">VIN:</span>
+					<span class="value">{$activeVehicleStore.vin}</span>
+				</div>
+				{/if}
+				{#if $activeVehicleStore.driver_name}
+				<div class="info-item">
+					<span class="label">{$LL.vehicleModal.driverLabel()}:</span>
+					<span class="value">{$activeVehicleStore.driver_name}</span>
+				</div>
+				{/if}
 			</div>
 		</div>
 
