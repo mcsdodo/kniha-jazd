@@ -63,19 +63,19 @@ describe('Vehicle Setup', () => {
 
     // Look for the add vehicle button/form
     // This test verifies the full vehicle creation flow
-    const addVehicleBtn = await $('button*=vozidlo');
+    const addVehicleBtn = await $('button*=vehicle');
 
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
       await browser.pause(300);
 
       // Fill in vehicle details with unique values
-      const nameInput = await $('input[name="name"], #name, input[placeholder*="názov"]');
+      const nameInput = await $('input[name="name"], #name, input[placeholder*="name"]');
       if (await nameInput.isDisplayed()) {
         await nameInput.setValue(vehicleName);
       }
 
-      const plateInput = await $('input[name="licensePlate"], #licensePlate, input[placeholder*="EČV"]');
+      const plateInput = await $('input[name="licensePlate"], #licensePlate, input[placeholder*="plate"]');
       if (await plateInput.isDisplayed()) {
         await plateInput.setValue(licensePlate);
       }
@@ -96,7 +96,7 @@ describe('Vehicle Setup', () => {
       }
 
       // Submit
-      const saveBtn = await $('button*=Uložiť');
+      const saveBtn = await $('button*=Save');
       if (await saveBtn.isDisplayed()) {
         await saveBtn.click();
         await browser.pause(1000);

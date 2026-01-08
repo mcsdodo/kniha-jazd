@@ -34,11 +34,11 @@ export const Settings = {
   bufferTripPurpose: '#buffer-trip-purpose',
 
   /** Vehicle management */
-  addVehicleBtn: 'button*=vozidlo',
+  addVehicleBtn: 'button*=vehicle',
   vehicleList: '.vehicle-list',
   vehicleCard: '.vehicle-card',
-  editVehicleBtn: 'button*=Upravit',
-  deleteVehicleBtn: 'button*=Vymazat',
+  editVehicleBtn: 'button*=Edit',
+  deleteVehicleBtn: 'button*=Delete',
 
   /** Vehicle form */
   vehicleForm: {
@@ -61,8 +61,8 @@ export const Settings = {
   phevBadge: '.badge.type-phev',
 
   /** Save/Cancel buttons */
-  saveBtn: 'button*=Ulozit',
-  cancelBtn: 'button*=Zrusit',
+  saveBtn: 'button*=Save',
+  cancelBtn: 'button*=Cancel',
 } as const;
 
 /**
@@ -76,20 +76,20 @@ export const TripGrid = {
   editingRow: 'tr.editing',
 
   /** Column headers */
-  dateHeader: 'th*=Datum',
-  routeHeader: 'th*=Trasa',
+  dateHeader: 'th*=Date',
+  routeHeader: 'th*=Route',
   distanceHeader: 'th*=km',
-  odometerHeader: 'th*=Stav',
-  fuelHeader: 'th*=Tankovanie',
-  consumptionHeader: 'th*=Spotreba',
-  remainingHeader: 'th*=Zostatok',
+  odometerHeader: 'th*=Odo',
+  fuelHeader: 'th*=Refuel',
+  consumptionHeader: 'th*=Consumption',
+  remainingHeader: 'th*=Remaining',
 
   /** Trip row actions */
-  newTripBtn: 'button*=Novy zaznam',
+  newTripBtn: 'button*=New record',
   editTripBtn: 'button.edit-trip',
   deleteTripBtn: 'button.delete-trip',
-  saveTripBtn: 'button*=Ulozit',
-  cancelEditBtn: 'button*=Zrusit',
+  saveTripBtn: 'button*=Save',
+  cancelEditBtn: 'button*=Cancel',
 
   /** Trip form fields (in editing row) */
   tripForm: {
@@ -132,8 +132,8 @@ export const Doklady = {
   /** Main elements */
   receiptList: '.receipt-list',
   receiptCard: '.receipt-card',
-  scanBtn: 'button*=Skenovat',
-  assignBtn: 'button*=Priradit',
+  scanBtn: 'button*=Scan',
+  assignBtn: 'button*=Assign',
 
   /** Receipt details */
   receiptDate: '.receipt-date',
@@ -148,7 +148,7 @@ export const Doklady = {
   assignedBadge: '.status-assigned',
 
   /** Verification */
-  verifyBtn: 'button*=Overit',
+  verifyBtn: 'button*=Verify',
   verificationResult: '.verification-result',
 } as const;
 
@@ -161,8 +161,8 @@ export const Modal = {
   closeBtn: '.modal .close-button',
   title: '.modal-title',
   content: '.modal-content',
-  confirmBtn: 'button*=Potvrdit',
-  cancelBtn: 'button*=Zrusit',
+  confirmBtn: 'button*=Confirm',
+  cancelBtn: 'button*=Cancel',
 } as const;
 
 /**

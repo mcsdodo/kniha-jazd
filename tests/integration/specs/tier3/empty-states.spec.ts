@@ -14,7 +14,7 @@ import { createTestIceVehicle } from '../../fixtures/vehicles';
 describe('Tier 3: Empty States', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('No Vehicle State', () => {

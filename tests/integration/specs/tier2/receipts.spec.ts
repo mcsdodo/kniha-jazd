@@ -106,7 +106,7 @@ async function deleteReceipt(receiptId: string): Promise<void> {
 describe('Tier 2: Receipts Workflow', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Receipt Display', () => {
@@ -260,7 +260,7 @@ describe('Tier 2: Receipts Workflow', () => {
             await browser.pause(300);
 
             // Confirm assignment
-            const confirmBtn = await $('button*=Potvrdit');
+            const confirmBtn = await $('button*=Confirm');
             if (await confirmBtn.isExisting()) {
               await confirmBtn.click();
               await browser.pause(1000);
@@ -301,13 +301,13 @@ describe('Tier 2: Receipts Workflow', () => {
       await browser.pause(500);
 
       // Find delete button on a receipt card
-      const deleteBtn = await $('button*=Vymazat');
+      const deleteBtn = await $('button*=Delete');
       if (await deleteBtn.isExisting()) {
         await deleteBtn.click();
         await browser.pause(300);
 
         // Confirm deletion
-        const confirmBtn = await $('button*=Potvrdit');
+        const confirmBtn = await $('button*=Confirm');
         if (await confirmBtn.isExisting()) {
           await confirmBtn.click();
           await browser.pause(1000);

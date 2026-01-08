@@ -25,7 +25,7 @@ import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 describe('Tier 1: BEV Trips', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('BEV Trip with Charging', () => {

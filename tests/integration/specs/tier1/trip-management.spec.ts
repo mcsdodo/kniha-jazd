@@ -29,7 +29,7 @@ import {
 describe('Tier 1: Trip Management', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Trip Creation', () => {

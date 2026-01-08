@@ -22,7 +22,7 @@ import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 describe('Tier 3: Compensation Trip Suggestions', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Over-Limit Compensation Banner', () => {

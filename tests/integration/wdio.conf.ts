@@ -236,11 +236,17 @@ export const config: any = {
   },
 
   /**
-   * Before each test: Fresh database
+   * Before each test: Fresh database and set locale to English
    */
   beforeTest: async function () {
     // Wait for any pending operations to complete
     await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Set locale to English BEFORE database cleanup and refresh
+    // This ensures consistent locale in tests regardless of environment
+    await browser.execute(() => {
+      localStorage.setItem('kniha-jazd-locale', 'en');
+    });
 
     // Delete existing test DB for clean slate with retry logic
     const dbPath = getTestDbPath();
