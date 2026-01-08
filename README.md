@@ -161,6 +161,23 @@ Pre detailnú architektúru pozrite [ARCHITECTURE.md](ARCHITECTURE.md) (v angli�
 
 ### Lokálne spustenie
 
+#### macOS: Inštalácia Rust
+
+Pred lokálnym spustením na macOS je potrebné nainštalovať Rust:
+
+```bash
+# Inštalácia Rust (oficiálna metóda pre macOS)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Po inštalácii reštartujte terminál alebo spustite:
+source "$HOME/.cargo/env"
+
+# Overenie:
+cargo --version
+```
+
+#### Spustenie aplikácie
+
 ```bash
 npm install
 npm run tauri dev
