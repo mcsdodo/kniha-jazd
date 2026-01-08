@@ -13,12 +13,32 @@ import { Nav, Settings, TripGrid } from './assertions';
 
 /**
  * Fill a text input field
+ *
+ * Note: After setValue, we explicitly dispatch an 'input' event to ensure
+ * Svelte's reactivity is triggered. This is necessary because different
+ * WebDriver implementations (Edge vs Chrome) may handle input events
+ * differently, and Svelte's bind:value relies on input events to update.
  */
 export async function fillField(selector: string, value: string): Promise<void> {
   const field = await $(selector);
   await field.waitForDisplayed({ timeout: 5000 });
   await field.clearValue();
   await field.setValue(value);
+  // Dispatch input event and set value directly to ensure Svelte reactivity is triggered
+  // This is especially important for Edge WebDriver in CI
+  await browser.execute((sel: string, val: string) => {
+    const input = document.querySelector(sel) as HTMLInputElement;
+    if (input) {
+      // Ensure the value is set directly on the element
+      input.value = val;
+      // Dispatch input event to trigger Svelte's bind:value
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      // Also dispatch change event for good measure
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }, selector, value);
+  // Small delay to allow Svelte to process reactive updates
+  await browser.pause(50);
 }
 
 /**
