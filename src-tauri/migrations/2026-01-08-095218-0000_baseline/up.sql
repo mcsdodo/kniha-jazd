@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
     initial_battery_percent REAL,
     initial_odometer REAL NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
+    vin TEXT,
+    driver_name TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

@@ -83,6 +83,8 @@ diesel::table! {
         initial_battery_percent -> Nullable<Double>,
         initial_odometer -> Double,
         is_active -> Integer,
+        vin -> Nullable<Text>,
+        driver_name -> Nullable<Text>,
         created_at -> Text,
         updated_at -> Text,
     }

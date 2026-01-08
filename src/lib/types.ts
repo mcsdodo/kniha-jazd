@@ -17,6 +17,8 @@ export interface Vehicle {
 	// Common
 	initial_odometer: number;
 	is_active: boolean;
+	vin?: string | null;
+	driver_name?: string | null;
 	created_at: string;
 	updated_at: string;
 }

@@ -88,6 +88,8 @@ impl Database {
             initial_battery_percent: vehicle.initial_battery_percent,
             initial_odometer: vehicle.initial_odometer,
             is_active: if vehicle.is_active { 1 } else { 0 },
+            vin: vehicle.vin.as_deref(),
+            driver_name: vehicle.driver_name.as_deref(),
             created_at: &created_at_str,
             updated_at: &updated_at_str,
         };
@@ -150,6 +152,8 @@ impl Database {
                     .eq(vehicle.initial_battery_percent),
                 vehicles::initial_odometer.eq(vehicle.initial_odometer),
                 vehicles::is_active.eq(if vehicle.is_active { 1 } else { 0 }),
+                vehicles::vin.eq(&vehicle.vin),
+                vehicles::driver_name.eq(&vehicle.driver_name),
                 vehicles::updated_at.eq(&updated_at_str),
             ))
             .execute(conn)?;

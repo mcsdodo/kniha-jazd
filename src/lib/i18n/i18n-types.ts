@@ -272,6 +272,22 @@ type RootTranslation = {
 		 */
 		initialOdometerLabel: string
 		/**
+		 * V​I​N
+		 */
+		vinLabel: string
+		/**
+		 * n​a​p​r​.​ ​A​B​C​1​2​3​4​5​6​7​8​9
+		 */
+		vinPlaceholder: string
+		/**
+		 * V​o​d​i​č
+		 */
+		driverLabel: string
+		/**
+		 * n​a​p​r​.​ ​J​a​n​k​o​ ​H​r​a​š​k​o
+		 */
+		driverPlaceholder: string
+		/**
 		 * T​y​p​ ​v​o​z​i​d​l​a
 		 */
 		vehicleTypeLabel: string
@@ -1479,6 +1495,22 @@ export type TranslationFunctions = {
 		 * Počiatočný stav ODO (km)
 		 */
 		initialOdometerLabel: () => LocalizedString
+		/**
+		 * VIN
+		 */
+		vinLabel: () => LocalizedString
+		/**
+		 * napr. ABC123456789
+		 */
+		vinPlaceholder: () => LocalizedString
+		/**
+		 * Vodič
+		 */
+		driverLabel: () => LocalizedString
+		/**
+		 * napr. Janko Hraško
+		 */
+		driverPlaceholder: () => LocalizedString
 		/**
 		 * Typ vozidla
 		 */
