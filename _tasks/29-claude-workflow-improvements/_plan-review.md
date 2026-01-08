@@ -1,6 +1,6 @@
 # Plan Review
 
-**Target:** _tasks/29-claude-workflow-improvements/PLAN.md
+**Target:** _tasks/29-claude-workflow-improvements/02-plan.md
 **Started:** 2026-01-08
 **Status:** In Progress
 **Focus:** Completeness, feasibility, clarity
@@ -11,14 +11,14 @@
 
 #### Critical
 
-1. **[Critical] DESIGN.md requirement missing: "Wildcard Bash Permissions" not addressed in PLAN.md**
-   - DESIGN.md Section 5 specifies adding wildcard bash permissions to settings.json: `"permissions": { "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"] }`
-   - This is completely absent from the PLAN.md tasks
+1. **[Critical] 01-design.md requirement missing: "Wildcard Bash Permissions" not addressed in 02-plan.md**
+   - 01-design.md Section 5 specifies adding wildcard bash permissions to settings.json: `"permissions": { "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"] }`
+   - This is completely absent from the 02-plan.md tasks
    - Impact: Implementation will be incomplete vs design requirements
 
-2. **[Critical] DESIGN.md requirement missing: "YAML-style allowed-tools in skills" not addressed**
-   - DESIGN.md Section 5 and Implementation Step 5 specifies: "Update skills to use YAML-style allowed-tools"
-   - No task in PLAN.md covers converting skills to use the new `allowed-tools:` YAML syntax
+2. **[Critical] 01-design.md requirement missing: "YAML-style allowed-tools in skills" not addressed**
+   - 01-design.md Section 5 and Implementation Step 5 specifies: "Update skills to use YAML-style allowed-tools"
+   - No task in 02-plan.md covers converting skills to use the new `allowed-tools:` YAML syntax
    - Impact: This documented feature will not be implemented
 
 3. **[Critical] Skill hooks syntax may be incorrect - no verification step**
@@ -50,7 +50,7 @@
 
 7. **[Important] Hook command in Task 10 (code-review-skill) uses Windows-specific PowerShell**
    - Proposed: `pwsh -NoProfile -Command "Write-Host 'REMINDER: ..."`
-   - DESIGN.md shows simpler: `echo 'Remember: reviewing, not implementing'`
+   - 01-design.md shows simpler: `echo 'Remember: reviewing, not implementing'`
    - The PowerShell approach may fail on non-Windows CI environments
 
 8. **[Important] release-skill hook duplicates existing workflow logic**
@@ -65,7 +65,7 @@
    - Empty directories are not tracked by git - need to create the file or rely on first rule file
 
 10. **[Minor] CLAUDE.md slim version still exceeds stated goal**
-    - Plan states CLAUDE.md should be "~50 lines" (from DESIGN.md) but verification expects "Under 100 lines"
+    - Plan states CLAUDE.md should be "~50 lines" (from 01-design.md) but verification expects "Under 100 lines"
     - The proposed content in Task 7 is approximately 85-90 lines
     - Inconsistent with design
 
@@ -78,14 +78,14 @@
     - Multiple locations reference "108 tests" - creates sync burden when tests change
 
 13. **[Minor] Named sessions documentation placement**
-    - Named sessions guidance added to git-workflow.md but DESIGN.md presents it as standalone concept
+    - Named sessions guidance added to git-workflow.md but 01-design.md presents it as standalone concept
     - Users may not find it intuitively
 
 ### Coverage Assessment
 
 **Areas Fully Reviewed:**
-- All 13 tasks in PLAN.md
-- Mapping to DESIGN.md requirements (6 sections)
+- All 13 tasks in 02-plan.md
+- Mapping to 01-design.md requirements (6 sections)
 - Current file contents (settings.json, SKILL.md files, CLAUDE.md)
 - Syntax correctness of proposed changes
 - Verification steps presence
@@ -151,9 +151,9 @@
 
 #### Minor
 
-19. **[Minor] DESIGN.md/PLAN.md command inconsistency for release-skill hook**
-    - DESIGN.md specifies: `npm run build`
-    - PLAN.md specifies: `npm run tauri build`
+19. **[Minor] 01-design.md/02-plan.md command inconsistency for release-skill hook**
+    - 01-design.md specifies: `npm run build`
+    - 02-plan.md specifies: `npm run tauri build`
     - These are different commands - could cause confusion during implementation
 
 ### Coverage Assessment
@@ -172,8 +172,8 @@ Only 1 minor finding - review is now comprehensive.
 
 #### Critical
 
-1. [ ] **Wildcard Bash permissions missing** - DESIGN.md Section 5 requires `"permissions": { "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"] }` but no task addresses this
-2. [ ] **YAML-style allowed-tools not addressed** - DESIGN.md requires updating skills with `allowed-tools:` YAML syntax, but no task covers this
+1. [ ] **Wildcard Bash permissions missing** - 01-design.md Section 5 requires `"permissions": { "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"] }` but no task addresses this
+2. [ ] **YAML-style allowed-tools not addressed** - 01-design.md requires updating skills with `allowed-tools:` YAML syntax, but no task covers this
 3. [ ] **Skill hooks syntax unverified** - No test that hooks actually fire; unknown if frontmatter syntax is correct
 
 #### Important
@@ -200,7 +200,7 @@ Only 1 minor finding - review is now comprehensive.
 
 ### Recommendation
 
-**Needs revisions before implementation.** The 3 Critical issues represent missing requirements from DESIGN.md that would make the implementation incomplete. The Important issues around atomicity (#14, #15) and content loss (#4) could cause problems during implementation.
+**Needs revisions before implementation.** The 3 Critical issues represent missing requirements from 01-design.md that would make the implementation incomplete. The Important issues around atomicity (#14, #15) and content loss (#4) could cause problems during implementation.
 
 **Suggested priority:**
 1. Add missing tasks for Critical items #1-2
