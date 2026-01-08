@@ -95,3 +95,50 @@
 - Claude Code documentation verification (skill hooks syntax) - would require external docs
 - Actual runtime testing of `@import` syntax - cannot verify without execution
 - Cross-platform compatibility testing
+
+---
+
+## Iteration 2
+
+### New Findings
+
+#### Important
+
+14. **[Important] Task order creates rollback risk**
+    - Tasks 2-6 create and commit rule files individually, then Task 7 refactors CLAUDE.md
+    - If Task 7 fails (e.g., import syntax doesn't work), rolling back requires reverting multiple commits
+    - Better approach: create all rule files uncommitted, verify imports work, then commit atomically
+
+15. **[Important] No backup of original CLAUDE.md before replacement**
+    - Task 7 says "Replace entire CLAUDE.md content" without preserving original
+    - If refactored version has issues, recovery requires `git checkout` through multiple commits
+
+#### Minor
+
+16. **[Minor] rust-analyzer installation not verified**
+    - Task 8 adds LSP config but doesn't verify rust-analyzer is installed
+    - Should add: `rust-analyzer --version` verification step
+
+17. **[Minor] `python -m json.tool` may not be available on Windows**
+    - Task 8 uses Python for JSON validation
+    - PowerShell's `ConvertFrom-Json` would be more reliable for Windows
+
+18. **[Minor] No guidance for partial implementation failure**
+    - If implementation stops after Task 6 but before Task 7, project has both full CLAUDE.md AND separate rule files
+    - Plan should specify recovery: "If stopped here, either complete Task 7 or delete `.claude/rules/`"
+
+### Refined Analysis
+
+- Finding #10 confirmed: Proposed CLAUDE.md is ~102 lines (exceeds "under 100" criterion)
+- Finding #8 confirmed: release-skill already runs build, hook would duplicate
+
+### Coverage Assessment
+
+**Areas Newly Explored:**
+- Implementation sequence and atomicity (rollback scenarios)
+- Prerequisite verification (rust-analyzer, python)
+- Partial failure recovery guidance
+
+**Remaining:**
+- Claude Code skill hooks syntax (requires external documentation)
+- Runtime verification of `@import` syntax
