@@ -7,6 +7,14 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Migrácia na Diesel ORM** - kompletná výmena rusqlite za Diesel pre typovo bezpečné databázové operácie
+  - Compile-time kontrola INSERT/UPDATE operácií (zachytí chýbajúce stĺpce pri kompilácii)
+  - Row structs pattern pre čistý mapping medzi DB a doménovými modelmi
+  - Embedded migrations pre automatickú inicializáciu DB
+  - Rozdelenie db.rs a db_tests.rs podľa projektu (pattern ako calculations)
+  - Všetkých 132 testov prechádza, existujúce DB súbory zostávajú kompatibilné
+
 ## [0.10.0] - 2026-01-07
 
 ### Pridané
