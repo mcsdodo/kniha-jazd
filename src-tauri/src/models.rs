@@ -497,7 +497,7 @@ pub struct NewVehicleRow<'a> {
 }
 
 /// Database row for trips table
-#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset, QueryableByName)]
 #[diesel(table_name = trips)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct TripRow {
@@ -600,7 +600,7 @@ pub struct NewSettingsRow<'a> {
 }
 
 /// Database row for receipts table
-#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset, QueryableByName)]
 #[diesel(table_name = receipts)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct ReceiptRow {
