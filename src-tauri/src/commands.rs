@@ -14,6 +14,7 @@ use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStat
 use std::collections::{HashMap, HashSet};
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{Datelike, NaiveDate, Utc, Local};
+use diesel::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::{Emitter, Manager, State};
@@ -1335,15 +1336,25 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 
     let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
 
-    // Open backup database to get counts
-    let conn = rusqlite::Connection::open(&backup_path).map_err(|e| e.to_string())?;
+    // Open backup database to get counts using Diesel
+    let backup_db = crate::db::Database::from_path(&backup_path).map_err(|e| e.to_string())?;
+    let conn = &mut *backup_db.connection();
 
-    let vehicle_count: i32 = conn
-        .query_row("SELECT COUNT(*) FROM vehicles", [], |row| row.get(0))
+    // Use raw SQL for simple count queries
+    #[derive(diesel::QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        count: i32,
+    }
+
+    let vehicle_count: i32 = diesel::sql_query("SELECT COUNT(*) as count FROM vehicles")
+        .get_result::<CountRow>(conn)
+        .map(|r| r.count)
         .unwrap_or(0);
 
-    let trip_count: i32 = conn
-        .query_row("SELECT COUNT(*) FROM trips", [], |row| row.get(0))
+    let trip_count: i32 = diesel::sql_query("SELECT COUNT(*) as count FROM trips")
+        .get_result::<CountRow>(conn)
+        .map(|r| r.count)
         .unwrap_or(0);
 
     // Parse timestamp from filename
