@@ -63,7 +63,7 @@ export async function createVehicleViaUI(options: Partial<typeof testVehicle> = 
   await navigateToSettings();
 
   // Click "Pridať vozidlo" or similar button
-  const addButton = await $('button*=vozidlo');
+  const addButton = await $('button*=vehicle');
   if (await addButton.isDisplayed()) {
     await addButton.click();
   }
@@ -77,7 +77,7 @@ export async function createVehicleViaUI(options: Partial<typeof testVehicle> = 
   await fillField('input[name="initialOdometer"], #initialOdometer', data.initialOdometer.toString());
 
   // Submit the form
-  await clickButton('Uložiť');
+  await clickButton('Save');
 
   // Wait for vehicle to appear
   await browser.pause(500);
@@ -96,7 +96,7 @@ export async function createBevVehicleViaUI(options: Partial<typeof testBevVehic
   await navigateToSettings();
 
   // Click "Pridať vozidlo" or similar button
-  const addButton = await $('button*=vozidlo');
+  const addButton = await $('button*=vehicle');
   if (await addButton.isDisplayed()) {
     await addButton.click();
   }
@@ -129,7 +129,7 @@ export async function createBevVehicleViaUI(options: Partial<typeof testBevVehic
   await initialBattery.setValue(data.initialBattery.toString());
 
   // Submit the form
-  const saveBtn = await $('button*=Uložiť');
+  const saveBtn = await $('button*=Save');
   await saveBtn.click();
 
   // Wait for vehicle to appear
@@ -143,7 +143,7 @@ export async function createTripViaUI(options: Partial<typeof testTrip> = {}): P
   const data = { ...testTrip, ...options };
 
   // Click "Nový záznam" button
-  await clickButton('Nový záznam');
+  await clickButton('New record');
 
   // Wait for editing row to appear
   const editingRow = await $('tr.editing');
@@ -167,7 +167,7 @@ export async function createTripViaUI(options: Partial<typeof testTrip> = {}): P
   await purposeInput.setValue(data.purpose);
 
   // Save the trip
-  await clickButton('Uložiť');
+  await clickButton('Save');
 
   // Wait for save to complete
   await browser.pause(500);
