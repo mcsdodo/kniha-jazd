@@ -1,10 +1,16 @@
 //! Data models for Vehicle, Trip, Route, Settings
+//!
+//! This module contains both domain models (Vehicle, Trip, etc.) and their
+//! database row counterparts (VehicleRow, TripRow, etc.) for Diesel ORM.
 
 use chrono::{DateTime, NaiveDate, Utc};
+use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use uuid::Uuid;
+
+use crate::schema::{receipts, routes, settings, trips, vehicles};
 
 /// Vehicle powertrain type - determines which fields are required/displayed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -443,4 +449,369 @@ pub struct PreviewResult {
     pub is_over_limit: bool,
     /// True if rate is estimated (no full-tank fill-up yet in this period)
     pub is_estimated_rate: bool,
+}
+
+// =============================================================================
+// Diesel ORM Row Structs
+// =============================================================================
+// These structs map directly to database tables with String/i32 types.
+// Use the From implementations to convert to/from domain models.
+
+/// Database row for vehicles table
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = vehicles)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct VehicleRow {
+    pub id: Option<String>,
+    pub name: String,
+    pub license_plate: String,
+    pub vehicle_type: String,
+    pub tank_size_liters: Option<f32>,
+    pub tp_consumption: Option<f32>,
+    pub battery_capacity_kwh: Option<f32>,
+    pub baseline_consumption_kwh: Option<f32>,
+    pub initial_battery_percent: Option<f32>,
+    pub initial_odometer: f32,
+    pub is_active: i32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// For inserting new vehicles
+#[derive(Debug, Insertable)]
+#[diesel(table_name = vehicles)]
+pub struct NewVehicleRow<'a> {
+    pub id: &'a str,
+    pub name: &'a str,
+    pub license_plate: &'a str,
+    pub vehicle_type: &'a str,
+    pub tank_size_liters: Option<f32>,
+    pub tp_consumption: Option<f32>,
+    pub battery_capacity_kwh: Option<f32>,
+    pub baseline_consumption_kwh: Option<f32>,
+    pub initial_battery_percent: Option<f32>,
+    pub initial_odometer: f32,
+    pub is_active: i32,
+    pub created_at: &'a str,
+    pub updated_at: &'a str,
+}
+
+/// Database row for trips table
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = trips)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct TripRow {
+    pub id: Option<String>,
+    pub vehicle_id: String,
+    pub date: String,
+    pub origin: String,
+    pub destination: String,
+    pub distance_km: f32,
+    pub odometer: f32,
+    pub purpose: String,
+    pub fuel_liters: Option<f32>,
+    pub fuel_cost_eur: Option<f32>,
+    pub other_costs_eur: Option<f32>,
+    pub other_costs_note: Option<String>,
+    pub full_tank: i32,
+    pub sort_order: i32,
+    pub energy_kwh: Option<f32>,
+    pub energy_cost_eur: Option<f32>,
+    pub full_charge: Option<i32>,
+    pub soc_override_percent: Option<f32>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// For inserting new trips
+#[derive(Debug, Insertable)]
+#[diesel(table_name = trips)]
+pub struct NewTripRow<'a> {
+    pub id: &'a str,
+    pub vehicle_id: &'a str,
+    pub date: &'a str,
+    pub origin: &'a str,
+    pub destination: &'a str,
+    pub distance_km: f32,
+    pub odometer: f32,
+    pub purpose: &'a str,
+    pub fuel_liters: Option<f32>,
+    pub fuel_cost_eur: Option<f32>,
+    pub other_costs_eur: Option<f32>,
+    pub other_costs_note: Option<&'a str>,
+    pub full_tank: i32,
+    pub sort_order: i32,
+    pub energy_kwh: Option<f32>,
+    pub energy_cost_eur: Option<f32>,
+    pub full_charge: Option<i32>,
+    pub soc_override_percent: Option<f32>,
+    pub created_at: &'a str,
+    pub updated_at: &'a str,
+}
+
+/// Database row for routes table
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = routes)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct RouteRow {
+    pub id: Option<String>,
+    pub vehicle_id: String,
+    pub origin: String,
+    pub destination: String,
+    pub distance_km: f32,
+    pub usage_count: i32,
+    pub last_used: String,
+}
+
+/// For inserting new routes
+#[derive(Debug, Insertable)]
+#[diesel(table_name = routes)]
+pub struct NewRouteRow<'a> {
+    pub id: &'a str,
+    pub vehicle_id: &'a str,
+    pub origin: &'a str,
+    pub destination: &'a str,
+    pub distance_km: f32,
+    pub usage_count: i32,
+    pub last_used: &'a str,
+}
+
+/// Database row for settings table
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = settings)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct SettingsRow {
+    pub id: Option<String>,
+    pub company_name: String,
+    pub company_ico: String,
+    pub buffer_trip_purpose: String,
+    pub updated_at: String,
+}
+
+/// For inserting new settings
+#[derive(Debug, Insertable)]
+#[diesel(table_name = settings)]
+pub struct NewSettingsRow<'a> {
+    pub id: &'a str,
+    pub company_name: &'a str,
+    pub company_ico: &'a str,
+    pub buffer_trip_purpose: &'a str,
+    pub updated_at: &'a str,
+}
+
+/// Database row for receipts table
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = receipts)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct ReceiptRow {
+    pub id: Option<String>,
+    pub vehicle_id: Option<String>,
+    pub trip_id: Option<String>,
+    pub file_path: String,
+    pub file_name: String,
+    pub scanned_at: String,
+    pub liters: Option<f32>,
+    pub total_price_eur: Option<f32>,
+    pub receipt_date: Option<String>,
+    pub station_name: Option<String>,
+    pub station_address: Option<String>,
+    pub source_year: Option<i32>,
+    pub status: String,
+    pub confidence: String,
+    pub raw_ocr_text: Option<String>,
+    pub error_message: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// For inserting new receipts
+#[derive(Debug, Insertable)]
+#[diesel(table_name = receipts)]
+pub struct NewReceiptRow<'a> {
+    pub id: &'a str,
+    pub vehicle_id: Option<&'a str>,
+    pub trip_id: Option<&'a str>,
+    pub file_path: &'a str,
+    pub file_name: &'a str,
+    pub scanned_at: &'a str,
+    pub liters: Option<f32>,
+    pub total_price_eur: Option<f32>,
+    pub receipt_date: Option<&'a str>,
+    pub station_name: Option<&'a str>,
+    pub station_address: Option<&'a str>,
+    pub source_year: Option<i32>,
+    pub status: &'a str,
+    pub confidence: &'a str,
+    pub raw_ocr_text: Option<&'a str>,
+    pub error_message: Option<&'a str>,
+    pub created_at: &'a str,
+    pub updated_at: &'a str,
+}
+
+// =============================================================================
+// Conversion implementations: Row <-> Domain
+// =============================================================================
+
+impl From<VehicleRow> for Vehicle {
+    fn from(row: VehicleRow) -> Self {
+        Vehicle {
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            name: row.name,
+            license_plate: row.license_plate,
+            vehicle_type: match row.vehicle_type.as_str() {
+                "Bev" => VehicleType::Bev,
+                "Phev" => VehicleType::Phev,
+                _ => VehicleType::Ice,
+            },
+            tank_size_liters: row.tank_size_liters.map(|v| v as f64),
+            tp_consumption: row.tp_consumption.map(|v| v as f64),
+            battery_capacity_kwh: row.battery_capacity_kwh.map(|v| v as f64),
+            baseline_consumption_kwh: row.baseline_consumption_kwh.map(|v| v as f64),
+            initial_battery_percent: row.initial_battery_percent.map(|v| v as f64),
+            initial_odometer: row.initial_odometer as f64,
+            is_active: row.is_active != 0,
+            created_at: DateTime::parse_from_rfc3339(&row.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(&row.updated_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        }
+    }
+}
+
+impl From<TripRow> for Trip {
+    fn from(row: TripRow) -> Self {
+        Trip {
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
+            date: NaiveDate::parse_from_str(&row.date, "%Y-%m-%d").unwrap_or_else(|_| {
+                Utc::now().date_naive()
+            }),
+            origin: row.origin,
+            destination: row.destination,
+            distance_km: row.distance_km as f64,
+            odometer: row.odometer as f64,
+            purpose: row.purpose,
+            fuel_liters: row.fuel_liters.map(|v| v as f64),
+            fuel_cost_eur: row.fuel_cost_eur.map(|v| v as f64),
+            full_tank: row.full_tank != 0,
+            energy_kwh: row.energy_kwh.map(|v| v as f64),
+            energy_cost_eur: row.energy_cost_eur.map(|v| v as f64),
+            full_charge: row.full_charge.map(|v| v != 0).unwrap_or(false),
+            soc_override_percent: row.soc_override_percent.map(|v| v as f64),
+            other_costs_eur: row.other_costs_eur.map(|v| v as f64),
+            other_costs_note: row.other_costs_note,
+            sort_order: row.sort_order,
+            created_at: DateTime::parse_from_rfc3339(&row.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(&row.updated_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        }
+    }
+}
+
+impl From<RouteRow> for Route {
+    fn from(row: RouteRow) -> Self {
+        Route {
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
+            origin: row.origin,
+            destination: row.destination,
+            distance_km: row.distance_km as f64,
+            usage_count: row.usage_count,
+            last_used: DateTime::parse_from_rfc3339(&row.last_used)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        }
+    }
+}
+
+impl From<SettingsRow> for Settings {
+    fn from(row: SettingsRow) -> Self {
+        Settings {
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            company_name: row.company_name,
+            company_ico: row.company_ico,
+            buffer_trip_purpose: row.buffer_trip_purpose,
+            updated_at: DateTime::parse_from_rfc3339(&row.updated_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        }
+    }
+}
+
+impl From<ReceiptRow> for Receipt {
+    fn from(row: ReceiptRow) -> Self {
+        let status = match row.status.as_str() {
+            "Pending" => ReceiptStatus::Pending,
+            "Parsed" => ReceiptStatus::Parsed,
+            "NeedsReview" => ReceiptStatus::NeedsReview,
+            "Assigned" => ReceiptStatus::Assigned,
+            _ => ReceiptStatus::Pending,
+        };
+
+        let confidence: FieldConfidence = serde_json::from_str(&row.confidence).unwrap_or_default();
+
+        Receipt {
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            vehicle_id: row.vehicle_id.and_then(|s| Uuid::parse_str(&s).ok()),
+            trip_id: row.trip_id.and_then(|s| Uuid::parse_str(&s).ok()),
+            file_path: row.file_path,
+            file_name: row.file_name,
+            scanned_at: DateTime::parse_from_rfc3339(&row.scanned_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            liters: row.liters.map(|v| v as f64),
+            total_price_eur: row.total_price_eur.map(|v| v as f64),
+            receipt_date: row.receipt_date.and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+            station_name: row.station_name,
+            station_address: row.station_address,
+            source_year: row.source_year,
+            status,
+            confidence,
+            raw_ocr_text: row.raw_ocr_text,
+            error_message: row.error_message,
+            created_at: DateTime::parse_from_rfc3339(&row.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(&row.updated_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        }
+    }
+}
+
+// =============================================================================
+// Helper functions for domain -> row conversion (used in db.rs)
+// =============================================================================
+
+impl Vehicle {
+    /// Convert to row struct for Diesel operations
+    pub fn to_vehicle_type_str(&self) -> &'static str {
+        match self.vehicle_type {
+            VehicleType::Ice => "Ice",
+            VehicleType::Bev => "Bev",
+            VehicleType::Phev => "Phev",
+        }
+    }
+}
+
+impl Receipt {
+    /// Convert status to database string
+    pub fn status_to_str(&self) -> &'static str {
+        match self.status {
+            ReceiptStatus::Pending => "Pending",
+            ReceiptStatus::Parsed => "Parsed",
+            ReceiptStatus::NeedsReview => "NeedsReview",
+            ReceiptStatus::Assigned => "Assigned",
+        }
+    }
+
+    /// Convert confidence to JSON string
+    pub fn confidence_to_json(&self) -> String {
+        serde_json::to_string(&self.confidence).unwrap_or_default()
+    }
 }

@@ -8,6 +8,7 @@ mod export;
 mod gemini;
 mod models;
 mod receipts;
+mod schema;
 mod settings;
 mod suggestions;
 
