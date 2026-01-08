@@ -9,9 +9,13 @@
 	let filteredSuggestions: string[] = [];
 	let selectedIndex = -1;
 
-	function handleInput(event: Event) {
-		const target = event.target as HTMLInputElement;
-		value = target.value;
+	// Track previous value to detect changes (for reactive updates)
+	let previousValue = value;
+
+	// Reactive statement: update suggestions when value changes
+	// This handles both user typing and programmatic value changes (e.g., WebDriverIO setValue)
+	$: if (value !== previousValue) {
+		previousValue = value;
 		updateSuggestions();
 	}
 
@@ -72,10 +76,9 @@
 <div class="autocomplete">
 	<input
 		type="text"
-		{value}
+		bind:value
 		{placeholder}
 		data-testid={testId || undefined}
-		on:input={handleInput}
 		on:keydown={handleKeydown}
 		on:blur={handleBlur}
 		on:focus={updateSuggestions}
