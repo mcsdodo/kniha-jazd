@@ -29,7 +29,7 @@ import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 describe('Tier 1: PHEV Trips', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('PHEV Mixed Fuel and Energy', () => {

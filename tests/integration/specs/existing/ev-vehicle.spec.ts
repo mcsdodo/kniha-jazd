@@ -18,7 +18,7 @@ async function createBevVehicleViaUI(options: { name: string; licensePlate: stri
   await browser.pause(500);
 
   // Open add vehicle modal
-  const addVehicleBtn = await $('button*=vozidlo');
+  const addVehicleBtn = await $('button*=vehicle');
   if (await addVehicleBtn.isDisplayed()) {
     await addVehicleBtn.click();
     await browser.pause(300);
@@ -47,7 +47,7 @@ async function createBevVehicleViaUI(options: { name: string; licensePlate: stri
     await baselineConsumption.setValue('18');
 
     // Save
-    const saveBtn = await $('button*=Uložiť');
+    const saveBtn = await $('button*=Save');
     await saveBtn.click();
     await browser.pause(1000);
   }
@@ -72,7 +72,7 @@ describe('Electric Vehicle Support', () => {
     await browser.pause(500);
 
     // Open add vehicle modal
-    const addVehicleBtn = await $('button*=vozidlo');
+    const addVehicleBtn = await $('button*=vehicle');
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
       await browser.pause(300);
@@ -94,7 +94,7 @@ describe('Electric Vehicle Support', () => {
     await browser.pause(500);
 
     // Open add vehicle modal
-    const addVehicleBtn = await $('button*=vozidlo');
+    const addVehicleBtn = await $('button*=vehicle');
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
       await browser.pause(300);
@@ -124,7 +124,7 @@ describe('Electric Vehicle Support', () => {
     await browser.pause(500);
 
     // Open add vehicle modal
-    const addVehicleBtn = await $('button*=vozidlo');
+    const addVehicleBtn = await $('button*=vehicle');
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
       await browser.pause(300);
@@ -155,7 +155,7 @@ describe('Electric Vehicle Support', () => {
     await browser.pause(500);
 
     // Open add vehicle modal
-    const addVehicleBtn = await $('button*=vozidlo');
+    const addVehicleBtn = await $('button*=vehicle');
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
       await browser.pause(300);
@@ -187,7 +187,7 @@ describe('Electric Vehicle Support', () => {
       await initialBattery.setValue('90');
 
       // Save
-      const saveBtn = await $('button*=Uložiť');
+      const saveBtn = await $('button*=Save');
       await saveBtn.click();
       await browser.pause(1000);
 
@@ -237,7 +237,7 @@ describe('Electric Vehicle Support', () => {
     // Since we just created a vehicle with no trips, it should be editable.
 
     // Find the edit button for the vehicle we just created
-    const editBtn = await $('button*=Upraviť');
+    const editBtn = await $('button*=Edit');
     if (await editBtn.isDisplayed()) {
       await editBtn.click();
       await browser.pause(300);

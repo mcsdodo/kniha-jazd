@@ -24,7 +24,7 @@ import { Nav } from '../../utils/assertions';
 describe('Tier 1: Year Handling', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Year Filtering', () => {

@@ -20,7 +20,7 @@ import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 describe('Tier 3: Validation & Edge Cases', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Odometer Validation', () => {

@@ -91,7 +91,7 @@ async function deleteBackup(filename: string): Promise<void> {
 describe('Tier 2: Backup & Restore', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Backup Creation', () => {

@@ -26,7 +26,7 @@ import { Settings } from '../../utils/assertions';
 describe('Tier 2: Vehicle Management', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('PHEV Vehicle Creation', () => {
@@ -231,7 +231,7 @@ describe('Tier 2: Vehicle Management', () => {
         await browser.pause(300);
 
         // Confirm deletion (look for confirm button in modal/dialog)
-        const confirmBtn = await $('button*=Potvrdit');
+        const confirmBtn = await $('button*=Confirm');
         if (await confirmBtn.isExisting()) {
           await confirmBtn.click();
           await browser.pause(1000);

@@ -85,7 +85,7 @@ async function setLocale(locale: 'sk' | 'en'): Promise<void> {
 describe('Tier 2: Settings', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Company Settings', () => {

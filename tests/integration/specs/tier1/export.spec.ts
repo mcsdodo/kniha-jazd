@@ -25,7 +25,7 @@ import { testCompanySettings } from '../../fixtures/scenarios';
 describe('Tier 1: Export', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Export Preview', () => {

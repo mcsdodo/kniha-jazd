@@ -11,9 +11,9 @@
 export type Locale = 'sk' | 'en';
 
 /**
- * Default locale for tests (Slovak is the primary UI language)
+ * Default locale for tests (English for consistent CI behavior)
  */
-export const DEFAULT_LOCALE: Locale = 'sk';
+export const DEFAULT_LOCALE: Locale = 'en';
 
 /**
  * Language switcher selector (if available in the app)
@@ -22,18 +22,21 @@ const LANGUAGE_SWITCHER_SELECTOR = '#language-switcher';
 
 /**
  * Alternative locale indicator selectors
+ * Note: These use partial text matching (*=) which is case-sensitive in XPath.
+ * We use lowercase patterns that appear in both title cases.
  */
 const LOCALE_INDICATORS = {
   sk: [
     // Slovak-specific text that would only appear in Slovak locale
-    'h1*=Kniha jazd',
-    'button*=Ulozit',
-    'button*=Novy zaznam',
-    'th*=Datum',
+    // Using lowercase 'azd' to match both 'Jázd' and 'jázd'
+    'h1*=azd',
+    'button*=lozit',
+    'button*=zaznam',
+    'th*=atum',
   ],
   en: [
     // English-specific text
-    'h1*=Logbook',
+    'h1*=ogbook',
     'button*=Save',
     'button*=New record',
     'th*=Date',

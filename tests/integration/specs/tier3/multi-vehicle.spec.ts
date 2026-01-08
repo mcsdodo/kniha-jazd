@@ -20,7 +20,7 @@ import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 describe('Tier 3: Multi-Vehicle Support', () => {
   beforeEach(async () => {
     await waitForAppReady();
-    await ensureLanguage('sk');
+    await ensureLanguage('en');
   });
 
   describe('Vehicle Switching', () => {
