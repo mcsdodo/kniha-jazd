@@ -10,43 +10,39 @@
 
 ---
 
-## Task 1: Create Rules Directory Structure
+## Phase 1: Create Rule Files (No Commits)
+
+All rule files are created first without committing. This allows verification before atomic commit.
+
+### Task 1: Create Rules Directory
 
 **Files:**
 - Create: `.claude/rules/` directory
 
-**Step 1: Create the rules directory**
+**Step 1: Create directory and placeholder**
 
-```bash
-mkdir -p .claude/rules
+```powershell
+New-Item -ItemType Directory -Path ".claude/rules" -Force
+New-Item -ItemType File -Path ".claude/rules/.gitkeep" -Force
 ```
 
-**Step 2: Verify directory exists**
-
-```bash
-ls -la .claude/rules
+**Verification:**
+```powershell
+Test-Path ".claude/rules"
 ```
 
-Expected: Empty directory created
-
-**Step 3: Commit**
-
-```bash
-git add .claude/rules/.gitkeep 2>/dev/null || echo "Directory tracked via files"
-```
-
-No commit yet - we'll commit with the first rule file.
+Expected: `True`
 
 ---
 
-## Task 2: Create rust-backend.md Rule
+### Task 2: Create rust-backend.md Rule
 
 **Files:**
 - Create: `.claude/rules/rust-backend.md`
 
 **Step 1: Create the rule file**
 
-Create `.claude/rules/rust-backend.md` with Rust-specific patterns extracted from CLAUDE.md:
+Create `.claude/rules/rust-backend.md`:
 
 ```markdown
 # Rust Backend Rules
@@ -97,41 +93,20 @@ This keeps source files clean while maintaining private access (tests are still 
 | `receipts.rs` | Receipt folder scanning | Receipt processing logic |
 | `receipts_tests.rs` | Tests for receipts | Adding receipt tests |
 | `db.rs` | SQLite CRUD operations | Schema changes, queries |
-| `commands.rs` | Tauri command handlers | New frontend→backend calls |
+| `commands.rs` | Tauri command handlers | New frontend->backend calls |
 | `export.rs` | HTML/PDF generation | Report format changes |
 | `models.rs` | Data structures | Adding fields to Trip/Vehicle |
-
-## Test Coverage
-
-**Backend (Rust) - Single Source of Truth (108 tests):**
-- `calculations_tests.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `commands.rs` - 25 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
-- `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
-- `db.rs` - 17 tests: CRUD lifecycle, year filtering
-- `suggestions_tests.rs` - 8 tests: route matching, compensation suggestions
-- `export.rs` - 7 tests: export totals, HTML escaping
-- `gemini.rs` - 3 tests: JSON deserialization
-- `settings.rs` - 3 tests: local settings loading
 ```
 
-**Step 2: Verify file created**
+**Step 2: Verify file exists (no commit yet)**
 
-```bash
-cat .claude/rules/rust-backend.md | head -20
-```
-
-Expected: File content displayed
-
-**Step 3: Commit**
-
-```bash
-git add .claude/rules/rust-backend.md
-git commit -m "docs(rules): add rust-backend rules module"
+```powershell
+Test-Path ".claude/rules/rust-backend.md"
 ```
 
 ---
 
-## Task 3: Create svelte-frontend.md Rule
+### Task 3: Create svelte-frontend.md Rule
 
 **Files:**
 - Create: `.claude/rules/svelte-frontend.md`
@@ -178,24 +153,17 @@ Create `.claude/rules/svelte-frontend.md`:
 
 ## Integration Tests
 
-**WebdriverIO + tauri-driver (61 tests):**
+**WebdriverIO + tauri-driver:**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol
-- **Tiered execution**: Tier 1 (39 tests) for PRs, all tiers for main
+- **Tiered execution**: Tier 1 for PRs, all tiers for main
 - Runs against debug build of Tauri app
 - DB seeding via Tauri IPC (no direct DB access)
 - CI: Windows only (tauri-driver limitation)
 ```
 
-**Step 2: Commit**
-
-```bash
-git add .claude/rules/svelte-frontend.md
-git commit -m "docs(rules): add svelte-frontend rules module"
-```
-
 ---
 
-## Task 4: Create testing.md Rule
+### Task 4: Create testing.md Rule
 
 **Files:**
 - Create: `.claude/rules/testing.md`
@@ -224,7 +192,7 @@ Create `.claude/rules/testing.md`:
 
 Focus on **business logic** - the calculations that matter for legal compliance:
 - Consumption calculations (l/100km, spotreba, zostatok)
-- Margin calculations (must stay ≤20% over TP rate)
+- Margin calculations (must stay <=20% over TP rate)
 - Compensation trip suggestions
 
 **Do NOT write filler tests.** No tests for:
@@ -235,7 +203,7 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 ## Running Tests
 
 ```bash
-# Rust backend tests (108 tests)
+# Rust backend tests
 cd src-tauri && cargo test
 
 # E2E integration tests (requires debug build)
@@ -267,16 +235,9 @@ mod tests;
 - **Don't mock internal modules** - test real behavior
 ```
 
-**Step 2: Commit**
-
-```bash
-git add .claude/rules/testing.md
-git commit -m "docs(rules): add testing rules module"
-```
-
 ---
 
-## Task 5: Create git-workflow.md Rule
+### Task 5: Create git-workflow.md Rule
 
 **Files:**
 - Create: `.claude/rules/git-workflow.md`
@@ -310,6 +271,26 @@ git add -A  # Only use for releases or when you've reviewed ALL changes
 
 **Exception:** `/release` intentionally uses `git add -A` because releases should include all pending changes.
 
+## MANDATORY FINAL STEP
+
+**After completing ANY feature, fix, or change:**
+1. Commit all code changes
+2. Run `/changelog` to update the [Unreleased] section
+3. Commit the changelog update
+
+**WARNING:** Do NOT mark a task as complete without updating the changelog. This applies to:
+- Task plans (include changelog as final task)
+- Subagent-driven development (final step before finishing)
+- Any implementation work
+
+## Use /decision When
+
+- Choosing between multiple valid approaches (document why this one)
+- Defining new business logic rules (calculations, limits, validation)
+- Making architectural choices (patterns, structure, tech stack)
+- After debugging reveals non-obvious requirements
+- NOT for: refactoring, bug fixes, or changes that follow existing decisions
+
 ## Git Worktrees
 
 Worktree directory: `.worktrees/` (project-local, gitignored)
@@ -331,15 +312,6 @@ claude --resume feat-export-pdf
 - `feat-export-pdf`
 - `refactor-db-queries`
 
-## Workflow Shortcuts
-
-| Shortcut | Purpose |
-|----------|---------|
-| `Ctrl+B` | Background long-running commands (dev server, tests) |
-| `Alt+T` | Toggle thinking mode |
-| `Ctrl+O` | View conversation transcript |
-| `/plan` | Quick entry to plan mode |
-
 ## CI/CD
 
 GitHub Actions workflow (`.github/workflows/test.yml`):
@@ -348,16 +320,9 @@ GitHub Actions workflow (`.github/workflows/test.yml`):
 - Triggered on push/PR to `main` branch
 ```
 
-**Step 2: Commit**
-
-```bash
-git add .claude/rules/git-workflow.md
-git commit -m "docs(rules): add git-workflow rules module"
-```
-
 ---
 
-## Task 6: Create business-logic.md Rule
+### Task 6: Create business-logic.md Rule
 
 **Files:**
 - Create: `.claude/rules/business-logic.md`
@@ -371,16 +336,16 @@ Create `.claude/rules/business-logic.md`:
 
 ## Key Business Rules
 
-1. **Consumption rate:** `l/100km = liters_filled / km_since_last_fillup × 100`
-2. **Legal limit:** Consumption must be ≤120% of vehicle's TP rate
-3. **Zostatok:** Fuel remaining = previous - (km × rate/100) + refueled
+1. **Consumption rate:** `l/100km = liters_filled / km_since_last_fillup * 100`
+2. **Legal limit:** Consumption must be <=120% of vehicle's TP rate
+3. **Zostatok:** Fuel remaining = previous - (km * rate/100) + refueled
 4. **Compensation:** When over margin, suggest trips to bring it down to 16-19%
 
 ## Domain Terms
 
 | Slovak | English | Description |
 |--------|---------|-------------|
-| Kniha jázd | Trip logbook | The main application |
+| Kniha jazd | Trip logbook | The main application |
 | Spotreba | Consumption | Fuel usage rate (l/100km) |
 | Zostatok | Remaining | Fuel left in tank |
 | TP | Technical passport | Vehicle's official consumption rate |
@@ -408,28 +373,30 @@ npm run test:all         # All tests
 ```
 ```
 
-**Step 2: Commit**
-
-```bash
-git add .claude/rules/business-logic.md
-git commit -m "docs(rules): add business-logic rules module"
-```
-
 ---
 
-## Task 7: Refactor CLAUDE.md to Slim Index
+## Phase 2: Refactor CLAUDE.md
+
+### Task 7: Backup and Refactor CLAUDE.md
 
 **Files:**
+- Backup: `CLAUDE.md` -> `CLAUDE.md.backup`
 - Modify: `CLAUDE.md`
 
-**Step 1: Replace CLAUDE.md with slim index**
+**Step 1: Create backup**
+
+```powershell
+Copy-Item "CLAUDE.md" "CLAUDE.md.backup"
+```
+
+**Step 2: Replace CLAUDE.md with slim index**
 
 Replace entire CLAUDE.md content with:
 
 ```markdown
 # CLAUDE.md
 
-Vehicle logbook (Kniha jázd) desktop app for Slovak legal compliance - tracks trips, fuel consumption, and ensures the 20% over-consumption margin is maintained.
+Vehicle logbook (Kniha jazd) desktop app for Slovak legal compliance - tracks trips, fuel consumption, and ensures the 20% over-consumption margin is maintained.
 
 ## Tech Stack
 
@@ -462,49 +429,49 @@ When external skills (e.g., `superpowers:brainstorming`, `superpowers:writing-pl
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│              SvelteKit Frontend                 │
-│         (Display only - no calculations)        │
-├─────────────────────────────────────────────────┤
-│              Tauri IPC Bridge                   │
-├─────────────────────────────────────────────────┤
-│              Rust Backend                       │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │calculations  │  │ suggestions  │            │
-│  └──────────────┘  └──────────────┘            │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │     db       │  │   export     │            │
-│  └──────────────┘  └──────────────┘            │
-├─────────────────────────────────────────────────┤
-│              SQLite Database                    │
-└─────────────────────────────────────────────────┘
++--------------------------------------------------+
+|              SvelteKit Frontend                  |
+|         (Display only - no calculations)         |
++--------------------------------------------------+
+|              Tauri IPC Bridge                    |
++--------------------------------------------------+
+|              Rust Backend                        |
+|  +-------------+  +-------------+                |
+|  |calculations |  | suggestions |                |
+|  +-------------+  +-------------+                |
+|  +-------------+  +-------------+                |
+|  |     db      |  |   export    |                |
+|  +-------------+  +-------------+                |
++--------------------------------------------------+
+|              SQLite Database                     |
++--------------------------------------------------+
 ```
 
 ## Project Structure
 
 ```
 kniha-jazd/
-├── src-tauri/           # Rust backend
-│   ├── src/
-│   │   ├── calculations.rs       # Core logic (MOST IMPORTANT)
-│   │   ├── calculations_tests.rs # Tests for calculations
-│   │   ├── suggestions.rs        # Compensation trip logic
-│   │   ├── commands.rs           # Tauri command handlers
-│   │   ├── db.rs                 # SQLite operations
-│   │   ├── models.rs             # Vehicle, Trip structs
-│   │   └── export.rs             # PDF generation
-│   └── migrations/      # DB schema
-├── src/                 # SvelteKit frontend
-│   ├── lib/
-│   │   ├── components/  # UI components
-│   │   ├── stores/      # Svelte state
-│   │   └── i18n/        # Translations
-│   └── routes/          # Pages
-├── tests/
-│   ├── integration/     # WebdriverIO + tauri-driver E2E tests
-│   └── e2e/             # Playwright smoke tests (frontend only)
-├── .github/workflows/   # CI/CD pipelines
-└── _tasks/              # Planning docs
++-- src-tauri/           # Rust backend
+|   +-- src/
+|   |   +-- calculations.rs       # Core logic (MOST IMPORTANT)
+|   |   +-- calculations_tests.rs # Tests for calculations
+|   |   +-- suggestions.rs        # Compensation trip logic
+|   |   +-- commands.rs           # Tauri command handlers
+|   |   +-- db.rs                 # SQLite operations
+|   |   +-- models.rs             # Vehicle, Trip structs
+|   |   +-- export.rs             # PDF generation
+|   +-- migrations/      # DB schema
++-- src/                 # SvelteKit frontend
+|   +-- lib/
+|   |   +-- components/  # UI components
+|   |   +-- stores/      # Svelte state
+|   |   +-- i18n/        # Translations
+|   +-- routes/          # Pages
++-- tests/
+|   +-- integration/     # WebdriverIO + tauri-driver E2E tests
+|   +-- e2e/             # Playwright smoke tests (frontend only)
++-- .github/workflows/   # CI/CD pipelines
++-- _tasks/              # Planning docs
 ```
 
 ## Skills
@@ -532,34 +499,68 @@ For significant decisions during task:
 - [ ] `/decision` run to record ADR/BIZ entry?
 ```
 
-**Step 2: Verify line count**
+**Step 3: Verify line count**
 
-```bash
-wc -l CLAUDE.md
+```powershell
+(Get-Content "CLAUDE.md" | Measure-Object -Line).Lines
 ```
 
 Expected: Under 100 lines
 
-**Step 3: Commit**
+---
 
-```bash
-git add CLAUDE.md
-git commit -m "refactor(docs): slim CLAUDE.md with rule imports"
+## Phase 3: Verify Before Committing
+
+### Task 8: Verify @import Syntax Works
+
+**Files:**
+- None (verification only)
+
+**Step 1: Check rule files exist**
+
+```powershell
+Get-ChildItem ".claude/rules/*.md" | Select-Object Name
 ```
+
+Expected: 5 rule files listed
+
+**Step 2: Start new Claude session to test imports**
+
+Close current Claude session and start a new one. The rules should load automatically.
+
+**Verification:** Ask Claude "What rules are loaded?" or check if rule content appears in context.
+
+**If imports don't work:**
+1. Restore backup: `Copy-Item "CLAUDE.md.backup" "CLAUDE.md" -Force`
+2. Delete rules: `Remove-Item ".claude/rules" -Recurse -Force`
+3. Investigate Claude Code documentation for correct syntax
 
 ---
 
-## Task 8: Add LSP Configuration to settings.json
+## Phase 4: Update Settings
+
+### Task 9: Add LSP and Permissions to settings.json
 
 **Files:**
 - Modify: `.claude/settings.json`
 
-**Step 1: Update settings.json**
+**Step 1: Verify rust-analyzer is installed**
 
-Add LSP configuration while preserving existing hooks:
+```powershell
+rust-analyzer --version
+```
+
+Expected: Version number displayed. If not installed, run: `rustup component add rust-analyzer`
+
+**Step 2: Update settings.json**
+
+Add LSP configuration and wildcard permissions while preserving existing hooks:
 
 ```json
 {
+  "permissions": {
+    "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"]
+  },
   "lsp": {
     "rust-analyzer": {
       "command": "rust-analyzer",
@@ -595,31 +596,65 @@ Add LSP configuration while preserving existing hooks:
 }
 ```
 
-**Step 2: Verify JSON is valid**
+**Step 3: Verify JSON is valid**
 
-```bash
-cat .claude/settings.json | python -m json.tool > /dev/null && echo "Valid JSON"
+```powershell
+Get-Content ".claude/settings.json" | ConvertFrom-Json | Out-Null; Write-Host "Valid JSON"
 ```
 
 Expected: "Valid JSON"
 
-**Step 3: Commit**
+---
+
+## Phase 5: Atomic Commit
+
+### Task 10: Commit All Changes Atomically
+
+**Step 1: Stage all rule files and CLAUDE.md**
+
+```bash
+git add .claude/rules/ CLAUDE.md
+```
+
+**Step 2: Commit atomically**
+
+```bash
+git commit -m "refactor(docs): split CLAUDE.md into modular rules
+
+- Create .claude/rules/ with 5 focused rule modules
+- Refactor CLAUDE.md to slim index with @imports
+- Preserve critical workflow content in git-workflow.md
+- Add MANDATORY FINAL STEP and /decision guidance to rules"
+```
+
+**Step 3: Commit settings.json separately**
 
 ```bash
 git add .claude/settings.json
-git commit -m "feat(config): add rust-analyzer LSP configuration"
+git commit -m "feat(config): add LSP and wildcard permissions
+
+- Add rust-analyzer LSP for Rust code intelligence
+- Add wildcard Bash permissions for cargo/npm/git"
+```
+
+**Step 4: Clean up backup**
+
+```powershell
+Remove-Item "CLAUDE.md.backup" -ErrorAction SilentlyContinue
 ```
 
 ---
 
-## Task 9: Add Hooks to verify-skill
+## Phase 6: Skill Hooks
+
+### Task 11: Add Hook to verify-skill
 
 **Files:**
 - Modify: `.claude/skills/verify-skill/SKILL.md`
 
-**Step 1: Update verify-skill frontmatter**
+**Step 1: Update frontmatter**
 
-Add hooks to the frontmatter:
+Add hooks to the YAML frontmatter:
 
 ```yaml
 ---
@@ -633,23 +668,16 @@ hooks:
 
 Keep the rest of the file unchanged.
 
-**Step 2: Commit**
-
-```bash
-git add .claude/skills/verify-skill/SKILL.md
-git commit -m "feat(skills): add Stop hook to verify-skill for automatic test run"
-```
-
 ---
 
-## Task 10: Add Hooks to code-review-skill
+### Task 12: Add Hook to code-review-skill
 
 **Files:**
 - Modify: `.claude/skills/code-review-skill/SKILL.md`
 
-**Step 1: Update code-review-skill frontmatter**
+**Step 1: Update frontmatter**
 
-Add hooks to the frontmatter:
+Add hooks to the YAML frontmatter (using cross-platform echo):
 
 ```yaml
 ---
@@ -658,29 +686,22 @@ description: Use to review code implementations for quality, correctness, and be
 hooks:
   - event: PreToolUse
     matcher: Edit
-    command: "pwsh -NoProfile -Command \"Write-Host 'REMINDER: Reviewing only - document findings, do not apply fixes yet' -ForegroundColor Yellow\""
+    command: "echo REMINDER: Reviewing only - document findings, do not apply fixes yet"
 ---
 ```
 
 Keep the rest of the file unchanged.
 
-**Step 2: Commit**
-
-```bash
-git add .claude/skills/code-review-skill/SKILL.md
-git commit -m "feat(skills): add PreToolUse hook to code-review-skill for edit reminder"
-```
-
 ---
 
-## Task 11: Add Hooks to release-skill
+### Task 13: Add Hook to release-skill
 
 **Files:**
 - Modify: `.claude/skills/release-skill/SKILL.md`
 
-**Step 1: Update release-skill frontmatter**
+**Step 1: Update frontmatter**
 
-Add hooks to the frontmatter:
+Add hooks (tests only - build is already in skill workflow):
 
 ```yaml
 ---
@@ -688,52 +709,39 @@ name: release-skill
 description: Bump version, update changelog, commit, tag, push, and build release installer
 hooks:
   - event: Stop
-    command: "cd src-tauri && cargo test && npm run tauri build"
+    command: "cd src-tauri && cargo test"
     timeout: 300000
 ---
 ```
 
 Keep the rest of the file unchanged.
 
-**Step 2: Commit**
+---
+
+### Task 14: Verify Skill Hooks Work
+
+**Step 1: Test verify-skill hook**
+
+Run `/verify` and confirm that cargo tests run automatically at the end.
+
+**Step 2: Commit skill changes**
 
 ```bash
-git add .claude/skills/release-skill/SKILL.md
-git commit -m "feat(skills): add Stop hook to release-skill for final verification"
+git add .claude/skills/
+git commit -m "feat(skills): add workflow enforcement hooks
+
+- verify-skill: auto-run tests on Stop
+- code-review-skill: reminder before Edit
+- release-skill: auto-run tests on Stop"
 ```
 
 ---
 
-## Task 12: Verify Implementation
+## Phase 7: Final Verification
 
-**Files:**
-- None (verification only)
+### Task 15: Run Full Verification
 
-**Step 1: Verify rules are accessible**
-
-```bash
-ls -la .claude/rules/
-```
-
-Expected: 5 rule files listed
-
-**Step 2: Verify CLAUDE.md line count**
-
-```bash
-wc -l CLAUDE.md
-```
-
-Expected: Under 100 lines
-
-**Step 3: Check settings.json validity**
-
-```bash
-cat .claude/settings.json | python -m json.tool > /dev/null && echo "Valid JSON"
-```
-
-Expected: "Valid JSON"
-
-**Step 4: Run backend tests to ensure nothing broke**
+**Step 1: Run backend tests**
 
 ```bash
 cd src-tauri && cargo test
@@ -741,17 +749,33 @@ cd src-tauri && cargo test
 
 Expected: All tests pass
 
-**Step 5: Check git status**
+**Step 2: Check git status**
 
 ```bash
 git status
 ```
 
-Expected: Clean working tree
+Expected: Clean working tree (or only untracked backup files)
+
+**Step 3: Verify rule count**
+
+```powershell
+(Get-ChildItem ".claude/rules/*.md").Count
+```
+
+Expected: 5
+
+**Step 4: Verify CLAUDE.md line count**
+
+```powershell
+(Get-Content "CLAUDE.md" | Measure-Object -Line).Lines
+```
+
+Expected: Under 100 lines
 
 ---
 
-## Task 13: Update Changelog
+### Task 16: Update Changelog
 
 **Step 1: Run changelog skill**
 
@@ -761,6 +785,7 @@ Entry should mention:
 - Rules directory for modular CLAUDE.md
 - LSP configuration for Rust code intelligence
 - Skill hooks for workflow enforcement
+- Wildcard Bash permissions
 
 **Step 2: Commit changelog**
 
@@ -773,9 +798,29 @@ git commit -m "docs: update changelog for workflow improvements"
 
 ## Success Criteria
 
-- [x] `.claude/rules/` directory with 5 rule files
-- [x] CLAUDE.md under 100 lines with `@` imports
-- [x] LSP configuration in settings.json
-- [x] Skill hooks in verify-skill, code-review-skill, release-skill
-- [x] All backend tests pass
-- [x] Changelog updated
+- [ ] `.claude/rules/` directory with 5 rule files
+- [ ] CLAUDE.md under 100 lines with `@` imports
+- [ ] Critical workflow content preserved in git-workflow.md
+- [ ] LSP configuration in settings.json
+- [ ] Wildcard Bash permissions in settings.json
+- [ ] Skill hooks in verify-skill, code-review-skill, release-skill
+- [ ] All backend tests pass
+- [ ] Changelog updated
+
+---
+
+## Partial Failure Recovery
+
+**If stopped after Phase 1-2 but before Phase 5:**
+- Rules and CLAUDE.md exist but are uncommitted
+- Either: Complete Phase 5 to commit, OR restore backup and delete `.claude/rules/`
+
+**If @import syntax doesn't work:**
+1. Restore: `Copy-Item "CLAUDE.md.backup" "CLAUDE.md" -Force`
+2. Delete: `Remove-Item ".claude/rules" -Recurse -Force`
+3. Investigate correct syntax in Claude Code documentation
+
+**If skill hooks don't fire:**
+1. Check Claude Code version supports skill hooks
+2. Verify YAML frontmatter syntax
+3. Revert skill changes if needed: `git checkout HEAD -- .claude/skills/`

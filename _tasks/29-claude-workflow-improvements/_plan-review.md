@@ -164,7 +164,7 @@ Only 1 minor finding - review is now comprehensive.
 
 ## Review Summary
 
-**Status:** Ready for User Review
+**Status:** Complete
 **Iterations:** 3
 **Total Findings:** 3 Critical, 7 Important, 9 Minor
 
@@ -172,39 +172,62 @@ Only 1 minor finding - review is now comprehensive.
 
 #### Critical
 
-1. [ ] **Wildcard Bash permissions missing** - 01-design.md Section 5 requires `"permissions": { "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"] }` but no task addresses this
-2. [ ] **YAML-style allowed-tools not addressed** - 01-design.md requires updating skills with `allowed-tools:` YAML syntax, but no task covers this
-3. [ ] **Skill hooks syntax unverified** - No test that hooks actually fire; unknown if frontmatter syntax is correct
+1. [x] **Wildcard Bash permissions missing** - Added to Task 9 in 02-plan.md
+2. [x] **YAML-style allowed-tools not addressed** - Removed from 01-design.md (not a real Claude Code feature)
+3. [x] **Skill hooks syntax unverified** - Added Task 14 verification step in 02-plan.md
 
 #### Important
 
-4. [ ] **CLAUDE.md loses critical content** - "MANDATORY FINAL STEP", "/decision when:" guidance, and changelog warnings not moved to rule files
-5. [ ] **Test counts duplicated** - Same data in rust-backend.md and testing.md creates sync burden
-6. [ ] **No @import syntax verification** - Foundation of refactoring is untested
-7. [ ] **PowerShell-specific hook commands** - Cross-platform issue for code-review-skill
-8. [ ] **release-skill hook duplicates workflow** - Skill already runs build; hook would run it again
-14. [ ] **Task order creates rollback risk** - Individual commits make rollback complex if Task 7 fails
-15. [ ] **No backup of CLAUDE.md** - Original content could be lost if refactor fails
+4. [x] **CLAUDE.md loses critical content** - Added to git-workflow.md rule (Task 5)
+5. [x] **Test counts duplicated** - Removed from rust-backend.md, kept only test organization
+6. [x] **No @import syntax verification** - Added Task 8 verification phase
+7. [x] **PowerShell-specific hook commands** - Changed to cross-platform `echo` in Task 12
+8. [x] **release-skill hook duplicates workflow** - Hook now only runs tests, not build (Task 13)
+14. [x] **Task order creates rollback risk** - Restructured to phased approach with atomic commit
+15. [x] **No backup of CLAUDE.md** - Added backup step in Task 7
 
 #### Minor
 
-9. [ ] **.gitkeep not created** - Empty directory tracking issue
-10. [ ] **Size goal inconsistent** - DESIGN says ~50 lines, PLAN says <100 lines
-11. [ ] **Unix commands on Windows** - `ls -la`, `wc -l` won't work
-12. [ ] **Test count sync burden** - "108 tests" hardcoded in multiple places
-13. [ ] **Named sessions placement** - May not be intuitive in git-workflow.md
-16. [ ] **rust-analyzer not verified** - No check that it's installed
-17. [ ] **Python availability** - JSON validation may fail without Python
-18. [ ] **No partial failure guidance** - What to do if stopped mid-implementation
-19. [ ] **Command inconsistency** - DESIGN vs PLAN differ on `npm run build` vs `npm run tauri build`
+9. [x] **.gitkeep not created** - Fixed in Task 1 with PowerShell commands
+10. [x] **Size goal inconsistent** - Updated 01-design.md to say "under 100 lines"
+11. [x] **Unix commands on Windows** - All commands now use PowerShell
+12. [x] **Test count sync burden** - Removed hardcoded counts from rules
+13. [ ] **Named sessions placement** - Kept in git-workflow.md (acceptable)
+16. [x] **rust-analyzer not verified** - Added verification in Task 9
+17. [x] **Python availability** - Changed to PowerShell ConvertFrom-Json
+18. [x] **No partial failure guidance** - Added "Partial Failure Recovery" section
+19. [x] **Command inconsistency** - Fixed 01-design.md to match (tests only, no build)
 
-### Recommendation
+---
 
-**Needs revisions before implementation.** The 3 Critical issues represent missing requirements from 01-design.md that would make the implementation incomplete. The Important issues around atomicity (#14, #15) and content loss (#4) could cause problems during implementation.
+## Resolution
 
-**Suggested priority:**
-1. Add missing tasks for Critical items #1-2
-2. Add verification task for skill hooks (#3)
-3. Move missing CLAUDE.md content to appropriate rule files (#4)
-4. Restructure tasks for atomic commits (#14, #15)
-5. Address remaining Important/Minor as desired
+**Addressed:** 18 findings
+**Skipped:** 1 finding (named sessions placement - acceptable as-is)
+**Status:** Complete
+
+### Applied Changes
+
+**01-design.md:**
+- Fixed size goal: "under 100 lines" (was ~50)
+- Added critical content preservation note
+- Fixed release-skill hook (tests only, no build duplication)
+- Added cross-platform command note
+- Restructured implementation order to phased/atomic approach
+- Added rollback procedure
+- Updated success criteria with verification steps
+
+**02-plan.md:**
+- Restructured into 7 phases with atomic commits
+- Added CLAUDE.md backup step (Task 7)
+- Added @import verification task (Task 8)
+- Added wildcard Bash permissions to settings.json (Task 9)
+- Added rust-analyzer installation check (Task 9)
+- Changed all commands to PowerShell (Windows-compatible)
+- Changed JSON validation to ConvertFrom-Json
+- Added "MANDATORY FINAL STEP" and "/decision when:" to git-workflow.md rule
+- Removed test counts from rules (avoid sync burden)
+- Changed code-review hook to cross-platform echo
+- Changed release-skill hook to tests only
+- Added skill hooks verification step (Task 14)
+- Added "Partial Failure Recovery" section

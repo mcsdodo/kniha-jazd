@@ -47,7 +47,12 @@ Split CLAUDE.md into focused modules:
 └── business-logic.md    # Consumption calculations, legal limits, margins
 ```
 
-**CLAUDE.md** becomes a slim index (~50 lines) that imports these via `@.claude/rules/*.md` syntax.
+**CLAUDE.md** becomes a slim index (under 100 lines) that imports these via `@.claude/rules/*.md` syntax.
+
+**Critical content to preserve in rules:**
+- "MANDATORY FINAL STEP" workflow enforcement → `git-workflow.md`
+- "/decision when:" guidance → `git-workflow.md`
+- Changelog warnings → `git-workflow.md`
 
 ## 3. Skill Hooks
 
@@ -72,9 +77,13 @@ hooks:
 ```yaml
 hooks:
   - event: Stop
-    command: "cd src-tauri && cargo test && npm run build"
+    command: "cd src-tauri && cargo test"
     timeout: 300000
 ```
+
+**Note:** Release-skill already runs `npm run tauri build` in its workflow steps - hook only runs tests to avoid duplication.
+
+**Cross-platform consideration:** Use simple shell commands (`echo`, `cd`) that work on both Windows and Unix. Avoid PowerShell-specific syntax in hooks.
 
 ## 4. Named Sessions
 
@@ -121,14 +130,25 @@ allowed-tools:
 | `Ctrl+O` | View conversation transcript |
 | `/plan` | Quick entry to plan mode |
 
-## Implementation Order (Big Bang)
+## Implementation Order (Atomic)
 
+**Phase 1: Create all files (no commits)**
 1. Create `.claude/rules/` directory with all rule files
-2. Refactor CLAUDE.md to slim index with imports
-3. Update `.claude/settings.json` with LSP config
-4. Add hooks to skill frontmatter files
-5. Update skills to use YAML-style allowed-tools
-6. Document named sessions and shortcuts in rules
+2. Create slim CLAUDE.md with imports (keep backup of original)
+3. Update `.claude/settings.json` with LSP config + wildcard permissions
+
+**Phase 2: Verify before committing**
+4. Verify @import syntax loads rules correctly
+5. Verify rust-analyzer is installed and LSP works
+
+**Phase 3: Commit atomically**
+6. Commit all rule files + CLAUDE.md together (single atomic commit)
+7. Commit settings.json changes
+
+**Phase 4: Skill updates**
+8. Add hooks to skill frontmatter files
+9. Test that hooks fire correctly
+10. Commit skill changes
 
 ## Files to Create/Modify
 
@@ -147,8 +167,18 @@ allowed-tools:
 
 ## Success Criteria
 
+- [ ] rust-analyzer installed (`rust-analyzer --version` succeeds)
 - [ ] LSP provides go-to-definition for Rust code
-- [ ] Rules load correctly (verify with `/context`)
-- [ ] Skill hooks execute on skill completion
+- [ ] Rules load correctly (new Claude session shows rule content)
+- [ ] Skill hooks execute on skill completion (test verify-skill runs cargo test)
 - [ ] CLAUDE.md is under 100 lines
-- [ ] All existing functionality preserved
+- [ ] Critical workflow content preserved in rule files
+- [ ] All backend tests pass
+- [ ] Clean git status after implementation
+
+## Rollback Procedure
+
+If @import syntax doesn't work or rules don't load:
+1. `git checkout HEAD~1 -- CLAUDE.md` to restore original
+2. Delete `.claude/rules/` directory
+3. Revert settings.json changes if needed
