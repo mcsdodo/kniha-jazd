@@ -67,45 +67,45 @@ describe('Vehicle Setup', () => {
 
     if (await addVehicleBtn.isDisplayed()) {
       await addVehicleBtn.click();
-      await browser.pause(300);
 
-      // Fill in vehicle details with unique values
-      const nameInput = await $('input[name="name"], #name, input[placeholder*="name"]');
-      if (await nameInput.isDisplayed()) {
-        await nameInput.setValue(vehicleName);
-      }
+      // Wait for modal to be visible
+      const modalContent = await $('.modal-content');
+      await modalContent.waitForDisplayed({ timeout: 5000 });
 
-      const plateInput = await $('input[name="licensePlate"], #licensePlate, input[placeholder*="plate"]');
-      if (await plateInput.isDisplayed()) {
-        await plateInput.setValue(licensePlate);
-      }
+      // Fill in vehicle details with unique values (IDs use kebab-case)
+      const nameInput = await $('#name');
+      await nameInput.setValue(vehicleName);
 
-      const tankInput = await $('input[name="tankSize"], #tankSize');
-      if (await tankInput.isDisplayed()) {
-        await tankInput.setValue('50');
-      }
+      const plateInput = await $('#license-plate');
+      await plateInput.setValue(licensePlate);
 
-      const consumptionInput = await $('input[name="tpConsumption"], #tpConsumption');
-      if (await consumptionInput.isDisplayed()) {
-        await consumptionInput.setValue('7.0');
-      }
+      // Explicitly select ICE vehicle type to trigger fuel fields rendering
+      const vehicleTypeDropdown = await $('#vehicle-type');
+      await vehicleTypeDropdown.selectByAttribute('value', 'Ice');
+      await browser.pause(300); // Wait for Svelte reactive render
 
-      const odometerInput = await $('input[name="initialOdometer"], #initialOdometer');
-      if (await odometerInput.isDisplayed()) {
-        await odometerInput.setValue('10000');
-      }
+      const odometerInput = await $('#initial-odometer');
+      await odometerInput.setValue('10000');
 
-      // Submit
-      const saveBtn = await $('button*=Save');
-      if (await saveBtn.isDisplayed()) {
-        await saveBtn.click();
-        await browser.pause(1000);
+      // ICE vehicle fuel fields (wait for conditional render)
+      const tankInput = await $('#tank-size');
+      await tankInput.waitForDisplayed({ timeout: 5000 });
+      await tankInput.setValue('50');
 
-        // Verify vehicle was created - should see vehicle name somewhere
-        const body = await $('body');
-        const text = await body.getText();
-        expect(text).toContain(vehicleName);
-      }
+      const consumptionInput = await $('#tp-consumption');
+      await consumptionInput.waitForDisplayed({ timeout: 5000 });
+      await consumptionInput.setValue('7.0');
+
+      // Submit - use specific modal selector
+      const saveBtn = await $('.modal-footer button.button-primary');
+      await saveBtn.waitForClickable({ timeout: 5000 });
+      await saveBtn.click();
+      await browser.pause(1000);
+
+      // Verify vehicle was created - should see vehicle name somewhere
+      const body = await $('body');
+      const text = await body.getText();
+      expect(text).toContain(vehicleName);
     } else {
       // If no add button, maybe vehicles already exist or different UI state
       // Log for debugging

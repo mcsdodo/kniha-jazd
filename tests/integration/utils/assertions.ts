@@ -60,9 +60,9 @@ export const Settings = {
   bevBadge: '.badge.type-bev',
   phevBadge: '.badge.type-phev',
 
-  /** Save/Cancel buttons */
-  saveBtn: 'button*=Save',
-  cancelBtn: 'button*=Cancel',
+  /** Save/Cancel buttons (in modal) */
+  saveBtn: '.modal-footer button.button-primary',
+  cancelBtn: '.modal-footer button.button-secondary',
 } as const;
 
 /**
@@ -91,26 +91,28 @@ export const TripGrid = {
   saveTripBtn: 'button*=Save',
   cancelEditBtn: 'button*=Cancel',
 
-  /** Trip form fields (in editing row) */
+  /** Trip form fields (in editing row)
+   * Uses data-testid attributes for robust, position-independent selectors
+   */
   tripForm: {
-    date: 'tr.editing input[type="date"]',
-    origin: 'tr.editing input[name="origin"]',
-    destination: 'tr.editing input[name="destination"]',
-    distance: 'tr.editing input[name="distance"]',
-    odometer: 'tr.editing input[name="odometer"]',
-    purpose: 'tr.editing input[name="purpose"]',
+    date: '[data-testid="trip-date"]',
+    origin: '[data-testid="trip-origin"]',
+    destination: '[data-testid="trip-destination"]',
+    distance: '[data-testid="trip-distance"]',
+    odometer: '[data-testid="trip-odometer"]',
+    purpose: '[data-testid="trip-purpose"]',
     // Fuel fields
-    fuelLiters: 'tr.editing input[name="fuelLiters"]',
-    fuelCost: 'tr.editing input[name="fuelCost"]',
-    fullTank: 'tr.editing input[name="fullTank"]',
+    fuelLiters: '[data-testid="trip-fuel-liters"]',
+    fuelCost: '[data-testid="trip-fuel-cost"]',
+    fullTank: '[data-testid="trip-full-tank"]',
     // Energy fields
-    energyKwh: 'tr.editing input[name="energyKwh"]',
-    energyCost: 'tr.editing input[name="energyCost"]',
-    fullCharge: 'tr.editing input[name="fullCharge"]',
-    socOverride: 'tr.editing input[name="socOverride"]',
+    energyKwh: '[data-testid="trip-energy-kwh"]',
+    energyCost: '[data-testid="trip-energy-cost"]',
+    fullCharge: '[data-testid="trip-full-charge"]',
+    socOverride: '[data-testid="trip-soc-override"]',
     // Other costs
-    otherCosts: 'tr.editing input[name="otherCosts"]',
-    otherCostsNote: 'tr.editing input[name="otherCostsNote"]',
+    otherCosts: '[data-testid="trip-other-costs"]',
+    otherCostsNote: '[data-testid="trip-other-costs-note"]',
   },
 
   /** Warning indicators */

@@ -82,16 +82,17 @@ describe('Tier 2: Vehicle Management', () => {
 
       // Verify via Tauri IPC that the vehicle was saved correctly
       const vehicles = await getVehicles();
-      const createdVehicle = vehicles.find((v) => v.name === vehicleName);
+      const createdVehicle = vehicles.find((v) => v.name === vehicleName) as Record<string, unknown>;
 
       expect(createdVehicle).toBeDefined();
-      expect(createdVehicle?.vehicleType).toBe('Phev');
+      // Note: Rust returns snake_case property names
+      expect(createdVehicle?.vehicle_type).toBe('Phev');
 
       // Verify both tank and battery fields were saved
-      expect(createdVehicle?.tankSizeLiters).toBe(45);
-      expect(createdVehicle?.tpConsumption).toBe(1.5);
-      expect(createdVehicle?.batteryCapacityKwh).toBe(13);
-      expect(createdVehicle?.baselineConsumptionKwh).toBe(15);
+      expect(createdVehicle?.tank_size_liters).toBe(45);
+      expect(createdVehicle?.tp_consumption).toBe(1.5);
+      expect(createdVehicle?.battery_capacity_kwh).toBe(13);
+      expect(createdVehicle?.baseline_consumption_kwh).toBe(15);
     });
   });
 
@@ -168,11 +169,12 @@ describe('Tier 2: Vehicle Management', () => {
 
         // Verify via Tauri IPC that changes were saved
         const vehicles = await getVehicles();
-        const updatedVehicle = vehicles.find((v) => v.id === vehicle.id);
+        const updatedVehicle = vehicles.find((v) => v.id === vehicle.id) as Record<string, unknown>;
 
         expect(updatedVehicle).toBeDefined();
         expect(updatedVehicle?.name).toBe(newName);
-        expect(updatedVehicle?.tpConsumption).toBe(7.5);
+        // Note: Rust returns snake_case property names
+        expect(updatedVehicle?.tp_consumption).toBe(7.5);
       } else {
         console.log('Edit button not visible');
       }

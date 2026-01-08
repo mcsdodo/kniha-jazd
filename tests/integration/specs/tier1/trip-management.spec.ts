@@ -12,6 +12,7 @@ import {
   seedVehicle,
   seedTrip,
   getTripGridData,
+  setActiveVehicle,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -50,24 +51,44 @@ describe('Tier 1: Trip Management', () => {
         tpConsumption: vehicleData.tpConsumption,
       });
 
+      // Set the vehicle as active so trips page shows the grid
+      await setActiveVehicle(vehicle.id as string);
+
       // Navigate to trips page (should show new vehicle)
       await navigateTo('trips');
+
+      // Wait for vehicle info to be displayed (indicates app is fully loaded)
+      await browser.waitUntil(
+        async () => {
+          const vehicleInfo = await $('.vehicle-info');
+          return vehicleInfo.isDisplayed();
+        },
+        {
+          timeout: 10000,
+          timeoutMsg: 'Vehicle info not displayed - active vehicle may not be set'
+        }
+      );
+
+      // Wait for trip grid to be ready
+      await waitForTripGrid();
       await browser.pause(500);
 
-      // Click new trip button
-      const newTripBtn = await $(TripGrid.newTripBtn);
-      const btnExists = await newTripBtn.isExisting();
-
-      if (!btnExists) {
-        // If no button, the grid might not be visible - take screenshot for debugging
-        console.log('New trip button not found, checking page state');
-        const body = await $('body');
-        console.log('Page content:', await body.getText());
-        return;
-      }
-
+      // Click new trip button - use class selector for reliability
+      const newTripBtn = await $('button.new-record');
+      await newTripBtn.waitForClickable({ timeout: 5000 });
       await newTripBtn.click();
-      await browser.pause(500);
+
+      // Wait for editing row to appear
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return editingRow.isExisting() && await editingRow.isDisplayed();
+        },
+        {
+          timeout: 10000,
+          timeoutMsg: 'Editing row did not appear after clicking New record'
+        }
+      );
 
       // Fill trip form
       const year = new Date().getFullYear();

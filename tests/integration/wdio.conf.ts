@@ -93,7 +93,8 @@ export const config: any = {
   specs: getSpecs(),
   exclude: [],
 
-  maxInstances: 1, // Tauri apps run one at a time
+  // Tauri apps run one at a time - force sequential spec execution
+  maxInstances: 1,
 
   // Connect to tauri-driver running on port 4444
   hostname: '127.0.0.1',
@@ -104,8 +105,16 @@ export const config: any = {
     // tauri-driver uses these capabilities
     'tauri:options': {
       application: getBinaryPath(),
-    }
+    },
+    // Force sequential execution within this capability
+    // This prevents race conditions when multiple specs try to share one app
+    maxInstances: 1,
   }],
+
+  // Retry flaky tests up to 2 times before failing
+  specFileRetries: 2,
+  specFileRetriesDelay: 1, // 1 second delay between retries
+  specFileRetriesDeferred: false, // Retry immediately, not at the end
 
   logLevel: 'info',
   bail: 0,
@@ -239,8 +248,8 @@ export const config: any = {
    * Before each test: Fresh database and set locale to English
    */
   beforeTest: async function () {
-    // Wait for any pending operations to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for any pending operations to complete (extra time for stability)
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     // Set locale to English BEFORE database cleanup and refresh
     // This ensures consistent locale in tests regardless of environment

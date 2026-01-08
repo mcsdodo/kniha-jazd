@@ -206,7 +206,7 @@
 {#if isEditing}
 	<tr class="editing" on:keydown={handleKeydown}>
 		<td>
-			<input type="date" bind:value={formData.date} />
+			<input type="date" bind:value={formData.date} data-testid="trip-date" />
 		</td>
 		<td>
 			<Autocomplete
@@ -214,6 +214,7 @@
 				suggestions={locationSuggestions}
 				placeholder={$LL.trips.originPlaceholder()}
 				onSelect={handleOriginSelect}
+				testId="trip-origin"
 			/>
 		</td>
 		<td>
@@ -222,13 +223,14 @@
 				suggestions={locationSuggestions}
 				placeholder={$LL.trips.destinationPlaceholder()}
 				onSelect={handleDestinationSelect}
+				testId="trip-destination"
 			/>
 		</td>
 		<td>
-			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="1" min="0" placeholder="0" />
+			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="1" min="0" placeholder="0" data-testid="trip-distance" />
 		</td>
 		<td>
-			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" />
+			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
 		</td>
 		<td>
 			<Autocomplete
@@ -236,6 +238,7 @@
 				suggestions={purposeSuggestions}
 				placeholder={$LL.trips.purposePlaceholder()}
 				onSelect={(value) => (formData.purpose = value)}
+				testId="trip-purpose"
 			/>
 		</td>
 		{#if showFuelFields}
@@ -247,10 +250,11 @@
 					step="0.01"
 					min="0"
 					placeholder="0.00"
+					data-testid="trip-fuel-liters"
 				/>
 				{#if formData.fuel_liters}
 					<label class="full-tank-label">
-						<input type="checkbox" bind:checked={formData.full_tank} on:change={handleFullTankChange} />
+						<input type="checkbox" bind:checked={formData.full_tank} on:change={handleFullTankChange} data-testid="trip-full-tank" />
 						<span class="checkmark"></span>
 						<span class="label-text">{$LL.trips.fullTank()}</span>
 					</label>
@@ -263,6 +267,7 @@
 					step="0.01"
 					min="0"
 					placeholder="0.00"
+					data-testid="trip-fuel-cost"
 				/>
 			</td>
 			<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
@@ -291,10 +296,11 @@
 					step="0.1"
 					min="0"
 					placeholder="0.0"
+					data-testid="trip-energy-kwh"
 				/>
 				{#if formData.energy_kwh}
 					<label class="full-charge-label">
-						<input type="checkbox" bind:checked={formData.full_charge} />
+						<input type="checkbox" bind:checked={formData.full_charge} data-testid="trip-full-charge" />
 						<span class="checkmark"></span>
 						<span class="label-text">{$LL.trips.fullCharge()}</span>
 					</label>
@@ -307,6 +313,7 @@
 					step="0.01"
 					min="0"
 					placeholder="0.00"
+					data-testid="trip-energy-cost"
 				/>
 			</td>
 			<td class="number calculated">
@@ -326,6 +333,7 @@
 								min="0"
 								max="100"
 								placeholder="%"
+								data-testid="trip-soc-override"
 							/>
 							<span class="soc-hint">{$LL.trips.socOverrideHint()}</span>
 						</div>
@@ -340,6 +348,7 @@
 				step="0.01"
 				min="0"
 				placeholder="0.00"
+				data-testid="trip-other-costs"
 			/>
 		</td>
 		<td>
@@ -347,6 +356,7 @@
 				type="text"
 				bind:value={formData.other_costs_note}
 				placeholder=""
+				data-testid="trip-other-costs-note"
 			/>
 		</td>
 		<td class="actions">
