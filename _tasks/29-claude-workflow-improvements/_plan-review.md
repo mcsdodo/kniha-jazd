@@ -142,3 +142,69 @@
 **Remaining:**
 - Claude Code skill hooks syntax (requires external documentation)
 - Runtime verification of `@import` syntax
+
+---
+
+## Iteration 3
+
+### New Findings
+
+#### Minor
+
+19. **[Minor] DESIGN.md/PLAN.md command inconsistency for release-skill hook**
+    - DESIGN.md specifies: `npm run build`
+    - PLAN.md specifies: `npm run tauri build`
+    - These are different commands - could cause confusion during implementation
+
+### Coverage Assessment
+
+Only 1 minor finding - review is now comprehensive.
+
+---
+
+## Review Summary
+
+**Status:** Ready for User Review
+**Iterations:** 3
+**Total Findings:** 3 Critical, 7 Important, 9 Minor
+
+### All Findings (Consolidated)
+
+#### Critical
+
+1. [ ] **Wildcard Bash permissions missing** - DESIGN.md Section 5 requires `"permissions": { "allow": ["Bash(cargo *)", "Bash(npm *)", "Bash(git *)"] }` but no task addresses this
+2. [ ] **YAML-style allowed-tools not addressed** - DESIGN.md requires updating skills with `allowed-tools:` YAML syntax, but no task covers this
+3. [ ] **Skill hooks syntax unverified** - No test that hooks actually fire; unknown if frontmatter syntax is correct
+
+#### Important
+
+4. [ ] **CLAUDE.md loses critical content** - "MANDATORY FINAL STEP", "/decision when:" guidance, and changelog warnings not moved to rule files
+5. [ ] **Test counts duplicated** - Same data in rust-backend.md and testing.md creates sync burden
+6. [ ] **No @import syntax verification** - Foundation of refactoring is untested
+7. [ ] **PowerShell-specific hook commands** - Cross-platform issue for code-review-skill
+8. [ ] **release-skill hook duplicates workflow** - Skill already runs build; hook would run it again
+14. [ ] **Task order creates rollback risk** - Individual commits make rollback complex if Task 7 fails
+15. [ ] **No backup of CLAUDE.md** - Original content could be lost if refactor fails
+
+#### Minor
+
+9. [ ] **.gitkeep not created** - Empty directory tracking issue
+10. [ ] **Size goal inconsistent** - DESIGN says ~50 lines, PLAN says <100 lines
+11. [ ] **Unix commands on Windows** - `ls -la`, `wc -l` won't work
+12. [ ] **Test count sync burden** - "108 tests" hardcoded in multiple places
+13. [ ] **Named sessions placement** - May not be intuitive in git-workflow.md
+16. [ ] **rust-analyzer not verified** - No check that it's installed
+17. [ ] **Python availability** - JSON validation may fail without Python
+18. [ ] **No partial failure guidance** - What to do if stopped mid-implementation
+19. [ ] **Command inconsistency** - DESIGN vs PLAN differ on `npm run build` vs `npm run tauri build`
+
+### Recommendation
+
+**Needs revisions before implementation.** The 3 Critical issues represent missing requirements from DESIGN.md that would make the implementation incomplete. The Important issues around atomicity (#14, #15) and content loss (#4) could cause problems during implementation.
+
+**Suggested priority:**
+1. Add missing tasks for Critical items #1-2
+2. Add verification task for skill hooks (#3)
+3. Move missing CLAUDE.md content to appropriate rule files (#4)
+4. Restructure tasks for atomic commits (#14, #15)
+5. Address remaining Important/Minor as desired
