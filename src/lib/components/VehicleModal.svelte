@@ -13,7 +13,10 @@
 		tpConsumption: number | null;
 		batteryCapacityKwh: number | null;
 		baselineConsumptionKwh: number | null;
+
 		initialBatteryPercent: number | null;
+		vin: string | null;
+		driverName: string | null;
 	}) => void;
 	export let onClose: () => void;
 
@@ -25,7 +28,10 @@
 	let batteryCapacityKwh = vehicle?.battery_capacity_kwh ?? 0;
 	let baselineConsumptionKwh = vehicle?.baseline_consumption_kwh ?? 0;
 	let initialBatteryPercent = vehicle?.initial_battery_percent ?? 100;
+
 	let initialOdometer = vehicle?.initial_odometer || 0;
+	let vin = vehicle?.vin || '';
+	let driverName = vehicle?.driver_name || '';
 
 	// Show fuel fields for ICE and PHEV
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -41,8 +47,11 @@
 			tankSizeLiters: showFuelFields ? tankSizeLiters : null,
 			tpConsumption: showFuelFields ? tpConsumption : null,
 			batteryCapacityKwh: showBatteryFields ? batteryCapacityKwh : null,
+
 			baselineConsumptionKwh: showBatteryFields ? baselineConsumptionKwh : null,
 			initialBatteryPercent: showBatteryFields ? initialBatteryPercent : null,
+			vin,
+			driverName
 		});
 	}
 
@@ -97,6 +106,21 @@
 					step="0.1"
 					min="0"
 					placeholder={$LL.vehicleModal.initialOdometerPlaceholder()}
+				/>
+			</div>
+
+			<div class="form-group">
+				<label for="vin">{$LL.vehicleModal.vinLabel()}</label>
+				<input type="text" id="vin" bind:value={vin} placeholder={$LL.vehicleModal.vinPlaceholder()} />
+			</div>
+
+			<div class="form-group">
+				<label for="driver-name">{$LL.vehicleModal.driverLabel()}</label>
+				<input
+					type="text"
+					id="driver-name"
+					bind:value={driverName}
+					placeholder={$LL.vehicleModal.driverPlaceholder()}
 				/>
 			</div>
 
