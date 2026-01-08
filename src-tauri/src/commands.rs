@@ -12,6 +12,7 @@ use crate::db::Database;
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{Datelike, NaiveDate, Utc, Local};
 use diesel::RunQueryDsl;
@@ -19,6 +20,19 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Get the app data directory, respecting the KNIHA_JAZD_DATA_DIR environment variable.
+/// This ensures consistency between database operations and other file operations (backups, settings).
+fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    match std::env::var("KNIHA_JAZD_DATA_DIR") {
+        Ok(path) => Ok(PathBuf::from(path)),
+        Err(_) => app.path().app_data_dir().map_err(|e| e.to_string()),
+    }
+}
 
 // ============================================================================
 // Backup Types
@@ -1223,7 +1237,7 @@ fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<S
 
 #[tauri::command]
 pub fn create_backup(app: tauri::AppHandle, db: State<Database>) -> Result<BackupInfo, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let backup_dir = app_dir.join("backups");
 
     // Create backup directory if it doesn't exist
@@ -1263,7 +1277,7 @@ pub fn create_backup(app: tauri::AppHandle, db: State<Database>) -> Result<Backu
 
 #[tauri::command]
 pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let backup_dir = app_dir.join("backups");
 
     if !backup_dir.exists() {
@@ -1327,7 +1341,7 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
 
 #[tauri::command]
 pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<BackupInfo, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let backup_path = app_dir.join("backups").join(&filename);
 
     if !backup_path.exists() {
@@ -1390,7 +1404,7 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 
 #[tauri::command]
 pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let backup_path = app_dir.join("backups").join(&filename);
     let db_path = app_dir.join("kniha-jazd.db");
 
@@ -1406,7 +1420,7 @@ pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), Str
 
 #[tauri::command]
 pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let backup_path = app_dir.join("backups").join(&filename);
 
     if !backup_path.exists() {
@@ -1675,7 +1689,7 @@ pub struct ReceiptSettings {
 
 #[tauri::command]
 pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let local = LocalSettings::load(&app_dir);
 
     Ok(ReceiptSettings {
@@ -1740,7 +1754,7 @@ pub struct ScanResult {
 /// Returns count of new files found and any folder structure warnings
 #[tauri::command]
 pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<ScanResult, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
     let folder_path = settings.receipts_folder_path
@@ -1764,7 +1778,7 @@ pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<S
 
 #[tauri::command]
 pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<SyncResult, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
     let folder_path = settings.receipts_folder_path
@@ -1808,7 +1822,7 @@ pub async fn process_pending_receipts(
     app: tauri::AppHandle,
     db: State<'_, Database>,
 ) -> Result<SyncResult, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
     let api_key = settings.gemini_api_key
@@ -1866,7 +1880,7 @@ pub async fn reprocess_receipt(
     db: State<'_, Database>,
     id: String,
 ) -> Result<Receipt, String> {
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
     let api_key = settings.gemini_api_key
