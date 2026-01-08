@@ -15,6 +15,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Rozdelenie db.rs a db_tests.rs podľa projektu (pattern ako calculations)
   - Všetkých 132 testov prechádza, existujúce DB súbory zostávajú kompatibilné
 
+### Opravené
+- **Strata presnosti desatinných čísel** - oprava chyby kde sa 5.1 zobrazovalo ako 5.099999904632568
+  - Príčina: Diesel CLI generoval Float (32-bit) namiesto Double (64-bit) pre SQLite REAL stĺpce
+  - Oprava: Zmena Float → Double v schema.rs a f32 → f64 v Row structs
+
 ## [0.10.0] - 2026-01-07
 
 ### Pridané
