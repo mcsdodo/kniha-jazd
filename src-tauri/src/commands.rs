@@ -76,7 +76,10 @@ pub fn create_vehicle(
     // Battery fields (BEV + PHEV)
     battery_capacity_kwh: Option<f64>,
     baseline_consumption_kwh: Option<f64>,
+
     initial_battery_percent: Option<f64>,
+    vin: Option<String>,
+    driver_name: Option<String>,
 ) -> Result<Vehicle, String> {
     // Parse vehicle type (default to ICE for backward compatibility)
     let vt = match vehicle_type.as_deref() {
@@ -117,7 +120,10 @@ pub fn create_vehicle(
         baseline_consumption_kwh,
         initial_battery_percent,
         initial_odometer,
+
         is_active: true,
+        vin,
+        driver_name,
         created_at: now,
         updated_at: now,
     };
@@ -3131,6 +3137,8 @@ mod tests {
             baseline_consumption_kwh: None,
             initial_battery_percent: None,
             is_active: false,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         };
@@ -3146,6 +3154,8 @@ mod tests {
             baseline_consumption_kwh: None,
             initial_battery_percent: None,
             is_active: false,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         };

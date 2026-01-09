@@ -17,6 +17,8 @@ export interface Vehicle {
 	// Common
 	initial_odometer: number;
 	is_active: boolean;
+	vin?: string | null;
+	driver_name?: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -204,6 +206,9 @@ export interface ExportLabels {
 	// Header labels for BEV
 	header_battery_capacity: string;
 	header_baseline_consumption: string;
+	// VIN and Driver
+	header_vin: string;
+	header_driver: string;
 	// Column headers
 	col_date: string;
 	col_origin: string;
