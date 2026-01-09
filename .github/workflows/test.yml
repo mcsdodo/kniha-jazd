@@ -42,11 +42,12 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-  # Integration tests - full Tauri app tests
+  # Integration tests - full Tauri app tests (runs in PARALLEL with backend tests)
   # Note: tauri-driver only supports Windows currently
+  # No 'needs' dependency - both jobs validate the same commit independently,
+  # and the Tauri build takes ~5 min which would be wasted waiting for backend tests
   integration-tests:
     name: Integration Tests (${{ matrix.platform }})
-    needs: backend-tests
     strategy:
       fail-fast: false
       matrix:
