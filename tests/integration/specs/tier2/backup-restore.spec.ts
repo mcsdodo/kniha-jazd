@@ -139,8 +139,8 @@ describe('Tier 2: Backup & Restore', () => {
 
       // BackupInfo has filename, not id
       expect(backup.filename).toBeDefined();
-      expect(backup.created_at).toBeDefined();
-      expect(backup.size_bytes).toBeGreaterThan(0);
+      expect(backup.createdAt).toBeDefined();
+      expect(backup.sizeBytes).toBeGreaterThan(0);
 
       // Verify backup appears in list
       const backups = await listBackups();

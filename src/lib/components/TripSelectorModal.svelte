@@ -35,8 +35,8 @@
 			const gridData: TripGridData = await getTripGridData(vehicle.id, $selectedYearStore);
 			// Sort by date proximity to receipt date
 			trips = gridData.trips.sort((a, b) => {
-				const aDiff = dateProximity(a.date, receipt.receipt_date);
-				const bDiff = dateProximity(b.date, receipt.receipt_date);
+				const aDiff = dateProximity(a.date, receipt.receiptDate);
+				const bDiff = dateProximity(b.date, receipt.receiptDate);
 				return aDiff - bDiff;
 			});
 		} catch (e) {
@@ -65,7 +65,7 @@
 	}
 
 	function hasFuel(trip: Trip): boolean {
-		return trip.fuel_liters != null && trip.fuel_liters > 0;
+		return trip.fuelLiters != null && trip.fuelLiters > 0;
 	}
 
 	function handleTripClick(trip: Trip) {
@@ -98,14 +98,14 @@
 	>
 		<h2>{$LL.tripSelector.title()}</h2>
 		<div class="receipt-info">
-			<span class="file-name">{receipt.file_name}</span>
+			<span class="file-name">{receipt.fileName}</span>
 			<span class="separator">|</span>
 			<span>{receipt.liters?.toFixed(2) ?? '??'} L</span>
 			<span class="separator">|</span>
-			<span>{receipt.total_price_eur?.toFixed(2) ?? '??'} EUR</span>
-			{#if receipt.receipt_date}
+			<span>{receipt.totalPriceEur?.toFixed(2) ?? '??'} EUR</span>
+			{#if receipt.receiptDate}
 				<span class="separator">|</span>
-				<span>{formatDate(receipt.receipt_date)}</span>
+				<span>{formatDate(receipt.receiptDate)}</span>
 			{/if}
 		</div>
 
@@ -119,7 +119,7 @@
 			<div class="trip-list">
 				{#each trips as trip}
 					{@const disabled = hasFuel(trip)}
-					{@const highlighted = isWithin3Days(trip.date, receipt.receipt_date)}
+					{@const highlighted = isWithin3Days(trip.date, receipt.receiptDate)}
 					<button
 						class="trip-item"
 						class:highlight={highlighted}
@@ -130,7 +130,7 @@
 						<span class="date">{formatDate(trip.date)}</span>
 						<span class="route">{trip.origin} → {trip.destination}</span>
 						{#if disabled}
-							<span class="existing">{$LL.tripSelector.alreadyHas()} {trip.fuel_liters?.toFixed(2)} L</span>
+							<span class="existing">{$LL.tripSelector.alreadyHas()} {trip.fuelLiters?.toFixed(2)} L</span>
 						{/if}
 					</button>
 				{/each}

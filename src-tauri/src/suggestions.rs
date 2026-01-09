@@ -5,6 +5,7 @@ use rand::Rng;
 
 /// Represents a suggested compensation trip to adjust fuel consumption
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompensationSuggestion {
     pub origin: String,
     pub destination: String,

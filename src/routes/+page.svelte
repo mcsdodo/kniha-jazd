@@ -19,9 +19,8 @@
 	let sortColumn: 'manual' | 'date' = 'manual';
 	let sortDirection: 'asc' | 'desc' = 'asc';
 
-	// For compensation suggestion
+	// For compensation warning
 	let bufferKm = 0.0;
-	let currentLocation = '';
 
 	onMount(async () => {
 		await loadTrips(true);
@@ -43,21 +42,9 @@
 			stats = await calculateTripStats($activeVehicleStore.id, $selectedYearStore);
 
 			// Calculate buffer km if over limit
-			if (stats.is_over_limit && stats.margin_percent !== null) {
-				// Calculate buffer km needed to get to 18% target
-				const targetMargin = 0.18;
-				const actualRate = stats.last_consumption_rate;
-				const tpRate = $activeVehicleStore.tp_consumption ?? 0;
-
-				// Find last trip location
-				if (trips.length > 0) {
-					const lastTrip = trips[trips.length - 1];
-					currentLocation = lastTrip.destination;
-				}
-
-				// Simple buffer calculation - we need to dilute the consumption
-				// This is a simplified version, the real calculation would need last fill-up data
-				bufferKm = 100; // Placeholder - should be calculated properly
+			if (stats.isOverLimit && stats.marginPercent !== null) {
+				// TODO: Proper buffer calculation based on consumption rate
+				bufferKm = 100; // Placeholder
 			}
 		} catch (error) {
 			console.error('Failed to load trips:', error);
@@ -132,7 +119,7 @@
 			await openExportPreview(
 				$activeVehicleStore.id,
 				$selectedYearStore,
-				$activeVehicleStore.license_plate,
+				$activeVehicleStore.licensePlate,
 				sortColumn,
 				sortDirection,
 				labels
@@ -161,27 +148,27 @@
 						<div class="stats-row">
 							<span class="stat">
 								<span class="stat-label">{$LL.stats.totalDriven()}:</span>
-								<span class="stat-value">{stats.total_km.toLocaleString('sk-SK')} km</span>
+								<span class="stat-value">{stats.totalKm.toLocaleString('sk-SK')} km</span>
 							</span>
 							<span class="stat">
 								<span class="stat-label">{$LL.stats.fuel()}:</span>
-								<span class="stat-value">{stats.total_fuel_liters.toFixed(1)} L / {stats.total_fuel_cost_eur.toFixed(2)} €</span>
+								<span class="stat-value">{stats.totalFuelLiters.toFixed(1)} L / {stats.totalFuelCostEur.toFixed(2)} €</span>
 							</span>
 						</div>
 						<div class="stats-row">
 							<span class="stat">
 								<span class="stat-label">{$LL.stats.consumption()}:</span>
-								<span class="stat-value">{stats.avg_consumption_rate.toFixed(2)} L/100km</span>
+								<span class="stat-value">{stats.avgConsumptionRate.toFixed(2)} L/100km</span>
 							</span>
-							{#if stats.margin_percent !== null}
-								<span class="stat" class:warning={stats.is_over_limit}>
+							{#if stats.marginPercent !== null}
+								<span class="stat" class:warning={stats.isOverLimit}>
 									<span class="stat-label">{$LL.stats.deviation()}:</span>
-									<span class="stat-value">{stats.margin_percent.toFixed(1)}%</span>
+									<span class="stat-value">{stats.marginPercent.toFixed(1)}%</span>
 								</span>
 							{/if}
 							<span class="stat">
 								<span class="stat-label">{$LL.stats.remaining()}:</span>
-								<span class="stat-value">{stats.fuel_remaining_liters.toFixed(1)} L</span>
+								<span class="stat-value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
 							</span>
 						</div>
 					</div>
@@ -194,15 +181,15 @@
 				</div>
 				<div class="info-item">
 					<span class="label">{$LL.vehicle.licensePlate()}:</span>
-					<span class="value">{$activeVehicleStore.license_plate}</span>
+					<span class="value">{$activeVehicleStore.licensePlate}</span>
 				</div>
 				<div class="info-item">
 					<span class="label">{$LL.vehicle.tankSize()}:</span>
-					<span class="value">{$activeVehicleStore.tank_size_liters} L</span>
+					<span class="value">{$activeVehicleStore.tankSizeLiters} L</span>
 				</div>
 				<div class="info-item">
 					<span class="label">{$LL.vehicle.tpConsumption()}:</span>
-					<span class="value">{$activeVehicleStore.tp_consumption} L/100km</span>
+					<span class="value">{$activeVehicleStore.tpConsumption} L/100km</span>
 				</div>
 				{#if $activeVehicleStore.vin}
 				<div class="info-item">
@@ -210,22 +197,19 @@
 					<span class="value">{$activeVehicleStore.vin}</span>
 				</div>
 				{/if}
-				{#if $activeVehicleStore.driver_name}
+				{#if $activeVehicleStore.driverName}
 				<div class="info-item">
 					<span class="label">{$LL.vehicleModal.driverLabel()}:</span>
-					<span class="value">{$activeVehicleStore.driver_name}</span>
+					<span class="value">{$activeVehicleStore.driverName}</span>
 				</div>
 				{/if}
 			</div>
 		</div>
 
-		{#if stats?.is_over_limit && stats.margin_percent !== null}
+		{#if stats?.isOverLimit && stats.marginPercent !== null}
 			<CompensationBanner
-				vehicleId={$activeVehicleStore.id}
-				marginPercent={stats.margin_percent}
+				marginPercent={stats.marginPercent}
 				{bufferKm}
-				{currentLocation}
-				onTripAdded={handleTripsChanged}
 			/>
 		{/if}
 
@@ -237,12 +221,12 @@
 					vehicleId={$activeVehicleStore.id}
 					{trips}
 					year={$selectedYearStore}
-					tankSize={$activeVehicleStore.tank_size_liters ?? 0}
-					tpConsumption={$activeVehicleStore.tp_consumption ?? 0}
-					initialOdometer={$activeVehicleStore.initial_odometer}
-					vehicleType={$activeVehicleStore.vehicle_type}
-					batteryCapacityKwh={$activeVehicleStore.battery_capacity_kwh ?? 0}
-					baselineConsumptionKwh={$activeVehicleStore.baseline_consumption_kwh ?? 0}
+					tankSize={$activeVehicleStore.tankSizeLiters ?? 0}
+					tpConsumption={$activeVehicleStore.tpConsumption ?? 0}
+					initialOdometer={$activeVehicleStore.initialOdometer}
+					vehicleType={$activeVehicleStore.vehicleType}
+					batteryCapacityKwh={$activeVehicleStore.batteryCapacityKwh ?? 0}
+					baselineConsumptionKwh={$activeVehicleStore.baselineConsumptionKwh ?? 0}
 					onTripsChanged={handleTripsChanged}
 					bind:sortColumn
 					bind:sortDirection

@@ -281,7 +281,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       const vehicle2Grid = await getTripGridData(vehicle2.id as string, year);
 
       // Vehicle 1: Find fuel trip and verify low rate
-      const v1FuelTrip = vehicle1Grid.trips.find((t) => t.fuel_liters !== undefined);
+      const v1FuelTrip = vehicle1Grid.trips.find((t) => t.fuelLiters !== undefined);
       expect(v1FuelTrip).toBeDefined();
 
       if (v1FuelTrip?.id) {
@@ -291,11 +291,11 @@ describe('Tier 3: Multi-Vehicle Support', () => {
         expect(v1Rate).toBeCloseTo(3.0, 1);
 
         // Should NOT have consumption warning
-        expect(vehicle1Grid.consumption_warnings).not.toContain(v1FuelTrip.id);
+        expect(vehicle1Grid.consumptionWarnings).not.toContain(v1FuelTrip.id);
       }
 
       // Vehicle 2: Find fuel trip and verify high rate
-      const v2FuelTrip = vehicle2Grid.trips.find((t) => t.fuel_liters !== undefined);
+      const v2FuelTrip = vehicle2Grid.trips.find((t) => t.fuelLiters !== undefined);
       expect(v2FuelTrip).toBeDefined();
 
       if (v2FuelTrip?.id) {
@@ -305,13 +305,13 @@ describe('Tier 3: Multi-Vehicle Support', () => {
         expect(v2Rate).toBeCloseTo(9.0, 1);
 
         // SHOULD have consumption warning
-        expect(vehicle2Grid.consumption_warnings).toContain(v2FuelTrip.id);
+        expect(vehicle2Grid.consumptionWarnings).toContain(v2FuelTrip.id);
       }
 
       // Each vehicle's stats are completely independent
       // Total km should be different
-      const v1TotalKm = vehicle1Grid.trips.reduce((sum, t) => sum + t.distance_km, 0);
-      const v2TotalKm = vehicle2Grid.trips.reduce((sum, t) => sum + t.distance_km, 0);
+      const v1TotalKm = vehicle1Grid.trips.reduce((sum, t) => sum + t.distanceKm, 0);
+      const v2TotalKm = vehicle2Grid.trips.reduce((sum, t) => sum + t.distanceKm, 0);
 
       // Vehicle 1: 100km + 100km = 200km
       expect(v1TotalKm).toBe(200);
@@ -320,11 +320,11 @@ describe('Tier 3: Multi-Vehicle Support', () => {
 
       // Total fuel should be different
       const v1TotalFuel = vehicle1Grid.trips.reduce(
-        (sum, t) => sum + (t.fuel_liters || 0),
+        (sum, t) => sum + (t.fuelLiters || 0),
         0
       );
       const v2TotalFuel = vehicle2Grid.trips.reduce(
-        (sum, t) => sum + (t.fuel_liters || 0),
+        (sum, t) => sum + (t.fuelLiters || 0),
         0
       );
 

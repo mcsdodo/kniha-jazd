@@ -39,6 +39,7 @@ fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackupInfo {
     pub filename: String,
     pub created_at: String,
@@ -1686,6 +1687,7 @@ use crate::receipts::{detect_folder_structure, process_receipt_with_gemini, scan
 use crate::settings::LocalSettings;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReceiptSettings {
     pub gemini_api_key: Option<String>,
     pub receipts_folder_path: Option<String>,
@@ -1738,12 +1740,14 @@ pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, Stri
 
 /// Result of sync operation - includes both successes and errors
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncResult {
     pub processed: Vec<Receipt>,
     pub errors: Vec<SyncError>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncError {
     pub file_name: String,
     pub error: String,
@@ -1751,6 +1755,7 @@ pub struct SyncError {
 
 /// Result of scanning folder for new receipts (no OCR)
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanResult {
     pub new_count: usize,
     pub warning: Option<String>,
@@ -2045,6 +2050,7 @@ pub fn verify_receipts(
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WindowSize {
     pub width: u32,
     pub height: u32,

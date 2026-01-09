@@ -65,9 +65,9 @@
 			const loadedSettings = await api.getSettings();
 			if (loadedSettings) {
 				settings = loadedSettings;
-				companyName = loadedSettings.company_name;
-				companyIco = loadedSettings.company_ico;
-				bufferTripPurpose = loadedSettings.buffer_trip_purpose;
+				companyName = loadedSettings.companyName;
+				companyIco = loadedSettings.companyIco;
+				bufferTripPurpose = loadedSettings.bufferTripPurpose;
 			}
 
 			await loadBackups();
@@ -111,17 +111,17 @@
 				const updatedVehicle: Vehicle = {
 					...editingVehicle,
 					name: data.name,
-					license_plate: data.licensePlate,
-					vehicle_type: data.vehicleType,
-					tank_size_liters: data.tankSizeLiters,
-					tp_consumption: data.tpConsumption,
-					battery_capacity_kwh: data.batteryCapacityKwh,
-					baseline_consumption_kwh: data.baselineConsumptionKwh,
-					initial_battery_percent: data.initialBatteryPercent,
-					initial_odometer: data.initialOdometer,
+					licensePlate: data.licensePlate,
+					vehicleType: data.vehicleType,
+					tankSizeLiters: data.tankSizeLiters,
+					tpConsumption: data.tpConsumption,
+					batteryCapacityKwh: data.batteryCapacityKwh,
+					baselineConsumptionKwh: data.baselineConsumptionKwh,
+					initialBatteryPercent: data.initialBatteryPercent,
+					initialOdometer: data.initialOdometer,
 					vin: data.vin,
-					driver_name: data.driverName,
-					updated_at: new Date().toISOString()
+					driverName: data.driverName,
+					updatedAt: new Date().toISOString()
 				};
 				await api.updateVehicle(updatedVehicle);
 			} else {
@@ -342,18 +342,18 @@
 							<div class="vehicle-item">
 								<div class="vehicle-info">
 									<strong>{vehicle.name}</strong>
-									<span class="license-plate">{vehicle.license_plate}</span>
+									<span class="license-plate">{vehicle.licensePlate}</span>
 									<span class="details">
-										{#if vehicle.vehicle_type === 'Ice'}
-											{vehicle.tank_size_liters ?? 0}L | {vehicle.tp_consumption ?? 0} L/100km
-										{:else if vehicle.vehicle_type === 'Bev'}
-											{vehicle.battery_capacity_kwh ?? 0} kWh | {vehicle.baseline_consumption_kwh ?? 0} kWh/100km
+										{#if vehicle.vehicleType === 'Ice'}
+											{vehicle.tankSizeLiters ?? 0}L | {vehicle.tpConsumption ?? 0} L/100km
+										{:else if vehicle.vehicleType === 'Bev'}
+											{vehicle.batteryCapacityKwh ?? 0} kWh | {vehicle.baselineConsumptionKwh ?? 0} kWh/100km
 										{:else}
-											{vehicle.tank_size_liters ?? 0}L + {vehicle.battery_capacity_kwh ?? 0} kWh
+											{vehicle.tankSizeLiters ?? 0}L + {vehicle.batteryCapacityKwh ?? 0} kWh
 										{/if}
 									</span>
-									<span class="badge type-{vehicle.vehicle_type.toLowerCase()}">{vehicle.vehicle_type}</span>
-									{#if vehicle.is_active}
+									<span class="badge type-{vehicle.vehicleType.toLowerCase()}">{vehicle.vehicleType}</span>
+									{#if vehicle.isActive}
 										<span class="badge active">{$LL.vehicle.active()}</span>
 									{/if}
 								</div>
@@ -361,7 +361,7 @@
 									<button class="button-small" on:click={() => openEditVehicleModal(vehicle)}>
 										{$LL.common.edit()}
 									</button>
-									{#if !vehicle.is_active}
+									{#if !vehicle.isActive}
 										<button
 											class="button-small primary"
 											on:click={() => handleSetActiveVehicle(vehicle)}
@@ -437,8 +437,8 @@
 						{#each backups as backup}
 							<div class="backup-item">
 								<div class="backup-info">
-									<span class="backup-date">{formatBackupDate(backup.created_at)}</span>
-									<span class="backup-size">{formatFileSize(backup.size_bytes)}</span>
+									<span class="backup-date">{formatBackupDate(backup.createdAt)}</span>
+									<span class="backup-size">{formatFileSize(backup.sizeBytes)}</span>
 								</div>
 								<div class="backup-actions">
 									<button class="button-small" on:click={() => handleRestoreClick(backup)}>
@@ -483,9 +483,9 @@
 		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
 			<h2>{$LL.backup.confirmRestoreTitle()}</h2>
 			<div class="modal-content">
-				<p><strong>{$LL.backup.backupDate()}</strong> {formatBackupDate(restoreConfirmation.created_at)}</p>
-				<p><strong>{$LL.backup.backupSize()}</strong> {formatFileSize(restoreConfirmation.size_bytes)}</p>
-				<p><strong>{$LL.backup.backupContains()}</strong> {$LL.backup.vehiclesAndTrips({ vehicles: restoreConfirmation.vehicle_count, trips: restoreConfirmation.trip_count })}</p>
+				<p><strong>{$LL.backup.backupDate()}</strong> {formatBackupDate(restoreConfirmation.createdAt)}</p>
+				<p><strong>{$LL.backup.backupSize()}</strong> {formatFileSize(restoreConfirmation.sizeBytes)}</p>
+				<p><strong>{$LL.backup.backupContains()}</strong> {$LL.backup.vehiclesAndTrips({ vehicles: restoreConfirmation.vehicleCount, trips: restoreConfirmation.tripCount })}</p>
 				<p class="warning-text">
 					{$LL.backup.restoreWarning()}
 				</p>
@@ -503,8 +503,8 @@
 		<div class="modal" on:click|stopPropagation on:keydown={() => {}} role="dialog" aria-modal="true" tabindex="-1">
 			<h2>{$LL.backup.confirmDeleteTitle()}</h2>
 			<div class="modal-content">
-				<p><strong>{$LL.backup.backupDate()}</strong> {formatBackupDate(deleteConfirmation.created_at)}</p>
-				<p><strong>{$LL.backup.backupSize()}</strong> {formatFileSize(deleteConfirmation.size_bytes)}</p>
+				<p><strong>{$LL.backup.backupDate()}</strong> {formatBackupDate(deleteConfirmation.createdAt)}</p>
+				<p><strong>{$LL.backup.backupSize()}</strong> {formatFileSize(deleteConfirmation.sizeBytes)}</p>
 				<p class="warning-text">
 					{$LL.backup.deleteWarning()}
 				</p>

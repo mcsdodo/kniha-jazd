@@ -5,111 +5,111 @@ export type VehicleType = 'Ice' | 'Bev' | 'Phev';
 export interface Vehicle {
 	id: string;
 	name: string;
-	license_plate: string;
-	vehicle_type: VehicleType;
+	licensePlate: string;
+	vehicleType: VehicleType;
 	// Fuel fields (ICE + PHEV)
-	tank_size_liters: number | null;
-	tp_consumption: number | null;
+	tankSizeLiters: number | null;
+	tpConsumption: number | null;
 	// Battery fields (BEV + PHEV)
-	battery_capacity_kwh: number | null;
-	baseline_consumption_kwh: number | null;
-	initial_battery_percent: number | null;
+	batteryCapacityKwh: number | null;
+	baselineConsumptionKwh: number | null;
+	initialBatteryPercent: number | null;
 	// Common
-	initial_odometer: number;
-	is_active: boolean;
+	initialOdometer: number;
+	isActive: boolean;
 	vin?: string | null;
-	driver_name?: string | null;
-	created_at: string;
-	updated_at: string;
+	driverName?: string | null;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Trip {
 	id: string;
-	vehicle_id: string;
+	vehicleId: string;
 	date: string; // NaiveDate serialized as string
 	origin: string;
 	destination: string;
-	distance_km: number;
+	distanceKm: number;
 	odometer: number;
 	purpose: string;
 	// Fuel fields (ICE + PHEV)
-	fuel_liters?: number | null;
-	fuel_cost_eur?: number | null;
-	full_tank: boolean; // true = full tank fillup, false = partial
+	fuelLiters?: number | null;
+	fuelCostEur?: number | null;
+	fullTank: boolean; // true = full tank fillup, false = partial
 	// Energy fields (BEV + PHEV)
-	energy_kwh?: number | null;
-	energy_cost_eur?: number | null;
-	full_charge: boolean;
-	soc_override_percent?: number | null;
+	energyKwh?: number | null;
+	energyCostEur?: number | null;
+	fullCharge: boolean;
+	socOverridePercent?: number | null;
 	// Other
-	other_costs_eur?: number | null;
-	other_costs_note?: string | null;
-	sort_order: number;
-	created_at: string;
-	updated_at: string;
+	otherCostsEur?: number | null;
+	otherCostsNote?: string | null;
+	sortOrder: number;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Route {
 	id: string;
-	vehicle_id: string;
+	vehicleId: string;
 	origin: string;
 	destination: string;
-	distance_km: number;
-	usage_count: number;
-	last_used: string;
+	distanceKm: number;
+	usageCount: number;
+	lastUsed: string;
 }
 
 export interface CompensationSuggestion {
 	origin: string;
 	destination: string;
-	distance_km: number;
+	distanceKm: number;
 	purpose: string;
-	is_buffer: boolean;
+	isBuffer: boolean;
 }
 
 export interface Settings {
 	id: string;
-	company_name: string;
-	company_ico: string;
-	buffer_trip_purpose: string;
-	updated_at: string;
+	companyName: string;
+	companyIco: string;
+	bufferTripPurpose: string;
+	updatedAt: string;
 }
 
 export interface TripStats {
-	fuel_remaining_liters: number;
-	avg_consumption_rate: number;  // Average: total_fuel / total_km * 100
-	last_consumption_rate: number; // From last fill-up period (for margin)
-	margin_percent: number | null; // null if no fill-up yet
-	is_over_limit: boolean;
-	total_km: number;
-	total_fuel_liters: number;
-	total_fuel_cost_eur: number;
+	fuelRemainingLiters: number;
+	avgConsumptionRate: number; // Average: total_fuel / total_km * 100
+	lastConsumptionRate: number; // From last fill-up period (for margin)
+	marginPercent: number | null; // null if no fill-up yet
+	isOverLimit: boolean;
+	totalKm: number;
+	totalFuelLiters: number;
+	totalFuelCostEur: number;
 }
 
 export interface BackupInfo {
 	filename: string;
-	created_at: string;
-	size_bytes: number;
-	vehicle_count: number;
-	trip_count: number;
+	createdAt: string;
+	sizeBytes: number;
+	vehicleCount: number;
+	tripCount: number;
 }
 
 export interface TripGridData {
 	trips: Trip[];
 	// Fuel data (ICE + PHEV)
 	rates: Record<string, number>; // tripId -> l/100km
-	estimated_rates: string[]; // tripIds using TP rate (estimated)
-	fuel_remaining: Record<string, number>; // tripId -> fuel remaining
-	consumption_warnings: string[]; // tripIds over 120% TP
+	estimatedRates: string[]; // tripIds using TP rate (estimated)
+	fuelRemaining: Record<string, number>; // tripId -> fuel remaining
+	consumptionWarnings: string[]; // tripIds over 120% TP
 	// Energy data (BEV + PHEV)
-	energy_rates: Record<string, number>; // tripId -> kWh/100km
-	estimated_energy_rates: string[]; // tripIds using baseline rate
-	battery_remaining_kwh: Record<string, number>; // tripId -> kWh
-	battery_remaining_percent: Record<string, number>; // tripId -> %
-	soc_override_trips: string[]; // tripIds with manual SoC override
+	energyRates: Record<string, number>; // tripId -> kWh/100km
+	estimatedEnergyRates: string[]; // tripIds using baseline rate
+	batteryRemainingKwh: Record<string, number>; // tripId -> kWh
+	batteryRemainingPercent: Record<string, number>; // tripId -> %
+	socOverrideTrips: string[]; // tripIds with manual SoC override
 	// Warnings
-	date_warnings: string[]; // tripIds with date ordering issues
-	missing_receipts: string[]; // tripIds missing receipts
+	dateWarnings: string[]; // tripIds with date ordering issues
+	missingReceipts: string[]; // tripIds missing receipts
 }
 
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
@@ -117,40 +117,40 @@ export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
 
 export interface FieldConfidence {
 	liters: ConfidenceLevel;
-	total_price: ConfidenceLevel;
+	totalPrice: ConfidenceLevel;
 	date: ConfidenceLevel;
 }
 
 export interface Receipt {
 	id: string;
-	vehicle_id: string | null;
-	trip_id: string | null;
-	file_path: string;
-	file_name: string;
-	scanned_at: string;
+	vehicleId: string | null;
+	tripId: string | null;
+	filePath: string;
+	fileName: string;
+	scannedAt: string;
 	liters: number | null;
-	total_price_eur: number | null;
-	receipt_date: string | null;
-	station_name: string | null;
-	station_address: string | null;
-	source_year: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)
+	totalPriceEur: number | null;
+	receiptDate: string | null;
+	stationName: string | null;
+	stationAddress: string | null;
+	sourceYear: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)
 	status: ReceiptStatus;
 	confidence: FieldConfidence;
-	raw_ocr_text: string | null;
-	error_message: string | null;
-	created_at: string;
-	updated_at: string;
+	rawOcrText: string | null;
+	errorMessage: string | null;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface ReceiptSettings {
-	gemini_api_key: string | null;
-	receipts_folder_path: string | null;
-	gemini_api_key_from_override: boolean;
-	receipts_folder_from_override: boolean;
+	geminiApiKey: string | null;
+	receiptsFolderPath: string | null;
+	geminiApiKeyFromOverride: boolean;
+	receiptsFolderFromOverride: boolean;
 }
 
 export interface SyncError {
-	file_name: string;
+	fileName: string;
 	error: string;
 }
 
@@ -161,16 +161,16 @@ export interface SyncResult {
 }
 
 export interface ScanResult {
-	new_count: number;
+	newCount: number;
 	warning: string | null;
 }
 
 export interface ReceiptVerification {
-	receipt_id: string;
+	receiptId: string;
 	matched: boolean;
-	matched_trip_id: string | null;
-	matched_trip_date: string | null;
-	matched_trip_route: string | null;
+	matchedTripId: string | null;
+	matchedTripDate: string | null;
+	matchedTripRoute: string | null;
 }
 
 export interface VerificationResult {
@@ -190,6 +190,7 @@ export interface PreviewResult {
 }
 
 // Export labels passed to Rust for HTML export
+// NOTE: Keep snake_case - this is passed TO Rust for HTML template rendering
 export interface ExportLabels {
 	// Language code for HTML lang attribute
 	lang: string;

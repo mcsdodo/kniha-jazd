@@ -63,11 +63,9 @@ describe('DB Seeding Utilities', () => {
       });
 
       // Verify all fields were set correctly
-      // Note: Tauri returns snake_case fields from Rust
       expect(vehicle.id).toBeDefined();
-      const vehicleAny = vehicle as unknown as Record<string, unknown>;
-      expect(vehicleAny.tank_size_liters).toBe(50);
-      expect(vehicleAny.tp_consumption).toBe(6.5);
+      expect(vehicle.tankSizeLiters).toBe(50);
+      expect(vehicle.tpConsumption).toBe(6.5);
 
       // Vehicle should appear in the UI
       const body = await $('body');
@@ -142,7 +140,7 @@ describe('DB Seeding Utilities', () => {
         purpose: tripData.purpose,
       });
 
-      // Verify trip was created (Tauri returns snake_case fields)
+      // Verify trip was created
       expect(trip.id).toBeDefined();
       expect(trip.origin).toBe(SlovakCities.bratislava);
       expect(trip.destination).toBe(SlovakCities.kosice);
@@ -178,7 +176,6 @@ describe('DB Seeding Utilities', () => {
       });
 
       // Seed trip with fuel
-      // Note: Tauri returns snake_case fields from Rust (fuel_liters, fuel_cost_eur, full_tank)
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
         date: `${new Date().getFullYear()}-01-20`,
@@ -192,11 +189,9 @@ describe('DB Seeding Utilities', () => {
         fullTank: true,
       });
 
-      // Tauri returns snake_case fields from Rust
-      const tripAny = trip as unknown as Record<string, unknown>;
-      expect(tripAny.fuel_liters).toBe(40);
-      expect(tripAny.fuel_cost_eur).toBe(60);
-      expect(tripAny.full_tank).toBe(true);
+      expect(trip.fuelLiters).toBe(40);
+      expect(trip.fuelCostEur).toBe(60);
+      expect(trip.fullTank).toBe(true);
     });
   });
 
@@ -230,14 +225,11 @@ describe('DB Seeding Utilities', () => {
       expect(seeded.trips.length).toBe(2); // Safe margin scenario has 2 trips
 
       // Trips should have correct data
-      // Note: Tauri returns snake_case fields from Rust (fuel_liters, full_tank)
-      // Use truthy check since null !== undefined is true but we want actual values
-      const tripsAny = seeded.trips as unknown as Array<Record<string, unknown>>;
-      const fuelTrip = tripsAny.find((t) => t.fuel_liters != null && t.fuel_liters !== 0);
+      const fuelTrip = seeded.trips.find((t) => t.fuelLiters != null && t.fuelLiters !== 0);
       expect(fuelTrip).toBeDefined();
       // Verify fuel data was saved correctly
-      expect(fuelTrip?.fuel_liters).toBe(8.05);
-      expect(fuelTrip?.fuel_cost_eur).toBe(12.08);
+      expect(fuelTrip?.fuelLiters).toBe(8.05);
+      expect(fuelTrip?.fuelCostEur).toBe(12.08);
     });
   });
 });

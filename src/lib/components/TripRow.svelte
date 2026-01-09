@@ -50,21 +50,21 @@
 		date: trip?.date || defaultDate,
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
-		distance_km: trip?.distance_km ?? (isNew ? null : 0),
+		distanceKm: trip?.distanceKm ?? (isNew ? null : 0),
 		odometer: trip?.odometer ?? (isNew ? null : 0),
 		purpose: trip?.purpose || '',
 		// Fuel fields
-		fuel_liters: trip?.fuel_liters || null,
-		fuel_cost_eur: trip?.fuel_cost_eur || null,
-		full_tank: trip?.full_tank ?? true, // Default to full tank
+		fuelLiters: trip?.fuelLiters || null,
+		fuelCostEur: trip?.fuelCostEur || null,
+		fullTank: trip?.fullTank ?? true, // Default to full tank
 		// Energy fields
-		energy_kwh: trip?.energy_kwh || null,
-		energy_cost_eur: trip?.energy_cost_eur || null,
-		full_charge: trip?.full_charge ?? false,
-		soc_override_percent: trip?.soc_override_percent || null,
+		energyKwh: trip?.energyKwh || null,
+		energyCostEur: trip?.energyCostEur || null,
+		fullCharge: trip?.fullCharge ?? false,
+		socOverridePercent: trip?.socOverridePercent || null,
 		// Other
-		other_costs_eur: trip?.other_costs_eur || null,
-		other_costs_note: trip?.other_costs_note || ''
+		otherCostsEur: trip?.otherCostsEur || null,
+		otherCostsNote: trip?.otherCostsNote || ''
 	};
 
 	// Get unique locations from routes
@@ -80,14 +80,14 @@
 			(r) => r.origin === formData.origin && r.destination === formData.destination
 		);
 
-		if (matchingRoute && formData.distance_km === null) {
-			formData.distance_km = matchingRoute.distance_km;
+		if (matchingRoute && formData.distanceKm === null) {
+			formData.distanceKm = matchingRoute.distanceKm;
 			// Also update ODO if not manually edited
 			if (!manualOdoEdit) {
-				formData.odometer = previousOdometer + matchingRoute.distance_km;
+				formData.odometer = previousOdometer + matchingRoute.distanceKm;
 			}
 			// Trigger live preview calculation for consumption/zostatok
-			onPreviewRequest(matchingRoute.distance_km, formData.fuel_liters, formData.full_tank);
+			onPreviewRequest(matchingRoute.distanceKm, formData.fuelLiters, formData.fullTank);
 		}
 	}
 
@@ -105,25 +105,25 @@
 	function handleKmChange(event: Event) {
 		const inputValue = (event.target as HTMLInputElement).value;
 		const km = inputValue === '' ? null : (parseFloat(inputValue) || 0);
-		formData.distance_km = km;
+		formData.distanceKm = km;
 		// Always auto-calculate ODO if not manually edited (previousOdometer can be 0)
 		if (!manualOdoEdit && km !== null) {
 			formData.odometer = previousOdometer + km;
 		}
 		// Request live preview calculation
-		onPreviewRequest(km ?? 0, formData.fuel_liters, formData.full_tank);
+		onPreviewRequest(km ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
 	// Request preview when fuel changes
 	function handleFuelChange(event: Event) {
 		const inputValue = (event.target as HTMLInputElement).value;
-		formData.fuel_liters = inputValue === '' ? null : (parseFloat(inputValue) || null);
-		onPreviewRequest(formData.distance_km ?? 0, formData.fuel_liters, formData.full_tank);
+		formData.fuelLiters = inputValue === '' ? null : (parseFloat(inputValue) || null);
+		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
-	// Request preview when full_tank changes
+	// Request preview when fullTank changes
 	function handleFullTankChange() {
-		onPreviewRequest(formData.distance_km ?? 0, formData.fuel_liters, formData.full_tank);
+		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
 	function handleOdoChange(event: Event) {
@@ -136,14 +136,14 @@
 		isEditing = true;
 		onEditStart();
 		// Trigger preview immediately with current values
-		onPreviewRequest(formData.distance_km ?? 0, formData.fuel_liters, formData.full_tank);
+		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
 	function handleSave() {
 		// Ensure numeric fields have proper values (convert null to 0)
 		const dataToSave = {
 			...formData,
-			distance_km: formData.distance_km ?? 0,
+			distanceKm: formData.distanceKm ?? 0,
 			odometer: formData.odometer ?? 0
 		};
 		onSave(dataToSave);
@@ -162,18 +162,18 @@
 				date: trip?.date || new Date().toISOString().split('T')[0],
 				origin: trip?.origin || '',
 				destination: trip?.destination || '',
-				distance_km: trip?.distance_km || 0,
+				distanceKm: trip?.distanceKm || 0,
 				odometer: trip?.odometer || 0,
 				purpose: trip?.purpose || '',
-				fuel_liters: trip?.fuel_liters || null,
-				fuel_cost_eur: trip?.fuel_cost_eur || null,
-				full_tank: trip?.full_tank ?? true, // Default to full tank
-				energy_kwh: trip?.energy_kwh || null,
-				energy_cost_eur: trip?.energy_cost_eur || null,
-				full_charge: trip?.full_charge ?? false,
-				soc_override_percent: trip?.soc_override_percent || null,
-				other_costs_eur: trip?.other_costs_eur || null,
-				other_costs_note: trip?.other_costs_note || ''
+				fuelLiters: trip?.fuelLiters || null,
+				fuelCostEur: trip?.fuelCostEur || null,
+				fullTank: trip?.fullTank ?? true, // Default to full tank
+				energyKwh: trip?.energyKwh || null,
+				energyCostEur: trip?.energyCostEur || null,
+				fullCharge: trip?.fullCharge ?? false,
+				socOverridePercent: trip?.socOverridePercent || null,
+				otherCostsEur: trip?.otherCostsEur || null,
+				otherCostsNote: trip?.otherCostsNote || ''
 			};
 			isEditing = false;
 			onEditEnd();
@@ -227,7 +227,7 @@
 			/>
 		</td>
 		<td>
-			<input type="number" value={formData.distance_km} on:input={handleKmChange} step="1" min="0" placeholder="0" data-testid="trip-distance" />
+			<input type="number" value={formData.distanceKm} on:input={handleKmChange} step="1" min="0" placeholder="0" data-testid="trip-distance" />
 		</td>
 		<td>
 			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
@@ -245,16 +245,16 @@
 			<td class="fuel-cell">
 				<input
 					type="number"
-					value={formData.fuel_liters}
+					value={formData.fuelLiters}
 					on:input={handleFuelChange}
 					step="0.01"
 					min="0"
 					placeholder="0.00"
 					data-testid="trip-fuel-liters"
 				/>
-				{#if formData.fuel_liters}
+				{#if formData.fuelLiters}
 					<label class="full-tank-label">
-						<input type="checkbox" bind:checked={formData.full_tank} on:change={handleFullTankChange} data-testid="trip-full-tank" />
+						<input type="checkbox" bind:checked={formData.fullTank} on:change={handleFullTankChange} data-testid="trip-full-tank" />
 						<span class="checkmark"></span>
 						<span class="label-text">{$LL.trips.fullTank()}</span>
 					</label>
@@ -263,7 +263,7 @@
 			<td>
 				<input
 					type="number"
-					bind:value={formData.fuel_cost_eur}
+					bind:value={formData.fuelCostEur}
 					step="0.01"
 					min="0"
 					placeholder="0.00"
@@ -292,15 +292,15 @@
 			<td class="energy-cell">
 				<input
 					type="number"
-					bind:value={formData.energy_kwh}
+					bind:value={formData.energyKwh}
 					step="0.1"
 					min="0"
 					placeholder="0.0"
 					data-testid="trip-energy-kwh"
 				/>
-				{#if formData.energy_kwh}
+				{#if formData.energyKwh}
 					<label class="full-charge-label">
-						<input type="checkbox" bind:checked={formData.full_charge} data-testid="trip-full-charge" />
+						<input type="checkbox" bind:checked={formData.fullCharge} data-testid="trip-full-charge" />
 						<span class="checkmark"></span>
 						<span class="label-text">{$LL.trips.fullCharge()}</span>
 					</label>
@@ -309,7 +309,7 @@
 			<td>
 				<input
 					type="number"
-					bind:value={formData.energy_cost_eur}
+					bind:value={formData.energyCostEur}
 					step="0.01"
 					min="0"
 					placeholder="0.00"
@@ -328,7 +328,7 @@
 						<div class="soc-override-input">
 							<input
 								type="number"
-								bind:value={formData.soc_override_percent}
+								bind:value={formData.socOverridePercent}
 								step="1"
 								min="0"
 								max="100"
@@ -344,7 +344,7 @@
 		<td>
 			<input
 				type="number"
-				bind:value={formData.other_costs_eur}
+				bind:value={formData.otherCostsEur}
 				step="0.01"
 				min="0"
 				placeholder="0.00"
@@ -354,7 +354,7 @@
 		<td>
 			<input
 				type="text"
-				bind:value={formData.other_costs_note}
+				bind:value={formData.otherCostsNote}
 				placeholder=""
 				data-testid="trip-other-costs-note"
 			/>
@@ -373,14 +373,14 @@
 		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		<td>{trip.origin}</td>
 		<td>{trip.destination}</td>
-		<td class="number">{trip.distance_km.toFixed(0)}</td>
+		<td class="number">{trip.distanceKm.toFixed(0)}</td>
 		<td class="number">{trip.odometer.toFixed(0)}</td>
 		<td>{trip.purpose}</td>
 		{#if showFuelFields}
 			<td class="number">
-				{#if trip.fuel_liters}
-					{trip.fuel_liters.toFixed(2)}
-					{#if !trip.full_tank}
+				{#if trip.fuelLiters}
+					{trip.fuelLiters.toFixed(2)}
+					{#if !trip.fullTank}
 						<span class="partial-indicator" title={$LL.trips.partialFillup()}>*</span>
 					{/if}
 					{#if !hasMatchingReceipt}
@@ -388,7 +388,7 @@
 					{/if}
 				{/if}
 			</td>
-			<td class="number">{trip.fuel_cost_eur?.toFixed(2) || ''}</td>
+			<td class="number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
 			<td class="number calculated" class:estimated={isEstimatedRate}>
 				{consumptionRate.toFixed(2)}
 				{#if isEstimatedRate}
@@ -399,14 +399,14 @@
 		{/if}
 		{#if showEnergyFields}
 			<td class="number">
-				{#if trip.energy_kwh}
-					{trip.energy_kwh.toFixed(1)}
-					{#if !trip.full_charge}
+				{#if trip.energyKwh}
+					{trip.energyKwh.toFixed(1)}
+					{#if !trip.fullCharge}
 						<span class="partial-indicator" title={$LL.trips.partialCharge()}>*</span>
 					{/if}
 				{/if}
 			</td>
-			<td class="number">{trip.energy_cost_eur?.toFixed(2) || ''}</td>
+			<td class="number">{trip.energyCostEur?.toFixed(2) || ''}</td>
 			<td class="number calculated" class:estimated={isEstimatedEnergyRate}>
 				{energyRate.toFixed(2)}
 				{#if isEstimatedEnergyRate}
@@ -421,8 +421,8 @@
 				{/if}
 			</td>
 		{/if}
-		<td class="number">{trip.other_costs_eur?.toFixed(2) || ''}</td>
-		<td>{trip.other_costs_note || ''}</td>
+		<td class="number">{trip.otherCostsEur?.toFixed(2) || ''}</td>
+		<td>{trip.otherCostsNote || ''}</td>
 		<td class="actions">
 			<span class="icon-actions">
 				<button

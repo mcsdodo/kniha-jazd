@@ -1131,6 +1131,14 @@ type RootTranslation = {
 		 */
 		headerBaselineConsumption: string
 		/**
+		 * V​I​N​:
+		 */
+		headerVin: string
+		/**
+		 * V​o​d​i​č​:
+		 */
+		headerDriver: string
+		/**
 		 * D​á​t​u​m
 		 */
 		colDate: string
@@ -2313,6 +2321,14 @@ export type TranslationFunctions = {
 		 * Základ. spotreba:
 		 */
 		headerBaselineConsumption: () => LocalizedString
+		/**
+		 * VIN:
+		 */
+		headerVin: () => LocalizedString
+		/**
+		 * Vodič:
+		 */
+		headerDriver: () => LocalizedString
 		/**
 		 * Dátum
 		 */

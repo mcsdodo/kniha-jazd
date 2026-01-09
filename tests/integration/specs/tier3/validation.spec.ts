@@ -87,10 +87,10 @@ describe('Tier 3: Validation & Edge Cases', () => {
       // Some implementations may have date_warnings, others may not flag this as an error
 
       // Verify the data structure is correct
-      expect(Array.isArray(gridData.date_warnings)).toBe(true);
+      expect(Array.isArray(gridData.dateWarnings)).toBe(true);
 
       // Log for debugging
-      console.log(`Date warnings: ${gridData.date_warnings.length}`);
+      console.log(`Date warnings: ${gridData.dateWarnings.length}`);
     });
   });
 
@@ -146,8 +146,8 @@ describe('Tier 3: Validation & Edge Cases', () => {
         const trip = gridData.trips[0];
         // Note: Some backends may store negative values, others may convert or reject
         // The key is that the backend handled the input without crashing
-        expect(trip.distance_km).toBeDefined();
-        console.log(`Stored distance: ${trip.distance_km}`);
+        expect(trip.distanceKm).toBeDefined();
+        console.log(`Stored distance: ${trip.distanceKm}`);
       } else {
         // Trip wasn't created - validation prevented it
         expect(errorOccurred).toBe(true);
@@ -215,7 +215,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
           expect(leapTrip.date).toBe(`${leapYear}-02-29`);
           expect(leapTrip.origin).toBe(SlovakCities.bratislava);
           expect(leapTrip.destination).toBe(SlovakCities.kosice);
-          expect(leapTrip.distance_km).toBe(400);
+          expect(leapTrip.distanceKm).toBe(400);
         }
       }
 

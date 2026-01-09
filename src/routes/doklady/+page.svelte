@@ -119,11 +119,11 @@
 	}
 
 	function getVerificationForReceipt(receiptId: string): ReceiptVerification | null {
-		return verification?.receipts.find(v => v.receipt_id === receiptId) ?? null;
+		return verification?.receipts.find(v => v.receiptId === receiptId) ?? null;
 	}
 
 	async function handleScan() {
-		if (!settings?.receipts_folder_path) {
+		if (!settings?.receiptsFolderPath) {
 			toast.error($LL.toast.errorSetApiKeyFirst());
 			return;
 		}
@@ -136,8 +136,8 @@
 			// Handle folder structure warning
 			folderStructureWarning = result.warning;
 
-			if (result.new_count > 0) {
-				toast.success($LL.toast.foundNewReceipts({ count: result.new_count }));
+			if (result.newCount > 0) {
+				toast.success($LL.toast.foundNewReceipts({ count: result.newCount }));
 			} else {
 				toast.success($LL.toast.noNewReceipts());
 			}
@@ -150,7 +150,7 @@
 	}
 
 	async function handleProcessPending() {
-		if (!settings?.gemini_api_key) {
+		if (!settings?.geminiApiKey) {
 			toast.error($LL.toast.errorSetApiKeyOnlyFirst());
 			return;
 		}
@@ -202,10 +202,10 @@
 		try {
 			await api.reprocessReceipt(receipt.id);
 			await refreshReceiptData();
-			toast.success($LL.toast.receiptReprocessed({ name: receipt.file_name }));
+			toast.success($LL.toast.receiptReprocessed({ name: receipt.fileName }));
 		} catch (error) {
 			console.error('Failed to reprocess receipt:', error);
-			toast.error($LL.toast.errorReprocessReceipt({ name: receipt.file_name, error: String(error) }));
+			toast.error($LL.toast.errorReprocessReceipt({ name: receipt.fileName, error: String(error) }));
 		} finally {
 			reprocessingIds = new Set([...reprocessingIds].filter((id) => id !== receipt.id));
 		}
@@ -235,16 +235,16 @@
 	}
 
 	/**
-	 * Check if a receipt has a date mismatch between source_year (folder) and receipt_date (OCR).
+	 * Check if a receipt has a date mismatch between sourceYear (folder) and receiptDate (OCR).
 	 * Returns null if no mismatch, or { receiptYear, folderYear } if there's a mismatch.
 	 */
 	function getDateMismatch(receipt: Receipt): { receiptYear: number; folderYear: number } | null {
-		if (!receipt.receipt_date || !receipt.source_year) {
+		if (!receipt.receiptDate || !receipt.sourceYear) {
 			return null;
 		}
-		const receiptYear = new Date(receipt.receipt_date).getFullYear();
-		if (receiptYear !== receipt.source_year) {
-			return { receiptYear, folderYear: receipt.source_year };
+		const receiptYear = new Date(receipt.receiptDate).getFullYear();
+		if (receiptYear !== receipt.sourceYear) {
+			return { receiptYear, folderYear: receipt.sourceYear };
 		}
 		return null;
 	}
@@ -274,27 +274,27 @@
 			await api.assignReceiptToTrip(receiptToAssign.id, trip.id, $activeVehicleStore.id);
 
 			// Update trip with fuel data from receipt if available
-			if (receiptToAssign.liters != null || receiptToAssign.total_price_eur != null) {
+			if (receiptToAssign.liters != null || receiptToAssign.totalPriceEur != null) {
 				await api.updateTrip(
 					trip.id,
 					trip.date,
 					trip.origin,
 					trip.destination,
-					trip.distance_km,
+					trip.distanceKm,
 					trip.odometer,
 					trip.purpose,
 					// Fuel fields - default to full tank when assigning receipt
 					receiptToAssign.liters,
-					receiptToAssign.total_price_eur,
-					trip.full_tank ?? true,
+					receiptToAssign.totalPriceEur,
+					trip.fullTank ?? true,
 					// Energy fields (not from receipts)
-					trip.energy_kwh,
-					trip.energy_cost_eur,
-					trip.full_charge,
-					trip.soc_override_percent,
+					trip.energyKwh,
+					trip.energyCostEur,
+					trip.fullCharge,
+					trip.socOverridePercent,
 					// Other
-					trip.other_costs_eur,
-					trip.other_costs_note
+					trip.otherCostsEur,
+					trip.otherCostsNote
 				);
 			}
 
@@ -309,7 +309,7 @@
 
 	// Helper to check if receipt is verified (matched to a trip)
 	function isReceiptVerified(receiptId: string): boolean {
-		const verif = verification?.receipts.find(v => v.receipt_id === receiptId);
+		const verif = verification?.receipts.find(v => v.receiptId === receiptId);
 		return verif?.matched ?? false;
 	}
 
@@ -326,7 +326,7 @@
 	let unassignedCount = $derived(receipts.filter((r) => !isReceiptVerified(r.id)).length);
 	let needsReviewCount = $derived(receipts.filter((r) => r.status === 'NeedsReview').length);
 
-	let isConfigured = $derived(settings?.gemini_api_key && settings?.receipts_folder_path);
+	let isConfigured = $derived(settings?.geminiApiKey && settings?.receiptsFolderPath);
 	let pendingCount = $derived(receipts.filter((r) => r.status === 'Pending').length);
 </script>
 
@@ -334,13 +334,13 @@
 	<div class="header">
 		<h1>{$LL.receipts.title()}</h1>
 		<div class="header-actions">
-			<button class="button" onclick={handleScan} disabled={syncing || processing || !settings?.receipts_folder_path}>
+			<button class="button" onclick={handleScan} disabled={syncing || processing || !settings?.receiptsFolderPath}>
 				{syncing ? $LL.receipts.scanning() : $LL.receipts.scanFolder()}
 			</button>
 			<button
 				class="button secondary"
 				onclick={handleProcessPending}
-				disabled={processing || syncing || !settings?.gemini_api_key || pendingCount === 0}
+				disabled={processing || syncing || !settings?.geminiApiKey || pendingCount === 0}
 			>
 				{#if processing && processingProgress}
 					{$LL.receipts.recognizing({ current: processingProgress.current, total: processingProgress.total })}
@@ -419,7 +419,7 @@
 				{@const dateMismatch = getDateMismatch(receipt)}
 				<div class="receipt-card">
 					<div class="receipt-header">
-						<span class="file-name">{receipt.file_name}</span>
+						<span class="file-name">{receipt.fileName}</span>
 						{#if verif?.matched}
 							<span class="badge success">{$LL.receipts.statusVerified()}</span>
 						{:else if receipt.status === 'NeedsReview'}
@@ -432,7 +432,7 @@
 						<div class="detail-row">
 							<span class="label">{$LL.receipts.date()}</span>
 							<span class="value-with-confidence">
-								<span class="value">{formatDate(receipt.receipt_date)}</span>
+								<span class="value">{formatDate(receipt.receiptDate)}</span>
 								<span
 									class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
 									title={getConfidenceInfo(receipt.confidence.date).label}
@@ -460,32 +460,32 @@
 						<div class="detail-row">
 							<span class="label">{$LL.receipts.price()}</span>
 							<span class="value-with-confidence">
-								<span class="value" class:uncertain={receipt.confidence.total_price === 'Low'}>
-									{receipt.total_price_eur != null ? `${receipt.total_price_eur.toFixed(2)} €` : '??'}
+								<span class="value" class:uncertain={receipt.confidence.totalPrice === 'Low'}>
+									{receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??'}
 								</span>
 								<span
-									class="confidence-dot {getConfidenceInfo(receipt.confidence.total_price).class}"
-									title={getConfidenceInfo(receipt.confidence.total_price).label}
+									class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+									title={getConfidenceInfo(receipt.confidence.totalPrice).label}
 								></span>
 							</span>
 						</div>
-						{#if receipt.station_name}
+						{#if receipt.stationName}
 							<div class="detail-row">
 								<span class="label">{$LL.receipts.station()}</span>
-								<span class="value">{receipt.station_name}</span>
+								<span class="value">{receipt.stationName}</span>
 							</div>
 						{/if}
-						{#if receipt.error_message}
-							<div class="error-message">{receipt.error_message}</div>
+						{#if receipt.errorMessage}
+							<div class="error-message">{receipt.errorMessage}</div>
 						{/if}
 						{#if verif?.matched}
 							<div class="matched-trip">
-								{$LL.receipts.trip()} {verif.matched_trip_date} | {verif.matched_trip_route}
+								{$LL.receipts.trip()} {verif.matchedTripDate} | {verif.matchedTripRoute}
 							</div>
 						{/if}
 					</div>
 					<div class="receipt-actions">
-						<button class="button-small" onclick={() => handleOpenFile(receipt.file_path)}>
+						<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
 							{$LL.receipts.open()}
 						</button>
 						{#if !verif?.matched}
@@ -511,7 +511,7 @@
 {#if receiptToDelete}
 	<ConfirmModal
 		title={$LL.confirm.deleteReceiptTitle()}
-		message={$LL.confirm.deleteReceiptMessage({ name: receiptToDelete.file_name })}
+		message={$LL.confirm.deleteReceiptMessage({ name: receiptToDelete.fileName })}
 		confirmText={$LL.common.delete()}
 		danger={true}
 		onConfirm={handleConfirmDelete}

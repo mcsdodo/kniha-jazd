@@ -98,14 +98,14 @@ describe('Tier 1: PHEV Trips', () => {
       const savedTrip = gridData.trips[0];
 
       // Fuel fields
-      expect(savedTrip.fuel_liters).toBe(8);
-      expect(savedTrip.fuel_cost_eur).toBe(12.00);
-      expect(savedTrip.full_tank).toBe(true);
+      expect(savedTrip.fuelLiters).toBe(8);
+      expect(savedTrip.fuelCostEur).toBe(12.00);
+      expect(savedTrip.fullTank).toBe(true);
 
       // Energy fields
-      expect(savedTrip.energy_kwh).toBe(10);
-      expect(savedTrip.energy_cost_eur).toBe(3.50);
-      expect(savedTrip.full_charge).toBe(true);
+      expect(savedTrip.energyKwh).toBe(10);
+      expect(savedTrip.energyCostEur).toBe(3.50);
+      expect(savedTrip.fullCharge).toBe(true);
     });
   });
 
@@ -182,8 +182,8 @@ describe('Tier 1: PHEV Trips', () => {
 
       // Find the trip with both refills
       const refillTrip = gridData.trips.find((t) =>
-        t.fuel_liters !== undefined && t.fuel_liters !== null &&
-        t.energy_kwh !== undefined && t.energy_kwh !== null
+        t.fuelLiters !== undefined && t.fuelLiters !== null &&
+        t.energyKwh !== undefined && t.energyKwh !== null
       );
       expect(refillTrip).toBeDefined();
 
@@ -196,14 +196,14 @@ describe('Tier 1: PHEV Trips', () => {
       expect(fuelRate).toBeGreaterThan(0);
 
       // Energy rate (kWh/100km)
-      const energyRate = gridData.energy_rates[tripId];
+      const energyRate = gridData.energyRates[tripId];
       expect(energyRate).toBeDefined();
       expect(energyRate).toBeGreaterThan(0);
 
       // Both fuel and battery remaining should be tracked
-      expect(gridData.fuel_remaining[tripId]).toBeDefined();
-      expect(gridData.battery_remaining_kwh[tripId]).toBeDefined();
-      expect(gridData.battery_remaining_percent[tripId]).toBeDefined();
+      expect(gridData.fuelRemaining[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingKwh[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingPercent[tripId]).toBeDefined();
     });
   });
 
@@ -275,19 +275,19 @@ describe('Tier 1: PHEV Trips', () => {
 
       // Find the fuel-only trip
       const fuelOnlyTrip = gridData.trips.find((t) =>
-        t.fuel_liters !== undefined && t.fuel_liters !== null &&
-        (t.energy_kwh === undefined || t.energy_kwh === null)
+        t.fuelLiters !== undefined && t.fuelLiters !== null &&
+        (t.energyKwh === undefined || t.energyKwh === null)
       );
       expect(fuelOnlyTrip).toBeDefined();
 
       // Verify fuel fields are present
-      expect(fuelOnlyTrip?.fuel_liters).toBe(5);
-      expect(fuelOnlyTrip?.fuel_cost_eur).toBe(7.50);
-      expect(fuelOnlyTrip?.full_tank).toBe(true);
+      expect(fuelOnlyTrip?.fuelLiters).toBe(5);
+      expect(fuelOnlyTrip?.fuelCostEur).toBe(7.50);
+      expect(fuelOnlyTrip?.fullTank).toBe(true);
 
       // Energy fields should be null/undefined (Rust returns null for Option::None)
-      expect(fuelOnlyTrip?.energy_kwh).toBeNull();
-      expect(fuelOnlyTrip?.energy_cost_eur).toBeNull();
+      expect(fuelOnlyTrip?.energyKwh).toBeNull();
+      expect(fuelOnlyTrip?.energyCostEur).toBeNull();
 
       const tripId = fuelOnlyTrip?.id as string;
 
@@ -297,7 +297,7 @@ describe('Tier 1: PHEV Trips', () => {
       expect(fuelRate).toBeGreaterThan(0);
 
       // Fuel remaining should be tracked
-      expect(gridData.fuel_remaining[tripId]).toBeDefined();
+      expect(gridData.fuelRemaining[tripId]).toBeDefined();
     });
   });
 
@@ -371,30 +371,30 @@ describe('Tier 1: PHEV Trips', () => {
 
       // Find the energy-only trip
       const energyOnlyTrip = gridData.trips.find((t) =>
-        (t.fuel_liters === undefined || t.fuel_liters === null) &&
-        t.energy_kwh !== undefined && t.energy_kwh !== null
+        (t.fuelLiters === undefined || t.fuelLiters === null) &&
+        t.energyKwh !== undefined && t.energyKwh !== null
       );
       expect(energyOnlyTrip).toBeDefined();
 
       // Verify energy fields are present
-      expect(energyOnlyTrip?.energy_kwh).toBe(5);
-      expect(energyOnlyTrip?.energy_cost_eur).toBe(1.75);
-      expect(energyOnlyTrip?.full_charge).toBe(true);
+      expect(energyOnlyTrip?.energyKwh).toBe(5);
+      expect(energyOnlyTrip?.energyCostEur).toBe(1.75);
+      expect(energyOnlyTrip?.fullCharge).toBe(true);
 
       // Fuel fields should be null/undefined
-      expect(energyOnlyTrip?.fuel_liters).toBeUndefined();
-      expect(energyOnlyTrip?.fuel_cost_eur).toBeUndefined();
+      expect(energyOnlyTrip?.fuelLiters).toBeUndefined();
+      expect(energyOnlyTrip?.fuelCostEur).toBeUndefined();
 
       const tripId = energyOnlyTrip?.id as string;
 
       // Energy rate should be calculated
-      const energyRate = gridData.energy_rates[tripId];
+      const energyRate = gridData.energyRates[tripId];
       expect(energyRate).toBeDefined();
       expect(energyRate).toBeGreaterThan(0);
 
       // Battery remaining should be tracked
-      expect(gridData.battery_remaining_kwh[tripId]).toBeDefined();
-      expect(gridData.battery_remaining_percent[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingKwh[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingPercent[tripId]).toBeDefined();
     });
   });
 
@@ -473,7 +473,7 @@ describe('Tier 1: PHEV Trips', () => {
 
       // Find the trip with refueling
       const refuelTrip = gridData.trips.find((t) =>
-        t.fuel_liters !== undefined && t.fuel_liters !== null
+        t.fuelLiters !== undefined && t.fuelLiters !== null
       );
       expect(refuelTrip).toBeDefined();
 
@@ -488,17 +488,16 @@ describe('Tier 1: PHEV Trips', () => {
       expect(fuelRate).toBeGreaterThan(1.92);
 
       // Since consumption exceeds 20% margin, there should be a consumption warning
-      // Note: consumption_warnings contains trip IDs that are over the limit
-      expect(gridData.consumption_warnings).toContain(tripId);
+      expect(gridData.consumptionWarnings).toContain(tripId);
 
       // Energy rate should also be calculated independently
-      const energyRate = gridData.energy_rates[tripId];
+      const energyRate = gridData.energyRates[tripId];
       expect(energyRate).toBeDefined();
       expect(energyRate).toBeGreaterThan(0);
 
       // Both remaining values should be tracked
-      expect(gridData.fuel_remaining[tripId]).toBeDefined();
-      expect(gridData.battery_remaining_kwh[tripId]).toBeDefined();
+      expect(gridData.fuelRemaining[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingKwh[tripId]).toBeDefined();
     });
   });
 });

@@ -224,7 +224,7 @@ describe('Tier 1: Year Handling', () => {
       expect(lastTrip2024).toBeDefined();
 
       const endOfYearFuel = lastTrip2024?.id
-        ? gridData2024.fuel_remaining[lastTrip2024.id]
+        ? gridData2024.fuelRemaining[lastTrip2024.id]
         : undefined;
 
       // Should have fuel remaining at end of year
@@ -243,7 +243,7 @@ describe('Tier 1: Year Handling', () => {
       expect(firstTrip2025).toBeDefined();
 
       const startOfYearFuel = firstTrip2025?.id
-        ? gridData2025.fuel_remaining[firstTrip2025.id]
+        ? gridData2025.fuelRemaining[firstTrip2025.id]
         : undefined;
 
       // Should have fuel remaining carried over (minus the trip consumption)

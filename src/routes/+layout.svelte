@@ -163,7 +163,7 @@
 						{/if}
 						{#each $vehiclesStore as vehicle}
 							<option value={vehicle.id}>
-								{vehicle.name} ({vehicle.license_plate})
+								{vehicle.name} ({vehicle.licensePlate})
 							</option>
 						{/each}
 					</select>
