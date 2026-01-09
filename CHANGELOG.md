@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Výpočet priemernej spotreby v štatistikách** - priemerná spotreba sa počíta len z uzavretých období plných tankov
+  - Predtým: zahŕňala aj jazdy po poslednom tankovaní (skreslený priemer)
+  - Teraz: zobrazuje presný priemer zodpovedajúci hodnotám v tabuľke
+  - Odchýlka sa zobrazí len ak existujú uzavreté obdobia
+
 ### Zmenené
 - **Zjednodušený banner prekročenia spotreby** - odstránená funkcionalita pridania kompenzačnej jazdy
   - Zobrazuje len upozornenie a potrebné km na kompenzáciu
