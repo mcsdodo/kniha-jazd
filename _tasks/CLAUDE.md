@@ -6,7 +6,7 @@ This folder contains planning documents for complex features. All plans, designs
 
 ```
 _tasks/
-├── {NN}-{descriptive-name}/          # Numbered folders (check existing for next NN)
+├── {NN}-{descriptive-name}/          # Numbered folders (check existing folder for next NN!)
 │   ├── 01-task.md                    # Task description, requirements
 │   ├── 02-plan.md                    # Implementation plan
 │   ├── 02-design.md                  # Or design doc (alternative to plan)
