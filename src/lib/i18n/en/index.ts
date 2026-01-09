@@ -359,6 +359,9 @@ const en = {
 		// Header labels for BEV
 		headerBatteryCapacity: 'Battery:',
 		headerBaselineConsumption: 'Baseline cons.:',
+		// VIN and Driver
+		headerVin: 'VIN:',
+		headerDriver: 'Driver:',
 		// Column headers
 		colDate: 'Date',
 		colOrigin: 'From',

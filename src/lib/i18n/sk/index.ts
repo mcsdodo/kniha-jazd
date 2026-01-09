@@ -359,6 +359,9 @@ const sk = {
 		// Header labels for BEV
 		headerBatteryCapacity: 'Batéria:',
 		headerBaselineConsumption: 'Základ. spotreba:',
+		// VIN and Driver
+		headerVin: 'VIN:',
+		headerDriver: 'Vodič:',
 		// Column headers
 		colDate: 'Dátum',
 		colOrigin: 'Odkiaľ',

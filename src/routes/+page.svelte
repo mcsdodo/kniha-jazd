@@ -97,8 +97,8 @@
 				header_battery_capacity: $LL.export.headerBatteryCapacity(),
 				header_baseline_consumption: $LL.export.headerBaselineConsumption(),
 				// VIN and Driver
-				header_vin: 'VIN:',
-				header_driver: $LL.vehicleModal.driverLabel() + ':',
+				header_vin: $LL.export.headerVin(),
+				header_driver: $LL.export.headerDriver(),
 				col_date: $LL.export.colDate(),
 				col_origin: $LL.export.colOrigin(),
 				col_destination: $LL.export.colDestination(),
