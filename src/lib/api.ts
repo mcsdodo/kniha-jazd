@@ -21,7 +21,9 @@ export async function createVehicle(
 	tpConsumption?: number | null,
 	batteryCapacityKwh?: number | null,
 	baselineConsumptionKwh?: number | null,
-	initialBatteryPercent?: number | null
+	initialBatteryPercent?: number | null,
+	vin?: string | null,
+	driverName?: string | null
 ): Promise<Vehicle> {
 	return await invoke('create_vehicle', {
 		name,
@@ -32,7 +34,9 @@ export async function createVehicle(
 		tpConsumption,
 		batteryCapacityKwh,
 		baselineConsumptionKwh,
-		initialBatteryPercent
+		initialBatteryPercent,
+		vin,
+		driverName
 	});
 }
 

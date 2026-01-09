@@ -163,6 +163,23 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 
 ### Local Development
 
+#### macOS: Install Rust
+
+Before running the app locally on macOS, you need to install Rust:
+
+```bash
+# Install Rust (official method for macOS)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# After installation, restart terminal or run:
+source "$HOME/.cargo/env"
+
+# Verify it works:
+cargo --version
+```
+
+#### Run the App
+
 ```bash
 # Install dependencies
 npm install

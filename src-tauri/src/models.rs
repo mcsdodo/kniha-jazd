@@ -59,6 +59,8 @@ pub struct Vehicle {
     // Common fields
     pub initial_odometer: f64, // Starting ODO for "Prvý záznam"
     pub is_active: bool,
+    pub vin: Option<String>,
+    pub driver_name: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -96,6 +98,8 @@ impl Vehicle {
             initial_battery_percent: None,
             initial_odometer,
             is_active: true,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         }
@@ -123,6 +127,8 @@ impl Vehicle {
             initial_battery_percent,
             initial_odometer,
             is_active: true,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         }
@@ -152,6 +158,8 @@ impl Vehicle {
             initial_battery_percent,
             initial_odometer,
             is_active: true,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         }
@@ -475,6 +483,9 @@ pub struct VehicleRow {
     pub is_active: i32,
     pub created_at: String,
     pub updated_at: String,
+    // Added via migration 2026-01-09-100000-add_vehicle_metadata (at end of table)
+    pub vin: Option<String>,
+    pub driver_name: Option<String>,
 }
 
 /// For inserting new vehicles
@@ -494,6 +505,9 @@ pub struct NewVehicleRow<'a> {
     pub is_active: i32,
     pub created_at: &'a str,
     pub updated_at: &'a str,
+    // Added via migration 2026-01-09-100000-add_vehicle_metadata (at end of table)
+    pub vin: Option<&'a str>,
+    pub driver_name: Option<&'a str>,
 }
 
 /// Database row for trips table
@@ -670,6 +684,8 @@ impl From<VehicleRow> for Vehicle {
             initial_battery_percent: row.initial_battery_percent,
             initial_odometer: row.initial_odometer,
             is_active: row.is_active != 0,
+            vin: row.vin,
+            driver_name: row.driver_name,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

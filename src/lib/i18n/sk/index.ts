@@ -89,6 +89,10 @@ const sk = {
 		tankSizeLabel: 'Objem nádrže (litre)',
 		tpConsumptionLabel: 'Spotreba z TP (l/100km)',
 		initialOdometerLabel: 'Počiatočný stav ODO (km)',
+		vinLabel: 'VIN',
+		vinPlaceholder: 'napr. ABC123456789',
+		driverLabel: 'Vodič',
+		driverPlaceholder: 'napr. Janko Hraško',
 		vehicleTypeLabel: 'Typ vozidla',
 		batteryCapacityLabel: 'Kapacita batérie (kWh)',
 		baselineConsumptionLabel: 'Základná spotreba (kWh/100km)',
@@ -355,6 +359,9 @@ const sk = {
 		// Header labels for BEV
 		headerBatteryCapacity: 'Batéria:',
 		headerBaselineConsumption: 'Základ. spotreba:',
+		// VIN and Driver
+		headerVin: 'VIN:',
+		headerDriver: 'Vodič:',
 		// Column headers
 		colDate: 'Dátum',
 		colOrigin: 'Odkiaľ',

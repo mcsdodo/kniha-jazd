@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **VIN a meno vodiča** - nové voliteľné polia pre vozidlá (PR #2 od @marekadvocate)
+  - VIN (Vehicle Identification Number) pre jednoznačnú identifikáciu vozidla
+  - Meno vodiča pre dokumentáciu
+  - Zobrazenie v hlavičke exportu (HTML/PDF)
+  - Inkrementálna migrácia pre existujúce databázy
+
 ### Zmenené
 - **Migrácia na Diesel ORM** - kompletná výmena rusqlite za Diesel pre typovo bezpečné databázové operácie
   - Compile-time kontrola INSERT/UPDATE operácií (zachytí chýbajúce stĺpce pri kompilácii)

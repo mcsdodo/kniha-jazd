@@ -85,6 +85,9 @@ diesel::table! {
         is_active -> Integer,
         created_at -> Text,
         updated_at -> Text,
+        // Added via migration 2026-01-09-100000-add_vehicle_metadata
+        vin -> Nullable<Text>,
+        driver_name -> Nullable<Text>,
     }
 }
 
