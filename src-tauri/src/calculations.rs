@@ -96,6 +96,37 @@ pub fn calculate_buffer_km(
     }
 }
 
+use crate::models::Trip;
+
+/// Calculate total fuel and km from closed fill-up periods only.
+/// A period closes when there's a full tank fill-up.
+/// Returns (total_fuel, total_km) from closed periods.
+/// Open period (trips after last full fill-up) is excluded.
+pub fn calculate_closed_period_totals(trips: &[Trip]) -> (f64, f64) {
+    let mut total_fuel = 0.0;
+    let mut total_km = 0.0;
+    let mut period_km = 0.0;
+    let mut period_fuel = 0.0;
+
+    for trip in trips {
+        period_km += trip.distance_km;
+
+        if let Some(fuel) = trip.fuel_liters {
+            period_fuel += fuel;
+
+            // Full tank closes the period
+            if trip.full_tank && period_km > 0.0 {
+                total_fuel += period_fuel;
+                total_km += period_km;
+                period_km = 0.0;
+                period_fuel = 0.0;
+            }
+        }
+    }
+    // Open period is NOT included in totals
+    (total_fuel, total_km)
+}
+
 #[cfg(test)]
 #[path = "calculations_tests.rs"]
 mod tests;
