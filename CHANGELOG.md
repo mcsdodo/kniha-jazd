@@ -15,6 +15,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Inkrementálna migrácia pre existujúce databázy
 
 ### Zmenené
+- **CI: Paralelné spúšťanie testov** - backend testy a integračné testy bežia súčasne
+  - Odstránená závislosť `needs: backend-tests` z integration-tests jobu
+  - Úspora ~3 minúty na každom CI behu (build Tauri app začína ihneď)
 - **Migrácia na Diesel ORM** - kompletná výmena rusqlite za Diesel pre typovo bezpečné databázové operácie
   - Compile-time kontrola INSERT/UPDATE operácií (zachytí chýbajúce stĺpce pri kompilácii)
   - Row structs pattern pre čistý mapping medzi DB a doménovými modelmi
