@@ -83,10 +83,11 @@ diesel::table! {
         initial_battery_percent -> Nullable<Double>,
         initial_odometer -> Double,
         is_active -> Integer,
-        vin -> Nullable<Text>,
-        driver_name -> Nullable<Text>,
         created_at -> Text,
         updated_at -> Text,
+        // Added via migration 2026-01-09-100000-add_vehicle_metadata
+        vin -> Nullable<Text>,
+        driver_name -> Nullable<Text>,
     }
 }
 

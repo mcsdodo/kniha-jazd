@@ -481,10 +481,11 @@ pub struct VehicleRow {
     pub initial_battery_percent: Option<f64>,
     pub initial_odometer: f64,
     pub is_active: i32,
-    pub vin: Option<String>,
-    pub driver_name: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    // Added via migration 2026-01-09-100000-add_vehicle_metadata (at end of table)
+    pub vin: Option<String>,
+    pub driver_name: Option<String>,
 }
 
 /// For inserting new vehicles
@@ -502,10 +503,11 @@ pub struct NewVehicleRow<'a> {
     pub initial_battery_percent: Option<f64>,
     pub initial_odometer: f64,
     pub is_active: i32,
-    pub vin: Option<&'a str>,
-    pub driver_name: Option<&'a str>,
     pub created_at: &'a str,
     pub updated_at: &'a str,
+    // Added via migration 2026-01-09-100000-add_vehicle_metadata (at end of table)
+    pub vin: Option<&'a str>,
+    pub driver_name: Option<&'a str>,
 }
 
 /// Database row for trips table

@@ -3137,6 +3137,8 @@ mod tests {
             baseline_consumption_kwh: None,
             initial_battery_percent: None,
             is_active: false,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         };
@@ -3152,6 +3154,8 @@ mod tests {
             baseline_consumption_kwh: None,
             initial_battery_percent: None,
             is_active: false,
+            vin: None,
+            driver_name: None,
             created_at: now,
             updated_at: now,
         };

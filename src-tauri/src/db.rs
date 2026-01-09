@@ -88,10 +88,10 @@ impl Database {
             initial_battery_percent: vehicle.initial_battery_percent,
             initial_odometer: vehicle.initial_odometer,
             is_active: if vehicle.is_active { 1 } else { 0 },
-            vin: vehicle.vin.as_deref(),
-            driver_name: vehicle.driver_name.as_deref(),
             created_at: &created_at_str,
             updated_at: &updated_at_str,
+            vin: vehicle.vin.as_deref(),
+            driver_name: vehicle.driver_name.as_deref(),
         };
 
         diesel::insert_into(vehicles::table)
