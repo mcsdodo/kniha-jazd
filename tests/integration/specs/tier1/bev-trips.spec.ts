@@ -93,15 +93,15 @@ describe('Tier 1: BEV Trips', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with charging
-      const chargeTrip = gridData.trips.find((t) => t.energy_kwh !== undefined && t.energy_kwh !== null);
+      const chargeTrip = gridData.trips.find((t) => t.energyKwh !== undefined && t.energyKwh !== null);
       expect(chargeTrip).toBeDefined();
-      expect(chargeTrip?.energy_kwh).toBe(30);
-      expect(chargeTrip?.energy_cost_eur).toBe(10.50);
-      expect(chargeTrip?.full_charge).toBe(true);
+      expect(chargeTrip?.energyKwh).toBe(30);
+      expect(chargeTrip?.energyCostEur).toBe(10.50);
+      expect(chargeTrip?.fullCharge).toBe(true);
 
       // Fuel fields should be null/undefined for BEV trips (Rust returns null for Option::None)
-      expect(chargeTrip?.fuel_liters).toBeNull();
-      expect(chargeTrip?.fuel_cost_eur).toBeNull();
+      expect(chargeTrip?.fuelLiters).toBeNull();
+      expect(chargeTrip?.fuelCostEur).toBeNull();
     });
   });
 
@@ -172,7 +172,7 @@ describe('Tier 1: BEV Trips', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with charging
-      const chargeTrip = gridData.trips.find((t) => t.energy_kwh !== undefined && t.energy_kwh !== null);
+      const chargeTrip = gridData.trips.find((t) => t.energyKwh !== undefined && t.energyKwh !== null);
       expect(chargeTrip).toBeDefined();
 
       // Get energy consumption rate for this trip
@@ -253,8 +253,8 @@ describe('Tier 1: BEV Trips', () => {
       // Check battery remaining after each trip
       // Trip 1: 67.5 - 15 = 52.5 kWh
       const trip1Id = trip1.id as string;
-      const battery1Kwh = gridData.battery_remaining_kwh[trip1Id];
-      const battery1Percent = gridData.battery_remaining_percent[trip1Id];
+      const battery1Kwh = gridData.batteryRemainingKwh[trip1Id];
+      const battery1Percent = gridData.batteryRemainingPercent[trip1Id];
 
       expect(battery1Kwh).toBeDefined();
       expect(battery1Kwh).toBeCloseTo(52.5, 1);
@@ -263,8 +263,8 @@ describe('Tier 1: BEV Trips', () => {
 
       // Trip 2: 52.5 - 15 = 37.5 kWh
       const trip2Id = trip2.id as string;
-      const battery2Kwh = gridData.battery_remaining_kwh[trip2Id];
-      const battery2Percent = gridData.battery_remaining_percent[trip2Id];
+      const battery2Kwh = gridData.batteryRemainingKwh[trip2Id];
+      const battery2Percent = gridData.batteryRemainingPercent[trip2Id];
 
       expect(battery2Kwh).toBeDefined();
       expect(battery2Kwh).toBeCloseTo(37.5, 1);
@@ -330,28 +330,28 @@ describe('Tier 1: BEV Trips', () => {
       const savedTrip = gridData.trips[0];
 
       // Energy fields should be populated
-      expect(savedTrip.energy_kwh).toBe(70);
-      expect(savedTrip.energy_cost_eur).toBe(24.50);
-      expect(savedTrip.full_charge).toBe(true);
+      expect(savedTrip.energyKwh).toBe(70);
+      expect(savedTrip.energyCostEur).toBe(24.50);
+      expect(savedTrip.fullCharge).toBe(true);
 
       // Fuel fields should be null/undefined for BEV (Rust returns null for Option::None)
-      expect(savedTrip.fuel_liters).toBeNull();
-      expect(savedTrip.fuel_cost_eur).toBeNull();
-      expect(savedTrip.full_tank).toBeFalsy();
+      expect(savedTrip.fuelLiters).toBeNull();
+      expect(savedTrip.fuelCostEur).toBeNull();
+      expect(savedTrip.fullTank).toBeFalsy();
 
       // No fuel-related data in grid (BEV has no fuel system)
       const tripId = savedTrip.id;
       // For BEV, fuel rates may be undefined (not in the HashMap) rather than null
       expect(gridData.rates[tripId]).toBeFalsy(); // No fuel rate
-      expect(gridData.fuel_remaining[tripId]).toBeFalsy(); // No fuel remaining
+      expect(gridData.fuelRemaining[tripId]).toBeFalsy(); // No fuel remaining
 
       // Energy data should exist
-      expect(gridData.energy_rates[tripId]).toBeDefined();
-      expect(gridData.battery_remaining_kwh[tripId]).toBeDefined();
-      expect(gridData.battery_remaining_percent[tripId]).toBeDefined();
+      expect(gridData.energyRates[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingKwh[tripId]).toBeDefined();
+      expect(gridData.batteryRemainingPercent[tripId]).toBeDefined();
 
       // No consumption warnings for BEV (no legal limit for electricity)
-      expect(gridData.consumption_warnings.length).toBe(0);
+      expect(gridData.consumptionWarnings.length).toBe(0);
     });
   });
 });

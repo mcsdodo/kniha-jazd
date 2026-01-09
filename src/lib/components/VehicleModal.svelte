@@ -21,17 +21,17 @@
 	export let onClose: () => void;
 
 	let name = vehicle?.name || '';
-	let licensePlate = vehicle?.license_plate || '';
-	let vehicleType: VehicleType = vehicle?.vehicle_type || 'Ice';
-	let tankSizeLiters = vehicle?.tank_size_liters ?? 0;
-	let tpConsumption = vehicle?.tp_consumption ?? 0;
-	let batteryCapacityKwh = vehicle?.battery_capacity_kwh ?? 0;
-	let baselineConsumptionKwh = vehicle?.baseline_consumption_kwh ?? 0;
-	let initialBatteryPercent = vehicle?.initial_battery_percent ?? 100;
+	let licensePlate = vehicle?.licensePlate || '';
+	let vehicleType: VehicleType = vehicle?.vehicleType || 'Ice';
+	let tankSizeLiters = vehicle?.tankSizeLiters ?? 0;
+	let tpConsumption = vehicle?.tpConsumption ?? 0;
+	let batteryCapacityKwh = vehicle?.batteryCapacityKwh ?? 0;
+	let baselineConsumptionKwh = vehicle?.baselineConsumptionKwh ?? 0;
+	let initialBatteryPercent = vehicle?.initialBatteryPercent ?? 100;
 
-	let initialOdometer = vehicle?.initial_odometer || 0;
+	let initialOdometer = vehicle?.initialOdometer || 0;
 	let vin = vehicle?.vin || '';
-	let driverName = vehicle?.driver_name || '';
+	let driverName = vehicle?.driverName || '';
 
 	// Show fuel fields for ICE and PHEV
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';

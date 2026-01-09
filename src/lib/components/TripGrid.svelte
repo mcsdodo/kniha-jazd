@@ -46,17 +46,17 @@
 			// Convert backend data to Maps/Sets for efficient lookup
 			// Fuel
 			consumptionRates = new Map(Object.entries(gridData.rates));
-			estimatedRates = new Set(gridData.estimated_rates);
-			fuelRemaining = new Map(Object.entries(gridData.fuel_remaining));
-			consumptionWarnings = new Set(gridData.consumption_warnings);
+			estimatedRates = new Set(gridData.estimatedRates);
+			fuelRemaining = new Map(Object.entries(gridData.fuelRemaining));
+			consumptionWarnings = new Set(gridData.consumptionWarnings);
 			// Energy
-			energyRates = new Map(Object.entries(gridData.energy_rates));
-			estimatedEnergyRates = new Set(gridData.estimated_energy_rates);
-			batteryRemainingKwh = new Map(Object.entries(gridData.battery_remaining_kwh));
-			batteryRemainingPercent = new Map(Object.entries(gridData.battery_remaining_percent));
-			socOverrideTrips = new Set(gridData.soc_override_trips);
+			energyRates = new Map(Object.entries(gridData.energyRates));
+			estimatedEnergyRates = new Set(gridData.estimatedEnergyRates);
+			batteryRemainingKwh = new Map(Object.entries(gridData.batteryRemainingKwh));
+			batteryRemainingPercent = new Map(Object.entries(gridData.batteryRemainingPercent));
+			socOverrideTrips = new Set(gridData.socOverrideTrips);
 			// Shared
-			dateWarnings = new Set(gridData.date_warnings);
+			dateWarnings = new Set(gridData.dateWarnings);
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -134,21 +134,21 @@
 				tripData.date!,
 				tripData.origin!,
 				tripData.destination!,
-				tripData.distance_km!,
+				tripData.distanceKm!,
 				tripData.odometer!,
 				tripData.purpose!,
 				// Fuel fields
-				tripData.fuel_liters,
-				tripData.fuel_cost_eur,
-				tripData.full_tank,
+				tripData.fuelLiters,
+				tripData.fuelCostEur,
+				tripData.fullTank,
 				// Energy fields
-				tripData.energy_kwh,
-				tripData.energy_cost_eur,
-				tripData.full_charge,
+				tripData.energyKwh,
+				tripData.energyCostEur,
+				tripData.fullCharge,
 				null, // socOverridePercent - rarely used on new trips
 				// Other
-				tripData.other_costs_eur,
-				tripData.other_costs_note,
+				tripData.otherCostsEur,
+				tripData.otherCostsNote,
 				insertAtSortOrder
 			);
 
@@ -175,21 +175,21 @@
 				tripData.date!,
 				tripData.origin!,
 				tripData.destination!,
-				tripData.distance_km!,
+				tripData.distanceKm!,
 				tripData.odometer!,
 				tripData.purpose!,
 				// Fuel fields
-				tripData.fuel_liters,
-				tripData.fuel_cost_eur,
-				tripData.full_tank,
+				tripData.fuelLiters,
+				tripData.fuelCostEur,
+				tripData.fullTank,
 				// Energy fields
-				tripData.energy_kwh,
-				tripData.energy_cost_eur,
-				tripData.full_charge,
-				trip.soc_override_percent, // Preserve existing SoC override
+				tripData.energyKwh,
+				tripData.energyCostEur,
+				tripData.fullCharge,
+				trip.socOverridePercent, // Preserve existing SoC override
 				// Other
-				tripData.other_costs_eur,
-				tripData.other_costs_note
+				tripData.otherCostsEur,
+				tripData.otherCostsNote
 			);
 
 			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
@@ -216,14 +216,14 @@
 		let runningOdo = newOdo;
 		for (let i = editedIndex + 1; i < chronological.length; i++) {
 			const t = chronological[i];
-			runningOdo = runningOdo + t.distance_km;
+			runningOdo = runningOdo + t.distanceKm;
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					t.id, t.date, t.origin, t.destination, t.distance_km, runningOdo,
+					t.id, t.date, t.origin, t.destination, t.distanceKm, runningOdo,
 					t.purpose,
-					t.fuel_liters, t.fuel_cost_eur, t.full_tank,
-					t.energy_kwh, t.energy_cost_eur, t.full_charge, t.soc_override_percent,
-					t.other_costs_eur, t.other_costs_note
+					t.fuelLiters, t.fuelCostEur, t.fullTank,
+					t.energyKwh, t.energyCostEur, t.fullCharge, t.socOverridePercent,
+					t.otherCostsEur, t.otherCostsNote
 				);
 			}
 		}
@@ -261,7 +261,7 @@
 	}
 
 	function handleInsertAbove(targetTrip: Trip) {
-		insertAtSortOrder = targetTrip.sort_order;
+		insertAtSortOrder = targetTrip.sortOrder;
 		insertDate = targetTrip.date;
 		showNewRow = true;
 	}
@@ -292,13 +292,13 @@
 		}
 	}
 
-	// Move trip up (swap with previous row - lower sort_order)
+	// Move trip up (swap with previous row - lower sortOrder)
 	async function handleMoveUp(tripId: string, currentIndex: number) {
 		if (reorderDisabled || currentIndex === 0) return;
 
 		try {
-			// Get the sort_order of the trip above us
-			const targetSortOrder = sortedTrips[currentIndex - 1].sort_order;
+			// Get the sortOrder of the trip above us
+			const targetSortOrder = sortedTrips[currentIndex - 1].sortOrder;
 			await reorderTrip(tripId, targetSortOrder);
 			await recalculateAllOdo();
 			await onTripsChanged();
@@ -308,13 +308,13 @@
 		}
 	}
 
-	// Move trip down (swap with next row - higher sort_order)
+	// Move trip down (swap with next row - higher sortOrder)
 	async function handleMoveDown(tripId: string, currentIndex: number) {
 		if (reorderDisabled || currentIndex >= sortedTrips.length - 1) return;
 
 		try {
-			// Get the sort_order of the trip below us
-			const targetSortOrder = sortedTrips[currentIndex + 1].sort_order;
+			// Get the sortOrder of the trip below us
+			const targetSortOrder = sortedTrips[currentIndex + 1].sortOrder;
 			await reorderTrip(tripId, targetSortOrder);
 			await recalculateAllOdo();
 			await onTripsChanged();
@@ -326,19 +326,19 @@
 
 	async function recalculateAllOdo() {
 		const chronological = [...trips]
-			.sort((a, b) => a.sort_order - b.sort_order)
+			.sort((a, b) => a.sortOrder - b.sortOrder)
 			.reverse();
 
 		let runningOdo = initialOdometer;
 		for (const trip of chronological) {
-			runningOdo += trip.distance_km;
+			runningOdo += trip.distanceKm;
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					trip.id, trip.date, trip.origin, trip.destination, trip.distance_km, runningOdo,
+					trip.id, trip.date, trip.origin, trip.destination, trip.distanceKm, runningOdo,
 					trip.purpose,
-					trip.fuel_liters, trip.fuel_cost_eur, trip.full_tank,
-					trip.energy_kwh, trip.energy_cost_eur, trip.full_charge, trip.soc_override_percent,
-					trip.other_costs_eur, trip.other_costs_note
+					trip.fuelLiters, trip.fuelCostEur, trip.fullTank,
+					trip.energyKwh, trip.energyCostEur, trip.fullCharge, trip.socOverridePercent,
+					trip.otherCostsEur, trip.otherCostsNote
 				);
 			}
 		}
@@ -348,34 +348,34 @@
 	const FIRST_RECORD_ID = '__first_record__';
 	$: firstRecordTrip = {
 		id: FIRST_RECORD_ID,
-		vehicle_id: vehicleId,
+		vehicleId: vehicleId,
 		date: `${year}-01-01`,
 		origin: '-',
 		destination: '-',
-		distance_km: 0,
+		distanceKm: 0,
 		odometer: initialOdometer,
 		purpose: $LL.trips.firstRecord(),
-		fuel_liters: null,
-		fuel_cost_eur: null,
-		full_tank: true,
+		fuelLiters: null,
+		fuelCostEur: null,
+		fullTank: true,
 		// Energy fields
-		energy_kwh: null,
-		energy_cost_eur: null,
-		full_charge: false,
-		soc_override_percent: null,
+		energyKwh: null,
+		energyCostEur: null,
+		fullCharge: false,
+		socOverridePercent: null,
 		// Other
-		other_costs_eur: null,
-		other_costs_note: null,
-		sort_order: 999999, // Always last in manual sort
-		created_at: '',
-		updated_at: ''
+		otherCostsEur: null,
+		otherCostsNote: null,
+		sortOrder: 999999, // Always last in manual sort
+		createdAt: '',
+		updatedAt: ''
 	} as Trip;
 
 	// Display order (based on current sort settings)
 	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
 		let diff: number;
 		if (sortColumn === 'manual') {
-			diff = a.sort_order - b.sort_order;
+			diff = a.sortOrder - b.sortOrder;
 		} else {
 			const dateA = new Date(a.date).getTime();
 			const dateB = new Date(b.date).getTime();
@@ -392,8 +392,8 @@
 	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
 
 	// Legend counts
-	$: partialCount = trips.filter(t => t.fuel_liters && !t.full_tank).length;
-	$: missingReceiptCount = gridData?.missing_receipts.length ?? 0;
+	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
+	$: missingReceiptCount = gridData?.missingReceipts.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
 
 	$: defaultNewDate = (() => {
@@ -490,7 +490,7 @@
 				<!-- Trip rows -->
 				{#each sortedTrips as trip, index (trip.id)}
 					<!-- New row inserted above this trip (not for first record) -->
-					{#if showNewRow && insertAtSortOrder === trip.sort_order && !isFirstRecord(trip)}
+					{#if showNewRow && insertAtSortOrder === trip.sortOrder && !isFirstRecord(trip)}
 						<TripRow
 							trip={null}
 							{routes}
@@ -564,9 +564,9 @@
 							hasDateWarning={dateWarnings.has(trip.id)}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
-							hasMatchingReceipt={!gridData?.missing_receipts.includes(trip.id)}
+							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
 							previewData={previewingTripId === trip.id ? previewData : null}
-							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sort_order, km, fuel, fullTank)}
+							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
 						/>
 					{/if}
 				{/each}

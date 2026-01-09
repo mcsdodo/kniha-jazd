@@ -172,7 +172,7 @@ describe('Tier 1: Trip Management', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with fuel and check it has a rate calculated
-      const fuelTrip = gridData.trips.find((t) => t.fuel_liters !== undefined);
+      const fuelTrip = gridData.trips.find((t) => t.fuelLiters !== undefined);
       expect(fuelTrip).toBeDefined();
 
       // The rates map should contain an entry for this trip
@@ -269,20 +269,20 @@ describe('Tier 1: Trip Management', () => {
 
       // The partial refill trip should have an estimated rate, not actual
       const partialTrip = gridData.trips.find(
-        (t) => t.fuel_liters === 20 && t.full_tank === false
+        (t) => t.fuelLiters === 20 && t.fullTank === false
       );
       expect(partialTrip).toBeDefined();
 
       if (partialTrip?.id) {
         // Partial refills should be marked as estimated
-        const isEstimated = gridData.estimated_rates.includes(partialTrip.id);
+        const isEstimated = gridData.estimatedRates.includes(partialTrip.id);
         // This may or may not be true depending on implementation
         // The key point is that actual consumption is calculated only on full tank
       }
 
       // The full tank trip should have actual consumption
       const fullTankTrip = gridData.trips.find(
-        (t) => t.fuel_liters === 15 && t.full_tank === true
+        (t) => t.fuelLiters === 15 && t.fullTank === true
       );
       expect(fullTankTrip).toBeDefined();
     });
@@ -511,7 +511,7 @@ describe('Tier 1: Trip Management', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with fuel to get its initial rate
-      const fuelTrip = gridData.trips.find((t) => t.fuel_liters === 35);
+      const fuelTrip = gridData.trips.find((t) => t.fuelLiters === 35);
       const initialRate = fuelTrip ? gridData.rates[fuelTrip.id as string] : null;
 
       // Initial rate: 35L / (65 + 300) km * 100 = 9.59 l/100km
@@ -537,7 +537,7 @@ describe('Tier 1: Trip Management', () => {
 
       // After insertion, the consumption rate should change
       // New rate: 35L / (65 + 70 + 300) km * 100 = 8.05 l/100km
-      const updatedFuelTrip = gridData.trips.find((t) => t.fuel_liters === 35);
+      const updatedFuelTrip = gridData.trips.find((t) => t.fuelLiters === 35);
       const updatedRate = updatedFuelTrip
         ? gridData.rates[updatedFuelTrip.id as string]
         : null;

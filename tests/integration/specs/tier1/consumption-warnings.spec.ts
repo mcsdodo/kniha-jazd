@@ -87,7 +87,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with fuel
-      const fuelTrip = gridData.trips.find((t) => t.fuel_liters !== undefined);
+      const fuelTrip = gridData.trips.find((t) => t.fuelLiters !== undefined);
       expect(fuelTrip).toBeDefined();
 
       // Get consumption rate for this trip
@@ -101,7 +101,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       }
 
       // Should NOT have consumption warnings for this trip
-      expect(gridData.consumption_warnings.length).toBe(0);
+      expect(gridData.consumptionWarnings.length).toBe(0);
 
       // Verify UI shows normal state (no warning class on stats)
       const body = await $('body');
@@ -181,7 +181,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with fuel
-      const fuelTrip = gridData.trips.find((t) => t.fuel_liters !== undefined);
+      const fuelTrip = gridData.trips.find((t) => t.fuelLiters !== undefined);
       expect(fuelTrip).toBeDefined();
 
       // Get consumption rate for this trip
@@ -194,7 +194,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
         expect(rate).toBeCloseTo(8.5, 1);
 
         // Should have consumption warning for this trip
-        expect(gridData.consumption_warnings).toContain(tripId);
+        expect(gridData.consumptionWarnings).toContain(tripId);
       }
 
       // Verify UI shows warning state

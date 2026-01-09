@@ -7,6 +7,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Zjednodušený banner prekročenia spotreby** - odstránená funkcionalita pridania kompenzačnej jazdy
+  - Zobrazuje len upozornenie a potrebné km na kompenzáciu
+  - Používateľ si jazdu pridá manuálne podľa vlastného uváženia
+- **Štandardizácia názvov vlastností (snake_case → camelCase)** - zjednotenie pomenovaní na Rust-TypeScript hranici
+  - Rust štruktúry používajú `#[serde(rename_all = "camelCase")]` pre JSON serializáciu
+  - TypeScript typy a Svelte komponenty používajú camelCase (napr. `licensePlate`, `distanceKm`)
+  - Konzistentné s JavaScript/TypeScript konvenciami a existujúcim PreviewResult
+
 ## [0.11.0] - 2026-01-09
 
 ### Pridané

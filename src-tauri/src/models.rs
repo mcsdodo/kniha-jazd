@@ -44,6 +44,7 @@ impl VehicleType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Vehicle {
     pub id: Uuid,
     pub name: String,
@@ -167,6 +168,7 @@ impl Vehicle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Trip {
     pub id: Uuid,
     pub vehicle_id: Uuid,
@@ -244,6 +246,7 @@ impl Trip {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Route {
     pub id: Uuid,
     pub vehicle_id: Uuid,
@@ -255,6 +258,7 @@ pub struct Route {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub id: Uuid,
     pub company_name: String,
@@ -276,6 +280,7 @@ impl Default for Settings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TripStats {
     pub fuel_remaining_liters: f64,
     pub avg_consumption_rate: f64,  // Average: total_fuel / total_km * 100
@@ -290,6 +295,7 @@ pub struct TripStats {
 /// Pre-calculated data for the trip grid display.
 /// Eliminates need for frontend to duplicate calculation logic.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TripGridData {
     pub trips: Vec<Trip>,
 
@@ -348,6 +354,7 @@ pub enum ConfidenceLevel {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldConfidence {
     pub liters: ConfidenceLevel,
     pub total_price: ConfidenceLevel,
@@ -356,6 +363,7 @@ pub struct FieldConfidence {
 
 /// A scanned fuel receipt (blocek)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Receipt {
     pub id: Uuid,
     pub vehicle_id: Option<Uuid>,  // Set when assigned
@@ -425,6 +433,7 @@ impl Receipt {
 
 /// Verification status of a single receipt against trips
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReceiptVerification {
     pub receipt_id: String,
     pub matched: bool,
@@ -435,6 +444,7 @@ pub struct ReceiptVerification {
 
 /// Result of verifying all receipts for a vehicle/year
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VerificationResult {
     pub total: usize,
     pub matched: usize,

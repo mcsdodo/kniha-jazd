@@ -87,7 +87,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       expect(gridData.trips.length).toBe(2);
 
       // Find the trip with fuel and verify it has a consumption warning
-      const fuelTrip = gridData.trips.find((t) => t.fuel_liters !== undefined);
+      const fuelTrip = gridData.trips.find((t) => t.fuelLiters !== undefined);
       expect(fuelTrip).toBeDefined();
 
       if (fuelTrip?.id) {
@@ -97,7 +97,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
         expect(rate).toBeGreaterThan(8.4); // Over legal limit (7.0 * 1.2 = 8.4)
 
         // Should have consumption warning
-        expect(gridData.consumption_warnings).toContain(fuelTrip.id);
+        expect(gridData.consumptionWarnings).toContain(fuelTrip.id);
       }
 
       // The compensation banner may or may not exist in the UI
@@ -134,7 +134,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
 
       // Backend has the warning - UI may or may not show it prominently
       // As long as consumption_warnings is populated, the backend is working correctly
-      expect(gridData.consumption_warnings.length).toBeGreaterThan(0);
+      expect(gridData.consumptionWarnings.length).toBeGreaterThan(0);
     });
 
     it('should add suggested buffer trip and see margin decrease', async () => {
@@ -201,7 +201,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       expect(initialGridData.trips.length).toBe(2);
 
       // Find the trip with fuel to get initial rate
-      const fuelTrip = initialGridData.trips.find((t) => t.fuel_liters !== undefined);
+      const fuelTrip = initialGridData.trips.find((t) => t.fuelLiters !== undefined);
       expect(fuelTrip).toBeDefined();
       const initialRate = fuelTrip?.id ? initialGridData.rates[fuelTrip.id] : 0;
 
@@ -210,7 +210,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
 
       // Should have consumption warning initially
       if (fuelTrip?.id) {
-        expect(initialGridData.consumption_warnings).toContain(fuelTrip.id);
+        expect(initialGridData.consumptionWarnings).toContain(fuelTrip.id);
       }
 
       // Now add a buffer trip with refuel that brings consumption under the limit
@@ -239,11 +239,11 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       expect(updatedGridData.trips.length).toBe(3);
 
       // Find fuel trips - we should have 2 from this test (10L and 7L)
-      const updatedFuelTrips = updatedGridData.trips.filter((t) => t.fuel_liters !== undefined);
+      const updatedFuelTrips = updatedGridData.trips.filter((t) => t.fuelLiters !== undefined);
       expect(updatedFuelTrips.length).toBeGreaterThanOrEqual(2);
 
       // The buffer trip should have a lower rate
-      const bufferTrip = updatedGridData.trips.find((t) => t.fuel_liters === 7.0);
+      const bufferTrip = updatedGridData.trips.find((t) => t.fuelLiters === 7.0);
       expect(bufferTrip).toBeDefined();
 
       if (bufferTrip?.id) {
@@ -254,7 +254,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
         expect(bufferRate).toBeLessThan(8.4); // Under legal limit
 
         // Buffer trip should NOT have consumption warning
-        expect(updatedGridData.consumption_warnings).not.toContain(bufferTrip.id);
+        expect(updatedGridData.consumptionWarnings).not.toContain(bufferTrip.id);
       }
 
       // The key verification is in the backend data
