@@ -26,6 +26,9 @@ vite.config.ts.timestamp-*
 # Worktrees
 .worktrees/
 
+# Rust build artifacts (rust-analyzer workspace cache)
+/target/
+
 kniha_jazd.xlsx
 
 # Generated databases
