@@ -469,6 +469,106 @@ fn test_excel_integration_full_flow() {
     println!("Final fuel_level: {:.2} L (tank: {} L)", fuel_level, tank_size);
 }
 
+// ============================================================================
+// calculate_closed_period_totals tests
+// ============================================================================
+
+use crate::models::Trip;
+use uuid::Uuid;
+
+fn make_trip(distance_km: f64, fuel_liters: Option<f64>, full_tank: bool) -> Trip {
+    let now = chrono::Utc::now();
+    Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        date: chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        odometer: 10000.0,
+        distance_km,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        purpose: "Test".to_string(),
+        fuel_liters,
+        fuel_cost_eur: None,
+        full_tank,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+#[test]
+fn test_closed_period_totals_single_period() {
+    // 3 trips, last one has full tank fill-up
+    let trips = vec![
+        make_trip(100.0, None, false),
+        make_trip(200.0, None, false),
+        make_trip(50.0, Some(35.0), true), // 35L for 350km = 10 L/100km
+    ];
+    let (fuel, km) = super::calculate_closed_period_totals(&trips);
+    assert_eq!(fuel, 35.0);
+    assert_eq!(km, 350.0);
+}
+
+#[test]
+fn test_closed_period_totals_no_closed_periods() {
+    // Trips without any full tank fill-up
+    let trips = vec![
+        make_trip(100.0, None, false),
+        make_trip(200.0, Some(20.0), false), // Partial fill-up
+    ];
+    let (fuel, km) = super::calculate_closed_period_totals(&trips);
+    assert_eq!(fuel, 0.0);
+    assert_eq!(km, 0.0);
+}
+
+#[test]
+fn test_closed_period_totals_open_period_excluded() {
+    // Closed period + open period after
+    let trips = vec![
+        make_trip(100.0, None, false),
+        make_trip(50.0, Some(15.0), true),  // Closes period: 15L / 150km
+        make_trip(200.0, None, false),       // Open period - excluded
+        make_trip(100.0, None, false),       // Open period - excluded
+    ];
+    let (fuel, km) = super::calculate_closed_period_totals(&trips);
+    assert_eq!(fuel, 15.0);
+    assert_eq!(km, 150.0);
+}
+
+#[test]
+fn test_closed_period_totals_multiple_periods() {
+    // Two closed periods
+    let trips = vec![
+        make_trip(100.0, None, false),
+        make_trip(100.0, Some(20.0), true),  // Period 1: 20L / 200km
+        make_trip(150.0, None, false),
+        make_trip(50.0, Some(18.0), true),   // Period 2: 18L / 200km
+    ];
+    let (fuel, km) = super::calculate_closed_period_totals(&trips);
+    assert_eq!(fuel, 38.0);  // 20 + 18
+    assert_eq!(km, 400.0);   // 200 + 200
+}
+
+#[test]
+fn test_closed_period_totals_partial_then_full() {
+    // Partial fill-ups accumulated into full fill-up
+    let trips = vec![
+        make_trip(100.0, None, false),
+        make_trip(50.0, Some(10.0), false),  // Partial: 10L accumulated
+        make_trip(100.0, None, false),
+        make_trip(50.0, Some(15.0), true),   // Full: closes with 10+15=25L / 300km
+    ];
+    let (fuel, km) = super::calculate_closed_period_totals(&trips);
+    assert_eq!(fuel, 25.0);
+    assert_eq!(km, 300.0);
+}
+
 /// Test that fuel_level exactly equals tank capacity after every fill-up
 /// This is a critical business rule from the task requirements
 #[test]
