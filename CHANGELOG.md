@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-01-09
+
 ### Pridané
 - **VIN a meno vodiča** - nové voliteľné polia pre vozidlá (PR #2 od @marekadvocate)
   - VIN (Vehicle Identification Number) pre jednoznačnú identifikáciu vozidla
