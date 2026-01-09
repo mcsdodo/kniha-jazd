@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-01-10
+
 ### Opravené
 - **Výpočet priemernej spotreby v štatistikách** - priemerná spotreba sa počíta len z uzavretých období plných tankov
   - Predtým: zahŕňala aj jazdy po poslednom tankovaní (skreslený priemer)
