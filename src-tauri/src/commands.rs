@@ -2,7 +2,7 @@
 
 use crate::calculations::{
     calculate_consumption_rate, calculate_margin_percent, calculate_fuel_used, calculate_fuel_level,
-    is_within_legal_limit,
+    calculate_closed_period_totals, is_within_legal_limit,
 };
 use crate::calculations_energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
@@ -502,12 +502,15 @@ pub fn calculate_trip_stats(
         });
     }
 
-    // Calculate totals
+    // Calculate totals (all trips for display)
     let total_fuel: f64 = trips.iter().filter_map(|t| t.fuel_liters).sum();
     let total_fuel_cost: f64 = trips.iter().filter_map(|t| t.fuel_cost_eur).sum();
     let total_km: f64 = trips.iter().map(|t| t.distance_km).sum();
-    let avg_consumption_rate = if total_km > 0.0 {
-        (total_fuel / total_km) * 100.0
+
+    // Calculate average consumption from CLOSED periods only (for accurate margin)
+    let (closed_fuel, closed_km) = calculate_closed_period_totals(&trips);
+    let avg_consumption_rate = if closed_km > 0.0 {
+        (closed_fuel / closed_km) * 100.0
     } else {
         0.0
     };
@@ -581,8 +584,8 @@ pub fn calculate_trip_stats(
         false
     };
 
-    // Use average margin for legal compliance display
-    let display_margin = if total_fuel > 0.0 { Some(avg_margin) } else { None };
+    // Only show margin if we have closed periods (accurate data)
+    let display_margin = if closed_km > 0.0 { Some(avg_margin) } else { None };
 
     Ok(TripStats {
         fuel_remaining_liters: current_fuel,
