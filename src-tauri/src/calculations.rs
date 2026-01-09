@@ -1,5 +1,7 @@
 //! Core business logic: consumption, margin, fuel calculations
 
+use crate::models::Trip;
+
 /// Calculate fuel consumption rate (l/100km) from a fill-up
 /// Formula: (liters / km_since_last_fillup) * 100.0
 /// Returns 0.0 if km_since_last_fillup <= 0.0
@@ -95,8 +97,6 @@ pub fn calculate_buffer_km(
         buffer_km
     }
 }
-
-use crate::models::Trip;
 
 /// Calculate total fuel and km from closed fill-up periods only.
 /// A period closes when there's a full tank fill-up.
