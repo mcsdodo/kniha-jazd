@@ -22,6 +22,12 @@ _tasks/
 - **Folders**: `{NN}-{descriptive-name}` - Check existing folders for next number
 - **Files**: `{NN}-{name}.md` format (e.g., `01-task.md`, `02-plan.md`)
 
+**CRITICAL - Finding next folder number:**
+```
+Use Glob tool with pattern: _tasks/[0-9][0-9]-*
+```
+Do NOT use `ls _tasks/` or `Glob _tasks/*` — these may miss subdirectories.
+
 | File | Purpose |
 |------|---------|
 | `01-task.md` | Task description, user story, requirements |

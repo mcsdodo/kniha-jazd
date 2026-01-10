@@ -29,13 +29,15 @@ Only proceed to step 2 after brainstorming is complete.
 
 ### 2. Determine Next Folder Number
 
-Check existing folders in `_tasks/`:
+**CRITICAL:** Use the `Glob` tool (not `ls`) to find existing task folders:
 
-```bash
-ls _tasks/
+```
+Glob pattern: _tasks/[0-9][0-9]-*
 ```
 
-Find highest `{NN}-*` number and use next one (e.g., if `12-replace-alerts` exists, use `13`).
+This returns all numbered task folders. Find the highest `{NN}-*` number and use next one (e.g., if `31-fix-stats-consumption` exists, use `32`).
+
+**WARNING:** Do NOT use `ls _tasks/` or `Glob _tasks/*` — these may miss subdirectories or return incomplete results.
 
 ### 3. Create Folder and Task File
 
@@ -100,12 +102,19 @@ git commit -m "docs: add task and plan for {feature-name}"
 
 ## File Naming Convention
 
+Files are numbered sequentially — no two files share the same number:
+
 | File | Purpose |
 |------|---------|
 | `01-task.md` | Requirements, goals, context |
-| `02-plan.md` | Step-by-step implementation plan |
-| `02-design.md` | Alternative: architecture/design doc |
-| `03+` | Additional docs as needed |
+| `02-*.md` | Second doc (design, plan, or other) |
+| `03-*.md` | Third doc (if needed) |
+| ... | Continue sequentially |
+
+Common patterns:
+- Task only: `01-task.md`
+- Task + plan: `01-task.md`, `02-plan.md`
+- Task + design + plan: `01-task.md`, `02-design.md`, `03-plan.md`
 
 ## Notes
 
