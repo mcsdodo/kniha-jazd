@@ -326,6 +326,10 @@ pub struct TripGridData {
     pub date_warnings: HashSet<String>,
     /// Trip IDs that have fuel but are missing a matching receipt
     pub missing_receipts: HashSet<String>,
+
+    // Year boundary data
+    /// Starting odometer for this year (carryover from previous year's ending ODO)
+    pub year_start_odometer: f64,
 }
 
 /// Status of a scanned receipt
