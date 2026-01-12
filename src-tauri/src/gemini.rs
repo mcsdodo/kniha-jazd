@@ -11,6 +11,8 @@ pub struct ExtractedReceipt {
     pub receipt_date: Option<String>, // YYYY-MM-DD format
     pub station_name: Option<String>,
     pub station_address: Option<String>,
+    pub vendor_name: Option<String>,        // For non-fuel receipts: company/shop name
+    pub cost_description: Option<String>,   // For non-fuel receipts: brief description
     pub raw_text: Option<String>,
     pub confidence: ExtractionConfidence,
 }
@@ -75,15 +77,38 @@ struct ResponsePart {
     text: String,
 }
 
-const EXTRACTION_PROMPT: &str = r#"Analyze this Slovak gas station receipt (bloček).
-Extract the following fields. Look for:
-- "L" or "litrov" near numbers for liters
-- "€" or "EUR" for total price, usually the largest amount
-- Date formats: DD.MM.YYYY or DD.MM.YY
-- Station name and address if visible
+const EXTRACTION_PROMPT: &str = r#"Analyze this Slovak receipt/invoice image.
 
-Return null if a field cannot be determined with reasonable confidence.
-For confidence: "high" = clearly visible, "medium" = partially visible/guessed, "low" = very uncertain"#;
+This could be either a FUEL receipt or OTHER expense (car wash, parking, service, etc.).
+
+Extract fields as JSON:
+{
+  "receipt_date": "YYYY-MM-DD" or null,
+  "total_price_eur": number or null,
+
+  // FUEL-SPECIFIC (only if this is a gas station receipt):
+  "liters": number or null,  // null if NOT a fuel receipt
+  "station_name": string or null,
+  "station_address": string or null,
+
+  // OTHER COSTS (for non-fuel receipts):
+  "vendor_name": string or null,      // Company/shop name
+  "cost_description": string or null, // Brief description (e.g., "Umytie auta", "Parkovanie 2h")
+
+  "confidence": {
+    "liters": "high" | "medium" | "low" | "not_applicable",
+    "total_price": "high" | "medium" | "low",
+    "date": "high" | "medium" | "low"
+  },
+  "raw_text": "full OCR text"
+}
+
+Rules:
+- If you see "L", "litrov", fuel types (Natural 95, Diesel, benzín, nafta) → it's FUEL, extract liters
+- If NO liters/fuel indicators → it's OTHER COST, set liters=null, confidence.liters="not_applicable"
+- For amounts: Look for "€", "EUR", "Spolu", "Celkom", "Total"
+- Date formats: DD.MM.YYYY or DD.MM.YY
+- Return null if field cannot be determined"#;
 
 fn get_response_schema() -> serde_json::Value {
     serde_json::json!({
@@ -91,7 +116,7 @@ fn get_response_schema() -> serde_json::Value {
         "properties": {
             "liters": {
                 "type": ["number", "null"],
-                "description": "Amount of fuel in liters"
+                "description": "Amount of fuel in liters (null if not a fuel receipt)"
             },
             "total_price_eur": {
                 "type": ["number", "null"],
@@ -103,11 +128,19 @@ fn get_response_schema() -> serde_json::Value {
             },
             "station_name": {
                 "type": ["string", "null"],
-                "description": "Gas station name"
+                "description": "Gas station name (for fuel receipts)"
             },
             "station_address": {
                 "type": ["string", "null"],
-                "description": "Gas station address"
+                "description": "Gas station address (for fuel receipts)"
+            },
+            "vendor_name": {
+                "type": ["string", "null"],
+                "description": "Company/shop name (for non-fuel receipts)"
+            },
+            "cost_description": {
+                "type": ["string", "null"],
+                "description": "Brief description of the expense (for non-fuel receipts)"
             },
             "raw_text": {
                 "type": ["string", "null"],
@@ -118,7 +151,7 @@ fn get_response_schema() -> serde_json::Value {
                 "properties": {
                     "liters": {
                         "type": "string",
-                        "enum": ["high", "medium", "low"]
+                        "enum": ["high", "medium", "low", "not_applicable"]
                     },
                     "total_price": {
                         "type": "string",
@@ -233,13 +266,16 @@ mod tests {
     // Asserting string.contains() doesn't test behavior
 
     #[test]
-    fn test_extracted_receipt_deserialization() {
+    fn test_extracted_receipt_deserialization_fuel() {
+        // Fuel receipt: has liters, station info
         let json = r#"{
             "liters": 45.5,
             "total_price_eur": 72.50,
             "receipt_date": "2024-12-15",
             "station_name": "Slovnaft",
             "station_address": "Bratislava",
+            "vendor_name": null,
+            "cost_description": null,
             "raw_text": "some text",
             "confidence": {
                 "liters": "high",
@@ -252,17 +288,55 @@ mod tests {
         assert_eq!(extracted.liters, Some(45.5));
         assert_eq!(extracted.total_price_eur, Some(72.50));
         assert_eq!(extracted.receipt_date, Some("2024-12-15".to_string()));
+        assert_eq!(extracted.station_name, Some("Slovnaft".to_string()));
         assert_eq!(extracted.confidence.liters, "high");
+        // Non-fuel fields should be null for fuel receipts
+        assert!(extracted.vendor_name.is_none());
+        assert!(extracted.cost_description.is_none());
+    }
+
+    #[test]
+    fn test_extracted_receipt_deserialization_other_cost() {
+        // Non-fuel receipt: no liters, has vendor info
+        let json = r#"{
+            "liters": null,
+            "total_price_eur": 15.00,
+            "receipt_date": "2024-12-16",
+            "station_name": null,
+            "station_address": null,
+            "vendor_name": "AutoUmyváreň SK",
+            "cost_description": "Umytie auta - komplet",
+            "raw_text": "AutoUmyváreň SK\nUmytie komplet 15.00 EUR",
+            "confidence": {
+                "liters": "not_applicable",
+                "total_price": "high",
+                "date": "high"
+            }
+        }"#;
+
+        let extracted: ExtractedReceipt = serde_json::from_str(json).unwrap();
+        assert!(extracted.liters.is_none());
+        assert_eq!(extracted.total_price_eur, Some(15.00));
+        assert_eq!(extracted.receipt_date, Some("2024-12-16".to_string()));
+        assert_eq!(extracted.vendor_name, Some("AutoUmyváreň SK".to_string()));
+        assert_eq!(extracted.cost_description, Some("Umytie auta - komplet".to_string()));
+        assert_eq!(extracted.confidence.liters, "not_applicable");
+        // Fuel-specific fields should be null for non-fuel receipts
+        assert!(extracted.station_name.is_none());
+        assert!(extracted.station_address.is_none());
     }
 
     #[test]
     fn test_extracted_receipt_with_nulls() {
+        // Blurry receipt with minimal data
         let json = r#"{
             "liters": null,
             "total_price_eur": 50.00,
             "receipt_date": null,
             "station_name": null,
             "station_address": null,
+            "vendor_name": null,
+            "cost_description": null,
             "raw_text": "blurry text",
             "confidence": {
                 "liters": "low",
@@ -275,6 +349,8 @@ mod tests {
         assert!(extracted.liters.is_none());
         assert_eq!(extracted.total_price_eur, Some(50.00));
         assert!(extracted.receipt_date.is_none());
+        assert!(extracted.vendor_name.is_none());
+        assert!(extracted.cost_description.is_none());
     }
 
     #[test]
