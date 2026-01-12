@@ -591,7 +591,7 @@
 
 	.header h1 {
 		margin: 0 0 0.5rem 0;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.sections {
@@ -601,16 +601,16 @@
 	}
 
 	.settings-section {
-		background: white;
+		background: var(--bg-surface);
 		padding: 1.5rem;
 		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px var(--shadow-default);
 	}
 
 	.settings-section h2 {
 		margin: 0 0 1rem 0;
 		font-size: 1.25rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.section-content {
@@ -630,9 +630,9 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 1rem;
-		border: 1px solid #e0e0e0;
+		border: 1px solid var(--border-default);
 		border-radius: 4px;
-		background: #fafafa;
+		background: var(--bg-surface-alt);
 	}
 
 	.vehicle-info {
@@ -643,18 +643,18 @@
 
 	.vehicle-info strong {
 		font-size: 1rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.license-plate {
 		font-size: 0.875rem;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-weight: 500;
 	}
 
 	.details {
 		font-size: 0.75rem;
-		color: #95a5a6;
+		color: var(--text-muted);
 	}
 
 	.badge {
@@ -667,8 +667,8 @@
 	}
 
 	.badge.active {
-		background-color: #d4edda;
-		color: #155724;
+		background-color: var(--btn-primary-light-bg);
+		color: var(--btn-primary-light-color);
 	}
 
 	.badge.type-ice {
@@ -700,48 +700,50 @@
 
 	.form-group label {
 		font-weight: 500;
-		color: #2c3e50;
+		color: var(--text-primary);
 		font-size: 0.875rem;
 	}
 
 	.form-group input,
 	.form-group select {
 		padding: 0.75rem;
-		border: 1px solid #d5dbdb;
+		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		font-size: 1rem;
 		font-family: inherit;
+		background-color: var(--input-bg);
+		color: var(--text-primary);
 	}
 
 	.form-group input:focus,
 	.form-group select:focus {
 		outline: none;
-		border-color: #3498db;
-		box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+		border-color: var(--accent-primary);
+		box-shadow: 0 0 0 3px var(--input-focus-shadow);
 	}
 
 	.hint {
 		font-size: 0.75rem;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 		margin: 0;
 	}
 
 	.placeholder {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 		margin: 0;
 	}
 
 	.no-data {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 		margin: 0;
 	}
 
 	.button {
 		padding: 0.75rem 1.5rem;
-		background-color: #3498db;
+		background-color: var(--accent-primary);
 		color: white;
 		border: none;
 		border-radius: 4px;
@@ -752,13 +754,13 @@
 	}
 
 	.button:hover {
-		background-color: #2980b9;
+		background-color: var(--accent-primary-hover);
 	}
 
 	.button-small {
 		padding: 0.5rem 1rem;
-		background-color: #ecf0f1;
-		color: #2c3e50;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
 		border: none;
 		border-radius: 4px;
 		font-size: 0.875rem;
@@ -767,21 +769,21 @@
 	}
 
 	.button-small:hover {
-		background-color: #d5dbdb;
+		background-color: var(--btn-secondary-hover);
 	}
 
 	.button-small.primary {
-		background-color: #d4edda;
-		color: #155724;
+		background-color: var(--btn-primary-light-bg);
+		color: var(--btn-primary-light-color);
 	}
 
 	.button-small.primary:hover {
-		background-color: #c3e6cb;
+		background-color: var(--btn-primary-light-hover);
 	}
 
 	.button-small.danger {
-		background-color: #fee;
-		color: #c0392b;
+		background-color: var(--accent-danger-bg);
+		color: var(--accent-danger);
 	}
 
 	.button-small.danger:hover {
@@ -799,7 +801,7 @@
 
 	.backup-list h3 {
 		font-size: 1rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 		margin: 0 0 0.75rem 0;
 	}
 
@@ -808,9 +810,9 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.75rem;
-		border: 1px solid #e0e0e0;
+		border: 1px solid var(--border-default);
 		border-radius: 4px;
-		background: #fafafa;
+		background: var(--bg-surface-alt);
 		margin-bottom: 0.5rem;
 	}
 
@@ -826,11 +828,11 @@
 
 	.backup-date {
 		font-weight: 500;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.backup-size {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-size: 0.875rem;
 	}
 
@@ -848,7 +850,7 @@
 	}
 
 	.modal {
-		background: white;
+		background: var(--bg-surface);
 		padding: 1.5rem;
 		border-radius: 8px;
 		max-width: 400px;
@@ -858,7 +860,7 @@
 	.modal h2 {
 		margin: 0 0 1rem 0;
 		font-size: 1.25rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.modal-content {
@@ -867,14 +869,15 @@
 
 	.modal-content p {
 		margin: 0.5rem 0;
+		color: var(--text-primary);
 	}
 
 	.warning-text {
-		color: #c0392b;
+		color: var(--accent-danger);
 		font-weight: 500;
 		margin-top: 1rem !important;
 		padding: 0.75rem;
-		background: #fee;
+		background: var(--accent-danger-bg);
 		border-radius: 4px;
 	}
 
