@@ -108,14 +108,16 @@
 	input {
 		width: 100%;
 		padding: 0.5rem;
-		border: 1px solid #ddd;
+		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		font-size: 0.875rem;
+		background: var(--bg-surface);
+		color: var(--text-primary);
 	}
 
 	input:focus {
 		outline: none;
-		border-color: #3498db;
+		border-color: var(--accent-primary);
 	}
 
 	.dropdown {
@@ -123,14 +125,14 @@
 		top: 100%;
 		left: 0;
 		right: 0;
-		background: white;
-		border: 1px solid #ddd;
+		background: var(--bg-surface);
+		border: 1px solid var(--border-input);
 		border-top: none;
 		border-radius: 0 0 4px 4px;
 		max-height: 200px;
 		overflow-y: auto;
 		z-index: 1000;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 4px var(--shadow-default);
 	}
 
 	.suggestion {
@@ -138,14 +140,15 @@
 		width: 100%;
 		padding: 0.5rem;
 		border: none;
-		background: white;
+		background: var(--bg-surface);
 		text-align: left;
 		cursor: pointer;
 		font-size: 0.875rem;
+		color: var(--text-primary);
 	}
 
 	.suggestion:hover,
 	.suggestion.selected {
-		background-color: #f0f0f0;
+		background-color: var(--bg-surface-alt);
 	}
 </style>

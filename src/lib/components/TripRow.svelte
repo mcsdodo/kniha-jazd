@@ -477,12 +477,12 @@
 	}
 
 	tr:hover:not(.editing) {
-		background-color: #f8f9fa;
+		background-color: var(--bg-surface-alt);
 		cursor: pointer;
 	}
 
 	tr.editing {
-		background-color: #e3f2fd;
+		background-color: var(--editing-row-bg);
 		cursor: default;
 	}
 
@@ -493,29 +493,29 @@
 	}
 
 	tr.date-warning {
-		background-color: #ffebee; /* light red */
+		background-color: var(--danger-bg); /* light red */
 	}
 
 	tr.date-warning:hover:not(.editing) {
-		background-color: #ffcdd2; /* slightly darker red on hover */
+		background-color: var(--danger-bg-hover); /* slightly darker red on hover */
 	}
 
 	tr.consumption-warning {
-		background-color: #fff3e0; /* light orange */
+		background-color: var(--warning-bg); /* light orange */
 	}
 
 	tr.consumption-warning:hover:not(.editing) {
-		background-color: #ffe0b2; /* slightly darker orange on hover */
+		background-color: var(--warning-border); /* slightly darker orange on hover */
 	}
 
 	/* If both warnings apply, date warning takes priority */
 	tr.date-warning.consumption-warning {
-		background-color: #ffebee;
+		background-color: var(--danger-bg);
 	}
 
 	td {
 		padding: 0.5rem;
-		border-bottom: 1px solid #e0e0e0;
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	td.number {
@@ -523,7 +523,7 @@
 	}
 
 	td.calculated {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 	}
 
@@ -533,7 +533,7 @@
 	}
 
 	td.over-limit {
-		background-color: #fff3e0;
+		background-color: var(--warning-bg);
 	}
 
 	.margin {
@@ -542,12 +542,12 @@
 	}
 
 	.margin.over-limit {
-		color: #e74c3c;
+		color: var(--accent-danger);
 		font-weight: 500;
 	}
 
 	.margin.within-limit {
-		color: #27ae60;
+		color: var(--accent-success);
 	}
 
 	td.actions {
@@ -558,7 +558,7 @@
 	input {
 		width: 100%;
 		padding: 0.5rem;
-		border: 1px solid #ddd;
+		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		font-size: 0.875rem;
 		box-sizing: border-box;
@@ -579,30 +579,30 @@
 	}
 
 	.save {
-		background-color: #4caf50;
+		background-color: var(--accent-success);
 		color: white;
 	}
 
 	.save:hover {
-		background-color: #45a049;
+		background-color: var(--accent-success-hover);
 	}
 
 	.cancel {
-		background-color: #9e9e9e;
-		color: white;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
 	}
 
 	.cancel:hover {
-		background-color: #757575;
+		background-color: var(--btn-secondary-hover);
 	}
 
 	.delete {
-		background-color: #f44336;
+		background-color: var(--accent-danger);
 		color: white;
 	}
 
 	.delete:hover {
-		background-color: #da190b;
+		background-color: var(--accent-danger-hover);
 	}
 
 	.icon-actions {
@@ -617,7 +617,7 @@
 		border: none;
 		padding: 0.25rem;
 		cursor: pointer;
-		color: #9e9e9e;
+		color: var(--text-muted);
 		border-radius: 4px;
 		transition: color 0.2s, background-color 0.2s;
 		display: inline-flex;
@@ -627,21 +627,21 @@
 	}
 
 	.icon-btn:hover {
-		background-color: rgba(0, 0, 0, 0.05);
+		background-color: var(--icon-btn-hover-bg);
 	}
 
 	.icon-btn.insert:hover {
-		color: #3498db;
+		color: var(--accent-primary);
 	}
 
 	.icon-btn.delete:hover {
-		color: #f44336;
-		background-color: rgba(244, 67, 54, 0.1);
+		color: var(--accent-danger);
+		background-color: var(--accent-danger-bg);
 	}
 
 	.icon-btn.move-up:hover:not(:disabled),
 	.icon-btn.move-down:hover:not(:disabled) {
-		color: #2196f3;
+		color: var(--accent-primary);
 	}
 
 	.icon-btn:disabled {
@@ -660,7 +660,7 @@
 		gap: 0.25rem;
 		margin-top: 0.25rem;
 		font-size: 0.75rem;
-		color: #666;
+		color: var(--text-secondary);
 		cursor: pointer;
 	}
 
@@ -676,25 +676,25 @@
 
 	/* Partial fillup indicator */
 	.partial-indicator {
-		color: #ff9800;
+		color: var(--accent-warning);
 		font-weight: bold;
 		margin-left: 0.25rem;
 	}
 
 	/* No receipt indicator */
 	.no-receipt-indicator {
-		color: #e67e22;
+		color: var(--accent-warning-dark);
 		margin-left: 0.25rem;
 		cursor: help;
 	}
 
 	/* Estimated rate styling */
 	td.estimated {
-		color: #9e9e9e;
+		color: var(--text-muted);
 	}
 
 	.estimated-indicator {
-		color: #9e9e9e;
+		color: var(--text-muted);
 		margin-left: 0.125rem;
 	}
 
@@ -709,7 +709,7 @@
 		gap: 0.25rem;
 		margin-top: 0.25rem;
 		font-size: 0.75rem;
-		color: #666;
+		color: var(--text-secondary);
 		cursor: pointer;
 	}
 
@@ -726,17 +726,17 @@
 	/* Battery percent display */
 	.battery-percent {
 		font-size: 0.75rem;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		margin-left: 0.125rem;
 	}
 
 	/* SoC override styling */
 	td.soc-override {
-		color: #3498db;
+		color: var(--accent-primary);
 	}
 
 	.soc-indicator {
-		color: #3498db;
+		color: var(--accent-primary);
 		margin-left: 0.125rem;
 		cursor: help;
 	}
@@ -753,7 +753,7 @@
 
 	.soc-override-details summary {
 		cursor: pointer;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-size: 0.875rem;
 		list-style: none;
 	}
@@ -763,18 +763,18 @@
 	}
 
 	.soc-override-details[open] summary {
-		color: #3498db;
+		color: var(--accent-primary);
 	}
 
 	.soc-override-input {
 		position: absolute;
 		top: 100%;
 		right: 0;
-		background: white;
-		border: 1px solid #ddd;
+		background: var(--bg-surface);
+		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		padding: 0.5rem;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 8px var(--shadow-default);
 		z-index: 10;
 		min-width: 160px;
 	}
@@ -787,7 +787,7 @@
 	.soc-hint {
 		display: block;
 		font-size: 0.7rem;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		line-height: 1.2;
 	}
 </style>

@@ -20,8 +20,8 @@
 
 <style>
 	.compensation-banner {
-		background: #fff3cd;
-		border: 2px solid #ffc107;
+		background: var(--warning-bg);
+		border: 2px solid var(--warning-border);
 		border-radius: 8px;
 		padding: 1.5rem;
 		margin-bottom: 1.5rem;
@@ -41,7 +41,7 @@
 	.warning-header h3 {
 		margin: 0;
 		font-size: 1.125rem;
-		color: #856404;
+		color: var(--warning-color);
 	}
 
 	.warning-content {
@@ -51,13 +51,13 @@
 	.margin-info,
 	.buffer-info {
 		margin: 0.5rem 0;
-		color: #856404;
+		color: var(--warning-color);
 		font-size: 0.9375rem;
 	}
 
 	:global(.margin-info strong),
 	:global(.buffer-info strong) {
-		color: #d39e00;
+		color: var(--warning-highlight);
 		font-weight: 600;
 	}
 </style>
