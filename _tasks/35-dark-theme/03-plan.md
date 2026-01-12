@@ -33,7 +33,7 @@ Expected: All 3 tests PASS
 
 **Step 3: Add test for theme field**
 
-Add to `src-tauri/src/settings.rs` tests:
+Add to the existing `#[cfg(test)] mod tests` block in `src-tauri/src/settings.rs` (lines 30-68):
 ```rust
 #[test]
 fn test_load_with_theme() {
@@ -72,54 +72,40 @@ git commit -m "feat(settings): add theme field to LocalSettings"
 Add to `src-tauri/src/commands.rs`:
 ```rust
 #[tauri::command]
-pub fn get_theme_preference(state: State<'_, AppState>) -> String {
-    state
-        .local_settings
-        .lock()
-        .unwrap()
-        .theme
-        .clone()
-        .unwrap_or_else(|| "system".to_string())
+pub fn get_theme_preference(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_data_dir);
+    Ok(settings.theme.unwrap_or_else(|| "system".to_string()))
 }
 ```
+
+> **Note:** Uses direct file load via existing `LocalSettings::load()` pattern - no AppState needed.
 
 **Step 2: Add set_theme_preference command**
 
 Add to `src-tauri/src/commands.rs`:
 ```rust
 #[tauri::command]
-pub fn set_theme_preference(
-    state: State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-    theme: String,
-) -> Result<(), String> {
+pub fn set_theme_preference(app_handle: tauri::AppHandle, theme: String) -> Result<(), String> {
     // Validate
     if !["system", "light", "dark"].contains(&theme.as_str()) {
         return Err(format!("Invalid theme: {}. Must be system, light, or dark", theme));
     }
 
-    // Update in-memory state
-    {
-        let mut settings = state.local_settings.lock().unwrap();
-        settings.theme = Some(theme.clone());
-    }
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.theme = Some(theme);
 
-    // Persist to file
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    // Save to file
     let settings_path = app_data_dir.join("local.settings.json");
-
-    let settings = state.local_settings.lock().unwrap();
-    let json = serde_json::to_string_pretty(&*settings)
-        .map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json)
-        .map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
 
     Ok(())
 }
 ```
+
+> **Note:** Uses direct file save - matches existing `LocalSettings` pattern without state management.
 
 **Step 3: Register commands in main.rs**
 
@@ -193,7 +179,7 @@ Create `src/lib/theme.css`:
     --text-secondary: #7f8c8d;
     --text-muted: #95a5a6;
     --text-on-header: #ffffff;
-    --text-on-header-muted: rgba(255, 255, 255, 0.7);
+    --text-on-header-muted: rgba(255, 255, 255, 0.7);  /* Named variable for consistency */
 
     --border-default: #e0e0e0;
     --border-input: #d5dbdb;
@@ -287,6 +273,7 @@ import { getThemePreference, setThemePreference, type ThemeMode } from '$lib/api
 
 function createThemeStore() {
     const { subscribe, set } = writable<ThemeMode>('system');
+    let mediaQueryCleanup: (() => void) | null = null;
 
     function applyTheme(mode: ThemeMode) {
         const isDark =
@@ -302,26 +289,38 @@ function createThemeStore() {
             set(saved);
             applyTheme(saved);
 
-            // Listen for system preference changes
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            // Listen for system preference changes (with cleanup tracking)
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            const handler = () => {
                 // Re-apply if in system mode
                 getThemePreference().then((current) => {
                     if (current === 'system') {
                         applyTheme('system');
                     }
                 });
-            });
+            };
+            mediaQuery.addEventListener('change', handler);
+            mediaQueryCleanup = () => mediaQuery.removeEventListener('change', handler);
         },
         change: async (mode: ThemeMode) => {
             await setThemePreference(mode);
             set(mode);
             applyTheme(mode);
+        },
+        // Cleanup for proper resource management (call on app destroy if needed)
+        destroy: () => {
+            if (mediaQueryCleanup) {
+                mediaQueryCleanup();
+                mediaQueryCleanup = null;
+            }
         }
     };
 }
 
 export const themeStore = createThemeStore();
 ```
+
+> **Note:** Added `destroy()` method and `mediaQueryCleanup` tracking to prevent listener leaks. In a desktop app this is less critical (single init), but proper cleanup is best practice.
 
 **Step 2: Commit**
 
@@ -344,11 +343,19 @@ Add to imports in `src/routes/+layout.svelte`:
 import { themeStore } from '$lib/stores/theme';
 ```
 
-Add to `onMount` function (early, before other async operations):
+Add to `onMount` function. Insert **after** `localeStore.init()` (line ~33) but **before** the async vehicle loading (line ~35) to prevent flash of wrong theme:
+
 ```typescript
-// Initialize theme first to avoid flash
+// In onMount, after localeStore.init():
+localeStore.init();  // existing line
+
+// Add theme init here - after locale but before async vehicle loading
 await themeStore.init();
+
+// existing code continues: vehicle loading...
 ```
+
+> **Note:** Theme init is async (backend call), but fast enough for local file read. Place before vehicle loading to apply theme before first paint.
 
 **Step 2: Test manually**
 
@@ -372,13 +379,16 @@ git commit -m "feat(layout): initialize theme store on app startup"
 
 **Step 1: Add Slovak translations**
 
-Add to `settings` section in `src/lib/i18n/sk/index.ts`:
+Add to `settings` section in `src/lib/i18n/sk/index.ts` at line 206 (after `language: 'Jazyk aplikácie'`, before closing `}`):
 ```typescript
-appearanceSection: 'Vzhľad',
-themeLabel: 'Téma',
-themeSystem: 'Podľa systému',
-themeLight: 'Svetlá',
-themeDark: 'Tmavá',
+		language: 'Jazyk aplikácie',
+		// Appearance section (add these lines)
+		appearanceSection: 'Vzhľad',
+		themeLabel: 'Téma',
+		themeSystem: 'Podľa systému',
+		themeLight: 'Svetlá',
+		themeDark: 'Tmavá',
+	},
 ```
 
 **Step 2: Add English translations**
@@ -423,13 +433,25 @@ let selectedTheme: ThemeMode = 'system';
 
 **Step 3: Initialize theme in onMount**
 
-Add to the async IIFE in `onMount`:
+Add theme subscription with proper cleanup (matching existing `localeStore` pattern at line 77):
 ```typescript
-// Load theme preference
-themeStore.subscribe((theme) => {
+// At the top of script section, with other state variables
+let unsubscribeTheme: (() => void) | undefined;
+
+// Inside onMount, add:
+unsubscribeTheme = themeStore.subscribe((theme) => {
     selectedTheme = theme;
 });
+
+// Add onDestroy import and handler:
+import { onMount, onDestroy } from 'svelte';
+
+onDestroy(() => {
+    if (unsubscribeTheme) unsubscribeTheme();
+});
 ```
+
+> **Note:** Proper unsubscribe prevents memory leaks, matching the existing `localeStore` pattern.
 
 **Step 4: Add theme change handler**
 
@@ -547,8 +569,8 @@ Update the `<style>` section, replacing:
 | `background-color: #2c3e50` | `background-color: var(--bg-header)` |
 | `color: white` (in header) | `color: var(--text-on-header)` |
 | `rgba(255, 255, 255, 0.7)` | `var(--text-on-header-muted)` |
-| `rgba(255, 255, 255, 0.1)` | `rgba(255, 255, 255, 0.1)` (keep) |
-| `rgba(255, 255, 255, 0.2)` | `rgba(255, 255, 255, 0.2)` (keep) |
+| `rgba(255, 255, 255, 0.1)` | `rgba(255, 255, 255, 0.1)` (keep - white transparency works on both dark header backgrounds) |
+| `rgba(255, 255, 255, 0.2)` | `rgba(255, 255, 255, 0.2)` (keep - same reason: header hover states) |
 | `background-color: white` (select) | `background-color: var(--input-bg)` |
 | `border: 1px solid #ddd` | `border: 1px solid var(--border-input)` |
 | `border-color: #3498db` | `border-color: var(--accent-primary)` |
@@ -567,7 +589,7 @@ Run: `npm run tauri dev`
 
 ```bash
 git add src/routes/+layout.svelte
-git commit -m "feat(layout): migrate to CSS variables for theming"
+git commit -m "style(layout): migrate to CSS variables for theming"
 ```
 
 ---
@@ -596,7 +618,7 @@ git commit -m "feat(layout): migrate to CSS variables for theming"
 
 ```bash
 git add src/routes/+page.svelte
-git commit -m "feat(home): migrate to CSS variables for theming"
+git commit -m "style(home): migrate to CSS variables for theming"
 ```
 
 ---
@@ -623,7 +645,7 @@ Same pattern as Task 10. Key replacements:
 
 ```bash
 git add src/routes/settings/+page.svelte
-git commit -m "feat(settings): migrate to CSS variables for theming"
+git commit -m "style(settings): migrate to CSS variables for theming"
 ```
 
 ---
@@ -639,6 +661,7 @@ git commit -m "feat(settings): migrate to CSS variables for theming"
 - Modify: `src/lib/components/CompensationBanner.svelte`
 - Modify: `src/lib/components/Autocomplete.svelte`
 - Modify: `src/lib/components/TripSelectorModal.svelte`
+- Modify: `src/lib/components/ReceiptIndicator.svelte`
 
 **Step 1: Apply same color mapping to all components**
 
@@ -647,16 +670,28 @@ Use the established variable mapping from Tasks 9-11.
 **Step 2: Test all components in both themes**
 
 Run: `npm run tauri dev`
-- Add/edit trips
-- Open modals
-- Test toasts
-- Check receipts page
+
+**Verification checklist for each component (toggle theme and check):**
+- [ ] Backgrounds: surface colors match theme
+- [ ] Text colors: primary, secondary, muted are readable
+- [ ] Borders: visible but not harsh
+- [ ] Button states: default, hover, active, disabled
+- [ ] Input fields: background, border, focus ring
+- [ ] Modal overlays: backdrop and content
+
+**Test scenarios:**
+- Add/edit trips (TripRow, TripGrid)
+- Open vehicle modal, confirm modal
+- Trigger toasts (success, error)
+- Check compensation banner
+- Test autocomplete dropdowns
+- View receipts page with ReceiptIndicator
 
 **Step 3: Commit**
 
 ```bash
 git add src/lib/components/
-git commit -m "feat(components): migrate all components to CSS variables"
+git commit -m "style(components): migrate all components to CSS variables"
 ```
 
 ---
@@ -674,7 +709,7 @@ Same pattern as other pages.
 
 ```bash
 git add src/routes/doklady/+page.svelte
-git commit -m "feat(receipts): migrate to CSS variables for theming"
+git commit -m "style(receipts): migrate to CSS variables for theming"
 ```
 
 ---
