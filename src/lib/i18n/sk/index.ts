@@ -204,6 +204,12 @@ const sk = {
 		// Language section
 		languageSection: 'Jazyk',
 		language: 'Jazyk aplikácie',
+		// Appearance section
+		appearanceSection: 'Vzhľad',
+		themeLabel: 'Téma',
+		themeSystem: 'Podľa systému',
+		themeLight: 'Svetlá',
+		themeDark: 'Tmavá',
 	},
 
 	// Backup modals
