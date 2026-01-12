@@ -2395,6 +2395,8 @@ mod tests {
             receipt_date: date,
             station_name: None,
             station_address: None,
+            vendor_name: None,
+            cost_description: None,
             source_year: None,
             status: ReceiptStatus::Parsed,
             confidence: FieldConfidence {
