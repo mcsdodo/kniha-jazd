@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
@@ -9,6 +9,8 @@
 	import LL from '$lib/i18n/i18n-svelte';
 	import { localeStore } from '$lib/stores/locale';
 	import type { Locales } from '$lib/i18n/i18n-types';
+	import { themeStore } from '$lib/stores/theme';
+	import type { ThemeMode } from '$lib/api';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -27,6 +29,15 @@
 		const newLocale = select.value as Locales;
 		localeStore.change(newLocale);
 		selectedLocale = newLocale;
+	}
+
+	// Theme state
+	let selectedTheme: ThemeMode = 'system';
+	let unsubscribeTheme: (() => void) | undefined;
+
+	async function handleThemeChange(theme: ThemeMode) {
+		selectedTheme = theme;
+		await themeStore.change(theme);
 	}
 
 
@@ -56,8 +67,13 @@
 
 	onMount(() => {
 		// Initialize selected locale from store
-		const unsubscribe = localeStore.subscribe((locale) => {
+		const unsubscribeLocale = localeStore.subscribe((locale) => {
 			selectedLocale = locale;
+		});
+
+		// Initialize selected theme from store
+		unsubscribeTheme = themeStore.subscribe((theme) => {
+			selectedTheme = theme;
 		});
 
 		// Load settings and backups (async operations)
@@ -74,7 +90,11 @@
 			await checkVehiclesWithTrips();
 		})();
 
-		return () => unsubscribe();
+		return () => unsubscribeLocale();
+	});
+
+	onDestroy(() => {
+		if (unsubscribeTheme) unsubscribeTheme();
 	});
 
 	function openAddVehicleModal() {
@@ -328,6 +348,48 @@
 						<option value="sk">Slovenčina</option>
 						<option value="en">English</option>
 					</select>
+				</div>
+			</div>
+		</section>
+
+		<!-- Appearance Section -->
+		<section class="settings-section">
+			<h2>{$LL.settings.appearanceSection()}</h2>
+			<div class="section-content">
+				<div class="form-group">
+					<label>{$LL.settings.themeLabel()}</label>
+					<div class="theme-options">
+						<label class="theme-option">
+							<input
+								type="radio"
+								name="theme"
+								value="system"
+								checked={selectedTheme === 'system'}
+								on:change={() => handleThemeChange('system')}
+							/>
+							<span>{$LL.settings.themeSystem()}</span>
+						</label>
+						<label class="theme-option">
+							<input
+								type="radio"
+								name="theme"
+								value="light"
+								checked={selectedTheme === 'light'}
+								on:change={() => handleThemeChange('light')}
+							/>
+							<span>{$LL.settings.themeLight()}</span>
+						</label>
+						<label class="theme-option">
+							<input
+								type="radio"
+								name="theme"
+								value="dark"
+								checked={selectedTheme === 'dark'}
+								on:change={() => handleThemeChange('dark')}
+							/>
+							<span>{$LL.settings.themeDark()}</span>
+						</label>
+					</div>
 				</div>
 			</div>
 		</section>
@@ -820,5 +882,35 @@
 		display: flex;
 		gap: 0.5rem;
 		justify-content: flex-end;
+	}
+
+	.theme-options {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.theme-option {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 4px;
+		transition: background-color 0.2s;
+	}
+
+	.theme-option:hover {
+		background-color: var(--bg-surface-alt);
+	}
+
+	.theme-option input[type="radio"] {
+		width: 18px;
+		height: 18px;
+		cursor: pointer;
+	}
+
+	.theme-option span {
+		color: var(--text-primary);
 	}
 </style>
