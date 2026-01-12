@@ -4,6 +4,41 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-01-12: Additional Costs Recognition
+
+### BIZ-013: Other Cost Invoice Recognition and Assignment
+
+**Context:** Users want to scan and assign non-fuel receipts (car wash, parking, service, etc.) to trips, similar to existing fuel receipt workflow.
+
+**Options considered:**
+1. New `ReceiptType` enum with categories (Fuel, CarWash, Parking, Toll, Service, Other)
+2. Separate `CostInvoice` table parallel to `Receipt`
+3. Binary classification using existing `liters` field (null = other cost)
+
+**Decision:** Use binary classification via `liters` field.
+
+- `liters != null` → Fuel receipt (existing behavior)
+- `liters == null` → Other cost receipt (new behavior)
+
+**Additional decisions:**
+- **Single cost per trip:** One "other cost" invoice per trip. Assignment blocked if `other_costs_eur` already populated.
+- **No type categories:** User writes description manually in `other_costs_note` field.
+- **Same folder:** All receipts (fuel + other) in same folder, AI auto-classifies.
+- **Minimal schema change:** Only 2 new columns: `vendor_name`, `cost_description`.
+
+**Reasoning:**
+- Simplest implementation (~6h vs ~13h for enum approach)
+- No new enums or types to maintain
+- Existing `liters` field already indicates receipt type
+- Backward compatible - existing fuel receipts unchanged
+- User already has freedom to write any description in note field
+
+**Trade-offs:**
+- Cannot filter by specific cost type (parking vs car wash) - only fuel vs other
+- User accepted this limitation in favor of simplicity
+
+---
+
 ## 2026-01-05: Fuel Carryover
 
 ### BIZ-012: Year-End Fuel Carryover Between Years
