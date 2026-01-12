@@ -72,21 +72,37 @@ pub vendor_name: Option<String>,
 pub cost_description: Option<String>,
 ```
 
-### Step 1.6: Update Assignment Command
+### Step 1.6: Update Assignment Command (Multi-Stage Matching)
 **File:** `src-tauri/src/commands.rs`
 
-Modify `assign_receipt_to_trip()`:
+Modify `assign_receipt_to_trip()` with multi-stage matching:
 ```rust
 pub fn assign_receipt_to_trip(...) -> Result<Receipt, String> {
     // ... existing receipt lookup ...
+    let trip = db.get_trip(&trip_id)?.ok_or("Trip not found")?;
 
-    // Check if this is a fuel or other cost receipt
-    if receipt.liters.is_some() {
+    // Multi-stage matching: determine if this is FUEL or OTHER COST
+    let is_fuel_match = match (receipt.liters, receipt.total_price_eur) {
+        (Some(liters), Some(price)) => {
+            // Has liters + price → check if it matches trip's fuel entry
+            let date_match = receipt.receipt_date == Some(trip.date);
+            let liters_match = trip.fuel_liters
+                .map(|fl| (fl - liters).abs() < 0.01)
+                .unwrap_or(false);
+            let price_match = trip.fuel_cost_eur
+                .map(|fc| (fc - price).abs() < 0.01)
+                .unwrap_or(false);
+            date_match && liters_match && price_match
+        }
+        _ => false, // No liters or no price → cannot be fuel
+    };
+
+    if is_fuel_match {
         // FUEL: existing behavior (just link receipt to trip)
-        // Trip fuel fields already populated by user
+        // Trip fuel fields already populated by user - receipt is verification
     } else {
         // OTHER COST: populate trip.other_costs_* fields
-        let trip = db.get_trip(&trip_id)?;
+        // (even if receipt has liters - e.g., washer fluid that doesn't match any fuel entry)
 
         // Check for collision
         if trip.other_costs_eur.is_some() {
@@ -117,6 +133,8 @@ pub fn assign_receipt_to_trip(...) -> Result<Receipt, String> {
     Ok(receipt.clone())
 }
 ```
+
+**Key insight:** Classification happens at assignment time based on whether receipt matches trip's fuel entry, not just presence of liters. A "2L / 5€" washer fluid receipt won't match any fuel trip (no trip has 2L fuel), so it becomes "other cost".
 
 ### Step 1.7: Write Backend Tests
 **File:** `src-tauri/src/gemini.rs` (test module)

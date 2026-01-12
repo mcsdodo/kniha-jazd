@@ -14,22 +14,38 @@
 
 ## Simplified Architecture
 
-### Key Insight: `liters != null` → Fuel, `liters == null` → Other Cost
+### Key Insight: Match-Based Classification (Multi-Stage)
 
-No new `ReceiptType` enum needed. The existing `liters` field determines the type:
-- **Fuel receipt**: `liters` is set → existing auto-match flow
-- **Other cost receipt**: `liters` is null → manual assignment to `other_costs_*` fields
+Classification is based on **whether the receipt matches a fuel trip**, not just presence of liters.
+
+**Why:** A receipt for windshield washer fluid (2L / 5€) has liters but isn't fuel. It won't match any trip's fuel entry (no trip has 2L fuel for 5€), so it becomes "other cost".
+
+```
+Receipt scanned → AI extracts liters, price, date
+                        ↓
+        Try to match trip by date + liters + price
+                        ↓
+              ┌─────────┴─────────┐
+           MATCH                NO MATCH
+              ↓                    ↓
+         FUEL receipt         OTHER COST receipt
+    (assign to fuel fields)  (assign to other_costs)
+```
+
+**Classification logic:**
+- **Fuel receipt**: `liters != null` AND trip exists where `date + liters + price` match
+- **Other cost receipt**: `liters == null` OR no matching trip found
 
 ### Folder Structure
 
-Single folder, AI auto-classifies:
+Single folder, classification happens at assignment time:
 
 ```
 doklady/
-├── IMG_001.jpg  → AI: liters=45.2, price=72€  → FUEL
-├── IMG_002.jpg  → AI: liters=null, price=15€  → OTHER COST
-├── IMG_003.jpg  → AI: liters=null, price=8€   → OTHER COST
-└── IMG_004.jpg  → AI: liters=null, price=50€  → OTHER COST
+├── IMG_001.jpg  → AI: liters=45.2, price=72€  → matches trip → FUEL
+├── IMG_002.jpg  → AI: liters=2, price=5€      → no match    → OTHER COST (washer fluid)
+├── IMG_003.jpg  → AI: liters=null, price=15€  → no liters   → OTHER COST (car wash)
+└── IMG_004.jpg  → AI: liters=null, price=50€  → no liters   → OTHER COST (highway toll)
 ```
 
 ---
@@ -140,16 +156,25 @@ Add filter for fuel vs other + visual distinction:
 - ⛽ Fuel (has liters)
 - 📄 Other cost (no liters)
 
-### 2. Assignment Flow
+### 2. Assignment Flow (Multi-Stage Matching)
 
-**For fuel receipts** (existing - unchanged):
-- `liters != null` → auto-match by date + liters + price
-- Assigns to `fuel_liters`, `fuel_cost_eur` fields
+**When user clicks "Assign to trip":**
 
-**For other costs** (new):
-- `liters == null` → manual assignment by user
-- Assigns to `other_costs_eur`, `other_costs_note` fields
-- Note format: `{vendor_name}: {cost_description}` or user-edited text
+```
+1. Does receipt have liters AND price?
+   ├─ YES → Try to match trip by date + liters + price
+   │        ├─ MATCH FOUND → Assign as FUEL (link receipt, verify fields)
+   │        └─ NO MATCH → Assign as OTHER COST (populate other_costs_*)
+   └─ NO  → Assign as OTHER COST (populate other_costs_*)
+```
+
+**Fuel assignment** (existing behavior):
+- Receipt linked to trip (`receipt.trip_id = trip.id`)
+- Trip fuel fields already populated by user (receipt = verification)
+
+**Other cost assignment** (new):
+- `trip.other_costs_eur = receipt.total_price_eur`
+- `trip.other_costs_note = "{vendor}: {description}"` or user-edited
 
 ### 3. Assignment Collision Handling
 

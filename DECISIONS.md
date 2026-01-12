@@ -15,10 +15,12 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 2. Separate `CostInvoice` table parallel to `Receipt`
 3. Binary classification using existing `liters` field (null = other cost)
 
-**Decision:** Use binary classification via `liters` field.
+**Decision:** Use multi-stage matching for classification.
 
-- `liters != null` → Fuel receipt (existing behavior)
-- `liters == null` → Other cost receipt (new behavior)
+- **Fuel receipt**: `liters != null` AND trip exists where `date + liters + price` match
+- **Other cost receipt**: `liters == null` OR no matching trip found
+
+**Why multi-stage:** A receipt for windshield washer fluid (2L / 5€) has liters but isn't fuel. Since no trip has "2L fuel for 5€", it won't match and becomes "other cost" automatically.
 
 **Additional decisions:**
 - **Single cost per trip:** One "other cost" invoice per trip. Assignment blocked if `other_costs_eur` already populated.
