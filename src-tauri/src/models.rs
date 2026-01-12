@@ -383,6 +383,10 @@ pub struct Receipt {
     pub station_name: Option<String>,
     pub station_address: Option<String>,
 
+    // Additional cost fields (for non-fuel receipts: car wash, parking, toll, service)
+    pub vendor_name: Option<String>,      // Shop/service provider name (e.g., "OMV", "AutoWash Express")
+    pub cost_description: Option<String>, // Brief expense description (e.g., "Umytie auta", "Parkovanie 2h")
+
     // Year folder support: which year folder the receipt came from (e.g., 2024 from "2024/" folder)
     // None = flat folder structure, Some(year) = from year subfolder
     pub source_year: Option<i32>,
@@ -420,6 +424,8 @@ impl Receipt {
             receipt_date: None,
             station_name: None,
             station_address: None,
+            vendor_name: None,
+            cost_description: None,
             source_year,
             status: ReceiptStatus::Pending,
             confidence: FieldConfidence::default(),
@@ -650,6 +656,8 @@ pub struct ReceiptRow {
     pub error_message: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub vendor_name: Option<String>,
+    pub cost_description: Option<String>,
 }
 
 /// For inserting new receipts
@@ -674,6 +682,8 @@ pub struct NewReceiptRow<'a> {
     pub error_message: Option<&'a str>,
     pub created_at: &'a str,
     pub updated_at: &'a str,
+    pub vendor_name: Option<&'a str>,
+    pub cost_description: Option<&'a str>,
 }
 
 // =============================================================================
@@ -799,6 +809,8 @@ impl From<ReceiptRow> for Receipt {
             receipt_date: row.receipt_date.and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
             station_name: row.station_name,
             station_address: row.station_address,
+            vendor_name: row.vendor_name,
+            cost_description: row.cost_description,
             source_year: row.source_year,
             status,
             confidence,

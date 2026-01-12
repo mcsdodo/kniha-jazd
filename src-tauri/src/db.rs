@@ -677,6 +677,8 @@ impl Database {
             error_message: receipt.error_message.as_deref(),
             created_at: &created_at_str,
             updated_at: &updated_at_str,
+            vendor_name: receipt.vendor_name.as_deref(),
+            cost_description: receipt.cost_description.as_deref(),
         };
 
         diesel::insert_into(receipts::table)
@@ -743,6 +745,8 @@ impl Database {
                 receipts::raw_ocr_text.eq(&receipt.raw_ocr_text),
                 receipts::error_message.eq(&receipt.error_message),
                 receipts::updated_at.eq(&updated_at_str),
+                receipts::vendor_name.eq(&receipt.vendor_name),
+                receipts::cost_description.eq(&receipt.cost_description),
             ))
             .execute(conn)?;
 
