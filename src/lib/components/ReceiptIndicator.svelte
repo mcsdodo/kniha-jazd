@@ -34,17 +34,11 @@
 		}
 
 		try {
-			// Get receipts (filtered by vehicle) and verification
-			const [receipts, verification] = await Promise.all([
-				api.getReceiptsForVehicle(vehicle.id, $selectedYearStore),
-				api.verifyReceipts(vehicle.id, $selectedYearStore)
-			]);
+			// Get verification from backend (includes unmatched count)
+			const verification = await api.verifyReceipts(vehicle.id, $selectedYearStore);
 
-			// Count: unverified + needs_review
-			const needsReviewCount = receipts.filter(r => r.status === 'NeedsReview').length;
-			const unverifiedCount = verification.unmatched;
-
-			needsAttentionCount = needsReviewCount + unverifiedCount;
+			// Use backend's unmatched count directly (ADR-008: no frontend calculations)
+			needsAttentionCount = verification.unmatched;
 		} catch (error) {
 			console.error('Failed to load receipt count:', error);
 			needsAttentionCount = 0;
