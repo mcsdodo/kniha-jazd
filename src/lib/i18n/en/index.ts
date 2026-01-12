@@ -260,6 +260,8 @@ const en = {
 		filterAll: 'All',
 		filterUnassigned: 'Unverified',
 		filterNeedsReview: 'Needs review',
+		filterFuel: 'Fuel',
+		filterOther: 'Other costs',
 		// Verification summary
 		allVerified: '{count}/{total} receipts verified',
 		verified: '{count}/{total} verified',
@@ -284,6 +286,11 @@ const en = {
 		reprocess: 'Reprocess',
 		reprocessing: 'Processing...',
 		assignToTrip: 'Assign to trip',
+		// Other costs
+		otherCost: 'Other costs',
+		vendor: 'Vendor:',
+		description: 'Description:',
+		assignmentBlocked: 'Trip already has other costs',
 		// Empty state
 		noReceipts: 'No receipts. Click Sync to load new ones.',
 	},

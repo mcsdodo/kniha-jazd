@@ -26,6 +26,7 @@
 	let processing = $state(false);
 	let processingProgress = $state<ProcessingProgress | null>(null);
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
+	let typeFilter = $state<'all' | 'fuel' | 'other'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let receiptToAssign = $state<Receipt | null>(null);
@@ -313,11 +314,20 @@
 		return verif?.matched ?? false;
 	}
 
+	// Helper to check if receipt is fuel or other cost
+	function isFuelReceipt(receipt: Receipt): boolean {
+		return receipt.liters !== null;
+	}
+
 	// Svelte 5: use $derived instead of $:
 	let filteredReceipts = $derived(
 		receipts.filter((r) => {
-			if (filter === 'unassigned') return !isReceiptVerified(r.id);
-			if (filter === 'needs_review') return r.status === 'NeedsReview';
+			// Status filter
+			if (filter === 'unassigned' && isReceiptVerified(r.id)) return false;
+			if (filter === 'needs_review' && r.status !== 'NeedsReview') return false;
+			// Type filter
+			if (typeFilter === 'fuel' && !isFuelReceipt(r)) return false;
+			if (typeFilter === 'other' && isFuelReceipt(r)) return false;
 			return true;
 		})
 	);
@@ -325,6 +335,8 @@
 	// Counts for filter badges
 	let unassignedCount = $derived(receipts.filter((r) => !isReceiptVerified(r.id)).length);
 	let needsReviewCount = $derived(receipts.filter((r) => r.status === 'NeedsReview').length);
+	let fuelCount = $derived(receipts.filter((r) => isFuelReceipt(r)).length);
+	let otherCount = $derived(receipts.filter((r) => !isFuelReceipt(r)).length);
 
 	let isConfigured = $derived(settings?.geminiApiKey && settings?.receiptsFolderPath);
 	let pendingCount = $derived(receipts.filter((r) => r.status === 'Pending').length);
@@ -378,23 +390,30 @@
 	{/if}
 
 	<div class="filters">
-		<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
-			{$LL.receipts.filterAll()} ({receipts.length})
-		</button>
-		<button
-			class="filter-btn"
-			class:active={filter === 'unassigned'}
-			onclick={() => (filter = 'unassigned')}
-		>
-			{$LL.receipts.filterUnassigned()} ({unassignedCount})
-		</button>
-		<button
-			class="filter-btn"
-			class:active={filter === 'needs_review'}
-			onclick={() => (filter = 'needs_review')}
-		>
-			{$LL.receipts.filterNeedsReview()} ({needsReviewCount})
-		</button>
+		<div class="filter-group">
+			<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
+				{$LL.receipts.filterAll()} ({receipts.length})
+			</button>
+			<button
+				class="filter-btn"
+				class:active={filter === 'unassigned'}
+				onclick={() => (filter = 'unassigned')}
+			>
+				{$LL.receipts.filterUnassigned()} ({unassignedCount})
+			</button>
+			<button
+				class="filter-btn"
+				class:active={filter === 'needs_review'}
+				onclick={() => (filter = 'needs_review')}
+			>
+				{$LL.receipts.filterNeedsReview()} ({needsReviewCount})
+			</button>
+		</div>
+		<select class="type-filter" bind:value={typeFilter}>
+			<option value="all">{$LL.receipts.filterAll()}</option>
+			<option value="fuel">{$LL.receipts.filterFuel()} ({fuelCount})</option>
+			<option value="other">{$LL.receipts.filterOther()} ({otherCount})</option>
+		</select>
 	</div>
 
 	{#if verification}
@@ -419,7 +438,12 @@
 				{@const dateMismatch = getDateMismatch(receipt)}
 				<div class="receipt-card">
 					<div class="receipt-header">
-						<span class="file-name">{receipt.fileName}</span>
+						<span class="file-name">
+							<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
+								{isFuelReceipt(receipt) ? '\u26FD' : '\uD83D\uDCC4'}
+							</span>
+							{receipt.fileName}
+						</span>
 						{#if verif?.matched}
 							<span class="badge success">{$LL.receipts.statusVerified()}</span>
 						{:else if receipt.status === 'NeedsReview'}
@@ -445,35 +469,64 @@
 								{/if}
 							</span>
 						</div>
-						<div class="detail-row">
-							<span class="label">{$LL.receipts.liters()}</span>
-							<span class="value-with-confidence">
-								<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
-									{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
-								</span>
-								<span
-									class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
-									title={getConfidenceInfo(receipt.confidence.liters).label}
-								></span>
-							</span>
-						</div>
-						<div class="detail-row">
-							<span class="label">{$LL.receipts.price()}</span>
-							<span class="value-with-confidence">
-								<span class="value" class:uncertain={receipt.confidence.totalPrice === 'Low'}>
-									{receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??'}
-								</span>
-								<span
-									class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-									title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-								></span>
-							</span>
-						</div>
-						{#if receipt.stationName}
+						{#if isFuelReceipt(receipt)}
+							<!-- Fuel receipt details -->
 							<div class="detail-row">
-								<span class="label">{$LL.receipts.station()}</span>
-								<span class="value">{receipt.stationName}</span>
+								<span class="label">{$LL.receipts.liters()}</span>
+								<span class="value-with-confidence">
+									<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
+										{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
+									</span>
+									<span
+										class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
+										title={getConfidenceInfo(receipt.confidence.liters).label}
+									></span>
+								</span>
 							</div>
+							<div class="detail-row">
+								<span class="label">{$LL.receipts.price()}</span>
+								<span class="value-with-confidence">
+									<span class="value" class:uncertain={receipt.confidence.totalPrice === 'Low'}>
+										{receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??'}
+									</span>
+									<span
+										class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+										title={getConfidenceInfo(receipt.confidence.totalPrice).label}
+									></span>
+								</span>
+							</div>
+							{#if receipt.stationName}
+								<div class="detail-row">
+									<span class="label">{$LL.receipts.station()}</span>
+									<span class="value">{receipt.stationName}</span>
+								</div>
+							{/if}
+						{:else}
+							<!-- Other cost receipt details -->
+							<div class="detail-row">
+								<span class="label">{$LL.receipts.price()}</span>
+								<span class="value-with-confidence">
+									<span class="value" class:uncertain={receipt.confidence.totalPrice === 'Low'}>
+										{receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??'}
+									</span>
+									<span
+										class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+										title={getConfidenceInfo(receipt.confidence.totalPrice).label}
+									></span>
+								</span>
+							</div>
+							{#if receipt.vendorName}
+								<div class="detail-row">
+									<span class="label">{$LL.receipts.vendor()}</span>
+									<span class="value">{receipt.vendorName}</span>
+								</div>
+							{/if}
+							{#if receipt.costDescription}
+								<div class="detail-row full-width">
+									<span class="label">{$LL.receipts.description()}</span>
+									<span class="value">{receipt.costDescription}</span>
+								</div>
+							{/if}
 						{/if}
 						{#if receipt.errorMessage}
 							<div class="error-message">{receipt.errorMessage}</div>
@@ -622,8 +675,28 @@
 
 	.filters {
 		display: flex;
-		gap: 0.5rem;
+		gap: 1rem;
 		margin-bottom: 1.5rem;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.filter-group {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.type-filter {
+		padding: 0.5rem 1rem;
+		border: 1px solid #ddd;
+		background: white;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 0.875rem;
+	}
+
+	.type-filter:hover {
+		border-color: #3498db;
 	}
 
 	.filter-btn {
@@ -666,8 +739,15 @@
 	}
 
 	.file-name {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 		font-weight: 500;
 		color: #2c3e50;
+	}
+
+	.receipt-type-icon {
+		font-size: 1rem;
 	}
 
 	.badge {
@@ -742,6 +822,10 @@
 	.detail-row {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	.detail-row.full-width {
+		grid-column: 1 / -1;
 	}
 
 	.label {
