@@ -690,6 +690,7 @@
 		padding: 0.5rem 1rem;
 		border: 1px solid var(--border-input);
 		background: var(--bg-surface);
+		color: var(--text-primary);
 		border-radius: 4px;
 		cursor: pointer;
 		font-size: 0.875rem;

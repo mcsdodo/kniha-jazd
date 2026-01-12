@@ -222,6 +222,11 @@
 		color: var(--text-primary);
 	}
 
+	:global(input), :global(select), :global(textarea) {
+		color: var(--text-primary);
+		background-color: var(--input-bg);
+	}
+
 	.app {
 		display: flex;
 		flex-direction: column;
@@ -306,6 +311,7 @@
 		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		background-color: var(--input-bg);
+		color: var(--text-primary);
 		font-size: 1rem;
 		cursor: pointer;
 		min-width: 200px;
