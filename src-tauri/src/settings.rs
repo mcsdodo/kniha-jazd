@@ -9,6 +9,7 @@ use std::path::PathBuf;
 pub struct LocalSettings {
     pub gemini_api_key: Option<String>,
     pub receipts_folder_path: Option<String>,
+    pub theme: Option<String>, // "system" | "light" | "dark"
 }
 
 impl LocalSettings {
@@ -39,6 +40,7 @@ mod tests {
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert!(settings.gemini_api_key.is_none());
         assert!(settings.receipts_folder_path.is_none());
+        assert!(settings.theme.is_none());
     }
 
     #[test]
@@ -64,5 +66,16 @@ mod tests {
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(settings.gemini_api_key, Some("only-key".to_string()));
         assert!(settings.receipts_folder_path.is_none());
+    }
+
+    #[test]
+    fn test_load_with_theme() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(b"{\"theme\": \"dark\"}").unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(settings.theme, Some("dark".to_string()));
     }
 }
