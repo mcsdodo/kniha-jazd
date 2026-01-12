@@ -7,6 +7,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Rozpoznávanie iných nákladov** - skenovanie a priradenie dokladov za umytie auta, parkovanie, diaľničné poplatky, servis a pod.
+  - AI automaticky rozpozná či ide o tankovanie (má litre) alebo iný náklad
+  - Multi-stage matching: doklad s litrami ktorý nezodpovedá tankovaniu (napr. ostrekovač 2L/5€) sa klasifikuje ako iný náklad
+  - Pri priradení k jazde sa automaticky vyplní pole "Iné náklady" s názvom predajcu a popisom
+  - Filter dokladov podľa typu (⛽ Tankovanie / 📄 Iné náklady)
+  - Vizuálne rozlíšenie dokladov ikonami
+  - Ochrana proti kolízii - jazda môže mať len jeden doklad iných nákladov
+
 ### Opravené
 - **Chybný počiatočný stav ODO pri prechode na nový rok** - pri zobrazení roku 2026 sa používal statický `initialOdometer` vozidla namiesto posledného ODO z predchádzajúceho roku
   - Príčina: Frontend používal `vehicle.initialOdometer` (hodnota z vytvorenia vozidla) pre všetky roky
