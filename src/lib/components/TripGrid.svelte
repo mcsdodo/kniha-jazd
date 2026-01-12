@@ -622,7 +622,7 @@
 	}
 
 	.new-record:disabled {
-		background-color: #bdc3c7;
+		background-color: var(--text-muted);
 		cursor: not-allowed;
 	}
 
@@ -635,6 +635,7 @@
 		border-collapse: collapse;
 		font-size: 0.875rem;
 		table-layout: fixed;
+		color: var(--text-primary);
 	}
 
 	thead {
