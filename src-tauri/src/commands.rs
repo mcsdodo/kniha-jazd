@@ -2396,6 +2396,36 @@ pub fn preview_trip_calculation(
 }
 
 // ============================================================================
+// Theme Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn get_theme_preference(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_data_dir);
+    Ok(settings.theme.unwrap_or_else(|| "system".to_string()))
+}
+
+#[tauri::command]
+pub fn set_theme_preference(app_handle: tauri::AppHandle, theme: String) -> Result<(), String> {
+    // Validate
+    if !["system", "light", "dark"].contains(&theme.as_str()) {
+        return Err(format!("Invalid theme: {}. Must be system, light, or dark", theme));
+    }
+
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.theme = Some(theme);
+
+    // Save to file
+    let settings_path = app_data_dir.join("local.settings.json");
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
