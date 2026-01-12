@@ -628,6 +628,26 @@ type RootTranslation = {
 		 * J​a​z​y​k​ ​a​p​l​i​k​á​c​i​e
 		 */
 		language: string
+		/**
+		 * V​z​h​ľ​a​d
+		 */
+		appearanceSection: string
+		/**
+		 * T​é​m​a
+		 */
+		themeLabel: string
+		/**
+		 * P​o​d​ľ​a​ ​s​y​s​t​é​m​u
+		 */
+		themeSystem: string
+		/**
+		 * S​v​e​t​l​á
+		 */
+		themeLight: string
+		/**
+		 * T​m​a​v​á
+		 */
+		themeDark: string
 	}
 	backup: {
 		/**
@@ -1881,6 +1901,26 @@ export type TranslationFunctions = {
 		 * Jazyk aplikácie
 		 */
 		language: () => LocalizedString
+		/**
+		 * Vzhľad
+		 */
+		appearanceSection: () => LocalizedString
+		/**
+		 * Téma
+		 */
+		themeLabel: () => LocalizedString
+		/**
+		 * Podľa systému
+		 */
+		themeSystem: () => LocalizedString
+		/**
+		 * Svetlá
+		 */
+		themeLight: () => LocalizedString
+		/**
+		 * Tmavá
+		 */
+		themeDark: () => LocalizedString
 	}
 	backup: {
 		/**
