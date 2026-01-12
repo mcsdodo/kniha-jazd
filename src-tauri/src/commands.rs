@@ -2100,14 +2100,14 @@ fn verify_receipts_with_data(
     receipts_for_year: Vec<Receipt>,
 ) -> Result<VerificationResult, String> {
 
-    // Get all trips with fuel for this vehicle/year
-    let trips = db
+    // Get all trips for this vehicle/year
+    let all_trips = db
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
-    let trips_with_fuel: Vec<_> = trips
-        .into_iter()
-        .filter(|t| t.fuel_liters.is_some())
-        .collect();
+
+    // Separate trips with fuel and trips with other costs
+    let trips_with_fuel: Vec<_> = all_trips.iter().filter(|t| t.fuel_liters.is_some()).collect();
+    let trips_with_other_costs: Vec<_> = all_trips.iter().filter(|t| t.other_costs_eur.is_some()).collect();
 
     let mut verifications = Vec::new();
     let mut matched_count = 0;
@@ -2118,7 +2118,7 @@ fn verify_receipts_with_data(
         let mut matched_trip_date = None;
         let mut matched_trip_route = None;
 
-        // Try to find a matching trip by exact date, liters, and price
+        // 1. Try to match FUEL receipts (has liters) to fuel trips
         if let (Some(receipt_date), Some(receipt_liters), Some(receipt_price)) =
             (receipt.receipt_date, receipt.liters, receipt.total_price_eur)
         {
@@ -2137,6 +2137,26 @@ fn verify_receipts_with_data(
                         matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
                         matched_trip_route = Some(format!("{} - {}", trip.origin, trip.destination));
                         break;
+                    }
+                }
+            }
+        }
+
+        // 2. If not matched as fuel, try to match "other cost" receipts by price
+        if !matched {
+            if let Some(receipt_price) = receipt.total_price_eur {
+                for trip in &trips_with_other_costs {
+                    if let Some(trip_other_costs) = trip.other_costs_eur {
+                        // Match by price (within small tolerance)
+                        let price_match = (trip_other_costs - receipt_price).abs() < 0.01;
+
+                        if price_match {
+                            matched = true;
+                            matched_trip_id = Some(trip.id.to_string());
+                            matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
+                            matched_trip_route = Some(format!("{} - {}", trip.origin, trip.destination));
+                            break;
+                        }
                     }
                 }
             }
