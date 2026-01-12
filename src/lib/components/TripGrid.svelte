@@ -460,11 +460,8 @@
 					{/if}
 					<th>{$LL.trips.columns.otherCosts()}</th>
 					<th>{$LL.trips.columns.otherCostsNote()}</th>
-					<th class="sortable" on:click={() => toggleSort('manual')}>
+					<th>
 						{$LL.trips.columns.actions()}
-						{#if sortColumn === 'manual'}
-							<span class="sort-indicator">⋮</span>
-						{/if}
 					</th>
 				</tr>
 			</thead>
