@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-01-12
+
 ### Pridané
 - **Tmavý režim (Dark Theme)** - podpora svetlej a tmavej témy s automatickou detekciou systémových preferencií
   - Prepínač v Nastavenia → Vzhľad (Podľa systému / Svetlá / Tmavá)
