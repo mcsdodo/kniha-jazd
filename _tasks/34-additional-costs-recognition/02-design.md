@@ -1,92 +1,70 @@
 # Design: Additional Costs Invoice Recognition
 
 **Date:** 2026-01-12
-**Status:** Draft
+**Status:** Revised (user decisions applied)
 
-## Decision: Architecture Approach
+## User Decisions (2026-01-12)
 
-### Recommended: Extend Receipt Model (Option A)
+1. **Single cost per trip** - One invoice auto-assigned per trip only
+2. **No type categories** - User writes description manually in `other_costs_note`
+3. **Same folder** - All receipts (fuel + other) in same folder
+4. **Binary classification** - AI detects: fuel (has liters) vs other (no liters)
 
-Extend the existing `Receipt` model with a `receipt_type` field rather than creating a parallel system.
+---
 
-**Rationale:**
-- **DRY** - Reuse existing folder scanning, Gemini integration, UI components
-- **Simpler** - One table, one workflow, one codebase path
-- **Flexible** - Same infrastructure handles both types
-- **Consistent UX** - Users learn one workflow
+## Simplified Architecture
 
-### Folder Structure Decision
+### Key Insight: `liters != null` → Fuel, `liters == null` → Other Cost
 
-**Recommended: Single folder with AI classification**
+No new `ReceiptType` enum needed. The existing `liters` field determines the type:
+- **Fuel receipt**: `liters` is set → existing auto-match flow
+- **Other cost receipt**: `liters` is null → manual assignment to `other_costs_*` fields
+
+### Folder Structure
+
+Single folder, AI auto-classifies:
 
 ```
 doklady/
-├── IMG_001.jpg  → AI detects: fuel receipt (45.2L, 72€)
-├── IMG_002.jpg  → AI detects: car wash (15€)
-├── IMG_003.jpg  → AI detects: parking (8€)
-└── IMG_004.jpg  → AI detects: highway toll (50€)
+├── IMG_001.jpg  → AI: liters=45.2, price=72€  → FUEL
+├── IMG_002.jpg  → AI: liters=null, price=15€  → OTHER COST
+├── IMG_003.jpg  → AI: liters=null, price=8€   → OTHER COST
+└── IMG_004.jpg  → AI: liters=null, price=50€  → OTHER COST
 ```
-
-**Rationale:**
-- Users don't have to manually sort invoices
-- AI is already analyzing each image - adding classification is trivial
-- Simpler folder management
 
 ---
 
 ## Data Model Changes
 
-### Receipt Model Extension
+### Receipt Model Extension (Minimal)
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ReceiptType {
-    Fuel,           // Existing behavior
-    CarWash,        // Umytie auta
-    Parking,        // Parkovanie
-    Toll,           // Diaľničná známka, mýto
-    Service,        // Servis, opravy
-    Other,          // Iné náklady
-}
-
-impl Default for ReceiptType {
-    fn default() -> Self {
-        Self::Fuel
-    }
-}
-
-// Add to Receipt struct:
+// Add to Receipt struct - only 2 new fields needed:
 pub struct Receipt {
-    // ... existing fields ...
+    // ... existing fields (liters, total_price_eur, receipt_date, etc.) ...
 
-    // NEW: Type classification
-    pub receipt_type: ReceiptType,
-
-    // NEW: For non-fuel receipts
-    pub cost_amount_eur: Option<f64>,    // Amount for other costs
-    pub cost_category: Option<String>,   // Detected category text
-    pub cost_description: Option<String>, // Parsed description/note
-    pub vendor_name: Option<String>,     // Shop/service provider name
-
-    // Existing fuel fields (None for non-fuel)
-    pub liters: Option<f64>,
-    pub total_price_eur: Option<f64>,    // Also used for fuel cost
-    pub receipt_date: Option<NaiveDate>,
-    pub station_name: Option<String>,
-    pub station_address: Option<String>,
-    // ...
+    // NEW: For non-fuel receipts (description for other_costs_note)
+    pub vendor_name: Option<String>,      // Shop/service provider name
+    pub cost_description: Option<String>, // Brief description of expense
 }
 ```
+
+**Notes:**
+- `total_price_eur` is reused for other costs amount
+- `liters == None` indicates this is an "other cost" receipt
+- No `ReceiptType` enum - simplicity wins
 
 ### Database Migration
 
 ```sql
--- Add new columns to receipts table
-ALTER TABLE receipts ADD COLUMN receipt_type TEXT NOT NULL DEFAULT 'Fuel';
-ALTER TABLE receipts ADD COLUMN cost_amount_eur REAL;
-ALTER TABLE receipts ADD COLUMN cost_category TEXT;
-ALTER TABLE receipts ADD COLUMN cost_description TEXT;
+-- Minimal migration: just 2 new columns
+-- File: migrations/YYYY-MM-DD-HHMMSS-add_receipt_cost_fields/up.sql
 ALTER TABLE receipts ADD COLUMN vendor_name TEXT;
+ALTER TABLE receipts ADD COLUMN cost_description TEXT;
+
+-- down.sql (for rollback)
+-- SQLite doesn't support DROP COLUMN easily, so this would need table recreation
+-- For now, leave columns in place (additive migration)
 ```
 
 ---
@@ -98,45 +76,39 @@ ALTER TABLE receipts ADD COLUMN vendor_name TEXT;
 ```
 Analyze this Slovak receipt/invoice image.
 
-First, classify the receipt type:
-- "fuel" - Gas station receipt (benzín, nafta, LPG)
-- "car_wash" - Car wash (umývanie, autoumyváreň)
-- "parking" - Parking receipt (parkovanie)
-- "toll" - Highway toll/sticker (diaľničná známka, mýto)
-- "service" - Car service/repair (servis, oprava, STK)
-- "other" - Other vehicle-related expense
+This could be either a FUEL receipt or OTHER expense (car wash, parking, service, etc.).
 
-Then extract fields as JSON:
+Extract fields as JSON:
 {
-  "receipt_type": "fuel" | "car_wash" | "parking" | "toll" | "service" | "other",
   "receipt_date": "YYYY-MM-DD" or null,
-
-  // For fuel receipts:
-  "liters": number or null,
   "total_price_eur": number or null,
+
+  // FUEL-SPECIFIC (only if this is a gas station receipt):
+  "liters": number or null,  // null if NOT a fuel receipt
   "station_name": string or null,
   "station_address": string or null,
 
-  // For non-fuel receipts:
-  "cost_amount_eur": number or null,
-  "cost_category": string or null,  // e.g., "Umytie auta", "Parkovanie"
-  "cost_description": string or null,  // Any relevant details
-  "vendor_name": string or null,  // Company/shop name
+  // OTHER COSTS (for non-fuel receipts):
+  "vendor_name": string or null,      // Company/shop name
+  "cost_description": string or null, // Brief description (e.g., "Umytie auta", "Parkovanie 2h")
 
   "confidence": {
-    "type": "high" | "medium" | "low",
-    "amount": "high" | "medium" | "low",
+    "liters": "high" | "medium" | "low" | "not_applicable",
+    "total_price": "high" | "medium" | "low",
     "date": "high" | "medium" | "low"
   },
   "raw_text": "full OCR text"
 }
 
 Rules:
-- For fuel: Look for "L", "litrov", fuel type (Natural 95, Diesel)
+- If you see "L", "litrov", fuel types (Natural 95, Diesel, benzín, nafta) → it's FUEL, extract liters
+- If NO liters/fuel indicators → it's OTHER COST, set liters=null
 - For amounts: Look for "€", "EUR", "Spolu", "Celkom", "Total"
 - Date formats: DD.MM.YYYY or DD.MM.YY
 - Return null if field cannot be determined
 ```
+
+**Key change:** The prompt now explicitly handles both fuel and non-fuel receipts, with `liters=null` being the indicator for "other cost".
 
 ---
 
@@ -144,99 +116,79 @@ Rules:
 
 ### 1. Doklady Page Enhancement
 
-Add filter by type + visual distinction:
+Add filter for fuel vs other + visual distinction:
 
 ```
 ┌─ Doklady ──────────────────────── [🔄 Sync] ─┐
 │ Filter: [Všetky ▾] [Typ: Všetky ▾] [Status ▾] │
 ├───────────────────────────────────────────────┤
-│ ⛽ IMG_001.jpg    15.12.2024    TANKOVANIE    │
+│ ⛽ IMG_001.jpg    15.12.2024                   │
 │    45.2 L  |  72.50 €  |  OMV Bratislava      │
 │    ✅ Pridelené k jazde 15.12.                 │
 ├───────────────────────────────────────────────┤
-│ 🚿 IMG_002.jpg    18.12.2024    UMYTIE        │
+│ 📄 IMG_002.jpg    18.12.2024                   │
 │    15.00 €  |  AutoWash Express               │
 │    [Prideliť k jazde]                         │
 ├───────────────────────────────────────────────┤
-│ 🅿️ IMG_003.jpg    20.12.2024    PARKOVANIE    │
+│ 📄 IMG_003.jpg    20.12.2024                   │
 │    8.00 €  |  City Parking BA                 │
 │    [Prideliť k jazde]                         │
-├───────────────────────────────────────────────┤
-│ 🛣️ IMG_004.jpg    01.01.2025    DIAĽNICA      │
-│    50.00 €  |  eZnamka.sk                     │
-│    ⚠️ Neurčený dátum jazdy                     │
 └───────────────────────────────────────────────┘
 ```
 
-**Icons by type:**
-- ⛽ Fuel (tankovanie)
-- 🚿 Car wash (umytie)
-- 🅿️ Parking (parkovanie)
-- 🛣️ Toll (diaľnica)
-- 🔧 Service (servis)
-- 📄 Other (iné)
+**Icons (simple binary):**
+- ⛽ Fuel (has liters)
+- 📄 Other cost (no liters)
 
 ### 2. Assignment Flow
 
-**For fuel receipts** (existing):
+**For fuel receipts** (existing - unchanged):
+- `liters != null` → auto-match by date + liters + price
 - Assigns to `fuel_liters`, `fuel_cost_eur` fields
 
 **For other costs** (new):
+- `liters == null` → manual assignment by user
 - Assigns to `other_costs_eur`, `other_costs_note` fields
-- Note format: `{category}: {description}` (e.g., "Umytie: AutoWash Express")
+- Note format: `{vendor_name}: {cost_description}` or user-edited text
 
-### 3. Trip Row Integration
+### 3. Assignment Collision Handling
 
-Extend trip row to show assigned other costs:
-
-```
-│ Dátum   │ Trasa          │ km  │ ODO   │ Účel      │ Tankovanie │ Iné náklady │
-├─────────┼────────────────┼─────┼───────┼───────────┼────────────┼─────────────┤
-│ 15.12.  │ BA → KE        │ 400 │ 55000 │ služobná  │ 45L / 72€  │ 🚿 15€      │
-│         │                │     │       │           │ 📄         │ 📄          │
-```
-
-Small document icon (📄) indicates assigned receipt - click to view.
+**If trip already has `other_costs_eur` set:**
+- Block automatic assignment
+- Show warning: "Jazda už má iné náklady"
+- User can manually overwrite via trip edit
 
 ### 4. Floating Indicator Update
 
-Show count by type or combined:
-
-```
-┌─ Jazdy ──────────── [⛽ 2] [🚿 1] [🅿️ 3] nepridelené ─┐
-```
-
-Or simplified:
+Combined count (simplified):
 ```
 ┌─ Jazdy ──────────────────────── [📄 6 nepridelených] ─┐
 ```
 
 ---
 
-## Implementation Phases
+## Implementation Phases (Simplified)
 
-### Phase 1: Data Model & Backend
-- [ ] Add `ReceiptType` enum to models
-- [ ] Database migration for new columns
-- [ ] Update Gemini prompt for classification
-- [ ] Update receipt parsing to handle both types
-- [ ] Add tests for new receipt types
+### Phase 1: Backend (~3h)
+- [ ] Add 2 new Receipt fields: `vendor_name`, `cost_description`
+- [ ] Database migration (2 columns)
+- [ ] Update Gemini prompt for dual recognition
+- [ ] Update `ExtractedReceipt` struct parsing
+- [ ] Update `assign_receipt_to_trip` for other costs
+- [ ] Add tests
 
-### Phase 2: UI Updates
-- [ ] Add type filter to Doklady page
-- [ ] Visual distinction (icons, colors) by type
-- [ ] Update ReceiptCard component for non-fuel display
-- [ ] Assignment flow for other costs → trip.other_costs fields
+### Phase 2: Frontend (~2h)
+- [ ] Update TypeScript types (2 new fields)
+- [ ] Add binary filter (fuel/other) to Doklady page
+- [ ] Visual distinction (⛽ vs 📄 icon)
+- [ ] Assignment flow: if no liters → populate other_costs fields
 
-### Phase 3: Trip Integration
-- [ ] Show assigned other costs in trip row
-- [ ] Other costs picker in trip edit mode
-- [ ] Update floating indicator
-
-### Phase 4: Polish
+### Phase 3: Polish (~1h)
 - [ ] i18n for new strings
-- [ ] E2E tests for other costs flow
+- [ ] Integration tests
 - [ ] Update changelog
+
+**Total: ~6 hours** (reduced from ~13h original estimate)
 
 ---
 
@@ -245,55 +197,38 @@ Or simplified:
 ### Backend (Rust)
 | File | Changes |
 |------|---------|
-| `models.rs` | Add `ReceiptType` enum, new Receipt fields |
-| `db.rs` | Update Receipt CRUD for new fields |
+| `models.rs` | Add `vendor_name`, `cost_description` to Receipt |
+| `db.rs` | Update Receipt CRUD for 2 new fields |
 | `gemini.rs` | Update prompt, parse new response fields |
-| `receipts.rs` | Handle both receipt types in scanning |
-| `commands.rs` | Update assignment command for other costs |
+| `commands.rs` | Update `assign_receipt_to_trip` for other costs |
 
 ### Frontend (Svelte)
 | File | Changes |
 |------|---------|
-| `types.ts` | Add `ReceiptType`, new Receipt fields |
-| `doklady/+page.svelte` | Type filter, visual distinction |
-| `ReceiptCard.svelte` | Display both fuel and other costs |
-| `TripRow.svelte` | Show other costs, picker integration |
+| `types.ts` | Add `vendorName`, `costDescription` to Receipt |
+| `doklady/+page.svelte` | Binary filter, icon distinction |
 
 ### Database
 | File | Changes |
 |------|---------|
-| `migrations/` | New migration for receipt_type and cost fields |
+| `migrations/YYYY-MM-DD-HHMMSS-add_receipt_cost_fields/` | `up.sql` + `down.sql` |
 
 ---
 
 ## Testing Strategy
 
 ### Unit Tests (Rust)
-- Receipt type parsing from Gemini response
-- Receipt type enum serialization
-- Assignment to other_costs fields
+- Gemini parsing with `liters=null` (other cost)
+- Gemini parsing with `liters=45.2` (fuel)
+- Assignment to `other_costs_*` fields
 
 ### Integration Tests
-- Scan folder with mixed receipt types
-- Assign fuel receipt → fuel fields
-- Assign other cost → other_costs fields
-- Filter by receipt type
-
-### E2E Tests
-- Full flow: scan → view → assign other cost → verify on trip
+- Scan folder with mixed receipts
+- Assign fuel receipt → fuel fields (existing)
+- Assign other cost → other_costs fields (new)
 
 ---
 
-## Open Items for User Decision
+## Resolved Questions
 
-1. **Should we support multiple other costs per trip?**
-   - Current model: single `other_costs_eur` + `other_costs_note` per trip
-   - If multiple needed: requires Trip model change (array of costs)
-
-2. **Category list - predefined or extensible?**
-   - Predefined: Easier filtering, consistent
-   - Extensible: More flexible, user can add custom
-
-3. **Same folder or configurable?**
-   - Option: Add `other_costs_folder_path` to settings
-   - Or: Use same `receipts_folder_path` (recommended)
+All open questions have been decided (see User Decisions section above).
