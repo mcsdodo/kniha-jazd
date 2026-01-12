@@ -324,3 +324,14 @@ export async function previewTripCalculation(
 		editingTripId
 	});
 }
+
+// Theme
+export type ThemeMode = 'system' | 'light' | 'dark';
+
+export async function getThemePreference(): Promise<ThemeMode> {
+	return invoke<string>('get_theme_preference') as Promise<ThemeMode>;
+}
+
+export async function setThemePreference(theme: ThemeMode): Promise<void> {
+	return invoke('set_theme_preference', { theme });
+}
