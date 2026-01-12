@@ -250,10 +250,10 @@
 	}
 
 	.vehicle-info {
-		background: white;
+		background: var(--bg-surface);
 		padding: 1.5rem;
 		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px var(--shadow-default);
 	}
 
 	.vehicle-header {
@@ -271,7 +271,7 @@
 
 	.export-btn {
 		padding: 0.5rem 1rem;
-		background-color: #27ae60;
+		background-color: var(--accent-success);
 		color: white;
 		border: none;
 		border-radius: 4px;
@@ -281,18 +281,18 @@
 	}
 
 	.export-btn:hover:not(:disabled) {
-		background-color: #219653;
+		background-color: var(--accent-success-hover);
 	}
 
 	.export-btn:disabled {
-		background-color: #bdc3c7;
+		background-color: var(--text-muted);
 		cursor: not-allowed;
 	}
 
 	.vehicle-info h2 {
 		margin: 0;
 		font-size: 1.25rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.stats-container {
@@ -314,16 +314,16 @@
 	}
 
 	.stat-label {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 	}
 
 	.stat-value {
 		font-weight: 600;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.stat.warning .stat-value {
-		color: #d39e00;
+		color: var(--accent-warning);
 	}
 
 	.info-grid {
@@ -340,13 +340,13 @@
 
 	.label {
 		font-size: 0.875rem;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-weight: 500;
 	}
 
 	.value {
 		font-size: 1rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 		font-weight: 600;
 	}
 
@@ -357,32 +357,32 @@
 	.loading {
 		text-align: center;
 		padding: 2rem;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 	}
 
 	.no-vehicle {
-		background: white;
+		background: var(--bg-surface);
 		padding: 2rem;
 		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px var(--shadow-default);
 		text-align: center;
 	}
 
 	.no-vehicle h2 {
 		margin: 0 0 1rem 0;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.no-vehicle p {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		margin-bottom: 1.5rem;
 	}
 
 	.button {
 		display: inline-block;
 		padding: 0.75rem 1.5rem;
-		background-color: #3498db;
+		background-color: var(--accent-primary);
 		color: white;
 		text-decoration: none;
 		border-radius: 4px;
@@ -391,6 +391,6 @@
 	}
 
 	.button:hover {
-		background-color: #2980b9;
+		background-color: var(--accent-primary-hover);
 	}
 </style>
