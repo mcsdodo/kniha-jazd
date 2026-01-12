@@ -595,12 +595,12 @@
 
 	.header h1 {
 		margin: 0;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.config-warning {
-		background: #fff3cd;
-		border: 1px solid #ffc107;
+		background: var(--warning-bg);
+		border: 1px solid var(--warning-border);
 		padding: 1rem;
 		border-radius: 8px;
 		margin-bottom: 1.5rem;
@@ -611,22 +611,22 @@
 	}
 
 	.config-warning code {
-		background: #f8f9fa;
+		background: var(--bg-surface-alt);
 		padding: 0.2rem 0.4rem;
 		border-radius: 3px;
 		font-size: 0.875rem;
 	}
 
 	.config-warning code.filename {
-		background: #e9ecef;
+		background: var(--bg-surface-alt);
 		font-weight: 600;
-		color: #495057;
+		color: var(--text-primary);
 	}
 
 	.config-sample {
-		background: #f8f9fa;
-		color: #212529;
-		border: 1px solid #dee2e6;
+		background: var(--bg-surface-alt);
+		color: var(--text-primary);
+		border: 1px solid var(--border-default);
 		padding: 1rem;
 		border-radius: 6px;
 		font-size: 0.875rem;
@@ -637,7 +637,7 @@
 
 	.config-note {
 		font-size: 0.8rem;
-		color: #856404;
+		color: var(--warning-color);
 		font-style: italic;
 		margin: 0.25rem 0 0.5rem 0 !important;
 	}
@@ -649,8 +649,8 @@
 		gap: 0.5rem;
 		margin-top: 0.75rem;
 		padding: 0.75rem 1rem;
-		background: #fff;
-		border: 1px solid #ddd;
+		background: var(--bg-surface);
+		border: 1px solid var(--border-input);
 		border-radius: 6px;
 		cursor: pointer;
 		text-align: left;
@@ -659,17 +659,17 @@
 	}
 
 	.config-path-btn:hover {
-		background: #f0f0f0;
-		border-color: #007bff;
+		background: var(--bg-surface-alt);
+		border-color: var(--accent-primary);
 	}
 
 	.config-path-btn code {
 		word-break: break-all;
-		color: #666;
+		color: var(--text-secondary);
 	}
 
 	.config-path-btn .open-icon {
-		color: #007bff;
+		color: var(--accent-primary);
 		font-weight: 500;
 	}
 
@@ -688,34 +688,34 @@
 
 	.type-filter {
 		padding: 0.5rem 1rem;
-		border: 1px solid #ddd;
-		background: white;
+		border: 1px solid var(--border-input);
+		background: var(--bg-surface);
 		border-radius: 4px;
 		cursor: pointer;
 		font-size: 0.875rem;
 	}
 
 	.type-filter:hover {
-		border-color: #3498db;
+		border-color: var(--accent-primary);
 	}
 
 	.filter-btn {
 		padding: 0.5rem 1rem;
-		border: 1px solid #ddd;
-		background: white;
+		border: 1px solid var(--border-input);
+		background: var(--bg-surface);
 		border-radius: 4px;
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 
 	.filter-btn:hover {
-		background: #f5f5f5;
+		background: var(--bg-surface-alt);
 	}
 
 	.filter-btn.active {
-		background: #3498db;
+		background: var(--accent-primary);
 		color: white;
-		border-color: #3498db;
+		border-color: var(--accent-primary);
 	}
 
 	.receipts-list {
@@ -725,10 +725,10 @@
 	}
 
 	.receipt-card {
-		background: white;
+		background: var(--bg-surface);
 		border-radius: 8px;
 		padding: 1rem;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px var(--shadow-default);
 	}
 
 	.receipt-header {
@@ -743,7 +743,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-weight: 500;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.receipt-type-icon {
@@ -758,56 +758,56 @@
 	}
 
 	.badge.success {
-		background: #d4edda;
-		color: #155724;
+		background: var(--toast-success-bg);
+		color: var(--toast-success-color);
 	}
 
 	.badge.warning {
-		background: #fff3cd;
-		color: #856404;
+		background: var(--warning-bg);
+		color: var(--warning-color);
 	}
 
 	.badge.info {
-		background: #cce5ff;
-		color: #004085;
+		background: var(--toast-info-bg);
+		color: var(--toast-info-color);
 	}
 
 	.badge.neutral {
-		background: #e9ecef;
-		color: #495057;
+		background: var(--bg-surface-alt);
+		color: var(--text-primary);
 	}
 
 	.badge.danger {
-		background: #f8d7da;
-		color: #721c24;
+		background: var(--toast-error-bg);
+		color: var(--toast-error-color);
 	}
 
 	.verification-summary {
 		display: flex;
 		gap: 1rem;
 		padding: 0.75rem 1rem;
-		background: #f8f9fa;
+		background: var(--bg-surface-alt);
 		border-radius: 4px;
 		margin-bottom: 1rem;
 	}
 
 	.verification-summary.all-matched {
-		background: #d4edda;
+		background: var(--toast-success-bg);
 	}
 
 	.status-ok {
-		color: #155724;
+		color: var(--toast-success-color);
 		font-weight: 500;
 	}
 
 	.status-warning {
-		color: #856404;
+		color: var(--warning-color);
 		font-weight: 500;
 	}
 
 	.matched-trip {
 		font-size: 0.875rem;
-		color: #28a745;
+		color: var(--accent-success);
 		margin-top: 0.5rem;
 		grid-column: 1 / -1;
 	}
@@ -829,7 +829,7 @@
 	}
 
 	.label {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-size: 0.875rem;
 	}
 
@@ -841,11 +841,11 @@
 
 	.value {
 		font-weight: 500;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.value.uncertain {
-		color: #e67e22;
+		color: var(--accent-warning-dark);
 	}
 
 	.confidence-dot {
@@ -861,7 +861,7 @@
 	}
 
 	.confidence-high {
-		background-color: #27ae60;
+		background-color: var(--accent-success);
 	}
 
 	.confidence-medium {
@@ -873,15 +873,15 @@
 	}
 
 	.confidence-unknown {
-		background-color: #95a5a6;
+		background-color: var(--text-muted);
 	}
 
 	.error-message {
 		grid-column: 1 / -1;
-		color: #c0392b;
+		color: var(--accent-danger);
 		font-size: 0.875rem;
 		padding: 0.5rem;
-		background: #fee;
+		background: var(--accent-danger-bg);
 		border-radius: 4px;
 	}
 
@@ -892,7 +892,7 @@
 	}
 
 	.placeholder {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 		text-align: center;
 		padding: 2rem;
@@ -900,7 +900,7 @@
 
 	.button {
 		padding: 0.75rem 1.5rem;
-		background-color: #3498db;
+		background-color: var(--accent-primary);
 		color: white;
 		border: none;
 		border-radius: 4px;
@@ -910,7 +910,7 @@
 	}
 
 	.button:hover:not(:disabled) {
-		background-color: #2980b9;
+		background-color: var(--accent-primary-hover);
 	}
 
 	.button:disabled {
@@ -919,17 +919,17 @@
 	}
 
 	.button.secondary {
-		background-color: #27ae60;
+		background-color: var(--accent-success);
 	}
 
 	.button.secondary:hover:not(:disabled) {
-		background-color: #219a52;
+		background-color: var(--accent-success-hover);
 	}
 
 	.button-small {
 		padding: 0.5rem 1rem;
-		background-color: #ecf0f1;
-		color: #2c3e50;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
 		border: none;
 		border-radius: 4px;
 		font-size: 0.875rem;
@@ -937,21 +937,21 @@
 	}
 
 	.button-small:hover {
-		background-color: #d5dbdb;
+		background-color: var(--btn-secondary-hover);
 	}
 
 	.button-small.danger {
-		background-color: #fee;
-		color: #c0392b;
+		background-color: var(--accent-danger-bg);
+		color: var(--accent-danger);
 	}
 
 	.button-small.danger:hover {
-		background-color: #fdd;
+		background-color: var(--accent-danger-hover-bg);
 	}
 
 	.folder-structure-warning {
-		background: #f8d7da;
-		border: 1px solid #f5c6cb;
+		background: var(--toast-error-bg);
+		border: 1px solid var(--toast-error-border);
 		padding: 1rem;
 		border-radius: 8px;
 		margin-bottom: 1.5rem;
@@ -959,24 +959,24 @@
 
 	.folder-structure-warning .warning-title {
 		font-weight: 600;
-		color: #721c24;
+		color: var(--toast-error-color);
 		margin-bottom: 0.5rem;
 	}
 
 	.folder-structure-warning .warning-details {
-		color: #721c24;
+		color: var(--toast-error-color);
 		font-size: 0.875rem;
 		margin-bottom: 0.5rem;
 	}
 
 	.folder-structure-warning .warning-hint {
-		color: #856404;
+		color: var(--warning-color);
 		font-size: 0.8rem;
 		font-style: italic;
 	}
 
 	.date-mismatch-icon {
-		color: #e67e22;
+		color: var(--accent-warning-dark);
 		cursor: help;
 		font-size: 0.875rem;
 	}
