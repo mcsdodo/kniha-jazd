@@ -150,7 +150,7 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: rgba(0, 0, 0, 0.5);
+		background: var(--overlay-bg);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -158,7 +158,7 @@
 	}
 
 	.modal {
-		background: white;
+		background: var(--bg-surface);
 		padding: 1.5rem;
 		border-radius: 8px;
 		max-width: 500px;
@@ -170,11 +170,11 @@
 	.modal h2 {
 		margin: 0 0 1rem 0;
 		font-size: 1.25rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.receipt-info {
-		background: #f5f5f5;
+		background: var(--bg-surface-alt);
 		padding: 0.75rem;
 		border-radius: 4px;
 		margin-bottom: 1rem;
@@ -189,7 +189,7 @@
 	}
 
 	.separator {
-		color: #bdc3c7;
+		color: var(--text-muted);
 	}
 
 	.trip-list {
@@ -204,26 +204,27 @@
 		display: flex;
 		gap: 1rem;
 		padding: 0.75rem;
-		border: 1px solid #ddd;
+		border: 1px solid var(--border-input);
 		border-radius: 4px;
-		background: white;
+		background: var(--bg-surface);
 		cursor: pointer;
 		text-align: left;
 		width: 100%;
 		transition: background-color 0.2s;
+		color: var(--text-primary);
 	}
 
 	.trip-item:hover:not(:disabled) {
-		background: #f5f5f5;
+		background: var(--bg-surface-alt);
 	}
 
 	.trip-item.highlight {
-		border-color: #3498db;
-		background: #ebf5fb;
+		border-color: var(--accent-primary);
+		background: var(--accent-primary-light-bg);
 	}
 
 	.trip-item.highlight:hover:not(:disabled) {
-		background: #d4e6f1;
+		background: var(--accent-primary-light-hover);
 	}
 
 	.trip-item.disabled {
@@ -234,28 +235,28 @@
 	.date {
 		font-weight: 500;
 		min-width: 80px;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.route {
 		flex: 1;
-		color: #34495e;
+		color: var(--text-primary);
 	}
 
 	.existing {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-size: 0.875rem;
 	}
 
 	.placeholder {
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 		text-align: center;
 		padding: 1rem;
 	}
 
 	.error {
-		color: #c0392b;
+		color: var(--accent-danger);
 		text-align: center;
 		padding: 1rem;
 	}
@@ -268,8 +269,8 @@
 
 	.button-small {
 		padding: 0.5rem 1rem;
-		background-color: #ecf0f1;
-		color: #2c3e50;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
 		border: none;
 		border-radius: 4px;
 		font-size: 0.875rem;
@@ -278,6 +279,6 @@
 	}
 
 	.button-small:hover {
-		background-color: #d5dbdb;
+		background-color: var(--btn-secondary-hover);
 	}
 </style>

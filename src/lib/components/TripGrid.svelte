@@ -587,9 +587,9 @@
 
 <style>
 	.trip-grid {
-		background: white;
+		background: var(--bg-surface);
 		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px var(--shadow-default);
 	}
 
 	.header {
@@ -597,18 +597,18 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 1.5rem;
-		border-bottom: 1px solid #e0e0e0;
+		border-bottom: 1px solid var(--border-default);
 	}
 
 	.header h2 {
 		margin: 0;
 		font-size: 1.25rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.new-record {
 		padding: 0.625rem 1.25rem;
-		background-color: #3498db;
+		background-color: var(--accent-primary);
 		color: white;
 		border: none;
 		border-radius: 4px;
@@ -618,7 +618,7 @@
 	}
 
 	.new-record:hover:not(:disabled) {
-		background-color: #2980b9;
+		background-color: var(--accent-primary-hover);
 	}
 
 	.new-record:disabled {
@@ -638,7 +638,7 @@
 	}
 
 	thead {
-		background-color: #f8f9fa;
+		background-color: var(--bg-surface-alt);
 		position: sticky;
 		top: 0;
 	}
@@ -647,8 +647,8 @@
 		padding: 0.75rem 0.25rem;
 		text-align: left;
 		font-weight: 600;
-		color: #2c3e50;
-		border-bottom: 2px solid #e0e0e0;
+		color: var(--text-primary);
+		border-bottom: 2px solid var(--border-default);
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
@@ -660,13 +660,13 @@
 	}
 
 	th.sortable:hover {
-		background-color: #e9ecef;
+		background-color: var(--btn-secondary-hover);
 	}
 
 	.sort-indicator {
 		margin-left: 0.25rem;
 		font-size: 0.75rem;
-		color: #3498db;
+		color: var(--accent-primary);
 	}
 
 	/* Column widths - total should be 100% */
@@ -687,44 +687,44 @@
 	tbody tr.empty td {
 		padding: 2rem;
 		text-align: center;
-		color: #7f8c8d;
+		color: var(--text-secondary);
 		font-style: italic;
 	}
 
 	tbody tr.first-record {
-		background-color: #f5f5f5;
-		color: #7f8c8d;
+		background-color: var(--bg-body);
+		color: var(--text-secondary);
 		font-style: italic;
 	}
 
 	tbody tr.first-record td {
 		padding: 0.5rem 0.25rem;
-		border-bottom: 1px solid #e0e0e0;
+		border-bottom: 1px solid var(--border-default);
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
 	tbody tr.first-record td.purpose {
 		font-weight: 500;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	tbody tr.first-record td.number {
 		text-align: right;
 		font-style: normal;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.table-legend {
 		display: flex;
 		gap: 1.5rem;
 		padding: 0.75rem 1rem;
-		background: #fff3e0;
-		border: 1px solid #ffe0b2;
+		background: var(--warning-bg);
+		border: 1px solid var(--warning-border);
 		border-radius: 4px;
 		margin-bottom: 0.75rem;
 		font-size: 0.875rem;
-		color: #666;
+		color: var(--text-secondary);
 	}
 
 	.legend-item {
@@ -734,20 +734,20 @@
 	}
 
 	.partial-indicator {
-		color: #ff9800;
+		color: var(--accent-warning);
 		font-weight: bold;
 	}
 
 	.no-receipt-indicator {
-		color: #e67e22;
+		color: var(--accent-warning-dark);
 	}
 
 	.consumption-warning-sample {
 		display: inline-block;
 		width: 12px;
 		height: 12px;
-		background: #fff3e0;
-		border: 1px solid #ffe0b2;
+		background: var(--warning-bg);
+		border: 1px solid var(--warning-border);
 		border-radius: 2px;
 	}
 </style>

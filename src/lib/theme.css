@@ -33,6 +33,38 @@
     --btn-primary-light-bg: #d4edda;
     --btn-primary-light-color: #155724;
     --btn-primary-light-hover: #c3e6cb;
+
+    /* Toast notifications */
+    --toast-success-bg: #d4edda;
+    --toast-success-color: #155724;
+    --toast-success-border: #c3e6cb;
+    --toast-error-bg: #f8d7da;
+    --toast-error-color: #721c24;
+    --toast-error-border: #f5c6cb;
+    --toast-info-bg: #d1ecf1;
+    --toast-info-color: #0c5460;
+    --toast-info-border: #bee5eb;
+
+    /* Warning banner */
+    --warning-bg: #fff3cd;
+    --warning-color: #856404;
+    --warning-border: #ffc107;
+    --warning-highlight: #d39e00;
+
+    /* Badge */
+    --badge-danger-bg: #e74c3c;
+    --badge-danger-color: #ffffff;
+
+    /* Additional UI elements */
+    --overlay-bg: rgba(0, 0, 0, 0.5);
+    --accent-primary-light-bg: #ebf5fb;
+    --accent-primary-light-hover: #d4e6f1;
+    --accent-danger-bg-hover: #fdd;
+    --danger-bg: #ffebee;
+    --danger-bg-hover: #ffcdd2;
+    --editing-row-bg: #e3f2fd;
+    --icon-btn-hover-bg: rgba(0, 0, 0, 0.05);
+    --accent-warning-dark: #e67e22;
 }
 
 [data-theme="dark"] {
@@ -70,4 +102,36 @@
     --btn-primary-light-bg: #1e3a1e;
     --btn-primary-light-color: #58d68d;
     --btn-primary-light-hover: #2a4a2a;
+
+    /* Toast notifications */
+    --toast-success-bg: #1e3a1e;
+    --toast-success-color: #58d68d;
+    --toast-success-border: #2a4a2a;
+    --toast-error-bg: #3d2020;
+    --toast-error-color: #ec7063;
+    --toast-error-border: #5a2d2d;
+    --toast-info-bg: #1e3a3a;
+    --toast-info-color: #5dade2;
+    --toast-info-border: #2a4a4a;
+
+    /* Warning banner */
+    --warning-bg: #3d3520;
+    --warning-color: #f4d03f;
+    --warning-border: #5a4d2d;
+    --warning-highlight: #f4d03f;
+
+    /* Badge */
+    --badge-danger-bg: #ec7063;
+    --badge-danger-color: #1e1e1e;
+
+    /* Additional UI elements */
+    --overlay-bg: rgba(0, 0, 0, 0.7);
+    --accent-primary-light-bg: #1a3a4a;
+    --accent-primary-light-hover: #254555;
+    --accent-danger-bg-hover: #4d2525;
+    --danger-bg: #3d2020;
+    --danger-bg-hover: #4d2525;
+    --editing-row-bg: #1a3a4a;
+    --icon-btn-hover-bg: rgba(255, 255, 255, 0.1);
+    --accent-warning-dark: #f39c12;
 }

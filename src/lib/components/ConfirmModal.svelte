@@ -49,7 +49,7 @@
 	}
 
 	.modal {
-		background: white;
+		background: var(--bg-surface);
 		padding: 1.5rem;
 		border-radius: 8px;
 		max-width: 400px;
@@ -59,7 +59,7 @@
 	.modal h2 {
 		margin: 0 0 1rem 0;
 		font-size: 1.25rem;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.modal-content {
@@ -68,7 +68,7 @@
 
 	.modal-content p {
 		margin: 0.5rem 0;
-		color: #2c3e50;
+		color: var(--text-primary);
 	}
 
 	.modal-actions {
@@ -79,8 +79,8 @@
 
 	.button-small {
 		padding: 0.5rem 1rem;
-		background-color: #ecf0f1;
-		color: #2c3e50;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
 		border: none;
 		border-radius: 4px;
 		font-size: 0.875rem;
@@ -89,15 +89,15 @@
 	}
 
 	.button-small:hover {
-		background-color: #d5dbdb;
+		background-color: var(--btn-secondary-hover);
 	}
 
 	.button-small.danger {
-		background-color: #fee;
-		color: #c0392b;
+		background-color: var(--accent-danger-bg);
+		color: var(--accent-danger);
 	}
 
 	.button-small.danger:hover {
-		background-color: #fdd;
+		background-color: var(--accent-danger-bg-hover);
 	}
 </style>

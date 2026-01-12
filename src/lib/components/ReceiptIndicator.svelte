@@ -60,8 +60,8 @@
 		min-width: 1.25rem;
 		height: 1.25rem;
 		padding: 0 0.375rem;
-		background: #e74c3c;
-		color: white;
+		background: var(--badge-danger-bg);
+		color: var(--badge-danger-color);
 		border-radius: 10px;
 		font-size: 0.75rem;
 		font-weight: 600;
