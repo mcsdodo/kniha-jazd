@@ -218,7 +218,7 @@
 		padding: 0;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
 			Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-		background-color: #f5f5f5;
+		background-color: var(--bg-body);
 	}
 
 	.app {
@@ -228,10 +228,10 @@
 	}
 
 	header {
-		background-color: #2c3e50;
-		color: white;
+		background-color: var(--bg-header);
+		color: var(--text-on-header);
 		padding: 1rem 2rem;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 4px var(--shadow-default);
 	}
 
 	.header-content {
@@ -260,7 +260,7 @@
 	}
 
 	.nav-link {
-		color: rgba(255, 255, 255, 0.7);
+		color: var(--text-on-header-muted);
 		text-decoration: none;
 		padding: 0.5rem 1rem;
 		border-radius: 4px;
@@ -269,12 +269,12 @@
 	}
 
 	.nav-link:hover {
-		color: white;
+		color: var(--text-on-header);
 		background: rgba(255, 255, 255, 0.1);
 	}
 
 	.nav-link.active {
-		color: white;
+		color: var(--text-on-header);
 		background: rgba(255, 255, 255, 0.2);
 	}
 
@@ -302,9 +302,9 @@
 
 	select {
 		padding: 0.5rem;
-		border: 1px solid #ddd;
+		border: 1px solid var(--border-input);
 		border-radius: 4px;
-		background-color: white;
+		background-color: var(--input-bg);
 		font-size: 1rem;
 		cursor: pointer;
 		min-width: 200px;
@@ -312,8 +312,8 @@
 
 	select:focus {
 		outline: none;
-		border-color: #3498db;
-		box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+		border-color: var(--accent-primary);
+		box-shadow: 0 0 0 3px var(--input-focus-shadow);
 	}
 
 	.resize-btn {
@@ -322,7 +322,7 @@
 		border-radius: 4px;
 		padding: 0.375rem;
 		cursor: pointer;
-		color: rgba(255, 255, 255, 0.7);
+		color: var(--text-on-header-muted);
 		display: flex;
 		align-items: center;
 		transition: all 0.2s;
@@ -330,7 +330,7 @@
 
 	.resize-btn:hover {
 		background: rgba(255, 255, 255, 0.2);
-		color: white;
+		color: var(--text-on-header);
 	}
 
 	main {
