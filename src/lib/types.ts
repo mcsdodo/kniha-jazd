@@ -110,6 +110,8 @@ export interface TripGridData {
 	// Warnings
 	dateWarnings: string[]; // tripIds with date ordering issues
 	missingReceipts: string[]; // tripIds missing receipts
+	// Year boundary data
+	yearStartOdometer: number; // Starting ODO for this year (carryover from previous year)
 }
 
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';

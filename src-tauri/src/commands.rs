@@ -648,6 +648,46 @@ fn get_year_start_fuel_remaining(
     Ok(year_end_fuel)
 }
 
+/// Get the starting odometer for a year (carryover from previous year).
+/// If there are trips in the previous year, returns the ending odometer of that year.
+/// Otherwise, returns the vehicle's initial odometer.
+fn get_year_start_odometer(
+    db: &Database,
+    vehicle_id: &str,
+    year: i32,
+    initial_odometer: f64,
+) -> Result<f64, String> {
+    // Try to get trips from previous year
+    let prev_year = year - 1;
+    let prev_trips = db
+        .get_trips_for_vehicle_in_year(vehicle_id, prev_year)
+        .map_err(|e| e.to_string())?;
+
+    if prev_trips.is_empty() {
+        // No previous year data - recursively check earlier years
+        // until we find trips or reach a reasonable limit
+        if prev_year > year - 10 {
+            // Recursive check (max 10 years back)
+            return get_year_start_odometer(db, vehicle_id, prev_year, initial_odometer);
+        }
+        // No data found in reasonable range - use vehicle's initial odometer
+        return Ok(initial_odometer);
+    }
+
+    // Sort previous year's trips chronologically and get the last one's odometer
+    let mut chronological = prev_trips;
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Return the last trip's odometer (year-end state)
+    Ok(chronological.last().map(|t| t.odometer).unwrap_or(initial_odometer))
+}
+
 /// Get pre-calculated trip grid data for frontend display.
 /// This is the single source of truth for all grid calculations.
 #[tauri::command]
@@ -667,6 +707,14 @@ pub fn get_trip_grid_data(
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
+    // Calculate year starting odometer (carryover from previous year)
+    let year_start_odometer = get_year_start_odometer(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.initial_odometer,
+    )?;
+
     if trips.is_empty() {
         return Ok(TripGridData {
             trips: vec![],
@@ -681,6 +729,7 @@ pub fn get_trip_grid_data(
             soc_override_trips: HashSet::new(),
             date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
+            year_start_odometer,
         });
     }
 
@@ -799,6 +848,7 @@ pub fn get_trip_grid_data(
         soc_override_trips,
         date_warnings,
         missing_receipts,
+        year_start_odometer,
     })
 }
 
@@ -1547,6 +1597,14 @@ pub async fn export_to_browser(
         tp_consumption,
     )?;
 
+    // Get year starting odometer (carryover from previous year)
+    let year_start_odometer = get_year_start_odometer(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.initial_odometer,
+    )?;
+
     let fuel_remaining =
         calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
 
@@ -1563,6 +1621,7 @@ pub async fn export_to_browser(
         soc_override_trips: HashSet::new(),
         date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
+        year_start_odometer,
     };
 
     let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
@@ -1647,6 +1706,14 @@ pub async fn export_html(
         tp_consumption,
     )?;
 
+    // Get year starting odometer (carryover from previous year)
+    let year_start_odometer = get_year_start_odometer(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.initial_odometer,
+    )?;
+
     let fuel_remaining =
         calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
 
@@ -1663,6 +1730,7 @@ pub async fn export_html(
         soc_override_trips: HashSet::new(),
         date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
+        year_start_odometer,
     };
 
     // Calculate totals for footer
@@ -2991,6 +3059,167 @@ mod tests {
         // Trip2 uses 12L at 6% rate, adds 10L partial = 50 - 12 + 10 = 48L
         let fuel = result.unwrap();
         assert!((fuel - 48.0).abs() < 0.1, "Expected ~48L, got {}", fuel);
+    }
+
+    // ========================================================================
+    // Year odometer carryover tests (get_year_start_odometer)
+    // ========================================================================
+
+    #[test]
+    fn test_year_start_odometer_no_previous_year_data() {
+        // When no trips exist in the previous year, should return vehicle's initial odometer
+        let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            50.0,
+            6.0,
+            38057.0, // initial_odometer
+        );
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        // Query for 2025 with no 2024 data
+        let result = get_year_start_odometer(
+            &db,
+            &vehicle.id.to_string(),
+            2025,
+            38057.0, // initial_odometer
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 38057.0, "Should return initial odometer when no previous year data");
+    }
+
+    #[test]
+    fn test_year_start_odometer_with_previous_year_trips() {
+        // When previous year has trips, should return the last trip's odometer
+        let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            50.0,
+            6.0,
+            38057.0, // initial_odometer
+        );
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let now = Utc::now();
+
+        // Trip in 2024 ending at 54914 km (like the bug scenario)
+        let trip_2024 = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            date: NaiveDate::from_ymd_opt(2024, 12, 13).unwrap(),
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km: 370.0,
+            odometer: 54914.0, // This is the ending odometer
+            purpose: "test".to_string(),
+            fuel_liters: Some(24.0),
+            fuel_cost_eur: Some(35.0),
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        };
+        db.create_trip(&trip_2024).expect("Failed to create trip");
+
+        // Query for 2025 should return 54914 (last trip's odometer from 2024)
+        let result = get_year_start_odometer(
+            &db,
+            &vehicle.id.to_string(),
+            2025,
+            38057.0, // initial_odometer (should be ignored)
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 54914.0, "Should return last trip's odometer from previous year");
+    }
+
+    #[test]
+    fn test_year_start_odometer_multiple_trips_returns_last() {
+        // With multiple trips in previous year, should return the chronologically last one
+        let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            50.0,
+            6.0,
+            10000.0,
+        );
+        db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+        let now = Utc::now();
+
+        // First trip (earlier date)
+        let trip1 = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            date: NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km: 100.0,
+            odometer: 10100.0,
+            purpose: "test".to_string(),
+            fuel_liters: Some(6.0),
+            fuel_cost_eur: Some(10.0),
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 1,
+            created_at: now,
+            updated_at: now,
+        };
+
+        // Last trip (later date, higher odometer)
+        let trip2 = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            date: NaiveDate::from_ymd_opt(2024, 12, 31).unwrap(),
+            origin: "B".to_string(),
+            destination: "C".to_string(),
+            distance_km: 200.0,
+            odometer: 20000.0, // This is the last odometer
+            purpose: "test".to_string(),
+            fuel_liters: Some(12.0),
+            fuel_cost_eur: Some(20.0),
+            full_tank: true,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        };
+
+        db.create_trip(&trip1).expect("Failed to create trip1");
+        db.create_trip(&trip2).expect("Failed to create trip2");
+
+        let result = get_year_start_odometer(
+            &db,
+            &vehicle.id.to_string(),
+            2025,
+            10000.0,
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 20000.0, "Should return the last trip's odometer by date");
     }
 
     // ========================================================================

@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Chybný počiatočný stav ODO pri prechode na nový rok** - pri zobrazení roku 2026 sa používal statický `initialOdometer` vozidla namiesto posledného ODO z predchádzajúceho roku
+  - Príčina: Frontend používal `vehicle.initialOdometer` (hodnota z vytvorenia vozidla) pre všetky roky
+  - Oprava: Backend teraz vracia `yearStartOdometer` - posledný ODO z predchádzajúceho roku
+  - Pridaná funkcia `get_year_start_odometer()` s rekurzívnym vyhľadávaním v predchádzajúcich rokoch
+  - Pridané 3 testy pre prechod ODO medzi rokmi
+
 ## [0.12.0] - 2026-01-10
 
 ### Opravené

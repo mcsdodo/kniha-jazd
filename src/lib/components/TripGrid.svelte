@@ -23,6 +23,10 @@
 	$: showFuelColumns = vehicleType === 'Ice' || vehicleType === 'Phev';
 	$: showEnergyColumns = vehicleType === 'Bev' || vehicleType === 'Phev';
 
+	// Use year-specific starting odometer from backend (carryover from previous year)
+	// Falls back to vehicle's initial odometer if not available
+	$: effectiveInitialOdometer = gridData?.yearStartOdometer ?? initialOdometer;
+
 	// Pre-calculated grid data from backend
 	let gridData: TripGridData | null = null;
 	// Fuel data
@@ -329,7 +333,7 @@
 			.sort((a, b) => a.sortOrder - b.sortOrder)
 			.reverse();
 
-		let runningOdo = initialOdometer;
+		let runningOdo = effectiveInitialOdometer;
 		for (const trip of chronological) {
 			runningOdo += trip.distanceKm;
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
@@ -353,7 +357,7 @@
 		origin: '-',
 		destination: '-',
 		distanceKm: 0,
-		odometer: initialOdometer,
+		odometer: effectiveInitialOdometer,
 		purpose: $LL.trips.firstRecord(),
 		fuelLiters: null,
 		fuelCostEur: null,
@@ -389,7 +393,7 @@
 		return trip.id === FIRST_RECORD_ID;
 	}
 
-	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : initialOdometer;
+	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : effectiveInitialOdometer;
 
 	// Legend counts
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
@@ -496,7 +500,7 @@
 							{routes}
 							{purposeSuggestions}
 							isNew={true}
-							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
+							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : effectiveInitialOdometer}
 							defaultDate={insertDate || trip.date}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelRemaining={fuelRemaining.get(trip.id) || tankSize}
@@ -542,7 +546,7 @@
 							{routes}
 							{purposeSuggestions}
 							isNew={false}
-							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : initialOdometer}
+							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : effectiveInitialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelRemaining={fuelRemaining.get(trip.id) || 0}
 							{vehicleType}
