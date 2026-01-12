@@ -259,6 +259,8 @@ fn test_apply_extraction_high_confidence() {
         receipt_date: Some("2024-12-15".to_string()),
         station_name: Some("Slovnaft".to_string()),
         station_address: Some("Bratislava".to_string()),
+        vendor_name: None,
+        cost_description: None,
         raw_text: Some("OCR text".to_string()),
         confidence: ExtractionConfidence {
             liters: "high".to_string(),
@@ -286,6 +288,8 @@ fn test_apply_extraction_low_confidence() {
         receipt_date: None,
         station_name: None,
         station_address: None,
+        vendor_name: None,
+        cost_description: None,
         raw_text: Some("blurry".to_string()),
         confidence: ExtractionConfidence {
             liters: "low".to_string(),
