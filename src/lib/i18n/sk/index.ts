@@ -260,6 +260,8 @@ const sk = {
 		filterAll: 'Všetky',
 		filterUnassigned: 'Neoverené',
 		filterNeedsReview: 'Na kontrolu',
+		filterFuel: 'Tankovanie',
+		filterOther: 'Iné náklady',
 		// Verification summary
 		allVerified: '{count:number}/{total:number} dokladov overených',
 		verified: '{count:number}/{total:number} overených',
@@ -284,6 +286,11 @@ const sk = {
 		reprocess: 'Znovu spracovať',
 		reprocessing: 'Spracovávam...',
 		assignToTrip: 'Prideliť k jazde',
+		// Other costs
+		otherCost: 'Iné náklady',
+		vendor: 'Predajca:',
+		description: 'Popis:',
+		assignmentBlocked: 'Jazda už má iné náklady',
 		// Empty state
 		noReceipts: 'Žiadne doklady. Kliknite na Načítať pre načítanie nových.',
 	},

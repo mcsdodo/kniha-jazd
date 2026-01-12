@@ -794,6 +794,14 @@ type RootTranslation = {
 		 */
 		filterNeedsReview: string
 		/**
+		 * T​a​n​k​o​v​a​n​i​e
+		 */
+		filterFuel: string
+		/**
+		 * I​n​é​ ​n​á​k​l​a​d​y
+		 */
+		filterOther: string
+		/**
 		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​d​o​k​l​a​d​o​v​ ​o​v​e​r​e​n​ý​c​h
 		 * @param {number} count
 		 * @param {number} total
@@ -874,6 +882,22 @@ type RootTranslation = {
 		 * P​r​i​d​e​l​i​ť​ ​k​ ​j​a​z​d​e
 		 */
 		assignToTrip: string
+		/**
+		 * I​n​é​ ​n​á​k​l​a​d​y
+		 */
+		otherCost: string
+		/**
+		 * P​r​e​d​a​j​c​a​:
+		 */
+		vendor: string
+		/**
+		 * P​o​p​i​s​:
+		 */
+		description: string
+		/**
+		 * J​a​z​d​a​ ​u​ž​ ​m​á​ ​i​n​é​ ​n​á​k​l​a​d​y
+		 */
+		assignmentBlocked: string
 		/**
 		 * Ž​i​a​d​n​e​ ​d​o​k​l​a​d​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​N​a​č​í​t​a​ť​ ​p​r​e​ ​n​a​č​í​t​a​n​i​e​ ​n​o​v​ý​c​h​.
 		 */
@@ -2012,6 +2036,14 @@ export type TranslationFunctions = {
 		 */
 		filterNeedsReview: () => LocalizedString
 		/**
+		 * Tankovanie
+		 */
+		filterFuel: () => LocalizedString
+		/**
+		 * Iné náklady
+		 */
+		filterOther: () => LocalizedString
+		/**
 		 * {count}/{total} dokladov overených
 		 */
 		allVerified: (arg: { count: number, total: number }) => LocalizedString
@@ -2087,6 +2119,22 @@ export type TranslationFunctions = {
 		 * Prideliť k jazde
 		 */
 		assignToTrip: () => LocalizedString
+		/**
+		 * Iné náklady
+		 */
+		otherCost: () => LocalizedString
+		/**
+		 * Predajca:
+		 */
+		vendor: () => LocalizedString
+		/**
+		 * Popis:
+		 */
+		description: () => LocalizedString
+		/**
+		 * Jazda už má iné náklady
+		 */
+		assignmentBlocked: () => LocalizedString
 		/**
 		 * Žiadne doklady. Kliknite na Načítať pre načítanie nových.
 		 */

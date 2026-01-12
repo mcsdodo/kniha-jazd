@@ -136,6 +136,8 @@ export interface Receipt {
 	stationName: string | null;
 	stationAddress: string | null;
 	sourceYear: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)
+	vendorName: string | null; // Vendor/store name for non-fuel receipts
+	costDescription: string | null; // Description of cost for non-fuel receipts
 	status: ReceiptStatus;
 	confidence: FieldConfidence;
 	rawOcrText: string | null;
