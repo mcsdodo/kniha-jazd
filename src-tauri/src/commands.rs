@@ -657,35 +657,32 @@ fn get_year_start_odometer(
     year: i32,
     initial_odometer: f64,
 ) -> Result<f64, String> {
-    // Try to get trips from previous year
-    let prev_year = year - 1;
-    let prev_trips = db
-        .get_trips_for_vehicle_in_year(vehicle_id, prev_year)
-        .map_err(|e| e.to_string())?;
+    // Try to find trips from previous years (up to 10 years back)
+    let min_year = year - 10;
+    let mut check_year = year - 1;
 
-    if prev_trips.is_empty() {
-        // No previous year data - recursively check earlier years
-        // until we find trips or reach a reasonable limit
-        if prev_year > year - 10 {
-            // Recursive check (max 10 years back)
-            return get_year_start_odometer(db, vehicle_id, prev_year, initial_odometer);
+    while check_year >= min_year {
+        let trips = db
+            .get_trips_for_vehicle_in_year(vehicle_id, check_year)
+            .map_err(|e| e.to_string())?;
+
+        if !trips.is_empty() {
+            // Found trips - sort and get the last one's odometer
+            let mut chronological = trips;
+            chronological.sort_by(|a, b| {
+                a.date.cmp(&b.date).then_with(|| {
+                    a.odometer
+                        .partial_cmp(&b.odometer)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+            });
+            return Ok(chronological.last().map(|t| t.odometer).unwrap_or(initial_odometer));
         }
-        // No data found in reasonable range - use vehicle's initial odometer
-        return Ok(initial_odometer);
+        check_year -= 1;
     }
 
-    // Sort previous year's trips chronologically and get the last one's odometer
-    let mut chronological = prev_trips;
-    chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-    });
-
-    // Return the last trip's odometer (year-end state)
-    Ok(chronological.last().map(|t| t.odometer).unwrap_or(initial_odometer))
+    // No data found in reasonable range - use vehicle's initial odometer
+    Ok(initial_odometer)
 }
 
 /// Get pre-calculated trip grid data for frontend display.
