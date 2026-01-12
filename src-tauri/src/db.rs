@@ -789,7 +789,7 @@ impl Database {
             "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                     liters, total_price_eur, receipt_date, station_name, station_address,
                     source_year, status, confidence, raw_ocr_text, error_message,
-                    created_at, updated_at
+                    created_at, updated_at, vendor_name, cost_description
              FROM receipts WHERE
                 (receipt_date IS NOT NULL AND CAST(strftime('%Y', receipt_date) AS INTEGER) = ?)
                 OR (receipt_date IS NULL AND source_year = ?)
@@ -817,7 +817,7 @@ impl Database {
                 "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                         liters, total_price_eur, receipt_date, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
-                        created_at, updated_at
+                        created_at, updated_at, vendor_name, cost_description
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                    AND (
@@ -835,7 +835,7 @@ impl Database {
                 "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                         liters, total_price_eur, receipt_date, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
-                        created_at, updated_at
+                        created_at, updated_at, vendor_name, cost_description
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                  ORDER BY receipt_date DESC, scanned_at DESC",
