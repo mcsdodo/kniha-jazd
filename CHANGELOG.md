@@ -23,6 +23,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Ochrana proti kolízii - jazda môže mať len jeden doklad iných nákladov
 
 ### Opravené
+- **Tmavý režim - čierny text** - oprava čierneho textu v tmavom režime pre tabuľky, formulárové prvky a tlačidlá filtrov
+- **Triedenie v stĺpci Akcie** - odstránené nechcené triedenie pri kliknutí na hlavičku stĺpca Akcie
 - **Overovanie dokladov iných nákladov** - doklady bez litrov sa teraz správne párujú s jazdami podľa ceny (`other_costs_eur`)
   - Indikátor v navigácii zobrazuje len nepárované doklady (ADR-008: výpočet v backende)
 - **Float→Double typ v Diesel schéme** - oprava chyby kompilácie kde `f64` vyžaduje `Double`, nie `Float`
