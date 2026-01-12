@@ -6,6 +6,7 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
 	import { localeStore } from '$lib/stores/locale';
+	import { themeStore } from '$lib/stores/theme';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
@@ -67,6 +68,9 @@
 		// Initialize i18n first
 		localeStore.init();
 		i18nReady = true;
+
+		// Initialize theme (after locale but before async vehicle loading)
+		await themeStore.init();
 
 		try {
 			// PRESERVE parallel loading for performance
