@@ -17,6 +17,10 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Ochrana proti kolízii - jazda môže mať len jeden doklad iných nákladov
 
 ### Opravené
+- **Overovanie dokladov iných nákladov** - doklady bez litrov sa teraz správne párujú s jazdami podľa ceny (`other_costs_eur`)
+  - Indikátor v navigácii zobrazuje len nepárované doklady (ADR-008: výpočet v backende)
+- **Float→Double typ v Diesel schéme** - oprava chyby kompilácie kde `f64` vyžaduje `Double`, nie `Float`
+- **Nekonečná rekurzia v year_start_odometer** - prepísané na iteratívny prístup
 - **Chybný počiatočný stav ODO pri prechode na nový rok** - pri zobrazení roku 2026 sa používal statický `initialOdometer` vozidla namiesto posledného ODO z predchádzajúceho roku
   - Príčina: Frontend používal `vehicle.initialOdometer` (hodnota z vytvorenia vozidla) pre všetky roky
   - Oprava: Backend teraz vracia `yearStartOdometer` - posledný ODO z predchádzajúceho roku
