@@ -2023,7 +2023,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
