@@ -8,6 +8,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
+- **Tmavý režim (Dark Theme)** - podpora svetlej a tmavej témy s automatickou detekciou systémových preferencií
+  - Prepínač v Nastavenia → Vzhľad (Podľa systému / Svetlá / Tmavá)
+  - Automatické prepínanie pri zmene systémových preferencií
+  - Trvalé uloženie preferencie v `local.settings.json`
+  - CSS premenné pre konzistentné farby vo všetkých komponentoch
+  - Kompletná migrácia všetkých stránok a komponentov na CSS premenné
 - **Rozpoznávanie iných nákladov** - skenovanie a priradenie dokladov za umytie auta, parkovanie, diaľničné poplatky, servis a pod.
   - AI automaticky rozpozná či ide o tankovanie (má litre) alebo iný náklad
   - Multi-stage matching: doklad s litrami ktorý nezodpovedá tankovaniu (napr. ostrekovač 2L/5€) sa klasifikuje ako iný náklad
