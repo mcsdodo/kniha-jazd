@@ -204,6 +204,12 @@ const en = {
 		// Language section
 		languageSection: 'Language',
 		language: 'Application language',
+		// Appearance section
+		appearanceSection: 'Appearance',
+		themeLabel: 'Theme',
+		themeSystem: 'System default',
+		themeLight: 'Light',
+		themeDark: 'Dark',
 	},
 
 	// Backup modals
