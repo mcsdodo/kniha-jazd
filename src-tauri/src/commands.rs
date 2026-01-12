@@ -1995,10 +1995,63 @@ pub fn assign_receipt_to_trip(
         .find(|r| r.id.to_string() == receipt_id)
         .ok_or("Receipt not found")?;
 
-    receipt.trip_id = Some(Uuid::parse_str(&trip_id).map_err(|e| e.to_string())?);
-    receipt.vehicle_id = Some(Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?);
-    receipt.status = ReceiptStatus::Assigned;
+    let trip_uuid = Uuid::parse_str(&trip_id).map_err(|e| e.to_string())?;
+    let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
 
+    let trip = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Trip not found")?;
+
+    // Multi-stage matching: determine if this is FUEL or OTHER COST
+    let is_fuel_match = match (receipt.liters, receipt.total_price_eur) {
+        (Some(liters), Some(price)) => {
+            // Has liters + price → check if it matches trip's fuel entry
+            let date_match = receipt.receipt_date == Some(trip.date);
+            let liters_match = trip
+                .fuel_liters
+                .map(|fl| (fl - liters).abs() < 0.01)
+                .unwrap_or(false);
+            let price_match = trip
+                .fuel_cost_eur
+                .map(|fc| (fc - price).abs() < 0.01)
+                .unwrap_or(false);
+            date_match && liters_match && price_match
+        }
+        _ => false, // No liters or no price → cannot be fuel
+    };
+
+    if is_fuel_match {
+        // FUEL: existing behavior (just link receipt to trip)
+        // Trip fuel fields already populated by user - receipt is verification
+    } else {
+        // OTHER COST: populate trip.other_costs_* fields
+        // (even if receipt has liters - e.g., washer fluid that doesn't match any fuel entry)
+
+        // Check for collision
+        if trip.other_costs_eur.is_some() {
+            return Err("Jazda už má iné náklady".to_string());
+        }
+
+        // Build note from receipt data
+        let note = match (&receipt.vendor_name, &receipt.cost_description) {
+            (Some(v), Some(d)) => format!("{}: {}", v, d),
+            (Some(v), None) => v.clone(),
+            (None, Some(d)) => d.clone(),
+            (None, None) => "Iné náklady".to_string(),
+        };
+
+        // Update trip with other costs
+        let mut updated_trip = trip.clone();
+        updated_trip.other_costs_eur = receipt.total_price_eur;
+        updated_trip.other_costs_note = Some(note);
+        db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
+    }
+
+    // Mark receipt as assigned (same for both types)
+    receipt.trip_id = Some(trip_uuid);
+    receipt.vehicle_id = Some(vehicle_uuid);
+    receipt.status = ReceiptStatus::Assigned;
     db.update_receipt(receipt).map_err(|e| e.to_string())?;
 
     Ok(receipt.clone())
