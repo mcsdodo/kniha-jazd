@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Oddelenie dev a prod databázy** - vývojová verzia používa samostatnú databázu
+  - Nový konfiguračný súbor `tauri.conf.dev.json` s identifikátorom `com.notavailable.kniha-jazd.dev`
+  - Príkaz `npm run tauri:dev` spúšťa aplikáciu s odlišným dátovým priečinkom
+  - Ochrana produkčných dát pred poškodenením počas vývoja
+  - Názov okna "[DEV]" pre jednoznačné rozlíšenie verzií
+
 ### Opravené
 - **Oprava BEV/PHEV integračných testov** - testy teraz používajú správne konvencie
   - Použitie camelCase názvov vlastností (`energyRates` namiesto `energy_rates`) podľa task 30
