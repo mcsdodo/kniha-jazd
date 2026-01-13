@@ -40,6 +40,12 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
+		// Tab should always close dropdown and move to next field
+		if (event.key === 'Tab') {
+			showDropdown = false;
+			return; // Let Tab propagate normally
+		}
+
 		if (!showDropdown) return;
 
 		switch (event.key) {
@@ -59,7 +65,7 @@
 				}
 				break;
 			case 'Escape':
-				event.stopPropagation(); // Don't trigger row cancel
+				// Close dropdown but let event bubble up to cancel row edit
 				showDropdown = false;
 				break;
 		}
@@ -84,13 +90,14 @@
 		on:focus={updateSuggestions}
 	/>
 	{#if showDropdown}
-		<div class="dropdown">
+		<div class="dropdown" tabindex="-1">
 			{#each filteredSuggestions as suggestion, i}
 				<button
 					class="suggestion"
 					class:selected={i === selectedIndex}
 					on:mousedown|preventDefault={() => selectSuggestion(suggestion)}
 					type="button"
+					tabindex="-1"
 				>
 					{suggestion}
 				</button>

@@ -127,9 +127,29 @@
 	}
 
 	function handleOdoChange(event: Event) {
-		manualOdoEdit = true;
 		const inputValue = (event.target as HTMLInputElement).value;
-		formData.odometer = inputValue === '' ? null : (parseFloat(inputValue) || 0);
+		const newOdo = inputValue === '' ? null : (parseFloat(inputValue) || 0);
+
+		// Only process if value actually changed
+		if (newOdo === formData.odometer) return;
+
+		manualOdoEdit = true;
+		const oldOdo = formData.odometer;
+		formData.odometer = newOdo;
+
+		// Bidirectional: recalculate KM from ODO
+		// Use the expected previous ODO (current ODO - current KM) to handle edits correctly
+		if (newOdo !== null && oldOdo !== null && formData.distanceKm !== null) {
+			// Calculate the delta and apply it to KM
+			const delta = newOdo - oldOdo;
+			formData.distanceKm = Math.max(0, (formData.distanceKm ?? 0) + delta);
+			// Trigger live preview with updated KM
+			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
+		} else if (newOdo !== null) {
+			// Fallback: calculate from previousOdometer (for new trips or when values are null)
+			formData.distanceKm = Math.max(0, newOdo - previousOdometer);
+			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
+		}
 	}
 
 	function handleEdit() {
@@ -201,7 +221,33 @@
 		}
 	}
 
+	// Global keyboard handler for when editing
+	// This ensures ESC/Enter work regardless of focus location
+	function handleGlobalKeydown(event: KeyboardEvent) {
+		if (!isEditing) return;
+
+		// Check if target is inside an autocomplete with open dropdown
+		const target = event.target as HTMLElement;
+		const autocomplete = target.closest('.autocomplete');
+		const hasOpenDropdown = autocomplete?.querySelector('.dropdown') !== null;
+
+		if (event.key === 'Escape') {
+			// ESC always cancels (Autocomplete closes dropdown but doesn't block)
+			event.preventDefault();
+			handleCancel();
+		} else if (event.key === 'Enter' && !event.shiftKey) {
+			if (hasOpenDropdown) {
+				// Let Autocomplete handle selection first
+				return;
+			}
+			event.preventDefault();
+			handleSave();
+		}
+	}
+
 </script>
+
+<svelte:window on:keydown={handleGlobalKeydown} />
 
 {#if isEditing}
 	<tr class="editing" on:keydown={handleKeydown}>
