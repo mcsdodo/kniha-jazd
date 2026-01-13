@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-01-13
+
 ### Pridané
 - **Oddelenie dev a prod databázy** - vývojová verzia používa samostatnú databázu
   - Nový konfiguračný súbor `tauri.conf.dev.json` s identifikátorom `com.notavailable.kniha-jazd.dev`
