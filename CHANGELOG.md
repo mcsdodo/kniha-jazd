@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Oprava BEV/PHEV integračných testov** - testy teraz používajú správne konvencie
+  - Použitie camelCase názvov vlastností (`energyRates` namiesto `energy_rates`) podľa task 30
+  - Oprava očakávanej spotreby BEV (12 namiesto 18 kWh/100km - vzdialenosť 150km, nie 100km)
+  - Oprava PHEV null asercií (`toBeNull` namiesto `toBeUndefined` - Rust Option::None)
+  - Oprava PHEV margin testu (10L paliva pre dosiahnutie spotreby >1.92 l/100km)
+
 ## [0.14.0] - 2026-01-13
 
 ### Pridané
