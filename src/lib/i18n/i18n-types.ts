@@ -1287,6 +1287,107 @@ type RootTranslation = {
 		 */
 		printHint: string
 	}
+	update: {
+		/**
+		 * A​k​t​u​a​l​i​z​á​c​i​e
+		 */
+		sectionTitle: string
+		/**
+		 * V​e​r​z​i​a
+		 */
+		currentVersion: string
+		/**
+		 * S​k​o​n​t​r​o​l​o​v​a​ť​ ​a​k​t​u​a​l​i​z​á​c​i​e
+		 */
+		checkForUpdates: string
+		/**
+		 * A​k​t​u​a​l​i​z​o​v​a​ť
+		 */
+		updateNow: string
+		/**
+		 * N​e​s​k​ô​r
+		 */
+		later: string
+		/**
+		 * K​o​n​t​r​o​l​u​j​e​m​.​.​.
+		 */
+		checking: string
+		/**
+		 * A​p​l​i​k​á​c​i​a​ ​j​e​ ​a​k​t​u​á​l​n​a
+		 */
+		upToDate: string
+		/**
+		 * D​o​s​t​u​p​n​á​ ​a​k​t​u​a​l​i​z​á​c​i​a
+		 */
+		available: string
+		/**
+		 * D​o​s​t​u​p​n​á​ ​v​e​r​z​i​a​ ​{​v​e​r​s​i​o​n​}
+		 * @param {string} version
+		 */
+		availableVersion: RequiredParams<'version'>
+		/**
+		 * S​ť​a​h​u​j​e​m​.​.​.
+		 */
+		downloading: string
+		/**
+		 * S​ť​a​h​o​v​a​n​i​e​:​ ​{​p​e​r​c​e​n​t​}​%
+		 * @param {string} percent
+		 */
+		downloadProgress: RequiredParams<'percent'>
+		/**
+		 * I​n​š​t​a​l​u​j​e​m​.​.​.
+		 */
+		installing: string
+		/**
+		 * D​o​s​t​u​p​n​á​ ​a​k​t​u​a​l​i​z​á​c​i​a
+		 */
+		modalTitle: string
+		/**
+		 * V​e​r​z​i​a​ ​{​v​e​r​s​i​o​n​}​ ​j​e​ ​p​r​i​p​r​a​v​e​n​á​ ​n​a​ ​i​n​š​t​a​l​á​c​i​u​.
+		 * @param {string} version
+		 */
+		modalBody: RequiredParams<'version'>
+		/**
+		 * Č​o​ ​j​e​ ​n​o​v​é​:
+		 */
+		releaseNotes: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​k​o​n​t​r​o​l​o​v​a​ť​ ​a​k​t​u​a​l​i​z​á​c​i​e
+		 */
+		errorChecking: string
+		/**
+		 * S​k​o​n​t​r​o​l​u​j​t​e​ ​p​r​i​p​o​j​e​n​i​e​ ​k​ ​i​n​t​e​r​n​e​t​u
+		 */
+		errorNetwork: string
+		/**
+		 * S​ť​a​h​o​v​a​n​i​e​ ​p​r​e​r​u​š​e​n​é​,​ ​s​k​ú​s​t​e​ ​z​n​o​v​a
+		 */
+		errorDownloadInterrupted: string
+		/**
+		 * N​e​p​l​a​t​n​á​ ​s​i​g​n​a​t​ú​r​a​ ​a​k​t​u​a​l​i​z​á​c​i​e
+		 */
+		errorSignature: string
+		/**
+		 * N​e​d​o​s​t​a​t​o​k​ ​m​i​e​s​t​a​ ​n​a​ ​d​i​s​k​u
+		 */
+		errorDiskSpace: string
+		/**
+		 * S​e​r​v​e​r​ ​a​k​t​u​a​l​i​z​á​c​i​í​ ​n​e​d​o​s​t​u​p​n​ý
+		 */
+		errorServerUnavailable: string
+		/**
+		 * S​k​ú​s​i​ť​ ​z​n​o​v​a
+		 */
+		retry: string
+		/**
+		 * A​k​t​u​a​l​i​z​o​v​a​ť
+		 */
+		buttonUpdate: string
+		/**
+		 * N​e​s​k​ô​r
+		 */
+		buttonLater: string
+	}
 }
 
 export type TranslationFunctions = {
@@ -2521,6 +2622,104 @@ export type TranslationFunctions = {
 		 * Pre export do PDF použite Ctrl+P → Uložiť ako PDF
 		 */
 		printHint: () => LocalizedString
+	}
+	update: {
+		/**
+		 * Aktualizácie
+		 */
+		sectionTitle: () => LocalizedString
+		/**
+		 * Verzia
+		 */
+		currentVersion: () => LocalizedString
+		/**
+		 * Skontrolovať aktualizácie
+		 */
+		checkForUpdates: () => LocalizedString
+		/**
+		 * Aktualizovať
+		 */
+		updateNow: () => LocalizedString
+		/**
+		 * Neskôr
+		 */
+		later: () => LocalizedString
+		/**
+		 * Kontrolujem...
+		 */
+		checking: () => LocalizedString
+		/**
+		 * Aplikácia je aktuálna
+		 */
+		upToDate: () => LocalizedString
+		/**
+		 * Dostupná aktualizácia
+		 */
+		available: () => LocalizedString
+		/**
+		 * Dostupná verzia {version}
+		 */
+		availableVersion: (arg: { version: string }) => LocalizedString
+		/**
+		 * Sťahujem...
+		 */
+		downloading: () => LocalizedString
+		/**
+		 * Sťahovanie: {percent}%
+		 */
+		downloadProgress: (arg: { percent: string }) => LocalizedString
+		/**
+		 * Inštalujem...
+		 */
+		installing: () => LocalizedString
+		/**
+		 * Dostupná aktualizácia
+		 */
+		modalTitle: () => LocalizedString
+		/**
+		 * Verzia {version} je pripravená na inštaláciu.
+		 */
+		modalBody: (arg: { version: string }) => LocalizedString
+		/**
+		 * Čo je nové:
+		 */
+		releaseNotes: () => LocalizedString
+		/**
+		 * Nepodarilo sa skontrolovať aktualizácie
+		 */
+		errorChecking: () => LocalizedString
+		/**
+		 * Skontrolujte pripojenie k internetu
+		 */
+		errorNetwork: () => LocalizedString
+		/**
+		 * Sťahovanie prerušené, skúste znova
+		 */
+		errorDownloadInterrupted: () => LocalizedString
+		/**
+		 * Neplatná signatúra aktualizácie
+		 */
+		errorSignature: () => LocalizedString
+		/**
+		 * Nedostatok miesta na disku
+		 */
+		errorDiskSpace: () => LocalizedString
+		/**
+		 * Server aktualizácií nedostupný
+		 */
+		errorServerUnavailable: () => LocalizedString
+		/**
+		 * Skúsiť znova
+		 */
+		retry: () => LocalizedString
+		/**
+		 * Aktualizovať
+		 */
+		buttonUpdate: () => LocalizedString
+		/**
+		 * Neskôr
+		 */
+		buttonLater: () => LocalizedString
 	}
 }
 

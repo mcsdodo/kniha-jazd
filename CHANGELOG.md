@@ -7,6 +7,22 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Automatické aktualizácie** - aplikácia kontroluje dostupnosť novej verzie
+  - Kontrola pri štarte aplikácie (na pozadí, neblokujúce)
+  - Manuálne tlačidlo "Skontrolovať aktualizácie" v Nastaveniach
+  - Modálne okno s verziou a poznámkami k vydaniu
+  - Tlačidlo "Aktualizovať" stiahne, nainštaluje a reštartuje aplikáciu
+  - Tlačidlo "Neskôr" odloží pripomienku do ďalšieho štartu
+  - Modrá bodka indikátora pri Nastaveniach ak je aktualizácia dostupná
+  - Podpísané aktualizácie pre bezpečnosť (Ed25519)
+  - GitHub Releases ako distribučný kanál
+- **Zobrazenie verzie v Nastaveniach** - sekcia "Aktualizácie" zobrazuje aktuálnu verziu
+- **Automatická extrakcia poznámok k vydaniu** - CI workflow extrahuje poznámky z CHANGELOG.md
+
+### Zmenené
+- **Synchronizácia verzií** - Cargo.toml aktualizovaný na 0.15.0 (zosúladenie s package.json a tauri.conf.json)
+
 ## [0.15.0] - 2026-01-13
 
 ### Pridané

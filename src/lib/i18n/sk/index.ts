@@ -407,6 +407,34 @@ const sk = {
 		// Print hint
 		printHint: 'Pre export do PDF použite Ctrl+P → Uložiť ako PDF',
 	},
+
+	// Update section
+	update: {
+		sectionTitle: 'Aktualizácie',
+		currentVersion: 'Verzia',
+		checkForUpdates: 'Skontrolovať aktualizácie',
+		updateNow: 'Aktualizovať',
+		later: 'Neskôr',
+		checking: 'Kontrolujem...',
+		upToDate: 'Aplikácia je aktuálna',
+		available: 'Dostupná aktualizácia',
+		availableVersion: 'Dostupná verzia {version:string}',
+		downloading: 'Sťahujem...',
+		downloadProgress: 'Sťahovanie: {percent:string}%',
+		installing: 'Inštalujem...',
+		modalTitle: 'Dostupná aktualizácia',
+		modalBody: 'Verzia {version:string} je pripravená na inštaláciu.',
+		releaseNotes: 'Čo je nové:',
+		errorChecking: 'Nepodarilo sa skontrolovať aktualizácie',
+		errorNetwork: 'Skontrolujte pripojenie k internetu',
+		errorDownloadInterrupted: 'Sťahovanie prerušené, skúste znova',
+		errorSignature: 'Neplatná signatúra aktualizácie',
+		errorDiskSpace: 'Nedostatok miesta na disku',
+		errorServerUnavailable: 'Server aktualizácií nedostupný',
+		retry: 'Skúsiť znova',
+		buttonUpdate: 'Aktualizovať',
+		buttonLater: 'Neskôr',
+	},
 } satisfies BaseTranslation;
 
 export default sk;

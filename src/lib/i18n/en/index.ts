@@ -407,6 +407,34 @@ const en = {
 		// Print hint
 		printHint: 'To export to PDF use Ctrl+P → Save as PDF',
 	},
+
+	// Update section
+	update: {
+		sectionTitle: 'Updates',
+		currentVersion: 'Version',
+		checkForUpdates: 'Check for updates',
+		updateNow: 'Update Now',
+		later: 'Later',
+		checking: 'Checking...',
+		upToDate: 'App is up to date',
+		available: 'Update available',
+		availableVersion: 'Version {version} available',
+		downloading: 'Downloading...',
+		downloadProgress: 'Downloading: {percent}%',
+		installing: 'Installing...',
+		modalTitle: 'Update Available',
+		modalBody: 'Version {version} is ready to install.',
+		releaseNotes: "What's new:",
+		errorChecking: 'Failed to check for updates',
+		errorNetwork: 'Check your internet connection',
+		errorDownloadInterrupted: 'Download interrupted, try again',
+		errorSignature: 'Invalid update signature',
+		errorDiskSpace: 'Insufficient disk space',
+		errorServerUnavailable: 'Update server unavailable',
+		retry: 'Retry',
+		buttonUpdate: 'Update',
+		buttonLater: 'Later',
+	},
 } satisfies Translation;
 
 export default en;

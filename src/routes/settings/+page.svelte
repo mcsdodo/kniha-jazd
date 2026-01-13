@@ -11,6 +11,8 @@
 	import type { Locales } from '$lib/i18n/i18n-types';
 	import { themeStore } from '$lib/stores/theme';
 	import type { ThemeMode } from '$lib/api';
+	import { updateStore } from '$lib/stores/update';
+	import { getVersion } from '@tauri-apps/api/app';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -34,6 +36,9 @@
 	// Theme state
 	let selectedTheme: ThemeMode = 'system';
 	let unsubscribeTheme: (() => void) | undefined;
+
+	// App version
+	let appVersion = '';
 
 	async function handleThemeChange(theme: ThemeMode) {
 		selectedTheme = theme;
@@ -88,6 +93,9 @@
 
 			await loadBackups();
 			await checkVehiclesWithTrips();
+
+			// Load app version
+			appVersion = await getVersion();
 		})();
 
 		return () => unsubscribeLocale();
@@ -391,6 +399,36 @@
 						</label>
 					</div>
 				</fieldset>
+			</div>
+		</section>
+
+		<!-- Updates Section -->
+		<section class="settings-section">
+			<h2>{$LL.update.sectionTitle()}</h2>
+			<div class="section-content">
+				<div class="update-row">
+					<span class="version-label">{$LL.update.currentVersion()}: {appVersion}</span>
+					<div class="update-status">
+						{#if $updateStore.checking}
+							<span class="status-text">{$LL.update.checking()}</span>
+						{:else if $updateStore.available}
+							<span class="status-text available">
+								{$LL.update.availableVersion({ version: $updateStore.version || '' })}
+							</span>
+						{:else if $updateStore.error}
+							<span class="status-text error">{$LL.update.errorChecking()}</span>
+						{:else}
+							<span class="status-text success">✓ {$LL.update.upToDate()}</span>
+						{/if}
+					</div>
+				</div>
+				<button
+					class="button"
+					on:click={() => updateStore.check()}
+					disabled={$updateStore.checking}
+				>
+					{$updateStore.checking ? $LL.update.checking() : $LL.update.checkForUpdates()}
+				</button>
 			</div>
 		</section>
 
@@ -927,5 +965,44 @@
 
 	.theme-option span {
 		color: var(--text-primary);
+	}
+
+	.update-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem;
+		background: var(--bg-surface-alt);
+		border-radius: 4px;
+		margin-bottom: 1rem;
+	}
+
+	.version-label {
+		font-weight: 500;
+		color: var(--text-primary);
+	}
+
+	.update-status {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.status-text {
+		font-size: 0.875rem;
+		color: var(--text-secondary);
+	}
+
+	.status-text.success {
+		color: var(--accent-success, #22c55e);
+	}
+
+	.status-text.available {
+		color: var(--accent-primary);
+		font-weight: 500;
+	}
+
+	.status-text.error {
+		color: var(--accent-danger);
 	}
 </style>
