@@ -130,10 +130,43 @@ If issues found:
 
 ---
 
-# Phase 2-4: Subsequent Phases
+# Phase 2: Delete Unused Route CRUD
 
-Will be planned after Phase 1 review and completion.
+## Context
 
-- **Phase 2:** Suppress EV/Route scaffolding
-- **Phase 3:** Fix truly dead code
-- **Phase 4:** Fix Svelte warnings
+Route feature works via `get_routes_for_vehicle()` and `find_or_create_route()`. Manual CRUD operations were written "just in case" but never used.
+
+## File to Modify
+
+### `src-tauri/src/db.rs`
+
+**Functions to DELETE:**
+- [ ] `in_memory()` (~5 lines) - test helper, never used
+- [ ] `create_route()` (~20 lines) - never exposed
+- [ ] `get_route()` (~10 lines) - never exposed
+- [ ] `update_route()` (~20 lines) - never exposed
+- [ ] `delete_route()` (~10 lines) - never exposed
+- [ ] `populate_routes_from_trips()` (~30 lines) - batch migration, never used
+
+**Functions to KEEP:**
+- `get_routes_for_vehicle()` - used by `get_routes` command
+- `find_or_create_route()` - used by `create_trip`, `update_trip`
+
+## Verification
+
+```bash
+# Ensure used functions still work
+cd src-tauri && cargo test
+
+# Check warning count reduced
+cargo check 2>&1 | grep warning
+```
+
+---
+
+# Phase 3-4: Subsequent Phases
+
+- **Phase 3:** Fix truly dead code (`AppError`, `is_dummy_trip`, `vehicle_uuid`, lifetime syntax)
+- **Phase 4:** Fix Svelte warnings (a11y, empty CSS)
+
+**Note:** EV warnings (5) will be resolved by task 19, not this cleanup task.

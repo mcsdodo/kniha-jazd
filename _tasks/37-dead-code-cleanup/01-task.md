@@ -44,15 +44,20 @@ EV feature was merged (PR #1) but **integration incomplete**. DB schema, models,
 
 **Note:** These warnings will resolve when task 19 is completed. No action needed in this task.
 
-### Category 3: Route Feature (Planned, Not Wired)
+### Category 3: Unused Route CRUD (DELETE)
 
-BIZ-005 specified "Route Distance Memory". Backend CRUD exists but frontend never wired.
+Route feature IS working via `get_routes_for_vehicle()` and `find_or_create_route()`. But manual CRUD operations were written "just in case" and never used.
 
-| File | Item | Action |
-|------|------|--------|
-| `db.rs` | `in_memory()` | SUPPRESS (useful for tests) |
-| `db.rs` | `create_route`, `get_route`, etc. | SUPPRESS |
-| `db.rs` | `populate_routes_from_trips()` | SUPPRESS |
+| File | Item | Status | Action |
+|------|------|--------|--------|
+| `db.rs` | `get_routes_for_vehicle()` | ✅ Used | KEEP |
+| `db.rs` | `find_or_create_route()` | ✅ Used | KEEP |
+| `db.rs` | `in_memory()` | ❌ Never used | DELETE |
+| `db.rs` | `create_route()` | ❌ Never used | DELETE |
+| `db.rs` | `get_route()` | ❌ Never used | DELETE |
+| `db.rs` | `update_route()` | ❌ Never used | DELETE |
+| `db.rs` | `delete_route()` | ❌ Never used | DELETE |
+| `db.rs` | `populate_routes_from_trips()` | ❌ Never used | DELETE |
 
 ### Category 4: Truly Dead Code
 
@@ -92,7 +97,7 @@ This is a **separate bug** - the compensation banner shows incorrect km.
 ## Implementation Order
 
 1. **Phase 1:** Delete removed suggestion feature code (6 warnings)
-2. **Phase 2:** Suppress Route scaffolding with comments (1 warning group)
+2. **Phase 2:** Delete unused Route CRUD (6 functions, 1 warning group)
 3. **Phase 3:** Fix truly dead code and syntax issues (3 warnings)
 4. **Phase 4:** Fix Svelte warnings (3 warnings)
 
