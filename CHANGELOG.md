@@ -13,8 +13,28 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Príkaz `npm run tauri:dev` spúšťa aplikáciu s odlišným dátovým priečinkom
   - Ochrana produkčných dát pred poškodenením počas vývoja
   - Názov okna "[DEV]" pre jednoznačné rozlíšenie verzií
+- **Klávesové skratky pre formulár jázd** - rýchlejšia práca s formulárom
+  - ESC zruší úpravu/pridávanie jazdy
+  - Enter uloží formulár
+  - Globálny handler funguje bez ohľadu na pozíciu kurzora
+- **Obojsmerný prepočet KM ↔ ODO** - úprava jedného poľa automaticky aktualizuje druhé
+  - Zmena KM prepočíta ODO (existujúce správanie)
+  - Zmena ODO teraz prepočíta KM (nové)
+  - Delta prístup: zmena ODO o X = zmena KM o X
 
 ### Opravené
+- **Navigácia Tab v autocomplete** - jeden Tab presunie na ďalšie pole
+  - Dropdown návrhy už nezachytávajú focus pri tabovaní
+  - ESC zatvorí dropdown a zároveň zruší úpravu (jeden stisk)
+- **Chyba pri prvej úprave ODO** - prvá úprava ODO nesprávne prepočítala KM
+  - Opravené použitím delta prístupu namiesto absolútneho výpočtu
+
+### Testy
+- **Integračné testy pre KM ↔ ODO** - nový súbor `km-odo-bidirectional.spec.ts`
+  - Test prepočtu KM pri zmene ODO
+  - Test viacnásobných úprav ODO
+  - Test prepočtu ODO pri zmene KM
+
 - **Oprava BEV/PHEV integračných testov** - testy teraz používajú správne konvencie
   - Použitie camelCase názvov vlastností (`energyRates` namiesto `energy_rates`) podľa task 30
   - Oprava očakávanej spotreby BEV (12 namiesto 18 kWh/100km - vzdialenosť 150km, nie 100km)
