@@ -26,7 +26,7 @@ Demo file created: `_dark-theme-demo.html` (can be deleted after implementation)
 
 1. **Add missing CSS variables** for dark theme variants of:
    - Vehicle type badges (ICE blue, BEV green, PHEV orange)
-   - Filter button active states
+   - ~~Filter button active states~~ ✅ Already use CSS variables (`--accent-primary`)
    - Any other hardcoded light colors
 
 2. **Update all components** to use CSS variables instead of hardcoded colors

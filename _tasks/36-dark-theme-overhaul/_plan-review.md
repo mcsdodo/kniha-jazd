@@ -171,3 +171,20 @@ The plan is well-structured and covers the core requirements. The issues found a
 - 3 minor improvements (optional)
 
 The implementer can proceed with Tasks 1, 2, 5, 6, 7 immediately. Task 3 needs the specific files listed above. Task 4 can be skipped as verification confirms current values are appropriate.
+
+---
+
+## Resolution (Phase 2)
+
+**Date:** 2026-01-13
+
+### Addressed
+
+- [x] **Important #1:** Task 3 updated with specific file paths (`doklady/+page.svelte` lines 870, 874)
+- [x] **Important #2:** Confidence indicator colors documented with decision options
+- [x] **Minor #1:** Task 4 marked as SKIP/verification-only
+- [x] **Minor #2:** Filter buttons noted as already fixed in 01-task.md
+
+### Skipped
+
+- [ ] **Minor #3:** Hardcoded `color: white` - deferred (acceptable in both themes)
