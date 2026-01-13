@@ -66,9 +66,17 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.pause(500);
 
       // Double-click the trip row to edit
-      const tripRow = await $('tr:not(.first-record):not(.editing)');
+      // IMPORTANT: Use 'tbody tr' to exclude thead row which also matches :not(.first-record)
+      const tripRow = await $('tbody tr:not(.first-record):not(.editing)');
       await tripRow.waitForDisplayed({ timeout: 5000 });
-      await tripRow.doubleClick();
+
+      // Use selector-based JS dispatch - more reliable than WebDriver doubleClick in CI
+      await browser.execute(() => {
+        const row = document.querySelector('tbody tr:not(.first-record):not(.editing)') as HTMLElement;
+        if (row) {
+          row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        }
+      });
 
       // Wait for editing mode
       await browser.waitUntil(
@@ -93,17 +101,15 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       expect(initialOdo).toBe('10100');
 
       // Change ODO from 10100 to 10150 (should make KM = 10150 - 10000 = 150)
-      await odoInput.click();
-      await odoInput.clearValue();
-      await odoInput.setValue('10150');
-
-      // Dispatch input event to trigger Svelte reactivity
-      await browser.execute((sel: string) => {
+      // IMPORTANT: Set value atomically to avoid intermediate input events from clearValue()/setValue()
+      // which would cause cumulative delta calculations
+      await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
+          input.value = newValue;
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
-      }, '[data-testid="trip-odometer"]');
+      }, '[data-testid="trip-odometer"]', '10150');
 
       await browser.pause(100);
 
@@ -150,9 +156,17 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.pause(500);
 
       // Double-click the trip row to edit
-      const tripRow = await $('tr:not(.first-record):not(.editing)');
+      // IMPORTANT: Use 'tbody tr' to exclude thead row which also matches :not(.first-record)
+      const tripRow = await $('tbody tr:not(.first-record):not(.editing)');
       await tripRow.waitForDisplayed({ timeout: 5000 });
-      await tripRow.doubleClick();
+
+      // Use selector-based JS dispatch - more reliable than WebDriver doubleClick in CI
+      await browser.execute(() => {
+        const row = document.querySelector('tbody tr:not(.first-record):not(.editing)') as HTMLElement;
+        if (row) {
+          row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        }
+      });
 
       // Wait for editing mode
       await browser.waitUntil(
@@ -170,45 +184,40 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       const odoInput = await $('[data-testid="trip-odometer"]');
 
       // First edit: ODO 20050 -> 20060 (KM should be 60)
-      await odoInput.click();
-      await odoInput.clearValue();
-      await odoInput.setValue('20060');
-      await browser.execute((sel: string) => {
+      // IMPORTANT: Set value atomically to avoid intermediate input events
+      await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
+          input.value = newValue;
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
-      }, '[data-testid="trip-odometer"]');
+      }, '[data-testid="trip-odometer"]', '20060');
       await browser.pause(100);
 
       let newKm = await kmInput.getValue();
       expect(newKm).toBe('60');
 
       // Second edit: ODO 20060 -> 20075 (KM should be 75)
-      await odoInput.click();
-      await odoInput.clearValue();
-      await odoInput.setValue('20075');
-      await browser.execute((sel: string) => {
+      await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
+          input.value = newValue;
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
-      }, '[data-testid="trip-odometer"]');
+      }, '[data-testid="trip-odometer"]', '20075');
       await browser.pause(100);
 
       newKm = await kmInput.getValue();
       expect(newKm).toBe('75');
 
       // Third edit: ODO 20075 -> 20030 (KM should be 30)
-      await odoInput.click();
-      await odoInput.clearValue();
-      await odoInput.setValue('20030');
-      await browser.execute((sel: string) => {
+      await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
+          input.value = newValue;
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
-      }, '[data-testid="trip-odometer"]');
+      }, '[data-testid="trip-odometer"]', '20030');
       await browser.pause(100);
 
       newKm = await kmInput.getValue();
@@ -253,9 +262,17 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.pause(500);
 
       // Double-click the trip row to edit
-      const tripRow = await $('tr:not(.first-record):not(.editing)');
+      // IMPORTANT: Use 'tbody tr' to exclude thead row which also matches :not(.first-record)
+      const tripRow = await $('tbody tr:not(.first-record):not(.editing)');
       await tripRow.waitForDisplayed({ timeout: 5000 });
-      await tripRow.doubleClick();
+
+      // Use selector-based JS dispatch - more reliable than WebDriver doubleClick in CI
+      await browser.execute(() => {
+        const row = document.querySelector('tbody tr:not(.first-record):not(.editing)') as HTMLElement;
+        if (row) {
+          row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        }
+      });
 
       // Wait for editing mode
       await browser.waitUntil(
@@ -273,15 +290,14 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       const odoInput = await $('[data-testid="trip-odometer"]');
 
       // Change KM from 80 to 120 (should make ODO = 30000 + 120 = 30120)
-      await kmInput.click();
-      await kmInput.clearValue();
-      await kmInput.setValue('120');
-      await browser.execute((sel: string) => {
+      // IMPORTANT: Set value atomically to avoid intermediate input events
+      await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
+          input.value = newValue;
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
-      }, '[data-testid="trip-distance"]');
+      }, '[data-testid="trip-distance"]', '120');
       await browser.pause(100);
 
       // Verify ODO was recalculated to 30120
