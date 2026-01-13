@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-01-13
+
 ### Opravené
 - **Tmavý režim - kompletné tlmené štýlovanie** - oprava všetkých svetlých prvkov v tmavom režime
   - Odznaky typu vozidla (ICE/BEV/PHEV) - tlmené pozadia namiesto svetlých

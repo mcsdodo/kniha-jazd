@@ -59,7 +59,6 @@ pub fn run() {
       commands::reorder_trip,
       commands::get_routes,
       commands::get_purposes,
-      commands::get_compensation_suggestion,
       commands::get_settings,
       commands::save_settings,
       commands::calculate_trip_stats,

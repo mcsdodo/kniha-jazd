@@ -13,7 +13,6 @@ use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use crate::suggestions::{build_compensation_suggestion, CompensationSuggestion};
 use chrono::{Datelike, NaiveDate, Utc, Local};
 use diesel::RunQueryDsl;
 use serde::{Deserialize, Serialize};
@@ -403,31 +402,6 @@ pub fn get_routes(db: State<Database>, vehicle_id: String) -> Result<Vec<Route>,
 pub fn get_purposes(db: State<Database>, vehicle_id: String) -> Result<Vec<String>, String> {
     db.get_purposes_for_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())
-}
-
-// ============================================================================
-// Calculation Commands
-// ============================================================================
-
-#[tauri::command]
-pub fn get_compensation_suggestion(
-    db: State<Database>,
-    vehicle_id: String,
-    buffer_km: f64,
-    current_location: String,
-) -> Result<CompensationSuggestion, String> {
-    // Get routes for this vehicle
-    let routes = db
-        .get_routes_for_vehicle(&vehicle_id)
-        .map_err(|e| e.to_string())?;
-
-    // For buffer trip purpose, we'll use "služobná cesta" as default
-    // In a full implementation, this would come from Settings
-    let buffer_purpose = "služobná cesta";
-
-    let suggestion = build_compensation_suggestion(&routes, buffer_km, &current_location, buffer_purpose);
-
-    Ok(suggestion)
 }
 
 // ============================================================================
