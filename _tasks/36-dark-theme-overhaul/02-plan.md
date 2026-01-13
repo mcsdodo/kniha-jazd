@@ -67,35 +67,35 @@
 
 ---
 
-## Task 3: Audit and Fix Any Remaining Hardcoded Colors
+## Task 3: Fix Confidence Indicator Colors
 
 **Files:**
-- Search: All `.svelte` files for hardcoded hex colors
-- Potentially modify: Any files with hardcoded light theme colors
+- Modify: `src/routes/doklady/+page.svelte` (lines 870, 874)
+
+**Context:** Review found hardcoded colors `#f39c12` (medium) and `#e74c3c` (low) for confidence indicators. These are orange/red colors that work acceptably in both themes.
 
 **Steps:**
-1. Run grep for common light-theme hex colors:
-   ```
-   #e3f2fd, #e8f5e9, #fff3e0, #d4edda, #f8d7da, #d1ecf1
-   ```
-2. For each occurrence, determine if it needs a CSS variable
-3. Add variables if needed and update component
+1. Review `.confidence-medium` (line 870) - uses `#f39c12`
+2. Review `.confidence-low` (line 874) - uses `#e74c3c`
+3. **Decision:** These colors are already dark-mode compatible (not light backgrounds). Keep as-is OR optionally replace with existing CSS variables:
+   - `#f39c12` → `var(--accent-warning)` or keep
+   - `#e74c3c` → `var(--accent-danger)` or keep
+4. No light-theme-only colors (#e3f2fd, #e8f5e9, etc.) found elsewhere
 
-**Verification:** No hardcoded light-only colors remain in dark-mode-affected areas
+**Verification:** Confidence indicators visible and readable in both light and dark mode
 
 ---
 
-## Task 4: Improve Editing Row Background Contrast
+## Task 4: Verify Editing Row Background Contrast ✅ SKIP
+
+**Status:** Already implemented - no action needed
 
 **Files:**
-- Modify: `src/lib/theme.css`
+- Verify only: `src/lib/theme.css`
 
-**Steps:**
-1. The current `--editing-row-bg` in dark mode is `#1a3a4a` - this is good
-2. Verify contrast is sufficient (should be visible but not jarring)
-3. If needed, adjust to slightly brighter: `#1e4050`
+**Review Finding:** Current `--editing-row-bg: #1a3a4a` is already appropriate. Verified during plan review.
 
-**Verification:** Edit a trip row in dark mode - editing state should be clearly visible but not harsh
+**Verification:** Edit a trip row in dark mode - editing state is clearly visible ✓
 
 ---
 
