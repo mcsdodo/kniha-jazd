@@ -605,8 +605,8 @@
 
 	.new-record {
 		padding: 0.625rem 1.25rem;
-		background-color: var(--accent-primary);
-		color: white;
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
 		border: none;
 		border-radius: 4px;
 		font-weight: 500;
@@ -615,7 +615,7 @@
 	}
 
 	.new-record:hover:not(:disabled) {
-		background-color: var(--accent-primary-hover);
+		background-color: var(--btn-active-primary-hover);
 	}
 
 	.new-record:disabled {

@@ -342,11 +342,11 @@
 	}
 
 	.button-primary {
-		background-color: var(--accent-primary);
-		color: white;
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
 	}
 
 	.button-primary:hover {
-		background-color: var(--accent-primary-hover);
+		background-color: var(--btn-active-primary-hover);
 	}
 </style>
