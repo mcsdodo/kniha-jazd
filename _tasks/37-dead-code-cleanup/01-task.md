@@ -61,21 +61,22 @@ Route feature IS working via `get_routes_for_vehicle()` and `find_or_create_rout
 
 ### Category 4: Truly Dead Code
 
-| File | Item | Action |
-|------|------|--------|
-| `commands.rs:472` | `vehicle_uuid` unused variable | FIX: prefix with `_` |
-| `error.rs:4` | `AppError` enum | DELETE entire file |
-| `export.rs:149` | `is_dummy_trip()` | DELETE |
-| `models.rs` | `Receipt::new()`, `is_assigned()` | KEEP (useful helpers) |
+| File | Item | Analysis | Action |
+|------|------|----------|--------|
+| `error.rs` | `AppError` enum | Created for Diesel migration, never adopted | DELETE entire file |
+| `export.rs:149` | `is_dummy_trip()` | Checks `distance_km <= 0`, never called | DELETE |
+| `commands.rs:472` | `vehicle_uuid` | Parses UUID but uses string instead | FIX: prefix with `_` |
+| `models.rs` | `Receipt::new()` | Used in tests (commands.rs:3520) | KEEP |
+| `models.rs:439` | `Receipt::is_assigned()` | Never used, code uses `trip_id.is_some()` | DELETE |
 
 ### Category 5: Syntax/Style Issues
 
-| File | Item | Action |
-|------|------|--------|
-| `db.rs:65` | Lifetime syntax | FIX: Add `'_` to `MutexGuard` |
-| `VehicleModal.svelte:65` | a11y: click without keyboard | FIX |
-| `+page.svelte:353` | Empty CSS ruleset | DELETE |
-| `settings/+page.svelte:360` | Label without control | FIX |
+| File | Issue | Fix |
+|------|-------|-----|
+| `db.rs:65` | Elided lifetime confusing | `MutexGuard<'_, SqliteConnection>` |
+| `VehicleModal.svelte:65` | Backdrop needs keyboard handler | Add `on:keydown` for Escape |
+| `+page.svelte:353` | Empty `.trip-section {}` | DELETE ruleset |
+| `settings/+page.svelte:360` | Theme label not associated | Use `<fieldset>` + `<legend>` |
 
 ### Category 6: Incomplete Implementation (Bug)
 
