@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Dokumentácia
+- **Analýza mŕtveho kódu** - zdokumentované 17 varovaní kompilátora v `_tasks/_TECH_DEBT/03-dead-code-and-warnings.md`
+  - EV scaffolding (ponechať pre task 19)
+  - Route CRUD pre plánovanú funkciu BIZ-005
+  - Skutočne mŕtvy kód na odstránenie (AppError, buffer_km, atď.)
+
 ## [0.13.0] - 2026-01-12
 
 ### Pridané
