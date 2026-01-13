@@ -30,17 +30,19 @@ The "auto-suggest compensation trip" feature was **intentionally simplified** in
 
 **Note:** `calculate_buffer_km()` in `calculations.rs` should be KEPT - it's needed for the simplified feature but isn't wired up yet (separate bug).
 
-### Category 2: EV Feature Scaffolding (Reverted)
+### Category 2: EV Feature (Partially Implemented)
 
-Full EV implementation was built then reverted (`7a0cd67`). Task 19 is in "Planning" status for future attempt.
+EV feature was merged (PR #1) but **integration incomplete**. DB schema, models, and UI exist but `get_trip_grid_data` doesn't call energy calculations. See [task 19](../19-electric-vehicles/03-status.md) for details.
 
 | File | Item | Action |
 |------|------|--------|
-| `calculations_energy.rs` | All functions | SUPPRESS with `#[allow(dead_code)]` |
-| `calculations_phev.rs` | `PhevTripConsumption` struct | SUPPRESS |
-| `models.rs` | `uses_fuel()`, `uses_electricity()` | SUPPRESS |
-| `models.rs` | `new()`, `new_ice()`, `new_bev()`, `new_phev()` | SUPPRESS |
-| `models.rs` | `is_charge()`, `has_soc_override()` | SUPPRESS |
+| `calculations_energy.rs` | All functions | KEEP - will be used when integration completed |
+| `calculations_phev.rs` | `PhevTripConsumption` struct | KEEP - will be used |
+| `models.rs` | `uses_fuel()`, `uses_electricity()` | KEEP - will be used |
+| `models.rs` | `new()`, `new_ice()`, `new_bev()`, `new_phev()` | KEEP - convenience constructors |
+| `models.rs` | `is_charge()`, `has_soc_override()` | KEEP - will be used |
+
+**Note:** These warnings will resolve when task 19 is completed. No action needed in this task.
 
 ### Category 3: Route Feature (Planned, Not Wired)
 
@@ -82,17 +84,19 @@ This is a **separate bug** - the compensation banner shows incorrect km.
 
 ## Acceptance Criteria
 
-- [ ] All 17 warnings resolved
-- [ ] Build output is clean (`cargo check` + `npm run check`)
+- [ ] Warnings reduced (EV warnings remain until task 19 completed)
+- [ ] Build output cleaner (`cargo check` + `npm run check`)
 - [ ] No regression in existing functionality
 - [ ] Tech debt doc updated with resolution
 
 ## Implementation Order
 
-1. **Phase 1:** Delete removed suggestion feature code
-2. **Phase 2:** Suppress EV/Route scaffolding with comments
-3. **Phase 3:** Fix truly dead code and syntax issues
-4. **Phase 4:** Fix Svelte warnings
+1. **Phase 1:** Delete removed suggestion feature code (6 warnings)
+2. **Phase 2:** Suppress Route scaffolding with comments (1 warning group)
+3. **Phase 3:** Fix truly dead code and syntax issues (3 warnings)
+4. **Phase 4:** Fix Svelte warnings (3 warnings)
+
+**Note:** EV-related warnings (5) will be resolved by task 19, not this task.
 
 ## Out of Scope
 

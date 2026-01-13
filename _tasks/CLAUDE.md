@@ -6,6 +6,7 @@ This folder contains planning documents for complex features. All plans, designs
 
 ```
 _tasks/
+├── index.md                          # Task index - ALWAYS UPDATE when creating/completing tasks
 ├── {NN}-{descriptive-name}/          # Numbered folders (check existing folder for next NN!)
 │   ├── 01-task.md                    # Task description, requirements
 │   ├── 02-plan.md                    # Implementation plan
@@ -64,6 +65,21 @@ Always include metadata at top:
 2. **Design**: Add `02-plan.md` or `02-design.md`
 3. **Implementation**: Reference plan during coding
 4. **Completion**: Keep for historical reference
+
+
+
+## Keeping Index Updated
+
+**CRITICAL:** Always update `index.md` when:
+- Creating a new task folder → Add to "Active Tasks"
+- Completing a task → Move to "Completed Tasks"
+- Changing task status → Update status icon
+
+Status icons:
+- 📋 Planning
+- 🟡 Partial / In Progress
+- ✅ Complete
+- ❌ Blocked / On Hold
 
 ## Tech Debt Integration
 
