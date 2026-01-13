@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File .claude/hooks/post-commit-reminder.ps1",
+            "command": "bash .claude/hooks/post-commit-reminder.sh",
             "timeout": 5000
           }
         ]
