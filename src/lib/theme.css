@@ -65,6 +65,14 @@
     --editing-row-bg: #e3f2fd;
     --icon-btn-hover-bg: rgba(0, 0, 0, 0.05);
     --accent-warning-dark: #e67e22;
+
+    /* Vehicle type badges */
+    --badge-ice-bg: #e3f2fd;
+    --badge-ice-color: #1565c0;
+    --badge-bev-bg: #e8f5e9;
+    --badge-bev-color: #2e7d32;
+    --badge-phev-bg: #fff3e0;
+    --badge-phev-color: #e65100;
 }
 
 [data-theme="dark"] {
@@ -134,4 +142,12 @@
     --editing-row-bg: #1a3a4a;
     --icon-btn-hover-bg: rgba(255, 255, 255, 0.1);
     --accent-warning-dark: #f39c12;
+
+    /* Vehicle type badges - muted style */
+    --badge-ice-bg: #1a3a5c;
+    --badge-ice-color: #5dade2;
+    --badge-bev-bg: #1e3a2a;
+    --badge-bev-color: #58d68d;
+    --badge-phev-bg: #3d3020;
+    --badge-phev-color: #f5b041;
 }

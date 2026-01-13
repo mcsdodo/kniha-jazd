@@ -672,18 +672,18 @@
 	}
 
 	.badge.type-ice {
-		background-color: #e3f2fd;
-		color: #1565c0;
+		background-color: var(--badge-ice-bg);
+		color: var(--badge-ice-color);
 	}
 
 	.badge.type-bev {
-		background-color: #e8f5e9;
-		color: #2e7d32;
+		background-color: var(--badge-bev-bg);
+		color: var(--badge-bev-color);
 	}
 
 	.badge.type-phev {
-		background-color: #fff3e0;
-		color: #e65100;
+		background-color: var(--badge-phev-bg);
+		color: var(--badge-phev-color);
 	}
 
 	.vehicle-actions {
