@@ -7,6 +7,28 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Podpora EV v exporte** - HTML export podporuje všetky typy vozidiel
+  - ICE: palivo (litre, cena, zostatok, spotreba l/100km)
+  - BEV: energia (kWh, cena, zostatok batérie, spotreba kWh/100km)
+  - PHEV: kombinované stĺpce pre palivo aj energiu
+  - Hlavička exportu zobrazuje správne parametre vozidla podľa typu
+- **Prechod batérie medzi rokmi (BEV/PHEV)** - stav batérie sa prenáša medzi rokmi
+  - Nová funkcia `get_year_start_battery_remaining()` analogická k `get_year_start_fuel_remaining()`
+  - Rekurzívny výpočet stavu batérie z predchádzajúceho roka
+  - Ak neexistujú dáta z minulého roka, použije sa `initial_battery_percent × capacity`
+
+### Opravené
+- **Varovania kompilátora EV kódu** - zníženie z 8 na 1 varovanie
+  - Pridané `#[allow(dead_code)]` pre pomocné funkcie určené na budúce použitie
+  - Odstránené varovania pre `uses_fuel()` a `uses_electricity()` (teraz použité v exporte)
+  - Zostáva: `calculate_buffer_km` (out of scope, riešené v task 37)
+
+### Testy
+- **Aktivované BEV/PHEV integračné testy** - odstránené `.skip` z testov v `bev-trips.spec.ts` a `phev-trips.spec.ts`
+  - Backend bol opravený v predchádzajúcej verzii (db.rs obsahuje energy polia)
+  - Odstránené zastaralé TODO komentáre
+
 ### Odstránené
 - **Čistenie mŕtveho kódu** - odstránenie nepoužívaného kódu a oprava varovaní kompilátora (17→10 varovaní)
   - Odstránený kód funkcie "auto-suggest compensation trip" (zjednodušená vo v0.12.0)

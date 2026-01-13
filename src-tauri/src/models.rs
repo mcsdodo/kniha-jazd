@@ -66,6 +66,8 @@ pub struct Vehicle {
     pub updated_at: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
+// Convenience constructors for testing and future use
 impl Vehicle {
     /// Create a new ICE vehicle (backward compatible constructor)
     pub fn new(
@@ -202,11 +204,14 @@ impl Trip {
     }
 
     /// Returns true if this trip includes a battery charge
+    #[allow(dead_code)]
     pub fn is_charge(&self) -> bool {
         self.energy_kwh.is_some()
     }
 
     /// Returns true if this trip has a manual SoC override
+    #[allow(dead_code)]
+    // Helper methods for EV support - may be used in future features
     pub fn has_soc_override(&self) -> bool {
         self.soc_override_percent.is_some()
     }
@@ -402,6 +407,8 @@ pub struct Receipt {
 }
 
 impl Receipt {
+    #[allow(dead_code)]
+    // Convenience constructor for testing
     pub fn new(file_path: String, file_name: String) -> Self {
         Self::new_with_source_year(file_path, file_name, None)
     }

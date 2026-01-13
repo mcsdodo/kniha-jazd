@@ -29,10 +29,7 @@ describe('Tier 1: BEV Trips', () => {
   });
 
   describe('BEV Trip with Charging', () => {
-    // TODO: Backend db.rs create_trip() doesn't persist energy fields (energy_kwh, energy_cost_eur, full_charge, soc_override_percent)
-    // See src-tauri/src/db.rs line ~450 - INSERT statement is missing these columns
-    // Re-enable this test after fixing the backend
-    it.skip('should create BEV trip with charging session (kWh, cost)', async () => {
+    it('should create BEV trip with charging session (kWh, cost)', async () => {
       // Create BEV vehicle: Tesla Model 3
       // Battery: 75 kWh, Baseline consumption: 15 kWh/100km, Initial SoC: 90%
       const vehicleData = createTeslaModel3({
@@ -106,10 +103,7 @@ describe('Tier 1: BEV Trips', () => {
   });
 
   describe('BEV Energy Consumption Rate', () => {
-    // TODO: Backend db.rs create_trip() doesn't persist energy fields
-    // Energy rate calculation depends on energy_kwh being saved
-    // Re-enable this test after fixing the backend
-    it.skip('should calculate energy consumption rate (kWh/100km)', async () => {
+    it('should calculate energy consumption rate (kWh/100km)', async () => {
       // Create BEV vehicle: Skoda Enyaq
       // Battery: 77 kWh, Baseline consumption: 17 kWh/100km, Initial SoC: 100%
       const vehicleData = createSkodaEnyaq({
@@ -188,10 +182,7 @@ describe('Tier 1: BEV Trips', () => {
   });
 
   describe('BEV Battery SoC Tracking', () => {
-    // TODO: Backend db.rs create_trip() doesn't persist energy fields
-    // SoC tracking depends on energy calculations which require persisted energy data
-    // Re-enable this test after fixing the backend
-    it.skip('should track battery SoC remaining after trips', async () => {
+    it('should track battery SoC remaining after trips', async () => {
       // Create BEV vehicle: Tesla Model 3
       // Battery: 75 kWh, Baseline consumption: 15 kWh/100km, Initial SoC: 90%
       // Initial battery: 75 * 0.90 = 67.5 kWh
@@ -274,10 +265,7 @@ describe('Tier 1: BEV Trips', () => {
   });
 
   describe('BEV Trips Without Fuel Fields', () => {
-    // TODO: Backend db.rs create_trip() doesn't persist energy fields
-    // This test validates energy_kwh is saved, which currently fails
-    // Re-enable this test after fixing the backend
-    it.skip('should create BEV trip without fuel fields (fuel_liters = null)', async () => {
+    it('should create BEV trip without fuel fields (fuel_liters = null)', async () => {
       // Create BEV vehicle
       const vehicleData = createTeslaModel3({
         name: 'BEV No Fuel Test',

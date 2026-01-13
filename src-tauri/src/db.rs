@@ -39,6 +39,8 @@ impl Database {
         })
     }
 
+    // Test helper for in-memory databases
+    #[allow(dead_code)]
     pub fn in_memory() -> Result<Self, diesel::ConnectionError> {
         let mut conn = SqliteConnection::establish(":memory:")?;
 

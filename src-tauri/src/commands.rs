@@ -622,6 +622,71 @@ fn get_year_start_fuel_remaining(
     Ok(year_end_fuel)
 }
 
+/// Get the starting battery (kWh) for a year (carryover from previous year).
+/// If there are trips in the previous year, returns the ending battery of that year.
+/// Otherwise, returns the vehicle's initial battery (initial_battery_percent × capacity).
+fn get_year_start_battery_remaining(
+    db: &Database,
+    vehicle_id: &str,
+    year: i32,
+    vehicle: &Vehicle,
+) -> Result<f64, String> {
+    let capacity = vehicle.battery_capacity_kwh.unwrap_or(0.0);
+    let baseline_rate = vehicle.baseline_consumption_kwh.unwrap_or(0.0);
+
+    if capacity <= 0.0 {
+        return Ok(0.0);
+    }
+
+    // Try to get trips from previous year
+    let prev_year = year - 1;
+    let prev_trips = db
+        .get_trips_for_vehicle_in_year(vehicle_id, prev_year)
+        .map_err(|e| e.to_string())?;
+
+    if prev_trips.is_empty() {
+        // No previous year data - start with initial battery
+        let initial_percent = vehicle.initial_battery_percent.unwrap_or(100.0);
+        return Ok(capacity * initial_percent / 100.0);
+    }
+
+    // Sort previous year's trips chronologically
+    let mut chronological = prev_trips;
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Get the starting battery for the previous year (recursive carryover)
+    let prev_year_start = get_year_start_battery_remaining(db, vehicle_id, prev_year, vehicle)?;
+
+    // Calculate battery remaining for each trip, then get the last one (year-end state)
+    let mut current_battery = prev_year_start;
+
+    for trip in &chronological {
+        // Check for SoC override
+        if let Some(override_percent) = trip.soc_override_percent {
+            current_battery = capacity * override_percent / 100.0;
+        }
+
+        // Calculate energy used
+        let energy_used = calculate_energy_used(trip.distance_km, baseline_rate);
+
+        // Update battery
+        current_battery = calculate_battery_remaining(
+            current_battery,
+            energy_used,
+            trip.energy_kwh,
+            capacity,
+        );
+    }
+
+    Ok(current_battery)
+}
+
 /// Get the starting odometer for a year (carryover from previous year).
 /// If there are trips in the previous year, returns the ending odometer of that year.
 /// Otherwise, returns the vehicle's initial odometer.
@@ -742,6 +807,13 @@ pub fn get_trip_grid_data(
     // Calculate missing receipts (trips with fuel but no matching receipt)
     let missing_receipts = calculate_missing_receipts(&trips, &receipts);
 
+    // Calculate initial battery for BEV/PHEV (carryover from previous year)
+    let initial_battery = if vehicle.vehicle_type.uses_electricity() {
+        get_year_start_battery_remaining(&db, &vehicle_id, year, &vehicle)?
+    } else {
+        0.0
+    };
+
     // Calculate rates, fuel, and energy based on vehicle type
     let (
         rates,
@@ -775,7 +847,7 @@ pub fn get_trip_grid_data(
         VehicleType::Bev => {
             // BEV: Energy calculations only, no fuel
             let (energy_rates, estimated_energy_rates, battery_kwh, battery_percent) =
-                calculate_energy_grid_data(&chronological, &vehicle);
+                calculate_energy_grid_data(&chronological, &vehicle, initial_battery);
             (
                 HashMap::new(),
                 HashSet::new(),
@@ -789,7 +861,7 @@ pub fn get_trip_grid_data(
         }
         VehicleType::Phev => {
             // PHEV: Both fuel and energy, using PHEV-specific calculations
-            let phev_data = calculate_phev_grid_data(&chronological, &vehicle, initial_fuel);
+            let phev_data = calculate_phev_grid_data(&chronological, &vehicle, initial_fuel, initial_battery);
             // Calculate consumption warnings for fuel portion only
             let consumption_warnings =
                 calculate_consumption_warnings(&trips, &phev_data.fuel_rates, tp_consumption);
@@ -934,6 +1006,7 @@ pub(crate) fn calculate_fuel_remaining(
 fn calculate_energy_grid_data(
     chronological: &[Trip],
     vehicle: &Vehicle,
+    initial_battery: f64,
 ) -> (
     HashMap<String, f64>,
     HashSet<String>,
@@ -952,9 +1025,8 @@ fn calculate_energy_grid_data(
         return (energy_rates, estimated_energy_rates, battery_kwh, battery_percent);
     }
 
-    // Initial battery state: use initial_battery_percent if set, otherwise 100%
-    let initial_percent = vehicle.initial_battery_percent.unwrap_or(100.0);
-    let mut current_battery = capacity * initial_percent / 100.0;
+    // Initial battery state: use year start carryover
+    let mut current_battery = initial_battery;
 
     // Track charge periods for rate calculation (similar to fuel periods)
     let mut period_energy = 0.0;
@@ -1049,6 +1121,7 @@ fn calculate_phev_grid_data(
     chronological: &[Trip],
     vehicle: &Vehicle,
     initial_fuel: f64,
+    initial_battery: f64,
 ) -> PhevGridData {
     let mut fuel_rates = HashMap::new();
     let mut estimated_fuel_rates = HashSet::new();
@@ -1063,9 +1136,8 @@ fn calculate_phev_grid_data(
     let tp_consumption = vehicle.tp_consumption.unwrap_or(7.0); // l/100km
     let tank_size = vehicle.tank_size_liters.unwrap_or(50.0);
 
-    // Initial battery state
-    let initial_percent = vehicle.initial_battery_percent.unwrap_or(100.0);
-    let mut current_battery = capacity * initial_percent / 100.0;
+    // Initial battery state: use year start carryover
+    let mut current_battery = initial_battery;
     let mut current_fuel = initial_fuel;
 
     // Fuel period tracking - only count km_on_fuel for rate calculation
@@ -3360,8 +3432,10 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
         let trips = vec![make_bev_trip(date, 100.0, None, false, 0)];
 
+        // Initial battery: 100% of 75 kWh = 75 kWh
+        let initial_battery = 75.0;
         let (energy_rates, estimated_rates, battery_kwh, battery_percent) =
-            calculate_energy_grid_data(&trips, &vehicle);
+            calculate_energy_grid_data(&trips, &vehicle, initial_battery);
 
         // Trip 100km at 18 kWh/100km = 18 kWh used
         // Start at 75 kWh, end at 75 - 18 = 57 kWh
@@ -3392,8 +3466,10 @@ mod tests {
             make_bev_trip(date, 100.0, Some(40.0), true, 0), // Drive 100km, charge 40 kWh full
         ];
 
+        // Initial battery: 50% of 75 kWh = 37.5 kWh
+        let initial_battery = 37.5;
         let (energy_rates, estimated_rates, battery_kwh, _) =
-            calculate_energy_grid_data(&trips, &vehicle);
+            calculate_energy_grid_data(&trips, &vehicle, initial_battery);
 
         // Start: 37.5 kWh (50%)
         // Drive 100km at 18 kWh/100km = 18 kWh used
@@ -3426,7 +3502,9 @@ mod tests {
             make_bev_trip(date, 10.0, Some(50.0), true, 0), // Short drive, big charge
         ];
 
-        let (_, _, battery_kwh, _) = calculate_energy_grid_data(&trips, &vehicle);
+        // Initial battery: 90% of 75 kWh = 67.5 kWh
+        let initial_battery = 67.5;
+        let (_, _, battery_kwh, _) = calculate_energy_grid_data(&trips, &vehicle, initial_battery);
 
         // Should be capped at capacity (75 kWh)
         let remaining = battery_kwh.get(&trips[0].id.to_string()).unwrap();
