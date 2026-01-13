@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Tmavý režim - odznaky typu vozidla** - oprava svetlých farieb odznakov ICE/BEV/PHEV v tmavom režime
+  - Svetlé pozadia (#e3f2fd, #e8f5e9, #fff3e0) nahradené tlmenými farbami (#1a3a5c, #1e3a2a, #3d3020)
+  - Profesionálny vzhľad s lepším kontrastom pre dlhšie používanie
+
 ### Dokumentácia
 - **Analýza mŕtveho kódu** - zdokumentované 17 varovaní kompilátora v `_tasks/_TECH_DEBT/03-dead-code-and-warnings.md`
   - EV scaffolding (ponechať pre task 19)
