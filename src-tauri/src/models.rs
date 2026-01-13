@@ -435,10 +435,6 @@ impl Receipt {
             updated_at: now,
         }
     }
-
-    pub fn is_assigned(&self) -> bool {
-        self.trip_id.is_some()
-    }
 }
 
 /// Verification status of a single receipt against trips

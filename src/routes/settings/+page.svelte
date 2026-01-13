@@ -356,8 +356,8 @@
 		<section class="settings-section">
 			<h2>{$LL.settings.appearanceSection()}</h2>
 			<div class="section-content">
-				<div class="form-group">
-					<label>{$LL.settings.themeLabel()}</label>
+				<fieldset class="theme-fieldset">
+					<legend>{$LL.settings.themeLabel()}</legend>
 					<div class="theme-options">
 						<label class="theme-option">
 							<input
@@ -390,7 +390,7 @@
 							<span>{$LL.settings.themeDark()}</span>
 						</label>
 					</div>
-				</div>
+				</fieldset>
 			</div>
 		</section>
 
@@ -885,6 +885,18 @@
 		display: flex;
 		gap: 0.5rem;
 		justify-content: flex-end;
+	}
+
+	.theme-fieldset {
+		border: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.theme-fieldset legend {
+		font-weight: 600;
+		color: var(--text-primary);
+		margin-bottom: 0.5rem;
 	}
 
 	.theme-options {

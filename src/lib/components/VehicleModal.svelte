@@ -60,9 +60,15 @@
 			onClose();
 		}
 	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			onClose();
+		}
+	}
 </script>
 
-<div class="modal-backdrop" on:click={handleBackgroundClick} role="button" tabindex="-1">
+<div class="modal-backdrop" on:click={handleBackgroundClick} on:keydown={handleKeydown} role="button" tabindex="-1">
 	<div class="modal-content">
 		<div class="modal-header">
 			<h2>{vehicle ? $LL.vehicleModal.editTitle() : $LL.vehicleModal.addTitle()}</h2>

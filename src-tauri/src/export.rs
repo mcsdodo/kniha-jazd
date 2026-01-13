@@ -144,11 +144,6 @@ impl ExportTotals {
             energy_deviation_percent,
         }
     }
-
-    /// Check if a trip is a dummy/placeholder row (0 km distance)
-    pub fn is_dummy_trip(trip: &Trip) -> bool {
-        trip.distance_km <= 0.0
-    }
 }
 
 /// Generate HTML string for the logbook export
@@ -596,10 +591,4 @@ mod tests {
         assert_eq!(totals.total_other_costs, 5.0); // Only from second trip, dummy's 999 excluded
     }
 
-    #[test]
-    fn test_is_dummy_trip() {
-        assert!(ExportTotals::is_dummy_trip(&make_trip(0.0, None, None, None)));
-        assert!(!ExportTotals::is_dummy_trip(&make_trip(1.0, None, None, None)));
-        assert!(!ExportTotals::is_dummy_trip(&make_trip(100.0, None, None, None)));
-    }
 }

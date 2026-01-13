@@ -3,7 +3,6 @@ mod calculations_energy;
 mod calculations_phev;
 mod commands;
 mod db;
-mod error;
 mod export;
 mod gemini;
 mod models;
@@ -59,7 +58,6 @@ pub fn run() {
       commands::reorder_trip,
       commands::get_routes,
       commands::get_purposes,
-      commands::get_compensation_suggestion,
       commands::get_settings,
       commands::save_settings,
       commands::calculate_trip_stats,
