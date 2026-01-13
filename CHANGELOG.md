@@ -8,9 +8,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Opravené
-- **Tmavý režim - odznaky typu vozidla** - oprava svetlých farieb odznakov ICE/BEV/PHEV v tmavom režime
-  - Svetlé pozadia (#e3f2fd, #e8f5e9, #fff3e0) nahradené tlmenými farbami (#1a3a5c, #1e3a2a, #3d3020)
-  - Profesionálny vzhľad s lepším kontrastom pre dlhšie používanie
+- **Tmavý režim - kompletné tlmené štýlovanie** - oprava všetkých svetlých prvkov v tmavom režime
+  - Odznaky typu vozidla (ICE/BEV/PHEV) - tlmené pozadia namiesto svetlých
+  - Všetky tlačidlá (Skenovať, Rozpoznať, Export, Uložiť, Odstrániť, Pridať vozidlo)
+  - Aktívne stavy filtrov a prepínačov
+  - Pravidlo: tmavé tlmené pozadie + jasný farebný text (nie biely text na jasnom pozadí)
 
 ### Dokumentácia
 - **Analýza mŕtveho kódu** - zdokumentované 17 varovaní kompilátora v `_tasks/_TECH_DEBT/03-dead-code-and-warnings.md`
