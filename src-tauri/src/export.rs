@@ -1,6 +1,6 @@
 //! HTML export functionality for Kniha jázd
 
-use crate::models::{Settings, Trip, TripGridData, Vehicle};
+use crate::models::{Settings, Trip, TripGridData, Vehicle, VehicleType};
 use serde::{Deserialize, Serialize};
 
 /// Labels for HTML export (passed from frontend for i18n support)
@@ -148,64 +148,331 @@ impl ExportTotals {
 
 /// Generate HTML string for the logbook export
 pub fn generate_html(data: ExportData) -> Result<String, String> {
+    let vehicle_type = data.vehicle.vehicle_type;
+    let show_fuel = vehicle_type.uses_fuel();
+    let show_energy = vehicle_type.uses_electricity();
+
     let mut rows = String::new();
 
     for trip in &data.grid_data.trips {
         let trip_id = trip.id.to_string();
-        let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
-        let fuel_remaining = data
-            .grid_data
-            .fuel_remaining
-            .get(&trip_id)
-            .copied()
-            .unwrap_or(0.0);
 
-        let fuel_liters = trip
-            .fuel_liters
-            .map(|f| format!("{:.1}", f))
-            .unwrap_or_default();
-        let fuel_cost = trip
-            .fuel_cost_eur
-            .map(|f| format!("{:.2}", f))
-            .unwrap_or_default();
+        // Common fields
         let other_costs = trip
             .other_costs_eur
             .map(|f| format!("{:.2}", f))
             .unwrap_or_default();
         let other_note = trip.other_costs_note.as_deref().unwrap_or("");
 
-        rows.push_str(&format!(
+        // Build row based on vehicle type
+        let mut row = format!(
             r#"        <tr>
           <td>{}</td>
           <td>{}</td>
           <td>{}</td>
           <td>{}</td>
           <td class="num">{:.0}</td>
-          <td class="num">{:.0}</td>
-          <td class="num">{}</td>
-          <td class="num">{}</td>
-          <td class="num">{}</td>
-          <td>{}</td>
-          <td class="num">{:.1}</td>
-          <td class="num">{:.2}</td>
-        </tr>
-"#,
+          <td class="num">{:.0}</td>"#,
             trip.date.format("%d.%m.%Y"),
             html_escape(&trip.origin),
             html_escape(&trip.destination),
             html_escape(&trip.purpose),
             trip.distance_km,
             trip.odometer,
-            fuel_liters,
-            fuel_cost,
+        );
+
+        // Fuel columns (ICE + PHEV)
+        if show_fuel {
+            let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
+            let fuel_remaining = data
+                .grid_data
+                .fuel_remaining
+                .get(&trip_id)
+                .copied()
+                .unwrap_or(0.0);
+            let fuel_liters = trip
+                .fuel_liters
+                .map(|f| format!("{:.1}", f))
+                .unwrap_or_default();
+            let fuel_cost = trip
+                .fuel_cost_eur
+                .map(|f| format!("{:.2}", f))
+                .unwrap_or_default();
+
+            row.push_str(&format!(
+                r#"
+          <td class="num">{}</td>
+          <td class="num">{}</td>
+          <td class="num">{:.1}</td>
+          <td class="num">{:.2}</td>"#,
+                fuel_liters, fuel_cost, fuel_remaining, rate
+            ));
+        }
+
+        // Energy columns (BEV + PHEV)
+        if show_energy {
+            let energy_rate = data
+                .grid_data
+                .energy_rates
+                .get(&trip_id)
+                .copied()
+                .unwrap_or(0.0);
+            let battery_remaining = data
+                .grid_data
+                .battery_remaining_kwh
+                .get(&trip_id)
+                .copied()
+                .unwrap_or(0.0);
+            let energy_kwh = trip
+                .energy_kwh
+                .map(|e| format!("{:.1}", e))
+                .unwrap_or_default();
+            let energy_cost = trip
+                .energy_cost_eur
+                .map(|e| format!("{:.2}", e))
+                .unwrap_or_default();
+
+            row.push_str(&format!(
+                r#"
+          <td class="num">{}</td>
+          <td class="num">{}</td>
+          <td class="num">{:.1}</td>
+          <td class="num">{:.2}</td>"#,
+                energy_kwh, energy_cost, battery_remaining, energy_rate
+            ));
+        }
+
+        // Other costs (always shown)
+        row.push_str(&format!(
+            r#"
+          <td class="num">{}</td>
+          <td>{}</td>
+        </tr>
+"#,
             other_costs,
             html_escape(other_note),
-            fuel_remaining,
-            rate
         ));
+
+        rows.push_str(&row);
     }
 
     let l = &data.labels;
+
+    // Build vehicle specs section based on vehicle type
+    let specs_section = match vehicle_type {
+        VehicleType::Ice => format!(
+            r#"    <div class="header-section">
+      <p><span class="label">{}</span> {} L</p>
+      <p><span class="label">{}</span> {} l/100km</p>
+    </div>"#,
+            html_escape(&l.header_tank_size),
+            data.vehicle.tank_size_liters.unwrap_or(0.0),
+            html_escape(&l.header_tp_consumption),
+            data.vehicle.tp_consumption.unwrap_or(0.0),
+        ),
+        VehicleType::Bev => format!(
+            r#"    <div class="header-section">
+      <p><span class="label">{}</span> {} kWh</p>
+      <p><span class="label">{}</span> {} kWh/100km</p>
+    </div>"#,
+            html_escape(&l.header_battery_capacity),
+            data.vehicle.battery_capacity_kwh.unwrap_or(0.0),
+            html_escape(&l.header_baseline_consumption),
+            data.vehicle.baseline_consumption_kwh.unwrap_or(0.0),
+        ),
+        VehicleType::Phev => format!(
+            r#"    <div class="header-section">
+      <p><span class="label">{}</span> {} L</p>
+      <p><span class="label">{}</span> {} l/100km</p>
+      <p><span class="label">{}</span> {} kWh</p>
+      <p><span class="label">{}</span> {} kWh/100km</p>
+    </div>"#,
+            html_escape(&l.header_tank_size),
+            data.vehicle.tank_size_liters.unwrap_or(0.0),
+            html_escape(&l.header_tp_consumption),
+            data.vehicle.tp_consumption.unwrap_or(0.0),
+            html_escape(&l.header_battery_capacity),
+            data.vehicle.battery_capacity_kwh.unwrap_or(0.0),
+            html_escape(&l.header_baseline_consumption),
+            data.vehicle.baseline_consumption_kwh.unwrap_or(0.0),
+        ),
+    };
+
+    // Build column headers based on vehicle type
+    let mut col_headers = format!(
+        r#"        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>"#,
+        html_escape(&l.col_date),
+        html_escape(&l.col_origin),
+        html_escape(&l.col_destination),
+        html_escape(&l.col_purpose),
+        html_escape(&l.col_km),
+        html_escape(&l.col_odo),
+    );
+
+    if show_fuel {
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>"#,
+            html_escape(&l.col_fuel_liters),
+            html_escape(&l.col_fuel_cost),
+            html_escape(&l.col_remaining),
+            html_escape(&l.col_consumption),
+        ));
+    }
+
+    if show_energy {
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>
+        <th>{}</th>"#,
+            html_escape(&l.col_energy_kwh),
+            html_escape(&l.col_energy_cost),
+            html_escape(&l.col_battery_remaining),
+            html_escape(&l.col_energy_rate),
+        ));
+    }
+
+    col_headers.push_str(&format!(
+        r#"
+        <th>{}</th>
+        <th>{}</th>"#,
+        html_escape(&l.col_other_costs),
+        html_escape(&l.col_note),
+    ));
+
+    // Build footer based on vehicle type
+    let footer_items = match vehicle_type {
+        VehicleType::Ice => format!(
+            r#"      <div class="footer-item">
+        <div class="footer-value">{:.0} km</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} L / {:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} l/100km</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.1}%</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{} l/100km</div>
+        <div class="footer-label">{}</div>
+      </div>"#,
+            data.totals.total_km,
+            html_escape(&l.footer_total_km),
+            data.totals.total_fuel_liters,
+            data.totals.total_fuel_cost,
+            html_escape(&l.footer_total_fuel),
+            data.totals.total_other_costs,
+            html_escape(&l.footer_other_costs),
+            data.totals.avg_consumption,
+            html_escape(&l.footer_avg_consumption),
+            data.totals.deviation_percent,
+            html_escape(&l.footer_deviation),
+            data.vehicle.tp_consumption.unwrap_or(0.0),
+            html_escape(&l.footer_tp_norm),
+        ),
+        VehicleType::Bev => format!(
+            r#"      <div class="footer-item">
+        <div class="footer-value">{:.0} km</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} kWh / {:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} kWh/100km</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.1}%</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{} kWh/100km</div>
+        <div class="footer-label">{}</div>
+      </div>"#,
+            data.totals.total_km,
+            html_escape(&l.footer_total_km),
+            data.totals.total_energy_kwh,
+            data.totals.total_energy_cost,
+            html_escape(&l.footer_total_energy),
+            data.totals.total_other_costs,
+            html_escape(&l.footer_other_costs),
+            data.totals.avg_energy_rate,
+            html_escape(&l.footer_avg_energy_rate),
+            data.totals.energy_deviation_percent,
+            html_escape(&l.footer_deviation),
+            data.vehicle.baseline_consumption_kwh.unwrap_or(0.0),
+            html_escape(&l.footer_baseline_norm),
+        ),
+        VehicleType::Phev => format!(
+            r#"      <div class="footer-item">
+        <div class="footer-value">{:.0} km</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} L / {:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} kWh / {:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} €</div>
+        <div class="footer-label">{}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.2} l/100km / {:.2} kWh/100km</div>
+        <div class="footer-label">{} / {}</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">{:.1}%</div>
+        <div class="footer-label">{}</div>
+      </div>"#,
+            data.totals.total_km,
+            html_escape(&l.footer_total_km),
+            data.totals.total_fuel_liters,
+            data.totals.total_fuel_cost,
+            html_escape(&l.footer_total_fuel),
+            data.totals.total_energy_kwh,
+            data.totals.total_energy_cost,
+            html_escape(&l.footer_total_energy),
+            data.totals.total_other_costs,
+            html_escape(&l.footer_other_costs),
+            data.totals.avg_consumption,
+            data.totals.avg_energy_rate,
+            html_escape(&l.footer_avg_consumption),
+            html_escape(&l.footer_avg_energy_rate),
+            data.totals.deviation_percent,
+            html_escape(&l.footer_deviation),
+        ),
+    };
 
     let html = format!(
         r#"<!DOCTYPE html>
@@ -349,10 +616,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
       <p><span class="label">{header_vehicle}</span> {vehicle_name}</p>
       <p><span class="label">{header_license_plate}</span> {license_plate}</p>
     </div>
-    <div class="header-section">
-      <p><span class="label">{header_tank_size}</span> {tank_size} L</p>
-      <p><span class="label">{header_tp_consumption}</span> {tp_consumption} l/100km</p>
-    </div>
+{specs_section}
     <div class="header-section">
       <p><span class="label">{header_year}</span> {year}</p>
       <p><span class="label">{header_vin}</span> {vin}</p>
@@ -363,18 +627,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
   <table>
     <thead>
       <tr>
-        <th>{col_date}</th>
-        <th>{col_origin}</th>
-        <th>{col_destination}</th>
-        <th>{col_purpose}</th>
-        <th>{col_km}</th>
-        <th>{col_odo}</th>
-        <th>{col_fuel_liters}</th>
-        <th>{col_fuel_cost}</th>
-        <th>{col_other_costs}</th>
-        <th>{col_note}</th>
-        <th>{col_remaining}</th>
-        <th>{col_consumption}</th>
+{col_headers}
       </tr>
     </thead>
     <tbody>
@@ -383,30 +636,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
 
   <div class="footer">
     <div class="footer-grid">
-      <div class="footer-item">
-        <div class="footer-value">{total_km:.0} km</div>
-        <div class="footer-label">{footer_total_km}</div>
-      </div>
-      <div class="footer-item">
-        <div class="footer-value">{total_fuel:.2} L / {total_fuel_cost:.2} €</div>
-        <div class="footer-label">{footer_total_fuel}</div>
-      </div>
-      <div class="footer-item">
-        <div class="footer-value">{other_costs:.2} €</div>
-        <div class="footer-label">{footer_other_costs}</div>
-      </div>
-      <div class="footer-item">
-        <div class="footer-value">{avg_consumption:.2} l/100km</div>
-        <div class="footer-label">{footer_avg_consumption}</div>
-      </div>
-      <div class="footer-item">
-        <div class="footer-value">{deviation:.1}%</div>
-        <div class="footer-label">{footer_deviation}</div>
-      </div>
-      <div class="footer-item">
-        <div class="footer-value">{tp_consumption} l/100km</div>
-        <div class="footer-label">{footer_tp_norm}</div>
-      </div>
+{footer_items}
     </div>
   </div>
 
@@ -425,40 +655,15 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         header_vehicle = html_escape(&l.header_vehicle),
         vehicle_name = html_escape(&data.vehicle.name),
         header_license_plate = html_escape(&l.header_license_plate),
-        header_tank_size = html_escape(&l.header_tank_size),
-        tank_size = data.vehicle.tank_size_liters.unwrap_or(0.0),
-        header_tp_consumption = html_escape(&l.header_tp_consumption),
-        tp_consumption = data.vehicle.tp_consumption.unwrap_or(0.0),
+        specs_section = specs_section,
         header_year = html_escape(&l.header_year),
-        col_date = html_escape(&l.col_date),
-        col_origin = html_escape(&l.col_origin),
-        col_destination = html_escape(&l.col_destination),
-        col_purpose = html_escape(&l.col_purpose),
-        col_km = html_escape(&l.col_km),
-        col_odo = html_escape(&l.col_odo),
-        col_fuel_liters = html_escape(&l.col_fuel_liters),
-        col_fuel_cost = html_escape(&l.col_fuel_cost),
-        col_other_costs = html_escape(&l.col_other_costs),
-        col_note = html_escape(&l.col_note),
-        col_remaining = html_escape(&l.col_remaining),
-        col_consumption = html_escape(&l.col_consumption),
-        rows = rows,
-        total_km = data.totals.total_km,
-        total_fuel = data.totals.total_fuel_liters,
-        total_fuel_cost = data.totals.total_fuel_cost,
-        footer_total_km = html_escape(&l.footer_total_km),
-        footer_total_fuel = html_escape(&l.footer_total_fuel),
-        other_costs = data.totals.total_other_costs,
-        footer_other_costs = html_escape(&l.footer_other_costs),
-        avg_consumption = data.totals.avg_consumption,
-        footer_avg_consumption = html_escape(&l.footer_avg_consumption),
-        deviation = data.totals.deviation_percent,
-        footer_deviation = html_escape(&l.footer_deviation),
-        footer_tp_norm = html_escape(&l.footer_tp_norm),
         header_vin = html_escape(&l.header_vin),
         vin = html_escape(data.vehicle.vin.as_deref().unwrap_or("")),
         header_driver = html_escape(&l.header_driver),
         driver_name = html_escape(data.vehicle.driver_name.as_deref().unwrap_or("")),
+        col_headers = col_headers,
+        rows = rows,
+        footer_items = footer_items,
         print_hint = html_escape(&l.print_hint),
     );
 

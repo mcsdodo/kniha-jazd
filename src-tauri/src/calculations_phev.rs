@@ -7,8 +7,10 @@ use crate::calculations;
 use crate::calculations_energy;
 
 /// Result of PHEV trip consumption calculation
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PhevTripConsumption {
+    // Fields provide complete consumption data even though we currently only use remaining values
     /// km driven on electricity
     pub km_on_electricity: f64,
     /// km driven on fuel

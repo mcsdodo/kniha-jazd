@@ -5,6 +5,8 @@
 
 /// Calculate energy consumption rate (kWh/100km) from a charge
 /// Formula: (kwh / km_since_last_charge) * 100.0
+// Alternative rate calculation approach - kept for potential future use
+#[allow(dead_code)]
 pub fn calculate_consumption_rate_kwh(kwh: f64, km_since_last_charge: f64) -> f64 {
     if km_since_last_charge <= 0.0 {
         return 0.0;
@@ -39,6 +41,8 @@ pub fn kwh_to_percent(kwh: f64, battery_capacity: f64) -> f64 {
 }
 
 /// Convert percentage to kWh based on battery capacity
+// Inverse of kwh_to_percent - kept for potential future use
+#[allow(dead_code)]
 pub fn percent_to_kwh(percent: f64, battery_capacity: f64) -> f64 {
     if battery_capacity <= 0.0 {
         return 0.0;
