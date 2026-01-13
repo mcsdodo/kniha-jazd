@@ -1,6 +1,6 @@
 **Date:** 2026-01-01
 **Subject:** Add Electric Vehicle (BEV) and Plug-in Hybrid (PHEV) Support
-**Status:** Planning
+**Status:** 🟡 Partial (see [03-status.md](03-status.md) for details)
 
 ---
 
