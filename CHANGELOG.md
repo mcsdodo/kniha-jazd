@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-01-13
+
 ### Pridané
 - **Podpora EV v exporte** - HTML export podporuje všetky typy vozidiel
   - ICE: palivo (litre, cena, zostatok, spotreba l/100km)
@@ -30,7 +32,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Odstránené zastaralé TODO komentáre
 
 ### Odstránené
-- **Čistenie mŕtveho kódu** - odstránenie nepoužívaného kódu a oprava varovaní kompilátora (17→10 varovaní)
+- **Čistenie mŕtveho kódu** - odstránenie nepoužívaného kódu a oprava varovaní kompilátora (17→1 varovanie)
   - Odstránený kód funkcie "auto-suggest compensation trip" (zjednodušená vo v0.12.0)
     - `CompensationSuggestion` struct, `generate_target_margin()`, `find_matching_route()`, `build_compensation_suggestion()`
     - Tauri príkaz `get_compensation_suggestion`
@@ -41,7 +43,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Odstránený súbor `error.rs` (AppError enum nikdy nepoužitý)
   - Odstránená funkcia `is_dummy_trip()` z `export.rs`
   - Odstránená metóda `Receipt::is_assigned()` z `models.rs`
-  - Poznámka: EV varovania ostávajú (budú vyriešené v task 19)
+
+## [0.13.1] - 2026-01-13
 
 ### Opravené
 - **Tmavý režim - kompletné tlmené štýlovanie** - oprava všetkých svetlých prvkov v tmavom režime
