@@ -372,9 +372,9 @@ describe('Tier 1: PHEV Trips', () => {
       expect(energyOnlyTrip?.energyCostEur).toBe(1.75);
       expect(energyOnlyTrip?.fullCharge).toBe(true);
 
-      // Fuel fields should be null/undefined
-      expect(energyOnlyTrip?.fuelLiters).toBeUndefined();
-      expect(energyOnlyTrip?.fuelCostEur).toBeUndefined();
+      // Fuel fields should be null (Rust Option::None serializes as null, not undefined)
+      expect(energyOnlyTrip?.fuelLiters).toBeNull();
+      expect(energyOnlyTrip?.fuelCostEur).toBeNull();
 
       const tripId = energyOnlyTrip?.id as string;
 
@@ -431,8 +431,9 @@ describe('Tier 1: PHEV Trips', () => {
       });
 
       // Trip 2: Refuel with consumption over 20% margin
-      // TP rate: 1.6, Legal limit: 1.92, We'll create ~2.0 l/100km (25% over)
-      // For 200km at 2.0 l/100km = 4 liters
+      // TP rate: 1.6, Legal limit: 1.92 l/100km (120% of TP)
+      // Total distance since start: 200 + 200 = 400km
+      // To get 2.5 l/100km: 400km * 2.5/100 = 10L needed
       await seedTrip({
         vehicleId: vehicle.id as string,
         date: `${year}-05-15`,
@@ -441,8 +442,8 @@ describe('Tier 1: PHEV Trips', () => {
         distanceKm: 200,
         odometer: 60400,
         purpose: TripPurposes.conference,
-        fuelLiters: 4,
-        fuelCostEur: 6.00,
+        fuelLiters: 10,
+        fuelCostEur: 15.00,
         fullTank: true,
         energyKwh: 8,
         energyCostEur: 2.80,
@@ -471,8 +472,9 @@ describe('Tier 1: PHEV Trips', () => {
       const fuelRate = gridData.rates[tripId];
       expect(fuelRate).toBeDefined();
 
-      // Fuel rate should be around 2.0 l/100km (4L / 200km * 100)
-      // This exceeds the 20% margin (1.92 l/100km) so warning should be triggered
+      // Fuel rate should exceed 120% of TP rate (1.92 l/100km)
+      // The exact rate depends on PHEV calculation which considers both fuel and battery
+      // Key assertion: rate exceeds limit, triggering consumption warning
       expect(fuelRate).toBeGreaterThan(1.92);
 
       // Since consumption exceeds 20% margin, there should be a consumption warning
