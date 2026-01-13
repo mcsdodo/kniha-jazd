@@ -715,9 +715,9 @@
 	}
 
 	.filter-btn.active {
-		background: var(--accent-primary);
-		color: white;
-		border-color: var(--accent-primary);
+		background: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
+		border-color: var(--btn-active-primary-bg);
 	}
 
 	.receipts-list {
@@ -902,8 +902,8 @@
 
 	.button {
 		padding: 0.75rem 1.5rem;
-		background-color: var(--accent-primary);
-		color: white;
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
 		border: none;
 		border-radius: 4px;
 		font-weight: 500;
@@ -912,7 +912,7 @@
 	}
 
 	.button:hover:not(:disabled) {
-		background-color: var(--accent-primary-hover);
+		background-color: var(--btn-active-primary-hover);
 	}
 
 	.button:disabled {
@@ -921,11 +921,12 @@
 	}
 
 	.button.secondary {
-		background-color: var(--accent-success);
+		background-color: var(--btn-active-success-bg);
+		color: var(--btn-active-success-color);
 	}
 
 	.button.secondary:hover:not(:disabled) {
-		background-color: var(--accent-success-hover);
+		background-color: var(--btn-active-success-hover);
 	}
 
 	.button-small {

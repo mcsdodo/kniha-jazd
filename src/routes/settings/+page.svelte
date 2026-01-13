@@ -743,8 +743,8 @@
 
 	.button {
 		padding: 0.75rem 1.5rem;
-		background-color: var(--accent-primary);
-		color: white;
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
 		border: none;
 		border-radius: 4px;
 		font-weight: 500;
@@ -754,7 +754,7 @@
 	}
 
 	.button:hover {
-		background-color: var(--accent-primary-hover);
+		background-color: var(--btn-active-primary-hover);
 	}
 
 	.button-small {

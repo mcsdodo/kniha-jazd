@@ -271,8 +271,8 @@
 
 	.export-btn {
 		padding: 0.5rem 1rem;
-		background-color: var(--accent-success);
-		color: white;
+		background-color: var(--btn-active-success-bg);
+		color: var(--btn-active-success-color);
 		border: none;
 		border-radius: 4px;
 		font-weight: 500;
@@ -281,7 +281,7 @@
 	}
 
 	.export-btn:hover:not(:disabled) {
-		background-color: var(--accent-success-hover);
+		background-color: var(--btn-active-success-hover);
 	}
 
 	.export-btn:disabled {
@@ -382,8 +382,8 @@
 	.button {
 		display: inline-block;
 		padding: 0.75rem 1.5rem;
-		background-color: var(--accent-primary);
-		color: white;
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
 		text-decoration: none;
 		border-radius: 4px;
 		font-weight: 500;
@@ -391,6 +391,6 @@
 	}
 
 	.button:hover {
-		background-color: var(--accent-primary-hover);
+		background-color: var(--btn-active-primary-hover);
 	}
 </style>

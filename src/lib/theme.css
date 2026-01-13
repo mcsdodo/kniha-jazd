@@ -34,6 +34,17 @@
     --btn-primary-light-color: #155724;
     --btn-primary-light-hover: #c3e6cb;
 
+    /* Active button states (solid in light mode) */
+    --btn-active-primary-bg: #3498db;
+    --btn-active-primary-color: #ffffff;
+    --btn-active-primary-hover: #2980b9;
+    --btn-active-success-bg: #27ae60;
+    --btn-active-success-color: #ffffff;
+    --btn-active-success-hover: #219653;
+    --btn-active-danger-bg: #c0392b;
+    --btn-active-danger-color: #ffffff;
+    --btn-active-danger-hover: #a93226;
+
     /* Toast notifications */
     --toast-success-bg: #d4edda;
     --toast-success-color: #155724;
@@ -110,6 +121,17 @@
     --btn-primary-light-bg: #1e3a1e;
     --btn-primary-light-color: #58d68d;
     --btn-primary-light-hover: #2a4a2a;
+
+    /* Active button states (muted in dark mode) */
+    --btn-active-primary-bg: #1a3a5c;
+    --btn-active-primary-color: #5dade2;
+    --btn-active-primary-hover: #254a6c;
+    --btn-active-success-bg: #1e3a2a;
+    --btn-active-success-color: #58d68d;
+    --btn-active-success-hover: #2a4a3a;
+    --btn-active-danger-bg: #3d2020;
+    --btn-active-danger-color: #ec7063;
+    --btn-active-danger-hover: #4d2a2a;
 
     /* Toast notifications */
     --toast-success-bg: #1e3a1e;

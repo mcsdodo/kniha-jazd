@@ -579,12 +579,12 @@
 	}
 
 	.save {
-		background-color: var(--accent-success);
-		color: white;
+		background-color: var(--btn-active-success-bg);
+		color: var(--btn-active-success-color);
 	}
 
 	.save:hover {
-		background-color: var(--accent-success-hover);
+		background-color: var(--btn-active-success-hover);
 	}
 
 	.cancel {
@@ -597,12 +597,12 @@
 	}
 
 	.delete {
-		background-color: var(--accent-danger);
-		color: white;
+		background-color: var(--btn-active-danger-bg);
+		color: var(--btn-active-danger-color);
 	}
 
 	.delete:hover {
-		background-color: var(--accent-danger-hover);
+		background-color: var(--btn-active-danger-hover);
 	}
 
 	.icon-actions {
