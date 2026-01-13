@@ -27,6 +27,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -34,5 +35,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFNzI1MzQ5Njk5RTIzN0QKUldSOUk1NXBTVk55YmlqUXBudDJaMk0yUGFhdEdqZkNOalluV2FFczJmaFBXUjM3NWRSUk5sWmwK",
+      "endpoints": [
+        "https://github.com/mcsdodo/kniha-jazd/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

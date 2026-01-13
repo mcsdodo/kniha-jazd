@@ -7,10 +7,12 @@
 	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
 	import { localeStore } from '$lib/stores/locale';
 	import { themeStore } from '$lib/stores/theme';
+	import { updateStore } from '$lib/stores/update';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
+	import UpdateModal from '$lib/components/UpdateModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 
@@ -71,6 +73,11 @@
 
 		// Initialize theme (after locale but before async vehicle loading)
 		await themeStore.init();
+
+		// Check for updates in background (non-blocking)
+		updateStore.check().catch((err) => {
+			console.error('Update check failed:', err);
+		});
 
 		try {
 			// PRESERVE parallel loading for performance
@@ -152,7 +159,12 @@
 				<nav class="main-nav">
 					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>{$LL.app.nav.logbook()}</a>
 					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<ReceiptIndicator /></a>
-					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>{$LL.app.nav.settings()}</a>
+					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
+						{$LL.app.nav.settings()}
+						{#if $updateStore.available && $updateStore.dismissed}
+							<span class="update-dot" aria-label="Update available"></span>
+						{/if}
+					</a>
 				</nav>
 			</div>
 			<div class="header-right">
@@ -211,6 +223,17 @@
 
 <Toast />
 <GlobalConfirm />
+
+{#if $updateStore.available && !$updateStore.dismissed}
+	<UpdateModal
+		version={$updateStore.version || ''}
+		releaseNotes={$updateStore.releaseNotes}
+		downloading={$updateStore.downloading}
+		progress={$updateStore.progress}
+		onUpdate={() => updateStore.install()}
+		onLater={() => updateStore.dismiss()}
+	/>
+{/if}
 
 <style>
 	:global(body) {
@@ -282,6 +305,16 @@
 	.nav-link.active {
 		color: var(--text-on-header);
 		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.update-dot {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		background-color: var(--accent-primary);
+		border-radius: 50%;
+		margin-left: 6px;
+		vertical-align: middle;
 	}
 
 	.header-right {
