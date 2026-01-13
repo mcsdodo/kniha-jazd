@@ -62,7 +62,7 @@ impl Database {
     }
 
     /// Get a raw connection for direct SQL (backup inspection, etc.)
-    pub fn connection(&self) -> std::sync::MutexGuard<SqliteConnection> {
+    pub fn connection(&self) -> std::sync::MutexGuard<'_, SqliteConnection> {
         self.conn.lock().unwrap()
     }
 
@@ -400,40 +400,6 @@ impl Database {
     // Route CRUD Operations
     // ========================================================================
 
-    pub fn create_route(&self, route: &Route) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        let id_str = route.id.to_string();
-        let vehicle_id_str = route.vehicle_id.to_string();
-        let last_used_str = route.last_used.to_rfc3339();
-
-        let new_route = NewRouteRow {
-            id: &id_str,
-            vehicle_id: &vehicle_id_str,
-            origin: &route.origin,
-            destination: &route.destination,
-            distance_km: route.distance_km,
-            usage_count: route.usage_count,
-            last_used: &last_used_str,
-        };
-
-        diesel::insert_into(routes::table)
-            .values(&new_route)
-            .execute(conn)?;
-
-        Ok(())
-    }
-
-    pub fn get_route(&self, id: &str) -> QueryResult<Option<Route>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let row = routes::table
-            .filter(routes::id.eq(id))
-            .first::<RouteRow>(conn)
-            .optional()?;
-
-        Ok(row.map(Route::from))
-    }
-
     pub fn get_routes_for_vehicle(&self, vehicle_id: &str) -> QueryResult<Vec<Route>> {
         let conn = &mut *self.conn.lock().unwrap();
 
@@ -465,32 +431,6 @@ impl Database {
         .load::<PurposeRow>(conn)?;
 
         Ok(rows.into_iter().map(|r| r.purpose).collect())
-    }
-
-    pub fn update_route(&self, route: &Route) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        let id_str = route.id.to_string();
-        let vehicle_id_str = route.vehicle_id.to_string();
-        let last_used_str = route.last_used.to_rfc3339();
-
-        diesel::update(routes::table.filter(routes::id.eq(&id_str)))
-            .set((
-                routes::vehicle_id.eq(&vehicle_id_str),
-                routes::origin.eq(&route.origin),
-                routes::destination.eq(&route.destination),
-                routes::distance_km.eq(route.distance_km),
-                routes::usage_count.eq(route.usage_count),
-                routes::last_used.eq(&last_used_str),
-            ))
-            .execute(conn)?;
-
-        Ok(())
-    }
-
-    pub fn delete_route(&self, id: &str) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        diesel::delete(routes::table.filter(routes::id.eq(id))).execute(conn)?;
-        Ok(())
     }
 
     /// Find existing route with same origin/destination, or create new one
@@ -560,37 +500,6 @@ impl Database {
 
             Ok(route)
         }
-    }
-
-    /// Populate routes table from existing trips (used after backup restore)
-    pub fn populate_routes_from_trips(&self) -> QueryResult<usize> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        // Only populate if routes table is empty
-        let routes_count: i64 = routes::table.count().get_result(conn)?;
-
-        if routes_count > 0 {
-            return Ok(0);
-        }
-
-        // Complex INSERT...SELECT with aggregation - must use raw SQL
-        let rows = diesel::sql_query(
-            "INSERT OR IGNORE INTO routes (id, vehicle_id, origin, destination, distance_km, usage_count, last_used)
-             SELECT
-                 lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))),
-                 vehicle_id,
-                 origin,
-                 destination,
-                 AVG(distance_km),
-                 COUNT(*),
-                 MAX(date)
-             FROM trips
-             WHERE origin != '' AND destination != ''
-             GROUP BY vehicle_id, origin, destination",
-        )
-        .execute(conn)?;
-
-        Ok(rows)
     }
 
     // ========================================================================

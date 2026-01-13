@@ -350,10 +350,6 @@
 		font-weight: 600;
 	}
 
-	.trip-section {
-		/* TripGrid has its own styling */
-	}
-
 	.loading {
 		text-align: center;
 		padding: 2rem;

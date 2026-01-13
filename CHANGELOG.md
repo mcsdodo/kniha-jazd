@@ -7,12 +7,31 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Odstránené
+- **Čistenie mŕtveho kódu** - odstránenie nepoužívaného kódu a oprava varovaní kompilátora (17→10 varovaní)
+  - Odstránený kód funkcie "auto-suggest compensation trip" (zjednodušená vo v0.12.0)
+    - `CompensationSuggestion` struct, `generate_target_margin()`, `find_matching_route()`, `build_compensation_suggestion()`
+    - Tauri príkaz `get_compensation_suggestion`
+    - Frontend funkcia `getCompensationSuggestion()` a TypeScript typ
+  - Odstránené nepoužívané Route CRUD operácie z `db.rs`
+    - `create_route()`, `get_route()`, `update_route()`, `delete_route()`, `populate_routes_from_trips()`
+    - Ponechané: `get_routes_for_vehicle()`, `find_or_create_route()` (aktívne používané)
+  - Odstránený súbor `error.rs` (AppError enum nikdy nepoužitý)
+  - Odstránená funkcia `is_dummy_trip()` z `export.rs`
+  - Odstránená metóda `Receipt::is_assigned()` z `models.rs`
+  - Poznámka: EV varovania ostávajú (budú vyriešené v task 19)
+
 ### Opravené
 - **Tmavý režim - kompletné tlmené štýlovanie** - oprava všetkých svetlých prvkov v tmavom režime
   - Odznaky typu vozidla (ICE/BEV/PHEV) - tlmené pozadia namiesto svetlých
   - Všetky tlačidlá (Skenovať, Rozpoznať, Export, Uložiť, Odstrániť, Pridať vozidlo)
   - Aktívne stavy filtrov a prepínačov
   - Pravidlo: tmavé tlmené pozadie + jasný farebný text (nie biely text na jasnom pozadí)
+- **Syntax a štýl** - opravy varovaní kompilátora
+  - Explicitná životnosť v `db.rs` (`MutexGuard<'_, SqliteConnection>`)
+  - Klávesová navigácia pre modálne okno vozidla (Escape na zatvorenie)
+  - Odstránený prázdny CSS `.trip-section {}`
+  - Prístupnosť prepínača témy - použitý `<fieldset>` + `<legend>`
 
 ### Dokumentácia
 - **Analýza mŕtveho kódu** - zdokumentované 17 varovaní kompilátora v `_tasks/_TECH_DEBT/03-dead-code-and-warnings.md`

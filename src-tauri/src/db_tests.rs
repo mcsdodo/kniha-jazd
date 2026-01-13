@@ -172,42 +172,6 @@ fn test_get_trips_for_vehicle_in_year() {
     assert_eq!(trips_2023.len(), 1);
 }
 
-fn create_test_route(vehicle_id: Uuid, origin: &str, destination: &str, distance_km: f64) -> Route {
-    Route {
-        id: Uuid::new_v4(),
-        vehicle_id,
-        origin: origin.to_string(),
-        destination: destination.to_string(),
-        distance_km,
-        usage_count: 1,
-        last_used: Utc::now(),
-    }
-}
-
-#[test]
-fn test_route_crud_lifecycle() {
-    let db = Database::in_memory().expect("Failed to create database");
-    let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
-
-    let route = create_test_route(vehicle.id, "Bratislava", "Kosice", 400.0);
-    db.create_route(&route).expect("Failed to create route");
-
-    let retrieved = db.get_route(&route.id.to_string()).unwrap().unwrap();
-    assert_eq!(retrieved.origin, "Bratislava");
-    assert_eq!(retrieved.usage_count, 1);
-
-    let mut updated = retrieved;
-    updated.usage_count = 5;
-    db.update_route(&updated).expect("Failed to update");
-
-    let after_update = db.get_route(&route.id.to_string()).unwrap().unwrap();
-    assert_eq!(after_update.usage_count, 5);
-
-    db.delete_route(&route.id.to_string()).expect("Failed to delete");
-    assert!(db.get_route(&route.id.to_string()).unwrap().is_none());
-}
-
 #[test]
 fn test_find_or_create_route_upsert() {
     let db = Database::in_memory().expect("Failed to create database");

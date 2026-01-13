@@ -59,14 +59,6 @@ export interface Route {
 	lastUsed: string;
 }
 
-export interface CompensationSuggestion {
-	origin: string;
-	destination: string;
-	distanceKm: number;
-	purpose: string;
-	isBuffer: boolean;
-}
-
 export interface Settings {
 	id: string;
 	companyName: string;
