@@ -1,0 +1,16 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "identifier": "com.notavailable.kniha-jazd.dev",
+  "productName": "Kniha Jázd [DEV]",
+  "app": {
+    "windows": [
+      {
+        "title": "Kniha Jázd [DEV]",
+        "width": 1920,
+        "height": 1080,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  }
+}
