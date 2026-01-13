@@ -22,6 +22,8 @@ When external skills (e.g., `superpowers:brainstorming`, `superpowers:writing-pl
 
 **Rule:** Project-specific paths in this file override generic skill defaults.
 
+**Finding next task folder number:** Always use `Glob pattern: _tasks/[0-9][0-9]-*/*` to find files inside numbered folders (NOT `_tasks/*`). Extract the highest folder number and increment by 1.
+
 ## Architecture: Backend-Only Calculations
 
 All business logic and calculations live in Rust backend only (ADR-008):
