@@ -8,7 +8,7 @@ use crate::calculations_energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
 };
 use crate::calculations_phev::calculate_phev_trip_consumption;
-use crate::db::Database;
+use crate::db::{normalize_location, Database};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
 use std::collections::{HashMap, HashSet};
@@ -237,6 +237,10 @@ pub fn create_trip(
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
 
+    // Normalize locations to prevent whitespace-based duplicates
+    let origin = normalize_location(&origin);
+    let destination = normalize_location(&destination);
+
     // Validate: SoC override must be 0-100 if provided
     if let Some(soc) = soc_override_percent {
         if !(0.0..=100.0).contains(&soc) {
@@ -316,6 +320,10 @@ pub fn update_trip(
 ) -> Result<Trip, String> {
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Normalize locations to prevent whitespace-based duplicates
+    let origin = normalize_location(&origin);
+    let destination = normalize_location(&destination);
 
     // Validate: SoC override must be 0-100 if provided
     if let Some(soc) = soc_override_percent {
