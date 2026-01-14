@@ -24,6 +24,21 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Automatická extrakcia poznámok k vydaniu** - CI workflow extrahuje poznámky z CHANGELOG.md
 - **Lokálny testovací server** - `_test-releases/` pre testovanie aktualizácií bez GitHub Releases
 
+### Opravené
+- **Klávesové skratky v editácii jazdy** - Enter/Escape teraz fungujú správne vo všetkých prípadoch
+  - Enter odošle formulár aj keď je otvorený autocomplete dropdown
+  - Enter funguje aj bez focusu na žiadnom poli
+  - Zjednodušený handler - jeden globálny listener namiesto viacerých
+  - Autocomplete dropdown už neblokuje odoslanie formulára
+
+### Testy
+- **Integračné testy pre autocomplete trás** - nový súbor `route-autocomplete.spec.ts`
+  - Test automatického vyplnenia KM z naučených trás
+  - Test zachovania užívateľom zadanej vzdialenosti
+  - Test Enter pre odoslanie (bez focusu)
+  - Test Enter s otvoreným autocomplete dropdownom
+  - Test Escape pre zrušenie editácie
+
 ### Zmenené
 - **Synchronizácia verzií** - Cargo.toml aktualizovaný na 0.15.0 (zosúladenie s package.json a tauri.conf.json)
 
