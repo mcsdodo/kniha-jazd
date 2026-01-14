@@ -1,0 +1,2 @@
+# Ignore test release binaries (large files)
+releases/

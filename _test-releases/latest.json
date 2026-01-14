@@ -1,0 +1,11 @@
+{
+  "version": "0.16.0",
+  "notes": "Test release for update verification:\n\n### Pridané\n- Test feature A\n- Test feature B\n\n### Opravené\n- Test fix C",
+  "pub_date": "2026-01-15T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "http://localhost:3456/releases/v0.16.0/Kniha-jazd_0.16.0_x64-setup.exe",
+      "signature": "PASTE_SIGNATURE_FROM_EXE_SIG_FILE_HERE"
+    }
+  }
+}
