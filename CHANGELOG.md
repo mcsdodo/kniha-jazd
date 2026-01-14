@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-01-15
+
 ### Pridané
 - **Normalizácia lokácií** - automatické čistenie medzier pri ukladaní
   - Odstránenie úvodných a koncových medzier
