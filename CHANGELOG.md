@@ -8,6 +8,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
+- **Normalizácia lokácií** - automatické čistenie medzier pri ukladaní
+  - Odstránenie úvodných a koncových medzier
+  - Nahradenie viacerých medzier jednou medzerou
+  - Prevencia duplicít ako "Bratislava" vs "Bratislava " (koncová medzera)
+  - Aplikované na trasy aj jazdy pri vytváraní a úprave
 - **Automatické aktualizácie** - aplikácia kontroluje dostupnosť novej verzie
   - Kontrola pri štarte aplikácie (na pozadí, neblokujúce)
   - Manuálne tlačidlo "Skontrolovať aktualizácie" v Nastaveniach
