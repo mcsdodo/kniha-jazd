@@ -21,6 +21,29 @@ use uuid::Uuid;
 // Embed migrations at compile time
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
+// ============================================================================
+// Location Normalization
+// ============================================================================
+
+/// Normalize a location string for consistent storage and matching.
+///
+/// Currently performs:
+/// - Trimming leading/trailing whitespace
+/// - Collapsing multiple consecutive spaces into single space
+///
+/// This prevents duplicates like "Bratislava" vs "Bratislava " (trailing space)
+/// which was observed in production data.
+///
+/// Note: Based on real data analysis, Slovak diacritics are NOT normalized
+/// because users consistently type ASCII-only (Kosice, not Košice).
+pub fn normalize_location(location: &str) -> String {
+    location
+        .trim()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 pub struct Database {
     conn: Mutex<SqliteConnection>,
 }
@@ -435,7 +458,10 @@ impl Database {
         Ok(rows.into_iter().map(|r| r.purpose).collect())
     }
 
-    /// Find existing route with same origin/destination, or create new one
+    /// Find existing route with same origin/destination, or create new one.
+    ///
+    /// Input locations are normalized (trimmed, whitespace collapsed) before
+    /// lookup and storage to prevent duplicates like "Bratislava" vs "Bratislava ".
     pub fn find_or_create_route(
         &self,
         vehicle_id: &str,
@@ -443,13 +469,17 @@ impl Database {
         destination: &str,
         distance_km: f64,
     ) -> QueryResult<Route> {
+        // Normalize inputs to prevent whitespace-based duplicates
+        let origin = normalize_location(origin);
+        let destination = normalize_location(destination);
+
         let conn = &mut *self.conn.lock().unwrap();
 
-        // Try to find existing route
+        // Try to find existing route with normalized values
         let existing = routes::table
             .filter(routes::vehicle_id.eq(vehicle_id))
-            .filter(routes::origin.eq(origin))
-            .filter(routes::destination.eq(destination))
+            .filter(routes::origin.eq(&origin))
+            .filter(routes::destination.eq(&destination))
             .first::<RouteRow>(conn)
             .optional()?;
 
@@ -471,12 +501,12 @@ impl Database {
             route.last_used = Utc::now();
             Ok(route)
         } else {
-            // Create new route
+            // Create new route with normalized values
             let route = Route {
                 id: Uuid::new_v4(),
                 vehicle_id: vehicle_id.parse().unwrap(),
-                origin: origin.to_string(),
-                destination: destination.to_string(),
+                origin: origin.clone(),
+                destination: destination.clone(),
                 distance_km,
                 usage_count: 1,
                 last_used: Utc::now(),
