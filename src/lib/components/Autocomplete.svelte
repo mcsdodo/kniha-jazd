@@ -58,10 +58,14 @@
 				selectedIndex = Math.max(selectedIndex - 1, -1);
 				break;
 			case 'Enter':
-				event.preventDefault();
-				event.stopPropagation(); // Don't trigger row save
 				if (selectedIndex >= 0 && selectedIndex < filteredSuggestions.length) {
+					// User arrow-navigated to a suggestion - select it
+					event.preventDefault();
+					event.stopPropagation();
 					selectSuggestion(filteredSuggestions[selectedIndex]);
+				} else {
+					// No selection - close dropdown and let Enter bubble up to submit form
+					showDropdown = false;
 				}
 				break;
 			case 'Escape':

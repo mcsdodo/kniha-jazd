@@ -212,32 +212,21 @@
 		}
 	}
 
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault();
-			handleSave();
-		} else if (event.key === 'Escape') {
-			handleCancel();
-		}
-	}
-
-	// Global keyboard handler for when editing
-	// This ensures ESC/Enter work regardless of focus location
+	// Single global keyboard handler for editing mode
+	// ESC = cancel, Enter = submit (works regardless of focus)
 	function handleGlobalKeydown(event: KeyboardEvent) {
 		if (!isEditing) return;
 
-		// Check if target is inside an autocomplete with open dropdown
-		const target = event.target as HTMLElement;
-		const autocomplete = target.closest('.autocomplete');
-		const hasOpenDropdown = autocomplete?.querySelector('.dropdown') !== null;
-
 		if (event.key === 'Escape') {
-			// ESC always cancels (Autocomplete closes dropdown but doesn't block)
+			// ESC always cancels editing
 			event.preventDefault();
 			handleCancel();
 		} else if (event.key === 'Enter' && !event.shiftKey) {
+			// Check if ANY autocomplete dropdown is open in the document
+			const hasOpenDropdown = document.querySelector('.autocomplete .dropdown') !== null;
 			if (hasOpenDropdown) {
-				// Let Autocomplete handle selection first
+				// Let Autocomplete handle the selection first
+				// Next Enter (after dropdown closes) will submit
 				return;
 			}
 			event.preventDefault();
@@ -250,7 +239,7 @@
 <svelte:window on:keydown={handleGlobalKeydown} />
 
 {#if isEditing}
-	<tr class="editing" on:keydown={handleKeydown}>
+	<tr class="editing">
 		<td>
 			<input type="date" bind:value={formData.date} data-testid="trip-date" />
 		</td>
