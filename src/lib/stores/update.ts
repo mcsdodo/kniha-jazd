@@ -2,6 +2,8 @@ import { writable } from 'svelte/store';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
+const DISMISSED_VERSION_KEY = 'kniha-jazd-dismissed-update-version';
+
 interface UpdateState {
 	checking: boolean;
 	available: boolean;
@@ -11,6 +13,26 @@ interface UpdateState {
 	downloading: boolean;
 	progress: number;
 	error: string | null;
+}
+
+function getDismissedVersion(): string | null {
+	try {
+		return localStorage.getItem(DISMISSED_VERSION_KEY);
+	} catch {
+		return null;
+	}
+}
+
+function setDismissedVersion(version: string | null): void {
+	try {
+		if (version) {
+			localStorage.setItem(DISMISSED_VERSION_KEY, version);
+		} else {
+			localStorage.removeItem(DISMISSED_VERSION_KEY);
+		}
+	} catch {
+		// Ignore localStorage errors
+	}
 }
 
 const initialState: UpdateState = {
@@ -28,27 +50,75 @@ function createUpdateStore() {
 	const { subscribe, set, update: updateState } = writable<UpdateState>(initialState);
 	let updateObject: Awaited<ReturnType<typeof check>> | null = null;
 
+	async function doCheck(respectDismissed: boolean) {
+		updateState((state) => ({ ...state, checking: true, error: null }));
+		try {
+			const result = await check({ timeout: 5000 });
+			if (result?.available) {
+				updateObject = result;
+				// Check if this version was previously dismissed (only for automatic checks)
+				const dismissedVersion = getDismissedVersion();
+				const isDismissed = respectDismissed && dismissedVersion === result.version;
+				updateState((state) => ({
+					...state,
+					available: true,
+					version: result.version,
+					releaseNotes: result.body || null,
+					checking: false,
+					dismissed: isDismissed
+				}));
+			} else {
+				// Clear any dismissed version if no update available
+				setDismissedVersion(null);
+				updateState((state) => ({
+					...state,
+					available: false,
+					checking: false,
+					dismissed: false
+				}));
+			}
+		} catch (err) {
+			const errorMsg = err instanceof Error ? err.message : String(err);
+			updateState((state) => ({
+				...state,
+				checking: false,
+				error: errorMsg
+			}));
+		}
+	}
+
 	return {
 		subscribe,
 
-		check: async () => {
+		// Automatic check (respects dismissed state)
+		check: () => doCheck(true),
+
+		// Manual check (ignores dismissed state, always shows modal if update available)
+		checkManual: () => doCheck(false),
+
+		// Silent check (checks but auto-dismisses - for when auto-check is disabled)
+		// This still sets available=true so the dot indicator shows
+		checkSilent: async () => {
 			updateState((state) => ({ ...state, checking: true, error: null }));
 			try {
 				const result = await check({ timeout: 5000 });
 				if (result?.available) {
 					updateObject = result;
+					// Auto-dismiss but still mark as available (for dot indicator)
 					updateState((state) => ({
 						...state,
 						available: true,
 						version: result.version,
 						releaseNotes: result.body || null,
-						checking: false
+						checking: false,
+						dismissed: true  // Always dismissed in silent mode
 					}));
 				} else {
 					updateState((state) => ({
 						...state,
 						available: false,
-						checking: false
+						checking: false,
+						dismissed: false
 					}));
 				}
 			} catch (err) {
@@ -62,7 +132,13 @@ function createUpdateStore() {
 		},
 
 		dismiss: () => {
-			updateState((state) => ({ ...state, dismissed: true }));
+			updateState((state) => {
+				// Persist the dismissed version
+				if (state.version) {
+					setDismissedVersion(state.version);
+				}
+				return { ...state, dismissed: true };
+			});
 		},
 
 		install: async () => {

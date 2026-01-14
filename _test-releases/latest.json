@@ -1,11 +1,11 @@
 {
   "version": "0.16.0",
-  "notes": "Test release for update verification:\n\n### Pridané\n- Test feature A\n- Test feature B\n\n### Opravené\n- Test fix C",
-  "pub_date": "2026-01-15T12:00:00Z",
+  "notes": "Test release for update verification:\n\n### Pridané\n- Automatické aktualizácie\n- Zobrazenie verzie v Nastaveniach\n\n### Opravené\n- Test fix",
+  "pub_date": "2026-01-14T20:07:00Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "http://localhost:3456/releases/v0.16.0/Kniha-jazd_0.16.0_x64-setup.exe",
-      "signature": "PASTE_SIGNATURE_FROM_EXE_SIG_FILE_HERE"
+      "url": "http://localhost:3456/releases/v0.16.0/Kniha%20J%C3%A1zd_0.16.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSOUk1NXBTVk55YmxKcmhHUE0rSDF2RXFVUnlvNEZ5WHhNbGQrL1g4QTBVSUFHUUJ3M2grbk9FTDloelIxNGdXaFBNcEQrSzJ4UG9ucHNxUkFRMWZxOFR3YlkrOWpTRkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4NDIxMjI3CWZpbGU6S25paGEgSsOhemRfMC4xNi4wX3g2NC1zZXR1cC5leGUKMWxLSXZTeitKT3FzSE9LOXdBRFI3Z2JBTjBMOGNuWDIyOHNxcDFpR3Z2aW5hUy8ySHVZNjFaYkk1bmkyeENwOWpiUS9YL1RhL2l4RysrMVpwdCs4RFE9PQo="
     }
   }
 }

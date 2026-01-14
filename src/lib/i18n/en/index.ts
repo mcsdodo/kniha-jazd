@@ -434,6 +434,7 @@ const en = {
 		retry: 'Retry',
 		buttonUpdate: 'Update',
 		buttonLater: 'Later',
+		autoCheckOnStart: 'Automatically check on startup',
 	},
 } satisfies Translation;
 

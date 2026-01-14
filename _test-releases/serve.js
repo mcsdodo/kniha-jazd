@@ -4,13 +4,17 @@
  * Usage:
  *   node _test-releases/serve.js
  *
- * Then configure TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json
- * before running `npm run tauri dev`
+ * Then run app with:
+ *   set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
  */
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = 3456;
 const BASE_DIR = __dirname;
@@ -20,18 +24,28 @@ const MIME_TYPES = {
   '.exe': 'application/octet-stream',
   '.sig': 'text/plain',
   '.gz': 'application/gzip',
-  '.tar.gz': 'application/gzip',
 };
 
 http.createServer((req, res) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
 
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
+
   // Handle root as latest.json
-  const urlPath = req.url === '/' ? '/latest.json' : req.url;
+  const urlPath = req.url === '/' ? '/latest.json' : decodeURIComponent(req.url);
   const filePath = path.join(BASE_DIR, urlPath);
 
   if (!fs.existsSync(filePath)) {
-    console.log(`  -> 404 Not Found`);
+    console.log(`  -> 404 Not Found: ${filePath}`);
     res.writeHead(404);
     return res.end('Not found');
   }
@@ -59,10 +73,8 @@ Endpoints:
   http://localhost:${PORT}/releases/v0.16.0/...
 
 To test updates:
-  1. Build a test release: npm run tauri build
-  2. Copy installer to _test-releases/releases/v0.16.0/
-  3. Update latest.json with correct signature
-  4. Run app with: set TAURI_UPDATER_ENDPOINT=http://localhost:${PORT}/latest.json && npm run tauri dev
+  1. In another terminal, run:
+     set TAURI_UPDATER_ENDPOINT=http://localhost:${PORT}/latest.json && npm run tauri dev
 
 Press Ctrl+C to stop.
 `);

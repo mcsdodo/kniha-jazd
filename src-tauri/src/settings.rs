@@ -9,7 +9,8 @@ use std::path::PathBuf;
 pub struct LocalSettings {
     pub gemini_api_key: Option<String>,
     pub receipts_folder_path: Option<String>,
-    pub theme: Option<String>, // "system" | "light" | "dark"
+    pub theme: Option<String>,              // "system" | "light" | "dark"
+    pub auto_check_updates: Option<bool>,   // true by default if None
 }
 
 impl LocalSettings {

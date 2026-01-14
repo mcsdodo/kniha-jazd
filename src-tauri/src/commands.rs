@@ -2472,6 +2472,32 @@ pub fn set_theme_preference(app_handle: tauri::AppHandle, theme: String) -> Resu
 }
 
 // ============================================================================
+// Auto-Update Settings Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn get_auto_check_updates(app_handle: tauri::AppHandle) -> Result<bool, String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_data_dir);
+    // Default to true if not set
+    Ok(settings.auto_check_updates.unwrap_or(true))
+}
+
+#[tauri::command]
+pub fn set_auto_check_updates(app_handle: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.auto_check_updates = Some(enabled);
+
+    // Save to file
+    let settings_path = app_data_dir.join("local.settings.json");
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
