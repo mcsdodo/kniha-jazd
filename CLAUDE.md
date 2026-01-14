@@ -210,9 +210,16 @@ kniha-jazd/
 
 ## Database Location
 
-- **Windows:** `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
+Paths are based on Tauri `identifier` in config files:
+
+- **Production** (`tauri.conf.json` → `com.notavailable.kniha-jazd`):
+  - `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
   - Example: `C:\Users\<username>\AppData\Roaming\com.notavailable.kniha-jazd\kniha-jazd.db`
-- **Backups:** `%APPDATA%\com.notavailable.kniha-jazd\backups\`
+  - Backups: `%APPDATA%\com.notavailable.kniha-jazd\backups\`
+
+- **Development** (`tauri.conf.dev.json` → `com.notavailable.kniha-jazd.dev`):
+  - `%APPDATA%\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
+  - Example: `C:\Users\<username>\AppData\Roaming\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
 
 ## Common Commands
 
