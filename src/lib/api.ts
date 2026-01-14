@@ -326,3 +326,12 @@ export async function getThemePreference(): Promise<ThemeMode> {
 export async function setThemePreference(theme: ThemeMode): Promise<void> {
 	return invoke('set_theme_preference', { theme });
 }
+
+// Auto-update settings
+export async function getAutoCheckUpdates(): Promise<boolean> {
+	return invoke<boolean>('get_auto_check_updates');
+}
+
+export async function setAutoCheckUpdates(enabled: boolean): Promise<void> {
+	return invoke('set_auto_check_updates', { enabled });
+}

@@ -1387,6 +1387,10 @@ type RootTranslation = {
 		 * N​e​s​k​ô​r
 		 */
 		buttonLater: string
+		/**
+		 * A​u​t​o​m​a​t​i​c​k​y​ ​k​o​n​t​r​o​l​o​v​a​ť​ ​p​r​i​ ​š​t​a​r​t​e
+		 */
+		autoCheckOnStart: string
 	}
 }
 
@@ -2720,6 +2724,10 @@ export type TranslationFunctions = {
 		 * Neskôr
 		 */
 		buttonLater: () => LocalizedString
+		/**
+		 * Automaticky kontrolovať pri štarte
+		 */
+		autoCheckOnStart: () => LocalizedString
 	}
 }
 

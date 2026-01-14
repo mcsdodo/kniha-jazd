@@ -434,6 +434,7 @@ const sk = {
 		retry: 'Skúsiť znova',
 		buttonUpdate: 'Aktualizovať',
 		buttonLater: 'Neskôr',
+		autoCheckOnStart: 'Automaticky kontrolovať pri štarte',
 	},
 } satisfies BaseTranslation;
 

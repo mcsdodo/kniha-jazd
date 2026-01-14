@@ -8,6 +8,7 @@
 	import { localeStore } from '$lib/stores/locale';
 	import { themeStore } from '$lib/stores/theme';
 	import { updateStore } from '$lib/stores/update';
+	import { getAutoCheckUpdates } from '$lib/api';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
@@ -74,9 +75,22 @@
 		// Initialize theme (after locale but before async vehicle loading)
 		await themeStore.init();
 
-		// Check for updates in background (non-blocking)
-		updateStore.check().catch((err) => {
-			console.error('Update check failed:', err);
+		// Always check for updates in background (for dot indicator)
+		// If auto-check disabled, check but don't show modal (use check() which respects dismissed)
+		getAutoCheckUpdates().then((enabled) => {
+			if (enabled) {
+				// Auto-check enabled: show modal if update available (respects previously dismissed)
+				updateStore.check().catch((err) => {
+					console.error('Update check failed:', err);
+				});
+			} else {
+				// Auto-check disabled: check silently (mark as dismissed so no modal)
+				updateStore.checkSilent().catch((err) => {
+					console.error('Update check failed:', err);
+				});
+			}
+		}).catch((err) => {
+			console.error('Failed to get auto-check setting:', err);
 		});
 
 		try {

@@ -87,6 +87,8 @@ pub fn run() {
       commands::preview_trip_calculation,
       commands::get_theme_preference,
       commands::set_theme_preference,
+      commands::get_auto_check_updates,
+      commands::set_auto_check_updates,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

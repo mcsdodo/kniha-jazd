@@ -13,6 +13,7 @@
 	import type { ThemeMode } from '$lib/api';
 	import { updateStore } from '$lib/stores/update';
 	import { getVersion } from '@tauri-apps/api/app';
+	import { getAutoCheckUpdates, setAutoCheckUpdates } from '$lib/api';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -40,9 +41,18 @@
 	// App version
 	let appVersion = '';
 
+	// Auto-check updates setting
+	let autoCheckUpdates = true;
+
 	async function handleThemeChange(theme: ThemeMode) {
 		selectedTheme = theme;
 		await themeStore.change(theme);
+	}
+
+	async function handleAutoCheckChange(event: Event) {
+		const checkbox = event.target as HTMLInputElement;
+		autoCheckUpdates = checkbox.checked;
+		await setAutoCheckUpdates(autoCheckUpdates);
 	}
 
 
@@ -96,6 +106,9 @@
 
 			// Load app version
 			appVersion = await getVersion();
+
+			// Load auto-check setting
+			autoCheckUpdates = await getAutoCheckUpdates();
 		})();
 
 		return () => unsubscribeLocale();
@@ -422,9 +435,19 @@
 						{/if}
 					</div>
 				</div>
+				<div class="update-options">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							checked={autoCheckUpdates}
+							on:change={handleAutoCheckChange}
+						/>
+						{$LL.update.autoCheckOnStart()}
+					</label>
+				</div>
 				<button
 					class="button"
-					on:click={() => updateStore.check()}
+					on:click={() => updateStore.checkManual()}
 					disabled={$updateStore.checking}
 				>
 					{$updateStore.checking ? $LL.update.checking() : $LL.update.checkForUpdates()}
@@ -1004,5 +1027,23 @@
 
 	.status-text.error {
 		color: var(--accent-danger);
+	}
+
+	.update-options {
+		margin: 0.75rem 0;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		color: var(--text-primary);
+	}
+
+	.checkbox-label input[type="checkbox"] {
+		width: 18px;
+		height: 18px;
+		cursor: pointer;
 	}
 </style>

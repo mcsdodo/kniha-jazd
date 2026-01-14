@@ -12,5 +12,12 @@
         "fullscreen": false
       }
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "http://localhost:3456/latest.json"
+      ]
+    }
   }
 }
