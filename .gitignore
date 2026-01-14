@@ -50,3 +50,6 @@ tmpclaude-*
 
 # Tauri signing keys (NEVER commit private keys)
 .tauri-keys/
+
+analyze-routes.mjs
+cleanup-routes.mjs
