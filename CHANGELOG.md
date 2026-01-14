@@ -17,8 +17,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Modrá bodka indikátora pri Nastaveniach ak je aktualizácia dostupná
   - Podpísané aktualizácie pre bezpečnosť (Ed25519)
   - GitHub Releases ako distribučný kanál
+  - Checkbox "Automaticky kontrolovať pri štarte" v Nastaveniach
+  - Odloženie ("Neskôr") prežije reštart aplikácie
+  - Manuálna kontrola vždy zobrazí modál aj po odložení
 - **Zobrazenie verzie v Nastaveniach** - sekcia "Aktualizácie" zobrazuje aktuálnu verziu
 - **Automatická extrakcia poznámok k vydaniu** - CI workflow extrahuje poznámky z CHANGELOG.md
+- **Lokálny testovací server** - `_test-releases/` pre testovanie aktualizácií bez GitHub Releases
 
 ### Zmenené
 - **Synchronizácia verzií** - Cargo.toml aktualizovaný na 0.15.0 (zosúladenie s package.json a tauri.conf.json)
