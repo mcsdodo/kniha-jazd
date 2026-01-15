@@ -300,6 +300,20 @@ describe('Tier 2: Route Autocomplete', () => {
         tpConsumption: vehicleData.tpConsumption,
       });
 
+      const year = new Date().getFullYear();
+
+      // Seed an initial trip to ensure ODO calculation works correctly
+      // This also creates routes for autocomplete suggestions
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        date: `${year}-01-01`,
+        origin: 'InitialPlace',
+        destination: 'InitialDest',
+        distanceKm: 100,
+        odometer: 50100,
+        purpose: 'Setup trip',
+      });
+
       await setActiveVehicle(vehicle.id as string);
       await navigateTo('trips');
 
@@ -327,8 +341,6 @@ describe('Tier 2: Route Autocomplete', () => {
         },
         { timeout: 10000 }
       );
-
-      const year = new Date().getFullYear();
 
       // Fill required fields
       const dateInput = await $('[data-testid="trip-date"]');
@@ -359,10 +371,10 @@ describe('Tier 2: Route Autocomplete', () => {
       const distanceValue = await distanceInput.getValue();
       expect(distanceValue).toBe('50');
 
-      // Also verify ODO was auto-calculated (50000 + 50 = 50050)
+      // Also verify ODO was auto-calculated (50100 from seed trip + 50 = 50150)
       const odoInput = await $('[data-testid="trip-odometer"]');
       const odoValue = await odoInput.getValue();
-      expect(odoValue).toBe('50050');
+      expect(odoValue).toBe('50150');
 
       const purposeInput = await $('[data-testid="trip-purpose"]');
       await purposeInput.setValue('Enter test');
