@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **CI integračné testy** - opravené zlyhávanie buildu kvôli chýbajúcemu podpisovaciemu kľúču
+  - Dev/test buildy nepotrebujú podpísané aktualizačné artefakty
+  - Pridané `createUpdaterArtifacts: false` do tauri.conf.dev.json
+
 ## [0.16.0] - 2026-01-15
 
 ### Pridané
