@@ -7,17 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-01-15
+
 ### Opravené
-- **CI integračné testy** - opravené zlyhávanie buildu kvôli chýbajúcemu podpisovaciemu kľúču
-  - Dev/test buildy nepotrebujú podpísané aktualizačné artefakty
-  - Pridané `createUpdaterArtifacts: false` do tauri.conf.dev.json
 - **Enter klávesa v editácii jazdy** - opravená race condition pri odoslaní formulára
   - Dropdown autocomplete sa zatváral s 200ms oneskorením po strate fokusu
   - Enter bol ignorovaný ak dropdown ešte existoval v DOM
   - Teraz sa kontroluje aj či má autocomplete input focus
+
+### Interné
+- **CI integračné testy** - opravené zlyhávanie buildu kvôli chýbajúcemu podpisovaciemu kľúču
 - **Date input v integračných testoch** - opravené nastavovanie dátumu cez WebDriverIO
-  - `setValue()` nefunguje spoľahlivo s date inputmi (prehliadač môže hodnotu preformátovať)
-  - Použité atomické nastavenie hodnoty cez `browser.execute()` ako pri distance poli
 
 ## [0.16.0] - 2026-01-15
 
