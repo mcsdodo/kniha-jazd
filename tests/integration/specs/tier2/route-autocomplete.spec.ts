@@ -340,8 +340,16 @@ describe('Tier 2: Route Autocomplete', () => {
       const destInput = await $('[data-testid="trip-destination"]');
       await destInput.setValue('TestDest');
 
-      const distanceInput = await $('[data-testid="trip-distance"]');
-      await distanceInput.setValue('50');
+      // Set distance atomically to avoid intermediate input events from setValue()
+      // which can corrupt the ODO auto-calculation
+      await browser.execute((sel: string, newValue: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = newValue;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, '[data-testid="trip-distance"]', '50');
+      await browser.pause(100);
 
       const purposeInput = await $('[data-testid="trip-purpose"]');
       await purposeInput.setValue('Enter test');
@@ -454,8 +462,15 @@ describe('Tier 2: Route Autocomplete', () => {
       const destInput = await $('[data-testid="trip-destination"]');
       await destInput.setValue('AnotherPlace');
 
-      const distanceInput = await $('[data-testid="trip-distance"]');
-      await distanceInput.setValue('50');
+      // Set distance atomically to avoid intermediate input events
+      await browser.execute((sel: string, newValue: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = newValue;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, '[data-testid="trip-distance"]', '50');
+      await browser.pause(100);
 
       const purposeInput = await $('[data-testid="trip-purpose"]');
       await purposeInput.setValue('Dropdown enter test');
