@@ -344,7 +344,15 @@ describe('Tier 2: Route Autocomplete', () => {
 
       // Fill required fields
       const dateInput = await $('[data-testid="trip-date"]');
-      await dateInput.setValue(`${year}-03-15`);
+      // Use atomic value setting for date input - setValue() doesn't work reliably with date inputs
+      await browser.execute((sel: string, newValue: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = newValue;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, '[data-testid="trip-date"]', `${year}-03-15`);
 
       const originInput = await $('[data-testid="trip-origin"]');
       await originInput.setValue('TestOrigin');
@@ -366,18 +374,17 @@ describe('Tier 2: Route Autocomplete', () => {
         }
       }, '[data-testid="trip-distance"]', '50');
 
-      // Verify distance was set correctly
       await browser.pause(200);
-      const distanceValue = await distanceInput.getValue();
-      expect(distanceValue).toBe('50');
-
-      // Also verify ODO was auto-calculated (50100 from seed trip + 50 = 50150)
-      const odoInput = await $('[data-testid="trip-odometer"]');
-      const odoValue = await odoInput.getValue();
-      expect(odoValue).toBe('50150');
 
       const purposeInput = await $('[data-testid="trip-purpose"]');
       await purposeInput.setValue('Enter test');
+
+      // Verify form values before submission (catches setValue issues with date inputs)
+      const distanceValue = await distanceInput.getValue();
+      const odoInput = await $('[data-testid="trip-odometer"]');
+      const odoValue = await odoInput.getValue();
+      expect(distanceValue).toBe('50');
+      expect(odoValue).toBe('50150');
 
       // Move focus away from purpose field using Tab (more reliable than clicking)
       // This ensures any autocomplete dropdown is closed
@@ -387,7 +394,12 @@ describe('Tier 2: Route Autocomplete', () => {
       // Press Enter to submit (global handler should catch this)
       await browser.keys('Enter');
 
+      // Wait for save to complete and check for error toast
       await browser.pause(700);
+
+      // Ensure no error toast appeared (indicates backend failure)
+      const toastError = await $('.toast-error');
+      expect(await toastError.isExisting()).toBe(false);
 
       // Verify editing row is gone (trip was saved)
       const editingRowAfter = await $('tr.editing');
