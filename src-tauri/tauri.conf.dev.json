@@ -2,6 +2,9 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "identifier": "com.notavailable.kniha-jazd.dev",
   "productName": "Kniha Jázd [DEV]",
+  "bundle": {
+    "createUpdaterArtifacts": false
+  },
   "app": {
     "windows": [
       {
