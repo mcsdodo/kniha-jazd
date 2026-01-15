@@ -340,6 +340,10 @@ describe('Tier 2: Route Autocomplete', () => {
       const destInput = await $('[data-testid="trip-destination"]');
       await destInput.setValue('TestDest');
 
+      // Wait for distance input to be ready
+      const distanceInput = await $('[data-testid="trip-distance"]');
+      await distanceInput.waitForDisplayed({ timeout: 5000 });
+
       // Set distance atomically to avoid intermediate input events from setValue()
       // which can corrupt the ODO auto-calculation
       await browser.execute((sel: string, newValue: string) => {
@@ -349,7 +353,16 @@ describe('Tier 2: Route Autocomplete', () => {
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
       }, '[data-testid="trip-distance"]', '50');
-      await browser.pause(100);
+
+      // Verify distance was set correctly
+      await browser.pause(200);
+      const distanceValue = await distanceInput.getValue();
+      expect(distanceValue).toBe('50');
+
+      // Also verify ODO was auto-calculated (50000 + 50 = 50050)
+      const odoInput = await $('[data-testid="trip-odometer"]');
+      const odoValue = await odoInput.getValue();
+      expect(odoValue).toBe('50050');
 
       const purposeInput = await $('[data-testid="trip-purpose"]');
       await purposeInput.setValue('Enter test');
