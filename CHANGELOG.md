@@ -15,6 +15,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Dropdown autocomplete sa zatváral s 200ms oneskorením po strate fokusu
   - Enter bol ignorovaný ak dropdown ešte existoval v DOM
   - Teraz sa kontroluje aj či má autocomplete input focus
+- **Date input v integračných testoch** - opravené nastavovanie dátumu cez WebDriverIO
+  - `setValue()` nefunguje spoľahlivo s date inputmi (prehliadač môže hodnotu preformátovať)
+  - Použité atomické nastavenie hodnoty cez `browser.execute()` ako pri distance poli
 
 ## [0.16.0] - 2026-01-15
 
