@@ -222,9 +222,12 @@
 			event.preventDefault();
 			handleCancel();
 		} else if (event.key === 'Enter' && !event.shiftKey) {
-			// Check if ANY autocomplete dropdown is open in the document
+			// Check if user is actively interacting with an autocomplete dropdown
+			// Only defer to autocomplete if: (1) dropdown exists AND (2) an autocomplete input has focus
+			// This avoids race condition with the 200ms blur delay that keeps dropdown in DOM
 			const hasOpenDropdown = document.querySelector('.autocomplete .dropdown') !== null;
-			if (hasOpenDropdown) {
+			const autocompleteHasFocus = document.activeElement?.closest('.autocomplete') !== null;
+			if (hasOpenDropdown && autocompleteHasFocus) {
 				// Let Autocomplete handle the selection first
 				// Next Enter (after dropdown closes) will submit
 				return;
