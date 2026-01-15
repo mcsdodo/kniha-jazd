@@ -118,7 +118,7 @@ jobs:
         run: cargo install tauri-driver
 
       - name: Build Tauri app (debug)
-        run: npm run tauri build -- --debug
+        run: npm run tauri build -- --debug --config src-tauri/tauri.conf.dev.json
 
       - name: Run integration tests (Tier 1 for PRs, all for main)
         env:
