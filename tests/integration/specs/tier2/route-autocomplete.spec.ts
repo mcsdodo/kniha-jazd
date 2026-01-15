@@ -346,16 +346,15 @@ describe('Tier 2: Route Autocomplete', () => {
       const purposeInput = await $('[data-testid="trip-purpose"]');
       await purposeInput.setValue('Enter test');
 
-      // Click somewhere neutral to remove focus from any input
-      const tripGrid = await $('.trip-grid');
-      await tripGrid.click();
-
-      await browser.pause(200);
+      // Move focus away from purpose field using Tab (more reliable than clicking)
+      // This ensures any autocomplete dropdown is closed
+      await browser.keys('Tab');
+      await browser.pause(300);
 
       // Press Enter to submit (global handler should catch this)
       await browser.keys('Enter');
 
-      await browser.pause(500);
+      await browser.pause(700);
 
       // Verify editing row is gone (trip was saved)
       const editingRowAfter = await $('tr.editing');
