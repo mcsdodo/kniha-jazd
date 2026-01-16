@@ -8,6 +8,7 @@
 	import { localeStore } from '$lib/stores/locale';
 	import { themeStore } from '$lib/stores/theme';
 	import { updateStore } from '$lib/stores/update';
+	import { appModeStore } from '$lib/stores/appMode';
 	import { getAutoCheckUpdates } from '$lib/api';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
@@ -74,6 +75,9 @@
 
 		// Initialize theme (after locale but before async vehicle loading)
 		await themeStore.init();
+
+		// Initialize app mode (check for read-only)
+		await appModeStore.refresh();
 
 		// Always check for updates in background (for dot indicator)
 		// If auto-check disabled, check but don't show modal (use check() which respects dismissed)
@@ -229,6 +233,16 @@
 		</div>
 	</header>
 
+	{#if $appModeStore.is_read_only}
+		<div class="read-only-banner">
+			<span class="banner-icon">⚠️</span>
+			<span class="banner-text">{$LL.settings.readOnlyBanner()}</span>
+			<button class="banner-button" onclick={() => updateStore.checkManual()}>
+				{$LL.settings.readOnlyCheckUpdates()}
+			</button>
+		</div>
+	{/if}
+
 	<main>
 		{@render children()}
 	</main>
@@ -275,6 +289,39 @@
 		color: var(--text-on-header);
 		padding: 1rem 2rem;
 		box-shadow: 0 2px 4px var(--shadow-default);
+	}
+
+	.read-only-banner {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background-color: var(--warning-bg, #fef3c7);
+		border-bottom: 1px solid var(--warning-border, #f59e0b);
+		color: var(--warning-text, #92400e);
+	}
+
+	.banner-icon {
+		font-size: 1.25rem;
+	}
+
+	.banner-text {
+		flex: 1;
+		font-weight: 500;
+	}
+
+	.banner-button {
+		padding: 0.5rem 1rem;
+		background-color: var(--warning-button-bg, #f59e0b);
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		font-weight: 500;
+	}
+
+	.banner-button:hover {
+		opacity: 0.9;
 	}
 
 	.header-content {

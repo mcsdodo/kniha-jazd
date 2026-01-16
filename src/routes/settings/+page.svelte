@@ -14,7 +14,8 @@
 	import { updateStore } from '$lib/stores/update';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, type DbLocationInfo } from '$lib/api';
+	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -51,6 +52,9 @@
 	let showApiKey = false;
 	let savingReceiptSettings = false;
 
+	// Database location state
+	let dbLocation: DbLocationInfo | null = null;
+
 	async function handleThemeChange(theme: ThemeMode) {
 		selectedTheme = theme;
 		await themeStore.change(theme);
@@ -85,6 +89,17 @@
 			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
 		} finally {
 			savingReceiptSettings = false;
+		}
+	}
+
+	// Database location handlers
+	async function handleOpenDbFolder() {
+		if (dbLocation?.db_path) {
+			try {
+				await revealItemInDir(dbLocation.db_path);
+			} catch (error) {
+				console.error('Failed to open folder:', error);
+			}
 		}
 	}
 
@@ -149,6 +164,9 @@
 				geminiApiKey = receiptSettings.geminiApiKey || '';
 				receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
 			}
+
+			// Load database location info
+			dbLocation = await getDbLocation();
 		})();
 
 		return () => unsubscribeLocale();
@@ -535,6 +553,32 @@
 			</div>
 		</section>
 
+		<!-- Database Location Section -->
+		<section class="settings-section">
+			<h2>{$LL.settings.dbLocationSection()}</h2>
+			<div class="section-content">
+				<div class="form-group">
+					<label>{$LL.settings.dbLocationCurrent()}</label>
+					<div class="db-path-display">
+						<span class="path-text">{dbLocation?.db_path || '...'}</span>
+						{#if dbLocation?.is_custom_path}
+							<span class="badge custom">{$LL.settings.dbLocationCustom()}</span>
+						{:else}
+							<span class="badge default">{$LL.settings.dbLocationDefault()}</span>
+						{/if}
+					</div>
+				</div>
+
+				<div class="button-row">
+					<button class="button-small" on:click={handleOpenDbFolder}>
+						{$LL.settings.dbLocationOpenFolder()}
+					</button>
+				</div>
+
+				<small class="hint">{$LL.settings.dbLocationHint()}</small>
+			</div>
+		</section>
+
 		<!-- Updates Section -->
 		<section class="settings-section">
 			<h2>{$LL.update.sectionTitle()}</h2>
@@ -868,6 +912,39 @@
 	.badge.type-phev {
 		background-color: var(--badge-phev-bg);
 		color: var(--badge-phev-color);
+	}
+
+	.badge.custom {
+		background-color: var(--btn-primary-light-bg);
+		color: var(--btn-primary-light-color);
+	}
+
+	.badge.default {
+		background-color: var(--bg-surface-alt);
+		color: var(--text-secondary);
+	}
+
+	.db-path-display {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		background: var(--bg-surface-alt);
+		border-radius: 4px;
+		border: 1px solid var(--border-default);
+	}
+
+	.db-path-display .path-text {
+		flex: 1;
+		font-family: monospace;
+		font-size: 0.875rem;
+		color: var(--text-primary);
+		word-break: break-all;
+	}
+
+	.button-row {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.vehicle-actions {

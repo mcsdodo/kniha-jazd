@@ -225,6 +225,21 @@ const sk = {
 		showApiKey: 'Zobraziť',
 		hideApiKey: 'Skryť',
 		receiptSettingsSaved: 'Nastavenia dokladov boli uložené',
+		// Database location section
+		dbLocationSection: 'Umiestnenie databázy',
+		dbLocationCurrent: 'Aktuálne umiestnenie',
+		dbLocationCustom: 'Vlastná cesta',
+		dbLocationDefault: 'Predvolená cesta',
+		dbLocationChange: 'Zmeniť umiestnenie...',
+		dbLocationOpenFolder: 'Otvoriť priečinok',
+		dbLocationHint: 'Databázu môžete presunúť na Google Drive, NAS alebo iný zdieľaný priečinok pre použitie na viacerých PC.',
+		dbLocationMoving: 'Presúvam databázu...',
+		dbLocationMoveSuccess: 'Databáza bola úspešne presunutá',
+		dbLocationMoveError: 'Nepodarilo sa presunúť databázu: {error:string}',
+		dbLocationTargetHasDb: 'Cieľový priečinok už obsahuje databázu',
+		// Read-only mode
+		readOnlyBanner: 'Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.',
+		readOnlyCheckUpdates: 'Skontrolovať aktualizácie',
 	},
 
 	// Backup modals

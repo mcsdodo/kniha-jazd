@@ -350,3 +350,27 @@ export async function setGeminiApiKey(apiKey: string): Promise<void> {
 export async function setReceiptsFolderPath(path: string): Promise<void> {
 	return invoke('set_receipts_folder_path', { path });
 }
+
+// Database location
+export interface DbLocationInfo {
+	db_path: string;
+	is_custom_path: boolean;
+	backups_path: string;
+}
+
+export interface AppModeInfo {
+	is_read_only: boolean;
+	reason: string | null;
+}
+
+export async function getDbLocation(): Promise<DbLocationInfo> {
+	return invoke<DbLocationInfo>('get_db_location');
+}
+
+export async function getAppMode(): Promise<AppModeInfo> {
+	return invoke<AppModeInfo>('get_app_mode');
+}
+
+export async function checkTargetHasDb(targetFolder: string): Promise<boolean> {
+	return invoke<boolean>('check_target_has_db', { targetFolder });
+}
