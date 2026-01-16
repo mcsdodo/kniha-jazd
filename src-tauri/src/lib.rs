@@ -3,6 +3,7 @@ mod calculations_energy;
 mod calculations_phev;
 mod commands;
 mod db;
+mod db_location;
 mod export;
 mod gemini;
 mod models;

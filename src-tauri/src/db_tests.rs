@@ -343,3 +343,23 @@ fn test_get_receipts_for_vehicle_returns_unassigned_and_own() {
     assert!(results.iter().any(|r| r.id == receipt_a.id));
     assert!(!results.iter().any(|r| r.id == receipt_b.id));
 }
+
+#[test]
+fn test_get_embedded_migration_versions() {
+    let versions = Database::get_embedded_migration_versions();
+
+    // Should have at least the baseline migration
+    assert!(!versions.is_empty());
+    // Check that we have known migrations (folder names without timestamp)
+    assert!(versions.iter().any(|v: &String| v.starts_with("2026")));
+}
+
+#[test]
+fn test_check_migration_compatibility_passes_for_current_app() {
+    let db = Database::in_memory().unwrap();
+
+    // A fresh in-memory DB with current migrations should be compatible
+    let result = db.check_migration_compatibility();
+    assert!(result.is_ok());
+}
+

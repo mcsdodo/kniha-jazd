@@ -14,6 +14,7 @@ use diesel::prelude::*;
 use diesel::result::QueryResult;
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use diesel::migration::MigrationSource;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -89,6 +90,58 @@ impl Database {
     /// Get a raw connection for direct SQL (backup inspection, etc.)
     pub fn connection(&self) -> std::sync::MutexGuard<'_, SqliteConnection> {
         self.conn.lock().unwrap()
+    }
+
+    // ========================================================================
+    // Migration Compatibility
+    // ========================================================================
+
+    /// Get the list of embedded migration versions (known to this app version).
+    /// Returns a set of migration version strings.
+    /// 
+    /// Note: This uses MigrationHarness to get applied migrations from
+    /// __diesel_schema_migrations, then cross-checks with what we can run.
+    pub fn get_embedded_migration_versions() -> std::collections::HashSet<String> {
+        let mut versions = std::collections::HashSet::new();
+        // Get migrations from the embedded source
+        if let Ok(migrations) = MigrationSource::<diesel::sqlite::Sqlite>::migrations(&MIGRATIONS) {
+            for migration in migrations {
+                versions.insert(migration.name().version().to_string());
+            }
+        }
+        versions
+    }
+
+    /// Check if database has unknown migrations (from newer app version).
+    /// Returns Ok(()) if compatible, Err with list of unknown migration names.
+    pub fn check_migration_compatibility(&self) -> Result<(), Vec<String>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        let embedded = Self::get_embedded_migration_versions();
+
+        // Query applied migrations from __diesel_schema_migrations table
+        #[derive(diesel::QueryableByName)]
+        struct MigrationRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            version: String,
+        }
+
+        let applied: Vec<MigrationRow> = diesel::sql_query(
+            "SELECT version FROM __diesel_schema_migrations ORDER BY version"
+        )
+        .load(conn)
+        .unwrap_or_default();
+
+        let unknown: Vec<String> = applied
+            .into_iter()
+            .filter(|m| !embedded.contains(&m.version))
+            .map(|m| m.version)
+            .collect();
+
+        if unknown.is_empty() {
+            Ok(())
+        } else {
+            Err(unknown)
+        }
     }
 
     // ========================================================================
