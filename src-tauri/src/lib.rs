@@ -1,4 +1,5 @@
 mod calculations;
+mod app_state;
 mod calculations_energy;
 mod calculations_phev;
 mod commands;

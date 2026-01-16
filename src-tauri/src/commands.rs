@@ -23,6 +23,27 @@ use uuid::Uuid;
 // ============================================================================
 // Helper Functions
 // ============================================================================
+use crate::app_state::AppState;
+
+// ============================================================================
+// Read-Only Guard Macro
+// ============================================================================
+
+/// Macro to check if app is in read-only mode before write operations.
+/// Returns an error with Slovak message if read-only.
+macro_rules! check_read_only {
+    ($app_state:expr) => {
+        if $app_state.is_read_only() {
+            let reason = $app_state.get_read_only_reason()
+                .unwrap_or_else(|| "Neznámy dôvod".to_string());
+            return Err(format!(
+                "Aplikácia je v režime len na čítanie. {}",
+                reason
+            ));
+        }
+    };
+}
+
 
 /// Get the app data directory, respecting the KNIHA_JAZD_DATA_DIR environment variable.
 /// This ensures consistency between database operations and other file operations (backups, settings).
