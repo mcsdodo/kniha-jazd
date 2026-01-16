@@ -1542,6 +1542,21 @@ pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), Stri
     Ok(())
 }
 
+#[tauri::command]
+pub fn get_backup_path(app: tauri::AppHandle, filename: String) -> Result<String, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    let backup_path = app_dir.join("backups").join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    backup_path
+        .to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Invalid path encoding".to_string())
+}
+
 // ============================================================================
 // HTML Export Commands
 // ============================================================================

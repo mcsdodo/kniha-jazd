@@ -621,6 +621,18 @@ type RootTranslation = {
 		 */
 		restore: string
 		/**
+		 * Z​o​b​r​a​z​i​ť​ ​v​ ​P​r​i​e​s​k​u​m​n​í​k​o​v​i
+		 */
+		revealWindows: string
+		/**
+		 * Z​o​b​r​a​z​i​ť​ ​v​o​ ​F​i​n​d​e​r​i
+		 */
+		revealMac: string
+		/**
+		 * Z​o​b​r​a​z​i​ť​ ​v​ ​S​ú​b​o​r​o​c​h
+		 */
+		revealLinux: string
+		/**
 		 * J​a​z​y​k
 		 */
 		languageSection: string
@@ -1998,6 +2010,18 @@ export type TranslationFunctions = {
 		 * Obnoviť
 		 */
 		restore: () => LocalizedString
+		/**
+		 * Zobraziť v Prieskumníkovi
+		 */
+		revealWindows: () => LocalizedString
+		/**
+		 * Zobraziť vo Finderi
+		 */
+		revealMac: () => LocalizedString
+		/**
+		 * Zobraziť v Súboroch
+		 */
+		revealLinux: () => LocalizedString
 		/**
 		 * Jazyk
 		 */

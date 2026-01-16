@@ -1,6 +1,7 @@
 // API wrapper for Tauri commands
 
 import { invoke } from '@tauri-apps/api/core';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType } from './types';
 
 // Vehicle commands
@@ -218,6 +219,11 @@ export async function restoreBackup(filename: string): Promise<void> {
 
 export async function deleteBackup(filename: string): Promise<void> {
 	return await invoke('delete_backup', { filename });
+}
+
+export async function revealBackup(filename: string): Promise<void> {
+	const path: string = await invoke('get_backup_path', { filename });
+	await revealItemInDir(path);
 }
 
 // Export - opens HTML in default browser for printing

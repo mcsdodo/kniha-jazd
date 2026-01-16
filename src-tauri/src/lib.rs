@@ -68,6 +68,7 @@ pub fn run() {
       commands::get_backup_info,
       commands::restore_backup,
       commands::delete_backup,
+      commands::get_backup_path,
       commands::get_trip_grid_data,
       commands::export_html,
       commands::export_to_browser,

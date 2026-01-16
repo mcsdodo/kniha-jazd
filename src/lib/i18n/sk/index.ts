@@ -201,6 +201,9 @@ const sk = {
 		availableBackups: 'Dostupné zálohy',
 		noBackups: 'Žiadne zálohy. Vytvorte prvú zálohu.',
 		restore: 'Obnoviť',
+		revealWindows: 'Zobraziť v Prieskumníkovi',
+		revealMac: 'Zobraziť vo Finderi',
+		revealLinux: 'Zobraziť v Súboroch',
 		// Language section
 		languageSection: 'Jazyk',
 		language: 'Jazyk aplikácie',
