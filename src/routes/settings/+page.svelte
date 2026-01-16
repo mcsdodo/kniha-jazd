@@ -330,6 +330,26 @@
 		deleteConfirmation = null;
 	}
 
+	// Get OS-specific "reveal" text based on platform
+	function getRevealText(): string {
+		const platform = navigator.platform.toLowerCase();
+		if (platform.includes('mac')) {
+			return $LL.settings.revealMac();
+		} else if (platform.includes('linux')) {
+			return $LL.settings.revealLinux();
+		}
+		return $LL.settings.revealWindows();
+	}
+
+	async function handleRevealBackup(backup: BackupInfo) {
+		try {
+			await api.revealBackup(backup.filename);
+		} catch (error) {
+			console.error('Failed to reveal backup:', error);
+			toast.error(String(error));
+		}
+	}
+
 	function formatBackupDate(isoDate: string): string {
 		try {
 			const date = new Date(isoDate);
@@ -564,6 +584,9 @@
 									<span class="backup-size">{formatFileSize(backup.sizeBytes)}</span>
 								</div>
 								<div class="backup-actions">
+									<button class="button-small" on:click={() => handleRevealBackup(backup)}>
+										{getRevealText()}
+									</button>
 									<button class="button-small" on:click={() => handleRestoreClick(backup)}>
 										{$LL.settings.restore()}
 									</button>

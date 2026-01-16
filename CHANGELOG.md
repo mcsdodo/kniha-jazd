@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Zobraziť zálohu v prieskumníkovi** - nové tlačidlo pri každej zálohe
+  - Otvorí priečinok so zálohou a zvýrazní súbor
+  - Text tlačidla sa prispôsobí operačnému systému (Windows/macOS/Linux)
+
 ## [0.16.1] - 2026-01-15
 
 ### Opravené

@@ -201,6 +201,9 @@ const en = {
 		availableBackups: 'Available backups',
 		noBackups: 'No backups. Create your first backup.',
 		restore: 'Restore',
+		revealWindows: 'Show in Explorer',
+		revealMac: 'Reveal in Finder',
+		revealLinux: 'Show in Files',
 		// Language section
 		languageSection: 'Language',
 		language: 'Application language',
