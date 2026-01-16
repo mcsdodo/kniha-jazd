@@ -84,6 +84,26 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 - **Don't forget Slovak UI text** - all user-facing strings go through i18n
 - **Don't hardcode year** - app supports year picker, use year parameter
 
+### Database Migration Best Practices
+
+**IMPORTANT:** All database migrations MUST be backward-compatible:
+
+- **Always** add columns with DEFAULT values
+- **Never** remove columns (mark as deprecated if needed)
+- **Never** rename columns
+- **Never** change column types to incompatible types
+
+**Why?** The app supports read-only mode for older versions accessing newer databases. Older app versions must be able to READ data from databases migrated by newer versions.
+
+```sql
+-- Good migration (backward-compatible):
+ALTER TABLE trips ADD COLUMN new_field TEXT DEFAULT '';
+
+-- Bad migration (DO NOT DO):
+ALTER TABLE trips DROP COLUMN old_field;        -- Older apps will crash!
+ALTER TABLE trips RENAME COLUMN old TO new;     -- Older apps won't find it!
+```
+
 ### Running Tests
 
 ```bash
