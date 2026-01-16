@@ -2541,6 +2541,81 @@ pub fn set_auto_check_updates(app_handle: tauri::AppHandle, enabled: bool) -> Re
     Ok(())
 }
 
+
+// ============================================================================
+// Database Location Commands
+// ============================================================================
+
+/// Information about the current database location.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DbLocationInfo {
+    /// Full path to the database file
+    pub db_path: String,
+    /// Whether using a custom (non-default) database path
+    pub is_custom_path: bool,
+    /// Path to the backups directory
+    pub backups_path: String,
+}
+
+/// Information about the current application mode.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppModeInfo {
+    /// Current mode: "Normal" or "ReadOnly"
+    pub mode: String,
+    /// Whether the app is in read-only mode
+    pub is_read_only: bool,
+    /// Reason for read-only mode (if applicable)
+    pub read_only_reason: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_db_location(app_state: State<AppState>) -> Result<DbLocationInfo, String> {
+    let db_path = app_state
+        .get_db_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let is_custom = app_state.is_custom_path();
+
+    // Derive backups path from db path
+    let backups_path = app_state
+        .get_db_path()
+        .map(|p| {
+            p.parent()
+                .map(|parent| parent.join("backups").to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+
+    Ok(DbLocationInfo {
+        db_path,
+        is_custom_path: is_custom,
+        backups_path,
+    })
+}
+
+#[tauri::command]
+pub fn get_app_mode(app_state: State<AppState>) -> Result<AppModeInfo, String> {
+    let mode = app_state.get_mode();
+    let is_read_only = app_state.is_read_only();
+    let read_only_reason = app_state.get_read_only_reason();
+
+    Ok(AppModeInfo {
+        mode: format!("{:?}", mode),
+        is_read_only,
+        read_only_reason,
+    })
+}
+
+/// Check if a target directory already contains a database.
+#[tauri::command]
+pub fn check_target_has_db(target_path: String) -> Result<bool, String> {
+    let db_file = PathBuf::from(&target_path).join("kniha-jazd.db");
+    Ok(db_file.exists())
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
