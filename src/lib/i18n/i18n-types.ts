@@ -660,6 +660,50 @@ type RootTranslation = {
 		 * T​m​a​v​á
 		 */
 		themeDark: string
+		/**
+		 * S​k​e​n​o​v​a​n​i​e​ ​d​o​k​l​a​d​o​v
+		 */
+		receiptScanningSection: string
+		/**
+		 * G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č
+		 */
+		geminiApiKey: string
+		/**
+		 * Z​a​d​a​j​t​e​ ​A​P​I​ ​k​ľ​ú​č
+		 */
+		geminiApiKeyPlaceholder: string
+		/**
+		 * A​P​I​ ​k​ľ​ú​č​ ​z​ ​G​o​o​g​l​e​ ​A​I​ ​S​t​u​d​i​o​ ​p​r​e​ ​r​o​z​p​o​z​n​á​v​a​n​i​e​ ​d​o​k​l​a​d​o​v​.
+		 */
+		geminiApiKeyHint: string
+		/**
+		 * P​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i
+		 */
+		receiptsFolder: string
+		/**
+		 * V​y​b​e​r​t​e​ ​p​r​i​e​č​i​n​o​k
+		 */
+		receiptsFolderPlaceholder: string
+		/**
+		 * P​r​i​e​č​i​n​o​k​,​ ​k​d​e​ ​s​ú​ ​u​l​o​ž​e​n​é​ ​f​o​t​k​y​ ​d​o​k​l​a​d​o​v​.
+		 */
+		receiptsFolderHint: string
+		/**
+		 * V​y​b​r​a​ť
+		 */
+		browseFolder: string
+		/**
+		 * Z​o​b​r​a​z​i​ť
+		 */
+		showApiKey: string
+		/**
+		 * S​k​r​y​ť
+		 */
+		hideApiKey: string
+		/**
+		 * N​a​s​t​a​v​e​n​i​a​ ​d​o​k​l​a​d​o​v​ ​b​o​l​i​ ​u​l​o​ž​e​n​é
+		 */
+		receiptSettingsSaved: string
 	}
 	backup: {
 		/**
@@ -799,6 +843,26 @@ type RootTranslation = {
 		 * O​t​v​o​r​i​ť​ ​p​r​i​e​č​i​n​o​k
 		 */
 		openConfigFolder: string
+		/**
+		 * S​k​e​n​o​v​a​n​i​e​ ​d​o​k​l​a​d​o​v​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​é
+		 */
+		notConfiguredTitle: string
+		/**
+		 * P​r​e​ ​p​o​u​ž​í​v​a​n​i​e​ ​t​e​j​t​o​ ​f​u​n​k​c​i​e​ ​p​o​t​r​e​b​u​j​e​t​e​:
+		 */
+		notConfiguredDescription: string
+		/**
+		 * N​a​s​t​a​v​i​ť​ ​G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č​ ​(​z​ ​G​o​o​g​l​e​ ​A​I​ ​S​t​u​d​i​o​)
+		 */
+		notConfiguredApiKey: string
+		/**
+		 * V​y​b​r​a​ť​ ​p​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i
+		 */
+		notConfiguredFolder: string
+		/**
+		 * P​r​e​j​s​ť​ ​d​o​ ​n​a​s​t​a​v​e​n​í
+		 */
+		goToSettings: string
 		/**
 		 * N​e​p​l​a​t​n​á​ ​š​t​r​u​k​t​ú​r​a​ ​p​r​i​e​č​i​n​k​a
 		 */
@@ -2050,6 +2114,50 @@ export type TranslationFunctions = {
 		 * Tmavá
 		 */
 		themeDark: () => LocalizedString
+		/**
+		 * Skenovanie dokladov
+		 */
+		receiptScanningSection: () => LocalizedString
+		/**
+		 * Gemini API kľúč
+		 */
+		geminiApiKey: () => LocalizedString
+		/**
+		 * Zadajte API kľúč
+		 */
+		geminiApiKeyPlaceholder: () => LocalizedString
+		/**
+		 * API kľúč z Google AI Studio pre rozpoznávanie dokladov.
+		 */
+		geminiApiKeyHint: () => LocalizedString
+		/**
+		 * Priečinok s dokladmi
+		 */
+		receiptsFolder: () => LocalizedString
+		/**
+		 * Vyberte priečinok
+		 */
+		receiptsFolderPlaceholder: () => LocalizedString
+		/**
+		 * Priečinok, kde sú uložené fotky dokladov.
+		 */
+		receiptsFolderHint: () => LocalizedString
+		/**
+		 * Vybrať
+		 */
+		browseFolder: () => LocalizedString
+		/**
+		 * Zobraziť
+		 */
+		showApiKey: () => LocalizedString
+		/**
+		 * Skryť
+		 */
+		hideApiKey: () => LocalizedString
+		/**
+		 * Nastavenia dokladov boli uložené
+		 */
+		receiptSettingsSaved: () => LocalizedString
 	}
 	backup: {
 		/**
@@ -2180,6 +2288,26 @@ export type TranslationFunctions = {
 		 * Otvoriť priečinok
 		 */
 		openConfigFolder: () => LocalizedString
+		/**
+		 * Skenovanie dokladov nie je nakonfigurované
+		 */
+		notConfiguredTitle: () => LocalizedString
+		/**
+		 * Pre používanie tejto funkcie potrebujete:
+		 */
+		notConfiguredDescription: () => LocalizedString
+		/**
+		 * Nastaviť Gemini API kľúč (z Google AI Studio)
+		 */
+		notConfiguredApiKey: () => LocalizedString
+		/**
+		 * Vybrať priečinok s dokladmi
+		 */
+		notConfiguredFolder: () => LocalizedString
+		/**
+		 * Prejsť do nastavení
+		 */
+		goToSettings: () => LocalizedString
 		/**
 		 * Neplatná štruktúra priečinka
 		 */

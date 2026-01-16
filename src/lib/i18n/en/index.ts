@@ -213,6 +213,18 @@ const en = {
 		themeSystem: 'System default',
 		themeLight: 'Light',
 		themeDark: 'Dark',
+		// Receipt scanning section
+		receiptScanningSection: 'Receipt Scanning',
+		geminiApiKey: 'Gemini API Key',
+		geminiApiKeyPlaceholder: 'Enter API key',
+		geminiApiKeyHint: 'API key from Google AI Studio for receipt recognition.',
+		receiptsFolder: 'Receipts Folder',
+		receiptsFolderPlaceholder: 'Select folder',
+		receiptsFolderHint: 'Folder where receipt photos are stored.',
+		browseFolder: 'Browse',
+		showApiKey: 'Show',
+		hideApiKey: 'Hide',
+		receiptSettingsSaved: 'Receipt settings saved',
 	},
 
 	// Backup modals
@@ -260,6 +272,12 @@ const en = {
 		configurePromptSuffix: 'with the following content:',
 		configNote: 'Note: On Windows, use double backslashes (\\\\) in paths.',
 		openConfigFolder: 'Open folder',
+		// Not configured (simplified)
+		notConfiguredTitle: 'Receipt scanning is not configured',
+		notConfiguredDescription: 'To use this feature you need to:',
+		notConfiguredApiKey: 'Set up Gemini API key (from Google AI Studio)',
+		notConfiguredFolder: 'Select a folder with receipts',
+		goToSettings: 'Go to settings',
 		// Folder structure warnings
 		folderStructureWarning: 'Invalid folder structure',
 		folderStructureHint: 'Folder must contain either only files, or only folders named with years (2024, 2025, ...)',
