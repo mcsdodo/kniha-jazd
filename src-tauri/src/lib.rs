@@ -15,6 +15,8 @@ mod suggestions;
 
 use std::path::PathBuf;
 use crate::app_state::AppState;
+use crate::db_location::{resolve_db_paths, check_lock, acquire_lock, LockStatus};
+use crate::settings::LocalSettings;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -32,19 +34,80 @@ pub fn run() {
         )?;
       }
 
-      // Initialize database
-      // Allow tests to override data directory via environment variable
+      // Initialize app state
+      let app_state = AppState::new();
+
+      // Get app data directory (or from env for tests)
       let app_dir = match std::env::var("KNIHA_JAZD_DATA_DIR") {
         Ok(path) => PathBuf::from(path),
         Err(_) => app.path().app_data_dir().expect("Failed to get app data dir"),
       };
       std::fs::create_dir_all(&app_dir).expect("Failed to create app data directory");
-      let db_path = app_dir.join("kniha-jazd.db");
-      let db = db::Database::new(db_path.clone()).expect("Failed to initialize database");
 
-      // Initialize app state
-      let app_state = AppState::new();
-      app_state.set_db_path(db_path.clone());
+      // Load local settings to check for custom database path
+      let local_settings = LocalSettings::load(&app_dir);
+
+      // Resolve database paths (custom or default)
+      let (db_paths, is_custom) = resolve_db_paths(
+        &app_dir,
+        local_settings.custom_db_path.as_deref(),
+      );
+
+      // Ensure target directory exists (especially for custom paths)
+      if let Some(parent) = db_paths.db_file.parent() {
+        std::fs::create_dir_all(parent).ok();
+      }
+
+      // Check lock file status
+      match check_lock(&db_paths.lock_file) {
+        LockStatus::Locked { pc_name, since } => {
+          log::warn!(
+            "Database appears to be locked by {} since {}",
+            pc_name,
+            since.format("%Y-%m-%d %H:%M:%S UTC")
+          );
+          // TODO: Future enhancement - emit event to show warning dialog
+          // For now, we continue but user should be aware
+        }
+        LockStatus::Stale { pc_name } => {
+          log::info!("Taking over stale lock from {}", pc_name);
+        }
+        LockStatus::Free => {
+          log::debug!("Lock file is free");
+        }
+      }
+
+      // Initialize database
+      let db = db::Database::new(db_paths.db_file.clone())
+        .expect("Failed to initialize database");
+
+      // Check migration compatibility
+      match db.check_migration_compatibility() {
+        Ok(()) => {
+          log::info!("Database migration compatibility: OK");
+        }
+        Err(unknown_migrations) => {
+          log::warn!(
+            "Database has unknown migrations: {:?}. Entering read-only mode.",
+            unknown_migrations
+          );
+          app_state.enable_read_only(
+            "Databáza bola aktualizovaná novšou verziou aplikácie."
+          );
+        }
+      }
+
+      // Acquire lock (only if not in read-only mode)
+      if !app_state.is_read_only() {
+        let version = env!("CARGO_PKG_VERSION");
+        if let Err(e) = acquire_lock(&db_paths.lock_file, version) {
+          log::warn!("Failed to acquire lock: {}", e);
+        }
+      }
+
+      // Store paths in app state
+      app_state.set_db_path(db_paths.db_file);
+      app_state.set_is_custom_path(is_custom);
 
       // Manage database and app state
       app.manage(db);
@@ -104,6 +167,23 @@ pub fn run() {
       commands::set_gemini_api_key,
       commands::set_receipts_folder_path,
     ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app, event| {
+      // Release lock file on clean exit
+      if let tauri::RunEvent::Exit = event {
+        if let Some(app_state) = app.try_state::<AppState>() {
+          if let Some(db_path) = app_state.get_db_path() {
+            if let Some(parent) = db_path.parent() {
+              let lock_path = parent.join("kniha-jazd.lock");
+              if let Err(e) = db_location::release_lock(&lock_path) {
+                log::warn!("Failed to release lock on exit: {}", e);
+              } else {
+                log::debug!("Lock released on exit");
+              }
+            }
+          }
+        }
+      }
+    });
 }
