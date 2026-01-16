@@ -18,6 +18,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Varovná ikona s titulkom
   - Zoznam požiadaviek (API kľúč, priečinok)
   - Tlačidlo "Prejsť do nastavení" naviguje priamo na správnu sekciu
+- **Sekcia "Umiestnenie databázy" v Nastaveniach** - zobrazenie a správa cesty k databáze
+  - Zobrazenie aktuálnej cesty s označením "Vlastná"/"Predvolená"
+  - Tlačidlo pre otvorenie priečinka v systémovom správcovi súborov
+  - Informácia o možnosti zdieľania cez Google Drive/NAS
+- **Banner pre režim len na čítanie** - upozornenie keď databáza obsahuje novšie migrácie
+  - Žltý banner pod hlavičkou s ikonou a textom
+  - Tlačidlo "Skontrolovať aktualizácie" pre rýchly prístup k aktualizácii
 
 ### Interné
 - **Vlastná cesta k databáze (Phase 1)** - backend základ pre multi-PC podporu
@@ -32,6 +39,18 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - `get_db_location` - informácie o umiestnení databázy
   - `get_app_mode` - informácie o režime aplikácie
   - `check_target_has_db` - kontrola či cieľový priečinok obsahuje databázu
+- **Startup flow s podporou vlastnej cesty (Phase 4)** - integrácia do štartu aplikácie
+  - Načítanie `LocalSettings` pre zistenie vlastnej cesty
+  - Kontrola lock súboru pri štarte (varovanie ak je zamknutá inde)
+  - Kontrola migračnej kompatibility (read-only ak neznáme migrácie)
+  - Uvoľnenie zámku pri ukončení aplikácie
+- **Frontend pre vlastnú cestu (Phase 5)** - UI komponenty a state management
+  - Store `appModeStore` pre sledovanie read-only stavu
+  - API funkcie `getDbLocation`, `getAppMode`, `checkTargetHasDb`
+  - i18n preklady (SK + EN) pre všetky nové texty
+- **Dokumentácia (Phase 6)** - aktualizácia CLAUDE.md a tech debt
+  - Sekcia "Database Migration Best Practices" s príkladmi
+  - Tech debt item pre verziovanie záloh
 
 ## [0.17.0] - 2026-01-16
 
