@@ -13,6 +13,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - `LocalSettings` rozšírený o `custom_db_path` a `save()` metódu
   - Migračná kompatibilita - detekcia neznámych migrácií z novších verzií
   - Závislosť `hostname` pre identifikáciu PC v lock súboroch
+- **Správa stavu aplikácie (Phase 2)** - infraštruktúra pre read-only režim
+  - Nový modul `app_state.rs` s `AppMode` a `AppState`
+  - Makro `check_read_only!` pre ochranu zápisových operácií
 
 ## [0.17.0] - 2026-01-16
 
