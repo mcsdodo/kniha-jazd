@@ -11,6 +11,7 @@ pub struct LocalSettings {
     pub receipts_folder_path: Option<String>,
     pub theme: Option<String>,              // "system" | "light" | "dark"
     pub auto_check_updates: Option<bool>,   // true by default if None
+    pub custom_db_path: Option<String>,     // Custom database location (e.g., Google Drive, NAS)
 }
 
 impl LocalSettings {
@@ -27,6 +28,13 @@ impl LocalSettings {
             Self::default()
         }
     }
+
+    /// Save settings to local.settings.json in app data dir
+    pub fn save(&self, app_data_dir: &PathBuf) -> std::io::Result<()> {
+        let path = app_data_dir.join("local.settings.json");
+        let json = serde_json::to_string_pretty(self)?;
+        fs::write(path, json)
+    }
 }
 
 #[cfg(test)]
@@ -42,6 +50,7 @@ mod tests {
         assert!(settings.gemini_api_key.is_none());
         assert!(settings.receipts_folder_path.is_none());
         assert!(settings.theme.is_none());
+        assert!(settings.custom_db_path.is_none());
     }
 
     #[test]
@@ -49,12 +58,13 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(b"{\"gemini_api_key\": \"test-key\", \"receipts_folder_path\": \"C:\\\\test\"}")
+        // Use forward slashes which work on all platforms and don't need escaping
+        file.write_all(br#"{"gemini_api_key": "test-key", "receipts_folder_path": "C:/test"}"#)
             .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(settings.gemini_api_key, Some("test-key".to_string()));
-        assert_eq!(settings.receipts_folder_path, Some("C:\\test".to_string()));
+        assert_eq!(settings.receipts_folder_path, Some("C:/test".to_string()));
     }
 
     #[test]
@@ -62,7 +72,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(b"{\"gemini_api_key\": \"only-key\"}").unwrap();
+        file.write_all(br#"{"gemini_api_key": "only-key"}"#).unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(settings.gemini_api_key, Some("only-key".to_string()));
@@ -74,9 +84,59 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(b"{\"theme\": \"dark\"}").unwrap();
+        file.write_all(br#"{"theme": "dark"}"#).unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(settings.theme, Some("dark".to_string()));
+    }
+
+    #[test]
+    fn test_load_with_custom_db_path() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        // Use forward slashes for cross-platform compatibility
+        file.write_all(br#"{"custom_db_path": "D:/GoogleDrive/kniha-jazd"}"#).unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(settings.custom_db_path, Some("D:/GoogleDrive/kniha-jazd".to_string()));
+    }
+
+    #[test]
+    fn test_save_creates_file() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings {
+            custom_db_path: Some("D:/GoogleDrive/kniha-jazd".to_string()),
+            ..Default::default()
+        };
+
+        settings.save(&dir.path().to_path_buf()).unwrap();
+
+        let path = dir.path().join("local.settings.json");
+        assert!(path.exists());
+
+        let loaded = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(loaded.custom_db_path, Some("D:/GoogleDrive/kniha-jazd".to_string()));
+    }
+
+    #[test]
+    fn test_save_preserves_all_fields() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings {
+            gemini_api_key: Some("my-key".to_string()),
+            receipts_folder_path: Some("C:/receipts".to_string()),
+            theme: Some("dark".to_string()),
+            auto_check_updates: Some(false),
+            custom_db_path: Some("D:/NAS/data".to_string()),
+        };
+
+        settings.save(&dir.path().to_path_buf()).unwrap();
+
+        let loaded = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(loaded.gemini_api_key, Some("my-key".to_string()));
+        assert_eq!(loaded.receipts_folder_path, Some("C:/receipts".to_string()));
+        assert_eq!(loaded.theme, Some("dark".to_string()));
+        assert_eq!(loaded.auto_check_updates, Some(false));
+        assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
     }
 }
