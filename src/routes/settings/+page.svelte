@@ -13,7 +13,8 @@
 	import type { ThemeMode } from '$lib/api';
 	import { updateStore } from '$lib/stores/update';
 	import { getVersion } from '@tauri-apps/api/app';
-	import { getAutoCheckUpdates, setAutoCheckUpdates } from '$lib/api';
+	import { open as openDialog } from '@tauri-apps/plugin-dialog';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath } from '$lib/api';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -44,6 +45,12 @@
 	// Auto-check updates setting
 	let autoCheckUpdates = true;
 
+	// Receipt scanning settings state
+	let geminiApiKey = '';
+	let receiptsFolderPath = '';
+	let showApiKey = false;
+	let savingReceiptSettings = false;
+
 	async function handleThemeChange(theme: ThemeMode) {
 		selectedTheme = theme;
 		await themeStore.change(theme);
@@ -53,6 +60,32 @@
 		const checkbox = event.target as HTMLInputElement;
 		autoCheckUpdates = checkbox.checked;
 		await setAutoCheckUpdates(autoCheckUpdates);
+	}
+
+	// Receipt scanning settings handlers
+	async function handleBrowseFolder() {
+		const selected = await openDialog({
+			directory: true,
+			multiple: false,
+			defaultPath: receiptsFolderPath || undefined
+		});
+		if (selected && typeof selected === 'string') {
+			receiptsFolderPath = selected;
+		}
+	}
+
+	async function handleSaveReceiptSettings() {
+		savingReceiptSettings = true;
+		try {
+			await setGeminiApiKey(geminiApiKey);
+			await setReceiptsFolderPath(receiptsFolderPath);
+			toast.success($LL.settings.receiptSettingsSaved());
+		} catch (error) {
+			console.error('Failed to save receipt settings:', error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		} finally {
+			savingReceiptSettings = false;
+		}
 	}
 
 
@@ -109,6 +142,13 @@
 
 			// Load auto-check setting
 			autoCheckUpdates = await getAutoCheckUpdates();
+
+			// Load receipt settings
+			const receiptSettings = await getReceiptSettings();
+			if (receiptSettings) {
+				geminiApiKey = receiptSettings.geminiApiKey || '';
+				receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
+			}
 		})();
 
 		return () => unsubscribeLocale();
@@ -432,6 +472,66 @@
 						</label>
 					</div>
 				</fieldset>
+			</div>
+		</section>
+
+		<!-- Receipt Scanning Section -->
+		<section class="settings-section" id="receipt-scanning">
+			<h2>{$LL.settings.receiptScanningSection()}</h2>
+			<div class="section-content">
+				<div class="form-group">
+					<label for="gemini-api-key">{$LL.settings.geminiApiKey()}</label>
+					<div class="input-with-toggle">
+						{#if showApiKey}
+							<input
+								type="text"
+								id="gemini-api-key"
+								bind:value={geminiApiKey}
+								placeholder={$LL.settings.geminiApiKeyPlaceholder()}
+							/>
+						{:else}
+							<input
+								type="password"
+								id="gemini-api-key"
+								bind:value={geminiApiKey}
+								placeholder={$LL.settings.geminiApiKeyPlaceholder()}
+							/>
+						{/if}
+						<button
+							type="button"
+							class="toggle-btn"
+							on:click={() => (showApiKey = !showApiKey)}
+						>
+							{showApiKey ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+						</button>
+					</div>
+					<small class="hint">{$LL.settings.geminiApiKeyHint()}</small>
+				</div>
+
+				<div class="form-group">
+					<label for="receipts-folder">{$LL.settings.receiptsFolder()}</label>
+					<div class="input-with-button">
+						<input
+							type="text"
+							id="receipts-folder"
+							bind:value={receiptsFolderPath}
+							placeholder={$LL.settings.receiptsFolderPlaceholder()}
+							readonly
+						/>
+						<button type="button" class="button-small" on:click={handleBrowseFolder}>
+							{$LL.settings.browseFolder()}
+						</button>
+					</div>
+					<small class="hint">{$LL.settings.receiptsFolderHint()}</small>
+				</div>
+
+				<button
+					class="button"
+					on:click={handleSaveReceiptSettings}
+					disabled={savingReceiptSettings}
+				>
+					{savingReceiptSettings ? $LL.common.loading() : $LL.common.save()}
+				</button>
 			</div>
 		</section>
 
@@ -1068,5 +1168,45 @@
 		width: 18px;
 		height: 18px;
 		cursor: pointer;
+	}
+
+	.input-with-toggle,
+	.input-with-button {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.input-with-toggle input,
+	.input-with-button input {
+		flex: 1;
+		padding: 0.75rem;
+		border: 1px solid var(--border-input);
+		border-radius: 4px;
+		font-size: 1rem;
+		font-family: inherit;
+		background-color: var(--input-bg);
+		color: var(--text-primary);
+	}
+
+	.input-with-toggle input:focus,
+	.input-with-button input:focus {
+		outline: none;
+		border-color: var(--accent-primary);
+		box-shadow: 0 0 0 3px var(--input-focus-shadow);
+	}
+
+	.toggle-btn {
+		padding: 0.5rem 1rem;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
+		border: none;
+		border-radius: 4px;
+		font-size: 0.875rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.toggle-btn:hover {
+		background-color: var(--btn-secondary-hover);
 	}
 </style>

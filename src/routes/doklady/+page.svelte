@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification } from '$lib/types';
@@ -367,16 +368,15 @@
 
 	{#if !isConfigured}
 		<div class="config-warning">
-			<p>{$LL.receipts.notConfigured()}</p>
-			<p>{$LL.receipts.configurePrompt()} <code class="filename">{$LL.receipts.configurePromptFile()}</code> {$LL.receipts.configurePromptSuffix()}</p>
-			<pre class="config-sample">{`{
-    "gemini_api_key": "YOUR_API_KEY_HERE",
-    "receipts_folder_path": "C:\\\\Users\\\\YourUsername\\\\Documents\\\\Receipts"
-}`}</pre>
-			<p class="config-note">{$LL.receipts.configNote()}</p>
-			<button class="config-path-btn" onclick={() => openPath(configFolderPath)}>
-				<code>{configFolderPath}</code>
-				<span class="open-icon">📂 {$LL.receipts.openConfigFolder()}</span>
+			<div class="warning-icon">⚠</div>
+			<h3>{$LL.receipts.notConfiguredTitle()}</h3>
+			<p>{$LL.receipts.notConfiguredDescription()}</p>
+			<ul class="requirements-list">
+				<li>{$LL.receipts.notConfiguredApiKey()}</li>
+				<li>{$LL.receipts.notConfiguredFolder()}</li>
+			</ul>
+			<button class="button" onclick={() => goto('/settings#receipt-scanning')}>
+				{$LL.receipts.goToSettings()}
 			</button>
 		</div>
 	{/if}
@@ -604,6 +604,27 @@
 		padding: 1rem;
 		border-radius: 8px;
 		margin-bottom: 1.5rem;
+	}
+
+	.config-warning h3 {
+		margin: 0 0 0.5rem 0;
+		color: var(--warning-color);
+		font-size: 1.1rem;
+	}
+
+	.config-warning .warning-icon {
+		font-size: 2rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.config-warning .requirements-list {
+		margin: 0.75rem 0;
+		padding-left: 1.5rem;
+		color: var(--text-primary);
+	}
+
+	.config-warning .requirements-list li {
+		margin-bottom: 0.25rem;
 	}
 
 	.config-warning p {

@@ -341,3 +341,12 @@ export async function getAutoCheckUpdates(): Promise<boolean> {
 export async function setAutoCheckUpdates(enabled: boolean): Promise<void> {
 	return invoke('set_auto_check_updates', { enabled });
 }
+
+// Receipt settings
+export async function setGeminiApiKey(apiKey: string): Promise<void> {
+	return invoke('set_gemini_api_key', { apiKey });
+}
+
+export async function setReceiptsFolderPath(path: string): Promise<void> {
+	return invoke('set_receipts_folder_path', { path });
+}

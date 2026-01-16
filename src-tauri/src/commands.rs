@@ -2523,6 +2523,68 @@ pub fn set_auto_check_updates(app_handle: tauri::AppHandle, enabled: bool) -> Re
 // ============================================================================
 // Tests
 // ============================================================================
+// ============================================================================
+// Receipt Settings Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn set_gemini_api_key(app_handle: tauri::AppHandle, api_key: String) -> Result<(), String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+
+    // Allow empty string to clear the key
+    settings.gemini_api_key = if api_key.is_empty() {
+        None
+    } else {
+        Some(api_key)
+    };
+
+    // Save to file
+    let settings_path = app_data_dir.join("local.settings.json");
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_receipts_folder_path(
+    app_handle: tauri::AppHandle,
+    path: String,
+) -> Result<(), String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+
+    // Validate path exists and is a directory (unless clearing)
+    if !path.is_empty() {
+        let path_buf = std::path::PathBuf::from(&path);
+        if !path_buf.exists() {
+            return Err(format!("Path does not exist: {}", path));
+        }
+        if !path_buf.is_dir() {
+            return Err(format!("Path is not a directory: {}", path));
+        }
+    }
+
+    let mut settings = LocalSettings::load(&app_data_dir);
+
+    // Allow empty string to clear the path
+    settings.receipts_folder_path = if path.is_empty() {
+        None
+    } else {
+        Some(path)
+    };
+
+    // Save to file
+    let settings_path = app_data_dir.join("local.settings.json");
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

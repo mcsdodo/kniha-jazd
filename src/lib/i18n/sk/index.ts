@@ -213,6 +213,18 @@ const sk = {
 		themeSystem: 'Podľa systému',
 		themeLight: 'Svetlá',
 		themeDark: 'Tmavá',
+		// Receipt scanning section
+		receiptScanningSection: 'Skenovanie dokladov',
+		geminiApiKey: 'Gemini API kľúč',
+		geminiApiKeyPlaceholder: 'Zadajte API kľúč',
+		geminiApiKeyHint: 'API kľúč z Google AI Studio pre rozpoznávanie dokladov.',
+		receiptsFolder: 'Priečinok s dokladmi',
+		receiptsFolderPlaceholder: 'Vyberte priečinok',
+		receiptsFolderHint: 'Priečinok, kde sú uložené fotky dokladov.',
+		browseFolder: 'Vybrať',
+		showApiKey: 'Zobraziť',
+		hideApiKey: 'Skryť',
+		receiptSettingsSaved: 'Nastavenia dokladov boli uložené',
 	},
 
 	// Backup modals
@@ -260,6 +272,12 @@ const sk = {
 		configurePromptSuffix: 's nasledujúcim obsahom:',
 		configNote: 'Poznámka: Na Windows používajte dvojité spätné lomky (\\\\) v cestách.',
 		openConfigFolder: 'Otvoriť priečinok',
+		// Not configured (simplified)
+		notConfiguredTitle: 'Skenovanie dokladov nie je nakonfigurované',
+		notConfiguredDescription: 'Pre používanie tejto funkcie potrebujete:',
+		notConfiguredApiKey: 'Nastaviť Gemini API kľúč (z Google AI Studio)',
+		notConfiguredFolder: 'Vybrať priečinok s dokladmi',
+		goToSettings: 'Prejsť do nastavení',
 		// Folder structure warnings
 		folderStructureWarning: 'Neplatná štruktúra priečinka',
 		folderStructureHint: 'Priečinok musí obsahovať buď len súbory, alebo len priečinky s názvami rokov (2024, 2025, ...)',
