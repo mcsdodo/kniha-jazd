@@ -101,6 +101,8 @@ pub fn run() {
       commands::get_db_location,
       commands::get_app_mode,
       commands::check_target_has_db,
+      commands::set_gemini_api_key,
+      commands::set_receipts_folder_path,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

@@ -7,6 +7,18 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Editovateľné nastavenia dokladov** - konfigurácia priamo v UI namiesto manuálnej editácie JSON
+  - Nová sekcia "Skenovanie dokladov" v Nastaveniach
+  - Vstup pre Gemini API kľúč s možnosťou zobraziť/skryť (password toggle)
+  - Výber priečinka s dokladmi cez systémový dialóg
+  - Tlačidlo uložiť s toast notifikáciou
+  - Podpora URL kotvy pre priame navigovanie (#receipt-scanning)
+- **Zjednodušené upozornenie na Dokladoch** - prehľadnejšie keď nie je nakonfigurované
+  - Varovná ikona s titulkom
+  - Zoznam požiadaviek (API kľúč, priečinok)
+  - Tlačidlo "Prejsť do nastavení" naviguje priamo na správnu sekciu
+
 ### Interné
 - **Vlastná cesta k databáze (Phase 1)** - backend základ pre multi-PC podporu
   - Nový modul `db_location.rs` s `DbPaths` a lock file mechanizmom
