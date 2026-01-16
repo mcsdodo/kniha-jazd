@@ -704,6 +704,59 @@ type RootTranslation = {
 		 * N​a​s​t​a​v​e​n​i​a​ ​d​o​k​l​a​d​o​v​ ​b​o​l​i​ ​u​l​o​ž​e​n​é
 		 */
 		receiptSettingsSaved: string
+		/**
+		 * U​m​i​e​s​t​n​e​n​i​e​ ​d​a​t​a​b​á​z​y
+		 */
+		dbLocationSection: string
+		/**
+		 * A​k​t​u​á​l​n​e​ ​u​m​i​e​s​t​n​e​n​i​e
+		 */
+		dbLocationCurrent: string
+		/**
+		 * V​l​a​s​t​n​á​ ​c​e​s​t​a
+		 */
+		dbLocationCustom: string
+		/**
+		 * P​r​e​d​v​o​l​e​n​á​ ​c​e​s​t​a
+		 */
+		dbLocationDefault: string
+		/**
+		 * Z​m​e​n​i​ť​ ​u​m​i​e​s​t​n​e​n​i​e​.​.​.
+		 */
+		dbLocationChange: string
+		/**
+		 * O​t​v​o​r​i​ť​ ​p​r​i​e​č​i​n​o​k
+		 */
+		dbLocationOpenFolder: string
+		/**
+		 * D​a​t​a​b​á​z​u​ ​m​ô​ž​e​t​e​ ​p​r​e​s​u​n​ú​ť​ ​n​a​ ​G​o​o​g​l​e​ ​D​r​i​v​e​,​ ​N​A​S​ ​a​l​e​b​o​ ​i​n​ý​ ​z​d​i​e​ľ​a​n​ý​ ​p​r​i​e​č​i​n​o​k​ ​p​r​e​ ​p​o​u​ž​i​t​i​e​ ​n​a​ ​v​i​a​c​e​r​ý​c​h​ ​P​C​.
+		 */
+		dbLocationHint: string
+		/**
+		 * P​r​e​s​ú​v​a​m​ ​d​a​t​a​b​á​z​u​.​.​.
+		 */
+		dbLocationMoving: string
+		/**
+		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​ú​s​p​e​š​n​e​ ​p​r​e​s​u​n​u​t​á
+		 */
+		dbLocationMoveSuccess: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​e​s​u​n​ú​ť​ ​d​a​t​a​b​á​z​u​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		dbLocationMoveError: RequiredParams<'error'>
+		/**
+		 * C​i​e​ľ​o​v​ý​ ​p​r​i​e​č​i​n​o​k​ ​u​ž​ ​o​b​s​a​h​u​j​e​ ​d​a​t​a​b​á​z​u
+		 */
+		dbLocationTargetHasDb: string
+		/**
+		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​a​k​t​u​a​l​i​z​o​v​a​n​á​ ​n​o​v​š​o​u​ ​v​e​r​z​i​o​u​ ​a​p​l​i​k​á​c​i​e​.​ ​R​e​ž​i​m​ ​l​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
+		 */
+		readOnlyBanner: string
+		/**
+		 * S​k​o​n​t​r​o​l​o​v​a​ť​ ​a​k​t​u​a​l​i​z​á​c​i​e
+		 */
+		readOnlyCheckUpdates: string
 	}
 	backup: {
 		/**
@@ -2158,6 +2211,58 @@ export type TranslationFunctions = {
 		 * Nastavenia dokladov boli uložené
 		 */
 		receiptSettingsSaved: () => LocalizedString
+		/**
+		 * Umiestnenie databázy
+		 */
+		dbLocationSection: () => LocalizedString
+		/**
+		 * Aktuálne umiestnenie
+		 */
+		dbLocationCurrent: () => LocalizedString
+		/**
+		 * Vlastná cesta
+		 */
+		dbLocationCustom: () => LocalizedString
+		/**
+		 * Predvolená cesta
+		 */
+		dbLocationDefault: () => LocalizedString
+		/**
+		 * Zmeniť umiestnenie...
+		 */
+		dbLocationChange: () => LocalizedString
+		/**
+		 * Otvoriť priečinok
+		 */
+		dbLocationOpenFolder: () => LocalizedString
+		/**
+		 * Databázu môžete presunúť na Google Drive, NAS alebo iný zdieľaný priečinok pre použitie na viacerých PC.
+		 */
+		dbLocationHint: () => LocalizedString
+		/**
+		 * Presúvam databázu...
+		 */
+		dbLocationMoving: () => LocalizedString
+		/**
+		 * Databáza bola úspešne presunutá
+		 */
+		dbLocationMoveSuccess: () => LocalizedString
+		/**
+		 * Nepodarilo sa presunúť databázu: {error}
+		 */
+		dbLocationMoveError: (arg: { error: string }) => LocalizedString
+		/**
+		 * Cieľový priečinok už obsahuje databázu
+		 */
+		dbLocationTargetHasDb: () => LocalizedString
+		/**
+		 * Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.
+		 */
+		readOnlyBanner: () => LocalizedString
+		/**
+		 * Skontrolovať aktualizácie
+		 */
+		readOnlyCheckUpdates: () => LocalizedString
 	}
 	backup: {
 		/**

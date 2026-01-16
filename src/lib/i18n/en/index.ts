@@ -225,6 +225,21 @@ const en = {
 		showApiKey: 'Show',
 		hideApiKey: 'Hide',
 		receiptSettingsSaved: 'Receipt settings saved',
+		// Database location section
+		dbLocationSection: 'Database Location',
+		dbLocationCurrent: 'Current Location',
+		dbLocationCustom: 'Custom Path',
+		dbLocationDefault: 'Default Path',
+		dbLocationChange: 'Change Location...',
+		dbLocationOpenFolder: 'Open Folder',
+		dbLocationHint: 'You can move the database to Google Drive, NAS, or another shared folder for multi-PC usage.',
+		dbLocationMoving: 'Moving database...',
+		dbLocationMoveSuccess: 'Database moved successfully',
+		dbLocationMoveError: 'Failed to move database: {error}',
+		dbLocationTargetHasDb: 'Target folder already contains a database',
+		// Read-only mode
+		readOnlyBanner: 'Database was updated by a newer app version. Read-only mode.',
+		readOnlyCheckUpdates: 'Check for Updates',
 	},
 
 	// Backup modals
