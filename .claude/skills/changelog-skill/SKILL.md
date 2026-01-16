@@ -14,6 +14,16 @@ Updates `CHANGELOG.md` with changes as they happen, not later.
 - After changing existing behavior
 - Before committing completed work
 
+## When NOT to Use
+
+- Planning documents (`_tasks/` folder)
+- Design docs, task plans, brainstorming notes
+- Internal documentation (CLAUDE.md, DECISIONS.md updates)
+- Tech debt tracking files
+- Any documentation that isn't user-visible
+
+**Rule:** Changelog is for user-visible changes only. Planning and internal docs don't belong.
+
 ## Changelog Sections (Slovak)
 
 | Section | Slovak | Use For |
