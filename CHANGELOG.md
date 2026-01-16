@@ -16,6 +16,10 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Správa stavu aplikácie (Phase 2)** - infraštruktúra pre read-only režim
   - Nový modul `app_state.rs` s `AppMode` a `AppState`
   - Makro `check_read_only!` pre ochranu zápisových operácií
+- **Príkazy pre databázu (Phase 3)** - nové Tauri commands
+  - `get_db_location` - informácie o umiestnení databázy
+  - `get_app_mode` - informácie o režime aplikácie
+  - `check_target_has_db` - kontrola či cieľový priečinok obsahuje databázu
 
 ## [0.17.0] - 2026-01-16
 
