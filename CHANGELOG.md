@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Interné
+- **Vlastná cesta k databáze (Phase 1)** - backend základ pre multi-PC podporu
+  - Nový modul `db_location.rs` s `DbPaths` a lock file mechanizmom
+  - `LocalSettings` rozšírený o `custom_db_path` a `save()` metódu
+  - Migračná kompatibilita - detekcia neznámych migrácií z novších verzií
+  - Závislosť `hostname` pre identifikáciu PC v lock súboroch
+
 ## [0.17.0] - 2026-01-16
 
 ### Pridané
