@@ -42,26 +42,12 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-  # Integration tests - full Tauri app tests (runs in PARALLEL with backend tests)
+  # Integration tests for PRs - single job with Tier 1 only (fast feedback)
   # Note: tauri-driver only supports Windows currently
-  # No 'needs' dependency - both jobs validate the same commit independently,
-  # and the Tauri build takes ~5 min which would be wasted waiting for backend tests
-  integration-tests:
-    name: Integration Tests (${{ matrix.platform }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            binary: src-tauri/target/debug/kniha-jazd.exe
-          # macOS: tauri-driver not supported yet (v2.0.4)
-          # - platform: macos-latest
-          #   binary: src-tauri/target/debug/bundle/macos/Kniha Jázd.app/Contents/MacOS/Kniha Jázd
-          # Linux: WebKitGTK driver setup complex - skip for now
-          # - platform: ubuntu-latest
-          #   binary: src-tauri/target/debug/kniha-jazd
-
-    runs-on: ${{ matrix.platform }}
+  integration-tests-pr:
+    name: Integration Tests (PR - Tier 1)
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -81,12 +67,9 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      # Windows: Install Edge WebDriver matching WebView2 runtime version
-      - name: Install Edge WebDriver (Windows)
-        if: matrix.platform == 'windows-latest'
+      - name: Install Edge WebDriver
         shell: pwsh
         run: |
-          # Tauri uses WebView2, not Edge browser - must match WebView2 version!
           $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
           if ($webview2Key -and $webview2Key.pv) {
             $webview2Version = $webview2Key.pv
@@ -95,8 +78,6 @@ jobs:
             $webview2Version = $webview2Key.pv
           }
           Write-Host "WebView2 runtime version: $webview2Version"
-
-          # Download EdgeDriver with retry logic
           $driverUrl = "https://msedgedriver.azureedge.net/$webview2Version/edgedriver_win64.zip"
           Write-Host "Downloading EdgeDriver from: $driverUrl"
           $maxRetries = 3
@@ -108,7 +89,6 @@ jobs:
             } catch {
               Write-Host "Attempt $i failed: $_"
               if ($i -eq $maxRetries) {
-                # Final fallback: try alternative URL format
                 $altUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$webview2Version/edgedriver_win64.zip"
                 Write-Host "Trying alternative URL: $altUrl"
                 Invoke-WebRequest -Uri $altUrl -OutFile edgedriver.zip -TimeoutSec 60
@@ -120,13 +100,6 @@ jobs:
           echo "$PWD\edgedriver" >> $env:GITHUB_PATH
           Write-Host "EdgeDriver $webview2Version installed successfully"
 
-      # Linux: Install WebKitGTK dependencies
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
-
       - name: Install npm dependencies
         run: npm ci
 
@@ -136,19 +109,149 @@ jobs:
       - name: Build Tauri app (debug)
         run: npm run tauri build -- --debug --config src-tauri/tauri.conf.dev.json
 
-      - name: Run integration tests (Tier 1 for PRs, all for main)
+      - name: Run integration tests (Tier 1)
         env:
-          TAURI_BINARY: ${{ matrix.binary }}
-          # PRs: Run only tier1 tests (fast, critical)
-          # Main branch: Run all tiers
-          TIER: ${{ github.event_name == 'pull_request' && '1' || '' }}
+          TAURI_BINARY: src-tauri/target/debug/kniha-jazd.exe
+          TIER: '1'
         run: npm run test:integration
 
       - name: Upload test screenshots
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-screenshots-${{ matrix.platform }}
+          name: integration-test-screenshots-pr
+          path: tests/integration/screenshots/
+          if-no-files-found: ignore
+
+  # Integration tests for main - build once, then run tiers in parallel
+  # This gives faster feedback than sequential execution (~14 min vs ~20 min)
+  integration-build:
+    name: Integration Build
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Tauri app (debug)
+        run: npm run tauri build -- --debug --config src-tauri/tauri.conf.dev.json
+
+      - name: Upload debug binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-binary
+          path: src-tauri/target/debug/kniha-jazd.exe
+          retention-days: 1
+
+  integration-tests-main:
+    name: Integration Tests (${{ matrix.tier_name }})
+    if: github.event_name == 'push'
+    needs: integration-build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tier: '1'
+            tier_name: 'Tier 1'
+          - tier: '2'
+            tier_name: 'Tier 2'
+          - tier: '3'
+            tier_name: 'Tier 3'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Edge WebDriver
+        shell: pwsh
+        run: |
+          $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
+          if ($webview2Key -and $webview2Key.pv) {
+            $webview2Version = $webview2Key.pv
+          } else {
+            $webview2Key = Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
+            $webview2Version = $webview2Key.pv
+          }
+          Write-Host "WebView2 runtime version: $webview2Version"
+          $driverUrl = "https://msedgedriver.azureedge.net/$webview2Version/edgedriver_win64.zip"
+          Write-Host "Downloading EdgeDriver from: $driverUrl"
+          $maxRetries = 3
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
+              Write-Host "Download successful on attempt $i"
+              break
+            } catch {
+              Write-Host "Attempt $i failed: $_"
+              if ($i -eq $maxRetries) {
+                $altUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$webview2Version/edgedriver_win64.zip"
+                Write-Host "Trying alternative URL: $altUrl"
+                Invoke-WebRequest -Uri $altUrl -OutFile edgedriver.zip -TimeoutSec 60
+              }
+              Start-Sleep -Seconds 5
+            }
+          }
+          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
+          echo "$PWD\edgedriver" >> $env:GITHUB_PATH
+          Write-Host "EdgeDriver $webview2Version installed successfully"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver
+
+      - name: Download debug binary
+        uses: actions/download-artifact@v4
+        with:
+          name: debug-binary
+          path: src-tauri/target/debug
+
+      - name: Run integration tests (${{ matrix.tier_name }})
+        env:
+          TAURI_BINARY: src-tauri/target/debug/kniha-jazd.exe
+          TIER: ${{ matrix.tier }}
+          PARALLEL_TIERS: 'true'
+        run: npm run test:integration
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots-${{ matrix.tier_name }}
           path: tests/integration/screenshots/
           if-no-files-found: ignore
 

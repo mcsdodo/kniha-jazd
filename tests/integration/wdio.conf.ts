@@ -10,14 +10,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
- * Get specs based on TIER environment variable
+ * Get specs based on TIER and PARALLEL_TIERS environment variables
+ *
+ * Sequential mode (PARALLEL_TIERS unset - original behavior):
  * - TIER=1: Run tier1 + existing (fast, critical tests for PRs)
  * - TIER=2: Run tier1 + tier2 + existing
  * - TIER=3 or unset: Run all tiers
+ *
+ * Parallel mode (PARALLEL_TIERS=true - for CI main branch):
+ * - TIER=1: Run tier1 + existing only
+ * - TIER=2: Run tier2 only
+ * - TIER=3: Run tier3 only
  */
 function getSpecs(): string[] {
   const tier = process.env.TIER;
+  const parallelMode = process.env.PARALLEL_TIERS === 'true';
 
+  if (parallelMode) {
+    // Parallel mode: each tier runs independently (for parallel CI jobs)
+    switch (tier) {
+      case '1':
+        return ['./specs/tier1/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
+      case '2':
+        return ['./specs/tier2/**/*.spec.ts'];
+      case '3':
+        return ['./specs/tier3/**/*.spec.ts'];
+      default:
+        return ['./specs/**/*.spec.ts'];
+    }
+  }
+
+  // Sequential mode (original behavior)
   if (tier === '1') {
     return ['./specs/tier1/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
   } else if (tier === '2') {
