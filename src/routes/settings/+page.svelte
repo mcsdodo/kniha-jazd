@@ -685,9 +685,9 @@
 			<div class="section-content">
 				<div class="form-group">
 					<label>{$LL.settings.dbLocationCurrent()}</label>
-					<div class="db-path-display">
-						<span class="path-text">{dbLocation?.dbPath || '...'}</span>
-						<button type="button" class="link-btn" on:click={handleChangeDbLocation} disabled={movingDb}>
+					<div class="db-path-display" id="db-location">
+						<span id="db-path" class="path-text">{dbLocation?.dbPath || '...'}</span>
+						<button type="button" class="link-btn change-db-location-btn" on:click={handleChangeDbLocation} disabled={movingDb}>
 							{movingDb ? $LL.common.loading() : $LL.settings.dbLocationDefault()}
 						</button>
 					</div>
