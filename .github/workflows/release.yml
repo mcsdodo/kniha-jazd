@@ -6,7 +6,140 @@ on:
       - 'v*'
 
 jobs:
+  # Check if tests already passed for this commit in the Tests workflow
+  check-tests:
+    name: Check Prior Test Results
+    runs-on: ubuntu-latest
+    outputs:
+      tests_passed: ${{ steps.check.outputs.tests_passed }}
+    steps:
+      - name: Check if Tests workflow passed for this commit
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get the commit SHA this tag points to
+          COMMIT_SHA="${{ github.sha }}"
+          echo "Checking for Tests workflow results on commit: $COMMIT_SHA"
+
+          # Query GitHub API for successful Tests workflow runs on this commit
+          RESULT=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$COMMIT_SHA&status=success" \
+            --jq '.total_count' 2>/dev/null || echo "0")
+
+          echo "Found $RESULT successful test runs for this commit"
+
+          if [ "$RESULT" -gt 0 ]; then
+            echo "tests_passed=true" >> $GITHUB_OUTPUT
+            echo "✅ Tests already passed for this commit - skipping test jobs"
+          else
+            echo "tests_passed=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No prior successful test run found - will run tests"
+          fi
+
+  # Run tests first - backend tests on all platforms (skip if already passed)
+  backend-tests:
+    name: Backend Tests (${{ matrix.platform }})
+    needs: check-tests
+    if: needs.check-tests.outputs.tests_passed != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Run backend tests
+        working-directory: src-tauri
+        run: cargo test
+
+  # Integration tests - run in parallel with backend tests (skip if already passed)
+  integration-tests:
+    name: Integration Tests (Windows)
+    needs: check-tests
+    if: needs.check-tests.outputs.tests_passed != 'true'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Edge WebDriver
+        shell: pwsh
+        run: |
+          winget install Microsoft.EdgeDriver --accept-source-agreements --accept-package-agreements
+          $driverPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Microsoft.EdgeDriver_Microsoft.Winget.Source_8wekyb3d8bbwe"
+          if (Test-Path $driverPath) {
+            echo "$driverPath" >> $env:GITHUB_PATH
+          } else {
+            $edgeVersion = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
+            $driverUrl = "https://msedgedriver.azureedge.net/$edgeVersion/edgedriver_win64.zip"
+            Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
+            Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
+            echo "$PWD\edgedriver" >> $env:GITHUB_PATH
+          }
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver
+
+      - name: Build Tauri app (debug)
+        run: npm run tauri build -- --debug --config src-tauri/tauri.conf.dev.json
+
+      - name: Run integration tests
+        env:
+          TAURI_BINARY: src-tauri/target/debug/kniha-jazd.exe
+        run: npm run test:integration
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots
+          path: tests/integration/screenshots/
+          if-no-files-found: ignore
+
+  # Build and release - only after all tests pass (or were skipped because already passed)
   build:
+    needs: [check-tests, backend-tests, integration-tests]
+    if: |
+      always() && 
+      (needs.check-tests.outputs.tests_passed == 'true' || 
+       (needs.backend-tests.result == 'success' && needs.integration-tests.result == 'success'))
     permissions:
       contents: write
     strategy:
