@@ -128,29 +128,6 @@ async function checkTargetHasDb(targetPath: string): Promise<boolean> {
   return result as boolean;
 }
 
-/**
- * Debug: Get settings paths info
- */
-async function debugSettingsPaths(): Promise<{
-  appDataDir: string;
-  settingsPath: string;
-  settingsExists: boolean;
-  settingsContent: string | null;
-  envVar: string | null;
-} | null> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      return null;
-    }
-    try {
-      return await window.__TAURI__.core.invoke('debug_settings_paths');
-    } catch {
-      return null;
-    }
-  });
-  return result as { appDataDir: string; settingsPath: string; settingsExists: boolean; settingsContent: string | null; envVar: string | null } | null;
-}
-
 describe('Tier 2: Receipt Settings & Database Location', () => {
   beforeEach(async () => {
     await waitForAppReady();
@@ -205,20 +182,12 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
     });
 
     it('should save receipt settings via IPC', async () => {
-      // Debug: Show paths being used
-      const pathsBeforeSave = await debugSettingsPaths();
-      console.log('DEBUG paths before save:', JSON.stringify(pathsBeforeSave, null, 2));
-      
       // Set settings via IPC
       const testApiKey = 'test-api-key-12345';
       await setGeminiApiKey(testApiKey);
 
       // Small pause to ensure file system sync in CI
       await browser.pause(100);
-
-      // Debug: Show paths after save
-      const pathsAfterSave = await debugSettingsPaths();
-      console.log('DEBUG paths after save:', JSON.stringify(pathsAfterSave, null, 2));
 
       // Verify settings were saved
       const settings = await getReceiptSettings();
@@ -233,22 +202,10 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       // Set settings via IPC first
       const testApiKey = 'test-display-key';
       
-      // Debug: paths before
-      const pathsBefore = await debugSettingsPaths();
-      console.log('UI TEST - paths before save:', JSON.stringify(pathsBefore, null, 2));
-      
       await setGeminiApiKey(testApiKey);
 
       // Small pause to ensure file system sync in CI
       await browser.pause(100);
-      
-      // Debug: paths after save
-      const pathsAfter = await debugSettingsPaths();
-      console.log('UI TEST - paths after save:', JSON.stringify(pathsAfter, null, 2));
-      
-      // Debug: verify IPC can read it back before navigating
-      const settingsBeforeNav = await getReceiptSettings();
-      console.log('UI TEST - settings before nav:', JSON.stringify(settingsBeforeNav, null, 2));
 
       // Navigate AWAY from settings first to ensure fresh mount
       // (SvelteKit caches components, so navigating to the same page won't remount)
@@ -261,7 +218,6 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
 
       const apiKeyInput = await $(ReceiptSettings.geminiApiKeyInput);
       const value = await apiKeyInput.getValue();
-      console.log('UI TEST - input value:', JSON.stringify(value));
       expect(value).toBe(testApiKey);
 
       // Clean up
