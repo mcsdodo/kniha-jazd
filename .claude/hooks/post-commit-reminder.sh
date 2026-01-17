@@ -18,5 +18,5 @@ if echo "$input" | grep -qi '"command"[^}]*changelog'; then
 fi
 
 # Exit code 2 with stderr = blocking message shown to Claude
-echo "REMINDER: Run /changelog to update CHANGELOG.md [Unreleased] section" >&2
+echo "REMINDER: If this was a user-visible change, run /changelog. Skip for internal docs (CLAUDE.md, _tasks/, etc.)" >&2
 exit 2

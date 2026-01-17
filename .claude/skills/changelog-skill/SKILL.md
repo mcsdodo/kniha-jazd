@@ -1,6 +1,6 @@
 ---
 name: changelog-skill
-description: Use after completing any feature, fix, or change - updates CHANGELOG.md [Unreleased] section in Slovak
+description: Use after completing user-visible features, fixes, or behavior changes - NOT for internal docs (CLAUDE.md, DECISIONS.md, _tasks/)
 ---
 
 # Changelog Update Skill
