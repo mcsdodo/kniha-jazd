@@ -141,6 +141,11 @@ function createUpdateStore() {
 			});
 		},
 
+		// Show the update modal (un-dismiss)
+		showModal: () => {
+			updateState((state) => ({ ...state, dismissed: false }));
+		},
+
 		install: async () => {
 			if (!updateObject) {
 				throw new Error('No update available to install');

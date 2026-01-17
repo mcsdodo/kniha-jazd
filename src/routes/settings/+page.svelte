@@ -131,6 +131,15 @@
 		await setAutoCheckUpdates(autoCheckUpdates);
 	}
 
+	async function handleUpdateButtonClick() {
+		if ($updateStore.available) {
+			// Show the update modal (un-dismiss if it was dismissed)
+			updateStore.showModal();
+		} else {
+			await updateStore.checkManual();
+		}
+	}
+
 	// Receipt scanning settings handlers
 	async function handleBrowseFolder() {
 		const selected = await openDialog({
@@ -708,9 +717,11 @@
 								<span class="version-status checking" title={$LL.update.checking()} aria-label={$LL.update.checking()}>⟳</span>
 								<span class="version-number" title={$LL.update.checking()}>{appVersion}</span>
 							{:else if $updateStore.available}
-								<span class="version-number" title={$LL.update.availableVersion({ version: $updateStore.version || '' })}>{appVersion}</span>
-								<span class="version-arrow" title={$LL.update.availableVersion({ version: $updateStore.version || '' })}>→</span>
-								<span class="version-new" title={$LL.update.availableVersion({ version: $updateStore.version || '' })}>{$updateStore.version}</span>
+								<button type="button" class="version-update-trigger" on:click={handleUpdateButtonClick} title={$LL.update.updateNow()}>
+									<span class="version-number">{appVersion}</span>
+									<span class="version-arrow">→</span>
+									<span class="version-new">{$updateStore.version}</span>
+								</button>
 							{:else if $updateStore.error}
 								<span class="version-status error" title={$LL.update.errorChecking()} aria-label={$LL.update.errorChecking()}>!</span>
 								<span class="version-number" title={$LL.update.errorChecking()}>{appVersion}</span>
@@ -720,12 +731,6 @@
 							{/if}
 						</span>
 						<span class="version-actions">
-							{#if $updateStore.available}
-								<button type="button" class="link-btn primary" on:click={() => updateStore.install()} title={$LL.update.updateNow()}>
-									{$LL.update.buttonUpdate()}
-								</button>
-								<span class="action-separator">│</span>
-							{/if}
 							<button type="button" class="link-btn" on:click={handleOpenChangelog} title={$LL.update.showChangelog()}>
 								{$LL.update.showChangelog()}
 							</button>
@@ -744,10 +749,10 @@
 				</div>
 				<button
 					class="button"
-					on:click={() => updateStore.checkManual()}
+					on:click={handleUpdateButtonClick}
 					disabled={$updateStore.checking}
 				>
-					{$updateStore.checking ? $LL.update.checking() : $LL.update.checkForUpdates()}
+					{$updateStore.checking ? $LL.update.checking() : $updateStore.available ? $LL.update.buttonUpdate() : $LL.update.checkForUpdates()}
 				</button>
 			</div>
 		</section>
@@ -1437,20 +1442,44 @@
 		font-weight: 600;
 	}
 
+	.version-update-trigger {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		background: none;
+		border: none;
+		padding: 0.25rem 0.5rem;
+		margin: -0.25rem -0.5rem;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.15s ease;
+	}
+
+	.version-update-trigger:hover {
+		background-color: var(--accent-primary-alpha, rgba(59, 130, 246, 0.1));
+	}
+
+	.version-update-trigger .version-number,
+	.version-update-trigger .version-arrow,
+	.version-update-trigger .version-new {
+		font-family: monospace;
+		font-size: 0.875rem;
+	}
+
+	.version-update-trigger .version-arrow {
+		color: var(--accent-primary);
+		opacity: 0.7;
+	}
+
+	.version-update-trigger .version-new {
+		color: var(--accent-primary);
+		font-weight: 600;
+	}
+
 	.version-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-	}
-
-	.action-separator {
-		color: var(--border-default);
-		font-size: 0.75rem;
-	}
-
-	.link-btn.primary {
-		color: var(--accent-primary);
-		font-weight: 500;
 	}
 
 	.update-options {
