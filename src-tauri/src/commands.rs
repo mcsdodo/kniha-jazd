@@ -2848,7 +2848,7 @@ pub fn set_gemini_api_key(
     api_key: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = get_app_data_dir(&app_handle)?;
     let mut settings = LocalSettings::load(&app_data_dir);
 
     // Allow empty string to clear the key
@@ -2868,7 +2868,7 @@ pub fn set_receipts_folder_path(
     path: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = get_app_data_dir(&app_handle)?;
 
     // Validate path exists and is a directory (unless clearing)
     if !path.is_empty() {
