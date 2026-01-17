@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Skript pre testovacie releasy** (`scripts/test-release.ps1`) - automatizácia lokálneho testovania aktualizácií
+  - Dočasne zvýši verziu (napr. 0.17.2 → 0.18.0), zostaví release, skopíruje do `_test-releases/`
+  - Po zostavení automaticky vráti verziu späť
+  - Aktualizuje `latest.json` pre mock update server
+  - Podpora parametra `-BumpType` (minor/patch)
+
 ## [0.17.2] - 2026-01-17
 
 ### Zmenené
