@@ -19,6 +19,7 @@
     "core:window:allow-inner-size",
     "core:window:allow-center",
     "updater:default",
-    "process:default"
+    "process:default",
+    "dialog:default"
   ]
 }

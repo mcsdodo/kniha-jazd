@@ -98,13 +98,12 @@ impl Database {
 
     /// Get the list of embedded migration versions (known to this app version).
     /// Returns a set of migration version strings.
-    /// 
-    /// Note: This uses MigrationHarness to get applied migrations from
-    /// __diesel_schema_migrations, then cross-checks with what we can run.
+    ///
+    /// Note: This uses MigrationSource trait to get embedded migrations.
     pub fn get_embedded_migration_versions() -> std::collections::HashSet<String> {
         let mut versions = std::collections::HashSet::new();
-        // Get migrations from the embedded source
-        if let Ok(migrations) = MigrationSource::<diesel::sqlite::Sqlite>::migrations(&MIGRATIONS) {
+        // Get migrations from the embedded source using the MigrationSource trait
+        if let Ok(migrations) = <EmbeddedMigrations as MigrationSource<diesel::sqlite::Sqlite>>::migrations(&MIGRATIONS) {
             for migration in migrations {
                 versions.insert(migration.name().version().to_string());
             }

@@ -353,14 +353,15 @@ export async function setReceiptsFolderPath(path: string): Promise<void> {
 
 // Database location
 export interface DbLocationInfo {
-	db_path: string;
-	is_custom_path: boolean;
-	backups_path: string;
+	dbPath: string;
+	isCustomPath: boolean;
+	backupsPath: string;
 }
 
 export interface AppModeInfo {
-	is_read_only: boolean;
-	reason: string | null;
+	mode: string;
+	isReadOnly: boolean;
+	readOnlyReason: string | null;
 }
 
 export async function getDbLocation(): Promise<DbLocationInfo> {
@@ -372,5 +373,19 @@ export async function getAppMode(): Promise<AppModeInfo> {
 }
 
 export async function checkTargetHasDb(targetFolder: string): Promise<boolean> {
-	return invoke<boolean>('check_target_has_db', { targetFolder });
+	return invoke<boolean>('check_target_has_db', { targetPath: targetFolder });
+}
+
+export interface MoveDbResult {
+	success: boolean;
+	newPath: string;
+	filesMoved: number;
+}
+
+export async function moveDatabase(targetFolder: string): Promise<MoveDbResult> {
+	return invoke<MoveDbResult>('move_database', { targetFolder });
+}
+
+export async function resetDatabaseLocation(): Promise<MoveDbResult> {
+	return invoke<MoveDbResult>('reset_database_location');
 }

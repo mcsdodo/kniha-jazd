@@ -3,8 +3,9 @@ import { getAppMode, type AppModeInfo } from '$lib/api';
 
 function createAppModeStore() {
     const { subscribe, set } = writable<AppModeInfo>({
-        is_read_only: false,
-        reason: null,
+        mode: 'Normal',
+        isReadOnly: false,
+        readOnlyReason: null,
     });
 
     return {

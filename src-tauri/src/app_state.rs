@@ -68,19 +68,15 @@ impl AppState {
         *self.mode.read().unwrap() == AppMode::ReadOnly
     }
 
-    /// Set the database path.
-    pub fn set_db_path(&self, path: PathBuf) {
+    /// Set the database path and whether it's a custom location.
+    pub fn set_db_path(&self, path: PathBuf, is_custom: bool) {
         *self.db_path.write().unwrap() = Some(path);
+        *self.is_custom_path.write().unwrap() = is_custom;
     }
 
     /// Get the database path.
     pub fn get_db_path(&self) -> Option<PathBuf> {
         self.db_path.read().unwrap().clone()
-    }
-
-    /// Set whether using custom database path.
-    pub fn set_is_custom_path(&self, is_custom: bool) {
-        *self.is_custom_path.write().unwrap() = is_custom;
     }
 
     /// Check if using custom database path.
@@ -134,8 +130,13 @@ mod tests {
         let state = AppState::new();
         assert!(state.get_db_path().is_none());
 
-        state.set_db_path(PathBuf::from("/test/db.sqlite"));
+        state.set_db_path(PathBuf::from("/test/db.sqlite"), false);
         assert_eq!(state.get_db_path(), Some(PathBuf::from("/test/db.sqlite")));
+        assert!(!state.is_custom_path());
+
+        state.set_db_path(PathBuf::from("/custom/db.sqlite"), true);
+        assert_eq!(state.get_db_path(), Some(PathBuf::from("/custom/db.sqlite")));
+        assert!(state.is_custom_path());
     }
 
     #[test]
@@ -143,8 +144,13 @@ mod tests {
         let state = AppState::new();
         assert!(!state.is_custom_path());
 
-        state.set_is_custom_path(true);
+        // Setting db path with is_custom=true should update is_custom_path
+        state.set_db_path(PathBuf::from("/custom/db.sqlite"), true);
         assert!(state.is_custom_path());
+
+        // Setting db path with is_custom=false should update is_custom_path
+        state.set_db_path(PathBuf::from("/default/db.sqlite"), false);
+        assert!(!state.is_custom_path());
     }
 
     #[test]

@@ -14,7 +14,7 @@
 	import { updateStore } from '$lib/stores/update';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, type DbLocationInfo } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, type DbLocationInfo, type MoveDbResult } from '$lib/api';
 	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 
 	let showVehicleModal = false;
@@ -92,17 +92,83 @@
 		}
 	}
 
+	// Database location state
+	let movingDb = false;
+	let showMoveConfirm = false;
+	let pendingMovePath = '';
+
 	// Database location handlers
 	async function handleOpenDbFolder() {
-		if (dbLocation?.db_path) {
+		if (dbLocation?.dbPath) {
 			try {
-				await revealItemInDir(dbLocation.db_path);
+				await revealItemInDir(dbLocation.dbPath);
 			} catch (error) {
 				console.error('Failed to open folder:', error);
 			}
 		}
 	}
 
+	async function handleChangeDbLocation() {
+		const selected = await openDialog({
+			directory: true,
+			multiple: false,
+			title: $LL.settings.dbLocationSelectFolder()
+		});
+		if (selected && typeof selected === 'string') {
+			// Check if target already has a database
+			const hasDb = await checkTargetHasDb(selected);
+			if (hasDb) {
+				toast.error($LL.settings.dbLocationTargetHasDb());
+				return;
+			}
+			pendingMovePath = selected;
+			showMoveConfirm = true;
+		}
+	}
+
+	async function handleConfirmMove() {
+		if (!pendingMovePath) return;
+		movingDb = true;
+		showMoveConfirm = false;
+		try {
+			const result = await moveDatabase(pendingMovePath);
+			if (result.success) {
+				dbLocation = await getDbLocation();
+				toast.success($LL.settings.dbLocationMoved());
+				// Reload app to use new database location
+				setTimeout(() => window.location.reload(), 1500);
+			}
+		} catch (error) {
+			console.error('Failed to move database:', error);
+			toast.error($LL.toast.errorMoveDatabase({ error: String(error) }));
+		} finally {
+			movingDb = false;
+			pendingMovePath = '';
+		}
+	}
+
+	function handleCancelMove() {
+		showMoveConfirm = false;
+		pendingMovePath = '';
+	}
+
+	async function handleResetDbLocation() {
+		movingDb = true;
+		try {
+			const result = await resetDatabaseLocation();
+			if (result.success) {
+				dbLocation = await getDbLocation();
+				toast.success($LL.settings.dbLocationReset());
+				// Reload app to use default location
+				setTimeout(() => window.location.reload(), 1500);
+			}
+		} catch (error) {
+			console.error('Failed to reset database location:', error);
+			toast.error($LL.toast.errorResetDatabase({ error: String(error) }));
+		} finally {
+			movingDb = false;
+		}
+	}
 
 	// Backup state
 	let backups: BackupInfo[] = [];
@@ -560,8 +626,8 @@
 				<div class="form-group">
 					<label>{$LL.settings.dbLocationCurrent()}</label>
 					<div class="db-path-display">
-						<span class="path-text">{dbLocation?.db_path || '...'}</span>
-						{#if dbLocation?.is_custom_path}
+						<span class="path-text">{dbLocation?.dbPath || '...'}</span>
+						{#if dbLocation?.isCustomPath}
 							<span class="badge custom">{$LL.settings.dbLocationCustom()}</span>
 						{:else}
 							<span class="badge default">{$LL.settings.dbLocationDefault()}</span>
@@ -573,11 +639,43 @@
 					<button class="button-small" on:click={handleOpenDbFolder}>
 						{$LL.settings.dbLocationOpenFolder()}
 					</button>
+					<button class="button-small" on:click={handleChangeDbLocation} disabled={movingDb}>
+						{movingDb ? $LL.common.loading() : $LL.settings.dbLocationChange()}
+					</button>
+					{#if dbLocation?.isCustomPath}
+						<button class="button-small button-secondary" on:click={handleResetDbLocation} disabled={movingDb}>
+							{$LL.settings.dbLocationResetToDefault()}
+						</button>
+					{/if}
 				</div>
 
 				<small class="hint">{$LL.settings.dbLocationHint()}</small>
 			</div>
 		</section>
+
+		<!-- Move Database Confirmation Modal -->
+		{#if showMoveConfirm}
+			<div class="modal-backdrop" on:click={handleCancelMove} on:keydown={(e) => e.key === 'Escape' && handleCancelMove()} role="button" tabindex="0">
+				<div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
+					<div class="modal-header">
+						<h3>{$LL.settings.dbLocationConfirmTitle()}</h3>
+					</div>
+					<div class="modal-content">
+						<p>{$LL.settings.dbLocationConfirmMessage()}</p>
+						<p class="confirm-path"><code>{pendingMovePath}</code></p>
+						<p class="warning-text">{$LL.settings.dbLocationConfirmWarning()}</p>
+					</div>
+					<div class="modal-footer">
+						<button class="button-secondary" on:click={handleCancelMove}>
+							{$LL.common.cancel()}
+						</button>
+						<button class="button-primary" on:click={handleConfirmMove}>
+							{$LL.settings.dbLocationConfirmMove()}
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Updates Section -->
 		<section class="settings-section">
