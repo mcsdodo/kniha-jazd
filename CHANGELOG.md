@@ -14,6 +14,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Aktualizuje `latest.json` pre mock update server
   - Podpora parametra `-BumpType` (minor/patch)
 
+### Zmenené
+- **Zjednodušené UI pre aktualizácie** - prehľadnejšie ovládanie v Nastaveniach
+  - Kliknuteľný prechod verzií (0.17.2 → 0.18.0) otvorí modál aktualizácie
+  - Tlačidlo mení text: "Skontrolovať aktualizácie" / "Aktualizovať" podľa stavu
+  - Odstránené duplicitné tlačidlo "Aktualizovať" z riadku verzie
+
 ## [0.17.2] - 2026-01-17
 
 ### Zmenené
