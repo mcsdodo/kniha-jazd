@@ -32,6 +32,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Žltý banner pod hlavičkou s ikonou a textom
   - Tlačidlo "Skontrolovať aktualizácie" pre rýchly prístup k aktualizácii
 
+### Zmenené
+- **Zjednotený vzhľad nastavení priečinkov a API kľúča** - konzistentný dizajn v sekcii Skenovanie dokladov
+  - Priečinok s dokladmi používa rovnaký štýl ako umiestnenie databázy (monospace font)
+  - Nahradenie tlačidiel "Vybrať"/"Predvolená cesta" klikateľnými odkazmi "Zmeniť"
+  - Ikona oka priamo vo vstupe pre API kľúč (namiesto tlačidla Zobraziť/Skryť)
+  - Monospace font pre API kľúč
+  - Nové tlačidlo "Zobraziť v Prieskumníkovi" v hlavičke nastavení
+  - Odstránené jednotlivé tlačidlá "Otvoriť priečinok" zo sekcií
+
 ### Opravené
 - **Oprava type mismatch v API typoch** - frontend typy teraz správne používajú camelCase
   - `AppModeInfo.isReadOnly` namiesto `is_read_only`
