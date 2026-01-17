@@ -1561,6 +1561,10 @@ type RootTranslation = {
 		 * A​u​t​o​m​a​t​i​c​k​y​ ​k​o​n​t​r​o​l​o​v​a​ť​ ​p​r​i​ ​š​t​a​r​t​e
 		 */
 		autoCheckOnStart: string
+		/**
+		 * Z​o​b​r​a​z​i​ť​ ​z​m​e​n​y
+		 */
+		showChangelog: string
 	}
 }
 
@@ -3066,6 +3070,10 @@ export type TranslationFunctions = {
 		 * Automaticky kontrolovať pri štarte
 		 */
 		autoCheckOnStart: () => LocalizedString
+		/**
+		 * Zobraziť zmeny
+		 */
+		showChangelog: () => LocalizedString
 	}
 }
 

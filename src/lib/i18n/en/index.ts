@@ -481,6 +481,7 @@ const en = {
 		buttonUpdate: 'Update',
 		buttonLater: 'Later',
 		autoCheckOnStart: 'Automatically check on startup',
+		showChangelog: 'Show changelog',
 	},
 } satisfies Translation;
 

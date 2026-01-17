@@ -518,6 +518,14 @@
 		}
 	}
 
+	async function handleOpenChangelog() {
+		try {
+			await openPath('https://github.com/mcsdodo/kniha-jazd/blob/main/CHANGELOG.md');
+		} catch (error) {
+			console.error('Failed to open changelog:', error);
+		}
+	}
+
 	async function handleRevealBackup(backup: BackupInfo) {
 		try {
 			await api.revealBackup(backup.filename);
@@ -692,20 +700,36 @@
 		<section class="settings-section">
 			<h2>{$LL.update.sectionTitle()}</h2>
 			<div class="section-content">
-				<div class="update-row">
-					<span class="version-label">{$LL.update.currentVersion()}: {appVersion}</span>
-					<div class="update-status">
-						{#if $updateStore.checking}
-							<span class="status-text">{$LL.update.checking()}</span>
-						{:else if $updateStore.available}
-							<span class="status-text available">
-								{$LL.update.availableVersion({ version: $updateStore.version || '' })}
-							</span>
-						{:else if $updateStore.error}
-							<span class="status-text error">{$LL.update.errorChecking()}</span>
-						{:else}
-							<span class="status-text success">✓ {$LL.update.upToDate()}</span>
-						{/if}
+				<div class="form-group">
+					<label>{$LL.update.currentVersion()}</label>
+					<div class="db-path-display" title={$updateStore.checking ? $LL.update.checking() : $updateStore.available ? $LL.update.availableVersion({ version: $updateStore.version || '' }) : $updateStore.error ? $LL.update.errorChecking() : $LL.update.upToDate()}>
+						<span class="version-display">
+							{#if $updateStore.checking}
+								<span class="version-status checking" title={$LL.update.checking()} aria-label={$LL.update.checking()}>⟳</span>
+								<span class="version-number" title={$LL.update.checking()}>{appVersion}</span>
+							{:else if $updateStore.available}
+								<span class="version-number" title={$LL.update.availableVersion({ version: $updateStore.version || '' })}>{appVersion}</span>
+								<span class="version-arrow" title={$LL.update.availableVersion({ version: $updateStore.version || '' })}>→</span>
+								<span class="version-new" title={$LL.update.availableVersion({ version: $updateStore.version || '' })}>{$updateStore.version}</span>
+							{:else if $updateStore.error}
+								<span class="version-status error" title={$LL.update.errorChecking()} aria-label={$LL.update.errorChecking()}>!</span>
+								<span class="version-number" title={$LL.update.errorChecking()}>{appVersion}</span>
+							{:else}
+								<span class="version-status success" title={$LL.update.upToDate()} aria-label={$LL.update.upToDate()}>✓</span>
+								<span class="version-number" title={$LL.update.upToDate()}>{appVersion}</span>
+							{/if}
+						</span>
+						<span class="version-actions">
+							{#if $updateStore.available}
+								<button type="button" class="link-btn primary" on:click={() => updateStore.install()} title={$LL.update.updateNow()}>
+									{$LL.update.buttonUpdate()}
+								</button>
+								<span class="action-separator">│</span>
+							{/if}
+							<button type="button" class="link-btn" on:click={handleOpenChangelog} title={$LL.update.showChangelog()}>
+								{$LL.update.showChangelog()}
+							</button>
+						</span>
 					</div>
 				</div>
 				<div class="update-options">
@@ -1351,33 +1375,82 @@
 		margin-bottom: 1rem;
 	}
 
-	.version-label {
-		font-weight: 500;
+	.version-display {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex: 1;
+	}
+
+	.version-number {
+		font-family: monospace;
+		font-size: 0.875rem;
 		color: var(--text-primary);
 	}
 
-	.update-status {
+	.version-status {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.25rem;
+		height: 1.25rem;
+		border-radius: 50%;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.version-status.success {
+		background: var(--accent-success-bg, rgba(34, 197, 94, 0.15));
+		color: var(--accent-success, #22c55e);
+	}
+
+	.version-status.available {
+		background: var(--accent-primary-bg, rgba(59, 130, 246, 0.15));
+		color: var(--accent-primary);
+	}
+
+	.version-status.error {
+		background: var(--accent-danger-bg);
+		color: var(--accent-danger);
+	}
+
+	.version-status.checking {
+		background: var(--bg-surface-alt);
+		color: var(--text-secondary);
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
+	.version-arrow {
+		color: var(--text-secondary);
+		font-size: 0.875rem;
+	}
+
+	.version-new {
+		font-family: monospace;
+		font-size: 0.875rem;
+		color: var(--accent-primary);
+		font-weight: 600;
+	}
+
+	.version-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 	}
 
-	.status-text {
-		font-size: 0.875rem;
-		color: var(--text-secondary);
+	.action-separator {
+		color: var(--border-default);
+		font-size: 0.75rem;
 	}
 
-	.status-text.success {
-		color: var(--accent-success, #22c55e);
-	}
-
-	.status-text.available {
+	.link-btn.primary {
 		color: var(--accent-primary);
 		font-weight: 500;
-	}
-
-	.status-text.error {
-		color: var(--accent-danger);
 	}
 
 	.update-options {

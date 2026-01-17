@@ -481,6 +481,7 @@ const sk = {
 		buttonUpdate: 'Aktualizovať',
 		buttonLater: 'Neskôr',
 		autoCheckOnStart: 'Automaticky kontrolovať pri štarte',
+		showChangelog: 'Zobraziť zmeny',
 	},
 } satisfies BaseTranslation;
 
