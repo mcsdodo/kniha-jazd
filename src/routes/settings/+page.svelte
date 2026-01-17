@@ -669,8 +669,8 @@
 				<div class="form-group">
 					<label>{$LL.settings.receiptsFolder()}</label>
 					<div class="db-path-display">
-						<span class="path-text">{receiptsFolderPath || $LL.settings.receiptsFolderNotSet()}</span>
-						<button type="button" class="link-btn" on:click={handleBrowseFolder}>
+						<span id="receipts-folder" class="path-text">{receiptsFolderPath || $LL.settings.receiptsFolderNotSet()}</span>
+						<button type="button" class="link-btn browse-folder-btn" on:click={handleBrowseFolder}>
 							{$LL.settings.receiptsFolderChange()}
 						</button>
 					</div>

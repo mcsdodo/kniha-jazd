@@ -14,9 +14,9 @@ import { ensureLanguage } from '../../utils/language';
 const ReceiptSettings = {
   section: '#receipt-scanning',
   geminiApiKeyInput: '#gemini-api-key',
-  receiptsFolderInput: '#receipts-folder',
+  receiptsFolderDisplay: '#receipts-folder', // Note: this is a span, not input
   showHideApiKeyBtn: '.icon-btn',
-  browseFolderBtn: '.link-btn',
+  browseFolderBtn: '.browse-folder-btn',
 };
 
 const DbLocation = {
@@ -139,9 +139,9 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       const apiKeyExists = await apiKeyInput.isExisting();
       expect(apiKeyExists).toBe(true);
 
-      // Check for folder input
-      const folderInput = await $(ReceiptSettings.receiptsFolderInput);
-      const folderExists = await folderInput.isExisting();
+      // Check for folder display (span, not input)
+      const folderDisplay = await $(ReceiptSettings.receiptsFolderDisplay);
+      const folderExists = await folderDisplay.isExisting();
       expect(folderExists).toBe(true);
     });
 
