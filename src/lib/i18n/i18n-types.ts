@@ -725,9 +725,17 @@ type RootTranslation = {
 		 */
 		dbLocationChange: string
 		/**
+		 * O​b​n​o​v​i​ť​ ​p​r​e​d​v​o​l​e​n​é
+		 */
+		dbLocationResetToDefault: string
+		/**
 		 * O​t​v​o​r​i​ť​ ​p​r​i​e​č​i​n​o​k
 		 */
 		dbLocationOpenFolder: string
+		/**
+		 * V​y​b​e​r​t​e​ ​c​i​e​ľ​o​v​ý​ ​p​r​i​e​č​i​n​o​k​ ​p​r​e​ ​d​a​t​a​b​á​z​u
+		 */
+		dbLocationSelectFolder: string
 		/**
 		 * D​a​t​a​b​á​z​u​ ​m​ô​ž​e​t​e​ ​p​r​e​s​u​n​ú​ť​ ​n​a​ ​G​o​o​g​l​e​ ​D​r​i​v​e​,​ ​N​A​S​ ​a​l​e​b​o​ ​i​n​ý​ ​z​d​i​e​ľ​a​n​ý​ ​p​r​i​e​č​i​n​o​k​ ​p​r​e​ ​p​o​u​ž​i​t​i​e​ ​n​a​ ​v​i​a​c​e​r​ý​c​h​ ​P​C​.
 		 */
@@ -737,18 +745,33 @@ type RootTranslation = {
 		 */
 		dbLocationMoving: string
 		/**
-		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​ú​s​p​e​š​n​e​ ​p​r​e​s​u​n​u​t​á
+		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​ú​s​p​e​š​n​e​ ​p​r​e​s​u​n​u​t​á​.​ ​A​p​l​i​k​á​c​i​a​ ​s​a​ ​r​e​š​t​a​r​t​u​j​e​.
 		 */
-		dbLocationMoveSuccess: string
+		dbLocationMoved: string
 		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​e​s​u​n​ú​ť​ ​d​a​t​a​b​á​z​u​:​ ​{​e​r​r​o​r​}
-		 * @param {string} error
+		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​p​r​e​s​u​n​u​t​á​ ​s​p​ä​ť​ ​d​o​ ​p​r​e​d​v​o​l​e​n​é​h​o​ ​u​m​i​e​s​t​n​e​n​i​a​.​ ​A​p​l​i​k​á​c​i​a​ ​s​a​ ​r​e​š​t​a​r​t​u​j​e​.
 		 */
-		dbLocationMoveError: RequiredParams<'error'>
+		dbLocationReset: string
 		/**
-		 * C​i​e​ľ​o​v​ý​ ​p​r​i​e​č​i​n​o​k​ ​u​ž​ ​o​b​s​a​h​u​j​e​ ​d​a​t​a​b​á​z​u
+		 * C​i​e​ľ​o​v​ý​ ​p​r​i​e​č​i​n​o​k​ ​u​ž​ ​o​b​s​a​h​u​j​e​ ​d​a​t​a​b​á​z​u​.​ ​V​y​b​e​r​t​e​ ​i​n​ý​ ​p​r​i​e​č​i​n​o​k​.
 		 */
 		dbLocationTargetHasDb: string
+		/**
+		 * P​r​e​s​u​n​ú​ť​ ​d​a​t​a​b​á​z​u
+		 */
+		dbLocationConfirmTitle: string
+		/**
+		 * D​a​t​a​b​á​z​a​ ​a​ ​z​á​l​o​h​y​ ​b​u​d​ú​ ​p​r​e​s​u​n​u​t​é​ ​d​o​:
+		 */
+		dbLocationConfirmMessage: string
+		/**
+		 * A​p​l​i​k​á​c​i​a​ ​s​a​ ​p​o​ ​p​r​e​s​u​n​e​ ​r​e​š​t​a​r​t​u​j​e​.
+		 */
+		dbLocationConfirmWarning: string
+		/**
+		 * P​r​e​s​u​n​ú​ť
+		 */
+		dbLocationConfirmMove: string
 		/**
 		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​a​k​t​u​a​l​i​z​o​v​a​n​á​ ​n​o​v​š​o​u​ ​v​e​r​z​i​o​u​ ​a​p​l​i​k​á​c​i​e​.​ ​R​e​ž​i​m​ ​l​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
 		 */
@@ -1191,6 +1214,16 @@ type RootTranslation = {
 		 * @param {string} error
 		 */
 		errorDeleteBackup: RequiredParams<'error'>
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​e​s​u​n​ú​ť​ ​d​a​t​a​b​á​z​u​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		errorMoveDatabase: RequiredParams<'error'>
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​b​n​o​v​i​ť​ ​p​r​e​d​v​o​l​e​n​é​ ​u​m​i​e​s​t​n​e​n​i​e​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		errorResetDatabase: RequiredParams<'error'>
 		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​n​a​č​í​t​a​ť​ ​d​o​k​l​a​d​y
 		 */
@@ -2232,9 +2265,17 @@ export type TranslationFunctions = {
 		 */
 		dbLocationChange: () => LocalizedString
 		/**
+		 * Obnoviť predvolené
+		 */
+		dbLocationResetToDefault: () => LocalizedString
+		/**
 		 * Otvoriť priečinok
 		 */
 		dbLocationOpenFolder: () => LocalizedString
+		/**
+		 * Vyberte cieľový priečinok pre databázu
+		 */
+		dbLocationSelectFolder: () => LocalizedString
 		/**
 		 * Databázu môžete presunúť na Google Drive, NAS alebo iný zdieľaný priečinok pre použitie na viacerých PC.
 		 */
@@ -2244,17 +2285,33 @@ export type TranslationFunctions = {
 		 */
 		dbLocationMoving: () => LocalizedString
 		/**
-		 * Databáza bola úspešne presunutá
+		 * Databáza bola úspešne presunutá. Aplikácia sa reštartuje.
 		 */
-		dbLocationMoveSuccess: () => LocalizedString
+		dbLocationMoved: () => LocalizedString
 		/**
-		 * Nepodarilo sa presunúť databázu: {error}
+		 * Databáza bola presunutá späť do predvoleného umiestnenia. Aplikácia sa reštartuje.
 		 */
-		dbLocationMoveError: (arg: { error: string }) => LocalizedString
+		dbLocationReset: () => LocalizedString
 		/**
-		 * Cieľový priečinok už obsahuje databázu
+		 * Cieľový priečinok už obsahuje databázu. Vyberte iný priečinok.
 		 */
 		dbLocationTargetHasDb: () => LocalizedString
+		/**
+		 * Presunúť databázu
+		 */
+		dbLocationConfirmTitle: () => LocalizedString
+		/**
+		 * Databáza a zálohy budú presunuté do:
+		 */
+		dbLocationConfirmMessage: () => LocalizedString
+		/**
+		 * Aplikácia sa po presune reštartuje.
+		 */
+		dbLocationConfirmWarning: () => LocalizedString
+		/**
+		 * Presunúť
+		 */
+		dbLocationConfirmMove: () => LocalizedString
 		/**
 		 * Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.
 		 */
@@ -2665,6 +2722,14 @@ export type TranslationFunctions = {
 		 * Nepodarilo sa odstrániť zálohu: {error}
 		 */
 		errorDeleteBackup: (arg: { error: string }) => LocalizedString
+		/**
+		 * Nepodarilo sa presunúť databázu: {error}
+		 */
+		errorMoveDatabase: (arg: { error: string }) => LocalizedString
+		/**
+		 * Nepodarilo sa obnoviť predvolené umiestnenie: {error}
+		 */
+		errorResetDatabase: (arg: { error: string }) => LocalizedString
 		/**
 		 * Nepodarilo sa načítať doklady
 		 */
