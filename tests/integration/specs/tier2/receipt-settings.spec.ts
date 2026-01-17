@@ -15,9 +15,8 @@ const ReceiptSettings = {
   section: '#receipt-scanning',
   geminiApiKeyInput: '#gemini-api-key',
   receiptsFolderInput: '#receipts-folder',
-  showHideApiKeyBtn: '.toggle-btn',
-  browseFolderBtn: '.input-with-button button',
-  saveBtn: '#receipt-scanning .button',
+  showHideApiKeyBtn: '.icon-btn',
+  browseFolderBtn: '.link-btn',
 };
 
 const DbLocation = {
@@ -312,8 +311,8 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
     });
   });
 
-  describe('Receipt Settings Save Flow', () => {
-    it('should save and persist settings through UI flow', async () => {
+  describe('Receipt Settings Auto-Save Flow', () => {
+    it('should auto-save and persist settings through UI flow', async () => {
       await navigateTo('settings');
       await browser.pause(500);
 
@@ -333,24 +332,26 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
         }
       }, ReceiptSettings.geminiApiKeyInput, testApiKey);
 
-      await browser.pause(300);
+      // Trigger blur to auto-save immediately
+      await browser.execute((sel: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+      }, ReceiptSettings.geminiApiKeyInput);
 
-      // Find and click save button
-      const saveBtn = await $(ReceiptSettings.saveBtn);
-      if (await saveBtn.isExisting()) {
-        await saveBtn.click();
-        await browser.pause(1000);
+      // Wait for auto-save debounce (800ms) + buffer
+      await browser.pause(1200);
 
-        // Check for success toast
-        const toastSuccess = await $('.toast-success, .toast.success');
-        const toastExists = await toastSuccess.isExisting();
-        // Toast should appear on successful save
-        expect(toastExists).toBe(true);
+      // Check for success toast
+      const toastSuccess = await $('.toast-success, .toast.success');
+      const toastExists = await toastSuccess.isExisting();
+      // Toast should appear on successful auto-save
+      expect(toastExists).toBe(true);
 
-        // Verify via IPC that settings were saved
-        const settings = await getReceiptSettings();
-        expect(settings?.geminiApiKey).toBe(testApiKey);
-      }
+      // Verify via IPC that settings were saved
+      const settings = await getReceiptSettings();
+      expect(settings?.geminiApiKey).toBe(testApiKey);
 
       // Clean up
       await setGeminiApiKey('');

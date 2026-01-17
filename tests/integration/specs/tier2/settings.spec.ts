@@ -114,25 +114,23 @@ describe('Tier 2: Settings', () => {
           await companyIcoInput.setValue(testCompanyIco);
         }
 
-        // Find and click save button
-        const saveBtn = await $(Settings.saveBtn);
-        if (await saveBtn.isExisting()) {
-          await saveBtn.click();
-          await browser.pause(1000);
+        // Trigger blur to save immediately (auto-save on blur)
+        await browser.keys('Tab');
+        // Wait for auto-save debounce (800ms) + buffer
+        await browser.pause(1200);
 
-          // Verify settings were saved by checking the UI
-          const savedNameValue = await companyNameInput.getValue();
-          expect(savedNameValue).toBe(testCompanyName);
+        // Verify settings were saved by checking the UI
+        const savedNameValue = await companyNameInput.getValue();
+        expect(savedNameValue).toBe(testCompanyName);
 
-          const savedIcoValue = await companyIcoInput.getValue();
-          expect(savedIcoValue).toBe(testCompanyIco);
+        const savedIcoValue = await companyIcoInput.getValue();
+        expect(savedIcoValue).toBe(testCompanyIco);
 
-          // Verify via Tauri IPC
-          const settings = await getSettings();
-          expect(settings).not.toBeNull();
-          expect(settings?.companyName).toBe(testCompanyName);
-          expect(settings?.companyIco).toBe(testCompanyIco);
-        }
+        // Verify via Tauri IPC
+        const settings = await getSettings();
+        expect(settings).not.toBeNull();
+        expect(settings?.companyName).toBe(testCompanyName);
+        expect(settings?.companyIco).toBe(testCompanyIco);
       } else {
         // Settings fields not found in UI - save via IPC directly
         await saveSettings({
