@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-01-17
+
 ### Zmenené
 - **Automatické ukladanie nastavení** - všetky nastavenia sa ukladajú automaticky pri zmene
   - Odstránené tlačidlá "Uložiť" zo sekcií Firemné údaje a Skenovanie dokladov
