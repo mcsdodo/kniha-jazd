@@ -31,6 +31,8 @@ impl LocalSettings {
 
     /// Save settings to local.settings.json in app data dir
     pub fn save(&self, app_data_dir: &PathBuf) -> std::io::Result<()> {
+        // Ensure the directory exists before writing
+        fs::create_dir_all(app_data_dir)?;
         let path = app_data_dir.join("local.settings.json");
         let json = serde_json::to_string_pretty(self)?;
         fs::write(path, json)
