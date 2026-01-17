@@ -232,10 +232,23 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
     it('should display saved API key in settings UI', async () => {
       // Set settings via IPC first
       const testApiKey = 'test-display-key';
+      
+      // Debug: paths before
+      const pathsBefore = await debugSettingsPaths();
+      console.log('UI TEST - paths before save:', JSON.stringify(pathsBefore, null, 2));
+      
       await setGeminiApiKey(testApiKey);
 
       // Small pause to ensure file system sync in CI
       await browser.pause(100);
+      
+      // Debug: paths after save
+      const pathsAfter = await debugSettingsPaths();
+      console.log('UI TEST - paths after save:', JSON.stringify(pathsAfter, null, 2));
+      
+      // Debug: verify IPC can read it back before navigating
+      const settingsBeforeNav = await getReceiptSettings();
+      console.log('UI TEST - settings before nav:', JSON.stringify(settingsBeforeNav, null, 2));
 
       // Navigate to settings and verify UI shows the key
       await navigateTo('settings');
@@ -243,6 +256,7 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
 
       const apiKeyInput = await $(ReceiptSettings.geminiApiKeyInput);
       const value = await apiKeyInput.getValue();
+      console.log('UI TEST - input value:', JSON.stringify(value));
       expect(value).toBe(testApiKey);
 
       // Clean up
@@ -365,9 +379,9 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       // Clean up
       await setGeminiApiKey('');
 
-      // Verify cleanup
+      // Verify cleanup - empty string is stored as null
       const cleanSettings = await getReceiptSettings();
-      expect(cleanSettings?.geminiApiKey).toBe('');
+      expect(cleanSettings?.geminiApiKey).toBeNull();
     });
   });
 });
