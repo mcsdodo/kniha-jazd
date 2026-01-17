@@ -682,16 +682,6 @@
 			</div>
 		</section>
 
-		<!-- Move Database Confirmation Modal -->
-		{#if showMoveConfirm}
-			<MoveDatabaseModal
-				targetPath={pendingMovePath}
-				moving={movingDb}
-				onConfirm={handleConfirmMove}
-				onCancel={handleCancelMove}
-			/>
-		{/if}
-
 		<!-- Updates Section -->
 		<section class="settings-section">
 			<h2>{$LL.update.sectionTitle()}</h2>
@@ -868,6 +858,15 @@
 		</section>
 	</div>
 </div>
+
+{#if showMoveConfirm}
+	<MoveDatabaseModal
+		targetPath={pendingMovePath}
+		moving={movingDb}
+		onConfirm={handleConfirmMove}
+		onCancel={handleCancelMove}
+	/>
+{/if}
 
 {#if showVehicleModal}
 	<VehicleModal
