@@ -111,8 +111,23 @@ jobs:
           Write-Host "WebView2 runtime version: $webview2Version"
           $driverUrl = "https://msedgedriver.azureedge.net/$webview2Version/edgedriver_win64.zip"
           Write-Host "Downloading EdgeDriver from: $driverUrl"
-          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
-          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
+          $maxRetries = 3
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
+              Write-Host "Download successful on attempt $i"
+              break
+            } catch {
+              Write-Host "Attempt $i failed: $_"
+              if ($i -eq $maxRetries) {
+                $altUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$webview2Version/edgedriver_win64.zip"
+                Write-Host "Trying alternative URL: $altUrl"
+                Invoke-WebRequest -Uri $altUrl -OutFile edgedriver.zip -TimeoutSec 60
+              }
+              Start-Sleep -Seconds 5
+            }
+          }
+          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
           echo "$PWD\edgedriver" >> $env:GITHUB_PATH
           Write-Host "EdgeDriver $webview2Version installed successfully"
 
