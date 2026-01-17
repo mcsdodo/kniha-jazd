@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Interné
+- **Optimalizácia release workflow** - vynechanie duplicitných testov pri vydaniach
+  - Release commit obsahuje len verziovacie súbory (CHANGELOG.md, package.json, Cargo.toml, atď.)
+  - Nová logika detekuje "release-only" zmeny a kontroluje výsledky testov rodičovského commitu
+  - Úspora ~10 minút CI času na každé vydanie (testy bežia len raz na main, nie znova pri tagu)
+
 ## [0.17.3] - 2026-01-17
 
 ### Pridané
