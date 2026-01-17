@@ -3,6 +3,7 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import MoveDatabaseModal from '$lib/components/MoveDatabaseModal.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Vehicle, Settings, BackupInfo } from '$lib/types';
@@ -643,26 +644,12 @@
 
 		<!-- Move Database Confirmation Modal -->
 		{#if showMoveConfirm}
-			<div class="modal-backdrop" on:click={handleCancelMove} on:keydown={(e) => e.key === 'Escape' && handleCancelMove()} role="button" tabindex="0">
-				<div class="modal" on:click|stopPropagation role="dialog" aria-modal="true">
-					<div class="modal-header">
-						<h3>{$LL.settings.dbLocationConfirmTitle()}</h3>
-					</div>
-					<div class="modal-content">
-						<p>{$LL.settings.dbLocationConfirmMessage()}</p>
-						<p class="confirm-path"><code>{pendingMovePath}</code></p>
-						<p class="warning-text">{$LL.settings.dbLocationConfirmWarning()}</p>
-					</div>
-					<div class="modal-footer">
-						<button class="button-secondary" on:click={handleCancelMove}>
-							{$LL.common.cancel()}
-						</button>
-						<button class="button-primary" on:click={handleConfirmMove}>
-							{$LL.settings.dbLocationConfirmMove()}
-						</button>
-					</div>
-				</div>
-			</div>
+			<MoveDatabaseModal
+				targetPath={pendingMovePath}
+				moving={movingDb}
+				onConfirm={handleConfirmMove}
+				onCancel={handleCancelMove}
+			/>
 		{/if}
 
 		<!-- Updates Section -->
