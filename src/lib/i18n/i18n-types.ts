@@ -689,6 +689,14 @@ type RootTranslation = {
 		 */
 		receiptsFolderHint: string
 		/**
+		 * Z​m​e​n​i​ť
+		 */
+		receiptsFolderChange: string
+		/**
+		 * N​i​e​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
+		 */
+		receiptsFolderNotSet: string
+		/**
 		 * V​y​b​r​a​ť
 		 */
 		browseFolder: string
@@ -717,7 +725,7 @@ type RootTranslation = {
 		 */
 		dbLocationCustom: string
 		/**
-		 * P​r​e​d​v​o​l​e​n​á​ ​c​e​s​t​a
+		 * Z​m​e​n​i​ť
 		 */
 		dbLocationDefault: string
 		/**
@@ -2229,6 +2237,14 @@ export type TranslationFunctions = {
 		 */
 		receiptsFolderHint: () => LocalizedString
 		/**
+		 * Zmeniť
+		 */
+		receiptsFolderChange: () => LocalizedString
+		/**
+		 * Nie je nastavený
+		 */
+		receiptsFolderNotSet: () => LocalizedString
+		/**
 		 * Vybrať
 		 */
 		browseFolder: () => LocalizedString
@@ -2257,7 +2273,7 @@ export type TranslationFunctions = {
 		 */
 		dbLocationCustom: () => LocalizedString
 		/**
-		 * Predvolená cesta
+		 * Zmeniť
 		 */
 		dbLocationDefault: () => LocalizedString
 		/**
