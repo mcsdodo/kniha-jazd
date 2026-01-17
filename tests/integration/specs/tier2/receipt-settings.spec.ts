@@ -176,6 +176,9 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       const testApiKey = 'test-api-key-12345';
       await setGeminiApiKey(testApiKey);
 
+      // Small pause to ensure file system sync in CI
+      await browser.pause(100);
+
       // Verify settings were saved
       const settings = await getReceiptSettings();
       expect(settings).not.toBeNull();
@@ -189,6 +192,9 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       // Set settings via IPC first
       const testApiKey = 'test-display-key';
       await setGeminiApiKey(testApiKey);
+
+      // Small pause to ensure file system sync in CI
+      await browser.pause(100);
 
       // Navigate to settings and verify UI shows the key
       await navigateTo('settings');
@@ -307,6 +313,9 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
 
       // Set via IPC directly
       await setGeminiApiKey(testApiKey);
+
+      // Small pause to ensure file system sync in CI
+      await browser.pause(100);
 
       // Verify the setting was persisted
       const settings = await getReceiptSettings();
