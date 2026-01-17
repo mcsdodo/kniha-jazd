@@ -394,18 +394,28 @@ describe('Tier 2: Route Autocomplete', () => {
       // Press Enter to submit (global handler should catch this)
       await browser.keys('Enter');
 
-      // Wait for save to complete and check for error toast
-      await browser.pause(700);
+      // Wait for editing row to disappear (save complete)
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return !(await editingRow.isExisting());
+        },
+        { timeout: 10000, timeoutMsg: 'Editing row did not disappear after Enter' }
+      );
 
       // Ensure no error toast appeared (indicates backend failure)
       const toastError = await $('.toast-error');
       expect(await toastError.isExisting()).toBe(false);
 
-      // Verify editing row is gone (trip was saved)
-      const editingRowAfter = await $('tr.editing');
-      const isStillEditing = await editingRowAfter.isExisting();
-
-      expect(isStillEditing).toBe(false);
+      // Wait for trip data to appear in the grid
+      await browser.waitUntil(
+        async () => {
+          const body = await $('body');
+          const text = await body.getText();
+          return text.includes('TestOrigin');
+        },
+        { timeout: 5000, timeoutMsg: 'TestOrigin not found in page after save' }
+      );
 
       // Verify trip was saved by checking page content
       const body = await $('body');
@@ -519,13 +529,24 @@ describe('Tier 2: Route Autocomplete', () => {
       // Press Enter while dropdown might be showing (don't select anything)
       await browser.keys('Enter');
 
-      await browser.pause(500);
+      // Wait for editing row to disappear (save complete)
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return !(await editingRow.isExisting());
+        },
+        { timeout: 10000, timeoutMsg: 'Editing row did not disappear after Enter' }
+      );
 
-      // Verify form was submitted (editing row should be gone)
-      const editingRowAfter = await $('tr.editing');
-      const isStillEditing = await editingRowAfter.isExisting();
-
-      expect(isStillEditing).toBe(false);
+      // Wait for trip origin to appear in page
+      await browser.waitUntil(
+        async () => {
+          const body = await $('body');
+          const text = await body.getText();
+          return text.includes('Dropdown');
+        },
+        { timeout: 5000, timeoutMsg: 'Dropdown not found in page after save' }
+      );
 
       // Verify trip was saved
       const body = await $('body');
