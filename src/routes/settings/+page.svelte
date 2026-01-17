@@ -52,7 +52,70 @@
 	let geminiApiKey = '';
 	let receiptsFolderPath = '';
 	let showApiKey = false;
-	let savingReceiptSettings = false;
+
+	// Track initial values to detect actual changes
+	let initialCompanyName = '';
+	let initialCompanyIco = '';
+	let initialBufferTripPurpose = '';
+	let initialGeminiApiKey = '';
+	let initialReceiptsFolderPath = '';
+
+	// Debounce utility for auto-save
+	function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
+		let timeoutId: ReturnType<typeof setTimeout>;
+		return ((...args: unknown[]) => {
+			clearTimeout(timeoutId);
+			timeoutId = setTimeout(() => fn(...args), ms);
+		}) as T;
+	}
+
+	// Auto-save functions for company settings
+	async function saveCompanySettingsNow() {
+		// Only save if values actually changed
+		if (
+			companyName === initialCompanyName &&
+			companyIco === initialCompanyIco &&
+			bufferTripPurpose === initialBufferTripPurpose
+		) {
+			return;
+		}
+		try {
+			const savedSettings = await api.saveSettings(companyName, companyIco, bufferTripPurpose);
+			settings = savedSettings;
+			initialCompanyName = companyName;
+			initialCompanyIco = companyIco;
+			initialBufferTripPurpose = bufferTripPurpose;
+			toast.success($LL.toast.settingsSaved());
+		} catch (error) {
+			console.error('Failed to save settings:', error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		}
+	}
+
+	// Auto-save functions for receipt settings
+	async function saveReceiptSettingsNow() {
+		// Only save if values actually changed
+		if (
+			geminiApiKey === initialGeminiApiKey &&
+			receiptsFolderPath === initialReceiptsFolderPath
+		) {
+			return;
+		}
+		try {
+			await setGeminiApiKey(geminiApiKey);
+			await setReceiptsFolderPath(receiptsFolderPath);
+			initialGeminiApiKey = geminiApiKey;
+			initialReceiptsFolderPath = receiptsFolderPath;
+			toast.success($LL.settings.receiptSettingsSaved());
+		} catch (error) {
+			console.error('Failed to save receipt settings:', error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		}
+	}
+
+	// Debounced versions (800ms delay)
+	const debouncedSaveCompanySettings = debounce(saveCompanySettingsNow, 800);
+	const debouncedSaveReceiptSettings = debounce(saveReceiptSettingsNow, 800);
 
 	// Database location state
 	let dbLocation: DbLocationInfo | null = null;
@@ -77,20 +140,8 @@
 		});
 		if (selected && typeof selected === 'string') {
 			receiptsFolderPath = selected;
-		}
-	}
-
-	async function handleSaveReceiptSettings() {
-		savingReceiptSettings = true;
-		try {
-			await setGeminiApiKey(geminiApiKey);
-			await setReceiptsFolderPath(receiptsFolderPath);
-			toast.success($LL.settings.receiptSettingsSaved());
-		} catch (error) {
-			console.error('Failed to save receipt settings:', error);
-			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
-		} finally {
-			savingReceiptSettings = false;
+			// Auto-save immediately when folder is selected (deliberate action)
+			await saveReceiptSettingsNow();
 		}
 	}
 
@@ -205,6 +256,10 @@
 				companyName = loadedSettings.companyName;
 				companyIco = loadedSettings.companyIco;
 				bufferTripPurpose = loadedSettings.bufferTripPurpose;
+				// Track initial values for change detection
+				initialCompanyName = loadedSettings.companyName;
+				initialCompanyIco = loadedSettings.companyIco;
+				initialBufferTripPurpose = loadedSettings.bufferTripPurpose;
 			}
 
 			await loadBackups();
@@ -221,6 +276,9 @@
 			if (receiptSettings) {
 				geminiApiKey = receiptSettings.geminiApiKey || '';
 				receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
+				// Track initial values for change detection
+				initialGeminiApiKey = receiptSettings.geminiApiKey || '';
+				initialReceiptsFolderPath = receiptSettings.receiptsFolderPath || '';
 			}
 
 			// Load database location info
@@ -356,18 +414,6 @@
 			toast.error($LL.toast.errorSetActiveVehicle({ error: String(error) }));
 		}
 	}
-
-	async function handleSaveSettings() {
-		try {
-			const savedSettings = await api.saveSettings(companyName, companyIco, bufferTripPurpose);
-			settings = savedSettings;
-			toast.success($LL.toast.settingsSaved());
-		} catch (error) {
-			console.error('Failed to save settings:', error);
-			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
-		}
-	}
-
 
 	// Backup functions
 	async function loadBackups() {
@@ -576,6 +622,8 @@
 							class="monospace-input"
 							bind:value={geminiApiKey}
 							placeholder={$LL.settings.geminiApiKeyPlaceholder()}
+							on:input={debouncedSaveReceiptSettings}
+							on:blur={saveReceiptSettingsNow}
 						/>
 						<button
 							type="button"
@@ -605,14 +653,6 @@
 					</div>
 					<small class="hint">{$LL.settings.receiptsFolderHint()}</small>
 				</div>
-
-				<button
-					class="button"
-					on:click={handleSaveReceiptSettings}
-					disabled={savingReceiptSettings}
-				>
-					{savingReceiptSettings ? $LL.common.loading() : $LL.common.save()}
-				</button>
 			</div>
 		</section>
 
@@ -754,12 +794,21 @@
 						id="company-name"
 						bind:value={companyName}
 						placeholder={$LL.settings.companyNamePlaceholder()}
+						on:input={debouncedSaveCompanySettings}
+						on:blur={saveCompanySettingsNow}
 					/>
 				</div>
 
 				<div class="form-group">
 					<label for="company-ico">{$LL.settings.companyIco()}</label>
-					<input type="text" id="company-ico" bind:value={companyIco} placeholder={$LL.settings.companyIcoPlaceholder()} />
+					<input
+						type="text"
+						id="company-ico"
+						bind:value={companyIco}
+						placeholder={$LL.settings.companyIcoPlaceholder()}
+						on:input={debouncedSaveCompanySettings}
+						on:blur={saveCompanySettingsNow}
+					/>
 				</div>
 
 				<div class="form-group">
@@ -769,13 +818,13 @@
 						id="buffer-purpose"
 						bind:value={bufferTripPurpose}
 						placeholder={$LL.settings.bufferTripPurposePlaceholder()}
+						on:input={debouncedSaveCompanySettings}
+						on:blur={saveCompanySettingsNow}
 					/>
 					<small class="hint">
 						{$LL.settings.bufferTripPurposeHint()}
 					</small>
 				</div>
-
-				<button class="button" on:click={handleSaveSettings}>{$LL.settings.saveSettings()}</button>
 			</div>
 		</section>
 
