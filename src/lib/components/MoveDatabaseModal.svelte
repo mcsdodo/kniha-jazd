@@ -119,7 +119,7 @@
 	}
 
 	.target-path {
-		font-family: monospace;
+		font-family: var(--font-mono);
 		font-size: 0.875rem;
 		color: var(--text-primary);
 		word-break: break-all;

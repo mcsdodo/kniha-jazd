@@ -1012,7 +1012,7 @@
 
 	.db-path-display .path-text {
 		flex: 1;
-		font-family: monospace;
+		font-family: var(--font-mono);
 		font-size: 0.875rem;
 		color: var(--text-primary);
 		word-break: break-all;
@@ -1368,7 +1368,7 @@
 	}
 
 	.monospace-input {
-		font-family: monospace;
+		font-family: var(--font-mono);
 	}
 
 	.icon-btn {
