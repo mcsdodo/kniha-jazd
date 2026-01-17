@@ -25,6 +25,7 @@ pub fn run() {
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_process::init())
     .plugin(tauri_plugin_opener::init())
+    .plugin(tauri_plugin_dialog::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -98,16 +99,29 @@ pub fn run() {
       }
 
       // Acquire lock (only if not in read-only mode)
+      let lock_file_path = db_paths.lock_file.clone();
       if !app_state.is_read_only() {
         let version = env!("CARGO_PKG_VERSION");
-        if let Err(e) = acquire_lock(&db_paths.lock_file, version) {
+        if let Err(e) = acquire_lock(&lock_file_path, version) {
           log::warn!("Failed to acquire lock: {}", e);
+        } else {
+          // Start background heartbeat task to keep lock fresh
+          let heartbeat_lock_path = lock_file_path.clone();
+          std::thread::spawn(move || {
+            loop {
+              std::thread::sleep(std::time::Duration::from_secs(30));
+              if let Err(e) = db_location::refresh_lock(&heartbeat_lock_path) {
+                log::warn!("Failed to refresh lock: {}", e);
+                // Lock file may have been deleted - stop heartbeat
+                break;
+              }
+            }
+          });
         }
       }
 
       // Store paths in app state
-      app_state.set_db_path(db_paths.db_file);
-      app_state.set_is_custom_path(is_custom);
+      app_state.set_db_path(db_paths.db_file, is_custom);
 
       // Manage database and app state
       app.manage(db);
@@ -164,6 +178,8 @@ pub fn run() {
       commands::get_db_location,
       commands::get_app_mode,
       commands::check_target_has_db,
+      commands::move_database,
+      commands::reset_database_location,
       commands::set_gemini_api_key,
       commands::set_receipts_folder_path,
     ])

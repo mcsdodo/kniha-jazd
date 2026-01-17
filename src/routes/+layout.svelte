@@ -233,7 +233,7 @@
 		</div>
 	</header>
 
-	{#if $appModeStore.is_read_only}
+	{#if $appModeStore.isReadOnly}
 		<div class="read-only-banner">
 			<span class="banner-icon">⚠️</span>
 			<span class="banner-text">{$LL.settings.readOnlyBanner()}</span>

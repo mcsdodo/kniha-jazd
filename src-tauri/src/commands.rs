@@ -86,6 +86,7 @@ pub fn get_active_vehicle(db: State<Database>) -> Result<Option<Vehicle>, String
 #[allow(clippy::too_many_arguments)]
 pub fn create_vehicle(
     db: State<Database>,
+    app_state: State<AppState>,
     name: String,
     license_plate: String,
     initial_odometer: f64,
@@ -102,6 +103,7 @@ pub fn create_vehicle(
     vin: Option<String>,
     driver_name: Option<String>,
 ) -> Result<Vehicle, String> {
+    check_read_only!(app_state);
     // Parse vehicle type (default to ICE for backward compatibility)
     let vt = match vehicle_type.as_deref() {
         Some("Bev") | Some("BEV") => VehicleType::Bev,
@@ -154,7 +156,8 @@ pub fn create_vehicle(
 }
 
 #[tauri::command]
-pub fn update_vehicle(db: State<Database>, vehicle: Vehicle) -> Result<(), String> {
+pub fn update_vehicle(db: State<Database>, app_state: State<AppState>, vehicle: Vehicle) -> Result<(), String> {
+    check_read_only!(app_state);
     // Check if vehicle type is being changed when trips exist
     let existing = db
         .get_vehicle(&vehicle.id.to_string())
@@ -180,12 +183,14 @@ pub fn update_vehicle(db: State<Database>, vehicle: Vehicle) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn delete_vehicle(db: State<Database>, id: String) -> Result<(), String> {
+pub fn delete_vehicle(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+    check_read_only!(app_state);
     db.delete_vehicle(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn set_active_vehicle(db: State<Database>, id: String) -> Result<(), String> {
+pub fn set_active_vehicle(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+    check_read_only!(app_state);
     // First, get all vehicles
     let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
 
@@ -234,6 +239,7 @@ pub fn get_years_with_trips(
 #[allow(clippy::too_many_arguments)]
 pub fn create_trip(
     db: State<Database>,
+    app_state: State<AppState>,
     vehicle_id: String,
     date: String,
     origin: String,
@@ -255,6 +261,7 @@ pub fn create_trip(
     other_costs_note: Option<String>,
     insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
+    check_read_only!(app_state);
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
 
@@ -319,6 +326,7 @@ pub fn create_trip(
 #[allow(clippy::too_many_arguments)]
 pub fn update_trip(
     db: State<Database>,
+    app_state: State<AppState>,
     id: String,
     date: String,
     origin: String,
@@ -339,6 +347,7 @@ pub fn update_trip(
     other_costs_eur: Option<f64>,
     other_costs_note: Option<String>,
 ) -> Result<Trip, String> {
+    check_read_only!(app_state);
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
 
@@ -392,16 +401,19 @@ pub fn update_trip(
 }
 
 #[tauri::command]
-pub fn delete_trip(db: State<Database>, id: String) -> Result<(), String> {
+pub fn delete_trip(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+    check_read_only!(app_state);
     db.delete_trip(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn reorder_trip(
     db: State<Database>,
+    app_state: State<AppState>,
     trip_id: String,
     new_sort_order: i32,
 ) -> Result<Vec<Trip>, String> {
+    check_read_only!(app_state);
     // Get the trip to find its vehicle_id
     let trip = db
         .get_trip(&trip_id)
@@ -445,10 +457,12 @@ pub fn get_settings(db: State<Database>) -> Result<Option<Settings>, String> {
 #[tauri::command]
 pub fn save_settings(
     db: State<Database>,
+    app_state: State<AppState>,
     company_name: String,
     company_ico: String,
     buffer_trip_purpose: String,
 ) -> Result<Settings, String> {
+    check_read_only!(app_state);
     let settings = Settings {
         id: Uuid::new_v4(),
         company_name,
@@ -1368,7 +1382,8 @@ fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<S
 // ============================================================================
 
 #[tauri::command]
-pub fn create_backup(app: tauri::AppHandle, db: State<Database>) -> Result<BackupInfo, String> {
+pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: State<AppState>) -> Result<BackupInfo, String> {
+    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let backup_dir = app_dir.join("backups");
 
@@ -1535,7 +1550,8 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 }
 
 #[tauri::command]
-pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+pub fn restore_backup(app: tauri::AppHandle, app_state: State<AppState>, filename: String) -> Result<(), String> {
+    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let backup_path = app_dir.join("backups").join(&filename);
     let db_path = app_dir.join("kniha-jazd.db");
@@ -1551,7 +1567,8 @@ pub fn restore_backup(app: tauri::AppHandle, filename: String) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn delete_backup(app: tauri::AppHandle, filename: String) -> Result<(), String> {
+pub fn delete_backup(app: tauri::AppHandle, app_state: State<AppState>, filename: String) -> Result<(), String> {
+    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let backup_path = app_dir.join("backups").join(&filename);
 
@@ -1922,7 +1939,8 @@ pub struct ScanResult {
 /// Scan folder for new receipts without OCR processing
 /// Returns count of new files found and any folder structure warnings
 #[tauri::command]
-pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<ScanResult, String> {
+pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>, app_state: State<'_, AppState>) -> Result<ScanResult, String> {
+    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
@@ -1946,7 +1964,8 @@ pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<S
 }
 
 #[tauri::command]
-pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>) -> Result<SyncResult, String> {
+pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>, app_state: State<'_, AppState>) -> Result<SyncResult, String> {
+    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
@@ -2034,12 +2053,14 @@ pub async fn process_pending_receipts(
 }
 
 #[tauri::command]
-pub fn update_receipt(db: State<Database>, receipt: Receipt) -> Result<(), String> {
+pub fn update_receipt(db: State<Database>, app_state: State<AppState>, receipt: Receipt) -> Result<(), String> {
+    check_read_only!(app_state);
     db.update_receipt(&receipt).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_receipt(db: State<Database>, id: String) -> Result<(), String> {
+pub fn delete_receipt(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+    check_read_only!(app_state);
     db.delete_receipt(&id).map_err(|e| e.to_string())
 }
 
@@ -2047,8 +2068,10 @@ pub fn delete_receipt(db: State<Database>, id: String) -> Result<(), String> {
 pub async fn reprocess_receipt(
     app: tauri::AppHandle,
     db: State<'_, Database>,
+    app_state: State<'_, AppState>,
     id: String,
 ) -> Result<Receipt, String> {
+    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
@@ -2150,10 +2173,12 @@ pub fn assign_receipt_to_trip_internal(
 #[tauri::command]
 pub fn assign_receipt_to_trip(
     db: State<Database>,
+    app_state: State<AppState>,
     receipt_id: String,
     trip_id: String,
     vehicle_id: String,
 ) -> Result<Receipt, String> {
+    check_read_only!(app_state);
     assign_receipt_to_trip_internal(&db, &receipt_id, &trip_id, &vehicle_id)
 }
 
@@ -2616,15 +2641,213 @@ pub fn check_target_has_db(target_path: String) -> Result<bool, String> {
     Ok(db_file.exists())
 }
 
-// ============================================================================
-// Tests
-// ============================================================================
+/// Result of a database move operation.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveDbResult {
+    pub success: bool,
+    pub new_path: String,
+    pub files_moved: usize,
+}
+
+/// Move the database to a new location (e.g., Google Drive, NAS).
+///
+/// This command:
+/// 1. Copies the database file to the new location
+/// 2. Copies the backups directory to the new location
+/// 3. Updates local.settings.json with the new custom path
+/// 4. Creates a lock file in the new location
+/// 5. Releases the old lock and deletes old files
+#[tauri::command]
+pub fn move_database(
+    app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
+    target_folder: String,
+) -> Result<MoveDbResult, String> {
+    use crate::db_location::{DbPaths, acquire_lock, release_lock};
+
+    check_read_only!(app_state);
+
+    let target_dir = PathBuf::from(&target_folder);
+
+    // Validate and create target directory
+    if !target_dir.exists() {
+        std::fs::create_dir_all(&target_dir)
+            .map_err(|e| format!("Nepodarilo sa vytvoriť priečinok: {}", e))?;
+    }
+
+    // Get current database path from app state
+    let current_path = app_state.get_db_path()
+        .ok_or("Cesta k databáze nie je nastavená")?;
+    let current_dir = current_path.parent()
+        .ok_or("Neplatná cesta k databáze")?
+        .to_path_buf();
+
+    // Don't allow moving to the same location
+    if current_dir == target_dir {
+        return Err("Databáza sa už nachádza v tomto priečinku".to_string());
+    }
+
+    let source_paths = DbPaths::from_dir(&current_dir);
+    let target_paths = DbPaths::from_dir(&target_dir);
+
+    let mut files_moved = 0;
+
+    // Copy database file
+    if source_paths.db_file.exists() {
+        std::fs::copy(&source_paths.db_file, &target_paths.db_file)
+            .map_err(|e| format!("Nepodarilo sa skopírovať databázu: {}", e))?;
+        files_moved += 1;
+    } else {
+        return Err("Zdrojová databáza neexistuje".to_string());
+    }
+
+    // Copy backups directory if it exists
+    if source_paths.backups_dir.exists() {
+        copy_dir_all(&source_paths.backups_dir, &target_paths.backups_dir)
+            .map_err(|e| format!("Nepodarilo sa skopírovať zálohy: {}", e))?;
+        files_moved += count_files(&target_paths.backups_dir);
+    }
+
+    // Update local.settings.json with new custom path
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.custom_db_path = Some(target_folder.clone());
+    settings.save(&app_data_dir)
+        .map_err(|e| format!("Nepodarilo sa uložiť nastavenia: {}", e))?;
+
+    // Create lock file in new location
+    let version = env!("CARGO_PKG_VERSION");
+    acquire_lock(&target_paths.lock_file, version)
+        .map_err(|e| format!("Nepodarilo sa vytvoriť zámok: {}", e))?;
+
+    // Release old lock (ignore errors - file may not exist)
+    let _ = release_lock(&source_paths.lock_file);
+
+    // Delete old files (after successful copy)
+    let _ = std::fs::remove_file(&source_paths.db_file);
+    if source_paths.backups_dir.exists() {
+        let _ = std::fs::remove_dir_all(&source_paths.backups_dir);
+    }
+
+    // Update app state with new path
+    app_state.set_db_path(target_paths.db_file, true);
+
+    Ok(MoveDbResult {
+        success: true,
+        new_path: target_folder,
+        files_moved,
+    })
+}
+
+/// Reset database location to default app data directory.
+#[tauri::command]
+pub fn reset_database_location(
+    app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
+) -> Result<MoveDbResult, String> {
+    use crate::db_location::{DbPaths, acquire_lock, release_lock};
+
+    check_read_only!(app_state);
+
+    // Get app data directory (default location)
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+
+    // Get current database path
+    let current_path = app_state.get_db_path()
+        .ok_or("Cesta k databáze nie je nastavená")?;
+    let current_dir = current_path.parent()
+        .ok_or("Neplatná cesta k databáze")?
+        .to_path_buf();
+
+    // Don't reset if already in default location
+    if current_dir == app_data_dir {
+        return Err("Databáza sa už nachádza v predvolenom umiestnení".to_string());
+    }
+
+    let source_paths = DbPaths::from_dir(&current_dir);
+    let target_paths = DbPaths::from_dir(&app_data_dir);
+
+    let mut files_moved = 0;
+
+    // Copy database file
+    if source_paths.db_file.exists() {
+        std::fs::copy(&source_paths.db_file, &target_paths.db_file)
+            .map_err(|e| format!("Nepodarilo sa skopírovať databázu: {}", e))?;
+        files_moved += 1;
+    }
+
+    // Copy backups directory
+    if source_paths.backups_dir.exists() {
+        copy_dir_all(&source_paths.backups_dir, &target_paths.backups_dir)
+            .map_err(|e| format!("Nepodarilo sa skopírovať zálohy: {}", e))?;
+        files_moved += count_files(&target_paths.backups_dir);
+    }
+
+    // Clear custom_db_path in settings
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.custom_db_path = None;
+    settings.save(&app_data_dir)
+        .map_err(|e| format!("Nepodarilo sa uložiť nastavenia: {}", e))?;
+
+    // Create lock in new location
+    let version = env!("CARGO_PKG_VERSION");
+    acquire_lock(&target_paths.lock_file, version)
+        .map_err(|e| format!("Nepodarilo sa vytvoriť zámok: {}", e))?;
+
+    // Release old lock
+    let _ = release_lock(&source_paths.lock_file);
+
+    // Delete old files
+    let _ = std::fs::remove_file(&source_paths.db_file);
+    if source_paths.backups_dir.exists() {
+        let _ = std::fs::remove_dir_all(&source_paths.backups_dir);
+    }
+
+    // Update app state
+    app_state.set_db_path(target_paths.db_file, false);
+
+    let new_path = app_data_dir.to_string_lossy().to_string();
+    Ok(MoveDbResult {
+        success: true,
+        new_path,
+        files_moved,
+    })
+}
+
+/// Helper: Recursively copy a directory.
+fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+/// Helper: Count files in a directory.
+fn count_files(dir: &PathBuf) -> usize {
+    std::fs::read_dir(dir)
+        .map(|entries| entries.filter_map(|e| e.ok()).filter(|e| e.path().is_file()).count())
+        .unwrap_or(0)
+}
+
 // ============================================================================
 // Receipt Settings Commands
 // ============================================================================
 
 #[tauri::command]
-pub fn set_gemini_api_key(app_handle: tauri::AppHandle, api_key: String) -> Result<(), String> {
+pub fn set_gemini_api_key(
+    app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
+    api_key: String,
+) -> Result<(), String> {
+    check_read_only!(app_state);
     let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
 
@@ -2635,19 +2858,16 @@ pub fn set_gemini_api_key(app_handle: tauri::AppHandle, api_key: String) -> Resu
         Some(api_key)
     };
 
-    // Save to file
-    let settings_path = app_data_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
-
-    Ok(())
+    settings.save(&app_data_dir).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn set_receipts_folder_path(
     app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
     path: String,
 ) -> Result<(), String> {
+    check_read_only!(app_state);
     let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
 
     // Validate path exists and is a directory (unless clearing)
@@ -2670,12 +2890,7 @@ pub fn set_receipts_folder_path(
         Some(path)
     };
 
-    // Save to file
-    let settings_path = app_data_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
-
-    Ok(())
+    settings.save(&app_data_dir).map_err(|e| e.to_string())
 }
 
 // ============================================================================

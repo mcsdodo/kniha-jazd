@@ -20,6 +20,17 @@ pub struct DbPaths {
     pub backups_dir: PathBuf,
 }
 
+impl DbPaths {
+    /// Create DbPaths from a base directory.
+    pub fn from_dir(base_dir: &PathBuf) -> Self {
+        Self {
+            db_file: base_dir.join("kniha-jazd.db"),
+            lock_file: base_dir.join("kniha-jazd.lock"),
+            backups_dir: base_dir.join("backups"),
+        }
+    }
+}
+
 /// Lock file content for concurrent access prevention.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockFile {
