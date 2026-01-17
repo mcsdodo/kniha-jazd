@@ -250,7 +250,12 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       const settingsBeforeNav = await getReceiptSettings();
       console.log('UI TEST - settings before nav:', JSON.stringify(settingsBeforeNav, null, 2));
 
-      // Navigate to settings and verify UI shows the key
+      // Navigate AWAY from settings first to ensure fresh mount
+      // (SvelteKit caches components, so navigating to the same page won't remount)
+      await navigateTo('trips');
+      await browser.pause(300);
+      
+      // Now navigate to settings - this will trigger onMount and load settings from backend
       await navigateTo('settings');
       await browser.pause(500);
 
