@@ -20,6 +20,8 @@
 		"test:backend": "cd src-tauri && cargo test",
 		"test:integration": "wdio run tests/integration/wdio.conf.ts",
 		"test:integration:tier1": "set TIER=1 && npm run test:integration",
+		"test:integration:tier2": "set TIER=2&& set PARALLEL_TIERS=true&& npm run test:integration",
+		"test:integration:tier3": "set TIER=3&& set PARALLEL_TIERS=true&& npm run test:integration",
 		"test:integration:build": "npm run tauri build -- --debug && npm run test:integration",
 		"test:all": "npm run test:backend && npm run test:run && npm run test:integration"
 	},
