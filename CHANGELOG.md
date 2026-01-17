@@ -19,6 +19,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Žltý varovný box s ikonou pre upozornenie na reštart
   - Indikátor priebehu počas presunu
   - Cesta v monospace fonte v štylizovanom boxe
+- **Prepracované zobrazenie verzie** - jednotný dizajn s ostatnými nastaveniami
+  - Stavové ikony: ✓ (aktuálna), ! (chyba), ⟳ (kontrolujem)
+  - Pri dostupnej aktualizácii zobrazenie prechodu verzií (0.17.2 → 0.17.3)
+  - Odkaz "Zobraziť zmeny" otvára CHANGELOG na GitHub
+  - Tlačidlo "Aktualizovať" priamo v riadku keď je dostupná aktualizácia
+  - Tooltip texty pre prístupnosť
 
 ## [0.17.1] - 2026-01-17
 
