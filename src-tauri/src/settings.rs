@@ -31,11 +31,15 @@ impl LocalSettings {
 
     /// Save settings to local.settings.json in app data dir
     pub fn save(&self, app_data_dir: &PathBuf) -> std::io::Result<()> {
+        use std::io::Write;
         // Ensure the directory exists before writing
         fs::create_dir_all(app_data_dir)?;
         let path = app_data_dir.join("local.settings.json");
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(path, json)
+        // Use File::create + write + sync_all to ensure data is flushed to disk
+        let mut file = fs::File::create(&path)?;
+        file.write_all(json.as_bytes())?;
+        file.sync_all()
     }
 }
 
