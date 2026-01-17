@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-01-17
+
 ### Pridané
 - **Skript pre testovacie releasy** (`scripts/test-release.ps1`) - automatizácia lokálneho testovania aktualizácií
   - Dočasne zvýši verziu (napr. 0.17.2 → 0.18.0), zostaví release, skopíruje do `_test-releases/`
