@@ -39,12 +39,15 @@ All business logic and calculations live in Rust backend only (ADR-008):
 │              Tauri IPC Bridge                   │
 ├─────────────────────────────────────────────────┤
 │              Rust Backend                       │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │calculations  │  │ suggestions  │            │
-│  └──────────────┘  └──────────────┘            │
-│  ┌──────────────┐  ┌──────────────┐            │
-│  │     db       │  │   export     │            │
-│  └──────────────┘  └──────────────┘            │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
+│  │calculations  │  │ suggestions  │  │  receipts  │
+│  └──────────────┘  └──────────────┘  └────────────┘
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
+│  │     db       │  │   export     │  │   gemini   │
+│  └──────────────┘  └──────────────┘  └────────────┘
+│  ┌──────────────┐  ┌──────────────┐               │
+│  │ db_location  │  │  app_state   │               │
+│  └──────────────┘  └──────────────┘               │
 ├─────────────────────────────────────────────────┤
 │              SQLite Database                    │
 └─────────────────────────────────────────────────┘
@@ -107,7 +110,7 @@ ALTER TABLE trips RENAME COLUMN old TO new;     -- Older apps won't find it!
 ### Running Tests
 
 ```bash
-# Rust backend tests (108 tests)
+# Rust backend tests (158 tests)
 cd src-tauri && cargo test
 
 # E2E integration tests (requires debug build)
@@ -137,15 +140,18 @@ This keeps source files clean while maintaining private access (tests are still 
 
 ### Test Coverage
 
-**Backend (Rust) - Single Source of Truth (108 tests):**
-- `calculations_tests.rs` - 28 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `commands.rs` - 25 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
+**Backend (Rust) - Single Source of Truth (158 tests):**
+- `commands.rs` - 36 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
+- `calculations_tests.rs` - 33 tests: consumption rate, spotreba, zostatok, margin, Excel verification
 - `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
-- `db.rs` - 17 tests: CRUD lifecycle, year filtering
-- `suggestions_tests.rs` - 8 tests: route matching, compensation suggestions
-- `export.rs` - 7 tests: export totals, HTML escaping
-- `gemini.rs` - 3 tests: JSON deserialization
-- `settings.rs` - 3 tests: local settings loading
+- `db_tests.rs` - 15 tests: CRUD lifecycle, year filtering
+- `calculations_energy_tests.rs` - 15 tests: BEV battery remaining, energy consumption
+- `db_location.rs` - 11 tests: custom paths, lock files, multi-PC support
+- `calculations_phev_tests.rs` - 8 tests: PHEV combined fuel + energy
+- `settings.rs` - 7 tests: local settings loading/saving
+- `app_state.rs` - 6 tests: read-only mode, app state management
+- `export.rs` - 6 tests: export totals, HTML escaping
+- `gemini.rs` - 4 tests: JSON deserialization
 
 **Integration Tests (WebdriverIO + tauri-driver) - 61 tests:**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol
@@ -160,8 +166,9 @@ All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 
 **Adding a New Tauri Command:**
 1. Add function to `commands.rs` with `#[tauri::command]`
-2. Register in `main.rs` `invoke_handler`
-3. Call from Svelte component via `invoke("command_name", { args })`
+2. Register in `lib.rs` `invoke_handler` (not main.rs)
+3. If write command, add `check_read_only!(app_state);` guard at start
+4. Call from Svelte component via `invoke("command_name", { args })`
 
 **Adding a New Calculation:**
 1. Write test in `calculations_tests.rs`
@@ -180,16 +187,22 @@ All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 kniha-jazd/
 ├── src-tauri/           # Rust backend
 │   ├── src/
+│   │   ├── lib.rs                # Tauri app setup, invoke_handler
 │   │   ├── calculations.rs       # Core logic (MOST IMPORTANT)
 │   │   ├── calculations_tests.rs # Tests for calculations
+│   │   ├── calculations_energy.rs     # BEV-specific calculations
+│   │   ├── calculations_phev.rs       # PHEV combined logic
 │   │   ├── suggestions.rs        # Compensation trip logic
-│   │   ├── suggestions_tests.rs  # Tests for suggestions
 │   │   ├── receipts.rs           # Receipt scanning
-│   │   ├── receipts_tests.rs     # Tests for receipts
 │   │   ├── commands.rs           # Tauri command handlers
 │   │   ├── db.rs                 # SQLite operations
+│   │   ├── db_location.rs        # Custom DB path, lock files
+│   │   ├── app_state.rs          # App state (read-only mode)
+│   │   ├── settings.rs           # Local settings loading
+│   │   ├── gemini.rs             # AI receipt OCR
 │   │   ├── models.rs             # Vehicle, Trip structs
-│   │   └── export.rs             # PDF generation
+│   │   ├── schema.rs             # Diesel ORM schema
+│   │   └── export.rs             # HTML/PDF generation
 │   └── migrations/      # DB schema
 ├── src/                 # SvelteKit frontend
 │   ├── lib/
@@ -200,6 +213,9 @@ kniha-jazd/
 ├── tests/
 │   ├── integration/     # WebdriverIO + tauri-driver E2E tests
 │   └── e2e/             # Playwright smoke tests (frontend only)
+├── scripts/             # Development scripts
+│   └── test-release.ps1 # Build test releases for update testing
+├── _test-releases/      # Local update testing server
 ├── .github/workflows/   # CI/CD pipelines
 └── _tasks/              # Planning docs
 ```
@@ -208,16 +224,22 @@ kniha-jazd/
 
 | File | Purpose | When to Modify |
 |------|---------|----------------|
+| `lib.rs` | Tauri app setup, command registration | Adding new Tauri commands |
 | `calculations.rs` | All consumption/margin math | Adding/changing calculations |
 | `calculations_tests.rs` | Tests for calculations | Adding calculation tests |
+| `calculations_energy.rs` | BEV battery, energy calculations | Electric vehicle logic |
+| `calculations_phev.rs` | PHEV combined fuel + energy | Plug-in hybrid logic |
 | `suggestions.rs` | Compensation trip logic | Route matching, suggestions |
-| `suggestions_tests.rs` | Tests for suggestions | Adding suggestion tests |
 | `receipts.rs` | Receipt folder scanning | Receipt processing logic |
-| `receipts_tests.rs` | Tests for receipts | Adding receipt tests |
 | `db.rs` | SQLite CRUD operations | Schema changes, queries |
+| `db_location.rs` | Custom DB path, lock files | Database location features |
+| `app_state.rs` | Read-only mode, app mode | App state management |
+| `settings.rs` | Local settings (theme, paths) | User preferences |
+| `gemini.rs` | AI receipt OCR | Receipt recognition |
 | `commands.rs` | Tauri command handlers | New frontend→backend calls |
 | `export.rs` | HTML/PDF generation | Report format changes |
 | `models.rs` | Data structures | Adding fields to Trip/Vehicle |
+| `schema.rs` | Diesel ORM schema | After DB migrations |
 | `+page.svelte` files | Page UI | Visual/interaction changes |
 | `i18n/sk/index.ts` | Slovak translations | New UI text |
 
@@ -241,6 +263,23 @@ Paths are based on Tauri `identifier` in config files:
   - `%APPDATA%\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
   - Example: `C:\Users\<username>\AppData\Roaming\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
 
+### Custom Database Location (Multi-PC Support)
+
+Users can move the database to a custom path (e.g., Google Drive, NAS) via **Settings → Database Location → Change...**
+
+**How it works:**
+- Lock file (`kniha-jazd.lock`) prevents simultaneous access from multiple PCs
+- Database + backups folder moved together
+- App restarts automatically after move
+- Path stored in `local.settings.json` (survives reinstalls)
+
+**Read-only mode triggers:**
+- Database has migrations from a newer app version (prevents data corruption)
+- Lock file held by another PC (prevents concurrent writes)
+- All 19 write commands check for read-only mode via `check_read_only!` macro
+
+**Related commands:** `get_db_location`, `move_database`, `reset_database_location`, `get_app_mode`
+
 ## Common Commands
 
 ```bash
@@ -251,13 +290,35 @@ npm run tauri dev        # Start app in dev mode
 npm run tauri build      # Production build
 
 # Testing
-npm run test:backend     # Rust unit tests (93 tests)
+npm run test:backend     # Rust unit tests (158 tests)
 npm run test:integration # E2E tests (needs debug build)
 npm run test:all         # All tests
 
 # Linting (NOT in agent instructions - use tools)
 npm run lint && npm run format
 ```
+
+## Testing Auto-Update Locally
+
+To test the auto-update flow without publishing to GitHub Releases:
+
+```powershell
+# 1. Build a test release (temporarily bumps version, then reverts)
+.\scripts\test-release.ps1              # 0.17.2 → 0.18.0 (minor bump)
+.\scripts\test-release.ps1 -BumpType patch  # 0.17.2 → 0.17.3
+
+# 2. Start mock update server
+node _test-releases/serve.js
+
+# 3. Run app with test endpoint (new terminal)
+set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
+```
+
+The app runs at current version but detects the test release as an available update.
+
+**Note:** For auto-update to work, set `TAURI_SIGNING_PRIVATE_KEY` before building. Without it, you can test the installer manually but auto-update will reject unsigned builds.
+
+See `_test-releases/README.md` for detailed test scenarios.
 
 ## CI/CD
 
