@@ -152,10 +152,16 @@
 
 	// Database location handlers
 	async function handleChangeDbLocation() {
+		// Get directory from current DB path (remove filename)
+		const currentDbDir = dbLocation?.dbPath
+			? dbLocation.dbPath.substring(0, dbLocation.dbPath.lastIndexOf('\\'))
+			: undefined;
+
 		const selected = await openDialog({
 			directory: true,
 			multiple: false,
-			title: $LL.settings.dbLocationSelectFolder()
+			title: $LL.settings.dbLocationSelectFolder(),
+			defaultPath: currentDbDir
 		});
 		if (selected && typeof selected === 'string') {
 			// Check if target already has a database
