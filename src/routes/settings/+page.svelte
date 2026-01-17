@@ -15,7 +15,8 @@
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, type DbLocationInfo, type MoveDbResult } from '$lib/api';
-	import { revealItemInDir } from '@tauri-apps/plugin-opener';
+	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
+	import { appDataDir } from '@tauri-apps/api/path';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -98,16 +99,6 @@
 	let pendingMovePath = '';
 
 	// Database location handlers
-	async function handleOpenDbFolder() {
-		if (dbLocation?.dbPath) {
-			try {
-				await revealItemInDir(dbLocation.dbPath);
-			} catch (error) {
-				console.error('Failed to open folder:', error);
-			}
-		}
-	}
-
 	async function handleChangeDbLocation() {
 		const selected = await openDialog({
 			directory: true,
@@ -465,6 +456,15 @@
 		return $LL.settings.revealWindows();
 	}
 
+	async function handleOpenSettingsFolder() {
+		try {
+			const settingsDir = await appDataDir();
+			await openPath(settingsDir);
+		} catch (error) {
+			console.error('Failed to open settings folder:', error);
+		}
+	}
+
 	async function handleRevealBackup(backup: BackupInfo) {
 		try {
 			await api.revealBackup(backup.filename);
@@ -500,6 +500,9 @@
 <div class="settings-page">
 	<div class="header">
 		<h1>{$LL.settings.title()}</h1>
+		<button class="button-small" on:click={handleOpenSettingsFolder}>
+			{getRevealText()}
+		</button>
 	</div>
 
 	<div class="sections">
@@ -565,45 +568,38 @@
 			<div class="section-content">
 				<div class="form-group">
 					<label for="gemini-api-key">{$LL.settings.geminiApiKey()}</label>
-					<div class="input-with-toggle">
-						{#if showApiKey}
-							<input
-								type="text"
-								id="gemini-api-key"
-								bind:value={geminiApiKey}
-								placeholder={$LL.settings.geminiApiKeyPlaceholder()}
-							/>
-						{:else}
-							<input
-								type="password"
-								id="gemini-api-key"
-								bind:value={geminiApiKey}
-								placeholder={$LL.settings.geminiApiKeyPlaceholder()}
-							/>
-						{/if}
+					<div class="input-with-icon">
+						<input
+							type={showApiKey ? 'text' : 'password'}
+							id="gemini-api-key"
+							class="monospace-input"
+							bind:value={geminiApiKey}
+							placeholder={$LL.settings.geminiApiKeyPlaceholder()}
+						/>
 						<button
 							type="button"
-							class="toggle-btn"
+							class="icon-btn"
 							on:click={() => (showApiKey = !showApiKey)}
+							title={showApiKey ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
 						>
-							{showApiKey ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+							{#if showApiKey}
+								<!-- Eye off icon (Lucide) -->
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+							{:else}
+								<!-- Eye icon (Lucide) -->
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+							{/if}
 						</button>
 					</div>
 					<small class="hint">{$LL.settings.geminiApiKeyHint()}</small>
 				</div>
 
 				<div class="form-group">
-					<label for="receipts-folder">{$LL.settings.receiptsFolder()}</label>
-					<div class="input-with-button">
-						<input
-							type="text"
-							id="receipts-folder"
-							bind:value={receiptsFolderPath}
-							placeholder={$LL.settings.receiptsFolderPlaceholder()}
-							readonly
-						/>
-						<button type="button" class="button-small" on:click={handleBrowseFolder}>
-							{$LL.settings.browseFolder()}
+					<label>{$LL.settings.receiptsFolder()}</label>
+					<div class="db-path-display">
+						<span class="path-text">{receiptsFolderPath || $LL.settings.receiptsFolderNotSet()}</span>
+						<button type="button" class="link-btn" on:click={handleBrowseFolder}>
+							{$LL.settings.receiptsFolderChange()}
 						</button>
 					</div>
 					<small class="hint">{$LL.settings.receiptsFolderHint()}</small>
@@ -627,27 +623,19 @@
 					<label>{$LL.settings.dbLocationCurrent()}</label>
 					<div class="db-path-display">
 						<span class="path-text">{dbLocation?.dbPath || '...'}</span>
-						{#if dbLocation?.isCustomPath}
-							<span class="badge custom">{$LL.settings.dbLocationCustom()}</span>
-						{:else}
-							<span class="badge default">{$LL.settings.dbLocationDefault()}</span>
-						{/if}
+						<button type="button" class="link-btn" on:click={handleChangeDbLocation} disabled={movingDb}>
+							{movingDb ? $LL.common.loading() : $LL.settings.dbLocationDefault()}
+						</button>
 					</div>
 				</div>
 
-				<div class="button-row">
-					<button class="button-small" on:click={handleOpenDbFolder}>
-						{$LL.settings.dbLocationOpenFolder()}
-					</button>
-					<button class="button-small" on:click={handleChangeDbLocation} disabled={movingDb}>
-						{movingDb ? $LL.common.loading() : $LL.settings.dbLocationChange()}
-					</button>
-					{#if dbLocation?.isCustomPath}
+				{#if dbLocation?.isCustomPath}
+					<div class="button-row">
 						<button class="button-small button-secondary" on:click={handleResetDbLocation} disabled={movingDb}>
 							{$LL.settings.dbLocationResetToDefault()}
 						</button>
-					{/if}
-				</div>
+					</div>
+				{/if}
 
 				<small class="hint">{$LL.settings.dbLocationHint()}</small>
 			</div>
@@ -913,10 +901,13 @@
 
 	.header {
 		margin-bottom: 2rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
 
 	.header h1 {
-		margin: 0 0 0.5rem 0;
+		margin: 0;
 		color: var(--text-primary);
 	}
 
@@ -1038,6 +1029,27 @@
 		font-size: 0.875rem;
 		color: var(--text-primary);
 		word-break: break-all;
+	}
+
+	.link-btn {
+		background: none;
+		border: none;
+		color: var(--accent-primary);
+		cursor: pointer;
+		font-size: 0.875rem;
+		padding: 0;
+		text-decoration: underline;
+		white-space: nowrap;
+	}
+
+	.link-btn:hover {
+		color: var(--accent-primary-hover, var(--accent-primary));
+		text-decoration: none;
+	}
+
+	.link-btn:disabled {
+		color: var(--text-muted);
+		cursor: not-allowed;
 	}
 
 	.button-row {
@@ -1345,43 +1357,51 @@
 		cursor: pointer;
 	}
 
-	.input-with-toggle,
-	.input-with-button {
+	.input-with-icon {
+		position: relative;
 		display: flex;
-		gap: 0.5rem;
+		align-items: center;
 	}
 
-	.input-with-toggle input,
-	.input-with-button input {
+	.input-with-icon input {
 		flex: 1;
 		padding: 0.75rem;
+		padding-right: 2.5rem;
 		border: 1px solid var(--border-input);
 		border-radius: 4px;
-		font-size: 1rem;
-		font-family: inherit;
+		font-size: 0.875rem;
 		background-color: var(--input-bg);
 		color: var(--text-primary);
 	}
 
-	.input-with-toggle input:focus,
-	.input-with-button input:focus {
+	.input-with-icon input:focus {
 		outline: none;
 		border-color: var(--accent-primary);
 		box-shadow: 0 0 0 3px var(--input-focus-shadow);
 	}
 
-	.toggle-btn {
-		padding: 0.5rem 1rem;
-		background-color: var(--btn-secondary-bg);
-		color: var(--text-primary);
-		border: none;
-		border-radius: 4px;
-		font-size: 0.875rem;
-		cursor: pointer;
-		white-space: nowrap;
+	.monospace-input {
+		font-family: monospace;
 	}
 
-	.toggle-btn:hover {
-		background-color: var(--btn-secondary-hover);
+	.icon-btn {
+		position: absolute;
+		right: 0.5rem;
+		background: none;
+		border: none;
+		padding: 0.25rem;
+		cursor: pointer;
+		color: var(--text-secondary);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.icon-btn:hover {
+		color: var(--text-primary);
+	}
+
+	.icon-btn svg {
+		display: block;
 	}
 </style>
