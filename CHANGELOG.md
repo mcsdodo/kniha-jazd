@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-01-17
+
 ### Pridané
 - **Editovateľné nastavenia dokladov** - konfigurácia priamo v UI namiesto manuálnej editácie JSON
   - Nová sekcia "Skenovanie dokladov" v Nastaveniach
