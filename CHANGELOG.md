@@ -22,9 +22,22 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Zobrazenie aktuálnej cesty s označením "Vlastná"/"Predvolená"
   - Tlačidlo pre otvorenie priečinka v systémovom správcovi súborov
   - Informácia o možnosti zdieľania cez Google Drive/NAS
+- **Presun databázy na vlastnú cestu** - kompletná funkcionalita pre multi-PC použitie
+  - Tlačidlo "Zmeniť umiestnenie..." s výberom priečinka
+  - Potvrdzovacie okno pred presunom s upozornením na reštart
+  - Presun databázy aj priečinka so zálohami
+  - Tlačidlo "Obnoviť predvolené" pre návrat do štandardného umiestnenia
+  - Automatický reštart aplikácie po presune
 - **Banner pre režim len na čítanie** - upozornenie keď databáza obsahuje novšie migrácie
   - Žltý banner pod hlavičkou s ikonou a textom
   - Tlačidlo "Skontrolovať aktualizácie" pre rýchly prístup k aktualizácii
+
+### Opravené
+- **Oprava type mismatch v API typoch** - frontend typy teraz správne používajú camelCase
+  - `AppModeInfo.isReadOnly` namiesto `is_read_only`
+  - `DbLocationInfo.dbPath` namiesto `db_path`
+- **Aktivácia read-only ochrany** - makro `check_read_only!` teraz skutočne použité
+  - Pridané do 19 zápisových príkazov (vehicles, trips, settings, backups, receipts)
 
 ### Interné
 - **Vlastná cesta k databáze (Phase 1)** - backend základ pre multi-PC podporu
@@ -39,15 +52,21 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - `get_db_location` - informácie o umiestnení databázy
   - `get_app_mode` - informácie o režime aplikácie
   - `check_target_has_db` - kontrola či cieľový priečinok obsahuje databázu
+  - `move_database` - presun databázy na novú cestu
+  - `reset_database_location` - návrat do predvoleného umiestnenia
 - **Startup flow s podporou vlastnej cesty (Phase 4)** - integrácia do štartu aplikácie
   - Načítanie `LocalSettings` pre zistenie vlastnej cesty
   - Kontrola lock súboru pri štarte (varovanie ak je zamknutá inde)
   - Kontrola migračnej kompatibility (read-only ak neznáme migrácie)
   - Uvoľnenie zámku pri ukončení aplikácie
+  - Background heartbeat vlákno - `refresh_lock` každých 30 sekúnd
 - **Frontend pre vlastnú cestu (Phase 5)** - UI komponenty a state management
   - Store `appModeStore` pre sledovanie read-only stavu
-  - API funkcie `getDbLocation`, `getAppMode`, `checkTargetHasDb`
+  - API funkcie `getDbLocation`, `getAppMode`, `checkTargetHasDb`, `moveDatabase`, `resetDatabaseLocation`
   - i18n preklady (SK + EN) pre všetky nové texty
+- **Dialog plugin** - pridaný `tauri-plugin-dialog` pre výber priečinkov
+- **Integračné testy** - nové testy pre nastavenia dokladov a umiestnenie databázy
+  - `receipt-settings.spec.ts` - testy UI a IPC príkazov
 - **Dokumentácia (Phase 6)** - aktualizácia CLAUDE.md a tech debt
   - Sekcia "Database Migration Best Practices" s príkladmi
   - Tech debt item pre verziovanie záloh
