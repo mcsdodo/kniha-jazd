@@ -14,6 +14,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Aktualizuje `latest.json` pre mock update server
   - Podpora parametra `-BumpType` (minor/patch)
 
+### Dokumentácia
+- **Aktualizácia CLAUDE.md** - synchronizácia dokumentácie s aktuálnym stavom kódu
+  - Opravený počet testov (108 → 158 testov)
+  - Opravená cesta k registrácii príkazov (`lib.rs` namiesto `main.rs`)
+  - Pridaný vzor `check_read_only!` pre zápisové príkazy
+  - Rozšírený architektonický diagram o nové moduly (receipts, gemini, db_location, app_state)
+  - Aktualizovaná štruktúra projektu s novými súbormi
+  - Rozšírená tabuľka kľúčových súborov o 6 nových položiek
+  - Dokumentácia vlastného umiestnenia databázy a multi-PC podpory
+  - Nová sekcia "Testing Auto-Update Locally" pre testovanie aktualizácií
+
 ## [0.17.2] - 2026-01-17
 
 ### Zmenené
