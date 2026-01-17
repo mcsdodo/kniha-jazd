@@ -82,7 +82,6 @@ Focus on **business logic** - the calculations that matter for legal compliance:
 
 - **Don't duplicate calculations in frontend** - ADR-008 prohibits this
 - **Don't use `git add -A`** - only stage files from current session (except `/release`)
-- **Don't skip changelog** - every feature/fix needs `/changelog` update
 - **Don't write tests for CRUD** - focus on business logic only
 - **Don't forget Slovak UI text** - all user-facing strings go through i18n
 - **Don't hardcode year** - app supports year picker, use year parameter
@@ -360,22 +359,12 @@ Use skills in `.claude/skills/` for workflows:
 |-------|-------------|---------|
 | `/task-plan` | Starting new feature | Create `_tasks/{NN}-feature/` planning folder |
 | `/decision` | Making architectural choices | Add ADR/BIZ entry to `DECISIONS.md` |
-| `/changelog` | After completing any work | Update `CHANGELOG.md` [Unreleased] section |
+| `/changelog` | After user-visible changes | Update `CHANGELOG.md` [Unreleased] section |
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
 | `/release` | Publishing new version | Bump version, update changelog, tag, build |
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
 | `/test-review` | After feature complete | Check test coverage, add missing tests |
-
-**MANDATORY FINAL STEP:** After completing any feature, fix, or change:
-1. Commit all code changes
-2. Run `/changelog` to update the [Unreleased] section
-3. Commit the changelog update
-
-**WARNING:** Do NOT mark a task as complete without updating the changelog. This applies to:
-- Task plans (include changelog as final task)
-- Subagent-driven development (final step before finishing)
-- Any implementation work
 
 **Use `/decision` when:**
 - Choosing between multiple valid approaches (document why this one)
@@ -391,8 +380,6 @@ Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
 Before marking any task complete:
 - [ ] Tests pass? (`npm run test:backend` or `npm run test:all`)
 - [ ] Code committed with descriptive message?
-- [ ] `/changelog` run to update [Unreleased]?
-- [ ] Changelog committed?
 
 For significant decisions during task:
 - [ ] `/decision` run to record ADR/BIZ entry?
