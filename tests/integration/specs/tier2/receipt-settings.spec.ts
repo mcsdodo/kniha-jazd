@@ -51,12 +51,22 @@ async function getReceiptSettings(): Promise<{
  * Set Gemini API key via Tauri IPC
  */
 async function setGeminiApiKey(apiKey: string): Promise<void> {
-  await browser.execute(async (key: string) => {
+  const result = await browser.execute(async (key: string) => {
     if (!window.__TAURI__) {
       throw new Error('Tauri not available');
     }
-    return await window.__TAURI__.core.invoke('set_gemini_api_key', { apiKey: key });
+    try {
+      await window.__TAURI__.core.invoke('set_gemini_api_key', { apiKey: key });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }, apiKey);
+  
+  const typedResult = result as { success: boolean; error?: string };
+  if (!typedResult.success) {
+    throw new Error(`set_gemini_api_key failed: ${typedResult.error}`);
+  }
 }
 
 /**
