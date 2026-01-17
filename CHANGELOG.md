@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Vylepšený modál pre presun databázy** - dizajn zodpovedajúci modálu aktualizácií
+  - Žltý varovný box s ikonou pre upozornenie na reštart
+  - Indikátor priebehu počas presunu
+  - Cesta v monospace fonte v štylizovanom boxe
+
 ## [0.17.1] - 2026-01-17
 
 ### Pridané
