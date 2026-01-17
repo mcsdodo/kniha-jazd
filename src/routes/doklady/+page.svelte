@@ -653,7 +653,7 @@
 		font-size: 0.875rem;
 		overflow-x: auto;
 		margin: 0.75rem 0;
-		font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+		font-family: var(--font-mono);
 	}
 
 	.config-note {
