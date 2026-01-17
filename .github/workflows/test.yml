@@ -87,26 +87,36 @@ jobs:
         shell: pwsh
         run: |
           # Tauri uses WebView2, not Edge browser - must match WebView2 version!
-          # WebView2 version is in registry (system-level install)
           $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
           if ($webview2Key -and $webview2Key.pv) {
             $webview2Version = $webview2Key.pv
           } else {
-            # Fallback: user-level install
             $webview2Key = Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
             $webview2Version = $webview2Key.pv
           }
           Write-Host "WebView2 runtime version: $webview2Version"
 
-          # Show Edge version for debugging (not used by Tauri)
-          $edgeVersion = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
-          Write-Host "Edge browser version: $edgeVersion (not used by Tauri)"
-
-          # Download EdgeDriver matching WebView2 version
+          # Download EdgeDriver with retry logic
           $driverUrl = "https://msedgedriver.azureedge.net/$webview2Version/edgedriver_win64.zip"
           Write-Host "Downloading EdgeDriver from: $driverUrl"
-          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
-          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
+          $maxRetries = 3
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
+              Write-Host "Download successful on attempt $i"
+              break
+            } catch {
+              Write-Host "Attempt $i failed: $_"
+              if ($i -eq $maxRetries) {
+                # Final fallback: try alternative URL format
+                $altUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$webview2Version/edgedriver_win64.zip"
+                Write-Host "Trying alternative URL: $altUrl"
+                Invoke-WebRequest -Uri $altUrl -OutFile edgedriver.zip -TimeoutSec 60
+              }
+              Start-Sleep -Seconds 5
+            }
+          }
+          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
           echo "$PWD\edgedriver" >> $env:GITHUB_PATH
           Write-Host "EdgeDriver $webview2Version installed successfully"
 
