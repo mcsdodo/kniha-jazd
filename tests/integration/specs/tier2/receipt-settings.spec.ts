@@ -128,6 +128,29 @@ async function checkTargetHasDb(targetPath: string): Promise<boolean> {
   return result as boolean;
 }
 
+/**
+ * Debug: Get settings paths info
+ */
+async function debugSettingsPaths(): Promise<{
+  appDataDir: string;
+  settingsPath: string;
+  settingsExists: boolean;
+  settingsContent: string | null;
+  envVar: string | null;
+} | null> {
+  const result = await browser.execute(async () => {
+    if (!window.__TAURI__) {
+      return null;
+    }
+    try {
+      return await window.__TAURI__.core.invoke('debug_settings_paths');
+    } catch {
+      return null;
+    }
+  });
+  return result as { appDataDir: string; settingsPath: string; settingsExists: boolean; settingsContent: string | null; envVar: string | null } | null;
+}
+
 describe('Tier 2: Receipt Settings & Database Location', () => {
   beforeEach(async () => {
     await waitForAppReady();
@@ -182,12 +205,20 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
     });
 
     it('should save receipt settings via IPC', async () => {
+      // Debug: Show paths being used
+      const pathsBeforeSave = await debugSettingsPaths();
+      console.log('DEBUG paths before save:', JSON.stringify(pathsBeforeSave, null, 2));
+      
       // Set settings via IPC
       const testApiKey = 'test-api-key-12345';
       await setGeminiApiKey(testApiKey);
 
       // Small pause to ensure file system sync in CI
       await browser.pause(100);
+
+      // Debug: Show paths after save
+      const pathsAfterSave = await debugSettingsPaths();
+      console.log('DEBUG paths after save:', JSON.stringify(pathsAfterSave, null, 2));
 
       // Verify settings were saved
       const settings = await getReceiptSettings();

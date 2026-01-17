@@ -2841,6 +2841,28 @@ fn count_files(dir: &PathBuf) -> usize {
 // Receipt Settings Commands
 // ============================================================================
 
+/// Debug command to show paths being used for settings
+#[tauri::command]
+pub fn debug_settings_paths(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let app_data_dir = get_app_data_dir(&app)?;
+    let settings_path = app_data_dir.join("local.settings.json");
+    let settings_exists = settings_path.exists();
+    let settings_content = if settings_exists {
+        std::fs::read_to_string(&settings_path).ok()
+    } else {
+        None
+    };
+    let env_var = std::env::var("KNIHA_JAZD_DATA_DIR").ok();
+
+    Ok(serde_json::json!({
+        "appDataDir": app_data_dir.to_string_lossy(),
+        "settingsPath": settings_path.to_string_lossy(),
+        "settingsExists": settings_exists,
+        "settingsContent": settings_content,
+        "envVar": env_var,
+    }))
+}
+
 #[tauri::command]
 pub fn set_gemini_api_key(
     app_handle: tauri::AppHandle,
