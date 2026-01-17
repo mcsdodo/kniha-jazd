@@ -81,28 +81,34 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      # Windows: Install Edge WebDriver via winget
+      # Windows: Install Edge WebDriver matching WebView2 runtime version
       - name: Install Edge WebDriver (Windows)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          # Install Edge WebDriver via winget
-          winget install Microsoft.EdgeDriver --accept-source-agreements --accept-package-agreements
-
-          # Find and add to PATH
-          $driverPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Microsoft.EdgeDriver_Microsoft.Winget.Source_8wekyb3d8bbwe"
-          if (Test-Path $driverPath) {
-            echo "$driverPath" >> $env:GITHUB_PATH
-            Write-Host "Added $driverPath to PATH"
+          # Tauri uses WebView2, not Edge browser - must match WebView2 version!
+          # WebView2 version is in registry (system-level install)
+          $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
+          if ($webview2Key -and $webview2Key.pv) {
+            $webview2Version = $webview2Key.pv
           } else {
-            # Fallback: Download directly
-            $edgeVersion = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
-            $driverUrl = "https://msedgedriver.azureedge.net/$edgeVersion/edgedriver_win64.zip"
-            Write-Host "Downloading from: $driverUrl"
-            Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
-            Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
-            echo "$PWD\edgedriver" >> $env:GITHUB_PATH
+            # Fallback: user-level install
+            $webview2Key = Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
+            $webview2Version = $webview2Key.pv
           }
+          Write-Host "WebView2 runtime version: $webview2Version"
+
+          # Show Edge version for debugging (not used by Tauri)
+          $edgeVersion = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
+          Write-Host "Edge browser version: $edgeVersion (not used by Tauri)"
+
+          # Download EdgeDriver matching WebView2 version
+          $driverUrl = "https://msedgedriver.azureedge.net/$webview2Version/edgedriver_win64.zip"
+          Write-Host "Downloading EdgeDriver from: $driverUrl"
+          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip
+          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver
+          echo "$PWD\edgedriver" >> $env:GITHUB_PATH
+          Write-Host "EdgeDriver $webview2Version installed successfully"
 
       # Linux: Install WebKitGTK dependencies
       - name: Install Linux dependencies
