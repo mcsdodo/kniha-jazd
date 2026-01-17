@@ -8,6 +8,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Zmenené
+- **Automatické ukladanie nastavení** - všetky nastavenia sa ukladajú automaticky pri zmene
+  - Odstránené tlačidlá "Uložiť" zo sekcií Firemné údaje a Skenovanie dokladov
+  - Ukladanie s oneskorením 800ms počas písania (debounce)
+  - Okamžité uloženie pri opustení poľa (blur)
+  - Toast notifikácia po úspešnom uložení
 - **Vylepšený modál pre presun databázy** - dizajn zodpovedajúci modálu aktualizácií
   - Žltý varovný box s ikonou pre upozornenie na reštart
   - Indikátor priebehu počas presunu
