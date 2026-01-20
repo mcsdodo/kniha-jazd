@@ -1,5 +1,22 @@
 # Design: Mocked LLM Receipt Testing
 
+**Date:** 2026-01-20
+**Updated:** 2026-01-21
+**Related:** Task 42 (Receipt Mismatch Reasons) - ✅ Complete
+
+## Two Mismatch Systems
+
+The codebase has **two separate** mismatch detection systems:
+
+| System | Location | Purpose | Format |
+|--------|----------|---------|--------|
+| **Receipt Verification** | `ReceiptVerification.mismatch_reason` | Show why receipt is unverified | `MismatchReason` enum (task 42 ✅) |
+| **Trip Assignment** | `TripForAssignment.mismatch_reason` | Show why receipt can't attach to trip | `Option<String>` ("date", "liters", etc.) |
+
+**Task 42 completed:** `MismatchReason` enum with `DateMismatch`, `LitersMismatch`, `PriceMismatch`, etc. for the verification UI.
+
+**Task 41 focuses on:** Testing the trip assignment flow, which uses the string-based `mismatch_reason` in `TripForAssignment`.
+
 ## Architecture Analysis
 
 ### Current Flow (Production)
@@ -145,17 +162,35 @@ Mock JSON format (aligns with `ExtractedReceipt`):
 | Assign receipt to trip | Skipped | Enable |
 | Delete receipt | Skipped | Enable |
 
-### New Mismatch Detection Tests
+### Mismatch Detection Testing
 
 Per **ADR-008**: All calculations in Rust backend only.
+
+#### What Task 42 Already Implemented (✅ Complete)
+
+**Receipt Verification UI** (`verify_receipts_with_data`):
+- `MismatchReason` enum in `models.rs`
+- `ReceiptVerification.mismatch_reason` field
+- Frontend displays: "Dátum 20.1. - jazda je 19.1." etc.
+- i18n strings for all mismatch types
+- **Unit tests added** to `commands_tests.rs`
+
+#### What Still Needs Testing (Task 41)
+
+**Trip Assignment** (`get_trips_for_receipt_assignment`):
+- `TripForAssignment.mismatch_reason: Option<String>`
+- String values: `"date"`, `"liters"`, `"price"`, `"date_and_liters"`, etc.
+- Frontend assignment modal should display these
 
 **Testing Strategy:**
 | Test Type | Count | Location | Purpose |
 |-----------|-------|----------|---------|
-| **Rust unit tests** | 9 | `commands_tests.rs` | All mismatch logic combinations |
-| **Integration test** | 1 | `receipts.spec.ts` | Verify IPC + UI displays reason |
+| **Rust unit tests** | 9 | `commands_tests.rs` | Trip assignment mismatch logic |
+| **Integration test** | 1 | `receipts.spec.ts` | Verify assignment IPC + UI |
 
-The matching logic in `commands.rs:2256-2265` compares **date**, **liters**, and **price**:
+**Note:** Verification mismatch tests already exist from task 42. Assignment mismatch tests may partially exist - check before adding.
+
+The trip assignment matching logic in `commands.rs:2256-2265`:
 
 ```rust
 let mismatch = match (date_match, liters_match, price_match) {
@@ -166,22 +201,16 @@ let mismatch = match (date_match, liters_match, price_match) {
     (true, false, false) => "liters_and_price",
     (true, false, true) => "liters",
     (true, true, false) => "price",
-    (true, true, true) => unreachable!(), // Would have matched
+    (true, true, true) => unreachable!(),
 };
 ```
 
-| # | Mismatch Reason | Date | Liters | Price | Test Type |
-|---|-----------------|------|--------|-------|-----------|
-| 1 | `"date"` | ❌ | ✅ | ✅ | Rust unit |
-| 2 | `"liters"` | ✅ | ❌ | ✅ | Rust unit |
-| 3 | `"price"` | ✅ | ✅ | ❌ | Rust unit |
-| 4 | `"date_and_liters"` | ❌ | ❌ | ✅ | Rust unit |
-| 5 | `"date_and_price"` | ❌ | ✅ | ❌ | Rust unit |
-| 6 | `"liters_and_price"` | ✅ | ❌ | ❌ | Rust unit |
-| 7 | `"all"` | ❌ | ❌ | ❌ | Rust unit |
-| 8 | `"matches"` | ✅ | ✅ | ✅ | Rust unit |
-| 9 | `"empty"` | N/A | N/A | N/A | Rust unit |
-| 10 | E2E: IPC → UI | any | any | any | Integration |
+| # | Mismatch Reason | Status | Notes |
+|---|-----------------|--------|-------|
+| 1-7 | All string combinations | Check if exists | May overlap with task 42 tests |
+| 8 | `"matches"` | Check if exists | `can_attach: true` |
+| 9 | `"empty"` | Check if exists | Trip has no fuel |
+| 10 | E2E integration | **Needed** | Assignment UI displays reason |
 
 **Tolerance:** ±0.01 for liters and price (floating point comparison)
 
