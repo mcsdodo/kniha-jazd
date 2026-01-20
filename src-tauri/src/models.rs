@@ -295,6 +295,7 @@ pub struct TripStats {
     pub total_km: f64,
     pub total_fuel_liters: f64,
     pub total_fuel_cost_eur: f64,
+    pub buffer_km: f64, // Additional km needed to reach 18% margin (0.0 if under target)
 }
 
 /// Pre-calculated data for the trip grid display.
