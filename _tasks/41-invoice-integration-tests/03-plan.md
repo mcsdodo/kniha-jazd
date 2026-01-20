@@ -1,5 +1,22 @@
 # Implementation Plan: Invoice Integration Tests
 
+**Date:** 2026-01-20
+**Updated:** 2026-01-21
+**Related:** Task 42 (Receipt Mismatch Reasons) - ✅ Complete
+
+## Context: What Task 42 Already Implemented
+
+Task 42 added mismatch reason display for **receipt verification**:
+- ✅ `MismatchReason` enum (`DateMismatch`, `LitersMismatch`, `PriceMismatch`, etc.)
+- ✅ `ReceiptVerification.mismatch_reason` field
+- ✅ Frontend displays mismatch in receipt card
+- ✅ i18n strings (Slovak + English)
+- ✅ Unit tests in `commands_tests.rs`
+
+**This task focuses on:** Integration tests for the full receipt workflow, including the **trip assignment** mismatch UI (different from verification).
+
+---
+
 ## Phase 1: Backend Mock Infrastructure
 
 ### 1.1 Add Mock Gemini Support
@@ -279,19 +296,24 @@ Create additional mock scenarios in `tests/integration/data/mocks/`:
 
 ### Phase 3: Mismatch Detection Tests
 
-**Rust Unit Tests** (9 tests in `commands_tests.rs`):
-- [ ] `"date"` mismatch
-- [ ] `"liters"` mismatch
-- [ ] `"price"` mismatch
-- [ ] `"date_and_liters"` mismatch
-- [ ] `"date_and_price"` mismatch
-- [ ] `"liters_and_price"` mismatch
-- [ ] `"all"` mismatch
-- [ ] `"matches"` (exact match → can_attach: true)
-- [ ] `"empty"` (no fuel → can_attach: true)
+**Verification Mismatch (Task 42 - ✅ Already Done):**
+- [x] `MismatchReason` enum in `models.rs`
+- [x] `ReceiptVerification.mismatch_reason` field
+- [x] Unit tests for verification mismatch reasons
+- [x] Frontend displays mismatch in receipt card
+- [x] i18n strings
+
+**Trip Assignment Mismatch (Task 41 - Check/Add):**
+
+Before adding tests, check `commands_tests.rs` for existing coverage of `TripForAssignment.mismatch_reason`:
+- [ ] Check if assignment mismatch tests exist
+- [ ] Add missing tests for `"date"`, `"liters"`, `"price"` etc. if needed
+- [ ] Add `"matches"` test (exact match → `can_attach: true`)
+- [ ] Add `"empty"` test (no fuel → `can_attach: true`)
 
 **Integration Test** (1 test - E2E verification):
-- [ ] Verify IPC returns `mismatch_reason` and UI displays it
+- [ ] Verify `get_trips_for_receipt_assignment` returns `mismatch_reason`
+- [ ] Verify assignment modal UI displays the reason
 
 ### Phase 4: Other Receipt Integration Tests
 - [ ] Enable "display receipts" test
