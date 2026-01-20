@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Trip, Receipt, TripGridData } from '$lib/types';
-	import { getTripGridData } from '$lib/api';
+	import type { Trip, Receipt, TripForAssignment } from '$lib/types';
+	import { getTripsForReceiptAssignment } from '$lib/api';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { onMount } from 'svelte';
@@ -14,7 +14,7 @@
 
 	let { receipt, onSelect, onClose }: Props = $props();
 
-	let trips = $state<Trip[]>([]);
+	let tripItems = $state<TripForAssignment[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -32,11 +32,16 @@
 
 		loading = true;
 		try {
-			const gridData: TripGridData = await getTripGridData(vehicle.id, $selectedYearStore);
+			// Use the new API that returns trips with attachment eligibility
+			const items = await getTripsForReceiptAssignment(
+				receipt.id,
+				vehicle.id,
+				$selectedYearStore
+			);
 			// Sort by date proximity to receipt date
-			trips = gridData.trips.sort((a, b) => {
-				const aDiff = dateProximity(a.date, receipt.receiptDate);
-				const bDiff = dateProximity(b.date, receipt.receiptDate);
+			tripItems = items.sort((a, b) => {
+				const aDiff = dateProximity(a.trip.date, receipt.receiptDate);
+				const bDiff = dateProximity(b.trip.date, receipt.receiptDate);
 				return aDiff - bDiff;
 			});
 		} catch (e) {
@@ -64,13 +69,9 @@
 		return new Date(dateStr).toLocaleDateString('sk-SK');
 	}
 
-	function hasFuel(trip: Trip): boolean {
-		return trip.fuelLiters != null && trip.fuelLiters > 0;
-	}
-
-	function handleTripClick(trip: Trip) {
-		if (!hasFuel(trip)) {
-			onSelect(trip);
+	function handleTripClick(item: TripForAssignment) {
+		if (item.canAttach) {
+			onSelect(item.trip);
 		}
 	}
 
@@ -113,24 +114,27 @@
 			<p class="placeholder">{$LL.tripSelector.loadingTrips()}</p>
 		{:else if error}
 			<p class="error">{error}</p>
-		{:else if trips.length === 0}
+		{:else if tripItems.length === 0}
 			<p class="placeholder">{$LL.tripSelector.noTrips()}</p>
 		{:else}
 			<div class="trip-list">
-				{#each trips as trip}
-					{@const disabled = hasFuel(trip)}
-					{@const highlighted = isWithin3Days(trip.date, receipt.receiptDate)}
+				{#each tripItems as item}
+					{@const disabled = !item.canAttach}
+					{@const highlighted = isWithin3Days(item.trip.date, receipt.receiptDate)}
 					<button
 						class="trip-item"
 						class:highlight={highlighted}
 						class:disabled
-						onclick={() => handleTripClick(trip)}
+						class:matches={item.attachmentStatus === 'matches'}
+						onclick={() => handleTripClick(item)}
 						{disabled}
 					>
-						<span class="date">{formatDate(trip.date)}</span>
-						<span class="route">{trip.origin} → {trip.destination}</span>
-						{#if disabled}
-							<span class="existing">{$LL.tripSelector.alreadyHas()} {trip.fuelLiters?.toFixed(2)} L</span>
+						<span class="date">{formatDate(item.trip.date)}</span>
+						<span class="route">{item.trip.origin} → {item.trip.destination}</span>
+						{#if item.attachmentStatus === 'matches'}
+							<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>
+						{:else if item.attachmentStatus === 'differs'}
+							<span class="existing">{$LL.tripSelector.alreadyHas()} {item.trip.fuelLiters?.toFixed(2)} L</span>
 						{/if}
 					</button>
 				{/each}
@@ -232,6 +236,15 @@
 		cursor: not-allowed;
 	}
 
+	.trip-item.matches {
+		border-color: var(--accent-success, #22c55e);
+		background: var(--accent-success-light-bg, #f0fdf4);
+	}
+
+	.trip-item.matches:hover:not(:disabled) {
+		background: var(--accent-success-light-hover, #dcfce7);
+	}
+
 	.date {
 		font-weight: 500;
 		min-width: 80px;
@@ -246,6 +259,12 @@
 	.existing {
 		color: var(--text-secondary);
 		font-size: 0.875rem;
+	}
+
+	.match-indicator {
+		color: var(--accent-success, #22c55e);
+		font-size: 0.875rem;
+		font-weight: 500;
 	}
 
 	.placeholder {

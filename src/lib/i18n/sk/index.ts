@@ -353,6 +353,7 @@ const sk = {
 		loadError: 'Nepodarilo sa načítať jazdy',
 		noTrips: 'Žiadne jazdy na pridelenie.',
 		alreadyHas: 'už má:',
+		matchesReceipt: 'zodpovedá dokladu',
 	},
 
 	// Toast messages

@@ -353,6 +353,7 @@ const en = {
 		loadError: 'Failed to load trips',
 		noTrips: 'No trips to assign.',
 		alreadyHas: 'already has:',
+		matchesReceipt: 'matches receipt',
 	},
 
 	// Toast messages
