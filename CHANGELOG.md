@@ -7,6 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Priradenie dokladu k jazde s existujúcimi údajmi o tankovaní** - doklad je možné priradiť ako dokumentáciu
+  - Ak doklad obsahuje zhodné údaje (dátum, litre ±0.01, cena ±0.01), je pridelenie povolené
+  - Zhodné jazdy sú zvýraznené zelenou farbou s ikonou ✓ "zodpovedá dokladu"
+  - Jazdy s rozdielnymi údajmi zostávajú zablokované
+
+### Zmenené
+- **Zobrazenie dôvodu nezhody pri priraďovaní dokladu** - prehľadnejšia informácia prečo nie je možné priradiť
+  - Namiesto "už má: X L" sa zobrazuje konkrétny rozdiel: "iný dátum", "iné litre", "iná cena"
+  - Kombinované dôvody pre viacero rozdielov (napr. "iný dátum a cena")
+
 ## [0.17.3] - 2026-01-17
 
 ### Pridané
