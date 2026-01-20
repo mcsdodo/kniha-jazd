@@ -24,6 +24,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Namiesto "už má: X L" sa zobrazuje konkrétny rozdiel: "iný dátum", "iné litre", "iná cena"
   - Kombinované dôvody pre viacero rozdielov (napr. "iný dátum a cena")
 
+### Opravené
+- **Prepočet kilometrov pri vkladaní jazdy medzi existujúce** - oprava nesprávneho výpočtu ODO
+  - Pri vložení jazdy "medzi" existujúce sa ODO prepočíta správne
+  - Opravené aj pri presúvaní jázd (šípky hore/dole)
+
 ## [0.17.3] - 2026-01-17
 
 ### Pridané
