@@ -2362,6 +2362,7 @@ fn verify_receipts_with_data(
     year: i32,
     receipts_for_year: Vec<Receipt>,
 ) -> Result<VerificationResult, String> {
+    use crate::models::MismatchReason;
 
     // Get all trips for this vehicle/year
     let all_trips = db
@@ -2370,7 +2371,10 @@ fn verify_receipts_with_data(
 
     // Separate trips with fuel and trips with other costs
     let trips_with_fuel: Vec<_> = all_trips.iter().filter(|t| t.fuel_liters.is_some()).collect();
-    let trips_with_other_costs: Vec<_> = all_trips.iter().filter(|t| t.other_costs_eur.is_some()).collect();
+    let trips_with_other_costs: Vec<_> = all_trips
+        .iter()
+        .filter(|t| t.other_costs_eur.is_some())
+        .collect();
 
     let mut verifications = Vec::new();
     let mut matched_count = 0;
@@ -2380,6 +2384,16 @@ fn verify_receipts_with_data(
         let mut matched_trip_id = None;
         let mut matched_trip_date = None;
         let mut matched_trip_route = None;
+        let mut mismatch_reason = MismatchReason::None;
+
+        // Check if receipt has the necessary data for fuel matching
+        let has_fuel_data = receipt.receipt_date.is_some()
+            && receipt.liters.is_some()
+            && receipt.total_price_eur.is_some();
+
+        // Track closest match for determining specific mismatch reason
+        // (date_match, liters_match, price_match, trip_date_str)
+        let mut closest_match: Option<(bool, bool, bool, String)> = None;
 
         // 1. Try to match FUEL receipts (has liters) to fuel trips
         if let (Some(receipt_date), Some(receipt_liters), Some(receipt_price)) =
@@ -2398,15 +2412,70 @@ fn verify_receipts_with_data(
                         matched = true;
                         matched_trip_id = Some(trip.id.to_string());
                         matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
-                        matched_trip_route = Some(format!("{} - {}", trip.origin, trip.destination));
+                        matched_trip_route =
+                            Some(format!("{} - {}", trip.origin, trip.destination));
                         break;
+                    }
+
+                    // Track closest match (most fields matching)
+                    let match_count =
+                        date_match as u8 + liters_match as u8 + price_match as u8;
+                    if match_count >= 2 {
+                        // At least 2 fields match - this is a close match
+                        let trip_date_str = trip.date.format("%-d.%-m.").to_string();
+                        closest_match = Some((date_match, liters_match, price_match, trip_date_str));
                     }
                 }
             }
+
+            // Determine mismatch reason for fuel receipts
+            if !matched {
+                if trips_with_fuel.is_empty() {
+                    mismatch_reason = MismatchReason::NoFuelTripFound;
+                } else if let Some((date_match, liters_match, price_match, ref trip_date)) =
+                    closest_match
+                {
+                    // Prioritize: date > liters > price (most common user error is date)
+                    if !date_match && liters_match && price_match {
+                        mismatch_reason = MismatchReason::DateMismatch {
+                            receipt_date: receipt_date.format("%-d.%-m.").to_string(),
+                            closest_trip_date: trip_date.clone(),
+                        };
+                    } else if date_match && !liters_match && price_match {
+                        let trip_liters = trips_with_fuel
+                            .iter()
+                            .find(|t| t.date == receipt_date)
+                            .and_then(|t| t.fuel_liters)
+                            .unwrap_or(0.0);
+                        mismatch_reason = MismatchReason::LitersMismatch {
+                            receipt_liters,
+                            trip_liters,
+                        };
+                    } else if date_match && liters_match && !price_match {
+                        let trip_price = trips_with_fuel
+                            .iter()
+                            .find(|t| t.date == receipt_date)
+                            .and_then(|t| t.fuel_cost_eur)
+                            .unwrap_or(0.0);
+                        mismatch_reason = MismatchReason::PriceMismatch {
+                            receipt_price,
+                            trip_price,
+                        };
+                    } else {
+                        // Multiple fields don't match - show as no matching trip
+                        mismatch_reason = MismatchReason::NoFuelTripFound;
+                    }
+                } else {
+                    mismatch_reason = MismatchReason::NoFuelTripFound;
+                }
+            }
+        } else if !has_fuel_data && receipt.liters.is_some() {
+            // Has liters but missing date or price
+            mismatch_reason = MismatchReason::MissingReceiptData;
         }
 
         // 2. If not matched as fuel, try to match "other cost" receipts by price
-        if !matched {
+        if !matched && mismatch_reason == MismatchReason::None {
             if let Some(receipt_price) = receipt.total_price_eur {
                 for trip in &trips_with_other_costs {
                     if let Some(trip_other_costs) = trip.other_costs_eur {
@@ -2417,16 +2486,26 @@ fn verify_receipts_with_data(
                             matched = true;
                             matched_trip_id = Some(trip.id.to_string());
                             matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
-                            matched_trip_route = Some(format!("{} - {}", trip.origin, trip.destination));
+                            matched_trip_route =
+                                Some(format!("{} - {}", trip.origin, trip.destination));
                             break;
                         }
                     }
                 }
+
+                // Set mismatch reason for other-cost receipts (non-fuel)
+                if !matched && receipt.liters.is_none() {
+                    mismatch_reason = MismatchReason::NoOtherCostMatch;
+                }
+            } else if receipt.liters.is_none() {
+                // No price and no liters - missing data
+                mismatch_reason = MismatchReason::MissingReceiptData;
             }
         }
 
         if matched {
             matched_count += 1;
+            mismatch_reason = MismatchReason::None;
         }
 
         verifications.push(ReceiptVerification {
@@ -2435,6 +2514,7 @@ fn verify_receipts_with_data(
             matched_trip_id,
             matched_trip_date,
             matched_trip_route,
+            mismatch_reason,
         });
     }
 

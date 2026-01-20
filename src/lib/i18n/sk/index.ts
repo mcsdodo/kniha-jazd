@@ -331,6 +331,13 @@ const sk = {
 		statusVerified: 'Overený',
 		statusNeedsReview: 'Na kontrolu',
 		statusUnverified: 'Neoverený',
+		// Mismatch reasons
+		mismatchMissingData: 'Chýbajú údaje na doklade',
+		mismatchNoFuelTrip: 'Žiadna jazda s tankovaním',
+		mismatchDate: 'Dátum {receiptDate:string} – jazda je {tripDate:string}',
+		mismatchLiters: '{receiptLiters:number} L – jazda má {tripLiters:number} L',
+		mismatchPrice: '{receiptPrice:number} € – jazda má {tripPrice:number} €',
+		mismatchNoOtherCost: 'Žiadna jazda s touto cenou',
 		// Actions
 		open: 'Otvoriť',
 		reprocess: 'Znovu spracovať',

@@ -1047,6 +1047,36 @@ type RootTranslation = {
 		 */
 		statusUnverified: string
 		/**
+		 * C​h​ý​b​a​j​ú​ ​ú​d​a​j​e​ ​n​a​ ​d​o​k​l​a​d​e
+		 */
+		mismatchMissingData: string
+		/**
+		 * Ž​i​a​d​n​a​ ​j​a​z​d​a​ ​s​ ​t​a​n​k​o​v​a​n​í​m
+		 */
+		mismatchNoFuelTrip: string
+		/**
+		 * D​á​t​u​m​ ​{​r​e​c​e​i​p​t​D​a​t​e​}​ ​–​ ​j​a​z​d​a​ ​j​e​ ​{​t​r​i​p​D​a​t​e​}
+		 * @param {string} receiptDate
+		 * @param {string} tripDate
+		 */
+		mismatchDate: RequiredParams<'receiptDate' | 'tripDate'>
+		/**
+		 * {​r​e​c​e​i​p​t​L​i​t​e​r​s​}​ ​L​ ​–​ ​j​a​z​d​a​ ​m​á​ ​{​t​r​i​p​L​i​t​e​r​s​}​ ​L
+		 * @param {number} receiptLiters
+		 * @param {number} tripLiters
+		 */
+		mismatchLiters: RequiredParams<'receiptLiters' | 'tripLiters'>
+		/**
+		 * {​r​e​c​e​i​p​t​P​r​i​c​e​}​ ​€​ ​–​ ​j​a​z​d​a​ ​m​á​ ​{​t​r​i​p​P​r​i​c​e​}​ ​€
+		 * @param {number} receiptPrice
+		 * @param {number} tripPrice
+		 */
+		mismatchPrice: RequiredParams<'receiptPrice' | 'tripPrice'>
+		/**
+		 * Ž​i​a​d​n​a​ ​j​a​z​d​a​ ​s​ ​t​o​u​t​o​ ​c​e​n​o​u
+		 */
+		mismatchNoOtherCost: string
+		/**
 		 * O​t​v​o​r​i​ť
 		 */
 		open: string
@@ -2614,6 +2644,30 @@ export type TranslationFunctions = {
 		 * Neoverený
 		 */
 		statusUnverified: () => LocalizedString
+		/**
+		 * Chýbajú údaje na doklade
+		 */
+		mismatchMissingData: () => LocalizedString
+		/**
+		 * Žiadna jazda s tankovaním
+		 */
+		mismatchNoFuelTrip: () => LocalizedString
+		/**
+		 * Dátum {receiptDate} – jazda je {tripDate}
+		 */
+		mismatchDate: (arg: { receiptDate: string, tripDate: string }) => LocalizedString
+		/**
+		 * {receiptLiters} L – jazda má {tripLiters} L
+		 */
+		mismatchLiters: (arg: { receiptLiters: number, tripLiters: number }) => LocalizedString
+		/**
+		 * {receiptPrice} € – jazda má {tripPrice} €
+		 */
+		mismatchPrice: (arg: { receiptPrice: number, tripPrice: number }) => LocalizedString
+		/**
+		 * Žiadna jazda s touto cenou
+		 */
+		mismatchNoOtherCost: () => LocalizedString
 		/**
 		 * Otvoriť
 		 */

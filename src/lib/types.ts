@@ -172,12 +172,23 @@ export interface ScanResult {
 	warning: string | null;
 }
 
+// Reason why a receipt could not be matched to a trip (verification)
+export type ReceiptMismatchReason =
+	| { type: 'none' }
+	| { type: 'missingReceiptData' }
+	| { type: 'noFuelTripFound' }
+	| { type: 'dateMismatch'; receiptDate: string; closestTripDate: string }
+	| { type: 'litersMismatch'; receiptLiters: number; tripLiters: number }
+	| { type: 'priceMismatch'; receiptPrice: number; tripPrice: number }
+	| { type: 'noOtherCostMatch' };
+
 export interface ReceiptVerification {
 	receiptId: string;
 	matched: boolean;
 	matchedTripId: string | null;
 	matchedTripDate: string | null;
 	matchedTripRoute: string | null;
+	mismatchReason: ReceiptMismatchReason;
 }
 
 export interface VerificationResult {
