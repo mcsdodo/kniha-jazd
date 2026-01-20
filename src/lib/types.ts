@@ -50,11 +50,13 @@ export interface Trip {
 }
 
 export type AttachmentStatus = 'empty' | 'matches' | 'differs';
+export type MismatchReason = 'date' | 'liters' | 'price' | 'liters_and_price' | 'date_and_liters' | 'date_and_price' | 'all';
 
 export interface TripForAssignment {
 	trip: Trip;
 	canAttach: boolean;
 	attachmentStatus: AttachmentStatus;
+	mismatchReason: MismatchReason | null;
 }
 
 export interface Route {
