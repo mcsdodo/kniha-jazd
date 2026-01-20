@@ -145,9 +145,17 @@ Mock JSON format (aligns with `ExtractedReceipt`):
 | Assign receipt to trip | Skipped | Enable |
 | Delete receipt | Skipped | Enable |
 
-### New Mismatch Detection Tests (9 cases)
+### New Mismatch Detection Tests
 
-The matching logic in `commands.rs:2256-2265` compares **date**, **liters**, and **price**.
+Per **ADR-008**: All calculations in Rust backend only.
+
+**Testing Strategy:**
+| Test Type | Count | Location | Purpose |
+|-----------|-------|----------|---------|
+| **Rust unit tests** | 9 | `commands_tests.rs` | All mismatch logic combinations |
+| **Integration test** | 1 | `receipts.spec.ts` | Verify IPC + UI displays reason |
+
+The matching logic in `commands.rs:2256-2265` compares **date**, **liters**, and **price**:
 
 ```rust
 let mismatch = match (date_match, liters_match, price_match) {
@@ -162,17 +170,18 @@ let mismatch = match (date_match, liters_match, price_match) {
 };
 ```
 
-| # | Mismatch Reason | Date | Liters | Price | Test Case |
+| # | Mismatch Reason | Date | Liters | Price | Test Type |
 |---|-----------------|------|--------|-------|-----------|
-| 1 | `"date"` | ❌ | ✅ | ✅ | Trip date differs, L+€ match |
-| 2 | `"liters"` | ✅ | ❌ | ✅ | Trip liters differs, date+€ match |
-| 3 | `"price"` | ✅ | ✅ | ❌ | Trip price differs, date+L match |
-| 4 | `"date_and_liters"` | ❌ | ❌ | ✅ | Date+L differ, € matches |
-| 5 | `"date_and_price"` | ❌ | ✅ | ❌ | Date+€ differ, L matches |
-| 6 | `"liters_and_price"` | ✅ | ❌ | ❌ | L+€ differ, date matches |
-| 7 | `"all"` | ❌ | ❌ | ❌ | Everything differs |
-| 8 | `"matches"` | ✅ | ✅ | ✅ | All match → can attach |
-| 9 | `"empty"` | N/A | N/A | N/A | Trip has no fuel → can attach |
+| 1 | `"date"` | ❌ | ✅ | ✅ | Rust unit |
+| 2 | `"liters"` | ✅ | ❌ | ✅ | Rust unit |
+| 3 | `"price"` | ✅ | ✅ | ❌ | Rust unit |
+| 4 | `"date_and_liters"` | ❌ | ❌ | ✅ | Rust unit |
+| 5 | `"date_and_price"` | ❌ | ✅ | ❌ | Rust unit |
+| 6 | `"liters_and_price"` | ✅ | ❌ | ❌ | Rust unit |
+| 7 | `"all"` | ❌ | ❌ | ❌ | Rust unit |
+| 8 | `"matches"` | ✅ | ✅ | ✅ | Rust unit |
+| 9 | `"empty"` | N/A | N/A | N/A | Rust unit |
+| 10 | E2E: IPC → UI | any | any | any | Integration |
 
 **Tolerance:** ±0.01 for liters and price (floating point comparison)
 
