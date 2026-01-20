@@ -445,6 +445,47 @@ impl Receipt {
     }
 }
 
+/// Reason why a receipt could not be matched to a trip
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum MismatchReason {
+    /// Receipt is verified - no mismatch
+    None,
+    /// Receipt missing date, liters, or price (OCR incomplete)
+    MissingReceiptData,
+    /// No trip with fuel data found for this year
+    NoFuelTripFound,
+    /// Found trip with matching liters+price but different date
+    DateMismatch {
+        #[serde(rename = "receiptDate")]
+        receipt_date: String,
+        #[serde(rename = "closestTripDate")]
+        closest_trip_date: String,
+    },
+    /// Found trip with matching date+price but different liters
+    LitersMismatch {
+        #[serde(rename = "receiptLiters")]
+        receipt_liters: f64,
+        #[serde(rename = "tripLiters")]
+        trip_liters: f64,
+    },
+    /// Found trip with matching date+liters but different price
+    PriceMismatch {
+        #[serde(rename = "receiptPrice")]
+        receipt_price: f64,
+        #[serde(rename = "tripPrice")]
+        trip_price: f64,
+    },
+    /// Other-cost receipt - no trip with matching price
+    NoOtherCostMatch,
+}
+
+impl Default for MismatchReason {
+    fn default() -> Self {
+        MismatchReason::None
+    }
+}
+
 /// Verification status of a single receipt against trips
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -454,6 +495,7 @@ pub struct ReceiptVerification {
     pub matched_trip_id: Option<String>,
     pub matched_trip_date: Option<String>,
     pub matched_trip_route: Option<String>,
+    pub mismatch_reason: MismatchReason,
 }
 
 /// Result of verifying all receipts for a vehicle/year

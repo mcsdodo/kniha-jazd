@@ -331,6 +331,13 @@ const en = {
 		statusVerified: 'Verified',
 		statusNeedsReview: 'Needs review',
 		statusUnverified: 'Unverified',
+		// Mismatch reasons
+		mismatchMissingData: 'Receipt data missing',
+		mismatchNoFuelTrip: 'No trip with fuel data',
+		mismatchDate: 'Date {receiptDate} – trip is {tripDate}',
+		mismatchLiters: '{receiptLiters} L – trip has {tripLiters} L',
+		mismatchPrice: '{receiptPrice} € – trip has {tripPrice} €',
+		mismatchNoOtherCost: 'No trip with this price',
 		// Actions
 		open: 'Open',
 		reprocess: 'Reprocess',

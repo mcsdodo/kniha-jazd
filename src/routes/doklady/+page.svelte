@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification } from '$lib/types';
+	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification, ReceiptMismatchReason } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
@@ -320,6 +320,36 @@
 		return receipt.liters !== null;
 	}
 
+	// Helper to format mismatch reason for display
+	function formatMismatchReason(reason: ReceiptMismatchReason | undefined): string {
+		if (!reason || reason.type === 'none') return '';
+		switch (reason.type) {
+			case 'missingReceiptData':
+				return $LL.receipts.mismatchMissingData();
+			case 'noFuelTripFound':
+				return $LL.receipts.mismatchNoFuelTrip();
+			case 'dateMismatch':
+				return $LL.receipts.mismatchDate({
+					receiptDate: reason.receiptDate,
+					tripDate: reason.closestTripDate
+				});
+			case 'litersMismatch':
+				return $LL.receipts.mismatchLiters({
+					receiptLiters: reason.receiptLiters,
+					tripLiters: reason.tripLiters
+				});
+			case 'priceMismatch':
+				return $LL.receipts.mismatchPrice({
+					receiptPrice: reason.receiptPrice,
+					tripPrice: reason.tripPrice
+				});
+			case 'noOtherCostMatch':
+				return $LL.receipts.mismatchNoOtherCost();
+			default:
+				return '';
+		}
+	}
+
 	// Svelte 5: use $derived instead of $:
 	let filteredReceipts = $derived(
 		receipts.filter((r) => {
@@ -452,6 +482,9 @@
 							<span class="badge danger">{$LL.receipts.statusUnverified()}</span>
 						{/if}
 					</div>
+					{#if !verif?.matched && verif?.mismatchReason && verif.mismatchReason.type !== 'none'}
+						<div class="mismatch-reason">↳ {formatMismatchReason(verif.mismatchReason)}</div>
+					{/if}
 					<div class="receipt-details">
 						<div class="detail-row">
 							<span class="label">{$LL.receipts.date()}</span>
@@ -803,6 +836,13 @@
 	.badge.danger {
 		background: var(--toast-error-bg);
 		color: var(--toast-error-color);
+	}
+
+	.mismatch-reason {
+		font-size: 0.75rem;
+		color: var(--warning-color);
+		margin-top: 0.25rem;
+		padding-left: 0.25rem;
 	}
 
 	.verification-summary {
