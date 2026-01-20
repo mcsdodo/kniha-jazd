@@ -28,6 +28,10 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Prepočet kilometrov pri vkladaní jazdy medzi existujúce** - oprava nesprávneho výpočtu ODO
   - Pri vložení jazdy "medzi" existujúce sa ODO prepočíta správne
   - Opravené aj pri presúvaní jázd (šípky hore/dole)
+- **Kontrola prekročenia limitu podľa jednotlivých období** - oprava logiky varovania
+  - Varovanie sa zobrazí ak KTORÉKOĽVEK obdobie tankovania prekročí 120% TP
+  - Predtým sa kontroloval len celkový priemer (mohol byť OK aj keď jedno obdobie bolo prekročené)
+  - Zobrazená odchýlka teraz ukazuje najhoršie obdobie, nie priemer
 
 ## [0.17.3] - 2026-01-17
 

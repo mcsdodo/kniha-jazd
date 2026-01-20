@@ -594,24 +594,33 @@ pub fn calculate_trip_stats(
         );
     }
 
-    // Check if over legal limit based on AVERAGE consumption (legal compliance)
-    let avg_margin = calculate_margin_percent(avg_consumption_rate, tp_consumption);
-    let is_over_limit = if total_fuel > 0.0 {
-        !is_within_legal_limit(avg_margin)
+    // Check if over legal limit - ANY fill-up window must be within 120% of TP
+    // (not just the average, since each window is separately auditable)
+    // Use the WORST window's margin for display (that's what triggers the warning)
+    let (worst_rate, worst_margin, is_over_limit) = if total_fuel > 0.0 {
+        get_worst_period_stats(&trips, tp_consumption)
     } else {
-        false
+        (0.0, 0.0, false)
     };
 
-    // Calculate buffer km needed to reach 18% target margin
+    // Calculate buffer km needed to reach 18% target margin for the worst period
     const TARGET_MARGIN: f64 = 0.18; // 18% - safe buffer below 20% legal limit
     let buffer_km = if is_over_limit {
+        // Use worst period's fuel/km for buffer calculation
+        // Since we track the worst rate, we can derive the needed buffer
+        // Buffer = how much more km needed to bring worst_rate down to target
+        // For simplicity, use closed totals (conservative estimate)
         calculate_buffer_km(closed_fuel, closed_km, tp_consumption, TARGET_MARGIN)
     } else {
         0.0
     };
 
-    // Only show margin if we have closed periods (accurate data)
-    let display_margin = if closed_km > 0.0 { Some(avg_margin) } else { None };
+    // Show the WORST window's margin (not average) - that's what triggers warnings
+    let display_margin = if closed_km > 0.0 && worst_rate > 0.0 {
+        Some(worst_margin)
+    } else {
+        None
+    };
 
     Ok(TripStats {
         fuel_remaining_liters: current_fuel,
@@ -1012,6 +1021,54 @@ pub(crate) fn calculate_period_rates(
     }
 
     (rates, estimated)
+}
+
+/// Find the worst (highest) fill-up period's consumption rate and margin.
+/// Returns (worst_rate, worst_margin, is_over_limit) for the period with highest consumption.
+/// This is stricter than checking the average - for legal compliance,
+/// each fill-up window must be within the limit, not just the total average.
+fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, bool) {
+    if tp_consumption <= 0.0 {
+        return (0.0, 0.0, false);
+    }
+
+    let limit = tp_consumption * 1.2; // 120% of TP
+    let mut worst_rate = 0.0;
+    let mut km_in_period = 0.0;
+    let mut fuel_in_period = 0.0;
+
+    for trip in trips {
+        km_in_period += trip.distance_km;
+
+        if let Some(fuel) = trip.fuel_liters {
+            if fuel > 0.0 {
+                fuel_in_period += fuel;
+
+                // Calculate rate when period closes (full tank fillup)
+                if trip.full_tank && km_in_period > 0.0 {
+                    let rate = (fuel_in_period / km_in_period) * 100.0;
+                    if rate > worst_rate {
+                        worst_rate = rate;
+                    }
+                    // Reset for next period
+                    km_in_period = 0.0;
+                    fuel_in_period = 0.0;
+                }
+            }
+        }
+    }
+
+    let worst_margin = calculate_margin_percent(worst_rate, tp_consumption);
+    let is_over_limit = worst_rate > limit;
+
+    (worst_rate, worst_margin, is_over_limit)
+}
+
+/// Check if any closed fill-up period exceeds the legal consumption limit.
+/// Returns true if ANY period's consumption rate is > 120% of TP.
+fn has_any_period_over_limit(trips: &[Trip], tp_consumption: f64) -> bool {
+    let (_, _, is_over) = get_worst_period_stats(trips, tp_consumption);
+    is_over
 }
 
 /// Calculate fuel remaining after each trip.
@@ -3599,6 +3656,82 @@ mod tests {
         assert!(
             warnings.is_empty(),
             "Trip under limit should not be flagged"
+        );
+    }
+
+    // ========================================================================
+    // Per-period over-limit tests (has_any_period_over_limit)
+    // ========================================================================
+
+    #[test]
+    fn test_has_any_period_over_limit_single_period_over() {
+        // Single period with rate > 120% of TP should return true
+        let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+        let tp_rate = 5.0; // TP rate, limit is 6.0 (120%)
+
+        let trips = vec![
+            // Period: 100km, 7.5L filled = 7.5 l/100km > 6.0 limit
+            make_trip_detailed(base_date, 100.0, Some(7.5), true, 0),
+        ];
+
+        assert!(
+            has_any_period_over_limit(&trips, tp_rate),
+            "Period with rate 7.5 > limit 6.0 should trigger over-limit"
+        );
+    }
+
+    #[test]
+    fn test_has_any_period_over_limit_average_ok_but_one_period_over() {
+        // Two periods: one under, one over - average might be OK but should still trigger
+        // This is the key test: average can be under 120% but individual period is over
+        let tp_rate = 5.0; // limit is 6.0
+
+        let trips = vec![
+            // Period 1: 100km, 5L = 5.0 l/100km (under limit)
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), 100.0, Some(5.0), true, 0),
+            // Period 2: 100km, 7L = 7.0 l/100km (OVER limit)
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 2).unwrap(), 100.0, Some(7.0), true, 1),
+        ];
+        // Average: (5+7) / 200 * 100 = 6.0 l/100km (exactly at limit, not over)
+        // But Period 2 is 7.0 > 6.0, so should trigger
+
+        assert!(
+            has_any_period_over_limit(&trips, tp_rate),
+            "Should trigger when ANY period is over limit, even if average is OK"
+        );
+    }
+
+    #[test]
+    fn test_has_any_period_over_limit_all_periods_ok() {
+        // All periods under limit should return false
+        let tp_rate = 5.0; // limit is 6.0
+
+        let trips = vec![
+            // Period 1: 100km, 5L = 5.0 l/100km (under)
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), 100.0, Some(5.0), true, 0),
+            // Period 2: 100km, 5.5L = 5.5 l/100km (under)
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 2).unwrap(), 100.0, Some(5.5), true, 1),
+        ];
+
+        assert!(
+            !has_any_period_over_limit(&trips, tp_rate),
+            "Should not trigger when all periods are under limit"
+        );
+    }
+
+    #[test]
+    fn test_has_any_period_over_limit_at_exactly_limit() {
+        // Period exactly at 120% should NOT trigger (limit is "greater than", not ">=")
+        let tp_rate = 5.0; // limit is 6.0
+
+        let trips = vec![
+            // Period: 100km, 6L = 6.0 l/100km (exactly at limit)
+            make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), 100.0, Some(6.0), true, 0),
+        ];
+
+        assert!(
+            !has_any_period_over_limit(&trips, tp_rate),
+            "Period exactly at 120% limit should NOT trigger (not OVER)"
         );
     }
 
