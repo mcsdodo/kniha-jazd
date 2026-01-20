@@ -2,7 +2,7 @@
 	import type { Trip, Route, TripGridData, PreviewResult, VehicleType } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
 	import TripRow from './TripRow.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -162,8 +162,11 @@
 			// Clear preview
 			previewData = null;
 			previewingTripId = null;
+			// First refresh trips from DB, then recalculate ODO on updated list
+			// (Fix: recalculateAllOdo was running on stale trips prop before)
+			await onTripsChanged();
+			await tick(); // Wait for Svelte prop update
 			await recalculateAllOdo();
-			onTripsChanged();
 			await loadRoutes();
 			await loadPurposes();
 		} catch (error) {
@@ -304,8 +307,10 @@
 			// Get the sortOrder of the trip above us
 			const targetSortOrder = sortedTrips[currentIndex - 1].sortOrder;
 			await reorderTrip(tripId, targetSortOrder);
-			await recalculateAllOdo();
+			// First refresh trips to get updated sortOrder, then recalculate ODO
 			await onTripsChanged();
+			await tick();
+			await recalculateAllOdo();
 		} catch (error) {
 			console.error('Failed to move trip:', error);
 			toast.error($LL.toast.errorMoveTrip());
@@ -320,8 +325,10 @@
 			// Get the sortOrder of the trip below us
 			const targetSortOrder = sortedTrips[currentIndex + 1].sortOrder;
 			await reorderTrip(tripId, targetSortOrder);
-			await recalculateAllOdo();
+			// First refresh trips to get updated sortOrder, then recalculate ODO
 			await onTripsChanged();
+			await tick();
+			await recalculateAllOdo();
 		} catch (error) {
 			console.error('Failed to move trip:', error);
 			toast.error($LL.toast.errorMoveTrip());
