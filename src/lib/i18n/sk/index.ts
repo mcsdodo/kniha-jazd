@@ -354,6 +354,14 @@ const sk = {
 		noTrips: 'Žiadne jazdy na pridelenie.',
 		alreadyHas: 'už má:',
 		matchesReceipt: 'zodpovedá dokladu',
+		// Mismatch reasons
+		mismatchDate: 'iný dátum',
+		mismatchLiters: 'iné litre',
+		mismatchPrice: 'iná cena',
+		mismatchLitersAndPrice: 'iné litre a cena',
+		mismatchDateAndLiters: 'iný dátum a litre',
+		mismatchDateAndPrice: 'iný dátum a cena',
+		mismatchAll: 'všetko sa líši',
 	},
 
 	// Toast messages

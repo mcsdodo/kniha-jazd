@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Receipt, TripForAssignment } from '$lib/types';
+	import type { Trip, Receipt, TripForAssignment, MismatchReason } from '$lib/types';
 	import { getTripsForReceiptAssignment } from '$lib/api';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
@@ -80,6 +80,20 @@
 			onClose();
 		}
 	}
+
+	function getMismatchReasonText(reason: MismatchReason | null): string {
+		if (!reason) return '';
+		switch (reason) {
+			case 'date': return $LL.tripSelector.mismatchDate();
+			case 'liters': return $LL.tripSelector.mismatchLiters();
+			case 'price': return $LL.tripSelector.mismatchPrice();
+			case 'liters_and_price': return $LL.tripSelector.mismatchLitersAndPrice();
+			case 'date_and_liters': return $LL.tripSelector.mismatchDateAndLiters();
+			case 'date_and_price': return $LL.tripSelector.mismatchDateAndPrice();
+			case 'all': return $LL.tripSelector.mismatchAll();
+			default: return '';
+		}
+	}
 </script>
 
 <div
@@ -134,7 +148,9 @@
 						{#if item.attachmentStatus === 'matches'}
 							<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>
 						{:else if item.attachmentStatus === 'differs'}
-							<span class="existing">{$LL.tripSelector.alreadyHas()} {item.trip.fuelLiters?.toFixed(2)} L</span>
+							<span class="existing">
+								{item.trip.fuelLiters?.toFixed(2)} L — {getMismatchReasonText(item.mismatchReason)}
+							</span>
 						{/if}
 					</button>
 				{/each}

@@ -2196,15 +2196,29 @@ pub struct TripForAssignment {
     pub can_attach: bool,
     /// Status explaining why: "empty" (no fuel), "matches" (receipt matches trip fuel), "differs" (data conflicts)
     pub attachment_status: String,
+    /// When status is "differs", explains what specifically doesn't match (for UI display)
+    /// Values: null, "date", "liters", "price", "liters_and_price", "date_and_liters", "date_and_price", "all"
+    pub mismatch_reason: Option<String>,
+}
+
+/// Result of checking receipt-trip compatibility
+struct CompatibilityResult {
+    can_attach: bool,
+    status: String,
+    mismatch_reason: Option<String>,
 }
 
 /// Check if receipt data matches trip's existing fuel data.
-/// Returns (can_attach, status_string).
-fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> (bool, String) {
+/// Returns compatibility result with detailed mismatch reason.
+fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> CompatibilityResult {
     // No fuel data on trip → can attach (receipt will populate fuel fields)
     let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
     if !trip_has_fuel {
-        return (true, "empty".to_string());
+        return CompatibilityResult {
+            can_attach: true,
+            status: "empty".to_string(),
+            mismatch_reason: None,
+        };
     }
 
     // Trip has fuel data - check if receipt matches
@@ -2222,16 +2236,39 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> (bool, St
                 .unwrap_or(false);
 
             if date_match && liters_match && price_match {
-                (true, "matches".to_string()) // Exact match - attach as documentation
+                CompatibilityResult {
+                    can_attach: true,
+                    status: "matches".to_string(),
+                    mismatch_reason: None,
+                }
             } else {
-                (false, "differs".to_string()) // Data differs - block attachment
+                // Determine what specifically doesn't match
+                let mismatch = match (date_match, liters_match, price_match) {
+                    (false, false, false) => "all",
+                    (false, false, true) => "date_and_liters",
+                    (false, true, false) => "date_and_price",
+                    (false, true, true) => "date",
+                    (true, false, false) => "liters_and_price",
+                    (true, false, true) => "liters",
+                    (true, true, false) => "price",
+                    (true, true, true) => unreachable!(), // Would have matched above
+                };
+                CompatibilityResult {
+                    can_attach: false,
+                    status: "differs".to_string(),
+                    mismatch_reason: Some(mismatch.to_string()),
+                }
             }
         }
         _ => {
             // Receipt has no fuel data (other cost receipt) - can still attach as other cost
             // But wait - trip already has fuel, so this would be "other cost" on a fuel trip
             // Allow it since trips can have both fuel AND other costs
-            (true, "empty".to_string())
+            CompatibilityResult {
+                can_attach: true,
+                status: "empty".to_string(),
+                mismatch_reason: None,
+            }
         }
     }
 }
@@ -2258,11 +2295,12 @@ pub fn get_trips_for_receipt_assignment_internal(
     let result = trips
         .into_iter()
         .map(|trip| {
-            let (can_attach, status) = check_receipt_trip_compatibility(&receipt, &trip);
+            let compat = check_receipt_trip_compatibility(&receipt, &trip);
             TripForAssignment {
                 trip,
-                can_attach,
-                attachment_status: status,
+                can_attach: compat.can_attach,
+                attachment_status: compat.status,
+                mismatch_reason: compat.mismatch_reason,
             }
         })
         .collect();

@@ -1112,6 +1112,34 @@ type RootTranslation = {
 		 * z​o​d​p​o​v​e​d​á​ ​d​o​k​l​a​d​u
 		 */
 		matchesReceipt: string
+		/**
+		 * i​n​ý​ ​d​á​t​u​m
+		 */
+		mismatchDate: string
+		/**
+		 * i​n​é​ ​l​i​t​r​e
+		 */
+		mismatchLiters: string
+		/**
+		 * i​n​á​ ​c​e​n​a
+		 */
+		mismatchPrice: string
+		/**
+		 * i​n​é​ ​l​i​t​r​e​ ​a​ ​c​e​n​a
+		 */
+		mismatchLitersAndPrice: string
+		/**
+		 * i​n​ý​ ​d​á​t​u​m​ ​a​ ​l​i​t​r​e
+		 */
+		mismatchDateAndLiters: string
+		/**
+		 * i​n​ý​ ​d​á​t​u​m​ ​a​ ​c​e​n​a
+		 */
+		mismatchDateAndPrice: string
+		/**
+		 * v​š​e​t​k​o​ ​s​a​ ​l​í​š​i
+		 */
+		mismatchAll: string
 	}
 	toast: {
 		/**
@@ -2652,6 +2680,34 @@ export type TranslationFunctions = {
 		 * zodpovedá dokladu
 		 */
 		matchesReceipt: () => LocalizedString
+		/**
+		 * iný dátum
+		 */
+		mismatchDate: () => LocalizedString
+		/**
+		 * iné litre
+		 */
+		mismatchLiters: () => LocalizedString
+		/**
+		 * iná cena
+		 */
+		mismatchPrice: () => LocalizedString
+		/**
+		 * iné litre a cena
+		 */
+		mismatchLitersAndPrice: () => LocalizedString
+		/**
+		 * iný dátum a litre
+		 */
+		mismatchDateAndLiters: () => LocalizedString
+		/**
+		 * iný dátum a cena
+		 */
+		mismatchDateAndPrice: () => LocalizedString
+		/**
+		 * všetko sa líši
+		 */
+		mismatchAll: () => LocalizedString
 	}
 	toast: {
 		/**

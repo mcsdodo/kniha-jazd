@@ -354,6 +354,14 @@ const en = {
 		noTrips: 'No trips to assign.',
 		alreadyHas: 'already has:',
 		matchesReceipt: 'matches receipt',
+		// Mismatch reasons
+		mismatchDate: 'different date',
+		mismatchLiters: 'different liters',
+		mismatchPrice: 'different price',
+		mismatchLitersAndPrice: 'different liters & price',
+		mismatchDateAndLiters: 'different date & liters',
+		mismatchDateAndPrice: 'different date & price',
+		mismatchAll: 'all data differs',
 	},
 
 	// Toast messages
