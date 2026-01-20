@@ -12,6 +12,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Ak doklad obsahuje zhodné údaje (dátum, litre ±0.01, cena ±0.01), je pridelenie povolené
   - Zhodné jazdy sú zvýraznené zelenou farbou s ikonou ✓ "zodpovedá dokladu"
   - Jazdy s rozdielnymi údajmi zostávajú zablokované
+- **Zobrazenie dôvodu neoverenia dokladu** - pri neoverených dokladoch sa zobrazuje konkrétny dôvod
+  - "Dátum 20.1. – jazda je 19.1." pri nezhode dátumu
+  - "63.68 L – jazda má 50.0 L" pri nezhode litrov
+  - "91.32 € – jazda má 85.0 €" pri nezhode ceny
+  - "Chýbajú údaje na doklade" ak OCR nerozpoznalo údaje
+  - "Žiadna jazda s tankovaním" ak neexistuje zodpovedajúca jazda
 
 ### Zmenené
 - **Zobrazenie dôvodu nezhody pri priraďovaní dokladu** - prehľadnejšia informácia prečo nie je možné priradiť
