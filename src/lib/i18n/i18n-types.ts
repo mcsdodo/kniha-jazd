@@ -1108,6 +1108,10 @@ type RootTranslation = {
 		 * u​ž​ ​m​á​:
 		 */
 		alreadyHas: string
+		/**
+		 * z​o​d​p​o​v​e​d​á​ ​d​o​k​l​a​d​u
+		 */
+		matchesReceipt: string
 	}
 	toast: {
 		/**
@@ -2644,6 +2648,10 @@ export type TranslationFunctions = {
 		 * už má:
 		 */
 		alreadyHas: () => LocalizedString
+		/**
+		 * zodpovedá dokladu
+		 */
+		matchesReceipt: () => LocalizedString
 	}
 	toast: {
 		/**

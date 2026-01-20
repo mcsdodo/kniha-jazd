@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -285,6 +285,14 @@ export async function assignReceiptToTrip(
 	vehicleId: string
 ): Promise<Receipt> {
 	return await invoke('assign_receipt_to_trip', { receiptId, tripId, vehicleId });
+}
+
+export async function getTripsForReceiptAssignment(
+	receiptId: string,
+	vehicleId: string,
+	year: number
+): Promise<TripForAssignment[]> {
+	return await invoke('get_trips_for_receipt_assignment', { receiptId, vehicleId, year });
 }
 
 export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {

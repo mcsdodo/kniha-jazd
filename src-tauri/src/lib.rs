@@ -168,6 +168,7 @@ pub fn run() {
       commands::delete_receipt,
       commands::reprocess_receipt,
       commands::assign_receipt_to_trip,
+      commands::get_trips_for_receipt_assignment,
       commands::verify_receipts,
       commands::get_optimal_window_size,
       commands::preview_trip_calculation,

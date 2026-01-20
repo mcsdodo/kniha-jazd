@@ -49,6 +49,14 @@ export interface Trip {
 	updatedAt: string;
 }
 
+export type AttachmentStatus = 'empty' | 'matches' | 'differs';
+
+export interface TripForAssignment {
+	trip: Trip;
+	canAttach: boolean;
+	attachmentStatus: AttachmentStatus;
+}
+
 export interface Route {
 	id: string;
 	vehicleId: string;

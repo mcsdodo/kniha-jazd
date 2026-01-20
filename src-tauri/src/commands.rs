@@ -2182,6 +2182,106 @@ pub fn assign_receipt_to_trip(
     assign_receipt_to_trip_internal(&db, &receipt_id, &trip_id, &vehicle_id)
 }
 
+// ============================================================================
+// Trip Selection for Receipt Assignment
+// ============================================================================
+
+/// A trip annotated with whether a receipt can be attached to it.
+/// Used by the frontend to show which trips are eligible for receipt assignment.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TripForAssignment {
+    pub trip: Trip,
+    /// Whether this receipt can be attached to this trip
+    pub can_attach: bool,
+    /// Status explaining why: "empty" (no fuel), "matches" (receipt matches trip fuel), "differs" (data conflicts)
+    pub attachment_status: String,
+}
+
+/// Check if receipt data matches trip's existing fuel data.
+/// Returns (can_attach, status_string).
+fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> (bool, String) {
+    // No fuel data on trip → can attach (receipt will populate fuel fields)
+    let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
+    if !trip_has_fuel {
+        return (true, "empty".to_string());
+    }
+
+    // Trip has fuel data - check if receipt matches
+    match (receipt.liters, receipt.total_price_eur) {
+        (Some(r_liters), Some(r_price)) => {
+            // Receipt has fuel data - compare with trip
+            let date_match = receipt.receipt_date == Some(trip.date);
+            let liters_match = trip
+                .fuel_liters
+                .map(|fl| (fl - r_liters).abs() < 0.01)
+                .unwrap_or(false);
+            let price_match = trip
+                .fuel_cost_eur
+                .map(|fc| (fc - r_price).abs() < 0.01)
+                .unwrap_or(false);
+
+            if date_match && liters_match && price_match {
+                (true, "matches".to_string()) // Exact match - attach as documentation
+            } else {
+                (false, "differs".to_string()) // Data differs - block attachment
+            }
+        }
+        _ => {
+            // Receipt has no fuel data (other cost receipt) - can still attach as other cost
+            // But wait - trip already has fuel, so this would be "other cost" on a fuel trip
+            // Allow it since trips can have both fuel AND other costs
+            (true, "empty".to_string())
+        }
+    }
+}
+
+/// Internal get_trips_for_receipt_assignment logic (testable without State wrapper)
+pub fn get_trips_for_receipt_assignment_internal(
+    db: &Database,
+    receipt_id: &str,
+    vehicle_id: &str,
+    year: i32,
+) -> Result<Vec<TripForAssignment>, String> {
+    // Get the receipt
+    let receipt = db
+        .get_receipt_by_id(receipt_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Receipt not found")?;
+
+    // Get trips for this vehicle and year
+    let trips = db
+        .get_trips_for_vehicle_in_year(vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+
+    // Annotate each trip with attachment eligibility
+    let result = trips
+        .into_iter()
+        .map(|trip| {
+            let (can_attach, status) = check_receipt_trip_compatibility(&receipt, &trip);
+            TripForAssignment {
+                trip,
+                can_attach,
+                attachment_status: status,
+            }
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Get trips for a vehicle/year annotated with whether a specific receipt can be attached.
+/// This allows the frontend to show which trips are eligible for receipt assignment.
+#[tauri::command]
+pub fn get_trips_for_receipt_assignment(
+    db: State<Database>,
+    receipt_id: String,
+    vehicle_id: String,
+    year: i32,
+) -> Result<Vec<TripForAssignment>, String> {
+    get_trips_for_receipt_assignment_internal(&db, &receipt_id, &vehicle_id, year)
+}
+
 /// Internal verify_receipts logic (testable without State wrapper)
 pub fn verify_receipts_internal(
     db: &Database,
@@ -4285,5 +4385,195 @@ mod tests {
             result.unwrap_err().contains("náklady"),
             "Error should mention existing costs"
         );
+    }
+
+    // ========================================================================
+    // get_trips_for_receipt_assignment tests
+    // ========================================================================
+
+    #[test]
+    fn test_get_trips_for_receipt_assignment_empty_trip_returns_can_attach_true() {
+        // Trip has NO fuel data → can attach receipt (will populate from receipt)
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            66.0,
+            5.1,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+        let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+        db.create_trip(&trip).unwrap();
+
+        // Receipt with fuel data
+        let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
+        db.create_receipt(&receipt).unwrap();
+
+        let result = get_trips_for_receipt_assignment_internal(
+            &db,
+            &receipt.id.to_string(),
+            &vehicle.id.to_string(),
+            2024,
+        );
+
+        assert!(result.is_ok(), "Should return trips");
+        let trips = result.unwrap();
+        assert_eq!(trips.len(), 1, "Should have 1 trip");
+        assert!(trips[0].can_attach, "Empty trip should allow attachment");
+        assert_eq!(trips[0].attachment_status, "empty", "Status should be 'empty'");
+    }
+
+    #[test]
+    fn test_get_trips_for_receipt_assignment_matching_fuel_returns_can_attach_true() {
+        // Trip HAS fuel data AND receipt matches → can attach as documentation
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            66.0,
+            5.1,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+        // Trip with fuel: 45L, 72 EUR
+        let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+        db.create_trip(&trip).unwrap();
+
+        // Receipt with MATCHING fuel data (same date, liters, price)
+        let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
+        db.create_receipt(&receipt).unwrap();
+
+        let result = get_trips_for_receipt_assignment_internal(
+            &db,
+            &receipt.id.to_string(),
+            &vehicle.id.to_string(),
+            2024,
+        );
+
+        assert!(result.is_ok(), "Should return trips");
+        let trips = result.unwrap();
+        assert_eq!(trips.len(), 1, "Should have 1 trip");
+        assert!(trips[0].can_attach, "Matching fuel should allow attachment");
+        assert_eq!(trips[0].attachment_status, "matches", "Status should be 'matches'");
+    }
+
+    #[test]
+    fn test_get_trips_for_receipt_assignment_different_liters_returns_can_attach_false() {
+        // Trip HAS fuel data but receipt has DIFFERENT liters → cannot attach
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            66.0,
+            5.1,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+        // Trip with 45L
+        let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+        db.create_trip(&trip).unwrap();
+
+        // Receipt with DIFFERENT liters (50L instead of 45L)
+        let receipt = make_receipt_with_details(Some(date), Some(50.0), Some(72.0), None, None);
+        db.create_receipt(&receipt).unwrap();
+
+        let result = get_trips_for_receipt_assignment_internal(
+            &db,
+            &receipt.id.to_string(),
+            &vehicle.id.to_string(),
+            2024,
+        );
+
+        assert!(result.is_ok(), "Should return trips");
+        let trips = result.unwrap();
+        assert_eq!(trips.len(), 1, "Should have 1 trip");
+        assert!(!trips[0].can_attach, "Different liters should NOT allow attachment");
+        assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
+    }
+
+    #[test]
+    fn test_get_trips_for_receipt_assignment_different_price_returns_can_attach_false() {
+        // Trip HAS fuel data but receipt has DIFFERENT price → cannot attach
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            66.0,
+            5.1,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+        // Trip with 72 EUR
+        let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+        db.create_trip(&trip).unwrap();
+
+        // Receipt with DIFFERENT price (80 EUR instead of 72 EUR)
+        let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(80.0), None, None);
+        db.create_receipt(&receipt).unwrap();
+
+        let result = get_trips_for_receipt_assignment_internal(
+            &db,
+            &receipt.id.to_string(),
+            &vehicle.id.to_string(),
+            2024,
+        );
+
+        assert!(result.is_ok(), "Should return trips");
+        let trips = result.unwrap();
+        assert_eq!(trips.len(), 1, "Should have 1 trip");
+        assert!(!trips[0].can_attach, "Different price should NOT allow attachment");
+        assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
+    }
+
+    #[test]
+    fn test_get_trips_for_receipt_assignment_different_date_returns_can_attach_false() {
+        // Trip HAS fuel data but receipt has DIFFERENT date → cannot attach
+        let db = Database::in_memory().unwrap();
+
+        let vehicle = crate::models::Vehicle::new(
+            "Test Car".to_string(),
+            "BA123XY".to_string(),
+            66.0,
+            5.1,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let trip_date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+        let receipt_date = NaiveDate::from_ymd_opt(2024, 6, 16).unwrap(); // Different date
+
+        // Trip with fuel on June 15
+        let trip = make_trip_for_assignment(vehicle.id, trip_date, Some(45.0), Some(72.0), None);
+        db.create_trip(&trip).unwrap();
+
+        // Receipt with same liters/price but DIFFERENT date (June 16)
+        let receipt = make_receipt_with_details(Some(receipt_date), Some(45.0), Some(72.0), None, None);
+        db.create_receipt(&receipt).unwrap();
+
+        let result = get_trips_for_receipt_assignment_internal(
+            &db,
+            &receipt.id.to_string(),
+            &vehicle.id.to_string(),
+            2024,
+        );
+
+        assert!(result.is_ok(), "Should return trips");
+        let trips = result.unwrap();
+        assert_eq!(trips.len(), 1, "Should have 1 trip");
+        assert!(!trips[0].can_attach, "Different date should NOT allow attachment");
+        assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
     }
 }
