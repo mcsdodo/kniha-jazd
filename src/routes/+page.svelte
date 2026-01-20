@@ -43,8 +43,7 @@
 
 			// Calculate buffer km if over limit
 			if (stats.isOverLimit && stats.marginPercent !== null) {
-				// TODO: Proper buffer calculation based on consumption rate
-				bufferKm = 100; // Placeholder
+				bufferKm = stats.bufferKm;
 			}
 		} catch (error) {
 			console.error('Failed to load trips:', error);

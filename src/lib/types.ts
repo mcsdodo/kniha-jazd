@@ -86,6 +86,7 @@ export interface TripStats {
 	totalKm: number;
 	totalFuelLiters: number;
 	totalFuelCostEur: number;
+	bufferKm: number; // Additional km needed to reach 18% margin (0.0 if under target)
 }
 
 export interface BackupInfo {

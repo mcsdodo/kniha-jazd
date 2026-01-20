@@ -1,8 +1,8 @@
 //! Tauri commands to expose Rust functionality to the frontend
 
 use crate::calculations::{
-    calculate_consumption_rate, calculate_margin_percent, calculate_fuel_used, calculate_fuel_level,
-    calculate_closed_period_totals, is_within_legal_limit,
+    calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
+    calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
 };
 use crate::calculations_energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
@@ -516,6 +516,7 @@ pub fn calculate_trip_stats(
             total_km: 0.0,
             total_fuel_liters: 0.0,
             total_fuel_cost_eur: 0.0,
+            buffer_km: 0.0,
         });
     }
 
@@ -601,6 +602,14 @@ pub fn calculate_trip_stats(
         false
     };
 
+    // Calculate buffer km needed to reach 18% target margin
+    const TARGET_MARGIN: f64 = 0.18; // 18% - safe buffer below 20% legal limit
+    let buffer_km = if is_over_limit {
+        calculate_buffer_km(closed_fuel, closed_km, tp_consumption, TARGET_MARGIN)
+    } else {
+        0.0
+    };
+
     // Only show margin if we have closed periods (accurate data)
     let display_margin = if closed_km > 0.0 { Some(avg_margin) } else { None };
 
@@ -613,6 +622,7 @@ pub fn calculate_trip_stats(
         total_km,
         total_fuel_liters: total_fuel,
         total_fuel_cost_eur: total_fuel_cost,
+        buffer_km,
     })
 }
 

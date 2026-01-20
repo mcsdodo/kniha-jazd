@@ -142,6 +142,7 @@ export interface TripStats {
   totalKm: number;
   totalFuelLiters: number;
   totalFuelCostEur: number;
+  bufferKm: number;
 }
 
 /**
