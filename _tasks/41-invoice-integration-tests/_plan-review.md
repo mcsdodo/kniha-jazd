@@ -153,3 +153,25 @@ The plan is well-structured and correctly identifies the core problems (LLM mock
 **Round 4:** Final check - no additional findings
 
 Review complete.
+
+---
+
+## Resolution (2026-01-21)
+
+**Addressed:** Critical (C1-C3) + Important (I1-I4)
+**Skipped:** Minor (M1-M3)
+
+| Finding | Status | Resolution |
+|---------|--------|------------|
+| [C1] Mock mechanism mismatch | [x] Fixed | Added note about dead code in wdio.conf.ts, documented DIR-based approach |
+| [C2] Invoice.json format | [x] Fixed | Added field mapping table, showed correct vs current format |
+| [C3] Missing seed mechanism | [x] Fixed | Added Phase 1.4 documenting Option A (scan workflow) vs Option B (test command) |
+| [I1] Wrong command name | [x] Fixed | Changed `process_receipt` to `reprocess_receipt` and `sync_receipts` |
+| [I2] Existing tests | [x] Fixed | Added list of 5 existing tests, "check first" note |
+| [I3] File reorganization | [x] Fixed | Added explicit mkdir/mv commands with before/after structure |
+| [I4] Receipts folder path | [x] Fixed | Clarified env var not implemented, added settings-based Option A |
+| [M1] Tolerance value | Skipped | Minor - existing code has tolerance |
+| [M2] wdio dead code | Skipped | Will be fixed when implementing C1 |
+| [M3] Phase numbering | Skipped | Minor clarity issue |
+
+**Plan status:** Ready for implementation

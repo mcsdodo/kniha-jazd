@@ -22,21 +22,44 @@ Task 42 added mismatch reason display for **receipt verification**:
 ### 1.1 Add Mock Gemini Support
 **File:** `src-tauri/src/gemini.rs`
 
+> **Note:** `wdio.conf.ts` line 166 currently sets `KNIHA_JAZD_MOCK_GEMINI = 'true'` but this is dead code (nothing checks it). We'll implement the DIR-based approach and update wdio.conf.ts accordingly.
+
 - Add `KNIHA_JAZD_MOCK_GEMINI_DIR` environment variable check
 - When set, load mock JSON instead of calling Gemini API
 - Match mock file by receipt filename stem (e.g., `invoice.pdf` → `invoice.json`)
 
 ```rust
-// Pseudocode
+// In gemini.rs extract_from_image() or receipts.rs process_receipt_with_gemini()
 if let Ok(mock_dir) = std::env::var("KNIHA_JAZD_MOCK_GEMINI_DIR") {
     return load_mock_extraction(&mock_dir, file_path);
 }
+
+fn load_mock_extraction(mock_dir: &str, file_path: &Path) -> Result<ExtractedReceipt> {
+    let stem = file_path.file_stem().unwrap();
+    let mock_file = Path::new(mock_dir).join(format!("{}.json", stem.to_string_lossy()));
+
+    if mock_file.exists() {
+        let json = std::fs::read_to_string(&mock_file)?;
+        return serde_json::from_str(&json).map_err(|e| e.to_string());
+    }
+
+    // No mock found - return empty/pending result
+    Ok(ExtractedReceipt::default())
+}
 ```
+
+**Also update:** `wdio.conf.ts` - replace boolean flag with DIR path (see Phase 2.2)
 
 ### 1.2 Create Mock JSON Schema
 **File:** `tests/integration/data/mocks/invoice.json`
 
-Update existing `invoice.json` to match `ExtractedReceipt` struct format:
+> **Current format is WRONG.** The existing `invoice.json` uses:
+> ```json
+> { "price": 91.32, "date": "2026-01-20", "litres": 63.680, "station": "Slovnaft, a.s." }
+> ```
+> This will cause deserialization errors. Must match `ExtractedReceipt` struct (`gemini.rs:8-18`).
+
+**Correct format** (matches `ExtractedReceipt` struct):
 ```json
 {
     "liters": 63.68,
@@ -44,14 +67,25 @@ Update existing `invoice.json` to match `ExtractedReceipt` struct format:
     "receipt_date": "2026-01-20",
     "station_name": "Slovnaft, a.s.",
     "station_address": "Prístavna ulica, Bratislava",
+    "vendor_name": null,
+    "cost_description": null,
     "raw_text": null,
     "confidence": {
         "liters": "High",
-        "totalPrice": "High",
+        "total_price": "High",
         "date": "High"
     }
 }
 ```
+
+**Field mapping from original:**
+| Original | Correct | Notes |
+|----------|---------|-------|
+| `price` | `total_price_eur` | Renamed |
+| `date` | `receipt_date` | Renamed |
+| `litres` | `liters` | Renamed (US spelling) |
+| `station` | `station_name` | Renamed |
+| - | `confidence` | **Must add** (required by struct) |
 
 ### 1.3 Add Backend Unit Tests
 **File:** `src-tauri/src/gemini.rs` or `gemini_tests.rs`
@@ -60,42 +94,138 @@ Update existing `invoice.json` to match `ExtractedReceipt` struct format:
 - Test fallback when no mock exists
 - Test malformed mock JSON handling
 
+### 1.4 Receipt Seeding Strategy (IMPORTANT)
+
+> **No `create_receipt` command exists.** Receipts can ONLY be created via folder scanning (`scan_receipts`). This means:
+
+**Option A: Scan Workflow (Recommended)**
+1. Place test PDF in receipts folder
+2. Call `scan_receipts` → creates Pending receipt
+3. Call `sync_receipts` or `reprocess_receipt` → mock Gemini returns test data
+4. Receipt is now ready for testing
+
+**Option B: Add Test-Only Command**
+Add `seed_receipt` Tauri command that directly inserts parsed receipts (bypasses scan+OCR):
+```rust
+#[tauri::command]
+#[cfg(debug_assertions)]  // Only in debug builds
+pub fn seed_receipt(receipt: Receipt) -> Result<Receipt, String> {
+    // Direct insert for testing
+}
+```
+
+**Decision:** Use **Option A** for this task (no code changes needed). Phase 1 mock infrastructure enables this workflow.
+
+**Dependency:** Phase 3 tests CANNOT run until Phase 1 + Phase 2 are complete.
+
+---
+
 ## Phase 2: Test Infrastructure Setup
 
 ### 2.1 Reorganize Test Data
+
+**Current structure:**
+```
+tests/integration/data/
+├── invoice.pdf     # At root
+└── invoice.json    # At root (wrong format)
+```
+
+**Target structure:**
 ```
 tests/integration/data/
 ├── invoices/                    # Files to be scanned
-│   └── invoice.pdf              # Existing - move here
+│   └── invoice.pdf
 ├── mocks/                       # Mock LLM responses
-│   └── invoice.json             # Existing - move & update format
+│   └── invoice.json             # Updated to correct format
 └── README.md                    # Document usage
 ```
+
+**Commands to execute:**
+```bash
+# Create directories
+mkdir -p tests/integration/data/invoices
+mkdir -p tests/integration/data/mocks
+
+# Move files
+mv tests/integration/data/invoice.pdf tests/integration/data/invoices/
+mv tests/integration/data/invoice.json tests/integration/data/mocks/
+
+# Update invoice.json content (see Phase 1.2 for correct format)
+```
+
+**Important:** Update `invoice.json` content AFTER moving (Phase 1.2 defines the correct schema).
 
 ### 2.2 Update WebDriverIO Config
 **File:** `wdio.conf.ts` or test setup
 
-- Set `KNIHA_JAZD_MOCK_GEMINI_DIR` env var
-- Set receipts folder to `tests/integration/data/invoices`
-- Ensure test isolation (clean receipts table between tests)
+> **Note:** `wdio.conf.ts` line 166 has dead code `KNIHA_JAZD_MOCK_GEMINI = 'true'`. Replace with DIR-based approach.
+
+**Environment variables:**
+```typescript
+// In wdio.conf.ts beforeSession or env block
+process.env.KNIHA_JAZD_MOCK_GEMINI_DIR = path.join(__dirname, 'data/mocks');
+```
+
+**Receipts folder configuration:**
+> **IMPORTANT:** The env var `KNIHA_JAZD_RECEIPTS_FOLDER` is NOT implemented in Rust code.
+> Receipt scanning reads from `LocalSettings.receipts_folder_path`.
+
+**Option A: Set via settings in test setup** (Recommended)
+```typescript
+// In beforeEach or test setup
+await browser.execute(async (folderPath) => {
+    await window.__TAURI__.core.invoke('set_receipts_folder_path', {
+        path: folderPath
+    });
+}, path.join(__dirname, 'data/invoices'));
+```
+
+**Option B: Implement env var check in Rust** (More work)
+Add env var check in `scan_receipts` command to override `LocalSettings`.
+
+**Test isolation:**
+- Clean receipts table between tests via `delete_receipt` or test DB reset
+- Each test should seed its own data
 
 ### 2.3 Add Receipt Seeding via IPC
 **File:** `tests/integration/utils/db.ts`
 
-Add helper to trigger receipt scanning:
+Add helpers to trigger receipt scanning and processing:
 ```typescript
+/**
+ * Scan receipts folder for new files (creates Pending receipts)
+ */
 async function triggerReceiptScan(): Promise<void> {
     await browser.execute(async () => {
         return await window.__TAURI__.core.invoke('scan_receipts');
     });
 }
 
-async function processReceiptWithMock(receiptId: string): Promise<void> {
+/**
+ * Process all pending receipts (uses mock Gemini when KNIHA_JAZD_MOCK_GEMINI_DIR is set)
+ */
+async function syncReceipts(): Promise<void> {
+    await browser.execute(async () => {
+        return await window.__TAURI__.core.invoke('sync_receipts');
+    });
+}
+
+/**
+ * Reprocess a single receipt by ID
+ * NOTE: Command is 'reprocess_receipt', not 'process_receipt'
+ */
+async function reprocessReceipt(receiptId: string): Promise<void> {
     await browser.execute(async (id) => {
-        return await window.__TAURI__.core.invoke('process_receipt', { id });
+        return await window.__TAURI__.core.invoke('reprocess_receipt', { id });
     }, receiptId);
 }
 ```
+
+**Typical test workflow:**
+1. `triggerReceiptScan()` - finds invoice.pdf, creates Pending receipt
+2. `syncReceipts()` - processes all pending (mock returns invoice.json data)
+3. Receipt is now `Parsed` and ready for assignment tests
 
 ## Phase 3: Enable Skipped Tests
 
@@ -154,19 +284,31 @@ Per **ADR-008 (Backend-Only Calculations)**, mismatch detection logic lives in R
 
 #### 3.3.1 Backend Unit Tests (in `commands.rs` or `commands_tests.rs`)
 
-These tests already exist or should be added to the Rust test suite:
+> **CHECK EXISTING TESTS FIRST.** The following tests already exist in `commands.rs` (lines 4656-4803):
+> - `test_get_trips_for_receipt_assignment_empty_trip_returns_can_attach_true` ✅
+> - `test_get_trips_for_receipt_assignment_matching_fuel_returns_can_attach_true` ✅
+> - `test_get_trips_for_receipt_assignment_different_liters_returns_can_attach_false` ✅
+> - `test_get_trips_for_receipt_assignment_different_price_returns_can_attach_false` ✅
+> - `test_get_trips_for_receipt_assignment_different_date_returns_can_attach_false` ✅
 
-| # | Mismatch Reason | Test Scenario |
-|---|-----------------|---------------|
-| 1 | `"date"` | Date differs, liters + price match |
-| 2 | `"liters"` | Liters differs, date + price match |
-| 3 | `"price"` | Price differs, date + liters match |
-| 4 | `"date_and_liters"` | Date + liters differ, price matches |
-| 5 | `"date_and_price"` | Date + price differ, liters matches |
-| 6 | `"liters_and_price"` | Liters + price differ, date matches |
-| 7 | `"all"` | All three fields differ |
-| 8 | `"matches"` | All fields match → `can_attach: true` |
-| 9 | `"empty"` | Trip has no fuel → `can_attach: true` |
+**Before adding tests, verify coverage:**
+```bash
+cd src-tauri && cargo test get_trips_for_receipt_assignment --no-run -- --list
+```
+
+| # | Mismatch Reason | Status | Notes |
+|---|-----------------|--------|-------|
+| 1 | `"date"` | ✅ Exists | `different_date` test |
+| 2 | `"liters"` | ✅ Exists | `different_liters` test |
+| 3 | `"price"` | ✅ Exists | `different_price` test |
+| 4 | `"date_and_liters"` | ⬜ Check | May need to add |
+| 5 | `"date_and_price"` | ⬜ Check | May need to add |
+| 6 | `"liters_and_price"` | ⬜ Check | May need to add |
+| 7 | `"all"` | ⬜ Check | May need to add |
+| 8 | `"matches"` | ✅ Exists | `matching_fuel` test |
+| 9 | `"empty"` | ✅ Exists | `empty_trip` test |
+
+**Only add tests for missing combination cases (4-7) if not already covered.**
 
 ```rust
 // Example Rust unit test structure (commands_tests.rs)
