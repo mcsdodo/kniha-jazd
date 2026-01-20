@@ -127,211 +127,52 @@ it('should assign receipt to trip with matching data', async () => {
 });
 ```
 
-### 3.3 Mismatch Detection Tests (NEW - All 7 Cases)
+### 3.3 Mismatch Detection Tests
 
-The receipt-trip matching logic compares **date**, **liters**, and **price**.
-When any field differs, `mismatch_reason` is set based on the combination.
+Per **ADR-008 (Backend-Only Calculations)**, mismatch detection logic lives in Rust.
 
-**Reference values from `invoice.json`:**
-- Date: `2026-01-20`
-- Liters: `63.68`
-- Price: `91.32 EUR`
+**Testing Strategy:**
+- **Unit tests (Rust):** All 7 mismatch combinations + 2 success cases
+- **Integration test (WebDriverIO):** ONE test to verify IPC returns `mismatch_reason` and UI displays it
 
-#### Test Matrix
+#### 3.3.1 Backend Unit Tests (in `commands.rs` or `commands_tests.rs`)
 
-| Mismatch Reason | Date Match | Liters Match | Price Match | Trip Data (vs receipt) |
-|-----------------|------------|--------------|-------------|------------------------|
-| `"date"` | ❌ | ✅ | ✅ | Different date only |
-| `"liters"` | ✅ | ❌ | ✅ | Different liters only |
-| `"price"` | ✅ | ✅ | ❌ | Different price only |
-| `"date_and_liters"` | ❌ | ❌ | ✅ | Different date + liters |
-| `"date_and_price"` | ❌ | ✅ | ❌ | Different date + price |
-| `"liters_and_price"` | ✅ | ❌ | ❌ | Different liters + price |
-| `"all"` | ❌ | ❌ | ❌ | Everything differs |
+These tests already exist or should be added to the Rust test suite:
 
-Plus two success cases:
-- `"matches"` - all three fields match → can attach
-- `"empty"` - trip has no fuel data → can attach freely
+| # | Mismatch Reason | Test Scenario |
+|---|-----------------|---------------|
+| 1 | `"date"` | Date differs, liters + price match |
+| 2 | `"liters"` | Liters differs, date + price match |
+| 3 | `"price"` | Price differs, date + liters match |
+| 4 | `"date_and_liters"` | Date + liters differ, price matches |
+| 5 | `"date_and_price"` | Date + price differ, liters matches |
+| 6 | `"liters_and_price"` | Liters + price differ, date matches |
+| 7 | `"all"` | All three fields differ |
+| 8 | `"matches"` | All fields match → `can_attach: true` |
+| 9 | `"empty"` | Trip has no fuel → `can_attach: true` |
 
-#### 3.3.1 Single Field Mismatches
+```rust
+// Example Rust unit test structure (commands_tests.rs)
+#[test]
+fn test_mismatch_reason_liters_only() {
+    let receipt = Receipt { liters: 63.68, price: 91.32, date: "2026-01-20" };
+    let trip = Trip { fuel_liters: 40.0, fuel_cost: 91.32, date: "2026-01-20" };
 
-```typescript
-describe('Mismatch Detection - Single Field', () => {
-    // Receipt: date=2026-01-20, liters=63.68, price=91.32
+    let result = check_receipt_trip_compatibility(&receipt, &trip);
 
-    it('should detect "date" mismatch when only date differs', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-15',      // ❌ Different (receipt: 2026-01-20)
-            fuelLiters: 63.68,       // ✅ Matches
-            fuelCostEur: 91.32,      // ✅ Matches
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('differs');
-        expect(tripMatch.mismatch_reason).toBe('date');
-        expect(tripMatch.can_attach).toBe(false);
-    });
-
-    it('should detect "liters" mismatch when only liters differs', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-20',      // ✅ Matches
-            fuelLiters: 40.0,        // ❌ Different (receipt: 63.68)
-            fuelCostEur: 91.32,      // ✅ Matches
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('differs');
-        expect(tripMatch.mismatch_reason).toBe('liters');
-        expect(tripMatch.can_attach).toBe(false);
-    });
-
-    it('should detect "price" mismatch when only price differs', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-20',      // ✅ Matches
-            fuelLiters: 63.68,       // ✅ Matches
-            fuelCostEur: 75.00,      // ❌ Different (receipt: 91.32)
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('differs');
-        expect(tripMatch.mismatch_reason).toBe('price');
-        expect(tripMatch.can_attach).toBe(false);
-    });
-});
+    assert_eq!(result.status, "differs");
+    assert_eq!(result.mismatch_reason, Some("liters".to_string()));
+    assert!(!result.can_attach);
+}
 ```
 
-#### 3.3.2 Two Field Mismatches
+#### 3.3.2 Integration Test (ONE test for E2E verification)
 
 ```typescript
-describe('Mismatch Detection - Two Fields', () => {
-    // Receipt: date=2026-01-20, liters=63.68, price=91.32
-
-    it('should detect "date_and_liters" when date and liters differ', async () => {
+describe('Mismatch Detection E2E', () => {
+    it('should return mismatch_reason via IPC and display in UI', async () => {
+        // Seed trip with liters mismatch (any mismatch type works)
         const trip = await seedTrip({
-            date: '2026-01-15',      // ❌ Different
-            fuelLiters: 40.0,        // ❌ Different
-            fuelCostEur: 91.32,      // ✅ Matches
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.mismatch_reason).toBe('date_and_liters');
-    });
-
-    it('should detect "date_and_price" when date and price differ', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-15',      // ❌ Different
-            fuelLiters: 63.68,       // ✅ Matches
-            fuelCostEur: 75.00,      // ❌ Different
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.mismatch_reason).toBe('date_and_price');
-    });
-
-    it('should detect "liters_and_price" when liters and price differ', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-20',      // ✅ Matches
-            fuelLiters: 40.0,        // ❌ Different
-            fuelCostEur: 75.00,      // ❌ Different
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.mismatch_reason).toBe('liters_and_price');
-    });
-});
-```
-
-#### 3.3.3 All Fields Mismatch
-
-```typescript
-describe('Mismatch Detection - All Fields', () => {
-    it('should detect "all" when date, liters, and price all differ', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-15',      // ❌ Different
-            fuelLiters: 40.0,        // ❌ Different
-            fuelCostEur: 75.00,      // ❌ Different
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('differs');
-        expect(tripMatch.mismatch_reason).toBe('all');
-        expect(tripMatch.can_attach).toBe(false);
-    });
-});
-```
-
-#### 3.3.4 Success Cases
-
-```typescript
-describe('Mismatch Detection - Success Cases', () => {
-    it('should return "matches" when all fields match exactly', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-20',      // ✅ Matches
-            fuelLiters: 63.68,       // ✅ Matches
-            fuelCostEur: 91.32,      // ✅ Matches
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('matches');
-        expect(tripMatch.mismatch_reason).toBeNull();
-        expect(tripMatch.can_attach).toBe(true);
-    });
-
-    it('should return "empty" when trip has no fuel data', async () => {
-        const trip = await seedTrip({
-            date: '2026-01-20',
-            fuelLiters: null,        // No fuel
-            fuelCostEur: null,       // No cost
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('empty');
-        expect(tripMatch.mismatch_reason).toBeNull();
-        expect(tripMatch.can_attach).toBe(true);
-    });
-
-    it('should allow matching with tolerance (±0.01)', async () => {
-        // Backend uses approximate matching for floating point
-        const trip = await seedTrip({
-            date: '2026-01-20',
-            fuelLiters: 63.679,      // Within ±0.01 of 63.68
-            fuelCostEur: 91.319,     // Within ±0.01 of 91.32
-        });
-
-        const result = await getTripsForReceiptAssignment(receiptId);
-        const tripMatch = result.find(t => t.trip.id === trip.id);
-
-        expect(tripMatch.attachment_status).toBe('matches');
-        expect(tripMatch.can_attach).toBe(true);
-    });
-});
-```
-
-#### 3.3.5 UI Mismatch Display Test
-
-```typescript
-describe('Mismatch UI Display', () => {
-    it('should display specific mismatch reason in assignment modal', async () => {
-        // Seed trip with liters mismatch
-        await seedTrip({
             date: '2026-01-20',
             fuelLiters: 40.0,        // Different from receipt's 63.68
             fuelCostEur: 91.32,
@@ -340,24 +181,30 @@ describe('Mismatch UI Display', () => {
         await triggerReceiptScan();
         await processReceiptWithMock(receiptId);
 
-        await navigateTo('doklady');
-        await browser.pause(500);
+        // 1. Verify IPC returns mismatch_reason
+        const result = await getTripsForReceiptAssignment(receiptId, vehicleId, 2026);
+        const tripMatch = result.find(t => t.trip.id === trip.id);
 
-        // Open assignment modal
+        expect(tripMatch.attachment_status).toBe('differs');
+        expect(tripMatch.mismatch_reason).toBe('liters');  // Backend logic
+        expect(tripMatch.can_attach).toBe(false);
+
+        // 2. Verify UI displays mismatch indicator
+        await navigateTo('doklady');
         const assignBtn = await $('[data-testid="assign-receipt-btn"]');
         await assignBtn.click();
         await browser.pause(300);
 
-        // Verify mismatch indicator shown
         const mismatchIndicator = await $('[data-testid="mismatch-reason"]');
         expect(await mismatchIndicator.isDisplayed()).toBe(true);
-
-        // Should show "liters" mismatch
-        const mismatchText = await mismatchIndicator.getText();
-        expect(mismatchText.toLowerCase()).toContain('liter');
     });
 });
 ```
+
+**Why only one integration test?**
+- Mismatch logic is pure Rust function → fast unit tests cover all cases
+- Integration test verifies the "glue": IPC serialization + UI rendering
+- Avoids slow, redundant E2E tests for backend logic
 
 ## Phase 4: CI Integration
 
@@ -430,24 +277,27 @@ Create additional mock scenarios in `tests/integration/data/mocks/`:
 - [ ] Update `wdio.conf.ts` with env vars
 - [ ] Document mock format in README
 
-### Phase 3: Mismatch Detection Tests (9 tests)
-- [ ] Single field: `"date"` mismatch
-- [ ] Single field: `"liters"` mismatch
-- [ ] Single field: `"price"` mismatch
-- [ ] Two fields: `"date_and_liters"` mismatch
-- [ ] Two fields: `"date_and_price"` mismatch
-- [ ] Two fields: `"liters_and_price"` mismatch
-- [ ] All fields: `"all"` mismatch
-- [ ] Success: `"matches"` (exact match)
-- [ ] Success: `"empty"` (trip has no fuel)
+### Phase 3: Mismatch Detection Tests
 
-### Phase 4: Other Receipt Tests
+**Rust Unit Tests** (9 tests in `commands_tests.rs`):
+- [ ] `"date"` mismatch
+- [ ] `"liters"` mismatch
+- [ ] `"price"` mismatch
+- [ ] `"date_and_liters"` mismatch
+- [ ] `"date_and_price"` mismatch
+- [ ] `"liters_and_price"` mismatch
+- [ ] `"all"` mismatch
+- [ ] `"matches"` (exact match → can_attach: true)
+- [ ] `"empty"` (no fuel → can_attach: true)
+
+**Integration Test** (1 test - E2E verification):
+- [ ] Verify IPC returns `mismatch_reason` and UI displays it
+
+### Phase 4: Other Receipt Integration Tests
 - [ ] Enable "display receipts" test
 - [ ] Enable "assign receipt" test
 - [ ] Enable "filter by status" test
 - [ ] Enable "delete receipt" test
-- [ ] Tolerance test (±0.01 matching)
-- [ ] UI mismatch display test
 
 ### Phase 5: CI & Documentation
 - [ ] CI workflow updated with env vars
