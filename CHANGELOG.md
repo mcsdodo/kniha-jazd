@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-01-21
+
 ### Pridané
 - **Priradenie dokladu k jazde s existujúcimi údajmi o tankovaní** - doklad je možné priradiť ako dokumentáciu
   - Ak doklad obsahuje zhodné údaje (dátum, litre ±0.01, cena ±0.01), je pridelenie povolené
