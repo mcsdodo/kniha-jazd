@@ -1,0 +1,78 @@
+name: Check File Changes
+description: Detect if only "safe" files changed (docs, configs, etc.) to skip expensive CI jobs
+
+inputs:
+  safe-patterns:
+    description: |
+      Regex pattern for files that are "safe" (don't require full test suite).
+      Use | for multiple patterns. Example: '^(.*\.md|_tasks/.*)$'
+    required: true
+  fetch-depth:
+    description: 'Git fetch depth (2 for push, 0 for PR with many commits)'
+    required: false
+    default: '2'
+
+outputs:
+  has-code-changes:
+    description: 'true if code files changed, false if only safe files'
+    value: ${{ steps.check.outputs.has_code_changes }}
+  changed-files:
+    description: 'List of changed files (newline-separated)'
+    value: ${{ steps.check.outputs.changed_files }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check for code changes
+      id: check
+      shell: bash
+      run: |
+        # Get changed files based on event type
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # For PRs, compare against base branch
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD 2>/dev/null || echo "")
+        else
+          # For pushes, compare against parent commit
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "")
+        fi
+
+        # Handle empty changes (new repo, etc.)
+        if [ -z "$CHANGED_FILES" ]; then
+          echo "No changed files detected"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          echo "changed_files=" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+        echo ""
+
+        # Store changed files in output (escape newlines)
+        EOF_MARKER=$(dd if=/dev/urandom bs=15 count=1 2>/dev/null | base64)
+        echo "changed_files<<$EOF_MARKER" >> $GITHUB_OUTPUT
+        echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+        echo "$EOF_MARKER" >> $GITHUB_OUTPUT
+
+        # Check if any file is NOT safe
+        SAFE_PATTERN="${{ inputs.safe-patterns }}"
+        HAS_CODE_CHANGES=false
+
+        while IFS= read -r file; do
+          if [ -n "$file" ] && ! echo "$file" | grep -qE "$SAFE_PATTERN"; then
+            echo "⚡ Code file: $file"
+            HAS_CODE_CHANGES=true
+            break
+          else
+            echo "📝 Safe file: $file"
+          fi
+        done <<< "$CHANGED_FILES"
+
+        echo ""
+        if [ "$HAS_CODE_CHANGES" = "true" ]; then
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          echo "✅ Code changes detected - will run full tests"
+        else
+          echo "has_code_changes=false" >> $GITHUB_OUTPUT
+          echo "📝 Only safe files changed - can skip expensive tests"
+        fi

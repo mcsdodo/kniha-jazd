@@ -11,15 +11,22 @@ jobs:
     name: Check Prior Test Results
     runs-on: ubuntu-latest
     outputs:
-      tests_passed: ${{ steps.check.outputs.tests_passed }}
+      tests_passed: ${{ steps.check-api.outputs.tests_passed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 2  # Need parent commit for release-only detection
 
+      - name: Check for release-only changes
+        id: check-files
+        uses: ./.github/actions/check-file-changes
+        with:
+          # Release-only files (version bumps, changelog)
+          safe-patterns: '^(CHANGELOG\.md|package\.json|package-lock\.json|src-tauri/Cargo\.toml|src-tauri/Cargo\.lock|src-tauri/tauri\.conf\.json)$'
+
       - name: Check if Tests workflow passed
-        id: check
+        id: check-api
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -40,27 +47,9 @@ jobs:
 
           echo "No test results on tagged commit - checking if release-only changes..."
 
-          # Second: check if only release files changed from parent
-          PARENT_SHA=$(git rev-parse HEAD^)
-          echo "Parent commit: $PARENT_SHA"
-
-          CHANGED_FILES=$(git diff --name-only $PARENT_SHA HEAD)
-          echo "Changed files from parent:"
-          echo "$CHANGED_FILES"
-
-          # Define safe release-only file patterns
-          SAFE_PATTERN="^(CHANGELOG\.md|package\.json|package-lock\.json|src-tauri/Cargo\.toml|src-tauri/Cargo\.lock|src-tauri/tauri\.conf\.json)$"
-
-          ALL_SAFE=true
-          while IFS= read -r file; do
-            if [ -n "$file" ] && ! echo "$file" | grep -qE "$SAFE_PATTERN"; then
-              echo "❌ Non-release file changed: $file"
-              ALL_SAFE=false
-              break
-            fi
-          done <<< "$CHANGED_FILES"
-
-          if [ "$ALL_SAFE" = "true" ]; then
+          # Second: if only release files changed, check parent commit
+          if [ "${{ steps.check-files.outputs.has-code-changes }}" = "false" ]; then
+            PARENT_SHA=$(git rev-parse HEAD^)
             echo "✅ Only release files changed - checking parent commit: $PARENT_SHA"
 
             PARENT_RESULT=$(gh api \
@@ -75,6 +64,8 @@ jobs:
             else
               echo "⚠️ Parent commit has no successful test run"
             fi
+          else
+            echo "❌ Code changes detected - cannot skip tests"
           fi
 
           echo "tests_passed=false" >> $GITHUB_OUTPUT

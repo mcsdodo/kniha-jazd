@@ -15,7 +15,7 @@ jobs:
     name: Check Changes
     runs-on: ubuntu-latest
     outputs:
-      run_integration: ${{ steps.check.outputs.run_integration }}
+      run_integration: ${{ steps.check.outputs.has_code_changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,37 +24,10 @@ jobs:
 
       - name: Check for code changes
         id: check
-        run: |
-          # Get changed files
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD)
-          else
-            CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "")
-          fi
-
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
-
-          # Patterns that DON'T require integration tests
-          # (docs, config, planning, CI workflows)
-          DOCS_ONLY_PATTERN="^(.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$"
-
-          NEEDS_INTEGRATION=false
-          while IFS= read -r file; do
-            if [ -n "$file" ] && ! echo "$file" | grep -qE "$DOCS_ONLY_PATTERN"; then
-              echo "Code file changed: $file"
-              NEEDS_INTEGRATION=true
-              break
-            fi
-          done <<< "$CHANGED_FILES"
-
-          if [ "$NEEDS_INTEGRATION" = "true" ]; then
-            echo "run_integration=true" >> $GITHUB_OUTPUT
-            echo "✅ Code changes detected - will run integration tests"
-          else
-            echo "run_integration=false" >> $GITHUB_OUTPUT
-            echo "📝 Only docs/config changed - skipping integration tests"
-          fi
+        uses: ./.github/actions/check-file-changes
+        with:
+          # Files that DON'T require integration tests (docs, config, planning, CI)
+          safe-patterns: '^(.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$'
 
   # Backend tests - fast, run on all platforms (always run)
   backend-tests:
