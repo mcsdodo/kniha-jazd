@@ -1924,6 +1924,7 @@ pub async fn export_html(
 // Receipt Commands
 // ============================================================================
 
+use crate::gemini::is_mock_mode_enabled;
 use crate::models::{Receipt, ReceiptStatus, ReceiptVerification, VerificationResult};
 use crate::receipts::{detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts, FolderStructure};
 use crate::settings::LocalSettings;
@@ -2039,8 +2040,13 @@ pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>, app_s
     let folder_path = settings.receipts_folder_path
         .ok_or("Receipts folder not configured")?;
 
-    let api_key = settings.gemini_api_key
-        .ok_or("Gemini API key not configured")?;
+    // In mock mode, API key is not required (extract_from_image loads from JSON files)
+    let api_key = if is_mock_mode_enabled() {
+        String::new()
+    } else {
+        settings.gemini_api_key
+            .ok_or("Gemini API key not configured")?
+    };
 
     // Scan for new files
     let mut new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
@@ -2080,8 +2086,13 @@ pub async fn process_pending_receipts(
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
-    let api_key = settings.gemini_api_key
-        .ok_or("Gemini API key not configured")?;
+    // In mock mode, API key is not required (extract_from_image loads from JSON files)
+    let api_key = if is_mock_mode_enabled() {
+        String::new()
+    } else {
+        settings.gemini_api_key
+            .ok_or("Gemini API key not configured")?
+    };
 
     // Get all pending receipts
     let mut pending_receipts = db.get_pending_receipts().map_err(|e| e.to_string())?;
@@ -2142,8 +2153,13 @@ pub async fn reprocess_receipt(
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
-    let api_key = settings.gemini_api_key
-        .ok_or("Gemini API key not configured")?;
+    // In mock mode, API key is not required (extract_from_image loads from JSON files)
+    let api_key = if is_mock_mode_enabled() {
+        String::new()
+    } else {
+        settings.gemini_api_key
+            .ok_or("Gemini API key not configured")?
+    };
 
     let mut receipt = db.get_receipt_by_id(&id)
         .map_err(|e| e.to_string())?

@@ -20,11 +20,15 @@ import {
   getReceiptsForVehicle,
   getTripsForReceiptAssignment,
   setReceiptsFolderPath,
-  triggerReceiptScan,
   syncReceipts,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// ESM workaround for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 describe('Tier 2: Receipts Workflow', () => {
   beforeEach(async () => {
@@ -138,11 +142,8 @@ describe('Tier 2: Receipts Workflow', () => {
       const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
       await setReceiptsFolderPath(invoicesPath);
 
-      // 4. Scan for receipts (should find invoice.pdf)
-      await triggerReceiptScan();
-      await browser.pause(500);
-
-      // 5. Sync receipts (mock Gemini loads invoice.json)
+      // 4. Sync receipts - this both scans for new files AND processes them
+      // (mock Gemini loads invoice.json instead of calling API)
       await syncReceipts();
       await browser.pause(500);
 
@@ -215,9 +216,7 @@ describe('Tier 2: Receipts Workflow', () => {
       const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
       await setReceiptsFolderPath(invoicesPath);
 
-      // 4. Scan and sync
-      await triggerReceiptScan();
-      await browser.pause(500);
+      // 4. Sync receipts (scans and processes with mock Gemini)
       await syncReceipts();
       await browser.pause(500);
 
@@ -282,9 +281,7 @@ describe('Tier 2: Receipts Workflow', () => {
       const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
       await setReceiptsFolderPath(invoicesPath);
 
-      // 4. Scan and sync
-      await triggerReceiptScan();
-      await browser.pause(500);
+      // 4. Sync receipts (scans and processes with mock Gemini)
       await syncReceipts();
       await browser.pause(500);
 

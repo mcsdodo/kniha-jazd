@@ -50,6 +50,12 @@ impl Default for ExtractedReceipt {
     }
 }
 
+/// Check if mock mode is enabled via environment variable.
+/// Used by commands to skip API key validation in tests.
+pub fn is_mock_mode_enabled() -> bool {
+    std::env::var(MOCK_GEMINI_DIR_ENV).is_ok()
+}
+
 /// Load mock extraction data from a JSON file.
 /// Used when `KNIHA_JAZD_MOCK_GEMINI_DIR` is set for testing.
 pub fn load_mock_extraction(mock_dir: &str, image_path: &Path) -> Result<ExtractedReceipt, String> {
