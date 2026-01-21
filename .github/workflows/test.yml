@@ -10,7 +10,53 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Backend tests - fast, run on all platforms
+  # Check if only docs/config files changed (skip integration tests if so)
+  check-changes:
+    name: Check Changes
+    runs-on: ubuntu-latest
+    outputs:
+      run_integration: ${{ steps.check.outputs.run_integration }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for code changes
+        id: check
+        run: |
+          # Get changed files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "")
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Patterns that DON'T require integration tests
+          # (docs, config, planning, CI workflows)
+          DOCS_ONLY_PATTERN="^(.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$"
+
+          NEEDS_INTEGRATION=false
+          while IFS= read -r file; do
+            if [ -n "$file" ] && ! echo "$file" | grep -qE "$DOCS_ONLY_PATTERN"; then
+              echo "Code file changed: $file"
+              NEEDS_INTEGRATION=true
+              break
+            fi
+          done <<< "$CHANGED_FILES"
+
+          if [ "$NEEDS_INTEGRATION" = "true" ]; then
+            echo "run_integration=true" >> $GITHUB_OUTPUT
+            echo "✅ Code changes detected - will run integration tests"
+          else
+            echo "run_integration=false" >> $GITHUB_OUTPUT
+            echo "📝 Only docs/config changed - skipping integration tests"
+          fi
+
+  # Backend tests - fast, run on all platforms (always run)
   backend-tests:
     name: Backend Tests (${{ matrix.platform }})
     strategy:
@@ -44,9 +90,11 @@ jobs:
 
   # Integration tests for PRs - single job with Tier 1 only (fast feedback)
   # Note: tauri-driver only supports Windows currently
+  # Skipped if only docs/config files changed
   integration-tests-pr:
     name: Integration Tests (PR - Tier 1)
-    if: github.event_name == 'pull_request'
+    needs: check-changes
+    if: github.event_name == 'pull_request' && needs.check-changes.outputs.run_integration == 'true'
     runs-on: windows-latest
 
     steps:
@@ -125,9 +173,11 @@ jobs:
 
   # Integration tests for main - build once, then run tiers in parallel
   # This gives faster feedback than sequential execution (~14 min vs ~20 min)
+  # Skipped if only docs/config files changed
   integration-build:
     name: Integration Build
-    if: github.event_name == 'push'
+    needs: check-changes
+    if: github.event_name == 'push' && needs.check-changes.outputs.run_integration == 'true'
     runs-on: windows-latest
 
     steps:
@@ -163,8 +213,8 @@ jobs:
 
   integration-tests-main:
     name: Integration Tests (${{ matrix.tier_name }})
-    if: github.event_name == 'push'
-    needs: integration-build
+    needs: [check-changes, integration-build]
+    if: github.event_name == 'push' && needs.check-changes.outputs.run_integration == 'true'
     runs-on: windows-latest
     strategy:
       fail-fast: false
