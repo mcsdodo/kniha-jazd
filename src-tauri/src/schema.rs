@@ -22,6 +22,9 @@ diesel::table! {
         updated_at -> Text,
         vendor_name -> Nullable<Text>,
         cost_description -> Nullable<Text>,
+        // Multi-currency support (migration 2026-01-21-100000)
+        original_amount -> Nullable<Double>,
+        original_currency -> Nullable<Text>,
     }
 }
 

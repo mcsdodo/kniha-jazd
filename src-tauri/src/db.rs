@@ -672,6 +672,8 @@ impl Database {
             updated_at: &updated_at_str,
             vendor_name: receipt.vendor_name.as_deref(),
             cost_description: receipt.cost_description.as_deref(),
+            original_amount: receipt.original_amount,
+            original_currency: receipt.original_currency.as_deref(),
         };
 
         diesel::insert_into(receipts::table)
@@ -740,6 +742,8 @@ impl Database {
                 receipts::updated_at.eq(&updated_at_str),
                 receipts::vendor_name.eq(&receipt.vendor_name),
                 receipts::cost_description.eq(&receipt.cost_description),
+                receipts::original_amount.eq(receipt.original_amount),
+                receipts::original_currency.eq(&receipt.original_currency),
             ))
             .execute(conn)?;
 
@@ -782,7 +786,8 @@ impl Database {
             "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                     liters, total_price_eur, receipt_date, station_name, station_address,
                     source_year, status, confidence, raw_ocr_text, error_message,
-                    created_at, updated_at, vendor_name, cost_description
+                    created_at, updated_at, vendor_name, cost_description,
+                    original_amount, original_currency
              FROM receipts WHERE
                 (receipt_date IS NOT NULL AND CAST(strftime('%Y', receipt_date) AS INTEGER) = ?)
                 OR (receipt_date IS NULL AND source_year = ?)
@@ -810,7 +815,8 @@ impl Database {
                 "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                         liters, total_price_eur, receipt_date, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
-                        created_at, updated_at, vendor_name, cost_description
+                        created_at, updated_at, vendor_name, cost_description,
+                        original_amount, original_currency
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                    AND (
@@ -828,7 +834,8 @@ impl Database {
                 "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
                         liters, total_price_eur, receipt_date, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
-                        created_at, updated_at, vendor_name, cost_description
+                        created_at, updated_at, vendor_name, cost_description,
+                        original_amount, original_currency
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                  ORDER BY receipt_date DESC, scanned_at DESC",

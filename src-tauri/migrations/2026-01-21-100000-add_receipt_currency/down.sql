@@ -1,0 +1,2 @@
+-- Remove multi-currency columns (SQLite doesn't support DROP COLUMN in older versions)
+-- This is a placeholder - in practice, we don't run down migrations in production

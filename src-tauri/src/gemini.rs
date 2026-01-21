@@ -19,6 +19,8 @@ pub struct ExtractedReceipt {
     pub station_address: Option<String>,
     pub vendor_name: Option<String>,        // For non-fuel receipts: company/shop name
     pub cost_description: Option<String>,   // For non-fuel receipts: brief description
+    pub original_amount: Option<f64>,       // Raw amount from OCR (in original currency)
+    pub original_currency: Option<String>,  // "EUR", "CZK", "HUF", "PLN"
     pub raw_text: Option<String>,
     pub confidence: ExtractionConfidence,
 }
@@ -28,6 +30,7 @@ pub struct ExtractionConfidence {
     pub liters: String,      // "high", "medium", "low"
     pub total_price: String,
     pub date: String,
+    pub currency: String,    // confidence in currency detection
 }
 
 impl Default for ExtractedReceipt {
@@ -40,11 +43,14 @@ impl Default for ExtractedReceipt {
             station_address: None,
             vendor_name: None,
             cost_description: None,
+            original_amount: None,
+            original_currency: None,
             raw_text: None,
             confidence: ExtractionConfidence {
                 liters: "low".to_string(),
                 total_price: "low".to_string(),
                 date: "low".to_string(),
+                currency: "low".to_string(),
             },
         }
     }
@@ -136,14 +142,16 @@ struct ResponsePart {
     text: String,
 }
 
-const EXTRACTION_PROMPT: &str = r#"Analyze this Slovak receipt/invoice image.
+const EXTRACTION_PROMPT: &str = r#"Analyze this receipt/invoice image.
 
-This could be either a FUEL receipt or OTHER expense (car wash, parking, service, etc.).
+This could be either a FUEL receipt or OTHER expense (car wash, parking, toll, service, etc.).
+Receipts may be in Slovak, Czech, Hungarian, or Polish.
 
 Extract fields as JSON:
 {
   "receipt_date": "YYYY-MM-DD" or null,
-  "total_price_eur": number or null,
+  "original_amount": number or null,      // Raw total amount found
+  "original_currency": "EUR" | "CZK" | "HUF" | "PLN" or null,
 
   // FUEL-SPECIFIC (only if this is a gas station receipt):
   "liters": number or null,  // null if NOT a fuel receipt
@@ -157,7 +165,8 @@ Extract fields as JSON:
   "confidence": {
     "liters": "high" | "medium" | "low" | "not_applicable",
     "total_price": "high" | "medium" | "low",
-    "date": "high" | "medium" | "low"
+    "date": "high" | "medium" | "low",
+    "currency": "high" | "medium" | "low"
   },
   "raw_text": "full OCR text"
 }
@@ -165,8 +174,14 @@ Extract fields as JSON:
 Rules:
 - If you see "L", "litrov", fuel types (Natural 95, Diesel, benzín, nafta) → it's FUEL, extract liters
 - If NO liters/fuel indicators → it's OTHER COST, set liters=null, confidence.liters="not_applicable"
-- For amounts: Look for "€", "EUR", "Spolu", "Celkom", "Total"
-- Date formats: DD.MM.YYYY or DD.MM.YY
+- For amounts: Look for total/sum keywords in the receipt's language
+- Currency detection:
+  - € or EUR → "EUR"
+  - Kč or CZK → "CZK" (Czech koruna)
+  - Ft or HUF → "HUF" (Hungarian forint)
+  - zł or PLN → "PLN" (Polish złoty)
+  - If no symbol found, guess from language/country context
+- Date formats: DD.MM.YYYY or DD.MM.YY (European format)
 - Return null if field cannot be determined"#;
 
 fn get_response_schema() -> serde_json::Value {
@@ -179,7 +194,16 @@ fn get_response_schema() -> serde_json::Value {
             },
             "total_price_eur": {
                 "type": ["number", "null"],
-                "description": "Total price in EUR"
+                "description": "Total price in EUR (legacy field, may be null)"
+            },
+            "original_amount": {
+                "type": ["number", "null"],
+                "description": "Raw total amount found on receipt (in original currency)"
+            },
+            "original_currency": {
+                "type": ["string", "null"],
+                "enum": ["EUR", "CZK", "HUF", "PLN", null],
+                "description": "Currency code: EUR, CZK (Czech), HUF (Hungarian), PLN (Polish)"
             },
             "receipt_date": {
                 "type": ["string", "null"],
@@ -219,12 +243,16 @@ fn get_response_schema() -> serde_json::Value {
                     "date": {
                         "type": "string",
                         "enum": ["high", "medium", "low"]
+                    },
+                    "currency": {
+                        "type": "string",
+                        "enum": ["high", "medium", "low"]
                     }
                 },
-                "required": ["liters", "total_price", "date"]
+                "required": ["liters", "total_price", "date", "currency"]
             }
         },
-        "required": ["liters", "total_price_eur", "receipt_date", "confidence"]
+        "required": ["liters", "original_amount", "original_currency", "receipt_date", "confidence"]
     })
 }
 
@@ -338,11 +366,13 @@ mod tests {
     // Asserting string.contains() doesn't test behavior
 
     #[test]
-    fn test_extracted_receipt_deserialization_fuel() {
-        // Fuel receipt: has liters, station info
+    fn test_extracted_receipt_deserialization_fuel_eur() {
+        // EUR fuel receipt: has liters, station info, EUR currency
         let json = r#"{
             "liters": 45.5,
             "total_price_eur": 72.50,
+            "original_amount": 72.50,
+            "original_currency": "EUR",
             "receipt_date": "2024-12-15",
             "station_name": "Slovnaft",
             "station_address": "Bratislava",
@@ -352,27 +382,64 @@ mod tests {
             "confidence": {
                 "liters": "high",
                 "total_price": "high",
-                "date": "medium"
+                "date": "medium",
+                "currency": "high"
             }
         }"#;
 
         let extracted: ExtractedReceipt = serde_json::from_str(json).unwrap();
         assert_eq!(extracted.liters, Some(45.5));
         assert_eq!(extracted.total_price_eur, Some(72.50));
+        assert_eq!(extracted.original_amount, Some(72.50));
+        assert_eq!(extracted.original_currency, Some("EUR".to_string()));
         assert_eq!(extracted.receipt_date, Some("2024-12-15".to_string()));
         assert_eq!(extracted.station_name, Some("Slovnaft".to_string()));
         assert_eq!(extracted.confidence.liters, "high");
+        assert_eq!(extracted.confidence.currency, "high");
         // Non-fuel fields should be null for fuel receipts
         assert!(extracted.vendor_name.is_none());
         assert!(extracted.cost_description.is_none());
     }
 
     #[test]
+    fn test_extracted_receipt_deserialization_fuel_czk() {
+        // CZK fuel receipt: foreign currency parking receipt
+        let json = r#"{
+            "liters": null,
+            "total_price_eur": null,
+            "original_amount": 100.0,
+            "original_currency": "CZK",
+            "receipt_date": "2024-12-15",
+            "station_name": null,
+            "station_address": null,
+            "vendor_name": "Parkoviště Praha",
+            "cost_description": "Parkovné 2h",
+            "raw_text": "100 Kč",
+            "confidence": {
+                "liters": "not_applicable",
+                "total_price": "high",
+                "date": "high",
+                "currency": "high"
+            }
+        }"#;
+
+        let extracted: ExtractedReceipt = serde_json::from_str(json).unwrap();
+        assert!(extracted.liters.is_none());
+        assert!(extracted.total_price_eur.is_none()); // No EUR value yet
+        assert_eq!(extracted.original_amount, Some(100.0));
+        assert_eq!(extracted.original_currency, Some("CZK".to_string()));
+        assert_eq!(extracted.vendor_name, Some("Parkoviště Praha".to_string()));
+        assert_eq!(extracted.confidence.currency, "high");
+    }
+
+    #[test]
     fn test_extracted_receipt_deserialization_other_cost() {
-        // Non-fuel receipt: no liters, has vendor info
+        // Non-fuel receipt: no liters, has vendor info (EUR)
         let json = r#"{
             "liters": null,
             "total_price_eur": 15.00,
+            "original_amount": 15.00,
+            "original_currency": "EUR",
             "receipt_date": "2024-12-16",
             "station_name": null,
             "station_address": null,
@@ -382,13 +449,16 @@ mod tests {
             "confidence": {
                 "liters": "not_applicable",
                 "total_price": "high",
-                "date": "high"
+                "date": "high",
+                "currency": "high"
             }
         }"#;
 
         let extracted: ExtractedReceipt = serde_json::from_str(json).unwrap();
         assert!(extracted.liters.is_none());
         assert_eq!(extracted.total_price_eur, Some(15.00));
+        assert_eq!(extracted.original_amount, Some(15.00));
+        assert_eq!(extracted.original_currency, Some("EUR".to_string()));
         assert_eq!(extracted.receipt_date, Some("2024-12-16".to_string()));
         assert_eq!(extracted.vendor_name, Some("AutoUmyváreň SK".to_string()));
         assert_eq!(extracted.cost_description, Some("Umytie auta - komplet".to_string()));
@@ -400,10 +470,12 @@ mod tests {
 
     #[test]
     fn test_extracted_receipt_with_nulls() {
-        // Blurry receipt with minimal data
+        // Blurry receipt with minimal data - unknown currency
         let json = r#"{
             "liters": null,
-            "total_price_eur": 50.00,
+            "total_price_eur": null,
+            "original_amount": 50.00,
+            "original_currency": null,
             "receipt_date": null,
             "station_name": null,
             "station_address": null,
@@ -413,13 +485,16 @@ mod tests {
             "confidence": {
                 "liters": "low",
                 "total_price": "medium",
-                "date": "low"
+                "date": "low",
+                "currency": "low"
             }
         }"#;
 
         let extracted: ExtractedReceipt = serde_json::from_str(json).unwrap();
         assert!(extracted.liters.is_none());
-        assert_eq!(extracted.total_price_eur, Some(50.00));
+        assert!(extracted.total_price_eur.is_none());
+        assert_eq!(extracted.original_amount, Some(50.00));
+        assert!(extracted.original_currency.is_none());
         assert!(extracted.receipt_date.is_none());
         assert!(extracted.vendor_name.is_none());
         assert!(extracted.cost_description.is_none());
@@ -449,6 +524,8 @@ mod tests {
         let mock_json = r#"{
             "liters": 63.68,
             "total_price_eur": 91.32,
+            "original_amount": 91.32,
+            "original_currency": "EUR",
             "receipt_date": "2026-01-20",
             "station_name": "Slovnaft, a.s.",
             "station_address": "Prístavna ulica, Bratislava",
@@ -458,7 +535,8 @@ mod tests {
             "confidence": {
                 "liters": "high",
                 "total_price": "high",
-                "date": "high"
+                "date": "high",
+                "currency": "high"
             }
         }"#;
 
@@ -475,9 +553,12 @@ mod tests {
         let extracted = result.unwrap();
         assert_eq!(extracted.liters, Some(63.68));
         assert_eq!(extracted.total_price_eur, Some(91.32));
+        assert_eq!(extracted.original_amount, Some(91.32));
+        assert_eq!(extracted.original_currency, Some("EUR".to_string()));
         assert_eq!(extracted.receipt_date, Some("2026-01-20".to_string()));
         assert_eq!(extracted.station_name, Some("Slovnaft, a.s.".to_string()));
         assert_eq!(extracted.confidence.liters, "high");
+        assert_eq!(extracted.confidence.currency, "high");
     }
 
     #[test]
@@ -526,6 +607,8 @@ mod tests {
 
         assert!(default.liters.is_none());
         assert!(default.total_price_eur.is_none());
+        assert!(default.original_amount.is_none());
+        assert!(default.original_currency.is_none());
         assert!(default.receipt_date.is_none());
         assert!(default.station_name.is_none());
         assert!(default.station_address.is_none());
@@ -535,5 +618,6 @@ mod tests {
         assert_eq!(default.confidence.liters, "low");
         assert_eq!(default.confidence.total_price, "low");
         assert_eq!(default.confidence.date, "low");
+        assert_eq!(default.confidence.currency, "low");
     }
 }
