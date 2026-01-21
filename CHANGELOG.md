@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-01-21
+
 ### Pridané
 - **Podpora viacerých mien pre doklady** - rozpoznávanie dokladov v EUR, CZK, HUF, PLN
   - Automatické rozpoznanie meny cez Gemini OCR (€, Kč, Ft, zł)
