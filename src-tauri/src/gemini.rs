@@ -4,6 +4,12 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// Environment variable to enable mock mode for testing.
+/// When set to a directory path, `extract_from_image` will load mock JSON
+/// files instead of calling the Gemini API.
+/// Mock file naming: {receipt_filename_stem}.json (e.g., invoice.pdf → invoice.json)
+pub const MOCK_GEMINI_DIR_ENV: &str = "KNIHA_JAZD_MOCK_GEMINI_DIR";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractedReceipt {
     pub liters: Option<f64>,
@@ -22,6 +28,53 @@ pub struct ExtractionConfidence {
     pub liters: String,      // "high", "medium", "low"
     pub total_price: String,
     pub date: String,
+}
+
+impl Default for ExtractedReceipt {
+    fn default() -> Self {
+        Self {
+            liters: None,
+            total_price_eur: None,
+            receipt_date: None,
+            station_name: None,
+            station_address: None,
+            vendor_name: None,
+            cost_description: None,
+            raw_text: None,
+            confidence: ExtractionConfidence {
+                liters: "low".to_string(),
+                total_price: "low".to_string(),
+                date: "low".to_string(),
+            },
+        }
+    }
+}
+
+/// Load mock extraction data from a JSON file.
+/// Used when `KNIHA_JAZD_MOCK_GEMINI_DIR` is set for testing.
+pub fn load_mock_extraction(mock_dir: &str, image_path: &Path) -> Result<ExtractedReceipt, String> {
+    let stem = image_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| "Could not get file stem from image path".to_string())?;
+
+    let mock_file = Path::new(mock_dir).join(format!("{}.json", stem));
+
+    if mock_file.exists() {
+        let json = std::fs::read_to_string(&mock_file)
+            .map_err(|e| format!("Failed to read mock file {:?}: {}", mock_file, e))?;
+
+        serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to parse mock JSON {:?}: {}", mock_file, e))
+    } else {
+        // No mock found - return default (pending-like state)
+        log::warn!(
+            "No mock file found for {:?} at {:?}, returning default",
+            image_path,
+            mock_file
+        );
+        Ok(ExtractedReceipt::default())
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -183,7 +236,20 @@ impl GeminiClient {
     }
 
     /// Extract receipt data from an image file (async)
+    ///
+    /// If `KNIHA_JAZD_MOCK_GEMINI_DIR` is set, loads mock data from JSON file
+    /// instead of calling the Gemini API. This enables deterministic testing.
     pub async fn extract_from_image(&self, image_path: &Path) -> Result<ExtractedReceipt, String> {
+        // Check for mock mode (used in integration tests)
+        if let Ok(mock_dir) = std::env::var(MOCK_GEMINI_DIR_ENV) {
+            log::info!(
+                "Mock mode enabled: loading from {:?} for {:?}",
+                mock_dir,
+                image_path
+            );
+            return load_mock_extraction(&mock_dir, image_path);
+        }
+
         // Read and encode image
         let image_data = tokio::fs::read(image_path).await
             .map_err(|e| format!("Failed to read image: {}", e))?;
@@ -359,5 +425,109 @@ mod tests {
         assert!(schema.is_object());
         assert!(schema.get("type").is_some());
         assert!(schema.get("properties").is_some());
+    }
+
+    // =============================================================================
+    // Mock Loading Tests
+    // =============================================================================
+
+    #[test]
+    fn test_load_mock_extraction_valid_file() {
+        use std::io::Write;
+        use tempfile::tempdir;
+
+        // Create a temp directory with a mock JSON file
+        let mock_dir = tempdir().unwrap();
+        let mock_file = mock_dir.path().join("invoice.json");
+
+        let mock_json = r#"{
+            "liters": 63.68,
+            "total_price_eur": 91.32,
+            "receipt_date": "2026-01-20",
+            "station_name": "Slovnaft, a.s.",
+            "station_address": "Prístavna ulica, Bratislava",
+            "vendor_name": null,
+            "cost_description": null,
+            "raw_text": null,
+            "confidence": {
+                "liters": "high",
+                "total_price": "high",
+                "date": "high"
+            }
+        }"#;
+
+        std::fs::File::create(&mock_file)
+            .unwrap()
+            .write_all(mock_json.as_bytes())
+            .unwrap();
+
+        // Load mock for "invoice.pdf"
+        let image_path = Path::new("/some/path/invoice.pdf");
+        let result = load_mock_extraction(mock_dir.path().to_str().unwrap(), image_path);
+
+        assert!(result.is_ok());
+        let extracted = result.unwrap();
+        assert_eq!(extracted.liters, Some(63.68));
+        assert_eq!(extracted.total_price_eur, Some(91.32));
+        assert_eq!(extracted.receipt_date, Some("2026-01-20".to_string()));
+        assert_eq!(extracted.station_name, Some("Slovnaft, a.s.".to_string()));
+        assert_eq!(extracted.confidence.liters, "high");
+    }
+
+    #[test]
+    fn test_load_mock_extraction_missing_file_returns_default() {
+        use tempfile::tempdir;
+
+        let mock_dir = tempdir().unwrap();
+        // No mock file created
+
+        let image_path = Path::new("/some/path/missing.pdf");
+        let result = load_mock_extraction(mock_dir.path().to_str().unwrap(), image_path);
+
+        assert!(result.is_ok());
+        let extracted = result.unwrap();
+        // Default values
+        assert!(extracted.liters.is_none());
+        assert!(extracted.total_price_eur.is_none());
+        assert!(extracted.receipt_date.is_none());
+        assert_eq!(extracted.confidence.liters, "low");
+    }
+
+    #[test]
+    fn test_load_mock_extraction_invalid_json() {
+        use std::io::Write;
+        use tempfile::tempdir;
+
+        let mock_dir = tempdir().unwrap();
+        let mock_file = mock_dir.path().join("bad.json");
+
+        // Write invalid JSON
+        std::fs::File::create(&mock_file)
+            .unwrap()
+            .write_all(b"{ invalid json }")
+            .unwrap();
+
+        let image_path = Path::new("/some/path/bad.pdf");
+        let result = load_mock_extraction(mock_dir.path().to_str().unwrap(), image_path);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Failed to parse mock JSON"));
+    }
+
+    #[test]
+    fn test_extracted_receipt_default() {
+        let default = ExtractedReceipt::default();
+
+        assert!(default.liters.is_none());
+        assert!(default.total_price_eur.is_none());
+        assert!(default.receipt_date.is_none());
+        assert!(default.station_name.is_none());
+        assert!(default.station_address.is_none());
+        assert!(default.vendor_name.is_none());
+        assert!(default.cost_description.is_none());
+        assert!(default.raw_text.is_none());
+        assert_eq!(default.confidence.liters, "low");
+        assert_eq!(default.confidence.total_price, "low");
+        assert_eq!(default.confidence.date, "low");
     }
 }
