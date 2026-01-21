@@ -105,6 +105,11 @@ export interface FieldConfidence {
 }
 
 /**
+ * Currency codes for multi-currency receipts
+ */
+export type ReceiptCurrency = 'EUR' | 'CZK' | 'HUF' | 'PLN';
+
+/**
  * Receipt data structure matching Rust Receipt struct
  */
 export interface Receipt {
@@ -115,17 +120,22 @@ export interface Receipt {
   fileName: string;
   scannedAt?: string;
   // Parsed fields
-  liters?: number;
-  totalPriceEur?: number;
-  receiptDate?: string; // YYYY-MM-DD format
-  stationName?: string;
-  stationAddress?: string;
-  sourceYear?: number;
+  liters?: number | null;
+  totalPriceEur?: number | null;
+  receiptDate?: string | null; // YYYY-MM-DD format
+  stationName?: string | null;
+  stationAddress?: string | null;
+  vendorName?: string | null;
+  costDescription?: string | null;
+  // Multi-currency support
+  originalAmount?: number | null;
+  originalCurrency?: ReceiptCurrency | null;
+  sourceYear?: number | null;
   // Status tracking
   status?: ReceiptStatus;
   confidence?: FieldConfidence;
-  rawOcrText?: string;
-  errorMessage?: string;
+  rawOcrText?: string | null;
+  errorMessage?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

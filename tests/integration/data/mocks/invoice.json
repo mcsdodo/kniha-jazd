@@ -1,6 +1,8 @@
 {
     "liters": 63.68,
     "total_price_eur": 91.32,
+    "original_amount": 91.32,
+    "original_currency": "EUR",
     "receipt_date": "2026-01-20",
     "station_name": "Slovnaft, a.s.",
     "station_address": "Prístavná ulica, Bratislava",
@@ -10,6 +12,7 @@
     "confidence": {
         "liters": "high",
         "total_price": "high",
-        "date": "high"
+        "date": "high",
+        "currency": "high"
     }
 }
