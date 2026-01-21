@@ -439,6 +439,125 @@ export async function getTripGridData(
 }
 
 // =============================================================================
+// Receipt Seeding and Processing
+// =============================================================================
+
+/**
+ * Scan receipts folder for new files (creates Pending receipts in database)
+ *
+ * Note: Receipts can only be created via folder scanning - there's no direct
+ * create_receipt command. Place files in the receipts folder and call this.
+ */
+export async function triggerReceiptScan(): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready for receipt scan');
+  }
+  await invokeTauri<void>('scan_receipts');
+}
+
+/**
+ * Process all pending receipts with Gemini (or mock in test mode)
+ *
+ * When KNIHA_JAZD_MOCK_GEMINI_DIR is set, this loads mock JSON files
+ * instead of calling the real Gemini API.
+ */
+export async function syncReceipts(): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready for sync');
+  }
+  await invokeTauri<void>('sync_receipts');
+}
+
+/**
+ * Reprocess a single receipt by ID
+ *
+ * @param receiptId The receipt ID to reprocess
+ */
+export async function reprocessReceipt(receiptId: string): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready for reprocess');
+  }
+  await invokeTauri<void>('reprocess_receipt', { id: receiptId });
+}
+
+/**
+ * Get all receipts for a given year
+ */
+export async function getReceipts(year: number): Promise<Receipt[]> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  return invokeTauri<Receipt[]>('get_receipts', { year });
+}
+
+/**
+ * Get receipts for a specific vehicle
+ */
+export async function getReceiptsForVehicle(
+  vehicleId: string,
+  year: number
+): Promise<Receipt[]> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  return invokeTauri<Receipt[]>('get_receipts_for_vehicle', {
+    vehicleId,
+    year,
+  });
+}
+
+/**
+ * Result from get_trips_for_receipt_assignment
+ */
+export interface TripForAssignment {
+  trip: Trip;
+  canAttach: boolean;
+  attachmentStatus: string; // "matches" | "differs" | "empty"
+  mismatchReason: string | null; // "date" | "liters" | "price" | "date_and_*" | "all"
+}
+
+/**
+ * Get trips available for receipt assignment with compatibility info
+ *
+ * This is the key function for testing mismatch detection. It returns
+ * each trip with information about whether the receipt data matches.
+ */
+export async function getTripsForReceiptAssignment(
+  receiptId: string,
+  vehicleId: string,
+  year: number
+): Promise<TripForAssignment[]> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  return invokeTauri<TripForAssignment[]>('get_trips_for_receipt_assignment', {
+    receiptId,
+    vehicleId,
+    year,
+  });
+}
+
+/**
+ * Set the receipts folder path via settings
+ *
+ * Note: KNIHA_JAZD_RECEIPTS_FOLDER env var is NOT implemented in Rust.
+ * Must set the folder via this settings command.
+ */
+export async function setReceiptsFolderPath(folderPath: string): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  await invokeTauri<void>('set_receipts_folder_path', { path: folderPath });
+}
+
+// =============================================================================
 // Legacy Compatibility (placeholder interfaces for existing code)
 // =============================================================================
 

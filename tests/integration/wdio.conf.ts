@@ -162,8 +162,10 @@ export const config: any = {
     process.env.KNIHA_JAZD_DATA_DIR = testDataDir;
     console.log(`Test data directory: ${testDataDir}`);
 
-    // Mock Gemini API to avoid real API calls during tests
-    process.env.KNIHA_JAZD_MOCK_GEMINI = 'true';
+    // Mock Gemini API: load JSON from mocks/ instead of calling API
+    // See tests/integration/data/README.md for mock file format
+    process.env.KNIHA_JAZD_MOCK_GEMINI_DIR = join(__dirname, 'data', 'mocks');
+    console.log(`Mock Gemini directory: ${process.env.KNIHA_JAZD_MOCK_GEMINI_DIR}`);
 
     // Create screenshots directory if it doesn't exist
     const screenshotsDir = join(__dirname, 'screenshots');
