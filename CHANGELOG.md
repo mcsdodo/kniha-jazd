@@ -7,6 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Podpora viacerých mien pre doklady** - rozpoznávanie dokladov v EUR, CZK, HUF, PLN
+  - Automatické rozpoznanie meny cez Gemini OCR (€, Kč, Ft, zł)
+  - EUR doklady: automaticky vyplnená suma v EUR
+  - Cudzie meny: doklad vyžaduje manuálnu konverziu na EUR (stav "Na kontrolu")
+  - Zobrazenie pôvodnej sumy s konverziou: "100 CZK → 3,95 €"
+- **Editovanie dokladov** - nový modál pre úpravu údajov dokladu
+  - Úprava dátumu, litrov, pôvodnej sumy a meny
+  - Zadanie sumy v EUR pre cudzie meny
+  - Úprava názvu čerpacej stanice / predajcu
+
 ## [0.18.0] - 2026-01-21
 
 ### Pridané
