@@ -6,6 +6,7 @@
 	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification, ReceiptMismatchReason } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
+	import ReceiptEditModal from '$lib/components/ReceiptEditModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
@@ -29,6 +30,7 @@
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let typeFilter = $state<'all' | 'fuel' | 'other'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
+	let receiptToEdit = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let receiptToAssign = $state<Receipt | null>(null);
 	let verification = $state<VerificationResult | null>(null);
@@ -309,6 +311,50 @@
 		}
 	}
 
+	function handleEditClick(receipt: Receipt) {
+		receiptToEdit = receipt;
+	}
+
+	async function handleSaveReceipt(data: {
+		receiptDate: string | null;
+		liters: number | null;
+		originalAmount: number | null;
+		originalCurrency: import('$lib/types').ReceiptCurrency | null;
+		totalPriceEur: number | null;
+		stationName: string | null;
+		vendorName: string | null;
+		costDescription: string | null;
+	}) {
+		if (!receiptToEdit) return;
+
+		try {
+			// Build updated receipt object
+			const updatedReceipt: Receipt = {
+				...receiptToEdit,
+				receiptDate: data.receiptDate,
+				liters: data.liters,
+				originalAmount: data.originalAmount,
+				originalCurrency: data.originalCurrency,
+				totalPriceEur: data.totalPriceEur,
+				stationName: data.stationName,
+				vendorName: data.vendorName,
+				costDescription: data.costDescription,
+				// Clear NeedsReview if we now have EUR value
+				status: data.totalPriceEur != null && receiptToEdit.status === 'NeedsReview'
+					? 'Parsed'
+					: receiptToEdit.status,
+			};
+
+			await api.updateReceipt(updatedReceipt);
+			await refreshReceiptData();
+			receiptToEdit = null;
+			toast.success($LL.toast.receiptUpdated());
+		} catch (error) {
+			console.error('Failed to update receipt:', error);
+			toast.error($LL.toast.errorAssignReceipt({ error: String(error) }));
+		}
+	}
+
 	// Helper to check if receipt is verified (matched to a trip)
 	function isReceiptVerified(receiptId: string): boolean {
 		const verif = verification?.receipts.find(v => v.receiptId === receiptId);
@@ -318,6 +364,36 @@
 	// Helper to check if receipt is fuel or other cost
 	function isFuelReceipt(receipt: Receipt): boolean {
 		return receipt.liters !== null;
+	}
+
+	// Helper to check if receipt has foreign currency (needs EUR conversion)
+	function isForeignCurrency(receipt: Receipt): boolean {
+		return receipt.originalCurrency != null && receipt.originalCurrency !== 'EUR';
+	}
+
+	// Helper to check if foreign currency receipt has been converted
+	function hasEurConversion(receipt: Receipt): boolean {
+		return isForeignCurrency(receipt) && receipt.totalPriceEur != null;
+	}
+
+	// Helper to format price display based on currency
+	function formatPriceDisplay(receipt: Receipt): string {
+		if (isForeignCurrency(receipt)) {
+			// Foreign currency receipt
+			const originalPart = receipt.originalAmount != null
+				? `${receipt.originalAmount.toFixed(2)} ${receipt.originalCurrency}`
+				: `?? ${receipt.originalCurrency}`;
+			if (receipt.totalPriceEur != null) {
+				// Has EUR conversion
+				return `${originalPart} → ${receipt.totalPriceEur.toFixed(2)} €`;
+			} else {
+				// Needs conversion
+				return `${originalPart} → ⚠️`;
+			}
+		} else {
+			// EUR or no currency specified
+			return receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??';
+		}
 	}
 
 	// Helper to format mismatch reason for display
@@ -519,8 +595,12 @@
 							<div class="detail-row">
 								<span class="label">{$LL.receipts.price()}</span>
 								<span class="value-with-confidence">
-									<span class="value" class:uncertain={receipt.confidence.totalPrice === 'Low'}>
-										{receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??'}
+									<span
+										class="value"
+										class:uncertain={receipt.confidence.totalPrice === 'Low'}
+										class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+									>
+										{formatPriceDisplay(receipt)}
 									</span>
 									<span
 										class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
@@ -539,8 +619,12 @@
 							<div class="detail-row">
 								<span class="label">{$LL.receipts.price()}</span>
 								<span class="value-with-confidence">
-									<span class="value" class:uncertain={receipt.confidence.totalPrice === 'Low'}>
-										{receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??'}
+									<span
+										class="value"
+										class:uncertain={receipt.confidence.totalPrice === 'Low'}
+										class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+									>
+										{formatPriceDisplay(receipt)}
 									</span>
 									<span
 										class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
@@ -573,6 +657,9 @@
 					<div class="receipt-actions">
 						<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
 							{$LL.receipts.open()}
+						</button>
+						<button class="button-small" onclick={() => handleEditClick(receipt)}>
+							{$LL.common.edit()}
 						</button>
 						{#if !verif?.matched}
 							<button
@@ -610,6 +697,14 @@
 		receipt={receiptToAssign}
 		onSelect={handleAssignToTrip}
 		onClose={() => (receiptToAssign = null)}
+	/>
+{/if}
+
+{#if receiptToEdit}
+	<ReceiptEditModal
+		receipt={receiptToEdit}
+		onSave={handleSaveReceipt}
+		onClose={() => (receiptToEdit = null)}
 	/>
 {/if}
 
@@ -909,6 +1004,11 @@
 
 	.value.uncertain {
 		color: var(--accent-warning-dark);
+	}
+
+	.value.needs-conversion {
+		color: var(--accent-danger);
+		font-style: italic;
 	}
 
 	.confidence-dot {
