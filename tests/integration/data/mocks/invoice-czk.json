@@ -1,0 +1,18 @@
+{
+    "liters": null,
+    "total_price_eur": null,
+    "original_amount": 250.0,
+    "original_currency": "CZK",
+    "receipt_date": "2026-01-20",
+    "station_name": null,
+    "station_address": null,
+    "vendor_name": "Parkoviště Praha",
+    "cost_description": "Parkovné 2h",
+    "raw_text": "250 Kč",
+    "confidence": {
+        "liters": "not_applicable",
+        "total_price": "high",
+        "date": "high",
+        "currency": "high"
+    }
+}

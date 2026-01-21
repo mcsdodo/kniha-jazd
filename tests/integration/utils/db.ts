@@ -557,6 +557,17 @@ export async function setReceiptsFolderPath(folderPath: string): Promise<void> {
   await invokeTauri<void>('set_receipts_folder_path', { path: folderPath });
 }
 
+/**
+ * Update a receipt (for editing currency conversions, etc.)
+ */
+export async function updateReceipt(receipt: Receipt): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  await invokeTauri<void>('update_receipt', { receipt });
+}
+
 // =============================================================================
 // Legacy Compatibility (placeholder interfaces for existing code)
 // =============================================================================

@@ -21,7 +21,9 @@ import {
   getTripsForReceiptAssignment,
   setReceiptsFolderPath,
   syncReceipts,
+  updateReceipt,
 } from '../../utils/db';
+import type { Receipt } from '../../fixtures/types';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -324,6 +326,162 @@ describe('Tier 2: Receipts Workflow', () => {
       const body = await $('body');
       const pageText = await body.getText();
       expect(pageText).toBeDefined();
+    });
+  });
+
+  describe('Multi-Currency Receipts', () => {
+    /**
+     * Tests for multi-currency receipt support:
+     * - CZK receipt should have NeedsReview status (no EUR conversion)
+     * - After updating with EUR amount, status should change
+     * - EUR receipt should auto-populate total_price_eur
+     *
+     * Uses invoice-czk.pdf with mock data from invoice-czk.json:
+     * - original_amount: 250.0
+     * - original_currency: "CZK"
+     * - total_price_eur: null (needs conversion)
+     */
+    it('should create CZK receipt with NeedsReview status', async () => {
+      // 1. Seed vehicle
+      const vehicleData = createTestIceVehicle({
+        name: 'Multi-Currency Test Vehicle',
+        licensePlate: 'CURR-001',
+        initialOdometer: 400000,
+        tpConsumption: 7.0,
+        tankSizeLiters: 70,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      // 2. Set receipts folder to test invoices directory
+      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      await setReceiptsFolderPath(invoicesPath);
+
+      // 3. Sync receipts - this scans for files and processes them with mock Gemini
+      await syncReceipts();
+      await browser.pause(500);
+
+      // 4. Get receipts and find the CZK one
+      const receipts = await getReceipts(2026);
+      const czkReceipt = receipts.find(r => r.fileName === 'invoice-czk.pdf');
+
+      expect(czkReceipt).toBeDefined();
+      if (czkReceipt) {
+        // Verify CZK receipt properties
+        expect(czkReceipt.originalAmount).toBe(250.0);
+        expect(czkReceipt.originalCurrency).toBe('CZK');
+        expect(czkReceipt.totalPriceEur).toBeNull(); // Not converted yet
+        expect(czkReceipt.status).toBe('NeedsReview'); // Foreign currency needs review
+        expect(czkReceipt.vendorName).toBe('Parkoviště Praha');
+        expect(czkReceipt.costDescription).toBe('Parkovné 2h');
+      }
+    });
+
+    it('should update CZK receipt with EUR conversion', async () => {
+      // 1. Get existing receipts (from previous test or fresh sync)
+      const vehicleData = createTestIceVehicle({
+        name: 'Currency Conversion Test Vehicle',
+        licensePlate: 'CONV-001',
+        initialOdometer: 500000,
+        tpConsumption: 7.0,
+        tankSizeLiters: 70,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      // 2. Set receipts folder and sync
+      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      await setReceiptsFolderPath(invoicesPath);
+      await syncReceipts();
+      await browser.pause(500);
+
+      // 3. Get receipts and find CZK one
+      let receipts = await getReceipts(2026);
+      const czkReceipt = receipts.find(r => r.fileName === 'invoice-czk.pdf');
+
+      expect(czkReceipt).toBeDefined();
+      if (!czkReceipt) return;
+
+      // 4. Update receipt with EUR conversion (250 CZK ≈ 10 EUR)
+      const updatedReceipt: Receipt = {
+        ...czkReceipt,
+        totalPriceEur: 10.0, // Manual EUR conversion
+        status: 'Parsed', // Now it's properly parsed
+      };
+
+      await updateReceipt(updatedReceipt);
+      await browser.pause(300);
+
+      // 5. Verify the update
+      receipts = await getReceipts(2026);
+      const verifiedReceipt = receipts.find(r => r.id === czkReceipt.id);
+
+      expect(verifiedReceipt).toBeDefined();
+      if (verifiedReceipt) {
+        expect(verifiedReceipt.totalPriceEur).toBe(10.0);
+        expect(verifiedReceipt.originalAmount).toBe(250.0); // Original preserved
+        expect(verifiedReceipt.originalCurrency).toBe('CZK'); // Currency preserved
+        expect(verifiedReceipt.status).toBe('Parsed'); // Status updated
+      }
+    });
+
+    it('should auto-populate total_price_eur for EUR receipts', async () => {
+      // 1. Seed vehicle
+      const vehicleData = createTestIceVehicle({
+        name: 'EUR Receipt Test Vehicle',
+        licensePlate: 'EURR-001',
+        initialOdometer: 600000,
+        tpConsumption: 7.0,
+        tankSizeLiters: 70,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      // 2. Set receipts folder and sync
+      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      await setReceiptsFolderPath(invoicesPath);
+      await syncReceipts();
+      await browser.pause(500);
+
+      // 3. Get receipts and find EUR one (invoice.pdf)
+      const receipts = await getReceipts(2026);
+      const eurReceipt = receipts.find(r => r.fileName === 'invoice.pdf');
+
+      expect(eurReceipt).toBeDefined();
+      if (eurReceipt) {
+        // Verify EUR receipt auto-populated total_price_eur
+        expect(eurReceipt.originalAmount).toBe(91.32);
+        expect(eurReceipt.originalCurrency).toBe('EUR');
+        expect(eurReceipt.totalPriceEur).toBe(91.32); // Auto-populated from original_amount
+        expect(eurReceipt.status).toBe('Parsed'); // EUR receipts should be Parsed, not NeedsReview
+      }
     });
   });
 });
