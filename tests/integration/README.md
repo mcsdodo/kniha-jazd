@@ -4,13 +4,13 @@ Full end-to-end tests for the Tauri application using tauri-driver + WebdriverIO
 
 ## Test Suite Overview
 
-**Total: 61 tests across 4 tiers**
+**Total: 64 tests across 4 tiers**
 
 | Tier | Tests | Purpose | When Run |
 |------|-------|---------|----------|
 | existing | 10 | Original vehicle setup tests | Always |
 | tier1 | 29 | Critical flows: trips, consumption, export | PRs + main |
-| tier2 | 13 | Secondary: backups, receipts, settings | main only |
+| tier2 | 16 | Secondary: backups, receipts, settings, multi-currency | main only |
 | tier3 | 9 | Edge cases: compensation, validation, empty states | main only |
 
 ## Prerequisites
@@ -93,7 +93,9 @@ tests/integration/
 │   ├── tier2/            # Secondary features
 │   │   ├── vehicle-management.spec.ts
 │   │   ├── backup-restore.spec.ts
-│   │   ├── receipts.spec.ts
+│   │   ├── receipts.spec.ts          # + multi-currency (EUR, CZK, HUF, PLN)
+│   │   ├── receipt-settings.spec.ts
+│   │   ├── route-autocomplete.spec.ts
 │   │   └── settings.spec.ts
 │   └── tier3/            # Edge cases
 │       ├── compensation.spec.ts
