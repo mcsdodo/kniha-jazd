@@ -288,6 +288,16 @@ const en = {
 		processPending: 'Process pending ({count})',
 		processing: 'Processing...',
 		processingProgress: 'Processing {current}/{total}...',
+		// Currency support
+		currency: 'Currency',
+		currencyEur: 'EUR (Euro)',
+		currencyCzk: 'CZK (Czech koruna)',
+		currencyHuf: 'HUF (Hungarian forint)',
+		currencyPln: 'PLN (Polish złoty)',
+		originalAmount: 'Original amount:',
+		eurAmount: 'Amount in EUR:',
+		needsConversion: 'Needs conversion to EUR',
+		convertedFrom: '{amount} {currency} →',
 		// Config warning
 		notConfigured: 'Receipts feature is not configured.',
 		configurePrompt: 'Create a file named',
@@ -353,6 +363,24 @@ const en = {
 	},
 
 	// Trip selector modal
+	// Receipt edit modal
+	receiptEdit: {
+		title: 'Edit receipt',
+		date: 'Date',
+		liters: 'Liters',
+		amountSection: 'Amount',
+		originalAmount: 'Original amount',
+		currency: 'Currency',
+		eurAmount: 'Amount in EUR',
+		eurAmountRequired: 'EUR amount is required for foreign currency',
+		stationName: 'Gas station',
+		stationNamePlaceholder: 'e.g. Shell',
+		vendorName: 'Vendor',
+		vendorNamePlaceholder: 'e.g. Car Wash',
+		costDescription: 'Description',
+		costDescriptionPlaceholder: 'e.g. Car wash',
+	},
+
 	tripSelector: {
 		title: 'Assign receipt to trip',
 		noVehicleSelected: 'No vehicle selected',
@@ -381,6 +409,7 @@ const en = {
 		backupRestored: 'Backup restored successfully. The app will restart.',
 		backupDeleted: 'Backup deleted',
 		receiptDeleted: 'Receipt deleted',
+		receiptUpdated: 'Receipt updated',
 		receiptReprocessed: 'Receipt "{name}" reprocessed',
 		receiptAssigned: 'Receipt assigned to trip',
 		receiptsLoaded: 'Loaded {count} new receipts',

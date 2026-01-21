@@ -288,6 +288,16 @@ const sk = {
 		processPending: 'Spracovať čakajúce ({count:number})',
 		processing: 'Spracovávam...',
 		processingProgress: 'Spracovávam {current:number}/{total:number}...',
+		// Currency support
+		currency: 'Mena',
+		currencyEur: 'EUR (Euro)',
+		currencyCzk: 'CZK (Česká koruna)',
+		currencyHuf: 'HUF (Maďarský forint)',
+		currencyPln: 'PLN (Poľský zlotý)',
+		originalAmount: 'Pôvodná suma:',
+		eurAmount: 'Suma v EUR:',
+		needsConversion: 'Vyžaduje konverziu na EUR',
+		convertedFrom: '{amount:number} {currency:string} →',
 		// Config warning
 		notConfigured: 'Funkcia dokladov nie je nakonfigurovaná.',
 		configurePrompt: 'Vytvorte súbor s názvom',
@@ -352,6 +362,24 @@ const sk = {
 		noReceipts: 'Žiadne doklady. Kliknite na Načítať pre načítanie nových.',
 	},
 
+	// Receipt edit modal
+	receiptEdit: {
+		title: 'Upraviť doklad',
+		date: 'Dátum',
+		liters: 'Litre',
+		amountSection: 'Suma',
+		originalAmount: 'Pôvodná suma',
+		currency: 'Mena',
+		eurAmount: 'Suma v EUR',
+		eurAmountRequired: 'Pre cudziu menu je potrebné zadať sumu v EUR',
+		stationName: 'Čerpacia stanica',
+		stationNamePlaceholder: 'napr. Slovnaft',
+		vendorName: 'Predajca',
+		vendorNamePlaceholder: 'napr. AutoUmyváreň',
+		costDescription: 'Popis',
+		costDescriptionPlaceholder: 'napr. Umytie auta',
+	},
+
 	// Trip selector modal
 	tripSelector: {
 		title: 'Prideliť doklad k jazde',
@@ -381,6 +409,7 @@ const sk = {
 		backupRestored: 'Záloha bola úspešne obnovená. Aplikácia sa reštartuje.',
 		backupDeleted: 'Záloha bola odstránená',
 		receiptDeleted: 'Doklad bol odstránený',
+		receiptUpdated: 'Doklad bol aktualizovaný',
 		receiptReprocessed: 'Doklad "{name:string}" bol znovu spracovaný',
 		receiptAssigned: 'Doklad bol pridelený k jazde',
 		receiptsLoaded: 'Načítaných {count:number} nových dokladov',

@@ -904,6 +904,44 @@ type RootTranslation = {
 		 */
 		processingProgress: RequiredParams<'current' | 'total'>
 		/**
+		 * M​e​n​a
+		 */
+		currency: string
+		/**
+		 * E​U​R​ ​(​E​u​r​o​)
+		 */
+		currencyEur: string
+		/**
+		 * C​Z​K​ ​(​Č​e​s​k​á​ ​k​o​r​u​n​a​)
+		 */
+		currencyCzk: string
+		/**
+		 * H​U​F​ ​(​M​a​ď​a​r​s​k​ý​ ​f​o​r​i​n​t​)
+		 */
+		currencyHuf: string
+		/**
+		 * P​L​N​ ​(​P​o​ľ​s​k​ý​ ​z​l​o​t​ý​)
+		 */
+		currencyPln: string
+		/**
+		 * P​ô​v​o​d​n​á​ ​s​u​m​a​:
+		 */
+		originalAmount: string
+		/**
+		 * S​u​m​a​ ​v​ ​E​U​R​:
+		 */
+		eurAmount: string
+		/**
+		 * V​y​ž​a​d​u​j​e​ ​k​o​n​v​e​r​z​i​u​ ​n​a​ ​E​U​R
+		 */
+		needsConversion: string
+		/**
+		 * {​a​m​o​u​n​t​}​ ​{​c​u​r​r​e​n​c​y​}​ ​→
+		 * @param {number} amount
+		 * @param {string} currency
+		 */
+		convertedFrom: RequiredParams<'amount' | 'currency'>
+		/**
 		 * F​u​n​k​c​i​a​ ​d​o​k​l​a​d​o​v​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​á​.
 		 */
 		notConfigured: string
@@ -1113,6 +1151,64 @@ type RootTranslation = {
 		 */
 		noReceipts: string
 	}
+	receiptEdit: {
+		/**
+		 * U​p​r​a​v​i​ť​ ​d​o​k​l​a​d
+		 */
+		title: string
+		/**
+		 * D​á​t​u​m
+		 */
+		date: string
+		/**
+		 * L​i​t​r​e
+		 */
+		liters: string
+		/**
+		 * S​u​m​a
+		 */
+		amountSection: string
+		/**
+		 * P​ô​v​o​d​n​á​ ​s​u​m​a
+		 */
+		originalAmount: string
+		/**
+		 * M​e​n​a
+		 */
+		currency: string
+		/**
+		 * S​u​m​a​ ​v​ ​E​U​R
+		 */
+		eurAmount: string
+		/**
+		 * P​r​e​ ​c​u​d​z​i​u​ ​m​e​n​u​ ​j​e​ ​p​o​t​r​e​b​n​é​ ​z​a​d​a​ť​ ​s​u​m​u​ ​v​ ​E​U​R
+		 */
+		eurAmountRequired: string
+		/**
+		 * Č​e​r​p​a​c​i​a​ ​s​t​a​n​i​c​a
+		 */
+		stationName: string
+		/**
+		 * n​a​p​r​.​ ​S​l​o​v​n​a​f​t
+		 */
+		stationNamePlaceholder: string
+		/**
+		 * P​r​e​d​a​j​c​a
+		 */
+		vendorName: string
+		/**
+		 * n​a​p​r​.​ ​A​u​t​o​U​m​y​v​á​r​e​ň
+		 */
+		vendorNamePlaceholder: string
+		/**
+		 * P​o​p​i​s
+		 */
+		costDescription: string
+		/**
+		 * n​a​p​r​.​ ​U​m​y​t​i​e​ ​a​u​t​a
+		 */
+		costDescriptionPlaceholder: string
+	}
 	tripSelector: {
 		/**
 		 * P​r​i​d​e​l​i​ť​ ​d​o​k​l​a​d​ ​k​ ​j​a​z​d​e
@@ -1200,6 +1296,10 @@ type RootTranslation = {
 		 * D​o​k​l​a​d​ ​b​o​l​ ​o​d​s​t​r​á​n​e​n​ý
 		 */
 		receiptDeleted: string
+		/**
+		 * D​o​k​l​a​d​ ​b​o​l​ ​a​k​t​u​a​l​i​z​o​v​a​n​ý
+		 */
+		receiptUpdated: string
 		/**
 		 * D​o​k​l​a​d​ ​"​{​n​a​m​e​}​"​ ​b​o​l​ ​z​n​o​v​u​ ​s​p​r​a​c​o​v​a​n​ý
 		 * @param {string} name
@@ -2509,6 +2609,42 @@ export type TranslationFunctions = {
 		 */
 		processingProgress: (arg: { current: number, total: number }) => LocalizedString
 		/**
+		 * Mena
+		 */
+		currency: () => LocalizedString
+		/**
+		 * EUR (Euro)
+		 */
+		currencyEur: () => LocalizedString
+		/**
+		 * CZK (Česká koruna)
+		 */
+		currencyCzk: () => LocalizedString
+		/**
+		 * HUF (Maďarský forint)
+		 */
+		currencyHuf: () => LocalizedString
+		/**
+		 * PLN (Poľský zlotý)
+		 */
+		currencyPln: () => LocalizedString
+		/**
+		 * Pôvodná suma:
+		 */
+		originalAmount: () => LocalizedString
+		/**
+		 * Suma v EUR:
+		 */
+		eurAmount: () => LocalizedString
+		/**
+		 * Vyžaduje konverziu na EUR
+		 */
+		needsConversion: () => LocalizedString
+		/**
+		 * {amount} {currency} →
+		 */
+		convertedFrom: (arg: { amount: number, currency: string }) => LocalizedString
+		/**
 		 * Funkcia dokladov nie je nakonfigurovaná.
 		 */
 		notConfigured: () => LocalizedString
@@ -2705,6 +2841,64 @@ export type TranslationFunctions = {
 		 */
 		noReceipts: () => LocalizedString
 	}
+	receiptEdit: {
+		/**
+		 * Upraviť doklad
+		 */
+		title: () => LocalizedString
+		/**
+		 * Dátum
+		 */
+		date: () => LocalizedString
+		/**
+		 * Litre
+		 */
+		liters: () => LocalizedString
+		/**
+		 * Suma
+		 */
+		amountSection: () => LocalizedString
+		/**
+		 * Pôvodná suma
+		 */
+		originalAmount: () => LocalizedString
+		/**
+		 * Mena
+		 */
+		currency: () => LocalizedString
+		/**
+		 * Suma v EUR
+		 */
+		eurAmount: () => LocalizedString
+		/**
+		 * Pre cudziu menu je potrebné zadať sumu v EUR
+		 */
+		eurAmountRequired: () => LocalizedString
+		/**
+		 * Čerpacia stanica
+		 */
+		stationName: () => LocalizedString
+		/**
+		 * napr. Slovnaft
+		 */
+		stationNamePlaceholder: () => LocalizedString
+		/**
+		 * Predajca
+		 */
+		vendorName: () => LocalizedString
+		/**
+		 * napr. AutoUmyváreň
+		 */
+		vendorNamePlaceholder: () => LocalizedString
+		/**
+		 * Popis
+		 */
+		costDescription: () => LocalizedString
+		/**
+		 * napr. Umytie auta
+		 */
+		costDescriptionPlaceholder: () => LocalizedString
+	}
 	tripSelector: {
 		/**
 		 * Prideliť doklad k jazde
@@ -2792,6 +2986,10 @@ export type TranslationFunctions = {
 		 * Doklad bol odstránený
 		 */
 		receiptDeleted: () => LocalizedString
+		/**
+		 * Doklad bol aktualizovaný
+		 */
+		receiptUpdated: () => LocalizedString
 		/**
 		 * Doklad "{name}" bol znovu spracovaný
 		 */

@@ -126,6 +126,9 @@ export interface FieldConfidence {
 	date: ConfidenceLevel;
 }
 
+// Currency codes supported for multi-currency receipts
+export type ReceiptCurrency = 'EUR' | 'CZK' | 'HUF' | 'PLN';
+
 export interface Receipt {
 	id: string;
 	vehicleId: string | null;
@@ -134,13 +137,16 @@ export interface Receipt {
 	fileName: string;
 	scannedAt: string;
 	liters: number | null;
-	totalPriceEur: number | null;
+	totalPriceEur: number | null; // EUR value for matching + accounting (null for unconverted foreign currency)
 	receiptDate: string | null;
 	stationName: string | null;
 	stationAddress: string | null;
 	sourceYear: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)
 	vendorName: string | null; // Vendor/store name for non-fuel receipts
 	costDescription: string | null; // Description of cost for non-fuel receipts
+	// Multi-currency support
+	originalAmount: number | null; // Raw amount from OCR (in original currency)
+	originalCurrency: ReceiptCurrency | null; // Currency code: EUR, CZK, HUF, PLN
 	status: ReceiptStatus;
 	confidence: FieldConfidence;
 	rawOcrText: string | null;
