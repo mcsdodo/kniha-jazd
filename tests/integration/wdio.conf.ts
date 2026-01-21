@@ -198,9 +198,14 @@ export const config: any = {
 
     // Start tauri-driver
     const tauriDriverPath = process.platform === 'win32' ? 'tauri-driver.exe' : 'tauri-driver';
+    const mockGeminiDir = join(__dirname, 'data', 'mocks');
     tauriDriver = spawn(tauriDriverPath, nativeDriverArg, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, KNIHA_JAZD_DATA_DIR: testDataDir }
+      env: {
+        ...process.env,
+        KNIHA_JAZD_DATA_DIR: testDataDir,
+        KNIHA_JAZD_MOCK_GEMINI_DIR: mockGeminiDir,
+      }
     });
 
     tauriDriver.stdout?.on('data', (data) => {
