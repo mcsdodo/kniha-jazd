@@ -251,11 +251,13 @@ fn test_scan_invalid_structure_returns_error() {
 // ===========================================
 
 #[test]
-fn test_apply_extraction_high_confidence() {
+fn test_apply_extraction_high_confidence_eur() {
     let mut receipt = Receipt::new("test.jpg".to_string(), "test.jpg".to_string());
     let extracted = ExtractedReceipt {
         liters: Some(45.5),
-        total_price_eur: Some(72.50),
+        total_price_eur: None, // Not used directly anymore
+        original_amount: Some(72.50),
+        original_currency: Some("EUR".to_string()),
         receipt_date: Some("2024-12-15".to_string()),
         station_name: Some("Slovnaft".to_string()),
         station_address: Some("Bratislava".to_string()),
@@ -266,13 +268,16 @@ fn test_apply_extraction_high_confidence() {
             liters: "high".to_string(),
             total_price: "high".to_string(),
             date: "high".to_string(),
+            currency: "high".to_string(),
         },
     };
 
     apply_extraction_to_receipt(&mut receipt, extracted);
 
     assert_eq!(receipt.liters, Some(45.5));
-    assert_eq!(receipt.total_price_eur, Some(72.50));
+    assert_eq!(receipt.original_amount, Some(72.50));
+    assert_eq!(receipt.original_currency, Some("EUR".to_string()));
+    assert_eq!(receipt.total_price_eur, Some(72.50)); // Auto-populated from EUR
     assert_eq!(receipt.status, ReceiptStatus::Parsed);
     assert_eq!(receipt.confidence.liters, ConfidenceLevel::High);
     assert_eq!(receipt.confidence.total_price, ConfidenceLevel::High);
@@ -280,11 +285,44 @@ fn test_apply_extraction_high_confidence() {
 }
 
 #[test]
+fn test_apply_extraction_foreign_currency_needs_review() {
+    // CZK receipt should set status to NeedsReview
+    let mut receipt = Receipt::new("test.jpg".to_string(), "test.jpg".to_string());
+    let extracted = ExtractedReceipt {
+        liters: None,
+        total_price_eur: None,
+        original_amount: Some(100.0),
+        original_currency: Some("CZK".to_string()),
+        receipt_date: Some("2024-12-15".to_string()),
+        station_name: None,
+        station_address: None,
+        vendor_name: Some("Parking Praha".to_string()),
+        cost_description: Some("Parkovne".to_string()),
+        raw_text: Some("100 Kč".to_string()),
+        confidence: ExtractionConfidence {
+            liters: "not_applicable".to_string(),
+            total_price: "high".to_string(),
+            date: "high".to_string(),
+            currency: "high".to_string(),
+        },
+    };
+
+    apply_extraction_to_receipt(&mut receipt, extracted);
+
+    assert_eq!(receipt.original_amount, Some(100.0));
+    assert_eq!(receipt.original_currency, Some("CZK".to_string()));
+    assert!(receipt.total_price_eur.is_none()); // Not set for foreign currency
+    assert_eq!(receipt.status, ReceiptStatus::NeedsReview); // Needs user conversion
+}
+
+#[test]
 fn test_apply_extraction_low_confidence() {
     let mut receipt = Receipt::new("test.jpg".to_string(), "test.jpg".to_string());
     let extracted = ExtractedReceipt {
         liters: None,
-        total_price_eur: Some(50.00),
+        total_price_eur: Some(50.00), // Legacy fallback
+        original_amount: Some(50.00),
+        original_currency: None, // Unknown currency
         receipt_date: None,
         station_name: None,
         station_address: None,
@@ -295,6 +333,7 @@ fn test_apply_extraction_low_confidence() {
             liters: "low".to_string(),
             total_price: "medium".to_string(),
             date: "low".to_string(),
+            currency: "low".to_string(),
         },
     };
 

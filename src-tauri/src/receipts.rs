@@ -234,12 +234,25 @@ fn parse_confidence(s: &str) -> ConfidenceLevel {
 
 fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceipt) {
     receipt.liters = extracted.liters;
-    receipt.total_price_eur = extracted.total_price_eur;
     receipt.receipt_date = extracted.receipt_date
         .and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok());
     receipt.station_name = extracted.station_name;
     receipt.station_address = extracted.station_address;
+    receipt.vendor_name = extracted.vendor_name;
+    receipt.cost_description = extracted.cost_description;
     receipt.raw_ocr_text = extracted.raw_text;
+
+    // Multi-currency support: store original amount and currency
+    receipt.original_amount = extracted.original_amount;
+    receipt.original_currency = extracted.original_currency.clone();
+
+    // EUR receipts: auto-populate total_price_eur
+    // Foreign currency: leave total_price_eur as None (user must convert)
+    receipt.total_price_eur = match extracted.original_currency.as_deref() {
+        Some("EUR") => extracted.original_amount,
+        Some(_) => None,  // Foreign currency: user must convert manually
+        None => extracted.total_price_eur,  // Backward compatibility: use legacy field if no currency
+    };
 
     // Map confidence from API response to typed struct
     receipt.confidence = FieldConfidence {
@@ -249,13 +262,20 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
     };
 
     // Determine status based on confidence and data presence
+    // Foreign currency receipts need review (user must convert to EUR)
+    let is_foreign_currency = matches!(
+        extracted.original_currency.as_deref(),
+        Some("CZK") | Some("HUF") | Some("PLN")
+    );
+
     let has_uncertainty =
         matches!(receipt.confidence.liters, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
         || matches!(receipt.confidence.total_price, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
         || matches!(receipt.confidence.date, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
-        || receipt.liters.is_none()
-        || receipt.total_price_eur.is_none()
-        || receipt.receipt_date.is_none();
+        || (receipt.liters.is_none() && receipt.vendor_name.is_none()) // Neither fuel nor other cost
+        || receipt.original_amount.is_none()
+        || receipt.receipt_date.is_none()
+        || is_foreign_currency;  // Foreign currency needs user conversion
 
     if has_uncertainty {
         receipt.status = ReceiptStatus::NeedsReview;

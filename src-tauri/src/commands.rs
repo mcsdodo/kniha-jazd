@@ -3277,6 +3277,8 @@ mod tests {
             station_address: None,
             vendor_name: None,
             cost_description: None,
+            original_amount: price,
+            original_currency: Some("EUR".to_string()),
             source_year: None,
             status: ReceiptStatus::Parsed,
             confidence: FieldConfidence {
@@ -4423,6 +4425,8 @@ mod tests {
             station_address: None,
             vendor_name: vendor_name.map(|s| s.to_string()),
             cost_description: cost_description.map(|s| s.to_string()),
+            original_amount: price,
+            original_currency: Some("EUR".to_string()),
             source_year: None,
             status: ReceiptStatus::Parsed,
             confidence: FieldConfidence {

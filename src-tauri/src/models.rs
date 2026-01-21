@@ -393,6 +393,12 @@ pub struct Receipt {
     pub vendor_name: Option<String>,      // Shop/service provider name (e.g., "OMV", "AutoWash Express")
     pub cost_description: Option<String>, // Brief expense description (e.g., "Umytie auta", "Parkovanie 2h")
 
+    // Multi-currency support: original OCR amount + currency (EUR, CZK, HUF, PLN)
+    // - EUR receipts: original_amount copied to total_price_eur
+    // - Foreign currency: user must manually convert to total_price_eur
+    pub original_amount: Option<f64>,
+    pub original_currency: Option<String>,
+
     // Year folder support: which year folder the receipt came from (e.g., 2024 from "2024/" folder)
     // None = flat folder structure, Some(year) = from year subfolder
     pub source_year: Option<i32>,
@@ -434,6 +440,8 @@ impl Receipt {
             station_address: None,
             vendor_name: None,
             cost_description: None,
+            original_amount: None,
+            original_currency: None,
             source_year,
             status: ReceiptStatus::Pending,
             confidence: FieldConfidence::default(),
@@ -704,6 +712,9 @@ pub struct ReceiptRow {
     pub updated_at: String,
     pub vendor_name: Option<String>,
     pub cost_description: Option<String>,
+    // Multi-currency support (migration 2026-01-21-100000)
+    pub original_amount: Option<f64>,
+    pub original_currency: Option<String>,
 }
 
 /// For inserting new receipts
@@ -730,6 +741,9 @@ pub struct NewReceiptRow<'a> {
     pub updated_at: &'a str,
     pub vendor_name: Option<&'a str>,
     pub cost_description: Option<&'a str>,
+    // Multi-currency support (migration 2026-01-21-100000)
+    pub original_amount: Option<f64>,
+    pub original_currency: Option<&'a str>,
 }
 
 // =============================================================================
@@ -857,6 +871,8 @@ impl From<ReceiptRow> for Receipt {
             station_address: row.station_address,
             vendor_name: row.vendor_name,
             cost_description: row.cost_description,
+            original_amount: row.original_amount,
+            original_currency: row.original_currency,
             source_year: row.source_year,
             status,
             confidence,
