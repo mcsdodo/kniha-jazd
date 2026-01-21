@@ -1066,6 +1066,7 @@ fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, boo
 
 /// Check if any closed fill-up period exceeds the legal consumption limit.
 /// Returns true if ANY period's consumption rate is > 120% of TP.
+#[cfg(test)]
 fn has_any_period_over_limit(trips: &[Trip], tp_consumption: f64) -> bool {
     let (_, _, is_over) = get_worst_period_stats(trips, tp_consumption);
     is_over
