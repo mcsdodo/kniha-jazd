@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Zobrazenie istoty OCR pre staršie doklady** - oprava "Neznáma istota" pre doklady z roku 2025 a skôr
+  - Migrácia existujúcich dokladov na správny formát JSON
+  - Doklady teraz správne zobrazujú pôvodnú istotu (Vysoká/Stredná/Nízka)
+
 ## [0.19.0] - 2026-01-21
 
 ### Pridané
