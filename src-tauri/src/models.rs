@@ -367,6 +367,7 @@ pub enum ConfidenceLevel {
 #[serde(rename_all = "camelCase")]
 pub struct FieldConfidence {
     pub liters: ConfidenceLevel,
+    #[serde(alias = "total_price")] // Accept legacy snake_case from old DB records
     pub total_price: ConfidenceLevel,
     pub date: ConfidenceLevel,
 }
@@ -917,5 +918,46 @@ impl Receipt {
     /// Convert confidence to JSON string
     pub fn confidence_to_json(&self) -> String {
         serde_json::to_string(&self.confidence).unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_confidence_parses_camelcase() {
+        // New format with camelCase (post-migration and new receipts)
+        let json = r#"{"liters":"High","totalPrice":"Medium","date":"Low"}"#;
+        let confidence: FieldConfidence = serde_json::from_str(json).unwrap();
+
+        assert_eq!(confidence.liters, ConfidenceLevel::High);
+        assert_eq!(confidence.total_price, ConfidenceLevel::Medium);
+        assert_eq!(confidence.date, ConfidenceLevel::Low);
+    }
+
+    #[test]
+    fn test_confidence_parses_legacy_snake_case() {
+        // Legacy format with snake_case (pre-migration records)
+        let json = r#"{"liters":"High","total_price":"Medium","date":"Low"}"#;
+        let confidence: FieldConfidence = serde_json::from_str(json).unwrap();
+
+        assert_eq!(confidence.liters, ConfidenceLevel::High);
+        assert_eq!(confidence.total_price, ConfidenceLevel::Medium);
+        assert_eq!(confidence.date, ConfidenceLevel::Low);
+    }
+
+    #[test]
+    fn test_confidence_serializes_to_camelcase() {
+        // Ensure new records are saved with camelCase
+        let confidence = FieldConfidence {
+            liters: ConfidenceLevel::High,
+            total_price: ConfidenceLevel::Medium,
+            date: ConfidenceLevel::Low,
+        };
+        let json = serde_json::to_string(&confidence).unwrap();
+
+        assert!(json.contains("totalPrice")); // camelCase
+        assert!(!json.contains("total_price")); // NOT snake_case
     }
 }
