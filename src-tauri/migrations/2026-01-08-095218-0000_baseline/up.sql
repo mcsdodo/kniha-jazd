@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     station_address TEXT,
     source_year INTEGER,
     status TEXT NOT NULL DEFAULT 'Pending',
-    confidence TEXT NOT NULL DEFAULT '{"liters":"Unknown","total_price":"Unknown","date":"Unknown"}',
+    confidence TEXT NOT NULL DEFAULT '{"liters":"Unknown","totalPrice":"Unknown","date":"Unknown"}',
     raw_ocr_text TEXT,
     error_message TEXT,
     created_at TEXT NOT NULL,
