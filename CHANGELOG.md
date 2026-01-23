@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Priradenie dokladu s inou cenou k jazde** - oprava chyby kedy priradenie dokladu (napr. diaľničná známka) prepísalo uložené other_costs späť na null
+
 ## [0.19.1] - 2026-01-22
 
 ### Opravené
