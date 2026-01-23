@@ -274,34 +274,8 @@
 		if (!receiptToAssign || !$activeVehicleStore) return;
 
 		try {
-			// Assign receipt to trip
+			// Backend handles all logic: links receipt, sets other_costs or fuel fields as appropriate
 			await api.assignReceiptToTrip(receiptToAssign.id, trip.id, $activeVehicleStore.id);
-
-			// Update trip with fuel data from receipt if available
-			if (receiptToAssign.liters != null || receiptToAssign.totalPriceEur != null) {
-				await api.updateTrip(
-					trip.id,
-					trip.date,
-					trip.origin,
-					trip.destination,
-					trip.distanceKm,
-					trip.odometer,
-					trip.purpose,
-					// Fuel fields - default to full tank when assigning receipt
-					receiptToAssign.liters,
-					receiptToAssign.totalPriceEur,
-					trip.fullTank ?? true,
-					// Energy fields (not from receipts)
-					trip.energyKwh,
-					trip.energyCostEur,
-					trip.fullCharge,
-					trip.socOverridePercent,
-					// Other
-					trip.otherCostsEur,
-					trip.otherCostsNote
-				);
-			}
-
 			await refreshReceiptData();
 			receiptToAssign = null;
 			toast.success($LL.toast.receiptAssigned());
