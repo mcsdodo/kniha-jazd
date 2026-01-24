@@ -140,6 +140,7 @@ const sk = {
 		moveDown: 'Presunúť dole',
 		insertAbove: 'Vložiť záznam nad',
 		deleteRecord: 'Odstrániť záznam',
+		magicFill: 'Automatické doplnenie',
 		// Checkbox
 		fullTank: 'Plná',
 		fullCharge: 'Plné nabitie',

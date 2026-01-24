@@ -70,6 +70,15 @@ export async function getTripGridData(vehicleId: string, year: number): Promise<
 	return await invoke('get_trip_grid_data', { vehicleId, year });
 }
 
+export async function calculateMagicFillLiters(
+	vehicleId: string,
+	year: number,
+	currentTripKm: number,
+	editingTripId?: string | null
+): Promise<number> {
+	return await invoke('calculate_magic_fill_liters', { vehicleId, year, currentTripKm, editingTripId });
+}
+
 export async function createTrip(
 	vehicleId: string,
 	date: string,

@@ -24,6 +24,7 @@
     --accent-primary-hover: #2980b9;
     --accent-success: #27ae60;
     --accent-success-hover: #219653;
+    --accent-success-bg: #e8f8e8;
     --accent-warning: #d39e00;
     --accent-danger: #c0392b;
     --accent-danger-bg: #fee;
@@ -112,6 +113,7 @@
     --accent-primary-hover: #3498db;
     --accent-success: #58d68d;
     --accent-success-hover: #27ae60;
+    --accent-success-bg: #1e3d1e;
     --accent-warning: #f4d03f;
     --accent-danger: #ec7063;
     --accent-danger-bg: #3d2020;

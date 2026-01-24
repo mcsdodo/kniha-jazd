@@ -37,6 +37,8 @@
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
+	// Magic fill callback - returns suggested liters (tripId is null for new trips)
+	export let onMagicFill: (km: number, tripId: string | null) => Promise<number> = async () => 0;
 
 	// Derived: show fuel/energy fields based on vehicle type
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -157,6 +159,21 @@
 		onEditStart();
 		// Trigger preview immediately with current values
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
+	}
+
+	async function handleMagicFill() {
+		const currentKm = formData.distanceKm ?? 0;
+		if (currentKm <= 0) return;
+
+		// Pass trip ID for existing trips (to avoid double-counting km)
+		const tripId = trip?.id ?? null;
+		const suggestedLiters = await onMagicFill(currentKm, tripId);
+		if (suggestedLiters > 0) {
+			formData.fuelLiters = suggestedLiters;
+			formData.fullTank = true;
+			// Trigger preview with new fuel value
+			onPreviewRequest(currentKm, suggestedLiters, true);
+		}
 	}
 
 	function handleSave() {
@@ -397,9 +414,23 @@
 				data-testid="trip-other-costs-note"
 			/>
 		</td>
-		<td class="actions">
-			<button class="save" on:click={handleSave}>{$LL.common.save()}</button>
-			<button class="cancel" on:click={handleCancel}>{$LL.common.cancel()}</button>
+		<td class="actions editing-actions">
+			<button class="icon-btn magic" on:click={handleMagicFill} title={$LL.trips.magicFill()}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path>
+				</svg>
+			</button>
+			<button class="icon-btn save" on:click={handleSave} title={$LL.common.save()}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<polyline points="20 6 9 17 4 12"></polyline>
+				</svg>
+			</button>
+			<button class="icon-btn cancel" on:click={handleCancel} title={$LL.common.cancel()}>
+				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<line x1="18" y1="6" x2="6" y2="18"></line>
+					<line x1="6" y1="6" x2="18" y2="18"></line>
+				</svg>
+			</button>
 		</td>
 	</tr>
 {:else if trip}
@@ -616,31 +647,11 @@
 		margin: 0 0.25rem;
 	}
 
-	.save {
-		background-color: var(--btn-active-success-bg);
-		color: var(--btn-active-success-color);
-	}
-
-	.save:hover {
-		background-color: var(--btn-active-success-hover);
-	}
-
-	.cancel {
-		background-color: var(--btn-secondary-bg);
-		color: var(--text-primary);
-	}
-
-	.cancel:hover {
-		background-color: var(--btn-secondary-hover);
-	}
-
-	.delete {
-		background-color: var(--btn-active-danger-bg);
-		color: var(--btn-active-danger-color);
-	}
-
-	.delete:hover {
-		background-color: var(--btn-active-danger-hover);
+	.editing-actions {
+		display: flex;
+		gap: 0.25rem;
+		justify-content: center;
+		align-items: center;
 	}
 
 	.icon-actions {
@@ -675,6 +686,19 @@
 	.icon-btn.delete:hover {
 		color: var(--accent-danger);
 		background-color: var(--accent-danger-bg);
+	}
+
+	.icon-btn.save:hover {
+		color: var(--accent-success);
+		background-color: var(--accent-success-bg);
+	}
+
+	.icon-btn.cancel:hover {
+		color: var(--accent-warning);
+	}
+
+	.icon-btn.magic:hover {
+		color: var(--accent-primary);
 	}
 
 	.icon-btn.move-up:hover:not(:disabled),

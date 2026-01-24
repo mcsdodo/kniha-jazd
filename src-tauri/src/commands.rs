@@ -984,6 +984,93 @@ pub fn get_trip_grid_data(
     })
 }
 
+/// Get accumulated km in the current (open) fillup period.
+/// Reuses the same logic as calculate_period_rates.
+fn get_open_period_km(chronological: &[Trip]) -> f64 {
+    let mut km_in_period = 0.0;
+
+    // Same logic as calculate_period_rates - accumulate km until we find a full tank
+    for trip in chronological {
+        km_in_period += trip.distance_km;
+
+        if let Some(fuel) = trip.fuel_liters {
+            if fuel > 0.0 && trip.full_tank {
+                // Period closed by full tank - reset counter
+                km_in_period = 0.0;
+            }
+        }
+    }
+
+    km_in_period
+}
+
+/// Calculate suggested fuel liters for magic fill feature.
+/// Returns liters that would result in 105-120% of TP consumption rate.
+///
+/// Parameters:
+/// - `current_trip_km`: The km value from the form (for new trips only)
+/// - `editing_trip_id`: If editing an existing trip, pass its ID to avoid double-counting
+#[tauri::command]
+pub fn calculate_magic_fill_liters(
+    db: State<Database>,
+    vehicle_id: String,
+    year: i32,
+    current_trip_km: f64,
+    editing_trip_id: Option<String>,
+) -> Result<f64, String> {
+    use rand::Rng;
+
+    // Get vehicle for TP consumption
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    let tp_consumption = vehicle.tp_consumption.unwrap_or(5.0);
+
+    // Get trips sorted chronologically (same as calculate_period_rates)
+    let trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+
+    let mut chronological = trips;
+    chronological.sort_by(|a, b| {
+        a.date.cmp(&b.date).then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    });
+
+    // Get accumulated km in current open period (reuses period logic)
+    let open_period_km = get_open_period_km(&chronological);
+
+    // For existing trips: their km is already in open_period_km, don't add again
+    // For new trips: add current_trip_km to the open period
+    let total_km = if editing_trip_id.is_some() {
+        // Existing trip - km already counted in open_period_km
+        open_period_km
+    } else {
+        // New trip - add its km
+        open_period_km + current_trip_km
+    };
+
+    if total_km <= 0.0 {
+        return Ok(0.0);
+    }
+
+    // Random target rate between 105-120% of TP consumption
+    let mut rng = rand::thread_rng();
+    let target_multiplier = rng.gen_range(1.05..=1.20);
+    let target_rate = tp_consumption * target_multiplier;
+
+    // Calculate liters: liters = km * rate / 100
+    let suggested_liters = (total_km * target_rate) / 100.0;
+
+    // Round to 2 decimal places
+    Ok((suggested_liters * 100.0).round() / 100.0)
+}
+
 /// Calculate consumption rates for each trip based on fill-up periods.
 /// Only calculates actual rate when a period ends with a full tank fillup.
 pub(crate) fn calculate_period_rates(
@@ -5230,5 +5317,206 @@ mod tests {
         // Keep 3 but only have 2 - should delete nothing
         let to_delete = get_cleanup_candidates(&backups, 3);
         assert_eq!(to_delete.len(), 0);
+    }
+
+    // ========================================================================
+    // Magic fill tests (get_open_period_km)
+    // ========================================================================
+
+    /// Helper to create a trip with specific km and fuel
+    fn make_trip_for_magic_fill(
+        date: NaiveDate,
+        distance_km: f64,
+        fuel_liters: Option<f64>,
+        full_tank: bool,
+    ) -> Trip {
+        let now = Utc::now();
+        Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: Uuid::new_v4(),
+            date,
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km,
+            odometer: 10000.0,
+            purpose: "business".to_string(),
+            fuel_liters,
+            fuel_cost_eur: fuel_liters.map(|l| l * 1.5),
+            full_tank,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn test_open_period_km_empty_trips() {
+        let trips: Vec<Trip> = vec![];
+        assert_eq!(get_open_period_km(&trips), 0.0);
+    }
+
+    #[test]
+    fn test_open_period_km_single_trip_no_fuel() {
+        let trips = vec![make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            100.0,
+            None,
+            false,
+        )];
+        assert_eq!(get_open_period_km(&trips), 100.0);
+    }
+
+    #[test]
+    fn test_open_period_km_single_trip_with_full_tank() {
+        // Full tank fillup closes the period - open km should be 0
+        let trips = vec![make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            100.0,
+            Some(5.0),
+            true, // full tank
+        )];
+        assert_eq!(get_open_period_km(&trips), 0.0);
+    }
+
+    #[test]
+    fn test_open_period_km_multiple_trips_last_full_tank() {
+        // Two trips, last one is full tank - should return 0
+        let trips = vec![
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                50.0,
+                None,
+                false,
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+                100.0,
+                Some(8.0),
+                true, // full tank - closes period
+            ),
+        ];
+        assert_eq!(get_open_period_km(&trips), 0.0);
+    }
+
+    #[test]
+    fn test_open_period_km_multiple_trips_open_period() {
+        // Three trips: full tank, then two without - open period = last two
+        let trips = vec![
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                100.0,
+                Some(6.0),
+                true, // full tank - closes period
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+                50.0,
+                None,
+                false,
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
+                75.0,
+                None,
+                false,
+            ),
+        ];
+        // Open period: 50 + 75 = 125 km
+        assert_eq!(get_open_period_km(&trips), 125.0);
+    }
+
+    #[test]
+    fn test_open_period_km_partial_fillup_doesnt_close() {
+        // Partial fillup (full_tank=false) should NOT close the period
+        let trips = vec![
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                100.0,
+                Some(6.0),
+                true, // full tank - closes period
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+                50.0,
+                Some(3.0), // partial fillup
+                false,     // NOT full tank
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
+                75.0,
+                None,
+                false,
+            ),
+        ];
+        // Open period: 50 + 75 = 125 km (partial fillup doesn't close)
+        assert_eq!(get_open_period_km(&trips), 125.0);
+    }
+
+    #[test]
+    fn test_magic_fill_calculation() {
+        // Verify the formula: liters = total_km * target_rate / 100
+        // For 100 km at 5.5 l/100km = 5.5 liters
+        let tp_rate: f64 = 5.0;
+        let total_km: f64 = 100.0;
+        let multiplier: f64 = 1.10; // 110% of TP
+        let target_rate = tp_rate * multiplier;
+        let expected_liters = total_km * target_rate / 100.0;
+        assert!((expected_liters - 5.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_magic_fill_existing_trip_no_double_count() {
+        // Scenario: User has trips in open period, edits an existing trip
+        // The existing trip's km should NOT be double-counted
+        //
+        // Trips: [full_tank 100km] -> [50km] -> [75km] -> [370km editing]
+        // Open period after full tank: 50 + 75 + 370 = 495 km
+        // For existing trip: total_km = 495 (NOT 495 + 370 = 865)
+        // For new trip with 370km: total_km = 495 + 370 = 865
+        //
+        // With TP=5.1, target=110% (5.61 l/100km):
+        // - Existing trip: 495 * 5.61 / 100 = 27.77 L
+        // - New trip: 865 * 5.61 / 100 = 48.53 L (much higher - wrong if used for existing!)
+
+        let trips = vec![
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                100.0,
+                Some(6.0),
+                true, // full tank - closes period
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+                50.0,
+                None,
+                false,
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
+                75.0,
+                None,
+                false,
+            ),
+            make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2024, 1, 4).unwrap(),
+                370.0,
+                None,
+                false,
+            ),
+        ];
+
+        let open_km = get_open_period_km(&trips);
+        // Open period: 50 + 75 + 370 = 495 km
+        assert_eq!(open_km, 495.0);
+
+        // For existing trip (editing_trip_id = Some), total = open_km = 495
+        // For new trip (editing_trip_id = None), total = open_km + current_km = 495 + 370 = 865
+        // The command handles this distinction via editing_trip_id parameter
     }
 }

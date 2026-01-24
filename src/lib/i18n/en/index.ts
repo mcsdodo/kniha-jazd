@@ -140,6 +140,7 @@ const en = {
 		moveDown: 'Move down',
 		insertAbove: 'Insert record above',
 		deleteRecord: 'Delete record',
+		magicFill: 'Auto-fill',
 		// Checkbox
 		fullTank: 'Full',
 		fullCharge: 'Full charge',

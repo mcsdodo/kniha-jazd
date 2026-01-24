@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Trip, Route, TripGridData, PreviewResult, VehicleType } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount, tick } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -299,6 +299,16 @@
 		}
 	}
 
+	// Magic fill - calculate suggested liters for 105-120% of TP consumption
+	async function handleMagicFill(km: number, tripId: string | null): Promise<number> {
+		try {
+			return await calculateMagicFillLiters(vehicleId, year, km, tripId);
+		} catch (error) {
+			console.error('Magic fill calculation failed:', error);
+			return 0;
+		}
+	}
+
 	// Move trip up (swap with previous row - lower sortOrder)
 	async function handleMoveUp(tripId: string, currentIndex: number) {
 		if (reorderDisabled || currentIndex === 0) return;
@@ -493,6 +503,7 @@
 						onDelete={() => {}}
 						previewData={previewingTripId === null ? previewData : null}
 						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
+						onMagicFill={handleMagicFill}
 					/>
 				{/if}
 				<!-- Trip rows -->
@@ -517,6 +528,7 @@
 							onDelete={() => {}}
 							previewData={previewingTripId === null ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtSortOrder, km, fuel, fullTank)}
+							onMagicFill={handleMagicFill}
 						/>
 					{/if}
 					{#if isFirstRecord(trip)}
@@ -575,6 +587,7 @@
 							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
 							previewData={previewingTripId === trip.id ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
+							onMagicFill={handleMagicFill}
 						/>
 					{/if}
 				{/each}
