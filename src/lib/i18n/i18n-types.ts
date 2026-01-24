@@ -437,6 +437,10 @@ type RootTranslation = {
 		 */
 		deleteRecord: string
 		/**
+		 * A​u​t​o​m​a​t​i​c​k​é​ ​d​o​p​l​n​e​n​i​e
+		 */
+		magicFill: string
+		/**
 		 * P​l​n​á
 		 */
 		fullTank: string
@@ -2211,6 +2215,10 @@ export type TranslationFunctions = {
 		 * Odstrániť záznam
 		 */
 		deleteRecord: () => LocalizedString
+		/**
+		 * Automatické doplnenie
+		 */
+		magicFill: () => LocalizedString
 		/**
 		 * Plná
 		 */

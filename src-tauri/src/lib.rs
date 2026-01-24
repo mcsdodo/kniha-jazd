@@ -186,6 +186,7 @@ pub fn run() {
       commands::delete_backup,
       commands::get_backup_path,
       commands::get_trip_grid_data,
+      commands::calculate_magic_fill_liters,
       commands::export_html,
       commands::export_to_browser,
       commands::get_receipt_settings,
