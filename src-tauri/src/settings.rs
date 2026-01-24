@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 /// Backup retention settings for automatic pre-update backup cleanup
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackupRetention {
     pub enabled: bool,
     pub keep_count: u32,
