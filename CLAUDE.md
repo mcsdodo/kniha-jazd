@@ -268,7 +268,9 @@ kniha-jazd/
 │   └── test-release.ps1 # Build test releases for update testing
 ├── _test-releases/      # Local update testing server
 ├── .github/workflows/   # CI/CD pipelines
-└── _tasks/              # Planning docs
+├── _tasks/              # Planning docs
+└── docs/
+    └── features/        # Feature documentation (technical walkthroughs)
 ```
 
 ### Key Files Quick Reference
@@ -383,6 +385,24 @@ Worktree directory: `.worktrees/` (project-local, gitignored)
 
 ## Documentation
 
+### Feature Documentation
+
+After completing a planned feature, create a **Feature Doc** in `docs/features/`:
+
+```bash
+docs/
+├── CLAUDE.md              # Convention guide for docs folder
+└── features/
+    ├── move-database.md   # Example: database relocation feature
+    └── {feature-name}.md  # Your new feature doc
+```
+
+**What to document:** User flow + technical implementation + design rationale. See `docs/CLAUDE.md` for template and conventions.
+
+**When to create:** After completing `_tasks/` plans, or when documenting complex existing features.
+
+### Skills
+
 Use skills in `.claude/skills/` for workflows:
 
 | Skill | When to Use | Purpose |
@@ -414,6 +434,7 @@ Before marking any task complete:
 - [ ] Tests pass? (`npm run test:backend` or `npm run test:all`)
 - [ ] Code committed with descriptive message?
 - [ ] Documentation updated? (CHANGELOG for user-visible, DECISIONS.md for "why")
+- [ ] Feature doc created? (`docs/features/{feature}.md` for complex features)
 
 For significant decisions during task:
 - [ ] `/decision` run to record ADR/BIZ entry?
