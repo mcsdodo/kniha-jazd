@@ -53,6 +53,17 @@ All business logic and calculations live in Rust backend only (ADR-008):
 └─────────────────────────────────────────────────┘
 ```
 
+## Planning Guidelines
+
+**When creating implementation plans, ALWAYS follow these principles:**
+
+1. **Check ADR-008** - All business logic stays in Rust backend. Frontend is display-only.
+2. **Test-first approach** - Write backend unit tests for all use-cases, then implement to make tests pass.
+3. **Integration tests for UI flows** - Create integration tests for new user interactions (UI → Backend → Display).
+4. **Logical, testable steps** - Break tasks into deliverables that can be verified independently.
+5. **Update documentation** - CHANGELOG for user-visible changes, DECISIONS.md for architectural choices.
+6. **No overengineering** - Keep it simple and maintainable. Test all use-cases thoroughly, but don't over-abstract.
+
 ## Core Principle: Test-Driven Development
 
 **MANDATORY WORKFLOW FOR ALL CODE CHANGES:**
@@ -66,17 +77,50 @@ All business logic and calculations live in Rust backend only (ADR-008):
 
 **IMPORTANT:** Never write implementation code without a failing test first.
 
-### What to Test
+### Testing Strategy: No Duplication, Full Coverage
 
-Focus on **business logic** - the calculations that matter for legal compliance:
+**Every use-case needs exactly ONE authoritative test - no gaps, no redundancy.**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    INTEGRATION TESTS                        │
+│   "Does the UI correctly trigger backend and display        │
+│    results?" - Test user flows, NOT calculation math        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  BACKEND UNIT TESTS                         │
+│   "Given these inputs, is the output correct?"              │
+│   - ALL edge cases for calculations (source of truth)       │
+│   - ALL business rules exhaustively tested                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Backend unit tests** - Cover ALL business logic use-cases:
 - Consumption calculations (l/100km, spotreba, zostatok)
 - Margin calculations (must stay ≤20% over TP rate)
 - Compensation trip suggestions
+- Every edge case, every boundary condition
+
+**Integration tests** - Cover UI → Backend → Display flows:
+- Verify frontend correctly invokes Tauri commands
+- Verify results display correctly in UI
+- Do NOT re-test calculation logic (already proven in backend tests)
+
+**Example of test ownership:**
+
+| Use-case | Backend Unit Test | Integration Test |
+|----------|-------------------|------------------|
+| Consumption math | ✅ All edge cases | ❌ Not needed |
+| Trip grid shows value | ❌ N/A | ✅ Add trip → verify display |
+| 20% margin warning | ✅ Threshold logic | ✅ Warning icon appears |
 
 **Do NOT write filler tests.** No tests for:
 - Trivial CRUD operations
 - UI rendering (unless behavior-critical)
 - Getters/setters
+- Duplicating backend tests in integration tests
 
 ### Common Pitfalls
 
@@ -139,7 +183,7 @@ This keeps source files clean while maintaining private access (tests are still 
 
 ### Test Coverage
 
-**Backend (Rust) - Single Source of Truth (158 tests):**
+**Backend (Rust) - Authoritative source for all business logic (158 tests):**
 - `commands.rs` - 36 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
 - `calculations_tests.rs` - 33 tests: consumption rate, spotreba, zostatok, margin, Excel verification
 - `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
@@ -152,14 +196,16 @@ This keeps source files clean while maintaining private access (tests are still 
 - `export.rs` - 6 tests: export totals, HTML escaping
 - `gemini.rs` - 4 tests: JSON deserialization
 
-**Integration Tests (WebdriverIO + tauri-driver) - 61 tests:**
+**Integration Tests (WebdriverIO + tauri-driver) - UI flow verification (61 tests):**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol
+- **Purpose**: Verify UI correctly invokes backend and displays results
+- **NOT for**: Re-testing calculation logic (that's backend's job)
 - **Tiered execution**: Tier 1 (39 tests) for PRs, all tiers for main
 - Runs against debug build of Tauri app
 - DB seeding via Tauri IPC (no direct DB access)
 - CI: Windows only (tauri-driver limitation)
 
-All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
+**Remember:** Backend tests = "Is the calculation correct?" | Integration tests = "Does the UI work?"
 
 ### Code Patterns
 
@@ -170,10 +216,16 @@ All calculations happen in Rust backend. Frontend is display-only (see ADR-008).
 4. Call from Svelte component via `invoke("command_name", { args })`
 
 **Adding a New Calculation:**
-1. Write test in `calculations_tests.rs`
-2. Implement in `calculations.rs`
+1. Write failing test in `calculations_tests.rs` (cover all edge cases)
+2. Implement in `calculations.rs` to make test pass
 3. Expose via `get_trip_grid_data` or new command
 4. Frontend receives pre-calculated value (no client-side calculation)
+5. If new UI element, add integration test for display verification
+
+**Adding a New User Flow:**
+1. Write integration test for the UI interaction
+2. Implement frontend UI (calls existing backend commands)
+3. If new backend logic needed, add backend unit tests first (see above)
 
 **Adding UI Text:**
 1. Add key to `src/lib/i18n/sk/index.ts` (Slovak primary)
@@ -297,28 +349,6 @@ npm run test:all         # All tests
 npm run lint && npm run format
 ```
 
-## Testing Auto-Update Locally
-
-To test the auto-update flow without publishing to GitHub Releases:
-
-```powershell
-# 1. Build a test release (temporarily bumps version, then reverts)
-.\scripts\test-release.ps1              # 0.17.2 → 0.18.0 (minor bump)
-.\scripts\test-release.ps1 -BumpType patch  # 0.17.2 → 0.17.3
-
-# 2. Start mock update server
-node _test-releases/serve.js
-
-# 3. Run app with test endpoint (new terminal)
-set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
-```
-
-The app runs at current version but detects the test release as an available update.
-
-**Note:** For auto-update to work, set `TAURI_SIGNING_PRIVATE_KEY` before building. Without it, you can test the installer manually but auto-update will reject unsigned builds.
-
-See `_test-releases/README.md` for detailed test scenarios.
-
 ## CI/CD
 
 GitHub Actions workflow (`.github/workflows/test.yml`):
@@ -365,6 +395,7 @@ Use skills in `.claude/skills/` for workflows:
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
 | `/test-review` | After feature complete | Check test coverage, add missing tests |
+| `/test-update` | Testing auto-update | Test Tauri auto-update with mock release server |
 
 **Use `/decision` when:**
 - Choosing between multiple valid approaches (document why this one)
@@ -378,8 +409,11 @@ Keep `README.md` (Slovak) and `README.en.md` in sync with feature changes.
 ### Task Completion Checklist
 
 Before marking any task complete:
+- [ ] All use-cases have tests? (backend for logic, integration for UI flows)
+- [ ] No test duplication? (don't re-test backend logic in integration tests)
 - [ ] Tests pass? (`npm run test:backend` or `npm run test:all`)
 - [ ] Code committed with descriptive message?
+- [ ] Documentation updated? (CHANGELOG for user-visible, DECISIONS.md for "why")
 
 For significant decisions during task:
 - [ ] `/decision` run to record ADR/BIZ entry?
