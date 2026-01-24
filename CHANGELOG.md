@@ -7,6 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Automatická záloha pred aktualizáciou** - databáza sa automaticky zálohuje pred stiahnutím novej verzie
+  - Záloha je vytvorená s označením verzie (napr. "pred v0.20.0")
+  - Pri zlyhaní zálohy sa zobrazí dialóg s možnosťou pokračovať alebo zrušiť
+  - V zozname záloh sa zobrazuje štítok "pred vX.X.X" pre automatické zálohy
+- **Nastavenia čistenia záloh** - automatické mazanie starých záloh pred aktualizáciou
+  - Nové nastavenie v časti Zálohy: "Ponechať iba posledných X automatických záloh"
+  - Náhľad koľko záloh sa vymaže a koľko miesta sa uvoľní
+  - Tlačidlo "Vyčistiť teraz" pre okamžité vymazanie
+  - Manuálne zálohy nie sú nikdy automaticky vymazané
+
 ### Opravené
 - **Priradenie dokladu s inou cenou k jazde** - oprava chyby kedy priradenie dokladu (napr. diaľničná známka) prepísalo uložené other_costs späť na null
 
