@@ -7,6 +7,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Tlačidlo "Magic fill" pre automatické doplnenie PHM** - nové tlačidlo s ikonou čarovnej paličky pri editácii jazdy
+  - Automaticky vypočíta litre paliva pre dosiahnutie 105-120% spotreby podľa TP
+  - Zohľadňuje celé obdobie od posledného plného tankovania
+  - Nastaví príznak "Plná" pre správny výpočet spotreby
+- **Ikony namiesto textových tlačidiel** - modernejší vzhľad pri editácii jazdy
+  - Uložiť: ikona fajky (zelená pri hover)
+  - Zrušiť: ikona X (oranžová pri hover)
+
 ## [0.20.0] - 2026-01-24
 
 ### Pridané
