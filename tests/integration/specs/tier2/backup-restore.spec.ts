@@ -23,10 +23,22 @@ import { SlovakCities, TripPurposes } from '../../fixtures/trips';
  */
 interface BackupInfo {
   filename: string;
-  created_at: string;
-  size_bytes: number;
-  vehicle_count: number;
-  trip_count: number;
+  createdAt: string;
+  sizeBytes: number;
+  vehicleCount: number;
+  tripCount: number;
+  backupType: 'manual' | 'pre-update';
+  updateVersion: string | null;
+}
+
+interface CleanupPreview {
+  toDelete: BackupInfo[];
+  totalBytes: number;
+}
+
+interface BackupRetention {
+  enabled: boolean;
+  keepCount: number;
 }
 
 /**
@@ -86,6 +98,67 @@ async function deleteBackup(filename: string): Promise<void> {
     }
     return await window.__TAURI__.core.invoke('delete_backup', { filename: fname });
   }, filename);
+}
+
+/**
+ * Create a backup with type via Tauri IPC
+ */
+async function createBackupWithType(
+  backupType: 'manual' | 'pre-update',
+  updateVersion: string | null
+): Promise<BackupInfo> {
+  const result = await browser.execute(
+    async (bType: string, version: string | null) => {
+      if (!window.__TAURI__) {
+        throw new Error('Tauri not available');
+      }
+      return await window.__TAURI__.core.invoke('create_backup_with_type', {
+        backupType: bType,
+        updateVersion: version,
+      });
+    },
+    backupType,
+    updateVersion
+  );
+  return result as BackupInfo;
+}
+
+/**
+ * Get cleanup preview via Tauri IPC
+ */
+async function getCleanupPreview(keepCount: number): Promise<CleanupPreview> {
+  const result = await browser.execute(async (count: number) => {
+    if (!window.__TAURI__) {
+      throw new Error('Tauri not available');
+    }
+    return await window.__TAURI__.core.invoke('get_cleanup_preview', { keepCount: count });
+  }, keepCount);
+  return result as CleanupPreview;
+}
+
+/**
+ * Execute cleanup via Tauri IPC
+ */
+async function cleanupPreUpdateBackups(keepCount: number): Promise<{ deleted: string[]; freedBytes: number }> {
+  const result = await browser.execute(async (count: number) => {
+    if (!window.__TAURI__) {
+      throw new Error('Tauri not available');
+    }
+    return await window.__TAURI__.core.invoke('cleanup_pre_update_backups', { keepCount: count });
+  }, keepCount);
+  return result as { deleted: string[]; freedBytes: number };
+}
+
+/**
+ * Set backup retention settings via Tauri IPC
+ */
+async function setBackupRetention(retention: BackupRetention): Promise<void> {
+  await browser.execute(async (ret: BackupRetention) => {
+    if (!window.__TAURI__) {
+      throw new Error('Tauri not available');
+    }
+    return await window.__TAURI__.core.invoke('set_backup_retention', { retention: ret });
+  }, retention);
 }
 
 describe('Tier 2: Backup & Restore', () => {
@@ -249,6 +322,92 @@ describe('Tier 2: Backup & Restore', () => {
       const deletedBackup = remainingBackups.find((b) => b.filename === backup.filename);
       expect(deletedBackup).toBeUndefined();
       expect(remainingBackups.length).toBe(initialCount - 1);
+    });
+  });
+
+  describe('Backup Cleanup', () => {
+    it('should identify pre-update backups for cleanup', async () => {
+      // Create some pre-update backups
+      const backup1 = await createBackupWithType('pre-update', '0.17.0');
+      const backup2 = await createBackupWithType('pre-update', '0.18.0');
+      const backup3 = await createBackupWithType('pre-update', '0.19.0');
+
+      // Create a manual backup (should NOT be in cleanup list)
+      const manualBackup = await createBackup();
+
+      // Get cleanup preview keeping only 1
+      const preview = await getCleanupPreview(1);
+
+      // Should have 2 pre-update backups to delete (keep 1)
+      expect(preview.toDelete.length).toBe(2);
+      expect(preview.totalBytes).toBeGreaterThan(0);
+
+      // All should be pre-update type
+      for (const backup of preview.toDelete) {
+        expect(backup.backupType).toBe('pre-update');
+      }
+
+      // Manual backup should NOT be in delete list
+      const manualInDelete = preview.toDelete.find(
+        (b) => b.filename === manualBackup.filename
+      );
+      expect(manualInDelete).toBeUndefined();
+
+      // Clean up test backups
+      await deleteBackup(backup1.filename);
+      await deleteBackup(backup2.filename);
+      await deleteBackup(backup3.filename);
+      await deleteBackup(manualBackup.filename);
+    });
+
+    it('should execute cleanup and remove old pre-update backups', async () => {
+      // Create 3 pre-update backups
+      const backup1 = await createBackupWithType('pre-update', '0.17.0');
+      await browser.pause(100); // Ensure different timestamps
+      const backup2 = await createBackupWithType('pre-update', '0.18.0');
+      await browser.pause(100);
+      const backup3 = await createBackupWithType('pre-update', '0.19.0');
+
+      // Run cleanup keeping only 1
+      const result = await cleanupPreUpdateBackups(1);
+
+      // Should have deleted 2 backups
+      expect(result.deleted.length).toBe(2);
+      expect(result.freedBytes).toBeGreaterThan(0);
+
+      // Verify only newest remains
+      const backups = await listBackups();
+      const remaining = backups.filter((b) => b.backupType === 'pre-update');
+
+      // Only the newest (backup3) should remain
+      expect(remaining.length).toBe(1);
+      expect(remaining[0].filename).toBe(backup3.filename);
+
+      // Clean up
+      await deleteBackup(backup3.filename);
+    });
+
+    it('should not affect manual backups during cleanup', async () => {
+      // Create a manual backup
+      const manualBackup = await createBackup();
+
+      // Create pre-update backups
+      const preUpdate1 = await createBackupWithType('pre-update', '0.17.0');
+      const preUpdate2 = await createBackupWithType('pre-update', '0.18.0');
+
+      // Run cleanup keeping 0 pre-update backups
+      await cleanupPreUpdateBackups(0);
+
+      // Verify manual backup still exists
+      const backups = await listBackups();
+      const manualStillExists = backups.find(
+        (b) => b.filename === manualBackup.filename
+      );
+      expect(manualStillExists).toBeDefined();
+      expect(manualStillExists?.backupType).toBe('manual');
+
+      // Clean up
+      await deleteBackup(manualBackup.filename);
     });
   });
 });
