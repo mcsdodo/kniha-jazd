@@ -66,6 +66,8 @@ pub struct BackupInfo {
     pub size_bytes: u64,
     pub vehicle_count: i32,
     pub trip_count: i32,
+    pub backup_type: String,            // "manual" | "pre-update"
+    pub update_version: Option<String>, // e.g., "0.20.0" for pre-update backups
 }
 
 // ============================================================================
@@ -1449,6 +1451,29 @@ fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<S
 // Backup Commands
 // ============================================================================
 
+/// Parse backup filename to extract type and version
+/// Manual: kniha-jazd-backup-2026-01-24-143022.db
+/// Pre-update: kniha-jazd-backup-2026-01-24-143022-pred-v0.20.0.db
+fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
+    if filename.starts_with("kniha-jazd-backup-") {
+        let without_prefix = filename.trim_start_matches("kniha-jazd-backup-");
+        if let Some(version_start) = without_prefix.find("-pred-v") {
+            let version = without_prefix[version_start + 7..].trim_end_matches(".db");
+            return ("pre-update".to_string(), Some(version.to_string()));
+        }
+    }
+    ("manual".to_string(), None)
+}
+
+/// Generate backup filename based on type and version
+fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
+    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
+    match (backup_type, update_version) {
+        ("pre-update", Some(version)) => format!("kniha-jazd-backup-{}-pred-v{}.db", timestamp, version),
+        _ => format!("kniha-jazd-backup-{}.db", timestamp),
+    }
+}
+
 #[tauri::command]
 pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: State<AppState>) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
@@ -1487,6 +1512,61 @@ pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: Stat
         size_bytes: metadata.len(),
         vehicle_count,
         trip_count,
+        backup_type: "manual".to_string(),
+        update_version: None,
+    })
+}
+
+/// Create backup with explicit type and optional version
+/// Used for pre-update backups that need to record the target version
+#[tauri::command]
+pub fn create_backup_with_type(
+    app: tauri::AppHandle,
+    db: State<Database>,
+    app_state: State<AppState>,
+    backup_type: String,
+    update_version: Option<String>,
+) -> Result<BackupInfo, String> {
+    check_read_only!(app_state);
+    let app_dir = get_app_data_dir(&app)?;
+    let backup_dir = app_dir.join("backups");
+
+    // Create backup directory if it doesn't exist
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+
+    // Generate backup filename with type and version
+    let filename = generate_backup_filename(&backup_type, update_version.as_deref());
+    let backup_path = backup_dir.join(&filename);
+
+    // Copy current database to backup
+    let db_path = app_dir.join("kniha-jazd.db");
+    fs::copy(&db_path, &backup_path).map_err(|e| e.to_string())?;
+
+    // Get file size
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    // Get counts from current database
+    let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
+    let vehicle_count = vehicles.len() as i32;
+
+    // Count trips across all vehicles
+    let mut trip_count = 0;
+    for vehicle in &vehicles {
+        let trips = db.get_trips_for_vehicle(&vehicle.id.to_string()).map_err(|e| e.to_string())?;
+        trip_count += trips.len() as i32;
+    }
+
+    // Parse the type back from filename to ensure consistency
+    let (parsed_type, parsed_version) = parse_backup_filename(&filename);
+
+    Ok(BackupInfo {
+        filename,
+        created_at: Local::now().to_rfc3339(),
+        size_bytes: metadata.len(),
+        vehicle_count,
+        trip_count,
+        backup_type: parsed_type,
+        update_version: parsed_version,
     })
 }
 
@@ -1536,6 +1616,9 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
                 Local::now().to_rfc3339()
             };
 
+            // Parse backup type and version from filename
+            let (backup_type, update_version) = parse_backup_filename(&filename);
+
             // We can't easily get counts from backup without opening it
             // So we'll return 0 for now - the get_backup_info command will show actual counts
             backups.push(BackupInfo {
@@ -1544,6 +1627,8 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
                 size_bytes: metadata.len(),
                 vehicle_count: 0,
                 trip_count: 0,
+                backup_type,
+                update_version,
             });
         }
     }
@@ -1591,6 +1676,12 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
         let date_part = filename
             .trim_start_matches("kniha-jazd-backup-")
             .trim_end_matches(".db");
+        // Handle pre-update suffix: -pred-vX.X.X
+        let date_part = if let Some(pred_pos) = date_part.find("-pred-v") {
+            &date_part[..pred_pos]
+        } else {
+            date_part
+        };
         if date_part.len() >= 17 {
             format!(
                 "{}-{}-{}T{}:{}:{}",
@@ -1608,12 +1699,17 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
         Local::now().to_rfc3339()
     };
 
+    // Parse backup type and version from filename
+    let (backup_type, update_version) = parse_backup_filename(&filename);
+
     Ok(BackupInfo {
         filename,
         created_at,
         size_bytes: metadata.len(),
         vehicle_count,
         trip_count,
+        backup_type,
+        update_version,
     })
 }
 
@@ -4857,5 +4953,48 @@ mod tests {
         assert_eq!(trips.len(), 1, "Should have 1 trip");
         assert!(!trips[0].can_attach, "Different date should NOT allow attachment");
         assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
+    }
+
+    // ========================================================================
+    // Backup Filename Parsing/Generating Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parse_backup_filename_manual() {
+        let filename = "kniha-jazd-backup-2026-01-24-143022.db";
+        let (backup_type, update_version) = parse_backup_filename(filename);
+        assert_eq!(backup_type, "manual");
+        assert_eq!(update_version, None);
+    }
+
+    #[test]
+    fn test_parse_backup_filename_pre_update() {
+        let filename = "kniha-jazd-backup-2026-01-24-143022-pred-v0.20.0.db";
+        let (backup_type, update_version) = parse_backup_filename(filename);
+        assert_eq!(backup_type, "pre-update");
+        assert_eq!(update_version, Some("0.20.0".to_string()));
+    }
+
+    #[test]
+    fn test_parse_backup_filename_pre_update_complex_version() {
+        let filename = "kniha-jazd-backup-2026-01-24-143022-pred-v1.2.3-beta.db";
+        let (backup_type, update_version) = parse_backup_filename(filename);
+        assert_eq!(backup_type, "pre-update");
+        assert_eq!(update_version, Some("1.2.3-beta".to_string()));
+    }
+
+    #[test]
+    fn test_generate_backup_filename_manual() {
+        let filename = generate_backup_filename("manual", None);
+        assert!(filename.starts_with("kniha-jazd-backup-"));
+        assert!(filename.ends_with(".db"));
+        assert!(!filename.contains("-pred-v"));
+    }
+
+    #[test]
+    fn test_generate_backup_filename_pre_update() {
+        let filename = generate_backup_filename("pre-update", Some("0.20.0"));
+        assert!(filename.starts_with("kniha-jazd-backup-"));
+        assert!(filename.contains("-pred-v0.20.0.db"));
     }
 }

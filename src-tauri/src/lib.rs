@@ -149,6 +149,7 @@ pub fn run() {
       commands::save_settings,
       commands::calculate_trip_stats,
       commands::create_backup,
+      commands::create_backup_with_type,
       commands::list_backups,
       commands::get_backup_info,
       commands::restore_backup,
