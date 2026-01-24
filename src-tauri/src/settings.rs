@@ -161,7 +161,8 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(br#"{"backup_retention": {"enabled": true, "keep_count": 5}}"#).unwrap();
+        // BackupRetention uses camelCase for JSON fields (keepCount not keep_count)
+        file.write_all(br#"{"backup_retention": {"enabled": true, "keepCount": 5}}"#).unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert!(settings.backup_retention.is_some());

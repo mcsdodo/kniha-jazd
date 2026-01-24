@@ -9,8 +9,10 @@ use crate::calculations_energy::{
 };
 use crate::calculations_phev::calculate_phev_trip_consumption;
 use crate::db::{normalize_location, Database};
+use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
+use crate::settings::LocalSettings;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use chrono::{Datelike, NaiveDate, Utc, Local};
@@ -52,6 +54,15 @@ fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         Ok(path) => Ok(PathBuf::from(path)),
         Err(_) => app.path().app_data_dir().map_err(|e| e.to_string()),
     }
+}
+
+/// Get resolved database paths (including backups directory), respecting custom_db_path in local.settings.json.
+/// This ensures backups are stored alongside the database, even when using a custom location.
+fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
+    let app_dir = get_app_data_dir(app)?;
+    let local_settings = LocalSettings::load(&app_dir);
+    let (db_paths, _is_custom) = resolve_db_paths(&app_dir, local_settings.custom_db_path.as_deref());
+    Ok(db_paths)
 }
 
 // ============================================================================
@@ -1517,20 +1528,18 @@ fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<Backup
 #[tauri::command]
 pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: State<AppState>) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_dir = app_dir.join("backups");
+    let db_paths = get_db_paths(&app)?;
 
     // Create backup directory if it doesn't exist
-    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
 
     // Generate backup filename with timestamp
     let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
     let filename = format!("kniha-jazd-backup-{}.db", timestamp);
-    let backup_path = backup_dir.join(&filename);
+    let backup_path = db_paths.backups_dir.join(&filename);
 
     // Copy current database to backup
-    let db_path = app_dir.join("kniha-jazd.db");
-    fs::copy(&db_path, &backup_path).map_err(|e| e.to_string())?;
+    fs::copy(&db_paths.db_file, &backup_path).map_err(|e| e.to_string())?;
 
     // Get file size
     let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
@@ -1568,19 +1577,17 @@ pub fn create_backup_with_type(
     update_version: Option<String>,
 ) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_dir = app_dir.join("backups");
+    let db_paths = get_db_paths(&app)?;
 
     // Create backup directory if it doesn't exist
-    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
 
     // Generate backup filename with type and version
     let filename = generate_backup_filename(&backup_type, update_version.as_deref());
-    let backup_path = backup_dir.join(&filename);
+    let backup_path = db_paths.backups_dir.join(&filename);
 
     // Copy current database to backup
-    let db_path = app_dir.join("kniha-jazd.db");
-    fs::copy(&db_path, &backup_path).map_err(|e| e.to_string())?;
+    fs::copy(&db_paths.db_file, &backup_path).map_err(|e| e.to_string())?;
 
     // Get file size
     let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
@@ -1636,8 +1643,7 @@ pub fn cleanup_pre_update_backups_internal(
     app: &tauri::AppHandle,
     keep_count: u32,
 ) -> Result<CleanupResult, String> {
-    let app_dir = get_app_data_dir(app)?;
-    let backup_dir = app_dir.join("backups");
+    let db_paths = get_db_paths(app)?;
 
     let all_backups = list_backups(app.clone())?;
     let to_delete = get_cleanup_candidates(&all_backups, keep_count);
@@ -1646,7 +1652,7 @@ pub fn cleanup_pre_update_backups_internal(
     let mut freed_bytes = 0u64;
 
     for backup in &to_delete {
-        let path = backup_dir.join(&backup.filename);
+        let path = db_paths.backups_dir.join(&backup.filename);
         if path.exists() {
             fs::remove_file(&path).map_err(|e| e.to_string())?;
             deleted.push(backup.filename.clone());
@@ -1681,16 +1687,15 @@ pub fn set_backup_retention(
 
 #[tauri::command]
 pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_dir = app_dir.join("backups");
+    let db_paths = get_db_paths(&app)?;
 
-    if !backup_dir.exists() {
+    if !db_paths.backups_dir.exists() {
         return Ok(vec![]);
     }
 
     let mut backups = Vec::new();
 
-    for entry in fs::read_dir(&backup_dir).map_err(|e| e.to_string())? {
+    for entry in fs::read_dir(&db_paths.backups_dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
 
@@ -1750,8 +1755,8 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
 
 #[tauri::command]
 pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<BackupInfo, String> {
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_path = app_dir.join("backups").join(&filename);
+    let db_paths = get_db_paths(&app)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
         return Err(format!("Backup not found: {}", filename));
@@ -1825,16 +1830,15 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 #[tauri::command]
 pub fn restore_backup(app: tauri::AppHandle, app_state: State<AppState>, filename: String) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_path = app_dir.join("backups").join(&filename);
-    let db_path = app_dir.join("kniha-jazd.db");
+    let db_paths = get_db_paths(&app)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
         return Err(format!("Backup not found: {}", filename));
     }
 
     // Copy backup over current database
-    fs::copy(&backup_path, &db_path).map_err(|e| e.to_string())?;
+    fs::copy(&backup_path, &db_paths.db_file).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -1842,8 +1846,8 @@ pub fn restore_backup(app: tauri::AppHandle, app_state: State<AppState>, filenam
 #[tauri::command]
 pub fn delete_backup(app: tauri::AppHandle, app_state: State<AppState>, filename: String) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_path = app_dir.join("backups").join(&filename);
+    let db_paths = get_db_paths(&app)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
         return Err(format!("Backup not found: {}", filename));
@@ -1855,8 +1859,8 @@ pub fn delete_backup(app: tauri::AppHandle, app_state: State<AppState>, filename
 
 #[tauri::command]
 pub fn get_backup_path(app: tauri::AppHandle, filename: String) -> Result<String, String> {
-    let app_dir = get_app_data_dir(&app)?;
-    let backup_path = app_dir.join("backups").join(&filename);
+    let db_paths = get_db_paths(&app)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
         return Err(format!("Backup not found: {}", filename));
@@ -2133,7 +2137,7 @@ pub async fn export_html(
 use crate::gemini::is_mock_mode_enabled;
 use crate::models::{Receipt, ReceiptStatus, ReceiptVerification, VerificationResult};
 use crate::receipts::{detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts, FolderStructure};
-use crate::settings::{LocalSettings, BackupRetention};
+use crate::settings::BackupRetention;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
