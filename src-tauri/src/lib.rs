@@ -123,9 +123,35 @@ pub fn run() {
       // Store paths in app state
       app_state.set_db_path(db_paths.db_file, is_custom);
 
+      // Check read-only before moving app_state
+      let is_read_only = app_state.is_read_only();
+
       // Manage database and app state
       app.manage(db);
       app.manage(app_state);
+
+      // Run post-update cleanup in background if retention is enabled
+      if !is_read_only {
+        let cleanup_app_handle = app.handle().clone();
+        let cleanup_app_dir = app_dir.clone();
+        std::thread::spawn(move || {
+          // Load retention settings
+          let settings = LocalSettings::load(&cleanup_app_dir);
+          if let Some(retention) = settings.backup_retention {
+            if retention.enabled && retention.keep_count > 0 {
+              // Run cleanup silently
+              if let Err(e) = commands::cleanup_pre_update_backups_internal(
+                &cleanup_app_handle,
+                retention.keep_count,
+              ) {
+                log::warn!("Failed to run post-update cleanup: {}", e);
+              } else {
+                log::info!("Post-update backup cleanup completed");
+              }
+            }
+          }
+        });
+      }
 
       Ok(())
     })
