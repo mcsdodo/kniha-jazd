@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+/// Backup retention settings for automatic pre-update backup cleanup
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BackupRetention {
+    pub enabled: bool,
+    pub keep_count: u32,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalSettings {
     pub gemini_api_key: Option<String>,
@@ -12,6 +19,7 @@ pub struct LocalSettings {
     pub theme: Option<String>,              // "system" | "light" | "dark"
     pub auto_check_updates: Option<bool>,   // true by default if None
     pub custom_db_path: Option<String>,     // Custom database location (e.g., Google Drive, NAS)
+    pub backup_retention: Option<BackupRetention>, // Backup retention settings for auto-cleanup
 }
 
 impl LocalSettings {
@@ -134,6 +142,7 @@ mod tests {
             theme: Some("dark".to_string()),
             auto_check_updates: Some(false),
             custom_db_path: Some("D:/NAS/data".to_string()),
+            backup_retention: None,
         };
 
         settings.save(&dir.path().to_path_buf()).unwrap();
@@ -144,5 +153,27 @@ mod tests {
         assert_eq!(loaded.theme, Some("dark".to_string()));
         assert_eq!(loaded.auto_check_updates, Some(false));
         assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
+    }
+
+    #[test]
+    fn test_load_with_backup_retention() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(br#"{"backup_retention": {"enabled": true, "keep_count": 5}}"#).unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert!(settings.backup_retention.is_some());
+        let retention = settings.backup_retention.unwrap();
+        assert!(retention.enabled);
+        assert_eq!(retention.keep_count, 5);
+    }
+
+    #[test]
+    fn test_backup_retention_defaults() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        // When missing, should be None (not enabled by default)
+        assert!(settings.backup_retention.is_none());
     }
 }
