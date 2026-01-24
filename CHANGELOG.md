@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-01-24
+
 ### Pridané
 - **Automatická záloha pred aktualizáciou** - databáza sa automaticky zálohuje pred stiahnutím novej verzie
   - Záloha je vytvorená s označením verzie (napr. "pred v0.20.0")
