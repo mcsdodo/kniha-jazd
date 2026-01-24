@@ -161,6 +161,19 @@ async function setBackupRetention(retention: BackupRetention): Promise<void> {
   }, retention);
 }
 
+/**
+ * Get backup retention settings via Tauri IPC
+ */
+async function getBackupRetention(): Promise<BackupRetention | null> {
+  const result = await browser.execute(async () => {
+    if (!window.__TAURI__) {
+      throw new Error('Tauri not available');
+    }
+    return await window.__TAURI__.core.invoke('get_backup_retention');
+  });
+  return result as BackupRetention | null;
+}
+
 describe('Tier 2: Backup & Restore', () => {
   beforeEach(async () => {
     await waitForAppReady();
@@ -408,6 +421,21 @@ describe('Tier 2: Backup & Restore', () => {
 
       // Clean up
       await deleteBackup(manualBackup.filename);
+    });
+  });
+
+  describe('Backup Retention Settings', () => {
+    it('should persist and retrieve backup retention settings via IPC round-trip', async () => {
+      // Set retention with camelCase keys (as TypeScript/frontend expects)
+      await setBackupRetention({ enabled: true, keepCount: 5 });
+
+      // Read back via get_backup_retention
+      const retention = await getBackupRetention();
+
+      // Verify round-trip - this will FAIL if serde doesn't use camelCase
+      expect(retention).not.toBeNull();
+      expect(retention?.enabled).toBe(true);
+      expect(retention?.keepCount).toBe(5);
     });
   });
 });
