@@ -258,8 +258,11 @@
 		releaseNotes={$updateStore.releaseNotes}
 		downloading={$updateStore.downloading}
 		progress={$updateStore.progress}
+		backupStep={$updateStore.backupStep}
+		backupError={$updateStore.backupError}
 		onUpdate={() => updateStore.install()}
 		onLater={() => updateStore.dismiss()}
+		onContinueWithoutBackup={() => updateStore.continueWithoutBackup()}
 	/>
 {/if}
 

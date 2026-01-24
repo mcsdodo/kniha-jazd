@@ -1,15 +1,23 @@
 <script lang="ts">
 	import { LL } from '$lib/i18n/i18n-svelte';
 
+	type BackupStep = 'pending' | 'in-progress' | 'done' | 'failed' | 'skipped';
+
 	export let version: string;
 	export let releaseNotes: string | null;
 	export let downloading: boolean = false;
 	export let progress: number = 0;
+	export let backupStep: BackupStep = 'pending';
+	export let backupError: string | null = null;
 	export let onUpdate: () => void;
 	export let onLater: () => void;
+	export let onContinueWithoutBackup: () => void;
+
+	$: isUpdating = backupStep !== 'pending' || downloading;
+	$: showBackupFailed = backupStep === 'failed';
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (e.key === 'Escape' && !isUpdating) {
 			onLater();
 		}
 	}
@@ -35,7 +43,7 @@
 		<div class="modal-content">
 			<p>{$LL.update.modalBody({ version })}</p>
 
-			{#if releaseNotes}
+			{#if releaseNotes && !isUpdating}
 				<div class="release-notes-section">
 					<h3>{$LL.update.releaseNotes()}</h3>
 					<div class="release-notes-content">
@@ -44,33 +52,100 @@
 				</div>
 			{/if}
 
-			{#if downloading}
-				<div class="progress-section">
-					<div class="progress-bar">
-						<div class="progress-fill" style="width: {progress}%"></div>
+			{#if isUpdating}
+				<div class="update-steps">
+					<!-- Backup Step -->
+					<div class="step" class:active={backupStep === 'in-progress'} class:done={backupStep === 'done' || backupStep === 'skipped'} class:failed={backupStep === 'failed'}>
+						<span class="step-icon">
+							{#if backupStep === 'in-progress'}⏳{:else if backupStep === 'done'}✓{:else if backupStep === 'skipped'}⏭{:else if backupStep === 'failed'}✗{:else}○{/if}
+						</span>
+						<span class="step-label">
+							{#if backupStep === 'in-progress'}
+								{$LL.update.backupInProgress()}
+							{:else if backupStep === 'done'}
+								{$LL.update.backupStep()}
+							{:else if backupStep === 'skipped'}
+								{$LL.update.backupStep()} (skipped)
+							{:else if backupStep === 'failed'}
+								{$LL.update.backupFailed()}
+							{:else}
+								{$LL.update.backupStep()}
+							{/if}
+						</span>
 					</div>
-					<p class="progress-text">
-						{$LL.update.downloadProgress({ percent: progress.toFixed(0) })}
-					</p>
+
+					<!-- Download Step -->
+					<div class="step" class:active={downloading} class:done={progress >= 100}>
+						<span class="step-icon">
+							{#if downloading && progress < 100}⏳{:else if progress >= 100}✓{:else}○{/if}
+						</span>
+						<span class="step-label">
+							{#if downloading}
+								{$LL.update.downloadProgress({ percent: progress.toFixed(0) })}
+							{:else}
+								{$LL.update.downloading()}
+							{/if}
+						</span>
+					</div>
+
+					<!-- Install Step -->
+					<div class="step" class:active={progress >= 100 && !downloading}>
+						<span class="step-icon">
+							{#if progress >= 100}⏳{:else}○{/if}
+						</span>
+						<span class="step-label">{$LL.update.installing()}</span>
+					</div>
+				</div>
+
+				{#if downloading}
+					<div class="progress-section">
+						<div class="progress-bar">
+							<div class="progress-fill" style="width: {progress}%"></div>
+						</div>
+					</div>
+				{/if}
+			{/if}
+
+			{#if showBackupFailed}
+				<div class="backup-failed-warning">
+					<p>{$LL.update.backupFailedMessage()}</p>
+					{#if backupError}
+						<p class="error-detail">{backupError}</p>
+					{/if}
 				</div>
 			{/if}
 		</div>
 
 		<div class="modal-actions">
-			<button
-				class="button-small"
-				on:click={onLater}
-				disabled={downloading}
-			>
-				{$LL.update.buttonLater()}
-			</button>
-			<button
-				class="button-small accent-primary"
-				on:click={onUpdate}
-				disabled={downloading}
-			>
-				{$LL.update.buttonUpdate()}
-			</button>
+			{#if showBackupFailed}
+				<button
+					class="button-small"
+					on:click={onLater}
+				>
+					{$LL.common.cancel()}
+				</button>
+				<button
+					class="button-small accent-primary"
+					on:click={onContinueWithoutBackup}
+				>
+					{$LL.update.continueWithoutBackup()}
+				</button>
+			{:else}
+				<button
+					class="button-small"
+					on:click={onLater}
+					disabled={isUpdating}
+				>
+					{$LL.update.buttonLater()}
+				</button>
+				<button
+					class="button-small accent-primary"
+					on:click={onUpdate}
+					disabled={isUpdating}
+				>
+					{$LL.update.buttonUpdate()}
+				</button>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -139,10 +214,61 @@
 		overflow-y: auto;
 	}
 
+	.update-steps {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: var(--bg-secondary);
+		border-radius: 4px;
+	}
+
+	.step {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem 0;
+		color: var(--text-secondary);
+	}
+
+	.step.active {
+		color: var(--text-primary);
+		font-weight: 500;
+	}
+
+	.step.done {
+		color: var(--success, #4caf50);
+	}
+
+	.step.failed {
+		color: var(--danger, #f44336);
+	}
+
+	.step-icon {
+		font-size: 1rem;
+		width: 1.5rem;
+		text-align: center;
+	}
+
+	.backup-failed-warning {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: var(--danger-light, #ffebee);
+		border: 1px solid var(--danger, #f44336);
+		border-radius: 4px;
+	}
+
+	.backup-failed-warning p {
+		margin: 0;
+		color: var(--danger, #f44336);
+	}
+
+	.error-detail {
+		margin-top: 0.5rem !important;
+		font-size: 0.875rem;
+		opacity: 0.8;
+	}
+
 	.progress-section {
 		margin-top: 1rem;
-		padding-top: 1rem;
-		border-top: 1px solid var(--border-color);
 	}
 
 	.progress-bar {
