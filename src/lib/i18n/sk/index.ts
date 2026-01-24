@@ -261,6 +261,19 @@ const sk = {
 		restoreBackup: 'Obnoviť zálohu',
 		confirmDeleteTitle: 'Potvrdiť odstránenie',
 		deleteWarning: 'Táto záloha bude trvalo odstránená!',
+		// Retention settings
+		retention: {
+			title: 'Automatické čistenie',
+			enabled: 'Ponechať iba posledných',
+			backups: 'automatických záloh',
+			toDelete: 'Na vymazanie: {count:number} záloh ({size:string})',
+			cleanNow: 'Vyčistiť teraz',
+			nothingToClean: 'Nič na vyčistenie',
+		},
+		// Badge for pre-update backups
+		badge: {
+			preUpdate: 'pred {version:string}',
+		},
 	},
 
 	// Confirm dialogs
@@ -408,6 +421,7 @@ const sk = {
 		backupCreated: 'Záloha bola úspešne vytvorená',
 		backupRestored: 'Záloha bola úspešne obnovená. Aplikácia sa reštartuje.',
 		backupDeleted: 'Záloha bola odstránená',
+		cleanupComplete: 'Zálohy boli vyčistené',
 		receiptDeleted: 'Doklad bol odstránený',
 		receiptUpdated: 'Doklad bol aktualizovaný',
 		receiptReprocessed: 'Doklad "{name:string}" bol znovu spracovaný',
@@ -527,6 +541,12 @@ const sk = {
 		buttonLater: 'Neskôr',
 		autoCheckOnStart: 'Automaticky kontrolovať pri štarte',
 		showChangelog: 'Zobraziť zmeny',
+		// Backup step during update
+		backupStep: 'Záloha vytvorená',
+		backupInProgress: 'Vytváranie zálohy...',
+		backupFailed: 'Záloha zlyhala',
+		backupFailedMessage: 'Nepodarilo sa vytvoriť zálohu databázy. Chcete pokračovať v aktualizácii bez zálohy?',
+		continueWithoutBackup: 'Pokračovať bez zálohy',
 	},
 } satisfies BaseTranslation;
 

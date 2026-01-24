@@ -828,6 +828,41 @@ type RootTranslation = {
 		 * T​á​t​o​ ​z​á​l​o​h​a​ ​b​u​d​e​ ​t​r​v​a​l​o​ ​o​d​s​t​r​á​n​e​n​á​!
 		 */
 		deleteWarning: string
+		retention: {
+			/**
+			 * A​u​t​o​m​a​t​i​c​k​é​ ​č​i​s​t​e​n​i​e
+			 */
+			title: string
+			/**
+			 * P​o​n​e​c​h​a​ť​ ​i​b​a​ ​p​o​s​l​e​d​n​ý​c​h
+			 */
+			enabled: string
+			/**
+			 * a​u​t​o​m​a​t​i​c​k​ý​c​h​ ​z​á​l​o​h
+			 */
+			backups: string
+			/**
+			 * N​a​ ​v​y​m​a​z​a​n​i​e​:​ ​{​c​o​u​n​t​}​ ​z​á​l​o​h​ ​(​{​s​i​z​e​}​)
+			 * @param {number} count
+			 * @param {string} size
+			 */
+			toDelete: RequiredParams<'count' | 'size'>
+			/**
+			 * V​y​č​i​s​t​i​ť​ ​t​e​r​a​z
+			 */
+			cleanNow: string
+			/**
+			 * N​i​č​ ​n​a​ ​v​y​č​i​s​t​e​n​i​e
+			 */
+			nothingToClean: string
+		}
+		badge: {
+			/**
+			 * p​r​e​d​ ​{​v​e​r​s​i​o​n​}
+			 * @param {string} version
+			 */
+			preUpdate: RequiredParams<'version'>
+		}
 	}
 	confirm: {
 		/**
@@ -1293,6 +1328,10 @@ type RootTranslation = {
 		 */
 		backupDeleted: string
 		/**
+		 * Z​á​l​o​h​y​ ​b​o​l​i​ ​v​y​č​i​s​t​e​n​é
+		 */
+		cleanupComplete: string
+		/**
 		 * D​o​k​l​a​d​ ​b​o​l​ ​o​d​s​t​r​á​n​e​n​ý
 		 */
 		receiptDeleted: string
@@ -1727,6 +1766,26 @@ type RootTranslation = {
 		 * Z​o​b​r​a​z​i​ť​ ​z​m​e​n​y
 		 */
 		showChangelog: string
+		/**
+		 * Z​á​l​o​h​a​ ​v​y​t​v​o​r​e​n​á
+		 */
+		backupStep: string
+		/**
+		 * V​y​t​v​á​r​a​n​i​e​ ​z​á​l​o​h​y​.​.​.
+		 */
+		backupInProgress: string
+		/**
+		 * Z​á​l​o​h​a​ ​z​l​y​h​a​l​a
+		 */
+		backupFailed: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​v​y​t​v​o​r​i​ť​ ​z​á​l​o​h​u​ ​d​a​t​a​b​á​z​y​.​ ​C​h​c​e​t​e​ ​p​o​k​r​a​č​o​v​a​ť​ ​v​ ​a​k​t​u​a​l​i​z​á​c​i​i​ ​b​e​z​ ​z​á​l​o​h​y​?
+		 */
+		backupFailedMessage: string
+		/**
+		 * P​o​k​r​a​č​o​v​a​ť​ ​b​e​z​ ​z​á​l​o​h​y
+		 */
+		continueWithoutBackup: string
 	}
 }
 
@@ -2540,6 +2599,38 @@ export type TranslationFunctions = {
 		 * Táto záloha bude trvalo odstránená!
 		 */
 		deleteWarning: () => LocalizedString
+		retention: {
+			/**
+			 * Automatické čistenie
+			 */
+			title: () => LocalizedString
+			/**
+			 * Ponechať iba posledných
+			 */
+			enabled: () => LocalizedString
+			/**
+			 * automatických záloh
+			 */
+			backups: () => LocalizedString
+			/**
+			 * Na vymazanie: {count} záloh ({size})
+			 */
+			toDelete: (arg: { count: number, size: string }) => LocalizedString
+			/**
+			 * Vyčistiť teraz
+			 */
+			cleanNow: () => LocalizedString
+			/**
+			 * Nič na vyčistenie
+			 */
+			nothingToClean: () => LocalizedString
+		}
+		badge: {
+			/**
+			 * pred {version}
+			 */
+			preUpdate: (arg: { version: string }) => LocalizedString
+		}
 	}
 	confirm: {
 		/**
@@ -2983,6 +3074,10 @@ export type TranslationFunctions = {
 		 */
 		backupDeleted: () => LocalizedString
 		/**
+		 * Zálohy boli vyčistené
+		 */
+		cleanupComplete: () => LocalizedString
+		/**
 		 * Doklad bol odstránený
 		 */
 		receiptDeleted: () => LocalizedString
@@ -3390,6 +3485,26 @@ export type TranslationFunctions = {
 		 * Zobraziť zmeny
 		 */
 		showChangelog: () => LocalizedString
+		/**
+		 * Záloha vytvorená
+		 */
+		backupStep: () => LocalizedString
+		/**
+		 * Vytváranie zálohy...
+		 */
+		backupInProgress: () => LocalizedString
+		/**
+		 * Záloha zlyhala
+		 */
+		backupFailed: () => LocalizedString
+		/**
+		 * Nepodarilo sa vytvoriť zálohu databázy. Chcete pokračovať v aktualizácii bez zálohy?
+		 */
+		backupFailedMessage: () => LocalizedString
+		/**
+		 * Pokračovať bez zálohy
+		 */
+		continueWithoutBackup: () => LocalizedString
 	}
 }
 

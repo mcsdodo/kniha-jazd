@@ -4,6 +4,8 @@ import { relaunch } from '@tauri-apps/plugin-process';
 
 const DISMISSED_VERSION_KEY = 'kniha-jazd-dismissed-update-version';
 
+type BackupStep = 'pending' | 'in-progress' | 'done' | 'failed' | 'skipped';
+
 interface UpdateState {
 	checking: boolean;
 	available: boolean;
@@ -13,6 +15,9 @@ interface UpdateState {
 	downloading: boolean;
 	progress: number;
 	error: string | null;
+	// Backup step during update
+	backupStep: BackupStep;
+	backupError: string | null;
 }
 
 function getDismissedVersion(): string | null {
@@ -43,7 +48,9 @@ const initialState: UpdateState = {
 	dismissed: false,
 	downloading: false,
 	progress: 0,
-	error: null
+	error: null,
+	backupStep: 'pending',
+	backupError: null
 };
 
 function createUpdateStore() {
@@ -151,33 +158,37 @@ function createUpdateStore() {
 				throw new Error('No update available to install');
 			}
 
-			updateState((state) => ({ ...state, downloading: true, error: null }));
-			try {
-				let contentLength = 0;
-				let downloaded = 0;
-				await updateObject.downloadAndInstall((event) => {
-					if (event.event === 'Started') {
-						contentLength = event.data.contentLength || 0;
-						updateState((state) => ({ ...state, downloading: true }));
-					} else if (event.event === 'Progress') {
-						downloaded += event.data.chunkLength;
-						const progress = contentLength > 0 ? Math.round((downloaded / contentLength) * 100) : 0;
-						updateState((state) => ({ ...state, progress }));
-					} else if (event.event === 'Finished') {
-						updateState((state) => ({ ...state, downloading: false, progress: 100 }));
-					}
-				});
+			// Step 1: Create backup
+			updateState((state) => ({
+				...state,
+				backupStep: 'in-progress',
+				backupError: null,
+				error: null
+			}));
 
-				// Relaunch the application after installation
-				await relaunch();
+			try {
+				const { createBackupWithType } = await import('$lib/api');
+				await createBackupWithType('pre-update', updateObject.version);
+				updateState((state) => ({ ...state, backupStep: 'done' }));
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : String(err);
 				updateState((state) => ({
 					...state,
-					downloading: false,
-					error: errorMsg
+					backupStep: 'failed',
+					backupError: errorMsg
 				}));
+				// Don't proceed - let UI handle the failed state
+				return;
 			}
+
+			// Step 2: Download and install
+			await performDownloadAndInstall();
+		},
+
+		// Continue after backup failure (user chose to proceed)
+		continueWithoutBackup: async () => {
+			updateState((state) => ({ ...state, backupStep: 'skipped' }));
+			await performDownloadAndInstall();
 		},
 
 		reset: () => {
@@ -185,6 +196,41 @@ function createUpdateStore() {
 			updateObject = null;
 		}
 	};
+
+	// Extracted download logic (used by install and continueWithoutBackup)
+	async function performDownloadAndInstall() {
+		if (!updateObject) {
+			throw new Error('No update available to install');
+		}
+
+		updateState((state) => ({ ...state, downloading: true, error: null }));
+		try {
+			let contentLength = 0;
+			let downloaded = 0;
+			await updateObject.downloadAndInstall((event) => {
+				if (event.event === 'Started') {
+					contentLength = event.data.contentLength || 0;
+					updateState((state) => ({ ...state, downloading: true }));
+				} else if (event.event === 'Progress') {
+					downloaded += event.data.chunkLength;
+					const progress = contentLength > 0 ? Math.round((downloaded / contentLength) * 100) : 0;
+					updateState((state) => ({ ...state, progress }));
+				} else if (event.event === 'Finished') {
+					updateState((state) => ({ ...state, downloading: false, progress: 100 }));
+				}
+			});
+
+			// Relaunch the application after installation
+			await relaunch();
+		} catch (err) {
+			const errorMsg = err instanceof Error ? err.message : String(err);
+			updateState((state) => ({
+				...state,
+				downloading: false,
+				error: errorMsg
+			}));
+		}
+	}
 }
 
 export const updateStore = createUpdateStore();

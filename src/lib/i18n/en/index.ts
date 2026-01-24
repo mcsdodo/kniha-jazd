@@ -261,6 +261,19 @@ const en = {
 		restoreBackup: 'Restore backup',
 		confirmDeleteTitle: 'Confirm deletion',
 		deleteWarning: 'This backup will be permanently deleted!',
+		// Retention settings
+		retention: {
+			title: 'Automatic cleanup',
+			enabled: 'Keep only last',
+			backups: 'automatic backups',
+			toDelete: 'To delete: {count} backups ({size})',
+			cleanNow: 'Clean now',
+			nothingToClean: 'Nothing to clean',
+		},
+		// Badge for pre-update backups
+		badge: {
+			preUpdate: 'before {version}',
+		},
 	},
 
 	// Confirm dialogs
@@ -408,6 +421,7 @@ const en = {
 		backupCreated: 'Backup created successfully',
 		backupRestored: 'Backup restored successfully. The app will restart.',
 		backupDeleted: 'Backup deleted',
+		cleanupComplete: 'Backups cleaned up',
 		receiptDeleted: 'Receipt deleted',
 		receiptUpdated: 'Receipt updated',
 		receiptReprocessed: 'Receipt "{name}" reprocessed',
@@ -527,6 +541,12 @@ const en = {
 		buttonLater: 'Later',
 		autoCheckOnStart: 'Automatically check on startup',
 		showChangelog: 'Show changelog',
+		// Backup step during update
+		backupStep: 'Backup created',
+		backupInProgress: 'Creating backup...',
+		backupFailed: 'Backup failed',
+		backupFailedMessage: 'Failed to create database backup. Do you want to continue updating without a backup?',
+		continueWithoutBackup: 'Continue without backup',
 	},
 } satisfies Translation;
 

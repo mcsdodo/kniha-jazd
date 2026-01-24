@@ -6,7 +6,7 @@
 	import MoveDatabaseModal from '$lib/components/MoveDatabaseModal.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Vehicle, Settings, BackupInfo } from '$lib/types';
+	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { localeStore } from '$lib/stores/locale';
 	import type { Locales } from '$lib/i18n/i18n-types';
@@ -235,6 +235,12 @@
 	let restoreConfirmation: BackupInfo | null = null;
 	let deleteConfirmation: BackupInfo | null = null;
 
+	// Backup retention state
+	let retentionEnabled = false;
+	let retentionKeepCount = 3;
+	let cleanupPreview: CleanupPreview | null = null;
+	let cleaningUp = false;
+
 	// Vehicle delete confirmation
 	let vehicleToDelete: Vehicle | null = null;
 
@@ -278,6 +284,7 @@
 			}
 
 			await loadBackups();
+			await loadRetentionSettings();
 			await checkVehiclesWithTrips();
 
 			// Load app version
@@ -541,6 +548,55 @@
 		} catch (error) {
 			console.error('Failed to reveal backup:', error);
 			toast.error(String(error));
+		}
+	}
+
+	// Retention settings functions
+	async function loadRetentionSettings() {
+		try {
+			const retention = await api.getBackupRetention();
+			if (retention) {
+				retentionEnabled = retention.enabled;
+				retentionKeepCount = retention.keepCount;
+			}
+			if (retentionEnabled) {
+				cleanupPreview = await api.getCleanupPreview(retentionKeepCount);
+			}
+		} catch (error) {
+			console.error('Failed to load retention settings:', error);
+		}
+	}
+
+	async function handleRetentionChange() {
+		try {
+			await api.setBackupRetention({
+				enabled: retentionEnabled,
+				keepCount: retentionKeepCount
+			});
+			if (retentionEnabled) {
+				cleanupPreview = await api.getCleanupPreview(retentionKeepCount);
+			} else {
+				cleanupPreview = null;
+			}
+		} catch (error) {
+			console.error('Failed to save retention settings:', error);
+			toast.error(String(error));
+		}
+	}
+
+	async function handleCleanupNow() {
+		if (!cleanupPreview || cleanupPreview.toDelete.length === 0) return;
+		cleaningUp = true;
+		try {
+			await api.cleanupPreUpdateBackups(retentionKeepCount);
+			await loadBackups();
+			cleanupPreview = await api.getCleanupPreview(retentionKeepCount);
+			toast.success($LL.toast.cleanupComplete());
+		} catch (error) {
+			console.error('Failed to cleanup backups:', error);
+			toast.error(String(error));
+		} finally {
+			cleaningUp = false;
 		}
 	}
 
@@ -861,6 +917,51 @@
 					{backupInProgress ? $LL.settings.creatingBackup() : $LL.settings.createBackup()}
 				</button>
 
+				<!-- Retention Settings -->
+				<div class="retention-settings" data-testid="retention-settings">
+					<h4>{$LL.backup.retention.title()}</h4>
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							bind:checked={retentionEnabled}
+							on:change={handleRetentionChange}
+							data-testid="retention-enabled"
+						/>
+						{$LL.backup.retention.enabled()}
+						<select
+							bind:value={retentionKeepCount}
+							data-testid="retention-keep-count"
+							on:change={handleRetentionChange}
+							disabled={!retentionEnabled}
+						>
+							<option value={3}>3</option>
+							<option value={5}>5</option>
+							<option value={10}>10</option>
+						</select>
+						{$LL.backup.retention.backups()}
+					</label>
+
+					{#if retentionEnabled && cleanupPreview}
+						<div class="cleanup-preview">
+							{#if cleanupPreview.toDelete.length > 0}
+								<span>{$LL.backup.retention.toDelete({
+									count: cleanupPreview.toDelete.length,
+									size: formatFileSize(cleanupPreview.totalBytes)
+								})}</span>
+								<button
+									class="button-small"
+									on:click={handleCleanupNow}
+									disabled={cleaningUp}
+								>
+									{cleaningUp ? '...' : $LL.backup.retention.cleanNow()}
+								</button>
+							{:else}
+								<span class="placeholder">{$LL.backup.retention.nothingToClean()}</span>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
 				<div class="backup-list">
 					<h3>{$LL.settings.availableBackups()}</h3>
 					{#if loadingBackups}
@@ -872,6 +973,9 @@
 							<div class="backup-item">
 								<div class="backup-info">
 									<span class="backup-date">{formatBackupDate(backup.createdAt)}</span>
+									{#if backup.backupType === 'pre-update' && backup.updateVersion}
+										<span class="backup-badge">{$LL.backup.badge.preUpdate({ version: backup.updateVersion })}</span>
+									{/if}
 									<span class="backup-size">{formatFileSize(backup.sizeBytes)}</span>
 								</div>
 								<div class="backup-actions">
@@ -1275,6 +1379,40 @@
 	.backup-size {
 		color: var(--text-secondary);
 		font-size: 0.875rem;
+	}
+
+	.backup-badge {
+		font-size: 0.75rem;
+		padding: 0.125rem 0.5rem;
+		background: var(--accent-light, #e3f2fd);
+		color: var(--accent, #1976d2);
+		border-radius: 4px;
+	}
+
+	.retention-settings {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: var(--bg-surface-alt);
+		border-radius: 8px;
+		border: 1px solid var(--border-default);
+	}
+
+	.retention-settings h4 {
+		margin: 0 0 0.75rem 0;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+	}
+
+	.retention-settings select {
+		margin: 0 0.5rem;
+		padding: 0.25rem 0.5rem;
+	}
+
+	.cleanup-preview {
+		margin-top: 0.75rem;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
 	}
 
 	.modal-overlay {
