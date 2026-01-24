@@ -153,7 +153,7 @@ ALTER TABLE trips RENAME COLUMN old TO new;     -- Older apps won't find it!
 ### Running Tests
 
 ```bash
-# Rust backend tests (158 tests)
+# Rust backend tests (194 tests)
 cd src-tauri && cargo test
 
 # E2E integration tests (requires debug build)
@@ -183,8 +183,8 @@ This keeps source files clean while maintaining private access (tests are still 
 
 ### Test Coverage
 
-**Backend (Rust) - Authoritative source for all business logic (158 tests):**
-- `commands.rs` - 36 tests: receipt matching, period rates, warnings, fuel remaining, year carryover
+**Backend (Rust) - Authoritative source for all business logic (194 tests):**
+- `commands_tests.rs` - 61 tests: receipt matching, period rates, warnings, fuel remaining, year carryover, BEV energy, receipt assignment, backup cleanup, magic fill
 - `calculations_tests.rs` - 33 tests: consumption rate, spotreba, zostatok, margin, Excel verification
 - `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
 - `db_tests.rs` - 15 tests: CRUD lifecycle, year filtering
@@ -246,6 +246,7 @@ kniha-jazd/
 │   │   ├── suggestions.rs        # Compensation trip logic
 │   │   ├── receipts.rs           # Receipt scanning
 │   │   ├── commands.rs           # Tauri command handlers
+│   │   ├── commands_tests.rs     # Tests for commands
 │   │   ├── db.rs                 # SQLite operations
 │   │   ├── db_location.rs        # Custom DB path, lock files
 │   │   ├── app_state.rs          # App state (read-only mode)
@@ -290,6 +291,7 @@ kniha-jazd/
 | `settings.rs` | Local settings (theme, paths) | User preferences |
 | `gemini.rs` | AI receipt OCR | Receipt recognition |
 | `commands.rs` | Tauri command handlers | New frontend→backend calls |
+| `commands_tests.rs` | Tests for commands | Adding command tests |
 | `export.rs` | HTML/PDF generation | Report format changes |
 | `models.rs` | Data structures | Adding fields to Trip/Vehicle |
 | `schema.rs` | Diesel ORM schema | After DB migrations |
@@ -343,7 +345,7 @@ npm run tauri dev        # Start app in dev mode
 npm run tauri build      # Production build
 
 # Testing
-npm run test:backend     # Rust unit tests (158 tests)
+npm run test:backend     # Rust unit tests (194 tests)
 npm run test:integration # E2E tests (needs debug build)
 npm run test:all         # All tests
 
