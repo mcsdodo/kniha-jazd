@@ -1467,12 +1467,12 @@ fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<S
 
 /// Parse backup filename to extract type and version
 /// Manual: kniha-jazd-backup-2026-01-24-143022.db
-/// Pre-update: kniha-jazd-backup-2026-01-24-143022-pred-v0.20.0.db
+/// Pre-update: kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db
 fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
     if filename.starts_with("kniha-jazd-backup-") {
         let without_prefix = filename.trim_start_matches("kniha-jazd-backup-");
-        if let Some(version_start) = without_prefix.find("-pred-v") {
-            let version = without_prefix[version_start + 7..].trim_end_matches(".db");
+        if let Some(version_start) = without_prefix.find("-pre-v") {
+            let version = without_prefix[version_start + 6..].trim_end_matches(".db");
             return ("pre-update".to_string(), Some(version.to_string()));
         }
     }
@@ -1483,7 +1483,7 @@ fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
 fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
     let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
     match (backup_type, update_version) {
-        ("pre-update", Some(version)) => format!("kniha-jazd-backup-{}-pred-v{}.db", timestamp, version),
+        ("pre-update", Some(version)) => format!("kniha-jazd-backup-{}-pre-v{}.db", timestamp, version),
         _ => format!("kniha-jazd-backup-{}.db", timestamp),
     }
 }
@@ -1785,8 +1785,8 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
         let date_part = filename
             .trim_start_matches("kniha-jazd-backup-")
             .trim_end_matches(".db");
-        // Handle pre-update suffix: -pred-vX.X.X
-        let date_part = if let Some(pred_pos) = date_part.find("-pred-v") {
+        // Handle pre-update suffix: -pre-vX.X.X
+        let date_part = if let Some(pred_pos) = date_part.find("-pre-v") {
             &date_part[..pred_pos]
         } else {
             date_part
@@ -5078,7 +5078,7 @@ mod tests {
 
     #[test]
     fn test_parse_backup_filename_pre_update() {
-        let filename = "kniha-jazd-backup-2026-01-24-143022-pred-v0.20.0.db";
+        let filename = "kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db";
         let (backup_type, update_version) = parse_backup_filename(filename);
         assert_eq!(backup_type, "pre-update");
         assert_eq!(update_version, Some("0.20.0".to_string()));
@@ -5086,7 +5086,7 @@ mod tests {
 
     #[test]
     fn test_parse_backup_filename_pre_update_complex_version() {
-        let filename = "kniha-jazd-backup-2026-01-24-143022-pred-v1.2.3-beta.db";
+        let filename = "kniha-jazd-backup-2026-01-24-143022-pre-v1.2.3-beta.db";
         let (backup_type, update_version) = parse_backup_filename(filename);
         assert_eq!(backup_type, "pre-update");
         assert_eq!(update_version, Some("1.2.3-beta".to_string()));
@@ -5097,14 +5097,14 @@ mod tests {
         let filename = generate_backup_filename("manual", None);
         assert!(filename.starts_with("kniha-jazd-backup-"));
         assert!(filename.ends_with(".db"));
-        assert!(!filename.contains("-pred-v"));
+        assert!(!filename.contains("-pre-v"));
     }
 
     #[test]
     fn test_generate_backup_filename_pre_update() {
         let filename = generate_backup_filename("pre-update", Some("0.20.0"));
         assert!(filename.starts_with("kniha-jazd-backup-"));
-        assert!(filename.contains("-pred-v0.20.0.db"));
+        assert!(filename.contains("-pre-v0.20.0.db"));
     }
 
     // ========================================================================
@@ -5115,7 +5115,7 @@ mod tests {
     fn test_get_cleanup_candidates_keeps_n_most_recent() {
         let backups = vec![
             BackupInfo {
-                filename: "kniha-jazd-backup-2026-01-20-100000-pred-v0.17.0.db".to_string(),
+                filename: "kniha-jazd-backup-2026-01-20-100000-pre-v0.17.0.db".to_string(),
                 created_at: "2026-01-20T10:00:00".to_string(),
                 size_bytes: 1000,
                 vehicle_count: 0,
@@ -5124,7 +5124,7 @@ mod tests {
                 update_version: Some("0.17.0".to_string()),
             },
             BackupInfo {
-                filename: "kniha-jazd-backup-2026-01-21-100000-pred-v0.18.0.db".to_string(),
+                filename: "kniha-jazd-backup-2026-01-21-100000-pre-v0.18.0.db".to_string(),
                 created_at: "2026-01-21T10:00:00".to_string(),
                 size_bytes: 1000,
                 vehicle_count: 0,
@@ -5133,7 +5133,7 @@ mod tests {
                 update_version: Some("0.18.0".to_string()),
             },
             BackupInfo {
-                filename: "kniha-jazd-backup-2026-01-22-100000-pred-v0.19.0.db".to_string(),
+                filename: "kniha-jazd-backup-2026-01-22-100000-pre-v0.19.0.db".to_string(),
                 created_at: "2026-01-22T10:00:00".to_string(),
                 size_bytes: 1000,
                 vehicle_count: 0,
@@ -5142,7 +5142,7 @@ mod tests {
                 update_version: Some("0.19.0".to_string()),
             },
             BackupInfo {
-                filename: "kniha-jazd-backup-2026-01-23-100000-pred-v0.20.0.db".to_string(),
+                filename: "kniha-jazd-backup-2026-01-23-100000-pre-v0.20.0.db".to_string(),
                 created_at: "2026-01-23T10:00:00".to_string(),
                 size_bytes: 1000,
                 vehicle_count: 0,
@@ -5204,7 +5204,7 @@ mod tests {
     fn test_get_cleanup_candidates_no_delete_when_under_limit() {
         let backups = vec![
             BackupInfo {
-                filename: "kniha-jazd-backup-2026-01-22-100000-pred-v0.19.0.db".to_string(),
+                filename: "kniha-jazd-backup-2026-01-22-100000-pre-v0.19.0.db".to_string(),
                 created_at: "2026-01-22T10:00:00".to_string(),
                 size_bytes: 1000,
                 vehicle_count: 0,
@@ -5213,7 +5213,7 @@ mod tests {
                 update_version: Some("0.19.0".to_string()),
             },
             BackupInfo {
-                filename: "kniha-jazd-backup-2026-01-23-100000-pred-v0.20.0.db".to_string(),
+                filename: "kniha-jazd-backup-2026-01-23-100000-pre-v0.20.0.db".to_string(),
                 created_at: "2026-01-23T10:00:00".to_string(),
                 size_bytes: 1000,
                 vehicle_count: 0,
