@@ -20,6 +20,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Opravené
 - **Priradenie dokladu s inou cenou k jazde** - oprava chyby kedy priradenie dokladu (napr. diaľničná známka) prepísalo uložené other_costs späť na null
+- **Zálohy pri vlastnom umiestnení databázy** - zálohy sa teraz správne ukladajú vedľa databázy aj pri použití vlastnej cesty (napr. Google Drive)
 
 ## [0.19.1] - 2026-01-22
 
