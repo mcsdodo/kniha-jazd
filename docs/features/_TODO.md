@@ -13,6 +13,7 @@ Features to document, ranked by complexity and importance.
 | 🟡 **5** | [Multi-Year State](#5-multi-year-state) | ⬜ |
 | 🟡 **6** | [Export System](#6-export-system) | ⬜ |
 | 🟢 **7** | [Magic Fill](#7-magic-fill) | ⬜ |
+| 🟢 **8** | [Settings Architecture](#8-settings-architecture) | ⬜ |
 
 ✅ = Done | ⬜ = Not started
 
@@ -152,6 +153,32 @@ Features to document, ranked by complexity and importance.
 - Formula: `target_rate = tp_rate * (1 + target_margin)` → solve for liters
 - Only works if current period exists
 - Could be merged with Trip Grid doc
+
+---
+
+## 8. Settings Architecture
+
+**Why:** Two separate storage systems — understanding the split prevents confusion
+
+**Files involved:**
+- `settings.rs` — `LocalSettings` struct (file-based)
+- `models.rs:267-283` — `Settings` struct (database)
+- `commands.rs:480-502` — DB settings CRUD
+- `commands.rs:1753-1772` — Backup retention settings
+- `src/routes/settings/+page.svelte` — Unified Settings UI
+
+**Key concepts to document:**
+- **LocalSettings** (file): API keys, paths, theme, backup retention — machine-specific
+- **Settings** (database): Company name, IČO, buffer trip purpose — business data
+- Why the split: API keys don't travel with shared DB, paths are PC-specific
+- Both shown in same UI but saved to different locations
+- `local.settings.json` survives app reinstalls
+
+**Storage locations:**
+```
+LocalSettings → %APPDATA%\com.notavailable.kniha-jazd\local.settings.json
+Settings      → kniha-jazd.db (settings table)
+```
 
 ---
 
