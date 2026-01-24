@@ -217,3 +217,30 @@
 3. Create `cleanup_pre_update_backups_internal` helper for startup use (Task 11)
 
 The 6 important issues are minor clarifications that can be fixed during implementation but should be noted.
+
+---
+
+## Resolution (2026-01-24)
+
+### Critical Issues - All Addressed
+
+- [x] **C1**: Added `app_state: State<AppState>` and `check_read_only!(app_state);` to `set_backup_retention` in Task 6
+- [x] **C2**: `BackupRetention` already has `pub` keyword (verified, no change needed)
+- [x] **C3**: Added `cleanup_pre_update_backups_internal` helper function in Task 11 Step 1, refactored command to use it
+
+### Important Issues - All Addressed
+
+- [x] **I3**: Added dependency note to Task 5 header
+- [x] **I4**: Fixed i18n keys to nest under `backup.retention.*` and `backup.badge.*`
+- [x] **I5**: Added `toast.cleanupComplete` key to translations
+- [x] **I6**: Extracted `performDownloadAndInstall()` helper, explicit code for `continueWithoutBackup`
+- [x] **I8**: Step numbering in Task 11 fixed (was duplicate "Step 2")
+- [x] **I10**: No change needed (TypeScript literal unions acceptable)
+
+### Minor Issues - Partially Addressed
+
+- [ ] **M1**: BackupInfo serialization test (deferred - existing tests likely cover)
+- [x] **M2**: Added `data-testid` attributes to UI elements and updated integration test selectors
+- [ ] **M3**: `formatFileSize` verification (deferred - verify during implementation)
+
+### Status: READY FOR IMPLEMENTATION
