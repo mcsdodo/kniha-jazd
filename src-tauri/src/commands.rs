@@ -70,6 +70,20 @@ pub struct BackupInfo {
     pub update_version: Option<String>, // e.g., "0.20.0" for pre-update backups
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupPreview {
+    pub to_delete: Vec<BackupInfo>,
+    pub total_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupResult {
+    pub deleted: Vec<String>,
+    pub freed_bytes: u64,
+}
+
 // ============================================================================
 // Vehicle Commands
 // ============================================================================
@@ -1474,6 +1488,32 @@ fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> 
     }
 }
 
+/// Get pre-update backups that should be deleted based on keep_count
+/// Returns the oldest backups beyond the keep limit (manual backups are never included)
+fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<BackupInfo> {
+    // Filter to pre-update only
+    let mut pre_update_backups: Vec<&BackupInfo> = backups
+        .iter()
+        .filter(|b| b.backup_type == "pre-update")
+        .collect();
+
+    // Sort by filename (which includes timestamp) - oldest first
+    pre_update_backups.sort_by(|a, b| a.filename.cmp(&b.filename));
+
+    let total = pre_update_backups.len();
+    let keep = keep_count as usize;
+
+    if total <= keep {
+        return vec![];
+    }
+
+    // Return the oldest ones (to delete)
+    pre_update_backups[0..(total - keep)]
+        .iter()
+        .map(|b| (*b).clone())
+        .collect()
+}
+
 #[tauri::command]
 pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: State<AppState>) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
@@ -1568,6 +1608,75 @@ pub fn create_backup_with_type(
         backup_type: parsed_type,
         update_version: parsed_version,
     })
+}
+
+/// Get preview of pre-update backups that would be deleted
+#[tauri::command]
+pub fn get_cleanup_preview(app: tauri::AppHandle, keep_count: u32) -> Result<CleanupPreview, String> {
+    let all_backups = list_backups(app)?;
+    let to_delete = get_cleanup_candidates(&all_backups, keep_count);
+    let total_bytes: u64 = to_delete.iter().map(|b| b.size_bytes).sum();
+
+    Ok(CleanupPreview { to_delete, total_bytes })
+}
+
+/// Delete old pre-update backups, keeping the N most recent
+#[tauri::command]
+pub fn cleanup_pre_update_backups(
+    app: tauri::AppHandle,
+    app_state: State<AppState>,
+    keep_count: u32,
+) -> Result<CleanupResult, String> {
+    check_read_only!(app_state);
+    cleanup_pre_update_backups_internal(&app, keep_count)
+}
+
+/// Internal cleanup function for use at startup (no State parameters needed)
+pub fn cleanup_pre_update_backups_internal(
+    app: &tauri::AppHandle,
+    keep_count: u32,
+) -> Result<CleanupResult, String> {
+    let app_dir = get_app_data_dir(app)?;
+    let backup_dir = app_dir.join("backups");
+
+    let all_backups = list_backups(app.clone())?;
+    let to_delete = get_cleanup_candidates(&all_backups, keep_count);
+
+    let mut deleted = Vec::new();
+    let mut freed_bytes = 0u64;
+
+    for backup in &to_delete {
+        let path = backup_dir.join(&backup.filename);
+        if path.exists() {
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+            deleted.push(backup.filename.clone());
+            freed_bytes += backup.size_bytes;
+        }
+    }
+
+    Ok(CleanupResult { deleted, freed_bytes })
+}
+
+/// Get backup retention settings
+#[tauri::command]
+pub fn get_backup_retention(app: tauri::AppHandle) -> Result<Option<BackupRetention>, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    let settings = LocalSettings::load(&app_dir);
+    Ok(settings.backup_retention)
+}
+
+/// Set backup retention settings
+#[tauri::command]
+pub fn set_backup_retention(
+    app: tauri::AppHandle,
+    app_state: State<AppState>,
+    retention: BackupRetention,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let app_dir = get_app_data_dir(&app)?;
+    let mut settings = LocalSettings::load(&app_dir);
+    settings.backup_retention = Some(retention);
+    settings.save(&app_dir).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -2024,7 +2133,7 @@ pub async fn export_html(
 use crate::gemini::is_mock_mode_enabled;
 use crate::models::{Receipt, ReceiptStatus, ReceiptVerification, VerificationResult};
 use crate::receipts::{detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts, FolderStructure};
-use crate::settings::LocalSettings;
+use crate::settings::{LocalSettings, BackupRetention};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -4996,5 +5105,126 @@ mod tests {
         let filename = generate_backup_filename("pre-update", Some("0.20.0"));
         assert!(filename.starts_with("kniha-jazd-backup-"));
         assert!(filename.contains("-pred-v0.20.0.db"));
+    }
+
+    // ========================================================================
+    // Backup Cleanup Tests
+    // ========================================================================
+
+    #[test]
+    fn test_get_cleanup_candidates_keeps_n_most_recent() {
+        let backups = vec![
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-20-100000-pred-v0.17.0.db".to_string(),
+                created_at: "2026-01-20T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.17.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-21-100000-pred-v0.18.0.db".to_string(),
+                created_at: "2026-01-21T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.18.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-22-100000-pred-v0.19.0.db".to_string(),
+                created_at: "2026-01-22T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.19.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-23-100000-pred-v0.20.0.db".to_string(),
+                created_at: "2026-01-23T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.20.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-24-100000.db".to_string(),
+                created_at: "2026-01-24T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "manual".to_string(),
+                update_version: None,
+            },
+        ];
+
+        let to_delete = get_cleanup_candidates(&backups, 2);
+
+        // Should delete oldest 2 pre-update backups, keep 2 most recent
+        assert_eq!(to_delete.len(), 2);
+        assert!(to_delete.iter().any(|b| b.filename.contains("v0.17.0")));
+        assert!(to_delete.iter().any(|b| b.filename.contains("v0.18.0")));
+        // Manual backup should NOT be in delete list
+        assert!(!to_delete.iter().any(|b| b.backup_type == "manual"));
+    }
+
+    #[test]
+    fn test_get_cleanup_candidates_ignores_manual() {
+        let backups = vec![
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-20-100000.db".to_string(),
+                created_at: "2026-01-20T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "manual".to_string(),
+                update_version: None,
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-21-100000.db".to_string(),
+                created_at: "2026-01-21T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "manual".to_string(),
+                update_version: None,
+            },
+        ];
+
+        let to_delete = get_cleanup_candidates(&backups, 1);
+
+        // Manual backups should never be deleted
+        assert_eq!(to_delete.len(), 0);
+    }
+
+    #[test]
+    fn test_get_cleanup_candidates_no_delete_when_under_limit() {
+        let backups = vec![
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-22-100000-pred-v0.19.0.db".to_string(),
+                created_at: "2026-01-22T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.19.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-23-100000-pred-v0.20.0.db".to_string(),
+                created_at: "2026-01-23T10:00:00".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.20.0".to_string()),
+            },
+        ];
+
+        // Keep 3 but only have 2 - should delete nothing
+        let to_delete = get_cleanup_candidates(&backups, 3);
+        assert_eq!(to_delete.len(), 0);
     }
 }

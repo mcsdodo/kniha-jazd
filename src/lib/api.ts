@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -224,6 +224,29 @@ export async function deleteBackup(filename: string): Promise<void> {
 export async function revealBackup(filename: string): Promise<void> {
 	const path: string = await invoke('get_backup_path', { filename });
 	await revealItemInDir(path);
+}
+
+export async function createBackupWithType(
+	backupType: BackupType,
+	updateVersion: string | null
+): Promise<BackupInfo> {
+	return await invoke('create_backup_with_type', { backupType, updateVersion });
+}
+
+export async function getCleanupPreview(keepCount: number): Promise<CleanupPreview> {
+	return await invoke('get_cleanup_preview', { keepCount });
+}
+
+export async function cleanupPreUpdateBackups(keepCount: number): Promise<CleanupResult> {
+	return await invoke('cleanup_pre_update_backups', { keepCount });
+}
+
+export async function getBackupRetention(): Promise<BackupRetention | null> {
+	return await invoke('get_backup_retention');
+}
+
+export async function setBackupRetention(retention: BackupRetention): Promise<void> {
+	return await invoke('set_backup_retention', { retention });
 }
 
 // Export - opens HTML in default browser for printing

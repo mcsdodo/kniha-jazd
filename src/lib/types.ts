@@ -89,12 +89,31 @@ export interface TripStats {
 	bufferKm: number; // Additional km needed to reach 18% margin (0.0 if under target)
 }
 
+export type BackupType = 'manual' | 'pre-update';
+
 export interface BackupInfo {
 	filename: string;
 	createdAt: string;
 	sizeBytes: number;
 	vehicleCount: number;
 	tripCount: number;
+	backupType: BackupType;
+	updateVersion: string | null;
+}
+
+export interface CleanupPreview {
+	toDelete: BackupInfo[];
+	totalBytes: number;
+}
+
+export interface CleanupResult {
+	deleted: string[];
+	freedBytes: number;
+}
+
+export interface BackupRetention {
+	enabled: boolean;
+	keepCount: number;
 }
 
 export interface TripGridData {
