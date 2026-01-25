@@ -15,6 +15,8 @@
 6. The "Full Tank" checkbox is automatically checked
 7. Live preview updates to show the resulting consumption rate
 
+**Scope note**: Magic Fill uses only trips in the selected year and always targets the latest open period (after the last full-tank in that year), even if you are editing an older trip.
+
 ## Technical Implementation
 
 ### Core Calculation
@@ -25,6 +27,8 @@ The magic fill feature calculates fuel liters that would result in a realistic c
 target_rate = tp_consumption × random(1.05, 1.20)
 suggested_liters = (total_km × target_rate) / 100
 ```
+
+Results are rounded to 2 decimals.
 
 **Example:**
 - TP consumption: 5.0 L/100km
@@ -58,6 +62,8 @@ fn get_open_period_km(chronological: &[Trip]) -> f64 {
 - Partial fill-ups do NOT close the period
 - Only a full tank fill-up resets the counter
 - After a full tank, open period km starts at 0
+- Only the selected year is considered
+- Trips are processed chronologically (date, then odometer)
 
 ### Existing Trip vs New Trip
 
@@ -66,7 +72,7 @@ The calculation handles new and existing trips differently to avoid double-count
 | Scenario | Total KM Calculation |
 |----------|---------------------|
 | **New trip** | `open_period_km + form_distance_km` |
-| **Editing existing trip** | `open_period_km` (trip's km already included) |
+| **Editing existing trip** | `open_period_km` (trip's km already included; form km changes are ignored) |
 
 This is controlled via the `trip_id` parameter:
 - `None` → new trip, add form's km value
@@ -124,19 +130,19 @@ async function handleMagicFill() {
 | [commands.rs](src-tauri/src/commands.rs) | `calculate_magic_fill_liters` — main calculation |
 | [commands.rs](src-tauri/src/commands.rs) | `get_open_period_km` — open period helper |
 | [calculations.rs](src-tauri/src/calculations.rs) | `calculate_buffer_km` — buffer calculation |
-| [api.ts](src/lib/api.ts) | `calculateMagicFill()` — frontend API |
+| [api.ts](src/lib/api.ts) | `calculateMagicFillLiters()` — frontend API |
 | [TripRow.svelte](src/lib/components/TripRow.svelte) | `handleMagicFill()` — UI handler |
-| [+page.svelte](src/routes/+page.svelte) | Magic fill callback wrapper |
+| [TripGrid.svelte](src/lib/components/TripGrid.svelte) | Magic fill callback wrapper |
 
 ## Edge Cases
 
 | Condition | Behavior |
 |-----------|----------|
-| No trips in year | Returns 0.0 (no open period) |
+| No trips in year | Returns suggestion based on current trip km (new trip); returns 0.0 when editing and open period is 0 |
 | Total km ≤ 0 | Returns 0.0 |
 | No vehicle found | Returns error |
 | No TP consumption set | Uses default 5.0 L/100km |
-| All periods closed | Returns calculation for new trip's km only |
+| All periods closed | Returns calculation for new trip's km only; returns 0.0 when editing |
 | Distance field empty/zero | Button does nothing |
 
 ## Design Decisions

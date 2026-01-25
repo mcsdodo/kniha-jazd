@@ -5,21 +5,23 @@
 ## User Flow
 
 1. **App Launch**: During startup, the app checks two conditions before enabling write access:
-   - **Lock file status**: Is the database locked by another instance?
-   - **Migration compatibility**: Are there unknown migrations in the database?
+    - **Lock file status**: Is the database locked by another instance? (informational only)
+    - **Migration compatibility**: Are there unknown migrations in the database?
 
-2. **Normal Mode**: If both checks pass, the app acquires a lock and operates normally with full read/write access.
+2. **Normal Mode**: If migration compatibility passes, the app acquires a lock and operates normally with full read/write access, even if a fresh lock was detected (warning logged).
 
-3. **Read-Only Mode Triggered**: If either check fails:
-   - Write operations are blocked with a user-friendly Slovak error message
-   - The reason is stored and displayed to the user
-   - Read operations continue to work normally
+3. **Read-Only Mode Triggered**: If migration compatibility fails:
+    - Write operations are blocked with a user-friendly Slovak error message
+    - The reason is stored (used in command errors)
+    - Read operations continue to work normally
+    - UI shows a static banner with a “check updates” button
 
 4. **Error Message Format**: When a write operation is attempted in read-only mode:
    ```
    Aplikácia je v režime len na čítanie. [Reason]
    ```
-   Where `[Reason]` explains why (e.g., "Databáza bola aktualizovaná novšou verziou aplikácie.")
+    Where `[Reason]` explains why (e.g., "Databáza bola aktualizovaná novšou verziou aplikácie.").
+    If no reason is stored, it falls back to `Neznámy dôvod`.
 
 ## Technical Implementation
 
@@ -28,7 +30,8 @@
 The lock file (`kniha-jazd.lock`) prevents concurrent write access from multiple PCs sharing a database via cloud storage (Google Drive, NAS, etc.).
 
 **Location**: Same directory as the database file
-- Default: `%APPDATA%/sk.AzMi.KnihaJazd/kniha-jazd.lock`
+- Default: `%APPDATA%/com.notavailable.kniha-jazd/kniha-jazd.lock`
+- Dev mode: `%APPDATA%/com.notavailable.kniha-jazd.dev/kniha-jazd.lock`
 - Custom: `<custom_db_path>/kniha-jazd.lock`
 
 **Lock file format** (JSON):
@@ -48,7 +51,7 @@ The lock file (`kniha-jazd.lock`) prevents concurrent write access from multiple
 |-----------|--------|--------|
 | No lock file exists | `Free` | Acquire lock, normal mode |
 | Lock file exists, heartbeat > 2 minutes old | `Stale` | Take over lock, normal mode |
-| Lock file exists, heartbeat fresh | `Locked` | Read-only mode |
+| Lock file exists, heartbeat fresh | `Locked` | Log warning; app still attempts to acquire lock |
 | Lock file corrupted/unreadable | `Free` | Acquire lock, normal mode |
 
 **Staleness Threshold**: 120 seconds (2 minutes)
@@ -102,7 +105,7 @@ All write operations are guarded by the `check_read_only!` macro. When invoked i
 **Vehicle Commands:**
 - `create_vehicle` - Create new vehicle
 - `update_vehicle` - Update vehicle details
-- `delete_vehicle` - Delete vehicle
+- `delete_vehicle` - Delete vehicle (currently not guarded)
 - `set_active_vehicle` - Change active vehicle
 
 **Trip Commands:**
@@ -139,6 +142,9 @@ All write operations are guarded by the `check_read_only!` macro. When invoked i
 | [src-tauri/src/lib.rs](../../src-tauri/src/lib.rs) | Startup initialization, lock acquisition, heartbeat thread spawn |
 | [src-tauri/src/commands.rs](../../src-tauri/src/commands.rs) | `check_read_only!` macro, protected command implementations |
 | [src-tauri/src/db.rs](../../src-tauri/src/db.rs) | `check_migration_compatibility()` function |
+| [src/lib/stores/app.ts](../../src/lib/stores/app.ts) | Read-only state and reason on the frontend |
+| [src/routes/+layout.svelte](../../src/routes/+layout.svelte) | Read-only banner UI and update check action |
+| [src/lib/api.ts](../../src/lib/api.ts) | `check_updates` command wrapper used by the banner |
 
 ## Design Decisions
 

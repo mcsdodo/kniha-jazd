@@ -8,8 +8,14 @@
 2. **Click "Change..."** button
 3. **Select target folder** via directory picker
 4. **Confirm** in modal dialog (shows target path + warning)
-5. **Wait** for move operation (progress shown)
+5. **Wait** for move operation (indeterminate progress shown)
 6. **App reloads** automatically with new database location
+
+**Reset to default**: When a custom path is active, a “Reset to default” action is available and triggers the same move flow back to the default app data directory.
+
+**Failure cases**:
+- Moving to the same folder is rejected by the backend.
+- Target folder already contains a database (blocked in the frontend pre-check).
 
 ## Technical Implementation
 
@@ -51,7 +57,7 @@ export async function resetDatabaseLocation(): Promise<MoveDbResult>
 **Lock File Module:** `src-tauri/src/db_location.rs`
 - `acquire_lock()` — Creates lock file with PC name, timestamp, PID
 - `release_lock()` — Removes lock file
-- `check_lock_status()` — Returns `Free`, `Stale`, or `Locked`
+- `check_lock()` — Returns `Free`, `Stale`, or `Locked`
 
 **Helper Functions:** `commands.rs:3326-3345`
 - `copy_dir_all()` — Recursive directory copy
@@ -116,6 +122,8 @@ Located at `<db_folder>/kniha-jazd.lock`:
 
 **Staleness:** Lock considered stale if `last_heartbeat` > 2 minutes old.
 
+**Heartbeat:** Lock is refreshed every 30 seconds while the app is running.
+
 ## Design Decisions
 
 - **Why copy-then-delete?** — Prevents data loss if move fails mid-operation. Only delete source after successful copy.
@@ -128,6 +136,6 @@ Located at `<db_folder>/kniha-jazd.lock`:
 
 ## Related
 
-- **Read-only mode:** Triggered when lock held by another PC (see `app_state.rs`)
+- **Read-only mode:** Triggered by unknown migrations, not by lock conflicts (lock conflicts log a warning and continue)
 - **Backup system:** Backups folder moves with database
 - **Settings persistence:** `local.settings.json` in `%APPDATA%\com.notavailable.kniha-jazd\`
