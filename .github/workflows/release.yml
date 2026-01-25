@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  # Check if tests already passed for this commit (or parent if release-only changes)
+  # Check if tests already passed for this commit (or ancestor if only docs/release changes)
   check-tests:
     name: Check Prior Test Results
     runs-on: ubuntu-latest
@@ -16,14 +16,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need parent commit for release-only detection
+          fetch-depth: 15  # Need ancestors for traversing past docs-only commits
 
-      - name: Check for release-only changes
+      - name: Check for non-code changes
         id: check-files
         uses: ./.github/actions/check-file-changes
         with:
-          # Release-only files (version bumps, changelog)
-          safe-patterns: '^(CHANGELOG\.md|package\.json|package-lock\.json|src-tauri/Cargo\.toml|src-tauri/Cargo\.lock|src-tauri/tauri\.conf\.json)$'
+          # Files that don't require tests: release files + docs/config (matching test.yml)
+          safe-patterns: '^(CHANGELOG\.md|package\.json|package-lock\.json|src-tauri/Cargo\.toml|src-tauri/Cargo\.lock|src-tauri/tauri\.conf\.json|.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$'
 
       - name: Check if Tests workflow passed
         id: check-api
@@ -47,23 +47,28 @@ jobs:
 
           echo "No test results on tagged commit - checking if release-only changes..."
 
-          # Second: if only release files changed, check parent commit
+          # Second: if only non-code files changed (release/docs), traverse ancestors
           if [ "${{ steps.check-files.outputs.has-code-changes }}" = "false" ]; then
-            PARENT_SHA=$(git rev-parse HEAD^)
-            echo "✅ Only release files changed - checking parent commit: $PARENT_SHA"
+            echo "✅ Only non-code files changed - searching ancestors for test results..."
 
-            PARENT_RESULT=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$PARENT_SHA&status=success" \
-              --jq '.total_count' 2>/dev/null || echo "0")
+            # Traverse up to 10 ancestors looking for successful tests
+            CURRENT_SHA=$(git rev-parse HEAD)
+            for i in $(seq 1 10); do
+              ANCESTOR_SHA=$(git rev-parse HEAD~$i 2>/dev/null || break)
+              echo "  Checking ancestor ~$i: $ANCESTOR_SHA"
 
-            if [ "$PARENT_RESULT" -gt 0 ]; then
-              echo "tests_passed=true" >> $GITHUB_OUTPUT
-              echo "✅ Parent commit passed tests - skipping (release-only changes)"
-              exit 0
-            else
-              echo "⚠️ Parent commit has no successful test run"
-            fi
+              ANCESTOR_RESULT=$(gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$ANCESTOR_SHA&status=success" \
+                --jq '.total_count' 2>/dev/null || echo "0")
+
+              if [ "$ANCESTOR_RESULT" -gt 0 ]; then
+                echo "tests_passed=true" >> $GITHUB_OUTPUT
+                echo "✅ Ancestor ~$i ($ANCESTOR_SHA) passed tests - skipping"
+                exit 0
+              fi
+            done
+            echo "⚠️ No ancestor with successful test run found (checked 10 commits)"
           else
             echo "❌ Code changes detected - cannot skip tests"
           fi
