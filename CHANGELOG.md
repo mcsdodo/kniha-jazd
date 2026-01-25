@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Nový stĺpec "Spotr. (L)" v tabuľke jázd** - zobrazuje spotrebu paliva pre každú jazdu v litroch
+  - Výpočet: km × spotreba / 100
+  - Používa spotrebu z uzavretého obdobia tankovania alebo TP hodnotu ak obdobie nie je ešte uzavreté
+  - Živý náhľad pri editácii jazdy (s ~ prefixom)
+  - Zahrnutý aj v HTML exporte
+
 ## [0.21.1] - 2026-01-25
 
 ### Opravené

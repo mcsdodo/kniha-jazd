@@ -10,6 +10,7 @@
 	export let isNew: boolean = false;
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
+	export let fuelConsumed: number = 0;
 	export let fuelRemaining: number = 0;
 	// Energy fields (BEV/PHEV)
 	export let vehicleType: VehicleType = 'Ice';
@@ -325,6 +326,13 @@
 					data-testid="trip-fuel-cost"
 				/>
 			</td>
+			<td class="number calculated" class:preview={previewData}>
+				{#if previewData}
+					~{((formData.distanceKm || 0) * previewData.consumptionRate / 100).toFixed(2)}
+				{:else}
+					{fuelConsumed.toFixed(2)}
+				{/if}
+			</td>
 			<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
 				{#if previewData}
 					~{previewData.consumptionRate.toFixed(2)}
@@ -458,6 +466,7 @@
 				{/if}
 			</td>
 			<td class="number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
+			<td class="number calculated">{fuelConsumed.toFixed(2)}</td>
 			<td class="number calculated" class:estimated={isEstimatedRate}>
 				{consumptionRate.toFixed(2)}
 				{#if isEstimatedRate}
@@ -620,7 +629,7 @@
 	}
 
 	td.actions {
-		text-align: center;
+		text-align: right;
 		white-space: nowrap;
 	}
 
@@ -650,14 +659,14 @@
 	.editing-actions {
 		display: flex;
 		gap: 0.25rem;
-		justify-content: center;
+		justify-content: flex-end;
 		align-items: center;
 	}
 
 	.icon-actions {
 		display: flex;
 		gap: 0.25rem;
-		justify-content: center;
+		justify-content: flex-end;
 		align-items: center;
 	}
 
