@@ -27,17 +27,7 @@
 - Called from update store before downloading update
 - Filename format: `kniha-jazd-backup-YYYY-MM-DD-HHMMSS-pre-v{version}.db`
 - Version encoded in filename for identification
-
-```rust
-// Filename generation
-fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
-    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
-    match (backup_type, update_version) {
-        ("pre-update", Some(version)) => format!("kniha-jazd-backup-{}-pre-v{}.db", timestamp, version),
-        _ => format!("kniha-jazd-backup-{}.db", timestamp),
-    }
-}
-```
+- See `commands.rs:L1597-1602` for filename generation logic
 
 ### Backup Listing
 
@@ -62,13 +52,7 @@ fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> 
 
 ### Pre-Update Backups
 
-Triggered from [update.ts](src/lib/stores/update.ts) during update flow:
-
-```typescript
-// In update store install() method
-const { createBackupWithType } = await import('$lib/api');
-await createBackupWithType('pre-update', updateObject.version);
-```
+Triggered from update store (`update.ts`) during the install flow. The store imports `createBackupWithType` from the API module and calls it with type `'pre-update'` and the target version before downloading the update.
 
 Backup step states: `pending` → `in-progress` → `done` | `failed` | `skipped`
 
@@ -76,26 +60,14 @@ If backup fails, user can choose to "Continue Without Backup" or cancel.
 
 ### Retention & Cleanup
 
-**Settings** (stored in `local.settings.json`, optional):
-```typescript
-interface BackupRetention {
-  enabled: boolean;
-  keepCount: number; // 3, 5, or 10
-}
-```
+**Settings**: Retention configuration stored in `local.settings.json`. See `settings.rs:L11-14` for `BackupRetention` struct with `enabled` flag and `keep_count` (3, 5, or 10).
 
 **Cleanup Logic** (`get_cleanup_candidates`):
 - Filters to **pre-update** backups only (manual backups never deleted)
 - Sorts by filename (oldest first)
 - Returns oldest backups beyond keep limit
 
-**Startup Auto-Cleanup** (in `lib.rs`):
-```rust
-// Runs in background thread at app startup
-if retention.enabled && retention.keep_count > 0 {
-    commands::cleanup_pre_update_backups_internal(&cleanup_app_handle, retention.keep_count);
-}
-```
+**Startup Auto-Cleanup**: Runs in background thread at app startup when retention is enabled. See `lib.rs:L140-146`.
 
 **Manual Cleanup**:
 - Preview shows which backups will be deleted and total bytes
@@ -103,29 +75,17 @@ if retention.enabled && retention.keep_count > 0 {
 
 ## Data Structures
 
-```typescript
-type BackupType = 'manual' | 'pre-update';
+Core backup types are defined in:
+- **Rust**: `commands.rs:L74-82` (`BackupInfo` struct)
+- **TypeScript**: `types.ts:L92+` (`BackupType`, `BackupInfo`, `CleanupPreview`, `CleanupResult`)
 
-interface BackupInfo {
-  filename: string;           // Full filename with extension
-  createdAt: string;          // ISO timestamp parsed from filename
-  sizeBytes: number;          // File size on disk
-  vehicleCount: number;       // 0 in list, actual in get_backup_info
-  tripCount: number;          // 0 in list, actual in get_backup_info
-  backupType: BackupType;     // Parsed from filename
-  updateVersion: string | null; // e.g., "0.20.0" for pre-update
-}
-
-interface CleanupPreview {
-  toDelete: BackupInfo[];
-  totalBytes: number;
-}
-
-interface CleanupResult {
-  deleted: string[];          // Filenames that were deleted
-  freedBytes: number;
-}
-```
+Key fields in `BackupInfo`:
+- `filename` - Full filename with extension
+- `createdAt` - ISO timestamp parsed from filename
+- `sizeBytes` - File size on disk
+- `vehicleCount` / `tripCount` - 0 in list view, actual counts loaded via `get_backup_info`
+- `backupType` - `'manual'` or `'pre-update'` (parsed from filename)
+- `updateVersion` - Version string for pre-update backups (e.g., "0.20.0")
 
 ## Key Files
 

@@ -58,41 +58,26 @@ The lock file (`kniha-jazd.lock`) prevents concurrent write access from multiple
 
 ### Heartbeat Thread
 
-When the app successfully acquires a lock, it spawns a background thread to keep the lock fresh:
+When the app successfully acquires a lock, it spawns a background thread to keep the lock fresh.
 
-```rust
-std::thread::spawn(move || {
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(30));
-        if let Err(e) = db_location::refresh_lock(&heartbeat_lock_path) {
-            log::warn!("Failed to refresh lock: {}", e);
-            break;
-        }
-    }
-});
-```
+**Implementation**: See heartbeat thread spawn in `lib.rs:L110`
 
-**Interval**: 30 seconds  
-**Purpose**: Updates `last_heartbeat` timestamp to prove the app is still running
-
-If the heartbeat fails (e.g., lock file deleted externally), the thread exits gracefully.
+**Behavior**:
+- **Interval**: 30 seconds
+- **Purpose**: Updates `last_heartbeat` timestamp to prove the app is still running
+- **On failure**: If the heartbeat fails (e.g., lock file deleted externally), the thread exits gracefully
 
 ### Migration Compatibility
 
-The app checks if the database contains migrations that this version doesn't recognize:
+The app checks if the database contains migrations that this version doesn't recognize.
 
-```rust
-pub fn check_migration_compatibility(&self) -> Result<(), Vec<String>> {
-    let embedded = Self::get_embedded_migration_versions();  // Migrations compiled into this app
-    let applied = /* query __diesel_schema_migrations table */;
-    
-    let unknown: Vec<String> = applied
-        .filter(|m| !embedded.contains(&m.version))
-        .collect();
+**Implementation**: See `check_migration_compatibility()` in `db.rs:L116`
 
-    if unknown.is_empty() { Ok(()) } else { Err(unknown) }
-}
-```
+**Algorithm**:
+1. Get list of migrations compiled into this app version
+2. Query `__diesel_schema_migrations` table for applied migrations
+3. Find any applied migrations not in the embedded list
+4. If unknown migrations exist, return error (triggers read-only mode)
 
 **Scenario**: User A runs v0.22.0 which adds a new migration. User B opens the same database with v0.21.0 → Read-only mode activates because v0.21.0 doesn't know about that migration.
 
@@ -135,16 +120,16 @@ All write operations are guarded by the `check_read_only!` macro. When invoked i
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| [src-tauri/src/app_state.rs](../../src-tauri/src/app_state.rs) | `AppMode` enum, `AppState` struct with RwLock-protected fields |
-| [src-tauri/src/db_location.rs](../../src-tauri/src/db_location.rs) | Lock file operations: `check_lock`, `acquire_lock`, `refresh_lock`, `release_lock` |
-| [src-tauri/src/lib.rs](../../src-tauri/src/lib.rs) | Startup initialization, lock acquisition, heartbeat thread spawn |
-| [src-tauri/src/commands.rs](../../src-tauri/src/commands.rs) | `check_read_only!` macro, protected command implementations |
-| [src-tauri/src/db.rs](../../src-tauri/src/db.rs) | `check_migration_compatibility()` function |
-| [src/lib/stores/app.ts](../../src/lib/stores/app.ts) | Read-only state and reason on the frontend |
-| [src/routes/+layout.svelte](../../src/routes/+layout.svelte) | Read-only banner UI and update check action |
-| [src/lib/api.ts](../../src/lib/api.ts) | `check_updates` command wrapper used by the banner |
+| File | Purpose | Key Lines |
+|------|---------|-----------|
+| `app_state.rs` | `AppMode` enum, `AppState` struct with RwLock-protected fields | `AppMode:L14`, `is_read_only():L67` |
+| `db_location.rs` | Lock file operations | `check_lock:L103`, `acquire_lock:L145`, `refresh_lock:L181` |
+| `lib.rs` | Startup initialization, lock acquisition, heartbeat thread spawn | Heartbeat spawn: `L110` |
+| `commands.rs` | `check_read_only!` macro, protected command implementations | Macro: `L36` |
+| `db.rs` | Migration compatibility check | `check_migration_compatibility:L116` |
+| `src/lib/stores/app.ts` | Read-only state and reason on the frontend | |
+| `src/routes/+layout.svelte` | Read-only banner UI and update check action | |
+| `src/lib/api.ts` | `check_updates` command wrapper used by the banner | |
 
 ## Design Decisions
 

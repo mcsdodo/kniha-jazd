@@ -31,68 +31,36 @@
 - Progress indicator during move operation
 
 **API Wrapper:** `src/lib/api.ts`
-```typescript
-export async function moveDatabase(targetFolder: string): Promise<MoveDbResult>
-export async function resetDatabaseLocation(): Promise<MoveDbResult>
-```
+- `moveDatabase()` - Invokes backend move command
+- `resetDatabaseLocation()` - Resets to default path
 
 ### Backend (Rust)
 
-**Main Command:** `move_database` in `src-tauri/src/commands.rs:3168-3248`
-
-```
-┌─────────────────────────────────────────────────────┐
-│  1. Security check (block if read-only mode)        │
-│  2. Create target directory if needed               │
-│  3. Copy kniha-jazd.db to new location              │
-│  4. Copy entire backups/ folder recursively         │
-│  5. Update local.settings.json with custom path     │
-│  6. Create lock file at NEW location                │
-│  7. Release lock at OLD location                    │
-│  8. Delete old database + backups                   │
-│  9. Update in-memory app state                      │
-└─────────────────────────────────────────────────────┘
-```
+**Main Command:** `move_database` in `commands.rs:L3276-3355`
+- Validates permissions, copies files + backups, updates settings, manages locks, cleans up source
 
 **Lock File Module:** `src-tauri/src/db_location.rs`
 - `acquire_lock()` — Creates lock file with PC name, timestamp, PID
 - `release_lock()` — Removes lock file
 - `check_lock()` — Returns `Free`, `Stale`, or `Locked`
 
-**Helper Functions:** `commands.rs:3326-3345`
+**Helper Functions:** `commands.rs:L3433-3452`
 - `copy_dir_all()` — Recursive directory copy
 - `count_files()` — Count files in directory for progress reporting
 
 ### Data Flow
 
 ```
-User clicks "Change..."
+User clicks "Change..." → Directory Picker → Frontend validation
         ↓
-Directory Picker (Tauri dialog API)
+Confirmation Modal → invoke("move_database")
         ↓
-Frontend validates (no existing DB)
+Rust Backend: validate → copy files → update settings → manage locks → cleanup
         ↓
-Confirmation Modal
-        ↓
-invoke("move_database", { targetFolder })
-        ↓
-┌─────────────────────────────────────┐
-│         Rust Backend                │
-│  1. check_read_only!()              │
-│  2. fs::create_dir_all(target)      │
-│  3. fs::copy(db_file)               │
-│  4. copy_dir_all(backups/)          │
-│  5. LocalSettings::save()           │
-│  6. acquire_lock(new_path)          │
-│  7. release_lock(old_path)          │
-│  8. fs::remove_file(old_db)         │
-│  9. app_state.set_db_path()         │
-└─────────────────────────────────────┘
-        ↓
-MoveDbResult { success, new_path, files_moved }
-        ↓
-Frontend shows toast → 1.5s delay → window.location.reload()
+MoveDbResult → Frontend toast → App reload
 ```
+
+For implementation details, see `commands.rs:L3276-3355`.
 
 ## Key Files
 
@@ -101,14 +69,14 @@ Frontend shows toast → 1.5s delay → window.location.reload()
 | `src/routes/settings/+page.svelte` | Settings UI with move button |
 | `src/lib/components/MoveDatabaseModal.svelte` | Confirmation dialog |
 | `src/lib/api.ts` | TypeScript API wrappers |
-| `src-tauri/src/commands.rs:3168-3248` | `move_database` command |
-| `src-tauri/src/commands.rs:3250-3324` | `reset_database_location` command |
+| `src-tauri/src/commands.rs:L3276-3355` | `move_database` command |
+| `src-tauri/src/commands.rs:L3359-3430` | `reset_database_location` command |
 | `src-tauri/src/db_location.rs` | Lock file management |
 | `src-tauri/src/settings.rs` | `LocalSettings` struct, custom path storage |
 
 ## Lock File Structure
 
-Located at `<db_folder>/kniha-jazd.lock`:
+Located at `<db_folder>/kniha-jazd.lock`. See `db_location.rs:L36-47` for `LockFile` struct.
 
 ```json
 {
