@@ -4,18 +4,20 @@ Features to document, ranked by complexity and importance.
 
 ## Priority Order
 
-| Priority | Feature | Status |
-|----------|---------|--------|
-| 🔴 **1** | [Trip Grid Calculation](#1-trip-grid-calculation) | ⬜ |
-| 🔴 **2** | [Backup System](#2-backup-system) | ⬜ |
-| 🟠 **3** | [Receipt Scanning & AI OCR](#3-receipt-scanning--ai-ocr) | ⬜ |
-| 🟠 **4** | [Read-Only Mode](#4-read-only-mode) | ⬜ |
-| 🟡 **5** | [Multi-Year State](#5-multi-year-state) | ⬜ |
-| 🟡 **6** | [Export System](#6-export-system) | ⬜ |
-| 🟢 **7** | [Magic Fill](#7-magic-fill) | ⬜ |
-| 🟢 **8** | [Settings Architecture](#8-settings-architecture) | ⬜ |
+| Priority | Feature | Status | File |
+|----------|---------|--------|------|
+| 🔴 **1** | [Trip Grid Calculation](#1-trip-grid-calculation) | ✅ | [trip-grid-calculation.md](trip-grid-calculation.md) |
+| 🔴 **2** | [Backup System](#2-backup-system) | ✅ | [backup-system.md](backup-system.md) |
+| 🟠 **3** | [Receipt Scanning & AI OCR](#3-receipt-scanning--ai-ocr) | ✅ | [receipt-scanning.md](receipt-scanning.md) |
+| 🟠 **4** | [Read-Only Mode](#4-read-only-mode) | ✅ | [read-only-mode.md](read-only-mode.md) |
+| 🟡 **5** | [Multi-Year State](#5-multi-year-state) | ✅ | [multi-year-state.md](multi-year-state.md) |
+| 🟡 **6** | [Export System](#6-export-system) | ✅ | [export-system.md](export-system.md) |
+| 🟢 **7** | [Magic Fill](#7-magic-fill) | ✅ | [magic-fill.md](magic-fill.md) |
+| 🟢 **8** | [Settings Architecture](#8-settings-architecture) | ✅ | [settings-architecture.md](settings-architecture.md) |
 
 ✅ = Done | ⬜ = Not started
+
+**All features documented! 🎉**
 
 ---
 

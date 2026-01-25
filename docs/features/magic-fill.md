@@ -1,0 +1,187 @@
+# Feature: Magic Fill
+
+> Automatically calculates fuel liters needed to achieve a target consumption rate, simplifying trip entry by suggesting realistic fuel values.
+
+## User Flow
+
+1. User enters a new trip or edits an existing trip in the trip grid
+2. User fills in the distance (km) field
+3. User clicks the **Magic Fill** button (sparkle/star icon) in the actions column
+4. System calculates suggested fuel liters based on:
+   - Accumulated kilometers in the current open period
+   - Vehicle's TP (technical passport) consumption rate
+   - Random target multiplier between 105-120% of TP rate
+5. The fuel liters field is populated with the calculated value
+6. The "Full Tank" checkbox is automatically checked
+7. Live preview updates to show the resulting consumption rate
+
+## Technical Implementation
+
+### Core Calculation
+
+The magic fill feature calculates fuel liters that would result in a realistic consumption rate (105-120% of TP consumption):
+
+```
+target_rate = tp_consumption × random(1.05, 1.20)
+suggested_liters = (total_km × target_rate) / 100
+```
+
+**Example:**
+- TP consumption: 5.0 L/100km
+- Open period km: 100 km
+- Random multiplier: 1.10 (110%)
+- Target rate: 5.0 × 1.10 = 5.5 L/100km
+- Suggested liters: (100 × 5.5) / 100 = **5.5 L**
+
+### Open Period Calculation
+
+Magic fill only considers kilometers in the **current open period** — the kilometers driven since the last full tank fill-up:
+
+```rust
+fn get_open_period_km(chronological: &[Trip]) -> f64 {
+    let mut km_in_period = 0.0;
+    
+    for trip in chronological {
+        km_in_period += trip.distance_km;
+        
+        // Full tank fillup closes the period
+        if trip.full_tank && trip.fuel_liters > 0.0 {
+            km_in_period = 0.0;
+        }
+    }
+    
+    km_in_period
+}
+```
+
+**Period logic:**
+- Partial fill-ups do NOT close the period
+- Only a full tank fill-up resets the counter
+- After a full tank, open period km starts at 0
+
+### Existing Trip vs New Trip
+
+The calculation handles new and existing trips differently to avoid double-counting:
+
+| Scenario | Total KM Calculation |
+|----------|---------------------|
+| **New trip** | `open_period_km + form_distance_km` |
+| **Editing existing trip** | `open_period_km` (trip's km already included) |
+
+This is controlled via the `trip_id` parameter:
+- `None` → new trip, add form's km value
+- `Some(id)` → editing, km already in open period
+
+### Buffer Kilometers (Related)
+
+A related function `calculate_buffer_km()` calculates how many additional kilometers are needed to bring consumption rate down to a target margin:
+
+```rust
+// Formula:
+target_rate = tp_rate × (1.0 + target_margin)  // e.g., 5.1 × 1.18 = 6.018
+required_km = (liters_filled × 100.0) / target_rate
+buffer_km = required_km - km_driven
+```
+
+**Example:**
+- 50L filled, 800km driven, TP=5.1, target=18%
+- Target rate: 5.1 × 1.18 = 6.018 L/100km
+- Required km: 50 × 100 / 6.018 = 830.93 km
+- Buffer: 830.93 - 800 = **30.93 km needed**
+
+This is used for warning display when consumption exceeds the legal limit.
+
+### Integration with Trip Form
+
+The magic fill button is available in the trip row's edit mode:
+
+```svelte
+async function handleMagicFill() {
+    const currentKm = formData.distanceKm ?? 0;
+    if (currentKm <= 0) return;
+    
+    const tripId = trip?.id ?? null;
+    const suggestedLiters = await onMagicFill(currentKm, tripId);
+    
+    if (suggestedLiters > 0) {
+        formData.fuelLiters = suggestedLiters;
+        formData.fullTank = true;
+        onPreviewRequest(currentKm, suggestedLiters, true);
+    }
+}
+```
+
+**UI behavior:**
+- Button only works when distance > 0
+- Sets fuel liters to calculated value
+- Automatically checks "Full Tank"
+- Triggers live preview calculation
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| [commands.rs](src-tauri/src/commands.rs) | `calculate_magic_fill_liters` — main calculation |
+| [commands.rs](src-tauri/src/commands.rs) | `get_open_period_km` — open period helper |
+| [calculations.rs](src-tauri/src/calculations.rs) | `calculate_buffer_km` — buffer calculation |
+| [api.ts](src/lib/api.ts) | `calculateMagicFill()` — frontend API |
+| [TripRow.svelte](src/lib/components/TripRow.svelte) | `handleMagicFill()` — UI handler |
+| [+page.svelte](src/routes/+page.svelte) | Magic fill callback wrapper |
+
+## Edge Cases
+
+| Condition | Behavior |
+|-----------|----------|
+| No trips in year | Returns 0.0 (no open period) |
+| Total km ≤ 0 | Returns 0.0 |
+| No vehicle found | Returns error |
+| No TP consumption set | Uses default 5.0 L/100km |
+| All periods closed | Returns calculation for new trip's km only |
+| Distance field empty/zero | Button does nothing |
+
+## Design Decisions
+
+### Why Random Multiplier (105-120%)?
+
+Provides natural variation in consumption rates, avoiding suspiciously consistent values while staying well under the 120% legal limit.
+
+**Benefits**:
+- Looks realistic (not exactly TP rate every time)
+- Safe margin from legal limit
+- Mimics real-world driving variation
+
+### Why Auto-Check Full Tank?
+
+Magic fill assumes the user wants to close the period, which requires a full tank for accurate consumption tracking.
+
+**Reasoning**:
+- Period-based calculation needs closing fill-up
+- Partial fills don't give accurate rates
+- Most common use case is end-of-period fill
+
+### Why Live Preview Integration?
+
+Immediately shows the resulting consumption rate so user can accept or modify the suggestion.
+
+**User experience**:
+- See the impact before saving
+- Adjust if rate seems off
+- Confidence in the calculation
+
+### Why Separate from Buffer KM?
+
+Magic fill calculates **liters from km**; buffer_km calculates **km from liters**. Different use cases:
+
+| Feature | Input | Output | Use Case |
+|---------|-------|--------|----------|
+| Magic Fill | km driven | liters to add | Filling up at the pump |
+| Buffer KM | liters filled | km still needed | Warning about high consumption |
+
+### Why Period-Based, Not Trip-Based?
+
+Works on accumulated km in open period, matching how consumption is actually calculated per fill-up window.
+
+**Accurate calculation**:
+- Matches the period-based rate system
+- All trips in period get same rate
+- Magic fill respects this by using period total
