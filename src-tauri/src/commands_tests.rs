@@ -1863,7 +1863,7 @@ fn make_trip_for_magic_fill(
 #[test]
 fn test_open_period_km_empty_trips() {
     let trips: Vec<Trip> = vec![];
-    assert_eq!(get_open_period_km(&trips), 0.0);
+    assert_eq!(get_open_period_km(&trips, None), 0.0);
 }
 
 #[test]
@@ -1874,7 +1874,7 @@ fn test_open_period_km_single_trip_no_fuel() {
         None,
         false,
     )];
-    assert_eq!(get_open_period_km(&trips), 100.0);
+    assert_eq!(get_open_period_km(&trips, None), 100.0);
 }
 
 #[test]
@@ -1886,7 +1886,7 @@ fn test_open_period_km_single_trip_with_full_tank() {
         Some(5.0),
         true, // full tank
     )];
-    assert_eq!(get_open_period_km(&trips), 0.0);
+    assert_eq!(get_open_period_km(&trips, None), 0.0);
 }
 
 #[test]
@@ -1906,7 +1906,7 @@ fn test_open_period_km_multiple_trips_last_full_tank() {
             true, // full tank - closes period
         ),
     ];
-    assert_eq!(get_open_period_km(&trips), 0.0);
+    assert_eq!(get_open_period_km(&trips, None), 0.0);
 }
 
 #[test]
@@ -1933,7 +1933,7 @@ fn test_open_period_km_multiple_trips_open_period() {
         ),
     ];
     // Open period: 50 + 75 = 125 km
-    assert_eq!(get_open_period_km(&trips), 125.0);
+    assert_eq!(get_open_period_km(&trips, None), 125.0);
 }
 
 #[test]
@@ -1960,7 +1960,7 @@ fn test_open_period_km_partial_fillup_doesnt_close() {
         ),
     ];
     // Open period: 50 + 75 = 125 km (partial fillup doesn't close)
-    assert_eq!(get_open_period_km(&trips), 125.0);
+    assert_eq!(get_open_period_km(&trips, None), 125.0);
 }
 
 #[test]
@@ -2016,11 +2016,74 @@ fn test_magic_fill_existing_trip_no_double_count() {
         ),
     ];
 
-    let open_km = get_open_period_km(&trips);
+    let open_km = get_open_period_km(&trips, None);
     // Open period: 50 + 75 + 370 = 495 km
     assert_eq!(open_km, 495.0);
 
     // For existing trip (editing_trip_id = Some), total = open_km = 495
     // For new trip (editing_trip_id = None), total = open_km + current_km = 495 + 370 = 865
     // The command handles this distinction via editing_trip_id parameter
+}
+
+#[test]
+fn test_open_period_km_editing_trip_in_middle() {
+    // BUG FIX: When editing a trip in the MIDDLE of an open period,
+    // we should only count km up to that trip, not trips that come after.
+    //
+    // Scenario:
+    // Trip A: 100km (full tank) - closes previous period
+    // Trip B: 50km (no fuel)
+    // Trip C: 75km (no fuel) <- EDITING THIS ONE
+    // Trip D: 200km (no fuel)
+    // Trip E: 150km (no fuel)
+    //
+    // When editing Trip C, open period should be: B + C = 50 + 75 = 125 km
+    // NOT: B + C + D + E = 50 + 75 + 200 + 150 = 475 km
+
+    let trip_c_id = Uuid::new_v4();
+    let trips = vec![
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+            100.0,
+            Some(50.0),
+            true, // full tank - closes period
+        ),
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2026, 1, 5).unwrap(),
+            50.0,
+            None,
+            false,
+        ),
+        {
+            // Trip C - the one being edited
+            let mut trip = make_trip_for_magic_fill(
+                NaiveDate::from_ymd_opt(2026, 1, 10).unwrap(),
+                75.0,
+                None,
+                false,
+            );
+            trip.id = trip_c_id;
+            trip
+        },
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+            200.0,
+            None,
+            false,
+        ),
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2026, 1, 20).unwrap(),
+            150.0,
+            None,
+            false,
+        ),
+    ];
+
+    // Without stop_at: returns all km in open period = 50 + 75 + 200 + 150 = 475
+    let all_open_km = get_open_period_km(&trips, None);
+    assert_eq!(all_open_km, 475.0);
+
+    // With stop_at Trip C: should return only 50 + 75 = 125
+    let km_up_to_c = get_open_period_km(&trips, Some(&trip_c_id));
+    assert_eq!(km_up_to_c, 125.0, "Should only count km up to the edited trip");
 }

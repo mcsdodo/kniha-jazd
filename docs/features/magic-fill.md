@@ -15,7 +15,7 @@
 6. The "Full Tank" checkbox is automatically checked
 7. Live preview updates to show the resulting consumption rate
 
-**Scope note**: Magic Fill uses only trips in the selected year and always targets the latest open period (after the last full-tank in that year), even if you are editing an older trip.
+**Scope note**: Magic Fill uses only trips in the selected year. When editing an existing trip, it calculates based on the open period **up to that trip** (not future trips), allowing accurate suggestions for mid-period edits.
 
 ## Technical Implementation
 
@@ -39,21 +39,28 @@ Results are rounded to 2 decimals.
 
 ### Open Period Calculation
 
-Magic fill only considers kilometers in the **current open period** — the kilometers driven since the last full tank fill-up:
+Magic fill only considers kilometers in the **current open period** — the kilometers driven since the last full tank fill-up, up to the trip being edited:
 
 ```rust
-fn get_open_period_km(chronological: &[Trip]) -> f64 {
+fn get_open_period_km(chronological: &[Trip], stop_at_trip_id: Option<&Uuid>) -> f64 {
     let mut km_in_period = 0.0;
-    
+
     for trip in chronological {
         km_in_period += trip.distance_km;
-        
+
+        // When editing, stop after the edited trip (don't count future trips)
+        if let Some(stop_id) = stop_at_trip_id {
+            if &trip.id == stop_id {
+                break;
+            }
+        }
+
         // Full tank fillup closes the period
         if trip.full_tank && trip.fuel_liters > 0.0 {
             km_in_period = 0.0;
         }
     }
-    
+
     km_in_period
 }
 ```
@@ -64,6 +71,7 @@ fn get_open_period_km(chronological: &[Trip]) -> f64 {
 - After a full tank, open period km starts at 0
 - Only the selected year is considered
 - Trips are processed chronologically (date, then odometer)
+- **When editing a trip in the middle**, only km up to that trip are counted (not future trips)
 
 ### Existing Trip vs New Trip
 
@@ -71,12 +79,12 @@ The calculation handles new and existing trips differently to avoid double-count
 
 | Scenario | Total KM Calculation |
 |----------|---------------------|
-| **New trip** | `open_period_km + form_distance_km` |
-| **Editing existing trip** | `open_period_km` (trip's km already included; form km changes are ignored) |
+| **New trip** | `open_period_km(None) + form_distance_km` — counts all km in period |
+| **Editing existing trip** | `open_period_km(Some(id))` — counts km up to and including edited trip only |
 
-This is controlled via the `trip_id` parameter:
-- `None` → new trip, add form's km value
-- `Some(id)` → editing, km already in open period
+This is controlled via the `editing_trip_id` parameter:
+- `None` → new trip, add form's km to full period
+- `Some(id)` → editing, stop counting at edited trip (don't include future trips)
 
 ### Buffer Kilometers (Related)
 
@@ -144,6 +152,7 @@ async function handleMagicFill() {
 | No TP consumption set | Uses default 5.0 L/100km |
 | All periods closed | Returns calculation for new trip's km only; returns 0.0 when editing |
 | Distance field empty/zero | Button does nothing |
+| **Editing trip in middle of period** | Only counts km from last full tank up to edited trip; ignores trips that come after |
 
 ## Design Decisions
 

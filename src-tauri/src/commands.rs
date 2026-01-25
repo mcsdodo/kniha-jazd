@@ -986,12 +986,22 @@ pub fn get_trip_grid_data(
 
 /// Get accumulated km in the current (open) fillup period.
 /// Reuses the same logic as calculate_period_rates.
-fn get_open_period_km(chronological: &[Trip]) -> f64 {
+///
+/// If `stop_at_trip_id` is provided, only count km up to and including that trip.
+/// This is needed when editing a trip in the middle of a period.
+fn get_open_period_km(chronological: &[Trip], stop_at_trip_id: Option<&Uuid>) -> f64 {
     let mut km_in_period = 0.0;
 
     // Same logic as calculate_period_rates - accumulate km until we find a full tank
     for trip in chronological {
         km_in_period += trip.distance_km;
+
+        // If editing a specific trip, stop after we've counted it
+        if let Some(stop_id) = stop_at_trip_id {
+            if &trip.id == stop_id {
+                break;
+            }
+        }
 
         if let Some(fuel) = trip.fuel_liters {
             if fuel > 0.0 && trip.full_tank {
@@ -1042,12 +1052,18 @@ pub fn calculate_magic_fill_liters(
         })
     });
 
+    // Parse editing_trip_id to Uuid if provided
+    let editing_uuid = editing_trip_id
+        .as_ref()
+        .and_then(|id| Uuid::parse_str(id).ok());
+
     // Get accumulated km in current open period (reuses period logic)
-    let open_period_km = get_open_period_km(&chronological);
+    // When editing, only count km up to the edited trip (not trips after it)
+    let open_period_km = get_open_period_km(&chronological, editing_uuid.as_ref());
 
     // For existing trips: their km is already in open_period_km, don't add again
     // For new trips: add current_trip_km to the open period
-    let total_km = if editing_trip_id.is_some() {
+    let total_km = if editing_uuid.is_some() {
         // Existing trip - km already counted in open_period_km
         open_period_km
     } else {
