@@ -368,6 +368,10 @@ type RootTranslation = {
 			 */
 			fuelCost: string
 			/**
+			 * S​p​o​t​r​.​ ​(​L​)
+			 */
+			fuelConsumed: string
+			/**
 			 * l​/​1​0​0​k​m
 			 */
 			consumptionRate: string
@@ -1590,6 +1594,10 @@ type RootTranslation = {
 		 */
 		colFuelCost: string
 		/**
+		 * S​p​o​t​r​.​ ​L
+		 */
+		colFuelConsumed: string
+		/**
 		 * €​ ​I​n​é
 		 */
 		colOtherCosts: string
@@ -2146,6 +2154,10 @@ export type TranslationFunctions = {
 			 * Cena €
 			 */
 			fuelCost: () => LocalizedString
+			/**
+			 * Spotr. (L)
+			 */
+			fuelConsumed: () => LocalizedString
 			/**
 			 * l/100km
 			 */
@@ -3315,6 +3327,10 @@ export type TranslationFunctions = {
 		 * € PHM
 		 */
 		colFuelCost: () => LocalizedString
+		/**
+		 * Spotr. L
+		 */
+		colFuelConsumed: () => LocalizedString
 		/**
 		 * € Iné
 		 */
