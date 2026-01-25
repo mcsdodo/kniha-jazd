@@ -123,3 +123,20 @@ th:nth-child(10) { width: 4%; }  /* l/100km - shifted */
 | Minor | 3 | Nice to fix: test YAGNI, file paths, struct location |
 
 **Recommendation:** Address Critical and Important findings before implementation. Minor findings can be addressed during implementation or skipped.
+
+---
+
+## Resolution
+
+**Date:** 2025-01-26
+
+All Critical and Important findings addressed in updated `03-plan.md`:
+
+- [x] C1: Preview mode support added (Step 3.4)
+- [x] I1: CSS nth-child renumbering explicit (Step 3.1)
+- [x] I2: All 3 TripRow instances specified (Step 3.6)
+- [x] I3: First record row location specified (Step 3.5)
+- [x] I4: Colspan update added (Step 3.7)
+- [x] M3: TripGridData struct location corrected (Step 1.3)
+- [~] M1: Integration test removed (YAGNI per CLAUDE.md)
+- [~] M2: Skipped (no integration test needed)
