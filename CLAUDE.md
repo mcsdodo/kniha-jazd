@@ -153,7 +153,7 @@ ALTER TABLE trips RENAME COLUMN old TO new;     -- Older apps won't find it!
 ### Running Tests
 
 ```bash
-# Rust backend tests (194 tests)
+# Rust backend tests (195 tests)
 cd src-tauri && cargo test
 
 # E2E integration tests (requires debug build)
@@ -183,7 +183,7 @@ This keeps source files clean while maintaining private access (tests are still 
 
 ### Test Coverage
 
-**Backend (Rust) - Authoritative source for all business logic (194 tests):**
+**Backend (Rust) - Authoritative source for all business logic (195 tests):**
 - `commands_tests.rs` - 61 tests: receipt matching, period rates, warnings, fuel remaining, year carryover, BEV energy, receipt assignment, backup cleanup, magic fill
 - `calculations_tests.rs` - 33 tests: consumption rate, spotreba, zostatok, margin, Excel verification
 - `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
@@ -345,7 +345,7 @@ npm run tauri dev        # Start app in dev mode
 npm run tauri build      # Production build
 
 # Testing
-npm run test:backend     # Rust unit tests (194 tests)
+npm run test:backend     # Rust unit tests (195 tests)
 npm run test:integration # E2E tests (needs debug build)
 npm run test:all         # All tests
 
