@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-01-25
+
 ### Opravené
 - **Magic fill pri editácii jazdy v strede obdobia** - oprava výpočtu litrov keď sa edituje jazda, ktorá nie je posledná v otvorenom období tankovania
 
