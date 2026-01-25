@@ -5,11 +5,13 @@
 ## User Flow
 
 1. **Select Vehicle** — User chooses a vehicle from the dropdown in the header
-2. **Select Year** — Year picker appears showing years with existing trips plus current year
+2. **Select Year** — Year picker appears showing years with existing trips plus current year (defaults to current year on app start and vehicle switch)
 3. **View Trips** — Grid displays trips filtered to the selected year
 4. **Year Carryover** — Starting odometer, fuel, and battery levels automatically carry over from previous year's ending state
-5. **Add/Edit Trips** — New trips are saved with the current year context
-6. **Switch Years** — User can navigate between years; data recalculates based on carryover chain
+5. **Add/Edit Trips** — Trip year is derived from the trip date (selected year only filters the UI)
+6. **Switch Years** — User can navigate between years; data recalculates based on carryover rules
+7. **Receipts/Verification** — Receipts list, verification, and header badges are filtered by the selected year
+8. **Export/Print** — Export and print use the selected year
 
 ## Technical Implementation
 
@@ -50,7 +52,7 @@ fn get_year_start_battery_remaining(
 - If no previous year data → returns `initial_battery_percent × capacity` (default: 100%)
 - Processes SoC overrides and energy consumption
 - Returns year-end battery level in kWh
-- **Recursive**: Same chaining logic as fuel carryover
+- **Non-recursive for battery**: If previous year has no trips, returns initial battery and does not search earlier years
 
 **Odometer Carryover:**
 ```rust
@@ -180,6 +182,9 @@ async function handleVehicleChange(event: Event) {
     resetToCurrentYear();  // Prevent stale year selection
     await loadYears();
 }
+
+**Initial Load Handling:**
+- If the selected year has no data, the UI switches to the most recent year with trips.
 ```
 
 ### Year Filtering Queries
@@ -219,7 +224,7 @@ diesel::sql_query(
 
 ## Design Decisions
 
-1. **Recursive Carryover** — Year start values chain recursively through all historical years, ensuring consistency even when viewing old data after gaps.
+1. **Partial Carryover** — Odometer searches back up to 10 years; fuel/battery only use previous year and reset when there are gaps.
 
 2. **Vehicle Type Immutability** — Changing ICE↔BEV↔PHEV would invalidate all historical calculations (fuel vs energy). Enforced at backend level.
 
@@ -227,7 +232,7 @@ diesel::sql_query(
 
 4. **Chronological for Calculations** — All consumption/remaining calculations use date+odometer ordering, not display order, ensuring correct fuel/energy tracking.
 
-5. **Year Picker Auto-Population** — Shows current year plus all years with data, auto-selects most recent year with data when switching vehicles.
+5. **Year Picker Auto-Population** — Shows current year plus all years with data, auto-selects most recent year with data when the selected year has no trips (including initial load).
 
 6. **Reset Year on Vehicle Switch** — Prevents confusion when switching vehicles that may have different year ranges of data.
 

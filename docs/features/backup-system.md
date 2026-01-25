@@ -12,6 +12,8 @@
 6. **Retention Settings**: Enable auto-cleanup, select keep count (3/5/10), optionally run cleanup now
 7. **Pre-Update Backup**: Automatic backup before update installation (triggered from update modal)
 
+**Read-only mode**: create/restore/delete/cleanup actions are blocked when the app is read-only.
+
 ## Technical Implementation
 
 ### Backup Creation
@@ -41,7 +43,8 @@ fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> 
 
 `list_backups`:
 - Scans `{backups_dir}/*.db` files
-- Parses filename to extract timestamp, type, and version
+- Parses filename to extract timestamp and type
+- Pre-update filenames keep the `-pre-vX` suffix and may fall back to a “now” timestamp in the list
 - Returns lightweight `BackupInfo` (counts are 0 for performance)
 - Sorted by filename descending (newest first)
 
@@ -67,13 +70,13 @@ const { createBackupWithType } = await import('$lib/api');
 await createBackupWithType('pre-update', updateObject.version);
 ```
 
-Backup step states: `idle` → `in-progress` → `done` | `failed` | `skipped`
+Backup step states: `pending` → `in-progress` → `done` | `failed` | `skipped`
 
 If backup fails, user can choose to "Continue Without Backup" or cancel.
 
 ### Retention & Cleanup
 
-**Settings** (stored in `local.settings.json`):
+**Settings** (stored in `local.settings.json`, optional):
 ```typescript
 interface BackupRetention {
   enabled: boolean;
@@ -86,7 +89,7 @@ interface BackupRetention {
 - Sorts by filename (oldest first)
 - Returns oldest backups beyond keep limit
 
-**Post-Update Auto-Cleanup** (in `lib.rs`):
+**Startup Auto-Cleanup** (in `lib.rs`):
 ```rust
 // Runs in background thread at app startup
 if retention.enabled && retention.keep_count > 0 {
@@ -162,7 +165,7 @@ interface CleanupResult {
    - Manual backups are intentional user actions
    - Prevents accidental data loss
 
-3. **Silent post-update cleanup**: Runs at startup in background thread
+3. **Startup cleanup**: Runs on every app startup when retention is enabled
    - No UI interruption
    - Logged for debugging
 
@@ -170,7 +173,7 @@ interface CleanupResult {
    - Fast list loading (no need to open each backup database)
    - Full info shown when user needs to make restore decision
 
-5. **Backup location follows database**: Uses app data dir which respects `custom_db_path`
+5. **Backup location follows database**: Uses app data dir and respects `KNIHA_JAZD_DATA_DIR` overrides
    - Backups stored alongside database (e.g., on Google Drive, NAS)
    - Consistent data locality
 

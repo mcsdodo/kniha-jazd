@@ -9,7 +9,12 @@
 3. **Scan**: Click "Skenovať" to detect new receipt files without OCR processing
 4. **Process with AI**: Click "Spracovať" to send pending receipts to Gemini for OCR extraction
 5. **Review**: Receipts with low confidence or foreign currency are flagged for manual review
+  - Filters: unassigned/needs review, fuel vs other
+  - Per-receipt actions: reprocess, edit fields, delete, open file
+  - Year mismatch warning (folder year vs OCR date)
 6. **Assign**: Match receipts to trips manually or let verification system check matches automatically
+
+**Read-only mode**: scanning, processing, editing, deleting, reprocessing, and assignment are blocked in read-only mode.
 
 ## Technical Implementation
 
@@ -50,7 +55,12 @@ The scanning flow is split into two phases:
   - Emits progress event for UI updates
   - Calls `process_receipt_with_gemini()` async
   - Updates receipt in database with extracted data
-  - On error: sets `error_message`, leaves status as `Pending` for retry
+  - On error: returns an error entry and keeps the receipt `Pending` in the DB for retry (no DB update on failure)
+
+**Alternative one-shot path** (`sync_receipts` command)
+- Scans for new files and immediately processes only those newly discovered receipts
+- Returns both `processed` receipts and `errors`
+- Errors are returned to the caller; failed receipts remain `Pending` (no DB update on failure)
 
 ### Gemini AI Extraction
 
@@ -81,6 +91,8 @@ pub struct ExtractedReceipt {
     pub original_amount: Option<f64>,   // Raw OCR amount
     pub original_currency: Option<String>, // EUR/CZK/HUF/PLN
     pub receipt_date: Option<String>,   // YYYY-MM-DD
+    pub vehicle: Option<String>,        // Legacy/optional
+    pub trip: Option<String>,           // Legacy/optional
     pub raw_text: Option<String>,       // Full OCR for debugging
     pub confidence: ExtractionConfidence,
 }
@@ -100,10 +112,12 @@ Each field has an associated confidence level from Gemini:
 **Confidence determines status**:
 
 Receipt is marked `NeedsReview` if:
-- Any field has `Low` or `Unknown` confidence
+- Any of `liters`, `station_name`, `station_address` has `Low` or `Unknown` confidence
 - Missing critical data (`liters` AND `vendor_name` both null)
 - Missing `original_amount` or `receipt_date`
 - **Foreign currency** (CZK/HUF/PLN) — user must manually convert to EUR
+
+`not_applicable` is mapped to `Unknown`, which typically triggers `NeedsReview` for non-fuel receipts unless manually edited.
 
 Otherwise, receipt gets `Parsed` status.
 
@@ -164,7 +178,7 @@ Receipt-to-trip matching supports two paths:
 
 **1. Fuel Receipt Assignment**:
 - Compares `receipt_date`, `liters`, and `total_price_eur` with trip's fuel fields
-- Exact match (within 0.01 tolerance) → receipt verifies trip's fuel entry
+- Exact match (no tolerance) → receipt verifies trip's fuel entry
 - Mismatch reasons tracked: `date`, `liters`, `price`, or combinations
 
 **2. Other Cost Assignment**:
@@ -181,9 +195,11 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
 }
 ```
 
+If a fuel receipt does not exactly match trip fuel data, assignment can still proceed as an other-cost attachment when `other_costs_eur` is empty.
+
 ### Receipt Verification
 
-The verification system checks all receipts against trips for a vehicle/year:
+The verification system checks receipts against trips for a vehicle/year, filtering receipts by `receipt_date` year only (receipts without date are excluded, even if `source_year` is set):
 
 - Counts `matched` vs `unmatched` receipts
 - For each receipt, identifies mismatch reason:
@@ -205,7 +221,7 @@ KNIHA_JAZD_MOCK_GEMINI_DIR=/path/to/mocks npm run test
 When set:
 - API key validation is skipped
 - Loads JSON from mock directory instead of calling Gemini
-- Mock file naming: `{filename}.json` (e.g., `invoice.pdf` → `invoice.pdf.json`)
+- Mock file naming: `{filename}.json` (e.g., `invoice.pdf` → `invoice.json`)
 - Missing mock file returns default response with low confidence
 
 ## Key Files
@@ -214,7 +230,7 @@ When set:
 |------|---------|
 | [receipts.rs](src-tauri/src/receipts.rs) | Folder scanning, structure detection, Gemini integration |
 | [gemini.rs](src-tauri/src/gemini.rs) | Gemini API client, extraction prompt, mock mode |
-| [commands.rs](src-tauri/src/commands.rs) | Tauri commands: `scan_receipts`, `process_pending_receipts`, `assign_receipt` |
+| [commands.rs](src-tauri/src/commands.rs) | Tauri commands: `scan_receipts`, `process_pending_receipts`, `sync_receipts`, `reprocess_receipt`, `assign_receipt_to_trip`, `get_trips_for_receipt_assignment`, `verify_receipts` |
 | [models.rs](src-tauri/src/models.rs) | `Receipt`, `ReceiptStatus`, `ExtractionConfidence` |
 | [+page.svelte](src/routes/doklady/+page.svelte) | Receipt list UI, scan/process buttons, assignment flow |
 | [api.ts](src/lib/api.ts) | Frontend API wrappers for receipt commands |

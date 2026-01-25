@@ -4,16 +4,17 @@
 
 ## User Flow
 
-1. User navigates to the main trips page with an active vehicle selected
+1. User navigates to the main trips page with an active vehicle selected (button is only shown when a vehicle is active)
 2. User clicks the "Export pre tlač" (Export for Print) button in the header
 3. System generates an HTML file with the complete trip logbook for the selected year
 4. HTML file is opened in the default browser
 5. User prints via Ctrl+P → "Save as PDF" for official record keeping
 
 The export button is disabled when:
-- No vehicle is selected
 - No trips exist for the current year
 - An export is already in progress
+
+Export requires company settings (name/IČO) to be configured, otherwise the command fails.
 
 ## Technical Implementation
 
@@ -41,6 +42,7 @@ ExportTotals {
 - **Dummy rows excluded**: Trips with `distance_km = 0` are filtered out before calculations
 - **Near-zero normalization**: Values < 0.001 are normalized to 0.0 to avoid "-0.00" display
 - **Deviation fallback**: Returns 100% when no fuel data exists (represents "at TP rate")
+- **Energy rates/remaining**: Energy rates and battery remaining are not computed here (currently ICE-only calculation paths)
 
 ### HTML Generation
 
@@ -61,8 +63,13 @@ The `export_to_browser` command:
 2. Creates a synthetic "First Record" trip with initial odometer
 3. Calculates consumption rates and fuel/battery remaining
 4. Applies user's current sort order (date or manual)
-5. Writes HTML to temp directory as `kniha-jazd-export.html`
-6. Opens file in default browser via `shell::open()`
+5. Writes HTML to temp directory as `kniha-jazd-{license_plate}-{year}.html`
+6. Opens file in default browser via `opener::open()`
+
+The `export_html` command:
+- Returns the generated HTML string without opening a browser
+- Does **not** add the synthetic "First Record" row
+- Does **not** apply the user’s sort order (uses chronological order for calculations)
 
 ### Vehicle-Type Templates
 

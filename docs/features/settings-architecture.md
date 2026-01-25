@@ -30,6 +30,22 @@ Stored in `local.settings.json` in the app data directory:
 | `custom_db_path` | `Option<String>` | Custom database location (Google Drive, NAS) |
 | `backup_retention` | `Option<BackupRetention>` | Auto-cleanup settings for pre-update backups |
 
+**ReceiptSettings return shape**:
+```typescript
+interface ReceiptSettings {
+    geminiApiKey: string | null;
+    receiptsFolderPath: string | null;
+    geminiApiKeyFromOverride: boolean;
+    receiptsFolderFromOverride: boolean;
+}
+```
+
+**Notes**:
+- `KNIHA_JAZD_DATA_DIR` can override the app data directory for local settings and database paths.
+- Theme and auto-update preferences currently use the default app data dir (do not honor `KNIHA_JAZD_DATA_DIR`).
+- Setting `gemini_api_key` or `receipts_folder_path` to an empty string clears the value.
+- `receipts_folder_path` must exist and be a directory.
+
 **BackupRetention**:
 ```rust
 #[serde(rename_all = "camelCase")]
@@ -148,6 +164,8 @@ pub fn save_settings(&self, s: &Settings) -> QueryResult<()> {
 }
 ```
 
+Write commands fail in read-only mode with a user-facing error.
+
 ### Frontend Integration
 
 The Settings UI (`+page.svelte`) loads both setting types and presents them in a unified interface:
@@ -183,23 +201,23 @@ const debouncedSaveReceiptSettings = debounce(saveReceiptSettingsNow, 800);
 
 | Command | Parameters | Returns | Description |
 |---------|-----------|---------|-------------|
-| `get_theme` | — | `String` | Get theme ("system", "light", "dark") |
-| `set_theme` | `theme` | `()` | Set theme preference |
+| `get_theme_preference` | — | `String` | Get theme ("system", "light", "dark") |
+| `set_theme_preference` | `theme` | `()` | Set theme preference |
 | `get_auto_check_updates` | — | `bool` | Get auto-update setting |
 | `set_auto_check_updates` | `enabled` | `()` | Set auto-update setting |
-| `get_receipt_settings` | — | `ReceiptSettings` | Get API key and folder path |
+| `get_receipt_settings` | — | `ReceiptSettings` | Get API key, folder path, and override flags |
 | `set_gemini_api_key` | `key` | `()` | Set Gemini API key |
 | `set_receipts_folder_path` | `path` | `()` | Set receipts folder |
 | `get_backup_retention` | — | `BackupRetention?` | Get cleanup settings |
 | `set_backup_retention` | `retention` | `()` | Set cleanup settings |
-| `get_db_location` | — | `DbLocation` | Get database path info |
+| `get_db_location` | — | `DbLocationInfo` | Get database path, custom-path flag, and backups path |
 
 ### Database Settings Commands
 
 | Command | Parameters | Returns | Description |
 |---------|-----------|---------|-------------|
 | `get_settings` | — | `Settings?` | Load company settings |
-| `update_settings` | `name`, `ico`, `purpose` | `Settings` | Save company settings |
+| `save_settings` | `name`, `ico`, `purpose` | `Settings` | Save company settings |
 
 ## Key Files
 
