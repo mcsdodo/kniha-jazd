@@ -15,7 +15,7 @@ jobs:
     name: Check Changes
     runs-on: ubuntu-latest
     outputs:
-      run_integration: ${{ steps.check.outputs.has_code_changes }}
+      run_tests: ${{ steps.check.outputs.has_code_changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,9 +29,12 @@ jobs:
           # Files that DON'T require integration tests (docs, config, planning, CI)
           safe-patterns: '^(.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$'
 
-  # Backend tests - fast, run on all platforms (always run)
+  # Backend tests - fast, run on all platforms
+  # Skip on main if only docs/config changed; always run on PRs
   backend-tests:
     name: Backend Tests (${{ matrix.platform }})
+    needs: check-changes
+    if: github.event_name == 'pull_request' || needs.check-changes.outputs.run_tests == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +70,7 @@ jobs:
   integration-tests-pr:
     name: Integration Tests (PR - Tier 1)
     needs: check-changes
-    if: github.event_name == 'pull_request' && needs.check-changes.outputs.run_integration == 'true'
+    if: github.event_name == 'pull_request' && needs.check-changes.outputs.run_tests == 'true'
     runs-on: windows-latest
 
     steps:
@@ -150,7 +153,7 @@ jobs:
   integration-build:
     name: Integration Build
     needs: check-changes
-    if: github.event_name == 'push' && needs.check-changes.outputs.run_integration == 'true'
+    if: github.event_name == 'push' && needs.check-changes.outputs.run_tests == 'true'
     runs-on: windows-latest
 
     steps:
@@ -187,7 +190,7 @@ jobs:
   integration-tests-main:
     name: Integration Tests (${{ matrix.tier_name }})
     needs: [check-changes, integration-build]
-    if: github.event_name == 'push' && needs.check-changes.outputs.run_integration == 'true'
+    if: github.event_name == 'push' && needs.check-changes.outputs.run_tests == 'true'
     runs-on: windows-latest
     strategy:
       fail-fast: false
