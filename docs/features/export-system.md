@@ -20,23 +20,13 @@ Export requires company settings (name/IČO) to be configured, otherwise the com
 
 ### Export Totals Calculation
 
-The `ExportTotals::calculate()` function processes trip data to produce footer statistics:
+The `ExportTotals::calculate()` function (`export.rs:L96`) processes trip data to produce footer statistics. The struct is defined at `export.rs:L72-84`.
 
-```rust
-ExportTotals {
-    total_km,           // Sum of all trip distances
-    total_fuel_liters,  // Sum of fuel fillups
-    total_fuel_cost,    // Sum of fuel costs
-    total_other_costs,  // Sum of other costs (tolls, parking, etc.)
-    avg_consumption,    // total_fuel / total_km * 100 (l/100km)
-    deviation_percent,  // avg_consumption / tp_consumption * 100
-    // Energy fields for BEV/PHEV:
-    total_energy_kwh,
-    total_energy_cost,
-    avg_energy_rate,
-    energy_deviation_percent
-}
-```
+Key fields:
+- **Distance:** `total_km` - sum of all trip distances
+- **Fuel totals:** `total_fuel_liters`, `total_fuel_cost`, `avg_consumption`, `deviation_percent`
+- **Energy totals (BEV/PHEV):** `total_energy_kwh`, `total_energy_cost`, `avg_energy_rate`, `energy_deviation_percent`
+- **Other:** `total_other_costs` - tolls, parking, etc.
 
 **Key behavior:**
 - **Dummy rows excluded**: Trips with `distance_km = 0` are filtered out before calculations
@@ -106,16 +96,7 @@ Labels include:
 - BEV-specific labels (battery capacity, energy rate, baseline)
 - Print hint text
 
-**Translation example** (Slovak):
-```typescript
-export: {
-    pageTitle: 'KNIHA JÁZD',
-    headerCompany: 'Firma:',
-    footerDeviation: 'Odchýlka od TP',
-    printHint: 'Pre export do PDF použite Ctrl+P → Uložiť ako PDF',
-    // ...
-}
-```
+**Translation location:** Slovak translations are in `src/lib/i18n/sk/index.ts:L467` (search for `export:` key). Labels cover page title, headers, column names, footer labels, and print hints.
 
 ## Key Files
 

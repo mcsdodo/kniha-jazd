@@ -30,15 +30,7 @@ Stored in `local.settings.json` in the app data directory:
 | `custom_db_path` | `Option<String>` | Custom database location (Google Drive, NAS) |
 | `backup_retention` | `Option<BackupRetention>` | Auto-cleanup settings for pre-update backups |
 
-**ReceiptSettings return shape**:
-```typescript
-interface ReceiptSettings {
-    geminiApiKey: string | null;
-    receiptsFolderPath: string | null;
-    geminiApiKeyFromOverride: boolean;
-    receiptsFolderFromOverride: boolean;
-}
-```
+**ReceiptSettings return shape:** See `types.ts:L177-182` for the TypeScript interface.
 
 **Notes**:
 - `KNIHA_JAZD_DATA_DIR` can override the app data directory for local settings and database paths.
@@ -46,14 +38,7 @@ interface ReceiptSettings {
 - Setting `gemini_api_key` or `receipts_folder_path` to an empty string clears the value.
 - `receipts_folder_path` must exist and be a directory.
 
-**BackupRetention**:
-```rust
-#[serde(rename_all = "camelCase")]
-pub struct BackupRetention {
-    pub enabled: bool,
-    pub keep_count: u32,
-}
-```
+**BackupRetention:** See `settings.rs:L11-14` for the struct definition. Contains `enabled` (bool) and `keep_count` (u32) fields, serialized with camelCase for JSON.
 
 ### Settings (Database)
 
@@ -69,20 +54,7 @@ Stored in the `settings` table of `kniha-jazd.db`:
 | `buffer_trip_purpose` | `String` | Default purpose text for buffer trips |
 | `updated_at` | `DateTime<Utc>` | Last modification timestamp |
 
-**Default values**:
-```rust
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            company_name: String::new(),
-            company_ico: String::new(),
-            buffer_trip_purpose: "služobná cesta".to_string(),
-            updated_at: Utc::now(),
-        }
-    }
-}
-```
+**Defaults:** See `models.rs:L275-285` for the `Default` implementation. The `buffer_trip_purpose` defaults to "sluzobna cesta" (service trip); other string fields default to empty.
 
 ## Why the Split?
 
@@ -107,93 +79,23 @@ Theme preferences and update settings are personal choices that may differ betwe
 
 ### Loading Settings
 
-**LocalSettings** (from file):
-```rust
-impl LocalSettings {
-    pub fn load(app_data_dir: &PathBuf) -> Self {
-        let path = app_data_dir.join("local.settings.json");
-        if path.exists() {
-            match fs::read_to_string(&path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-                Err(_) => Self::default(),
-            }
-        } else {
-            Self::default()
-        }
-    }
-}
-```
+**LocalSettings loading:** See `settings.rs:L29-39` for the `load()` method. Reads from `local.settings.json` in the app data directory, falling back to defaults if the file is missing or malformed.
 
-**Settings** (from database):
-```rust
-pub fn get_settings(&self) -> QueryResult<Option<Settings>> {
-    let conn = &mut *self.conn.lock().unwrap();
-    let row = settings::table.first::<SettingsRow>(conn).optional()?;
-    Ok(row.map(Settings::from))
-}
-```
+**Settings loading:** See `db.rs:L593-598` for the `get_settings()` method. Queries the `settings` table and converts the row to a domain model using Diesel ORM.
 
 ### Saving Settings
 
-**LocalSettings** saves to JSON with fsync for durability:
-```rust
-pub fn save(&self, app_data_dir: &PathBuf) -> std::io::Result<()> {
-    fs::create_dir_all(app_data_dir)?;
-    let path = app_data_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(self)?;
-    let mut file = fs::File::create(&path)?;
-    file.write_all(json.as_bytes())?;
-    file.sync_all()
-}
-```
+**LocalSettings saving:** See `settings.rs:L42-52` for the `save()` method. Writes pretty-printed JSON to disk with `sync_all()` to ensure durability (data flushed to disk before returning).
 
-**Settings** uses upsert pattern in SQLite:
-```rust
-pub fn save_settings(&self, s: &Settings) -> QueryResult<()> {
-    let exists: i64 = settings::table.count().get_result(conn)?;
-    if exists > 0 {
-        diesel::update(settings::table)
-            .set((/* fields */))
-            .execute(conn)?;
-    } else {
-        diesel::insert_into(settings::table)
-            .values(&new_settings)
-            .execute(conn)?;
-    }
-    Ok(())
-}
-```
+**Settings saving:** See `db.rs:L601-636` for the `save_settings()` method. Uses an upsert pattern - checks if settings exist, then updates or inserts accordingly.
 
 Write commands fail in read-only mode with a user-facing error.
 
 ### Frontend Integration
 
-The Settings UI (`+page.svelte`) loads both setting types and presents them in a unified interface:
+The Settings UI (`+page.svelte`) loads both setting types and presents them in a unified interface. See `+page.svelte:L273-308` for the `onMount()` loading pattern that fetches database settings, local settings (API key, receipts folder), and database location info in parallel.
 
-```typescript
-onMount(async () => {
-    // Load database settings
-    const loadedSettings = await api.getSettings();
-    if (loadedSettings) {
-        companyName = loadedSettings.companyName;
-        companyIco = loadedSettings.companyIco;
-        bufferTripPurpose = loadedSettings.bufferTripPurpose;
-    }
-
-    // Load local settings (via separate commands)
-    autoCheckUpdates = await getAutoCheckUpdates();
-    const receiptSettings = await getReceiptSettings();
-    geminiApiKey = receiptSettings.geminiApiKey || '';
-    receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
-    dbLocation = await getDbLocation();
-});
-```
-
-**Auto-save with debouncing** prevents excessive writes:
-```typescript
-const debouncedSaveCompanySettings = debounce(saveCompanySettingsNow, 800);
-const debouncedSaveReceiptSettings = debounce(saveReceiptSettingsNow, 800);
-```
+**Auto-save with debouncing:** See `+page.svelte:L117-118` for the debounce setup. Both company settings and receipt settings use 800ms debounce to prevent excessive writes while typing.
 
 ## Tauri Commands
 

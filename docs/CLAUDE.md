@@ -76,3 +76,37 @@ Feature docs should be updated when:
 - Related ADRs are added
 
 Keep docs accurate — outdated documentation is worse than no documentation.
+
+## Code in Documentation: What's Allowed
+
+The project convention is "reference code, don't embed it" — but pseudocode and conceptual examples are acceptable.
+
+| Type | Allowed | Example |
+|------|---------|---------|
+| **Math formulas** | Yes | `consumption = liters / km × 100` |
+| **Pseudocode** | Yes | Algorithm steps describing logic flow |
+| **Data formats** | Yes | JSON config examples, lock file structure |
+| **ASCII diagrams** | Yes | Data flow, state machines |
+| **Actual code** | No | Rust functions, TypeScript components |
+| **Struct definitions** | No | Full field listings from source |
+
+**Why pseudocode is OK but code isn't:**
+- Pseudocode describes *intent*, not implementation
+- Actual code will drift when refactored
+- Pseudocode remains stable as long as the algorithm is the same
+
+**Good example (pseudocode):**
+```
+for each trip in chronological order:
+    add distance to period total
+    if full tank fillup:
+        calculate consumption rate
+        reset period total
+```
+
+**Bad example (actual code):**
+```rust
+fn calculate_period_rates(trips: &[Trip]) -> Vec<PeriodRate> {
+    // This will become stale when impl changes
+}
+```

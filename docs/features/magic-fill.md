@@ -39,30 +39,19 @@ Results are rounded to 2 decimals.
 
 ### Open Period Calculation
 
-Magic fill only considers kilometers in the **current open period** — the kilometers driven since the last full tank fill-up, up to the trip being edited:
+Magic fill only considers kilometers in the **current open period** — the kilometers driven since the last full tank fill-up, up to the trip being edited.
 
-```rust
-fn get_open_period_km(chronological: &[Trip], stop_at_trip_id: Option<&Uuid>) -> f64 {
-    let mut km_in_period = 0.0;
+**Implementation:** `commands.rs:L992` `get_open_period_km()`
 
-    for trip in chronological {
-        km_in_period += trip.distance_km;
-
-        // When editing, stop after the edited trip (don't count future trips)
-        if let Some(stop_id) = stop_at_trip_id {
-            if &trip.id == stop_id {
-                break;
-            }
-        }
-
-        // Full tank fillup closes the period
-        if trip.full_tank && trip.fuel_liters > 0.0 {
-            km_in_period = 0.0;
-        }
-    }
-
-    km_in_period
-}
+**Algorithm:**
+```
+for each trip in chronological order:
+    add trip distance to period total
+    if editing specific trip and this is that trip:
+        stop (don't count future trips)
+    if full tank fillup with fuel > 0:
+        reset period total to 0 (period closed)
+return accumulated km in period
 ```
 
 **Period logic:**
@@ -88,12 +77,14 @@ This is controlled via the `editing_trip_id` parameter:
 
 ### Buffer Kilometers (Related)
 
-A related function `calculate_buffer_km()` calculates how many additional kilometers are needed to bring consumption rate down to a target margin:
+A related function calculates how many additional kilometers are needed to bring consumption rate down to a target margin.
 
-```rust
-// Formula:
-target_rate = tp_rate × (1.0 + target_margin)  // e.g., 5.1 × 1.18 = 6.018
-required_km = (liters_filled × 100.0) / target_rate
+**Implementation:** `calculations.rs:L73` `calculate_buffer_km()`
+
+**Formula:**
+```
+target_rate = tp_rate × (1.0 + target_margin)
+required_km = (liters_filled × 100) / target_rate
 buffer_km = required_km - km_driven
 ```
 
@@ -107,23 +98,15 @@ This is used for warning display when consumption exceeds the legal limit.
 
 ### Integration with Trip Form
 
-The magic fill button is available in the trip row's edit mode:
+The magic fill button is available in the trip row's edit mode.
 
-```svelte
-async function handleMagicFill() {
-    const currentKm = formData.distanceKm ?? 0;
-    if (currentKm <= 0) return;
-    
-    const tripId = trip?.id ?? null;
-    const suggestedLiters = await onMagicFill(currentKm, tripId);
-    
-    if (suggestedLiters > 0) {
-        formData.fuelLiters = suggestedLiters;
-        formData.fullTank = true;
-        onPreviewRequest(currentKm, suggestedLiters, true);
-    }
-}
-```
+**Implementation:** `TripRow.svelte:L164` `handleMagicFill()`
+
+**Behavior:**
+1. Get current distance from form (exit if <= 0)
+2. Pass trip ID to backend (null for new trips, ID for edits)
+3. Receive suggested liters from backend
+4. If suggestion > 0: set fuel liters, check "Full Tank", trigger preview
 
 **UI behavior:**
 - Button only works when distance > 0

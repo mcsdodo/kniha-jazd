@@ -80,23 +80,14 @@ The Gemini client handles OCR extraction:
 - **Multi-currency**: EUR, CZK (Czech), HUF (Hungarian), PLN (Polish)
 - **Multi-language**: Slovak, Czech, Hungarian, Polish receipts
 
-**Response Schema Fields**:
-```rust
-pub struct ExtractedReceipt {
-    pub liters: Option<f64>,           // Fuel only
-    pub station_name: Option<String>,   // Fuel only
-    pub station_address: Option<String>,// Fuel only
-    pub vendor_name: Option<String>,    // Other costs only
-    pub cost_description: Option<String>,// Other costs only
-    pub original_amount: Option<f64>,   // Raw OCR amount
-    pub original_currency: Option<String>, // EUR/CZK/HUF/PLN
-    pub receipt_date: Option<String>,   // YYYY-MM-DD
-    pub vehicle: Option<String>,        // Legacy/optional
-    pub trip: Option<String>,           // Legacy/optional
-    pub raw_text: Option<String>,       // Full OCR for debugging
-    pub confidence: ExtractionConfidence,
-}
-```
+**Response Schema:** See `ExtractedReceipt` struct in `gemini.rs:L14` for full field definitions.
+
+Key fields:
+- `liters`, `station_name`, `station_address` — Fuel receipts only
+- `vendor_name`, `cost_description` — Other costs only
+- `original_amount`, `original_currency` — Raw OCR values (EUR/CZK/HUF/PLN)
+- `receipt_date` — YYYY-MM-DD format
+- `confidence` — Per-field extraction confidence levels
 
 ### Confidence Scoring
 
@@ -186,14 +177,10 @@ Receipt-to-trip matching supports two paths:
 - Populates `trip.other_costs_eur` and `trip.other_costs_note`
 - Note built from `vendor_name` + `cost_description`
 
-**Assignment Compatibility Check**:
-```rust
-fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> CompatibilityResult {
-    // Trip has no fuel → can attach (empty)
-    // Receipt has fuel data → must match trip's fuel exactly (matches/differs)
-    // Receipt is other cost → can attach to any trip (empty)
-}
-```
+**Assignment Compatibility Check** (`commands.rs:L2609`):
+- Trip has no fuel data → receipt can be attached
+- Fuel receipt → must match trip's fuel fields exactly
+- Other-cost receipt → can attach to any trip
 
 If a fuel receipt does not exactly match trip fuel data, assignment can still proceed as an other-cost attachment when `other_costs_eur` is empty.
 
