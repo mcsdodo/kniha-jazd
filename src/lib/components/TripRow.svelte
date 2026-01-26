@@ -566,8 +566,8 @@
 
 	tr.editing td input,
 	tr.editing td :global(.autocomplete) {
-		margin: 0 0.125rem;
-		width: calc(100% - 0.25rem);
+		margin: 0 1px;
+		width: calc(100% - 2px);
 	}
 
 	tr.date-warning {
@@ -594,6 +594,10 @@
 	td {
 		padding: 0.5rem;
 		border-bottom: 1px solid var(--border-default);
+	}
+
+	tr:not(.editing) td {
+		padding-left: 0.9rem;
 	}
 
 	td.number {
@@ -635,15 +639,16 @@
 
 	input {
 		width: 100%;
-		padding: 0.5rem;
+		padding: 0.5rem 0.125rem;
 		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		font-size: 0.875rem;
 		box-sizing: border-box;
 	}
 
-	input[type='number'] {
+	tr.editing input[type='number'] {
 		text-align: right;
+		padding-right: 0.25rem;
 	}
 
 	button {

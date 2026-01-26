@@ -696,8 +696,8 @@
 
 	/* Column widths - total should be 100% */
 	th:nth-child(1) { width: 5%; }   /* Dátum */
-	th:nth-child(2) { width: 15%; }  /* Odkiaľ */
-	th:nth-child(3) { width: 15%; }  /* Kam */
+	th:nth-child(2) { width: 16%; }  /* Odkiaľ */
+	th:nth-child(3) { width: 16%; }  /* Kam */
 	th:nth-child(4) { width: 4%; text-align: right; }   /* Km */
 	th:nth-child(5) { width: 5%; text-align: right; }   /* ODO */
 	th:nth-child(6) { width: 12%; }  /* Účel */
