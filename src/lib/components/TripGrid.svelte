@@ -32,6 +32,7 @@
 	// Fuel data
 	let consumptionRates: Map<string, number> = new Map();
 	let estimatedRates: Set<string> = new Set();
+	let fuelConsumed: Map<string, number> = new Map();
 	let fuelRemaining: Map<string, number> = new Map();
 	let consumptionWarnings: Set<string> = new Set();
 	// Energy data (BEV/PHEV)
@@ -51,6 +52,7 @@
 			// Fuel
 			consumptionRates = new Map(Object.entries(gridData.rates));
 			estimatedRates = new Set(gridData.estimatedRates);
+			fuelConsumed = new Map(Object.entries(gridData.fuelConsumed));
 			fuelRemaining = new Map(Object.entries(gridData.fuelRemaining));
 			consumptionWarnings = new Set(gridData.consumptionWarnings);
 			// Energy
@@ -466,6 +468,7 @@
 					{#if showFuelColumns}
 						<th>{$LL.trips.columns.fuelLiters()}</th>
 						<th>{$LL.trips.columns.fuelCost()}</th>
+						<th>{$LL.trips.columns.fuelConsumed()}</th>
 						<th>{$LL.trips.columns.consumptionRate()}</th>
 						<th>{$LL.trips.columns.remaining()}</th>
 					{/if}
@@ -493,6 +496,7 @@
 						previousOdometer={lastOdometer}
 						defaultDate={defaultNewDate}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
+						fuelConsumed={0}
 						fuelRemaining={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
 						{vehicleType}
 						energyRate={sortedTrips.length > 0 ? energyRates.get(sortedTrips[0].id) || baselineConsumptionKwh : baselineConsumptionKwh}
@@ -518,6 +522,7 @@
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : effectiveInitialOdometer}
 							defaultDate={insertDate || trip.date}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
+							fuelConsumed={0}
 							fuelRemaining={fuelRemaining.get(trip.id) || tankSize}
 							{vehicleType}
 							energyRate={energyRates.get(trip.id) || baselineConsumptionKwh}
@@ -543,6 +548,7 @@
 							{#if showFuelColumns}
 								<td>-</td>
 								<td>-</td>
+								<td class="number calculated">0.00</td>
 								<td class="number">{tpConsumption.toFixed(2)}</td>
 								<td class="number">{tankSize.toFixed(1)}</td>
 							{/if}
@@ -564,6 +570,7 @@
 							isNew={false}
 							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : effectiveInitialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
+							fuelConsumed={fuelConsumed.get(trip.id) || 0}
 							fuelRemaining={fuelRemaining.get(trip.id) || 0}
 							{vehicleType}
 							energyRate={energyRates.get(trip.id) || baselineConsumptionKwh}
@@ -594,7 +601,7 @@
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan={9 + (showFuelColumns ? 4 : 0) + (showEnergyColumns ? 4 : 0)}>{$LL.trips.emptyState()}</td>
+						<td colspan={9 + (showFuelColumns ? 5 : 0) + (showEnergyColumns ? 4 : 0)}>{$LL.trips.emptyState()}</td>
 					</tr>
 				{/if}
 			</tbody>
@@ -688,7 +695,7 @@
 	}
 
 	/* Column widths - total should be 100% */
-	th:nth-child(1) { width: 6%; }   /* Dátum */
+	th:nth-child(1) { width: 5%; }   /* Dátum */
 	th:nth-child(2) { width: 16%; }  /* Odkiaľ */
 	th:nth-child(3) { width: 16%; }  /* Kam */
 	th:nth-child(4) { width: 4%; text-align: right; }   /* Km */
@@ -696,12 +703,12 @@
 	th:nth-child(6) { width: 12%; }  /* Účel */
 	th:nth-child(7) { width: 4%; text-align: right; }   /* PHM (L) */
 	th:nth-child(8) { width: 4%; text-align: right; }   /* Cena € */
-	th:nth-child(9) { width: 5%; text-align: right; }   /* l/100km */
-	th:nth-child(10) { width: 5%; text-align: right; }  /* Zostatok */
-	th:nth-child(11) { width: 4%; text-align: right; }  /* Iné € */
-	th:nth-child(12) { width: 10%; }  /* Iné pozn. */
-	th:nth-child(13) { width: 9%; text-align: center; } /* Akcie */
-
+	th:nth-child(9) { width: 4%; text-align: right; }   /* Spotr. (L) - NEW */
+	th:nth-child(10) { width: 4%; text-align: right; }  /* l/100km */
+	th:nth-child(11) { width: 4%; text-align: right; }  /* Zostatok */
+	th:nth-child(12) { width: 4%; text-align: right; }  /* Iné € */
+	th:nth-child(13) { width: 10%; }  /* Iné pozn. */
+	th:nth-child(14) { width: 8%; text-align: center; } /* Akcie */
 	tbody tr.empty td {
 		padding: 2rem;
 		text-align: center;

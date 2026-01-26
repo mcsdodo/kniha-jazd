@@ -2087,3 +2087,192 @@ fn test_open_period_km_editing_trip_in_middle() {
     let km_up_to_c = get_open_period_km(&trips, Some(&trip_c_id));
     assert_eq!(km_up_to_c, 125.0, "Should only count km up to the edited trip");
 }
+
+// ============================================================================
+// Fuel Consumed Tests
+// ============================================================================
+
+#[test]
+fn test_fuel_consumed_basic() {
+    // Trip: 100 km at 6.0 l/100km = 6.0 L consumed
+    let trip = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: 100.0,
+        odometer: 10100.0,
+        purpose: "business".to_string(),
+        fuel_liters: Some(6.0),
+        fuel_cost_eur: Some(10.0),
+        full_tank: true,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
+    let trips = vec![trip.clone()];
+    let mut rates = HashMap::new();
+    rates.insert(trip.id.to_string(), 6.0); // 6.0 l/100km
+
+    let consumed = calculate_fuel_consumed(&trips, &rates);
+
+    assert_eq!(consumed.len(), 1);
+    let fuel = consumed.get(&trip.id.to_string()).unwrap();
+    assert!((fuel - 6.0).abs() < 0.01, "100 km at 6.0 l/100km = 6.0 L");
+}
+
+#[test]
+fn test_fuel_consumed_uses_period_rate() {
+    // Two trips in a closed period: 150km + 100km = 250km total, 15L fuel
+    // Period rate = 15/250*100 = 6.0 l/100km
+    // Trip 1 (150km): consumes 150 * 6.0 / 100 = 9.0 L
+    // Trip 2 (100km): consumes 100 * 6.0 / 100 = 6.0 L
+    let trip1_id = Uuid::new_v4();
+    let trip2_id = Uuid::new_v4();
+    let vehicle_id = Uuid::new_v4();
+
+    let trips = vec![
+        Trip {
+            id: trip1_id,
+            vehicle_id,
+            date: NaiveDate::from_ymd_opt(2024, 1, 10).unwrap(),
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km: 150.0,
+            odometer: 10150.0,
+            purpose: "business".to_string(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 1,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        },
+        Trip {
+            id: trip2_id,
+            vehicle_id,
+            date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+            origin: "B".to_string(),
+            destination: "C".to_string(),
+            distance_km: 100.0,
+            odometer: 10250.0,
+            purpose: "business".to_string(),
+            fuel_liters: Some(15.0),
+            fuel_cost_eur: Some(25.0),
+            full_tank: true, // Closes the period
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        },
+    ];
+
+    // Both trips get period rate of 6.0 l/100km
+    let mut rates = HashMap::new();
+    rates.insert(trip1_id.to_string(), 6.0);
+    rates.insert(trip2_id.to_string(), 6.0);
+
+    let consumed = calculate_fuel_consumed(&trips, &rates);
+
+    let trip1_consumed = consumed.get(&trip1_id.to_string()).unwrap();
+    let trip2_consumed = consumed.get(&trip2_id.to_string()).unwrap();
+
+    assert!((trip1_consumed - 9.0).abs() < 0.01, "150 km at 6.0 l/100km = 9.0 L");
+    assert!((trip2_consumed - 6.0).abs() < 0.01, "100 km at 6.0 l/100km = 6.0 L");
+}
+
+#[test]
+fn test_fuel_consumed_uses_tp_rate_for_open_period() {
+    // Trip in open period uses TP rate (e.g., 5.5 l/100km)
+    // Trip: 200 km at 5.5 l/100km = 11.0 L consumed
+    let trip_id = Uuid::new_v4();
+
+    let trip = Trip {
+        id: trip_id,
+        vehicle_id: Uuid::new_v4(),
+        date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+        origin: "X".to_string(),
+        destination: "Y".to_string(),
+        distance_km: 200.0,
+        odometer: 10200.0,
+        purpose: "business".to_string(),
+        fuel_liters: None, // No fill-up, open period
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
+    let trips = vec![trip];
+    let mut rates = HashMap::new();
+    rates.insert(trip_id.to_string(), 5.5); // TP rate (estimated)
+
+    let consumed = calculate_fuel_consumed(&trips, &rates);
+
+    let fuel = consumed.get(&trip_id.to_string()).unwrap();
+    assert!((fuel - 11.0).abs() < 0.01, "200 km at 5.5 l/100km = 11.0 L");
+}
+
+#[test]
+fn test_fuel_consumed_zero_distance() {
+    // Trip with 0 km = 0 L consumed (edge case)
+    let trip_id = Uuid::new_v4();
+
+    let trip = Trip {
+        id: trip_id,
+        vehicle_id: Uuid::new_v4(),
+        date: NaiveDate::from_ymd_opt(2024, 1, 25).unwrap(),
+        origin: "Home".to_string(),
+        destination: "Home".to_string(),
+        distance_km: 0.0, // Zero distance
+        odometer: 10000.0,
+        purpose: "refuel only".to_string(),
+        fuel_liters: Some(50.0),
+        fuel_cost_eur: Some(80.0),
+        full_tank: true,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+
+    let trips = vec![trip];
+    let mut rates = HashMap::new();
+    rates.insert(trip_id.to_string(), 6.0); // Rate doesn't matter for 0 km
+
+    let consumed = calculate_fuel_consumed(&trips, &rates);
+
+    let fuel = consumed.get(&trip_id.to_string()).unwrap();
+    assert!((fuel - 0.0).abs() < 0.01, "0 km = 0 L consumed");
+}

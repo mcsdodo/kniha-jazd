@@ -121,6 +121,7 @@ export interface TripGridData {
 	// Fuel data (ICE + PHEV)
 	rates: Record<string, number>; // tripId -> l/100km
 	estimatedRates: string[]; // tripIds using TP rate (estimated)
+	fuelConsumed: Record<string, number>; // tripId -> liters consumed (km × rate / 100)
 	fuelRemaining: Record<string, number>; // tripId -> fuel remaining
 	consumptionWarnings: string[]; // tripIds over 120% TP
 	// Energy data (BEV + PHEV)
@@ -262,6 +263,7 @@ export interface ExportLabels {
 	col_odo: string;
 	col_fuel_liters: string;
 	col_fuel_cost: string;
+	col_fuel_consumed: string;
 	col_other_costs: string;
 	col_note: string;
 	col_remaining: string;

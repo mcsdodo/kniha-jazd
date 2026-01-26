@@ -93,6 +93,7 @@
 				col_odo: $LL.export.colOdo(),
 				col_fuel_liters: $LL.export.colFuelLiters(),
 				col_fuel_cost: $LL.export.colFuelCost(),
+				col_fuel_consumed: $LL.export.colFuelConsumed(),
 				col_other_costs: $LL.export.colOtherCosts(),
 				col_note: $LL.export.colNote(),
 				col_remaining: $LL.export.colRemaining(),

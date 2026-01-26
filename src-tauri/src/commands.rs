@@ -845,6 +845,7 @@ pub fn get_trip_grid_data(
             trips: vec![],
             rates: HashMap::new(),
             estimated_rates: HashSet::new(),
+            fuel_consumed: HashMap::new(),
             fuel_remaining: HashMap::new(),
             consumption_warnings: HashSet::new(),
             energy_rates: HashMap::new(),
@@ -967,10 +968,14 @@ pub fn get_trip_grid_data(
         }
     };
 
+    // Calculate fuel consumed per trip (uses the same rates already calculated)
+    let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
+
     Ok(TripGridData {
         trips,
         rates,
         estimated_rates,
+        fuel_consumed,
         fuel_remaining,
         consumption_warnings,
         energy_rates,
@@ -1200,6 +1205,22 @@ fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, boo
 fn has_any_period_over_limit(trips: &[Trip], tp_consumption: f64) -> bool {
     let (_, _, is_over) = get_worst_period_stats(trips, tp_consumption);
     is_over
+}
+
+/// Calculate fuel consumed per trip (liters).
+/// Formula: distance_km × rate / 100
+pub(crate) fn calculate_fuel_consumed(
+    trips: &[Trip],
+    rates: &HashMap<String, f64>,
+) -> HashMap<String, f64> {
+    trips
+        .iter()
+        .map(|trip| {
+            let rate = rates.get(&trip.id.to_string()).copied().unwrap_or(0.0);
+            let consumed = (trip.distance_km * rate) / 100.0;
+            (trip.id.to_string(), consumed)
+        })
+        .collect()
 }
 
 /// Calculate fuel remaining after each trip.
@@ -2091,11 +2112,13 @@ pub async fn export_to_browser(
 
     let fuel_remaining =
         calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
+    let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
     let grid_data = TripGridData {
         trips,
         rates,
         estimated_rates,
+        fuel_consumed,
         fuel_remaining,
         consumption_warnings: HashSet::new(),
         energy_rates: HashMap::new(),
@@ -2200,11 +2223,13 @@ pub async fn export_html(
 
     let fuel_remaining =
         calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
+    let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
     let grid_data = TripGridData {
         trips,
         rates,
         estimated_rates,
+        fuel_consumed,
         fuel_remaining,
         consumption_warnings: HashSet::new(),
         energy_rates: HashMap::new(),
