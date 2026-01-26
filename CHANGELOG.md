@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-01-26
+
 ### Pridané
 - **Návrh tankovania v legende tabuľky jázd** - zobrazuje odporúčané tankovanie keď existuje otvorené obdobie
   - Zobrazuje litre a výslednú spotrebu: "Návrh tankovania: 38 L → 5.78 l/100km"
