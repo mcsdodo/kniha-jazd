@@ -3,7 +3,7 @@
 **Date:** 2026-01-26
 **Reviewer:** Claude Opus 4.5
 **Plan:** 03-plan.md
-**Status:** Needs Minor Revisions
+**Status:** Ready (Important findings addressed)
 
 ## Summary
 
@@ -21,7 +21,7 @@
 
 ### Important (Should fix before implementing)
 
-**1. Missing TDD order - backend tests before implementation**
+**1. [x] Missing TDD order - backend tests before implementation**
 
 The plan lists "Add DatePrefillMode Enum" (Step 1.1) before "Add Backend Tests" (Step 1.2). Per CLAUDE.md, tests must come first.
 
@@ -31,7 +31,7 @@ The plan lists "Add DatePrefillMode Enum" (Step 1.1) before "Add Backend Tests" 
 
 ---
 
-**2. Integration test placement unclear**
+**2. [x] Integration test placement unclear**
 
 Plan says `tests/integration/specs/date-prefill.spec.ts` (new file). However, existing integration tests are organized by tier (tier1/tier2/tier3). This test should go in a tier folder.
 
@@ -39,7 +39,7 @@ Plan says `tests/integration/specs/date-prefill.spec.ts` (new file). However, ex
 
 ---
 
-**3. Design decision: Commands use AppState vs AppHandle**
+**3. [x] Design decision: Commands use AppState vs AppHandle**
 
 Plan shows commands taking `State<AppState>`, but existing theme commands use `tauri::AppHandle`:
 
@@ -148,8 +148,21 @@ From 02-design.md:
 ## Final Recommendation
 
 **Ready to implement** after addressing:
-1. Reorder Step 1.1 and 1.2 for TDD compliance
-2. Update command signature to use `AppHandle` not `AppState`
-3. Specify correct integration test tier path
+1. ~~Reorder Step 1.1 and 1.2 for TDD compliance~~ ✅ Fixed
+2. ~~Update command signature to use `AppHandle` not `AppState`~~ ✅ Fixed
+3. ~~Specify correct integration test tier path~~ ✅ Fixed
 
 The plan is well-structured and covers all requirements from 01-task.md. Implementation complexity is low (simple setting persistence + UI toggle).
+
+---
+
+## Resolution
+
+**Date:** 2026-01-26
+
+All 3 Important findings addressed:
+- Plan reordered: tests (1.1) → implementation (1.2) for TDD compliance
+- Design updated: commands use `tauri::AppHandle` parameter
+- Test path updated: `tests/integration/specs/tier2/date-prefill.spec.ts`
+
+Minor findings (4-7) skipped as acceptable.
