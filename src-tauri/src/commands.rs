@@ -15,7 +15,7 @@ use crate::models::{PreviewResult, Route, Settings, SuggestedFillup, Trip, TripG
 use crate::settings::{DatePrefillMode, LocalSettings};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use chrono::{Datelike, NaiveDate, Utc, Local};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc, Local};
 use diesel::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -269,6 +269,7 @@ pub fn create_trip(
     app_state: State<AppState>,
     vehicle_id: String,
     date: String,
+    time: Option<String>,  // "HH:MM" format, defaults to "00:00"
     origin: String,
     destination: String,
     distance_km: f64,
@@ -291,6 +292,16 @@ pub fn create_trip(
     check_read_only!(app_state);
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
+
+    // Parse time (defaults to 00:00 if not provided or empty)
+    let time_str = time.as_deref().unwrap_or("");
+    let trip_datetime = if time_str.is_empty() {
+        trip_date.and_hms_opt(0, 0, 0).unwrap()
+    } else {
+        let datetime_str = format!("{}T{}:00", date, time_str);
+        NaiveDateTime::parse_from_str(&datetime_str, "%Y-%m-%dT%H:%M:%S")
+            .map_err(|e| format!("Invalid time format: {}", e))?
+    };
 
     // Normalize locations to prevent whitespace-based duplicates
     let origin = normalize_location(&origin);
@@ -321,6 +332,7 @@ pub fn create_trip(
         id: Uuid::new_v4(),
         vehicle_id: vehicle_uuid,
         date: trip_date,
+        datetime: trip_datetime,
         origin: origin.clone(),
         destination: destination.clone(),
         distance_km,
@@ -356,6 +368,7 @@ pub fn update_trip(
     app_state: State<AppState>,
     id: String,
     date: String,
+    time: Option<String>,  // "HH:MM" format, defaults to "00:00"
     origin: String,
     destination: String,
     distance_km: f64,
@@ -378,6 +391,16 @@ pub fn update_trip(
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
     let trip_date = NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| e.to_string())?;
 
+    // Parse time (defaults to 00:00 if not provided or empty)
+    let time_str = time.as_deref().unwrap_or("");
+    let trip_datetime = if time_str.is_empty() {
+        trip_date.and_hms_opt(0, 0, 0).unwrap()
+    } else {
+        let datetime_str = format!("{}T{}:00", date, time_str);
+        NaiveDateTime::parse_from_str(&datetime_str, "%Y-%m-%dT%H:%M:%S")
+            .map_err(|e| format!("Invalid time format: {}", e))?
+    };
+
     // Normalize locations to prevent whitespace-based duplicates
     let origin = normalize_location(&origin);
     let destination = normalize_location(&destination);
@@ -399,6 +422,7 @@ pub fn update_trip(
         id: trip_uuid,
         vehicle_id: existing.vehicle_id,
         date: trip_date,
+        datetime: trip_datetime,
         origin,
         destination,
         distance_km,
@@ -2111,6 +2135,7 @@ pub async fn export_to_browser(
         id: Uuid::nil(), // Special marker for first record
         vehicle_id: vehicle.id,
         date: first_record_date,
+        datetime: first_record_date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "-".to_string(),
         destination: "-".to_string(),
         distance_km: 0.0,
@@ -3124,6 +3149,7 @@ pub fn preview_trip_calculation(
         id: preview_trip_id,
         vehicle_id: Uuid::parse_str(&vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
         date: preview_date,
+        datetime: preview_date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "Preview".to_string(),
         destination: "Preview".to_string(),
         distance_km: distance_km as f64,
@@ -3154,6 +3180,7 @@ pub fn preview_trip_calculation(
                 id: existing.id,
                 vehicle_id: existing.vehicle_id,
                 date: existing.date,
+                datetime: existing.datetime,
                 origin: existing.origin.clone(),
                 destination: existing.destination.clone(),
                 distance_km: distance_km as f64,
@@ -3305,6 +3332,35 @@ pub fn set_date_prefill_mode(
     let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.date_prefill_mode = Some(mode);
+
+    // Save to file
+    let settings_path = app_data_dir.join("local.settings.json");
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ============================================================================
+// Hidden Columns Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn get_hidden_columns(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_data_dir);
+    // Default to empty array (all columns visible) if not set
+    Ok(settings.hidden_columns.unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn set_hidden_columns(
+    app_handle: tauri::AppHandle,
+    columns: Vec<String>,
+) -> Result<(), String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.hidden_columns = Some(columns);
 
     // Save to file
     let settings_path = app_data_dir.join("local.settings.json");

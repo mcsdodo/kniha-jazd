@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip};
-use chrono::{NaiveDate, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use uuid::Uuid;
 
 /// Helper to create a trip with fuel
@@ -14,6 +14,7 @@ fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -41,6 +42,7 @@ fn make_trip_without_fuel(date: NaiveDate) -> Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 50.0,
@@ -249,6 +251,7 @@ fn make_trip_detailed(
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
@@ -702,10 +705,12 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
     db.create_vehicle(&vehicle).expect("Failed to create vehicle");
 
     let now = Utc::now();
+    let date = NaiveDate::from_ymd_opt(2024, 12, 15).unwrap();
     let trip_2024 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: NaiveDate::from_ymd_opt(2024, 12, 15).unwrap(),
+        date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -756,10 +761,12 @@ fn test_year_start_fuel_partial_tank_carryover() {
 
     // Trip 1: Drive 100km, full tank fillup with 6L
     // Starts at 50L (no prior year), uses 6L, ends at 50L (full tank)
+    let date1 = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trip1 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+        date: date1,
+        datetime: date1.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -781,10 +788,12 @@ fn test_year_start_fuel_partial_tank_carryover() {
 
     // Trip 2: Drive 200km, partial fillup with 10L
     // Rate from trip1 is 6%, so uses 12L, starts at 50L, ends at 50-12+10=48L
+    let date2 = NaiveDate::from_ymd_opt(2024, 12, 20).unwrap();
     let trip2 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: NaiveDate::from_ymd_opt(2024, 12, 20).unwrap(),
+        date: date2,
+        datetime: date2.and_hms_opt(0, 0, 0).unwrap(),
         origin: "B".to_string(),
         destination: "C".to_string(),
         distance_km: 200.0,
@@ -869,10 +878,12 @@ fn test_year_start_odometer_with_previous_year_trips() {
     let now = Utc::now();
 
     // Trip in 2024 ending at 54914 km (like the bug scenario)
+    let date = NaiveDate::from_ymd_opt(2024, 12, 13).unwrap();
     let trip_2024 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: NaiveDate::from_ymd_opt(2024, 12, 13).unwrap(),
+        date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 370.0,
@@ -922,10 +933,12 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     let now = Utc::now();
 
     // First trip (earlier date)
+    let date1 = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trip1 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+        date: date1,
+        datetime: date1.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -946,10 +959,12 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     };
 
     // Last trip (later date, higher odometer)
+    let date2 = NaiveDate::from_ymd_opt(2024, 12, 31).unwrap();
     let trip2 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: NaiveDate::from_ymd_opt(2024, 12, 31).unwrap(),
+        date: date2,
+        datetime: date2.and_hms_opt(0, 0, 0).unwrap(),
         origin: "B".to_string(),
         destination: "C".to_string(),
         distance_km: 200.0,
@@ -1000,6 +1015,7 @@ fn make_bev_trip(
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
@@ -1255,6 +1271,7 @@ fn make_trip_for_assignment(
         id: Uuid::new_v4(),
         vehicle_id,
         date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -1840,6 +1857,7 @@ fn make_trip_for_magic_fill(
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
@@ -2095,10 +2113,12 @@ fn test_open_period_km_editing_trip_in_middle() {
 #[test]
 fn test_fuel_consumed_basic() {
     // Trip: 100 km at 6.0 l/100km = 6.0 L consumed
+    let date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
     let trip = Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+        date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -2138,12 +2158,15 @@ fn test_fuel_consumed_uses_period_rate() {
     let trip1_id = Uuid::new_v4();
     let trip2_id = Uuid::new_v4();
     let vehicle_id = Uuid::new_v4();
+    let date1 = NaiveDate::from_ymd_opt(2024, 1, 10).unwrap();
+    let date2 = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
 
     let trips = vec![
         Trip {
             id: trip1_id,
             vehicle_id,
-            date: NaiveDate::from_ymd_opt(2024, 1, 10).unwrap(),
+            date: date1,
+            datetime: date1.and_hms_opt(0, 0, 0).unwrap(),
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: 150.0,
@@ -2165,7 +2188,8 @@ fn test_fuel_consumed_uses_period_rate() {
         Trip {
             id: trip2_id,
             vehicle_id,
-            date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+            date: date2,
+            datetime: date2.and_hms_opt(0, 0, 0).unwrap(),
             origin: "B".to_string(),
             destination: "C".to_string(),
             distance_km: 100.0,
@@ -2205,11 +2229,13 @@ fn test_fuel_consumed_uses_tp_rate_for_open_period() {
     // Trip in open period uses TP rate (e.g., 5.5 l/100km)
     // Trip: 200 km at 5.5 l/100km = 11.0 L consumed
     let trip_id = Uuid::new_v4();
+    let date = NaiveDate::from_ymd_opt(2024, 1, 20).unwrap();
 
     let trip = Trip {
         id: trip_id,
         vehicle_id: Uuid::new_v4(),
-        date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+        date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "X".to_string(),
         destination: "Y".to_string(),
         distance_km: 200.0,
@@ -2243,11 +2269,13 @@ fn test_fuel_consumed_uses_tp_rate_for_open_period() {
 fn test_fuel_consumed_zero_distance() {
     // Trip with 0 km = 0 L consumed (edge case)
     let trip_id = Uuid::new_v4();
+    let date = NaiveDate::from_ymd_opt(2024, 1, 25).unwrap();
 
     let trip = Trip {
         id: trip_id,
         vehicle_id: Uuid::new_v4(),
-        date: NaiveDate::from_ymd_opt(2024, 1, 25).unwrap(),
+        date,
+        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
         origin: "Home".to_string(),
         destination: "Home".to_string(),
         distance_km: 0.0, // Zero distance

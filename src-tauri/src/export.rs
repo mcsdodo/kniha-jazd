@@ -26,6 +26,7 @@ pub struct ExportLabels {
     pub header_driver: String,
     // Column headers
     pub col_date: String,
+    pub col_time: String,
     pub col_origin: String,
     pub col_destination: String,
     pub col_purpose: String,
@@ -172,9 +173,11 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
           <td>{}</td>
           <td>{}</td>
           <td>{}</td>
+          <td>{}</td>
           <td class="num">{:.0}</td>
           <td class="num">{:.0}</td>"#,
             trip.date.format("%d.%m.%Y"),
+            trip.datetime.format("%H:%M"),
             html_escape(&trip.origin),
             html_escape(&trip.destination),
             html_escape(&trip.purpose),
@@ -313,8 +316,10 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         <th>{}</th>
         <th>{}</th>
         <th>{}</th>
+        <th>{}</th>
         <th>{}</th>"#,
         html_escape(&l.col_date),
+        html_escape(&l.col_time),
         html_escape(&l.col_origin),
         html_escape(&l.col_destination),
         html_escape(&l.col_purpose),
@@ -701,10 +706,12 @@ mod tests {
         fuel_cost: Option<f64>,
         other_cost: Option<f64>,
     ) -> Trip {
+        let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         Trip {
             id: Uuid::new_v4(),
             vehicle_id: Uuid::new_v4(),
-            date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+            date,
+            datetime: date.and_hms_opt(0, 0, 0).unwrap(),
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: km,

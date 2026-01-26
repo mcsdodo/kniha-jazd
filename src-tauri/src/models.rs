@@ -3,7 +3,7 @@
 //! This module contains both domain models (Vehicle, Trip, etc.) and their
 //! database row counterparts (VehicleRow, TripRow, etc.) for Diesel ORM.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -174,7 +174,8 @@ impl Vehicle {
 pub struct Trip {
     pub id: Uuid,
     pub vehicle_id: Uuid,
-    pub date: NaiveDate,
+    pub date: NaiveDate,              // Derived from datetime for backward compatibility
+    pub datetime: NaiveDateTime,      // Source of truth: date + time combined
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -225,10 +226,12 @@ impl Trip {
         full_tank: bool,
     ) -> Self {
         let now = Utc::now();
+        let datetime = date.and_hms_opt(0, 0, 0).unwrap();
         Self {
             id: Uuid::new_v4(),
             vehicle_id: Uuid::new_v4(),
             date,
+            datetime,
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km,
@@ -614,6 +617,7 @@ pub struct TripRow {
     pub id: Option<String>,
     pub vehicle_id: String,
     pub date: String,
+    pub datetime: String,  // Combined date + time (migration 2026-01-27)
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -640,6 +644,7 @@ pub struct NewTripRow<'a> {
     pub id: &'a str,
     pub vehicle_id: &'a str,
     pub date: &'a str,
+    pub datetime: &'a str,  // Combined date + time (migration 2026-01-27)
     pub origin: &'a str,
     pub destination: &'a str,
     pub distance_km: f64,
@@ -804,12 +809,21 @@ impl From<VehicleRow> for Vehicle {
 
 impl From<TripRow> for Trip {
     fn from(row: TripRow) -> Self {
+        // Parse datetime, falling back to date + 00:00:00 for legacy data
+        let datetime = NaiveDateTime::parse_from_str(&row.datetime, "%Y-%m-%dT%H:%M:%S")
+            .unwrap_or_else(|_| {
+                // Fallback: parse date-only and add 00:00:00
+                NaiveDate::parse_from_str(&row.date, "%Y-%m-%d")
+                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+                    .unwrap_or_else(|_| Utc::now().naive_utc())
+            });
+        let date = datetime.date();
+
         Trip {
             id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
             vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
-            date: NaiveDate::parse_from_str(&row.date, "%Y-%m-%d").unwrap_or_else(|_| {
-                Utc::now().date_naive()
-            }),
+            date,
+            datetime,
             origin: row.origin,
             destination: row.destination,
             distance_km: row.distance_km,

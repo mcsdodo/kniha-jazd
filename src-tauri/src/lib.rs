@@ -210,6 +210,8 @@ pub fn run() {
       commands::set_auto_check_updates,
       commands::get_date_prefill_mode,
       commands::set_date_prefill_mode,
+      commands::get_hidden_columns,
+      commands::set_hidden_columns,
       commands::get_db_location,
       commands::get_app_mode,
       commands::check_target_has_db,

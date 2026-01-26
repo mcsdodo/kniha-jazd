@@ -31,6 +31,7 @@ pub struct LocalSettings {
     pub custom_db_path: Option<String>,     // Custom database location (e.g., Google Drive, NAS)
     pub backup_retention: Option<BackupRetention>, // Backup retention settings for auto-cleanup
     pub date_prefill_mode: Option<DatePrefillMode>, // Date prefill for new trip entries
+    pub hidden_columns: Option<Vec<String>>, // Hidden trip grid columns (e.g., ["time", "fuelConsumed"])
 }
 
 impl LocalSettings {
@@ -155,6 +156,7 @@ mod tests {
             custom_db_path: Some("D:/NAS/data".to_string()),
             backup_retention: None,
             date_prefill_mode: Some(DatePrefillMode::Today),
+            hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
         };
 
         settings.save(&dir.path().to_path_buf()).unwrap();
@@ -166,6 +168,7 @@ mod tests {
         assert_eq!(loaded.auto_check_updates, Some(false));
         assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
         assert_eq!(loaded.date_prefill_mode, Some(DatePrefillMode::Today));
+        assert_eq!(loaded.hidden_columns, Some(vec!["time".to_string(), "fuelConsumed".to_string()]));
     }
 
     #[test]
@@ -230,5 +233,52 @@ mod tests {
 
         let loaded = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(loaded.date_prefill_mode, Some(DatePrefillMode::Today));
+    }
+
+    // Hidden columns tests
+    #[test]
+    fn test_hidden_columns_default() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert!(settings.hidden_columns.is_none());
+    }
+
+    #[test]
+    fn test_hidden_columns_serialization() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(br#"{"hidden_columns": ["time", "fuelConsumed", "otherCostsNote"]}"#).unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(
+            settings.hidden_columns,
+            Some(vec!["time".to_string(), "fuelConsumed".to_string(), "otherCostsNote".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_hidden_columns_empty_array() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(br#"{"hidden_columns": []}"#).unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(settings.hidden_columns, Some(vec![]));
+    }
+
+    #[test]
+    fn test_hidden_columns_round_trip() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings {
+            hidden_columns: Some(vec!["time".to_string(), "fuelRemaining".to_string()]),
+            ..Default::default()
+        };
+
+        settings.save(&dir.path().to_path_buf()).unwrap();
+
+        let loaded = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(loaded.hidden_columns, Some(vec!["time".to_string(), "fuelRemaining".to_string()]));
     }
 }
