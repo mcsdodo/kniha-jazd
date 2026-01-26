@@ -2300,7 +2300,7 @@ fn test_suggested_fillup_open_period() {
     ];
 
     let tp_consumption = 6.0; // 6 l/100km
-    let suggestions = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption);
 
     // Both trips should have suggestions
     assert_eq!(suggestions.len(), 2);
@@ -2337,7 +2337,7 @@ fn test_suggested_fillup_closed_period_no_suggestions() {
     ];
 
     let tp_consumption = 6.0;
-    let suggestions = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption);
 
     // Only second trip should have suggestion (first closed the period)
     assert_eq!(suggestions.len(), 1);
@@ -2356,7 +2356,7 @@ fn test_suggested_fillup_consumption_rate_calculation() {
     )];
 
     let tp_consumption = 5.0; // 5 l/100km
-    let suggestions = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption);
 
     let suggestion = suggestions.get(&trips[0].id.to_string()).unwrap();
     // consumption_rate = liters / km * 100
@@ -2368,6 +2368,72 @@ fn test_suggested_fillup_consumption_rate_calculation() {
 #[test]
 fn test_suggested_fillup_empty_trips() {
     let trips: Vec<Trip> = vec![];
-    let suggestions = calculate_suggested_fillups(&trips, 6.0);
+    let (suggestions, legend) = calculate_suggested_fillups(&trips, 6.0);
     assert!(suggestions.is_empty());
+    assert!(legend.is_none());
+}
+
+#[test]
+fn test_legend_suggested_fillup_returns_most_recent() {
+    // Legend should return the suggestion for the MOST RECENT trip (lowest sort_order)
+    // This is the trip that would close the open period
+    let mut trip1 = make_trip_for_magic_fill(
+        NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+        100.0, // older trip
+        None,
+        false,
+    );
+    trip1.sort_order = 2; // Higher = older in display
+
+    let mut trip2 = make_trip_for_magic_fill(
+        NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+        150.0, // newer trip
+        None,
+        false,
+    );
+    trip2.sort_order = 1;
+
+    let mut trip3 = make_trip_for_magic_fill(
+        NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
+        200.0, // most recent trip
+        None,
+        false,
+    );
+    trip3.sort_order = 0; // Lowest = most recent in display
+
+    // Chronological order for calculation (by date)
+    let trips = vec![trip1.clone(), trip2.clone(), trip3.clone()];
+
+    let tp_consumption = 6.0;
+    let (suggestions, legend) = calculate_suggested_fillups(&trips, tp_consumption);
+
+    // All 3 trips should have suggestions
+    assert_eq!(suggestions.len(), 3);
+
+    // Legend should be the MOST RECENT trip's suggestion (trip3 with sort_order 0)
+    // Cumulative km for trip3: 100 + 150 + 200 = 450 km
+    let legend = legend.expect("Legend should exist");
+    let trip3_suggestion = suggestions.get(&trip3.id.to_string()).unwrap();
+    assert_eq!(legend.liters, trip3_suggestion.liters);
+    assert_eq!(legend.consumption_rate, trip3_suggestion.consumption_rate);
+
+    // Verify it's NOT the first trip's suggestion
+    let trip1_suggestion = suggestions.get(&trip1.id.to_string()).unwrap();
+    assert!(legend.liters > trip1_suggestion.liters);
+}
+
+#[test]
+fn test_legend_suggested_fillup_none_when_closed() {
+    // When all periods are closed, legend should be None
+    let trip = make_trip_for_magic_fill(
+        NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+        100.0,
+        Some(8.0), // full tank - closes period
+        true,
+    );
+
+    let (suggestions, legend) = calculate_suggested_fillups(&[trip], 6.0);
+
+    assert!(suggestions.is_empty()); // No open period
+    assert!(legend.is_none());
 }

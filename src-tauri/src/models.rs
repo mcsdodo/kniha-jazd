@@ -354,6 +354,9 @@ pub struct TripGridData {
     /// Suggested fillup for each trip in an open period, keyed by trip ID.
     /// None for trips in closed periods or for BEV vehicles.
     pub suggested_fillup: HashMap<String, SuggestedFillup>,
+    /// Legend suggestion: the most recent trip's suggestion (for display in legend).
+    /// Calculated by backend to avoid frontend logic.
+    pub legend_suggested_fillup: Option<SuggestedFillup>,
 }
 
 /// Status of a scanned receipt

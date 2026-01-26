@@ -857,6 +857,7 @@ pub fn get_trip_grid_data(
             missing_receipts: HashSet::new(),
             year_start_odometer,
             suggested_fillup: HashMap::new(),
+            legend_suggested_fillup: None,
         });
     }
 
@@ -973,10 +974,10 @@ pub fn get_trip_grid_data(
     let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
     // Calculate suggested fillup for trips in open period (ICE + PHEV only)
-    let suggested_fillup = if vehicle.vehicle_type.uses_fuel() {
+    let (suggested_fillup, legend_suggested_fillup) = if vehicle.vehicle_type.uses_fuel() {
         calculate_suggested_fillups(&chronological, tp_consumption)
     } else {
-        HashMap::new()
+        (HashMap::new(), None)
     };
 
     Ok(TripGridData {
@@ -995,6 +996,7 @@ pub fn get_trip_grid_data(
         missing_receipts,
         year_start_odometer,
         suggested_fillup,
+        legend_suggested_fillup,
     })
 }
 
@@ -1029,12 +1031,14 @@ fn get_open_period_km(chronological: &[Trip], stop_at_trip_id: Option<&Uuid>) ->
 }
 
 /// Calculate suggested fillup for all trips in open periods.
-/// Returns a map from trip ID to SuggestedFillup for trips that are in an open period.
+/// Returns:
+/// - HashMap from trip ID to SuggestedFillup (for magic button per-trip)
+/// - Option<SuggestedFillup> for the legend (most recent trip's suggestion)
 /// Uses random multiplier 1.05-1.20 (same as magic fill).
 fn calculate_suggested_fillups(
     chronological: &[Trip],
     tp_consumption: f64,
-) -> HashMap<String, SuggestedFillup> {
+) -> (HashMap<String, SuggestedFillup>, Option<SuggestedFillup>) {
     use rand::Rng;
 
     let mut result = HashMap::new();
@@ -1081,7 +1085,14 @@ fn calculate_suggested_fillups(
         }
     }
 
-    result
+    // Find the legend suggestion: most recent trip (lowest sort_order) that has a suggestion
+    let legend = chronological
+        .iter()
+        .filter(|t| result.contains_key(&t.id.to_string()))
+        .min_by_key(|t| t.sort_order)
+        .and_then(|t| result.get(&t.id.to_string()).cloned());
+
+    (result, legend)
 }
 
 /// Calculate suggested fuel liters for magic fill feature.
@@ -2195,6 +2206,7 @@ pub async fn export_to_browser(
         missing_receipts: HashSet::new(),
         year_start_odometer,
         suggested_fillup: HashMap::new(), // Not needed for export
+        legend_suggested_fillup: None,    // Not needed for export
     };
 
     let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
@@ -2307,6 +2319,7 @@ pub async fn export_html(
         missing_receipts: HashSet::new(),
         year_start_odometer,
         suggested_fillup: HashMap::new(), // Not needed for export
+        legend_suggested_fillup: None,    // Not needed for export
     };
 
     // Calculate totals for footer
