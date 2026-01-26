@@ -331,6 +331,18 @@ type RootTranslation = {
 		 */
 		firstRecord: string
 		/**
+		 * +​1​ ​d​e​ň
+		 */
+		datePrefillPrevious: string
+		/**
+		 * D​n​e​s
+		 */
+		datePrefillToday: string
+		/**
+		 * P​r​e​d​v​y​p​l​n​e​n​ý​ ​d​á​t​u​m​ ​p​r​e​ ​n​o​v​ý​ ​z​á​z​n​a​m
+		 */
+		datePrefillTooltip: string
+		/**
 		 * Ž​i​a​d​n​e​ ​z​á​z​n​a​m​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​"​N​o​v​ý​ ​z​á​z​n​a​m​"​ ​p​r​e​ ​p​r​i​d​a​n​i​e​ ​j​a​z​d​y​.
 		 */
 		emptyState: string
@@ -2123,6 +2135,18 @@ export type TranslationFunctions = {
 		 * Prvý záznam
 		 */
 		firstRecord: () => LocalizedString
+		/**
+		 * +1 deň
+		 */
+		datePrefillPrevious: () => LocalizedString
+		/**
+		 * Dnes
+		 */
+		datePrefillToday: () => LocalizedString
+		/**
+		 * Predvyplnený dátum pre nový záznam
+		 */
+		datePrefillTooltip: () => LocalizedString
 		/**
 		 * Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.
 		 */
