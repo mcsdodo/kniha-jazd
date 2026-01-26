@@ -116,6 +116,7 @@ const sk = {
 		// Column headers
 		columns: {
 			date: 'Dátum',
+			time: 'Čas',
 			origin: 'Odkiaľ',
 			destination: 'Kam',
 			km: 'Km',
@@ -165,6 +166,15 @@ const sk = {
 			noReceipt: 'bez dokladu',
 			highConsumption: 'vysoká spotreba',
 			suggestedFillup: 'Návrh tankovania: {liters} L → {rate} l/100km',
+		},
+		// Column visibility
+		columnVisibility: {
+			title: 'Stlpce',
+			time: 'Cas',
+			fuelConsumed: 'Spotrebovane (L)',
+			fuelRemaining: 'Zostatok (L)',
+			otherCosts: 'Ine (EUR)',
+			otherCostsNote: 'Ine poznamka',
 		},
 	},
 
@@ -489,6 +499,7 @@ const sk = {
 		headerDriver: 'Vodič:',
 		// Column headers
 		colDate: 'Dátum',
+		colTime: 'Čas',
 		colOrigin: 'Odkiaľ',
 		colDestination: 'Kam',
 		colPurpose: 'Účel',

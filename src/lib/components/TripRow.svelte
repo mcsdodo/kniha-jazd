@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
+	import { extractTime } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -42,6 +43,9 @@
 	export let suggestedFillup: SuggestedFillup | null = null;
 	export let onMagicFill: (km: number, tripId: string | null) => Promise<number> = async () => 0;
 
+	// Hidden columns
+	export let hiddenColumns: string[] = [];
+
 	// Derived: show fuel/energy fields based on vehicle type
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
 	$: showEnergyFields = vehicleType === 'Bev' || vehicleType === 'Phev';
@@ -52,6 +56,7 @@
 	// Form state - use null for new rows to show placeholder
 	let formData = {
 		date: trip?.date || defaultDate,
+		time: trip?.datetime ? extractTime(trip.datetime) : '00:00',
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
 		distanceKm: trip?.distanceKm ?? (isNew ? null : 0),
@@ -207,6 +212,7 @@
 			// Reset form data
 			formData = {
 				date: trip?.date || new Date().toISOString().split('T')[0],
+				time: trip?.datetime ? extractTime(trip.datetime) : '00:00',
 				origin: trip?.origin || '',
 				destination: trip?.destination || '',
 				distanceKm: trip?.distanceKm || 0,
@@ -273,6 +279,11 @@
 		<td>
 			<input type="date" bind:value={formData.date} data-testid="trip-date" />
 		</td>
+		{#if !hiddenColumns.includes('time')}
+			<td>
+				<input type="time" bind:value={formData.time} data-testid="trip-time" />
+			</td>
+		{/if}
 		<td>
 			<Autocomplete
 				bind:value={formData.origin}
@@ -335,13 +346,15 @@
 					data-testid="trip-fuel-cost"
 				/>
 			</td>
-			<td class="number calculated" class:preview={previewData}>
-				{#if previewData}
-					~{((formData.distanceKm || 0) * previewData.consumptionRate / 100).toFixed(2)}
-				{:else}
-					{fuelConsumed.toFixed(2)}
-				{/if}
-			</td>
+			{#if !hiddenColumns.includes('fuelConsumed')}
+				<td class="number calculated" class:preview={previewData}>
+					{#if previewData}
+						~{((formData.distanceKm || 0) * previewData.consumptionRate / 100).toFixed(2)}
+					{:else}
+						{fuelConsumed.toFixed(2)}
+					{/if}
+				</td>
+			{/if}
 			<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
 				{#if previewData}
 					~{previewData.consumptionRate.toFixed(2)}
@@ -352,13 +365,15 @@
 					{consumptionRate.toFixed(2)}
 				{/if}
 			</td>
-			<td class="number calculated" class:preview={previewData}>
-				{#if previewData}
-					~{previewData.fuelRemaining.toFixed(1)}
-				{:else}
-					{fuelRemaining.toFixed(1)}
-				{/if}
-			</td>
+			{#if !hiddenColumns.includes('fuelRemaining')}
+				<td class="number calculated" class:preview={previewData}>
+					{#if previewData}
+						~{previewData.fuelRemaining.toFixed(1)}
+					{:else}
+						{fuelRemaining.toFixed(1)}
+					{/if}
+				</td>
+			{/if}
 		{/if}
 		{#if showEnergyFields}
 			<td class="energy-cell">
@@ -413,24 +428,28 @@
 				{/if}
 			</td>
 		{/if}
-		<td>
-			<input
-				type="number"
-				bind:value={formData.otherCostsEur}
-				step="0.01"
-				min="0"
-				placeholder="0.00"
-				data-testid="trip-other-costs"
-			/>
-		</td>
-		<td>
-			<input
-				type="text"
-				bind:value={formData.otherCostsNote}
-				placeholder=""
-				data-testid="trip-other-costs-note"
-			/>
-		</td>
+		{#if !hiddenColumns.includes('otherCosts')}
+			<td>
+				<input
+					type="number"
+					bind:value={formData.otherCostsEur}
+					step="0.01"
+					min="0"
+					placeholder="0.00"
+					data-testid="trip-other-costs"
+				/>
+			</td>
+		{/if}
+		{#if !hiddenColumns.includes('otherCostsNote')}
+			<td>
+				<input
+					type="text"
+					bind:value={formData.otherCostsNote}
+					placeholder=""
+					data-testid="trip-other-costs-note"
+				/>
+			</td>
+		{/if}
 		<td class="actions editing-actions">
 			<button class="icon-btn magic" on:click={handleMagicFill} title={$LL.trips.magicFill()}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -457,6 +476,9 @@
 		class:consumption-warning={hasConsumptionWarning}
 	>
 		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
+		{#if !hiddenColumns.includes('time')}
+			<td>{extractTime(trip.datetime)}</td>
+		{/if}
 		<td>{trip.origin}</td>
 		<td>{trip.destination}</td>
 		<td class="number">{trip.distanceKm.toFixed(0)}</td>
@@ -475,14 +497,18 @@
 				{/if}
 			</td>
 			<td class="number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
-			<td class="number calculated">{fuelConsumed.toFixed(2)}</td>
+			{#if !hiddenColumns.includes('fuelConsumed')}
+				<td class="number calculated">{fuelConsumed.toFixed(2)}</td>
+			{/if}
 			<td class="number calculated" class:estimated={isEstimatedRate}>
 				{consumptionRate.toFixed(2)}
 				{#if isEstimatedRate}
 					<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
 				{/if}
 			</td>
-			<td class="number calculated">{fuelRemaining.toFixed(1)}</td>
+			{#if !hiddenColumns.includes('fuelRemaining')}
+				<td class="number calculated">{fuelRemaining.toFixed(1)}</td>
+			{/if}
 		{/if}
 		{#if showEnergyFields}
 			<td class="number">
@@ -508,8 +534,12 @@
 				{/if}
 			</td>
 		{/if}
-		<td class="number">{trip.otherCostsEur?.toFixed(2) || ''}</td>
-		<td>{trip.otherCostsNote || ''}</td>
+		{#if !hiddenColumns.includes('otherCosts')}
+			<td class="number">{trip.otherCostsEur?.toFixed(2) || ''}</td>
+		{/if}
+		{#if !hiddenColumns.includes('otherCostsNote')}
+			<td>{trip.otherCostsNote || ''}</td>
+		{/if}
 		<td class="actions">
 			<span class="icon-actions">
 				<button

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
+	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
 	import { onMount, tick } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
@@ -117,6 +118,9 @@
 	// Date prefill mode for new entries
 	let datePrefillMode: typeof DatePrefillMode[keyof typeof DatePrefillMode] = DatePrefillMode.Previous;
 
+	// Hidden columns state
+	let hiddenColumns: string[] = [];
+
 	onMount(async () => {
 		await loadRoutes();
 		await loadPurposes();
@@ -126,7 +130,17 @@
 		} catch (error) {
 			console.error('Failed to load date prefill mode:', error);
 		}
+		// Load hidden columns preference
+		try {
+			hiddenColumns = await getHiddenColumns();
+		} catch (error) {
+			console.error('Failed to load hidden columns:', error);
+		}
 	});
+
+	function handleHiddenColumnsChange(columns: string[]) {
+		hiddenColumns = columns;
+	}
 
 	async function loadRoutes() {
 		try {
@@ -158,11 +172,12 @@
 		showNewRow = true;
 	}
 
-	async function handleSaveNew(tripData: Partial<Trip>) {
+	async function handleSaveNew(tripData: Partial<Trip> & { time?: string }) {
 		try {
 			await createTrip(
 				vehicleId,
 				tripData.date!,
+				tripData.time || null,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
@@ -202,11 +217,12 @@
 		}
 	}
 
-	async function handleUpdate(trip: Trip, tripData: Partial<Trip>) {
+	async function handleUpdate(trip: Trip, tripData: Partial<Trip> & { time?: string }) {
 		try {
 			await updateTrip(
 				trip.id,
 				tripData.date!,
+				tripData.time || null,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
@@ -253,7 +269,7 @@
 			runningOdo = runningOdo + t.distanceKm;
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					t.id, t.date, t.origin, t.destination, t.distanceKm, runningOdo,
+					t.id, t.date, null, t.origin, t.destination, t.distanceKm, runningOdo,
 					t.purpose,
 					t.fuelLiters, t.fuelCostEur, t.fullTank,
 					t.energyKwh, t.energyCostEur, t.fullCharge, t.socOverridePercent,
@@ -382,7 +398,7 @@
 			runningOdo += trip.distanceKm;
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					trip.id, trip.date, trip.origin, trip.destination, trip.distanceKm, runningOdo,
+					trip.id, trip.date, null, trip.origin, trip.destination, trip.distanceKm, runningOdo,
 					trip.purpose,
 					trip.fuelLiters, trip.fuelCostEur, trip.fullTank,
 					trip.energyKwh, trip.energyCostEur, trip.fullCharge, trip.socOverridePercent,
@@ -398,6 +414,7 @@
 		id: FIRST_RECORD_ID,
 		vehicleId: vehicleId,
 		date: `${year}-01-01`,
+		datetime: `${year}-01-01T00:00:00`,
 		origin: '-',
 		destination: '-',
 		distanceKm: 0,
@@ -475,6 +492,10 @@
 				size="small"
 				title={$LL.trips.datePrefillTooltip()}
 			/>
+			<ColumnVisibilityDropdown
+				{hiddenColumns}
+				onChange={handleHiddenColumnsChange}
+			/>
 		</div>
 	</div>
 
@@ -507,6 +528,9 @@
 							<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
 						{/if}
 					</th>
+					{#if !hiddenColumns.includes('time')}
+						<th>{$LL.trips.columns.time()}</th>
+					{/if}
 					<th>{$LL.trips.columns.origin()}</th>
 					<th>{$LL.trips.columns.destination()}</th>
 					<th>{$LL.trips.columns.km()}</th>
@@ -515,9 +539,13 @@
 					{#if showFuelColumns}
 						<th>{$LL.trips.columns.fuelLiters()}</th>
 						<th>{$LL.trips.columns.fuelCost()}</th>
-						<th>{$LL.trips.columns.fuelConsumed()}</th>
+						{#if !hiddenColumns.includes('fuelConsumed')}
+							<th>{$LL.trips.columns.fuelConsumed()}</th>
+						{/if}
 						<th>{$LL.trips.columns.consumptionRate()}</th>
-						<th>{$LL.trips.columns.remaining()}</th>
+						{#if !hiddenColumns.includes('fuelRemaining')}
+							<th>{$LL.trips.columns.remaining()}</th>
+						{/if}
 					{/if}
 					{#if showEnergyColumns}
 						<th>{$LL.trips.columns.energyKwh()}</th>
@@ -525,8 +553,12 @@
 						<th>{$LL.trips.columns.energyRate()}</th>
 						<th>{$LL.trips.columns.batteryRemaining()}</th>
 					{/if}
-					<th>{$LL.trips.columns.otherCosts()}</th>
-					<th>{$LL.trips.columns.otherCostsNote()}</th>
+					{#if !hiddenColumns.includes('otherCosts')}
+						<th>{$LL.trips.columns.otherCosts()}</th>
+					{/if}
+					{#if !hiddenColumns.includes('otherCostsNote')}
+						<th>{$LL.trips.columns.otherCostsNote()}</th>
+					{/if}
 					<th>
 						{$LL.trips.columns.actions()}
 					</th>
@@ -555,6 +587,7 @@
 						previewData={previewingTripId === null ? previewData : null}
 						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
 						onMagicFill={handleMagicFill}
+						{hiddenColumns}
 					/>
 				{/if}
 				<!-- Trip rows -->
@@ -581,12 +614,16 @@
 							previewData={previewingTripId === null ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtSortOrder, km, fuel, fullTank)}
 							onMagicFill={handleMagicFill}
+							{hiddenColumns}
 						/>
 					{/if}
 					{#if isFirstRecord(trip)}
 						<!-- Synthetic "Prvý záznam" row -->
 						<tr class="first-record">
 							<td>{trip.date.split('-').reverse().join('.')}</td>
+							{#if !hiddenColumns.includes('time')}
+								<td>00:00</td>
+							{/if}
 							<td>-</td>
 							<td>-</td>
 							<td class="number">0</td>
@@ -595,9 +632,13 @@
 							{#if showFuelColumns}
 								<td>-</td>
 								<td>-</td>
-								<td class="number calculated">0.00</td>
+								{#if !hiddenColumns.includes('fuelConsumed')}
+									<td class="number calculated">0.00</td>
+								{/if}
 								<td class="number">{tpConsumption.toFixed(2)}</td>
-								<td class="number">{tankSize.toFixed(1)}</td>
+								{#if !hiddenColumns.includes('fuelRemaining')}
+									<td class="number">{tankSize.toFixed(1)}</td>
+								{/if}
 							{/if}
 							{#if showEnergyColumns}
 								<td>-</td>
@@ -605,8 +646,12 @@
 								<td class="number">{baselineConsumptionKwh.toFixed(2)}</td>
 								<td class="number">{batteryCapacityKwh.toFixed(1)} kWh</td>
 							{/if}
-							<td>-</td>
-							<td>-</td>
+							{#if !hiddenColumns.includes('otherCosts')}
+								<td>-</td>
+							{/if}
+							{#if !hiddenColumns.includes('otherCostsNote')}
+								<td>-</td>
+							{/if}
 							<td></td>
 						</tr>
 					{:else}
@@ -643,6 +688,7 @@
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}
 							onMagicFill={handleMagicFill}
+							{hiddenColumns}
 						/>
 					{/if}
 				{/each}
