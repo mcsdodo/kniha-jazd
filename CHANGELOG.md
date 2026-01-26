@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Prepínač predvyplnenia dátumu pre nové záznamy** - vedľa tlačidla "Nový záznam" v tabuľke jázd
+  - "+1" mód: predvyplní dátum poslednej jazdy + 1 deň (pre dávkové zadávanie)
+  - "Dnes" mód: predvyplní dnešný dátum (pre denné zadávanie)
+  - Nastavenie sa ukladá a zachováva aj po reštarte aplikácie
+
 ## [0.23.0] - 2026-01-26
 
 ### Pridané

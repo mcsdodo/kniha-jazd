@@ -2,6 +2,13 @@
 
 export type VehicleType = 'Ice' | 'Bev' | 'Phev';
 
+// Date prefill mode for new trip entries
+export const DatePrefillMode = {
+	Previous: 'previous',
+	Today: 'today',
+} as const;
+export type DatePrefillMode = (typeof DatePrefillMode)[keyof typeof DatePrefillMode];
+
 export interface Vehicle {
 	id: string;
 	name: string;

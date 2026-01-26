@@ -12,7 +12,7 @@ use crate::db::{normalize_location, Database};
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{PreviewResult, Route, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType};
-use crate::settings::LocalSettings;
+use crate::settings::{DatePrefillMode, LocalSettings};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use chrono::{Datelike, NaiveDate, Utc, Local};
@@ -3285,6 +3285,34 @@ pub fn set_auto_check_updates(app_handle: tauri::AppHandle, enabled: bool) -> Re
     Ok(())
 }
 
+// ============================================================================
+// Date Prefill Mode Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn get_date_prefill_mode(app_handle: tauri::AppHandle) -> Result<DatePrefillMode, String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings = LocalSettings::load(&app_data_dir);
+    // Default to Previous if not set
+    Ok(settings.date_prefill_mode.unwrap_or_default())
+}
+
+#[tauri::command]
+pub fn set_date_prefill_mode(
+    app_handle: tauri::AppHandle,
+    mode: DatePrefillMode,
+) -> Result<(), String> {
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let mut settings = LocalSettings::load(&app_data_dir);
+    settings.date_prefill_mode = Some(mode);
+
+    // Save to file
+    let settings_path = app_data_dir.join("local.settings.json");
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
 
 // ============================================================================
 // Database Location Commands

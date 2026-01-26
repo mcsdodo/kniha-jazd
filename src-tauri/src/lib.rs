@@ -208,6 +208,8 @@ pub fn run() {
       commands::set_theme_preference,
       commands::get_auto_check_updates,
       commands::set_auto_check_updates,
+      commands::get_date_prefill_mode,
+      commands::set_date_prefill_mode,
       commands::get_db_location,
       commands::get_app_mode,
       commands::check_target_has_db,
