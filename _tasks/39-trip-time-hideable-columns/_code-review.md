@@ -241,15 +241,44 @@ _None_
 ### All Findings (Consolidated)
 
 #### Critical
-1. [ ] Missing Slovak diacritics in `columnVisibility` translations - `sk/index.ts:172-178`
+1. [x] Missing Slovak diacritics in `columnVisibility` translations - `sk/index.ts:172-178` — **FIXED**
 
 #### Important
-1. [ ] Empty state colspan doesn't account for hidden columns - `TripGrid.svelte:698`
-2. [ ] CSS column width comments outdated for new Time column - `TripGrid.svelte:798-811`
+1. [x] Empty state colspan doesn't account for hidden columns - `TripGrid.svelte:698` — **FIXED**
+2. [x] CSS column width comments outdated for new Time column - `TripGrid.svelte:798-811` — **FIXED**
 
 #### Minor
-1. [ ] Missing data-testid on time column header - `TripGrid.svelte:532`
+1. [x] Missing data-testid on time column header - `TripGrid.svelte:532` — **FIXED**
 
 ### Recommendation
 
-**Fix Critical issue before merge.** The Slovak diacritics issue is a clear localization regression. Important issues can be addressed post-merge if needed, but the colspan issue may cause visible layout problems.
+~~**Fix Critical issue before merge.** The Slovak diacritics issue is a clear localization regression. Important issues can be addressed post-merge if needed, but the colspan issue may cause visible layout problems.~~
+
+**Ready to proceed.** All findings addressed.
+
+---
+
+## Resolution (Phase 3+4+5)
+
+**Date:** 2026-01-26
+**Addressed:** 4 findings (1 Critical, 2 Important, 1 Minor)
+**Test Status:** All 220 backend tests pass, TypeScript/Svelte checks pass
+**Status:** Complete
+
+### Applied Fixes
+
+1. **Slovak diacritics (sk/index.ts)** — Fixed columnVisibility translations:
+   - `title: 'Stĺpce'`
+   - `time: 'Čas'`
+   - `fuelConsumed: 'Spotrebované (L)'`
+   - `otherCosts: 'Iné (€)'`
+   - `otherCostsNote: 'Iná poznámka'`
+
+2. **Empty state colspan (TripGrid.svelte)** — Added `visibleColumnCount` reactive variable that dynamically calculates the correct colspan based on vehicle type and hidden columns.
+
+3. **CSS column comments (TripGrid.svelte)** — Updated comments to reflect:
+   - New Time column after Date
+   - Note about dynamic column indices when columns are hidden
+   - Added 15th column for Actions
+
+4. **Time column testid (TripGrid.svelte)** — Added `data-testid="column-header-time"` to time column header

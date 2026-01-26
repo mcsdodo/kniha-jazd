@@ -522,15 +522,15 @@ type RootTranslation = {
 		}
 		columnVisibility: {
 			/**
-			 * S​t​l​p​c​e
+			 * S​t​ĺ​p​c​e
 			 */
 			title: string
 			/**
-			 * C​a​s
+			 * Č​a​s
 			 */
 			time: string
 			/**
-			 * S​p​o​t​r​e​b​o​v​a​n​e​ ​(​L​)
+			 * S​p​o​t​r​e​b​o​v​a​n​é​ ​(​L​)
 			 */
 			fuelConsumed: string
 			/**
@@ -538,11 +538,11 @@ type RootTranslation = {
 			 */
 			fuelRemaining: string
 			/**
-			 * I​n​e​ ​(​E​U​R​)
+			 * I​n​é​ ​(​€​)
 			 */
 			otherCosts: string
 			/**
-			 * I​n​e​ ​p​o​z​n​a​m​k​a
+			 * I​n​á​ ​p​o​z​n​á​m​k​a
 			 */
 			otherCostsNote: string
 		}
@@ -2359,15 +2359,15 @@ export type TranslationFunctions = {
 		}
 		columnVisibility: {
 			/**
-			 * Stlpce
+			 * Stĺpce
 			 */
 			title: () => LocalizedString
 			/**
-			 * Cas
+			 * Čas
 			 */
 			time: () => LocalizedString
 			/**
-			 * Spotrebovane (L)
+			 * Spotrebované (L)
 			 */
 			fuelConsumed: () => LocalizedString
 			/**
@@ -2375,11 +2375,11 @@ export type TranslationFunctions = {
 			 */
 			fuelRemaining: () => LocalizedString
 			/**
-			 * Ine (EUR)
+			 * Iné (€)
 			 */
 			otherCosts: () => LocalizedString
 			/**
-			 * Ine poznamka
+			 * Iná poznámka
 			 */
 			otherCostsNote: () => LocalizedString
 		}
