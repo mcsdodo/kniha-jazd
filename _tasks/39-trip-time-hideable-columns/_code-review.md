@@ -132,3 +132,124 @@ _None_
 ### Skipped Items
 
 - **hidden_columns command tests** — Would require mocking `AppHandle`. The `LocalSettings` tests in `settings.rs` already verify serialization/deserialization round-trips. Tauri command integration is covered by E2E tests in Phase 4.
+
+---
+
+# Code Review: Phase 3, 4, 5 Implementation (Frontend)
+
+**Target:** Commit 7386d04 (feat(frontend): add trip time column and hideable columns UI)
+**Reference:** `_tasks/39-trip-time-hideable-columns/03-plan.md`
+**Started:** 2026-01-26
+**Status:** Ready for User Review
+**Focus:** Quality, correctness, best practices
+
+**Baseline Test Status:** All 220 backend tests pass
+
+## Iteration 1
+
+### New Findings
+
+#### Critical
+
+1. [ ] **Missing Slovak diacritics in columnVisibility translations** - `src/lib/i18n/sk/index.ts:172-178`
+   - The `columnVisibility` section has ASCII-only text, inconsistent with the rest of the Slovak file
+   - Current:
+     ```typescript
+     columnVisibility: {
+         title: 'Stlpce',           // Should be: 'Stĺpce'
+         time: 'Cas',               // Should be: 'Čas'
+         fuelConsumed: 'Spotrebovane (L)',  // Should be: 'Spotrebované (L)'
+         fuelRemaining: 'Zostatok (L)',     // Correct
+         otherCosts: 'Ine (EUR)',           // Should be: 'Iné (EUR)'
+         otherCostsNote: 'Ine poznamka',    // Should be: 'Iná poznámka'
+     },
+     ```
+   - Compare with `trips.columns.time: 'Čas'` on line 119 which is correct
+   - **Suggested fix:** Add proper Slovak diacritics
+
+#### Important
+
+1. [ ] **Empty state colspan doesn't account for hidden columns** - `src/lib/components/TripGrid.svelte:698`
+   - Current: `<td colspan={9 + (showFuelColumns ? 5 : 0) + (showEnergyColumns ? 4 : 0)}>`
+   - This hardcoded calculation doesn't subtract hidden columns
+   - **Impact:** Visual misalignment when columns are hidden
+   - **Suggested fix:** Calculate visible columns dynamically
+
+2. [ ] **CSS column width comments outdated** - `src/lib/components/TripGrid.svelte:798-811`
+   - CSS comments reference old column order without Time column
+   - When Time is visible, nth-child selectors apply wrong widths
+   - **Suggested fix:** Update comments or use CSS classes instead of nth-child
+
+#### Minor
+
+1. [ ] **Missing data-testid on time column header** - `src/lib/components/TripGrid.svelte:532`
+   - Current: `<th>{$LL.trips.columns.time()}</th>`
+   - Other headers and interactive elements have testids
+   - **Suggested fix:** Add `data-testid="column-header-time"`
+
+### Plan Alignment
+
+| Phase | Requirement | Status |
+|-------|-------------|--------|
+| **Phase 3** | `datetime` field in Trip interface | ✅ `types.ts:37` |
+| | `extractTime()` helper | ✅ `types.ts:314-318` |
+| | Time input in edit mode | ✅ `TripRow.svelte:284` |
+| | Time display in view mode | ✅ `TripRow.svelte:480` |
+| | Time passed to API | ✅ `api.ts:85,130` |
+| | Column header | ✅ `TripGrid.svelte:531-533` |
+| **Phase 4** | ColumnVisibilityDropdown component | ✅ New file |
+| | Hideable columns: time, fuelConsumed, fuelRemaining, otherCosts, otherCostsNote | ✅ All 5 |
+| | Persistence via API | ✅ `getHiddenColumns`/`setHiddenColumns` |
+| | Conditional column rendering | ✅ `{#if !hiddenColumns.includes(...)}` |
+| | Load on mount | ✅ `TripGrid.svelte:134-138` |
+| **Phase 5** | `col_time` in ExportLabels | ✅ `types.ts:277` |
+| | Slovak translation | ⚠️ Missing diacritics |
+| | English translation | ✅ `en/index.ts:502` |
+
+### Plan Deviations
+
+| Deviation | Assessment |
+|-----------|------------|
+| Time defaults to `'00:00'` not empty string | ✅ **Better than plan** - more user-friendly |
+| ColumnVisibilityDropdown uses `const` array not computed | ✅ **Acceptable** - array is small, no perf impact |
+
+### What Was Done Well
+
+1. **Clean component architecture** - ColumnVisibilityDropdown is properly isolated and reusable
+2. **Proper TypeScript types** - `extractTime` has clear JSDoc documentation
+3. **Consistent data-testid usage** - Most interactive elements have testids
+4. **Proper error handling** - API calls wrapped in try-catch
+5. **Reactive state management** - Svelte's `$:` syntax used correctly
+6. **Click-outside handling** - Dropdown closes on outside clicks and Escape
+7. **i18n compliance** - All user-facing strings use `$LL` (except the diacritics issue)
+8. **ADR-008 compliance** - Time is passed to backend, not calculated on frontend
+
+### Test Gaps
+
+| Plan Section | Planned Tests | Status |
+|--------------|---------------|--------|
+| Phase 6 (integration) | `time-column.spec.ts` | ❓ Not verified |
+| Phase 6 (integration) | `column-visibility.spec.ts` | ❓ Not verified |
+
+## Review Summary (Phase 3+4+5)
+
+**Status:** Ready for User Review
+**Iterations:** 1
+**Total Findings:** 1 Critical, 2 Important, 1 Minor
+**Test Status:** All 220 backend tests pass
+
+### All Findings (Consolidated)
+
+#### Critical
+1. [ ] Missing Slovak diacritics in `columnVisibility` translations - `sk/index.ts:172-178`
+
+#### Important
+1. [ ] Empty state colspan doesn't account for hidden columns - `TripGrid.svelte:698`
+2. [ ] CSS column width comments outdated for new Time column - `TripGrid.svelte:798-811`
+
+#### Minor
+1. [ ] Missing data-testid on time column header - `TripGrid.svelte:532`
+
+### Recommendation
+
+**Fix Critical issue before merge.** The Slovak diacritics issue is a clear localization regression. Important issues can be addressed post-merge if needed, but the colspan issue may cause visible layout problems.
