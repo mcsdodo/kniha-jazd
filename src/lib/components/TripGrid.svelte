@@ -422,18 +422,8 @@
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
 	$: missingReceiptCount = gridData?.missingReceipts.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
-	// Get the most recent trip's suggested fillup for the legend
-	// sortOrder 0 = most recent (displayed at top), so iterate from low to high
-	$: lastSuggestedFillup = (() => {
-		if (suggestedFillup.size === 0) return null;
-		// Find the most recent trip (lowest sort order) that has a suggestion
-		const sortedTrips = [...trips].sort((a, b) => a.sortOrder - b.sortOrder);
-		for (const trip of sortedTrips) {
-			const suggestion = suggestedFillup.get(trip.id);
-			if (suggestion) return suggestion;
-		}
-		return null;
-	})();
+	// Legend suggested fillup - provided directly by backend (no frontend logic needed)
+	$: legendSuggestedFillup = gridData?.legendSuggestedFillup ?? null;
 
 	$: defaultNewDate = (() => {
 		if (sortedTrips.length === 0) {
@@ -454,12 +444,12 @@
 	</div>
 
 	<div class="table-container">
-		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0 || lastSuggestedFillup}
+		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0 || legendSuggestedFillup}
 			<div class="table-legend">
-				{#if lastSuggestedFillup}
+				{#if legendSuggestedFillup}
 					<span class="legend-item suggested-fillup">
 						<span class="suggested-indicator">💡</span>
-						{$LL.trips.legend.suggestedFillup({ liters: lastSuggestedFillup.liters.toFixed(2), rate: lastSuggestedFillup.consumptionRate.toFixed(2) })}
+						{$LL.trips.legend.suggestedFillup({ liters: legendSuggestedFillup.liters.toFixed(2), rate: legendSuggestedFillup.consumptionRate.toFixed(2) })}
 					</span>
 				{/if}
 				{#if partialCount > 0}
