@@ -109,7 +109,7 @@ const en = {
 		newRecord: 'New record',
 		firstRecord: 'First record',
 		// Date prefill toggle
-		datePrefillPrevious: '+1',
+		datePrefillPrevious: '+1 day',
 		datePrefillToday: 'Today',
 		datePrefillTooltip: 'Prefilled date for new entry',
 		emptyState: 'No records. Click "New record" to add a trip.',
