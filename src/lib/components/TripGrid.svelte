@@ -473,6 +473,25 @@
 		maxDate.setDate(maxDate.getDate() + 1);
 		return maxDate.toISOString().split('T')[0];
 	})();
+
+	// Calculate visible column count for empty state colspan
+	$: visibleColumnCount = (() => {
+		// Base columns: date, origin, destination, km, odo, purpose, actions
+		let count = 7;
+		// Optional columns
+		if (!hiddenColumns.includes('time')) count++;
+		if (!hiddenColumns.includes('otherCosts')) count++;
+		if (!hiddenColumns.includes('otherCostsNote')) count++;
+		// Fuel columns
+		if (showFuelColumns) {
+			count += 3; // fuelLiters, fuelCost, consumptionRate
+			if (!hiddenColumns.includes('fuelConsumed')) count++;
+			if (!hiddenColumns.includes('fuelRemaining')) count++;
+		}
+		// Energy columns
+		if (showEnergyColumns) count += 4;
+		return count;
+	})();
 </script>
 
 <div class="trip-grid">
@@ -529,7 +548,7 @@
 						{/if}
 					</th>
 					{#if !hiddenColumns.includes('time')}
-						<th>{$LL.trips.columns.time()}</th>
+						<th data-testid="column-header-time">{$LL.trips.columns.time()}</th>
 					{/if}
 					<th>{$LL.trips.columns.origin()}</th>
 					<th>{$LL.trips.columns.destination()}</th>
@@ -695,7 +714,7 @@
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
 					<tr class="empty">
-						<td colspan={9 + (showFuelColumns ? 5 : 0) + (showEnergyColumns ? 4 : 0)}>{$LL.trips.emptyState()}</td>
+						<td colspan={visibleColumnCount}>{$LL.trips.emptyState()}</td>
 					</tr>
 				{/if}
 			</tbody>
@@ -794,21 +813,24 @@
 		color: var(--accent-primary);
 	}
 
-	/* Column widths - total should be 100% */
+	/* Column widths - approximate, for ICE vehicle with all columns visible
+	   Note: nth-child indices shift when columns are hidden (time, fuelConsumed, etc.)
+	   Order: Dátum, Čas?, Odkiaľ, Kam, Km, ODO, Účel, [fuel cols], [energy cols], Iné €?, Iné pozn.?, Akcie */
 	th:nth-child(1) { width: 5%; }   /* Dátum */
-	th:nth-child(2) { width: 16%; }  /* Odkiaľ */
-	th:nth-child(3) { width: 16%; }  /* Kam */
-	th:nth-child(4) { width: 4%; text-align: right; }   /* Km */
-	th:nth-child(5) { width: 5%; text-align: right; }   /* ODO */
-	th:nth-child(6) { width: 12%; }  /* Účel */
-	th:nth-child(7) { width: 4%; text-align: right; }   /* PHM (L) */
-	th:nth-child(8) { width: 4%; text-align: right; }   /* Cena € */
-	th:nth-child(9) { width: 4%; text-align: right; }   /* Spotr. (L) - NEW */
-	th:nth-child(10) { width: 4%; text-align: right; }  /* l/100km */
-	th:nth-child(11) { width: 4%; text-align: right; }  /* Zostatok */
-	th:nth-child(12) { width: 4%; text-align: right; }  /* Iné € */
-	th:nth-child(13) { width: 10%; }  /* Iné pozn. */
-	th:nth-child(14) { width: 8%; text-align: center; } /* Akcie */
+	th:nth-child(2) { width: 4%; }   /* Čas (or Odkiaľ if time hidden) */
+	th:nth-child(3) { width: 14%; }  /* Odkiaľ (or Kam if time hidden) */
+	th:nth-child(4) { width: 14%; }  /* Kam */
+	th:nth-child(5) { width: 4%; text-align: right; }   /* Km */
+	th:nth-child(6) { width: 5%; text-align: right; }   /* ODO */
+	th:nth-child(7) { width: 12%; }  /* Účel */
+	th:nth-child(8) { width: 4%; text-align: right; }   /* PHM (L) */
+	th:nth-child(9) { width: 4%; text-align: right; }   /* Cena € */
+	th:nth-child(10) { width: 4%; text-align: right; }  /* Spotr. (L) */
+	th:nth-child(11) { width: 4%; text-align: right; }  /* l/100km */
+	th:nth-child(12) { width: 4%; text-align: right; }  /* Zostatok */
+	th:nth-child(13) { width: 4%; text-align: right; }  /* Iné € */
+	th:nth-child(14) { width: 10%; }  /* Iné pozn. */
+	th:nth-child(15) { width: 8%; text-align: center; } /* Akcie */
 	tbody tr.empty td {
 		padding: 2rem;
 		text-align: center;

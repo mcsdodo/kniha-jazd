@@ -169,12 +169,12 @@ const sk = {
 		},
 		// Column visibility
 		columnVisibility: {
-			title: 'Stlpce',
-			time: 'Cas',
-			fuelConsumed: 'Spotrebovane (L)',
+			title: 'Stĺpce',
+			time: 'Čas',
+			fuelConsumed: 'Spotrebované (L)',
 			fuelRemaining: 'Zostatok (L)',
-			otherCosts: 'Ine (EUR)',
-			otherCostsNote: 'Ine poznamka',
+			otherCosts: 'Iné (€)',
+			otherCostsNote: 'Iná poznámka',
 		},
 	},
 
