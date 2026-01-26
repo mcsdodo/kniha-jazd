@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Návrh tankovania v legende tabuľky jázd** - zobrazuje odporúčané tankovanie keď existuje otvorené obdobie
+  - Zobrazuje litre a výslednú spotrebu: "Návrh tankovania: 38 L → 5.78 l/100km"
+  - Zelená farba signalizuje pozitívnu akciu
+  - Magic fill tlačidlo používa predpočítané hodnoty (bez volania backendu)
+  - Hodnoty sa prepočítavajú pri každom načítaní dát
+
 ## [0.22.0] - 2026-01-26
 
 ### Pridané

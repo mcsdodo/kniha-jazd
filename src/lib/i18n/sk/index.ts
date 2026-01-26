@@ -160,6 +160,7 @@ const sk = {
 			partialFillup: 'čiastočné tankovanie',
 			noReceipt: 'bez dokladu',
 			highConsumption: 'vysoká spotreba',
+			suggestedFillup: 'Návrh tankovania: {liters} L → {rate} l/100km',
 		},
 	},
 

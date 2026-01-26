@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult, VehicleType } from '$lib/types';
+	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -38,7 +38,8 @@
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
-	// Magic fill callback - returns suggested liters (tripId is null for new trips)
+	// Magic fill - pre-calculated suggestion for existing trips, callback for new trips
+	export let suggestedFillup: SuggestedFillup | null = null;
 	export let onMagicFill: (km: number, tripId: string | null) => Promise<number> = async () => 0;
 
 	// Derived: show fuel/energy fields based on vehicle type
@@ -166,9 +167,17 @@
 		const currentKm = formData.distanceKm ?? 0;
 		if (currentKm <= 0) return;
 
-		// Pass trip ID for existing trips (to avoid double-counting km)
-		const tripId = trip?.id ?? null;
-		const suggestedLiters = await onMagicFill(currentKm, tripId);
+		let suggestedLiters: number;
+
+		// For existing trips, use pre-calculated suggestion (no backend call)
+		// For new trips, call backend
+		if (trip?.id && suggestedFillup) {
+			suggestedLiters = suggestedFillup.liters;
+		} else {
+			const tripId = trip?.id ?? null;
+			suggestedLiters = await onMagicFill(currentKm, tripId);
+		}
+
 		if (suggestedLiters > 0) {
 			formData.fuelLiters = suggestedLiters;
 			formData.fullTank = true;

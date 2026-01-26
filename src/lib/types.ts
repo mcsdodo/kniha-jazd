@@ -116,6 +116,12 @@ export interface BackupRetention {
 	keepCount: number;
 }
 
+/** Suggested fillup for a trip in an open period */
+export interface SuggestedFillup {
+	liters: number;
+	consumptionRate: number;
+}
+
 export interface TripGridData {
 	trips: Trip[];
 	// Fuel data (ICE + PHEV)
@@ -135,6 +141,8 @@ export interface TripGridData {
 	missingReceipts: string[]; // tripIds missing receipts
 	// Year boundary data
 	yearStartOdometer: number; // Starting ODO for this year (carryover from previous year)
+	// Suggested fillup (for trips in open period)
+	suggestedFillup: Record<string, SuggestedFillup>; // tripId -> suggestion
 }
 
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';

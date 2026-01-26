@@ -2276,3 +2276,98 @@ fn test_fuel_consumed_zero_distance() {
     let fuel = consumed.get(&trip_id.to_string()).unwrap();
     assert!((fuel - 0.0).abs() < 0.01, "0 km = 0 L consumed");
 }
+
+// ============================================================================
+// Suggested Fillup Tests
+// ============================================================================
+
+#[test]
+fn test_suggested_fillup_open_period() {
+    // Trips in an open period (no full tank) should get suggestions
+    let trips = vec![
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            100.0,
+            None, // no fuel
+            false,
+        ),
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+            150.0,
+            None, // no fuel
+            false,
+        ),
+    ];
+
+    let tp_consumption = 6.0; // 6 l/100km
+    let suggestions = calculate_suggested_fillups(&trips, tp_consumption);
+
+    // Both trips should have suggestions
+    assert_eq!(suggestions.len(), 2);
+
+    // First trip: 100 km
+    let first = suggestions.get(&trips[0].id.to_string()).unwrap();
+    assert!(first.liters > 0.0);
+    // Liters should be in range: 100km * 6.0 * 1.05/100 = 6.3 to 100 * 6.0 * 1.20/100 = 7.2
+    assert!(first.liters >= 6.3 && first.liters <= 7.2);
+
+    // Second trip: 100 + 150 = 250 km cumulative
+    let second = suggestions.get(&trips[1].id.to_string()).unwrap();
+    assert!(second.liters > first.liters); // Cumulative, so more liters
+    // Liters: 250km * 6.0 * 1.05/100 = 15.75 to 250 * 6.0 * 1.20/100 = 18.0
+    assert!(second.liters >= 15.75 && second.liters <= 18.0);
+}
+
+#[test]
+fn test_suggested_fillup_closed_period_no_suggestions() {
+    // Trip with full tank closes the period - only trip after gets suggestion
+    let trips = vec![
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            100.0,
+            Some(8.0), // full tank
+            true,
+        ),
+        make_trip_for_magic_fill(
+            NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+            150.0,
+            None, // no fuel - open period starts here
+            false,
+        ),
+    ];
+
+    let tp_consumption = 6.0;
+    let suggestions = calculate_suggested_fillups(&trips, tp_consumption);
+
+    // Only second trip should have suggestion (first closed the period)
+    assert_eq!(suggestions.len(), 1);
+    assert!(suggestions.contains_key(&trips[1].id.to_string()));
+    assert!(!suggestions.contains_key(&trips[0].id.to_string()));
+}
+
+#[test]
+fn test_suggested_fillup_consumption_rate_calculation() {
+    // Verify the consumption rate is calculated correctly
+    let trips = vec![make_trip_for_magic_fill(
+        NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+        200.0, // 200 km
+        None,
+        false,
+    )];
+
+    let tp_consumption = 5.0; // 5 l/100km
+    let suggestions = calculate_suggested_fillups(&trips, tp_consumption);
+
+    let suggestion = suggestions.get(&trips[0].id.to_string()).unwrap();
+    // consumption_rate = liters / km * 100
+    let expected_rate = (suggestion.liters / 200.0) * 100.0;
+    let expected_rate_rounded = (expected_rate * 100.0).round() / 100.0;
+    assert!((suggestion.consumption_rate - expected_rate_rounded).abs() < 0.01);
+}
+
+#[test]
+fn test_suggested_fillup_empty_trips() {
+    let trips: Vec<Trip> = vec![];
+    let suggestions = calculate_suggested_fillups(&trips, 6.0);
+    assert!(suggestions.is_empty());
+}

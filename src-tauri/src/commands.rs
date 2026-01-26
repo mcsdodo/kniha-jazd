@@ -11,7 +11,7 @@ use crate::calculations_phev::calculate_phev_trip_consumption;
 use crate::db::{normalize_location, Database};
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
-use crate::models::{PreviewResult, Route, Settings, Trip, TripGridData, TripStats, Vehicle, VehicleType};
+use crate::models::{PreviewResult, Route, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType};
 use crate::settings::LocalSettings;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -856,6 +856,7 @@ pub fn get_trip_grid_data(
             date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
             year_start_odometer,
+            suggested_fillup: HashMap::new(),
         });
     }
 
@@ -971,6 +972,13 @@ pub fn get_trip_grid_data(
     // Calculate fuel consumed per trip (uses the same rates already calculated)
     let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
+    // Calculate suggested fillup for trips in open period (ICE + PHEV only)
+    let suggested_fillup = if vehicle.vehicle_type.uses_fuel() {
+        calculate_suggested_fillups(&chronological, tp_consumption)
+    } else {
+        HashMap::new()
+    };
+
     Ok(TripGridData {
         trips,
         rates,
@@ -986,6 +994,7 @@ pub fn get_trip_grid_data(
         date_warnings,
         missing_receipts,
         year_start_odometer,
+        suggested_fillup,
     })
 }
 
@@ -1017,6 +1026,62 @@ fn get_open_period_km(chronological: &[Trip], stop_at_trip_id: Option<&Uuid>) ->
     }
 
     km_in_period
+}
+
+/// Calculate suggested fillup for all trips in open periods.
+/// Returns a map from trip ID to SuggestedFillup for trips that are in an open period.
+/// Uses random multiplier 1.05-1.20 (same as magic fill).
+fn calculate_suggested_fillups(
+    chronological: &[Trip],
+    tp_consumption: f64,
+) -> HashMap<String, SuggestedFillup> {
+    use rand::Rng;
+
+    let mut result = HashMap::new();
+    let mut rng = rand::thread_rng();
+
+    // Generate one random multiplier for this calculation batch
+    // (provides consistency within a single data load)
+    let target_multiplier = rng.gen_range(1.05..=1.20);
+    let target_rate = tp_consumption * target_multiplier;
+
+    // First pass: find the index where the open period starts
+    // (after the last full tank, or from the beginning if no full tanks)
+    let mut open_period_start_idx = 0;
+    for (idx, trip) in chronological.iter().enumerate() {
+        if let Some(fuel) = trip.fuel_liters {
+            if fuel > 0.0 && trip.full_tank {
+                // Period closed by full tank - next trip starts a new open period
+                open_period_start_idx = idx + 1;
+            }
+        }
+    }
+
+    // Second pass: calculate suggested fillup for each trip in the open period
+    let mut cumulative_km = 0.0;
+    for trip in chronological.iter().skip(open_period_start_idx) {
+        cumulative_km += trip.distance_km;
+
+        if cumulative_km > 0.0 {
+            // Calculate liters: liters = km * rate / 100
+            let suggested_liters = (cumulative_km * target_rate) / 100.0;
+            let rounded_liters = (suggested_liters * 100.0).round() / 100.0;
+
+            // Calculate resulting consumption rate
+            let consumption_rate = (rounded_liters / cumulative_km) * 100.0;
+            let rounded_rate = (consumption_rate * 100.0).round() / 100.0;
+
+            result.insert(
+                trip.id.to_string(),
+                SuggestedFillup {
+                    liters: rounded_liters,
+                    consumption_rate: rounded_rate,
+                },
+            );
+        }
+    }
+
+    result
 }
 
 /// Calculate suggested fuel liters for magic fill feature.
@@ -2129,6 +2194,7 @@ pub async fn export_to_browser(
         date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
         year_start_odometer,
+        suggested_fillup: HashMap::new(), // Not needed for export
     };
 
     let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
@@ -2240,6 +2306,7 @@ pub async fn export_html(
         date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
         year_start_odometer,
+        suggested_fillup: HashMap::new(), // Not needed for export
     };
 
     // Calculate totals for footer
