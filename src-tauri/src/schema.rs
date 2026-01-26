@@ -55,6 +55,7 @@ diesel::table! {
         id -> Nullable<Text>,
         vehicle_id -> Text,
         date -> Text,
+        datetime -> Text,  // Combined date + time (migration 2026-01-27)
         origin -> Text,
         destination -> Text,
         distance_km -> Double,

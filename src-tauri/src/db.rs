@@ -260,6 +260,7 @@ impl Database {
         let id_str = trip.id.to_string();
         let vehicle_id_str = trip.vehicle_id.to_string();
         let date_str = trip.date.to_string();
+        let datetime_str = trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
         let created_at_str = trip.created_at.to_rfc3339();
         let updated_at_str = trip.updated_at.to_rfc3339();
         let other_costs_note_ref = trip.other_costs_note.as_deref();
@@ -268,6 +269,7 @@ impl Database {
             id: &id_str,
             vehicle_id: &vehicle_id_str,
             date: &date_str,
+            datetime: &datetime_str,
             origin: &trip.origin,
             destination: &trip.destination,
             distance_km: trip.distance_km,
@@ -326,7 +328,7 @@ impl Database {
 
         // Raw SQL needed for strftime year extraction
         let rows = diesel::sql_query(
-            "SELECT id, vehicle_id, date, origin, destination, distance_km, odometer, purpose,
+            "SELECT id, vehicle_id, date, datetime, origin, destination, distance_km, odometer, purpose,
                     fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank,
                     sort_order, energy_kwh, energy_cost_eur, full_charge, soc_override_percent,
                     created_at, updated_at
@@ -367,12 +369,14 @@ impl Database {
         let id_str = trip.id.to_string();
         let vehicle_id_str = trip.vehicle_id.to_string();
         let date_str = trip.date.to_string();
+        let datetime_str = trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
         let updated_at_str = trip.updated_at.to_rfc3339();
 
         diesel::update(trips::table.filter(trips::id.eq(&id_str)))
             .set((
                 trips::vehicle_id.eq(&vehicle_id_str),
                 trips::date.eq(&date_str),
+                trips::datetime.eq(&datetime_str),
                 trips::origin.eq(&trip.origin),
                 trips::destination.eq(&trip.destination),
                 trips::distance_km.eq(trip.distance_km),

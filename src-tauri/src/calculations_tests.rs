@@ -478,10 +478,13 @@ use uuid::Uuid;
 
 fn make_trip(distance_km: f64, fuel_liters: Option<f64>, full_tank: bool) -> Trip {
     let now = chrono::Utc::now();
+    let date = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+    let datetime = date.and_hms_opt(0, 0, 0).unwrap();
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date: chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        date,
+        datetime,
         odometer: 10000.0,
         distance_km,
         origin: "A".to_string(),
