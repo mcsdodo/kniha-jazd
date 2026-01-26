@@ -10,6 +10,7 @@
 	export let isNew: boolean = false;
 	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
+	export let fuelConsumed: number = 0;
 	export let fuelRemaining: number = 0;
 	// Energy fields (BEV/PHEV)
 	export let vehicleType: VehicleType = 'Ice';
@@ -325,6 +326,13 @@
 					data-testid="trip-fuel-cost"
 				/>
 			</td>
+			<td class="number calculated" class:preview={previewData}>
+				{#if previewData}
+					~{((formData.distanceKm || 0) * previewData.consumptionRate / 100).toFixed(2)}
+				{:else}
+					{fuelConsumed.toFixed(2)}
+				{/if}
+			</td>
 			<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
 				{#if previewData}
 					~{previewData.consumptionRate.toFixed(2)}
@@ -458,6 +466,7 @@
 				{/if}
 			</td>
 			<td class="number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
+			<td class="number calculated">{fuelConsumed.toFixed(2)}</td>
 			<td class="number calculated" class:estimated={isEstimatedRate}>
 				{consumptionRate.toFixed(2)}
 				{#if isEstimatedRate}
@@ -557,8 +566,8 @@
 
 	tr.editing td input,
 	tr.editing td :global(.autocomplete) {
-		margin: 0 0.125rem;
-		width: calc(100% - 0.25rem);
+		margin: 0 1px;
+		width: calc(100% - 2px);
 	}
 
 	tr.date-warning {
@@ -585,6 +594,10 @@
 	td {
 		padding: 0.5rem;
 		border-bottom: 1px solid var(--border-default);
+	}
+
+	tr:not(.editing) td {
+		padding-left: 0.9rem;
 	}
 
 	td.number {
@@ -620,21 +633,22 @@
 	}
 
 	td.actions {
-		text-align: center;
+		text-align: right;
 		white-space: nowrap;
 	}
 
 	input {
 		width: 100%;
-		padding: 0.5rem;
+		padding: 0.5rem 0.125rem;
 		border: 1px solid var(--border-input);
 		border-radius: 4px;
 		font-size: 0.875rem;
 		box-sizing: border-box;
 	}
 
-	input[type='number'] {
+	tr.editing input[type='number'] {
 		text-align: right;
+		padding-right: 0.25rem;
 	}
 
 	button {
@@ -650,14 +664,14 @@
 	.editing-actions {
 		display: flex;
 		gap: 0.25rem;
-		justify-content: center;
+		justify-content: flex-end;
 		align-items: center;
 	}
 
 	.icon-actions {
 		display: flex;
 		gap: 0.25rem;
-		justify-content: center;
+		justify-content: flex-end;
 		align-items: center;
 	}
 

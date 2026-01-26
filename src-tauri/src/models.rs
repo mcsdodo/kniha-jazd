@@ -310,6 +310,8 @@ pub struct TripGridData {
     pub rates: HashMap<String, f64>,
     /// Trip IDs that use estimated (TP) rate instead of calculated
     pub estimated_rates: HashSet<String>,
+    /// Fuel consumed per trip in liters (km × rate / 100), keyed by trip ID
+    pub fuel_consumed: HashMap<String, f64>,
     /// Fuel remaining after each trip, keyed by trip ID
     pub fuel_remaining: HashMap<String, f64>,
     /// Trip IDs with consumption over 120% of TP rate

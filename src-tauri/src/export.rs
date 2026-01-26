@@ -33,6 +33,7 @@ pub struct ExportLabels {
     pub col_odo: String,
     pub col_fuel_liters: String,
     pub col_fuel_cost: String,
+    pub col_fuel_consumed: String,
     pub col_other_costs: String,
     pub col_note: String,
     pub col_remaining: String,
@@ -184,6 +185,12 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         // Fuel columns (ICE + PHEV)
         if show_fuel {
             let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
+            let fuel_consumed = data
+                .grid_data
+                .fuel_consumed
+                .get(&trip_id)
+                .copied()
+                .unwrap_or(0.0);
             let fuel_remaining = data
                 .grid_data
                 .fuel_remaining
@@ -203,9 +210,10 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
                 r#"
           <td class="num">{}</td>
           <td class="num">{}</td>
+          <td class="num">{:.2}</td>
           <td class="num">{:.1}</td>
           <td class="num">{:.2}</td>"#,
-                fuel_liters, fuel_cost, fuel_remaining, rate
+                fuel_liters, fuel_cost, fuel_consumed, fuel_remaining, rate
             ));
         }
 
@@ -320,9 +328,11 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         <th>{}</th>
         <th>{}</th>
         <th>{}</th>
+        <th>{}</th>
         <th>{}</th>"#,
             html_escape(&l.col_fuel_liters),
             html_escape(&l.col_fuel_cost),
+            html_escape(&l.col_fuel_consumed),
             html_escape(&l.col_remaining),
             html_escape(&l.col_consumption),
         ));
