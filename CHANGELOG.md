@@ -7,6 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Čas odchodu v záznamoch jázd** - nový stĺpec "Čas" vedľa dátumu
+  - Voliteľný čas odchodu vo formáte HH:MM
+  - Predvolená hodnota 00:00 ak nie je zadaný
+  - Zahrnutý v HTML exporte
+- **Skrývateľné stĺpce v tabuľke jázd** - možnosť skryť nepotrebné stĺpce
+  - Ikona oka v hlavičke tabuľky (vedľa prepínača dátumu)
+  - Skrytie/zobrazenie: Čas, Spotrebované (l), Zostatok (l), Iné (€), Iné poznámka
+  - Nastavenie sa ukladá a zachováva po reštarte
+  - Export vždy obsahuje všetky stĺpce bez ohľadu na viditeľnosť
+
 ## [0.24.0] - 2026-01-26
 
 ### Pridané
