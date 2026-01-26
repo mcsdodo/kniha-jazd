@@ -13,6 +13,15 @@ pub struct BackupRetention {
     pub keep_count: u32,
 }
 
+/// Date prefill mode for new trip entries
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum DatePrefillMode {
+    #[default]
+    Previous, // Prefill with last trip date + 1 day
+    Today,    // Prefill with today's date
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalSettings {
     pub gemini_api_key: Option<String>,
@@ -21,6 +30,7 @@ pub struct LocalSettings {
     pub auto_check_updates: Option<bool>,   // true by default if None
     pub custom_db_path: Option<String>,     // Custom database location (e.g., Google Drive, NAS)
     pub backup_retention: Option<BackupRetention>, // Backup retention settings for auto-cleanup
+    pub date_prefill_mode: Option<DatePrefillMode>, // Date prefill for new trip entries
 }
 
 impl LocalSettings {
@@ -144,6 +154,7 @@ mod tests {
             auto_check_updates: Some(false),
             custom_db_path: Some("D:/NAS/data".to_string()),
             backup_retention: None,
+            date_prefill_mode: Some(DatePrefillMode::Today),
         };
 
         settings.save(&dir.path().to_path_buf()).unwrap();
@@ -154,6 +165,7 @@ mod tests {
         assert_eq!(loaded.theme, Some("dark".to_string()));
         assert_eq!(loaded.auto_check_updates, Some(false));
         assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
+        assert_eq!(loaded.date_prefill_mode, Some(DatePrefillMode::Today));
     }
 
     #[test]
@@ -177,5 +189,46 @@ mod tests {
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         // When missing, should be None (not enabled by default)
         assert!(settings.backup_retention.is_none());
+    }
+
+    // DatePrefillMode tests
+    #[test]
+    fn test_date_prefill_mode_default() {
+        // When missing from JSON, should default to Previous
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert!(settings.date_prefill_mode.is_none());
+        // When None, the default should be Previous
+        assert_eq!(
+            settings.date_prefill_mode.unwrap_or_default(),
+            DatePrefillMode::Previous
+        );
+    }
+
+    #[test]
+    fn test_date_prefill_mode_serialization() {
+        // "today" in JSON should deserialize to Today variant
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(br#"{"date_prefill_mode": "today"}"#).unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(settings.date_prefill_mode, Some(DatePrefillMode::Today));
+    }
+
+    #[test]
+    fn test_date_prefill_mode_round_trip() {
+        // Save Today, load, verify it's still Today
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings {
+            date_prefill_mode: Some(DatePrefillMode::Today),
+            ..Default::default()
+        };
+
+        settings.save(&dir.path().to_path_buf()).unwrap();
+
+        let loaded = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(loaded.date_prefill_mode, Some(DatePrefillMode::Today));
     }
 }

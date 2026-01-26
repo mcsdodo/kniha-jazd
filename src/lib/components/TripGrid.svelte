@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters } from '$lib/api';
+	import { DatePrefillMode } from '$lib/types';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode } from '$lib/api';
 	import TripRow from './TripRow.svelte';
+	import SegmentedToggle from './SegmentedToggle.svelte';
 	import { onMount, tick } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
@@ -112,9 +114,18 @@
 	// Purpose suggestions loaded from backend (across all years)
 	let purposeSuggestions: string[] = [];
 
+	// Date prefill mode for new entries
+	let datePrefillMode: typeof DatePrefillMode[keyof typeof DatePrefillMode] = DatePrefillMode.Previous;
+
 	onMount(async () => {
 		await loadRoutes();
 		await loadPurposes();
+		// Load date prefill preference
+		try {
+			datePrefillMode = await getDatePrefillMode();
+		} catch (error) {
+			console.error('Failed to load date prefill mode:', error);
+		}
 	});
 
 	async function loadRoutes() {
@@ -130,6 +141,16 @@
 			purposeSuggestions = await getPurposes(vehicleId);
 		} catch (error) {
 			console.error('Failed to load purposes:', error);
+		}
+	}
+
+	async function handleDatePrefillChange(event: CustomEvent<string>) {
+		const mode = event.detail as typeof DatePrefillMode[keyof typeof DatePrefillMode];
+		datePrefillMode = mode;
+		try {
+			await setDatePrefillMode(mode);
+		} catch (error) {
+			console.error('Failed to save date prefill mode:', error);
 		}
 	}
 
@@ -426,9 +447,11 @@
 	$: legendSuggestedFillup = gridData?.legendSuggestedFillup ?? null;
 
 	$: defaultNewDate = (() => {
-		if (sortedTrips.length === 0) {
+		// "Today" mode or no trips: use today's date
+		if (datePrefillMode === DatePrefillMode.Today || sortedTrips.length === 0) {
 			return new Date().toISOString().split('T')[0];
 		}
+		// "Previous" mode: last trip date + 1 day
 		const maxDate = new Date(sortedTrips[0].date);
 		maxDate.setDate(maxDate.getDate() + 1);
 		return maxDate.toISOString().split('T')[0];
@@ -438,9 +461,21 @@
 <div class="trip-grid">
 	<div class="header">
 		<h2>{$LL.trips.title()} ({trips.length})</h2>
-		<button class="new-record" on:click={handleNewRecord} disabled={showNewRow}>
-			{$LL.trips.newRecord()}
-		</button>
+		<div class="header-actions">
+			<button class="new-record" on:click={handleNewRecord} disabled={showNewRow}>
+				{$LL.trips.newRecord()}
+			</button>
+			<SegmentedToggle
+				options={[
+					{ value: DatePrefillMode.Previous, label: $LL.trips.datePrefillPrevious() },
+					{ value: DatePrefillMode.Today, label: $LL.trips.datePrefillToday() }
+				]}
+				value={datePrefillMode}
+				on:change={handleDatePrefillChange}
+				size="small"
+				title={$LL.trips.datePrefillTooltip()}
+			/>
+		</div>
 	</div>
 
 	<div class="table-container">
@@ -641,6 +676,12 @@
 		margin: 0;
 		font-size: 1.25rem;
 		color: var(--text-primary);
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
 	}
 
 	.new-record {

@@ -108,6 +108,10 @@ const sk = {
 		count: '({count:number})',
 		newRecord: 'Nový záznam',
 		firstRecord: 'Prvý záznam',
+		// Date prefill toggle
+		datePrefillPrevious: '+1',
+		datePrefillToday: 'Dnes',
+		datePrefillTooltip: 'Predvyplnený dátum pre nový záznam',
 		emptyState: 'Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.',
 		// Column headers
 		columns: {

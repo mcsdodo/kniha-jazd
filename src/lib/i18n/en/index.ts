@@ -108,6 +108,10 @@ const en = {
 		count: '({count})',
 		newRecord: 'New record',
 		firstRecord: 'First record',
+		// Date prefill toggle
+		datePrefillPrevious: '+1',
+		datePrefillToday: 'Today',
+		datePrefillTooltip: 'Prefilled date for new entry',
 		emptyState: 'No records. Click "New record" to add a trip.',
 		// Column headers
 		columns: {

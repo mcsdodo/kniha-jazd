@@ -2,7 +2,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -380,6 +380,15 @@ export async function getAutoCheckUpdates(): Promise<boolean> {
 
 export async function setAutoCheckUpdates(enabled: boolean): Promise<void> {
 	return invoke('set_auto_check_updates', { enabled });
+}
+
+// Date prefill mode settings
+export async function getDatePrefillMode(): Promise<DatePrefillMode> {
+	return invoke<DatePrefillMode>('get_date_prefill_mode');
+}
+
+export async function setDatePrefillMode(mode: DatePrefillMode): Promise<void> {
+	return invoke('set_date_prefill_mode', { mode });
 }
 
 // Receipt settings
