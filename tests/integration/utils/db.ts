@@ -187,6 +187,7 @@ export async function seedVehicleFromFixture(vehicle: Vehicle): Promise<Vehicle>
 export interface SeedTripData {
   vehicleId: string;
   date: string;
+  time?: string; // Optional time in "HH:MM" format
   origin: string;
   destination: string;
   distanceKm: number;
@@ -222,6 +223,7 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
   const args = {
     vehicleId: data.vehicleId,
     date: data.date,
+    time: data.time ?? null,
     origin: data.origin,
     destination: data.destination,
     distanceKm: data.distanceKm,
