@@ -960,6 +960,73 @@ impl Receipt {
 mod tests {
     use super::*;
 
+    // ========================================================================
+    // TripRow datetime parsing tests (From<TripRow> for Trip)
+    // ========================================================================
+
+    /// Helper to create a TripRow with specified datetime
+    fn make_trip_row(date: &str, datetime: &str) -> TripRow {
+        TripRow {
+            id: Some("00000000-0000-0000-0000-000000000001".to_string()),
+            vehicle_id: "00000000-0000-0000-0000-000000000002".to_string(),
+            date: date.to_string(),
+            datetime: datetime.to_string(),
+            origin: "A".to_string(),
+            destination: "B".to_string(),
+            distance_km: 100.0,
+            odometer: 10000.0,
+            purpose: "test".to_string(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            full_tank: 0,
+            sort_order: 0,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: None,
+            soc_override_percent: None,
+            created_at: "2026-01-15T00:00:00+00:00".to_string(),
+            updated_at: "2026-01-15T00:00:00+00:00".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_trip_row_datetime_parsing_valid() {
+        // Test valid datetime parsing: "2026-01-15T08:30:00" → correct NaiveDateTime
+        let row = make_trip_row("2026-01-15", "2026-01-15T08:30:00");
+        let trip: Trip = row.into();
+
+        assert_eq!(trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T08:30:00");
+        assert_eq!(trip.date.format("%Y-%m-%d").to_string(), "2026-01-15");
+    }
+
+    #[test]
+    fn test_trip_row_datetime_fallback_legacy() {
+        // Test fallback for legacy data: datetime="" → derives from date + 00:00:00
+        let row = make_trip_row("2026-01-15", "");
+        let trip: Trip = row.into();
+
+        // Should fall back to date + 00:00:00
+        assert_eq!(trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
+        assert_eq!(trip.date.format("%Y-%m-%d").to_string(), "2026-01-15");
+    }
+
+    #[test]
+    fn test_trip_row_datetime_midnight() {
+        // Test edge case: midnight "2026-01-15T00:00:00" parses correctly
+        let row = make_trip_row("2026-01-15", "2026-01-15T00:00:00");
+        let trip: Trip = row.into();
+
+        assert_eq!(trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
+        assert_eq!(trip.datetime.format("%H:%M").to_string(), "00:00");
+        assert_eq!(trip.date.format("%Y-%m-%d").to_string(), "2026-01-15");
+    }
+
+    // ========================================================================
+    // FieldConfidence serialization tests
+    // ========================================================================
+
     #[test]
     fn test_confidence_parses_camelcase() {
         // New format with camelCase (post-migration and new receipts)

@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip};
-use chrono::{NaiveDate, NaiveDateTime, Utc};
+use chrono::{NaiveDate, Utc};
 use uuid::Uuid;
 
 /// Helper to create a trip with fuel
@@ -2464,4 +2464,58 @@ fn test_legend_suggested_fillup_none_when_closed() {
 
     assert!(suggestions.is_empty()); // No open period
     assert!(legend.is_none());
+}
+
+// ========================================================================
+// Time parsing tests (parse_trip_datetime)
+// ========================================================================
+
+#[test]
+fn test_parse_trip_datetime_with_time() {
+    // Test time="08:30" produces correct datetime
+    let result = parse_trip_datetime("2026-01-15", Some("08:30"));
+
+    assert!(result.is_ok());
+    let datetime = result.unwrap();
+    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T08:30:00");
+}
+
+#[test]
+fn test_parse_trip_datetime_without_time() {
+    // Test time="" defaults to 00:00
+    let result = parse_trip_datetime("2026-01-15", Some(""));
+
+    assert!(result.is_ok());
+    let datetime = result.unwrap();
+    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
+}
+
+#[test]
+fn test_parse_trip_datetime_none_time() {
+    // Test time=None defaults to 00:00
+    let result = parse_trip_datetime("2026-01-15", None);
+
+    assert!(result.is_ok());
+    let datetime = result.unwrap();
+    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
+}
+
+#[test]
+fn test_parse_trip_datetime_invalid_time_format() {
+    // Test invalid time format returns error
+    let result = parse_trip_datetime("2026-01-15", Some("invalid"));
+
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(error.contains("Invalid time format"));
+}
+
+#[test]
+fn test_parse_trip_datetime_invalid_date_format() {
+    // Test invalid date format returns error
+    let result = parse_trip_datetime("not-a-date", Some("08:30"));
+
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(error.contains("Invalid date format"));
 }
