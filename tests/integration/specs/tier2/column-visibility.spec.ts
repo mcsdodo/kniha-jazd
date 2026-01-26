@@ -119,13 +119,12 @@ describe('Tier 2: Column Visibility', () => {
       await visibilityBtn.click();
       await browser.pause(300);
 
-      // Find and click the time checkbox to hide it
-      const dropdownMenu = await $('[data-testid="column-visibility-menu"]');
-      const timeCheckbox = await $('[data-testid="column-toggle-time"]');
-      if (await timeCheckbox.isExisting()) {
-        await timeCheckbox.click();
-        await browser.pause(300);
-      }
+      // Find and click the time checkbox to hide it (use JS because checkbox has opacity: 0)
+      await browser.execute(() => {
+        const checkbox = document.querySelector('[data-testid="column-toggle-time"]') as HTMLInputElement;
+        if (checkbox) checkbox.click();
+      });
+      await browser.pause(300);
 
       // Close dropdown by clicking outside
       await browser.keys('Escape');
@@ -144,6 +143,9 @@ describe('Tier 2: Column Visibility', () => {
       // First hide the time column via IPC
       await setHiddenColumnsViaIpc(['time']);
 
+      // Refresh to pick up IPC changes
+      await browser.refresh();
+      await waitForAppReady();
       await navigateTo('trips');
       await waitForTripGrid();
       await browser.pause(500);
@@ -157,13 +159,12 @@ describe('Tier 2: Column Visibility', () => {
       await visibilityBtn.click();
       await browser.pause(300);
 
-      // Find and click the time checkbox to show it
-      const dropdownMenu = await $('[data-testid="column-visibility-menu"]');
-      const timeCheckbox = await $('[data-testid="column-toggle-time"]');
-      if (await timeCheckbox.isExisting()) {
-        await timeCheckbox.click();
-        await browser.pause(300);
-      }
+      // Find and click the time checkbox to show it (use JS because checkbox has opacity: 0)
+      await browser.execute(() => {
+        const checkbox = document.querySelector('[data-testid="column-toggle-time"]') as HTMLInputElement;
+        if (checkbox) checkbox.click();
+      });
+      await browser.pause(300);
 
       // Close dropdown
       await browser.keys('Escape');
@@ -190,12 +191,12 @@ describe('Tier 2: Column Visibility', () => {
       await visibilityBtn.click();
       await browser.pause(300);
 
-      const dropdownMenu = await $('[data-testid="column-visibility-menu"]');
-      const timeCheckbox = await $('[data-testid="column-toggle-time"]');
-      if (await timeCheckbox.isExisting()) {
-        await timeCheckbox.click();
-        await browser.pause(300);
-      }
+      // Click time checkbox (use JS because checkbox has opacity: 0)
+      await browser.execute(() => {
+        const checkbox = document.querySelector('[data-testid="column-toggle-time"]') as HTMLInputElement;
+        if (checkbox) checkbox.click();
+      });
+      await browser.pause(300);
 
       // Close dropdown
       await browser.keys('Escape');
@@ -224,6 +225,9 @@ describe('Tier 2: Column Visibility', () => {
       // Hide multiple columns via IPC
       await setHiddenColumnsViaIpc(['time', 'fuelConsumed', 'otherCosts']);
 
+      // Refresh to pick up IPC changes
+      await browser.refresh();
+      await waitForAppReady();
       await navigateTo('trips');
       await waitForTripGrid();
       await browser.pause(500);

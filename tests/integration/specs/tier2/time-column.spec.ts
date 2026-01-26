@@ -45,6 +45,10 @@ describe('Tier 2: Time Column', () => {
         purpose: 'Work commute',
       });
 
+      // Refresh to show seeded data
+      await browser.refresh();
+      await waitForAppReady();
+
       // Navigate to trips page
       await navigateTo('trips');
       await waitForTripGrid();
@@ -55,7 +59,7 @@ describe('Tier 2: Time Column', () => {
       expect(await timeHeader.isExisting()).toBe(true);
 
       // Find trip row and verify time displays
-      const tripRows = await $$('.trip-row');
+      const tripRows = await $$('.trip-grid tbody tr:not(.first-record):not(.editing)');
       expect(tripRows.length).toBeGreaterThan(0);
 
       // The time should be displayed in the row
@@ -75,13 +79,17 @@ describe('Tier 2: Time Column', () => {
         purpose: 'Work commute',
       });
 
+      // Refresh to show seeded data
+      await browser.refresh();
+      await waitForAppReady();
+
       // Navigate to trips page
       await navigateTo('trips');
       await waitForTripGrid();
       await browser.pause(500);
 
       // Find trip row and verify time displays as 00:00
-      const tripRows = await $$('.trip-row');
+      const tripRows = await $$('.trip-grid tbody tr:not(.first-record):not(.editing)');
       expect(tripRows.length).toBeGreaterThan(0);
 
       const rowText = await tripRows[0].getText();
@@ -207,7 +215,7 @@ describe('Tier 2: Time Column', () => {
       expect(await toastError.isExisting()).toBe(false);
 
       // Verify the trip appears with the correct time
-      const tripRows = await $$('.trip-row');
+      const tripRows = await $$('.trip-grid tbody tr:not(.first-record):not(.editing)');
       expect(tripRows.length).toBeGreaterThan(0);
 
       const rowText = await tripRows[0].getText();
