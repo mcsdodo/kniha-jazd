@@ -67,7 +67,7 @@
 	}
 
 	.size-small .toggle-option {
-		padding: 0.25rem 0.625rem;
-		font-size: 0.75rem;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8125rem;
 	}
 </style>
