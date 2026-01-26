@@ -219,6 +219,7 @@ impl Trip {
 
     /// Create a test ICE trip with default values
     #[cfg(test)]
+    #[allow(dead_code)]
     pub fn test_ice_trip(
         date: NaiveDate,
         distance_km: f64,

@@ -1053,7 +1053,7 @@ fn test_bev_energy_calculation_single_trip() {
 
     // Initial battery: 100% of 75 kWh = 75 kWh
     let initial_battery = 75.0;
-    let (energy_rates, estimated_rates, battery_kwh, battery_percent) =
+    let (_energy_rates, estimated_rates, battery_kwh, _battery_percent) =
         calculate_energy_grid_data(&trips, &vehicle, initial_battery);
 
     // Trip 100km at 18 kWh/100km = 18 kWh used
@@ -1087,7 +1087,7 @@ fn test_bev_energy_with_charge() {
 
     // Initial battery: 50% of 75 kWh = 37.5 kWh
     let initial_battery = 37.5;
-    let (energy_rates, estimated_rates, battery_kwh, _) =
+    let (_energy_rates, estimated_rates, battery_kwh, _) =
         calculate_energy_grid_data(&trips, &vehicle, initial_battery);
 
     // Start: 37.5 kWh (50%)
