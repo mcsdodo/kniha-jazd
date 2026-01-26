@@ -352,6 +352,10 @@ type RootTranslation = {
 			 */
 			date: string
 			/**
+			 * Č​a​s
+			 */
+			time: string
+			/**
 			 * O​d​k​i​a​ľ
 			 */
 			origin: string
@@ -515,6 +519,32 @@ type RootTranslation = {
 			 * @param {unknown} rate
 			 */
 			suggestedFillup: RequiredParams<'liters' | 'rate'>
+		}
+		columnVisibility: {
+			/**
+			 * S​t​l​p​c​e
+			 */
+			title: string
+			/**
+			 * C​a​s
+			 */
+			time: string
+			/**
+			 * S​p​o​t​r​e​b​o​v​a​n​e​ ​(​L​)
+			 */
+			fuelConsumed: string
+			/**
+			 * Z​o​s​t​a​t​o​k​ ​(​L​)
+			 */
+			fuelRemaining: string
+			/**
+			 * I​n​e​ ​(​E​U​R​)
+			 */
+			otherCosts: string
+			/**
+			 * I​n​e​ ​p​o​z​n​a​m​k​a
+			 */
+			otherCostsNote: string
 		}
 	}
 	compensation: {
@@ -1584,6 +1614,10 @@ type RootTranslation = {
 		 */
 		colDate: string
 		/**
+		 * Č​a​s
+		 */
+		colTime: string
+		/**
 		 * O​d​k​i​a​ľ
 		 */
 		colOrigin: string
@@ -2157,6 +2191,10 @@ export type TranslationFunctions = {
 			 */
 			date: () => LocalizedString
 			/**
+			 * Čas
+			 */
+			time: () => LocalizedString
+			/**
 			 * Odkiaľ
 			 */
 			origin: () => LocalizedString
@@ -2318,6 +2356,32 @@ export type TranslationFunctions = {
 			 * Návrh tankovania: {liters} L → {rate} l/100km
 			 */
 			suggestedFillup: (arg: { liters: unknown, rate: unknown }) => LocalizedString
+		}
+		columnVisibility: {
+			/**
+			 * Stlpce
+			 */
+			title: () => LocalizedString
+			/**
+			 * Cas
+			 */
+			time: () => LocalizedString
+			/**
+			 * Spotrebovane (L)
+			 */
+			fuelConsumed: () => LocalizedString
+			/**
+			 * Zostatok (L)
+			 */
+			fuelRemaining: () => LocalizedString
+			/**
+			 * Ine (EUR)
+			 */
+			otherCosts: () => LocalizedString
+			/**
+			 * Ine poznamka
+			 */
+			otherCostsNote: () => LocalizedString
 		}
 	}
 	compensation: {
@@ -3333,6 +3397,10 @@ export type TranslationFunctions = {
 		 * Dátum
 		 */
 		colDate: () => LocalizedString
+		/**
+		 * Čas
+		 */
+		colTime: () => LocalizedString
 		/**
 		 * Odkiaľ
 		 */

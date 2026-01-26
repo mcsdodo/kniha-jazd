@@ -34,6 +34,7 @@ export interface Trip {
 	id: string;
 	vehicleId: string;
 	date: string; // NaiveDate serialized as string
+	datetime: string; // NaiveDateTime serialized as string (ISO format: "YYYY-MM-DDTHH:MM:SS")
 	origin: string;
 	destination: string;
 	distanceKm: number;
@@ -272,6 +273,7 @@ export interface ExportLabels {
 	header_driver: string;
 	// Column headers
 	col_date: string;
+	col_time: string;
 	col_origin: string;
 	col_destination: string;
 	col_purpose: string;
@@ -302,4 +304,16 @@ export interface ExportLabels {
 	footer_baseline_norm: string;
 	// Print hint
 	print_hint: string;
+}
+
+/**
+ * Extract time (HH:MM) from an ISO datetime string.
+ * @param datetime - ISO format string (e.g., "2025-01-15T08:30:00")
+ * @returns Time string in "HH:MM" format (e.g., "08:30")
+ */
+export function extractTime(datetime: string): string {
+	// datetime format: "YYYY-MM-DDTHH:MM:SS"
+	// Extract the HH:MM portion
+	const match = datetime.match(/T(\d{2}:\d{2})/);
+	return match ? match[1] : '00:00';
 }

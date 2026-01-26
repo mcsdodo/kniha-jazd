@@ -82,6 +82,7 @@ export async function calculateMagicFillLiters(
 export async function createTrip(
 	vehicleId: string,
 	date: string,
+	time: string | null,
 	origin: string,
 	destination: string,
 	distanceKm: number,
@@ -104,6 +105,7 @@ export async function createTrip(
 	return await invoke('create_trip', {
 		vehicleId,
 		date,
+		time,
 		origin,
 		destination,
 		distanceKm,
@@ -125,6 +127,7 @@ export async function createTrip(
 export async function updateTrip(
 	id: string,
 	date: string,
+	time: string | null,
 	origin: string,
 	destination: string,
 	distanceKm: number,
@@ -146,6 +149,7 @@ export async function updateTrip(
 	return await invoke('update_trip', {
 		id,
 		date,
+		time,
 		origin,
 		destination,
 		distanceKm,
@@ -437,4 +441,13 @@ export async function moveDatabase(targetFolder: string): Promise<MoveDbResult> 
 
 export async function resetDatabaseLocation(): Promise<MoveDbResult> {
 	return invoke<MoveDbResult>('reset_database_location');
+}
+
+// Hidden columns
+export async function getHiddenColumns(): Promise<string[]> {
+	return invoke<string[]>('get_hidden_columns');
+}
+
+export async function setHiddenColumns(columns: string[]): Promise<void> {
+	return invoke('set_hidden_columns', { columns });
 }

@@ -86,6 +86,7 @@
 				header_vin: $LL.export.headerVin(),
 				header_driver: $LL.export.headerDriver(),
 				col_date: $LL.export.colDate(),
+				col_time: $LL.export.colTime(),
 				col_origin: $LL.export.colOrigin(),
 				col_destination: $LL.export.colDestination(),
 				col_purpose: $LL.export.colPurpose(),

@@ -116,6 +116,7 @@ const en = {
 		// Column headers
 		columns: {
 			date: 'Date',
+			time: 'Time',
 			origin: 'From',
 			destination: 'To',
 			km: 'Km',
@@ -165,6 +166,15 @@ const en = {
 			noReceipt: 'no receipt',
 			highConsumption: 'high consumption',
 			suggestedFillup: 'Suggested fillup: {liters} L → {rate} l/100km',
+		},
+		// Column visibility
+		columnVisibility: {
+			title: 'Columns',
+			time: 'Time',
+			fuelConsumed: 'Consumed (L)',
+			fuelRemaining: 'Remaining (L)',
+			otherCosts: 'Other (EUR)',
+			otherCostsNote: 'Other note',
 		},
 	},
 
@@ -489,6 +499,7 @@ const en = {
 		headerDriver: 'Driver:',
 		// Column headers
 		colDate: 'Date',
+		colTime: 'Time',
 		colOrigin: 'From',
 		colDestination: 'To',
 		colPurpose: 'Purpose',
