@@ -160,31 +160,31 @@ The plan mentions some i18n keys but misses:
 
 ### Critical (Blocks Implementation)
 
-| # | Issue | Resolution |
-|---|-------|------------|
-| 1 | Missing down.sql | Add down.sql with no-op comment |
-| 2 | Model change approach unclear | Keep both `date` and `datetime` fields |
-| 5 | Export changes incomplete | Add ExportLabels.col_time, update row rendering |
+| # | Issue | Resolution | Status |
+|---|-------|------------|--------|
+| 1 | Missing down.sql | Add down.sql with no-op comment | ✅ Fixed |
+| 2 | Model change approach unclear | Keep both `date` and `datetime` fields | ✅ Fixed |
+| 5 | Export changes incomplete | Add ExportLabels.col_time, update row rendering | ✅ Fixed |
 
 ### Important (Should Fix Before Implementation)
 
-| # | Issue | Resolution |
-|---|-------|------------|
-| 3 | TripRow struct update missing | Add `datetime: String` column explicitly |
-| 4 | Year filtering query | Clarify if date column continues to be updated |
-| 7 | Schema.rs update approach | Manual update, not diesel print-schema |
-| 9 | TypeScript types unclear | Specify Trip type change approach |
-| 10 | API parameter approach | Specify date+time vs datetime param |
-| 13 | Migration test missing | Add migration verification test |
-| 14 | Datetime parsing tests | Add edge case tests |
+| # | Issue | Resolution | Status |
+|---|-------|------------|--------|
+| 3 | TripRow struct update missing | Add `datetime: String` column explicitly | ✅ Fixed |
+| 4 | Year filtering query | Clarify if date column continues to be updated | ✅ Fixed |
+| 7 | Schema.rs update approach | Manual update, not diesel print-schema | ✅ Fixed |
+| 9 | TypeScript types unclear | Specify Trip type change approach | ✅ Fixed |
+| 10 | API parameter approach | Specify date+time vs datetime param | ✅ Fixed |
+| 13 | Migration test missing | Add migration verification test | ✅ Fixed |
+| 14 | Datetime parsing tests | Add edge case tests | ✅ Fixed |
 
-### Minor (Nice to Have)
+### Minor (Nice to Have) — Skipped
 
-| # | Issue | Resolution |
-|---|-------|------------|
-| 11 | Command registration detail | List exact commands to add |
-| 12 | Future DROP COLUMN mention | Remove - unnecessary scope |
-| 15 | Hidden columns serialization test | Specify edge cases |
+| # | Issue | Resolution | Status |
+|---|-------|------------|--------|
+| 11 | Command registration detail | List exact commands to add | ⏭️ Skipped |
+| 12 | Future DROP COLUMN mention | Remove - unnecessary scope | ⏭️ Skipped |
+| 15 | Hidden columns serialization test | Specify edge cases | ⏭️ Skipped |
 
 ---
 
@@ -207,3 +207,23 @@ The plan mentions some i18n keys but misses:
 4. **Update Phase 5.1** with complete export.rs changes including ExportLabels
 5. **Add verification step after each phase** (e.g., "Run `cargo test` to verify")
 6. **Add specific integration test file names** in Phase 6.2
+
+---
+
+## Resolution (2026-01-26)
+
+**Addressed:** All Critical (3) + Important (8) findings
+**Skipped:** Minor (4) findings — not blocking implementation
+
+**Key changes to plan:**
+- Added `down.sql` with SQLite no-op comment
+- Clarified model approach: keep both `date` and `datetime` fields
+- Detailed `TripRow` and `NewTripRow` struct changes with code snippets
+- Confirmed year filtering continues using `date` column (no change needed)
+- Specified manual schema.rs update (not diesel print-schema)
+- Clarified API approach: separate `date` + `time` params for easier frontend binding
+- Added TypeScript approach: keep `date`, add `datetime`, add `extractTime` helper
+- Added ExportLabels.col_time and time column rendering details
+- Added verification steps after each phase
+- Added specific test cases for datetime parsing and migration
+- Added integration test file names: `time-column.spec.ts`, `column-visibility.spec.ts`
