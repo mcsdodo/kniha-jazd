@@ -497,6 +497,12 @@ type RootTranslation = {
 			 * v​y​s​o​k​á​ ​s​p​o​t​r​e​b​a
 			 */
 			highConsumption: string
+			/**
+			 * N​á​v​r​h​ ​t​a​n​k​o​v​a​n​i​a​:​ ​{​l​i​t​e​r​s​}​ ​L​ ​→​ ​{​r​a​t​e​}​ ​l​/​1​0​0​k​m
+			 * @param {unknown} liters
+			 * @param {unknown} rate
+			 */
+			suggestedFillup: RequiredParams<'liters' | 'rate'>
 		}
 	}
 	compensation: {
@@ -2284,6 +2290,10 @@ export type TranslationFunctions = {
 			 * vysoká spotreba
 			 */
 			highConsumption: () => LocalizedString
+			/**
+			 * Návrh tankovania: {liters} L → {rate} l/100km
+			 */
+			suggestedFillup: (arg: { liters: unknown, rate: unknown }) => LocalizedString
 		}
 	}
 	compensation: {

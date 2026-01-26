@@ -160,6 +160,7 @@ const en = {
 			partialFillup: 'partial fillup',
 			noReceipt: 'no receipt',
 			highConsumption: 'high consumption',
+			suggestedFillup: 'Suggested fillup: {liters} L → {rate} l/100km',
 		},
 	},
 

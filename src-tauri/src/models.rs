@@ -298,6 +298,17 @@ pub struct TripStats {
     pub buffer_km: f64, // Additional km needed to reach 18% margin (0.0 if under target)
 }
 
+/// Suggested fuel fillup for a trip in an open period.
+/// Pre-calculated to simplify the magic fill button (no backend call needed).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SuggestedFillup {
+    /// Suggested liters to fill (targets 105-120% of TP rate)
+    pub liters: f64,
+    /// Resulting consumption rate if this fillup is used (l/100km)
+    pub consumption_rate: f64,
+}
+
 /// Pre-calculated data for the trip grid display.
 /// Eliminates need for frontend to duplicate calculation logic.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -338,6 +349,11 @@ pub struct TripGridData {
     // Year boundary data
     /// Starting odometer for this year (carryover from previous year's ending ODO)
     pub year_start_odometer: f64,
+
+    // Suggested fillup (for trips in open period)
+    /// Suggested fillup for each trip in an open period, keyed by trip ID.
+    /// None for trips in closed periods or for BEV vehicles.
+    pub suggested_fillup: HashMap<String, SuggestedFillup>,
 }
 
 /// Status of a scanned receipt

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, PreviewResult, VehicleType } from '$lib/types';
+	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import { onMount, tick } from 'svelte';
@@ -43,6 +43,8 @@
 	let socOverrideTrips: Set<string> = new Set();
 	// Shared
 	let dateWarnings: Set<string> = new Set();
+	// Suggested fillup (for trips in open period)
+	let suggestedFillup: Map<string, SuggestedFillup> = new Map();
 
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
@@ -63,6 +65,8 @@
 			socOverrideTrips = new Set(gridData.socOverrideTrips);
 			// Shared
 			dateWarnings = new Set(gridData.dateWarnings);
+			// Suggested fillup
+			suggestedFillup = new Map(Object.entries(gridData.suggestedFillup));
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -418,6 +422,18 @@
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
 	$: missingReceiptCount = gridData?.missingReceipts.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
+	// Get the most recent trip's suggested fillup for the legend
+	// sortOrder 0 = most recent (displayed at top), so iterate from low to high
+	$: lastSuggestedFillup = (() => {
+		if (suggestedFillup.size === 0) return null;
+		// Find the most recent trip (lowest sort order) that has a suggestion
+		const sortedTrips = [...trips].sort((a, b) => a.sortOrder - b.sortOrder);
+		for (const trip of sortedTrips) {
+			const suggestion = suggestedFillup.get(trip.id);
+			if (suggestion) return suggestion;
+		}
+		return null;
+	})();
 
 	$: defaultNewDate = (() => {
 		if (sortedTrips.length === 0) {
@@ -438,8 +454,14 @@
 	</div>
 
 	<div class="table-container">
-		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0}
+		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0 || lastSuggestedFillup}
 			<div class="table-legend">
+				{#if lastSuggestedFillup}
+					<span class="legend-item suggested-fillup">
+						<span class="suggested-indicator">💡</span>
+						{$LL.trips.legend.suggestedFillup({ liters: lastSuggestedFillup.liters.toFixed(2), rate: lastSuggestedFillup.consumptionRate.toFixed(2) })}
+					</span>
+				{/if}
 				{#if partialCount > 0}
 					<span class="legend-item"><span class="partial-indicator">*</span> {$LL.trips.legend.partialFillup()} ({partialCount})</span>
 				{/if}
@@ -594,6 +616,7 @@
 							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
 							previewData={previewingTripId === trip.id ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
+							suggestedFillup={suggestedFillup.get(trip.id) ?? null}
 							onMagicFill={handleMagicFill}
 						/>
 					{/if}
@@ -774,5 +797,13 @@
 		background: var(--warning-bg);
 		border: 1px solid var(--warning-border);
 		border-radius: 2px;
+	}
+
+	.suggested-fillup {
+		color: var(--accent-success);
+	}
+
+	.suggested-indicator {
+		font-size: 1rem;
 	}
 </style>
