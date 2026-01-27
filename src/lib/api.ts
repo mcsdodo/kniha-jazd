@@ -418,6 +418,27 @@ export async function saveHaSettings(url: string | null, token: string | null): 
 	return invoke('save_ha_settings', { url, token });
 }
 
+// For frontend HA API calls (includes token)
+export interface HaLocalSettings {
+	haUrl: string | null;
+	haApiToken: string | null;
+}
+
+export async function getLocalSettingsForHa(): Promise<HaLocalSettings> {
+	// Backend uses #[serde(rename_all = "camelCase")] so fields are already camelCase
+	return invoke<HaLocalSettings>('get_local_settings_for_ha');
+}
+
+// Test HA connection from backend (avoids CORS issues)
+export async function testHaConnection(): Promise<boolean> {
+	return invoke<boolean>('test_ha_connection');
+}
+
+// Fetch ODO value from HA for a specific sensor
+export async function fetchHaOdo(sensorId: string): Promise<number | null> {
+	return invoke<number | null>('fetch_ha_odo', { sensorId });
+}
+
 // Database location
 export interface DbLocationInfo {
 	dbPath: string;

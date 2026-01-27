@@ -3,8 +3,8 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats, openExportPreview, getHaSettings } from '$lib/api';
-	import type { Trip, TripStats, ExportLabels, HaSettings } from '$lib/types';
+	import { getTripsForYear, calculateTripStats, openExportPreview, testHaConnection } from '$lib/api';
+	import type { Trip, TripStats, ExportLabels } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import LL, { locale } from '$lib/i18n/i18n-svelte';
@@ -13,8 +13,7 @@
 	let exporting = false;
 
 	// Home Assistant state
-	let haSettings: HaSettings | null = null;
-	let haToken: string | null = null; // Loaded from localStorage for API calls
+	let haConnected = false;
 
 	let trips: Trip[] = [];
 	let initialLoading = true; // Only true for first load, keeps TripGrid mounted during refreshes
@@ -30,19 +29,12 @@
 	onMount(async () => {
 		await loadTrips(true);
 
-		// Load HA settings
+		// Check HA connection (Rust backend handles credentials)
 		try {
-			haSettings = await getHaSettings();
-			// Token needs to be fetched separately since API doesn't expose it
-			// We'll read it from the settings API response via invoke
-			if (haSettings?.url && haSettings?.hasToken) {
-				// Get token from local settings (it's stored there)
-				const { invoke } = await import('@tauri-apps/api/core');
-				const localSettings = await invoke<{ ha_api_token?: string }>('get_local_settings_for_ha');
-				haToken = localSettings?.ha_api_token || null;
-			}
+			haConnected = await testHaConnection();
 		} catch (e) {
-			console.warn('Failed to load HA settings:', e);
+			console.warn('Failed to test HA connection:', e);
+			haConnected = false;
 		}
 	});
 
@@ -50,14 +42,9 @@
 		haStore.stopPeriodicRefresh();
 	});
 
-	// Start/stop HA refresh when vehicle or settings change
-	$: if ($activeVehicleStore?.haOdoSensor && haSettings?.url && haToken) {
-		haStore.startPeriodicRefresh(
-			$activeVehicleStore.id,
-			haSettings.url,
-			haToken,
-			$activeVehicleStore.haOdoSensor
-		);
+	// Start/stop HA refresh when vehicle changes (Rust backend handles credentials)
+	$: if ($activeVehicleStore?.haOdoSensor && haConnected) {
+		haStore.startPeriodicRefresh($activeVehicleStore.id, $activeVehicleStore.haOdoSensor);
 	} else {
 		haStore.stopPeriodicRefresh();
 	}

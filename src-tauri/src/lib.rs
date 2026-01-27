@@ -222,6 +222,8 @@ pub fn run() {
       commands::get_ha_settings,
       commands::save_ha_settings,
       commands::get_local_settings_for_ha,
+      commands::test_ha_connection,
+      commands::fetch_ha_odo,
     ])
     .build(tauri::generate_context!())
     .expect("error while building tauri application")

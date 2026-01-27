@@ -123,6 +123,7 @@ export async function fetchOdometer(
  */
 export async function testConnection(url: string, token: string): Promise<boolean> {
 	const apiUrl = `${url.replace(/\/$/, '')}/api/`;
+	console.log('[HA] Testing connection to:', apiUrl);
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), 5000);
@@ -138,9 +139,11 @@ export async function testConnection(url: string, token: string): Promise<boolea
 		});
 
 		clearTimeout(timeout);
+		console.log('[HA] Response status:', response.status, response.ok ? 'OK' : 'FAILED');
 		return response.ok;
-	} catch {
+	} catch (error) {
 		clearTimeout(timeout);
+		console.error('[HA] Connection error:', error);
 		return false;
 	}
 }

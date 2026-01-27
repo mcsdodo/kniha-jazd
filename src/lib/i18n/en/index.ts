@@ -549,6 +549,11 @@ const en = {
 		sensorHint: 'Entity ID of the odometer sensor from Home Assistant',
 		notConfigured: 'Home Assistant is not configured',
 		configureFirst: 'Set URL and token in Settings first',
+		// Connection status
+		testing: 'Testing...',
+		connected: 'Connected',
+		disconnected: 'Disconnected',
+		connectionError: 'Connection error',
 		// Header display
 		realOdo: 'Real ODO',
 		delta: 'since last trip',

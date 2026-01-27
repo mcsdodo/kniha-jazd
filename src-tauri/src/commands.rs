@@ -2644,29 +2644,49 @@ pub fn assign_receipt_to_trip_internal(
         .ok_or("Trip not found")?;
 
     // Multi-stage matching: determine if this is FUEL or OTHER COST
-    let is_fuel_match = match (receipt.liters, receipt.total_price_eur) {
-        (Some(liters), Some(price)) => {
-            // Has liters + price → check if it matches trip's fuel entry
-            let date_match = receipt.receipt_date == Some(trip.date);
-            let liters_match = trip
-                .fuel_liters
-                .map(|fl| (fl - liters).abs() < 0.01)
-                .unwrap_or(false);
-            let price_match = trip
-                .fuel_cost_eur
-                .map(|fc| (fc - price).abs() < 0.01)
-                .unwrap_or(false);
-            date_match && liters_match && price_match
+    // Receipt is FUEL if:
+    //   1. Receipt has liters + price, AND
+    //   2. Trip has NO fuel data (empty trip) OR trip fuel data matches receipt
+    // Otherwise it's OTHER COST
+
+    let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
+
+    let is_fuel_receipt = match (receipt.liters, receipt.total_price_eur) {
+        (Some(liters), Some(price)) if liters > 0.0 => {
+            if !trip_has_fuel {
+                // Trip has no fuel → receipt will populate fuel fields
+                true
+            } else {
+                // Trip has fuel → check if receipt matches (verification)
+                let date_match = receipt.receipt_date == Some(trip.date);
+                let liters_match = trip
+                    .fuel_liters
+                    .map(|fl| (fl - liters).abs() < 0.01)
+                    .unwrap_or(false);
+                let price_match = trip
+                    .fuel_cost_eur
+                    .map(|fc| (fc - price).abs() < 0.01)
+                    .unwrap_or(false);
+                date_match && liters_match && price_match
+            }
         }
         _ => false, // No liters or no price → cannot be fuel
     };
 
-    if is_fuel_match {
-        // FUEL: existing behavior (just link receipt to trip)
-        // Trip fuel fields already populated by user - receipt is verification
+    if is_fuel_receipt {
+        // FUEL: populate or verify fuel fields
+        if !trip_has_fuel {
+            // Trip has no fuel → populate from receipt
+            let mut updated_trip = trip.clone();
+            updated_trip.fuel_liters = receipt.liters;
+            updated_trip.fuel_cost_eur = receipt.total_price_eur;
+            updated_trip.full_tank = true; // Assume full tank when populating from receipt
+            db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
+        }
+        // If trip already has matching fuel data, nothing to update (just link receipt)
     } else {
         // OTHER COST: populate trip.other_costs_* fields
-        // (even if receipt has liters - e.g., washer fluid that doesn't match any fuel entry)
+        // (receipt without liters, or liters that don't match existing trip fuel)
 
         // Check for collision
         if trip.other_costs_eur.is_some() {
@@ -3733,6 +3753,106 @@ pub fn get_local_settings_for_ha(app_handle: tauri::AppHandle) -> Result<HaLocal
     })
 }
 
+/// Test HA connection from backend (avoids CORS issues in dev mode)
+#[tauri::command]
+pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    println!("[HA test] Loading settings from: {:?}", app_data_dir);
+    let settings = LocalSettings::load(&app_data_dir);
+    println!("[HA test] ha_url: {:?}, has_token: {}", settings.ha_url, settings.ha_api_token.is_some());
+
+    let url = settings.ha_url.ok_or("HA URL not configured")?;
+    let token = settings.ha_api_token.ok_or("HA token not configured")?;
+
+    let api_url = format!("{}/api/", url.trim_end_matches('/'));
+    println!("[HA test] Testing: {}", api_url);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let response = client
+        .get(&api_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .map_err(|e| {
+            println!("[HA test] Error: {}", e);
+            e.to_string()
+        })?;
+
+    let is_ok = response.status().is_success();
+    println!("[HA test] Response: {} ({})", response.status(), if is_ok { "OK" } else { "FAILED" });
+    Ok(is_ok)
+}
+
+/// Fetch ODO value from Home Assistant for a specific sensor
+#[tauri::command]
+pub async fn fetch_ha_odo(
+    app_handle: tauri::AppHandle,
+    sensor_id: String,
+) -> Result<Option<f64>, String> {
+    println!("[HA ODO] Fetching sensor: {}", sensor_id);
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    let settings = LocalSettings::load(&app_data_dir);
+
+    let url = match settings.ha_url {
+        Some(u) => u,
+        None => {
+            println!("[HA ODO] No URL configured");
+            return Ok(None);
+        }
+    };
+    let token = match settings.ha_api_token {
+        Some(t) => t,
+        None => {
+            println!("[HA ODO] No token configured");
+            return Ok(None);
+        }
+    };
+
+    let api_url = format!("{}/api/states/{}", url.trim_end_matches('/'), sensor_id);
+    println!("[HA ODO] Calling: {}", api_url);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let response = client
+        .get(&api_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .map_err(|e| {
+            println!("[HA ODO] Request error: {}", e);
+            e.to_string()
+        })?;
+
+    println!("[HA ODO] Response status: {}", response.status());
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let data: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+
+    // HA returns { state: "12345.6", ... }
+    let state = data.get("state").and_then(|s| s.as_str());
+    println!("[HA ODO] State value: {:?}", state);
+
+    match state {
+        Some(s) if s != "unavailable" && s != "unknown" => {
+            let value = s.parse::<f64>().ok();
+            println!("[HA ODO] Parsed value: {:?}", value);
+            Ok(value)
+        }
+        _ => Ok(None),
+    }
+}
+
 #[tauri::command]
 pub fn save_ha_settings(
     app_handle: tauri::AppHandle,
@@ -3759,19 +3879,16 @@ pub fn save_ha_settings(
 
     let mut settings = LocalSettings::load(&app_data_dir);
 
-    // Update URL (allow clearing with empty string or None)
-    settings.ha_url = match url {
-        Some(u) if u.is_empty() => None,
-        Some(u) => Some(u),
-        None => None,
-    };
+    // Update URL (allow clearing with empty string, keep existing if None)
+    if let Some(u) = url {
+        settings.ha_url = if u.is_empty() { None } else { Some(u) };
+    }
 
-    // Update token (allow clearing with empty string or None)
-    settings.ha_api_token = match token {
-        Some(t) if t.is_empty() => None,
-        Some(t) => Some(t),
-        None => None,
-    };
+    // Update token only if explicitly provided (None = keep existing)
+    // Empty string = clear token, Some(value) = set new token
+    if let Some(t) = token {
+        settings.ha_api_token = if t.is_empty() { None } else { Some(t) };
+    }
 
     settings.save(&app_data_dir).map_err(|e| e.to_string())
 }
