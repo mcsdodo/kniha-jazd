@@ -15,7 +15,8 @@
 	import { updateStore } from '$lib/stores/update';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, type DbLocationInfo, type MoveDbResult } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, type DbLocationInfo, type MoveDbResult } from '$lib/api';
+	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
 
@@ -59,6 +60,15 @@
 	let initialBufferTripPurpose = '';
 	let initialGeminiApiKey = '';
 	let initialReceiptsFolderPath = '';
+
+	// Home Assistant settings state
+	let haUrl = '';
+	let haApiToken = '';
+	let haHasToken = false;
+	let showHaToken = false;
+	let haUrlError = '';
+	let initialHaUrl = '';
+	let initialHaApiToken = '';
 
 	// Debounce utility for auto-save
 	function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
@@ -116,6 +126,46 @@
 	// Debounced versions (800ms delay)
 	const debouncedSaveCompanySettings = debounce(saveCompanySettingsNow, 800);
 	const debouncedSaveReceiptSettings = debounce(saveReceiptSettingsNow, 800);
+
+	// Home Assistant settings handlers
+	function validateHaUrl(url: string): boolean {
+		if (!url) return true; // Empty is valid (clearing)
+		if (!url.startsWith('http://') && !url.startsWith('https://')) {
+			haUrlError = $LL.homeAssistant.urlInvalid();
+			return false;
+		}
+		try {
+			new URL(url);
+			haUrlError = '';
+			return true;
+		} catch {
+			haUrlError = $LL.homeAssistant.urlInvalid();
+			return false;
+		}
+	}
+
+	async function saveHaSettingsNow() {
+		// Only save if values actually changed
+		if (haUrl === initialHaUrl && haApiToken === initialHaApiToken) {
+			return;
+		}
+		// Validate URL before saving
+		if (!validateHaUrl(haUrl)) {
+			return;
+		}
+		try {
+			await saveHaSettings(haUrl || null, haApiToken || null);
+			initialHaUrl = haUrl;
+			initialHaApiToken = haApiToken;
+			haHasToken = !!haApiToken;
+			toast.success($LL.toast.settingsSaved());
+		} catch (error) {
+			console.error('Failed to save HA settings:', error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		}
+	}
+
+	const debouncedSaveHaSettings = debounce(saveHaSettingsNow, 800);
 
 	// Database location state
 	let dbLocation: DbLocationInfo | null = null;
@@ -305,6 +355,15 @@
 
 			// Load database location info
 			dbLocation = await getDbLocation();
+
+			// Load Home Assistant settings
+			const haSettings = await getHaSettings();
+			if (haSettings) {
+				haUrl = haSettings.url || '';
+				haHasToken = haSettings.hasToken;
+				initialHaUrl = haSettings.url || '';
+				// Token is not exposed via API, only hasToken boolean
+			}
 		})();
 
 		return () => unsubscribeLocale();
@@ -341,6 +400,7 @@
 		initialBatteryPercent: number | null;
 		vin: string | null;
 		driverName: string | null;
+		haOdoSensor: string | null;
 	}) {
 		try {
 			if (editingVehicle) {
@@ -358,6 +418,7 @@
 					initialOdometer: data.initialOdometer,
 					vin: data.vin,
 					driverName: data.driverName,
+					haOdoSensor: data.haOdoSensor,
 					updatedAt: new Date().toISOString()
 				};
 				await api.updateVehicle(updatedVehicle);
@@ -735,6 +796,66 @@
 			</div>
 		</section>
 
+		<!-- Home Assistant Section -->
+		<section class="settings-section" id="home-assistant">
+			<h2>{$LL.homeAssistant.sectionTitle()}</h2>
+			<div class="section-content">
+				<div class="form-group">
+					<label for="ha-url">{$LL.homeAssistant.urlLabel()}</label>
+					<input
+						type="text"
+						id="ha-url"
+						bind:value={haUrl}
+						placeholder={$LL.homeAssistant.urlPlaceholder()}
+						on:input={() => { validateHaUrl(haUrl); debouncedSaveHaSettings(); }}
+						on:blur={saveHaSettingsNow}
+						class:input-error={haUrlError}
+					/>
+					{#if haUrlError}
+						<small class="error-text">{haUrlError}</small>
+					{:else}
+						<small class="hint">{$LL.homeAssistant.urlHint()}</small>
+					{/if}
+				</div>
+
+				<div class="form-group">
+					<label for="ha-token">{$LL.homeAssistant.tokenLabel()}</label>
+					<div class="input-with-icon">
+						<input
+							type={showHaToken ? 'text' : 'password'}
+							id="ha-token"
+							class="monospace-input"
+							bind:value={haApiToken}
+							placeholder={haHasToken && !haApiToken ? '********' : $LL.homeAssistant.tokenPlaceholder()}
+							on:input={debouncedSaveHaSettings}
+							on:blur={saveHaSettingsNow}
+						/>
+						<button
+							type="button"
+							class="icon-btn"
+							on:click={() => (showHaToken = !showHaToken)}
+							title={showHaToken ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+						>
+							{#if showHaToken}
+								<!-- Eye off icon -->
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+							{:else}
+								<!-- Eye icon -->
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+							{/if}
+						</button>
+					</div>
+					<small class="hint">
+						{#if haHasToken && !haApiToken}
+							{$LL.homeAssistant.tokenSet()}
+						{:else}
+							{$LL.homeAssistant.tokenHint()}
+						{/if}
+					</small>
+				</div>
+			</div>
+		</section>
+
 		<!-- Database Location Section -->
 		<section class="settings-section">
 			<h2>{$LL.settings.dbLocationSection()}</h2>
@@ -1011,6 +1132,7 @@
 	<VehicleModal
 		vehicle={editingVehicle}
 		hasTrips={editingVehicle ? vehiclesWithTrips.has(editingVehicle.id) : false}
+		haConfigured={!!(haUrl && haHasToken)}
 		onSave={handleSaveVehicle}
 		onClose={closeVehicleModal}
 	/>
@@ -1684,5 +1806,15 @@
 
 	.icon-btn svg {
 		display: block;
+	}
+
+	/* Error states */
+	.input-error {
+		border-color: var(--color-error, #dc2626) !important;
+	}
+
+	.error-text {
+		color: var(--color-error, #dc2626);
+		font-size: 0.85rem;
 	}
 </style>

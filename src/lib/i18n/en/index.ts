@@ -532,6 +532,31 @@ const en = {
 		printHint: 'To export to PDF use Ctrl+P → Save as PDF',
 	},
 
+	// Home Assistant section
+	homeAssistant: {
+		sectionTitle: 'Home Assistant',
+		urlLabel: 'Server URL',
+		urlPlaceholder: 'http://homeassistant.local:8123',
+		urlHint: 'Address of your Home Assistant server',
+		urlInvalid: 'URL must start with http:// or https://',
+		tokenLabel: 'API Token',
+		tokenPlaceholder: 'Enter long-lived access token',
+		tokenHint: 'Long-lived access token from Home Assistant (Profile → Security)',
+		tokenSet: 'Token is set',
+		tokenNotSet: 'Token is not set',
+		sensorLabel: 'ODO sensor',
+		sensorPlaceholder: 'sensor.car_odometer',
+		sensorHint: 'Entity ID of the odometer sensor from Home Assistant',
+		notConfigured: 'Home Assistant is not configured',
+		configureFirst: 'Set URL and token in Settings first',
+		// Header display
+		realOdo: 'Real ODO',
+		delta: 'since last trip',
+		stale: 'ago',
+		fetchError: 'HA connection error',
+		loading: 'Loading...',
+	},
+
 	// Update section
 	update: {
 		sectionTitle: 'Updates',

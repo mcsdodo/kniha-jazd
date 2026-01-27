@@ -1722,6 +1722,88 @@ type RootTranslation = {
 		 */
 		printHint: string
 	}
+	homeAssistant: {
+		/**
+		 * H​o​m​e​ ​A​s​s​i​s​t​a​n​t
+		 */
+		sectionTitle: string
+		/**
+		 * U​R​L​ ​s​e​r​v​e​r​a
+		 */
+		urlLabel: string
+		/**
+		 * h​t​t​p​:​/​/​h​o​m​e​a​s​s​i​s​t​a​n​t​.​l​o​c​a​l​:​8​1​2​3
+		 */
+		urlPlaceholder: string
+		/**
+		 * A​d​r​e​s​a​ ​v​á​š​h​o​ ​H​o​m​e​ ​A​s​s​i​s​t​a​n​t​ ​s​e​r​v​e​r​a
+		 */
+		urlHint: string
+		/**
+		 * U​R​L​ ​m​u​s​í​ ​z​a​č​í​n​a​ť​ ​h​t​t​p​:​/​/​ ​a​l​e​b​o​ ​h​t​t​p​s​:​/​/
+		 */
+		urlInvalid: string
+		/**
+		 * A​P​I​ ​T​o​k​e​n
+		 */
+		tokenLabel: string
+		/**
+		 * Z​a​d​a​j​t​e​ ​d​l​h​o​d​o​b​ý​ ​p​r​í​s​t​u​p​o​v​ý​ ​t​o​k​e​n
+		 */
+		tokenPlaceholder: string
+		/**
+		 * D​l​h​o​d​o​b​ý​ ​p​r​í​s​t​u​p​o​v​ý​ ​t​o​k​e​n​ ​z​ ​H​o​m​e​ ​A​s​s​i​s​t​a​n​t​ ​(​P​r​o​f​i​l​ ​→​ ​B​e​z​p​e​č​n​o​s​ť​)
+		 */
+		tokenHint: string
+		/**
+		 * T​o​k​e​n​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
+		 */
+		tokenSet: string
+		/**
+		 * T​o​k​e​n​ ​n​i​e​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
+		 */
+		tokenNotSet: string
+		/**
+		 * O​D​O​ ​s​e​n​z​o​r
+		 */
+		sensorLabel: string
+		/**
+		 * s​e​n​s​o​r​.​a​u​t​o​_​o​d​o​m​e​t​e​r
+		 */
+		sensorPlaceholder: string
+		/**
+		 * E​n​t​i​t​y​ ​I​D​ ​s​e​n​z​o​r​a​ ​o​d​o​m​e​t​r​a​ ​z​ ​H​o​m​e​ ​A​s​s​i​s​t​a​n​t
+		 */
+		sensorHint: string
+		/**
+		 * H​o​m​e​ ​A​s​s​i​s​t​a​n​t​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​ý
+		 */
+		notConfigured: string
+		/**
+		 * N​a​j​p​r​v​ ​n​a​s​t​a​v​t​e​ ​U​R​L​ ​a​ ​t​o​k​e​n​ ​v​ ​N​a​s​t​a​v​e​n​i​a​c​h
+		 */
+		configureFirst: string
+		/**
+		 * R​e​a​l​ ​O​D​O
+		 */
+		realOdo: string
+		/**
+		 * o​d​ ​p​o​s​l​.​ ​j​a​z​d​y
+		 */
+		delta: string
+		/**
+		 * p​r​e​d
+		 */
+		stale: string
+		/**
+		 * C​h​y​b​a​ ​p​r​i​p​o​j​e​n​i​a​ ​k​ ​H​A
+		 */
+		fetchError: string
+		/**
+		 * N​a​č​í​t​a​v​a​m​.​.​.
+		 */
+		loading: string
+	}
 	update: {
 		/**
 		 * A​k​t​u​a​l​i​z​á​c​i​e
@@ -3505,6 +3587,88 @@ export type TranslationFunctions = {
 		 * Pre export do PDF použite Ctrl+P → Uložiť ako PDF
 		 */
 		printHint: () => LocalizedString
+	}
+	homeAssistant: {
+		/**
+		 * Home Assistant
+		 */
+		sectionTitle: () => LocalizedString
+		/**
+		 * URL servera
+		 */
+		urlLabel: () => LocalizedString
+		/**
+		 * http://homeassistant.local:8123
+		 */
+		urlPlaceholder: () => LocalizedString
+		/**
+		 * Adresa vášho Home Assistant servera
+		 */
+		urlHint: () => LocalizedString
+		/**
+		 * URL musí začínať http:// alebo https://
+		 */
+		urlInvalid: () => LocalizedString
+		/**
+		 * API Token
+		 */
+		tokenLabel: () => LocalizedString
+		/**
+		 * Zadajte dlhodobý prístupový token
+		 */
+		tokenPlaceholder: () => LocalizedString
+		/**
+		 * Dlhodobý prístupový token z Home Assistant (Profil → Bezpečnosť)
+		 */
+		tokenHint: () => LocalizedString
+		/**
+		 * Token je nastavený
+		 */
+		tokenSet: () => LocalizedString
+		/**
+		 * Token nie je nastavený
+		 */
+		tokenNotSet: () => LocalizedString
+		/**
+		 * ODO senzor
+		 */
+		sensorLabel: () => LocalizedString
+		/**
+		 * sensor.auto_odometer
+		 */
+		sensorPlaceholder: () => LocalizedString
+		/**
+		 * Entity ID senzora odometra z Home Assistant
+		 */
+		sensorHint: () => LocalizedString
+		/**
+		 * Home Assistant nie je nakonfigurovaný
+		 */
+		notConfigured: () => LocalizedString
+		/**
+		 * Najprv nastavte URL a token v Nastaveniach
+		 */
+		configureFirst: () => LocalizedString
+		/**
+		 * Real ODO
+		 */
+		realOdo: () => LocalizedString
+		/**
+		 * od posl. jazdy
+		 */
+		delta: () => LocalizedString
+		/**
+		 * pred
+		 */
+		stale: () => LocalizedString
+		/**
+		 * Chyba pripojenia k HA
+		 */
+		fetchError: () => LocalizedString
+		/**
+		 * Načítavam...
+		 */
+		loading: () => LocalizedString
 	}
 	update: {
 		/**
