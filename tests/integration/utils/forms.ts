@@ -427,10 +427,13 @@ export async function fillTripForm(options: TripFormOptions): Promise<void> {
 }
 
 /**
- * Save the current trip (click Save button)
+ * Save the current trip (press Enter key)
+ * Note: Using Enter key is more reliable than clicking the Save button
+ * because the button may be covered by header elements or outside viewport.
+ * See tests/CLAUDE.md for rationale.
  */
 export async function saveTripForm(): Promise<void> {
-  await clickButton(TripGrid.saveTripBtn);
+  await browser.keys('Enter');
   await browser.pause(500); // Wait for save to complete
 }
 

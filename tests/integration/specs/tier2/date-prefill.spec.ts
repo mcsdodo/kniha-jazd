@@ -6,9 +6,10 @@
  * - Setting persists across app reload
  */
 
-import { waitForAppReady, navigateTo, waitForTripGrid } from '../../utils/app';
+import { waitForAppReady, navigateTo } from '../../utils/app';
+import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, clearDatabase } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
 
 /**
  * Get date prefill mode via Tauri IPC
@@ -41,7 +42,6 @@ describe('Tier 2: Date Prefill Mode', () => {
   beforeEach(async () => {
     await waitForAppReady();
     await ensureLanguage('en');
-    await clearDatabase();
 
     // Seed test vehicle with a trip
     const vehicle = await seedVehicle({
