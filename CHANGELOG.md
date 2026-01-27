@@ -7,6 +7,16 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridane
+- **Home Assistant integrácia** - zobrazenie reálneho stavu ODO z Home Assistant v hlavičke
+  - Nastavenie HA servera a API tokenu v Nastaveniach → Home Assistant
+  - Pre každé vozidlo možnosť nastaviť entity ID senzora odometra
+  - Zobrazenie aktuálneho ODO z HA v štatistikách
+  - Delta od poslednej zaznamenanej jazdy (+X km od poslednej jazdy)
+  - Varovanie ak delta >= 50 km (potenciálne zabudnuté jazdy)
+  - Indikátor starosti dát (5m, 2h, atď.)
+  - Cache s automatickou obnovou každých 5 minút
+
 ## [0.25.0] - 2026-01-27
 
 ### Pridané
