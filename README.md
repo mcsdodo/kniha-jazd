@@ -159,6 +159,8 @@ Pozrite [README.en.md](README.en.md) pre dokumentáciu v angličtine.
 
 Pre detailnú architektúru pozrite [ARCHITECTURE.md](ARCHITECTURE.md) (v angličtine).
 
+Pre dokumentáciu jednotlivých funkcií pozrite [docs/features/](docs/features/) (v angličtine).
+
 ### Lokálne spustenie
 
 #### macOS: Inštalácia Rust
