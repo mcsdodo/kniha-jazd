@@ -276,15 +276,15 @@
 
 {#if isEditing}
 	<tr class="editing">
-		<td>
+		<td class="col-date">
 			<input type="date" bind:value={formData.date} data-testid="trip-date" />
 		</td>
 		{#if !hiddenColumns.includes('time')}
-			<td>
+			<td class="col-time">
 				<input type="time" bind:value={formData.time} data-testid="trip-time" />
 			</td>
 		{/if}
-		<td>
+		<td class="col-origin">
 			<Autocomplete
 				bind:value={formData.origin}
 				suggestions={locationSuggestions}
@@ -293,7 +293,7 @@
 				testId="trip-origin"
 			/>
 		</td>
-		<td>
+		<td class="col-destination">
 			<Autocomplete
 				bind:value={formData.destination}
 				suggestions={locationSuggestions}
@@ -302,13 +302,13 @@
 				testId="trip-destination"
 			/>
 		</td>
-		<td>
+		<td class="col-km">
 			<input type="number" value={formData.distanceKm} on:input={handleKmChange} step="1" min="0" placeholder="0" data-testid="trip-distance" />
 		</td>
-		<td>
+		<td class="col-odo">
 			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
 		</td>
-		<td>
+		<td class="col-purpose">
 			<Autocomplete
 				bind:value={formData.purpose}
 				suggestions={purposeSuggestions}
@@ -318,7 +318,7 @@
 			/>
 		</td>
 		{#if showFuelFields}
-			<td class="fuel-cell">
+			<td class="col-fuel-liters fuel-cell">
 				<input
 					type="number"
 					value={formData.fuelLiters}
@@ -336,7 +336,7 @@
 					</label>
 				{/if}
 			</td>
-			<td>
+			<td class="col-fuel-cost">
 				<input
 					type="number"
 					bind:value={formData.fuelCostEur}
@@ -347,7 +347,7 @@
 				/>
 			</td>
 			{#if !hiddenColumns.includes('fuelConsumed')}
-				<td class="number calculated" class:preview={previewData}>
+				<td class="col-fuel-consumed number calculated" class:preview={previewData}>
 					{#if previewData}
 						~{((formData.distanceKm || 0) * previewData.consumptionRate / 100).toFixed(2)}
 					{:else}
@@ -355,7 +355,7 @@
 					{/if}
 				</td>
 			{/if}
-			<td class="number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
+			<td class="col-consumption-rate number calculated" class:preview={previewData} class:over-limit={previewData?.isOverLimit}>
 				{#if previewData}
 					~{previewData.consumptionRate.toFixed(2)}
 					<span class="margin" class:over-limit={previewData.isOverLimit} class:within-limit={!previewData.isOverLimit}>
@@ -366,7 +366,7 @@
 				{/if}
 			</td>
 			{#if !hiddenColumns.includes('fuelRemaining')}
-				<td class="number calculated" class:preview={previewData}>
+				<td class="col-fuel-remaining number calculated" class:preview={previewData}>
 					{#if previewData}
 						~{previewData.fuelRemaining.toFixed(1)}
 					{:else}
@@ -376,7 +376,7 @@
 			{/if}
 		{/if}
 		{#if showEnergyFields}
-			<td class="energy-cell">
+			<td class="col-energy-kwh energy-cell">
 				<input
 					type="number"
 					bind:value={formData.energyKwh}
@@ -393,7 +393,7 @@
 					</label>
 				{/if}
 			</td>
-			<td>
+			<td class="col-energy-cost">
 				<input
 					type="number"
 					bind:value={formData.energyCostEur}
@@ -403,10 +403,10 @@
 					data-testid="trip-energy-cost"
 				/>
 			</td>
-			<td class="number calculated">
+			<td class="col-energy-rate number calculated">
 				{energyRate.toFixed(2)}
 			</td>
-			<td class="number calculated soc-cell">
+			<td class="col-battery-remaining number calculated soc-cell">
 				{batteryRemainingKwh.toFixed(1)} kWh
 				<span class="battery-percent">({batteryRemainingPercent.toFixed(0)}%)</span>
 				{#if !isNew}
@@ -429,7 +429,7 @@
 			</td>
 		{/if}
 		{#if !hiddenColumns.includes('otherCosts')}
-			<td>
+			<td class="col-other-costs">
 				<input
 					type="number"
 					bind:value={formData.otherCostsEur}
@@ -441,7 +441,7 @@
 			</td>
 		{/if}
 		{#if !hiddenColumns.includes('otherCostsNote')}
-			<td>
+			<td class="col-other-costs-note">
 				<input
 					type="text"
 					bind:value={formData.otherCostsNote}
@@ -450,7 +450,7 @@
 				/>
 			</td>
 		{/if}
-		<td class="actions editing-actions">
+		<td class="col-actions actions editing-actions">
 			<button class="icon-btn magic" on:click={handleMagicFill} title={$LL.trips.magicFill()}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path>
@@ -475,17 +475,17 @@
 		class:date-warning={hasDateWarning}
 		class:consumption-warning={hasConsumptionWarning}
 	>
-		<td>{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
+		<td class="col-date">{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		{#if !hiddenColumns.includes('time')}
-			<td>{extractTime(trip.datetime)}</td>
+			<td class="col-time">{extractTime(trip.datetime)}</td>
 		{/if}
-		<td>{trip.origin}</td>
-		<td>{trip.destination}</td>
-		<td class="number">{trip.distanceKm.toFixed(0)}</td>
-		<td class="number">{trip.odometer.toFixed(0)}</td>
-		<td>{trip.purpose}</td>
+		<td class="col-origin">{trip.origin}</td>
+		<td class="col-destination">{trip.destination}</td>
+		<td class="col-km number">{trip.distanceKm.toFixed(0)}</td>
+		<td class="col-odo number">{trip.odometer.toFixed(0)}</td>
+		<td class="col-purpose">{trip.purpose}</td>
 		{#if showFuelFields}
-			<td class="number">
+			<td class="col-fuel-liters number">
 				{#if trip.fuelLiters}
 					{trip.fuelLiters.toFixed(2)}
 					{#if !trip.fullTank}
@@ -496,22 +496,22 @@
 					{/if}
 				{/if}
 			</td>
-			<td class="number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
+			<td class="col-fuel-cost number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
 			{#if !hiddenColumns.includes('fuelConsumed')}
-				<td class="number calculated">{fuelConsumed.toFixed(2)}</td>
+				<td class="col-fuel-consumed number calculated">{fuelConsumed.toFixed(2)}</td>
 			{/if}
-			<td class="number calculated" class:estimated={isEstimatedRate}>
+			<td class="col-consumption-rate number calculated" class:estimated={isEstimatedRate}>
 				{consumptionRate.toFixed(2)}
 				{#if isEstimatedRate}
 					<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
 				{/if}
 			</td>
 			{#if !hiddenColumns.includes('fuelRemaining')}
-				<td class="number calculated">{fuelRemaining.toFixed(1)}</td>
+				<td class="col-fuel-remaining number calculated">{fuelRemaining.toFixed(1)}</td>
 			{/if}
 		{/if}
 		{#if showEnergyFields}
-			<td class="number">
+			<td class="col-energy-kwh number">
 				{#if trip.energyKwh}
 					{trip.energyKwh.toFixed(1)}
 					{#if !trip.fullCharge}
@@ -519,14 +519,14 @@
 					{/if}
 				{/if}
 			</td>
-			<td class="number">{trip.energyCostEur?.toFixed(2) || ''}</td>
-			<td class="number calculated" class:estimated={isEstimatedEnergyRate}>
+			<td class="col-energy-cost number">{trip.energyCostEur?.toFixed(2) || ''}</td>
+			<td class="col-energy-rate number calculated" class:estimated={isEstimatedEnergyRate}>
 				{energyRate.toFixed(2)}
 				{#if isEstimatedEnergyRate}
 					<span class="estimated-indicator" title={$LL.trips.estimatedRate()}>~</span>
 				{/if}
 			</td>
-			<td class="number calculated" class:soc-override={hasSocOverride}>
+			<td class="col-battery-remaining number calculated" class:soc-override={hasSocOverride}>
 				{batteryRemainingKwh.toFixed(1)} kWh
 				<span class="battery-percent">({batteryRemainingPercent.toFixed(0)}%)</span>
 				{#if hasSocOverride}
@@ -535,12 +535,12 @@
 			</td>
 		{/if}
 		{#if !hiddenColumns.includes('otherCosts')}
-			<td class="number">{trip.otherCostsEur?.toFixed(2) || ''}</td>
+			<td class="col-other-costs number">{trip.otherCostsEur?.toFixed(2) || ''}</td>
 		{/if}
 		{#if !hiddenColumns.includes('otherCostsNote')}
-			<td>{trip.otherCostsNote || ''}</td>
+			<td class="col-other-costs-note">{trip.otherCostsNote || ''}</td>
 		{/if}
-		<td class="actions">
+		<td class="col-actions actions">
 			<span class="icon-actions">
 				<button
 					class="icon-btn move-up"

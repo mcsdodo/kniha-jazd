@@ -541,44 +541,44 @@
 		<table>
 			<thead>
 				<tr>
-					<th class="sortable" on:click={() => toggleSort('date')}>
+					<th class="col-date sortable" on:click={() => toggleSort('date')}>
 						{$LL.trips.columns.date()}
 						{#if sortColumn === 'date'}
 							<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
 						{/if}
 					</th>
 					{#if !hiddenColumns.includes('time')}
-						<th data-testid="column-header-time">{$LL.trips.columns.time()}</th>
+						<th class="col-time" data-testid="column-header-time">{$LL.trips.columns.time()}</th>
 					{/if}
-					<th>{$LL.trips.columns.origin()}</th>
-					<th>{$LL.trips.columns.destination()}</th>
-					<th>{$LL.trips.columns.km()}</th>
-					<th>{$LL.trips.columns.odo()}</th>
-					<th>{$LL.trips.columns.purpose()}</th>
+					<th class="col-origin">{$LL.trips.columns.origin()}</th>
+					<th class="col-destination">{$LL.trips.columns.destination()}</th>
+					<th class="col-km">{$LL.trips.columns.km()}</th>
+					<th class="col-odo">{$LL.trips.columns.odo()}</th>
+					<th class="col-purpose">{$LL.trips.columns.purpose()}</th>
 					{#if showFuelColumns}
-						<th>{$LL.trips.columns.fuelLiters()}</th>
-						<th>{$LL.trips.columns.fuelCost()}</th>
+						<th class="col-fuel-liters">{$LL.trips.columns.fuelLiters()}</th>
+						<th class="col-fuel-cost">{$LL.trips.columns.fuelCost()}</th>
 						{#if !hiddenColumns.includes('fuelConsumed')}
-							<th>{$LL.trips.columns.fuelConsumed()}</th>
+							<th class="col-fuel-consumed">{$LL.trips.columns.fuelConsumed()}</th>
 						{/if}
-						<th>{$LL.trips.columns.consumptionRate()}</th>
+						<th class="col-consumption-rate">{$LL.trips.columns.consumptionRate()}</th>
 						{#if !hiddenColumns.includes('fuelRemaining')}
-							<th>{$LL.trips.columns.remaining()}</th>
+							<th class="col-fuel-remaining">{$LL.trips.columns.remaining()}</th>
 						{/if}
 					{/if}
 					{#if showEnergyColumns}
-						<th>{$LL.trips.columns.energyKwh()}</th>
-						<th>{$LL.trips.columns.energyCost()}</th>
-						<th>{$LL.trips.columns.energyRate()}</th>
-						<th>{$LL.trips.columns.batteryRemaining()}</th>
+						<th class="col-energy-kwh">{$LL.trips.columns.energyKwh()}</th>
+						<th class="col-energy-cost">{$LL.trips.columns.energyCost()}</th>
+						<th class="col-energy-rate">{$LL.trips.columns.energyRate()}</th>
+						<th class="col-battery-remaining">{$LL.trips.columns.batteryRemaining()}</th>
 					{/if}
 					{#if !hiddenColumns.includes('otherCosts')}
-						<th>{$LL.trips.columns.otherCosts()}</th>
+						<th class="col-other-costs">{$LL.trips.columns.otherCosts()}</th>
 					{/if}
 					{#if !hiddenColumns.includes('otherCostsNote')}
-						<th>{$LL.trips.columns.otherCostsNote()}</th>
+						<th class="col-other-costs-note">{$LL.trips.columns.otherCostsNote()}</th>
 					{/if}
-					<th>
+					<th class="col-actions">
 						{$LL.trips.columns.actions()}
 					</th>
 				</tr>
@@ -639,39 +639,39 @@
 					{#if isFirstRecord(trip)}
 						<!-- Synthetic "Prvý záznam" row -->
 						<tr class="first-record">
-							<td>{trip.date.split('-').reverse().join('.')}</td>
+							<td class="col-date">{trip.date.split('-').reverse().join('.')}</td>
 							{#if !hiddenColumns.includes('time')}
-								<td>00:00</td>
+								<td class="col-time">00:00</td>
 							{/if}
-							<td>-</td>
-							<td>-</td>
-							<td class="number">0</td>
-							<td class="number">{trip.odometer.toFixed(0)}</td>
-							<td class="purpose">{trip.purpose}</td>
+							<td class="col-origin">-</td>
+							<td class="col-destination">-</td>
+							<td class="col-km number">0</td>
+							<td class="col-odo number">{trip.odometer.toFixed(0)}</td>
+							<td class="col-purpose">{trip.purpose}</td>
 							{#if showFuelColumns}
-								<td>-</td>
-								<td>-</td>
+								<td class="col-fuel-liters">-</td>
+								<td class="col-fuel-cost">-</td>
 								{#if !hiddenColumns.includes('fuelConsumed')}
-									<td class="number calculated">0.00</td>
+									<td class="col-fuel-consumed number calculated">0.00</td>
 								{/if}
-								<td class="number">{tpConsumption.toFixed(2)}</td>
+								<td class="col-consumption-rate number">{tpConsumption.toFixed(2)}</td>
 								{#if !hiddenColumns.includes('fuelRemaining')}
-									<td class="number">{tankSize.toFixed(1)}</td>
+									<td class="col-fuel-remaining number">{tankSize.toFixed(1)}</td>
 								{/if}
 							{/if}
 							{#if showEnergyColumns}
-								<td>-</td>
-								<td>-</td>
-								<td class="number">{baselineConsumptionKwh.toFixed(2)}</td>
-								<td class="number">{batteryCapacityKwh.toFixed(1)} kWh</td>
+								<td class="col-energy-kwh">-</td>
+								<td class="col-energy-cost">-</td>
+								<td class="col-energy-rate number">{baselineConsumptionKwh.toFixed(2)}</td>
+								<td class="col-battery-remaining number">{batteryCapacityKwh.toFixed(1)} kWh</td>
 							{/if}
 							{#if !hiddenColumns.includes('otherCosts')}
-								<td>-</td>
+								<td class="col-other-costs">-</td>
 							{/if}
 							{#if !hiddenColumns.includes('otherCostsNote')}
-								<td>-</td>
+								<td class="col-other-costs-note">-</td>
 							{/if}
-							<td></td>
+							<td class="col-actions"></td>
 						</tr>
 					{:else}
 						<TripRow
@@ -813,24 +813,26 @@
 		color: var(--accent-primary);
 	}
 
-	/* Column widths - approximate, for ICE vehicle with all columns visible
-	   Note: nth-child indices shift when columns are hidden (time, fuelConsumed, etc.)
-	   Order: Dátum, Čas?, Odkiaľ, Kam, Km, ODO, Účel, [fuel cols], [energy cols], Iné €?, Iné pozn.?, Akcie */
-	th:nth-child(1) { width: 5%; }   /* Dátum */
-	th:nth-child(2) { width: 4%; }   /* Čas (or Odkiaľ if time hidden) */
-	th:nth-child(3) { width: 14%; }  /* Odkiaľ (or Kam if time hidden) */
-	th:nth-child(4) { width: 14%; }  /* Kam */
-	th:nth-child(5) { width: 4%; text-align: right; }   /* Km */
-	th:nth-child(6) { width: 5%; text-align: right; }   /* ODO */
-	th:nth-child(7) { width: 12%; }  /* Účel */
-	th:nth-child(8) { width: 4%; text-align: right; }   /* PHM (L) */
-	th:nth-child(9) { width: 4%; text-align: right; }   /* Cena € */
-	th:nth-child(10) { width: 4%; text-align: right; }  /* Spotr. (L) */
-	th:nth-child(11) { width: 4%; text-align: right; }  /* l/100km */
-	th:nth-child(12) { width: 4%; text-align: right; }  /* Zostatok */
-	th:nth-child(13) { width: 4%; text-align: right; }  /* Iné € */
-	th:nth-child(14) { width: 10%; }  /* Iné pozn. */
-	th:nth-child(15) { width: 8%; text-align: center; } /* Akcie */
+	/* Column widths - using class selectors for stable widths when columns are hidden */
+	.col-date { width: 5%; }
+	.col-time { width: 4%; }
+	.col-origin { width: 14%; }
+	.col-destination { width: 14%; }
+	.col-km { width: 4%; text-align: right; }
+	.col-odo { width: 5%; text-align: right; }
+	.col-purpose { width: 12%; }
+	.col-fuel-liters { width: 4%; text-align: right; }
+	.col-fuel-cost { width: 4%; text-align: right; }
+	.col-fuel-consumed { width: 4%; text-align: right; }
+	.col-consumption-rate { width: 4%; text-align: right; }
+	.col-fuel-remaining { width: 4%; text-align: right; }
+	.col-energy-kwh { width: 4%; text-align: right; }
+	.col-energy-cost { width: 4%; text-align: right; }
+	.col-energy-rate { width: 4%; text-align: right; }
+	.col-battery-remaining { width: 6%; text-align: right; }
+	.col-other-costs { width: 4%; text-align: right; }
+	.col-other-costs-note { width: 10%; }
+	.col-actions { width: 8%; text-align: center; }
 	tbody tr.empty td {
 		padding: 2rem;
 		text-align: center;
