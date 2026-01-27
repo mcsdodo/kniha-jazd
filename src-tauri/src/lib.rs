@@ -221,6 +221,7 @@ pub fn run() {
       commands::set_receipts_folder_path,
       commands::get_ha_settings,
       commands::save_ha_settings,
+      commands::get_local_settings_for_ha,
     ])
     .build(tauri::generate_context!())
     .expect("error while building tauri application")

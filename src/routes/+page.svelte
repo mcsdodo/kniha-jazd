@@ -3,13 +3,18 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats, openExportPreview } from '$lib/api';
-	import type { Trip, TripStats, ExportLabels } from '$lib/types';
-	import { onMount } from 'svelte';
+	import { getTripsForYear, calculateTripStats, openExportPreview, getHaSettings } from '$lib/api';
+	import type { Trip, TripStats, ExportLabels, HaSettings } from '$lib/types';
+	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import LL, { locale } from '$lib/i18n/i18n-svelte';
+	import { haStore } from '$lib/stores/homeAssistant';
 
 	let exporting = false;
+
+	// Home Assistant state
+	let haSettings: HaSettings | null = null;
+	let haToken: string | null = null; // Loaded from localStorage for API calls
 
 	let trips: Trip[] = [];
 	let initialLoading = true; // Only true for first load, keeps TripGrid mounted during refreshes
@@ -24,7 +29,57 @@
 
 	onMount(async () => {
 		await loadTrips(true);
+
+		// Load HA settings
+		try {
+			haSettings = await getHaSettings();
+			// Token needs to be fetched separately since API doesn't expose it
+			// We'll read it from the settings API response via invoke
+			if (haSettings?.url && haSettings?.hasToken) {
+				// Get token from local settings (it's stored there)
+				const { invoke } = await import('@tauri-apps/api/core');
+				const localSettings = await invoke<{ ha_api_token?: string }>('get_local_settings_for_ha');
+				haToken = localSettings?.ha_api_token || null;
+			}
+		} catch (e) {
+			console.warn('Failed to load HA settings:', e);
+		}
 	});
+
+	onDestroy(() => {
+		haStore.stopPeriodicRefresh();
+	});
+
+	// Start/stop HA refresh when vehicle or settings change
+	$: if ($activeVehicleStore?.haOdoSensor && haSettings?.url && haToken) {
+		haStore.startPeriodicRefresh(
+			$activeVehicleStore.id,
+			haSettings.url,
+			haToken,
+			$activeVehicleStore.haOdoSensor
+		);
+	} else {
+		haStore.stopPeriodicRefresh();
+	}
+
+	// Calculate delta from real ODO vs last trip
+	$: haOdoCache = $activeVehicleStore ? $haStore.cache.get($activeVehicleStore.id) : null;
+	$: lastTripOdo = trips.length > 0 ? trips[trips.length - 1].odometer : null;
+	$: haOdoDelta = haOdoCache && lastTripOdo !== null ? haOdoCache.value - lastTripOdo : null;
+	$: haOdoWarning = haOdoDelta !== null && haOdoDelta >= 50;
+
+	// Format staleness (time since fetch)
+	function formatStaleness(fetchedAt: number): string {
+		const minutes = Math.floor((Date.now() - fetchedAt) / 60000);
+		if (minutes < 60) {
+			return `${minutes}m`;
+		}
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) {
+			return `${hours}h`;
+		}
+		return '1d+';
+	}
 
 	async function loadTrips(isInitial = false) {
 		if (!$activeVehicleStore) {
@@ -172,6 +227,34 @@
 								<span class="stat-value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
 							</span>
 						</div>
+						{#if haOdoCache}
+							<div class="stats-row ha-odo-row">
+								<span class="stat ha-odo" class:warning={haOdoWarning}>
+									<span class="stat-label">{$LL.homeAssistant.realOdo()}:</span>
+									<span class="stat-value">
+										{haOdoCache.value.toLocaleString('sk-SK')} km
+										{#if haOdoDelta !== null}
+											<span class="delta" class:warning={haOdoWarning}>
+												(+{haOdoDelta.toFixed(0)} km {$LL.homeAssistant.delta()})
+											</span>
+										{/if}
+										<span class="staleness" title={new Date(haOdoCache.fetchedAt).toLocaleString()}>
+											{formatStaleness(haOdoCache.fetchedAt)} {$LL.homeAssistant.stale()}
+										</span>
+									</span>
+								</span>
+								{#if $haStore.loading}
+									<span class="ha-loading">{$LL.homeAssistant.loading()}</span>
+								{/if}
+							</div>
+						{:else if $haStore.error && $activeVehicleStore?.haOdoSensor}
+							<div class="stats-row ha-odo-row">
+								<span class="stat ha-error">
+									<span class="stat-label">{$LL.homeAssistant.realOdo()}:</span>
+									<span class="stat-value error">{$LL.homeAssistant.fetchError()}</span>
+								</span>
+							</div>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -325,6 +408,41 @@
 
 	.stat.warning .stat-value {
 		color: var(--accent-warning);
+	}
+
+	/* Home Assistant ODO display */
+	.ha-odo-row {
+		margin-top: 0.25rem;
+		padding-top: 0.25rem;
+		border-top: 1px dashed var(--border-default);
+	}
+
+	.ha-odo .delta {
+		font-size: 0.8em;
+		color: var(--text-secondary);
+		margin-left: 0.25rem;
+	}
+
+	.ha-odo .delta.warning {
+		color: var(--accent-warning);
+		font-weight: 600;
+	}
+
+	.ha-odo .staleness {
+		font-size: 0.75em;
+		color: var(--text-muted);
+		margin-left: 0.5rem;
+	}
+
+	.ha-loading {
+		font-size: 0.8em;
+		color: var(--text-muted);
+		font-style: italic;
+	}
+
+	.ha-error .error {
+		color: var(--color-error, #dc2626);
+		font-style: italic;
 	}
 
 	.info-grid {
