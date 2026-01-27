@@ -532,6 +532,31 @@ const sk = {
 		printHint: 'Pre export do PDF použite Ctrl+P → Uložiť ako PDF',
 	},
 
+	// Home Assistant section
+	homeAssistant: {
+		sectionTitle: 'Home Assistant',
+		urlLabel: 'URL servera',
+		urlPlaceholder: 'http://homeassistant.local:8123',
+		urlHint: 'Adresa vášho Home Assistant servera',
+		urlInvalid: 'URL musí začínať http:// alebo https://',
+		tokenLabel: 'API Token',
+		tokenPlaceholder: 'Zadajte dlhodobý prístupový token',
+		tokenHint: 'Dlhodobý prístupový token z Home Assistant (Profil → Bezpečnosť)',
+		tokenSet: 'Token je nastavený',
+		tokenNotSet: 'Token nie je nastavený',
+		sensorLabel: 'ODO senzor',
+		sensorPlaceholder: 'sensor.auto_odometer',
+		sensorHint: 'Entity ID senzora odometra z Home Assistant',
+		notConfigured: 'Home Assistant nie je nakonfigurovaný',
+		configureFirst: 'Najprv nastavte URL a token v Nastaveniach',
+		// Header display
+		realOdo: 'Real ODO',
+		delta: 'od posl. jazdy',
+		stale: 'pred',
+		fetchError: 'Chyba pripojenia k HA',
+		loading: 'Načítavam...',
+	},
+
 	// Update section
 	update: {
 		sectionTitle: 'Aktualizácie',

@@ -26,6 +26,8 @@ export interface Vehicle {
 	isActive: boolean;
 	vin?: string | null;
 	driverName?: string | null;
+	// Home Assistant integration
+	haOdoSensor?: string | null; // HA sensor entity ID (e.g., "sensor.car_odometer")
 	createdAt: string;
 	updatedAt: string;
 }
@@ -316,4 +318,15 @@ export function extractTime(datetime: string): string {
 	// Extract the HH:MM portion
 	const match = datetime.match(/T(\d{2}:\d{2})/);
 	return match ? match[1] : '00:00';
+}
+
+// Home Assistant integration types
+export interface HaSettings {
+	url: string | null;
+	hasToken: boolean;
+}
+
+export interface HaOdoCache {
+	value: number; // ODO value in km
+	fetchedAt: number; // timestamp ms
 }

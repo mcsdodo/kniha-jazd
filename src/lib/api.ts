@@ -404,6 +404,20 @@ export async function setReceiptsFolderPath(path: string): Promise<void> {
 	return invoke('set_receipts_folder_path', { path });
 }
 
+// Home Assistant settings
+export interface HaSettingsResponse {
+	url: string | null;
+	hasToken: boolean;
+}
+
+export async function getHaSettings(): Promise<HaSettingsResponse> {
+	return invoke<HaSettingsResponse>('get_ha_settings');
+}
+
+export async function saveHaSettings(url: string | null, token: string | null): Promise<void> {
+	return invoke('save_ha_settings', { url, token });
+}
+
 // Database location
 export interface DbLocationInfo {
 	dbPath: string;

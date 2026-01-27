@@ -4,6 +4,7 @@
 
 	export let vehicle: Vehicle | null = null;
 	export let hasTrips = false; // Whether vehicle has trips (type change blocked)
+	export let haConfigured = false; // Whether Home Assistant is configured
 	export let onSave: (data: {
 		name: string;
 		licensePlate: string;
@@ -13,10 +14,10 @@
 		tpConsumption: number | null;
 		batteryCapacityKwh: number | null;
 		baselineConsumptionKwh: number | null;
-
 		initialBatteryPercent: number | null;
 		vin: string | null;
 		driverName: string | null;
+		haOdoSensor: string | null;
 	}) => void;
 	export let onClose: () => void;
 
@@ -32,6 +33,7 @@
 	let initialOdometer = vehicle?.initialOdometer || 0;
 	let vin = vehicle?.vin || '';
 	let driverName = vehicle?.driverName || '';
+	let haOdoSensor = vehicle?.haOdoSensor || '';
 
 	// Show fuel fields for ICE and PHEV
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -47,11 +49,11 @@
 			tankSizeLiters: showFuelFields ? tankSizeLiters : null,
 			tpConsumption: showFuelFields ? tpConsumption : null,
 			batteryCapacityKwh: showBatteryFields ? batteryCapacityKwh : null,
-
 			baselineConsumptionKwh: showBatteryFields ? baselineConsumptionKwh : null,
 			initialBatteryPercent: showBatteryFields ? initialBatteryPercent : null,
 			vin,
-			driverName
+			driverName,
+			haOdoSensor: haOdoSensor || null
 		});
 	}
 
@@ -129,6 +131,19 @@
 					placeholder={$LL.vehicleModal.driverPlaceholder()}
 				/>
 			</div>
+
+			{#if haConfigured}
+				<div class="form-group">
+					<label for="ha-odo-sensor">{$LL.homeAssistant.sensorLabel()}</label>
+					<input
+						type="text"
+						id="ha-odo-sensor"
+						bind:value={haOdoSensor}
+						placeholder={$LL.homeAssistant.sensorPlaceholder()}
+					/>
+					<span class="hint">{$LL.homeAssistant.sensorHint()}</span>
+				</div>
+			{/if}
 
 			{#if showFuelFields}
 				<div class="section-header">{$LL.vehicleModal.fuelSection()}</div>
