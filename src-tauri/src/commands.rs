@@ -3703,6 +3703,14 @@ pub struct HaSettingsResponse {
     pub has_token: bool,
 }
 
+/// Response for get_local_settings_for_ha - includes token for frontend API calls
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HaLocalSettingsResponse {
+    pub ha_url: Option<String>,
+    pub ha_api_token: Option<String>,
+}
+
 #[tauri::command]
 pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsResponse, String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
@@ -3710,6 +3718,18 @@ pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsRespons
     Ok(HaSettingsResponse {
         url: settings.ha_url,
         has_token: settings.ha_api_token.is_some(),
+    })
+}
+
+/// Get HA settings including token for frontend to make API calls.
+/// This is needed because the frontend needs the token to call HA directly.
+#[tauri::command]
+pub fn get_local_settings_for_ha(app_handle: tauri::AppHandle) -> Result<HaLocalSettingsResponse, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    let settings = LocalSettings::load(&app_data_dir);
+    Ok(HaLocalSettingsResponse {
+        ha_url: settings.ha_url,
+        ha_api_token: settings.ha_api_token,
     })
 }
 
