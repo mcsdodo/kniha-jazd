@@ -139,3 +139,23 @@ The implementation plan is well-structured and follows project conventions. Afte
 **Plan is APPROVED with amendments.** The critical issue (delta calculation) has a simple solution: the frontend already has trips data, so `lastTripEndingOdo` = last trip's `odometer` field (which already represents ending ODO per the app's convention). The important issues are mostly documentation gaps that can be addressed during implementation.
 
 **Recommended approach:** Fix the phase ordering and add verification steps, then proceed with implementation.
+
+---
+
+## Resolution (2026-01-27)
+
+**Addressed (Critical + Important):**
+- [x] Delta calculation clarified - uses last trip's `odometer` field (Step 4.2)
+- [x] Phase ordering fixed - Types moved to Phase 2 before Service/Store
+- [x] Phase 1 verification steps added to all steps
+- [x] Step 1.3 clarified - lists VehicleRow, NewVehicleRow, From impl
+- [x] VehicleModal path specified - `src/lib/components/VehicleModal.svelte`
+- [x] URL validation added to Step 2.3
+- [x] Error handling defined in Step 3.1 (timeout, 401, 404, invalid response)
+
+**Skipped (Minor):**
+- [ ] localStorage key - specified as `kniha-jazd-ha-odo-cache` (actually addressed)
+- [ ] Staleness threshold - specified in Step 4.3 (<60m = minutes, >=60m = hours)
+- [ ] HaSettings response type - defined in Step 2.1
+
+**Result:** All findings addressed. Plan ready for implementation.
