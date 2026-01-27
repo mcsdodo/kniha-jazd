@@ -29,11 +29,16 @@ runs:
       run: |
         # Get changed files based on event type
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          # For PRs, compare against base branch
+          # For PRs, compare against base branch (accurate - shows all changes in PR)
           CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD 2>/dev/null || echo "")
         else
-          # For pushes, compare against parent commit
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "")
+          # For pushes to main, we can't reliably detect if previous commits were tested.
+          # A docs-only commit after a code commit would skip tests for the code change.
+          # Solution: Always run tests on push to main (fast anyway, ~2min backend + ~6min integration)
+          echo "Push to main - always run tests (can't track last tested commit)"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          echo "changed_files=" >> $GITHUB_OUTPUT
+          exit 0
         fi
 
         # Handle empty changes (new repo, etc.)
