@@ -159,6 +159,8 @@ All data stays on your computer. The only external connection is when using AI r
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 
+For individual feature implementation docs, see [docs/features/](docs/features/).
+
 **Key principle:** All business logic lives in the Rust backend (ADR-008). Frontend is display-only.
 
 ### Local Development
