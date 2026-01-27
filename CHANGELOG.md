@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-01-27
+
+### Zmenené
+- **Prepínač dátumu** - zjednotený vzhľad s tlačidlom "Nový záznam" (rovnaké farby a štýl)
+
 ## [0.26.0] - 2026-01-27
 
 ### Pridané
