@@ -1489,6 +1489,68 @@ fn test_assign_other_cost_receipt_collision_rejected() {
     );
 }
 
+#[test]
+fn test_assign_fuel_receipt_to_empty_trip_populates_fuel_fields() {
+    // Test: Receipt with liters+price attached to trip with NO fuel data
+    // Expected: Receipt should populate trip's FUEL fields, NOT other_costs
+    // Bug: Previously this was incorrectly treated as "other cost"
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Trip with NO fuel data (user created trip but didn't enter fuel yet)
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    // Receipt with fuel data (liters + price) = should be fuel, not other cost
+    let receipt = make_receipt_with_details(
+        Some(date),
+        Some(45.0),
+        Some(72.0),
+        Some("OMV"),
+        None,
+    );
+    db.create_receipt(&receipt).unwrap();
+
+    let result = assign_receipt_to_trip_internal(
+        &db,
+        &receipt.id.to_string(),
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+    );
+
+    assert!(result.is_ok(), "Assignment should succeed");
+
+    let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.trip_id, Some(trip.id));
+    assert_eq!(assigned_receipt.status, ReceiptStatus::Assigned);
+
+    // Trip should have FUEL fields populated, NOT other_costs
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        updated_trip.fuel_liters,
+        Some(45.0),
+        "Fuel liters should be populated from receipt"
+    );
+    assert_eq!(
+        updated_trip.fuel_cost_eur,
+        Some(72.0),
+        "Fuel cost should be populated from receipt"
+    );
+    assert!(
+        updated_trip.other_costs_eur.is_none(),
+        "Other costs should NOT be set for fuel receipt on empty trip"
+    );
+}
+
 // ========================================================================
 // get_trips_for_receipt_assignment tests
 // ========================================================================
