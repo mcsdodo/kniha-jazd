@@ -62,6 +62,8 @@ pub struct Vehicle {
     pub is_active: bool,
     pub vin: Option<String>,
     pub driver_name: Option<String>,
+    // Home Assistant integration
+    pub ha_odo_sensor: Option<String>, // HA sensor entity ID (e.g., "sensor.car_odometer")
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -103,6 +105,7 @@ impl Vehicle {
             is_active: true,
             vin: None,
             driver_name: None,
+            ha_odo_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -132,6 +135,7 @@ impl Vehicle {
             is_active: true,
             vin: None,
             driver_name: None,
+            ha_odo_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -163,6 +167,7 @@ impl Vehicle {
             is_active: true,
             vin: None,
             driver_name: None,
+            ha_odo_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -586,6 +591,8 @@ pub struct VehicleRow {
     // Added via migration 2026-01-09-100000-add_vehicle_metadata (at end of table)
     pub vin: Option<String>,
     pub driver_name: Option<String>,
+    // Added via migration 2026-01-27-100000_add_vehicle_ha_sensor
+    pub ha_odo_sensor: Option<String>,
 }
 
 /// For inserting new vehicles
@@ -608,6 +615,8 @@ pub struct NewVehicleRow<'a> {
     // Added via migration 2026-01-09-100000-add_vehicle_metadata (at end of table)
     pub vin: Option<&'a str>,
     pub driver_name: Option<&'a str>,
+    // Added via migration 2026-01-27-100000_add_vehicle_ha_sensor
+    pub ha_odo_sensor: Option<&'a str>,
 }
 
 /// Database row for trips table
@@ -798,6 +807,7 @@ impl From<VehicleRow> for Vehicle {
             is_active: row.is_active != 0,
             vin: row.vin,
             driver_name: row.driver_name,
+            ha_odo_sensor: row.ha_odo_sensor,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

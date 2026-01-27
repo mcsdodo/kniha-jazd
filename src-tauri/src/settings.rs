@@ -32,6 +32,9 @@ pub struct LocalSettings {
     pub backup_retention: Option<BackupRetention>, // Backup retention settings for auto-cleanup
     pub date_prefill_mode: Option<DatePrefillMode>, // Date prefill for new trip entries
     pub hidden_columns: Option<Vec<String>>, // Hidden trip grid columns (e.g., ["time", "fuelConsumed"])
+    // Home Assistant integration
+    pub ha_url: Option<String>,             // Home Assistant URL (e.g., "http://homeassistant.local:8123")
+    pub ha_api_token: Option<String>,       // Long-lived access token
 }
 
 impl LocalSettings {
@@ -157,6 +160,8 @@ mod tests {
             backup_retention: None,
             date_prefill_mode: Some(DatePrefillMode::Today),
             hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
+            ha_url: Some("http://ha.local:8123".to_string()),
+            ha_api_token: Some("token123".to_string()),
         };
 
         settings.save(&dir.path().to_path_buf()).unwrap();
@@ -169,6 +174,8 @@ mod tests {
         assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
         assert_eq!(loaded.date_prefill_mode, Some(DatePrefillMode::Today));
         assert_eq!(loaded.hidden_columns, Some(vec!["time".to_string(), "fuelConsumed".to_string()]));
+        assert_eq!(loaded.ha_url, Some("http://ha.local:8123".to_string()));
+        assert_eq!(loaded.ha_api_token, Some("token123".to_string()));
     }
 
     #[test]
@@ -280,5 +287,42 @@ mod tests {
 
         let loaded = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(loaded.hidden_columns, Some(vec!["time".to_string(), "fuelRemaining".to_string()]));
+    }
+
+    // Home Assistant tests
+    #[test]
+    fn test_ha_settings_default() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert!(settings.ha_url.is_none());
+        assert!(settings.ha_api_token.is_none());
+    }
+
+    #[test]
+    fn test_ha_settings_serialization() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("local.settings.json");
+        let mut file = fs::File::create(&path).unwrap();
+        file.write_all(br#"{"ha_url": "http://homeassistant.local:8123", "ha_api_token": "secret-token"}"#).unwrap();
+
+        let settings = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(settings.ha_url, Some("http://homeassistant.local:8123".to_string()));
+        assert_eq!(settings.ha_api_token, Some("secret-token".to_string()));
+    }
+
+    #[test]
+    fn test_ha_settings_round_trip() {
+        let dir = tempdir().unwrap();
+        let settings = LocalSettings {
+            ha_url: Some("https://my-ha.duckdns.org".to_string()),
+            ha_api_token: Some("my-long-lived-token".to_string()),
+            ..Default::default()
+        };
+
+        settings.save(&dir.path().to_path_buf()).unwrap();
+
+        let loaded = LocalSettings::load(&dir.path().to_path_buf());
+        assert_eq!(loaded.ha_url, Some("https://my-ha.duckdns.org".to_string()));
+        assert_eq!(loaded.ha_api_token, Some("my-long-lived-token".to_string()));
     }
 }

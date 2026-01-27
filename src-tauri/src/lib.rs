@@ -219,6 +219,8 @@ pub fn run() {
       commands::reset_database_location,
       commands::set_gemini_api_key,
       commands::set_receipts_folder_path,
+      commands::get_ha_settings,
+      commands::save_ha_settings,
     ])
     .build(tauri::generate_context!())
     .expect("error while building tauri application")
