@@ -177,12 +177,16 @@ Receipt-to-trip matching supports two paths:
 - Populates `trip.other_costs_eur` and `trip.other_costs_note`
 - Note built from `vendor_name` + `cost_description`
 
-**Assignment Compatibility Check** (`commands.rs:L2609`):
-- Trip has no fuel data → receipt can be attached
-- Fuel receipt → must match trip's fuel fields exactly
-- Other-cost receipt → can attach to any trip
+**Assignment Logic** (`commands.rs:L2652`):
 
-If a fuel receipt does not exactly match trip fuel data, assignment can still proceed as an other-cost attachment when `other_costs_eur` is empty.
+| Trip State | Receipt Type | Result |
+|------------|--------------|--------|
+| No fuel data | Fuel receipt | **Populates** fuel fields (liters, cost, full_tank=true) |
+| Has fuel data | Matching fuel receipt | Links receipt (verification) |
+| Has fuel data | Non-matching fuel receipt | Attaches as other-cost (if empty) |
+| Any | Other-cost receipt | Populates other_costs fields |
+
+A fuel receipt is one with both `liters > 0` and `total_price_eur` set.
 
 ### Receipt Verification
 
@@ -255,3 +259,9 @@ Gemini prompt explicitly distinguishes:
 - Fuel receipts: have liters, station info, fuel type indicators
 - Other costs: have vendor/description, no fuel markers
 - Enables proper trip field population during assignment
+
+## Related
+
+- `_tasks/35-receipt-improvements/` — Receipt UX improvements planning
+- `receipts_tests.rs` — Backend unit tests for folder detection, extraction
+- `commands_tests.rs` — Tests for assignment logic, verification
