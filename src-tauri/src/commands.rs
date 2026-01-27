@@ -189,10 +189,10 @@ pub fn create_vehicle(
         baseline_consumption_kwh,
         initial_battery_percent,
         initial_odometer,
-
         is_active: true,
         vin,
         driver_name,
+        ha_odo_sensor: None, // Set via vehicle edit modal
         created_at: now,
         updated_at: now,
     };
@@ -3686,6 +3686,71 @@ pub fn set_receipts_folder_path(
         None
     } else {
         Some(path)
+    };
+
+    settings.save(&app_data_dir).map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Home Assistant Settings Commands
+// ============================================================================
+
+/// Response for get_ha_settings - hides token for security
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HaSettingsResponse {
+    pub url: Option<String>,
+    pub has_token: bool,
+}
+
+#[tauri::command]
+pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsResponse, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    let settings = LocalSettings::load(&app_data_dir);
+    Ok(HaSettingsResponse {
+        url: settings.ha_url,
+        has_token: settings.ha_api_token.is_some(),
+    })
+}
+
+#[tauri::command]
+pub fn save_ha_settings(
+    app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
+    url: Option<String>,
+    token: Option<String>,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+
+    // Validate URL if provided
+    if let Some(ref url_str) = url {
+        if !url_str.is_empty() {
+            // Must start with http:// or https://
+            if !url_str.starts_with("http://") && !url_str.starts_with("https://") {
+                return Err("URL must start with http:// or https://".to_string());
+            }
+            // Basic URL validation
+            if url::Url::parse(url_str).is_err() {
+                return Err("Invalid URL format".to_string());
+            }
+        }
+    }
+
+    let mut settings = LocalSettings::load(&app_data_dir);
+
+    // Update URL (allow clearing with empty string or None)
+    settings.ha_url = match url {
+        Some(u) if u.is_empty() => None,
+        Some(u) => Some(u),
+        None => None,
+    };
+
+    // Update token (allow clearing with empty string or None)
+    settings.ha_api_token = match token {
+        Some(t) if t.is_empty() => None,
+        Some(t) => Some(t),
+        None => None,
     };
 
     settings.save(&app_data_dir).map_err(|e| e.to_string())

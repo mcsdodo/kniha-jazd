@@ -1160,6 +1160,7 @@ fn test_verify_receipts_filters_by_vehicle() {
         is_active: false,
         vin: None,
         driver_name: None,
+        ha_odo_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -1177,6 +1178,7 @@ fn test_verify_receipts_filters_by_vehicle() {
         is_active: false,
         vin: None,
         driver_name: None,
+        ha_odo_sensor: None,
         created_at: now,
         updated_at: now,
     };

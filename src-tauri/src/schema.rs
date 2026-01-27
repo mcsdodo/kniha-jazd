@@ -93,6 +93,8 @@ diesel::table! {
         updated_at -> Text,
         vin -> Nullable<Text>,
         driver_name -> Nullable<Text>,
+        // Home Assistant ODO sensor (migration 2026-01-27-100000)
+        ha_odo_sensor -> Nullable<Text>,
     }
 }
 

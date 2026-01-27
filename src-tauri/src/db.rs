@@ -169,6 +169,7 @@ impl Database {
             updated_at: &updated_at_str,
             vin: vehicle.vin.as_deref(),
             driver_name: vehicle.driver_name.as_deref(),
+            ha_odo_sensor: vehicle.ha_odo_sensor.as_deref(),
         };
 
         diesel::insert_into(vehicles::table)
@@ -231,6 +232,7 @@ impl Database {
                 vehicles::is_active.eq(if vehicle.is_active { 1 } else { 0 }),
                 vehicles::vin.eq(&vehicle.vin),
                 vehicles::driver_name.eq(&vehicle.driver_name),
+                vehicles::ha_odo_sensor.eq(&vehicle.ha_odo_sensor),
                 vehicles::updated_at.eq(&updated_at_str),
             ))
             .execute(conn)?;
