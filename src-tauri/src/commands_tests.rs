@@ -2521,3 +2521,106 @@ fn test_parse_trip_datetime_invalid_date_format() {
     let error = result.unwrap_err();
     assert!(error.contains("Invalid date format"));
 }
+
+// ========================================================================
+// Home Assistant Settings Tests
+// ========================================================================
+
+#[test]
+fn test_vehicle_with_ha_sensor_persists() {
+    use crate::models::{Vehicle, VehicleType};
+
+    let db = Database::in_memory().unwrap();
+    let now = Utc::now();
+
+    let vehicle = Vehicle {
+        id: Uuid::new_v4(),
+        name: "Test Car".to_string(),
+        license_plate: "HA-001-HA".to_string(),
+        vehicle_type: VehicleType::Ice,
+        tank_size_liters: Some(50.0),
+        tp_consumption: Some(6.0),
+        initial_odometer: 10000.0,
+        battery_capacity_kwh: None,
+        baseline_consumption_kwh: None,
+        initial_battery_percent: None,
+        is_active: true,
+        vin: None,
+        driver_name: None,
+        ha_odo_sensor: Some("sensor.car_odometer".to_string()),
+        created_at: now,
+        updated_at: now,
+    };
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    // Retrieve and verify sensor is persisted
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.ha_odo_sensor, Some("sensor.car_odometer".to_string()));
+}
+
+#[test]
+fn test_vehicle_ha_sensor_update() {
+    use crate::models::{Vehicle, VehicleType};
+
+    let db = Database::in_memory().unwrap();
+    let now = Utc::now();
+
+    let mut vehicle = Vehicle {
+        id: Uuid::new_v4(),
+        name: "Test Car".to_string(),
+        license_plate: "HA-002-HA".to_string(),
+        vehicle_type: VehicleType::Ice,
+        tank_size_liters: Some(50.0),
+        tp_consumption: Some(6.0),
+        initial_odometer: 10000.0,
+        battery_capacity_kwh: None,
+        baseline_consumption_kwh: None,
+        initial_battery_percent: None,
+        is_active: true,
+        vin: None,
+        driver_name: None,
+        ha_odo_sensor: None,
+        created_at: now,
+        updated_at: now,
+    };
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    // Update sensor
+    vehicle.ha_odo_sensor = Some("sensor.new_odometer".to_string());
+    db.update_vehicle(&vehicle).unwrap();
+
+    // Verify update
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.ha_odo_sensor, Some("sensor.new_odometer".to_string()));
+
+    // Clear sensor
+    vehicle.ha_odo_sensor = None;
+    db.update_vehicle(&vehicle).unwrap();
+
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.ha_odo_sensor, None);
+}
+
+#[test]
+fn test_vehicle_ha_sensor_null_by_default() {
+    use crate::models::Vehicle;
+
+    let db = Database::in_memory().unwrap();
+
+    // Create vehicle using constructor (no ha_odo_sensor parameter)
+    let vehicle = Vehicle::new_ice(
+        "Test Car".to_string(),
+        "HA-003-HA".to_string(),
+        50.0,
+        6.0,
+        10000.0,
+    );
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    // Verify sensor is null by default
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.ha_odo_sensor, None);
+}
