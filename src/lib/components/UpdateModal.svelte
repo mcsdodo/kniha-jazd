@@ -205,13 +205,30 @@
 	.release-notes-content {
 		white-space: pre-wrap;
 		word-wrap: break-word;
-		padding: 0.75rem;
+		padding: 0.75rem 1rem;
 		background: var(--bg-secondary);
 		border-radius: 4px;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
+		line-height: 1.5;
 		color: var(--text-secondary);
-		max-height: 250px;
+		max-height: 300px;
 		overflow-y: auto;
+	}
+
+	/* Style version headers within changelog */
+	.release-notes-content :global(h2),
+	.release-notes-content :global(.version-header) {
+		font-size: 0.9375rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		margin: 1rem 0 0.5rem 0;
+		padding-bottom: 0.25rem;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.release-notes-content :global(h2:first-child),
+	.release-notes-content :global(.version-header:first-child) {
+		margin-top: 0;
 	}
 
 	.update-steps {

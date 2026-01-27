@@ -1,8 +1,114 @@
 import { writable } from 'svelte/store';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { getVersion } from '@tauri-apps/api/app';
 
 const DISMISSED_VERSION_KEY = 'kniha-jazd-dismissed-update-version';
+const CHANGELOG_URL = 'https://raw.githubusercontent.com/mcsdodo/kniha-jazd/main/CHANGELOG.md';
+
+// Parse version string to comparable array [major, minor, patch]
+function parseVersion(version: string): number[] {
+	return version.replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+}
+
+// Compare versions: returns -1 if a < b, 0 if equal, 1 if a > b
+function compareVersions(a: string, b: string): number {
+	const va = parseVersion(a);
+	const vb = parseVersion(b);
+	for (let i = 0; i < 3; i++) {
+		if (va[i] < vb[i]) return -1;
+		if (va[i] > vb[i]) return 1;
+	}
+	return 0;
+}
+
+// Extract changelog entries between two versions (exclusive of current, inclusive of target)
+function extractChangelogBetweenVersions(
+	changelog: string,
+	currentVersion: string,
+	targetVersion: string
+): string {
+	const lines = changelog.split('\n');
+	const result: string[] = [];
+	let capturing = false;
+	let currentSection: string[] = [];
+	let sectionVersion = '';
+
+	// Normalize versions (remove 'v' prefix if present)
+	const current = currentVersion.replace(/^v/, '');
+	const target = targetVersion.replace(/^v/, '');
+
+	for (const line of lines) {
+		// Match version headers like "## [0.26.1] - 2026-01-27" or "## [Unreleased]"
+		const versionMatch = line.match(/^## \[([^\]]+)\]/);
+
+		if (versionMatch) {
+			// Save previous section if it was in range
+			if (capturing && currentSection.length > 0) {
+				result.push(...currentSection);
+				result.push(''); // Add empty line between sections
+			}
+
+			const version = versionMatch[1];
+
+			// Skip [Unreleased] section
+			if (version === 'Unreleased') {
+				capturing = false;
+				currentSection = [];
+				continue;
+			}
+
+			// Check if this version is in our range (> current AND <= target)
+			const cmpToCurrent = compareVersions(version, current);
+			const cmpToTarget = compareVersions(version, target);
+
+			if (cmpToCurrent > 0 && cmpToTarget <= 0) {
+				// This version is newer than current and not newer than target
+				capturing = true;
+				currentSection = [line]; // Start new section with header
+				sectionVersion = version;
+			} else {
+				// Outside our range
+				if (capturing && currentSection.length > 0) {
+					result.push(...currentSection);
+				}
+				capturing = false;
+				currentSection = [];
+			}
+		} else if (capturing) {
+			currentSection.push(line);
+		}
+	}
+
+	// Don't forget the last section
+	if (capturing && currentSection.length > 0) {
+		result.push(...currentSection);
+	}
+
+	return result.join('\n').trim();
+}
+
+// Fetch and parse aggregated changelog from GitHub
+async function fetchAggregatedChangelog(targetVersion: string): Promise<string | null> {
+	try {
+		const currentVersion = await getVersion();
+
+		// Fetch CHANGELOG.md from GitHub
+		const response = await fetch(CHANGELOG_URL);
+		if (!response.ok) {
+			console.warn('Failed to fetch changelog:', response.status);
+			return null;
+		}
+
+		const changelog = await response.text();
+		const aggregated = extractChangelogBetweenVersions(changelog, currentVersion, targetVersion);
+
+		return aggregated || null;
+	} catch (err) {
+		console.warn('Failed to fetch aggregated changelog:', err);
+		return null;
+	}
+}
 
 type BackupStep = 'pending' | 'in-progress' | 'done' | 'failed' | 'skipped';
 
@@ -66,11 +172,16 @@ function createUpdateStore() {
 				// Check if this version was previously dismissed (only for automatic checks)
 				const dismissedVersion = getDismissedVersion();
 				const isDismissed = respectDismissed && dismissedVersion === result.version;
+
+				// Fetch aggregated changelog (all versions between current and target)
+				const aggregatedChangelog = await fetchAggregatedChangelog(result.version);
+
 				updateState((state) => ({
 					...state,
 					available: true,
 					version: result.version,
-					releaseNotes: result.body || null,
+					// Use aggregated changelog if available, otherwise fall back to release body
+					releaseNotes: aggregatedChangelog || result.body || null,
 					checking: false,
 					dismissed: isDismissed
 				}));
@@ -111,12 +222,16 @@ function createUpdateStore() {
 				const result = await check({ timeout: 5000 });
 				if (result?.available) {
 					updateObject = result;
+
+					// Fetch aggregated changelog (all versions between current and target)
+					const aggregatedChangelog = await fetchAggregatedChangelog(result.version);
+
 					// Auto-dismiss but still mark as available (for dot indicator)
 					updateState((state) => ({
 						...state,
 						available: true,
 						version: result.version,
-						releaseNotes: result.body || null,
+						releaseNotes: aggregatedChangelog || result.body || null,
 						checking: false,
 						dismissed: true  // Always dismissed in silent mode
 					}));
