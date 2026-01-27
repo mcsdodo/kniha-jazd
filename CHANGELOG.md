@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-01-27
+
 ### Pridané
 - **Čas odchodu v záznamoch jázd** - nový stĺpec "Čas" vedľa dátumu
   - Voliteľný čas odchodu vo formáte HH:MM
