@@ -18,6 +18,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Nastavenie sa ukladá a zachováva po reštarte
   - Export vždy obsahuje všetky stĺpce bez ohľadu na viditeľnosť
 
+### Opravené
+- **Šírky stĺpcov pri skrytí** - stĺpce si zachovávajú správne šírky aj keď sú niektoré skryté
+
 ## [0.24.0] - 2026-01-26
 
 ### Pridané
