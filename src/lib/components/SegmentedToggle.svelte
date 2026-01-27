@@ -31,11 +31,11 @@
 <style>
 	.segmented-toggle {
 		display: inline-flex;
-		border-radius: 6px;
-		background: var(--bg-surface-alt);
-		border: 1px solid var(--border-default);
-		padding: 2px;
-		gap: 2px;
+		border-radius: 4px;
+		background: transparent;
+		border: none;
+		padding: 0;
+		gap: 0;
 	}
 
 	.toggle-option {
@@ -45,19 +45,32 @@
 		font-family: inherit;
 		font-weight: 500;
 		color: var(--text-secondary);
-		border-radius: 4px;
+		border-radius: 0;
 		transition: all 0.15s ease;
+		border: 1px solid var(--border-default);
+		margin-left: -1px;
+	}
+
+	.toggle-option:first-child {
+		border-radius: 4px 0 0 4px;
+		margin-left: 0;
+	}
+
+	.toggle-option:last-child {
+		border-radius: 0 4px 4px 0;
 	}
 
 	.toggle-option:hover:not(.active) {
-		background: var(--bg-surface);
+		background: var(--bg-surface-alt);
 		color: var(--text-primary);
 	}
 
 	.toggle-option.active {
-		background: var(--accent-primary);
-		color: white;
-		box-shadow: 0 1px 2px var(--shadow-default);
+		background: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
+		border-color: var(--btn-active-primary-bg);
+		z-index: 1;
+		position: relative;
 	}
 
 	/* Size variants */
@@ -67,7 +80,7 @@
 	}
 
 	.size-small .toggle-option {
-		padding: 0.5rem 0.75rem;
-		font-size: 0.8125rem;
+		padding: 0.625rem 1rem;
+		font-size: 0.875rem;
 	}
 </style>
