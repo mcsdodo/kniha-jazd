@@ -549,6 +549,11 @@ const sk = {
 		sensorHint: 'Entity ID senzora odometra z Home Assistant',
 		notConfigured: 'Home Assistant nie je nakonfigurovaný',
 		configureFirst: 'Najprv nastavte URL a token v Nastaveniach',
+		// Connection status
+		testing: 'Testujem...',
+		connected: 'Pripojené',
+		disconnected: 'Nepripojené',
+		connectionError: 'Chyba pripojenia',
 		// Header display
 		realOdo: 'Real ODO',
 		delta: 'od posl. jazdy',

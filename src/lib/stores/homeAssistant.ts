@@ -1,10 +1,11 @@
 /**
  * Home Assistant ODO store with caching and periodic refresh.
+ * Uses Rust backend for API calls to avoid CORS issues.
  */
 
 import { writable, get } from 'svelte/store';
 import type { HaOdoCache } from '$lib/types';
-import { fetchOdometer, HaAuthError, HaSensorNotFoundError, HaTimeoutError } from '$lib/services/homeAssistant';
+import { fetchHaOdo } from '$lib/api';
 
 const CACHE_KEY = 'kniha-jazd-ha-odo-cache';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -25,8 +26,6 @@ function createHaStore() {
 	let refreshInterval: ReturnType<typeof setInterval> | null = null;
 	let currentVehicleId: string | null = null;
 	let currentSensorId: string | null = null;
-	let currentUrl: string | null = null;
-	let currentToken: string | null = null;
 
 	// Load cache from localStorage
 	function loadCache(): Map<string, HaOdoCache> {
@@ -75,18 +74,20 @@ function createHaStore() {
 		},
 
 		/**
-		 * Fetch ODO from Home Assistant and update cache.
+		 * Fetch ODO from Home Assistant via Rust backend and update cache.
 		 */
-		async fetchOdo(
-			vehicleId: string,
-			url: string,
-			token: string,
-			sensorId: string
-		): Promise<number | null> {
+		async fetchOdo(vehicleId: string, sensorId: string): Promise<number | null> {
 			update((s) => ({ ...s, loading: true, error: null }));
 
 			try {
-				const value = await fetchOdometer(url, token, sensorId);
+				// Use Rust backend to avoid CORS issues
+				const value = await fetchHaOdo(sensorId);
+
+				if (value === null) {
+					update((s) => ({ ...s, loading: false, error: 'Sensor unavailable' }));
+					return null;
+				}
+
 				const cacheEntry: HaOdoCache = {
 					value,
 					fetchedAt: Date.now()
@@ -101,18 +102,7 @@ function createHaStore() {
 
 				return value;
 			} catch (error) {
-				let errorMsg = 'Unknown error';
-
-				if (error instanceof HaTimeoutError) {
-					errorMsg = 'Connection timed out';
-				} else if (error instanceof HaAuthError) {
-					errorMsg = 'Invalid API token';
-				} else if (error instanceof HaSensorNotFoundError) {
-					errorMsg = 'Sensor not found';
-				} else if (error instanceof Error) {
-					errorMsg = error.message;
-				}
-
+				const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 				update((s) => ({ ...s, loading: false, error: errorMsg }));
 				return null;
 			}
@@ -121,27 +111,20 @@ function createHaStore() {
 		/**
 		 * Start periodic refresh for a vehicle.
 		 */
-		startPeriodicRefresh(
-			vehicleId: string,
-			url: string,
-			token: string,
-			sensorId: string
-		) {
+		startPeriodicRefresh(vehicleId: string, sensorId: string) {
 			// Stop any existing refresh
 			this.stopPeriodicRefresh();
 
 			currentVehicleId = vehicleId;
-			currentUrl = url;
-			currentToken = token;
 			currentSensorId = sensorId;
 
 			// Fetch immediately
-			this.fetchOdo(vehicleId, url, token, sensorId);
+			this.fetchOdo(vehicleId, sensorId);
 
 			// Then refresh every 5 minutes
 			refreshInterval = setInterval(() => {
-				if (currentVehicleId && currentUrl && currentToken && currentSensorId) {
-					this.fetchOdo(currentVehicleId, currentUrl, currentToken, currentSensorId);
+				if (currentVehicleId && currentSensorId) {
+					this.fetchOdo(currentVehicleId, currentSensorId);
 				}
 			}, REFRESH_INTERVAL_MS);
 		},
@@ -155,8 +138,6 @@ function createHaStore() {
 				refreshInterval = null;
 			}
 			currentVehicleId = null;
-			currentUrl = null;
-			currentToken = null;
 			currentSensorId = null;
 		},
 

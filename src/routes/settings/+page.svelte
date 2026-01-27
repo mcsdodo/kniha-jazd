@@ -15,7 +15,7 @@
 	import { updateStore } from '$lib/stores/update';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, type DbLocationInfo, type MoveDbResult } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, type DbLocationInfo, type MoveDbResult } from '$lib/api';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
@@ -69,6 +69,18 @@
 	let haUrlError = '';
 	let initialHaUrl = '';
 	let initialHaApiToken = '';
+	// Connection status
+	const HA_STATUS = {
+		IDLE: 'idle',
+		TESTING: 'testing',
+		CONNECTED: 'connected',
+		DISCONNECTED: 'disconnected'
+	} as const;
+	type HaStatus = typeof HA_STATUS[keyof typeof HA_STATUS];
+	let haConnectionStatus: HaStatus = HA_STATUS.IDLE;
+
+	// Real ODO values from HA (keyed by vehicle ID)
+	let vehicleOdoValues: Map<string, number> = new Map();
 
 	// Debounce utility for auto-save
 	function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
@@ -144,6 +156,51 @@
 		}
 	}
 
+	// Test HA connection using stored credentials (via Rust to avoid CORS)
+	async function testHaConnectionStatus() {
+		// Need both URL and token to test
+		if (!haUrl || (!haApiToken && !haHasToken)) {
+			haConnectionStatus = HA_STATUS.IDLE;
+			return;
+		}
+
+		haConnectionStatus = HA_STATUS.TESTING;
+		try {
+			// Call Rust backend - it has the stored credentials and no CORS issues
+			const isConnected = await testHaConnection();
+			haConnectionStatus = isConnected ? HA_STATUS.CONNECTED : HA_STATUS.DISCONNECTED;
+
+			// If connected, fetch ODO values for all vehicles with sensors
+			if (isConnected) {
+				await fetchAllVehicleOdoValues();
+			}
+		} catch (error) {
+			console.error('[HA] Connection test failed:', error);
+			haConnectionStatus = HA_STATUS.DISCONNECTED;
+		}
+	}
+
+	// Fetch ODO values for all vehicles that have HA sensors configured
+	async function fetchAllVehicleOdoValues() {
+		const vehicles = $vehiclesStore;
+		const newValues = new Map<string, number>();
+
+		for (const vehicle of vehicles) {
+			if (vehicle.haOdoSensor) {
+				try {
+					const odo = await fetchHaOdo(vehicle.haOdoSensor);
+					if (odo !== null) {
+						newValues.set(vehicle.id, odo);
+					}
+				} catch (error) {
+					console.error(`[HA] Failed to fetch ODO for ${vehicle.name}:`, error);
+				}
+			}
+		}
+
+		vehicleOdoValues = newValues;
+	}
+
 	async function saveHaSettingsNow() {
 		// Only save if values actually changed
 		if (haUrl === initialHaUrl && haApiToken === initialHaApiToken) {
@@ -159,6 +216,8 @@
 			initialHaApiToken = haApiToken;
 			haHasToken = !!haApiToken;
 			toast.success($LL.toast.settingsSaved());
+			// Test connection after save
+			await testHaConnectionStatus();
 		} catch (error) {
 			console.error('Failed to save HA settings:', error);
 			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
@@ -363,6 +422,8 @@
 				haHasToken = haSettings.hasToken;
 				initialHaUrl = haSettings.url || '';
 				// Token is not exposed via API, only hasToken boolean
+				// Test connection if configured
+				await testHaConnectionStatus();
 			}
 		})();
 
@@ -853,6 +914,22 @@
 						{/if}
 					</small>
 				</div>
+
+				<!-- Connection Status -->
+				{#if haConnectionStatus !== HA_STATUS.IDLE}
+					<div class="ha-status" class:connected={haConnectionStatus === HA_STATUS.CONNECTED} class:disconnected={haConnectionStatus === HA_STATUS.DISCONNECTED} class:testing={haConnectionStatus === HA_STATUS.TESTING}>
+						{#if haConnectionStatus === HA_STATUS.TESTING}
+							<span class="status-icon">⏳</span>
+							<span>{$LL.homeAssistant.testing()}</span>
+						{:else if haConnectionStatus === HA_STATUS.CONNECTED}
+							<span class="status-icon">✓</span>
+							<span>{$LL.homeAssistant.connected()}</span>
+						{:else}
+							<span class="status-icon">✗</span>
+							<span>{$LL.homeAssistant.disconnected()}</span>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</section>
 
@@ -957,6 +1034,11 @@
 									<span class="badge type-{vehicle.vehicleType.toLowerCase()}">{vehicle.vehicleType}</span>
 									{#if vehicle.isActive}
 										<span class="badge active">{$LL.vehicle.active()}</span>
+									{/if}
+									{#if vehicleOdoValues.has(vehicle.id)}
+										<span class="badge ha-odo" title="Home Assistant ODO">
+											🚗 {vehicleOdoValues.get(vehicle.id)?.toLocaleString('sk-SK')} km
+										</span>
 									{/if}
 								</div>
 								<div class="vehicle-actions">
@@ -1282,6 +1364,12 @@
 	.badge.active {
 		background-color: var(--btn-primary-light-bg);
 		color: var(--btn-primary-light-color);
+	}
+
+	.badge.ha-odo {
+		background-color: var(--color-success-bg, #dcfce7);
+		color: var(--color-success, #16a34a);
+		font-weight: 600;
 	}
 
 	.badge.type-ice {
@@ -1816,5 +1904,36 @@
 	.error-text {
 		color: var(--color-error, #dc2626);
 		font-size: 0.85rem;
+	}
+
+	/* Home Assistant connection status */
+	.ha-status {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		margin-top: 0.5rem;
+	}
+
+	.ha-status.testing {
+		background: var(--bg-surface-alt, #f5f5f5);
+		color: var(--text-secondary);
+	}
+
+	.ha-status.connected {
+		background: var(--color-success-bg, #dcfce7);
+		color: var(--color-success, #16a34a);
+	}
+
+	.ha-status.disconnected {
+		background: var(--color-error-bg, #fee2e2);
+		color: var(--color-error, #dc2626);
+	}
+
+	.ha-status .status-icon {
+		font-size: 1rem;
 	}
 </style>
