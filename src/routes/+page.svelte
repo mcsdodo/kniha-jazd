@@ -230,6 +230,10 @@
 						<span class="value">{stats.totalFuelLiters.toFixed(1)} L / {stats.totalFuelCostEur.toFixed(2)} €</span>
 					</div>
 					<div class="info-item">
+						<span class="label">{$LL.stats.remaining()}</span>
+						<span class="value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
+					</div>
+					<div class="info-item">
 						<span class="label">{$LL.stats.consumption()}</span>
 						<span class="value">{stats.avgConsumptionRate.toFixed(2)} L/100km</span>
 					</div>
@@ -239,10 +243,6 @@
 							<span class="value">{stats.marginPercent.toFixed(1)}%</span>
 						</div>
 					{/if}
-					<div class="info-item">
-						<span class="label">{$LL.stats.remaining()}</span>
-						<span class="value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
-					</div>
 					{#if haOdoCache}
 						<div class="info-item ha-odo" class:warning={haOdoWarning}>
 							<span class="label">{$LL.homeAssistant.realOdo()}</span>
