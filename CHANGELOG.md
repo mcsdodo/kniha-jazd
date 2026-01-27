@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-01-27
+
 ### Pridané
 - **Home Assistant integrácia** - zobrazenie reálneho stavu ODO z Home Assistant v hlavičke
   - Nastavenie HA servera a API tokenu v Nastaveniach → Home Assistant
