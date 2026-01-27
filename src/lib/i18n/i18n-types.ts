@@ -1784,7 +1784,23 @@ type RootTranslation = {
 		 */
 		configureFirst: string
 		/**
-		 * R​e​a​l​ ​O​D​O
+		 * T​e​s​t​u​j​e​m​.​.​.
+		 */
+		testing: string
+		/**
+		 * P​r​i​p​o​j​e​n​é
+		 */
+		connected: string
+		/**
+		 * N​e​p​r​i​p​o​j​e​n​é
+		 */
+		disconnected: string
+		/**
+		 * C​h​y​b​a​ ​p​r​i​p​o​j​e​n​i​a
+		 */
+		connectionError: string
+		/**
+		 * R​e​á​l​n​e​ ​O​D​O
 		 */
 		realOdo: string
 		/**
@@ -3650,7 +3666,23 @@ export type TranslationFunctions = {
 		 */
 		configureFirst: () => LocalizedString
 		/**
-		 * Real ODO
+		 * Testujem...
+		 */
+		testing: () => LocalizedString
+		/**
+		 * Pripojené
+		 */
+		connected: () => LocalizedString
+		/**
+		 * Nepripojené
+		 */
+		disconnected: () => LocalizedString
+		/**
+		 * Chyba pripojenia
+		 */
+		connectionError: () => LocalizedString
+		/**
+		 * Reálne ODO
 		 */
 		realOdo: () => LocalizedString
 		/**
