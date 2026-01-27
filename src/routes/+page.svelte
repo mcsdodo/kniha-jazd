@@ -49,10 +49,10 @@
 		haStore.stopPeriodicRefresh();
 	}
 
-	// Calculate delta from real ODO vs last trip
+	// Calculate delta from real ODO vs highest logged ODO
 	$: haOdoCache = $activeVehicleStore ? $haStore.cache.get($activeVehicleStore.id) : null;
-	$: lastTripOdo = trips.length > 0 ? trips[trips.length - 1].odometer : null;
-	$: haOdoDelta = haOdoCache && lastTripOdo !== null ? haOdoCache.value - lastTripOdo : null;
+	$: maxLoggedOdo = trips.length > 0 ? Math.max(...trips.map(t => t.odometer)) : null;
+	$: haOdoDelta = haOdoCache && maxLoggedOdo !== null ? haOdoCache.value - maxLoggedOdo : null;
 	$: haOdoWarning = haOdoDelta !== null && haOdoDelta >= 50;
 
 	// Format staleness (time since fetch)
@@ -186,95 +186,83 @@
 						{exporting ? $LL.home.exporting() : $LL.home.exportForPrint()}
 					</button>
 				</div>
-				{#if stats}
-					<div class="stats-container">
-						<div class="stats-row">
-							<span class="stat">
-								<span class="stat-label">{$LL.stats.totalDriven()}:</span>
-								<span class="stat-value">{stats.totalKm.toLocaleString('sk-SK')} km</span>
-							</span>
-							<span class="stat">
-								<span class="stat-label">{$LL.stats.fuel()}:</span>
-								<span class="stat-value">{stats.totalFuelLiters.toFixed(1)} L / {stats.totalFuelCostEur.toFixed(2)} €</span>
-							</span>
-						</div>
-						<div class="stats-row">
-							<span class="stat">
-								<span class="stat-label">{$LL.stats.consumption()}:</span>
-								<span class="stat-value">{stats.avgConsumptionRate.toFixed(2)} L/100km</span>
-							</span>
-							{#if stats.marginPercent !== null}
-								<span class="stat" class:warning={stats.isOverLimit}>
-									<span class="stat-label">{$LL.stats.deviation()}:</span>
-									<span class="stat-value">{stats.marginPercent.toFixed(1)}%</span>
-								</span>
-							{/if}
-							<span class="stat">
-								<span class="stat-label">{$LL.stats.remaining()}:</span>
-								<span class="stat-value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
-							</span>
-						</div>
-						{#if haOdoCache}
-							<div class="stats-row ha-odo-row">
-								<span class="stat ha-odo" class:warning={haOdoWarning}>
-									<span class="stat-label">{$LL.homeAssistant.realOdo()}:</span>
-									<span class="stat-value">
-										{haOdoCache.value.toLocaleString('sk-SK')} km
-										{#if haOdoDelta !== null}
-											<span class="delta" class:warning={haOdoWarning}>
-												(+{haOdoDelta.toFixed(0)} km {$LL.homeAssistant.delta()})
-											</span>
-										{/if}
-										<span class="staleness" title={new Date(haOdoCache.fetchedAt).toLocaleString()}>
-											{formatStaleness(haOdoCache.fetchedAt)} {$LL.homeAssistant.stale()}
-										</span>
-									</span>
-								</span>
-								{#if $haStore.loading}
-									<span class="ha-loading">{$LL.homeAssistant.loading()}</span>
-								{/if}
-							</div>
-						{:else if $haStore.error && $activeVehicleStore?.haOdoSensor}
-							<div class="stats-row ha-odo-row">
-								<span class="stat ha-error">
-									<span class="stat-label">{$LL.homeAssistant.realOdo()}:</span>
-									<span class="stat-value error">{$LL.homeAssistant.fetchError()}</span>
-								</span>
-							</div>
-						{/if}
-					</div>
-				{/if}
 			</div>
+			<!-- Row 1: Static vehicle info -->
 			<div class="info-grid">
 				<div class="info-item">
-					<span class="label">{$LL.vehicle.name()}:</span>
+					<span class="label">{$LL.vehicle.name()}</span>
 					<span class="value">{$activeVehicleStore.name}</span>
 				</div>
 				<div class="info-item">
-					<span class="label">{$LL.vehicle.licensePlate()}:</span>
+					<span class="label">{$LL.vehicle.licensePlate()}</span>
 					<span class="value">{$activeVehicleStore.licensePlate}</span>
 				</div>
 				<div class="info-item">
-					<span class="label">{$LL.vehicle.tankSize()}:</span>
+					<span class="label">{$LL.vehicle.tankSize()}</span>
 					<span class="value">{$activeVehicleStore.tankSizeLiters} L</span>
 				</div>
 				<div class="info-item">
-					<span class="label">{$LL.vehicle.tpConsumption()}:</span>
+					<span class="label">{$LL.vehicle.tpConsumption()}</span>
 					<span class="value">{$activeVehicleStore.tpConsumption} L/100km</span>
 				</div>
 				{#if $activeVehicleStore.vin}
 				<div class="info-item">
-					<span class="label">VIN:</span>
+					<span class="label">VIN</span>
 					<span class="value">{$activeVehicleStore.vin}</span>
 				</div>
 				{/if}
 				{#if $activeVehicleStore.driverName}
 				<div class="info-item">
-					<span class="label">{$LL.vehicleModal.driverLabel()}:</span>
+					<span class="label">{$LL.vehicleModal.driverLabel()}</span>
 					<span class="value">{$activeVehicleStore.driverName}</span>
 				</div>
 				{/if}
 			</div>
+			<!-- Row 2: Dynamic stats -->
+			{#if stats}
+				<div class="info-grid stats-grid">
+					<div class="info-item">
+						<span class="label">{$LL.stats.totalDriven()}</span>
+						<span class="value">{stats.totalKm.toLocaleString('sk-SK')} km</span>
+					</div>
+					<div class="info-item">
+						<span class="label">{$LL.stats.fuel()}</span>
+						<span class="value">{stats.totalFuelLiters.toFixed(1)} L / {stats.totalFuelCostEur.toFixed(2)} €</span>
+					</div>
+					<div class="info-item">
+						<span class="label">{$LL.stats.consumption()}</span>
+						<span class="value">{stats.avgConsumptionRate.toFixed(2)} L/100km</span>
+					</div>
+					{#if stats.marginPercent !== null}
+						<div class="info-item" class:warning={stats.isOverLimit}>
+							<span class="label">{$LL.stats.deviation()}</span>
+							<span class="value">{stats.marginPercent.toFixed(1)}%</span>
+						</div>
+					{/if}
+					<div class="info-item">
+						<span class="label">{$LL.stats.remaining()}</span>
+						<span class="value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
+					</div>
+					{#if haOdoCache}
+						<div class="info-item ha-odo" class:warning={haOdoWarning}>
+							<span class="label">{$LL.homeAssistant.realOdo()}</span>
+							<span class="value">
+								{haOdoCache.value.toLocaleString('sk-SK')} km
+								{#if haOdoDelta !== null}
+									<span class="delta" class:warning={haOdoWarning}>
+										(+{haOdoDelta.toFixed(0)} km)
+									</span>
+								{/if}
+							</span>
+						</div>
+					{:else if $haStore.error && $activeVehicleStore?.haOdoSensor}
+						<div class="info-item ha-error">
+							<span class="label">{$LL.homeAssistant.realOdo()}</span>
+							<span class="value error">{$LL.homeAssistant.fetchError()}</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		{#if stats?.isOverLimit && stats.marginPercent !== null}
@@ -436,12 +424,36 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 		gap: 1rem;
+		padding: 0.75rem 0;
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	.info-grid.stats-grid {
+		border-bottom: none;
+		padding-bottom: 0;
 	}
 
 	.info-item {
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+	}
+
+	.info-item.warning .value {
+		color: var(--accent-warning);
+	}
+
+	.info-item.ha-odo .delta {
+		font-size: 0.85em;
+		color: var(--text-secondary);
+	}
+
+	.info-item.ha-odo .delta.warning {
+		color: var(--accent-warning);
+	}
+
+	.info-item.ha-error .value {
+		color: var(--color-error, #dc2626);
 	}
 
 	.label {

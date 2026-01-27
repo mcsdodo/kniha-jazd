@@ -555,7 +555,7 @@ const sk = {
 		disconnected: 'Nepripojené',
 		connectionError: 'Chyba pripojenia',
 		// Header display
-		realOdo: 'Real ODO',
+		realOdo: 'Reálne ODO',
 		delta: 'od posl. jazdy',
 		stale: 'pred',
 		fetchError: 'Chyba pripojenia k HA',
