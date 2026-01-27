@@ -7,15 +7,25 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
-### Pridane
+### Pridané
 - **Home Assistant integrácia** - zobrazenie reálneho stavu ODO z Home Assistant v hlavičke
   - Nastavenie HA servera a API tokenu v Nastaveniach → Home Assistant
+  - Indikátor stavu pripojenia (Pripojené/Nepripojené)
   - Pre každé vozidlo možnosť nastaviť entity ID senzora odometra
-  - Zobrazenie aktuálneho ODO z HA v štatistikách
-  - Delta od poslednej zaznamenanej jazdy (+X km od poslednej jazdy)
+  - Zobrazenie aktuálneho ODO z HA v štatistikách vozidla
+  - Delta od poslednej zaznamenanej jazdy (+X km)
   - Varovanie ak delta >= 50 km (potenciálne zabudnuté jazdy)
-  - Indikátor starosti dát (5m, 2h, atď.)
+  - Zobrazenie reálneho ODO aj v zozname vozidiel v Nastaveniach
   - Cache s automatickou obnovou každých 5 minút
+
+### Zmenené
+- **Vylepšený vzhľad hlavičky vozidla** - jednotný štýl "názov hore, hodnota dole"
+  - Statické info vozidla (názov, ŠPZ, nádrž) ako prvý riadok
+  - Dynamické štatistiky (km, PHM, spotreba) ako druhý riadok
+  - Reálne ODO z Home Assistant zahrnuté v štatistikách
+
+### Opravené
+- **Priraďovanie dokladov** - tankovací doklad priradený k jazde bez PHM teraz správne vyplní polia paliva (nie "iné náklady")
 
 ## [0.25.0] - 2026-01-27
 
