@@ -202,7 +202,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
                 .unwrap_or(0.0);
             let fuel_liters = trip
                 .fuel_liters
-                .map(|f| format!("{:.1}", f))
+                .map(|f| format!("{:.2}", f))
                 .unwrap_or_default();
             let fuel_cost = trip
                 .fuel_cost_eur
