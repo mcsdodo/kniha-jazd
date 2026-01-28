@@ -2111,6 +2111,7 @@ pub async fn export_to_browser(
     sort_column: String,
     sort_direction: String,
     labels: ExportLabels,
+    hidden_columns: Vec<String>,
 ) -> Result<(), String> {
     // Get vehicle
     let vehicle = db
@@ -2244,6 +2245,7 @@ pub async fn export_to_browser(
         year,
         totals,
         labels,
+        hidden_columns,
     };
 
     let html = generate_html(export_data)?;
@@ -2351,7 +2353,7 @@ pub async fn export_html(
     // Calculate totals for footer
     let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
 
-    // Generate HTML
+    // Generate HTML (export_html API doesn't support hidden columns, show all)
     let export_data = ExportData {
         vehicle,
         settings,
@@ -2359,6 +2361,7 @@ pub async fn export_html(
         year,
         totals,
         labels,
+        hidden_columns: Vec::new(),
     };
 
     generate_html(export_data)

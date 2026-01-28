@@ -282,3 +282,77 @@ _None_
    - Added 15th column for Actions
 
 4. **Time column testid (TripGrid.svelte)** — Added `data-testid="column-header-time"` to time column header
+
+---
+
+# Code Review: Export Column Filtering
+
+**Target:** Export functionality changes (uncommitted)
+**Reference:** User request to export only visible columns (change from original plan which exported all columns)
+**Started:** 2026-01-28
+**Status:** Complete
+**Focus:** Quality, correctness, best practices
+
+**Baseline Test Status:** All 227 tests passing
+
+## Iteration 1
+
+### New Findings
+
+#### Critical
+1. [x] **Stale hidden columns state** - `+page.svelte:30`
+   - The `hiddenColumns` was loaded only once at mount time, but TripGrid manages its own copy
+   - When user toggles column visibility, the export used the stale initial value (empty array = all columns visible)
+   - **User reported:** "i've hidden time, shows on export"
+   - **Root cause:** State not synchronized between TripGrid (which updates it) and +page.svelte (which exports it)
+   - **Fixed:** Removed caching, now fetches `getHiddenColumns()` fresh in `handleExport()` right before export
+
+#### Important
+None found.
+
+#### Minor
+None found.
+
+### Test Gaps
+- Integration test for "hide column → export → verify column not in HTML" would be valuable but not blocking
+
+### Coverage Assessment
+- ✅ Backend Rust code reviewed (commands.rs, export.rs)
+- ✅ Frontend TypeScript code reviewed (api.ts, +page.svelte)
+- ✅ Data flow from UI → API → Backend → HTML output verified
+
+## Review Summary
+
+**Status:** Complete (Critical finding fixed)
+**Iterations:** 1
+**Total Findings:** 1 Critical (fixed)
+**Test Status:** All 227 backend tests pass, TypeScript compiles with 0 errors
+
+### All Findings (Consolidated)
+
+#### Critical
+1. [x] Stale hidden columns state - `+page.svelte` - Fixed by fetching fresh at export time
+
+### Recommendation
+Ready to commit and test manually.
+
+## Resolution
+
+**Date:** 2026-01-28
+**Addressed:** 1 critical finding
+**Skipped:** 0
+**Test Status:** All 227 backend tests passing, TypeScript 0 errors
+**Status:** Complete
+
+### Applied Fixes
+- Removed cached `hiddenColumns` state variable from `+page.svelte`
+- Changed `handleExport()` to fetch `getHiddenColumns()` fresh before each export
+- This ensures the export always reflects the user's current column visibility settings
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/routes/+page.svelte` | Removed cached state, fetch fresh in handleExport() |
+| `src/lib/api.ts` | Added `hiddenColumns` parameter to `openExportPreview()` |
+| `src-tauri/src/commands.rs` | Added `hidden_columns` parameter to `export_to_browser` command |
+| `src-tauri/src/export.rs` | Added `hidden_columns` to `ExportData`, conditional column rendering |

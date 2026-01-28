@@ -3,7 +3,7 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats, openExportPreview, testHaConnection } from '$lib/api';
+	import { getTripsForYear, calculateTripStats, openExportPreview, testHaConnection, getHiddenColumns } from '$lib/api';
 	import type { Trip, TripStats, ExportLabels } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -110,6 +110,9 @@
 		try {
 			exporting = true;
 
+			// Fetch latest hidden columns (may have changed since page load)
+			const currentHiddenColumns = await getHiddenColumns();
+
 			// Build export labels from translations
 			const labels: ExportLabels = {
 				lang: $locale,
@@ -165,7 +168,8 @@
 				$activeVehicleStore.licensePlate,
 				sortColumn,
 				sortDirection,
-				labels
+				labels,
+				currentHiddenColumns
 			);
 		} catch (error) {
 			console.error('Export failed:', error);
