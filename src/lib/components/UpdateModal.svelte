@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { LL } from '$lib/i18n/i18n-svelte';
+	import { Marked } from 'marked';
+	import { openPath } from '@tauri-apps/plugin-opener';
+
+	// Configure marked for synchronous parsing
+	const marked = new Marked({ async: false });
 
 	type BackupStep = 'pending' | 'in-progress' | 'done' | 'failed' | 'skipped';
 
@@ -15,6 +20,27 @@
 
 	$: isUpdating = backupStep !== 'pending' || downloading;
 	$: showBackupFailed = backupStep === 'failed';
+
+	// Convert version headers to GitHub release links
+	// ## [0.26.1] - 2026-01-27 → ## [0.26.1](https://github.com/.../releases/tag/v0.26.1) - 2026-01-27
+	function linkifyVersions(text: string): string {
+		return text.replace(
+			/^## \[(\d+\.\d+\.\d+)\]/gm,
+			'## [$1](https://github.com/mcsdodo/kniha-jazd/releases/tag/v$1)'
+		);
+	}
+
+	$: releaseNotesHtml = releaseNotes ? (marked.parse(linkifyVersions(releaseNotes)) as string) : '';
+
+	// Open links in external browser instead of within Tauri webview
+	function handleLinkClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		const anchor = target.closest('a');
+		if (anchor?.href) {
+			e.preventDefault();
+			openPath(anchor.href);
+		}
+	}
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && !isUpdating) {
@@ -46,8 +72,9 @@
 			{#if releaseNotes && !isUpdating}
 				<div class="release-notes-section">
 					<h3>{$LL.update.releaseNotes()}</h3>
-					<div class="release-notes-content">
-						{releaseNotes}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+					<div class="release-notes-content" on:click={handleLinkClick}>
+						{@html releaseNotesHtml}
 					</div>
 				</div>
 			{/if}
@@ -203,8 +230,6 @@
 	}
 
 	.release-notes-content {
-		white-space: pre-wrap;
-		word-wrap: break-word;
 		padding: 0.75rem 1rem;
 		background: var(--bg-secondary);
 		border-radius: 4px;
@@ -215,20 +240,65 @@
 		overflow-y: auto;
 	}
 
-	/* Style version headers within changelog */
-	.release-notes-content :global(h2),
-	.release-notes-content :global(.version-header) {
+	/* Version headers (## [0.26.1] - date) */
+	.release-notes-content :global(h2) {
 		font-size: 0.9375rem;
 		font-weight: 600;
 		color: var(--text-primary);
-		margin: 1rem 0 0.5rem 0;
+		margin: 1.25rem 0 0.5rem 0;
 		padding-bottom: 0.25rem;
 		border-bottom: 1px solid var(--border-color);
 	}
 
-	.release-notes-content :global(h2:first-child),
-	.release-notes-content :global(.version-header:first-child) {
+	.release-notes-content :global(h2:first-child) {
 		margin-top: 0;
+	}
+
+	/* Section headers (### Pridané, ### Zmenené) */
+	.release-notes-content :global(h3) {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		margin: 0.75rem 0 0.25rem 0;
+	}
+
+	/* List items */
+	.release-notes-content :global(ul) {
+		margin: 0.25rem 0 0.5rem 0;
+		padding-left: 1.25rem;
+		list-style-type: disc;
+	}
+
+	.release-notes-content :global(li) {
+		margin: 0.25rem 0;
+	}
+
+	/* Nested lists */
+	.release-notes-content :global(ul ul) {
+		margin: 0.125rem 0 0.25rem 0;
+		list-style-type: circle;
+	}
+
+	/* Bold text */
+	.release-notes-content :global(strong) {
+		color: var(--text-primary);
+		font-weight: 600;
+	}
+
+	/* Paragraphs */
+	.release-notes-content :global(p) {
+		margin: 0.25rem 0;
+	}
+
+	/* Links - use accent color, open in external browser */
+	.release-notes-content :global(a) {
+		color: var(--accent-primary);
+		text-decoration: none;
+		cursor: pointer;
+	}
+
+	.release-notes-content :global(a:hover) {
+		text-decoration: underline;
 	}
 
 	.update-steps {
