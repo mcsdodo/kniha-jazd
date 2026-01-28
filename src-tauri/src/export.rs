@@ -67,6 +67,8 @@ pub struct ExportData {
     pub year: i32,
     pub totals: ExportTotals,
     pub labels: ExportLabels,
+    /// Columns hidden by user (e.g., ["time", "fuelConsumed", "fuelRemaining", "otherCosts", "otherCostsNote"])
+    pub hidden_columns: Vec<String>,
 }
 
 /// Calculated totals for the export footer
@@ -154,6 +156,9 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     let show_fuel = vehicle_type.uses_fuel();
     let show_energy = vehicle_type.uses_electricity();
 
+    // Helper to check if a column is visible (not in hidden_columns)
+    let is_visible = |col: &str| !data.hidden_columns.contains(&col.to_string());
+
     let mut rows = String::new();
 
     for trip in &data.grid_data.trips {
@@ -166,24 +171,36 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             .unwrap_or_default();
         let other_note = trip.other_costs_note.as_deref().unwrap_or("");
 
-        // Build row based on vehicle type
+        // Build row - start with date (always shown)
         let mut row = format!(
             r#"        <tr>
-          <td>{}</td>
-          <td>{}</td>
+          <td>{}</td>"#,
+            trip.date.format("%d.%m.%Y"),
+        );
+
+        // Time column (hideable)
+        if is_visible("time") {
+            row.push_str(&format!(
+                r#"
+          <td>{}</td>"#,
+                trip.datetime.format("%H:%M"),
+            ));
+        }
+
+        // Origin, destination, purpose, distance, odometer (always shown)
+        row.push_str(&format!(
+            r#"
           <td>{}</td>
           <td>{}</td>
           <td>{}</td>
           <td class="num">{:.0}</td>
           <td class="num">{:.0}</td>"#,
-            trip.date.format("%d.%m.%Y"),
-            trip.datetime.format("%H:%M"),
             html_escape(&trip.origin),
             html_escape(&trip.destination),
             html_escape(&trip.purpose),
             trip.distance_km,
             trip.odometer,
-        );
+        ));
 
         // Fuel columns (ICE + PHEV)
         if show_fuel {
@@ -209,14 +226,37 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
                 .map(|f| format!("{:.2}", f))
                 .unwrap_or_default();
 
+            // Fuel liters and cost (always shown when fuel vehicle)
             row.push_str(&format!(
                 r#"
           <td class="num">{}</td>
-          <td class="num">{}</td>
-          <td class="num">{:.2}</td>
-          <td class="num">{:.1}</td>
+          <td class="num">{}</td>"#,
+                fuel_liters, fuel_cost,
+            ));
+
+            // Fuel consumed (hideable)
+            if is_visible("fuelConsumed") {
+                row.push_str(&format!(
+                    r#"
           <td class="num">{:.2}</td>"#,
-                fuel_liters, fuel_cost, fuel_consumed, fuel_remaining, rate
+                    fuel_consumed,
+                ));
+            }
+
+            // Fuel remaining (hideable)
+            if is_visible("fuelRemaining") {
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{:.1}</td>"#,
+                    fuel_remaining,
+                ));
+            }
+
+            // Consumption rate (always shown when fuel vehicle)
+            row.push_str(&format!(
+                r#"
+          <td class="num">{:.2}</td>"#,
+                rate,
             ));
         }
 
@@ -243,26 +283,54 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
                 .map(|e| format!("{:.2}", e))
                 .unwrap_or_default();
 
+            // Energy kWh and cost (always shown when electric vehicle)
             row.push_str(&format!(
                 r#"
           <td class="num">{}</td>
-          <td class="num">{}</td>
-          <td class="num">{:.1}</td>
+          <td class="num">{}</td>"#,
+                energy_kwh, energy_cost,
+            ));
+
+            // Battery remaining (hideable - same setting as fuelRemaining)
+            if is_visible("fuelRemaining") {
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{:.1}</td>"#,
+                    battery_remaining,
+                ));
+            }
+
+            // Energy rate (always shown when electric vehicle)
+            row.push_str(&format!(
+                r#"
           <td class="num">{:.2}</td>"#,
-                energy_kwh, energy_cost, battery_remaining, energy_rate
+                energy_rate,
             ));
         }
 
-        // Other costs (always shown)
-        row.push_str(&format!(
+        // Other costs (hideable)
+        if is_visible("otherCosts") {
+            row.push_str(&format!(
+                r#"
+          <td class="num">{}</td>"#,
+                other_costs,
+            ));
+        }
+
+        // Other costs note (hideable)
+        if is_visible("otherCostsNote") {
+            row.push_str(&format!(
+                r#"
+          <td>{}</td>"#,
+                html_escape(other_note),
+            ));
+        }
+
+        row.push_str(
             r#"
-          <td class="num">{}</td>
-          <td>{}</td>
         </tr>
 "#,
-            other_costs,
-            html_escape(other_note),
-        ));
+        );
 
         rows.push_str(&row);
     }
@@ -309,61 +377,119 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         ),
     };
 
-    // Build column headers based on vehicle type
+    // Build column headers based on vehicle type and visibility settings
+    // Date (always shown)
     let mut col_headers = format!(
-        r#"        <th>{}</th>
-        <th>{}</th>
+        r#"        <th>{}</th>"#,
+        html_escape(&l.col_date),
+    );
+
+    // Time (hideable)
+    if is_visible("time") {
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>"#,
+            html_escape(&l.col_time),
+        ));
+    }
+
+    // Origin, destination, purpose, km, odometer (always shown)
+    col_headers.push_str(&format!(
+        r#"
         <th>{}</th>
         <th>{}</th>
         <th>{}</th>
         <th>{}</th>
         <th>{}</th>"#,
-        html_escape(&l.col_date),
-        html_escape(&l.col_time),
         html_escape(&l.col_origin),
         html_escape(&l.col_destination),
         html_escape(&l.col_purpose),
         html_escape(&l.col_km),
         html_escape(&l.col_odo),
-    );
+    ));
 
+    // Fuel columns (ICE + PHEV)
     if show_fuel {
+        // Fuel liters and cost (always shown when fuel vehicle)
         col_headers.push_str(&format!(
             r#"
-        <th>{}</th>
-        <th>{}</th>
-        <th>{}</th>
         <th>{}</th>
         <th>{}</th>"#,
             html_escape(&l.col_fuel_liters),
             html_escape(&l.col_fuel_cost),
-            html_escape(&l.col_fuel_consumed),
-            html_escape(&l.col_remaining),
+        ));
+
+        // Fuel consumed (hideable)
+        if is_visible("fuelConsumed") {
+            col_headers.push_str(&format!(
+                r#"
+        <th>{}</th>"#,
+                html_escape(&l.col_fuel_consumed),
+            ));
+        }
+
+        // Fuel remaining (hideable)
+        if is_visible("fuelRemaining") {
+            col_headers.push_str(&format!(
+                r#"
+        <th>{}</th>"#,
+                html_escape(&l.col_remaining),
+            ));
+        }
+
+        // Consumption rate (always shown when fuel vehicle)
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>"#,
             html_escape(&l.col_consumption),
         ));
     }
 
+    // Energy columns (BEV + PHEV)
     if show_energy {
+        // Energy kWh and cost (always shown when electric vehicle)
         col_headers.push_str(&format!(
             r#"
-        <th>{}</th>
-        <th>{}</th>
         <th>{}</th>
         <th>{}</th>"#,
             html_escape(&l.col_energy_kwh),
             html_escape(&l.col_energy_cost),
-            html_escape(&l.col_battery_remaining),
+        ));
+
+        // Battery remaining (hideable - same setting as fuelRemaining)
+        if is_visible("fuelRemaining") {
+            col_headers.push_str(&format!(
+                r#"
+        <th>{}</th>"#,
+                html_escape(&l.col_battery_remaining),
+            ));
+        }
+
+        // Energy rate (always shown when electric vehicle)
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>"#,
             html_escape(&l.col_energy_rate),
         ));
     }
 
-    col_headers.push_str(&format!(
-        r#"
-        <th>{}</th>
+    // Other costs (hideable)
+    if is_visible("otherCosts") {
+        col_headers.push_str(&format!(
+            r#"
         <th>{}</th>"#,
-        html_escape(&l.col_other_costs),
-        html_escape(&l.col_note),
-    ));
+            html_escape(&l.col_other_costs),
+        ));
+    }
+
+    // Other costs note (hideable)
+    if is_visible("otherCostsNote") {
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>"#,
+            html_escape(&l.col_note),
+        ));
+    }
 
     // Build footer based on vehicle type
     let footer_items = match vehicle_type {

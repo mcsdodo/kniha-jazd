@@ -269,9 +269,10 @@ export async function openExportPreview(
 	licensePlate: string,
 	sortColumn: string,
 	sortDirection: string,
-	labels: ExportLabels
+	labels: ExportLabels,
+	hiddenColumns: string[]
 ): Promise<void> {
-	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection, labels });
+	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection, labels, hiddenColumns });
 }
 
 // Receipt commands
