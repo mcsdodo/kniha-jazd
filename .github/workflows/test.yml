@@ -15,7 +15,7 @@ jobs:
     name: Check Changes
     runs-on: ubuntu-latest
     outputs:
-      run_tests: ${{ steps.check.outputs.has_code_changes }}
+      run_tests: ${{ steps.check.outputs.has-code-changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
