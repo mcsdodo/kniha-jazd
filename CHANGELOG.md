@@ -7,6 +7,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-01-28
+
+### Pridané
+- **Agregovaný changelog pri aktualizácii** - pri aktualizácii cez viacero verzií sa zobrazí kompletný zoznam zmien
+  - Automatické stiahnutie CHANGELOG.md z GitHub
+  - Zobrazenie všetkých verzií medzi aktuálnou a cieľovou
+  - Formátovaný markdown (nadpisy, zoznamy, tučné písmo)
+  - Kliknuteľné verzie odkazujú na GitHub releases (otvára sa v prehliadači)
+
 ## [0.26.1] - 2026-01-27
 
 ### Zmenené
