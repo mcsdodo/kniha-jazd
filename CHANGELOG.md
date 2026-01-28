@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-01-28
+
 ### Zmenené
 - **HTML export** - exportuje len viditeľné stĺpce (skryté stĺpce cez ikonu oka sa nezobrazia v exporte)
 
