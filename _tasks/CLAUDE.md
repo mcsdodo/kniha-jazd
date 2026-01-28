@@ -25,8 +25,12 @@ _tasks/
 
 **CRITICAL - Finding next folder number:**
 ```
-Use Glob tool with pattern: _tasks/[0-9][0-9]-*
+# Check BOTH locations (completed tasks move to _done/)
+Glob pattern: _tasks/[0-9][0-9]-*
+Glob pattern: _tasks/_done/[0-9][0-9]-*
 ```
+Find the highest `{NN}` across BOTH folders and increment by 1.
+
 Do NOT use `ls _tasks/` or `Glob _tasks/*` — these may miss subdirectories.
 
 | File | Purpose |
