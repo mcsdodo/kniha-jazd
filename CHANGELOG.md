@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-01-28
+
 ### Opravené
 - **HTML export** - natankované palivo sa zobrazuje s 2 desatinnými miestami (rovnako ako v aplikácii)
 

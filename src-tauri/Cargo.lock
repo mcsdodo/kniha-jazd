@@ -2068,7 +2068,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd"
-version = "0.27.0"
+version = "0.27.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
