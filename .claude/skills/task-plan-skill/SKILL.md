@@ -29,13 +29,15 @@ Only proceed to step 2 after brainstorming is complete.
 
 ### 2. Determine Next Folder Number
 
-**CRITICAL:** Use the `Glob` tool (not `ls`) to find existing task folders:
+**CRITICAL:** Use the `Glob` tool (not `ls`) to find existing task folders in BOTH locations:
 
 ```
+# Check BOTH locations (completed tasks move to _done/)
 Glob pattern: _tasks/[0-9][0-9]-*
+Glob pattern: _tasks/_done/[0-9][0-9]-*
 ```
 
-This returns all numbered task folders. Find the highest `{NN}-*` number and use next one (e.g., if `31-fix-stats-consumption` exists, use `32`).
+Find the highest `{NN}` across BOTH folders and increment by 1 (e.g., if `_done/44-multi-currency-receipts` is highest, use `45`).
 
 **WARNING:** Do NOT use `ls _tasks/` or `Glob _tasks/*` — these may miss subdirectories or return incomplete results.
 
