@@ -4,7 +4,7 @@
 
 Add `start_datetime` and `end_datetime` columns to trips table, migrate existing data, update all Rust code to use new fields.
 
-**Status:** Phases 1-2 DONE, Phase 3 remaining
+**Status:** Phases 1-3 DONE, Phase 4 (verification) remaining
 
 ---
 
@@ -45,22 +45,15 @@ The domain `Trip` struct keeps using `datetime` and `end_time` field names inter
 
 ---
 
-## Phase 3: Fix update_trip Sync ⬅️ CURRENT
+## Phase 3: Fix update_trip Sync ✅ DONE
 
-### Task 3.1: Add start_datetime/end_datetime to update_trip
-**File:** `src-tauri/src/db.rs` (lines 372-406)
+### Task 3.1: Add start_datetime/end_datetime to update_trip ✅
+**File:** `src-tauri/src/db.rs` (lines 372-410)
 
-Current `update_trip` updates `datetime` and `end_time` but NOT the new columns, causing data drift after edits.
+- [x] Added `trips::start_datetime.eq(&datetime_str)` to update query
+- [x] Added `trips::end_datetime.eq(end_datetime_str.as_deref())` with same logic as create_trip
 
-- [ ] Add `trips::start_datetime.eq(&datetime_str)` to update query
-- [ ] Add `trips::end_datetime.eq(...)` with same logic as create_trip:
-  - If `end_time` present: `date || 'T' || end_time || ':00'`
-  - If `end_time` empty/None: `date || 'T00:00:00'`
-
-**Verification:**
-```bash
-cd src-tauri && cargo test update_trip
-```
+**Verification:** All 237 backend tests pass
 
 ---
 
