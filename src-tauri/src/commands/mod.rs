@@ -117,6 +117,33 @@ pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
         .collect()
 }
 
+/// Calculate starting odometer for each trip (previous trip's ending odo)
+/// First trip uses initial_odometer from vehicle.
+pub(crate) fn calculate_odometer_start(trips: &[Trip], initial_odometer: f64) -> HashMap<String, f64> {
+    // Sort chronologically
+    let mut sorted: Vec<_> = trips.iter().collect();
+    sorted.sort_by(|a, b| {
+        a.date
+            .cmp(&b.date)
+            .then_with(|| a.datetime.cmp(&b.datetime))
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    });
+
+    let mut result = HashMap::new();
+    let mut prev_odo = initial_odometer;
+
+    for trip in sorted {
+        result.insert(trip.id.to_string(), prev_odo);
+        prev_odo = trip.odometer;
+    }
+
+    result
+}
+
 // ============================================================================
 // Settings Commands
 // ============================================================================
