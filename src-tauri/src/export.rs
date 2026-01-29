@@ -26,9 +26,8 @@ pub struct ExportLabels {
     pub header_driver: String,
     // Column headers
     pub col_trip_number: String,
-    pub col_date: String,
-    pub col_start_time: String,
-    pub col_end_time: String,
+    pub col_start_datetime: String,
+    pub col_end_datetime: String,
     pub col_driver: String,
     pub col_odo_start: String,
     pub col_time: String,
@@ -189,7 +188,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             .get(&trip_id)
             .copied()
             .unwrap_or(trip.odometer - trip.distance_km);
-        let end_time = trip.end_time.as_deref().unwrap_or("");
+        let end_time = trip.end_time.as_deref().unwrap_or("00:00");
         let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
 
         // Build row - start with Trip# (always shown for legal compliance)
@@ -199,27 +198,19 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             trip_number,
         );
 
-        // Date (always shown)
+        // Start datetime (always shown) - format: DD.MM. HH:MM (no year - it's in header)
         row.push_str(&format!(
             r#"
           <td>{}</td>"#,
-            trip.date.format("%d.%m.%Y"),
+            trip.datetime.format("%d.%m. %H:%M"),
         ));
 
-        // Start Time (hideable)
+        // End datetime (hideable) - format: DD.MM. HH:MM
         if is_visible("time") {
             row.push_str(&format!(
                 r#"
-          <td>{}</td>"#,
-                trip.datetime.format("%H:%M"),
-            ));
-        }
-
-        // End Time (hideable)
-        if is_visible("time") {
-            row.push_str(&format!(
-                r#"
-          <td>{}</td>"#,
+          <td>{} {}</td>"#,
+                trip.date.format("%d.%m."),
                 html_escape(end_time),
             ));
         }
@@ -393,28 +384,21 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
 
     // Render synthetic month-end rows (for months without a trip on the last day)
     for month_end in &data.grid_data.month_end_rows {
-        // Calculate number of columns for proper rendering
-        // Base columns: Trip#, Date, Start Time (if visible), End Time (if visible), Driver, Origin, Destination, Purpose, Km, Odo Start, Odo End
-        let mut time_cols = 0;
-        if is_visible("time") {
-            time_cols = 2; // Start time + End time
-        }
-
         // Build synthetic month-end row
         let mut row = format!(
             r#"        <tr class="month-end-synthetic">
           <td></td>"#, // Trip# - empty for synthetic
         );
 
-        // Date
+        // Start datetime - show date with dash for time
         row.push_str(&format!(
             r#"
-          <td>{}</td>"#,
-            month_end.date.format("%d.%m.%Y"),
+          <td>{} -</td>"#,
+            month_end.date.format("%d.%m."),
         ));
 
-        // Start Time + End Time (if visible) - empty for synthetic
-        for _ in 0..time_cols {
+        // End datetime (if visible) - empty for synthetic
+        if is_visible("time") {
             row.push_str(
                 r#"
           <td></td>"#,
@@ -581,28 +565,19 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         html_escape(&l.col_trip_number),
     );
 
-    // Date (always shown)
+    // Start datetime (always shown) - combined date+time in format DD.MM. HH:MM
     col_headers.push_str(&format!(
         r#"
         <th>{}</th>"#,
-        html_escape(&l.col_date),
+        html_escape(&l.col_start_datetime),
     ));
 
-    // Start Time (hideable - uses same "time" setting)
+    // End datetime (hideable - uses "time" setting)
     if is_visible("time") {
         col_headers.push_str(&format!(
             r#"
         <th>{}</th>"#,
-            html_escape(&l.col_start_time),
-        ));
-    }
-
-    // End Time (hideable - uses same "time" setting)
-    if is_visible("time") {
-        col_headers.push_str(&format!(
-            r#"
-        <th>{}</th>"#,
-            html_escape(&l.col_end_time),
+            html_escape(&l.col_end_datetime),
         ));
     }
 

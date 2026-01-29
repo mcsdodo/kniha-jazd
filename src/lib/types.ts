@@ -290,9 +290,8 @@ export interface ExportLabels {
 	header_driver: string;
 	// Column headers
 	col_trip_number: string;
-	col_date: string;
-	col_start_time: string;
-	col_end_time: string;
+	col_start_datetime: string;
+	col_end_datetime: string;
 	col_time: string;
 	col_driver: string;
 	col_odo_start: string;

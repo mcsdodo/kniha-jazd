@@ -513,9 +513,8 @@ const en = {
 		headerDriver: 'Driver:',
 		// Column headers
 		colTripNumber: '#',
-		colDate: 'Date',
-		colStartTime: 'Dep. time',
-		colEndTime: 'Arr. time',
+		colStartDatetime: 'Start',
+		colEndDatetime: 'End',
 		colTime: 'Time',
 		colDriver: 'Driver',
 		colOdoStart: 'Km before',
