@@ -18,6 +18,10 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Opravené
 - **Export "Prvý záznam"** - zostatok paliva zobrazuje správnu hodnotu (prenášanú z predchádzajúceho roka alebo plnú nádrž) namiesto 0
+- **Triedenie jázd** - konzistentné triedenie (najnovšie hore) vo všetkých rokoch
+
+### Zmenené
+- **Umelé riadky konca mesiaca** - zobrazujú sa vždy pre uzavreté mesiace (stav ODO a paliva na konci obdobia)
 
 ## [0.27.2] - 2026-01-28
 
