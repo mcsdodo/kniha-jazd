@@ -21,6 +21,8 @@
 	export let vehicleType: VehicleType = 'Ice';
 	export let batteryCapacityKwh: number = 0;
 	export let baselineConsumptionKwh: number = 0;
+	// Legal compliance (2026)
+	export let driverName: string = '';
 
 	// Derived: show columns based on vehicle type
 	$: showFuelColumns = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -49,6 +51,10 @@
 	let dateWarnings: Set<string> = new Set();
 	// Suggested fillup (for trips in open period)
 	let suggestedFillup: Map<string, SuggestedFillup> = new Map();
+	// Legal compliance (2026)
+	let tripNumbers: Map<string, number> = new Map();
+	let odometerStart: Map<string, number> = new Map();
+	let monthEndTrips: Set<string> = new Set();
 
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
@@ -71,6 +77,10 @@
 			dateWarnings = new Set(gridData.dateWarnings);
 			// Suggested fillup
 			suggestedFillup = new Map(Object.entries(gridData.suggestedFillup));
+			// Legal compliance (2026)
+			tripNumbers = new Map(Object.entries(gridData.tripNumbers));
+			odometerStart = new Map(Object.entries(gridData.odometerStart));
+			monthEndTrips = new Set(gridData.monthEndTrips);
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -482,6 +492,10 @@
 	$: visibleColumnCount = (() => {
 		// Base columns: date, origin, destination, km, odo, purpose, actions
 		let count = 7;
+		// Legal compliance columns (2026)
+		if (!hiddenColumns.includes('tripNumber')) count++;
+		if (!hiddenColumns.includes('odoStart')) count++;
+		if (!hiddenColumns.includes('driver')) count++;
 		// Optional columns (time = startTime + endTime)
 		if (!hiddenColumns.includes('time')) count += 2; // startTime and endTime
 		if (!hiddenColumns.includes('otherCosts')) count++;
@@ -545,6 +559,9 @@
 		<table>
 			<thead>
 				<tr>
+					{#if !hiddenColumns.includes('tripNumber')}
+						<th class="col-trip-number">{$LL.trips.columns.tripNumber()}</th>
+					{/if}
 					<th class="col-date sortable" on:click={() => toggleSort('date')}>
 						{$LL.trips.columns.date()}
 						{#if sortColumn === 'date'}
@@ -558,8 +575,14 @@
 					<th class="col-origin">{$LL.trips.columns.origin()}</th>
 					<th class="col-destination">{$LL.trips.columns.destination()}</th>
 					<th class="col-km">{$LL.trips.columns.km()}</th>
+					{#if !hiddenColumns.includes('odoStart')}
+						<th class="col-odo-start">{$LL.trips.columns.odoStart()}</th>
+					{/if}
 					<th class="col-odo">{$LL.trips.columns.odo()}</th>
 					<th class="col-purpose">{$LL.trips.columns.purpose()}</th>
+					{#if !hiddenColumns.includes('driver')}
+						<th class="col-driver">{$LL.trips.columns.driver()}</th>
+					{/if}
 					{#if showFuelColumns}
 						<th class="col-fuel-liters">{$LL.trips.columns.fuelLiters()}</th>
 						<th class="col-fuel-cost">{$LL.trips.columns.fuelCost()}</th>
@@ -644,6 +667,9 @@
 					{#if isFirstRecord(trip)}
 						<!-- Synthetic "Prvý záznam" row -->
 						<tr class="first-record">
+							{#if !hiddenColumns.includes('tripNumber')}
+								<td class="col-trip-number number">-</td>
+							{/if}
 							<td class="col-date">{trip.date.split('-').reverse().join('.')}</td>
 							{#if !hiddenColumns.includes('time')}
 								<td class="col-time">00:00</td>
@@ -652,8 +678,14 @@
 							<td class="col-origin">-</td>
 							<td class="col-destination">-</td>
 							<td class="col-km number">0</td>
+							{#if !hiddenColumns.includes('odoStart')}
+								<td class="col-odo-start number">{trip.odometer.toFixed(0)}</td>
+							{/if}
 							<td class="col-odo number">{trip.odometer.toFixed(0)}</td>
 							<td class="col-purpose">{trip.purpose}</td>
+							{#if !hiddenColumns.includes('driver')}
+								<td class="col-driver">{driverName}</td>
+							{/if}
 							{#if showFuelColumns}
 								<td class="col-fuel-liters">-</td>
 								<td class="col-fuel-cost">-</td>
@@ -714,8 +746,60 @@
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}
 							onMagicFill={handleMagicFill}
 							{hiddenColumns}
+							tripNumber={tripNumbers.get(trip.id) ?? 0}
+							odoStart={odometerStart.get(trip.id) ?? 0}
+							{driverName}
+							isMonthEnd={monthEndTrips.has(trip.id)}
 						/>
 					{/if}
+				{/each}
+				<!-- Synthetic month-end rows (legal compliance 2026) -->
+				{#each gridData?.monthEndRows ?? [] as row}
+					<tr class="month-end-synthetic">
+						{#if !hiddenColumns.includes('tripNumber')}
+							<td class="col-trip-number number">-</td>
+						{/if}
+						<td class="col-date">{row.date.split('-').reverse().join('.')}</td>
+						{#if !hiddenColumns.includes('time')}
+							<td class="col-time">-</td>
+							<td class="col-end-time">-</td>
+						{/if}
+						<td class="col-origin">-</td>
+						<td class="col-destination">-</td>
+						<td class="col-km number">-</td>
+						{#if !hiddenColumns.includes('odoStart')}
+							<td class="col-odo-start number">{row.odometer.toFixed(0)}</td>
+						{/if}
+						<td class="col-odo number">{row.odometer.toFixed(0)}</td>
+						<td class="col-purpose">-</td>
+						{#if !hiddenColumns.includes('driver')}
+							<td class="col-driver">{driverName}</td>
+						{/if}
+						{#if showFuelColumns}
+							<td class="col-fuel-liters">-</td>
+							<td class="col-fuel-cost">-</td>
+							{#if !hiddenColumns.includes('fuelConsumed')}
+								<td class="col-fuel-consumed number calculated">-</td>
+							{/if}
+							<td class="col-consumption-rate number">-</td>
+							{#if !hiddenColumns.includes('fuelRemaining')}
+								<td class="col-fuel-remaining number">{row.fuelRemaining.toFixed(1)}</td>
+							{/if}
+						{/if}
+						{#if showEnergyColumns}
+							<td class="col-energy-kwh">-</td>
+							<td class="col-energy-cost">-</td>
+							<td class="col-energy-rate number">-</td>
+							<td class="col-battery-remaining number">-</td>
+						{/if}
+						{#if !hiddenColumns.includes('otherCosts')}
+							<td class="col-other-costs">-</td>
+						{/if}
+						{#if !hiddenColumns.includes('otherCostsNote')}
+							<td class="col-other-costs-note">-</td>
+						{/if}
+						<td class="col-actions"></td>
+					</tr>
 				{/each}
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
@@ -914,4 +998,25 @@
 	.suggested-indicator {
 		font-size: 1rem;
 	}
+
+	/* Month-end synthetic rows (legal compliance 2026) */
+	tbody tr.month-end-synthetic {
+		background: #f0f0f0;
+		font-style: italic;
+		color: var(--text-secondary);
+	}
+
+	:global(.dark) tbody tr.month-end-synthetic {
+		background: #2a2a2a;
+	}
+
+	tbody tr.month-end-synthetic td {
+		padding: 0.5rem 0.25rem;
+		border-bottom: 1px solid var(--border-default);
+	}
+
+	/* New column widths */
+	.col-trip-number { width: 3%; text-align: right; }
+	.col-odo-start { width: 5%; text-align: right; }
+	.col-driver { width: 8%; }
 </style>

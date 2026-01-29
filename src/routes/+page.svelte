@@ -290,6 +290,7 @@
 					vehicleType={$activeVehicleStore.vehicleType}
 					batteryCapacityKwh={$activeVehicleStore.batteryCapacityKwh ?? 0}
 					baselineConsumptionKwh={$activeVehicleStore.baselineConsumptionKwh ?? 0}
+					driverName={$activeVehicleStore.driverName ?? ''}
 					onTripsChanged={handleTripsChanged}
 					bind:sortColumn
 					bind:sortDirection

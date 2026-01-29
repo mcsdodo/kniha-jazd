@@ -156,6 +156,19 @@ export interface TripGridData {
 	// Suggested fillup (for trips in open period)
 	suggestedFillup: Record<string, SuggestedFillup>; // tripId -> suggestion (for magic button)
 	legendSuggestedFillup: SuggestedFillup | null; // For legend display (backend-calculated)
+	// Legal compliance fields (2026)
+	tripNumbers: Record<string, number>; // tripId -> sequential number (1-based)
+	odometerStart: Record<string, number>; // tripId -> odometer at trip start
+	monthEndTrips: string[]; // tripIds falling on last day of month
+	monthEndRows: MonthEndRow[]; // synthetic rows for months without trip on last day
+}
+
+/** Synthetic row for month-end state display (legal requirement) */
+export interface MonthEndRow {
+	date: string; // ISO date string (e.g., "2026-01-31")
+	odometer: number;
+	fuelRemaining: number;
+	month: number; // 1-12
 }
 
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
