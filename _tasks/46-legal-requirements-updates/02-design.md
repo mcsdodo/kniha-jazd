@@ -87,14 +87,15 @@ pub struct TripGridData {
     pub month_end_rows: Vec<MonthEndRow>,
 }
 
-/// Synthetic row for month-end display
+/// Synthetic row for month-end state display (legal requirement).
+/// Only contains odometer and fuel - no trip number, no driver (those are display-only).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonthEndRow {
-    pub date: NaiveDate,        // Last day of month
+    pub date: NaiveDate,        // Last day of month (e.g., 2026-01-31)
     pub odometer: f64,          // Carried from last trip before this date
     pub fuel_remaining: f64,    // Carried fuel state
-    pub month: u32,             // 1-12 for identification
+    pub month: u32,             // 1-12 for identification/sorting
 }
 ```
 
