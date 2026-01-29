@@ -562,13 +562,9 @@ type RootTranslation = {
 			 */
 			tripNumber: string
 			/**
-			 * Č​a​s​ ​o​d
+			 * Č​a​s​ ​(​o​d​/​d​o​)
 			 */
-			startTime: string
-			/**
-			 * Č​a​s​ ​d​o
-			 */
-			endTime: string
+			time: string
 			/**
 			 * V​o​d​i​č
 			 */
@@ -577,10 +573,6 @@ type RootTranslation = {
 			 * K​m​ ​p​r​e​d
 			 */
 			odoStart: string
-			/**
-			 * Č​a​s
-			 */
-			time: string
 			/**
 			 * S​p​o​t​r​e​b​o​v​a​n​é​ ​(​L​)
 			 */
@@ -2569,13 +2561,9 @@ export type TranslationFunctions = {
 			 */
 			tripNumber: () => LocalizedString
 			/**
-			 * Čas od
+			 * Čas (od/do)
 			 */
-			startTime: () => LocalizedString
-			/**
-			 * Čas do
-			 */
-			endTime: () => LocalizedString
+			time: () => LocalizedString
 			/**
 			 * Vodič
 			 */
@@ -2584,10 +2572,6 @@ export type TranslationFunctions = {
 			 * Km pred
 			 */
 			odoStart: () => LocalizedString
-			/**
-			 * Čas
-			 */
-			time: () => LocalizedString
 			/**
 			 * Spotrebované (L)
 			 */

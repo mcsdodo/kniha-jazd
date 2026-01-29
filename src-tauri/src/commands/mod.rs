@@ -1598,6 +1598,10 @@ pub async fn export_to_browser(
     fuel_remaining.insert(Uuid::nil().to_string(), initial_fuel);
     let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
+    // Legal compliance calculations (2026)
+    let trip_numbers = calculate_trip_numbers(&trips);
+    let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
+
     let grid_data = TripGridData {
         trips,
         rates,
@@ -1616,9 +1620,8 @@ pub async fn export_to_browser(
         year_start_fuel: initial_fuel,
         suggested_fillup: HashMap::new(), // Not needed for export
         legend_suggested_fillup: None,    // Not needed for export
-        // Legal compliance fields (2026) - placeholder values
-        trip_numbers: HashMap::new(),
-        odometer_start: HashMap::new(),
+        trip_numbers,
+        odometer_start,
         month_end_rows: vec![],
     };
 
@@ -1717,6 +1720,10 @@ pub async fn export_html(
         calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
     let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
+    // Legal compliance calculations (2026)
+    let trip_numbers = calculate_trip_numbers(&trips);
+    let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
+
     let grid_data = TripGridData {
         trips,
         rates,
@@ -1735,9 +1742,8 @@ pub async fn export_html(
         year_start_fuel: initial_fuel,
         suggested_fillup: HashMap::new(), // Not needed for export
         legend_suggested_fillup: None,    // Not needed for export
-        // Legal compliance fields (2026) - placeholder values
-        trip_numbers: HashMap::new(),
-        odometer_start: HashMap::new(),
+        trip_numbers,
+        odometer_start,
         month_end_rows: vec![],
     };
 
