@@ -376,6 +376,9 @@ impl Database {
         let date_str = trip.date.to_string();
         let datetime_str = trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
         let updated_at_str = trip.updated_at.to_rfc3339();
+        // Sync new datetime fields with legacy fields
+        let end_datetime_str =
+            trip.end_time.as_ref().map(|t| format!("{}T{}:00", date_str, t));
 
         diesel::update(trips::table.filter(trips::id.eq(&id_str)))
             .set((
@@ -399,6 +402,9 @@ impl Database {
                 trips::full_charge.eq(Some(if trip.full_charge { 1 } else { 0 })),
                 trips::soc_override_percent.eq(trip.soc_override_percent),
                 trips::updated_at.eq(&updated_at_str),
+                // New datetime fields - keep in sync with legacy fields
+                trips::start_datetime.eq(&datetime_str),
+                trips::end_datetime.eq(end_datetime_str.as_deref()),
             ))
             .execute(conn)?;
 
