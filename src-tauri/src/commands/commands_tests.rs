@@ -2634,6 +2634,64 @@ fn test_trip_numbers_same_date_by_odometer() {
     assert_eq!(trip_numbers.get(&third), Some(&3));
 }
 
+// =============================================================================
+// Odometer Start Derivation Tests
+// =============================================================================
+
+#[test]
+fn test_odometer_start_first_trip_uses_initial() {
+    let initial_odo = 10000.0;
+    let trips = vec![
+        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0),
+    ];
+
+    let odo_start = calculate_odometer_start(&trips, initial_odo);
+
+    let trip_id = trips[0].id.to_string();
+    assert_eq!(odo_start.get(&trip_id), Some(&10000.0));
+}
+
+#[test]
+fn test_odometer_start_subsequent_trips() {
+    let initial_odo = 10000.0;
+    let trips = vec![
+        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0),   // start: 10000
+        make_trip_with_date_odo("2026-01-15", 100.0, 10150.0),  // start: 10050
+        make_trip_with_date_odo("2026-01-20", 50.0, 10200.0),   // start: 10150
+    ];
+
+    let odo_start = calculate_odometer_start(&trips, initial_odo);
+
+    assert_eq!(odo_start.get(&trips[0].id.to_string()), Some(&10000.0));
+    assert_eq!(odo_start.get(&trips[1].id.to_string()), Some(&10050.0));
+    assert_eq!(odo_start.get(&trips[2].id.to_string()), Some(&10150.0));
+}
+
+#[test]
+fn test_odometer_start_respects_chronological_order() {
+    // Trips not in date order in the vec - should still derive correctly
+    let initial_odo = 10000.0;
+    let trips = vec![
+        make_trip_with_date_odo("2026-01-20", 50.0, 10200.0),   // chronologically 3rd
+        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0),   // chronologically 1st
+        make_trip_with_date_odo("2026-01-15", 100.0, 10150.0),  // chronologically 2nd
+    ];
+
+    let odo_start = calculate_odometer_start(&trips, initial_odo);
+
+    // Trip on Jan 10 is first chronologically, so uses initial_odo
+    let jan10 = trips.iter().find(|t| t.date.day() == 10).unwrap();
+    assert_eq!(odo_start.get(&jan10.id.to_string()), Some(&10000.0));
+
+    // Trip on Jan 15 uses Jan 10's ending odo
+    let jan15 = trips.iter().find(|t| t.date.day() == 15).unwrap();
+    assert_eq!(odo_start.get(&jan15.id.to_string()), Some(&10050.0));
+
+    // Trip on Jan 20 uses Jan 15's ending odo
+    let jan20 = trips.iter().find(|t| t.date.day() == 20).unwrap();
+    assert_eq!(odo_start.get(&jan20.id.to_string()), Some(&10150.0));
+}
+
 /// Helper to create trip with specific date
 fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
     let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
