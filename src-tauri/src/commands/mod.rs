@@ -643,11 +643,16 @@ pub fn get_trip_grid_data(
             year_start_fuel,
             suggested_fillup: HashMap::new(),
             legend_suggested_fillup: None,
-            // Legal compliance fields (2026) - placeholder values
             trip_numbers: HashMap::new(),
             odometer_start: HashMap::new(),
             month_end_trips: HashSet::new(),
-            month_end_rows: vec![],
+            month_end_rows: generate_month_end_rows(
+                &[],
+                year,
+                year_start_odometer,
+                year_start_fuel,
+                &HashMap::new(),
+            ),
         });
     }
 
@@ -758,6 +763,20 @@ pub fn get_trip_grid_data(
         (HashMap::new(), None)
     };
 
+    // Legal compliance calculations (2026)
+    let trip_numbers = calculate_trip_numbers(&trips);
+    let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
+    let month_end_trips = detect_month_end_trips(&trips);
+
+    // Generate month-end rows using already-calculated fuel_remaining
+    let month_end_rows = generate_month_end_rows(
+        &chronological,
+        year,
+        year_start_odometer,
+        year_start_fuel,
+        &fuel_remaining,
+    );
+
     Ok(TripGridData {
         trips,
         rates,
@@ -776,11 +795,10 @@ pub fn get_trip_grid_data(
         year_start_fuel,
         suggested_fillup,
         legend_suggested_fillup,
-        // Legal compliance fields (2026) - placeholder values
-        trip_numbers: HashMap::new(),
-        odometer_start: HashMap::new(),
-        month_end_trips: HashSet::new(),
-        month_end_rows: vec![],
+        trip_numbers,
+        odometer_start,
+        month_end_trips,
+        month_end_rows,
     })
 }
 
