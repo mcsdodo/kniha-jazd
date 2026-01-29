@@ -95,6 +95,28 @@ pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
     Ok(db_paths)
 }
 
+/// Calculate trip sequence numbers (1-based, chronological order by date then odometer)
+pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
+    // Sort by date, then by odometer for same-day trips
+    let mut sorted: Vec<_> = trips.iter().collect();
+    sorted.sort_by(|a, b| {
+        a.date
+            .cmp(&b.date)
+            .then_with(|| a.datetime.cmp(&b.datetime))
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    });
+
+    sorted
+        .iter()
+        .enumerate()
+        .map(|(i, trip)| (trip.id.to_string(), (i + 1) as i32))
+        .collect()
+}
+
 // ============================================================================
 // Settings Commands
 // ============================================================================
@@ -494,6 +516,11 @@ pub fn get_trip_grid_data(
             year_start_fuel,
             suggested_fillup: HashMap::new(),
             legend_suggested_fillup: None,
+            // Legal compliance fields (2026) - placeholder values
+            trip_numbers: HashMap::new(),
+            odometer_start: HashMap::new(),
+            month_end_trips: HashSet::new(),
+            month_end_rows: vec![],
         });
     }
 
@@ -622,6 +649,11 @@ pub fn get_trip_grid_data(
         year_start_fuel,
         suggested_fillup,
         legend_suggested_fillup,
+        // Legal compliance fields (2026) - placeholder values
+        trip_numbers: HashMap::new(),
+        odometer_start: HashMap::new(),
+        month_end_trips: HashSet::new(),
+        month_end_rows: vec![],
     })
 }
 
@@ -1440,6 +1472,11 @@ pub async fn export_to_browser(
         year_start_fuel: initial_fuel,
         suggested_fillup: HashMap::new(), // Not needed for export
         legend_suggested_fillup: None,    // Not needed for export
+        // Legal compliance fields (2026) - placeholder values
+        trip_numbers: HashMap::new(),
+        odometer_start: HashMap::new(),
+        month_end_trips: HashSet::new(),
+        month_end_rows: vec![],
     };
 
     let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
@@ -1555,6 +1592,11 @@ pub async fn export_html(
         year_start_fuel: initial_fuel,
         suggested_fillup: HashMap::new(), // Not needed for export
         legend_suggested_fillup: None,    // Not needed for export
+        // Legal compliance fields (2026) - placeholder values
+        trip_numbers: HashMap::new(),
+        odometer_start: HashMap::new(),
+        month_end_trips: HashSet::new(),
+        month_end_rows: vec![],
     };
 
     // Calculate totals for footer
