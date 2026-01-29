@@ -98,3 +98,118 @@ After these revisions, the plan is ready for implementation.
 7. ✅ Updated "Approach" section to clarify simplified strategy
 
 **Plan status:** Ready for implementation.
+
+---
+
+## Re-Review (2026-01-29) - Code Verification
+
+**Objective:** Verify plan against actual source code to ensure completeness.
+
+### Files Checked
+
+| File | Result |
+|------|--------|
+| `src-tauri/src/models.rs` | Verified Trip struct fields |
+| `src-tauri/src/schema.rs` | Verified column definitions |
+| `src-tauri/src/db.rs` | Verified create_trip, update_trip |
+| `src-tauri/src/commands/mod.rs` | Found ALL trip.date usages |
+| `src-tauri/src/export.rs` | Verified trip.date/datetime usages |
+| `src-tauri/src/calculations.rs` | No date fields used (confirmed) |
+| `src-tauri/src/suggestions.rs` | Empty file, no changes needed |
+| `src-tauri/src/commands/commands_tests.rs` | Verified test helpers |
+| `src-tauri/src/db_tests.rs` | Verified test helpers |
+| `src-tauri/src/calculations_tests.rs` | Uses Trip::test_ice_trip() |
+| `src-tauri/src/export.rs` (tests) | Verified test Trip construction |
+
+### Critical Finding: INCOMPLETE trip.date Usage List
+
+**The plan lists 11 `trip.date` locations but actual code has 25+ usages.**
+
+**Actual `trip.date` / `.date` usages in commands/mod.rs:**
+
+| Line | Usage | Context |
+|------|-------|---------|
+| 125-126 | `a.date.cmp(&b.date)` | Sorting in calculate_trip_numbers |
+| 148-149 | `a.date.cmp(&b.date)` | Sorting in calculate_odometer_start |
+| 203 | `a.date.cmp(&b.date)` | Sorting in get_trip_grid_data |
+| 213 | `sorted.last().unwrap().date.month()` | Getting latest month |
+| 230 | `trip.date <= month_end_date` | Plan has this (line 229 off-by-1) |
+| 249 | `t.date.month() == month && t.date` | Month filtering |
+| 326 | `a.date.cmp(&b.date)` | Sorting in calc_fuel_remaining |
+| 483 | `a.date.cmp(&b.date)` | Sorting in calc_energy_remaining |
+| 539 | `a.date.cmp(&b.date)` | Sorting in calculate_consumption_rates |
+| 595 | `a.date.cmp(&b.date)` | Sorting in calculate_energy_rates |
+| 686 | `a.date.cmp(&b.date)` | Sorting in calculate_suggested_fillup |
+| 962 | `a.date.cmp(&b.date)` | Sorting in calculate_magic_fill |
+| 1445 | `trip.date > p.date` | Date warning (plan says 1432) |
+| 1450 | `trip.date < n.date` | Date warning (plan says 1439) |
+| 1494 | `r.receipt_date == Some(&trip.date)` | Receipt matching (plan says 1483) |
+| 1937 | `receipt.receipt_date == Some(trip.date)` | **MISSING from plan** |
+| 2051 | `receipt.receipt_date == Some(trip.date)` | Plan says 2081 |
+| 2220 | `trip.date == receipt_date` | Plan says 2364 |
+| 2227 | `trip.date.format("%Y-%m-%d")` | Plan says 2371 |
+| 2238 | `trip.date.format("%-d.%-m.")` | Plan says 2382 |
+| 2260 | `t.date == receipt_date` | **MISSING from plan** |
+| 2270 | `t.date == receipt_date` | **MISSING from plan** |
+| 2301 | `trip.date.format("%Y-%m-%d")` | Plan says 2445 |
+| 2434 | `t.date` | Magic fill preview - **MISSING** |
+| 2440-2441 | `t.date` | Magic fill max_by_key - **MISSING** |
+| 2480 | `existing.date` | Magic fill edit - **MISSING** |
+| 2511 | `a.date.cmp(&b.date)` | Magic fill sorting - **MISSING** |
+
+**Summary:** Plan lists 11 locations, actual code has **27 locations**.
+
+### Important Finding: Line Numbers Drifted
+
+All line numbers in the plan are off by 1-100+ lines from actual code. This suggests code has changed since the plan was written.
+
+**Recommendation:** Update plan to use pattern-based descriptions instead of line numbers, or refresh all line numbers.
+
+### Confirmed Correct
+
+1. **models.rs structure:** Trip has `date: NaiveDate`, `datetime: NaiveDateTime`, `end_time: Option<String>` - plan accurately describes what to change
+2. **TripRow has start_datetime/end_datetime:** Already present (lines 683-684) - confirms plan's approach is correct
+3. **NewTripRow has start_datetime/end_datetime:** Already present (lines 714-715) - correct
+4. **schema.rs columns:** Has both old (`date`, `datetime`, `end_time`) and new (`start_datetime`, `end_datetime`) - migration is valid
+5. **db.rs already syncs:** create_trip and update_trip already populate start_datetime/end_datetime (lines 294-296, 405-407)
+6. **export.rs usages:** Line 246 (`trip.datetime`) and Line 254 (`trip.date`) - plan is correct
+7. **calculations.rs:** No date fields used (confirmed by reading entire file)
+8. **suggestions.rs:** Empty file (dead code removed) - no changes needed
+9. **Test files:** All use `date:`, `datetime:`, `end_time:` in Trip construction - plan correctly identifies them
+
+### Migration SQL Review
+
+The migration SQL in Phase 6 is **correct**:
+- Uses table rebuild pattern (SQLite doesn't support DROP COLUMN)
+- Preserves all existing columns except legacy datetime fields
+- Correctly names new table `trips_new` → `trips`
+- Recreates foreign key constraint
+- Recreates index
+
+**Minor concern:** The migration doesn't include `receipt_id` on trips table, but checking schema.rs confirms trips table doesn't have receipt_id - so this is correct.
+
+### Feasibility Assessment
+
+**Will it work?** Yes, the approach is sound:
+1. New columns already exist with backfilled data
+2. Code changes are straightforward (.date → .start_datetime.date())
+3. Migration is clean (drop old columns)
+
+**Potential issues:**
+1. **Many more changes than planned** - implementation will take longer
+2. **Test updates extensive** - commands_tests.rs has 50+ Trip constructions
+
+### Recommendations
+
+1. **CRITICAL:** Update Phase 3 Task 3.1 to include ALL 27 trip.date locations
+2. **IMPORTANT:** Remove line numbers from plan (they're stale) - use pattern descriptions instead
+3. **MINOR:** Add Line 1937 (check_receipt_trip_compatibility) to the list
+4. **MINOR:** Add magic_fill function (lines 2434-2511) to the list
+
+### Conclusion
+
+**Plan status:** Structurally correct but **incomplete**. The plan captures the right approach but significantly underestimates the scope of changes in commands/mod.rs.
+
+**Implementation estimate:** ~2-3x longer than planned due to additional locations.
+
+**Proceed?** Yes, with awareness that Task 3.1 is larger than documented.
