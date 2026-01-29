@@ -272,6 +272,7 @@ impl Database {
             vehicle_id: &vehicle_id_str,
             date: &date_str,
             datetime: &datetime_str,
+            end_time: trip.end_time.as_deref().unwrap_or(""),
             origin: &trip.origin,
             destination: &trip.destination,
             distance_km: trip.distance_km,
@@ -320,27 +321,25 @@ impl Database {
         Ok(rows.into_iter().map(Trip::from).collect())
     }
 
-    /// Get trips for a vehicle in a specific year (uses raw SQL for strftime)
+    /// Get trips for a vehicle in a specific year
     pub fn get_trips_for_vehicle_in_year(
         &self,
         vehicle_id: &str,
         year: i32,
     ) -> QueryResult<Vec<Trip>> {
+        use crate::schema::trips::dsl;
         let conn = &mut *self.conn.lock().unwrap();
 
-        // Raw SQL needed for strftime year extraction
-        let rows = diesel::sql_query(
-            "SELECT id, vehicle_id, date, datetime, origin, destination, distance_km, odometer, purpose,
-                    fuel_liters, fuel_cost_eur, other_costs_eur, other_costs_note, full_tank,
-                    sort_order, energy_kwh, energy_cost_eur, full_charge, soc_override_percent,
-                    created_at, updated_at
-             FROM trips
-             WHERE vehicle_id = ? AND strftime('%Y', date) = ?
-             ORDER BY sort_order ASC",
-        )
-        .bind::<diesel::sql_types::Text, _>(vehicle_id)
-        .bind::<diesel::sql_types::Text, _>(year.to_string())
-        .load::<TripRow>(conn)?;
+        // Use date range instead of strftime - works with Diesel query builder
+        let start_date = format!("{}-01-01", year);
+        let end_date = format!("{}-12-31", year);
+
+        let rows = dsl::trips
+            .filter(dsl::vehicle_id.eq(vehicle_id))
+            .filter(dsl::date.ge(&start_date))
+            .filter(dsl::date.le(&end_date))
+            .order(dsl::sort_order.asc())
+            .load::<TripRow>(conn)?;
 
         Ok(rows.into_iter().map(Trip::from).collect())
     }
@@ -379,6 +378,7 @@ impl Database {
                 trips::vehicle_id.eq(&vehicle_id_str),
                 trips::date.eq(&date_str),
                 trips::datetime.eq(&datetime_str),
+                trips::end_time.eq(trip.end_time.as_deref().unwrap_or("")),
                 trips::origin.eq(&trip.origin),
                 trips::destination.eq(&trip.destination),
                 trips::distance_km.eq(trip.distance_km),

@@ -106,6 +106,7 @@ fn create_test_trip(vehicle_id: Uuid, date: &str) -> Trip {
         vehicle_id,
         date: parsed_date,
         datetime: parsed_date.and_hms_opt(0, 0, 0).unwrap(),
+        end_time: None,
         origin: "Prague".to_string(),
         destination: "Brno".to_string(),
         distance_km: 200.0,

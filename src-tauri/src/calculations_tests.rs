@@ -485,6 +485,7 @@ fn make_trip(distance_km: f64, fuel_liters: Option<f64>, full_tank: bool) -> Tri
         vehicle_id: Uuid::new_v4(),
         date,
         datetime,
+        end_time: None,
         odometer: 10000.0,
         distance_km,
         origin: "A".to_string(),
