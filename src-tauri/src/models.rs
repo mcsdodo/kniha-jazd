@@ -358,6 +358,9 @@ pub struct TripGridData {
     // Year boundary data
     /// Starting odometer for this year (carryover from previous year's ending ODO)
     pub year_start_odometer: f64,
+    /// Starting fuel (liters) for this year (carryover from previous year's ending fuel)
+    /// Falls back to tank_size if no previous year data
+    pub year_start_fuel: f64,
 
     // Suggested fillup (for trips in open period)
     /// Suggested fillup for each trip in an open period, keyed by trip ID.

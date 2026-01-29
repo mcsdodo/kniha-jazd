@@ -151,6 +151,7 @@ export interface TripGridData {
 	missingReceipts: string[]; // tripIds missing receipts
 	// Year boundary data
 	yearStartOdometer: number; // Starting ODO for this year (carryover from previous year)
+	yearStartFuel: number; // Starting fuel (liters) for this year (carryover from previous year)
 	// Suggested fillup (for trips in open period)
 	suggestedFillup: Record<string, SuggestedFillup>; // tripId -> suggestion (for magic button)
 	legendSuggestedFillup: SuggestedFillup | null; // For legend display (backend-calculated)
