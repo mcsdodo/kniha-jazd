@@ -156,19 +156,7 @@ fn last_day_of_month(year: i32, month: u32) -> u32 {
         .day()
 }
 
-/// Detect trips that fall on the last day of their month
-pub(crate) fn detect_month_end_trips(trips: &[Trip]) -> HashSet<String> {
-    trips
-        .iter()
-        .filter(|t| {
-            let last_day = last_day_of_month(t.date.year(), t.date.month());
-            t.date.day() == last_day
-        })
-        .map(|t| t.id.to_string())
-        .collect()
-}
-
-/// Generate synthetic month-end rows for months without a trip on the last day.
+/// Generate synthetic month-end rows for all closed months.
 /// Returns rows only for months from January through the month of the last trip.
 /// If no trips exist, returns rows for all 12 months.
 ///
@@ -178,12 +166,14 @@ pub(crate) fn detect_month_end_trips(trips: &[Trip]) -> HashSet<String> {
 /// * `initial_odometer` - Starting odometer (from vehicle or year carryover)
 /// * `initial_fuel` - Starting fuel (from vehicle or year carryover)
 /// * `fuel_remaining` - Pre-calculated fuel remaining after each trip (from TripGridData)
+/// * `trip_numbers` - Trip sequence numbers (for calculating sort_key)
 pub(crate) fn generate_month_end_rows(
     trips: &[Trip],
     year: i32,
     initial_odometer: f64,
     initial_fuel: f64,
     fuel_remaining: &HashMap<String, f64>,
+    trip_numbers: &HashMap<String, i32>,
 ) -> Vec<MonthEndRow> {
     // Sort trips chronologically
     let mut sorted: Vec<_> = trips.iter().collect();
@@ -192,13 +182,15 @@ pub(crate) fn generate_month_end_rows(
             .then_with(|| a.odometer.partial_cmp(&b.odometer).unwrap_or(std::cmp::Ordering::Equal))
     });
 
-    // Determine the last month to process:
-    // - If no trips, generate rows for all 12 months
-    // - Otherwise, generate only through the month of the last trip
+    // Only generate month-end rows for "closed" months:
+    // A month is closed if there are trips in a later month.
+    // Don't generate for the current/last month since it may still be open.
     let last_month = if sorted.is_empty() {
-        12u32
+        0u32 // No trips = no closed months
     } else {
-        sorted.last().unwrap().date.month()
+        let latest_month = sorted.last().unwrap().date.month();
+        // Generate rows for months BEFORE the latest month (those are closed)
+        if latest_month > 1 { latest_month - 1 } else { 0 }
     };
 
     // Track state as we process each month
@@ -228,17 +220,25 @@ pub(crate) fn generate_month_end_rows(
             .copied()
             .unwrap_or(initial_fuel);
 
-        // Check if there's a trip exactly on the last day
-        let has_trip_on_last_day = sorted.iter().any(|t| t.date == month_end_date);
+        // Calculate sort_key: last trip number in this month + 0.5
+        // This ensures month-end rows sort after the last trip of their month
+        let max_trip_num_in_month = sorted
+            .iter()
+            .filter(|t| t.date.month() == month && t.date <= month_end_date)
+            .filter_map(|t| trip_numbers.get(&t.id.to_string()))
+            .max()
+            .copied()
+            .unwrap_or(0);
+        let sort_key = max_trip_num_in_month as f64 + 0.5;
 
-        if !has_trip_on_last_day {
-            rows.push(MonthEndRow {
-                date: month_end_date,
-                odometer: current_odo,
-                fuel_remaining: current_fuel,
-                month,
-            });
-        }
+        // Always create month-end row (synthetic row shows period-end state)
+        rows.push(MonthEndRow {
+            date: month_end_date,
+            odometer: current_odo,
+            fuel_remaining: current_fuel,
+            month,
+            sort_key,
+        });
     }
 
     rows
@@ -645,13 +645,13 @@ pub fn get_trip_grid_data(
             legend_suggested_fillup: None,
             trip_numbers: HashMap::new(),
             odometer_start: HashMap::new(),
-            month_end_trips: HashSet::new(),
             month_end_rows: generate_month_end_rows(
                 &[],
                 year,
                 year_start_odometer,
                 year_start_fuel,
                 &HashMap::new(),
+                &HashMap::new(), // No trips = no trip numbers
             ),
         });
     }
@@ -766,15 +766,15 @@ pub fn get_trip_grid_data(
     // Legal compliance calculations (2026)
     let trip_numbers = calculate_trip_numbers(&trips);
     let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
-    let month_end_trips = detect_month_end_trips(&trips);
 
-    // Generate month-end rows using already-calculated fuel_remaining
+    // Generate month-end rows using already-calculated fuel_remaining and trip_numbers
     let month_end_rows = generate_month_end_rows(
         &chronological,
         year,
         year_start_odometer,
         year_start_fuel,
         &fuel_remaining,
+        &trip_numbers,
     );
 
     Ok(TripGridData {
@@ -797,7 +797,6 @@ pub fn get_trip_grid_data(
         legend_suggested_fillup,
         trip_numbers,
         odometer_start,
-        month_end_trips,
         month_end_rows,
     })
 }
@@ -1620,7 +1619,6 @@ pub async fn export_to_browser(
         // Legal compliance fields (2026) - placeholder values
         trip_numbers: HashMap::new(),
         odometer_start: HashMap::new(),
-        month_end_trips: HashSet::new(),
         month_end_rows: vec![],
     };
 
@@ -1740,7 +1738,6 @@ pub async fn export_html(
         // Legal compliance fields (2026) - placeholder values
         trip_numbers: HashMap::new(),
         odometer_start: HashMap::new(),
-        month_end_trips: HashSet::new(),
         month_end_rows: vec![],
     };
 
