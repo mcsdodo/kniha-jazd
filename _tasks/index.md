@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-01-28
+**Last updated:** 2026-01-29
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 46 | [Legal Requirements Updates](46-legal-requirements-updates/) | 📋 Planning | Slovak 2026 law: trip#, times, odo before/after, month-end |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
 | 40 | [Home Assistant ODO](40-home-assistant-odo/) | 📋 Planning | Real-time ODO display from HA |
 | 39 | [Trip Time + Hideable Columns](39-trip-time-hideable-columns/) | 📋 Planning | Departure time field, column visibility |
