@@ -27,6 +27,7 @@ export interface Vehicle {
   initialBatteryPercent?: number; // Initial SoC % (default: 100%)
   // Common fields
   initialOdometer: number;
+  driverName?: string; // Legal compliance: driver name for logbook (2026)
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -39,6 +40,7 @@ export interface Trip {
   id?: string; // UUID, generated if not provided
   vehicleId?: string;
   date: string; // YYYY-MM-DD format
+  endTime?: string; // Legal compliance: trip end time "HH:MM" (2026)
   origin: string;
   destination: string;
   distanceKm: number;
@@ -156,6 +158,16 @@ export interface TripStats {
 }
 
 /**
+ * Synthetic row for month-end state display (legal requirement 2026)
+ */
+export interface MonthEndRow {
+  date: string; // Last day of month (YYYY-MM-DD)
+  odometer: number;
+  fuelRemaining: number;
+  month: number; // 1-12
+}
+
+/**
  * Pre-calculated data for trip grid display
  */
 export interface TripGridData {
@@ -174,6 +186,11 @@ export interface TripGridData {
   // Shared warnings
   dateWarnings: string[];
   missingReceipts: string[];
+  // Legal compliance fields (2026)
+  tripNumbers: Record<string, number>; // Trip sequence numbers (1-based)
+  odometerStart: Record<string, number>; // Odometer at trip start
+  monthEndTrips: string[]; // Trip IDs on last day of month
+  monthEndRows: MonthEndRow[]; // Synthetic rows for month-end gaps
 }
 
 /**

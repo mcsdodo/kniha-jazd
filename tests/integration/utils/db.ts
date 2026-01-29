@@ -126,6 +126,8 @@ export interface SeedVehicleData {
   batteryCapacityKwh?: number;
   baselineConsumptionKwh?: number;
   initialBatteryPercent?: number;
+  // Legal compliance (2026)
+  driverName?: string;
 }
 
 /**
@@ -149,6 +151,7 @@ export async function seedVehicle(data: SeedVehicleData): Promise<Vehicle> {
     batteryCapacityKwh: data.batteryCapacityKwh,
     baselineConsumptionKwh: data.baselineConsumptionKwh,
     initialBatteryPercent: data.initialBatteryPercent,
+    driverName: data.driverName,
   };
 
   const vehicle = await invokeTauri<Vehicle>('create_vehicle', args);
@@ -174,6 +177,7 @@ export async function seedVehicleFromFixture(vehicle: Vehicle): Promise<Vehicle>
     batteryCapacityKwh: vehicle.batteryCapacityKwh,
     baselineConsumptionKwh: vehicle.baselineConsumptionKwh,
     initialBatteryPercent: vehicle.initialBatteryPercent,
+    driverName: vehicle.driverName,
   });
 }
 
@@ -187,7 +191,8 @@ export async function seedVehicleFromFixture(vehicle: Vehicle): Promise<Vehicle>
 export interface SeedTripData {
   vehicleId: string;
   date: string;
-  time?: string; // Optional time in "HH:MM" format
+  time?: string; // Optional start time in "HH:MM" format
+  endTime?: string; // Optional end time in "HH:MM" format (legal compliance 2026)
   origin: string;
   destination: string;
   distanceKm: number;
@@ -224,6 +229,7 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
     vehicleId: data.vehicleId,
     date: data.date,
     time: data.time ?? null,
+    endTime: data.endTime ?? null,
     origin: data.origin,
     destination: data.destination,
     distanceKm: data.distanceKm,
@@ -257,6 +263,7 @@ export async function seedTripFromFixture(
   return seedTrip({
     vehicleId,
     date: trip.date,
+    endTime: trip.endTime,
     origin: trip.origin,
     destination: trip.destination,
     distanceKm: trip.distanceKm,
