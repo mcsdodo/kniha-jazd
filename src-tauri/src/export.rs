@@ -25,7 +25,12 @@ pub struct ExportLabels {
     pub header_vin: String,
     pub header_driver: String,
     // Column headers
+    pub col_trip_number: String,
     pub col_date: String,
+    pub col_start_time: String,
+    pub col_end_time: String,
+    pub col_driver: String,
+    pub col_odo_start: String,
     pub col_time: String,
     pub col_origin: String,
     pub col_destination: String,
@@ -171,14 +176,42 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             .unwrap_or_default();
         let other_note = trip.other_costs_note.as_deref().unwrap_or("");
 
-        // Build row - start with date (always shown)
+        // Legal compliance fields
+        let trip_number = data
+            .grid_data
+            .trip_numbers
+            .get(&trip_id)
+            .copied()
+            .unwrap_or(0);
+        let odo_start = data
+            .grid_data
+            .odometer_start
+            .get(&trip_id)
+            .copied()
+            .unwrap_or(trip.odometer - trip.distance_km);
+        let end_time = trip.end_time.as_deref().unwrap_or("");
+        let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
+
+        // Determine row class for month-end highlighting
+        let is_month_end = data.grid_data.month_end_trips.contains(&trip_id);
+        let row_class = if is_month_end { " class=\"month-end-trip\"" } else { "" };
+
+        // Build row - start with Trip# (always shown for legal compliance)
         let mut row = format!(
-            r#"        <tr>
-          <td>{}</td>"#,
-            trip.date.format("%d.%m.%Y"),
+            r#"        <tr{}>
+          <td class="num">{}</td>"#,
+            row_class,
+            trip_number,
         );
 
-        // Time column (hideable)
+        // Date (always shown)
+        row.push_str(&format!(
+            r#"
+          <td>{}</td>"#,
+            trip.date.format("%d.%m.%Y"),
+        ));
+
+        // Start Time (hideable)
         if is_visible("time") {
             row.push_str(&format!(
                 r#"
@@ -187,18 +220,46 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             ));
         }
 
-        // Origin, destination, purpose, distance, odometer (always shown)
+        // End Time (hideable)
+        if is_visible("time") {
+            row.push_str(&format!(
+                r#"
+          <td>{}</td>"#,
+                html_escape(end_time),
+            ));
+        }
+
+        // Driver (always shown for legal compliance)
+        row.push_str(&format!(
+            r#"
+          <td>{}</td>"#,
+            html_escape(driver_name),
+        ));
+
+        // Origin, destination, purpose, distance (always shown)
         row.push_str(&format!(
             r#"
           <td>{}</td>
           <td>{}</td>
           <td>{}</td>
-          <td class="num">{:.0}</td>
           <td class="num">{:.0}</td>"#,
             html_escape(&trip.origin),
             html_escape(&trip.destination),
             html_escape(&trip.purpose),
             trip.distance_km,
+        ));
+
+        // Odo Start (always shown for legal compliance)
+        row.push_str(&format!(
+            r#"
+          <td class="num">{:.0}</td>"#,
+            odo_start,
+        ));
+
+        // Odo End (always shown)
+        row.push_str(&format!(
+            r#"
+          <td class="num">{:.0}</td>"#,
             trip.odometer,
         ));
 
@@ -335,6 +396,147 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         rows.push_str(&row);
     }
 
+    // Render synthetic month-end rows (for months without a trip on the last day)
+    for month_end in &data.grid_data.month_end_rows {
+        // Calculate number of columns for proper rendering
+        // Base columns: Trip#, Date, Start Time (if visible), End Time (if visible), Driver, Origin, Destination, Purpose, Km, Odo Start, Odo End
+        let mut time_cols = 0;
+        if is_visible("time") {
+            time_cols = 2; // Start time + End time
+        }
+
+        // Build synthetic month-end row
+        let mut row = format!(
+            r#"        <tr class="month-end-synthetic">
+          <td></td>"#, // Trip# - empty for synthetic
+        );
+
+        // Date
+        row.push_str(&format!(
+            r#"
+          <td>{}</td>"#,
+            month_end.date.format("%d.%m.%Y"),
+        ));
+
+        // Start Time + End Time (if visible) - empty for synthetic
+        for _ in 0..time_cols {
+            row.push_str(
+                r#"
+          <td></td>"#,
+            );
+        }
+
+        // Driver - empty for synthetic
+        row.push_str(
+            r#"
+          <td></td>"#,
+        );
+
+        // Origin, Destination, Purpose, Km - empty for synthetic
+        row.push_str(
+            r#"
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>"#,
+        );
+
+        // Odo Start - same as Odo End (no travel)
+        row.push_str(&format!(
+            r#"
+          <td class="num">{:.0}</td>"#,
+            month_end.odometer,
+        ));
+
+        // Odo End
+        row.push_str(&format!(
+            r#"
+          <td class="num">{:.0}</td>"#,
+            month_end.odometer,
+        ));
+
+        // Fuel columns (ICE + PHEV)
+        if show_fuel {
+            // Fuel liters and cost - empty
+            row.push_str(
+                r#"
+          <td></td>
+          <td></td>"#,
+            );
+
+            // Fuel consumed (if visible) - empty
+            if is_visible("fuelConsumed") {
+                row.push_str(
+                    r#"
+          <td></td>"#,
+                );
+            }
+
+            // Fuel remaining (if visible) - show the carried-over state
+            if is_visible("fuelRemaining") {
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{:.1}</td>"#,
+                    month_end.fuel_remaining,
+                ));
+            }
+
+            // Consumption rate - empty
+            row.push_str(
+                r#"
+          <td></td>"#,
+            );
+        }
+
+        // Energy columns (BEV + PHEV)
+        if show_energy {
+            // Energy kWh and cost - empty
+            row.push_str(
+                r#"
+          <td></td>
+          <td></td>"#,
+            );
+
+            // Battery remaining (if visible) - empty (we don't track battery in month_end_rows yet)
+            if is_visible("fuelRemaining") {
+                row.push_str(
+                    r#"
+          <td></td>"#,
+                );
+            }
+
+            // Energy rate - empty
+            row.push_str(
+                r#"
+          <td></td>"#,
+            );
+        }
+
+        // Other costs (if visible) - empty
+        if is_visible("otherCosts") {
+            row.push_str(
+                r#"
+          <td></td>"#,
+            );
+        }
+
+        // Other costs note (if visible) - empty
+        if is_visible("otherCostsNote") {
+            row.push_str(
+                r#"
+          <td></td>"#,
+            );
+        }
+
+        row.push_str(
+            r#"
+        </tr>
+"#,
+        );
+
+        rows.push_str(&row);
+    }
+
     let l = &data.labels;
 
     // Build vehicle specs section based on vehicle type
@@ -378,25 +580,47 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     };
 
     // Build column headers based on vehicle type and visibility settings
-    // Date (always shown)
+    // Trip# (always shown for legal compliance)
     let mut col_headers = format!(
         r#"        <th>{}</th>"#,
-        html_escape(&l.col_date),
+        html_escape(&l.col_trip_number),
     );
 
-    // Time (hideable)
+    // Date (always shown)
+    col_headers.push_str(&format!(
+        r#"
+        <th>{}</th>"#,
+        html_escape(&l.col_date),
+    ));
+
+    // Start Time (hideable - uses same "time" setting)
     if is_visible("time") {
         col_headers.push_str(&format!(
             r#"
         <th>{}</th>"#,
-            html_escape(&l.col_time),
+            html_escape(&l.col_start_time),
         ));
     }
 
-    // Origin, destination, purpose, km, odometer (always shown)
+    // End Time (hideable - uses same "time" setting)
+    if is_visible("time") {
+        col_headers.push_str(&format!(
+            r#"
+        <th>{}</th>"#,
+            html_escape(&l.col_end_time),
+        ));
+    }
+
+    // Driver (always shown for legal compliance)
     col_headers.push_str(&format!(
         r#"
-        <th>{}</th>
+        <th>{}</th>"#,
+        html_escape(&l.col_driver),
+    ));
+
+    // Origin, destination, purpose, km (always shown)
+    col_headers.push_str(&format!(
+        r#"
         <th>{}</th>
         <th>{}</th>
         <th>{}</th>
@@ -405,6 +629,19 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         html_escape(&l.col_destination),
         html_escape(&l.col_purpose),
         html_escape(&l.col_km),
+    ));
+
+    // Odo Start (always shown for legal compliance)
+    col_headers.push_str(&format!(
+        r#"
+        <th>{}</th>"#,
+        html_escape(&l.col_odo_start),
+    ));
+
+    // Odo End (always shown)
+    col_headers.push_str(&format!(
+        r#"
+        <th>{}</th>"#,
         html_escape(&l.col_odo),
     ));
 
@@ -700,6 +937,16 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
 
     tr:nth-child(even) {{
       background: #fafafa;
+    }}
+
+    tr.month-end-synthetic {{
+      background: #f0f0f0;
+      font-style: italic;
+    }}
+
+    tr.month-end-trip {{
+      background: #e8f4fc;
+      border-bottom: 2px solid #4a90d9;
     }}
 
     .footer {{
