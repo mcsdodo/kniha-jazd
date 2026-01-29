@@ -373,6 +373,22 @@ pub struct TripGridData {
     pub legend_suggested_fillup: Option<SuggestedFillup>,
 }
 
+/// Synthetic row for month-end state display (legal requirement)
+/// Generated for months where no trip falls on the last calendar day.
+/// Only contains odometer and fuel state — no trip number, no driver (display-only fields).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonthEndRow {
+    /// Last day of the month (e.g., 2026-01-31)
+    pub date: NaiveDate,
+    /// Odometer reading (same for start/end - no travel)
+    pub odometer: f64,
+    /// Fuel remaining in liters (carried from last trip state)
+    pub fuel_remaining: f64,
+    /// Month number 1-12 (for identification/sorting)
+    pub month: u32,
+}
+
 /// Status of a scanned receipt
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ReceiptStatus {
