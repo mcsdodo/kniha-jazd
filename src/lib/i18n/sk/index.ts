@@ -117,6 +117,8 @@ const sk = {
 		columns: {
 			tripNumber: '#',
 			date: 'Dátum',
+			startDatetime: 'Začiatok',
+			endDatetime: 'Koniec',
 			startTime: 'Čas od',
 			endTime: 'Čas do',
 			time: 'Čas',

@@ -81,9 +81,8 @@ export async function calculateMagicFillLiters(
 
 export async function createTrip(
 	vehicleId: string,
-	date: string,
-	time: string | null,
-	endTime: string | null,
+	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
+	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
 	origin: string,
 	destination: string,
 	distanceKm: number,
@@ -105,9 +104,8 @@ export async function createTrip(
 ): Promise<Trip> {
 	return await invoke('create_trip', {
 		vehicleId,
-		date,
-		time,
-		endTime,
+		startDatetime,
+		endDatetime,
 		origin,
 		destination,
 		distanceKm,
@@ -128,9 +126,8 @@ export async function createTrip(
 
 export async function updateTrip(
 	id: string,
-	date: string,
-	time: string | null,
-	endTime: string | null,
+	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
+	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
 	origin: string,
 	destination: string,
 	distanceKm: number,
@@ -151,9 +148,8 @@ export async function updateTrip(
 ): Promise<Trip> {
 	return await invoke('update_trip', {
 		id,
-		date,
-		time,
-		endTime,
+		startDatetime,
+		endDatetime,
 		origin,
 		destination,
 		distanceKm,
