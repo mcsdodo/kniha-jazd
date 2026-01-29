@@ -371,6 +371,16 @@ pub struct TripGridData {
     /// Legend suggestion: the most recent trip's suggestion (for display in legend).
     /// Calculated by backend to avoid frontend logic.
     pub legend_suggested_fillup: Option<SuggestedFillup>,
+
+    // Legal compliance fields (2026)
+    /// Trip sequence number (1-based, per year, chronological order)
+    pub trip_numbers: HashMap<String, i32>,
+    /// Odometer at trip START (derived from previous trip's ending odo)
+    pub odometer_start: HashMap<String, f64>,
+    /// Trip IDs that fall on the last day of their month (for highlighting)
+    pub month_end_trips: HashSet<String>,
+    /// Synthetic rows for months without a trip on the last day
+    pub month_end_rows: Vec<MonthEndRow>,
 }
 
 /// Synthetic row for month-end state display (legal requirement)
