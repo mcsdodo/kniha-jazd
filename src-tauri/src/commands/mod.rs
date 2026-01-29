@@ -39,6 +39,7 @@ use crate::app_state::AppState;
 
 /// Parse date and optional time into NaiveDateTime.
 /// Time format: "HH:MM" (e.g., "08:30"). If empty or None, defaults to 00:00.
+#[allow(dead_code)] // Used in tests, may be used in future
 pub(crate) fn parse_trip_datetime(
     date: &str,
     time: Option<&str>,
@@ -606,12 +607,11 @@ fn get_year_start_odometer(
     Ok(initial_odometer)
 }
 
-/// Get pre-calculated trip grid data for frontend display.
-/// This is the single source of truth for all grid calculations.
-#[tauri::command]
-pub fn get_trip_grid_data(
-    db: State<Database>,
-    vehicle_id: String,
+/// Internal function to build trip grid data - single source of truth.
+/// Used by both get_trip_grid_data command and export functions.
+pub(crate) fn build_trip_grid_data(
+    db: &Database,
+    vehicle_id: &str,
     year: i32,
 ) -> Result<TripGridData, String> {
     // Get vehicle for TP consumption and tank size
@@ -631,15 +631,15 @@ pub fn get_trip_grid_data(
 
     // Calculate year starting values (carryover from previous year)
     let year_start_odometer = get_year_start_odometer(
-        &db,
-        &vehicle_id,
+        db,
+        vehicle_id,
         year,
         vehicle.initial_odometer,
     )?;
 
     let year_start_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
+        db,
+        vehicle_id,
         year,
         tank_size,
         tp_consumption,
@@ -705,7 +705,7 @@ pub fn get_trip_grid_data(
 
     // Calculate initial battery for BEV/PHEV (carryover from previous year)
     let initial_battery = if vehicle.vehicle_type.uses_electricity() {
-        get_year_start_battery_remaining(&db, &vehicle_id, year, &vehicle)?
+        get_year_start_battery_remaining(db, vehicle_id, year, &vehicle)?
     } else {
         0.0
     };
@@ -820,6 +820,17 @@ pub fn get_trip_grid_data(
         odometer_start,
         month_end_rows,
     })
+}
+
+/// Get pre-calculated trip grid data for frontend display.
+/// Thin wrapper around build_trip_grid_data for Tauri command.
+#[tauri::command]
+pub fn get_trip_grid_data(
+    db: State<Database>,
+    vehicle_id: String,
+    year: i32,
+) -> Result<TripGridData, String> {
+    build_trip_grid_data(&db, &vehicle_id, year)
 }
 
 /// Get accumulated km in the current (open) fillup period.
@@ -1505,54 +1516,30 @@ pub async fn export_to_browser(
     vehicle_id: String,
     year: i32,
     license_plate: String,
-    sort_column: String,
-    sort_direction: String,
+    _sort_column: String,
+    _sort_direction: String,
     labels: ExportLabels,
     hidden_columns: Vec<String>,
 ) -> Result<(), String> {
-    // Get vehicle
+    // Get vehicle and settings
     let vehicle = db
         .get_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Vehicle not found".to_string())?;
 
-    // Get settings
     let settings = db
         .get_settings()
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Settings not found - please configure company info first".to_string())?;
 
-    // Get trips
-    let mut trips = db
-        .get_trips_for_vehicle_in_year(&vehicle_id, year)
-        .map_err(|e| e.to_string())?;
+    // REUSE: Get all grid data from single source of truth
+    let mut grid_data = build_trip_grid_data(&db, &vehicle_id, year)?;
 
-    // Calculate year-start values (needed for synthetic first record)
-    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
-    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
-
-    // Get year starting odometer (carryover from previous year)
-    let year_start_odometer = get_year_start_odometer(
-        &db,
-        &vehicle_id,
-        year,
-        vehicle.initial_odometer,
-    )?;
-
-    // Get initial fuel (carryover from previous year)
-    let initial_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
-
-    // Create synthetic "Prvý záznam" (first record) trip with correct year-start values
+    // Add synthetic "Prvý záznam" (first record) for export display
     let first_record_date = NaiveDate::from_ymd_opt(year, 1, 1)
         .ok_or_else(|| "Invalid year".to_string())?;
     let first_record = Trip {
-        id: Uuid::nil(), // Special marker for first record
+        id: Uuid::nil(),
         vehicle_id: vehicle.id,
         date: first_record_date,
         datetime: first_record_date.and_hms_opt(0, 0, 0).unwrap(),
@@ -1560,93 +1547,30 @@ pub async fn export_to_browser(
         origin: "-".to_string(),
         destination: "-".to_string(),
         distance_km: 0.0,
-        odometer: year_start_odometer, // Use carryover odometer, not vehicle.initial_odometer
+        odometer: grid_data.year_start_odometer,
         purpose: "Prvý záznam".to_string(),
         fuel_liters: None,
         fuel_cost_eur: None,
         full_tank: true,
-        // Energy fields (BEV/PHEV) - not applicable to first record
         energy_kwh: None,
         energy_cost_eur: None,
         full_charge: false,
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 999999, // Always last in manual sort
+        sort_order: 999999,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
-    trips.push(first_record);
+    grid_data.trips.push(first_record);
+    grid_data.fuel_remaining.insert(Uuid::nil().to_string(), grid_data.year_start_fuel);
+    grid_data.trip_numbers.insert(Uuid::nil().to_string(), 0);
+    grid_data.odometer_start.insert(Uuid::nil().to_string(), grid_data.year_start_odometer);
 
-    // Sort chronologically for calculations (excluding first record which has 0 km)
-    let mut chronological: Vec<_> = trips.iter()
-        .filter(|t| t.id != Uuid::nil())
-        .cloned()
-        .collect();
-    chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-    });
-
-    // Apply user's sort settings for display (including first record)
-    let is_ascending = sort_direction == "asc";
-    if sort_column == "date" {
-        trips.sort_by(|a, b| {
-            let cmp = a.date.cmp(&b.date);
-            if is_ascending { cmp } else { cmp.reverse() }
-        });
-    } else {
-        // manual sort by sort_order
-        trips.sort_by(|a, b| {
-            let cmp = a.sort_order.cmp(&b.sort_order);
-            if is_ascending { cmp } else { cmp.reverse() }
-        });
-    }
-
-    // Calculate rates and fuel remaining (ICE vehicles only for now)
-    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
+    // Calculate totals (reuses grid_data.trips, excludes 0km trips)
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
     let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
-
-    let (rates, estimated_rates) =
-        calculate_period_rates(&chronological, tp_consumption);
-
-    let mut fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
-    // Add synthetic first record's zostatok (year start fuel, before any trips)
-    fuel_remaining.insert(Uuid::nil().to_string(), initial_fuel);
-    let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
-
-    // Legal compliance calculations (2026)
-    let trip_numbers = calculate_trip_numbers(&trips);
-    let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
-
-    let grid_data = TripGridData {
-        trips,
-        rates,
-        estimated_rates,
-        fuel_consumed,
-        fuel_remaining,
-        consumption_warnings: HashSet::new(),
-        energy_rates: HashMap::new(),
-        estimated_energy_rates: HashSet::new(),
-        battery_remaining_kwh: HashMap::new(),
-        battery_remaining_percent: HashMap::new(),
-        soc_override_trips: HashSet::new(),
-        date_warnings: HashSet::new(),
-        missing_receipts: HashSet::new(),
-        year_start_odometer,
-        year_start_fuel: initial_fuel,
-        suggested_fillup: HashMap::new(), // Not needed for export
-        legend_suggested_fillup: None,    // Not needed for export
-        trip_numbers,
-        odometer_start,
-        month_end_rows: vec![],
-    };
-
-    let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
+    let totals = ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
 
     let export_data = ExportData {
         vehicle,
@@ -1680,96 +1604,28 @@ pub async fn export_html(
     year: i32,
     labels: ExportLabels,
 ) -> Result<String, String> {
-    // Get vehicle
+    // Get vehicle and settings
     let vehicle = db
         .get_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Vehicle not found".to_string())?;
 
-    // Get settings
     let settings = db
         .get_settings()
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Settings not found - please configure company info first".to_string())?;
 
-    // Get trip grid data (reuses existing calculation logic)
-    let trips = db
-        .get_trips_for_vehicle_in_year(&vehicle_id, year)
-        .map_err(|e| e.to_string())?;
+    // REUSE: Get all grid data from single source of truth
+    let grid_data = build_trip_grid_data(&db, &vehicle_id, year)?;
 
-    if trips.is_empty() {
+    if grid_data.trips.is_empty() {
         return Err("No trips found for this year".to_string());
     }
 
-    // Sort chronologically for calculations
-    let mut chronological = trips.clone();
-    chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-    });
-
-    // Calculate rates and fuel remaining (ICE vehicles only for now)
-    // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
+    // Calculate totals
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
-    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
     let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
-
-    let (rates, estimated_rates) =
-        calculate_period_rates(&chronological, tp_consumption);
-
-    // Get initial fuel (carryover from previous year)
-    let initial_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
-
-    // Get year starting odometer (carryover from previous year)
-    let year_start_odometer = get_year_start_odometer(
-        &db,
-        &vehicle_id,
-        year,
-        vehicle.initial_odometer,
-    )?;
-
-    let fuel_remaining =
-        calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
-    let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
-
-    // Legal compliance calculations (2026)
-    let trip_numbers = calculate_trip_numbers(&trips);
-    let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
-
-    let grid_data = TripGridData {
-        trips,
-        rates,
-        estimated_rates,
-        fuel_consumed,
-        fuel_remaining,
-        consumption_warnings: HashSet::new(),
-        energy_rates: HashMap::new(),
-        estimated_energy_rates: HashSet::new(),
-        battery_remaining_kwh: HashMap::new(),
-        battery_remaining_percent: HashMap::new(),
-        soc_override_trips: HashSet::new(),
-        date_warnings: HashSet::new(),
-        missing_receipts: HashSet::new(),
-        year_start_odometer,
-        year_start_fuel: initial_fuel,
-        suggested_fillup: HashMap::new(), // Not needed for export
-        legend_suggested_fillup: None,    // Not needed for export
-        trip_numbers,
-        odometer_start,
-        month_end_rows: vec![],
-    };
-
-    // Calculate totals for footer
-    let totals = ExportTotals::calculate(&chronological, tp_consumption, baseline_consumption_kwh);
+    let totals = ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
 
     // Generate HTML (export_html API doesn't support hidden columns, show all)
     let export_data = ExportData {
