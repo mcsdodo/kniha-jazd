@@ -165,7 +165,48 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
 
     let mut rows = String::new();
 
-    for trip in &data.grid_data.trips {
+    // Build combined list of trips and month-end rows with sort keys
+    // (same interleaving logic as frontend TripGrid.svelte displayRows)
+    struct SortableRow<'a> {
+        sort_key: f64,
+        trip: Option<&'a Trip>,
+        month_end: Option<&'a crate::models::MonthEndRow>,
+    }
+
+    let mut sortable_rows: Vec<SortableRow> = data
+        .grid_data
+        .trips
+        .iter()
+        .map(|t| {
+            let trip_id = t.id.to_string();
+            let sort_key = data
+                .grid_data
+                .trip_numbers
+                .get(&trip_id)
+                .copied()
+                .unwrap_or(0) as f64;
+            SortableRow {
+                sort_key,
+                trip: Some(t),
+                month_end: None,
+            }
+        })
+        .collect();
+
+    sortable_rows.extend(data.grid_data.month_end_rows.iter().map(|m| SortableRow {
+        sort_key: m.sort_key,
+        trip: None,
+        month_end: Some(m),
+    }));
+
+    sortable_rows.sort_by(|a, b| {
+        a.sort_key
+            .partial_cmp(&b.sort_key)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    for sortable in &sortable_rows {
+        if let Some(trip) = sortable.trip {
         let trip_id = trip.id.to_string();
 
         // Common fields
@@ -380,10 +421,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         );
 
         rows.push_str(&row);
-    }
-
-    // Render synthetic month-end rows (for months without a trip on the last day)
-    for month_end in &data.grid_data.month_end_rows {
+        } else if let Some(month_end) = sortable.month_end {
         // Build synthetic month-end row
         let mut row = format!(
             r#"        <tr class="month-end-synthetic">
@@ -514,6 +552,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         );
 
         rows.push_str(&row);
+        }
     }
 
     let l = &data.labels;
@@ -910,8 +949,10 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     }}
 
     tr.month-end-synthetic {{
-      background: #f0f0f0;
+      background: #e8eef4;
       font-style: italic;
+      border-left: 3px solid #6b8cae;
+      border-bottom: 2px solid #ccd6e0;
     }}
 
     tr.month-end-trip {{
