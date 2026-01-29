@@ -1,0 +1,3 @@
+-- SQLite 3.35+ supports ALTER TABLE DROP COLUMN
+-- But per project policy, we don't remove columns (backward compatibility)
+-- This down migration is intentionally empty
