@@ -182,7 +182,7 @@ const sk = {
 		columnVisibility: {
 			title: 'Stĺpce',
 			tripNumber: 'Číslo jazdy',
-			time: 'Čas (od/do)',
+			time: 'Koniec',  // End datetime column (start is always shown)
 			driver: 'Vodič',
 			odoStart: 'Km pred',
 			fuelConsumed: 'Spotrebované (L)',

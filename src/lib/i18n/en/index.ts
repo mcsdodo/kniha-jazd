@@ -182,7 +182,7 @@ const en = {
 		columnVisibility: {
 			title: 'Columns',
 			tripNumber: 'Trip #',
-			time: 'Time (start/end)',
+			time: 'End',  // End datetime column (start is always shown)
 			driver: 'Driver',
 			odoStart: 'Odo Start',
 			fuelConsumed: 'Consumed (L)',
