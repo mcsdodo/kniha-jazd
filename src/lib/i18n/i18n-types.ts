@@ -558,6 +558,26 @@ type RootTranslation = {
 			 */
 			title: string
 			/**
+			 * Č​í​s​l​o​ ​j​a​z​d​y
+			 */
+			tripNumber: string
+			/**
+			 * Č​a​s​ ​o​d
+			 */
+			startTime: string
+			/**
+			 * Č​a​s​ ​d​o
+			 */
+			endTime: string
+			/**
+			 * V​o​d​i​č
+			 */
+			driver: string
+			/**
+			 * K​m​ ​p​r​e​d
+			 */
+			odoStart: string
+			/**
 			 * Č​a​s
 			 */
 			time: string
@@ -2524,6 +2544,26 @@ export type TranslationFunctions = {
 			 * Stĺpce
 			 */
 			title: () => LocalizedString
+			/**
+			 * Číslo jazdy
+			 */
+			tripNumber: () => LocalizedString
+			/**
+			 * Čas od
+			 */
+			startTime: () => LocalizedString
+			/**
+			 * Čas do
+			 */
+			endTime: () => LocalizedString
+			/**
+			 * Vodič
+			 */
+			driver: () => LocalizedString
+			/**
+			 * Km pred
+			 */
+			odoStart: () => LocalizedString
 			/**
 			 * Čas
 			 */
