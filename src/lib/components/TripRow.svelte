@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
-	import { extractTime } from '$lib/types';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -22,6 +21,39 @@
 	export let hasSocOverride: boolean = false;
 
 	export let defaultDate: string = new Date().toISOString().split('T')[0]; // For new rows
+
+	// Convert trip.datetime (ISO string) to datetime-local format "YYYY-MM-DDTHH:MM"
+	function toDatetimeLocal(isoString: string | undefined): string {
+		if (!isoString) return `${defaultDate}T00:00`;
+		// isoString is like "2026-01-29T14:30:00", we need "2026-01-29T14:30"
+		return isoString.slice(0, 16);
+	}
+
+	// Convert endTime (HH:MM) + date to datetime-local format
+	function endTimeToDatetimeLocal(date: string, endTime: string | null | undefined): string {
+		const baseDate = date || defaultDate;
+		const time = endTime || '00:00';
+		return `${baseDate}T${time}`;
+	}
+
+	// Format datetime for display: "DD.MM HH:MM" (no year - it's in the dropdown)
+	function formatDatetimeShort(isoString: string): string {
+		const date = new Date(isoString);
+		const day = date.getDate().toString().padStart(2, '0');
+		const month = (date.getMonth() + 1).toString().padStart(2, '0');
+		const hours = date.getHours().toString().padStart(2, '0');
+		const minutes = date.getMinutes().toString().padStart(2, '0');
+		return `${day}.${month}. ${hours}:${minutes}`;
+	}
+
+	// Format end datetime for display
+	function formatEndDatetimeShort(date: string, endTime: string | null | undefined): string {
+		const baseDate = new Date(date);
+		const day = baseDate.getDate().toString().padStart(2, '0');
+		const month = (baseDate.getMonth() + 1).toString().padStart(2, '0');
+		const time = endTime || '00:00';
+		return `${day}.${month}. ${time}`;
+	}
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
@@ -59,10 +91,10 @@
 	let manualOdoEdit = false; // Track if user manually edited ODO
 
 	// Form state - use null for new rows to show placeholder
+	const defaultStartDatetime = `${defaultDate}T00:00`;
 	let formData = {
-		date: trip?.date || defaultDate,
-		time: trip?.datetime ? extractTime(trip.datetime) : '00:00',
-		endTime: trip?.endTime || '',
+		startDatetime: trip ? toDatetimeLocal(trip.datetime) : defaultStartDatetime,
+		endDatetime: trip ? endTimeToDatetimeLocal(trip.date, trip.endTime) : defaultStartDatetime,
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
 		distanceKm: trip?.distanceKm ?? (isNew ? null : 0),
@@ -81,6 +113,13 @@
 		otherCostsEur: trip?.otherCostsEur || null,
 		otherCostsNote: trip?.otherCostsNote || ''
 	};
+
+	// For new trips: auto-copy startDatetime to endDatetime when start changes
+	function handleStartDatetimeChange() {
+		if (isNew) {
+			formData.endDatetime = formData.startDatetime;
+		}
+	}
 
 	// Get unique locations from routes
 	$: locationSuggestions = Array.from(
@@ -216,10 +255,10 @@
 			onCancel();
 		} else {
 			// Reset form data
+			const currentDate = new Date().toISOString().split('T')[0];
 			formData = {
-				date: trip?.date || new Date().toISOString().split('T')[0],
-				time: trip?.datetime ? extractTime(trip.datetime) : '00:00',
-				endTime: trip?.endTime || '',
+				startDatetime: trip ? toDatetimeLocal(trip.datetime) : `${currentDate}T00:00`,
+				endDatetime: trip ? endTimeToDatetimeLocal(trip.date, trip.endTime) : `${currentDate}T00:00`,
 				origin: trip?.origin || '',
 				destination: trip?.destination || '',
 				distanceKm: trip?.distanceKm || 0,
@@ -286,15 +325,23 @@
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{isNew ? '-' : tripNumber}</td>
 		{/if}
-		<td class="col-date">
-			<input type="date" bind:value={formData.date} data-testid="trip-date" />
+		<td class="col-start-datetime">
+			<input
+				type="datetime-local"
+				bind:value={formData.startDatetime}
+				on:change={handleStartDatetimeChange}
+				data-testid="trip-start-datetime"
+				required
+			/>
 		</td>
 		{#if !hiddenColumns.includes('time')}
-			<td class="col-time">
-				<input type="time" bind:value={formData.time} data-testid="trip-time" />
-			</td>
-			<td class="col-end-time">
-				<input type="time" bind:value={formData.endTime} data-testid="trip-end-time" />
+			<td class="col-end-datetime">
+				<input
+					type="datetime-local"
+					bind:value={formData.endDatetime}
+					data-testid="trip-end-datetime"
+					required
+				/>
 			</td>
 		{/if}
 		<td class="col-origin">
@@ -497,10 +544,9 @@
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{tripNumber}</td>
 		{/if}
-		<td class="col-date">{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
+		<td class="col-start-datetime">{formatDatetimeShort(trip.datetime)}</td>
 		{#if !hiddenColumns.includes('time')}
-			<td class="col-time">{extractTime(trip.datetime)}</td>
-			<td class="col-end-time">{trip.endTime || ''}</td>
+			<td class="col-end-datetime">{formatEndDatetimeShort(trip.date, trip.endTime)}</td>
 		{/if}
 		<td class="col-origin">{trip.origin}</td>
 		<td class="col-destination">{trip.destination}</td>

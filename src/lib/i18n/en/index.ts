@@ -117,8 +117,10 @@ const en = {
 		columns: {
 			tripNumber: '#',
 			date: 'Date',
-			startTime: 'Start',
-			endTime: 'End',
+			startDatetime: 'Start',
+			endDatetime: 'End',
+			startTime: 'Start Time',
+			endTime: 'End Time',
 			time: 'Time',
 			origin: 'From',
 			destination: 'To',

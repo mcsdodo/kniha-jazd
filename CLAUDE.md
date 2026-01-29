@@ -137,23 +137,22 @@ All business logic and calculations live in Rust backend only (ADR-008):
 
 ### Database Migration Best Practices
 
-**IMPORTANT:** All database migrations MUST be backward-compatible:
+**Migration strategy is forward-only (ADR-012).** We do NOT support older app versions reading newer databases.
 
-- **Always** add columns with DEFAULT values
-- **Never** remove columns (mark as deprecated if needed)
-- **Never** rename columns
-- **Never** change column types to incompatible types
-
-**Why?** The app supports read-only mode for older versions accessing newer databases. Older app versions must be able to READ data from databases migrated by newer versions.
+- **Always** add columns with DEFAULT values (for migration to succeed)
+- **Migrations run automatically** on app start
+- **Backups are created** before migrations (existing behavior)
+- **No legacy field sync** - don't maintain deprecated columns for backward compat
 
 ```sql
--- Good migration (backward-compatible):
+-- Standard migration:
 ALTER TABLE trips ADD COLUMN new_field TEXT DEFAULT '';
 
--- Bad migration (DO NOT DO):
-ALTER TABLE trips DROP COLUMN old_field;        -- Older apps will crash!
-ALTER TABLE trips RENAME COLUMN old TO new;     -- Older apps won't find it!
+-- Allowed (if needed for cleanup):
+ALTER TABLE trips DROP COLUMN deprecated_field;  -- OK after deprecation period
 ```
+
+**Note:** Users must upgrade the app to use migrated databases. Auto-update ensures this happens quickly.
 
 ### Running Tests
 

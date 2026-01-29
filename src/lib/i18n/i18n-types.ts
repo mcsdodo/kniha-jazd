@@ -356,6 +356,14 @@ type RootTranslation = {
 			 */
 			date: string
 			/**
+			 * Z​a​č​i​a​t​o​k
+			 */
+			startDatetime: string
+			/**
+			 * K​o​n​i​e​c
+			 */
+			endDatetime: string
+			/**
 			 * Č​a​s​ ​o​d
 			 */
 			startTime: string
@@ -2356,6 +2364,14 @@ export type TranslationFunctions = {
 			 * Dátum
 			 */
 			date: () => LocalizedString
+			/**
+			 * Začiatok
+			 */
+			startDatetime: () => LocalizedString
+			/**
+			 * Koniec
+			 */
+			endDatetime: () => LocalizedString
 			/**
 			 * Čas od
 			 */

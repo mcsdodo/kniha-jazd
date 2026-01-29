@@ -55,6 +55,24 @@
 	let tripNumbers: Map<string, number> = new Map();
 	let odometerStart: Map<string, number> = new Map();
 
+	// Format date as "DD.MM." (no year - it's in the dropdown)
+	function formatDateShort(dateStr: string): string {
+		const parts = dateStr.split('-'); // "YYYY-MM-DD"
+		return `${parts[2]}.${parts[1]}.`;
+	}
+
+	// Convert trip's datetime to datetime-local format for API calls
+	function tripToStartDatetime(trip: Trip): string {
+		// trip.datetime is "YYYY-MM-DDTHH:MM:SS", we need "YYYY-MM-DDTHH:MM"
+		return trip.datetime.slice(0, 16);
+	}
+
+	// Convert trip's date + endTime to datetime-local format for API calls
+	function tripToEndDatetime(trip: Trip): string {
+		const time = trip.endTime || '00:00';
+		return `${trip.date}T${time}`;
+	}
+
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
 		try {
@@ -181,13 +199,12 @@
 		showNewRow = true;
 	}
 
-	async function handleSaveNew(tripData: Partial<Trip> & { time?: string; endTime?: string | null }) {
+	async function handleSaveNew(tripData: Partial<Trip> & { startDatetime?: string; endDatetime?: string }) {
 		try {
 			await createTrip(
 				vehicleId,
-				tripData.date!,
-				tripData.time || null,
-				tripData.endTime || null,
+				tripData.startDatetime!,
+				tripData.endDatetime!,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
@@ -227,13 +244,12 @@
 		}
 	}
 
-	async function handleUpdate(trip: Trip, tripData: Partial<Trip> & { time?: string; endTime?: string | null }) {
+	async function handleUpdate(trip: Trip, tripData: Partial<Trip> & { startDatetime?: string; endDatetime?: string }) {
 		try {
 			await updateTrip(
 				trip.id,
-				tripData.date!,
-				tripData.time || null,
-				tripData.endTime || null,
+				tripData.startDatetime!,
+				tripData.endDatetime!,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
@@ -280,7 +296,8 @@
 			runningOdo = runningOdo + t.distanceKm;
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					t.id, t.date, null, t.endTime, t.origin, t.destination, t.distanceKm, runningOdo,
+					t.id, tripToStartDatetime(t), tripToEndDatetime(t),
+					t.origin, t.destination, t.distanceKm, runningOdo,
 					t.purpose,
 					t.fuelLiters, t.fuelCostEur, t.fullTank,
 					t.energyKwh, t.energyCostEur, t.fullCharge, t.socOverridePercent,
@@ -409,7 +426,8 @@
 			runningOdo += trip.distanceKm;
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					trip.id, trip.date, null, trip.endTime, trip.origin, trip.destination, trip.distanceKm, runningOdo,
+					trip.id, tripToStartDatetime(trip), tripToEndDatetime(trip),
+					trip.origin, trip.destination, trip.distanceKm, runningOdo,
 					trip.purpose,
 					trip.fuelLiters, trip.fuelCostEur, trip.fullTank,
 					trip.energyKwh, trip.energyCostEur, trip.fullCharge, trip.socOverridePercent,
@@ -603,10 +621,9 @@
 							{/if}
 						</th>
 					{/if}
-					<th class="col-date">{$LL.trips.columns.date()}</th>
+					<th class="col-start-datetime" data-testid="column-header-start">{$LL.trips.columns.startDatetime()}</th>
 					{#if !hiddenColumns.includes('time')}
-						<th class="col-time" data-testid="column-header-time">{$LL.trips.columns.startTime()}</th>
-						<th class="col-end-time" data-testid="column-header-end-time">{$LL.trips.columns.endTime()}</th>
+						<th class="col-end-datetime" data-testid="column-header-end">{$LL.trips.columns.endDatetime()}</th>
 					{/if}
 					<th class="col-origin">{$LL.trips.columns.origin()}</th>
 					<th class="col-destination">{$LL.trips.columns.destination()}</th>
@@ -709,10 +726,9 @@
 							{#if !hiddenColumns.includes('tripNumber')}
 								<td class="col-trip-number number">-</td>
 							{/if}
-							<td class="col-date">{trip.date.split('-').reverse().join('.')}</td>
+							<td class="col-start-datetime">{formatDateShort(trip.date)} 00:00</td>
 							{#if !hiddenColumns.includes('time')}
-								<td class="col-time">00:00</td>
-								<td class="col-end-time">-</td>
+								<td class="col-end-datetime">-</td>
 							{/if}
 							<td class="col-origin">-</td>
 							<td class="col-destination">-</td>
@@ -797,10 +813,9 @@
 						{#if !hiddenColumns.includes('tripNumber')}
 							<td class="col-trip-number number">-</td>
 						{/if}
-						<td class="col-date">{monthRow.date.split('-').reverse().join('.')}</td>
+						<td class="col-start-datetime">{formatDateShort(monthRow.date)} -</td>
 						{#if !hiddenColumns.includes('time')}
-							<td class="col-time">-</td>
-							<td class="col-end-time">-</td>
+							<td class="col-end-datetime">-</td>
 						{/if}
 						<td class="col-origin">-</td>
 						<td class="col-destination">-</td>
@@ -943,9 +958,8 @@
 	}
 
 	/* Column widths - using class selectors for stable widths when columns are hidden */
-	.col-date { width: 5%; }
-	.col-time { width: 4%; }
-	.col-end-time { width: 4%; }
+	.col-start-datetime { width: 9%; } /* Combined date+time */
+	.col-end-datetime { width: 9%; }   /* Combined date+time */
 	.col-origin { width: 14%; }
 	.col-destination { width: 14%; }
 	.col-km { width: 4%; text-align: right; }

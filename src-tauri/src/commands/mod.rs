@@ -56,6 +56,27 @@ pub(crate) fn parse_trip_datetime(
     }
 }
 
+/// Parse a full ISO datetime string (from datetime-local input).
+/// Accepts "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS" format.
+pub(crate) fn parse_iso_datetime(datetime: &str) -> Result<NaiveDateTime, String> {
+    // datetime-local gives us "YYYY-MM-DDTHH:MM", we need to handle both formats
+    if datetime.len() == 16 {
+        // "YYYY-MM-DDTHH:MM" format
+        let with_seconds = format!("{}:00", datetime);
+        NaiveDateTime::parse_from_str(&with_seconds, "%Y-%m-%dT%H:%M:%S")
+            .map_err(|e| format!("Invalid datetime format: {}", e))
+    } else {
+        // "YYYY-MM-DDTHH:MM:SS" format
+        NaiveDateTime::parse_from_str(datetime, "%Y-%m-%dT%H:%M:%S")
+            .map_err(|e| format!("Invalid datetime format: {}", e))
+    }
+}
+
+/// Extract "HH:MM" time string from NaiveDateTime (for legacy end_time field).
+pub(crate) fn extract_time_string(datetime: &NaiveDateTime) -> String {
+    datetime.format("%H:%M").to_string()
+}
+
 // ============================================================================
 // Read-Only Guard Macro
 // ============================================================================

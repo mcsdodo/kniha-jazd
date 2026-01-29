@@ -4,6 +4,35 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-01-29: No Backward Compatibility for Older App Versions
+
+### ADR-012: Forward-Only Database Migration Strategy
+
+**Context:** When adding new database columns or changing schemas, we previously considered maintaining backward compatibility so older app versions could still read databases modified by newer versions.
+
+**Decision:** We are **NOT** enforcing backward compatibility for older app versions reading newer databases.
+
+**What this means:**
+- Older app versions may fail to read databases migrated by newer versions
+- We don't need to keep legacy columns populated (e.g., `end_time` alongside `end_datetime`)
+- Migration strategy is forward-only: users must upgrade the app to use migrated databases
+- Code should not include "backward compat" workarounds for legacy fields
+
+**What we DO maintain:**
+- Data integrity during migrations (no data loss)
+- Clean upgrade path (migrations run automatically on app start)
+- Backup creation before migrations (existing behavior)
+
+**Reasoning:**
+- Simplifies code by removing legacy field sync logic
+- Single-user desktop app - no need for multi-version DB access
+- Auto-update ensures users get latest version quickly
+- Reduces maintenance burden of dual-column strategies
+
+**Impact on CLAUDE.md:** The database migration guidelines about "older app versions must be able to READ data" should be removed or updated to reflect this decision.
+
+---
+
 ## 2026-01-29: Commands Module Split
 
 ### ADR-011: Split commands.rs into Feature Modules

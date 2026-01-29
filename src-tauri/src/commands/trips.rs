@@ -8,7 +8,7 @@ use chrono::Utc;
 use tauri::State;
 use uuid::Uuid;
 
-use super::parse_trip_datetime;
+use super::{extract_time_string, parse_iso_datetime};
 
 // ============================================================================
 // Trip Commands
@@ -44,9 +44,8 @@ pub fn create_trip(
     db: State<Database>,
     app_state: State<AppState>,
     vehicle_id: String,
-    date: String,
-    time: Option<String>,  // "HH:MM" format, defaults to "00:00"
-    end_time: Option<String>,  // "HH:MM" format for trip end time
+    start_datetime: String, // Full ISO datetime "YYYY-MM-DDTHH:MM"
+    end_datetime: String,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
     origin: String,
     destination: String,
     distance_km: f64,
@@ -68,8 +67,11 @@ pub fn create_trip(
 ) -> Result<Trip, String> {
     check_read_only!(app_state);
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
-    let trip_datetime = parse_trip_datetime(&date, time.as_deref())?;
+    let trip_datetime = parse_iso_datetime(&start_datetime)?;
+    let trip_end_datetime = parse_iso_datetime(&end_datetime)?;
     let trip_date = trip_datetime.date();
+    // TODO(cleanup): Trip model should use end_datetime: NaiveDateTime directly
+    let end_time = Some(extract_time_string(&trip_end_datetime));
 
     // Normalize locations to prevent whitespace-based duplicates
     let origin = normalize_location(&origin);
@@ -136,9 +138,8 @@ pub fn update_trip(
     db: State<Database>,
     app_state: State<AppState>,
     id: String,
-    date: String,
-    time: Option<String>,  // "HH:MM" format, defaults to "00:00"
-    end_time: Option<String>,  // "HH:MM" format for trip end time
+    start_datetime: String, // Full ISO datetime "YYYY-MM-DDTHH:MM"
+    end_datetime: String,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
     origin: String,
     destination: String,
     distance_km: f64,
@@ -159,8 +160,11 @@ pub fn update_trip(
 ) -> Result<Trip, String> {
     check_read_only!(app_state);
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
-    let trip_datetime = parse_trip_datetime(&date, time.as_deref())?;
+    let trip_datetime = parse_iso_datetime(&start_datetime)?;
+    let trip_end_datetime = parse_iso_datetime(&end_datetime)?;
     let trip_date = trip_datetime.date();
+    // TODO(cleanup): Trip model should use end_datetime: NaiveDateTime directly
+    let end_time = Some(extract_time_string(&trip_end_datetime));
 
     // Normalize locations to prevent whitespace-based duplicates
     let origin = normalize_location(&origin);
