@@ -2,7 +2,7 @@
 
 **Reviewed:** 2026-01-29
 **Plan:** 02-plan.md
-**Status:** Needs Revisions
+**Status:** ✅ Approved (after revisions)
 
 ## Findings
 
@@ -58,25 +58,43 @@ Files that need updates but aren't listed in the plan:
 
 ## Phase 6 Assessment
 
-**Question from user:** "Is Phase 6 (DB migration) actually needed or over-engineering?"
+**Initial question:** "Is Phase 6 (DB migration) actually needed or over-engineering?"
 
-**Answer:** Phase 6 is NOT needed for this cleanup task. The plan correctly identifies Option A (map in code) as the safer approach:
+**Initial answer (incorrect):** Recommended removing Phase 6.
 
-1. DB columns already exist: `start_datetime` and `end_datetime` columns were added in Task 47's migration
-2. Per ADR-012: No backward compat needed, but column renames add risk with no user benefit
-3. The cleanup goal is model simplification, not DB schema changes
-4. Legacy columns (`datetime`, `date`, `end_time`) can be dropped in a separate future task
+**User correction:** Phase 6 IS needed, but should DROP columns, not rename:
+1. Task 47 already added `start_datetime` and `end_datetime` columns with backfilled data
+2. After code cleanup, old columns (`datetime`, `date`, `end_time`) become dead weight
+3. Per ADR-012: forward-only migrations allow dropping deprecated columns
+4. Leaving unused columns is technical debt
 
-**Recommendation:** Remove Phase 6 from this plan. Focus on Phase 1-5 only.
+**Revised recommendation:** Keep Phase 6 as DROP migration (not rename).
 
 ## Recommendation
 
-The plan is **structurally sound** but needs these revisions before implementation:
+The plan is **structurally sound** but needed these revisions before implementation:
 
 1. **Add `commands/mod.rs`** to Phase 3 with explicit list of `trip.date` usages to update
 2. **Add `export.rs` production code** to Phase 3 (not just test code in Phase 4)
-3. **Remove Phase 6** - DB migration is out of scope and unnecessary
+3. **Keep Phase 6** but rewrite as DROP migration (not rename) - see user feedback
 4. **Clarify `end_datetime` type** as `Option<NaiveDateTime>` to match nullable DB column
 5. **Add verification steps**: `npm run lint`, `npm run format`, `npm run tauri dev`
 
 After these revisions, the plan is ready for implementation.
+
+---
+
+## Resolution (2026-01-29)
+
+**User feedback:** Phase 6 should DROP columns, not rename. Task 47 already added `start_datetime` and `end_datetime` columns with backfilled data.
+
+**Applied changes:**
+1. ✅ Added `commands/mod.rs` to Phase 3 with explicit list of 11 `trip.date` usages
+2. ✅ Added `export.rs` production code changes (lines 246, 254)
+3. ✅ Rewrote Phase 6 to DROP obsolete columns (not rename)
+4. ✅ Clarified `end_datetime` as `Option<NaiveDateTime>`
+5. ✅ Added verification steps (`npm run lint`, `npm run format`, `npm run tauri dev`)
+6. ✅ Added SQLite table rebuild pattern (SQLite doesn't support DROP COLUMN directly)
+7. ✅ Updated "Approach" section to clarify simplified strategy
+
+**Plan status:** Ready for implementation.
