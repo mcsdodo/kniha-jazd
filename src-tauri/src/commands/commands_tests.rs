@@ -2692,6 +2692,46 @@ fn test_odometer_start_respects_chronological_order() {
     assert_eq!(odo_start.get(&jan20.id.to_string()), Some(&10150.0));
 }
 
+// =============================================================================
+// Month-End Trip Detection Tests
+// =============================================================================
+
+#[test]
+fn test_month_end_trips_detected() {
+    let trips = vec![
+        make_trip_with_date("2026-01-15", 50.0, 10050.0),   // Not month-end
+        make_trip_with_date("2026-01-31", 50.0, 10100.0),   // Month-end!
+        make_trip_with_date("2026-02-15", 50.0, 10150.0),   // Not month-end
+        make_trip_with_date("2026-02-28", 50.0, 10200.0),   // Month-end!
+    ];
+
+    let month_end_trips = detect_month_end_trips(&trips);
+
+    let jan31 = trips.iter().find(|t| t.date.day() == 31).unwrap();
+    let feb28 = trips.iter().find(|t| t.date.month() == 2 && t.date.day() == 28).unwrap();
+
+    assert!(month_end_trips.contains(&jan31.id.to_string()));
+    assert!(month_end_trips.contains(&feb28.id.to_string()));
+    assert_eq!(month_end_trips.len(), 2);
+}
+
+#[test]
+fn test_month_end_leap_year_february() {
+    // 2024 is a leap year - Feb has 29 days
+    let trips = vec![
+        make_trip_with_date("2024-02-28", 50.0, 10050.0),   // NOT month-end in leap year
+        make_trip_with_date("2024-02-29", 50.0, 10100.0),   // Month-end!
+    ];
+
+    let month_end_trips = detect_month_end_trips(&trips);
+
+    let feb29 = trips.iter().find(|t| t.date.day() == 29).unwrap();
+    let feb28 = trips.iter().find(|t| t.date.day() == 28).unwrap();
+
+    assert!(month_end_trips.contains(&feb29.id.to_string()));
+    assert!(!month_end_trips.contains(&feb28.id.to_string()));
+}
+
 /// Helper to create trip with specific date
 fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
     let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
