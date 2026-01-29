@@ -1429,27 +1429,68 @@ git commit -m "feat(ui): add visibility toggles for legal compliance columns"
 **Files:**
 - Modify: `tests/integration/trips.spec.ts`
 
-**Step 1: Add test for new columns visibility**
+**Note:** Integration tests verify UI displays correctly. Do NOT re-test calculation logic
+(that's covered by backend unit tests in Tasks 7-14).
+
+**Step 1: Add tests for new column visibility (UI flow only)**
 
 ```typescript
-it('displays trip number column', async () => {
-  // Create trip
-  await createTrip({ ... });
+it('displays new legal compliance columns', async () => {
+  // Create a trip
+  await createTrip({
+    date: '2026-01-15',
+    time: '08:30',
+    origin: 'Bratislava',
+    destination: 'Košice',
+    distance: 400,
+    odometer: 10400,
+  });
 
-  // Verify trip number shows as "1"
-  const tripNumberCell = await $('.trip-row .trip-number');
-  expect(await tripNumberCell.getText()).toBe('1');
+  // Verify new columns appear (not testing calculation values)
+  const tripRow = await $('.trip-row');
+
+  // Trip number column exists and has content
+  const tripNumber = await tripRow.$('[data-col="tripNumber"]');
+  expect(await tripNumber.isDisplayed()).toBe(true);
+
+  // Start time column shows the entered time
+  const startTime = await tripRow.$('[data-col="startTime"]');
+  expect(await startTime.getText()).toContain('08:30');
+
+  // End time column exists (may be empty)
+  const endTime = await tripRow.$('[data-col="endTime"]');
+  expect(await endTime.isDisplayed()).toBe(true);
+
+  // Odo start column exists and has a value
+  const odoStart = await tripRow.$('[data-col="odoStart"]');
+  expect(await odoStart.isDisplayed()).toBe(true);
 });
 
-it('displays odometer start derived from previous trip', async () => {
-  // Create two trips
-  await createTrip({ odometer: 10050 });
-  await createTrip({ odometer: 10100 });
+it('end time can be entered and saved', async () => {
+  // Create trip with end time
+  await createTrip({
+    date: '2026-01-15',
+    time: '08:30',
+    endTime: '09:45',  // New field
+    // ... other fields
+  });
 
-  // Second trip should show odo start = 10050
-  const rows = await $$('.trip-row');
-  const odoStart = await rows[1].$('.odo-start');
-  expect(await odoStart.getText()).toBe('10050');
+  // Verify end time displays
+  const endTime = await $('.trip-row [data-col="endTime"]');
+  expect(await endTime.getText()).toContain('09:45');
+});
+
+it('month-end trips are visually highlighted', async () => {
+  // Create trip on last day of month
+  await createTrip({
+    date: '2026-01-31',
+    // ... other fields
+  });
+
+  // Verify row has month-end styling
+  const tripRow = await $('.trip-row');
+  const classes = await tripRow.getAttribute('class');
+  expect(classes).toContain('month-end');
 });
 ```
 
