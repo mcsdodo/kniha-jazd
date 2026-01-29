@@ -46,6 +46,12 @@
 	// Hidden columns
 	export let hiddenColumns: string[] = [];
 
+	// Legal compliance (2026)
+	export let tripNumber: number = 0;
+	export let odoStart: number = 0;
+	export let driverName: string = '';
+	export let isMonthEnd: boolean = false;
+
 	// Derived: show fuel/energy fields based on vehicle type
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
 	$: showEnergyFields = vehicleType === 'Bev' || vehicleType === 'Phev';
@@ -278,6 +284,9 @@
 
 {#if isEditing}
 	<tr class="editing">
+		{#if !hiddenColumns.includes('tripNumber')}
+			<td class="col-trip-number number">{isNew ? '-' : tripNumber}</td>
+		{/if}
 		<td class="col-date">
 			<input type="date" bind:value={formData.date} data-testid="trip-date" />
 		</td>
@@ -310,6 +319,9 @@
 		<td class="col-km">
 			<input type="number" value={formData.distanceKm} on:input={handleKmChange} step="1" min="0" placeholder="0" data-testid="trip-distance" />
 		</td>
+		{#if !hiddenColumns.includes('odoStart')}
+			<td class="col-odo-start number">{isNew ? '-' : odoStart.toFixed(0)}</td>
+		{/if}
 		<td class="col-odo">
 			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
 		</td>
@@ -322,6 +334,9 @@
 				testId="trip-purpose"
 			/>
 		</td>
+		{#if !hiddenColumns.includes('driver')}
+			<td class="col-driver">{driverName}</td>
+		{/if}
 		{#if showFuelFields}
 			<td class="col-fuel-liters fuel-cell">
 				<input
@@ -479,7 +494,11 @@
 		on:dblclick={handleEdit}
 		class:date-warning={hasDateWarning}
 		class:consumption-warning={hasConsumptionWarning}
+		class:month-end-trip={isMonthEnd}
 	>
+		{#if !hiddenColumns.includes('tripNumber')}
+			<td class="col-trip-number number">{tripNumber}</td>
+		{/if}
 		<td class="col-date">{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		{#if !hiddenColumns.includes('time')}
 			<td class="col-time">{extractTime(trip.datetime)}</td>
@@ -488,8 +507,14 @@
 		<td class="col-origin">{trip.origin}</td>
 		<td class="col-destination">{trip.destination}</td>
 		<td class="col-km number">{trip.distanceKm.toFixed(0)}</td>
+		{#if !hiddenColumns.includes('odoStart')}
+			<td class="col-odo-start number">{odoStart.toFixed(0)}</td>
+		{/if}
 		<td class="col-odo number">{trip.odometer.toFixed(0)}</td>
 		<td class="col-purpose">{trip.purpose}</td>
+		{#if !hiddenColumns.includes('driver')}
+			<td class="col-driver">{driverName}</td>
+		{/if}
 		{#if showFuelFields}
 			<td class="col-fuel-liters number">
 				{#if trip.fuelLiters}
@@ -634,6 +659,24 @@
 	/* If both warnings apply, date warning takes priority */
 	tr.date-warning.consumption-warning {
 		background-color: var(--danger-bg);
+	}
+
+	/* Month-end trip highlighting (legal compliance 2026) */
+	tr.month-end-trip {
+		background: #e8f4fc;
+		border-bottom: 2px solid #4a90d9;
+	}
+
+	:global(.dark) tr.month-end-trip {
+		background: #1a3a4a;
+	}
+
+	tr.month-end-trip:hover:not(.editing) {
+		background: #d8e8f5;
+	}
+
+	:global(.dark) tr.month-end-trip:hover:not(.editing) {
+		background: #254a5a;
 	}
 
 	td {
