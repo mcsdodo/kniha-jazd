@@ -266,6 +266,7 @@ impl Database {
         let created_at_str = trip.created_at.to_rfc3339();
         let updated_at_str = trip.updated_at.to_rfc3339();
         let other_costs_note_ref = trip.other_costs_note.as_deref();
+        let end_datetime_str = trip.end_time.as_ref().map(|t| format!("{}T{}:00", date_str, t));
 
         let new_trip = NewTripRow {
             id: &id_str,
@@ -290,6 +291,9 @@ impl Database {
             soc_override_percent: trip.soc_override_percent,
             created_at: &created_at_str,
             updated_at: &updated_at_str,
+            // New datetime fields - use same values as legacy fields for now
+            start_datetime: &datetime_str,
+            end_datetime: end_datetime_str.as_deref(),
         };
 
         diesel::insert_into(trips::table)

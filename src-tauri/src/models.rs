@@ -679,6 +679,9 @@ pub struct TripRow {
     pub soc_override_percent: Option<f64>,
     pub created_at: String,
     pub updated_at: String,
+    // New datetime fields - not yet used by Rust code, just here for DB compatibility
+    pub start_datetime: String,
+    pub end_datetime: Option<String>,
 }
 
 /// For inserting new trips
@@ -707,6 +710,9 @@ pub struct NewTripRow<'a> {
     pub soc_override_percent: Option<f64>,
     pub created_at: &'a str,
     pub updated_at: &'a str,
+    // New datetime fields
+    pub start_datetime: &'a str,
+    pub end_datetime: Option<&'a str>,
 }
 
 /// Database row for routes table
@@ -1036,6 +1042,8 @@ mod tests {
             soc_override_percent: None,
             created_at: "2026-01-15T00:00:00+00:00".to_string(),
             updated_at: "2026-01-15T00:00:00+00:00".to_string(),
+            start_datetime: datetime.to_string(),
+            end_datetime: None,
         }
     }
 
