@@ -348,9 +348,21 @@ type RootTranslation = {
 		emptyState: string
 		columns: {
 			/**
+			 * Č​.
+			 */
+			tripNumber: string
+			/**
 			 * D​á​t​u​m
 			 */
 			date: string
+			/**
+			 * Č​a​s​ ​o​d
+			 */
+			startTime: string
+			/**
+			 * Č​a​s​ ​d​o
+			 */
+			endTime: string
 			/**
 			 * Č​a​s
 			 */
@@ -364,9 +376,21 @@ type RootTranslation = {
 			 */
 			destination: string
 			/**
+			 * V​o​d​i​č
+			 */
+			driver: string
+			/**
 			 * K​m
 			 */
 			km: string
+			/**
+			 * K​m​ ​p​r​e​d
+			 */
+			odoStart: string
+			/**
+			 * K​m​ ​p​o
+			 */
+			odoEnd: string
 			/**
 			 * O​D​O
 			 */
@@ -440,6 +464,14 @@ type RootTranslation = {
 		 * Ú​č​e​l
 		 */
 		purposePlaceholder: string
+		/**
+		 * Č​a​s​ ​u​k​o​n​č​e​n​i​a
+		 */
+		endTimeLabel: string
+		/**
+		 * H​H​:​M​M
+		 */
+		endTimePlaceholder: string
 		/**
 		 * P​r​e​s​u​n​ú​ť​ ​h​o​r​e
 		 */
@@ -2285,9 +2317,21 @@ export type TranslationFunctions = {
 		emptyState: () => LocalizedString
 		columns: {
 			/**
+			 * Č.
+			 */
+			tripNumber: () => LocalizedString
+			/**
 			 * Dátum
 			 */
 			date: () => LocalizedString
+			/**
+			 * Čas od
+			 */
+			startTime: () => LocalizedString
+			/**
+			 * Čas do
+			 */
+			endTime: () => LocalizedString
 			/**
 			 * Čas
 			 */
@@ -2301,9 +2345,21 @@ export type TranslationFunctions = {
 			 */
 			destination: () => LocalizedString
 			/**
+			 * Vodič
+			 */
+			driver: () => LocalizedString
+			/**
 			 * Km
 			 */
 			km: () => LocalizedString
+			/**
+			 * Km pred
+			 */
+			odoStart: () => LocalizedString
+			/**
+			 * Km po
+			 */
+			odoEnd: () => LocalizedString
 			/**
 			 * ODO
 			 */
@@ -2377,6 +2433,14 @@ export type TranslationFunctions = {
 		 * Účel
 		 */
 		purposePlaceholder: () => LocalizedString
+		/**
+		 * Čas ukončenia
+		 */
+		endTimeLabel: () => LocalizedString
+		/**
+		 * HH:MM
+		 */
+		endTimePlaceholder: () => LocalizedString
 		/**
 		 * Presunúť hore
 		 */

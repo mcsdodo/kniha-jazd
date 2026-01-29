@@ -115,11 +115,17 @@ const sk = {
 		emptyState: 'Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.',
 		// Column headers
 		columns: {
+			tripNumber: 'Č.',
 			date: 'Dátum',
+			startTime: 'Čas od',
+			endTime: 'Čas do',
 			time: 'Čas',
 			origin: 'Odkiaľ',
 			destination: 'Kam',
+			driver: 'Vodič',
 			km: 'Km',
+			odoStart: 'Km pred',
+			odoEnd: 'Km po',
 			odo: 'ODO',
 			purpose: 'Účel',
 			fuelLiters: 'PHM (L)',
@@ -141,6 +147,9 @@ const sk = {
 		originPlaceholder: 'Odkiaľ',
 		destinationPlaceholder: 'Kam',
 		purposePlaceholder: 'Účel',
+		// End time field
+		endTimeLabel: 'Čas ukončenia',
+		endTimePlaceholder: 'HH:MM',
 		// Actions
 		moveUp: 'Presunúť hore',
 		moveDown: 'Presunúť dole',
