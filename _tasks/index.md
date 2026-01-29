@@ -13,8 +13,6 @@ Quick overview of all tasks and their status.
 | 46 | [Legal Requirements Updates](46-legal-requirements-updates/) | 📋 Planning | Slovak 2026 law: trip#, times, odo before/after, month-end |
 | 42 | [Commands Module Split](42-commands-module-split/) | 🟡 In Progress | ADR-011: Split 3908-line commands.rs into modules |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
-| 40 | [Home Assistant ODO](40-home-assistant-odo/) | 📋 Planning | Real-time ODO display from HA |
-| 39 | [Trip Time + Hideable Columns](39-trip-time-hideable-columns/) | 📋 Planning | Departure time field, column visibility |
 | 38 | [Magic Strings Refactoring](38-magic-strings-refactoring/) | 📋 Planning | Replace hardcoded strings with constants |
 | 37 | [Date Prefill Setting](37-date-prefill-setting/) | 📋 Planning | Configurable "+1 day" vs "today" |
 | 36 | [Suggested Fillup Legend](36-suggested-fillup-legend/) | 📋 Planning | Show suggested fillup in table legend |
@@ -26,6 +24,8 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 40 | Home Assistant ODO | 2026-01-29 |
+| 39 | Trip Time + Hideable Columns | 2026-01-29 |
 | 45 | DB Backup When Updating | 2026-01-24 |
 | 44 | Multi-Currency Receipts | 2026-01-21 |
 | 43 | ODO Recalculation Bug | 2026-01-21 |
