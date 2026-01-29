@@ -132,9 +132,8 @@
 				header_driver: $LL.export.headerDriver(),
 				// Legal compliance columns (2026)
 				col_trip_number: $LL.export.colTripNumber(),
-				col_date: $LL.export.colDate(),
-				col_start_time: $LL.export.colStartTime(),
-				col_end_time: $LL.export.colEndTime(),
+				col_start_datetime: $LL.export.colStartDatetime(),
+				col_end_datetime: $LL.export.colEndDatetime(),
 				col_time: $LL.export.colTime(),
 				col_driver: $LL.export.colDriver(),
 				col_odo_start: $LL.export.colOdoStart(),
