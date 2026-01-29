@@ -173,12 +173,13 @@
 		showNewRow = true;
 	}
 
-	async function handleSaveNew(tripData: Partial<Trip> & { time?: string }) {
+	async function handleSaveNew(tripData: Partial<Trip> & { time?: string; endTime?: string | null }) {
 		try {
 			await createTrip(
 				vehicleId,
 				tripData.date!,
 				tripData.time || null,
+				tripData.endTime || null,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
@@ -218,12 +219,13 @@
 		}
 	}
 
-	async function handleUpdate(trip: Trip, tripData: Partial<Trip> & { time?: string }) {
+	async function handleUpdate(trip: Trip, tripData: Partial<Trip> & { time?: string; endTime?: string | null }) {
 		try {
 			await updateTrip(
 				trip.id,
 				tripData.date!,
 				tripData.time || null,
+				tripData.endTime || null,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
@@ -270,7 +272,7 @@
 			runningOdo = runningOdo + t.distanceKm;
 			if (Math.abs(t.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					t.id, t.date, null, t.origin, t.destination, t.distanceKm, runningOdo,
+					t.id, t.date, null, t.endTime, t.origin, t.destination, t.distanceKm, runningOdo,
 					t.purpose,
 					t.fuelLiters, t.fuelCostEur, t.fullTank,
 					t.energyKwh, t.energyCostEur, t.fullCharge, t.socOverridePercent,
@@ -399,7 +401,7 @@
 			runningOdo += trip.distanceKm;
 			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
 				await updateTrip(
-					trip.id, trip.date, null, trip.origin, trip.destination, trip.distanceKm, runningOdo,
+					trip.id, trip.date, null, trip.endTime, trip.origin, trip.destination, trip.distanceKm, runningOdo,
 					trip.purpose,
 					trip.fuelLiters, trip.fuelCostEur, trip.fullTank,
 					trip.energyKwh, trip.energyCostEur, trip.fullCharge, trip.socOverridePercent,
@@ -416,6 +418,7 @@
 		vehicleId: vehicleId,
 		date: `${year}-01-01`,
 		datetime: `${year}-01-01T00:00:00`,
+		endTime: null,
 		origin: '-',
 		destination: '-',
 		distanceKm: 0,
@@ -479,8 +482,8 @@
 	$: visibleColumnCount = (() => {
 		// Base columns: date, origin, destination, km, odo, purpose, actions
 		let count = 7;
-		// Optional columns
-		if (!hiddenColumns.includes('time')) count++;
+		// Optional columns (time = startTime + endTime)
+		if (!hiddenColumns.includes('time')) count += 2; // startTime and endTime
 		if (!hiddenColumns.includes('otherCosts')) count++;
 		if (!hiddenColumns.includes('otherCostsNote')) count++;
 		// Fuel columns
@@ -549,7 +552,8 @@
 						{/if}
 					</th>
 					{#if !hiddenColumns.includes('time')}
-						<th class="col-time" data-testid="column-header-time">{$LL.trips.columns.time()}</th>
+						<th class="col-time" data-testid="column-header-time">{$LL.trips.columns.startTime()}</th>
+						<th class="col-end-time" data-testid="column-header-end-time">{$LL.trips.columns.endTime()}</th>
 					{/if}
 					<th class="col-origin">{$LL.trips.columns.origin()}</th>
 					<th class="col-destination">{$LL.trips.columns.destination()}</th>
@@ -643,6 +647,7 @@
 							<td class="col-date">{trip.date.split('-').reverse().join('.')}</td>
 							{#if !hiddenColumns.includes('time')}
 								<td class="col-time">00:00</td>
+								<td class="col-end-time">-</td>
 							{/if}
 							<td class="col-origin">-</td>
 							<td class="col-destination">-</td>
@@ -817,6 +822,7 @@
 	/* Column widths - using class selectors for stable widths when columns are hidden */
 	.col-date { width: 5%; }
 	.col-time { width: 4%; }
+	.col-end-time { width: 4%; }
 	.col-origin { width: 14%; }
 	.col-destination { width: 14%; }
 	.col-km { width: 4%; text-align: right; }

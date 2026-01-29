@@ -57,6 +57,7 @@
 	let formData = {
 		date: trip?.date || defaultDate,
 		time: trip?.datetime ? extractTime(trip.datetime) : '00:00',
+		endTime: trip?.endTime || '',
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
 		distanceKm: trip?.distanceKm ?? (isNew ? null : 0),
@@ -213,6 +214,7 @@
 			formData = {
 				date: trip?.date || new Date().toISOString().split('T')[0],
 				time: trip?.datetime ? extractTime(trip.datetime) : '00:00',
+				endTime: trip?.endTime || '',
 				origin: trip?.origin || '',
 				destination: trip?.destination || '',
 				distanceKm: trip?.distanceKm || 0,
@@ -282,6 +284,9 @@
 		{#if !hiddenColumns.includes('time')}
 			<td class="col-time">
 				<input type="time" bind:value={formData.time} data-testid="trip-time" />
+			</td>
+			<td class="col-end-time">
+				<input type="time" bind:value={formData.endTime} data-testid="trip-end-time" />
 			</td>
 		{/if}
 		<td class="col-origin">
@@ -478,6 +483,7 @@
 		<td class="col-date">{new Date(trip.date).toLocaleDateString('sk-SK')}</td>
 		{#if !hiddenColumns.includes('time')}
 			<td class="col-time">{extractTime(trip.datetime)}</td>
+			<td class="col-end-time">{trip.endTime || ''}</td>
 		{/if}
 		<td class="col-origin">{trip.origin}</td>
 		<td class="col-destination">{trip.destination}</td>
