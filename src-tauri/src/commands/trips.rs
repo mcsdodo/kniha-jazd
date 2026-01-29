@@ -100,6 +100,7 @@ pub fn create_trip(
         vehicle_id: vehicle_uuid,
         date: trip_date,
         datetime: trip_datetime,
+        end_time: None,  // TODO: Task 4 will add end_time parameter
         origin: origin.clone(),
         destination: destination.clone(),
         distance_km,
@@ -181,6 +182,7 @@ pub fn update_trip(
         vehicle_id: existing.vehicle_id,
         date: trip_date,
         datetime: trip_datetime,
+        end_time: existing.end_time,  // TODO: Task 4 will add end_time parameter
         origin,
         destination,
         distance_km,

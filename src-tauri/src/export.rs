@@ -838,6 +838,7 @@ mod tests {
             vehicle_id: Uuid::new_v4(),
             date,
             datetime: date.and_hms_opt(0, 0, 0).unwrap(),
+            end_time: None,
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: km,
