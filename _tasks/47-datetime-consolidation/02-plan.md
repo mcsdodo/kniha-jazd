@@ -4,110 +4,80 @@
 
 Add `start_datetime` and `end_datetime` columns to trips table, migrate existing data, update all Rust code to use new fields.
 
-**Estimated effort:** ~2-3 hours
-**Files to modify:** ~10 files, ~50 locations
+**Status:** Phases 1-2 DONE, Phase 3 remaining
 
 ---
 
-## Phase 1: Database Migration
+## Phase 1: Database Migration ✅ DONE
 
-### Task 1.1: Create Migration
-- [ ] Run `diesel migration generate add_start_end_datetime`
-- [ ] Write up.sql:
-  ```sql
-  ALTER TABLE trips ADD COLUMN start_datetime TEXT NOT NULL DEFAULT '';
-  ALTER TABLE trips ADD COLUMN end_datetime TEXT DEFAULT NULL;
-  UPDATE trips SET start_datetime = datetime WHERE start_datetime = '';
-  UPDATE trips SET end_datetime = date || 'T' || end_time || ':00'
-    WHERE end_time IS NOT NULL AND end_time != '';
-  ```
-- [ ] Write down.sql (empty per backward-compat policy)
-- [ ] Run migration on dev database
+### Task 1.1: Create Migration ✅
+- [x] Migration `2026-01-29-193744-0000_add_start_end_datetime` created
+- [x] up.sql adds `start_datetime` (NOT NULL, default '') and `end_datetime` (nullable)
+- [x] Existing data migrated: `start_datetime = datetime`, `end_datetime = date || 'T' || end_time || ':00'`
+- [x] For trips without end_time: `end_datetime = date || 'T00:00:00'` (mandatory field)
 
-### Task 1.2: Update schema.rs
-- [ ] Add `start_datetime -> Text` to trips table
-- [ ] Add `end_datetime -> Nullable<Text>` to trips table
-- [ ] Keep Double types (don't let diesel regenerate with Float)
+### Task 1.2: Update schema.rs ✅
+- [x] Added `start_datetime -> Text` to trips table
+- [x] Added `end_datetime -> Nullable<Text>` to trips table
 
 ---
 
-## Phase 2: Update Rust Models
+## Phase 2: Update Rust Models ✅ DONE
 
-### Task 2.1: Update Trip struct (models.rs)
-- [ ] Add `start_datetime: NaiveDateTime` field
-- [ ] Add `end_datetime: Option<NaiveDateTime>` field
-- [ ] Keep legacy fields (date, datetime, end_time) for compatibility
+### Task 2.1: Update TripRow struct ✅
+- [x] Added `start_datetime: String` field (models.rs:683)
+- [x] Added `end_datetime: Option<String>` field (models.rs:684)
 
-### Task 2.2: Update TripRow struct (models.rs)
-- [ ] Add `start_datetime: String` field at end (matches schema order)
-- [ ] Add `end_datetime: Option<String>` field at end
+### Task 2.2: Update NewTripRow struct ✅
+- [x] Added `start_datetime: &'a str` field (models.rs:714)
+- [x] Added `end_datetime: Option<&'a str>` field (models.rs:715)
 
-### Task 2.3: Update NewTripRow struct (models.rs)
-- [ ] Add `start_datetime: &'a str` field
-- [ ] Add `end_datetime: Option<&'a str>` field
+### Task 2.3: Update create_trip ✅
+- [x] `create_trip` (db.rs:260-304) populates both old and new fields
+- [x] `start_datetime = datetime_str` (same as legacy datetime)
+- [x] `end_datetime = date + end_time` or `date + "T00:00:00"` if no end_time
 
-### Task 2.4: Update From<TripRow> for Trip (models.rs)
-- [ ] Parse `start_datetime` as primary, fallback to `datetime`
-- [ ] Parse `end_datetime` if present
-- [ ] Set `datetime = start_datetime` for backward compat
-
----
-
-## Phase 3: Update Commands
-
-### Task 3.1: Update create_trip (commands/trips.rs)
-- [ ] Accept start_datetime and end_datetime parameters
-- [ ] Populate both new and legacy fields in NewTripRow
-- [ ] Keep backward compat: also set date, datetime, end_time
-
-### Task 3.2: Update update_trip (commands/trips.rs)
-- [ ] Accept start_datetime and end_datetime parameters
-- [ ] Update both new and legacy fields
-
-### Task 3.3: Update export commands (commands/mod.rs)
-- [ ] ~3 places create mock Trip structs for export
-- [ ] Add start_datetime and end_datetime fields
+### Note: Trip Domain Struct
+The domain `Trip` struct keeps using `datetime` and `end_time` field names internally. This is intentional:
+- Backend handles mapping to new DB columns
+- Frontend API unchanged
+- No breaking changes to serialization
 
 ---
 
-## Phase 4: Update Tests
+## Phase 3: Fix update_trip Sync ⬅️ CURRENT
 
-### Task 4.1: Update test helpers (commands/commands_tests.rs)
-- [ ] `make_trip()` - add new fields
-- [ ] `make_trip_with_fuel()` - add new fields
-- [ ] `make_trip_with_date()` - add new fields
-- [ ] `make_trip_with_date_odo()` - add new fields
-- [ ] ~15 other Trip struct initializations
+### Task 3.1: Add start_datetime/end_datetime to update_trip
+**File:** `src-tauri/src/db.rs` (lines 372-406)
 
-### Task 4.2: Update other test files
-- [ ] calculations_tests.rs - Trip struct initializations
-- [ ] db_tests.rs - Trip struct initializations
-- [ ] export.rs - mock Trip for tests
+Current `update_trip` updates `datetime` and `end_time` but NOT the new columns, causing data drift after edits.
 
----
+- [ ] Add `trips::start_datetime.eq(&datetime_str)` to update query
+- [ ] Add `trips::end_datetime.eq(...)` with same logic as create_trip:
+  - If `end_time` present: `date || 'T' || end_time || ':00'`
+  - If `end_time` empty/None: `date || 'T00:00:00'`
 
-## Phase 5: Frontend Updates (if needed)
-
-### Task 5.1: Review frontend types
-- [ ] Check if `Trip` interface in types.ts needs updates
-- [ ] Likely no changes needed - backend handles mapping
+**Verification:**
+```bash
+cd src-tauri && cargo test update_trip
+```
 
 ---
 
-## Phase 6: Verification
+## Phase 4: Verification
 
-### Task 6.1: Run all tests
-- [ ] `cargo test` - all 237 backend tests pass
+### Task 4.1: Run all tests
+- [ ] `cargo test` - all backend tests pass
 - [ ] `npm run check` - frontend compiles
 
-### Task 6.2: Manual testing
+### Task 4.2: Manual testing
 - [ ] Create trip - verify both old and new fields populated
 - [ ] Edit trip - verify fields stay in sync
 - [ ] Export - verify times display correctly
 
 ---
 
-## Phase 7: Cleanup Migration (Future - after v1.0 release)
+## Phase 5: Cleanup Migration (Future - after v1.0 release)
 
 > **Note:** This phase is intentionally deferred. Per CLAUDE.md, we don't remove columns
 > to maintain backward compatibility. This cleanup should only happen after:
@@ -115,11 +85,11 @@ Add `start_datetime` and `end_datetime` columns to trips table, migrate existing
 > - A major version bump (e.g., v1.0 → v2.0)
 > - Sufficient time has passed (3+ months)
 
-### Task 7.1: Mark legacy columns as deprecated
+### Task 5.1: Mark legacy columns as deprecated
 - [ ] Add `// DEPRECATED` comments to schema.rs for `date`, `datetime`, `end_time`
 - [ ] Add deprecation notice to CHANGELOG
 
-### Task 7.2: Create cleanup migration (v2.0+)
+### Task 5.2: Create cleanup migration (v2.0+)
 - [ ] Create migration to drop redundant columns:
   ```sql
   -- Only run after all users on v1.x+
@@ -133,7 +103,7 @@ Add `start_datetime` and `end_datetime` columns to trips table, migrate existing
 - [ ] Update Trip struct - remove legacy fields
 - [ ] Update all tests
 
-### Task 7.3: Verification
+### Task 5.3: Verification
 - [ ] All tests pass
 - [ ] Manual testing with fresh DB
 - [ ] Document breaking change in CHANGELOG
