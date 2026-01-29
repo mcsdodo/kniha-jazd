@@ -144,6 +144,30 @@ pub(crate) fn calculate_odometer_start(trips: &[Trip], initial_odometer: f64) ->
     result
 }
 
+/// Get the last day of a given month
+fn last_day_of_month(year: i32, month: u32) -> u32 {
+    // Create first day of next month, subtract one day
+    let next_month = if month == 12 { 1 } else { month + 1 };
+    let next_year = if month == 12 { year + 1 } else { year };
+    NaiveDate::from_ymd_opt(next_year, next_month, 1)
+        .unwrap()
+        .pred_opt()
+        .unwrap()
+        .day()
+}
+
+/// Detect trips that fall on the last day of their month
+pub(crate) fn detect_month_end_trips(trips: &[Trip]) -> HashSet<String> {
+    trips
+        .iter()
+        .filter(|t| {
+            let last_day = last_day_of_month(t.date.year(), t.date.month());
+            t.date.day() == last_day
+        })
+        .map(|t| t.id.to_string())
+        .collect()
+}
+
 // ============================================================================
 // Settings Commands
 // ============================================================================
