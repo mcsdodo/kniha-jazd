@@ -4,6 +4,45 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-01-29: Commands Module Split
+
+### ADR-011: Split commands.rs into Feature Modules
+
+**Context:** `commands.rs` has grown to 3,908 lines with 68 Tauri commands. While internally organized with section comments, the file size makes navigation and maintenance difficult.
+
+**Decision:** Split into 9 feature-based modules under `src-tauri/src/commands/`:
+
+| Module | Lines | Commands | Purpose |
+|--------|-------|----------|---------|
+| `common.rs` | ~180 | 0 | Shared helpers, macros (`check_read_only!`), types |
+| `vehicles.rs` | ~130 | 5 | Vehicle CRUD |
+| `trips.rs` | ~220 | 8 | Trip CRUD, routes, year-start helpers |
+| `statistics.rs` | ~1,170 | 3 | Grid data, calculations, magic fill |
+| `backup.rs` | ~400 | 11 | Backup/restore operations |
+| `export.rs` | ~280 | 2 | HTML export |
+| `receipts.rs` | ~710 | 8 | Receipt scanning, assignment |
+| `settings.rs` | ~310 | 15 | Theme, columns, DB location |
+| `integrations.rs` | ~180 | 8 | Home Assistant, Gemini API |
+
+**Key decisions:**
+- `statistics.rs` exports 3 public helpers for use by `export.rs`: `calculate_period_rates()`, `calculate_fuel_remaining()`, `calculate_fuel_consumed()`
+- Year-start helpers (`get_year_start_*`) live in `trips.rs` but are `pub(crate)` for statistics/export
+- Tests remain in `commands_tests.rs` initially (can split later)
+- `lib.rs` invoke_handler imports from submodules
+
+**Phased approach:**
+1. Extract low-risk: `common`, `vehicles`, `backup`
+2. Extract complex: `statistics`, `export`, `trips`
+3. Extract integrations: `receipts`, `settings`, `integrations`
+
+**Reasoning:**
+- Reduces cognitive load when editing a specific feature
+- Clearer module boundaries and dependencies
+- Enables parallel development on different features
+- No functional changes - pure refactoring
+
+---
+
 ## 2026-01-12: Additional Costs Recognition
 
 ### BIZ-013: Other Cost Invoice Recognition and Assignment
