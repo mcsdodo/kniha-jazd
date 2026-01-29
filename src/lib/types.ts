@@ -37,6 +37,7 @@ export interface Trip {
 	vehicleId: string;
 	date: string; // NaiveDate serialized as string
 	datetime: string; // NaiveDateTime serialized as string (ISO format: "YYYY-MM-DDTHH:MM:SS")
+	endTime: string | null; // "HH:MM" format for trip end time, or null
 	origin: string;
 	destination: string;
 	distanceKm: number;
