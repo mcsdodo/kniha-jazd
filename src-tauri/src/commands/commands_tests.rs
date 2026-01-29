@@ -2692,46 +2692,6 @@ fn test_odometer_start_respects_chronological_order() {
     assert_eq!(odo_start.get(&jan20.id.to_string()), Some(&10150.0));
 }
 
-// =============================================================================
-// Month-End Trip Detection Tests
-// =============================================================================
-
-#[test]
-fn test_month_end_trips_detected() {
-    let trips = vec![
-        make_trip_with_date("2026-01-15", 50.0, 10050.0),   // Not month-end
-        make_trip_with_date("2026-01-31", 50.0, 10100.0),   // Month-end!
-        make_trip_with_date("2026-02-15", 50.0, 10150.0),   // Not month-end
-        make_trip_with_date("2026-02-28", 50.0, 10200.0),   // Month-end!
-    ];
-
-    let month_end_trips = detect_month_end_trips(&trips);
-
-    let jan31 = trips.iter().find(|t| t.date.day() == 31).unwrap();
-    let feb28 = trips.iter().find(|t| t.date.month() == 2 && t.date.day() == 28).unwrap();
-
-    assert!(month_end_trips.contains(&jan31.id.to_string()));
-    assert!(month_end_trips.contains(&feb28.id.to_string()));
-    assert_eq!(month_end_trips.len(), 2);
-}
-
-#[test]
-fn test_month_end_leap_year_february() {
-    // 2024 is a leap year - Feb has 29 days
-    let trips = vec![
-        make_trip_with_date("2024-02-28", 50.0, 10050.0),   // NOT month-end in leap year
-        make_trip_with_date("2024-02-29", 50.0, 10100.0),   // Month-end!
-    ];
-
-    let month_end_trips = detect_month_end_trips(&trips);
-
-    let feb29 = trips.iter().find(|t| t.date.day() == 29).unwrap();
-    let feb28 = trips.iter().find(|t| t.date.day() == 28).unwrap();
-
-    assert!(month_end_trips.contains(&feb29.id.to_string()));
-    assert!(!month_end_trips.contains(&feb28.id.to_string()));
-}
-
 /// Helper to create trip with specific date
 fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
     let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
@@ -2771,23 +2731,26 @@ fn make_trip_with_date_odo(date_str: &str, distance: f64, odo: f64) -> Trip {
 
 #[test]
 fn test_month_end_rows_generated_for_gaps() {
-    // Trips only in January and March - need synthetic rows for Jan 31, Feb 28, Mar 31
+    // Trips only in January and March
+    // Only generate rows for CLOSED months (months before the latest trip month)
+    // March is the latest month, so Jan and Feb are closed
     let trips = vec![
         make_trip_with_date_odo("2026-01-15", 50.0, 10050.0),
         make_trip_with_date_odo("2026-03-10", 50.0, 10100.0),
     ];
     let year = 2026;
     let initial_odo = 10000.0;
-    // Fuel remaining map (keyed by trip ID) - simulates what get_trip_grid_data provides
     let mut fuel_remaining: HashMap<String, f64> = HashMap::new();
     fuel_remaining.insert(trips[0].id.to_string(), 45.0); // After Jan 15 trip
     fuel_remaining.insert(trips[1].id.to_string(), 40.0); // After Mar 10 trip
     let initial_fuel = 50.0;
 
-    let rows = generate_month_end_rows(&trips, year, initial_odo, initial_fuel, &fuel_remaining);
+    let trip_numbers = calculate_trip_numbers(&trips);
+    let rows = generate_month_end_rows(&trips, year, initial_odo, initial_fuel, &fuel_remaining, &trip_numbers);
 
-    // Should have rows for: Jan 31, Feb 28, Mar 31 (no trip on last day of any month)
-    assert_eq!(rows.len(), 3);
+    // Should have rows for: Jan 31, Feb 28 (closed months before March)
+    // Mar 31 NOT generated (March is the latest month, not yet closed)
+    assert_eq!(rows.len(), 2);
 
     // Jan 31 carries Jan 15's values
     let jan = rows.iter().find(|r| r.month == 1).unwrap();
@@ -2801,46 +2764,50 @@ fn test_month_end_rows_generated_for_gaps() {
     assert_eq!(feb.odometer, 10050.0);
     assert_eq!(feb.fuel_remaining, 45.0);
 
-    // Mar 31 carries Mar 10's values
-    let mar = rows.iter().find(|r| r.month == 3).unwrap();
-    assert_eq!(mar.date, NaiveDate::from_ymd_opt(2026, 3, 31).unwrap());
-    assert_eq!(mar.odometer, 10100.0);
-    assert_eq!(mar.fuel_remaining, 40.0);
+    // Mar should NOT have a row (latest month, not closed)
+    let mar = rows.iter().find(|r| r.month == 3);
+    assert!(mar.is_none());
 }
 
 #[test]
-fn test_month_end_rows_not_generated_when_trip_exists() {
-    // Trip on Jan 31 - no synthetic row needed
-    let trips = vec![make_trip_with_date_odo("2026-01-31", 50.0, 10050.0)];
+fn test_month_end_rows_always_generated_for_closed_months() {
+    // Trip on Jan 31 AND a trip in February (so January is a "closed" month)
+    // Month-end rows are ALWAYS generated for closed months (even if trip exists on last day)
+    let trips = vec![
+        make_trip_with_date_odo("2026-01-31", 50.0, 10050.0),
+        make_trip_with_date_odo("2026-02-15", 50.0, 10100.0), // Makes January "closed"
+    ];
     let year = 2026;
-    let fuel_remaining: HashMap<String, f64> = HashMap::new();
+    let mut fuel_remaining: HashMap<String, f64> = HashMap::new();
+    fuel_remaining.insert(trips[0].id.to_string(), 45.0);
+    fuel_remaining.insert(trips[1].id.to_string(), 40.0);
 
-    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, &fuel_remaining);
+    let trip_numbers = calculate_trip_numbers(&trips);
+    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, &fuel_remaining, &trip_numbers);
 
-    // Jan should NOT have synthetic row (trip exists on 31st)
+    // Jan SHOULD have synthetic row (always generated for closed months)
     let jan_row = rows.iter().find(|r| r.month == 1);
-    assert!(jan_row.is_none());
+    assert!(jan_row.is_some(), "Should create synthetic row for all closed months");
+
+    // Total rows should be 1 (Jan is closed, Feb is not)
+    assert_eq!(rows.len(), 1);
+
+    // Verify Jan row has correct values from the Jan 31 trip
+    let jan = jan_row.unwrap();
+    assert_eq!(jan.odometer, 10050.0);
+    assert_eq!(jan.fuel_remaining, 45.0);
 }
 
 #[test]
-fn test_month_end_rows_all_12_months() {
-    // No trips at all - should generate row for every month
+fn test_month_end_rows_none_when_no_trips() {
+    // No trips at all - no months are "closed" so no rows generated
     let trips: Vec<Trip> = vec![];
     let year = 2026;
     let fuel_remaining: HashMap<String, f64> = HashMap::new();
 
-    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, &fuel_remaining);
+    let trip_numbers: HashMap<String, i32> = HashMap::new();
+    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, &fuel_remaining, &trip_numbers);
 
-    assert_eq!(rows.len(), 12);
-    for month in 1..=12 {
-        assert!(
-            rows.iter().any(|r| r.month == month),
-            "Missing month {}",
-            month
-        );
-    }
-    // All rows should have initial fuel (no trips consumed any)
-    for row in &rows {
-        assert_eq!(row.fuel_remaining, 50.0);
-    }
+    // No trips = no closed months = no month-end rows
+    assert_eq!(rows.len(), 0);
 }

@@ -1662,13 +1662,33 @@ type RootTranslation = {
 		 */
 		headerDriver: string
 		/**
+		 * #
+		 */
+		colTripNumber: string
+		/**
 		 * D​á​t​u​m
 		 */
 		colDate: string
 		/**
+		 * Č​a​s​ ​o​d​c​h​.
+		 */
+		colStartTime: string
+		/**
+		 * Č​a​s​ ​p​r​í​c​h​.
+		 */
+		colEndTime: string
+		/**
 		 * Č​a​s
 		 */
 		colTime: string
+		/**
+		 * V​o​d​i​č
+		 */
+		colDriver: string
+		/**
+		 * K​m​ ​p​r​e​d
+		 */
+		colOdoStart: string
 		/**
 		 * O​d​k​i​a​ľ
 		 */
@@ -3596,13 +3616,33 @@ export type TranslationFunctions = {
 		 */
 		headerDriver: () => LocalizedString
 		/**
+		 * #
+		 */
+		colTripNumber: () => LocalizedString
+		/**
 		 * Dátum
 		 */
 		colDate: () => LocalizedString
 		/**
+		 * Čas odch.
+		 */
+		colStartTime: () => LocalizedString
+		/**
+		 * Čas prích.
+		 */
+		colEndTime: () => LocalizedString
+		/**
 		 * Čas
 		 */
 		colTime: () => LocalizedString
+		/**
+		 * Vodič
+		 */
+		colDriver: () => LocalizedString
+		/**
+		 * Km pred
+		 */
+		colOdoStart: () => LocalizedString
 		/**
 		 * Odkiaľ
 		 */

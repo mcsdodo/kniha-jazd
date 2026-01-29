@@ -50,7 +50,6 @@
 	export let tripNumber: number = 0;
 	export let odoStart: number = 0;
 	export let driverName: string = '';
-	export let isMonthEnd: boolean = false;
 
 	// Derived: show fuel/energy fields based on vehicle type
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -494,7 +493,6 @@
 		on:dblclick={handleEdit}
 		class:date-warning={hasDateWarning}
 		class:consumption-warning={hasConsumptionWarning}
-		class:month-end-trip={isMonthEnd}
 	>
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{tripNumber}</td>
@@ -659,24 +657,6 @@
 	/* If both warnings apply, date warning takes priority */
 	tr.date-warning.consumption-warning {
 		background-color: var(--danger-bg);
-	}
-
-	/* Month-end trip highlighting (legal compliance 2026) */
-	tr.month-end-trip {
-		background: #e8f4fc;
-		border-bottom: 2px solid #4a90d9;
-	}
-
-	:global(.dark) tr.month-end-trip {
-		background: #1a3a4a;
-	}
-
-	tr.month-end-trip:hover:not(.editing) {
-		background: #d8e8f5;
-	}
-
-	:global(.dark) tr.month-end-trip:hover:not(.editing) {
-		background: #254a5a;
 	}
 
 	td {

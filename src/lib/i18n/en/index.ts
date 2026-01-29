@@ -512,8 +512,13 @@ const en = {
 		headerVin: 'VIN:',
 		headerDriver: 'Driver:',
 		// Column headers
+		colTripNumber: '#',
 		colDate: 'Date',
+		colStartTime: 'Dep. time',
+		colEndTime: 'Arr. time',
 		colTime: 'Time',
+		colDriver: 'Driver',
+		colOdoStart: 'Km before',
 		colOrigin: 'From',
 		colDestination: 'To',
 		colPurpose: 'Purpose',

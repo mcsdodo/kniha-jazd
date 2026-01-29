@@ -192,15 +192,10 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         let end_time = trip.end_time.as_deref().unwrap_or("");
         let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
 
-        // Determine row class for month-end highlighting
-        let is_month_end = data.grid_data.month_end_trips.contains(&trip_id);
-        let row_class = if is_month_end { " class=\"month-end-trip\"" } else { "" };
-
         // Build row - start with Trip# (always shown for legal compliance)
         let mut row = format!(
-            r#"        <tr{}>
+            r#"        <tr>
           <td class="num">{}</td>"#,
-            row_class,
             trip_number,
         );
 

@@ -377,9 +377,7 @@ pub struct TripGridData {
     pub trip_numbers: HashMap<String, i32>,
     /// Odometer at trip START (derived from previous trip's ending odo)
     pub odometer_start: HashMap<String, f64>,
-    /// Trip IDs that fall on the last day of their month (for highlighting)
-    pub month_end_trips: HashSet<String>,
-    /// Synthetic rows for months without a trip on the last day
+    /// Synthetic rows for month-end state display
     pub month_end_rows: Vec<MonthEndRow>,
 }
 
@@ -397,6 +395,9 @@ pub struct MonthEndRow {
     pub fuel_remaining: f64,
     /// Month number 1-12 (for identification/sorting)
     pub month: u32,
+    /// Sort key for chronological display (lastTripInMonth + 0.5)
+    /// Frontend uses this to interleave month-end rows with trips
+    pub sort_key: f64,
 }
 
 /// Status of a scanned receipt

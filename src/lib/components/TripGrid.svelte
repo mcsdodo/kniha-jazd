@@ -54,7 +54,6 @@
 	// Legal compliance (2026)
 	let tripNumbers: Map<string, number> = new Map();
 	let odometerStart: Map<string, number> = new Map();
-	let monthEndTrips: Set<string> = new Set();
 
 	// Fetch grid data from backend whenever trips change
 	async function loadGridData() {
@@ -80,7 +79,6 @@
 			// Legal compliance (2026)
 			tripNumbers = new Map(Object.entries(gridData.tripNumbers));
 			odometerStart = new Map(Object.entries(gridData.odometerStart));
-			monthEndTrips = new Set(gridData.monthEndTrips);
 		} catch (error) {
 			console.error('Failed to load grid data:', error);
 		}
@@ -104,8 +102,8 @@
 	// Sorting state (exported for parent access)
 	type SortColumn = 'manual' | 'tripNumber';
 	type SortDirection = 'asc' | 'desc';
-	export let sortColumn: SortColumn = 'manual';
-	export let sortDirection: SortDirection = 'asc'; // asc = newest first (sort_order 0 = newest)
+	export let sortColumn: SortColumn = 'tripNumber'; // Default: chronological order by trip number
+	export let sortDirection: SortDirection = 'desc'; // desc = newest first (highest trip # on top)
 
 	function toggleSort(column: SortColumn) {
 		if (sortColumn === column) {
@@ -470,30 +468,29 @@
 	});
 
 	// Combined display rows: trips + month-end rows
-	// For manual sort: preserve sortedTrips order, insert month-end rows at correct positions
-	// For tripNumber sort: sort everything chronologically by trip number
+	// Sorting logic is backend-driven:
+	// - First record: trip number 0 (before trip #1)
+	// - Regular trips: 1, 2, 3... (from backend trip_numbers)
+	// - Month-end rows: sortKey from backend (lastTripInMonth + 0.5)
 	$: displayRows = (() => {
 		const tripRows: DisplayRow[] = sortedTrips.map(t => ({ type: 'trip' as const, data: t }));
 		const monthRows: DisplayRow[] = (gridData?.monthEndRows ?? []).map(r => ({ type: 'monthEnd' as const, data: r }));
 
 		if (monthRows.length === 0) {
-			return tripRows; // No month-end rows, preserve sortedTrips order
+			return tripRows;
 		}
 
-		if (sortColumn === 'manual') {
-			// For manual sort, insert month-end rows at end (they're informational)
-			return [...tripRows, ...monthRows];
-		}
-
-		// For tripNumber sort, sort everything chronologically
+		// Sort using backend-provided sort keys
 		const combined = [...tripRows, ...monthRows];
 		return combined.sort((a, b) => {
 			const getKey = (row: DisplayRow): number => {
 				if (row.type === 'trip') {
-					return tripNumbers.get(row.data.id) ?? 0;
+					const trip = row.data as Trip;
+					// First record gets 0, others get their trip number from backend
+					return trip.id === FIRST_RECORD_ID ? 0 : (tripNumbers.get(trip.id) ?? 0);
 				} else {
-					// Month-end row: position after all trips in that month
-					return row.data.month * 1000;
+					// Month-end row: use backend-calculated sortKey
+					return (row.data as MonthEndRow).sortKey;
 				}
 			};
 
@@ -791,7 +788,6 @@
 							tripNumber={tripNumbers.get(trip.id) ?? 0}
 							odoStart={odometerStart.get(trip.id) ?? 0}
 							{driverName}
-							isMonthEnd={monthEndTrips.has(trip.id)}
 						/>
 					{/if}
 					{:else}
@@ -810,7 +806,7 @@
 						<td class="col-destination">-</td>
 						<td class="col-km number">-</td>
 						{#if !hiddenColumns.includes('odoStart')}
-							<td class="col-odo-start number">{monthRow.odometer.toFixed(0)}</td>
+							<td class="col-odo-start number">-</td>
 						{/if}
 						<td class="col-odo number">{monthRow.odometer.toFixed(0)}</td>
 						<td class="col-purpose">-</td>

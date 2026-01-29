@@ -165,6 +165,7 @@ export interface MonthEndRow {
   odometer: number;
   fuelRemaining: number;
   month: number; // 1-12
+  sortKey: number; // For chronological sorting (lastTripInMonth + 0.5)
 }
 
 /**
@@ -189,8 +190,7 @@ export interface TripGridData {
   // Legal compliance fields (2026)
   tripNumbers: Record<string, number>; // Trip sequence numbers (1-based)
   odometerStart: Record<string, number>; // Odometer at trip start
-  monthEndTrips: string[]; // Trip IDs on last day of month
-  monthEndRows: MonthEndRow[]; // Synthetic rows for month-end gaps
+  monthEndRows: MonthEndRow[]; // Synthetic rows for all closed months
 }
 
 /**

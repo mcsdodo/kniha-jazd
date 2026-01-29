@@ -159,8 +159,7 @@ export interface TripGridData {
 	// Legal compliance fields (2026)
 	tripNumbers: Record<string, number>; // tripId -> sequential number (1-based)
 	odometerStart: Record<string, number>; // tripId -> odometer at trip start
-	monthEndTrips: string[]; // tripIds falling on last day of month
-	monthEndRows: MonthEndRow[]; // synthetic rows for months without trip on last day
+	monthEndRows: MonthEndRow[]; // synthetic rows for all closed months
 }
 
 /** Synthetic row for month-end state display (legal requirement) */
@@ -169,6 +168,7 @@ export interface MonthEndRow {
 	odometer: number;
 	fuelRemaining: number;
 	month: number; // 1-12
+	sortKey: number; // For chronological sorting (lastTripInMonth + 0.5)
 }
 
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
@@ -289,8 +289,13 @@ export interface ExportLabels {
 	header_vin: string;
 	header_driver: string;
 	// Column headers
+	col_trip_number: string;
 	col_date: string;
+	col_start_time: string;
+	col_end_time: string;
 	col_time: string;
+	col_driver: string;
+	col_odo_start: string;
 	col_origin: string;
 	col_destination: string;
 	col_purpose: string;

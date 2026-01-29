@@ -512,8 +512,13 @@ const sk = {
 		headerVin: 'VIN:',
 		headerDriver: 'Vodič:',
 		// Column headers
+		colTripNumber: '#',
 		colDate: 'Dátum',
+		colStartTime: 'Čas odch.',
+		colEndTime: 'Čas prích.',
 		colTime: 'Čas',
+		colDriver: 'Vodič',
+		colOdoStart: 'Km pred',
 		colOrigin: 'Odkiaľ',
 		colDestination: 'Kam',
 		colPurpose: 'Účel',

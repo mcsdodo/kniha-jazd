@@ -20,8 +20,8 @@
 	let stats: TripStats | null = null;
 
 	// Sort state from TripGrid (for export)
-	let sortColumn: 'manual' | 'date' = 'manual';
-	let sortDirection: 'asc' | 'desc' = 'asc';
+	let sortColumn: 'manual' | 'tripNumber' = 'tripNumber';
+	let sortDirection: 'asc' | 'desc' = 'desc'; // desc = newest first
 
 	// For compensation warning
 	let bufferKm = 0.0;
@@ -130,8 +130,14 @@
 				// VIN and Driver
 				header_vin: $LL.export.headerVin(),
 				header_driver: $LL.export.headerDriver(),
+				// Legal compliance columns (2026)
+				col_trip_number: $LL.export.colTripNumber(),
 				col_date: $LL.export.colDate(),
+				col_start_time: $LL.export.colStartTime(),
+				col_end_time: $LL.export.colEndTime(),
 				col_time: $LL.export.colTime(),
+				col_driver: $LL.export.colDriver(),
+				col_odo_start: $LL.export.colOdoStart(),
 				col_origin: $LL.export.colOrigin(),
 				col_destination: $LL.export.colDestination(),
 				col_purpose: $LL.export.colPurpose(),
