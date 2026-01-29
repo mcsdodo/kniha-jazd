@@ -179,6 +179,11 @@ const sk = {
 		// Column visibility
 		columnVisibility: {
 			title: 'Stĺpce',
+			tripNumber: 'Číslo jazdy',
+			startTime: 'Čas od',
+			endTime: 'Čas do',
+			driver: 'Vodič',
+			odoStart: 'Km pred',
 			time: 'Čas',
 			fuelConsumed: 'Spotrebované (L)',
 			fuelRemaining: 'Zostatok (L)',

@@ -7,6 +7,11 @@
 
 	// Hideable columns configuration
 	const hideableColumns = [
+		{ id: 'tripNumber', labelKey: 'tripNumber' },
+		{ id: 'startTime', labelKey: 'startTime' },
+		{ id: 'endTime', labelKey: 'endTime' },
+		{ id: 'driver', labelKey: 'driver' },
+		{ id: 'odoStart', labelKey: 'odoStart' },
 		{ id: 'time', labelKey: 'time' },
 		{ id: 'fuelConsumed', labelKey: 'fuelConsumed' },
 		{ id: 'fuelRemaining', labelKey: 'fuelRemaining' },

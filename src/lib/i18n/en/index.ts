@@ -179,6 +179,11 @@ const en = {
 		// Column visibility
 		columnVisibility: {
 			title: 'Columns',
+			tripNumber: 'Trip #',
+			startTime: 'Start Time',
+			endTime: 'End Time',
+			driver: 'Driver',
+			odoStart: 'Odo Start',
 			time: 'Time',
 			fuelConsumed: 'Consumed (L)',
 			fuelRemaining: 'Remaining (L)',
