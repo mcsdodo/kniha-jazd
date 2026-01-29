@@ -348,7 +348,7 @@ type RootTranslation = {
 		emptyState: string
 		columns: {
 			/**
-			 * Č​.
+			 * #
 			 */
 			tripNumber: string
 			/**
@@ -2337,7 +2337,7 @@ export type TranslationFunctions = {
 		emptyState: () => LocalizedString
 		columns: {
 			/**
-			 * Č.
+			 * #
 			 */
 			tripNumber: () => LocalizedString
 			/**
