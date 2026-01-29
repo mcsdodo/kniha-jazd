@@ -115,11 +115,17 @@ const en = {
 		emptyState: 'No records. Click "New record" to add a trip.',
 		// Column headers
 		columns: {
+			tripNumber: '#',
 			date: 'Date',
+			startTime: 'Start',
+			endTime: 'End',
 			time: 'Time',
 			origin: 'From',
 			destination: 'To',
+			driver: 'Driver',
 			km: 'Km',
+			odoStart: 'Odo Start',
+			odoEnd: 'Odo End',
 			odo: 'ODO',
 			purpose: 'Purpose',
 			fuelLiters: 'Fuel (L)',
@@ -141,6 +147,9 @@ const en = {
 		originPlaceholder: 'From',
 		destinationPlaceholder: 'To',
 		purposePlaceholder: 'Purpose',
+		// End time field
+		endTimeLabel: 'End Time',
+		endTimePlaceholder: 'HH:MM',
 		// Actions
 		moveUp: 'Move up',
 		moveDown: 'Move down',
