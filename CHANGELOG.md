@@ -7,6 +7,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Zákonná zhoda pre knihu jázd (od 1.1.2026)** - nové stĺpce podľa zákona:
+  - **Poradové číslo (§4a)** - automatické číslovanie jázd (1, 2, 3...) v chronologickom poradí
+  - **Čas ukončenia (§4c)** - nový vstup pre čas skončenia jazdy (vedľa času začiatku)
+  - **Meno vodiča (§4b)** - zobrazuje sa z nastavení vozidla v každom riadku
+  - **Km pred jazdou (§4f)** - automaticky odvodený z predchádzajúcej jazdy
+  - Všetky nové stĺpce sú voliteľne skrývateľné cez ikonu oka
+  - Zahrnuté v HTML exporte
+
 ### Opravené
 - **Export "Prvý záznam"** - zostatok paliva zobrazuje správnu hodnotu (prenášanú z predchádzajúceho roka alebo plnú nádrž) namiesto 0
 
