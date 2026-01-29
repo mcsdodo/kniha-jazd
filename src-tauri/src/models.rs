@@ -181,6 +181,7 @@ pub struct Trip {
     pub vehicle_id: Uuid,
     pub date: NaiveDate,              // Derived from datetime for backward compatibility
     pub datetime: NaiveDateTime,      // Source of truth: date + time combined
+    pub end_time: Option<String>,     // Trip end time "HH:MM" or None
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -238,6 +239,7 @@ impl Trip {
             vehicle_id: Uuid::new_v4(),
             date,
             datetime,
+            end_time: None,
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km,
@@ -623,6 +625,7 @@ pub struct NewVehicleRow<'a> {
 }
 
 /// Database row for trips table
+/// IMPORTANT: Field order MUST match schema.rs column order for Diesel Queryable to work
 #[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset, QueryableByName)]
 #[diesel(table_name = trips)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -631,6 +634,7 @@ pub struct TripRow {
     pub vehicle_id: String,
     pub date: String,
     pub datetime: String,  // Combined date + time (migration 2026-01-27)
+    pub end_time: String,  // "HH:MM" or ""
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -658,6 +662,7 @@ pub struct NewTripRow<'a> {
     pub vehicle_id: &'a str,
     pub date: &'a str,
     pub datetime: &'a str,  // Combined date + time (migration 2026-01-27)
+    pub end_time: &'a str,  // "HH:MM" or ""
     pub origin: &'a str,
     pub destination: &'a str,
     pub distance_km: f64,
@@ -838,6 +843,7 @@ impl From<TripRow> for Trip {
             vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
             date,
             datetime,
+            end_time: if row.end_time.is_empty() { None } else { Some(row.end_time) },
             origin: row.origin,
             destination: row.destination,
             distance_km: row.distance_km,
@@ -985,6 +991,7 @@ mod tests {
             vehicle_id: "00000000-0000-0000-0000-000000000002".to_string(),
             date: date.to_string(),
             datetime: datetime.to_string(),
+            end_time: "".to_string(),
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: 100.0,
