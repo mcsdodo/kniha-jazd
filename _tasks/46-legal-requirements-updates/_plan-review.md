@@ -364,3 +364,28 @@ No additional critical findings. Plan is implementable with the noted amendments
 2. Task 14: Improve fuel_remaining calculation (don't just carry initial value)
 3. Task 16: Provide explicit row cell generation code, not just "similarly"
 4. Task 4: Clarify exact parameter position in command signatures
+
+---
+
+## Resolution (2026-01-29)
+
+### Addressed
+
+| Finding | Resolution |
+|---------|------------|
+| **C1** MonthEndRow scope | Simplified to only: date, odometer, fuel_remaining, month. Removed battery/driver (per user feedback: synthetic rows only show odo and fuel) |
+| **C2** Raw SQL query | Refactored to use Diesel query builder with date range filtering instead of strftime. No more explicit column list. |
+| **I2** fuel_remaining calculation | Now passes fuel_remaining HashMap to generate_month_end_rows; properly looks up last trip's fuel state |
+| **I4** Empty trips battery | Removed battery from MonthEndRow entirely (C1 resolution) |
+| **I5** Export Task 16 | Added explicit row cell generation code for all new columns + synthetic row rendering |
+
+### Skipped
+
+| Finding | Reason |
+|---------|--------|
+| **M1-M4** Minor findings | Low impact, can address during implementation if needed |
+| **Y1-Y2** YAGNI findings | Resolved by C1 simplification (no battery, no driver in MonthEndRow) |
+
+### Design Doc Updated
+
+`02-design.md` MonthEndRow now matches simplified struct (no battery_remaining_kwh, no driver_name).

@@ -142,7 +142,41 @@ Find the update query and add:
 trips::end_time.eq(trip.end_time.as_deref().unwrap_or("")),
 ```
 
-**Step 3: Run tests**
+**Step 3: Refactor year filtering to avoid raw SQL**
+
+The `get_trips_for_vehicle_in_year()` function uses raw SQL with `strftime()`.
+Replace with Diesel query builder using date range filtering:
+
+```rust
+pub fn get_trips_for_vehicle_in_year(
+    &self,
+    vehicle_id: &str,
+    year: i32,
+) -> QueryResult<Vec<Trip>> {
+    use crate::schema::trips::dsl;
+    let conn = &mut *self.conn.lock().unwrap();
+
+    // Use date range instead of strftime - works with Diesel query builder
+    let start_date = format!("{}-01-01", year);
+    let end_date = format!("{}-12-31", year);
+
+    let rows = dsl::trips
+        .filter(dsl::vehicle_id.eq(vehicle_id))
+        .filter(dsl::date.ge(&start_date))
+        .filter(dsl::date.le(&end_date))
+        .order(dsl::sort_order.asc())
+        .load::<TripRow>(conn)?;
+
+    Ok(rows.into_iter().map(Trip::from).collect())
+}
+```
+
+**Why this is better:**
+- Uses Diesel ORM (type-safe, auto-includes all columns)
+- No raw SQL to maintain when schema changes
+- Date range filtering is SQLite-efficient (can use index on `date`)
+
+**Step 4: Run tests**
 
 ```bash
 cd src-tauri && cargo test db_tests
@@ -150,7 +184,7 @@ cd src-tauri && cargo test db_tests
 
 Expected: All DB tests pass
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```bash
 git add src-tauri/src/db.rs
@@ -215,22 +249,19 @@ git commit -m "feat(commands): accept end_time in trip create/update"
 Add after TripGridData struct (~line 372):
 ```rust
 /// Synthetic row for month-end state display (legal requirement)
-/// Generated for months where no trip falls on the last calendar day
+/// Generated for months where no trip falls on the last calendar day.
+/// Only contains odometer and fuel state — no trip number, no driver (display-only fields).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonthEndRow {
     /// Last day of the month (e.g., 2026-01-31)
     pub date: NaiveDate,
-    /// Odometer reading (carried from last trip before this date)
+    /// Odometer reading (same for start/end - no travel)
     pub odometer: f64,
-    /// Fuel remaining in liters (carried state)
+    /// Fuel remaining in liters (carried from last trip state)
     pub fuel_remaining: f64,
-    /// Battery remaining in kWh (for BEV/PHEV)
-    pub battery_remaining_kwh: f64,
-    /// Month number 1-12
+    /// Month number 1-12 (for identification/sorting)
     pub month: u32,
-    /// Driver name (from vehicle)
-    pub driver_name: String,
 }
 ```
 
@@ -703,28 +734,34 @@ fn test_month_end_rows_generated_for_gaps() {
     ];
     let year = 2026;
     let initial_odo = 10000.0;
+    // Fuel remaining map (keyed by trip ID) - simulates what get_trip_grid_data provides
+    let mut fuel_remaining: HashMap<String, f64> = HashMap::new();
+    fuel_remaining.insert(trips[0].id.to_string(), 45.0);  // After Jan 15 trip
+    fuel_remaining.insert(trips[1].id.to_string(), 40.0);  // After Mar 10 trip
     let initial_fuel = 50.0;
-    let driver = "Test Driver".to_string();
 
-    let rows = generate_month_end_rows(&trips, year, initial_odo, initial_fuel, 0.0, &driver);
+    let rows = generate_month_end_rows(&trips, year, initial_odo, initial_fuel, &fuel_remaining);
 
     // Should have rows for: Jan 31, Feb 28, Mar 31 (no trip on last day of any month)
     assert_eq!(rows.len(), 3);
 
-    // Jan 31 carries Jan 15's odometer
+    // Jan 31 carries Jan 15's values
     let jan = rows.iter().find(|r| r.month == 1).unwrap();
     assert_eq!(jan.date, NaiveDate::from_ymd_opt(2026, 1, 31).unwrap());
     assert_eq!(jan.odometer, 10050.0);
+    assert_eq!(jan.fuel_remaining, 45.0);
 
     // Feb 28 carries Jan's state (no trips in Feb)
     let feb = rows.iter().find(|r| r.month == 2).unwrap();
     assert_eq!(feb.date, NaiveDate::from_ymd_opt(2026, 2, 28).unwrap());
     assert_eq!(feb.odometer, 10050.0);
+    assert_eq!(feb.fuel_remaining, 45.0);
 
-    // Mar 31 carries Mar 10's odometer
+    // Mar 31 carries Mar 10's values
     let mar = rows.iter().find(|r| r.month == 3).unwrap();
     assert_eq!(mar.date, NaiveDate::from_ymd_opt(2026, 3, 31).unwrap());
     assert_eq!(mar.odometer, 10100.0);
+    assert_eq!(mar.fuel_remaining, 40.0);
 }
 
 #[test]
@@ -734,8 +771,9 @@ fn test_month_end_rows_not_generated_when_trip_exists() {
         make_trip_with_date_odo("2026-01-31", 50.0, 10050.0),
     ];
     let year = 2026;
+    let fuel_remaining: HashMap<String, f64> = HashMap::new();
 
-    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, 0.0, &"Driver".to_string());
+    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, &fuel_remaining);
 
     // Jan should NOT have synthetic row (trip exists on 31st)
     let jan_row = rows.iter().find(|r| r.month == 1);
@@ -747,12 +785,17 @@ fn test_month_end_rows_all_12_months() {
     // No trips at all - should generate row for every month
     let trips: Vec<Trip> = vec![];
     let year = 2026;
+    let fuel_remaining: HashMap<String, f64> = HashMap::new();
 
-    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, 0.0, &"Driver".to_string());
+    let rows = generate_month_end_rows(&trips, year, 10000.0, 50.0, &fuel_remaining);
 
     assert_eq!(rows.len(), 12);
     for month in 1..=12 {
         assert!(rows.iter().any(|r| r.month == month), "Missing month {}", month);
+    }
+    // All rows should have initial fuel (no trips consumed any)
+    for row in &rows {
+        assert_eq!(row.fuel_remaining, 50.0);
     }
 }
 ```
@@ -782,15 +825,21 @@ git commit -m "test: add failing tests for month-end row generation"
 ```rust
 use crate::models::MonthEndRow;
 
-/// Generate synthetic month-end rows for months without a trip on the last day
-/// Returns rows for ALL 12 months where no trip exists on the final day
+/// Generate synthetic month-end rows for months without a trip on the last day.
+/// Returns rows for ALL 12 months where no trip exists on the final day.
+///
+/// # Arguments
+/// * `trips` - All trips for the year (will be sorted chronologically)
+/// * `year` - The year being processed
+/// * `initial_odometer` - Starting odometer (from vehicle or year carryover)
+/// * `initial_fuel` - Starting fuel (from vehicle or year carryover)
+/// * `fuel_remaining` - Pre-calculated fuel remaining after each trip (from TripGridData)
 pub(crate) fn generate_month_end_rows(
     trips: &[Trip],
     year: i32,
     initial_odometer: f64,
     initial_fuel: f64,
-    initial_battery: f64,
-    driver_name: &str,
+    fuel_remaining: &HashMap<String, f64>,
 ) -> Vec<MonthEndRow> {
     // Sort trips chronologically
     let mut sorted: Vec<_> = trips.iter().collect();
@@ -802,8 +851,7 @@ pub(crate) fn generate_month_end_rows(
     // Track state as we process each month
     let mut current_odo = initial_odometer;
     let mut current_fuel = initial_fuel;
-    let mut current_battery = initial_battery;
-    let mut trip_idx = 0;
+    let mut last_trip_id: Option<String> = None;
 
     let mut rows = Vec::new();
 
@@ -811,13 +859,22 @@ pub(crate) fn generate_month_end_rows(
         let last_day = last_day_of_month(year, month);
         let month_end_date = NaiveDate::from_ymd_opt(year, month, last_day).unwrap();
 
-        // Process all trips up to and including this month-end
-        while trip_idx < sorted.len() && sorted[trip_idx].date <= month_end_date {
-            current_odo = sorted[trip_idx].odometer;
-            // Note: fuel_remaining would need to be passed in or recalculated
-            // For now, just carry the initial value (will be refined in integration)
-            trip_idx += 1;
+        // Find the last trip on or before this month-end
+        for trip in &sorted {
+            if trip.date <= month_end_date {
+                current_odo = trip.odometer;
+                last_trip_id = Some(trip.id.to_string());
+            } else {
+                break;
+            }
         }
+
+        // Get fuel remaining from the last trip, or use initial if no trips yet
+        current_fuel = last_trip_id
+            .as_ref()
+            .and_then(|id| fuel_remaining.get(id))
+            .copied()
+            .unwrap_or(initial_fuel);
 
         // Check if there's a trip exactly on the last day
         let has_trip_on_last_day = sorted.iter().any(|t| t.date == month_end_date);
@@ -827,9 +884,7 @@ pub(crate) fn generate_month_end_rows(
                 date: month_end_date,
                 odometer: current_odo,
                 fuel_remaining: current_fuel,
-                battery_remaining_kwh: current_battery,
                 month,
-                driver_name: driver_name.to_string(),
             });
         }
     }
@@ -866,7 +921,7 @@ and fuel state from most recent trip."
 
 **Step 1: Update get_trip_grid_data to populate new fields**
 
-In `get_trip_grid_data` function, add after line ~598 (after fuel_consumed calculation):
+In `get_trip_grid_data` function, add after the fuel_remaining calculation (after line ~598):
 
 ```rust
     // Legal compliance calculations (2026)
@@ -874,23 +929,13 @@ In `get_trip_grid_data` function, add after line ~598 (after fuel_consumed calcu
     let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
     let month_end_trips = detect_month_end_trips(&trips);
 
-    // Get driver name for month-end rows
-    let driver_name = vehicle.driver_name.clone().unwrap_or_default();
-
-    // Calculate initial battery for month-end rows
-    let initial_battery_for_rows = if vehicle.vehicle_type.uses_electricity() {
-        initial_battery
-    } else {
-        0.0
-    };
-
+    // Generate month-end rows using already-calculated fuel_remaining
     let month_end_rows = generate_month_end_rows(
         &chronological,
         year,
         year_start_odometer,
         year_start_fuel,
-        initial_battery_for_rows,
-        &driver_name,
+        &fuel_remaining,
     );
 ```
 
@@ -916,8 +961,7 @@ In the early return for empty trips (~line 478), add:
                 year,
                 year_start_odometer,
                 year_start_fuel,
-                0.0,
-                &vehicle.driver_name.clone().unwrap_or_default(),
+                &HashMap::new(),  // No trips = no fuel_remaining entries
             ),
 ```
 
@@ -1018,9 +1062,122 @@ After date header, add:
     }
 ```
 
-**Step 6: Update row generation similarly**
+**Step 6: Update row generation with explicit cell code**
 
-Add corresponding data cells for each new column in the row loop.
+In the trip row loop, add cells for each new column. Update the row building code:
+
+```rust
+    for trip in &data.grid_data.trips {
+        let trip_id = trip.id.to_string();
+        let is_month_end = data.grid_data.month_end_trips.contains(&trip_id);
+        let row_class = if is_month_end { " class=\"month-end-trip\"" } else { "" };
+
+        // Trip number (always first, hideable)
+        let mut row = format!(r#"        <tr{row_class}>
+"#);
+
+        if is_visible("tripNumber") {
+            let trip_num = data.grid_data.trip_numbers.get(&trip_id).unwrap_or(&0);
+            row.push_str(&format!(r#"          <td class="num">{}</td>
+"#, trip_num));
+        }
+
+        // Date (always shown)
+        row.push_str(&format!(r#"          <td>{}</td>
+"#, trip.date.format("%d.%m.%Y")));
+
+        // Start time (hideable)
+        if is_visible("startTime") {
+            row.push_str(&format!(r#"          <td>{}</td>
+"#, trip.datetime.format("%H:%M")));
+        }
+
+        // End time (hideable)
+        if is_visible("endTime") {
+            let end_time = trip.end_time.as_deref().unwrap_or("");
+            row.push_str(&format!(r#"          <td>{}</td>
+"#, html_escape(end_time)));
+        }
+
+        // ... (origin, destination, purpose - existing code)
+
+        // Driver (hideable) - after purpose
+        if is_visible("driver") {
+            let driver = data.vehicle.driver_name.as_deref().unwrap_or("");
+            row.push_str(&format!(r#"          <td>{}</td>
+"#, html_escape(driver)));
+        }
+
+        // ... (km - existing code)
+
+        // Odo start (hideable)
+        if is_visible("odoStart") {
+            let odo_start = data.grid_data.odometer_start.get(&trip_id).unwrap_or(&0.0);
+            row.push_str(&format!(r#"          <td class="num">{:.0}</td>
+"#, odo_start));
+        }
+
+        // Odo end (existing odometer column)
+        row.push_str(&format!(r#"          <td class="num">{:.0}</td>
+"#, trip.odometer));
+
+        // ... (rest of existing columns)
+    }
+
+    // Render synthetic month-end rows
+    for month_row in &data.grid_data.month_end_rows {
+        let mut row = String::from(r#"        <tr class="month-end-synthetic">
+"#);
+
+        if is_visible("tripNumber") {
+            row.push_str(r#"          <td class="num">—</td>
+"#);
+        }
+
+        // Date
+        row.push_str(&format!(r#"          <td>{}</td>
+"#, month_row.date.format("%d.%m.%Y")));
+
+        // Start/end time - empty for synthetic rows
+        if is_visible("startTime") {
+            row.push_str(r#"          <td></td>
+"#);
+        }
+        if is_visible("endTime") {
+            row.push_str(r#"          <td></td>
+"#);
+        }
+
+        // Driver (hideable)
+        if is_visible("driver") {
+            let driver = data.vehicle.driver_name.as_deref().unwrap_or("");
+            row.push_str(&format!(r#"          <td>{}</td>
+"#, html_escape(driver)));
+        }
+
+        // Origin/destination/purpose/km - empty for synthetic
+        row.push_str(r#"          <td></td>
+          <td></td>
+          <td></td>
+          <td class="num"></td>
+"#);
+
+        // Odo start and end are the same (no travel)
+        if is_visible("odoStart") {
+            row.push_str(&format!(r#"          <td class="num">{:.0}</td>
+"#, month_row.odometer));
+        }
+        row.push_str(&format!(r#"          <td class="num">{:.0}</td>
+"#, month_row.odometer));
+
+        // Fuel columns show remaining (no fillup)
+        // ... continue with fuel_remaining display
+
+        row.push_str(r#"        </tr>
+"#);
+        rows.push_str(&row);
+    }
+```
 
 **Step 7: Add month-end styling CSS**
 
