@@ -8,6 +8,8 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 48 | [end_datetime Cleanup](48-end-datetime-cleanup/) | 📋 Planning | Replace end_time string with end_datetime in Trip model |
+| 47 | [Datetime Consolidation](47-datetime-consolidation/) | ✅ Complete | Single datetime inputs, ADR-012 forward-only migrations |
 | 46 | [Legal Requirements Updates](46-legal-requirements-updates/) | 📋 Planning | Slovak 2026 law: trip#, times, odo before/after, month-end |
 | 42 | [Commands Module Split](42-commands-module-split/) | 🟡 In Progress | ADR-011: Split 3908-line commands.rs into modules |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
