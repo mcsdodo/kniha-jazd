@@ -2588,3 +2588,81 @@ fn test_synthetic_first_record_fuel_remaining_full_tank_default() {
     // Then: the synthetic record shows full tank
     assert_eq!(*fuel_remaining.get(&Uuid::nil().to_string()).unwrap(), 50.0);
 }
+
+// ============================================================================
+// Legal Compliance Tests (2026)
+// ============================================================================
+
+#[test]
+fn test_trip_numbers_chronological_order() {
+    // Given trips in various orders, trip_numbers should be 1,2,3... by date
+    let trips = vec![
+        make_trip_with_date("2026-01-15", 100.0, 10100.0), // Should be #2
+        make_trip_with_date("2026-01-10", 50.0, 10050.0),  // Should be #1
+        make_trip_with_date("2026-01-20", 75.0, 10175.0),  // Should be #3
+    ];
+
+    let trip_numbers = calculate_trip_numbers(&trips);
+
+    // Find by date to verify numbering
+    let jan10_id = trips.iter().find(|t| t.date.day() == 10).unwrap().id.to_string();
+    let jan15_id = trips.iter().find(|t| t.date.day() == 15).unwrap().id.to_string();
+    let jan20_id = trips.iter().find(|t| t.date.day() == 20).unwrap().id.to_string();
+
+    assert_eq!(trip_numbers.get(&jan10_id), Some(&1));
+    assert_eq!(trip_numbers.get(&jan15_id), Some(&2));
+    assert_eq!(trip_numbers.get(&jan20_id), Some(&3));
+}
+
+#[test]
+fn test_trip_numbers_same_date_by_odometer() {
+    // Multiple trips on same day - order by odometer
+    let trips = vec![
+        make_trip_with_date_odo("2026-01-15", 50.0, 10100.0),  // Should be #2
+        make_trip_with_date_odo("2026-01-15", 30.0, 10050.0),  // Should be #1
+        make_trip_with_date_odo("2026-01-15", 25.0, 10150.0),  // Should be #3
+    ];
+
+    let trip_numbers = calculate_trip_numbers(&trips);
+
+    let first = trips.iter().find(|t| t.odometer == 10050.0).unwrap().id.to_string();
+    let second = trips.iter().find(|t| t.odometer == 10100.0).unwrap().id.to_string();
+    let third = trips.iter().find(|t| t.odometer == 10150.0).unwrap().id.to_string();
+
+    assert_eq!(trip_numbers.get(&first), Some(&1));
+    assert_eq!(trip_numbers.get(&second), Some(&2));
+    assert_eq!(trip_numbers.get(&third), Some(&3));
+}
+
+/// Helper to create trip with specific date
+fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
+    let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+    Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        date,
+        datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_time: None,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: distance,
+        odometer: odo,
+        purpose: "test".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    }
+}
+
+fn make_trip_with_date_odo(date_str: &str, distance: f64, odo: f64) -> Trip {
+    make_trip_with_date(date_str, distance, odo)
+}
