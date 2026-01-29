@@ -22,7 +22,7 @@ use crate::calculations_phev::calculate_phev_trip_consumption;
 use crate::db::Database;
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
-use crate::models::{PreviewResult, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType};
+use crate::models::{MonthEndRow, PreviewResult, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType};
 use crate::settings::{DatePrefillMode, LocalSettings};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -166,6 +166,82 @@ pub(crate) fn detect_month_end_trips(trips: &[Trip]) -> HashSet<String> {
         })
         .map(|t| t.id.to_string())
         .collect()
+}
+
+/// Generate synthetic month-end rows for months without a trip on the last day.
+/// Returns rows only for months from January through the month of the last trip.
+/// If no trips exist, returns rows for all 12 months.
+///
+/// # Arguments
+/// * `trips` - All trips for the year (will be sorted chronologically)
+/// * `year` - The year being processed
+/// * `initial_odometer` - Starting odometer (from vehicle or year carryover)
+/// * `initial_fuel` - Starting fuel (from vehicle or year carryover)
+/// * `fuel_remaining` - Pre-calculated fuel remaining after each trip (from TripGridData)
+pub(crate) fn generate_month_end_rows(
+    trips: &[Trip],
+    year: i32,
+    initial_odometer: f64,
+    initial_fuel: f64,
+    fuel_remaining: &HashMap<String, f64>,
+) -> Vec<MonthEndRow> {
+    // Sort trips chronologically
+    let mut sorted: Vec<_> = trips.iter().collect();
+    sorted.sort_by(|a, b| {
+        a.date.cmp(&b.date)
+            .then_with(|| a.odometer.partial_cmp(&b.odometer).unwrap_or(std::cmp::Ordering::Equal))
+    });
+
+    // Determine the last month to process:
+    // - If no trips, generate rows for all 12 months
+    // - Otherwise, generate only through the month of the last trip
+    let last_month = if sorted.is_empty() {
+        12u32
+    } else {
+        sorted.last().unwrap().date.month()
+    };
+
+    // Track state as we process each month
+    let mut current_odo = initial_odometer;
+    let mut last_trip_id: Option<String> = None;
+
+    let mut rows = Vec::new();
+
+    for month in 1..=last_month {
+        let last_day = last_day_of_month(year, month);
+        let month_end_date = NaiveDate::from_ymd_opt(year, month, last_day).unwrap();
+
+        // Find the last trip on or before this month-end
+        for trip in &sorted {
+            if trip.date <= month_end_date {
+                current_odo = trip.odometer;
+                last_trip_id = Some(trip.id.to_string());
+            } else {
+                break;
+            }
+        }
+
+        // Get fuel remaining from the last trip, or use initial if no trips yet
+        let current_fuel = last_trip_id
+            .as_ref()
+            .and_then(|id| fuel_remaining.get(id))
+            .copied()
+            .unwrap_or(initial_fuel);
+
+        // Check if there's a trip exactly on the last day
+        let has_trip_on_last_day = sorted.iter().any(|t| t.date == month_end_date);
+
+        if !has_trip_on_last_day {
+            rows.push(MonthEndRow {
+                date: month_end_date,
+                odometer: current_odo,
+                fuel_remaining: current_fuel,
+                month,
+            });
+        }
+    }
+
+    rows
 }
 
 // ============================================================================
