@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
+	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
 	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns } from '$lib/api';
 	import TripRow from './TripRow.svelte';
@@ -102,7 +102,7 @@
 	let previewingTripId: string | null = null; // Which row is previewing (null = new row)
 
 	// Sorting state (exported for parent access)
-	type SortColumn = 'manual' | 'date';
+	type SortColumn = 'manual' | 'tripNumber';
 	type SortDirection = 'asc' | 'desc';
 	export let sortColumn: SortColumn = 'manual';
 	export let sortDirection: SortDirection = 'asc'; // asc = newest first (sort_order 0 = newest)
@@ -112,9 +112,9 @@
 			// Toggle direction
 			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
 		} else {
-			// Switch column, default to newest first
+			// Switch column
 			// For manual: asc (sort_order 0 = newest)
-			// For date: desc (highest date = newest)
+			// For tripNumber: desc (highest number = newest, chronological order)
 			sortColumn = column;
 			sortDirection = column === 'manual' ? 'asc' : 'desc';
 		}
@@ -450,18 +450,57 @@
 		updatedAt: ''
 	} as Trip;
 
+	// Display row type: either a Trip or a MonthEndRow
+	type DisplayRow = { type: 'trip'; data: Trip } | { type: 'monthEnd'; data: MonthEndRow };
+
 	// Display order (based on current sort settings)
+	// Manual: sort by sortOrder
+	// TripNumber: sort by trip number (chronological, calculated by backend)
 	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
 		let diff: number;
 		if (sortColumn === 'manual') {
 			diff = a.sortOrder - b.sortOrder;
 		} else {
-			const dateA = new Date(a.date).getTime();
-			const dateB = new Date(b.date).getTime();
-			diff = dateA - dateB;
+			// Sort by trip number (backend calculates chronological order)
+			const numA = tripNumbers.get(a.id) ?? 0;
+			const numB = tripNumbers.get(b.id) ?? 0;
+			diff = numA - numB;
 		}
 		return sortDirection === 'asc' ? diff : -diff;
 	});
+
+	// Combined display rows: trips + month-end rows
+	// For manual sort: preserve sortedTrips order, insert month-end rows at correct positions
+	// For tripNumber sort: sort everything chronologically by trip number
+	$: displayRows = (() => {
+		const tripRows: DisplayRow[] = sortedTrips.map(t => ({ type: 'trip' as const, data: t }));
+		const monthRows: DisplayRow[] = (gridData?.monthEndRows ?? []).map(r => ({ type: 'monthEnd' as const, data: r }));
+
+		if (monthRows.length === 0) {
+			return tripRows; // No month-end rows, preserve sortedTrips order
+		}
+
+		if (sortColumn === 'manual') {
+			// For manual sort, insert month-end rows at end (they're informational)
+			return [...tripRows, ...monthRows];
+		}
+
+		// For tripNumber sort, sort everything chronologically
+		const combined = [...tripRows, ...monthRows];
+		return combined.sort((a, b) => {
+			const getKey = (row: DisplayRow): number => {
+				if (row.type === 'trip') {
+					return tripNumbers.get(row.data.id) ?? 0;
+				} else {
+					// Month-end row: position after all trips in that month
+					return row.data.month * 1000;
+				}
+			};
+
+			const diff = getKey(a) - getKey(b);
+			return sortDirection === 'asc' ? diff : -diff;
+		});
+	})();
 
 	// Helper to check if a trip is the synthetic first record
 	function isFirstRecord(trip: Trip): boolean {
@@ -560,14 +599,14 @@
 			<thead>
 				<tr>
 					{#if !hiddenColumns.includes('tripNumber')}
-						<th class="col-trip-number">{$LL.trips.columns.tripNumber()}</th>
+						<th class="col-trip-number sortable" on:click={() => toggleSort('tripNumber')}>
+							{$LL.trips.columns.tripNumber()}
+							{#if sortColumn === 'tripNumber'}
+								<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+							{/if}
+						</th>
 					{/if}
-					<th class="col-date sortable" on:click={() => toggleSort('date')}>
-						{$LL.trips.columns.date()}
-						{#if sortColumn === 'date'}
-							<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-						{/if}
-					</th>
+					<th class="col-date">{$LL.trips.columns.date()}</th>
 					{#if !hiddenColumns.includes('time')}
 						<th class="col-time" data-testid="column-header-time">{$LL.trips.columns.startTime()}</th>
 						<th class="col-end-time" data-testid="column-header-end-time">{$LL.trips.columns.endTime()}</th>
@@ -637,8 +676,11 @@
 						{hiddenColumns}
 					/>
 				{/if}
-				<!-- Trip rows -->
-				{#each sortedTrips as trip, index (trip.id)}
+				<!-- Display rows: trips + month-end rows, sorted chronologically -->
+				{#each displayRows as row, index (row.type === 'trip' ? row.data.id : `monthend-${row.data.month}`)}
+					{#if row.type === 'trip'}
+					{@const trip = row.data}
+					{@const tripIndex = sortedTrips.indexOf(trip)}
 					<!-- New row inserted above this trip (not for first record) -->
 					{#if showNewRow && insertAtSortOrder === trip.sortOrder && !isFirstRecord(trip)}
 						<TripRow
@@ -646,7 +688,7 @@
 							{routes}
 							{purposeSuggestions}
 							isNew={true}
-							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : effectiveInitialOdometer}
+							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
 							defaultDate={insertDate || trip.date}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelConsumed={0}
@@ -666,7 +708,7 @@
 					{/if}
 					{#if isFirstRecord(trip)}
 						<!-- Synthetic "Prvý záznam" row -->
-						<tr class="first-record">
+						<tr class="synthetic-row">
 							{#if !hiddenColumns.includes('tripNumber')}
 								<td class="col-trip-number number">-</td>
 							{/if}
@@ -684,7 +726,7 @@
 							<td class="col-odo number">{trip.odometer.toFixed(0)}</td>
 							<td class="col-purpose">{trip.purpose}</td>
 							{#if !hiddenColumns.includes('driver')}
-								<td class="col-driver">{driverName}</td>
+								<td class="col-driver">-</td>
 							{/if}
 							{#if showFuelColumns}
 								<td class="col-fuel-liters">-</td>
@@ -717,7 +759,7 @@
 							{routes}
 							{purposeSuggestions}
 							isNew={false}
-							previousOdometer={index < sortedTrips.length - 1 ? sortedTrips[index + 1].odometer : effectiveInitialOdometer}
+							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelConsumed={fuelConsumed.get(trip.id) || 0}
 							fuelRemaining={fuelRemaining.get(trip.id) || 0}
@@ -733,10 +775,10 @@
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onEditStart={() => handleEditStart(trip.id)}
 							onEditEnd={handleEditEnd}
-							onMoveUp={() => handleMoveUp(trip.id, index)}
-							onMoveDown={() => handleMoveDown(trip.id, index)}
-							canMoveUp={!reorderDisabled && index > 0 && !isFirstRecord(sortedTrips[index - 1])}
-							canMoveDown={!reorderDisabled && index < sortedTrips.length - 1 && !isFirstRecord(sortedTrips[index + 1])}
+							onMoveUp={() => handleMoveUp(trip.id, tripIndex)}
+							onMoveDown={() => handleMoveDown(trip.id, tripIndex)}
+							canMoveUp={!reorderDisabled && tripIndex > 0 && !isFirstRecord(sortedTrips[tripIndex - 1])}
+							canMoveDown={!reorderDisabled && tripIndex < sortedTrips.length - 1 && !isFirstRecord(sortedTrips[tripIndex + 1])}
 							hasDateWarning={dateWarnings.has(trip.id)}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
@@ -752,14 +794,14 @@
 							isMonthEnd={monthEndTrips.has(trip.id)}
 						/>
 					{/if}
-				{/each}
-				<!-- Synthetic month-end rows (legal compliance 2026) -->
-				{#each gridData?.monthEndRows ?? [] as row}
-					<tr class="month-end-synthetic">
+					{:else}
+					<!-- Month-end synthetic row (end of billing period) -->
+					{@const monthRow = row.data}
+					<tr class="synthetic-row">
 						{#if !hiddenColumns.includes('tripNumber')}
 							<td class="col-trip-number number">-</td>
 						{/if}
-						<td class="col-date">{row.date.split('-').reverse().join('.')}</td>
+						<td class="col-date">{monthRow.date.split('-').reverse().join('.')}</td>
 						{#if !hiddenColumns.includes('time')}
 							<td class="col-time">-</td>
 							<td class="col-end-time">-</td>
@@ -768,12 +810,12 @@
 						<td class="col-destination">-</td>
 						<td class="col-km number">-</td>
 						{#if !hiddenColumns.includes('odoStart')}
-							<td class="col-odo-start number">{row.odometer.toFixed(0)}</td>
+							<td class="col-odo-start number">{monthRow.odometer.toFixed(0)}</td>
 						{/if}
-						<td class="col-odo number">{row.odometer.toFixed(0)}</td>
+						<td class="col-odo number">{monthRow.odometer.toFixed(0)}</td>
 						<td class="col-purpose">-</td>
 						{#if !hiddenColumns.includes('driver')}
-							<td class="col-driver">{driverName}</td>
+							<td class="col-driver">-</td>
 						{/if}
 						{#if showFuelColumns}
 							<td class="col-fuel-liters">-</td>
@@ -783,7 +825,7 @@
 							{/if}
 							<td class="col-consumption-rate number">-</td>
 							{#if !hiddenColumns.includes('fuelRemaining')}
-								<td class="col-fuel-remaining number">{row.fuelRemaining.toFixed(1)}</td>
+								<td class="col-fuel-remaining number">{monthRow.fuelRemaining.toFixed(1)}</td>
 							{/if}
 						{/if}
 						{#if showEnergyColumns}
@@ -800,6 +842,7 @@
 						{/if}
 						<td class="col-actions"></td>
 					</tr>
+					{/if}
 				{/each}
 				<!-- Empty state (only if no trips, first record is always there) -->
 				{#if trips.length === 0 && !showNewRow}
@@ -931,25 +974,25 @@
 		font-style: italic;
 	}
 
-	tbody tr.first-record {
+	tbody tr.synthetic-row {
 		background-color: var(--bg-body);
 		color: var(--text-secondary);
 		font-style: italic;
 	}
 
-	tbody tr.first-record td {
+	tbody tr.synthetic-row td {
 		padding: 0.5rem 0.25rem;
 		border-bottom: 1px solid var(--border-default);
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
-	tbody tr.first-record td.purpose {
+	tbody tr.synthetic-row td.purpose {
 		font-weight: 500;
 		color: var(--text-primary);
 	}
 
-	tbody tr.first-record td.number {
+	tbody tr.synthetic-row td.number {
 		text-align: right;
 		font-style: normal;
 		color: var(--text-primary);
@@ -999,24 +1042,8 @@
 		font-size: 1rem;
 	}
 
-	/* Month-end synthetic rows (legal compliance 2026) */
-	tbody tr.month-end-synthetic {
-		background: #f0f0f0;
-		font-style: italic;
-		color: var(--text-secondary);
-	}
-
-	:global(.dark) tbody tr.month-end-synthetic {
-		background: #2a2a2a;
-	}
-
-	tbody tr.month-end-synthetic td {
-		padding: 0.5rem 0.25rem;
-		border-bottom: 1px solid var(--border-default);
-	}
-
 	/* New column widths */
-	.col-trip-number { width: 3%; text-align: right; }
+	.col-trip-number { width: 3%; text-align: center; }
 	.col-odo-start { width: 5%; text-align: right; }
 	.col-driver { width: 8%; }
 </style>

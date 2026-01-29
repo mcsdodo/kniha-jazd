@@ -115,7 +115,7 @@ const sk = {
 		emptyState: 'Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.',
 		// Column headers
 		columns: {
-			tripNumber: 'Č.',
+			tripNumber: '#',
 			date: 'Dátum',
 			startTime: 'Čas od',
 			endTime: 'Čas do',
