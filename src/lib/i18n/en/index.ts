@@ -180,11 +180,9 @@ const en = {
 		columnVisibility: {
 			title: 'Columns',
 			tripNumber: 'Trip #',
-			startTime: 'Start Time',
-			endTime: 'End Time',
+			time: 'Time (start/end)',
 			driver: 'Driver',
 			odoStart: 'Odo Start',
-			time: 'Time',
 			fuelConsumed: 'Consumed (L)',
 			fuelRemaining: 'Remaining (L)',
 			otherCosts: 'Other (EUR)',

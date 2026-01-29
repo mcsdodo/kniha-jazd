@@ -6,13 +6,12 @@
 	export let onChange: (columns: string[]) => void;
 
 	// Hideable columns configuration
+	// Note: 'time' controls both start time and end time columns together
 	const hideableColumns = [
 		{ id: 'tripNumber', labelKey: 'tripNumber' },
-		{ id: 'startTime', labelKey: 'startTime' },
-		{ id: 'endTime', labelKey: 'endTime' },
+		{ id: 'time', labelKey: 'time' },  // Controls both Čas od + Čas do
 		{ id: 'driver', labelKey: 'driver' },
 		{ id: 'odoStart', labelKey: 'odoStart' },
-		{ id: 'time', labelKey: 'time' },
 		{ id: 'fuelConsumed', labelKey: 'fuelConsumed' },
 		{ id: 'fuelRemaining', labelKey: 'fuelRemaining' },
 		{ id: 'otherCosts', labelKey: 'otherCosts' },
