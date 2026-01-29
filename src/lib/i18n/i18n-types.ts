@@ -570,7 +570,7 @@ type RootTranslation = {
 			 */
 			tripNumber: string
 			/**
-			 * Č​a​s​ ​(​o​d​/​d​o​)
+			 * K​o​n​i​e​c
 			 */
 			time: string
 			/**
@@ -1666,17 +1666,13 @@ type RootTranslation = {
 		 */
 		colTripNumber: string
 		/**
-		 * D​á​t​u​m
+		 * Z​a​č​i​a​t​o​k
 		 */
-		colDate: string
+		colStartDatetime: string
 		/**
-		 * Č​a​s​ ​o​d​c​h​.
+		 * K​o​n​i​e​c
 		 */
-		colStartTime: string
-		/**
-		 * Č​a​s​ ​p​r​í​c​h​.
-		 */
-		colEndTime: string
+		colEndDatetime: string
 		/**
 		 * Č​a​s
 		 */
@@ -2577,7 +2573,7 @@ export type TranslationFunctions = {
 			 */
 			tripNumber: () => LocalizedString
 			/**
-			 * Čas (od/do)
+			 * Koniec
 			 */
 			time: () => LocalizedString
 			/**
@@ -3620,17 +3616,13 @@ export type TranslationFunctions = {
 		 */
 		colTripNumber: () => LocalizedString
 		/**
-		 * Dátum
+		 * Začiatok
 		 */
-		colDate: () => LocalizedString
+		colStartDatetime: () => LocalizedString
 		/**
-		 * Čas odch.
+		 * Koniec
 		 */
-		colStartTime: () => LocalizedString
-		/**
-		 * Čas prích.
-		 */
-		colEndTime: () => LocalizedString
+		colEndDatetime: () => LocalizedString
 		/**
 		 * Čas
 		 */

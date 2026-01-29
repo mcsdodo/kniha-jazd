@@ -12,6 +12,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Pri novej jazde sa čas konca automaticky nastaví na rovnaký ako začiatok
   - Zobrazenie vo formáte DD.MM. HH:MM (rok je v dropdown výbere)
   - HTML export zobrazuje rovnaký formát (Začiatok / Koniec namiesto Dátum / Čas od / Čas do)
+  - Prepínač "Koniec" v menu stĺpcov skrýva len čas konca (začiatok je vždy viditeľný)
 
 ### Pridané
 - **Zákonná zhoda pre knihu jázd (od 1.1.2026)** - nové stĺpce podľa zákona:
