@@ -24,6 +24,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Zahrnuté v HTML exporte
 
 ### Opravené
+- **Umelé riadky december** - riadky konca mesiaca pre december sa teraz zobrazujú v minulých rokoch (2025 a staršie)
 - **Export "Prvý záznam"** - zostatok paliva zobrazuje správnu hodnotu (prenášanú z predchádzajúceho roka alebo plnú nádrž) namiesto 0
 - **Triedenie jázd** - konzistentné triedenie (najnovšie hore) vo všetkých rokoch
 - **Export čísla jazdy** - stĺpec # v exporte zobrazuje správne poradové čísla (nie 0)
