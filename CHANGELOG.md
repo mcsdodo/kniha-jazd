@@ -11,6 +11,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Zlúčené vstupy dátumu a času** - namiesto samostatných polí pre dátum a čas je teraz jeden datetime picker pre začiatok a jeden pre koniec jazdy
   - Pri novej jazde sa čas konca automaticky nastaví na rovnaký ako začiatok
   - Zobrazenie vo formáte DD.MM. HH:MM (rok je v dropdown výbere)
+  - HTML export zobrazuje rovnaký formát (Začiatok / Koniec namiesto Dátum / Čas od / Čas do)
 
 ### Pridané
 - **Zákonná zhoda pre knihu jázd (od 1.1.2026)** - nové stĺpce podľa zákona:
