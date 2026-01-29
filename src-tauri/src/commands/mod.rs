@@ -205,13 +205,16 @@ pub(crate) fn generate_month_end_rows(
     });
 
     // Only generate month-end rows for "closed" months:
-    // A month is closed if there are trips in a later month.
-    // Don't generate for the current/last month since it may still be open.
+    // - Past years: All 12 months are closed
+    // - Current year: Only months before the latest trip's month
+    let current_year = chrono::Utc::now().year();
     let last_month = if sorted.is_empty() {
-        0u32 // No trips = no closed months
+        if year < current_year { 12 } else { 0 } // Past year with no trips: show all 12
+    } else if year < current_year {
+        12 // Past year: all months are closed
     } else {
         let latest_month = sorted.last().unwrap().date.month();
-        // Generate rows for months BEFORE the latest month (those are closed)
+        // Current year: generate for months BEFORE the latest (those are closed)
         if latest_month > 1 { latest_month - 1 } else { 0 }
     };
 
