@@ -46,6 +46,7 @@ pub fn create_trip(
     vehicle_id: String,
     date: String,
     time: Option<String>,  // "HH:MM" format, defaults to "00:00"
+    end_time: Option<String>,  // "HH:MM" format for trip end time
     origin: String,
     destination: String,
     distance_km: f64,
@@ -100,7 +101,7 @@ pub fn create_trip(
         vehicle_id: vehicle_uuid,
         date: trip_date,
         datetime: trip_datetime,
-        end_time: None,  // TODO: Task 4 will add end_time parameter
+        end_time,
         origin: origin.clone(),
         destination: destination.clone(),
         distance_km,
@@ -137,6 +138,7 @@ pub fn update_trip(
     id: String,
     date: String,
     time: Option<String>,  // "HH:MM" format, defaults to "00:00"
+    end_time: Option<String>,  // "HH:MM" format for trip end time
     origin: String,
     destination: String,
     distance_km: f64,
@@ -182,7 +184,7 @@ pub fn update_trip(
         vehicle_id: existing.vehicle_id,
         date: trip_date,
         datetime: trip_datetime,
-        end_time: existing.end_time,  // TODO: Task 4 will add end_time parameter
+        end_time,
         origin,
         destination,
         distance_km,
