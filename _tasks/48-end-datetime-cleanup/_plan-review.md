@@ -213,3 +213,25 @@ The migration SQL in Phase 6 is **correct**:
 **Implementation estimate:** ~2-3x longer than planned due to additional locations.
 
 **Proceed?** Yes, with awareness that Task 3.1 is larger than documented.
+
+---
+
+## Resolution #2 (2026-01-29) - Complete Location List
+
+**User request:** Update plan with complete list of all 27 locations.
+
+**Applied changes:**
+1. ✅ Rewrote Phase 3 Task 3.1 with ALL locations organized by category:
+   - A. Sorting functions (10 locations)
+   - B. Month/period filtering (4 locations)
+   - C. Date warning logic (3 locations)
+   - D. Receipt matching (9 locations)
+   - E. Magic fill function (5 locations)
+2. ✅ Added Task 3.2 for `commands/trips.rs` (extract_time_string removal)
+3. ✅ Added Task 3.3 for `db.rs` changes
+4. ✅ Updated Task 3.4 for `export.rs` with 4 locations
+5. ✅ Updated Phase 4 with test assertions using trip.date
+6. ✅ Added note to remove parse_trip_datetime tests
+7. ✅ Added Scope Summary table (~50+ locations across 8 files)
+
+**Plan status:** ✅ Ready for implementation (complete scope documented).
