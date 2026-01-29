@@ -26,9 +26,10 @@
 	$: showFuelColumns = vehicleType === 'Ice' || vehicleType === 'Phev';
 	$: showEnergyColumns = vehicleType === 'Bev' || vehicleType === 'Phev';
 
-	// Use year-specific starting odometer from backend (carryover from previous year)
-	// Falls back to vehicle's initial odometer if not available
+	// Use year-specific starting values from backend (carryover from previous year)
+	// Falls back to vehicle defaults if not available
 	$: effectiveInitialOdometer = gridData?.yearStartOdometer ?? initialOdometer;
+	$: effectiveInitialFuel = gridData?.yearStartFuel ?? tankSize;
 
 	// Pre-calculated grid data from backend
 	let gridData: TripGridData | null = null;
@@ -656,7 +657,7 @@
 								{/if}
 								<td class="col-consumption-rate number">{tpConsumption.toFixed(2)}</td>
 								{#if !hiddenColumns.includes('fuelRemaining')}
-									<td class="col-fuel-remaining number">{tankSize.toFixed(1)}</td>
+									<td class="col-fuel-remaining number">{effectiveInitialFuel.toFixed(1)}</td>
 								{/if}
 							{/if}
 							{#if showEnergyColumns}

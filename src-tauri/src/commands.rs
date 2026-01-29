@@ -857,12 +857,24 @@ pub fn get_trip_grid_data(
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
-    // Calculate year starting odometer (carryover from previous year)
+    // Get vehicle specs needed for year-start calculations
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+
+    // Calculate year starting values (carryover from previous year)
     let year_start_odometer = get_year_start_odometer(
         &db,
         &vehicle_id,
         year,
         vehicle.initial_odometer,
+    )?;
+
+    let year_start_fuel = get_year_start_fuel_remaining(
+        &db,
+        &vehicle_id,
+        year,
+        tank_size,
+        tp_consumption,
     )?;
 
     if trips.is_empty() {
@@ -881,6 +893,7 @@ pub fn get_trip_grid_data(
             date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
             year_start_odometer,
+            year_start_fuel,
             suggested_fillup: HashMap::new(),
             legend_suggested_fillup: None,
         });
@@ -898,18 +911,6 @@ pub fn get_trip_grid_data(
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
     });
-
-    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
-    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
-
-    // Calculate initial fuel (carryover from previous year or full tank)
-    let initial_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
 
     // Calculate date warnings (trips sorted by sort_order)
     let date_warnings = calculate_date_warnings(&trips);
@@ -947,7 +948,7 @@ pub fn get_trip_grid_data(
             let (rates, estimated_rates) =
                 calculate_period_rates(&chronological, tp_consumption);
             let fuel_remaining =
-                calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
+                calculate_fuel_remaining(&chronological, &rates, year_start_fuel, tank_size);
             let consumption_warnings =
                 calculate_consumption_warnings(&trips, &rates, tp_consumption);
             (
@@ -978,7 +979,7 @@ pub fn get_trip_grid_data(
         }
         VehicleType::Phev => {
             // PHEV: Both fuel and energy, using PHEV-specific calculations
-            let phev_data = calculate_phev_grid_data(&chronological, &vehicle, initial_fuel, initial_battery);
+            let phev_data = calculate_phev_grid_data(&chronological, &vehicle, year_start_fuel, initial_battery);
             // Calculate consumption warnings for fuel portion only
             let consumption_warnings =
                 calculate_consumption_warnings(&trips, &phev_data.fuel_rates, tp_consumption);
@@ -1020,6 +1021,7 @@ pub fn get_trip_grid_data(
         date_warnings,
         missing_receipts,
         year_start_odometer,
+        year_start_fuel,
         suggested_fillup,
         legend_suggested_fillup,
     })
@@ -2130,7 +2132,28 @@ pub async fn export_to_browser(
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
-    // Create synthetic "Prvý záznam" (first record) trip
+    // Calculate year-start values (needed for synthetic first record)
+    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
+    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
+
+    // Get year starting odometer (carryover from previous year)
+    let year_start_odometer = get_year_start_odometer(
+        &db,
+        &vehicle_id,
+        year,
+        vehicle.initial_odometer,
+    )?;
+
+    // Get initial fuel (carryover from previous year)
+    let initial_fuel = get_year_start_fuel_remaining(
+        &db,
+        &vehicle_id,
+        year,
+        tank_size,
+        tp_consumption,
+    )?;
+
+    // Create synthetic "Prvý záznam" (first record) trip with correct year-start values
     let first_record_date = NaiveDate::from_ymd_opt(year, 1, 1)
         .ok_or_else(|| "Invalid year".to_string())?;
     let first_record = Trip {
@@ -2141,7 +2164,7 @@ pub async fn export_to_browser(
         origin: "-".to_string(),
         destination: "-".to_string(),
         distance_km: 0.0,
-        odometer: vehicle.initial_odometer,
+        odometer: year_start_odometer, // Use carryover odometer, not vehicle.initial_odometer
         purpose: "Prvý záznam".to_string(),
         fuel_liters: None,
         fuel_cost_eur: None,
@@ -2189,32 +2212,15 @@ pub async fn export_to_browser(
 
     // Calculate rates and fuel remaining (ICE vehicles only for now)
     // TODO: Phase 2 will add BEV/PHEV handling based on vehicle.vehicle_type
-    let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
-    let tank_size = vehicle.tank_size_liters.unwrap_or_default();
     let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
 
     let (rates, estimated_rates) =
         calculate_period_rates(&chronological, tp_consumption);
 
-    // Get initial fuel (carryover from previous year)
-    let initial_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
-
-    // Get year starting odometer (carryover from previous year)
-    let year_start_odometer = get_year_start_odometer(
-        &db,
-        &vehicle_id,
-        year,
-        vehicle.initial_odometer,
-    )?;
-
-    let fuel_remaining =
+    let mut fuel_remaining =
         calculate_fuel_remaining(&chronological, &rates, initial_fuel, tank_size);
+    // Add synthetic first record's zostatok (year start fuel, before any trips)
+    fuel_remaining.insert(Uuid::nil().to_string(), initial_fuel);
     let fuel_consumed = calculate_fuel_consumed(&chronological, &rates);
 
     let grid_data = TripGridData {
@@ -2232,6 +2238,7 @@ pub async fn export_to_browser(
         date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
         year_start_odometer,
+        year_start_fuel: initial_fuel,
         suggested_fillup: HashMap::new(), // Not needed for export
         legend_suggested_fillup: None,    // Not needed for export
     };
@@ -2346,6 +2353,7 @@ pub async fn export_html(
         date_warnings: HashSet::new(),
         missing_receipts: HashSet::new(),
         year_start_odometer,
+        year_start_fuel: initial_fuel,
         suggested_fillup: HashMap::new(), // Not needed for export
         legend_suggested_fillup: None,    // Not needed for export
     };

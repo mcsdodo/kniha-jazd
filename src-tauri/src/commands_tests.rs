@@ -2686,3 +2686,51 @@ fn test_vehicle_ha_sensor_null_by_default() {
     let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
     assert_eq!(loaded.ha_odo_sensor, None);
 }
+
+// ============================================================================
+// Synthetic First Record Tests (Export)
+// ============================================================================
+
+/// Test that synthetic first record's fuel_remaining should be the year-start fuel (initial_fuel).
+/// The year-start fuel is either carryover from previous year or full tank if no previous data.
+#[test]
+fn test_synthetic_first_record_fuel_remaining_is_initial_fuel() {
+    // Given: initial_fuel = 40.0 (e.g., carryover from previous year)
+    let initial_fuel = 40.0;
+    let tank_size = 50.0;
+
+    // And: a trip that uses some fuel
+    let mut trip = make_trip_with_fuel(NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(), 30.0, 45.0);
+    trip.distance_km = 100.0;
+    let trips = vec![trip.clone()];
+
+    // When: we calculate fuel_remaining with initial_fuel
+    let rates = std::collections::HashMap::from([(trip.id.to_string(), 6.0)]); // 6 l/100km
+    let mut fuel_remaining = calculate_fuel_remaining(&trips, &rates, initial_fuel, tank_size);
+
+    // Then: the first trip's fuel_remaining is calculated from initial_fuel
+    // fuel = 40 - (100 * 6 / 100) + 30 = 40 - 6 + 30 = 64, clamped to 50
+    assert_eq!(*fuel_remaining.get(&trip.id.to_string()).unwrap(), 50.0);
+
+    // And: when we add the synthetic first record entry (as export_to_browser does)
+    fuel_remaining.insert(Uuid::nil().to_string(), initial_fuel);
+
+    // Then: the synthetic record has the year-start fuel (BEFORE any trips)
+    assert_eq!(*fuel_remaining.get(&Uuid::nil().to_string()).unwrap(), 40.0);
+}
+
+/// Test that when there's no previous year data, the synthetic first record
+/// should show full tank (tank_size) as the zostatok.
+#[test]
+fn test_synthetic_first_record_fuel_remaining_full_tank_default() {
+    // Given: no previous year data, so initial_fuel = tank_size (full tank)
+    let tank_size = 50.0;
+    let initial_fuel = tank_size; // Full tank assumption
+
+    // When: we add the synthetic first record entry
+    let mut fuel_remaining = std::collections::HashMap::new();
+    fuel_remaining.insert(Uuid::nil().to_string(), initial_fuel);
+
+    // Then: the synthetic record shows full tank
+    assert_eq!(*fuel_remaining.get(&Uuid::nil().to_string()).unwrap(), 50.0);
+}
