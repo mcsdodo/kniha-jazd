@@ -107,6 +107,39 @@ Add `start_datetime` and `end_datetime` columns to trips table, migrate existing
 
 ---
 
+## Phase 7: Cleanup Migration (Future - after v1.0 release)
+
+> **Note:** This phase is intentionally deferred. Per CLAUDE.md, we don't remove columns
+> to maintain backward compatibility. This cleanup should only happen after:
+> - All users have migrated to the new version
+> - A major version bump (e.g., v1.0 → v2.0)
+> - Sufficient time has passed (3+ months)
+
+### Task 7.1: Mark legacy columns as deprecated
+- [ ] Add `// DEPRECATED` comments to schema.rs for `date`, `datetime`, `end_time`
+- [ ] Add deprecation notice to CHANGELOG
+
+### Task 7.2: Create cleanup migration (v2.0+)
+- [ ] Create migration to drop redundant columns:
+  ```sql
+  -- Only run after all users on v1.x+
+  ALTER TABLE trips DROP COLUMN date;
+  ALTER TABLE trips DROP COLUMN datetime;
+  ALTER TABLE trips DROP COLUMN end_time;
+  ```
+- [ ] Update schema.rs - remove deprecated columns
+- [ ] Update TripRow - remove deprecated fields
+- [ ] Update NewTripRow - remove deprecated fields
+- [ ] Update Trip struct - remove legacy fields
+- [ ] Update all tests
+
+### Task 7.3: Verification
+- [ ] All tests pass
+- [ ] Manual testing with fresh DB
+- [ ] Document breaking change in CHANGELOG
+
+---
+
 ## Rollback Plan
 
 If issues arise:
