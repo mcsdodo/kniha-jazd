@@ -94,6 +94,7 @@ jobs:
       - name: Install Edge WebDriver
         shell: pwsh
         run: |
+          # Get WebView2 version to determine major version
           $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
           if ($webview2Key -and $webview2Key.pv) {
             $webview2Version = $webview2Key.pv
@@ -102,29 +103,22 @@ jobs:
             $webview2Version = $webview2Key.pv
           }
           Write-Host "WebView2 runtime version: $webview2Version"
-          # Primary: new official Microsoft URL (azureedge.net is being decommissioned)
-          $driverUrl = "https://msedgedriver.microsoft.com/$webview2Version/edgedriver_win64.zip"
+
+          # Extract major version and get latest compatible driver version
+          $majorVersion = $webview2Version.Split('.')[0]
+          $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
+          Write-Host "Fetching latest driver version from: $latestReleaseUrl"
+          $driverVersion = (Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing).Content.Trim()
+          Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
+
+          # Download the driver
+          $driverUrl = "https://msedgedriver.microsoft.com/$driverVersion/edgedriver_win64.zip"
           Write-Host "Downloading EdgeDriver from: $driverUrl"
-          $maxRetries = 3
-          for ($i = 1; $i -le $maxRetries; $i++) {
-            try {
-              Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
-              Write-Host "Download successful on attempt $i"
-              break
-            } catch {
-              Write-Host "Attempt $i failed: $_"
-              if ($i -eq $maxRetries) {
-                # Fallback to blob storage
-                $altUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$webview2Version/edgedriver_win64.zip"
-                Write-Host "Trying alternative URL: $altUrl"
-                Invoke-WebRequest -Uri $altUrl -OutFile edgedriver.zip -TimeoutSec 60
-              }
-              Start-Sleep -Seconds 5
-            }
-          }
+          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
+
           Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
           echo "$PWD\edgedriver" >> $env:GITHUB_PATH
-          Write-Host "EdgeDriver $webview2Version installed successfully"
+          Write-Host "EdgeDriver $driverVersion installed successfully"
 
       - name: Install npm dependencies
         run: npm ci
@@ -226,6 +220,7 @@ jobs:
       - name: Install Edge WebDriver
         shell: pwsh
         run: |
+          # Get WebView2 version to determine major version
           $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
           if ($webview2Key -and $webview2Key.pv) {
             $webview2Version = $webview2Key.pv
@@ -234,29 +229,22 @@ jobs:
             $webview2Version = $webview2Key.pv
           }
           Write-Host "WebView2 runtime version: $webview2Version"
-          # Primary: new official Microsoft URL (azureedge.net is being decommissioned)
-          $driverUrl = "https://msedgedriver.microsoft.com/$webview2Version/edgedriver_win64.zip"
+
+          # Extract major version and get latest compatible driver version
+          $majorVersion = $webview2Version.Split('.')[0]
+          $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
+          Write-Host "Fetching latest driver version from: $latestReleaseUrl"
+          $driverVersion = (Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing).Content.Trim()
+          Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
+
+          # Download the driver
+          $driverUrl = "https://msedgedriver.microsoft.com/$driverVersion/edgedriver_win64.zip"
           Write-Host "Downloading EdgeDriver from: $driverUrl"
-          $maxRetries = 3
-          for ($i = 1; $i -le $maxRetries; $i++) {
-            try {
-              Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
-              Write-Host "Download successful on attempt $i"
-              break
-            } catch {
-              Write-Host "Attempt $i failed: $_"
-              if ($i -eq $maxRetries) {
-                # Fallback to blob storage
-                $altUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$webview2Version/edgedriver_win64.zip"
-                Write-Host "Trying alternative URL: $altUrl"
-                Invoke-WebRequest -Uri $altUrl -OutFile edgedriver.zip -TimeoutSec 60
-              }
-              Start-Sleep -Seconds 5
-            }
-          }
+          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
+
           Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
           echo "$PWD\edgedriver" >> $env:GITHUB_PATH
-          Write-Host "EdgeDriver $webview2Version installed successfully"
+          Write-Host "EdgeDriver $driverVersion installed successfully"
 
       - name: Install npm dependencies
         run: npm ci
