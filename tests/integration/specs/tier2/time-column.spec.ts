@@ -301,9 +301,10 @@ describe('Tier 2: Datetime Column', () => {
       await toggleBtn.click();
       await browser.pause(300);
 
-      // Click the time toggle (controls end datetime column)
-      const timeToggle = await $('[data-testid="column-toggle-time"]');
-      await timeToggle.click();
+      // Click the time toggle label (checkbox is hidden, click the parent label)
+      // The label contains the checkbox with data-testid="column-toggle-time"
+      const timeToggleLabel = await $('[data-testid="column-toggle-time"]').parentElement();
+      await timeToggleLabel.click();
       await browser.pause(300);
 
       // Close dropdown by clicking elsewhere
@@ -339,9 +340,9 @@ describe('Tier 2: Datetime Column', () => {
       await toggleBtn.click();
       await browser.pause(300);
 
-      // Toggle off
-      const timeToggle = await $('[data-testid="column-toggle-time"]');
-      await timeToggle.click();
+      // Toggle off (click label, not hidden checkbox)
+      const timeToggleLabel = await $('[data-testid="column-toggle-time"]').parentElement();
+      await timeToggleLabel.click();
       await browser.pause(300);
 
       // Verify hidden
@@ -353,7 +354,7 @@ describe('Tier 2: Datetime Column', () => {
       // Toggle back on
       await toggleBtn.click();
       await browser.pause(300);
-      await timeToggle.click();
+      await timeToggleLabel.click();
       await browser.pause(300);
       await browser.keys('Escape');
       await browser.pause(300);
