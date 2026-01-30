@@ -186,7 +186,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
       try {
         const trip = await seedTrip({
           vehicleId: vehicle.id as string,
-          date: `${leapYear}-02-29`, // Leap year date
+          startDatetime: `${leapYear}-02-29T08:00`, // Leap year date
           origin: SlovakCities.bratislava,
           destination: SlovakCities.kosice,
           distanceKm: 400,

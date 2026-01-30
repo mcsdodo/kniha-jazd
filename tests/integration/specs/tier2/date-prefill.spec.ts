@@ -61,7 +61,7 @@ describe('Tier 2: Date Prefill Mode', () => {
 
     await seedTrip({
       vehicleId,
-      date: yesterdayStr,
+      startDatetime: `${yesterdayStr}T08:00`,
       origin: 'Home',
       destination: 'Office',
       distanceKm: 25,
@@ -149,12 +149,14 @@ describe('Tier 2: Date Prefill Mode', () => {
         await newRecordBtn.click();
         await browser.pause(300);
 
-        // Check the date field value
-        const dateInput = await $('[data-testid="trip-date"]');
+        // Check the date field value (datetime-local returns "YYYY-MM-DDTHH:MM")
+        const dateInput = await $('[data-testid="trip-start-datetime"]');
         if (await dateInput.isExisting()) {
           const dateValue = await dateInput.getValue();
           const today = new Date().toISOString().split('T')[0];
-          expect(dateValue).toBe(today);
+          // Extract just the date portion from the datetime-local value
+          const dateOnly = dateValue.slice(0, 10);
+          expect(dateOnly).toBe(today);
         }
       }
     });
@@ -174,13 +176,15 @@ describe('Tier 2: Date Prefill Mode', () => {
         await newRecordBtn.click();
         await browser.pause(300);
 
-        // Check the date field value
-        const dateInput = await $('[data-testid="trip-date"]');
+        // Check the date field value (datetime-local returns "YYYY-MM-DDTHH:MM")
+        const dateInput = await $('[data-testid="trip-start-datetime"]');
         if (await dateInput.isExisting()) {
           const dateValue = await dateInput.getValue();
           // Should be yesterday + 1 = today (since we seeded yesterday's trip)
           const today = new Date().toISOString().split('T')[0];
-          expect(dateValue).toBe(today);
+          // Extract just the date portion from the datetime-local value
+          const dateOnly = dateValue.slice(0, 10);
+          expect(dateOnly).toBe(today);
         }
       }
     });
