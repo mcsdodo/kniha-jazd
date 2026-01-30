@@ -13,9 +13,8 @@ fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -42,9 +41,8 @@ fn make_trip_without_fuel(date: NaiveDate) -> Trip {
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 50.0,
@@ -111,7 +109,10 @@ fn test_missing_receipts_exact_match() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert!(missing.is_empty(), "Trip with matching receipt should not be flagged as missing");
+    assert!(
+        missing.is_empty(),
+        "Trip with matching receipt should not be flagged as missing"
+    );
 }
 
 #[test]
@@ -137,7 +138,11 @@ fn test_missing_receipts_no_match_different_liters() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Trip should be flagged when liters differ");
+    assert_eq!(
+        missing.len(),
+        1,
+        "Trip should be flagged when liters differ"
+    );
 }
 
 #[test]
@@ -149,7 +154,11 @@ fn test_missing_receipts_no_match_different_price() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Trip should be flagged when price differs");
+    assert_eq!(
+        missing.len(),
+        1,
+        "Trip should be flagged when price differs"
+    );
 }
 
 #[test]
@@ -161,7 +170,10 @@ fn test_missing_receipts_trip_without_fuel_not_flagged() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert!(missing.is_empty(), "Trip without fuel should not be flagged as missing receipt");
+    assert!(
+        missing.is_empty(),
+        "Trip without fuel should not be flagged as missing receipt"
+    );
 }
 
 #[test]
@@ -173,7 +185,11 @@ fn test_missing_receipts_no_receipts_available() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Trip with fuel but no receipts should be flagged");
+    assert_eq!(
+        missing.len(),
+        1,
+        "Trip with fuel but no receipts should be flagged"
+    );
 }
 
 #[test]
@@ -195,9 +211,18 @@ fn test_missing_receipts_multiple_trips_partial_match() {
     let missing = calculate_missing_receipts(&trips, &receipts);
 
     assert_eq!(missing.len(), 1, "Only trip 2 should be flagged");
-    assert!(missing.contains(&trips[1].id.to_string()), "Trip 2 (with fuel, no receipt) should be flagged");
-    assert!(!missing.contains(&trips[0].id.to_string()), "Trip 1 (with matching receipt) should not be flagged");
-    assert!(!missing.contains(&trips[2].id.to_string()), "Trip 3 (no fuel) should not be flagged");
+    assert!(
+        missing.contains(&trips[1].id.to_string()),
+        "Trip 2 (with fuel, no receipt) should be flagged"
+    );
+    assert!(
+        !missing.contains(&trips[0].id.to_string()),
+        "Trip 1 (with matching receipt) should not be flagged"
+    );
+    assert!(
+        !missing.contains(&trips[2].id.to_string()),
+        "Trip 3 (no fuel) should not be flagged"
+    );
 }
 
 #[test]
@@ -252,9 +277,8 @@ fn make_trip_detailed(
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
@@ -283,10 +307,28 @@ fn test_period_rates_partial_fillup_doesnt_close_period() {
     let tp_rate = 6.0;
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, None, false, 3),                           // 100km, no fuel
+        make_trip_detailed(base_date, 100.0, None, false, 3), // 100km, no fuel
         make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(20.0), false, 2), // 100km, 20L PARTIAL
-        make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap(), 100.0, None, false, 1), // 100km, no fuel
-        make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap().succ_opt().unwrap(), 100.0, Some(30.0), true, 0), // 100km, 30L FULL
+        make_trip_detailed(
+            base_date.succ_opt().unwrap().succ_opt().unwrap(),
+            100.0,
+            None,
+            false,
+            1,
+        ), // 100km, no fuel
+        make_trip_detailed(
+            base_date
+                .succ_opt()
+                .unwrap()
+                .succ_opt()
+                .unwrap()
+                .succ_opt()
+                .unwrap(),
+            100.0,
+            Some(30.0),
+            true,
+            0,
+        ), // 100km, 30L FULL
     ];
 
     let (rates, estimated) = calculate_period_rates(&trips, tp_rate);
@@ -316,10 +358,28 @@ fn test_period_rates_full_fillup_closes_period() {
     let tp_rate = 6.0;
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, None, false, 3),                           // Period 1: 100km
-        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(10.0), true, 2),  // Period 1: closes with 10L -> rate = 10/200*100 = 5.0
-        make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap(), 200.0, None, false, 1), // Period 2: 200km
-        make_trip_detailed(base_date.succ_opt().unwrap().succ_opt().unwrap().succ_opt().unwrap(), 200.0, Some(16.0), true, 0), // Period 2: closes with 16L -> rate = 16/400*100 = 4.0
+        make_trip_detailed(base_date, 100.0, None, false, 3), // Period 1: 100km
+        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(10.0), true, 2), // Period 1: closes with 10L -> rate = 10/200*100 = 5.0
+        make_trip_detailed(
+            base_date.succ_opt().unwrap().succ_opt().unwrap(),
+            200.0,
+            None,
+            false,
+            1,
+        ), // Period 2: 200km
+        make_trip_detailed(
+            base_date
+                .succ_opt()
+                .unwrap()
+                .succ_opt()
+                .unwrap()
+                .succ_opt()
+                .unwrap(),
+            200.0,
+            Some(16.0),
+            true,
+            0,
+        ), // Period 2: closes with 16L -> rate = 16/400*100 = 4.0
     ];
 
     let (rates, _) = calculate_period_rates(&trips, tp_rate);
@@ -382,9 +442,27 @@ fn test_period_rates_no_fullup_uses_tp_rate() {
 fn test_date_warnings_detects_out_of_order() {
     // Trips sorted by sort_order (0 = newest/top), but dates out of order
     let trips = vec![
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(), 50.0, None, false, 0), // Top: Jun 15
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(), 50.0, None, false, 1), // Middle: Jun 10 - WRONG! Should be between 15 and 20
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(), 50.0, None, false, 2), // Bottom: Jun 20
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(),
+            50.0,
+            None,
+            false,
+            0,
+        ), // Top: Jun 15
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(),
+            50.0,
+            None,
+            false,
+            1,
+        ), // Middle: Jun 10 - WRONG! Should be between 15 and 20
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(),
+            50.0,
+            None,
+            false,
+            2,
+        ), // Bottom: Jun 20
     ];
 
     let warnings = calculate_date_warnings(&trips);
@@ -401,9 +479,27 @@ fn test_date_warnings_detects_out_of_order() {
 fn test_date_warnings_correct_order_no_warnings() {
     // Trips in correct order: newest (highest date) at sort_order 0
     let trips = vec![
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(), 50.0, None, false, 0), // Top: Jun 20 (newest)
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(), 50.0, None, false, 1), // Middle: Jun 15
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(), 50.0, None, false, 2), // Bottom: Jun 10 (oldest)
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(),
+            50.0,
+            None,
+            false,
+            0,
+        ), // Top: Jun 20 (newest)
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(),
+            50.0,
+            None,
+            false,
+            1,
+        ), // Middle: Jun 15
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(),
+            50.0,
+            None,
+            false,
+            2,
+        ), // Bottom: Jun 10 (oldest)
     ];
 
     let warnings = calculate_date_warnings(&trips);
@@ -449,9 +545,7 @@ fn test_consumption_warnings_at_limit_not_flagged() {
     let tp_rate = 5.0;
     let at_limit_rate = tp_rate * 1.2; // Exactly 6.0
 
-    let trips = vec![
-        make_trip_detailed(base_date, 100.0, Some(6.0), true, 0),
-    ];
+    let trips = vec![make_trip_detailed(base_date, 100.0, Some(6.0), true, 0)];
 
     let mut rates = std::collections::HashMap::new();
     rates.insert(trips[0].id.to_string(), at_limit_rate);
@@ -514,9 +608,21 @@ fn test_has_any_period_over_limit_average_ok_but_one_period_over() {
 
     let trips = vec![
         // Period 1: 100km, 5L = 5.0 l/100km (under limit)
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), 100.0, Some(5.0), true, 0),
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+            100.0,
+            Some(5.0),
+            true,
+            0,
+        ),
         // Period 2: 100km, 7L = 7.0 l/100km (OVER limit)
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 2).unwrap(), 100.0, Some(7.0), true, 1),
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 2).unwrap(),
+            100.0,
+            Some(7.0),
+            true,
+            1,
+        ),
     ];
     // Average: (5+7) / 200 * 100 = 6.0 l/100km (exactly at limit, not over)
     // But Period 2 is 7.0 > 6.0, so should trigger
@@ -534,9 +640,21 @@ fn test_has_any_period_over_limit_all_periods_ok() {
 
     let trips = vec![
         // Period 1: 100km, 5L = 5.0 l/100km (under)
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), 100.0, Some(5.0), true, 0),
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+            100.0,
+            Some(5.0),
+            true,
+            0,
+        ),
         // Period 2: 100km, 5.5L = 5.5 l/100km (under)
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 2).unwrap(), 100.0, Some(5.5), true, 1),
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 2).unwrap(),
+            100.0,
+            Some(5.5),
+            true,
+            1,
+        ),
     ];
 
     assert!(
@@ -552,7 +670,13 @@ fn test_has_any_period_over_limit_at_exactly_limit() {
 
     let trips = vec![
         // Period: 100km, 6L = 6.0 l/100km (exactly at limit)
-        make_trip_detailed(NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), 100.0, Some(6.0), true, 0),
+        make_trip_detailed(
+            NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+            100.0,
+            Some(6.0),
+            true,
+            0,
+        ),
     ];
 
     assert!(
@@ -569,9 +693,7 @@ fn test_has_any_period_over_limit_at_exactly_limit() {
 fn test_fuel_remaining_basic_trip() {
     // Start with 50L, drive 100km at 6 l/100km = 6L used, end with 44L
     let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
-    let trips = vec![
-        make_trip_detailed(base_date, 100.0, None, false, 0),
-    ];
+    let trips = vec![make_trip_detailed(base_date, 100.0, None, false, 0)];
 
     let mut rates = std::collections::HashMap::new();
     rates.insert(trips[0].id.to_string(), 6.0);
@@ -674,23 +796,28 @@ fn test_year_start_fuel_no_previous_year_data() {
     let vehicle = crate::models::Vehicle::new(
         "Test Car".to_string(),
         "BA123XY".to_string(),
-        50.0,  // tank_size
-        6.0,   // tp_consumption
+        50.0, // tank_size
+        6.0,  // tp_consumption
         0.0,
     );
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     // Query for 2025 with no 2024 data
     let result = get_year_start_fuel_remaining(
         &db,
         &vehicle.id.to_string(),
         2025,
-        50.0,  // tank_size
-        6.0,   // tp_consumption
+        50.0, // tank_size
+        6.0,  // tp_consumption
     );
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 50.0, "Should return full tank when no previous year data");
+    assert_eq!(
+        result.unwrap(),
+        50.0,
+        "Should return full tank when no previous year data"
+    );
 }
 
 #[test]
@@ -705,16 +832,16 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
         6.0,
         0.0,
     );
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let now = Utc::now();
     let date = NaiveDate::from_ymd_opt(2024, 12, 15).unwrap();
     let trip_2024 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -722,7 +849,7 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
         purpose: "test".to_string(),
         fuel_liters: Some(6.0),
         fuel_cost_eur: Some(10.0),
-        full_tank: true,  // Full tank fillup -> ends at 50L
+        full_tank: true, // Full tank fillup -> ends at 50L
         energy_kwh: None,
         energy_cost_eur: None,
         full_charge: false,
@@ -735,16 +862,14 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
     };
     db.create_trip(&trip_2024).expect("Failed to create trip");
 
-    let result = get_year_start_fuel_remaining(
-        &db,
-        &vehicle.id.to_string(),
-        2025,
-        50.0,
-        6.0,
-    );
+    let result = get_year_start_fuel_remaining(&db, &vehicle.id.to_string(), 2025, 50.0, 6.0);
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 50.0, "Full tank fillup should end at tank_size");
+    assert_eq!(
+        result.unwrap(),
+        50.0,
+        "Full tank fillup should end at tank_size"
+    );
 }
 
 #[test]
@@ -755,11 +880,12 @@ fn test_year_start_fuel_partial_tank_carryover() {
     let vehicle = crate::models::Vehicle::new(
         "Test Car".to_string(),
         "BA123XY".to_string(),
-        50.0,  // tank_size
-        6.0,   // tp_consumption (6 l/100km)
+        50.0, // tank_size
+        6.0,  // tp_consumption (6 l/100km)
         0.0,
     );
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let now = Utc::now();
 
@@ -769,9 +895,8 @@ fn test_year_start_fuel_partial_tank_carryover() {
     let trip1 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: date1,
-        datetime: date1.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date1.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -797,9 +922,8 @@ fn test_year_start_fuel_partial_tank_carryover() {
     let trip2 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: date2,
-        datetime: date2.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date2.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "B".to_string(),
         destination: "C".to_string(),
         distance_km: 200.0,
@@ -807,7 +931,7 @@ fn test_year_start_fuel_partial_tank_carryover() {
         purpose: "test".to_string(),
         fuel_liters: Some(10.0),
         fuel_cost_eur: Some(16.0),
-        full_tank: false,  // Partial fillup
+        full_tank: false, // Partial fillup
         energy_kwh: None,
         energy_cost_eur: None,
         full_charge: false,
@@ -822,13 +946,7 @@ fn test_year_start_fuel_partial_tank_carryover() {
     db.create_trip(&trip1).expect("Failed to create trip1");
     db.create_trip(&trip2).expect("Failed to create trip2");
 
-    let result = get_year_start_fuel_remaining(
-        &db,
-        &vehicle.id.to_string(),
-        2025,
-        50.0,
-        6.0,
-    );
+    let result = get_year_start_fuel_remaining(&db, &vehicle.id.to_string(), 2025, 50.0, 6.0);
 
     assert!(result.is_ok());
     // After trip1: full tank (50L)
@@ -853,7 +971,8 @@ fn test_year_start_odometer_no_previous_year_data() {
         6.0,
         38057.0, // initial_odometer
     );
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     // Query for 2025 with no 2024 data
     let result = get_year_start_odometer(
@@ -864,7 +983,11 @@ fn test_year_start_odometer_no_previous_year_data() {
     );
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 38057.0, "Should return initial odometer when no previous year data");
+    assert_eq!(
+        result.unwrap(),
+        38057.0,
+        "Should return initial odometer when no previous year data"
+    );
 }
 
 #[test]
@@ -879,7 +1002,8 @@ fn test_year_start_odometer_with_previous_year_trips() {
         6.0,
         38057.0, // initial_odometer
     );
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let now = Utc::now();
 
@@ -888,9 +1012,8 @@ fn test_year_start_odometer_with_previous_year_trips() {
     let trip_2024 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 370.0,
@@ -920,7 +1043,11 @@ fn test_year_start_odometer_with_previous_year_trips() {
     );
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 54914.0, "Should return last trip's odometer from previous year");
+    assert_eq!(
+        result.unwrap(),
+        54914.0,
+        "Should return last trip's odometer from previous year"
+    );
 }
 
 #[test]
@@ -935,7 +1062,8 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
         6.0,
         10000.0,
     );
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let now = Utc::now();
 
@@ -944,9 +1072,8 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     let trip1 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: date1,
-        datetime: date1.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date1.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -971,9 +1098,8 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     let trip2 = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
-        date: date2,
-        datetime: date2.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date2.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "B".to_string(),
         destination: "C".to_string(),
         distance_km: 200.0,
@@ -996,15 +1122,14 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     db.create_trip(&trip1).expect("Failed to create trip1");
     db.create_trip(&trip2).expect("Failed to create trip2");
 
-    let result = get_year_start_odometer(
-        &db,
-        &vehicle.id.to_string(),
-        2025,
-        10000.0,
-    );
+    let result = get_year_start_odometer(&db, &vehicle.id.to_string(), 2025, 10000.0);
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 20000.0, "Should return the last trip's odometer by date");
+    assert_eq!(
+        result.unwrap(),
+        20000.0,
+        "Should return the last trip's odometer by date"
+    );
 }
 
 // ========================================================================
@@ -1023,9 +1148,8 @@ fn make_bev_trip(
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
@@ -1052,8 +1176,8 @@ fn test_bev_energy_calculation_single_trip() {
     let vehicle = Vehicle::new_bev(
         "Test BEV".to_string(),
         "BEV-001".to_string(),
-        75.0,  // battery capacity
-        18.0,  // baseline consumption
+        75.0, // battery capacity
+        18.0, // baseline consumption
         10000.0,
         Some(100.0), // Start at 100% = 75 kWh
     );
@@ -1282,9 +1406,8 @@ fn make_trip_for_assignment(
     Trip {
         id: Uuid::new_v4(),
         vehicle_id,
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -1399,7 +1522,11 @@ fn test_assign_other_cost_receipt_no_liters() {
         "Other cost should be set from receipt"
     );
     assert!(
-        updated_trip.other_costs_note.as_ref().unwrap().contains("AutoWash"),
+        updated_trip
+            .other_costs_note
+            .as_ref()
+            .unwrap()
+            .contains("AutoWash"),
         "Note should contain vendor name"
     );
 }
@@ -1451,7 +1578,11 @@ fn test_assign_receipt_with_liters_not_matching_trip_fuel() {
         "Washer fluid should be treated as other cost"
     );
     assert!(
-        updated_trip.other_costs_note.as_ref().unwrap().contains("OMV"),
+        updated_trip
+            .other_costs_note
+            .as_ref()
+            .unwrap()
+            .contains("OMV"),
         "Note should contain vendor name"
     );
 }
@@ -1522,13 +1653,7 @@ fn test_assign_fuel_receipt_to_empty_trip_populates_fuel_fields() {
     db.create_trip(&trip).unwrap();
 
     // Receipt with fuel data (liters + price) = should be fuel, not other cost
-    let receipt = make_receipt_with_details(
-        Some(date),
-        Some(45.0),
-        Some(72.0),
-        Some("OMV"),
-        None,
-    );
+    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), Some("OMV"), None);
     db.create_receipt(&receipt).unwrap();
 
     let result = assign_receipt_to_trip_internal(
@@ -1599,7 +1724,10 @@ fn test_get_trips_for_receipt_assignment_empty_trip_returns_can_attach_true() {
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
     assert!(trips[0].can_attach, "Empty trip should allow attachment");
-    assert_eq!(trips[0].attachment_status, "empty", "Status should be 'empty'");
+    assert_eq!(
+        trips[0].attachment_status, "empty",
+        "Status should be 'empty'"
+    );
 }
 
 #[test]
@@ -1636,7 +1764,10 @@ fn test_get_trips_for_receipt_assignment_matching_fuel_returns_can_attach_true()
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
     assert!(trips[0].can_attach, "Matching fuel should allow attachment");
-    assert_eq!(trips[0].attachment_status, "matches", "Status should be 'matches'");
+    assert_eq!(
+        trips[0].attachment_status, "matches",
+        "Status should be 'matches'"
+    );
 }
 
 #[test]
@@ -1672,8 +1803,14 @@ fn test_get_trips_for_receipt_assignment_different_liters_returns_can_attach_fal
     assert!(result.is_ok(), "Should return trips");
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
-    assert!(!trips[0].can_attach, "Different liters should NOT allow attachment");
-    assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
+    assert!(
+        !trips[0].can_attach,
+        "Different liters should NOT allow attachment"
+    );
+    assert_eq!(
+        trips[0].attachment_status, "differs",
+        "Status should be 'differs'"
+    );
 }
 
 #[test]
@@ -1709,8 +1846,14 @@ fn test_get_trips_for_receipt_assignment_different_price_returns_can_attach_fals
     assert!(result.is_ok(), "Should return trips");
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
-    assert!(!trips[0].can_attach, "Different price should NOT allow attachment");
-    assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
+    assert!(
+        !trips[0].can_attach,
+        "Different price should NOT allow attachment"
+    );
+    assert_eq!(
+        trips[0].attachment_status, "differs",
+        "Status should be 'differs'"
+    );
 }
 
 #[test]
@@ -1748,8 +1891,14 @@ fn test_get_trips_for_receipt_assignment_different_date_returns_can_attach_false
     assert!(result.is_ok(), "Should return trips");
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
-    assert!(!trips[0].can_attach, "Different date should NOT allow attachment");
-    assert_eq!(trips[0].attachment_status, "differs", "Status should be 'differs'");
+    assert!(
+        !trips[0].can_attach,
+        "Different date should NOT allow attachment"
+    );
+    assert_eq!(
+        trips[0].attachment_status, "differs",
+        "Status should be 'differs'"
+    );
 }
 
 // ========================================================================
@@ -1768,9 +1917,8 @@ fn make_trip_for_magic_fill(
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
@@ -2016,7 +2164,10 @@ fn test_open_period_km_editing_trip_in_middle() {
 
     // With stop_at Trip C: should return only 50 + 75 = 125
     let km_up_to_c = get_open_period_km(&trips, Some(&trip_c_id));
-    assert_eq!(km_up_to_c, 125.0, "Should only count km up to the edited trip");
+    assert_eq!(
+        km_up_to_c, 125.0,
+        "Should only count km up to the edited trip"
+    );
 }
 
 // ============================================================================
@@ -2030,9 +2181,8 @@ fn test_fuel_consumed_basic() {
     let trip = Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -2079,9 +2229,8 @@ fn test_fuel_consumed_uses_period_rate() {
         Trip {
             id: trip1_id,
             vehicle_id,
-            date: date1,
-            datetime: date1.and_hms_opt(0, 0, 0).unwrap(),
-            end_time: None,
+            start_datetime: date1.and_hms_opt(8, 0, 0).unwrap(),
+            end_datetime: None,
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: 150.0,
@@ -2103,9 +2252,8 @@ fn test_fuel_consumed_uses_period_rate() {
         Trip {
             id: trip2_id,
             vehicle_id,
-            date: date2,
-            datetime: date2.and_hms_opt(0, 0, 0).unwrap(),
-            end_time: None,
+            start_datetime: date2.and_hms_opt(8, 0, 0).unwrap(),
+            end_datetime: None,
             origin: "B".to_string(),
             destination: "C".to_string(),
             distance_km: 100.0,
@@ -2136,8 +2284,14 @@ fn test_fuel_consumed_uses_period_rate() {
     let trip1_consumed = consumed.get(&trip1_id.to_string()).unwrap();
     let trip2_consumed = consumed.get(&trip2_id.to_string()).unwrap();
 
-    assert!((trip1_consumed - 9.0).abs() < 0.01, "150 km at 6.0 l/100km = 9.0 L");
-    assert!((trip2_consumed - 6.0).abs() < 0.01, "100 km at 6.0 l/100km = 6.0 L");
+    assert!(
+        (trip1_consumed - 9.0).abs() < 0.01,
+        "150 km at 6.0 l/100km = 9.0 L"
+    );
+    assert!(
+        (trip2_consumed - 6.0).abs() < 0.01,
+        "100 km at 6.0 l/100km = 6.0 L"
+    );
 }
 
 #[test]
@@ -2150,9 +2304,8 @@ fn test_fuel_consumed_uses_tp_rate_for_open_period() {
     let trip = Trip {
         id: trip_id,
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "X".to_string(),
         destination: "Y".to_string(),
         distance_km: 200.0,
@@ -2191,9 +2344,8 @@ fn test_fuel_consumed_zero_distance() {
     let trip = Trip {
         id: trip_id,
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "Home".to_string(),
         destination: "Home".to_string(),
         distance_km: 0.0, // Zero distance
@@ -2260,7 +2412,7 @@ fn test_suggested_fillup_open_period() {
     // Second trip: 100 + 150 = 250 km cumulative
     let second = suggestions.get(&trips[1].id.to_string()).unwrap();
     assert!(second.liters > first.liters); // Cumulative, so more liters
-    // Liters: 250km * 6.0 * 1.05/100 = 15.75 to 250 * 6.0 * 1.20/100 = 18.0
+                                           // Liters: 250km * 6.0 * 1.05/100 = 15.75 to 250 * 6.0 * 1.20/100 = 18.0
     assert!(second.liters >= 15.75 && second.liters <= 18.0);
 }
 
@@ -2385,60 +2537,6 @@ fn test_legend_suggested_fillup_none_when_closed() {
 }
 
 // ========================================================================
-// Time parsing tests (parse_trip_datetime)
-// ========================================================================
-
-#[test]
-fn test_parse_trip_datetime_with_time() {
-    // Test time="08:30" produces correct datetime
-    let result = parse_trip_datetime("2026-01-15", Some("08:30"));
-
-    assert!(result.is_ok());
-    let datetime = result.unwrap();
-    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T08:30:00");
-}
-
-#[test]
-fn test_parse_trip_datetime_without_time() {
-    // Test time="" defaults to 00:00
-    let result = parse_trip_datetime("2026-01-15", Some(""));
-
-    assert!(result.is_ok());
-    let datetime = result.unwrap();
-    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
-}
-
-#[test]
-fn test_parse_trip_datetime_none_time() {
-    // Test time=None defaults to 00:00
-    let result = parse_trip_datetime("2026-01-15", None);
-
-    assert!(result.is_ok());
-    let datetime = result.unwrap();
-    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
-}
-
-#[test]
-fn test_parse_trip_datetime_invalid_time_format() {
-    // Test invalid time format returns error
-    let result = parse_trip_datetime("2026-01-15", Some("invalid"));
-
-    assert!(result.is_err());
-    let error = result.unwrap_err();
-    assert!(error.contains("Invalid time format"));
-}
-
-#[test]
-fn test_parse_trip_datetime_invalid_date_format() {
-    // Test invalid date format returns error
-    let result = parse_trip_datetime("not-a-date", Some("08:30"));
-
-    assert!(result.is_err());
-    let error = result.unwrap_err();
-    assert!(error.contains("Invalid date format"));
-}
-
-// ========================================================================
 // Home Assistant Settings Tests
 // ========================================================================
 
@@ -2472,7 +2570,10 @@ fn test_vehicle_with_ha_sensor_persists() {
 
     // Retrieve and verify sensor is persisted
     let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
-    assert_eq!(loaded.ha_odo_sensor, Some("sensor.car_odometer".to_string()));
+    assert_eq!(
+        loaded.ha_odo_sensor,
+        Some("sensor.car_odometer".to_string())
+    );
 }
 
 #[test]
@@ -2509,7 +2610,10 @@ fn test_vehicle_ha_sensor_update() {
 
     // Verify update
     let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
-    assert_eq!(loaded.ha_odo_sensor, Some("sensor.new_odometer".to_string()));
+    assert_eq!(
+        loaded.ha_odo_sensor,
+        Some("sensor.new_odometer".to_string())
+    );
 
     // Clear sensor
     vehicle.ha_odo_sensor = None;
@@ -2605,9 +2709,24 @@ fn test_trip_numbers_chronological_order() {
     let trip_numbers = calculate_trip_numbers(&trips);
 
     // Find by date to verify numbering
-    let jan10_id = trips.iter().find(|t| t.date.day() == 10).unwrap().id.to_string();
-    let jan15_id = trips.iter().find(|t| t.date.day() == 15).unwrap().id.to_string();
-    let jan20_id = trips.iter().find(|t| t.date.day() == 20).unwrap().id.to_string();
+    let jan10_id = trips
+        .iter()
+        .find(|t| t.start_datetime.date().day() == 10)
+        .unwrap()
+        .id
+        .to_string();
+    let jan15_id = trips
+        .iter()
+        .find(|t| t.start_datetime.date().day() == 15)
+        .unwrap()
+        .id
+        .to_string();
+    let jan20_id = trips
+        .iter()
+        .find(|t| t.start_datetime.date().day() == 20)
+        .unwrap()
+        .id
+        .to_string();
 
     assert_eq!(trip_numbers.get(&jan10_id), Some(&1));
     assert_eq!(trip_numbers.get(&jan15_id), Some(&2));
@@ -2618,16 +2737,31 @@ fn test_trip_numbers_chronological_order() {
 fn test_trip_numbers_same_date_by_odometer() {
     // Multiple trips on same day - order by odometer
     let trips = vec![
-        make_trip_with_date_odo("2026-01-15", 50.0, 10100.0),  // Should be #2
-        make_trip_with_date_odo("2026-01-15", 30.0, 10050.0),  // Should be #1
-        make_trip_with_date_odo("2026-01-15", 25.0, 10150.0),  // Should be #3
+        make_trip_with_date_odo("2026-01-15", 50.0, 10100.0), // Should be #2
+        make_trip_with_date_odo("2026-01-15", 30.0, 10050.0), // Should be #1
+        make_trip_with_date_odo("2026-01-15", 25.0, 10150.0), // Should be #3
     ];
 
     let trip_numbers = calculate_trip_numbers(&trips);
 
-    let first = trips.iter().find(|t| t.odometer == 10050.0).unwrap().id.to_string();
-    let second = trips.iter().find(|t| t.odometer == 10100.0).unwrap().id.to_string();
-    let third = trips.iter().find(|t| t.odometer == 10150.0).unwrap().id.to_string();
+    let first = trips
+        .iter()
+        .find(|t| t.odometer == 10050.0)
+        .unwrap()
+        .id
+        .to_string();
+    let second = trips
+        .iter()
+        .find(|t| t.odometer == 10100.0)
+        .unwrap()
+        .id
+        .to_string();
+    let third = trips
+        .iter()
+        .find(|t| t.odometer == 10150.0)
+        .unwrap()
+        .id
+        .to_string();
 
     assert_eq!(trip_numbers.get(&first), Some(&1));
     assert_eq!(trip_numbers.get(&second), Some(&2));
@@ -2641,9 +2775,7 @@ fn test_trip_numbers_same_date_by_odometer() {
 #[test]
 fn test_odometer_start_first_trip_uses_initial() {
     let initial_odo = 10000.0;
-    let trips = vec![
-        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0),
-    ];
+    let trips = vec![make_trip_with_date_odo("2026-01-10", 50.0, 10050.0)];
 
     let odo_start = calculate_odometer_start(&trips, initial_odo);
 
@@ -2655,9 +2787,9 @@ fn test_odometer_start_first_trip_uses_initial() {
 fn test_odometer_start_subsequent_trips() {
     let initial_odo = 10000.0;
     let trips = vec![
-        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0),   // start: 10000
-        make_trip_with_date_odo("2026-01-15", 100.0, 10150.0),  // start: 10050
-        make_trip_with_date_odo("2026-01-20", 50.0, 10200.0),   // start: 10150
+        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0), // start: 10000
+        make_trip_with_date_odo("2026-01-15", 100.0, 10150.0), // start: 10050
+        make_trip_with_date_odo("2026-01-20", 50.0, 10200.0), // start: 10150
     ];
 
     let odo_start = calculate_odometer_start(&trips, initial_odo);
@@ -2672,23 +2804,32 @@ fn test_odometer_start_respects_chronological_order() {
     // Trips not in date order in the vec - should still derive correctly
     let initial_odo = 10000.0;
     let trips = vec![
-        make_trip_with_date_odo("2026-01-20", 50.0, 10200.0),   // chronologically 3rd
-        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0),   // chronologically 1st
-        make_trip_with_date_odo("2026-01-15", 100.0, 10150.0),  // chronologically 2nd
+        make_trip_with_date_odo("2026-01-20", 50.0, 10200.0), // chronologically 3rd
+        make_trip_with_date_odo("2026-01-10", 50.0, 10050.0), // chronologically 1st
+        make_trip_with_date_odo("2026-01-15", 100.0, 10150.0), // chronologically 2nd
     ];
 
     let odo_start = calculate_odometer_start(&trips, initial_odo);
 
     // Trip on Jan 10 is first chronologically, so uses initial_odo
-    let jan10 = trips.iter().find(|t| t.date.day() == 10).unwrap();
+    let jan10 = trips
+        .iter()
+        .find(|t| t.start_datetime.date().day() == 10)
+        .unwrap();
     assert_eq!(odo_start.get(&jan10.id.to_string()), Some(&10000.0));
 
     // Trip on Jan 15 uses Jan 10's ending odo
-    let jan15 = trips.iter().find(|t| t.date.day() == 15).unwrap();
+    let jan15 = trips
+        .iter()
+        .find(|t| t.start_datetime.date().day() == 15)
+        .unwrap();
     assert_eq!(odo_start.get(&jan15.id.to_string()), Some(&10050.0));
 
     // Trip on Jan 20 uses Jan 15's ending odo
-    let jan20 = trips.iter().find(|t| t.date.day() == 20).unwrap();
+    let jan20 = trips
+        .iter()
+        .find(|t| t.start_datetime.date().day() == 20)
+        .unwrap();
     assert_eq!(odo_start.get(&jan20.id.to_string()), Some(&10150.0));
 }
 
@@ -2698,9 +2839,8 @@ fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime: date.and_hms_opt(8, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: distance,
@@ -2746,7 +2886,14 @@ fn test_month_end_rows_generated_for_gaps() {
     let initial_fuel = 50.0;
 
     let trip_numbers = calculate_trip_numbers(&trips);
-    let rows = generate_month_end_rows(&trips, year, initial_odo, initial_fuel, &fuel_remaining, &trip_numbers);
+    let rows = generate_month_end_rows(
+        &trips,
+        year,
+        initial_odo,
+        initial_fuel,
+        &fuel_remaining,
+        &trip_numbers,
+    );
 
     // Should have rows for: Jan 31, Feb 28 (closed months before March)
     // Mar 31 NOT generated (March is the latest month, not yet closed)
@@ -2787,7 +2934,10 @@ fn test_month_end_rows_always_generated_for_closed_months() {
 
     // Jan SHOULD have synthetic row (always generated for closed months)
     let jan_row = rows.iter().find(|r| r.month == 1);
-    assert!(jan_row.is_some(), "Should create synthetic row for all closed months");
+    assert!(
+        jan_row.is_some(),
+        "Should create synthetic row for all closed months"
+    );
 
     // Total rows should be 1 (Jan is closed, Feb is not)
     assert_eq!(rows.len(), 1);

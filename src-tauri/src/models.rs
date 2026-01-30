@@ -16,7 +16,7 @@ use crate::schema::{receipts, routes, settings, trips, vehicles};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum VehicleType {
     #[default]
-    Ice,  // Internal combustion engine (existing behavior)
+    Ice, // Internal combustion engine (existing behavior)
     Bev,  // Battery electric vehicle
     Phev, // Plug-in hybrid electric vehicle
 }
@@ -79,7 +79,13 @@ impl Vehicle {
         tp_consumption: f64,
         initial_odometer: f64,
     ) -> Self {
-        Self::new_ice(name, license_plate, tank_size_liters, tp_consumption, initial_odometer)
+        Self::new_ice(
+            name,
+            license_plate,
+            tank_size_liters,
+            tp_consumption,
+            initial_odometer,
+        )
     }
 
     /// Create a new ICE (Internal Combustion Engine) vehicle
@@ -179,9 +185,8 @@ impl Vehicle {
 pub struct Trip {
     pub id: Uuid,
     pub vehicle_id: Uuid,
-    pub date: NaiveDate,              // Derived from datetime for backward compatibility
-    pub datetime: NaiveDateTime,      // Source of truth: date + time combined
-    pub end_time: Option<String>,     // Trip end time "HH:MM" or None
+    pub start_datetime: NaiveDateTime, // Trip start date + time
+    pub end_datetime: Option<NaiveDateTime>, // Trip end date + time (optional)
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -192,9 +197,9 @@ pub struct Trip {
     pub fuel_cost_eur: Option<f64>,
     pub full_tank: bool, // true = full tank fillup, false = partial
     // Energy system (BEV + PHEV)
-    pub energy_kwh: Option<f64>,       // Energy charged
-    pub energy_cost_eur: Option<f64>,  // Cost of charging
-    pub full_charge: bool,             // Charged to 100% (or target SoC)
+    pub energy_kwh: Option<f64>,           // Energy charged
+    pub energy_cost_eur: Option<f64>,      // Cost of charging
+    pub full_charge: bool,                 // Charged to 100% (or target SoC)
     pub soc_override_percent: Option<f64>, // Manual SoC override for battery degradation (0-100)
     // Other costs
     pub other_costs_eur: Option<f64>,
@@ -233,13 +238,12 @@ impl Trip {
         full_tank: bool,
     ) -> Self {
         let now = Utc::now();
-        let datetime = date.and_hms_opt(0, 0, 0).unwrap();
+        let start_datetime = date.and_hms_opt(0, 0, 0).unwrap();
         Self {
             id: Uuid::new_v4(),
             vehicle_id: Uuid::new_v4(),
-            date,
-            datetime,
-            end_time: None,
+            start_datetime,
+            end_datetime: None,
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km,
@@ -299,7 +303,7 @@ impl Default for Settings {
 #[serde(rename_all = "camelCase")]
 pub struct TripStats {
     pub fuel_remaining_liters: f64,
-    pub avg_consumption_rate: f64,  // Average: total_fuel / total_km * 100
+    pub avg_consumption_rate: f64, // Average: total_fuel / total_km * 100
     pub last_consumption_rate: f64, // From last fill-up period (for margin calculation)
     pub margin_percent: Option<f64>, // None if no fill-up yet
     pub is_over_limit: bool,
@@ -439,10 +443,10 @@ pub struct FieldConfidence {
 #[serde(rename_all = "camelCase")]
 pub struct Receipt {
     pub id: Uuid,
-    pub vehicle_id: Option<Uuid>,  // Set when assigned
-    pub trip_id: Option<Uuid>,     // Set when assigned (UNIQUE when not null)
-    pub file_path: String,         // Full path to image (UNIQUE)
-    pub file_name: String,         // Just filename for display
+    pub vehicle_id: Option<Uuid>, // Set when assigned
+    pub trip_id: Option<Uuid>,    // Set when assigned (UNIQUE when not null)
+    pub file_path: String,        // Full path to image (UNIQUE)
+    pub file_name: String,        // Just filename for display
     pub scanned_at: DateTime<Utc>,
 
     // Parsed fields (None = uncertain/failed)
@@ -453,7 +457,7 @@ pub struct Receipt {
     pub station_address: Option<String>,
 
     // Additional cost fields (for non-fuel receipts: car wash, parking, toll, service)
-    pub vendor_name: Option<String>,      // Shop/service provider name (e.g., "OMV", "AutoWash Express")
+    pub vendor_name: Option<String>, // Shop/service provider name (e.g., "OMV", "AutoWash Express")
     pub cost_description: Option<String>, // Brief expense description (e.g., "Umytie auta", "Parkovanie 2h")
 
     // Multi-currency support: original OCR amount + currency (EUR, CZK, HUF, PLN)
@@ -468,8 +472,8 @@ pub struct Receipt {
 
     // Status tracking
     pub status: ReceiptStatus,
-    pub confidence: FieldConfidence, // Typed struct, not strings
-    pub raw_ocr_text: Option<String>, // For debugging (local only)
+    pub confidence: FieldConfidence,   // Typed struct, not strings
+    pub raw_ocr_text: Option<String>,  // For debugging (local only)
     pub error_message: Option<String>, // If parsing failed
 
     pub created_at: DateTime<Utc>,
@@ -659,9 +663,6 @@ pub struct NewVehicleRow<'a> {
 pub struct TripRow {
     pub id: Option<String>,
     pub vehicle_id: String,
-    pub date: String,
-    pub datetime: String,  // Combined date + time (migration 2026-01-27)
-    pub end_time: String,  // "HH:MM" or ""
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -679,7 +680,6 @@ pub struct TripRow {
     pub soc_override_percent: Option<f64>,
     pub created_at: String,
     pub updated_at: String,
-    // New datetime fields - not yet used by Rust code, just here for DB compatibility
     pub start_datetime: String,
     pub end_datetime: Option<String>,
 }
@@ -690,9 +690,6 @@ pub struct TripRow {
 pub struct NewTripRow<'a> {
     pub id: &'a str,
     pub vehicle_id: &'a str,
-    pub date: &'a str,
-    pub datetime: &'a str,  // Combined date + time (migration 2026-01-27)
-    pub end_time: &'a str,  // "HH:MM" or ""
     pub origin: &'a str,
     pub destination: &'a str,
     pub distance_km: f64,
@@ -710,7 +707,6 @@ pub struct NewTripRow<'a> {
     pub soc_override_percent: Option<f64>,
     pub created_at: &'a str,
     pub updated_at: &'a str,
-    // New datetime fields
     pub start_datetime: &'a str,
     pub end_datetime: Option<&'a str>,
 }
@@ -831,7 +827,8 @@ pub struct NewReceiptRow<'a> {
 impl From<VehicleRow> for Vehicle {
     fn from(row: VehicleRow) -> Self {
         Vehicle {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
+                .unwrap_or_else(|_| Uuid::new_v4()),
             name: row.name,
             license_plate: row.license_plate,
             vehicle_type: match row.vehicle_type.as_str() {
@@ -861,22 +858,22 @@ impl From<VehicleRow> for Vehicle {
 
 impl From<TripRow> for Trip {
     fn from(row: TripRow) -> Self {
-        // Parse datetime, falling back to date + 00:00:00 for legacy data
-        let datetime = NaiveDateTime::parse_from_str(&row.datetime, "%Y-%m-%dT%H:%M:%S")
-            .unwrap_or_else(|_| {
-                // Fallback: parse date-only and add 00:00:00
-                NaiveDate::parse_from_str(&row.date, "%Y-%m-%d")
-                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
-                    .unwrap_or_else(|_| Utc::now().naive_utc())
-            });
-        let date = datetime.date();
+        // Parse start_datetime
+        let start_datetime =
+            NaiveDateTime::parse_from_str(&row.start_datetime, "%Y-%m-%dT%H:%M:%S")
+                .unwrap_or_else(|_| Utc::now().naive_utc());
+
+        // Parse end_datetime (optional)
+        let end_datetime = row
+            .end_datetime
+            .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S").ok());
 
         Trip {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
+                .unwrap_or_else(|_| Uuid::new_v4()),
             vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
-            date,
-            datetime,
-            end_time: if row.end_time.is_empty() { None } else { Some(row.end_time) },
+            start_datetime,
+            end_datetime,
             origin: row.origin,
             destination: row.destination,
             distance_km: row.distance_km,
@@ -905,7 +902,8 @@ impl From<TripRow> for Trip {
 impl From<RouteRow> for Route {
     fn from(row: RouteRow) -> Self {
         Route {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
+                .unwrap_or_else(|_| Uuid::new_v4()),
             vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
             origin: row.origin,
             destination: row.destination,
@@ -921,7 +919,8 @@ impl From<RouteRow> for Route {
 impl From<SettingsRow> for Settings {
     fn from(row: SettingsRow) -> Self {
         Settings {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
+                .unwrap_or_else(|_| Uuid::new_v4()),
             company_name: row.company_name,
             company_ico: row.company_ico,
             buffer_trip_purpose: row.buffer_trip_purpose,
@@ -945,7 +944,8 @@ impl From<ReceiptRow> for Receipt {
         let confidence: FieldConfidence = serde_json::from_str(&row.confidence).unwrap_or_default();
 
         Receipt {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default()).unwrap_or_else(|_| Uuid::new_v4()),
+            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
+                .unwrap_or_else(|_| Uuid::new_v4()),
             vehicle_id: row.vehicle_id.and_then(|s| Uuid::parse_str(&s).ok()),
             trip_id: row.trip_id.and_then(|s| Uuid::parse_str(&s).ok()),
             file_path: row.file_path,
@@ -955,7 +955,9 @@ impl From<ReceiptRow> for Receipt {
                 .unwrap_or_else(|_| Utc::now()),
             liters: row.liters,
             total_price_eur: row.total_price_eur,
-            receipt_date: row.receipt_date.and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+            receipt_date: row
+                .receipt_date
+                .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
             station_name: row.station_name,
             station_address: row.station_address,
             vendor_name: row.vendor_name,
@@ -1017,14 +1019,11 @@ mod tests {
     // TripRow datetime parsing tests (From<TripRow> for Trip)
     // ========================================================================
 
-    /// Helper to create a TripRow with specified datetime
-    fn make_trip_row(date: &str, datetime: &str) -> TripRow {
+    /// Helper to create a TripRow with specified start_datetime
+    fn make_trip_row(start_datetime: &str, end_datetime: Option<&str>) -> TripRow {
         TripRow {
             id: Some("00000000-0000-0000-0000-000000000001".to_string()),
             vehicle_id: "00000000-0000-0000-0000-000000000002".to_string(),
-            date: date.to_string(),
-            datetime: datetime.to_string(),
-            end_time: "".to_string(),
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: 100.0,
@@ -1042,41 +1041,58 @@ mod tests {
             soc_override_percent: None,
             created_at: "2026-01-15T00:00:00+00:00".to_string(),
             updated_at: "2026-01-15T00:00:00+00:00".to_string(),
-            start_datetime: datetime.to_string(),
-            end_datetime: None,
+            start_datetime: start_datetime.to_string(),
+            end_datetime: end_datetime.map(|s| s.to_string()),
         }
     }
 
     #[test]
     fn test_trip_row_datetime_parsing_valid() {
-        // Test valid datetime parsing: "2026-01-15T08:30:00" → correct NaiveDateTime
-        let row = make_trip_row("2026-01-15", "2026-01-15T08:30:00");
+        // Test valid start_datetime parsing
+        let row = make_trip_row("2026-01-15T08:30:00", None);
         let trip: Trip = row.into();
 
-        assert_eq!(trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T08:30:00");
-        assert_eq!(trip.date.format("%Y-%m-%d").to_string(), "2026-01-15");
+        assert_eq!(
+            trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            "2026-01-15T08:30:00"
+        );
+        assert_eq!(
+            trip.start_datetime.date().format("%Y-%m-%d").to_string(),
+            "2026-01-15"
+        );
     }
 
     #[test]
-    fn test_trip_row_datetime_fallback_legacy() {
-        // Test fallback for legacy data: datetime="" → derives from date + 00:00:00
-        let row = make_trip_row("2026-01-15", "");
+    fn test_trip_row_end_datetime_parsing() {
+        // Test end_datetime parsing when provided
+        let row = make_trip_row("2026-01-15T08:30:00", Some("2026-01-15T17:00:00"));
         let trip: Trip = row.into();
 
-        // Should fall back to date + 00:00:00
-        assert_eq!(trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
-        assert_eq!(trip.date.format("%Y-%m-%d").to_string(), "2026-01-15");
+        assert_eq!(
+            trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            "2026-01-15T08:30:00"
+        );
+        assert!(trip.end_datetime.is_some());
+        assert_eq!(
+            trip.end_datetime
+                .unwrap()
+                .format("%Y-%m-%dT%H:%M:%S")
+                .to_string(),
+            "2026-01-15T17:00:00"
+        );
     }
 
     #[test]
     fn test_trip_row_datetime_midnight() {
         // Test edge case: midnight "2026-01-15T00:00:00" parses correctly
-        let row = make_trip_row("2026-01-15", "2026-01-15T00:00:00");
+        let row = make_trip_row("2026-01-15T00:00:00", None);
         let trip: Trip = row.into();
 
-        assert_eq!(trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T00:00:00");
-        assert_eq!(trip.datetime.format("%H:%M").to_string(), "00:00");
-        assert_eq!(trip.date.format("%Y-%m-%d").to_string(), "2026-01-15");
+        assert_eq!(
+            trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            "2026-01-15T00:00:00"
+        );
+        assert_eq!(trip.start_datetime.format("%H:%M").to_string(), "00:00");
     }
 
     // ========================================================================

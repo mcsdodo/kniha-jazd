@@ -207,351 +207,354 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
 
     for sortable in &sortable_rows {
         if let Some(trip) = sortable.trip {
-        let trip_id = trip.id.to_string();
+            let trip_id = trip.id.to_string();
 
-        // Common fields
-        let other_costs = trip
-            .other_costs_eur
-            .map(|f| format!("{:.2}", f))
-            .unwrap_or_default();
-        let other_note = trip.other_costs_note.as_deref().unwrap_or("");
-
-        // Legal compliance fields
-        let trip_number = data
-            .grid_data
-            .trip_numbers
-            .get(&trip_id)
-            .copied()
-            .unwrap_or(0);
-        let odo_start = data
-            .grid_data
-            .odometer_start
-            .get(&trip_id)
-            .copied()
-            .unwrap_or(trip.odometer - trip.distance_km);
-        let end_time = trip.end_time.as_deref().unwrap_or("00:00");
-        let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
-
-        // Build row - start with Trip# (always shown for legal compliance)
-        let mut row = format!(
-            r#"        <tr>
-          <td class="num">{}</td>"#,
-            trip_number,
-        );
-
-        // Start datetime (always shown) - format: DD.MM. HH:MM (no year - it's in header)
-        row.push_str(&format!(
-            r#"
-          <td>{}</td>"#,
-            trip.datetime.format("%d.%m. %H:%M"),
-        ));
-
-        // End datetime (hideable) - format: DD.MM. HH:MM
-        if is_visible("time") {
-            row.push_str(&format!(
-                r#"
-          <td>{} {}</td>"#,
-                trip.date.format("%d.%m."),
-                html_escape(end_time),
-            ));
-        }
-
-        // Driver (always shown for legal compliance)
-        row.push_str(&format!(
-            r#"
-          <td>{}</td>"#,
-            html_escape(driver_name),
-        ));
-
-        // Origin, destination, purpose, distance (always shown)
-        row.push_str(&format!(
-            r#"
-          <td>{}</td>
-          <td>{}</td>
-          <td>{}</td>
-          <td class="num">{:.0}</td>"#,
-            html_escape(&trip.origin),
-            html_escape(&trip.destination),
-            html_escape(&trip.purpose),
-            trip.distance_km,
-        ));
-
-        // Odo Start (always shown for legal compliance)
-        row.push_str(&format!(
-            r#"
-          <td class="num">{:.0}</td>"#,
-            odo_start,
-        ));
-
-        // Odo End (always shown)
-        row.push_str(&format!(
-            r#"
-          <td class="num">{:.0}</td>"#,
-            trip.odometer,
-        ));
-
-        // Fuel columns (ICE + PHEV)
-        if show_fuel {
-            let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
-            let fuel_consumed = data
-                .grid_data
-                .fuel_consumed
-                .get(&trip_id)
-                .copied()
-                .unwrap_or(0.0);
-            let fuel_remaining = data
-                .grid_data
-                .fuel_remaining
-                .get(&trip_id)
-                .copied()
-                .unwrap_or(0.0);
-            let fuel_liters = trip
-                .fuel_liters
+            // Common fields
+            let other_costs = trip
+                .other_costs_eur
                 .map(|f| format!("{:.2}", f))
                 .unwrap_or_default();
-            let fuel_cost = trip
-                .fuel_cost_eur
-                .map(|f| format!("{:.2}", f))
-                .unwrap_or_default();
+            let other_note = trip.other_costs_note.as_deref().unwrap_or("");
 
-            // Fuel liters and cost (always shown when fuel vehicle)
-            row.push_str(&format!(
-                r#"
-          <td class="num">{}</td>
-          <td class="num">{}</td>"#,
-                fuel_liters, fuel_cost,
-            ));
-
-            // Fuel consumed (hideable)
-            if is_visible("fuelConsumed") {
-                row.push_str(&format!(
-                    r#"
-          <td class="num">{:.2}</td>"#,
-                    fuel_consumed,
-                ));
-            }
-
-            // Fuel remaining (hideable)
-            if is_visible("fuelRemaining") {
-                row.push_str(&format!(
-                    r#"
-          <td class="num">{:.1}</td>"#,
-                    fuel_remaining,
-                ));
-            }
-
-            // Consumption rate (always shown when fuel vehicle)
-            row.push_str(&format!(
-                r#"
-          <td class="num">{:.2}</td>"#,
-                rate,
-            ));
-        }
-
-        // Energy columns (BEV + PHEV)
-        if show_energy {
-            let energy_rate = data
+            // Legal compliance fields
+            let trip_number = data
                 .grid_data
-                .energy_rates
+                .trip_numbers
                 .get(&trip_id)
                 .copied()
-                .unwrap_or(0.0);
-            let battery_remaining = data
+                .unwrap_or(0);
+            let odo_start = data
                 .grid_data
-                .battery_remaining_kwh
+                .odometer_start
                 .get(&trip_id)
                 .copied()
-                .unwrap_or(0.0);
-            let energy_kwh = trip
-                .energy_kwh
-                .map(|e| format!("{:.1}", e))
-                .unwrap_or_default();
-            let energy_cost = trip
-                .energy_cost_eur
-                .map(|e| format!("{:.2}", e))
-                .unwrap_or_default();
+                .unwrap_or(trip.odometer - trip.distance_km);
+            // Format end datetime - extract just the time portion
+            let end_datetime_display = trip
+                .end_datetime
+                .map(|dt| format!("{} {}", dt.format("%d.%m."), dt.format("%H:%M")))
+                .unwrap_or_else(|| format!("{} -", trip.start_datetime.format("%d.%m.")));
+            let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
 
-            // Energy kWh and cost (always shown when electric vehicle)
-            row.push_str(&format!(
-                r#"
-          <td class="num">{}</td>
+            // Build row - start with Trip# (always shown for legal compliance)
+            let mut row = format!(
+                r#"        <tr>
           <td class="num">{}</td>"#,
-                energy_kwh, energy_cost,
-            ));
+                trip_number,
+            );
 
-            // Battery remaining (hideable - same setting as fuelRemaining)
-            if is_visible("fuelRemaining") {
-                row.push_str(&format!(
-                    r#"
-          <td class="num">{:.1}</td>"#,
-                    battery_remaining,
-                ));
-            }
-
-            // Energy rate (always shown when electric vehicle)
-            row.push_str(&format!(
-                r#"
-          <td class="num">{:.2}</td>"#,
-                energy_rate,
-            ));
-        }
-
-        // Other costs (hideable)
-        if is_visible("otherCosts") {
-            row.push_str(&format!(
-                r#"
-          <td class="num">{}</td>"#,
-                other_costs,
-            ));
-        }
-
-        // Other costs note (hideable)
-        if is_visible("otherCostsNote") {
+            // Start datetime (always shown) - format: DD.MM. HH:MM (no year - it's in header)
             row.push_str(&format!(
                 r#"
           <td>{}</td>"#,
-                html_escape(other_note),
+                trip.start_datetime.format("%d.%m. %H:%M"),
             ));
-        }
 
-        row.push_str(
-            r#"
+            // End datetime (hideable) - format: DD.MM. HH:MM
+            if is_visible("time") {
+                row.push_str(&format!(
+                    r#"
+          <td>{}</td>"#,
+                    html_escape(&end_datetime_display),
+                ));
+            }
+
+            // Driver (always shown for legal compliance)
+            row.push_str(&format!(
+                r#"
+          <td>{}</td>"#,
+                html_escape(driver_name),
+            ));
+
+            // Origin, destination, purpose, distance (always shown)
+            row.push_str(&format!(
+                r#"
+          <td>{}</td>
+          <td>{}</td>
+          <td>{}</td>
+          <td class="num">{:.0}</td>"#,
+                html_escape(&trip.origin),
+                html_escape(&trip.destination),
+                html_escape(&trip.purpose),
+                trip.distance_km,
+            ));
+
+            // Odo Start (always shown for legal compliance)
+            row.push_str(&format!(
+                r#"
+          <td class="num">{:.0}</td>"#,
+                odo_start,
+            ));
+
+            // Odo End (always shown)
+            row.push_str(&format!(
+                r#"
+          <td class="num">{:.0}</td>"#,
+                trip.odometer,
+            ));
+
+            // Fuel columns (ICE + PHEV)
+            if show_fuel {
+                let rate = data.grid_data.rates.get(&trip_id).copied().unwrap_or(0.0);
+                let fuel_consumed = data
+                    .grid_data
+                    .fuel_consumed
+                    .get(&trip_id)
+                    .copied()
+                    .unwrap_or(0.0);
+                let fuel_remaining = data
+                    .grid_data
+                    .fuel_remaining
+                    .get(&trip_id)
+                    .copied()
+                    .unwrap_or(0.0);
+                let fuel_liters = trip
+                    .fuel_liters
+                    .map(|f| format!("{:.2}", f))
+                    .unwrap_or_default();
+                let fuel_cost = trip
+                    .fuel_cost_eur
+                    .map(|f| format!("{:.2}", f))
+                    .unwrap_or_default();
+
+                // Fuel liters and cost (always shown when fuel vehicle)
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{}</td>
+          <td class="num">{}</td>"#,
+                    fuel_liters, fuel_cost,
+                ));
+
+                // Fuel consumed (hideable)
+                if is_visible("fuelConsumed") {
+                    row.push_str(&format!(
+                        r#"
+          <td class="num">{:.2}</td>"#,
+                        fuel_consumed,
+                    ));
+                }
+
+                // Fuel remaining (hideable)
+                if is_visible("fuelRemaining") {
+                    row.push_str(&format!(
+                        r#"
+          <td class="num">{:.1}</td>"#,
+                        fuel_remaining,
+                    ));
+                }
+
+                // Consumption rate (always shown when fuel vehicle)
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{:.2}</td>"#,
+                    rate,
+                ));
+            }
+
+            // Energy columns (BEV + PHEV)
+            if show_energy {
+                let energy_rate = data
+                    .grid_data
+                    .energy_rates
+                    .get(&trip_id)
+                    .copied()
+                    .unwrap_or(0.0);
+                let battery_remaining = data
+                    .grid_data
+                    .battery_remaining_kwh
+                    .get(&trip_id)
+                    .copied()
+                    .unwrap_or(0.0);
+                let energy_kwh = trip
+                    .energy_kwh
+                    .map(|e| format!("{:.1}", e))
+                    .unwrap_or_default();
+                let energy_cost = trip
+                    .energy_cost_eur
+                    .map(|e| format!("{:.2}", e))
+                    .unwrap_or_default();
+
+                // Energy kWh and cost (always shown when electric vehicle)
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{}</td>
+          <td class="num">{}</td>"#,
+                    energy_kwh, energy_cost,
+                ));
+
+                // Battery remaining (hideable - same setting as fuelRemaining)
+                if is_visible("fuelRemaining") {
+                    row.push_str(&format!(
+                        r#"
+          <td class="num">{:.1}</td>"#,
+                        battery_remaining,
+                    ));
+                }
+
+                // Energy rate (always shown when electric vehicle)
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{:.2}</td>"#,
+                    energy_rate,
+                ));
+            }
+
+            // Other costs (hideable)
+            if is_visible("otherCosts") {
+                row.push_str(&format!(
+                    r#"
+          <td class="num">{}</td>"#,
+                    other_costs,
+                ));
+            }
+
+            // Other costs note (hideable)
+            if is_visible("otherCostsNote") {
+                row.push_str(&format!(
+                    r#"
+          <td>{}</td>"#,
+                    html_escape(other_note),
+                ));
+            }
+
+            row.push_str(
+                r#"
         </tr>
 "#,
-        );
+            );
 
-        rows.push_str(&row);
+            rows.push_str(&row);
         } else if let Some(month_end) = sortable.month_end {
-        // Build synthetic month-end row
-        let mut row = format!(
-            r#"        <tr class="month-end-synthetic">
+            // Build synthetic month-end row
+            let mut row = format!(
+                r#"        <tr class="month-end-synthetic">
           <td></td>"#, // Trip# - empty for synthetic
-        );
+            );
 
-        // Start datetime - show date with dash for time
-        row.push_str(&format!(
-            r#"
+            // Start datetime - show date with dash for time
+            row.push_str(&format!(
+                r#"
           <td>{} -</td>"#,
-            month_end.date.format("%d.%m."),
-        ));
+                month_end.date.format("%d.%m."),
+            ));
 
-        // End datetime (if visible) - empty for synthetic
-        if is_visible("time") {
-            row.push_str(
-                r#"
-          <td></td>"#,
-            );
-        }
-
-        // Driver - empty for synthetic
-        row.push_str(
-            r#"
-          <td></td>"#,
-        );
-
-        // Origin, Destination, Purpose, Km - empty for synthetic
-        row.push_str(
-            r#"
-          <td></td>
-          <td></td>
-          <td></td>
-          <td></td>"#,
-        );
-
-        // Odo Start - same as Odo End (no travel)
-        row.push_str(&format!(
-            r#"
-          <td class="num">{:.0}</td>"#,
-            month_end.odometer,
-        ));
-
-        // Odo End
-        row.push_str(&format!(
-            r#"
-          <td class="num">{:.0}</td>"#,
-            month_end.odometer,
-        ));
-
-        // Fuel columns (ICE + PHEV)
-        if show_fuel {
-            // Fuel liters and cost - empty
-            row.push_str(
-                r#"
-          <td></td>
-          <td></td>"#,
-            );
-
-            // Fuel consumed (if visible) - empty
-            if is_visible("fuelConsumed") {
+            // End datetime (if visible) - empty for synthetic
+            if is_visible("time") {
                 row.push_str(
                     r#"
           <td></td>"#,
                 );
             }
 
-            // Fuel remaining (if visible) - show the carried-over state
-            if is_visible("fuelRemaining") {
-                row.push_str(&format!(
+            // Driver - empty for synthetic
+            row.push_str(
+                r#"
+          <td></td>"#,
+            );
+
+            // Origin, Destination, Purpose, Km - empty for synthetic
+            row.push_str(
+                r#"
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>"#,
+            );
+
+            // Odo Start - same as Odo End (no travel)
+            row.push_str(&format!(
+                r#"
+          <td class="num">{:.0}</td>"#,
+                month_end.odometer,
+            ));
+
+            // Odo End
+            row.push_str(&format!(
+                r#"
+          <td class="num">{:.0}</td>"#,
+                month_end.odometer,
+            ));
+
+            // Fuel columns (ICE + PHEV)
+            if show_fuel {
+                // Fuel liters and cost - empty
+                row.push_str(
                     r#"
+          <td></td>
+          <td></td>"#,
+                );
+
+                // Fuel consumed (if visible) - empty
+                if is_visible("fuelConsumed") {
+                    row.push_str(
+                        r#"
+          <td></td>"#,
+                    );
+                }
+
+                // Fuel remaining (if visible) - show the carried-over state
+                if is_visible("fuelRemaining") {
+                    row.push_str(&format!(
+                        r#"
           <td class="num">{:.1}</td>"#,
-                    month_end.fuel_remaining,
-                ));
-            }
+                        month_end.fuel_remaining,
+                    ));
+                }
 
-            // Consumption rate - empty
-            row.push_str(
-                r#"
-          <td></td>"#,
-            );
-        }
-
-        // Energy columns (BEV + PHEV)
-        if show_energy {
-            // Energy kWh and cost - empty
-            row.push_str(
-                r#"
-          <td></td>
-          <td></td>"#,
-            );
-
-            // Battery remaining (if visible) - empty (we don't track battery in month_end_rows yet)
-            if is_visible("fuelRemaining") {
+                // Consumption rate - empty
                 row.push_str(
                     r#"
           <td></td>"#,
                 );
             }
 
-            // Energy rate - empty
+            // Energy columns (BEV + PHEV)
+            if show_energy {
+                // Energy kWh and cost - empty
+                row.push_str(
+                    r#"
+          <td></td>
+          <td></td>"#,
+                );
+
+                // Battery remaining (if visible) - empty (we don't track battery in month_end_rows yet)
+                if is_visible("fuelRemaining") {
+                    row.push_str(
+                        r#"
+          <td></td>"#,
+                    );
+                }
+
+                // Energy rate - empty
+                row.push_str(
+                    r#"
+          <td></td>"#,
+                );
+            }
+
+            // Other costs (if visible) - empty
+            if is_visible("otherCosts") {
+                row.push_str(
+                    r#"
+          <td></td>"#,
+                );
+            }
+
+            // Other costs note (if visible) - empty
+            if is_visible("otherCostsNote") {
+                row.push_str(
+                    r#"
+          <td></td>"#,
+                );
+            }
+
             row.push_str(
                 r#"
-          <td></td>"#,
-            );
-        }
-
-        // Other costs (if visible) - empty
-        if is_visible("otherCosts") {
-            row.push_str(
-                r#"
-          <td></td>"#,
-            );
-        }
-
-        // Other costs note (if visible) - empty
-        if is_visible("otherCostsNote") {
-            row.push_str(
-                r#"
-          <td></td>"#,
-            );
-        }
-
-        row.push_str(
-            r#"
         </tr>
 "#,
-        );
+            );
 
-        rows.push_str(&row);
+            rows.push_str(&row);
         }
     }
 
@@ -599,10 +602,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
 
     // Build column headers based on vehicle type and visibility settings
     // Trip# (always shown for legal compliance)
-    let mut col_headers = format!(
-        r#"        <th>{}</th>"#,
-        html_escape(&l.col_trip_number),
-    );
+    let mut col_headers = format!(r#"        <th>{}</th>"#, html_escape(&l.col_trip_number),);
 
     // Start datetime (always shown) - combined date+time in format DD.MM. HH:MM
     col_headers.push_str(&format!(
@@ -1090,13 +1090,15 @@ mod tests {
         fuel_cost: Option<f64>,
         other_cost: Option<f64>,
     ) -> Trip {
-        let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let start_datetime = NaiveDate::from_ymd_opt(2025, 1, 1)
+            .unwrap()
+            .and_hms_opt(8, 0, 0)
+            .unwrap();
         Trip {
             id: Uuid::new_v4(),
             vehicle_id: Uuid::new_v4(),
-            date,
-            datetime: date.and_hms_opt(0, 0, 0).unwrap(),
-            end_time: None,
+            start_datetime,
+            end_datetime: None,
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km: km,
@@ -1184,7 +1186,7 @@ mod tests {
     fn test_export_totals_excludes_dummy_rows() {
         // Dummy row (0 km) should be excluded from totals
         let trips = vec![
-            make_trip(0.0, None, None, Some(999.0)),  // Dummy row - should be excluded
+            make_trip(0.0, None, None, Some(999.0)), // Dummy row - should be excluded
             make_trip(100.0, Some(6.0), Some(10.0), Some(5.0)),
             make_trip(200.0, Some(12.0), Some(20.0), None),
         ];
@@ -1192,10 +1194,9 @@ mod tests {
         let totals = ExportTotals::calculate(&trips, 5.0, 0.0);
 
         // Should only count trips with km > 0
-        assert_eq!(totals.total_km, 300.0);      // 100 + 200, not 0 + 100 + 200
+        assert_eq!(totals.total_km, 300.0); // 100 + 200, not 0 + 100 + 200
         assert_eq!(totals.total_fuel_liters, 18.0);
         assert_eq!(totals.total_fuel_cost, 30.0);
         assert_eq!(totals.total_other_costs, 5.0); // Only from second trip, dummy's 999 excluded
     }
-
 }

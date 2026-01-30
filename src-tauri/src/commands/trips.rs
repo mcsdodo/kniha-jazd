@@ -8,7 +8,7 @@ use chrono::Utc;
 use tauri::State;
 use uuid::Uuid;
 
-use super::{extract_time_string, parse_iso_datetime};
+use super::parse_iso_datetime;
 
 // ============================================================================
 // Trip Commands
@@ -31,11 +31,9 @@ pub fn get_trips_for_year(
 }
 
 #[tauri::command]
-pub fn get_years_with_trips(
-    db: State<Database>,
-    vehicle_id: String,
-) -> Result<Vec<i32>, String> {
-    db.get_years_with_trips(&vehicle_id).map_err(|e| e.to_string())
+pub fn get_years_with_trips(db: State<Database>, vehicle_id: String) -> Result<Vec<i32>, String> {
+    db.get_years_with_trips(&vehicle_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -67,11 +65,8 @@ pub fn create_trip(
 ) -> Result<Trip, String> {
     check_read_only!(app_state);
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
-    let trip_datetime = parse_iso_datetime(&start_datetime)?;
+    let trip_start_datetime = parse_iso_datetime(&start_datetime)?;
     let trip_end_datetime = parse_iso_datetime(&end_datetime)?;
-    let trip_date = trip_datetime.date();
-    // TODO(cleanup): Trip model should use end_datetime: NaiveDateTime directly
-    let end_time = Some(extract_time_string(&trip_end_datetime));
 
     // Normalize locations to prevent whitespace-based duplicates
     let origin = normalize_location(&origin);
@@ -101,9 +96,8 @@ pub fn create_trip(
     let trip = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle_uuid,
-        date: trip_date,
-        datetime: trip_datetime,
-        end_time,
+        start_datetime: trip_start_datetime,
+        end_datetime: Some(trip_end_datetime),
         origin: origin.clone(),
         destination: destination.clone(),
         distance_km,
@@ -160,11 +154,8 @@ pub fn update_trip(
 ) -> Result<Trip, String> {
     check_read_only!(app_state);
     let trip_uuid = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
-    let trip_datetime = parse_iso_datetime(&start_datetime)?;
+    let trip_start_datetime = parse_iso_datetime(&start_datetime)?;
     let trip_end_datetime = parse_iso_datetime(&end_datetime)?;
-    let trip_date = trip_datetime.date();
-    // TODO(cleanup): Trip model should use end_datetime: NaiveDateTime directly
-    let end_time = Some(extract_time_string(&trip_end_datetime));
 
     // Normalize locations to prevent whitespace-based duplicates
     let origin = normalize_location(&origin);
@@ -186,9 +177,8 @@ pub fn update_trip(
     let trip = Trip {
         id: trip_uuid,
         vehicle_id: existing.vehicle_id,
-        date: trip_date,
-        datetime: trip_datetime,
-        end_time,
+        start_datetime: trip_start_datetime,
+        end_datetime: Some(trip_end_datetime),
         origin,
         destination,
         distance_km,
@@ -211,14 +201,23 @@ pub fn update_trip(
     db.update_trip(&trip).map_err(|e| e.to_string())?;
 
     // Update or create route for autocomplete (same as create_trip)
-    db.find_or_create_route(&trip.vehicle_id.to_string(), &trip.origin, &trip.destination, distance_km)
-        .map_err(|e| e.to_string())?;
+    db.find_or_create_route(
+        &trip.vehicle_id.to_string(),
+        &trip.origin,
+        &trip.destination,
+        distance_km,
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(trip)
 }
 
 #[tauri::command]
-pub fn delete_trip(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+pub fn delete_trip(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
     db.delete_trip(&id).map_err(|e| e.to_string())
 }

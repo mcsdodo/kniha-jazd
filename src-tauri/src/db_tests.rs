@@ -22,7 +22,8 @@ fn test_vehicle_crud_lifecycle() {
 
     // CREATE + RETRIEVE
     let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let retrieved = db
         .get_vehicle(&vehicle.id.to_string())
@@ -39,7 +40,10 @@ fn test_vehicle_crud_lifecycle() {
     let all = db.get_all_vehicles().expect("Failed to get all");
     assert_eq!(all.len(), 2);
 
-    let active = db.get_active_vehicle().expect("Failed to get active").unwrap();
+    let active = db
+        .get_active_vehicle()
+        .expect("Failed to get active")
+        .unwrap();
     assert_eq!(active.id, vehicle.id);
 
     // UPDATE
@@ -53,7 +57,8 @@ fn test_vehicle_crud_lifecycle() {
     assert_eq!(after_update.tp_consumption, Some(6.5));
 
     // DELETE
-    db.delete_vehicle(&vehicle.id.to_string()).expect("Failed to delete");
+    db.delete_vehicle(&vehicle.id.to_string())
+        .expect("Failed to delete");
     assert!(db.get_vehicle(&vehicle.id.to_string()).unwrap().is_none());
 }
 
@@ -101,12 +106,12 @@ fn test_update_vehicle_can_change_type() {
 fn create_test_trip(vehicle_id: Uuid, date: &str) -> Trip {
     let now = Utc::now();
     let parsed_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
+    let start_datetime = parsed_date.and_hms_opt(8, 0, 0).unwrap();
     Trip {
         id: Uuid::new_v4(),
         vehicle_id,
-        date: parsed_date,
-        datetime: parsed_date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime,
+        end_datetime: None,
         origin: "Prague".to_string(),
         destination: "Brno".to_string(),
         distance_km: 200.0,
@@ -131,7 +136,8 @@ fn create_test_trip(vehicle_id: Uuid, date: &str) -> Trip {
 fn test_trip_crud_lifecycle() {
     let db = Database::in_memory().expect("Failed to create database");
     let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let trip = create_test_trip(vehicle.id, "2024-12-01");
     db.create_trip(&trip).expect("Failed to create trip");
@@ -150,7 +156,8 @@ fn test_trip_crud_lifecycle() {
     let after_update = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(after_update.origin, "Berlin");
 
-    db.delete_trip(&trip.id.to_string()).expect("Failed to delete");
+    db.delete_trip(&trip.id.to_string())
+        .expect("Failed to delete");
     assert!(db.get_trip(&trip.id.to_string()).unwrap().is_none());
 }
 
@@ -158,7 +165,8 @@ fn test_trip_crud_lifecycle() {
 fn test_get_trips_for_vehicle_in_year() {
     let db = Database::in_memory().expect("Failed to create database");
     let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let trip1 = create_test_trip(vehicle.id, "2024-12-01");
     let trip2 = create_test_trip(vehicle.id, "2024-06-15");
@@ -168,10 +176,14 @@ fn test_get_trips_for_vehicle_in_year() {
     db.create_trip(&trip2).unwrap();
     db.create_trip(&trip3).unwrap();
 
-    let trips_2024 = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2024).unwrap();
+    let trips_2024 = db
+        .get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2024)
+        .unwrap();
     assert_eq!(trips_2024.len(), 2);
 
-    let trips_2023 = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2023).unwrap();
+    let trips_2023 = db
+        .get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2023)
+        .unwrap();
     assert_eq!(trips_2023.len(), 1);
 }
 
@@ -179,7 +191,8 @@ fn test_get_trips_for_vehicle_in_year() {
 fn test_find_or_create_route_upsert() {
     let db = Database::in_memory().expect("Failed to create database");
     let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    db.create_vehicle(&vehicle)
+        .expect("Failed to create vehicle");
 
     let route1 = db
         .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
@@ -197,7 +210,10 @@ fn test_find_or_create_route_upsert() {
 fn test_receipt_crud() {
     let db = Database::in_memory().unwrap();
 
-    let receipt = Receipt::new("C:\\test\\receipt.jpg".to_string(), "receipt.jpg".to_string());
+    let receipt = Receipt::new(
+        "C:\\test\\receipt.jpg".to_string(),
+        "receipt.jpg".to_string(),
+    );
     db.create_receipt(&receipt).unwrap();
 
     let receipts = db.get_all_receipts().unwrap();
@@ -205,7 +221,9 @@ fn test_receipt_crud() {
     assert_eq!(receipts[0].file_name, "receipt.jpg");
     assert_eq!(receipts[0].status, ReceiptStatus::Pending);
 
-    let found = db.get_receipt_by_file_path("C:\\test\\receipt.jpg").unwrap();
+    let found = db
+        .get_receipt_by_file_path("C:\\test\\receipt.jpg")
+        .unwrap();
     assert!(found.is_some());
 
     let mut updated = receipt.clone();
@@ -288,11 +306,8 @@ fn create_receipt_for_year_test(
     receipt_date: Option<NaiveDate>,
     source_year: Option<i32>,
 ) -> Receipt {
-    let mut receipt = Receipt::new_with_source_year(
-        file_path.to_string(),
-        file_path.to_string(),
-        source_year,
-    );
+    let mut receipt =
+        Receipt::new_with_source_year(file_path.to_string(), file_path.to_string(), source_year);
     receipt.receipt_date = receipt_date;
     receipt
 }
@@ -365,4 +380,3 @@ fn test_check_migration_compatibility_passes_for_current_app() {
     let result = db.check_migration_compatibility();
     assert!(result.is_ok());
 }
-

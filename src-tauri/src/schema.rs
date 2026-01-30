@@ -54,9 +54,6 @@ diesel::table! {
     trips (id) {
         id -> Nullable<Text>,
         vehicle_id -> Text,
-        date -> Text,
-        datetime -> Text,
-        end_time -> Text,
         origin -> Text,
         destination -> Text,
         distance_km -> Double,
@@ -74,8 +71,6 @@ diesel::table! {
         soc_override_percent -> Nullable<Double>,
         created_at -> Text,
         updated_at -> Text,
-        // New datetime fields - columns exist but not yet used by Rust code
-        // Will be utilized when Task 47 (datetime consolidation) is implemented
         start_datetime -> Text,
         end_datetime -> Nullable<Text>,
     }
