@@ -12,12 +12,27 @@ import { ensureLanguage } from '../../utils/language';
 import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
+/**
+ * Reset hidden columns via Tauri IPC
+ */
+async function resetHiddenColumns(): Promise<void> {
+  await browser.execute(async () => {
+    if (!window.__TAURI__) {
+      throw new Error('Tauri not available');
+    }
+    return await window.__TAURI__.core.invoke('set_hidden_columns', { columns: [] });
+  });
+}
+
 describe('Tier 2: Datetime Column', () => {
   let vehicleId: string;
 
   beforeEach(async () => {
     await waitForAppReady();
     await ensureLanguage('en');
+
+    // Reset hidden columns to show all columns
+    await resetHiddenColumns();
 
     // Seed test vehicle (fresh data for each test)
     const vehicle = await seedVehicle({
