@@ -10,11 +10,11 @@ use crate::models::{
 };
 use crate::schema::{receipts, routes, settings, trips, vehicles};
 use chrono::Utc;
+use diesel::migration::MigrationSource;
 use diesel::prelude::*;
 use diesel::result::QueryResult;
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use diesel::migration::MigrationSource;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -103,7 +103,9 @@ impl Database {
     pub fn get_embedded_migration_versions() -> std::collections::HashSet<String> {
         let mut versions = std::collections::HashSet::new();
         // Get migrations from the embedded source using the MigrationSource trait
-        if let Ok(migrations) = <EmbeddedMigrations as MigrationSource<diesel::sqlite::Sqlite>>::migrations(&MIGRATIONS) {
+        if let Ok(migrations) =
+            <EmbeddedMigrations as MigrationSource<diesel::sqlite::Sqlite>>::migrations(&MIGRATIONS)
+        {
             for migration in migrations {
                 versions.insert(migration.name().version().to_string());
             }
@@ -124,11 +126,10 @@ impl Database {
             version: String,
         }
 
-        let applied: Vec<MigrationRow> = diesel::sql_query(
-            "SELECT version FROM __diesel_schema_migrations ORDER BY version"
-        )
-        .load(conn)
-        .unwrap_or_default();
+        let applied: Vec<MigrationRow> =
+            diesel::sql_query("SELECT version FROM __diesel_schema_migrations ORDER BY version")
+                .load(conn)
+                .unwrap_or_default();
 
         let unknown: Vec<String> = applied
             .into_iter()
@@ -224,10 +225,8 @@ impl Database {
                 vehicles::tank_size_liters.eq(vehicle.tank_size_liters),
                 vehicles::tp_consumption.eq(vehicle.tp_consumption),
                 vehicles::battery_capacity_kwh.eq(vehicle.battery_capacity_kwh),
-                vehicles::baseline_consumption_kwh
-                    .eq(vehicle.baseline_consumption_kwh),
-                vehicles::initial_battery_percent
-                    .eq(vehicle.initial_battery_percent),
+                vehicles::baseline_consumption_kwh.eq(vehicle.baseline_consumption_kwh),
+                vehicles::initial_battery_percent.eq(vehicle.initial_battery_percent),
                 vehicles::initial_odometer.eq(vehicle.initial_odometer),
                 vehicles::is_active.eq(if vehicle.is_active { 1 } else { 0 }),
                 vehicles::vin.eq(&vehicle.vin),
@@ -261,19 +260,17 @@ impl Database {
         let conn = &mut *self.conn.lock().unwrap();
         let id_str = trip.id.to_string();
         let vehicle_id_str = trip.vehicle_id.to_string();
-        let date_str = trip.date.to_string();
-        let datetime_str = trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let start_datetime_str = trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let end_datetime_str = trip
+            .end_datetime
+            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
         let created_at_str = trip.created_at.to_rfc3339();
         let updated_at_str = trip.updated_at.to_rfc3339();
         let other_costs_note_ref = trip.other_costs_note.as_deref();
-        let end_datetime_str = trip.end_time.as_ref().map(|t| format!("{}T{}:00", date_str, t));
 
         let new_trip = NewTripRow {
             id: &id_str,
             vehicle_id: &vehicle_id_str,
-            date: &date_str,
-            datetime: &datetime_str,
-            end_time: trip.end_time.as_deref().unwrap_or(""),
             origin: &trip.origin,
             destination: &trip.destination,
             distance_km: trip.distance_km,
@@ -291,8 +288,7 @@ impl Database {
             soc_override_percent: trip.soc_override_percent,
             created_at: &created_at_str,
             updated_at: &updated_at_str,
-            // New datetime fields - use same values as legacy fields for now
-            start_datetime: &datetime_str,
+            start_datetime: &start_datetime_str,
             end_datetime: end_datetime_str.as_deref(),
         };
 
@@ -334,14 +330,14 @@ impl Database {
         use crate::schema::trips::dsl;
         let conn = &mut *self.conn.lock().unwrap();
 
-        // Use date range instead of strftime - works with Diesel query builder
-        let start_date = format!("{}-01-01", year);
-        let end_date = format!("{}-12-31", year);
+        // Use start_datetime range - format is "YYYY-MM-DDTHH:MM:SS"
+        let start_date = format!("{}-01-01T00:00:00", year);
+        let end_date = format!("{}-12-31T23:59:59", year);
 
         let rows = dsl::trips
             .filter(dsl::vehicle_id.eq(vehicle_id))
-            .filter(dsl::date.ge(&start_date))
-            .filter(dsl::date.le(&end_date))
+            .filter(dsl::start_datetime.ge(&start_date))
+            .filter(dsl::start_datetime.le(&end_date))
             .order(dsl::sort_order.asc())
             .load::<TripRow>(conn)?;
 
@@ -352,7 +348,7 @@ impl Database {
     pub fn get_years_with_trips(&self, vehicle_id: &str) -> QueryResult<Vec<i32>> {
         let conn = &mut *self.conn.lock().unwrap();
 
-        // Raw SQL needed for strftime
+        // Raw SQL needed for strftime - use start_datetime now
         #[derive(QueryableByName)]
         struct YearRow {
             #[diesel(sql_type = diesel::sql_types::Integer)]
@@ -360,7 +356,7 @@ impl Database {
         }
 
         let rows = diesel::sql_query(
-            "SELECT DISTINCT CAST(strftime('%Y', date) AS INTEGER) as year
+            "SELECT DISTINCT CAST(strftime('%Y', start_datetime) AS INTEGER) as year
              FROM trips WHERE vehicle_id = ? ORDER BY year DESC",
         )
         .bind::<diesel::sql_types::Text, _>(vehicle_id)
@@ -373,19 +369,15 @@ impl Database {
         let conn = &mut *self.conn.lock().unwrap();
         let id_str = trip.id.to_string();
         let vehicle_id_str = trip.vehicle_id.to_string();
-        let date_str = trip.date.to_string();
-        let datetime_str = trip.datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let start_datetime_str = trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let end_datetime_str = trip
+            .end_datetime
+            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
         let updated_at_str = trip.updated_at.to_rfc3339();
-        // Sync new datetime fields with legacy fields
-        let end_datetime_str =
-            trip.end_time.as_ref().map(|t| format!("{}T{}:00", date_str, t));
 
         diesel::update(trips::table.filter(trips::id.eq(&id_str)))
             .set((
                 trips::vehicle_id.eq(&vehicle_id_str),
-                trips::date.eq(&date_str),
-                trips::datetime.eq(&datetime_str),
-                trips::end_time.eq(trip.end_time.as_deref().unwrap_or("")),
                 trips::origin.eq(&trip.origin),
                 trips::destination.eq(&trip.destination),
                 trips::distance_km.eq(trip.distance_km),
@@ -402,8 +394,7 @@ impl Database {
                 trips::full_charge.eq(Some(if trip.full_charge { 1 } else { 0 })),
                 trips::soc_override_percent.eq(trip.soc_override_percent),
                 trips::updated_at.eq(&updated_at_str),
-                // New datetime fields - keep in sync with legacy fields
-                trips::start_datetime.eq(&datetime_str),
+                trips::start_datetime.eq(&start_datetime_str),
                 trips::end_datetime.eq(end_datetime_str.as_deref()),
             ))
             .execute(conn)?;
@@ -431,11 +422,10 @@ impl Database {
                 sort_order: i32,
             }
 
-            let info: TripInfo = diesel::sql_query(
-                "SELECT vehicle_id, sort_order FROM trips WHERE id = ?",
-            )
-            .bind::<diesel::sql_types::Text, _>(trip_id)
-            .get_result(conn)?;
+            let info: TripInfo =
+                diesel::sql_query("SELECT vehicle_id, sort_order FROM trips WHERE id = ?")
+                    .bind::<diesel::sql_types::Text, _>(trip_id)
+                    .get_result(conn)?;
 
             let old_sort_order = info.sort_order;
             let vehicle_id = info.vehicle_id;
@@ -475,7 +465,11 @@ impl Database {
     }
 
     /// Shift all trips at or after a position down by 1 (for insertion)
-    pub fn shift_trips_from_position(&self, vehicle_id: &str, from_position: i32) -> QueryResult<()> {
+    pub fn shift_trips_from_position(
+        &self,
+        vehicle_id: &str,
+        from_position: i32,
+    ) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
 
         diesel::sql_query(

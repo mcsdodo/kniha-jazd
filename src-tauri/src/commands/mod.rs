@@ -22,13 +22,16 @@ use crate::calculations_phev::calculate_phev_trip_consumption;
 use crate::db::Database;
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
-use crate::models::{MonthEndRow, PreviewResult, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType};
+use crate::models::{
+    MonthEndRow, PreviewResult, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle,
+    VehicleType,
+};
 use crate::settings::{DatePrefillMode, LocalSettings};
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::path::PathBuf;
 use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
 
@@ -36,26 +39,6 @@ use uuid::Uuid;
 // Helper Functions
 // ============================================================================
 use crate::app_state::AppState;
-
-/// Parse date and optional time into NaiveDateTime.
-/// Time format: "HH:MM" (e.g., "08:30"). If empty or None, defaults to 00:00.
-#[allow(dead_code)] // Used in tests, may be used in future
-pub(crate) fn parse_trip_datetime(
-    date: &str,
-    time: Option<&str>,
-) -> Result<NaiveDateTime, String> {
-    let trip_date = NaiveDate::parse_from_str(date, "%Y-%m-%d")
-        .map_err(|e| format!("Invalid date format: {}", e))?;
-
-    let time_str = time.unwrap_or("");
-    if time_str.is_empty() {
-        Ok(trip_date.and_hms_opt(0, 0, 0).unwrap())
-    } else {
-        let datetime_str = format!("{}T{}:00", date, time_str);
-        NaiveDateTime::parse_from_str(&datetime_str, "%Y-%m-%dT%H:%M:%S")
-            .map_err(|e| format!("Invalid time format: {}", e))
-    }
-}
 
 /// Parse a full ISO datetime string (from datetime-local input).
 /// Accepts "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS" format.
@@ -73,11 +56,6 @@ pub(crate) fn parse_iso_datetime(datetime: &str) -> Result<NaiveDateTime, String
     }
 }
 
-/// Extract "HH:MM" time string from NaiveDateTime (for legacy end_time field).
-pub(crate) fn extract_time_string(datetime: &NaiveDateTime) -> String {
-    datetime.format("%H:%M").to_string()
-}
-
 // ============================================================================
 // Read-Only Guard Macro
 // ============================================================================
@@ -88,16 +66,13 @@ pub(crate) fn extract_time_string(datetime: &NaiveDateTime) -> String {
 macro_rules! check_read_only {
     ($app_state:expr) => {
         if $app_state.is_read_only() {
-            let reason = $app_state.get_read_only_reason()
+            let reason = $app_state
+                .get_read_only_reason()
                 .unwrap_or_else(|| "Neznámy dôvod".to_string());
-            return Err(format!(
-                "Aplikácia je v režime len na čítanie. {}",
-                reason
-            ));
+            return Err(format!("Aplikácia je v režime len na čítanie. {}", reason));
         }
     };
 }
-
 
 /// Get the app data directory, respecting the KNIHA_JAZD_DATA_DIR environment variable.
 /// This ensures consistency between database operations and other file operations (backups, settings).
@@ -113,7 +88,8 @@ pub(crate) fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String
 pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
     let app_dir = get_app_data_dir(app)?;
     let local_settings = LocalSettings::load(&app_dir);
-    let (db_paths, _is_custom) = resolve_db_paths(&app_dir, local_settings.custom_db_path.as_deref());
+    let (db_paths, _is_custom) =
+        resolve_db_paths(&app_dir, local_settings.custom_db_path.as_deref());
     Ok(db_paths)
 }
 
@@ -122,9 +98,10 @@ pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
     // Sort by date, then by odometer for same-day trips
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
-        a.date
-            .cmp(&b.date)
-            .then_with(|| a.datetime.cmp(&b.datetime))
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| a.start_datetime.cmp(&b.start_datetime))
             .then_with(|| {
                 a.odometer
                     .partial_cmp(&b.odometer)
@@ -141,13 +118,17 @@ pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
 
 /// Calculate starting odometer for each trip (previous trip's ending odo)
 /// First trip uses initial_odometer from vehicle.
-pub(crate) fn calculate_odometer_start(trips: &[Trip], initial_odometer: f64) -> HashMap<String, f64> {
+pub(crate) fn calculate_odometer_start(
+    trips: &[Trip],
+    initial_odometer: f64,
+) -> HashMap<String, f64> {
     // Sort chronologically
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
-        a.date
-            .cmp(&b.date)
-            .then_with(|| a.datetime.cmp(&b.datetime))
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| a.start_datetime.cmp(&b.start_datetime))
             .then_with(|| {
                 a.odometer
                     .partial_cmp(&b.odometer)
@@ -200,8 +181,14 @@ pub(crate) fn generate_month_end_rows(
     // Sort trips chronologically
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
-        a.date.cmp(&b.date)
-            .then_with(|| a.odometer.partial_cmp(&b.odometer).unwrap_or(std::cmp::Ordering::Equal))
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // Only generate month-end rows for "closed" months:
@@ -209,13 +196,21 @@ pub(crate) fn generate_month_end_rows(
     // - Current year: Only months before the latest trip's month
     let current_year = chrono::Utc::now().year();
     let last_month = if sorted.is_empty() {
-        if year < current_year { 12 } else { 0 } // Past year with no trips: show all 12
+        if year < current_year {
+            12
+        } else {
+            0
+        } // Past year with no trips: show all 12
     } else if year < current_year {
         12 // Past year: all months are closed
     } else {
-        let latest_month = sorted.last().unwrap().date.month();
+        let latest_month = sorted.last().unwrap().start_datetime.date().month();
         // Current year: generate for months BEFORE the latest (those are closed)
-        if latest_month > 1 { latest_month - 1 } else { 0 }
+        if latest_month > 1 {
+            latest_month - 1
+        } else {
+            0
+        }
     };
 
     // Track state as we process each month
@@ -230,7 +225,7 @@ pub(crate) fn generate_month_end_rows(
 
         // Find the last trip on or before this month-end
         for trip in &sorted {
-            if trip.date <= month_end_date {
+            if trip.start_datetime.date() <= month_end_date {
                 current_odo = trip.odometer;
                 last_trip_id = Some(trip.id.to_string());
             } else {
@@ -249,7 +244,10 @@ pub(crate) fn generate_month_end_rows(
         // This ensures month-end rows sort after the last trip of their month
         let max_trip_num_in_month = sorted
             .iter()
-            .filter(|t| t.date.month() == month && t.date <= month_end_date)
+            .filter(|t| {
+                t.start_datetime.date().month() == month
+                    && t.start_datetime.date() <= month_end_date
+            })
             .filter_map(|t| trip_numbers.get(&t.id.to_string()))
             .max()
             .copied()
@@ -326,7 +324,14 @@ pub fn calculate_trip_stats(
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
     trips.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| a.odometer.partial_cmp(&b.odometer).unwrap_or(std::cmp::Ordering::Equal))
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // If no trips, return default values
@@ -397,25 +402,15 @@ pub fn calculate_trip_stats(
     // Note: For accurate fuel level, we should use per-period rates, but for header display
     // we use the last consumption rate as a reasonable approximation
     // Start with carryover from previous year (or full tank if no previous data)
-    let mut current_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
+    let mut current_fuel =
+        get_year_start_fuel_remaining(&db, &vehicle_id, year, tank_size, tp_consumption)?;
 
     for trip in &trips {
         // Calculate fuel used for this trip
         let fuel_used = calculate_fuel_used(trip.distance_km, last_consumption_rate);
 
         // Update fuel level
-        current_fuel = calculate_fuel_level(
-            current_fuel,
-            fuel_used,
-            trip.fuel_liters,
-            tank_size,
-        );
+        current_fuel = calculate_fuel_level(current_fuel, fuel_used, trip.fuel_liters, tank_size);
     }
 
     // Check if over legal limit - ANY fill-up window must be within 120% of TP
@@ -483,21 +478,26 @@ fn get_year_start_fuel_remaining(
     // Sort previous year's trips chronologically
     let mut chronological = prev_trips;
     chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // Calculate rates for previous year
     let (rates, _) = calculate_period_rates(&chronological, tp_consumption);
 
     // Get the starting fuel for the previous year (recursive carryover)
-    let prev_year_start = get_year_start_fuel_remaining(db, vehicle_id, prev_year, tank_size, tp_consumption)?;
+    let prev_year_start =
+        get_year_start_fuel_remaining(db, vehicle_id, prev_year, tank_size, tp_consumption)?;
 
     // Calculate fuel remaining for each trip, then get the last one (year-end state)
-    let fuel_remaining = calculate_fuel_remaining(&chronological, &rates, prev_year_start, tank_size);
+    let fuel_remaining =
+        calculate_fuel_remaining(&chronological, &rates, prev_year_start, tank_size);
 
     // Get the last trip's fuel remaining (year-end state)
     let last_trip_id = chronological.last().map(|t| t.id.to_string());
@@ -539,11 +539,14 @@ fn get_year_start_battery_remaining(
     // Sort previous year's trips chronologically
     let mut chronological = prev_trips;
     chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // Get the starting battery for the previous year (recursive carryover)
@@ -562,12 +565,8 @@ fn get_year_start_battery_remaining(
         let energy_used = calculate_energy_used(trip.distance_km, baseline_rate);
 
         // Update battery
-        current_battery = calculate_battery_remaining(
-            current_battery,
-            energy_used,
-            trip.energy_kwh,
-            capacity,
-        );
+        current_battery =
+            calculate_battery_remaining(current_battery, energy_used, trip.energy_kwh, capacity);
     }
 
     Ok(current_battery)
@@ -595,13 +594,19 @@ fn get_year_start_odometer(
             // Found trips - sort and get the last one's odometer
             let mut chronological = trips;
             chronological.sort_by(|a, b| {
-                a.date.cmp(&b.date).then_with(|| {
-                    a.odometer
-                        .partial_cmp(&b.odometer)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
+                a.start_datetime
+                    .date()
+                    .cmp(&b.start_datetime.date())
+                    .then_with(|| {
+                        a.odometer
+                            .partial_cmp(&b.odometer)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
             });
-            return Ok(chronological.last().map(|t| t.odometer).unwrap_or(initial_odometer));
+            return Ok(chronological
+                .last()
+                .map(|t| t.odometer)
+                .unwrap_or(initial_odometer));
         }
         check_year -= 1;
     }
@@ -633,20 +638,11 @@ pub(crate) fn build_trip_grid_data(
     let tank_size = vehicle.tank_size_liters.unwrap_or_default();
 
     // Calculate year starting values (carryover from previous year)
-    let year_start_odometer = get_year_start_odometer(
-        db,
-        vehicle_id,
-        year,
-        vehicle.initial_odometer,
-    )?;
+    let year_start_odometer =
+        get_year_start_odometer(db, vehicle_id, year, vehicle.initial_odometer)?;
 
-    let year_start_fuel = get_year_start_fuel_remaining(
-        db,
-        vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
+    let year_start_fuel =
+        get_year_start_fuel_remaining(db, vehicle_id, year, tank_size, tp_consumption)?;
 
     if trips.is_empty() {
         return Ok(TripGridData {
@@ -686,11 +682,14 @@ pub(crate) fn build_trip_grid_data(
     // Sort chronologically for calculations (by date, then odometer)
     let mut chronological = trips.clone();
     chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // Calculate date warnings (trips sorted by sort_order)
@@ -726,8 +725,7 @@ pub(crate) fn build_trip_grid_data(
     ) = match vehicle.vehicle_type {
         VehicleType::Ice => {
             // ICE: Fuel calculations only
-            let (rates, estimated_rates) =
-                calculate_period_rates(&chronological, tp_consumption);
+            let (rates, estimated_rates) = calculate_period_rates(&chronological, tp_consumption);
             let fuel_remaining =
                 calculate_fuel_remaining(&chronological, &rates, year_start_fuel, tank_size);
             let consumption_warnings =
@@ -760,7 +758,12 @@ pub(crate) fn build_trip_grid_data(
         }
         VehicleType::Phev => {
             // PHEV: Both fuel and energy, using PHEV-specific calculations
-            let phev_data = calculate_phev_grid_data(&chronological, &vehicle, year_start_fuel, initial_battery);
+            let phev_data = calculate_phev_grid_data(
+                &chronological,
+                &vehicle,
+                year_start_fuel,
+                initial_battery,
+            );
             // Calculate consumption warnings for fuel portion only
             let consumption_warnings =
                 calculate_consumption_warnings(&trips, &phev_data.fuel_rates, tp_consumption);
@@ -962,11 +965,14 @@ pub fn calculate_magic_fill_liters(
 
     let mut chronological = trips;
     chronological.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // Parse editing_trip_id to Uuid if provided
@@ -1196,7 +1202,12 @@ fn calculate_energy_grid_data(
     let baseline_rate = vehicle.baseline_consumption_kwh.unwrap_or(0.0);
 
     if capacity <= 0.0 {
-        return (energy_rates, estimated_energy_rates, battery_kwh, battery_percent);
+        return (
+            energy_rates,
+            estimated_energy_rates,
+            battery_kwh,
+            battery_percent,
+        );
     }
 
     // Initial battery state: use year start carryover
@@ -1219,12 +1230,8 @@ fn calculate_energy_grid_data(
         let energy_used = calculate_energy_used(trip.distance_km, baseline_rate);
 
         // Update battery (subtract used, add charged)
-        current_battery = calculate_battery_remaining(
-            current_battery,
-            energy_used,
-            trip.energy_kwh,
-            capacity,
-        );
+        current_battery =
+            calculate_battery_remaining(current_battery, energy_used, trip.energy_kwh, capacity);
 
         // Store battery remaining
         battery_kwh.insert(trip_id.clone(), current_battery);
@@ -1267,7 +1274,12 @@ fn calculate_energy_grid_data(
         estimated_energy_rates.insert(id.clone());
     }
 
-    (energy_rates, estimated_energy_rates, battery_kwh, battery_percent)
+    (
+        energy_rates,
+        estimated_energy_rates,
+        battery_kwh,
+        battery_percent,
+    )
 }
 
 /// PHEV grid data calculation result
@@ -1443,14 +1455,14 @@ fn calculate_date_warnings(trips_by_sort_order: &[Trip]) -> HashSet<String> {
         };
 
         // sort_order 0 = newest (should have highest date)
-        // Check: prev.date >= trip.date >= next.date
+        // Check: prev.start_datetime.date() >= trip.start_datetime.date() >= next.start_datetime.date()
         if let Some(p) = prev {
-            if trip.date > p.date {
+            if trip.start_datetime.date() > p.start_datetime.date() {
                 warnings.insert(trip.id.to_string());
             }
         }
         if let Some(n) = next {
-            if trip.date < n.date {
+            if trip.start_datetime.date() < n.start_datetime.date() {
                 warnings.insert(trip.id.to_string());
             }
         }
@@ -1494,7 +1506,7 @@ fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<S
 
         // Check if any receipt matches this trip exactly
         let has_match = receipts.iter().any(|r| {
-            let date_match = r.receipt_date.as_ref() == Some(&trip.date);
+            let date_match = r.receipt_date == Some(trip.start_datetime.date());
             let liters_match = r.liters == trip.fuel_liters;
             let price_match = r.total_price_eur == trip.fuel_cost_eur;
             date_match && liters_match && price_match
@@ -1539,14 +1551,13 @@ pub async fn export_to_browser(
     let mut grid_data = build_trip_grid_data(&db, &vehicle_id, year)?;
 
     // Add synthetic "Prvý záznam" (first record) for export display
-    let first_record_date = NaiveDate::from_ymd_opt(year, 1, 1)
-        .ok_or_else(|| "Invalid year".to_string())?;
+    let first_record_date =
+        NaiveDate::from_ymd_opt(year, 1, 1).ok_or_else(|| "Invalid year".to_string())?;
     let first_record = Trip {
         id: Uuid::nil(),
         vehicle_id: vehicle.id,
-        date: first_record_date,
-        datetime: first_record_date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: first_record_date.and_hms_opt(0, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "-".to_string(),
         destination: "-".to_string(),
         distance_km: 0.0,
@@ -1566,14 +1577,19 @@ pub async fn export_to_browser(
         updated_at: Utc::now(),
     };
     grid_data.trips.push(first_record);
-    grid_data.fuel_remaining.insert(Uuid::nil().to_string(), grid_data.year_start_fuel);
+    grid_data
+        .fuel_remaining
+        .insert(Uuid::nil().to_string(), grid_data.year_start_fuel);
     grid_data.trip_numbers.insert(Uuid::nil().to_string(), 0);
-    grid_data.odometer_start.insert(Uuid::nil().to_string(), grid_data.year_start_odometer);
+    grid_data
+        .odometer_start
+        .insert(Uuid::nil().to_string(), grid_data.year_start_odometer);
 
     // Calculate totals (reuses grid_data.trips, excludes 0km trips)
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
     let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
-    let totals = ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
+    let totals =
+        ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
 
     let export_data = ExportData {
         vehicle,
@@ -1628,7 +1644,8 @@ pub async fn export_html(
     // Calculate totals
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
     let baseline_consumption_kwh = vehicle.baseline_consumption_kwh.unwrap_or_default();
-    let totals = ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
+    let totals =
+        ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
 
     // Generate HTML (export_html API doesn't support hidden columns, show all)
     let export_data = ExportData {
@@ -1650,7 +1667,10 @@ pub async fn export_html(
 
 use crate::gemini::is_mock_mode_enabled;
 use crate::models::{Receipt, ReceiptStatus, ReceiptVerification, VerificationResult};
-use crate::receipts::{detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts, FolderStructure};
+use crate::receipts::{
+    detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts,
+    FolderStructure,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1730,12 +1750,17 @@ pub struct ScanResult {
 /// Scan folder for new receipts without OCR processing
 /// Returns count of new files found and any folder structure warnings
 #[tauri::command]
-pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>, app_state: State<'_, AppState>) -> Result<ScanResult, String> {
+pub fn scan_receipts(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+    app_state: State<'_, AppState>,
+) -> Result<ScanResult, String> {
     check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
-    let folder_path = settings.receipts_folder_path
+    let folder_path = settings
+        .receipts_folder_path
         .ok_or("Receipts folder not configured")?;
 
     // Scan for new files (this also inserts them into DB as Pending)
@@ -1755,19 +1780,25 @@ pub fn scan_receipts(app: tauri::AppHandle, db: State<'_, Database>, app_state: 
 }
 
 #[tauri::command]
-pub async fn sync_receipts(app: tauri::AppHandle, db: State<'_, Database>, app_state: State<'_, AppState>) -> Result<SyncResult, String> {
+pub async fn sync_receipts(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+    app_state: State<'_, AppState>,
+) -> Result<SyncResult, String> {
     check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
 
-    let folder_path = settings.receipts_folder_path
+    let folder_path = settings
+        .receipts_folder_path
         .ok_or("Receipts folder not configured")?;
 
     // In mock mode, API key is not required (extract_from_image loads from JSON files)
     let api_key = if is_mock_mode_enabled() {
         String::new()
     } else {
-        settings.gemini_api_key
+        settings
+            .gemini_api_key
             .ok_or("Gemini API key not configured")?
     };
 
@@ -1813,7 +1844,8 @@ pub async fn process_pending_receipts(
     let api_key = if is_mock_mode_enabled() {
         String::new()
     } else {
-        settings.gemini_api_key
+        settings
+            .gemini_api_key
             .ok_or("Gemini API key not configured")?
     };
 
@@ -1825,11 +1857,14 @@ pub async fn process_pending_receipts(
     // Process each pending receipt with Gemini
     for (index, receipt) in pending_receipts.iter_mut().enumerate() {
         // Emit progress event
-        let _ = app.emit("receipt-processing-progress", ProcessingProgress {
-            current: index + 1,
-            total,
-            file_name: receipt.file_name.clone(),
-        });
+        let _ = app.emit(
+            "receipt-processing-progress",
+            ProcessingProgress {
+                current: index + 1,
+                total,
+                file_name: receipt.file_name.clone(),
+            },
+        );
 
         match process_receipt_with_gemini(receipt, &api_key).await {
             Ok(()) => {
@@ -1854,13 +1889,21 @@ pub async fn process_pending_receipts(
 }
 
 #[tauri::command]
-pub fn update_receipt(db: State<Database>, app_state: State<AppState>, receipt: Receipt) -> Result<(), String> {
+pub fn update_receipt(
+    db: State<Database>,
+    app_state: State<AppState>,
+    receipt: Receipt,
+) -> Result<(), String> {
     check_read_only!(app_state);
     db.update_receipt(&receipt).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn delete_receipt(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+pub fn delete_receipt(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
     db.delete_receipt(&id).map_err(|e| e.to_string())
 }
@@ -1880,11 +1923,13 @@ pub async fn reprocess_receipt(
     let api_key = if is_mock_mode_enabled() {
         String::new()
     } else {
-        settings.gemini_api_key
+        settings
+            .gemini_api_key
             .ok_or("Gemini API key not configured")?
     };
 
-    let mut receipt = db.get_receipt_by_id(&id)
+    let mut receipt = db
+        .get_receipt_by_id(&id)
         .map_err(|e| e.to_string())?
         .ok_or("Receipt not found")?;
 
@@ -1937,7 +1982,7 @@ pub fn assign_receipt_to_trip_internal(
                 true
             } else {
                 // Trip has fuel → check if receipt matches (verification)
-                let date_match = receipt.receipt_date == Some(trip.date);
+                let date_match = receipt.receipt_date == Some(trip.start_datetime.date());
                 let liters_match = trip
                     .fuel_liters
                     .map(|fl| (fl - liters).abs() < 0.01)
@@ -2051,7 +2096,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
     match (receipt.liters, receipt.total_price_eur) {
         (Some(r_liters), Some(r_price)) => {
             // Receipt has fuel data - compare with trip
-            let date_match = receipt.receipt_date == Some(trip.date);
+            let date_match = receipt.receipt_date == Some(trip.start_datetime.date());
             let liters_match = trip
                 .fuel_liters
                 .map(|fl| (fl - r_liters).abs() < 0.01)
@@ -2161,11 +2206,7 @@ pub fn verify_receipts_internal(
         .map_err(|e| e.to_string())?;
     let receipts_for_year: Vec<_> = all_receipts
         .into_iter()
-        .filter(|r| {
-            r.receipt_date
-                .map(|d| d.year() == year)
-                .unwrap_or(false)
-        })
+        .filter(|r| r.receipt_date.map(|d| d.year() == year).unwrap_or(false))
         .collect();
 
     verify_receipts_with_data(db, vehicle_id, year, receipts_for_year)
@@ -2186,7 +2227,10 @@ fn verify_receipts_with_data(
         .map_err(|e| e.to_string())?;
 
     // Separate trips with fuel and trips with other costs
-    let trips_with_fuel: Vec<_> = all_trips.iter().filter(|t| t.fuel_liters.is_some()).collect();
+    let trips_with_fuel: Vec<_> = all_trips
+        .iter()
+        .filter(|t| t.fuel_liters.is_some())
+        .collect();
     let trips_with_other_costs: Vec<_> = all_trips
         .iter()
         .filter(|t| t.other_costs_eur.is_some())
@@ -2212,34 +2256,38 @@ fn verify_receipts_with_data(
         let mut closest_match: Option<(bool, bool, bool, String)> = None;
 
         // 1. Try to match FUEL receipts (has liters) to fuel trips
-        if let (Some(receipt_date), Some(receipt_liters), Some(receipt_price)) =
-            (receipt.receipt_date, receipt.liters, receipt.total_price_eur)
-        {
+        if let (Some(receipt_date), Some(receipt_liters), Some(receipt_price)) = (
+            receipt.receipt_date,
+            receipt.liters,
+            receipt.total_price_eur,
+        ) {
             for trip in &trips_with_fuel {
                 if let (Some(trip_liters), Some(trip_price)) =
                     (trip.fuel_liters, trip.fuel_cost_eur)
                 {
                     // Match by exact date, liters (within small tolerance), and price (within small tolerance)
-                    let date_match = trip.date == receipt_date;
+                    let date_match = trip.start_datetime.date() == receipt_date;
                     let liters_match = (trip_liters - receipt_liters).abs() < 0.01;
                     let price_match = (trip_price - receipt_price).abs() < 0.01;
 
                     if date_match && liters_match && price_match {
                         matched = true;
                         matched_trip_id = Some(trip.id.to_string());
-                        matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
+                        matched_trip_date =
+                            Some(trip.start_datetime.date().format("%Y-%m-%d").to_string());
                         matched_trip_route =
                             Some(format!("{} - {}", trip.origin, trip.destination));
                         break;
                     }
 
                     // Track closest match (most fields matching)
-                    let match_count =
-                        date_match as u8 + liters_match as u8 + price_match as u8;
+                    let match_count = date_match as u8 + liters_match as u8 + price_match as u8;
                     if match_count >= 2 {
                         // At least 2 fields match - this is a close match
-                        let trip_date_str = trip.date.format("%-d.%-m.").to_string();
-                        closest_match = Some((date_match, liters_match, price_match, trip_date_str));
+                        let trip_date_str =
+                            trip.start_datetime.date().format("%-d.%-m.").to_string();
+                        closest_match =
+                            Some((date_match, liters_match, price_match, trip_date_str));
                     }
                 }
             }
@@ -2260,7 +2308,7 @@ fn verify_receipts_with_data(
                     } else if date_match && !liters_match && price_match {
                         let trip_liters = trips_with_fuel
                             .iter()
-                            .find(|t| t.date == receipt_date)
+                            .find(|t| t.start_datetime.date() == receipt_date)
                             .and_then(|t| t.fuel_liters)
                             .unwrap_or(0.0);
                         mismatch_reason = MismatchReason::LitersMismatch {
@@ -2270,7 +2318,7 @@ fn verify_receipts_with_data(
                     } else if date_match && liters_match && !price_match {
                         let trip_price = trips_with_fuel
                             .iter()
-                            .find(|t| t.date == receipt_date)
+                            .find(|t| t.start_datetime.date() == receipt_date)
                             .and_then(|t| t.fuel_cost_eur)
                             .unwrap_or(0.0);
                         mismatch_reason = MismatchReason::PriceMismatch {
@@ -2301,7 +2349,8 @@ fn verify_receipts_with_data(
                         if price_match {
                             matched = true;
                             matched_trip_id = Some(trip.id.to_string());
-                            matched_trip_date = Some(trip.date.format("%Y-%m-%d").to_string());
+                            matched_trip_date =
+                                Some(trip.start_datetime.date().format("%Y-%m-%d").to_string());
                             matched_trip_route =
                                 Some(format!("{} - {}", trip.origin, trip.destination));
                             break;
@@ -2434,23 +2483,22 @@ pub fn preview_trip_calculation(
         trips
             .iter()
             .find(|t| t.sort_order == sort_order)
-            .map(|t| (t.date, t.odometer - 0.5))
+            .map(|t| (t.start_datetime.date(), t.odometer - 0.5))
             .unwrap_or_else(|| (NaiveDate::from_ymd_opt(year, 12, 31).unwrap(), 0.0))
     } else {
         // New row at top - use the most recent trip's date and odometer + 0.5
         trips
             .iter()
-            .max_by_key(|t| (t.date, t.odometer as i64))
-            .map(|t| (t.date, t.odometer + 0.5))
+            .max_by_key(|t| (t.start_datetime.date(), t.odometer as i64))
+            .map(|t| (t.start_datetime.date(), t.odometer + 0.5))
             .unwrap_or_else(|| (Utc::now().date_naive(), 0.0))
     };
 
     let virtual_trip = Trip {
         id: preview_trip_id,
         vehicle_id: Uuid::parse_str(&vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
-        date: preview_date,
-        datetime: preview_date.and_hms_opt(0, 0, 0).unwrap(),
-        end_time: None,
+        start_datetime: preview_date.and_hms_opt(0, 0, 0).unwrap(),
+        end_datetime: None,
         origin: "Preview".to_string(),
         destination: "Preview".to_string(),
         distance_km: distance_km as f64,
@@ -2480,9 +2528,8 @@ pub fn preview_trip_calculation(
             let modified_trip = Trip {
                 id: existing.id,
                 vehicle_id: existing.vehicle_id,
-                date: existing.date,
-                datetime: existing.datetime,
-                end_time: existing.end_time.clone(),
+                start_datetime: existing.start_datetime,
+                end_datetime: existing.end_datetime,
                 origin: existing.origin.clone(),
                 destination: existing.destination.clone(),
                 distance_km: distance_km as f64,
@@ -2511,11 +2558,14 @@ pub fn preview_trip_calculation(
 
     // Sort chronologically for calculations
     trips.sort_by(|a, b| {
-        a.date.cmp(&b.date).then_with(|| {
-            a.odometer
-                .partial_cmp(&b.odometer)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+        a.start_datetime
+            .date()
+            .cmp(&b.start_datetime.date())
+            .then_with(|| {
+                a.odometer
+                    .partial_cmp(&b.odometer)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     });
 
     // Calculate rates and remaining fuel (ICE vehicles only for now)
@@ -2526,13 +2576,8 @@ pub fn preview_trip_calculation(
     let (rates, estimated_rates) = calculate_period_rates(&trips, tp_consumption);
 
     // Get initial fuel (carryover from previous year)
-    let initial_fuel = get_year_start_fuel_remaining(
-        &db,
-        &vehicle_id,
-        year,
-        tank_size,
-        tp_consumption,
-    )?;
+    let initial_fuel =
+        get_year_start_fuel_remaining(&db, &vehicle_id, year, tank_size, tp_consumption)?;
 
     let fuel_remaining = calculate_fuel_remaining(&trips, &rates, initial_fuel, tank_size);
 
@@ -2564,7 +2609,10 @@ pub fn preview_trip_calculation(
 
 #[tauri::command]
 pub fn get_theme_preference(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_data_dir);
     Ok(settings.theme.unwrap_or_else(|| "system".to_string()))
 }
@@ -2573,10 +2621,16 @@ pub fn get_theme_preference(app_handle: tauri::AppHandle) -> Result<String, Stri
 pub fn set_theme_preference(app_handle: tauri::AppHandle, theme: String) -> Result<(), String> {
     // Validate
     if !["system", "light", "dark"].contains(&theme.as_str()) {
-        return Err(format!("Invalid theme: {}. Must be system, light, or dark", theme));
+        return Err(format!(
+            "Invalid theme: {}. Must be system, light, or dark",
+            theme
+        ));
     }
 
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.theme = Some(theme);
 
@@ -2594,7 +2648,10 @@ pub fn set_theme_preference(app_handle: tauri::AppHandle, theme: String) -> Resu
 
 #[tauri::command]
 pub fn get_auto_check_updates(app_handle: tauri::AppHandle) -> Result<bool, String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_data_dir);
     // Default to true if not set
     Ok(settings.auto_check_updates.unwrap_or(true))
@@ -2602,7 +2659,10 @@ pub fn get_auto_check_updates(app_handle: tauri::AppHandle) -> Result<bool, Stri
 
 #[tauri::command]
 pub fn set_auto_check_updates(app_handle: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.auto_check_updates = Some(enabled);
 
@@ -2620,7 +2680,10 @@ pub fn set_auto_check_updates(app_handle: tauri::AppHandle, enabled: bool) -> Re
 
 #[tauri::command]
 pub fn get_date_prefill_mode(app_handle: tauri::AppHandle) -> Result<DatePrefillMode, String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_data_dir);
     // Default to Previous if not set
     Ok(settings.date_prefill_mode.unwrap_or_default())
@@ -2631,7 +2694,10 @@ pub fn set_date_prefill_mode(
     app_handle: tauri::AppHandle,
     mode: DatePrefillMode,
 ) -> Result<(), String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.date_prefill_mode = Some(mode);
 
@@ -2649,7 +2715,10 @@ pub fn set_date_prefill_mode(
 
 #[tauri::command]
 pub fn get_hidden_columns(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_data_dir);
     // Default to empty array (all columns visible) if not set
     Ok(settings.hidden_columns.unwrap_or_default())
@@ -2660,7 +2729,10 @@ pub fn set_hidden_columns(
     app_handle: tauri::AppHandle,
     columns: Vec<String>,
 ) -> Result<(), String> {
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.hidden_columns = Some(columns);
     settings.save(&app_data_dir).map_err(|e| e.to_string())
@@ -2763,7 +2835,7 @@ pub fn move_database(
     app_state: State<AppState>,
     target_folder: String,
 ) -> Result<MoveDbResult, String> {
-    use crate::db_location::{DbPaths, acquire_lock, release_lock};
+    use crate::db_location::{acquire_lock, release_lock, DbPaths};
 
     check_read_only!(app_state);
 
@@ -2776,9 +2848,11 @@ pub fn move_database(
     }
 
     // Get current database path from app state
-    let current_path = app_state.get_db_path()
+    let current_path = app_state
+        .get_db_path()
         .ok_or("Cesta k databáze nie je nastavená")?;
-    let current_dir = current_path.parent()
+    let current_dir = current_path
+        .parent()
         .ok_or("Neplatná cesta k databáze")?
         .to_path_buf();
 
@@ -2809,10 +2883,14 @@ pub fn move_database(
     }
 
     // Update local.settings.json with new custom path
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.custom_db_path = Some(target_folder.clone());
-    settings.save(&app_data_dir)
+    settings
+        .save(&app_data_dir)
         .map_err(|e| format!("Nepodarilo sa uložiť nastavenia: {}", e))?;
 
     // Create lock file in new location
@@ -2845,17 +2923,22 @@ pub fn reset_database_location(
     app_handle: tauri::AppHandle,
     app_state: State<AppState>,
 ) -> Result<MoveDbResult, String> {
-    use crate::db_location::{DbPaths, acquire_lock, release_lock};
+    use crate::db_location::{acquire_lock, release_lock, DbPaths};
 
     check_read_only!(app_state);
 
     // Get app data directory (default location)
-    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
 
     // Get current database path
-    let current_path = app_state.get_db_path()
+    let current_path = app_state
+        .get_db_path()
         .ok_or("Cesta k databáze nie je nastavená")?;
-    let current_dir = current_path.parent()
+    let current_dir = current_path
+        .parent()
         .ok_or("Neplatná cesta k databáze")?
         .to_path_buf();
 
@@ -2886,7 +2969,8 @@ pub fn reset_database_location(
     // Clear custom_db_path in settings
     let mut settings = LocalSettings::load(&app_data_dir);
     settings.custom_db_path = None;
-    settings.save(&app_data_dir)
+    settings
+        .save(&app_data_dir)
         .map_err(|e| format!("Nepodarilo sa uložiť nastavenia: {}", e))?;
 
     // Create lock in new location
@@ -2932,7 +3016,12 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
 /// Helper: Count files in a directory.
 fn count_files(dir: &PathBuf) -> usize {
     std::fs::read_dir(dir)
-        .map(|entries| entries.filter_map(|e| e.ok()).filter(|e| e.path().is_file()).count())
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_file())
+                .count()
+        })
         .unwrap_or(0)
 }
 
@@ -2983,11 +3072,7 @@ pub fn set_receipts_folder_path(
     let mut settings = LocalSettings::load(&app_data_dir);
 
     // Allow empty string to clear the path
-    settings.receipts_folder_path = if path.is_empty() {
-        None
-    } else {
-        Some(path)
-    };
+    settings.receipts_folder_path = if path.is_empty() { None } else { Some(path) };
 
     settings.save(&app_data_dir).map_err(|e| e.to_string())
 }
@@ -3025,7 +3110,9 @@ pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsRespons
 /// Get HA settings including token for frontend to make API calls.
 /// This is needed because the frontend needs the token to call HA directly.
 #[tauri::command]
-pub fn get_local_settings_for_ha(app_handle: tauri::AppHandle) -> Result<HaLocalSettingsResponse, String> {
+pub fn get_local_settings_for_ha(
+    app_handle: tauri::AppHandle,
+) -> Result<HaLocalSettingsResponse, String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
     let settings = LocalSettings::load(&app_data_dir);
     Ok(HaLocalSettingsResponse {
@@ -3040,7 +3127,11 @@ pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, St
     let app_data_dir = get_app_data_dir(&app_handle)?;
     println!("[HA test] Loading settings from: {:?}", app_data_dir);
     let settings = LocalSettings::load(&app_data_dir);
-    println!("[HA test] ha_url: {:?}, has_token: {}", settings.ha_url, settings.ha_api_token.is_some());
+    println!(
+        "[HA test] ha_url: {:?}, has_token: {}",
+        settings.ha_url,
+        settings.ha_api_token.is_some()
+    );
 
     let url = settings.ha_url.ok_or("HA URL not configured")?;
     let token = settings.ha_api_token.ok_or("HA token not configured")?;
@@ -3065,7 +3156,11 @@ pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, St
         })?;
 
     let is_ok = response.status().is_success();
-    println!("[HA test] Response: {} ({})", response.status(), if is_ok { "OK" } else { "FAILED" });
+    println!(
+        "[HA test] Response: {} ({})",
+        response.status(),
+        if is_ok { "OK" } else { "FAILED" }
+    );
     Ok(is_ok)
 }
 
@@ -3174,6 +3269,6 @@ pub fn save_ha_settings(
     settings.save(&app_data_dir).map_err(|e| e.to_string())
 }
 
-  #[cfg(test)]
-  #[path = "commands_tests.rs"]
-  mod tests;
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod tests;

@@ -466,7 +466,10 @@ fn test_excel_integration_full_flow() {
         "Fill-up 2: {:.4} l/100km (margin: {:.2}%)",
         expected_rate2, margin2
     );
-    println!("Final fuel_level: {:.2} L (tank: {} L)", fuel_level, tank_size);
+    println!(
+        "Final fuel_level: {:.2} L (tank: {} L)",
+        fuel_level, tank_size
+    );
 }
 
 // ============================================================================
@@ -478,14 +481,15 @@ use uuid::Uuid;
 
 fn make_trip(distance_km: f64, fuel_liters: Option<f64>, full_tank: bool) -> Trip {
     let now = chrono::Utc::now();
-    let date = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
-    let datetime = date.and_hms_opt(0, 0, 0).unwrap();
+    let start_datetime = chrono::NaiveDate::from_ymd_opt(2026, 1, 1)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
-        date,
-        datetime,
-        end_time: None,
+        start_datetime,
+        end_datetime: None,
         odometer: 10000.0,
         distance_km,
         origin: "A".to_string(),
@@ -536,9 +540,9 @@ fn test_closed_period_totals_open_period_excluded() {
     // Closed period + open period after
     let trips = vec![
         make_trip(100.0, None, false),
-        make_trip(50.0, Some(15.0), true),  // Closes period: 15L / 150km
-        make_trip(200.0, None, false),       // Open period - excluded
-        make_trip(100.0, None, false),       // Open period - excluded
+        make_trip(50.0, Some(15.0), true), // Closes period: 15L / 150km
+        make_trip(200.0, None, false),     // Open period - excluded
+        make_trip(100.0, None, false),     // Open period - excluded
     ];
     let (fuel, km) = super::calculate_closed_period_totals(&trips);
     assert_eq!(fuel, 15.0);
@@ -550,13 +554,13 @@ fn test_closed_period_totals_multiple_periods() {
     // Two closed periods
     let trips = vec![
         make_trip(100.0, None, false),
-        make_trip(100.0, Some(20.0), true),  // Period 1: 20L / 200km
+        make_trip(100.0, Some(20.0), true), // Period 1: 20L / 200km
         make_trip(150.0, None, false),
-        make_trip(50.0, Some(18.0), true),   // Period 2: 18L / 200km
+        make_trip(50.0, Some(18.0), true), // Period 2: 18L / 200km
     ];
     let (fuel, km) = super::calculate_closed_period_totals(&trips);
-    assert_eq!(fuel, 38.0);  // 20 + 18
-    assert_eq!(km, 400.0);   // 200 + 200
+    assert_eq!(fuel, 38.0); // 20 + 18
+    assert_eq!(km, 400.0); // 200 + 200
 }
 
 #[test]
@@ -564,9 +568,9 @@ fn test_closed_period_totals_partial_then_full() {
     // Partial fill-ups accumulated into full fill-up
     let trips = vec![
         make_trip(100.0, None, false),
-        make_trip(50.0, Some(10.0), false),  // Partial: 10L accumulated
+        make_trip(50.0, Some(10.0), false), // Partial: 10L accumulated
         make_trip(100.0, None, false),
-        make_trip(50.0, Some(15.0), true),   // Full: closes with 10+15=25L / 300km
+        make_trip(50.0, Some(15.0), true), // Full: closes with 10+15=25L / 300km
     ];
     let (fuel, km) = super::calculate_closed_period_totals(&trips);
     assert_eq!(fuel, 25.0);
@@ -585,7 +589,8 @@ fn test_fuel_level_equals_tank_after_fillup() {
     let trip_km = 100.0;
     let fuel_used = calculate_fuel_used(trip_km, rate); // 6.0L
     let fuel_needed = tank_size - (fuel_level_before - fuel_used); // 66 - (20 - 6) = 52L
-    let fuel_level = calculate_fuel_level(fuel_level_before, fuel_used, Some(fuel_needed), tank_size);
+    let fuel_level =
+        calculate_fuel_level(fuel_level_before, fuel_used, Some(fuel_needed), tank_size);
     assert!(
         (fuel_level - tank_size).abs() < 0.001,
         "Full tank fill-up: expected {}, got {}",
@@ -605,7 +610,11 @@ fn test_fuel_level_equals_tank_after_fillup() {
     // Scenario 3: Multiple small fill-ups
     let mut z = 50.0;
     z = calculate_fuel_level(z, 10.0, Some(16.0), tank_size); // 50 - 10 + 16 = 56
-    assert!((z - 56.0).abs() < 0.001, "Partial fill: expected 56, got {}", z);
+    assert!(
+        (z - 56.0).abs() < 0.001,
+        "Partial fill: expected 56, got {}",
+        z
+    );
     z = calculate_fuel_level(z, 5.0, Some(15.0), tank_size); // 56 - 5 + 15 = 66
     assert!(
         (z - tank_size).abs() < 0.001,
