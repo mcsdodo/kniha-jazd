@@ -7,12 +7,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
-### Zmenené
-- **Zlúčené vstupy dátumu a času** - namiesto samostatných polí pre dátum a čas je teraz jeden datetime picker pre začiatok a jeden pre koniec jazdy
-  - Pri novej jazde sa čas konca automaticky nastaví na rovnaký ako začiatok
-  - Zobrazenie vo formáte DD.MM. HH:MM (rok je v dropdown výbere)
-  - HTML export zobrazuje rovnaký formát (Začiatok / Koniec namiesto Dátum / Čas od / Čas do)
-  - Prepínač "Koniec" v menu stĺpcov skrýva len čas konca (začiatok je vždy viditeľný)
+## [0.28.0] - 2026-01-30
 
 ### Pridané
 - **Zákonná zhoda pre knihu jázd (od 1.1.2026)** - nové stĺpce podľa zákona:
@@ -23,15 +18,20 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Všetky nové stĺpce sú voliteľne skrývateľné cez ikonu oka
   - Zahrnuté v HTML exporte
 
+### Zmenené
+- **Zlúčené vstupy dátumu a času** - namiesto samostatných polí pre dátum a čas je teraz jeden datetime picker pre začiatok a jeden pre koniec jazdy
+  - Pri novej jazde sa čas konca automaticky nastaví na rovnaký ako začiatok
+  - Zobrazenie vo formáte DD.MM. HH:MM (rok je v dropdown výbere)
+  - HTML export zobrazuje rovnaký formát (Začiatok / Koniec namiesto Dátum / Čas od / Čas do)
+  - Prepínač "Koniec" v menu stĺpcov skrýva len čas konca (začiatok je vždy viditeľný)
+- **Umelé riadky konca mesiaca** - zobrazujú sa vždy pre uzavreté mesiace (stav ODO a paliva na konci obdobia)
+
 ### Opravené
 - **Umelé riadky december** - riadky konca mesiaca pre december sa teraz zobrazujú v minulých rokoch (2025 a staršie)
 - **Export "Prvý záznam"** - zostatok paliva zobrazuje správnu hodnotu (prenášanú z predchádzajúceho roka alebo plnú nádrž) namiesto 0
 - **Triedenie jázd** - konzistentné triedenie (najnovšie hore) vo všetkých rokoch
 - **Export čísla jazdy** - stĺpec # v exporte zobrazuje správne poradové čísla (nie 0)
 - **Výber stĺpcov** - odstránené nefunkčné prepínače "Čas od"/"Čas do", nahradené jedným "Čas (od/do)"
-
-### Zmenené
-- **Umelé riadky konca mesiaca** - zobrazujú sa vždy pre uzavreté mesiace (stav ODO a paliva na konci obdobia)
 
 ## [0.27.2] - 2026-01-28
 
