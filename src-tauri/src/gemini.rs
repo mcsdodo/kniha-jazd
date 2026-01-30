@@ -17,20 +17,20 @@ pub struct ExtractedReceipt {
     pub receipt_date: Option<String>, // YYYY-MM-DD format
     pub station_name: Option<String>,
     pub station_address: Option<String>,
-    pub vendor_name: Option<String>,        // For non-fuel receipts: company/shop name
-    pub cost_description: Option<String>,   // For non-fuel receipts: brief description
-    pub original_amount: Option<f64>,       // Raw amount from OCR (in original currency)
-    pub original_currency: Option<String>,  // "EUR", "CZK", "HUF", "PLN"
+    pub vendor_name: Option<String>, // For non-fuel receipts: company/shop name
+    pub cost_description: Option<String>, // For non-fuel receipts: brief description
+    pub original_amount: Option<f64>, // Raw amount from OCR (in original currency)
+    pub original_currency: Option<String>, // "EUR", "CZK", "HUF", "PLN"
     pub raw_text: Option<String>,
     pub confidence: ExtractionConfidence,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ExtractionConfidence {
-    pub liters: String,      // "high", "medium", "low"
+    pub liters: String, // "high", "medium", "low"
     pub total_price: String,
     pub date: String,
-    pub currency: String,    // confidence in currency detection
+    pub currency: String, // confidence in currency detection
 }
 
 impl Default for ExtractedReceipt {
@@ -285,7 +285,8 @@ impl GeminiClient {
         }
 
         // Read and encode image
-        let image_data = tokio::fs::read(image_path).await
+        let image_data = tokio::fs::read(image_path)
+            .await
             .map_err(|e| format!("Failed to read image: {}", e))?;
         let base64_image = STANDARD.encode(&image_data);
 
@@ -302,7 +303,9 @@ impl GeminiClient {
         let request = GeminiRequest {
             contents: vec![Content {
                 parts: vec![
-                    Part::Text { text: EXTRACTION_PROMPT.to_string() },
+                    Part::Text {
+                        text: EXTRACTION_PROMPT.to_string(),
+                    },
                     Part::InlineData {
                         inline_data: InlineData {
                             mime_type: mime_type.to_string(),
@@ -323,7 +326,8 @@ impl GeminiClient {
             self.api_key
         );
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&request)
@@ -461,7 +465,10 @@ mod tests {
         assert_eq!(extracted.original_currency, Some("EUR".to_string()));
         assert_eq!(extracted.receipt_date, Some("2024-12-16".to_string()));
         assert_eq!(extracted.vendor_name, Some("AutoUmyváreň SK".to_string()));
-        assert_eq!(extracted.cost_description, Some("Umytie auta - komplet".to_string()));
+        assert_eq!(
+            extracted.cost_description,
+            Some("Umytie auta - komplet".to_string())
+        );
         assert_eq!(extracted.confidence.liters, "not_applicable");
         // Fuel-specific fields should be null for non-fuel receipts
         assert!(extracted.station_name.is_none());

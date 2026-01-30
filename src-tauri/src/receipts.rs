@@ -38,10 +38,7 @@ pub fn detect_folder_structure(path: &str) -> FolderStructure {
 
     for entry in entries.flatten() {
         let entry_path = entry.path();
-        let file_name = entry
-            .file_name()
-            .to_string_lossy()
-            .to_string();
+        let file_name = entry.file_name().to_string_lossy().to_string();
 
         if entry_path.is_file() {
             // Check if it's a supported image file
@@ -70,7 +67,11 @@ pub fn detect_folder_structure(path: &str) -> FolderStructure {
     }
 
     // Determine structure based on what we found
-    match (has_files, year_folders.is_empty(), non_year_folders.is_empty()) {
+    match (
+        has_files,
+        year_folders.is_empty(),
+        non_year_folders.is_empty(),
+    ) {
         // Only files (no folders) -> Flat
         (true, true, true) => FolderStructure::Flat,
 
@@ -85,26 +86,26 @@ pub fn detect_folder_structure(path: &str) -> FolderStructure {
 
         // Files + year folders -> Invalid (mixed)
         (true, false, _) => FolderStructure::Invalid(
-            "Mixed structure: contains both image files and year folders".to_string()
+            "Mixed structure: contains both image files and year folders".to_string(),
         ),
 
         // Files + non-year folders -> Invalid (mixed)
-        (true, _, false) => FolderStructure::Invalid(
-            format!("Mixed structure: contains both image files and non-year folders: {}",
-                    non_year_folders.join(", "))
-        ),
+        (true, _, false) => FolderStructure::Invalid(format!(
+            "Mixed structure: contains both image files and non-year folders: {}",
+            non_year_folders.join(", ")
+        )),
 
         // Only non-year folders -> Invalid
-        (false, true, false) => FolderStructure::Invalid(
-            format!("Invalid folder names (expected 4-digit years): {}",
-                    non_year_folders.join(", "))
-        ),
+        (false, true, false) => FolderStructure::Invalid(format!(
+            "Invalid folder names (expected 4-digit years): {}",
+            non_year_folders.join(", ")
+        )),
 
         // Year folders + non-year folders -> Invalid
-        (false, false, false) => FolderStructure::Invalid(
-            format!("Mixed folder types: year folders and non-year folders: {}",
-                    non_year_folders.join(", "))
-        ),
+        (false, false, false) => FolderStructure::Invalid(format!(
+            "Mixed folder types: year folders and non-year folders: {}",
+            non_year_folders.join(", ")
+        )),
     }
 }
 
@@ -133,9 +134,7 @@ pub fn scan_folder_for_new_receipts(
             }
             Ok(all_receipts)
         }
-        FolderStructure::Invalid(reason) => {
-            Err(format!("Invalid folder structure: {}", reason))
-        }
+        FolderStructure::Invalid(reason) => Err(format!("Invalid folder structure: {}", reason)),
     }
 }
 
@@ -155,8 +154,8 @@ fn scan_files_in_folder(
 
     let mut new_receipts = Vec::new();
 
-    let entries = std::fs::read_dir(path)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries =
+        std::fs::read_dir(path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in entries.flatten() {
         let file_path = entry.path();
@@ -172,14 +171,18 @@ fn scan_files_in_folder(
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase());
 
-        if !extension.map(|e| SUPPORTED_EXTENSIONS.contains(&e.as_str())).unwrap_or(false) {
+        if !extension
+            .map(|e| SUPPORTED_EXTENSIONS.contains(&e.as_str()))
+            .unwrap_or(false)
+        {
             continue;
         }
 
         let file_path_str = file_path.to_string_lossy().to_string();
 
         // Check if already processed
-        if db.get_receipt_by_file_path(&file_path_str)
+        if db
+            .get_receipt_by_file_path(&file_path_str)
             .map_err(|e| e.to_string())?
             .is_some()
         {
@@ -234,7 +237,8 @@ fn parse_confidence(s: &str) -> ConfidenceLevel {
 
 fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceipt) {
     receipt.liters = extracted.liters;
-    receipt.receipt_date = extracted.receipt_date
+    receipt.receipt_date = extracted
+        .receipt_date
         .and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok());
     receipt.station_name = extracted.station_name;
     receipt.station_address = extracted.station_address;
@@ -250,8 +254,8 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
     // Foreign currency: leave total_price_eur as None (user must convert)
     receipt.total_price_eur = match extracted.original_currency.as_deref() {
         Some("EUR") => extracted.original_amount,
-        Some(_) => None,  // Foreign currency: user must convert manually
-        None => extracted.total_price_eur,  // Backward compatibility: use legacy field if no currency
+        Some(_) => None, // Foreign currency: user must convert manually
+        None => extracted.total_price_eur, // Backward compatibility: use legacy field if no currency
     };
 
     // Map confidence from API response to typed struct
@@ -268,14 +272,13 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
         Some("CZK") | Some("HUF") | Some("PLN")
     );
 
-    let has_uncertainty =
-        matches!(receipt.confidence.liters, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
+    let has_uncertainty = matches!(receipt.confidence.liters, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
         || matches!(receipt.confidence.total_price, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
         || matches!(receipt.confidence.date, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
         || (receipt.liters.is_none() && receipt.vendor_name.is_none()) // Neither fuel nor other cost
         || receipt.original_amount.is_none()
         || receipt.receipt_date.is_none()
-        || is_foreign_currency;  // Foreign currency needs user conversion
+        || is_foreign_currency; // Foreign currency needs user conversion
 
     if has_uncertainty {
         receipt.status = ReceiptStatus::NeedsReview;

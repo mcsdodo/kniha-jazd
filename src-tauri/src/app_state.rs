@@ -135,7 +135,10 @@ mod tests {
         assert!(!state.is_custom_path());
 
         state.set_db_path(PathBuf::from("/custom/db.sqlite"), true);
-        assert_eq!(state.get_db_path(), Some(PathBuf::from("/custom/db.sqlite")));
+        assert_eq!(
+            state.get_db_path(),
+            Some(PathBuf::from("/custom/db.sqlite"))
+        );
         assert!(state.is_custom_path());
     }
 

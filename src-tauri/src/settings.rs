@@ -19,22 +19,22 @@ pub struct BackupRetention {
 pub enum DatePrefillMode {
     #[default]
     Previous, // Prefill with last trip date + 1 day
-    Today,    // Prefill with today's date
+    Today, // Prefill with today's date
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalSettings {
     pub gemini_api_key: Option<String>,
     pub receipts_folder_path: Option<String>,
-    pub theme: Option<String>,              // "system" | "light" | "dark"
-    pub auto_check_updates: Option<bool>,   // true by default if None
-    pub custom_db_path: Option<String>,     // Custom database location (e.g., Google Drive, NAS)
+    pub theme: Option<String>,            // "system" | "light" | "dark"
+    pub auto_check_updates: Option<bool>, // true by default if None
+    pub custom_db_path: Option<String>,   // Custom database location (e.g., Google Drive, NAS)
     pub backup_retention: Option<BackupRetention>, // Backup retention settings for auto-cleanup
     pub date_prefill_mode: Option<DatePrefillMode>, // Date prefill for new trip entries
     pub hidden_columns: Option<Vec<String>>, // Hidden trip grid columns (e.g., ["time", "fuelConsumed"])
     // Home Assistant integration
-    pub ha_url: Option<String>,             // Home Assistant URL (e.g., "http://homeassistant.local:8123")
-    pub ha_api_token: Option<String>,       // Long-lived access token
+    pub ha_url: Option<String>, // Home Assistant URL (e.g., "http://homeassistant.local:8123")
+    pub ha_api_token: Option<String>, // Long-lived access token
 }
 
 impl LocalSettings {
@@ -101,7 +101,8 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(br#"{"gemini_api_key": "only-key"}"#).unwrap();
+        file.write_all(br#"{"gemini_api_key": "only-key"}"#)
+            .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(settings.gemini_api_key, Some("only-key".to_string()));
@@ -125,10 +126,14 @@ mod tests {
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
         // Use forward slashes for cross-platform compatibility
-        file.write_all(br#"{"custom_db_path": "D:/GoogleDrive/kniha-jazd"}"#).unwrap();
+        file.write_all(br#"{"custom_db_path": "D:/GoogleDrive/kniha-jazd"}"#)
+            .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
-        assert_eq!(settings.custom_db_path, Some("D:/GoogleDrive/kniha-jazd".to_string()));
+        assert_eq!(
+            settings.custom_db_path,
+            Some("D:/GoogleDrive/kniha-jazd".to_string())
+        );
     }
 
     #[test]
@@ -145,7 +150,10 @@ mod tests {
         assert!(path.exists());
 
         let loaded = LocalSettings::load(&dir.path().to_path_buf());
-        assert_eq!(loaded.custom_db_path, Some("D:/GoogleDrive/kniha-jazd".to_string()));
+        assert_eq!(
+            loaded.custom_db_path,
+            Some("D:/GoogleDrive/kniha-jazd".to_string())
+        );
     }
 
     #[test]
@@ -173,7 +181,10 @@ mod tests {
         assert_eq!(loaded.auto_check_updates, Some(false));
         assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
         assert_eq!(loaded.date_prefill_mode, Some(DatePrefillMode::Today));
-        assert_eq!(loaded.hidden_columns, Some(vec!["time".to_string(), "fuelConsumed".to_string()]));
+        assert_eq!(
+            loaded.hidden_columns,
+            Some(vec!["time".to_string(), "fuelConsumed".to_string()])
+        );
         assert_eq!(loaded.ha_url, Some("http://ha.local:8123".to_string()));
         assert_eq!(loaded.ha_api_token, Some("token123".to_string()));
     }
@@ -184,7 +195,8 @@ mod tests {
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
         // BackupRetention uses camelCase for JSON fields (keepCount not keep_count)
-        file.write_all(br#"{"backup_retention": {"enabled": true, "keepCount": 5}}"#).unwrap();
+        file.write_all(br#"{"backup_retention": {"enabled": true, "keepCount": 5}}"#)
+            .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert!(settings.backup_retention.is_some());
@@ -221,7 +233,8 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(br#"{"date_prefill_mode": "today"}"#).unwrap();
+        file.write_all(br#"{"date_prefill_mode": "today"}"#)
+            .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(settings.date_prefill_mode, Some(DatePrefillMode::Today));
@@ -255,12 +268,17 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(br#"{"hidden_columns": ["time", "fuelConsumed", "otherCostsNote"]}"#).unwrap();
+        file.write_all(br#"{"hidden_columns": ["time", "fuelConsumed", "otherCostsNote"]}"#)
+            .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
         assert_eq!(
             settings.hidden_columns,
-            Some(vec!["time".to_string(), "fuelConsumed".to_string(), "otherCostsNote".to_string()])
+            Some(vec![
+                "time".to_string(),
+                "fuelConsumed".to_string(),
+                "otherCostsNote".to_string()
+            ])
         );
     }
 
@@ -286,7 +304,10 @@ mod tests {
         settings.save(&dir.path().to_path_buf()).unwrap();
 
         let loaded = LocalSettings::load(&dir.path().to_path_buf());
-        assert_eq!(loaded.hidden_columns, Some(vec!["time".to_string(), "fuelRemaining".to_string()]));
+        assert_eq!(
+            loaded.hidden_columns,
+            Some(vec!["time".to_string(), "fuelRemaining".to_string()])
+        );
     }
 
     // Home Assistant tests
@@ -303,10 +324,16 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("local.settings.json");
         let mut file = fs::File::create(&path).unwrap();
-        file.write_all(br#"{"ha_url": "http://homeassistant.local:8123", "ha_api_token": "secret-token"}"#).unwrap();
+        file.write_all(
+            br#"{"ha_url": "http://homeassistant.local:8123", "ha_api_token": "secret-token"}"#,
+        )
+        .unwrap();
 
         let settings = LocalSettings::load(&dir.path().to_path_buf());
-        assert_eq!(settings.ha_url, Some("http://homeassistant.local:8123".to_string()));
+        assert_eq!(
+            settings.ha_url,
+            Some("http://homeassistant.local:8123".to_string())
+        );
         assert_eq!(settings.ha_api_token, Some("secret-token".to_string()));
     }
 

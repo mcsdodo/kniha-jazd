@@ -156,8 +156,8 @@ pub fn acquire_lock(lock_path: &PathBuf, app_version: &str) -> io::Result<()> {
         pid: std::process::id(),
     };
 
-    let json = serde_json::to_string_pretty(&lock)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json =
+        serde_json::to_string_pretty(&lock).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     // Ensure parent directory exists
     if let Some(parent) = lock_path.parent() {
@@ -185,8 +185,8 @@ pub fn refresh_lock(lock_path: &PathBuf) -> io::Result<()> {
 
     lock.last_heartbeat = Utc::now();
 
-    let json = serde_json::to_string_pretty(&lock)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json =
+        serde_json::to_string_pretty(&lock).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     let mut file = fs::File::create(lock_path)?;
     file.write_all(json.as_bytes())?;
@@ -385,4 +385,3 @@ mod tests {
         assert!(!lock.pc_name.is_empty());
     }
 }
-

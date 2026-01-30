@@ -64,7 +64,9 @@ fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
 fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
     let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
     match (backup_type, update_version) {
-        ("pre-update", Some(version)) => format!("kniha-jazd-backup-{}-pre-v{}.db", timestamp, version),
+        ("pre-update", Some(version)) => {
+            format!("kniha-jazd-backup-{}-pre-v{}.db", timestamp, version)
+        }
         _ => format!("kniha-jazd-backup-{}.db", timestamp),
     }
 }
@@ -100,7 +102,11 @@ fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<Backup
 // ============================================================================
 
 #[tauri::command]
-pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: State<AppState>) -> Result<BackupInfo, String> {
+pub fn create_backup(
+    app: tauri::AppHandle,
+    db: State<Database>,
+    app_state: State<AppState>,
+) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
     let db_paths = get_db_paths(&app)?;
 
@@ -125,7 +131,9 @@ pub fn create_backup(app: tauri::AppHandle, db: State<Database>, app_state: Stat
     // Count trips across all vehicles
     let mut trip_count = 0;
     for vehicle in &vehicles {
-        let trips = db.get_trips_for_vehicle(&vehicle.id.to_string()).map_err(|e| e.to_string())?;
+        let trips = db
+            .get_trips_for_vehicle(&vehicle.id.to_string())
+            .map_err(|e| e.to_string())?;
         trip_count += trips.len() as i32;
     }
 
@@ -173,7 +181,9 @@ pub fn create_backup_with_type(
     // Count trips across all vehicles
     let mut trip_count = 0;
     for vehicle in &vehicles {
-        let trips = db.get_trips_for_vehicle(&vehicle.id.to_string()).map_err(|e| e.to_string())?;
+        let trips = db
+            .get_trips_for_vehicle(&vehicle.id.to_string())
+            .map_err(|e| e.to_string())?;
         trip_count += trips.len() as i32;
     }
 
@@ -193,12 +203,18 @@ pub fn create_backup_with_type(
 
 /// Get preview of pre-update backups that would be deleted
 #[tauri::command]
-pub fn get_cleanup_preview(app: tauri::AppHandle, keep_count: u32) -> Result<CleanupPreview, String> {
+pub fn get_cleanup_preview(
+    app: tauri::AppHandle,
+    keep_count: u32,
+) -> Result<CleanupPreview, String> {
     let all_backups = list_backups(app)?;
     let to_delete = get_cleanup_candidates(&all_backups, keep_count);
     let total_bytes: u64 = to_delete.iter().map(|b| b.size_bytes).sum();
 
-    Ok(CleanupPreview { to_delete, total_bytes })
+    Ok(CleanupPreview {
+        to_delete,
+        total_bytes,
+    })
 }
 
 /// Delete old pre-update backups, keeping the N most recent
@@ -234,7 +250,10 @@ pub fn cleanup_pre_update_backups_internal(
         }
     }
 
-    Ok(CleanupResult { deleted, freed_bytes })
+    Ok(CleanupResult {
+        deleted,
+        freed_bytes,
+    })
 }
 
 /// Get backup retention settings
@@ -274,7 +293,8 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
         let path = entry.path();
 
         if path.extension().map(|e| e == "db").unwrap_or(false) {
-            let filename = path.file_name()
+            let filename = path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("")
                 .to_string();
@@ -402,7 +422,11 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 }
 
 #[tauri::command]
-pub fn restore_backup(app: tauri::AppHandle, app_state: State<AppState>, filename: String) -> Result<(), String> {
+pub fn restore_backup(
+    app: tauri::AppHandle,
+    app_state: State<AppState>,
+    filename: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
     let db_paths = get_db_paths(&app)?;
     let backup_path = db_paths.backups_dir.join(&filename);
@@ -418,7 +442,11 @@ pub fn restore_backup(app: tauri::AppHandle, app_state: State<AppState>, filenam
 }
 
 #[tauri::command]
-pub fn delete_backup(app: tauri::AppHandle, app_state: State<AppState>, filename: String) -> Result<(), String> {
+pub fn delete_backup(
+    app: tauri::AppHandle,
+    app_state: State<AppState>,
+    filename: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
     let db_paths = get_db_paths(&app)?;
     let backup_path = db_paths.backups_dir.join(&filename);
@@ -456,14 +484,16 @@ mod tests {
 
     #[test]
     fn test_parse_backup_filename_manual() {
-        let (backup_type, version) = parse_backup_filename("kniha-jazd-backup-2026-01-24-143022.db");
+        let (backup_type, version) =
+            parse_backup_filename("kniha-jazd-backup-2026-01-24-143022.db");
         assert_eq!(backup_type, "manual");
         assert_eq!(version, None);
     }
 
     #[test]
     fn test_parse_backup_filename_pre_update() {
-        let (backup_type, version) = parse_backup_filename("kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db");
+        let (backup_type, version) =
+            parse_backup_filename("kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db");
         assert_eq!(backup_type, "pre-update");
         assert_eq!(version, Some("0.20.0".to_string()));
     }
@@ -549,7 +579,10 @@ mod tests {
         ];
         let candidates = get_cleanup_candidates(&backups, 2);
         assert_eq!(candidates.len(), 1);
-        assert_eq!(candidates[0].filename, "kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db");
+        assert_eq!(
+            candidates[0].filename,
+            "kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db"
+        );
     }
 
     #[test]
