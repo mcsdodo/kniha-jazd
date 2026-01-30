@@ -109,7 +109,8 @@ jobs:
           $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
           Write-Host "Fetching latest driver version from: $latestReleaseUrl"
           $response = Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing
-          $driverVersion = [System.Text.Encoding]::UTF8.GetString($response.Content).Trim()
+          # Response is UTF-16 LE encoded with BOM
+          $driverVersion = [System.Text.Encoding]::Unicode.GetString($response.Content).Trim()
           Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
 
           # Download the driver
@@ -236,7 +237,8 @@ jobs:
           $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
           Write-Host "Fetching latest driver version from: $latestReleaseUrl"
           $response = Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing
-          $driverVersion = [System.Text.Encoding]::UTF8.GetString($response.Content).Trim()
+          # Response is UTF-16 LE encoded with BOM
+          $driverVersion = [System.Text.Encoding]::Unicode.GetString($response.Content).Trim()
           Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
 
           # Download the driver
