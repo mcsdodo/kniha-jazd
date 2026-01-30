@@ -52,7 +52,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // Seed a trip: KM=100, ODO=10100 (previousOdo=10000, so 10100-10000=100)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 100,
@@ -142,7 +142,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // Seed a trip: KM=50, ODO=20050
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-01`,
+        startDatetime: `${year}-02-01T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 50,
@@ -248,7 +248,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // Seed a trip: KM=80, ODO=30080
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-01`,
+        startDatetime: `${year}-03-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 80,

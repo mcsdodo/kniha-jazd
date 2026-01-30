@@ -129,7 +129,7 @@ describe('Tier 2: Receipts Workflow', () => {
       // This should trigger "liters" mismatch
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2026-01-20', // Same date as receipt
+        startDatetime: '2026-01-20T08:00', // Same date as receipt
         origin: 'Bratislava',
         destination: 'Trnava',
         distanceKm: 65,
@@ -203,7 +203,7 @@ describe('Tier 2: Receipts Workflow', () => {
       // Receipt: liters=63.68, price=91.32, date=2026-01-20
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2026-01-20',
+        startDatetime: '2026-01-20T08:00',
         origin: 'Bratislava',
         destination: 'Košice',
         distanceKm: 400,
@@ -270,7 +270,7 @@ describe('Tier 2: Receipts Workflow', () => {
       // 2. Seed trip WITHOUT fuel data
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2026-01-20',
+        startDatetime: '2026-01-20T08:00',
         origin: 'Nitra',
         destination: 'Žilina',
         distanceKm: 150,

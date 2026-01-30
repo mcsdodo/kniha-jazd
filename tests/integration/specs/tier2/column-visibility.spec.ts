@@ -61,7 +61,7 @@ describe('Tier 2: Column Visibility', () => {
     // Seed a trip so we have data to display
     await seedTrip({
       vehicleId,
-      date: '2026-01-15',
+      startDatetime: '2026-01-15T08:00',
       time: '10:30',
       origin: 'Home',
       destination: 'Office',

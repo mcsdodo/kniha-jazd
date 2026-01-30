@@ -190,9 +190,8 @@ export async function seedVehicleFromFixture(vehicle: Vehicle): Promise<Vehicle>
  */
 export interface SeedTripData {
   vehicleId: string;
-  date: string;
-  time?: string; // Optional start time in "HH:MM" format
-  endTime?: string; // Optional end time in "HH:MM" format (legal compliance 2026)
+  startDatetime: string; // Full ISO datetime "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+  endDatetime?: string; // Full ISO datetime (optional, defaults to startDatetime + 1 hour)
   origin: string;
   destination: string;
   distanceKm: number;
@@ -224,12 +223,14 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
     throw new Error('App not ready for seeding');
   }
 
+  // Default endDatetime to startDatetime if not provided
+  const endDatetime = data.endDatetime ?? data.startDatetime;
+
   // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
   const args = {
     vehicleId: data.vehicleId,
-    date: data.date,
-    time: data.time ?? null,
-    endTime: data.endTime ?? null,
+    startDatetime: data.startDatetime,
+    endDatetime: endDatetime,
     origin: data.origin,
     destination: data.destination,
     distanceKm: data.distanceKm,
@@ -262,8 +263,8 @@ export async function seedTripFromFixture(
 ): Promise<Trip> {
   return seedTrip({
     vehicleId,
-    date: trip.date,
-    endTime: trip.endTime,
+    startDatetime: trip.startDatetime,
+    endDatetime: trip.endDatetime,
     origin: trip.origin,
     destination: trip.destination,
     distanceKm: trip.distanceKm,
@@ -597,7 +598,7 @@ export interface SeedVehicleOptions {
  */
 export interface SeedTripOptions {
   vehicleId: string;
-  date?: string;
+  startDatetime?: string;
   origin?: string;
   destination?: string;
   distanceKm?: number;
@@ -626,7 +627,7 @@ export const seedUtils = {
   createTrip: async (options: SeedTripOptions): Promise<string> => {
     const trip = await seedTrip({
       vehicleId: options.vehicleId,
-      date: options.date || '2024-01-15',
+      startDatetime: options.startDatetime || '2024-01-15T08:00',
       origin: options.origin || 'Bratislava',
       destination: options.destination || 'Kosice',
       distanceKm: options.distanceKm || 400,

@@ -93,7 +93,7 @@ describe('Tier 1: Trip Management', () => {
       // Fill trip form
       const year = new Date().getFullYear();
       await fillTripForm({
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 400,
@@ -137,7 +137,7 @@ describe('Tier 1: Trip Management', () => {
       // Seed first trip without fuel (establishes baseline)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-10`,
+        startDatetime: `${year}-01-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -150,7 +150,7 @@ describe('Tier 1: Trip Management', () => {
       // Consumption: 5 / 65 * 100 = 7.69 l/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -209,7 +209,7 @@ describe('Tier 1: Trip Management', () => {
       // Trip 1: No fuel
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-01`,
+        startDatetime: `${year}-02-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -220,7 +220,7 @@ describe('Tier 1: Trip Management', () => {
       // Trip 2: Partial refill (NOT full tank)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-05`,
+        startDatetime: `${year}-02-05T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -234,7 +234,7 @@ describe('Tier 1: Trip Management', () => {
       // Trip 3: Another trip without fuel
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-10`,
+        startDatetime: `${year}-02-10T08:00`,
         origin: SlovakCities.nitra,
         destination: SlovakCities.bratislava,
         distanceKm: 90,
@@ -248,7 +248,7 @@ describe('Tier 1: Trip Management', () => {
       // Consumption: 35 / 225 * 100 = 15.56 l/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-15`,
+        startDatetime: `${year}-02-15T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 400,
@@ -313,7 +313,7 @@ describe('Tier 1: Trip Management', () => {
       // Create initial trip
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-01`,
+        startDatetime: `${year}-03-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -335,7 +335,8 @@ describe('Tier 1: Trip Management', () => {
       const updatedTrip = await browser.execute(
         async (
           tripId: string,
-          date: string,
+          startDatetime: string,
+          endDatetime: string,
           origin: string,
           destination: string,
           distanceKm: number,
@@ -350,7 +351,8 @@ describe('Tier 1: Trip Management', () => {
           }
           return await window.__TAURI__.core.invoke('update_trip', {
             id: tripId,
-            date,
+            startDatetime,
+            endDatetime,
             origin,
             destination,
             distanceKm,
@@ -362,7 +364,8 @@ describe('Tier 1: Trip Management', () => {
           });
         },
         trip.id as string,
-        `${year}-03-01`,
+        `${year}-03-01T08:00`,
+        `${year}-03-01T10:00`,
         SlovakCities.bratislava,
         SlovakCities.trnava,
         65,
@@ -410,7 +413,7 @@ describe('Tier 1: Trip Management', () => {
       // Create two trips
       const trip1 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-01`,
+        startDatetime: `${year}-04-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -420,7 +423,7 @@ describe('Tier 1: Trip Management', () => {
 
       const trip2 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-05`,
+        startDatetime: `${year}-04-05T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -481,7 +484,7 @@ describe('Tier 1: Trip Management', () => {
       // Create trip at position 0 (first)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-05-01`,
+        startDatetime: `${year}-05-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -492,7 +495,7 @@ describe('Tier 1: Trip Management', () => {
       // Create trip at position 1 (second)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-05-15`,
+        startDatetime: `${year}-05-15T08:00`,
         origin: SlovakCities.nitra,
         destination: SlovakCities.kosice,
         distanceKm: 300,
@@ -519,7 +522,7 @@ describe('Tier 1: Trip Management', () => {
       // Insert a trip between them (position 1)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-05-08`,
+        startDatetime: `${year}-05-08T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -577,7 +580,7 @@ describe('Tier 1: Trip Management', () => {
       // Create three trips
       const trip1 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-06-01`,
+        startDatetime: `${year}-06-01T08:00`,
         origin: 'Location A',
         destination: 'Location B',
         distanceKm: 50,
@@ -587,7 +590,7 @@ describe('Tier 1: Trip Management', () => {
 
       const trip2 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-06-02`,
+        startDatetime: `${year}-06-02T08:00`,
         origin: 'Location B',
         destination: 'Location C',
         distanceKm: 60,
@@ -597,7 +600,7 @@ describe('Tier 1: Trip Management', () => {
 
       const trip3 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-06-03`,
+        startDatetime: `${year}-06-03T08:00`,
         origin: 'Location C',
         destination: 'Location D',
         distanceKm: 70,

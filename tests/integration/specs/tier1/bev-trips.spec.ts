@@ -56,7 +56,7 @@ describe('Tier 1: BEV Trips', () => {
       // Trip 1: Drive 100km (uses ~15 kWh at baseline rate)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-10`,
+        startDatetime: `${year}-01-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 100,
@@ -68,7 +68,7 @@ describe('Tier 1: BEV Trips', () => {
       // Charging: 30 kWh at 0.35 EUR/kWh = 10.50 EUR
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 50,
@@ -130,7 +130,7 @@ describe('Tier 1: BEV Trips', () => {
       // Trip 1: Drive 100km (establishes distance since last charge)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-10`,
+        startDatetime: `${year}-02-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.zilina,
         distanceKm: 100,
@@ -144,7 +144,7 @@ describe('Tier 1: BEV Trips', () => {
       // Consumption rate: 18 / 150 * 100 = 12 kWh/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-15`,
+        startDatetime: `${year}-02-15T08:00`,
         origin: SlovakCities.zilina,
         destination: SlovakCities.martin,
         distanceKm: 50,
@@ -211,7 +211,7 @@ describe('Tier 1: BEV Trips', () => {
       // After trip: 67.5 - 15 = 52.5 kWh (70% SoC)
       const trip1 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-10`,
+        startDatetime: `${year}-03-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 100,
@@ -223,7 +223,7 @@ describe('Tier 1: BEV Trips', () => {
       // After trip: 52.5 - 15 = 37.5 kWh (50% SoC)
       const trip2 = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-15`,
+        startDatetime: `${year}-03-15T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 100,
@@ -291,7 +291,7 @@ describe('Tier 1: BEV Trips', () => {
       // Create a BEV trip - no fuel fields should be present
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-10`,
+        startDatetime: `${year}-04-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 400,

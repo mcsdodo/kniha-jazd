@@ -52,7 +52,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       // Trip 1: Drive 50km (no fuel - establishes baseline)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-01`,
+        startDatetime: `${year}-03-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 50,
@@ -67,7 +67,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       // Using 9 liters: 9 / 100 * 100 = 9.0 l/100km (28.6% over TP)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-05`,
+        startDatetime: `${year}-03-05T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 50,
@@ -168,7 +168,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       // Trip 1: 50km driven
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-01`,
+        startDatetime: `${year}-04-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 50,
@@ -182,7 +182,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       // Using 10 liters: 10 / 100 * 100 = 10.0 l/100km (42.8% over TP)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-05`,
+        startDatetime: `${year}-04-05T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 50,
@@ -220,7 +220,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       // New trip consumption: 7 / 200 * 100 = 3.5 l/100km (well under limit)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-10`,
+        startDatetime: `${year}-04-10T08:00`,
         origin: SlovakCities.nitra,
         destination: SlovakCities.bratislava,
         distanceKm: 200,

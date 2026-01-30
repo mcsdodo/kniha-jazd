@@ -68,7 +68,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       // Seed multiple trips in non-chronological order
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         time: '10:00',
         origin: 'Bratislava',
         destination: 'Trnava',
@@ -79,7 +79,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
 
       await seedTrip({
         vehicleId,
-        date: `${year}-01-10`,
+        startDatetime: `${year}-01-10T08:00`,
         time: '08:00',
         origin: 'Home',
         destination: 'Office',
@@ -90,7 +90,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
 
       await seedTrip({
         vehicleId,
-        date: `${year}-01-20`,
+        startDatetime: `${year}-01-20T08:00`,
         time: '14:00',
         origin: 'Trnava',
         destination: 'Nitra',
@@ -113,9 +113,9 @@ describe('Tier 2: Legal Compliance Columns', () => {
       expect(Object.keys(gridData.tripNumbers).length).toBe(3);
 
       // Find trips by date and verify numbering
-      const trip1 = gridData.trips.find(t => t.date.includes('-01-10'));
-      const trip2 = gridData.trips.find(t => t.date.includes('-01-15'));
-      const trip3 = gridData.trips.find(t => t.date.includes('-01-20'));
+      const trip1 = gridData.trips.find(t => t.startDatetime.includes('-01-10'));
+      const trip2 = gridData.trips.find(t => t.startDatetime.includes('-01-15'));
+      const trip3 = gridData.trips.find(t => t.startDatetime.includes('-01-20'));
 
       expect(gridData.tripNumbers[trip1!.id!]).toBe(1);
       expect(gridData.tripNumbers[trip2!.id!]).toBe(2);
@@ -125,7 +125,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should display trip number column in UI', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -156,7 +156,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should display end time column with seeded value', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         time: '08:30',
         endTime: '09:45',
         origin: 'Home',
@@ -310,7 +310,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should display driver name column from vehicle settings', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -342,7 +342,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       // First trip: odo ends at 50025
       await seedTrip({
         vehicleId,
-        date: `${year}-01-10`,
+        startDatetime: `${year}-01-10T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -353,7 +353,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       // Second trip: odo starts at 50025 (previous trip's end)
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Office',
         destination: 'Home',
         distanceKm: 25,
@@ -381,7 +381,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should display odo start column in UI', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -413,7 +413,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should hide trip number column when toggled off', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -452,7 +452,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should hide driver column when toggled off', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -486,7 +486,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
     it('should hide odo start column when toggled off', async () => {
       await seedTrip({
         vehicleId,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,

@@ -50,7 +50,7 @@ describe('Tier 1: Year Handling', () => {
       // Create trips in 2024
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2024-06-15',
+        startDatetime: '2024-06-15T08:00',
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -60,7 +60,7 @@ describe('Tier 1: Year Handling', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2024-09-20',
+        startDatetime: '2024-09-20T08:00',
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -74,7 +74,7 @@ describe('Tier 1: Year Handling', () => {
       // Create trips in 2025
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2025-02-10',
+        startDatetime: '2025-02-10T08:00',
         origin: SlovakCities.nitra,
         destination: SlovakCities.bratislava,
         distanceKm: 90,
@@ -84,7 +84,7 @@ describe('Tier 1: Year Handling', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2025-05-25',
+        startDatetime: '2025-05-25T08:00',
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 400,
@@ -97,7 +97,7 @@ describe('Tier 1: Year Handling', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2025-08-15',
+        startDatetime: '2025-08-15T08:00',
         origin: SlovakCities.kosice,
         destination: SlovakCities.presov,
         distanceKm: 36,
@@ -121,7 +121,7 @@ describe('Tier 1: Year Handling', () => {
       expect(gridData2024.trips.length).toBe(2);
 
       // Verify the trips are from 2024
-      const trips2024Dates = gridData2024.trips.map((t) => t.date);
+      const trips2024Dates = gridData2024.trips.map((t) => t.startDatetime);
       expect(trips2024Dates.every((d) => d.startsWith('2024'))).toBe(true);
 
       // Select 2025 and verify trip count
@@ -132,7 +132,7 @@ describe('Tier 1: Year Handling', () => {
       expect(gridData2025.trips.length).toBe(3);
 
       // Verify the trips are from 2025
-      const trips2025Dates = gridData2025.trips.map((t) => t.date);
+      const trips2025Dates = gridData2025.trips.map((t) => t.startDatetime);
       expect(trips2025Dates.every((d) => d.startsWith('2025'))).toBe(true);
 
       // Verify UI shows correct trips for each year
@@ -167,7 +167,7 @@ describe('Tier 1: Year Handling', () => {
       // This establishes the fuel state at year end
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2024-12-01',
+        startDatetime: '2024-12-01T08:00',
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -178,7 +178,7 @@ describe('Tier 1: Year Handling', () => {
       // Fill tank at end of year (45 liters)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2024-12-15',
+        startDatetime: '2024-12-15T08:00',
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -192,7 +192,7 @@ describe('Tier 1: Year Handling', () => {
       // Last trip of year (uses some fuel but doesn't refill)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2024-12-28',
+        startDatetime: '2024-12-28T08:00',
         origin: SlovakCities.nitra,
         destination: SlovakCities.bratislava,
         distanceKm: 90,
@@ -203,7 +203,7 @@ describe('Tier 1: Year Handling', () => {
       // Start of 2025: Trip without refuel (should use carryover fuel)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: '2025-01-05',
+        startDatetime: '2025-01-05T08:00',
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -220,7 +220,7 @@ describe('Tier 1: Year Handling', () => {
       expect(gridData2024.trips.length).toBe(3);
 
       // Find the last trip of 2024 to get its fuel remaining
-      const lastTrip2024 = gridData2024.trips.find((t) => t.date === '2024-12-28');
+      const lastTrip2024 = gridData2024.trips.find((t) => t.startDatetime.startsWith('2024-12-28'));
       expect(lastTrip2024).toBeDefined();
 
       const endOfYearFuel = lastTrip2024?.id

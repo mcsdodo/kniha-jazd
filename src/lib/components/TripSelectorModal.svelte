@@ -40,8 +40,8 @@
 			);
 			// Sort by date proximity to receipt date
 			tripItems = items.sort((a, b) => {
-				const aDiff = dateProximity(a.trip.date, receipt.receiptDate);
-				const bDiff = dateProximity(b.trip.date, receipt.receiptDate);
+				const aDiff = dateProximity(getTripDate(a.trip), receipt.receiptDate);
+				const bDiff = dateProximity(getTripDate(b.trip), receipt.receiptDate);
 				return aDiff - bDiff;
 			});
 		} catch (e) {
@@ -50,6 +50,11 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	// Extract date portion from trip's startDatetime
+	function getTripDate(trip: Trip): string {
+		return trip.startDatetime.slice(0, 10);
 	}
 
 	function dateProximity(tripDate: string, receiptDate: string | null): number {
@@ -134,7 +139,7 @@
 			<div class="trip-list">
 				{#each tripItems as item}
 					{@const disabled = !item.canAttach}
-					{@const highlighted = isWithin3Days(item.trip.date, receipt.receiptDate)}
+					{@const highlighted = isWithin3Days(getTripDate(item.trip), receipt.receiptDate)}
 					<button
 						class="trip-item"
 						class:highlight={highlighted}
@@ -143,7 +148,7 @@
 						onclick={() => handleTripClick(item)}
 						{disabled}
 					>
-						<span class="date">{formatDate(item.trip.date)}</span>
+						<span class="date">{formatDate(getTripDate(item.trip))}</span>
 						<span class="route">{item.trip.origin} → {item.trip.destination}</span>
 						{#if item.attachmentStatus === 'matches'}
 							<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>

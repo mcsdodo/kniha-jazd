@@ -52,7 +52,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       // Trip 1: Drive 100km (establishes baseline)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-10`,
+        startDatetime: `${year}-01-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 100,
@@ -65,7 +65,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       // Rate = (fuel / km) * 100 = (9.75 / 150) * 100 = 6.5 l/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 50,
@@ -146,7 +146,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       // Trip 1: Drive 100km (establishes baseline)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-10`,
+        startDatetime: `${year}-02-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 100,
@@ -160,7 +160,7 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       // Rate = (fuel / km) * 100 = (12.75 / 150) * 100 = 8.5 l/100km
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-15`,
+        startDatetime: `${year}-02-15T08:00`,
         origin: SlovakCities.kosice,
         destination: SlovakCities.presov,
         distanceKm: 50,

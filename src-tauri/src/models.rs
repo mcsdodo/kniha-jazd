@@ -672,14 +672,15 @@ pub struct TripRow {
     pub fuel_cost_eur: Option<f64>,
     pub other_costs_eur: Option<f64>,
     pub other_costs_note: Option<String>,
-    pub full_tank: i32,
+    // Note: column order matches actual database (migrations added columns at end)
+    pub created_at: String,
+    pub updated_at: String,
     pub sort_order: i32,
+    pub full_tank: i32,
     pub energy_kwh: Option<f64>,
     pub energy_cost_eur: Option<f64>,
     pub full_charge: Option<i32>,
     pub soc_override_percent: Option<f64>,
-    pub created_at: String,
-    pub updated_at: String,
     pub start_datetime: String,
     pub end_datetime: Option<String>,
 }

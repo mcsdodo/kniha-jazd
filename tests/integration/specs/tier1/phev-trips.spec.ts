@@ -65,7 +65,7 @@ describe('Tier 1: PHEV Trips', () => {
       // Long trip: 200km, refuel AND recharge at the same stop
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.kosice,
         distanceKm: 200,
@@ -138,7 +138,7 @@ describe('Tier 1: PHEV Trips', () => {
       // Trip 1: Drive to deplete battery and use some fuel (establishes baseline)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-10`,
+        startDatetime: `${year}-02-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.zilina,
         distanceKm: 200,
@@ -150,7 +150,7 @@ describe('Tier 1: PHEV Trips', () => {
       // This allows calculation of both consumption rates
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-15`,
+        startDatetime: `${year}-02-15T08:00`,
         origin: SlovakCities.zilina,
         destination: SlovakCities.kosice,
         distanceKm: 250,
@@ -233,7 +233,7 @@ describe('Tier 1: PHEV Trips', () => {
       // Trip 1: Establish baseline distance
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-10`,
+        startDatetime: `${year}-03-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -245,7 +245,7 @@ describe('Tier 1: PHEV Trips', () => {
       // This simulates running the PHEV in pure ICE mode
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-15`,
+        startDatetime: `${year}-03-15T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -326,7 +326,7 @@ describe('Tier 1: PHEV Trips', () => {
       // Trip 1: Establish baseline distance
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-10`,
+        startDatetime: `${year}-04-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: 'Bratislava - Petrzalka',
         distanceKm: 15,
@@ -338,7 +338,7 @@ describe('Tier 1: PHEV Trips', () => {
       // This simulates using only battery for short urban trips
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-15`,
+        startDatetime: `${year}-04-15T08:00`,
         origin: 'Bratislava - Petrzalka',
         destination: SlovakCities.bratislava,
         distanceKm: 15,
@@ -422,7 +422,7 @@ describe('Tier 1: PHEV Trips', () => {
       // Trip 1: Drive to establish baseline distance
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-05-10`,
+        startDatetime: `${year}-05-10T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.zilina,
         distanceKm: 200,
@@ -436,7 +436,7 @@ describe('Tier 1: PHEV Trips', () => {
       // To get 2.5 l/100km: 400km * 2.5/100 = 10L needed
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-05-15`,
+        startDatetime: `${year}-05-15T08:00`,
         origin: SlovakCities.zilina,
         destination: SlovakCities.kosice,
         distanceKm: 200,

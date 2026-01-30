@@ -48,7 +48,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Add trips to vehicle 1 with distinctive route
       await seedTrip({
         vehicleId: vehicle1.id as string,
-        date: `${year}-05-01`,
+        startDatetime: `${year}-05-01T08:00`,
         origin: 'Alpha Origin',
         destination: 'Alpha Destination',
         distanceKm: 100,
@@ -58,7 +58,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
 
       await seedTrip({
         vehicleId: vehicle1.id as string,
-        date: `${year}-05-05`,
+        startDatetime: `${year}-05-05T08:00`,
         origin: 'Alpha Origin 2',
         destination: 'Alpha Destination 2',
         distanceKm: 150,
@@ -90,7 +90,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Add trips to vehicle 2 with different distinctive route
       await seedTrip({
         vehicleId: vehicle2.id as string,
-        date: `${year}-05-02`,
+        startDatetime: `${year}-05-02T08:00`,
         origin: 'Beta Origin',
         destination: 'Beta Destination',
         distanceKm: 200,
@@ -100,7 +100,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
 
       await seedTrip({
         vehicleId: vehicle2.id as string,
-        date: `${year}-05-10`,
+        startDatetime: `${year}-05-10T08:00`,
         origin: 'Beta Origin 2',
         destination: 'Beta Destination 2',
         distanceKm: 250,
@@ -205,7 +205,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Trip 1: 100km baseline
       await seedTrip({
         vehicleId: vehicle1.id as string,
-        date: `${year}-06-01`,
+        startDatetime: `${year}-06-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 100,
@@ -217,7 +217,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Consumption: 6L / 200km * 100 = 3.0 l/100km (under TP rate of 7.0)
       await seedTrip({
         vehicleId: vehicle1.id as string,
-        date: `${year}-06-05`,
+        startDatetime: `${year}-06-05T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 100,
@@ -250,7 +250,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Trip 1: 50km baseline (shorter distance = higher rate for same fuel)
       await seedTrip({
         vehicleId: vehicle2.id as string,
-        date: `${year}-06-02`,
+        startDatetime: `${year}-06-02T08:00`,
         origin: SlovakCities.kosice,
         destination: SlovakCities.presov,
         distanceKm: 50,
@@ -262,7 +262,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Consumption: 9L / 100km * 100 = 9.0 l/100km (over 8.4 limit)
       await seedTrip({
         vehicleId: vehicle2.id as string,
-        date: `${year}-06-08`,
+        startDatetime: `${year}-06-08T08:00`,
         origin: SlovakCities.presov,
         destination: SlovakCities.poprad,
         distanceKm: 50,

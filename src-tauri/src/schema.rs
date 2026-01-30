@@ -63,14 +63,15 @@ diesel::table! {
         fuel_cost_eur -> Nullable<Double>,
         other_costs_eur -> Nullable<Double>,
         other_costs_note -> Nullable<Text>,
-        full_tank -> Integer,
+        // Note: column order matches actual database (migrations added columns at end)
+        created_at -> Text,
+        updated_at -> Text,
         sort_order -> Integer,
+        full_tank -> Integer,
         energy_kwh -> Nullable<Double>,
         energy_cost_eur -> Nullable<Double>,
         full_charge -> Nullable<Integer>,
         soc_override_percent -> Nullable<Double>,
-        created_at -> Text,
-        updated_at -> Text,
         start_datetime -> Text,
         end_datetime -> Nullable<Text>,
     }

@@ -46,7 +46,7 @@ describe('Tier 2: Route Autocomplete', () => {
       // This establishes Bratislava -> Košice = 400 km
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-10`,
+        startDatetime: `${year}-01-10T08:00`,
         origin: 'Bratislava',
         destination: 'Košice',
         distanceKm: 400,
@@ -184,7 +184,7 @@ describe('Tier 2: Route Autocomplete', () => {
       // Seed a trip to create a learned route (Trnava -> Nitra = 65 km)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-02-01`,
+        startDatetime: `${year}-02-01T08:00`,
         origin: 'Trnava',
         destination: 'Nitra',
         distanceKm: 65,
@@ -306,7 +306,7 @@ describe('Tier 2: Route Autocomplete', () => {
       // This also creates routes for autocomplete suggestions
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-01`,
+        startDatetime: `${year}-01-01T08:00`,
         origin: 'InitialPlace',
         destination: 'InitialDest',
         distanceKm: 100,
@@ -448,7 +448,7 @@ describe('Tier 2: Route Autocomplete', () => {
       // Seed a trip to create learned route (so autocomplete has suggestions)
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-01`,
+        startDatetime: `${year}-01-01T08:00`,
         origin: 'DropdownTest',
         destination: 'SomePlace',
         distanceKm: 100,
