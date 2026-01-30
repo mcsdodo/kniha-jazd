@@ -109,8 +109,9 @@ jobs:
           $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
           Write-Host "Fetching latest driver version from: $latestReleaseUrl"
           $response = Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing
-          # Response is UTF-16 LE encoded with BOM - decode and strip BOM character
-          $driverVersion = [System.Text.Encoding]::Unicode.GetString($response.Content) -replace '^\xFEFF','' -replace '^\s+|\s+$',''
+          # Response is UTF-16 LE encoded with BOM - decode and strip BOM character (U+FEFF)
+          $decoded = [System.Text.Encoding]::Unicode.GetString($response.Content)
+          $driverVersion = $decoded.TrimStart([char]0xFEFF).Trim()
           Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
 
           # Download the driver
@@ -237,8 +238,9 @@ jobs:
           $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
           Write-Host "Fetching latest driver version from: $latestReleaseUrl"
           $response = Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing
-          # Response is UTF-16 LE encoded with BOM - decode and strip BOM character
-          $driverVersion = [System.Text.Encoding]::Unicode.GetString($response.Content) -replace '^\xFEFF','' -replace '^\s+|\s+$',''
+          # Response is UTF-16 LE encoded with BOM - decode and strip BOM character (U+FEFF)
+          $decoded = [System.Text.Encoding]::Unicode.GetString($response.Content)
+          $driverVersion = $decoded.TrimStart([char]0xFEFF).Trim()
           Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
 
           # Download the driver
