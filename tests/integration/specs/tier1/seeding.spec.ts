@@ -178,7 +178,7 @@ describe('DB Seeding Utilities', () => {
       // Seed trip with fuel
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${new Date().getFullYear()}-01-20`,
+        startDatetime: `${new Date().getFullYear()}-01-20T08:00`,
         origin: 'Bratislava',
         destination: 'Trnava',
         distanceKm: 65,

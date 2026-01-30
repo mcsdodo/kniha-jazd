@@ -95,7 +95,7 @@ export const TripGrid = {
    * Uses data-testid attributes for robust, position-independent selectors
    */
   tripForm: {
-    date: '[data-testid="trip-date"]',
+    date: '[data-testid="trip-start-datetime"]',
     origin: '[data-testid="trip-origin"]',
     destination: '[data-testid="trip-destination"]',
     distance: '[data-testid="trip-distance"]',

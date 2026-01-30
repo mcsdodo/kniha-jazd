@@ -88,7 +88,7 @@ describe('Tier 2: Route Autocomplete', () => {
       );
 
       // Fill date first (required field)
-      const dateInput = await $('[data-testid="trip-date"]');
+      const dateInput = await $('[data-testid="trip-start-datetime"]');
       await dateInput.waitForDisplayed({ timeout: 5000 });
       await dateInput.setValue(`${year}-01-15`);
 
@@ -220,7 +220,7 @@ describe('Tier 2: Route Autocomplete', () => {
       );
 
       // Fill date
-      const dateInput = await $('[data-testid="trip-date"]');
+      const dateInput = await $('[data-testid="trip-start-datetime"]');
       await dateInput.setValue(`${year}-02-10`);
 
       // FIRST: Enter a custom distance (100 km) BEFORE selecting route
@@ -343,7 +343,7 @@ describe('Tier 2: Route Autocomplete', () => {
       );
 
       // Fill required fields
-      const dateInput = await $('[data-testid="trip-date"]');
+      const dateInput = await $('[data-testid="trip-start-datetime"]');
       // Use atomic value setting for date input - setValue() doesn't work reliably with date inputs
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
@@ -352,7 +352,7 @@ describe('Tier 2: Route Autocomplete', () => {
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      }, '[data-testid="trip-date"]', `${year}-03-15`);
+      }, '[data-testid="trip-start-datetime"]', `${year}-03-15T08:00`);
 
       const originInput = await $('[data-testid="trip-origin"]');
       await originInput.setValue('TestOrigin');
@@ -484,7 +484,7 @@ describe('Tier 2: Route Autocomplete', () => {
       );
 
       // Fill date
-      const dateInput = await $('[data-testid="trip-date"]');
+      const dateInput = await $('[data-testid="trip-start-datetime"]');
       await dateInput.setValue(`${year}-04-01`);
 
       // Type in origin - this should trigger autocomplete dropdown

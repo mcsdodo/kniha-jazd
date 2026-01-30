@@ -157,8 +157,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await seedTrip({
         vehicleId,
         startDatetime: `${year}-01-15T08:00`,
-        time: '08:30',
-        endTime: '09:45',
+        endDatetime: `${year}-01-15T09:45`,
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -172,8 +171,8 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await waitForTripGrid();
       await browser.pause(500);
 
-      // Verify end time column header exists
-      const endTimeHeader = await $('[data-testid="column-header-end-time"]');
+      // Verify end datetime column header exists (renamed from end-time to end)
+      const endTimeHeader = await $('[data-testid="column-header-end"]');
       expect(await endTimeHeader.isExisting()).toBe(true);
 
       // Verify the trip row contains the end time
@@ -195,11 +194,12 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await newRecordBtn.click();
       await browser.pause(300);
 
-      // Check that end time input exists
-      const endTimeInput = await $('[data-testid="trip-end-time"]');
+      // Check that end datetime input exists (now datetime-local type)
+      const endTimeInput = await $('[data-testid="trip-end-datetime"]');
       expect(await endTimeInput.isExisting()).toBe(true);
 
-      // Set end time using atomic method
+      // Set end datetime using atomic method (requires YYYY-MM-DDTHH:MM format)
+      const today = new Date().toISOString().split('T')[0];
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
@@ -207,11 +207,11 @@ describe('Tier 2: Legal Compliance Columns', () => {
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      }, '[data-testid="trip-end-time"]', '17:30');
+      }, '[data-testid="trip-end-datetime"]', `${today}T17:30`);
 
-      // Verify the time was set
+      // Verify the datetime was set
       const timeValue = await endTimeInput.getValue();
-      expect(timeValue).toBe('17:30');
+      expect(timeValue).toBe(`${today}T17:30`);
     });
 
     it('should save and display entered end time', async () => {
@@ -228,6 +228,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       const today = new Date().toISOString().split('T')[0];
 
       // Fill required fields using atomic method
+      // Note: trip-start-datetime is datetime-local type, requires YYYY-MM-DDTHH:MM format
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
@@ -235,8 +236,9 @@ describe('Tier 2: Legal Compliance Columns', () => {
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      }, '[data-testid="trip-date"]', today);
+      }, '[data-testid="trip-start-datetime"]', `${today}T08:00`);
 
+      // Set end datetime (also datetime-local format)
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
@@ -244,16 +246,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      }, '[data-testid="trip-time"]', '08:00');
-
-      await browser.execute((sel: string, newValue: string) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) {
-          input.value = newValue;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }, '[data-testid="trip-end-time"]', '09:30');
+      }, '[data-testid="trip-end-datetime"]', `${today}T09:30`);
 
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
@@ -521,6 +514,9 @@ describe('Tier 2: Legal Compliance Columns', () => {
       // Hide multiple legal compliance columns
       await setHiddenColumnsViaIpc(['tripNumber', 'driver', 'odoStart']);
 
+      // Refresh to pick up hidden columns changes
+      await browser.refresh();
+      await waitForAppReady();
       await navigateTo('trips');
       await waitForTripGrid();
       await browser.pause(500);

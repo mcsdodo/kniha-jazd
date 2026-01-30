@@ -62,7 +62,7 @@ describe('Tier 2: Column Visibility', () => {
     await seedTrip({
       vehicleId,
       startDatetime: '2026-01-15T08:00',
-      time: '10:30',
+      endDatetime: '2026-01-15T10:30',
       origin: 'Home',
       destination: 'Office',
       distanceKm: 25,
@@ -98,9 +98,9 @@ describe('Tier 2: Column Visibility', () => {
       const dropdownMenu = await $('[data-testid="column-visibility-menu"]');
       expect(await dropdownMenu.isDisplayed()).toBe(true);
 
-      // Check that expected column options exist
-      const timeOption = await dropdownMenu.$('label*=Time');
-      expect(await timeOption.isExisting()).toBe(true);
+      // Check that expected column options exist (time column is labeled "End" in UI)
+      const endOption = await dropdownMenu.$('label*=End');
+      expect(await endOption.isExisting()).toBe(true);
     });
   });
 
@@ -111,7 +111,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(500);
 
       // Verify time column header is initially visible
-      const timeHeaderBefore = await $('[data-testid="column-header-time"]');
+      const timeHeaderBefore = await $('[data-testid="column-header-end"]');
       expect(await timeHeaderBefore.isExisting()).toBe(true);
 
       // Click the column visibility button
@@ -131,7 +131,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(300);
 
       // Verify time column header is now hidden
-      const timeHeaderAfter = await $('[data-testid="column-header-time"]');
+      const timeHeaderAfter = await $('[data-testid="column-header-end"]');
       expect(await timeHeaderAfter.isExisting()).toBe(false);
 
       // Verify via IPC that time is in hidden columns
@@ -151,7 +151,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(500);
 
       // Verify time column header is hidden
-      const timeHeaderBefore = await $('[data-testid="column-header-time"]');
+      const timeHeaderBefore = await $('[data-testid="column-header-end"]');
       expect(await timeHeaderBefore.isExisting()).toBe(false);
 
       // Click the column visibility button
@@ -171,7 +171,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(300);
 
       // Verify time column header is now visible
-      const timeHeaderAfter = await $('[data-testid="column-header-time"]');
+      const timeHeaderAfter = await $('[data-testid="column-header-end"]');
       expect(await timeHeaderAfter.isExisting()).toBe(true);
 
       // Verify via IPC that time is no longer in hidden columns
@@ -203,7 +203,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(300);
 
       // Verify time column is hidden
-      const timeHeaderBefore = await $('[data-testid="column-header-time"]');
+      const timeHeaderBefore = await $('[data-testid="column-header-end"]');
       expect(await timeHeaderBefore.isExisting()).toBe(false);
 
       // Reload the page
@@ -213,7 +213,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(500);
 
       // Verify time column is still hidden after reload
-      const timeHeaderAfter = await $('[data-testid="column-header-time"]');
+      const timeHeaderAfter = await $('[data-testid="column-header-end"]');
       expect(await timeHeaderAfter.isExisting()).toBe(false);
 
       // Verify via IPC
@@ -233,7 +233,7 @@ describe('Tier 2: Column Visibility', () => {
       await browser.pause(500);
 
       // Verify all three columns are hidden
-      const timeHeader = await $('[data-testid="column-header-time"]');
+      const timeHeader = await $('[data-testid="column-header-end"]');
       expect(await timeHeader.isExisting()).toBe(false);
 
       // fuelConsumed and otherCosts headers - check they're missing from the page

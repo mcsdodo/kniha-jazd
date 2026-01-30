@@ -378,15 +378,21 @@ export async function fillTripForm(options: TripFormOptions): Promise<void> {
     otherCostsNote,
   } = options;
 
-  // Extract date portion from ISO datetime (e.g., "2024-01-15T08:00" -> "2024-01-15")
-  const date = startDatetime.slice(0, 10);
-
   // Wait for editing row to be visible
   const editingRow = await $(TripGrid.editingRow);
   await editingRow.waitForDisplayed({ timeout: 5000 });
 
+  // Wait for form fields to be rendered inside the editing row
+  // This is especially important for the first test after app initialization
+  const dateField = await $(TripGrid.tripForm.date);
+  await dateField.waitForDisplayed({
+    timeout: 10000,
+    timeoutMsg: 'Datetime field not visible in editing row - form may not have rendered'
+  });
+
   // Fill basic fields
-  await fillField(TripGrid.tripForm.date, date);
+  // Note: datetime-local input requires format "YYYY-MM-DDTHH:MM"
+  await fillField(TripGrid.tripForm.date, startDatetime);
   await fillField(TripGrid.tripForm.origin, origin);
   await fillField(TripGrid.tripForm.destination, destination);
   await fillNumericField(TripGrid.tripForm.distance, distanceKm);

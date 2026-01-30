@@ -271,6 +271,26 @@ export const config: any = {
       }
     );
 
+    // Warmup IPC call with retry - backend might still be initializing
+    // The first call often fails with 500 if the database isn't ready yet
+    for (let i = 0; i < 5; i++) {
+      try {
+        const result = await browser.executeAsync((done) => {
+          (window as any).__TAURI__.core.invoke('get_vehicles')
+            .then(() => done('success'))
+            .catch((e: Error) => done('error: ' + e.message));
+        });
+        if (result === 'success') {
+          console.log(`IPC warmup successful on attempt ${i + 1}`);
+          break;
+        }
+        console.log(`IPC warmup attempt ${i + 1} failed: ${result}`);
+      } catch (e) {
+        console.log(`IPC warmup attempt ${i + 1} exception:`, e);
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+
     console.log('App ready for testing');
   },
 
@@ -283,9 +303,21 @@ export const config: any = {
 
     // Set locale to English BEFORE database cleanup and refresh
     // This ensures consistent locale in tests regardless of environment
-    await browser.execute(() => {
-      localStorage.setItem('kniha-jazd-locale', 'en');
-    });
+    // Retry localStorage access - may fail briefly when WebView is initializing
+    for (let i = 0; i < 3; i++) {
+      try {
+        await browser.execute(() => {
+          localStorage.setItem('kniha-jazd-locale', 'en');
+        });
+        break;
+      } catch (e) {
+        if (i === 2) {
+          console.warn('Could not set locale in localStorage:', e);
+        } else {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+    }
 
     // Delete existing test DB for clean slate with retry logic
     const dbPath = getTestDbPath();
