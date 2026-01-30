@@ -346,7 +346,7 @@ export async function clearEnergyFields(): Promise<void> {
  * Options for filling a complete trip
  */
 export interface TripFormOptions {
-  date: string; // YYYY-MM-DD
+  startDatetime: string; // ISO datetime "YYYY-MM-DDTHH:MM" (date portion extracted for UI)
   origin: string;
   destination: string;
   distanceKm: number;
@@ -366,7 +366,7 @@ export interface TripFormOptions {
  */
 export async function fillTripForm(options: TripFormOptions): Promise<void> {
   const {
-    date,
+    startDatetime,
     origin,
     destination,
     distanceKm,
@@ -377,6 +377,9 @@ export async function fillTripForm(options: TripFormOptions): Promise<void> {
     otherCostsEur,
     otherCostsNote,
   } = options;
+
+  // Extract date portion from ISO datetime (e.g., "2024-01-15T08:00" -> "2024-01-15")
+  const date = startDatetime.slice(0, 10);
 
   // Wait for editing row to be visible
   const editingRow = await $(TripGrid.editingRow);

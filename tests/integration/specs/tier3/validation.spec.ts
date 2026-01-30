@@ -48,7 +48,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
       // Seed first trip with odometer at 10100
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-07-01`,
+        startDatetime: `${year}-07-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 100,
@@ -60,7 +60,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
       // Note: Backend may allow this but should flag it with date_warnings
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-07-05`,
+        startDatetime: `${year}-07-05T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -124,7 +124,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
       try {
         await seedTrip({
           vehicleId: vehicle.id as string,
-          date: `${year}-08-01`,
+          startDatetime: `${year}-08-01T08:00`,
           origin: SlovakCities.bratislava,
           destination: SlovakCities.trnava,
           distanceKm: -100, // Negative distance
@@ -208,11 +208,11 @@ describe('Tier 3: Validation & Edge Cases', () => {
       if (tripCreated && gridData.trips.length > 0) {
         // Find the leap year trip
         const leapTrip = gridData.trips.find(
-          (t) => t.date === `${leapYear}-02-29`
+          (t) => t.startDatetime.startsWith(`${leapYear}-02-29`)
         );
 
         if (leapTrip) {
-          expect(leapTrip.date).toBe(`${leapYear}-02-29`);
+          expect(leapTrip.startDatetime).toContain(`${leapYear}-02-29`);
           expect(leapTrip.origin).toBe(SlovakCities.bratislava);
           expect(leapTrip.destination).toBe(SlovakCities.kosice);
           expect(leapTrip.distanceKm).toBe(400);
@@ -227,7 +227,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
       try {
         await seedTrip({
           vehicleId: vehicle.id as string,
-          date: `${nonLeapYear}-02-29`, // Invalid date for non-leap year
+          startDatetime: `${nonLeapYear}-02-29T08:00`, // Invalid date for non-leap year
           origin: SlovakCities.bratislava,
           destination: SlovakCities.trnava,
           distanceKm: 65,
@@ -253,7 +253,7 @@ describe('Tier 3: Validation & Edge Cases', () => {
         if (nonLeapGridData.trips.length > 0) {
           const storedTrip = nonLeapGridData.trips[0];
           // Date may have been auto-corrected
-          console.log(`Stored date for non-leap year: ${storedTrip.date}`);
+          console.log(`Stored date for non-leap year: ${storedTrip.startDatetime}`);
         }
       }
 

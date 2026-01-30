@@ -22,18 +22,11 @@
 
 	export let defaultDate: string = new Date().toISOString().split('T')[0]; // For new rows
 
-	// Convert trip.datetime (ISO string) to datetime-local format "YYYY-MM-DDTHH:MM"
-	function toDatetimeLocal(isoString: string | undefined): string {
+	// Convert ISO datetime string to datetime-local format "YYYY-MM-DDTHH:MM"
+	function toDatetimeLocal(isoString: string | null | undefined): string {
 		if (!isoString) return `${defaultDate}T00:00`;
 		// isoString is like "2026-01-29T14:30:00", we need "2026-01-29T14:30"
 		return isoString.slice(0, 16);
-	}
-
-	// Convert endTime (HH:MM) + date to datetime-local format
-	function endTimeToDatetimeLocal(date: string, endTime: string | null | undefined): string {
-		const baseDate = date || defaultDate;
-		const time = endTime || '00:00';
-		return `${baseDate}T${time}`;
 	}
 
 	// Format datetime for display: "DD.MM HH:MM" (no year - it's in the dropdown)
@@ -47,12 +40,15 @@
 	}
 
 	// Format end datetime for display
-	function formatEndDatetimeShort(date: string, endTime: string | null | undefined): string {
-		const baseDate = new Date(date);
-		const day = baseDate.getDate().toString().padStart(2, '0');
-		const month = (baseDate.getMonth() + 1).toString().padStart(2, '0');
-		const time = endTime || '00:00';
-		return `${day}.${month}. ${time}`;
+	function formatEndDatetimeShort(endDatetime: string | null | undefined, startDatetime: string): string {
+		// If no end datetime, show dash
+		if (!endDatetime) {
+			const startDate = new Date(startDatetime);
+			const day = startDate.getDate().toString().padStart(2, '0');
+			const month = (startDate.getMonth() + 1).toString().padStart(2, '0');
+			return `${day}.${month}. -`;
+		}
+		return formatDatetimeShort(endDatetime);
 	}
 	export let onSave: (tripData: Partial<Trip>) => void;
 	export let onCancel: () => void;
@@ -93,8 +89,8 @@
 	// Form state - use null for new rows to show placeholder
 	const defaultStartDatetime = `${defaultDate}T00:00`;
 	let formData = {
-		startDatetime: trip ? toDatetimeLocal(trip.datetime) : defaultStartDatetime,
-		endDatetime: trip ? endTimeToDatetimeLocal(trip.date, trip.endTime) : defaultStartDatetime,
+		startDatetime: trip ? toDatetimeLocal(trip.startDatetime) : defaultStartDatetime,
+		endDatetime: trip ? toDatetimeLocal(trip.endDatetime) : defaultStartDatetime,
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
 		distanceKm: trip?.distanceKm ?? (isNew ? null : 0),
@@ -257,8 +253,8 @@
 			// Reset form data
 			const currentDate = new Date().toISOString().split('T')[0];
 			formData = {
-				startDatetime: trip ? toDatetimeLocal(trip.datetime) : `${currentDate}T00:00`,
-				endDatetime: trip ? endTimeToDatetimeLocal(trip.date, trip.endTime) : `${currentDate}T00:00`,
+				startDatetime: trip ? toDatetimeLocal(trip.startDatetime) : `${currentDate}T00:00`,
+				endDatetime: trip ? toDatetimeLocal(trip.endDatetime) : `${currentDate}T00:00`,
 				origin: trip?.origin || '',
 				destination: trip?.destination || '',
 				distanceKm: trip?.distanceKm || 0,
@@ -544,9 +540,9 @@
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{tripNumber}</td>
 		{/if}
-		<td class="col-start-datetime">{formatDatetimeShort(trip.datetime)}</td>
+		<td class="col-start-datetime">{formatDatetimeShort(trip.startDatetime)}</td>
 		{#if !hiddenColumns.includes('time')}
-			<td class="col-end-datetime">{formatEndDatetimeShort(trip.date, trip.endTime)}</td>
+			<td class="col-end-datetime">{formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}</td>
 		{/if}
 		<td class="col-origin">{trip.origin}</td>
 		<td class="col-destination">{trip.destination}</td>

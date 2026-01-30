@@ -60,7 +60,7 @@ describe('Tier 1: Export', () => {
       // Create several trips to export
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-01`,
+        startDatetime: `${year}-03-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,
@@ -70,7 +70,7 @@ describe('Tier 1: Export', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-10`,
+        startDatetime: `${year}-03-10T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 70,
@@ -83,7 +83,7 @@ describe('Tier 1: Export', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-03-20`,
+        startDatetime: `${year}-03-20T08:00`,
         origin: SlovakCities.nitra,
         destination: SlovakCities.bratislava,
         distanceKm: 90,
@@ -202,7 +202,7 @@ describe('Tier 1: Export', () => {
       // Total fuel cost: 45 + 67.5 = 112.5 EUR
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-01`,
+        startDatetime: `${year}-04-01T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 100,
@@ -215,7 +215,7 @@ describe('Tier 1: Export', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-10`,
+        startDatetime: `${year}-04-10T08:00`,
         origin: SlovakCities.trnava,
         destination: SlovakCities.nitra,
         distanceKm: 150,
@@ -228,7 +228,7 @@ describe('Tier 1: Export', () => {
 
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-04-20`,
+        startDatetime: `${year}-04-20T08:00`,
         origin: SlovakCities.nitra,
         destination: SlovakCities.kosice,
         distanceKm: 200,

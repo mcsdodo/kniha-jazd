@@ -39,8 +39,8 @@ export interface Vehicle {
 export interface Trip {
   id?: string; // UUID, generated if not provided
   vehicleId?: string;
-  date: string; // YYYY-MM-DD format
-  endTime?: string; // Legal compliance: trip end time "HH:MM" (2026)
+  startDatetime: string; // ISO datetime "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS"
+  endDatetime?: string; // ISO datetime (optional for backwards compat)
   origin: string;
   destination: string;
   distanceKm: number;

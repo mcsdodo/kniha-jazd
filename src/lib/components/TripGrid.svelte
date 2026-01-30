@@ -61,16 +61,22 @@
 		return `${parts[2]}.${parts[1]}.`;
 	}
 
-	// Convert trip's datetime to datetime-local format for API calls
+	// Convert trip's startDatetime to datetime-local format for API calls
 	function tripToStartDatetime(trip: Trip): string {
-		// trip.datetime is "YYYY-MM-DDTHH:MM:SS", we need "YYYY-MM-DDTHH:MM"
-		return trip.datetime.slice(0, 16);
+		// trip.startDatetime is "YYYY-MM-DDTHH:MM:SS", we need "YYYY-MM-DDTHH:MM"
+		return trip.startDatetime.slice(0, 16);
 	}
 
-	// Convert trip's date + endTime to datetime-local format for API calls
+	// Convert trip's endDatetime to datetime-local format for API calls
 	function tripToEndDatetime(trip: Trip): string {
-		const time = trip.endTime || '00:00';
-		return `${trip.date}T${time}`;
+		// trip.endDatetime is "YYYY-MM-DDTHH:MM:SS" or null
+		if (!trip.endDatetime) return trip.startDatetime.slice(0, 16);
+		return trip.endDatetime.slice(0, 16);
+	}
+
+	// Extract date portion from startDatetime for comparison
+	function tripDate(trip: Trip): string {
+		return trip.startDatetime.slice(0, 10);
 	}
 
 	// Fetch grid data from backend whenever trips change
@@ -199,7 +205,7 @@
 		showNewRow = true;
 	}
 
-	async function handleSaveNew(tripData: Partial<Trip> & { startDatetime?: string; endDatetime?: string }) {
+	async function handleSaveNew(tripData: Partial<Trip>) {
 		try {
 			await createTrip(
 				vehicleId,
@@ -244,7 +250,7 @@
 		}
 	}
 
-	async function handleUpdate(trip: Trip, tripData: Partial<Trip> & { startDatetime?: string; endDatetime?: string }) {
+	async function handleUpdate(trip: Trip, tripData: Partial<Trip>) {
 		try {
 			await updateTrip(
 				trip.id,
@@ -282,7 +288,7 @@
 
 	async function recalculateNewerTripsOdo(editedTripId: string, newOdo: number) {
 		const chronological = [...trips].sort((a, b) => {
-			const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+			const dateDiff = new Date(tripDate(a)).getTime() - new Date(tripDate(b)).getTime();
 			if (dateDiff !== 0) return dateDiff;
 			return a.odometer - b.odometer;
 		});
@@ -340,7 +346,7 @@
 
 	function handleInsertAbove(targetTrip: Trip) {
 		insertAtSortOrder = targetTrip.sortOrder;
-		insertDate = targetTrip.date;
+		insertDate = tripDate(targetTrip);
 		showNewRow = true;
 	}
 
@@ -442,9 +448,8 @@
 	$: firstRecordTrip = {
 		id: FIRST_RECORD_ID,
 		vehicleId: vehicleId,
-		date: `${year}-01-01`,
-		datetime: `${year}-01-01T00:00:00`,
-		endTime: null,
+		startDatetime: `${year}-01-01T00:00:00`,
+		endDatetime: null,
 		origin: '-',
 		destination: '-',
 		distanceKm: 0,
@@ -537,7 +542,7 @@
 			return new Date().toISOString().split('T')[0];
 		}
 		// "Previous" mode: last trip date + 1 day
-		const maxDate = new Date(sortedTrips[0].date);
+		const maxDate = new Date(tripDate(sortedTrips[0]));
 		maxDate.setDate(maxDate.getDate() + 1);
 		return maxDate.toISOString().split('T')[0];
 	})();
@@ -703,7 +708,7 @@
 							{purposeSuggestions}
 							isNew={true}
 							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
-							defaultDate={insertDate || trip.date}
+							defaultDate={insertDate || tripDate(trip)}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelConsumed={0}
 							fuelRemaining={fuelRemaining.get(trip.id) || tankSize}
@@ -726,7 +731,7 @@
 							{#if !hiddenColumns.includes('tripNumber')}
 								<td class="col-trip-number number">-</td>
 							{/if}
-							<td class="col-start-datetime">{formatDateShort(trip.date)} 00:00</td>
+							<td class="col-start-datetime">{formatDateShort(tripDate(trip))} 00:00</td>
 							{#if !hiddenColumns.includes('time')}
 								<td class="col-end-datetime">-</td>
 							{/if}

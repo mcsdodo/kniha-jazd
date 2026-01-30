@@ -205,7 +205,7 @@ describe('Tier 2: Backup & Restore', () => {
       // Add a trip
       await seedTrip({
         vehicleId: vehicle.id as string,
-        date: `${year}-01-15`,
+        startDatetime: `${year}-01-15T08:00`,
         origin: SlovakCities.bratislava,
         destination: SlovakCities.trnava,
         distanceKm: 65,

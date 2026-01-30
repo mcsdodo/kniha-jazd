@@ -370,12 +370,14 @@ export function createMonthlyReceipts(
  * Generate receipts matching a trip sequence (for verification testing)
  */
 export function createReceiptsMatchingTrips(
-  trips: Array<{ date: string; fuelLiters?: number; fuelCostEur?: number }>
+  trips: Array<{ startDatetime: string; fuelLiters?: number; fuelCostEur?: number }>
 ): Receipt[] {
   return trips
     .filter((trip) => trip.fuelLiters !== undefined)
     .map((trip) => {
-      const [year, month, day] = trip.date.split('-').map(Number);
+      // Extract date portion from startDatetime (e.g., "2024-01-15T08:00" -> "2024-01-15")
+      const dateStr = trip.startDatetime.slice(0, 10);
+      const [year, month, day] = dateStr.split('-').map(Number);
       return createReceipt({
         year,
         month,

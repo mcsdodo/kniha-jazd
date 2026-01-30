@@ -87,7 +87,7 @@ export function createTrip(options: TripFactoryOptions = {}): Trip {
   } = options;
 
   return {
-    date: formatDate(year, month, day),
+    startDatetime: `${formatDate(year, month, day)}T08:00`,
     origin: SlovakCities.bratislava,
     destination: SlovakCities.kosice,
     distanceKm: 400,

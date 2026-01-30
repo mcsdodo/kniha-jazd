@@ -132,7 +132,7 @@ describe('DB Seeding Utilities', () => {
 
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
-        date: tripData.date,
+        startDatetime: tripData.startDatetime,
         origin: tripData.origin,
         destination: tripData.destination,
         distanceKm: tripData.distanceKm,

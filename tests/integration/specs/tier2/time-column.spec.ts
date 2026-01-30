@@ -36,7 +36,7 @@ describe('Tier 2: Time Column', () => {
       // Seed a trip with specific time
       await seedTrip({
         vehicleId,
-        date: '2026-01-15',
+        startDatetime: '2026-01-15T08:00',
         time: '08:30',
         origin: 'Home',
         destination: 'Office',
@@ -71,7 +71,7 @@ describe('Tier 2: Time Column', () => {
       // Seed a trip without time (should default to 00:00)
       await seedTrip({
         vehicleId,
-        date: '2026-01-15',
+        startDatetime: '2026-01-15T08:00',
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
