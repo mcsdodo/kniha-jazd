@@ -2,14 +2,11 @@
 
 use super::*;
 use crate::gemini::ExtractionConfidence;
-use tempfile::TempDir;
 use std::fs::{self, File};
+use tempfile::TempDir;
 
 // Helper to create a temp directory with specific structure
-fn create_test_folder_structure(
-    files: &[&str],
-    folders: &[&str],
-) -> TempDir {
+fn create_test_folder_structure(files: &[&str], folders: &[&str]) -> TempDir {
     let temp_dir = TempDir::new().unwrap();
 
     for file in files {
@@ -35,10 +32,7 @@ fn create_test_folder_structure(
 
 #[test]
 fn test_detect_flat_structure_with_images() {
-    let temp = create_test_folder_structure(
-        &["a.jpg", "b.png", "c.jpeg"],
-        &[],
-    );
+    let temp = create_test_folder_structure(&["a.jpg", "b.png", "c.jpeg"], &[]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     assert_eq!(result, FolderStructure::Flat);
@@ -55,10 +49,7 @@ fn test_detect_flat_structure_empty_folder() {
 
 #[test]
 fn test_detect_flat_structure_ignores_non_image_files() {
-    let temp = create_test_folder_structure(
-        &["receipt.jpg", "notes.txt", "data.json"],
-        &[],
-    );
+    let temp = create_test_folder_structure(&["receipt.jpg", "notes.txt", "data.json"], &[]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     // Only considers supported image files
@@ -67,10 +58,7 @@ fn test_detect_flat_structure_ignores_non_image_files() {
 
 #[test]
 fn test_detect_year_based_structure() {
-    let temp = create_test_folder_structure(
-        &[],
-        &["2024", "2025"],
-    );
+    let temp = create_test_folder_structure(&[], &["2024", "2025"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     assert_eq!(result, FolderStructure::YearBased(vec![2024, 2025]));
@@ -78,10 +66,7 @@ fn test_detect_year_based_structure() {
 
 #[test]
 fn test_detect_year_based_structure_single_year() {
-    let temp = create_test_folder_structure(
-        &[],
-        &["2024"],
-    );
+    let temp = create_test_folder_structure(&[], &["2024"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     assert_eq!(result, FolderStructure::YearBased(vec![2024]));
@@ -89,10 +74,7 @@ fn test_detect_year_based_structure_single_year() {
 
 #[test]
 fn test_detect_year_based_structure_sorted() {
-    let temp = create_test_folder_structure(
-        &[],
-        &["2025", "2023", "2024"],
-    );
+    let temp = create_test_folder_structure(&[], &["2025", "2023", "2024"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     // Years should be sorted
@@ -101,15 +83,16 @@ fn test_detect_year_based_structure_sorted() {
 
 #[test]
 fn test_detect_invalid_mixed_files_and_year_folders() {
-    let temp = create_test_folder_structure(
-        &["receipt.jpg"],
-        &["2024"],
-    );
+    let temp = create_test_folder_structure(&["receipt.jpg"], &["2024"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     match result {
         FolderStructure::Invalid(reason) => {
-            assert!(reason.contains("Mixed"), "Expected 'Mixed' in reason: {}", reason);
+            assert!(
+                reason.contains("Mixed"),
+                "Expected 'Mixed' in reason: {}",
+                reason
+            );
         }
         _ => panic!("Expected Invalid, got {:?}", result),
     }
@@ -117,16 +100,21 @@ fn test_detect_invalid_mixed_files_and_year_folders() {
 
 #[test]
 fn test_detect_invalid_non_year_folders() {
-    let temp = create_test_folder_structure(
-        &[],
-        &["January", "misc"],
-    );
+    let temp = create_test_folder_structure(&[], &["January", "misc"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     match result {
         FolderStructure::Invalid(reason) => {
-            assert!(reason.contains("January"), "Expected 'January' in reason: {}", reason);
-            assert!(reason.contains("misc"), "Expected 'misc' in reason: {}", reason);
+            assert!(
+                reason.contains("January"),
+                "Expected 'January' in reason: {}",
+                reason
+            );
+            assert!(
+                reason.contains("misc"),
+                "Expected 'misc' in reason: {}",
+                reason
+            );
         }
         _ => panic!("Expected Invalid, got {:?}", result),
     }
@@ -134,15 +122,16 @@ fn test_detect_invalid_non_year_folders() {
 
 #[test]
 fn test_detect_invalid_mixed_year_and_non_year_folders() {
-    let temp = create_test_folder_structure(
-        &[],
-        &["2024", "misc"],
-    );
+    let temp = create_test_folder_structure(&[], &["2024", "misc"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     match result {
         FolderStructure::Invalid(reason) => {
-            assert!(reason.contains("misc"), "Expected 'misc' in reason: {}", reason);
+            assert!(
+                reason.contains("misc"),
+                "Expected 'misc' in reason: {}",
+                reason
+            );
         }
         _ => panic!("Expected Invalid, got {:?}", result),
     }
@@ -153,8 +142,11 @@ fn test_detect_invalid_path_not_exists() {
     let result = detect_folder_structure("/nonexistent/path/to/folder");
     match result {
         FolderStructure::Invalid(reason) => {
-            assert!(reason.contains("not a valid directory"),
-                "Expected 'not a valid directory' in reason: {}", reason);
+            assert!(
+                reason.contains("not a valid directory"),
+                "Expected 'not a valid directory' in reason: {}",
+                reason
+            );
         }
         _ => panic!("Expected Invalid, got {:?}", result),
     }
@@ -162,16 +154,16 @@ fn test_detect_invalid_path_not_exists() {
 
 #[test]
 fn test_detect_invalid_files_with_non_year_folders() {
-    let temp = create_test_folder_structure(
-        &["receipt.jpg"],
-        &["backup"],
-    );
+    let temp = create_test_folder_structure(&["receipt.jpg"], &["backup"]);
 
     let result = detect_folder_structure(temp.path().to_str().unwrap());
     match result {
         FolderStructure::Invalid(reason) => {
-            assert!(reason.contains("Mixed") || reason.contains("non-year"),
-                "Expected mixed/non-year in reason: {}", reason);
+            assert!(
+                reason.contains("Mixed") || reason.contains("non-year"),
+                "Expected mixed/non-year in reason: {}",
+                reason
+            );
         }
         _ => panic!("Expected Invalid, got {:?}", result),
     }
@@ -183,27 +175,23 @@ fn test_detect_invalid_files_with_non_year_folders() {
 
 #[test]
 fn test_scan_year_folders_populates_source_year() {
-    let temp = create_test_folder_structure(
-        &["2024/receipt1.jpg", "2025/receipt2.jpg"],
-        &[],
-    );
+    let temp = create_test_folder_structure(&["2024/receipt1.jpg", "2025/receipt2.jpg"], &[]);
 
     let db = crate::db::Database::in_memory().unwrap();
-    let receipts = scan_folder_for_new_receipts(
-        temp.path().to_str().unwrap(),
-        &db
-    ).unwrap();
+    let receipts = scan_folder_for_new_receipts(temp.path().to_str().unwrap(), &db).unwrap();
 
     assert_eq!(receipts.len(), 2);
 
     // Find the receipt from 2024 folder
-    let receipt_2024 = receipts.iter()
+    let receipt_2024 = receipts
+        .iter()
         .find(|r| r.file_path.contains("2024"))
         .expect("Should find receipt from 2024 folder");
     assert_eq!(receipt_2024.source_year, Some(2024));
 
     // Find the receipt from 2025 folder
-    let receipt_2025 = receipts.iter()
+    let receipt_2025 = receipts
+        .iter()
         .find(|r| r.file_path.contains("2025"))
         .expect("Should find receipt from 2025 folder");
     assert_eq!(receipt_2025.source_year, Some(2025));
@@ -211,39 +199,34 @@ fn test_scan_year_folders_populates_source_year() {
 
 #[test]
 fn test_scan_flat_folder_has_no_source_year() {
-    let temp = create_test_folder_structure(
-        &["receipt1.jpg", "receipt2.png"],
-        &[],
-    );
+    let temp = create_test_folder_structure(&["receipt1.jpg", "receipt2.png"], &[]);
 
     let db = crate::db::Database::in_memory().unwrap();
-    let receipts = scan_folder_for_new_receipts(
-        temp.path().to_str().unwrap(),
-        &db
-    ).unwrap();
+    let receipts = scan_folder_for_new_receipts(temp.path().to_str().unwrap(), &db).unwrap();
 
     assert_eq!(receipts.len(), 2);
     for receipt in &receipts {
-        assert_eq!(receipt.source_year, None, "Flat folder should not set source_year");
+        assert_eq!(
+            receipt.source_year, None,
+            "Flat folder should not set source_year"
+        );
     }
 }
 
 #[test]
 fn test_scan_invalid_structure_returns_error() {
-    let temp = create_test_folder_structure(
-        &["receipt.jpg"],
-        &["2024"],
-    );
+    let temp = create_test_folder_structure(&["receipt.jpg"], &["2024"]);
 
     let db = crate::db::Database::in_memory().unwrap();
-    let result = scan_folder_for_new_receipts(
-        temp.path().to_str().unwrap(),
-        &db
-    );
+    let result = scan_folder_for_new_receipts(temp.path().to_str().unwrap(), &db);
 
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(err.contains("Invalid folder structure"), "Expected 'Invalid folder structure' in error: {}", err);
+    assert!(
+        err.contains("Invalid folder structure"),
+        "Expected 'Invalid folder structure' in error: {}",
+        err
+    );
 }
 
 // ===========================================

@@ -21,10 +21,10 @@ fn test_trip(
         fuel_liters,
         energy_charged,
         fuel_added,
-        20.0,  // 20 kWh/100km
-        6.0,   // 6 L/100km
-        10.0,  // 10 kWh capacity
-        40.0,  // 40 L tank
+        20.0, // 20 kWh/100km
+        6.0,  // 6 L/100km
+        10.0, // 10 kWh capacity
+        40.0, // 40 L tank
     )
 }
 

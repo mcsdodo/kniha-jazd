@@ -59,12 +59,18 @@ pub fn create_vehicle(
         }
         VehicleType::Bev => {
             if battery_capacity_kwh.is_none() || baseline_consumption_kwh.is_none() {
-                return Err("BEV vehicles require battery_capacity_kwh and baseline_consumption_kwh".to_string());
+                return Err(
+                    "BEV vehicles require battery_capacity_kwh and baseline_consumption_kwh"
+                        .to_string(),
+                );
             }
         }
         VehicleType::Phev => {
-            if tank_size_liters.is_none() || tp_consumption.is_none()
-                || battery_capacity_kwh.is_none() || baseline_consumption_kwh.is_none() {
+            if tank_size_liters.is_none()
+                || tp_consumption.is_none()
+                || battery_capacity_kwh.is_none()
+                || baseline_consumption_kwh.is_none()
+            {
                 return Err("PHEV vehicles require both fuel and battery fields".to_string());
             }
         }
@@ -95,7 +101,11 @@ pub fn create_vehicle(
 }
 
 #[tauri::command]
-pub fn update_vehicle(db: State<Database>, app_state: State<AppState>, vehicle: Vehicle) -> Result<(), String> {
+pub fn update_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    vehicle: Vehicle,
+) -> Result<(), String> {
     check_read_only!(app_state);
     // Check if vehicle type is being changed when trips exist
     let existing = db
@@ -122,13 +132,21 @@ pub fn update_vehicle(db: State<Database>, app_state: State<AppState>, vehicle: 
 }
 
 #[tauri::command]
-pub fn delete_vehicle(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+pub fn delete_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
     db.delete_vehicle(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn set_active_vehicle(db: State<Database>, app_state: State<AppState>, id: String) -> Result<(), String> {
+pub fn set_active_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
     // First, get all vehicles
     let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
