@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Export "Prvý záznam" štýl** - syntetický riadok "Prvý záznam" má teraz v HTML exporte rovnaký štýl ako riadky konca mesiaca (svetlomodrý, kurzíva, bez čísla jazdy)
+
 ## [0.28.0] - 2026-01-30
 
 ### Pridané
