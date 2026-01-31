@@ -1,6 +1,7 @@
 //! Local settings override file support
 //! Priority: local.settings.json > database settings
 
+use crate::constants::paths;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -41,7 +42,7 @@ impl LocalSettings {
     /// Load from local.settings.json in app data dir
     /// Returns default (empty) if file doesn't exist
     pub fn load(app_data_dir: &PathBuf) -> Self {
-        let path = app_data_dir.join("local.settings.json");
+        let path = app_data_dir.join(paths::SETTINGS_FILENAME);
         if path.exists() {
             match fs::read_to_string(&path) {
                 Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
@@ -57,7 +58,7 @@ impl LocalSettings {
         use std::io::Write;
         // Ensure the directory exists before writing
         fs::create_dir_all(app_data_dir)?;
-        let path = app_data_dir.join("local.settings.json");
+        let path = app_data_dir.join(paths::SETTINGS_FILENAME);
         let json = serde_json::to_string_pretty(self)?;
         // Use File::create + write + sync_all to ensure data is flushed to disk
         let mut file = fs::File::create(&path)?;

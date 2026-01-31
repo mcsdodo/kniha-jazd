@@ -1,6 +1,7 @@
 mod app_state;
 mod calculations;
 mod commands;
+mod constants;
 mod db;
 mod db_location;
 mod export;

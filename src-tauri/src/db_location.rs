@@ -3,6 +3,7 @@
 //! Supports custom database paths for multi-PC setups (Google Drive, NAS, etc.)
 //! with lock files to prevent concurrent access conflicts.
 
+use crate::constants::paths;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -24,9 +25,9 @@ impl DbPaths {
     /// Create DbPaths from a base directory.
     pub fn from_dir(base_dir: &PathBuf) -> Self {
         Self {
-            db_file: base_dir.join("kniha-jazd.db"),
-            lock_file: base_dir.join("kniha-jazd.lock"),
-            backups_dir: base_dir.join("backups"),
+            db_file: base_dir.join(paths::DB_FILENAME),
+            lock_file: base_dir.join(paths::LOCK_FILENAME),
+            backups_dir: base_dir.join(paths::BACKUPS_DIR),
         }
     }
 }
