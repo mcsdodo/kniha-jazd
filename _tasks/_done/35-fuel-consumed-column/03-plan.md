@@ -1,5 +1,8 @@
 # Implementation Plan: Fuel Consumed Column
 
+**Status:** Complete
+**Completed:** 2026-01-31
+
 ## Step 1: Backend - Add Calculation Function & Tests
 
 **Files**: `src-tauri/src/commands.rs`, `src-tauri/src/commands_tests.rs`, `src-tauri/src/models.rs`

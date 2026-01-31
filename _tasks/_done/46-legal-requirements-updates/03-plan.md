@@ -4,9 +4,19 @@
 
 **Goal:** Add Slovak legal compliance features for vehicle logbooks effective 1.1.2026
 
-**Architecture:** Backend-only calculations (ADR-008). New `end_time` field stored in DB; trip numbers, odometer_start, and month-end rows are calculated at runtime in `get_trip_grid_data`. Frontend displays calculated values.
+**Architecture:** Backend-only calculations (ADR-008). `start_datetime` + `end_datetime` stored in DB; trip numbers, odometer_start, and month-end rows are calculated at runtime in `get_trip_grid_data`. Frontend displays calculated values.
 
 **Tech Stack:** Rust/Tauri backend, SvelteKit frontend, Diesel ORM, SQLite
+
+**Status:** Complete
+**Completed:** 2026-01-31
+
+## Implementation Summary
+
+- Implemented backend trip numbers, odometer start, and month-end rows.
+- Frontend displays trip number, start/end time, and odometer-before columns.
+- Export includes legal columns.
+- Legacy `end_time` path superseded by `start_datetime`/`end_datetime` (see Task 48).
 
 ---
 
