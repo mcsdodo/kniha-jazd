@@ -367,8 +367,9 @@ export async function previewTripCalculation(
 	});
 }
 
-// Theme
-export type ThemeMode = 'system' | 'light' | 'dark';
+// Theme (type is defined in constants.ts)
+import type { ThemeMode } from '$lib/constants';
+export type { ThemeMode };
 
 export async function getThemePreference(): Promise<ThemeMode> {
 	return invoke<string>('get_theme_preference') as Promise<ThemeMode>;

@@ -11,7 +11,6 @@ Quick overview of all tasks and their status.
 | 47 | [Datetime Consolidation](47-datetime-consolidation/) | ✅ Complete | Single datetime inputs, ADR-012 forward-only migrations |
 | 42 | [Commands Module Split](42-commands-module-split/) | 🟡 In Progress | ADR-011: Split 3908-line commands.rs into modules |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
-| 38 | [Magic Strings Refactoring](38-magic-strings-refactoring/) | 📋 Planning | Replace hardcoded strings with constants |
 | 33 | [Web Deployment](33-web-deployment/) | 📋 Planning | Web version feasibility |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |
 
@@ -21,6 +20,7 @@ Quick overview of all tasks and their status.
 |---|------|-----------|
 | 48 | end_datetime Cleanup | 2026-01-31 |
 | 46 | Legal Requirements Updates | 2026-01-31 |
+| 38 | Magic Strings Refactoring | 2026-01-31 |
 | 37 | Date Prefill Setting | 2026-01-31 |
 | 36 | Suggested Fillup Legend | 2026-01-31 |
 | 35 | Fuel Consumed Column | 2026-01-31 |

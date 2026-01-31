@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
+import { TOAST_TYPES, type ToastType } from '$lib/constants';
 
-export type ToastType = 'success' | 'error' | 'info';
+export type { ToastType };
 
 export interface Toast {
 	id: number;
@@ -12,7 +13,7 @@ function createToastStore() {
 	const { subscribe, update } = writable<Toast[]>([]);
 	let nextId = 1;
 
-	function show(message: string, type: ToastType = 'info', duration = 4000) {
+	function show(message: string, type: ToastType = TOAST_TYPES.INFO, duration = 4000) {
 		const id = nextId++;
 		update((toasts) => [...toasts, { id, message, type }]);
 
@@ -29,9 +30,9 @@ function createToastStore() {
 
 	return {
 		subscribe,
-		success: (message: string) => show(message, 'success'),
-		error: (message: string) => show(message, 'error', 6000),
-		info: (message: string) => show(message, 'info'),
+		success: (message: string) => show(message, TOAST_TYPES.SUCCESS),
+		error: (message: string) => show(message, TOAST_TYPES.ERROR, 6000),
+		info: (message: string) => show(message, TOAST_TYPES.INFO),
 		dismiss
 	};
 }

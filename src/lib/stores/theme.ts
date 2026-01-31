@@ -1,14 +1,15 @@
 import { writable } from 'svelte/store';
-import { getThemePreference, setThemePreference, type ThemeMode } from '$lib/api';
+import { getThemePreference, setThemePreference } from '$lib/api';
+import { THEME_MODES, type ThemeMode } from '$lib/constants';
 
 function createThemeStore() {
-    const { subscribe, set } = writable<ThemeMode>('system');
+    const { subscribe, set } = writable<ThemeMode>(THEME_MODES.SYSTEM);
     let mediaQueryCleanup: (() => void) | null = null;
 
     function applyTheme(mode: ThemeMode) {
         const isDark =
-            mode === 'dark' ||
-            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            mode === THEME_MODES.DARK ||
+            (mode === THEME_MODES.SYSTEM && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
     }
 
@@ -24,8 +25,8 @@ function createThemeStore() {
             const handler = () => {
                 // Re-apply if in system mode
                 getThemePreference().then((current) => {
-                    if (current === 'system') {
-                        applyTheme('system');
+                    if (current === THEME_MODES.SYSTEM) {
+                        applyTheme(THEME_MODES.SYSTEM);
                     }
                 });
             };

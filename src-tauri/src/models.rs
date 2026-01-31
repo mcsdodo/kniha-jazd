@@ -561,6 +561,128 @@ impl Default for MismatchReason {
     }
 }
 
+// =============================================================================
+// Domain Enums - String Constant Replacements
+// =============================================================================
+
+/// Backup type - distinguishes manual from automatic pre-update backups
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum BackupType {
+    #[default]
+    Manual,
+    PreUpdate,
+}
+
+impl BackupType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BackupType::Manual => "manual",
+            BackupType::PreUpdate => "pre-update",
+        }
+    }
+}
+
+impl std::fmt::Display for BackupType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// Attachment status for receipt-to-trip matching
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum AttachmentStatus {
+    #[default]
+    Empty,   // Trip has no receipt attached
+    Matches, // Receipt values match trip
+    Differs, // Receipt values differ from trip
+}
+
+impl AttachmentStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AttachmentStatus::Empty => "empty",
+            AttachmentStatus::Matches => "matches",
+            AttachmentStatus::Differs => "differs",
+        }
+    }
+}
+
+/// Currency codes for multi-currency receipt support
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum Currency {
+    #[default]
+    EUR,
+    CZK,
+    HUF,
+    PLN,
+}
+
+impl Currency {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Currency::EUR => "EUR",
+            Currency::CZK => "CZK",
+            Currency::HUF => "HUF",
+            Currency::PLN => "PLN",
+        }
+    }
+
+    /// Parse currency from string (case insensitive)
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "EUR" => Some(Currency::EUR),
+            "CZK" => Some(Currency::CZK),
+            "HUF" => Some(Currency::HUF),
+            "PLN" => Some(Currency::PLN),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Currency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+/// Theme mode for UI appearance
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl Theme {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Theme::System => "system",
+            Theme::Light => "light",
+            Theme::Dark => "dark",
+        }
+    }
+
+    /// Parse theme from string
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "system" => Some(Theme::System),
+            "light" => Some(Theme::Light),
+            "dark" => Some(Theme::Dark),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Theme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 /// Verification status of a single receipt against trips
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

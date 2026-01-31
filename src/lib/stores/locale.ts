@@ -2,9 +2,10 @@ import { writable } from 'svelte/store';
 import type { Locales } from '$lib/i18n/i18n-types';
 import { setLocale } from '$lib/i18n/i18n-svelte';
 import { loadLocale } from '$lib/i18n/i18n-util.sync';
+import { LOCALES } from '$lib/constants';
 
 const LOCALE_STORAGE_KEY = 'kniha-jazd-locale';
-const DEFAULT_LOCALE: Locales = 'sk';
+const DEFAULT_LOCALE: Locales = LOCALES.SK;
 
 function createLocaleStore() {
 	const { subscribe, set } = writable<Locales>(DEFAULT_LOCALE);
@@ -19,12 +20,12 @@ function createLocaleStore() {
 
 			// Check localStorage first
 			const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
-			if (saved === 'sk' || saved === 'en') {
+			if (saved === LOCALES.SK || saved === LOCALES.EN) {
 				locale = saved;
 			} else {
 				// Detect from browser
 				const browserLang = navigator.language.toLowerCase();
-				locale = browserLang.startsWith('sk') ? 'sk' : 'en';
+				locale = browserLang.startsWith(LOCALES.SK) ? LOCALES.SK : LOCALES.EN;
 			}
 
 			// Load and set the locale
