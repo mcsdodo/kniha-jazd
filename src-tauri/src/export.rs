@@ -2,6 +2,7 @@
 
 use crate::models::{Settings, Trip, TripGridData, Vehicle, VehicleType};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Labels for HTML export (passed from frontend for i18n support)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -236,11 +237,25 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
                 .unwrap_or_else(|| format!("{} -", trip.start_datetime.format("%d.%m.")));
             let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
 
-            // Build row - start with Trip# (always shown for legal compliance)
+            // Check if this is the synthetic "first record" (Uuid::nil())
+            let is_first_record = trip.id == Uuid::nil();
+
+            // Build row - synthetic rows (first record) get special styling like month-end rows
+            let row_class = if is_first_record {
+                r#" class="month-end-synthetic""#
+            } else {
+                ""
+            };
+            // First record shows empty trip number (like month-end rows)
+            let trip_number_display = if is_first_record {
+                String::new()
+            } else {
+                trip_number.to_string()
+            };
             let mut row = format!(
-                r#"        <tr>
+                r#"        <tr{}>
           <td class="num">{}</td>"#,
-                trip_number,
+                row_class, trip_number_display,
             );
 
             // Start datetime (always shown) - format: DD.MM. HH:MM (no year - it's in header)
