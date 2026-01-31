@@ -3,8 +3,8 @@
 //! PHEV vehicles prioritize electricity: battery is depleted before fuel is used.
 //! This module handles the split calculation for a single trip.
 
+use super::energy as calculations_energy;
 use crate::calculations;
-use crate::calculations_energy;
 
 /// Result of PHEV trip consumption calculation
 #[allow(dead_code)]
@@ -84,6 +84,4 @@ pub fn calculate_phev_trip_consumption(
     }
 }
 
-#[cfg(test)]
-#[path = "calculations_phev_tests.rs"]
-mod tests;
+// Tests are included in mod.rs as phev_tests

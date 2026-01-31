@@ -14,6 +14,15 @@
 
 **Original file:** 3,908 lines → **Current mod.rs:** 3,105 lines
 
+## Design Note: Module Layout Preference
+
+The `commands/` subfolder structure (with `mod.rs` + submodules) is preferred over
+flat file layout (like `calculations.rs`, `calculations_energy.rs`, etc.). This plan
+uses the subfolder pattern as the reference style.
+
+**Action:** Refactor existing `calculations*.rs` files into a `calculations/` subfolder
+to match the `commands/` structure. See Phase 5 below.
+
 ## Phase 1: Setup and Low-Risk Extraction ✅ COMPLETE
 
 ### Step 1.1: Create module structure ✅
@@ -137,3 +146,26 @@ If issues arise:
 1. Extract statistics.rs (largest remaining section, ~1170 lines)
 2. Extract export.rs (~280 lines, depends on statistics helpers)
 3. Continue with Phase 3 modules
+4. Consolidate calculations into subfolder (Phase 5)
+
+## Phase 5: Consolidate Calculations Module ✅ COMPLETE
+
+Refactor flat `calculations*.rs` files into a `calculations/` subfolder to match `commands/` style.
+
+### Step 5.1: Create calculations directory
+- [x] Create `src-tauri/src/calculations/` directory
+- [x] Create `mod.rs` with re-exports
+
+### Step 5.2: Move existing files
+- [x] Move `calculations.rs` → `calculations/mod.rs` (core logic)
+- [x] Move `calculations_tests.rs` → `calculations/tests.rs`
+- [x] Move `calculations_energy.rs` → `calculations/energy.rs`
+- [x] Move `calculations_energy_tests.rs` → `calculations/energy_tests.rs`
+- [x] Move `calculations_phev.rs` → `calculations/phev.rs`
+- [x] Move `calculations_phev_tests.rs` → `calculations/phev_tests.rs`
+
+### Step 5.3: Update imports
+- [x] Update `lib.rs` to use `mod calculations;`
+- [x] Update `commands/mod.rs` imports
+- [x] Update internal imports in moved files
+- [x] Run tests: 232 passing

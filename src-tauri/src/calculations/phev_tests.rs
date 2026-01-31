@@ -3,7 +3,7 @@
 //! Tests the electricity-first logic where battery is used until depleted,
 //! then fuel takes over for remaining distance.
 
-use super::*;
+use super::phev::*;
 
 /// Helper to create test scenario with standard vehicle params:
 /// - 10 kWh battery, 20 kWh/100km electric consumption

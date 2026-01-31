@@ -127,6 +127,18 @@ pub fn calculate_closed_period_totals(trips: &[Trip]) -> (f64, f64) {
     (total_fuel, total_km)
 }
 
+// Submodules
+pub mod energy;
+pub mod phev;
+
 #[cfg(test)]
-#[path = "calculations_tests.rs"]
+#[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "energy_tests.rs"]
+mod energy_tests;
+
+#[cfg(test)]
+#[path = "phev_tests.rs"]
+mod phev_tests;
