@@ -1,6 +1,6 @@
 //! Tests for energy calculations module (BEV/PHEV electricity tracking)
 
-use super::*;
+use super::energy::*;
 
 // ============================================================================
 // calculate_consumption_rate_kwh tests

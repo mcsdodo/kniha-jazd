@@ -15,10 +15,10 @@ use crate::calculations::{
     calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
     calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
 };
-use crate::calculations_energy::{
+use crate::calculations::energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
 };
-use crate::calculations_phev::calculate_phev_trip_consumption;
+use crate::calculations::phev::calculate_phev_trip_consumption;
 use crate::db::Database;
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};

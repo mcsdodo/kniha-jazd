@@ -50,6 +50,4 @@ pub fn percent_to_kwh(percent: f64, battery_capacity: f64) -> f64 {
     percent * battery_capacity / 100.0
 }
 
-#[cfg(test)]
-#[path = "calculations_energy_tests.rs"]
-mod tests;
+// Tests are included in mod.rs as energy_tests
