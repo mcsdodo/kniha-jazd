@@ -1,7 +1,8 @@
 # Problem Statement: end_time to end_datetime Cleanup
 
 **Date:** 2026-01-29
-**Status:** Planning
+**Status:** Complete
+**Completed:** 2026-01-31
 **Related:** Task 47 (datetime consolidation), ADR-012 (forward-only migrations)
 
 ## Current State
@@ -22,6 +23,12 @@ Clean Trip model with proper datetime fields:
 - `start_datetime: NaiveDateTime` (rename from `datetime`)
 - `end_datetime: NaiveDateTime` (replace `end_time: Option<String>`)
 - Remove redundant `date: NaiveDate` field
+
+## Resolution Summary
+
+- Switched backend and DB models to `start_datetime` + `end_datetime` only
+- Dropped legacy columns (`date`, `datetime`, `end_time`) via migration `2026-01-30-100000_drop_legacy_datetime_columns`
+- Updated export/tests and parsing to use the new fields
 
 ## Why Now?
 

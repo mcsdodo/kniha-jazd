@@ -1,8 +1,15 @@
 # Implementation Plan: end_time to end_datetime Cleanup
 
 **Date:** 2026-01-29
-**Status:** Ready for Implementation
+**Status:** Complete
+**Completed:** 2026-01-31
 **Reviewed:** 2026-01-29 (see `_plan-review.md`)
+
+## Implementation Summary
+
+- Trip models and DB now use `start_datetime` + `end_datetime` only.
+- Legacy columns dropped in migration `2026-01-30-100000_drop_legacy_datetime_columns`.
+- Commands, exports, and tests updated to use the new fields.
 
 ---
 

@@ -4,7 +4,7 @@
 
 Add `start_datetime` and `end_datetime` columns to trips table, migrate existing data, update all Rust code to use new fields.
 
-**Status:** Phases 1-3 DONE, Phase 4 (verification) remaining
+**Status:** Complete (Phase 5 cleanup done in Task 48)
 
 ---
 
@@ -72,34 +72,35 @@ The domain `Trip` struct keeps using `datetime` and `end_time` field names inter
 
 ## Phase 5: Cleanup Migration (Future - after v1.0 release)
 
-> **Note:** This phase is intentionally deferred. Per CLAUDE.md, we don't remove columns
-> to maintain backward compatibility. This cleanup should only happen after:
+> **Note:** This phase was completed in Task 48. Legacy columns were dropped via
+> migration `2026-01-30-100000_drop_legacy_datetime_columns` once forward-only
+> migrations were approved.
 > - All users have migrated to the new version
 > - A major version bump (e.g., v1.0 → v2.0)
 > - Sufficient time has passed (3+ months)
 
 ### Task 5.1: Mark legacy columns as deprecated
-- [ ] Add `// DEPRECATED` comments to schema.rs for `date`, `datetime`, `end_time`
-- [ ] Add deprecation notice to CHANGELOG
+- [ ] Add `// DEPRECATED` comments to schema.rs for `date`, `datetime`, `end_time` (N/A after cleanup)
+- [ ] Add deprecation notice to CHANGELOG (N/A after cleanup)
 
 ### Task 5.2: Create cleanup migration (v2.0+)
-- [ ] Create migration to drop redundant columns:
+- [x] Create migration to drop redundant columns:
   ```sql
   -- Only run after all users on v1.x+
   ALTER TABLE trips DROP COLUMN date;
   ALTER TABLE trips DROP COLUMN datetime;
   ALTER TABLE trips DROP COLUMN end_time;
   ```
-- [ ] Update schema.rs - remove deprecated columns
-- [ ] Update TripRow - remove deprecated fields
-- [ ] Update NewTripRow - remove deprecated fields
-- [ ] Update Trip struct - remove legacy fields
-- [ ] Update all tests
+- [x] Update schema.rs - remove deprecated columns
+- [x] Update TripRow - remove deprecated fields
+- [x] Update NewTripRow - remove deprecated fields
+- [x] Update Trip struct - remove legacy fields
+- [x] Update all tests
 
 ### Task 5.3: Verification
-- [ ] All tests pass
-- [ ] Manual testing with fresh DB
-- [ ] Document breaking change in CHANGELOG
+- [x] All tests pass
+- [x] Manual testing with fresh DB
+- [x] Document breaking change in CHANGELOG
 
 ---
 

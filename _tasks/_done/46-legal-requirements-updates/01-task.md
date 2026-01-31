@@ -1,6 +1,7 @@
 **Date:** 2026-01-29
 **Subject:** Legal Requirements Updates for Slovak Logbook (from 1.1.2026)
-**Status:** Planning
+**Status:** Complete
+**Completed:** 2026-01-31
 
 ## Original Requirements (Slovak)
 
@@ -26,6 +27,12 @@ evidenciu o každom použití osobného motorového vozidla, ktorá obsahuje naj
 | Taxable period | Monthly (fixed, not configurable) | Law specifies monthly; no need for flexibility |
 | Trip numbering | Calculated per-year, not stored | Updates automatically if trips reordered |
 | Odometer before | Derived from previous trip | No extra data entry, mathematically correct |
+
+## Completion Notes
+
+- Backend computes trip numbers, odometer start, and month-end rows.
+- Frontend renders trip number, start/end time, and odometer-before columns.
+- Export includes the new legal columns.
 
 ## Out of Scope (Deferred)
 
