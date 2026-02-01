@@ -615,7 +615,7 @@
 					<span class="legend-item"><span class="consumption-warning-sample"></span> {$LL.trips.legend.highConsumption()} ({consumptionWarningCount})</span>
 				{/if}
 				{#if receiptDatetimeWarningCount > 0}
-					<span class="legend-item"><span class="datetime-warning-indicator">*</span> {$LL.trips.legend.receiptDatetimeMismatch()} ({receiptDatetimeWarningCount})</span>
+					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.receiptDatetimeMismatch()} ({receiptDatetimeWarningCount})</span>
 				{/if}
 			</div>
 		{/if}
