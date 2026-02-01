@@ -972,7 +972,7 @@
 								<span class="version-number" title={$LL.update.checking()}>{appVersion}</span>
 							{:else if $updateStore.available}
 								<button type="button" class="version-update-trigger" on:click={handleUpdateButtonClick} title={$LL.update.updateNow()}>
-									<span class="version-number">{appVersion}</span>
+									<span class="version-number">{appVersion || '...'}</span>
 									<span class="version-arrow">→</span>
 									<span class="version-new">{$updateStore.version}</span>
 								</button>

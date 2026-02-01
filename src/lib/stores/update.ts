@@ -47,6 +47,7 @@ function extractChangelogBetweenVersions(
 			if (capturing && currentSection.length > 0) {
 				result.push(...currentSection);
 				result.push(''); // Add empty line between sections
+				currentSection = []; // Clear to prevent double-push in out-of-range case
 			}
 
 			const version = versionMatch[1];
