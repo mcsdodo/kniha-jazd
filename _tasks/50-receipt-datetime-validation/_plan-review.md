@@ -4,7 +4,7 @@
 **Reviewer:** Claude
 **Plan:** [02-plan.md](./02-plan.md)
 **Design:** [01-design.md](./01-design.md)
-**Status:** Iteration 1
+**Status:** Resolved
 
 ---
 
@@ -173,6 +173,25 @@ The remaining Important/Minor findings are implementation details that can be re
 - [x] Tasks have verification steps
 - [x] Task order is logical (DB -> Backend -> OCR -> Frontend -> Tests)
 - [x] No scope creep (matches design requirements)
-- [ ] All edge cases covered (Critical #1 pending)
+- [x] All edge cases covered
 - [x] Test strategy follows project conventions (TDD, backend unit tests first)
 - [x] Consistent with ADR-008 (backend-only calculations)
+
+---
+
+## Resolution (2026-02-01)
+
+### Critical #1: NOT AN ISSUE
+**Verified:** Migration `2026-01-29-193744-0000_add_start_end_datetime/up.sql` lines 19-22 set `end_datetime = date || 'T00:00:00'` for ALL trips without explicit end_time. All trips have `end_datetime` populated after migration. No fallback logic needed.
+
+### Important Findings - ADDRESSED IN PLAN
+
+| # | Finding | Resolution |
+|---|---------|------------|
+| 4 | SQLite DROP COLUMN requires 3.35.0+ | Added note to Task 1.1 |
+| 5 | Missing boundary tests | Added 2 boundary tests to Task 2.1 |
+| 6 | Incomplete file list | Updated Task 2.3 with full file list (receipts_cmd.rs, statistics.rs) |
+| 8 | Receipt edit component path unclear | Fixed Task 5.4 to specify `ReceiptEditModal.svelte` |
+
+### Minor Findings - SKIPPED
+Minor items (9, 10, 11) are implementation details that will be handled during coding.
