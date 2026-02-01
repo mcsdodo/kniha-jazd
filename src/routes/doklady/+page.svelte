@@ -324,10 +324,19 @@
 		if (!receiptToEdit) return;
 
 		try {
+			// Normalize datetime format: datetime-local gives "YYYY-MM-DDTHH:mm" but backend expects "YYYY-MM-DDTHH:mm:ss"
+			let normalizedDatetime = data.receiptDatetime;
+			if (normalizedDatetime && !normalizedDatetime.includes(':00', normalizedDatetime.length - 3)) {
+				// Add seconds if missing (datetime-local format is YYYY-MM-DDTHH:mm)
+				if (normalizedDatetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+					normalizedDatetime += ':00';
+				}
+			}
+
 			// Build updated receipt object
 			const updatedReceipt: Receipt = {
 				...receiptToEdit,
-				receiptDatetime: data.receiptDatetime,
+				receiptDatetime: normalizedDatetime,
 				liters: data.liters,
 				originalAmount: data.originalAmount,
 				originalCurrency: data.originalCurrency,

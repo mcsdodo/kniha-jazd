@@ -567,7 +567,7 @@
 						<span class="no-receipt-indicator" title={$LL.trips.noReceipt()}>⚠</span>
 					{/if}
 					{#if hasReceiptDatetimeWarning}
-						<span class="datetime-warning-indicator" title={$LL.trips.receiptDatetimeMismatch()}>*</span>
+						<span class="datetime-warning-indicator" title={$LL.trips.receiptDatetimeMismatch()}>⚠</span>
 					{/if}
 				{/if}
 			</td>
