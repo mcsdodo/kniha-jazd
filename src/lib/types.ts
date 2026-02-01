@@ -250,6 +250,7 @@ export interface ReceiptVerification {
 	matchedTripDate: string | null;
 	matchedTripRoute: string | null;
 	mismatchReason: ReceiptMismatchReason;
+	datetimeWarning: boolean; // True if receipt datetime is outside matched trip's range
 }
 
 export interface VerificationResult {

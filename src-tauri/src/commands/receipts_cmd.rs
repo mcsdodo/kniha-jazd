@@ -835,6 +835,24 @@ fn verify_receipts_with_data(
             mismatch_reason = MismatchReason::None;
         }
 
+        // Calculate datetime_warning: true if receipt datetime is outside the matched/assigned trip's range
+        let datetime_warning = if let (Some(ref trip_id_str), Some(receipt_dt)) =
+            (&matched_trip_id, receipt.receipt_datetime)
+        {
+            // Find the matched trip and check if datetime is in range
+            if let Ok(trip_uuid) = uuid::Uuid::parse_str(trip_id_str) {
+                all_trips
+                    .iter()
+                    .find(|t| t.id == trip_uuid)
+                    .map(|trip| !is_datetime_in_trip_range(receipt_dt, trip))
+                    .unwrap_or(false)
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         verifications.push(ReceiptVerification {
             receipt_id: receipt.id.to_string(),
             matched,
@@ -842,6 +860,7 @@ fn verify_receipts_with_data(
             matched_trip_date,
             matched_trip_route,
             mismatch_reason,
+            datetime_warning,
         });
     }
 

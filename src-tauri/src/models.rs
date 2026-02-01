@@ -705,6 +705,8 @@ pub struct ReceiptVerification {
     pub matched_trip_date: Option<String>,
     pub matched_trip_route: Option<String>,
     pub mismatch_reason: MismatchReason,
+    /// True if receipt datetime is outside the matched trip's [start, end] range
+    pub datetime_warning: bool,
 }
 
 /// Result of verifying all receipts for a vehicle/year

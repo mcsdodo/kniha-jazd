@@ -662,6 +662,9 @@
 						{#if verif?.matched}
 							<div class="matched-trip">
 								{$LL.receipts.trip()} {verif.matchedTripDate} | {verif.matchedTripRoute}
+								{#if verif.datetimeWarning}
+									<span class="datetime-warning" title={$LL.trips.receiptDatetimeMismatch()}>⚠</span>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -1154,5 +1157,11 @@
 		color: var(--accent-warning-dark);
 		cursor: help;
 		font-size: 0.875rem;
+	}
+
+	.datetime-warning {
+		color: var(--accent-danger);
+		margin-left: 0.5rem;
+		cursor: help;
 	}
 </style>
