@@ -22,6 +22,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Indikátor varovania dátumu/času** - zmenené z hviezdičky (*) na výstražný trojuholník (⚠) pre lepšiu viditeľnosť
 - **Ukladanie úprav dokladu** - opravená chyba "premature end of input" pri úprave dátumu/času dokladu (datetime-local formát teraz správne prevádza sekundy)
 - **Varovanie dátumu/času pre iné náklady** - výstražný trojuholník sa teraz zobrazuje aj v stĺpci "Iné" pre doklady iných nákladov (nielen pre palivové doklady)
+- **Varovanie dátumu/času na stránke Doklady** - pri priradených dokladoch sa teraz zobrazuje ⚠ ak dátum/čas dokladu nespadá do časového rozpätia jazdy
 
 ## [0.28.2] - 2026-01-31
 
