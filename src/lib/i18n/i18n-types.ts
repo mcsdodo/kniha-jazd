@@ -1254,6 +1254,13 @@ type RootTranslation = {
 		 */
 		mismatchDate: RequiredParams<'receiptDate' | 'tripDate'>
 		/**
+		 * Č​a​s​ ​{​r​e​c​e​i​p​t​T​i​m​e​}​ ​–​ ​j​a​z​d​a​ ​j​e​ ​{​t​r​i​p​S​t​a​r​t​}​–​{​t​r​i​p​E​n​d​}
+		 * @param {string} receiptTime
+		 * @param {string} tripEnd
+		 * @param {string} tripStart
+		 */
+		mismatchDatetimeOutOfRange: RequiredParams<'receiptTime' | 'tripEnd' | 'tripStart'>
+		/**
 		 * {​r​e​c​e​i​p​t​L​i​t​e​r​s​}​ ​L​ ​–​ ​j​a​z​d​a​ ​m​á​ ​{​t​r​i​p​L​i​t​e​r​s​}​ ​L
 		 * @param {number} receiptLiters
 		 * @param {number} tripLiters
@@ -3243,6 +3250,10 @@ export type TranslationFunctions = {
 		 * Dátum {receiptDate} – jazda je {tripDate}
 		 */
 		mismatchDate: (arg: { receiptDate: string, tripDate: string }) => LocalizedString
+		/**
+		 * Čas {receiptTime} – jazda je {tripStart}–{tripEnd}
+		 */
+		mismatchDatetimeOutOfRange: (arg: { receiptTime: string, tripEnd: string, tripStart: string }) => LocalizedString
 		/**
 		 * {receiptLiters} L – jazda má {tripLiters} L
 		 */

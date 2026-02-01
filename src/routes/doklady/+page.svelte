@@ -405,6 +405,12 @@
 					receiptDate: reason.receiptDate,
 					tripDate: reason.closestTripDate
 				});
+			case 'datetimeOutOfRange':
+				return $LL.receipts.mismatchDatetimeOutOfRange({
+					receiptTime: reason.receiptTime,
+					tripStart: reason.tripStart,
+					tripEnd: reason.tripEnd
+				});
 			case 'litersMismatch':
 				return $LL.receipts.mismatchLiters({
 					receiptLiters: reason.receiptLiters,
