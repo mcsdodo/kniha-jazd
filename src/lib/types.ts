@@ -247,7 +247,8 @@ export interface ReceiptVerification {
 	receiptId: string;
 	matched: boolean;
 	matchedTripId: string | null;
-	matchedTripDate: string | null;
+	matchedTripDatetime: string | null; // "D.M. HH:MM–HH:MM" (e.g., "22.1. 15:00–17:00")
+	matchedTripTimeRange: string | null; // "HH:MM–HH:MM" for warning message
 	matchedTripRoute: string | null;
 	mismatchReason: ReceiptMismatchReason;
 	datetimeWarning: boolean; // True if receipt datetime is outside matched trip's range

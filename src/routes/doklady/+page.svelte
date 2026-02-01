@@ -662,12 +662,12 @@
 						{/if}
 						{#if verif?.matched}
 							<div class="matched-trip">
-								{$LL.receipts.trip()} {verif.matchedTripDate} | {verif.matchedTripRoute}
+								{$LL.receipts.trip()} {verif.matchedTripDatetime} | {verif.matchedTripRoute}
 							</div>
-							{#if verif.datetimeWarning}
+							{#if verif.datetimeWarning && verif.matchedTripTimeRange}
 								<div class="datetime-warning-row">
 									<span class="warning-icon">⚠</span>
-									<span class="warning-text">{$LL.trips.receiptDatetimeMismatch()}</span>
+									<span class="warning-text">{$LL.trips.receiptDatetimeMismatchWithRange({ timeRange: verif.matchedTripTimeRange })}</span>
 								</div>
 							{/if}
 						{/if}

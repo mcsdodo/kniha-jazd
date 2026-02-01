@@ -544,6 +544,11 @@ type RootTranslation = {
 		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y
 		 */
 		receiptDatetimeMismatch: string
+		/**
+		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y​ ​(​j​a​z​d​a​ ​{​t​i​m​e​R​a​n​g​e​}​)
+		 * @param {string} timeRange
+		 */
+		receiptDatetimeMismatchWithRange: RequiredParams<'timeRange'>
 		legend: {
 			/**
 			 * č​i​a​s​t​o​č​n​é​ ​t​a​n​k​o​v​a​n​i​e
@@ -2568,6 +2573,10 @@ export type TranslationFunctions = {
 		 * Dátum/čas dokladu mimo jazdy
 		 */
 		receiptDatetimeMismatch: () => LocalizedString
+		/**
+		 * Dátum/čas dokladu mimo jazdy (jazda {timeRange})
+		 */
+		receiptDatetimeMismatchWithRange: (arg: { timeRange: string }) => LocalizedString
 		legend: {
 			/**
 			 * čiastočné tankovanie
