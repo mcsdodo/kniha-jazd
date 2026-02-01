@@ -668,7 +668,8 @@ fn verify_receipts_with_data(
     for receipt in &receipts_for_year {
         let mut matched = false;
         let mut matched_trip_id = None;
-        let mut matched_trip_date = None;
+        let mut matched_trip_datetime = None;
+        let mut matched_trip_time_range = None;
         let mut matched_trip_route = None;
         let mut mismatch_reason = MismatchReason::None;
 
@@ -699,12 +700,20 @@ fn verify_receipts_with_data(
                     if datetime_match && liters_match && price_match {
                         matched = true;
                         matched_trip_id = Some(trip.id.to_string());
-                        matched_trip_date = Some(
-                            trip.start_datetime
-                                .date()
-                                .format(date_formats::ISO_DATE)
-                                .to_string(),
-                        );
+                        let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+                        // Format: "D.M. HH:MM–HH:MM" (e.g., "22.1. 15:00–17:00")
+                        matched_trip_datetime = Some(format!(
+                            "{} {}–{}",
+                            trip.start_datetime.date().format("%-d.%-m."),
+                            trip.start_datetime.format("%H:%M"),
+                            trip_end.format("%H:%M")
+                        ));
+                        // Format: "HH:MM–HH:MM" for warning message
+                        matched_trip_time_range = Some(format!(
+                            "{}–{}",
+                            trip.start_datetime.format("%H:%M"),
+                            trip_end.format("%H:%M")
+                        ));
                         matched_trip_route =
                             Some(format!("{} - {}", trip.origin, trip.destination));
                         break;
@@ -807,12 +816,20 @@ fn verify_receipts_with_data(
                         if price_match {
                             matched = true;
                             matched_trip_id = Some(trip.id.to_string());
-                            matched_trip_date = Some(
-                                trip.start_datetime
-                                    .date()
-                                    .format(date_formats::ISO_DATE)
-                                    .to_string(),
-                            );
+                            let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+                            // Format: "D.M. HH:MM–HH:MM" (e.g., "22.1. 15:00–17:00")
+                            matched_trip_datetime = Some(format!(
+                                "{} {}–{}",
+                                trip.start_datetime.date().format("%-d.%-m."),
+                                trip.start_datetime.format("%H:%M"),
+                                trip_end.format("%H:%M")
+                            ));
+                            // Format: "HH:MM–HH:MM" for warning message
+                            matched_trip_time_range = Some(format!(
+                                "{}–{}",
+                                trip.start_datetime.format("%H:%M"),
+                                trip_end.format("%H:%M")
+                            ));
                             matched_trip_route =
                                 Some(format!("{} - {}", trip.origin, trip.destination));
                             break;
@@ -835,29 +852,40 @@ fn verify_receipts_with_data(
             mismatch_reason = MismatchReason::None;
         }
 
-        // Calculate datetime_warning: true if receipt datetime is outside the matched/assigned trip's range
-        let datetime_warning = if let (Some(ref trip_id_str), Some(receipt_dt)) =
+        // Calculate datetime_warning and ensure time_range is populated for assigned trips
+        let mut datetime_warning = false;
+        if let (Some(ref trip_id_str), Some(receipt_dt)) =
             (&matched_trip_id, receipt.receipt_datetime)
         {
             // Find the matched trip and check if datetime is in range
             if let Ok(trip_uuid) = uuid::Uuid::parse_str(trip_id_str) {
-                all_trips
-                    .iter()
-                    .find(|t| t.id == trip_uuid)
-                    .map(|trip| !is_datetime_in_trip_range(receipt_dt, trip))
-                    .unwrap_or(false)
-            } else {
-                false
+                if let Some(trip) = all_trips.iter().find(|t| t.id == trip_uuid) {
+                    datetime_warning = !is_datetime_in_trip_range(receipt_dt, trip);
+                    // Ensure datetime and time_range are set for already-assigned receipts
+                    if matched_trip_datetime.is_none() {
+                        let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+                        matched_trip_datetime = Some(format!(
+                            "{} {}–{}",
+                            trip.start_datetime.date().format("%-d.%-m."),
+                            trip.start_datetime.format("%H:%M"),
+                            trip_end.format("%H:%M")
+                        ));
+                        matched_trip_time_range = Some(format!(
+                            "{}–{}",
+                            trip.start_datetime.format("%H:%M"),
+                            trip_end.format("%H:%M")
+                        ));
+                    }
+                }
             }
-        } else {
-            false
-        };
+        }
 
         verifications.push(ReceiptVerification {
             receipt_id: receipt.id.to_string(),
             matched,
             matched_trip_id,
-            matched_trip_date,
+            matched_trip_datetime,
+            matched_trip_time_range,
             matched_trip_route,
             mismatch_reason,
             datetime_warning,

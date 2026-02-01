@@ -702,11 +702,14 @@ pub struct ReceiptVerification {
     pub receipt_id: String,
     pub matched: bool,
     pub matched_trip_id: Option<String>,
-    pub matched_trip_date: Option<String>,
+    /// Formatted as "D.M. HH:MM–HH:MM" (e.g., "22.1. 15:00–17:00")
+    pub matched_trip_datetime: Option<String>,
     pub matched_trip_route: Option<String>,
     pub mismatch_reason: MismatchReason,
     /// True if receipt datetime is outside the matched trip's [start, end] range
     pub datetime_warning: bool,
+    /// Trip time range for warning message (e.g., "09:00–11:34")
+    pub matched_trip_time_range: Option<String>,
 }
 
 /// Result of verifying all receipts for a vehicle/year
