@@ -610,7 +610,12 @@
 			</td>
 		{/if}
 		{#if !hiddenColumns.includes('otherCosts')}
-			<td class="col-other-costs number">{trip.otherCostsEur?.toFixed(2) || ''}</td>
+			<td class="col-other-costs number">
+				{trip.otherCostsEur?.toFixed(2) || ''}
+				{#if trip.otherCostsEur && !trip.fuelLiters && hasReceiptDatetimeWarning}
+					<span class="datetime-warning-indicator" title={$LL.trips.receiptDatetimeMismatch()}>⚠</span>
+				{/if}
+			</td>
 		{/if}
 		{#if !hiddenColumns.includes('otherCostsNote')}
 			<td class="col-other-costs-note">{trip.otherCostsNote || ''}</td>
