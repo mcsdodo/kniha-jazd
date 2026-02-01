@@ -381,16 +381,65 @@ Both doklady page and trip grid use the same calculation.
    - **Same day** = Noted (auto, no prompt)
    - **Different day** = Override (requires explicit acknowledgment)
 
+2. **"Noted" in "needs attention"?**: ✅ Decided
+   - **No** - only unattached and NeedsReview need attention
+   - Noted is informational, not actionable
+
+3. **Toggle override state**: ✅ Decided
+   - Multi-state button instead of detach/re-attach
+   - States: **Potvrdené** (confirmed) ↔ **Skontrolovať** (to review)
+   - See "Override Toggle" section below
+
+4. **Hover tooltips on trip grid**: ✅ Decided
+   - **Yes** - show receipt filename, datetime on hover over status icon
+
+## Override Toggle
+
+For attached receipts with data mismatch (different day), user can toggle:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  OVERRIDE STATES                                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✅✓ POTVRDENÉ (Confirmed)                                  │
+│      User explicitly says "this is correct"                 │
+│      → No warnings shown                                    │
+│      → Button: [Skontrolovať]                               │
+│                                                             │
+│  ⚠ SKONTROLOVAŤ (To review)                                │
+│      System flags mismatch for attention                    │
+│      → Warning shown in "needs attention"                   │
+│      → Button: [Potvrdiť]                                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**UI in receipt card:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ✅✓ SPÁROVANÝ                              [Skontrolovať]   │
+│    toll-jan13.jpg                                           │
+│    📅 13.1. 10:00  •  📄 10.00 €                           │
+│    🚗 14.1. BA→ZA (06:00-09:00)                            │
+│    ✓ Priradené užívateľom                                  │
+└─────────────────────────────────────────────────────────────┘
+
+        ↓ user clicks [Skontrolovať] ↓
+
+┌─────────────────────────────────────────────────────────────┐
+│ ⚠ SPÁROVANÝ - skontrolovať                    [Potvrdiť]   │
+│    toll-jan13.jpg                                           │
+│    📅 13.1. 10:00  •  📄 10.00 €                           │
+│    🚗 14.1. BA→ZA (06:00-09:00)                            │
+│    ⚠ Dátum dokladu (13.1.) ≠ dátum jazdy (14.1.)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## Open Questions
 
-1. **Should "Noted" issues count as "needs attention"?**
-   - Proposal: No, only unattached and NeedsReview need attention
-
-2. **Can user "un-acknowledge" an override?**
-   - Proposal: Yes, by detaching and re-attaching
-
-3. **Show receipt details on hover in trip grid?**
-   - Could show receipt filename, datetime on hover over the icon
+*(All major questions resolved)*
 
 ---
 
@@ -402,3 +451,4 @@ Both doklady page and trip grid use the same calculation.
 | v2 | 2026-02-01 | Added edge cases, migration path, state diagram |
 | v3 | 2026-02-01 | Refocused on user mental model, simplified to 2 concepts |
 | v3.1 | 2026-02-01 | Decision: same day = Noted, different day = Override |
+| v4 | 2026-02-01 | Decisions: Noted not in "needs attention", toggle button for override, hover tooltips |
