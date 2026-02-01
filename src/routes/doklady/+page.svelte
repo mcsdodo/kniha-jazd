@@ -672,14 +672,14 @@
 						<button class="button-small" onclick={() => handleEditClick(receipt)}>
 							{$LL.common.edit()}
 						</button>
+						<button
+							class="button-small"
+							onclick={() => handleReprocess(receipt)}
+							disabled={reprocessingIds.has(receipt.id)}
+						>
+							{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
+						</button>
 						{#if !verif?.matched}
-							<button
-								class="button-small"
-								onclick={() => handleReprocess(receipt)}
-								disabled={reprocessingIds.has(receipt.id)}
-							>
-								{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
-							</button>
 							<button class="button-small" onclick={() => handleAssignClick(receipt)}>{$LL.receipts.assignToTrip()}</button>
 						{/if}
 						<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
