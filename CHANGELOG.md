@@ -17,6 +17,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ### Zlepšené
 - **Presnejšie hlásenie nezhody dokladu** - keď sa dátum zhoduje ale čas nesedí, zobrazí sa "Čas 07:30 – jazda je 08:00–17:00" namiesto mätúceho "Dátum 27.1. – jazda je 27.1."
 - **Tlačidlo "Znovu spracovať" dostupné pre všetky doklady** - predtým bolo dostupné len pre nepriradené doklady, teraz je možné znovu spustiť OCR aj na priradených dokladoch
+- **Vizuálne odlíšenie nepriradených dokladov** - nepriradené doklady majú červený ľavý okraj a tmavšie pozadie pre lepšiu prehľadnosť
+- **Varovanie dátumu/času pod jazdou** - varovanie o nesúlade času sa zobrazuje na novom riadku pod informáciou o jazde s vysvetľujúcim textom
 
 ### Opravené
 - **Indikátor varovania dátumu/času** - zmenené z hviezdičky (*) na výstražný trojuholník (⚠) pre lepšiu viditeľnosť
