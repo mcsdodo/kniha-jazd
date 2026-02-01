@@ -14,6 +14,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Bloky bez rozpoznaného času vyžadujú manuálnu kontrolu
   - Vstup pre úpravu dokladu zmenený na datetime-local
 
+### Zlepšené
+- **Presnejšie hlásenie nezhody dokladu** - keď sa dátum zhoduje ale čas nesedí, zobrazí sa "Čas 07:30 – jazda je 08:00–17:00" namiesto mätúceho "Dátum 27.1. – jazda je 27.1."
+
 ## [0.28.2] - 2026-01-31
 
 ### Opravené
