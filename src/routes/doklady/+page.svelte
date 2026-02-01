@@ -571,7 +571,10 @@
 						{/if}
 					</div>
 					{#if !verif?.matched && verif?.mismatchReason && verif.mismatchReason.type !== 'none'}
-						<div class="mismatch-reason">↳ {formatMismatchReason(verif.mismatchReason)}</div>
+						<div class="datetime-warning-row">
+							<span class="warning-icon">⚠</span>
+							<span class="warning-text">{formatMismatchReason(verif.mismatchReason)}</span>
+						</div>
 					{/if}
 					<div class="receipt-details">
 						<div class="detail-row">
@@ -954,13 +957,6 @@
 	.badge.danger {
 		background: var(--toast-error-bg);
 		color: var(--toast-error-color);
-	}
-
-	.mismatch-reason {
-		font-size: 0.75rem;
-		color: var(--warning-color);
-		margin-top: 0.25rem;
-		padding-left: 0.25rem;
 	}
 
 	.verification-summary {
