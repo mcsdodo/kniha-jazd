@@ -36,13 +36,19 @@ kniha-jazd/
 **File:** `.claude/rules/rust-backend.md`
 **Globs:** `src-tauri/**/*.rs`
 
-**Extract from root CLAUDE.md:**
-- "Adding a New Tauri Command" pattern (lines 216-220)
-- "Adding a New Calculation" pattern (lines 222-227)
-- Test organization (`*_tests.rs` pattern, lines 175-186)
-- Backend test coverage details (lines 190-201)
-- `check_read_only!` macro usage (line 219, 338)
-- Key files table - Rust portion only (lines 283-301)
+**Extract these exact sections from root CLAUDE.md:**
+
+| Section Heading | Subsection | Extract? |
+|-----------------|------------|----------|
+| `### Code Patterns` | "Adding a New Tauri Command" | ✅ Full subsection |
+| `### Code Patterns` | "Adding a New Calculation" | ✅ Full subsection |
+| `### Code Patterns` | "Adding a New User Flow" | ❌ Keep in root (references both frontend + backend) |
+| `### Test Organization` | All | ✅ Full section |
+| `### Test Coverage` | "Backend (Rust)..." paragraph | ✅ Only backend portion |
+| `### Test Coverage` | "Integration Tests..." paragraph | ❌ Goes to integration-tests.md |
+| `### Key Files Quick Reference` | Rust files (lib.rs through schema.rs) | ✅ Rows for .rs files only |
+
+**Add cross-reference:** In "Adding a New Calculation" step 5, update to: "If new UI element, add integration test (see `.claude/rules/integration-tests.md`)"
 
 **Content structure:**
 ```yaml
@@ -56,16 +62,19 @@ globs:
 All business logic lives here (ADR-008). Frontend is display-only.
 
 ## Adding a New Tauri Command
-...
+[from ### Code Patterns]
 
 ## Adding a New Calculation
-...
+[from ### Code Patterns, with cross-reference update]
 
 ## Test Organization
-...
+[from ### Test Organization]
+
+## Backend Test Coverage
+[from ### Test Coverage - Backend paragraph only]
 
 ## Key Files Reference
-...
+[Rust rows from ### Key Files Quick Reference table]
 ```
 
 ### Step 1.2: Create `svelte-frontend.md`
@@ -73,12 +82,14 @@ All business logic lives here (ADR-008). Frontend is display-only.
 **File:** `.claude/rules/svelte-frontend.md`
 **Globs:** `src/**/*.svelte`, `src/**/*.ts`, `!src/**/*.test.ts`
 
-**Extract from root CLAUDE.md:**
-- "Frontend is display-only" reminder (lines 35-37)
-- "Adding UI Text" pattern (lines 234-237)
-- i18n usage (`{LL.key()}` pattern)
-- Component/store patterns
-- Key files table - Frontend portion only (lines 302-303)
+**Extract these exact sections from root CLAUDE.md:**
+
+| Section Heading | Subsection | Extract? |
+|-----------------|------------|----------|
+| `## Architecture: Backend-Only Calculations` | Bullet points about frontend | ✅ "Frontend is display-only" bullets |
+| `### Code Patterns` | "Adding UI Text" | ✅ Full subsection |
+| `### Common Pitfalls` | "Don't forget Slovak UI text" | ✅ This bullet only |
+| `### Key Files Quick Reference` | Frontend files (+page.svelte, i18n) | ✅ Rows for frontend files only |
 
 **Content structure:**
 ```yaml
@@ -95,10 +106,14 @@ Frontend receives pre-calculated values from Rust backend.
 **Never** duplicate calculations in TypeScript.
 
 ## Adding UI Text
-...
+[from ### Code Patterns > "Adding UI Text"]
+
+## i18n Reminder
+- All user-facing strings go through i18n
+- Use `{LL.key()}` in Svelte components
 
 ## Key Files Reference
-...
+[Frontend rows from ### Key Files Quick Reference table]
 ```
 
 ### Step 1.3: Create `integration-tests.md`
@@ -128,10 +143,11 @@ globs:
 **File:** `.claude/rules/migrations.md`
 **Globs:** `src-tauri/migrations/**/*.sql`
 
-**Extract from root CLAUDE.md:**
-- "Database Migration Best Practices" section (lines 138-155)
-- Forward-only strategy (ADR-012)
-- DEFAULT value requirements
+**Extract these exact sections from root CLAUDE.md:**
+
+| Section Heading | Extract? |
+|-----------------|----------|
+| `### Database Migration Best Practices` | ✅ Full section (strategy, bullets, SQL example, note) |
 
 **Content structure:**
 ```yaml
@@ -142,10 +158,19 @@ globs:
 # Database Migration Rules
 
 ## Strategy: Forward-Only (ADR-012)
-...
+We do NOT support older app versions reading newer databases.
 
 ## Required Patterns
-...
+- **Always** add columns with DEFAULT values
+- Migrations run automatically on app start
+- Backups are created before migrations
+- No legacy field sync
+
+## SQL Examples
+[SQL code block from original]
+
+## Note
+Users must upgrade the app to use migrated databases. Auto-update ensures this happens quickly.
 ```
 
 ---
@@ -198,6 +223,19 @@ Detailed patterns for specific file types are in `.claude/rules/`:
 These load automatically when working on matching files.
 ```
 
+### Step 2.4: Update Cross-References
+
+After extraction, review remaining root CLAUDE.md content for references to extracted sections:
+
+| If root content says... | Update to... |
+|------------------------|--------------|
+| "see Test Coverage section" | "see `.claude/rules/rust-backend.md`" |
+| "see Code Patterns" (for Rust) | "see `.claude/rules/rust-backend.md`" |
+| "see Code Patterns" (for i18n) | "see `.claude/rules/svelte-frontend.md`" |
+| "see Database Migration" | "see `.claude/rules/migrations.md`" |
+
+Also update cross-references WITHIN extracted rules files (done in Step 1.1).
+
 ---
 
 ## Phase 3: Handle `tests/CLAUDE.md` Migration
@@ -227,15 +265,28 @@ This preserves discoverability while avoiding duplication.
 
 ### Step 4.2: Verify Glob Patterns
 
-- [ ] Test that `.rs` files would match `rust-backend.md` globs
-- [ ] Test that `.svelte`/`.ts` files would match `svelte-frontend.md` globs
-- [ ] Test that `tests/integration/*.ts` would match `integration-tests.md` globs
-- [ ] Test that `.sql` migration files would match `migrations.md` globs
+**Verification method:** For each rules file, open a matching file and check that Claude loads the rules content.
 
-### Step 4.3: Line Count Check
+| Rules File | Test By Opening | Expected in Context |
+|------------|-----------------|---------------------|
+| `rust-backend.md` | `src-tauri/src/db.rs` | "Adding a New Tauri Command" visible |
+| `svelte-frontend.md` | `src/routes/+page.svelte` | "Adding UI Text" visible |
+| `integration-tests.md` | `tests/integration/trips.test.ts` | "Atomic Value Setting" visible |
+| `migrations.md` | `src-tauri/migrations/*.sql` | "Forward-Only" visible |
 
-- [ ] Root `CLAUDE.md` is ~150-200 lines (reduced from 447)
-- [ ] Total instruction content preserved (just reorganized)
+**Alternative:** Use `/status` or context inspection to see loaded rules.
+
+### Step 4.3: Validate YAML Frontmatter
+
+- [ ] Each rules file has valid YAML between `---` markers
+- [ ] `globs:` is a list (array format with `-` prefix)
+- [ ] No YAML syntax errors (online validator or Claude Code error messages)
+
+### Step 4.4: Content Check
+
+- [ ] Root `CLAUDE.md` contains only project-wide content (no file-type-specific patterns)
+- [ ] All extracted content appears in exactly one rules file
+- [ ] Cross-references updated correctly
 
 ---
 
@@ -286,13 +337,18 @@ If issues arise:
 
 ## Phase 5: Skill Enhancements (Quick Wins)
 
-### Step 5.1: Add `!command` to `/verify` Skill
+> **Feature Verification:** All features below are documented in Claude Code:
+> - `!`command`` syntax: https://code.claude.com/docs/en/skills.md ("Inject dynamic context")
+> - `context: fork`: https://code.claude.com/docs/en/skills.md ("Run skills in a subagent")
+> - `model: haiku`: https://code.claude.com/docs/en/skills.md (frontmatter reference)
+
+### Step 5.1: Add `!`command`` to `/verify` Skill
 
 **File:** `.claude/skills/verify-skill/SKILL.md`
 
 **Current behavior:** Skill tells Claude to run `npm run test:backend` and `git status` as separate steps.
 
-**New behavior:** Use `!command` syntax to pre-inject results into the prompt.
+**New behavior:** Use `!`command`` syntax (note: backticks required!) to pre-inject results into the prompt.
 
 **Updated content:**
 ```yaml
@@ -308,13 +364,13 @@ Run this before saying "task complete" or "done".
 ## Current Status (Pre-injected)
 
 ### Test Results
-!cd src-tauri && cargo test 2>&1 | tail -30
+!`cd src-tauri && cargo test 2>&1 | tail -30`
 
 ### Git Status
-!git status
+!`git status`
 
 ### Changelog Preview
-!head -25 CHANGELOG.md
+!`head -25 CHANGELOG.md`
 
 ## Checklist
 
@@ -394,9 +450,13 @@ Task tool (general-purpose):
 | 2.1 | Remove extracted content from root | `CLAUDE.md` |
 | 2.2 | Simplify remaining content | `CLAUDE.md` |
 | 2.3 | Add rules reference section | `CLAUDE.md` |
+| 2.4 | Update cross-references | `CLAUDE.md`, rules files |
 | 3.1 | Replace tests/CLAUDE.md with redirect | `tests/CLAUDE.md` |
-| 4.x | Validation checks | (verification only) |
-| **5.1** | **Add `!command` to verify skill** | `.claude/skills/verify-skill/SKILL.md` |
+| 4.1 | Verify no duplication | (verification only) |
+| 4.2 | Verify glob patterns load correctly | (verification only) |
+| 4.3 | Validate YAML frontmatter | (verification only) |
+| 4.4 | Content check (no path-specific in root) | (verification only) |
+| **5.1** | **Add `!`command`` to verify skill** | `.claude/skills/verify-skill/SKILL.md` |
 | **5.2** | **Add `context: fork` to plan-review** | `.claude/skills/plan-review-skill/SKILL.md` |
 | **5.3** | **Route Phase 1 to Haiku** | `.claude/skills/plan-review-skill/SKILL.md` |
 

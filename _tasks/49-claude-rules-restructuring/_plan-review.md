@@ -15,9 +15,17 @@
 | Important | 4 |
 | Minor | 3 |
 
-**Recommendation:** Needs Revisions
+**Recommendation:** ~~Needs Revisions~~ → **Ready for Implementation**
 
-The plan is well-structured and covers the core restructuring goals. However, there are critical gaps around the `!command` feature verification and missing content extraction specifics that could block implementation.
+The plan is well-structured and covers the core restructuring goals. ~~However, there are critical gaps around the `!command` feature verification and missing content extraction specifics that could block implementation.~~
+
+**Update (2026-02-01):** All Critical and Important findings have been addressed. Plan revised with:
+- Feature verification added (all three features confirmed in Claude Code docs)
+- Syntax corrected (`!`command`` with backticks)
+- Line numbers replaced with section heading references
+- Exact extraction boundaries specified
+- Cross-reference update step added
+- Concrete glob verification method added
 
 ---
 
@@ -200,12 +208,30 @@ Order is correct.
 
 ## Recommendation
 
-**Status: Needs Revisions**
+**Status:** ~~Needs Revisions~~ → **Ready for Implementation**
 
-Before implementation:
-1. **Must fix C1:** Verify `!command`, `context: fork`, `model: haiku` features exist in Claude Code, or mark Phase 5 as optional/experimental
-2. **Must fix C2:** Replace line number references with section heading references
-3. **Should fix I1:** Specify exact section boundaries for extraction to avoid ambiguity
-4. **Should fix I2:** Add cross-reference update step
+~~Before implementation:~~
+1. ~~**Must fix C1:** Verify `!command`, `context: fork`, `model: haiku` features exist in Claude Code, or mark Phase 5 as optional/experimental~~
+2. ~~**Must fix C2:** Replace line number references with section heading references~~
+3. ~~**Should fix I1:** Specify exact section boundaries for extraction to avoid ambiguity~~
+4. ~~**Should fix I2:** Add cross-reference update step~~
 
-Other findings are improvements but won't block implementation.
+~~Other findings are improvements but won't block implementation.~~
+
+---
+
+## Resolution (2026-02-01)
+
+| Finding | Status | Resolution |
+|---------|--------|------------|
+| C1 | ✅ Addressed | Features verified in Claude Code docs. Syntax corrected to `!`command`` |
+| C2 | ✅ Addressed | Line numbers replaced with section heading tables |
+| I1 | ✅ Addressed | Exact extraction boundaries added as tables per rule file |
+| I2 | ✅ Addressed | Step 2.4 added for cross-reference updates |
+| I3 | ⏭️ Skipped | Current redirect approach is acceptable |
+| I4 | ✅ Addressed | Concrete verification method table added to Step 4.2 |
+| M1 | ✅ Addressed | Reframed as outcome-based in Step 4.4 |
+| M2 | ⏭️ Skipped | Single commit acceptable with rollback plan |
+| M3 | ✅ Addressed | YAML validation added as Step 4.3 |
+
+**Plan is now ready for implementation.**
