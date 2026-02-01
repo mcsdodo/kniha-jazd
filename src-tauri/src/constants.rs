@@ -35,13 +35,15 @@ pub mod date_formats {
     /// Backup timestamp format (YYYY-MM-DD-HHMMSS)
     pub const BACKUP_TIMESTAMP: &str = "%Y-%m-%d-%H%M%S";
 
-    /// European display format (DD.MM.YYYY)
+    /// European display format (DD.MM.YYYY) - available for gradual adoption
+    #[allow(dead_code)]
     pub const DISPLAY_DATE: &str = "%d.%m.%Y";
 
     /// Display format with time (DD.MM. HH:MM)
     pub const DISPLAY_DATE_TIME: &str = "%d.%m. %H:%M";
 
-    /// Year extraction format
+    /// Year extraction format - available for gradual adoption
+    #[allow(dead_code)]
     pub const YEAR_ONLY: &str = "%Y";
 
     /// Time only format
@@ -71,10 +73,12 @@ pub mod defaults {
     /// Default tank size for legacy/unknown vehicles
     pub const TANK_SIZE_LITERS: f64 = 50.0;
 
-    /// Default battery capacity for EVs
+    /// Default battery capacity for EVs - available for gradual adoption
+    #[allow(dead_code)]
     pub const BATTERY_CAPACITY_KWH: f64 = 50.0;
 
-    /// Lock file expiry in seconds (stale if older)
+    /// Lock file expiry in seconds (stale if older) - available for gradual adoption
+    #[allow(dead_code)]
     pub const LOCK_EXPIRY_SECS: u64 = 300;
 }
 

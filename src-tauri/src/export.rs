@@ -1,5 +1,6 @@
 //! HTML export functionality for Kniha jázd
 
+use crate::constants::date_formats;
 use crate::models::{Settings, Trip, TripGridData, Vehicle, VehicleType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -233,7 +234,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             // Format end datetime - extract just the time portion
             let end_datetime_display = trip
                 .end_datetime
-                .map(|dt| format!("{} {}", dt.format("%d.%m."), dt.format("%H:%M")))
+                .map(|dt| format!("{} {}", dt.format("%d.%m."), dt.format(date_formats::TIME_ONLY)))
                 .unwrap_or_else(|| format!("{} -", trip.start_datetime.format("%d.%m.")));
             let driver_name = data.vehicle.driver_name.as_deref().unwrap_or("");
 
@@ -262,7 +263,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
             row.push_str(&format!(
                 r#"
           <td>{}</td>"#,
-                trip.start_datetime.format("%d.%m. %H:%M"),
+                trip.start_datetime.format(date_formats::DISPLAY_DATE_TIME),
             ));
 
             // End datetime (hideable) - format: DD.MM. HH:MM

@@ -15,6 +15,7 @@ use crate::calculations::{
     calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
     calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
 };
+use crate::constants::{defaults, env_vars, mime_types};
 use crate::calculations::energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
 };
@@ -23,8 +24,8 @@ use crate::db::Database;
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use crate::models::{
-    MonthEndRow, PreviewResult, Settings, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle,
-    VehicleType,
+    AttachmentStatus, MonthEndRow, PreviewResult, Settings, SuggestedFillup, Theme, Trip,
+    TripGridData, TripStats, Vehicle, VehicleType,
 };
 use crate::settings::{DatePrefillMode, LocalSettings};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
@@ -77,7 +78,7 @@ macro_rules! check_read_only {
 /// Get the app data directory, respecting the KNIHA_JAZD_DATA_DIR environment variable.
 /// This ensures consistency between database operations and other file operations (backups, settings).
 pub(crate) fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    match std::env::var("KNIHA_JAZD_DATA_DIR") {
+    match std::env::var(env_vars::DATA_DIR) {
         Ok(path) => Ok(PathBuf::from(path)),
         Err(_) => app.path().app_data_dir().map_err(|e| e.to_string()),
     }
@@ -1320,7 +1321,9 @@ fn calculate_phev_grid_data(
     let capacity = vehicle.battery_capacity_kwh.unwrap_or(0.0);
     let baseline_energy = vehicle.baseline_consumption_kwh.unwrap_or(18.0); // kWh/100km
     let tp_consumption = vehicle.tp_consumption.unwrap_or(7.0); // l/100km
-    let tank_size = vehicle.tank_size_liters.unwrap_or(50.0);
+    let tank_size = vehicle
+        .tank_size_liters
+        .unwrap_or(defaults::TANK_SIZE_LITERS);
 
     // Initial battery state: use year start carryover
     let mut current_battery = initial_battery;
@@ -2087,7 +2090,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
     if !trip_has_fuel {
         return CompatibilityResult {
             can_attach: true,
-            status: "empty".to_string(),
+            status: AttachmentStatus::Empty.as_str().to_string(),
             mismatch_reason: None,
         };
     }
@@ -2109,7 +2112,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
             if date_match && liters_match && price_match {
                 CompatibilityResult {
                     can_attach: true,
-                    status: "matches".to_string(),
+                    status: AttachmentStatus::Matches.as_str().to_string(),
                     mismatch_reason: None,
                 }
             } else {
@@ -2126,7 +2129,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
                 };
                 CompatibilityResult {
                     can_attach: false,
-                    status: "differs".to_string(),
+                    status: AttachmentStatus::Differs.as_str().to_string(),
                     mismatch_reason: Some(mismatch.to_string()),
                 }
             }
@@ -2137,7 +2140,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
             // Allow it since trips can have both fuel AND other costs
             CompatibilityResult {
                 can_attach: true,
-                status: "empty".to_string(),
+                status: AttachmentStatus::Empty.as_str().to_string(),
                 mismatch_reason: None,
             }
         }
@@ -2614,16 +2617,21 @@ pub fn get_theme_preference(app_handle: tauri::AppHandle) -> Result<String, Stri
         .app_data_dir()
         .map_err(|e| e.to_string())?;
     let settings = LocalSettings::load(&app_data_dir);
-    Ok(settings.theme.unwrap_or_else(|| "system".to_string()))
+    Ok(settings
+        .theme
+        .unwrap_or_else(|| Theme::System.as_str().to_string()))
 }
 
 #[tauri::command]
 pub fn set_theme_preference(app_handle: tauri::AppHandle, theme: String) -> Result<(), String> {
-    // Validate
-    if !["system", "light", "dark"].contains(&theme.as_str()) {
+    // Validate using Theme enum
+    if Theme::from_str(&theme).is_none() {
         return Err(format!(
-            "Invalid theme: {}. Must be system, light, or dark",
-            theme
+            "Invalid theme: {}. Must be {}, {}, or {}",
+            theme,
+            Theme::System.as_str(),
+            Theme::Light.as_str(),
+            Theme::Dark.as_str()
         ));
     }
 
@@ -3147,7 +3155,7 @@ pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, St
     let response = client
         .get(&api_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
+        .header("Content-Type", mime_types::JSON)
         .send()
         .await
         .map_err(|e| {
@@ -3200,7 +3208,7 @@ pub async fn fetch_ha_odo(
     let response = client
         .get(&api_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
+        .header("Content-Type", mime_types::JSON)
         .send()
         .await
         .map_err(|e| {
