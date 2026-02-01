@@ -3,7 +3,7 @@
 **Target:** HEAD~1..HEAD (constants migration refactoring)
 **Reference:** _tasks/_done/38-magic-strings-refactoring/03-plan.md
 **Started:** 2026-02-01
-**Status:** Ready for User Review
+**Status:** Complete
 **Focus:** Quality, correctness, best practices
 
 **Baseline Test Status:** Pass (235 tests)
@@ -17,64 +17,35 @@
 3. **Gradual adoption approach** - Constants marked with `#[allow(dead_code)]` for future use
 4. **Test verification** - Basic sanity tests added in `constants.rs`
 
-### New Findings
+### Findings
 
 #### Important
-
-- [Important] `db_location.rs:80-90` - `resolve_db_paths` still uses hardcoded `"kniha-jazd.db"`, `"kniha-jazd.lock"`, `"backups"` strings instead of `paths::DB_FILENAME`, `paths::LOCK_FILENAME`, `paths::BACKUPS_DIR`
-
-- [Important] `lib.rs:236` - Exit handler uses hardcoded `"kniha-jazd.lock"` instead of `paths::LOCK_FILENAME`
+- [x] `db_location.rs:80-90` - Use `paths::DB_FILENAME`, `paths::LOCK_FILENAME`, `paths::BACKUPS_DIR` in `resolve_db_paths`
+- [x] `lib.rs:236` - Use `paths::LOCK_FILENAME` in exit handler
 
 #### Minor
-
-- [Minor] `commands/mod.rs:2280,2356` - Two occurrences of `"%Y-%m-%d"` remain; could use `date_formats::ISO_DATE`
-
-- [Minor] `export.rs:237-238,454` - Several `"%d.%m."` patterns remain; consider adding `DISPLAY_DATE_SHORT` constant
-
-- [Minor] Test files use magic strings directly - acceptable for test clarity but inconsistent
-
-- [Minor] `#[allow(dead_code)]` annotations on infrastructure constants - intentional per plan, could be follow-up task
-
-### Test Gaps
-
-None identified - all 235 tests pass.
-
-### Coverage Assessment
-
-| Component | Status |
-|-----------|--------|
-| backup.rs | ✅ Complete |
-| commands/mod.rs | ⚠️ Partial (2 date formats) |
-| export.rs | ⚠️ Partial (short date format) |
-| gemini.rs | ✅ Complete |
-| receipts.rs | ✅ Complete |
-| db_location.rs | ⚠️ Partial (hardcoded strings) |
-| lib.rs | ⚠️ Partial (lock filename) |
+- [x] `commands/mod.rs:2280,2356` - Use `date_formats::ISO_DATE` instead of `"%Y-%m-%d"`
+- [ ] `export.rs:237-238,454` - Consider adding `DISPLAY_DATE_SHORT` constant for `"%d.%m."` (skipped - minor)
+- [N/A] Test files use magic strings - No action needed (clarity over consistency in tests)
+- [N/A] `#[allow(dead_code)]` on infrastructure constants - Intentional, follow-up task later
 
 ---
 
-## Review Summary
+## Resolution
 
-**Status:** Ready for User Review
-**Iterations:** 1
-**Total Findings:** 0 Critical, 2 Important, 4 Minor
-**Test Status:** Pass (235 tests)
+**Addressed:** 3 findings (2 Important, 1 Minor)
+**Skipped:** 1 Minor finding (DISPLAY_DATE_SHORT - low value)
+**Test Status:** All 235 tests passing
+**Status:** Complete
 
-### All Findings (Consolidated)
+### Applied Fixes
 
-#### Critical
-(none)
+1. **`db_location.rs`** - Refactored `resolve_db_paths` to use `DbPaths::from_dir()` helper (which already uses constants), eliminating code duplication
 
-#### Important
-1. [ ] `db_location.rs:80-90` - Use `paths::DB_FILENAME`, `paths::LOCK_FILENAME`, `paths::BACKUPS_DIR` in `resolve_db_paths`
-2. [ ] `lib.rs:236` - Use `paths::LOCK_FILENAME` in exit handler
+2. **`lib.rs`** - Updated exit handler to use `paths::LOCK_FILENAME` instead of hardcoded string
 
-#### Minor
-1. [ ] `commands/mod.rs:2280,2356` - Use `date_formats::ISO_DATE` instead of `"%Y-%m-%d"`
-2. [ ] `export.rs:237-238,454` - Consider adding `DISPLAY_DATE_SHORT` constant for `"%d.%m."`
-3. [ ] Test files use magic strings - No action needed (clarity over consistency in tests)
-4. [ ] `#[allow(dead_code)]` on infrastructure constants - Intentional, follow-up task later
+3. **`commands/mod.rs`** - Replaced 2 occurrences of `"%Y-%m-%d"` with `date_formats::ISO_DATE`
 
-### Recommendation
+### Skipped Items
 
-**Approved with minor issues.** The core infrastructure is solid and tests pass. The 2 Important issues should be fixed to maintain consistency with the refactoring goals.
+- `export.rs` short date format (`"%d.%m."`) - Creating a new constant for this pattern adds complexity for minimal benefit; the format is display-specific and unlikely to change

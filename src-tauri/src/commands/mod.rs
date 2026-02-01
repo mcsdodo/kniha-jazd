@@ -15,7 +15,7 @@ use crate::calculations::{
     calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
     calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
 };
-use crate::constants::{defaults, env_vars, mime_types};
+use crate::constants::{date_formats, defaults, env_vars, mime_types};
 use crate::calculations::energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
 };
@@ -2277,7 +2277,7 @@ fn verify_receipts_with_data(
                         matched = true;
                         matched_trip_id = Some(trip.id.to_string());
                         matched_trip_date =
-                            Some(trip.start_datetime.date().format("%Y-%m-%d").to_string());
+                            Some(trip.start_datetime.date().format(date_formats::ISO_DATE).to_string());
                         matched_trip_route =
                             Some(format!("{} - {}", trip.origin, trip.destination));
                         break;
@@ -2353,7 +2353,7 @@ fn verify_receipts_with_data(
                             matched = true;
                             matched_trip_id = Some(trip.id.to_string());
                             matched_trip_date =
-                                Some(trip.start_datetime.date().format("%Y-%m-%d").to_string());
+                                Some(trip.start_datetime.date().format(date_formats::ISO_DATE).to_string());
                             matched_trip_route =
                                 Some(format!("{} - {}", trip.origin, trip.destination));
                             break;

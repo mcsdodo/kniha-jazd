@@ -76,21 +76,9 @@ pub fn resolve_db_paths(app_data_dir: &PathBuf, custom_db_path: Option<&str>) ->
     match custom_db_path {
         Some(custom_path) if !custom_path.is_empty() => {
             let base = PathBuf::from(custom_path);
-            let paths = DbPaths {
-                db_file: base.join("kniha-jazd.db"),
-                lock_file: base.join("kniha-jazd.lock"),
-                backups_dir: base.join("backups"),
-            };
-            (paths, true)
+            (DbPaths::from_dir(&base), true)
         }
-        _ => {
-            let paths = DbPaths {
-                db_file: app_data_dir.join("kniha-jazd.db"),
-                lock_file: app_data_dir.join("kniha-jazd.lock"),
-                backups_dir: app_data_dir.join("backups"),
-            };
-            (paths, false)
-        }
+        _ => (DbPaths::from_dir(app_data_dir), false),
     }
 }
 

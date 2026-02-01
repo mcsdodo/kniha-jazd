@@ -13,7 +13,7 @@ mod settings;
 mod suggestions;
 
 use crate::app_state::AppState;
-use crate::constants::env_vars;
+use crate::constants::{env_vars, paths};
 use crate::db_location::{acquire_lock, check_lock, resolve_db_paths, LockStatus};
 use crate::settings::LocalSettings;
 use std::path::PathBuf;
@@ -233,7 +233,7 @@ pub fn run() {
                 if let Some(app_state) = app.try_state::<AppState>() {
                     if let Some(db_path) = app_state.get_db_path() {
                         if let Some(parent) = db_path.parent() {
-                            let lock_path = parent.join("kniha-jazd.lock");
+                            let lock_path = parent.join(paths::LOCK_FILENAME);
                             if let Err(e) = db_location::release_lock(&lock_path) {
                                 log::warn!("Failed to release lock on exit: {}", e);
                             } else {
