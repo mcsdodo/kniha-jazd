@@ -570,12 +570,6 @@
 							<span class="badge danger">{$LL.receipts.statusUnverified()}</span>
 						{/if}
 					</div>
-					{#if !verif?.matched && verif?.mismatchReason && verif.mismatchReason.type !== 'none'}
-						<div class="datetime-warning-row">
-							<span class="warning-icon">⚠</span>
-							<span class="warning-text">{formatMismatchReason(verif.mismatchReason)}</span>
-						</div>
-					{/if}
 					<div class="receipt-details">
 						<div class="detail-row">
 							<span class="label">{$LL.receipts.date()}</span>
@@ -662,6 +656,12 @@
 						{/if}
 						{#if receipt.errorMessage}
 							<div class="error-message">{receipt.errorMessage}</div>
+						{/if}
+						{#if !verif?.matched && verif?.mismatchReason && verif.mismatchReason.type !== 'none'}
+							<div class="datetime-warning-row">
+								<span class="warning-icon">⚠</span>
+								<span class="warning-text">{formatMismatchReason(verif.mismatchReason)}</span>
+							</div>
 						{/if}
 						{#if verif?.matched}
 							<div class="matched-trip">
