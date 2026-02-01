@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-01-31
+
+### Opravené
+- **Zobrazenie verzie pri aktualizácii** - aktuálna verzia sa teraz zobrazuje správne (napr. "0.27.2 → 0.28.2" namiesto "→ 0.28.2")
+- **Duplicitný changelog v aktualizačnom modáli** - changelog sa už nezobrazuje dvakrát pri aktualizácii cez viacero verzií
+
 ## [0.28.1] - 2026-01-31
 
 ### Opravené
