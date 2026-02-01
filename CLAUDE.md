@@ -58,6 +58,16 @@ All business logic and calculations live in Rust backend only (ADR-008):
 └─────────────────────────────────────────────────┘
 ```
 
+## Path-Specific Rules
+
+Detailed patterns for specific file types are in `.claude/rules/`:
+- `rust-backend.md` - Rust code patterns, test organization, key files
+- `svelte-frontend.md` - Frontend patterns, i18n usage
+- `integration-tests.md` - WebdriverIO test patterns
+- `migrations.md` - Database migration patterns
+
+These load automatically when working on matching files.
+
 ## Planning Guidelines
 
 **When creating implementation plans, ALWAYS follow these principles:**
@@ -135,25 +145,6 @@ All business logic and calculations live in Rust backend only (ADR-008):
 - **Don't forget Slovak UI text** - all user-facing strings go through i18n
 - **Don't hardcode year** - app supports year picker, use year parameter
 
-### Database Migration Best Practices
-
-**Migration strategy is forward-only (ADR-012).** We do NOT support older app versions reading newer databases.
-
-- **Always** add columns with DEFAULT values (for migration to succeed)
-- **Migrations run automatically** on app start
-- **Backups are created** before migrations (existing behavior)
-- **No legacy field sync** - don't maintain deprecated columns for backward compat
-
-```sql
--- Standard migration:
-ALTER TABLE trips ADD COLUMN new_field TEXT DEFAULT '';
-
--- Allowed (if needed for cleanup):
-ALTER TABLE trips DROP COLUMN deprecated_field;  -- OK after deprecation period
-```
-
-**Note:** Users must upgrade the app to use migrated databases. Auto-update ensures this happens quickly.
-
 ### Running Tests
 
 ```bash
@@ -170,137 +161,28 @@ npm run test:integration:tier1
 npm run test:all
 ```
 
-### Test Organization
-
-Tests are split into separate `*_tests.rs` files using the `#[path]` attribute pattern:
-
-```rust
-// In calculations.rs
-#[cfg(test)]
-#[path = "calculations_tests.rs"]
-mod tests;
-```
-
-This keeps source files clean while maintaining private access (tests are still submodules).
-
-**When adding tests:** Write tests in `*_tests.rs` companion file, not in the source file.
-
-### Test Coverage
-
-**Backend (Rust) - Authoritative source for all business logic (195 tests):**
-- `commands_tests.rs` - 61 tests: receipt matching, period rates, warnings, fuel remaining, year carryover, BEV energy, receipt assignment, backup cleanup, magic fill
-- `calculations_tests.rs` - 33 tests: consumption rate, spotreba, zostatok, margin, Excel verification
-- `receipts_tests.rs` - 17 tests: folder detection, extraction, scanning
-- `db_tests.rs` - 15 tests: CRUD lifecycle, year filtering
-- `calculations_energy_tests.rs` - 15 tests: BEV battery remaining, energy consumption
-- `db_location.rs` - 11 tests: custom paths, lock files, multi-PC support
-- `calculations_phev_tests.rs` - 8 tests: PHEV combined fuel + energy
-- `settings.rs` - 7 tests: local settings loading/saving
-- `app_state.rs` - 6 tests: read-only mode, app state management
-- `export.rs` - 6 tests: export totals, HTML escaping
-- `gemini.rs` - 4 tests: JSON deserialization
-
-**Integration Tests (WebdriverIO + tauri-driver) - UI flow verification (61 tests):**
-- `tests/integration/` - Full app E2E tests via WebDriver protocol
-- **Purpose**: Verify UI correctly invokes backend and displays results
-- **NOT for**: Re-testing calculation logic (that's backend's job)
-- **Tiered execution**: Tier 1 (39 tests) for PRs, all tiers for main
-- Runs against debug build of Tauri app
-- DB seeding via Tauri IPC (no direct DB access)
-- CI: Windows only (tauri-driver limitation)
-
-**Remember:** Backend tests = "Is the calculation correct?" | Integration tests = "Does the UI work?"
-
-### Code Patterns
-
-**Adding a New Tauri Command:**
-1. Add function to `commands.rs` with `#[tauri::command]`
-2. Register in `lib.rs` `invoke_handler` (not main.rs)
-3. If write command, add `check_read_only!(app_state);` guard at start
-4. Call from Svelte component via `invoke("command_name", { args })`
-
-**Adding a New Calculation:**
-1. Write failing test in `calculations_tests.rs` (cover all edge cases)
-2. Implement in `calculations.rs` to make test pass
-3. Expose via `get_trip_grid_data` or new command
-4. Frontend receives pre-calculated value (no client-side calculation)
-5. If new UI element, add integration test for display verification
-
-**Adding a New User Flow:**
-1. Write integration test for the UI interaction
-2. Implement frontend UI (calls existing backend commands)
-3. If new backend logic needed, add backend unit tests first (see above)
-
-**Adding UI Text:**
-1. Add key to `src/lib/i18n/sk/index.ts` (Slovak primary)
-2. Add key to `src/lib/i18n/en/index.ts` (English)
-3. Use `{LL.key()}` in Svelte components
-
 ## Project Structure
 
 ```
 kniha-jazd/
 ├── src-tauri/           # Rust backend
-│   ├── src/
-│   │   ├── lib.rs                # Tauri app setup, invoke_handler
-│   │   ├── calculations.rs       # Core logic (MOST IMPORTANT)
-│   │   ├── calculations_tests.rs # Tests for calculations
-│   │   ├── calculations_energy.rs     # BEV-specific calculations
-│   │   ├── calculations_phev.rs       # PHEV combined logic
-│   │   ├── suggestions.rs        # Compensation trip logic
-│   │   ├── receipts.rs           # Receipt scanning
-│   │   ├── commands.rs           # Tauri command handlers
-│   │   ├── commands_tests.rs     # Tests for commands
-│   │   ├── db.rs                 # SQLite operations
-│   │   ├── db_location.rs        # Custom DB path, lock files
-│   │   ├── app_state.rs          # App state (read-only mode)
-│   │   ├── settings.rs           # Local settings loading
-│   │   ├── gemini.rs             # AI receipt OCR
-│   │   ├── models.rs             # Vehicle, Trip structs
-│   │   ├── schema.rs             # Diesel ORM schema
-│   │   └── export.rs             # HTML/PDF generation
-│   └── migrations/      # DB schema
-├── src/                 # SvelteKit frontend
+│   ├── src/             # Source files (see .claude/rules/rust-backend.md)
+│   └── migrations/      # DB schema (see .claude/rules/migrations.md)
+├── src/                 # SvelteKit frontend (see .claude/rules/svelte-frontend.md)
 │   ├── lib/
 │   │   ├── components/  # UI components
 │   │   ├── stores/      # Svelte state
 │   │   └── i18n/        # Translations
 │   └── routes/          # Pages
 ├── tests/
-│   ├── integration/     # WebdriverIO + tauri-driver E2E tests
+│   ├── integration/     # WebdriverIO tests (see .claude/rules/integration-tests.md)
 │   └── e2e/             # Playwright smoke tests (frontend only)
 ├── scripts/             # Development scripts
-│   └── test-release.ps1 # Build test releases for update testing
-├── _test-releases/      # Local update testing server
 ├── .github/workflows/   # CI/CD pipelines
 ├── _tasks/              # Planning docs
 └── docs/
-    └── features/        # Feature documentation (technical walkthroughs)
+    └── features/        # Feature documentation
 ```
-
-### Key Files Quick Reference
-
-| File | Purpose | When to Modify |
-|------|---------|----------------|
-| `lib.rs` | Tauri app setup, command registration | Adding new Tauri commands |
-| `calculations.rs` | All consumption/margin math | Adding/changing calculations |
-| `calculations_tests.rs` | Tests for calculations | Adding calculation tests |
-| `calculations_energy.rs` | BEV battery, energy calculations | Electric vehicle logic |
-| `calculations_phev.rs` | PHEV combined fuel + energy | Plug-in hybrid logic |
-| `suggestions.rs` | Compensation trip logic | Route matching, suggestions |
-| `receipts.rs` | Receipt folder scanning | Receipt processing logic |
-| `db.rs` | SQLite CRUD operations | Schema changes, queries |
-| `db_location.rs` | Custom DB path, lock files | Database location features |
-| `app_state.rs` | Read-only mode, app mode | App state management |
-| `settings.rs` | Local settings (theme, paths) | User preferences |
-| `gemini.rs` | AI receipt OCR | Receipt recognition |
-| `commands.rs` | Tauri command handlers | New frontend→backend calls |
-| `commands_tests.rs` | Tests for commands | Adding command tests |
-| `export.rs` | HTML/PDF generation | Report format changes |
-| `models.rs` | Data structures | Adding fields to Trip/Vehicle |
-| `schema.rs` | Diesel ORM schema | After DB migrations |
-| `+page.svelte` files | Page UI | Visual/interaction changes |
-| `i18n/sk/index.ts` | Slovak translations | New UI text |
 
 ## Key Business Rules
 
@@ -315,27 +197,20 @@ Paths are based on Tauri `identifier` in config files:
 
 - **Production** (`tauri.conf.json` → `com.notavailable.kniha-jazd`):
   - `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
-  - Example: `C:\Users\<username>\AppData\Roaming\com.notavailable.kniha-jazd\kniha-jazd.db`
   - Backups: `%APPDATA%\com.notavailable.kniha-jazd\backups\`
 
 - **Development** (`tauri.conf.dev.json` → `com.notavailable.kniha-jazd.dev`):
   - `%APPDATA%\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
-  - Example: `C:\Users\<username>\AppData\Roaming\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
+  - Backups: `%APPDATA%\com.notavailable.kniha-jazd.dev\backups\`
 
 ### Custom Database Location (Multi-PC Support)
 
-Users can move the database to a custom path (e.g., Google Drive, NAS) via **Settings → Database Location → Change...**
+Users can move the database via **Settings → Database Location → Change...**
 
-**How it works:**
 - Lock file (`kniha-jazd.lock`) prevents simultaneous access from multiple PCs
 - Database + backups folder moved together
-- App restarts automatically after move
 - Path stored in `local.settings.json` (survives reinstalls)
-
-**Read-only mode triggers:**
-- Database has migrations from a newer app version (prevents data corruption)
-- Lock file held by another PC (prevents concurrent writes)
-- All 19 write commands check for read-only mode via `check_read_only!` macro
+- All write commands check for read-only mode via `check_read_only!` macro
 
 **Related commands:** `get_db_location`, `move_database`, `reset_database_location`, `get_app_mode`
 
@@ -395,7 +270,7 @@ Worktree directory: `.worktrees/` (project-local, gitignored)
 
 After completing a planned feature, create a **Feature Doc** in `docs/features/`:
 
-```bash
+```
 docs/
 ├── CLAUDE.md              # Convention guide for docs folder
 └── features/
