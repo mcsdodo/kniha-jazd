@@ -15,6 +15,8 @@ Upgrade receipts from date-only to datetime, validate against trip range, show w
 #### Task 1.1: Create Migration
 **Files:** `src-tauri/migrations/2026-02-01-100000_replace_receipt_date_with_datetime/`
 
+**Note:** `DROP COLUMN` requires SQLite 3.35.0+ (March 2021). Tauri bundles SQLite, verify version is sufficient.
+
 ```sql
 -- up.sql
 ALTER TABLE receipts ADD COLUMN receipt_datetime TEXT DEFAULT NULL;
@@ -75,6 +77,16 @@ fn test_receipt_datetime_warning_no_receipt() {
 fn test_receipt_datetime_warning_receipt_no_datetime() {
     // Receipt with None datetime → no warning (can't validate)
 }
+
+#[test]
+fn test_receipt_datetime_warning_exactly_at_start() {
+    // Receipt datetime == trip.start_datetime → no warning (boundary: inclusive)
+}
+
+#[test]
+fn test_receipt_datetime_warning_exactly_at_end() {
+    // Receipt datetime == trip.end_datetime → no warning (boundary: inclusive)
+}
 ```
 
 #### Task 2.2: Implement validation in get_trip_grid_data
@@ -86,13 +98,18 @@ fn test_receipt_datetime_warning_receipt_no_datetime() {
 **Verify:** All Task 2.1 tests pass
 
 #### Task 2.3: Update receipt matching logic
-**File:** `src-tauri/src/commands/mod.rs`
+**Files:**
+- `src-tauri/src/commands/mod.rs`
+- `src-tauri/src/commands/receipts_cmd.rs`
+- `src-tauri/src/commands/statistics.rs`
 
 Update all occurrences of date-only matching:
-- `find_missing_receipts_internal`
-- `assign_receipt_to_trip_internal`
-- `get_trips_for_receipt_assignment`
-- `verify_receipts_internal`
+- `find_missing_receipts_internal` (mod.rs)
+- `assign_receipt_to_trip_internal` (receipts_cmd.rs:400)
+- `check_receipt_trip_compatibility` (receipts_cmd.rs:499, :514)
+- `get_trips_for_receipt_assignment` (receipts_cmd.rs:584)
+- `verify_receipts_internal` (receipts_cmd.rs:628, :669, :678-688, :726-745)
+- `find_missing_receipts_internal` (statistics.rs:1269)
 
 Change from:
 ```rust
@@ -183,8 +200,8 @@ fn test_parse_receipt_date_only_triggers_needs_review() {
 - Display red asterisk with combined tooltip
 - Add CSS for `.datetime-warning-indicator`
 
-#### Task 5.4: Update Receipts page
-**File:** `src/routes/receipts/+page.svelte` (or ReceiptCard component)
+#### Task 5.4: Update Receipt editing
+**File:** `src/lib/components/ReceiptEditModal.svelte`
 
 - Change date input → datetime-local input
 - Show "time not extracted" warning when applicable
