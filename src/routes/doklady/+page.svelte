@@ -553,7 +553,8 @@
 			{#each filteredReceipts as receipt}
 				{@const verif = getVerificationForReceipt(receipt.id)}
 				{@const dateMismatch = getDateMismatch(receipt)}
-				<div class="receipt-card">
+				{@const isUnmatched = !verif?.matched && receipt.status !== 'Assigned'}
+				<div class="receipt-card" class:unmatched={isUnmatched}>
 					<div class="receipt-header">
 						<span class="file-name">
 							<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
@@ -662,10 +663,13 @@
 						{#if verif?.matched}
 							<div class="matched-trip">
 								{$LL.receipts.trip()} {verif.matchedTripDate} | {verif.matchedTripRoute}
-								{#if verif.datetimeWarning}
-									<span class="datetime-warning" title={$LL.trips.receiptDatetimeMismatch()}>⚠</span>
-								{/if}
 							</div>
+							{#if verif.datetimeWarning}
+								<div class="datetime-warning-row">
+									<span class="warning-icon">⚠</span>
+									<span class="warning-text">{$LL.trips.receiptDatetimeMismatch()}</span>
+								</div>
+							{/if}
 						{/if}
 					</div>
 					<div class="receipt-actions">
@@ -894,6 +898,11 @@
 		border-radius: 8px;
 		padding: 1rem;
 		box-shadow: 0 1px 3px var(--shadow-default);
+	}
+
+	.receipt-card.unmatched {
+		border-left: 3px solid var(--accent-danger);
+		background: var(--bg-surface-alt);
 	}
 
 	.receipt-header {
@@ -1159,9 +1168,20 @@
 		font-size: 0.875rem;
 	}
 
-	.datetime-warning {
+	.datetime-warning-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
 		color: var(--accent-danger);
-		margin-left: 0.5rem;
-		cursor: help;
+	}
+
+	.datetime-warning-row .warning-icon {
+		font-size: 0.875rem;
+	}
+
+	.datetime-warning-row .warning-text {
+		font-style: italic;
 	}
 </style>
