@@ -20,7 +20,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Vizuálne odlíšenie nepriradených dokladov** - nepriradené doklady majú červený ľavý okraj a tmavšie pozadie pre lepšiu prehľadnosť
 - **Varovanie dátumu/času pod jazdou** - varovanie o nesúlade času sa zobrazuje na novom riadku pod informáciou o jazde s vysvetľujúcim textom
 - **Regionálny formát dátumu a času jazdy** - priradené jazdy zobrazujú dátum a časový rozsah v slovenskom formáte (napr. "22.1. 15:00–17:00")
-- **Zjednotené varovanie nezhody** - všetky varovania (priradené aj nepriradené doklady) používajú rovnaký štýl s trojuholníkom ⚠
+- **Zjednotené varovanie nezhody** - všetky varovania (priradené aj nepriradené doklady) používajú rovnaký štýl s trojuholníkom ⚠, zobrazené pod detailmi dokladu
 
 ### Opravené
 - **Indikátor varovania dátumu/času** - zmenené z hviezdičky (*) na výstražný trojuholník (⚠) pre lepšiu viditeľnosť
