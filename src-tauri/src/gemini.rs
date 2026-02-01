@@ -15,7 +15,7 @@ pub use crate::constants::env_vars::MOCK_GEMINI_DIR as MOCK_GEMINI_DIR_ENV;
 pub struct ExtractedReceipt {
     pub liters: Option<f64>,
     pub total_price_eur: Option<f64>,
-    pub receipt_date: Option<String>, // YYYY-MM-DD format
+    pub receipt_datetime: Option<String>, // YYYY-MM-DDTHH:MM:SS (full) or YYYY-MM-DD (date only)
     pub station_name: Option<String>,
     pub station_address: Option<String>,
     pub vendor_name: Option<String>, // For non-fuel receipts: company/shop name
@@ -39,7 +39,7 @@ impl Default for ExtractedReceipt {
         Self {
             liters: None,
             total_price_eur: None,
-            receipt_date: None,
+            receipt_datetime: None,
             station_name: None,
             station_address: None,
             vendor_name: None,
@@ -150,7 +150,7 @@ Receipts may be in Slovak, Czech, Hungarian, or Polish.
 
 Extract fields as JSON:
 {
-  "receipt_date": "YYYY-MM-DD" or null,
+  "receipt_datetime": "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DD" or null,
   "original_amount": number or null,      // Raw total amount found
   "original_currency": "EUR" | "CZK" | "HUF" | "PLN" or null,
 
@@ -182,7 +182,11 @@ Rules:
   - Ft or HUF → "HUF" (Hungarian forint)
   - zł or PLN → "PLN" (Polish złoty)
   - If no symbol found, guess from language/country context
-- Date formats: DD.MM.YYYY or DD.MM.YY (European format)
+- Datetime extraction rules:
+  - Date formats: DD.MM.YYYY or DD.MM.YY (European format common on Slovak receipts)
+  - Time formats: HH:MM or HH:MM:SS (24-hour format)
+  - If both date and time found: return "YYYY-MM-DDTHH:MM:SS"
+  - If only date found: return "YYYY-MM-DD"
 - Return null if field cannot be determined"#;
 
 fn get_response_schema() -> serde_json::Value {
@@ -206,9 +210,9 @@ fn get_response_schema() -> serde_json::Value {
                 "enum": ["EUR", "CZK", "HUF", "PLN", null],
                 "description": "Currency code: EUR, CZK (Czech), HUF (Hungarian), PLN (Polish)"
             },
-            "receipt_date": {
+            "receipt_datetime": {
                 "type": ["string", "null"],
-                "description": "Date in YYYY-MM-DD format"
+                "description": "Date and time in YYYY-MM-DDTHH:MM:SS format, or date only in YYYY-MM-DD format"
             },
             "station_name": {
                 "type": ["string", "null"],
@@ -253,7 +257,7 @@ fn get_response_schema() -> serde_json::Value {
                 "required": ["liters", "total_price", "date", "currency"]
             }
         },
-        "required": ["liters", "original_amount", "original_currency", "receipt_date", "confidence"]
+        "required": ["liters", "original_amount", "original_currency", "receipt_datetime", "confidence"]
     })
 }
 

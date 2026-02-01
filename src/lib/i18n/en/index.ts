@@ -171,12 +171,14 @@ const en = {
 		noReceipt: 'No receipt',
 		estimatedRate: 'Estimated from TP',
 		estimatedEnergyRate: 'Estimated from baseline consumption',
+		receiptDatetimeMismatch: 'Receipt datetime outside trip range',
 		// Legend
 		legend: {
 			partialFillup: 'partial fillup',
 			noReceipt: 'no receipt',
 			highConsumption: 'high consumption',
 			suggestedFillup: 'Suggested fillup: {liters} L → {rate} l/100km',
+			receiptDatetimeMismatch: 'receipt datetime outside trip range',
 		},
 		// Column visibility
 		columnVisibility: {
@@ -360,6 +362,7 @@ const en = {
 		folderStructureHint: 'Folder must contain either only files, or only folders named with years (2024, 2025, ...)',
 		// Date mismatch warning
 		dateMismatch: 'Receipt date ({receiptYear}) does not match folder ({folderYear})',
+		timeNotExtracted: 'Time not extracted',
 		// Filters
 		filterAll: 'All',
 		filterUnassigned: 'Unverified',

@@ -3,7 +3,7 @@
     "total_price_eur": null,
     "original_amount": 250.0,
     "original_currency": "CZK",
-    "receipt_date": "2026-01-20",
+    "receipt_datetime": "2026-01-20T10:30:00",
     "station_name": null,
     "station_address": null,
     "vendor_name": "Parkoviště Praha",

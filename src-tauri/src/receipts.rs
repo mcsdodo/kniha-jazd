@@ -4,7 +4,7 @@ use crate::constants::date_formats;
 use crate::db::Database;
 use crate::gemini::{ExtractedReceipt, GeminiClient};
 use crate::models::{ConfidenceLevel, Currency, FieldConfidence, Receipt, ReceiptStatus};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use std::path::Path;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "pdf"];
@@ -236,11 +236,36 @@ fn parse_confidence(s: &str) -> ConfidenceLevel {
     }
 }
 
+/// Parse receipt_datetime from extracted data
+/// Handles both full datetime (YYYY-MM-DDTHH:MM:SS) and date-only (YYYY-MM-DD) formats
+fn parse_receipt_datetime(
+    datetime_str: Option<String>,
+) -> (Option<NaiveDateTime>, bool /* needs_review */) {
+    match datetime_str {
+        Some(s) if s.len() == 10 => {
+            // Date only (YYYY-MM-DD) → set midnight, mark as NeedsReview
+            let datetime = NaiveDate::parse_from_str(&s, date_formats::ISO_DATE)
+                .ok()
+                .and_then(|d| d.and_hms_opt(0, 0, 0));
+            (datetime, true) // needs review because time is missing
+        }
+        Some(s) => {
+            // Full datetime (YYYY-MM-DDTHH:MM:SS)
+            let datetime = NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S").ok();
+            (datetime, false) // no additional review needed for datetime
+        }
+        None => (None, false),
+    }
+}
+
 fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceipt) {
     receipt.liters = extracted.liters;
-    receipt.receipt_date = extracted
-        .receipt_date
-        .and_then(|d| NaiveDate::parse_from_str(&d, date_formats::ISO_DATE).ok());
+
+    // Parse receipt_datetime, tracking if date-only triggers NeedsReview
+    let (parsed_datetime, datetime_needs_review) =
+        parse_receipt_datetime(extracted.receipt_datetime);
+    receipt.receipt_datetime = parsed_datetime;
+
     receipt.station_name = extracted.station_name;
     receipt.station_address = extracted.station_address;
     receipt.vendor_name = extracted.vendor_name;
@@ -278,7 +303,8 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
         || matches!(receipt.confidence.date, ConfidenceLevel::Low | ConfidenceLevel::Unknown)
         || (receipt.liters.is_none() && receipt.vendor_name.is_none()) // Neither fuel nor other cost
         || receipt.original_amount.is_none()
-        || receipt.receipt_date.is_none()
+        || receipt.receipt_datetime.is_none()
+        || datetime_needs_review // Date-only extraction needs user to verify/add time
         || is_foreign_currency; // Foreign currency needs user conversion
 
     if has_uncertainty {

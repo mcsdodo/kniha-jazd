@@ -393,6 +393,7 @@ pub(crate) fn build_trip_grid_data(
             soc_override_trips: HashSet::new(),
             date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
+            receipt_datetime_warnings: HashSet::new(),
             year_start_odometer,
             year_start_fuel,
             suggested_fillup: HashMap::new(),
@@ -438,6 +439,9 @@ pub(crate) fn build_trip_grid_data(
 
     // Calculate missing receipts (trips with fuel but no matching receipt)
     let missing_receipts = calculate_missing_receipts(&trips, &receipts);
+
+    // Calculate receipt datetime warnings (trips with assigned receipt outside trip time range)
+    let receipt_datetime_warnings = calculate_receipt_datetime_warnings(&trips, &receipts);
 
     // Calculate initial battery for BEV/PHEV (carryover from previous year)
     let initial_battery = if vehicle.vehicle_type.uses_electricity() {
@@ -552,6 +556,7 @@ pub(crate) fn build_trip_grid_data(
         soc_override_trips,
         date_warnings,
         missing_receipts,
+        receipt_datetime_warnings,
         year_start_odometer,
         year_start_fuel,
         suggested_fillup,
@@ -1253,7 +1258,7 @@ pub(crate) fn calculate_consumption_warnings(
 }
 
 /// Find trips with fuel that don't have a matching receipt.
-/// A trip has a matching receipt if date, liters, and price all match exactly.
+/// A trip has a matching receipt if datetime is within trip range, and liters and price match exactly.
 /// Trips without fuel don't need receipts.
 pub(crate) fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
     let mut missing = HashSet::new();
@@ -1266,7 +1271,13 @@ pub(crate) fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -
 
         // Check if any receipt matches this trip exactly
         let has_match = receipts.iter().any(|r| {
-            let date_match = r.receipt_date == Some(trip.start_datetime.date());
+            // Receipt datetime must be within trip's [start, end] range
+            let date_match = r.receipt_datetime
+                .map(|dt| {
+                    let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+                    dt >= trip.start_datetime && dt <= trip_end
+                })
+                .unwrap_or(false);
             let liters_match = r.liters == trip.fuel_liters;
             let price_match = r.total_price_eur == trip.fuel_cost_eur;
             date_match && liters_match && price_match
@@ -1278,6 +1289,29 @@ pub(crate) fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -
     }
 
     missing
+}
+
+/// Find trips with assigned receipt where receipt datetime is outside trip's [start, end] range.
+/// Returns trip IDs that should show a warning indicator.
+pub(crate) fn calculate_receipt_datetime_warnings(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
+    let mut warnings = HashSet::new();
+
+    for trip in trips {
+        // Find receipt assigned to this trip
+        if let Some(receipt) = receipts.iter().find(|r| r.trip_id == Some(trip.id)) {
+            if let Some(receipt_dt) = receipt.receipt_datetime {
+                // Use trip.end_datetime if available, otherwise use start_datetime
+                let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+                let in_range = receipt_dt >= trip.start_datetime && receipt_dt <= trip_end;
+
+                if !in_range {
+                    warnings.insert(trip.id.to_string());
+                }
+            }
+        }
+    }
+
+    warnings
 }
 
 // ============================================================================

@@ -130,6 +130,7 @@ describe('Tier 2: Receipts Workflow', () => {
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
         startDatetime: '2026-01-20T08:00', // Same date as receipt
+        endDatetime: '2026-01-20T17:00', // End time after receipt time (10:30)
         origin: 'Bratislava',
         destination: 'Trnava',
         distanceKm: 65,
@@ -200,10 +201,11 @@ describe('Tier 2: Receipts Workflow', () => {
       await setActiveVehicle(vehicle.id as string);
 
       // 2. Seed trip with MATCHING data
-      // Receipt: liters=63.68, price=91.32, date=2026-01-20
+      // Receipt: liters=63.68, price=91.32, datetime=2026-01-20T10:30:00
       const trip = await seedTrip({
         vehicleId: vehicle.id as string,
         startDatetime: '2026-01-20T08:00',
+        endDatetime: '2026-01-20T17:00', // End time after receipt time (10:30)
         origin: 'Bratislava',
         destination: 'Košice',
         distanceKm: 400,

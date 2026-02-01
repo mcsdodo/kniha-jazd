@@ -171,12 +171,14 @@ const sk = {
 		noReceipt: 'Bez dokladu',
 		estimatedRate: 'Odhad podľa TP',
 		estimatedEnergyRate: 'Odhad podľa základnej spotreby',
+		receiptDatetimeMismatch: 'Dátum/čas dokladu mimo jazdy',
 		// Legend
 		legend: {
 			partialFillup: 'čiastočné tankovanie',
 			noReceipt: 'bez dokladu',
 			highConsumption: 'vysoká spotreba',
 			suggestedFillup: 'Návrh tankovania: {liters} L → {rate} l/100km',
+			receiptDatetimeMismatch: 'dátum/čas dokladu mimo jazdy',
 		},
 		// Column visibility
 		columnVisibility: {
@@ -360,6 +362,7 @@ const sk = {
 		folderStructureHint: 'Priečinok musí obsahovať buď len súbory, alebo len priečinky s názvami rokov (2024, 2025, ...)',
 		// Date mismatch warning
 		dateMismatch: 'Dátum dokladu ({receiptYear:number}) nezodpovedá priečinku ({folderYear:number})',
+		timeNotExtracted: 'Čas nerozpoznaný',
 		// Filters
 		filterAll: 'Všetky',
 		filterUnassigned: 'Neoverené',

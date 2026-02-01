@@ -64,6 +64,7 @@
 	export let hasConsumptionWarning: boolean = false;
 	export let isEstimatedRate: boolean = false;
 	export let hasMatchingReceipt: boolean = true;
+	export let hasReceiptDatetimeWarning: boolean = false;
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
@@ -565,6 +566,9 @@
 					{#if !hasMatchingReceipt}
 						<span class="no-receipt-indicator" title={$LL.trips.noReceipt()}>⚠</span>
 					{/if}
+					{#if hasReceiptDatetimeWarning}
+						<span class="datetime-warning-indicator" title={$LL.trips.receiptDatetimeMismatch()}>*</span>
+					{/if}
 				{/if}
 			</td>
 			<td class="col-fuel-cost number">{trip.fuelCostEur?.toFixed(2) || ''}</td>
@@ -872,6 +876,13 @@
 		color: var(--accent-warning-dark);
 		margin-left: 0.25rem;
 		cursor: help;
+	}
+
+	/* Datetime warning indicator */
+	.datetime-warning-indicator {
+		color: var(--accent-danger);
+		font-weight: bold;
+		margin-left: 0.1rem;
 	}
 
 	/* Estimated rate styling */

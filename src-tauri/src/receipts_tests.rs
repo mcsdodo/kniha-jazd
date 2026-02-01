@@ -234,14 +234,14 @@ fn test_scan_invalid_structure_returns_error() {
 // ===========================================
 
 #[test]
-fn test_apply_extraction_high_confidence_eur() {
+fn test_apply_extraction_high_confidence_eur_full_datetime() {
     let mut receipt = Receipt::new("test.jpg".to_string(), "test.jpg".to_string());
     let extracted = ExtractedReceipt {
         liters: Some(45.5),
         total_price_eur: None, // Not used directly anymore
         original_amount: Some(72.50),
         original_currency: Some("EUR".to_string()),
-        receipt_date: Some("2024-12-15".to_string()),
+        receipt_datetime: Some("2024-12-15T14:32:00".to_string()),
         station_name: Some("Slovnaft".to_string()),
         station_address: Some("Bratislava".to_string()),
         vendor_name: None,
@@ -265,18 +265,21 @@ fn test_apply_extraction_high_confidence_eur() {
     assert_eq!(receipt.confidence.liters, ConfidenceLevel::High);
     assert_eq!(receipt.confidence.total_price, ConfidenceLevel::High);
     assert_eq!(receipt.confidence.date, ConfidenceLevel::High);
+    // Verify datetime was parsed correctly
+    let datetime = receipt.receipt_datetime.unwrap();
+    assert_eq!(datetime.format("%Y-%m-%dT%H:%M:%S").to_string(), "2024-12-15T14:32:00");
 }
 
 #[test]
 fn test_apply_extraction_foreign_currency_needs_review() {
-    // CZK receipt should set status to NeedsReview
+    // CZK receipt should set status to NeedsReview (foreign currency)
     let mut receipt = Receipt::new("test.jpg".to_string(), "test.jpg".to_string());
     let extracted = ExtractedReceipt {
         liters: None,
         total_price_eur: None,
         original_amount: Some(100.0),
         original_currency: Some("CZK".to_string()),
-        receipt_date: Some("2024-12-15".to_string()),
+        receipt_datetime: Some("2024-12-15T10:30:00".to_string()),
         station_name: None,
         station_address: None,
         vendor_name: Some("Parking Praha".to_string()),
@@ -306,7 +309,7 @@ fn test_apply_extraction_low_confidence() {
         total_price_eur: Some(50.00), // Legacy fallback
         original_amount: Some(50.00),
         original_currency: None, // Unknown currency
-        receipt_date: None,
+        receipt_datetime: None,
         station_name: None,
         station_address: None,
         vendor_name: None,
@@ -335,4 +338,82 @@ fn test_parse_confidence() {
     assert_eq!(parse_confidence("low"), ConfidenceLevel::Low);
     assert_eq!(parse_confidence("unknown"), ConfidenceLevel::Unknown);
     assert_eq!(parse_confidence("invalid"), ConfidenceLevel::Unknown);
+}
+
+// ===========================================
+// Datetime Parsing Tests
+// ===========================================
+
+#[test]
+fn test_parse_receipt_datetime_full_datetime() {
+    // Full datetime (YYYY-MM-DDTHH:MM:SS) should parse correctly and not trigger NeedsReview
+    let (datetime, needs_review) = parse_receipt_datetime(Some("2026-01-15T14:32:00".to_string()));
+
+    assert!(datetime.is_some());
+    let dt = datetime.unwrap();
+    assert_eq!(dt.format("%Y-%m-%dT%H:%M:%S").to_string(), "2026-01-15T14:32:00");
+    assert!(!needs_review, "Full datetime should not trigger NeedsReview");
+}
+
+#[test]
+fn test_parse_receipt_datetime_date_only_triggers_needs_review() {
+    // Date-only (YYYY-MM-DD) should parse with midnight time and trigger NeedsReview
+    let (datetime, needs_review) = parse_receipt_datetime(Some("2026-01-15".to_string()));
+
+    assert!(datetime.is_some());
+    let dt = datetime.unwrap();
+    assert_eq!(dt.format("%Y-%m-%d").to_string(), "2026-01-15");
+    assert_eq!(dt.format("%H:%M:%S").to_string(), "00:00:00"); // Midnight
+    assert!(needs_review, "Date-only should trigger NeedsReview");
+}
+
+#[test]
+fn test_parse_receipt_datetime_none() {
+    // None should return None and not trigger NeedsReview
+    let (datetime, needs_review) = parse_receipt_datetime(None);
+
+    assert!(datetime.is_none());
+    assert!(!needs_review, "None datetime should not trigger NeedsReview flag");
+}
+
+#[test]
+fn test_parse_receipt_datetime_invalid_format() {
+    // Invalid format should return None
+    let (datetime, needs_review) = parse_receipt_datetime(Some("invalid-date".to_string()));
+
+    assert!(datetime.is_none());
+    assert!(!needs_review);
+}
+
+#[test]
+fn test_apply_extraction_date_only_triggers_needs_review() {
+    // Date-only extraction should mark receipt as NeedsReview even with high confidence
+    let mut receipt = Receipt::new("test.jpg".to_string(), "test.jpg".to_string());
+    let extracted = ExtractedReceipt {
+        liters: Some(45.5),
+        total_price_eur: None,
+        original_amount: Some(72.50),
+        original_currency: Some("EUR".to_string()),
+        receipt_datetime: Some("2026-01-15".to_string()), // Date only, no time
+        station_name: Some("Slovnaft".to_string()),
+        station_address: Some("Bratislava".to_string()),
+        vendor_name: None,
+        cost_description: None,
+        raw_text: Some("OCR text".to_string()),
+        confidence: ExtractionConfidence {
+            liters: "high".to_string(),
+            total_price: "high".to_string(),
+            date: "high".to_string(),
+            currency: "high".to_string(),
+        },
+    };
+
+    apply_extraction_to_receipt(&mut receipt, extracted);
+
+    // Should be NeedsReview because time is missing
+    assert_eq!(receipt.status, ReceiptStatus::NeedsReview);
+    // But datetime should still be parsed (with midnight)
+    let datetime = receipt.receipt_datetime.unwrap();
+    assert_eq!(datetime.format("%Y-%m-%d").to_string(), "2026-01-15");
+    assert_eq!(datetime.format("%H:%M:%S").to_string(), "00:00:00");
 }
