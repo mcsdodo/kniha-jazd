@@ -238,6 +238,7 @@ export type ReceiptMismatchReason =
 	| { type: 'missingReceiptData' }
 	| { type: 'noFuelTripFound' }
 	| { type: 'dateMismatch'; receiptDate: string; closestTripDate: string }
+	| { type: 'datetimeOutOfRange'; receiptTime: string; tripStart: string; tripEnd: string }
 	| { type: 'litersMismatch'; receiptLiters: number; tripLiters: number }
 	| { type: 'priceMismatch'; receiptPrice: number; tripPrice: number }
 	| { type: 'noOtherCostMatch' };

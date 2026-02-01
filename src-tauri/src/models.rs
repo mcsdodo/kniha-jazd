@@ -539,6 +539,15 @@ pub enum MismatchReason {
         #[serde(rename = "closestTripDate")]
         closest_trip_date: String,
     },
+    /// Receipt datetime is outside trip's [start, end] time range (same date, wrong time)
+    DatetimeOutOfRange {
+        #[serde(rename = "receiptTime")]
+        receipt_time: String,
+        #[serde(rename = "tripStart")]
+        trip_start: String,
+        #[serde(rename = "tripEnd")]
+        trip_end: String,
+    },
     /// Found trip with matching date+price but different liters
     LitersMismatch {
         #[serde(rename = "receiptLiters")]

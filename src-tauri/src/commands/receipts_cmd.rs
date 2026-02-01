@@ -13,7 +13,7 @@ use crate::constants::date_formats;
 use crate::db::Database;
 use crate::gemini::is_mock_mode_enabled;
 use crate::models::{
-    AttachmentStatus, Receipt, ReceiptStatus, ReceiptVerification, Trip, VerificationResult,
+    AttachmentStatus, MismatchReason, Receipt, ReceiptStatus, ReceiptVerification, Trip, VerificationResult,
 };
 use crate::receipts::{
     detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts,
@@ -21,6 +21,7 @@ use crate::receipts::{
 };
 use crate::settings::LocalSettings;
 
+use super::statistics::is_datetime_in_trip_range;
 use super::{get_app_data_dir, AppState};
 
 // ============================================================================
@@ -398,11 +399,8 @@ pub fn assign_receipt_to_trip_internal(
             } else {
                 // Trip has fuel → check if receipt matches (verification)
                 // Receipt datetime must be within trip's [start, end] range
-                let date_match = receipt.receipt_datetime
-                    .map(|dt| {
-                        let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
-                        dt >= trip.start_datetime && dt <= trip_end
-                    })
+                let datetime_match = receipt.receipt_datetime
+                    .map(|dt| is_datetime_in_trip_range(dt, &trip))
                     .unwrap_or(false);
                 let liters_match = trip
                     .fuel_liters
@@ -412,7 +410,7 @@ pub fn assign_receipt_to_trip_internal(
                     .fuel_cost_eur
                     .map(|fc| (fc - price).abs() < 0.01)
                     .unwrap_or(false);
-                date_match && liters_match && price_match
+                datetime_match && liters_match && price_match
             }
         }
         _ => false, // No liters or no price → cannot be fuel
@@ -518,11 +516,8 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
         (Some(r_liters), Some(r_price)) => {
             // Receipt has fuel data - compare with trip
             // Receipt datetime must be within trip's [start, end] range
-            let date_match = receipt.receipt_datetime
-                .map(|dt| {
-                    let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
-                    dt >= trip.start_datetime && dt <= trip_end
-                })
+            let datetime_match = receipt.receipt_datetime
+                .map(|dt| is_datetime_in_trip_range(dt, trip))
                 .unwrap_or(false);
             let liters_match = trip
                 .fuel_liters
@@ -533,7 +528,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
                 .map(|fc| (fc - r_price).abs() < 0.01)
                 .unwrap_or(false);
 
-            if date_match && liters_match && price_match {
+            if datetime_match && liters_match && price_match {
                 CompatibilityResult {
                     can_attach: true,
                     status: AttachmentStatus::Matches.as_str().to_string(),
@@ -541,7 +536,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
                 }
             } else {
                 // Determine what specifically doesn't match
-                let mismatch = match (date_match, liters_match, price_match) {
+                let mismatch = match (datetime_match, liters_match, price_match) {
                     (false, false, false) => "all",
                     (false, false, true) => "date_and_liters",
                     (false, true, false) => "date_and_price",
@@ -697,12 +692,11 @@ fn verify_receipts_with_data(
                     (trip.fuel_liters, trip.fuel_cost_eur)
                 {
                     // Match by datetime within trip range, liters (within small tolerance), and price (within small tolerance)
-                    let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
-                    let date_match = receipt_datetime >= trip.start_datetime && receipt_datetime <= trip_end;
+                    let datetime_match = is_datetime_in_trip_range(receipt_datetime, trip);
                     let liters_match = (trip_liters - receipt_liters).abs() < 0.01;
                     let price_match = (trip_price - receipt_price).abs() < 0.01;
 
-                    if date_match && liters_match && price_match {
+                    if datetime_match && liters_match && price_match {
                         matched = true;
                         matched_trip_id = Some(trip.id.to_string());
                         matched_trip_date = Some(
@@ -717,13 +711,13 @@ fn verify_receipts_with_data(
                     }
 
                     // Track closest match (most fields matching)
-                    let match_count = date_match as u8 + liters_match as u8 + price_match as u8;
+                    let match_count = datetime_match as u8 + liters_match as u8 + price_match as u8;
                     if match_count >= 2 {
                         // At least 2 fields match - this is a close match
                         let trip_date_str =
                             trip.start_datetime.date().format("%-d.%-m.").to_string();
                         closest_match =
-                            Some((date_match, liters_match, price_match, trip_date_str));
+                            Some((datetime_match, liters_match, price_match, trip_date_str));
                     }
                 }
             }
@@ -732,37 +726,57 @@ fn verify_receipts_with_data(
             if !matched {
                 if trips_with_fuel.is_empty() {
                     mismatch_reason = MismatchReason::NoFuelTripFound;
-                } else if let Some((date_match, liters_match, price_match, ref trip_date)) =
+                } else if let Some((datetime_in_range, liters_match, price_match, ref trip_date)) =
                     closest_match
                 {
-                    // Prioritize: date > liters > price (most common user error is date)
-                    if !date_match && liters_match && price_match {
-                        mismatch_reason = MismatchReason::DateMismatch {
-                            receipt_date: receipt_datetime.date().format("%-d.%-m.").to_string(),
-                            closest_trip_date: trip_date.clone(),
-                        };
-                    } else if date_match && !liters_match && price_match {
+                    // Prioritize: datetime > liters > price (most common user error is datetime)
+                    if !datetime_in_range && liters_match && price_match {
+                        // Find the trip with matching liters+price to check if it's a time vs date issue
+                        let matching_trip = trips_with_fuel.iter().find(|t| {
+                            t.fuel_liters.map(|l| (l - receipt_liters).abs() < 0.01).unwrap_or(false)
+                                && t.fuel_cost_eur.map(|p| (p - receipt_price).abs() < 0.01).unwrap_or(false)
+                        });
+
+                        if let Some(trip) = matching_trip {
+                            // Check if date is the same but time is outside range
+                            let same_date = receipt_datetime.date() == trip.start_datetime.date();
+                            if same_date {
+                                // Time is the issue, not date
+                                let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+                                mismatch_reason = MismatchReason::DatetimeOutOfRange {
+                                    receipt_time: receipt_datetime.format("%H:%M").to_string(),
+                                    trip_start: trip.start_datetime.format("%H:%M").to_string(),
+                                    trip_end: trip_end.format("%H:%M").to_string(),
+                                };
+                            } else {
+                                // Different date
+                                mismatch_reason = MismatchReason::DateMismatch {
+                                    receipt_date: receipt_datetime.date().format("%-d.%-m.").to_string(),
+                                    closest_trip_date: trip_date.clone(),
+                                };
+                            }
+                        } else {
+                            mismatch_reason = MismatchReason::DateMismatch {
+                                receipt_date: receipt_datetime.date().format("%-d.%-m.").to_string(),
+                                closest_trip_date: trip_date.clone(),
+                            };
+                        }
+                    } else if datetime_in_range && !liters_match && price_match {
                         // Find trip where receipt datetime falls within [start, end] range
                         let trip_liters = trips_with_fuel
                             .iter()
-                            .find(|t| {
-                                let trip_end = t.end_datetime.unwrap_or(t.start_datetime);
-                                receipt_datetime >= t.start_datetime && receipt_datetime <= trip_end
-                            })
+                            .find(|t| is_datetime_in_trip_range(receipt_datetime, t))
                             .and_then(|t| t.fuel_liters)
                             .unwrap_or(0.0);
                         mismatch_reason = MismatchReason::LitersMismatch {
                             receipt_liters,
                             trip_liters,
                         };
-                    } else if date_match && liters_match && !price_match {
+                    } else if datetime_in_range && liters_match && !price_match {
                         // Find trip where receipt datetime falls within [start, end] range
                         let trip_price = trips_with_fuel
                             .iter()
-                            .find(|t| {
-                                let trip_end = t.end_datetime.unwrap_or(t.start_datetime);
-                                receipt_datetime >= t.start_datetime && receipt_datetime <= trip_end
-                            })
+                            .find(|t| is_datetime_in_trip_range(receipt_datetime, t))
                             .and_then(|t| t.fuel_cost_eur)
                             .unwrap_or(0.0);
                         mismatch_reason = MismatchReason::PriceMismatch {

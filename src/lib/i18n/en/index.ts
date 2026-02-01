@@ -392,6 +392,7 @@ const en = {
 		mismatchMissingData: 'Receipt data missing',
 		mismatchNoFuelTrip: 'No trip with fuel data',
 		mismatchDate: 'Date {receiptDate} – trip is {tripDate}',
+		mismatchDatetimeOutOfRange: 'Time {receiptTime} – trip is {tripStart}–{tripEnd}',
 		mismatchLiters: '{receiptLiters} L – trip has {tripLiters} L',
 		mismatchPrice: '{receiptPrice} € – trip has {tripPrice} €',
 		mismatchNoOtherCost: 'No trip with this price',
