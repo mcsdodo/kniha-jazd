@@ -141,9 +141,11 @@ Users don't care about the internal matching algorithm. They want actionable inf
 
 | Quality | When | Visual | Meaning |
 |---------|------|--------|---------|
-| **Perfect** | Date, liters, price all match | ✅ | All good |
-| **Noted** | Timing slightly off (±2h) | ✅ℹ | Attached, note shown |
-| **Override** | User explicitly attached with mismatch | ✅✓ | User says it's correct |
+| **Perfect** | Date, liters, price all match within trip time range | ✅ | All good |
+| **Noted** | Same day, but time outside trip range | ✅ℹ | Attached, note shown |
+| **Override** | Different day (user explicitly acknowledged) | ✅✓ | User says it's correct |
+
+**Timing rule**: Same day = auto-noted, different day = requires explicit acknowledgment.
 
 **Key**: All three are valid attachments. The system trusts the user's decision.
 
@@ -373,18 +375,21 @@ Both doklady page and trip grid use the same calculation.
 
 ---
 
+## Decisions Made
+
+1. **Timing tolerance for "Noted" vs "Override"**: ✅ Decided
+   - **Same day** = Noted (auto, no prompt)
+   - **Different day** = Override (requires explicit acknowledgment)
+
 ## Open Questions
 
 1. **Should "Noted" issues count as "needs attention"?**
    - Proposal: No, only unattached and NeedsReview need attention
 
-2. **What's the timing tolerance for "Noted" vs "Override"?**
-   - Proposal: ±3 hours = Noted, >3 hours = prompt for Override
-
-3. **Can user "un-acknowledge" an override?**
+2. **Can user "un-acknowledge" an override?**
    - Proposal: Yes, by detaching and re-attaching
 
-4. **Show receipt details on hover in trip grid?**
+3. **Show receipt details on hover in trip grid?**
    - Could show receipt filename, datetime on hover over the icon
 
 ---
@@ -396,3 +401,4 @@ Both doklady page and trip grid use the same calculation.
 | v1 | 2026-02-01 | Initial draft |
 | v2 | 2026-02-01 | Added edge cases, migration path, state diagram |
 | v3 | 2026-02-01 | Refocused on user mental model, simplified to 2 concepts |
+| v3.1 | 2026-02-01 | Decision: same day = Noted, different day = Override |
