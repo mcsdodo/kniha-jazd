@@ -629,7 +629,8 @@ impl Currency {
         }
     }
 
-    /// Parse currency from string (case insensitive)
+    /// Parse currency from string (case insensitive) - available for gradual adoption
+    #[allow(dead_code)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "EUR" => Some(Currency::EUR),

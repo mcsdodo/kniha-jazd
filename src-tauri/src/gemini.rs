@@ -1,5 +1,6 @@
 //! Gemini API client for receipt OCR and extraction
 
+use crate::constants::mime_types;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -8,7 +9,7 @@ use std::path::Path;
 /// When set to a directory path, `extract_from_image` will load mock JSON
 /// files instead of calling the Gemini API.
 /// Mock file naming: {receipt_filename_stem}.json (e.g., invoice.pdf → invoice.json)
-pub const MOCK_GEMINI_DIR_ENV: &str = "KNIHA_JAZD_MOCK_GEMINI_DIR";
+pub use crate::constants::env_vars::MOCK_GEMINI_DIR as MOCK_GEMINI_DIR_ENV;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractedReceipt {
@@ -292,11 +293,11 @@ impl GeminiClient {
 
         // Determine mime type from extension
         let mime_type = match image_path.extension().and_then(|e| e.to_str()) {
-            Some("jpg") | Some("jpeg") => "image/jpeg",
-            Some("png") => "image/png",
-            Some("webp") => "image/webp",
-            Some("pdf") => "application/pdf",
-            _ => "image/jpeg", // Default
+            Some("jpg") | Some("jpeg") => mime_types::JPEG,
+            Some("png") => mime_types::PNG,
+            Some("webp") => mime_types::WEBP,
+            Some("pdf") => mime_types::PDF,
+            _ => mime_types::JPEG, // Default
         };
 
         // Build request
@@ -315,7 +316,7 @@ impl GeminiClient {
                 ],
             }],
             generation_config: GenerationConfig {
-                response_mime_type: "application/json".to_string(),
+                response_mime_type: mime_types::JSON.to_string(),
                 response_json_schema: get_response_schema(),
             },
         };
@@ -329,7 +330,7 @@ impl GeminiClient {
         let response = self
             .client
             .post(&url)
-            .header("Content-Type", "application/json")
+            .header("Content-Type", mime_types::JSON)
             .json(&request)
             .send()
             .await

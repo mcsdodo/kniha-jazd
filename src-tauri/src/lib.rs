@@ -13,6 +13,7 @@ mod settings;
 mod suggestions;
 
 use crate::app_state::AppState;
+use crate::constants::env_vars;
 use crate::db_location::{acquire_lock, check_lock, resolve_db_paths, LockStatus};
 use crate::settings::LocalSettings;
 use std::path::PathBuf;
@@ -38,7 +39,7 @@ pub fn run() {
             let app_state = AppState::new();
 
             // Get app data directory (or from env for tests)
-            let app_dir = match std::env::var("KNIHA_JAZD_DATA_DIR") {
+            let app_dir = match std::env::var(env_vars::DATA_DIR) {
                 Ok(path) => PathBuf::from(path),
                 Err(_) => app
                     .path()

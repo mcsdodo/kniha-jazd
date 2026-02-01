@@ -1,8 +1,9 @@
 //! Receipt folder scanning and processing service
 
+use crate::constants::date_formats;
 use crate::db::Database;
 use crate::gemini::{ExtractedReceipt, GeminiClient};
-use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus};
+use crate::models::{ConfidenceLevel, Currency, FieldConfidence, Receipt, ReceiptStatus};
 use chrono::NaiveDate;
 use std::path::Path;
 
@@ -239,7 +240,7 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
     receipt.liters = extracted.liters;
     receipt.receipt_date = extracted
         .receipt_date
-        .and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok());
+        .and_then(|d| NaiveDate::parse_from_str(&d, date_formats::ISO_DATE).ok());
     receipt.station_name = extracted.station_name;
     receipt.station_address = extracted.station_address;
     receipt.vendor_name = extracted.vendor_name;
@@ -253,7 +254,7 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
     // EUR receipts: auto-populate total_price_eur
     // Foreign currency: leave total_price_eur as None (user must convert)
     receipt.total_price_eur = match extracted.original_currency.as_deref() {
-        Some("EUR") => extracted.original_amount,
+        Some(c) if c == Currency::EUR.as_str() => extracted.original_amount,
         Some(_) => None, // Foreign currency: user must convert manually
         None => extracted.total_price_eur, // Backward compatibility: use legacy field if no currency
     };
@@ -269,7 +270,7 @@ fn apply_extraction_to_receipt(receipt: &mut Receipt, extracted: ExtractedReceip
     // Foreign currency receipts need review (user must convert to EUR)
     let is_foreign_currency = matches!(
         extracted.original_currency.as_deref(),
-        Some("CZK") | Some("HUF") | Some("PLN")
+        Some(c) if c == Currency::CZK.as_str() || c == Currency::HUF.as_str() || c == Currency::PLN.as_str()
     );
 
     let has_uncertainty = matches!(receipt.confidence.liters, ConfidenceLevel::Low | ConfidenceLevel::Unknown)

@@ -2,7 +2,9 @@
 
 use crate::app_state::AppState;
 use crate::check_read_only;
+use crate::constants::{date_formats, paths};
 use crate::db::Database;
+use crate::models::BackupType;
 use crate::settings::{BackupRetention, LocalSettings};
 use chrono::Local;
 use diesel::RunQueryDsl;
@@ -50,24 +52,37 @@ pub struct CleanupResult {
 /// Manual: kniha-jazd-backup-2026-01-24-143022.db
 /// Pre-update: kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db
 fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
-    if filename.starts_with("kniha-jazd-backup-") {
-        let without_prefix = filename.trim_start_matches("kniha-jazd-backup-");
-        if let Some(version_start) = without_prefix.find("-pre-v") {
-            let version = without_prefix[version_start + 6..].trim_end_matches(".db");
-            return ("pre-update".to_string(), Some(version.to_string()));
+    if filename.starts_with(paths::BACKUP_PREFIX) {
+        let without_prefix = filename.trim_start_matches(paths::BACKUP_PREFIX);
+        if let Some(version_start) = without_prefix.find(paths::PRE_UPDATE_MARKER) {
+            let version = without_prefix[version_start + paths::PRE_UPDATE_MARKER.len()..]
+                .trim_end_matches(paths::BACKUP_EXTENSION);
+            return (BackupType::PreUpdate.as_str().to_string(), Some(version.to_string()));
         }
     }
-    ("manual".to_string(), None)
+    (BackupType::Manual.as_str().to_string(), None)
 }
 
 /// Generate backup filename based on type and version
 fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
-    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
+    let timestamp = Local::now().format(date_formats::BACKUP_TIMESTAMP);
     match (backup_type, update_version) {
-        ("pre-update", Some(version)) => {
-            format!("kniha-jazd-backup-{}-pre-v{}.db", timestamp, version)
+        (t, Some(version)) if t == BackupType::PreUpdate.as_str() => {
+            format!(
+                "{}{}{}{}{}",
+                paths::BACKUP_PREFIX,
+                timestamp,
+                paths::PRE_UPDATE_MARKER,
+                version,
+                paths::BACKUP_EXTENSION
+            )
         }
-        _ => format!("kniha-jazd-backup-{}.db", timestamp),
+        _ => format!(
+            "{}{}{}",
+            paths::BACKUP_PREFIX,
+            timestamp,
+            paths::BACKUP_EXTENSION
+        ),
     }
 }
 
@@ -77,7 +92,7 @@ fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<Backup
     // Filter to pre-update only
     let mut pre_update_backups: Vec<&BackupInfo> = backups
         .iter()
-        .filter(|b| b.backup_type == "pre-update")
+        .filter(|b| b.backup_type == BackupType::PreUpdate.as_str())
         .collect();
 
     // Sort by filename (which includes timestamp) - oldest first
@@ -114,8 +129,13 @@ pub fn create_backup(
     fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
 
     // Generate backup filename with timestamp
-    let timestamp = Local::now().format("%Y-%m-%d-%H%M%S");
-    let filename = format!("kniha-jazd-backup-{}.db", timestamp);
+    let timestamp = Local::now().format(date_formats::BACKUP_TIMESTAMP);
+    let filename = format!(
+        "{}{}{}",
+        paths::BACKUP_PREFIX,
+        timestamp,
+        paths::BACKUP_EXTENSION
+    );
     let backup_path = db_paths.backups_dir.join(&filename);
 
     // Copy current database to backup
@@ -143,7 +163,7 @@ pub fn create_backup(
         size_bytes: metadata.len(),
         vehicle_count,
         trip_count,
-        backup_type: "manual".to_string(),
+        backup_type: BackupType::Manual.as_str().to_string(),
         update_version: None,
     })
 }
@@ -302,10 +322,10 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
             let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
 
             // Parse timestamp from filename: kniha-jazd-backup-YYYY-MM-DD-HHMMSS.db
-            let created_at = if filename.starts_with("kniha-jazd-backup-") {
+            let created_at = if filename.starts_with(paths::BACKUP_PREFIX) {
                 let date_part = filename
-                    .trim_start_matches("kniha-jazd-backup-")
-                    .trim_end_matches(".db");
+                    .trim_start_matches(paths::BACKUP_PREFIX)
+                    .trim_end_matches(paths::BACKUP_EXTENSION);
                 // Convert YYYY-MM-DD-HHMMSS to ISO format
                 if date_part.len() >= 17 {
                     format!(
@@ -380,12 +400,12 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
         .unwrap_or(0);
 
     // Parse timestamp from filename
-    let created_at = if filename.starts_with("kniha-jazd-backup-") {
+    let created_at = if filename.starts_with(paths::BACKUP_PREFIX) {
         let date_part = filename
-            .trim_start_matches("kniha-jazd-backup-")
-            .trim_end_matches(".db");
+            .trim_start_matches(paths::BACKUP_PREFIX)
+            .trim_end_matches(paths::BACKUP_EXTENSION);
         // Handle pre-update suffix: -pre-vX.X.X
-        let date_part = if let Some(pred_pos) = date_part.find("-pre-v") {
+        let date_part = if let Some(pred_pos) = date_part.find(paths::PRE_UPDATE_MARKER) {
             &date_part[..pred_pos]
         } else {
             date_part
