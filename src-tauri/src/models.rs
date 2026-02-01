@@ -360,6 +360,8 @@ pub struct TripGridData {
     pub date_warnings: HashSet<String>,
     /// Trip IDs that have fuel but are missing a matching receipt
     pub missing_receipts: HashSet<String>,
+    /// Trip IDs where assigned receipt datetime is outside trip's [start, end] range
+    pub receipt_datetime_warnings: HashSet<String>,
 
     // Year boundary data
     /// Starting odometer for this year (carryover from previous year's ending ODO)
@@ -452,7 +454,7 @@ pub struct Receipt {
     // Parsed fields (None = uncertain/failed)
     pub liters: Option<f64>,
     pub total_price_eur: Option<f64>,
-    pub receipt_date: Option<NaiveDate>,
+    pub receipt_datetime: Option<NaiveDateTime>,
     pub station_name: Option<String>,
     pub station_address: Option<String>,
 
@@ -502,7 +504,7 @@ impl Receipt {
             scanned_at: now,
             liters: None,
             total_price_eur: None,
-            receipt_date: None,
+            receipt_datetime: None,
             station_name: None,
             station_address: None,
             vendor_name: None,
@@ -898,7 +900,7 @@ pub struct ReceiptRow {
     pub scanned_at: String,
     pub liters: Option<f64>,
     pub total_price_eur: Option<f64>,
-    pub receipt_date: Option<String>,
+    pub receipt_datetime: Option<String>,
     pub station_name: Option<String>,
     pub station_address: Option<String>,
     pub source_year: Option<i32>,
@@ -927,7 +929,7 @@ pub struct NewReceiptRow<'a> {
     pub scanned_at: &'a str,
     pub liters: Option<f64>,
     pub total_price_eur: Option<f64>,
-    pub receipt_date: Option<&'a str>,
+    pub receipt_datetime: Option<&'a str>,
     pub station_name: Option<&'a str>,
     pub station_address: Option<&'a str>,
     pub source_year: Option<i32>,
@@ -1079,9 +1081,9 @@ impl From<ReceiptRow> for Receipt {
                 .unwrap_or_else(|_| Utc::now()),
             liters: row.liters,
             total_price_eur: row.total_price_eur,
-            receipt_date: row
-                .receipt_date
-                .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+            receipt_datetime: row
+                .receipt_datetime
+                .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S").ok()),
             station_name: row.station_name,
             station_address: row.station_address,
             vendor_name: row.vendor_name,

@@ -149,6 +149,7 @@ export interface TripGridData {
 	// Warnings
 	dateWarnings: string[]; // tripIds with date ordering issues
 	missingReceipts: string[]; // tripIds missing receipts
+	receiptDatetimeWarnings: string[]; // tripIds with datetime warnings
 	// Year boundary data
 	yearStartOdometer: number; // Starting ODO for this year (carryover from previous year)
 	yearStartFuel: number; // Starting fuel (liters) for this year (carryover from previous year)
@@ -191,7 +192,7 @@ export interface Receipt {
 	scannedAt: string;
 	liters: number | null;
 	totalPriceEur: number | null; // EUR value for matching + accounting (null for unconverted foreign currency)
-	receiptDate: string | null;
+	receiptDatetime: string | null; // ISO datetime string (e.g., "2026-01-15T14:30:00") or date-only for time not extracted
 	stationName: string | null;
 	stationAddress: string | null;
 	sourceYear: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)

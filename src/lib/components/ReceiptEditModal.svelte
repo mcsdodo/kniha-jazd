@@ -4,7 +4,7 @@
 
 	export let receipt: Receipt;
 	export let onSave: (data: {
-		receiptDate: string | null;
+		receiptDatetime: string | null;
 		liters: number | null;
 		originalAmount: number | null;
 		originalCurrency: ReceiptCurrency | null;
@@ -16,7 +16,7 @@
 	export let onClose: () => void;
 
 	// Form state
-	let receiptDate = receipt.receiptDate ?? '';
+	let receiptDatetime = receipt.receiptDatetime ?? '';
 	let liters: number | null = receipt.liters;
 	let originalAmount: number | null = receipt.originalAmount;
 	let originalCurrency: ReceiptCurrency | null = receipt.originalCurrency;
@@ -57,7 +57,7 @@
 		if (!canSave) return;
 
 		onSave({
-			receiptDate: receiptDate || null,
+			receiptDatetime: receiptDatetime || null,
 			liters: liters,
 			originalAmount: originalAmount,
 			originalCurrency: originalCurrency,
@@ -95,13 +95,13 @@
 				<span class="file-name">{receipt.fileName}</span>
 			</div>
 
-			<!-- Date -->
+			<!-- Datetime -->
 			<div class="form-group">
-				<label for="receipt-date">{$LL.receiptEdit.date()}</label>
+				<label for="receipt-datetime">{$LL.receiptEdit.date()}</label>
 				<input
-					type="date"
-					id="receipt-date"
-					bind:value={receiptDate}
+					type="datetime-local"
+					id="receipt-datetime"
+					bind:value={receiptDatetime}
 				/>
 			</div>
 

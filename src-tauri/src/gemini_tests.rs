@@ -7,13 +7,13 @@ use tempfile::tempdir;
 
 #[test]
 fn test_extracted_receipt_deserialization_fuel_eur() {
-    // EUR fuel receipt: has liters, station info, EUR currency
+    // EUR fuel receipt: has liters, station info, EUR currency, full datetime
     let json = r#"{
         "liters": 45.5,
         "total_price_eur": 72.50,
         "original_amount": 72.50,
         "original_currency": "EUR",
-        "receipt_date": "2024-12-15",
+        "receipt_datetime": "2024-12-15T14:32:00",
         "station_name": "Slovnaft",
         "station_address": "Bratislava",
         "vendor_name": null,
@@ -32,7 +32,10 @@ fn test_extracted_receipt_deserialization_fuel_eur() {
     assert_eq!(extracted.total_price_eur, Some(72.50));
     assert_eq!(extracted.original_amount, Some(72.50));
     assert_eq!(extracted.original_currency, Some("EUR".to_string()));
-    assert_eq!(extracted.receipt_date, Some("2024-12-15".to_string()));
+    assert_eq!(
+        extracted.receipt_datetime,
+        Some("2024-12-15T14:32:00".to_string())
+    );
     assert_eq!(extracted.station_name, Some("Slovnaft".to_string()));
     assert_eq!(extracted.confidence.liters, "high");
     assert_eq!(extracted.confidence.currency, "high");
@@ -43,13 +46,13 @@ fn test_extracted_receipt_deserialization_fuel_eur() {
 
 #[test]
 fn test_extracted_receipt_deserialization_fuel_czk() {
-    // CZK fuel receipt: foreign currency parking receipt
+    // CZK fuel receipt: foreign currency parking receipt with date-only
     let json = r#"{
         "liters": null,
         "total_price_eur": null,
         "original_amount": 100.0,
         "original_currency": "CZK",
-        "receipt_date": "2024-12-15",
+        "receipt_datetime": "2024-12-15",
         "station_name": null,
         "station_address": null,
         "vendor_name": "Parkoviště Praha",
@@ -68,19 +71,20 @@ fn test_extracted_receipt_deserialization_fuel_czk() {
     assert!(extracted.total_price_eur.is_none()); // No EUR value yet
     assert_eq!(extracted.original_amount, Some(100.0));
     assert_eq!(extracted.original_currency, Some("CZK".to_string()));
+    assert_eq!(extracted.receipt_datetime, Some("2024-12-15".to_string()));
     assert_eq!(extracted.vendor_name, Some("Parkoviště Praha".to_string()));
     assert_eq!(extracted.confidence.currency, "high");
 }
 
 #[test]
 fn test_extracted_receipt_deserialization_other_cost() {
-    // Non-fuel receipt: no liters, has vendor info (EUR)
+    // Non-fuel receipt: no liters, has vendor info (EUR), full datetime
     let json = r#"{
         "liters": null,
         "total_price_eur": 15.00,
         "original_amount": 15.00,
         "original_currency": "EUR",
-        "receipt_date": "2024-12-16",
+        "receipt_datetime": "2024-12-16T09:15:00",
         "station_name": null,
         "station_address": null,
         "vendor_name": "AutoUmyváreň SK",
@@ -99,7 +103,10 @@ fn test_extracted_receipt_deserialization_other_cost() {
     assert_eq!(extracted.total_price_eur, Some(15.00));
     assert_eq!(extracted.original_amount, Some(15.00));
     assert_eq!(extracted.original_currency, Some("EUR".to_string()));
-    assert_eq!(extracted.receipt_date, Some("2024-12-16".to_string()));
+    assert_eq!(
+        extracted.receipt_datetime,
+        Some("2024-12-16T09:15:00".to_string())
+    );
     assert_eq!(extracted.vendor_name, Some("AutoUmyváreň SK".to_string()));
     assert_eq!(
         extracted.cost_description,
@@ -119,7 +126,7 @@ fn test_extracted_receipt_with_nulls() {
         "total_price_eur": null,
         "original_amount": 50.00,
         "original_currency": null,
-        "receipt_date": null,
+        "receipt_datetime": null,
         "station_name": null,
         "station_address": null,
         "vendor_name": null,
@@ -138,7 +145,7 @@ fn test_extracted_receipt_with_nulls() {
     assert!(extracted.total_price_eur.is_none());
     assert_eq!(extracted.original_amount, Some(50.00));
     assert!(extracted.original_currency.is_none());
-    assert!(extracted.receipt_date.is_none());
+    assert!(extracted.receipt_datetime.is_none());
     assert!(extracted.vendor_name.is_none());
     assert!(extracted.cost_description.is_none());
 }
@@ -166,7 +173,7 @@ fn test_load_mock_extraction_valid_file() {
         "total_price_eur": 91.32,
         "original_amount": 91.32,
         "original_currency": "EUR",
-        "receipt_date": "2026-01-20",
+        "receipt_datetime": "2026-01-20T14:30:00",
         "station_name": "Slovnaft, a.s.",
         "station_address": "Prístavna ulica, Bratislava",
         "vendor_name": null,
@@ -195,7 +202,10 @@ fn test_load_mock_extraction_valid_file() {
     assert_eq!(extracted.total_price_eur, Some(91.32));
     assert_eq!(extracted.original_amount, Some(91.32));
     assert_eq!(extracted.original_currency, Some("EUR".to_string()));
-    assert_eq!(extracted.receipt_date, Some("2026-01-20".to_string()));
+    assert_eq!(
+        extracted.receipt_datetime,
+        Some("2026-01-20T14:30:00".to_string())
+    );
     assert_eq!(extracted.station_name, Some("Slovnaft, a.s.".to_string()));
     assert_eq!(extracted.confidence.liters, "high");
     assert_eq!(extracted.confidence.currency, "high");
@@ -214,7 +224,7 @@ fn test_load_mock_extraction_missing_file_returns_default() {
     // Default values
     assert!(extracted.liters.is_none());
     assert!(extracted.total_price_eur.is_none());
-    assert!(extracted.receipt_date.is_none());
+    assert!(extracted.receipt_datetime.is_none());
     assert_eq!(extracted.confidence.liters, "low");
 }
 
@@ -244,7 +254,7 @@ fn test_extracted_receipt_default() {
     assert!(default.total_price_eur.is_none());
     assert!(default.original_amount.is_none());
     assert!(default.original_currency.is_none());
-    assert!(default.receipt_date.is_none());
+    assert!(default.receipt_datetime.is_none());
     assert!(default.station_name.is_none());
     assert!(default.station_address.is_none());
     assert!(default.vendor_name.is_none());

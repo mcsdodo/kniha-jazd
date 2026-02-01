@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::models::{ReceiptStatus, VehicleType};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 
 #[test]
 fn test_database_creation() {
@@ -303,29 +303,33 @@ fn test_settings_crud() {
 
 fn create_receipt_for_year_test(
     file_path: &str,
-    receipt_date: Option<NaiveDate>,
+    receipt_datetime: Option<NaiveDateTime>,
     source_year: Option<i32>,
 ) -> Receipt {
     let mut receipt =
         Receipt::new_with_source_year(file_path.to_string(), file_path.to_string(), source_year);
-    receipt.receipt_date = receipt_date;
+    receipt.receipt_datetime = receipt_datetime;
     receipt
 }
 
 #[test]
-fn test_get_receipts_for_year_filters_by_receipt_date() {
+fn test_get_receipts_for_year_filters_by_receipt_datetime() {
     let db = Database::in_memory().unwrap();
 
     let receipt = create_receipt_for_year_test(
         "r1.jpg",
-        Some(NaiveDate::from_ymd_opt(2024, 5, 1).unwrap()),
+        Some(
+            NaiveDateTime::parse_from_str("2024-05-01T10:30:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        ),
         Some(2024),
     );
     db.create_receipt(&receipt).unwrap();
 
     let receipt2 = create_receipt_for_year_test(
         "r2.jpg",
-        Some(NaiveDate::from_ymd_opt(2023, 12, 31).unwrap()),
+        Some(
+            NaiveDateTime::parse_from_str("2023-12-31T23:59:59", "%Y-%m-%dT%H:%M:%S").unwrap(),
+        ),
         Some(2024),
     );
     db.create_receipt(&receipt2).unwrap();

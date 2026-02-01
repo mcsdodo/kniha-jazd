@@ -540,6 +540,10 @@ type RootTranslation = {
 		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​z​á​k​l​a​d​n​e​j​ ​s​p​o​t​r​e​b​y
 		 */
 		estimatedEnergyRate: string
+		/**
+		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y
+		 */
+		receiptDatetimeMismatch: string
 		legend: {
 			/**
 			 * č​i​a​s​t​o​č​n​é​ ​t​a​n​k​o​v​a​n​i​e
@@ -559,6 +563,10 @@ type RootTranslation = {
 			 * @param {unknown} rate
 			 */
 			suggestedFillup: RequiredParams<'liters' | 'rate'>
+			/**
+			 * d​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y
+			 */
+			receiptDatetimeMismatch: string
 		}
 		columnVisibility: {
 			/**
@@ -1142,6 +1150,10 @@ type RootTranslation = {
 		 * @param {number} receiptYear
 		 */
 		dateMismatch: RequiredParams<'folderYear' | 'receiptYear'>
+		/**
+		 * Č​a​s​ ​n​e​r​o​z​p​o​z​n​a​n​ý
+		 */
+		timeNotExtracted: string
 		/**
 		 * V​š​e​t​k​y
 		 */
@@ -2545,6 +2557,10 @@ export type TranslationFunctions = {
 		 * Odhad podľa základnej spotreby
 		 */
 		estimatedEnergyRate: () => LocalizedString
+		/**
+		 * Dátum/čas dokladu mimo jazdy
+		 */
+		receiptDatetimeMismatch: () => LocalizedString
 		legend: {
 			/**
 			 * čiastočné tankovanie
@@ -2562,6 +2578,10 @@ export type TranslationFunctions = {
 			 * Návrh tankovania: {liters} L → {rate} l/100km
 			 */
 			suggestedFillup: (arg: { liters: unknown, rate: unknown }) => LocalizedString
+			/**
+			 * dátum/čas dokladu mimo jazdy
+			 */
+			receiptDatetimeMismatch: () => LocalizedString
 		}
 		columnVisibility: {
 			/**
@@ -3127,6 +3147,10 @@ export type TranslationFunctions = {
 		 * Dátum dokladu ({receiptYear}) nezodpovedá priečinku ({folderYear})
 		 */
 		dateMismatch: (arg: { folderYear: number, receiptYear: number }) => LocalizedString
+		/**
+		 * Čas nerozpoznaný
+		 */
+		timeNotExtracted: () => LocalizedString
 		/**
 		 * Všetky
 		 */

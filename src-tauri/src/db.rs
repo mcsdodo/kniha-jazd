@@ -656,7 +656,9 @@ impl Database {
         let vehicle_id_str = receipt.vehicle_id.map(|id| id.to_string());
         let trip_id_str = receipt.trip_id.map(|id| id.to_string());
         let scanned_at_str = receipt.scanned_at.to_rfc3339();
-        let receipt_date_str = receipt.receipt_date.map(|d| d.to_string());
+        let receipt_datetime_str = receipt
+            .receipt_datetime
+            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
         let created_at_str = receipt.created_at.to_rfc3339();
         let updated_at_str = receipt.updated_at.to_rfc3339();
         let confidence_json = receipt.confidence_to_json();
@@ -670,7 +672,7 @@ impl Database {
             scanned_at: &scanned_at_str,
             liters: receipt.liters,
             total_price_eur: receipt.total_price_eur,
-            receipt_date: receipt_date_str.as_deref(),
+            receipt_datetime: receipt_datetime_str.as_deref(),
             station_name: receipt.station_name.as_deref(),
             station_address: receipt.station_address.as_deref(),
             source_year: receipt.source_year,
@@ -708,7 +710,7 @@ impl Database {
 
         let rows = receipts::table
             .filter(receipts::trip_id.is_null())
-            .order((receipts::receipt_date.desc(), receipts::scanned_at.desc()))
+            .order((receipts::receipt_datetime.desc(), receipts::scanned_at.desc()))
             .load::<ReceiptRow>(conn)?;
 
         Ok(rows.into_iter().map(Receipt::from).collect())
@@ -731,7 +733,9 @@ impl Database {
         let id_str = receipt.id.to_string();
         let vehicle_id_str = receipt.vehicle_id.map(|id| id.to_string());
         let trip_id_str = receipt.trip_id.map(|id| id.to_string());
-        let receipt_date_str = receipt.receipt_date.map(|d| d.to_string());
+        let receipt_datetime_str = receipt
+            .receipt_datetime
+            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
         let updated_at_str = Utc::now().to_rfc3339();
         let confidence_json = receipt.confidence_to_json();
 
@@ -741,7 +745,7 @@ impl Database {
                 receipts::trip_id.eq(trip_id_str),
                 receipts::liters.eq(receipt.liters),
                 receipts::total_price_eur.eq(receipt.total_price_eur),
-                receipts::receipt_date.eq(receipt_date_str),
+                receipts::receipt_datetime.eq(receipt_datetime_str),
                 receipts::station_name.eq(&receipt.station_name),
                 receipts::station_address.eq(&receipt.station_address),
                 receipts::source_year.eq(receipt.source_year),
@@ -794,15 +798,15 @@ impl Database {
 
         let rows = diesel::sql_query(
             "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                    liters, total_price_eur, receipt_date, station_name, station_address,
+                    liters, total_price_eur, receipt_datetime, station_name, station_address,
                     source_year, status, confidence, raw_ocr_text, error_message,
                     created_at, updated_at, vendor_name, cost_description,
                     original_amount, original_currency
              FROM receipts WHERE
-                (receipt_date IS NOT NULL AND CAST(strftime('%Y', receipt_date) AS INTEGER) = ?)
-                OR (receipt_date IS NULL AND source_year = ?)
-                OR (receipt_date IS NULL AND source_year IS NULL)
-             ORDER BY receipt_date DESC, scanned_at DESC",
+                (receipt_datetime IS NOT NULL AND CAST(strftime('%Y', receipt_datetime) AS INTEGER) = ?)
+                OR (receipt_datetime IS NULL AND source_year = ?)
+                OR (receipt_datetime IS NULL AND source_year IS NULL)
+             ORDER BY receipt_datetime DESC, scanned_at DESC",
         )
         .bind::<diesel::sql_types::Integer, _>(year)
         .bind::<diesel::sql_types::Integer, _>(year)
@@ -823,18 +827,18 @@ impl Database {
         let rows = match year {
             Some(y) => diesel::sql_query(
                 "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                        liters, total_price_eur, receipt_date, station_name, station_address,
+                        liters, total_price_eur, receipt_datetime, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
                         created_at, updated_at, vendor_name, cost_description,
                         original_amount, original_currency
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                    AND (
-                     (receipt_date IS NOT NULL AND CAST(strftime('%Y', receipt_date) AS INTEGER) = ?)
-                     OR (receipt_date IS NULL AND source_year = ?)
-                     OR (receipt_date IS NULL AND source_year IS NULL)
+                     (receipt_datetime IS NOT NULL AND CAST(strftime('%Y', receipt_datetime) AS INTEGER) = ?)
+                     OR (receipt_datetime IS NULL AND source_year = ?)
+                     OR (receipt_datetime IS NULL AND source_year IS NULL)
                    )
-                 ORDER BY receipt_date DESC, scanned_at DESC",
+                 ORDER BY receipt_datetime DESC, scanned_at DESC",
             )
             .bind::<diesel::sql_types::Text, _>(&vehicle_id_str)
             .bind::<diesel::sql_types::Integer, _>(y)
@@ -842,13 +846,13 @@ impl Database {
             .load::<ReceiptRow>(conn)?,
             None => diesel::sql_query(
                 "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                        liters, total_price_eur, receipt_date, station_name, station_address,
+                        liters, total_price_eur, receipt_datetime, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
                         created_at, updated_at, vendor_name, cost_description,
                         original_amount, original_currency
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
-                 ORDER BY receipt_date DESC, scanned_at DESC",
+                 ORDER BY receipt_datetime DESC, scanned_at DESC",
             )
             .bind::<diesel::sql_types::Text, _>(&vehicle_id_str)
             .load::<ReceiptRow>(conn)?,

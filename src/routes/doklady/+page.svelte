@@ -225,6 +225,28 @@
 		}
 	}
 
+	function formatDatetime(datetimeStr: string | null): string {
+		if (!datetimeStr) return '--';
+		try {
+			const date = new Date(datetimeStr);
+			// Check if time component is present (not 00:00:00)
+			const hasTime = datetimeStr.includes('T') && !datetimeStr.endsWith('T00:00:00');
+			if (hasTime) {
+				return date.toLocaleString('sk-SK', {
+					day: '2-digit',
+					month: '2-digit',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				});
+			} else {
+				return date.toLocaleDateString('sk-SK');
+			}
+		} catch {
+			return datetimeStr;
+		}
+	}
+
 	function getConfidenceInfo(level: ConfidenceLevel): { class: string; label: string } {
 		switch (level) {
 			case 'High':
@@ -239,14 +261,14 @@
 	}
 
 	/**
-	 * Check if a receipt has a date mismatch between sourceYear (folder) and receiptDate (OCR).
+	 * Check if a receipt has a date mismatch between sourceYear (folder) and receiptDatetime (OCR).
 	 * Returns null if no mismatch, or { receiptYear, folderYear } if there's a mismatch.
 	 */
 	function getDateMismatch(receipt: Receipt): { receiptYear: number; folderYear: number } | null {
-		if (!receipt.receiptDate || !receipt.sourceYear) {
+		if (!receipt.receiptDatetime || !receipt.sourceYear) {
 			return null;
 		}
-		const receiptYear = new Date(receipt.receiptDate).getFullYear();
+		const receiptYear = new Date(receipt.receiptDatetime).getFullYear();
 		if (receiptYear !== receipt.sourceYear) {
 			return { receiptYear, folderYear: receipt.sourceYear };
 		}
@@ -290,7 +312,7 @@
 	}
 
 	async function handleSaveReceipt(data: {
-		receiptDate: string | null;
+		receiptDatetime: string | null;
 		liters: number | null;
 		originalAmount: number | null;
 		originalCurrency: import('$lib/types').ReceiptCurrency | null;
@@ -305,7 +327,7 @@
 			// Build updated receipt object
 			const updatedReceipt: Receipt = {
 				...receiptToEdit,
-				receiptDate: data.receiptDate,
+				receiptDatetime: data.receiptDatetime,
 				liters: data.liters,
 				originalAmount: data.originalAmount,
 				originalCurrency: data.originalCurrency,
@@ -539,7 +561,7 @@
 						<div class="detail-row">
 							<span class="label">{$LL.receipts.date()}</span>
 							<span class="value-with-confidence">
-								<span class="value">{formatDate(receipt.receiptDate)}</span>
+								<span class="value">{formatDatetime(receipt.receiptDatetime)}</span>
 								<span
 									class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
 									title={getConfidenceInfo(receipt.confidence.date).label}

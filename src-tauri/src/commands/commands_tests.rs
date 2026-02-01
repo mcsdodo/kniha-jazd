@@ -5,20 +5,22 @@
 use super::*;
 use super::statistics::{
     calculate_consumption_warnings, calculate_date_warnings, calculate_energy_grid_data,
-    calculate_missing_receipts, calculate_suggested_fillups, get_open_period_km,
+    calculate_missing_receipts, calculate_receipt_datetime_warnings, calculate_suggested_fillups,
+    get_open_period_km,
 };
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
-use chrono::{NaiveDate, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use uuid::Uuid;
 
 /// Helper to create a trip with fuel
+/// Sets end_datetime to end of day to allow receipt matching for any time during the day
 fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
     let now = Utc::now();
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
-        end_datetime: None,
+        end_datetime: Some(date.and_hms_opt(23, 59, 59).unwrap()),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,
@@ -40,13 +42,14 @@ fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
 }
 
 /// Helper to create a trip without fuel
+/// Sets end_datetime to end of day to allow receipt matching for any time during the day
 fn make_trip_without_fuel(date: NaiveDate) -> Trip {
     let now = Utc::now();
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
-        end_datetime: None,
+        end_datetime: Some(date.and_hms_opt(23, 59, 59).unwrap()),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 50.0,
@@ -79,7 +82,7 @@ fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>
         scanned_at: now,
         liters,
         total_price_eur: price,
-        receipt_date: date,
+        receipt_datetime: date.and_then(|d| d.and_hms_opt(12, 0, 0)), // Convert date to datetime at noon
         station_name: None,
         station_address: None,
         vendor_name: None,
@@ -263,6 +266,282 @@ fn test_missing_receipts_receipt_with_missing_price() {
     let missing = calculate_missing_receipts(&trips, &receipts);
 
     assert_eq!(missing.len(), 1, "Receipt without price should not match");
+}
+
+// ========================================================================
+// Receipt datetime warning tests (calculate_receipt_datetime_warnings)
+// ========================================================================
+
+/// Helper to create a trip with specific start and end datetimes
+fn make_trip_with_datetime_range(
+    start_datetime: NaiveDateTime,
+    end_datetime: Option<NaiveDateTime>,
+) -> Trip {
+    let now = Utc::now();
+    Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        start_datetime,
+        end_datetime,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: 100.0,
+        odometer: 10000.0,
+        purpose: "business".to_string(),
+        fuel_liters: Some(45.0),
+        fuel_cost_eur: Some(72.50),
+        full_tank: true,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+/// Helper to create a receipt with a specific datetime and assigned to a trip
+fn make_receipt_with_datetime_assigned(
+    receipt_datetime: Option<NaiveDateTime>,
+    trip_id: Uuid,
+) -> Receipt {
+    let now = Utc::now();
+    Receipt {
+        id: Uuid::new_v4(),
+        vehicle_id: None,
+        trip_id: Some(trip_id),
+        file_path: "/test/receipt.jpg".to_string(),
+        file_name: "receipt.jpg".to_string(),
+        scanned_at: now,
+        liters: Some(45.0),
+        total_price_eur: Some(72.50),
+        receipt_datetime,
+        station_name: None,
+        station_address: None,
+        vendor_name: None,
+        cost_description: None,
+        original_amount: Some(72.50),
+        original_currency: Some("EUR".to_string()),
+        source_year: None,
+        status: ReceiptStatus::Assigned,
+        confidence: FieldConfidence {
+            liters: ConfidenceLevel::High,
+            total_price: ConfidenceLevel::High,
+            date: ConfidenceLevel::High,
+        },
+        raw_ocr_text: None,
+        error_message: None,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+#[test]
+fn test_receipt_datetime_warning_within_range() {
+    // Receipt datetime inside trip [start, end] -> no warning
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(17, 0, 0)
+        .unwrap();
+    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+
+    assert!(
+        warnings.is_empty(),
+        "Receipt within trip range should not generate warning"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_before_trip_start() {
+    // Receipt datetime before trip.start_datetime -> warning
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(17, 0, 0)
+        .unwrap();
+    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0) // Before trip start
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+
+    assert_eq!(warnings.len(), 1, "Should have 1 warning");
+    assert!(
+        warnings.contains(&trip.id.to_string()),
+        "Trip should be flagged when receipt is before start"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_after_trip_end() {
+    // Receipt datetime after trip.end_datetime -> warning
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
+    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(18, 0, 0) // After trip end
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+
+    assert_eq!(warnings.len(), 1, "Should have 1 warning");
+    assert!(
+        warnings.contains(&trip.id.to_string()),
+        "Trip should be flagged when receipt is after end"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_no_receipt() {
+    // Trip without receipt -> no warning
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, None);
+    let receipts: Vec<Receipt> = vec![];
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip], &receipts);
+
+    assert!(
+        warnings.is_empty(),
+        "Trip without receipt should not generate warning"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_receipt_no_datetime() {
+    // Receipt with None datetime -> no warning (can't validate)
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, None);
+    let receipt = make_receipt_with_datetime_assigned(None, trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+
+    assert!(
+        warnings.is_empty(),
+        "Receipt without datetime should not generate warning"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_exactly_at_start() {
+    // Receipt datetime == trip.start_datetime -> no warning (boundary: inclusive)
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(17, 0, 0)
+        .unwrap();
+    let receipt_dt = trip_start; // Exactly at start
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+
+    assert!(
+        warnings.is_empty(),
+        "Receipt at exact start time should not generate warning (inclusive boundary)"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_exactly_at_end() {
+    // Receipt datetime == trip.end_datetime -> no warning (boundary: inclusive)
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(17, 0, 0)
+        .unwrap();
+    let receipt_dt = trip_end; // Exactly at end
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+
+    assert!(
+        warnings.is_empty(),
+        "Receipt at exact end time should not generate warning (inclusive boundary)"
+    );
+}
+
+#[test]
+fn test_receipt_datetime_warning_no_end_datetime_uses_start() {
+    // Trip without end_datetime - receipt must match start_datetime exactly
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+
+    // Case 1: Receipt at different time on same day - should warn (range is just start_datetime)
+    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, None);
+    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+
+    assert_eq!(
+        warnings.len(),
+        1,
+        "Receipt not at exact start time should generate warning when no end_datetime"
+    );
+
+    // Case 2: Receipt at exact start time - no warning
+    let receipt_exact = make_receipt_with_datetime_assigned(Some(trip_start), trip.id);
+
+    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt_exact]);
+
+    assert!(
+        warnings.is_empty(),
+        "Receipt at exact start time should not generate warning"
+    );
 }
 
 // ========================================================================
@@ -1329,15 +1608,18 @@ fn test_verify_receipts_filters_by_vehicle() {
     // - 1 assigned to vehicle B (should NOT be counted when viewing A)
     let mut receipt_unassigned =
         Receipt::new("path1.jpg".to_string(), "unassigned.jpg".to_string());
-    receipt_unassigned.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap());
+    receipt_unassigned.receipt_datetime =
+        NaiveDate::from_ymd_opt(2024, 6, 15).and_then(|d| d.and_hms_opt(12, 0, 0));
 
     let mut receipt_a = Receipt::new("path2.jpg".to_string(), "vehicle_a.jpg".to_string());
     receipt_a.vehicle_id = Some(vehicle_a.id);
-    receipt_a.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 16).unwrap());
+    receipt_a.receipt_datetime =
+        NaiveDate::from_ymd_opt(2024, 6, 16).and_then(|d| d.and_hms_opt(12, 0, 0));
 
     let mut receipt_b = Receipt::new("path3.jpg".to_string(), "vehicle_b.jpg".to_string());
     receipt_b.vehicle_id = Some(vehicle_b.id);
-    receipt_b.receipt_date = Some(NaiveDate::from_ymd_opt(2024, 6, 17).unwrap());
+    receipt_b.receipt_datetime =
+        NaiveDate::from_ymd_opt(2024, 6, 17).and_then(|d| d.and_hms_opt(12, 0, 0));
 
     db.create_receipt(&receipt_unassigned).unwrap();
     db.create_receipt(&receipt_a).unwrap();
@@ -1377,7 +1659,7 @@ fn make_receipt_with_details(
         scanned_at: now,
         liters,
         total_price_eur: price,
-        receipt_date: date,
+        receipt_datetime: date.and_then(|d| d.and_hms_opt(12, 0, 0)), // Convert date to datetime at noon
         station_name: None,
         station_address: None,
         vendor_name: vendor_name.map(|s| s.to_string()),
@@ -1399,6 +1681,7 @@ fn make_receipt_with_details(
 }
 
 /// Helper to create a trip for assignment tests (with vehicle_id that stays constant)
+/// Sets end_datetime to end of day to allow receipt matching for any time during the day
 fn make_trip_for_assignment(
     vehicle_id: Uuid,
     date: NaiveDate,
@@ -1411,7 +1694,7 @@ fn make_trip_for_assignment(
         id: Uuid::new_v4(),
         vehicle_id,
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
-        end_datetime: None,
+        end_datetime: Some(date.and_hms_opt(23, 59, 59).unwrap()),
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km: 100.0,

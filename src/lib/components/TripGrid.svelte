@@ -533,6 +533,7 @@
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
 	$: missingReceiptCount = gridData?.missingReceipts.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
+	$: receiptDatetimeWarningCount = gridData?.receiptDatetimeWarnings?.length ?? 0;
 	// Legend suggested fillup - provided directly by backend (no frontend logic needed)
 	$: legendSuggestedFillup = gridData?.legendSuggestedFillup ?? null;
 
@@ -596,7 +597,7 @@
 	</div>
 
 	<div class="table-container">
-		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0 || legendSuggestedFillup}
+		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0 || receiptDatetimeWarningCount > 0 || legendSuggestedFillup}
 			<div class="table-legend">
 				{#if legendSuggestedFillup}
 					<span class="legend-item suggested-fillup">
@@ -612,6 +613,9 @@
 				{/if}
 				{#if consumptionWarningCount > 0}
 					<span class="legend-item"><span class="consumption-warning-sample"></span> {$LL.trips.legend.highConsumption()} ({consumptionWarningCount})</span>
+				{/if}
+				{#if receiptDatetimeWarningCount > 0}
+					<span class="legend-item"><span class="datetime-warning-indicator">*</span> {$LL.trips.legend.receiptDatetimeMismatch()} ({receiptDatetimeWarningCount})</span>
 				{/if}
 			</div>
 		{/if}
@@ -801,6 +805,7 @@
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
 							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
+							hasReceiptDatetimeWarning={gridData?.receiptDatetimeWarnings?.includes(trip.id) ?? false}
 							previewData={previewingTripId === trip.id ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}
@@ -1055,6 +1060,11 @@
 
 	.suggested-indicator {
 		font-size: 1rem;
+	}
+
+	.datetime-warning-indicator {
+		color: var(--accent-danger);
+		font-weight: bold;
 	}
 
 	/* New column widths */

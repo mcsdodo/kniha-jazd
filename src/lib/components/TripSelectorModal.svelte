@@ -40,8 +40,8 @@
 			);
 			// Sort by date proximity to receipt date
 			tripItems = items.sort((a, b) => {
-				const aDiff = dateProximity(getTripDate(a.trip), receipt.receiptDate);
-				const bDiff = dateProximity(getTripDate(b.trip), receipt.receiptDate);
+				const aDiff = dateProximity(getTripDate(a.trip), receipt.receiptDatetime);
+				const bDiff = dateProximity(getTripDate(b.trip), receipt.receiptDatetime);
 				return aDiff - bDiff;
 			});
 		} catch (e) {
@@ -57,16 +57,16 @@
 		return trip.startDatetime.slice(0, 10);
 	}
 
-	function dateProximity(tripDate: string, receiptDate: string | null): number {
-		if (!receiptDate) return Infinity;
+	function dateProximity(tripDate: string, receiptDatetime: string | null): number {
+		if (!receiptDatetime) return Infinity;
 		const t = new Date(tripDate).getTime();
-		const r = new Date(receiptDate).getTime();
+		const r = new Date(receiptDatetime).getTime();
 		return Math.abs(t - r);
 	}
 
-	function isWithin3Days(tripDate: string, receiptDate: string | null): boolean {
-		if (!receiptDate) return false;
-		const diff = Math.abs(new Date(tripDate).getTime() - new Date(receiptDate).getTime());
+	function isWithin3Days(tripDate: string, receiptDatetime: string | null): boolean {
+		if (!receiptDatetime) return false;
+		const diff = Math.abs(new Date(tripDate).getTime() - new Date(receiptDatetime).getTime());
 		return diff <= 3 * 24 * 60 * 60 * 1000; // 3 days in ms
 	}
 
@@ -123,9 +123,9 @@
 			<span>{receipt.liters?.toFixed(2) ?? '??'} L</span>
 			<span class="separator">|</span>
 			<span>{receipt.totalPriceEur?.toFixed(2) ?? '??'} EUR</span>
-			{#if receipt.receiptDate}
+			{#if receipt.receiptDatetime}
 				<span class="separator">|</span>
-				<span>{formatDate(receipt.receiptDate)}</span>
+				<span>{formatDate(receipt.receiptDatetime)}</span>
 			{/if}
 		</div>
 
@@ -139,7 +139,7 @@
 			<div class="trip-list">
 				{#each tripItems as item}
 					{@const disabled = !item.canAttach}
-					{@const highlighted = isWithin3Days(getTripDate(item.trip), receipt.receiptDate)}
+					{@const highlighted = isWithin3Days(getTripDate(item.trip), receipt.receiptDatetime)}
 					<button
 						class="trip-item"
 						class:highlight={highlighted}

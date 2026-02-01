@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-01-31
+**Last updated:** 2026-02-01
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 50 | [Receipt Datetime Validation](50-receipt-datetime-validation/) | ✅ Complete | Receipt datetime range validation, OCR time extraction |
 | 47 | [Datetime Consolidation](47-datetime-consolidation/) | ✅ Complete | Single datetime inputs, ADR-012 forward-only migrations |
 | 42 | [Commands Module Split](42-commands-module-split/) | 🟡 In Progress | ADR-011: Split 3908-line commands.rs into modules |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |

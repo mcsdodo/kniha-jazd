@@ -11,7 +11,7 @@ diesel::table! {
         scanned_at -> Text,
         liters -> Nullable<Double>,
         total_price_eur -> Nullable<Double>,
-        receipt_date -> Nullable<Text>,
+        receipt_datetime -> Nullable<Text>,
         station_name -> Nullable<Text>,
         station_address -> Nullable<Text>,
         source_year -> Nullable<Integer>,

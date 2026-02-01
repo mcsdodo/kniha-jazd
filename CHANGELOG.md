@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Validácia dátumu/času dokladu** - varovanie (červená hviezdička) keď dátum/čas dokladu nespadá do časového rozpätia jazdy
+  - Doklady teraz uchovávajú plný dátum a čas (nie len dátum)
+  - OCR extrahovanie času z blokov (ak je dostupný)
+  - Bloky bez rozpoznaného času vyžadujú manuálnu kontrolu
+  - Vstup pre úpravu dokladu zmenený na datetime-local
+
 ## [0.28.2] - 2026-01-31
 
 ### Opravené
