@@ -186,20 +186,32 @@
 
 ### Trip Grid
 
-```
-┌───┬─────────┬────────────────┬──────┬─────────┬────────┬────────┬────────┐
-│ # │  Dátum  │     Trasa      │  km  │ Palivo  │ Iné    │ Doklad │  Cena  │
-├───┼─────────┼────────────────┼──────┼─────────┼────────┼────────┼────────┤
-│ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L  │   -    │   🟢   │ 60.50€ │
-│ 2 │ 12.1.   │ BA → TT        │   60 │   -     │  5.00€ │   🟢   │  5.00€ │
-│ 3 │ 14.1.   │ BA → ZA        │  200 │   -     │ 10.00€ │   🟠   │ 10.00€ │ ← override
-│ 4 │ 15.1.   │ BA → KE        │  400 │ 45.2 L  │   -    │   🔴   │ 65.80€ │ ← missing
-│ 5 │ 20.1.   │ KE → PO        │   80 │ 38.5 L  │   -    │  🟢⚠   │ 55.20€ │ ← mismatch
-│ 6 │ 20.1.   │ PO → KE        │   80 │   -     │   -    │   -    │   -    │
-└───┴─────────┴────────────────┴──────┴─────────┴────────┴────────┴────────┘
+No new column - show warning triangles next to relevant data fields.
+When invoice is assigned and data matches (green) - show nothing.
 
-Legenda: 🟢 má doklad │ 🟢⚠ nesúlad │ 🟠 potvrdené │ 🔴 chýba │ - bez nákladov
 ```
+┌───┬─────────┬────────────────┬──────┬──────────────┬────────────┬────────┐
+│ # │  Dátum  │     Trasa      │  km  │   Palivo     │    Iné     │  Cena  │
+├───┼─────────┼────────────────┼──────┼──────────────┼────────────┼────────┤
+│ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L       │     -      │ 60.50€ │  ← all good, no indicator
+│ 2 │ 12.1.   │ BA → TT        │   60 │    -         │   5.00€    │  5.00€ │  ← all good, no indicator
+│ 3 │ 14.1.   │ BA → ZA        │  200 │    -         │  10.00€ 🟠⚠│ 10.00€ │  ← override (orange triangle)
+│ 4 │ 15.1.   │ BA → KE        │  400 │ 45.2 L 🔴⚠   │     -      │ 65.80€ │  ← missing invoice (red triangle)
+│ 5 │ 20.1.   │ KE → PO        │   80 │ 38.5 L 🟡⚠   │     -      │ 55.20€ │  ← mismatch (yellow triangle)
+│ 6 │ 20.1.   │ PO → KE        │   80 │    -         │     -      │    -   │  ← no costs, no indicator
+└───┴─────────┴────────────────┴──────┴──────────────┴────────────┴────────┘
+
+Warning triangles:
+  🔴⚠ = chýba doklad (missing invoice) - next to fuel/other column
+  🟡⚠ = nesúlad údajov (data mismatch) - next to mismatched field
+  🟠⚠ = potvrdené užívateľom (user override) - next to overridden field
+  (none) = všetko OK (all good) - no indicator shown
+```
+
+**Hover tooltip on triangle** shows details:
+- 🔴⚠: "Chýba doklad pre tankovanie"
+- 🟡⚠: "Čas mimo jazdy: 18:30 vs 15:00-17:00" (or liters/price mismatch)
+- 🟠⚠: "Potvrdené užívateľom - iný dátum"
 
 ---
 
@@ -315,14 +327,14 @@ pub enum Mismatch {
 
 ## Visual States Mapping
 
-| State | Invoice Grid | Trip Grid | Color |
-|-------|--------------|-----------|-------|
-| Processing | 🔄 Spracováva sa | - | Gray |
-| NeedsReview | 🟡 Skontrolovať | - | Yellow |
-| Unassigned | 🔴 Nepriradený | 🔴 Chýba doklad | Red |
-| Assigned (match) | 🟢 Priradený | 🟢 Má doklad | Green |
-| Assigned (mismatch) | 🟢⚠ Priradený | 🟢⚠ Má doklad | Green+Warning |
-| Assigned (override) | 🟠 Potvrdený | 🟠 Potvrdený | Orange |
+| State | Invoice Grid | Trip Grid | Triangle |
+|-------|--------------|-----------|----------|
+| Processing | 🔄 Spracováva sa | - | - |
+| NeedsReview | 🟡 Skontrolovať | - | - |
+| Unassigned | 🔴 Nepriradený | 🔴⚠ next to cost field | Red |
+| Assigned (match) | 🟢 Priradený | (no indicator) | None |
+| Assigned (mismatch) | 🟢⚠ Priradený | 🟡⚠ next to mismatched field | Yellow |
+| Assigned (override) | 🟠 Potvrdený | 🟠⚠ next to cost field | Orange |
 
 ---
 
