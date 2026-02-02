@@ -1,7 +1,7 @@
 # Receipt-Trip State Model Redesign
 
-**Date:** 2026-02-01
-**Status:** Draft v3
+**Date:** 2026-02-02
+**Status:** Draft v6
 **Related:** `05-receipt-trip-state-model.md`
 
 ---
@@ -22,289 +22,242 @@ The current system conflates these, making it hard to answer either clearly.
 Design a state model where:
 - User can immediately see if receipts are complete (no missing)
 - User can quickly identify issues that need attention
-- Edge cases (toll bought day before, fill-up after trip) are handled gracefully
+- Edge cases (toll bought day before) are handled gracefully
 - The system is **simple to understand** without reading documentation
 
 ---
 
-## Use Cases to Support
+## The 3-State Model
 
-| Scenario | Expected Behavior |
-|----------|-------------------|
-| Fuel receipt matches trip exactly | ✅ All good, no action needed |
-| Receipt bought 30min after trip ended | ✅⚠ Attached but timing noted |
-| Toll bought day before trip | Manual attach → acknowledged, no warnings |
-| OCR couldn't read receipt | Needs review → user edits data |
-| Trip has fuel but no receipt scanned | ❌ Missing receipt warning |
-| Receipt for trip in different year | Show in both years? Or year of receipt? |
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🟢 GREEN - Auto-matched (spárovaný/auto-matched)          │
+│     Receipt matches trip by ALL criteria:                   │
+│     - Same day                                              │
+│     - Time within trip range                                │
+│     - Liters match                                          │
+│     - Price matches                                         │
+│     → No trip_id needed (computed match)                    │
+│     → No user action needed                                 │
+├─────────────────────────────────────────────────────────────┤
+│  🔴 RED - Problem to fix (problém/problem)                  │
+│     2.1 Partial match - data doesn't align:                 │
+│         - Same day but time OUTSIDE trip range → fix trip   │
+│         - Same day but liters/price WRONG → fix data        │
+│     2.2 Missing invoice:                                    │
+│         - Trip has costs but no receipt found → upload      │
+│     → No trip_id (nothing to link yet)                      │
+│     → User must fix data or upload receipt                  │
+├─────────────────────────────────────────────────────────────┤
+│  🟠 ORANGE - Exception (výnimka/exception)                  │
+│     Receipt intentionally doesn't match:                    │
+│     - Different day (toll, parking bought ahead)            │
+│     → trip_id IS set (manual assignment)                    │
+│     → User explicitly confirmed the mismatch                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Current System Problems
+## Key Design Decisions
+
+### 1. `trip_id` Only for Exceptions
+
+| State | trip_id | Why |
+|-------|---------|-----|
+| 🟢 Green | **Not set** | System computes match on-the-fly |
+| 🔴 Red | **Not set** | No valid match exists |
+| 🟠 Orange | **Set** | Only way to link different-day receipt |
+
+**Rationale**: If the system can compute a perfect match, why store it? Only store what the system can't determine automatically.
+
+### 2. Same Day + Time Outside Range = RED (Not "Noted")
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SCENARIO                                                   │
+│                                                             │
+│  Trip: 15.1. 13:00-17:00 (BA → KE)                         │
+│  Receipt: 15.1. 17:15 (gas station stop)                   │
+│                                                             │
+│  OLD thinking: "Time is slightly off, just note it" ✅ℹ    │
+│                                                             │
+│  NEW thinking: "If you stopped for gas, you hadn't         │
+│  arrived yet. Trip end time is WRONG." 🔴                  │
+│  → Fix trip end time to 17:30                              │
+│  → Receipt now matches perfectly 🟢                        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+This ensures data quality - timing mismatches on the same day indicate incorrect trip times.
+
+### 3. No "Noted" State
+
+The old "Noted" (✅ℹ) state is eliminated. If receipt is same day:
+- Time within range + data matches → 🟢 Green
+- Time outside range OR data wrong → 🔴 Red (fix it)
+
+---
+
+## Use Cases
+
+| Scenario | State | Action |
+|----------|-------|--------|
+| Receipt matches trip perfectly | 🟢 Green | None |
+| Same day, time outside trip range | 🔴 Red | Extend trip end time |
+| Same day, liters don't match | 🔴 Red | Fix receipt or trip data |
+| Trip has fuel, no receipt found | 🔴 Red | Scan/upload receipt |
+| Toll bought day before trip | 🟠 Orange | Manual assignment |
+| OCR couldn't read receipt | 🔴 Red | Edit receipt data |
+
+---
+
+## Current System Problems (Unchanged)
 
 ### Problem 1: "Verified" ≠ "Attached"
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Current concept: "Verified" = Receipt + Trip have          │
-│                   matching date + liters + price            │
-│                                                             │
-│  User thinks:     "Verified" = I have a receipt for this    │
-│                   trip and it's linked                      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-A manually attached receipt with slightly different data shows as "Unverified" even though the user explicitly linked them.
+Current system has `matched` (computed) independent from `trip_id` (stored).
+A receipt can be "verified" but unattached, or "assigned" but unverified.
 
 ### Problem 2: Same Icon, Different Meanings
 
-In TripGrid:
-```
-  Trip A: 45.2 L ⚠    ← "bez dokladu" (no receipt at all)
-  Trip B: 42.0 L ⚠    ← "dátum/čas mimo" (has receipt, timing off)
-```
-
-User sees two identical warnings but they require **completely different actions**:
-- Trip A: Find/scan the receipt
-- Trip B: Maybe nothing, it's just a timing note
+In TripGrid, ⚠ means both "no receipt" and "datetime mismatch" - different problems requiring different actions.
 
 ### Problem 3: Two Sources of Truth
 
-| Location | What it shows | How calculated |
-|----------|---------------|----------------|
-| Doklady page | Receipt verification | `verify_receipts()` in receipts_cmd.rs |
-| Trip grid | Missing receipts | `calculate_missing_receipts()` in statistics.rs |
-
-These use **similar but not identical** logic, leading to inconsistent results.
+`verify_receipts()` in receipts_cmd.rs and `calculate_missing_receipts()` in statistics.rs use similar but not identical logic.
 
 ### Problem 4: Technical Mismatch Reasons
 
-Current UI shows messages like:
-- "DatetimeOutOfRange" vs "DateMismatch"
-- "NoFuelTripFound" vs "NoOtherCostMatch"
-
-Users don't care about the internal matching algorithm. They want actionable information.
-
----
-
-## Proposed Design
-
-### Key Distinction: Verification vs Attachment
-
-**Current system conflates two independent concepts:**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  CURRENT: "Verified" = Data matches (computed)              │
-│           "Assigned" = User manually linked (status field)  │
-│                                                             │
-│  Problem: These are INDEPENDENT!                            │
-│  - Receipt can be "verified" (data matches) but unattached  │
-│  - Receipt can be "assigned" (linked) but unverified        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Important**: Currently ALL attachments are manual. The system only VERIFIES
-if data matches - it never auto-attaches. `verify_receipts()` is read-only.
-
-### Core Concepts (Only 2!)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│  1. ATTACHMENT (user action)                                │
-│     ├── Unattached: receipt.trip_id = null                  │
-│     └── Attached:   receipt.trip_id = <uuid>                │
-│     Note: ALL attachments are manual user actions           │
-│                                                             │
-│  2. VALIDATION (system computed, for attached receipts)     │
-│     ├── Perfect:    All data matches exactly                │
-│     ├── Noted:      Minor discrepancy (same day, timing)    │
-│     └── Override:   User confirmed despite mismatch         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Auto-Verified vs User-Confirmed
-
-The key distinction after attachment:
-
-| Scenario | System Check | User Action | Result |
-|----------|--------------|-------------|--------|
-| Data matches perfectly | ✓ Pass | Just attach | ✅ **Auto-verified** |
-| Same day, timing off | ⚠ Note | Just attach | ✅ℹ **Noted** (auto) |
-| Different day | ✗ Mismatch | Must confirm | ✅✓ **User-confirmed** |
-
-**Auto-verified** = System validates the match, no extra user confirmation needed
-**User-confirmed** = System flags mismatch, user explicitly says "I know, attach anyway"
-
-### Receipt Lifecycle
-
-```
-     ┌─────────────┐
-     │   PENDING   │ ← File detected, OCR not run
-     └──────┬──────┘
-            │ OCR processing
-            ▼
-   ┌────────┴────────┐
-   │                 │
-   ▼                 ▼
-┌──────────┐   ┌──────────────┐
-│  READY   │   │ NEEDS_REVIEW │ ← Low confidence
-│          │   │              │
-└────┬─────┘   └──────┬───────┘
-     │                │ user edits
-     │◄───────────────┘
-     │
-     ├─────────────────────────────────────┐
-     │                                     │
-     ▼                                     ▼
-┌──────────────┐                  ┌──────────────────┐
-│  UNATTACHED  │ ──────────────►  │     ATTACHED     │
-│              │  user attaches   │                  │
-│  Actions:    │                  │  Quality:        │
-│  - Attach    │  ◄──────────────  │  - Perfect  ✅   │
-│  - Delete    │  user detaches   │  - Noted    ✅ℹ  │
-└──────────────┘                  │  - Override ✅✓  │
-                                  └──────────────────┘
-```
-
-### Attachment Quality Levels
-
-| Quality | When | Visual | Validation | User Action |
-|---------|------|--------|------------|-------------|
-| **Perfect** | Date, liters, price all match | ✅ | Auto-verified | Just attach |
-| **Noted** | Same day, time outside range | ✅ℹ | Auto-noted | Just attach |
-| **Override** | Different day | ✅✓ | User-confirmed | Must confirm mismatch |
-
-**Timing rule**: Same day = auto-validated, different day = requires explicit confirmation.
-
-**Key distinctions**:
-- **Auto-verified/noted**: System validates the match. User just clicks "Priradiť".
-- **User-confirmed**: System shows mismatch warning. User must click "Priradiť aj tak".
-
-All three are valid attachments. The difference is WHO validated the match.
-
-### Trip Receipt Status
-
-From trip perspective, simplified to 3 states:
-
-| Status | Visual | Meaning |
-|--------|--------|---------|
-| **Has receipt** | ✅ | Attached receipt (any quality) |
-| **Missing** | ❌ | Trip has expense, no receipt |
-| **N/A** | - | Trip has no expense |
-
-That's it. No separate "datetime warning" in trip grid. The quality details live on the receipt.
+Users see "DatetimeOutOfRange" instead of actionable "Oprav čas jazdy".
 
 ---
 
 ## Visual Design
 
-### Doklady Page - Grouped by Action Needed
+### Doklady Page - Grouped by State
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     DOKLADY (2026)                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ ▼ Potrebuje pozornosť (3)                                   │
+│ ▼ 🔴 Potrebuje pozornosť / Needs attention (3)              │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🔴 NESPÁROVANÝ                     [Priradiť]       │   │
+│   │ 🔴 NESPÁROVANÝ (unmatched)              [Upraviť]   │   │
 │   │    fuel-jan15.jpg                                   │   │
-│   │    📅 15.1. 14:30  •  ⛽ 45.2 L  •  65.80 €         │   │
+│   │    📅 15.1. 17:15  •  ⛽ 45.2 L  •  65.80 €         │   │
 │   │    ─────────────────────────────────────────────    │   │
-│   │    💡 Možná jazda: 15.1. BA→KE (13:00-17:00)       │   │
+│   │    Možná jazda: 15.1. BA→KE (13:00-17:00)          │   │
+│   │    ┌─────────────────────────────────────────────┐  │   │
+│   │    │  ✓ Dátum súhlasí (date matches)             │  │   │
+│   │    │  ✗ Čas mimo jazdy: 17:15 vs 13:00-17:00     │  │   │
+│   │    │    (time outside trip range)                 │  │   │
+│   │    │  ✓ Litre súhlasia (liters match)            │  │   │
+│   │    │  ✓ Cena súhlasí (price matches)             │  │   │
+│   │    └─────────────────────────────────────────────┘  │   │
+│   │    💡 Oprav koniec jazdy na 17:30                   │   │
+│   │       (Fix trip end time to 17:30)                  │   │
+│   │    [Upraviť jazdu]  [Upraviť doklad]                │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🟡 SKONTROLOVAŤ                    [Upraviť]        │   │
+│   │ 🔴 SKONTROLOVAŤ (needs review)          [Upraviť]   │   │
 │   │    receipt-blurry.jpg                               │   │
 │   │    📅 ?.1. ?:??  •  ⛽ ??.? L  •  ?? €              │   │
 │   │    ─────────────────────────────────────────────    │   │
 │   │    ⚠ Niektoré údaje nemožno prečítať               │   │
+│   │      (Some data couldn't be read)                   │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🟡 SKONTROLOVAŤ                    [Upraviť]        │   │
+│   │ 🔴 NESPÁROVANÝ (unmatched)      [Priradiť manuálne] │   │
 │   │    toll-receipt.jpg                                 │   │
 │   │    📅 14.1. 18:00  •  📄 10.00 €                    │   │
 │   │    ─────────────────────────────────────────────    │   │
-│   │    ⚠ Nebola nájdená jazda s rovnakou cenou         │   │
+│   │    ⚠ Žiadna jazda s rovnakým dátumom               │   │
+│   │      (No trip on same day)                          │   │
+│   │    💡 Pre diaľničnú známku použite manuálne         │   │
+│   │       priradenie (For toll, use manual assignment)  │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│ ▼ Spárované (12)                                            │
+│ ▼ 🟢 Spárované / Matched (11)                               │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ ✅ SPÁROVANÝ                     (overený/auto-verified)│
+│   │ 🟢 SPÁROVANÝ (auto-matched)                         │   │
 │   │    fuel-jan10.jpg                                   │   │
 │   │    📅 10.1. 09:15  •  ⛽ 42.0 L  •  60.50 €         │   │
 │   │    🚗 10.1. BA→KE (08:00-12:00)                    │   │
-│   │    ✓ Údaje súhlasia (data matches)                 │   │
+│   │    ✓ Všetky údaje súhlasia (all data matches)      │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│   ┌─────────────────────────────────────────────────────┐   │
-│   │ ✅ℹ SPÁROVANÝ                 (s poznámkou/auto-noted)│  │
-│   │    fuel-jan20.jpg                                   │   │
-│   │    📅 20.1. 18:30  •  ⛽ 38.5 L  •  55.20 €         │   │
-│   │    🚗 20.1. KE→PO (15:00-17:00)                    │   │
-│   │    ℹ Tankovanie bolo po skončení jazdy             │   │
-│   │      (fill-up was after trip ended)                 │   │
-│   └─────────────────────────────────────────────────────┘   │
+│ ▼ 🟠 Výnimky / Exceptions (1)                               │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ ✅✓ SPÁROVANÝ                (potvrdený/user-confirmed)│ │
-│   │    toll-jan13.jpg                                   │   │
+│   │ 🟠 PRIRADENÝ MANUÁLNE (manually assigned)           │   │
+│   │    toll-jan13.jpg                       [Zrušiť]    │   │
 │   │    📅 13.1. 10:00  •  📄 10.00 €                    │   │
 │   │    🚗 14.1. BA→ZA (06:00-09:00)                    │   │
 │   │    ✓ Potvrdené užívateľom (confirmed by user)      │   │
-│   │      Iný dátum (different day)                      │   │
+│   │      Iný dátum: 13.1. → 14.1. (different day)       │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Trip Grid - Clean Receipt Column
+### Trip Grid - Receipt Status Column
 
 ```
 ┌───┬─────────┬────────────────┬──────┬─────────┬────────┬────────┐
 │ # │  Dátum  │     Trasa      │  km  │ Palivo  │ Doklad │  Cena  │
 ├───┼─────────┼────────────────┼──────┼─────────┼────────┼────────┤
-│ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L  │   ✅   │ 60.50€ │
-│ 2 │ 14.1.   │ BA → ZA        │  200 │  -      │   ✅✓  │ 10.00€ │ ← toll
-│ 3 │ 15.1.   │ BA → KE        │  400 │ 45.2 L  │   ❌   │ 65.80€ │
-│ 4 │ 20.1.   │ KE → PO        │   80 │ 38.5 L  │   ✅ℹ  │ 55.20€ │
-│ 5 │ 20.1.   │ PO → KE        │   80 │  -      │   -    │   -    │
+│ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L  │   🟢   │ 60.50€ │
+│ 2 │ 14.1.   │ BA → ZA        │  200 │  -      │   🟠   │ 10.00€ │ ← toll (manual)
+│ 3 │ 15.1.   │ BA → KE        │  400 │ 45.2 L  │   🔴   │ 65.80€ │ ← time mismatch
+│ 4 │ 16.1.   │ KE → PO        │   80 │ 38.5 L  │   🟢   │ 55.20€ │
+│ 5 │ 16.1.   │ PO → KE        │   80 │  -      │   -    │   -    │
 └───┴─────────┴────────────────┴──────┴─────────┴────────┴────────┘
 
-Legenda: ✅ overený (auto-verified) │ ✅ℹ s poznámkou (auto-noted) │ ✅✓ potvrdený (user-confirmed) │ ❌ chýba │ - bez nákladu
+Legenda: 🟢 spárovaný (matched) │ 🔴 problém (problem) │ 🟠 manuálne (manual) │ - bez nákladu (no cost)
 ```
 
-### Attachment Dialog - Acknowledge Override
+### Hover Tooltip on Trip Grid
 
-When user attaches receipt with mismatched data:
+When hovering over receipt status icon:
+- 🟢: "fuel-jan10.jpg • 10.1. 09:15"
+- 🔴: "Čas mimo jazdy - oprav koniec jazdy" / "Time outside trip - fix trip end"
+- 🟠: "toll-jan13.jpg • Manuálne priradené" / "Manually assigned"
+
+---
+
+## Manual Assignment Dialog
+
+When user clicks [Priradiť manuálne] for a different-day receipt:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              Priradiť doklad k jazde                        │
+│       Manuálne priradenie / Manual Assignment               │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Doklad:  14.1.2026 18:00  •  10.00 €                      │
-│  Jazda:   15.1.2026 BA → ZA (06:00-09:00)                  │
+│  Doklad / Receipt:  13.1.2026 10:00  •  10.00 €            │
+│  Jazda / Trip:      14.1.2026 BA → ZA (06:00-09:00)        │
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │ ⚠ Dátum dokladu sa líši od jazdy                      │  │
+│  │   (Receipt date differs from trip)                    │  │
 │  │                                                       │  │
-│  │   Doklad: 14.1.2026                                   │  │
-│  │   Jazda:  15.1.2026                                   │  │
+│  │   Doklad / Receipt: 13.1.2026                         │  │
+│  │   Jazda / Trip:     14.1.2026                         │  │
 │  └───────────────────────────────────────────────────────┘  │
 │                                                             │
-│  Toto je bežné napríklad pri:                               │
-│  • Diaľničnej známke kúpenej deň vopred                    │
-│  • Parkovaní zaplatenom večer pred odchodom                │
+│  Toto je bežné pri / This is common for:                   │
+│  • Diaľničná známka kúpená vopred / Toll bought ahead     │
+│  • Parkovanie zaplatené deň pred / Parking pre-paid       │
 │                                                             │
-│                        [Zrušiť]  [Priradiť aj tak]          │
+│                     [Zrušiť]  [Priradiť / Assign]          │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -313,172 +266,122 @@ When user attaches receipt with mismatched data:
 
 ## Data Model Changes
 
-### Option A: Add `mismatch_acknowledged` field
+### Only Change: Track Manual Assignments
 
 ```rust
 pub struct Receipt {
     // ... existing fields ...
 
-    /// True if user explicitly acknowledged data mismatch when attaching
-    pub mismatch_acknowledged: bool,
+    // trip_id is ONLY set for manual assignments (🟠 orange)
+    // For auto-matched receipts (🟢 green), trip_id stays NULL
+    pub trip_id: Option<Uuid>,
 }
 ```
 
-**Pros**: Explicit, queryable
-**Cons**: New field to maintain
+**No new fields needed!** The existing `trip_id` field now has clearer semantics:
+- `trip_id = NULL` → Not manually assigned (could be auto-matched or unmatched)
+- `trip_id = Some(uuid)` → Manually assigned to this trip (exception)
 
-### Option B: Derive from `status = Assigned`
-
-Use existing `Assigned` status to mean "user explicitly attached":
-- `Assigned` + data matches = shown as ✅
-- `Assigned` + data mismatch = shown as ✅✓
-
-**Pros**: No schema change
-**Cons**: Overloads meaning of `Assigned`
-
-### Recommendation: Option A
-
-Clearer semantics. The `status` field tracks OCR pipeline, `mismatch_acknowledged` tracks user intent.
-
----
-
-## Validation Logic (Single Source)
-
-Currently there are two calculation paths. Consolidate to one:
+### Matching Logic
 
 ```rust
-/// Single source of truth for receipt-trip matching
-pub struct ReceiptTripMatch {
-    pub receipt_id: Uuid,
-    pub trip_id: Option<Uuid>,      // None = unattached
-    pub quality: MatchQuality,      // Perfect | Noted | Override | NotApplicable
-    pub note: Option<String>,       // Human-readable note if quality != Perfect
+pub enum ReceiptState {
+    /// 🟢 All criteria match - computed, no trip_id needed
+    AutoMatched { trip: Trip },
+
+    /// 🔴 Problem - needs user action
+    Problem(ProblemKind),
+
+    /// 🟠 Manually assigned exception - trip_id is set
+    ManualException { trip: Trip },
 }
 
-pub enum MatchQuality {
-    Perfect,        // All data matches
-    Noted(Note),    // Minor issue, shown as info
-    Override,       // User acknowledged mismatch
-    NotApplicable,  // Not attached
-}
-
-pub enum Note {
-    TimingOff { receipt_time: String, trip_range: String },
-    PriceRounded { receipt: f64, trip: f64 },
+pub enum ProblemKind {
+    /// Same day, but time outside trip range
+    TimeOutsideRange {
+        receipt_time: String,
+        trip_range: String,
+        suggestion: String,  // "Oprav koniec jazdy na 17:30"
+    },
+    /// Same day, but liters don't match
+    LitersMismatch { receipt: f64, trip: f64 },
+    /// Same day, but price doesn't match
+    PriceMismatch { receipt: f64, trip: f64 },
+    /// No trip found on same day
+    NoTripOnDay,
+    /// OCR data incomplete
+    IncompleteData,
+    /// Trip has costs but no receipt
+    MissingReceipt,
 }
 ```
-
-Both doklady page and trip grid use the same calculation.
 
 ---
 
 ## Migration Plan
 
-### Phase 1: Data Model (migration)
-1. Add `mismatch_acknowledged BOOLEAN DEFAULT false` to receipts table
-2. Set `mismatch_acknowledged = true` where `status = 'Assigned'` AND verification would fail
+### Phase 1: Simplify Semantics
+1. Document that `trip_id` = manual assignment only
+2. Existing `trip_id` values for perfect matches can be cleared (optional)
 
 ### Phase 2: Backend Logic
-1. Create unified `ReceiptTripMatch` calculation
-2. Replace `verify_receipts()` to use new logic
-3. Replace `calculate_missing_receipts()` to use new logic
-4. Update `calculate_receipt_datetime_warnings()` to use new logic
+1. Create unified `ReceiptState` calculation
+2. Remove `ReceiptVerification.matched` - replaced by state enum
+3. Remove `ReceiptVerification.datetimeWarning` - absorbed into `Problem`
+4. Single source: both doklady and trip grid use same calculation
 
 ### Phase 3: Frontend - Doklady Page
-1. Update receipt cards to show new visual states
-2. Group receipts by "needs attention" vs "paired"
-3. Update attachment dialog with mismatch acknowledgment
+1. Group by state: 🔴 Needs attention → 🟢 Matched → 🟠 Exceptions
+2. Show progressive match details for problems
+3. Add [Priradiť manuálne] button for different-day receipts
 
 ### Phase 4: Frontend - Trip Grid
-1. Add dedicated "Doklad" column
-2. Remove inline ⚠ indicators from fuel column
-3. Update legend
+1. Replace inline ⚠ with dedicated column showing 🟢/🔴/🟠/-
+2. Add hover tooltips
+3. Simplify legend
 
 ### Phase 5: Cleanup
-1. Remove redundant verification endpoints
+1. Remove redundant verification fields
 2. Update tests
 
 ---
 
-## Summary
+## Summary: Old vs New
 
-| Aspect | Current | Proposed |
-|--------|---------|----------|
-| User questions | "Is it verified?" | "Is it attached? Is data OK?" |
-| State dimensions | 7 | 2 (Attachment + Quality) |
-| Calculation sources | 2 (receipts_cmd, statistics) | 1 (unified) |
-| Missing receipt icon | ⚠ | ❌ |
-| Timing note icon | ⚠ | ✅ℹ (info, not warning) |
-| Manual override | Implicit (Assigned status) | Explicit (acknowledged flag) |
-| Trip grid | Inline indicators | Dedicated column |
+| Aspect | Old (v5) | New (v6) |
+|--------|----------|----------|
+| States | 4+ (Perfect, Noted, Override, Unmatched...) | **3** (Green, Red, Orange) |
+| Same day + time off | ✅ℹ Noted (OK, just info) | 🔴 **Problem** (fix trip time) |
+| `trip_id` for perfect match | Set by user | **Not set** (computed) |
+| `trip_id` meaning | "User attached" | **"Manual exception"** |
+| User action for perfect match | Click [Priradiť] | **None** |
+| Tolerance for timing | Built-in (same day = OK) | **None** (must be in range) |
 
 ---
 
 ## Decisions Made
 
-1. **Timing tolerance for "Noted" vs "Override"**: ✅ Decided
-   - **Same day** = Noted (auto, no prompt)
-   - **Different day** = Override (requires explicit acknowledgment)
+1. **3-State Model**: 🟢 Green (auto-matched), 🔴 Red (problem), 🟠 Orange (exception)
 
-2. **"Noted" in "needs attention"?**: ✅ Decided
-   - **No** - only unattached and NeedsReview need attention
-   - Noted is informational, not actionable
+2. **trip_id only for exceptions**: Auto-matched receipts don't need stored link
 
-3. **Toggle override state**: ✅ Decided
-   - Multi-state button instead of detach/re-attach
-   - States: **Potvrdené** (confirmed) ↔ **Skontrolovať** (to review)
-   - See "Override Toggle" section below
+3. **Same day + time outside = RED**: Trip time is wrong, fix it (not "noted")
 
-4. **Hover tooltips on trip grid**: ✅ Decided
-   - **Yes** - show receipt filename, datetime on hover over status icon
+4. **No "Noted" state**: Eliminated - either it matches or it's a problem
 
-## Override Toggle
+5. **Hover tooltips on trip grid**: Yes - show receipt filename and details
 
-For attached receipts with data mismatch (different day), user can toggle:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  OVERRIDE STATES                                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ✅✓ POTVRDENÉ (Confirmed)                                  │
-│      User explicitly says "this is correct"                 │
-│      → No warnings shown                                    │
-│      → Button: [Skontrolovať]                               │
-│                                                             │
-│  ⚠ SKONTROLOVAŤ (To review)                                │
-│      System flags mismatch for attention                    │
-│      → Warning shown in "needs attention"                   │
-│      → Button: [Potvrdiť]                                   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**UI in receipt card:**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ ✅✓ SPÁROVANÝ                              [Skontrolovať]   │
-│    toll-jan13.jpg                                           │
-│    📅 13.1. 10:00  •  📄 10.00 €                           │
-│    🚗 14.1. BA→ZA (06:00-09:00)                            │
-│    ✓ Priradené užívateľom                                  │
-└─────────────────────────────────────────────────────────────┘
-
-        ↓ user clicks [Skontrolovať] ↓
-
-┌─────────────────────────────────────────────────────────────┐
-│ ⚠ SPÁROVANÝ - skontrolovať                    [Potvrdiť]   │
-│    toll-jan13.jpg                                           │
-│    📅 13.1. 10:00  •  📄 10.00 €                           │
-│    🚗 14.1. BA→ZA (06:00-09:00)                            │
-│    ⚠ Dátum dokladu (13.1.) ≠ dátum jazdy (14.1.)          │
-└─────────────────────────────────────────────────────────────┘
-```
+---
 
 ## Open Questions
 
-*(All major questions resolved)*
+1. **Should we clear existing trip_id for perfect matches during migration?**
+   - Pro: Cleaner data model
+   - Con: Loses historical "who attached this" info
+
+2. **Progressive match details - how much to show?**
+   - Current mockup shows all criteria (✓/✗)
+   - Maybe collapse by default, expand on click?
 
 ---
 
@@ -487,8 +390,8 @@ For attached receipts with data mismatch (different day), user can toggle:
 | Version | Date | Changes |
 |---------|------|---------|
 | v1 | 2026-02-01 | Initial draft |
-| v2 | 2026-02-01 | Added edge cases, migration path, state diagram |
-| v3 | 2026-02-01 | Refocused on user mental model, simplified to 2 concepts |
-| v3.1 | 2026-02-01 | Decision: same day = Noted, different day = Override |
-| v4 | 2026-02-01 | Decisions: Noted not in "needs attention", toggle button for override, hover tooltips |
-| v5 | 2026-02-02 | Clarified auto-verified vs user-confirmed distinction |
+| v2 | 2026-02-01 | Added edge cases, migration path |
+| v3 | 2026-02-01 | Refocused on user mental model |
+| v4 | 2026-02-01 | Added decisions: timing tolerance, toggle button |
+| v5 | 2026-02-02 | Clarified auto-verified vs user-confirmed |
+| v6 | 2026-02-02 | **Major rewrite**: 3-state model (Green/Red/Orange), removed "Noted" |
