@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-02-01
+**Last updated:** 2026-02-02
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 50 | [Receipt Datetime Validation](50-receipt-datetime-validation/) | ✅ Complete | Receipt datetime range validation, OCR time extraction |
 | 47 | [Datetime Consolidation](47-datetime-consolidation/) | ✅ Complete | Single datetime inputs, ADR-012 forward-only migrations |
 | 42 | [Commands Module Split](42-commands-module-split/) | 🟡 In Progress | ADR-011: Split 3908-line commands.rs into modules |
@@ -51,6 +52,8 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
+| 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
+| 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |
 | 03 | [Dead Code & Warnings](_TECH_DEBT/03-dead-code-and-warnings.md) | Low | Resolved (Task 37) |
 | 02 | [PHEV Compensation](_TECH_DEBT/02-phev-compensation-suggestions.md) | Low | Open |
 | 01 | [Skill Command Conflict](_TECH_DEBT/01-skill-command-name-conflict.md) | Low | Open |
