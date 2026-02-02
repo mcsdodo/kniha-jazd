@@ -496,6 +496,12 @@ receipts: {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v1-v5 | 2026-02-01 | Various iterations |
-| v6 | 2026-02-02 | 3-state model (auto-match concept) |
-| v7 | 2026-02-02 | **Simplified**: No magic, explicit assignment, user picks type |
+| v1 | 2026-02-01 | Initial draft: documented current 7-dimension state complexity |
+| v2 | 2026-02-01 | Added edge cases (toll day before, fill-up after trip), migration path, state diagram |
+| v3 | 2026-02-01 | Refocused on user mental model, simplified to 2 concepts (Attachment + Quality) |
+| v3.1 | 2026-02-01 | Decision: same day = "Noted", different day = "Override" |
+| v4 | 2026-02-01 | Decisions: "Noted" not in needs attention, toggle button for override, hover tooltips |
+| v5 | 2026-02-02 | Clarified auto-verified vs user-confirmed distinction, added bilingual labels |
+| v6 | 2026-02-02 | Major rewrite: 3-state model (Green/Red/Orange), removed "Noted" state, trip_id only for exceptions |
+| v7 | 2026-02-02 | **Final**: No magic, explicit assignment required, user picks FUEL or OTHER type |
+| v7.1 | 2026-02-02 | Added C1/C2 data population details, inline triangles instead of column, implementation reference |
