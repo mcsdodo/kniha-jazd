@@ -89,8 +89,8 @@
 
 | # | Scenario | What Happens | Result |
 |---|----------|--------------|--------|
-| C1 | Assign invoice to trip with NO costs, as FUEL | Trip populated: fuel_liters, fuel_cost_eur from invoice | 🟢 |
-| C2 | Assign invoice to trip with NO costs, as OTHER | Trip populated: other_costs_eur from invoice | 🟢 |
+| C1 | Assign invoice to trip with NO costs, as FUEL | Trip populated: fuel_liters, fuel_cost_eur, full_tank=true from invoice | 🟢 |
+| C2 | Assign invoice to trip with NO costs, as OTHER | Trip populated: other_costs_eur, other_costs_note from invoice (note = vendor + description) | 🟢 |
 | C3 | Assign invoice to trip with matching fuel data, as FUEL | Just link (no data change) | 🟢 |
 | C4 | Assign invoice to trip with mismatched fuel data, as FUEL | Link + show warning | 🟢⚠ |
 | C5 | User overrides mismatch warning | Warning suppressed | 🟠 |
