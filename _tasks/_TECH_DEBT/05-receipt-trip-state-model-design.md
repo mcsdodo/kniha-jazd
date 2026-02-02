@@ -89,22 +89,54 @@ Users don't care about the internal matching algorithm. They want actionable inf
 
 ## Proposed Design
 
+### Key Distinction: Verification vs Attachment
+
+**Current system conflates two independent concepts:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CURRENT: "Verified" = Data matches (computed)              │
+│           "Assigned" = User manually linked (status field)  │
+│                                                             │
+│  Problem: These are INDEPENDENT!                            │
+│  - Receipt can be "verified" (data matches) but unattached  │
+│  - Receipt can be "assigned" (linked) but unverified        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Important**: Currently ALL attachments are manual. The system only VERIFIES
+if data matches - it never auto-attaches. `verify_receipts()` is read-only.
+
 ### Core Concepts (Only 2!)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│  1. ATTACHMENT                                              │
+│  1. ATTACHMENT (user action)                                │
 │     ├── Unattached: receipt.trip_id = null                  │
 │     └── Attached:   receipt.trip_id = <uuid>                │
+│     Note: ALL attachments are manual user actions           │
 │                                                             │
-│  2. DATA QUALITY (only for attached receipts)               │
+│  2. VALIDATION (system computed, for attached receipts)     │
 │     ├── Perfect:    All data matches exactly                │
-│     ├── Noted:      Minor discrepancy (timing, rounding)    │
-│     └── Overridden: User acknowledged mismatch              │
+│     ├── Noted:      Minor discrepancy (same day, timing)    │
+│     └── Override:   User confirmed despite mismatch         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Auto-Verified vs User-Confirmed
+
+The key distinction after attachment:
+
+| Scenario | System Check | User Action | Result |
+|----------|--------------|-------------|--------|
+| Data matches perfectly | ✓ Pass | Just attach | ✅ **Auto-verified** |
+| Same day, timing off | ⚠ Note | Just attach | ✅ℹ **Noted** (auto) |
+| Different day | ✗ Mismatch | Must confirm | ✅✓ **User-confirmed** |
+
+**Auto-verified** = System validates the match, no extra user confirmation needed
+**User-confirmed** = System flags mismatch, user explicitly says "I know, attach anyway"
 
 ### Receipt Lifecycle
 
@@ -139,15 +171,19 @@ Users don't care about the internal matching algorithm. They want actionable inf
 
 ### Attachment Quality Levels
 
-| Quality | When | Visual | Meaning |
-|---------|------|--------|---------|
-| **Perfect** | Date, liters, price all match within trip time range | ✅ | All good |
-| **Noted** | Same day, but time outside trip range | ✅ℹ | Attached, note shown |
-| **Override** | Different day (user explicitly acknowledged) | ✅✓ | User says it's correct |
+| Quality | When | Visual | Validation | User Action |
+|---------|------|--------|------------|-------------|
+| **Perfect** | Date, liters, price all match | ✅ | Auto-verified | Just attach |
+| **Noted** | Same day, time outside range | ✅ℹ | Auto-noted | Just attach |
+| **Override** | Different day | ✅✓ | User-confirmed | Must confirm mismatch |
 
-**Timing rule**: Same day = auto-noted, different day = requires explicit acknowledgment.
+**Timing rule**: Same day = auto-validated, different day = requires explicit confirmation.
 
-**Key**: All three are valid attachments. The system trusts the user's decision.
+**Key distinctions**:
+- **Auto-verified/noted**: System validates the match. User just clicks "Priradiť".
+- **User-confirmed**: System shows mismatch warning. User must click "Priradiť aj tak".
+
+All three are valid attachments. The difference is WHO validated the match.
 
 ### Trip Receipt Status
 
@@ -201,14 +237,15 @@ That's it. No separate "datetime warning" in trip grid. The quality details live
 │ ▼ Spárované (12)                                            │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ ✅ SPÁROVANÝ                                        │   │
+│   │ ✅ SPÁROVANÝ                          (auto-verified)│   │
 │   │    fuel-jan10.jpg                                   │   │
 │   │    📅 10.1. 09:15  •  ⛽ 42.0 L  •  60.50 €         │   │
 │   │    🚗 10.1. BA→KE (08:00-12:00)                    │   │
+│   │    ✓ Údaje súhlasia                                │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ ✅ℹ SPÁROVANÝ                                       │   │
+│   │ ✅ℹ SPÁROVANÝ                           (auto-noted)│   │
 │   │    fuel-jan20.jpg                                   │   │
 │   │    📅 20.1. 18:30  •  ⛽ 38.5 L  •  55.20 €         │   │
 │   │    🚗 20.1. KE→PO (15:00-17:00)                    │   │
@@ -216,11 +253,11 @@ That's it. No separate "datetime warning" in trip grid. The quality details live
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ ✅✓ SPÁROVANÝ (manuálne)                            │   │
+│   │ ✅✓ SPÁROVANÝ                       (user-confirmed)│   │
 │   │    toll-jan13.jpg                                   │   │
 │   │    📅 13.1. 10:00  •  📄 10.00 €                    │   │
 │   │    🚗 14.1. BA→ZA (06:00-09:00)                    │   │
-│   │    ✓ Priradené užívateľom                          │   │
+│   │    ✓ Potvrdené užívateľom (iný dátum)              │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -239,7 +276,7 @@ That's it. No separate "datetime warning" in trip grid. The quality details live
 │ 5 │ 20.1.   │ PO → KE        │   80 │  -      │   -    │   -    │
 └───┴─────────┴────────────────┴──────┴─────────┴────────┴────────┘
 
-Legenda: ✅ spárovaný │ ✅ℹ s poznámkou │ ✅✓ manuálne │ ❌ chýba │ - bez nákladu
+Legenda: ✅ auto-verified │ ✅ℹ auto-noted │ ✅✓ user-confirmed │ ❌ chýba │ - bez nákladu
 ```
 
 ### Attachment Dialog - Acknowledge Override
@@ -452,3 +489,4 @@ For attached receipts with data mismatch (different day), user can toggle:
 | v3 | 2026-02-01 | Refocused on user mental model, simplified to 2 concepts |
 | v3.1 | 2026-02-01 | Decision: same day = Noted, different day = Override |
 | v4 | 2026-02-01 | Decisions: Noted not in "needs attention", toggle button for override, hover tooltips |
+| v5 | 2026-02-02 | Clarified auto-verified vs user-confirmed distinction |
