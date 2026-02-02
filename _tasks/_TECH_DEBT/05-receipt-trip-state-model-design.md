@@ -1,387 +1,376 @@
 # Receipt-Trip State Model Redesign
 
 **Date:** 2026-02-02
-**Status:** Draft v6
+**Status:** Draft v7
 **Related:** `05-receipt-trip-state-model.md`
 
 ---
 
-## User's Mental Model
+## Core Principle: No Magic
 
-From the user's perspective, there are only **two questions**:
+**Invoices must be explicitly assigned to trips by the user.**
 
-1. **"Do I have a receipt for this expense?"** (compliance)
-2. **"Is the receipt data correct?"** (accuracy)
-
-The current system conflates these, making it hard to answer either clearly.
-
----
-
-## Goal
-
-Design a state model where:
-- User can immediately see if receipts are complete (no missing)
-- User can quickly identify issues that need attention
-- Edge cases (toll bought day before) are handled gracefully
-- The system is **simple to understand** without reading documentation
+- No auto-matching
+- No computed relationships
+- User picks: assign as FUEL or as OTHER COST
+- `trip_id` is set when user assigns, NULL otherwise
 
 ---
 
-## The 3-State Model
+## The Simple Model
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  🟢 GREEN - Auto-matched (spárovaný/auto-matched)          │
-│     Receipt matches trip by ALL criteria:                   │
-│     - Same day                                              │
-│     - Time within trip range                                │
-│     - Liters match                                          │
-│     - Price matches                                         │
-│     → No trip_id needed (computed match)                    │
-│     → No user action needed                                 │
+│  INVOICE STATE                                              │
 ├─────────────────────────────────────────────────────────────┤
-│  🔴 RED - Problem to fix (problém/problem)                  │
-│     2.1 Partial match - data doesn't align:                 │
-│         - Same day but time OUTSIDE trip range → fix trip   │
-│         - Same day but liters/price WRONG → fix data        │
-│     2.2 Missing invoice:                                    │
-│         - Trip has costs but no receipt found → upload      │
-│     → No trip_id (nothing to link yet)                      │
-│     → User must fix data or upload receipt                  │
+│                                                             │
+│  trip_id = NULL                                             │
+│    → Nepriradený / Unassigned                               │
+│    → Needs user action                                      │
+│                                                             │
+│  trip_id = SET                                              │
+│    → Priradený / Assigned                                   │
+│    → Linked to specific trip as FUEL or OTHER               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  TRIP RECEIPT STATUS                                        │
 ├─────────────────────────────────────────────────────────────┤
-│  🟠 ORANGE - Exception (výnimka/exception)                  │
-│     Receipt intentionally doesn't match:                    │
-│     - Different day (toll, parking bought ahead)            │
-│     → trip_id IS set (manual assignment)                    │
-│     → User explicitly confirmed the mismatch                │
+│                                                             │
+│  Trip has costs (fuel or other) + no invoice assigned       │
+│    → Chýba doklad / Missing invoice                         │
+│    → Warning shown                                          │
+│                                                             │
+│  Trip has costs + invoice assigned                          │
+│    → Má doklad / Has invoice                                │
+│    → May have data mismatch warning (optional)              │
+│                                                             │
+│  Trip has NO costs                                          │
+│    → Bez nákladov / No costs                                │
+│    → No invoice needed                                      │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Key Design Decisions
+## All Scenarios
 
-### 1. `trip_id` Only for Exceptions
+### A. Invoice Scenarios
 
-| State | trip_id | Why |
-|-------|---------|-----|
-| 🟢 Green | **Not set** | System computes match on-the-fly |
-| 🔴 Red | **Not set** | No valid match exists |
-| 🟠 Orange | **Set** | Only way to link different-day receipt |
+| # | Scenario | State | Visual | User Action |
+|---|----------|-------|--------|-------------|
+| A1 | Invoice scanned, OCR pending | Spracováva sa | 🔄 | Wait |
+| A2 | Invoice scanned, OCR failed/low confidence | Skontrolovať | 🟡 | Edit data |
+| A3 | Invoice ready, not assigned to any trip | Nepriradený | 🔴 | Assign to trip |
+| A4 | Invoice assigned as FUEL, data matches | Priradený (palivo) | 🟢 | None |
+| A5 | Invoice assigned as FUEL, data mismatch | Priradený (palivo) ⚠ | 🟢⚠ | Fix data or override |
+| A6 | Invoice assigned as FUEL, mismatch + override | Priradený (palivo) ✓ | 🟠 | None |
+| A7 | Invoice assigned as OTHER COST | Priradený (iné) | 🟢 | None |
 
-**Rationale**: If the system can compute a perfect match, why store it? Only store what the system can't determine automatically.
+### B. Trip Scenarios (from trip grid perspective)
 
-### 2. Same Day + Time Outside Range = RED (Not "Noted")
+| # | Scenario | State | Visual | User Action |
+|---|----------|-------|--------|-------------|
+| B1 | Trip with fuel, no invoice | Chýba doklad | 🔴 | Assign invoice |
+| B2 | Trip with fuel, invoice assigned, matches | Má doklad | 🟢 | None |
+| B3 | Trip with fuel, invoice assigned, mismatch | Má doklad ⚠ | 🟢⚠ | Fix data or override |
+| B4 | Trip with fuel, invoice assigned, override | Má doklad ✓ | 🟠 | None |
+| B5 | Trip with other costs, no invoice | Chýba doklad | 🔴 | Assign invoice |
+| B6 | Trip with other costs, invoice assigned | Má doklad | 🟢 | None |
+| B7 | Trip with fuel AND other costs, missing one | Chýba doklad | 🔴 | Assign missing |
+| B8 | Trip with fuel AND other costs, both assigned | Má doklady | 🟢 | None |
+| B9 | Trip with NO costs | - | - | N/A |
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  SCENARIO                                                   │
-│                                                             │
-│  Trip: 15.1. 13:00-17:00 (BA → KE)                         │
-│  Receipt: 15.1. 17:15 (gas station stop)                   │
-│                                                             │
-│  OLD thinking: "Time is slightly off, just note it" ✅ℹ    │
-│                                                             │
-│  NEW thinking: "If you stopped for gas, you hadn't         │
-│  arrived yet. Trip end time is WRONG." 🔴                  │
-│  → Fix trip end time to 17:30                              │
-│  → Receipt now matches perfectly 🟢                        │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+### C. Assignment Scenarios
 
-This ensures data quality - timing mismatches on the same day indicate incorrect trip times.
+| # | Scenario | What Happens | Result |
+|---|----------|--------------|--------|
+| C1 | Assign invoice to trip with NO costs, as FUEL | Trip populated: fuel_liters, fuel_cost_eur from invoice | 🟢 |
+| C2 | Assign invoice to trip with NO costs, as OTHER | Trip populated: other_costs_eur from invoice | 🟢 |
+| C3 | Assign invoice to trip with matching fuel data, as FUEL | Just link (no data change) | 🟢 |
+| C4 | Assign invoice to trip with mismatched fuel data, as FUEL | Link + show warning | 🟢⚠ |
+| C5 | User overrides mismatch warning | Warning suppressed | 🟠 |
+| C6 | Assign invoice to trip that already has other costs | Block or warn? (decision needed) | ❓ |
+| C7 | Assign same invoice to different trip | Reassign (move from old to new) | 🟢 |
 
-### 3. No "Noted" State
+### D. Data Mismatch Scenarios (when assigning FUEL invoice)
 
-The old "Noted" (✅ℹ) state is eliminated. If receipt is same day:
-- Time within range + data matches → 🟢 Green
-- Time outside range OR data wrong → 🔴 Red (fix it)
+| # | What Mismatches | Warning Message (SK) | Warning Message (EN) |
+|---|-----------------|----------------------|----------------------|
+| D1 | Time outside trip range | Čas dokladu mimo jazdy | Invoice time outside trip |
+| D2 | Liters differ | Litre: doklad X L ≠ jazda Y L | Liters: invoice X ≠ trip Y |
+| D3 | Price differs | Cena: doklad X € ≠ jazda Y € | Price: invoice X € ≠ trip Y € |
+| D4 | Multiple fields differ | Show all mismatches | Show all mismatches |
 
----
+### E. Edge Cases
 
-## Use Cases
-
-| Scenario | State | Action |
-|----------|-------|--------|
-| Receipt matches trip perfectly | 🟢 Green | None |
-| Same day, time outside trip range | 🔴 Red | Extend trip end time |
-| Same day, liters don't match | 🔴 Red | Fix receipt or trip data |
-| Trip has fuel, no receipt found | 🔴 Red | Scan/upload receipt |
-| Toll bought day before trip | 🟠 Orange | Manual assignment |
-| OCR couldn't read receipt | 🔴 Red | Edit receipt data |
-
----
-
-## Current System Problems (Unchanged)
-
-### Problem 1: "Verified" ≠ "Attached"
-
-Current system has `matched` (computed) independent from `trip_id` (stored).
-A receipt can be "verified" but unattached, or "assigned" but unverified.
-
-### Problem 2: Same Icon, Different Meanings
-
-In TripGrid, ⚠ means both "no receipt" and "datetime mismatch" - different problems requiring different actions.
-
-### Problem 3: Two Sources of Truth
-
-`verify_receipts()` in receipts_cmd.rs and `calculate_missing_receipts()` in statistics.rs use similar but not identical logic.
-
-### Problem 4: Technical Mismatch Reasons
-
-Users see "DatetimeOutOfRange" instead of actionable "Oprav čas jazdy".
+| # | Scenario | Behavior |
+|---|----------|----------|
+| E1 | One invoice → multiple trips | NOT allowed (1:1 relationship) |
+| E2 | Multiple invoices → one trip | Allowed (fuel + other = 2 invoices) |
+| E3 | Invoice date different from trip date | Allowed with warning (toll scenario) |
+| E4 | Unassign invoice from trip | Clear trip_id, invoice becomes "unassigned" |
+| E5 | Delete trip with assigned invoice | Invoice becomes "unassigned" |
+| E6 | Delete invoice assigned to trip | Trip shows "missing invoice" |
 
 ---
 
-## Visual Design
+## Visual States Summary
 
-### Doklady Page - Grouped by State
+### Invoice Grid (Doklady)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     DOKLADY (2026)                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ ▼ 🔴 Potrebuje pozornosť / Needs attention (3)              │
+│ ▼ Nepriradené / Unassigned (2)                              │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🔴 NESPÁROVANÝ (unmatched)              [Upraviť]   │   │
+│   │ 🔴 NEPRIRADENÝ (unassigned)                         │   │
 │   │    fuel-jan15.jpg                                   │   │
 │   │    📅 15.1. 17:15  •  ⛽ 45.2 L  •  65.80 €         │   │
-│   │    ─────────────────────────────────────────────    │   │
-│   │    Možná jazda: 15.1. BA→KE (13:00-17:00)          │   │
-│   │    ┌─────────────────────────────────────────────┐  │   │
-│   │    │  ✓ Dátum súhlasí (date matches)             │  │   │
-│   │    │  ✗ Čas mimo jazdy: 17:15 vs 13:00-17:00     │  │   │
-│   │    │    (time outside trip range)                 │  │   │
-│   │    │  ✓ Litre súhlasia (liters match)            │  │   │
-│   │    │  ✓ Cena súhlasí (price matches)             │  │   │
-│   │    └─────────────────────────────────────────────┘  │   │
-│   │    💡 Oprav koniec jazdy na 17:30                   │   │
-│   │       (Fix trip end time to 17:30)                  │   │
-│   │    [Upraviť jazdu]  [Upraviť doklad]                │   │
+│   │    [Priradiť ako PALIVO]  [Priradiť ako INÉ]        │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🔴 SKONTROLOVAŤ (needs review)          [Upraviť]   │   │
+│   │ 🟡 SKONTROLOVAŤ (needs review)                      │   │
 │   │    receipt-blurry.jpg                               │   │
-│   │    📅 ?.1. ?:??  •  ⛽ ??.? L  •  ?? €              │   │
-│   │    ─────────────────────────────────────────────    │   │
-│   │    ⚠ Niektoré údaje nemožno prečítať               │   │
-│   │      (Some data couldn't be read)                   │   │
+│   │    📅 ?.1. ?:??  •  ?? €                            │   │
+│   │    ⚠ OCR neistý - skontrolujte údaje               │   │
+│   │    [Upraviť]                                        │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🔴 NESPÁROVANÝ (unmatched)      [Priradiť manuálne] │   │
-│   │    toll-receipt.jpg                                 │   │
-│   │    📅 14.1. 18:00  •  📄 10.00 €                    │   │
-│   │    ─────────────────────────────────────────────    │   │
-│   │    ⚠ Žiadna jazda s rovnakým dátumom               │   │
-│   │      (No trip on same day)                          │   │
-│   │    💡 Pre diaľničnú známku použite manuálne         │   │
-│   │       priradenie (For toll, use manual assignment)  │   │
-│   └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│ ▼ 🟢 Spárované / Matched (11)                               │
+│ ▼ Priradené / Assigned (10)                                 │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🟢 SPÁROVANÝ (auto-matched)                         │   │
+│   │ 🟢 PRIRADENÝ - PALIVO (assigned as fuel)            │   │
 │   │    fuel-jan10.jpg                                   │   │
 │   │    📅 10.1. 09:15  •  ⛽ 42.0 L  •  60.50 €         │   │
-│   │    🚗 10.1. BA→KE (08:00-12:00)                    │   │
-│   │    ✓ Všetky údaje súhlasia (all data matches)      │   │
+│   │    🚗 Jazda: 10.1. BA→KE (08:00-12:00)             │   │
+│   │    ✓ Údaje súhlasia                                │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│ ▼ 🟠 Výnimky / Exceptions (1)                               │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │ 🟢⚠ PRIRADENÝ - PALIVO (assigned, mismatch)        │   │
+│   │    fuel-jan20.jpg                                   │   │
+│   │    📅 20.1. 18:30  •  ⛽ 45.2 L  •  65.80 €         │   │
+│   │    🚗 Jazda: 20.1. KE→PO (15:00-17:00)             │   │
+│   │    ⚠ Čas mimo jazdy: 18:30 vs 15:00-17:00          │   │
+│   │    [Opraviť jazdu]  [Opraviť doklad]  [Potvrdiť]    │   │
+│   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │ 🟠 PRIRADENÝ MANUÁLNE (manually assigned)           │   │
-│   │    toll-jan13.jpg                       [Zrušiť]    │   │
+│   │ 🟠 PRIRADENÝ - PALIVO ✓ (override)                  │   │
+│   │    toll-jan13.jpg                                   │   │
 │   │    📅 13.1. 10:00  •  📄 10.00 €                    │   │
-│   │    🚗 14.1. BA→ZA (06:00-09:00)                    │   │
-│   │    ✓ Potvrdené užívateľom (confirmed by user)      │   │
-│   │      Iný dátum: 13.1. → 14.1. (different day)       │   │
+│   │    🚗 Jazda: 14.1. BA→ZA (06:00-09:00)             │   │
+│   │    ✓ Potvrdené užívateľom (iný dátum)              │   │
+│   │    [Zrušiť potvrdenie]                              │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │ 🟢 PRIRADENÝ - INÉ NÁKLADY (assigned as other)      │   │
+│   │    parking-jan12.jpg                                │   │
+│   │    📅 12.1. 08:00  •  📄 5.00 €                     │   │
+│   │    🚗 Jazda: 12.1. BA→TT (07:00-10:00)             │   │
+│   │    ✓ Parkovanie                                    │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Trip Grid - Receipt Status Column
+### Trip Grid
 
 ```
-┌───┬─────────┬────────────────┬──────┬─────────┬────────┬────────┐
-│ # │  Dátum  │     Trasa      │  km  │ Palivo  │ Doklad │  Cena  │
-├───┼─────────┼────────────────┼──────┼─────────┼────────┼────────┤
-│ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L  │   🟢   │ 60.50€ │
-│ 2 │ 14.1.   │ BA → ZA        │  200 │  -      │   🟠   │ 10.00€ │ ← toll (manual)
-│ 3 │ 15.1.   │ BA → KE        │  400 │ 45.2 L  │   🔴   │ 65.80€ │ ← time mismatch
-│ 4 │ 16.1.   │ KE → PO        │   80 │ 38.5 L  │   🟢   │ 55.20€ │
-│ 5 │ 16.1.   │ PO → KE        │   80 │  -      │   -    │   -    │
-└───┴─────────┴────────────────┴──────┴─────────┴────────┴────────┘
+┌───┬─────────┬────────────────┬──────┬─────────┬────────┬────────┬────────┐
+│ # │  Dátum  │     Trasa      │  km  │ Palivo  │ Iné    │ Doklad │  Cena  │
+├───┼─────────┼────────────────┼──────┼─────────┼────────┼────────┼────────┤
+│ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L  │   -    │   🟢   │ 60.50€ │
+│ 2 │ 12.1.   │ BA → TT        │   60 │   -     │  5.00€ │   🟢   │  5.00€ │
+│ 3 │ 14.1.   │ BA → ZA        │  200 │   -     │ 10.00€ │   🟠   │ 10.00€ │ ← override
+│ 4 │ 15.1.   │ BA → KE        │  400 │ 45.2 L  │   -    │   🔴   │ 65.80€ │ ← missing
+│ 5 │ 20.1.   │ KE → PO        │   80 │ 38.5 L  │   -    │  🟢⚠   │ 55.20€ │ ← mismatch
+│ 6 │ 20.1.   │ PO → KE        │   80 │   -     │   -    │   -    │   -    │
+└───┴─────────┴────────────────┴──────┴─────────┴────────┴────────┴────────┘
 
-Legenda: 🟢 spárovaný (matched) │ 🔴 problém (problem) │ 🟠 manuálne (manual) │ - bez nákladu (no cost)
+Legenda: 🟢 má doklad │ 🟢⚠ nesúlad │ 🟠 potvrdené │ 🔴 chýba │ - bez nákladov
 ```
-
-### Hover Tooltip on Trip Grid
-
-When hovering over receipt status icon:
-- 🟢: "fuel-jan10.jpg • 10.1. 09:15"
-- 🔴: "Čas mimo jazdy - oprav koniec jazdy" / "Time outside trip - fix trip end"
-- 🟠: "toll-jan13.jpg • Manuálne priradené" / "Manually assigned"
 
 ---
 
-## Manual Assignment Dialog
+## Assignment Flow
 
-When user clicks [Priradiť manuálne] for a different-day receipt:
+### User assigns invoice to trip
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│       Manuálne priradenie / Manual Assignment               │
+│              Priradiť doklad k jazde                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  Doklad / Receipt:  13.1.2026 10:00  •  10.00 €            │
-│  Jazda / Trip:      14.1.2026 BA → ZA (06:00-09:00)        │
+│  Doklad: fuel-jan15.jpg                                     │
+│  📅 15.1. 17:15  •  ⛽ 45.2 L  •  65.80 €                   │
 │                                                             │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ ⚠ Dátum dokladu sa líši od jazdy                      │  │
-│  │   (Receipt date differs from trip)                    │  │
-│  │                                                       │  │
-│  │   Doklad / Receipt: 13.1.2026                         │  │
-│  │   Jazda / Trip:     14.1.2026                         │  │
-│  └───────────────────────────────────────────────────────┘  │
+│  ─────────────────────────────────────────────────────────  │
 │                                                             │
-│  Toto je bežné pri / This is common for:                   │
-│  • Diaľničná známka kúpená vopred / Toll bought ahead     │
-│  • Parkovanie zaplatené deň pred / Parking pre-paid       │
+│  Vybrať jazdu:                                              │
 │                                                             │
-│                     [Zrušiť]  [Priradiť / Assign]          │
+│  ○ 15.1. BA → KE (13:00-17:00)  │ 45.2 L │ 65.80 € │ ✓     │
+│  ○ 15.1. KE → BA (18:00-22:00)  │   -    │    -    │       │
+│  ○ 16.1. BA → TT (08:00-10:00)  │ 30.0 L │ 45.00 € │ ⚠     │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  Priradiť ako:                                              │
+│  ● Palivo (FUEL)                                            │
+│  ○ Iné náklady (OTHER)                                      │
+│                                                             │
+│                              [Zrušiť]  [Priradiť]           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### When data mismatches (assigning as FUEL)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              ⚠ Údaje nesúhlasia                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Doklad                    Jazda                            │
+│  ────────                  ────────                         │
+│  📅 15.1. 17:15           📅 15.1. 13:00-17:00             │
+│  ⛽ 45.2 L                 ⛽ 45.2 L              ✓          │
+│  💰 65.80 €                💰 64.50 €              ✗          │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  Možnosti:                                                  │
+│  • Opraviť údaje na doklade alebo jazde                    │
+│  • Priradiť aj tak (zobrazí sa varovanie)                  │
+│  • Priradiť a potvrdiť (varovanie sa nezobrazí)            │
+│                                                             │
+│  [Zrušiť]  [Priradiť s varovaním]  [Priradiť a potvrdiť]   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Data Model Changes
+## Data Model
 
-### Only Change: Track Manual Assignments
+### Receipt fields
 
 ```rust
 pub struct Receipt {
-    // ... existing fields ...
+    pub id: Uuid,
+    pub trip_id: Option<Uuid>,        // NULL = unassigned, SET = assigned
+    pub assignment_type: Option<AssignmentType>,  // Fuel or Other
+    pub mismatch_override: bool,      // True = user confirmed mismatch
+    // ... other fields
+}
 
-    // trip_id is ONLY set for manual assignments (🟠 orange)
-    // For auto-matched receipts (🟢 green), trip_id stays NULL
-    pub trip_id: Option<Uuid>,
+pub enum AssignmentType {
+    Fuel,
+    Other,
 }
 ```
 
-**No new fields needed!** The existing `trip_id` field now has clearer semantics:
-- `trip_id = NULL` → Not manually assigned (could be auto-matched or unmatched)
-- `trip_id = Some(uuid)` → Manually assigned to this trip (exception)
-
-### Matching Logic
+### Validation logic
 
 ```rust
 pub enum ReceiptState {
-    /// 🟢 All criteria match - computed, no trip_id needed
-    AutoMatched { trip: Trip },
+    /// OCR not complete
+    Processing,
 
-    /// 🔴 Problem - needs user action
-    Problem(ProblemKind),
+    /// OCR low confidence, needs review
+    NeedsReview,
 
-    /// 🟠 Manually assigned exception - trip_id is set
-    ManualException { trip: Trip },
+    /// Ready but not assigned
+    Unassigned,
+
+    /// Assigned, data matches (or N/A for "other")
+    Assigned { trip: Trip, assignment_type: AssignmentType },
+
+    /// Assigned as fuel, data mismatch, no override
+    AssignedWithMismatch { trip: Trip, mismatches: Vec<Mismatch> },
+
+    /// Assigned as fuel, data mismatch, user confirmed
+    AssignedWithOverride { trip: Trip },
 }
 
-pub enum ProblemKind {
-    /// Same day, but time outside trip range
-    TimeOutsideRange {
-        receipt_time: String,
-        trip_range: String,
-        suggestion: String,  // "Oprav koniec jazdy na 17:30"
-    },
-    /// Same day, but liters don't match
-    LitersMismatch { receipt: f64, trip: f64 },
-    /// Same day, but price doesn't match
-    PriceMismatch { receipt: f64, trip: f64 },
-    /// No trip found on same day
-    NoTripOnDay,
-    /// OCR data incomplete
-    IncompleteData,
-    /// Trip has costs but no receipt
-    MissingReceipt,
+pub enum Mismatch {
+    TimeOutsideRange { receipt: String, trip_range: String },
+    LitersDiffer { receipt: f64, trip: f64 },
+    PriceDiffers { receipt: f64, trip: f64 },
+    DateDiffers { receipt: String, trip: String },
 }
 ```
 
 ---
 
-## Migration Plan
+## Visual States Mapping
 
-### Phase 1: Simplify Semantics
-1. Document that `trip_id` = manual assignment only
-2. Existing `trip_id` values for perfect matches can be cleared (optional)
-
-### Phase 2: Backend Logic
-1. Create unified `ReceiptState` calculation
-2. Remove `ReceiptVerification.matched` - replaced by state enum
-3. Remove `ReceiptVerification.datetimeWarning` - absorbed into `Problem`
-4. Single source: both doklady and trip grid use same calculation
-
-### Phase 3: Frontend - Doklady Page
-1. Group by state: 🔴 Needs attention → 🟢 Matched → 🟠 Exceptions
-2. Show progressive match details for problems
-3. Add [Priradiť manuálne] button for different-day receipts
-
-### Phase 4: Frontend - Trip Grid
-1. Replace inline ⚠ with dedicated column showing 🟢/🔴/🟠/-
-2. Add hover tooltips
-3. Simplify legend
-
-### Phase 5: Cleanup
-1. Remove redundant verification fields
-2. Update tests
-
----
-
-## Summary: Old vs New
-
-| Aspect | Old (v5) | New (v6) |
-|--------|----------|----------|
-| States | 4+ (Perfect, Noted, Override, Unmatched...) | **3** (Green, Red, Orange) |
-| Same day + time off | ✅ℹ Noted (OK, just info) | 🔴 **Problem** (fix trip time) |
-| `trip_id` for perfect match | Set by user | **Not set** (computed) |
-| `trip_id` meaning | "User attached" | **"Manual exception"** |
-| User action for perfect match | Click [Priradiť] | **None** |
-| Tolerance for timing | Built-in (same day = OK) | **None** (must be in range) |
+| State | Invoice Grid | Trip Grid | Color |
+|-------|--------------|-----------|-------|
+| Processing | 🔄 Spracováva sa | - | Gray |
+| NeedsReview | 🟡 Skontrolovať | - | Yellow |
+| Unassigned | 🔴 Nepriradený | 🔴 Chýba doklad | Red |
+| Assigned (match) | 🟢 Priradený | 🟢 Má doklad | Green |
+| Assigned (mismatch) | 🟢⚠ Priradený | 🟢⚠ Má doklad | Green+Warning |
+| Assigned (override) | 🟠 Potvrdený | 🟠 Potvrdený | Orange |
 
 ---
 
 ## Decisions Made
 
-1. **3-State Model**: 🟢 Green (auto-matched), 🔴 Red (problem), 🟠 Orange (exception)
+1. **No auto-matching**: User must explicitly assign invoices to trips
 
-2. **trip_id only for exceptions**: Auto-matched receipts don't need stored link
+2. **User picks type**: FUEL or OTHER COST during assignment
 
-3. **Same day + time outside = RED**: Trip time is wrong, fix it (not "noted")
+3. **trip_id meaning**: NULL = unassigned, SET = assigned
 
-4. **No "Noted" state**: Eliminated - either it matches or it's a problem
+4. **Mismatch handling**:
+   - Show warning on both grids
+   - User can fix data OR override
+   - Override suppresses warning
 
-5. **Hover tooltips on trip grid**: Yes - show receipt filename and details
+5. **One-to-one**: One invoice → one trip (but trip can have multiple invoices: fuel + other)
+
+6. **Assignment populates trip**: If trip has no costs, assignment fills them from invoice
 
 ---
 
 ## Open Questions
 
-1. **Should we clear existing trip_id for perfect matches during migration?**
-   - Pro: Cleaner data model
-   - Con: Loses historical "who attached this" info
+1. **Block or warn when trip already has other costs?**
+   - Current: Blocks with "Jazda už má iné náklady"
+   - Alternative: Warn and allow (replace old value)
 
-2. **Progressive match details - how much to show?**
-   - Current mockup shows all criteria (✓/✗)
-   - Maybe collapse by default, expand on click?
+2. **Show suggestions for likely matches?**
+   - Even without auto-matching, we can highlight trips with matching date/data
+   - Helps user find the right trip faster
+
+---
+
+## Migration
+
+### Phase 1: Add fields
+- `assignment_type: TEXT` (nullable, 'Fuel' or 'Other')
+- `mismatch_override: BOOLEAN DEFAULT false`
+
+### Phase 2: Migrate existing data
+- Existing `trip_id` assignments: determine type from context (has liters? → Fuel)
+- Existing `status = 'Assigned'` → set appropriate `assignment_type`
+
+### Phase 3: Update UI
+- Invoice grid: show assignment type badge
+- Trip grid: unified receipt column
+- Assignment dialog: type selector
 
 ---
 
@@ -389,9 +378,6 @@ pub enum ProblemKind {
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v1 | 2026-02-01 | Initial draft |
-| v2 | 2026-02-01 | Added edge cases, migration path |
-| v3 | 2026-02-01 | Refocused on user mental model |
-| v4 | 2026-02-01 | Added decisions: timing tolerance, toggle button |
-| v5 | 2026-02-02 | Clarified auto-verified vs user-confirmed |
-| v6 | 2026-02-02 | **Major rewrite**: 3-state model (Green/Red/Orange), removed "Noted" |
+| v1-v5 | 2026-02-01 | Various iterations |
+| v6 | 2026-02-02 | 3-state model (auto-match concept) |
+| v7 | 2026-02-02 | **Simplified**: No magic, explicit assignment, user picks type |
