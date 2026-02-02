@@ -386,6 +386,112 @@ pub enum Mismatch {
 
 ---
 
+## Implementation Reference
+
+### Key Files
+
+**Backend (Rust):**
+- `src-tauri/src/commands/receipts_cmd.rs` - Assignment logic, verification
+- `src-tauri/src/models.rs` - Receipt struct, ReceiptStatus enum
+- `src-tauri/src/db.rs` - Database operations
+- `src-tauri/src/statistics.rs` - `calculate_missing_receipts()`, `is_datetime_in_trip_range()`
+
+**Frontend (Svelte):**
+- `src/routes/doklady/+page.svelte` - Invoice list page
+- `src/lib/components/TripGrid.svelte` - Trip grid with receipt indicators
+- `src/lib/components/TripRow.svelte` - Individual trip row (has warning indicators)
+- `src/lib/components/TripSelectorModal.svelte` - Assignment dialog
+- `src/lib/types.ts` - TypeScript types
+
+**Tests:**
+- `src-tauri/src/commands/commands_tests.rs` - Backend unit tests
+- `tests/integration/` - WebdriverIO E2E tests
+
+**i18n:**
+- `src/lib/i18n/sk/index.ts` - Slovak translations
+- `src/lib/i18n/en/index.ts` - English translations
+
+### Functions to Modify
+
+| Function | File | Change |
+|----------|------|--------|
+| `assign_receipt_to_trip_internal()` | receipts_cmd.rs | Add `assignment_type` parameter, handle override |
+| `check_receipt_trip_compatibility()` | receipts_cmd.rs | Update for explicit type selection |
+| `verify_receipts()` | receipts_cmd.rs | Return new `ReceiptState` enum |
+| `calculate_missing_receipts()` | statistics.rs | Use `trip_id` instead of computed match |
+| `TripSelectorModal` | TripSelectorModal.svelte | Add FUEL/OTHER radio buttons |
+| `TripRow` | TripRow.svelte | Update warning indicators (inline triangles) |
+
+### Database Migration
+
+```sql
+-- Phase 1: Add new fields
+ALTER TABLE receipts ADD COLUMN assignment_type TEXT; -- 'Fuel' or 'Other'
+ALTER TABLE receipts ADD COLUMN mismatch_override BOOLEAN DEFAULT false;
+```
+
+### New i18n Keys Needed
+
+**Slovak (sk):**
+```typescript
+receipts: {
+  assignAsFuel: 'Priradiť ako PALIVO',
+  assignAsOther: 'Priradiť ako INÉ NÁKLADY',
+  mismatchWarning: 'Údaje nesúhlasia',
+  override: 'Potvrdiť',
+  overrideTooltip: 'Potvrdené užívateľom',
+  missingInvoice: 'Chýba doklad',
+  // ... existing keys
+}
+```
+
+**English (en):**
+```typescript
+receipts: {
+  assignAsFuel: 'Assign as FUEL',
+  assignAsOther: 'Assign as OTHER COST',
+  mismatchWarning: 'Data mismatch',
+  override: 'Confirm',
+  overrideTooltip: 'Confirmed by user',
+  missingInvoice: 'Missing invoice',
+  // ... existing keys
+}
+```
+
+### Current Behavior (for reference)
+
+**`assign_receipt_to_trip_internal()`** currently:
+1. Auto-detects fuel vs other based on receipt having liters
+2. If trip has no fuel → populates from receipt
+3. If trip has fuel and data matches → just links
+4. If trip has fuel and data doesn't match → silently assigns as "other cost" (bug?)
+5. Blocks if trip already has other costs
+
+**`verify_receipts()`** currently:
+1. Computes match based on date+time+liters+price
+2. Returns `matched: bool` + `mismatchReason`
+3. Separate `datetimeWarning` flag
+
+**Trip grid warnings** currently:
+- `missingReceipts` - trips with fuel but no matching receipt (computed)
+- `receiptDatetimeWarnings` - trips with receipt where time outside range
+
+### Test Strategy
+
+**Backend unit tests** (in `commands_tests.rs`):
+- Test assignment with explicit type (FUEL vs OTHER)
+- Test mismatch detection
+- Test override flag behavior
+- Test data population (C1, C2 scenarios)
+
+**Integration tests** (in `tests/integration/`):
+- Assignment dialog shows type selector
+- Warning triangles appear in trip grid
+- Override button works
+- Mismatch warning displays correctly
+
+---
+
 ## Revision History
 
 | Version | Date | Changes |
