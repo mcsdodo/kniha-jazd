@@ -1,6 +1,7 @@
 # Implementation Plan: Receipt-Trip State Model
 
 **Date:** 2026-02-02
+**Updated:** 2026-02-03
 **Status:** Ready for Implementation
 **Design:** `_TECH_DEBT/05-receipt-trip-state-model-design.md`
 
@@ -17,6 +18,56 @@
 
 ---
 
+## Key Design Decisions
+
+### Storage vs Display Separation
+
+**DB Storage (scalar fields only):**
+- `assignment_type: TEXT` - stores "Fuel" or "Other" (serde default serialization)
+- `mismatch_override: INTEGER` - boolean (0/1)
+- `trip_id: TEXT` - FK to trips, nullable
+
+**Computed Display State (never stored):**
+- `ReceiptDisplayState` - rich type with trip info and mismatch details
+- Calculated on-demand by `get_receipt_display_state()`
+- Replaces old `ReceiptVerification` struct
+
+### Data Invariant
+
+```
+trip_id = NULL  ↔  assignment_type = NULL   (unassigned)
+trip_id = SET   ↔  assignment_type = SET    (assigned)
+```
+
+### AssignmentType Serialization
+
+Uses serde default - stores as `"Fuel"` or `"Other"` TEXT in SQLite.
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AssignmentType {
+    Fuel,   // stored as "Fuel"
+    Other,  // stored as "Other"
+}
+```
+
+### Mismatch Override Behavior
+
+| `mismatch_override` | Has Mismatch | UI State |
+|---------------------|--------------|----------|
+| `false` | No | 🟢 Assigned (no indicator) |
+| `false` | Yes | 🟡 AssignedMismatch (yellow warning) |
+| `true` | Yes | 🟠 AssignedOverride (orange, user confirmed) |
+
+### Trip Already Has Other Costs
+
+**Decision: Block** (keep current behavior)
+- Returns error: "Jazda už má iné náklady"
+- User must unassign existing invoice first
+- Prevents accidental data loss
+
+---
+
 ## Phase 1: Database Migration
 
 **Goal:** Add new fields to receipts table
@@ -30,6 +81,10 @@ ALTER TABLE receipts ADD COLUMN assignment_type TEXT;
 
 -- Add mismatch override flag
 ALTER TABLE receipts ADD COLUMN mismatch_override INTEGER DEFAULT 0;
+
+-- Unassign any existing receipts (rare edge case)
+-- User can manually reassign with explicit type
+UPDATE receipts SET trip_id = NULL WHERE trip_id IS NOT NULL;
 ```
 
 ### 1.2 Update Diesel schema
@@ -49,7 +104,7 @@ pub enum AssignmentType {
 
 pub struct Receipt {
     // ... existing fields
-    pub assignment_type: Option<AssignmentType>,
+    pub assignment_type: Option<String>,  // "Fuel" or "Other", stored as TEXT
     pub mismatch_override: bool,
 }
 ```
@@ -57,6 +112,16 @@ pub struct Receipt {
 ### 1.4 Update TypeScript types
 - File: `src/lib/types.ts`
 - Add corresponding fields
+
+```typescript
+type AssignmentType = 'Fuel' | 'Other';
+
+interface Receipt {
+  // ... existing fields
+  assignmentType: AssignmentType | null;
+  mismatchOverride: boolean;
+}
+```
 
 **Tests:** Verify migration runs, fields exist in DB
 
@@ -68,28 +133,45 @@ pub struct Receipt {
 
 ### 2.1 Update `assign_receipt_to_trip_internal()`
 - File: `src-tauri/src/commands/receipts_cmd.rs`
-- Add `assignment_type: AssignmentType` parameter
+- Add `assignment_type: String` parameter (accepts "Fuel" or "Other")
+- Add `mismatch_override: bool` parameter
 - Remove auto-detection logic
-- Set `receipt.assignment_type` on assignment
+- Set both `receipt.trip_id` AND `receipt.assignment_type` together
 
 ### 2.2 Add mismatch detection
-- When assigning as FUEL, check if data matches
-- If mismatch and no override → set warning state
-- If mismatch and override → set `mismatch_override = true`
+- When assigning as FUEL, check if data matches (time, liters, price)
+- If mismatch and `mismatch_override = false` → assignment succeeds, warning shown in UI
+- If mismatch and `mismatch_override = true` → assignment succeeds, warning suppressed
 
 ### 2.3 Update Tauri command signature
 - File: `src-tauri/src/lib.rs`
 - Update command registration
 
+```rust
+#[tauri::command]
+fn assign_receipt_to_trip(
+    receipt_id: String,
+    trip_id: String,
+    assignment_type: String,      // "Fuel" or "Other"
+    mismatch_override: bool,      // true = user confirmed mismatch
+    // ... other params
+) -> Result<(), String>
+```
+
 ### 2.4 Write backend tests
 - File: `src-tauri/src/commands/commands_tests.rs`
-- Test: assign as FUEL populates trip (C1)
-- Test: assign as OTHER populates trip (C2)
-- Test: assign with matching data (C3)
-- Test: assign with mismatch shows warning (C4)
-- Test: assign with override (C5)
 
-**Tests:** All C1-C7 scenarios pass
+| Test Name | Scenario |
+|-----------|----------|
+| `test_assign_fuel_to_empty_trip_populates_data` | C1: FUEL to empty trip |
+| `test_assign_other_to_empty_trip_populates_data` | C2: OTHER to empty trip |
+| `test_assign_fuel_with_matching_data_links_only` | C3: Data matches |
+| `test_assign_fuel_with_mismatch_no_override` | C4: Mismatch, no override |
+| `test_assign_fuel_with_mismatch_and_override` | C5: Mismatch + override |
+| `test_assign_other_to_trip_with_existing_other_costs_blocked` | C6: Block duplicate |
+| `test_reassign_invoice_to_different_trip` | C7: Reassignment |
+
+**Tests:** All scenarios pass
 
 ---
 
@@ -97,28 +179,82 @@ pub struct Receipt {
 
 **Goal:** Unified state calculation for both grids
 
-### 3.1 Create new `ReceiptState` enum
+### 3.1 Create `ReceiptDisplayState` (computed, not stored)
 - File: `src-tauri/src/models.rs`
 
 ```rust
-pub enum ReceiptState {
+/// Computed display state - NEVER stored in DB
+/// Returned by get_receipt_display_state() for UI rendering
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "state")]
+pub enum ReceiptDisplayState {
     Processing,
     NeedsReview,
     Unassigned,
-    Assigned { trip_id: Uuid, assignment_type: AssignmentType },
-    AssignedWithMismatch { trip_id: Uuid, mismatches: Vec<Mismatch> },
-    AssignedWithOverride { trip_id: Uuid },
+    Assigned {
+        trip_id: String,
+        trip_summary: TripSummary,
+        assignment_type: AssignmentType,
+    },
+    AssignedMismatch {
+        trip_id: String,
+        trip_summary: TripSummary,
+        assignment_type: AssignmentType,
+        mismatches: Vec<Mismatch>,
+    },
+    AssignedOverride {
+        trip_id: String,
+        trip_summary: TripSummary,
+        assignment_type: AssignmentType,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TripSummary {
+    pub date: String,
+    pub route: String,
+    pub time_range: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
+pub enum Mismatch {
+    TimeOutsideRange { receipt_time: String, trip_range: String },
+    LitersDiffer { receipt: f64, trip: f64 },
+    PriceDiffers { receipt: f64, trip: f64 },
 }
 ```
 
-### 3.2 Create `calculate_receipt_state()` function
+### 3.2 Create `get_receipt_display_state()` function
 - File: `src-tauri/src/commands/receipts_cmd.rs`
 - Single source of truth for state calculation
-- Used by both verify_receipts and trip grid
+- Computes state from DB fields + live mismatch check
+
+```rust
+fn get_receipt_display_state(receipt: &Receipt, trip: Option<&Trip>) -> ReceiptDisplayState {
+    match receipt.status {
+        ReceiptStatus::Pending => ReceiptDisplayState::Processing,
+        ReceiptStatus::NeedsReview => ReceiptDisplayState::NeedsReview,
+        _ if receipt.trip_id.is_none() => ReceiptDisplayState::Unassigned,
+        _ => {
+            let trip = trip.expect("trip required when trip_id is set");
+            let mismatches = calculate_mismatches(receipt, trip);
+
+            if receipt.mismatch_override {
+                ReceiptDisplayState::AssignedOverride { ... }
+            } else if !mismatches.is_empty() {
+                ReceiptDisplayState::AssignedMismatch { mismatches, ... }
+            } else {
+                ReceiptDisplayState::Assigned { ... }
+            }
+        }
+    }
+}
+```
 
 ### 3.3 Update `verify_receipts()`
-- Return `ReceiptState` instead of old `ReceiptVerification`
-- Remove `matched`, `datetimeWarning` fields
+- Return `ReceiptDisplayState` instead of old `ReceiptVerification`
+- Deprecate old struct
 
 ### 3.4 Update `calculate_missing_receipts()`
 - File: `src-tauri/src/statistics.rs`
@@ -139,9 +275,20 @@ pub enum ReceiptState {
 
 ### 4.1 Update `TripSelectorModal.svelte`
 - Add radio buttons: "Priradiť ako PALIVO" / "Priradiť ako INÉ"
-- Pass `assignmentType` to backend
-- Show mismatch warning dialog when data differs
-- Add "Priradiť s varovaním" / "Priradiť a potvrdiť" buttons
+- Pass `assignmentType` and `mismatchOverride` to backend
+- Show mismatch warning dialog when data differs:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Dialog: "Údaje nesúhlasia"                                 │
+├─────────────────────────────────────────────────────────────┤
+│  [Zrušiť]  [Priradiť s varovaním]  [Priradiť a potvrdiť]   │
+│                                                             │
+│     ↓              ↓                        ↓               │
+│   Cancel    mismatchOverride=false   mismatchOverride=true  │
+│             (shows 🟡 warning)       (shows 🟠 override)    │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### 4.2 Update invoice cards in `doklady/+page.svelte`
 - Show assignment type badge (PALIVO / INÉ)
@@ -170,7 +317,7 @@ receipts: {
 }
 ```
 
-**Tests:** Integration test for assignment flow with type selection
+**Tests:** Integration test for assignment flow with type selection [Tier 2]
 
 ---
 
@@ -203,23 +350,19 @@ trips: {
 }
 ```
 
-**Tests:** Integration test for trip grid indicators
+**Tests:** Integration test for trip grid indicators [Tier 2]
 
 ---
 
-## Phase 6: Cleanup & Migration
+## Phase 6: Cleanup
 
-### 6.1 Migrate existing data
-- Existing `trip_id` assignments: set `assignment_type` based on context
-- If receipt has liters → Fuel, else → Other
-- Existing `status = 'Assigned'` → keep, determine type
-
-### 6.2 Remove deprecated code
+### 6.1 Remove deprecated code
 - Remove old `matched` field usage
 - Remove old `datetimeWarning` field usage
 - Remove auto-detection in `is_fuel_receipt` check
+- Remove/deprecate `ReceiptVerification` struct
 
-### 6.3 Update tests
+### 6.2 Update tests
 - Remove tests for old behavior
 - Ensure all new scenarios covered
 
@@ -228,18 +371,18 @@ trips: {
 ## Testing Checklist
 
 ### Backend Unit Tests
-- [ ] C1: Assign to empty trip as FUEL → populates fuel fields
-- [ ] C2: Assign to empty trip as OTHER → populates other fields
-- [ ] C3: Assign to trip with matching fuel → links only
-- [ ] C4: Assign to trip with mismatched fuel → shows warning
-- [ ] C5: Override mismatch → warning suppressed
-- [ ] C6: Trip already has other costs → block/warn
-- [ ] C7: Reassign invoice to different trip
+- [ ] `test_assign_fuel_to_empty_trip_populates_data`
+- [ ] `test_assign_other_to_empty_trip_populates_data`
+- [ ] `test_assign_fuel_with_matching_data_links_only`
+- [ ] `test_assign_fuel_with_mismatch_no_override`
+- [ ] `test_assign_fuel_with_mismatch_and_override`
+- [ ] `test_assign_other_to_trip_with_existing_other_costs_blocked`
+- [ ] `test_reassign_invoice_to_different_trip`
 
-### Integration Tests
+### Integration Tests [Tier 2]
 - [ ] Assignment dialog shows FUEL/OTHER selector
-- [ ] Mismatch warning dialog appears
-- [ ] Override button works
+- [ ] Mismatch warning dialog appears with correct buttons
+- [ ] Override button works (yellow → orange)
 - [ ] Trip grid shows correct triangles
 - [ ] Hover tooltips show details
 
@@ -254,17 +397,17 @@ trips: {
 | Phase 3: Backend verification | 2h | Phase 2 |
 | Phase 4: Frontend invoice | 4h | Phase 3 |
 | Phase 5: Frontend trip grid | 2h | Phase 3 |
-| Phase 6: Cleanup | 2h | Phase 4, 5 |
-| **Total** | **~14h** | |
+| Phase 6: Cleanup | 1h | Phase 4, 5 |
+| **Total** | **~13h** | |
 
 ---
 
 ## Rollback Plan
 
 If issues discovered:
-1. Migration is additive (new columns), can be ignored
-2. Backend can fall back to old logic if `assignment_type` is NULL
-3. Frontend can show old UI if backend returns old format
+1. Migration unassigns existing receipts - safe, user can reassign
+2. New columns are nullable - old code can ignore them
+3. Frontend can fall back to old UI if backend returns old format
 
 ---
 
