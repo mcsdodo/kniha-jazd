@@ -94,7 +94,8 @@
 | C3 | Assign invoice to trip with matching fuel data, as FUEL | Just link (no data change) | 🟢 |
 | C4 | Assign invoice to trip with mismatched fuel data, as FUEL | Link + show warning | 🟢⚠ |
 | C5 | User overrides mismatch warning | Warning suppressed | 🟠 |
-| C6 | Assign invoice to trip that already has other costs | Block or warn? (decision needed) | ❓ |
+| C6 | Assign invoice to trip with matching other costs, as OTHER | Just link (no data change) - same as C3 | 🟢 |
+| C6a | Assign invoice to trip with mismatched other costs, as OTHER | Link + show warning - same as C4 | 🟢⚠ |
 | C7 | Assign same invoice to different trip | Reassign (move from old to new) | 🟢 |
 
 ### D. Data Mismatch Scenarios (when assigning FUEL invoice)
@@ -359,9 +360,9 @@ pub enum Mismatch {
 
 ## Open Questions
 
-1. **Block or warn when trip already has other costs?**
-   - Current: Blocks with "Jazda už má iné náklady"
-   - Alternative: Warn and allow (replace old value)
+1. ~~**Block or warn when trip already has other costs?**~~
+   - **RESOLVED (2026-02-03):** Allow with same logic as fuel - if data matches just link, if mismatch show warning
+   - See C6/C6a scenarios
 
 2. **Show suggestions for likely matches?**
    - Even without auto-matching, we can highlight trips with matching date/data
