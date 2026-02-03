@@ -138,6 +138,44 @@
 			default: return '';
 		}
 	}
+
+	// Generate detailed tooltip showing exact mismatch values
+	function getMismatchDetailTooltip(item: TripForAssignment): string {
+		if (!item.mismatchReason) return '';
+
+		const trip = item.trip;
+		const details: string[] = [];
+		const isFuelReceipt = receipt.liters !== null && receipt.liters > 0;
+
+		// Check what mismatches
+		const hasDateMismatch = item.mismatchReason.includes('date') || item.mismatchReason === 'all';
+		const hasLitersMismatch = item.mismatchReason.includes('liters') || item.mismatchReason === 'all';
+		const hasPriceMismatch = item.mismatchReason === 'price' || item.mismatchReason.includes('price') || item.mismatchReason === 'all';
+
+		// Date/time mismatch detail
+		if (hasDateMismatch && receipt.receiptDatetime) {
+			const receiptTime = receipt.receiptDatetime.slice(11, 16); // HH:MM
+			const tripStart = trip.startDatetime.slice(11, 16);
+			const tripEnd = trip.endDatetime ? trip.endDatetime.slice(11, 16) : tripStart;
+			details.push(`Čas dokladu ${receiptTime} – jazda ${tripStart}–${tripEnd}`);
+		}
+
+		// Liters mismatch detail (for fuel receipts)
+		if (hasLitersMismatch && isFuelReceipt && receipt.liters && trip.fuelLiters) {
+			details.push(`Litre: doklad ${receipt.liters.toFixed(2)} L – jazda ${trip.fuelLiters.toFixed(2)} L`);
+		}
+
+		// Price mismatch detail
+		if (hasPriceMismatch && receipt.totalPriceEur) {
+			if (isFuelReceipt && trip.fuelCostEur) {
+				details.push(`Cena: doklad ${receipt.totalPriceEur.toFixed(2)} € – jazda ${trip.fuelCostEur.toFixed(2)} €`);
+			} else if (!isFuelReceipt && trip.otherCostsEur) {
+				details.push(`Cena: doklad ${receipt.totalPriceEur.toFixed(2)} € – jazda ${trip.otherCostsEur.toFixed(2)} €`);
+			}
+		}
+
+		return details.join('\n');
+	}
 </script>
 
 <div
@@ -194,8 +232,8 @@
 							{#if item.attachmentStatus === 'matches'}
 								<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>
 							{:else if item.attachmentStatus === 'differs'}
-								<span class="existing">
-									{item.trip.fuelLiters?.toFixed(2)} L — {getMismatchReasonText(item.mismatchReason)}
+								<span class="existing" title={getMismatchDetailTooltip(item)}>
+									⚠ {getMismatchReasonText(item.mismatchReason)}
 								</span>
 							{/if}
 						</button>
@@ -247,7 +285,9 @@
 						<span>{$LL.tripSelector.dataMismatch()}</span>
 					</div>
 					<div class="mismatch-details">
-						{getMismatchReasonText(selectedTrip.mismatchReason)}
+						{#each getMismatchDetailTooltip(selectedTrip).split('\n') as line}
+							<div class="mismatch-line">{line}</div>
+						{/each}
 					</div>
 					<div class="mismatch-actions">
 						<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
