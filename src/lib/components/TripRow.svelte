@@ -566,9 +566,7 @@
 					{/if}
 					{#if !hasMatchingReceipt}
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingReceipt()}>⚠</span>
-					{:else if hasReceiptMismatchOverride}
-						<span class="receipt-indicator override" title={$LL.trips.legend.userConfirmed()}>⚠</span>
-					{:else if hasReceiptDatetimeWarning}
+					{:else if hasReceiptDatetimeWarning && !hasReceiptMismatchOverride}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
@@ -617,9 +615,7 @@
 				{#if trip.otherCostsEur && !trip.fuelLiters}
 					{#if !hasMatchingReceipt}
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingReceipt()}>⚠</span>
-					{:else if hasReceiptMismatchOverride}
-						<span class="receipt-indicator override" title={$LL.trips.legend.userConfirmed()}>⚠</span>
-					{:else if hasReceiptDatetimeWarning}
+					{:else if hasReceiptDatetimeWarning && !hasReceiptMismatchOverride}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}

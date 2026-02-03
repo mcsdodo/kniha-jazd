@@ -32,10 +32,9 @@
 	// Determine if this receipt looks like fuel (has liters)
 	let looksLikeFuel = $derived(receipt.liters !== null && receipt.liters > 0);
 
-	// Detect if there's a mismatch when assigning as FUEL
+	// Detect if there's a mismatch when assigning (FUEL or OTHER)
 	let hasMismatch = $derived(() => {
-		if (!selectedTrip || assignmentType !== 'Fuel') return false;
-		// If trip has fuel and status is 'differs', there's a mismatch
+		if (!selectedTrip) return false;
 		return selectedTrip.attachmentStatus === 'differs';
 	});
 
@@ -276,8 +275,8 @@
 				</label>
 			</div>
 
-			{#if assignmentType === 'Fuel' && selectedTrip.attachmentStatus === 'differs'}
-				<!-- Mismatch warning for FUEL assignment -->
+			{#if selectedTrip.attachmentStatus === 'differs'}
+				<!-- Mismatch warning for assignment (FUEL or OTHER) -->
 				<div class="mismatch-warning">
 					<div class="warning-header">
 						<span class="warning-icon">⚠</span>
