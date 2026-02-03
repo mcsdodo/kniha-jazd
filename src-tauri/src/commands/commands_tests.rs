@@ -2129,8 +2129,9 @@ fn test_get_trips_for_receipt_assignment_matching_fuel_returns_can_attach_true()
 }
 
 #[test]
-fn test_get_trips_for_receipt_assignment_different_liters_returns_can_attach_false() {
-    // Trip HAS fuel data but receipt has DIFFERENT liters → cannot attach
+fn test_get_trips_for_receipt_assignment_different_liters_shows_mismatch() {
+    // Design spec v7 (C4): Trip HAS fuel data but receipt has DIFFERENT liters
+    // → CAN attach (user decides), but status shows 'differs' with mismatch reason
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -2161,19 +2162,26 @@ fn test_get_trips_for_receipt_assignment_different_liters_returns_can_attach_fal
     assert!(result.is_ok(), "Should return trips");
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
+    // Design spec v7: User CAN attach with mismatch, they just see a warning
     assert!(
-        !trips[0].can_attach,
-        "Different liters should NOT allow attachment"
+        trips[0].can_attach,
+        "Different liters should allow attachment (user confirms mismatch)"
     );
     assert_eq!(
         trips[0].attachment_status, "differs",
         "Status should be 'differs'"
     );
+    assert_eq!(
+        trips[0].mismatch_reason.as_deref(),
+        Some("liters"),
+        "Mismatch reason should indicate liters"
+    );
 }
 
 #[test]
-fn test_get_trips_for_receipt_assignment_different_price_returns_can_attach_false() {
-    // Trip HAS fuel data but receipt has DIFFERENT price → cannot attach
+fn test_get_trips_for_receipt_assignment_different_price_shows_mismatch() {
+    // Design spec v7 (C4): Trip HAS fuel data but receipt has DIFFERENT price
+    // → CAN attach (user decides), but status shows 'differs' with mismatch reason
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -2204,19 +2212,26 @@ fn test_get_trips_for_receipt_assignment_different_price_returns_can_attach_fals
     assert!(result.is_ok(), "Should return trips");
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
+    // Design spec v7: User CAN attach with mismatch, they just see a warning
     assert!(
-        !trips[0].can_attach,
-        "Different price should NOT allow attachment"
+        trips[0].can_attach,
+        "Different price should allow attachment (user confirms mismatch)"
     );
     assert_eq!(
         trips[0].attachment_status, "differs",
         "Status should be 'differs'"
     );
+    assert_eq!(
+        trips[0].mismatch_reason.as_deref(),
+        Some("price"),
+        "Mismatch reason should indicate price"
+    );
 }
 
 #[test]
-fn test_get_trips_for_receipt_assignment_different_date_returns_can_attach_false() {
-    // Trip HAS fuel data but receipt has DIFFERENT date → cannot attach
+fn test_get_trips_for_receipt_assignment_different_date_shows_mismatch() {
+    // Design spec v7 (C4): Trip HAS fuel data but receipt has DIFFERENT date
+    // → CAN attach (user decides), but status shows 'differs' with mismatch reason
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -2249,13 +2264,19 @@ fn test_get_trips_for_receipt_assignment_different_date_returns_can_attach_false
     assert!(result.is_ok(), "Should return trips");
     let trips = result.unwrap();
     assert_eq!(trips.len(), 1, "Should have 1 trip");
+    // Design spec v7: User CAN attach with mismatch, they just see a warning
     assert!(
-        !trips[0].can_attach,
-        "Different date should NOT allow attachment"
+        trips[0].can_attach,
+        "Different date should allow attachment (user confirms mismatch)"
     );
     assert_eq!(
         trips[0].attachment_status, "differs",
         "Status should be 'differs'"
+    );
+    assert_eq!(
+        trips[0].mismatch_reason.as_deref(),
+        Some("date"),
+        "Mismatch reason should indicate date"
     );
 }
 

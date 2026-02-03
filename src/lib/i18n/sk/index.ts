@@ -370,14 +370,17 @@ const sk = {
 		timeNotExtracted: 'Čas nerozpoznaný',
 		// Filters
 		filterAll: 'Všetky',
-		filterUnassigned: 'Neoverené',
+		filterUnassigned: 'Nepriradené',
 		filterNeedsReview: 'Na kontrolu',
 		filterFuel: 'Tankovanie',
 		filterOther: 'Iné náklady',
-		// Verification summary
-		allVerified: '{count:number}/{total:number} dokladov overených',
-		verified: '{count:number}/{total:number} overených',
-		unverified: '{count:number} neoverených',
+		// Assignment summary
+		allAssigned: '{count:number}/{total:number} dokladov priradených',
+		assigned: '{count:number}/{total:number} priradených',
+		unassigned: '{count:number} nepriradených',
+		// Section headers
+		sectionUnassigned: 'Nepriradené',
+		sectionAssigned: 'Priradené',
 		// Receipt details
 		date: 'Dátum:',
 		liters: 'Litre:',
@@ -390,9 +393,9 @@ const sk = {
 		confidenceLow: 'Nízka istota',
 		confidenceUnknown: 'Neznáma istota',
 		// Status badges
-		statusVerified: 'Overený',
+		statusAssigned: 'Priradený',
 		statusNeedsReview: 'Na kontrolu',
-		statusUnverified: 'Neoverený',
+		statusUnassigned: 'Nepriradený',
 		// Assignment type badges
 		assignedAsFuel: 'PALIVO',
 		assignedAsOther: 'INÉ',

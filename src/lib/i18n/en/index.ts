@@ -370,14 +370,17 @@ const en = {
 		timeNotExtracted: 'Time not extracted',
 		// Filters
 		filterAll: 'All',
-		filterUnassigned: 'Unverified',
+		filterUnassigned: 'Unassigned',
 		filterNeedsReview: 'Needs review',
 		filterFuel: 'Fuel',
 		filterOther: 'Other costs',
-		// Verification summary
-		allVerified: '{count}/{total} receipts verified',
-		verified: '{count}/{total} verified',
-		unverified: '{count} unverified',
+		// Assignment summary
+		allAssigned: '{count}/{total} receipts assigned',
+		assigned: '{count}/{total} assigned',
+		unassigned: '{count} unassigned',
+		// Section headers
+		sectionUnassigned: 'Unassigned',
+		sectionAssigned: 'Assigned',
 		// Receipt details
 		date: 'Date:',
 		liters: 'Liters:',
@@ -390,9 +393,9 @@ const en = {
 		confidenceLow: 'Low confidence',
 		confidenceUnknown: 'Unknown confidence',
 		// Status badges
-		statusVerified: 'Verified',
+		statusAssigned: 'Assigned',
 		statusNeedsReview: 'Needs review',
-		statusUnverified: 'Unverified',
+		statusUnassigned: 'Unassigned',
 		// Assignment type badges
 		assignedAsFuel: 'FUEL',
 		assignedAsOther: 'OTHER',
