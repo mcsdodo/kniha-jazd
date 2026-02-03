@@ -171,19 +171,26 @@ If receipt has liters → Fuel, else → Other
 
 ## Acceptance Checklist
 
-- [ ] C1: Clarify ReceiptState enum purpose (transient vs DB-backed)
-- [ ] C2: Specify AssignmentType serialization to SQLite
-- [ ] I1: Decide behavior for "trip already has other_costs" scenario
-- [ ] I2: Write actual SQL migration script for Phase 6.1
-- [ ] I3: Document backend state machine for mismatch_override behavior
-- [ ] M1: Rename tests for clarity (optional but recommended)
-- [ ] M2: Tier tests 1 vs 2 (optional, affects CI only)
+- [x] C1: Clarify ReceiptState enum purpose (transient vs DB-backed)
+  - **Resolved:** `ReceiptDisplayState` is computed, never stored. DB stores only scalar fields.
+- [x] C2: Specify AssignmentType serialization to SQLite
+  - **Resolved:** Uses serde default - stores as `"Fuel"` or `"Other"` TEXT.
+- [x] I1: Decide behavior for "trip already has other_costs" scenario
+  - **Resolved:** Keep Block behavior (current). User must unassign first.
+- [x] I2: Write actual SQL migration script for Phase 6.1
+  - **Resolved:** No auto-categorization. Migration unassigns existing receipts. User reassigns manually.
+- [x] I3: Document backend state machine for mismatch_override behavior
+  - **Resolved:** Added table showing `mismatch_override` × `has_mismatch` → UI state.
+- [x] M1: Rename tests for clarity (optional but recommended)
+  - **Resolved:** Using descriptive names like `test_assign_fuel_to_empty_trip_populates_data`.
+- [x] M2: Tier tests 1 vs 2 (optional, affects CI only)
+  - **Resolved:** New integration tests marked as Tier 2.
 
 ---
 
 ## Recommendation
 
-**Status: NEEDS REVISIONS**
+**Status: ✅ APPROVED** (Updated 2026-02-03)
 
 Plan has solid structure and correctly identifies phases, but:
 1. **C1 & C2 must be resolved** - implementation will fail without clear enum design
