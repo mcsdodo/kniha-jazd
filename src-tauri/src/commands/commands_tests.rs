@@ -70,13 +70,23 @@ fn make_trip_without_fuel(date: NaiveDate) -> Trip {
     }
 }
 
-/// Helper to create a receipt with matching values
+/// Helper to create an unassigned receipt
 fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>) -> Receipt {
+    make_receipt_with_trip_id(date, liters, price, None)
+}
+
+/// Helper to create a receipt optionally assigned to a trip
+fn make_receipt_with_trip_id(
+    date: Option<NaiveDate>,
+    liters: Option<f64>,
+    price: Option<f64>,
+    trip_id: Option<Uuid>,
+) -> Receipt {
     let now = Utc::now();
     Receipt {
         id: Uuid::new_v4(),
         vehicle_id: None,
-        trip_id: None,
+        trip_id,
         file_path: "/test/receipt.jpg".to_string(),
         file_name: "receipt.jpg".to_string(),
         scanned_at: now,
@@ -90,7 +100,7 @@ fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>
         original_amount: price,
         original_currency: Some("EUR".to_string()),
         source_year: None,
-        status: ReceiptStatus::Parsed,
+        status: if trip_id.is_some() { ReceiptStatus::Assigned } else { ReceiptStatus::Parsed },
         confidence: FieldConfidence {
             liters: ConfidenceLevel::High,
             total_price: ConfidenceLevel::High,
@@ -98,7 +108,7 @@ fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>
         },
         raw_ocr_text: None,
         error_message: None,
-        assignment_type: None,
+        assignment_type: if trip_id.is_some() { Some(crate::models::AssignmentType::Fuel) } else { None },
         mismatch_override: false,
         created_at: now,
         updated_at: now,
@@ -106,73 +116,43 @@ fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>
 }
 
 // ========================================================================
-// Receipt-trip matching tests (calculate_missing_receipts)
+// Receipt-trip assignment tests (calculate_missing_receipts)
+// Task 51: Uses trip_id (explicit assignment) instead of computed matching
 // ========================================================================
 
 #[test]
-fn test_missing_receipts_exact_match() {
-    // Trip and receipt with exact same date, liters, and price
+fn test_missing_receipts_trip_with_assigned_receipt_not_flagged() {
+    // Trip with explicitly assigned receipt → NOT missing
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(Some(date), Some(45.0), Some(72.50))];
+    // Receipt assigned to trip via trip_id
+    let receipts = vec![make_receipt_with_trip_id(Some(date), Some(45.0), Some(72.50), Some(trips[0].id))];
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
     assert!(
         missing.is_empty(),
-        "Trip with matching receipt should not be flagged as missing"
+        "Trip with assigned receipt should not be flagged as missing"
     );
 }
 
 #[test]
-fn test_missing_receipts_no_match_different_date() {
-    // Same liters and price, but different date
-    let trip_date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let receipt_date = NaiveDate::from_ymd_opt(2024, 6, 16).unwrap();
-    let trips = vec![make_trip_with_fuel(trip_date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(Some(receipt_date), Some(45.0), Some(72.50))];
+fn test_missing_receipts_trip_without_assigned_receipt_flagged() {
+    // Trip with fuel but no receipt assigned → missing
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
+    // Receipt exists but NOT assigned (trip_id = None)
+    let receipts = vec![make_receipt(Some(date), Some(45.0), Some(72.50))];
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Trip should be flagged when date differs");
+    assert_eq!(missing.len(), 1, "Trip without assigned receipt should be flagged");
     assert!(missing.contains(&trips[0].id.to_string()));
 }
 
 #[test]
-fn test_missing_receipts_no_match_different_liters() {
-    // Same date and price, but different liters
-    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(Some(date), Some(44.5), Some(72.50))]; // Different liters
-
-    let missing = calculate_missing_receipts(&trips, &receipts);
-
-    assert_eq!(
-        missing.len(),
-        1,
-        "Trip should be flagged when liters differ"
-    );
-}
-
-#[test]
-fn test_missing_receipts_no_match_different_price() {
-    // Same date and liters, but different price
-    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(Some(date), Some(45.0), Some(73.00))]; // Different price
-
-    let missing = calculate_missing_receipts(&trips, &receipts);
-
-    assert_eq!(
-        missing.len(),
-        1,
-        "Trip should be flagged when price differs"
-    );
-}
-
-#[test]
-fn test_missing_receipts_trip_without_fuel_not_flagged() {
-    // Trip without fuel should NOT be flagged as missing receipt
+fn test_missing_receipts_trip_without_costs_not_flagged() {
+    // Trip without fuel or other_costs → NOT flagged (doesn't need receipt)
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_without_fuel(date)];
     let receipts: Vec<Receipt> = vec![];
@@ -181,13 +161,28 @@ fn test_missing_receipts_trip_without_fuel_not_flagged() {
 
     assert!(
         missing.is_empty(),
-        "Trip without fuel should not be flagged as missing receipt"
+        "Trip without fuel/other_costs should not be flagged as missing receipt"
     );
 }
 
 #[test]
+fn test_missing_receipts_trip_with_other_costs_no_receipt_flagged() {
+    // Trip with other_costs but no assigned receipt → missing
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_without_fuel(date);
+    trip.other_costs_eur = Some(15.0);
+    trip.other_costs_note = Some("Parkovanie".to_string());
+    let trips = vec![trip];
+    let receipts: Vec<Receipt> = vec![];
+
+    let missing = calculate_missing_receipts(&trips, &receipts);
+
+    assert_eq!(missing.len(), 1, "Trip with other_costs but no receipt should be flagged");
+}
+
+#[test]
 fn test_missing_receipts_no_receipts_available() {
-    // Trip with fuel but no receipts at all
+    // Trip with fuel but no receipts at all → missing
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
     let receipts: Vec<Receipt> = vec![];
@@ -202,19 +197,19 @@ fn test_missing_receipts_no_receipts_available() {
 }
 
 #[test]
-fn test_missing_receipts_multiple_trips_partial_match() {
-    // Multiple trips, some with matching receipts, some without
+fn test_missing_receipts_multiple_trips_partial_assignment() {
+    // Multiple trips: some with assigned receipts, some without
     let date1 = NaiveDate::from_ymd_opt(2024, 6, 10).unwrap();
     let date2 = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap();
     let date3 = NaiveDate::from_ymd_opt(2024, 6, 30).unwrap();
 
     let trips = vec![
-        make_trip_with_fuel(date1, 40.0, 65.00), // Will have matching receipt
-        make_trip_with_fuel(date2, 50.0, 80.00), // No matching receipt
-        make_trip_without_fuel(date3),           // No fuel, should not be flagged
+        make_trip_with_fuel(date1, 40.0, 65.00),       // Has assigned receipt
+        make_trip_with_fuel(date2, 50.0, 80.00),       // No assigned receipt
+        make_trip_without_fuel(date3),                 // No costs, doesn't need receipt
     ];
     let receipts = vec![
-        make_receipt(Some(date1), Some(40.0), Some(65.00)), // Matches trip 1
+        make_receipt_with_trip_id(Some(date1), Some(40.0), Some(65.00), Some(trips[0].id)), // Assigned to trip 1
     ];
 
     let missing = calculate_missing_receipts(&trips, &receipts);
@@ -222,52 +217,37 @@ fn test_missing_receipts_multiple_trips_partial_match() {
     assert_eq!(missing.len(), 1, "Only trip 2 should be flagged");
     assert!(
         missing.contains(&trips[1].id.to_string()),
-        "Trip 2 (with fuel, no receipt) should be flagged"
+        "Trip 2 (with fuel, no assigned receipt) should be flagged"
     );
     assert!(
         !missing.contains(&trips[0].id.to_string()),
-        "Trip 1 (with matching receipt) should not be flagged"
+        "Trip 1 (with assigned receipt) should not be flagged"
     );
     assert!(
         !missing.contains(&trips[2].id.to_string()),
-        "Trip 3 (no fuel) should not be flagged"
+        "Trip 3 (no costs) should not be flagged"
     );
 }
 
 #[test]
-fn test_missing_receipts_receipt_with_missing_date() {
-    // Receipt without a date cannot match
-    let trip_date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(trip_date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(None, Some(45.0), Some(72.50))]; // No date
+fn test_missing_receipts_receipt_assigned_to_different_trip() {
+    // Receipt assigned to trip A, trip B has no receipt → trip B flagged
+    let date1 = NaiveDate::from_ymd_opt(2024, 6, 10).unwrap();
+    let date2 = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap();
+
+    let trips = vec![
+        make_trip_with_fuel(date1, 40.0, 65.00),
+        make_trip_with_fuel(date2, 50.0, 80.00),
+    ];
+    let receipts = vec![
+        make_receipt_with_trip_id(Some(date1), Some(40.0), Some(65.00), Some(trips[0].id)), // Assigned to trip 1 only
+    ];
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Receipt without date should not match");
-}
-
-#[test]
-fn test_missing_receipts_receipt_with_missing_liters() {
-    // Receipt without liters cannot match
-    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(Some(date), None, Some(72.50))]; // No liters
-
-    let missing = calculate_missing_receipts(&trips, &receipts);
-
-    assert_eq!(missing.len(), 1, "Receipt without liters should not match");
-}
-
-#[test]
-fn test_missing_receipts_receipt_with_missing_price() {
-    // Receipt without price cannot match
-    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let receipts = vec![make_receipt(Some(date), Some(45.0), None)]; // No price
-
-    let missing = calculate_missing_receipts(&trips, &receipts);
-
-    assert_eq!(missing.len(), 1, "Receipt without price should not match");
+    assert_eq!(missing.len(), 1);
+    assert!(missing.contains(&trips[1].id.to_string()), "Trip 2 should be flagged");
+    assert!(!missing.contains(&trips[0].id.to_string()), "Trip 1 should not be flagged");
 }
 
 // ========================================================================

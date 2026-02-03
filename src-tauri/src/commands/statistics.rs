@@ -1270,30 +1270,26 @@ pub(crate) fn calculate_consumption_warnings(
     warnings
 }
 
-/// Find trips with fuel that don't have a matching receipt.
-/// A trip has a matching receipt if datetime is within trip range, and liters and price match exactly.
-/// Trips without fuel don't need receipts.
+/// Find trips with costs that don't have an assigned receipt.
+/// Task 51: Uses trip_id directly (explicit assignment) instead of computed matching.
+/// A trip needs a receipt if it has fuel OR other_costs, and no receipt has trip_id = this_trip.
 pub(crate) fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
     let mut missing = HashSet::new();
 
     for trip in trips {
-        // Trips without fuel don't need receipts
-        if trip.fuel_liters.is_none() {
+        // Trips without any costs don't need receipts
+        let has_fuel = trip.fuel_liters.is_some();
+        let has_other_costs = trip.other_costs_eur.is_some();
+        if !has_fuel && !has_other_costs {
             continue;
         }
 
-        // Check if any receipt matches this trip exactly
-        let has_match = receipts.iter().any(|r| {
-            // Receipt datetime must be within trip's [start, end] range
-            let datetime_match = r.receipt_datetime
-                .map(|dt| is_datetime_in_trip_range(dt, trip))
-                .unwrap_or(false);
-            let liters_match = r.liters == trip.fuel_liters;
-            let price_match = r.total_price_eur == trip.fuel_cost_eur;
-            datetime_match && liters_match && price_match
+        // Check if any receipt is explicitly assigned to this trip
+        let has_assigned_receipt = receipts.iter().any(|r| {
+            r.trip_id.map(|id| id == trip.id).unwrap_or(false)
         });
 
-        if !has_match {
+        if !has_assigned_receipt {
             missing.insert(trip.id.to_string());
         }
     }

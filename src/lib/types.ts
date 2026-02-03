@@ -270,6 +270,38 @@ export interface VerificationResult {
 	receipts: ReceiptVerification[];
 }
 
+// =============================================================================
+// Receipt Display State (Task 51: Computed, never stored)
+// =============================================================================
+
+/** Summary of a trip for display in receipt UI */
+export interface TripSummary {
+	tripId: string;
+	date: string; // "D.M." format (e.g., "15.1.")
+	route: string; // "Origin → Destination"
+	timeRange: string; // "HH:MM–HH:MM"
+}
+
+/** Data mismatch details for UI display */
+export type DataMismatch =
+	| { type: 'timeOutsideRange'; receiptTime: string; tripRange: string }
+	| { type: 'litersDiffer'; receipt: number; trip: number }
+	| { type: 'priceDiffers'; receipt: number; trip: number };
+
+/** Computed display state for receipts - NEVER stored in DB */
+export type ReceiptDisplayState =
+	| { state: 'processing' }
+	| { state: 'needsReview' }
+	| { state: 'unassigned' }
+	| { state: 'assigned'; tripSummary: TripSummary; assignmentType: AssignmentType }
+	| {
+			state: 'assignedMismatch';
+			tripSummary: TripSummary;
+			assignmentType: AssignmentType;
+			mismatches: DataMismatch[];
+	  }
+	| { state: 'assignedOverride'; tripSummary: TripSummary; assignmentType: AssignmentType };
+
 // Live preview result for trip editing
 export interface PreviewResult {
 	fuelRemaining: number;
