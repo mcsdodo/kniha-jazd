@@ -1721,10 +1721,13 @@ fn make_trip_for_assignment(
     }
 }
 
+// ========================================================================
+// Task 51: Explicit assignment type tests (C1-C7 scenarios)
+// ========================================================================
+
 #[test]
-fn test_assign_fuel_receipt_matches_trip() {
-    // Test: Assign fuel receipt that matches trip's fuel data
-    // Expected: Receipt assigned, trip.other_costs unchanged
+fn test_assign_fuel_to_empty_trip_populates_data() {
+    // Scenario C1: FUEL receipt to empty trip → populates fuel_liters/fuel_cost_eur
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1737,11 +1740,11 @@ fn test_assign_fuel_receipt_matches_trip() {
     db.create_vehicle(&vehicle).unwrap();
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+    // Trip with NO fuel data
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
     db.create_trip(&trip).unwrap();
 
-    // Receipt with matching liters/price/date = fuel receipt
-    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
+    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), Some("OMV"), None);
     db.create_receipt(&receipt).unwrap();
 
     let result = assign_receipt_to_trip_internal(
@@ -1749,27 +1752,28 @@ fn test_assign_fuel_receipt_matches_trip() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
+        "Fuel",  // Explicit FUEL assignment
+        false,   // No mismatch override
     );
 
     assert!(result.is_ok(), "Assignment should succeed");
 
     let assigned_receipt = result.unwrap();
     assert_eq!(assigned_receipt.trip_id, Some(trip.id));
-    assert_eq!(assigned_receipt.vehicle_id, Some(vehicle.id));
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
+    assert_eq!(assigned_receipt.mismatch_override, false);
     assert_eq!(assigned_receipt.status, ReceiptStatus::Assigned);
 
-    // Trip should NOT have other_costs set (fuel receipt doesn't touch other_costs)
+    // Trip should have FUEL fields populated
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
-    assert!(
-        updated_trip.other_costs_eur.is_none(),
-        "Fuel receipt should not set other_costs"
-    );
+    assert_eq!(updated_trip.fuel_liters, Some(45.0));
+    assert_eq!(updated_trip.fuel_cost_eur, Some(72.0));
+    assert!(updated_trip.other_costs_eur.is_none(), "FUEL should not touch other_costs");
 }
 
 #[test]
-fn test_assign_other_cost_receipt_no_liters() {
-    // Test: Assign receipt without liters (car wash, parking, etc.)
-    // Expected: Receipt assigned, trip.other_costs populated
+fn test_assign_other_to_empty_trip_populates_data() {
+    // Scenario C2: OTHER receipt to empty trip → populates other_costs_eur/note
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1785,7 +1789,6 @@ fn test_assign_other_cost_receipt_no_liters() {
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
     db.create_trip(&trip).unwrap();
 
-    // Receipt without liters = other cost
     let receipt = make_receipt_with_details(
         Some(date),
         None,
@@ -1800,34 +1803,26 @@ fn test_assign_other_cost_receipt_no_liters() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
+        "Other",  // Explicit OTHER assignment
+        false,
     );
 
     assert!(result.is_ok(), "Assignment should succeed");
 
     let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
     assert_eq!(assigned_receipt.status, ReceiptStatus::Assigned);
 
-    // Trip should have other_costs set
+    // Trip should have OTHER_COSTS populated
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
-    assert_eq!(
-        updated_trip.other_costs_eur,
-        Some(15.0),
-        "Other cost should be set from receipt"
-    );
-    assert!(
-        updated_trip
-            .other_costs_note
-            .as_ref()
-            .unwrap()
-            .contains("AutoWash"),
-        "Note should contain vendor name"
-    );
+    assert_eq!(updated_trip.other_costs_eur, Some(15.0));
+    assert!(updated_trip.other_costs_note.as_ref().unwrap().contains("AutoWash"));
+    assert!(updated_trip.fuel_liters.is_none(), "OTHER should not touch fuel");
 }
 
 #[test]
-fn test_assign_receipt_with_liters_not_matching_trip_fuel() {
-    // Test: Receipt has liters (washer fluid) but doesn't match trip's fuel
-    // Expected: Treated as other cost, trip.other_costs populated
+fn test_assign_fuel_with_matching_data_links_only() {
+    // Scenario C3: FUEL receipt to trip that already has matching fuel → just links
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1840,18 +1835,10 @@ fn test_assign_receipt_with_liters_not_matching_trip_fuel() {
     db.create_vehicle(&vehicle).unwrap();
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    // Trip with fuel entry: 45L, 72 EUR
     let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
     db.create_trip(&trip).unwrap();
 
-    // Receipt with 2L, 5 EUR (washer fluid - doesn't match trip fuel)
-    let receipt = make_receipt_with_details(
-        Some(date),
-        Some(2.0),
-        Some(5.0),
-        Some("OMV"),
-        Some("Zimná zmes"),
-    );
+    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
     db.create_receipt(&receipt).unwrap();
 
     let result = assign_receipt_to_trip_internal(
@@ -1859,31 +1846,102 @@ fn test_assign_receipt_with_liters_not_matching_trip_fuel() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
+        "Fuel",
+        false,
     );
 
     assert!(result.is_ok(), "Assignment should succeed");
 
-    // Trip should have other_costs set (not treated as fuel)
+    let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.trip_id, Some(trip.id));
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
+
+    // Trip fuel data should be unchanged (just linked)
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
-    assert_eq!(
-        updated_trip.other_costs_eur,
-        Some(5.0),
-        "Washer fluid should be treated as other cost"
-    );
-    assert!(
-        updated_trip
-            .other_costs_note
-            .as_ref()
-            .unwrap()
-            .contains("OMV"),
-        "Note should contain vendor name"
-    );
+    assert_eq!(updated_trip.fuel_liters, Some(45.0));
+    assert_eq!(updated_trip.fuel_cost_eur, Some(72.0));
+    assert!(updated_trip.other_costs_eur.is_none());
 }
 
 #[test]
-fn test_assign_other_cost_receipt_collision_rejected() {
-    // Test: Try to assign other cost receipt when trip already has other_costs
-    // Expected: Error "Jazda uz ma ine naklady"
+fn test_assign_fuel_with_mismatch_no_override() {
+    // Scenario C4: FUEL receipt with mismatched data, no override → links with mismatch_override=false
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+    db.create_trip(&trip).unwrap();
+
+    // Receipt with DIFFERENT values (mismatch)
+    let receipt = make_receipt_with_details(Some(date), Some(50.0), Some(80.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+
+    let result = assign_receipt_to_trip_internal(
+        &db,
+        &receipt.id.to_string(),
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        "Fuel",
+        false,  // No override - UI will show warning
+    );
+
+    assert!(result.is_ok(), "Assignment should succeed even with mismatch");
+
+    let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
+    assert_eq!(assigned_receipt.mismatch_override, false, "Should not have override set");
+}
+
+#[test]
+fn test_assign_fuel_with_mismatch_and_override() {
+    // Scenario C5: FUEL receipt with mismatched data + user override → links with mismatch_override=true
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+    db.create_trip(&trip).unwrap();
+
+    // Receipt with DIFFERENT values (mismatch)
+    let receipt = make_receipt_with_details(Some(date), Some(50.0), Some(80.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+
+    let result = assign_receipt_to_trip_internal(
+        &db,
+        &receipt.id.to_string(),
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        "Fuel",
+        true,  // User confirmed override
+    );
+
+    assert!(result.is_ok(), "Assignment should succeed with override");
+
+    let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
+    assert_eq!(assigned_receipt.mismatch_override, true, "Should have override set");
+}
+
+#[test]
+fn test_assign_other_to_trip_with_existing_other_costs_blocked() {
+    // Scenario C6: OTHER receipt to trip that already has other_costs → BLOCKED
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1900,7 +1958,6 @@ fn test_assign_other_cost_receipt_collision_rejected() {
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
     db.create_trip(&trip).unwrap();
 
-    // Try to assign another "other cost" receipt
     let receipt = make_receipt_with_details(
         Some(date),
         None,
@@ -1915,20 +1972,68 @@ fn test_assign_other_cost_receipt_collision_rejected() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
+        "Other",
+        false,
     );
 
-    assert!(result.is_err(), "Assignment should fail due to collision");
-    assert!(
-        result.unwrap_err().contains("náklady"),
-        "Error should mention existing costs"
-    );
+    assert!(result.is_err(), "Assignment should fail - trip already has other_costs");
+    assert!(result.unwrap_err().contains("náklady"), "Error should mention existing costs");
 }
 
 #[test]
-fn test_assign_fuel_receipt_to_empty_trip_populates_fuel_fields() {
-    // Test: Receipt with liters+price attached to trip with NO fuel data
-    // Expected: Receipt should populate trip's FUEL fields, NOT other_costs
-    // Bug: Previously this was incorrectly treated as "other cost"
+fn test_reassign_invoice_to_different_trip() {
+    // Scenario C7: Reassign receipt from one trip to another
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date1 = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let date2 = NaiveDate::from_ymd_opt(2024, 6, 16).unwrap();
+    let trip1 = make_trip_for_assignment(vehicle.id, date1, None, None, None);
+    let trip2 = make_trip_for_assignment(vehicle.id, date2, None, None, None);
+    db.create_trip(&trip1).unwrap();
+    db.create_trip(&trip2).unwrap();
+
+    let receipt = make_receipt_with_details(Some(date1), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+
+    // First assignment to trip1
+    let result1 = assign_receipt_to_trip_internal(
+        &db,
+        &receipt.id.to_string(),
+        &trip1.id.to_string(),
+        &vehicle.id.to_string(),
+        "Fuel",
+        false,
+    );
+    assert!(result1.is_ok());
+    assert_eq!(result1.unwrap().trip_id, Some(trip1.id));
+
+    // Reassign to trip2
+    let result2 = assign_receipt_to_trip_internal(
+        &db,
+        &receipt.id.to_string(),
+        &trip2.id.to_string(),
+        &vehicle.id.to_string(),
+        "Fuel",
+        false,
+    );
+    assert!(result2.is_ok(), "Reassignment should succeed");
+
+    let reassigned_receipt = result2.unwrap();
+    assert_eq!(reassigned_receipt.trip_id, Some(trip2.id), "Should be assigned to trip2 now");
+}
+
+#[test]
+fn test_invalid_assignment_type_rejected() {
+    // Test: Invalid assignment type string → error
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1941,12 +2046,10 @@ fn test_assign_fuel_receipt_to_empty_trip_populates_fuel_fields() {
     db.create_vehicle(&vehicle).unwrap();
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    // Trip with NO fuel data (user created trip but didn't enter fuel yet)
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
     db.create_trip(&trip).unwrap();
 
-    // Receipt with fuel data (liters + price) = should be fuel, not other cost
-    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), Some("OMV"), None);
+    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
     db.create_receipt(&receipt).unwrap();
 
     let result = assign_receipt_to_trip_internal(
@@ -1954,30 +2057,12 @@ fn test_assign_fuel_receipt_to_empty_trip_populates_fuel_fields() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
+        "InvalidType",  // Bad value
+        false,
     );
 
-    assert!(result.is_ok(), "Assignment should succeed");
-
-    let assigned_receipt = result.unwrap();
-    assert_eq!(assigned_receipt.trip_id, Some(trip.id));
-    assert_eq!(assigned_receipt.status, ReceiptStatus::Assigned);
-
-    // Trip should have FUEL fields populated, NOT other_costs
-    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
-    assert_eq!(
-        updated_trip.fuel_liters,
-        Some(45.0),
-        "Fuel liters should be populated from receipt"
-    );
-    assert_eq!(
-        updated_trip.fuel_cost_eur,
-        Some(72.0),
-        "Fuel cost should be populated from receipt"
-    );
-    assert!(
-        updated_trip.other_costs_eur.is_none(),
-        "Other costs should NOT be set for fuel receipt on empty trip"
-    );
+    assert!(result.is_err(), "Should reject invalid assignment type");
+    assert!(result.unwrap_err().contains("Invalid assignment type"));
 }
 
 // ========================================================================
