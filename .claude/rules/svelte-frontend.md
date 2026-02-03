@@ -1,5 +1,5 @@
 ---
-globs:
+paths:
   - "src/**/*.svelte"
   - "src/**/*.ts"
   - "!src/**/*.test.ts"
