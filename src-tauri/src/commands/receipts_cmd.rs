@@ -9,11 +9,11 @@ use tauri::{Emitter, State};
 use uuid::Uuid;
 
 use crate::check_read_only;
-use crate::constants::date_formats;
 use crate::db::Database;
 use crate::gemini::is_mock_mode_enabled;
 use crate::models::{
-    AttachmentStatus, MismatchReason, Receipt, ReceiptStatus, ReceiptVerification, Trip, VerificationResult,
+    AssignmentType, AttachmentStatus, Receipt, ReceiptStatus, ReceiptVerification, Trip,
+    VerificationResult,
 };
 use crate::receipts::{
     detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts,
@@ -363,12 +363,24 @@ pub async fn reprocess_receipt(
 // ============================================================================
 
 /// Internal assign_receipt_to_trip logic (testable without State wrapper)
+///
+/// Task 51: User explicitly selects assignment type (FUEL or OTHER).
+/// - assignment_type: "Fuel" or "Other"
+/// - mismatch_override: true = user confirms data mismatch is intentional
+///
+/// Data invariant: trip_id SET ↔ assignment_type SET
 pub fn assign_receipt_to_trip_internal(
     db: &Database,
     receipt_id: &str,
     trip_id: &str,
     vehicle_id: &str,
+    assignment_type: &str,
+    mismatch_override: bool,
 ) -> Result<Receipt, String> {
+    // Parse assignment type
+    let assignment_type_enum = AssignmentType::from_str(assignment_type)
+        .ok_or_else(|| format!("Invalid assignment type: {}", assignment_type))?;
+
     let mut receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
     let receipt = receipts
         .iter_mut()
@@ -383,83 +395,62 @@ pub fn assign_receipt_to_trip_internal(
         .map_err(|e| e.to_string())?
         .ok_or("Trip not found")?;
 
-    // Multi-stage matching: determine if this is FUEL or OTHER COST
-    // Receipt is FUEL if:
-    //   1. Receipt has liters + price, AND
-    //   2. Trip has NO fuel data (empty trip) OR trip fuel data matches receipt
-    // Otherwise it's OTHER COST
+    match assignment_type_enum {
+        AssignmentType::Fuel => {
+            // FUEL assignment: populate or link fuel fields
+            let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
 
-    let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
-
-    let is_fuel_receipt = match (receipt.liters, receipt.total_price_eur) {
-        (Some(liters), Some(price)) if liters > 0.0 => {
             if !trip_has_fuel {
-                // Trip has no fuel → receipt will populate fuel fields
-                true
-            } else {
-                // Trip has fuel → check if receipt matches (verification)
-                // Receipt datetime must be within trip's [start, end] range
-                let datetime_match = receipt.receipt_datetime
-                    .map(|dt| is_datetime_in_trip_range(dt, &trip))
-                    .unwrap_or(false);
-                let liters_match = trip
-                    .fuel_liters
-                    .map(|fl| (fl - liters).abs() < 0.01)
-                    .unwrap_or(false);
-                let price_match = trip
-                    .fuel_cost_eur
-                    .map(|fc| (fc - price).abs() < 0.01)
-                    .unwrap_or(false);
-                datetime_match && liters_match && price_match
+                // Trip has no fuel → populate from receipt (scenario C1)
+                let mut updated_trip = trip.clone();
+                updated_trip.fuel_liters = receipt.liters;
+                updated_trip.fuel_cost_eur = receipt.total_price_eur;
+                updated_trip.full_tank = true; // Assume full tank when populating from receipt
+                db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
             }
+            // If trip already has fuel data, just link receipt (scenarios C3, C4, C5)
+            // Mismatch detection is handled by mismatch_override flag - UI decides whether to warn
         }
-        _ => false, // No liters or no price → cannot be fuel
-    };
+        AssignmentType::Other => {
+            // OTHER COST assignment: populate trip.other_costs_* fields (scenario C2)
 
-    if is_fuel_receipt {
-        // FUEL: populate or verify fuel fields
-        if !trip_has_fuel {
-            // Trip has no fuel → populate from receipt
+            // Check for collision - block if trip already has other costs (scenario C6)
+            if trip.other_costs_eur.is_some() {
+                return Err("Jazda už má iné náklady".to_string());
+            }
+
+            // Build note from receipt data
+            let note = match (&receipt.vendor_name, &receipt.cost_description) {
+                (Some(v), Some(d)) => format!("{}: {}", v, d),
+                (Some(v), None) => v.clone(),
+                (None, Some(d)) => d.clone(),
+                (None, None) => "Iné náklady".to_string(),
+            };
+
+            // Update trip with other costs
             let mut updated_trip = trip.clone();
-            updated_trip.fuel_liters = receipt.liters;
-            updated_trip.fuel_cost_eur = receipt.total_price_eur;
-            updated_trip.full_tank = true; // Assume full tank when populating from receipt
+            updated_trip.other_costs_eur = receipt.total_price_eur;
+            updated_trip.other_costs_note = Some(note);
             db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
         }
-        // If trip already has matching fuel data, nothing to update (just link receipt)
-    } else {
-        // OTHER COST: populate trip.other_costs_* fields
-        // (receipt without liters, or liters that don't match existing trip fuel)
-
-        // Check for collision
-        if trip.other_costs_eur.is_some() {
-            return Err("Jazda už má iné náklady".to_string());
-        }
-
-        // Build note from receipt data
-        let note = match (&receipt.vendor_name, &receipt.cost_description) {
-            (Some(v), Some(d)) => format!("{}: {}", v, d),
-            (Some(v), None) => v.clone(),
-            (None, Some(d)) => d.clone(),
-            (None, None) => "Iné náklady".to_string(),
-        };
-
-        // Update trip with other costs
-        let mut updated_trip = trip.clone();
-        updated_trip.other_costs_eur = receipt.total_price_eur;
-        updated_trip.other_costs_note = Some(note);
-        db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
     }
 
-    // Mark receipt as assigned (same for both types)
+    // Mark receipt as assigned with explicit type (data invariant: trip_id + assignment_type set together)
     receipt.trip_id = Some(trip_uuid);
     receipt.vehicle_id = Some(vehicle_uuid);
+    receipt.assignment_type = Some(assignment_type_enum);
+    receipt.mismatch_override = mismatch_override;
     receipt.status = ReceiptStatus::Assigned;
     db.update_receipt(receipt).map_err(|e| e.to_string())?;
 
     Ok(receipt.clone())
 }
 
+/// Assign a receipt to a trip with explicit type selection.
+///
+/// Task 51: User explicitly selects assignment type (FUEL or OTHER).
+/// - assignment_type: "Fuel" or "Other"
+/// - mismatch_override: true = user confirms data mismatch is intentional
 #[tauri::command]
 pub fn assign_receipt_to_trip(
     db: State<Database>,
@@ -467,9 +458,18 @@ pub fn assign_receipt_to_trip(
     receipt_id: String,
     trip_id: String,
     vehicle_id: String,
+    assignment_type: String,
+    mismatch_override: bool,
 ) -> Result<Receipt, String> {
     check_read_only!(app_state);
-    assign_receipt_to_trip_internal(&db, &receipt_id, &trip_id, &vehicle_id)
+    assign_receipt_to_trip_internal(
+        &db,
+        &receipt_id,
+        &trip_id,
+        &vehicle_id,
+        &assignment_type,
+        mismatch_override,
+    )
 }
 
 // ============================================================================
