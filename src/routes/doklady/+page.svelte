@@ -365,10 +365,9 @@
 		}
 	}
 
-	// Helper to check if receipt is verified (matched to a trip)
-	function isReceiptVerified(receiptId: string): boolean {
-		const verif = verification?.receipts.find(v => v.receiptId === receiptId);
-		return verif?.matched ?? false;
+	// Helper to check if receipt is assigned to a trip (design spec v7: trip_id based)
+	function isReceiptAssigned(receipt: Receipt): boolean {
+		return receipt.tripId != null;
 	}
 
 	// Helper to check if receipt is fuel or other cost
@@ -443,20 +442,32 @@
 	}
 
 	// Svelte 5: use $derived instead of $:
-	let filteredReceipts = $derived(
+	// Apply type filter only
+	let typeFilteredReceipts = $derived(
 		receipts.filter((r) => {
-			// Status filter
-			if (filter === 'unassigned' && isReceiptVerified(r.id)) return false;
-			if (filter === 'needs_review' && r.status !== 'NeedsReview') return false;
-			// Type filter
 			if (typeFilter === 'fuel' && !isFuelReceipt(r)) return false;
 			if (typeFilter === 'other' && isFuelReceipt(r)) return false;
 			return true;
 		})
 	);
 
+	// Split into unassigned and assigned sections (design spec v7)
+	let unassignedReceipts = $derived(
+		typeFilteredReceipts.filter((r) => {
+			if (filter === 'needs_review' && r.status !== 'NeedsReview') return false;
+			return !isReceiptAssigned(r);
+		})
+	);
+	let assignedReceipts = $derived(
+		typeFilteredReceipts.filter((r) => {
+			if (filter === 'needs_review') return false; // needs_review only shows unassigned
+			if (filter === 'unassigned') return false; // unassigned filter hides assigned
+			return isReceiptAssigned(r);
+		})
+	);
+
 	// Counts for filter badges
-	let unassignedCount = $derived(receipts.filter((r) => !isReceiptVerified(r.id)).length);
+	let unassignedCount = $derived(receipts.filter((r) => !isReceiptAssigned(r)).length);
 	let needsReviewCount = $derived(receipts.filter((r) => r.status === 'NeedsReview').length);
 	let fuelCount = $derived(receipts.filter((r) => isFuelReceipt(r)).length);
 	let otherCount = $derived(receipts.filter((r) => !isFuelReceipt(r)).length);
@@ -541,179 +552,312 @@
 	{#if verification}
 		<div class="verification-summary" class:all-matched={verification.unmatched === 0}>
 			{#if verification.unmatched === 0}
-				<span class="status-ok">✓ {$LL.receipts.allVerified({ count: verification.matched, total: verification.total })}</span>
+				<span class="status-ok">✓ {$LL.receipts.allAssigned({ count: verification.matched, total: verification.total })}</span>
 			{:else}
-				<span class="status-ok">✓ {$LL.receipts.verified({ count: verification.matched, total: verification.total })}</span>
-				<span class="status-warning">⚠ {$LL.receipts.unverified({ count: verification.unmatched })}</span>
+				<span class="status-ok">✓ {$LL.receipts.assigned({ count: verification.matched, total: verification.total })}</span>
+				<span class="status-warning">⚠ {$LL.receipts.unassigned({ count: verification.unmatched })}</span>
 			{/if}
 		</div>
 	{/if}
 
 	{#if loading}
 		<p class="placeholder">{$LL.common.loading()}</p>
-	{:else if filteredReceipts.length === 0}
+	{:else if receipts.length === 0}
 		<p class="placeholder">{$LL.receipts.noReceipts()}</p>
 	{:else}
-		<div class="receipts-list">
-			{#each filteredReceipts as receipt}
-				{@const verif = getVerificationForReceipt(receipt.id)}
-				{@const dateMismatch = getDateMismatch(receipt)}
-				{@const isUnmatched = !verif?.matched && receipt.status !== 'Assigned'}
-				<div class="receipt-card" class:unmatched={isUnmatched}>
-					<div class="receipt-header">
-						<span class="file-name">
-							<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
-								{isFuelReceipt(receipt) ? '\u26FD' : '\uD83D\uDCC4'}
-							</span>
-							{receipt.fileName}
-						</span>
-						<div class="header-badges">
-							{#if receipt.assignmentType}
-								<span class="badge {receipt.assignmentType === 'Fuel' ? 'fuel' : 'other'}">
-									{receipt.assignmentType === 'Fuel' ? $LL.receipts.assignedAsFuel() : $LL.receipts.assignedAsOther()}
-								</span>
-								{#if receipt.mismatchOverride}
-									<span class="badge override" title={$LL.receipts.overrideConfirmed()}>✓</span>
-								{/if}
-							{/if}
-							{#if receipt.tripId}
-								<span class="badge success">{$LL.receipts.statusVerified()}</span>
-							{:else if receipt.status === 'NeedsReview'}
-								<span class="badge warning">{$LL.receipts.statusNeedsReview()}</span>
-							{:else}
-								<span class="badge danger">{$LL.receipts.statusUnverified()}</span>
-							{/if}
-						</div>
-					</div>
-					<div class="receipt-details">
-						<div class="detail-row">
-							<span class="label">{$LL.receipts.date()}</span>
-							<span class="value-with-confidence">
-								<span class="value">{formatDatetime(receipt.receiptDatetime)}</span>
-								<span
-									class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
-									title={getConfidenceInfo(receipt.confidence.date).label}
-								></span>
-								{#if dateMismatch}
-									<span
-										class="date-mismatch-icon"
-										title={$LL.receipts.dateMismatch({ receiptYear: dateMismatch.receiptYear, folderYear: dateMismatch.folderYear })}
-									>⚠</span>
-								{/if}
-							</span>
-						</div>
-						{#if isFuelReceipt(receipt)}
-							<!-- Fuel receipt details -->
-							<div class="detail-row">
-								<span class="label">{$LL.receipts.liters()}</span>
-								<span class="value-with-confidence">
-									<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
-										{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
+		<!-- Design spec v7: Two sections - Unassigned and Assigned -->
+
+		{#if unassignedReceipts.length > 0}
+			<div class="receipts-section">
+				<h2 class="section-header unassigned">
+					<span class="section-icon">🔴</span>
+					{$LL.receipts.sectionUnassigned()} ({unassignedReceipts.length})
+				</h2>
+				<div class="receipts-list">
+					{#each unassignedReceipts as receipt}
+						{@const verif = getVerificationForReceipt(receipt.id)}
+						{@const dateMismatch = getDateMismatch(receipt)}
+						<div class="receipt-card unmatched">
+							<div class="receipt-header">
+								<span class="file-name">
+									<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
+										{isFuelReceipt(receipt) ? '\u26FD' : '\uD83D\uDCC4'}
 									</span>
-									<span
-										class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
-										title={getConfidenceInfo(receipt.confidence.liters).label}
-									></span>
+									{receipt.fileName}
 								</span>
+								<div class="header-badges">
+									{#if receipt.status === 'NeedsReview'}
+										<span class="badge warning">{$LL.receipts.statusNeedsReview()}</span>
+									{:else}
+										<span class="badge danger">{$LL.receipts.statusUnassigned()}</span>
+									{/if}
+								</div>
 							</div>
-							<div class="detail-row">
-								<span class="label">{$LL.receipts.price()}</span>
-								<span class="value-with-confidence">
-									<span
-										class="value"
-										class:uncertain={receipt.confidence.totalPrice === 'Low'}
-										class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
-									>
-										{formatPriceDisplay(receipt)}
-									</span>
-									<span
-										class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-										title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-									></span>
-								</span>
-							</div>
-							{#if receipt.stationName}
+							<div class="receipt-details">
 								<div class="detail-row">
-									<span class="label">{$LL.receipts.station()}</span>
-									<span class="value">{receipt.stationName}</span>
-								</div>
-							{/if}
-						{:else}
-							<!-- Other cost receipt details -->
-							<div class="detail-row">
-								<span class="label">{$LL.receipts.price()}</span>
-								<span class="value-with-confidence">
-									<span
-										class="value"
-										class:uncertain={receipt.confidence.totalPrice === 'Low'}
-										class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
-									>
-										{formatPriceDisplay(receipt)}
+									<span class="label">{$LL.receipts.date()}</span>
+									<span class="value-with-confidence">
+										<span class="value">{formatDatetime(receipt.receiptDatetime)}</span>
+										<span
+											class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
+											title={getConfidenceInfo(receipt.confidence.date).label}
+										></span>
+										{#if dateMismatch}
+											<span
+												class="date-mismatch-icon"
+												title={$LL.receipts.dateMismatch({ receiptYear: dateMismatch.receiptYear, folderYear: dateMismatch.folderYear })}
+											>⚠</span>
+										{/if}
 									</span>
-									<span
-										class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-										title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-									></span>
-								</span>
-							</div>
-							{#if receipt.vendorName}
-								<div class="detail-row">
-									<span class="label">{$LL.receipts.vendor()}</span>
-									<span class="value">{receipt.vendorName}</span>
 								</div>
-							{/if}
-							{#if receipt.costDescription}
-								<div class="detail-row full-width">
-									<span class="label">{$LL.receipts.description()}</span>
-									<span class="value">{receipt.costDescription}</span>
-								</div>
-							{/if}
-						{/if}
-						{#if receipt.errorMessage}
-							<div class="error-message">{receipt.errorMessage}</div>
-						{/if}
-						{#if !verif?.matched && verif?.mismatchReason && verif.mismatchReason.type !== 'none'}
-							<div class="datetime-warning-row">
-								<span class="warning-icon">⚠</span>
-								<span class="warning-text">{formatMismatchReason(verif.mismatchReason)}</span>
+								{#if isFuelReceipt(receipt)}
+									<div class="detail-row">
+										<span class="label">{$LL.receipts.liters()}</span>
+										<span class="value-with-confidence">
+											<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
+												{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
+											</span>
+											<span
+												class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
+												title={getConfidenceInfo(receipt.confidence.liters).label}
+											></span>
+										</span>
+									</div>
+									<div class="detail-row">
+										<span class="label">{$LL.receipts.price()}</span>
+										<span class="value-with-confidence">
+											<span
+												class="value"
+												class:uncertain={receipt.confidence.totalPrice === 'Low'}
+												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+											>
+												{formatPriceDisplay(receipt)}
+											</span>
+											<span
+												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
+											></span>
+										</span>
+									</div>
+									{#if receipt.stationName}
+										<div class="detail-row">
+											<span class="label">{$LL.receipts.station()}</span>
+											<span class="value">{receipt.stationName}</span>
+										</div>
+									{/if}
+								{:else}
+									<div class="detail-row">
+										<span class="label">{$LL.receipts.price()}</span>
+										<span class="value-with-confidence">
+											<span
+												class="value"
+												class:uncertain={receipt.confidence.totalPrice === 'Low'}
+												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+											>
+												{formatPriceDisplay(receipt)}
+											</span>
+											<span
+												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
+											></span>
+										</span>
+									</div>
+									{#if receipt.vendorName}
+										<div class="detail-row">
+											<span class="label">{$LL.receipts.vendor()}</span>
+											<span class="value">{receipt.vendorName}</span>
+										</div>
+									{/if}
+									{#if receipt.costDescription}
+										<div class="detail-row full-width">
+											<span class="label">{$LL.receipts.description()}</span>
+											<span class="value">{receipt.costDescription}</span>
+										</div>
+									{/if}
+								{/if}
+								{#if receipt.errorMessage}
+									<div class="error-message">{receipt.errorMessage}</div>
+								{/if}
 							</div>
-						{/if}
-						{#if verif?.matched}
-							<div class="matched-trip">
-								{$LL.receipts.trip()} {verif.matchedTripDatetime} | {verif.matchedTripRoute}
+							<div class="receipt-actions">
+								<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
+									{$LL.receipts.open()}
+								</button>
+								<button class="button-small" onclick={() => handleEditClick(receipt)}>
+									{$LL.common.edit()}
+								</button>
+								<button
+									class="button-small"
+									onclick={() => handleReprocess(receipt)}
+									disabled={reprocessingIds.has(receipt.id)}
+								>
+									{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
+								</button>
+								<button class="button-small primary" onclick={() => handleAssignClick(receipt)}>{$LL.receipts.assignToTrip()}</button>
+								<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
+									{$LL.common.delete()}
+								</button>
 							</div>
-							{#if verif.datetimeWarning && verif.matchedTripTimeRange}
-								<div class="datetime-warning-row">
-									<span class="warning-icon">⚠</span>
-									<span class="warning-text">{$LL.trips.receiptDatetimeMismatchWithRange({ timeRange: verif.matchedTripTimeRange })}</span>
-								</div>
-							{/if}
-						{/if}
-					</div>
-					<div class="receipt-actions">
-						<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
-							{$LL.receipts.open()}
-						</button>
-						<button class="button-small" onclick={() => handleEditClick(receipt)}>
-							{$LL.common.edit()}
-						</button>
-						<button
-							class="button-small"
-							onclick={() => handleReprocess(receipt)}
-							disabled={reprocessingIds.has(receipt.id)}
-						>
-							{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
-						</button>
-						{#if !verif?.matched}
-							<button class="button-small" onclick={() => handleAssignClick(receipt)}>{$LL.receipts.assignToTrip()}</button>
-						{/if}
-						<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
-							{$LL.common.delete()}
-						</button>
-					</div>
+						</div>
+					{/each}
 				</div>
-			{/each}
-		</div>
+			</div>
+		{/if}
+
+		{#if assignedReceipts.length > 0}
+			<div class="receipts-section">
+				<h2 class="section-header assigned">
+					<span class="section-icon">🟢</span>
+					{$LL.receipts.sectionAssigned()} ({assignedReceipts.length})
+				</h2>
+				<div class="receipts-list">
+					{#each assignedReceipts as receipt}
+						{@const verif = getVerificationForReceipt(receipt.id)}
+						{@const dateMismatch = getDateMismatch(receipt)}
+						<div class="receipt-card">
+							<div class="receipt-header">
+								<span class="file-name">
+									<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
+										{isFuelReceipt(receipt) ? '\u26FD' : '\uD83D\uDCC4'}
+									</span>
+									{receipt.fileName}
+								</span>
+								<div class="header-badges">
+									{#if receipt.assignmentType}
+										<span class="badge {receipt.assignmentType === 'Fuel' ? 'fuel' : 'other'}">
+											{receipt.assignmentType === 'Fuel' ? $LL.receipts.assignedAsFuel() : $LL.receipts.assignedAsOther()}
+										</span>
+										{#if receipt.mismatchOverride}
+											<span class="badge override" title={$LL.receipts.overrideConfirmed()}>✓</span>
+										{/if}
+									{/if}
+									<span class="badge success">{$LL.receipts.statusAssigned()}</span>
+								</div>
+							</div>
+							<div class="receipt-details">
+								<div class="detail-row">
+									<span class="label">{$LL.receipts.date()}</span>
+									<span class="value-with-confidence">
+										<span class="value">{formatDatetime(receipt.receiptDatetime)}</span>
+										<span
+											class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
+											title={getConfidenceInfo(receipt.confidence.date).label}
+										></span>
+										{#if dateMismatch}
+											<span
+												class="date-mismatch-icon"
+												title={$LL.receipts.dateMismatch({ receiptYear: dateMismatch.receiptYear, folderYear: dateMismatch.folderYear })}
+											>⚠</span>
+										{/if}
+									</span>
+								</div>
+								{#if isFuelReceipt(receipt)}
+									<div class="detail-row">
+										<span class="label">{$LL.receipts.liters()}</span>
+										<span class="value-with-confidence">
+											<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
+												{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
+											</span>
+											<span
+												class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
+												title={getConfidenceInfo(receipt.confidence.liters).label}
+											></span>
+										</span>
+									</div>
+									<div class="detail-row">
+										<span class="label">{$LL.receipts.price()}</span>
+										<span class="value-with-confidence">
+											<span
+												class="value"
+												class:uncertain={receipt.confidence.totalPrice === 'Low'}
+												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+											>
+												{formatPriceDisplay(receipt)}
+											</span>
+											<span
+												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
+											></span>
+										</span>
+									</div>
+									{#if receipt.stationName}
+										<div class="detail-row">
+											<span class="label">{$LL.receipts.station()}</span>
+											<span class="value">{receipt.stationName}</span>
+										</div>
+									{/if}
+								{:else}
+									<div class="detail-row">
+										<span class="label">{$LL.receipts.price()}</span>
+										<span class="value-with-confidence">
+											<span
+												class="value"
+												class:uncertain={receipt.confidence.totalPrice === 'Low'}
+												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+											>
+												{formatPriceDisplay(receipt)}
+											</span>
+											<span
+												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
+												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
+											></span>
+										</span>
+									</div>
+									{#if receipt.vendorName}
+										<div class="detail-row">
+											<span class="label">{$LL.receipts.vendor()}</span>
+											<span class="value">{receipt.vendorName}</span>
+										</div>
+									{/if}
+									{#if receipt.costDescription}
+										<div class="detail-row full-width">
+											<span class="label">{$LL.receipts.description()}</span>
+											<span class="value">{receipt.costDescription}</span>
+										</div>
+									{/if}
+								{/if}
+								{#if receipt.errorMessage}
+									<div class="error-message">{receipt.errorMessage}</div>
+								{/if}
+								{#if verif?.matched}
+									<div class="matched-trip">
+										{$LL.receipts.trip()} {verif.matchedTripDatetime} | {verif.matchedTripRoute}
+									</div>
+									{#if verif.datetimeWarning && verif.matchedTripTimeRange}
+										<div class="datetime-warning-row">
+											<span class="warning-icon">⚠</span>
+											<span class="warning-text">{$LL.trips.receiptDatetimeMismatchWithRange({ timeRange: verif.matchedTripTimeRange })}</span>
+										</div>
+									{/if}
+								{/if}
+							</div>
+							<div class="receipt-actions">
+								<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
+									{$LL.receipts.open()}
+								</button>
+								<button class="button-small" onclick={() => handleEditClick(receipt)}>
+									{$LL.common.edit()}
+								</button>
+								<button
+									class="button-small"
+									onclick={() => handleReprocess(receipt)}
+									disabled={reprocessingIds.has(receipt.id)}
+								>
+									{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
+								</button>
+								<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
+									{$LL.common.delete()}
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		{#if unassignedReceipts.length === 0 && assignedReceipts.length === 0}
+			<p class="placeholder">{$LL.receipts.noReceipts()}</p>
+		{/if}
 	{/if}
 </div>
 
@@ -903,6 +1047,33 @@
 		background: var(--btn-active-primary-bg);
 		color: var(--btn-active-primary-color);
 		border-color: var(--btn-active-primary-bg);
+	}
+
+	.receipts-section {
+		margin-bottom: 2rem;
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 1.1rem;
+		font-weight: 600;
+		margin-bottom: 1rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 2px solid var(--border-muted);
+	}
+
+	.section-header.unassigned {
+		border-bottom-color: var(--color-danger);
+	}
+
+	.section-header.assigned {
+		border-bottom-color: var(--color-success);
+	}
+
+	.section-icon {
+		font-size: 0.9rem;
 	}
 
 	.receipts-list {

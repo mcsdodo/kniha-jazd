@@ -1176,7 +1176,7 @@ type RootTranslation = {
 		 */
 		filterAll: string
 		/**
-		 * N​e​o​v​e​r​e​n​é
+		 * N​e​p​r​i​r​a​d​e​n​é
 		 */
 		filterUnassigned: string
 		/**
@@ -1192,22 +1192,30 @@ type RootTranslation = {
 		 */
 		filterOther: string
 		/**
-		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​d​o​k​l​a​d​o​v​ ​o​v​e​r​e​n​ý​c​h
+		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​d​o​k​l​a​d​o​v​ ​p​r​i​r​a​d​e​n​ý​c​h
 		 * @param {number} count
 		 * @param {number} total
 		 */
-		allVerified: RequiredParams<'count' | 'total'>
+		allAssigned: RequiredParams<'count' | 'total'>
 		/**
-		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​o​v​e​r​e​n​ý​c​h
+		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​p​r​i​r​a​d​e​n​ý​c​h
 		 * @param {number} count
 		 * @param {number} total
 		 */
-		verified: RequiredParams<'count' | 'total'>
+		assigned: RequiredParams<'count' | 'total'>
 		/**
-		 * {​c​o​u​n​t​}​ ​n​e​o​v​e​r​e​n​ý​c​h
+		 * {​c​o​u​n​t​}​ ​n​e​p​r​i​r​a​d​e​n​ý​c​h
 		 * @param {number} count
 		 */
-		unverified: RequiredParams<'count'>
+		unassigned: RequiredParams<'count'>
+		/**
+		 * N​e​p​r​i​r​a​d​e​n​é
+		 */
+		sectionUnassigned: string
+		/**
+		 * P​r​i​r​a​d​e​n​é
+		 */
+		sectionAssigned: string
 		/**
 		 * D​á​t​u​m​:
 		 */
@@ -1245,17 +1253,17 @@ type RootTranslation = {
 		 */
 		confidenceUnknown: string
 		/**
-		 * O​v​e​r​e​n​ý
+		 * P​r​i​r​a​d​e​n​ý
 		 */
-		statusVerified: string
+		statusAssigned: string
 		/**
 		 * N​a​ ​k​o​n​t​r​o​l​u
 		 */
 		statusNeedsReview: string
 		/**
-		 * N​e​o​v​e​r​e​n​ý
+		 * N​e​p​r​i​r​a​d​e​n​ý
 		 */
-		statusUnverified: string
+		statusUnassigned: string
 		/**
 		 * P​A​L​I​V​O
 		 */
@@ -3236,7 +3244,7 @@ export type TranslationFunctions = {
 		 */
 		filterAll: () => LocalizedString
 		/**
-		 * Neoverené
+		 * Nepriradené
 		 */
 		filterUnassigned: () => LocalizedString
 		/**
@@ -3252,17 +3260,25 @@ export type TranslationFunctions = {
 		 */
 		filterOther: () => LocalizedString
 		/**
-		 * {count}/{total} dokladov overených
+		 * {count}/{total} dokladov priradených
 		 */
-		allVerified: (arg: { count: number, total: number }) => LocalizedString
+		allAssigned: (arg: { count: number, total: number }) => LocalizedString
 		/**
-		 * {count}/{total} overených
+		 * {count}/{total} priradených
 		 */
-		verified: (arg: { count: number, total: number }) => LocalizedString
+		assigned: (arg: { count: number, total: number }) => LocalizedString
 		/**
-		 * {count} neoverených
+		 * {count} nepriradených
 		 */
-		unverified: (arg: { count: number }) => LocalizedString
+		unassigned: (arg: { count: number }) => LocalizedString
+		/**
+		 * Nepriradené
+		 */
+		sectionUnassigned: () => LocalizedString
+		/**
+		 * Priradené
+		 */
+		sectionAssigned: () => LocalizedString
 		/**
 		 * Dátum:
 		 */
@@ -3300,17 +3316,17 @@ export type TranslationFunctions = {
 		 */
 		confidenceUnknown: () => LocalizedString
 		/**
-		 * Overený
+		 * Priradený
 		 */
-		statusVerified: () => LocalizedString
+		statusAssigned: () => LocalizedString
 		/**
 		 * Na kontrolu
 		 */
 		statusNeedsReview: () => LocalizedString
 		/**
-		 * Neoverený
+		 * Nepriradený
 		 */
-		statusUnverified: () => LocalizedString
+		statusUnassigned: () => LocalizedString
 		/**
 		 * PALIVO
 		 */
