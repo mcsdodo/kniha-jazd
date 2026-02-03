@@ -174,6 +174,10 @@ export interface MonthEndRow {
 export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
 export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
 
+// Assignment type for receipt-to-trip relationship (Task 51)
+// User explicitly selects FUEL or OTHER when assigning receipt to trip
+export type AssignmentType = 'Fuel' | 'Other';
+
 export interface FieldConfidence {
 	liters: ConfidenceLevel;
 	totalPrice: ConfidenceLevel;
@@ -205,6 +209,11 @@ export interface Receipt {
 	confidence: FieldConfidence;
 	rawOcrText: string | null;
 	errorMessage: string | null;
+	// Assignment fields (Task 51: Receipt-Trip State Model)
+	// Data invariant: tripId = null ↔ assignmentType = null (unassigned)
+	//                 tripId = set  ↔ assignmentType = set  (assigned)
+	assignmentType: AssignmentType | null; // Fuel or Other, set when assigned to trip
+	mismatchOverride: boolean; // True = user confirmed data mismatch is intentional
 	createdAt: string;
 	updatedAt: string;
 }

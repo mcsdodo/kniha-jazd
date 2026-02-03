@@ -25,6 +25,9 @@ diesel::table! {
         cost_description -> Nullable<Text>,
         original_amount -> Nullable<Double>,
         original_currency -> Nullable<Text>,
+        // Added via migration 2026-02-03-100000_receipt_assignment_type
+        assignment_type -> Nullable<Text>,
+        mismatch_override -> Integer,
     }
 }
 

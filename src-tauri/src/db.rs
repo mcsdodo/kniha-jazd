@@ -686,6 +686,8 @@ impl Database {
             cost_description: receipt.cost_description.as_deref(),
             original_amount: receipt.original_amount,
             original_currency: receipt.original_currency.as_deref(),
+            assignment_type: receipt.assignment_type.map(|t| t.as_str()),
+            mismatch_override: if receipt.mismatch_override { 1 } else { 0 },
         };
 
         diesel::insert_into(receipts::table)
@@ -758,6 +760,8 @@ impl Database {
                 receipts::cost_description.eq(&receipt.cost_description),
                 receipts::original_amount.eq(receipt.original_amount),
                 receipts::original_currency.eq(&receipt.original_currency),
+                receipts::assignment_type.eq(receipt.assignment_type.map(|t| t.as_str())),
+                receipts::mismatch_override.eq(if receipt.mismatch_override { 1 } else { 0 }),
             ))
             .execute(conn)?;
 
@@ -801,7 +805,7 @@ impl Database {
                     liters, total_price_eur, receipt_datetime, station_name, station_address,
                     source_year, status, confidence, raw_ocr_text, error_message,
                     created_at, updated_at, vendor_name, cost_description,
-                    original_amount, original_currency
+                    original_amount, original_currency, assignment_type, mismatch_override
              FROM receipts WHERE
                 (receipt_datetime IS NOT NULL AND CAST(strftime('%Y', receipt_datetime) AS INTEGER) = ?)
                 OR (receipt_datetime IS NULL AND source_year = ?)
@@ -830,7 +834,7 @@ impl Database {
                         liters, total_price_eur, receipt_datetime, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
                         created_at, updated_at, vendor_name, cost_description,
-                        original_amount, original_currency
+                        original_amount, original_currency, assignment_type, mismatch_override
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                    AND (
@@ -849,7 +853,7 @@ impl Database {
                         liters, total_price_eur, receipt_datetime, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
                         created_at, updated_at, vendor_name, cost_description,
-                        original_amount, original_currency
+                        original_amount, original_currency, assignment_type, mismatch_override
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                  ORDER BY receipt_datetime DESC, scanned_at DESC",

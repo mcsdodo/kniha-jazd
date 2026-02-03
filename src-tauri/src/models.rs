@@ -440,6 +440,34 @@ pub struct FieldConfidence {
     pub date: ConfidenceLevel,
 }
 
+/// Assignment type for receipt-to-trip relationship
+/// User explicitly selects FUEL or OTHER when assigning receipt to trip
+/// Stored in DB as TEXT using serde default serialization ("Fuel" or "Other")
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AssignmentType {
+    Fuel,  // Receipt is for fuel/refueling
+    Other, // Receipt is for other costs (parking, toll, car wash, etc.)
+}
+
+impl AssignmentType {
+    /// Parse from DB string (serde default format)
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "Fuel" => Some(AssignmentType::Fuel),
+            "Other" => Some(AssignmentType::Other),
+            _ => None,
+        }
+    }
+
+    /// Convert to DB string (serde default format)
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AssignmentType::Fuel => "Fuel",
+            AssignmentType::Other => "Other",
+        }
+    }
+}
+
 /// A scanned fuel receipt (blocek)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -477,6 +505,12 @@ pub struct Receipt {
     pub confidence: FieldConfidence,   // Typed struct, not strings
     pub raw_ocr_text: Option<String>,  // For debugging (local only)
     pub error_message: Option<String>, // If parsing failed
+
+    // Assignment fields (Task 51: Receipt-Trip State Model)
+    // Data invariant: trip_id = NULL ↔ assignment_type = NULL (unassigned)
+    //                 trip_id = SET  ↔ assignment_type = SET  (assigned)
+    pub assignment_type: Option<AssignmentType>, // Fuel or Other, set when assigned to trip
+    pub mismatch_override: bool, // True = user confirmed data mismatch is intentional
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -516,6 +550,8 @@ impl Receipt {
             confidence: FieldConfidence::default(),
             raw_ocr_text: None,
             error_message: None,
+            assignment_type: None,
+            mismatch_override: false,
             created_at: now,
             updated_at: now,
         }
@@ -929,6 +965,9 @@ pub struct ReceiptRow {
     // Multi-currency support (migration 2026-01-21-100000)
     pub original_amount: Option<f64>,
     pub original_currency: Option<String>,
+    // Assignment fields (migration 2026-02-03-100000_receipt_assignment_type)
+    pub assignment_type: Option<String>, // "Fuel" or "Other"
+    pub mismatch_override: i32,          // 0 = no override, 1 = user confirmed
 }
 
 /// For inserting new receipts
@@ -958,6 +997,9 @@ pub struct NewReceiptRow<'a> {
     // Multi-currency support (migration 2026-01-21-100000)
     pub original_amount: Option<f64>,
     pub original_currency: Option<&'a str>,
+    // Assignment fields (migration 2026-02-03-100000_receipt_assignment_type)
+    pub assignment_type: Option<&'a str>, // "Fuel" or "Other"
+    pub mismatch_override: i32,           // 0 = no override, 1 = user confirmed
 }
 
 // =============================================================================
@@ -1109,6 +1151,8 @@ impl From<ReceiptRow> for Receipt {
             confidence,
             raw_ocr_text: row.raw_ocr_text,
             error_message: row.error_message,
+            assignment_type: row.assignment_type.and_then(|s| AssignmentType::from_str(&s)),
+            mismatch_override: row.mismatch_override != 0,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
