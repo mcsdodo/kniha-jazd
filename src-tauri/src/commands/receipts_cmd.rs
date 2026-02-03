@@ -497,66 +497,99 @@ struct CompatibilityResult {
     mismatch_reason: Option<String>,
 }
 
-/// Check if receipt data matches trip's existing fuel data.
+/// Check if receipt data matches trip's existing data.
 /// Returns compatibility result with detailed mismatch reason.
+/// Handles both FUEL receipts (has liters) and OTHER cost receipts (no liters).
 fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> CompatibilityResult {
-    // No fuel data on trip → can attach (receipt will populate fuel fields)
-    let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
-    if !trip_has_fuel {
-        return CompatibilityResult {
-            can_attach: true,
-            status: AttachmentStatus::Empty.as_str().to_string(),
-            mismatch_reason: None,
-        };
-    }
+    let is_fuel_receipt = receipt.liters.is_some();
 
-    // Trip has fuel data - check if receipt matches
-    match (receipt.liters, receipt.total_price_eur) {
-        (Some(r_liters), Some(r_price)) => {
-            // Receipt has fuel data - compare with trip
-            // Receipt datetime must be within trip's [start, end] range
-            let datetime_match = receipt.receipt_datetime
-                .map(|dt| is_datetime_in_trip_range(dt, trip))
-                .unwrap_or(false);
-            let liters_match = trip
-                .fuel_liters
-                .map(|fl| (fl - r_liters).abs() < 0.01)
-                .unwrap_or(false);
+    if is_fuel_receipt {
+        // FUEL receipt - check against trip's fuel data
+        let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
+
+        if !trip_has_fuel {
+            // Trip has no fuel data → can attach (receipt will populate fuel fields)
+            return CompatibilityResult {
+                can_attach: true,
+                status: AttachmentStatus::Empty.as_str().to_string(),
+                mismatch_reason: None,
+            };
+        }
+
+        // Trip has fuel data - check if receipt matches
+        let (r_liters, r_price) = (receipt.liters.unwrap(), receipt.total_price_eur.unwrap_or(0.0));
+
+        let datetime_match = receipt
+            .receipt_datetime
+            .map(|dt| is_datetime_in_trip_range(dt, trip))
+            .unwrap_or(false);
+        let liters_match = trip
+            .fuel_liters
+            .map(|fl| (fl - r_liters).abs() < 0.01)
+            .unwrap_or(false);
+        let price_match = trip
+            .fuel_cost_eur
+            .map(|fc| (fc - r_price).abs() < 0.01)
+            .unwrap_or(false);
+
+        if datetime_match && liters_match && price_match {
+            CompatibilityResult {
+                can_attach: true,
+                status: AttachmentStatus::Matches.as_str().to_string(),
+                mismatch_reason: None,
+            }
+        } else {
+            let mismatch = match (datetime_match, liters_match, price_match) {
+                (false, false, false) => "all",
+                (false, false, true) => "date_and_liters",
+                (false, true, false) => "date_and_price",
+                (false, true, true) => "date",
+                (true, false, false) => "liters_and_price",
+                (true, false, true) => "liters",
+                (true, true, false) => "price",
+                (true, true, true) => unreachable!(),
+            };
+            CompatibilityResult {
+                can_attach: true,
+                status: AttachmentStatus::Differs.as_str().to_string(),
+                mismatch_reason: Some(mismatch.to_string()),
+            }
+        }
+    } else {
+        // OTHER cost receipt (no liters) - check against trip's other_costs
+        let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
+
+        if !trip_has_other_costs {
+            // Trip has no other costs → can attach (receipt will populate other_costs fields)
+            return CompatibilityResult {
+                can_attach: true,
+                status: AttachmentStatus::Empty.as_str().to_string(),
+                mismatch_reason: None,
+            };
+        }
+
+        // Trip has other costs - check if receipt price matches
+        if let Some(r_price) = receipt.total_price_eur {
             let price_match = trip
-                .fuel_cost_eur
-                .map(|fc| (fc - r_price).abs() < 0.01)
+                .other_costs_eur
+                .map(|tc| (tc - r_price).abs() < 0.01)
                 .unwrap_or(false);
 
-            if datetime_match && liters_match && price_match {
+            if price_match {
                 CompatibilityResult {
                     can_attach: true,
                     status: AttachmentStatus::Matches.as_str().to_string(),
                     mismatch_reason: None,
                 }
             } else {
-                // Determine what specifically doesn't match
-                // User CAN still attach - they'll see a warning and can override
-                let mismatch = match (datetime_match, liters_match, price_match) {
-                    (false, false, false) => "all",
-                    (false, false, true) => "date_and_liters",
-                    (false, true, false) => "date_and_price",
-                    (false, true, true) => "date",
-                    (true, false, false) => "liters_and_price",
-                    (true, false, true) => "liters",
-                    (true, true, false) => "price",
-                    (true, true, true) => unreachable!(), // Would have matched above
-                };
                 CompatibilityResult {
-                    can_attach: true, // User CAN attach with mismatch - per design spec C4
+                    can_attach: true,
                     status: AttachmentStatus::Differs.as_str().to_string(),
-                    mismatch_reason: Some(mismatch.to_string()),
+                    mismatch_reason: Some("price".to_string()),
                 }
             }
-        }
-        _ => {
-            // Receipt has no fuel data (other cost receipt) - can still attach as other cost
-            // But wait - trip already has fuel, so this would be "other cost" on a fuel trip
-            // Allow it since trips can have both fuel AND other costs
+        } else {
+            // Receipt has no price - can't determine match
             CompatibilityResult {
                 can_attach: true,
                 status: AttachmentStatus::Empty.as_str().to_string(),
