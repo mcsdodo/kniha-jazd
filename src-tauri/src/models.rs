@@ -609,6 +609,72 @@ impl Default for MismatchReason {
 }
 
 // =============================================================================
+// Receipt Display State (Task 51: Computed, never stored)
+// =============================================================================
+
+/// Summary of a trip for display in receipt UI
+/// Computed on-demand, not stored in DB
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TripSummary {
+    pub trip_id: String,
+    pub date: String,              // "D.M." format (e.g., "15.1.")
+    pub route: String,             // "Origin → Destination"
+    pub time_range: String,        // "HH:MM–HH:MM"
+}
+
+/// Data mismatch details for UI display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum DataMismatch {
+    /// Receipt time is outside trip's [start, end] range
+    TimeOutsideRange {
+        receipt_time: String,
+        trip_range: String,
+    },
+    /// Liters differ between receipt and trip
+    LitersDiffer {
+        receipt: f64,
+        trip: f64,
+    },
+    /// Price differs between receipt and trip
+    PriceDiffers {
+        receipt: f64,
+        trip: f64,
+    },
+}
+
+/// Computed display state for receipts - NEVER stored in DB
+/// Calculated on-demand by get_receipt_display_state() for UI rendering
+/// Replaces the old ReceiptVerification struct for the new explicit model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum ReceiptDisplayState {
+    /// OCR pending - file detected but not yet parsed
+    Processing,
+    /// OCR complete but low confidence - needs user review
+    NeedsReview,
+    /// Ready for assignment - no trip_id set
+    Unassigned,
+    /// Assigned to trip, data matches (or N/A for OTHER type)
+    Assigned {
+        trip_summary: TripSummary,
+        assignment_type: AssignmentType,
+    },
+    /// Assigned to trip as FUEL, but data doesn't match
+    AssignedMismatch {
+        trip_summary: TripSummary,
+        assignment_type: AssignmentType,
+        mismatches: Vec<DataMismatch>,
+    },
+    /// Assigned to trip, data mismatch confirmed by user
+    AssignedOverride {
+        trip_summary: TripSummary,
+        assignment_type: AssignmentType,
+    },
+}
+
+// =============================================================================
 // Domain Enums - String Constant Replacements
 // =============================================================================
 
