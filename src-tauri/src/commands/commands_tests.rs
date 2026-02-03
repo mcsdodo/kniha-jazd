@@ -98,6 +98,8 @@ fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>
         },
         raw_ocr_text: None,
         error_message: None,
+        assignment_type: None,
+        mismatch_override: false,
         created_at: now,
         updated_at: now,
     }
@@ -334,6 +336,8 @@ fn make_receipt_with_datetime_assigned(
         },
         raw_ocr_text: None,
         error_message: None,
+        assignment_type: Some(crate::models::AssignmentType::Fuel),
+        mismatch_override: false,
         created_at: now,
         updated_at: now,
     }
@@ -1675,6 +1679,8 @@ fn make_receipt_with_details(
         },
         raw_ocr_text: None,
         error_message: None,
+        assignment_type: None,
+        mismatch_override: false,
         created_at: now,
         updated_at: now,
     }
