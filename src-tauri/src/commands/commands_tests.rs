@@ -1920,8 +1920,9 @@ fn test_assign_fuel_with_mismatch_and_override() {
 }
 
 #[test]
-fn test_assign_other_to_trip_with_existing_other_costs_blocked() {
-    // Scenario C6: OTHER receipt to trip that already has other_costs → BLOCKED
+fn test_assign_other_to_trip_with_existing_other_costs_allowed() {
+    // Scenario C6: OTHER receipt to trip that already has other_costs → Just link (like C3 for fuel)
+    // Design decision 2026-02-03: Allow assignment, don't overwrite existing data
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1934,14 +1935,14 @@ fn test_assign_other_to_trip_with_existing_other_costs_blocked() {
     db.create_vehicle(&vehicle).unwrap();
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    // Trip already has other_costs
+    // Trip already has other_costs (10.0 EUR)
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
     db.create_trip(&trip).unwrap();
 
     let receipt = make_receipt_with_details(
         Some(date),
         None,
-        Some(15.0),
+        Some(15.0), // Different price - but we allow it
         Some("AutoWash"),
         Some("Umytie auta"),
     );
@@ -1956,8 +1957,15 @@ fn test_assign_other_to_trip_with_existing_other_costs_blocked() {
         false,
     );
 
-    assert!(result.is_err(), "Assignment should fail - trip already has other_costs");
-    assert!(result.unwrap_err().contains("náklady"), "Error should mention existing costs");
+    assert!(result.is_ok(), "Assignment should succeed - just link receipt to trip");
+
+    let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.trip_id, Some(trip.id));
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
+
+    // Verify trip's other_costs is NOT overwritten (keeps original 10.0)
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(updated_trip.other_costs_eur, Some(10.0), "Trip other_costs should remain unchanged");
 }
 
 #[test]

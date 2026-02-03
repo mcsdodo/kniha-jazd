@@ -412,26 +412,25 @@ pub fn assign_receipt_to_trip_internal(
             // Mismatch detection is handled by mismatch_override flag - UI decides whether to warn
         }
         AssignmentType::Other => {
-            // OTHER COST assignment: populate trip.other_costs_* fields (scenario C2)
+            // OTHER COST assignment: populate or link trip.other_costs_* fields
+            let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
 
-            // Check for collision - block if trip already has other costs (scenario C6)
-            if trip.other_costs_eur.is_some() {
-                return Err("Jazda už má iné náklady".to_string());
+            if !trip_has_other_costs {
+                // Trip has no other costs → populate from receipt (scenario C2)
+                let note = match (&receipt.vendor_name, &receipt.cost_description) {
+                    (Some(v), Some(d)) => format!("{}: {}", v, d),
+                    (Some(v), None) => v.clone(),
+                    (None, Some(d)) => d.clone(),
+                    (None, None) => "Iné náklady".to_string(),
+                };
+
+                let mut updated_trip = trip.clone();
+                updated_trip.other_costs_eur = receipt.total_price_eur;
+                updated_trip.other_costs_note = Some(note);
+                db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
             }
-
-            // Build note from receipt data
-            let note = match (&receipt.vendor_name, &receipt.cost_description) {
-                (Some(v), Some(d)) => format!("{}: {}", v, d),
-                (Some(v), None) => v.clone(),
-                (None, Some(d)) => d.clone(),
-                (None, None) => "Iné náklady".to_string(),
-            };
-
-            // Update trip with other costs
-            let mut updated_trip = trip.clone();
-            updated_trip.other_costs_eur = receipt.total_price_eur;
-            updated_trip.other_costs_note = Some(note);
-            db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
+            // If trip already has other costs data, just link receipt (scenarios C6, C6a)
+            // Mismatch detection is handled by mismatch_override flag - UI decides whether to warn
         }
     }
 
