@@ -223,7 +223,6 @@
 							class="trip-item"
 							class:highlight={highlighted}
 							class:disabled
-							class:matches={item.attachmentStatus === 'matches'}
 							onclick={() => handleTripClick(item)}
 							{disabled}
 						>
@@ -401,14 +400,6 @@
 		cursor: not-allowed;
 	}
 
-	.trip-item.matches {
-		border-color: var(--accent-success, #22c55e);
-		background: var(--accent-success-light-bg, #f0fdf4);
-	}
-
-	.trip-item.matches:hover:not(:disabled) {
-		background: var(--accent-success-light-hover, #dcfce7);
-	}
 
 	.date {
 		font-weight: 500;
