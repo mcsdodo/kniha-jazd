@@ -180,6 +180,10 @@ const en = {
 			highConsumption: 'high consumption',
 			suggestedFillup: 'Suggested fillup: {liters} L → {rate} l/100km',
 			receiptDatetimeMismatch: 'receipt datetime outside trip range',
+			// Receipt status indicators (Task 51)
+			missingReceipt: 'missing receipt',
+			dataMismatch: 'data mismatch',
+			userConfirmed: 'confirmed',
 		},
 		// Column visibility
 		columnVisibility: {
@@ -389,6 +393,10 @@ const en = {
 		statusVerified: 'Verified',
 		statusNeedsReview: 'Needs review',
 		statusUnverified: 'Unverified',
+		// Assignment type badges
+		assignedAsFuel: 'FUEL',
+		assignedAsOther: 'OTHER',
+		overrideConfirmed: 'Confirmed by user',
 		// Mismatch reasons
 		mismatchMissingData: 'Receipt data missing',
 		mismatchNoFuelTrip: 'No trip with fuel data',
@@ -438,6 +446,15 @@ const en = {
 		noTrips: 'No trips to assign.',
 		alreadyHas: 'already has:',
 		matchesReceipt: 'matches receipt',
+		// Step 2: Assignment type selection
+		selectType: 'Assign as',
+		assignAsFuel: 'Fuel (refueling)',
+		assignAsOther: 'Other costs',
+		confirmAssignment: 'Assign',
+		// Mismatch handling
+		dataMismatch: 'Data mismatch',
+		assignWithWarning: 'Assign with warning',
+		assignAndConfirm: 'Assign and confirm',
 		// Mismatch reasons
 		mismatchDate: 'different date',
 		mismatchLiters: 'different liters',

@@ -180,6 +180,10 @@ const sk = {
 			highConsumption: 'vysoká spotreba',
 			suggestedFillup: 'Návrh tankovania: {liters} L → {rate} l/100km',
 			receiptDatetimeMismatch: 'dátum/čas dokladu mimo jazdy',
+			// Receipt status indicators (Task 51)
+			missingReceipt: 'chýba doklad',
+			dataMismatch: 'nesúlad údajov',
+			userConfirmed: 'potvrdené',
 		},
 		// Column visibility
 		columnVisibility: {
@@ -389,6 +393,10 @@ const sk = {
 		statusVerified: 'Overený',
 		statusNeedsReview: 'Na kontrolu',
 		statusUnverified: 'Neoverený',
+		// Assignment type badges
+		assignedAsFuel: 'PALIVO',
+		assignedAsOther: 'INÉ',
+		overrideConfirmed: 'Potvrdené používateľom',
 		// Mismatch reasons
 		mismatchMissingData: 'Chýbajú údaje na doklade',
 		mismatchNoFuelTrip: 'Žiadna jazda s tankovaním',
@@ -438,6 +446,15 @@ const sk = {
 		noTrips: 'Žiadne jazdy na pridelenie.',
 		alreadyHas: 'už má:',
 		matchesReceipt: 'zodpovedá dokladu',
+		// Step 2: Assignment type selection
+		selectType: 'Priradiť ako',
+		assignAsFuel: 'Tankovanie (PHM)',
+		assignAsOther: 'Iné náklady',
+		confirmAssignment: 'Priradiť',
+		// Mismatch handling
+		dataMismatch: 'Údaje nesúhlasia',
+		assignWithWarning: 'Priradiť s varovaním',
+		assignAndConfirm: 'Priradiť a potvrdiť',
 		// Mismatch reasons
 		mismatchDate: 'iný dátum',
 		mismatchLiters: 'iné litre',

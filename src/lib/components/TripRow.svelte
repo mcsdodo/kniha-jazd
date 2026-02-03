@@ -65,6 +65,7 @@
 	export let isEstimatedRate: boolean = false;
 	export let hasMatchingReceipt: boolean = true;
 	export let hasReceiptDatetimeWarning: boolean = false;
+	export let hasReceiptMismatchOverride: boolean = false;
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
@@ -564,10 +565,11 @@
 						<span class="partial-indicator" title={$LL.trips.partialFillup()}>*</span>
 					{/if}
 					{#if !hasMatchingReceipt}
-						<span class="no-receipt-indicator" title={$LL.trips.noReceipt()}>⚠</span>
-					{/if}
-					{#if hasReceiptDatetimeWarning}
-						<span class="datetime-warning-indicator" title={$LL.trips.receiptDatetimeMismatch()}>⚠</span>
+						<span class="receipt-indicator missing" title={$LL.trips.legend.missingReceipt()}>⚠</span>
+					{:else if hasReceiptMismatchOverride}
+						<span class="receipt-indicator override" title={$LL.trips.legend.userConfirmed()}>⚠</span>
+					{:else if hasReceiptDatetimeWarning}
+						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
 			</td>
@@ -612,8 +614,14 @@
 		{#if !hiddenColumns.includes('otherCosts')}
 			<td class="col-other-costs number">
 				{trip.otherCostsEur?.toFixed(2) || ''}
-				{#if trip.otherCostsEur && !trip.fuelLiters && hasReceiptDatetimeWarning}
-					<span class="datetime-warning-indicator" title={$LL.trips.receiptDatetimeMismatch()}>⚠</span>
+				{#if trip.otherCostsEur && !trip.fuelLiters}
+					{#if !hasMatchingReceipt}
+						<span class="receipt-indicator missing" title={$LL.trips.legend.missingReceipt()}>⚠</span>
+					{:else if hasReceiptMismatchOverride}
+						<span class="receipt-indicator override" title={$LL.trips.legend.userConfirmed()}>⚠</span>
+					{:else if hasReceiptDatetimeWarning}
+						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
+					{/if}
 				{/if}
 			</td>
 		{/if}
@@ -877,17 +885,26 @@
 	}
 
 	/* No receipt indicator */
-	.no-receipt-indicator {
-		color: var(--accent-warning-dark);
+	/* Receipt status indicators - Task 51 */
+	.receipt-indicator {
 		margin-left: 0.25rem;
 		cursor: help;
+		font-weight: bold;
 	}
 
-	/* Datetime warning indicator */
-	.datetime-warning-indicator {
+	/* 🔴 Missing receipt - red */
+	.receipt-indicator.missing {
 		color: var(--accent-danger);
-		font-weight: bold;
-		margin-left: 0.1rem;
+	}
+
+	/* 🟡 Data mismatch - yellow/orange warning */
+	.receipt-indicator.mismatch {
+		color: var(--accent-warning-dark);
+	}
+
+	/* 🟠 User confirmed override - orange */
+	.receipt-indicator.override {
+		color: #f97316; /* Orange */
 	}
 
 	/* Estimated rate styling */

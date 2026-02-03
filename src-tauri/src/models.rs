@@ -362,6 +362,8 @@ pub struct TripGridData {
     pub missing_receipts: HashSet<String>,
     /// Trip IDs where assigned receipt datetime is outside trip's [start, end] range
     pub receipt_datetime_warnings: HashSet<String>,
+    /// Trip IDs where assigned receipt has mismatch_override = true (user confirmed mismatch)
+    pub receipt_mismatch_overrides: HashSet<String>,
 
     // Year boundary data
     /// Starting odometer for this year (carryover from previous year's ending ODO)
