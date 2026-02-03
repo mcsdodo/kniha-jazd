@@ -31,6 +31,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - Vstup pre úpravu dokladu zmenený na datetime-local
 
 ### Zlepšené
+- **Indikátor zhody pre doklady iných nákladov** - pri priraďovaní dokladu typu "Iné náklady" sa teraz zobrazuje "✓ zodpovedá dokladu" ak cena súhlasí s jazdou (predtým len pre palivové doklady)
 - **Presnejšie hlásenie nezhody dokladu** - keď sa dátum zhoduje ale čas nesedí, zobrazí sa "Čas 07:30 – jazda je 08:00–17:00" namiesto mätúceho "Dátum 27.1. – jazda je 27.1."
 - **Tlačidlo "Znovu spracovať" dostupné pre všetky doklady** - predtým bolo dostupné len pre nepriradené doklady, teraz je možné znovu spustiť OCR aj na priradených dokladoch
 - **Vizuálne odlíšenie nepriradených dokladov** - nepriradené doklady majú červený ľavý okraj a tmavšie pozadie pre lepšiu prehľadnosť
