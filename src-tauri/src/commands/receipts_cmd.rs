@@ -568,24 +568,35 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
             };
         }
 
-        // Trip has other costs - check if receipt price matches
+        // Trip has other costs - check if receipt datetime and price match
         if let Some(r_price) = receipt.total_price_eur {
+            let datetime_match = receipt
+                .receipt_datetime
+                .map(|dt| is_datetime_in_trip_range(dt, trip))
+                .unwrap_or(false);
             let price_match = trip
                 .other_costs_eur
                 .map(|tc| (tc - r_price).abs() < 0.01)
                 .unwrap_or(false);
 
-            if price_match {
+            if datetime_match && price_match {
                 CompatibilityResult {
                     can_attach: true,
                     status: AttachmentStatus::Matches.as_str().to_string(),
                     mismatch_reason: None,
                 }
             } else {
+                // Determine mismatch reason
+                let mismatch = match (datetime_match, price_match) {
+                    (false, false) => "date_and_price",
+                    (false, true) => "date",
+                    (true, false) => "price",
+                    (true, true) => unreachable!(),
+                };
                 CompatibilityResult {
                     can_attach: true,
                     status: AttachmentStatus::Differs.as_str().to_string(),
-                    mismatch_reason: Some("price".to_string()),
+                    mismatch_reason: Some(mismatch.to_string()),
                 }
             }
         } else {
