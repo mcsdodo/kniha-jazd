@@ -292,12 +292,17 @@
 		receiptToAssign = receipt;
 	}
 
-	async function handleAssignToTrip(trip: Trip) {
+	async function handleAssignToTrip(result: { trip: Trip; assignmentType: 'Fuel' | 'Other'; mismatchOverride: boolean }) {
 		if (!receiptToAssign || !$activeVehicleStore) return;
 
 		try {
-			// Backend handles all logic: links receipt, sets other_costs or fuel fields as appropriate
-			await api.assignReceiptToTrip(receiptToAssign.id, trip.id, $activeVehicleStore.id);
+			await api.assignReceiptToTrip(
+				receiptToAssign.id,
+				result.trip.id,
+				$activeVehicleStore.id,
+				result.assignmentType,
+				result.mismatchOverride
+			);
 			await refreshReceiptData();
 			receiptToAssign = null;
 			toast.success($LL.toast.receiptAssigned());
@@ -562,13 +567,23 @@
 							</span>
 							{receipt.fileName}
 						</span>
-						{#if verif?.matched}
-							<span class="badge success">{$LL.receipts.statusVerified()}</span>
-						{:else if receipt.status === 'NeedsReview'}
-							<span class="badge warning">{$LL.receipts.statusNeedsReview()}</span>
-						{:else}
-							<span class="badge danger">{$LL.receipts.statusUnverified()}</span>
-						{/if}
+						<div class="header-badges">
+							{#if receipt.assignmentType}
+								<span class="badge {receipt.assignmentType === 'Fuel' ? 'fuel' : 'other'}">
+									{receipt.assignmentType === 'Fuel' ? $LL.receipts.assignedAsFuel() : $LL.receipts.assignedAsOther()}
+								</span>
+								{#if receipt.mismatchOverride}
+									<span class="badge override" title={$LL.receipts.overrideConfirmed()}>✓</span>
+								{/if}
+							{/if}
+							{#if receipt.tripId}
+								<span class="badge success">{$LL.receipts.statusVerified()}</span>
+							{:else if receipt.status === 'NeedsReview'}
+								<span class="badge warning">{$LL.receipts.statusNeedsReview()}</span>
+							{:else}
+								<span class="badge danger">{$LL.receipts.statusUnverified()}</span>
+							{/if}
+						</div>
 					</div>
 					<div class="receipt-details">
 						<div class="detail-row">
@@ -957,6 +972,28 @@
 	.badge.danger {
 		background: var(--toast-error-bg);
 		color: var(--toast-error-color);
+	}
+
+	.badge.fuel {
+		background: var(--accent-primary-light-bg, #e0f2fe);
+		color: var(--accent-primary, #0284c7);
+	}
+
+	.badge.other {
+		background: var(--bg-surface-alt);
+		color: var(--text-secondary);
+	}
+
+	.badge.override {
+		background: var(--warning-bg);
+		color: var(--warning-color);
+		padding: 0.15rem 0.35rem;
+	}
+
+	.header-badges {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
 	}
 
 	.verification-summary {

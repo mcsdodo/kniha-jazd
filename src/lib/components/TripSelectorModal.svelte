@@ -1,22 +1,43 @@
 <script lang="ts">
-	import type { Trip, Receipt, TripForAssignment, MismatchReason } from '$lib/types';
+	import type { Trip, Receipt, TripForAssignment, MismatchReason, AssignmentType } from '$lib/types';
 	import { getTripsForReceiptAssignment } from '$lib/api';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { onMount } from 'svelte';
 	import LL from '$lib/i18n/i18n-svelte';
 
+	interface AssignmentResult {
+		trip: Trip;
+		assignmentType: AssignmentType;
+		mismatchOverride: boolean;
+	}
+
 	interface Props {
 		receipt: Receipt;
-		onSelect: (trip: Trip) => void;
+		onSelect: (result: AssignmentResult) => void;
 		onClose: () => void;
 	}
 
 	let { receipt, onSelect, onClose }: Props = $props();
 
+	// Step 1: Trip list, Step 2: Assignment type selection
+	let step = $state<'tripList' | 'assignmentType'>('tripList');
+	let selectedTrip = $state<TripForAssignment | null>(null);
+	let assignmentType = $state<AssignmentType>('Fuel');
+
 	let tripItems = $state<TripForAssignment[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+
+	// Determine if this receipt looks like fuel (has liters)
+	let looksLikeFuel = $derived(receipt.liters !== null && receipt.liters > 0);
+
+	// Detect if there's a mismatch when assigning as FUEL
+	let hasMismatch = $derived(() => {
+		if (!selectedTrip || assignmentType !== 'Fuel') return false;
+		// If trip has fuel and status is 'differs', there's a mismatch
+		return selectedTrip.attachmentStatus === 'differs';
+	});
 
 	onMount(async () => {
 		await loadTrips();
@@ -32,7 +53,6 @@
 
 		loading = true;
 		try {
-			// Use the new API that returns trips with attachment eligibility
 			const items = await getTripsForReceiptAssignment(
 				receipt.id,
 				vehicle.id,
@@ -52,7 +72,6 @@
 		}
 	}
 
-	// Extract date portion from trip's startDatetime
 	function getTripDate(trip: Trip): string {
 		return trip.startDatetime.slice(0, 10);
 	}
@@ -67,7 +86,7 @@
 	function isWithin3Days(tripDate: string, receiptDatetime: string | null): boolean {
 		if (!receiptDatetime) return false;
 		const diff = Math.abs(new Date(tripDate).getTime() - new Date(receiptDatetime).getTime());
-		return diff <= 3 * 24 * 60 * 60 * 1000; // 3 days in ms
+		return diff <= 3 * 24 * 60 * 60 * 1000;
 	}
 
 	function formatDate(dateStr: string): string {
@@ -75,14 +94,34 @@
 	}
 
 	function handleTripClick(item: TripForAssignment) {
-		if (item.canAttach) {
-			onSelect(item.trip);
-		}
+		if (!item.canAttach) return;
+		selectedTrip = item;
+		// Pre-select based on receipt type
+		assignmentType = looksLikeFuel ? 'Fuel' : 'Other';
+		step = 'assignmentType';
+	}
+
+	function handleBack() {
+		step = 'tripList';
+		selectedTrip = null;
+	}
+
+	function handleAssign(override: boolean = false) {
+		if (!selectedTrip) return;
+		onSelect({
+			trip: selectedTrip.trip,
+			assignmentType,
+			mismatchOverride: override
+		});
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
-			onClose();
+			if (step === 'assignmentType') {
+				handleBack();
+			} else {
+				onClose();
+			}
 		}
 	}
 
@@ -116,55 +155,120 @@
 		aria-modal="true"
 		tabindex="-1"
 	>
-		<h2>{$LL.tripSelector.title()}</h2>
-		<div class="receipt-info">
-			<span class="file-name">{receipt.fileName}</span>
-			<span class="separator">|</span>
-			<span>{receipt.liters?.toFixed(2) ?? '??'} L</span>
-			<span class="separator">|</span>
-			<span>{receipt.totalPriceEur?.toFixed(2) ?? '??'} EUR</span>
-			{#if receipt.receiptDatetime}
+		{#if step === 'tripList'}
+			<!-- Step 1: Select trip -->
+			<h2>{$LL.tripSelector.title()}</h2>
+			<div class="receipt-info">
+				<span class="file-name">{receipt.fileName}</span>
 				<span class="separator">|</span>
-				<span>{formatDate(receipt.receiptDatetime)}</span>
-			{/if}
-		</div>
-
-		{#if loading}
-			<p class="placeholder">{$LL.tripSelector.loadingTrips()}</p>
-		{:else if error}
-			<p class="error">{error}</p>
-		{:else if tripItems.length === 0}
-			<p class="placeholder">{$LL.tripSelector.noTrips()}</p>
-		{:else}
-			<div class="trip-list">
-				{#each tripItems as item}
-					{@const disabled = !item.canAttach}
-					{@const highlighted = isWithin3Days(getTripDate(item.trip), receipt.receiptDatetime)}
-					<button
-						class="trip-item"
-						class:highlight={highlighted}
-						class:disabled
-						class:matches={item.attachmentStatus === 'matches'}
-						onclick={() => handleTripClick(item)}
-						{disabled}
-					>
-						<span class="date">{formatDate(getTripDate(item.trip))}</span>
-						<span class="route">{item.trip.origin} → {item.trip.destination}</span>
-						{#if item.attachmentStatus === 'matches'}
-							<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>
-						{:else if item.attachmentStatus === 'differs'}
-							<span class="existing">
-								{item.trip.fuelLiters?.toFixed(2)} L — {getMismatchReasonText(item.mismatchReason)}
-							</span>
-						{/if}
-					</button>
-				{/each}
+				<span>{receipt.liters?.toFixed(2) ?? '??'} L</span>
+				<span class="separator">|</span>
+				<span>{receipt.totalPriceEur?.toFixed(2) ?? '??'} EUR</span>
+				{#if receipt.receiptDatetime}
+					<span class="separator">|</span>
+					<span>{formatDate(receipt.receiptDatetime)}</span>
+				{/if}
 			</div>
-		{/if}
 
-		<div class="modal-actions">
-			<button class="button-small" onclick={onClose}>{$LL.common.cancel()}</button>
-		</div>
+			{#if loading}
+				<p class="placeholder">{$LL.tripSelector.loadingTrips()}</p>
+			{:else if error}
+				<p class="error">{error}</p>
+			{:else if tripItems.length === 0}
+				<p class="placeholder">{$LL.tripSelector.noTrips()}</p>
+			{:else}
+				<div class="trip-list">
+					{#each tripItems as item}
+						{@const disabled = !item.canAttach}
+						{@const highlighted = isWithin3Days(getTripDate(item.trip), receipt.receiptDatetime)}
+						<button
+							class="trip-item"
+							class:highlight={highlighted}
+							class:disabled
+							class:matches={item.attachmentStatus === 'matches'}
+							onclick={() => handleTripClick(item)}
+							{disabled}
+						>
+							<span class="date">{formatDate(getTripDate(item.trip))}</span>
+							<span class="route">{item.trip.origin} → {item.trip.destination}</span>
+							{#if item.attachmentStatus === 'matches'}
+								<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>
+							{:else if item.attachmentStatus === 'differs'}
+								<span class="existing">
+									{item.trip.fuelLiters?.toFixed(2)} L — {getMismatchReasonText(item.mismatchReason)}
+								</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="modal-actions">
+				<button class="button-small" onclick={onClose}>{$LL.common.cancel()}</button>
+			</div>
+
+		{:else if step === 'assignmentType' && selectedTrip}
+			<!-- Step 2: Select assignment type -->
+			<h2>{$LL.tripSelector.selectType()}</h2>
+
+			<div class="selected-trip-info">
+				<span class="date">{formatDate(getTripDate(selectedTrip.trip))}</span>
+				<span class="route">{selectedTrip.trip.origin} → {selectedTrip.trip.destination}</span>
+			</div>
+
+			<div class="assignment-type-selector">
+				<label class="type-option" class:selected={assignmentType === 'Fuel'}>
+					<input
+						type="radio"
+						name="assignmentType"
+						value="Fuel"
+						bind:group={assignmentType}
+					/>
+					<span class="type-icon">⛽</span>
+					<span class="type-label">{$LL.tripSelector.assignAsFuel()}</span>
+				</label>
+				<label class="type-option" class:selected={assignmentType === 'Other'}>
+					<input
+						type="radio"
+						name="assignmentType"
+						value="Other"
+						bind:group={assignmentType}
+					/>
+					<span class="type-icon">📄</span>
+					<span class="type-label">{$LL.tripSelector.assignAsOther()}</span>
+				</label>
+			</div>
+
+			{#if assignmentType === 'Fuel' && selectedTrip.attachmentStatus === 'differs'}
+				<!-- Mismatch warning for FUEL assignment -->
+				<div class="mismatch-warning">
+					<div class="warning-header">
+						<span class="warning-icon">⚠</span>
+						<span>{$LL.tripSelector.dataMismatch()}</span>
+					</div>
+					<div class="mismatch-details">
+						{getMismatchReasonText(selectedTrip.mismatchReason)}
+					</div>
+					<div class="mismatch-actions">
+						<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
+						<button class="button-small warning" onclick={() => handleAssign(false)}>
+							{$LL.tripSelector.assignWithWarning()}
+						</button>
+						<button class="button-small primary" onclick={() => handleAssign(true)}>
+							{$LL.tripSelector.assignAndConfirm()}
+						</button>
+					</div>
+				</div>
+			{:else}
+				<!-- Normal assignment -->
+				<div class="modal-actions">
+					<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
+					<button class="button-small primary" onclick={() => handleAssign(false)}>
+						{$LL.tripSelector.confirmAssignment()}
+					</button>
+				</div>
+			{/if}
+		{/if}
 	</div>
 </div>
 
@@ -305,6 +409,7 @@
 		margin-top: 1rem;
 		display: flex;
 		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 
 	.button-small {
@@ -320,5 +425,111 @@
 
 	.button-small:hover {
 		background-color: var(--btn-secondary-hover);
+	}
+
+	.button-small.primary {
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
+	}
+
+	.button-small.primary:hover {
+		background-color: var(--btn-active-primary-hover);
+	}
+
+	.button-small.warning {
+		background-color: var(--warning-bg);
+		color: var(--warning-color);
+		border: 1px solid var(--warning-border);
+	}
+
+	.button-small.warning:hover {
+		background-color: var(--warning-border);
+	}
+
+	/* Step 2: Assignment type selector */
+	.selected-trip-info {
+		background: var(--bg-surface-alt);
+		padding: 0.75rem;
+		border-radius: 4px;
+		margin-bottom: 1rem;
+		display: flex;
+		gap: 1rem;
+		align-items: center;
+	}
+
+	.assignment-type-selector {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.type-option {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border: 2px solid var(--border-input);
+		border-radius: 6px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.type-option:hover {
+		border-color: var(--accent-primary);
+		background: var(--bg-surface-alt);
+	}
+
+	.type-option.selected {
+		border-color: var(--accent-primary);
+		background: var(--accent-primary-light-bg);
+	}
+
+	.type-option input[type="radio"] {
+		margin: 0;
+	}
+
+	.type-icon {
+		font-size: 1.25rem;
+	}
+
+	.type-label {
+		font-weight: 500;
+		color: var(--text-primary);
+	}
+
+	/* Mismatch warning */
+	.mismatch-warning {
+		background: var(--warning-bg);
+		border: 1px solid var(--warning-border);
+		border-radius: 6px;
+		padding: 1rem;
+		margin-top: 1rem;
+	}
+
+	.warning-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-weight: 600;
+		color: var(--warning-color);
+		margin-bottom: 0.5rem;
+	}
+
+	.warning-icon {
+		font-size: 1.25rem;
+	}
+
+	.mismatch-details {
+		color: var(--text-primary);
+		font-size: 0.875rem;
+		margin-bottom: 1rem;
+	}
+
+	.mismatch-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		justify-content: flex-end;
 	}
 </style>

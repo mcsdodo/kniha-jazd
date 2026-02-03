@@ -407,6 +407,7 @@ pub(crate) fn build_trip_grid_data(
             date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
             receipt_datetime_warnings: HashSet::new(),
+            receipt_mismatch_overrides: HashSet::new(),
             year_start_odometer,
             year_start_fuel,
             suggested_fillup: HashMap::new(),
@@ -455,6 +456,9 @@ pub(crate) fn build_trip_grid_data(
 
     // Calculate receipt datetime warnings (trips with assigned receipt outside trip time range)
     let receipt_datetime_warnings = calculate_receipt_datetime_warnings(&trips, &receipts);
+
+    // Calculate receipt mismatch overrides (trips where user confirmed a mismatch)
+    let receipt_mismatch_overrides = calculate_receipt_mismatch_overrides(&trips, &receipts);
 
     // Calculate initial battery for BEV/PHEV (carryover from previous year)
     let initial_battery = if vehicle.vehicle_type.uses_electricity() {
@@ -570,6 +574,7 @@ pub(crate) fn build_trip_grid_data(
         date_warnings,
         missing_receipts,
         receipt_datetime_warnings,
+        receipt_mismatch_overrides,
         year_start_odometer,
         year_start_fuel,
         suggested_fillup,
@@ -1314,6 +1319,23 @@ pub(crate) fn calculate_receipt_datetime_warnings(trips: &[Trip], receipts: &[Re
     }
 
     warnings
+}
+
+/// Find trips with assigned receipt where user has confirmed a mismatch (mismatch_override = true).
+/// Returns trip IDs that should show an override indicator (orange warning).
+pub(crate) fn calculate_receipt_mismatch_overrides(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
+    let mut overrides = HashSet::new();
+
+    for trip in trips {
+        // Find receipt assigned to this trip
+        if let Some(receipt) = receipts.iter().find(|r| r.trip_id == Some(trip.id)) {
+            if receipt.mismatch_override {
+                overrides.insert(trip.id.to_string());
+            }
+        }
+    }
+
+    overrides
 }
 
 // ============================================================================

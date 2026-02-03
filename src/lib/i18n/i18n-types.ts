@@ -572,6 +572,18 @@ type RootTranslation = {
 			 * d​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y
 			 */
 			receiptDatetimeMismatch: string
+			/**
+			 * c​h​ý​b​a​ ​d​o​k​l​a​d
+			 */
+			missingReceipt: string
+			/**
+			 * n​e​s​ú​l​a​d​ ​ú​d​a​j​o​v
+			 */
+			dataMismatch: string
+			/**
+			 * p​o​t​v​r​d​e​n​é
+			 */
+			userConfirmed: string
 		}
 		columnVisibility: {
 			/**
@@ -1245,6 +1257,18 @@ type RootTranslation = {
 		 */
 		statusUnverified: string
 		/**
+		 * P​A​L​I​V​O
+		 */
+		assignedAsFuel: string
+		/**
+		 * I​N​É
+		 */
+		assignedAsOther: string
+		/**
+		 * P​o​t​v​r​d​e​n​é​ ​p​o​u​ž​í​v​a​t​e​ľ​o​m
+		 */
+		overrideConfirmed: string
+		/**
 		 * C​h​ý​b​a​j​ú​ ​ú​d​a​j​e​ ​n​a​ ​d​o​k​l​a​d​e
 		 */
 		mismatchMissingData: string
@@ -1405,6 +1429,34 @@ type RootTranslation = {
 		 * z​o​d​p​o​v​e​d​á​ ​d​o​k​l​a​d​u
 		 */
 		matchesReceipt: string
+		/**
+		 * P​r​i​r​a​d​i​ť​ ​a​k​o
+		 */
+		selectType: string
+		/**
+		 * T​a​n​k​o​v​a​n​i​e​ ​(​P​H​M​)
+		 */
+		assignAsFuel: string
+		/**
+		 * I​n​é​ ​n​á​k​l​a​d​y
+		 */
+		assignAsOther: string
+		/**
+		 * P​r​i​r​a​d​i​ť
+		 */
+		confirmAssignment: string
+		/**
+		 * Ú​d​a​j​e​ ​n​e​s​ú​h​l​a​s​i​a
+		 */
+		dataMismatch: string
+		/**
+		 * P​r​i​r​a​d​i​ť​ ​s​ ​v​a​r​o​v​a​n​í​m
+		 */
+		assignWithWarning: string
+		/**
+		 * P​r​i​r​a​d​i​ť​ ​a​ ​p​o​t​v​r​d​i​ť
+		 */
+		assignAndConfirm: string
 		/**
 		 * i​n​ý​ ​d​á​t​u​m
 		 */
@@ -2598,6 +2650,18 @@ export type TranslationFunctions = {
 			 * dátum/čas dokladu mimo jazdy
 			 */
 			receiptDatetimeMismatch: () => LocalizedString
+			/**
+			 * chýba doklad
+			 */
+			missingReceipt: () => LocalizedString
+			/**
+			 * nesúlad údajov
+			 */
+			dataMismatch: () => LocalizedString
+			/**
+			 * potvrdené
+			 */
+			userConfirmed: () => LocalizedString
 		}
 		columnVisibility: {
 			/**
@@ -3248,6 +3312,18 @@ export type TranslationFunctions = {
 		 */
 		statusUnverified: () => LocalizedString
 		/**
+		 * PALIVO
+		 */
+		assignedAsFuel: () => LocalizedString
+		/**
+		 * INÉ
+		 */
+		assignedAsOther: () => LocalizedString
+		/**
+		 * Potvrdené používateľom
+		 */
+		overrideConfirmed: () => LocalizedString
+		/**
 		 * Chýbajú údaje na doklade
 		 */
 		mismatchMissingData: () => LocalizedString
@@ -3399,6 +3475,34 @@ export type TranslationFunctions = {
 		 * zodpovedá dokladu
 		 */
 		matchesReceipt: () => LocalizedString
+		/**
+		 * Priradiť ako
+		 */
+		selectType: () => LocalizedString
+		/**
+		 * Tankovanie (PHM)
+		 */
+		assignAsFuel: () => LocalizedString
+		/**
+		 * Iné náklady
+		 */
+		assignAsOther: () => LocalizedString
+		/**
+		 * Priradiť
+		 */
+		confirmAssignment: () => LocalizedString
+		/**
+		 * Údaje nesúhlasia
+		 */
+		dataMismatch: () => LocalizedString
+		/**
+		 * Priradiť s varovaním
+		 */
+		assignWithWarning: () => LocalizedString
+		/**
+		 * Priradiť a potvrdiť
+		 */
+		assignAndConfirm: () => LocalizedString
 		/**
 		 * iný dátum
 		 */

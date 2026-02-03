@@ -806,6 +806,7 @@
 							isEstimatedRate={estimatedRates.has(trip.id)}
 							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
 							hasReceiptDatetimeWarning={gridData?.receiptDatetimeWarnings?.includes(trip.id) ?? false}
+							hasReceiptMismatchOverride={gridData?.receiptMismatchOverrides?.includes(trip.id) ?? false}
 							previewData={previewingTripId === trip.id ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}

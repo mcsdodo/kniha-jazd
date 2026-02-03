@@ -319,9 +319,17 @@ export async function reprocessReceipt(id: string): Promise<Receipt> {
 export async function assignReceiptToTrip(
 	receiptId: string,
 	tripId: string,
-	vehicleId: string
+	vehicleId: string,
+	assignmentType: 'Fuel' | 'Other',
+	mismatchOverride: boolean = false
 ): Promise<Receipt> {
-	return await invoke('assign_receipt_to_trip', { receiptId, tripId, vehicleId });
+	return await invoke('assign_receipt_to_trip', {
+		receiptId,
+		tripId,
+		vehicleId,
+		assignmentType,
+		mismatchOverride
+	});
 }
 
 export async function getTripsForReceiptAssignment(
