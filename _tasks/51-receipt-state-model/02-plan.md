@@ -13,8 +13,16 @@
 1. Database migration (add fields)
 2. Backend logic (assignment with type)
 3. Backend verification (new state calculation)
-4. Frontend - Invoice grid
-5. Frontend - Trip grid
+4. Frontend - Invoice grid ⟂
+5. Frontend - Trip grid ⟂
+
+**Parallelization:** Phases 4 & 5 can run in parallel (marked with ⟂)
+
+```
+Phase 1 → Phase 2 → Phase 3 ─┬─→ Phase 4 (Invoice Grid) ─┬─→ Phase 6
+                             │                           │
+                             └─→ Phase 5 (Trip Grid) ────┘
+```
 
 ---
 
@@ -395,10 +403,11 @@ trips: {
 | Phase 1: Migration | 1h | None |
 | Phase 2: Backend assignment | 3h | Phase 1 |
 | Phase 3: Backend verification | 2h | Phase 2 |
-| Phase 4: Frontend invoice | 4h | Phase 3 |
-| Phase 5: Frontend trip grid | 2h | Phase 3 |
+| Phase 4: Frontend invoice ⟂ | 4h | Phase 3 |
+| Phase 5: Frontend trip grid ⟂ | 2h | Phase 3 |
 | Phase 6: Cleanup | 1h | Phase 4, 5 |
-| **Total** | **~13h** | |
+| **Total (sequential)** | **~13h** | |
+| **Total (parallel 4∥5)** | **~11h** | Phases 4 & 5 run concurrently |
 
 ---
 
