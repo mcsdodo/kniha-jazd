@@ -39,6 +39,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Zjednotené varovanie nezhody** - všetky varovania (priradené aj nepriradené doklady) používajú rovnaký štýl s trojuholníkom ⚠, zobrazené pod detailmi dokladu
 
 ### Opravené
+- **Priradenie dokladu k jazde s existujúcimi nákladmi** - doklad typu "Iné náklady" je teraz možné priradiť aj k jazde, ktorá už má vyplnené iné náklady (predtým bola chyba "Jazda už má iné náklady")
 - **Indikátor varovania dátumu/času** - zmenené z hviezdičky (*) na výstražný trojuholník (⚠) pre lepšiu viditeľnosť
 - **Ukladanie úprav dokladu** - opravená chyba "premature end of input" pri úprave dátumu/času dokladu (datetime-local formát teraz správne prevádza sekundy)
 - **Varovanie dátumu/času pre iné náklady** - výstražný trojuholník sa teraz zobrazuje aj v stĺpci "Iné" pre doklady iných nákladov (nielen pre palivové doklady)
