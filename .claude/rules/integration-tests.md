@@ -1,5 +1,5 @@
 ---
-globs:
+paths:
   - "tests/integration/**/*.ts"
   - "tests/integration/**/*.js"
 ---

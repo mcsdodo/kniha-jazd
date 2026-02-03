@@ -1,5 +1,5 @@
 ---
-globs:
+paths:
   - "src-tauri/**/*.rs"
 ---
 
