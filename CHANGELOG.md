@@ -8,6 +8,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
+- **Explicitný výber typu priradenia dokladu** - pri priraďovaní dokladu k jazde si používateľ vyberie typ:
+  - **PALIVO (PHM)** - doklad pre tankovanie
+  - **INÉ NÁKLADY** - doklad pre parkovanie, mýto, umytie auta, atď.
+  - Pri nesúlade údajov (iný čas/litre/cena) sa zobrazí dialóg s možnosťou potvrdiť priradenie
+- **Farebné indikátory dokladov v tabuľke jázd** - trojuholníkové varovanie vedľa stĺpca paliva/nákladov:
+  - 🔴 Červená - chýba doklad (jazda má náklady ale žiadny priradený doklad)
+  - 🟡 Žltá - nesúlad údajov (doklad priradený ale údaje nesedia)
+  - 🟠 Oranžová - potvrdené (používateľ potvrdil nesúlad)
+- **Štítky typu priradenia na dokladoch** - priradené doklady zobrazujú štítok PALIVO alebo INÉ
 - **Validácia dátumu/času dokladu** - varovanie (červená hviezdička) keď dátum/čas dokladu nespadá do časového rozpätia jazdy
   - Doklady teraz uchovávajú plný dátum a čas (nie len dátum)
   - OCR extrahovanie času z blokov (ak je dostupný)
