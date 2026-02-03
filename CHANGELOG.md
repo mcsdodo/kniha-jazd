@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Rozdelenie dokladov na sekcie** - stránka Doklady teraz zobrazuje dve sekcie:
+  - 🔴 **Nepriradené** - doklady čakajúce na priradenie k jazde
+  - 🟢 **Priradené** - doklady už prepojené s jazdou
+- **Terminológia dokladov** - zmenené z "Overený/Neoverený" na "Priradený/Nepriradený" pre lepšiu zrozumiteľnosť
+- **Zjednodušená logika overovania** - doklad je "priradený" ak má nastavenú jazdu (trip_id), bez zložitého porovnávania údajov
+
 ### Pridané
 - **Explicitný výber typu priradenia dokladu** - pri priraďovaní dokladu k jazde si používateľ vyberie typ:
   - **PALIVO (PHM)** - doklad pre tankovanie
