@@ -774,6 +774,28 @@ impl Database {
         Ok(())
     }
 
+    /// Unassign receipt from trip - clears trip_id, assignment_type, and mismatch_override
+    pub fn unassign_receipt(&self, id: &str) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::update(receipts::table.filter(receipts::id.eq(id)))
+            .set((
+                receipts::trip_id.eq::<Option<String>>(None),
+                receipts::assignment_type.eq::<Option<String>>(None),
+                receipts::mismatch_override.eq(0),
+            ))
+            .execute(conn)?;
+        Ok(())
+    }
+
+    /// Revert mismatch override - sets mismatch_override to false (0)
+    pub fn revert_receipt_override(&self, id: &str) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::update(receipts::table.filter(receipts::id.eq(id)))
+            .set(receipts::mismatch_override.eq(0))
+            .execute(conn)?;
+        Ok(())
+    }
+
     pub fn get_receipt_by_file_path(&self, file_path: &str) -> QueryResult<Option<Receipt>> {
         let conn = &mut *self.conn.lock().unwrap();
 

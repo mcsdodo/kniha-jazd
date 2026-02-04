@@ -128,11 +128,15 @@
 		if (!reason) return '';
 		switch (reason) {
 			case 'date': return $LL.tripSelector.mismatchDate();
+			case 'time': return $LL.tripSelector.mismatchTime();
 			case 'liters': return $LL.tripSelector.mismatchLiters();
 			case 'price': return $LL.tripSelector.mismatchPrice();
 			case 'liters_and_price': return $LL.tripSelector.mismatchLitersAndPrice();
 			case 'date_and_liters': return $LL.tripSelector.mismatchDateAndLiters();
 			case 'date_and_price': return $LL.tripSelector.mismatchDateAndPrice();
+			case 'time_and_liters': return $LL.tripSelector.mismatchTimeAndLiters();
+			case 'time_and_price': return $LL.tripSelector.mismatchTimeAndPrice();
+			case 'time_and_liters_and_price': return $LL.tripSelector.mismatchTimeAndLitersAndPrice();
 			case 'all': return $LL.tripSelector.mismatchAll();
 			default: return '';
 		}
