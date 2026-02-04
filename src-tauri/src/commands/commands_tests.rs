@@ -2020,6 +2020,112 @@ fn test_reassign_invoice_to_different_trip() {
 }
 
 #[test]
+fn test_assign_other_with_mismatch_and_override() {
+    // Scenario A9: OTHER receipt with mismatched data + user override
+    // Verify mismatch_override=true works for OTHER type
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Trip already has other_costs (10.0 EUR)
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    // Receipt with DIFFERENT price (15.0 EUR) - mismatch
+    let receipt = make_receipt_with_details(
+        Some(date),
+        None,
+        Some(15.0),
+        Some("AutoWash"),
+        Some("Umytie auta"),
+    );
+    db.create_receipt(&receipt).unwrap();
+
+    let result = assign_receipt_to_trip_internal(
+        &db,
+        &receipt.id.to_string(),
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        "Other",
+        true,  // User confirmed override
+    );
+
+    assert!(result.is_ok(), "Assignment should succeed with override");
+
+    let assigned_receipt = result.unwrap();
+    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
+    assert_eq!(assigned_receipt.mismatch_override, true, "Should have override set");
+
+    // Verify trip's other_costs is NOT overwritten (keeps original 10.0)
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(updated_trip.other_costs_eur, Some(10.0), "Trip other_costs should remain unchanged");
+}
+
+#[test]
+fn test_receipt_datetime_warnings_excludes_overrides() {
+    // Scenario F2: Receipt with datetime OUTSIDE trip range but with mismatch_override=true
+    // The current implementation returns the warning, but frontend filters it out.
+    // This test documents the current behavior.
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    // Trip on June 15, 8:00-14:00
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
+
+    let mut trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    trip.vehicle_id = vehicle.id;
+    trip.fuel_liters = Some(45.0);
+    trip.fuel_cost_eur = Some(72.0);
+    db.create_trip(&trip).unwrap();
+
+    // Receipt datetime AFTER trip end (18:00) - would normally trigger warning
+    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(18, 0, 0)
+        .unwrap();
+
+    let mut receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+    receipt.vehicle_id = Some(vehicle.id);
+    receipt.mismatch_override = true;  // User confirmed the mismatch
+    db.create_receipt(&receipt).unwrap();
+
+    // Call the warning calculation function
+    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+
+    // Currently, the backend DOES include this in warnings
+    // Frontend filters it out using the mismatch_override flag
+    // This test documents that behavior
+    assert_eq!(warnings.len(), 1, "Backend returns warning (frontend will filter it)");
+    assert!(
+        warnings.contains(&trip.id.to_string()),
+        "Trip ID should be in warnings set (frontend filters using mismatch_override)"
+    );
+}
+
+#[test]
 fn test_invalid_assignment_type_rejected() {
     // Test: Invalid assignment type string → error
     let db = Database::in_memory().unwrap();
