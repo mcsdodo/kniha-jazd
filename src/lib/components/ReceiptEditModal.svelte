@@ -29,10 +29,8 @@
 	$: isFuelReceipt = liters !== null;
 	$: isForeignCurrency = originalCurrency !== null && originalCurrency !== 'EUR';
 
-	// When currency changes to EUR, sync totalPriceEur with originalAmount
-	$: if (originalCurrency === 'EUR' && originalAmount !== null) {
-		totalPriceEur = originalAmount;
-	}
+	// NOTE: EUR sync is handled in handleCurrencyChange only (not reactive)
+	// to avoid overwriting user edits when they modify originalAmount
 
 	// Validation
 	$: eurAmountRequired = isForeignCurrency && totalPriceEur === null;

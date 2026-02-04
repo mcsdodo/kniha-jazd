@@ -504,9 +504,9 @@
 		})
 	);
 
-	// Counts for filter badges
-	let unassignedCount = $derived(receipts.filter((r) => !isReceiptAssigned(r)).length);
-	let needsReviewCount = $derived(receipts.filter((r) => r.status === 'NeedsReview').length);
+	// Counts for filter badges (respect typeFilter for consistency with display)
+	let unassignedCount = $derived(typeFilteredReceipts.filter((r) => !isReceiptAssigned(r)).length);
+	let needsReviewCount = $derived(typeFilteredReceipts.filter((r) => r.status === 'NeedsReview').length);
 	let fuelCount = $derived(receipts.filter((r) => isFuelReceipt(r)).length);
 	let otherCount = $derived(receipts.filter((r) => !isFuelReceipt(r)).length);
 
