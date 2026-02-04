@@ -173,6 +173,7 @@ const sk = {
 		estimatedEnergyRate: 'Odhad podľa základnej spotreby',
 		receiptDatetimeMismatch: 'Dátum/čas dokladu mimo jazdy',
 		receiptDatetimeMismatchWithRange: 'Dátum/čas dokladu mimo jazdy (jazda {timeRange:string})',
+		receiptDatetimeMismatchTooltip: 'Čas dokladu {receiptTime:string} – jazda je {tripRange:string}',
 		// Legend
 		legend: {
 			partialFillup: 'čiastočné tankovanie',

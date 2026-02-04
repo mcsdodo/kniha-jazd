@@ -856,7 +856,12 @@
 										{$LL.receipts.trip()} {verif.matchedTripDatetime} | {verif.matchedTripRoute}
 									</div>
 									{#if verif.datetimeWarning && verif.matchedTripTimeRange}
-										<div class="datetime-warning-row" class:confirmed={receipt.mismatchOverride}>
+										{@const receiptTime = receipt.receiptDatetime?.slice(11, 16) ?? '??:??'}
+										<div
+											class="datetime-warning-row"
+											class:confirmed={receipt.mismatchOverride}
+											title={$LL.trips.receiptDatetimeMismatchTooltip({ receiptTime, tripRange: verif.matchedTripTimeRange })}
+										>
 											<span class="warning-icon">⚠</span>
 											<span class="warning-text">{$LL.trips.receiptDatetimeMismatchWithRange({ timeRange: verif.matchedTripTimeRange })}</span>
 										</div>
