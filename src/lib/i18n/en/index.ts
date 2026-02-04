@@ -173,7 +173,6 @@ const en = {
 		estimatedEnergyRate: 'Estimated from baseline consumption',
 		receiptDatetimeMismatch: 'Receipt datetime outside trip range',
 		receiptDatetimeMismatchWithRange: 'Receipt datetime outside trip range (trip {timeRange})',
-		receiptDatetimeMismatchTooltip: 'Receipt time {receiptTime} – trip is {tripRange}',
 		// Legend
 		legend: {
 			partialFillup: 'partial fillup',
