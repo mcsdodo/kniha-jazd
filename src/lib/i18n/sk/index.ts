@@ -401,6 +401,7 @@ const sk = {
 		// Status badges
 		statusAssigned: 'Priradený',
 		statusNeedsReview: 'Na kontrolu',
+		statusNeedsReviewTooltip: 'Cudzia mena – zadajte EUR hodnotu',
 		statusUnassigned: 'Nepriradený',
 		// Assignment type badges
 		assignedAsFuel: 'PALIVO',
