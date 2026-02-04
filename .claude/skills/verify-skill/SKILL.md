@@ -1,5 +1,5 @@
 ---
-name: verify-skill
+name: verify
 description: Use before claiming work is complete - runs tests, checks git status, verifies changelog
 ---
 

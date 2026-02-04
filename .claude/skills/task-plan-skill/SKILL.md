@@ -1,5 +1,5 @@
 ---
-name: task-plan-skill
+name: task-plan
 description: Use when starting a new feature that needs planning - runs brainstorming then creates numbered task folder in _tasks/
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: test-review-skill
+name: test-review
 description: Use to review test coverage for completeness and quality
 ---
 

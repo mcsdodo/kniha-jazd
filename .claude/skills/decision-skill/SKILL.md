@@ -1,5 +1,5 @@
 ---
-name: decision-skill
+name: decision
 description: Use when making architectural or business logic decisions during conversations - adds entry to DECISIONS.md
 ---
 

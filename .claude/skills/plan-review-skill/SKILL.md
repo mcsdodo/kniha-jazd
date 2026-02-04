@@ -1,8 +1,7 @@
 ---
-name: plan-review-skill
+name: plan-review
 description: Use when about to implement a plan, when plan seems incomplete or has gaps, when unsure if tasks are feasible, or when validating spec before coding
 context: fork
-model: haiku
 ---
 
 # Plan Review Skill
