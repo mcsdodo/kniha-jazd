@@ -30,6 +30,8 @@
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let typeFilter = $state<'all' | 'fuel' | 'other'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
+	let receiptToUnassign = $state<Receipt | null>(null);
+	let receiptToRevertOverride = $state<Receipt | null>(null);
 	let receiptToEdit = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let receiptToAssign = $state<Receipt | null>(null);
@@ -198,6 +200,42 @@
 			toast.error($LL.toast.errorDeleteReceipt());
 		} finally {
 			receiptToDelete = null;
+		}
+	}
+
+	function handleUnassignClick(receipt: Receipt) {
+		receiptToUnassign = receipt;
+	}
+
+	async function handleConfirmUnassign() {
+		if (!receiptToUnassign) return;
+		try {
+			await api.unassignReceipt(receiptToUnassign.id);
+			await refreshReceiptData();
+			toast.success($LL.toast.receiptUnassigned());
+		} catch (error) {
+			console.error('Failed to unassign receipt:', error);
+			toast.error($LL.toast.errorUnassignReceipt());
+		} finally {
+			receiptToUnassign = null;
+		}
+	}
+
+	function handleRevertOverrideClick(receipt: Receipt) {
+		receiptToRevertOverride = receipt;
+	}
+
+	async function handleConfirmRevertOverride() {
+		if (!receiptToRevertOverride) return;
+		try {
+			await api.revertReceiptOverride(receiptToRevertOverride.id);
+			await refreshReceiptData();
+			toast.success($LL.toast.overrideReverted());
+		} catch (error) {
+			console.error('Failed to revert override:', error);
+			toast.error($LL.toast.errorRevertOverride());
+		} finally {
+			receiptToRevertOverride = null;
 		}
 	}
 
@@ -728,10 +766,10 @@
 											{receipt.assignmentType === 'Fuel' ? $LL.receipts.assignedAsFuel() : $LL.receipts.assignedAsOther()}
 										</span>
 										{#if receipt.mismatchOverride}
-											<span class="badge override" title={$LL.receipts.overrideConfirmed()}>✓</span>
+											<button class="badge override clickable" title={$LL.receipts.overrideConfirmed()} onclick={() => handleRevertOverrideClick(receipt)}>✓ Potvrdené</button>
 										{/if}
 									{/if}
-									<span class="badge success">{$LL.receipts.statusAssigned()}</span>
+									<button class="badge success clickable" onclick={() => handleUnassignClick(receipt)}>{$LL.receipts.statusAssigned()}</button>
 								</div>
 							</div>
 							<div class="receipt-details">
@@ -824,7 +862,7 @@
 										{$LL.receipts.trip()} {verif.matchedTripDatetime} | {verif.matchedTripRoute}
 									</div>
 									{#if verif.datetimeWarning && verif.matchedTripTimeRange}
-										<div class="datetime-warning-row">
+										<div class="datetime-warning-row" class:confirmed={receipt.mismatchOverride}>
 											<span class="warning-icon">⚠</span>
 											<span class="warning-text">{$LL.trips.receiptDatetimeMismatchWithRange({ timeRange: verif.matchedTripTimeRange })}</span>
 										</div>
@@ -869,6 +907,28 @@
 		danger={true}
 		onConfirm={handleConfirmDelete}
 		onCancel={() => (receiptToDelete = null)}
+	/>
+{/if}
+
+{#if receiptToUnassign}
+	<ConfirmModal
+		title={$LL.confirm.unassignReceiptTitle()}
+		message={$LL.confirm.unassignReceiptMessage({ name: receiptToUnassign.fileName })}
+		confirmText={$LL.confirm.unassignConfirm()}
+		danger={true}
+		onConfirm={handleConfirmUnassign}
+		onCancel={() => (receiptToUnassign = null)}
+	/>
+{/if}
+
+{#if receiptToRevertOverride}
+	<ConfirmModal
+		title={$LL.confirm.revertOverrideTitle()}
+		message={$LL.confirm.revertOverrideMessage({ name: receiptToRevertOverride.fileName })}
+		confirmText={$LL.confirm.revertOverrideConfirm()}
+		danger={false}
+		onConfirm={handleConfirmRevertOverride}
+		onCancel={() => (receiptToRevertOverride = null)}
 	/>
 {/if}
 
@@ -1161,6 +1221,16 @@
 		padding: 0.15rem 0.35rem;
 	}
 
+	.badge.clickable {
+		cursor: pointer;
+		border: none;
+		transition: filter 0.15s ease;
+	}
+
+	.badge.clickable:hover {
+		filter: brightness(0.9);
+	}
+
 	.header-badges {
 		display: flex;
 		gap: 0.5rem;
@@ -1387,5 +1457,9 @@
 
 	.datetime-warning-row .warning-text {
 		font-style: italic;
+	}
+
+	.datetime-warning-row.confirmed {
+		color: var(--warning-color);
 	}
 </style>

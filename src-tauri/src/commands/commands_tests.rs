@@ -100,7 +100,7 @@ fn make_receipt_with_trip_id(
         original_amount: price,
         original_currency: Some("EUR".to_string()),
         source_year: None,
-        status: if trip_id.is_some() { ReceiptStatus::Assigned } else { ReceiptStatus::Parsed },
+        status: ReceiptStatus::Parsed,
         confidence: FieldConfidence {
             liters: ConfidenceLevel::High,
             total_price: ConfidenceLevel::High,
@@ -308,7 +308,7 @@ fn make_receipt_with_datetime_assigned(
         original_amount: Some(72.50),
         original_currency: Some("EUR".to_string()),
         source_year: None,
-        status: ReceiptStatus::Assigned,
+        status: ReceiptStatus::Parsed,
         confidence: FieldConfidence {
             liters: ConfidenceLevel::High,
             total_price: ConfidenceLevel::High,
@@ -1742,7 +1742,6 @@ fn test_assign_fuel_to_empty_trip_populates_data() {
     assert_eq!(assigned_receipt.trip_id, Some(trip.id));
     assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
     assert_eq!(assigned_receipt.mismatch_override, false);
-    assert_eq!(assigned_receipt.status, ReceiptStatus::Assigned);
 
     // Trip should have FUEL fields populated
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
@@ -1791,7 +1790,6 @@ fn test_assign_other_to_empty_trip_populates_data() {
 
     let assigned_receipt = result.unwrap();
     assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
-    assert_eq!(assigned_receipt.status, ReceiptStatus::Assigned);
 
     // Trip should have OTHER_COSTS populated
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();

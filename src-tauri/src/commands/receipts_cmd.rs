@@ -3,7 +3,7 @@
 //! Commands for managing fuel receipts, including scanning, OCR processing,
 //! assignment to trips, and verification.
 
-use chrono::Datelike;
+use chrono::{Datelike, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, State};
 use uuid::Uuid;
@@ -150,6 +150,26 @@ pub fn delete_receipt(
 ) -> Result<(), String> {
     check_read_only!(app_state);
     db.delete_receipt(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn unassign_receipt(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    db.unassign_receipt(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn revert_receipt_override(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    db.revert_receipt_override(&id).map_err(|e| e.to_string())
 }
 
 // ============================================================================
@@ -439,7 +459,7 @@ pub fn assign_receipt_to_trip_internal(
     receipt.vehicle_id = Some(vehicle_uuid);
     receipt.assignment_type = Some(assignment_type_enum);
     receipt.mismatch_override = mismatch_override;
-    receipt.status = ReceiptStatus::Assigned;
+    // Status unchanged - OCR status is orthogonal to assignment
     db.update_receipt(receipt).map_err(|e| e.to_string())?;
 
     Ok(receipt.clone())
@@ -497,6 +517,27 @@ struct CompatibilityResult {
     mismatch_reason: Option<String>,
 }
 
+/// Check if receipt date matches trip date (ignoring time)
+fn is_same_date(receipt_dt: NaiveDateTime, trip: &Trip) -> bool {
+    receipt_dt.date() == trip.start_datetime.date()
+}
+
+/// Determine datetime mismatch type: "date" (different day) or "time" (same day, time outside range)
+fn get_datetime_mismatch_type(receipt_dt: Option<NaiveDateTime>, trip: &Trip) -> Option<&'static str> {
+    match receipt_dt {
+        Some(dt) => {
+            if is_datetime_in_trip_range(dt, trip) {
+                None // No mismatch
+            } else if is_same_date(dt, trip) {
+                Some("time") // Same date, time outside range
+            } else {
+                Some("date") // Different date entirely
+            }
+        }
+        None => Some("date"), // No datetime = treat as date mismatch
+    }
+}
+
 /// Check if receipt data matches trip's existing data.
 /// Returns compatibility result with detailed mismatch reason.
 /// Handles both FUEL receipts (has liters) and OTHER cost receipts (no liters).
@@ -519,10 +560,7 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
         // Trip has fuel data - check if receipt matches
         let (r_liters, r_price) = (receipt.liters.unwrap(), receipt.total_price_eur.unwrap_or(0.0));
 
-        let datetime_match = receipt
-            .receipt_datetime
-            .map(|dt| is_datetime_in_trip_range(dt, trip))
-            .unwrap_or(false);
+        let datetime_mismatch = get_datetime_mismatch_type(receipt.receipt_datetime, trip);
         let liters_match = trip
             .fuel_liters
             .map(|fl| (fl - r_liters).abs() < 0.01)
@@ -532,22 +570,33 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
             .map(|fc| (fc - r_price).abs() < 0.01)
             .unwrap_or(false);
 
-        if datetime_match && liters_match && price_match {
+        if datetime_mismatch.is_none() && liters_match && price_match {
             CompatibilityResult {
                 can_attach: true,
                 status: AttachmentStatus::Matches.as_str().to_string(),
                 mismatch_reason: None,
             }
         } else {
-            let mismatch = match (datetime_match, liters_match, price_match) {
-                (false, false, false) => "all",
-                (false, false, true) => "date_and_liters",
-                (false, true, false) => "date_and_price",
-                (false, true, true) => "date",
-                (true, false, false) => "liters_and_price",
-                (true, false, true) => "liters",
-                (true, true, false) => "price",
-                (true, true, true) => unreachable!(),
+            // Build mismatch reason with specific datetime type (date vs time)
+            let dt_type = datetime_mismatch.unwrap_or("date");
+            let mismatch = match (datetime_mismatch.is_some(), liters_match, price_match) {
+                (false, false, false) => "liters_and_price",
+                (false, false, true) => "liters",
+                (false, true, false) => "price",
+                (false, true, true) => unreachable!(), // All match case handled above
+                (true, false, false) => match dt_type {
+                    "time" => "time_and_liters_and_price",
+                    _ => "all",
+                },
+                (true, false, true) => match dt_type {
+                    "time" => "time_and_liters",
+                    _ => "date_and_liters",
+                },
+                (true, true, false) => match dt_type {
+                    "time" => "time_and_price",
+                    _ => "date_and_price",
+                },
+                (true, true, true) => dt_type, // Only datetime mismatch
             };
             CompatibilityResult {
                 can_attach: true,
@@ -570,28 +619,29 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
 
         // Trip has other costs - check if receipt datetime and price match
         if let Some(r_price) = receipt.total_price_eur {
-            let datetime_match = receipt
-                .receipt_datetime
-                .map(|dt| is_datetime_in_trip_range(dt, trip))
-                .unwrap_or(false);
+            let datetime_mismatch = get_datetime_mismatch_type(receipt.receipt_datetime, trip);
             let price_match = trip
                 .other_costs_eur
                 .map(|tc| (tc - r_price).abs() < 0.01)
                 .unwrap_or(false);
 
-            if datetime_match && price_match {
+            if datetime_mismatch.is_none() && price_match {
                 CompatibilityResult {
                     can_attach: true,
                     status: AttachmentStatus::Matches.as_str().to_string(),
                     mismatch_reason: None,
                 }
             } else {
-                // Determine mismatch reason
-                let mismatch = match (datetime_match, price_match) {
-                    (false, false) => "date_and_price",
-                    (false, true) => "date",
-                    (true, false) => "price",
-                    (true, true) => unreachable!(),
+                // Determine mismatch reason with date vs time distinction
+                let dt_type = datetime_mismatch.unwrap_or("date");
+                let mismatch = match (datetime_mismatch.is_some(), price_match) {
+                    (false, false) => "price",
+                    (false, true) => unreachable!(), // All match case handled above
+                    (true, false) => match dt_type {
+                        "time" => "time_and_price",
+                        _ => "date_and_price",
+                    },
+                    (true, true) => dt_type, // Only datetime mismatch
                 };
                 CompatibilityResult {
                     can_attach: true,
