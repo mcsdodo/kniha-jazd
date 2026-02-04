@@ -34,8 +34,7 @@ export type ToastType = (typeof TOAST_TYPES)[keyof typeof TOAST_TYPES];
 export const RECEIPT_STATUS = {
 	PENDING: 'Pending',
 	PARSED: 'Parsed',
-	NEEDS_REVIEW: 'NeedsReview',
-	ASSIGNED: 'Assigned'
+	NEEDS_REVIEW: 'NeedsReview'
 } as const;
 export type ReceiptStatus = (typeof RECEIPT_STATUS)[keyof typeof RECEIPT_STATUS];
 

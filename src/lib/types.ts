@@ -172,7 +172,7 @@ export interface MonthEndRow {
 	sortKey: number; // For chronological sorting (lastTripInMonth + 0.5)
 }
 
-export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
+export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview';
 export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
 
 // Assignment type for receipt-to-trip relationship (Task 51)

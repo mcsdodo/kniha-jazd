@@ -367,14 +367,8 @@
 		if (!receiptToEdit) return;
 
 		try {
-			// Normalize datetime format: datetime-local gives "YYYY-MM-DDTHH:mm" but backend expects "YYYY-MM-DDTHH:mm:ss"
-			let normalizedDatetime = data.receiptDatetime;
-			if (normalizedDatetime && !normalizedDatetime.includes(':00', normalizedDatetime.length - 3)) {
-				// Add seconds if missing (datetime-local format is YYYY-MM-DDTHH:mm)
-				if (normalizedDatetime.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
-					normalizedDatetime += ':00';
-				}
-			}
+			// datetime-local input always gives "YYYY-MM-DDTHH:mm", backend expects "YYYY-MM-DDTHH:mm:ss"
+			const normalizedDatetime = data.receiptDatetime ? `${data.receiptDatetime}:00` : null;
 
 			// Build updated receipt object
 			const updatedReceipt: Receipt = {
@@ -393,7 +387,7 @@
 					: receiptToEdit.status,
 			};
 
-			await api.updateReceipt(updatedReceipt);
+		await api.updateReceipt(updatedReceipt);
 			await refreshReceiptData();
 			receiptToEdit = null;
 			toast.success($LL.toast.receiptUpdated());
