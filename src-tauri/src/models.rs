@@ -408,13 +408,13 @@ pub struct MonthEndRow {
     pub sort_key: f64,
 }
 
-/// Status of a scanned receipt
+/// Status of a scanned receipt (OCR state only)
+/// Assignment is determined by trip_id, not status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ReceiptStatus {
     Pending,     // File detected, not yet parsed
     Parsed,      // Successfully parsed with high confidence
     NeedsReview, // Parsed but has uncertain fields
-    Assigned,    // Linked to a trip
 }
 
 impl Default for ReceiptStatus {
@@ -1185,9 +1185,8 @@ impl From<ReceiptRow> for Receipt {
     fn from(row: ReceiptRow) -> Self {
         let status = match row.status.as_str() {
             "Pending" => ReceiptStatus::Pending,
-            "Parsed" => ReceiptStatus::Parsed,
+            "Parsed" | "Assigned" => ReceiptStatus::Parsed, // Legacy "Assigned" → Parsed
             "NeedsReview" => ReceiptStatus::NeedsReview,
-            "Assigned" => ReceiptStatus::Assigned,
             _ => ReceiptStatus::Pending,
         };
 
@@ -1253,7 +1252,6 @@ impl Receipt {
             ReceiptStatus::Pending => "Pending",
             ReceiptStatus::Parsed => "Parsed",
             ReceiptStatus::NeedsReview => "NeedsReview",
-            ReceiptStatus::Assigned => "Assigned",
         }
     }
 

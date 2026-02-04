@@ -1024,6 +1024,32 @@ type RootTranslation = {
 		 * @param {string} name
 		 */
 		deleteReceiptMessage: RequiredParams<'name'>
+		/**
+		 * Z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e
+		 */
+		unassignReceiptTitle: string
+		/**
+		 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u​ ​"​{​n​a​m​e​}​"​ ​k​ ​j​a​z​d​e​?
+		 * @param {string} name
+		 */
+		unassignReceiptMessage: RequiredParams<'name'>
+		/**
+		 * Z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e
+		 */
+		unassignConfirm: string
+		/**
+		 * Z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
+		 */
+		revertOverrideTitle: string
+		/**
+		 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e​ ​n​e​z​h​o​d​y​ ​p​r​e​ ​d​o​k​l​a​d​ ​"​{​n​a​m​e​}​"​?
+		 * @param {string} name
+		 */
+		revertOverrideMessage: RequiredParams<'name'>
+		/**
+		 * Z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
+		 */
+		revertOverrideConfirm: string
 	}
 	receipts: {
 		/**
@@ -1470,6 +1496,10 @@ type RootTranslation = {
 		 */
 		mismatchDate: string
 		/**
+		 * č​a​s​ ​m​i​m​o​ ​j​a​z​d​y
+		 */
+		mismatchTime: string
+		/**
 		 * i​n​é​ ​l​i​t​r​e
 		 */
 		mismatchLiters: string
@@ -1489,6 +1519,18 @@ type RootTranslation = {
 		 * i​n​ý​ ​d​á​t​u​m​ ​a​ ​c​e​n​a
 		 */
 		mismatchDateAndPrice: string
+		/**
+		 * č​a​s​ ​m​i​m​o​ ​j​a​z​d​y​ ​a​ ​i​n​é​ ​l​i​t​r​e
+		 */
+		mismatchTimeAndLiters: string
+		/**
+		 * č​a​s​ ​m​i​m​o​ ​j​a​z​d​y​ ​a​ ​i​n​á​ ​c​e​n​a
+		 */
+		mismatchTimeAndPrice: string
+		/**
+		 * č​a​s​ ​m​i​m​o​ ​j​a​z​d​y​,​ ​l​i​t​r​e​ ​a​ ​c​e​n​a
+		 */
+		mismatchTimeAndLitersAndPrice: string
 		/**
 		 * v​š​e​t​k​o​ ​s​a​ ​l​í​š​i
 		 */
@@ -1527,6 +1569,14 @@ type RootTranslation = {
 		 * D​o​k​l​a​d​ ​b​o​l​ ​o​d​s​t​r​á​n​e​n​ý
 		 */
 		receiptDeleted: string
+		/**
+		 * P​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u​ ​b​o​l​o​ ​z​r​u​š​e​n​é
+		 */
+		receiptUnassigned: string
+		/**
+		 * P​o​t​v​r​d​e​n​i​e​ ​n​e​z​h​o​d​y​ ​b​o​l​o​ ​z​r​u​š​e​n​é
+		 */
+		overrideReverted: string
 		/**
 		 * D​o​k​l​a​d​ ​b​o​l​ ​a​k​t​u​a​l​i​z​o​v​a​n​ý
 		 */
@@ -1643,6 +1693,14 @@ type RootTranslation = {
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​d​s​t​r​á​n​i​ť​ ​d​o​k​l​a​d
 		 */
 		errorDeleteReceipt: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u
+		 */
+		errorUnassignReceipt: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
+		 */
+		errorRevertOverride: string
 		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​p​r​a​c​o​v​a​ť​ ​"​{​n​a​m​e​}​"​:​ ​{​e​r​r​o​r​}
 		 * @param {string} error
@@ -3101,6 +3159,30 @@ export type TranslationFunctions = {
 		 * Naozaj chcete odstrániť doklad "{name}"?
 		 */
 		deleteReceiptMessage: (arg: { name: string }) => LocalizedString
+		/**
+		 * Zrušiť priradenie
+		 */
+		unassignReceiptTitle: () => LocalizedString
+		/**
+		 * Naozaj chcete zrušiť priradenie dokladu "{name}" k jazde?
+		 */
+		unassignReceiptMessage: (arg: { name: string }) => LocalizedString
+		/**
+		 * Zrušiť priradenie
+		 */
+		unassignConfirm: () => LocalizedString
+		/**
+		 * Zrušiť potvrdenie
+		 */
+		revertOverrideTitle: () => LocalizedString
+		/**
+		 * Naozaj chcete zrušiť potvrdenie nezhody pre doklad "{name}"?
+		 */
+		revertOverrideMessage: (arg: { name: string }) => LocalizedString
+		/**
+		 * Zrušiť potvrdenie
+		 */
+		revertOverrideConfirm: () => LocalizedString
 	}
 	receipts: {
 		/**
@@ -3524,6 +3606,10 @@ export type TranslationFunctions = {
 		 */
 		mismatchDate: () => LocalizedString
 		/**
+		 * čas mimo jazdy
+		 */
+		mismatchTime: () => LocalizedString
+		/**
 		 * iné litre
 		 */
 		mismatchLiters: () => LocalizedString
@@ -3543,6 +3629,18 @@ export type TranslationFunctions = {
 		 * iný dátum a cena
 		 */
 		mismatchDateAndPrice: () => LocalizedString
+		/**
+		 * čas mimo jazdy a iné litre
+		 */
+		mismatchTimeAndLiters: () => LocalizedString
+		/**
+		 * čas mimo jazdy a iná cena
+		 */
+		mismatchTimeAndPrice: () => LocalizedString
+		/**
+		 * čas mimo jazdy, litre a cena
+		 */
+		mismatchTimeAndLitersAndPrice: () => LocalizedString
 		/**
 		 * všetko sa líši
 		 */
@@ -3581,6 +3679,14 @@ export type TranslationFunctions = {
 		 * Doklad bol odstránený
 		 */
 		receiptDeleted: () => LocalizedString
+		/**
+		 * Priradenie dokladu bolo zrušené
+		 */
+		receiptUnassigned: () => LocalizedString
+		/**
+		 * Potvrdenie nezhody bolo zrušené
+		 */
+		overrideReverted: () => LocalizedString
 		/**
 		 * Doklad bol aktualizovaný
 		 */
@@ -3677,6 +3783,14 @@ export type TranslationFunctions = {
 		 * Nepodarilo sa odstrániť doklad
 		 */
 		errorDeleteReceipt: () => LocalizedString
+		/**
+		 * Nepodarilo sa zrušiť priradenie dokladu
+		 */
+		errorUnassignReceipt: () => LocalizedString
+		/**
+		 * Nepodarilo sa zrušiť potvrdenie
+		 */
+		errorRevertOverride: () => LocalizedString
 		/**
 		 * Nepodarilo sa spracovať "{name}": {error}
 		 */
