@@ -24,6 +24,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
   - 🟡 Žltá - nesúlad údajov (doklad priradený ale údaje nesedia)
   - Potvrdený nesúlad nezobrazuje žiadny indikátor (používateľ už skontroloval)
 - **Štítky typu priradenia na dokladoch** - priradené doklady zobrazujú štítok PALIVO alebo INÉ
+- **Klikateľné štítky stavu dokladu** - štítky na priradených dokladoch sú teraz interaktívne:
+  - Klik na "Priradený" → zruší priradenie dokladu k jazde
+  - Klik na "✓ Potvrdené" → vráti nezhodu späť na nepotvrdený stav (doklad zostáva priradený)
 - **Validácia dátumu/času dokladu** - varovanie (červená hviezdička) keď dátum/čas dokladu nespadá do časového rozpätia jazdy
   - Doklady teraz uchovávajú plný dátum a čas (nie len dátum)
   - OCR extrahovanie času z blokov (ak je dostupný)
