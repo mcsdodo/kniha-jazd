@@ -68,21 +68,25 @@
 | A3 | Invoice ready, not assigned to any trip | Nepriradený | 🔴 | Assign to trip |
 | A4 | Invoice assigned as FUEL, data matches | Priradený (palivo) | 🟢 | None |
 | A5 | Invoice assigned as FUEL, data mismatch | Priradený (palivo) ⚠ | 🟢⚠ | Fix data or override |
-| A6 | Invoice assigned as FUEL, mismatch + override | Priradený (palivo) ✓ | 🟠 | None |
+| A6 | Invoice assigned as FUEL, mismatch + override | Priradený (palivo) ✓ | 🟢✓ | None |
 | A7 | Invoice assigned as OTHER COST | Priradený (iné) | 🟢 | None |
+| A8 | Invoice assigned as OTHER, data mismatch | Priradený (iné) ⚠ | 🟢⚠ | Fix data or override |
+| A9 | Invoice assigned as OTHER, mismatch + override | Priradený (iné) ✓ | 🟢✓ | None |
 
 ### B. Trip Scenarios (from trip grid perspective)
 
 | # | Scenario | State | Visual | User Action |
 |---|----------|-------|--------|-------------|
 | B1 | Trip with fuel, no invoice | Chýba doklad | 🔴 | Assign invoice |
-| B2 | Trip with fuel, invoice assigned, matches | Má doklad | 🟢 | None |
-| B3 | Trip with fuel, invoice assigned, mismatch | Má doklad ⚠ | 🟢⚠ | Fix data or override |
-| B4 | Trip with fuel, invoice assigned, override | Má doklad ✓ | 🟠 | None |
+| B2 | Trip with fuel, invoice assigned, matches | Má doklad | (none) | None |
+| B3 | Trip with fuel, invoice assigned, mismatch | Má doklad ⚠ | 🟡 | Fix data or override |
+| B4 | Trip with fuel, invoice assigned, override | Má doklad ✓ | (none) | None |
 | B5 | Trip with other costs, no invoice | Chýba doklad | 🔴 | Assign invoice |
-| B6 | Trip with other costs, invoice assigned | Má doklad | 🟢 | None |
+| B6 | Trip with other costs, invoice assigned, matches | Má doklad | (none) | None |
+| B6a | Trip with other costs, invoice assigned, mismatch | Má doklad ⚠ | 🟡 | Fix data or override |
+| B6b | Trip with other costs, invoice assigned, override | Má doklad ✓ | (none) | None |
 | B7 | Trip with fuel AND other costs, missing one | Chýba doklad | 🔴 | Assign missing |
-| B8 | Trip with fuel AND other costs, both assigned | Má doklady | 🟢 | None |
+| B8 | Trip with fuel AND other costs, both assigned | Má doklady | (none) | None |
 | B9 | Trip with NO costs | - | - | N/A |
 
 ### C. Assignment Scenarios
@@ -188,7 +192,7 @@
 ### Trip Grid
 
 No new column - show warning triangles next to relevant data fields.
-When invoice is assigned and data matches (green) - show nothing.
+When invoice is assigned and data matches OR user confirmed mismatch - show nothing.
 
 ```
 ┌───┬─────────┬────────────────┬──────┬──────────────┬────────────┬────────┐
@@ -196,7 +200,7 @@ When invoice is assigned and data matches (green) - show nothing.
 ├───┼─────────┼────────────────┼──────┼──────────────┼────────────┼────────┤
 │ 1 │ 10.1.   │ BA → KE        │  400 │ 42.0 L       │     -      │ 60.50€ │  ← all good, no indicator
 │ 2 │ 12.1.   │ BA → TT        │   60 │    -         │   5.00€    │  5.00€ │  ← all good, no indicator
-│ 3 │ 14.1.   │ BA → ZA        │  200 │    -         │  10.00€ 🟠⚠│ 10.00€ │  ← override (orange triangle)
+│ 3 │ 14.1.   │ BA → ZA        │  200 │    -         │  10.00€    │ 10.00€ │  ← override confirmed, no indicator
 │ 4 │ 15.1.   │ BA → KE        │  400 │ 45.2 L 🔴⚠   │     -      │ 65.80€ │  ← missing invoice (red triangle)
 │ 5 │ 20.1.   │ KE → PO        │   80 │ 38.5 L 🟡⚠   │     -      │ 55.20€ │  ← mismatch (yellow triangle)
 │ 6 │ 20.1.   │ PO → KE        │   80 │    -         │     -      │    -   │  ← no costs, no indicator
@@ -205,14 +209,14 @@ When invoice is assigned and data matches (green) - show nothing.
 Warning triangles:
   🔴⚠ = chýba doklad (missing invoice) - next to fuel/other column
   🟡⚠ = nesúlad údajov (data mismatch) - next to mismatched field
-  🟠⚠ = potvrdené užívateľom (user override) - next to overridden field
-  (none) = všetko OK (all good) - no indicator shown
+  (none) = všetko OK OR potvrdené užívateľom (user confirmed mismatch)
 ```
 
 **Hover tooltip on triangle** shows details:
 - 🔴⚠: "Chýba doklad pre tankovanie"
 - 🟡⚠: "Čas mimo jazdy: 18:30 vs 15:00-17:00" (or liters/price mismatch)
-- 🟠⚠: "Potvrdené užívateľom - iný dátum"
+
+**Note:** User-confirmed mismatches show no indicator (treated as "all good" on trip grid).
 
 ---
 
@@ -328,14 +332,14 @@ pub enum Mismatch {
 
 ## Visual States Mapping
 
-| State | Invoice Grid | Trip Grid | Triangle |
-|-------|--------------|-----------|----------|
+| State | Invoice Grid | Trip Grid | Legend Count |
+|-------|--------------|-----------|--------------|
 | Processing | 🔄 Spracováva sa | - | - |
 | NeedsReview | 🟡 Skontrolovať | - | - |
-| Unassigned | 🔴 Nepriradený | 🔴⚠ next to cost field | Red |
-| Assigned (match) | 🟢 Priradený | (no indicator) | None |
-| Assigned (mismatch) | 🟢⚠ Priradený | 🟡⚠ next to mismatched field | Yellow |
-| Assigned (override) | 🟠 Potvrdený | 🟠⚠ next to cost field | Orange |
+| Unassigned | 🔴 Nepriradený | 🔴⚠ next to cost field | Included in "chýba doklad" |
+| Assigned (match) | 🟢 Priradený | (no indicator) | Not counted |
+| Assigned (mismatch) | 🟢⚠ Priradený | 🟡⚠ next to mismatched field | Included in "dátum/čas mimo jazdy" |
+| Assigned (override) | 🟢✓ Potvrdený | (no indicator) | **Not counted** (user confirmed) |
 
 ---
 
