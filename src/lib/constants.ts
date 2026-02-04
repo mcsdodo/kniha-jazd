@@ -127,11 +127,15 @@ export type AttachmentStatus = (typeof ATTACHMENT_STATUS)[keyof typeof ATTACHMEN
 export const MISMATCH_REASONS = {
 	NONE: 'none',
 	DATE: 'date',
+	TIME: 'time',
 	LITERS: 'liters',
 	PRICE: 'price',
 	LITERS_AND_PRICE: 'liters_and_price',
 	DATE_AND_LITERS: 'date_and_liters',
 	DATE_AND_PRICE: 'date_and_price',
+	TIME_AND_LITERS: 'time_and_liters',
+	TIME_AND_PRICE: 'time_and_price',
+	TIME_AND_LITERS_AND_PRICE: 'time_and_liters_and_price',
 	ALL: 'all'
 } as const;
 export type MismatchReason = (typeof MISMATCH_REASONS)[keyof typeof MISMATCH_REASONS];

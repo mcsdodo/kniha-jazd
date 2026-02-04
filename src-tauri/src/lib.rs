@@ -198,6 +198,8 @@ pub fn run() {
             commands::process_pending_receipts,
             commands::update_receipt,
             commands::delete_receipt,
+            commands::unassign_receipt,
+            commands::revert_receipt_override,
             commands::reprocess_receipt,
             commands::assign_receipt_to_trip,
             commands::get_trips_for_receipt_assignment,
