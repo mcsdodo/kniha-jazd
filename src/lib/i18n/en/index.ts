@@ -401,6 +401,7 @@ const en = {
 		// Status badges
 		statusAssigned: 'Assigned',
 		statusNeedsReview: 'Needs review',
+		statusNeedsReviewTooltip: 'Foreign currency – enter EUR value',
 		statusUnassigned: 'Unassigned',
 		// Assignment type badges
 		assignedAsFuel: 'FUEL',

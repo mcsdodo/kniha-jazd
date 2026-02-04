@@ -367,8 +367,13 @@
 		if (!receiptToEdit) return;
 
 		try {
-			// datetime-local input always gives "YYYY-MM-DDTHH:mm", backend expects "YYYY-MM-DDTHH:mm:ss"
-			const normalizedDatetime = data.receiptDatetime ? `${data.receiptDatetime}:00` : null;
+			// datetime-local input gives "YYYY-MM-DDTHH:mm", backend expects "YYYY-MM-DDTHH:mm:ss"
+			// Only append :00 if seconds not already present (regex checks for :NN:NN ending)
+			const normalizedDatetime = data.receiptDatetime
+				? /:\d{2}:\d{2}$/.test(data.receiptDatetime)
+					? data.receiptDatetime
+					: `${data.receiptDatetime}:00`
+				: null;
 
 			// Build updated receipt object
 			const updatedReceipt: Receipt = {
@@ -492,7 +497,8 @@
 	);
 	let assignedReceipts = $derived(
 		typeFilteredReceipts.filter((r) => {
-			if (filter === 'needs_review') return false; // needs_review only shows unassigned
+			// needs_review filter: show assigned receipts that need review (e.g., CZK needs EUR conversion)
+			if (filter === 'needs_review' && r.status !== 'NeedsReview') return false;
 			if (filter === 'unassigned') return false; // unassigned filter hides assigned
 			return isReceiptAssigned(r);
 		})
@@ -619,7 +625,7 @@
 								</span>
 								<div class="header-badges">
 									{#if receipt.status === 'NeedsReview'}
-										<span class="badge warning">{$LL.receipts.statusNeedsReview()}</span>
+										<span class="badge warning" title={$LL.receipts.statusNeedsReviewTooltip()}>{$LL.receipts.statusNeedsReview()}</span>
 									{:else}
 										<span class="badge danger">{$LL.receipts.statusUnassigned()}</span>
 									{/if}
@@ -662,6 +668,7 @@
 												class="value"
 												class:uncertain={receipt.confidence.totalPrice === 'Low'}
 												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
 											>
 												{formatPriceDisplay(receipt)}
 											</span>
@@ -685,6 +692,7 @@
 												class="value"
 												class:uncertain={receipt.confidence.totalPrice === 'Low'}
 												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
 											>
 												{formatPriceDisplay(receipt)}
 											</span>
@@ -763,6 +771,9 @@
 											<button class="badge override clickable" title={$LL.receipts.overrideConfirmed()} onclick={() => handleRevertOverrideClick(receipt)}>✓ Potvrdené</button>
 										{/if}
 									{/if}
+									{#if receipt.status === 'NeedsReview'}
+										<span class="badge warning" title={$LL.receipts.statusNeedsReviewTooltip()}>{$LL.receipts.statusNeedsReview()}</span>
+									{/if}
 									<button class="badge success clickable" onclick={() => handleUnassignClick(receipt)}>{$LL.receipts.statusAssigned()}</button>
 								</div>
 							</div>
@@ -803,6 +814,7 @@
 												class="value"
 												class:uncertain={receipt.confidence.totalPrice === 'Low'}
 												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
 											>
 												{formatPriceDisplay(receipt)}
 											</span>
@@ -826,6 +838,7 @@
 												class="value"
 												class:uncertain={receipt.confidence.totalPrice === 'Low'}
 												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
+												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
 											>
 												{formatPriceDisplay(receipt)}
 											</span>

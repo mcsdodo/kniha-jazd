@@ -1287,6 +1287,10 @@ type RootTranslation = {
 		 */
 		statusNeedsReview: string
 		/**
+		 * C​u​d​z​i​a​ ​m​e​n​a​ ​–​ ​z​a​d​a​j​t​e​ ​E​U​R​ ​h​o​d​n​o​t​u
+		 */
+		statusNeedsReviewTooltip: string
+		/**
 		 * N​e​p​r​i​r​a​d​e​n​ý
 		 */
 		statusUnassigned: string
@@ -3405,6 +3409,10 @@ export type TranslationFunctions = {
 		 * Na kontrolu
 		 */
 		statusNeedsReview: () => LocalizedString
+		/**
+		 * Cudzia mena – zadajte EUR hodnotu
+		 */
+		statusNeedsReviewTooltip: () => LocalizedString
 		/**
 		 * Nepriradený
 		 */
