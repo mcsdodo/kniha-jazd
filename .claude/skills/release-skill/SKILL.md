@@ -1,7 +1,6 @@
 ---
 name: release
 description: Bump version, update changelog, commit, tag, push, and build release installer
-model: Sonnet
 ---
 
 # Release Workflow
