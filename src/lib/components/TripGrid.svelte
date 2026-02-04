@@ -533,7 +533,9 @@
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
 	$: missingReceiptCount = gridData?.missingReceipts.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
-	$: receiptDatetimeWarningCount = gridData?.receiptDatetimeWarnings?.length ?? 0;
+	// Exclude warnings where user confirmed the mismatch (same logic as TripRow)
+	$: receiptDatetimeWarningCount = (gridData?.receiptDatetimeWarnings ?? [])
+		.filter(id => !(gridData?.receiptMismatchOverrides ?? []).includes(id)).length;
 	// Legend suggested fillup - provided directly by backend (no frontend logic needed)
 	$: legendSuggestedFillup = gridData?.legendSuggestedFillup ?? null;
 
