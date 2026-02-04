@@ -338,8 +338,8 @@ pub enum Mismatch {
 | NeedsReview | 🟡 Skontrolovať | - | - |
 | Unassigned | 🔴 Nepriradený | 🔴⚠ next to cost field | Included in "chýba doklad" |
 | Assigned (match) | 🟢 Priradený | (no indicator) | Not counted |
-| Assigned (mismatch) | 🟢⚠ Priradený | 🟡⚠ next to mismatched field | Included in "dátum/čas mimo jazdy" |
-| Assigned (override) | 🟢✓ Potvrdený | (no indicator) | **Not counted** (user confirmed) |
+| Assigned (mismatch) | 🟢⚠ Priradený + 🔴 warning text | 🟡⚠ next to mismatched field | Included in "dátum/čas mimo jazdy" |
+| Assigned (override) | 🟢✓ Potvrdené + 🟠 warning text (orange) | (no indicator) | **Not counted** (user confirmed) |
 
 ---
 
