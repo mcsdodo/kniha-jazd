@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-02-04
+
 ### Pridané
 - **Tooltip pre cudziu menu** - na dokladoch v cudzej mene (CZK, HUF, PLN) sa na hover zobrazuje "Cudzia mena – zadajte EUR hodnotu"
 - **Štítok "Na kontrolu"** - priradené doklady, ktoré potrebujú kontrolu, teraz zobrazujú tento štítok
