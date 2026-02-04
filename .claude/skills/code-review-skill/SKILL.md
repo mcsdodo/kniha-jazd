@@ -1,5 +1,5 @@
 ---
-name: code-review-skill
+name: code-review
 description: Use to review code implementations for quality, correctness, and best practices
 ---
 

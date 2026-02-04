@@ -1,6 +1,8 @@
 ---
-name: changelog-skill
+name: changelog
 description: Use after completing user-visible features, fixes, or behavior changes - NOT for internal docs (CLAUDE.md, DECISIONS.md, _tasks/)
+model: Sonnet
+context: fork
 ---
 
 # Changelog Update Skill

@@ -1,5 +1,5 @@
 ---
-name: test-update-skill
+name: test-update
 description: Use when testing auto-update functionality locally without publishing to GitHub Releases
 ---
 
