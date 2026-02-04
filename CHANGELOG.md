@@ -50,6 +50,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Opravené
 - **Chyba pri zmene dátumu dokladu** - opravená chyba "premature end of input" pri úprave dokladu s časom 00:00 (polnoc)
+- **Tooltip pri priraďovaní dokladu** - pri nesúlade typu "čas mimo jazdy" sa teraz na hover zobrazuje detail s časmi (predtým len pre dátumové nezhody)
 - **Počet varovaní v legende tabuľky jázd** - počítadlo "dátum/čas dokladu mimo jazdy" teraz nezahŕňa potvrdené nezhody (rovnaká logika ako pri jednotlivých riadkoch)
 - **Priradenie dokladu k jazde s existujúcimi nákladmi** - doklad typu "Iné náklady" je teraz možné priradiť aj k jazde, ktorá už má vyplnené iné náklady (predtým bola chyba "Jazda už má iné náklady")
 - **Indikátor varovania dátumu/času** - zmenené z hviezdičky (*) na výstražný trojuholník (⚠) pre lepšiu viditeľnosť

@@ -152,11 +152,12 @@
 
 		// Check what mismatches
 		const hasDateMismatch = item.mismatchReason.includes('date') || item.mismatchReason === 'all';
+		const hasTimeMismatch = item.mismatchReason.includes('time') || item.mismatchReason === 'all';
 		const hasLitersMismatch = item.mismatchReason.includes('liters') || item.mismatchReason === 'all';
 		const hasPriceMismatch = item.mismatchReason === 'price' || item.mismatchReason.includes('price') || item.mismatchReason === 'all';
 
 		// Date/time mismatch detail
-		if (hasDateMismatch && receipt.receiptDatetime) {
+		if ((hasDateMismatch || hasTimeMismatch) && receipt.receiptDatetime) {
 			const receiptTime = receipt.receiptDatetime.slice(11, 16); // HH:MM
 			const tripStart = trip.startDatetime.slice(11, 16);
 			const tripEnd = trip.endDatetime ? trip.endDatetime.slice(11, 16) : tripStart;
