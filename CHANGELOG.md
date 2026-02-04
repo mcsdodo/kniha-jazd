@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-02-04
+
 ### Zmenené
 - **Rozdelenie dokladov na sekcie** - stránka Doklady teraz zobrazuje dve sekcie:
   - 🔴 **Nepriradené** - doklady čakajúce na priradenie k jazde
