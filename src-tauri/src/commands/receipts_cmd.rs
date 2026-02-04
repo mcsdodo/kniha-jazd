@@ -721,12 +721,18 @@ pub fn verify_receipts_internal(
         Uuid::parse_str(vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
 
     // Get receipts filtered by vehicle (unassigned + this vehicle's receipts)
+    // Filter by year: use receipt_datetime if available, fallback to source_year (folder structure)
     let all_receipts = db
         .get_receipts_for_vehicle(&vehicle_uuid, Some(year))
         .map_err(|e| e.to_string())?;
     let receipts_for_year: Vec<_> = all_receipts
         .into_iter()
-        .filter(|r| r.receipt_datetime.map(|dt| dt.year() == year).unwrap_or(false))
+        .filter(|r| {
+            r.receipt_datetime
+                .map(|dt| dt.year() == year)
+                .unwrap_or(false)
+                || r.source_year == Some(year)
+        })
         .collect();
 
     verify_receipts_with_data(db, vehicle_id, year, receipts_for_year)

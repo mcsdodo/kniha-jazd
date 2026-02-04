@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Úprava EUR sumy na doklade** - opravená chyba kedy zmena pôvodnej sumy prepísala manuálne zadanú EUR hodnotu
+- **Počty v badge filtroch** - "Nepriradené" a "Na kontrolu" počty teraz správne rešpektujú filter typu dokladu (Tankovanie/Iné)
+- **Overovanie dokladov bez dátumu** - doklady bez rozparsovaného dátumu sa teraz správne zobrazujú v overení podľa roku priečinka
+
 ## [0.29.1] - 2026-02-04
 
 ### Pridané
