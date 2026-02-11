@@ -1990,6 +1990,18 @@ type RootTranslation = {
 		 */
 		sensorHint: string
 		/**
+		 * S​e​n​z​o​r​ ​n​á​v​r​h​u​ ​t​a​n​k​o​v​a​n​i​a
+		 */
+		fillupSensorLabel: string
+		/**
+		 * s​e​n​s​o​r​.​k​n​i​h​a​_​j​a​z​d​_​f​i​l​l​u​p
+		 */
+		fillupSensorPlaceholder: string
+		/**
+		 * E​n​t​i​t​y​ ​I​D​ ​s​e​n​z​o​r​a​ ​p​r​e​ ​o​d​o​s​i​e​l​a​n​i​e​ ​n​á​v​r​h​u​ ​t​a​n​k​o​v​a​n​i​a​ ​d​o​ ​H​A
+		 */
+		fillupSensorHint: string
+		/**
 		 * H​o​m​e​ ​A​s​s​i​s​t​a​n​t​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​ý
 		 */
 		notConfigured: string
@@ -4079,6 +4091,18 @@ export type TranslationFunctions = {
 		 * Entity ID senzora odometra z Home Assistant
 		 */
 		sensorHint: () => LocalizedString
+		/**
+		 * Senzor návrhu tankovania
+		 */
+		fillupSensorLabel: () => LocalizedString
+		/**
+		 * sensor.kniha_jazd_fillup
+		 */
+		fillupSensorPlaceholder: () => LocalizedString
+		/**
+		 * Entity ID senzora pre odosielanie návrhu tankovania do HA
+		 */
+		fillupSensorHint: () => LocalizedString
 		/**
 		 * Home Assistant nie je nakonfigurovaný
 		 */

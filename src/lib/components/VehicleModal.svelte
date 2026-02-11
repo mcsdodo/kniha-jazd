@@ -18,6 +18,7 @@
 		vin: string | null;
 		driverName: string | null;
 		haOdoSensor: string | null;
+		haFillupSensor: string | null;
 	}) => void;
 	export let onClose: () => void;
 
@@ -34,6 +35,7 @@
 	let vin = vehicle?.vin || '';
 	let driverName = vehicle?.driverName || '';
 	let haOdoSensor = vehicle?.haOdoSensor || '';
+	let haFillupSensor = vehicle?.haFillupSensor || '';
 
 	// Show fuel fields for ICE and PHEV
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -53,7 +55,8 @@
 			initialBatteryPercent: showBatteryFields ? initialBatteryPercent : null,
 			vin,
 			driverName,
-			haOdoSensor: haOdoSensor || null
+			haOdoSensor: haOdoSensor || null,
+			haFillupSensor: haFillupSensor || null
 		});
 	}
 
@@ -142,6 +145,17 @@
 						placeholder={$LL.homeAssistant.sensorPlaceholder()}
 					/>
 					<span class="hint">{$LL.homeAssistant.sensorHint()}</span>
+				</div>
+
+				<div class="form-group">
+					<label for="ha-fillup-sensor">{$LL.homeAssistant.fillupSensorLabel()}</label>
+					<input
+						type="text"
+						id="ha-fillup-sensor"
+						bind:value={haFillupSensor}
+						placeholder={$LL.homeAssistant.fillupSensorPlaceholder()}
+					/>
+					<span class="hint">{$LL.homeAssistant.fillupSensorHint()}</span>
 				</div>
 			{/if}
 

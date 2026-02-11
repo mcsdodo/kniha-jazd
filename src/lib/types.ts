@@ -28,6 +28,7 @@ export interface Vehicle {
 	driverName?: string | null;
 	// Home Assistant integration
 	haOdoSensor?: string | null; // HA sensor entity ID (e.g., "sensor.car_odometer")
+	haFillupSensor?: string | null; // HA sensor entity ID for pushing suggested fillup
 	createdAt: string;
 	updatedAt: string;
 }

@@ -3,10 +3,12 @@
 //! Commands for integrating with external services like Home Assistant.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use tauri::State;
 
 use crate::check_read_only;
 use crate::constants::mime_types;
+use crate::models::SuggestedFillup;
 use crate::settings::LocalSettings;
 
 use super::{get_app_data_dir, AppState};
@@ -201,4 +203,74 @@ pub fn save_ha_settings(
     }
 
     settings.save(&app_data_dir).map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Home Assistant Sensor Push
+// ============================================================================
+
+/// Format suggested fillup for HA sensor state.
+/// Returns "20.39 L → 5.66 l/100km" or "" if no suggestion.
+pub(crate) fn format_suggested_fillup_text(suggestion: Option<&SuggestedFillup>) -> String {
+    match suggestion {
+        Some(s) => format!("{:.2} L → {:.2} l/100km", s.liters, s.consumption_rate),
+        None => String::new(),
+    }
+}
+
+/// Push a state value to a Home Assistant sensor entity.
+/// Fire-and-forget: logs errors but never fails the caller.
+pub(crate) async fn push_ha_sensor_state(app_data_dir: PathBuf, sensor_id: String, state: String) {
+    let settings = LocalSettings::load(&app_data_dir);
+
+    let url = match settings.ha_url {
+        Some(u) => u,
+        None => return,
+    };
+    let token = match settings.ha_api_token {
+        Some(t) => t,
+        None => return,
+    };
+
+    let api_url = format!("{}/api/states/{}", url.trim_end_matches('/'), sensor_id);
+
+    let body = serde_json::json!({
+        "state": state,
+        "attributes": {
+            "friendly_name": "Kniha jázd - Návrh tankovania",
+            "icon": "mdi:gas-station"
+        }
+    });
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            println!("[HA push] Failed to build client: {}", e);
+            return;
+        }
+    };
+
+    match client
+        .post(&api_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", mime_types::JSON)
+        .json(&body)
+        .send()
+        .await
+    {
+        Ok(resp) => {
+            println!(
+                "[HA push] {} → {} ({})",
+                sensor_id,
+                if state.is_empty() { "\"\"" } else { &state },
+                resp.status()
+            );
+        }
+        Err(e) => {
+            println!("[HA push] Error pushing to {}: {}", sensor_id, e);
+        }
+    }
 }

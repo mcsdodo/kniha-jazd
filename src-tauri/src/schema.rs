@@ -98,6 +98,8 @@ diesel::table! {
         vin -> Nullable<Text>,
         driver_name -> Nullable<Text>,
         ha_odo_sensor -> Nullable<Text>,
+        // Added via migration 2026-02-11-100000_add_vehicle_ha_fillup_sensor
+        ha_fillup_sensor -> Nullable<Text>,
     }
 }
 

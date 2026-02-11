@@ -605,6 +605,9 @@ const sk = {
 		sensorLabel: 'ODO senzor',
 		sensorPlaceholder: 'sensor.auto_odometer',
 		sensorHint: 'Entity ID senzora odometra z Home Assistant',
+		fillupSensorLabel: 'Senzor návrhu tankovania',
+		fillupSensorPlaceholder: 'sensor.kniha_jazd_fillup',
+		fillupSensorHint: 'Entity ID senzora pre odosielanie návrhu tankovania do HA',
 		notConfigured: 'Home Assistant nie je nakonfigurovaný',
 		configureFirst: 'Najprv nastavte URL a token v Nastaveniach',
 		// Connection status

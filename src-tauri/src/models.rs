@@ -64,6 +64,7 @@ pub struct Vehicle {
     pub driver_name: Option<String>,
     // Home Assistant integration
     pub ha_odo_sensor: Option<String>, // HA sensor entity ID (e.g., "sensor.car_odometer")
+    pub ha_fillup_sensor: Option<String>, // HA sensor entity ID for pushing suggested fillup
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -112,6 +113,7 @@ impl Vehicle {
             vin: None,
             driver_name: None,
             ha_odo_sensor: None,
+            ha_fillup_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -142,6 +144,7 @@ impl Vehicle {
             vin: None,
             driver_name: None,
             ha_odo_sensor: None,
+            ha_fillup_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -174,6 +177,7 @@ impl Vehicle {
             vin: None,
             driver_name: None,
             ha_odo_sensor: None,
+            ha_fillup_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -647,7 +651,7 @@ impl std::fmt::Display for BackupType {
 #[serde(rename_all = "lowercase")]
 pub enum AttachmentStatus {
     #[default]
-    Empty,   // Trip has no receipt attached
+    Empty, // Trip has no receipt attached
     Matches, // Receipt values match trip
     Differs, // Receipt values differ from trip
 }
@@ -810,6 +814,8 @@ pub struct VehicleRow {
     pub driver_name: Option<String>,
     // Added via migration 2026-01-27-100000_add_vehicle_ha_sensor
     pub ha_odo_sensor: Option<String>,
+    // Added via migration 2026-02-11-100000_add_vehicle_ha_fillup_sensor
+    pub ha_fillup_sensor: Option<String>,
 }
 
 /// For inserting new vehicles
@@ -834,6 +840,8 @@ pub struct NewVehicleRow<'a> {
     pub driver_name: Option<&'a str>,
     // Added via migration 2026-01-27-100000_add_vehicle_ha_sensor
     pub ha_odo_sensor: Option<&'a str>,
+    // Added via migration 2026-02-11-100000_add_vehicle_ha_fillup_sensor
+    pub ha_fillup_sensor: Option<&'a str>,
 }
 
 /// Database row for trips table
@@ -1034,6 +1042,7 @@ impl From<VehicleRow> for Vehicle {
             vin: row.vin,
             driver_name: row.driver_name,
             ha_odo_sensor: row.ha_odo_sensor,
+            ha_fillup_sensor: row.ha_fillup_sensor,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
@@ -1156,7 +1165,9 @@ impl From<ReceiptRow> for Receipt {
             confidence,
             raw_ocr_text: row.raw_ocr_text,
             error_message: row.error_message,
-            assignment_type: row.assignment_type.and_then(|s| AssignmentType::from_str(&s)),
+            assignment_type: row
+                .assignment_type
+                .and_then(|s| AssignmentType::from_str(&s)),
             mismatch_override: row.mismatch_override != 0,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))

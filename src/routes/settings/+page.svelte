@@ -462,6 +462,7 @@
 		vin: string | null;
 		driverName: string | null;
 		haOdoSensor: string | null;
+		haFillupSensor: string | null;
 	}) {
 		try {
 			if (editingVehicle) {
@@ -480,6 +481,7 @@
 					vin: data.vin,
 					driverName: data.driverName,
 					haOdoSensor: data.haOdoSensor,
+					haFillupSensor: data.haFillupSensor,
 					updatedAt: new Date().toISOString()
 				};
 				await api.updateVehicle(updatedVehicle);
