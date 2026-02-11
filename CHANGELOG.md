@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Odosielanie návrhu tankovania do Home Assistant** - pri výpočte návrhu tankovania sa automaticky aktualizuje senzor v HA
+  - Nové pole `Senzor návrhu tankovania` v nastaveniach vozidla (vedľa ODO senzora)
+  - Formát stavu: "20.39 L → 5.66 l/100km" alebo prázdny reťazec keď nie je návrh
+  - Odosielanie prebieha na pozadí pri každom načítaní tabuľky jázd
+
 ## [0.29.2] - 2026-02-04
 
 ### Opravené
