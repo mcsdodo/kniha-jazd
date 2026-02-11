@@ -171,6 +171,7 @@ impl Database {
             vin: vehicle.vin.as_deref(),
             driver_name: vehicle.driver_name.as_deref(),
             ha_odo_sensor: vehicle.ha_odo_sensor.as_deref(),
+            ha_fillup_sensor: vehicle.ha_fillup_sensor.as_deref(),
         };
 
         diesel::insert_into(vehicles::table)
@@ -232,6 +233,7 @@ impl Database {
                 vehicles::vin.eq(&vehicle.vin),
                 vehicles::driver_name.eq(&vehicle.driver_name),
                 vehicles::ha_odo_sensor.eq(&vehicle.ha_odo_sensor),
+                vehicles::ha_fillup_sensor.eq(&vehicle.ha_fillup_sensor),
                 vehicles::updated_at.eq(&updated_at_str),
             ))
             .execute(conn)?;
@@ -712,7 +714,10 @@ impl Database {
 
         let rows = receipts::table
             .filter(receipts::trip_id.is_null())
-            .order((receipts::receipt_datetime.desc(), receipts::scanned_at.desc()))
+            .order((
+                receipts::receipt_datetime.desc(),
+                receipts::scanned_at.desc(),
+            ))
             .load::<ReceiptRow>(conn)?;
 
         Ok(rows.into_iter().map(Receipt::from).collect())

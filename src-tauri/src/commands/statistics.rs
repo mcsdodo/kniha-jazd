@@ -6,19 +6,18 @@
 //! - `calculate_magic_fill_liters` - Suggested fuel for magic fill feature
 //! - `preview_trip_calculation` - Live preview of trip calculations
 
-use crate::calculations::{
-    calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
-    calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
-};
 use crate::calculations::energy::{
     calculate_battery_remaining, calculate_energy_used, kwh_to_percent,
 };
 use crate::calculations::phev::calculate_phev_trip_consumption;
+use crate::calculations::{
+    calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
+    calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
+};
 use crate::constants::defaults;
 use crate::db::Database;
 use crate::models::{
-    PreviewResult, Receipt, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle,
-    VehicleType,
+    PreviewResult, Receipt, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType,
 };
 use chrono::{NaiveDate, Utc};
 use std::collections::{HashMap, HashSet};
@@ -587,13 +586,33 @@ pub(crate) fn build_trip_grid_data(
 
 /// Get pre-calculated trip grid data for frontend display.
 /// Thin wrapper around build_trip_grid_data for Tauri command.
+/// Also pushes suggested fillup to HA sensor in the background (if configured).
 #[tauri::command]
 pub fn get_trip_grid_data(
+    app_handle: tauri::AppHandle,
     db: State<Database>,
     vehicle_id: String,
     year: i32,
 ) -> Result<TripGridData, String> {
-    build_trip_grid_data(&db, &vehicle_id, year)
+    let grid_data = build_trip_grid_data(&db, &vehicle_id, year)?;
+
+    // Push suggested fillup to HA sensor in background (fire-and-forget)
+    if let Ok(Some(vehicle)) = db.get_vehicle(&vehicle_id) {
+        if let Some(sensor_id) = vehicle.ha_fillup_sensor {
+            if let Ok(app_data_dir) = super::get_app_data_dir(&app_handle) {
+                let state_text = super::integrations::format_suggested_fillup_text(
+                    grid_data.legend_suggested_fillup.as_ref(),
+                );
+                tauri::async_runtime::spawn(super::integrations::push_ha_sensor_state(
+                    app_data_dir,
+                    sensor_id,
+                    state_text,
+                ));
+            }
+        }
+    }
+
+    Ok(grid_data)
 }
 
 // ============================================================================
@@ -1290,9 +1309,9 @@ pub(crate) fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -
         }
 
         // Check if any receipt is explicitly assigned to this trip
-        let has_assigned_receipt = receipts.iter().any(|r| {
-            r.trip_id.map(|id| id == trip.id).unwrap_or(false)
-        });
+        let has_assigned_receipt = receipts
+            .iter()
+            .any(|r| r.trip_id.map(|id| id == trip.id).unwrap_or(false));
 
         if !has_assigned_receipt {
             missing.insert(trip.id.to_string());
@@ -1304,7 +1323,10 @@ pub(crate) fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -
 
 /// Find trips with assigned receipt where receipt datetime is outside trip's [start, end] range.
 /// Returns trip IDs that should show a warning indicator.
-pub(crate) fn calculate_receipt_datetime_warnings(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
+pub(crate) fn calculate_receipt_datetime_warnings(
+    trips: &[Trip],
+    receipts: &[Receipt],
+) -> HashSet<String> {
     let mut warnings = HashSet::new();
 
     for trip in trips {
@@ -1323,7 +1345,10 @@ pub(crate) fn calculate_receipt_datetime_warnings(trips: &[Trip], receipts: &[Re
 
 /// Find trips with assigned receipt where user has confirmed a mismatch (mismatch_override = true).
 /// Returns trip IDs that should show an override indicator (orange warning).
-pub(crate) fn calculate_receipt_mismatch_overrides(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
+pub(crate) fn calculate_receipt_mismatch_overrides(
+    trips: &[Trip],
+    receipts: &[Receipt],
+) -> HashSet<String> {
     let mut overrides = HashSet::new();
 
     for trip in trips {

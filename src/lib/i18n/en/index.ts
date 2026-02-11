@@ -605,6 +605,9 @@ const en = {
 		sensorLabel: 'ODO sensor',
 		sensorPlaceholder: 'sensor.car_odometer',
 		sensorHint: 'Entity ID of the odometer sensor from Home Assistant',
+		fillupSensorLabel: 'Fillup suggestion sensor',
+		fillupSensorPlaceholder: 'sensor.kniha_jazd_fillup',
+		fillupSensorHint: 'Entity ID for pushing suggested fillup to HA',
 		notConfigured: 'Home Assistant is not configured',
 		configureFirst: 'Set URL and token in Settings first',
 		// Connection status

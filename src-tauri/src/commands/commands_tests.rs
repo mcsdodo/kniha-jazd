@@ -2,12 +2,12 @@
 // Tests
 // ============================================================================
 
-use super::*;
 use super::statistics::{
     calculate_consumption_warnings, calculate_date_warnings, calculate_energy_grid_data,
     calculate_missing_receipts, calculate_receipt_datetime_warnings, calculate_suggested_fillups,
     get_open_period_km,
 };
+use super::*;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use uuid::Uuid;
@@ -108,7 +108,11 @@ fn make_receipt_with_trip_id(
         },
         raw_ocr_text: None,
         error_message: None,
-        assignment_type: if trip_id.is_some() { Some(crate::models::AssignmentType::Fuel) } else { None },
+        assignment_type: if trip_id.is_some() {
+            Some(crate::models::AssignmentType::Fuel)
+        } else {
+            None
+        },
         mismatch_override: false,
         created_at: now,
         updated_at: now,
@@ -126,7 +130,12 @@ fn test_missing_receipts_trip_with_assigned_receipt_not_flagged() {
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
     // Receipt assigned to trip via trip_id
-    let receipts = vec![make_receipt_with_trip_id(Some(date), Some(45.0), Some(72.50), Some(trips[0].id))];
+    let receipts = vec![make_receipt_with_trip_id(
+        Some(date),
+        Some(45.0),
+        Some(72.50),
+        Some(trips[0].id),
+    )];
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
@@ -146,7 +155,11 @@ fn test_missing_receipts_trip_without_assigned_receipt_flagged() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Trip without assigned receipt should be flagged");
+    assert_eq!(
+        missing.len(),
+        1,
+        "Trip without assigned receipt should be flagged"
+    );
     assert!(missing.contains(&trips[0].id.to_string()));
 }
 
@@ -177,7 +190,11 @@ fn test_missing_receipts_trip_with_other_costs_no_receipt_flagged() {
 
     let missing = calculate_missing_receipts(&trips, &receipts);
 
-    assert_eq!(missing.len(), 1, "Trip with other_costs but no receipt should be flagged");
+    assert_eq!(
+        missing.len(),
+        1,
+        "Trip with other_costs but no receipt should be flagged"
+    );
 }
 
 #[test]
@@ -204,9 +221,9 @@ fn test_missing_receipts_multiple_trips_partial_assignment() {
     let date3 = NaiveDate::from_ymd_opt(2024, 6, 30).unwrap();
 
     let trips = vec![
-        make_trip_with_fuel(date1, 40.0, 65.00),       // Has assigned receipt
-        make_trip_with_fuel(date2, 50.0, 80.00),       // No assigned receipt
-        make_trip_without_fuel(date3),                 // No costs, doesn't need receipt
+        make_trip_with_fuel(date1, 40.0, 65.00), // Has assigned receipt
+        make_trip_with_fuel(date2, 50.0, 80.00), // No assigned receipt
+        make_trip_without_fuel(date3),           // No costs, doesn't need receipt
     ];
     let receipts = vec![
         make_receipt_with_trip_id(Some(date1), Some(40.0), Some(65.00), Some(trips[0].id)), // Assigned to trip 1
@@ -246,8 +263,14 @@ fn test_missing_receipts_receipt_assigned_to_different_trip() {
     let missing = calculate_missing_receipts(&trips, &receipts);
 
     assert_eq!(missing.len(), 1);
-    assert!(missing.contains(&trips[1].id.to_string()), "Trip 2 should be flagged");
-    assert!(!missing.contains(&trips[0].id.to_string()), "Trip 1 should not be flagged");
+    assert!(
+        missing.contains(&trips[1].id.to_string()),
+        "Trip 2 should be flagged"
+    );
+    assert!(
+        !missing.contains(&trips[0].id.to_string()),
+        "Trip 1 should not be flagged"
+    );
 }
 
 // ========================================================================
@@ -1562,6 +1585,7 @@ fn test_verify_receipts_filters_by_vehicle() {
         vin: None,
         driver_name: None,
         ha_odo_sensor: None,
+        ha_fillup_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -1580,6 +1604,7 @@ fn test_verify_receipts_filters_by_vehicle() {
         vin: None,
         driver_name: None,
         ha_odo_sensor: None,
+        ha_fillup_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -1732,22 +1757,28 @@ fn test_assign_fuel_to_empty_trip_populates_data() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
-        "Fuel",  // Explicit FUEL assignment
-        false,   // No mismatch override
+        "Fuel", // Explicit FUEL assignment
+        false,  // No mismatch override
     );
 
     assert!(result.is_ok(), "Assignment should succeed");
 
     let assigned_receipt = result.unwrap();
     assert_eq!(assigned_receipt.trip_id, Some(trip.id));
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Fuel)
+    );
     assert_eq!(assigned_receipt.mismatch_override, false);
 
     // Trip should have FUEL fields populated
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(updated_trip.fuel_liters, Some(45.0));
     assert_eq!(updated_trip.fuel_cost_eur, Some(72.0));
-    assert!(updated_trip.other_costs_eur.is_none(), "FUEL should not touch other_costs");
+    assert!(
+        updated_trip.other_costs_eur.is_none(),
+        "FUEL should not touch other_costs"
+    );
 }
 
 #[test]
@@ -1782,20 +1813,30 @@ fn test_assign_other_to_empty_trip_populates_data() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
-        "Other",  // Explicit OTHER assignment
+        "Other", // Explicit OTHER assignment
         false,
     );
 
     assert!(result.is_ok(), "Assignment should succeed");
 
     let assigned_receipt = result.unwrap();
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Other)
+    );
 
     // Trip should have OTHER_COSTS populated
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(updated_trip.other_costs_eur, Some(15.0));
-    assert!(updated_trip.other_costs_note.as_ref().unwrap().contains("AutoWash"));
-    assert!(updated_trip.fuel_liters.is_none(), "OTHER should not touch fuel");
+    assert!(updated_trip
+        .other_costs_note
+        .as_ref()
+        .unwrap()
+        .contains("AutoWash"));
+    assert!(
+        updated_trip.fuel_liters.is_none(),
+        "OTHER should not touch fuel"
+    );
 }
 
 #[test]
@@ -1832,7 +1873,10 @@ fn test_assign_fuel_with_matching_data_links_only() {
 
     let assigned_receipt = result.unwrap();
     assert_eq!(assigned_receipt.trip_id, Some(trip.id));
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Fuel)
+    );
 
     // Trip fuel data should be unchanged (just linked)
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
@@ -1869,14 +1913,23 @@ fn test_assign_fuel_with_mismatch_no_override() {
         &trip.id.to_string(),
         &vehicle.id.to_string(),
         "Fuel",
-        false,  // No override - UI will show warning
+        false, // No override - UI will show warning
     );
 
-    assert!(result.is_ok(), "Assignment should succeed even with mismatch");
+    assert!(
+        result.is_ok(),
+        "Assignment should succeed even with mismatch"
+    );
 
     let assigned_receipt = result.unwrap();
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
-    assert_eq!(assigned_receipt.mismatch_override, false, "Should not have override set");
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Fuel)
+    );
+    assert_eq!(
+        assigned_receipt.mismatch_override, false,
+        "Should not have override set"
+    );
 }
 
 #[test]
@@ -1907,14 +1960,20 @@ fn test_assign_fuel_with_mismatch_and_override() {
         &trip.id.to_string(),
         &vehicle.id.to_string(),
         "Fuel",
-        true,  // User confirmed override
+        true, // User confirmed override
     );
 
     assert!(result.is_ok(), "Assignment should succeed with override");
 
     let assigned_receipt = result.unwrap();
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Fuel));
-    assert_eq!(assigned_receipt.mismatch_override, true, "Should have override set");
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Fuel)
+    );
+    assert_eq!(
+        assigned_receipt.mismatch_override, true,
+        "Should have override set"
+    );
 }
 
 #[test]
@@ -1955,15 +2014,25 @@ fn test_assign_other_to_trip_with_existing_other_costs_allowed() {
         false,
     );
 
-    assert!(result.is_ok(), "Assignment should succeed - just link receipt to trip");
+    assert!(
+        result.is_ok(),
+        "Assignment should succeed - just link receipt to trip"
+    );
 
     let assigned_receipt = result.unwrap();
     assert_eq!(assigned_receipt.trip_id, Some(trip.id));
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Other)
+    );
 
     // Verify trip's other_costs is NOT overwritten (keeps original 10.0)
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
-    assert_eq!(updated_trip.other_costs_eur, Some(10.0), "Trip other_costs should remain unchanged");
+    assert_eq!(
+        updated_trip.other_costs_eur,
+        Some(10.0),
+        "Trip other_costs should remain unchanged"
+    );
 }
 
 #[test]
@@ -2014,7 +2083,11 @@ fn test_reassign_invoice_to_different_trip() {
     assert!(result2.is_ok(), "Reassignment should succeed");
 
     let reassigned_receipt = result2.unwrap();
-    assert_eq!(reassigned_receipt.trip_id, Some(trip2.id), "Should be assigned to trip2 now");
+    assert_eq!(
+        reassigned_receipt.trip_id,
+        Some(trip2.id),
+        "Should be assigned to trip2 now"
+    );
 }
 
 #[test]
@@ -2053,18 +2126,28 @@ fn test_assign_other_with_mismatch_and_override() {
         &trip.id.to_string(),
         &vehicle.id.to_string(),
         "Other",
-        true,  // User confirmed override
+        true, // User confirmed override
     );
 
     assert!(result.is_ok(), "Assignment should succeed with override");
 
     let assigned_receipt = result.unwrap();
-    assert_eq!(assigned_receipt.assignment_type, Some(crate::models::AssignmentType::Other));
-    assert_eq!(assigned_receipt.mismatch_override, true, "Should have override set");
+    assert_eq!(
+        assigned_receipt.assignment_type,
+        Some(crate::models::AssignmentType::Other)
+    );
+    assert_eq!(
+        assigned_receipt.mismatch_override, true,
+        "Should have override set"
+    );
 
     // Verify trip's other_costs is NOT overwritten (keeps original 10.0)
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
-    assert_eq!(updated_trip.other_costs_eur, Some(10.0), "Trip other_costs should remain unchanged");
+    assert_eq!(
+        updated_trip.other_costs_eur,
+        Some(10.0),
+        "Trip other_costs should remain unchanged"
+    );
 }
 
 #[test]
@@ -2107,7 +2190,7 @@ fn test_receipt_datetime_warnings_excludes_overrides() {
 
     let mut receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
     receipt.vehicle_id = Some(vehicle.id);
-    receipt.mismatch_override = true;  // User confirmed the mismatch
+    receipt.mismatch_override = true; // User confirmed the mismatch
     db.create_receipt(&receipt).unwrap();
 
     // Call the warning calculation function
@@ -2116,7 +2199,11 @@ fn test_receipt_datetime_warnings_excludes_overrides() {
     // Currently, the backend DOES include this in warnings
     // Frontend filters it out using the mismatch_override flag
     // This test documents that behavior
-    assert_eq!(warnings.len(), 1, "Backend returns warning (frontend will filter it)");
+    assert_eq!(
+        warnings.len(),
+        1,
+        "Backend returns warning (frontend will filter it)"
+    );
     assert!(
         warnings.contains(&trip.id.to_string()),
         "Trip ID should be in warnings set (frontend filters using mismatch_override)"
@@ -2149,7 +2236,7 @@ fn test_invalid_assignment_type_rejected() {
         &receipt.id.to_string(),
         &trip.id.to_string(),
         &vehicle.id.to_string(),
-        "InvalidType",  // Bad value
+        "InvalidType", // Bad value
         false,
     );
 
@@ -3053,6 +3140,7 @@ fn test_vehicle_with_ha_sensor_persists() {
         vin: None,
         driver_name: None,
         ha_odo_sensor: Some("sensor.car_odometer".to_string()),
+        ha_fillup_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -3089,6 +3177,7 @@ fn test_vehicle_ha_sensor_update() {
         vin: None,
         driver_name: None,
         ha_odo_sensor: None,
+        ha_fillup_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -3134,6 +3223,105 @@ fn test_vehicle_ha_sensor_null_by_default() {
     // Verify sensor is null by default
     let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
     assert_eq!(loaded.ha_odo_sensor, None);
+}
+
+// ============================================================================
+// Home Assistant Fillup Sensor Tests
+// ============================================================================
+
+#[test]
+fn test_format_suggested_fillup_text_with_suggestion() {
+    use crate::commands::integrations::format_suggested_fillup_text;
+    use crate::models::SuggestedFillup;
+
+    let suggestion = SuggestedFillup {
+        liters: 20.39,
+        consumption_rate: 5.66,
+    };
+
+    assert_eq!(
+        format_suggested_fillup_text(Some(&suggestion)),
+        "20.39 L → 5.66 l/100km"
+    );
+}
+
+#[test]
+fn test_format_suggested_fillup_text_none() {
+    use crate::commands::integrations::format_suggested_fillup_text;
+
+    assert_eq!(format_suggested_fillup_text(None), "");
+}
+
+#[test]
+fn test_format_suggested_fillup_text_rounding() {
+    use crate::commands::integrations::format_suggested_fillup_text;
+    use crate::models::SuggestedFillup;
+
+    let suggestion = SuggestedFillup {
+        liters: 38.123456,
+        consumption_rate: 5.789012,
+    };
+
+    assert_eq!(
+        format_suggested_fillup_text(Some(&suggestion)),
+        "38.12 L → 5.79 l/100km"
+    );
+}
+
+#[test]
+fn test_vehicle_ha_fillup_sensor_persistence() {
+    use crate::models::{Vehicle, VehicleType};
+
+    let db = Database::in_memory().unwrap();
+    let now = Utc::now();
+
+    let vehicle = Vehicle {
+        id: Uuid::new_v4(),
+        name: "Test Car".to_string(),
+        license_plate: "HA-004-HA".to_string(),
+        vehicle_type: VehicleType::Ice,
+        tank_size_liters: Some(50.0),
+        tp_consumption: Some(6.0),
+        initial_odometer: 10000.0,
+        battery_capacity_kwh: None,
+        baseline_consumption_kwh: None,
+        initial_battery_percent: None,
+        is_active: true,
+        vin: None,
+        driver_name: None,
+        ha_odo_sensor: None,
+        ha_fillup_sensor: Some("sensor.kniha_jazd_fillup".to_string()),
+        created_at: now,
+        updated_at: now,
+    };
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        loaded.ha_fillup_sensor,
+        Some("sensor.kniha_jazd_fillup".to_string())
+    );
+}
+
+#[test]
+fn test_vehicle_ha_fillup_sensor_null_by_default() {
+    use crate::models::Vehicle;
+
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = Vehicle::new_ice(
+        "Test Car".to_string(),
+        "HA-005-HA".to_string(),
+        50.0,
+        6.0,
+        10000.0,
+    );
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.ha_fillup_sensor, None);
 }
 
 // ============================================================================
