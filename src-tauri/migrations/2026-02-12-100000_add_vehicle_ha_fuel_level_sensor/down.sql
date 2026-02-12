@@ -1,0 +1,2 @@
+-- SQLite doesn't support DROP COLUMN directly
+-- This migration is forward-only (ADR-012)

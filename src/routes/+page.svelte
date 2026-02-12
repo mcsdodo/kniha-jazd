@@ -44,7 +44,7 @@
 
 	// Start/stop HA refresh when vehicle changes (Rust backend handles credentials)
 	$: if ($activeVehicleStore?.haOdoSensor && haConnected) {
-		haStore.startPeriodicRefresh($activeVehicleStore.id, $activeVehicleStore.haOdoSensor);
+		haStore.startPeriodicRefresh($activeVehicleStore.id, $activeVehicleStore.haOdoSensor, $activeVehicleStore.haFuelLevelSensor ?? undefined);
 	} else {
 		haStore.stopPeriodicRefresh();
 	}
@@ -54,6 +54,12 @@
 	$: maxLoggedOdo = trips.length > 0 ? Math.max(...trips.map(t => t.odometer)) : null;
 	$: haOdoDelta = haOdoCache && maxLoggedOdo !== null ? haOdoCache.value - maxLoggedOdo : null;
 	$: haOdoWarning = haOdoDelta !== null && haOdoDelta >= 50;
+
+	// HA fuel level: convert percentage to liters (ADR-013: display formatting in frontend)
+	$: haFuelPercent = haOdoCache?.fuelLevelPercent ?? null;
+	$: haFuelLiters = haFuelPercent !== null && $activeVehicleStore?.tankSizeLiters
+		? (haFuelPercent * $activeVehicleStore.tankSizeLiters / 100)
+		: null;
 
 	// Format staleness (time since fetch)
 	function formatStaleness(fetchedAt: number): string {
@@ -240,7 +246,14 @@
 					</div>
 					<div class="info-item">
 						<span class="label">{$LL.stats.remaining()}</span>
-						<span class="value">{stats.fuelRemainingLiters.toFixed(1)} L</span>
+						<span class="value">
+							{stats.fuelRemainingLiters.toFixed(1)} L
+							{#if haFuelLiters !== null}
+								<span class="ha-fuel">({$LL.homeAssistant.realFuel()}: {haFuelLiters.toFixed(1)} L)</span>
+							{:else if $haStore.fuelError && $activeVehicleStore?.haFuelLevelSensor}
+								<span class="ha-fuel-error">({$LL.homeAssistant.realFuel()}: {$LL.homeAssistant.fetchError()})</span>
+							{/if}
+						</span>
 					</div>
 					<div class="info-item">
 						<span class="label">{$LL.stats.consumption()}</span>
@@ -264,7 +277,7 @@
 								{/if}
 							</span>
 						</div>
-					{:else if $haStore.error && $activeVehicleStore?.haOdoSensor}
+					{:else if $haStore.odoError && $activeVehicleStore?.haOdoSensor}
 						<div class="info-item ha-error">
 							<span class="label">{$LL.homeAssistant.realOdo()}</span>
 							<span class="value error">{$LL.homeAssistant.fetchError()}</span>
@@ -393,6 +406,20 @@
 
 	.stat.warning .stat-value {
 		color: var(--accent-warning);
+	}
+
+	/* Home Assistant fuel level inline display */
+	.ha-fuel {
+		color: var(--accent-warning);
+		font-size: 0.85em;
+		margin-left: 0.25rem;
+	}
+
+	.ha-fuel-error {
+		color: var(--color-error, #dc2626);
+		font-size: 0.85em;
+		font-style: italic;
+		margin-left: 0.25rem;
 	}
 
 	/* Home Assistant ODO display */

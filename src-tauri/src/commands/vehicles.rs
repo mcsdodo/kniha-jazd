@@ -91,8 +91,9 @@ pub fn create_vehicle(
         is_active: true,
         vin,
         driver_name,
-        ha_odo_sensor: None,    // Set via vehicle edit modal
-        ha_fillup_sensor: None, // Set via vehicle edit modal
+        ha_odo_sensor: None,         // Set via vehicle edit modal
+        ha_fillup_sensor: None,      // Set via vehicle edit modal
+        ha_fuel_level_sensor: None,  // Set via vehicle edit modal
         created_at: now,
         updated_at: now,
     };

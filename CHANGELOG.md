@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Zobrazenie reálnej hladiny paliva z Home Assistant** - vedľa vypočítaného zostatku paliva v informáciách o vozidle sa zobrazuje aktuálna hladina z HA senzora
+  - Nové pole `Senzor hladiny paliva (%)` v nastaveniach vozidla
+  - Zobrazenie na riadku zostatku vo formáte: "45.3 L (HA: 42.0 L)" žltou farbou
+
 ## [0.30.0] - 2026-02-12
 
 ### Pridané

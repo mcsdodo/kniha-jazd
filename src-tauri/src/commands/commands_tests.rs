@@ -1586,6 +1586,7 @@ fn test_verify_receipts_filters_by_vehicle() {
         driver_name: None,
         ha_odo_sensor: None,
         ha_fillup_sensor: None,
+        ha_fuel_level_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -1605,6 +1606,7 @@ fn test_verify_receipts_filters_by_vehicle() {
         driver_name: None,
         ha_odo_sensor: None,
         ha_fillup_sensor: None,
+        ha_fuel_level_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -3141,6 +3143,7 @@ fn test_vehicle_with_ha_sensor_persists() {
         driver_name: None,
         ha_odo_sensor: Some("sensor.car_odometer".to_string()),
         ha_fillup_sensor: None,
+        ha_fuel_level_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -3178,6 +3181,7 @@ fn test_vehicle_ha_sensor_update() {
         driver_name: None,
         ha_odo_sensor: None,
         ha_fillup_sensor: None,
+        ha_fuel_level_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -3291,6 +3295,7 @@ fn test_vehicle_ha_fillup_sensor_persistence() {
         driver_name: None,
         ha_odo_sensor: None,
         ha_fillup_sensor: Some("sensor.kniha_jazd_fillup".to_string()),
+        ha_fuel_level_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -3322,6 +3327,67 @@ fn test_vehicle_ha_fillup_sensor_null_by_default() {
 
     let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
     assert_eq!(loaded.ha_fillup_sensor, None);
+}
+
+// ============================================================================
+// Vehicle HA Fuel Level Sensor Tests
+// ============================================================================
+
+#[test]
+fn test_vehicle_ha_fuel_level_sensor_persistence() {
+    use crate::models::{Vehicle, VehicleType};
+
+    let db = Database::in_memory().unwrap();
+    let now = Utc::now();
+
+    let vehicle = Vehicle {
+        id: Uuid::new_v4(),
+        name: "Test Car".to_string(),
+        license_plate: "HA-006-HA".to_string(),
+        vehicle_type: VehicleType::Ice,
+        tank_size_liters: Some(50.0),
+        tp_consumption: Some(6.0),
+        initial_odometer: 10000.0,
+        battery_capacity_kwh: None,
+        baseline_consumption_kwh: None,
+        initial_battery_percent: None,
+        is_active: true,
+        vin: None,
+        driver_name: None,
+        ha_odo_sensor: None,
+        ha_fillup_sensor: None,
+        ha_fuel_level_sensor: Some("sensor.car_fuel_level".to_string()),
+        created_at: now,
+        updated_at: now,
+    };
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        loaded.ha_fuel_level_sensor,
+        Some("sensor.car_fuel_level".to_string())
+    );
+}
+
+#[test]
+fn test_vehicle_ha_fuel_level_sensor_null_by_default() {
+    use crate::models::Vehicle;
+
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = Vehicle::new_ice(
+        "Test Car".to_string(),
+        "HA-007-HA".to_string(),
+        50.0,
+        6.0,
+        10000.0,
+    );
+
+    db.create_vehicle(&vehicle).unwrap();
+
+    let loaded = db.get_vehicle(&vehicle.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.ha_fuel_level_sensor, None);
 }
 
 // ============================================================================

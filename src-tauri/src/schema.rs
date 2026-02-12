@@ -100,6 +100,8 @@ diesel::table! {
         ha_odo_sensor -> Nullable<Text>,
         // Added via migration 2026-02-11-100000_add_vehicle_ha_fillup_sensor
         ha_fillup_sensor -> Nullable<Text>,
+        // Added via migration 2026-02-12-100000_add_vehicle_ha_fuel_level_sensor
+        ha_fuel_level_sensor -> Nullable<Text>,
     }
 }
 

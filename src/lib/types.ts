@@ -29,6 +29,7 @@ export interface Vehicle {
 	// Home Assistant integration
 	haOdoSensor?: string | null; // HA sensor entity ID (e.g., "sensor.car_odometer")
 	haFillupSensor?: string | null; // HA sensor entity ID for pushing suggested fillup
+	haFuelLevelSensor?: string | null; // HA sensor entity ID for fuel level (%)
 	createdAt: string;
 	updatedAt: string;
 }
@@ -394,4 +395,6 @@ export interface HaSettings {
 export interface HaOdoCache {
 	value: number; // ODO value in km
 	fetchedAt: number; // timestamp ms
+	fuelLevelPercent?: number; // fuel level 0-100%
+	fuelFetchedAt?: number; // timestamp ms
 }

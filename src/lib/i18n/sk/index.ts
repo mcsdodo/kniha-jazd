@@ -608,6 +608,10 @@ const sk = {
 		fillupSensorLabel: 'Senzor návrhu tankovania',
 		fillupSensorPlaceholder: 'sensor.kniha_jazd_fillup',
 		fillupSensorHint: 'Entity ID senzora pre odosielanie návrhu tankovania do HA',
+		fuelLevelSensorLabel: 'Senzor hladiny paliva',
+		fuelLevelSensorPlaceholder: 'sensor.auto_fuel_level',
+		fuelLevelSensorHint: 'Entity ID senzora hladiny paliva (v %) z Home Assistant',
+		realFuel: 'HA',
 		notConfigured: 'Home Assistant nie je nakonfigurovaný',
 		configureFirst: 'Najprv nastavte URL a token v Nastaveniach',
 		// Connection status
