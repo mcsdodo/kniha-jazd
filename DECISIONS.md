@@ -4,6 +4,22 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-02-12: HA Sensor Display Conversion
+
+### ADR-013: HA Sensor Percentage-to-Liters Conversion Lives in Frontend
+
+**Context:** The new HA real fuel level feature fetches a percentage (0-100%) from a Home Assistant sensor and needs to convert it to liters (`value × tankSize / 100`) for display on the zostatok line. ADR-008 requires all business logic calculations in the Rust backend only.
+
+**Decision:** This conversion stays in the Svelte frontend as display formatting.
+
+**Reasoning:**
+- ADR-008 protects against **duplicating calculation logic** (consumption rates, margins, zostatok from trip data). This conversion transforms an external HA sensor reading for display only.
+- The backend never uses this value for any calculation — it calculates zostatok independently from trip/fillup data.
+- Same category as `toFixed()` or `toLocaleString()` — formatting an external value for display.
+- No duplication risk: the HA fuel level and the computed zostatok are independent data sources shown side by side.
+
+---
+
 ## 2026-01-29: No Backward Compatibility for Older App Versions
 
 ### ADR-012: Forward-Only Database Migration Strategy
