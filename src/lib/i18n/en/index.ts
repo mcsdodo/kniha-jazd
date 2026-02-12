@@ -612,6 +612,8 @@ const en = {
 		fuelLevelSensorPlaceholder: 'sensor.car_fuel_level',
 		fuelLevelSensorHint: 'Entity ID of fuel level sensor (%) from Home Assistant',
 		realFuel: 'HA',
+		realFuelTooltip: 'Real fuel level from Home Assistant sensor',
+		realOdoTooltip: 'Real odometer value from Home Assistant sensor',
 		notConfigured: 'Home Assistant is not configured',
 		configureFirst: 'Set URL and token in Settings first',
 		// Connection status
