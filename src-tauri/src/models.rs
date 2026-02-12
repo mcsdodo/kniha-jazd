@@ -65,6 +65,7 @@ pub struct Vehicle {
     // Home Assistant integration
     pub ha_odo_sensor: Option<String>, // HA sensor entity ID (e.g., "sensor.car_odometer")
     pub ha_fillup_sensor: Option<String>, // HA sensor entity ID for pushing suggested fillup
+    pub ha_fuel_level_sensor: Option<String>, // HA sensor entity ID for fuel level (%)
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -114,6 +115,7 @@ impl Vehicle {
             driver_name: None,
             ha_odo_sensor: None,
             ha_fillup_sensor: None,
+            ha_fuel_level_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -145,6 +147,7 @@ impl Vehicle {
             driver_name: None,
             ha_odo_sensor: None,
             ha_fillup_sensor: None,
+            ha_fuel_level_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -178,6 +181,7 @@ impl Vehicle {
             driver_name: None,
             ha_odo_sensor: None,
             ha_fillup_sensor: None,
+            ha_fuel_level_sensor: None,
             created_at: now,
             updated_at: now,
         }
@@ -816,6 +820,8 @@ pub struct VehicleRow {
     pub ha_odo_sensor: Option<String>,
     // Added via migration 2026-02-11-100000_add_vehicle_ha_fillup_sensor
     pub ha_fillup_sensor: Option<String>,
+    // Added via migration 2026-02-12-100000_add_vehicle_ha_fuel_level_sensor
+    pub ha_fuel_level_sensor: Option<String>,
 }
 
 /// For inserting new vehicles
@@ -842,6 +848,8 @@ pub struct NewVehicleRow<'a> {
     pub ha_odo_sensor: Option<&'a str>,
     // Added via migration 2026-02-11-100000_add_vehicle_ha_fillup_sensor
     pub ha_fillup_sensor: Option<&'a str>,
+    // Added via migration 2026-02-12-100000_add_vehicle_ha_fuel_level_sensor
+    pub ha_fuel_level_sensor: Option<&'a str>,
 }
 
 /// Database row for trips table
@@ -1043,6 +1051,7 @@ impl From<VehicleRow> for Vehicle {
             driver_name: row.driver_name,
             ha_odo_sensor: row.ha_odo_sensor,
             ha_fillup_sensor: row.ha_fillup_sensor,
+            ha_fuel_level_sensor: row.ha_fuel_level_sensor,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

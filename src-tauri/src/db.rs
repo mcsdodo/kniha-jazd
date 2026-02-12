@@ -172,6 +172,7 @@ impl Database {
             driver_name: vehicle.driver_name.as_deref(),
             ha_odo_sensor: vehicle.ha_odo_sensor.as_deref(),
             ha_fillup_sensor: vehicle.ha_fillup_sensor.as_deref(),
+            ha_fuel_level_sensor: vehicle.ha_fuel_level_sensor.as_deref(),
         };
 
         diesel::insert_into(vehicles::table)
@@ -234,6 +235,7 @@ impl Database {
                 vehicles::driver_name.eq(&vehicle.driver_name),
                 vehicles::ha_odo_sensor.eq(&vehicle.ha_odo_sensor),
                 vehicles::ha_fillup_sensor.eq(&vehicle.ha_fillup_sensor),
+                vehicles::ha_fuel_level_sensor.eq(&vehicle.ha_fuel_level_sensor),
                 vehicles::updated_at.eq(&updated_at_str),
             ))
             .execute(conn)?;

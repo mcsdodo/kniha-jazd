@@ -2002,6 +2002,22 @@ type RootTranslation = {
 		 */
 		fillupSensorHint: string
 		/**
+		 * S​e​n​z​o​r​ ​h​l​a​d​i​n​y​ ​p​a​l​i​v​a
+		 */
+		fuelLevelSensorLabel: string
+		/**
+		 * s​e​n​s​o​r​.​a​u​t​o​_​f​u​e​l​_​l​e​v​e​l
+		 */
+		fuelLevelSensorPlaceholder: string
+		/**
+		 * E​n​t​i​t​y​ ​I​D​ ​s​e​n​z​o​r​a​ ​h​l​a​d​i​n​y​ ​p​a​l​i​v​a​ ​(​v​ ​%​)​ ​z​ ​H​o​m​e​ ​A​s​s​i​s​t​a​n​t
+		 */
+		fuelLevelSensorHint: string
+		/**
+		 * H​A
+		 */
+		realFuel: string
+		/**
 		 * H​o​m​e​ ​A​s​s​i​s​t​a​n​t​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​ý
 		 */
 		notConfigured: string
@@ -4103,6 +4119,22 @@ export type TranslationFunctions = {
 		 * Entity ID senzora pre odosielanie návrhu tankovania do HA
 		 */
 		fillupSensorHint: () => LocalizedString
+		/**
+		 * Senzor hladiny paliva
+		 */
+		fuelLevelSensorLabel: () => LocalizedString
+		/**
+		 * sensor.auto_fuel_level
+		 */
+		fuelLevelSensorPlaceholder: () => LocalizedString
+		/**
+		 * Entity ID senzora hladiny paliva (v %) z Home Assistant
+		 */
+		fuelLevelSensorHint: () => LocalizedString
+		/**
+		 * HA
+		 */
+		realFuel: () => LocalizedString
 		/**
 		 * Home Assistant nie je nakonfigurovaný
 		 */

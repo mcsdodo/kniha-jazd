@@ -608,6 +608,10 @@ const en = {
 		fillupSensorLabel: 'Fillup suggestion sensor',
 		fillupSensorPlaceholder: 'sensor.kniha_jazd_fillup',
 		fillupSensorHint: 'Entity ID for pushing suggested fillup to HA',
+		fuelLevelSensorLabel: 'Fuel level sensor',
+		fuelLevelSensorPlaceholder: 'sensor.car_fuel_level',
+		fuelLevelSensorHint: 'Entity ID of fuel level sensor (%) from Home Assistant',
+		realFuel: 'HA',
 		notConfigured: 'Home Assistant is not configured',
 		configureFirst: 'Set URL and token in Settings first',
 		// Connection status
