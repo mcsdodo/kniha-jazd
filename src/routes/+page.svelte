@@ -249,9 +249,9 @@
 						<span class="value">
 							{stats.fuelRemainingLiters.toFixed(1)} L
 							{#if haFuelLiters !== null}
-								<span class="ha-fuel" title={$LL.homeAssistant.realFuelTooltip()}>({$LL.homeAssistant.realFuel()}: {haFuelLiters.toFixed(1)} L)</span>
+								<span class="ha-fuel" title={$LL.homeAssistant.realFuelTooltip()}>({haFuelLiters.toFixed(1)} L)</span>
 							{:else if $haStore.fuelError && $activeVehicleStore?.haFuelLevelSensor}
-								<span class="ha-fuel-error" title={$LL.homeAssistant.realFuelTooltip()}>({$LL.homeAssistant.realFuel()}: {$LL.homeAssistant.fetchError()})</span>
+								<span class="ha-fuel-error" title={$LL.homeAssistant.realFuelTooltip()}>({$LL.homeAssistant.fetchError()})</span>
 							{/if}
 						</span>
 					</div>
