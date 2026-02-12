@@ -2018,6 +2018,14 @@ type RootTranslation = {
 		 */
 		realFuel: string
 		/**
+		 * R​e​á​l​n​a​ ​h​l​a​d​i​n​a​ ​p​a​l​i​v​a​ ​z​o​ ​s​e​n​z​o​r​a​ ​H​o​m​e​ ​A​s​s​i​s​t​a​n​t
+		 */
+		realFuelTooltip: string
+		/**
+		 * R​e​á​l​n​y​ ​s​t​a​v​ ​o​d​o​m​e​t​r​a​ ​z​o​ ​s​e​n​z​o​r​a​ ​H​o​m​e​ ​A​s​s​i​s​t​a​n​t
+		 */
+		realOdoTooltip: string
+		/**
 		 * H​o​m​e​ ​A​s​s​i​s​t​a​n​t​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​ý
 		 */
 		notConfigured: string
@@ -4135,6 +4143,14 @@ export type TranslationFunctions = {
 		 * HA
 		 */
 		realFuel: () => LocalizedString
+		/**
+		 * Reálna hladina paliva zo senzora Home Assistant
+		 */
+		realFuelTooltip: () => LocalizedString
+		/**
+		 * Reálny stav odometra zo senzora Home Assistant
+		 */
+		realOdoTooltip: () => LocalizedString
 		/**
 		 * Home Assistant nie je nakonfigurovaný
 		 */

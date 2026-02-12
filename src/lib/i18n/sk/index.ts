@@ -612,6 +612,8 @@ const sk = {
 		fuelLevelSensorPlaceholder: 'sensor.auto_fuel_level',
 		fuelLevelSensorHint: 'Entity ID senzora hladiny paliva (v %) z Home Assistant',
 		realFuel: 'HA',
+		realFuelTooltip: 'Reálna hladina paliva zo senzora Home Assistant',
+		realOdoTooltip: 'Reálny stav odometra zo senzora Home Assistant',
 		notConfigured: 'Home Assistant nie je nakonfigurovaný',
 		configureFirst: 'Najprv nastavte URL a token v Nastaveniach',
 		// Connection status
