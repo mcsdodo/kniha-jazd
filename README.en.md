@@ -11,16 +11,21 @@ Automatically calculates fuel consumption, monitors the legal 20% over-consumpti
 
 ## Features
 
-- **Trip logging** - Record date, route, km, and purpose of each trip
+- **Trip logging** - Record date/time, route, km, and purpose of each trip
+- **Legal compliance (from 1.1.2026)** - Trip numbering, driver name, end time, km before trip, month-end rows
 - **Automatic consumption calculation** - l/100km calculated automatically on fill-up
 - **Fuel remaining tracking** - Tank balance after each trip
 - **20% limit monitoring** - Warning when exceeding the legal over-consumption limit
 - **Compensation trip suggestions** - How to get back under the limit
+- **Fill-up suggestions** - Automatic calculation of liters needed for optimal consumption
 - **Route memory** - Frequent routes auto-complete
 - **Yearly overviews** - Each year = separate logbook
-- **Backup and restore** - Simple database management
-- **Export** - HTML preview with print-to-PDF (Ctrl+P)
-- **Receipts (AI OCR)** - Automatic recognition of gas station receipts
+- **Column visibility** - Customize the trip grid by hiding/showing columns
+- **Backup and restore** - Automatic backup before updates, backup management
+- **Database relocation** - Custom database location (Google Drive, NAS) for multi-PC access
+- **Export** - HTML preview with print-to-PDF (Ctrl+P), respects hidden columns
+- **Receipts (AI OCR)** - Automatic recognition of gas station receipts with multi-currency support (EUR, CZK, HUF, PLN)
+- **Home Assistant integration** - Display ODO and fuel level from HA, push suggested fill-up to HA sensor
 
 ## Installation
 
@@ -45,7 +50,7 @@ In settings, add a vehicle with:
 ### 2. Record a Trip
 
 For each trip enter:
-- Date
+- Start/end date and time
 - Origin - Destination
 - Kilometers (or calculated from ODO)
 - Purpose
@@ -67,6 +72,7 @@ The app calculates consumption automatically.
 ### 5. Receipts (AI OCR Recognition)
 
 The app supports automatic recognition of gas station receipts using AI (Gemini).
+Supported currencies: EUR, CZK, HUF, PLN (foreign currencies require manual EUR conversion).
 
 #### Setup
 
@@ -74,19 +80,19 @@ The app supports automatic recognition of gas station receipts using AI (Gemini)
    - Visit [Google AI Studio](https://aistudio.google.com/apikey)
    - Create a new API key (free tier is sufficient for typical usage)
 
-2. **Create configuration file** `local.settings.json`:
+2. **Configure in the app** under Settings → Receipt Scanning:
+   - Enter your Gemini API key
+   - Select the receipts folder
 
-   - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
-   - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
-
-   ```json
-   {
-     "gemini_api_key": "AIza...",
-     "receipts_folder_path": "C:\\Path\\To\\Receipts"
-   }
-   ```
-
-   > **Tip:** On Windows, open the folder with `Win+R` → `%APPDATA%\com.notavailable.kniha-jazd`
+   > **Alternative:** Manual configuration via `local.settings.json`:
+   > - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
+   > - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
+   > ```json
+   > {
+   >   "gemini_api_key": "AIza...",
+   >   "receipts_folder_path": "C:\\Path\\To\\Receipts"
+   > }
+   > ```
 
 #### Receipt Folder Structure
 
@@ -139,9 +145,14 @@ Remaining fuel is calculated from filled liters minus consumption. If negative, 
 3. Supported formats: JPG, PNG, WebP, PDF
 
 **How to transfer data to a new computer?**
+
+*Via backup:*
 1. Create a backup in Settings
 2. Copy the `.backup` file to the new computer
 3. Restore from backup in Settings
+
+*Via shared storage:*
+In Settings → Database Location, move the database to shared storage (Google Drive, NAS). A lock file prevents simultaneous access from multiple computers.
 
 ## Privacy
 
@@ -193,7 +204,7 @@ npm run tauri dev
 ### Running Tests
 
 ```bash
-# Rust backend tests (93 tests)
+# Rust backend tests (257 tests)
 cd src-tauri && cargo test
 
 # E2E integration tests
