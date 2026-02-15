@@ -11,16 +11,21 @@ Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou
 
 ## Funkcie
 
-- **Evidencia jázd** - Záznam dátumu, trasy, km a účelu jazdy
+- **Evidencia jázd** - Záznam dátumu/času, trasy, km a účelu jazdy
+- **Zákonná zhoda (od 1.1.2026)** - Poradové číslo jazdy, meno vodiča, čas ukončenia, km pred jazdou, riadky konca mesiaca
 - **Automatický výpočet spotreby** - l/100km sa vypočíta automaticky pri tankovaní
 - **Sledovanie zostatku paliva** - Zostatok v nádrži po každej jazde
 - **20% limit nadpotreby** - Upozornenie pri prekročení zákonného limitu
 - **Návrhy kompenzačných jázd** - Ako sa dostať späť pod limit
+- **Návrh tankovania** - Automatický výpočet litrov pre dosiahnutie optimálnej spotreby
 - **Pamätanie trás** - Časté trasy sa automaticky dopĺňajú
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
-- **Zálohovanie a obnova** - Jednoduchá správa databázy
-- **Export** - HTML náhľad s tlačou do PDF (Ctrl+P)
-- **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc
+- **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby
+- **Zálohovanie a obnova** - Automatická záloha pred aktualizáciou, správa záloh
+- **Presun databázy** - Vlastné umiestnenie databázy (Google Drive, NAS) pre prístup z viacerých počítačov
+- **Export** - HTML náhľad s tlačou do PDF (Ctrl+P), rešpektuje skryté stĺpce
+- **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc s podporou viacerých mien (EUR, CZK, HUF, PLN)
+- **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
 
 ## Inštalácia
 
@@ -45,7 +50,7 @@ V nastaveniach pridajte vozidlo so zadaním:
 ### 2. Záznam jazdy
 
 Pre každú jazdu zadajte:
-- Dátum
+- Dátum a čas začiatku/konca
 - Odkiaľ - Kam
 - Počet km (alebo sa vypočíta z ODO)
 - Účel jazdy
@@ -67,6 +72,7 @@ Aplikácia vypočíta spotrebu automaticky.
 ### 5. Doklady (AI rozpoznávanie blokov)
 
 Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc pomocou AI (Gemini).
+Podporované meny: EUR, CZK, HUF, PLN (cudzie meny vyžadujú manuálnu konverziu na EUR).
 
 #### Nastavenie
 
@@ -74,19 +80,19 @@ Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc po
    - Navštívte [Google AI Studio](https://aistudio.google.com/apikey)
    - Vytvorte nový API kľúč (bezplatný tier stačí pre bežné použitie)
 
-2. **Vytvorte konfiguračný súbor** `local.settings.json`:
+2. **Nastavte v aplikácii** v časti Nastavenia → Skenovanie dokladov:
+   - Zadajte Gemini API kľúč
+   - Vyberte priečinok s bločkami
 
-   - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
-   - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
-
-   ```json
-   {
-     "gemini_api_key": "AIza...",
-     "receipts_folder_path": "C:\\Cesta\\K\\Blokom"
-   }
-   ```
-
-   > **Tip:** Na Windows môžete otvoriť priečinok príkazom `Win+R` → `%APPDATA%\com.notavailable.kniha-jazd`
+   > **Alternatíva:** Manuálna konfigurácia cez `local.settings.json`:
+   > - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
+   > - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
+   > ```json
+   > {
+   >   "gemini_api_key": "AIza...",
+   >   "receipts_folder_path": "C:\\Cesta\\K\\Blokom"
+   > }
+   > ```
 
 #### Štruktúra priečinka s bločkami
 
@@ -139,9 +145,14 @@ Zostatok sa počíta z natankovaných litrov mínus spotreba. Ak je záporný, s
 3. Podporované formáty: JPG, PNG, WebP, PDF
 
 **Ako preniesť dáta na nový počítač?**
+
+*Cez zálohu:*
 1. V nastaveniach vytvorte zálohu
 2. Skopírujte súbor `.backup` na nový počítač
 3. V nastaveniach obnovte zo zálohy
+
+*Cez zdieľaný priečinok:*
+V Nastaveniach → Umiestnenie databázy presuňte databázu na zdieľané úložisko (Google Drive, NAS). Zámkový súbor zabraňuje súčasnému prístupu z viacerých počítačov.
 
 ## Súkromie
 
