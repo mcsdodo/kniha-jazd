@@ -2284,8 +2284,48 @@ fn test_get_trips_for_receipt_assignment_empty_trip_returns_can_attach_true() {
     assert_eq!(trips.len(), 1, "Should have 1 trip");
     assert!(trips[0].can_attach, "Empty trip should allow attachment");
     assert_eq!(
+        trips[0].attachment_status, "matches",
+        "Empty trip with matching date should show 'matches'"
+    );
+}
+
+#[test]
+fn test_get_trips_for_receipt_assignment_empty_trip_different_date_returns_empty() {
+    // Trip has NO fuel data AND receipt date is different → status "empty" (no date confirmation)
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let trip_date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, trip_date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    // Receipt on a DIFFERENT date
+    let receipt_date = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap();
+    let receipt = make_receipt_with_details(Some(receipt_date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+
+    let result = get_trips_for_receipt_assignment_internal(
+        &db,
+        &receipt.id.to_string(),
+        &vehicle.id.to_string(),
+        2024,
+    );
+
+    assert!(result.is_ok(), "Should return trips");
+    let trips = result.unwrap();
+    assert_eq!(trips.len(), 1, "Should have 1 trip");
+    assert!(trips[0].can_attach, "Empty trip should allow attachment");
+    assert_eq!(
         trips[0].attachment_status, "empty",
-        "Status should be 'empty'"
+        "Empty trip with different date should show 'empty'"
     );
 }
 
