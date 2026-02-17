@@ -248,7 +248,7 @@ describe('Tier 2: Receipts Workflow', () => {
       }
     });
 
-    it('should return "empty" when trip has no fuel data', async () => {
+    it('should return "matches" when trip has no fuel data but date matches', async () => {
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'Empty Trip Test Vehicle',
@@ -306,8 +306,8 @@ describe('Tier 2: Receipts Workflow', () => {
       expect(tripMatch).toBeDefined();
 
       if (tripMatch) {
-        // Trip has no fuel data - can attach freely
-        expect(tripMatch.attachmentStatus).toBe('empty');
+        // Trip has no fuel data but receipt date matches trip date → "matches"
+        expect(tripMatch.attachmentStatus).toBe('matches');
         expect(tripMatch.mismatchReason).toBeNull();
         expect(tripMatch.canAttach).toBe(true);
       }
