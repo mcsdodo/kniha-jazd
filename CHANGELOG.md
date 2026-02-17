@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Indikátor zhody dátumu pri priradení dokladu** - pri priradení dokladu k jazde bez paliva sa teraz zobrazuje zelený ✓ ak sa dátum/čas dokladu zhoduje s jazdou
+
 ## [0.31.0] - 2026-02-12
 
 ### Pridané
