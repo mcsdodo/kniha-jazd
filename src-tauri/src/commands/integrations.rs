@@ -209,18 +209,19 @@ pub fn save_ha_settings(
 // Home Assistant Sensor Push
 // ============================================================================
 
-/// Format suggested fillup for HA sensor state.
-/// Returns "20.39 L → 5.66 l/100km" or "" if no suggestion.
+/// Format suggested fillup for HA input_text helper.
+/// Returns "20.39 L → 5.66 l/100km" or "Plná nádrž" if no suggestion needed.
 pub(crate) fn format_suggested_fillup_text(suggestion: Option<&SuggestedFillup>) -> String {
     match suggestion {
         Some(s) => format!("{:.2} L → {:.2} l/100km", s.liters, s.consumption_rate),
-        None => String::new(),
+        None => "Plná nádrž".to_string(),
     }
 }
 
-/// Push a state value to a Home Assistant sensor entity.
+/// Push a value to a Home Assistant `input_text` helper entity.
+/// Uses the `input_text/set_value` service call so the value persists across HA restarts.
 /// Fire-and-forget: logs errors but never fails the caller.
-pub(crate) async fn push_ha_sensor_state(app_data_dir: PathBuf, sensor_id: String, state: String) {
+pub(crate) async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String, value: String) {
     let settings = LocalSettings::load(&app_data_dir);
 
     let url = match settings.ha_url {
@@ -232,14 +233,14 @@ pub(crate) async fn push_ha_sensor_state(app_data_dir: PathBuf, sensor_id: Strin
         None => return,
     };
 
-    let api_url = format!("{}/api/states/{}", url.trim_end_matches('/'), sensor_id);
+    let api_url = format!(
+        "{}/api/services/input_text/set_value",
+        url.trim_end_matches('/')
+    );
 
     let body = serde_json::json!({
-        "state": state,
-        "attributes": {
-            "friendly_name": "Kniha jázd - Návrh tankovania",
-            "icon": "mdi:gas-station"
-        }
+        "entity_id": entity_id,
+        "value": value
     });
 
     let client = match reqwest::Client::builder()
@@ -264,13 +265,13 @@ pub(crate) async fn push_ha_sensor_state(app_data_dir: PathBuf, sensor_id: Strin
         Ok(resp) => {
             println!(
                 "[HA push] {} → {} ({})",
-                sensor_id,
-                if state.is_empty() { "\"\"" } else { &state },
+                entity_id,
+                if value.is_empty() { "\"\"" } else { &value },
                 resp.status()
             );
         }
         Err(e) => {
-            println!("[HA push] Error pushing to {}: {}", sensor_id, e);
+            println!("[HA push] Error pushing to {}: {}", entity_id, e);
         }
     }
 }

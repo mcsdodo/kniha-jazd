@@ -3293,7 +3293,7 @@ fn test_format_suggested_fillup_text_with_suggestion() {
 fn test_format_suggested_fillup_text_none() {
     use crate::commands::integrations::format_suggested_fillup_text;
 
-    assert_eq!(format_suggested_fillup_text(None), "");
+    assert_eq!(format_suggested_fillup_text(None), "Plná nádrž");
 }
 
 #[test]
