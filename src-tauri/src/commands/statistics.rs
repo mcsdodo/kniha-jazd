@@ -603,7 +603,7 @@ pub fn get_trip_grid_data(
                 let state_text = super::integrations::format_suggested_fillup_text(
                     grid_data.legend_suggested_fillup.as_ref(),
                 );
-                tauri::async_runtime::spawn(super::integrations::push_ha_sensor_state(
+                tauri::async_runtime::spawn(super::integrations::push_ha_input_text(
                     app_data_dir,
                     sensor_id,
                     state_text,
