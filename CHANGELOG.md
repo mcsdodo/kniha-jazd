@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Návrh tankovania v HA používa input_text helper namiesto senzora** - hodnota prežije reštart Home Assistant aj keď aplikácia nebola medzitým spustená
+  - Zmena API volania z `POST /api/states/` na `POST /api/services/input_text/set_value`
+  - Keď nie je návrh tankovania, zobrazí sa "Plná nádrž" namiesto prázdneho textu
+  - Potrebné vytvoriť `input_text` helper v HA (Nastavenia → Zariadenia → Helpery → Text)
+
 ## [0.31.1] - 2026-02-17
 
 ### Opravené
