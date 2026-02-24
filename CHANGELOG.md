@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-02-24
+
+### Opravené
+- **Zobrazenie rozdielu reálneho ODO** - pri zápornom rozdiele sa zobrazovalo `(+-266 km)` namiesto `(-266 km)`
+
 ## [0.32.0] - 2026-02-21
 
 ### Zmenené
