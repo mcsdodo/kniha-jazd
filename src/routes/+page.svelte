@@ -272,7 +272,7 @@
 								{haOdoCache.value.toLocaleString('sk-SK')} km
 								{#if haOdoDelta !== null}
 									<span class="delta" class:warning={haOdoWarning}>
-										(+{haOdoDelta.toFixed(0)} km)
+										({haOdoDelta > 0 ? '+' : ''}{haOdoDelta.toFixed(0)} km)
 									</span>
 								{/if}
 							</span>
