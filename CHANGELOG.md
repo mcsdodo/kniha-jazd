@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravene
+- **Oprava korupcie ODO pri úprave jázd** - opravena chyba, pri ktorej prepočet zastaraných dát a kruhová závislosť pri zoradení spôsobovali nesprávne hodnoty odometra po uložení upravenej jazdy
+
 ## [0.32.1] - 2026-02-24
 
 ### Opravené
