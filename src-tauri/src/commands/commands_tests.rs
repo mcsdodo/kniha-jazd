@@ -3519,31 +3519,31 @@ fn test_trip_numbers_chronological_order() {
 }
 
 #[test]
-fn test_trip_numbers_same_date_by_odometer() {
-    // Multiple trips on same day - order by odometer
+fn test_trip_numbers_same_datetime_by_sort_order() {
+    // Multiple trips on same day and time - order by sort_order (higher = earlier)
     let trips = vec![
-        make_trip_with_date_odo("2026-01-15", 50.0, 10100.0), // Should be #2
-        make_trip_with_date_odo("2026-01-15", 30.0, 10050.0), // Should be #1
-        make_trip_with_date_odo("2026-01-15", 25.0, 10150.0), // Should be #3
+        make_trip_with_datetime_sort("2026-01-15", 8, 0, 50.0, 10100.0, 1), // sort_order=1 → #2
+        make_trip_with_datetime_sort("2026-01-15", 8, 0, 30.0, 10050.0, 2), // sort_order=2 → #1
+        make_trip_with_datetime_sort("2026-01-15", 8, 0, 25.0, 10150.0, 0), // sort_order=0 → #3
     ];
 
     let trip_numbers = calculate_trip_numbers(&trips);
 
     let first = trips
         .iter()
-        .find(|t| t.odometer == 10050.0)
+        .find(|t| t.sort_order == 2)
         .unwrap()
         .id
         .to_string();
     let second = trips
         .iter()
-        .find(|t| t.odometer == 10100.0)
+        .find(|t| t.sort_order == 1)
         .unwrap()
         .id
         .to_string();
     let third = trips
         .iter()
-        .find(|t| t.odometer == 10150.0)
+        .find(|t| t.sort_order == 0)
         .unwrap()
         .id
         .to_string();
@@ -3648,6 +3648,153 @@ fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
 
 fn make_trip_with_date_odo(date_str: &str, distance: f64, odo: f64) -> Trip {
     make_trip_with_date(date_str, distance, odo)
+}
+
+/// Helper to create a trip with specific datetime, sort_order, and odometer
+fn make_trip_with_datetime_sort(
+    date_str: &str,
+    hour: u32,
+    minute: u32,
+    distance: f64,
+    odo: f64,
+    sort_order: i32,
+) -> Trip {
+    let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+    Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        start_datetime: date.and_hms_opt(hour, minute, 0).unwrap(),
+        end_datetime: None,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: distance,
+        odometer: odo,
+        purpose: "test".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    }
+}
+
+#[test]
+fn test_calculate_odometer_start_same_datetime_uses_sort_order() {
+    // Two trips with identical start_datetime but different sort_orders.
+    // sort_order determines chronological position (higher = earlier).
+    // If we sort by odometer instead (bug), wrong trip gets wrong start odo.
+    let initial_odo = 10000.0;
+
+    // Trip A: sort_order=2 (earlier), has "wrong" high odometer
+    let trip_a = make_trip_with_datetime_sort("2026-01-10", 8, 0, 50.0, 10200.0, 2);
+    // Trip B: sort_order=1 (later), has "wrong" low odometer
+    let trip_b = make_trip_with_datetime_sort("2026-01-10", 8, 0, 50.0, 10100.0, 1);
+
+    let trips = vec![trip_a.clone(), trip_b.clone()];
+    let odo_start = calculate_odometer_start(&trips, initial_odo);
+
+    // Trip A (sort_order=2, earlier) should use initial_odo as start
+    assert_eq!(
+        odo_start.get(&trip_a.id.to_string()),
+        Some(&initial_odo),
+        "Earlier trip (higher sort_order) should start from initial odometer"
+    );
+    // Trip B (sort_order=1, later) should use trip A's ending odo as start
+    assert_eq!(
+        odo_start.get(&trip_b.id.to_string()),
+        Some(&10200.0),
+        "Later trip (lower sort_order) should start from previous trip's odometer"
+    );
+}
+
+#[test]
+fn test_year_start_odometer_same_day_uses_time_and_sort_order() {
+    // Two trips on same day with different times. The later trip's odometer
+    // should be returned as year-end value.
+    // Bug: get_year_start_odometer sorts by date only (strips time), then
+    // uses odometer as tiebreaker — if odometers are "wrong", returns wrong value.
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        50.0,
+        6.0,
+        10000.0,
+    );
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+    let now = Utc::now();
+    let date = NaiveDate::from_ymd_opt(2024, 12, 31).unwrap();
+
+    // Morning trip: sort_order=1 (earlier), higher odo (data corruption scenario)
+    let trip_morning = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: vehicle.id,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: 300.0,
+        odometer: 50300.0, // "wrong" — higher than afternoon trip
+        purpose: "test".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 1,
+        created_at: now,
+        updated_at: now,
+    };
+
+    // Afternoon trip: sort_order=0 (later/newest), lower odo (data corruption scenario)
+    let trip_afternoon = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: vehicle.id,
+        start_datetime: date.and_hms_opt(16, 0, 0).unwrap(),
+        end_datetime: None,
+        origin: "B".to_string(),
+        destination: "C".to_string(),
+        distance_km: 200.0,
+        odometer: 50200.0, // "wrong" — lower than morning trip
+        purpose: "test".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0,
+        created_at: now,
+        updated_at: now,
+    };
+
+    db.create_trip(&trip_morning).expect("Failed to create trip");
+    db.create_trip(&trip_afternoon).expect("Failed to create trip");
+
+    let result = get_year_start_odometer(&db, &vehicle.id.to_string(), 2025, 10000.0);
+
+    assert!(result.is_ok());
+    assert_eq!(
+        result.unwrap(),
+        50200.0,
+        "Should return afternoon trip's odometer (later time), not morning trip's (higher odo)"
+    );
 }
 
 // =============================================================================

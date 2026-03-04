@@ -339,11 +339,8 @@ pub(crate) fn get_year_start_odometer(
                 a.start_datetime
                     .date()
                     .cmp(&b.start_datetime.date())
-                    .then_with(|| {
-                        a.odometer
-                            .partial_cmp(&b.odometer)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
+                    .then_with(|| a.start_datetime.cmp(&b.start_datetime))
+                    .then_with(|| b.sort_order.cmp(&a.sort_order))
             });
             return Ok(chronological
                 .last()

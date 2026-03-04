@@ -275,41 +275,17 @@
 				tripData.otherCostsNote
 			);
 
-			await recalculateNewerTripsOdo(trip.id, tripData.odometer!);
-			onTripsChanged();
+			// Refresh trips from DB first, then recalculate ODO on updated list
+			// (Same pattern as handleSaveNew — prevents stale data recalculation)
+			await onTripsChanged();
+			await tick();
+			await recalculateAllOdo();
 			await loadRoutes();
 			await loadPurposes();
 			triggerReceiptRefresh(); // Update nav badge after trip change
 		} catch (error) {
 			console.error('Failed to update trip:', error);
 			toast.error($LL.toast.errorUpdateTrip());
-		}
-	}
-
-	async function recalculateNewerTripsOdo(editedTripId: string, newOdo: number) {
-		const chronological = [...trips].sort((a, b) => {
-			const dateDiff = new Date(tripDate(a)).getTime() - new Date(tripDate(b)).getTime();
-			if (dateDiff !== 0) return dateDiff;
-			return a.odometer - b.odometer;
-		});
-
-		const editedIndex = chronological.findIndex((t) => t.id === editedTripId);
-		if (editedIndex === -1 || editedIndex === chronological.length - 1) return;
-
-		let runningOdo = newOdo;
-		for (let i = editedIndex + 1; i < chronological.length; i++) {
-			const t = chronological[i];
-			runningOdo = runningOdo + t.distanceKm;
-			if (Math.abs(t.odometer - runningOdo) > 0.01) {
-				await updateTrip(
-					t.id, tripToStartDatetime(t), tripToEndDatetime(t),
-					t.origin, t.destination, t.distanceKm, runningOdo,
-					t.purpose,
-					t.fuelLiters, t.fuelCostEur, t.fullTank,
-					t.energyKwh, t.energyCostEur, t.fullCharge, t.socOverridePercent,
-					t.otherCostsEur, t.otherCostsNote
-				);
-			}
 		}
 	}
 
