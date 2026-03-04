@@ -90,20 +90,16 @@ pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
     Ok(db_paths)
 }
 
-/// Calculate trip sequence numbers (1-based, chronological order by date then odometer)
+/// Calculate trip sequence numbers (1-based, chronological order by date then sort_order)
 pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
-    // Sort by date, then by odometer for same-day trips
+    // Sort by date, then by sort_order for same-datetime trips
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
         a.start_datetime
             .date()
             .cmp(&b.start_datetime.date())
             .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .then_with(|| b.sort_order.cmp(&a.sort_order))
     });
 
     sorted
@@ -119,18 +115,14 @@ pub(crate) fn calculate_odometer_start(
     trips: &[Trip],
     initial_odometer: f64,
 ) -> HashMap<String, f64> {
-    // Sort chronologically
+    // Sort chronologically by date, then full datetime, then sort_order for ties
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
         a.start_datetime
             .date()
             .cmp(&b.start_datetime.date())
             .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .then_with(|| b.sort_order.cmp(&a.sort_order))
     });
 
     let mut result = HashMap::new();
@@ -181,11 +173,8 @@ pub(crate) fn generate_month_end_rows(
         a.start_datetime
             .date()
             .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .then_with(|| a.start_datetime.cmp(&b.start_datetime))
+            .then_with(|| b.sort_order.cmp(&a.sort_order))
     });
 
     // Only generate month-end rows for "closed" months:
