@@ -248,7 +248,7 @@ describe('Tier 2: Receipts Workflow', () => {
       }
     });
 
-    it('should return "matches" when trip has no fuel data but date matches', async () => {
+    it('should return "matches_date" when trip has no fuel data and date matches but time is outside range', async () => {
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'Empty Trip Test Vehicle',
@@ -306,8 +306,9 @@ describe('Tier 2: Receipts Workflow', () => {
       expect(tripMatch).toBeDefined();
 
       if (tripMatch) {
-        // Trip has no fuel data but receipt date matches trip date → "matches"
-        expect(tripMatch.attachmentStatus).toBe('matches');
+        // Trip has no fuel data, receipt date matches but time is outside trip range → "matches_date"
+        // (trip has no endDatetime so range is a single point at 08:00, receipt is at 10:30)
+        expect(tripMatch.attachmentStatus).toBe('matches_date');
         expect(tripMatch.mismatchReason).toBeNull();
         expect(tripMatch.canAttach).toBe(true);
       }
