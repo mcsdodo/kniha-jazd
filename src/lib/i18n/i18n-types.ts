@@ -1468,6 +1468,10 @@ type RootTranslation = {
 		 */
 		matchesReceipt: string
 		/**
+		 * r​o​v​n​a​k​ý​ ​d​á​t​u​m
+		 */
+		matchesDate: string
+		/**
 		 * P​r​i​r​a​d​i​ť​ ​a​k​o
 		 */
 		selectType: string
@@ -3617,6 +3621,10 @@ export type TranslationFunctions = {
 		 * zodpovedá dokladu
 		 */
 		matchesReceipt: () => LocalizedString
+		/**
+		 * rovnaký dátum
+		 */
+		matchesDate: () => LocalizedString
 		/**
 		 * Priradiť ako
 		 */

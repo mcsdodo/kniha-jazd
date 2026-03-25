@@ -456,6 +456,7 @@ const en = {
 		noTrips: 'No trips to assign.',
 		alreadyHas: 'already has:',
 		matchesReceipt: 'matches receipt',
+		matchesDate: 'same date',
 		// Step 2: Assignment type selection
 		selectType: 'Assign as',
 		assignAsFuel: 'Fuel (refueling)',

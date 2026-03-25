@@ -456,6 +456,7 @@ const sk = {
 		noTrips: 'Žiadne jazdy na pridelenie.',
 		alreadyHas: 'už má:',
 		matchesReceipt: 'zodpovedá dokladu',
+		matchesDate: 'rovnaký dátum',
 		// Step 2: Assignment type selection
 		selectType: 'Priradiť ako',
 		assignAsFuel: 'Tankovanie (PHM)',
