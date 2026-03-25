@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Rozlíšenie presnej a dátumovej zhody pri priraďovaní dokladov** - pri výbere jazdy pre doklad sa teraz rozlišuje „zodpovedá dokladu" (čas dokladu spadá do rozsahu jazdy) a „rovnaký dátum" (len rovnaký deň, čas mimo rozsahu). Predtým sa všetky jazdy v rovnaký deň zobrazovali ako presná zhoda.
+
+### Zmenené
+- **Širší modál priraďovania dokladov** - zväčšený z 500px na 750px pre lepšiu čitateľnosť dlhších trás
+
 ## [0.32.2] - 2026-03-04
 
 ### Opravené
