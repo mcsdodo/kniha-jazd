@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-02-11
+**Last updated:** 2026-03-07
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 55 | [Server Mode](55-server-mode/) | 📋 Planning | Embedded HTTP server for LAN browser access |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
 | 33 | [Web Deployment](33-web-deployment/) | 📋 Planning | Web version feasibility |

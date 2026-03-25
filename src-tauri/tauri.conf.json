@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Kniha Jázd",
-  "version": "0.32.2",
+  "version": "0.32.3",
   "identifier": "com.notavailable.kniha-jazd",
   "build": {
     "frontendDist": "../build",
