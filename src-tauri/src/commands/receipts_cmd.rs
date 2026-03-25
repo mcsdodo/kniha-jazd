@@ -550,20 +550,15 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
 
         if !trip_has_fuel {
             // Trip has no fuel data → can attach (receipt will populate fuel fields)
-            // If datetime matches, show "matches" to confirm this is the right trip
-            let datetime_matches = receipt
-                .receipt_datetime
-                .map(|dt| is_datetime_in_trip_range(dt, trip) || is_same_date(dt, trip))
-                .unwrap_or(false);
+            // Distinguish: exact time match vs same-date-only vs different date
+            let status = match receipt.receipt_datetime {
+                Some(dt) if is_datetime_in_trip_range(dt, trip) => AttachmentStatus::Matches,
+                Some(dt) if is_same_date(dt, trip) => AttachmentStatus::MatchesDate,
+                _ => AttachmentStatus::Empty,
+            };
             return CompatibilityResult {
                 can_attach: true,
-                status: if datetime_matches {
-                    AttachmentStatus::Matches
-                } else {
-                    AttachmentStatus::Empty
-                }
-                .as_str()
-                .to_string(),
+                status: status.as_str().to_string(),
                 mismatch_reason: None,
             };
         }
@@ -621,20 +616,15 @@ fn check_receipt_trip_compatibility(receipt: &Receipt, trip: &Trip) -> Compatibi
 
         if !trip_has_other_costs {
             // Trip has no other costs → can attach (receipt will populate other_costs fields)
-            // If datetime matches, show "matches" to confirm this is the right trip
-            let datetime_matches = receipt
-                .receipt_datetime
-                .map(|dt| is_datetime_in_trip_range(dt, trip) || is_same_date(dt, trip))
-                .unwrap_or(false);
+            // Distinguish: exact time match vs same-date-only vs different date
+            let status = match receipt.receipt_datetime {
+                Some(dt) if is_datetime_in_trip_range(dt, trip) => AttachmentStatus::Matches,
+                Some(dt) if is_same_date(dt, trip) => AttachmentStatus::MatchesDate,
+                _ => AttachmentStatus::Empty,
+            };
             return CompatibilityResult {
                 can_attach: true,
-                status: if datetime_matches {
-                    AttachmentStatus::Matches
-                } else {
-                    AttachmentStatus::Empty
-                }
-                .as_str()
-                .to_string(),
+                status: status.as_str().to_string(),
                 mismatch_reason: None,
             };
         }

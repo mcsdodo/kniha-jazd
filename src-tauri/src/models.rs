@@ -655,9 +655,10 @@ impl std::fmt::Display for BackupType {
 #[serde(rename_all = "lowercase")]
 pub enum AttachmentStatus {
     #[default]
-    Empty, // Trip has no receipt attached
-    Matches, // Receipt values match trip
-    Differs, // Receipt values differ from trip
+    Empty,        // Trip has no receipt attached
+    Matches,      // Receipt datetime is within trip time range (exact match)
+    MatchesDate,  // Receipt is on same date but time is outside trip range
+    Differs,      // Receipt values differ from trip
 }
 
 impl AttachmentStatus {
@@ -665,6 +666,7 @@ impl AttachmentStatus {
         match self {
             AttachmentStatus::Empty => "empty",
             AttachmentStatus::Matches => "matches",
+            AttachmentStatus::MatchesDate => "matches_date",
             AttachmentStatus::Differs => "differs",
         }
     }

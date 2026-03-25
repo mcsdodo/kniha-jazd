@@ -2330,6 +2330,91 @@ fn test_get_trips_for_receipt_assignment_empty_trip_different_date_returns_empty
 }
 
 #[test]
+fn test_get_trips_for_receipt_assignment_empty_trip_same_date_but_outside_time_range() {
+    // Trip has NO fuel data, receipt is same date but time is OUTSIDE trip range
+    // → should show "matches_date" (weaker than "matches")
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Trip from 08:00 to 12:00
+    let mut trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    trip.end_datetime = Some(date.and_hms_opt(12, 0, 0).unwrap());
+    db.create_trip(&trip).unwrap();
+
+    // Receipt at 16:00 - same date but outside 08:00-12:00 trip range
+    let mut receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
+    receipt.receipt_datetime = Some(date.and_hms_opt(16, 0, 0).unwrap());
+    db.create_receipt(&receipt).unwrap();
+
+    let result = get_trips_for_receipt_assignment_internal(
+        &db,
+        &receipt.id.to_string(),
+        &vehicle.id.to_string(),
+        2024,
+    );
+
+    assert!(result.is_ok(), "Should return trips");
+    let trips = result.unwrap();
+    assert_eq!(trips.len(), 1, "Should have 1 trip");
+    assert!(trips[0].can_attach, "Empty trip should allow attachment");
+    assert_eq!(
+        trips[0].attachment_status, "matches_date",
+        "Same date but outside time range should show 'matches_date'"
+    );
+}
+
+#[test]
+fn test_get_trips_for_receipt_assignment_empty_trip_inside_time_range_shows_matches() {
+    // Trip has NO fuel data, receipt datetime is INSIDE trip range
+    // → should show "matches" (exact match)
+    let db = Database::in_memory().unwrap();
+
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Trip from 08:00 to 18:00
+    let mut trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    trip.end_datetime = Some(date.and_hms_opt(18, 0, 0).unwrap());
+    db.create_trip(&trip).unwrap();
+
+    // Receipt at 12:00 - inside trip range
+    let receipt = make_receipt_with_details(Some(date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+
+    let result = get_trips_for_receipt_assignment_internal(
+        &db,
+        &receipt.id.to_string(),
+        &vehicle.id.to_string(),
+        2024,
+    );
+
+    assert!(result.is_ok(), "Should return trips");
+    let trips = result.unwrap();
+    assert_eq!(trips.len(), 1, "Should have 1 trip");
+    assert!(trips[0].can_attach, "Empty trip should allow attachment");
+    assert_eq!(
+        trips[0].attachment_status, "matches",
+        "Receipt inside trip time range should show 'matches'"
+    );
+}
+
+#[test]
 fn test_get_trips_for_receipt_assignment_matching_fuel_returns_can_attach_true() {
     // Trip HAS fuel data AND receipt matches → can attach as documentation
     let db = Database::in_memory().unwrap();

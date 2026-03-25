@@ -233,7 +233,9 @@
 							<span class="date">{formatDate(getTripDate(item.trip))}</span>
 							<span class="route">{item.trip.origin} → {item.trip.destination}</span>
 							{#if item.attachmentStatus === 'matches'}
-								<span class="match-indicator">✓ {$LL.tripSelector.matchesReceipt()}</span>
+								<span class="match-indicator exact">✓ {$LL.tripSelector.matchesReceipt()}</span>
+							{:else if item.attachmentStatus === 'matches_date'}
+								<span class="match-indicator date-only">~ {$LL.tripSelector.matchesDate()}</span>
 							{:else if item.attachmentStatus === 'differs'}
 								<span class="existing" title={getMismatchDetailTooltip(item)}>
 									⚠ {getMismatchReasonText(item.mismatchReason)}
@@ -333,7 +335,7 @@
 		background: var(--bg-surface);
 		padding: 1.5rem;
 		border-radius: 8px;
-		max-width: 500px;
+		max-width: 750px;
 		width: 90%;
 		max-height: 80vh;
 		overflow-y: auto;
@@ -422,9 +424,17 @@
 	}
 
 	.match-indicator {
-		color: var(--accent-success, #22c55e);
 		font-size: 0.875rem;
 		font-weight: 500;
+		white-space: nowrap;
+	}
+
+	.match-indicator.exact {
+		color: var(--accent-success, #22c55e);
+	}
+
+	.match-indicator.date-only {
+		color: var(--text-secondary);
 	}
 
 	.placeholder {

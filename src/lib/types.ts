@@ -61,7 +61,7 @@ export interface Trip {
 	updatedAt: string;
 }
 
-export type AttachmentStatus = 'empty' | 'matches' | 'differs';
+export type AttachmentStatus = 'empty' | 'matches' | 'matches_date' | 'differs';
 export type MismatchReason = 'date' | 'time' | 'liters' | 'price' | 'liters_and_price' | 'date_and_liters' | 'date_and_price' | 'time_and_liters' | 'time_and_price' | 'time_and_liters_and_price' | 'all';
 
 export interface TripForAssignment {
