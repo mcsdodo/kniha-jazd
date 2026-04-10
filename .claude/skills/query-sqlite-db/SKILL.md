@@ -13,14 +13,14 @@ Direct SQLite queries for debugging data state. **Critical:** Environment variab
 
 | Environment | Path |
 |-------------|------|
-| **Dev** | `C:/Users/Dodo/AppData/Roaming/com.notavailable.kniha-jazd.dev/kniha-jazd.db` |
-| **Prod** | `C:/Users/Dodo/AppData/Roaming/com.notavailable.kniha-jazd/kniha-jazd.db` |
+| **Dev** | `%AppData%/com.notavailable.kniha-jazd.dev/kniha-jazd.db` |
+| **Prod** | `%AppData%/com.notavailable.kniha-jazd/kniha-jazd.db` |
 
 ## Quick Reference
 
 ```bash
 # Query
-sqlite3 "C:/Users/Dodo/AppData/Roaming/com.notavailable.kniha-jazd.dev/kniha-jazd.db" "SELECT * FROM vehicles;"
+sqlite3 "%AppData%/com.notavailable.kniha-jazd.dev/kniha-jazd.db" "SELECT * FROM vehicles;"
 
 # Schema
 sqlite3 "..." ".schema receipts"
@@ -41,7 +41,7 @@ sqlite3 "..." ".tables"
 
 | Error | Fix |
 |-------|-----|
-| `%APPDATA%` doesn't expand | Use full path `C:/Users/Dodo/AppData/Roaming/...` |
+| `%APPDATA%` doesn't expand | Use full path `%AppData%/...` |
 | `$env:APPDATA` fails | Use full path (PowerShell vars don't work either) |
 | Column `date` not found | Use `receipt_datetime` or `start_datetime` |
 | "unable to open database" | Check path for typos, use forward slashes |
