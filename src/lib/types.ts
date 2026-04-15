@@ -134,6 +134,13 @@ export interface SuggestedFillup {
 	consumptionRate: number;
 }
 
+/** Inferred start/end datetime for a new trip row, derived from the most recent
+ *  trip with the same (vehicleId, origin, destination). */
+export interface InferredTripTime {
+	startDatetime: string; // ISO "YYYY-MM-DDTHH:MM:SS"
+	endDatetime: string;   // ISO "YYYY-MM-DDTHH:MM:SS"
+}
+
 export interface TripGridData {
 	trips: Trip[];
 	// Fuel data (ICE + PHEV)

@@ -656,6 +656,7 @@
 				{#if showNewRow && insertAtSortOrder === null}
 					<TripRow
 						trip={null}
+						{vehicleId}
 						{routes}
 						{purposeSuggestions}
 						isNew={true}
@@ -686,6 +687,7 @@
 					{#if showNewRow && insertAtSortOrder === trip.sortOrder && !isFirstRecord(trip)}
 						<TripRow
 							trip={null}
+							{vehicleId}
 							{routes}
 							{purposeSuggestions}
 							isNew={true}
@@ -756,6 +758,7 @@
 					{:else}
 						<TripRow
 							{trip}
+							{vehicleId}
 							{routes}
 							{purposeSuggestions}
 							isNew={false}

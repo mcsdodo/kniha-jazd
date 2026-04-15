@@ -171,6 +171,7 @@ pub fn run() {
             commands::reorder_trip,
             commands::get_routes,
             commands::get_purposes,
+            commands::get_inferred_trip_time_for_route,
             commands::get_settings,
             commands::save_settings,
             commands::calculate_trip_stats,

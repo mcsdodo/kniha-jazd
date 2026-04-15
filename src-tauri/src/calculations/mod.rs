@@ -130,6 +130,7 @@ pub fn calculate_closed_period_totals(trips: &[Trip]) -> (f64, f64) {
 // Submodules
 pub mod energy;
 pub mod phev;
+pub mod time_inference;
 
 #[cfg(test)]
 #[path = "tests.rs"]

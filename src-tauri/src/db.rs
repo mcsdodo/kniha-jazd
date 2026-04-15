@@ -9,7 +9,7 @@ use crate::models::{
     Route, RouteRow, Settings, SettingsRow, Trip, TripRow, Vehicle, VehicleRow,
 };
 use crate::schema::{receipts, routes, settings, trips, vehicles};
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
 use diesel::result::QueryResult;
@@ -522,6 +522,36 @@ impl Database {
         .load::<PurposeRow>(conn)?;
 
         Ok(rows.into_iter().map(|r| r.purpose).collect())
+    }
+
+    /// Find the most recent trip's `(start_datetime, end_datetime)` for a given
+    /// vehicle and route. Excludes trips with a null `end_datetime`. Returns
+    /// `None` if no completed match exists.
+    pub fn find_most_recent_trip_times_for_route(
+        &self,
+        vehicle_id: &str,
+        origin: &str,
+        destination: &str,
+    ) -> QueryResult<Option<(NaiveDateTime, NaiveDateTime)>> {
+        use crate::schema::trips::dsl;
+        let conn = &mut *self.conn.lock().unwrap();
+
+        let row = dsl::trips
+            .filter(dsl::vehicle_id.eq(vehicle_id))
+            .filter(dsl::origin.eq(origin))
+            .filter(dsl::destination.eq(destination))
+            .filter(dsl::end_datetime.is_not_null())
+            .order(dsl::start_datetime.desc())
+            .first::<TripRow>(conn)
+            .optional()?;
+
+        Ok(row.and_then(|r| {
+            let start =
+                NaiveDateTime::parse_from_str(&r.start_datetime, "%Y-%m-%dT%H:%M:%S").ok()?;
+            let end_str = r.end_datetime?;
+            let end = NaiveDateTime::parse_from_str(&end_str, "%Y-%m-%dT%H:%M:%S").ok()?;
+            Some((start, end))
+        }))
     }
 
     /// Find existing route with same origin/destination, or create new one.

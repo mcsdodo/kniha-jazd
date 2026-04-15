@@ -285,6 +285,15 @@ pub struct Route {
     pub last_used: DateTime<Utc>,
 }
 
+/// Inferred start/end datetimes for a new trip row, derived from the most
+/// recent matching (origin, destination) trip and a small randomised jitter.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InferredTripTime {
+    pub start_datetime: String, // ISO "YYYY-MM-DDTHH:MM:SS"
+    pub end_datetime: String,   // ISO "YYYY-MM-DDTHH:MM:SS"
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
