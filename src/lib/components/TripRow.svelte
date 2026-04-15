@@ -1,10 +1,12 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
+	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup, InferredTripTime } from '$lib/types';
+	import { invoke } from '@tauri-apps/api/core';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let trip: Trip | null = null;
+	export let vehicleId: string = '';
 	export let routes: Route[] = [];
 	export let purposeSuggestions: string[] = [];
 	export let isNew: boolean = false;
@@ -143,14 +145,52 @@
 		}
 	}
 
+	// Track the (origin, destination) we already inferred times for, so a single
+	// new row does not re-invoke the backend on every keystroke or re-render.
+	let inferredKey = '';
+
+	// On a new row, infer start/end times from the most recent trip with the
+	// same (vehicleId, origin, destination). Backend supplies the final ISO
+	// datetimes (jitter is applied in Rust per ADR-008).
+	async function tryInferTimes() {
+		if (!isNew || !vehicleId) return;
+		if (!formData.origin || !formData.destination) return;
+		const key = `${formData.origin}\u241F${formData.destination}`;
+		if (key === inferredKey) return;
+		inferredKey = key;
+
+		const rowDate = formData.startDatetime.slice(0, 10); // "YYYY-MM-DD"
+		try {
+			const result = await invoke<InferredTripTime | null>(
+				'get_inferred_trip_time_for_route',
+				{
+					vehicleId,
+					origin: formData.origin,
+					destination: formData.destination,
+					rowDate
+				}
+			);
+			if (result) {
+				// Store as datetime-local ("YYYY-MM-DDTHH:MM"), preserving row's date.
+				formData.startDatetime = result.startDatetime.slice(0, 16);
+				formData.endDatetime = result.endDatetime.slice(0, 16);
+			}
+		} catch (e) {
+			// Inference is best-effort; failures must not block manual entry.
+			console.warn('Time inference failed:', e);
+		}
+	}
+
 	function handleOriginSelect(value: string) {
 		formData.origin = value;
 		tryAutoFillDistance();
+		tryInferTimes();
 	}
 
 	function handleDestinationSelect(value: string) {
 		formData.destination = value;
 		tryAutoFillDistance();
+		tryInferTimes();
 	}
 
 	// Auto-update ODO when km changes (unless user manually edited ODO)
@@ -176,6 +216,20 @@
 	// Request preview when fullTank changes
 	function handleFullTankChange() {
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
+	}
+
+	// Clamp ODO to (previousOdometer + 1) when finalised below the previous row's value.
+	// Runs on `change` (blur / Enter) so mid-typing keystrokes are not snapped away.
+	function handleOdoBlur() {
+		if (
+			previousOdometer > 0 &&
+			formData.odometer !== null &&
+			formData.odometer < previousOdometer
+		) {
+			formData.odometer = previousOdometer + 1;
+			formData.distanceKm = 1;
+			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
+		}
 	}
 
 	function handleOdoChange(event: Event) {
@@ -235,11 +289,19 @@
 	}
 
 	function handleSave() {
-		// Ensure numeric fields have proper values (convert null to 0)
+		// Final ODO clamp: never persist a value below the previous row's ODO.
+		// Belt-and-suspenders behind the on:change clamp in handleOdoBlur.
+		let odo = formData.odometer ?? 0;
+		if (previousOdometer > 0 && odo < previousOdometer) {
+			odo = previousOdometer + 1;
+		}
+		const km = odo === (formData.odometer ?? 0)
+			? (formData.distanceKm ?? 0)
+			: Math.max(1, odo - previousOdometer);
 		const dataToSave = {
 			...formData,
-			distanceKm: formData.distanceKm ?? 0,
-			odometer: formData.odometer ?? 0
+			distanceKm: km,
+			odometer: odo
 		};
 		onSave(dataToSave);
 		isEditing = false;
@@ -367,7 +429,7 @@
 			<td class="col-odo-start number">{isNew ? '-' : odoStart.toFixed(0)}</td>
 		{/if}
 		<td class="col-odo">
-			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
+			<input type="number" value={formData.odometer} on:input={handleOdoChange} on:change={handleOdoBlur} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
 		</td>
 		<td class="col-purpose">
 			<Autocomplete

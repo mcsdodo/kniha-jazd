@@ -4,6 +4,38 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-04-15: Time Inference for New Trip Rows
+
+### ADR-014: Jitter Stays in Rust; Testability via `Jitter` Trait
+
+**Context:** Task 56 introduces auto-fill of start/end datetimes on new trip rows from the most recent matching `(vehicle_id, origin, destination)` trip. To prevent machine-identical timestamps across days, the inferred start is jittered by ±15 minutes and duration by ±15 %. The question was where the jitter should live: Rust backend (consistent with ADR-008) or Svelte frontend (where non-determinism is "easier to test" by injecting a mock random fn).
+
+**Decision:** All inference logic — DB lookup, base-time extraction, **and** the random jitter — lives in the Rust backend. The Tauri command `get_inferred_trip_time_for_route` returns the *final* ISO start/end strings; the frontend writes them directly without any computation.
+
+**Testability pattern:** A `Jitter` trait abstracts the source of randomness:
+
+```rust
+pub trait Jitter {
+    fn minutes(&mut self) -> i64;        // [-15, 15]
+    fn duration_factor(&mut self) -> f64; // [0.85, 1.15]
+}
+pub struct ThreadRngJitter;     // production: rand::thread_rng
+struct StubJitter { /* test */ } // tests: deterministic returns
+```
+
+Unit tests (4 in `time_inference.rs`, 4 in `commands_tests.rs`) supply a `StubJitter` so assertions are exact. Production code constructs `ThreadRngJitter` inside the thin `#[tauri::command]` wrapper and calls the same pure helper.
+
+**Reasoning:**
+- ADR-008 protects against having calculation logic in two places. Jitter that produces values written into trip records *is* business logic — same category as consumption rates, not the same category as `toFixed()` formatting.
+- The trait split keeps tests pure (no `rand::thread_rng()` calls in test code) without requiring randomness to cross the Tauri boundary.
+- Future requirement changes (e.g., "use ±10 min instead of ±15") become a one-line change in one place.
+
+**Rejected alternatives:**
+- *Frontend jitter (initially proposed)* — would have meant a value-producing computation in Svelte, breaking ADR-008. Rejected during design review.
+- *Eager seeding inside `compute_inferred_times`* — would have hard-coded `rand::thread_rng()` and made tests non-deterministic.
+
+---
+
 ## 2026-02-12: HA Sensor Display Conversion
 
 ### ADR-013: HA Sensor Percentage-to-Liters Conversion Lives in Frontend

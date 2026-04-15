@@ -3978,3 +3978,228 @@ fn test_month_end_rows_none_when_no_trips() {
     // No trips = no closed months = no month-end rows
     assert_eq!(rows.len(), 0);
 }
+
+// ============================================================================
+// Time inference (smart defaults for new trip rows) — Task 56
+// ============================================================================
+
+mod time_inference_tests {
+    use super::*;
+    use crate::calculations::time_inference::Jitter;
+    use crate::commands::trips::inferred_trip_time_for_route;
+
+    /// Deterministic `Jitter` for assertion-friendly tests.
+    struct StubJitter {
+        minutes: i64,
+        factor: f64,
+    }
+    impl Jitter for StubJitter {
+        fn minutes(&mut self) -> i64 {
+            self.minutes
+        }
+        fn duration_factor(&mut self) -> f64 {
+            self.factor
+        }
+    }
+
+    fn make_completed_trip(
+        vehicle_id: Uuid,
+        origin: &str,
+        destination: &str,
+        start: NaiveDateTime,
+        end: NaiveDateTime,
+    ) -> Trip {
+        let now = Utc::now();
+        Trip {
+            id: Uuid::new_v4(),
+            vehicle_id,
+            start_datetime: start,
+            end_datetime: Some(end),
+            origin: origin.to_string(),
+            destination: destination.to_string(),
+            distance_km: 25.0,
+            odometer: 10000.0,
+            purpose: "test".to_string(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn returns_none_when_no_match() {
+        let db = Database::in_memory().unwrap();
+        let vehicle = crate::models::Vehicle::new(
+            "Test".into(),
+            "BA1".into(),
+            50.0,
+            6.0,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let mut j = StubJitter { minutes: 0, factor: 1.0 };
+        let row_date = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
+
+        let result = inferred_trip_time_for_route(
+            &db,
+            &mut j,
+            &vehicle.id.to_string(),
+            "Bratislava",
+            "Trnava",
+            row_date,
+        )
+        .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn uses_most_recent_match() {
+        let db = Database::in_memory().unwrap();
+        let vehicle = crate::models::Vehicle::new(
+            "Test".into(),
+            "BA1".into(),
+            50.0,
+            6.0,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        // Older trip: 6:00–7:00
+        let older = make_completed_trip(
+            vehicle.id,
+            "Bratislava",
+            "Trnava",
+            NaiveDate::from_ymd_opt(2026, 1, 10).unwrap().and_hms_opt(6, 0, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 1, 10).unwrap().and_hms_opt(7, 0, 0).unwrap(),
+        );
+        db.create_trip(&older).unwrap();
+
+        // Newer trip: 8:30–9:15 (45 min duration)
+        let newer = make_completed_trip(
+            vehicle.id,
+            "Bratislava",
+            "Trnava",
+            NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 30, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(9, 15, 0).unwrap(),
+        );
+        db.create_trip(&newer).unwrap();
+
+        // Zero jitter → result equals newer trip's HH:MM applied to row_date.
+        let mut j = StubJitter { minutes: 0, factor: 1.0 };
+        let row_date = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
+
+        let result = inferred_trip_time_for_route(
+            &db,
+            &mut j,
+            &vehicle.id.to_string(),
+            "Bratislava",
+            "Trnava",
+            row_date,
+        )
+        .unwrap()
+        .expect("should match newer trip");
+
+        assert_eq!(result.start_datetime, "2026-04-15T08:30:00");
+        assert_eq!(result.end_datetime, "2026-04-15T09:15:00");
+    }
+
+    #[test]
+    fn ignores_trips_with_null_end_datetime() {
+        let db = Database::in_memory().unwrap();
+        let vehicle = crate::models::Vehicle::new(
+            "Test".into(),
+            "BA1".into(),
+            50.0,
+            6.0,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        // Only trip on this route has no end_datetime.
+        let now = Utc::now();
+        let open_trip = Trip {
+            id: Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            start_datetime: NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 0, 0).unwrap(),
+            end_datetime: None,
+            origin: "Bratislava".into(),
+            destination: "Trnava".into(),
+            distance_km: 25.0,
+            odometer: 10000.0,
+            purpose: "test".into(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            sort_order: 0,
+            created_at: now,
+            updated_at: now,
+        };
+        db.create_trip(&open_trip).unwrap();
+
+        let mut j = StubJitter { minutes: 0, factor: 1.0 };
+        let row_date = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
+
+        let result = inferred_trip_time_for_route(
+            &db,
+            &mut j,
+            &vehicle.id.to_string(),
+            "Bratislava",
+            "Trnava",
+            row_date,
+        )
+        .unwrap();
+
+        assert!(result.is_none(), "open trips must not be considered");
+    }
+
+    #[test]
+    fn scoped_to_vehicle() {
+        let db = Database::in_memory().unwrap();
+        let v1 = crate::models::Vehicle::new("V1".into(), "BA1".into(), 50.0, 6.0, 0.0);
+        let v2 = crate::models::Vehicle::new("V2".into(), "BA2".into(), 50.0, 6.0, 0.0);
+        db.create_vehicle(&v1).unwrap();
+        db.create_vehicle(&v2).unwrap();
+
+        // Match exists on v2's history but not v1's.
+        let trip = make_completed_trip(
+            v2.id,
+            "Bratislava",
+            "Trnava",
+            NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 30, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(9, 15, 0).unwrap(),
+        );
+        db.create_trip(&trip).unwrap();
+
+        let mut j = StubJitter { minutes: 0, factor: 1.0 };
+        let row_date = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
+
+        let result = inferred_trip_time_for_route(
+            &db,
+            &mut j,
+            &v1.id.to_string(),
+            "Bratislava",
+            "Trnava",
+            row_date,
+        )
+        .unwrap();
+
+        assert!(result.is_none(), "v2's trips must not leak to v1");
+    }
+}

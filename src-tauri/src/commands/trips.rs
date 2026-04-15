@@ -1,10 +1,11 @@
 //! Trip CRUD and route commands.
 
 use crate::app_state::AppState;
+use crate::calculations::time_inference::{compute_inferred_times, Jitter, ThreadRngJitter};
 use crate::check_read_only;
 use crate::db::{normalize_location, Database};
-use crate::models::{Route, Trip};
-use chrono::Utc;
+use crate::models::{InferredTripTime, Route, Trip};
+use chrono::{NaiveDate, Utc};
 use tauri::State;
 use uuid::Uuid;
 
@@ -259,4 +260,62 @@ pub fn get_routes(db: State<Database>, vehicle_id: String) -> Result<Vec<Route>,
 pub fn get_purposes(db: State<Database>, vehicle_id: String) -> Result<Vec<String>, String> {
     db.get_purposes_for_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Time Inference (smart defaults for new trip rows)
+// ============================================================================
+
+/// Inner, testable seam: takes any `Jitter` so unit tests can stub randomness.
+/// Returns `None` when no completed historical trip matches the route.
+pub(crate) fn inferred_trip_time_for_route(
+    db: &Database,
+    jitter: &mut dyn Jitter,
+    vehicle_id: &str,
+    origin: &str,
+    destination: &str,
+    row_date: NaiveDate,
+) -> Result<Option<InferredTripTime>, String> {
+    // Match the normalisation used when trips are written so lookups
+    // are not foiled by trailing spaces / casing variants.
+    let origin = normalize_location(origin);
+    let destination = normalize_location(destination);
+
+    let times = db
+        .find_most_recent_trip_times_for_route(vehicle_id, &origin, &destination)
+        .map_err(|e| e.to_string())?;
+
+    let Some((base_start_dt, base_end_dt)) = times else {
+        return Ok(None);
+    };
+
+    let base_duration_mins = (base_end_dt - base_start_dt).num_minutes();
+    let (start, end) =
+        compute_inferred_times(row_date, base_start_dt.time(), base_duration_mins, jitter);
+
+    Ok(Some(InferredTripTime {
+        start_datetime: start.format("%Y-%m-%dT%H:%M:%S").to_string(),
+        end_datetime: end.format("%Y-%m-%dT%H:%M:%S").to_string(),
+    }))
+}
+
+#[tauri::command]
+pub fn get_inferred_trip_time_for_route(
+    db: State<Database>,
+    vehicle_id: String,
+    origin: String,
+    destination: String,
+    row_date: String, // "YYYY-MM-DD"
+) -> Result<Option<InferredTripTime>, String> {
+    let row_date = NaiveDate::parse_from_str(&row_date, "%Y-%m-%d")
+        .map_err(|e| format!("Invalid row_date (expected YYYY-MM-DD): {}", e))?;
+    let mut jitter = ThreadRngJitter;
+    inferred_trip_time_for_route(
+        db.inner(),
+        &mut jitter,
+        &vehicle_id,
+        &origin,
+        &destination,
+        row_date,
+    )
 }
