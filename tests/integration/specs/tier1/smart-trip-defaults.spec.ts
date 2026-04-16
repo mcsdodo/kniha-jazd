@@ -190,6 +190,42 @@ describe('Tier 1: Smart Trip Defaults', () => {
       // Correct KM = 60200 − 60000 = 200. Pre-fix value was ≈60194.
       expect(parseFloat(await distanceInput.getValue())).toBe(200);
     });
+
+    it('leaves KM blank when previousOdometer is 0 (vehicle without initialOdometer)', async () => {
+      // When a user creates a vehicle without an initial odometer and enters
+      // their first trip, previousOdometer is 0. Auto-deriving KM from
+      // (ODO − 0) surfaces the raw ODO value in the KM field, which looks
+      // identical to "the last ODO ended up in KM". Guard: skip auto-derive
+      // and let the user type KM explicitly.
+      const vehicleData = createTestIceVehicle({
+        name: 'No Initial ODO',
+        licensePlate: 'NOINI-01',
+        initialOdometer: 0,
+      });
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+      await navigateTo('trips');
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      await openNewTripRow();
+
+      await simulateTyping('[data-testid="trip-odometer"]', '60200');
+      await browser.pause(150);
+
+      const distanceInput = await $('[data-testid="trip-distance"]');
+      const kmValue = await distanceInput.getValue();
+      // Must NOT equal 60200 — that would be "ODO in KM field".
+      expect(kmValue).not.toBe('60200');
+    });
   });
 
   describe('Time inference for new rows', () => {
