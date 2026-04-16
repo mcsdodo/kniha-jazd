@@ -1,6 +1,6 @@
 **Date:** 2026-02-12
 **Subject:** Show real fuel level from Home Assistant alongside computed zostatok
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 
