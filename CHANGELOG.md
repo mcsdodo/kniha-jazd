@@ -14,7 +14,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Automatická korekcia ODO pod predošlú hodnotu** - ak používateľ zadá ODO menšie než hodnota predchádzajúceho riadku, pole sa po opustení (blur/Enter) automaticky nastaví na `predchádzajúce ODO + 1`. Zabraňuje preklepom, ktoré rozbíjajú reťazec spotreby.
 
 ### Opravené
-- **KM sa správne počíta pri zadávaní ODO na novom riadku** - pri písaní ODO znak po znaku na novom riadku sa pole KM už neplní hodnotou približne rovnou predošlému ODO. KM sa teraz na nových riadkoch počíta priamo z `aktuálne ODO − predchádzajúce ODO`, takže postupné stlačenia kláves nevytvárajú kumulatívne chyby.
+- **KM sa správne počíta pri zadávaní ODO na novom riadku** - pri písaní ODO znak po znaku na novom riadku sa pole KM už neplní hodnotou približne rovnou predošlému ODO. KM sa teraz počíta priamo z `aktuálne ODO − predchádzajúce ODO` bez kumulatívnej delta-matematiky.
+- **Ochrana proti zobrazeniu ODO v poli KM pri vozidle bez nastaveného počiatočného ODO** - ak `previousOdometer` je 0 (chýba počiatočné ODO na vozidle) alebo by vypočítaná vzdialenosť presiahla 9999 km, KM sa automaticky neplní — používateľ musí zadať vzdialenosť explicitne. Zabraňuje tomu, aby „aktuálne ODO" vyzeralo ako najazdené kilometre.
 
 ## [0.32.3] - 2026-03-25
 

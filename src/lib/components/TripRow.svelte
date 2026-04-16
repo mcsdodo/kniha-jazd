@@ -236,31 +236,31 @@
 		const inputValue = (event.target as HTMLInputElement).value;
 		const newOdo = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 
-		// Only process if value actually changed
 		if (newOdo === formData.odometer) return;
 
 		manualOdoEdit = true;
-		const oldOdo = formData.odometer;
 		formData.odometer = newOdo;
 
-		if (newOdo === null) return;
-
-		// For new rows, always derive KM directly from (newOdo − previousOdometer).
-		// The delta branch below only works when oldOdo reflects a consistent prior
-		// state (e.g., a saved trip). On a fresh new row, keystroke-by-keystroke
-		// input would make delta accumulate against mid-typing values, causing KM
-		// to end up ≈ previousOdometer (the "KM fills with last ODO" bug).
-		if (isNew) {
-			formData.distanceKm = Math.max(0, newOdo - previousOdometer);
-		} else if (oldOdo !== null && formData.distanceKm !== null) {
-			// Existing row edit: delta adjustment preserves a user-customised
-			// KM that intentionally differs from (ODO − prevODO).
-			const delta = newOdo - oldOdo;
-			formData.distanceKm = Math.max(0, formData.distanceKm + delta);
-		} else {
-			formData.distanceKm = Math.max(0, newOdo - previousOdometer);
+		if (newOdo === null) {
+			formData.distanceKm = null;
+			onPreviewRequest(0, formData.fuelLiters, formData.fullTank);
+			return;
 		}
-		onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
+
+		// KM is the gap between this row's ODO and the previous row's ODO.
+		// Two guards protect against degenerate situations:
+		//   1. previousOdometer === 0 means there is no meaningful baseline
+		//      (fresh vehicle with no initialOdometer set). In that case the
+		//      subtraction produces the raw ODO value — which looks to the
+		//      user like "ODO ended up in the KM field". Skip auto-derivation
+		//      and let the user type KM explicitly.
+		//   2. Any single-trip distance > 9999 km is almost certainly the
+		//      result of a missing baseline rather than a real trip.
+		const candidate = newOdo - previousOdometer;
+		if (previousOdometer > 0 && candidate >= 0 && candidate <= 9999) {
+			formData.distanceKm = candidate;
+			onPreviewRequest(candidate, formData.fuelLiters, formData.fullTank);
+		}
 	}
 
 	function handleEdit() {
