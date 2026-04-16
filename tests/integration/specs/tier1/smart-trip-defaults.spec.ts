@@ -27,7 +27,7 @@ async function openNewTripRow(): Promise<void> {
   await browser.waitUntil(
     async () => {
       const editingRow = await $('tr.editing');
-      return editingRow.isExisting() && (await editingRow.isDisplayed());
+      return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
     },
     { timeout: 10000, timeoutMsg: 'Editing row did not appear' }
   );
@@ -35,36 +35,25 @@ async function openNewTripRow(): Promise<void> {
 
 async function selectFromAutocomplete(
   inputTestId: string,
-  value: string,
-  alreadyVisibleDropdownCount = 0
+  value: string
 ): Promise<void> {
   const input = await $(`[data-testid="${inputTestId}"]`);
   await input.waitForDisplayed({ timeout: 5000 });
   await input.click();
   await input.setValue(value);
 
-  // Wait for a NEW dropdown to appear (more than the count already visible).
-  await browser.waitUntil(
-    async () => {
-      const dropdowns = await $$('.autocomplete .dropdown');
-      let visible = 0;
-      for (const d of dropdowns) {
-        if (await d.isDisplayed()) visible++;
-      }
-      return visible > alreadyVisibleDropdownCount;
-    },
-    { timeout: 5000, timeoutMsg: `Autocomplete dropdown for ${inputTestId} did not appear` }
-  );
+  // Wait for THIS input's dropdown (scoped to its .autocomplete container).
+  const container = await input.parentElement();
+  const dropdown = await container.$('.dropdown');
 
-  // Click the visible dropdown's first suggestion.
-  const dropdowns = await $$('.autocomplete .dropdown');
-  for (const d of dropdowns) {
-    if (await d.isDisplayed()) {
-      const suggestion = await d.$('.suggestion');
-      await suggestion.click();
-      return;
-    }
-  }
+  await dropdown.waitForDisplayed({
+    timeout: 5000,
+    timeoutMsg: `Autocomplete dropdown for ${inputTestId} did not appear`,
+  });
+
+  const suggestion = await dropdown.$('.suggestion');
+  await suggestion.waitForClickable({ timeout: 5000 });
+  await suggestion.click();
 }
 
 /**
@@ -271,9 +260,9 @@ describe('Tier 1: Smart Trip Defaults', () => {
       const beforeStart = await startInput.getValue();
 
       // Pick origin then destination — second selection triggers tryInferTimes.
-      await selectFromAutocomplete('trip-origin', 'Bratislava', 0);
+      await selectFromAutocomplete('trip-origin', 'Bratislava');
       await browser.pause(200);
-      await selectFromAutocomplete('trip-destination', 'Žilina', 1);
+      await selectFromAutocomplete('trip-destination', 'Žilina');
 
       // Allow the async invoke to resolve and Svelte to re-render.
       await browser.pause(500);
@@ -360,7 +349,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && (await editingRow.isDisplayed());
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         { timeout: 5000, timeoutMsg: 'Editing row did not appear' }
       );
@@ -371,9 +360,9 @@ describe('Tier 1: Smart Trip Defaults', () => {
       // Trigger a "change" to origin/destination (here just re-select the same
       // values via the autocomplete) — for an existing row this must NOT call
       // the inference backend, so the start time must be unchanged.
-      await selectFromAutocomplete('trip-origin', 'Trnava', 0);
+      await selectFromAutocomplete('trip-origin', 'Trnava');
       await browser.pause(200);
-      await selectFromAutocomplete('trip-destination', 'Nitra', 1);
+      await selectFromAutocomplete('trip-destination', 'Nitra');
       await browser.pause(500);
 
       const afterStart = await startInput.getValue();
