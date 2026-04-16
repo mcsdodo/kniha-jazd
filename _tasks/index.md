@@ -2,7 +2,7 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-16 (archived tasks 53, 54 to `_done/`)
 
 ## Active Tasks
 
@@ -20,6 +20,8 @@ Quick overview of all tasks and their status.
 | # | Task | Completed |
 |---|------|-----------|
 | 56 | Smart Trip Defaults | 2026-04-16 |
+| 54 | Fix Odometer Recalculation Bugs | 2026-03-04 |
+| 53 | HA Real Fuel Level | 2026-02-12 |
 | 50 | [Receipt Datetime Validation](50-receipt-datetime-validation/) | 2026-02-11 |
 | 49 | [Claude Rules Restructuring](49-claude-rules-restructuring/) | 2026-02-01 |
 | 48 | end_datetime Cleanup | 2026-01-31 |

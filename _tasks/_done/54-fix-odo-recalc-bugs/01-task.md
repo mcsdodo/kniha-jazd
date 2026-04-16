@@ -1,6 +1,6 @@
 **Date:** 2026-03-04
 **Subject:** Fix odometer recalculation bugs — stale data + circular sort
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 
