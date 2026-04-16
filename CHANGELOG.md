@@ -13,6 +13,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ### Zmenené
 - **Automatická korekcia ODO pod predošlú hodnotu** - ak používateľ zadá ODO menšie než hodnota predchádzajúceho riadku, pole sa po opustení (blur/Enter) automaticky nastaví na `predchádzajúce ODO + 1`. Zabraňuje preklepom, ktoré rozbíjajú reťazec spotreby.
 
+### Opravené
+- **KM sa správne počíta pri zadávaní ODO na novom riadku** - pri písaní ODO znak po znaku na novom riadku sa pole KM už neplní hodnotou približne rovnou predošlému ODO. KM sa teraz na nových riadkoch počíta priamo z `aktuálne ODO − predchádzajúce ODO`, takže postupné stlačenia kláves nevytvárajú kumulatívne chyby.
+
 ## [0.32.3] - 2026-03-25
 
 ### Opravené
