@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-04-16
+
 ### Pridané
 - **Inteligentné predvyplnenie času pri novej jazde** - pri zadaní známej kombinácie štart/cieľ na novom riadku sa časy začiatku a konca automaticky predvyplnia podľa najnovšej zhodnej jazdy, s drobným náhodným posunom (±15 minút na začiatku, ±15 % trvania), aby záznamy nevyzerali strojovo identicky. Pri úpravách existujúcich riadkov sa logika nepoužije.
 
