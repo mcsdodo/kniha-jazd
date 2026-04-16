@@ -134,7 +134,16 @@
 			(r) => r.origin === formData.origin && r.destination === formData.destination
 		);
 
-		if (matchingRoute && formData.distanceKm === null) {
+		// Defensive guard: ignore routes with absurd stored distances (> 9999 km).
+		// Such values are only plausible if a previous trip was saved with
+		// corrupted KM — e.g., from an earlier delta-accumulation bug. Do not
+		// propagate that corruption into new rows.
+		if (
+			matchingRoute &&
+			formData.distanceKm === null &&
+			matchingRoute.distanceKm > 0 &&
+			matchingRoute.distanceKm <= 9999
+		) {
 			formData.distanceKm = matchingRoute.distanceKm;
 			// Also update ODO if not manually edited
 			if (!manualOdoEdit) {
