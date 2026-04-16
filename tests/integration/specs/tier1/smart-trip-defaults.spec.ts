@@ -67,6 +67,27 @@ async function selectFromAutocomplete(
   }
 }
 
+/**
+ * Fire `input` events with cumulative values to mimic a user typing one
+ * character at a time. Atomic setValue() hides bugs that only manifest
+ * when handlers see intermediate values — see: the "KM fills with last ODO"
+ * regression where delta-based KM recalculation accumulated wrongly on
+ * keystroke-by-keystroke input.
+ */
+async function simulateTyping(selector: string, text: string): Promise<void> {
+  for (let i = 1; i <= text.length; i++) {
+    const partial = text.slice(0, i);
+    await browser.execute((sel: string, val: string) => {
+      const input = document.querySelector(sel) as HTMLInputElement;
+      if (input) {
+        input.value = val;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }, selector, partial);
+    await browser.pause(10);
+  }
+}
+
 describe('Tier 1: Smart Trip Defaults', () => {
   beforeEach(async () => {
     await waitForAppReady();
@@ -125,6 +146,49 @@ describe('Tier 1: Smart Trip Defaults', () => {
       const clampedValue = await odoInput.getValue();
       // previousOdometer is 51000, so the clamped value must be 51001.
       expect(parseFloat(clampedValue)).toBe(51001);
+    });
+  });
+
+  describe('KM derivation on NEW rows (regression: "KM fills with last ODO")', () => {
+    it('computes KM from (newODO − previousODO) on every keystroke, not via delta accumulation', async () => {
+      // Regression: when a user typed an ODO value digit-by-digit into a fresh
+      // new row, the KM field would accumulate via the delta branch of
+      // handleOdoChange and land at ~previousOdometer (e.g., 60194 when the
+      // last row's ODO was 60000) — the user described this as "KM fills with
+      // last ODO". The fix derives KM directly from the current ODO on new
+      // rows so intermediate keystrokes cannot accumulate.
+      const vehicleData = createTestIceVehicle({
+        name: 'KM-from-ODO Regression',
+        licensePlate: 'KMBUG-01',
+        initialOdometer: 60000,
+      });
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      // No prior trips — previousOdometer on the new row will equal the
+      // vehicle's initialOdometer (60000).
+      await setActiveVehicle(vehicle.id as string);
+      await navigateTo('trips');
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      await openNewTripRow();
+
+      // Simulate a user typing "60200" one character at a time.
+      await simulateTyping('[data-testid="trip-odometer"]', '60200');
+      await browser.pause(150);
+
+      const odoInput = await $('[data-testid="trip-odometer"]');
+      const distanceInput = await $('[data-testid="trip-distance"]');
+      expect(parseFloat(await odoInput.getValue())).toBe(60200);
+      // Correct KM = 60200 − 60000 = 200. Pre-fix value was ≈60194.
+      expect(parseFloat(await distanceInput.getValue())).toBe(200);
     });
   });
 

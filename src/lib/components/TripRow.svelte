@@ -243,19 +243,24 @@
 		const oldOdo = formData.odometer;
 		formData.odometer = newOdo;
 
-		// Bidirectional: recalculate KM from ODO
-		// Use the expected previous ODO (current ODO - current KM) to handle edits correctly
-		if (newOdo !== null && oldOdo !== null && formData.distanceKm !== null) {
-			// Calculate the delta and apply it to KM
-			const delta = newOdo - oldOdo;
-			formData.distanceKm = Math.max(0, (formData.distanceKm ?? 0) + delta);
-			// Trigger live preview with updated KM
-			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
-		} else if (newOdo !== null) {
-			// Fallback: calculate from previousOdometer (for new trips or when values are null)
+		if (newOdo === null) return;
+
+		// For new rows, always derive KM directly from (newOdo − previousOdometer).
+		// The delta branch below only works when oldOdo reflects a consistent prior
+		// state (e.g., a saved trip). On a fresh new row, keystroke-by-keystroke
+		// input would make delta accumulate against mid-typing values, causing KM
+		// to end up ≈ previousOdometer (the "KM fills with last ODO" bug).
+		if (isNew) {
 			formData.distanceKm = Math.max(0, newOdo - previousOdometer);
-			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
+		} else if (oldOdo !== null && formData.distanceKm !== null) {
+			// Existing row edit: delta adjustment preserves a user-customised
+			// KM that intentionally differs from (ODO − prevODO).
+			const delta = newOdo - oldOdo;
+			formData.distanceKm = Math.max(0, formData.distanceKm + delta);
+		} else {
+			formData.distanceKm = Math.max(0, newOdo - previousOdometer);
 		}
+		onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
 	}
 
 	function handleEdit() {
