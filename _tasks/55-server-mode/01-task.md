@@ -112,13 +112,16 @@ function getApi(): ApiBackend {
 
 ### Include
 - [ ] Axum HTTP server embedded in Tauri app
-- [ ] REST API routes mirroring all Tauri commands
-- [ ] Settings UI toggle (start/stop server)
-- [ ] Display server URL with local IP
-- [ ] Frontend API adapter (detect Tauri vs browser)
-- [ ] Static file serving (SvelteKit build output)
-- [ ] CORS configuration for LAN access
-- [ ] Receipt image serving via HTTP
+- [ ] Single `/api/rpc` endpoint dispatching to all server-safe Tauri commands (not 71 individual REST routes — see `02-design.md` §2)
+- [ ] `_internal` extraction pass across command modules so Tauri wrappers and RPC dispatcher share the same pure fn
+- [ ] `/api/capabilities` endpoint exposing which commands are Tauri-only (updater, file dialogs, window mgmt)
+- [ ] Graceful shutdown wired to Tauri's `RunEvent::ExitRequested`
+- [ ] Settings UI toggle (start/stop server) + port input with conflict error
+- [ ] Display server URL with local IP (via `local-ip-address` crate)
+- [ ] Frontend API adapter (detect Tauri vs browser) + read-only store reading `get_app_mode` over RPC
+- [ ] Static file serving with SPA fallback to `index.html` (`ServeDir::not_found_service`)
+- [ ] CORS: allow-list of LAN origins (see Security below), not `*`
+- [ ] Receipt image serving via `GET /api/receipts/:id/image` + shared `receiptImageUrl(id)` helper
 
 ### Exclude (future)
 - Authentication
@@ -130,11 +133,13 @@ function getApi(): ApiBackend {
 
 ## Security Considerations
 
-- **No auth** - acceptable for home/office LAN
-- **Bind to 0.0.0.0** - accessible to all devices on network
-- **Read-only mode** - if desktop has lock conflict, browser also gets read-only
-- **CORS** - allow all origins (LAN devices have various IPs)
-- **Future**: add optional PIN/password protection
+- **No auth in MVP** — acceptable for trusted home/office LAN; PIN/password protection deferred to a follow-up task
+- **Bind to 0.0.0.0** only when user explicitly enables server mode; default bind is 127.0.0.1 at scaffold time
+- **Read-only mode** — if desktop has lock conflict, browser also gets read-only (enforced by existing `check_read_only!` macro; browser UI reads `get_app_mode` over RPC)
+- **CORS:** allow-list private-range origins (`http://10.*`, `http://172.16-31.*`, `http://192.168.*`, and `http://localhost`) rather than `*`. A public-domain page must not be able to `fetch()` into the LAN service from a user's browser.
+- **CSRF mitigation:** require a custom header `X-KJ-Client: 1` on all POST requests. Custom headers trigger a CORS preflight, which our Origin allow-list will reject from non-LAN pages. Not cryptographic protection — it raises the bar above passive browser-based attacks.
+- **Attack surface acknowledged:** with `bind 0.0.0.0` + no auth, any device already on the LAN can read and mutate data. The Origin allow-list + `X-KJ-Client` header stops **cross-site** attacks from malicious pages visited on LAN devices, not **on-network** attackers. Users who can't trust their LAN should leave server mode off.
+- **Future:** optional PIN, HTTPS via self-signed cert or mDNS + Let's Encrypt DNS-01, per-device tokens.
 
 ## Dependencies to Add
 
@@ -142,8 +147,17 @@ function getApi(): ApiBackend {
 # src-tauri/Cargo.toml
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
-# tokio already present
+
+# tokio is already in the manifest but only has ["fs"]. Axum 0.8 needs a multi-threaded
+# runtime, macros, networking, and (for graceful shutdown) signal handling:
+tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "net", "signal", "sync"] }
+
+# LAN IP detection for the Settings URL display. `hostname` alone doesn't give us the
+# outbound interface IP; this crate picks the default-route interface.
+local-ip-address = "0.6"
 ```
+
+Expected compile-time impact: +8–15s cold builds due to Axum pulling in hyper, h2, and tower. Binary size grows ~1.5 MB. Acceptable for desktop.
 
 ## References
 
