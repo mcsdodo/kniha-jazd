@@ -24,6 +24,8 @@ use crate::settings::LocalSettings;
 use super::statistics::is_datetime_in_trip_range;
 use super::{get_app_data_dir, AppState};
 
+use std::path::Path;
+
 // ============================================================================
 // Receipt Settings
 // ============================================================================
@@ -37,10 +39,8 @@ pub struct ReceiptSettings {
     pub receipts_folder_from_override: bool,
 }
 
-#[tauri::command]
-pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, String> {
-    let app_dir = get_app_data_dir(&app)?;
-    let local = LocalSettings::load(&app_dir);
+pub fn get_receipt_settings_internal(app_dir: &Path) -> Result<ReceiptSettings, String> {
+    let local = LocalSettings::load(app_dir);
 
     Ok(ReceiptSettings {
         gemini_api_key: local.gemini_api_key.clone(),
@@ -51,14 +51,18 @@ pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, St
 }
 
 #[tauri::command]
-pub fn set_gemini_api_key(
-    app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+pub fn get_receipt_settings(app: tauri::AppHandle) -> Result<ReceiptSettings, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    get_receipt_settings_internal(&app_dir)
+}
+
+pub fn set_gemini_api_key_internal(
+    app_dir: &Path,
+    app_state: &AppState,
     api_key: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_data_dir = get_app_data_dir(&app_handle)?;
-    let mut settings = LocalSettings::load(&app_data_dir);
+    let mut settings = LocalSettings::load(app_dir);
 
     // Allow empty string to clear the key
     settings.gemini_api_key = if api_key.is_empty() {
@@ -67,17 +71,25 @@ pub fn set_gemini_api_key(
         Some(api_key)
     };
 
-    settings.save(&app_data_dir).map_err(|e| e.to_string())
+    settings.save(app_dir).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn set_receipts_folder_path(
+pub fn set_gemini_api_key(
     app_handle: tauri::AppHandle,
     app_state: State<AppState>,
+    api_key: String,
+) -> Result<(), String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    set_gemini_api_key_internal(&app_data_dir, &app_state, api_key)
+}
+
+pub fn set_receipts_folder_path_internal(
+    app_dir: &Path,
+    app_state: &AppState,
     path: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_data_dir = get_app_data_dir(&app_handle)?;
 
     // Validate path exists and is a directory (unless clearing)
     if !path.is_empty() {
@@ -90,12 +102,22 @@ pub fn set_receipts_folder_path(
         }
     }
 
-    let mut settings = LocalSettings::load(&app_data_dir);
+    let mut settings = LocalSettings::load(app_dir);
 
     // Allow empty string to clear the path
     settings.receipts_folder_path = if path.is_empty() { None } else { Some(path) };
 
-    settings.save(&app_data_dir).map_err(|e| e.to_string())
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_receipts_folder_path(
+    app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
+    path: String,
+) -> Result<(), String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    set_receipts_folder_path_internal(&app_data_dir, &app_state, path)
 }
 
 // ============================================================================
@@ -105,19 +127,22 @@ pub fn set_receipts_folder_path(
 /// Get receipts, optionally filtered by year.
 /// - If year is provided: returns receipts for that year (by receipt_date, or source_year if date is None)
 /// - If year is None: returns all receipts (for backward compatibility)
-#[tauri::command]
-pub fn get_receipts(db: State<Database>, year: Option<i32>) -> Result<Vec<Receipt>, String> {
+pub fn get_receipts_internal(db: &Database, year: Option<i32>) -> Result<Vec<Receipt>, String> {
     match year {
         Some(y) => db.get_receipts_for_year(y).map_err(|e| e.to_string()),
         None => db.get_all_receipts().map_err(|e| e.to_string()),
     }
 }
 
+#[tauri::command]
+pub fn get_receipts(db: State<Database>, year: Option<i32>) -> Result<Vec<Receipt>, String> {
+    get_receipts_internal(&db, year)
+}
+
 /// Get receipts filtered by vehicle - returns unassigned receipts + receipts for specified vehicle.
 /// Optionally filter by year.
-#[tauri::command]
-pub fn get_receipts_for_vehicle(
-    db: State<Database>,
+pub fn get_receipts_for_vehicle_internal(
+    db: &Database,
     vehicle_id: String,
     year: Option<i32>,
 ) -> Result<Vec<Receipt>, String> {
@@ -128,8 +153,30 @@ pub fn get_receipts_for_vehicle(
 }
 
 #[tauri::command]
-pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
+pub fn get_receipts_for_vehicle(
+    db: State<Database>,
+    vehicle_id: String,
+    year: Option<i32>,
+) -> Result<Vec<Receipt>, String> {
+    get_receipts_for_vehicle_internal(&db, vehicle_id, year)
+}
+
+pub fn get_unassigned_receipts_internal(db: &Database) -> Result<Vec<Receipt>, String> {
     db.get_unassigned_receipts().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
+    get_unassigned_receipts_internal(&db)
+}
+
+pub fn update_receipt_internal(
+    db: &Database,
+    app_state: &AppState,
+    receipt: Receipt,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    db.update_receipt(&receipt).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -138,8 +185,16 @@ pub fn update_receipt(
     app_state: State<AppState>,
     receipt: Receipt,
 ) -> Result<(), String> {
+    update_receipt_internal(&db, &app_state, receipt)
+}
+
+pub fn delete_receipt_internal(
+    db: &Database,
+    app_state: &AppState,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
-    db.update_receipt(&receipt).map_err(|e| e.to_string())
+    db.delete_receipt(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -148,8 +203,16 @@ pub fn delete_receipt(
     app_state: State<AppState>,
     id: String,
 ) -> Result<(), String> {
+    delete_receipt_internal(&db, &app_state, id)
+}
+
+pub fn unassign_receipt_internal(
+    db: &Database,
+    app_state: &AppState,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
-    db.delete_receipt(&id).map_err(|e| e.to_string())
+    db.unassign_receipt(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -158,8 +221,16 @@ pub fn unassign_receipt(
     app_state: State<AppState>,
     id: String,
 ) -> Result<(), String> {
+    unassign_receipt_internal(&db, &app_state, id)
+}
+
+pub fn revert_receipt_override_internal(
+    db: &Database,
+    app_state: &AppState,
+    id: String,
+) -> Result<(), String> {
     check_read_only!(app_state);
-    db.unassign_receipt(&id).map_err(|e| e.to_string())
+    db.revert_receipt_override(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -168,8 +239,7 @@ pub fn revert_receipt_override(
     app_state: State<AppState>,
     id: String,
 ) -> Result<(), String> {
-    check_read_only!(app_state);
-    db.revert_receipt_override(&id).map_err(|e| e.to_string())
+    revert_receipt_override_internal(&db, &app_state, id)
 }
 
 // ============================================================================
@@ -201,22 +271,20 @@ pub struct ScanResult {
 
 /// Scan folder for new receipts without OCR processing
 /// Returns count of new files found and any folder structure warnings
-#[tauri::command]
-pub fn scan_receipts(
-    app: tauri::AppHandle,
-    db: State<'_, Database>,
-    app_state: State<'_, AppState>,
+pub fn scan_receipts_internal(
+    db: &Database,
+    app_state: &AppState,
+    app_dir: &Path,
 ) -> Result<ScanResult, String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let settings = LocalSettings::load(&app_dir);
+    let settings = LocalSettings::load(app_dir);
 
     let folder_path = settings
         .receipts_folder_path
         .ok_or("Receipts folder not configured")?;
 
     // Scan for new files (this also inserts them into DB as Pending)
-    let new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
+    let new_receipts = scan_folder_for_new_receipts(&folder_path, db)?;
 
     // Check folder structure for warnings
     let structure = detect_folder_structure(&folder_path);
@@ -232,14 +300,22 @@ pub fn scan_receipts(
 }
 
 #[tauri::command]
-pub async fn sync_receipts(
+pub fn scan_receipts(
     app: tauri::AppHandle,
     db: State<'_, Database>,
     app_state: State<'_, AppState>,
+) -> Result<ScanResult, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    scan_receipts_internal(&db, &app_state, &app_dir)
+}
+
+pub async fn sync_receipts_internal(
+    db: &Database,
+    app_state: &AppState,
+    app_dir: &Path,
 ) -> Result<SyncResult, String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let settings = LocalSettings::load(&app_dir);
+    let settings = LocalSettings::load(app_dir);
 
     let folder_path = settings
         .receipts_folder_path
@@ -255,7 +331,7 @@ pub async fn sync_receipts(
     };
 
     // Scan for new files
-    let mut new_receipts = scan_folder_for_new_receipts(&folder_path, &db)?;
+    let mut new_receipts = scan_folder_for_new_receipts(&folder_path, db)?;
     let mut errors = Vec::new();
 
     // Process each new receipt with Gemini (async)
@@ -277,11 +353,64 @@ pub async fn sync_receipts(
     })
 }
 
+#[tauri::command]
+pub async fn sync_receipts(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+    app_state: State<'_, AppState>,
+) -> Result<SyncResult, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    sync_receipts_internal(&db, &app_state, &app_dir).await
+}
+
 #[derive(Clone, Serialize)]
 pub struct ProcessingProgress {
     pub current: usize,
     pub total: usize,
     pub file_name: String,
+}
+
+pub async fn process_pending_receipts_internal(
+    db: &Database,
+    app_dir: &Path,
+) -> Result<SyncResult, String> {
+    let settings = LocalSettings::load(app_dir);
+
+    // In mock mode, API key is not required (extract_from_image loads from JSON files)
+    let api_key = if is_mock_mode_enabled() {
+        String::new()
+    } else {
+        settings
+            .gemini_api_key
+            .ok_or("Gemini API key not configured")?
+    };
+
+    // Get all pending receipts
+    let mut pending_receipts = db.get_pending_receipts().map_err(|e| e.to_string())?;
+    let mut errors = Vec::new();
+
+    // Process each pending receipt with Gemini (no progress events in internal version)
+    for receipt in pending_receipts.iter_mut() {
+        match process_receipt_with_gemini(receipt, &api_key).await {
+            Ok(()) => {
+                // Only update DB on success
+                db.update_receipt(receipt).map_err(|e| e.to_string())?;
+            }
+            Err(e) => {
+                log::warn!("Failed to process receipt {}: {}", receipt.file_name, e);
+                errors.push(SyncError {
+                    file_name: receipt.file_name.clone(),
+                    error: e,
+                });
+                // Don't update DB - leave receipt in Pending state for retry
+            }
+        }
+    }
+
+    Ok(SyncResult {
+        processed: pending_receipts,
+        errors,
+    })
 }
 
 #[tauri::command]
@@ -340,16 +469,14 @@ pub async fn process_pending_receipts(
     })
 }
 
-#[tauri::command]
-pub async fn reprocess_receipt(
-    app: tauri::AppHandle,
-    db: State<'_, Database>,
-    app_state: State<'_, AppState>,
+pub async fn reprocess_receipt_internal(
+    db: &Database,
+    app_state: &AppState,
+    app_dir: &Path,
     id: String,
 ) -> Result<Receipt, String> {
     check_read_only!(app_state);
-    let app_dir = get_app_data_dir(&app)?;
-    let settings = LocalSettings::load(&app_dir);
+    let settings = LocalSettings::load(app_dir);
 
     // In mock mode, API key is not required (extract_from_image loads from JSON files)
     let api_key = if is_mock_mode_enabled() {
@@ -376,6 +503,17 @@ pub async fn reprocess_receipt(
 
     db.update_receipt(&receipt).map_err(|e| e.to_string())?;
     Ok(receipt)
+}
+
+#[tauri::command]
+pub async fn reprocess_receipt(
+    app: tauri::AppHandle,
+    db: State<'_, Database>,
+    app_state: State<'_, AppState>,
+    id: String,
+) -> Result<Receipt, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    reprocess_receipt_internal(&db, &app_state, &app_dir, id).await
 }
 
 // ============================================================================

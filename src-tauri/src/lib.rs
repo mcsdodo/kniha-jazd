@@ -139,7 +139,6 @@ pub fn run() {
 
             // Run post-update cleanup in background if retention is enabled
             if !is_read_only {
-                let cleanup_app_handle = app.handle().clone();
                 let cleanup_app_dir = app_dir.clone();
                 std::thread::spawn(move || {
                     // Load retention settings
@@ -148,7 +147,7 @@ pub fn run() {
                         if retention.enabled && retention.keep_count > 0 {
                             // Run cleanup silently
                             if let Err(e) = commands::cleanup_pre_update_backups_internal(
-                                &cleanup_app_handle,
+                                &cleanup_app_dir,
                                 retention.keep_count,
                             ) {
                                 log::warn!("Failed to run post-update cleanup: {}", e);
