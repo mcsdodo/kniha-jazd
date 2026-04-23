@@ -80,14 +80,20 @@ pub(crate) fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String
     }
 }
 
-/// Get resolved database paths (including backups directory), respecting custom_db_path in local.settings.json.
-/// This ensures backups are stored alongside the database, even when using a custom location.
+/// Get resolved database paths from a directory path.
+/// Used by both Tauri commands (via wrapper) and server RPC dispatcher.
+pub(crate) fn get_db_paths_for_dir(app_dir: &std::path::Path) -> Result<DbPaths, String> {
+    let local_settings = LocalSettings::load(app_dir);
+    let (db_paths, _is_custom) =
+        resolve_db_paths(app_dir, local_settings.custom_db_path.as_deref());
+    Ok(db_paths)
+}
+
+/// Get resolved database paths from a Tauri AppHandle.
+/// Convenience wrapper that resolves the app data dir first.
 pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
     let app_dir = get_app_data_dir(app)?;
-    let local_settings = LocalSettings::load(&app_dir);
-    let (db_paths, _is_custom) =
-        resolve_db_paths(&app_dir, local_settings.custom_db_path.as_deref());
-    Ok(db_paths)
+    get_db_paths_for_dir(&app_dir)
 }
 
 /// Calculate trip sequence numbers (1-based, chronological order by date then sort_order)

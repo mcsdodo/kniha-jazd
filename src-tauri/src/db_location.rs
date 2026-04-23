@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Database file paths resolved based on custom settings.
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ pub struct DbPaths {
 
 impl DbPaths {
     /// Create DbPaths from a base directory.
-    pub fn from_dir(base_dir: &PathBuf) -> Self {
+    pub fn from_dir(base_dir: &Path) -> Self {
         Self {
             db_file: base_dir.join(paths::DB_FILENAME),
             lock_file: base_dir.join(paths::LOCK_FILENAME),
@@ -72,7 +72,7 @@ const STALE_THRESHOLD_SECONDS: i64 = 120;
 ///
 /// # Returns
 /// A tuple of (DbPaths, is_custom) where is_custom is true if using custom path.
-pub fn resolve_db_paths(app_data_dir: &PathBuf, custom_db_path: Option<&str>) -> (DbPaths, bool) {
+pub fn resolve_db_paths(app_data_dir: &Path, custom_db_path: Option<&str>) -> (DbPaths, bool) {
     match custom_db_path {
         Some(custom_path) if !custom_path.is_empty() => {
             let base = PathBuf::from(custom_path);
