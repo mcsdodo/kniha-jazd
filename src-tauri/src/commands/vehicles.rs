@@ -9,33 +9,27 @@ use tauri::State;
 use uuid::Uuid;
 
 // ============================================================================
-// Vehicle Commands
+// Internal Functions (framework-independent)
 // ============================================================================
 
-#[tauri::command]
-pub fn get_vehicles(db: State<Database>) -> Result<Vec<Vehicle>, String> {
+pub fn get_vehicles_internal(db: &Database) -> Result<Vec<Vehicle>, String> {
     db.get_all_vehicles().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn get_active_vehicle(db: State<Database>) -> Result<Option<Vehicle>, String> {
+pub fn get_active_vehicle_internal(db: &Database) -> Result<Option<Vehicle>, String> {
     db.get_active_vehicle().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
 #[allow(clippy::too_many_arguments)]
-pub fn create_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+pub fn create_vehicle_internal(
+    db: &Database,
+    app_state: &AppState,
     name: String,
     license_plate: String,
     initial_odometer: f64,
-    // Vehicle type: "Ice", "Bev", or "Phev"
     vehicle_type: Option<String>,
-    // Fuel fields (ICE + PHEV)
     tank_size_liters: Option<f64>,
     tp_consumption: Option<f64>,
-    // Battery fields (BEV + PHEV)
     battery_capacity_kwh: Option<f64>,
     baseline_consumption_kwh: Option<f64>,
     initial_battery_percent: Option<f64>,
@@ -43,14 +37,12 @@ pub fn create_vehicle(
     driver_name: Option<String>,
 ) -> Result<Vehicle, String> {
     check_read_only!(app_state);
-    // Parse vehicle type (default to ICE for backward compatibility)
     let vt = match vehicle_type.as_deref() {
         Some("Bev") | Some("BEV") => VehicleType::Bev,
         Some("Phev") | Some("PHEV") => VehicleType::Phev,
         _ => VehicleType::Ice,
     };
 
-    // Validate required fields based on vehicle type
     match vt {
         VehicleType::Ice => {
             if tank_size_liters.is_none() || tp_consumption.is_none() {
@@ -91,9 +83,9 @@ pub fn create_vehicle(
         is_active: true,
         vin,
         driver_name,
-        ha_odo_sensor: None,         // Set via vehicle edit modal
-        ha_fillup_sensor: None,      // Set via vehicle edit modal
-        ha_fuel_level_sensor: None,  // Set via vehicle edit modal
+        ha_odo_sensor: None,
+        ha_fillup_sensor: None,
+        ha_fuel_level_sensor: None,
         created_at: now,
         updated_at: now,
     };
@@ -102,21 +94,18 @@ pub fn create_vehicle(
     Ok(vehicle)
 }
 
-#[tauri::command]
-pub fn update_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+pub fn update_vehicle_internal(
+    db: &Database,
+    app_state: &AppState,
     vehicle: Vehicle,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    // Check if vehicle type is being changed when trips exist
     let existing = db
         .get_vehicle(&vehicle.id.to_string())
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Vehicle not found: {}", vehicle.id))?;
 
     if existing.vehicle_type != vehicle.vehicle_type {
-        // Check if this vehicle has any trips
         let trips = db
             .get_trips_for_vehicle(&vehicle.id.to_string())
             .map_err(|e| e.to_string())?;
@@ -133,27 +122,23 @@ pub fn update_vehicle(
     db.update_vehicle(&vehicle).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn delete_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+pub fn delete_vehicle_internal(
+    db: &Database,
+    app_state: &AppState,
     id: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     db.delete_vehicle(&id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn set_active_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+pub fn set_active_vehicle_internal(
+    db: &Database,
+    app_state: &AppState,
     id: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    // First, get all vehicles
     let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
 
-    // Set all to inactive
     for mut vehicle in vehicles {
         let should_be_active = vehicle.id.to_string() == id;
         if vehicle.is_active != should_be_active {
@@ -164,4 +149,79 @@ pub fn set_active_vehicle(
     }
 
     Ok(())
+}
+
+// ============================================================================
+// Tauri Command Wrappers
+// ============================================================================
+
+#[tauri::command]
+pub fn get_vehicles(db: State<Database>) -> Result<Vec<Vehicle>, String> {
+    get_vehicles_internal(&db)
+}
+
+#[tauri::command]
+pub fn get_active_vehicle(db: State<Database>) -> Result<Option<Vehicle>, String> {
+    get_active_vehicle_internal(&db)
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn create_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    name: String,
+    license_plate: String,
+    initial_odometer: f64,
+    vehicle_type: Option<String>,
+    tank_size_liters: Option<f64>,
+    tp_consumption: Option<f64>,
+    battery_capacity_kwh: Option<f64>,
+    baseline_consumption_kwh: Option<f64>,
+    initial_battery_percent: Option<f64>,
+    vin: Option<String>,
+    driver_name: Option<String>,
+) -> Result<Vehicle, String> {
+    create_vehicle_internal(
+        &db,
+        &app_state,
+        name,
+        license_plate,
+        initial_odometer,
+        vehicle_type,
+        tank_size_liters,
+        tp_consumption,
+        battery_capacity_kwh,
+        baseline_consumption_kwh,
+        initial_battery_percent,
+        vin,
+        driver_name,
+    )
+}
+
+#[tauri::command]
+pub fn update_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    vehicle: Vehicle,
+) -> Result<(), String> {
+    update_vehicle_internal(&db, &app_state, vehicle)
+}
+
+#[tauri::command]
+pub fn delete_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
+    delete_vehicle_internal(&db, &app_state, id)
+}
+
+#[tauri::command]
+pub fn set_active_vehicle(
+    db: State<Database>,
+    app_state: State<AppState>,
+    id: String,
+) -> Result<(), String> {
+    set_active_vehicle_internal(&db, &app_state, id)
 }
