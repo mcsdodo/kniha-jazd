@@ -23,6 +23,8 @@
 		"test:integration:tier2": "set TIER=2&& set PARALLEL_TIERS=true&& npm run test:integration",
 		"test:integration:tier3": "set TIER=3&& set PARALLEL_TIERS=true&& npm run test:integration",
 		"test:integration:build": "npm run tauri build -- --debug && npm run test:integration",
+		"test:integration:server": "set WDIO_SERVER_MODE=1&& wdio run tests/integration/wdio.server.conf.ts",
+		"test:integration:server:tier1": "set TIER=1&& npm run test:integration:server",
 		"test:all": "npm run test:backend && npm run test:run && npm run test:integration"
 	},
 	"devDependencies": {
