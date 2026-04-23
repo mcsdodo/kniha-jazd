@@ -36,7 +36,10 @@ thiserror = "1"
 open = "5"
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "blocking"], default-features = false }
 base64 = "0.22"
-tokio = { version = "1", features = ["fs"] }
+tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "net", "signal", "sync"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors", "fs"] }
+local-ip-address = "0.6"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-dialog = "2"

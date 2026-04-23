@@ -9,6 +9,7 @@ mod gemini;
 mod models;
 mod receipts;
 mod schema;
+mod server;
 mod settings;
 mod suggestions;
 
