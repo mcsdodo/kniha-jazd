@@ -4,7 +4,7 @@
 use crate::constants::paths;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 /// Backup retention settings for automatic pre-update backup cleanup
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ pub struct LocalSettings {
 impl LocalSettings {
     /// Load from local.settings.json in app data dir
     /// Returns default (empty) if file doesn't exist
-    pub fn load(app_data_dir: &PathBuf) -> Self {
+    pub fn load(app_data_dir: &Path) -> Self {
         let path = app_data_dir.join(paths::SETTINGS_FILENAME);
         if path.exists() {
             match fs::read_to_string(&path) {
@@ -54,7 +54,7 @@ impl LocalSettings {
     }
 
     /// Save settings to local.settings.json in app data dir
-    pub fn save(&self, app_data_dir: &PathBuf) -> std::io::Result<()> {
+    pub fn save(&self, app_data_dir: &Path) -> std::io::Result<()> {
         use std::io::Write;
         // Ensure the directory exists before writing
         fs::create_dir_all(app_data_dir)?;

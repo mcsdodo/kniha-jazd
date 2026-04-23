@@ -49,6 +49,14 @@ pub fn calculate_trip_stats(
     year: i32,
     db: State<Database>,
 ) -> Result<TripStats, String> {
+    calculate_trip_stats_internal(&db, vehicle_id, year)
+}
+
+pub fn calculate_trip_stats_internal(
+    db: &Database,
+    vehicle_id: String,
+    year: i32,
+) -> Result<TripStats, String> {
     // Get vehicle (validate UUID format first)
     let _vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
     let vehicle = db
@@ -725,6 +733,16 @@ pub fn calculate_magic_fill_liters(
     current_trip_km: f64,
     editing_trip_id: Option<String>,
 ) -> Result<f64, String> {
+    calculate_magic_fill_liters_internal(&db, vehicle_id, year, current_trip_km, editing_trip_id)
+}
+
+pub fn calculate_magic_fill_liters_internal(
+    db: &Database,
+    vehicle_id: String,
+    year: i32,
+    current_trip_km: f64,
+    editing_trip_id: Option<String>,
+) -> Result<f64, String> {
     use rand::Rng;
 
     // Get vehicle for TP consumption
@@ -1369,6 +1387,28 @@ pub(crate) fn calculate_receipt_mismatch_overrides(
 #[tauri::command]
 pub fn preview_trip_calculation(
     db: State<Database>,
+    vehicle_id: String,
+    year: i32,
+    distance_km: i32,
+    fuel_liters: Option<f64>,
+    full_tank: bool,
+    insert_at_sort_order: Option<i32>,
+    editing_trip_id: Option<String>,
+) -> Result<PreviewResult, String> {
+    preview_trip_calculation_internal(
+        &db,
+        vehicle_id,
+        year,
+        distance_km,
+        fuel_liters,
+        full_tank,
+        insert_at_sort_order,
+        editing_trip_id,
+    )
+}
+
+pub fn preview_trip_calculation_internal(
+    db: &Database,
     vehicle_id: String,
     year: i32,
     distance_km: i32,
