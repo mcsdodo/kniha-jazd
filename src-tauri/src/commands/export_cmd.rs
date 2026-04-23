@@ -114,9 +114,8 @@ pub async fn export_to_browser(
 ///
 /// Returns the generated HTML as a string for direct use by the frontend
 /// (e.g., for PDF generation via print dialog).
-#[tauri::command]
-pub async fn export_html(
-    db: State<'_, Database>,
+pub async fn export_html_internal(
+    db: &Database,
     vehicle_id: String,
     year: i32,
     labels: ExportLabels,
@@ -133,7 +132,7 @@ pub async fn export_html(
         .ok_or_else(|| "Settings not found - please configure company info first".to_string())?;
 
     // REUSE: Get all grid data from single source of truth
-    let grid_data = statistics::build_trip_grid_data(&db, &vehicle_id, year)?;
+    let grid_data = statistics::build_trip_grid_data(db, &vehicle_id, year)?;
 
     if grid_data.trips.is_empty() {
         return Err("No trips found for this year".to_string());
@@ -157,4 +156,14 @@ pub async fn export_html(
     };
 
     generate_html(export_data)
+}
+
+#[tauri::command]
+pub async fn export_html(
+    db: State<'_, Database>,
+    vehicle_id: String,
+    year: i32,
+    labels: ExportLabels,
+) -> Result<String, String> {
+    export_html_internal(&db, vehicle_id, year, labels).await
 }

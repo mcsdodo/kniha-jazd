@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::State;
 
-use super::{get_app_data_dir, get_db_paths};
+use std::path::Path;
+
+use super::{get_app_data_dir, get_db_paths, get_db_paths_for_dir};
 
 // ============================================================================
 // Backup Types
@@ -116,14 +118,13 @@ fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<Backup
 // Backup Commands
 // ============================================================================
 
-#[tauri::command]
-pub fn create_backup(
-    app: tauri::AppHandle,
-    db: State<Database>,
-    app_state: State<AppState>,
+pub fn create_backup_internal(
+    app_dir: &Path,
+    db: &Database,
+    app_state: &AppState,
 ) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
-    let db_paths = get_db_paths(&app)?;
+    let db_paths = get_db_paths_for_dir(app_dir)?;
 
     // Create backup directory if it doesn't exist
     fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
@@ -168,18 +169,27 @@ pub fn create_backup(
     })
 }
 
-/// Create backup with explicit type and optional version
-/// Used for pre-update backups that need to record the target version
 #[tauri::command]
-pub fn create_backup_with_type(
+pub fn create_backup(
     app: tauri::AppHandle,
     db: State<Database>,
     app_state: State<AppState>,
+) -> Result<BackupInfo, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    create_backup_internal(&app_dir, &db, &app_state)
+}
+
+/// Create backup with explicit type and optional version
+/// Used for pre-update backups that need to record the target version
+pub fn create_backup_with_type_internal(
+    app_dir: &Path,
+    db: &Database,
+    app_state: &AppState,
     backup_type: String,
     update_version: Option<String>,
 ) -> Result<BackupInfo, String> {
     check_read_only!(app_state);
-    let db_paths = get_db_paths(&app)?;
+    let db_paths = get_db_paths_for_dir(app_dir)?;
 
     // Create backup directory if it doesn't exist
     fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
@@ -221,13 +231,24 @@ pub fn create_backup_with_type(
     })
 }
 
-/// Get preview of pre-update backups that would be deleted
 #[tauri::command]
-pub fn get_cleanup_preview(
+pub fn create_backup_with_type(
     app: tauri::AppHandle,
+    db: State<Database>,
+    app_state: State<AppState>,
+    backup_type: String,
+    update_version: Option<String>,
+) -> Result<BackupInfo, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    create_backup_with_type_internal(&app_dir, &db, &app_state, backup_type, update_version)
+}
+
+/// Get preview of pre-update backups that would be deleted
+pub fn get_cleanup_preview_internal(
+    app_dir: &Path,
     keep_count: u32,
 ) -> Result<CleanupPreview, String> {
-    let all_backups = list_backups(app)?;
+    let all_backups = list_backups_internal(app_dir)?;
     let to_delete = get_cleanup_candidates(&all_backups, keep_count);
     let total_bytes: u64 = to_delete.iter().map(|b| b.size_bytes).sum();
 
@@ -235,6 +256,15 @@ pub fn get_cleanup_preview(
         to_delete,
         total_bytes,
     })
+}
+
+#[tauri::command]
+pub fn get_cleanup_preview(
+    app: tauri::AppHandle,
+    keep_count: u32,
+) -> Result<CleanupPreview, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    get_cleanup_preview_internal(&app_dir, keep_count)
 }
 
 /// Delete old pre-update backups, keeping the N most recent
@@ -245,17 +275,18 @@ pub fn cleanup_pre_update_backups(
     keep_count: u32,
 ) -> Result<CleanupResult, String> {
     check_read_only!(app_state);
-    cleanup_pre_update_backups_internal(&app, keep_count)
+    let app_dir = get_app_data_dir(&app)?;
+    cleanup_pre_update_backups_internal(&app_dir, keep_count)
 }
 
 /// Internal cleanup function for use at startup (no State parameters needed)
 pub fn cleanup_pre_update_backups_internal(
-    app: &tauri::AppHandle,
+    app_dir: &Path,
     keep_count: u32,
 ) -> Result<CleanupResult, String> {
-    let db_paths = get_db_paths(app)?;
+    let db_paths = get_db_paths_for_dir(app_dir)?;
 
-    let all_backups = list_backups(app.clone())?;
+    let all_backups = list_backups_internal(app_dir)?;
     let to_delete = get_cleanup_candidates(&all_backups, keep_count);
 
     let mut deleted = Vec::new();
@@ -277,30 +308,41 @@ pub fn cleanup_pre_update_backups_internal(
 }
 
 /// Get backup retention settings
-#[tauri::command]
-pub fn get_backup_retention(app: tauri::AppHandle) -> Result<Option<BackupRetention>, String> {
-    let app_dir = get_app_data_dir(&app)?;
-    let settings = LocalSettings::load(&app_dir);
+pub fn get_backup_retention_internal(app_dir: &Path) -> Result<Option<BackupRetention>, String> {
+    let settings = LocalSettings::load(app_dir);
     Ok(settings.backup_retention)
 }
 
+#[tauri::command]
+pub fn get_backup_retention(app: tauri::AppHandle) -> Result<Option<BackupRetention>, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    get_backup_retention_internal(&app_dir)
+}
+
 /// Set backup retention settings
+pub fn set_backup_retention_internal(
+    app_dir: &Path,
+    app_state: &AppState,
+    retention: BackupRetention,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let mut settings = LocalSettings::load(app_dir);
+    settings.backup_retention = Some(retention);
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn set_backup_retention(
     app: tauri::AppHandle,
     app_state: State<AppState>,
     retention: BackupRetention,
 ) -> Result<(), String> {
-    check_read_only!(app_state);
     let app_dir = get_app_data_dir(&app)?;
-    let mut settings = LocalSettings::load(&app_dir);
-    settings.backup_retention = Some(retention);
-    settings.save(&app_dir).map_err(|e| e.to_string())
+    set_backup_retention_internal(&app_dir, &app_state, retention)
 }
 
-#[tauri::command]
-pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
-    let db_paths = get_db_paths(&app)?;
+pub fn list_backups_internal(app_dir: &Path) -> Result<Vec<BackupInfo>, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
 
     if !db_paths.backups_dir.exists() {
         return Ok(vec![]);
@@ -368,8 +410,13 @@ pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
 }
 
 #[tauri::command]
-pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<BackupInfo, String> {
-    let db_paths = get_db_paths(&app)?;
+pub fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    list_backups_internal(&app_dir)
+}
+
+pub fn get_backup_info_internal(app_dir: &Path, filename: String) -> Result<BackupInfo, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
@@ -442,6 +489,12 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 }
 
 #[tauri::command]
+pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<BackupInfo, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    get_backup_info_internal(&app_dir, filename)
+}
+
+#[tauri::command]
 pub fn restore_backup(
     app: tauri::AppHandle,
     app_state: State<AppState>,
@@ -461,14 +514,13 @@ pub fn restore_backup(
     Ok(())
 }
 
-#[tauri::command]
-pub fn delete_backup(
-    app: tauri::AppHandle,
-    app_state: State<AppState>,
+pub fn delete_backup_internal(
+    app_dir: &Path,
+    app_state: &AppState,
     filename: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    let db_paths = get_db_paths(&app)?;
+    let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
@@ -480,8 +532,17 @@ pub fn delete_backup(
 }
 
 #[tauri::command]
-pub fn get_backup_path(app: tauri::AppHandle, filename: String) -> Result<String, String> {
-    let db_paths = get_db_paths(&app)?;
+pub fn delete_backup(
+    app: tauri::AppHandle,
+    app_state: State<AppState>,
+    filename: String,
+) -> Result<(), String> {
+    let app_dir = get_app_data_dir(&app)?;
+    delete_backup_internal(&app_dir, &app_state, filename)
+}
+
+pub fn get_backup_path_internal(app_dir: &Path, filename: String) -> Result<String, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
     if !backup_path.exists() {
@@ -492,6 +553,12 @@ pub fn get_backup_path(app: tauri::AppHandle, filename: String) -> Result<String
         .to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "Invalid path encoding".to_string())
+}
+
+#[tauri::command]
+pub fn get_backup_path(app: tauri::AppHandle, filename: String) -> Result<String, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    get_backup_path_internal(&app_dir, filename)
 }
 
 // ============================================================================

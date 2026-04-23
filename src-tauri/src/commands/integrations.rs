@@ -11,6 +11,8 @@ use crate::constants::mime_types;
 use crate::models::SuggestedFillup;
 use crate::settings::LocalSettings;
 
+use std::path::Path;
+
 use super::{get_app_data_dir, AppState};
 
 // ============================================================================
@@ -33,36 +35,44 @@ pub struct HaLocalSettingsResponse {
     pub ha_api_token: Option<String>,
 }
 
-#[tauri::command]
-pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsResponse, String> {
-    let app_data_dir = get_app_data_dir(&app_handle)?;
-    let settings = LocalSettings::load(&app_data_dir);
+pub fn get_ha_settings_internal(app_dir: &Path) -> Result<HaSettingsResponse, String> {
+    let settings = LocalSettings::load(app_dir);
     Ok(HaSettingsResponse {
         url: settings.ha_url,
         has_token: settings.ha_api_token.is_some(),
     })
 }
 
+#[tauri::command]
+pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsResponse, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    get_ha_settings_internal(&app_data_dir)
+}
+
 /// Get HA settings including token for frontend to make API calls.
 /// This is needed because the frontend needs the token to call HA directly.
-#[tauri::command]
-pub fn get_local_settings_for_ha(
-    app_handle: tauri::AppHandle,
+pub fn get_local_settings_for_ha_internal(
+    app_dir: &Path,
 ) -> Result<HaLocalSettingsResponse, String> {
-    let app_data_dir = get_app_data_dir(&app_handle)?;
-    let settings = LocalSettings::load(&app_data_dir);
+    let settings = LocalSettings::load(app_dir);
     Ok(HaLocalSettingsResponse {
         ha_url: settings.ha_url,
         ha_api_token: settings.ha_api_token,
     })
 }
 
-/// Test HA connection from backend (avoids CORS issues in dev mode)
 #[tauri::command]
-pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, String> {
+pub fn get_local_settings_for_ha(
+    app_handle: tauri::AppHandle,
+) -> Result<HaLocalSettingsResponse, String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
-    println!("[HA test] Loading settings from: {:?}", app_data_dir);
-    let settings = LocalSettings::load(&app_data_dir);
+    get_local_settings_for_ha_internal(&app_data_dir)
+}
+
+/// Test HA connection from backend (avoids CORS issues in dev mode)
+pub async fn test_ha_connection_internal(app_dir: &Path) -> Result<bool, String> {
+    println!("[HA test] Loading settings from: {:?}", app_dir);
+    let settings = LocalSettings::load(app_dir);
     println!(
         "[HA test] ha_url: {:?}, has_token: {}",
         settings.ha_url,
@@ -100,15 +110,19 @@ pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, St
     Ok(is_ok)
 }
 
-/// Fetch ODO value from Home Assistant for a specific sensor
 #[tauri::command]
-pub async fn fetch_ha_odo(
-    app_handle: tauri::AppHandle,
+pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    test_ha_connection_internal(&app_data_dir).await
+}
+
+/// Fetch ODO value from Home Assistant for a specific sensor
+pub async fn fetch_ha_odo_internal(
+    app_dir: &Path,
     sensor_id: String,
 ) -> Result<Option<f64>, String> {
     println!("[HA ODO] Fetching sensor: {}", sensor_id);
-    let app_data_dir = get_app_data_dir(&app_handle)?;
-    let settings = LocalSettings::load(&app_data_dir);
+    let settings = LocalSettings::load(app_dir);
 
     let url = match settings.ha_url {
         Some(u) => u,
@@ -166,14 +180,21 @@ pub async fn fetch_ha_odo(
 }
 
 #[tauri::command]
-pub fn save_ha_settings(
+pub async fn fetch_ha_odo(
     app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+    sensor_id: String,
+) -> Result<Option<f64>, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    fetch_ha_odo_internal(&app_data_dir, sensor_id).await
+}
+
+pub fn save_ha_settings_internal(
+    app_dir: &Path,
+    app_state: &AppState,
     url: Option<String>,
     token: Option<String>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    let app_data_dir = get_app_data_dir(&app_handle)?;
 
     // Validate URL if provided
     if let Some(ref url_str) = url {
@@ -189,7 +210,7 @@ pub fn save_ha_settings(
         }
     }
 
-    let mut settings = LocalSettings::load(&app_data_dir);
+    let mut settings = LocalSettings::load(app_dir);
 
     // Update URL (allow clearing with empty string, keep existing if None)
     if let Some(u) = url {
@@ -202,7 +223,18 @@ pub fn save_ha_settings(
         settings.ha_api_token = if t.is_empty() { None } else { Some(t) };
     }
 
-    settings.save(&app_data_dir).map_err(|e| e.to_string())
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_ha_settings(
+    app_handle: tauri::AppHandle,
+    app_state: State<AppState>,
+    url: Option<String>,
+    token: Option<String>,
+) -> Result<(), String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    save_ha_settings_internal(&app_data_dir, &app_state, url, token)
 }
 
 // ============================================================================
