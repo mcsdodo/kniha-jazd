@@ -16,7 +16,7 @@
 	import { capabilities } from '$lib/stores/capabilities';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, type DbLocationInfo, type MoveDbResult } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
@@ -82,6 +82,12 @@
 
 	// Real ODO values from HA (keyed by vehicle ID)
 	let vehicleOdoValues: Map<string, number> = new Map();
+
+	// Server mode state
+	let serverStatus: ServerStatus = { running: false, port: null, url: null };
+	let serverPort = 3456;
+	let serverError = '';
+	let serverLoading = false;
 
 	// Debounce utility for auto-save
 	function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
@@ -226,6 +232,23 @@
 	}
 
 	const debouncedSaveHaSettings = debounce(saveHaSettingsNow, 800);
+
+	// Server mode toggle
+	async function toggleServer() {
+		serverError = '';
+		serverLoading = true;
+		try {
+			if (serverStatus.running) {
+				await stopServer();
+				serverStatus = { running: false, port: null, url: null };
+			} else {
+				serverStatus = await startServer(serverPort);
+			}
+		} catch (e) {
+			serverError = e instanceof Error ? e.message : String(e);
+		}
+		serverLoading = false;
+	}
 
 	// Database location state
 	let dbLocation: DbLocationInfo | null = null;
@@ -425,6 +448,14 @@
 				// Token is not exposed via API, only hasToken boolean
 				// Test connection if configured
 				await testHaConnectionStatus();
+			}
+
+			// Load server status (desktop only)
+			if ($capabilities.mode === 'desktop') {
+				try {
+					serverStatus = await getServerStatus();
+					if (serverStatus.port) serverPort = serverStatus.port;
+				} catch { /* ignore */ }
 			}
 		})();
 
@@ -939,6 +970,59 @@
 				{/if}
 			</div>
 		</section>
+
+		<!-- Server Mode Section (Tauri desktop only) -->
+		{#if $capabilities.mode === 'desktop'}
+		<section class="settings-section" id="server-mode">
+			<h2>{$LL.settings.serverMode()}</h2>
+			<div class="section-content">
+				<p class="hint server-description">{$LL.settings.serverModeDescription()}</p>
+
+				<div class="form-group">
+					<label for="server-port">{$LL.settings.serverPort()}</label>
+					<input
+						id="server-port"
+						type="number"
+						bind:value={serverPort}
+						min="1024"
+						max="65535"
+						disabled={serverStatus.running}
+						class="port-input"
+					/>
+				</div>
+
+				<div class="server-controls">
+					<button
+						on:click={toggleServer}
+						disabled={serverLoading}
+						class="button-small"
+						class:danger={serverStatus.running}
+					>
+						{#if serverLoading}
+							{$LL.settings.serverStarting()}
+						{:else if serverStatus.running}
+							{$LL.settings.serverStop()}
+						{:else}
+							{$LL.settings.serverStart()}
+						{/if}
+					</button>
+				</div>
+
+				{#if serverStatus.running && serverStatus.url}
+					<div class="form-group">
+						<label>{$LL.settings.serverUrl()}</label>
+						<div class="db-path-display">
+							<code class="path-text server-url">{serverStatus.url}</code>
+						</div>
+					</div>
+				{/if}
+
+				{#if serverError}
+					<div class="error-text">{serverError}</div>
+				{/if}
+			</div>
+		</section>
+		{/if}
 
 		<!-- Database Location Section (Tauri desktop only) -->
 		{#if $capabilities.features.moveDatabase}
@@ -1950,5 +2034,25 @@
 
 	.ha-status .status-icon {
 		font-size: 1rem;
+	}
+
+	/* Server mode */
+	.server-description {
+		font-style: normal;
+		margin: 0;
+	}
+
+	.port-input {
+		max-width: 120px;
+	}
+
+	.server-controls {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.server-url {
+		font-family: var(--font-mono);
+		font-size: 0.875rem;
 	}
 </style>

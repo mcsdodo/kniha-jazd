@@ -283,6 +283,16 @@ const sk = {
 		dbLocationConfirmMessage: 'Databáza a zálohy budú presunuté do:',
 		dbLocationConfirmWarning: 'Aplikácia sa po presune reštartuje.',
 		dbLocationConfirmMove: 'Presunúť',
+		// Server mode section
+		serverMode: 'Režim servera',
+		serverModeDescription: 'Sprístupnite aplikáciu z telefónu alebo tabletu cez prehliadač.',
+		serverEnabled: 'Server aktívny',
+		serverPort: 'Port',
+		serverUrl: 'Adresa pre prehliadač',
+		serverStopped: 'Server je vypnutý',
+		serverStarting: 'Spúšťam...',
+		serverStart: 'Spustiť',
+		serverStop: 'Zastaviť',
 		// Read-only mode
 		readOnlyBanner: 'Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.',
 		readOnlyCheckUpdates: 'Skontrolovať aktualizácie',

@@ -103,6 +103,8 @@ fn test_save_preserves_all_fields() {
         hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
         ha_url: Some("http://ha.local:8123".to_string()),
         ha_api_token: Some("token123".to_string()),
+        server_enabled: Some(true),
+        server_port: Some(3456),
     };
 
     settings.save(&dir.path().to_path_buf()).unwrap();

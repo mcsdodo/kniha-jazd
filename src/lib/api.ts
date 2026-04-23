@@ -515,3 +515,22 @@ export async function getHiddenColumns(): Promise<string[]> {
 export async function setHiddenColumns(columns: string[]): Promise<void> {
 	return apiCall('set_hidden_columns', { columns });
 }
+
+// Server Mode
+export interface ServerStatus {
+	running: boolean;
+	port: number | null;
+	url: string | null;
+}
+
+export async function getServerStatus(): Promise<ServerStatus> {
+	return await apiCall('get_server_status');
+}
+
+export async function startServer(port: number): Promise<ServerStatus> {
+	return await apiCall('start_server', { port });
+}
+
+export async function stopServer(): Promise<void> {
+	return await apiCall('stop_server');
+}
