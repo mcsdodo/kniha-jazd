@@ -21,7 +21,7 @@ Before starting implementation:
 
 ## Command Classification
 
-**71 total commands across 8 modules.** 67 are server-safe, 4 are Tauri-only.
+**72 total commands across 8 modules.** 68 are server-safe, 4 are Tauri-only.
 
 ### Tauri-Only Commands (4)
 
@@ -47,14 +47,18 @@ All other commands are server-safe. They fall into two extraction patterns:
 - **statistics.rs (3):** calculate_trip_stats, calculate_magic_fill_liters, preview_trip_calculation
 - **settings_cmd.rs (6):** get_settings, save_settings, get_optimal_window_size, get_db_location, get_app_mode, check_target_has_db
 
-**Pattern B — AppHandle → app_dir (32 commands):**
+**Pattern B — AppHandle → app_dir (33 commands):**
 `_internal` takes `app_dir: &Path` instead of `app: AppHandle`. The AppHandle was only used to resolve the app data directory.
+
+**Prerequisite for Pattern B:** Refactor `get_db_paths` in `commands/mod.rs:85-91` to accept `app_dir: &Path` instead of `app: &AppHandle`. Currently it calls `get_app_data_dir(app)` internally — extract that so both the Tauri wrapper and the RPC dispatcher can call it with a plain path. This is a one-time change that enables clean Pattern B for all modules (especially backup).
+
+**Important (I2 fix):** Some settings commands (`get_theme_preference`, `set_theme_preference`, etc. in `settings_cmd.rs:94-170`) currently call `app_handle.path().app_data_dir()` directly instead of `get_app_data_dir()`. This bypasses the `KNIHA_JAZD_DATA_DIR` env var used for test isolation. When writing Tauri wrappers, always use `get_app_data_dir(&app)?` — this also fixes an existing env-var inconsistency.
 
 - **settings_cmd.rs (8):** get_theme_preference, set_theme_preference, get_auto_check_updates, set_auto_check_updates, get_date_prefill_mode, set_date_prefill_mode, get_hidden_columns, set_hidden_columns
 - **receipts_cmd.rs (7):** get_receipt_settings, set_gemini_api_key, set_receipts_folder_path, scan_receipts, sync_receipts *(async)*, process_pending_receipts *(async)*, reprocess_receipt *(async)*
-- **backup.rs (10):** create_backup, create_backup_with_type, get_cleanup_preview, cleanup_pre_update_backups *(has _internal)*, get_backup_retention, set_backup_retention, list_backups, get_backup_info, delete_backup, get_backup_path
+- **backup.rs (10):** create_backup, create_backup_with_type, get_cleanup_preview, cleanup_pre_update_backups *(has _internal — signature changes from `&AppHandle` to `&Path`, update caller in `lib.rs:143`)*, get_backup_retention, set_backup_retention, list_backups, get_backup_info, delete_backup, get_backup_path
 - **export_cmd.rs (1):** export_html *(async)*
-- **statistics.rs (1):** get_trip_grid_data (AppHandle used for HA push — pass `app_dir: Option<&Path>`)
+- **statistics.rs (1):** get_trip_grid_data *(already has `build_trip_grid_data(&Database, &str, i32)` as internal fn at `statistics.rs:363` — reuse directly in dispatcher, skip HA push which is a Tauri-only side effect)*
 - **integrations.rs (5):** get_ha_settings, get_local_settings_for_ha, save_ha_settings, test_ha_connection *(async)*, fetch_ha_odo *(async)*
 
 **Async commands (7):** sync_receipts, process_pending_receipts, reprocess_receipt, test_ha_connection, fetch_ha_odo, export_html, export_to_browser (Tauri-only, skip). These need `async fn _internal` and are `.await`ed directly in the RPC dispatcher (not `spawn_blocking`).
@@ -123,7 +127,7 @@ mod tests {
 
     #[tokio::test]
     async fn health_endpoint_responds() {
-        let db = Arc::new(crate::db::Database::in_memory());
+        let db = Arc::new(crate::db::Database::in_memory().unwrap());
         let app_state = Arc::new(crate::app_state::AppState::new());
         let app_dir = std::env::temp_dir();
 
@@ -343,12 +347,12 @@ cd src-tauri && cargo test 2>&1 | tail -3  # all 195 tests pass
 
 **Pattern B (AppHandle → app_dir):**
 
-Before:
+Before (note: actual code at `settings_cmd.rs:94` uses `app_handle.path().app_data_dir()` directly — this is an env-var bug we fix during extraction):
 ```rust
 #[tauri::command]
-pub fn get_theme_preference(app: AppHandle) -> Result<String, String> {
-    let app_dir = get_app_data_dir(&app)?;
-    let settings = LocalSettings::load(&app_dir);
+pub fn get_theme_preference(app_handle: AppHandle) -> Result<String, String> {
+    let app_data_dir = app_handle.path().app_data_dir()?;  // BUG: ignores KNIHA_JAZD_DATA_DIR
+    let settings = LocalSettings::load(&app_data_dir);
     Ok(settings.theme.unwrap_or_default())
 }
 ```
@@ -362,7 +366,7 @@ pub fn get_theme_preference_internal(app_dir: &Path) -> Result<String, String> {
 
 #[tauri::command]
 pub fn get_theme_preference(app: AppHandle) -> Result<String, String> {
-    let app_dir = get_app_data_dir(&app)?;
+    let app_dir = get_app_data_dir(&app)?;  // FIX: respects env var for tests
     get_theme_preference_internal(&app_dir)
 }
 ```
@@ -371,14 +375,19 @@ pub fn get_theme_preference(app: AppHandle) -> Result<String, String> {
 
 1. **statistics.rs (4 commands):**
    - `calculate_trip_stats`, `calculate_magic_fill_liters`, `preview_trip_calculation` → Pattern A (DB only)
-   - `get_trip_grid_data` → Special: takes `AppHandle` for HA push. The `_internal` takes `app_dir: Option<&Path>`. When `None`, skip the HA background push. When `Some`, load HA settings from app_dir and push.
+   - `get_trip_grid_data` → No new `_internal` needed. `build_trip_grid_data(&Database, &str, i32)` already exists at `statistics.rs:363` and is the internal function (takes `&Database` directly). The Tauri wrapper calls `build_trip_grid_data` then does an HA push as a side effect. The RPC dispatcher should call `build_trip_grid_data` directly, skipping the HA push (which is a Tauri-specific fire-and-forget side effect).
 
 2. Run: `cd src-tauri && cargo test` — pass.
 
-3. **settings_cmd.rs (16 commands, skip 2 Tauri-only):**
+3. **Refactor `get_db_paths` prerequisite:** Change `get_db_paths` in `commands/mod.rs:85-91` to accept `app_dir: &Path` instead of `app: &AppHandle`. Add a `get_db_paths_from_handle` wrapper for Tauri commands that still use AppHandle. This enables clean Pattern B for backup commands.
+
+4. **settings_cmd.rs (16 commands, skip 2 Tauri-only):**
    - Pattern A: `get_settings`, `save_settings`, `get_optimal_window_size`, `get_db_location`, `get_app_mode`, `check_target_has_db`
    - Pattern B: `get_theme_preference`, `set_theme_preference`, `get_auto_check_updates`, `set_auto_check_updates`, `get_date_prefill_mode`, `set_date_prefill_mode`, `get_hidden_columns`, `set_hidden_columns`
+   - **Important:** All Pattern B wrappers must use `get_app_data_dir(&app)?`, NOT `app.path().app_data_dir()`. This fixes env-var inconsistency for test isolation.
    - Skip: `move_database`, `reset_database_location` (Tauri-only — no _internal needed)
+
+5. Run: `cd src-tauri && cargo test` — pass.
 
 4. Run: `cd src-tauri && cargo test` — pass.
 
@@ -434,8 +443,9 @@ pub async fn sync_receipts(
 2. Run: `cd src-tauri && cargo test` — pass.
 
 3. **backup.rs (11 commands, skip 1 Tauri-only, 1 already has _internal):**
-   - Already done: `cleanup_pre_update_backups_internal` — update wrapper
+   - **Signature change:** `cleanup_pre_update_backups_internal` currently takes `&AppHandle` (see `backup.rs:252`). Change to `app_dir: &Path` and update its internals to use `get_db_paths(app_dir)` (refactored in Task 4 step 3). Also update the caller in `lib.rs:143` to pass `&app_dir` instead of `&cleanup_app_handle`.
    - Pattern B: `create_backup`, `create_backup_with_type`, `get_cleanup_preview`, `get_backup_retention`, `set_backup_retention`, `list_backups`, `get_backup_info`, `delete_backup`, `get_backup_path`
+   - Note: `list_backups` is called internally by `cleanup_pre_update_backups_internal` — extract `list_backups_internal(app_dir: &Path)` first, then use it from cleanup.
    - Skip: `restore_backup` (Tauri-only)
 
 4. **export_cmd.rs (2 commands, skip 1 Tauri-only):**
@@ -477,7 +487,7 @@ mod tests {
 
     fn test_state() -> ServerState {
         ServerState {
-            db: Arc::new(crate::db::Database::in_memory()),
+            db: Arc::new(crate::db::Database::in_memory().unwrap()),
             app_state: Arc::new(crate::app_state::AppState::new()),
             app_dir: std::env::temp_dir(),
         }
@@ -526,7 +536,9 @@ mod tests {
             "vehicle_type": "Ice", "tank_size_liters": 50.0, "tp_consumption": 6.5
         }), &state);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("len na čítanie"));
+        // Matches substring of: "Aplikácia je v režime len na čítanie. {reason}"
+        // Copy assertion string from check_read_only! macro in commands/mod.rs:69
+        assert!(result.unwrap_err().contains("režime len na čítanie"));
     }
 
     #[test]
@@ -675,7 +687,7 @@ let app = Router::new()
 ```rust
 #[tokio::test]
 async fn rpc_endpoint_dispatches_command() {
-    let db = Arc::new(crate::db::Database::in_memory());
+    let db = Arc::new(crate::db::Database::in_memory().unwrap());
     let app_state = Arc::new(crate::app_state::AppState::new());
     let app_dir = std::env::temp_dir();
 
@@ -901,19 +913,18 @@ async fn receipt_image_handler(
     AxumPath(id): AxumPath<String>,
 ) -> impl IntoResponse {
     // Look up receipt by ID to get file path
+    // Note: db.get_receipt_by_id() returns QueryResult<Option<Receipt>>
+    // Receipt.file_path is String (not Option<String>) — see models.rs:497
     let db = &state.db;
-    let receipt = match db.get_receipt(&id) {
+    let receipt = match db.get_receipt_by_id(&id) {
         Ok(Some(r)) => r,
         Ok(None) => return (StatusCode::NOT_FOUND, "Receipt not found").into_response(),
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
 
-    let file_path = match receipt.file_path {
-        Some(p) => p,
-        None => return (StatusCode::NOT_FOUND, "No image file").into_response(),
-    };
+    let file_path = &receipt.file_path; // String, not Option
 
-    match tokio::fs::read(&file_path).await {
+    match tokio::fs::read(file_path).await {
         Ok(bytes) => {
             let content_type = if file_path.ends_with(".png") {
                 "image/png"
@@ -1113,7 +1124,7 @@ export async function apiCall<T>(
 export { IS_TAURI };
 ```
 
-2. In `src/lib/api.ts`, replace `import { invoke }` with `import { apiCall }` and swap all `invoke('command', args)` calls to `apiCall('command', args)`. This is a mechanical find-replace across the file (~56 calls).
+2. In `src/lib/api.ts`, replace `import { invoke }` with `import { apiCall }` and swap all `invoke('command', args)` calls to `apiCall('command', args)`. This is a mechanical find-replace across the file (55 call sites in api.ts + 1 in TripRow.svelte = 56 total).
 
 Example change:
 ```typescript
@@ -1389,28 +1400,84 @@ pub struct LocalSettings {
 }
 ```
 
-2. Add Tauri commands for server control:
+2. Add server state management and Tauri commands for server control.
+
+**State management design:** Create a `ServerManager` that holds the server handle and shutdown channel. It's managed as Tauri state so commands can access it:
+
+```rust
+// src-tauri/src/server/manager.rs
+use std::sync::Mutex;
+use tokio::sync::oneshot;
+
+pub struct ServerManager {
+    shutdown_tx: Mutex<Option<oneshot::Sender<()>>>,
+    status: Mutex<ServerStatus>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct ServerStatus {
+    pub running: bool,
+    pub port: Option<u16>,
+    pub url: Option<String>,
+}
+
+impl ServerManager {
+    pub fn new() -> Self {
+        Self {
+            shutdown_tx: Mutex::new(None),
+            status: Mutex::new(ServerStatus { running: false, port: None, url: None }),
+        }
+    }
+
+    pub fn set_running(&self, port: u16, url: String, tx: oneshot::Sender<()>) { ... }
+    pub fn stop(&self) -> Result<(), String> { ... }  // sends on shutdown_tx
+    pub fn status(&self) -> ServerStatus { ... }
+}
+```
+
+Register in `lib.rs`: `app.manage(ServerManager::new());`
+
+**Commands** (Tauri-only — NOT exposed via RPC, because starting/stopping the server from a browser client connected to it is paradoxical):
 
 ```rust
 // commands/server_cmd.rs
 #[tauri::command]
-pub fn get_server_status() -> Result<ServerStatus, String> { ... }
+pub fn get_server_status(manager: State<ServerManager>) -> Result<ServerStatus, String> {
+    Ok(manager.status())
+}
 
 #[tauri::command]
-pub fn start_server(app: AppHandle, port: u16) -> Result<ServerStatus, String> { ... }
+pub async fn start_server(
+    app: AppHandle,
+    manager: State<'_, ServerManager>,
+    db: State<'_, Database>,
+    app_state: State<'_, AppState>,
+    port: u16,
+) -> Result<ServerStatus, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    let static_dir = resolve_static_dir(&app)?;
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+
+    let addr = HttpServer::start(
+        Arc::new(db.inner().clone()), // Note: Tauri manages Database without Arc
+        Arc::new(app_state.inner().clone()),
+        app_dir, static_dir, port, true, shutdown_rx,
+    ).await?;
+
+    let url = format!("http://{}:{}", local_ip_address::local_ip().unwrap(), port);
+    manager.set_running(port, url.clone(), shutdown_tx);
+    Ok(ServerStatus { running: true, port: Some(port), url: Some(url) })
+}
 
 #[tauri::command]
-pub fn stop_server() -> Result<(), String> { ... }
-
-#[derive(Serialize)]
-pub struct ServerStatus {
-    pub running: bool,
-    pub port: Option<u16>,
-    pub url: Option<String>,  // e.g., "http://192.168.1.5:3456"
+pub fn stop_server(manager: State<ServerManager>) -> Result<(), String> {
+    manager.stop()
 }
 ```
 
 Use `local_ip_address::local_ip()` to get the LAN IP for the URL display.
+
+**Note on Arc wrapping:** Tauri's `State<T>` wraps T internally but doesn't expose it as `Arc<T>`. The server needs `Arc<Database>` and `Arc<AppState>`. Two approaches: (a) manage them as `Arc<T>` from the start in `lib.rs:130-131`, or (b) clone the inner value into new Arcs when starting the server. Option (a) is cleaner — change `lib.rs` to `app.manage(Arc::new(db))` and update all `State<Database>` to `State<Arc<Database>>`. Evaluate during implementation which causes less churn.
 
 3. Add i18n strings:
 
@@ -1620,22 +1687,41 @@ export async function waitForAppReady(): Promise<void> {
 
 3. Create `tests/integration/wdio.server.conf.ts`:
 
+**Implementation notes (from plan review I4):**
+- **Window on CI:** The Tauri binary opens a webview window. On CI, this works on Windows (has a desktop) but may need `--headless` on Linux. Since CI runs on `windows-latest`, this is fine.
+- **DB reset between tests:** Cannot delete the SQLite file while the Tauri process has it open (Windows file locking). Instead, add an RPC command `reset_test_database` that drops all tables and re-runs migrations, or use `DELETE FROM` statements via existing commands. Alternatively, restart the Tauri process between test files (slower but reliable).
+- **ChromeDriver service:** Use `@wdio/chromedriver-service` which manages chromedriver lifecycle automatically.
+- **`waitForUrl` helper:** Implement as a polling loop with retry.
+
 ```typescript
-import { config as baseConfig } from './wdio.conf';
+import { config as baseConfig, getBinaryPath } from './wdio.conf';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 
 let tauriProcess: ChildProcess;
 const SERVER_PORT = 3456;
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
+/** Poll a URL until it responds 200, or timeout */
+async function waitForUrl(url: string, timeoutMs: number): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        try {
+            const resp = await fetch(url);
+            if (resp.ok) return;
+        } catch { /* server not ready yet */ }
+        await new Promise(r => setTimeout(r, 500));
+    }
+    throw new Error(`Timed out waiting for ${url} after ${timeoutMs}ms`);
+}
+
 export const config: WebdriverIO.Config = {
     ...baseConfig,
 
-    // Override: use Chrome instead of tauri-driver
-    hostname: 'localhost',
-    port: 9515,  // chromedriver default
-    path: '/',
+    // Override: use Chrome via chromedriver service instead of tauri-driver
+    services: [['chromedriver', {}]],
 
     capabilities: [{
         browserName: 'chrome',
@@ -1663,6 +1749,7 @@ export const config: WebdriverIO.Config = {
                 KNIHA_JAZD_DATA_DIR: testDataDir,
                 KNIHA_JAZD_SERVER_AUTOSTART: '1',
             },
+            stdio: 'ignore',  // suppress window output
         });
 
         // Wait for HTTP server to be ready
@@ -1675,19 +1762,47 @@ export const config: WebdriverIO.Config = {
         await waitForAppReady();
     },
 
-    // Override beforeTest: clean DB via RPC, not file deletion
+    // Override beforeTest: reset DB by deleting all data via RPC
     beforeTest: async function () {
-        // Reset database by deleting the file and refreshing
-        // (same as base config, but refresh loads from server URL)
-        // ... delete DB file from testDataDir
+        // Delete all vehicles (cascades to trips) and receipts via RPC.
+        // This avoids Windows file-locking issues from deleting the DB file
+        // while the Tauri process has it open.
+        const baseUrl = process.env.WDIO_SERVER_URL || SERVER_URL;
+        const rpc = async (cmd: string, args = {}) => {
+            await fetch(`${baseUrl}/api/rpc`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-KJ-Client': '1' },
+                body: JSON.stringify({ command: cmd, args }),
+            });
+        };
+
+        // Get and delete all vehicles (which cascades trip deletion in the DB)
+        const vehiclesResp = await fetch(`${baseUrl}/api/rpc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-KJ-Client': '1' },
+            body: JSON.stringify({ command: 'get_vehicles', args: {} }),
+        });
+        const vehicles = await vehiclesResp.json();
+        for (const v of vehicles) {
+            await rpc('delete_vehicle', { id: v.id });
+        }
+
+        // Refresh browser to pick up clean state
         await browser.url(SERVER_URL);
         await waitForAppReady();
     },
 
     // Override onComplete: kill Tauri process
     onComplete: async function () {
-        if (tauriProcess) tauriProcess.kill();
+        if (tauriProcess) {
+            tauriProcess.kill();
+            tauriProcess = null as any;
+        }
         // Cleanup temp dir
+        const testDataDir = process.env.KNIHA_JAZD_DATA_DIR;
+        if (testDataDir && fs.existsSync(testDataDir)) {
+            fs.rmSync(testDataDir, { recursive: true, force: true });
+        }
     },
 };
 ```
@@ -1831,6 +1946,10 @@ npm run tauri dev
 ## Execution Notes
 
 - **Tasks 3-5** (_internal extraction) are the most tedious — mechanically repetitive but each must be verified with `cargo test`. Consider parallelizing across modules using subagents.
-- **Task 10** (frontend adapter) is the largest single frontend change — 56 call sites in api.ts. It's mechanical but must be verified carefully.
-- **Task 15** (dual-mode tests) depends on Tasks 1-14 being complete. It's the final proof that everything works end-to-end.
+- **Task 4 step 3** (refactor `get_db_paths` to accept `&Path`) is a prerequisite for all Pattern B extractions. Do it before touching backup or settings commands.
+- **Task 5** changes `cleanup_pre_update_backups_internal` signature — update the caller in `lib.rs:143` at the same time.
+- **Task 6** (dispatcher) can reuse `build_trip_grid_data` directly for `get_trip_grid_data` instead of a new `_internal` — the HA push side effect is Tauri-only.
+- **Task 10** (frontend adapter) has 55 call sites in api.ts + 1 in TripRow.svelte. Mechanical but must be verified carefully.
+- **Task 13** state management uses a new `ServerManager` struct managed as Tauri state. Server control commands are Tauri-only (not exposed via RPC).
+- **Task 15** (dual-mode tests) resets DB between tests via RPC `delete_vehicle` calls (not file deletion) to avoid Windows file-locking issues. Uses `@wdio/chromedriver-service` for driver lifecycle.
 - **LAN exposure (Task 14) is deliberately last** — the server is never reachable from the network until all security and functionality is proven.
