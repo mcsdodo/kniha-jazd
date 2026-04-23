@@ -21,8 +21,12 @@ import {
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 import { testCompanySettings } from '../../fixtures/scenarios';
-
 describe('Tier 1: Export', () => {
+  before(function () {
+    if (process.env.WDIO_SERVER_MODE === '1') {
+      this.skip();
+    }
+  });
   beforeEach(async () => {
     await waitForAppReady();
     await ensureLanguage('en');

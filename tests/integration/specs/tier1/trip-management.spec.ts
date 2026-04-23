@@ -13,6 +13,9 @@ import {
   seedTrip,
   getTripGridData,
   setActiveVehicle,
+  updateTrip,
+  deleteTrip,
+  reorderTrip,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -331,50 +334,20 @@ describe('Tier 1: Trip Management', () => {
       const initialData = await getTripGridData(vehicle.id as string, year);
       const initialRate = initialData.rates[trip.id as string];
 
-      // Update the trip via Tauri IPC directly (simulating edit save)
-      const updatedTrip = await browser.execute(
-        async (
-          tripId: string,
-          startDatetime: string,
-          endDatetime: string,
-          origin: string,
-          destination: string,
-          distanceKm: number,
-          odometer: number,
-          purpose: string,
-          fuelLiters: number,
-          fuelCostEur: number,
-          fullTank: boolean
-        ) => {
-          if (!window.__TAURI__) {
-            throw new Error('Tauri not available');
-          }
-          return await window.__TAURI__.core.invoke('update_trip', {
-            id: tripId,
-            startDatetime,
-            endDatetime,
-            origin,
-            destination,
-            distanceKm,
-            odometer,
-            purpose,
-            fuelLiters,
-            fuelCostEur,
-            fullTank,
-          });
-        },
-        trip.id as string,
-        `${year}-03-01T08:00`,
-        `${year}-03-01T10:00`,
-        SlovakCities.bratislava,
-        SlovakCities.trnava,
-        65,
-        30065,
-        TripPurposes.business,
-        50, // Changed from 40 to 50 liters
-        75, // Updated cost
-        true
-      );
+      // Update the trip via backend command (simulating edit save)
+      const updatedTrip = await updateTrip({
+        id: trip.id as string,
+        startDatetime: `${year}-03-01T08:00`,
+        endDatetime: `${year}-03-01T10:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 65,
+        odometer: 30065,
+        purpose: TripPurposes.business,
+        fuelLiters: 50, // Changed from 40 to 50 liters
+        fuelCostEur: 75, // Updated cost
+        fullTank: true,
+      });
 
       // Get updated stats
       const updatedData = await getTripGridData(vehicle.id as string, year);
@@ -441,13 +414,8 @@ describe('Tier 1: Trip Management', () => {
       let gridData = await getTripGridData(vehicle.id as string, year);
       expect(gridData.trips.length).toBe(2);
 
-      // Delete the second trip via Tauri IPC
-      await browser.execute(async (tripId: string) => {
-        if (!window.__TAURI__) {
-          throw new Error('Tauri not available');
-        }
-        return await window.__TAURI__.core.invoke('delete_trip', { id: tripId });
-      }, trip2.id as string);
+      // Delete the second trip via backend command
+      await deleteTrip(trip2.id as string);
 
       // Verify we now have 1 trip
       gridData = await getTripGridData(vehicle.id as string, year);
@@ -619,19 +587,7 @@ describe('Tier 1: Trip Management', () => {
       const initialOrder = gridData.trips.map((t) => t.purpose);
 
       // Use reorder_trip command to move trip2 to position 0
-      await browser.execute(
-        async (tripId: string, newPosition: number) => {
-          if (!window.__TAURI__) {
-            throw new Error('Tauri not available');
-          }
-          return await window.__TAURI__.core.invoke('reorder_trip', {
-            tripId: tripId,
-            newSortOrder: newPosition,
-          });
-        },
-        trip2.id as string,
-        0 // Move to first position
-      );
+      await reorderTrip(trip2.id as string, 0);
 
       // Verify new order
       gridData = await getTripGridData(vehicle.id as string, year);

@@ -163,7 +163,11 @@ pub fn run() {
             let auto_start_env = std::env::var("KNIHA_JAZD_SERVER_AUTOSTART").is_ok();
             let server_settings = LocalSettings::load(&app_dir);
             if auto_start_env || server_settings.server_enabled.unwrap_or(false) {
-                let auto_port = server_settings.server_port.unwrap_or(3456);
+                let auto_port = std::env::var("KNIHA_JAZD_SERVER_PORT")
+                    .ok()
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .or(server_settings.server_port)
+                    .unwrap_or(3456);
                 let auto_app_dir = app_dir.clone();
                 let auto_db_path = app.state::<AppState>().get_db_path()
                     .expect("DB path should be set at this point");
