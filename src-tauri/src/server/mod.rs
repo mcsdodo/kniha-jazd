@@ -5,6 +5,7 @@
 
 mod dispatcher;
 mod dispatcher_async;
+pub mod manager;
 
 use crate::app_state::AppState;
 use crate::db::Database;
@@ -177,6 +178,7 @@ impl HttpServer {
         app_dir: PathBuf,
         static_dir: PathBuf,
         port: u16,
+        bind_all: bool,
         shutdown_rx: oneshot::Receiver<()>,
     ) -> Result<SocketAddr, String> {
         let state = ServerState {
@@ -223,7 +225,11 @@ impl HttpServer {
                 .with_state(state)
         };
 
-        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let addr = if bind_all {
+            SocketAddr::from(([0, 0, 0, 0], port))
+        } else {
+            SocketAddr::from(([127, 0, 0, 1], port))
+        };
         let listener = TcpListener::bind(addr)
             .await
             .map_err(|e| format!("Failed to bind to {addr}: {e}"))?;
@@ -254,7 +260,7 @@ mod tests {
         let app_dir = std::env::temp_dir();
         let static_dir = std::env::temp_dir(); // No index.html = no static serving in tests
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-        let addr = HttpServer::start(db, app_state, app_dir, static_dir, 0, shutdown_rx)
+        let addr = HttpServer::start(db, app_state, app_dir, static_dir, 0, false, shutdown_rx)
             .await
             .expect("server should start");
         (addr, shutdown_tx)
@@ -365,6 +371,7 @@ mod tests {
             app_dir,
             temp.path().to_path_buf(),
             0,
+            false,
             shutdown_rx,
         )
         .await

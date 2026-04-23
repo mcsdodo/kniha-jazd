@@ -16,11 +16,11 @@ mod suggestions;
 use crate::app_state::AppState;
 use crate::constants::{env_vars, paths};
 use crate::db_location::{acquire_lock, check_lock, resolve_db_paths, LockStatus};
+use crate::server::manager::ServerManager;
 use crate::settings::LocalSettings;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::Manager;
-use tokio::sync::oneshot;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -133,9 +133,9 @@ pub fn run() {
             app.manage(db);
             app.manage(app_state);
 
-            // Create shutdown channel for HTTP server (activated in Task 13)
-            let (shutdown_tx, _shutdown_rx) = oneshot::channel::<()>();
-            app.manage(Arc::new(Mutex::new(Some(shutdown_tx))));
+            // Server manager for HTTP server start/stop
+            let server_manager = Arc::new(ServerManager::new());
+            app.manage(server_manager.clone());
 
             // Run post-update cleanup in background if retention is enabled
             if !is_read_only {
@@ -154,6 +154,71 @@ pub fn run() {
                             } else {
                                 log::info!("Post-update backup cleanup completed");
                             }
+                        }
+                    }
+                });
+            }
+
+            // Auto-start server if previously enabled or env var set
+            let auto_start_env = std::env::var("KNIHA_JAZD_SERVER_AUTOSTART").is_ok();
+            let server_settings = LocalSettings::load(&app_dir);
+            if auto_start_env || server_settings.server_enabled.unwrap_or(false) {
+                let auto_port = server_settings.server_port.unwrap_or(3456);
+                let auto_app_dir = app_dir.clone();
+                let auto_db_path = app.state::<AppState>().get_db_path()
+                    .expect("DB path should be set at this point");
+                let auto_is_read_only = is_read_only;
+                let auto_read_only_reason = if is_read_only {
+                    app.state::<AppState>().get_read_only_reason()
+                } else {
+                    None
+                };
+                let auto_manager = server_manager.clone();
+
+                // Build static dir path
+                let auto_static_dir = if cfg!(debug_assertions) {
+                    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../build")
+                } else {
+                    app.path().resource_dir().unwrap_or_default().join("_up_")
+                };
+
+                tauri::async_runtime::spawn(async move {
+                    let db = match crate::db::Database::new(auto_db_path) {
+                        Ok(db) => Arc::new(db),
+                        Err(e) => {
+                            log::warn!("Failed to open DB for server auto-start: {}", e);
+                            return;
+                        }
+                    };
+                    let app_state = Arc::new(AppState::new());
+                    if auto_is_read_only {
+                        app_state
+                            .enable_read_only(&auto_read_only_reason.unwrap_or_default());
+                    }
+
+                    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+                    match crate::server::HttpServer::start(
+                        db,
+                        app_state,
+                        auto_app_dir,
+                        auto_static_dir,
+                        auto_port,
+                        true,
+                        shutdown_rx,
+                    )
+                    .await
+                    {
+                        Ok(_addr) => {
+                            let url = local_ip_address::local_ip()
+                                .map(|ip| format!("http://{}:{}", ip, auto_port))
+                                .unwrap_or_else(|_| {
+                                    format!("http://localhost:{}", auto_port)
+                                });
+                            auto_manager.set_running(auto_port, url, shutdown_tx);
+                            log::info!("Server auto-started on port {}", auto_port);
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to auto-start server: {}", e);
                         }
                     }
                 });
@@ -233,18 +298,17 @@ pub fn run() {
             commands::get_local_settings_for_ha,
             commands::test_ha_connection,
             commands::fetch_ha_odo,
+            commands::get_server_status,
+            commands::start_server,
+            commands::stop_server,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
-                // Signal HTTP server to shut down
-                if let Some(tx_holder) =
-                    app.try_state::<Arc<Mutex<Option<oneshot::Sender<()>>>>>()
-                {
-                    if let Some(tx) = tx_holder.lock().unwrap().take() {
-                        let _ = tx.send(());
-                    }
+                // Stop HTTP server via ServerManager
+                if let Some(manager) = app.try_state::<Arc<ServerManager>>() {
+                    let _ = manager.stop();
                 }
 
                 // Release lock file on clean exit
