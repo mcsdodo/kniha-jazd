@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup, InferredTripTime } from '$lib/types';
-	import { invoke } from '@tauri-apps/api/core';
+	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
+	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -170,14 +170,8 @@
 
 		const rowDate = formData.startDatetime.slice(0, 10); // "YYYY-MM-DD"
 		try {
-			const result = await invoke<InferredTripTime | null>(
-				'get_inferred_trip_time_for_route',
-				{
-					vehicleId,
-					origin: formData.origin,
-					destination: formData.destination,
-					rowDate
-				}
+			const result = await getInferredTripTimeForRoute(
+				vehicleId, formData.origin, formData.destination, rowDate
 			);
 			if (result) {
 				// Store as datetime-local ("YYYY-MM-DDTHH:MM"), preserving row's date.
