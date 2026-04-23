@@ -614,6 +614,39 @@ export async function updateReceipt(receipt: Receipt): Promise<void> {
   await invokeTauri<void>('update_receipt', { receipt });
 }
 
+/**
+ * Update a trip via backend command.
+ */
+export async function updateTrip(args: Record<string, unknown>): Promise<Trip> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  return invokeTauri<Trip>('update_trip', args);
+}
+
+/**
+ * Delete a trip by ID via backend command.
+ */
+export async function deleteTrip(tripId: string): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  await invokeTauri<void>('delete_trip', { id: tripId });
+}
+
+/**
+ * Reorder a trip to a new position via backend command.
+ */
+export async function reorderTrip(tripId: string, newSortOrder: number): Promise<Trip[]> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready');
+  }
+  return invokeTauri<Trip[]>('reorder_trip', { tripId, newSortOrder });
+}
+
 // =============================================================================
 // Legacy Compatibility (placeholder interfaces for existing code)
 // =============================================================================

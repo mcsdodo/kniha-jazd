@@ -224,18 +224,23 @@ export const config: any = {
       }
     }
 
-    // Reset database via RPC call (avoids Windows file locking)
+    // Reset database by deleting all vehicles (cascades to trips)
+    // Uses existing RPC commands — no special reset command needed
     try {
-      const resp = await fetch(`${SERVER_URL}/api/rpc`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-KJ-Client': '1',
-        },
-        body: JSON.stringify({ command: 'reset_database', args: {} }),
-      });
-      if (!resp.ok) {
-        console.warn(`Database reset RPC failed: ${resp.status} ${await resp.text()}`);
+      const rpc = async (cmd: string, args: Record<string, unknown> = {}) => {
+        const resp = await fetch(`${SERVER_URL}/api/rpc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-KJ-Client': '1' },
+          body: JSON.stringify({ command: cmd, args }),
+        });
+        if (!resp.ok) throw new Error(`${cmd}: ${resp.status}`);
+        return resp.json();
+      };
+      const vehicles = await rpc('get_vehicles') as Array<{ id: string }>;
+      for (const v of vehicles) {
+        try {
+          await rpc('delete_vehicle', { id: v.id });
+        } catch { /* ignore individual delete failures */ }
       }
     } catch (e) {
       console.warn('Database reset RPC failed:', e);
