@@ -760,6 +760,7 @@ mod tests {
             db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
             app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
             app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
         }
     }
 
