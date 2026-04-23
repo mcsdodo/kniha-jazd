@@ -1,6 +1,6 @@
 **Date:** 2026-03-07
 **Subject:** Embedded Server Mode - Access Kniha Jázd from LAN browsers
-**Status:** Planning
+**Status:** Ready for implementation
 
 ## Goal
 

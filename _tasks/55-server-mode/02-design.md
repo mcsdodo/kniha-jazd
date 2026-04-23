@@ -1,6 +1,6 @@
 **Date:** 2026-03-07 (revised 2026-04-22 after design review)
 **Subject:** Server Mode - Technical Design
-**Status:** Ready for implementation plan
+**Status:** Implementation plan written (03-plan.md)
 
 ## Architecture Overview
 
