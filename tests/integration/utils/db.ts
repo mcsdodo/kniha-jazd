@@ -60,17 +60,32 @@ declare global {
 }
 
 // =============================================================================
+// Dual-Mode Configuration (Tauri IPC vs HTTP RPC)
+// =============================================================================
+
+const IS_SERVER_MODE = process.env.WDIO_SERVER_MODE === '1';
+const SERVER_URL = process.env.WDIO_SERVER_URL || 'http://localhost:3457';
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
 /**
- * Wait for app to be ready and ensure Tauri IPC is available
- * Returns true if ready, false otherwise
+ * Wait for app to be ready and ensure backend is reachable.
+ * In Tauri mode: checks for IPC bridge.
+ * In server mode: DOM ready is sufficient (backend accessed via HTTP).
  */
 async function ensureAppReady(): Promise<boolean> {
   try {
     await waitForAppReady();
-    // Verify Tauri v2 core.invoke is available
+
+    if (IS_SERVER_MODE) {
+      // In server mode, DOM ready means the app loaded from the server —
+      // backend is inherently available via HTTP RPC.
+      return true;
+    }
+
+    // Tauri mode: verify IPC bridge is available
     const tauriAvailable = await browser.execute(() => {
       return typeof window.__TAURI__ !== 'undefined' &&
              typeof window.__TAURI__.core !== 'undefined' &&
@@ -83,12 +98,33 @@ async function ensureAppReady(): Promise<boolean> {
 }
 
 /**
- * Execute a Tauri command via browser context (Tauri v2 API)
+ * Execute a backend command — Tauri IPC in webview mode, HTTP RPC in server mode.
+ *
+ * This is the single point of backend communication for all test utilities.
+ * All seed/query functions go through this helper.
  */
 async function invokeTauri<T>(
   cmd: string,
   args: Record<string, unknown> = {}
 ): Promise<T> {
+  if (IS_SERVER_MODE) {
+    // Server mode: call via HTTP RPC endpoint
+    const resp = await fetch(`${SERVER_URL}/api/rpc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-KJ-Client': '1',
+      },
+      body: JSON.stringify({ command: cmd, args }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`RPC '${cmd}' failed (${resp.status}): ${text}`);
+    }
+    return await resp.json() as T;
+  }
+
+  // Tauri mode: invoke via browser-side IPC
   const result = await browser.execute(
     async (command: string, commandArgs: Record<string, unknown>) => {
       if (!window.__TAURI__ || !window.__TAURI__.core) {
