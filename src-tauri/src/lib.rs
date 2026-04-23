@@ -18,7 +18,9 @@ use crate::constants::{env_vars, paths};
 use crate::db_location::{acquire_lock, check_lock, resolve_db_paths, LockStatus};
 use crate::settings::LocalSettings;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
+use tokio::sync::oneshot;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -131,6 +133,10 @@ pub fn run() {
             app.manage(db);
             app.manage(app_state);
 
+            // Create shutdown channel for HTTP server (activated in Task 13)
+            let (shutdown_tx, _shutdown_rx) = oneshot::channel::<()>();
+            app.manage(Arc::new(Mutex::new(Some(shutdown_tx))));
+
             // Run post-update cleanup in background if retention is enabled
             if !is_read_only {
                 let cleanup_app_handle = app.handle().clone();
@@ -232,8 +238,17 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            // Release lock file on clean exit
             if let tauri::RunEvent::Exit = event {
+                // Signal HTTP server to shut down
+                if let Some(tx_holder) =
+                    app.try_state::<Arc<Mutex<Option<oneshot::Sender<()>>>>>()
+                {
+                    if let Some(tx) = tx_holder.lock().unwrap().take() {
+                        let _ = tx.send(());
+                    }
+                }
+
+                // Release lock file on clean exit
                 if let Some(app_state) = app.try_state::<AppState>() {
                     if let Some(db_path) = app_state.get_db_path() {
                         if let Some(parent) = db_path.parent() {
