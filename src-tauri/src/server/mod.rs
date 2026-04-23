@@ -3,9 +3,18 @@
 //! When enabled, serves the same UI and RPC API that the Tauri webview uses,
 //! allowing phones/tablets/other PCs to access the app over the local network.
 
+mod dispatcher;
+mod dispatcher_async;
+
 use crate::app_state::AppState;
 use crate::db::Database;
-use axum::{routing::get, Router};
+use axum::{
+    extract::State as AxumState,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,6 +27,52 @@ pub struct ServerState {
     pub app_state: Arc<AppState>,
     pub app_dir: PathBuf,
 }
+
+// ============================================================================
+// RPC Handler
+// ============================================================================
+
+#[derive(serde::Deserialize)]
+struct RpcRequest {
+    command: String,
+    args: serde_json::Value,
+}
+
+async fn rpc_handler(
+    AxumState(state): AxumState<ServerState>,
+    Json(req): Json<RpcRequest>,
+) -> impl IntoResponse {
+    // Try async commands first
+    if let Some(result) =
+        dispatcher_async::dispatch_async(&req.command, req.args.clone(), &state).await
+    {
+        return match result {
+            Ok(value) => Json(value).into_response(),
+            Err(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
+        };
+    }
+
+    // Sync commands via spawn_blocking
+    let state_clone = state.clone();
+    let command = req.command.clone();
+    let args = req.args;
+
+    let result = tokio::task::spawn_blocking(move || {
+        dispatcher::dispatch_sync(&command, args, &state_clone)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {e}"));
+
+    match result {
+        Ok(Ok(value)) => Json(value).into_response(),
+        Ok(Err(msg)) => (StatusCode::BAD_REQUEST, msg).into_response(),
+        Err(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response(),
+    }
+}
+
+// ============================================================================
+// Server
+// ============================================================================
 
 pub struct HttpServer;
 
@@ -37,6 +92,7 @@ impl HttpServer {
 
         let app = Router::new()
             .route("/health", get(|| async { "ok" }))
+            .route("/api/rpc", post(rpc_handler))
             .with_state(state);
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -83,6 +139,35 @@ mod tests {
             .expect("request should succeed");
         assert_eq!(resp.status(), 200);
         assert_eq!(resp.text().await.unwrap(), "ok");
+
+        let _ = shutdown_tx.send(());
+    }
+
+    #[tokio::test]
+    async fn rpc_endpoint_dispatches_command() {
+        let db = Arc::new(crate::db::Database::in_memory().unwrap());
+        let app_state = Arc::new(crate::app_state::AppState::new());
+        let app_dir = std::env::temp_dir();
+
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let addr = HttpServer::start(db, app_state, app_dir, 0, shutdown_rx)
+            .await
+            .unwrap();
+
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(format!("http://{addr}/api/rpc"))
+            .json(&serde_json::json!({
+                "command": "get_vehicles",
+                "args": {}
+            }))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), 200);
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(body, serde_json::json!([]));
 
         let _ = shutdown_tx.send(());
     }
