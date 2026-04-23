@@ -279,6 +279,56 @@ jobs:
           path: tests/integration/screenshots/
           if-no-files-found: ignore
 
+  # Server-mode integration tests (Chrome against embedded HTTP server)
+  # Runs Tier 1 only — same specs as Tauri tests but via browser + RPC
+  integration-test-server:
+    name: Integration Tests (Server/Chrome) - Tier 1
+    needs: [check-changes, integration-build]
+    if: github.event_name == 'push' && needs.check-changes.outputs.run_tests == 'true'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download debug binary
+        uses: actions/download-artifact@v4
+        with:
+          name: debug-binary
+          path: src-tauri/target/debug
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run server integration tests (Tier 1)
+        env:
+          TIER: '1'
+          WDIO_SERVER_MODE: '1'
+          KNIHA_JAZD_SERVER_AUTOSTART: '1'
+        run: npm run test:integration:server
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots-server
+          path: tests/integration/screenshots/
+          if-no-files-found: ignore
+
   # Playwright smoke tests - disabled in CI
   # These tests need a running Vite dev server which requires complex setup.
   # Run locally with: npm run test:e2e

@@ -4,6 +4,71 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-04-23: Server Mode Architecture
+
+### ADR-017: LAN-Only CORS Without Authentication
+
+**Context:** The embedded HTTP server exposes the full app API on the local network. Should it require authentication (password, token, etc.)?
+
+**Decision:** No authentication. CORS allowlist restricts origins to RFC 1918 private IP ranges (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`) and `localhost`. Any request from a non-LAN origin is blocked by the browser's CORS preflight.
+
+**Reasoning:**
+- Target environment is a home or small office LAN — all devices on the network are trusted
+- Adding authentication would require password management UI, token storage, and login flow — significant complexity for minimal benefit
+- CORS enforcement happens in the browser, which is the only client (no curl/API use case)
+- If the user's LAN is compromised, authentication wouldn't help much anyway (attacker could sniff traffic on unencrypted HTTP)
+- Same trust model as other LAN devices (printers, NAS, smart home)
+
+**Trade-offs:**
+- Anyone on the same LAN can access the app without a password
+- No protection against malicious devices on the network (accepted risk for simplicity)
+
+---
+
+### ADR-016: _internal Extraction Pattern for Command Reuse
+
+**Context:** Tauri commands take `tauri::State<Database>` wrappers injected by the framework. The Axum RPC dispatcher has `Arc<Database>` directly. How should both call paths share the same business logic?
+
+**Decision:** Extract pure `_internal` functions from each Tauri command. These take `&Database` and/or `&AppState` as plain references. The Tauri `#[command]` wrapper extracts from `State<>`, the RPC dispatcher passes `&state.db` directly. Both call the same `_internal` function.
+
+**Pattern:**
+```
+Tauri command (thin wrapper) ──→ _internal(db, args) ←── RPC dispatcher
+```
+
+**Reasoning:**
+- Zero behavior change — existing tests verify the `_internal` functions work correctly
+- No new traits or abstractions needed — just function extraction
+- Tauri wrappers become trivially thin (extract state, call internal, return)
+- Clean separation: framework concerns (State extraction) vs business logic (pure functions)
+- 68 out of 72 commands extracted; 4 remain Tauri-only (file dialogs, DB replacement)
+
+**Rejected alternatives:**
+- *Trait-based abstraction* — over-engineered for what is a simple call delegation
+- *Separate REST routes* — would require maintaining a parallel API surface (see ADR-015)
+
+---
+
+### ADR-015: RPC Over REST for Server Mode API
+
+**Context:** The embedded HTTP server needs to expose the same 68 commands that Tauri IPC provides. Should we create individual REST endpoints (`GET /api/vehicles`, `POST /api/trips`, etc.) or use a single RPC endpoint?
+
+**Decision:** Single `POST /api/rpc` endpoint accepting `{ "command": "get_vehicles", "args": { ... } }` JSON. The dispatcher maps command names to `_internal` functions.
+
+**Reasoning:**
+- Mirrors the Tauri IPC model exactly — `invoke("command", args)` maps 1:1 to `POST /api/rpc` with `{ command, args }`
+- No need to design, document, or version 68 separate REST routes
+- Frontend adapter is trivial: swap `invoke()` for `fetch('/api/rpc')` based on runtime detection
+- Adding new commands requires zero HTTP routing changes — just register in the dispatcher
+- Not a public API — only consumed by the same frontend code, so REST conventions (proper HTTP methods, status codes per resource) add no value
+
+**Trade-offs:**
+- Not RESTful — all operations are POST, no resource-based URLs
+- No HTTP caching (all POST) — acceptable for a LAN app with local-speed responses
+- Error responses are always 400 with a string message — no structured error codes
+
+---
+
 ## 2026-04-15: Time Inference for New Trip Rows
 
 ### ADR-014: Jitter Stays in Rust; Testability via `Jitter` Trait
