@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Server Mode** - prístup k aplikácii z ľubovoľného prehliadača v lokálnej sieti (telefón, tablet, iný PC)
+- Prepínač v Nastaveniach na zapnutie/vypnutie vstavaného HTTP servera
+- Automatické spustenie servera pri štarte aplikácie (ak bol predtým zapnutý)
+- Automatická CORS ochrana pre prístup len z lokálnej siete
+- Skrytie desktopových funkcií v prehliadači (capabilities-based feature gating)
+
 ## [0.33.0] - 2026-04-16
 
 ### Pridané
