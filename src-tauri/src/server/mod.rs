@@ -21,12 +21,14 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::services::{ServeDir, ServeFile};
 
 #[derive(Clone)]
 pub struct ServerState {
     pub db: Arc<Database>,
     pub app_state: Arc<AppState>,
     pub app_dir: PathBuf,
+    pub static_dir: PathBuf,
 }
 
 // ============================================================================
@@ -173,6 +175,7 @@ impl HttpServer {
         db: Arc<Database>,
         app_state: Arc<AppState>,
         app_dir: PathBuf,
+        static_dir: PathBuf,
         port: u16,
         shutdown_rx: oneshot::Receiver<()>,
     ) -> Result<SocketAddr, String> {
@@ -180,15 +183,45 @@ impl HttpServer {
             db,
             app_state,
             app_dir,
+            static_dir,
         };
 
-        let app = Router::new()
-            .route("/health", get(|| async { "ok" }))
-            .route("/api/rpc", post(rpc_handler))
-            .route("/api/capabilities", get(capabilities_handler))
-            .route("/api/receipts/{id}/image", get(receipt_image_handler))
-            .layer(build_cors_layer())
-            .with_state(state);
+        // Build API routes
+        let api_router = Router::new()
+            .route("/rpc", post(rpc_handler))
+            .route("/capabilities", get(capabilities_handler))
+            .route("/receipts/{id}/image", get(receipt_image_handler));
+
+        // Build full app with static fallback
+        let index_html = state.static_dir.join("index.html");
+        let app = if index_html.exists() {
+            let static_service = ServeDir::new(&state.static_dir)
+                .fallback(ServeFile::new(index_html));
+
+            Router::new()
+                .route("/health", get(|| async { "ok" }))
+                .nest("/api", api_router)
+                .fallback_service(static_service)
+                .layer(build_cors_layer())
+                .with_state(state)
+        } else {
+            if state.static_dir.exists() {
+                log::info!(
+                    "Static directory {:?} has no index.html, SPA fallback disabled",
+                    state.static_dir
+                );
+            } else {
+                log::warn!(
+                    "Static frontend directory not found at {:?}",
+                    state.static_dir
+                );
+            }
+            Router::new()
+                .route("/health", get(|| async { "ok" }))
+                .nest("/api", api_router)
+                .layer(build_cors_layer())
+                .with_state(state)
+        };
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = TcpListener::bind(addr)
@@ -219,8 +252,9 @@ mod tests {
         let db = Arc::new(crate::db::Database::in_memory().unwrap());
         let app_state = Arc::new(crate::app_state::AppState::new());
         let app_dir = std::env::temp_dir();
+        let static_dir = std::env::temp_dir(); // No index.html = no static serving in tests
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-        let addr = HttpServer::start(db, app_state, app_dir, 0, shutdown_rx)
+        let addr = HttpServer::start(db, app_state, app_dir, static_dir, 0, shutdown_rx)
             .await
             .expect("server should start");
         (addr, shutdown_tx)
@@ -314,5 +348,34 @@ mod tests {
         assert!(!is_lan_origin("http://172.15.0.1:3456"));
         assert!(!is_lan_origin("http://172.32.0.1:3456"));
         assert!(!is_lan_origin("http://example.com"));
+    }
+
+    #[tokio::test]
+    async fn spa_fallback_serves_index_html() {
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::write(temp.path().join("index.html"), "<html>app</html>").unwrap();
+
+        let db = Arc::new(crate::db::Database::in_memory().unwrap());
+        let app_state = Arc::new(crate::app_state::AppState::new());
+        let app_dir = std::env::temp_dir();
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+        let addr = HttpServer::start(
+            db,
+            app_state,
+            app_dir,
+            temp.path().to_path_buf(),
+            0,
+            shutdown_rx,
+        )
+        .await
+        .unwrap();
+
+        let resp = reqwest::get(format!("http://{addr}/vozidla/some-id"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+        assert!(resp.text().await.unwrap().contains("<html>app</html>"));
+
+        let _ = shutdown_tx.send(());
     }
 }
