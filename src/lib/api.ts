@@ -1,16 +1,15 @@
 // API wrapper for Tauri commands
 
-import { invoke } from '@tauri-apps/api/core';
-import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode } from './types';
+import { apiCall, IS_TAURI } from './api-adapter';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
-	return await invoke('get_vehicles');
+	return await apiCall('get_vehicles');
 }
 
 export async function getActiveVehicle(): Promise<Vehicle | null> {
-	return await invoke('get_active_vehicle');
+	return await apiCall('get_active_vehicle');
 }
 
 export async function createVehicle(
@@ -26,7 +25,7 @@ export async function createVehicle(
 	vin?: string | null,
 	driverName?: string | null
 ): Promise<Vehicle> {
-	return await invoke('create_vehicle', {
+	return await apiCall('create_vehicle', {
 		name,
 		licensePlate,
 		initialOdometer,
@@ -42,32 +41,32 @@ export async function createVehicle(
 }
 
 export async function updateVehicle(vehicle: Vehicle): Promise<void> {
-	return await invoke('update_vehicle', { vehicle });
+	return await apiCall('update_vehicle', { vehicle });
 }
 
 export async function deleteVehicle(id: string): Promise<void> {
-	return await invoke('delete_vehicle', { id });
+	return await apiCall('delete_vehicle', { id });
 }
 
 export async function setActiveVehicle(id: string): Promise<void> {
-	return await invoke('set_active_vehicle', { id });
+	return await apiCall('set_active_vehicle', { id });
 }
 
 // Trip commands
 export async function getTrips(vehicleId: string): Promise<Trip[]> {
-	return await invoke('get_trips', { vehicleId });
+	return await apiCall('get_trips', { vehicleId });
 }
 
 export async function getTripsForYear(vehicleId: string, year: number): Promise<Trip[]> {
-	return await invoke('get_trips_for_year', { vehicleId, year });
+	return await apiCall('get_trips_for_year', { vehicleId, year });
 }
 
 export async function getYearsWithTrips(vehicleId: string): Promise<number[]> {
-	return await invoke('get_years_with_trips', { vehicleId });
+	return await apiCall('get_years_with_trips', { vehicleId });
 }
 
 export async function getTripGridData(vehicleId: string, year: number): Promise<TripGridData> {
-	return await invoke('get_trip_grid_data', { vehicleId, year });
+	return await apiCall('get_trip_grid_data', { vehicleId, year });
 }
 
 export async function calculateMagicFillLiters(
@@ -76,7 +75,7 @@ export async function calculateMagicFillLiters(
 	currentTripKm: number,
 	editingTripId?: string | null
 ): Promise<number> {
-	return await invoke('calculate_magic_fill_liters', { vehicleId, year, currentTripKm, editingTripId });
+	return await apiCall('calculate_magic_fill_liters', { vehicleId, year, currentTripKm, editingTripId });
 }
 
 export async function createTrip(
@@ -102,7 +101,7 @@ export async function createTrip(
 	otherCostsNote?: string | null,
 	insertAtPosition?: number | null
 ): Promise<Trip> {
-	return await invoke('create_trip', {
+	return await apiCall('create_trip', {
 		vehicleId,
 		startDatetime,
 		endDatetime,
@@ -146,7 +145,7 @@ export async function updateTrip(
 	otherCostsEur?: number | null,
 	otherCostsNote?: string | null
 ): Promise<Trip> {
-	return await invoke('update_trip', {
+	return await apiCall('update_trip', {
 		id,
 		startDatetime,
 		endDatetime,
@@ -168,14 +167,14 @@ export async function updateTrip(
 }
 
 export async function deleteTrip(id: string): Promise<void> {
-	return await invoke('delete_trip', { id });
+	return await apiCall('delete_trip', { id });
 }
 
 export async function reorderTrip(
 	tripId: string,
 	newSortOrder: number
 ): Promise<Trip[]> {
-	return await invoke('reorder_trip', {
+	return await apiCall('reorder_trip', {
 		tripId,
 		newSortOrder
 	});
@@ -183,17 +182,17 @@ export async function reorderTrip(
 
 // Route commands
 export async function getRoutes(vehicleId: string): Promise<Route[]> {
-	return await invoke('get_routes', { vehicleId });
+	return await apiCall('get_routes', { vehicleId });
 }
 
 // Purpose suggestions (across all years)
 export async function getPurposes(vehicleId: string): Promise<string[]> {
-	return await invoke('get_purposes', { vehicleId });
+	return await apiCall('get_purposes', { vehicleId });
 }
 
 // Settings commands
 export async function getSettings(): Promise<Settings | null> {
-	return await invoke('get_settings');
+	return await apiCall('get_settings');
 }
 
 export async function saveSettings(
@@ -201,7 +200,7 @@ export async function saveSettings(
 	companyIco: string,
 	bufferTripPurpose: string
 ): Promise<Settings> {
-	return await invoke('save_settings', {
+	return await apiCall('save_settings', {
 		companyName,
 		companyIco,
 		bufferTripPurpose
@@ -210,56 +209,59 @@ export async function saveSettings(
 
 // Trip statistics
 export async function calculateTripStats(vehicleId: string, year: number): Promise<TripStats> {
-	return await invoke('calculate_trip_stats', { vehicleId, year });
+	return await apiCall('calculate_trip_stats', { vehicleId, year });
 }
 
 // Backup commands
 export async function createBackup(): Promise<BackupInfo> {
-	return await invoke('create_backup');
+	return await apiCall('create_backup');
 }
 
 export async function listBackups(): Promise<BackupInfo[]> {
-	return await invoke('list_backups');
+	return await apiCall('list_backups');
 }
 
 export async function getBackupInfo(filename: string): Promise<BackupInfo> {
-	return await invoke('get_backup_info', { filename });
+	return await apiCall('get_backup_info', { filename });
 }
 
 export async function restoreBackup(filename: string): Promise<void> {
-	return await invoke('restore_backup', { filename });
+	return await apiCall('restore_backup', { filename });
 }
 
 export async function deleteBackup(filename: string): Promise<void> {
-	return await invoke('delete_backup', { filename });
+	return await apiCall('delete_backup', { filename });
 }
 
 export async function revealBackup(filename: string): Promise<void> {
-	const path: string = await invoke('get_backup_path', { filename });
-	await revealItemInDir(path);
+	const path = await apiCall<string>('get_backup_path', { filename });
+	if (IS_TAURI) {
+		const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+		await revealItemInDir(path);
+	}
 }
 
 export async function createBackupWithType(
 	backupType: BackupType,
 	updateVersion: string | null
 ): Promise<BackupInfo> {
-	return await invoke('create_backup_with_type', { backupType, updateVersion });
+	return await apiCall('create_backup_with_type', { backupType, updateVersion });
 }
 
 export async function getCleanupPreview(keepCount: number): Promise<CleanupPreview> {
-	return await invoke('get_cleanup_preview', { keepCount });
+	return await apiCall('get_cleanup_preview', { keepCount });
 }
 
 export async function cleanupPreUpdateBackups(keepCount: number): Promise<CleanupResult> {
-	return await invoke('cleanup_pre_update_backups', { keepCount });
+	return await apiCall('cleanup_pre_update_backups', { keepCount });
 }
 
 export async function getBackupRetention(): Promise<BackupRetention | null> {
-	return await invoke('get_backup_retention');
+	return await apiCall('get_backup_retention');
 }
 
 export async function setBackupRetention(retention: BackupRetention): Promise<void> {
-	return await invoke('set_backup_retention', { retention });
+	return await apiCall('set_backup_retention', { retention });
 }
 
 // Export - opens HTML in default browser for printing
@@ -272,56 +274,56 @@ export async function openExportPreview(
 	labels: ExportLabels,
 	hiddenColumns: string[]
 ): Promise<void> {
-	await invoke('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection, labels, hiddenColumns });
+	await apiCall('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection, labels, hiddenColumns });
 }
 
 // Receipt commands
 export async function getReceiptSettings(): Promise<ReceiptSettings> {
-	return await invoke('get_receipt_settings');
+	return await apiCall('get_receipt_settings');
 }
 
 export async function getReceipts(year?: number): Promise<Receipt[]> {
-	return await invoke('get_receipts', { year: year ?? null });
+	return await apiCall('get_receipts', { year: year ?? null });
 }
 
 export async function getReceiptsForVehicle(vehicleId: string, year?: number): Promise<Receipt[]> {
-	return await invoke('get_receipts_for_vehicle', { vehicleId, year: year ?? null });
+	return await apiCall('get_receipts_for_vehicle', { vehicleId, year: year ?? null });
 }
 
 export async function getUnassignedReceipts(): Promise<Receipt[]> {
-	return await invoke('get_unassigned_receipts');
+	return await apiCall('get_unassigned_receipts');
 }
 
 export async function scanReceipts(): Promise<ScanResult> {
-	return await invoke('scan_receipts');
+	return await apiCall('scan_receipts');
 }
 
 export async function syncReceipts(): Promise<SyncResult> {
-	return await invoke('sync_receipts');
+	return await apiCall('sync_receipts');
 }
 
 export async function processPendingReceipts(): Promise<SyncResult> {
-	return await invoke('process_pending_receipts');
+	return await apiCall('process_pending_receipts');
 }
 
 export async function updateReceipt(receipt: Receipt): Promise<void> {
-	return await invoke('update_receipt', { receipt });
+	return await apiCall('update_receipt', { receipt });
 }
 
 export async function deleteReceipt(id: string): Promise<void> {
-	return await invoke('delete_receipt', { id });
+	return await apiCall('delete_receipt', { id });
 }
 
 export async function unassignReceipt(id: string): Promise<void> {
-	return await invoke('unassign_receipt', { id });
+	return await apiCall('unassign_receipt', { id });
 }
 
 export async function revertReceiptOverride(id: string): Promise<void> {
-	return await invoke('revert_receipt_override', { id });
+	return await apiCall('revert_receipt_override', { id });
 }
 
 export async function reprocessReceipt(id: string): Promise<Receipt> {
-	return await invoke('reprocess_receipt', { id });
+	return await apiCall('reprocess_receipt', { id });
 }
 
 export async function assignReceiptToTrip(
@@ -331,7 +333,7 @@ export async function assignReceiptToTrip(
 	assignmentType: 'Fuel' | 'Other',
 	mismatchOverride: boolean = false
 ): Promise<Receipt> {
-	return await invoke('assign_receipt_to_trip', {
+	return await apiCall('assign_receipt_to_trip', {
 		receiptId,
 		tripId,
 		vehicleId,
@@ -345,11 +347,11 @@ export async function getTripsForReceiptAssignment(
 	vehicleId: string,
 	year: number
 ): Promise<TripForAssignment[]> {
-	return await invoke('get_trips_for_receipt_assignment', { receiptId, vehicleId, year });
+	return await apiCall('get_trips_for_receipt_assignment', { receiptId, vehicleId, year });
 }
 
 export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {
-	return await invoke('verify_receipts', { vehicleId, year });
+	return await apiCall('verify_receipts', { vehicleId, year });
 }
 
 // Window
@@ -359,7 +361,7 @@ export interface WindowSize {
 }
 
 export async function getOptimalWindowSize(): Promise<WindowSize> {
-	return await invoke('get_optimal_window_size');
+	return await apiCall('get_optimal_window_size');
 }
 
 // Live Preview
@@ -372,7 +374,7 @@ export async function previewTripCalculation(
 	insertAtSortOrder: number | null,
 	editingTripId: string | null
 ): Promise<PreviewResult> {
-	return await invoke('preview_trip_calculation', {
+	return await apiCall('preview_trip_calculation', {
 		vehicleId,
 		year,
 		distanceKm,
@@ -388,38 +390,38 @@ import type { ThemeMode } from '$lib/constants';
 export type { ThemeMode };
 
 export async function getThemePreference(): Promise<ThemeMode> {
-	return invoke<string>('get_theme_preference') as Promise<ThemeMode>;
+	return apiCall<string>('get_theme_preference') as Promise<ThemeMode>;
 }
 
 export async function setThemePreference(theme: ThemeMode): Promise<void> {
-	return invoke('set_theme_preference', { theme });
+	return apiCall('set_theme_preference', { theme });
 }
 
 // Auto-update settings
 export async function getAutoCheckUpdates(): Promise<boolean> {
-	return invoke<boolean>('get_auto_check_updates');
+	return apiCall<boolean>('get_auto_check_updates');
 }
 
 export async function setAutoCheckUpdates(enabled: boolean): Promise<void> {
-	return invoke('set_auto_check_updates', { enabled });
+	return apiCall('set_auto_check_updates', { enabled });
 }
 
 // Date prefill mode settings
 export async function getDatePrefillMode(): Promise<DatePrefillMode> {
-	return invoke<DatePrefillMode>('get_date_prefill_mode');
+	return apiCall<DatePrefillMode>('get_date_prefill_mode');
 }
 
 export async function setDatePrefillMode(mode: DatePrefillMode): Promise<void> {
-	return invoke('set_date_prefill_mode', { mode });
+	return apiCall('set_date_prefill_mode', { mode });
 }
 
 // Receipt settings
 export async function setGeminiApiKey(apiKey: string): Promise<void> {
-	return invoke('set_gemini_api_key', { apiKey });
+	return apiCall('set_gemini_api_key', { apiKey });
 }
 
 export async function setReceiptsFolderPath(path: string): Promise<void> {
-	return invoke('set_receipts_folder_path', { path });
+	return apiCall('set_receipts_folder_path', { path });
 }
 
 // Home Assistant settings
@@ -429,11 +431,11 @@ export interface HaSettingsResponse {
 }
 
 export async function getHaSettings(): Promise<HaSettingsResponse> {
-	return invoke<HaSettingsResponse>('get_ha_settings');
+	return apiCall<HaSettingsResponse>('get_ha_settings');
 }
 
 export async function saveHaSettings(url: string | null, token: string | null): Promise<void> {
-	return invoke('save_ha_settings', { url, token });
+	return apiCall('save_ha_settings', { url, token });
 }
 
 // For frontend HA API calls (includes token)
@@ -444,17 +446,17 @@ export interface HaLocalSettings {
 
 export async function getLocalSettingsForHa(): Promise<HaLocalSettings> {
 	// Backend uses #[serde(rename_all = "camelCase")] so fields are already camelCase
-	return invoke<HaLocalSettings>('get_local_settings_for_ha');
+	return apiCall<HaLocalSettings>('get_local_settings_for_ha');
 }
 
 // Test HA connection from backend (avoids CORS issues)
 export async function testHaConnection(): Promise<boolean> {
-	return invoke<boolean>('test_ha_connection');
+	return apiCall<boolean>('test_ha_connection');
 }
 
 // Fetch ODO value from HA for a specific sensor
 export async function fetchHaOdo(sensorId: string): Promise<number | null> {
-	return invoke<number | null>('fetch_ha_odo', { sensorId });
+	return apiCall<number | null>('fetch_ha_odo', { sensorId });
 }
 
 // Database location
@@ -471,15 +473,15 @@ export interface AppModeInfo {
 }
 
 export async function getDbLocation(): Promise<DbLocationInfo> {
-	return invoke<DbLocationInfo>('get_db_location');
+	return apiCall<DbLocationInfo>('get_db_location');
 }
 
 export async function getAppMode(): Promise<AppModeInfo> {
-	return invoke<AppModeInfo>('get_app_mode');
+	return apiCall<AppModeInfo>('get_app_mode');
 }
 
 export async function checkTargetHasDb(targetFolder: string): Promise<boolean> {
-	return invoke<boolean>('check_target_has_db', { targetPath: targetFolder });
+	return apiCall<boolean>('check_target_has_db', { targetPath: targetFolder });
 }
 
 export interface MoveDbResult {
@@ -489,18 +491,27 @@ export interface MoveDbResult {
 }
 
 export async function moveDatabase(targetFolder: string): Promise<MoveDbResult> {
-	return invoke<MoveDbResult>('move_database', { targetFolder });
+	return apiCall<MoveDbResult>('move_database', { targetFolder });
 }
 
 export async function resetDatabaseLocation(): Promise<MoveDbResult> {
-	return invoke<MoveDbResult>('reset_database_location');
+	return apiCall<MoveDbResult>('reset_database_location');
+}
+
+// Time inference
+export async function getInferredTripTimeForRoute(
+	vehicleId: string, origin: string, destination: string, rowDate: string
+): Promise<InferredTripTime | null> {
+	return await apiCall('get_inferred_trip_time_for_route', {
+		vehicleId, origin, destination, rowDate,
+	});
 }
 
 // Hidden columns
 export async function getHiddenColumns(): Promise<string[]> {
-	return invoke<string[]>('get_hidden_columns');
+	return apiCall<string[]>('get_hidden_columns');
 }
 
 export async function setHiddenColumns(columns: string[]): Promise<void> {
-	return invoke('set_hidden_columns', { columns });
+	return apiCall('set_hidden_columns', { columns });
 }
