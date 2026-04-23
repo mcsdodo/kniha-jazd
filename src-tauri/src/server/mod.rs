@@ -9,8 +9,8 @@ mod dispatcher_async;
 use crate::app_state::AppState;
 use crate::db::Database;
 use axum::{
-    extract::State as AxumState,
-    http::StatusCode,
+    extract::{Path as AxumPath, State as AxumState},
+    http::{header, HeaderName, Method, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 #[derive(Clone)]
 pub struct ServerState {
@@ -42,7 +43,6 @@ async fn rpc_handler(
     AxumState(state): AxumState<ServerState>,
     Json(req): Json<RpcRequest>,
 ) -> impl IntoResponse {
-    // Try async commands first
     if let Some(result) =
         dispatcher_async::dispatch_async(&req.command, req.args.clone(), &state).await
     {
@@ -52,7 +52,6 @@ async fn rpc_handler(
         };
     }
 
-    // Sync commands via spawn_blocking
     let state_clone = state.clone();
     let command = req.command.clone();
     let args = req.args;
@@ -68,6 +67,99 @@ async fn rpc_handler(
         Ok(Err(msg)) => (StatusCode::BAD_REQUEST, msg).into_response(),
         Err(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg).into_response(),
     }
+}
+
+// ============================================================================
+// Capabilities Endpoint
+// ============================================================================
+
+async fn capabilities_handler(
+    AxumState(state): AxumState<ServerState>,
+) -> Json<serde_json::Value> {
+    let read_only = state.app_state.is_read_only();
+    Json(serde_json::json!({
+        "mode": "server",
+        "read_only": read_only,
+        "features": {
+            "file_dialogs": false,
+            "updater": false,
+            "open_external": false,
+            "restore_backup": false,
+            "move_database": false,
+        }
+    }))
+}
+
+// ============================================================================
+// Receipt Image Endpoint
+// ============================================================================
+
+async fn receipt_image_handler(
+    AxumState(state): AxumState<ServerState>,
+    AxumPath(id): AxumPath<String>,
+) -> impl IntoResponse {
+    let db = &state.db;
+    let receipt = match db.get_receipt_by_id(&id) {
+        Ok(Some(r)) => r,
+        Ok(None) => return (StatusCode::NOT_FOUND, "Receipt not found").into_response(),
+        Err(e) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+        }
+    };
+
+    let file_path = &receipt.file_path;
+
+    match tokio::fs::read(file_path).await {
+        Ok(bytes) => {
+            let content_type = if file_path.ends_with(".png") {
+                "image/png"
+            } else if file_path.ends_with(".jpg") || file_path.ends_with(".jpeg") {
+                "image/jpeg"
+            } else if file_path.ends_with(".webp") {
+                "image/webp"
+            } else {
+                "application/octet-stream"
+            };
+            ([(header::CONTENT_TYPE, content_type)], bytes).into_response()
+        }
+        Err(_) => (StatusCode::NOT_FOUND, "Image file not found on disk").into_response(),
+    }
+}
+
+// ============================================================================
+// CORS — LAN Origins Only
+// ============================================================================
+
+fn build_cors_layer() -> CorsLayer {
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::predicate(|origin, _| {
+            let s = origin.to_str().unwrap_or("");
+            is_lan_origin(s)
+        }))
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            HeaderName::from_static("x-kj-client"),
+        ])
+}
+
+fn is_lan_origin(origin: &str) -> bool {
+    origin.starts_with("http://localhost")
+        || origin.starts_with("http://127.")
+        || origin.starts_with("http://10.")
+        || origin.starts_with("http://192.168.")
+        || is_rfc1918_172(origin)
+}
+
+fn is_rfc1918_172(origin: &str) -> bool {
+    if let Some(rest) = origin.strip_prefix("http://172.") {
+        if let Some(dot_pos) = rest.find('.') {
+            if let Ok(second_octet) = rest[..dot_pos].parse::<u8>() {
+                return (16..=31).contains(&second_octet);
+            }
+        }
+    }
+    false
 }
 
 // ============================================================================
@@ -93,6 +185,9 @@ impl HttpServer {
         let app = Router::new()
             .route("/health", get(|| async { "ok" }))
             .route("/api/rpc", post(rpc_handler))
+            .route("/api/capabilities", get(capabilities_handler))
+            .route("/api/receipts/{id}/image", get(receipt_image_handler))
+            .layer(build_cors_layer())
             .with_state(state);
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -120,16 +215,20 @@ impl HttpServer {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn health_endpoint_responds() {
+    async fn start_test_server() -> (SocketAddr, oneshot::Sender<()>) {
         let db = Arc::new(crate::db::Database::in_memory().unwrap());
         let app_state = Arc::new(crate::app_state::AppState::new());
         let app_dir = std::env::temp_dir();
-
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
         let addr = HttpServer::start(db, app_state, app_dir, 0, shutdown_rx)
             .await
             .expect("server should start");
+        (addr, shutdown_tx)
+    }
+
+    #[tokio::test]
+    async fn health_endpoint_responds() {
+        let (addr, shutdown_tx) = start_test_server().await;
 
         let client = reqwest::Client::new();
         let resp = client
@@ -145,14 +244,7 @@ mod tests {
 
     #[tokio::test]
     async fn rpc_endpoint_dispatches_command() {
-        let db = Arc::new(crate::db::Database::in_memory().unwrap());
-        let app_state = Arc::new(crate::app_state::AppState::new());
-        let app_dir = std::env::temp_dir();
-
-        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-        let addr = HttpServer::start(db, app_state, app_dir, 0, shutdown_rx)
-            .await
-            .unwrap();
+        let (addr, shutdown_tx) = start_test_server().await;
 
         let client = reqwest::Client::new();
         let resp = client
@@ -170,5 +262,57 @@ mod tests {
         assert_eq!(body, serde_json::json!([]));
 
         let _ = shutdown_tx.send(());
+    }
+
+    #[tokio::test]
+    async fn capabilities_endpoint() {
+        let (addr, shutdown_tx) = start_test_server().await;
+
+        let resp = reqwest::get(format!("http://{addr}/api/capabilities"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+
+        let body: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(body["mode"], "server");
+        assert_eq!(body["features"]["file_dialogs"], false);
+        assert_eq!(body["features"]["updater"], false);
+
+        let _ = shutdown_tx.send(());
+    }
+
+    #[tokio::test]
+    async fn cors_allows_lan_origin() {
+        let (addr, shutdown_tx) = start_test_server().await;
+        let client = reqwest::Client::new();
+
+        let resp = client
+            .post(format!("http://{addr}/api/rpc"))
+            .header("Origin", "http://192.168.1.50:3456")
+            .header("X-KJ-Client", "1")
+            .header("Content-Type", "application/json")
+            .body(r#"{"command":"get_vehicles","args":{}}"#)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+        assert!(resp.headers().get("access-control-allow-origin").is_some());
+
+        let _ = shutdown_tx.send(());
+    }
+
+    #[test]
+    fn lan_origin_detection() {
+        assert!(is_lan_origin("http://localhost:3456"));
+        assert!(is_lan_origin("http://127.0.0.1:3456"));
+        assert!(is_lan_origin("http://192.168.1.50:3456"));
+        assert!(is_lan_origin("http://10.0.0.1:3456"));
+        assert!(is_lan_origin("http://172.16.0.1:3456"));
+        assert!(is_lan_origin("http://172.31.255.255:3456"));
+
+        assert!(!is_lan_origin("https://evil.com"));
+        assert!(!is_lan_origin("http://172.15.0.1:3456"));
+        assert!(!is_lan_origin("http://172.32.0.1:3456"));
+        assert!(!is_lan_origin("http://example.com"));
     }
 }
