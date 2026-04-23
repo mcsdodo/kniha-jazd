@@ -1,7 +1,8 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { getVersion } from '@tauri-apps/api/app';
+import { capabilities } from '$lib/stores/capabilities';
 
 const DISMISSED_VERSION_KEY = 'kniha-jazd-dismissed-update-version';
 const CHANGELOG_URL = 'https://raw.githubusercontent.com/mcsdodo/kniha-jazd/main/CHANGELOG.md';
@@ -165,6 +166,9 @@ function createUpdateStore() {
 	let updateObject: Awaited<ReturnType<typeof check>> | null = null;
 
 	async function doCheck(respectDismissed: boolean) {
+		const caps = get(capabilities);
+		if (!caps.features.updater) return;
+
 		updateState((state) => ({ ...state, checking: true, error: null }));
 		try {
 			const result = await check({ timeout: 5000 });
@@ -218,6 +222,9 @@ function createUpdateStore() {
 		// Silent check (checks but auto-dismisses - for when auto-check is disabled)
 		// This still sets available=true so the dot indicator shows
 		checkSilent: async () => {
+			const caps = get(capabilities);
+			if (!caps.features.updater) return;
+
 			updateState((state) => ({ ...state, checking: true, error: null }));
 			try {
 				const result = await check({ timeout: 5000 });

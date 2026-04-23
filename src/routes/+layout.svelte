@@ -9,6 +9,7 @@
 	import { themeStore } from '$lib/stores/theme';
 	import { updateStore } from '$lib/stores/update';
 	import { appModeStore } from '$lib/stores/appMode';
+	import { loadCapabilities } from '$lib/stores/capabilities';
 	import { getAutoCheckUpdates } from '$lib/api';
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
@@ -16,6 +17,7 @@
 	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
 	import UpdateModal from '$lib/components/UpdateModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
+	import { IS_TAURI } from '$lib/api-adapter';
 	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 
 	let { children } = $props();
@@ -72,6 +74,9 @@
 		// Initialize i18n first
 		localeStore.init();
 		i18nReady = true;
+
+		// Load capabilities (desktop vs server mode)
+		await loadCapabilities();
 
 		// Initialize theme (after locale but before async vehicle loading)
 		await themeStore.init();
@@ -132,11 +137,13 @@
 
 			await loadYears();
 
-			// Load optimal window size and start tracking
-			optimalSize = await getOptimalWindowSize();
-			await checkWindowSize();
-			const win = getCurrentWindow();
-			await win.onResized(checkWindowSize);
+			// Load optimal window size and start tracking (Tauri-only)
+			if (IS_TAURI) {
+				optimalSize = await getOptimalWindowSize();
+				await checkWindowSize();
+				const win = getCurrentWindow();
+				await win.onResized(checkWindowSize);
+			}
 		} catch (error) {
 			console.error('Failed to load initial data:', error);
 		}

@@ -13,6 +13,7 @@
 	import { themeStore } from '$lib/stores/theme';
 	import type { ThemeMode } from '$lib/api';
 	import { updateStore } from '$lib/stores/update';
+	import { capabilities } from '$lib/stores/capabilities';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, type DbLocationInfo, type MoveDbResult } from '$lib/api';
@@ -752,9 +753,11 @@
 <div class="settings-page">
 	<div class="header">
 		<h1>{$LL.settings.title()}</h1>
+		{#if $capabilities.features.openExternal}
 		<button class="button-small" on:click={handleOpenSettingsFolder}>
 			{getRevealText()}
 		</button>
+		{/if}
 	</div>
 
 	<div class="sections">
@@ -937,7 +940,8 @@
 			</div>
 		</section>
 
-		<!-- Database Location Section -->
+		<!-- Database Location Section (Tauri desktop only) -->
+		{#if $capabilities.features.moveDatabase}
 		<section class="settings-section">
 			<h2>{$LL.settings.dbLocationSection()}</h2>
 			<div class="section-content">
@@ -962,8 +966,10 @@
 				<small class="hint">{$LL.settings.dbLocationHint()}</small>
 			</div>
 		</section>
+		{/if}
 
-		<!-- Updates Section -->
+		<!-- Updates Section (Tauri desktop only) -->
+		{#if $capabilities.features.updater}
 		<section class="settings-section">
 			<h2>{$LL.update.sectionTitle()}</h2>
 			<div class="section-content">
@@ -1014,6 +1020,7 @@
 				</button>
 			</div>
 		</section>
+		{/if}
 
 		<!-- Vehicles Section -->
 		<section class="settings-section">
@@ -1186,12 +1193,16 @@
 									<span class="backup-size">{formatFileSize(backup.sizeBytes)}</span>
 								</div>
 								<div class="backup-actions">
+									{#if $capabilities.features.openExternal}
 									<button class="button-small" on:click={() => handleRevealBackup(backup)}>
 										{getRevealText()}
 									</button>
+									{/if}
+									{#if $capabilities.features.restoreBackup}
 									<button class="button-small" on:click={() => handleRestoreClick(backup)}>
 										{$LL.settings.restore()}
 									</button>
+									{/if}
 									<button class="button-small danger" on:click={() => handleDeleteClick(backup)}>
 										{$LL.common.delete()}
 									</button>
