@@ -2,14 +2,14 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-16 (archived tasks 53, 54 to `_done/`)
+**Last updated:** 2026-04-24 (Task 55 Server Mode complete)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
-| 55 | [Server Mode](55-server-mode/) | 📋 Planning | Embedded HTTP server for LAN browser access |
+| 55 | [Server Mode](55-server-mode/) | ✅ Complete | Embedded HTTP server for LAN browser access |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
 | 33 | [Web Deployment](33-web-deployment/) | 📋 Planning | Web version feasibility |

@@ -26,6 +26,7 @@ Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou
 - **Export** - HTML náhľad s tlačou do PDF (Ctrl+P), rešpektuje skryté stĺpce
 - **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc s podporou viacerých mien (EUR, CZK, HUF, PLN)
 - **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
+- **Režim servera** - Vstavaný HTTP server pre prístup z telefónu alebo tabletu cez prehliadač v lokálnej sieti
 
 ## Inštalácia
 
