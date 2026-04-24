@@ -27,7 +27,7 @@
 - Tauri mode: uses `invoke()` IPC as before
 - Browser mode: sends `POST /api/rpc` with `{ command, args }` JSON to the server
 
-**Capabilities Store:** `src/lib/stores/capabilitiesStore.ts`
+**Capabilities Store:** `src/lib/stores/capabilities.ts`
 - Fetches `GET /api/capabilities` on load (browser mode only)
 - Returns which commands are available (68 of 72 are server-safe)
 - Components check capabilities to hide unavailable features
@@ -78,8 +78,8 @@ Browser (phone)                         Desktop (Tauri webview)
               _internal(db, app_state, args)
                         |
                         v
-                 Shared Database
-              (Arc<Database> + Mutex)
+                 SQLite Database
+            (separate connection per path)
 ```
 
 ### Capabilities Endpoint
@@ -88,12 +88,19 @@ Browser (phone)                         Desktop (Tauri webview)
 
 ```json
 {
-  "commands": ["get_vehicles", "create_trip", ...],
-  "excluded": ["export_to_browser", "move_database", "reset_database_location", "restore_backup"]
+  "mode": "server",
+  "read_only": false,
+  "features": {
+    "file_dialogs": false,
+    "updater": false,
+    "open_external": false,
+    "restore_backup": false,
+    "move_database": false
+  }
 }
 ```
 
-Frontend uses this to hide UI elements for excluded commands.
+Frontend uses these feature flags to hide UI elements that aren't available in browser mode.
 
 ### CORS
 
@@ -107,7 +114,7 @@ Requests from public IPs or other origins are blocked by the browser's preflight
 
 ### Receipt Image Serving
 
-`GET /api/receipts/:filename` serves receipt images from the configured receipts folder, enabling browser-mode users to view scanned receipts.
+`GET /api/receipts/{id}/image` looks up the receipt by ID in the database, then serves the image file from disk. This enables browser-mode users to view scanned receipts.
 
 ## Key Files
 
@@ -119,7 +126,7 @@ Requests from public IPs or other origins are blocked by the browser's preflight
 | `src-tauri/src/server/manager.rs` | Server lifecycle, LAN IP, port binding |
 | `src-tauri/src/commands/*.rs` | `_internal` functions shared by both paths |
 | `src/lib/api.ts` | Runtime detection + RPC adapter |
-| `src/lib/stores/capabilitiesStore.ts` | Feature gating for browser mode |
+| `src/lib/stores/capabilities.ts` | Feature gating for browser mode |
 | `tests/integration/wdio.server.conf.ts` | Server-mode integration test config |
 
 ## Design Decisions
@@ -130,7 +137,7 @@ Requests from public IPs or other origins are blocked by the browser's preflight
 
 - **Why no authentication?** -- Server is LAN-only (CORS-enforced). Target environment is trusted home/office network. Authentication would add significant complexity for minimal security benefit. (See ADR-017)
 
-- **Why single process, not a separate server?** -- Shared `Arc<Database>` with `Mutex` serialization means zero data sync issues. No IPC between processes, no race conditions, no stale caches.
+- **Why single process, not a separate server?** -- The server opens a second SQLite connection to the same file. SQLite's built-in file-level locking handles concurrency. No IPC between processes, no stale caches.
 
 - **Why 4 commands excluded?** -- `export_to_browser` opens a desktop browser, `move_database` and `reset_database_location` use native file dialogs, `restore_backup` replaces the running database. None are safe over HTTP.
 
