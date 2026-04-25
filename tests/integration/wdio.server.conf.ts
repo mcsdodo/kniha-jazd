@@ -65,8 +65,14 @@ function getBinaryPath(): string {
 
 let tauriProcess: ChildProcess | null = null;
 let testDataDir = '';
-const SERVER_PORT = 3457; // Different from default 3456 to avoid conflicts
-const SERVER_URL = `http://localhost:${SERVER_PORT}`;
+const EXTERNAL_SERVER = process.env.WDIO_EXTERNAL_SERVER === '1';
+// External mode (Docker) defaults to port 3456; spawned-Tauri mode uses 3457
+// to avoid colliding with a running app.
+const DEFAULT_PORT = EXTERNAL_SERVER ? 3456 : 3457;
+const SERVER_PORT = process.env.WDIO_SERVER_PORT
+  ? Number(process.env.WDIO_SERVER_PORT)
+  : DEFAULT_PORT;
+const SERVER_URL = process.env.WDIO_SERVER_URL || `http://localhost:${SERVER_PORT}`;
 
 /**
  * Poll a URL until it responds with 200 OK, or time out.
@@ -131,11 +137,10 @@ export const config: any = {
 
   /**
    * Before all tests: Start Tauri binary with server auto-start, wait for HTTP ready.
+   * If WDIO_EXTERNAL_SERVER=1 is set (Docker mode), skip the spawn — the server is
+   * already running externally and we just wait for it to respond.
    */
   onPrepare: async function () {
-    // Create sandboxed temp directory for test data
-    testDataDir = mkdtempSync(join(tmpdir(), 'kniha-jazd-server-test-'));
-    process.env.KNIHA_JAZD_DATA_DIR = testDataDir;
     process.env.WDIO_SERVER_MODE = '1';
     process.env.WDIO_SERVER_URL = SERVER_URL;
 
@@ -148,7 +153,17 @@ export const config: any = {
       mkdirSync(screenshotsDir, { recursive: true });
     }
 
-    // Start Tauri binary with server auto-start
+    if (EXTERNAL_SERVER) {
+      console.log(`Connecting to external server at ${SERVER_URL}`);
+      await waitForUrl(`${SERVER_URL}/health`, 30000);
+      console.log('External server is ready');
+      return;
+    }
+
+    // Spawned-Tauri mode: create temp data dir, launch binary, wait for HTTP
+    testDataDir = mkdtempSync(join(tmpdir(), 'kniha-jazd-server-test-'));
+    process.env.KNIHA_JAZD_DATA_DIR = testDataDir;
+
     const binaryPath = getBinaryPath();
     console.log(`Starting Tauri binary in server mode: ${binaryPath}`);
     console.log(`Server URL: ${SERVER_URL}`);
@@ -264,8 +279,14 @@ export const config: any = {
 
   /**
    * After all tests: Kill Tauri process and clean up temp directory.
+   * In external server mode, the container/server is managed by the user — skip cleanup.
    */
   onComplete: async function () {
+    if (EXTERNAL_SERVER) {
+      console.log('External server mode — skipping process cleanup');
+      return;
+    }
+
     if (tauriProcess) {
       tauriProcess.kill();
       tauriProcess = null;
