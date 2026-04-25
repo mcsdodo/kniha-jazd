@@ -914,6 +914,42 @@ type RootTranslation = {
 		 */
 		dbLocationConfirmMove: string
 		/**
+		 * R​e​ž​i​m​ ​s​e​r​v​e​r​a
+		 */
+		serverMode: string
+		/**
+		 * S​p​r​í​s​t​u​p​n​i​t​e​ ​a​p​l​i​k​á​c​i​u​ ​z​ ​t​e​l​e​f​ó​n​u​ ​a​l​e​b​o​ ​t​a​b​l​e​t​u​ ​c​e​z​ ​p​r​e​h​l​i​a​d​a​č​.
+		 */
+		serverModeDescription: string
+		/**
+		 * S​e​r​v​e​r​ ​a​k​t​í​v​n​y
+		 */
+		serverEnabled: string
+		/**
+		 * P​o​r​t
+		 */
+		serverPort: string
+		/**
+		 * A​d​r​e​s​a​ ​p​r​e​ ​p​r​e​h​l​i​a​d​a​č
+		 */
+		serverUrl: string
+		/**
+		 * S​e​r​v​e​r​ ​j​e​ ​v​y​p​n​u​t​ý
+		 */
+		serverStopped: string
+		/**
+		 * S​p​ú​š​ť​a​m​.​.​.
+		 */
+		serverStarting: string
+		/**
+		 * S​p​u​s​t​i​ť
+		 */
+		serverStart: string
+		/**
+		 * Z​a​s​t​a​v​i​ť
+		 */
+		serverStop: string
+		/**
 		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​a​k​t​u​a​l​i​z​o​v​a​n​á​ ​n​o​v​š​o​u​ ​v​e​r​z​i​o​u​ ​a​p​l​i​k​á​c​i​e​.​ ​R​e​ž​i​m​ ​l​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
 		 */
 		readOnlyBanner: string
@@ -1994,15 +2030,15 @@ type RootTranslation = {
 		 */
 		sensorHint: string
 		/**
-		 * S​e​n​z​o​r​ ​n​á​v​r​h​u​ ​t​a​n​k​o​v​a​n​i​a
+		 * N​á​v​r​h​ ​t​a​n​k​o​v​a​n​i​a​ ​(​i​n​p​u​t​_​t​e​x​t​)
 		 */
 		fillupSensorLabel: string
 		/**
-		 * s​e​n​s​o​r​.​k​n​i​h​a​_​j​a​z​d​_​f​i​l​l​u​p
+		 * i​n​p​u​t​_​t​e​x​t​.​k​n​i​h​a​_​j​a​z​d​_​f​i​l​l​u​p
 		 */
 		fillupSensorPlaceholder: string
 		/**
-		 * E​n​t​i​t​y​ ​I​D​ ​s​e​n​z​o​r​a​ ​p​r​e​ ​o​d​o​s​i​e​l​a​n​i​e​ ​n​á​v​r​h​u​ ​t​a​n​k​o​v​a​n​i​a​ ​d​o​ ​H​A
+		 * E​n​t​i​t​y​ ​I​D​ ​i​n​p​u​t​_​t​e​x​t​ ​h​e​l​p​e​r​a​ ​v​ ​H​A​.​ ​V​y​t​v​o​r​t​e​ ​h​o​ ​v​ ​N​a​s​t​a​v​e​n​i​a​ ​→​ ​Z​a​r​i​a​d​e​n​i​a​ ​→​ ​H​e​l​p​e​r​y​ ​→​ ​V​y​t​v​o​r​i​ť​ ​→​ ​T​e​x​t​.
 		 */
 		fillupSensorHint: string
 		/**
@@ -3100,6 +3136,42 @@ export type TranslationFunctions = {
 		 */
 		dbLocationConfirmMove: () => LocalizedString
 		/**
+		 * Režim servera
+		 */
+		serverMode: () => LocalizedString
+		/**
+		 * Sprístupnite aplikáciu z telefónu alebo tabletu cez prehliadač.
+		 */
+		serverModeDescription: () => LocalizedString
+		/**
+		 * Server aktívny
+		 */
+		serverEnabled: () => LocalizedString
+		/**
+		 * Port
+		 */
+		serverPort: () => LocalizedString
+		/**
+		 * Adresa pre prehliadač
+		 */
+		serverUrl: () => LocalizedString
+		/**
+		 * Server je vypnutý
+		 */
+		serverStopped: () => LocalizedString
+		/**
+		 * Spúšťam...
+		 */
+		serverStarting: () => LocalizedString
+		/**
+		 * Spustiť
+		 */
+		serverStart: () => LocalizedString
+		/**
+		 * Zastaviť
+		 */
+		serverStop: () => LocalizedString
+		/**
 		 * Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.
 		 */
 		readOnlyBanner: () => LocalizedString
@@ -4124,15 +4196,15 @@ export type TranslationFunctions = {
 		 */
 		sensorHint: () => LocalizedString
 		/**
-		 * Senzor návrhu tankovania
+		 * Návrh tankovania (input_text)
 		 */
 		fillupSensorLabel: () => LocalizedString
 		/**
-		 * sensor.kniha_jazd_fillup
+		 * input_text.kniha_jazd_fillup
 		 */
 		fillupSensorPlaceholder: () => LocalizedString
 		/**
-		 * Entity ID senzora pre odosielanie návrhu tankovania do HA
+		 * Entity ID input_text helpera v HA. Vytvorte ho v Nastavenia → Zariadenia → Helpery → Vytvoriť → Text.
 		 */
 		fillupSensorHint: () => LocalizedString
 		/**

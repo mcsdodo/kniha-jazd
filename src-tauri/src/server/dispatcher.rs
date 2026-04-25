@@ -594,6 +594,38 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "get_receipt_settings" => {
+            let v = crate::commands::get_receipt_settings_internal(&state.app_dir)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "set_gemini_api_key" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                api_key: String,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands::set_gemini_api_key_internal(
+                &state.app_dir,
+                &state.app_state,
+                a.api_key,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+        "set_receipts_folder_path" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                path: String,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands::set_receipts_folder_path_internal(
+                &state.app_dir,
+                &state.app_state,
+                a.path,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
         "scan_receipts" => {
             let v = crate::commands::scan_receipts_internal(
                 &state.db,

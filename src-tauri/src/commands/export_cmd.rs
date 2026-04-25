@@ -3,6 +3,7 @@
 //! Commands for exporting trip data to HTML format for browser viewing or printing.
 
 use std::fs;
+use std::sync::Arc;
 
 use chrono::Utc;
 use tauri::State;
@@ -21,7 +22,7 @@ use super::statistics;
 #[tauri::command]
 pub async fn export_to_browser(
     _app: tauri::AppHandle,
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     vehicle_id: String,
     year: i32,
     license_plate: String,
@@ -160,7 +161,7 @@ pub async fn export_html_internal(
 
 #[tauri::command]
 pub async fn export_html(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     vehicle_id: String,
     year: i32,
     labels: ExportLabels,

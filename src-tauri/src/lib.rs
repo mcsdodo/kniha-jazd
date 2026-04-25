@@ -129,9 +129,9 @@ pub fn run() {
             // Check read-only before moving app_state
             let is_read_only = app_state.is_read_only();
 
-            // Manage database and app state
-            app.manage(db);
-            app.manage(app_state);
+            // Manage database and app state (Arc-wrapped for server sharing)
+            app.manage(Arc::new(db));
+            app.manage(Arc::new(app_state));
 
             // Server manager for HTTP server start/stop
             let server_manager = Arc::new(ServerManager::new());
@@ -169,41 +169,16 @@ pub fn run() {
                     .or(server_settings.server_port)
                     .unwrap_or(3456);
                 let auto_app_dir = app_dir.clone();
-                let auto_db_path = app.state::<AppState>().get_db_path()
-                    .expect("DB path should be set at this point");
-                let auto_is_read_only = is_read_only;
-                let auto_read_only_reason = if is_read_only {
-                    app.state::<AppState>().get_read_only_reason()
-                } else {
-                    None
-                };
+                let auto_db = app.state::<Arc<db::Database>>().inner().clone();
+                let auto_app_state = app.state::<Arc<AppState>>().inner().clone();
                 let auto_manager = server_manager.clone();
-
-                // Build static dir path
-                let auto_static_dir = if cfg!(debug_assertions) {
-                    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../build")
-                } else {
-                    app.path().resource_dir().unwrap_or_default().join("_up_")
-                };
+                let auto_static_dir = server::resolve_static_dir(app);
 
                 tauri::async_runtime::spawn(async move {
-                    let db = match crate::db::Database::new(auto_db_path) {
-                        Ok(db) => Arc::new(db),
-                        Err(e) => {
-                            log::warn!("Failed to open DB for server auto-start: {}", e);
-                            return;
-                        }
-                    };
-                    let app_state = Arc::new(AppState::new());
-                    if auto_is_read_only {
-                        app_state
-                            .enable_read_only(&auto_read_only_reason.unwrap_or_default());
-                    }
-
                     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
                     match crate::server::HttpServer::start(
-                        db,
-                        app_state,
+                        auto_db,
+                        auto_app_state,
                         auto_app_dir,
                         auto_static_dir,
                         auto_port,
@@ -316,7 +291,7 @@ pub fn run() {
                 }
 
                 // Release lock file on clean exit
-                if let Some(app_state) = app.try_state::<AppState>() {
+                if let Some(app_state) = app.try_state::<Arc<AppState>>() {
                     if let Some(db_path) = app_state.get_db_path() {
                         if let Some(parent) = db_path.parent() {
                             let lock_path = parent.join(paths::LOCK_FILENAME);

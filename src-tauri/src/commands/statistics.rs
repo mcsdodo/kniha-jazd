@@ -21,6 +21,7 @@ use crate::models::{
 };
 use chrono::{NaiveDate, Utc};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
@@ -47,7 +48,7 @@ pub(crate) fn is_datetime_in_trip_range(datetime: NaiveDateTime, trip: &Trip) ->
 pub fn calculate_trip_stats(
     vehicle_id: String,
     year: i32,
-    db: State<Database>,
+    db: State<Arc<Database>>,
 ) -> Result<TripStats, String> {
     calculate_trip_stats_internal(&db, vehicle_id, year)
 }
@@ -595,7 +596,7 @@ pub(crate) fn build_trip_grid_data(
 #[tauri::command]
 pub fn get_trip_grid_data(
     app_handle: tauri::AppHandle,
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     year: i32,
 ) -> Result<TripGridData, String> {
@@ -727,7 +728,7 @@ pub(crate) fn calculate_suggested_fillups(
 /// - `editing_trip_id`: If editing an existing trip, pass its ID to avoid double-counting
 #[tauri::command]
 pub fn calculate_magic_fill_liters(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     year: i32,
     current_trip_km: f64,
@@ -1386,7 +1387,7 @@ pub(crate) fn calculate_receipt_mismatch_overrides(
 /// Returns consumption rate, fuel remaining, and margin without saving.
 #[tauri::command]
 pub fn preview_trip_calculation(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     year: i32,
     distance_km: i32,

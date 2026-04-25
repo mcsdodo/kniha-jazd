@@ -4,6 +4,7 @@
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tauri::{Manager, State};
 use uuid::Uuid;
 
@@ -21,7 +22,7 @@ use super::AppState;
 // ============================================================================
 
 #[tauri::command]
-pub fn get_settings(db: State<Database>) -> Result<Option<Settings>, String> {
+pub fn get_settings(db: State<Arc<Database>>) -> Result<Option<Settings>, String> {
     get_settings_internal(&db)
 }
 
@@ -31,8 +32,8 @@ pub fn get_settings_internal(db: &Database) -> Result<Option<Settings>, String> 
 
 #[tauri::command]
 pub fn save_settings(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     company_name: String,
     company_ico: String,
     buffer_trip_purpose: String,
@@ -274,7 +275,7 @@ pub struct AppModeInfo {
 }
 
 #[tauri::command]
-pub fn get_db_location(app_state: State<AppState>) -> Result<DbLocationInfo, String> {
+pub fn get_db_location(app_state: State<Arc<AppState>>) -> Result<DbLocationInfo, String> {
     get_db_location_internal(&app_state)
 }
 
@@ -304,7 +305,7 @@ pub fn get_db_location_internal(app_state: &AppState) -> Result<DbLocationInfo, 
 }
 
 #[tauri::command]
-pub fn get_app_mode(app_state: State<AppState>) -> Result<AppModeInfo, String> {
+pub fn get_app_mode(app_state: State<Arc<AppState>>) -> Result<AppModeInfo, String> {
     get_app_mode_internal(&app_state)
 }
 
@@ -351,7 +352,7 @@ pub struct MoveDbResult {
 #[tauri::command]
 pub fn move_database(
     app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     target_folder: String,
 ) -> Result<MoveDbResult, String> {
     use crate::db_location::{acquire_lock, release_lock};
@@ -440,7 +441,7 @@ pub fn move_database(
 #[tauri::command]
 pub fn reset_database_location(
     app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
 ) -> Result<MoveDbResult, String> {
     use crate::db_location::{acquire_lock, release_lock};
 

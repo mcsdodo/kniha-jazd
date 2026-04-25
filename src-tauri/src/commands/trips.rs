@@ -6,6 +6,7 @@ use crate::check_read_only;
 use crate::db::{normalize_location, Database};
 use crate::models::{InferredTripTime, Route, Trip};
 use chrono::{NaiveDate, Utc};
+use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
@@ -251,13 +252,13 @@ pub fn get_inferred_trip_time_for_route_internal(
 // ============================================================================
 
 #[tauri::command]
-pub fn get_trips(db: State<Database>, vehicle_id: String) -> Result<Vec<Trip>, String> {
+pub fn get_trips(db: State<Arc<Database>>, vehicle_id: String) -> Result<Vec<Trip>, String> {
     get_trips_internal(&db, vehicle_id)
 }
 
 #[tauri::command]
 pub fn get_trips_for_year(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     year: i32,
 ) -> Result<Vec<Trip>, String> {
@@ -265,15 +266,15 @@ pub fn get_trips_for_year(
 }
 
 #[tauri::command]
-pub fn get_years_with_trips(db: State<Database>, vehicle_id: String) -> Result<Vec<i32>, String> {
+pub fn get_years_with_trips(db: State<Arc<Database>>, vehicle_id: String) -> Result<Vec<i32>, String> {
     get_years_with_trips_internal(&db, vehicle_id)
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub fn create_trip(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     vehicle_id: String,
     start_datetime: String,
     end_datetime: String,
@@ -320,8 +321,8 @@ pub fn create_trip(
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub fn update_trip(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
     start_datetime: String,
     end_datetime: String,
@@ -365,8 +366,8 @@ pub fn update_trip(
 
 #[tauri::command]
 pub fn delete_trip(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
 ) -> Result<(), String> {
     delete_trip_internal(&db, &app_state, id)
@@ -374,8 +375,8 @@ pub fn delete_trip(
 
 #[tauri::command]
 pub fn reorder_trip(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     trip_id: String,
     new_sort_order: i32,
 ) -> Result<Vec<Trip>, String> {
@@ -383,12 +384,12 @@ pub fn reorder_trip(
 }
 
 #[tauri::command]
-pub fn get_routes(db: State<Database>, vehicle_id: String) -> Result<Vec<Route>, String> {
+pub fn get_routes(db: State<Arc<Database>>, vehicle_id: String) -> Result<Vec<Route>, String> {
     get_routes_internal(&db, vehicle_id)
 }
 
 #[tauri::command]
-pub fn get_purposes(db: State<Database>, vehicle_id: String) -> Result<Vec<String>, String> {
+pub fn get_purposes(db: State<Arc<Database>>, vehicle_id: String) -> Result<Vec<String>, String> {
     get_purposes_internal(&db, vehicle_id)
 }
 
@@ -429,7 +430,7 @@ pub(crate) fn inferred_trip_time_for_route(
 
 #[tauri::command]
 pub fn get_inferred_trip_time_for_route(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     origin: String,
     destination: String,

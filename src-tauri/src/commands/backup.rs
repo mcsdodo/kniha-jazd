@@ -10,6 +10,7 @@ use chrono::Local;
 use diesel::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::sync::Arc;
 use tauri::State;
 
 use std::path::Path;
@@ -172,8 +173,8 @@ pub fn create_backup_internal(
 #[tauri::command]
 pub fn create_backup(
     app: tauri::AppHandle,
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
 ) -> Result<BackupInfo, String> {
     let app_dir = get_app_data_dir(&app)?;
     create_backup_internal(&app_dir, &db, &app_state)
@@ -234,8 +235,8 @@ pub fn create_backup_with_type_internal(
 #[tauri::command]
 pub fn create_backup_with_type(
     app: tauri::AppHandle,
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     backup_type: String,
     update_version: Option<String>,
 ) -> Result<BackupInfo, String> {
@@ -271,7 +272,7 @@ pub fn get_cleanup_preview(
 #[tauri::command]
 pub fn cleanup_pre_update_backups(
     app: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     keep_count: u32,
 ) -> Result<CleanupResult, String> {
     check_read_only!(app_state);
@@ -334,7 +335,7 @@ pub fn set_backup_retention_internal(
 #[tauri::command]
 pub fn set_backup_retention(
     app: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     retention: BackupRetention,
 ) -> Result<(), String> {
     let app_dir = get_app_data_dir(&app)?;
@@ -497,7 +498,7 @@ pub fn get_backup_info(app: tauri::AppHandle, filename: String) -> Result<Backup
 #[tauri::command]
 pub fn restore_backup(
     app: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     filename: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
@@ -534,7 +535,7 @@ pub fn delete_backup_internal(
 #[tauri::command]
 pub fn delete_backup(
     app: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     filename: String,
 ) -> Result<(), String> {
     let app_dir = get_app_data_dir(&app)?;
