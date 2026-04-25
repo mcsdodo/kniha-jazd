@@ -239,8 +239,11 @@ export const config: any = {
       }
     }
 
-    // Reset database by deleting all vehicles (cascades to trips)
-    // Uses existing RPC commands — no special reset command needed
+    // Reset database for test isolation. SQLite enforces the
+    // trips.vehicle_id → vehicles.id FK, so trips must be deleted before
+    // their vehicles. Failing the FK silently (as the previous code did)
+    // could leave the diesel connection in a bad state and make the next
+    // create_trip fail with "FOREIGN KEY constraint failed".
     try {
       const rpc = async (cmd: string, args: Record<string, unknown> = {}) => {
         const resp = await fetch(`${SERVER_URL}/api/rpc`, {
@@ -251,11 +254,25 @@ export const config: any = {
         if (!resp.ok) throw new Error(`${cmd}: ${resp.status}`);
         return resp.json();
       };
+
       const vehicles = await rpc('get_vehicles') as Array<{ id: string }>;
+      const currentYear = new Date().getFullYear();
+      const yearsToCheck = [currentYear - 1, currentYear, currentYear + 1];
+
       for (const v of vehicles) {
+        for (const year of yearsToCheck) {
+          try {
+            const trips = await rpc('get_trips_for_year', { vehicleId: v.id, year }) as Array<{ id: string }>;
+            for (const trip of trips) {
+              try {
+                await rpc('delete_trip', { id: trip.id });
+              } catch { /* ignore */ }
+            }
+          } catch { /* ignore */ }
+        }
         try {
           await rpc('delete_vehicle', { id: v.id });
-        } catch { /* ignore individual delete failures */ }
+        } catch { /* ignore */ }
       }
     } catch (e) {
       console.warn('Database reset RPC failed:', e);

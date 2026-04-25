@@ -2,58 +2,38 @@
  * Skip helpers for dual-mode integration tests.
  *
  * Some tests exercise Tauri-only features (e.g., native file dialogs,
- * window management) that have no equivalent in server mode. Use these
- * helpers to skip such tests gracefully.
- */
-
-// Mocha's `pending()` is injected globally by the runner at test time
-// but not declared in @wdio/mocha-framework types.
-declare function pending(message?: string): void;
-
-/**
- * Skip the current test when running in server mode (for Tauri-only features).
+ * window management) that have no equivalent in server mode, or filesystem
+ * paths that aren't mounted into the Docker container.
  *
- * Must be called at the top of an `it()` block — it calls Mocha's `pending()`
- * which marks the test as skipped with a descriptive reason.
+ * Use the `describeIn{X}Mode` helpers as a `describe`-replacement:
  *
  * @example
- * it('should open native file dialog', async () => {
- *   skipInServerMode('native file dialog not available');
- *   // ... Tauri-only test code
+ * import { describeNotInDockerMode } from '../../utils/skip';
+ *
+ * describeNotInDockerMode('Mismatch Detection E2E', () => {
+ *   it('matches receipt to trip', async () => { ... });
  * });
  */
-export function skipInServerMode(description: string): void {
-  if (process.env.WDIO_SERVER_MODE === '1') {
-    pending(`Skipped in server mode: ${description}`);
-  }
-}
+
+const IS_SERVER_MODE = process.env.WDIO_SERVER_MODE === '1';
+const IS_DOCKER_MODE = process.env.WDIO_EXTERNAL_SERVER === '1';
+
+/** describe-block alias that skips when running in server mode (Tauri-only features). */
+export const describeNotInServerMode: Mocha.SuiteFunction =
+  (IS_SERVER_MODE ? describe.skip : describe) as Mocha.SuiteFunction;
+
+/** describe-block alias that skips when running in Tauri mode (server-only features). */
+export const describeNotInTauriMode: Mocha.SuiteFunction =
+  (!IS_SERVER_MODE ? describe.skip : describe) as Mocha.SuiteFunction;
 
 /**
- * Skip the current test when running in Tauri mode (for server-only features).
+ * describe-block alias that skips when running against an external server (Docker).
  *
- * @example
- * it('should show server status indicator', async () => {
- *   skipInTauriMode('server-only UI element');
- *   // ... server-mode-only test code
- * });
- */
-export function skipInTauriMode(description: string): void {
-  if (process.env.WDIO_SERVER_MODE !== '1') {
-    pending(`Skipped in Tauri mode: ${description}`);
-  }
-}
-
-/**
- * Skip the current test when running against an external server (Docker mode).
- *
- * Use for tests that need the backend process to access host filesystem paths
- * (e.g. receipts folder scanning, Gemini mock JSON files). In Docker mode the
+ * Use for tests that need backend access to host filesystem paths
+ * (receipts folder scanning, Gemini mock JSON files). In Docker mode the
  * container can't see the host's `tests/integration/data/...` directories
  * unless they're explicitly mounted, which we don't do for the production-shaped
  * compose file. These tests still run in spawned-Tauri server mode.
  */
-export function skipInDockerMode(description: string): void {
-  if (process.env.WDIO_EXTERNAL_SERVER === '1') {
-    pending(`Skipped in Docker mode: ${description}`);
-  }
-}
+export const describeNotInDockerMode: Mocha.SuiteFunction =
+  (IS_DOCKER_MODE ? describe.skip : describe) as Mocha.SuiteFunction;

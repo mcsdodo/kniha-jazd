@@ -35,8 +35,10 @@ fn main() {
 
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
-    let db = Arc::new(Database::new(db_path).expect("Failed to open database"));
+    let db = Arc::new(Database::new(db_path.clone()).expect("Failed to open database"));
     let app_state = Arc::new(AppState::new());
+    // Make get_db_location and friends report the real path instead of "unknown".
+    app_state.set_db_path(db_path, false);
 
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
     rt.block_on(async {
