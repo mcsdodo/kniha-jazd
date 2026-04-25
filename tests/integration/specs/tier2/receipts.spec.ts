@@ -25,7 +25,7 @@ import {
 } from '../../utils/db';
 import type { Receipt } from '../../fixtures/types';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
-import { skipInDockerMode } from '../../utils/skip';
+import { describeNotInDockerMode } from '../../utils/skip';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -90,7 +90,9 @@ describe('Tier 2: Receipts Workflow', () => {
     });
   });
 
-  describe('Mismatch Detection E2E', () => {
+  // Mismatch tests need backend access to host filesystem for the receipt files +
+  // mock Gemini JSON. Docker container can't see host paths. Skip in Docker mode.
+  describeNotInDockerMode('Mismatch Detection E2E', () => {
     /**
      * This test verifies the full flow:
      * 1. Seed a vehicle and trip
@@ -106,7 +108,6 @@ describe('Tier 2: Receipts Workflow', () => {
      * - receipt_date: "2026-01-20"
      */
     it('should return mismatch_reason via IPC when trip data differs', async () => {
-      skipInDockerMode('receipt scanning needs host filesystem (invoices/, mocks/)');
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'Mismatch Test Vehicle',
@@ -182,7 +183,6 @@ describe('Tier 2: Receipts Workflow', () => {
     });
 
     it('should return "matches" when trip data matches receipt exactly', async () => {
-      skipInDockerMode('receipt scanning needs host filesystem (invoices/, mocks/)');
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'Match Test Vehicle',
@@ -252,7 +252,6 @@ describe('Tier 2: Receipts Workflow', () => {
     });
 
     it('should return "matches_date" when trip has no fuel data and date matches but time is outside range', async () => {
-      skipInDockerMode('receipt scanning needs host filesystem (invoices/, mocks/)');
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'Empty Trip Test Vehicle',
@@ -336,7 +335,7 @@ describe('Tier 2: Receipts Workflow', () => {
     });
   });
 
-  describe('Multi-Currency Receipts', () => {
+  describeNotInDockerMode('Multi-Currency Receipts', () => {
     /**
      * Tests for multi-currency receipt support:
      * - CZK receipt should have NeedsReview status (no EUR conversion)
@@ -349,7 +348,6 @@ describe('Tier 2: Receipts Workflow', () => {
      * - total_price_eur: null (needs conversion)
      */
     it('should create CZK receipt with NeedsReview status', async () => {
-      skipInDockerMode('receipt scanning needs host filesystem (invoices/, mocks/)');
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'Multi-Currency Test Vehicle',
@@ -398,7 +396,6 @@ describe('Tier 2: Receipts Workflow', () => {
     });
 
     it('should update CZK receipt with EUR conversion', async () => {
-      skipInDockerMode('receipt scanning needs host filesystem (invoices/, mocks/)');
       // 1. Get existing receipts (from previous test or fresh sync)
       const vehicleData = createTestIceVehicle({
         name: 'Currency Conversion Test Vehicle',
@@ -456,7 +453,6 @@ describe('Tier 2: Receipts Workflow', () => {
     });
 
     it('should auto-populate total_price_eur for EUR receipts', async () => {
-      skipInDockerMode('receipt scanning needs host filesystem (invoices/, mocks/)');
       // 1. Seed vehicle
       const vehicleData = createTestIceVehicle({
         name: 'EUR Receipt Test Vehicle',

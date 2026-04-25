@@ -10,6 +10,7 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
 import { invokeTauri } from '../../utils/db';
+import { describeNotInServerMode } from '../../utils/skip';
 
 // Selectors for new UI elements
 const ReceiptSettings = {
@@ -233,7 +234,7 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
     });
   });
 
-  describe('Database Move Commands', () => {
+  describeNotInServerMode('Database Move Commands', () => {
     it('should detect existing database via check_target_has_db', async () => {
       // Get current db location
       const dbLocation = await getDbLocation();
