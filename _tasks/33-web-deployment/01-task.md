@@ -1,85 +1,72 @@
 **Date:** 2026-01-10 (revised 2026-04-25 after Task 55 completion)
-**Subject:** Web/Headless Deployment — Run without desktop UI
-**Status:** Planning (plan needs rewrite)
+**Subject:** Web/Headless Deployment — Run without desktop UI, deploy to Docker
+**Status:** Planning (plan rewritten)
 
 ## Goal
 
-Run Kniha Jázd without a desktop window — either as a headless process on a desktop/server PC, or as a standalone binary in Docker. LAN browsers connect to the embedded HTTP server.
+Run Kniha Jázd without a desktop window — as a standalone server binary in Docker, and as a headless desktop app. LAN browsers connect to the embedded HTTP server. **Done = integration tests pass against a locally-running Docker container.**
 
 ## Context: Task 55 Changed Everything
 
-[Task 55 (Server Mode)](_done/55-server-mode/01-task.md) delivered the entire HTTP infrastructure:
+[Task 55 (Server Mode)](../_done/55-server-mode/01-task.md) delivered the entire HTTP infrastructure:
 
 | Component | Status | Where |
 |-----------|--------|-------|
-| Axum HTTP server | ✅ Done | `server/mod.rs` |
-| RPC dispatcher (67 commands) | ✅ Done | `server/dispatcher.rs`, `dispatcher_async.rs` |
-| `_internal` extraction (all modules) | ✅ Done | `commands/*.rs` |
-| Frontend dual-mode API adapter | ✅ Done | `src/lib/api-adapter.ts` |
-| Static file serving + SPA fallback | ✅ Done | `server/mod.rs` |
-| CORS (LAN origins) | ✅ Done | `server/mod.rs` |
-| Receipt image endpoint | ✅ Done | `GET /api/receipts/:id/image` |
-| Capabilities endpoint | ✅ Done | `GET /api/capabilities` |
-| Graceful shutdown | ✅ Done | `server/mod.rs` |
-| Settings UI (start/stop, port) | ✅ Done | Settings page |
-| Auto-start from settings | ✅ Done | `lib.rs` |
-| Shared `Arc<Database>` | ✅ Done | Single connection, no SQLITE_BUSY |
-| Export in browser mode | ✅ Done | `export_html` + `window.open()` |
+| Axum HTTP server | Done | [server/mod.rs](../../src-tauri/src/server/mod.rs) |
+| RPC dispatcher (67 commands) | Done | [server/dispatcher.rs](../../src-tauri/src/server/dispatcher.rs) |
+| `_internal` extraction (all modules) | Done | [commands/](../../src-tauri/src/commands/) |
+| Frontend dual-mode API adapter | Done | [api-adapter.ts](../../src/lib/api-adapter.ts) |
+| Static file serving + SPA fallback | Done | [server/mod.rs](../../src-tauri/src/server/mod.rs) |
+| CORS (LAN origins) | Done | [server/mod.rs](../../src-tauri/src/server/mod.rs) |
+| Receipt image endpoint | Done | `GET /api/receipts/:id/image` |
+| Capabilities endpoint | Done | `GET /api/capabilities` |
+| Graceful shutdown | Done | [server/mod.rs](../../src-tauri/src/server/mod.rs) |
+| Settings UI (start/stop, port) | Done | Settings page |
+| Auto-start from settings | Done | [lib.rs](../../src-tauri/src/lib.rs) |
+| Shared `Arc<Database>` | Done | Single connection, no SQLITE_BUSY |
+| Export in browser mode | Done | `export_html` + `window.open()` |
+| Server-mode integration tests | Done | [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) |
 
-**The original Task 33 plan (10 tasks, 2-3 weeks) is obsolete.** What remains is ~1-2 days of work.
+**The original Task 33 plan (10 tasks, 2-3 weeks) is obsolete.** What remains is ~2-3 days of work.
 
-## Two Deployment Targets
+## Two Deliverables
 
-### Target A: Headless Desktop (hidden window)
+### A. Standalone Server Binary (for Docker)
 
-Run the existing Tauri app without showing a window. For always-on home PCs or office servers.
+A separate binary (`web`) that uses the existing [server/](../../src-tauri/src/server/) module without any Tauri dependency. Tauri requires `libwebkit2gtk` + a display server on Linux — can't run in Docker without hacks.
 
-- **Pros:** Zero new code beyond a CLI flag, reuses the exact same build artifact
-- **Cons:** Requires a machine that can run the desktop app (display system on Linux)
-- **Binary size:** 17MB release — negligible
+- Standalone binary ~100 lines: config from env vars, `Database::new()`, `HttpServer::start()`
+- Multi-stage Dockerfile (Rust + Node build, `debian:bookworm-slim` runtime)
+- `docker-compose.web.yml` with `/data` volume for DB + receipts + backups
 
-### Target B: Docker (standalone binary)
+### B. Headless Desktop Mode (for always-on PCs)
 
-A separate binary that uses the `server/` module without Tauri. For Docker/NAS deployment.
-
-- **Pros:** No webview dependency, ~5MB smaller, runs anywhere Linux runs
-- **Cons:** Needs a small new binary + Dockerfile + env-based config
-- **Why Tauri can't run in Docker:** Tauri v2 on Linux requires `libwebkit2gtk` and a display server (X11/Wayland). Even with a hidden window, GTK runtime initialization fails without a display. Xvfb is a hack, not a solution.
-
-## Decision: Hidden Window (Target A) First
-
-Ship Target A first — it's essentially free. Target B (Docker) is a follow-up that reuses the same `server/` module, just wrapped in a standalone main().
-
-## What Remains
-
-### For Target A (hidden window)
-1. CLI arg or env var (`--headless` / `KNIHA_JAZD_HEADLESS=1`) to skip window creation
-2. Auto-start server in headless mode (already works via `KNIHA_JAZD_SERVER_AUTOSTART`)
-3. Console output with server URL
-4. Documentation
-
-### For Target B (Docker) — follow-up
-1. `src-tauri/src/bin/web.rs` — standalone main() (~100 lines)
-2. `WebConfig` struct reading env vars (database path, port, Gemini key)
-3. Receipt path normalization (desktop absolute paths → Docker volume relative paths)
-4. `Dockerfile.web` + `docker-compose.web.yml`
-5. Migration guide (copy DB + receipts to Docker volume)
+A `--headless` flag on the existing Tauri binary that hides the window and auto-starts the server. For users running the app on a home/office PC without the UI.
 
 ## What's No Longer Needed (vs original plan)
 
 | Original Task 33 Plan | Why Obsolete |
 |----------------------|--------------|
-| Task 0: Async DB adapter | `spawn_blocking` already used in server dispatcher |
-| Task 0.5: WebConfig | Only needed for Docker (Target B) |
-| Task 1: Axum module structure | `server/` module exists |
+| Task 0: Async DB adapter | `spawn_blocking` already used in [server dispatcher](../../src-tauri/src/server/mod.rs) |
+| Task 0.5: WebConfig | Simplified to env vars in standalone binary |
+| Task 1: Axum module structure | [server/](../../src-tauri/src/server/) module exists |
 | Task 2-5: All handlers | All 67 `_internal` fns + RPC dispatcher exist |
-| Task 6: Frontend API migration | `api-adapter.ts` with dual-mode `apiCall()` exists |
+| Task 6: Frontend API migration | [api-adapter.ts](../../src/lib/api-adapter.ts) with dual-mode `apiCall()` exists |
 | Task 7: Remove Tauri frontend code | Not needed — same frontend works in both modes |
 | Task 9: Static serving + health | `ServeDir` + SPA fallback + `/health` exist |
-| Task 10: Testing | 280 backend tests + 5 server tests exist |
+| Task 10: Testing | 280 backend tests + server integration tests exist |
+
+## Verification
+
+All test suites must pass:
+- Backend: `cd src-tauri && cargo test` (280 tests)
+- Normal Tauri integration — all tiers: `npm run test:integration`
+- Server-mode integration — all tiers (Tauri binary): `npm run test:integration:server`
+- Docker integration — all tiers: `npm run test:integration:docker`
 
 ## References
 
 - [Task 55 design](../_done/55-server-mode/02-design.md) — server architecture
 - [Task 55 plan](../_done/55-server-mode/03-plan.md) — implementation details
+- [Server integration test config](../../tests/integration/wdio.server.conf.ts) — existing Chrome-based test harness
 - ADR-008: Backend-only calculations
