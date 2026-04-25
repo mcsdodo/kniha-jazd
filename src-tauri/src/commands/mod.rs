@@ -2,15 +2,15 @@
 //!
 //! This module is being refactored into feature-based submodules (ADR-011).
 
-mod backup;
-mod export_cmd;
-mod integrations;
-mod receipts_cmd;
-mod server_cmd;
-mod settings_cmd;
-mod statistics;
-mod trips;
-mod vehicles;
+pub mod backup;
+pub mod export_cmd;
+pub mod integrations;
+pub mod receipts_cmd;
+pub mod server_cmd;
+pub mod settings_cmd;
+pub mod statistics;
+pub mod trips;
+pub mod vehicles;
 
 // Re-export all commands from submodules
 pub use backup::*;
@@ -41,7 +41,7 @@ use crate::app_state::AppState;
 
 /// Parse a full ISO datetime string (from datetime-local input).
 /// Accepts "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS" format.
-pub(crate) fn parse_iso_datetime(datetime: &str) -> Result<NaiveDateTime, String> {
+pub fn parse_iso_datetime(datetime: &str) -> Result<NaiveDateTime, String> {
     // datetime-local gives us "YYYY-MM-DDTHH:MM", we need to handle both formats
     if datetime.len() == 16 {
         // "YYYY-MM-DDTHH:MM" format
@@ -84,7 +84,7 @@ pub(crate) fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String
 
 /// Get resolved database paths from a directory path.
 /// Used by both Tauri commands (via wrapper) and server RPC dispatcher.
-pub(crate) fn get_db_paths_for_dir(app_dir: &std::path::Path) -> Result<DbPaths, String> {
+pub fn get_db_paths_for_dir(app_dir: &std::path::Path) -> Result<DbPaths, String> {
     let local_settings = LocalSettings::load(app_dir);
     let (db_paths, _is_custom) =
         resolve_db_paths(app_dir, local_settings.custom_db_path.as_deref());
@@ -99,7 +99,7 @@ pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
 }
 
 /// Calculate trip sequence numbers (1-based, chronological order by date then sort_order)
-pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
+pub fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
     // Sort by date, then by sort_order for same-datetime trips
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
@@ -119,7 +119,7 @@ pub(crate) fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
 
 /// Calculate starting odometer for each trip (previous trip's ending odo)
 /// First trip uses initial_odometer from vehicle.
-pub(crate) fn calculate_odometer_start(
+pub fn calculate_odometer_start(
     trips: &[Trip],
     initial_odometer: f64,
 ) -> HashMap<String, f64> {
@@ -167,7 +167,7 @@ fn last_day_of_month(year: i32, month: u32) -> u32 {
 /// * `initial_fuel` - Starting fuel (from vehicle or year carryover)
 /// * `fuel_remaining` - Pre-calculated fuel remaining after each trip (from TripGridData)
 /// * `trip_numbers` - Trip sequence numbers (for calculating sort_key)
-pub(crate) fn generate_month_end_rows(
+pub fn generate_month_end_rows(
     trips: &[Trip],
     year: i32,
     initial_odometer: f64,
