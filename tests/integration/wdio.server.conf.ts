@@ -91,6 +91,46 @@ async function waitForUrl(url: string, timeoutMs: number): Promise<void> {
   throw new Error(`Timed out waiting for ${url} after ${timeoutMs}ms`);
 }
 
+/**
+ * Reset the database via RPC. Trips must be deleted before vehicles because
+ * SQLite enforces the trips.vehicle_id → vehicles.id FK.
+ */
+async function resetDatabase(serverUrl: string): Promise<void> {
+  try {
+    const rpc = async (cmd: string, args: Record<string, unknown> = {}) => {
+      const resp = await fetch(`${serverUrl}/api/rpc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-KJ-Client': '1' },
+        body: JSON.stringify({ command: cmd, args }),
+      });
+      if (!resp.ok) throw new Error(`${cmd}: ${resp.status}`);
+      return resp.json();
+    };
+
+    const vehicles = await rpc('get_vehicles') as Array<{ id: string }>;
+    const currentYear = new Date().getFullYear();
+    const yearsToCheck = [currentYear - 1, currentYear, currentYear + 1];
+
+    for (const v of vehicles) {
+      for (const year of yearsToCheck) {
+        try {
+          const trips = await rpc('get_trips_for_year', { vehicleId: v.id, year }) as Array<{ id: string }>;
+          for (const trip of trips) {
+            try {
+              await rpc('delete_trip', { id: trip.id });
+            } catch { /* ignore */ }
+          }
+        } catch { /* ignore */ }
+      }
+      try {
+        await rpc('delete_vehicle', { id: v.id });
+      } catch { /* ignore */ }
+    }
+  } catch (e) {
+    console.warn('Database reset RPC failed:', e);
+  }
+}
+
 // WebdriverIO configuration for server mode (Chrome browser against HTTP server)
 export const config: any = {
   runner: 'local',
@@ -199,6 +239,9 @@ export const config: any = {
    * Before all tests in a worker: Navigate to server URL, wait for app to load.
    */
   before: async function () {
+    // Clear any leftover data from previous runs (Docker volume / spawned-Tauri temp dir).
+    await resetDatabase(SERVER_URL);
+
     await browser.url(SERVER_URL);
 
     // Wait for DOM ready (no Tauri IPC needed in server mode)
@@ -214,15 +257,13 @@ export const config: any = {
   },
 
   /**
-   * Before each test: Reset database via RPC and refresh.
-   *
-   * Uses RPC to reset database instead of file deletion to avoid
-   * Windows file locking issues.
+   * Before each test: set locale and refresh the page so any stale UI state from
+   * the previous test (open dialogs, edited form rows) is cleared. Do NOT reset the
+   * database here: WDIO's `beforeTest` runs AFTER the spec's `beforeEach`, so a
+   * database reset here would wipe out vehicles the spec just seeded. Database
+   * cleanup runs in `afterTest` instead — the next test then starts with an empty DB.
    */
   beforeTest: async function () {
-    // Wait for any pending operations to complete
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     // Set locale to English for consistent test output
     for (let i = 0; i < 3; i++) {
       try {
@@ -239,59 +280,22 @@ export const config: any = {
       }
     }
 
-    // Reset database for test isolation. SQLite enforces the
-    // trips.vehicle_id → vehicles.id FK, so trips must be deleted before
-    // their vehicles. Failing the FK silently (as the previous code did)
-    // could leave the diesel connection in a bad state and make the next
-    // create_trip fail with "FOREIGN KEY constraint failed".
-    try {
-      const rpc = async (cmd: string, args: Record<string, unknown> = {}) => {
-        const resp = await fetch(`${SERVER_URL}/api/rpc`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-KJ-Client': '1' },
-          body: JSON.stringify({ command: cmd, args }),
-        });
-        if (!resp.ok) throw new Error(`${cmd}: ${resp.status}`);
-        return resp.json();
-      };
-
-      const vehicles = await rpc('get_vehicles') as Array<{ id: string }>;
-      const currentYear = new Date().getFullYear();
-      const yearsToCheck = [currentYear - 1, currentYear, currentYear + 1];
-
-      for (const v of vehicles) {
-        for (const year of yearsToCheck) {
-          try {
-            const trips = await rpc('get_trips_for_year', { vehicleId: v.id, year }) as Array<{ id: string }>;
-            for (const trip of trips) {
-              try {
-                await rpc('delete_trip', { id: trip.id });
-              } catch { /* ignore */ }
-            }
-          } catch { /* ignore */ }
-        }
-        try {
-          await rpc('delete_vehicle', { id: v.id });
-        } catch { /* ignore */ }
-      }
-    } catch (e) {
-      console.warn('Database reset RPC failed:', e);
-    }
-
-    // Refresh the app to pick up fresh state
     await browser.refresh();
-
-    // Wait for app to be ready again after refresh
     await browser.waitUntil(
       async () => {
         const header = await $('h1');
         return header.isDisplayed();
       },
-      {
-        timeout: 10000,
-        timeoutMsg: 'App did not reload after DB reset'
-      }
+      { timeout: 10000, timeoutMsg: 'App did not reload between tests' }
     );
+  },
+
+  /**
+   * After each test: reset the database so the next test's `beforeEach`
+   * starts from a clean state.
+   */
+  afterTest: async function () {
+    await resetDatabase(SERVER_URL);
   },
 
   /**

@@ -246,10 +246,15 @@ impl Database {
     pub fn delete_vehicle(&self, id: &str) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
 
-        // Unassign all receipts from this vehicle before deletion
+        // Unassign all receipts from this vehicle before deletion (FK SET NULL)
         diesel::update(receipts::table.filter(receipts::vehicle_id.eq(id)))
             .set(receipts::vehicle_id.eq::<Option<String>>(None))
             .execute(conn)?;
+
+        // Cascade-delete autocomplete routes for this vehicle. Routes are
+        // internal helper data created when trips are saved with new origin/
+        // destination pairs; they have no value once the vehicle is gone.
+        diesel::delete(routes::table.filter(routes::vehicle_id.eq(id))).execute(conn)?;
 
         diesel::delete(vehicles::table.filter(vehicles::id.eq(id))).execute(conn)?;
 

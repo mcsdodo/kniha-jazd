@@ -161,6 +161,32 @@ npm run test:integration:tier1
 npm run test:all
 ```
 
+#### Iteration strategy: focused runs, not full sweeps
+
+**While debugging a failing spec, run only that spec — not the whole suite.** A full
+integration sweep takes ~10 minutes; a single spec runs in under a minute. Use
+focused runs to iterate on a fix, and reserve a full sweep for the final verification
+once you believe everything passes.
+
+```bash
+# Single spec, Tauri integration (debug build required)
+npx wdio run tests/integration/wdio.conf.ts --spec tests/integration/specs/tier2/legal-compliance.spec.ts
+
+# Multiple specs, server mode (Tauri spawned)
+WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
+  --spec tests/integration/specs/tier2/legal-compliance.spec.ts \
+  --spec tests/integration/specs/tier2/time-column.spec.ts
+
+# Single spec, Docker mode (container must already be up)
+WDIO_EXTERNAL_SERVER=1 WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
+  --spec tests/integration/specs/tier2/legal-compliance.spec.ts
+```
+
+Run the full suite (`npm run test:integration*` without `--spec`) only:
+- After all focused runs pass and you're confident the fix is complete.
+- Before merging or claiming the work done.
+- When you suspect cross-spec interaction issues that focused runs would miss.
+
 ## Project Structure
 
 ```
