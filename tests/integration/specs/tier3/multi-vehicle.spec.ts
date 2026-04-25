@@ -13,6 +13,7 @@ import {
   seedTrip,
   getTripGridData,
   getVehicles,
+  invokeTauri,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -143,15 +144,9 @@ describe('Tier 3: Multi-Vehicle Support', () => {
         expect(pageText).not.toContain('Alpha Origin');
       }
 
-      // Switch active vehicle via Tauri IPC directly
-      // This is more reliable than clicking UI elements that may not exist
+      // Switch active vehicle via dual-mode helper (works in Tauri + server modes)
       const vehicleToActivate = isAlphaActive ? vehicle2.id : vehicle1.id;
-      await browser.execute(async (vId: string) => {
-        if (!window.__TAURI__) {
-          throw new Error('Tauri not available');
-        }
-        return await window.__TAURI__.core.invoke('set_active_vehicle', { id: vId });
-      }, vehicleToActivate as string);
+      await invokeTauri<void>('set_active_vehicle', { id: vehicleToActivate as string });
 
       // Refresh page to ensure new vehicle data is loaded
       await browser.refresh();

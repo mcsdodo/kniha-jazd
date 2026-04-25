@@ -9,19 +9,11 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
-/**
- * Reset hidden columns via Tauri IPC
- */
 async function resetHiddenColumns(): Promise<void> {
-  await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('set_hidden_columns', { columns: [] });
-  });
+  await invokeTauri<void>('set_hidden_columns', { columns: [] });
 }
 
 describe('Tier 2: Datetime Column', () => {

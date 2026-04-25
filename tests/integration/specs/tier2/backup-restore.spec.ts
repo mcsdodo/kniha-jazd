@@ -14,6 +14,7 @@ import {
   seedVehicle,
   seedTrip,
   getVehicles,
+  invokeTauri,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -41,137 +42,55 @@ interface BackupRetention {
   keepCount: number;
 }
 
-/**
- * Create a backup via Tauri IPC
- */
 async function createBackup(): Promise<BackupInfo> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('create_backup');
-  });
-
-  return result as BackupInfo;
+  return invokeTauri<BackupInfo>('create_backup');
 }
 
-/**
- * Get list of backups via Tauri IPC
- * Note: The actual Tauri command is 'list_backups', not 'get_backups'
- */
 async function listBackups(): Promise<BackupInfo[]> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    try {
-      return await window.__TAURI__.core.invoke('list_backups');
-    } catch {
-      return [];
-    }
-  });
-
-  return result as BackupInfo[];
+  try {
+    return await invokeTauri<BackupInfo[]>('list_backups');
+  } catch {
+    return [];
+  }
 }
 
-/**
- * Restore from backup via Tauri IPC
- * Note: The Tauri command uses 'filename' parameter, not 'backupId'
- */
 async function restoreBackup(filename: string): Promise<void> {
-  await browser.execute(async (fname: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('restore_backup', { filename: fname });
-  }, filename);
+  await invokeTauri<void>('restore_backup', { filename });
 }
 
-/**
- * Delete a backup via Tauri IPC
- * Note: The Tauri command uses 'filename' parameter, not 'backupId'
- */
 async function deleteBackup(filename: string): Promise<void> {
-  await browser.execute(async (fname: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('delete_backup', { filename: fname });
-  }, filename);
+  await invokeTauri<void>('delete_backup', { filename });
 }
 
-/**
- * Create a backup with type via Tauri IPC
- */
 async function createBackupWithType(
   backupType: 'manual' | 'pre-update',
   updateVersion: string | null
 ): Promise<BackupInfo> {
-  const result = await browser.execute(
-    async (bType: string, version: string | null) => {
-      if (!window.__TAURI__) {
-        throw new Error('Tauri not available');
-      }
-      return await window.__TAURI__.core.invoke('create_backup_with_type', {
-        backupType: bType,
-        updateVersion: version,
-      });
-    },
+  return invokeTauri<BackupInfo>('create_backup_with_type', {
     backupType,
-    updateVersion
-  );
-  return result as BackupInfo;
-}
-
-/**
- * Get cleanup preview via Tauri IPC
- */
-async function getCleanupPreview(keepCount: number): Promise<CleanupPreview> {
-  const result = await browser.execute(async (count: number) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('get_cleanup_preview', { keepCount: count });
-  }, keepCount);
-  return result as CleanupPreview;
-}
-
-/**
- * Execute cleanup via Tauri IPC
- */
-async function cleanupPreUpdateBackups(keepCount: number): Promise<{ deleted: string[]; freedBytes: number }> {
-  const result = await browser.execute(async (count: number) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('cleanup_pre_update_backups', { keepCount: count });
-  }, keepCount);
-  return result as { deleted: string[]; freedBytes: number };
-}
-
-/**
- * Set backup retention settings via Tauri IPC
- */
-async function setBackupRetention(retention: BackupRetention): Promise<void> {
-  await browser.execute(async (ret: BackupRetention) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('set_backup_retention', { retention: ret });
-  }, retention);
-}
-
-/**
- * Get backup retention settings via Tauri IPC
- */
-async function getBackupRetention(): Promise<BackupRetention | null> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('get_backup_retention');
+    updateVersion,
   });
-  return result as BackupRetention | null;
+}
+
+async function getCleanupPreview(keepCount: number): Promise<CleanupPreview> {
+  return invokeTauri<CleanupPreview>('get_cleanup_preview', { keepCount });
+}
+
+async function cleanupPreUpdateBackups(
+  keepCount: number
+): Promise<{ deleted: string[]; freedBytes: number }> {
+  return invokeTauri<{ deleted: string[]; freedBytes: number }>(
+    'cleanup_pre_update_backups',
+    { keepCount }
+  );
+}
+
+async function setBackupRetention(retention: BackupRetention): Promise<void> {
+  await invokeTauri<void>('set_backup_retention', { retention });
+}
+
+async function getBackupRetention(): Promise<BackupRetention | null> {
+  return invokeTauri<BackupRetention | null>('get_backup_retention');
 }
 
 describe('Tier 2: Backup & Restore', () => {

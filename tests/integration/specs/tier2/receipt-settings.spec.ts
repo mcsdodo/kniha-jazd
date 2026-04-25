@@ -9,6 +9,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
+import { invokeTauri } from '../../utils/db';
 
 // Selectors for new UI elements
 const ReceiptSettings = {
@@ -27,105 +28,45 @@ const DbLocation = {
   openFolderBtn: '.button-row .button-small',
 };
 
-/**
- * Get receipt settings via Tauri IPC
- */
-async function getReceiptSettings(): Promise<{
+type ReceiptSettingsShape = {
   geminiApiKey: string | null;
   receiptsFolderPath: string | null;
-} | null> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    try {
-      return await window.__TAURI__.core.invoke('get_receipt_settings');
-    } catch {
-      return null;
-    }
-  });
-  return result as { geminiApiKey: string | null; receiptsFolderPath: string | null } | null;
-}
+};
 
-/**
- * Set Gemini API key via Tauri IPC
- */
-async function setGeminiApiKey(apiKey: string): Promise<void> {
-  const result = await browser.execute(async (key: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    try {
-      await window.__TAURI__.core.invoke('set_gemini_api_key', { apiKey: key });
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: String(e) };
-    }
-  }, apiKey);
-  
-  const typedResult = result as { success: boolean; error?: string };
-  if (!typedResult.success) {
-    throw new Error(`set_gemini_api_key failed: ${typedResult.error}`);
+async function getReceiptSettings(): Promise<ReceiptSettingsShape | null> {
+  try {
+    return await invokeTauri<ReceiptSettingsShape>('get_receipt_settings');
+  } catch {
+    return null;
   }
 }
 
-/**
- * Set receipts folder path via Tauri IPC
- */
-async function setReceiptsFolderPath(path: string): Promise<void> {
-  await browser.execute(async (p: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('set_receipts_folder_path', { path: p });
-  }, path);
+async function setGeminiApiKey(apiKey: string): Promise<void> {
+  await invokeTauri<void>('set_gemini_api_key', { apiKey });
 }
 
-/**
- * Get database location info via Tauri IPC
- */
+async function setReceiptsFolderPath(path: string): Promise<void> {
+  await invokeTauri<void>('set_receipts_folder_path', { path });
+}
+
 async function getDbLocation(): Promise<{
   dbPath: string;
   isCustomPath: boolean;
   backupsPath: string;
 }> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('get_db_location');
-  });
-  return result as { dbPath: string; isCustomPath: boolean; backupsPath: string };
+  return invokeTauri('get_db_location');
 }
 
-/**
- * Get app mode info via Tauri IPC
- */
 async function getAppMode(): Promise<{
   mode: string;
   isReadOnly: boolean;
   readOnlyReason: string | null;
 }> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('get_app_mode');
-  });
-  return result as { mode: string; isReadOnly: boolean; readOnlyReason: string | null };
+  return invokeTauri('get_app_mode');
 }
 
-/**
- * Check if target folder has a database via Tauri IPC
- */
 async function checkTargetHasDb(targetPath: string): Promise<boolean> {
-  const result = await browser.execute(async (path: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('check_target_has_db', { targetPath: path });
-  }, targetPath);
-  return result as boolean;
+  return invokeTauri<boolean>('check_target_has_db', { targetPath });
 }
 
 describe('Tier 2: Receipt Settings & Database Location', () => {

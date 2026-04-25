@@ -8,7 +8,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage, detectCurrentLocale, localizedStrings } from '../../utils/language';
-import { seedSettings } from '../../utils/db';
+import { seedSettings, invokeTauri } from '../../utils/db';
 import {
   fillCompanySettings,
   fillField,
@@ -17,68 +17,38 @@ import {
 } from '../../utils/forms';
 import { Settings } from '../../utils/assertions';
 
-/**
- * Get current settings via Tauri IPC
- */
-async function getSettings(): Promise<{
+type SettingsShape = {
   companyName: string;
   companyIco: string;
   bufferTripPurpose: string;
-} | null> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    try {
-      return await window.__TAURI__.core.invoke('get_settings');
-    } catch {
-      return null;
-    }
-  });
+};
 
-  return result as { companyName: string; companyIco: string; bufferTripPurpose: string } | null;
+async function getSettings(): Promise<SettingsShape | null> {
+  try {
+    return await invokeTauri<SettingsShape>('get_settings');
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Save settings via Tauri IPC
- */
 async function saveSettings(settings: {
   companyName: string;
   companyIco: string;
   bufferTripPurpose?: string;
 }): Promise<void> {
-  await browser.execute(
-    async (name: string, ico: string, purpose: string | undefined) => {
-      if (!window.__TAURI__) {
-        throw new Error('Tauri not available');
-      }
-      return await window.__TAURI__.core.invoke('save_settings', {
-        companyName: name,
-        companyIco: ico,
-        bufferTripPurpose: purpose || 'Sluzobna cesta',
-      });
-    },
-    settings.companyName,
-    settings.companyIco,
-    settings.bufferTripPurpose
-  );
+  await invokeTauri<void>('save_settings', {
+    companyName: settings.companyName,
+    companyIco: settings.companyIco,
+    bufferTripPurpose: settings.bufferTripPurpose || 'Sluzobna cesta',
+  });
 }
 
 /**
- * Set locale via Tauri IPC
+ * Set locale. There is no Tauri command for this; use localStorage directly.
  */
 async function setLocale(locale: 'sk' | 'en'): Promise<void> {
-  await browser.execute(async (loc: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    try {
-      return await window.__TAURI__.core.invoke('set_locale', { locale: loc });
-    } catch {
-      // Fallback: try using localStorage for locale preference
-      localStorage.setItem('kniha-jazd-locale', loc);
-      return null;
-    }
+  await browser.execute((loc: string) => {
+    localStorage.setItem('kniha-jazd-locale', loc);
   }, locale);
 }
 
