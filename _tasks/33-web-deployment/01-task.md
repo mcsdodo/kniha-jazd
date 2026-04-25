@@ -1,104 +1,85 @@
-**Date:** 2026-01-10
-**Subject:** Web App Deployment - Convert Tauri desktop app to Docker-hosted web app
-**Status:** Planning
+**Date:** 2026-01-10 (revised 2026-04-25 after Task 55 completion)
+**Subject:** Web/Headless Deployment — Run without desktop UI
+**Status:** Planning (plan needs rewrite)
 
 ## Goal
 
-Deploy Kniha Jázd as a web application in Docker, enabling remote access without desktop installation while preserving all existing business logic and the SQLite database.
+Run Kniha Jázd without a desktop window — either as a headless process on a desktop/server PC, or as a standalone binary in Docker. LAN browsers connect to the embedded HTTP server.
 
-## Requirements
+## Context: Task 55 Changed Everything
 
-### Functional
-- Full CRUD operations for vehicles, trips, receipts, routes
-- All calculations (consumption, margins, compensation suggestions) work identically
-- Receipt viewing and management
-- HTML export functionality
-- Backup/restore capability
+[Task 55 (Server Mode)](_done/55-server-mode/01-task.md) delivered the entire HTTP infrastructure:
 
-### Non-Functional
-- **No authentication** - Single user, trusted network deployment
-- **Keep SQLite** - No database migration to PostgreSQL
-- **No mobile layouts** - Desktop-focused web UI (existing layout)
-- **Docker deployment** - Single container with volume for data persistence
+| Component | Status | Where |
+|-----------|--------|-------|
+| Axum HTTP server | ✅ Done | `server/mod.rs` |
+| RPC dispatcher (67 commands) | ✅ Done | `server/dispatcher.rs`, `dispatcher_async.rs` |
+| `_internal` extraction (all modules) | ✅ Done | `commands/*.rs` |
+| Frontend dual-mode API adapter | ✅ Done | `src/lib/api-adapter.ts` |
+| Static file serving + SPA fallback | ✅ Done | `server/mod.rs` |
+| CORS (LAN origins) | ✅ Done | `server/mod.rs` |
+| Receipt image endpoint | ✅ Done | `GET /api/receipts/:id/image` |
+| Capabilities endpoint | ✅ Done | `GET /api/capabilities` |
+| Graceful shutdown | ✅ Done | `server/mod.rs` |
+| Settings UI (start/stop, port) | ✅ Done | Settings page |
+| Auto-start from settings | ✅ Done | `lib.rs` |
+| Shared `Arc<Database>` | ✅ Done | Single connection, no SQLITE_BUSY |
+| Export in browser mode | ✅ Done | `export_html` + `window.open()` |
 
-## Technical Constraints
+**The original Task 33 plan (10 tasks, 2-3 weeks) is obsolete.** What remains is ~1-2 days of work.
 
-### What MUST Stay Unchanged
-- `calculations.rs` - All consumption/margin logic (108 tests validate this)
-- `db.rs` - SQLite + Diesel ORM (with async wrapper)
-- `suggestions.rs` - Compensation trip logic
-- `models.rs` - All data structures
-- `export.rs` - HTML generation
-- Database schema - No changes
-- Frontend components - Only API layer changes
+## Two Deployment Targets
 
-### What Changes
-| Component | Current | Web Version |
-|-----------|---------|-------------|
-| Backend framework | Tauri | Axum (thin HTTP wrapper) |
-| Frontend API | `invoke()` | `fetch()` |
-| Window management | Tauri APIs | Remove (not needed) |
-| File access | Desktop paths | Docker volume `/data` |
-| Receipt viewing | `openPath()` | Serve via API or static files |
-| Settings/paths | `LocalSettings` + `app_data_dir` | `WebConfig` from environment |
-| Gemini API key | `local.settings.json` | `GEMINI_API_KEY` env var |
-| Receipt paths | Absolute Windows paths | Normalized relative paths |
+### Target A: Headless Desktop (hidden window)
 
-## Technical Notes (from Plan Review)
+Run the existing Tauri app without showing a window. For always-on home PCs or office servers.
 
-### Critical Issues Addressed in Plan
+- **Pros:** Zero new code beyond a CLI flag, reuses the exact same build artifact
+- **Cons:** Requires a machine that can run the desktop app (display system on Linux)
+- **Binary size:** 17MB release — negligible
 
-1. **Async + Mutex Deadlock** - Current `Database` uses `std::sync::Mutex<SqliteConnection>`. Holding across async `.await` causes deadlock. Solution: Use `spawn_blocking` wrapper for all DB operations.
+### Target B: Docker (standalone binary)
 
-2. **Path Abstraction** - Desktop uses `get_app_data_dir(&app)` and `LocalSettings::load()`. Web uses `WebConfig` struct reading from environment variables.
+A separate binary that uses the `server/` module without Tauri. For Docker/NAS deployment.
 
-3. **Receipt Image Paths** - Desktop stores absolute paths (`C:\Users\...\receipts\file.jpg`). Web normalizes to relative paths and serves from `/data/receipts/`.
+- **Pros:** No webview dependency, ~5MB smaller, runs anywhere Linux runs
+- **Cons:** Needs a small new binary + Dockerfile + env-based config
+- **Why Tauri can't run in Docker:** Tauri v2 on Linux requires `libwebkit2gtk` and a display server (X11/Wayland). Even with a hidden window, GTK runtime initialization fails without a display. Xvfb is a hack, not a solution.
 
-4. **Gemini API Key** - Desktop reads from `local.settings.json`. Web reads from `GEMINI_API_KEY` environment variable.
+## Decision: Hidden Window (Target A) First
 
-### MVP Simplifications
+Ship Target A first — it's essentially free. Target B (Docker) is a follow-up that reuses the same `server/` module, just wrapped in a standalone main().
 
-- **No real-time progress** - Receipt sync shows loading state, refreshes on completion (no SSE/WebSocket)
-- **No mobile layouts** - Desktop-focused UI only
-- **No authentication** - Single user, trusted network deployment
+## What Remains
 
-## Architecture
+### For Target A (hidden window)
+1. CLI arg or env var (`--headless` / `KNIHA_JAZD_HEADLESS=1`) to skip window creation
+2. Auto-start server in headless mode (already works via `KNIHA_JAZD_SERVER_AUTOSTART`)
+3. Console output with server URL
+4. Documentation
 
-```
-┌─────────────────────────────────────────────────┐
-│           SvelteKit Frontend (Static)           │
-│         fetch('/api/...') instead of invoke()   │
-├─────────────────────────────────────────────────┤
-│              Axum HTTP Server                   │
-│         (Thin wrapper - ~200 lines new code)    │
-├─────────────────────────────────────────────────┤
-│         UNCHANGED: calculations.rs              │
-│         UNCHANGED: db.rs (SQLite + Diesel)      │
-│         UNCHANGED: suggestions.rs               │
-├─────────────────────────────────────────────────┤
-│              Docker Volume: /data               │
-│         kniha-jazd.db + receipts/               │
-└─────────────────────────────────────────────────┘
-```
+### For Target B (Docker) — follow-up
+1. `src-tauri/src/bin/web.rs` — standalone main() (~100 lines)
+2. `WebConfig` struct reading env vars (database path, port, Gemini key)
+3. Receipt path normalization (desktop absolute paths → Docker volume relative paths)
+4. `Dockerfile.web` + `docker-compose.web.yml`
+5. Migration guide (copy DB + receipts to Docker volume)
 
-## Security Considerations
+## What's No Longer Needed (vs original plan)
 
-Since there's no authentication:
-- Deploy only on trusted/private networks
-- Use VPN for remote access, OR
-- Add nginx reverse proxy with basic auth if needed later
-
-## Success Criteria
-
-1. All 108 Rust backend tests pass
-2. All existing integration tests pass (adapted for web)
-3. Can create/edit/delete vehicles and trips via browser
-4. Can view and manage receipts
-5. Export functionality works
-6. Data persists across container restarts
-7. Existing desktop database can be migrated by copying file
+| Original Task 33 Plan | Why Obsolete |
+|----------------------|--------------|
+| Task 0: Async DB adapter | `spawn_blocking` already used in server dispatcher |
+| Task 0.5: WebConfig | Only needed for Docker (Target B) |
+| Task 1: Axum module structure | `server/` module exists |
+| Task 2-5: All handlers | All 67 `_internal` fns + RPC dispatcher exist |
+| Task 6: Frontend API migration | `api-adapter.ts` with dual-mode `apiCall()` exists |
+| Task 7: Remove Tauri frontend code | Not needed — same frontend works in both modes |
+| Task 9: Static serving + health | `ServeDir` + SPA fallback + `/health` exist |
+| Task 10: Testing | 280 backend tests + 5 server tests exist |
 
 ## References
 
-- Detailed analysis: `C:\Users\Dodo\.claude\plans\curious-bouncing-wigderson.md`
-- ADR-008: Backend-only calculations (must be preserved)
+- [Task 55 design](../_done/55-server-mode/02-design.md) — server architecture
+- [Task 55 plan](../_done/55-server-mode/03-plan.md) — implementation details
+- ADR-008: Backend-only calculations
