@@ -1,0 +1,92 @@
+# =============================================================================
+# Stage 1: Build the Rust web binary
+# =============================================================================
+FROM rust:1.86-bookworm AS rust-builder
+
+# Tauri pulls in gdk/gtk/webkit at compile time even when building only the
+# web binary (Cargo compiles the whole dep graph). These system libs are only
+# in the builder stage; the runtime image stays slim.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libwebkit2gtk-4.1-dev \
+        libgtk-3-dev \
+        libsoup-3.0-dev \
+        libayatana-appindicator3-dev \
+        librsvg2-dev \
+        libssl-dev \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/src-tauri
+
+# Tauri build dependency reads these at compile time
+COPY src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/build.rs ./
+COPY src-tauri/tauri.conf.json src-tauri/tauri.conf.dev.json ./
+COPY src-tauri/capabilities ./capabilities
+COPY src-tauri/icons ./icons
+
+# Pre-build dependencies with stub sources (cached layer)
+RUN mkdir -p src/bin \
+    && echo 'fn main() {}' > src/bin/web.rs \
+    && echo 'pub fn run() {}' > src/lib.rs \
+    && cargo build --release --bin web || true
+
+# Real sources (invalidates the cached layer when src/ changes)
+COPY src-tauri/src ./src
+COPY src-tauri/migrations ./migrations
+
+# Force a fresh recompile of our crate, deps stay cached
+RUN touch src/lib.rs src/bin/web.rs \
+    && cargo build --release --bin web
+
+# =============================================================================
+# Stage 2: Build the SvelteKit static frontend
+# =============================================================================
+FROM node:20-alpine AS node-builder
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY svelte.config.js vite.config.ts tsconfig.json ./
+COPY src ./src
+COPY static ./static
+RUN npm run build
+
+# =============================================================================
+# Stage 3: Minimal runtime image
+# =============================================================================
+FROM debian:bookworm-slim
+# GTK/WebKit runtime libs are needed because the binary is compiled in a
+# crate that has tauri as a non-optional dependency, so its symbols are
+# linked even though the web binary never calls them. Long term, gating
+# tauri behind a "desktop" feature would let the runtime image drop these
+# (~150MB savings). Tracked in _TECH_DEBT.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        libgtk-3-0 \
+        libwebkit2gtk-4.1-0 \
+        libsoup-3.0-0 \
+        libayatana-appindicator3-1 \
+        librsvg2-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=rust-builder /app/src-tauri/target/release/web /usr/local/bin/kniha-jazd-web
+COPY --from=node-builder /app/build /var/www/html
+
+RUN mkdir -p /data
+
+ENV DATABASE_PATH=/data/kniha-jazd.db \
+    KNIHA_JAZD_DATA_DIR=/data \
+    STATIC_DIR=/var/www/html \
+    PORT=3456
+
+VOLUME ["/data"]
+EXPOSE 3456
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -fs http://localhost:3456/health || exit 1
+
+CMD ["kniha-jazd-web"]
