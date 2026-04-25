@@ -14,6 +14,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Automatická CORS ochrana pre prístup len z lokálnej siete
 - Skrytie desktopových funkcií v prehliadači (capabilities-based feature gating)
 
+### Opravené
+- **Server Mode zdieľa jedno spojenie s databázou** so desktopovou aplikáciou — predchádza potenciálnym chybám `SQLITE_BUSY` pri súbežnom prístupe
+- **Server Mode: doplnené 3 chýbajúce príkazy pre nastavenia potvrdení** (receipts) v RPC dispečeri
+- **Export funguje v režime prehliadača** — súbor sa otvorí v novej karte namiesto zlyhania s chybou „Unknown command"
+
 ## [0.33.0] - 2026-04-16
 
 ### Pridané
