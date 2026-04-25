@@ -38,6 +38,11 @@ pub fn run() {
                 )?;
             }
 
+            // Detect headless mode: --headless CLI flag or KNIHA_JAZD_HEADLESS env var.
+            // Headless = run as a background HTTP server without showing the desktop window.
+            let headless = std::env::var("KNIHA_JAZD_HEADLESS").is_ok()
+                || std::env::args().any(|a| a == "--headless");
+
             // Initialize app state
             let app_state = AppState::new();
 
@@ -159,10 +164,11 @@ pub fn run() {
                 });
             }
 
-            // Auto-start server if previously enabled or env var set
+            // Auto-start server if previously enabled, env var set, or running headless.
+            // Headless implies the server must run — the user has no UI to start it manually.
             let auto_start_env = std::env::var("KNIHA_JAZD_SERVER_AUTOSTART").is_ok();
             let server_settings = LocalSettings::load(&app_dir);
-            if auto_start_env || server_settings.server_enabled.unwrap_or(false) {
+            if headless || auto_start_env || server_settings.server_enabled.unwrap_or(false) {
                 let auto_port = std::env::var("KNIHA_JAZD_SERVER_PORT")
                     .ok()
                     .and_then(|p| p.parse::<u16>().ok())
@@ -173,6 +179,7 @@ pub fn run() {
                 let auto_app_state = app.state::<Arc<AppState>>().inner().clone();
                 let auto_manager = server_manager.clone();
                 let auto_static_dir = server::resolve_static_dir(app);
+                let auto_headless = headless;
 
                 tauri::async_runtime::spawn(async move {
                     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
@@ -193,14 +200,30 @@ pub fn run() {
                                 .unwrap_or_else(|_| {
                                     format!("http://localhost:{}", auto_port)
                                 });
+                            if auto_headless {
+                                println!("Kniha Jázd server running at {url}");
+                                println!("Press Ctrl+C to stop.");
+                            }
                             auto_manager.set_running(auto_port, url, shutdown_tx);
                             log::info!("Server auto-started on port {}", auto_port);
                         }
                         Err(e) => {
+                            if auto_headless {
+                                eprintln!("Failed to start server: {e}");
+                            }
                             log::warn!("Failed to auto-start server: {}", e);
                         }
                     }
                 });
+            }
+
+            // In headless mode, hide the desktop window — the app runs as a background
+            // HTTP server only. The webview is still constructed (Tauri requires it),
+            // but it never becomes visible.
+            if headless {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
             }
 
             Ok(())
