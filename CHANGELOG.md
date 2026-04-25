@@ -17,6 +17,10 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Docker nasadenie** - samostatný `web` binárny súbor s [Dockerfile.web](Dockerfile.web) a [docker-compose.web.yml](docker-compose.web.yml) pre nasadenie na Linux server, NAS alebo Raspberry Pi. Konfigurácia cez environment premenné (PORT, KNIHA_JAZD_DATA_DIR, DATABASE_PATH).
 - **Korektné ukončenie pri Docker stop / systemd stop** - server reaguje na SIGINT aj SIGTERM bez 10-sekundového čakania pred vynúteným ukončením.
 
+### Zmenené
+- **Mazanie vozidla zmaže aj pamätané trasy** - pri vymazaní vozidla sa teraz odstránia aj jeho položky v tabuľke autocomplete trás. Predtým mazanie zlyhávalo s chybou „FOREIGN KEY constraint failed", ak vozidlo malo aspoň jednu uloženú trasu. Doklady (receipts) priradené vozidlu sa správajú ako predtým — ich vehicle_id sa nastaví na NULL, samotný doklad zostáva v databáze.
+- **Home Assistant - menej zbytočného logovania** - testovanie HA pripojenia bez nastavenej URL/tokenu sa správa ticho (vráti "neaktívne" namiesto chyby). Ladiace `[HA test]`, `[HA ODO]` a `[HA push]` hlásenia odstránené z produkčného logu.
+
 ### Opravené
 - **Server Mode zdieľa jedno spojenie s databázou** so desktopovou aplikáciou — predchádza potenciálnym chybám `SQLITE_BUSY` pri súbežnom prístupe
 - **Server Mode: doplnené 3 chýbajúce príkazy pre nastavenia potvrdení** (receipts) v RPC dispečeri
