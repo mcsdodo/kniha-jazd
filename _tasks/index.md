@@ -9,7 +9,6 @@ Quick overview of all tasks and their status.
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
-| 55 | [Server Mode](55-server-mode/) | ✅ Complete | Embedded HTTP server for LAN browser access |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
 | 33 | [Web Deployment](33-web-deployment/) | 📋 Planning | Web version feasibility |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 55 | [Server Mode](_done/55-server-mode/) | 2026-04-25 |
 | 56 | Smart Trip Defaults | 2026-04-16 |
 | 54 | Fix Odometer Recalculation Bugs | 2026-03-04 |
 | 53 | HA Real Fuel Level | 2026-02-12 |
