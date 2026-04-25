@@ -13,6 +13,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - Automatické spustenie servera pri štarte aplikácie (ak bol predtým zapnutý)
 - Automatická CORS ochrana pre prístup len z lokálnej siete
 - Skrytie desktopových funkcií v prehliadači (capabilities-based feature gating)
+- **Headless režim** - príznak `--headless` (alebo `KNIHA_JAZD_HEADLESS=1`) spustí desktopovú aplikáciu ako server na pozadí bez okna; URL servera sa vypíše na stdout. Vhodné pre vždy-zapnutý PC v domácnosti/kancelárii.
+- **Docker nasadenie** - samostatný `web` binárny súbor s [Dockerfile.web](Dockerfile.web) a [docker-compose.web.yml](docker-compose.web.yml) pre nasadenie na Linux server, NAS alebo Raspberry Pi. Konfigurácia cez environment premenné (PORT, KNIHA_JAZD_DATA_DIR, DATABASE_PATH).
+- **Korektné ukončenie pri Docker stop / systemd stop** - server reaguje na SIGINT aj SIGTERM bez 10-sekundového čakania pred vynúteným ukončením.
 
 ### Opravené
 - **Server Mode zdieľa jedno spojenie s databázou** so desktopovou aplikáciou — predchádza potenciálnym chybám `SQLITE_BUSY` pri súbežnom prístupe

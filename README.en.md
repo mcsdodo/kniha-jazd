@@ -27,6 +27,7 @@ Automatically calculates fuel consumption, monitors the legal 20% over-consumpti
 - **Receipts (AI OCR)** - Automatic recognition of gas station receipts with multi-currency support (EUR, CZK, HUF, PLN)
 - **Home Assistant integration** - Display ODO and fuel level from HA, push suggested fill-up to HA sensor
 - **Server Mode** - Built-in HTTP server for accessing the app from a phone or tablet via browser on the local network
+- **Headless / Docker deployment** - Run as a background service (`--headless` flag) or in a Docker container for always-on devices (NAS, Raspberry Pi). See [docs/features/server-mode.md](docs/features/server-mode.md) for details.
 
 ## Installation
 
