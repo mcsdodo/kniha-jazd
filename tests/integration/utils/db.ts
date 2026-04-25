@@ -101,9 +101,12 @@ async function ensureAppReady(): Promise<boolean> {
  * Execute a backend command — Tauri IPC in webview mode, HTTP RPC in server mode.
  *
  * This is the single point of backend communication for all test utilities.
- * All seed/query functions go through this helper.
+ * All seed/query functions go through this helper. Spec files should also use
+ * this rather than calling `window.__TAURI__.core.invoke(...)` directly via
+ * `browser.execute()`, otherwise they will fail in server / Docker mode where
+ * the browser has no `__TAURI__` global.
  */
-async function invokeTauri<T>(
+export async function invokeTauri<T>(
   cmd: string,
   args: Record<string, unknown> = {}
 ): Promise<T> {

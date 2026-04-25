@@ -42,3 +42,18 @@ export function skipInTauriMode(description: string): void {
     pending(`Skipped in Tauri mode: ${description}`);
   }
 }
+
+/**
+ * Skip the current test when running against an external server (Docker mode).
+ *
+ * Use for tests that need the backend process to access host filesystem paths
+ * (e.g. receipts folder scanning, Gemini mock JSON files). In Docker mode the
+ * container can't see the host's `tests/integration/data/...` directories
+ * unless they're explicitly mounted, which we don't do for the production-shaped
+ * compose file. These tests still run in spawned-Tauri server mode.
+ */
+export function skipInDockerMode(description: string): void {
+  if (process.env.WDIO_EXTERNAL_SERVER === '1') {
+    pending(`Skipped in Docker mode: ${description}`);
+  }
+}

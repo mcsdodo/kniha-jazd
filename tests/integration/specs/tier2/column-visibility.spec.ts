@@ -9,32 +9,15 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
-/**
- * Get hidden columns via Tauri IPC
- */
 async function getHiddenColumns(): Promise<string[]> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('get_hidden_columns');
-  });
-  return result as string[];
+  return invokeTauri<string[]>('get_hidden_columns');
 }
 
-/**
- * Set hidden columns via Tauri IPC
- */
 async function setHiddenColumnsViaIpc(columns: string[]): Promise<void> {
-  await browser.execute(async (cols: string[]) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('set_hidden_columns', { columns: cols });
-  }, columns);
+  await invokeTauri<void>('set_hidden_columns', { columns });
 }
 
 describe('Tier 2: Column Visibility', () => {

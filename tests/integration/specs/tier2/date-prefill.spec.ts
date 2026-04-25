@@ -9,31 +9,14 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
 
-/**
- * Get date prefill mode via Tauri IPC
- */
 async function getDatePrefillMode(): Promise<string> {
-  const result = await browser.execute(async () => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('get_date_prefill_mode');
-  });
-  return result as string;
+  return invokeTauri<string>('get_date_prefill_mode');
 }
 
-/**
- * Set date prefill mode via Tauri IPC
- */
 async function setDatePrefillModeViaIpc(mode: 'previous' | 'today'): Promise<void> {
-  await browser.execute(async (m: string) => {
-    if (!window.__TAURI__) {
-      throw new Error('Tauri not available');
-    }
-    return await window.__TAURI__.core.invoke('set_date_prefill_mode', { mode: m });
-  }, mode);
+  await invokeTauri<void>('set_date_prefill_mode', { mode });
 }
 
 describe('Tier 2: Date Prefill Mode', () => {
