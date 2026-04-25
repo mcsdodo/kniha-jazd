@@ -3,7 +3,7 @@
 **Date:** 2026-04-25
 **Priority:** Medium
 **Effort:** High (1-3d)
-**Component:** `src-tauri/Cargo.toml`, `src-tauri/src/lib.rs`, `src-tauri/src/commands/`, `src-tauri/src/server/mod.rs`
+**Component:** [Cargo.toml](../../src-tauri/Cargo.toml), [lib.rs](../../src-tauri/src/lib.rs), [commands/](../../src-tauri/src/commands/), [server/mod.rs](../../src-tauri/src/server/mod.rs)
 **Status:** Open
 
 ## Problem
@@ -21,11 +21,11 @@ That forces the Docker runtime image to install GTK/WebKit/Soup/AppIndicator/RSV
 
 ## Root Cause
 
-Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP layer framework-independent, but stopped short of feature-gating the Tauri-flavored wrappers. Task 33's plan explicitly noted (Step 3a in `_tasks/_done/33-web-deployment/02-plan.md`) that gating *might* be needed but assumed it wasn't because Tauri was "already a dependency." The plan author didn't account for native shared-library linkage at the binary level.
+Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP layer framework-independent, but stopped short of feature-gating the Tauri-flavored wrappers. Task 33's plan explicitly noted (Step 3a in [02-plan.md](../33-web-deployment/02-plan.md)) that gating *might* be needed but assumed it wasn't because Tauri was "already a dependency." The plan author didn't account for native shared-library linkage at the binary level.
 
 ## Recommended Solution
 
-1. Make Tauri deps optional in `src-tauri/Cargo.toml`:
+1. Make Tauri deps optional in [Cargo.toml](../../src-tauri/Cargo.toml):
 
    ```toml
    [features]
@@ -46,19 +46,19 @@ Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP 
    # ...
    ```
 
-2. Gate `pub fn run()` in `src-tauri/src/lib.rs` with `#[cfg(feature = "desktop")]`.
+2. Gate `pub fn run()` in [lib.rs](../../src-tauri/src/lib.rs) with `#[cfg(feature = "desktop")]`.
 
-3. Gate every `#[tauri::command]` wrapper across `src-tauri/src/commands/` (74 occurrences). The `_internal` helpers stay un-gated.
+3. Gate every `#[tauri::command]` wrapper across [commands/](../../src-tauri/src/commands/) (74 occurrences). The `_internal` helpers stay un-gated.
 
-4. Gate `resolve_static_dir(&tauri::App)` and `resolve_static_dir_from_handle(&tauri::AppHandle)` in `src-tauri/src/server/mod.rs`. Provide a non-Tauri equivalent that takes a plain `PathBuf` (already used by the web binary).
+4. Gate `resolve_static_dir(&tauri::App)` and `resolve_static_dir_from_handle(&tauri::AppHandle)` in [server/mod.rs](../../src-tauri/src/server/mod.rs). Provide a non-Tauri equivalent that takes a plain `PathBuf` (already used by the web binary).
 
-5. Gate the `tauri::AppHandle`-flavored helper functions in `src-tauri/src/commands/mod.rs` (`get_app_data_dir(app: &AppHandle)`, `get_db_paths(app: &AppHandle)`).
+5. Gate the `tauri::AppHandle`-flavored helper functions in [commands/mod.rs](../../src-tauri/src/commands/mod.rs) (`get_app_data_dir(app: &AppHandle)`, `get_db_paths(app: &AppHandle)`).
 
 6. Add `[[bin]] required-features = ["desktop"]` to bins that need it (none currently — `web` doesn't, the desktop entry-point is via the lib).
 
 7. Build the web binary with `cargo build --no-default-features --bin web`.
 
-8. Strip GTK/WebKit/Soup/AppIndicator/RSVG packages from `Dockerfile.web` stage 3.
+8. Strip GTK/WebKit/Soup/AppIndicator/RSVG packages from [Dockerfile.web](../../Dockerfile.web) stage 3.
 
 ## Alternative Options (if any)
 
@@ -68,9 +68,9 @@ Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP 
 
 ## Related
 
-- `_tasks/_done/33-web-deployment/` — Task that surfaced this issue
-- `Dockerfile.web` — Currently installs runtime GTK libs as workaround
-- `_tasks/_done/55-server-mode/` — Prior task that prepared the framework-independent `_internal` layer
+- [33-web-deployment/](../33-web-deployment/) — Task that surfaced this issue
+- [Dockerfile.web](../../Dockerfile.web) — Currently installs runtime GTK libs as workaround
+- [_done/55-server-mode/](../_done/55-server-mode/) — Prior task that prepared the framework-independent `_internal` layer
 
 ## Decision Log
 
