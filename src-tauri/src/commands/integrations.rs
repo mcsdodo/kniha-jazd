@@ -70,21 +70,18 @@ pub fn get_local_settings_for_ha(
     get_local_settings_for_ha_internal(&app_data_dir)
 }
 
-/// Test HA connection from backend (avoids CORS issues in dev mode)
+/// Test HA connection from backend (avoids CORS issues in dev mode).
+/// Returns Ok(false) silently when HA isn't configured — that's a normal state,
+/// not an error worth surfacing to logs or callers.
 pub async fn test_ha_connection_internal(app_dir: &Path) -> Result<bool, String> {
-    println!("[HA test] Loading settings from: {:?}", app_dir);
     let settings = LocalSettings::load(app_dir);
-    println!(
-        "[HA test] ha_url: {:?}, has_token: {}",
-        settings.ha_url,
-        settings.ha_api_token.is_some()
-    );
 
-    let url = settings.ha_url.ok_or("HA URL not configured")?;
-    let token = settings.ha_api_token.ok_or("HA token not configured")?;
+    let (url, token) = match (settings.ha_url, settings.ha_api_token) {
+        (Some(url), Some(token)) => (url, token),
+        _ => return Ok(false),
+    };
 
     let api_url = format!("{}/api/", url.trim_end_matches('/'));
-    println!("[HA test] Testing: {}", api_url);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
@@ -97,18 +94,9 @@ pub async fn test_ha_connection_internal(app_dir: &Path) -> Result<bool, String>
         .header("Content-Type", mime_types::JSON)
         .send()
         .await
-        .map_err(|e| {
-            println!("[HA test] Error: {}", e);
-            e.to_string()
-        })?;
+        .map_err(|e| e.to_string())?;
 
-    let is_ok = response.status().is_success();
-    println!(
-        "[HA test] Response: {} ({})",
-        response.status(),
-        if is_ok { "OK" } else { "FAILED" }
-    );
-    Ok(is_ok)
+    Ok(response.status().is_success())
 }
 
 #[tauri::command]
@@ -117,31 +105,20 @@ pub async fn test_ha_connection(app_handle: tauri::AppHandle) -> Result<bool, St
     test_ha_connection_internal(&app_data_dir).await
 }
 
-/// Fetch ODO value from Home Assistant for a specific sensor
+/// Fetch ODO value from Home Assistant for a specific sensor.
+/// Returns Ok(None) silently when HA isn't configured — that's a normal state.
 pub async fn fetch_ha_odo_internal(
     app_dir: &Path,
     sensor_id: String,
 ) -> Result<Option<f64>, String> {
-    println!("[HA ODO] Fetching sensor: {}", sensor_id);
     let settings = LocalSettings::load(app_dir);
 
-    let url = match settings.ha_url {
-        Some(u) => u,
-        None => {
-            println!("[HA ODO] No URL configured");
-            return Ok(None);
-        }
-    };
-    let token = match settings.ha_api_token {
-        Some(t) => t,
-        None => {
-            println!("[HA ODO] No token configured");
-            return Ok(None);
-        }
+    let (url, token) = match (settings.ha_url, settings.ha_api_token) {
+        (Some(url), Some(token)) => (url, token),
+        _ => return Ok(None),
     };
 
     let api_url = format!("{}/api/states/{}", url.trim_end_matches('/'), sensor_id);
-    println!("[HA ODO] Calling: {}", api_url);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
@@ -154,28 +131,17 @@ pub async fn fetch_ha_odo_internal(
         .header("Content-Type", mime_types::JSON)
         .send()
         .await
-        .map_err(|e| {
-            println!("[HA ODO] Request error: {}", e);
-            e.to_string()
-        })?;
+        .map_err(|e| e.to_string())?;
 
-    println!("[HA ODO] Response status: {}", response.status());
     if !response.status().is_success() {
         return Ok(None);
     }
 
     let data: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
 
-    // HA returns { state: "12345.6", ... }
     let state = data.get("state").and_then(|s| s.as_str());
-    println!("[HA ODO] State value: {:?}", state);
-
     match state {
-        Some(s) if s != "unavailable" && s != "unknown" => {
-            let value = s.parse::<f64>().ok();
-            println!("[HA ODO] Parsed value: {:?}", value);
-            Ok(value)
-        }
+        Some(s) if s != "unavailable" && s != "unknown" => Ok(s.parse::<f64>().ok()),
         _ => Ok(None),
     }
 }
@@ -282,12 +248,12 @@ pub(crate) async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String,
     {
         Ok(c) => c,
         Err(e) => {
-            println!("[HA push] Failed to build client: {}", e);
+            log::warn!("HA push: failed to build client: {}", e);
             return;
         }
     };
 
-    match client
+    if let Err(e) = client
         .post(&api_url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", mime_types::JSON)
@@ -295,16 +261,6 @@ pub(crate) async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String,
         .send()
         .await
     {
-        Ok(resp) => {
-            println!(
-                "[HA push] {} → {} ({})",
-                entity_id,
-                if value.is_empty() { "\"\"" } else { &value },
-                resp.status()
-            );
-        }
-        Err(e) => {
-            println!("[HA push] Error pushing to {}: {}", entity_id, e);
-        }
+        log::warn!("HA push to {}: {}", entity_id, e);
     }
 }
