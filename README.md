@@ -27,6 +27,7 @@ Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou
 - **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc s podporou viacerých mien (EUR, CZK, HUF, PLN)
 - **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
 - **Režim servera** - Vstavaný HTTP server pre prístup z telefónu alebo tabletu cez prehliadač v lokálnej sieti
+- **Headless / Docker nasadenie** - Spustenie ako služba na pozadí (príznak `--headless`) alebo v Docker kontajneri pre vždy-zapnuté zariadenia (NAS, Raspberry Pi). Detaily nájdete v [docs/features/server-mode.md](docs/features/server-mode.md).
 
 ## Inštalácia
 
