@@ -14,6 +14,10 @@ rust-version = "1.77.2"
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "web"
+path = "src/bin/web.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.5.3", features = [] }
 
