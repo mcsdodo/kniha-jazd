@@ -5,6 +5,7 @@
 
 use chrono::{Datelike, NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::{Emitter, State};
 use uuid::Uuid;
 
@@ -77,7 +78,7 @@ pub fn set_gemini_api_key_internal(
 #[tauri::command]
 pub fn set_gemini_api_key(
     app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     api_key: String,
 ) -> Result<(), String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
@@ -113,7 +114,7 @@ pub fn set_receipts_folder_path_internal(
 #[tauri::command]
 pub fn set_receipts_folder_path(
     app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     path: String,
 ) -> Result<(), String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
@@ -135,7 +136,7 @@ pub fn get_receipts_internal(db: &Database, year: Option<i32>) -> Result<Vec<Rec
 }
 
 #[tauri::command]
-pub fn get_receipts(db: State<Database>, year: Option<i32>) -> Result<Vec<Receipt>, String> {
+pub fn get_receipts(db: State<Arc<Database>>, year: Option<i32>) -> Result<Vec<Receipt>, String> {
     get_receipts_internal(&db, year)
 }
 
@@ -154,7 +155,7 @@ pub fn get_receipts_for_vehicle_internal(
 
 #[tauri::command]
 pub fn get_receipts_for_vehicle(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     year: Option<i32>,
 ) -> Result<Vec<Receipt>, String> {
@@ -166,7 +167,7 @@ pub fn get_unassigned_receipts_internal(db: &Database) -> Result<Vec<Receipt>, S
 }
 
 #[tauri::command]
-pub fn get_unassigned_receipts(db: State<Database>) -> Result<Vec<Receipt>, String> {
+pub fn get_unassigned_receipts(db: State<Arc<Database>>) -> Result<Vec<Receipt>, String> {
     get_unassigned_receipts_internal(&db)
 }
 
@@ -181,8 +182,8 @@ pub fn update_receipt_internal(
 
 #[tauri::command]
 pub fn update_receipt(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     receipt: Receipt,
 ) -> Result<(), String> {
     update_receipt_internal(&db, &app_state, receipt)
@@ -199,8 +200,8 @@ pub fn delete_receipt_internal(
 
 #[tauri::command]
 pub fn delete_receipt(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
 ) -> Result<(), String> {
     delete_receipt_internal(&db, &app_state, id)
@@ -217,8 +218,8 @@ pub fn unassign_receipt_internal(
 
 #[tauri::command]
 pub fn unassign_receipt(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
 ) -> Result<(), String> {
     unassign_receipt_internal(&db, &app_state, id)
@@ -235,8 +236,8 @@ pub fn revert_receipt_override_internal(
 
 #[tauri::command]
 pub fn revert_receipt_override(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
 ) -> Result<(), String> {
     revert_receipt_override_internal(&db, &app_state, id)
@@ -302,8 +303,8 @@ pub fn scan_receipts_internal(
 #[tauri::command]
 pub fn scan_receipts(
     app: tauri::AppHandle,
-    db: State<'_, Database>,
-    app_state: State<'_, AppState>,
+    db: State<'_, Arc<Database>>,
+    app_state: State<'_, Arc<AppState>>,
 ) -> Result<ScanResult, String> {
     let app_dir = get_app_data_dir(&app)?;
     scan_receipts_internal(&db, &app_state, &app_dir)
@@ -356,8 +357,8 @@ pub async fn sync_receipts_internal(
 #[tauri::command]
 pub async fn sync_receipts(
     app: tauri::AppHandle,
-    db: State<'_, Database>,
-    app_state: State<'_, AppState>,
+    db: State<'_, Arc<Database>>,
+    app_state: State<'_, Arc<AppState>>,
 ) -> Result<SyncResult, String> {
     let app_dir = get_app_data_dir(&app)?;
     sync_receipts_internal(&db, &app_state, &app_dir).await
@@ -416,7 +417,7 @@ pub async fn process_pending_receipts_internal(
 #[tauri::command]
 pub async fn process_pending_receipts(
     app: tauri::AppHandle,
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
 ) -> Result<SyncResult, String> {
     let app_dir = get_app_data_dir(&app)?;
     let settings = LocalSettings::load(&app_dir);
@@ -508,8 +509,8 @@ pub async fn reprocess_receipt_internal(
 #[tauri::command]
 pub async fn reprocess_receipt(
     app: tauri::AppHandle,
-    db: State<'_, Database>,
-    app_state: State<'_, AppState>,
+    db: State<'_, Arc<Database>>,
+    app_state: State<'_, Arc<AppState>>,
     id: String,
 ) -> Result<Receipt, String> {
     let app_dir = get_app_data_dir(&app)?;
@@ -610,8 +611,8 @@ pub fn assign_receipt_to_trip_internal(
 /// - mismatch_override: true = user confirms data mismatch is intentional
 #[tauri::command]
 pub fn assign_receipt_to_trip(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     receipt_id: String,
     trip_id: String,
     vehicle_id: String,
@@ -849,7 +850,7 @@ pub fn get_trips_for_receipt_assignment_internal(
 /// This allows the frontend to show which trips are eligible for receipt assignment.
 #[tauri::command]
 pub fn get_trips_for_receipt_assignment(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     receipt_id: String,
     vehicle_id: String,
     year: i32,
@@ -977,7 +978,7 @@ fn verify_receipts_with_data(
 /// Only considers receipts that are unassigned or assigned to this vehicle.
 #[tauri::command]
 pub fn verify_receipts(
-    db: State<Database>,
+    db: State<Arc<Database>>,
     vehicle_id: String,
     year: i32,
 ) -> Result<VerificationResult, String> {

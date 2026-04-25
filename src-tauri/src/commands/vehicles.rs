@@ -5,6 +5,7 @@ use crate::check_read_only;
 use crate::db::Database;
 use crate::models::{Vehicle, VehicleType};
 use chrono::Utc;
+use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
@@ -156,20 +157,20 @@ pub fn set_active_vehicle_internal(
 // ============================================================================
 
 #[tauri::command]
-pub fn get_vehicles(db: State<Database>) -> Result<Vec<Vehicle>, String> {
+pub fn get_vehicles(db: State<Arc<Database>>) -> Result<Vec<Vehicle>, String> {
     get_vehicles_internal(&db)
 }
 
 #[tauri::command]
-pub fn get_active_vehicle(db: State<Database>) -> Result<Option<Vehicle>, String> {
+pub fn get_active_vehicle(db: State<Arc<Database>>) -> Result<Option<Vehicle>, String> {
     get_active_vehicle_internal(&db)
 }
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub fn create_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     name: String,
     license_plate: String,
     initial_odometer: f64,
@@ -201,8 +202,8 @@ pub fn create_vehicle(
 
 #[tauri::command]
 pub fn update_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     vehicle: Vehicle,
 ) -> Result<(), String> {
     update_vehicle_internal(&db, &app_state, vehicle)
@@ -210,8 +211,8 @@ pub fn update_vehicle(
 
 #[tauri::command]
 pub fn delete_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
 ) -> Result<(), String> {
     delete_vehicle_internal(&db, &app_state, id)
@@ -219,8 +220,8 @@ pub fn delete_vehicle(
 
 #[tauri::command]
 pub fn set_active_vehicle(
-    db: State<Database>,
-    app_state: State<AppState>,
+    db: State<Arc<Database>>,
+    app_state: State<Arc<AppState>>,
     id: String,
 ) -> Result<(), String> {
     set_active_vehicle_internal(&db, &app_state, id)

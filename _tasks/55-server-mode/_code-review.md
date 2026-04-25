@@ -133,7 +133,7 @@
 
 ## Review Summary
 
-**Status:** Ready for User Review
+**Status:** Complete
 **Iterations:** 1
 **Total Findings:** 1 Critical, 4 Important, 5 Minor
 **Test Status:** 280 tests pass
@@ -141,23 +141,35 @@
 ### All Findings (Consolidated)
 
 #### Critical
-1. [ ] Separate Database connections instead of shared `Arc<Database>` — `server_cmd.rs:34-40`, `lib.rs:190`
+1. [x] Separate Database connections instead of shared `Arc<Database>` — **FIXED**
 
 #### Important
-2. [ ] 3 receipt commands missing from RPC dispatcher — `dispatcher.rs`
-3. [ ] `export_to_browser` not feature-gated in frontend — `+page.svelte:176`
-4. [ ] `revealBackup` uses Tauri-only import without full safety — `api.ts:237`
-5. [ ] Auto-start creates bare `AppState` without DB path — `lib.rs:197`
+2. [x] 3 receipt commands missing from RPC dispatcher — **FIXED**
+3. [x] `export_to_browser` not feature-gated in frontend — **FIXED**
+4. [ ] `revealBackup` uses Tauri-only import without full safety — `api.ts:237` (skipped — not a runtime bug)
+5. [x] Auto-start creates bare `AppState` without DB path — **FIXED** (resolved by #1)
 
 #### Minor
-6. [ ] `_up_` magic string for production static dir — `server_cmd.rs:31`
-7. [ ] Duplicated static dir resolution logic — `server_cmd.rs` vs `lib.rs`
-8. [ ] `serde_json::to_value().unwrap()` in dispatcher — `dispatcher.rs`
-9. [ ] No `X-KJ-Client` header enforcement on POST — `server/mod.rs`
-10. [ ] Test count in CLAUDE.md outdated — `CLAUDE.md`
+6. [ ] `_up_` magic string for production static dir — `server_cmd.rs:31` (skipped)
+7. [x] Duplicated static dir resolution logic — **FIXED** (extracted to `resolve_static_dir`)
+8. [ ] `serde_json::to_value().unwrap()` in dispatcher — `dispatcher.rs` (skipped)
+9. [ ] No `X-KJ-Client` header enforcement on POST — `server/mod.rs` (skipped)
+10. [ ] Test count in CLAUDE.md outdated — `CLAUDE.md` (skipped)
 
-### Recommendation
+## Resolution
 
-**Needs fixes before shipping.** The Critical finding (#1 — separate DB connections) is a design deviation that can cause data visibility issues and SQLITE_BUSY errors under concurrent desktop + browser use. The missing commands (#2) will cause Settings page errors for browser users. The unguarded export (#3) will show confusing errors.
+**Addressed:** 5 findings (1 Critical, 3 Important, 1 Minor)
+**Skipped:** 5 findings (1 Important, 4 Minor — user decision)
+**Test Status:** All 280 backend tests pass, 0 svelte-check errors
 
-The overall architecture is sound and well-structured. The `_internal` extraction pattern is clean, the dispatcher/adapter design is solid, and the test coverage is good (85 new tests). The fixes are surgical — none require rethinking the architecture.
+### Applied Fixes
+
+**Finding 1 (Critical — shared DB):** Changed `app.manage(db)` to `app.manage(Arc::new(db))` and `app.manage(app_state)` to `app.manage(Arc::new(app_state))` in `lib.rs`. Updated all Tauri commands from `State<Database>` to `State<Arc<Database>>` (and same for AppState) across 9 command files. Deref coercion chains (`State<Arc<Database>>` → `Arc<Database>` → `Database`) mean zero body changes. `server_cmd.rs` now clones the shared Arcs via `db.inner().clone()` instead of creating new `Database::new()` instances. Auto-start also uses cloned Arcs.
+
+**Finding 2 (Important — missing commands):** Added `get_receipt_settings`, `set_gemini_api_key`, `set_receipts_folder_path` to `dispatcher.rs` sync dispatcher.
+
+**Finding 3 (Important — export feature-gate):** Added `capabilities` check in `+page.svelte`. Desktop uses `openExportPreview` (desktop browser via `open::that()`). Server mode uses `exportHtml` → opens HTML in new tab via `window.open()`. Added `exportHtml()` wrapper to `api.ts`.
+
+**Finding 5 (Important — auto-start AppState):** Resolved by finding #1 — auto-start now clones the same Arc, so DB path and read-only state are shared automatically.
+
+**Finding 7 (Minor — duplicated static dir):** Extracted `resolve_static_dir()` and `resolve_static_dir_from_handle()` to `server/mod.rs`. Both `lib.rs` auto-start and `server_cmd.rs` now call these helpers.

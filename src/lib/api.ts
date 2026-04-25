@@ -264,7 +264,16 @@ export async function setBackupRetention(retention: BackupRetention): Promise<vo
 	return await apiCall('set_backup_retention', { retention });
 }
 
-// Export - opens HTML in default browser for printing
+// Export - returns HTML string (used in server/browser mode)
+export async function exportHtml(
+	vehicleId: string,
+	year: number,
+	labels: ExportLabels,
+): Promise<string> {
+	return await apiCall('export_html', { vehicleId, year, labels });
+}
+
+// Export - opens HTML in default browser for printing (desktop only)
 export async function openExportPreview(
 	vehicleId: string,
 	year: number,

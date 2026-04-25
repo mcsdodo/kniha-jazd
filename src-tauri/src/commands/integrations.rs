@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::State;
 
 use crate::check_read_only;
@@ -229,7 +230,7 @@ pub fn save_ha_settings_internal(
 #[tauri::command]
 pub fn save_ha_settings(
     app_handle: tauri::AppHandle,
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     url: Option<String>,
     token: Option<String>,
 ) -> Result<(), String> {
