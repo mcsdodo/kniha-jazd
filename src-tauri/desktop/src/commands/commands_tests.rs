@@ -9,7 +9,8 @@ use super::statistics::{
 };
 use super::*;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
-use chrono::{NaiveDate, NaiveDateTime, Utc};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Helper to create a trip with fuel

@@ -1,5 +1,6 @@
 pub use kniha_jazd_core::app_state;
 pub use kniha_jazd_core::calculations;
+pub use kniha_jazd_core::check_read_only;
 pub mod commands;
 pub use kniha_jazd_core::constants;
 pub use kniha_jazd_core::db;
