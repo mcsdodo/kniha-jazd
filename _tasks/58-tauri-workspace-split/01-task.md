@@ -31,7 +31,7 @@ Today [`src-tauri/`](../../src-tauri/) is one Cargo crate (`kniha-jazd`) produci
 - `cargo build -p kniha-jazd-web --release` produces a binary with **zero** GTK/WebKit/Soup/AppIndicator/RSVG symbol references (verified with `ldd`).
 - `cargo test --workspace` passes all 195 backend tests with no test relocation logic changes.
 - `npm run tauri build` produces a working desktop installer.
-- `npm run test:integration:tier1` passes against a debug Tauri build.
+- `npm run test:integration` (full suite — all tiers) passes against a debug Tauri build. Use [tier1](../../tests/integration/specs/tier1/) only for quick iteration during the per-task split work; the full sweep is required before claiming the task done (see [CLAUDE.md](../../CLAUDE.md) → Iteration strategy).
 - Docker image built from the updated [`Dockerfile.web`](../../Dockerfile.web) is ≤120 MB (target: ~80 MB; today: ~300 MB).
 - The Docker container's `/health` endpoint responds and the SPA loads.
 

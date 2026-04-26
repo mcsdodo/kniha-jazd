@@ -10,17 +10,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
- * Get specs based on TIER and PARALLEL_TIERS environment variables
+ * Get specs based on TIER and PARALLEL_TIERS environment variables.
  *
- * Sequential mode (PARALLEL_TIERS unset - original behavior):
- * - TIER=1: Run tier1 + existing (fast, critical tests for PRs)
- * - TIER=2: Run tier1 + tier2 + existing
- * - TIER=3 or unset: Run all tiers
+ * CI runs all three tiers in parallel on both PRs and main (see
+ * .github/workflows/test.yml matrix). The TIER var is for local scoping
+ * and for fanning the CI suite across matrix jobs — not for skipping tiers.
  *
- * Parallel mode (PARALLEL_TIERS=true - for CI main branch):
- * - TIER=1: Run tier1 + existing only
- * - TIER=2: Run tier2 only
- * - TIER=3: Run tier3 only
+ * Sequential mode (PARALLEL_TIERS unset — local default, cumulative):
+ * - TIER=1: tier1 + existing
+ * - TIER=2: tier1 + tier2 + existing
+ * - TIER=3 or unset: all tiers
+ *
+ * Parallel mode (PARALLEL_TIERS=true — used by CI matrix, isolated):
+ * - TIER=1: tier1 + existing only
+ * - TIER=2: tier2 only
+ * - TIER=3: tier3 only
  */
 function getSpecs(): string[] {
   const tier = process.env.TIER;

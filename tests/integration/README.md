@@ -6,12 +6,14 @@ Full end-to-end tests for the Tauri application using tauri-driver + WebdriverIO
 
 **Total: 64 tests across 4 tiers**
 
-| Tier | Tests | Purpose | When Run |
-|------|-------|---------|----------|
-| existing | 10 | Original vehicle setup tests | Always |
-| tier1 | 29 | Critical flows: trips, consumption, export | PRs + main |
-| tier2 | 16 | Secondary: backups, receipts, settings, multi-currency | main only |
-| tier3 | 9 | Edge cases: compensation, validation, empty states | main only |
+| Tier | Tests | Purpose |
+|------|-------|---------|
+| existing | 10 | Original vehicle setup tests |
+| tier1 | 29 | Critical flows: trips, consumption, export |
+| tier2 | 16 | Secondary: backups, receipts, settings, multi-currency |
+| tier3 | 9 | Edge cases: compensation, validation, empty states |
+
+> Tier names describe scope, not when they run. CI executes all tiers in parallel on every push to `main` and every PR (see [.github/workflows/test.yml](../../.github/workflows/test.yml)). Tiers exist to let you scope local runs — run [tier1](./specs/tier1/) for a quick check, run the full suite before claiming work done. See [CLAUDE.md](../../CLAUDE.md) → Iteration strategy for the canonical local workflow.
 
 ## Prerequisites
 
@@ -72,8 +74,8 @@ npm run test:integration
 ```
 
 **CI Behavior:**
-- Pull Requests: Run Tier 1 only (fast feedback)
-- Main branch: Run all tiers (comprehensive)
+- All three tiers run in parallel on both PRs and pushes to `main` (matrix in [.github/workflows/test.yml](../../.github/workflows/test.yml)).
+- The `TIER` env var is for *local* scoping — CI sets `TIER` per matrix job to fan out the suite across runners, not to skip tiers.
 
 ## Test Structure
 
