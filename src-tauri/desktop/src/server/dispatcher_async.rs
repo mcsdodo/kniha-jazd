@@ -98,7 +98,7 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let result = crate::commands::export_html_internal(
+            let result = kniha_jazd_core::commands_internal::export_html_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
