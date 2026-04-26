@@ -32,3 +32,7 @@ pub use settings_cmd::*;
 
 pub mod integrations;
 pub use integrations::*;
+
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod tests;
