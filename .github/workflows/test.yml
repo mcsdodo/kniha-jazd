@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debug-binary
-          path: src-tauri/target/debug/kniha-jazd.exe
+          path: src-tauri/target/debug/kniha-jazd-desktop.exe
           retention-days: 1
 
   integration-tests:
@@ -184,7 +184,7 @@ jobs:
 
       - name: Run integration tests (${{ matrix.tier_name }})
         env:
-          TAURI_BINARY: src-tauri/target/debug/kniha-jazd.exe
+          TAURI_BINARY: src-tauri/target/debug/kniha-jazd-desktop.exe
           TIER: ${{ matrix.tier }}
           PARALLEL_TIERS: 'true'
         run: npm run test:integration

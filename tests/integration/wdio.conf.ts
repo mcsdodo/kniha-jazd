@@ -78,11 +78,11 @@ function getBinaryPath(): string {
 
   switch (platform) {
     case 'win32':
-      return join(base, 'kniha-jazd.exe');
+      return join(base, 'kniha-jazd-desktop.exe');
     case 'darwin':
       return join(base, 'bundle/macos/Kniha Jázd.app/Contents/MacOS/Kniha Jázd');
     case 'linux':
-      return join(base, 'kniha-jazd');
+      return join(base, 'kniha-jazd-desktop');
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
