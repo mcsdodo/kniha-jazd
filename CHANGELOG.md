@@ -23,6 +23,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Home Assistant - menej zbytočného logovania** - testovanie HA pripojenia bez nastavenej URL/tokenu sa správa ticho (vráti "neaktívne" namiesto chyby). Ladiace `[HA test]`, `[HA ODO]` a `[HA push]` hlásenia odstránené z produkčného logu.
 
 ### Opravené
+- **Súčet kilometrov v hlavičke** sa zaokrúhľuje na 1 desatinné miesto. Predtým sa zobrazoval s 3 desatinami (napr. „7 283,455 km"), čo v slovenskej lokalizácii vyzeralo ako 7 miliónov km kvôli zámene desatinnej čiarky a oddeľovača tisícov.
+- **Auto-vyplnenie km z pamätaných trás zaokrúhľuje na celé čísla**. Predtým, ak mala uložená trasa zlomkovú vzdialenosť (napr. 266,455 km z dávnej úpravy), nová jazda na rovnakej trase prevzala presný zlomok a zanášala ho do súčtov. Manuálne úpravy môžu byť stále zlomkové.
 - **Server Mode zdieľa jedno spojenie s databázou** so desktopovou aplikáciou — predchádza potenciálnym chybám `SQLITE_BUSY` pri súbežnom prístupe
 - **Server Mode: doplnené 3 chýbajúce príkazy pre nastavenia potvrdení** (receipts) v RPC dispečeri
 - **Export funguje v režime prehliadača** — súbor sa otvorí v novej karte namiesto zlyhania s chybou „Unknown command"
