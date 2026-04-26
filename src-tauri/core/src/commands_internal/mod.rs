@@ -14,3 +14,6 @@ pub use backup::*;
 
 pub mod trips;
 pub use trips::*;
+
+pub mod vehicles;
+pub use vehicles::*;

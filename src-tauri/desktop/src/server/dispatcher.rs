@@ -20,11 +20,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Vehicles (6)
         // ====================================================================
         "get_vehicles" => {
-            let v = crate::commands::get_vehicles_internal(&state.db)?;
+            let v = kniha_jazd_core::commands_internal::get_vehicles_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_active_vehicle" => {
-            let v = crate::commands::get_active_vehicle_internal(&state.db)?;
+            let v = kniha_jazd_core::commands_internal::get_active_vehicle_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "create_vehicle" => {
@@ -44,7 +44,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 driver_name: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::create_vehicle_internal(
+            let v = kniha_jazd_core::commands_internal::create_vehicle_internal(
                 &state.db,
                 &state.app_state,
                 a.name,
@@ -68,7 +68,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle: crate::models::Vehicle,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::update_vehicle_internal(&state.db, &state.app_state, a.vehicle)?;
+            kniha_jazd_core::commands_internal::update_vehicle_internal(&state.db, &state.app_state, a.vehicle)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "delete_vehicle" => {
@@ -78,7 +78,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::delete_vehicle_internal(&state.db, &state.app_state, a.id)?;
+            kniha_jazd_core::commands_internal::delete_vehicle_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "set_active_vehicle" => {
@@ -88,7 +88,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_active_vehicle_internal(&state.db, &state.app_state, a.id)?;
+            kniha_jazd_core::commands_internal::set_active_vehicle_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
 
