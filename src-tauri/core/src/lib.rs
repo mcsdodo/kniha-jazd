@@ -4,4 +4,5 @@
 //! internals (`*_internal` functions). Both kniha-jazd-desktop and
 //! kniha-jazd-web depend on this crate.
 
-// Modules added incrementally as files move from desktop/ → core/
+pub mod models;
+pub mod schema;
