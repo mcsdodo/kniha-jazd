@@ -246,7 +246,7 @@
 				<div class="info-grid stats-grid">
 					<div class="info-item">
 						<span class="label">{$LL.stats.totalDriven()}</span>
-						<span class="value">{stats.totalKm.toLocaleString('sk-SK')} km</span>
+						<span class="value">{stats.totalKm.toLocaleString('sk-SK', { maximumFractionDigits: 1 })} km</span>
 					</div>
 					<div class="info-item">
 						<span class="label">{$LL.stats.fuel()}</span>

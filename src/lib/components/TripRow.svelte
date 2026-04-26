@@ -144,13 +144,19 @@
 			matchingRoute.distanceKm > 0 &&
 			matchingRoute.distanceKm <= 9999
 		) {
-			formData.distanceKm = matchingRoute.distanceKm;
+			// Round auto-filled distance to integer km. Routes can hold fractional
+			// values (legacy data, future imports), but fractional km should only
+			// arise from explicit manual edits — never from auto-fill, which would
+			// otherwise propagate a stale fractional value into every new trip
+			// on that route.
+			const roundedKm = Math.round(matchingRoute.distanceKm);
+			formData.distanceKm = roundedKm;
 			// Also update ODO if not manually edited
 			if (!manualOdoEdit) {
-				formData.odometer = previousOdometer + matchingRoute.distanceKm;
+				formData.odometer = previousOdometer + roundedKm;
 			}
 			// Trigger live preview calculation for consumption/zostatok
-			onPreviewRequest(matchingRoute.distanceKm, formData.fuelLiters, formData.fullTank);
+			onPreviewRequest(roundedKm, formData.fuelLiters, formData.fullTank);
 		}
 	}
 
