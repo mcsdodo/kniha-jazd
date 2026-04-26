@@ -13,6 +13,7 @@ import {
   seedTrip,
   getTripGridData,
   getVehicles,
+  getActiveVehicle,
   invokeTauri,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
@@ -123,9 +124,14 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       const body = await $('body');
       let pageText = await body.getText();
 
-      // Check which vehicle is currently active
-      const isAlphaActive = pageText.includes('Vehicle Alpha');
-      const isBetaActive = pageText.includes('Vehicle Beta');
+      // Determine active vehicle via backend (page text is unreliable: the
+      // <select> dropdown renders both vehicle names regardless of which is
+      // active, and getText() includes <option> children inconsistently
+      // across rendering modes — Tauri/WebView2 hides them, Linux Chrome
+      // does not).
+      const activeVehicle = await getActiveVehicle();
+      const isAlphaActive = activeVehicle?.id === vehicle1.id;
+      const isBetaActive = activeVehicle?.id === vehicle2.id;
 
       // At least one vehicle should be active
       expect(isAlphaActive || isBetaActive).toBe(true);
