@@ -2210,16 +2210,35 @@ dependencies = [
 ]
 
 [[package]]
-name = "kniha-jazd"
+name = "kniha-jazd-core"
 version = "0.33.0"
 dependencies = [
- "axum",
  "base64 0.22.1",
  "chrono",
  "diesel",
  "diesel_migrations",
  "hostname",
  "libsqlite3-sys",
+ "log",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "kniha-jazd-desktop"
+version = "0.33.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "diesel",
+ "hostname",
+ "kniha-jazd-core",
  "local-ip-address",
  "log",
  "open",
@@ -2241,6 +2260,10 @@ dependencies = [
  "url",
  "uuid",
 ]
+
+[[package]]
+name = "kniha-jazd-web"
+version = "0.33.0"
 
 [[package]]
 name = "kuchikiki"
