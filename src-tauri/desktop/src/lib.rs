@@ -11,7 +11,7 @@ pub mod receipts;
 pub use kniha_jazd_core::schema;
 pub mod server;
 pub use kniha_jazd_core::settings;
-pub mod suggestions;
+pub use kniha_jazd_core::suggestions;
 
 use crate::app_state::AppState;
 use crate::constants::{env_vars, paths};

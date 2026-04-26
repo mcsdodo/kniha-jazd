@@ -12,3 +12,4 @@ pub mod db_location;
 pub mod models;
 pub mod schema;
 pub mod settings;
+pub mod suggestions;
