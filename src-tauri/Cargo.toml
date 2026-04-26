@@ -1,57 +1,11 @@
-[package]
-name = "kniha-jazd"
+[workspace]
+members = ["desktop"]
+resolver = "2"
+
+[workspace.package]
 version = "0.33.0"
-description = "Vehicle logbook desktop app for Slovak tax compliance"
-authors = ["mcsdodo"]
-license = "GPL-3.0"
-repository = "https://github.com/mcsdodo/kniha-jazd"
 edition = "2021"
 rust-version = "1.77.2"
-# The crate produces two binaries (kniha-jazd desktop + web standalone).
-# `tauri build` and `cargo run` need to know which one is the default.
-default-run = "kniha-jazd"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[lib]
-name = "app_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
-[[bin]]
-name = "web"
-path = "src/bin/web.rs"
-
-[build-dependencies]
-tauri-build = { version = "2.5.3", features = [] }
-
-[dependencies]
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-log = "0.4"
-tauri = { version = "2.9.5", features = [] }
-tauri-plugin-log = "2"
-tauri-plugin-opener = "2"
-# Diesel ORM for compile-time SQL safety (no r2d2 - connection pooling is YAGNI for single-user desktop app)
-# Using sqlite-bundled for Windows compatibility (doesn't require pre-installed SQLite)
-diesel = { version = "2.2", features = ["sqlite"] }
-libsqlite3-sys = { version = "0.30", features = ["bundled"] }
-diesel_migrations = "2.2"
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1", features = ["v4", "serde"] }
-rand = "0.8"
-thiserror = "1"
-open = "5"
-reqwest = { version = "0.12", features = ["json", "rustls-tls", "blocking"], default-features = false }
-base64 = "0.22"
-tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "net", "signal", "sync"] }
-axum = "0.8"
-tower-http = { version = "0.6", features = ["cors", "fs"] }
-local-ip-address = "0.6"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
-tauri-plugin-dialog = "2"
-hostname = "0.4"
-url = "2"
-
-[dev-dependencies]
-tempfile = "3"
+license = "GPL-3.0"
+repository = "https://github.com/mcsdodo/kniha-jazd"
+authors = ["mcsdodo"]
