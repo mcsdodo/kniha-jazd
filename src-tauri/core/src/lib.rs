@@ -15,5 +15,6 @@ pub mod gemini;
 pub mod models;
 pub mod receipts;
 pub mod schema;
+pub mod server;
 pub mod settings;
 pub mod suggestions;

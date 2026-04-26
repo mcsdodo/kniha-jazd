@@ -20,11 +20,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Vehicles (6)
         // ====================================================================
         "get_vehicles" => {
-            let v = kniha_jazd_core::commands_internal::get_vehicles_internal(&state.db)?;
+            let v = crate::commands_internal::get_vehicles_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_active_vehicle" => {
-            let v = kniha_jazd_core::commands_internal::get_active_vehicle_internal(&state.db)?;
+            let v = crate::commands_internal::get_active_vehicle_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "create_vehicle" => {
@@ -44,7 +44,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 driver_name: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::create_vehicle_internal(
+            let v = crate::commands_internal::create_vehicle_internal(
                 &state.db,
                 &state.app_state,
                 a.name,
@@ -68,7 +68,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle: crate::models::Vehicle,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::update_vehicle_internal(&state.db, &state.app_state, a.vehicle)?;
+            crate::commands_internal::update_vehicle_internal(&state.db, &state.app_state, a.vehicle)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "delete_vehicle" => {
@@ -78,7 +78,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::delete_vehicle_internal(&state.db, &state.app_state, a.id)?;
+            crate::commands_internal::delete_vehicle_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "set_active_vehicle" => {
@@ -88,7 +88,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::set_active_vehicle_internal(&state.db, &state.app_state, a.id)?;
+            crate::commands_internal::set_active_vehicle_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
 
@@ -102,7 +102,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_trips_internal(&state.db, a.vehicle_id)?;
+            let v = crate::commands_internal::get_trips_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_trips_for_year" => {
@@ -114,7 +114,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             }
             let a: Args = parse_args(args)?;
             let v =
-                kniha_jazd_core::commands_internal::get_trips_for_year_internal(&state.db, a.vehicle_id, a.year)?;
+                crate::commands_internal::get_trips_for_year_internal(&state.db, a.vehicle_id, a.year)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_years_with_trips" => {
@@ -124,7 +124,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_years_with_trips_internal(&state.db, a.vehicle_id)?;
+            let v = crate::commands_internal::get_years_with_trips_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "create_trip" => {
@@ -151,7 +151,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 insert_at_position: Option<i32>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::create_trip_internal(
+            let v = crate::commands_internal::create_trip_internal(
                 &state.db,
                 &state.app_state,
                 a.vehicle_id,
@@ -198,7 +198,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 other_costs_note: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::update_trip_internal(
+            let v = crate::commands_internal::update_trip_internal(
                 &state.db,
                 &state.app_state,
                 a.id,
@@ -228,7 +228,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::delete_trip_internal(&state.db, &state.app_state, a.id)?;
+            crate::commands_internal::delete_trip_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "reorder_trip" => {
@@ -239,7 +239,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 new_sort_order: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::reorder_trip_internal(
+            let v = crate::commands_internal::reorder_trip_internal(
                 &state.db,
                 &state.app_state,
                 a.trip_id,
@@ -254,7 +254,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_routes_internal(&state.db, a.vehicle_id)?;
+            let v = crate::commands_internal::get_routes_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_purposes" => {
@@ -264,7 +264,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_purposes_internal(&state.db, a.vehicle_id)?;
+            let v = crate::commands_internal::get_purposes_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_inferred_trip_time_for_route" => {
@@ -277,7 +277,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 row_date: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_inferred_trip_time_for_route_internal(
+            let v = crate::commands_internal::get_inferred_trip_time_for_route_internal(
                 &state.db,
                 a.vehicle_id,
                 a.origin,
@@ -298,7 +298,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::calculate_trip_stats_internal(
+            let v = crate::commands_internal::calculate_trip_stats_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -313,7 +313,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::build_trip_grid_data(&state.db, &a.vehicle_id, a.year)?;
+            let v = crate::commands_internal::build_trip_grid_data(&state.db, &a.vehicle_id, a.year)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "calculate_magic_fill_liters" => {
@@ -326,7 +326,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 editing_trip_id: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::calculate_magic_fill_liters_internal(
+            let v = crate::commands_internal::calculate_magic_fill_liters_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -348,7 +348,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 editing_trip_id: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::preview_trip_calculation_internal(
+            let v = crate::commands_internal::preview_trip_calculation_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -365,7 +365,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Settings (14)
         // ====================================================================
         "get_settings" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_settings_internal(&state.db)?;
+            let v = crate::commands_internal::settings_cmd::get_settings_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "save_settings" => {
@@ -377,7 +377,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 buffer_trip_purpose: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::settings_cmd::save_settings_internal(
+            let v = crate::commands_internal::settings_cmd::save_settings_internal(
                 &state.db,
                 &state.app_state,
                 a.company_name,
@@ -386,13 +386,10 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
-        "get_optimal_window_size" => {
-            // Stays in desktop because it depends on `include_str!("../../tauri.conf.json")`.
-            let v = crate::commands::get_optimal_window_size_internal();
-            Ok(serde_json::to_value(v).unwrap())
-        }
+        // get_optimal_window_size is Tauri-only — HTTP clients (browsers) have no
+        // OS window concept. The desktop wrapper still exists for IPC callers.
         "get_theme_preference" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_theme_preference_internal(&state.app_dir)?;
+            let v = crate::commands_internal::settings_cmd::get_theme_preference_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_theme_preference" => {
@@ -402,11 +399,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 theme: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::settings_cmd::set_theme_preference_internal(&state.app_dir, a.theme)?;
+            crate::commands_internal::settings_cmd::set_theme_preference_internal(&state.app_dir, a.theme)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_auto_check_updates" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_auto_check_updates_internal(&state.app_dir)?;
+            let v = crate::commands_internal::settings_cmd::get_auto_check_updates_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_auto_check_updates" => {
@@ -416,11 +413,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 enabled: bool,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::settings_cmd::set_auto_check_updates_internal(&state.app_dir, a.enabled)?;
+            crate::commands_internal::settings_cmd::set_auto_check_updates_internal(&state.app_dir, a.enabled)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_date_prefill_mode" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_date_prefill_mode_internal(&state.app_dir)?;
+            let v = crate::commands_internal::settings_cmd::get_date_prefill_mode_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_date_prefill_mode" => {
@@ -430,11 +427,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 mode: crate::settings::DatePrefillMode,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::settings_cmd::set_date_prefill_mode_internal(&state.app_dir, a.mode)?;
+            crate::commands_internal::settings_cmd::set_date_prefill_mode_internal(&state.app_dir, a.mode)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_hidden_columns" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_hidden_columns_internal(&state.app_dir)?;
+            let v = crate::commands_internal::settings_cmd::get_hidden_columns_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_hidden_columns" => {
@@ -444,15 +441,15 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 columns: Vec<String>,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::settings_cmd::set_hidden_columns_internal(&state.app_dir, a.columns)?;
+            crate::commands_internal::settings_cmd::set_hidden_columns_internal(&state.app_dir, a.columns)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_db_location" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_db_location_internal(&state.app_state)?;
+            let v = crate::commands_internal::settings_cmd::get_db_location_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_app_mode" => {
-            let v = kniha_jazd_core::commands_internal::settings_cmd::get_app_mode_internal(&state.app_state)?;
+            let v = crate::commands_internal::settings_cmd::get_app_mode_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "check_target_has_db" => {
@@ -462,7 +459,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 target_path: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::settings_cmd::check_target_has_db_internal(a.target_path)?;
+            let v = crate::commands_internal::settings_cmd::check_target_has_db_internal(a.target_path)?;
             Ok(serde_json::to_value(v).unwrap())
         }
 
@@ -476,7 +473,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: Option<i32>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_receipts_internal(
+            let v = crate::commands_internal::receipts_cmd::get_receipts_internal(
                 &state.db, a.year,
             )?;
             Ok(serde_json::to_value(v).unwrap())
@@ -489,7 +486,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: Option<i32>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_receipts_for_vehicle_internal(
+            let v = crate::commands_internal::receipts_cmd::get_receipts_for_vehicle_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -497,7 +494,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_unassigned_receipts" => {
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_unassigned_receipts_internal(&state.db)?;
+            let v = crate::commands_internal::receipts_cmd::get_unassigned_receipts_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "update_receipt" => {
@@ -507,7 +504,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 receipt: crate::models::Receipt,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::receipts_cmd::update_receipt_internal(
+            crate::commands_internal::receipts_cmd::update_receipt_internal(
                 &state.db,
                 &state.app_state,
                 a.receipt,
@@ -521,7 +518,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::receipts_cmd::delete_receipt_internal(
+            crate::commands_internal::receipts_cmd::delete_receipt_internal(
                 &state.db,
                 &state.app_state,
                 a.id,
@@ -535,7 +532,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::receipts_cmd::unassign_receipt_internal(
+            crate::commands_internal::receipts_cmd::unassign_receipt_internal(
                 &state.db,
                 &state.app_state,
                 a.id,
@@ -549,7 +546,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::receipts_cmd::revert_receipt_override_internal(
+            crate::commands_internal::receipts_cmd::revert_receipt_override_internal(
                 &state.db,
                 &state.app_state,
                 a.id,
@@ -567,7 +564,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 mismatch_override: bool,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::assign_receipt_to_trip_internal(
+            let v = crate::commands_internal::receipts_cmd::assign_receipt_to_trip_internal(
                 &state.db,
                 &a.receipt_id,
                 &a.trip_id,
@@ -586,7 +583,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_trips_for_receipt_assignment_internal(
+            let v = crate::commands_internal::receipts_cmd::get_trips_for_receipt_assignment_internal(
                 &state.db,
                 &a.receipt_id,
                 &a.vehicle_id,
@@ -602,7 +599,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::verify_receipts_internal(
+            let v = crate::commands_internal::receipts_cmd::verify_receipts_internal(
                 &state.db,
                 &a.vehicle_id,
                 a.year,
@@ -610,7 +607,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_receipt_settings" => {
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_receipt_settings_internal(&state.app_dir)?;
+            let v = crate::commands_internal::receipts_cmd::get_receipt_settings_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_gemini_api_key" => {
@@ -620,7 +617,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 api_key: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::receipts_cmd::set_gemini_api_key_internal(
+            crate::commands_internal::receipts_cmd::set_gemini_api_key_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.api_key,
@@ -634,7 +631,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 path: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::receipts_cmd::set_receipts_folder_path_internal(
+            crate::commands_internal::receipts_cmd::set_receipts_folder_path_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.path,
@@ -642,7 +639,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(()).unwrap())
         }
         "scan_receipts" => {
-            let v = kniha_jazd_core::commands_internal::receipts_cmd::scan_receipts_internal(
+            let v = crate::commands_internal::receipts_cmd::scan_receipts_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
@@ -654,7 +651,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Backup (10)
         // ====================================================================
         "create_backup" => {
-            let v = kniha_jazd_core::commands_internal::create_backup_internal(
+            let v = crate::commands_internal::create_backup_internal(
                 &state.app_dir,
                 &state.db,
                 &state.app_state,
@@ -669,7 +666,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 update_version: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::create_backup_with_type_internal(
+            let v = crate::commands_internal::create_backup_with_type_internal(
                 &state.app_dir,
                 &state.db,
                 &state.app_state,
@@ -685,7 +682,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 keep_count: u32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_cleanup_preview_internal(
+            let v = crate::commands_internal::get_cleanup_preview_internal(
                 &state.app_dir,
                 a.keep_count,
             )?;
@@ -698,14 +695,14 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 keep_count: u32,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::cleanup_pre_update_backups_internal(
+            let v = crate::commands_internal::cleanup_pre_update_backups_internal(
                 &state.app_dir,
                 a.keep_count,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_backup_retention" => {
-            let v = kniha_jazd_core::commands_internal::get_backup_retention_internal(&state.app_dir)?;
+            let v = crate::commands_internal::get_backup_retention_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_backup_retention" => {
@@ -715,7 +712,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 retention: crate::settings::BackupRetention,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::set_backup_retention_internal(
+            crate::commands_internal::set_backup_retention_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.retention,
@@ -723,7 +720,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(()).unwrap())
         }
         "list_backups" => {
-            let v = kniha_jazd_core::commands_internal::list_backups_internal(&state.app_dir)?;
+            let v = crate::commands_internal::list_backups_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_backup_info" => {
@@ -734,7 +731,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             }
             let a: Args = parse_args(args)?;
             let v =
-                kniha_jazd_core::commands_internal::get_backup_info_internal(&state.app_dir, a.filename)?;
+                crate::commands_internal::get_backup_info_internal(&state.app_dir, a.filename)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "delete_backup" => {
@@ -744,7 +741,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 filename: String,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::delete_backup_internal(
+            crate::commands_internal::delete_backup_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.filename,
@@ -758,7 +755,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 filename: String,
             }
             let a: Args = parse_args(args)?;
-            let v = kniha_jazd_core::commands_internal::get_backup_path_internal(&state.app_dir, a.filename)?;
+            let v = crate::commands_internal::get_backup_path_internal(&state.app_dir, a.filename)?;
             Ok(serde_json::to_value(v).unwrap())
         }
 
@@ -766,11 +763,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Integrations — sync only (3)
         // ====================================================================
         "get_ha_settings" => {
-            let v = kniha_jazd_core::commands_internal::integrations::get_ha_settings_internal(&state.app_dir)?;
+            let v = crate::commands_internal::integrations::get_ha_settings_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_local_settings_for_ha" => {
-            let v = kniha_jazd_core::commands_internal::integrations::get_local_settings_for_ha_internal(&state.app_dir)?;
+            let v = crate::commands_internal::integrations::get_local_settings_for_ha_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "save_ha_settings" => {
@@ -781,7 +778,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 token: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            kniha_jazd_core::commands_internal::integrations::save_ha_settings_internal(
+            crate::commands_internal::integrations::save_ha_settings_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.url,

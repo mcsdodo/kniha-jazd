@@ -24,7 +24,7 @@ pub async fn dispatch_async(
         // Receipts — async (3)
         // ====================================================================
         "sync_receipts" => {
-            let result = kniha_jazd_core::commands_internal::receipts_cmd::sync_receipts_internal(
+            let result = crate::commands_internal::receipts_cmd::sync_receipts_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
@@ -34,7 +34,7 @@ pub async fn dispatch_async(
         }
         "process_pending_receipts" => {
             let result =
-                kniha_jazd_core::commands_internal::receipts_cmd::process_pending_receipts_internal(
+                crate::commands_internal::receipts_cmd::process_pending_receipts_internal(
                     &state.db,
                     &state.app_dir,
                 )
@@ -51,7 +51,7 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let result = kniha_jazd_core::commands_internal::receipts_cmd::reprocess_receipt_internal(
+            let result = crate::commands_internal::receipts_cmd::reprocess_receipt_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
@@ -66,7 +66,7 @@ pub async fn dispatch_async(
         // ====================================================================
         "test_ha_connection" => {
             let result =
-                kniha_jazd_core::commands_internal::integrations::test_ha_connection_internal(&state.app_dir).await;
+                crate::commands_internal::integrations::test_ha_connection_internal(&state.app_dir).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "fetch_ha_odo" => {
@@ -80,7 +80,7 @@ pub async fn dispatch_async(
                 Err(e) => return Some(Err(e)),
             };
             let result =
-                kniha_jazd_core::commands_internal::integrations::fetch_ha_odo_internal(&state.app_dir, a.sensor_id).await;
+                crate::commands_internal::integrations::fetch_ha_odo_internal(&state.app_dir, a.sensor_id).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 
@@ -99,7 +99,7 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let result = kniha_jazd_core::commands_internal::export_html_internal(
+            let result = crate::commands_internal::export_html_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,

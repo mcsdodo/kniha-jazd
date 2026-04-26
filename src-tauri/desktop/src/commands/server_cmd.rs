@@ -21,7 +21,7 @@ pub async fn start_server(
     port: u16,
 ) -> Result<ServerStatus, String> {
     let app_dir = get_app_data_dir(&app)?;
-    let static_dir = crate::server::resolve_static_dir_from_handle(&app);
+    let static_dir = crate::static_dir::resolve_static_dir_from_handle(&app);
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
 
