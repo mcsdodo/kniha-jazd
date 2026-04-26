@@ -247,6 +247,132 @@ jobs:
           path: tests/integration/screenshots/
           if-no-files-found: ignore
 
+  # Docker image build — runs once, then all tier matrix jobs reuse the image artifact.
+  # Independent of integration-build (Tauri-Windows): the Docker image builds its own
+  # release `web` binary in-stage and runs on Linux.
+  integration-build-docker:
+    name: Docker Image Build
+    needs: check-changes
+    if: needs.check-changes.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.web
+          tags: kniha-jazd-web:test
+          outputs: type=docker,dest=/tmp/kniha-jazd-web.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/kniha-jazd-web.tar
+          retention-days: 1
+
+  # Docker integration tests (Chrome against containerized web binary)
+  # Mirrors the Tauri integration-tests matrix: one job per tier, in parallel.
+  integration-test-docker:
+    name: Integration Tests (Docker/Chrome - ${{ matrix.tier_name }})
+    needs: [check-changes, integration-build-docker]
+    if: needs.check-changes.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tier: '1'
+            tier_name: 'Tier 1'
+          - tier: '2'
+            tier_name: 'Tier 2'
+          - tier: '3'
+            tier_name: 'Tier 3'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load -i /tmp/kniha-jazd-web.tar
+
+      - name: Start container
+        run: |
+          mkdir -p data
+          docker run -d --name kniha-jazd-web \
+            -p 3456:3456 \
+            -v "$PWD/data:/data" \
+            -e KNIHA_JAZD_DATA_DIR=/data \
+            -e DATABASE_PATH=/data/kniha-jazd.db \
+            -e PORT=3456 \
+            kniha-jazd-web:test
+
+      - name: Wait for server health
+        run: |
+          for i in {1..60}; do
+            if curl -sf http://localhost:3456/health >/dev/null; then
+              echo "Server is healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Server did not become healthy within 60s"
+          docker logs kniha-jazd-web
+          exit 1
+
+      - name: Run Docker integration tests (${{ matrix.tier_name }})
+        env:
+          TIER: ${{ matrix.tier }}
+          WDIO_SERVER_MODE: '1'
+          WDIO_EXTERNAL_SERVER: '1'
+          PARALLEL_TIERS: 'true'
+        run: npm run test:integration:docker
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs kniha-jazd-web || true
+
+      - name: Tear down container
+        if: always()
+        run: docker rm -f kniha-jazd-web || true
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots-docker-${{ matrix.tier_name }}
+          path: tests/integration/screenshots/
+          if-no-files-found: ignore
+
   # Playwright smoke tests - disabled in CI
   # These tests need a running Vite dev server which requires complex setup.
   # Run locally with: npm run test:e2e
