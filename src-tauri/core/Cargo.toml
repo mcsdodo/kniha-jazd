@@ -1,0 +1,19 @@
+[package]
+name = "kniha-jazd-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Vehicle logbook core library — DB, calculations, command internals"
+
+[lib]
+name = "kniha_jazd_core"
+path = "src/lib.rs"
+
+[dependencies]
+# Populated incrementally as modules move (Tasks 4-13).
+
+[dev-dependencies]
+tempfile = "3"
