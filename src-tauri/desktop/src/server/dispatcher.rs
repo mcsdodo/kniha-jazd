@@ -298,7 +298,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::calculate_trip_stats_internal(
+            let v = kniha_jazd_core::commands_internal::calculate_trip_stats_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -313,7 +313,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::build_trip_grid_data(&state.db, &a.vehicle_id, a.year)?;
+            let v = kniha_jazd_core::commands_internal::build_trip_grid_data(&state.db, &a.vehicle_id, a.year)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "calculate_magic_fill_liters" => {
@@ -326,7 +326,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 editing_trip_id: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::calculate_magic_fill_liters_internal(
+            let v = kniha_jazd_core::commands_internal::calculate_magic_fill_liters_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -348,7 +348,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 editing_trip_id: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::preview_trip_calculation_internal(
+            let v = kniha_jazd_core::commands_internal::preview_trip_calculation_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
