@@ -3,7 +3,7 @@ pub use kniha_jazd_core::calculations;
 pub mod commands;
 pub use kniha_jazd_core::constants;
 pub use kniha_jazd_core::db;
-pub mod db_location;
+pub use kniha_jazd_core::db_location;
 pub mod export;
 pub mod gemini;
 pub use kniha_jazd_core::models;
