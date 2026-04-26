@@ -107,7 +107,11 @@ jobs:
 
       - name: Run backend tests
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --workspace
+
+      - name: Verify web binary builds without Tauri
+        working-directory: src-tauri
+        run: cargo build --release -p kniha-jazd-web
 
   # Integration tests - build once, then run tiers in parallel (skip if already passed)
   integration-build:
@@ -138,7 +142,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app (debug)
-        run: npm run tauri build -- --debug --config src-tauri/tauri.conf.dev.json
+        run: npm run tauri build -- --debug --config src-tauri/desktop/tauri.conf.dev.json
 
       - name: Upload debug binary
         uses: actions/upload-artifact@v4
@@ -293,7 +297,7 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+          VERSION=$(jq -r '.version' src-tauri/desktop/tauri.conf.json)
           NOTES=$(awk -v ver="$VERSION" '
             /^## \[/ { if (p) exit; if ($0 ~ "\\[" ver "\\]") p=1; next }
             p && /^### / { print $0; next }
