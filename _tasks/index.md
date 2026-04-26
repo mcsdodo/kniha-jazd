@@ -2,7 +2,7 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-24 (Task 55 Server Mode complete)
+**Last updated:** 2026-04-26 (Task 33 Web Deployment complete)
 
 ## Active Tasks
 
@@ -11,13 +11,13 @@ Quick overview of all tasks and their status.
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
-| 33 | [Web Deployment](33-web-deployment/) | 📋 Planning | Web version feasibility |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |
 
 ## Completed Tasks
 
 | # | Task | Completed |
 |---|------|-----------|
+| 33 | [Web Deployment](_done/33-web-deployment/) | 2026-04-26 |
 | 55 | [Server Mode](_done/55-server-mode/) | 2026-04-25 |
 | 56 | Smart Trip Defaults | 2026-04-16 |
 | 54 | Fix Odometer Recalculation Bugs | 2026-03-04 |
