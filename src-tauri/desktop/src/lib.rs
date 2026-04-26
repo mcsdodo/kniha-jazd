@@ -152,7 +152,7 @@ pub fn run() {
                     if let Some(retention) = settings.backup_retention {
                         if retention.enabled && retention.keep_count > 0 {
                             // Run cleanup silently
-                            if let Err(e) = commands::cleanup_pre_update_backups_internal(
+                            if let Err(e) = kniha_jazd_core::commands_internal::cleanup_pre_update_backups_internal(
                                 &cleanup_app_dir,
                                 retention.keep_count,
                             ) {
