@@ -34,6 +34,7 @@ kniha_jazd.xlsx
 # Generated databases
 scripts/*.db
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 scripts/compare_import.py
 scripts/import_excel.py
 
