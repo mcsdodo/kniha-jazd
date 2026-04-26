@@ -66,7 +66,7 @@ pub async fn dispatch_async(
         // ====================================================================
         "test_ha_connection" => {
             let result =
-                crate::commands::test_ha_connection_internal(&state.app_dir).await;
+                kniha_jazd_core::commands_internal::integrations::test_ha_connection_internal(&state.app_dir).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "fetch_ha_odo" => {
@@ -80,7 +80,7 @@ pub async fn dispatch_async(
                 Err(e) => return Some(Err(e)),
             };
             let result =
-                crate::commands::fetch_ha_odo_internal(&state.app_dir, a.sensor_id).await;
+                kniha_jazd_core::commands_internal::integrations::fetch_ha_odo_internal(&state.app_dir, a.sensor_id).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 

@@ -1,33 +1,31 @@
-//! Settings Commands
+//! Settings Tauri command wrappers.
 //!
-//! Commands for managing application settings, preferences, and configuration.
+//! All `_internal` implementations live in
+//! [`kniha_jazd_core::commands_internal::settings_cmd`]. The `move_database`
+//! and `reset_database_location` commands stay here entirely because they
+//! depend on `tauri::AppHandle` (no `_internal` versions).
 
-use serde::Serialize;
-use std::path::{Path, PathBuf};
+pub use kniha_jazd_core::commands_internal::settings_cmd::*;
+
+use kniha_jazd_core::app_state::AppState;
+use kniha_jazd_core::commands_internal::settings_cmd as inner;
+use kniha_jazd_core::db::Database;
+use kniha_jazd_core::db_location::DbPaths;
+use kniha_jazd_core::models::Settings;
+use kniha_jazd_core::settings::{DatePrefillMode, LocalSettings};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, State};
-use uuid::Uuid;
 
-use crate::check_read_only;
-use crate::db::Database;
-use crate::db_location::DbPaths;
-use crate::models::{Settings, Theme};
-use crate::settings::{DatePrefillMode, LocalSettings};
-use chrono::Utc;
-
-use super::AppState;
+use super::get_app_data_dir;
 
 // ============================================================================
-// Database Settings Commands
+// Database Settings
 // ============================================================================
 
 #[tauri::command]
 pub fn get_settings(db: State<Arc<Database>>) -> Result<Option<Settings>, String> {
-    get_settings_internal(&db)
-}
-
-pub fn get_settings_internal(db: &Database) -> Result<Option<Settings>, String> {
-    db.get_settings().map_err(|e| e.to_string())
+    inner::get_settings_internal(&db)
 }
 
 #[tauri::command]
@@ -38,307 +36,110 @@ pub fn save_settings(
     company_ico: String,
     buffer_trip_purpose: String,
 ) -> Result<Settings, String> {
-    save_settings_internal(&db, &app_state, company_name, company_ico, buffer_trip_purpose)
-}
-
-pub fn save_settings_internal(
-    db: &Database,
-    app_state: &AppState,
-    company_name: String,
-    company_ico: String,
-    buffer_trip_purpose: String,
-) -> Result<Settings, String> {
-    check_read_only!(app_state);
-    let settings = Settings {
-        id: Uuid::new_v4(),
-        company_name,
-        company_ico,
-        buffer_trip_purpose,
-        updated_at: Utc::now(),
-    };
-
-    db.save_settings(&settings).map_err(|e| e.to_string())?;
-    Ok(settings)
+    inner::save_settings_internal(&db, &app_state, company_name, company_ico, buffer_trip_purpose)
 }
 
 // ============================================================================
-// Window Commands
+// Window Size
 // ============================================================================
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WindowSize {
-    pub width: u32,
-    pub height: u32,
-}
-
-/// Returns the optimal window size from tauri.conf.json (embedded at compile time)
+/// Returns the optimal window size from tauri.conf.json (embedded at compile time).
+///
+/// This wrapper calls `parse_optimal_window_size` with the embedded config string;
+/// the parser itself lives in core. The `include_str!` macro keeps the path
+/// relative to *this* source file, so the read must happen in desktop.
 #[tauri::command]
 pub fn get_optimal_window_size() -> WindowSize {
     get_optimal_window_size_internal()
 }
 
+/// Desktop-side helper kept here so the dispatcher can still call it via
+/// `crate::commands::get_optimal_window_size_internal()`.
 pub fn get_optimal_window_size_internal() -> WindowSize {
-    // Parse tauri.conf.json at compile time
-    let config_str = include_str!("../../tauri.conf.json");
-
-    // Simple parsing - find width and height values
-    let width = config_str
-        .find("\"width\":")
-        .and_then(|i| {
-            let rest = &config_str[i + 8..];
-            let end = rest.find(',')?;
-            rest[..end].trim().parse().ok()
-        })
-        .unwrap_or(1980);
-
-    let height = config_str
-        .find("\"height\":")
-        .and_then(|i| {
-            let rest = &config_str[i + 9..];
-            let end = rest.find(',')?;
-            rest[..end].trim().parse().ok()
-        })
-        .unwrap_or(1080);
-
-    WindowSize { width, height }
+    inner::parse_optimal_window_size(include_str!("../../tauri.conf.json"))
 }
 
 // ============================================================================
-// Theme Commands
+// Theme
 // ============================================================================
 
 #[tauri::command]
 pub fn get_theme_preference(app: tauri::AppHandle) -> Result<String, String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    get_theme_preference_internal(&app_dir)
-}
-
-pub fn get_theme_preference_internal(app_dir: &Path) -> Result<String, String> {
-    let settings = LocalSettings::load(app_dir);
-    Ok(settings
-        .theme
-        .unwrap_or_else(|| Theme::System.as_str().to_string()))
+    let app_dir = get_app_data_dir(&app)?;
+    inner::get_theme_preference_internal(&app_dir)
 }
 
 #[tauri::command]
 pub fn set_theme_preference(app: tauri::AppHandle, theme: String) -> Result<(), String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    set_theme_preference_internal(&app_dir, theme)
-}
-
-pub fn set_theme_preference_internal(app_dir: &Path, theme: String) -> Result<(), String> {
-    // Validate using Theme enum
-    if Theme::from_str(&theme).is_none() {
-        return Err(format!(
-            "Invalid theme: {}. Must be {}, {}, or {}",
-            theme,
-            Theme::System.as_str(),
-            Theme::Light.as_str(),
-            Theme::Dark.as_str()
-        ));
-    }
-
-    let mut settings = LocalSettings::load(app_dir);
-    settings.theme = Some(theme);
-
-    // Save to file
-    let settings_path = app_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
-
-    Ok(())
+    let app_dir = get_app_data_dir(&app)?;
+    inner::set_theme_preference_internal(&app_dir, theme)
 }
 
 // ============================================================================
-// Auto-Update Settings Commands
+// Auto-Update Settings
 // ============================================================================
 
 #[tauri::command]
 pub fn get_auto_check_updates(app: tauri::AppHandle) -> Result<bool, String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    get_auto_check_updates_internal(&app_dir)
-}
-
-pub fn get_auto_check_updates_internal(app_dir: &Path) -> Result<bool, String> {
-    let settings = LocalSettings::load(app_dir);
-    // Default to true if not set
-    Ok(settings.auto_check_updates.unwrap_or(true))
+    let app_dir = get_app_data_dir(&app)?;
+    inner::get_auto_check_updates_internal(&app_dir)
 }
 
 #[tauri::command]
 pub fn set_auto_check_updates(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    set_auto_check_updates_internal(&app_dir, enabled)
-}
-
-pub fn set_auto_check_updates_internal(app_dir: &Path, enabled: bool) -> Result<(), String> {
-    let mut settings = LocalSettings::load(app_dir);
-    settings.auto_check_updates = Some(enabled);
-
-    // Save to file
-    let settings_path = app_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
-
-    Ok(())
+    let app_dir = get_app_data_dir(&app)?;
+    inner::set_auto_check_updates_internal(&app_dir, enabled)
 }
 
 // ============================================================================
-// Date Prefill Mode Commands
+// Date Prefill Mode
 // ============================================================================
 
 #[tauri::command]
 pub fn get_date_prefill_mode(app: tauri::AppHandle) -> Result<DatePrefillMode, String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    get_date_prefill_mode_internal(&app_dir)
-}
-
-pub fn get_date_prefill_mode_internal(app_dir: &Path) -> Result<DatePrefillMode, String> {
-    let settings = LocalSettings::load(app_dir);
-    // Default to Previous if not set
-    Ok(settings.date_prefill_mode.unwrap_or_default())
+    let app_dir = get_app_data_dir(&app)?;
+    inner::get_date_prefill_mode_internal(&app_dir)
 }
 
 #[tauri::command]
 pub fn set_date_prefill_mode(app: tauri::AppHandle, mode: DatePrefillMode) -> Result<(), String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    set_date_prefill_mode_internal(&app_dir, mode)
-}
-
-pub fn set_date_prefill_mode_internal(app_dir: &Path, mode: DatePrefillMode) -> Result<(), String> {
-    let mut settings = LocalSettings::load(app_dir);
-    settings.date_prefill_mode = Some(mode);
-
-    // Save to file
-    let settings_path = app_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
-
-    Ok(())
+    let app_dir = get_app_data_dir(&app)?;
+    inner::set_date_prefill_mode_internal(&app_dir, mode)
 }
 
 // ============================================================================
-// Hidden Columns Commands
+// Hidden Columns
 // ============================================================================
 
 #[tauri::command]
 pub fn get_hidden_columns(app: tauri::AppHandle) -> Result<Vec<String>, String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    get_hidden_columns_internal(&app_dir)
-}
-
-pub fn get_hidden_columns_internal(app_dir: &Path) -> Result<Vec<String>, String> {
-    let settings = LocalSettings::load(app_dir);
-    // Default to empty array (all columns visible) if not set
-    Ok(settings.hidden_columns.unwrap_or_default())
+    let app_dir = get_app_data_dir(&app)?;
+    inner::get_hidden_columns_internal(&app_dir)
 }
 
 #[tauri::command]
 pub fn set_hidden_columns(app: tauri::AppHandle, columns: Vec<String>) -> Result<(), String> {
-    let app_dir = super::get_app_data_dir(&app)?;
-    set_hidden_columns_internal(&app_dir, columns)
-}
-
-pub fn set_hidden_columns_internal(app_dir: &Path, columns: Vec<String>) -> Result<(), String> {
-    let mut settings = LocalSettings::load(app_dir);
-    settings.hidden_columns = Some(columns);
-    settings.save(app_dir).map_err(|e| e.to_string())
+    let app_dir = get_app_data_dir(&app)?;
+    inner::set_hidden_columns_internal(&app_dir, columns)
 }
 
 // ============================================================================
-// Database Location Commands
+// Database Location
 // ============================================================================
-
-/// Information about the current database location.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DbLocationInfo {
-    /// Full path to the database file
-    pub db_path: String,
-    /// Whether using a custom (non-default) database path
-    pub is_custom_path: bool,
-    /// Path to the backups directory
-    pub backups_path: String,
-}
-
-/// Information about the current application mode.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppModeInfo {
-    /// Current mode: "Normal" or "ReadOnly"
-    pub mode: String,
-    /// Whether the app is in read-only mode
-    pub is_read_only: bool,
-    /// Reason for read-only mode (if applicable)
-    pub read_only_reason: Option<String>,
-}
 
 #[tauri::command]
 pub fn get_db_location(app_state: State<Arc<AppState>>) -> Result<DbLocationInfo, String> {
-    get_db_location_internal(&app_state)
-}
-
-pub fn get_db_location_internal(app_state: &AppState) -> Result<DbLocationInfo, String> {
-    let db_path = app_state
-        .get_db_path()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| "unknown".to_string());
-
-    let is_custom = app_state.is_custom_path();
-
-    // Derive backups path from db path
-    let backups_path = app_state
-        .get_db_path()
-        .map(|p| {
-            p.parent()
-                .map(|parent| parent.join("backups").to_string_lossy().to_string())
-                .unwrap_or_else(|| "unknown".to_string())
-        })
-        .unwrap_or_else(|| "unknown".to_string());
-
-    Ok(DbLocationInfo {
-        db_path,
-        is_custom_path: is_custom,
-        backups_path,
-    })
+    inner::get_db_location_internal(&app_state)
 }
 
 #[tauri::command]
 pub fn get_app_mode(app_state: State<Arc<AppState>>) -> Result<AppModeInfo, String> {
-    get_app_mode_internal(&app_state)
+    inner::get_app_mode_internal(&app_state)
 }
 
-pub fn get_app_mode_internal(app_state: &AppState) -> Result<AppModeInfo, String> {
-    let mode = app_state.get_mode();
-    let is_read_only = app_state.is_read_only();
-    let read_only_reason = app_state.get_read_only_reason();
-
-    Ok(AppModeInfo {
-        mode: format!("{:?}", mode),
-        is_read_only,
-        read_only_reason,
-    })
-}
-
-/// Check if a target directory already contains a database.
 #[tauri::command]
 pub fn check_target_has_db(target_path: String) -> Result<bool, String> {
-    check_target_has_db_internal(target_path)
-}
-
-pub fn check_target_has_db_internal(target_path: String) -> Result<bool, String> {
-    let db_file = PathBuf::from(&target_path).join("kniha-jazd.db");
-    Ok(db_file.exists())
-}
-
-/// Result of a database move operation.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MoveDbResult {
-    pub success: bool,
-    pub new_path: String,
-    pub files_moved: usize,
+    inner::check_target_has_db_internal(target_path)
 }
 
 /// Move the database to a new location (e.g., Google Drive, NAS).
@@ -355,7 +156,8 @@ pub fn move_database(
     app_state: State<Arc<AppState>>,
     target_folder: String,
 ) -> Result<MoveDbResult, String> {
-    use crate::db_location::{acquire_lock, release_lock};
+    use kniha_jazd_core::check_read_only;
+    use kniha_jazd_core::db_location::{acquire_lock, release_lock};
 
     check_read_only!(app_state);
 
@@ -443,7 +245,8 @@ pub fn reset_database_location(
     app_handle: tauri::AppHandle,
     app_state: State<Arc<AppState>>,
 ) -> Result<MoveDbResult, String> {
-    use crate::db_location::{acquire_lock, release_lock};
+    use kniha_jazd_core::check_read_only;
+    use kniha_jazd_core::db_location::{acquire_lock, release_lock};
 
     check_read_only!(app_state);
 
