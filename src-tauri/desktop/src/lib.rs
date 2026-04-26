@@ -2,7 +2,7 @@ pub mod app_state;
 pub mod calculations;
 pub mod commands;
 pub mod constants;
-pub mod db;
+pub use kniha_jazd_core::db;
 pub mod db_location;
 pub mod export;
 pub mod gemini;
