@@ -4,7 +4,7 @@
 **Priority:** Medium
 **Effort:** High (1-3d)
 **Component:** [Cargo.toml](../../src-tauri/Cargo.toml), [lib.rs](../../src-tauri/src/lib.rs), [commands/](../../src-tauri/src/commands/), [server/mod.rs](../../src-tauri/src/server/mod.rs)
-**Status:** Open
+**Status:** Fixed
 
 ## Problem
 
@@ -80,3 +80,4 @@ Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP 
 | 2026-04-25 | Created during Task 33 | Discovered when slim Debian runtime image couldn't load `libgdk-3.so.0` |
 | 2026-04-25 | Workaround: install runtime GTK libs | Unblocks Task 33 deployment in ~5 min vs days of refactoring |
 | 2026-04-26 | Picked workspace-split alternative over in-place feature gating | Same calendar cost (~3d) but self-enforcing crate boundary; no `#[cfg(feature = "desktop")]` discipline burden on future contributors. Tracked in [Task 58](../58-tauri-workspace-split/). |
+| 2026-04-26 | Fixed via workspace split (Task 58) | Restructured [src-tauri/](../../src-tauri/) into [core/](../../src-tauri/core/) + [desktop/](../../src-tauri/desktop/) + [web/](../../src-tauri/web/) crates. Web binary's dep graph (verified via `cargo tree -p kniha-jazd-web \| grep tauri`) contains zero Tauri packages. [Dockerfile.web](../../Dockerfile.web) drops the GTK/WebKit runtime libs. All 280 backend tests preserved. See [_tasks/58-tauri-workspace-split/](../58-tauri-workspace-split/). |

@@ -18,6 +18,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Korektné ukončenie pri Docker stop / systemd stop** - server reaguje na SIGINT aj SIGTERM bez 10-sekundového čakania pred vynúteným ukončením.
 
 ### Zmenené
+- **Docker image (`kniha-jazd-web`) zmenšený z ~300 MB na ~80 MB** rozdelením `src-tauri/` na Cargo workspace s tromi crate-mi (`kniha-jazd-core`, `kniha-jazd-desktop`, `kniha-jazd-web`). Headless web binárka už neviaže Tauri/GTK runtime knižnice. Užívateľsky viditeľné výhody: rýchlejší pull a štart Docker kontajnera, menšia spotreba pamäte na serveri/NASe. Žiadne zmeny v správaní desktopovej aplikácie.
 - **Mazanie vozidla zmaže aj pamätané trasy** - pri vymazaní vozidla sa teraz odstránia aj jeho položky v tabuľke autocomplete trás. Predtým mazanie zlyhávalo s chybou „FOREIGN KEY constraint failed", ak vozidlo malo aspoň jednu uloženú trasu. Doklady (receipts) priradené vozidlu sa správajú ako predtým — ich vehicle_id sa nastaví na NULL, samotný doklad zostáva v databáze.
 - **Home Assistant - menej zbytočného logovania** - testovanie HA pripojenia bez nastavenej URL/tokenu sa správa ticho (vráti "neaktívne" namiesto chyby). Ladiace `[HA test]`, `[HA ODO]` a `[HA push]` hlásenia odstránené z produkčného logu.
 

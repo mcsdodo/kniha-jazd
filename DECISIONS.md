@@ -4,6 +4,31 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-04-26: Cargo Workspace Split for Tauri/Web Boundary
+
+### ADR-018: Workspace Members Over Feature Flags
+
+**Context:** The headless [`web` binary](./src-tauri/web/src/main.rs) lived in the same crate as the Tauri desktop app, so Cargo linked the entire transitive Tauri/GTK/WebKit dependency graph into the binary even though it never called any Tauri API. The Docker runtime image therefore had to ship ~150 MB of GUI runtime libraries that were never used. Two solutions were on the table: (a) feature-gate `tauri` behind a `desktop` Cargo feature (`#[cfg(feature = "desktop")]` on every wrapper), or (b) split [`src-tauri/`](./src-tauri/) into a workspace with separate crates ([`core/`](./src-tauri/core/), [`desktop/`](./src-tauri/desktop/), [`web/`](./src-tauri/web/)).
+
+**Decision:** Workspace split (option b). [`kniha-jazd-core`](./src-tauri/core/Cargo.toml) is a pure library with no Tauri deps; [`kniha-jazd-desktop`](./src-tauri/desktop/Cargo.toml) holds the Tauri shell + thin `#[tauri::command]` wrappers; [`kniha-jazd-web`](./src-tauri/web/Cargo.toml) depends only on core. Boundary enforced by Cargo's per-crate dep graph, not by `#[cfg]` discipline.
+
+**Reasoning:**
+- The `wrapper → _internal` pattern from [Task 55 Server Mode](./_tasks/_done/55-server-mode/) was already screaming for a crate boundary — every `_internal` function was framework-free, every wrapper was Tauri-only.
+- Workspace split is **self-enforcing**: a future contributor cannot accidentally couple core code to Tauri because the dep does not exist in [`core/Cargo.toml`](./src-tauri/core/Cargo.toml). With feature flags, that discipline lives in `#[cfg(feature = "desktop")]` annotations on ~74 wrapper functions — easy to forget, easy to break.
+- Calendar cost was roughly equal (~3 days for either option).
+- Side benefit: two binaries that need separate version metadata, separate publishing cadence, and separate CI build steps line up naturally with two crate manifests.
+
+**Trade-offs accepted:**
+- Three Cargo manifests instead of one — slightly more boilerplate when adding new deps (decide which crate gets it).
+- Desktop wrappers became thin delegators — extra layer of indirection for any `#[tauri::command]`.
+- Migration was mechanical but touched ~30 files in 27 commits.
+
+**Result:** Web binary's dep graph (`cargo tree -p kniha-jazd-web`) contains zero Tauri packages. [Dockerfile.web](./Dockerfile.web) drops GTK/WebKit runtime libs (~150 MB savings, image goes from ~300 MB to ~80 MB target). All 280 backend tests preserved across the move.
+
+**Related:** [Task 58](./_tasks/58-tauri-workspace-split/) (implementation), [Tech Debt #06](./_tasks/_TECH_DEBT/06-tauri-feature-gating.md) (origin).
+
+---
+
 ## 2026-04-23: Server Mode Architecture
 
 ### ADR-017: LAN-Only CORS Without Authentication
