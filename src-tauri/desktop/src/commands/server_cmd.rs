@@ -1,9 +1,9 @@
-use crate::app_state::AppState;
+use kniha_jazd_core::app_state::AppState;
 use crate::commands::get_app_data_dir;
-use crate::db::Database;
-use crate::server::manager::{ServerManager, ServerStatus};
-use crate::server::HttpServer;
-use crate::settings::LocalSettings;
+use kniha_jazd_core::db::Database;
+use kniha_jazd_core::server::manager::{ServerManager, ServerStatus};
+use kniha_jazd_core::server::HttpServer;
+use kniha_jazd_core::settings::LocalSettings;
 use std::sync::Arc;
 use tauri::State;
 
