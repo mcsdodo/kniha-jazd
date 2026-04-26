@@ -6,6 +6,7 @@
 
 pub mod app_state;
 pub mod calculations;
+pub mod commands_internal;
 pub mod constants;
 pub mod db;
 pub mod db_location;
