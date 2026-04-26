@@ -1,0 +1,569 @@
+//! Backup and restore command implementations (framework-free).
+
+use crate::app_state::AppState;
+use crate::check_read_only;
+use crate::commands_internal::get_db_paths_for_dir;
+use crate::constants::{date_formats, paths};
+use crate::db::Database;
+use crate::models::BackupType;
+use crate::settings::{BackupRetention, LocalSettings};
+use chrono::Local;
+use diesel::RunQueryDsl;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
+
+// ============================================================================
+// Backup Types
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupInfo {
+    pub filename: String,
+    pub created_at: String,
+    pub size_bytes: u64,
+    pub vehicle_count: i32,
+    pub trip_count: i32,
+    pub backup_type: String,
+    pub update_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupPreview {
+    pub to_delete: Vec<BackupInfo>,
+    pub total_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupResult {
+    pub deleted: Vec<String>,
+    pub freed_bytes: u64,
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
+    if filename.starts_with(paths::BACKUP_PREFIX) {
+        let without_prefix = filename.trim_start_matches(paths::BACKUP_PREFIX);
+        if let Some(version_start) = without_prefix.find(paths::PRE_UPDATE_MARKER) {
+            let version = without_prefix[version_start + paths::PRE_UPDATE_MARKER.len()..]
+                .trim_end_matches(paths::BACKUP_EXTENSION);
+            return (BackupType::PreUpdate.as_str().to_string(), Some(version.to_string()));
+        }
+    }
+    (BackupType::Manual.as_str().to_string(), None)
+}
+
+fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
+    let timestamp = Local::now().format(date_formats::BACKUP_TIMESTAMP);
+    match (backup_type, update_version) {
+        (t, Some(version)) if t == BackupType::PreUpdate.as_str() => {
+            format!(
+                "{}{}{}{}{}",
+                paths::BACKUP_PREFIX,
+                timestamp,
+                paths::PRE_UPDATE_MARKER,
+                version,
+                paths::BACKUP_EXTENSION
+            )
+        }
+        _ => format!(
+            "{}{}{}",
+            paths::BACKUP_PREFIX,
+            timestamp,
+            paths::BACKUP_EXTENSION
+        ),
+    }
+}
+
+fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<BackupInfo> {
+    let mut pre_update_backups: Vec<&BackupInfo> = backups
+        .iter()
+        .filter(|b| b.backup_type == BackupType::PreUpdate.as_str())
+        .collect();
+
+    pre_update_backups.sort_by(|a, b| a.filename.cmp(&b.filename));
+
+    let total = pre_update_backups.len();
+    let keep = keep_count as usize;
+
+    if total <= keep {
+        return vec![];
+    }
+
+    pre_update_backups[0..(total - keep)]
+        .iter()
+        .map(|b| (*b).clone())
+        .collect()
+}
+
+// ============================================================================
+// Backup Commands
+// ============================================================================
+
+pub fn create_backup_internal(
+    app_dir: &Path,
+    db: &Database,
+    app_state: &AppState,
+) -> Result<BackupInfo, String> {
+    check_read_only!(app_state);
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+
+    fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
+
+    let timestamp = Local::now().format(date_formats::BACKUP_TIMESTAMP);
+    let filename = format!(
+        "{}{}{}",
+        paths::BACKUP_PREFIX,
+        timestamp,
+        paths::BACKUP_EXTENSION
+    );
+    let backup_path = db_paths.backups_dir.join(&filename);
+
+    fs::copy(&db_paths.db_file, &backup_path).map_err(|e| e.to_string())?;
+
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
+    let vehicle_count = vehicles.len() as i32;
+
+    let mut trip_count = 0;
+    for vehicle in &vehicles {
+        let trips = db
+            .get_trips_for_vehicle(&vehicle.id.to_string())
+            .map_err(|e| e.to_string())?;
+        trip_count += trips.len() as i32;
+    }
+
+    Ok(BackupInfo {
+        filename,
+        created_at: Local::now().to_rfc3339(),
+        size_bytes: metadata.len(),
+        vehicle_count,
+        trip_count,
+        backup_type: BackupType::Manual.as_str().to_string(),
+        update_version: None,
+    })
+}
+
+pub fn create_backup_with_type_internal(
+    app_dir: &Path,
+    db: &Database,
+    app_state: &AppState,
+    backup_type: String,
+    update_version: Option<String>,
+) -> Result<BackupInfo, String> {
+    check_read_only!(app_state);
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+
+    fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
+
+    let filename = generate_backup_filename(&backup_type, update_version.as_deref());
+    let backup_path = db_paths.backups_dir.join(&filename);
+
+    fs::copy(&db_paths.db_file, &backup_path).map_err(|e| e.to_string())?;
+
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    let vehicles = db.get_all_vehicles().map_err(|e| e.to_string())?;
+    let vehicle_count = vehicles.len() as i32;
+
+    let mut trip_count = 0;
+    for vehicle in &vehicles {
+        let trips = db
+            .get_trips_for_vehicle(&vehicle.id.to_string())
+            .map_err(|e| e.to_string())?;
+        trip_count += trips.len() as i32;
+    }
+
+    let (parsed_type, parsed_version) = parse_backup_filename(&filename);
+
+    Ok(BackupInfo {
+        filename,
+        created_at: Local::now().to_rfc3339(),
+        size_bytes: metadata.len(),
+        vehicle_count,
+        trip_count,
+        backup_type: parsed_type,
+        update_version: parsed_version,
+    })
+}
+
+pub fn get_cleanup_preview_internal(
+    app_dir: &Path,
+    keep_count: u32,
+) -> Result<CleanupPreview, String> {
+    let all_backups = list_backups_internal(app_dir)?;
+    let to_delete = get_cleanup_candidates(&all_backups, keep_count);
+    let total_bytes: u64 = to_delete.iter().map(|b| b.size_bytes).sum();
+
+    Ok(CleanupPreview {
+        to_delete,
+        total_bytes,
+    })
+}
+
+pub fn cleanup_pre_update_backups_internal(
+    app_dir: &Path,
+    keep_count: u32,
+) -> Result<CleanupResult, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+
+    let all_backups = list_backups_internal(app_dir)?;
+    let to_delete = get_cleanup_candidates(&all_backups, keep_count);
+
+    let mut deleted = Vec::new();
+    let mut freed_bytes = 0u64;
+
+    for backup in &to_delete {
+        let path = db_paths.backups_dir.join(&backup.filename);
+        if path.exists() {
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+            deleted.push(backup.filename.clone());
+            freed_bytes += backup.size_bytes;
+        }
+    }
+
+    Ok(CleanupResult {
+        deleted,
+        freed_bytes,
+    })
+}
+
+pub fn get_backup_retention_internal(app_dir: &Path) -> Result<Option<BackupRetention>, String> {
+    let settings = LocalSettings::load(app_dir);
+    Ok(settings.backup_retention)
+}
+
+pub fn set_backup_retention_internal(
+    app_dir: &Path,
+    app_state: &AppState,
+    retention: BackupRetention,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let mut settings = LocalSettings::load(app_dir);
+    settings.backup_retention = Some(retention);
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+pub fn list_backups_internal(app_dir: &Path) -> Result<Vec<BackupInfo>, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+
+    if !db_paths.backups_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut backups = Vec::new();
+
+    for entry in fs::read_dir(&db_paths.backups_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+
+        if path.extension().map(|e| e == "db").unwrap_or(false) {
+            let filename = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+
+            let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+
+            let created_at = if filename.starts_with(paths::BACKUP_PREFIX) {
+                let date_part = filename
+                    .trim_start_matches(paths::BACKUP_PREFIX)
+                    .trim_end_matches(paths::BACKUP_EXTENSION);
+                if date_part.len() >= 17 {
+                    format!(
+                        "{}-{}-{}T{}:{}:{}",
+                        &date_part[0..4],
+                        &date_part[5..7],
+                        &date_part[8..10],
+                        &date_part[11..13],
+                        &date_part[13..15],
+                        &date_part[15..17]
+                    )
+                } else {
+                    Local::now().to_rfc3339()
+                }
+            } else {
+                Local::now().to_rfc3339()
+            };
+
+            let (backup_type, update_version) = parse_backup_filename(&filename);
+
+            backups.push(BackupInfo {
+                filename,
+                created_at,
+                size_bytes: metadata.len(),
+                vehicle_count: 0,
+                trip_count: 0,
+                backup_type,
+                update_version,
+            });
+        }
+    }
+
+    backups.sort_by(|a, b| b.filename.cmp(&a.filename));
+
+    Ok(backups)
+}
+
+pub fn get_backup_info_internal(app_dir: &Path, filename: String) -> Result<BackupInfo, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    let backup_db = crate::db::Database::from_path(&backup_path).map_err(|e| e.to_string())?;
+    let conn = &mut *backup_db.connection();
+
+    #[derive(diesel::QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        count: i32,
+    }
+
+    let vehicle_count: i32 = diesel::sql_query("SELECT COUNT(*) as count FROM vehicles")
+        .get_result::<CountRow>(conn)
+        .map(|r| r.count)
+        .unwrap_or(0);
+
+    let trip_count: i32 = diesel::sql_query("SELECT COUNT(*) as count FROM trips")
+        .get_result::<CountRow>(conn)
+        .map(|r| r.count)
+        .unwrap_or(0);
+
+    let created_at = if filename.starts_with(paths::BACKUP_PREFIX) {
+        let date_part = filename
+            .trim_start_matches(paths::BACKUP_PREFIX)
+            .trim_end_matches(paths::BACKUP_EXTENSION);
+        let date_part = if let Some(pred_pos) = date_part.find(paths::PRE_UPDATE_MARKER) {
+            &date_part[..pred_pos]
+        } else {
+            date_part
+        };
+        if date_part.len() >= 17 {
+            format!(
+                "{}-{}-{}T{}:{}:{}",
+                &date_part[0..4],
+                &date_part[5..7],
+                &date_part[8..10],
+                &date_part[11..13],
+                &date_part[13..15],
+                &date_part[15..17]
+            )
+        } else {
+            Local::now().to_rfc3339()
+        }
+    } else {
+        Local::now().to_rfc3339()
+    };
+
+    let (backup_type, update_version) = parse_backup_filename(&filename);
+
+    Ok(BackupInfo {
+        filename,
+        created_at,
+        size_bytes: metadata.len(),
+        vehicle_count,
+        trip_count,
+        backup_type,
+        update_version,
+    })
+}
+
+pub fn restore_backup_internal(
+    app_dir: &Path,
+    app_state: &AppState,
+    filename: String,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    fs::copy(&backup_path, &db_paths.db_file).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+pub fn delete_backup_internal(
+    app_dir: &Path,
+    app_state: &AppState,
+    filename: String,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    fs::remove_file(&backup_path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub fn get_backup_path_internal(app_dir: &Path, filename: String) -> Result<String, String> {
+    let db_paths = get_db_paths_for_dir(app_dir)?;
+    let backup_path = db_paths.backups_dir.join(&filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup not found: {}", filename));
+    }
+
+    backup_path
+        .to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Invalid path encoding".to_string())
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_backup_filename_manual() {
+        let (backup_type, version) =
+            parse_backup_filename("kniha-jazd-backup-2026-01-24-143022.db");
+        assert_eq!(backup_type, "manual");
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn test_parse_backup_filename_pre_update() {
+        let (backup_type, version) =
+            parse_backup_filename("kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db");
+        assert_eq!(backup_type, "pre-update");
+        assert_eq!(version, Some("0.20.0".to_string()));
+    }
+
+    #[test]
+    fn test_generate_backup_filename_manual() {
+        let filename = generate_backup_filename("manual", None);
+        assert!(filename.starts_with("kniha-jazd-backup-"));
+        assert!(filename.ends_with(".db"));
+        assert!(!filename.contains("-pre-v"));
+    }
+
+    #[test]
+    fn test_generate_backup_filename_pre_update() {
+        let filename = generate_backup_filename("pre-update", Some("0.20.0"));
+        assert!(filename.starts_with("kniha-jazd-backup-"));
+        assert!(filename.ends_with("-pre-v0.20.0.db"));
+    }
+
+    #[test]
+    fn test_get_cleanup_candidates_empty() {
+        let backups: Vec<BackupInfo> = vec![];
+        let candidates = get_cleanup_candidates(&backups, 3);
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn test_get_cleanup_candidates_below_limit() {
+        let backups = vec![
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db".to_string(),
+                created_at: "2026-01-24T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.20.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-25-143022-pre-v0.21.0.db".to_string(),
+                created_at: "2026-01-25T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.21.0".to_string()),
+            },
+        ];
+        let candidates = get_cleanup_candidates(&backups, 3);
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn test_get_cleanup_candidates_above_limit() {
+        let backups = vec![
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db".to_string(),
+                created_at: "2026-01-24T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.20.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-25-143022-pre-v0.21.0.db".to_string(),
+                created_at: "2026-01-25T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.21.0".to_string()),
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-26-143022-pre-v0.22.0.db".to_string(),
+                created_at: "2026-01-26T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.22.0".to_string()),
+            },
+        ];
+        let candidates = get_cleanup_candidates(&backups, 2);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].filename,
+            "kniha-jazd-backup-2026-01-24-143022-pre-v0.20.0.db"
+        );
+    }
+
+    #[test]
+    fn test_get_cleanup_candidates_ignores_manual() {
+        let backups = vec![
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-24-143022.db".to_string(),
+                created_at: "2026-01-24T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "manual".to_string(),
+                update_version: None,
+            },
+            BackupInfo {
+                filename: "kniha-jazd-backup-2026-01-25-143022-pre-v0.21.0.db".to_string(),
+                created_at: "2026-01-25T14:30:22".to_string(),
+                size_bytes: 1000,
+                vehicle_count: 1,
+                trip_count: 10,
+                backup_type: "pre-update".to_string(),
+                update_version: Some("0.21.0".to_string()),
+            },
+        ];
+        let candidates = get_cleanup_candidates(&backups, 1);
+        assert!(candidates.is_empty());
+    }
+}

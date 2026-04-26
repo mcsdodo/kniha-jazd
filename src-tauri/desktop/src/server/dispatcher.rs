@@ -639,7 +639,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Backup (10)
         // ====================================================================
         "create_backup" => {
-            let v = crate::commands::create_backup_internal(
+            let v = kniha_jazd_core::commands_internal::create_backup_internal(
                 &state.app_dir,
                 &state.db,
                 &state.app_state,
@@ -654,7 +654,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 update_version: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::create_backup_with_type_internal(
+            let v = kniha_jazd_core::commands_internal::create_backup_with_type_internal(
                 &state.app_dir,
                 &state.db,
                 &state.app_state,
@@ -670,7 +670,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 keep_count: u32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_cleanup_preview_internal(
+            let v = kniha_jazd_core::commands_internal::get_cleanup_preview_internal(
                 &state.app_dir,
                 a.keep_count,
             )?;
@@ -683,14 +683,14 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 keep_count: u32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::cleanup_pre_update_backups_internal(
+            let v = kniha_jazd_core::commands_internal::cleanup_pre_update_backups_internal(
                 &state.app_dir,
                 a.keep_count,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_backup_retention" => {
-            let v = crate::commands::get_backup_retention_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::get_backup_retention_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_backup_retention" => {
@@ -700,7 +700,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 retention: crate::settings::BackupRetention,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_backup_retention_internal(
+            kniha_jazd_core::commands_internal::set_backup_retention_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.retention,
@@ -708,7 +708,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(()).unwrap())
         }
         "list_backups" => {
-            let v = crate::commands::list_backups_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::list_backups_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_backup_info" => {
@@ -719,7 +719,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             }
             let a: Args = parse_args(args)?;
             let v =
-                crate::commands::get_backup_info_internal(&state.app_dir, a.filename)?;
+                kniha_jazd_core::commands_internal::get_backup_info_internal(&state.app_dir, a.filename)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "delete_backup" => {
@@ -729,7 +729,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 filename: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::delete_backup_internal(
+            kniha_jazd_core::commands_internal::delete_backup_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.filename,
@@ -743,7 +743,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 filename: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_backup_path_internal(&state.app_dir, a.filename)?;
+            let v = kniha_jazd_core::commands_internal::get_backup_path_internal(&state.app_dir, a.filename)?;
             Ok(serde_json::to_value(v).unwrap())
         }
 

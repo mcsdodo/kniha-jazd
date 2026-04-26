@@ -9,8 +9,5 @@
 pub mod helpers;
 pub use helpers::*;
 
-// Per-file modules added incrementally in Tasks 16-22:
-// pub mod backup;
-// pub mod trips;
-// pub mod vehicles;
-// ...
+pub mod backup;
+pub use backup::*;
