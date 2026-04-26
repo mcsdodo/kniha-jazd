@@ -1,0 +1,16 @@
+[package]
+name = "kniha-jazd-web"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Vehicle logbook headless HTTP server"
+
+[[bin]]
+name = "kniha-jazd-web"
+path = "src/main.rs"
+
+[dependencies]
+# Populated in Task 23 when web binary moves in.
