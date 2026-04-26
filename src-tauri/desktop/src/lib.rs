@@ -1,4 +1,4 @@
-pub mod app_state;
+pub use kniha_jazd_core::app_state;
 pub use kniha_jazd_core::calculations;
 pub mod commands;
 pub use kniha_jazd_core::constants;
@@ -10,7 +10,7 @@ pub use kniha_jazd_core::models;
 pub mod receipts;
 pub use kniha_jazd_core::schema;
 pub mod server;
-pub mod settings;
+pub use kniha_jazd_core::settings;
 pub mod suggestions;
 
 use crate::app_state::AppState;
