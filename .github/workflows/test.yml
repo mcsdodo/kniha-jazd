@@ -62,7 +62,11 @@ jobs:
 
       - name: Run backend tests
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --workspace
+
+      - name: Verify web binary builds without Tauri
+        working-directory: src-tauri
+        run: cargo build --release -p kniha-jazd-web
 
   # Integration tests - build once, then run tiers in parallel
   # This gives faster feedback than sequential execution (~14 min vs ~20 min)
@@ -95,7 +99,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app (debug)
-        run: npm run tauri build -- --debug --config src-tauri/tauri.conf.dev.json
+        run: npm run tauri build -- --debug --config src-tauri/desktop/tauri.conf.dev.json
 
       - name: Upload debug binary
         uses: actions/upload-artifact@v4
