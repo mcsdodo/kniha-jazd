@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-26 (Task 33 Web Deployment complete)
+**Last updated:** 2026-04-26 (Task 58 Tauri Workspace Split planned)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 58 | [Tauri Workspace Split](58-tauri-workspace-split/) | 📋 Planning | Split src-tauri/ into core/desktop/web crates so web binary drops Tauri linkage (~150MB Docker savings); from Tech Debt #06 |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
@@ -41,6 +42,7 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
+| 06 | [Tauri Feature Gating](_TECH_DEBT/06-tauri-feature-gating.md) | Medium | → Task 58 |
 | 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
 | 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |
 | 03 | Dead Code & Warnings | Low | ✅ Resolved (Task 37, file archived) |

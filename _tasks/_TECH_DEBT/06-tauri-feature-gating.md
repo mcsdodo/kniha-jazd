@@ -68,7 +68,8 @@ Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP 
 
 ## Related
 
-- [33-web-deployment/](../33-web-deployment/) — Task that surfaced this issue
+- [58-tauri-workspace-split/](../58-tauri-workspace-split/) — Task implementing the workspace-split alternative (option B from "Alternative Options")
+- [33-web-deployment/](../_done/33-web-deployment/) — Task that surfaced this issue
 - [Dockerfile.web](../../Dockerfile.web) — Currently installs runtime GTK libs as workaround
 - [_done/55-server-mode/](../_done/55-server-mode/) — Prior task that prepared the framework-independent `_internal` layer
 
@@ -78,3 +79,4 @@ Task 55 (Server Mode) extracted `_internal` command functions and made the HTTP 
 |------|----------|-----------|
 | 2026-04-25 | Created during Task 33 | Discovered when slim Debian runtime image couldn't load `libgdk-3.so.0` |
 | 2026-04-25 | Workaround: install runtime GTK libs | Unblocks Task 33 deployment in ~5 min vs days of refactoring |
+| 2026-04-26 | Picked workspace-split alternative over in-place feature gating | Same calendar cost (~3d) but self-enforcing crate boundary; no `#[cfg(feature = "desktop")]` discipline burden on future contributors. Tracked in [Task 58](../58-tauri-workspace-split/). |
