@@ -13,7 +13,6 @@ import {
   seedTrip,
   getTripGridData,
   getVehicles,
-  getActiveVehicle,
   invokeTauri,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
@@ -113,54 +112,29 @@ describe('Tier 3: Multi-Vehicle Support', () => {
         fullTank: true,
       });
 
+      // Explicitly activate vehicle1 (Alpha). Don't rely on +layout.svelte's
+      // auto-selection — its async setActiveVehicle call races with
+      // waitForAppReady on slower runners, and it's not the behavior under test.
+      await invokeTauri<void>('set_active_vehicle', { id: vehicle1.id as string });
       await browser.refresh();
       await waitForAppReady();
-
-      // Navigate to trips page
       await navigateTo('trips');
       await browser.pause(500);
 
-      // Get the current page content
-      const body = await $('body');
-      let pageText = await body.getText();
+      // Alpha is active — Beta trips must NOT render in the grid
+      const pageTextAlpha = await (await $('body')).getText();
+      expect(pageTextAlpha).not.toContain('Beta Origin');
 
-      // Determine active vehicle via backend (page text is unreliable: the
-      // <select> dropdown renders both vehicle names regardless of which is
-      // active, and getText() includes <option> children inconsistently
-      // across rendering modes — Tauri/WebView2 hides them, Linux Chrome
-      // does not).
-      const activeVehicle = await getActiveVehicle();
-      const isAlphaActive = activeVehicle?.id === vehicle1.id;
-      const isBetaActive = activeVehicle?.id === vehicle2.id;
-
-      // At least one vehicle should be active
-      expect(isAlphaActive || isBetaActive).toBe(true);
-
-      // If Alpha is active, verify Alpha trips are shown
-      if (isAlphaActive) {
-        expect(pageText).toContain('Alpha');
-        // Should NOT see Beta trips
-        expect(pageText).not.toContain('Beta Origin');
-      }
-
-      // If Beta is active, verify Beta trips are shown
-      if (isBetaActive) {
-        expect(pageText).toContain('Beta');
-        // Should NOT see Alpha trips
-        expect(pageText).not.toContain('Alpha Origin');
-      }
-
-      // Switch active vehicle via dual-mode helper (works in Tauri + server modes)
-      const vehicleToActivate = isAlphaActive ? vehicle2.id : vehicle1.id;
-      await invokeTauri<void>('set_active_vehicle', { id: vehicleToActivate as string });
-
-      // Refresh page to ensure new vehicle data is loaded
+      // Switch active vehicle to Beta
+      await invokeTauri<void>('set_active_vehicle', { id: vehicle2.id as string });
       await browser.refresh();
       await waitForAppReady();
-
-      // Navigate back to trips
       await navigateTo('trips');
       await browser.pause(500);
+
+      // Beta is active — Alpha trips must NOT render in the grid
+      const pageTextBeta = await (await $('body')).getText();
+      expect(pageTextBeta).not.toContain('Alpha Origin');
 
       // Verify via backend that each vehicle has its own trips (the main assertion)
       const vehicle1Grid = await getTripGridData(vehicle1.id as string, year);
