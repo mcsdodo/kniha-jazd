@@ -32,11 +32,9 @@ log = "0.4"
 tauri = { version = "2.9.5", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
-# Diesel ORM for compile-time SQL safety (no r2d2 - connection pooling is YAGNI for single-user desktop app)
-# Using sqlite-bundled for Windows compatibility (doesn't require pre-installed SQLite)
+# Diesel still needed in desktop until commands/backup.rs etc. split into core (Tasks 16-22).
+# libsqlite3-sys and diesel_migrations now transitive via kniha-jazd-core.
 diesel = { version = "2.2", features = ["sqlite"] }
-libsqlite3-sys = { version = "0.30", features = ["bundled"] }
-diesel_migrations = "2.2"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 rand = "0.8"
