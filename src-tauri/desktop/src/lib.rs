@@ -10,7 +10,8 @@ pub use kniha_jazd_core::gemini;
 pub use kniha_jazd_core::models;
 pub use kniha_jazd_core::receipts;
 pub use kniha_jazd_core::schema;
-pub mod server;
+pub use kniha_jazd_core::server;
+pub mod static_dir;
 pub use kniha_jazd_core::settings;
 pub use kniha_jazd_core::suggestions;
 
@@ -179,7 +180,7 @@ pub fn run() {
                 let auto_db = app.state::<Arc<db::Database>>().inner().clone();
                 let auto_app_state = app.state::<Arc<AppState>>().inner().clone();
                 let auto_manager = server_manager.clone();
-                let auto_static_dir = server::resolve_static_dir(app);
+                let auto_static_dir = crate::static_dir::resolve_static_dir(app);
                 let auto_headless = headless;
 
                 tauri::async_runtime::spawn(async move {
