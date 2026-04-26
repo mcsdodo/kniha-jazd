@@ -13,4 +13,5 @@ name = "kniha-jazd-web"
 path = "src/main.rs"
 
 [dependencies]
-# Populated in Task 23 when web binary moves in.
+kniha-jazd-core = { path = "../core" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
