@@ -17,3 +17,6 @@ pub use trips::*;
 
 pub mod vehicles;
 pub use vehicles::*;
+
+pub mod statistics;
+pub use statistics::*;

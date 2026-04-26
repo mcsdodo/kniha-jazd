@@ -2,10 +2,10 @@
 // Tests
 // ============================================================================
 
-use super::statistics::{
+use kniha_jazd_core::commands_internal::statistics::{
     calculate_consumption_warnings, calculate_date_warnings, calculate_energy_grid_data,
     calculate_missing_receipts, calculate_receipt_datetime_warnings, calculate_suggested_fillups,
-    get_open_period_km,
+    get_open_period_km, has_any_period_over_limit,
 };
 use super::*;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
