@@ -23,3 +23,6 @@ pub use statistics::*;
 
 pub mod export_cmd;
 pub use export_cmd::*;
+
+pub mod receipts_cmd;
+pub use receipts_cmd::*;

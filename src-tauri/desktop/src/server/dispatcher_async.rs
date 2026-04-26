@@ -24,7 +24,7 @@ pub async fn dispatch_async(
         // Receipts — async (3)
         // ====================================================================
         "sync_receipts" => {
-            let result = crate::commands::sync_receipts_internal(
+            let result = kniha_jazd_core::commands_internal::receipts_cmd::sync_receipts_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
@@ -33,11 +33,12 @@ pub async fn dispatch_async(
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "process_pending_receipts" => {
-            let result = crate::commands::process_pending_receipts_internal(
-                &state.db,
-                &state.app_dir,
-            )
-            .await;
+            let result =
+                kniha_jazd_core::commands_internal::receipts_cmd::process_pending_receipts_internal(
+                    &state.db,
+                    &state.app_dir,
+                )
+                .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "reprocess_receipt" => {
@@ -50,7 +51,7 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let result = crate::commands::reprocess_receipt_internal(
+            let result = kniha_jazd_core::commands_internal::receipts_cmd::reprocess_receipt_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
