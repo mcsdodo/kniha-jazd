@@ -2,12 +2,13 @@
 // Tests
 // ============================================================================
 
-use kniha_jazd_core::commands_internal::statistics::{
+use crate::commands_internal::statistics::{
     calculate_consumption_warnings, calculate_date_warnings, calculate_energy_grid_data,
     calculate_missing_receipts, calculate_receipt_datetime_warnings, calculate_suggested_fillups,
     get_open_period_km, has_any_period_over_limit,
 };
 use super::*;
+use crate::db::Database;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use std::collections::HashMap;
@@ -3361,7 +3362,7 @@ fn test_vehicle_ha_sensor_null_by_default() {
 
 #[test]
 fn test_format_suggested_fillup_text_with_suggestion() {
-    use crate::commands::integrations::format_suggested_fillup_text;
+    use crate::commands_internal::integrations::format_suggested_fillup_text;
     use crate::models::SuggestedFillup;
 
     let suggestion = SuggestedFillup {
@@ -3377,14 +3378,14 @@ fn test_format_suggested_fillup_text_with_suggestion() {
 
 #[test]
 fn test_format_suggested_fillup_text_none() {
-    use crate::commands::integrations::format_suggested_fillup_text;
+    use crate::commands_internal::integrations::format_suggested_fillup_text;
 
     assert_eq!(format_suggested_fillup_text(None), "Plná nádrž");
 }
 
 #[test]
 fn test_format_suggested_fillup_text_rounding() {
-    use crate::commands::integrations::format_suggested_fillup_text;
+    use crate::commands_internal::integrations::format_suggested_fillup_text;
     use crate::models::SuggestedFillup;
 
     let suggestion = SuggestedFillup {
@@ -3987,7 +3988,7 @@ fn test_month_end_rows_none_when_no_trips() {
 mod time_inference_tests {
     use super::*;
     use crate::calculations::time_inference::Jitter;
-    use kniha_jazd_core::commands_internal::trips::inferred_trip_time_for_route;
+    use crate::commands_internal::trips::inferred_trip_time_for_route;
 
     /// Deterministic `Jitter` for assertion-friendly tests.
     struct StubJitter {

@@ -11,7 +11,17 @@ use std::path::Path;
 use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::constants::mime_types;
+use crate::models::SuggestedFillup;
 use crate::settings::LocalSettings;
+
+/// Format suggested fillup for HA input_text helper.
+/// Returns "20.39 L → 5.66 l/100km" or "Plná nádrž" if no suggestion needed.
+pub fn format_suggested_fillup_text(suggestion: Option<&SuggestedFillup>) -> String {
+    match suggestion {
+        Some(s) => format!("{:.2} L → {:.2} l/100km", s.liters, s.consumption_rate),
+        None => "Plná nádrž".to_string(),
+    }
+}
 
 // ============================================================================
 // Home Assistant Settings

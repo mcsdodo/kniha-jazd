@@ -55,6 +55,3 @@ pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
     get_db_paths_for_dir(&app_dir)
 }
 
-#[cfg(test)]
-#[path = "commands_tests.rs"]
-mod tests;

@@ -11,7 +11,6 @@ pub use kniha_jazd_core::commands_internal::integrations::*;
 use kniha_jazd_core::app_state::AppState;
 use kniha_jazd_core::commands_internal::integrations as inner;
 use kniha_jazd_core::constants::mime_types;
-use kniha_jazd_core::models::SuggestedFillup;
 use kniha_jazd_core::settings::LocalSettings;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -67,14 +66,8 @@ pub fn save_ha_settings(
 // Home Assistant Sensor Push (desktop-only — used by other desktop wrappers)
 // ============================================================================
 
-/// Format suggested fillup for HA input_text helper.
-/// Returns "20.39 L → 5.66 l/100km" or "Plná nádrž" if no suggestion needed.
-pub fn format_suggested_fillup_text(suggestion: Option<&SuggestedFillup>) -> String {
-    match suggestion {
-        Some(s) => format!("{:.2} L → {:.2} l/100km", s.liters, s.consumption_rate),
-        None => "Plná nádrž".to_string(),
-    }
-}
+// format_suggested_fillup_text moved to core (called from commands_tests.rs).
+// Available via the `pub use kniha_jazd_core::commands_internal::integrations::*` above.
 
 /// Push a value to a Home Assistant `input_text` helper entity.
 /// Uses the `input_text/set_value` service call so the value persists across HA restarts.
