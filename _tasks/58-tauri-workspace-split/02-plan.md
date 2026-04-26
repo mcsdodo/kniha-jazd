@@ -1536,10 +1536,10 @@ Move Task 58's row from "Active Tasks" to "Completed Tasks". Update Tech Debt #0
 
 ```bash
 cd src-tauri && cargo test --workspace
-cd .. && npm run test:integration:tier1
+cd .. && npm run test:integration       # all tiers — required before claiming done
 docker build -f Dockerfile.web -t kj-web:final . && docker images kj-web:final --format "{{.Size}}"
 ```
-Expected: 195 tests pass, integration smoke passes, image ≤ 120 MB.
+Expected: 195 backend tests pass, all 64 integration tests pass, image ≤ 120 MB. (Use `npm run test:integration:tier1` only as a quick local check during iteration on Tasks 16-22; this final step must run the full suite per [CLAUDE.md](../../CLAUDE.md) → Iteration strategy.)
 
 **Step 6: Commit and PR**
 
@@ -1577,8 +1577,8 @@ cargo tree -p kniha-jazd-core | grep -i tauri
 cd .. && npm run tauri build
 npm run tauri dev   # smoke check: GUI launches
 
-# 6. Integration tests pass
-npm run test:integration:tier1
+# 6. Integration tests pass — full suite (all tiers) for final verification
+npm run test:integration
 
 # 7. Docker image is small
 docker build -f Dockerfile.web -t kj-web:final .
