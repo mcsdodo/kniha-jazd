@@ -365,7 +365,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Settings (14)
         // ====================================================================
         "get_settings" => {
-            let v = crate::commands::get_settings_internal(&state.db)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_settings_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "save_settings" => {
@@ -377,7 +377,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 buffer_trip_purpose: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::save_settings_internal(
+            let v = kniha_jazd_core::commands_internal::settings_cmd::save_settings_internal(
                 &state.db,
                 &state.app_state,
                 a.company_name,
@@ -387,11 +387,12 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_optimal_window_size" => {
+            // Stays in desktop because it depends on `include_str!("../../tauri.conf.json")`.
             let v = crate::commands::get_optimal_window_size_internal();
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_theme_preference" => {
-            let v = crate::commands::get_theme_preference_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_theme_preference_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_theme_preference" => {
@@ -401,11 +402,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 theme: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_theme_preference_internal(&state.app_dir, a.theme)?;
+            kniha_jazd_core::commands_internal::settings_cmd::set_theme_preference_internal(&state.app_dir, a.theme)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_auto_check_updates" => {
-            let v = crate::commands::get_auto_check_updates_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_auto_check_updates_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_auto_check_updates" => {
@@ -415,11 +416,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 enabled: bool,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_auto_check_updates_internal(&state.app_dir, a.enabled)?;
+            kniha_jazd_core::commands_internal::settings_cmd::set_auto_check_updates_internal(&state.app_dir, a.enabled)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_date_prefill_mode" => {
-            let v = crate::commands::get_date_prefill_mode_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_date_prefill_mode_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_date_prefill_mode" => {
@@ -429,11 +430,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 mode: crate::settings::DatePrefillMode,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_date_prefill_mode_internal(&state.app_dir, a.mode)?;
+            kniha_jazd_core::commands_internal::settings_cmd::set_date_prefill_mode_internal(&state.app_dir, a.mode)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_hidden_columns" => {
-            let v = crate::commands::get_hidden_columns_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_hidden_columns_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_hidden_columns" => {
@@ -443,15 +444,15 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 columns: Vec<String>,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_hidden_columns_internal(&state.app_dir, a.columns)?;
+            kniha_jazd_core::commands_internal::settings_cmd::set_hidden_columns_internal(&state.app_dir, a.columns)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "get_db_location" => {
-            let v = crate::commands::get_db_location_internal(&state.app_state)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_db_location_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_app_mode" => {
-            let v = crate::commands::get_app_mode_internal(&state.app_state)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::get_app_mode_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "check_target_has_db" => {
@@ -461,7 +462,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 target_path: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::check_target_has_db_internal(a.target_path)?;
+            let v = kniha_jazd_core::commands_internal::settings_cmd::check_target_has_db_internal(a.target_path)?;
             Ok(serde_json::to_value(v).unwrap())
         }
 
@@ -765,11 +766,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Integrations — sync only (3)
         // ====================================================================
         "get_ha_settings" => {
-            let v = crate::commands::get_ha_settings_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::integrations::get_ha_settings_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_local_settings_for_ha" => {
-            let v = crate::commands::get_local_settings_for_ha_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::integrations::get_local_settings_for_ha_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "save_ha_settings" => {
@@ -780,7 +781,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 token: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::save_ha_settings_internal(
+            kniha_jazd_core::commands_internal::integrations::save_ha_settings_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.url,

@@ -26,3 +26,9 @@ pub use export_cmd::*;
 
 pub mod receipts_cmd;
 pub use receipts_cmd::*;
+
+pub mod settings_cmd;
+pub use settings_cmd::*;
+
+pub mod integrations;
+pub use integrations::*;
