@@ -102,7 +102,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_trips_internal(&state.db, a.vehicle_id)?;
+            let v = kniha_jazd_core::commands_internal::get_trips_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_trips_for_year" => {
@@ -114,7 +114,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             }
             let a: Args = parse_args(args)?;
             let v =
-                crate::commands::get_trips_for_year_internal(&state.db, a.vehicle_id, a.year)?;
+                kniha_jazd_core::commands_internal::get_trips_for_year_internal(&state.db, a.vehicle_id, a.year)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_years_with_trips" => {
@@ -124,7 +124,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_years_with_trips_internal(&state.db, a.vehicle_id)?;
+            let v = kniha_jazd_core::commands_internal::get_years_with_trips_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "create_trip" => {
@@ -151,7 +151,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 insert_at_position: Option<i32>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::create_trip_internal(
+            let v = kniha_jazd_core::commands_internal::create_trip_internal(
                 &state.db,
                 &state.app_state,
                 a.vehicle_id,
@@ -198,7 +198,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 other_costs_note: Option<String>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::update_trip_internal(
+            let v = kniha_jazd_core::commands_internal::update_trip_internal(
                 &state.db,
                 &state.app_state,
                 a.id,
@@ -228,7 +228,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::delete_trip_internal(&state.db, &state.app_state, a.id)?;
+            kniha_jazd_core::commands_internal::delete_trip_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "reorder_trip" => {
@@ -239,7 +239,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 new_sort_order: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::reorder_trip_internal(
+            let v = kniha_jazd_core::commands_internal::reorder_trip_internal(
                 &state.db,
                 &state.app_state,
                 a.trip_id,
@@ -254,7 +254,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_routes_internal(&state.db, a.vehicle_id)?;
+            let v = kniha_jazd_core::commands_internal::get_routes_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_purposes" => {
@@ -264,7 +264,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 vehicle_id: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_purposes_internal(&state.db, a.vehicle_id)?;
+            let v = kniha_jazd_core::commands_internal::get_purposes_internal(&state.db, a.vehicle_id)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_inferred_trip_time_for_route" => {
@@ -277,7 +277,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 row_date: String,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_inferred_trip_time_for_route_internal(
+            let v = kniha_jazd_core::commands_internal::get_inferred_trip_time_for_route_internal(
                 &state.db,
                 a.vehicle_id,
                 a.origin,
