@@ -31,11 +31,11 @@ pub use kniha_jazd_core::commands_internal::{
     get_db_paths_for_dir, parse_iso_datetime,
 };
 
-use crate::app_state::AppState;
-use crate::constants::env_vars;
+use kniha_jazd_core::app_state::AppState;
+use kniha_jazd_core::constants::env_vars;
 #[cfg(test)]
-use crate::db::Database;
-use crate::db_location::DbPaths;
+use kniha_jazd_core::db::Database;
+use kniha_jazd_core::db_location::DbPaths;
 use std::path::PathBuf;
 use tauri::Manager;
 
