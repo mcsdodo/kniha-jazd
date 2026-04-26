@@ -3987,7 +3987,7 @@ fn test_month_end_rows_none_when_no_trips() {
 mod time_inference_tests {
     use super::*;
     use crate::calculations::time_inference::Jitter;
-    use crate::commands::trips::inferred_trip_time_for_route;
+    use kniha_jazd_core::commands_internal::trips::inferred_trip_time_for_route;
 
     /// Deterministic `Jitter` for assertion-friendly tests.
     struct StubJitter {

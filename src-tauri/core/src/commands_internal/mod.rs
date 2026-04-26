@@ -11,3 +11,6 @@ pub use helpers::*;
 
 pub mod backup;
 pub use backup::*;
+
+pub mod trips;
+pub use trips::*;
