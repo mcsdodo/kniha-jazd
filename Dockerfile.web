@@ -16,6 +16,10 @@ COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./
 COPY src-tauri/core ./core
 COPY src-tauri/web ./web
 
+# Strip the desktop crate from the workspace members list — we don't copy it
+# into the image because nothing in the web binary's dep graph needs it.
+RUN sed -i 's/members = \["core", "desktop", "web"\]/members = ["core", "web"]/' Cargo.toml
+
 # Pre-build dependencies (cached layer) — `|| true` is a no-op once real
 # sources are present; the second touch+build below is the authoritative one.
 RUN cargo build --release -p kniha-jazd-web || true
