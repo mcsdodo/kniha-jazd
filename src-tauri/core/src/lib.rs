@@ -7,5 +7,6 @@
 pub mod calculations;
 pub mod constants;
 pub mod db;
+pub mod db_location;
 pub mod models;
 pub mod schema;
