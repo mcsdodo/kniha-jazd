@@ -475,7 +475,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: Option<i32>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_receipts_internal(&state.db, a.year)?;
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_receipts_internal(
+                &state.db, a.year,
+            )?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_receipts_for_vehicle" => {
@@ -486,7 +488,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: Option<i32>,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_receipts_for_vehicle_internal(
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_receipts_for_vehicle_internal(
                 &state.db,
                 a.vehicle_id,
                 a.year,
@@ -494,7 +496,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_unassigned_receipts" => {
-            let v = crate::commands::get_unassigned_receipts_internal(&state.db)?;
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_unassigned_receipts_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "update_receipt" => {
@@ -504,7 +506,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 receipt: crate::models::Receipt,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::update_receipt_internal(&state.db, &state.app_state, a.receipt)?;
+            kniha_jazd_core::commands_internal::receipts_cmd::update_receipt_internal(
+                &state.db,
+                &state.app_state,
+                a.receipt,
+            )?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "delete_receipt" => {
@@ -514,7 +520,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::delete_receipt_internal(&state.db, &state.app_state, a.id)?;
+            kniha_jazd_core::commands_internal::receipts_cmd::delete_receipt_internal(
+                &state.db,
+                &state.app_state,
+                a.id,
+            )?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "unassign_receipt" => {
@@ -524,7 +534,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::unassign_receipt_internal(&state.db, &state.app_state, a.id)?;
+            kniha_jazd_core::commands_internal::receipts_cmd::unassign_receipt_internal(
+                &state.db,
+                &state.app_state,
+                a.id,
+            )?;
             Ok(serde_json::to_value(()).unwrap())
         }
         "revert_receipt_override" => {
@@ -534,7 +548,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 id: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::revert_receipt_override_internal(
+            kniha_jazd_core::commands_internal::receipts_cmd::revert_receipt_override_internal(
                 &state.db,
                 &state.app_state,
                 a.id,
@@ -552,7 +566,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 mismatch_override: bool,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::assign_receipt_to_trip_internal(
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::assign_receipt_to_trip_internal(
                 &state.db,
                 &a.receipt_id,
                 &a.trip_id,
@@ -571,7 +585,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::get_trips_for_receipt_assignment_internal(
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_trips_for_receipt_assignment_internal(
                 &state.db,
                 &a.receipt_id,
                 &a.vehicle_id,
@@ -587,7 +601,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands::verify_receipts_internal(
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::verify_receipts_internal(
                 &state.db,
                 &a.vehicle_id,
                 a.year,
@@ -595,7 +609,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(v).unwrap())
         }
         "get_receipt_settings" => {
-            let v = crate::commands::get_receipt_settings_internal(&state.app_dir)?;
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::get_receipt_settings_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         "set_gemini_api_key" => {
@@ -605,7 +619,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 api_key: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_gemini_api_key_internal(
+            kniha_jazd_core::commands_internal::receipts_cmd::set_gemini_api_key_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.api_key,
@@ -619,7 +633,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 path: String,
             }
             let a: Args = parse_args(args)?;
-            crate::commands::set_receipts_folder_path_internal(
+            kniha_jazd_core::commands_internal::receipts_cmd::set_receipts_folder_path_internal(
                 &state.app_dir,
                 &state.app_state,
                 a.path,
@@ -627,7 +641,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(()).unwrap())
         }
         "scan_receipts" => {
-            let v = crate::commands::scan_receipts_internal(
+            let v = kniha_jazd_core::commands_internal::receipts_cmd::scan_receipts_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
