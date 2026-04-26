@@ -1,5 +1,5 @@
 pub mod app_state;
-pub mod calculations;
+pub use kniha_jazd_core::calculations;
 pub mod commands;
 pub use kniha_jazd_core::constants;
 pub use kniha_jazd_core::db;
