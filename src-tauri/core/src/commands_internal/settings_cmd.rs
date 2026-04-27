@@ -173,6 +173,16 @@ pub fn set_hidden_columns_internal(app_dir: &Path, columns: Vec<String>) -> Resu
 }
 
 // ============================================================================
+// Time Inference Toggle
+// ============================================================================
+
+pub fn get_infer_trip_times_internal(app_dir: &Path) -> Result<bool, String> {
+    let settings = LocalSettings::load(app_dir);
+    // Default OFF: None and Some(false) both mean disabled.
+    Ok(settings.infer_trip_times.unwrap_or(false))
+}
+
+// ============================================================================
 // Database Location
 // ============================================================================
 

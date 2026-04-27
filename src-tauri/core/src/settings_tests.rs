@@ -323,3 +323,11 @@ fn test_infer_trip_times_round_trip_false() {
     let loaded = LocalSettings::load(&dir.path().to_path_buf());
     assert_eq!(loaded.infer_trip_times, Some(false));
 }
+
+#[test]
+fn test_get_infer_trip_times_internal_default_is_false() {
+    use crate::commands_internal::settings_cmd::get_infer_trip_times_internal;
+    let dir = tempdir().unwrap();
+    let result = get_infer_trip_times_internal(&dir.path().to_path_buf()).unwrap();
+    assert!(!result, "default must be OFF");
+}
