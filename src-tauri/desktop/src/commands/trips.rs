@@ -151,11 +151,20 @@ pub fn get_purposes(db: State<Arc<Database>>, vehicle_id: String) -> Result<Vec<
 
 #[tauri::command]
 pub fn get_inferred_trip_time_for_route(
+    app: tauri::AppHandle,
     db: State<Arc<Database>>,
     vehicle_id: String,
     origin: String,
     destination: String,
     row_date: String,
 ) -> Result<Option<InferredTripTime>, String> {
-    inner::get_inferred_trip_time_for_route_internal(&db, vehicle_id, origin, destination, row_date)
+    let app_dir = super::get_app_data_dir(&app)?;
+    inner::get_inferred_trip_time_for_route_internal(
+        &db,
+        &app_dir,
+        vehicle_id,
+        origin,
+        destination,
+        row_date,
+    )
 }

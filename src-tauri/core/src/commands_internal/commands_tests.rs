@@ -4204,4 +4204,99 @@ mod time_inference_tests {
 
         assert!(result.is_none(), "v2's trips must not leak to v1");
     }
+
+    // ------------------------------------------------------------------------
+    // Task 5: Public command gates on `infer_trip_times` setting.
+    // The pure seam `inferred_trip_time_for_route` is unaffected; these tests
+    // exercise the gated `_internal` boundary which now takes `&Path`.
+    // ------------------------------------------------------------------------
+
+    /// Seeds an in-memory DB with one completed trip on Bratislava→Trnava
+    /// (matching the existing time-inference fixtures in this module).
+    fn test_db_with_completed_trip() -> (Database, String) {
+        let db = Database::in_memory().unwrap();
+        let vehicle = crate::models::Vehicle::new(
+            "Test".into(),
+            "BA1".into(),
+            50.0,
+            6.0,
+            0.0,
+        );
+        db.create_vehicle(&vehicle).unwrap();
+
+        let trip = make_completed_trip(
+            vehicle.id,
+            "Bratislava",
+            "Trnava",
+            NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 30, 0).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(9, 15, 0).unwrap(),
+        );
+        db.create_trip(&trip).unwrap();
+        (db, vehicle.id.to_string())
+    }
+
+    #[test]
+    fn test_inference_command_returns_none_when_setting_unset() {
+        use crate::commands_internal::trips::get_inferred_trip_time_for_route_internal;
+        let (db, vehicle_id) = test_db_with_completed_trip();
+        let dir = tempfile::tempdir().unwrap();
+        let app_dir = dir.path().to_path_buf();
+        // No infer_trip_times in local.settings.json → default OFF.
+
+        let result = get_inferred_trip_time_for_route_internal(
+            &db,
+            &app_dir,
+            vehicle_id,
+            "Bratislava".to_string(),
+            "Trnava".to_string(),
+            "2026-04-27".to_string(),
+        )
+        .unwrap();
+
+        assert!(result.is_none(), "default-OFF must short-circuit to None");
+    }
+
+    #[test]
+    fn test_inference_command_returns_none_when_setting_disabled() {
+        use crate::commands_internal::settings_cmd::set_infer_trip_times_internal;
+        use crate::commands_internal::trips::get_inferred_trip_time_for_route_internal;
+        let (db, vehicle_id) = test_db_with_completed_trip();
+        let dir = tempfile::tempdir().unwrap();
+        let app_dir = dir.path().to_path_buf();
+        set_infer_trip_times_internal(&app_dir, false).unwrap();
+
+        let result = get_inferred_trip_time_for_route_internal(
+            &db,
+            &app_dir,
+            vehicle_id,
+            "Bratislava".to_string(),
+            "Trnava".to_string(),
+            "2026-04-27".to_string(),
+        )
+        .unwrap();
+
+        assert!(result.is_none(), "Some(false) must short-circuit to None");
+    }
+
+    #[test]
+    fn test_inference_command_returns_some_when_setting_enabled() {
+        use crate::commands_internal::settings_cmd::set_infer_trip_times_internal;
+        use crate::commands_internal::trips::get_inferred_trip_time_for_route_internal;
+        let (db, vehicle_id) = test_db_with_completed_trip();
+        let dir = tempfile::tempdir().unwrap();
+        let app_dir = dir.path().to_path_buf();
+        set_infer_trip_times_internal(&app_dir, true).unwrap();
+
+        let result = get_inferred_trip_time_for_route_internal(
+            &db,
+            &app_dir,
+            vehicle_id,
+            "Bratislava".to_string(),
+            "Trnava".to_string(),
+            "2026-04-27".to_string(),
+        )
+        .unwrap();
+
+        assert!(result.is_some(), "Some(true) must allow inference to run");
+    }
 }
