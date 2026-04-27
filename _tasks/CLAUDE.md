@@ -78,6 +78,26 @@ Find the highest `{NN}` across BOTH and increment by 1.
 
 **Do NOT use `ls _tasks/` or `Glob _tasks/*`** — these miss subdirectories.
 
+### Update [index.md](./index.md) on every state change
+
+**MANDATORY** — [index.md](./index.md) is the at-a-glance overview agents and humans
+use to find tasks. Keep it accurate:
+
+- **Creating a new task folder** → add a row to **Active Tasks** with status 📋
+- **Status changes** (Planning → In Progress → Complete) → update the icon
+- **Completing a task** → move the row from **Active Tasks** to **Completed Tasks**
+- **Moving a folder to `_done/`** → update the link path to `_done/{NN}-{name}/`
+
+Status icons: 📋 Planning · 🟡 In Progress · ✅ Complete · ❌ Blocked
+
+Stage the index update **in the same commit** as the folder change it reflects, so
+history reads coherently:
+
+```bash
+git add _tasks/{NN}-{name}/ _tasks/index.md
+git commit -m "docs: add task and plan for {feature-name}"
+```
+
 ### Commit planning docs BEFORE implementation
 
 When using workflow skills (brainstorming, writing-plans, etc.), commit task/design/plan
@@ -85,13 +105,10 @@ files BEFORE any implementation code:
 
 1. Complete brainstorming, get user approval on the design.
 2. Write the plan (via `superpowers:writing-plans` — see above), get user review.
-3. Ask: "Should I create a feature branch for this work?"
-4. Commit planning docs:
-   ```bash
-   git add _tasks/{NN}-{name}/
-   git commit -m "docs: add task and plan for {feature-name}"
-   ```
-5. Then start implementation.
+3. Add the new task to [index.md](./index.md) (see rule above).
+4. Ask: "Should I create a feature branch for this work?"
+5. Commit planning docs + index update together (see commit example above).
+6. Then start implementation.
 
 Rationale: design rationale lands in version control before code does, so reviewers
 and future agents can read intent independent of execution.
@@ -147,16 +164,6 @@ Every task/design/plan file starts with:
 ---
 
 ## Maintenance
-
-### Keep `index.md` updated
-
-Update [index.md](./index.md) when:
-
-- Creating a new task folder → add to "Active Tasks"
-- Completing a task → move to "Completed Tasks"
-- Changing task status → update status icon
-
-Status icons: 📋 Planning · 🟡 Partial / In Progress · ✅ Complete · ❌ Blocked
 
 ### Tech debt cross-references
 
