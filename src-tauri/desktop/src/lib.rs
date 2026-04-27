@@ -278,6 +278,8 @@ pub fn run() {
             commands::set_date_prefill_mode,
             commands::get_hidden_columns,
             commands::set_hidden_columns,
+            commands::get_infer_trip_times,
+            commands::set_infer_trip_times,
             commands::get_db_location,
             commands::get_app_mode,
             commands::check_target_has_db,

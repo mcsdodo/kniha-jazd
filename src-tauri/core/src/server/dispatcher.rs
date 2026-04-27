@@ -445,6 +445,20 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             crate::commands_internal::settings_cmd::set_hidden_columns_internal(&state.app_dir, a.columns)?;
             Ok(serde_json::to_value(()).unwrap())
         }
+        "get_infer_trip_times" => {
+            let v = crate::commands_internal::settings_cmd::get_infer_trip_times_internal(&state.app_dir)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "set_infer_trip_times" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                enabled: bool,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::settings_cmd::set_infer_trip_times_internal(&state.app_dir, a.enabled)?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
         "get_db_location" => {
             let v = crate::commands_internal::settings_cmd::get_db_location_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())

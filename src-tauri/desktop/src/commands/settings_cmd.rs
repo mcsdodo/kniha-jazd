@@ -124,6 +124,22 @@ pub fn set_hidden_columns(app: tauri::AppHandle, columns: Vec<String>) -> Result
 }
 
 // ============================================================================
+// Time Inference Toggle
+// ============================================================================
+
+#[tauri::command]
+pub fn get_infer_trip_times(app: tauri::AppHandle) -> Result<bool, String> {
+    let app_dir = get_app_data_dir(&app)?;
+    inner::get_infer_trip_times_internal(&app_dir)
+}
+
+#[tauri::command]
+pub fn set_infer_trip_times(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let app_dir = get_app_data_dir(&app)?;
+    inner::set_infer_trip_times_internal(&app_dir, enabled)
+}
+
+// ============================================================================
 // Database Location
 // ============================================================================
 
