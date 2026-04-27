@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-27 (Task 59 added)
+**Last updated:** 2026-04-27 (Task 59 complete)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 59 | [Time Inference Toggle](59-time-inference-toggle/) | 📋 Planning | Make new-row start/end time auto-fill opt-in (default OFF) + toast with undo |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
@@ -18,6 +17,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 59 | [Time Inference Toggle](./_done/59-time-inference-toggle/) | 2026-04-27 |
 | 58 | [Tauri Workspace Split](./_done/58-tauri-workspace-split/) | 2026-04-26 |
 | 33 | [Web Deployment](_done/33-web-deployment/) | 2026-04-26 |
 | 55 | [Server Mode](_done/55-server-mode/) | 2026-04-25 |
