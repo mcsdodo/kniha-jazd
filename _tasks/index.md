@@ -2,7 +2,7 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-26 (Task 58 Tauri Workspace Split complete)
+**Last updated:** 2026-04-27 (Task 58 moved to [_done/](./_done/))
 
 ## Active Tasks
 
@@ -17,7 +17,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
-| 58 | [Tauri Workspace Split](58-tauri-workspace-split/) | 2026-04-26 |
+| 58 | [Tauri Workspace Split](./_done/58-tauri-workspace-split/) | 2026-04-26 |
 | 33 | [Web Deployment](_done/33-web-deployment/) | 2026-04-26 |
 | 55 | [Server Mode](_done/55-server-mode/) | 2026-04-25 |
 | 56 | Smart Trip Defaults | 2026-04-16 |
@@ -42,7 +42,7 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
-| 06 | [Tauri Feature Gating](_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Resolved ([Task 58](58-tauri-workspace-split/)) |
+| 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Resolved ([Task 58](./_done/58-tauri-workspace-split/)) |
 | 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
 | 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |
 | 03 | Dead Code & Warnings | Low | ✅ Resolved (Task 37, file archived) |
