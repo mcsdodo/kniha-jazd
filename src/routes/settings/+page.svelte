@@ -16,7 +16,7 @@
 	import { capabilities } from '$lib/stores/capabilities';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
@@ -49,6 +49,9 @@
 
 	// Auto-check updates setting
 	let autoCheckUpdates = true;
+
+	// Time inference toggle (default OFF until loaded)
+	let inferTripTimes = false;
 
 	// Receipt scanning settings state
 	let geminiApiKey = '';
@@ -264,6 +267,12 @@
 		await setAutoCheckUpdates(autoCheckUpdates);
 	}
 
+	async function handleInferTripTimesChange(event: Event) {
+		const checkbox = event.target as HTMLInputElement;
+		inferTripTimes = checkbox.checked;
+		await setInferTripTimes(inferTripTimes);
+	}
+
 	async function handleUpdateButtonClick() {
 		if ($updateStore.available) {
 			// Show the update modal (un-dismiss if it was dismissed)
@@ -425,6 +434,9 @@
 
 			// Load auto-check setting
 			autoCheckUpdates = await getAutoCheckUpdates();
+
+			// Load time-inference toggle
+			inferTripTimes = await getInferTripTimes();
 
 			// Load receipt settings
 			const receiptSettings = await getReceiptSettings();
@@ -1202,6 +1214,20 @@
 					/>
 					<small class="hint">
 						{$LL.settings.bufferTripPurposeHint()}
+					</small>
+				</div>
+
+				<div class="form-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							checked={inferTripTimes}
+							on:change={handleInferTripTimesChange}
+						/>
+						{$LL.settings.inferTripTimesLabel()}
+					</label>
+					<small class="hint">
+						{$LL.settings.inferTripTimesDescription()}
 					</small>
 				</div>
 			</div>
