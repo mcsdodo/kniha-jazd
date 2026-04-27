@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-04-27
+
 ### Pridané
 - **Server Mode** - prístup k aplikácii z ľubovoľného prehliadača v lokálnej sieti (telefón, tablet, iný PC)
 - Prepínač v Nastaveniach na zapnutie/vypnutie vstavaného HTTP servera
