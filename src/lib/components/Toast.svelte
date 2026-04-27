@@ -24,6 +24,14 @@
 				{/if}
 			</span>
 			<span class="toast-message">{t.message}</span>
+			{#if t.action}
+				<button
+					class="toast-action"
+					on:click|stopPropagation={t.action.onClick}
+				>
+					{t.action.label}
+				</button>
+			{/if}
 		</div>
 	{/each}
 </div>
@@ -76,5 +84,21 @@
 
 	.toast-message {
 		flex: 1;
+	}
+
+	.toast-action {
+		background: transparent;
+		border: 1px solid currentColor;
+		color: inherit;
+		padding: 0.25rem 0.6rem;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 0.85rem;
+		font-weight: 600;
+		margin-left: 0.5rem;
+	}
+
+	.toast-action:hover {
+		background: rgba(255, 255, 255, 0.15);
 	}
 </style>
