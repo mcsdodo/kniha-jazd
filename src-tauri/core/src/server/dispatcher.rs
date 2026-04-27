@@ -279,6 +279,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let a: Args = parse_args(args)?;
             let v = crate::commands_internal::get_inferred_trip_time_for_route_internal(
                 &state.db,
+                &state.app_dir,
                 a.vehicle_id,
                 a.origin,
                 a.destination,

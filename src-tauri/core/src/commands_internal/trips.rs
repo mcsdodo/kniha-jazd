@@ -7,6 +7,7 @@ use crate::commands_internal::parse_iso_datetime;
 use crate::db::{normalize_location, Database};
 use crate::models::{InferredTripTime, Route, Trip};
 use chrono::{NaiveDate, Utc};
+use std::path::Path;
 use uuid::Uuid;
 
 pub fn get_trips_internal(db: &Database, vehicle_id: String) -> Result<Vec<Trip>, String> {
@@ -229,11 +230,19 @@ pub fn get_purposes_internal(db: &Database, vehicle_id: String) -> Result<Vec<St
 
 pub fn get_inferred_trip_time_for_route_internal(
     db: &Database,
+    app_dir: &Path,
     vehicle_id: String,
     origin: String,
     destination: String,
     row_date: String,
 ) -> Result<Option<InferredTripTime>, String> {
+    // Gate on `infer_trip_times` setting — default OFF.
+    use crate::settings::LocalSettings;
+    let settings = LocalSettings::load(app_dir);
+    if !settings.infer_trip_times.unwrap_or(false) {
+        return Ok(None);
+    }
+
     let row_date = NaiveDate::parse_from_str(&row_date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid row_date (expected YYYY-MM-DD): {}", e))?;
     let mut jitter = ThreadRngJitter;
