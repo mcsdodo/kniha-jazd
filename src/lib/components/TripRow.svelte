@@ -3,6 +3,7 @@
 	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
+	import { toast } from '$lib/stores/toast';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let trip: Trip | null = null;
@@ -180,9 +181,26 @@
 				vehicleId, formData.origin, formData.destination, rowDate
 			);
 			if (result) {
-				// Store as datetime-local ("YYYY-MM-DDTHH:MM"), preserving row's date.
+				// Snapshot pre-overwrite values so undo can restore them.
+				const previousStart = formData.startDatetime;
+				const previousEnd = formData.endDatetime;
+
+				// Apply the inferred times. Store as datetime-local
+				// ("YYYY-MM-DDTHH:MM"), preserving the row's date.
 				formData.startDatetime = result.startDatetime.slice(0, 16);
 				formData.endDatetime = result.endDatetime.slice(0, 16);
+
+				// Toast with undo action: lets the user revert to the typed
+				// values and re-trigger inference if they change their mind.
+				toast.withAction(
+					$LL.trips.timeInferenceApplied(),
+					$LL.trips.timeInferenceUndo(),
+					() => {
+						formData.startDatetime = previousStart;
+						formData.endDatetime = previousEnd;
+						inferredKey = ''; // allow re-trigger after undo
+					}
+				);
 			}
 		} catch (e) {
 			// Inference is best-effort; failures must not block manual entry.
