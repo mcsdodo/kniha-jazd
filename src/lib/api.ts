@@ -424,6 +424,15 @@ export async function setDatePrefillMode(mode: DatePrefillMode): Promise<void> {
 	return apiCall('set_date_prefill_mode', { mode });
 }
 
+// Time inference settings
+export async function getInferTripTimes(): Promise<boolean> {
+	return apiCall<boolean>('get_infer_trip_times');
+}
+
+export async function setInferTripTimes(enabled: boolean): Promise<void> {
+	return apiCall('set_infer_trip_times', { enabled });
+}
+
 // Receipt settings
 export async function setGeminiApiKey(apiKey: string): Promise<void> {
 	return apiCall('set_gemini_api_key', { apiKey });
