@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-27 (Task 58 moved to [_done/](./_done/))
+**Last updated:** 2026-04-27 (Task 59 added)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 59 | [Time Inference Toggle](59-time-inference-toggle/) | 📋 Planning | Make new-row start/end time auto-fill opt-in (default OFF) + toast with undo |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |

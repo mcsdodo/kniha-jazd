@@ -95,10 +95,24 @@ Use `superpowers:writing-plans` to create detailed implementation plan, then wri
 ## Task 2: ...
 ```
 
-### 5. Commit Planning Docs
+### 5. Update Task Index
+
+**MANDATORY:** Add an entry to [_tasks/index.md](../../../_tasks/index.md) for the new task folder. This file is the human-readable overview of all tasks and their status — agents and humans alike consult it before starting work.
+
+Add a row to the **Active Tasks** table at the top:
+
+```markdown
+| {NN} | [{Feature Name}]({NN}-{feature-name}/) | 📋 Planning | {one-line summary} |
+```
+
+Insert in descending-by-number order (newest at top). Status icons: 📋 Planning · 🟡 In Progress · ✅ Complete · ❌ Blocked.
+
+### 6. Commit Planning Docs
+
+Stage the new task folder AND the index update together so they land in one commit:
 
 ```bash
-git add _tasks/{NN}-{feature-name}/
+git add _tasks/{NN}-{feature-name}/ _tasks/index.md
 git commit -m "docs: add task and plan for {feature-name}"
 ```
 
