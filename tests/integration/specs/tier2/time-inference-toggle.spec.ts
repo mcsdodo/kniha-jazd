@@ -56,45 +56,41 @@ async function openNewRow(): Promise<void> {
 }
 
 /**
- * Pick an autocomplete suggestion via the dropdown — this is the only path
- * that fires the component's onSelect callback, which in turn triggers
- * TripRow's handleOriginSelect / handleDestinationSelect → tryInferTimes().
+ * Pick an autocomplete suggestion via the dropdown for a SPECIFIC field
+ * (origin / destination). This fires the component's onSelect → TripRow's
+ * handleOriginSelect / handleDestinationSelect → tryInferTimes().
  *
- * Pattern mirrored from tier2/route-autocomplete.spec.ts.
+ * Scopes the suggestion click to the autocomplete wrapper that owns the
+ * targeted input, so we don't accidentally click a stale dropdown still
+ * fading from a sibling field (origin's blur delay is 200ms).
  */
 async function pickFromAutocomplete(
   testId: string,
   partial: string
 ): Promise<void> {
+  // Wait long enough for any sibling autocomplete's blur-delayed dropdown
+  // (Autocomplete.svelte uses a 200ms timeout) to close fully.
+  await browser.pause(350);
+
   const input = await $(`[data-testid="${testId}"]`);
   await input.waitForDisplayed({ timeout: 5000 });
   await input.click();
   await input.setValue(partial);
 
-  // Wait for the dropdown showing matching suggestions to appear.
+  // Wait for THIS field's dropdown specifically — scope by walking up to
+  // the parent .autocomplete wrapper that contains the input.
   await browser.waitUntil(
     async () => {
-      const dropdowns = await $$('.autocomplete .dropdown');
-      for (const dropdown of dropdowns) {
-        if (await dropdown.isDisplayed()) {
-          return true;
-        }
-      }
-      return false;
+      const dropdown = await $(`[data-testid="${testId}"]`).parentElement().$('.dropdown');
+      return (await dropdown.isExisting()) && (await dropdown.isDisplayed());
     },
     { timeout: 5000, timeoutMsg: `Autocomplete dropdown for ${testId} did not appear` }
   );
 
-  // Click the first visible suggestion (only one will be visible at a time).
-  const dropdowns = await $$('.autocomplete .dropdown');
-  for (const dropdown of dropdowns) {
-    if (await dropdown.isDisplayed()) {
-      const suggestion = await dropdown.$('.suggestion');
-      await suggestion.click();
-      break;
-    }
-  }
-  await browser.pause(200);
+  // Click the first suggestion in this field's dropdown.
+  const suggestion = await $(`[data-testid="${testId}"]`).parentElement().$('.dropdown .suggestion');
+  await suggestion.click();
+  await browser.pause(250);
 }
 
 describe('Tier 2: Time Inference Toggle + Toast + Undo', () => {
