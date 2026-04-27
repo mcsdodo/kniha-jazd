@@ -4236,7 +4236,7 @@ mod time_inference_tests {
     }
 
     #[test]
-    fn test_inference_command_returns_none_when_setting_unset() {
+    fn inference_command_returns_none_when_setting_unset() {
         use crate::commands_internal::trips::get_inferred_trip_time_for_route_internal;
         let (db, vehicle_id) = test_db_with_completed_trip();
         let dir = tempfile::tempdir().unwrap();
@@ -4257,7 +4257,7 @@ mod time_inference_tests {
     }
 
     #[test]
-    fn test_inference_command_returns_none_when_setting_disabled() {
+    fn inference_command_returns_none_when_setting_disabled() {
         use crate::commands_internal::settings_cmd::set_infer_trip_times_internal;
         use crate::commands_internal::trips::get_inferred_trip_time_for_route_internal;
         let (db, vehicle_id) = test_db_with_completed_trip();
@@ -4279,7 +4279,7 @@ mod time_inference_tests {
     }
 
     #[test]
-    fn test_inference_command_returns_some_when_setting_enabled() {
+    fn inference_command_returns_some_when_setting_enabled() {
         use crate::commands_internal::settings_cmd::set_infer_trip_times_internal;
         use crate::commands_internal::trips::get_inferred_trip_time_for_route_internal;
         let (db, vehicle_id) = test_db_with_completed_trip();

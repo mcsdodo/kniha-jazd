@@ -6,6 +6,7 @@ use crate::check_read_only;
 use crate::commands_internal::parse_iso_datetime;
 use crate::db::{normalize_location, Database};
 use crate::models::{InferredTripTime, Route, Trip};
+use crate::settings::LocalSettings;
 use chrono::{NaiveDate, Utc};
 use std::path::Path;
 use uuid::Uuid;
@@ -236,8 +237,7 @@ pub fn get_inferred_trip_time_for_route_internal(
     destination: String,
     row_date: String,
 ) -> Result<Option<InferredTripTime>, String> {
-    // Gate on `infer_trip_times` setting — default OFF.
-    use crate::settings::LocalSettings;
+    // Default OFF — None and Some(false) both disable inference (opt-in).
     let settings = LocalSettings::load(app_dir);
     if !settings.infer_trip_times.unwrap_or(false) {
         return Ok(None);
