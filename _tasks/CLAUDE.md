@@ -1,56 +1,104 @@
 # Task Planning Conventions
 
-This folder contains planning documents for complex features. All plans, designs, and task tracking go here - NOT in `.claude/plans/`, `docs/`, or other directories.
+Planning docs for complex features live here. NOT in `.claude/plans/`, NOT in `docs/`,
+NOT scattered in feature folders.
 
-## Folder Structure
+---
+
+## Default entry point: `/task-plan`
+
+**For any new feature that needs a task folder, invoke `/task-plan` first.**
+
+It chains the right skills in the right order:
 
 ```
-_tasks/
-├── index.md                          # Task index - ALWAYS UPDATE when creating/completing tasks
-├── {NN}-{descriptive-name}/          # Numbered folders (check existing folder for next NN!)
-│   ├── 01-task.md                    # Task description, requirements
-│   ├── 02-plan.md                    # Implementation plan
-│   ├── 02-design.md                  # Or design doc (alternative to plan)
-│   └── 03-*.md                       # Additional docs as needed
-├── _TECH_DEBT/                       # Tech debt tracking (see _TECH_DEBT/CLAUDE.md)
-│   ├── {NN}-{issue-name}.md          # Individual tech debt items
-│   └── CLAUDE.md                     # Tech debt guidelines
-└── CLAUDE.md                         # This file
+superpowers:brainstorming  →  01-task.md
+        ↓
+superpowers:writing-plans  →  02-plan.md
+        ↓
+        commit
 ```
 
-## File Naming
+`/task-plan` already enforces the next-folder-number procedure, the metadata header,
+the required-skill gates (below), and the commit-before-implementation rule. Use it
+unless one of these is true:
 
-- **Folders**: `{NN}-{descriptive-name}` - Check existing folders for next number
-- **Files**: `{NN}-{name}.md` format (e.g., `01-task.md`, `02-plan.md`)
+- You're **adding to an existing task folder** (e.g., a `03-status.md` follow-up).
+- You're **explicitly instructed** to bypass it.
+- `/task-plan` is **unavailable** in your environment.
 
-**CRITICAL - Finding next folder number:**
+In those cases, follow the manual rules below — every rule that `/task-plan`
+automates also applies when you do it by hand.
+
+---
+
+## Required skills (apply whether you used `/task-plan` or not)
+
+Two file types in this folder are gated on a skill invocation. **Do not write them
+without the skill** — the skills exist precisely to prevent the failure modes you'll
+otherwise reach for. `/task-plan` invokes both for you; manual workflows must invoke
+them explicitly.
+
+### Writing plans → invoke `superpowers:writing-plans`
+
+**MANDATORY:** Before writing any `*-plan.md`, invoke the `superpowers:writing-plans`
+skill via the `Skill` tool. No exceptions.
+
+The skill enforces:
+
+- Required plan header with `superpowers:executing-plans` handoff line
+- Bite-sized steps (2–5 minutes each: write test → run → implement → run → commit)
+- Exact file paths and complete code blocks (no "add validation" hand-waves)
+- TDD ordering for every task (failing test before implementation)
+- Explicit commands with expected pass/fail output
+
+**Failure-mode tell:** If you find yourself drafting tasks like "Implement X" without
+numbered sub-steps, stop — that's the pattern the skill prevents. Invoke it.
+
+### Writing designs → invoke `superpowers:brainstorming`
+
+**MANDATORY:** Before writing any `*-design.md`, invoke `superpowers:brainstorming` to
+validate user intent and get design approval. Do not write a design doc from a
+single-shot interpretation of a user's request.
+
+---
+
+## Critical procedures
+
+### Finding the next folder number
+
+**Always check BOTH locations** — completed tasks move to `_done/`:
+
 ```
-# Check BOTH locations (completed tasks move to _done/)
 Glob pattern: _tasks/[0-9][0-9]-*
 Glob pattern: _tasks/_done/[0-9][0-9]-*
 ```
-Find the highest `{NN}` across BOTH folders and increment by 1.
 
-Do NOT use `ls _tasks/` or `Glob _tasks/*` — these may miss subdirectories.
+Find the highest `{NN}` across BOTH and increment by 1.
 
-| File | Purpose |
-|------|---------|
-| `01-task.md` | Task description, user story, requirements |
-| `02-plan.md` | Step-by-step implementation plan |
-| `02-design.md` | Architecture decisions, diagrams |
-| `03+` | Additional docs (status, notes, etc.) |
+**Do NOT use `ls _tasks/` or `Glob _tasks/*`** — these miss subdirectories.
 
-## File Content
+### Commit planning docs BEFORE implementation
 
-Always include metadata at top:
+When using workflow skills (brainstorming, writing-plans, etc.), commit task/design/plan
+files BEFORE any implementation code:
 
-```markdown
-**Date:** YYYY-MM-DD
-**Subject:** Feature description
-**Status:** Planning | In Progress | Complete
-```
+1. Complete brainstorming, get user approval on the design.
+2. Write the plan (via `superpowers:writing-plans` — see above), get user review.
+3. Ask: "Should I create a feature branch for this work?"
+4. Commit planning docs:
+   ```bash
+   git add _tasks/{NN}-{name}/
+   git commit -m "docs: add task and plan for {feature-name}"
+   ```
+5. Then start implementation.
 
-## When to Create Task Folders
+Rationale: design rationale lands in version control before code does, so reviewers
+and future agents can read intent independent of execution.
+
+---
+
+## When to create a task folder
 
 **Create for:**
 - Multi-file implementations
@@ -63,66 +111,96 @@ Always include metadata at top:
 - Single-file changes
 - Quick enhancements
 
-## Task Lifecycle
+---
 
-1. **Planning**: Create `{NN}-{name}/01-task.md` with requirements
-2. **Design**: Add `02-plan.md` or `02-design.md`
-3. **Implementation**: Reference plan during coding
-4. **Completion**: Keep for historical reference
+## File conventions
 
+### Naming
 
+- **Folders:** `{NN}-{descriptive-name}` (find next NN via the procedure above)
+- **Files:** `{NN}-{name}.md` — sequentially numbered
 
-## Keeping Index Updated
+| File | Purpose |
+|------|---------|
+| `01-task.md` | Task description, user story, requirements |
+| `02-plan.md` | Step-by-step implementation plan |
+| `02-design.md` | Architecture decisions, diagrams (alternative to plan) |
+| `03+` | Additional docs (status, notes, code review, etc.) |
 
-**CRITICAL:** Always update `index.md` when:
-- Creating a new task folder → Add to "Active Tasks"
-- Completing a task → Move to "Completed Tasks"
-- Changing task status → Update status icon
+### Metadata header
 
-Status icons:
-- 📋 Planning
-- 🟡 Partial / In Progress
-- ✅ Complete
-- ❌ Blocked / On Hold
+Every task/design/plan file starts with:
 
-## Tech Debt Integration
+```markdown
+**Date:** YYYY-MM-DD
+**Subject:** Feature description
+**Status:** Planning | In Progress | Complete
+```
 
-Tasks often originate from tech debt items. When implementing such tasks:
+### Lifecycle
 
-1. **Link to tech debt**: In `01-task.md`, reference the source tech debt file
+1. **Planning** — create `{NN}-{name}/01-task.md` with requirements
+2. **Design** — add `02-plan.md` or `02-design.md` (gated on the required skill above)
+3. **Implementation** — reference the plan during coding
+4. **Completion** — folder moves to `_done/`; keep for historical reference
+
+---
+
+## Maintenance
+
+### Keep `index.md` updated
+
+Update [index.md](./index.md) when:
+
+- Creating a new task folder → add to "Active Tasks"
+- Completing a task → move to "Completed Tasks"
+- Changing task status → update status icon
+
+Status icons: 📋 Planning · 🟡 Partial / In Progress · ✅ Complete · ❌ Blocked
+
+### Tech debt cross-references
+
+Tasks often originate from items in [_TECH_DEBT/](./_TECH_DEBT/). When implementing
+such tasks:
+
+1. **Link to tech debt** in `01-task.md`:
    ```markdown
-   **Source:** `_TECH_DEBT/03-issue-name.md`
+   **Source:** _TECH_DEBT/03-issue-name.md
    ```
-
-2. **Update tech debt on completion**: After implementing, update the tech debt file:
-   - Change **Status** to "Fixed"
-   - Add entry to **Decision Log** with PR reference
+2. **Update tech debt on completion** — change **Status** to "Fixed", add a
+   **Decision Log** entry with PR reference:
    ```markdown
    | YYYY-MM-DD | Implemented fix | PR #NNN merged |
    ```
+3. **Cross-reference** — link from the tech debt file to the task folder in its
+   **Related** section.
 
-3. **Cross-reference**: Link from tech debt to the task folder in the **Related** section
+See [_TECH_DEBT/CLAUDE.md](./_TECH_DEBT/CLAUDE.md) for tech debt guidelines.
 
-See [`_TECH_DEBT/CLAUDE.md`](_TECH_DEBT/CLAUDE.md) for tech debt documentation guidelines.
+---
 
-## Task Files vs Code Documentation
+## Boundaries
 
-- **Task files** (plans, status, designs) → Stay in `_tasks/`
-- **Code documentation** (READMEs, API docs) → Stay with code (locality principle)
+- **Task files** (plans, status, designs) → stay in `_tasks/`
+- **Code documentation** (READMEs, API docs) → stay with code (locality principle)
 - **Never mix** task planning with permanent code docs
 
-## Before Starting Implementation
+---
 
-**IMPORTANT:** When using workflow skills (brainstorming, writing-plans, etc.), commit task/design/plan files BEFORE implementation begins:
+## Reference: folder structure
 
-1. **Complete planning phase**: Finish brainstorming, get user approval on design
-2. **Write plan**: Create implementation plan, get user review
-3. **Ask about branching**: "Should I create a feature branch for this work?"
-4. **Commit planning docs**:
-   ```bash
-   git add _tasks/{NN}-{name}/
-   git commit -m "docs: add task and plan for {feature-name}"
-   ```
-5. **Then start implementation**: Begin coding following the plan
-
-This preserves design rationale in version control before code changes begin.
+```
+_tasks/
+├── index.md                          # Task index (kept current)
+├── {NN}-{descriptive-name}/          # Active task folders
+│   ├── 01-task.md                    # Requirements
+│   ├── 02-plan.md                    # Implementation plan
+│   ├── 02-design.md                  # OR design doc (alternative to plan)
+│   └── 03-*.md                       # Additional docs
+├── _done/                            # Completed task folders, archived
+│   └── {NN}-{descriptive-name}/      # Same shape as active tasks
+├── _TECH_DEBT/                       # Tech debt tracking
+│   ├── {NN}-{issue-name}.md          # Individual tech debt items
+│   └── CLAUDE.md                     # Tech debt guidelines
+└── CLAUDE.md                         # This file
+```
