@@ -331,3 +331,18 @@ fn test_get_infer_trip_times_internal_default_is_false() {
     let result = get_infer_trip_times_internal(&dir.path().to_path_buf()).unwrap();
     assert!(!result, "default must be OFF");
 }
+
+#[test]
+fn test_set_infer_trip_times_internal_round_trip() {
+    use crate::commands_internal::settings_cmd::{
+        get_infer_trip_times_internal, set_infer_trip_times_internal,
+    };
+    let dir = tempdir().unwrap();
+    let app_dir = dir.path().to_path_buf();
+
+    set_infer_trip_times_internal(&app_dir, true).unwrap();
+    assert!(get_infer_trip_times_internal(&app_dir).unwrap());
+
+    set_infer_trip_times_internal(&app_dir, false).unwrap();
+    assert!(!get_infer_trip_times_internal(&app_dir).unwrap());
+}

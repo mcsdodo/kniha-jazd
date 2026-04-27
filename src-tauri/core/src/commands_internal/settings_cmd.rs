@@ -182,6 +182,12 @@ pub fn get_infer_trip_times_internal(app_dir: &Path) -> Result<bool, String> {
     Ok(settings.infer_trip_times.unwrap_or(false))
 }
 
+pub fn set_infer_trip_times_internal(app_dir: &Path, enabled: bool) -> Result<(), String> {
+    let mut settings = LocalSettings::load(app_dir);
+    settings.infer_trip_times = Some(enabled);
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
 // ============================================================================
 // Database Location
 // ============================================================================
