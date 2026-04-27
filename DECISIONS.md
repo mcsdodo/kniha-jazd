@@ -4,6 +4,28 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-04-27: Default-OFF for Route-Based Time Inference
+
+### BIZ-014: Opt-In Auto-Fill of Trip Start/End Times
+
+**Context:** Version 0.33.0 introduced silent auto-fill of new-row start/end datetimes from the most recent matching route (with ±15 min / ±15% jitter; see [calculations/time_inference.rs](./src-tauri/core/src/calculations/time_inference.rs)). The feature is technically correct but UX-hostile: the user types `startDatetime` and `endDatetime`, then picks origin and destination, and their typed values are silently overwritten. There was no indication that this was intentional and no escape hatch — even users who knew about the feature could not opt out short of code changes.
+
+**Decision:** Make `infer_trip_times: Option<bool>` an opt-in setting on [LocalSettings](./src-tauri/core/src/settings.rs) that defaults to OFF (`None` and `Some(false)` both mean disabled). When enabled, surface every inference with a 6-second toast that includes a `Vrátiť` ("Undo") button restoring the pre-inference values for that single row and clearing the row's `inferredKey` so the user can deliberately re-trigger inference if they change their mind.
+
+**Alternatives considered:**
+- *Default ON with a discovery toast.* Preserves prior behavior for existing users while adding an in-app way to learn about the feature. Rejected because the very first inference still surprises the user — the no-surprise principle wins over discoverability for an action that overwrites typed input.
+- *Default ON without any toast.* The 0.33.0 status quo. Rejected as user-hostile.
+- *Remove the feature entirely.* Rejected — users who legitimately repeat the same routes find auto-fill valuable; an opt-in toggle keeps the value while removing the surprise.
+
+**Trade-offs accepted:**
+- Existing users who relied on the auto-fill lose it silently after upgrade. Mitigation: prominent [CHANGELOG](./CHANGELOG.md) entry and the in-app discovery path via the toast (visible the first time they enable the toggle).
+
+**Implementation note:** The gate lives at the public command boundary (`get_inferred_trip_time_for_route_internal` in [commands_internal/trips.rs](./src-tauri/core/src/commands_internal/trips.rs)), not inside the pure helpers `compute_inferred_times` / `inferred_trip_time_for_route`. ADR-008 (frontend calculation duplication) and ADR-014 (jitter stays in Rust) are preserved: the calculation core stays a pure function (testable with deterministic jitter); the user setting is read at the orchestration layer.
+
+**Related:** [Task 59](./_tasks/59-time-inference-toggle/), original feature in [v0.33.0 changelog entry](./CHANGELOG.md).
+
+---
+
 ## 2026-04-26: Cargo Workspace Split for Tauri/Web Boundary
 
 ### ADR-018: Workspace Members Over Feature Flags

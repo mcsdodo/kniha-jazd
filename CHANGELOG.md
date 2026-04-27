@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Inteligentné predvyplnenie času je teraz voliteľné (predvolene VYPNUTÉ)** - automatické doplnenie začiatku/konca podľa najnovšej zhodnej trasy (pridané v 0.33.0) sa pri novom riadku už nespúšťa potichu. Funkcia je dostupná v Nastaveniach pod prepínačom „Automaticky vyplniť časy podľa poslednej trasy". Po jej zapnutí sa pri každom doplnení zobrazí krátka správa s tlačidlom „Vrátiť", ktoré obnoví pôvodne napísané časy pre daný riadok.
+
 ## [0.34.0] - 2026-04-27
 
 ### Pridané
