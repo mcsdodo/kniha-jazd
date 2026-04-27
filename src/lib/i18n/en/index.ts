@@ -112,6 +112,9 @@ const en = {
 		datePrefillPrevious: '+1 day',
 		datePrefillToday: 'Today',
 		datePrefillTooltip: 'Prefilled date for new entry',
+		// Time inference toast
+		timeInferenceApplied: 'Times filled from last route',
+		timeInferenceUndo: 'Undo',
 		emptyState: 'No records. Click "New record" to add a trip.',
 		// Column headers
 		columns: {
@@ -296,6 +299,9 @@ const en = {
 		// Read-only mode
 		readOnlyBanner: 'Database was updated by a newer app version. Read-only mode.',
 		readOnlyCheckUpdates: 'Check for Updates',
+		// Time inference toggle
+		inferTripTimesLabel: 'Auto-fill times from last route',
+		inferTripTimesDescription: 'When creating a new entry, fill start/end times from the most recent matching route (with a small random offset).',
 	},
 
 	// Backup modals

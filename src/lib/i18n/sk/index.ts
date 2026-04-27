@@ -112,6 +112,9 @@ const sk = {
 		datePrefillPrevious: '+1 deň',
 		datePrefillToday: 'Dnes',
 		datePrefillTooltip: 'Predvyplnený dátum pre nový záznam',
+		// Time inference toast
+		timeInferenceApplied: 'Časy doplnené z poslednej trasy',
+		timeInferenceUndo: 'Vrátiť',
 		emptyState: 'Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.',
 		// Column headers
 		columns: {
@@ -296,6 +299,9 @@ const sk = {
 		// Read-only mode
 		readOnlyBanner: 'Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.',
 		readOnlyCheckUpdates: 'Skontrolovať aktualizácie',
+		// Time inference toggle
+		inferTripTimesLabel: 'Automaticky vyplniť časy podľa poslednej trasy',
+		inferTripTimesDescription: 'Pri novom zázname po výbere trasy doplní začiatok a koniec z poslednej rovnakej cesty (s malou náhodnou odchýlkou).',
 	},
 
 	// Backup modals

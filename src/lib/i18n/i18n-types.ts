@@ -343,6 +343,14 @@ type RootTranslation = {
 		 */
 		datePrefillTooltip: string
 		/**
+		 * Č​a​s​y​ ​d​o​p​l​n​e​n​é​ ​z​ ​p​o​s​l​e​d​n​e​j​ ​t​r​a​s​y
+		 */
+		timeInferenceApplied: string
+		/**
+		 * V​r​á​t​i​ť
+		 */
+		timeInferenceUndo: string
+		/**
 		 * Ž​i​a​d​n​e​ ​z​á​z​n​a​m​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​"​N​o​v​ý​ ​z​á​z​n​a​m​"​ ​p​r​e​ ​p​r​i​d​a​n​i​e​ ​j​a​z​d​y​.
 		 */
 		emptyState: string
@@ -957,6 +965,14 @@ type RootTranslation = {
 		 * S​k​o​n​t​r​o​l​o​v​a​ť​ ​a​k​t​u​a​l​i​z​á​c​i​e
 		 */
 		readOnlyCheckUpdates: string
+		/**
+		 * A​u​t​o​m​a​t​i​c​k​y​ ​v​y​p​l​n​i​ť​ ​č​a​s​y​ ​p​o​d​ľ​a​ ​p​o​s​l​e​d​n​e​j​ ​t​r​a​s​y
+		 */
+		inferTripTimesLabel: string
+		/**
+		 * P​r​i​ ​n​o​v​o​m​ ​z​á​z​n​a​m​e​ ​p​o​ ​v​ý​b​e​r​e​ ​t​r​a​s​y​ ​d​o​p​l​n​í​ ​z​a​č​i​a​t​o​k​ ​a​ ​k​o​n​i​e​c​ ​z​ ​p​o​s​l​e​d​n​e​j​ ​r​o​v​n​a​k​e​j​ ​c​e​s​t​y​ ​(​s​ ​m​a​l​o​u​ ​n​á​h​o​d​n​o​u​ ​o​d​c​h​ý​l​k​o​u​)​.
+		 */
+		inferTripTimesDescription: string
 	}
 	backup: {
 		/**
@@ -2570,6 +2586,14 @@ export type TranslationFunctions = {
 		 */
 		datePrefillTooltip: () => LocalizedString
 		/**
+		 * Časy doplnené z poslednej trasy
+		 */
+		timeInferenceApplied: () => LocalizedString
+		/**
+		 * Vrátiť
+		 */
+		timeInferenceUndo: () => LocalizedString
+		/**
 		 * Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.
 		 */
 		emptyState: () => LocalizedString
@@ -3179,6 +3203,14 @@ export type TranslationFunctions = {
 		 * Skontrolovať aktualizácie
 		 */
 		readOnlyCheckUpdates: () => LocalizedString
+		/**
+		 * Automaticky vyplniť časy podľa poslednej trasy
+		 */
+		inferTripTimesLabel: () => LocalizedString
+		/**
+		 * Pri novom zázname po výbere trasy doplní začiatok a koniec z poslednej rovnakej cesty (s malou náhodnou odchýlkou).
+		 */
+		inferTripTimesDescription: () => LocalizedString
 	}
 	backup: {
 		/**
