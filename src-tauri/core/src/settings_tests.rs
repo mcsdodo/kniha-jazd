@@ -100,6 +100,7 @@ fn test_save_preserves_all_fields() {
         custom_db_path: Some("D:/NAS/data".to_string()),
         backup_retention: None,
         date_prefill_mode: Some(DatePrefillMode::Today),
+        infer_trip_times: Some(false),
         hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
         ha_url: Some("http://ha.local:8123".to_string()),
         ha_api_token: Some("token123".to_string()),
@@ -122,6 +123,7 @@ fn test_save_preserves_all_fields() {
     );
     assert_eq!(loaded.ha_url, Some("http://ha.local:8123".to_string()));
     assert_eq!(loaded.ha_api_token, Some("token123".to_string()));
+    assert_eq!(loaded.infer_trip_times, Some(false));
 }
 
 #[test]
@@ -286,4 +288,12 @@ fn test_ha_settings_round_trip() {
     let loaded = LocalSettings::load(&dir.path().to_path_buf());
     assert_eq!(loaded.ha_url, Some("https://my-ha.duckdns.org".to_string()));
     assert_eq!(loaded.ha_api_token, Some("my-long-lived-token".to_string()));
+}
+
+// infer_trip_times tests
+#[test]
+fn test_infer_trip_times_default_is_none() {
+    let dir = tempdir().unwrap();
+    let settings = LocalSettings::load(&dir.path().to_path_buf());
+    assert!(settings.infer_trip_times.is_none());
 }
