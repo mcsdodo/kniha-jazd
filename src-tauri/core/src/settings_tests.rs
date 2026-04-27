@@ -297,3 +297,29 @@ fn test_infer_trip_times_default_is_none() {
     let settings = LocalSettings::load(&dir.path().to_path_buf());
     assert!(settings.infer_trip_times.is_none());
 }
+
+#[test]
+fn test_infer_trip_times_round_trip_true() {
+    let dir = tempdir().unwrap();
+    let settings = LocalSettings {
+        infer_trip_times: Some(true),
+        ..Default::default()
+    };
+    settings.save(&dir.path().to_path_buf()).unwrap();
+
+    let loaded = LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.infer_trip_times, Some(true));
+}
+
+#[test]
+fn test_infer_trip_times_round_trip_false() {
+    let dir = tempdir().unwrap();
+    let settings = LocalSettings {
+        infer_trip_times: Some(false),
+        ..Default::default()
+    };
+    settings.save(&dir.path().to_path_buf()).unwrap();
+
+    let loaded = LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.infer_trip_times, Some(false));
+}
