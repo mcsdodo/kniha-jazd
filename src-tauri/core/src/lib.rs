@@ -13,6 +13,7 @@ pub mod db_location;
 pub mod export;
 pub mod gemini;
 pub mod models;
+pub mod paperless;
 pub mod receipts;
 pub mod schema;
 pub mod server;
