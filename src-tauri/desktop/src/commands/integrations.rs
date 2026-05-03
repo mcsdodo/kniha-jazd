@@ -10,7 +10,10 @@ pub use kniha_jazd_core::commands_internal::integrations::*;
 
 use kniha_jazd_core::app_state::AppState;
 use kniha_jazd_core::commands_internal::integrations as inner;
+use kniha_jazd_core::commands_internal::paperless_cmd as paperless_inner;
 use kniha_jazd_core::constants::mime_types;
+use kniha_jazd_core::db::Database;
+use kniha_jazd_core::models::PaperlessInvoiceRow;
 use kniha_jazd_core::settings::LocalSettings;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -115,4 +118,77 @@ pub async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String, value:
     {
         log::warn!("HA push to {}: {}", entity_id, e);
     }
+}
+
+// ============================================================================
+// Paperless-ngx Settings Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn get_paperless_settings(
+    app_handle: tauri::AppHandle,
+) -> Result<PaperlessSettingsResponse, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    inner::get_paperless_settings_internal(&app_data_dir)
+}
+
+#[tauri::command]
+pub fn save_paperless_settings(
+    app_handle: tauri::AppHandle,
+    app_state: State<Arc<AppState>>,
+    url: Option<String>,
+    token: Option<String>,
+) -> Result<(), String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    inner::save_paperless_settings_internal(&app_data_dir, &app_state, url, token)
+}
+
+#[tauri::command]
+pub async fn test_paperless_connection(app_handle: tauri::AppHandle) -> Result<bool, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    inner::test_paperless_connection_internal(&app_data_dir).await
+}
+
+#[tauri::command]
+pub fn get_invoice_source_mode(
+    app_handle: tauri::AppHandle,
+) -> Result<InvoiceSourceMode, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    inner::get_invoice_source_mode_internal(&app_data_dir)
+}
+
+// ============================================================================
+// Paperless-ngx Invoice / Trip Assignment Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn get_paperless_invoices(
+    app_handle: tauri::AppHandle,
+    db: State<'_, Arc<Database>>,
+    vehicle_id: String,
+    year: i32,
+) -> Result<Vec<PaperlessInvoiceRow>, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    paperless_inner::get_paperless_invoices_internal(&app_data_dir, &db, &vehicle_id, year)
+        .await
+        .map_err(|e| format!("{:?}", e))
+}
+
+#[tauri::command]
+pub fn assign_paperless_doc_to_trip(
+    app_state: State<'_, Arc<AppState>>,
+    db: State<'_, Arc<Database>>,
+    doc_id: i64,
+    trip_id: String,
+) -> Result<(), String> {
+    paperless_inner::assign_paperless_doc_to_trip_internal(&app_state, &db, doc_id, &trip_id)
+}
+
+#[tauri::command]
+pub fn unassign_paperless_doc(
+    app_state: State<'_, Arc<AppState>>,
+    db: State<'_, Arc<Database>>,
+    doc_id: i64,
+) -> Result<(), String> {
+    paperless_inner::unassign_paperless_doc_internal(&app_state, &db, doc_id)
 }

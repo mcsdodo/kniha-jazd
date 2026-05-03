@@ -62,7 +62,7 @@ pub async fn dispatch_async(
         }
 
         // ====================================================================
-        // Integrations — async (2)
+        // Integrations — async (6)
         // ====================================================================
         "test_ha_connection" => {
             let result =
@@ -82,6 +82,50 @@ pub async fn dispatch_async(
             let result =
                 crate::commands_internal::integrations::fetch_ha_odo_internal(&state.app_dir, a.sensor_id).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+        "test_paperless_connection" => {
+            let result =
+                crate::commands_internal::integrations::test_paperless_connection_internal(&state.app_dir).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+        "get_paperless_invoices" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args { vehicle_id: String, year: i32 }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::paperless_cmd::get_paperless_invoices_internal(
+                &state.app_dir, &state.db, &a.vehicle_id, a.year,
+            ).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| format!("{:?}", e)))
+        }
+        "assign_paperless_doc_to_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args { doc_id: i64, trip_id: String }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::paperless_cmd::assign_paperless_doc_to_trip_internal(
+                &state.app_state, &state.db, a.doc_id, &a.trip_id,
+            );
+            Some(result.map(|_| serde_json::to_value(()).unwrap()))
+        }
+        "unassign_paperless_doc" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args { doc_id: i64 }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::paperless_cmd::unassign_paperless_doc_internal(
+                &state.app_state, &state.db, a.doc_id,
+            );
+            Some(result.map(|_| serde_json::to_value(()).unwrap()))
         }
 
         // ====================================================================
