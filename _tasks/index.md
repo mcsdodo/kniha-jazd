@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-04-27 (Task 60 added)
+**Last updated:** 2026-05-03 (Task 61 added)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 60 | [Paperless Integration](60-paperless-integration/) | 📋 Planning | Optional Paperless-ngx as invoice source; doklady mode switch + new `paperless_trip_links` table |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
