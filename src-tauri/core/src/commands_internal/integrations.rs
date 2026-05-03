@@ -218,6 +218,28 @@ pub fn save_paperless_settings_internal(
     settings.save(app_dir).map_err(|e| e.to_string())
 }
 
+/// Test Paperless-ngx connection. Auth header is `Token <PAT>` (DRF), NOT Bearer.
+pub async fn test_paperless_connection_internal(app_dir: &Path) -> Result<bool, String> {
+    let settings = LocalSettings::load(app_dir);
+    let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
+        (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
+        _ => return Ok(false),
+    };
+    let api_url = format!("{}/api/ui_settings/", url.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build().map_err(|e| e.to_string())?;
+
+    let response = client.get(&api_url)
+        .header("Authorization", format!("Token {}", token))
+        .header("Accept", "application/json")
+        .send().await
+        .map_err(|e| e.to_string())?;
+
+    Ok(response.status().is_success())
+}
+
 #[cfg(test)]
 #[path = "integrations_tests.rs"]
 mod tests;

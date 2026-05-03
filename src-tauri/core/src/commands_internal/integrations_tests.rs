@@ -54,3 +54,66 @@ fn get_paperless_settings_hides_token() {
     assert_eq!(r.url.as_deref(), Some("https://x.example"));
     assert!(r.has_token);
 }
+
+use wiremock::matchers::{header, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+#[tokio::test]
+async fn test_paperless_connection_uses_token_auth_header_not_bearer() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/ui_settings/"))
+        .and(header("authorization", "Token my-pat-123"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("{}"))
+        .mount(&mock).await;
+
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some(mock.uri());
+    s.paperless_api_token = Some("my-pat-123".into());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let ok = test_paperless_connection_internal(&dir.path().to_path_buf()).await.unwrap();
+    assert!(ok);
+}
+
+#[tokio::test]
+async fn test_paperless_connection_rejects_bearer_header() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/ui_settings/"))
+        .and(header("authorization", "Bearer my-pat-123"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock).await;
+
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some(mock.uri());
+    s.paperless_api_token = Some("my-pat-123".into());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let ok = test_paperless_connection_internal(&dir.path().to_path_buf()).await.unwrap();
+    assert!(!ok);
+}
+
+#[tokio::test]
+async fn test_paperless_connection_unconfigured_returns_false_silently() {
+    let dir = tempdir().unwrap();
+    let ok = test_paperless_connection_internal(&dir.path().to_path_buf()).await.unwrap();
+    assert!(!ok);
+}
+
+#[tokio::test]
+async fn test_paperless_connection_401_returns_false() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/ui_settings/"))
+        .respond_with(ResponseTemplate::new(401))
+        .mount(&mock).await;
+
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some(mock.uri());
+    s.paperless_api_token = Some("bad".into());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    assert!(!test_paperless_connection_internal(&dir.path().to_path_buf()).await.unwrap());
+}
