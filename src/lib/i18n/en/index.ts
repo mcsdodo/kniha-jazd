@@ -681,6 +681,35 @@ const en = {
 		backupFailedMessage: 'Failed to create database backup. Do you want to continue updating without a backup?',
 		continueWithoutBackup: 'Continue without backup',
 	},
+	paperless: {
+		sectionTitle: 'Paperless-ngx',
+		description: 'Read invoices directly from Paperless-ngx (filtered by fuel/car tags).',
+		url: 'URL',
+		urlPlaceholder: 'https://documents.example.com',
+		apiToken: 'API token (PAT)',
+		apiTokenPlaceholder: '40-character token from Paperless',
+		testConnection: 'Test connection',
+		status: {
+			idle: 'Idle',
+			testing: 'Testing…',
+			connected: 'Connected',
+			disconnected: 'Disconnected',
+		},
+		errors: {
+			urlInvalid: 'Invalid URL',
+			invalidToken: 'Invalid token',
+			tagMissing: 'Add tag "{name}" in Paperless and tag your invoices with it',
+			fieldMissing: 'Create custom field "{name}" in Paperless',
+			network: 'Paperless unreachable — check your settings',
+		},
+	},
+	doklady: {
+		paperless: {
+			refresh: 'Refresh from Paperless',
+			openInPaperless: 'Open in Paperless',
+			noDate: '?',
+		},
+	},
 } satisfies Translation;
 
 export default en;

@@ -681,6 +681,36 @@ const sk = {
 		backupFailedMessage: 'Nepodarilo sa vytvoriť zálohu databázy. Chcete pokračovať v aktualizácii bez zálohy?',
 		continueWithoutBackup: 'Pokračovať bez zálohy',
 	},
+	paperless: {
+		// Settings section
+		sectionTitle: 'Paperless-ngx',
+		description: 'Načítaj doklady priamo z Paperless-ngx (filtruje podľa tagov fuel/car).',
+		url: 'URL',
+		urlPlaceholder: 'https://documents.priklad.sk',
+		apiToken: 'API token (PAT)',
+		apiTokenPlaceholder: '40-znakový token z Paperless',
+		testConnection: 'Test pripojenia',
+		status: {
+			idle: 'Pripravené',
+			testing: 'Testujem…',
+			connected: 'Pripojené',
+			disconnected: 'Nepripojené',
+		},
+		errors: {
+			urlInvalid: 'Neplatná URL',
+			invalidToken: 'Neplatný token',
+			tagMissing: 'Pridaj tag „{name:string}" v Paperless a označ ním invoice',
+			fieldMissing: 'Vytvor custom field „{name:string}" v Paperless',
+			network: 'Paperless nedostupný — skontroluj nastavenia',
+		},
+	},
+	doklady: {
+		paperless: {
+			refresh: 'Obnoviť z Paperless',
+			openInPaperless: 'Otvoriť v Paperless',
+			noDate: '?',
+		},
+	},
 } satisfies BaseTranslation;
 
 export default sk;

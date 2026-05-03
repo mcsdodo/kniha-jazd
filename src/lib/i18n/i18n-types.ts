@@ -2255,6 +2255,94 @@ type RootTranslation = {
 		 */
 		continueWithoutBackup: string
 	}
+	paperless: {
+		/**
+		 * P​a​p​e​r​l​e​s​s​-​n​g​x
+		 */
+		sectionTitle: string
+		/**
+		 * N​a​č​í​t​a​j​ ​d​o​k​l​a​d​y​ ​p​r​i​a​m​o​ ​z​ ​P​a​p​e​r​l​e​s​s​-​n​g​x​ ​(​f​i​l​t​r​u​j​e​ ​p​o​d​ľ​a​ ​t​a​g​o​v​ ​f​u​e​l​/​c​a​r​)​.
+		 */
+		description: string
+		/**
+		 * U​R​L
+		 */
+		url: string
+		/**
+		 * h​t​t​p​s​:​/​/​d​o​c​u​m​e​n​t​s​.​p​r​i​k​l​a​d​.​s​k
+		 */
+		urlPlaceholder: string
+		/**
+		 * A​P​I​ ​t​o​k​e​n​ ​(​P​A​T​)
+		 */
+		apiToken: string
+		/**
+		 * 4​0​-​z​n​a​k​o​v​ý​ ​t​o​k​e​n​ ​z​ ​P​a​p​e​r​l​e​s​s
+		 */
+		apiTokenPlaceholder: string
+		/**
+		 * T​e​s​t​ ​p​r​i​p​o​j​e​n​i​a
+		 */
+		testConnection: string
+		status: {
+			/**
+			 * P​r​i​p​r​a​v​e​n​é
+			 */
+			idle: string
+			/**
+			 * T​e​s​t​u​j​e​m​…
+			 */
+			testing: string
+			/**
+			 * P​r​i​p​o​j​e​n​é
+			 */
+			connected: string
+			/**
+			 * N​e​p​r​i​p​o​j​e​n​é
+			 */
+			disconnected: string
+		}
+		errors: {
+			/**
+			 * N​e​p​l​a​t​n​á​ ​U​R​L
+			 */
+			urlInvalid: string
+			/**
+			 * N​e​p​l​a​t​n​ý​ ​t​o​k​e​n
+			 */
+			invalidToken: string
+			/**
+			 * P​r​i​d​a​j​ ​t​a​g​ ​„​{​n​a​m​e​}​"​ ​v​ ​P​a​p​e​r​l​e​s​s​ ​a​ ​o​z​n​a​č​ ​n​í​m​ ​i​n​v​o​i​c​e
+			 * @param {string} name
+			 */
+			tagMissing: RequiredParams<'name'>
+			/**
+			 * V​y​t​v​o​r​ ​c​u​s​t​o​m​ ​f​i​e​l​d​ ​„​{​n​a​m​e​}​"​ ​v​ ​P​a​p​e​r​l​e​s​s
+			 * @param {string} name
+			 */
+			fieldMissing: RequiredParams<'name'>
+			/**
+			 * P​a​p​e​r​l​e​s​s​ ​n​e​d​o​s​t​u​p​n​ý​ ​—​ ​s​k​o​n​t​r​o​l​u​j​ ​n​a​s​t​a​v​e​n​i​a
+			 */
+			network: string
+		}
+	}
+	doklady: {
+		paperless: {
+			/**
+			 * O​b​n​o​v​i​ť​ ​z​ ​P​a​p​e​r​l​e​s​s
+			 */
+			refresh: string
+			/**
+			 * O​t​v​o​r​i​ť​ ​v​ ​P​a​p​e​r​l​e​s​s
+			 */
+			openInPaperless: string
+			/**
+			 * ?
+			 */
+			noDate: string
+		}
+	}
 }
 
 export type TranslationFunctions = {
@@ -4433,6 +4521,92 @@ export type TranslationFunctions = {
 		 * Pokračovať bez zálohy
 		 */
 		continueWithoutBackup: () => LocalizedString
+	}
+	paperless: {
+		/**
+		 * Paperless-ngx
+		 */
+		sectionTitle: () => LocalizedString
+		/**
+		 * Načítaj doklady priamo z Paperless-ngx (filtruje podľa tagov fuel/car).
+		 */
+		description: () => LocalizedString
+		/**
+		 * URL
+		 */
+		url: () => LocalizedString
+		/**
+		 * https://documents.priklad.sk
+		 */
+		urlPlaceholder: () => LocalizedString
+		/**
+		 * API token (PAT)
+		 */
+		apiToken: () => LocalizedString
+		/**
+		 * 40-znakový token z Paperless
+		 */
+		apiTokenPlaceholder: () => LocalizedString
+		/**
+		 * Test pripojenia
+		 */
+		testConnection: () => LocalizedString
+		status: {
+			/**
+			 * Pripravené
+			 */
+			idle: () => LocalizedString
+			/**
+			 * Testujem…
+			 */
+			testing: () => LocalizedString
+			/**
+			 * Pripojené
+			 */
+			connected: () => LocalizedString
+			/**
+			 * Nepripojené
+			 */
+			disconnected: () => LocalizedString
+		}
+		errors: {
+			/**
+			 * Neplatná URL
+			 */
+			urlInvalid: () => LocalizedString
+			/**
+			 * Neplatný token
+			 */
+			invalidToken: () => LocalizedString
+			/**
+			 * Pridaj tag „{name}" v Paperless a označ ním invoice
+			 */
+			tagMissing: (arg: { name: string }) => LocalizedString
+			/**
+			 * Vytvor custom field „{name}" v Paperless
+			 */
+			fieldMissing: (arg: { name: string }) => LocalizedString
+			/**
+			 * Paperless nedostupný — skontroluj nastavenia
+			 */
+			network: () => LocalizedString
+		}
+	}
+	doklady: {
+		paperless: {
+			/**
+			 * Obnoviť z Paperless
+			 */
+			refresh: () => LocalizedString
+			/**
+			 * Otvoriť v Paperless
+			 */
+			openInPaperless: () => LocalizedString
+			/**
+			 * ?
+			 */
+			noDate: () => LocalizedString
+		}
 	}
 }
 
