@@ -487,6 +487,22 @@ impl AssignmentType {
     }
 }
 
+/// Mode-aware row for the doklady page (works for both local receipts and Paperless docs).
+/// `paperless_url` opens the doc in Paperless UI; `trip_id` indicates current link state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperlessInvoiceRow {
+    pub paperless_document_id: i64,
+    pub title: String,
+    pub paperless_url: String,
+    pub total_price_eur: Option<f64>,
+    pub liters: Option<f64>,
+    pub receipt_datetime: Option<chrono::NaiveDateTime>,
+    pub created_date: chrono::NaiveDate,
+    pub assignment_type: AssignmentType,
+    pub trip_id: Option<String>,
+}
+
 /// A scanned fuel receipt (blocek)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
