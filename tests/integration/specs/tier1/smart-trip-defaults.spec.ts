@@ -15,6 +15,7 @@ import {
   seedVehicle,
   seedTrip,
   setActiveVehicle,
+  invokeTauri,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { waitForTripGrid } from '../../utils/assertions';
@@ -218,6 +219,16 @@ describe('Tier 1: Smart Trip Defaults', () => {
   });
 
   describe('Time inference for new rows', () => {
+    // Time inference is opt-in (default OFF) since v0.34 — see BIZ-014 in DECISIONS.md.
+    // These tests assume the feature is ON.
+    beforeEach(async () => {
+      await invokeTauri<void>('set_infer_trip_times', { enabled: true });
+    });
+
+    afterEach(async () => {
+      await invokeTauri<void>('set_infer_trip_times', { enabled: false });
+    });
+
     it('auto-fills start/end datetimes from the most recent matching route', async () => {
       const vehicleData = createTestIceVehicle({
         name: 'Time Inference Test',
