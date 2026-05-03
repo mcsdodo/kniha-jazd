@@ -117,3 +117,33 @@ async fn test_paperless_connection_401_returns_false() {
 
     assert!(!test_paperless_connection_internal(&dir.path().to_path_buf()).await.unwrap());
 }
+
+#[test]
+fn invoice_source_mode_is_paperless_when_both_fields_populated() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://x".into());
+    s.paperless_api_token = Some("t".into());
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
+}
+
+#[test]
+fn invoice_source_mode_is_local_when_url_missing() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_api_token = Some("t".into());
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
+}
+
+#[test]
+fn invoice_source_mode_is_local_when_token_missing() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://x".into());
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
+}
+
+#[test]
+fn invoice_source_mode_is_local_when_url_is_empty_string() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some(String::new());
+    s.paperless_api_token = Some("t".into());
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
+}
