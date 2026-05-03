@@ -61,7 +61,7 @@ impl PaperlessClient {
         #[derive(Deserialize)] struct Field { id: i64, name: String }
         #[derive(Deserialize)] struct Resp { results: Vec<Field> }
 
-        let url = format!("{}/api/custom_fields/", self.base_url);
+        let url = format!("{}/api/custom_fields/?page_size=200", self.base_url);
         let resp = self.http.get(&url).header("Authorization", self.auth()).send().await?;
         if !resp.status().is_success() { return Err(PaperlessError::Http(resp.status().as_u16())); }
         let body: Resp = resp.json().await.map_err(|e| PaperlessError::Parse(e.to_string()))?;

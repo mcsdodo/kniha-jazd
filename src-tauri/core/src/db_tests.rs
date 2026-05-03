@@ -476,3 +476,20 @@ fn paperless_link_unique_doc_invariant() {
     db.upsert_paperless_link(&trip_b, 435).unwrap();
     assert_eq!(db.count_paperless_links().unwrap(), 1);
 }
+
+#[test]
+fn paperless_link_unique_trip_invariant() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_test_trip(&db, &v.id.to_string());
+
+    // Link trip to doc 435, then re-link the same trip to doc 999.
+    // Doc 435 link must be removed — one trip can hold at most one doc.
+    db.upsert_paperless_link(&trip, 435).unwrap();
+    db.upsert_paperless_link(&trip, 999).unwrap();
+
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
+    assert_eq!(db.get_paperless_link_for_trip(&trip).unwrap(), Some(999));
+    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
+}

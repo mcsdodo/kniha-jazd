@@ -171,7 +171,7 @@ pub async fn get_paperless_invoices(
     let app_data_dir = get_app_data_dir(&app_handle)?;
     paperless_inner::get_paperless_invoices_internal(&app_data_dir, &db, &vehicle_id, year)
         .await
-        .map_err(|e| format!("{:?}", e))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

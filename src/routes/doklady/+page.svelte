@@ -664,7 +664,7 @@
 							<button
 								type="button"
 								class="button-small"
-								onclick={() => window.open(row.paperlessUrl, '_blank')}
+								onclick={() => openPath(row.paperlessUrl)}
 							>
 								{$LL.doklady.paperless.openInPaperless()}
 							</button>

@@ -18,6 +18,24 @@ fn save_paperless_settings_persists_url_and_token() {
 }
 
 #[test]
+fn save_paperless_settings_none_args_preserves_existing() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(), &app_state,
+        Some("https://documents.lacny.me".into()),
+        Some("tok-1".into()),
+    ).unwrap();
+
+    // Passing None for both args must leave the values unchanged.
+    save_paperless_settings_internal(&dir.path().to_path_buf(), &app_state, None, None).unwrap();
+
+    let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_url.as_deref(), Some("https://documents.lacny.me"));
+    assert_eq!(loaded.paperless_api_token.as_deref(), Some("tok-1"));
+}
+
+#[test]
 fn save_paperless_settings_rejects_invalid_url() {
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();

@@ -99,7 +99,7 @@ pub async fn dispatch_async(
             let result = crate::commands_internal::paperless_cmd::get_paperless_invoices_internal(
                 &state.app_dir, &state.db, &a.vehicle_id, a.year,
             ).await;
-            Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| format!("{:?}", e)))
+            Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
         }
         "assign_paperless_doc_to_trip" => {
             #[derive(serde::Deserialize)]
