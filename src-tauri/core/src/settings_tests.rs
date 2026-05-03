@@ -104,6 +104,8 @@ fn test_save_preserves_all_fields() {
         hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
         ha_url: Some("http://ha.local:8123".to_string()),
         ha_api_token: Some("token123".to_string()),
+        paperless_url: None,
+        paperless_api_token: None,
         server_enabled: Some(true),
         server_port: Some(3456),
     };
@@ -345,4 +347,17 @@ fn test_set_infer_trip_times_internal_round_trip() {
 
     set_infer_trip_times_internal(&app_dir, false).unwrap();
     assert!(!get_infer_trip_times_internal(&app_dir).unwrap());
+}
+
+#[test]
+fn local_settings_round_trips_paperless_fields() {
+    let dir = tempdir().unwrap();
+    let mut s = LocalSettings::default();
+    s.paperless_url = Some("https://documents.lacny.me".to_string());
+    s.paperless_api_token = Some("test-token-abc".to_string());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let loaded = LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_url.as_deref(), Some("https://documents.lacny.me"));
+    assert_eq!(loaded.paperless_api_token.as_deref(), Some("test-token-abc"));
 }
