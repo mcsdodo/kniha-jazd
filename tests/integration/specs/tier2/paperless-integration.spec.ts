@@ -19,6 +19,7 @@ import {
 import {
   startMockPaperless,
   stopMockPaperless,
+  MOCK_PAPERLESS_TOKEN,
 } from '../_helpers/mock-paperless-server';
 
 describe('Tier 2: Paperless Integration', () => {
@@ -95,7 +96,7 @@ describe('Tier 2: Paperless Integration', () => {
     // a debounced input) and only verify the UI status indicator goes green.
     await invokeTauri<void>('save_paperless_settings', {
       url: mockUrl,
-      token: 'test-pat-123',
+      token: MOCK_PAPERLESS_TOKEN,
     });
 
     await navigateTo('settings');

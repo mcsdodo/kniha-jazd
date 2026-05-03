@@ -296,7 +296,9 @@
 			await savePaperlessSettings(paperlessUrl || null, paperlessApiToken || null);
 			initialPaperlessUrl = paperlessUrl;
 			initialPaperlessApiToken = paperlessApiToken;
-			paperlessHasToken = !!paperlessApiToken;
+			// Re-fetch to get true has_token: backend preserves existing token when null is sent.
+			const refreshed = await getPaperlessSettings();
+			paperlessHasToken = refreshed.hasToken;
 			toast.success($LL.toast.settingsSaved());
 			await testPaperlessConnectionStatus();
 		} catch (error) {
@@ -1122,7 +1124,7 @@
 					type="button"
 					data-test="paperless-test-connection"
 					class="link-btn"
-					on:click={testPaperlessConnectionStatus}
+					on:click={async () => { await savePaperlessSettingsNow(); await testPaperlessConnectionStatus(); }}
 				>{$LL.paperless.testConnection()}</button>
 
 				{#if paperlessConnectionStatus !== PAPERLESS_STATUS.IDLE}

@@ -412,7 +412,9 @@ impl Database {
     }
 
     pub fn delete_trip(&self, id: &str) -> QueryResult<()> {
+        use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();
+        diesel::delete(p::paperless_trip_links.filter(p::trip_id.eq(id))).execute(conn)?;
         diesel::delete(trips::table.filter(trips::id.eq(id))).execute(conn)?;
         Ok(())
     }

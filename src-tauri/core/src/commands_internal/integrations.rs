@@ -187,7 +187,10 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
     let settings = LocalSettings::load(app_dir);
     Ok(PaperlessSettingsResponse {
         url: settings.paperless_url,
-        has_token: settings.paperless_api_token.is_some(),
+        has_token: settings
+            .paperless_api_token
+            .as_deref()
+            .is_some_and(|t| !t.trim().is_empty()),
     })
 }
 
@@ -210,9 +213,11 @@ pub fn save_paperless_settings_internal(
     }
     let mut settings = LocalSettings::load(app_dir);
     if let Some(u) = url {
+        let u = u.trim().to_string();
         settings.paperless_url = if u.is_empty() { None } else { Some(u) };
     }
     if let Some(t) = token {
+        let t = t.trim().to_string();
         settings.paperless_api_token = if t.is_empty() { None } else { Some(t) };
     }
     settings.save(app_dir).map_err(|e| e.to_string())
@@ -250,7 +255,7 @@ pub enum InvoiceSourceMode {
 
 pub fn get_invoice_source_mode_from_settings(s: &LocalSettings) -> InvoiceSourceMode {
     match (&s.paperless_url, &s.paperless_api_token) {
-        (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => InvoiceSourceMode::Paperless,
+        (Some(u), Some(t)) if !u.trim().is_empty() && !t.trim().is_empty() => InvoiceSourceMode::Paperless,
         _ => InvoiceSourceMode::Local,
     }
 }

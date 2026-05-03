@@ -26,10 +26,9 @@ test.describe('Doklady page', () => {
 	test('filter buttons render', async ({ page }) => {
 		await page.goto('/doklady');
 		const filterButtons = page.locator('.filter-btn');
-		// Without a configured backend, filter buttons may not render
-		// (the page shows the config-warning instead). Either is a valid
-		// smoke result; this test asserts the page didn't crash.
-		const count = await filterButtons.count();
-		expect(count).toBeGreaterThanOrEqual(0);
+		const configWarning = page.locator('.config-warning');
+		const filterCount = await filterButtons.count();
+		const warningCount = await configWarning.count();
+		expect(filterCount + warningCount).toBeGreaterThan(0);
 	});
 });

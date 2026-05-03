@@ -17,15 +17,17 @@
 import http from 'http';
 import { URL } from 'url';
 
+export const MOCK_PAPERLESS_TOKEN = 'paperless-test-token';
+
 let server: http.Server | null = null;
 let baseUrl = '';
 
 export async function startMockPaperless(): Promise<string> {
-  if (server) return baseUrl;
+  if (server && baseUrl) return baseUrl;
 
   server = http.createServer((req, res) => {
     const auth = req.headers['authorization'];
-    if (!auth || typeof auth !== 'string' || !auth.startsWith('Token ')) {
+    if (auth !== `Token ${MOCK_PAPERLESS_TOKEN}`) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ detail: 'Unauthorized' }));
       return;

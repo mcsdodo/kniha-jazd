@@ -1097,11 +1097,12 @@
 				class="modal"
 				role="dialog"
 				aria-modal="true"
+				aria-labelledby="paperless-trip-picker-title"
 				tabindex="-1"
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={() => {}}
 			>
-				<h2>{$LL.tripSelector.title()}</h2>
+				<h2 id="paperless-trip-picker-title">{$LL.tripSelector.title()}</h2>
 				{#if paperlessTrips.length === 0}
 					<p class="placeholder">{$LL.tripSelector.noTrips()}</p>
 				{:else}

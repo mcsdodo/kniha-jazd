@@ -1,6 +1,6 @@
 {
-  "homeBase": "Kamenný obrázok 26, 052 01 Spišská Nová Ves-Tarča",
-  "homeCoords": { "lat": 48.9350604, "lon": 20.5533207 },
+  "homeBase": "Home Base, Spiš region",
+  "homeCoords": { "lat": 48.935, "lon": 20.553 },
   "source": {
     "cities": "OpenStreetMap Overpass API, place=city|town within 50km aerial of home base",
     "villages": "OpenStreetMap Overpass API, place=village within 20km aerial of home base, filtered to population >= 500"
@@ -8,7 +8,7 @@
   "generatedAt": "2026-05-03",
   "counts": { "home": 1, "cities": 22, "villages": 44, "total": 67 },
   "nodes": [
-    { "idx":  0, "name": "Home (Kamenný obrázok 26)", "lat": 48.9350604, "lon": 20.5533207, "kind": "home" },
+    { "idx":  0, "name": "Home Base", "lat": 48.935, "lon": 20.553, "kind": "home" },
 
     { "idx":  1, "name": "Veľký Šariš",        "lat": 49.0406385, "lon": 21.1972706, "population":  4941, "kind": "town" },
     { "idx":  2, "name": "Kežmarok",            "lat": 49.1362088, "lon": 20.4308701, "population": 17013, "kind": "town" },

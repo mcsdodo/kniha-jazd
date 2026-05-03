@@ -493,3 +493,18 @@ fn paperless_link_unique_trip_invariant() {
     assert_eq!(db.get_paperless_link_for_trip(&trip).unwrap(), Some(999));
     assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
 }
+
+#[test]
+fn delete_trip_removes_paperless_link() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_test_trip(&db, &v.id.to_string());
+
+    db.upsert_paperless_link(&trip, 435).unwrap();
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
+
+    db.delete_trip(&trip).unwrap();
+
+    assert_eq!(db.count_paperless_links().unwrap(), 0);
+}
