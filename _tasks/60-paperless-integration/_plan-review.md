@@ -28,7 +28,7 @@ implementation can succeed.
 
 ### C1 — Plan invents [db::tests::test_connection](../../src-tauri/core/src/db.rs), [db::tests::seed_trip](../../src-tauri/core/src/db.rs), [db::tests::CountRow](../../src-tauri/core/src/db.rs) (Tasks 6, 10)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Tasks 6 and 10 build their failing tests on these helpers:
 
@@ -67,7 +67,7 @@ should be preferred.
 
 ### C2 — [wiremock](https://docs.rs/wiremock/) is not in [Cargo.toml](../../src-tauri/core/Cargo.toml) and the plan handwaves "if not already present" (Tasks 3, 7, 8)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Tasks 3, 7, and 8 import [wiremock::matchers::*](https://docs.rs/wiremock/) and
 [wiremock::{Mock, MockServer, ...}](https://docs.rs/wiremock/).
@@ -99,7 +99,7 @@ Task 3 step 1 — if you get "cannot find attribute
 
 ### C3 — Plan adds 7 Tauri commands but never registers them in the server-mode RPC dispatchers ([dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) / [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)) (Task 11)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 The codebase has a parallel command path for the web-deployed server mode. It lives in
 [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs):780
@@ -142,7 +142,7 @@ This is a 30-line addition but it's load-bearing for
 
 ### C4 — Tier-2 spec uses [Vitest](https://vitest.dev/) framework imports; the project uses [WebdriverIO](https://webdriver.io/) + [Mocha](https://mochajs.org/) (Task 15)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Plan line 1789:
 
@@ -198,7 +198,7 @@ future maintainers don't break it by moving the mock into the Tauri process.
 
 ### C5 — Migration command/path inconsistency: [diesel migration run](https://diesel.rs/) against a stray [target/test-paperless.db](../../target/), but this project uses embedded migrations on [Database::in_memory()](../../src-tauri/core/src/db.rs) (Task 5)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Plan line 677:
 
@@ -252,7 +252,7 @@ way.
 
 ### I1 — [urlencoding](https://docs.rs/urlencoding/) crate is not in [Cargo.toml](../../src-tauri/core/Cargo.toml) (Task 7)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Plan line 1017 calls [urlencoding::encode(name)](https://docs.rs/urlencoding/).
 [urlencoding](https://docs.rs/urlencoding/) is not in
@@ -270,7 +270,7 @@ which is already in the dep tree via [reqwest](https://docs.rs/reqwest/).
 
 ### I2 — [app_state.set_read_only(true, "test".into())](../../src-tauri/core/src/app_state.rs) signature is unverified
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Plan lines 322 and 1430 use:
 
@@ -296,7 +296,7 @@ pattern).
 
 ### I3 — [ReceiptStatus](../../src-tauri/core/src/models.rs) / [AssignmentType](../../src-tauri/core/src/models.rs) priority logic edge case ("neither" branch is unreachable but mapped to [Other](../../src-tauri/core/src/models.rs))
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 In Task 9 (line 1340):
 
@@ -325,7 +325,7 @@ explicitly so future maintainers see the choice.
 
 ### I4 — [paperless](../../src-tauri/core/src/) module is not added to [lib.rs](../../src-tauri/core/src/lib.rs) [pub mod](../../src-tauri/core/src/lib.rs) list before tests run (Task 7)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Plan line 877 says: "Modify [lib.rs](../../src-tauri/core/src/lib.rs) (add
 [pub mod paperless;](../../src-tauri/core/src/lib.rs))" but the test code
@@ -348,7 +348,7 @@ side note) prevents the "tests fail with [cannot find module](../../src-tauri/co
 
 ### I5 — [AssignmentType](../../src-tauri/core/src/models.rs) is [Copy + Eq](https://doc.rust-lang.org/std/marker/trait.Copy.html) and serializes as "Fuel" / "Other"; ensure frontend [PaperlessInvoiceRow.assignment_type](./03-plan.md) deserializes the same way
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 [models.rs](../../src-tauri/core/src/models.rs):465 defines
 [#\[derive(...Serialize, Deserialize)\]](https://serde.rs/) with default tag (no
@@ -370,7 +370,7 @@ Add a test asserting the JSON shape if you don't trust the round-trip.
 
 ### I6 — Hardcoded fuel/car tag lookup ignores the existence of multi-vehicle setups ([vehicle_id](./03-plan.md) is shadowed [_vehicle_id](./03-plan.md))
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 Task 9, line 1351:
 
@@ -401,7 +401,7 @@ silently swallows the param without saying so.
 
 ### M1 — [_tasks/index.md](../index.md) already lists task 60 as "Planning"; Task 0 step 2 condition "if not already present" is a no-op
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 [_tasks/index.md](../index.md):12 currently shows "Planning". Task 0 step 2 says
 "add a row if not present, with status In Progress." The reasonable change is
@@ -410,7 +410,7 @@ Tighten the wording.
 
 ### M2 — Manual smoke test step in Task 17 lists [documents.lacny.me](https://documents.lacny.me) PAT in plan; [.env](../../.env) is the right source, double-check it's gitignored
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 The plan helpfully points implementers to [.env](../../.env) for the PAT. Confirm
 [.env](../../.env) is [.gitignore](../../.gitignore)-d (likely yes given file naming
@@ -419,7 +419,7 @@ for the next reader.
 
 ### M3 — Risks section understates "[Paperless](https://docs.paperless-ngx.com/) instance reachable but very slow"
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 The 5-second timeout is the same as HA but [Paperless](https://docs.paperless-ngx.com/)
 serves a 4.7 KB JSON for [/api/ui_settings/](https://docs.paperless-ngx.com/api/) and
@@ -431,7 +431,7 @@ the design ceiling for v1.
 
 ### M4 — PR-create command in Task 17 step 6 uses [bash](https://www.gnu.org/software/bash/) heredoc syntax in [PowerShell](https://learn.microsoft.com/en-us/powershell/)
 
-- [ ] **Status:** open
+- [x] **Status:** open  (see [Resolution](#resolution))
 
 ```powershell
 gh pr create --title "..." --body-file <(echo -e "## Summary\n...")
@@ -496,22 +496,24 @@ preserves them:
 
 ## Resolution
 
-(To be filled in Phase 2 by the main-context agent after user approval.)
+Phase 2 applied 2026-05-03 — all 11 critical + important findings patched in
+[03-plan.md](./03-plan.md). Minor findings (M1–M4) deferred per user's "fix all
+Cs and Is" instruction.
 
 | Finding | Action | Notes |
 |---|---|---|
-| [C1](#c1--plan-invents-dbteststest_connection-dbtestsseed_trip-dbtestscountrow-tasks-6-10) | | |
-| [C2](#c2--wiremock-is-not-in-cargotoml-and-the-plan-handwaves-if-not-already-present-tasks-3-7-8) | | |
-| [C3](#c3--plan-adds-7-tauri-commands-but-never-registers-them-in-the-server-mode-rpc-dispatchers-dispatcherrs--dispatcher_asyncrs-task-11) | | |
-| [C4](#c4--tier-2-spec-uses-vitest-framework-imports-the-project-uses-webdriverio--mocha-task-15) | | |
-| [C5](#c5--migration-commandpath-inconsistency-diesel-migration-run-against-a-stray-targettest-paperlessdb-but-this-project-uses-embedded-migrations-on-databasein_memory-task-5) | | |
-| [I1](#i1--urlencoding-crate-is-not-in-cargotoml-task-7) | | |
-| [I2](#i2--app_stateset_read_onlytrue-testinto-signature-is-unverified) | | |
-| [I3](#i3--receiptstatus--assignmenttype-priority-logic-edge-case-neither-branch-is-unreachable-but-mapped-to-other) | | |
-| [I4](#i4--paperless-module-is-not-added-to-librs-pub-mod-list-before-tests-run-task-7) | | |
-| [I5](#i5--assignmenttype-is-copy--eq-and-serializes-as-fuel--other-ensure-frontend-paperlessinvoicerowassignment_type-deserializes-the-same-way) | | |
-| [I6](#i6--hardcoded-fuelcar-tag-lookup-ignores-the-existence-of-multi-vehicle-setups-vehicle_id-is-shadowed-_vehicle_id) | | |
-| [M1](#m1--_tasksindexmd-already-lists-task-60-as-planning-task-0-step-2-condition-if-not-already-present-is-a-no-op) | | |
-| [M2](#m2--manual-smoke-test-step-in-task-17-lists-documentslacnyme-pat-in-plan-env-is-the-right-source-double-check-its-gitignored) | | |
-| [M3](#m3--risks-section-understates-paperless-instance-reachable-but-very-slow) | | |
-| [M4](#m4--pr-create-command-in-task-17-step-6-uses-bash-heredoc-syntax-in-powershell) | | |
+| [C1](#c1--plan-invents-dbteststest_connection-dbtestsseed_trip-dbtestscountrow-tasks-6-10) | ✅ Fixed | Tasks 6 + 10 rewritten to use [Database::in_memory()](../../src-tauri/core/src/db.rs):68; CRUD turned into methods on `Database`; new `seed_test_trip` helper inlined into [db_tests.rs](../../src-tauri/core/src/db_tests.rs) mirroring [create_test_vehicle](../../src-tauri/core/src/db_tests.rs):15. |
+| [C2](#c2--wiremock-is-not-in-cargotoml-and-the-plan-handwaves-if-not-already-present-tasks-3-7-8) | ✅ Fixed | Added `wiremock = "0.6"` to `[dev-dependencies]` as Task 3 Step 0; pre-flight section documents that `tokio` is already in `[dependencies]` with `macros` enabled. |
+| [C3](#c3--plan-adds-7-tauri-commands-but-never-registers-them-in-the-server-mode-rpc-dispatchers-dispatcherrs--dispatcher_asyncrs-task-11) | ✅ Fixed | Task 11 expanded with explicit code blocks for [dispatcher.rs:777](../../src-tauri/core/src/server/dispatcher.rs) (3 sync) and [dispatcher_async.rs:64](../../src-tauri/core/src/server/dispatcher_async.rs) (4 async). |
+| [C4](#c4--tier-2-spec-uses-vitest-framework-imports-the-project-uses-webdriverio--mocha-task-15) | ✅ Fixed | Task 15 spec rewritten to drop `'vitest'` import; uses Mocha globals + utils helpers ([waitForAppReady](../../tests/integration/utils/), [navigateTo](../../tests/integration/utils/), [invokeTauri](../../tests/integration/utils/db.ts)) matching [settings.spec.ts:1-60](../../tests/integration/specs/tier2/settings.spec.ts). |
+| [C5](#c5--migration-commandpath-inconsistency-diesel-migration-run-against-a-stray-targettest-paperlessdb-but-this-project-uses-embedded-migrations-on-databasein_memory-task-5) | ✅ Fixed | Task 5 Step 2 replaced: manually edit [schema.rs](../../src-tauri/core/src/schema.rs) (project pattern); optional CLI alternative documented using `$env:TEMP` instead of stray `target/`. Step 4 verifies via `cargo test test_database_creation` since [embed_migrations!()](../../src-tauri/core/src/db.rs):23 runs the migration through `Database::in_memory()`. |
+| [I1](#i1--urlencoding-crate-is-not-in-cargotoml-task-7) | ✅ Fixed | `urlencoding = "2"` added in Task 7 Step 0a as a concrete substep. Pre-flight table at top of plan also lists it. |
+| [I2](#i2--app_stateset_read_onlytrue-testinto-signature-is-unverified) | ✅ Fixed | Tasks 2 and 10 use [app_state.enable_read_only("test")](../../src-tauri/core/src/app_state.rs):98 (the actual API). Pre-flight section documents the correct signature. |
+| [I3](#i3--receiptstatus--assignmenttype-priority-logic-edge-case-neither-branch-is-unreachable-but-mapped-to-other) | ✅ Fixed | `map_assignment` now calls `log::warn!(...)` on the unreachable branch; new test `map_assignment_logs_warning_and_returns_other_when_neither_tag_present` locks the don't-panic contract. |
+| [I4](#i4--paperless-module-is-not-added-to-librs-pub-mod-list-before-tests-run-task-7) | ✅ Fixed | Task 7 Step 0b creates the empty module + `pub mod paperless;` in [lib.rs](../../src-tauri/core/src/lib.rs) BEFORE Step 1 writes failing tests, with a `cargo build` verification gate. |
+| [I5](#i5--assignmenttype-is-copy--eq-and-serializes-as-fuel--other-ensure-frontend-paperlessinvoicerowassignment_type-deserializes-the-same-way) | ✅ Fixed | Task 13's [types.ts](../../src/lib/types.ts) line now explicitly says "Do NOT redefine `AssignmentType` — already exists at [types.ts:189](../../src/lib/types.ts) as `'Fuel' \| 'Other'`." |
+| [I6](#i6--hardcoded-fuelcar-tag-lookup-ignores-the-existence-of-multi-vehicle-setups-vehicle_id-is-shadowed-_vehicle_id) | ✅ Fixed | Task 9 renames `_vehicle_id` → `vehicle_id`, adds `let _ = vehicle_id;` with a doc-comment explaining the deferral. Task 16 records a third "BIZ — Paperless v1 is single-vehicle scoped" entry for [DECISIONS.md](../../DECISIONS.md). |
+| [M1](#m1--_tasksindexmd-already-lists-task-60-as-planning-task-0-step-2-condition-if-not-already-present-is-a-no-op) | ⏭ Deferred | Per user instruction "fix all Cs and Is" — minor findings out of scope. |
+| [M2](#m2--manual-smoke-test-step-in-task-17-lists-documentslacnyme-pat-in-plan-env-is-the-right-source-double-check-its-gitignored) | ⏭ Partial | Pre-flight section now notes [.env](../../.env) is gitignored and adds "Do NOT commit [.env](../../.env)" reminder; full M2 wording in Task 17 deferred. |
+| [M3](#m3--risks-section-understates-paperless-instance-reachable-but-very-slow) | ⏭ Deferred | Per user instruction — minor finding out of scope. |
+| [M4](#m4--pr-create-command-in-task-17-step-6-uses-bash-heredoc-syntax-in-powershell) | ⏭ Deferred | Per user instruction — minor finding out of scope. |
