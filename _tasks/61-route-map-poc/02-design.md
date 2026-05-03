@@ -60,40 +60,16 @@ the final waypoint sequence, purely to fetch the polyline geometry for rendering
 - Distances rounded to 0.1 km — sufficient precision for ±5% tolerance matching.
 - File size ~38 KB committed.
 
-## Algorithm — both implementations switchable in UI
+## Algorithm — genetic algorithm
 
-Both share the same input/output contract:
+Input/output contract:
 
 ```
 Input:  targetKm: number
-Output: { sequence: number[], totalKm: number, errorPercent: number }
+Output: { sequence: number[], totalKm: number }
         where sequence[0] = sequence[last] = 0 (home), and intermediates are
         node indices 1..66.
 ```
-
-### A. Insertion heuristic (greedy)
-
-```
-1. Pick primary destination D where 2 * matrix[0][D] ≈ targetKm
-   (i.e., direct out-and-back to D approximates the target).
-2. sequence = [0, D, 0]
-3. While currentKm < targetKm * (1 - tolerance) AND len(sequence) < maxStops + 2:
-     gap = targetKm - currentKm
-     For each unvisited node V (1..66):
-       For each insertion position P in sequence (excluding endpoints):
-         Compute newKm if V inserted at P
-         delta = newKm - currentKm
-         score = abs(delta - gap)   // how close insertion brings us to target
-       Track best (V, P)
-     If best score < currentScore: insert V at P
-     Else: break (no insertion improves)
-4. Return sequence + total
-```
-
-Cost: O(N² × maxStops) matrix lookups per call. With N=66 and maxStops=5 that's
-~22k lookups, sub-millisecond.
-
-### B. Genetic algorithm
 
 ```
 - Chromosome: [home] + variable-length permutation of node indices 1..66 + [home]
@@ -103,7 +79,7 @@ Cost: O(N² × maxStops) matrix lookups per call. With N=66 and maxStops=5 that'
 - Generations: 100
 - Selection: tournament (size 3)
 - Crossover: order crossover (OX) — preserves permutation validity
-- Mutation: with p=0.2, randomly insert/remove/swap one node
+- Mutation: with p=0.25, randomly insert/remove/swap one node
 - Elitism: top 2 chromosomes carried over each generation
 - Return: best chromosome found
 ```
@@ -111,16 +87,22 @@ Cost: O(N² × maxStops) matrix lookups per call. With N=66 and maxStops=5 that'
 Cost: 50 × 100 = 5000 fitness evaluations × ~5 matrix lookups = ~25k lookups,
 still well under 100 ms.
 
-### Why both
+### Why GA, not a deterministic heuristic
 
-Insertion heuristic is deterministic and predictable but can get stuck in local
-optima (e.g., always picks the same primary destination for a given target).
-GA explores more of the search space and produces variety between runs (good
-for "I need to generate evidence for several similar trips that shouldn't all
-look identical"), at the cost of being slower and non-deterministic.
+We initially planned both an insertion heuristic and a GA, intending to A/B
+them. After implementing both and trying them on real targets, the GA's
+non-determinism turned out to be the load-bearing property for this use case:
+generating multiple proof-of-driving maps at similar km counts must produce
+visibly different routes, otherwise an inspector reading several identical
+maps notices the synthetic pattern. A deterministic heuristic returns the
+same answer for the same target every time — exactly the wrong property here.
 
-The UI toggle lets us A/B them empirically and decide later which (or both) to
-keep when promoting beyond POC.
+The GA is also empirically good enough at hitting target km within ±5%
+tolerance across the 67-node candidate pool, so trading determinism for
+variety came at no measurable accuracy cost.
+
+The insertion heuristic was removed from [poc.html](./poc.html) on 2026-05-03
+after this evaluation.
 
 ### Why 67 candidate nodes is right-sized
 
@@ -225,9 +207,11 @@ Direct links:
 
 ## Open questions deferred to plan / implementation phase
 
-- Exact GA hyperparameters (population size, mutation rate) — pick defaults
-  now, tune empirically once we can render results.
-- UI affordance for the algorithm toggle — radio buttons, dropdown, or just two
-  side-by-side "Generate (heuristic)" / "Generate (GA)" buttons.
+- Exact GA hyperparameters (population size, mutation rate) — current defaults
+  (POP=50, GENS=100, MUT=0.25) hit ±5% tolerance reliably; could tune higher
+  if visual quality of routes needs improvement.
 - Whether to surface the chosen sequence textually (e.g., "Home → Levoča →
   Krompachy → Home") in the info overlay or hide it for cleaner screenshots.
+  Currently surfaced.
+- Optional seed input for reproducible GA runs — useful for debugging or for
+  reproducing a specific result, but unimplemented (variety is the feature).

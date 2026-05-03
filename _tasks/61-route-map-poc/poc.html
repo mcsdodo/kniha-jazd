@@ -41,12 +41,6 @@
 <div id="app">
   <div id="controls">
     <label>Target km: <input type="number" id="target" value="100" min="5" max="2000" step="1"></label>
-    <label>Algorithm:
-      <select id="algo">
-        <option value="heuristic">Insertion heuristic</option>
-        <option value="ga">Genetic algorithm</option>
-      </select>
-    </label>
     <label>Max stops: <input type="number" id="maxStops" value="5" min="1" max="10" step="1"></label>
     <button id="generate">Generate</button>
     <span id="status"></span>
@@ -227,46 +221,7 @@ function totalKm(seq) {
   return t;
 }
 
-// --- Algorithm A: Insertion heuristic ---
-function generateHeuristic(targetKm) {
-  // Pick primary destination D where 2 * matrix[0][D] is close to target.
-  const half = targetKm / 2;
-  let primary = -1, bestDelta = Infinity;
-  for (let i = 1; i < N; i++) {
-    const d = MATRIX.distances[HOME][i];
-    if (d > targetKm * 0.9) continue; // can't reach back
-    const delta = Math.abs(half - d);
-    if (delta < bestDelta) { bestDelta = delta; primary = i; }
-  }
-  if (primary === -1) {
-    primary = 1;
-    for (let i = 2; i < N; i++) {
-      if (MATRIX.distances[HOME][i] < MATRIX.distances[HOME][primary]) primary = i;
-    }
-  }
-
-  let seq = [HOME, primary, HOME];
-  let cur = totalKm(seq);
-
-  while (Math.abs(targetKm - cur) > targetKm * TOLERANCE && seq.length - 2 < MAX_STOPS) {
-    let bestErr = Math.abs(targetKm - cur), bestSeq = null;
-    for (let v = 1; v < N; v++) {
-      if (seq.includes(v)) continue;
-      for (let p = 1; p < seq.length; p++) {
-        const ns = [...seq.slice(0, p), v, ...seq.slice(p)];
-        const nk = totalKm(ns);
-        const err = Math.abs(targetKm - nk);
-        if (err < bestErr) { bestErr = err; bestSeq = ns; }
-      }
-    }
-    if (!bestSeq) break;
-    seq = bestSeq;
-    cur = totalKm(seq);
-  }
-  return { sequence: seq, totalKm: cur };
-}
-
-// --- Algorithm B: Genetic algorithm ---
+// --- Genetic algorithm ---
 function generateGA(targetKm) {
   const POP = 50, GENS = 100, MUT = 0.25, ELITE = 2, TOUR = 3;
   const fitness = c => 1 / (1 + Math.abs(totalKm(c) - targetKm));
@@ -393,7 +348,6 @@ async function renderSession(idx) {
     const stopNames = s.result.sequence.slice(1, -1).map(i => VILLAGES.nodes[i].name);
 
     info.innerHTML =
-      'Algo: <code>' + s.algo + '</code> · ' +
       'Time: ' + s.elapsedMs + 'ms · ' +
       'Matrix: ' + matrixKm.toFixed(1) + ' km · ' +
       'Target: ' + targetKm.toFixed(1) + ' km · ' +
@@ -423,7 +377,6 @@ function renderSessionTabs(active) {
 
 async function generate() {
   const target = parseFloat(document.getElementById('target').value);
-  const algo = document.getElementById('algo').value;
   MAX_STOPS = Math.max(1, Math.min(10, parseInt(document.getElementById('maxStops').value, 10) || 5));
   const status = document.getElementById('status');
   const btn = document.getElementById('generate');
@@ -435,15 +388,15 @@ async function generate() {
   }
 
   btn.disabled = true;
-  status.textContent = 'Running ' + algo + '…'; status.className = '';
+  status.textContent = 'Running GA…'; status.className = '';
 
   const sessions = planSessions(target);
   cachedSessions = [];
   for (const t of sessions) {
     const t0 = performance.now();
-    const result = (algo === 'ga' ? generateGA : generateHeuristic)(t);
+    const result = generateGA(t);
     const elapsedMs = Math.round(performance.now() - t0);
-    cachedSessions.push({ target: t, algo, result, elapsedMs });
+    cachedSessions.push({ target: t, result, elapsedMs });
   }
 
   renderSessionTabs(0);

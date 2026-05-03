@@ -25,8 +25,10 @@ The output is a clean polyline-only map suitable for screenshotting as evidence.
 - Render in a self-contained HTML file ([Leaflet](https://leafletjs.com/) +
   [OSM tiles](https://www.openstreetmap.org/), no markers, no controls — just the
   polyline) that can be screenshotted directly.
-- Two switchable algorithms in the same UI: a simple insertion heuristic and a
-  small genetic algorithm. Lets us compare quality empirically.
+- A small genetic algorithm produces the waypoint sequence. Its
+  per-run randomness is intentional: generating multiple trips at the
+  same target km should yield visibly different routes (an inspector
+  reading five identical maps notices, five GA-varied maps doesn't).
 - Multi-session split: if target exceeds a single-day max (~400 km), split into
   N independent loop-trips, each rendered separately.
 
