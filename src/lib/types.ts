@@ -405,3 +405,23 @@ export interface HaOdoCache {
 	fuelLevelPercent?: number; // fuel level 0-100%
 	fuelFetchedAt?: number; // timestamp ms
 }
+
+// Paperless-ngx integration types
+export interface PaperlessSettings {
+	url: string | null;
+	hasToken: boolean;
+}
+
+export type InvoiceSourceMode = 'local' | 'paperless';
+
+export interface PaperlessInvoiceRow {
+	paperlessDocumentId: number;
+	title: string;
+	paperlessUrl: string;
+	totalPriceEur: number | null;
+	liters: number | null;
+	receiptDatetime: string | null;   // ISO-8601 NaiveDateTime, e.g. "2026-04-27T13:24:14"
+	createdDate: string;              // "2026-04-27"
+	assignmentType: AssignmentType;
+	tripId: string | null;
+}
