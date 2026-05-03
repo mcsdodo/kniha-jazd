@@ -170,3 +170,54 @@ pub fn save_ha_settings_internal(
 
     settings.save(app_dir).map_err(|e| e.to_string())
 }
+
+// ============================================================================
+// Paperless-ngx Settings
+// ============================================================================
+
+// Paperless settings response - hides token (mirrors HaSettingsResponse pattern)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperlessSettingsResponse {
+    pub url: Option<String>,
+    pub has_token: bool,
+}
+
+pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
+    let settings = LocalSettings::load(app_dir);
+    Ok(PaperlessSettingsResponse {
+        url: settings.paperless_url,
+        has_token: settings.paperless_api_token.is_some(),
+    })
+}
+
+pub fn save_paperless_settings_internal(
+    app_dir: &Path,
+    app_state: &AppState,
+    url: Option<String>,
+    token: Option<String>,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    if let Some(ref url_str) = url {
+        if !url_str.is_empty() {
+            if !url_str.starts_with("http://") && !url_str.starts_with("https://") {
+                return Err("URL must start with http:// or https://".to_string());
+            }
+            if url::Url::parse(url_str).is_err() {
+                return Err("Invalid URL format".to_string());
+            }
+        }
+    }
+    let mut settings = LocalSettings::load(app_dir);
+    if let Some(u) = url {
+        settings.paperless_url = if u.is_empty() { None } else { Some(u) };
+    }
+    if let Some(t) = token {
+        settings.paperless_api_token = if t.is_empty() { None } else { Some(t) };
+    }
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+#[path = "integrations_tests.rs"]
+mod tests;
