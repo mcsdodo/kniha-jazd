@@ -4,6 +4,49 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-05-03: Paperless-ngx Integration Foundations
+
+### ADR-019: Paperless Trip-Link Table is Symmetric (`trip_id PRIMARY KEY`)
+
+**Context:** [paperless_trip_links](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql) mirrors the receipt↔trip 1:1 relationship. The existing [receipts](./src-tauri/core/migrations/2026-01-08-095218-0000_baseline/up.sql) table uses `id PRIMARY KEY, trip_id UNIQUE` because receipts carry their own metadata (OCR fields, file path, currency, etc.). Paperless documents live remotely; the link row holds nothing but the IDs.
+
+**Decision:** Use `trip_id TEXT PRIMARY KEY` and `paperless_document_id INTEGER UNIQUE`. A separate surrogate `id` would add no information.
+
+**Consequences:** UPSERT requires deleting both potential prior links (by `trip_id` *and* by `paperless_document_id`) before inserting — encapsulated in [db::upsert_paperless_link](./src-tauri/core/src/db.rs). Tests in [db_tests.rs](./src-tauri/core/src/db_tests.rs) cover the create-then-replace and the unique-doc-invariant cases.
+
+**Related:** [Task 60](./_tasks/60-paperless-integration/), [paperless_trip_links migration](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql).
+
+---
+
+### BIZ-015: Paperless DRF Auth Header is `Token`, Not `Bearer`
+
+**Context:** The Home Assistant integration uses `Authorization: Bearer <token>` because HA's REST API expects OAuth2-style bearer tokens. Paperless-ngx uses Django REST Framework token authentication, which expects `Authorization: Token <token>`. A future maintainer copy-pasting the HA wrapper would silently break Paperless auth (responses become 401).
+
+**Decision:** Hardcode `Token` in [test_paperless_connection_internal](./src-tauri/core/src/commands_internal/integrations.rs) and [PaperlessClient::auth](./src-tauri/core/src/paperless.rs); cover with an explicit regression test ([test_paperless_connection_uses_token_auth_header_not_bearer](./src-tauri/core/src/commands_internal/integrations_tests.rs)) and a complementary negative test ([test_paperless_connection_rejects_bearer_header](./src-tauri/core/src/commands_internal/integrations_tests.rs)).
+
+**Consequences:** Every new Paperless HTTP call must use the `Token` prefix. Future Paperless-related issues should grep for `Authorization` first.
+
+**Related:** [Task 60](./_tasks/60-paperless-integration/), [DRF token authentication docs](https://www.django-rest-framework.org/api-guide/authentication/#tokenauthentication).
+
+---
+
+### BIZ-016: Paperless v1 is Single-Vehicle Scoped (`vehicle_id` Intentionally Unused)
+
+**Context:** [get_paperless_invoices_internal(app_dir, db, vehicle_id, year)](./src-tauri/core/src/commands_internal/paperless_cmd.rs) takes a `vehicle_id` parameter but does not filter Paperless results by it. Paperless documents have no native vehicle dimension; the user's tagging scheme uses only `fuel` / `car` for the kniha-jazd integration. Today the user has a single primary vehicle, so multi-vehicle visibility is invisible.
+
+**Decision:** Keep `vehicle_id` on the signature for forward compatibility but intentionally ignore it in v1. Document the deferral via `let _ = vehicle_id;` and a doc-comment in the function so it doesn't read as a bug.
+
+**Alternatives considered:**
+- *Drop the parameter from v1.* Rejected — Tasks 13/14 (frontend) already use a vehicle-scoped pattern; changing the IPC contract later is more churn than carrying a no-op param.
+- *Implement vehicle scoping via a `vehicle:{name}` Paperless tag now.* Rejected — adds a tagging contract the user hasn't asked for, and the current single-vehicle user has no reason to bear that complexity yet.
+
+**Trade-offs accepted:**
+- Multi-vehicle users would see the same invoice list on every vehicle's [doklady](./src/routes/doklady/+page.svelte) page. Acceptable: the current user is single-vehicle; multi-vehicle support is a future iteration gated on explicit user demand.
+
+**Related:** [Task 60](./_tasks/60-paperless-integration/), [paperless_cmd.rs:get_paperless_invoices_internal](./src-tauri/core/src/commands_internal/paperless_cmd.rs).
+
+---
+
 ## 2026-04-27: Default-OFF for Route-Based Time Inference
 
 ### BIZ-014: Opt-In Auto-Fill of Trip Start/End Times
