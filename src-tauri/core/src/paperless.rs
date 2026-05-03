@@ -77,6 +77,70 @@ impl PaperlessClient {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct PaperlessDoc {
+    pub id: i64,
+    pub title: String,
+    pub tag_ids: Vec<i64>,
+    pub created: chrono::NaiveDate,
+    pub total_amount: Option<f64>,
+    pub litres: Option<f64>,
+    pub receipt_datetime: Option<chrono::NaiveDateTime>,
+}
+
+impl PaperlessClient {
+    pub async fn fetch_invoice_documents(
+        &self, fuel_id: i64, car_id: i64, fields: &PaperlessFieldMap,
+    ) -> Result<Vec<PaperlessDoc>, PaperlessError> {
+        #[derive(Deserialize)] struct CustomField { field: i64, value: serde_json::Value }
+        #[derive(Deserialize)] struct Raw {
+            id: i64, title: String, tags: Vec<i64>, created: String,
+            #[serde(default)] custom_fields: Vec<CustomField>,
+        }
+        #[derive(Deserialize)] struct Page { next: Option<String>, results: Vec<Raw> }
+
+        let mut url = format!(
+            "{}/api/documents/?tags__id__in={},{}&page_size=100",
+            self.base_url, fuel_id, car_id
+        );
+
+        let mut out = Vec::new();
+        loop {
+            let resp = self.http.get(&url).header("Authorization", self.auth()).send().await?;
+            if !resp.status().is_success() { return Err(PaperlessError::Http(resp.status().as_u16())); }
+            let page: Page = resp.json().await.map_err(|e| PaperlessError::Parse(e.to_string()))?;
+
+            for r in page.results {
+                let created = chrono::NaiveDate::parse_from_str(&r.created, "%Y-%m-%d")
+                    .map_err(|e| PaperlessError::Parse(format!("created '{}': {}", r.created, e)))?;
+
+                let mut total = None;
+                let mut litres = None;
+                let mut dt = None;
+                for cf in r.custom_fields {
+                    if cf.field == fields.total_amount_id {
+                        total = cf.value.as_f64();
+                    } else if cf.field == fields.litres_id {
+                        litres = cf.value.as_f64();
+                    } else if cf.field == fields.receipt_datetime_id {
+                        if let Some(s) = cf.value.as_str() {
+                            dt = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").ok();
+                        }
+                    }
+                }
+
+                out.push(PaperlessDoc {
+                    id: r.id, title: r.title, tag_ids: r.tags, created,
+                    total_amount: total, litres, receipt_datetime: dt,
+                });
+            }
+
+            match page.next { Some(n) => url = n, None => break }
+        }
+        Ok(out)
+    }
+}
+
 #[cfg(test)]
 #[path = "paperless_tests.rs"]
 mod tests;
