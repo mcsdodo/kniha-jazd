@@ -928,8 +928,83 @@ impl Database {
 
         Ok(rows.into_iter().map(Receipt::from).collect())
     }
+
+    // ========================================================================
+    // Paperless trip links — 1:1 trip<->doc mapping
+    // ========================================================================
+
+    pub fn upsert_paperless_link(&self, trip_id: &str, doc_id: i64) -> QueryResult<()> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            // Clear any prior link to THIS doc (might be on a different trip).
+            diesel::delete(p::paperless_trip_links.filter(p::paperless_document_id.eq(doc_id)))
+                .execute(tx)?;
+            // Clear any prior link FROM this trip (trip might have linked a different doc).
+            diesel::delete(p::paperless_trip_links.filter(p::trip_id.eq(trip_id)))
+                .execute(tx)?;
+            diesel::insert_into(p::paperless_trip_links)
+                .values((
+                    p::trip_id.eq(trip_id),
+                    p::paperless_document_id.eq(doc_id),
+                    p::created_at.eq(&now),
+                    p::updated_at.eq(&now),
+                ))
+                .execute(tx)?;
+            Ok(())
+        })
+    }
+
+    pub fn delete_paperless_link_for_doc(&self, doc_id: i64) -> QueryResult<()> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::delete(p::paperless_trip_links.filter(p::paperless_document_id.eq(doc_id)))
+            .execute(conn)
+            .map(|_| ())
+    }
+
+    pub fn get_paperless_link_for_doc(&self, doc_id: i64) -> QueryResult<Option<String>> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        p::paperless_trip_links
+            .filter(p::paperless_document_id.eq(doc_id))
+            .select(p::trip_id)
+            .first::<String>(conn)
+            .optional()
+    }
+
+    pub fn get_paperless_link_for_trip(&self, trip_id: &str) -> QueryResult<Option<i64>> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        p::paperless_trip_links
+            .filter(p::trip_id.eq(trip_id))
+            .select(p::paperless_document_id)
+            .first::<i64>(conn)
+            .optional()
+    }
+
+    pub fn list_paperless_links_for_docs(
+        &self,
+        doc_ids: &[i64],
+    ) -> QueryResult<Vec<(i64, String)>> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        p::paperless_trip_links
+            .filter(p::paperless_document_id.eq_any(doc_ids))
+            .select((p::paperless_document_id, p::trip_id))
+            .load::<(i64, String)>(conn)
+    }
+
+    #[cfg(test)]
+    pub fn count_paperless_links(&self) -> QueryResult<i64> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        p::paperless_trip_links.count().get_result(conn)
+    }
 }
 
 #[cfg(test)]
 #[path = "db_tests.rs"]
-mod tests;
+pub(crate) mod db_tests;

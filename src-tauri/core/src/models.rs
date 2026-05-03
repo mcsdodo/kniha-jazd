@@ -1230,6 +1230,20 @@ impl Receipt {
     }
 }
 
+// ============================================================================
+// PaperlessTripLink — 1:1 link between Paperless document and Trip
+// ============================================================================
+
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, Insertable, AsChangeset)]
+#[diesel(table_name = crate::schema::paperless_trip_links)]
+#[diesel(primary_key(trip_id))]
+pub struct PaperlessTripLink {
+    pub trip_id: String,
+    pub paperless_document_id: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
