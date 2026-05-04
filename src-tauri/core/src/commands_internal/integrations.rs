@@ -170,3 +170,100 @@ pub fn save_ha_settings_internal(
 
     settings.save(app_dir).map_err(|e| e.to_string())
 }
+
+// ============================================================================
+// Paperless-ngx Settings
+// ============================================================================
+
+// Paperless settings response - hides token (mirrors HaSettingsResponse pattern)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperlessSettingsResponse {
+    pub url: Option<String>,
+    pub has_token: bool,
+}
+
+pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
+    let settings = LocalSettings::load(app_dir);
+    Ok(PaperlessSettingsResponse {
+        url: settings.paperless_url,
+        has_token: settings
+            .paperless_api_token
+            .as_deref()
+            .is_some_and(|t| !t.trim().is_empty()),
+    })
+}
+
+pub fn save_paperless_settings_internal(
+    app_dir: &Path,
+    app_state: &AppState,
+    url: Option<String>,
+    token: Option<String>,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    if let Some(ref url_str) = url {
+        if !url_str.is_empty() {
+            if !url_str.starts_with("http://") && !url_str.starts_with("https://") {
+                return Err("URL must start with http:// or https://".to_string());
+            }
+            if url::Url::parse(url_str).is_err() {
+                return Err("Invalid URL format".to_string());
+            }
+        }
+    }
+    let mut settings = LocalSettings::load(app_dir);
+    if let Some(u) = url {
+        let u = u.trim().to_string();
+        settings.paperless_url = if u.is_empty() { None } else { Some(u) };
+    }
+    if let Some(t) = token {
+        let t = t.trim().to_string();
+        settings.paperless_api_token = if t.is_empty() { None } else { Some(t) };
+    }
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+/// Test Paperless-ngx connection. Auth header is `Token <PAT>` (DRF), NOT Bearer.
+pub async fn test_paperless_connection_internal(app_dir: &Path) -> Result<bool, String> {
+    let settings = LocalSettings::load(app_dir);
+    let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
+        (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
+        _ => return Ok(false),
+    };
+    let api_url = format!("{}/api/ui_settings/", url.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build().map_err(|e| e.to_string())?;
+
+    let response = client.get(&api_url)
+        .header("Authorization", format!("Token {}", token))
+        .header("Accept", "application/json")
+        .send().await
+        .map_err(|e| e.to_string())?;
+
+    Ok(response.status().is_success())
+}
+
+/// Single source of truth for "are we in Paperless mode?" — frontend never inspects raw settings (ADR-008).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InvoiceSourceMode {
+    Local,
+    Paperless,
+}
+
+pub fn get_invoice_source_mode_from_settings(s: &LocalSettings) -> InvoiceSourceMode {
+    match (&s.paperless_url, &s.paperless_api_token) {
+        (Some(u), Some(t)) if !u.trim().is_empty() && !t.trim().is_empty() => InvoiceSourceMode::Paperless,
+        _ => InvoiceSourceMode::Local,
+    }
+}
+
+pub fn get_invoice_source_mode_internal(app_dir: &Path) -> Result<InvoiceSourceMode, String> {
+    Ok(get_invoice_source_mode_from_settings(&LocalSettings::load(app_dir)))
+}
+
+#[cfg(test)]
+#[path = "integrations_tests.rs"]
+mod tests;

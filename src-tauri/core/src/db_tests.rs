@@ -12,8 +12,47 @@ fn test_database_creation() {
 }
 
 // Helper to create test vehicles
-fn create_test_vehicle(name: &str) -> Vehicle {
+pub(crate) fn create_test_vehicle(name: &str) -> Vehicle {
     Vehicle::new(name.to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0)
+}
+
+// Helper to seed a test trip — mirrors create_test_vehicle pattern.
+// Trip has a wide field set; only the fields needed for FK + identity are
+// meaningful here; the rest are defaulted to plausible values.
+pub(crate) fn seed_test_trip(db: &Database, vehicle_id: &str) -> String {
+    use crate::models::Trip;
+    use chrono::NaiveDateTime;
+    use uuid::Uuid;
+    let trip = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::parse_str(vehicle_id).unwrap(),
+        origin: "BA".into(),
+        destination: "TT".into(),
+        distance_km: 50.0,
+        odometer: 12345.0,
+        purpose: "test".into(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        full_tank: false,
+        sort_order: 0,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        start_datetime: NaiveDateTime::parse_from_str(
+            "2026-01-01T08:00:00",
+            "%Y-%m-%dT%H:%M:%S",
+        )
+        .unwrap(),
+        end_datetime: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let id = trip.id.to_string();
+    db.create_trip(&trip).expect("seed trip");
+    id
 }
 
 #[test]
@@ -383,4 +422,89 @@ fn test_check_migration_compatibility_passes_for_current_app() {
     // A fresh in-memory DB with current migrations should be compatible
     let result = db.check_migration_compatibility();
     assert!(result.is_ok());
+}
+
+// ============================================================================
+// Paperless trip link tests
+// ============================================================================
+
+#[test]
+fn paperless_link_upsert_creates_then_replaces() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let v_id = v.id.to_string();
+    let trip_a = seed_test_trip(&db, &v_id);
+    let trip_b = seed_test_trip(&db, &v_id);
+
+    db.upsert_paperless_link(&trip_a, 435).unwrap();
+    assert_eq!(
+        db.get_paperless_link_for_doc(435).unwrap(),
+        Some(trip_a.clone())
+    );
+
+    db.upsert_paperless_link(&trip_b, 435).unwrap();
+    assert_eq!(
+        db.get_paperless_link_for_doc(435).unwrap(),
+        Some(trip_b.clone())
+    );
+    assert_eq!(db.get_paperless_link_for_trip(&trip_a).unwrap(), None);
+}
+
+#[test]
+fn paperless_link_delete_is_idempotent() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_test_trip(&db, &v.id.to_string());
+
+    db.upsert_paperless_link(&trip, 435).unwrap();
+    db.delete_paperless_link_for_doc(435).unwrap();
+    db.delete_paperless_link_for_doc(435).unwrap();
+    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
+}
+
+#[test]
+fn paperless_link_unique_doc_invariant() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_a = seed_test_trip(&db, &v.id.to_string());
+    let trip_b = seed_test_trip(&db, &v.id.to_string());
+
+    db.upsert_paperless_link(&trip_a, 435).unwrap();
+    db.upsert_paperless_link(&trip_b, 435).unwrap();
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
+}
+
+#[test]
+fn paperless_link_unique_trip_invariant() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_test_trip(&db, &v.id.to_string());
+
+    // Link trip to doc 435, then re-link the same trip to doc 999.
+    // Doc 435 link must be removed — one trip can hold at most one doc.
+    db.upsert_paperless_link(&trip, 435).unwrap();
+    db.upsert_paperless_link(&trip, 999).unwrap();
+
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
+    assert_eq!(db.get_paperless_link_for_trip(&trip).unwrap(), Some(999));
+    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
+}
+
+#[test]
+fn delete_trip_removes_paperless_link() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_test_trip(&db, &v.id.to_string());
+
+    db.upsert_paperless_link(&trip, 435).unwrap();
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
+
+    db.delete_trip(&trip).unwrap();
+
+    assert_eq!(db.count_paperless_links().unwrap(), 0);
 }

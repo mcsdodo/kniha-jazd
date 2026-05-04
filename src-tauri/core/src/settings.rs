@@ -37,6 +37,9 @@ pub struct LocalSettings {
     // Home Assistant integration
     pub ha_url: Option<String>, // Home Assistant URL (e.g., "http://homeassistant.local:8123")
     pub ha_api_token: Option<String>, // Long-lived access token
+    // Paperless-ngx integration
+    pub paperless_url: Option<String>,
+    pub paperless_api_token: Option<String>,
     // Server mode
     pub server_enabled: Option<bool>, // Whether HTTP server was enabled (for auto-start)
     pub server_port: Option<u16>,     // Last used server port

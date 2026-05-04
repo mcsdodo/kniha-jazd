@@ -2,14 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-05-03 (Task 61 added)
+**Last updated:** 2026-05-03 (Task 60 paperless integration completed)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
-| 60 | [Paperless Integration](60-paperless-integration/) | 📋 Planning | Optional Paperless-ngx as invoice source; doklady mode switch + new `paperless_trip_links` table |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 60 | [Paperless Integration](./_done/60-paperless-integration/) | 2026-05-03 |
 | 59 | [Time Inference Toggle](./_done/59-time-inference-toggle/) | 2026-04-27 |
 | 58 | [Tauri Workspace Split](./_done/58-tauri-workspace-split/) | 2026-04-26 |
 | 33 | [Web Deployment](_done/33-web-deployment/) | 2026-04-26 |

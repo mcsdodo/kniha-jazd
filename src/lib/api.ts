@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, InvoiceSourceMode, PaperlessInvoiceRow } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -551,4 +551,34 @@ export async function startServer(port: number): Promise<ServerStatus> {
 
 export async function stopServer(): Promise<void> {
 	return await apiCall('stop_server');
+}
+
+// Paperless-ngx integration
+export async function getPaperlessSettings(): Promise<PaperlessSettings> {
+	return apiCall<PaperlessSettings>('get_paperless_settings');
+}
+
+// null = keep existing value, '' (empty string) = clear the value
+export async function savePaperlessSettings(url: string | null, token: string | null): Promise<void> {
+	return apiCall('save_paperless_settings', { url, token });
+}
+
+export async function testPaperlessConnection(): Promise<boolean> {
+	return apiCall<boolean>('test_paperless_connection');
+}
+
+export async function getInvoiceSourceMode(): Promise<InvoiceSourceMode> {
+	return apiCall<InvoiceSourceMode>('get_invoice_source_mode');
+}
+
+export async function getPaperlessInvoices(vehicleId: string, year: number): Promise<PaperlessInvoiceRow[]> {
+	return apiCall<PaperlessInvoiceRow[]>('get_paperless_invoices', { vehicleId, year });
+}
+
+export async function assignPaperlessDocToTrip(docId: number, tripId: string): Promise<void> {
+	return apiCall('assign_paperless_doc_to_trip', { docId, tripId });
+}
+
+export async function unassignPaperlessDoc(docId: number): Promise<void> {
+	return apiCall('unassign_paperless_doc', { docId });
 }

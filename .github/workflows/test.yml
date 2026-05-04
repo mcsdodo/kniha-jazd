@@ -333,7 +333,7 @@ jobs:
         run: |
           mkdir -p data
           docker run -d --name kniha-jazd-web \
-            -p 3456:3456 \
+            --network=host \
             -v "$PWD/data:/data" \
             -e KNIHA_JAZD_DATA_DIR=/data \
             -e DATABASE_PATH=/data/kniha-jazd.db \

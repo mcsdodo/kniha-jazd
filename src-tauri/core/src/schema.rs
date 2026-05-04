@@ -105,9 +105,20 @@ diesel::table! {
     }
 }
 
+// Added via migration 2026-05-03-100000_add_paperless_trip_links
+diesel::table! {
+    paperless_trip_links (trip_id) {
+        trip_id -> Text,
+        paperless_document_id -> BigInt,
+        created_at -> Text,
+        updated_at -> Text,
+    }
+}
+
 diesel::joinable!(receipts -> trips (trip_id));
 diesel::joinable!(receipts -> vehicles (vehicle_id));
 diesel::joinable!(routes -> vehicles (vehicle_id));
 diesel::joinable!(trips -> vehicles (vehicle_id));
+diesel::joinable!(paperless_trip_links -> trips (trip_id));
 
-diesel::allow_tables_to_appear_in_same_query!(receipts, routes, settings, trips, vehicles,);
+diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, receipts, routes, settings, trips, vehicles,);

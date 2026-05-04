@@ -14,9 +14,10 @@
 	import type { ThemeMode } from '$lib/api';
 	import { updateStore } from '$lib/stores/update';
 	import { capabilities } from '$lib/stores/capabilities';
+	import { IS_TAURI } from '$lib/api-adapter';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
@@ -82,6 +83,23 @@
 	} as const;
 	type HaStatus = typeof HA_STATUS[keyof typeof HA_STATUS];
 	let haConnectionStatus: HaStatus = HA_STATUS.IDLE;
+
+	// Paperless settings state
+	let paperlessUrl = '';
+	let paperlessApiToken = '';
+	let paperlessHasToken = false;
+	let showPaperlessToken = false;
+	let paperlessUrlError = '';
+	let initialPaperlessUrl = '';
+	let initialPaperlessApiToken = '';
+	const PAPERLESS_STATUS = {
+		IDLE: 'idle',
+		TESTING: 'testing',
+		CONNECTED: 'connected',
+		DISCONNECTED: 'disconnected'
+	} as const;
+	type PaperlessStatus = typeof PAPERLESS_STATUS[keyof typeof PAPERLESS_STATUS];
+	let paperlessConnectionStatus: PaperlessStatus = PAPERLESS_STATUS.IDLE;
 
 	// Real ODO values from HA (keyed by vehicle ID)
 	let vehicleOdoValues: Map<string, number> = new Map();
@@ -235,6 +253,62 @@
 	}
 
 	const debouncedSaveHaSettings = debounce(saveHaSettingsNow, 800);
+
+	// Paperless-ngx settings handlers
+	function validatePaperlessUrl(url: string): boolean {
+		if (!url) return true;
+		if (!url.startsWith('http://') && !url.startsWith('https://')) {
+			paperlessUrlError = $LL.paperless.errors.urlInvalid();
+			return false;
+		}
+		try {
+			new URL(url);
+			paperlessUrlError = '';
+			return true;
+		} catch {
+			paperlessUrlError = $LL.paperless.errors.urlInvalid();
+			return false;
+		}
+	}
+
+	async function testPaperlessConnectionStatus() {
+		if (!paperlessUrl || (!paperlessApiToken && !paperlessHasToken)) {
+			paperlessConnectionStatus = PAPERLESS_STATUS.IDLE;
+			return;
+		}
+		paperlessConnectionStatus = PAPERLESS_STATUS.TESTING;
+		try {
+			const isConnected = await testPaperlessConnection();
+			paperlessConnectionStatus = isConnected ? PAPERLESS_STATUS.CONNECTED : PAPERLESS_STATUS.DISCONNECTED;
+		} catch (error) {
+			console.error('[Paperless] Connection test failed:', error);
+			paperlessConnectionStatus = PAPERLESS_STATUS.DISCONNECTED;
+		}
+	}
+
+	async function savePaperlessSettingsNow() {
+		if (paperlessUrl === initialPaperlessUrl && paperlessApiToken === initialPaperlessApiToken) {
+			return;
+		}
+		if (!validatePaperlessUrl(paperlessUrl)) {
+			return;
+		}
+		try {
+			await savePaperlessSettings(paperlessUrl || null, paperlessApiToken || null);
+			initialPaperlessUrl = paperlessUrl;
+			initialPaperlessApiToken = paperlessApiToken;
+			// Re-fetch to get true has_token: backend preserves existing token when null is sent.
+			const refreshed = await getPaperlessSettings();
+			paperlessHasToken = refreshed.hasToken;
+			toast.success($LL.toast.settingsSaved());
+			await testPaperlessConnectionStatus();
+		} catch (error) {
+			console.error('Failed to save Paperless settings:', error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		}
+	}
+
+	const debouncedSavePaperlessSettings = debounce(savePaperlessSettingsNow, 800);
 
 	// Server mode toggle
 	async function toggleServer() {
@@ -429,8 +503,10 @@
 			await loadRetentionSettings();
 			await checkVehiclesWithTrips();
 
-			// Load app version
-			appVersion = await getVersion();
+			// Load app version (Tauri only — getVersion() from @tauri-apps/api throws in web/server mode)
+			if (IS_TAURI) {
+				appVersion = await getVersion();
+			}
 
 			// Load auto-check setting
 			autoCheckUpdates = await getAutoCheckUpdates();
@@ -460,6 +536,19 @@
 				// Token is not exposed via API, only hasToken boolean
 				// Test connection if configured
 				await testHaConnectionStatus();
+			}
+
+			// Load Paperless-ngx settings
+			try {
+				const paperlessSettings = await getPaperlessSettings();
+				paperlessUrl = paperlessSettings.url || '';
+				paperlessHasToken = paperlessSettings.hasToken;
+				initialPaperlessUrl = paperlessUrl;
+				if (paperlessUrl && paperlessHasToken) {
+					await testPaperlessConnectionStatus();
+				}
+			} catch (error) {
+				console.error('Failed to load Paperless settings:', error);
 			}
 
 			// Load server status (desktop only)
@@ -977,6 +1066,87 @@
 						{:else}
 							<span class="status-icon">✗</span>
 							<span>{$LL.homeAssistant.disconnected()}</span>
+						{/if}
+					</div>
+				{/if}
+			</div>
+		</section>
+
+		<!-- Paperless-ngx Section -->
+		<section class="settings-section" id="paperless">
+			<h2>{$LL.paperless.sectionTitle()}</h2>
+			<div class="section-content">
+				<p class="hint">{$LL.paperless.description()}</p>
+
+				<div class="form-group">
+					<label for="paperless-url">{$LL.paperless.url()}</label>
+					<input
+						type="text"
+						id="paperless-url"
+						data-test="paperless-url"
+						bind:value={paperlessUrl}
+						placeholder={$LL.paperless.urlPlaceholder()}
+						on:input={() => { validatePaperlessUrl(paperlessUrl); debouncedSavePaperlessSettings(); }}
+						on:blur={savePaperlessSettingsNow}
+						class:input-error={paperlessUrlError}
+					/>
+					{#if paperlessUrlError}
+						<small class="error-text">{paperlessUrlError}</small>
+					{/if}
+				</div>
+
+				<div class="form-group">
+					<label for="paperless-token">{$LL.paperless.apiToken()}</label>
+					<div class="input-with-icon">
+						<input
+							type={showPaperlessToken ? 'text' : 'password'}
+							id="paperless-token"
+							data-test="paperless-token"
+							class="monospace-input"
+							bind:value={paperlessApiToken}
+							placeholder={paperlessHasToken && !paperlessApiToken ? '********' : $LL.paperless.apiTokenPlaceholder()}
+							on:input={debouncedSavePaperlessSettings}
+							on:blur={savePaperlessSettingsNow}
+						/>
+						<button
+							type="button"
+							class="icon-btn"
+							on:click={() => (showPaperlessToken = !showPaperlessToken)}
+							title={showPaperlessToken ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+						>
+							{#if showPaperlessToken}
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+							{:else}
+								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+							{/if}
+						</button>
+					</div>
+				</div>
+
+				<button
+					type="button"
+					data-test="paperless-test-connection"
+					class="link-btn"
+					on:click={async () => { await savePaperlessSettingsNow(); await testPaperlessConnectionStatus(); }}
+				>{$LL.paperless.testConnection()}</button>
+
+				{#if paperlessConnectionStatus !== PAPERLESS_STATUS.IDLE}
+					<div
+						data-test="paperless-status"
+						class="ha-status"
+						class:connected={paperlessConnectionStatus === PAPERLESS_STATUS.CONNECTED}
+						class:disconnected={paperlessConnectionStatus === PAPERLESS_STATUS.DISCONNECTED}
+						class:testing={paperlessConnectionStatus === PAPERLESS_STATUS.TESTING}
+					>
+						{#if paperlessConnectionStatus === PAPERLESS_STATUS.TESTING}
+							<span class="status-icon">⏳</span>
+							<span>{$LL.paperless.status.testing()}</span>
+						{:else if paperlessConnectionStatus === PAPERLESS_STATUS.CONNECTED}
+							<span class="status-icon">✓</span>
+							<span>{$LL.paperless.status.connected()}</span>
+						{:else}
+							<span class="status-icon">✗</span>
+							<span>{$LL.paperless.status.disconnected()}</span>
 						{/if}
 					</div>
 				{/if}

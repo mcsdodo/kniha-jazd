@@ -13,8 +13,15 @@ pub mod db_location;
 pub mod export;
 pub mod gemini;
 pub mod models;
+pub mod paperless;
 pub mod receipts;
 pub mod schema;
 pub mod server;
 pub mod settings;
 pub mod suggestions;
+
+// Re-export the db tests module under the crate root so other test modules
+// can import test helpers as `crate::db_tests::*`. Only available under #[cfg(test)].
+#[cfg(test)]
+#[allow(unused_imports)]
+pub(crate) use crate::db::db_tests;

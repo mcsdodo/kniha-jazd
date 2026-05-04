@@ -775,7 +775,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Integrations — sync only (3)
+        // Integrations — sync only (6)
         // ====================================================================
         "get_ha_settings" => {
             let v = crate::commands_internal::integrations::get_ha_settings_internal(&state.app_dir)?;
@@ -800,6 +800,30 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.token,
             )?;
             Ok(serde_json::to_value(()).unwrap())
+        }
+        "get_paperless_settings" => {
+            let v = crate::commands_internal::integrations::get_paperless_settings_internal(&state.app_dir)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "save_paperless_settings" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                url: Option<String>,
+                token: Option<String>,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::integrations::save_paperless_settings_internal(
+                &state.app_dir,
+                &state.app_state,
+                a.url,
+                a.token,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+        "get_invoice_source_mode" => {
+            let v = crate::commands_internal::integrations::get_invoice_source_mode_internal(&state.app_dir)?;
+            Ok(serde_json::to_value(v).unwrap())
         }
 
         // ====================================================================
