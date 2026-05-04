@@ -17,7 +17,8 @@
 	import { IS_TAURI } from '$lib/api-adapter';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import type { PaperlessCustomFieldInfo } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { appDataDir } from '@tauri-apps/api/path';
@@ -108,6 +109,26 @@
 	let initialPaperlessFieldDatetime = '';
 	let initialPaperlessFieldLiters = '';
 	let initialPaperlessFieldTotal = '';
+	// Live list of custom fields fetched from the Paperless server (drives the dropdowns)
+	let paperlessCustomFields: PaperlessCustomFieldInfo[] | null = null;
+	let paperlessCustomFieldsLoading = false;
+	let paperlessCustomFieldsError = '';
+	// Compatibility filter: which Paperless data_types are usable per concept
+	const PAPERLESS_FIELD_COMPATIBLE = {
+		datetime: ['string', 'date'],
+		liters: ['float', 'integer'],
+		total: ['float', 'monetary', 'integer'],
+	} as const;
+	function paperlessCompatibleFields(concept: keyof typeof PAPERLESS_FIELD_COMPATIBLE): PaperlessCustomFieldInfo[] {
+		if (!paperlessCustomFields) return [];
+		const allowed = PAPERLESS_FIELD_COMPATIBLE[concept] as readonly string[];
+		return paperlessCustomFields.filter((f) => allowed.includes(f.dataType));
+	}
+	const PAPERLESS_DEFAULT_FIELD_NAMES = {
+		datetime: 'receipt_datetime',
+		liters: 'liters',
+		total: 'total_price_eur',
+	} as const;
 
 	// Real ODO values from HA (keyed by vehicle ID)
 	let vehicleOdoValues: Map<string, number> = new Map();
@@ -318,6 +339,26 @@
 
 	const debouncedSavePaperlessSettings = debounce(savePaperlessSettingsNow, 800);
 
+	async function loadPaperlessCustomFields() {
+		// Only attempt when Paperless is actually configured.
+		if (!(initialPaperlessUrl && paperlessHasToken)) {
+			paperlessCustomFields = null;
+			paperlessCustomFieldsError = '';
+			return;
+		}
+		paperlessCustomFieldsLoading = true;
+		paperlessCustomFieldsError = '';
+		try {
+			paperlessCustomFields = await listPaperlessCustomFields();
+		} catch (error) {
+			console.error('Failed to load Paperless custom fields:', error);
+			paperlessCustomFieldsError = String(error);
+			paperlessCustomFields = [];
+		} finally {
+			paperlessCustomFieldsLoading = false;
+		}
+	}
+
 	async function savePaperlessFieldNamesNow() {
 		if (
 			paperlessFieldDatetime === initialPaperlessFieldDatetime &&
@@ -348,8 +389,6 @@
 			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
 		}
 	}
-
-	const debouncedSavePaperlessFieldNames = debounce(savePaperlessFieldNamesNow, 800);
 
 	async function togglePaperlessEnabled(value: boolean) {
 		paperlessEnabled = value;
@@ -611,6 +650,9 @@
 				initialPaperlessFieldTotal = paperlessFieldTotal;
 				if (paperlessUrl && paperlessHasToken) {
 					await testPaperlessConnectionStatus();
+					// Populate the custom-field dropdowns so the user can pick names
+					// instead of typing them. Best-effort — failure surfaces inline.
+					await loadPaperlessCustomFields();
 				}
 			} catch (error) {
 				console.error('Failed to load Paperless settings:', error);
@@ -1208,46 +1250,93 @@
 					{/if}
 				</div>
 
-				<div class="form-group">
-					<h3>{$LL.paperless.customFields.sectionTitle()}</h3>
-					<p class="hint">{$LL.paperless.customFields.sectionDescription()}</p>
-				</div>
-				<div class="form-group">
-					<label for="paperless-field-datetime">{$LL.paperless.customFields.datetime()}</label>
-					<input
-						type="text"
-						id="paperless-field-datetime"
-						data-test="paperless-field-datetime"
-						bind:value={paperlessFieldDatetime}
-						placeholder={$LL.paperless.customFields.placeholderDatetime()}
-						on:input={debouncedSavePaperlessFieldNames}
-						on:blur={savePaperlessFieldNamesNow}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="paperless-field-liters">{$LL.paperless.customFields.liters()}</label>
-					<input
-						type="text"
-						id="paperless-field-liters"
-						data-test="paperless-field-liters"
-						bind:value={paperlessFieldLiters}
-						placeholder={$LL.paperless.customFields.placeholderLiters()}
-						on:input={debouncedSavePaperlessFieldNames}
-						on:blur={savePaperlessFieldNamesNow}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="paperless-field-total">{$LL.paperless.customFields.total()}</label>
-					<input
-						type="text"
-						id="paperless-field-total"
-						data-test="paperless-field-total"
-						bind:value={paperlessFieldTotal}
-						placeholder={$LL.paperless.customFields.placeholderTotal()}
-						on:input={debouncedSavePaperlessFieldNames}
-						on:blur={savePaperlessFieldNamesNow}
-					/>
-				</div>
+				{#if initialPaperlessUrl && paperlessHasToken}
+					<div class="form-group">
+						<div class="custom-fields-header">
+							<h3>{$LL.paperless.customFields.sectionTitle()}</h3>
+							<button
+								type="button"
+								class="button-small"
+								data-test="paperless-refresh-fields"
+								on:click={loadPaperlessCustomFields}
+								disabled={paperlessCustomFieldsLoading}
+							>
+								{$LL.paperless.customFields.refresh()}
+							</button>
+						</div>
+						<p class="hint">{$LL.paperless.customFields.sectionDescription()}</p>
+					</div>
+
+					{#if paperlessCustomFieldsLoading}
+						<p class="hint">{$LL.paperless.customFields.loading()}</p>
+					{:else if paperlessCustomFieldsError}
+						<p class="error-text">{$LL.paperless.customFields.loadError()}</p>
+					{:else if paperlessCustomFields}
+						{@const datetimeFields = paperlessCompatibleFields('datetime')}
+						{@const litersFields = paperlessCompatibleFields('liters')}
+						{@const totalFields = paperlessCompatibleFields('total')}
+
+						<div class="form-group">
+							<label for="paperless-field-datetime">{$LL.paperless.customFields.datetime()}</label>
+							<select
+								id="paperless-field-datetime"
+								data-test="paperless-field-datetime"
+								bind:value={paperlessFieldDatetime}
+								on:change={savePaperlessFieldNamesNow}
+								disabled={datetimeFields.length === 0}
+							>
+								{#each datetimeFields as field (field.id)}
+									<option value={field.name}>{field.name} ({field.dataType})</option>
+								{/each}
+							</select>
+							{#if datetimeFields.length === 0}
+								<small class="hint">{$LL.paperless.customFields.noCompatibleFields()}</small>
+							{:else}
+								<small class="hint">{$LL.paperless.customFields.useDefault({ name: PAPERLESS_DEFAULT_FIELD_NAMES.datetime })}</small>
+							{/if}
+						</div>
+
+						<div class="form-group">
+							<label for="paperless-field-liters">{$LL.paperless.customFields.liters()}</label>
+							<select
+								id="paperless-field-liters"
+								data-test="paperless-field-liters"
+								bind:value={paperlessFieldLiters}
+								on:change={savePaperlessFieldNamesNow}
+								disabled={litersFields.length === 0}
+							>
+								{#each litersFields as field (field.id)}
+									<option value={field.name}>{field.name} ({field.dataType})</option>
+								{/each}
+							</select>
+							{#if litersFields.length === 0}
+								<small class="hint">{$LL.paperless.customFields.noCompatibleFields()}</small>
+							{:else}
+								<small class="hint">{$LL.paperless.customFields.useDefault({ name: PAPERLESS_DEFAULT_FIELD_NAMES.liters })}</small>
+							{/if}
+						</div>
+
+						<div class="form-group">
+							<label for="paperless-field-total">{$LL.paperless.customFields.total()}</label>
+							<select
+								id="paperless-field-total"
+								data-test="paperless-field-total"
+								bind:value={paperlessFieldTotal}
+								on:change={savePaperlessFieldNamesNow}
+								disabled={totalFields.length === 0}
+							>
+								{#each totalFields as field (field.id)}
+									<option value={field.name}>{field.name} ({field.dataType})</option>
+								{/each}
+							</select>
+							{#if totalFields.length === 0}
+								<small class="hint">{$LL.paperless.customFields.noCompatibleFields()}</small>
+							{:else}
+								<small class="hint">{$LL.paperless.customFields.useDefault({ name: PAPERLESS_DEFAULT_FIELD_NAMES.total })}</small>
+							{/if}
+						</div>
+					{/if}
+				{/if}
 
 				{#if paperlessConnectionStatus !== PAPERLESS_STATUS.IDLE}
 					<div
@@ -2313,6 +2402,17 @@
 	/* Error states */
 	.input-error {
 		border-color: var(--color-error, #dc2626) !important;
+	}
+
+	.custom-fields-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.custom-fields-header h3 {
+		margin: 0;
 	}
 
 	.error-text {
