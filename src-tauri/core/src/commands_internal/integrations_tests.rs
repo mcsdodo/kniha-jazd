@@ -165,3 +165,31 @@ fn invoice_source_mode_is_local_when_url_is_empty_string() {
     s.paperless_api_token = Some("t".into());
     assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
 }
+
+#[test]
+fn invoice_source_mode_is_local_when_disabled_even_with_credentials() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://x".into());
+    s.paperless_api_token = Some("t".into());
+    s.paperless_enabled = Some(false);
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
+}
+
+#[test]
+fn invoice_source_mode_is_paperless_when_enabled_true_with_credentials() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://x".into());
+    s.paperless_api_token = Some("t".into());
+    s.paperless_enabled = Some(true);
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
+}
+
+#[test]
+fn invoice_source_mode_is_paperless_when_enabled_none_with_credentials_backward_compat() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://x".into());
+    s.paperless_api_token = Some("t".into());
+    // None means "not explicitly set" — treat as enabled for backward compat
+    s.paperless_enabled = None;
+    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
+}

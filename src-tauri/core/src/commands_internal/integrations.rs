@@ -254,8 +254,11 @@ pub enum InvoiceSourceMode {
 }
 
 pub fn get_invoice_source_mode_from_settings(s: &LocalSettings) -> InvoiceSourceMode {
+    let enabled = s.paperless_enabled.unwrap_or(true);
     match (&s.paperless_url, &s.paperless_api_token) {
-        (Some(u), Some(t)) if !u.trim().is_empty() && !t.trim().is_empty() => InvoiceSourceMode::Paperless,
+        (Some(u), Some(t)) if enabled && !u.trim().is_empty() && !t.trim().is_empty() => {
+            InvoiceSourceMode::Paperless
+        }
         _ => InvoiceSourceMode::Local,
     }
 }
