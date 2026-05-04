@@ -633,7 +633,7 @@
 							<div class="detail-row">
 								<span class="label">{$LL.receipts.date()}</span>
 								<span class="value">
-									{row.receiptDatetime ?? $LL.doklady.paperless.noDate()}
+									{row.receiptDatetime ? formatDatetime(row.receiptDatetime) : $LL.doklady.paperless.noDate()}
 								</span>
 							</div>
 							<div class="detail-row">
