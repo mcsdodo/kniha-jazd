@@ -559,8 +559,8 @@ export async function getPaperlessSettings(): Promise<PaperlessSettings> {
 }
 
 // null = keep existing value, '' (empty string) = clear the value
-export async function savePaperlessSettings(url: string | null, token: string | null): Promise<void> {
-	return apiCall('save_paperless_settings', { url, token });
+export async function savePaperlessSettings(url: string | null, token: string | null, enabled: boolean | null = null): Promise<void> {
+	return apiCall('save_paperless_settings', { url, token, enabled });
 }
 
 export async function testPaperlessConnection(): Promise<boolean> {

@@ -410,6 +410,7 @@ export interface HaOdoCache {
 export interface PaperlessSettings {
 	url: string | null;
 	hasToken: boolean;
+	enabled: boolean;
 }
 
 export type InvoiceSourceMode = 'local' | 'paperless';
