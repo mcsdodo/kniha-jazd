@@ -10,6 +10,7 @@ fn save_paperless_settings_persists_url_and_token() {
         &dir.path().to_path_buf(), &app_state,
         Some("https://documents.lacny.me".into()),
         Some("tok-1".into()),
+        None,
     ).unwrap();
 
     let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
@@ -25,10 +26,11 @@ fn save_paperless_settings_none_args_preserves_existing() {
         &dir.path().to_path_buf(), &app_state,
         Some("https://documents.lacny.me".into()),
         Some("tok-1".into()),
+        None,
     ).unwrap();
 
     // Passing None for both args must leave the values unchanged.
-    save_paperless_settings_internal(&dir.path().to_path_buf(), &app_state, None, None).unwrap();
+    save_paperless_settings_internal(&dir.path().to_path_buf(), &app_state, None, None, None).unwrap();
 
     let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
     assert_eq!(loaded.paperless_url.as_deref(), Some("https://documents.lacny.me"));
@@ -43,6 +45,7 @@ fn save_paperless_settings_rejects_invalid_url() {
         &dir.path().to_path_buf(), &app_state,
         Some("not-a-url".into()),
         Some("tok".into()),
+        None,
     ).unwrap_err();
     assert!(err.contains("URL must start with http"));
 }
@@ -55,6 +58,7 @@ fn save_paperless_settings_blocked_by_read_only() {
     let err = save_paperless_settings_internal(
         &dir.path().to_path_buf(), &app_state,
         Some("https://x.example".into()), Some("t".into()),
+        None,
     ).unwrap_err();
     // Slovak: "len na čítanie" = "read-only"
     assert!(err.to_lowercase().contains("čítanie") || err.to_lowercase().contains("read"));
@@ -192,4 +196,32 @@ fn invoice_source_mode_is_paperless_when_enabled_none_with_credentials_backward_
     // None means "not explicitly set" — treat as enabled for backward compat
     s.paperless_enabled = None;
     assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
+}
+
+#[test]
+fn save_paperless_settings_persists_enabled_flag() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(), &app_state,
+        Some("https://x.example".into()),
+        Some("tok".into()),
+        Some(false),
+    ).unwrap();
+
+    let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_enabled, Some(false));
+}
+
+#[test]
+fn get_paperless_settings_returns_enabled_field() {
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://x.example".into());
+    s.paperless_api_token = Some("tok".into());
+    s.paperless_enabled = Some(false);
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
+    assert!(!r.enabled);
 }

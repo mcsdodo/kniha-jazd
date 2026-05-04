@@ -181,16 +181,19 @@ pub fn save_ha_settings_internal(
 pub struct PaperlessSettingsResponse {
     pub url: Option<String>,
     pub has_token: bool,
+    pub enabled: bool,
 }
 
 pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
     let settings = LocalSettings::load(app_dir);
+    let enabled = settings.paperless_enabled.unwrap_or(true);
     Ok(PaperlessSettingsResponse {
         url: settings.paperless_url,
         has_token: settings
             .paperless_api_token
             .as_deref()
             .is_some_and(|t| !t.trim().is_empty()),
+        enabled,
     })
 }
 
@@ -199,6 +202,7 @@ pub fn save_paperless_settings_internal(
     app_state: &AppState,
     url: Option<String>,
     token: Option<String>,
+    enabled: Option<bool>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     if let Some(ref url_str) = url {
@@ -219,6 +223,9 @@ pub fn save_paperless_settings_internal(
     if let Some(t) = token {
         let t = t.trim().to_string();
         settings.paperless_api_token = if t.is_empty() { None } else { Some(t) };
+    }
+    if let Some(e) = enabled {
+        settings.paperless_enabled = Some(e);
     }
     settings.save(app_dir).map_err(|e| e.to_string())
 }

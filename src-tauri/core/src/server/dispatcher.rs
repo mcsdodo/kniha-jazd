@@ -811,6 +811,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 url: Option<String>,
                 token: Option<String>,
+                enabled: Option<bool>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::integrations::save_paperless_settings_internal(
@@ -818,6 +819,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 &state.app_state,
                 a.url,
                 a.token,
+                a.enabled,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
