@@ -133,15 +133,28 @@ pub fn get_paperless_settings(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn save_paperless_settings(
     app_handle: tauri::AppHandle,
     app_state: State<Arc<AppState>>,
     url: Option<String>,
     token: Option<String>,
     enabled: Option<bool>,
+    field_name_datetime: Option<String>,
+    field_name_liters: Option<String>,
+    field_name_total: Option<String>,
 ) -> Result<(), String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
-    inner::save_paperless_settings_internal(&app_data_dir, &app_state, url, token, enabled, None, None, None)
+    inner::save_paperless_settings_internal(
+        &app_data_dir,
+        &app_state,
+        url,
+        token,
+        enabled,
+        field_name_datetime,
+        field_name_liters,
+        field_name_total,
+    )
 }
 
 #[tauri::command]
