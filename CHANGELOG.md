@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Stránka Doklady sa príležitostne zobrazovala prázdna** - opravená race condition, pri ktorej sa `onMount` stránky vyvolal skôr, než layout naplnil `activeVehicleStore`, čo spôsobilo načítanie s `null` vozidlom a následné blokovanie ďalšieho načítania. Načítanie presunuté do reaktívneho `$effect`.
+
 ## [0.35.0] - 2026-05-04
 
 ### Pridané
