@@ -2340,7 +2340,7 @@ type RootTranslation = {
 			 */
 			sectionTitle: string
 			/**
-			 * N​á​z​v​y​ ​v​l​a​s​t​n​ý​c​h​ ​p​o​l​í​ ​v​ ​P​a​p​e​r​l​e​s​s​.​ ​N​e​c​h​á​j​ ​p​r​á​z​d​n​e​ ​p​r​e​ ​p​r​e​d​v​o​l​e​n​ú​ ​h​o​d​n​o​t​u​.
+			 * V​y​b​e​r​,​ ​k​t​o​r​é​ ​p​o​l​i​a​ ​z​ ​t​v​o​j​h​o​ ​P​a​p​e​r​l​e​s​s​ ​s​e​r​v​e​r​a​ ​o​b​s​a​h​u​j​ú​ ​d​á​t​u​m​,​ ​l​i​t​r​e​ ​a​ ​s​u​m​u​.
 			 */
 			sectionDescription: string
 			/**
@@ -2356,17 +2356,26 @@ type RootTranslation = {
 			 */
 			total: string
 			/**
-			 * r​e​c​e​i​p​t​_​d​a​t​e​t​i​m​e
+			 * (​p​r​e​d​v​o​l​e​n​é​:​ ​{​n​a​m​e​}​)
+			 * @param {string} name
 			 */
-			placeholderDatetime: string
+			useDefault: RequiredParams<'name'>
 			/**
-			 * l​i​t​r​e​s
+			 * O​b​n​o​v​i​ť​ ​z​o​z​n​a​m​ ​p​o​l​í
 			 */
-			placeholderLiters: string
+			refresh: string
 			/**
-			 * t​o​t​a​l​_​a​m​o​u​n​t
+			 * N​a​č​í​t​a​v​a​m​ ​v​l​a​s​t​n​é​ ​p​o​l​i​a​…
 			 */
-			placeholderTotal: string
+			loading: string
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​n​a​č​í​t​a​ť​ ​v​l​a​s​t​n​é​ ​p​o​l​i​a​ ​z​ ​P​a​p​e​r​l​e​s​s​.​ ​S​k​o​n​t​r​o​l​u​j​ ​n​a​s​t​a​v​e​n​i​a​ ​a​ ​s​k​ú​s​ ​o​b​n​o​v​i​ť​.
+			 */
+			loadError: string
+			/**
+			 * Ž​i​a​d​n​e​ ​k​o​m​p​a​t​i​b​i​l​n​é​ ​p​o​l​e​ ​—​ ​v​y​t​v​o​r​ ​v​ ​P​a​p​e​r​l​e​s​s​ ​p​o​l​e​ ​s​p​r​á​v​n​e​h​o​ ​t​y​p​u​.
+			 */
+			noCompatibleFields: string
 		}
 	}
 	doklady: {
@@ -4647,7 +4656,7 @@ export type TranslationFunctions = {
 			 */
 			sectionTitle: () => LocalizedString
 			/**
-			 * Názvy vlastných polí v Paperless. Necháj prázdne pre predvolenú hodnotu.
+			 * Vyber, ktoré polia z tvojho Paperless servera obsahujú dátum, litre a sumu.
 			 */
 			sectionDescription: () => LocalizedString
 			/**
@@ -4663,17 +4672,25 @@ export type TranslationFunctions = {
 			 */
 			total: () => LocalizedString
 			/**
-			 * receipt_datetime
+			 * (predvolené: {name})
 			 */
-			placeholderDatetime: () => LocalizedString
+			useDefault: (arg: { name: string }) => LocalizedString
 			/**
-			 * litres
+			 * Obnoviť zoznam polí
 			 */
-			placeholderLiters: () => LocalizedString
+			refresh: () => LocalizedString
 			/**
-			 * total_amount
+			 * Načítavam vlastné polia…
 			 */
-			placeholderTotal: () => LocalizedString
+			loading: () => LocalizedString
+			/**
+			 * Nepodarilo sa načítať vlastné polia z Paperless. Skontroluj nastavenia a skús obnoviť.
+			 */
+			loadError: () => LocalizedString
+			/**
+			 * Žiadne kompatibilné pole — vytvor v Paperless pole správneho typu.
+			 */
+			noCompatibleFields: () => LocalizedString
 		}
 	}
 	doklady: {
