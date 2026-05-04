@@ -2,15 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-05-04 (Tasks 63 + 64 added — Paperless configurable fields + Unified invoice picker)
+**Last updated:** 2026-05-04 (Tasks 62 + 63 completed — Paperless toggle + configurable fields)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 64 | [Unified Invoice Picker](64-unified-invoice-picker/) | 📋 Planning | One TripSelectorModal for both local receipts + Paperless docs via Invoice trait/interface (deferred — implement after 63) |
-| 63 | [Paperless Configurable Fields](63-paperless-configurable-fields/) | 📋 Planning | User-configurable Paperless custom field names instead of hardcoded "litres" / "total_amount" / "receipt_datetime" |
-| 62 | [Paperless Toggle](62-paperless-toggle/) | 📋 Planning | Enable/disable Paperless-ngx globally without losing saved URL + token |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -21,6 +19,8 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 63 | [Paperless Configurable Fields](./_done/63-paperless-configurable-fields/) | 2026-05-04 |
+| 62 | [Paperless Toggle](./_done/62-paperless-toggle/) | 2026-05-04 |
 | 60 | [Paperless Integration](./_done/60-paperless-integration/) | 2026-05-03 |
 | 59 | [Time Inference Toggle](./_done/59-time-inference-toggle/) | 2026-04-27 |
 | 58 | [Tauri Workspace Split](./_done/58-tauri-workspace-split/) | 2026-04-26 |
