@@ -606,6 +606,63 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "get_trips_for_invoice_assignment" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                invoice_ref: crate::invoice::InvoiceRef,
+                invoice_data: Option<crate::invoice::InvoiceData>,
+                vehicle_id: String,
+                year: i32,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::invoices::get_trips_for_invoice_assignment_internal(
+                &state.db,
+                &a.invoice_ref,
+                a.invoice_data.as_ref(),
+                &a.vehicle_id,
+                a.year,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "assign_invoice_to_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                invoice_ref: crate::invoice::InvoiceRef,
+                invoice_data: Option<crate::invoice::InvoiceData>,
+                trip_id: String,
+                vehicle_id: String,
+                assignment_type: crate::models::AssignmentType,
+                mismatch_override: bool,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::invoices::assign_invoice_to_trip_internal(
+                &state.db,
+                &state.app_state,
+                &a.invoice_ref,
+                a.invoice_data.as_ref(),
+                &a.trip_id,
+                &a.vehicle_id,
+                a.assignment_type,
+                a.mismatch_override,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+        "unassign_invoice" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                invoice_ref: crate::invoice::InvoiceRef,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::invoices::unassign_invoice_internal(
+                &state.db,
+                &state.app_state,
+                &a.invoice_ref,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
         "verify_receipts" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
