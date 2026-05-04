@@ -1246,6 +1246,27 @@ impl Receipt {
     }
 }
 
+impl crate::invoice::Invoice for Receipt {
+    fn datetime(&self) -> Option<chrono::NaiveDateTime> {
+        self.receipt_datetime
+    }
+    fn liters(&self) -> Option<f64> {
+        self.liters
+    }
+    fn total_price_eur(&self) -> Option<f64> {
+        self.total_price_eur
+    }
+    fn display_name(&self) -> &str {
+        &self.file_name
+    }
+    fn invoice_ref(&self) -> crate::invoice::InvoiceRef {
+        crate::invoice::InvoiceRef::Receipt(self.id.to_string())
+    }
+    fn assignment_type(&self) -> Option<AssignmentType> {
+        self.assignment_type
+    }
+}
+
 // ============================================================================
 // PaperlessTripLink — 1:1 link between Paperless document and Trip
 // ============================================================================
