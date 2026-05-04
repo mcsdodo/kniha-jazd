@@ -11,6 +11,7 @@ fn save_paperless_settings_persists_url_and_token() {
         Some("https://documents.lacny.me".into()),
         Some("tok-1".into()),
         None,
+        None, None, None,
     ).unwrap();
 
     let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
@@ -27,10 +28,11 @@ fn save_paperless_settings_none_args_preserves_existing() {
         Some("https://documents.lacny.me".into()),
         Some("tok-1".into()),
         None,
+        None, None, None,
     ).unwrap();
 
     // Passing None for both args must leave the values unchanged.
-    save_paperless_settings_internal(&dir.path().to_path_buf(), &app_state, None, None, None).unwrap();
+    save_paperless_settings_internal(&dir.path().to_path_buf(), &app_state, None, None, None, None, None, None).unwrap();
 
     let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
     assert_eq!(loaded.paperless_url.as_deref(), Some("https://documents.lacny.me"));
@@ -46,6 +48,7 @@ fn save_paperless_settings_rejects_invalid_url() {
         Some("not-a-url".into()),
         Some("tok".into()),
         None,
+        None, None, None,
     ).unwrap_err();
     assert!(err.contains("URL must start with http"));
 }
@@ -59,6 +62,7 @@ fn save_paperless_settings_blocked_by_read_only() {
         &dir.path().to_path_buf(), &app_state,
         Some("https://x.example".into()), Some("t".into()),
         None,
+        None, None, None,
     ).unwrap_err();
     // Slovak: "len na čítanie" = "read-only"
     assert!(err.to_lowercase().contains("čítanie") || err.to_lowercase().contains("read"));
@@ -207,6 +211,7 @@ fn save_paperless_settings_persists_enabled_flag() {
         Some("https://x.example".into()),
         Some("tok".into()),
         Some(false),
+        None, None, None,
     ).unwrap();
 
     let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
@@ -224,6 +229,84 @@ fn get_paperless_settings_returns_enabled_field() {
 
     let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
     assert!(!r.enabled);
+}
+
+#[test]
+fn save_paperless_settings_persists_custom_field_names() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(),
+        &app_state,
+        Some("https://paperless.example.com".to_string()),
+        Some("token123".to_string()),
+        Some(true),
+        Some("Dátum dokladu".to_string()),
+        Some("Litre".to_string()),
+        Some("Suma".to_string()),
+    ).unwrap();
+
+    let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_field_name_datetime.as_deref(), Some("Dátum dokladu"));
+    assert_eq!(loaded.paperless_field_name_liters.as_deref(), Some("Litre"));
+    assert_eq!(loaded.paperless_field_name_total.as_deref(), Some("Suma"));
+}
+
+#[test]
+fn save_paperless_settings_empty_field_name_clears_to_use_default() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+
+    // First save custom values.
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(), &app_state,
+        None, None, None,
+        Some("custom_dt".to_string()),
+        Some("custom_lt".to_string()),
+        Some("custom_tt".to_string()),
+    ).unwrap();
+
+    // Then clear with empty strings.
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(), &app_state,
+        None, None, None,
+        Some("".to_string()),
+        Some("".to_string()),
+        Some("".to_string()),
+    ).unwrap();
+
+    let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_field_name_datetime, None);
+    assert_eq!(loaded.paperless_field_name_liters, None);
+    assert_eq!(loaded.paperless_field_name_total, None);
+}
+
+#[test]
+fn save_paperless_settings_none_field_name_keeps_existing() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(), &app_state,
+        None, None, None,
+        Some("existing_dt".to_string()),
+        Some("existing_lt".to_string()),
+        Some("existing_tt".to_string()),
+    ).unwrap();
+
+    // Update only enabled, leave field names as None.
+    save_paperless_settings_internal(
+        &dir.path().to_path_buf(), &app_state,
+        None, None, Some(false),
+        None, None, None,
+    ).unwrap();
+
+    let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_field_name_datetime.as_deref(), Some("existing_dt"));
+    assert_eq!(loaded.paperless_field_name_liters.as_deref(), Some("existing_lt"));
+    assert_eq!(loaded.paperless_field_name_total.as_deref(), Some("existing_tt"));
+    assert_eq!(loaded.paperless_enabled, Some(false));
 }
 
 #[test]

@@ -141,7 +141,7 @@ pub fn save_paperless_settings(
     enabled: Option<bool>,
 ) -> Result<(), String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
-    inner::save_paperless_settings_internal(&app_data_dir, &app_state, url, token, enabled)
+    inner::save_paperless_settings_internal(&app_data_dir, &app_state, url, token, enabled, None, None, None)
 }
 
 #[tauri::command]

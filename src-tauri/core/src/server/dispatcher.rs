@@ -820,6 +820,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.url,
                 a.token,
                 a.enabled,
+                None, None, None,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }

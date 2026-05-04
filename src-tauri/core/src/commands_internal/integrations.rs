@@ -207,12 +207,16 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn save_paperless_settings_internal(
     app_dir: &Path,
     app_state: &AppState,
     url: Option<String>,
     token: Option<String>,
     enabled: Option<bool>,
+    field_name_datetime: Option<String>,
+    field_name_liters: Option<String>,
+    field_name_total: Option<String>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     if let Some(ref url_str) = url {
@@ -236,6 +240,19 @@ pub fn save_paperless_settings_internal(
     }
     if let Some(e) = enabled {
         settings.paperless_enabled = Some(e);
+    }
+    // Field-name overrides — empty string clears (= use default), None keeps existing
+    if let Some(v) = field_name_datetime {
+        let v = v.trim().to_string();
+        settings.paperless_field_name_datetime = if v.is_empty() { None } else { Some(v) };
+    }
+    if let Some(v) = field_name_liters {
+        let v = v.trim().to_string();
+        settings.paperless_field_name_liters = if v.is_empty() { None } else { Some(v) };
+    }
+    if let Some(v) = field_name_total {
+        let v = v.trim().to_string();
+        settings.paperless_field_name_total = if v.is_empty() { None } else { Some(v) };
     }
     settings.save(app_dir).map_err(|e| e.to_string())
 }
