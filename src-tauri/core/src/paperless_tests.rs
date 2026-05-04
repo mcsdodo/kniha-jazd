@@ -98,6 +98,47 @@ async fn resolve_tag_id_errors_when_tag_missing() {
 }
 
 #[tokio::test]
+async fn list_custom_fields_returns_all_with_types() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/custom_fields/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "results": [
+                {"id": 1, "name": "total_amount",     "data_type": "float"},
+                {"id": 2, "name": "total_amount_alt", "data_type": "float"},
+                {"id": 4, "name": "order_id",         "data_type": "string"},
+                {"id": 5, "name": "litres",           "data_type": "float"},
+                {"id": 6, "name": "receipt_datetime", "data_type": "string"},
+            ]
+        })))
+        .mount(&mock).await;
+
+    let client = PaperlessClient::new(mock.uri(), "tok".into());
+    let fields = client.list_custom_fields().await.unwrap();
+
+    assert_eq!(fields.len(), 5);
+    let by_name: std::collections::HashMap<&str, &CustomFieldInfo> =
+        fields.iter().map(|f| (f.name.as_str(), f)).collect();
+    assert_eq!(by_name["litres"].data_type, "float");
+    assert_eq!(by_name["receipt_datetime"].data_type, "string");
+    assert_eq!(by_name["total_amount_alt"].id, 2);
+}
+
+#[tokio::test]
+async fn list_custom_fields_propagates_http_errors() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/custom_fields/"))
+        .respond_with(ResponseTemplate::new(401))
+        .mount(&mock).await;
+
+    let client = PaperlessClient::new(mock.uri(), "tok".into());
+    let err = client.list_custom_fields().await.unwrap_err();
+    match err {
+        PaperlessError::Http(status) => assert_eq!(status, 401),
+        other => panic!("expected Http(401), got {:?}", other),
+    }
+}
+
+#[tokio::test]
 async fn resolve_field_map_finds_all_three_required_fields() {
     let mock = MockServer::start().await;
     Mock::given(method("GET")).and(path("/api/custom_fields/"))

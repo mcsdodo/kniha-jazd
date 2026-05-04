@@ -30,6 +30,17 @@ pub struct PaperlessFieldMap {
     pub receipt_datetime_id: i64,
 }
 
+/// Lightweight view of a Paperless custom field — what the Settings UI dropdown needs.
+/// Deserialized from Paperless's `/api/custom_fields/` response (snake_case),
+/// serialized to the frontend in camelCase (Tauri/IPC convention).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct CustomFieldInfo {
+    pub id: i64,
+    pub name: String,
+    pub data_type: String, // "string" | "float" | "monetary" | "date" | "integer" | "boolean" | "url" | "documentlink" | "select"
+}
+
 /// User-configurable Paperless custom field names.
 ///
 /// Defaults reflect this app's canonical vocabulary (US spelling, `total_price_eur`)
@@ -96,6 +107,18 @@ impl PaperlessClient {
         if !resp.status().is_success() { return Err(PaperlessError::Http(resp.status().as_u16())); }
         let body: Resp = resp.json().await.map_err(|e| PaperlessError::Parse(e.to_string()))?;
         body.results.first().map(|t| t.id).ok_or_else(|| PaperlessError::TagNotFound(name.to_string()))
+    }
+
+    /// List ALL custom fields from the Paperless server.
+    /// Used by the Settings UI to populate dropdowns; type filtering is the UI's job.
+    pub async fn list_custom_fields(&self) -> Result<Vec<CustomFieldInfo>, PaperlessError> {
+        #[derive(Deserialize)] struct Resp { results: Vec<CustomFieldInfo> }
+
+        let url = format!("{}/api/custom_fields/?page_size=200", self.base_url);
+        let resp = self.http.get(&url).header("Authorization", self.auth()).send().await?;
+        if !resp.status().is_success() { return Err(PaperlessError::Http(resp.status().as_u16())); }
+        let body: Resp = resp.json().await.map_err(|e| PaperlessError::Parse(e.to_string()))?;
+        Ok(body.results)
     }
 
     pub async fn resolve_field_map(
