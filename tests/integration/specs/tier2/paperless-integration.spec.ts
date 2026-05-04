@@ -102,10 +102,26 @@ describe('Tier 2: Paperless Integration', () => {
     await navigateTo('settings');
     await browser.pause(500);
 
-    // The Settings page calls testPaperlessConnection on mount when both URL
-    // and token are configured, so the badge should transition to "connected".
+    // Wait for the Paperless URL input to be populated by onMount.
+    // Settings onMount runs ~12 sequential IPC calls before reaching the
+    // Paperless section; on slow CI runners this can take several seconds.
+    // Anchoring on the input value (which is Svelte-bound to `paperlessUrl`)
+    // ensures we wait exactly as long as needed — and gives a clear error if
+    // onMount aborts early (e.g. an uncaught IPC error earlier in the chain).
+    const urlInput = await $('[data-test="paperless-url"]');
+    await browser.waitUntil(
+      async () => ((await urlInput.getValue()) ?? '').length > 0,
+      {
+        timeout: 15000,
+        timeoutMsg: 'Paperless URL never populated in Settings input — onMount may have failed early',
+      }
+    );
+
+    // Once paperlessUrl is set, testPaperlessConnectionStatus() fires immediately
+    // and flips the status from IDLE → TESTING → CONNECTED. The badge renders
+    // the moment status leaves IDLE, so it should appear within ~1-2 seconds.
     const statusBadge = await $('[data-test="paperless-status"]');
-    await statusBadge.waitForDisplayed({ timeout: 10000 });
+    await statusBadge.waitForDisplayed({ timeout: 5000 });
     await browser.waitUntil(
       async () => {
         const cls = (await statusBadge.getAttribute('class')) || '';
