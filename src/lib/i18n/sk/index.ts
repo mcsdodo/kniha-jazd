@@ -712,8 +712,8 @@ const sk = {
 			liters: 'Pole pre litre',
 			total: 'Pole pre sumu',
 			placeholderDatetime: 'receipt_datetime',
-			placeholderLiters: 'litres',
-			placeholderTotal: 'total_amount',
+			placeholderLiters: 'liters',
+			placeholderTotal: 'total_price_eur',
 		},
 	},
 	doklady: {

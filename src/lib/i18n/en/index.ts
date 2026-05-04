@@ -711,8 +711,8 @@ const en = {
 			liters: 'Liters field',
 			total: 'Total amount field',
 			placeholderDatetime: 'receipt_datetime',
-			placeholderLiters: 'litres',
-			placeholderTotal: 'total_amount',
+			placeholderLiters: 'liters',
+			placeholderTotal: 'total_price_eur',
 		},
 	},
 	doklady: {

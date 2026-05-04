@@ -300,7 +300,7 @@ describe('Tier 2: Paperless Integration', () => {
 
     const defaulted = await invokeTauri<Resp>('get_paperless_settings');
     expect(defaulted.fieldNameDatetime).toBe('receipt_datetime');
-    expect(defaulted.fieldNameLiters).toBe('litres');
-    expect(defaulted.fieldNameTotal).toBe('total_amount');
+    expect(defaulted.fieldNameLiters).toBe('liters');
+    expect(defaulted.fieldNameTotal).toBe('total_price_eur');
   });
 });

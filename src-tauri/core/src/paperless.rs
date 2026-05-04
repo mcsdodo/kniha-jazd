@@ -31,7 +31,10 @@ pub struct PaperlessFieldMap {
 }
 
 /// User-configurable Paperless custom field names.
-/// Defaults match the original hardcoded English/UK strings — existing users see no change.
+///
+/// Defaults reflect this app's canonical vocabulary (US spelling, `total_price_eur`)
+/// — the names the app would create custom fields with on a fresh Paperless server.
+/// Users whose Paperless fields are named differently configure overrides in Settings.
 #[derive(Debug, Clone)]
 pub struct PaperlessFieldNames {
     pub datetime: String,
@@ -43,8 +46,8 @@ impl Default for PaperlessFieldNames {
     fn default() -> Self {
         Self {
             datetime: "receipt_datetime".to_string(),
-            liters: "litres".to_string(),
-            total: "total_amount".to_string(),
+            liters: "liters".to_string(),
+            total: "total_price_eur".to_string(),
         }
     }
 }

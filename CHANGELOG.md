@@ -8,7 +8,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
-- **Konfigurovateľné názvy vlastných polí Paperless-ngx** - v Nastaveniach → Paperless → Vlastné polia môžu používatelia nastaviť názvy troch custom fields, ktoré integrácia hľadá v Paperless serveri (dátum/čas, litre, suma). Predvolené hodnoty (`receipt_datetime`, `litres`, `total_amount`) zachovávajú správanie pre existujúcich používateľov; prázdne pole obnoví predvolenú hodnotu. Užitočné pre používateľov, ktorí majú v Paperless polia pomenované v slovenčine alebo inej konvencii.
+- **Konfigurovateľné názvy vlastných polí Paperless-ngx** - v Nastaveniach → Paperless → Vlastné polia môžu používatelia nastaviť názvy troch custom fields, ktoré integrácia hľadá v Paperless serveri (dátum/čas, litre, suma). Predvolené hodnoty zodpovedajú vlastnej terminológii aplikácie: `receipt_datetime`, `liters`, `total_price_eur`. Prázdne pole obnoví predvolenú hodnotu. Užitočné pre používateľov, ktorí majú v Paperless polia pomenované v slovenčine alebo inej konvencii. **Migrácia:** používatelia s pôvodnými hardcoded názvami `litres` / `total_amount` musia po aktualizácii nastaviť tieto hodnoty ako overrides v Nastaveniach (alebo premenovať polia v Paperless na nové predvolené názvy).
 
 ### Zmenené
 - **Prepínač Paperless-ngx v Nastaveniach** - používatelia môžu kedykoľvek prepnúť medzi režimom Paperless a lokálnych dokladov bez straty uloženej URL adresy a tokenu.

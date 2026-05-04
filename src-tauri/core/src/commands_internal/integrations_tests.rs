@@ -314,8 +314,8 @@ fn get_paperless_settings_returns_default_field_names_when_unset() {
     let dir = tempdir().unwrap();
     let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
     assert_eq!(r.field_name_datetime, "receipt_datetime");
-    assert_eq!(r.field_name_liters, "litres");
-    assert_eq!(r.field_name_total, "total_amount");
+    assert_eq!(r.field_name_liters, "liters");
+    assert_eq!(r.field_name_total, "total_price_eur");
 }
 
 #[test]

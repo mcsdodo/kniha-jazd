@@ -4,11 +4,11 @@ use wiremock::matchers::{method, path, query_param, query_param_is_missing};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[test]
-fn paperless_field_names_default_uses_legacy_strings() {
+fn paperless_field_names_default_matches_app_vocabulary() {
     let n = PaperlessFieldNames::default();
     assert_eq!(n.datetime, "receipt_datetime");
-    assert_eq!(n.liters, "litres");
-    assert_eq!(n.total, "total_amount");
+    assert_eq!(n.liters, "liters");
+    assert_eq!(n.total, "total_price_eur");
 }
 
 #[test]
@@ -16,8 +16,8 @@ fn paperless_field_names_from_settings_uses_defaults_when_none() {
     let s = crate::settings::LocalSettings::default();
     let n = PaperlessFieldNames::from_settings(&s);
     assert_eq!(n.datetime, "receipt_datetime");
-    assert_eq!(n.liters, "litres");
-    assert_eq!(n.total, "total_amount");
+    assert_eq!(n.liters, "liters");
+    assert_eq!(n.total, "total_price_eur");
 }
 
 #[test]
@@ -28,8 +28,8 @@ fn paperless_field_names_from_settings_uses_defaults_when_empty_strings() {
     s.paperless_field_name_total = Some("\t".to_string());
     let n = PaperlessFieldNames::from_settings(&s);
     assert_eq!(n.datetime, "receipt_datetime");
-    assert_eq!(n.liters, "litres");
-    assert_eq!(n.total, "total_amount");
+    assert_eq!(n.liters, "liters");
+    assert_eq!(n.total, "total_price_eur");
 }
 
 #[test]
@@ -103,10 +103,10 @@ async fn resolve_field_map_finds_all_three_required_fields() {
     Mock::given(method("GET")).and(path("/api/custom_fields/"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "results": [
-                {"id": 1, "name": "total_amount", "data_type": "float"},
-                {"id": 5, "name": "litres", "data_type": "float"},
+                {"id": 1, "name": "total_price_eur",  "data_type": "float"},
+                {"id": 5, "name": "liters",           "data_type": "float"},
                 {"id": 6, "name": "receipt_datetime", "data_type": "string"},
-                {"id": 4, "name": "order_id", "data_type": "string"},
+                {"id": 4, "name": "order_id",         "data_type": "string"},
             ]
         })))
         .mount(&mock).await;
@@ -123,7 +123,7 @@ async fn resolve_field_map_errors_when_required_field_missing() {
     let mock = MockServer::start().await;
     Mock::given(method("GET")).and(path("/api/custom_fields/"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "results": [{"id": 1, "name": "total_amount", "data_type": "float"}]
+            "results": [{"id": 1, "name": "total_price_eur", "data_type": "float"}]
         })))
         .mount(&mock).await;
 
@@ -131,7 +131,7 @@ async fn resolve_field_map_errors_when_required_field_missing() {
     let err = client.resolve_field_map(&PaperlessFieldNames::default()).await.unwrap_err();
     match err {
         PaperlessError::CustomFieldNotFound(ref n) => {
-            assert!(n == "litres" || n == "receipt_datetime");
+            assert!(n == "liters" || n == "receipt_datetime");
         }
         _ => panic!("expected CustomFieldNotFound, got {:?}", err),
     }
