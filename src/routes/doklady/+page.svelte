@@ -13,6 +13,7 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { IS_TAURI } from '$lib/api-adapter';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	interface ProcessingProgress {
@@ -50,13 +51,13 @@
 	let unlistenProgress: UnlistenFn | null = null;
 
 	onMount(async () => {
-		// Listen for processing progress events
-		unlistenProgress = await listen<ProcessingProgress>('receipt-processing-progress', (event) => {
-			processingProgress = event.payload;
-		});
-
-		// Get app data directory for config file location
-		configFolderPath = await appDataDir();
+		// These Tauri-specific APIs throw in web/server mode — skip them there.
+		if (IS_TAURI) {
+			unlistenProgress = await listen<ProcessingProgress>('receipt-processing-progress', (event) => {
+				processingProgress = event.payload;
+			});
+			configFolderPath = await appDataDir();
+		}
 
 		await loadSettings();
 		await loadInvoices();

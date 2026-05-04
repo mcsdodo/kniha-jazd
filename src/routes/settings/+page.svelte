@@ -14,6 +14,7 @@
 	import type { ThemeMode } from '$lib/api';
 	import { updateStore } from '$lib/stores/update';
 	import { capabilities } from '$lib/stores/capabilities';
+	import { IS_TAURI } from '$lib/api-adapter';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
 	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
@@ -502,8 +503,10 @@
 			await loadRetentionSettings();
 			await checkVehiclesWithTrips();
 
-			// Load app version
-			appVersion = await getVersion();
+			// Load app version (Tauri only — getVersion() from @tauri-apps/api throws in web/server mode)
+			if (IS_TAURI) {
+				appVersion = await getVersion();
+			}
 
 			// Load auto-check setting
 			autoCheckUpdates = await getAutoCheckUpdates();
