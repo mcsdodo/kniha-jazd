@@ -19,7 +19,7 @@ Check current version in `package.json`. Ask user for bump type if not specified
 Update version string in these three files:
 - `package.json` - field `"version": "X.Y.Z"`
 - `src-tauri/Cargo.toml` - field `version = "X.Y.Z"`
-- `src-tauri/tauri.conf.json` - field `"version": "X.Y.Z"`
+- `src-tauri/desktop/tauri.conf.json` - field `"version": "X.Y.Z"`
 
 ## 3. Update CHANGELOG.md
 
@@ -39,14 +39,22 @@ Example:
 
 ## 4. Run Tests
 
-Run tests BEFORE building to verify nothing is broken:
+First, check if the current branch already has a passing CI run on GitHub:
+
+```bash
+gh run list --branch $(git branch --show-current) --limit 5 --json status,conclusion,name,createdAt
+```
+
+- If the **most recent** run has `conclusion: "success"` → **skip local tests**, CI already verified them.
+- If the most recent run is still in progress (`status: "in_progress"`) → wait or run locally.
+- If the most recent run failed, or there are no runs → run tests locally:
 
 ```bash
 npm run test:backend
 npm run test:integration:tier1
 ```
 
-If tests fail, fix issues and retry. Don't proceed until tests pass.
+If local tests fail, fix issues and retry. Don't proceed until tests pass.
 
 ## 5. Build Release
 
