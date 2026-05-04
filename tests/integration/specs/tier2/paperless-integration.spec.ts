@@ -240,4 +240,67 @@ describe('Tier 2: Paperless Integration', () => {
       { timeout: 10000, timeoutMsg: 'Paperless rows did not reload after re-enabling' }
     );
   });
+
+  it('persists custom field names and exposes them via Settings UI', async () => {
+    // Configure Paperless first so the section is meaningful.
+    await invokeTauri<void>('save_paperless_settings', {
+      url: mockUrl,
+      token: MOCK_PAPERLESS_TOKEN,
+      enabled: true,
+    });
+
+    // Set custom field names via IPC (exercises the new save params).
+    await invokeTauri<void>('save_paperless_settings', {
+      url: null,
+      token: null,
+      enabled: null,
+      fieldNameDatetime: 'Dátum dokladu',
+      fieldNameLiters: 'Litre',
+      fieldNameTotal: 'Suma',
+    });
+
+    // Verify backend persisted them.
+    type Resp = {
+      url: string | null;
+      hasToken: boolean;
+      enabled: boolean;
+      fieldNameDatetime: string;
+      fieldNameLiters: string;
+      fieldNameTotal: string;
+    };
+    const persisted = await invokeTauri<Resp>('get_paperless_settings');
+    expect(persisted.fieldNameDatetime).toBe('Dátum dokladu');
+    expect(persisted.fieldNameLiters).toBe('Litre');
+    expect(persisted.fieldNameTotal).toBe('Suma');
+
+    // Navigate to Settings (force fresh mount per integration-tests rule).
+    await navigateTo('trips');
+    await browser.pause(200);
+    await navigateTo('settings');
+    await browser.pause(400);
+
+    // Verify the inputs reflect the persisted custom values.
+    const dt = await $('[data-test="paperless-field-datetime"]');
+    const lt = await $('[data-test="paperless-field-liters"]');
+    const tt = await $('[data-test="paperless-field-total"]');
+    await dt.waitForDisplayed({ timeout: 5000 });
+    expect(await dt.getValue()).toBe('Dátum dokladu');
+    expect(await lt.getValue()).toBe('Litre');
+    expect(await tt.getValue()).toBe('Suma');
+
+    // Clear all three back to defaults via IPC (empty string clears).
+    await invokeTauri<void>('save_paperless_settings', {
+      url: null,
+      token: null,
+      enabled: null,
+      fieldNameDatetime: '',
+      fieldNameLiters: '',
+      fieldNameTotal: '',
+    });
+
+    const defaulted = await invokeTauri<Resp>('get_paperless_settings');
+    expect(defaulted.fieldNameDatetime).toBe('receipt_datetime');
+    expect(defaulted.fieldNameLiters).toBe('litres');
+    expect(defaulted.fieldNameTotal).toBe('total_amount');
+  });
 });
