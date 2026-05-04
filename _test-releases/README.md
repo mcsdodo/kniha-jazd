@@ -1,4 +1,4 @@
-# Local Update Testing
+﻿# Local Update Testing
 
 This folder contains a mock release server for testing the auto-update flow without publishing to GitHub Releases.
 
@@ -35,7 +35,7 @@ In a new terminal:
 
 ```bash
 # Windows
-set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
+set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri:dev
 ```
 
 The app will run at the current version and detect the test release as an available update.

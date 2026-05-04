@@ -1,4 +1,4 @@
-**Date:** 2026-05-03
+﻿**Date:** 2026-05-03
 **Subject:** Paperless-ngx integration — implementation plan
 **Status:** Ready
 
@@ -2057,7 +2057,7 @@ Status state machine: `IDLE → TESTING → CONNECTED | DISCONNECTED`.
 **Step 3: Manual verification**
 
 ```powershell
-npm run tauri dev
+npm run tauri:dev
 ```
 - Open Settings → scroll to Paperless section.
 - Paste URL [https://documents.lacny.me](https://documents.lacny.me), paste the PAT
@@ -2130,7 +2130,7 @@ git commit -m "feat(ui): paperless section in Settings page"
 **Step 4: Manual verification**
 
 ```powershell
-npm run tauri dev
+npm run tauri:dev
 ```
 - Configure Paperless in Settings → return to Doklady.
 - Verify ~20 rows render, fuel rows show liters, parking rows don't.
@@ -2384,7 +2384,7 @@ Expected: no errors.
 **Step 4: Manual smoke test**
 
 ```powershell
-npm run tauri dev
+npm run tauri:dev
 ```
 - Verify Settings → Paperless flow against the live
   [https://documents.lacny.me](https://documents.lacny.me) instance using the PAT

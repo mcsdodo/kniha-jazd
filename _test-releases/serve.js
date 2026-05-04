@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Local mock release server for testing auto-update flow.
  *
  * Usage:
  *   node _test-releases/serve.js
  *
  * Then run app with:
- *   set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
+ *   set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri:dev
  */
 
 import http from 'http';
@@ -74,7 +74,7 @@ Endpoints:
 
 To test updates:
   1. In another terminal, run:
-     set TAURI_UPDATER_ENDPOINT=http://localhost:${PORT}/latest.json && npm run tauri dev
+     set TAURI_UPDATER_ENDPOINT=http://localhost:${PORT}/latest.json && npm run tauri:dev
 
 Press Ctrl+C to stop.
 `);

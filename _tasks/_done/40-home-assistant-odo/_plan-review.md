@@ -1,4 +1,4 @@
-# Plan Review: Home Assistant ODO Integration
+﻿# Plan Review: Home Assistant ODO Integration
 
 **Date:** 2026-01-27
 **Reviewer:** Claude
@@ -72,7 +72,7 @@ The implementation plan is well-structured and follows project conventions. Afte
   - Run `cargo test` after Step 1.1 (settings tests)
   - Run `diesel migration run` and verify schema.rs after Step 1.2
   - Run `cargo test` after Step 1.3 (vehicle CRUD tests)
-  - Test commands via `npm run tauri dev` after Step 1.4
+  - Test commands via `npm run tauri:dev` after Step 1.4
 
 **[Important] No error handling spec for HA API**
 - **Issue:** Step 3.1 says "Handle errors gracefully" but doesn't specify what errors to handle.

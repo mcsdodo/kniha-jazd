@@ -1,4 +1,4 @@
-# Cargo Workspace Split Implementation Plan
+﻿# Cargo Workspace Split Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -1575,7 +1575,7 @@ cargo tree -p kniha-jazd-core | grep -i tauri
 
 # 5. Desktop still builds and runs
 cd .. && npm run tauri build
-npm run tauri dev   # smoke check: GUI launches
+npm run tauri:dev   # smoke check: GUI launches
 
 # 6. Integration tests pass — full suite (all tiers) for final verification
 npm run test:integration

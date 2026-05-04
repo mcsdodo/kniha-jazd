@@ -1,4 +1,4 @@
-**Date:** 2025-12-23
+﻿**Date:** 2025-12-23
 **Subject:** Drag-and-drop reordering implementation plan
 **Status:** Planning
 
@@ -457,7 +457,7 @@ Replace the actions section in TripRow.svelte. Add new props and handlers:
 
 **Step 4: Test visually**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Verify: Icons display correctly, hover states work
 
 **Step 5: Commit**
@@ -622,7 +622,7 @@ async function handleSaveNew(tripData: Partial<Trip>) {
 
 **Step 6: Test drag-and-drop**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Verify:
 - Drag handle shows on each row
 - Dragging shows drop indicator
@@ -732,7 +732,7 @@ try {
 
 **Step 3: Test ODO recalculation**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Verify: After reordering, ODO values update correctly
 
 **Step 4: Commit**
@@ -841,7 +841,7 @@ await createTrip(
 
 **Step 5: Test insert above**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Verify: Clicking + on a row creates new row above it
 
 **Step 6: Commit**
@@ -862,7 +862,7 @@ Expected: All tests pass
 
 **Step 2: Manual E2E testing**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 
 Test checklist:
 - [ ] Drag row to new position

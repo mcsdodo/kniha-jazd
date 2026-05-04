@@ -1,4 +1,4 @@
-**Date:** 2026-01-13
+﻿**Date:** 2026-01-13
 **Subject:** Implementation Plan - Dead Code Cleanup
 **Status:** Planning
 
@@ -118,7 +118,7 @@ npm run check
 cd src-tauri && cargo test
 
 # App runs
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ## Rollback

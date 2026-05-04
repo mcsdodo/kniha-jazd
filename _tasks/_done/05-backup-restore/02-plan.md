@@ -1,4 +1,4 @@
-**Date:** 2025-12-23
+﻿**Date:** 2025-12-23
 **Subject:** Implementation Plan - Backup/Restore & Navigation
 **Status:** Ready for Implementation
 
@@ -87,7 +87,7 @@ Add to style block:
 **Step 4: Run and verify**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Expected: Navigation links visible in header, active state highlights current page.
@@ -121,7 +121,7 @@ Remove the `.back-link` style rule as it's no longer needed.
 **Step 2: Run and verify**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Navigate to Settings - no duplicate back link.
@@ -232,7 +232,7 @@ Change from side-by-side to stacked:
 **Step 4: Run and verify**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Expected: Stats now in two rows, "Celkovo najazdené" label visible.
@@ -269,7 +269,7 @@ Remove `.actions` and `.button` styles (button styles may still be needed - chec
 **Step 3: Run and verify**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Expected: No settings button at bottom of main page.
@@ -843,7 +843,7 @@ function formatFileSize(bytes: number): string {
 **Step 6: Run and verify**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Expected:
@@ -866,7 +866,7 @@ git commit -m "feat(ui): add backup/restore section to settings"
 **Step 1: Full test of all features**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Test checklist:

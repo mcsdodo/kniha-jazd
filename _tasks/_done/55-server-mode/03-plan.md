@@ -1,4 +1,4 @@
-# Server Mode Implementation Plan
+﻿# Server Mode Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -1174,7 +1174,7 @@ In `TripRow.svelte`, import from api.ts instead of direct invoke.
 
 ```bash
 npm run build                  # build frontend
-npm run tauri dev              # start app — click around, verify all pages work
+npm run tauri:dev              # start app — click around, verify all pages work
 ```
 
 5. Run integration tests to confirm no regressions:
@@ -1283,7 +1283,7 @@ export async function loadCapabilities(): Promise<void> {
 
 **Verify:**
 ```bash
-npm run tauri dev  # desktop still works, all features visible
+npm run tauri:dev  # desktop still works, all features visible
 # Open http://localhost:3456 in Chrome — Tauri-only buttons should be hidden
 ```
 
@@ -1366,7 +1366,7 @@ let app = if static_dir.exists() {
 ```bash
 npm run build                            # build frontend
 cd src-tauri && cargo test server::      # static serving test passes
-npm run tauri dev                        # start app
+npm run tauri:dev                        # start app
 # Open http://localhost:3456 in Chrome — should show the full app
 # Navigate to /vozidla, refresh — SPA fallback works
 ```
@@ -1538,7 +1538,7 @@ serverStopped: 'Server is off',
 
 **Verify:**
 ```bash
-npm run tauri dev
+npm run tauri:dev
 # Open Settings → Server Mode card visible
 # Set port 3456, click Start → URL shown
 # Open URL in Chrome → app loads
@@ -1599,7 +1599,7 @@ if auto_start || settings.server_enabled.unwrap_or(false) {
 
 **Verify:**
 ```bash
-npm run tauri dev
+npm run tauri:dev
 # Enable server in Settings
 # On phone/tablet on same Wi-Fi, open the URL → app loads
 # Close and reopen app → server auto-starts
@@ -1929,7 +1929,7 @@ npm run test:integration
 npm run test:integration:server
 
 # 4. Manual smoke test
-npm run tauri dev
+npm run tauri:dev
 # → Enable server in Settings
 # → Open phone browser to the URL
 # → Create a vehicle, add trips, view receipts

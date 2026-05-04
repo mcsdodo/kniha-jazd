@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 Vehicle logbook (Kniha jázd) desktop app for Slovak legal compliance - tracks trips, fuel consumption, and ensures the 20% over-consumption margin is maintained.
 
@@ -244,7 +244,7 @@ Users can move the database via **Settings → Database Location → Change...**
 
 ```bash
 # Development
-npm run tauri dev        # Start app in dev mode
+npm run tauri:dev        # Start app in dev mode
 
 # Build
 npm run tauri build      # Production build

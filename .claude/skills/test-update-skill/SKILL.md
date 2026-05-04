@@ -1,4 +1,4 @@
----
+﻿---
 name: test-update
 description: Use when testing auto-update functionality locally without publishing to GitHub Releases
 ---
@@ -22,7 +22,7 @@ node _test-releases/serve.js
 
 ### 3. Run app with test endpoint
 ```bash
-set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
+set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri:dev
 ```
 
 ## Signing Requirement

@@ -1,4 +1,4 @@
-# Test Release Script
+﻿# Test Release Script
 # Builds a TEST release with bumped version for auto-update testing
 # Automatically reverts version after build - does NOT modify git state
 
@@ -116,7 +116,7 @@ try {
     Write-Host ""
     Write-Host "To test auto-update:" -ForegroundColor Cyan
     Write-Host "  1. node _test-releases/serve.js"
-    Write-Host "  2. set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev"
+    Write-Host "  2. set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri:dev"
     Write-Host ""
     Write-Host "App will run at v$currentVersion and detect v$testVersion as available update." -ForegroundColor Gray
 

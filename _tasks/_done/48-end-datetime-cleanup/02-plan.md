@@ -1,4 +1,4 @@
-# Implementation Plan: end_time to end_datetime Cleanup
+﻿# Implementation Plan: end_time to end_datetime Cleanup
 
 **Date:** 2026-01-29
 **Status:** Complete
@@ -204,7 +204,7 @@ npm run format
 
 ### Task 5.3: Manual testing
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 - [ ] Create trip - verify datetime storage
 - [ ] Edit trip - verify datetime updates

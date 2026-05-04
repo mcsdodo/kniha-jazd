@@ -1,4 +1,4 @@
-# Receipt Vehicle Filtering Implementation Plan
+﻿# Receipt Vehicle Filtering Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -373,7 +373,7 @@ No changes needed to `filteredReceipts` logic - it filters within the already-fi
 
 **Step 4: Test manually**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 - Create 2 vehicles
 - Add receipts, assign some to each vehicle
 - Switch vehicles and verify:
@@ -451,7 +451,7 @@ async function loadReceiptStatus() {
 
 **Step 4: Test manually**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 - Create 2 vehicles with different receipts
 - Verify badge count changes when switching vehicles
 - Verify badge shows correct count (unassigned + current vehicle's needing attention)
@@ -518,7 +518,7 @@ app: {
 
 **Step 4: Test manually**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 - With vehicles: no empty option visible
 - Without vehicles: shows translated "No vehicles" message
 
@@ -588,7 +588,7 @@ onMount(async () => {
 
 **Step 3: Test manually**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 - Clear active vehicle in backend, reload → first vehicle auto-selected
 - Delete active vehicle, reload → next vehicle auto-selected
 - Verify app loads quickly (no sequential API calls on happy path)
@@ -611,7 +611,7 @@ Expected: All tests PASS
 
 **Step 2: Run full app test**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Manual verification:
 - [ ] Switching vehicles filters receipts correctly
 - [ ] Unassigned receipts visible for all vehicles

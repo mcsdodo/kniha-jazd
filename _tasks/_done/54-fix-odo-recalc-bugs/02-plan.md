@@ -1,4 +1,4 @@
-# Fix Odometer Recalculation Bugs — Implementation Plan
+﻿# Fix Odometer Recalculation Bugs — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -56,7 +56,7 @@
 3. Ensure `tick` import exists (already imported at line 8)
 
 **Verification:**
-- App builds: `npm run tauri dev`
+- App builds: `npm run tauri:dev`
 - Manual test: edit a trip's date → verify odometer chain stays correct
 - Manual test: add trip between existing trips → verify all odometers correct
 

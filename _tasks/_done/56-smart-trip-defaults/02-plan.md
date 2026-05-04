@@ -1,4 +1,4 @@
-# Smart Trip Defaults — Implementation Plan
+﻿# Smart Trip Defaults — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task.
 
@@ -88,7 +88,7 @@
 2. Ensure the input element reflects the clamped value (two-way binding or explicit set on `event.target.value`).
 3. Preserve the existing auto-calc and manual-edit paths after clamping.
 
-**Verification:** manual smoke-test in dev (`npm run tauri dev`): enter ODO lower than previous row → field snaps to `previous + 1`. Integration test (Task 4) will formalise this.
+**Verification:** manual smoke-test in dev (`npm run tauri:dev`): enter ODO lower than previous row → field snaps to `previous + 1`. Integration test (Task 4) will formalise this.
 
 ---
 
@@ -112,7 +112,7 @@
 3. Guard: never invoke this command for existing/saved rows (`trip?.id` set). Also guard against redundant invocations (e.g., debounce or run only when `(origin, destination)` pair actually changes).
 4. Add `InferredTripTime` type to `src/lib/types.ts` mirroring the Rust struct.
 
-**Verification:** manual smoke-test in `npm run tauri dev`: create new trip with known route → start/end auto-fill; edit an existing trip's origin/destination → times unchanged. Integration tests (Task 5) formalise this.
+**Verification:** manual smoke-test in `npm run tauri:dev`: create new trip with known route → start/end auto-fill; edit an existing trip's origin/destination → times unchanged. Integration tests (Task 5) formalise this.
 
 ---
 

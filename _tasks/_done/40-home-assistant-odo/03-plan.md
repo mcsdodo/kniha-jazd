@@ -1,4 +1,4 @@
-# Implementation Plan: Home Assistant ODO Integration
+﻿# Implementation Plan: Home Assistant ODO Integration
 
 ## Phase 1: Backend - Database & Settings
 
@@ -38,7 +38,7 @@ Update all vehicle-related structs:
 - Add `save_ha_settings` command (saves url + token to local.settings.json)
 - Register commands in invoke_handler
 
-**Verification:** Run `npm run tauri dev`, test commands via browser console
+**Verification:** Run `npm run tauri:dev`, test commands via browser console
 
 ---
 

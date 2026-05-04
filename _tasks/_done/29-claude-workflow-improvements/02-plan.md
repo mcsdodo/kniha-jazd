@@ -1,4 +1,4 @@
-# Claude Workflow Improvements Implementation Plan
+﻿# Claude Workflow Improvements Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -361,7 +361,7 @@ Create `.claude/rules/business-logic.md`:
 
 ```bash
 # Development
-npm run tauri dev        # Start app in dev mode
+npm run tauri:dev        # Start app in dev mode
 
 # Build
 npm run tauri build      # Production build
