@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-05-04
+
 ### Pridané
 - **Integrácia s Paperless-ngx ako alternatívny zdroj dokladov.** Voliteľná funkcia: po nastavení URL a tokenu v Nastaveniach → Paperless stránka Doklady číta faktúry priamo z Paperless-ngx (filtruje podľa tagov `fuel` a `car`) namiesto lokálneho OCR skenovania. Priradenie ku jazdám funguje v oboch režimoch; lokálne doklady a ich existujúce priradenia sa zachovajú nedotknuté po vypnutí Paperlessu. Tlačidlá v Paperless režime: **Otvoriť v Paperless** (otvorí dokument v prehliadači) a **Priradiť k jazde**. Tlačidlá Edit/Reprocess/Remove sú v Paperless režime skryté (Paperless je zdrojom pravdy).
 
