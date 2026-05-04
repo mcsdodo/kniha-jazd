@@ -100,6 +100,7 @@
 	} as const;
 	type PaperlessStatus = typeof PAPERLESS_STATUS[keyof typeof PAPERLESS_STATUS];
 	let paperlessConnectionStatus: PaperlessStatus = PAPERLESS_STATUS.IDLE;
+	let paperlessEnabled = false;
 
 	// Real ODO values from HA (keyed by vehicle ID)
 	let vehicleOdoValues: Map<string, number> = new Map();
@@ -309,6 +310,23 @@
 	}
 
 	const debouncedSavePaperlessSettings = debounce(savePaperlessSettingsNow, 800);
+
+	async function togglePaperlessEnabled(value: boolean) {
+		paperlessEnabled = value;
+		try {
+			await savePaperlessSettings(null, null, value);
+			toast.success($LL.toast.settingsSaved());
+			if (value) {
+				await testPaperlessConnectionStatus();
+			} else {
+				paperlessConnectionStatus = PAPERLESS_STATUS.IDLE;
+			}
+		} catch (error) {
+			console.error('Failed to toggle Paperless:', error);
+			paperlessEnabled = !value;
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		}
+	}
 
 	// Server mode toggle
 	async function toggleServer() {
@@ -543,6 +561,7 @@
 				const paperlessSettings = await getPaperlessSettings();
 				paperlessUrl = paperlessSettings.url || '';
 				paperlessHasToken = paperlessSettings.hasToken;
+				paperlessEnabled = paperlessSettings.enabled;
 				initialPaperlessUrl = paperlessUrl;
 				if (paperlessUrl && paperlessHasToken) {
 					await testPaperlessConnectionStatus();
@@ -1079,6 +1098,23 @@
 				<p class="hint">{$LL.paperless.description()}</p>
 
 				<div class="form-group">
+					<label
+						class="checkbox-label"
+						class:disabled={!initialPaperlessUrl || !paperlessHasToken}
+						title={!initialPaperlessUrl || !paperlessHasToken ? $LL.paperless.enableToggleDisabledHint() : ''}
+					>
+						<input
+							type="checkbox"
+							data-test="paperless-enabled-toggle"
+							checked={paperlessEnabled}
+							disabled={!initialPaperlessUrl || !paperlessHasToken}
+							on:change={(e) => togglePaperlessEnabled((e.target as HTMLInputElement).checked)}
+						/>
+						{$LL.paperless.enableToggle()}
+					</label>
+				</div>
+
+				<div class="form-group">
 					<label for="paperless-url">{$LL.paperless.url()}</label>
 					<input
 						type="text"
@@ -1121,14 +1157,10 @@
 							{/if}
 						</button>
 					</div>
+					{#if paperlessHasToken && !paperlessApiToken}
+						<small class="hint">{$LL.paperless.tokenSet()}</small>
+					{/if}
 				</div>
-
-				<button
-					type="button"
-					data-test="paperless-test-connection"
-					class="link-btn"
-					on:click={async () => { await savePaperlessSettingsNow(); await testPaperlessConnectionStatus(); }}
-				>{$LL.paperless.testConnection()}</button>
 
 				{#if paperlessConnectionStatus !== PAPERLESS_STATUS.IDLE}
 					<div
