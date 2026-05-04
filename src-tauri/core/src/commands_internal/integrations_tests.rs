@@ -225,3 +225,27 @@ fn get_paperless_settings_returns_enabled_field() {
     let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
     assert!(!r.enabled);
 }
+
+#[test]
+fn get_paperless_settings_returns_default_field_names_when_unset() {
+    let dir = tempdir().unwrap();
+    let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
+    assert_eq!(r.field_name_datetime, "receipt_datetime");
+    assert_eq!(r.field_name_liters, "litres");
+    assert_eq!(r.field_name_total, "total_amount");
+}
+
+#[test]
+fn get_paperless_settings_returns_custom_field_names_when_set() {
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_field_name_datetime = Some("Dátum dokladu".to_string());
+    s.paperless_field_name_liters = Some("Litre".to_string());
+    s.paperless_field_name_total = Some("Suma".to_string());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
+    assert_eq!(r.field_name_datetime, "Dátum dokladu");
+    assert_eq!(r.field_name_liters, "Litre");
+    assert_eq!(r.field_name_total, "Suma");
+}

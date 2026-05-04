@@ -182,10 +182,17 @@ pub struct PaperlessSettingsResponse {
     pub url: Option<String>,
     pub has_token: bool,
     pub enabled: bool,
+    // Resolved custom field names (defaults applied when settings are None/empty)
+    pub field_name_datetime: String,
+    pub field_name_liters: String,
+    pub field_name_total: String,
 }
 
 pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
+    use crate::paperless::PaperlessFieldNames;
+
     let settings = LocalSettings::load(app_dir);
+    let names = PaperlessFieldNames::from_settings(&settings);
     let enabled = settings.paperless_enabled.unwrap_or(true);
     Ok(PaperlessSettingsResponse {
         url: settings.paperless_url,
@@ -194,6 +201,9 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
             .as_deref()
             .is_some_and(|t| !t.trim().is_empty()),
         enabled,
+        field_name_datetime: names.datetime,
+        field_name_liters: names.liters,
+        field_name_total: names.total,
     })
 }
 
