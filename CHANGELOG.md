@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Prepínač Paperless-ngx v Nastaveniach** - používatelia môžu kedykoľvek prepnúť medzi režimom Paperless a lokálnych dokladov bez straty uloženej URL adresy a tokenu.
+
 ### Opravené
 - **Stránka Doklady sa príležitostne zobrazovala prázdna** - opravená race condition, pri ktorej sa `onMount` stránky vyvolal skôr, než layout naplnil `activeVehicleStore`, čo spôsobilo načítanie s `null` vozidlom a následné blokovanie ďalšieho načítania. Načítanie presunuté do reaktívneho `$effect`.
 
