@@ -705,6 +705,16 @@ const sk = {
 			fieldMissing: 'Vytvor custom field „{name:string}" v Paperless',
 			network: 'Paperless nedostupný — skontroluj nastavenia',
 		},
+		customFields: {
+			sectionTitle: 'Vlastné polia',
+			sectionDescription: 'Názvy vlastných polí v Paperless. Necháj prázdne pre predvolenú hodnotu.',
+			datetime: 'Pole pre dátum/čas',
+			liters: 'Pole pre litre',
+			total: 'Pole pre sumu',
+			placeholderDatetime: 'receipt_datetime',
+			placeholderLiters: 'litres',
+			placeholderTotal: 'total_amount',
+		},
 	},
 	doklady: {
 		paperless: {

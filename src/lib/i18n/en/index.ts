@@ -704,6 +704,16 @@ const en = {
 			fieldMissing: 'Create custom field "{name}" in Paperless',
 			network: 'Paperless unreachable — check your settings',
 		},
+		customFields: {
+			sectionTitle: 'Custom fields',
+			sectionDescription: 'Names of custom fields in Paperless. Leave empty to use the default.',
+			datetime: 'Datetime field',
+			liters: 'Liters field',
+			total: 'Total amount field',
+			placeholderDatetime: 'receipt_datetime',
+			placeholderLiters: 'litres',
+			placeholderTotal: 'total_amount',
+		},
 	},
 	doklady: {
 		paperless: {

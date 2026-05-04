@@ -2334,6 +2334,40 @@ type RootTranslation = {
 			 */
 			network: string
 		}
+		customFields: {
+			/**
+			 * V​l​a​s​t​n​é​ ​p​o​l​i​a
+			 */
+			sectionTitle: string
+			/**
+			 * N​á​z​v​y​ ​v​l​a​s​t​n​ý​c​h​ ​p​o​l​í​ ​v​ ​P​a​p​e​r​l​e​s​s​.​ ​N​e​c​h​á​j​ ​p​r​á​z​d​n​e​ ​p​r​e​ ​p​r​e​d​v​o​l​e​n​ú​ ​h​o​d​n​o​t​u​.
+			 */
+			sectionDescription: string
+			/**
+			 * P​o​l​e​ ​p​r​e​ ​d​á​t​u​m​/​č​a​s
+			 */
+			datetime: string
+			/**
+			 * P​o​l​e​ ​p​r​e​ ​l​i​t​r​e
+			 */
+			liters: string
+			/**
+			 * P​o​l​e​ ​p​r​e​ ​s​u​m​u
+			 */
+			total: string
+			/**
+			 * r​e​c​e​i​p​t​_​d​a​t​e​t​i​m​e
+			 */
+			placeholderDatetime: string
+			/**
+			 * l​i​t​r​e​s
+			 */
+			placeholderLiters: string
+			/**
+			 * t​o​t​a​l​_​a​m​o​u​n​t
+			 */
+			placeholderTotal: string
+		}
 	}
 	doklady: {
 		paperless: {
@@ -4606,6 +4640,40 @@ export type TranslationFunctions = {
 			 * Paperless nedostupný — skontroluj nastavenia
 			 */
 			network: () => LocalizedString
+		}
+		customFields: {
+			/**
+			 * Vlastné polia
+			 */
+			sectionTitle: () => LocalizedString
+			/**
+			 * Názvy vlastných polí v Paperless. Necháj prázdne pre predvolenú hodnotu.
+			 */
+			sectionDescription: () => LocalizedString
+			/**
+			 * Pole pre dátum/čas
+			 */
+			datetime: () => LocalizedString
+			/**
+			 * Pole pre litre
+			 */
+			liters: () => LocalizedString
+			/**
+			 * Pole pre sumu
+			 */
+			total: () => LocalizedString
+			/**
+			 * receipt_datetime
+			 */
+			placeholderDatetime: () => LocalizedString
+			/**
+			 * litres
+			 */
+			placeholderLiters: () => LocalizedString
+			/**
+			 * total_amount
+			 */
+			placeholderTotal: () => LocalizedString
 		}
 	}
 	doklady: {
