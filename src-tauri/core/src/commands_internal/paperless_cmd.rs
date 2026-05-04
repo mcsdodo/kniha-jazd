@@ -4,7 +4,7 @@ use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::db::Database;
 use crate::models::{AssignmentType, PaperlessInvoiceRow};
-use crate::paperless::{PaperlessClient, PaperlessDoc, PaperlessError};
+use crate::paperless::{PaperlessClient, PaperlessDoc, PaperlessError, PaperlessFieldNames};
 use crate::settings::LocalSettings;
 use std::path::Path;
 
@@ -39,6 +39,7 @@ pub async fn get_paperless_invoices_internal(
     let _ = vehicle_id;
 
     let settings = LocalSettings::load(app_dir);
+    let names = PaperlessFieldNames::from_settings(&settings);
     let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
         (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
         _ => return Err(PaperlessError::NotConfigured),
@@ -48,7 +49,7 @@ pub async fn get_paperless_invoices_internal(
     let client = PaperlessClient::new(base.clone(), token);
     let fuel_id = client.resolve_tag_id("fuel").await?;
     let car_id  = client.resolve_tag_id("car").await?;
-    let fmap    = client.resolve_field_map().await?;
+    let fmap    = client.resolve_field_map(&names).await?;
 
     let docs: Vec<PaperlessDoc> = client.fetch_invoice_documents(fuel_id, car_id, &fmap).await?;
     let docs: Vec<PaperlessDoc> = docs.into_iter()

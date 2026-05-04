@@ -45,6 +45,31 @@ fn paperless_field_names_from_settings_uses_custom_when_set() {
 }
 
 #[tokio::test]
+async fn resolve_field_map_uses_custom_names_when_provided() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/custom_fields/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "results": [
+                {"id": 11, "name": "Suma",          "data_type": "float"},
+                {"id": 12, "name": "Litre",         "data_type": "float"},
+                {"id": 13, "name": "Dátum dokladu", "data_type": "string"},
+            ]
+        })))
+        .mount(&mock).await;
+
+    let client = PaperlessClient::new(mock.uri(), "tok".into());
+    let names = PaperlessFieldNames {
+        datetime: "Dátum dokladu".into(),
+        liters:   "Litre".into(),
+        total:    "Suma".into(),
+    };
+    let map = client.resolve_field_map(&names).await.unwrap();
+    assert_eq!(map.total_amount_id, 11);
+    assert_eq!(map.litres_id, 12);
+    assert_eq!(map.receipt_datetime_id, 13);
+}
+
+#[tokio::test]
 async fn resolve_tag_id_returns_existing_tag() {
     let mock = MockServer::start().await;
     Mock::given(method("GET")).and(path("/api/tags/")).and(query_param("name__iexact", "fuel"))
@@ -87,7 +112,7 @@ async fn resolve_field_map_finds_all_three_required_fields() {
         .mount(&mock).await;
 
     let client = PaperlessClient::new(mock.uri(), "tok".into());
-    let map = client.resolve_field_map().await.unwrap();
+    let map = client.resolve_field_map(&PaperlessFieldNames::default()).await.unwrap();
     assert_eq!(map.total_amount_id, 1);
     assert_eq!(map.litres_id, 5);
     assert_eq!(map.receipt_datetime_id, 6);
@@ -103,7 +128,7 @@ async fn resolve_field_map_errors_when_required_field_missing() {
         .mount(&mock).await;
 
     let client = PaperlessClient::new(mock.uri(), "tok".into());
-    let err = client.resolve_field_map().await.unwrap_err();
+    let err = client.resolve_field_map(&PaperlessFieldNames::default()).await.unwrap_err();
     match err {
         PaperlessError::CustomFieldNotFound(ref n) => {
             assert!(n == "litres" || n == "receipt_datetime");

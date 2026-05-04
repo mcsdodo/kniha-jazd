@@ -95,7 +95,10 @@ impl PaperlessClient {
         body.results.first().map(|t| t.id).ok_or_else(|| PaperlessError::TagNotFound(name.to_string()))
     }
 
-    pub async fn resolve_field_map(&self) -> Result<PaperlessFieldMap, PaperlessError> {
+    pub async fn resolve_field_map(
+        &self,
+        names: &PaperlessFieldNames,
+    ) -> Result<PaperlessFieldMap, PaperlessError> {
         #[derive(Deserialize)] struct Field { id: i64, name: String }
         #[derive(Deserialize)] struct Resp { results: Vec<Field> }
 
@@ -108,9 +111,9 @@ impl PaperlessClient {
             .ok_or_else(|| PaperlessError::CustomFieldNotFound(n.to_string()));
 
         Ok(PaperlessFieldMap {
-            total_amount_id: find("total_amount")?,
-            litres_id: find("litres")?,
-            receipt_datetime_id: find("receipt_datetime")?,
+            total_amount_id: find(&names.total)?,
+            litres_id: find(&names.liters)?,
+            receipt_datetime_id: find(&names.datetime)?,
         })
     }
 }
