@@ -2281,9 +2281,17 @@ type RootTranslation = {
 		 */
 		apiTokenPlaceholder: string
 		/**
-		 * T​e​s​t​ ​p​r​i​p​o​j​e​n​i​a
+		 * T​o​k​e​n​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
 		 */
-		testConnection: string
+		tokenSet: string
+		/**
+		 * P​o​v​o​l​i​ť​ ​P​a​p​e​r​l​e​s​s​-​n​g​x
+		 */
+		enableToggle: string
+		/**
+		 * N​a​j​p​r​v​ ​n​a​s​t​a​v​ ​U​R​L​ ​a​ ​t​o​k​e​n
+		 */
+		enableToggleDisabledHint: string
 		status: {
 			/**
 			 * P​r​i​p​r​a​v​e​n​é
@@ -4548,9 +4556,17 @@ export type TranslationFunctions = {
 		 */
 		apiTokenPlaceholder: () => LocalizedString
 		/**
-		 * Test pripojenia
+		 * Token je nastavený
 		 */
-		testConnection: () => LocalizedString
+		tokenSet: () => LocalizedString
+		/**
+		 * Povoliť Paperless-ngx
+		 */
+		enableToggle: () => LocalizedString
+		/**
+		 * Najprv nastav URL a token
+		 */
+		enableToggleDisabledHint: () => LocalizedString
 		status: {
 			/**
 			 * Pripravené

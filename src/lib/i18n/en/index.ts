@@ -688,7 +688,9 @@ const en = {
 		urlPlaceholder: 'https://documents.example.com',
 		apiToken: 'API token (PAT)',
 		apiTokenPlaceholder: '40-character token from Paperless',
-		testConnection: 'Test connection',
+		tokenSet: 'Token is set',
+		enableToggle: 'Enable Paperless-ngx',
+		enableToggleDisabledHint: 'Set URL and token first',
 		status: {
 			idle: 'Idle',
 			testing: 'Testing…',

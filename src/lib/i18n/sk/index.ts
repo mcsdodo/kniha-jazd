@@ -689,7 +689,9 @@ const sk = {
 		urlPlaceholder: 'https://documents.priklad.sk',
 		apiToken: 'API token (PAT)',
 		apiTokenPlaceholder: '40-znakový token z Paperless',
-		testConnection: 'Test pripojenia',
+		tokenSet: 'Token je nastavený',
+		enableToggle: 'Povoliť Paperless-ngx',
+		enableToggleDisabledHint: 'Najprv nastav URL a token',
 		status: {
 			idle: 'Pripravené',
 			testing: 'Testujem…',
