@@ -812,6 +812,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 url: Option<String>,
                 token: Option<String>,
                 enabled: Option<bool>,
+                field_name_datetime: Option<String>,
+                field_name_liters: Option<String>,
+                field_name_total: Option<String>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::integrations::save_paperless_settings_internal(
@@ -820,7 +823,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.url,
                 a.token,
                 a.enabled,
-                None, None, None,
+                a.field_name_datetime,
+                a.field_name_liters,
+                a.field_name_total,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
