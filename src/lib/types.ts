@@ -449,3 +449,15 @@ export interface PaperlessInvoiceRow {
 	assignmentType: AssignmentType;
 	tripId: string | null;
 }
+
+export type InvoiceRef =
+	| { source: 'receipt'; id: string }
+	| { source: 'paperless'; id: number };
+
+export interface InvoiceData {
+	datetime: string | null;          // ISO-8601 NaiveDateTime, e.g. "2026-04-27T13:24:14"
+	liters: number | null;
+	totalPriceEur: number | null;
+	title: string;
+	assignmentType: 'Fuel' | 'Other';
+}

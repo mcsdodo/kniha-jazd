@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -607,4 +607,33 @@ export async function assignPaperlessDocToTrip(docId: number, tripId: string): P
 
 export async function unassignPaperlessDoc(docId: number): Promise<void> {
 	return apiCall('unassign_paperless_doc', { docId });
+}
+
+// Unified invoice commands (Task 64)
+export async function getTripsForInvoiceAssignment(
+	invoiceRef: InvoiceRef,
+	invoiceData: InvoiceData | null,
+	vehicleId: string,
+	year: number,
+): Promise<TripForAssignment[]> {
+	return await apiCall('get_trips_for_invoice_assignment', {
+		invoiceRef, invoiceData, vehicleId, year,
+	});
+}
+
+export async function assignInvoiceToTrip(
+	invoiceRef: InvoiceRef,
+	invoiceData: InvoiceData | null,
+	tripId: string,
+	vehicleId: string,
+	assignmentType: 'Fuel' | 'Other',
+	mismatchOverride: boolean = false,
+): Promise<void> {
+	return await apiCall('assign_invoice_to_trip', {
+		invoiceRef, invoiceData, tripId, vehicleId, assignmentType, mismatchOverride,
+	});
+}
+
+export async function unassignInvoice(invoiceRef: InvoiceRef): Promise<void> {
+	return await apiCall('unassign_invoice', { invoiceRef });
 }
