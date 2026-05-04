@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-05-03 (Task 60 paperless integration completed)
+**Last updated:** 2026-05-04 (Task 62 paperless toggle added)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 62 | [Paperless Toggle](62-paperless-toggle/) | 📋 Planning | Enable/disable Paperless-ngx globally without losing saved URL + token |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -37,9 +38,9 @@ Quick overview of all tasks and their status.
 | 42 | [Commands Module Split](42-commands-module-split/) | 2026-02-11 |
 | 40 | Home Assistant ODO | 2026-01-29 |
 | 39 | Trip Time + Hideable Columns | 2026-01-29 |
-| ... | (older tasks in `_done/`) | ... |
+| ... | (older tasks in [_done/](./_done/)) | ... |
 
-> **Note:** Task numbers can be reused. Check BOTH `_tasks/` and `_tasks/_done/` folders to find the next available number.
+> **Note:** Task numbers can be reused. Check BOTH [_tasks/](.) and [_tasks/_done/](./_done/) folders to find the next available number.
 
 ## Tech Debt
 
