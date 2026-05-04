@@ -159,7 +159,7 @@ fn receipt_implements_invoice_trait_with_correct_field_mapping() {
 
 If `db_tests::stub_receipt()` doesn't exist, look for any existing receipt factory in [db_tests.rs](../../src-tauri/core/src/db_tests.rs) (search for `Receipt {` literal) and call that instead. If no factory exists, build the Receipt struct literal inline — every field must be filled to compile.
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice_tests::receipt_implements_invoice_trait`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice::tests::receipt_implements_invoice_trait`
 Expected: FAIL (no `Invoice for Receipt` impl yet).
 
 **Step 2: Implement Invoice for Receipt**
@@ -191,7 +191,7 @@ impl crate::invoice::Invoice for Receipt {
 
 **Step 3: Run test**
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice_tests::receipt_implements_invoice_trait`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice::tests::receipt_implements_invoice_trait`
 Expected: PASS.
 
 **Step 4: Commit**
@@ -236,7 +236,7 @@ fn paperless_doc_implements_invoice_trait_with_uk_us_field_bridge() {
 }
 ```
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice_tests::paperless_doc_implements_invoice`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice::tests::paperless_doc_implements_invoice`
 Expected: FAIL (no impl yet).
 
 **Step 2: Implement Invoice for PaperlessDoc**
@@ -270,7 +270,7 @@ impl crate::invoice::Invoice for PaperlessDoc {
 
 **Step 3: Run test**
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice_tests::paperless_doc_implements_invoice`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice::tests::paperless_doc_implements_invoice`
 Expected: PASS.
 
 **Step 4: Verify InvoiceRef serde shape**
@@ -293,7 +293,7 @@ fn invoice_ref_serde_shape_matches_design() {
 }
 ```
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice_tests::invoice_ref_serde_shape`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice::tests::invoice_ref_serde_shape`
 Expected: PASS.
 
 **Step 5: Commit**
@@ -528,7 +528,7 @@ If `db_tests::stub_trip_with_datetime` doesn't exist, look for the trip factory 
 
 **Step 3: Run all 12 new tests**
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice_tests::paperless_compat`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core invoice::tests::paperless_compat`
 Expected: 12 tests PASS.
 
 **Step 4: Commit**
@@ -846,7 +846,7 @@ If `db_tests::seed_fuel_receipt` doesn't exist, look for an equivalent helper or
 
 **Step 2: Run boundary tests**
 
-Run: `cd src-tauri && cargo test -p kniha-jazd-core invoices_tests`
+Run: `cd src-tauri && cargo test -p kniha-jazd-core commands_internal::invoices::tests`
 Expected: 6 tests PASS.
 
 **Step 3: Run all backend tests**
