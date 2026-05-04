@@ -60,8 +60,6 @@
 		}
 
 		await loadSettings();
-		await loadInvoices();
-		await loadVerification();
 	});
 
 	onDestroy(() => {
@@ -70,24 +68,18 @@
 		}
 	});
 
-	// Reload receipts when year OR vehicle changes
-	let previousYear = $state<number | null>(null);
-	let previousVehicleId = $state<string | null>(null);
+	// Load and reload receipts whenever year or vehicle changes (including initial load).
+	// This runs after the layout populates the stores, fixing the race where the page
+	// mounts before activeVehicleStore is set.
 	$effect(() => {
 		const currentYear = $selectedYearStore;
 		const currentVehicle = $activeVehicleStore;
-		const currentVehicleId = currentVehicle?.id ?? null;
-
-		const yearChanged = previousYear !== null && previousYear !== currentYear;
-		const vehicleChanged = previousVehicleId !== null && previousVehicleId !== currentVehicleId;
-
-		if (yearChanged || vehicleChanged) {
+		if (currentVehicle) {
 			loadInvoices();
 			loadVerification();
+		} else {
+			loading = false;
 		}
-
-		previousYear = currentYear;
-		previousVehicleId = currentVehicleId;
 	});
 
 	async function loadSettings() {
