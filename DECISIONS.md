@@ -4,6 +4,46 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-05-04: Unified Invoice Picker
+
+### ADR-020: Inline `InvoiceData` at the IPC Boundary (vs. `load_invoice(InvoiceRef)`)
+
+**Context:** Task 64 unifies the trip-picker for both local OCR'd receipts and Paperless-ngx documents behind a single `Invoice` trait + `check_invoice_trip_compatibility(&dyn Invoice, &Trip)` compat check (see [docs/features/unified-invoice-picker.md](./docs/features/unified-invoice-picker.md)). The original design ([02-design.md](./_tasks/_done/64-unified-invoice-picker/02-design.md)) proposed a centralized `load_invoice(db, &InvoiceRef) -> Box<dyn Invoice>` boundary function: pass an `InvoiceRef`, get back a fully-loaded invoice regardless of source. For local receipts that's trivial (`db.get_receipt_by_id`). For Paperless documents it isn't — the [paperless_trip_links](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql) table only stores `(trip_id, doc_id)`, with no doc data cached locally. Document state lives in Paperless-ngx and is fetched live.
+
+**Decision:** Carry **inline `InvoiceData`** through the IPC boundary alongside `InvoiceRef`. The frontend already has the full Paperless row from `get_paperless_invoices`; it passes the relevant fields (datetime, liters, total_price_eur, title, assignment_type) inline. Receipts ignore the inline data — backend loads from DB by ID. Paperless docs use the inline data directly via `PaperlessInvoiceView<'a>` (a thin trait adapter at the boundary).
+
+**Alternatives considered:**
+
+- **Add a `paperless_documents_cache` table.** Rejected — significant scope creep just to enable a uniform load fn signature. The cache would need invalidation rules, sync logic, and would duplicate Paperless's source-of-truth role.
+- **Make `load_invoice` async and fetch single doc from Paperless API per modal-open.** Rejected — adds a network round-trip in the hot UI path (proximity-sorted trip list rendered after every Assign click), and would require restructuring the sync compat check + dispatcher into async.
+
+**Trade-offs accepted:**
+
+- Two boundary functions instead of one (Tauri command body deserializes `InvoiceRef + InvoiceData`; sync `_internal` matches on `InvoiceRef` to either load from DB or wrap inline data). Outside this two-line dispatch, the entire codebase consumes `&dyn Invoice` — the trait abstraction goal is preserved.
+- Frontend must remember to send `invoiceData = null` for receipts (caught at compile time via TS types: `Receipt`-backed adapter's `getData(): null` vs `PaperlessInvoiceRow`-backed adapter's `getData(): InvoiceData`).
+
+**Consequences:**
+
+- Source-dispatch confined to two named locations: [commands_internal/invoices.rs](./src-tauri/core/src/commands_internal/invoices.rs) (Rust `match InvoiceRef`) and [src/lib/invoice.ts](./src/lib/invoice.ts) (TS `adaptInvoice` factory). Outside these spots, source-checking is a smell.
+- Adding a third invoice source = one Rust trait impl, one TS adapter class, one match arm in each boundary fn.
+- 8 receipt-side compat tests (regression net for the compat-check refactor) all preserved their behavior — proves the trait abstraction is faithful.
+
+**Related:** [Task 64](./_tasks/_done/64-unified-invoice-picker/), [docs/features/unified-invoice-picker.md](./docs/features/unified-invoice-picker.md), [ADR-008](#). Builds on [ADR-019](#) (Paperless schema).
+
+---
+
+### ADR-021: `mismatch_override` is Receipt-Only (Paperless Path Accepts-and-Ignores)
+
+**Context:** Local receipts can be assigned to a trip even when their data conflicts with the trip's existing `fuel_liters` / `fuel_cost_eur` / `other_costs_eur`. The user explicitly confirms via the modal's "Assign and confirm" button, which sets `mismatch_override = true` on the [receipts](./src-tauri/core/migrations/2026-02-03-100000_receipt_assignment_type/up.sql) row. This persists across sessions: the assigned receipt card shows a "✓ Potvrdené" badge, signalling the user has reviewed and accepted the discrepancy. The [paperless_trip_links](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql) table has no equivalent column.
+
+**Decision:** The unified `assign_invoice_to_trip_internal` accepts `mismatch_override: bool` for both sources, but for the Paperless arm the flag is documented as accepted-and-ignored (`let _ = mismatch_override;` with a doc comment). Schema extension to add an override column to `paperless_trip_links` is deferred until a real user need surfaces.
+
+**Trade-offs accepted:** Paperless docs assigned with a mismatch don't surface a "Potvrdené" badge after the fact. The user can still proceed with the assignment via the same modal flow; only the persisted "I confirmed this" state is missing.
+
+**Related:** [Task 64](./_tasks/_done/64-unified-invoice-picker/), [02-design.md "Out of Scope"](./_tasks/_done/64-unified-invoice-picker/02-design.md), [03-plan.md "Loss of mismatch_override for Paperless"](./_tasks/_done/64-unified-invoice-picker/03-plan.md).
+
+---
+
 ## 2026-05-03: Paperless-ngx Integration Foundations
 
 ### ADR-019: Paperless Trip-Link Table is Symmetric (`trip_id PRIMARY KEY`)

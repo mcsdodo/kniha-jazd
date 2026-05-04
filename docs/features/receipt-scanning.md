@@ -132,7 +132,7 @@ Otherwise, receipt gets `Parsed` status.
                     │      user edits / converts       │
                     └───────────────┬──────────────────┘
                                     │
-                      assign_receipt_to_trip()
+                      assign_invoice_to_trip()
                                     │
                                     ▼
                             ┌────────────┐
@@ -221,7 +221,7 @@ When set:
 |------|---------|
 | [receipts.rs](src-tauri/src/receipts.rs) | Folder scanning, structure detection, Gemini integration |
 | [gemini.rs](src-tauri/src/gemini.rs) | Gemini API client, extraction prompt, mock mode |
-| [commands.rs](src-tauri/src/commands.rs) | Tauri commands: `scan_receipts`, `process_pending_receipts`, `sync_receipts`, `reprocess_receipt`, `assign_receipt_to_trip`, `get_trips_for_receipt_assignment`, `verify_receipts` |
+| [commands.rs](src-tauri/src/commands.rs) | Tauri commands: `scan_receipts`, `process_pending_receipts`, `sync_receipts`, `reprocess_receipt`, `verify_receipts`. Trip assignment uses the source-agnostic [unified invoice commands](./unified-invoice-picker.md): `get_trips_for_invoice_assignment`, `assign_invoice_to_trip`, `unassign_invoice`. |
 | [models.rs](src-tauri/src/models.rs) | `Receipt`, `ReceiptStatus`, `ExtractionConfidence` |
 | [+page.svelte](src/routes/doklady/+page.svelte) | Receipt list UI, scan/process buttons, assignment flow |
 | [api.ts](src/lib/api.ts) | Frontend API wrappers for receipt commands |

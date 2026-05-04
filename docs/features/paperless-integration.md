@@ -9,7 +9,7 @@
 3. **Read-only display per row.** Each Paperless row shows: title, date (from the `receipt_datetime` custom field; falls back to `?` if missing), assignment chip (Fuel/Other), total amount, liters (only for fuel rows), and an assigned-trip indicator if linked.
 4. **Two action buttons in Paperless mode:**
    - **Otvoriť v Paperless** — opens `{paperless_url}/documents/{doc_id}/` in the user's default browser (their browser stays logged in via cookies).
-   - **Priradiť k jazde** — opens the existing `TripSelectorModal`; on confirm, an UPSERT row goes into [paperless_trip_links](../../src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql).
+   - **Priradiť k jazde** — opens the [unified TripSelectorModal](./unified-invoice-picker.md): same proximity sort, mismatch warnings, and Fuel/Other selection as local receipts. On confirm, an UPSERT row goes into [paperless_trip_links](../../src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql), and if the trip's fuel/other-costs side was empty it auto-populates from the doc's inline data.
 5. **Edit / Reprocess / Remove are hidden** — Paperless is the source of truth for these documents; the desktop app does not modify them.
 6. **Refresh from Paperless** button in the toolbar forces a fresh fetch (no client cache of documents themselves).
 7. **Toggle off restores local view.** Clearing the Paperless URL in Settings reverts the Doklady page to the local-receipts grid; existing local receipts and their assignments are preserved untouched.
@@ -53,8 +53,8 @@ Frontend mounts the matching renderer
 
 | Module | Purpose |
 |---|---|
-| [paperless.rs](../../src-tauri/core/src/paperless.rs) | HTTP client (`PaperlessClient`), structured errors (`PaperlessError`), tag/field ID resolution, document fetch + parse with pagination |
-| [commands_internal/paperless_cmd.rs](../../src-tauri/core/src/commands_internal/paperless_cmd.rs) | `get_paperless_invoices_internal` (composes client + DB join), `assign_paperless_doc_to_trip_internal`, `unassign_paperless_doc_internal` |
+| [paperless.rs](../../src-tauri/core/src/paperless.rs) | HTTP client (`PaperlessClient`), structured errors (`PaperlessError`), tag/field ID resolution, document fetch + parse with pagination, `impl Invoice for PaperlessDoc` |
+| [commands_internal/paperless_cmd.rs](../../src-tauri/core/src/commands_internal/paperless_cmd.rs) | `get_paperless_invoices_internal` (composes client + DB join), `list_paperless_custom_fields_internal`. Trip-link persistence is handled by the [unified invoice commands](./unified-invoice-picker.md), not by Paperless-specific functions. |
 | [commands_internal/integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | Settings I/O (`get_paperless_settings_internal`, `save_paperless_settings_internal`), connection test (`test_paperless_connection_internal`), mode probe (`get_invoice_source_mode_internal`) |
 | [db.rs](../../src-tauri/core/src/db.rs) | UPSERT/CRUD for `paperless_trip_links`: `upsert_paperless_link`, `delete_paperless_link_for_doc`, `get_paperless_link_for_doc`, `get_paperless_link_for_trip`, `list_paperless_links_for_docs` |
 
@@ -77,7 +77,8 @@ LEFT JOIN with paperless_trip_links (via list_paperless_links_for_docs)
     ↓
 Map each PaperlessDoc → PaperlessInvoiceRow (incl. assignment_type and trip_id)
     ↓
-Frontend renders rows; user clicks Assign → assign_paperless_doc_to_trip → UPSERT
+Frontend renders rows; user clicks Assign → adaptInvoice(row) → assign_invoice_to_trip → UPSERT
+(see [unified-invoice-picker.md](./unified-invoice-picker.md) for the full picker flow)
 ```
 
 ### Schema Addition
@@ -111,6 +112,8 @@ Symmetric with the dependent-side `trip_id UNIQUE` pattern of the existing `rece
 
 ## Related
 
-- [Task 60](../../_tasks/60-paperless-integration/) — original planning docs.
+- [Task 60](../../_tasks/_done/60-paperless-integration/) — original planning docs.
+- [unified-invoice-picker.md](./unified-invoice-picker.md) — Task 64 unified the trip-assignment flow across Paperless docs and local receipts (one modal, one compat check).
 - [ADR-008 in DECISIONS.md](../../DECISIONS.md) — frontend-display-only constraint that drove the `get_invoice_source_mode` mode-switch command.
 - [ADR-019, BIZ-015, BIZ-016 in DECISIONS.md](../../DECISIONS.md) — schema, auth header, and v1-scope decisions.
+- [ADR-020, ADR-021 in DECISIONS.md](../../DECISIONS.md) — unified-picker boundary contract and `mismatch_override` semantics.
