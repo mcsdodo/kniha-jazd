@@ -230,6 +230,8 @@
 						{@const highlighted = isWithin3Days(getTripDate(item.trip), invoice.getDateTime())}
 						<button
 							class="trip-item"
+							data-test="trip-item"
+							data-trip-id={item.trip.id}
 							class:highlight={highlighted}
 							class:disabled
 							onclick={() => handleTripClick(item)}
@@ -313,7 +315,7 @@
 				<!-- Normal assignment -->
 				<div class="modal-actions">
 					<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
-					<button class="button-small primary" onclick={() => handleAssign(false)}>
+					<button class="button-small primary" data-test="confirm-assign-btn" onclick={() => handleAssign(false)}>
 						{$LL.tripSelector.confirmAssignment()}
 					</button>
 				</div>

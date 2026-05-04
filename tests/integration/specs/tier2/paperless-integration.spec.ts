@@ -50,7 +50,9 @@ describe('Tier 2: Paperless Integration', () => {
     // the WDIO test data dir is shared across retries within a session.
     for (const docId of [435, 423, 391]) {
       try {
-        await invokeTauri<void>('unassign_paperless_doc', { docId });
+        await invokeTauri<void>('unassign_invoice', {
+          invoiceRef: { source: 'paperless', id: docId },
+        });
       } catch {
         // No-op when there's no link to remove.
       }
@@ -167,14 +169,26 @@ describe('Tier 2: Paperless Integration', () => {
     const carLitersText = (await carLiters.getText()).trim();
     expect(carLitersText).toBe('—');
 
-    // ----- 4. Assign fuel doc 435 to the first trip -------------------------
+    // ----- 4. Assign fuel doc 435 to a trip via the unified TripSelectorModal -----
     const assignBtn = await fuelRow.$('[data-test="assign-btn"]');
     await assignBtn.waitForDisplayed({ timeout: 5000 });
     await assignBtn.click();
 
-    const tripItems = await $$('[data-test="paperless-trip-item"]');
+    // Step 1: trip list — pick the first item (trips are sorted by date proximity
+    // to the doc's receipt_datetime; the doc is from 2026-04-27 so trip on 04-27
+    // sorts first).
+    const tripItems = await $$('[data-test="trip-item"]');
     expect(tripItems.length).toBeGreaterThanOrEqual(1);
+    await tripItems[0].waitForDisplayed({ timeout: 5000 });
     await tripItems[0].click();
+
+    // Step 2: Fuel/Other — Paperless fuel docs default to "Fuel" via looksLikeFuel().
+    // Trip 2 (the closest) is empty, so attachmentStatus is "matches_date" (not
+    // "differs"), meaning the modal shows the regular confirm button — no mismatch
+    // warning, no override flow.
+    const confirmBtn = await $('[data-test="confirm-assign-btn"]');
+    await confirmBtn.waitForDisplayed({ timeout: 5000 });
+    await confirmBtn.click();
 
     // Wait for the row to re-render with a trip indicator visible.
     await browser.waitUntil(
