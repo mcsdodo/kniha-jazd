@@ -49,6 +49,25 @@ impl Default for PaperlessFieldNames {
     }
 }
 
+impl PaperlessFieldNames {
+    /// Resolve from LocalSettings: empty/whitespace/None → fall back to default.
+    pub fn from_settings(s: &crate::settings::LocalSettings) -> Self {
+        let d = Self::default();
+        let pick = |opt: &Option<String>, default: String| -> String {
+            opt.as_ref()
+                .map(|v| v.trim())
+                .filter(|v| !v.is_empty())
+                .map(|v| v.to_string())
+                .unwrap_or(default)
+        };
+        Self {
+            datetime: pick(&s.paperless_field_name_datetime, d.datetime),
+            liters: pick(&s.paperless_field_name_liters, d.liters),
+            total: pick(&s.paperless_field_name_total, d.total),
+        }
+    }
+}
+
 pub struct PaperlessClient {
     base_url: String,
     token: String,

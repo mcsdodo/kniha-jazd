@@ -11,6 +11,39 @@ fn paperless_field_names_default_uses_legacy_strings() {
     assert_eq!(n.total, "total_amount");
 }
 
+#[test]
+fn paperless_field_names_from_settings_uses_defaults_when_none() {
+    let s = crate::settings::LocalSettings::default();
+    let n = PaperlessFieldNames::from_settings(&s);
+    assert_eq!(n.datetime, "receipt_datetime");
+    assert_eq!(n.liters, "litres");
+    assert_eq!(n.total, "total_amount");
+}
+
+#[test]
+fn paperless_field_names_from_settings_uses_defaults_when_empty_strings() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_field_name_datetime = Some("".to_string());
+    s.paperless_field_name_liters = Some("   ".to_string());
+    s.paperless_field_name_total = Some("\t".to_string());
+    let n = PaperlessFieldNames::from_settings(&s);
+    assert_eq!(n.datetime, "receipt_datetime");
+    assert_eq!(n.liters, "litres");
+    assert_eq!(n.total, "total_amount");
+}
+
+#[test]
+fn paperless_field_names_from_settings_uses_custom_when_set() {
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_field_name_datetime = Some("Dátum dokladu".to_string());
+    s.paperless_field_name_liters = Some("Litre".to_string());
+    s.paperless_field_name_total = Some("Suma".to_string());
+    let n = PaperlessFieldNames::from_settings(&s);
+    assert_eq!(n.datetime, "Dátum dokladu");
+    assert_eq!(n.liters, "Litre");
+    assert_eq!(n.total, "Suma");
+}
+
 #[tokio::test]
 async fn resolve_tag_id_returns_existing_tag() {
     let mock = MockServer::start().await;
