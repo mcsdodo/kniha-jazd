@@ -101,6 +101,13 @@
 	type PaperlessStatus = typeof PAPERLESS_STATUS[keyof typeof PAPERLESS_STATUS];
 	let paperlessConnectionStatus: PaperlessStatus = PAPERLESS_STATUS.IDLE;
 	let paperlessEnabled = false;
+	// Paperless custom field name overrides
+	let paperlessFieldDatetime = '';
+	let paperlessFieldLiters = '';
+	let paperlessFieldTotal = '';
+	let initialPaperlessFieldDatetime = '';
+	let initialPaperlessFieldLiters = '';
+	let initialPaperlessFieldTotal = '';
 
 	// Real ODO values from HA (keyed by vehicle ID)
 	let vehicleOdoValues: Map<string, number> = new Map();
@@ -310,6 +317,39 @@
 	}
 
 	const debouncedSavePaperlessSettings = debounce(savePaperlessSettingsNow, 800);
+
+	async function savePaperlessFieldNamesNow() {
+		if (
+			paperlessFieldDatetime === initialPaperlessFieldDatetime &&
+			paperlessFieldLiters === initialPaperlessFieldLiters &&
+			paperlessFieldTotal === initialPaperlessFieldTotal
+		) {
+			return;
+		}
+		try {
+			// Empty strings clear → backend uses default. null = no change.
+			await savePaperlessSettings(
+				null, null, null,
+				paperlessFieldDatetime,
+				paperlessFieldLiters,
+				paperlessFieldTotal,
+			);
+			// Re-fetch so resolved values (with defaults applied for empty input) come back.
+			const refreshed = await getPaperlessSettings();
+			paperlessFieldDatetime = refreshed.fieldNameDatetime;
+			paperlessFieldLiters = refreshed.fieldNameLiters;
+			paperlessFieldTotal = refreshed.fieldNameTotal;
+			initialPaperlessFieldDatetime = paperlessFieldDatetime;
+			initialPaperlessFieldLiters = paperlessFieldLiters;
+			initialPaperlessFieldTotal = paperlessFieldTotal;
+			toast.success($LL.toast.settingsSaved());
+		} catch (error) {
+			console.error('Failed to save Paperless field names:', error);
+			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
+		}
+	}
+
+	const debouncedSavePaperlessFieldNames = debounce(savePaperlessFieldNamesNow, 800);
 
 	async function togglePaperlessEnabled(value: boolean) {
 		paperlessEnabled = value;
@@ -562,7 +602,13 @@
 				paperlessUrl = paperlessSettings.url || '';
 				paperlessHasToken = paperlessSettings.hasToken;
 				paperlessEnabled = paperlessSettings.enabled;
+				paperlessFieldDatetime = paperlessSettings.fieldNameDatetime;
+				paperlessFieldLiters = paperlessSettings.fieldNameLiters;
+				paperlessFieldTotal = paperlessSettings.fieldNameTotal;
 				initialPaperlessUrl = paperlessUrl;
+				initialPaperlessFieldDatetime = paperlessFieldDatetime;
+				initialPaperlessFieldLiters = paperlessFieldLiters;
+				initialPaperlessFieldTotal = paperlessFieldTotal;
 				if (paperlessUrl && paperlessHasToken) {
 					await testPaperlessConnectionStatus();
 				}
@@ -1160,6 +1206,47 @@
 					{#if paperlessHasToken && !paperlessApiToken}
 						<small class="hint">{$LL.paperless.tokenSet()}</small>
 					{/if}
+				</div>
+
+				<div class="form-group">
+					<h3>{$LL.paperless.customFields.sectionTitle()}</h3>
+					<p class="hint">{$LL.paperless.customFields.sectionDescription()}</p>
+				</div>
+				<div class="form-group">
+					<label for="paperless-field-datetime">{$LL.paperless.customFields.datetime()}</label>
+					<input
+						type="text"
+						id="paperless-field-datetime"
+						data-test="paperless-field-datetime"
+						bind:value={paperlessFieldDatetime}
+						placeholder={$LL.paperless.customFields.placeholderDatetime()}
+						on:input={debouncedSavePaperlessFieldNames}
+						on:blur={savePaperlessFieldNamesNow}
+					/>
+				</div>
+				<div class="form-group">
+					<label for="paperless-field-liters">{$LL.paperless.customFields.liters()}</label>
+					<input
+						type="text"
+						id="paperless-field-liters"
+						data-test="paperless-field-liters"
+						bind:value={paperlessFieldLiters}
+						placeholder={$LL.paperless.customFields.placeholderLiters()}
+						on:input={debouncedSavePaperlessFieldNames}
+						on:blur={savePaperlessFieldNamesNow}
+					/>
+				</div>
+				<div class="form-group">
+					<label for="paperless-field-total">{$LL.paperless.customFields.total()}</label>
+					<input
+						type="text"
+						id="paperless-field-total"
+						data-test="paperless-field-total"
+						bind:value={paperlessFieldTotal}
+						placeholder={$LL.paperless.customFields.placeholderTotal()}
+						on:input={debouncedSavePaperlessFieldNames}
+						on:blur={savePaperlessFieldNamesNow}
+					/>
 				</div>
 
 				{#if paperlessConnectionStatus !== PAPERLESS_STATUS.IDLE}
