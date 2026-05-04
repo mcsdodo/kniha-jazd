@@ -155,6 +155,29 @@ pub struct PaperlessDoc {
     pub receipt_datetime: Option<chrono::NaiveDateTime>,
 }
 
+impl crate::invoice::Invoice for PaperlessDoc {
+    fn datetime(&self) -> Option<chrono::NaiveDateTime> {
+        self.receipt_datetime
+    }
+    fn liters(&self) -> Option<f64> {
+        self.litres // UK→US naming bridge
+    }
+    fn total_price_eur(&self) -> Option<f64> {
+        self.total_amount // bridge: total_amount → total_price_eur
+    }
+    fn display_name(&self) -> &str {
+        &self.title
+    }
+    fn invoice_ref(&self) -> crate::invoice::InvoiceRef {
+        crate::invoice::InvoiceRef::Paperless(self.id)
+    }
+    fn assignment_type(&self) -> Option<crate::models::AssignmentType> {
+        // PaperlessDoc itself doesn't carry assignment_type — derived from tags by caller.
+        // Returning None is fine; compat check derives "is_fuel" from liters.is_some().
+        None
+    }
+}
+
 impl PaperlessClient {
     pub async fn fetch_invoice_documents(
         &self, fuel_id: i64, car_id: i64, fields: &PaperlessFieldMap,

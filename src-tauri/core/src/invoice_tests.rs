@@ -52,3 +52,38 @@ fn receipt_implements_invoice_trait_with_correct_field_mapping() {
     assert_eq!(inv.invoice_ref(), InvoiceRef::Receipt(Uuid::nil().to_string()));
     assert_eq!(inv.assignment_type(), None);
 }
+
+use crate::paperless::PaperlessDoc;
+
+#[test]
+fn paperless_doc_implements_invoice_trait_with_uk_us_field_bridge() {
+    let doc = PaperlessDoc {
+        id: 435,
+        title: "Tank Mol Bratislava".into(),
+        tag_ids: vec![51], // fuel
+        created: chrono::NaiveDate::from_ymd_opt(2026, 5, 4).unwrap(),
+        total_amount: Some(58.20),  // UK→US bridge
+        litres: Some(40.5),         // UK→US bridge
+        receipt_datetime: chrono::NaiveDate::from_ymd_opt(2026, 5, 4).unwrap()
+            .and_hms_opt(13, 24, 14),
+    };
+    let inv: &dyn Invoice = &doc;
+    assert_eq!(inv.liters(), Some(40.5));
+    assert_eq!(inv.total_price_eur(), Some(58.20));
+    assert_eq!(inv.display_name(), "Tank Mol Bratislava");
+    assert_eq!(inv.invoice_ref(), InvoiceRef::Paperless(435));
+}
+
+#[test]
+fn invoice_ref_serde_shape_matches_design() {
+    let r = InvoiceRef::Receipt("abc-123".into());
+    let json = serde_json::to_string(&r).unwrap();
+    assert_eq!(json, r#"{"source":"receipt","id":"abc-123"}"#);
+
+    let p = InvoiceRef::Paperless(435);
+    let json = serde_json::to_string(&p).unwrap();
+    assert_eq!(json, r#"{"source":"paperless","id":435}"#);
+
+    let round: InvoiceRef = serde_json::from_str(&json).unwrap();
+    assert_eq!(round, p);
+}
