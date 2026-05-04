@@ -30,6 +30,25 @@ pub struct PaperlessFieldMap {
     pub receipt_datetime_id: i64,
 }
 
+/// User-configurable Paperless custom field names.
+/// Defaults match the original hardcoded English/UK strings — existing users see no change.
+#[derive(Debug, Clone)]
+pub struct PaperlessFieldNames {
+    pub datetime: String,
+    pub liters: String,
+    pub total: String,
+}
+
+impl Default for PaperlessFieldNames {
+    fn default() -> Self {
+        Self {
+            datetime: "receipt_datetime".to_string(),
+            liters: "litres".to_string(),
+            total: "total_amount".to_string(),
+        }
+    }
+}
+
 pub struct PaperlessClient {
     base_url: String,
     token: String,

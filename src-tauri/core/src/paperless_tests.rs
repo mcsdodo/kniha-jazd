@@ -3,6 +3,14 @@ use super::*;
 use wiremock::matchers::{method, path, query_param, query_param_is_missing};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+#[test]
+fn paperless_field_names_default_uses_legacy_strings() {
+    let n = PaperlessFieldNames::default();
+    assert_eq!(n.datetime, "receipt_datetime");
+    assert_eq!(n.liters, "litres");
+    assert_eq!(n.total, "total_amount");
+}
+
 #[tokio::test]
 async fn resolve_tag_id_returns_existing_tag() {
     let mock = MockServer::start().await;
