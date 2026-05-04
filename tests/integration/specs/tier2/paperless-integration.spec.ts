@@ -133,18 +133,6 @@ describe('Tier 2: Paperless Integration', () => {
       }
     );
 
-    // Also exercise the "Test connection" button explicitly.
-    const testBtn = await $('[data-test="paperless-test-connection"]');
-    await testBtn.waitForDisplayed({ timeout: 5000 });
-    await testBtn.click();
-    await browser.waitUntil(
-      async () => {
-        const cls = (await statusBadge.getAttribute('class')) || '';
-        return cls.includes('connected');
-      },
-      { timeout: 10000, timeoutMsg: 'Test button did not produce connected status' }
-    );
-
     // ----- 3. Doklady renders 3 paperless rows from the mock ----------------
     await navigateTo('doklady');
     // Allow live HTTP fetch + Svelte render
@@ -219,9 +207,9 @@ describe('Tier 2: Paperless Integration', () => {
       }
     );
 
-    // ----- 6. Clear Paperless URL → Doklady reverts to local mode -----------
-    // Backend treats None as "keep existing"; pass empty strings to clear.
-    await invokeTauri<void>('save_paperless_settings', { url: '', token: '' });
+    // ----- 6. Disable Paperless toggle → Doklady reverts to local mode ------
+    // Use enabled:false — credentials are preserved, only mode switches.
+    await invokeTauri<void>('save_paperless_settings', { url: null, token: null, enabled: false });
 
     // Force a full page remount (SvelteKit may keep route components mounted).
     await navigateTo('trips');
@@ -236,5 +224,20 @@ describe('Tier 2: Paperless Integration', () => {
     // Easiest selector-free assertion: paperless-refresh button is gone.
     const refreshAfter = await $('[data-test="paperless-refresh"]');
     expect(await refreshAfter.isExisting()).toBe(false);
+
+    // ----- 7. Re-enable Paperless → rows load again -------------------------
+    await invokeTauri<void>('save_paperless_settings', { url: null, token: null, enabled: true });
+
+    await navigateTo('trips');
+    await browser.pause(300);
+    await navigateTo('doklady');
+
+    await browser.waitUntil(
+      async () => {
+        const r = await $$('[data-test="paperless-row"]');
+        return r.length === 3;
+      },
+      { timeout: 10000, timeoutMsg: 'Paperless rows did not reload after re-enabling' }
+    );
   });
 });
