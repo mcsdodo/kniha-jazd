@@ -1,0 +1,7 @@
+{
+	"recommendations": [
+		"vitest.explorer",
+		"ms-playwright.playwright",
+		"rust-lang.rust-analyzer"
+	]
+}
