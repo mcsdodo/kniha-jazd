@@ -417,6 +417,25 @@ export interface PaperlessSettings {
 	fieldNameTotal: string;
 }
 
+/**
+ * Lightweight view of a Paperless custom field, used to populate the
+ * Settings → Paperless → Custom fields dropdowns.
+ *
+ * Paperless data_type values (subset relevant to us):
+ *   "string"    — used for receipt_datetime (stored as text since Paperless
+ *                 lacks native datetime support)
+ *   "float"     — used for liters and money fields
+ *   "monetary"  — alternative for prices
+ *   "date"      — Paperless native date type (forward-compat for datetime)
+ *   "integer"   — whole-number variant
+ *   plus: "boolean" | "url" | "documentlink" | "select" (not relevant here)
+ */
+export interface PaperlessCustomFieldInfo {
+	id: number;
+	name: string;
+	dataType: string;
+}
+
 export type InvoiceSourceMode = 'local' | 'paperless';
 
 export interface PaperlessInvoiceRow {

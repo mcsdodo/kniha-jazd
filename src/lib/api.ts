@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, InvoiceSourceMode, PaperlessInvoiceRow } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -579,6 +579,18 @@ export async function savePaperlessSettings(
 
 export async function testPaperlessConnection(): Promise<boolean> {
 	return apiCall<boolean>('test_paperless_connection');
+}
+
+/**
+ * Fetch the list of all custom fields from the configured Paperless server.
+ * Used by Settings UI to populate the field-name dropdowns.
+ *
+ * Throws if Paperless is unreachable or unauthenticated. The Settings UI
+ * treats `Result.Err("not configured")` as "hide the section" rather than
+ * surfacing an error toast.
+ */
+export async function listPaperlessCustomFields(): Promise<PaperlessCustomFieldInfo[]> {
+	return apiCall<PaperlessCustomFieldInfo[]>('list_paperless_custom_fields');
 }
 
 export async function getInvoiceSourceMode(): Promise<InvoiceSourceMode> {
