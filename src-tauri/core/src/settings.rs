@@ -41,6 +41,10 @@ pub struct LocalSettings {
     pub paperless_url: Option<String>,
     pub paperless_api_token: Option<String>,
     pub paperless_enabled: Option<bool>,
+    // Custom field name overrides — None means "use default" (see PaperlessFieldNames)
+    pub paperless_field_name_datetime: Option<String>,
+    pub paperless_field_name_liters: Option<String>,
+    pub paperless_field_name_total: Option<String>,
     // Server mode
     pub server_enabled: Option<bool>, // Whether HTTP server was enabled (for auto-start)
     pub server_port: Option<u16>,     // Last used server port
