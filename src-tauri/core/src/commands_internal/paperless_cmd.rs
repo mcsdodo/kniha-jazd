@@ -1,7 +1,5 @@
 //! Paperless-ngx integration command implementations.
 
-use crate::app_state::AppState;
-use crate::check_read_only;
 use crate::db::Database;
 use crate::models::{AssignmentType, PaperlessInvoiceRow};
 use crate::paperless::{CustomFieldInfo, PaperlessClient, PaperlessDoc, PaperlessError, PaperlessFieldNames};
@@ -86,21 +84,6 @@ pub async fn get_paperless_invoices_internal(
         total_price_eur: d.total_amount, liters: d.litres,
         receipt_datetime: d.receipt_datetime, created_date: d.created,
     }).collect())
-}
-
-pub fn assign_paperless_doc_to_trip_internal(
-    app_state: &AppState, db: &Database,
-    doc_id: i64, trip_id: &str,
-) -> Result<(), String> {
-    check_read_only!(app_state);
-    db.upsert_paperless_link(trip_id, doc_id).map_err(|e| e.to_string())
-}
-
-pub fn unassign_paperless_doc_internal(
-    app_state: &AppState, db: &Database, doc_id: i64,
-) -> Result<(), String> {
-    check_read_only!(app_state);
-    db.delete_paperless_link_for_doc(doc_id).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

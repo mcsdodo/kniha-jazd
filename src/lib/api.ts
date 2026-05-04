@@ -323,40 +323,12 @@ export async function deleteReceipt(id: string): Promise<void> {
 	return await apiCall('delete_receipt', { id });
 }
 
-export async function unassignReceipt(id: string): Promise<void> {
-	return await apiCall('unassign_receipt', { id });
-}
-
 export async function revertReceiptOverride(id: string): Promise<void> {
 	return await apiCall('revert_receipt_override', { id });
 }
 
 export async function reprocessReceipt(id: string): Promise<Receipt> {
 	return await apiCall('reprocess_receipt', { id });
-}
-
-export async function assignReceiptToTrip(
-	receiptId: string,
-	tripId: string,
-	vehicleId: string,
-	assignmentType: 'Fuel' | 'Other',
-	mismatchOverride: boolean = false
-): Promise<Receipt> {
-	return await apiCall('assign_receipt_to_trip', {
-		receiptId,
-		tripId,
-		vehicleId,
-		assignmentType,
-		mismatchOverride
-	});
-}
-
-export async function getTripsForReceiptAssignment(
-	receiptId: string,
-	vehicleId: string,
-	year: number
-): Promise<TripForAssignment[]> {
-	return await apiCall('get_trips_for_receipt_assignment', { receiptId, vehicleId, year });
 }
 
 export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {
@@ -599,14 +571,6 @@ export async function getInvoiceSourceMode(): Promise<InvoiceSourceMode> {
 
 export async function getPaperlessInvoices(vehicleId: string, year: number): Promise<PaperlessInvoiceRow[]> {
 	return apiCall<PaperlessInvoiceRow[]>('get_paperless_invoices', { vehicleId, year });
-}
-
-export async function assignPaperlessDocToTrip(docId: number, tripId: string): Promise<void> {
-	return apiCall('assign_paperless_doc_to_trip', { docId, tripId });
-}
-
-export async function unassignPaperlessDoc(docId: number): Promise<void> {
-	return apiCall('unassign_paperless_doc', { docId });
 }
 
 // Unified invoice commands (Task 64)

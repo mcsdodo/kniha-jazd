@@ -199,21 +199,3 @@ pub async fn list_paperless_custom_fields(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn assign_paperless_doc_to_trip(
-    app_state: State<'_, Arc<AppState>>,
-    db: State<'_, Arc<Database>>,
-    doc_id: i64,
-    trip_id: String,
-) -> Result<(), String> {
-    paperless_inner::assign_paperless_doc_to_trip_internal(&app_state, &db, doc_id, &trip_id)
-}
-
-#[tauri::command]
-pub fn unassign_paperless_doc(
-    app_state: State<'_, Arc<AppState>>,
-    db: State<'_, Arc<Database>>,
-    doc_id: i64,
-) -> Result<(), String> {
-    paperless_inner::unassign_paperless_doc_internal(&app_state, &db, doc_id)
-}

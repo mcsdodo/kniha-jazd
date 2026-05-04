@@ -540,20 +540,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "unassign_receipt" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                id: String,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::unassign_receipt_internal(
-                &state.db,
-                &state.app_state,
-                a.id,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
         "revert_receipt_override" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -567,44 +553,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.id,
             )?;
             Ok(serde_json::to_value(()).unwrap())
-        }
-        "assign_receipt_to_trip" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                receipt_id: String,
-                trip_id: String,
-                vehicle_id: String,
-                assignment_type: String,
-                mismatch_override: bool,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::assign_receipt_to_trip_internal(
-                &state.db,
-                &a.receipt_id,
-                &a.trip_id,
-                &a.vehicle_id,
-                &a.assignment_type,
-                a.mismatch_override,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "get_trips_for_receipt_assignment" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                receipt_id: String,
-                vehicle_id: String,
-                year: i32,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::get_trips_for_receipt_assignment_internal(
-                &state.db,
-                &a.receipt_id,
-                &a.vehicle_id,
-                a.year,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
         }
         "get_trips_for_invoice_assignment" => {
             #[derive(serde::Deserialize)]

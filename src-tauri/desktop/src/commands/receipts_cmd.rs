@@ -101,15 +101,6 @@ pub fn delete_receipt(
 }
 
 #[tauri::command]
-pub fn unassign_receipt(
-    db: State<Arc<Database>>,
-    app_state: State<Arc<AppState>>,
-    id: String,
-) -> Result<(), String> {
-    inner::unassign_receipt_internal(&db, &app_state, id)
-}
-
-#[tauri::command]
 pub fn revert_receipt_override(
     db: State<Arc<Database>>,
     app_state: State<Arc<AppState>>,
@@ -220,49 +211,6 @@ pub async fn reprocess_receipt(
 ) -> Result<Receipt, String> {
     let app_dir = get_app_data_dir(&app)?;
     inner::reprocess_receipt_internal(&db, &app_state, &app_dir, id).await
-}
-
-// ============================================================================
-// Receipt-Trip Assignment
-// ============================================================================
-
-/// Assign a receipt to a trip with explicit type selection.
-///
-/// Task 51: User explicitly selects assignment type (FUEL or OTHER).
-/// - assignment_type: "Fuel" or "Other"
-/// - mismatch_override: true = user confirms data mismatch is intentional
-#[tauri::command]
-pub fn assign_receipt_to_trip(
-    db: State<Arc<Database>>,
-    app_state: State<Arc<AppState>>,
-    receipt_id: String,
-    trip_id: String,
-    vehicle_id: String,
-    assignment_type: String,
-    mismatch_override: bool,
-) -> Result<Receipt, String> {
-    use kniha_jazd_core::check_read_only;
-    check_read_only!(app_state);
-    inner::assign_receipt_to_trip_internal(
-        &db,
-        &receipt_id,
-        &trip_id,
-        &vehicle_id,
-        &assignment_type,
-        mismatch_override,
-    )
-}
-
-/// Get trips for a vehicle/year annotated with whether a specific receipt can be attached.
-/// This allows the frontend to show which trips are eligible for receipt assignment.
-#[tauri::command]
-pub fn get_trips_for_receipt_assignment(
-    db: State<Arc<Database>>,
-    receipt_id: String,
-    vehicle_id: String,
-    year: i32,
-) -> Result<Vec<TripForAssignment>, String> {
-    inner::get_trips_for_receipt_assignment_internal(&db, &receipt_id, &vehicle_id, year)
 }
 
 // ============================================================================
