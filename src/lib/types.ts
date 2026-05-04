@@ -411,6 +411,10 @@ export interface PaperlessSettings {
 	url: string | null;
 	hasToken: boolean;
 	enabled: boolean;
+	// Resolved custom field names (defaults applied server-side; always populated)
+	fieldNameDatetime: string;
+	fieldNameLiters: string;
+	fieldNameTotal: string;
 }
 
 export type InvoiceSourceMode = 'local' | 'paperless';
