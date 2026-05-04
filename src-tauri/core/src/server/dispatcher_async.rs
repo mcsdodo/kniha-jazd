@@ -101,6 +101,12 @@ pub async fn dispatch_async(
             ).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
         }
+        "list_paperless_custom_fields" => {
+            let result = crate::commands_internal::paperless_cmd::list_paperless_custom_fields_internal(
+                &state.app_dir,
+            ).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
+        }
         "assign_paperless_doc_to_trip" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

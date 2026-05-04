@@ -14,6 +14,7 @@ use kniha_jazd_core::commands_internal::paperless_cmd as paperless_inner;
 use kniha_jazd_core::constants::mime_types;
 use kniha_jazd_core::db::Database;
 use kniha_jazd_core::models::PaperlessInvoiceRow;
+use kniha_jazd_core::paperless::CustomFieldInfo;
 use kniha_jazd_core::settings::LocalSettings;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -184,6 +185,16 @@ pub async fn get_paperless_invoices(
 ) -> Result<Vec<PaperlessInvoiceRow>, String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
     paperless_inner::get_paperless_invoices_internal(&app_data_dir, &db, &vehicle_id, year)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_paperless_custom_fields(
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<CustomFieldInfo>, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    paperless_inner::list_paperless_custom_fields_internal(&app_data_dir)
         .await
         .map_err(|e| e.to_string())
 }

@@ -297,6 +297,7 @@ pub fn run() {
             commands::test_paperless_connection,
             commands::get_invoice_source_mode,
             commands::get_paperless_invoices,
+            commands::list_paperless_custom_fields,
             commands::assign_paperless_doc_to_trip,
             commands::unassign_paperless_doc,
             commands::get_server_status,

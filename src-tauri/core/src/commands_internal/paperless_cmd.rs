@@ -4,7 +4,7 @@ use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::db::Database;
 use crate::models::{AssignmentType, PaperlessInvoiceRow};
-use crate::paperless::{PaperlessClient, PaperlessDoc, PaperlessError, PaperlessFieldNames};
+use crate::paperless::{CustomFieldInfo, PaperlessClient, PaperlessDoc, PaperlessError, PaperlessFieldNames};
 use crate::settings::LocalSettings;
 use std::path::Path;
 
@@ -26,6 +26,23 @@ pub fn map_assignment(tag_ids: &[i64], fuel_id: i64, car_id: i64) -> AssignmentT
 pub fn doc_year(dt: &Option<chrono::NaiveDateTime>, created: &chrono::NaiveDate) -> i32 {
     use chrono::Datelike;
     dt.as_ref().map(|d| d.year()).unwrap_or(created.year())
+}
+
+/// List all custom fields from the configured Paperless server.
+/// Used by the Settings UI to populate field-name dropdowns.
+/// Returns NotConfigured if URL or token is missing — the caller (UI) treats that
+/// as "hide the dropdown section" rather than an error to surface.
+pub async fn list_paperless_custom_fields_internal(
+    app_dir: &Path,
+) -> Result<Vec<CustomFieldInfo>, PaperlessError> {
+    let settings = LocalSettings::load(app_dir);
+    let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
+        (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
+        _ => return Err(PaperlessError::NotConfigured),
+    };
+    let base = url.trim_end_matches('/').to_string();
+    let client = PaperlessClient::new(base, token);
+    client.list_custom_fields().await
 }
 
 /// Paperless v1 is single-vehicle scoped — vehicle_id is intentionally unused.
