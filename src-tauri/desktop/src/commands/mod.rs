@@ -31,7 +31,6 @@ pub use kniha_jazd_core::commands_internal::{
     get_db_paths_for_dir, parse_iso_datetime,
 };
 
-use kniha_jazd_core::app_state::AppState;
 use kniha_jazd_core::constants::env_vars;
 #[cfg(test)]
 use kniha_jazd_core::db::Database;
