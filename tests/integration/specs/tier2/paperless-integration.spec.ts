@@ -241,63 +241,79 @@ describe('Tier 2: Paperless Integration', () => {
     );
   });
 
-  it('persists custom field names and exposes them via Settings UI', async () => {
-    // Configure Paperless first so the section is meaningful.
+  it('Custom fields: dropdowns populated from server, gated by configuration', async () => {
+    // ----- 1. Configure Paperless ---------------------------------------------
     await invokeTauri<void>('save_paperless_settings', {
       url: mockUrl,
       token: MOCK_PAPERLESS_TOKEN,
       enabled: true,
     });
 
-    // Set custom field names via IPC (exercises the new save params).
+    // ----- 2. Save a custom liters override via IPC ---------------------------
+    // Pick the alternate float-typed field name. Valid: both 'liters' and
+    // 'total_price_eur' are floats on the mock server, so either is compatible
+    // with the liters concept. Confirms IPC + persistence + dropdown render.
     await invokeTauri<void>('save_paperless_settings', {
-      url: null,
-      token: null,
-      enabled: null,
-      fieldNameDatetime: 'Dátum dokladu',
-      fieldNameLiters: 'Litre',
-      fieldNameTotal: 'Suma',
+      url: null, token: null, enabled: null,
+      fieldNameDatetime: null,
+      fieldNameLiters: 'total_price_eur',
+      fieldNameTotal: null,
     });
 
-    // Verify backend persisted them.
     type Resp = {
-      url: string | null;
-      hasToken: boolean;
-      enabled: boolean;
-      fieldNameDatetime: string;
-      fieldNameLiters: string;
-      fieldNameTotal: string;
+      url: string | null; hasToken: boolean; enabled: boolean;
+      fieldNameDatetime: string; fieldNameLiters: string; fieldNameTotal: string;
     };
     const persisted = await invokeTauri<Resp>('get_paperless_settings');
-    expect(persisted.fieldNameDatetime).toBe('Dátum dokladu');
-    expect(persisted.fieldNameLiters).toBe('Litre');
-    expect(persisted.fieldNameTotal).toBe('Suma');
+    expect(persisted.fieldNameLiters).toBe('total_price_eur');
 
-    // Navigate to Settings (force fresh mount per integration-tests rule).
+    // ----- 3. Navigate to Settings (force fresh mount) ------------------------
+    await navigateTo('trips');
+    await browser.pause(200);
+    await navigateTo('settings');
+    await browser.pause(800); // allow listPaperlessCustomFields fetch
+
+    // ----- 4. Dropdowns visible -----------------------------------------------
+    const datetimeSelect = await $('[data-test="paperless-field-datetime"]');
+    const litersSelect = await $('[data-test="paperless-field-liters"]');
+    const totalSelect = await $('[data-test="paperless-field-total"]');
+    await litersSelect.waitForDisplayed({ timeout: 5000 });
+
+    // ----- 5. Selected option matches saved override --------------------------
+    expect(await litersSelect.getValue()).toBe('total_price_eur');
+
+    // ----- 6. Datetime dropdown filtered to string-compatible (1 option) ------
+    const datetimeOptions = await datetimeSelect.$$('option');
+    expect(datetimeOptions.length).toBe(1);
+    expect(await datetimeOptions[0].getValue()).toBe('receipt_datetime');
+
+    // ----- 7. Liters dropdown contains both float fields ----------------------
+    const litersOptions = await litersSelect.$$('option');
+    const litersValues = await Promise.all(litersOptions.map((o) => o.getValue()));
+    expect(litersValues).toContain('liters');
+    expect(litersValues).toContain('total_price_eur');
+
+    // ----- 8. Refresh button is present ---------------------------------------
+    const refreshBtn = await $('[data-test="paperless-refresh-fields"]');
+    expect(await refreshBtn.isExisting()).toBe(true);
+
+    // ----- 9. Section hides when Paperless is unconfigured --------------------
+    await invokeTauri<void>('save_paperless_settings', { url: '', token: '' });
     await navigateTo('trips');
     await browser.pause(200);
     await navigateTo('settings');
     await browser.pause(400);
 
-    // Verify the inputs reflect the persisted custom values.
-    const dt = await $('[data-test="paperless-field-datetime"]');
-    const lt = await $('[data-test="paperless-field-liters"]');
-    const tt = await $('[data-test="paperless-field-total"]');
-    await dt.waitForDisplayed({ timeout: 5000 });
-    expect(await dt.getValue()).toBe('Dátum dokladu');
-    expect(await lt.getValue()).toBe('Litre');
-    expect(await tt.getValue()).toBe('Suma');
+    const litersSelectAfter = await $('[data-test="paperless-field-liters"]');
+    expect(await litersSelectAfter.isExisting()).toBe(false);
 
-    // Clear all three back to defaults via IPC (empty string clears).
+    // ----- 10. Empty-string IPC clears overrides → defaults restored ----------
     await invokeTauri<void>('save_paperless_settings', {
-      url: null,
-      token: null,
-      enabled: null,
+      url: null, token: null, enabled: null,
       fieldNameDatetime: '',
       fieldNameLiters: '',
       fieldNameTotal: '',
     });
-
     const defaulted = await invokeTauri<Resp>('get_paperless_settings');
     expect(defaulted.fieldNameDatetime).toBe('receipt_datetime');
     expect(defaulted.fieldNameLiters).toBe('liters');
