@@ -57,6 +57,22 @@ describe('Tier 2: Paperless Integration', () => {
         // No-op when there's no link to remove.
       }
     }
+
+    // Reset Paperless field-name overrides. The "Custom fields" test sets
+    // `fieldNameLiters: 'total_price_eur'` mid-flow; if it crashes before its
+    // own cleanup, the override leaks into subsequent specFileRetries and
+    // collapses litres extraction (total_amount_id == litres_id → the
+    // if/else-if chain in fetch_invoice_documents skips the litres branch).
+    try {
+      await invokeTauri<void>('save_paperless_settings', {
+        url: null, token: null, enabled: null,
+        fieldNameDatetime: '',
+        fieldNameLiters: '',
+        fieldNameTotal: '',
+      });
+    } catch {
+      // No-op before settings file exists on the very first invocation.
+    }
   });
 
   it('configure → render → assign → toggle off restores local mode', async () => {
@@ -287,11 +303,22 @@ describe('Tier 2: Paperless Integration', () => {
     await navigateTo('settings');
     await browser.pause(800); // allow listPaperlessCustomFields fetch
 
-    // ----- 4. Dropdowns visible -----------------------------------------------
+    // ----- 4. Dropdowns visible AND populated --------------------------------
+    // `waitForDisplayed` only waits for the <select> tag to render — Svelte
+    // mounts it before listPaperlessCustomFields resolves, so options arrive
+    // a moment later. Anchor on option count to avoid asserting against an
+    // empty dropdown on slow CI runners.
     const datetimeSelect = await $('[data-test="paperless-field-datetime"]');
     const litersSelect = await $('[data-test="paperless-field-liters"]');
     const totalSelect = await $('[data-test="paperless-field-total"]');
     await litersSelect.waitForDisplayed({ timeout: 5000 });
+    await browser.waitUntil(
+      async () => {
+        const opts = await litersSelect.$$('option');
+        return opts.length >= 2;
+      },
+      { timeout: 10000, timeoutMsg: 'Liters dropdown never populated with custom-field options' }
+    );
 
     // ----- 5. Selected option matches saved override --------------------------
     expect(await litersSelect.getValue()).toBe('total_price_eur');
@@ -302,8 +329,14 @@ describe('Tier 2: Paperless Integration', () => {
     expect(await datetimeOptions[0].getValue()).toBe('receipt_datetime');
 
     // ----- 7. Liters dropdown contains both float fields ----------------------
+    // WDIO 9: `$$()` returns a ChainablePromiseArray whose `.map()` does not
+    // produce a plain Array — `Promise.all(litersOptions.map(...))` raises
+    // "object is not iterable". Sequential await over a for-of loop is safe.
     const litersOptions = await litersSelect.$$('option');
-    const litersValues = await Promise.all(litersOptions.map((o) => o.getValue()));
+    const litersValues: string[] = [];
+    for (const option of litersOptions) {
+      litersValues.push(await option.getValue());
+    }
     expect(litersValues).toContain('liters');
     expect(litersValues).toContain('total_price_eur');
 
