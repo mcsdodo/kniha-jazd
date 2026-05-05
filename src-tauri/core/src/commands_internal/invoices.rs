@@ -94,13 +94,17 @@ pub fn assign_invoice_to_trip_internal(
             let data = data.ok_or_else(|| {
                 "InvoiceData required for Paperless invoices".to_string()
             })?;
-            let _vehicle_uuid =
+            let vehicle_uuid =
                 Uuid::parse_str(vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
 
             let trip = db
                 .get_trip(trip_id)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "Trip not found".to_string())?;
+
+            if trip.vehicle_id != vehicle_uuid {
+                return Err("Trip does not belong to the selected vehicle".to_string());
+            }
 
             // Populate trip data from invoice when trip side is empty (mirror receipt behavior)
             match assignment_type {

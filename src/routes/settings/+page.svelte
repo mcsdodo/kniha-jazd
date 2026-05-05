@@ -1285,6 +1285,7 @@
 								on:change={savePaperlessFieldNamesNow}
 								disabled={datetimeFields.length === 0}
 							>
+								<option value="">{$LL.paperless.customFields.useDefault({ name: PAPERLESS_DEFAULT_FIELD_NAMES.datetime })}</option>
 								{#each datetimeFields as field (field.id)}
 									<option value={field.name}>{field.name} ({field.dataType})</option>
 								{/each}
@@ -1305,6 +1306,7 @@
 								on:change={savePaperlessFieldNamesNow}
 								disabled={litersFields.length === 0}
 							>
+								<option value="">{$LL.paperless.customFields.useDefault({ name: PAPERLESS_DEFAULT_FIELD_NAMES.liters })}</option>
 								{#each litersFields as field (field.id)}
 									<option value={field.name}>{field.name} ({field.dataType})</option>
 								{/each}
@@ -1325,6 +1327,7 @@
 								on:change={savePaperlessFieldNamesNow}
 								disabled={totalFields.length === 0}
 							>
+								<option value="">{$LL.paperless.customFields.useDefault({ name: PAPERLESS_DEFAULT_FIELD_NAMES.total })}</option>
 								{#each totalFields as field (field.id)}
 									<option value={field.name}>{field.name} ({field.dataType})</option>
 								{/each}

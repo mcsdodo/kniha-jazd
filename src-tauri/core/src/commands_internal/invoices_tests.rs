@@ -171,6 +171,35 @@ fn assign_invoice_blocked_when_read_only() {
     );
 }
 
+// Fix 2: vehicle ownership check
+#[test]
+fn assign_paperless_rejects_trip_from_different_vehicle() {
+    let db = Database::in_memory().unwrap();
+    let v1 = db_tests::create_test_vehicle("Vehicle1");
+    db.create_vehicle(&v1).unwrap();
+    let v2 = db_tests::create_test_vehicle("Vehicle2");
+    db.create_vehicle(&v2).unwrap();
+    // Trip belongs to v1, but we pass v2 as the vehicle_id
+    let trip_id = db_tests::seed_test_trip(&db, &v1.id.to_string());
+    let app_state = AppState::new();
+    let data = paperless_data_fuel();
+    let err = assign_invoice_to_trip_internal(
+        &db,
+        &app_state,
+        &InvoiceRef::Paperless(435),
+        Some(&data),
+        &trip_id,
+        &v2.id.to_string(),
+        AssignmentType::Fuel,
+        false,
+    ).unwrap_err();
+    assert!(
+        err.to_lowercase().contains("vehicle"),
+        "expected vehicle mismatch error, got: {}",
+        err
+    );
+}
+
 #[test]
 fn unassign_dispatches_paperless_source() {
     let db = Database::in_memory().unwrap();

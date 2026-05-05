@@ -148,8 +148,11 @@ These load automatically when working on matching files.
 ### Running Tests
 
 ```bash
-# Rust backend tests (195 tests)
-cd src-tauri && cargo test
+# Rust backend tests (use --manifest-path, never cd &&)
+cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core
+
+# Run a single backend test by name filter
+cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core "test_name_filter"
 
 # E2E integration tests (requires debug build)
 npm run test:integration:build

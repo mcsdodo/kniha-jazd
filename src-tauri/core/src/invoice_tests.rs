@@ -3,7 +3,7 @@ use super::*;
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use uuid::Uuid;
 use crate::models::{
-    ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip,
+    AssignmentType, ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip,
 };
 use crate::paperless::PaperlessDoc;
 
@@ -254,6 +254,86 @@ fn paperless_compat_different_price_differs() {
     assert!(result.can_attach);
     assert_eq!(result.status, "differs");
     assert_eq!(result.mismatch_reason, Some("price".to_string()));
+}
+
+// Fix 3: overnight trip — invoice on end date but outside trip time range → "time" not "date"
+#[test]
+fn compat_overnight_trip_invoice_on_end_date_outside_range_is_time_mismatch() {
+    // Trip: 2024-06-15 23:00 → 2024-06-16 01:00 (spans midnight)
+    // Invoice at 2024-06-16 02:00 — on end date, after trip end → time mismatch (not date)
+    let start = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap().and_hms_opt(23, 0, 0).unwrap();
+    let end   = NaiveDate::from_ymd_opt(2024, 6, 16).unwrap().and_hms_opt(1, 0, 0).unwrap();
+    let invoice_dt = NaiveDate::from_ymd_opt(2024, 6, 16).unwrap().and_hms_opt(2, 0, 0).unwrap();
+    let trip = fueled_trip(start, end, 45.0, 72.0);
+    let doc = fuel_doc(invoice_dt, 45.0, 72.0);
+    let result = check_invoice_trip_compatibility(&doc, &trip);
+    assert_eq!(
+        result.mismatch_reason.as_deref(), Some("time"),
+        "Invoice on overnight trip's end date should be 'time' mismatch, not 'date'"
+    );
+}
+
+// Fix 4: assignment_type() takes precedence over liters heuristic
+#[test]
+fn compat_paperless_other_invoice_with_liters_routes_to_other_path() {
+    // InvoiceData: AssignmentType::Other but has liters set (edge case)
+    // Without fix: liters().is_some() = true → fuel path → sees fuel on trip → "differs" (liters mismatch)
+    // With fix: assignment_type = Other → other path → trip has no other_costs → "matches"
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let dt = date.and_hms_opt(12, 0, 0).unwrap();
+    let data = InvoiceData {
+        datetime: Some(dt),
+        liters: Some(40.0),
+        total_price_eur: Some(25.0),
+        title: "Other cost".into(),
+        assignment_type: AssignmentType::Other,
+    };
+    let view = PaperlessInvoiceView { id: 1, data: &data };
+    // Trip has fuel but no other_costs — distinguishes the two paths
+    let trip = fueled_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+        50.0, // different from invoice liters (40.0) — fuel path would report "liters" mismatch
+        30.0,
+    );
+    let result = check_invoice_trip_compatibility(&view, &trip);
+    // Other path: trip has no other_costs → can_attach = true, mismatch_reason = None
+    // Fuel path (wrong): trip has fuel, liters differ → mismatch_reason = Some("liters")
+    assert!(result.can_attach);
+    assert_eq!(result.mismatch_reason, None, "Other invoice should route to other path, not fuel");
+}
+
+#[test]
+fn compat_paperless_fuel_invoice_with_no_liters_routes_to_fuel_path_not_other() {
+    // InvoiceData: AssignmentType::Fuel, liters = None (incomplete OCR)
+    // Without fix: liters().is_some() = false → routes to Other path
+    // With fix: assignment_type = Fuel → routes to Fuel path
+    // Distinguishable: use a trip that has other_costs but NO fuel_liters.
+    // Fuel path (empty fuel): can_attach = true, status = "matches"/"empty"
+    // Other path (has other_costs): can_attach = true, status = "differs" (price mismatch would show)
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let dt = date.and_hms_opt(12, 0, 0).unwrap();
+    let data = InvoiceData {
+        datetime: Some(dt),
+        liters: None,
+        total_price_eur: Some(58.0),
+        title: "Fuel".into(),
+        assignment_type: AssignmentType::Fuel,
+    };
+    let view = PaperlessInvoiceView { id: 2, data: &data };
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    // Set other_costs on trip — Other path sees this and compares prices → "differs"
+    // Fuel path ignores other_costs → sees no fuel_liters → returns early "matches"
+    trip.other_costs_eur = Some(99.0);
+    trip.other_costs_note = Some("service".into());
+    let result = check_invoice_trip_compatibility(&view, &trip);
+    // With fix (Fuel path): no fuel_liters → returns early, status "matches", no mismatch
+    // Without fix (Other path): has other_costs(99.0) ≠ invoice price(58.0) → "differs"
+    assert!(result.can_attach);
+    assert_ne!(result.status, "differs", "Fuel invoice should NOT be routed to Other path");
 }
 
 // 8. Fueled trip, different date (liters + price match) — status "differs", reason "date"

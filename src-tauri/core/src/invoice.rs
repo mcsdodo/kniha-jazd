@@ -69,7 +69,8 @@ pub struct CompatibilityResult {
 }
 
 fn is_same_date(dt: NaiveDateTime, trip: &Trip) -> bool {
-    dt.date() == trip.start_datetime.date()
+    let trip_end = trip.end_datetime.unwrap_or(trip.start_datetime);
+    dt.date() >= trip.start_datetime.date() && dt.date() <= trip_end.date()
 }
 
 fn get_datetime_mismatch_type(dt: Option<NaiveDateTime>, trip: &Trip) -> Option<&'static str> {
@@ -88,7 +89,11 @@ pub fn check_invoice_trip_compatibility(
     invoice: &dyn Invoice,
     trip: &Trip,
 ) -> CompatibilityResult {
-    let is_fuel = invoice.liters().is_some();
+    let is_fuel = match invoice.assignment_type() {
+        Some(AssignmentType::Fuel) => true,
+        Some(AssignmentType::Other) => false,
+        None => invoice.liters().is_some(),
+    };
 
     if is_fuel {
         let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
