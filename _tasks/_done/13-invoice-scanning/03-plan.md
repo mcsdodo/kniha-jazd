@@ -1,4 +1,4 @@
-# Invoice Scanning (Doklady) Implementation Plan
+﻿# Invoice Scanning (Doklady) Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -1871,7 +1871,7 @@ In `src/routes/+layout.svelte`, find the nav section and add Doklady link after 
 **Step 3: Verify app runs**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Navigate to /doklady and verify page loads.

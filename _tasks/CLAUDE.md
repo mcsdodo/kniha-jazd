@@ -86,7 +86,7 @@ use to find tasks. Keep it accurate:
 - **Creating a new task folder** → add a row to **Active Tasks** with status 📋
 - **Status changes** (Planning → In Progress → Complete) → update the icon
 - **Completing a task** → move the row from **Active Tasks** to **Completed Tasks**
-- **Moving a folder to `_done/`** → update the link path to `_done/{NN}-{name}/`
+- **Moving a folder to `_done/`** → update the link path to `_done/{NN}-{name}/` → commit
 
 Status icons: 📋 Planning · 🟡 In Progress · ✅ Complete · ❌ Blocked
 

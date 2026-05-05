@@ -1,4 +1,4 @@
-# Dark Theme Implementation Plan
+﻿# Dark Theme Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -359,7 +359,7 @@ await themeStore.init();
 
 **Step 2: Test manually**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Expected: App loads without errors. Theme defaults to light (no data-theme yet, but CSS variables work).
 
 **Step 3: Commit**
@@ -579,7 +579,7 @@ Update the `<style>` section, replacing:
 
 **Step 2: Test both themes**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 1. Go to Settings > Appearance
 2. Switch to Dark - header and body should change
 3. Switch to Light - should revert
@@ -669,7 +669,7 @@ Use the established variable mapping from Tasks 9-11.
 
 **Step 2: Test all components in both themes**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 
 **Verification checklist for each component (toggle theme and check):**
 - [ ] Backgrounds: surface colors match theme
@@ -718,7 +718,7 @@ git commit -m "style(receipts): migrate to CSS variables for theming"
 
 **Step 1: Full theme test**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 1. Test all three theme modes
 2. Navigate through all pages
 3. Open all modals

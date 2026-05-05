@@ -101,29 +101,50 @@ pub async fn dispatch_async(
             ).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
         }
-        "assign_paperless_doc_to_trip" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args { doc_id: i64, trip_id: String }
-            let a: Args = match parse_args(args) {
-                Ok(a) => a,
-                Err(e) => return Some(Err(e)),
-            };
-            let result = crate::commands_internal::paperless_cmd::assign_paperless_doc_to_trip_internal(
-                &state.app_state, &state.db, a.doc_id, &a.trip_id,
-            );
-            Some(result.map(|_| serde_json::to_value(()).unwrap()))
+        "list_paperless_custom_fields" => {
+            let result = crate::commands_internal::paperless_cmd::list_paperless_custom_fields_internal(
+                &state.app_dir,
+            ).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
         }
-        "unassign_paperless_doc" => {
+
+        // ====================================================================
+        // Invoices — async (1, Paperless fetch required for writes)
+        // ====================================================================
+        "assign_invoice_to_trip" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
-            struct Args { doc_id: i64 }
+            struct Args {
+                invoice_ref: crate::invoice::InvoiceRef,
+                trip_id: String,
+                vehicle_id: String,
+                assignment_type: crate::models::AssignmentType,
+                mismatch_override: bool,
+            }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let result = crate::commands_internal::paperless_cmd::unassign_paperless_doc_internal(
-                &state.app_state, &state.db, a.doc_id,
+            let paperless_doc = match &a.invoice_ref {
+                crate::invoice::InvoiceRef::Paperless(id) => {
+                    match crate::commands_internal::paperless_cmd::fetch_paperless_doc_by_id(
+                        &state.app_dir, *id,
+                    ).await {
+                        Ok(doc) => Some(doc),
+                        Err(e) => return Some(Err(e.to_string())),
+                    }
+                }
+                crate::invoice::InvoiceRef::Receipt(_) => None,
+            };
+            let result = crate::commands_internal::invoices::assign_invoice_to_trip_internal(
+                &state.db,
+                &state.app_state,
+                &a.invoice_ref,
+                paperless_doc.as_ref(),
+                &a.trip_id,
+                &a.vehicle_id,
+                a.assignment_type,
+                a.mismatch_override,
             );
             Some(result.map(|_| serde_json::to_value(()).unwrap()))
         }

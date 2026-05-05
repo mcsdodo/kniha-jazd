@@ -2281,9 +2281,17 @@ type RootTranslation = {
 		 */
 		apiTokenPlaceholder: string
 		/**
-		 * T​e​s​t​ ​p​r​i​p​o​j​e​n​i​a
+		 * T​o​k​e​n​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
 		 */
-		testConnection: string
+		tokenSet: string
+		/**
+		 * P​o​v​o​l​i​ť​ ​P​a​p​e​r​l​e​s​s​-​n​g​x
+		 */
+		enableToggle: string
+		/**
+		 * N​a​j​p​r​v​ ​n​a​s​t​a​v​ ​U​R​L​ ​a​ ​t​o​k​e​n
+		 */
+		enableToggleDisabledHint: string
 		status: {
 			/**
 			 * P​r​i​p​r​a​v​e​n​é
@@ -2325,6 +2333,49 @@ type RootTranslation = {
 			 * P​a​p​e​r​l​e​s​s​ ​n​e​d​o​s​t​u​p​n​ý​ ​—​ ​s​k​o​n​t​r​o​l​u​j​ ​n​a​s​t​a​v​e​n​i​a
 			 */
 			network: string
+		}
+		customFields: {
+			/**
+			 * V​l​a​s​t​n​é​ ​p​o​l​i​a
+			 */
+			sectionTitle: string
+			/**
+			 * V​y​b​e​r​,​ ​k​t​o​r​é​ ​p​o​l​i​a​ ​z​ ​t​v​o​j​h​o​ ​P​a​p​e​r​l​e​s​s​ ​s​e​r​v​e​r​a​ ​o​b​s​a​h​u​j​ú​ ​d​á​t​u​m​,​ ​l​i​t​r​e​ ​a​ ​s​u​m​u​.
+			 */
+			sectionDescription: string
+			/**
+			 * P​o​l​e​ ​p​r​e​ ​d​á​t​u​m​/​č​a​s
+			 */
+			datetime: string
+			/**
+			 * P​o​l​e​ ​p​r​e​ ​l​i​t​r​e
+			 */
+			liters: string
+			/**
+			 * P​o​l​e​ ​p​r​e​ ​s​u​m​u
+			 */
+			total: string
+			/**
+			 * (​p​r​e​d​v​o​l​e​n​é​:​ ​{​n​a​m​e​}​)
+			 * @param {string} name
+			 */
+			useDefault: RequiredParams<'name'>
+			/**
+			 * O​b​n​o​v​i​ť​ ​z​o​z​n​a​m​ ​p​o​l​í
+			 */
+			refresh: string
+			/**
+			 * N​a​č​í​t​a​v​a​m​ ​v​l​a​s​t​n​é​ ​p​o​l​i​a​…
+			 */
+			loading: string
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​n​a​č​í​t​a​ť​ ​v​l​a​s​t​n​é​ ​p​o​l​i​a​ ​z​ ​P​a​p​e​r​l​e​s​s​.​ ​S​k​o​n​t​r​o​l​u​j​ ​n​a​s​t​a​v​e​n​i​a​ ​a​ ​s​k​ú​s​ ​o​b​n​o​v​i​ť​.
+			 */
+			loadError: string
+			/**
+			 * Ž​i​a​d​n​e​ ​k​o​m​p​a​t​i​b​i​l​n​é​ ​p​o​l​e​ ​—​ ​v​y​t​v​o​r​ ​v​ ​P​a​p​e​r​l​e​s​s​ ​p​o​l​e​ ​s​p​r​á​v​n​e​h​o​ ​t​y​p​u​.
+			 */
+			noCompatibleFields: string
 		}
 	}
 	doklady: {
@@ -4548,9 +4599,17 @@ export type TranslationFunctions = {
 		 */
 		apiTokenPlaceholder: () => LocalizedString
 		/**
-		 * Test pripojenia
+		 * Token je nastavený
 		 */
-		testConnection: () => LocalizedString
+		tokenSet: () => LocalizedString
+		/**
+		 * Povoliť Paperless-ngx
+		 */
+		enableToggle: () => LocalizedString
+		/**
+		 * Najprv nastav URL a token
+		 */
+		enableToggleDisabledHint: () => LocalizedString
 		status: {
 			/**
 			 * Pripravené
@@ -4590,6 +4649,48 @@ export type TranslationFunctions = {
 			 * Paperless nedostupný — skontroluj nastavenia
 			 */
 			network: () => LocalizedString
+		}
+		customFields: {
+			/**
+			 * Vlastné polia
+			 */
+			sectionTitle: () => LocalizedString
+			/**
+			 * Vyber, ktoré polia z tvojho Paperless servera obsahujú dátum, litre a sumu.
+			 */
+			sectionDescription: () => LocalizedString
+			/**
+			 * Pole pre dátum/čas
+			 */
+			datetime: () => LocalizedString
+			/**
+			 * Pole pre litre
+			 */
+			liters: () => LocalizedString
+			/**
+			 * Pole pre sumu
+			 */
+			total: () => LocalizedString
+			/**
+			 * (predvolené: {name})
+			 */
+			useDefault: (arg: { name: string }) => LocalizedString
+			/**
+			 * Obnoviť zoznam polí
+			 */
+			refresh: () => LocalizedString
+			/**
+			 * Načítavam vlastné polia…
+			 */
+			loading: () => LocalizedString
+			/**
+			 * Nepodarilo sa načítať vlastné polia z Paperless. Skontroluj nastavenia a skús obnoviť.
+			 */
+			loadError: () => LocalizedString
+			/**
+			 * Žiadne kompatibilné pole — vytvor v Paperless pole správneho typu.
+			 */
+			noCompatibleFields: () => LocalizedString
 		}
 	}
 	doklady: {

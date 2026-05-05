@@ -1,4 +1,4 @@
-# Year Picker Implementation Plan
+﻿# Year Picker Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -623,7 +623,7 @@ cd src-tauri && cargo test
 **Step 2: Start dev server and verify**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 **Step 3: Manual verification checklist**

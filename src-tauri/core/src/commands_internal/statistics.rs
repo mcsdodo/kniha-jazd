@@ -443,8 +443,11 @@ pub fn build_trip_grid_data(
         .map(|t| t.id.to_string())
         .collect();
 
-    // Calculate missing receipts (trips with fuel but no matching receipt)
-    let missing_receipts = calculate_missing_receipts(&trips, &receipts);
+    // Calculate missing invoices (trips with costs but no Receipt or Paperless link)
+    let trips_with_invoice = db
+        .get_trip_ids_with_invoice()
+        .map_err(|e| e.to_string())?;
+    let missing_receipts = calculate_missing_receipts(&trips, &trips_with_invoice);
 
     // Calculate receipt datetime warnings (trips with assigned receipt outside trip time range)
     let receipt_datetime_warnings = calculate_receipt_datetime_warnings(&trips, &receipts);
@@ -1254,31 +1257,23 @@ pub fn calculate_consumption_warnings(
     warnings
 }
 
-/// Find trips with costs that don't have an assigned receipt.
-/// Task 51: Uses trip_id directly (explicit assignment) instead of computed matching.
-/// A trip needs a receipt if it has fuel OR other_costs, and no receipt has trip_id = this_trip.
-pub fn calculate_missing_receipts(trips: &[Trip], receipts: &[Receipt]) -> HashSet<String> {
-    let mut missing = HashSet::new();
-
-    for trip in trips {
-        // Trips without any costs don't need receipts
-        let has_fuel = trip.fuel_liters.is_some();
-        let has_other_costs = trip.other_costs_eur.is_some();
-        if !has_fuel && !has_other_costs {
-            continue;
-        }
-
-        // Check if any receipt is explicitly assigned to this trip
-        let has_assigned_receipt = receipts
-            .iter()
-            .any(|r| r.trip_id.map(|id| id == trip.id).unwrap_or(false));
-
-        if !has_assigned_receipt {
-            missing.insert(trip.id.to_string());
-        }
-    }
-
-    missing
+/// Find trips with costs that don't have any invoice attached.
+/// Source-agnostic: `trips_with_invoice` is the union of trip IDs covered by
+/// either a local Receipt or a Paperless document link. The caller is
+/// responsible for assembling that set (see `Database::get_trip_ids_with_invoice`).
+/// A trip needs an invoice if it has fuel OR other_costs.
+pub fn calculate_missing_receipts(
+    trips: &[Trip],
+    trips_with_invoice: &HashSet<String>,
+) -> HashSet<String> {
+    trips
+        .iter()
+        .filter(|trip| {
+            let needs_invoice = trip.fuel_liters.is_some() || trip.other_costs_eur.is_some();
+            needs_invoice && !trips_with_invoice.contains(&trip.id.to_string())
+        })
+        .map(|t| t.id.to_string())
+        .collect()
 }
 
 /// Find trips with assigned receipt where receipt datetime is outside trip's [start, end] range.

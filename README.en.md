@@ -1,4 +1,4 @@
-**English** | [Slovensky](README.md)
+﻿**English** | [Slovensky](README.md)
 
 [![Tests](https://github.com/mcsdodo/kniha-jazd/actions/workflows/test.yml/badge.svg)](https://github.com/mcsdodo/kniha-jazd/actions/workflows/test.yml)
 
@@ -200,7 +200,7 @@ cargo --version
 npm install
 
 # Run in development mode
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ### Running Tests

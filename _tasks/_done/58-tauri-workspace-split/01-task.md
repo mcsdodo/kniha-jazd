@@ -1,4 +1,4 @@
-**Date:** 2026-04-26
+﻿**Date:** 2026-04-26
 **Subject:** Split `src-tauri/` into a Cargo workspace (core / desktop / web) so the headless web binary stops linking Tauri
 **Status:** Planning
 **Source:** [`_TECH_DEBT/06-tauri-feature-gating.md`](../_TECH_DEBT/06-tauri-feature-gating.md)
@@ -17,7 +17,7 @@ Today [`src-tauri/`](../../src-tauri/) is one Cargo crate (`kniha-jazd`) produci
    - `kniha-jazd-web` — headless HTTP server binary. Depends only on `core`.
 2. Drop GTK/WebKit runtime packages from [`Dockerfile.web`](../../Dockerfile.web) stage 3. Drop them from the builder stage too.
 3. Preserve the existing 195-test backend suite and the WebdriverIO integration tiers.
-4. Preserve the desktop user experience (`npm run tauri dev`, `npm run tauri build`) — only Cargo manifest paths change.
+4. Preserve the desktop user experience (`npm run tauri:dev`, `npm run tauri build`) — only Cargo manifest paths change.
 
 ## Non-Goals
 

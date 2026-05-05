@@ -2,8 +2,10 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import * as api from '$lib/api';
+	import { unassignInvoice, assignInvoiceToTrip } from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification, ReceiptMismatchReason, InvoiceSourceMode, PaperlessInvoiceRow } from '$lib/types';
+	import { adaptInvoice, type Invoice } from '$lib/invoice';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import ReceiptEditModal from '$lib/components/ReceiptEditModal.svelte';
@@ -35,7 +37,7 @@
 	let receiptToRevertOverride = $state<Receipt | null>(null);
 	let receiptToEdit = $state<Receipt | null>(null);
 	let reprocessingIds = $state<Set<string>>(new Set());
-	let receiptToAssign = $state<Receipt | null>(null);
+	let invoiceToAssign = $state<Invoice | null>(null);
 	let verification = $state<VerificationResult | null>(null);
 	let configFolderPath = $state<string>('');
 	let folderStructureWarning = $state<string | null>(null);
@@ -45,8 +47,6 @@
 	let paperlessRows = $state<PaperlessInvoiceRow[]>([]);
 	let paperlessLoading = $state(false);
 	let paperlessError = $state<string | null>(null);
-	let paperlessTripPickerDocId = $state<number | null>(null);
-	let paperlessTrips = $state<Trip[]>([]);
 
 	let unlistenProgress: UnlistenFn | null = null;
 
@@ -129,11 +129,9 @@
 			const vehicle = $activeVehicleStore;
 			if (!vehicle) {
 				paperlessRows = [];
-				paperlessTrips = [];
 				return;
 			}
 			paperlessRows = await api.getPaperlessInvoices(vehicle.id, $selectedYearStore);
-			paperlessTrips = await api.getTripsForYear(vehicle.id, $selectedYearStore);
 		} catch (error) {
 			console.error('Failed to load Paperless invoices:', error);
 			paperlessError = String(error);
@@ -247,14 +245,20 @@
 	async function handleConfirmUnassign() {
 		if (!receiptToUnassign) return;
 		try {
-			await api.unassignReceipt(receiptToUnassign.id);
+			await handleUnassignInvoice(adaptInvoice(receiptToUnassign));
+		} finally {
+			receiptToUnassign = null;
+		}
+	}
+
+	async function handleUnassignInvoice(invoice: Invoice) {
+		try {
+			await unassignInvoice(invoice.getRef());
 			await refreshReceiptData();
 			toast.success($LL.toast.receiptUnassigned());
 		} catch (error) {
-			console.error('Failed to unassign receipt:', error);
+			console.error('Failed to unassign invoice:', error);
 			toast.error($LL.toast.errorUnassignReceipt());
-		} finally {
-			receiptToUnassign = null;
 		}
 	}
 
@@ -364,50 +368,34 @@
 			toast.error($LL.toast.errorSelectVehicleFirst());
 			return;
 		}
-		receiptToAssign = receipt;
+		invoiceToAssign = adaptInvoice(receipt);
 	}
 
-	async function handleAssignToTrip(result: { trip: Trip; assignmentType: 'Fuel' | 'Other'; mismatchOverride: boolean }) {
-		if (!receiptToAssign || !$activeVehicleStore) return;
+	function handleAssignPaperlessClick(row: PaperlessInvoiceRow) {
+		if (!$activeVehicleStore) {
+			toast.error($LL.toast.errorSelectVehicleFirst());
+			return;
+		}
+		invoiceToAssign = adaptInvoice(row);
+	}
 
+	async function handleAssignInvoice(result: { trip: Trip; assignmentType: 'Fuel' | 'Other'; mismatchOverride: boolean }) {
+		if (!invoiceToAssign || !$activeVehicleStore) return;
 		try {
-			await api.assignReceiptToTrip(
-				receiptToAssign.id,
+			await assignInvoiceToTrip(
+				invoiceToAssign.getRef(),
+				invoiceToAssign.getData(),
 				result.trip.id,
 				$activeVehicleStore.id,
 				result.assignmentType,
-				result.mismatchOverride
+				result.mismatchOverride,
 			);
 			await refreshReceiptData();
-			receiptToAssign = null;
+			invoiceToAssign = null;
 			toast.success($LL.toast.receiptAssigned());
 		} catch (error) {
-			console.error('Failed to assign receipt:', error);
+			console.error('Failed to assign invoice:', error);
 			toast.error($LL.toast.errorAssignReceipt({ error: String(error) }));
-		}
-	}
-
-	// Paperless action handlers
-	async function handleAssignPaperless(docId: number, tripId: string) {
-		try {
-			await api.assignPaperlessDocToTrip(docId, tripId);
-			paperlessTripPickerDocId = null;
-			await loadPaperlessRows();
-			toast.success($LL.toast.receiptAssigned());
-		} catch (error) {
-			console.error('Failed to assign Paperless doc:', error);
-			toast.error($LL.toast.errorAssignReceipt({ error: String(error) }));
-		}
-	}
-
-	async function handleUnassignPaperless(docId: number) {
-		try {
-			await api.unassignPaperlessDoc(docId);
-			await loadPaperlessRows();
-			toast.success($LL.toast.receiptUnassigned());
-		} catch (error) {
-			console.error('Failed to unassign Paperless doc:', error);
-			toast.error($LL.toast.errorUnassignReceipt());
 		}
 	}
 
@@ -633,7 +621,7 @@
 							<div class="detail-row">
 								<span class="label">{$LL.receipts.date()}</span>
 								<span class="value">
-									{row.receiptDatetime ?? $LL.doklady.paperless.noDate()}
+									{row.receiptDatetime ? formatDatetime(row.receiptDatetime) : $LL.doklady.paperless.noDate()}
 								</span>
 							</div>
 							<div class="detail-row">
@@ -665,7 +653,7 @@
 								<button
 									type="button"
 									class="button-small"
-									onclick={() => handleUnassignPaperless(row.paperlessDocumentId)}
+									onclick={() => handleUnassignInvoice(adaptInvoice(row))}
 								>
 									{$LL.confirm.unassignConfirm()}
 								</button>
@@ -674,7 +662,7 @@
 									type="button"
 									data-test="assign-btn"
 									class="button-small primary"
-									onclick={() => (paperlessTripPickerDocId = row.paperlessDocumentId)}
+									onclick={() => handleAssignPaperlessClick(row)}
 								>
 									{$LL.receipts.assignToTrip()}
 								</button>
@@ -1077,53 +1065,6 @@
 	{/if}
 {/if}
 
-	<!-- Paperless trip picker modal (simple inline picker) -->
-	{#if paperlessTripPickerDocId !== null}
-		<div
-			class="modal-overlay"
-			role="button"
-			tabindex="0"
-			onclick={() => (paperlessTripPickerDocId = null)}
-			onkeydown={(e) => { if (e.key === 'Escape') paperlessTripPickerDocId = null; }}
-		>
-			<div
-				class="modal"
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="paperless-trip-picker-title"
-				tabindex="-1"
-				onclick={(e) => e.stopPropagation()}
-				onkeydown={() => {}}
-			>
-				<h2 id="paperless-trip-picker-title">{$LL.tripSelector.title()}</h2>
-				{#if paperlessTrips.length === 0}
-					<p class="placeholder">{$LL.tripSelector.noTrips()}</p>
-				{:else}
-					<div class="trip-list">
-						{#each paperlessTrips as trip}
-							<button
-								type="button"
-								class="trip-item"
-								data-test="paperless-trip-item"
-								data-trip-id={trip.id}
-								onclick={() => handleAssignPaperless(paperlessTripPickerDocId!, trip.id)}
-							>
-								<span class="date">{trip.startDatetime.slice(0, 10)}</span>
-								<span class="route">{trip.origin} → {trip.destination}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-				<div class="modal-actions">
-					<button
-						type="button"
-						class="button-small"
-						onclick={() => (paperlessTripPickerDocId = null)}
-					>{$LL.common.cancel()}</button>
-				</div>
-			</div>
-		</div>
-	{/if}
 </div>
 
 {#if receiptToDelete}
@@ -1159,11 +1100,11 @@
 	/>
 {/if}
 
-{#if receiptToAssign}
+{#if invoiceToAssign}
 	<TripSelectorModal
-		receipt={receiptToAssign}
-		onSelect={handleAssignToTrip}
-		onClose={() => (receiptToAssign = null)}
+		invoice={invoiceToAssign}
+		onSelect={handleAssignInvoice}
+		onClose={() => (invoiceToAssign = null)}
 	/>
 {/if}
 
@@ -1690,74 +1631,4 @@
 		color: var(--warning-color);
 	}
 
-	/* Paperless trip picker modal */
-	.modal-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: var(--overlay-bg);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.modal {
-		background: var(--bg-surface);
-		padding: 1.5rem;
-		border-radius: 8px;
-		max-width: 600px;
-		width: 90%;
-		max-height: 80vh;
-		overflow-y: auto;
-	}
-
-	.modal h2 {
-		margin: 0 0 1rem 0;
-		font-size: 1.25rem;
-		color: var(--text-primary);
-	}
-
-	.trip-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		max-height: 400px;
-		overflow-y: auto;
-	}
-
-	.trip-item {
-		display: flex;
-		gap: 1rem;
-		padding: 0.75rem;
-		border: 1px solid var(--border-input);
-		border-radius: 4px;
-		background: var(--bg-surface);
-		cursor: pointer;
-		text-align: left;
-		width: 100%;
-		color: var(--text-primary);
-	}
-
-	.trip-item:hover {
-		background: var(--bg-surface-alt);
-	}
-
-	.trip-item .date {
-		font-weight: 500;
-		min-width: 100px;
-	}
-
-	.trip-item .route {
-		flex: 1;
-	}
-
-	.modal-actions {
-		margin-top: 1rem;
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.5rem;
-	}
 </style>

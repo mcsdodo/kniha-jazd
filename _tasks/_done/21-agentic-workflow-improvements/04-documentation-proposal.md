@@ -1,4 +1,4 @@
-**Date:** 2026-01-05
+﻿**Date:** 2026-01-05
 **Subject:** Documentation Structure & Onboarding Improvements
 **Status:** Proposal
 
@@ -42,7 +42,7 @@ I analyzed CLAUDE.md content into three categories:
 - Tech stack (quick bullet list)
 - ADR-008: Backend-only calculations (core constraint)
 - TDD workflow (mandatory)
-- Common commands (`npm run test:backend`, `npm run tauri dev`)
+- Common commands (`npm run test:backend`, `npm run tauri:dev`)
 - Available skills (`/task-plan`, `/changelog`, `/decision`, `/release`)
 - Common Pitfalls (top 3-4 critical ones)
 - Task Completion Checklist
@@ -114,7 +114,7 @@ I analyzed CLAUDE.md content into three categories:
 ### Commands
 | Command | Purpose |
 |---------|---------|
-| `npm run tauri dev` | Start dev server |
+| `npm run tauri:dev` | Start dev server |
 | `npm run test:backend` | Run Rust tests (105 tests) |
 | `npm run tauri build` | Production build |
 
@@ -288,7 +288,7 @@ Workflow: TDD mandatory - test first, then implement
 
 Quick Commands:
 - Tests: npm run test:backend
-- Dev: npm run tauri dev
+- Dev: npm run tauri:dev
 
 Available Skills:
 - /task-plan - Start new feature

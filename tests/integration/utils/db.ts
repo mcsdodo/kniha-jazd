@@ -561,7 +561,7 @@ export async function getReceiptsForVehicle(
 }
 
 /**
- * Result from get_trips_for_receipt_assignment
+ * Result from get_trips_for_invoice_assignment
  */
 export interface TripForAssignment {
   trip: Trip;
@@ -570,14 +570,26 @@ export interface TripForAssignment {
   mismatchReason: string | null; // "date" | "liters" | "price" | "date_and_*" | "all"
 }
 
+export type InvoiceRef =
+  | { source: 'receipt'; id: string }
+  | { source: 'paperless'; id: number };
+
+export interface InvoiceData {
+  datetime: string | null;
+  liters: number | null;
+  totalPriceEur: number | null;
+  title: string;
+  assignmentType: 'Fuel' | 'Other';
+}
+
 /**
- * Get trips available for receipt assignment with compatibility info
- *
- * This is the key function for testing mismatch detection. It returns
- * each trip with information about whether the receipt data matches.
+ * Get trips available for invoice (receipt or paperless) assignment with compatibility info.
+ * For receipts: pass `null` for invoiceData (backend loads from DB by ID).
+ * For paperless: pass the inline invoice data.
  */
-export async function getTripsForReceiptAssignment(
-  receiptId: string,
+export async function getTripsForInvoiceAssignment(
+  invoiceRef: InvoiceRef,
+  invoiceData: InvoiceData | null,
   vehicleId: string,
   year: number
 ): Promise<TripForAssignment[]> {
@@ -585,8 +597,9 @@ export async function getTripsForReceiptAssignment(
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<TripForAssignment[]>('get_trips_for_receipt_assignment', {
-    receiptId,
+  return invokeTauri<TripForAssignment[]>('get_trips_for_invoice_assignment', {
+    invoiceRef,
+    invoiceData,
     vehicleId,
     year,
   });

@@ -1,4 +1,4 @@
-# Run Tauri app with WebView2 remote debugging enabled
+﻿# Run Tauri app with WebView2 remote debugging enabled
 # This allows Playwright to connect via Chrome DevTools Protocol (CDP)
 
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9222"
@@ -9,4 +9,4 @@ Write-Host ""
 
 # Run the dev build
 Set-Location "$PSScriptRoot\.."
-npm run tauri dev
+npm run tauri:dev

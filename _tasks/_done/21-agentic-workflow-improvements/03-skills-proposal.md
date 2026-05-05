@@ -1,4 +1,4 @@
-**Date:** 2026-01-05
+﻿**Date:** 2026-01-05
 **Subject:** Skill Improvements & New Skills Proposal
 **Status:** Proposal
 
@@ -411,7 +411,7 @@ git commit -m "docs: add task and plan for {feature-name}"
 npm run test:backend
 
 # Verify dev server works (optional)
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ## Verification Script
@@ -583,7 +583,7 @@ fn get_trips(conn: &Connection, vehicle_id: i64) -> Result<Vec<Trip>> {
 
 ```bash
 npm run test:backend
-npm run tauri dev  # Manual check
+npm run tauri:dev  # Manual check
 ```
 
 ## Step 8: Document if Non-Obvious
@@ -831,7 +831,7 @@ Ask yourself:
 
 For UI changes:
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 Verify the feature works as expected.

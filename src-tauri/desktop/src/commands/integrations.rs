@@ -14,6 +14,7 @@ use kniha_jazd_core::commands_internal::paperless_cmd as paperless_inner;
 use kniha_jazd_core::constants::mime_types;
 use kniha_jazd_core::db::Database;
 use kniha_jazd_core::models::PaperlessInvoiceRow;
+use kniha_jazd_core::paperless::CustomFieldInfo;
 use kniha_jazd_core::settings::LocalSettings;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -133,14 +134,28 @@ pub fn get_paperless_settings(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn save_paperless_settings(
     app_handle: tauri::AppHandle,
     app_state: State<Arc<AppState>>,
     url: Option<String>,
     token: Option<String>,
+    enabled: Option<bool>,
+    field_name_datetime: Option<String>,
+    field_name_liters: Option<String>,
+    field_name_total: Option<String>,
 ) -> Result<(), String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
-    inner::save_paperless_settings_internal(&app_data_dir, &app_state, url, token)
+    inner::save_paperless_settings_internal(
+        &app_data_dir,
+        &app_state,
+        url,
+        token,
+        enabled,
+        field_name_datetime,
+        field_name_liters,
+        field_name_total,
+    )
 }
 
 #[tauri::command]
@@ -175,20 +190,12 @@ pub async fn get_paperless_invoices(
 }
 
 #[tauri::command]
-pub fn assign_paperless_doc_to_trip(
-    app_state: State<'_, Arc<AppState>>,
-    db: State<'_, Arc<Database>>,
-    doc_id: i64,
-    trip_id: String,
-) -> Result<(), String> {
-    paperless_inner::assign_paperless_doc_to_trip_internal(&app_state, &db, doc_id, &trip_id)
+pub async fn list_paperless_custom_fields(
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<CustomFieldInfo>, String> {
+    let app_data_dir = get_app_data_dir(&app_handle)?;
+    paperless_inner::list_paperless_custom_fields_internal(&app_data_dir)
+        .await
+        .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn unassign_paperless_doc(
-    app_state: State<'_, Arc<AppState>>,
-    db: State<'_, Arc<Database>>,
-    doc_id: i64,
-) -> Result<(), String> {
-    paperless_inner::unassign_paperless_doc_internal(&app_state, &db, doc_id)
-}

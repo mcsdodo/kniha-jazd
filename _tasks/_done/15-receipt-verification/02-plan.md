@@ -1,4 +1,4 @@
-# Receipt Verification Implementation Plan
+﻿# Receipt Verification Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -404,7 +404,7 @@ Update filter button label:
 **Step 9: Verify app works**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 Test: Navigate to Doklady, verify summary shows, matched receipts show trip info.
 
@@ -602,7 +602,7 @@ In `src/lib/components/TripGrid.svelte`, after the table:
 **Step 7: Verify app works**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 Test: Check that trips with fuel but no matching receipt show ⚠ icon. Legend visible below table.
 

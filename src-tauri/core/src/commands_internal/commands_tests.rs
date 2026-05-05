@@ -11,7 +11,7 @@ use super::*;
 use crate::db::Database;
 use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Helper to create a trip with fuel
@@ -72,207 +72,112 @@ fn make_trip_without_fuel(date: NaiveDate) -> Trip {
     }
 }
 
-/// Helper to create an unassigned receipt
-fn make_receipt(date: Option<NaiveDate>, liters: Option<f64>, price: Option<f64>) -> Receipt {
-    make_receipt_with_trip_id(date, liters, price, None)
-}
-
-/// Helper to create a receipt optionally assigned to a trip
-fn make_receipt_with_trip_id(
-    date: Option<NaiveDate>,
-    liters: Option<f64>,
-    price: Option<f64>,
-    trip_id: Option<Uuid>,
-) -> Receipt {
-    let now = Utc::now();
-    Receipt {
-        id: Uuid::new_v4(),
-        vehicle_id: None,
-        trip_id,
-        file_path: "/test/receipt.jpg".to_string(),
-        file_name: "receipt.jpg".to_string(),
-        scanned_at: now,
-        liters,
-        total_price_eur: price,
-        receipt_datetime: date.and_then(|d| d.and_hms_opt(12, 0, 0)), // Convert date to datetime at noon
-        station_name: None,
-        station_address: None,
-        vendor_name: None,
-        cost_description: None,
-        original_amount: price,
-        original_currency: Some("EUR".to_string()),
-        source_year: None,
-        status: ReceiptStatus::Parsed,
-        confidence: FieldConfidence {
-            liters: ConfidenceLevel::High,
-            total_price: ConfidenceLevel::High,
-            date: ConfidenceLevel::High,
-        },
-        raw_ocr_text: None,
-        error_message: None,
-        assignment_type: if trip_id.is_some() {
-            Some(crate::models::AssignmentType::Fuel)
-        } else {
-            None
-        },
-        mismatch_override: false,
-        created_at: now,
-        updated_at: now,
-    }
-}
-
 // ========================================================================
-// Receipt-trip assignment tests (calculate_missing_receipts)
-// Task 51: Uses trip_id (explicit assignment) instead of computed matching
+// Missing-invoice tests (calculate_missing_receipts)
+// Source-agnostic: the function takes a HashSet of trip IDs that have any
+// invoice attached (Receipt or Paperless link) and flags trips with costs
+// that aren't in that set.
 // ========================================================================
+
+fn covered(trip_ids: &[Uuid]) -> HashSet<String> {
+    trip_ids.iter().map(|id| id.to_string()).collect()
+}
 
 #[test]
-fn test_missing_receipts_trip_with_assigned_receipt_not_flagged() {
-    // Trip with explicitly assigned receipt → NOT missing
+fn test_missing_receipts_trip_with_invoice_not_flagged() {
+    // Trip is in the covered set (Receipt or Paperless) → NOT missing
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    // Receipt assigned to trip via trip_id
-    let receipts = vec![make_receipt_with_trip_id(
-        Some(date),
-        Some(45.0),
-        Some(72.50),
-        Some(trips[0].id),
-    )];
+    let with_invoice = covered(&[trips[0].id]);
 
-    let missing = calculate_missing_receipts(&trips, &receipts);
+    let missing = calculate_missing_receipts(&trips, &with_invoice);
 
     assert!(
         missing.is_empty(),
-        "Trip with assigned receipt should not be flagged as missing"
+        "Trip with any attached invoice should not be flagged as missing"
     );
 }
 
 #[test]
-fn test_missing_receipts_trip_without_assigned_receipt_flagged() {
-    // Trip with fuel but no receipt assigned → missing
+fn test_missing_receipts_trip_with_paperless_link_not_flagged() {
+    // Regression: a Paperless link (no Receipt row) covers the trip just like
+    // a Receipt does. Bug was that calculate_missing_receipts only checked
+    // the receipts table and ignored paperless_trip_links.
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    // Receipt exists but NOT assigned (trip_id = None)
-    let receipts = vec![make_receipt(Some(date), Some(45.0), Some(72.50))];
+    let with_invoice = covered(&[trips[0].id]);
 
-    let missing = calculate_missing_receipts(&trips, &receipts);
+    let missing = calculate_missing_receipts(&trips, &with_invoice);
 
-    assert_eq!(
-        missing.len(),
-        1,
-        "Trip without assigned receipt should be flagged"
+    assert!(
+        missing.is_empty(),
+        "Trip with paperless link should not be flagged as missing"
     );
+}
+
+#[test]
+fn test_missing_receipts_trip_without_invoice_flagged() {
+    // Trip with fuel but no invoice attached → missing
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
+    let with_invoice = HashSet::new();
+
+    let missing = calculate_missing_receipts(&trips, &with_invoice);
+
+    assert_eq!(missing.len(), 1, "Trip without invoice should be flagged");
     assert!(missing.contains(&trips[0].id.to_string()));
 }
 
 #[test]
 fn test_missing_receipts_trip_without_costs_not_flagged() {
-    // Trip without fuel or other_costs → NOT flagged (doesn't need receipt)
+    // Trip without fuel or other_costs → NOT flagged (doesn't need an invoice)
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_without_fuel(date)];
-    let receipts: Vec<Receipt> = vec![];
+    let with_invoice = HashSet::new();
 
-    let missing = calculate_missing_receipts(&trips, &receipts);
+    let missing = calculate_missing_receipts(&trips, &with_invoice);
 
     assert!(
         missing.is_empty(),
-        "Trip without fuel/other_costs should not be flagged as missing receipt"
+        "Trip without fuel/other_costs should not be flagged"
     );
 }
 
 #[test]
-fn test_missing_receipts_trip_with_other_costs_no_receipt_flagged() {
-    // Trip with other_costs but no assigned receipt → missing
+fn test_missing_receipts_trip_with_other_costs_and_no_invoice_flagged() {
+    // Trip with other_costs but no invoice → missing
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let mut trip = make_trip_without_fuel(date);
     trip.other_costs_eur = Some(15.0);
     trip.other_costs_note = Some("Parkovanie".to_string());
     let trips = vec![trip];
-    let receipts: Vec<Receipt> = vec![];
+    let with_invoice = HashSet::new();
 
-    let missing = calculate_missing_receipts(&trips, &receipts);
+    let missing = calculate_missing_receipts(&trips, &with_invoice);
 
-    assert_eq!(
-        missing.len(),
-        1,
-        "Trip with other_costs but no receipt should be flagged"
-    );
+    assert_eq!(missing.len(), 1);
 }
 
 #[test]
-fn test_missing_receipts_no_receipts_available() {
-    // Trip with fuel but no receipts at all → missing
-    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let receipts: Vec<Receipt> = vec![];
-
-    let missing = calculate_missing_receipts(&trips, &receipts);
-
-    assert_eq!(
-        missing.len(),
-        1,
-        "Trip with fuel but no receipts should be flagged"
-    );
-}
-
-#[test]
-fn test_missing_receipts_multiple_trips_partial_assignment() {
-    // Multiple trips: some with assigned receipts, some without
+fn test_missing_receipts_multiple_trips_partial_coverage() {
+    // Multiple trips: trip 1 covered, trip 2 not, trip 3 has no costs
     let date1 = NaiveDate::from_ymd_opt(2024, 6, 10).unwrap();
     let date2 = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap();
     let date3 = NaiveDate::from_ymd_opt(2024, 6, 30).unwrap();
 
     let trips = vec![
-        make_trip_with_fuel(date1, 40.0, 65.00), // Has assigned receipt
-        make_trip_with_fuel(date2, 50.0, 80.00), // No assigned receipt
-        make_trip_without_fuel(date3),           // No costs, doesn't need receipt
+        make_trip_with_fuel(date1, 40.0, 65.00), // covered
+        make_trip_with_fuel(date2, 50.0, 80.00), // missing
+        make_trip_without_fuel(date3),           // no costs, not flagged
     ];
-    let receipts = vec![
-        make_receipt_with_trip_id(Some(date1), Some(40.0), Some(65.00), Some(trips[0].id)), // Assigned to trip 1
-    ];
+    let with_invoice = covered(&[trips[0].id]);
 
-    let missing = calculate_missing_receipts(&trips, &receipts);
-
-    assert_eq!(missing.len(), 1, "Only trip 2 should be flagged");
-    assert!(
-        missing.contains(&trips[1].id.to_string()),
-        "Trip 2 (with fuel, no assigned receipt) should be flagged"
-    );
-    assert!(
-        !missing.contains(&trips[0].id.to_string()),
-        "Trip 1 (with assigned receipt) should not be flagged"
-    );
-    assert!(
-        !missing.contains(&trips[2].id.to_string()),
-        "Trip 3 (no costs) should not be flagged"
-    );
-}
-
-#[test]
-fn test_missing_receipts_receipt_assigned_to_different_trip() {
-    // Receipt assigned to trip A, trip B has no receipt → trip B flagged
-    let date1 = NaiveDate::from_ymd_opt(2024, 6, 10).unwrap();
-    let date2 = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap();
-
-    let trips = vec![
-        make_trip_with_fuel(date1, 40.0, 65.00),
-        make_trip_with_fuel(date2, 50.0, 80.00),
-    ];
-    let receipts = vec![
-        make_receipt_with_trip_id(Some(date1), Some(40.0), Some(65.00), Some(trips[0].id)), // Assigned to trip 1 only
-    ];
-
-    let missing = calculate_missing_receipts(&trips, &receipts);
+    let missing = calculate_missing_receipts(&trips, &with_invoice);
 
     assert_eq!(missing.len(), 1);
-    assert!(
-        missing.contains(&trips[1].id.to_string()),
-        "Trip 2 should be flagged"
-    );
-    assert!(
-        !missing.contains(&trips[0].id.to_string()),
-        "Trip 1 should not be flagged"
-    );
+    assert!(missing.contains(&trips[1].id.to_string()));
+    assert!(!missing.contains(&trips[0].id.to_string()));
+    assert!(!missing.contains(&trips[2].id.to_string()));
 }
 
 // ========================================================================

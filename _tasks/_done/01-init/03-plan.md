@@ -1,4 +1,4 @@
-**Date:** 2024-12-23
+﻿**Date:** 2024-12-23
 **Subject:** Implementation Plan
 **Status:** Ready for execution
 
@@ -65,7 +65,7 @@ thiserror = "1"
 
 Run:
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 Expected: Empty SvelteKit window opens in Tauri
 

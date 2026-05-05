@@ -5,6 +5,7 @@
 pub mod backup;
 pub mod export_cmd;
 pub mod integrations;
+pub mod invoices;
 pub mod receipts_cmd;
 pub mod server_cmd;
 pub mod settings_cmd;
@@ -16,6 +17,7 @@ pub mod vehicles;
 pub use backup::*;
 pub use export_cmd::*;
 pub use integrations::*;
+pub use invoices::*;
 pub use receipts_cmd::*;
 pub use server_cmd::*;
 pub use settings_cmd::*;

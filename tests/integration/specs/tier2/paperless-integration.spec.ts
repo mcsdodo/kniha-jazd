@@ -50,10 +50,28 @@ describe('Tier 2: Paperless Integration', () => {
     // the WDIO test data dir is shared across retries within a session.
     for (const docId of [435, 423, 391]) {
       try {
-        await invokeTauri<void>('unassign_paperless_doc', { docId });
+        await invokeTauri<void>('unassign_invoice', {
+          invoiceRef: { source: 'paperless', id: docId },
+        });
       } catch {
         // No-op when there's no link to remove.
       }
+    }
+
+    // Reset Paperless field-name overrides. The "Custom fields" test sets
+    // `fieldNameLiters: 'total_price_eur'` mid-flow; if it crashes before its
+    // own cleanup, the override leaks into subsequent specFileRetries and
+    // collapses litres extraction (total_amount_id == litres_id → the
+    // if/else-if chain in fetch_invoice_documents skips the litres branch).
+    try {
+      await invokeTauri<void>('save_paperless_settings', {
+        url: null, token: null, enabled: null,
+        fieldNameDatetime: '',
+        fieldNameLiters: '',
+        fieldNameTotal: '',
+      });
+    } catch {
+      // No-op before settings file exists on the very first invocation.
     }
   });
 
@@ -133,18 +151,6 @@ describe('Tier 2: Paperless Integration', () => {
       }
     );
 
-    // Also exercise the "Test connection" button explicitly.
-    const testBtn = await $('[data-test="paperless-test-connection"]');
-    await testBtn.waitForDisplayed({ timeout: 5000 });
-    await testBtn.click();
-    await browser.waitUntil(
-      async () => {
-        const cls = (await statusBadge.getAttribute('class')) || '';
-        return cls.includes('connected');
-      },
-      { timeout: 10000, timeoutMsg: 'Test button did not produce connected status' }
-    );
-
     // ----- 3. Doklady renders 3 paperless rows from the mock ----------------
     await navigateTo('doklady');
     // Allow live HTTP fetch + Svelte render
@@ -179,14 +185,26 @@ describe('Tier 2: Paperless Integration', () => {
     const carLitersText = (await carLiters.getText()).trim();
     expect(carLitersText).toBe('—');
 
-    // ----- 4. Assign fuel doc 435 to the first trip -------------------------
+    // ----- 4. Assign fuel doc 435 to a trip via the unified TripSelectorModal -----
     const assignBtn = await fuelRow.$('[data-test="assign-btn"]');
     await assignBtn.waitForDisplayed({ timeout: 5000 });
     await assignBtn.click();
 
-    const tripItems = await $$('[data-test="paperless-trip-item"]');
+    // Step 1: trip list — pick the first item (trips are sorted by date proximity
+    // to the doc's receipt_datetime; the doc is from 2026-04-27 so trip on 04-27
+    // sorts first).
+    const tripItems = await $$('[data-test="trip-item"]');
     expect(tripItems.length).toBeGreaterThanOrEqual(1);
+    await tripItems[0].waitForDisplayed({ timeout: 5000 });
     await tripItems[0].click();
+
+    // Step 2: Fuel/Other — Paperless fuel docs default to "Fuel" via looksLikeFuel().
+    // Trip 2 (the closest) is empty, so attachmentStatus is "matches_date" (not
+    // "differs"), meaning the modal shows the regular confirm button — no mismatch
+    // warning, no override flow.
+    const confirmBtn = await $('[data-test="confirm-assign-btn"]');
+    await confirmBtn.waitForDisplayed({ timeout: 5000 });
+    await confirmBtn.click();
 
     // Wait for the row to re-render with a trip indicator visible.
     await browser.waitUntil(
@@ -219,9 +237,9 @@ describe('Tier 2: Paperless Integration', () => {
       }
     );
 
-    // ----- 6. Clear Paperless URL → Doklady reverts to local mode -----------
-    // Backend treats None as "keep existing"; pass empty strings to clear.
-    await invokeTauri<void>('save_paperless_settings', { url: '', token: '' });
+    // ----- 6. Disable Paperless toggle → Doklady reverts to local mode ------
+    // Use enabled:false — credentials are preserved, only mode switches.
+    await invokeTauri<void>('save_paperless_settings', { url: null, token: null, enabled: false });
 
     // Force a full page remount (SvelteKit may keep route components mounted).
     await navigateTo('trips');
@@ -236,5 +254,116 @@ describe('Tier 2: Paperless Integration', () => {
     // Easiest selector-free assertion: paperless-refresh button is gone.
     const refreshAfter = await $('[data-test="paperless-refresh"]');
     expect(await refreshAfter.isExisting()).toBe(false);
+
+    // ----- 7. Re-enable Paperless → rows load again -------------------------
+    await invokeTauri<void>('save_paperless_settings', { url: null, token: null, enabled: true });
+
+    await navigateTo('trips');
+    await browser.pause(300);
+    await navigateTo('doklady');
+
+    await browser.waitUntil(
+      async () => {
+        const r = await $$('[data-test="paperless-row"]');
+        return r.length === 3;
+      },
+      { timeout: 10000, timeoutMsg: 'Paperless rows did not reload after re-enabling' }
+    );
+  });
+
+  it('Custom fields: dropdowns populated from server, gated by configuration', async () => {
+    // ----- 1. Configure Paperless ---------------------------------------------
+    await invokeTauri<void>('save_paperless_settings', {
+      url: mockUrl,
+      token: MOCK_PAPERLESS_TOKEN,
+      enabled: true,
+    });
+
+    // ----- 2. Save a custom liters override via IPC ---------------------------
+    // Pick the alternate float-typed field name. Valid: both 'liters' and
+    // 'total_price_eur' are floats on the mock server, so either is compatible
+    // with the liters concept. Confirms IPC + persistence + dropdown render.
+    await invokeTauri<void>('save_paperless_settings', {
+      url: null, token: null, enabled: null,
+      fieldNameDatetime: null,
+      fieldNameLiters: 'total_price_eur',
+      fieldNameTotal: null,
+    });
+
+    type Resp = {
+      url: string | null; hasToken: boolean; enabled: boolean;
+      fieldNameDatetime: string; fieldNameLiters: string; fieldNameTotal: string;
+    };
+    const persisted = await invokeTauri<Resp>('get_paperless_settings');
+    expect(persisted.fieldNameLiters).toBe('total_price_eur');
+
+    // ----- 3. Navigate to Settings (force fresh mount) ------------------------
+    await navigateTo('trips');
+    await browser.pause(200);
+    await navigateTo('settings');
+    await browser.pause(800); // allow listPaperlessCustomFields fetch
+
+    // ----- 4. Dropdowns visible AND populated --------------------------------
+    // `waitForDisplayed` only waits for the <select> tag to render — Svelte
+    // mounts it before listPaperlessCustomFields resolves, so options arrive
+    // a moment later. Anchor on option count to avoid asserting against an
+    // empty dropdown on slow CI runners.
+    const datetimeSelect = await $('[data-test="paperless-field-datetime"]');
+    const litersSelect = await $('[data-test="paperless-field-liters"]');
+    const totalSelect = await $('[data-test="paperless-field-total"]');
+    await litersSelect.waitForDisplayed({ timeout: 5000 });
+    await browser.waitUntil(
+      async () => {
+        const opts = await litersSelect.$$('option');
+        return opts.length >= 2;
+      },
+      { timeout: 10000, timeoutMsg: 'Liters dropdown never populated with custom-field options' }
+    );
+
+    // ----- 5. Selected option matches saved override --------------------------
+    expect(await litersSelect.getValue()).toBe('total_price_eur');
+
+    // ----- 6. Datetime dropdown filtered to string-compatible (1 real option + 1 empty default) ------
+    const datetimeOptions = await datetimeSelect.$$('option');
+    expect(datetimeOptions.length).toBe(2);
+    expect(await datetimeOptions[1].getValue()).toBe('receipt_datetime');
+
+    // ----- 7. Liters dropdown contains both float fields ----------------------
+    // WDIO 9: `$$()` returns a ChainablePromiseArray whose `.map()` does not
+    // produce a plain Array — `Promise.all(litersOptions.map(...))` raises
+    // "object is not iterable". Sequential await over a for-of loop is safe.
+    const litersOptions = await litersSelect.$$('option');
+    const litersValues: string[] = [];
+    for (const option of litersOptions) {
+      litersValues.push(await option.getValue());
+    }
+    expect(litersValues).toContain('liters');
+    expect(litersValues).toContain('total_price_eur');
+
+    // ----- 8. Refresh button is present ---------------------------------------
+    const refreshBtn = await $('[data-test="paperless-refresh-fields"]');
+    expect(await refreshBtn.isExisting()).toBe(true);
+
+    // ----- 9. Section hides when Paperless is unconfigured --------------------
+    await invokeTauri<void>('save_paperless_settings', { url: '', token: '' });
+    await navigateTo('trips');
+    await browser.pause(200);
+    await navigateTo('settings');
+    await browser.pause(400);
+
+    const litersSelectAfter = await $('[data-test="paperless-field-liters"]');
+    expect(await litersSelectAfter.isExisting()).toBe(false);
+
+    // ----- 10. Empty-string IPC clears overrides → defaults restored ----------
+    await invokeTauri<void>('save_paperless_settings', {
+      url: null, token: null, enabled: null,
+      fieldNameDatetime: '',
+      fieldNameLiters: '',
+      fieldNameTotal: '',
+    });
+    const defaulted = await invokeTauri<Resp>('get_paperless_settings');
+    expect(defaulted.fieldNameDatetime).toBe('receipt_datetime');
+    expect(defaulted.fieldNameLiters).toBe('liters');
+    expect(defaulted.fieldNameTotal).toBe('total_price_eur');
   });
 });

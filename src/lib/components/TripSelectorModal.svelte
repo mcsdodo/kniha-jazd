@@ -1,6 +1,7 @@
 <script lang="ts">
-	import type { Trip, Receipt, TripForAssignment, MismatchReason, AssignmentType } from '$lib/types';
-	import { getTripsForReceiptAssignment } from '$lib/api';
+	import type { Trip, TripForAssignment, MismatchReason, AssignmentType } from '$lib/types';
+	import { getTripsForInvoiceAssignment } from '$lib/api';
+	import type { Invoice } from '$lib/invoice';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { onMount } from 'svelte';
@@ -13,12 +14,12 @@
 	}
 
 	interface Props {
-		receipt: Receipt;
+		invoice: Invoice;
 		onSelect: (result: AssignmentResult) => void;
 		onClose: () => void;
 	}
 
-	let { receipt, onSelect, onClose }: Props = $props();
+	let { invoice, onSelect, onClose }: Props = $props();
 
 	// Step 1: Trip list, Step 2: Assignment type selection
 	let step = $state<'tripList' | 'assignmentType'>('tripList');
@@ -29,8 +30,8 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	// Determine if this receipt looks like fuel (has liters)
-	let looksLikeFuel = $derived(receipt.liters !== null && receipt.liters > 0);
+	// Determine if this invoice looks like fuel
+	let looksLikeFuel = $derived(invoice.looksLikeFuel());
 
 	// Detect if there's a mismatch when assigning (FUEL or OTHER)
 	let hasMismatch = $derived(() => {
@@ -52,15 +53,16 @@
 
 		loading = true;
 		try {
-			const items = await getTripsForReceiptAssignment(
-				receipt.id,
+			const items = await getTripsForInvoiceAssignment(
+				invoice.getRef(),
+				invoice.getData(),
 				vehicle.id,
 				$selectedYearStore
 			);
-			// Sort by date proximity to receipt date
+			// Sort by date proximity to invoice date
 			tripItems = items.sort((a, b) => {
-				const aDiff = dateProximity(getTripDate(a.trip), receipt.receiptDatetime);
-				const bDiff = dateProximity(getTripDate(b.trip), receipt.receiptDatetime);
+				const aDiff = dateProximity(getTripDate(a.trip), invoice.getDateTime());
+				const bDiff = dateProximity(getTripDate(b.trip), invoice.getDateTime());
 				return aDiff - bDiff;
 			});
 		} catch (e) {
@@ -75,16 +77,16 @@
 		return trip.startDatetime.slice(0, 10);
 	}
 
-	function dateProximity(tripDate: string, receiptDatetime: string | null): number {
-		if (!receiptDatetime) return Infinity;
+	function dateProximity(tripDate: string, invoiceDatetime: string | null): number {
+		if (!invoiceDatetime) return Infinity;
 		const t = new Date(tripDate).getTime();
-		const r = new Date(receiptDatetime).getTime();
+		const r = new Date(invoiceDatetime).getTime();
 		return Math.abs(t - r);
 	}
 
-	function isWithin3Days(tripDate: string, receiptDatetime: string | null): boolean {
-		if (!receiptDatetime) return false;
-		const diff = Math.abs(new Date(tripDate).getTime() - new Date(receiptDatetime).getTime());
+	function isWithin3Days(tripDate: string, invoiceDatetime: string | null): boolean {
+		if (!invoiceDatetime) return false;
+		const diff = Math.abs(new Date(tripDate).getTime() - new Date(invoiceDatetime).getTime());
 		return diff <= 3 * 24 * 60 * 60 * 1000;
 	}
 
@@ -95,7 +97,7 @@
 	function handleTripClick(item: TripForAssignment) {
 		if (!item.canAttach) return;
 		selectedTrip = item;
-		// Pre-select based on receipt type
+		// Pre-select based on invoice type
 		assignmentType = looksLikeFuel ? 'Fuel' : 'Other';
 		step = 'assignmentType';
 	}
@@ -148,7 +150,10 @@
 
 		const trip = item.trip;
 		const details: string[] = [];
-		const isFuelReceipt = receipt.liters !== null && receipt.liters > 0;
+		const isFuelInvoice = invoice.looksLikeFuel();
+		const invoiceDatetime = invoice.getDateTime();
+		const invoiceLiters = invoice.getLiters();
+		const invoicePrice = invoice.getPrice();
 
 		// Check what mismatches
 		const hasDateMismatch = item.mismatchReason.includes('date') || item.mismatchReason === 'all';
@@ -157,24 +162,24 @@
 		const hasPriceMismatch = item.mismatchReason === 'price' || item.mismatchReason.includes('price') || item.mismatchReason === 'all';
 
 		// Date/time mismatch detail
-		if ((hasDateMismatch || hasTimeMismatch) && receipt.receiptDatetime) {
-			const receiptTime = receipt.receiptDatetime.slice(11, 16); // HH:MM
+		if ((hasDateMismatch || hasTimeMismatch) && invoiceDatetime) {
+			const invoiceTime = invoiceDatetime.slice(11, 16); // HH:MM
 			const tripStart = trip.startDatetime.slice(11, 16);
 			const tripEnd = trip.endDatetime ? trip.endDatetime.slice(11, 16) : tripStart;
-			details.push(`Čas dokladu ${receiptTime} – jazda ${tripStart}–${tripEnd}`);
+			details.push(`Čas dokladu ${invoiceTime} – jazda ${tripStart}–${tripEnd}`);
 		}
 
-		// Liters mismatch detail (for fuel receipts)
-		if (hasLitersMismatch && isFuelReceipt && receipt.liters && trip.fuelLiters) {
-			details.push(`Litre: doklad ${receipt.liters.toFixed(2)} L – jazda ${trip.fuelLiters.toFixed(2)} L`);
+		// Liters mismatch detail (for fuel invoices)
+		if (hasLitersMismatch && isFuelInvoice && invoiceLiters && trip.fuelLiters) {
+			details.push(`Litre: doklad ${invoiceLiters.toFixed(2)} L – jazda ${trip.fuelLiters.toFixed(2)} L`);
 		}
 
 		// Price mismatch detail
-		if (hasPriceMismatch && receipt.totalPriceEur) {
-			if (isFuelReceipt && trip.fuelCostEur) {
-				details.push(`Cena: doklad ${receipt.totalPriceEur.toFixed(2)} € – jazda ${trip.fuelCostEur.toFixed(2)} €`);
-			} else if (!isFuelReceipt && trip.otherCostsEur) {
-				details.push(`Cena: doklad ${receipt.totalPriceEur.toFixed(2)} € – jazda ${trip.otherCostsEur.toFixed(2)} €`);
+		if (hasPriceMismatch && invoicePrice) {
+			if (isFuelInvoice && trip.fuelCostEur) {
+				details.push(`Cena: doklad ${invoicePrice.toFixed(2)} € – jazda ${trip.fuelCostEur.toFixed(2)} €`);
+			} else if (!isFuelInvoice && trip.otherCostsEur) {
+				details.push(`Cena: doklad ${invoicePrice.toFixed(2)} € – jazda ${trip.otherCostsEur.toFixed(2)} €`);
 			}
 		}
 
@@ -201,14 +206,14 @@
 			<!-- Step 1: Select trip -->
 			<h2>{$LL.tripSelector.title()}</h2>
 			<div class="receipt-info">
-				<span class="file-name">{receipt.fileName}</span>
+				<span class="file-name">{invoice.getDisplayName()}</span>
 				<span class="separator">|</span>
-				<span>{receipt.liters?.toFixed(2) ?? '??'} L</span>
+				<span>{invoice.getLiters()?.toFixed(2) ?? '??'} L</span>
 				<span class="separator">|</span>
-				<span>{receipt.totalPriceEur?.toFixed(2) ?? '??'} EUR</span>
-				{#if receipt.receiptDatetime}
+				<span>{invoice.getPrice()?.toFixed(2) ?? '??'} EUR</span>
+				{#if invoice.getDateTime()}
 					<span class="separator">|</span>
-					<span>{formatDate(receipt.receiptDatetime)}</span>
+					<span>{formatDate(invoice.getDateTime()!)}</span>
 				{/if}
 			</div>
 
@@ -222,9 +227,11 @@
 				<div class="trip-list">
 					{#each tripItems as item}
 						{@const disabled = !item.canAttach}
-						{@const highlighted = isWithin3Days(getTripDate(item.trip), receipt.receiptDatetime)}
+						{@const highlighted = isWithin3Days(getTripDate(item.trip), invoice.getDateTime())}
 						<button
 							class="trip-item"
+							data-test="trip-item"
+							data-trip-id={item.trip.id}
 							class:highlight={highlighted}
 							class:disabled
 							onclick={() => handleTripClick(item)}
@@ -308,7 +315,7 @@
 				<!-- Normal assignment -->
 				<div class="modal-actions">
 					<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
-					<button class="button-small primary" onclick={() => handleAssign(false)}>
+					<button class="button-small primary" data-test="confirm-assign-btn" onclick={() => handleAssign(false)}>
 						{$LL.tripSelector.confirmAssignment()}
 					</button>
 				</div>

@@ -540,20 +540,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "unassign_receipt" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                id: String,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::unassign_receipt_internal(
-                &state.db,
-                &state.app_state,
-                a.id,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
         "revert_receipt_override" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -568,43 +554,38 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "assign_receipt_to_trip" => {
+        "get_trips_for_invoice_assignment" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
-                receipt_id: String,
-                trip_id: String,
-                vehicle_id: String,
-                assignment_type: String,
-                mismatch_override: bool,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::assign_receipt_to_trip_internal(
-                &state.db,
-                &a.receipt_id,
-                &a.trip_id,
-                &a.vehicle_id,
-                &a.assignment_type,
-                a.mismatch_override,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "get_trips_for_receipt_assignment" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                receipt_id: String,
+                invoice_ref: crate::invoice::InvoiceRef,
+                invoice_data: Option<crate::invoice::InvoiceData>,
                 vehicle_id: String,
                 year: i32,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::get_trips_for_receipt_assignment_internal(
+            let v = crate::commands_internal::invoices::get_trips_for_invoice_assignment_internal(
                 &state.db,
-                &a.receipt_id,
+                &a.invoice_ref,
+                a.invoice_data.as_ref(),
                 &a.vehicle_id,
                 a.year,
             )?;
             Ok(serde_json::to_value(v).unwrap())
+        }
+        "unassign_invoice" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                invoice_ref: crate::invoice::InvoiceRef,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::invoices::unassign_invoice_internal(
+                &state.db,
+                &state.app_state,
+                &a.invoice_ref,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
         }
         "verify_receipts" => {
             #[derive(serde::Deserialize)]
@@ -811,6 +792,10 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 url: Option<String>,
                 token: Option<String>,
+                enabled: Option<bool>,
+                field_name_datetime: Option<String>,
+                field_name_liters: Option<String>,
+                field_name_total: Option<String>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::integrations::save_paperless_settings_internal(
@@ -818,6 +803,10 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 &state.app_state,
                 a.url,
                 a.token,
+                a.enabled,
+                a.field_name_datetime,
+                a.field_name_liters,
+                a.field_name_total,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }

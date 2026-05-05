@@ -508,3 +508,37 @@ fn delete_trip_removes_paperless_link() {
 
     assert_eq!(db.count_paperless_links().unwrap(), 0);
 }
+
+// ============================================================================
+// Source-agnostic invoice attachment query
+// ============================================================================
+
+#[test]
+fn get_trip_ids_with_invoice_unions_receipts_and_paperless() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_with_receipt = seed_test_trip(&db, &v.id.to_string());
+    let trip_with_paperless = seed_test_trip(&db, &v.id.to_string());
+    let trip_uncovered = seed_test_trip(&db, &v.id.to_string());
+
+    // Receipt-side coverage: assign a receipt to trip_with_receipt
+    let mut receipt = Receipt::new("p.jpg".to_string(), "r.jpg".to_string());
+    receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_with_receipt).unwrap());
+    receipt.vehicle_id = Some(v.id);
+    db.create_receipt(&receipt).unwrap();
+
+    // An unassigned receipt must NOT contribute to the covered set
+    let unassigned = Receipt::new("u.jpg".to_string(), "u.jpg".to_string());
+    db.create_receipt(&unassigned).unwrap();
+
+    // Paperless-side coverage: link a paperless doc to trip_with_paperless
+    db.upsert_paperless_link(&trip_with_paperless, 435).unwrap();
+
+    let covered = db.get_trip_ids_with_invoice().unwrap();
+
+    assert!(covered.contains(&trip_with_receipt));
+    assert!(covered.contains(&trip_with_paperless));
+    assert!(!covered.contains(&trip_uncovered));
+    assert_eq!(covered.len(), 2);
+}

@@ -12,6 +12,7 @@ pub mod db;
 pub mod db_location;
 pub mod export;
 pub mod gemini;
+pub mod invoice;
 pub mod models;
 pub mod paperless;
 pub mod receipts;

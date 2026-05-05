@@ -7,8 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Auto-detekcia vlastných polí Paperless-ngx** - v Nastaveniach → Paperless → Vlastné polia sa zobrazujú **rozbaľovacie zoznamy** naplnené priamo zo zoznamu vlastných polí na tvojom Paperless serveri. Aplikácia pre každý zo svojich troch konceptov (dátum/čas, litre, suma) ponúka len kompatibilné polia podľa typu — string/date pre dátum, float/integer pre litre, float/monetary/integer pre sumu. Tlačidlo „Obnoviť zoznam polí" znovu načíta zoznam, ak si pridal nové pole v Paperless. Sekcia sa skryje, kým nenastavíš URL a token. Predvolené názvy zodpovedajú vlastnej terminológii aplikácie: `receipt_datetime`, `liters`, `total_price_eur`. **Migrácia:** používatelia, ktorých Paperless polia mali pôvodné názvy `litres` / `total_amount`, jednoducho otvoria Settings a vyberú správne pole z rozbaľovacieho zoznamu — netreba si nič pamätať ani prepisovať.
+
+### Zmenené
+- **Priradenie Paperless dokladov používa rovnaký inteligentný výber jazdy ako lokálne doklady** - zoznam jázd je zoradený podľa blízkosti dátumu k dokladu, jazdy v rovnakom dni sú zvýraznené, indikátor zhody (✓ matches / ~ matches_date / ⚠ differs) ukazuje stav každej jazdy. Po výbere jazdy sa zobrazí krok výberu typu (palivo / iné náklady) a v prípade nezhody dát aj varovanie s možnosťou potvrdenia. Ak Paperless doklad obsahuje litre + cenu, automaticky sa doplnia do prázdnej jazdy. Predtým Paperless doklady mali plochý zoznam všetkých jázd bez akejkoľvek inteligencie.
+- **Prepínač Paperless-ngx v Nastaveniach** - používatelia môžu kedykoľvek prepnúť medzi režimom Paperless a lokálnych dokladov bez straty uloženej URL adresy a tokenu.
+
 ### Opravené
 - **Stránka Doklady sa príležitostne zobrazovala prázdna** - opravená race condition, pri ktorej sa `onMount` stránky vyvolal skôr, než layout naplnil `activeVehicleStore`, čo spôsobilo načítanie s `null` vozidlom a následné blokovanie ďalšieho načítania. Načítanie presunuté do reaktívneho `$effect`.
+- **Dátum a čas Paperless dokladov sa zobrazoval v surovom formáte** - karta dokladu v Paperless režime zobrazovala reťazec ako `2026-04-27T13:24:14` namiesto `27. 04. 2026, 13:24`. Opravené prechodom cez `formatDatetime()`, rovnako ako lokálne doklady.
+- **Po priradení Paperless dokladu jazda stále zobrazovala varovanie „chýba doklad"** - kontrola chýbajúcich dokladov pozerala iba do tabuľky `receipts`, takže priradenia cez Paperless (uložené v `paperless_trip_links`) ignorovala. Logika je teraz zdrojovo-neutrálna: jazda je dokumentovaná, ak má Receipt **alebo** Paperless link.
 
 ## [0.35.0] - 2026-05-04
 

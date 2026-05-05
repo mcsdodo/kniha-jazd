@@ -1,4 +1,4 @@
-# Contributing
+﻿# Contributing
 
 Thanks for your interest in contributing to Kniha Jázd!
 
@@ -21,7 +21,7 @@ cd kniha-jazd
 npm install
 
 # Run in development mode
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ### Running Tests

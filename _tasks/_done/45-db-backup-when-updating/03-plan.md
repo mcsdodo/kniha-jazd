@@ -1,4 +1,4 @@
-# Database Backup Before Updates - Implementation Plan
+﻿# Database Backup Before Updates - Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -1410,7 +1410,7 @@ Expected: All tests PASS
 .\scripts\test-release.ps1
 node _test-releases/serve.js
 # In another terminal:
-set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri dev
+set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json && npm run tauri:dev
 ```
 
 Verify:

@@ -1,4 +1,4 @@
-# Fix Stats Consumption Implementation Plan
+﻿# Fix Stats Consumption Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -271,7 +271,7 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
 **Step 1: Run the app**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 
 **Step 2: Check Mercedes vehicle stats**
 

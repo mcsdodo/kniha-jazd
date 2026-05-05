@@ -410,6 +410,30 @@ export interface HaOdoCache {
 export interface PaperlessSettings {
 	url: string | null;
 	hasToken: boolean;
+	enabled: boolean;
+	// Resolved custom field names (defaults applied server-side; always populated)
+	fieldNameDatetime: string;
+	fieldNameLiters: string;
+	fieldNameTotal: string;
+}
+
+/**
+ * Lightweight view of a Paperless custom field, used to populate the
+ * Settings → Paperless → Custom fields dropdowns.
+ *
+ * Paperless data_type values (subset relevant to us):
+ *   "string"    — used for receipt_datetime (stored as text since Paperless
+ *                 lacks native datetime support)
+ *   "float"     — used for liters and money fields
+ *   "monetary"  — alternative for prices
+ *   "date"      — Paperless native date type (forward-compat for datetime)
+ *   "integer"   — whole-number variant
+ *   plus: "boolean" | "url" | "documentlink" | "select" (not relevant here)
+ */
+export interface PaperlessCustomFieldInfo {
+	id: number;
+	name: string;
+	dataType: string;
 }
 
 export type InvoiceSourceMode = 'local' | 'paperless';
@@ -424,4 +448,16 @@ export interface PaperlessInvoiceRow {
 	createdDate: string;              // "2026-04-27"
 	assignmentType: AssignmentType;
 	tripId: string | null;
+}
+
+export type InvoiceRef =
+	| { source: 'receipt'; id: string }
+	| { source: 'paperless'; id: number };
+
+export interface InvoiceData {
+	datetime: string | null;          // ISO-8601 NaiveDateTime, e.g. "2026-04-27T13:24:14"
+	liters: number | null;
+	totalPriceEur: number | null;
+	title: string;
+	assignmentType: 'Fuel' | 'Other';
 }

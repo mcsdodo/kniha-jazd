@@ -1,4 +1,4 @@
-# PDF Export Implementation Plan
+﻿# PDF Export Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -783,7 +783,7 @@ Add to the `<style>` section:
 
 **Step 8: Verify the app compiles and runs**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 Expected: App starts, export button visible
 
 **Step 9: Commit**
@@ -800,7 +800,7 @@ git commit -m "feat(ui): add PDF export button"
 **Step 1: Run the app**
 
 ```bash
-npm run tauri dev
+npm run tauri:dev
 ```
 
 **Step 2: Test with existing data**

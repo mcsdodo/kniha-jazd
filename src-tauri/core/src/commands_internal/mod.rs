@@ -33,6 +33,9 @@ pub use settings_cmd::*;
 pub mod integrations;
 pub use integrations::*;
 
+pub mod invoices;
+pub use invoices::*;
+
 pub mod paperless_cmd;
 pub use paperless_cmd::*;
 

@@ -1,4 +1,4 @@
-# Plan Review: end_datetime Cleanup
+﻿# Plan Review: end_datetime Cleanup
 
 **Reviewed:** 2026-01-29
 **Plan:** 02-plan.md
@@ -35,7 +35,7 @@
 
 - [x] **Task ordering clarification**: Phase 3 (commands) cannot be done before Phase 1 (models) since commands create Trip structs. The plan correctly sequences these but should note the dependency explicitly.
 
-- [x] **Verification steps in Phase 5**: Missing `npm run lint` and `npm run format` checks. Should also verify frontend still works with `npm run tauri dev`.
+- [x] **Verification steps in Phase 5**: Missing `npm run lint` and `npm run format` checks. Should also verify frontend still works with `npm run tauri:dev`.
 
 - [x] **End_time to end_datetime type change**: The plan says replace `end_time: Option<String>` with `end_datetime: NaiveDateTime`. Current code in `commands/trips.rs` has:
   ```rust
@@ -78,7 +78,7 @@ The plan is **structurally sound** but needed these revisions before implementat
 2. **Add `export.rs` production code** to Phase 3 (not just test code in Phase 4)
 3. **Keep Phase 6** but rewrite as DROP migration (not rename) - see user feedback
 4. **Clarify `end_datetime` type** as `Option<NaiveDateTime>` to match nullable DB column
-5. **Add verification steps**: `npm run lint`, `npm run format`, `npm run tauri dev`
+5. **Add verification steps**: `npm run lint`, `npm run format`, `npm run tauri:dev`
 
 After these revisions, the plan is ready for implementation.
 
@@ -93,7 +93,7 @@ After these revisions, the plan is ready for implementation.
 2. ✅ Added `export.rs` production code changes (lines 246, 254)
 3. ✅ Rewrote Phase 6 to DROP obsolete columns (not rename)
 4. ✅ Clarified `end_datetime` as `Option<NaiveDateTime>`
-5. ✅ Added verification steps (`npm run lint`, `npm run format`, `npm run tauri dev`)
+5. ✅ Added verification steps (`npm run lint`, `npm run format`, `npm run tauri:dev`)
 6. ✅ Added SQLite table rebuild pattern (SQLite doesn't support DROP COLUMN directly)
 7. ✅ Updated "Approach" section to clarify simplified strategy
 

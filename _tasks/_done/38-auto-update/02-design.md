@@ -1,4 +1,4 @@
-# Auto-Update Feature Design
+﻿# Auto-Update Feature Design
 
 ## Overview
 
@@ -852,7 +852,7 @@ For testing, override the updater endpoint at compile time:
 # "endpoints": ["$TAURI_UPDATER_ENDPOINT"]
 # Then set env var for dev builds:
 set TAURI_UPDATER_ENDPOINT=http://localhost:3456/latest.json
-npm run tauri dev
+npm run tauri:dev
 ```
 
 **Option B: Separate dev config**

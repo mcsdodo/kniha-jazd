@@ -1,4 +1,4 @@
-**Date:** 2026-01-07
+﻿**Date:** 2026-01-07
 **Subject:** Split Large Rust Files (commands.rs, db.rs) into Modules
 **Status:** Planning
 
@@ -31,7 +31,7 @@ The current large files exceed AI context limits (~2000 lines) and mix multiple 
 - [ ] All tests pass after refactor
 - [ ] No file exceeds ~850 lines
 - [ ] `cargo clippy` reports no new warnings
-- [ ] `npm run tauri dev` runs without issues
+- [ ] `npm run tauri:dev` runs without issues
 
 ## Out of Scope
 

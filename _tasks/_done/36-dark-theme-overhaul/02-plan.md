@@ -1,4 +1,4 @@
-# Dark Theme Styling Overhaul - Implementation Plan
+﻿# Dark Theme Styling Overhaul - Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -105,7 +105,7 @@
 - Test: All main pages in dark mode
 
 **Steps:**
-1. Run app in dev mode: `npm run tauri dev`
+1. Run app in dev mode: `npm run tauri:dev`
 2. Switch to dark theme via Settings
 3. Check each page:
    - [ ] Home page (TripGrid) - row colors, buttons, editing state

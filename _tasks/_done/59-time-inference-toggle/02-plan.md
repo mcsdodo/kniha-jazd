@@ -1,4 +1,4 @@
-# Time Inference Toggle Implementation Plan
+﻿# Time Inference Toggle Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task.
 
@@ -667,7 +667,7 @@ Append inside the `<style>` block:
 
 **Step 3: Manual smoke test**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 In dev tools console, run:
 
 ```js
@@ -739,7 +739,7 @@ In the page template, in the trip-entry section (or create one if none exists, n
 
 **Step 3: Manual smoke test**
 
-Run: `npm run tauri dev`
+Run: `npm run tauri:dev`
 - Open settings page → toggle is visible, defaults to **off**.
 - Enable it → reload app → toggle is still on (round-tripped through [local.settings.json](../../)).
 - Disable it → reload → still off.

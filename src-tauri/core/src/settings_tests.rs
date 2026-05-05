@@ -106,6 +106,10 @@ fn test_save_preserves_all_fields() {
         ha_api_token: Some("token123".to_string()),
         paperless_url: None,
         paperless_api_token: None,
+        paperless_enabled: None,
+        paperless_field_name_datetime: None,
+        paperless_field_name_liters: None,
+        paperless_field_name_total: None,
         server_enabled: Some(true),
         server_port: Some(3456),
     };

@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, InvoiceSourceMode, PaperlessInvoiceRow } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -323,40 +323,12 @@ export async function deleteReceipt(id: string): Promise<void> {
 	return await apiCall('delete_receipt', { id });
 }
 
-export async function unassignReceipt(id: string): Promise<void> {
-	return await apiCall('unassign_receipt', { id });
-}
-
 export async function revertReceiptOverride(id: string): Promise<void> {
 	return await apiCall('revert_receipt_override', { id });
 }
 
 export async function reprocessReceipt(id: string): Promise<Receipt> {
 	return await apiCall('reprocess_receipt', { id });
-}
-
-export async function assignReceiptToTrip(
-	receiptId: string,
-	tripId: string,
-	vehicleId: string,
-	assignmentType: 'Fuel' | 'Other',
-	mismatchOverride: boolean = false
-): Promise<Receipt> {
-	return await apiCall('assign_receipt_to_trip', {
-		receiptId,
-		tripId,
-		vehicleId,
-		assignmentType,
-		mismatchOverride
-	});
-}
-
-export async function getTripsForReceiptAssignment(
-	receiptId: string,
-	vehicleId: string,
-	year: number
-): Promise<TripForAssignment[]> {
-	return await apiCall('get_trips_for_receipt_assignment', { receiptId, vehicleId, year });
 }
 
 export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {
@@ -559,12 +531,38 @@ export async function getPaperlessSettings(): Promise<PaperlessSettings> {
 }
 
 // null = keep existing value, '' (empty string) = clear the value
-export async function savePaperlessSettings(url: string | null, token: string | null): Promise<void> {
-	return apiCall('save_paperless_settings', { url, token });
+export async function savePaperlessSettings(
+	url: string | null,
+	token: string | null,
+	enabled: boolean | null = null,
+	fieldNameDatetime: string | null = null,
+	fieldNameLiters: string | null = null,
+	fieldNameTotal: string | null = null,
+): Promise<void> {
+	return apiCall('save_paperless_settings', {
+		url,
+		token,
+		enabled,
+		fieldNameDatetime,
+		fieldNameLiters,
+		fieldNameTotal,
+	});
 }
 
 export async function testPaperlessConnection(): Promise<boolean> {
 	return apiCall<boolean>('test_paperless_connection');
+}
+
+/**
+ * Fetch the list of all custom fields from the configured Paperless server.
+ * Used by Settings UI to populate the field-name dropdowns.
+ *
+ * Throws if Paperless is unreachable or unauthenticated. The Settings UI
+ * treats `Result.Err("not configured")` as "hide the section" rather than
+ * surfacing an error toast.
+ */
+export async function listPaperlessCustomFields(): Promise<PaperlessCustomFieldInfo[]> {
+	return apiCall<PaperlessCustomFieldInfo[]>('list_paperless_custom_fields');
 }
 
 export async function getInvoiceSourceMode(): Promise<InvoiceSourceMode> {
@@ -575,10 +573,31 @@ export async function getPaperlessInvoices(vehicleId: string, year: number): Pro
 	return apiCall<PaperlessInvoiceRow[]>('get_paperless_invoices', { vehicleId, year });
 }
 
-export async function assignPaperlessDocToTrip(docId: number, tripId: string): Promise<void> {
-	return apiCall('assign_paperless_doc_to_trip', { docId, tripId });
+// Unified invoice commands (Task 64)
+export async function getTripsForInvoiceAssignment(
+	invoiceRef: InvoiceRef,
+	invoiceData: InvoiceData | null,
+	vehicleId: string,
+	year: number,
+): Promise<TripForAssignment[]> {
+	return await apiCall('get_trips_for_invoice_assignment', {
+		invoiceRef, invoiceData, vehicleId, year,
+	});
 }
 
-export async function unassignPaperlessDoc(docId: number): Promise<void> {
-	return apiCall('unassign_paperless_doc', { docId });
+export async function assignInvoiceToTrip(
+	invoiceRef: InvoiceRef,
+	invoiceData: InvoiceData | null,
+	tripId: string,
+	vehicleId: string,
+	assignmentType: 'Fuel' | 'Other',
+	mismatchOverride: boolean = false,
+): Promise<void> {
+	return await apiCall('assign_invoice_to_trip', {
+		invoiceRef, invoiceData, tripId, vehicleId, assignmentType, mismatchOverride,
+	});
+}
+
+export async function unassignInvoice(invoiceRef: InvoiceRef): Promise<void> {
+	return await apiCall('unassign_invoice', { invoiceRef });
 }

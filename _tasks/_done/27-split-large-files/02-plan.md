@@ -1,4 +1,4 @@
-**Date:** 2026-01-07
+﻿**Date:** 2026-01-07
 **Subject:** Implementation Plan - Split commands.rs and db.rs
 **Status:** Planning
 
@@ -85,7 +85,7 @@ src-tauri/src/db/
 - [ ] `cargo build --release` - clean production build
 - [ ] `cargo fmt` - format new files
 - [ ] `cargo clippy` - no warnings
-- [ ] `npm run tauri dev` - manual smoke test
+- [ ] `npm run tauri:dev` - manual smoke test
 
 ### Phase 5: Commit
 - [ ] Commit: `refactor(backend): split commands.rs and db.rs into modules`

@@ -18,7 +18,7 @@ import {
   setActiveVehicle,
   getReceipts,
   getReceiptsForVehicle,
-  getTripsForReceiptAssignment,
+  getTripsForInvoiceAssignment,
   setReceiptsFolderPath,
   syncReceipts,
   updateReceipt,
@@ -99,7 +99,7 @@ describe('Tier 2: Receipts Workflow', () => {
      * 2. Set receipts folder to test data
      * 3. Scan for receipts (finds invoice.pdf)
      * 4. Sync receipts (mock Gemini returns invoice.json data)
-     * 5. Call get_trips_for_receipt_assignment
+     * 5. Call get_trips_for_invoice_assignment
      * 6. Verify mismatch_reason is returned correctly
      *
      * Invoice mock data (from tests/integration/data/mocks/invoice.json):
@@ -161,8 +161,9 @@ describe('Tier 2: Receipts Workflow', () => {
       expect(receipt).toBeDefined();
 
       // 7. Get trips for receipt assignment and check mismatch
-      const tripsForAssignment = await getTripsForReceiptAssignment(
-        receipt.id,
+      const tripsForAssignment = await getTripsForInvoiceAssignment(
+        { source: 'receipt', id: receipt.id },
+        null, // backend loads receipt data from DB
         vehicle.id as string,
         2026
       );
@@ -234,8 +235,9 @@ describe('Tier 2: Receipts Workflow', () => {
       const receipt = receipts[0];
 
       // 6. Get trips for assignment
-      const tripsForAssignment = await getTripsForReceiptAssignment(
-        receipt.id,
+      const tripsForAssignment = await getTripsForInvoiceAssignment(
+        { source: 'receipt', id: receipt.id },
+        null, // backend loads receipt data from DB
         vehicle.id as string,
         2026
       );
@@ -299,8 +301,9 @@ describe('Tier 2: Receipts Workflow', () => {
       const receipt = receipts[0];
 
       // 6. Get trips for assignment
-      const tripsForAssignment = await getTripsForReceiptAssignment(
-        receipt.id,
+      const tripsForAssignment = await getTripsForInvoiceAssignment(
+        { source: 'receipt', id: receipt.id },
+        null, // backend loads receipt data from DB
         vehicle.id as string,
         2026
       );

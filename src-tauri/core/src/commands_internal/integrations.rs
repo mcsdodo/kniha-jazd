@@ -181,24 +181,42 @@ pub fn save_ha_settings_internal(
 pub struct PaperlessSettingsResponse {
     pub url: Option<String>,
     pub has_token: bool,
+    pub enabled: bool,
+    // Resolved custom field names (defaults applied when settings are None/empty)
+    pub field_name_datetime: String,
+    pub field_name_liters: String,
+    pub field_name_total: String,
 }
 
 pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
+    use crate::paperless::PaperlessFieldNames;
+
     let settings = LocalSettings::load(app_dir);
+    let names = PaperlessFieldNames::from_settings(&settings);
+    let enabled = settings.paperless_enabled.unwrap_or(true);
     Ok(PaperlessSettingsResponse {
         url: settings.paperless_url,
         has_token: settings
             .paperless_api_token
             .as_deref()
             .is_some_and(|t| !t.trim().is_empty()),
+        enabled,
+        field_name_datetime: names.datetime,
+        field_name_liters: names.liters,
+        field_name_total: names.total,
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn save_paperless_settings_internal(
     app_dir: &Path,
     app_state: &AppState,
     url: Option<String>,
     token: Option<String>,
+    enabled: Option<bool>,
+    field_name_datetime: Option<String>,
+    field_name_liters: Option<String>,
+    field_name_total: Option<String>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     if let Some(ref url_str) = url {
@@ -219,6 +237,22 @@ pub fn save_paperless_settings_internal(
     if let Some(t) = token {
         let t = t.trim().to_string();
         settings.paperless_api_token = if t.is_empty() { None } else { Some(t) };
+    }
+    if let Some(e) = enabled {
+        settings.paperless_enabled = Some(e);
+    }
+    // Field-name overrides — empty string clears (= use default), None keeps existing
+    if let Some(v) = field_name_datetime {
+        let v = v.trim().to_string();
+        settings.paperless_field_name_datetime = if v.is_empty() { None } else { Some(v) };
+    }
+    if let Some(v) = field_name_liters {
+        let v = v.trim().to_string();
+        settings.paperless_field_name_liters = if v.is_empty() { None } else { Some(v) };
+    }
+    if let Some(v) = field_name_total {
+        let v = v.trim().to_string();
+        settings.paperless_field_name_total = if v.is_empty() { None } else { Some(v) };
     }
     settings.save(app_dir).map_err(|e| e.to_string())
 }
@@ -254,8 +288,11 @@ pub enum InvoiceSourceMode {
 }
 
 pub fn get_invoice_source_mode_from_settings(s: &LocalSettings) -> InvoiceSourceMode {
+    let enabled = s.paperless_enabled.unwrap_or(true);
     match (&s.paperless_url, &s.paperless_api_token) {
-        (Some(u), Some(t)) if !u.trim().is_empty() && !t.trim().is_empty() => InvoiceSourceMode::Paperless,
+        (Some(u), Some(t)) if enabled && !u.trim().is_empty() && !t.trim().is_empty() => {
+            InvoiceSourceMode::Paperless
+        }
         _ => InvoiceSourceMode::Local,
     }
 }
