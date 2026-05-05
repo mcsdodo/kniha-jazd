@@ -17,6 +17,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ### Opravené
 - **Stránka Doklady sa príležitostne zobrazovala prázdna** - opravená race condition, pri ktorej sa `onMount` stránky vyvolal skôr, než layout naplnil `activeVehicleStore`, čo spôsobilo načítanie s `null` vozidlom a následné blokovanie ďalšieho načítania. Načítanie presunuté do reaktívneho `$effect`.
 - **Dátum a čas Paperless dokladov sa zobrazoval v surovom formáte** - karta dokladu v Paperless režime zobrazovala reťazec ako `2026-04-27T13:24:14` namiesto `27. 04. 2026, 13:24`. Opravené prechodom cez `formatDatetime()`, rovnako ako lokálne doklady.
+- **Po priradení Paperless dokladu jazda stále zobrazovala varovanie „chýba doklad"** - kontrola chýbajúcich dokladov pozerala iba do tabuľky `receipts`, takže priradenia cez Paperless (uložené v `paperless_trip_links`) ignorovala. Logika je teraz zdrojovo-neutrálna: jazda je dokumentovaná, ak má Receipt **alebo** Paperless link.
 
 ## [0.35.0] - 2026-05-04
 

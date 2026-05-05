@@ -15,6 +15,7 @@ use diesel::prelude::*;
 use diesel::result::QueryResult;
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -1004,6 +1005,33 @@ impl Database {
         use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();
         p::paperless_trip_links.count().get_result(conn)
+    }
+
+    // ========================================================================
+    // Source-agnostic invoice attachment query
+    // ========================================================================
+
+    /// Trip IDs that have any invoice attached — Receipt with `trip_id` set
+    /// OR a row in `paperless_trip_links`. The two sources are equivalent for
+    /// the "is this trip documented?" check, so callers consume the union and
+    /// never branch on source.
+    pub fn get_trip_ids_with_invoice(&self) -> QueryResult<HashSet<String>> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        use crate::schema::receipts::dsl as r;
+        let conn = &mut *self.conn.lock().unwrap();
+
+        let receipt_ids: Vec<Option<String>> = r::receipts
+            .select(r::trip_id)
+            .filter(r::trip_id.is_not_null())
+            .load(conn)?;
+
+        let paperless_ids: Vec<String> = p::paperless_trip_links
+            .select(p::trip_id)
+            .load(conn)?;
+
+        let mut set: HashSet<String> = receipt_ids.into_iter().flatten().collect();
+        set.extend(paperless_ids);
+        Ok(set)
     }
 }
 
