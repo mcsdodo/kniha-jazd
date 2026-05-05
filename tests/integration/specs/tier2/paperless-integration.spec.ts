@@ -323,10 +323,10 @@ describe('Tier 2: Paperless Integration', () => {
     // ----- 5. Selected option matches saved override --------------------------
     expect(await litersSelect.getValue()).toBe('total_price_eur');
 
-    // ----- 6. Datetime dropdown filtered to string-compatible (1 option) ------
+    // ----- 6. Datetime dropdown filtered to string-compatible (1 real option + 1 empty default) ------
     const datetimeOptions = await datetimeSelect.$$('option');
-    expect(datetimeOptions.length).toBe(1);
-    expect(await datetimeOptions[0].getValue()).toBe('receipt_datetime');
+    expect(datetimeOptions.length).toBe(2);
+    expect(await datetimeOptions[1].getValue()).toBe('receipt_datetime');
 
     // ----- 7. Liters dropdown contains both float fields ----------------------
     // WDIO 9: `$$()` returns a ChainablePromiseArray whose `.map()` does not
