@@ -7,6 +7,7 @@ use crate::invoice::{InvoiceData, InvoiceRef};
 use crate::models::{
     AssignmentType, ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus,
 };
+use crate::paperless::PaperlessDoc;
 use chrono::{NaiveDate, Utc};
 use uuid::Uuid;
 
@@ -49,13 +50,27 @@ fn seed_fuel_receipt(db: &Database, vehicle_id: Uuid, liters: f64, price: f64) -
     id
 }
 
-fn paperless_data_fuel() -> InvoiceData {
-    InvoiceData {
-        datetime: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap().and_hms_opt(12, 0, 0),
-        liters: Some(40.5),
-        total_price_eur: Some(58.20),
+fn paperless_doc_fuel() -> PaperlessDoc {
+    PaperlessDoc {
+        id: 435,
         title: "Doc 435".into(),
-        assignment_type: AssignmentType::Fuel,
+        tag_ids: vec![],
+        created: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        total_amount: Some(58.20),
+        litres: Some(40.5),
+        receipt_datetime: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap().and_hms_opt(12, 0, 0),
+    }
+}
+
+fn paperless_doc_other() -> PaperlessDoc {
+    PaperlessDoc {
+        id: 435,
+        title: "Iná cena".into(),
+        tag_ids: vec![],
+        created: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        total_amount: Some(15.00),
+        litres: None,
+        receipt_datetime: None,
     }
 }
 
@@ -84,7 +99,10 @@ fn get_trips_dispatches_paperless_path_uses_inline_data() {
     let v = db_tests::create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
     db_tests::seed_test_trip(&db, &v.id.to_string());
-    let data = paperless_data_fuel();
+    let data = InvoiceData {
+        datetime: None, liters: Some(40.5), total_price_eur: Some(58.20),
+        title: "Doc 435".into(), assignment_type: AssignmentType::Fuel,
+    };
     let result = get_trips_for_invoice_assignment_internal(
         &db,
         &InvoiceRef::Paperless(435),
@@ -121,12 +139,12 @@ fn assign_paperless_populates_trip_fuel_when_empty() {
     db.create_vehicle(&v).unwrap();
     let trip_id = db_tests::seed_test_trip(&db, &v.id.to_string());
     let app_state = AppState::new();
-    let data = paperless_data_fuel();
+    let doc = paperless_doc_fuel();
     assign_invoice_to_trip_internal(
         &db,
         &app_state,
         &InvoiceRef::Paperless(435),
-        Some(&data),
+        Some(&doc),
         &trip_id,
         &v.id.to_string(),
         AssignmentType::Fuel,
@@ -146,18 +164,12 @@ fn assign_invoice_blocked_when_read_only() {
     let trip_id = db_tests::seed_test_trip(&db, &v.id.to_string());
     let app_state = AppState::new();
     app_state.enable_read_only("test");
-    let data = InvoiceData {
-        datetime: None,
-        liters: None,
-        total_price_eur: None,
-        title: "X".into(),
-        assignment_type: AssignmentType::Other,
-    };
+    let doc = paperless_doc_other();
     let err = assign_invoice_to_trip_internal(
         &db,
         &app_state,
         &InvoiceRef::Paperless(435),
-        Some(&data),
+        Some(&doc),
         &trip_id,
         &v.id.to_string(),
         AssignmentType::Other,
@@ -182,12 +194,12 @@ fn assign_paperless_rejects_trip_from_different_vehicle() {
     // Trip belongs to v1, but we pass v2 as the vehicle_id
     let trip_id = db_tests::seed_test_trip(&db, &v1.id.to_string());
     let app_state = AppState::new();
-    let data = paperless_data_fuel();
+    let doc = paperless_doc_fuel();
     let err = assign_invoice_to_trip_internal(
         &db,
         &app_state,
         &InvoiceRef::Paperless(435),
-        Some(&data),
+        Some(&doc),
         &trip_id,
         &v2.id.to_string(),
         AssignmentType::Fuel,

@@ -573,30 +573,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
-        "assign_invoice_to_trip" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                invoice_ref: crate::invoice::InvoiceRef,
-                invoice_data: Option<crate::invoice::InvoiceData>,
-                trip_id: String,
-                vehicle_id: String,
-                assignment_type: crate::models::AssignmentType,
-                mismatch_override: bool,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::invoices::assign_invoice_to_trip_internal(
-                &state.db,
-                &state.app_state,
-                &a.invoice_ref,
-                a.invoice_data.as_ref(),
-                &a.trip_id,
-                &a.vehicle_id,
-                a.assignment_type,
-                a.mismatch_override,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
         "unassign_invoice" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

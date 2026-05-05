@@ -86,6 +86,23 @@ pub async fn get_paperless_invoices_internal(
     }).collect())
 }
 
+/// Fetch a single Paperless document by ID using backend settings.
+/// Used by the invoice-assignment command to avoid trusting caller-supplied data (ADR-008).
+pub async fn fetch_paperless_doc_by_id(
+    app_dir: &Path,
+    doc_id: i64,
+) -> Result<PaperlessDoc, PaperlessError> {
+    let settings = LocalSettings::load(app_dir);
+    let names = PaperlessFieldNames::from_settings(&settings);
+    let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
+        (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
+        _ => return Err(PaperlessError::NotConfigured),
+    };
+    let client = PaperlessClient::new(url.trim_end_matches('/').to_string(), token);
+    let fmap = client.resolve_field_map(&names).await?;
+    client.fetch_document_by_id(doc_id, &fmap).await
+}
+
 #[cfg(test)]
 #[path = "paperless_cmd_tests.rs"]
 mod tests;

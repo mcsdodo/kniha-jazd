@@ -179,6 +179,43 @@ impl crate::invoice::Invoice for PaperlessDoc {
 }
 
 impl PaperlessClient {
+    pub async fn fetch_document_by_id(
+        &self,
+        id: i64,
+        fields: &PaperlessFieldMap,
+    ) -> Result<PaperlessDoc, PaperlessError> {
+        #[derive(Deserialize)] struct CustomField { field: i64, value: serde_json::Value }
+        #[derive(Deserialize)] struct Raw {
+            id: i64, title: String, tags: Vec<i64>, created: String,
+            #[serde(default)] custom_fields: Vec<CustomField>,
+        }
+
+        let url = format!("{}/api/documents/{}/", self.base_url, id);
+        let resp = self.http.get(&url).header("Authorization", self.auth()).send().await?;
+        if !resp.status().is_success() { return Err(PaperlessError::Http(resp.status().as_u16())); }
+        let r: Raw = resp.json().await.map_err(|e| PaperlessError::Parse(e.to_string()))?;
+
+        let created = chrono::NaiveDate::parse_from_str(&r.created, "%Y-%m-%d")
+            .map_err(|e| PaperlessError::Parse(format!("created '{}': {}", r.created, e)))?;
+
+        let mut total = None;
+        let mut litres = None;
+        let mut dt = None;
+        for cf in r.custom_fields {
+            if cf.field == fields.total_amount_id {
+                total = cf.value.as_f64();
+            } else if cf.field == fields.litres_id {
+                litres = cf.value.as_f64();
+            } else if cf.field == fields.receipt_datetime_id {
+                if let Some(s) = cf.value.as_str() {
+                    dt = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").ok();
+                }
+            }
+        }
+
+        Ok(PaperlessDoc { id: r.id, title: r.title, tag_ids: r.tags, created, total_amount: total, litres, receipt_datetime: dt })
+    }
+
     pub async fn fetch_invoice_documents(
         &self, fuel_id: i64, car_id: i64, fields: &PaperlessFieldMap,
     ) -> Result<Vec<PaperlessDoc>, PaperlessError> {

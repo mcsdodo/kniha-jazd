@@ -12,6 +12,7 @@ use crate::invoice::{
     check_invoice_trip_compatibility, Invoice, InvoiceData, InvoiceRef, PaperlessInvoiceView,
 };
 use crate::models::{AssignmentType, Trip};
+use crate::paperless::PaperlessDoc;
 
 use super::receipts_cmd::TripForAssignment;
 
@@ -63,14 +64,14 @@ fn annotate_trips(invoice: &dyn Invoice, trips: Vec<Trip>) -> Vec<TripForAssignm
 }
 
 /// Assign an invoice to a trip.
-/// For Receipt: delegates to existing receipt-assignment logic (populates trip.fuel_* / other_costs_*).
-/// For Paperless: populates trip fuel/other_costs from inline data when trip is empty, then upserts the link.
+/// For Receipt: delegates to existing receipt-assignment logic.
+/// For Paperless: `doc` must be backend-fetched (never trust caller-supplied data for writes).
 #[allow(clippy::too_many_arguments)]
 pub fn assign_invoice_to_trip_internal(
     db: &Database,
     app_state: &AppState,
     invoice_ref: &InvoiceRef,
-    data: Option<&InvoiceData>,
+    doc: Option<&PaperlessDoc>,
     trip_id: &str,
     vehicle_id: &str,
     assignment_type: AssignmentType,
@@ -91,8 +92,8 @@ pub fn assign_invoice_to_trip_internal(
             .map(|_| ())
         }
         InvoiceRef::Paperless(id) => {
-            let data = data.ok_or_else(|| {
-                "InvoiceData required for Paperless invoices".to_string()
+            let doc = doc.ok_or_else(|| {
+                "PaperlessDoc required for Paperless invoices".to_string()
             })?;
             let vehicle_uuid =
                 Uuid::parse_str(vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
@@ -106,14 +107,14 @@ pub fn assign_invoice_to_trip_internal(
                 return Err("Trip does not belong to the selected vehicle".to_string());
             }
 
-            // Populate trip data from invoice when trip side is empty (mirror receipt behavior)
+            // Populate trip data from backend-fetched doc when trip side is empty
             match assignment_type {
                 AssignmentType::Fuel => {
                     let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
                     if !trip_has_fuel {
                         let mut updated = trip.clone();
-                        updated.fuel_liters = data.liters;
-                        updated.fuel_cost_eur = data.total_price_eur;
+                        updated.fuel_liters = doc.litres;
+                        updated.fuel_cost_eur = doc.total_amount;
                         updated.full_tank = true;
                         db.update_trip(&updated).map_err(|e| e.to_string())?;
                     }
@@ -122,8 +123,8 @@ pub fn assign_invoice_to_trip_internal(
                     let trip_has_other = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
                     if !trip_has_other {
                         let mut updated = trip.clone();
-                        updated.other_costs_eur = data.total_price_eur;
-                        updated.other_costs_note = Some(data.title.clone());
+                        updated.other_costs_eur = doc.total_amount;
+                        updated.other_costs_note = Some(doc.title.clone());
                         db.update_trip(&updated).map_err(|e| e.to_string())?;
                     }
                 }

@@ -272,3 +272,45 @@ async fn fetch_documents_follows_pagination_next_link() {
     let docs = client.fetch_invoice_documents(51, 59, &map).await.unwrap();
     assert_eq!(docs.iter().map(|d| d.id).collect::<Vec<_>>(), vec![1, 2]);
 }
+
+#[tokio::test]
+async fn fetch_document_by_id_parses_custom_fields() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/documents/435/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "id": 435, "title": "Shell 2026-01-01",
+            "tags": [51, 59],
+            "created": "2026-01-01",
+            "custom_fields": [
+                {"field": 1, "value": 58.20},
+                {"field": 5, "value": 40.5},
+                {"field": 6, "value": "2026-01-01T12:00:00"}
+            ]
+        })))
+        .mount(&mock).await;
+
+    let client = PaperlessClient::new(mock.uri(), "tok".into());
+    let map = PaperlessFieldMap { total_amount_id: 1, litres_id: 5, receipt_datetime_id: 6 };
+    let doc = client.fetch_document_by_id(435, &map).await.unwrap();
+
+    assert_eq!(doc.id, 435);
+    assert_eq!(doc.title, "Shell 2026-01-01");
+    assert_eq!(doc.litres, Some(40.5));
+    assert_eq!(doc.total_amount, Some(58.20));
+    assert!(doc.receipt_datetime.is_some());
+}
+
+#[tokio::test]
+async fn fetch_document_by_id_404_returns_http_error() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/documents/999/"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&mock).await;
+
+    let client = PaperlessClient::new(mock.uri(), "tok".into());
+    let map = PaperlessFieldMap { total_amount_id: 1, litres_id: 5, receipt_datetime_id: 6 };
+    let err = client.fetch_document_by_id(999, &map).await.unwrap_err();
+    assert!(matches!(err, PaperlessError::Http(404)));
+}
