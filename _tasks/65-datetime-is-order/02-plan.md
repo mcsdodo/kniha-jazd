@@ -646,9 +646,13 @@ With the user's existing DB (the one with the corrupted sort_orders):
 **Step 4: Verification grep — nothing should match**
 
 ```bash
-git grep -nE "sort_order|sortOrder|reorder_trip|reorderTrip|calculate_date_warnings|dateWarning|date-warning" -- src-tauri/ src/ tests/
+git grep -nE "sort_order|sortOrder|reorder_trip|reorderTrip|calculate_date_warnings|dateWarning|date-warning" -- src-tauri/ src/ tests/ docs/
 ```
 Expected: no output (or only matches inside this `02-plan.md`).
+
+**Step 4a: Fix stale documentation in [docs/features/multi-year-state.md](../../docs/features/multi-year-state.md)**
+
+If the grep above matches lines in `docs/features/multi-year-state.md` (it will — there are stale references to `reorder_trip` / `shift_trips_from_position` from before Task 65), update those lines to reflect the current code (datetime-based ordering, no reorder command).
 
 **Step 5: Update [CHANGELOG.md](../../CHANGELOG.md)**
 
