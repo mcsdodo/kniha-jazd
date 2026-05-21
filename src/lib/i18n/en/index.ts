@@ -156,8 +156,6 @@ const en = {
 		endTimeLabel: 'End Time',
 		endTimePlaceholder: 'HH:MM',
 		// Actions
-		moveUp: 'Move up',
-		moveDown: 'Move down',
 		insertAbove: 'Insert record above',
 		deleteRecord: 'Delete record',
 		magicFill: 'Auto-fill',
@@ -542,7 +540,6 @@ const en = {
 		errorCreateTrip: 'Failed to create record',
 		errorUpdateTrip: 'Failed to update record',
 		errorDeleteTrip: 'Failed to delete record',
-		errorMoveTrip: 'Failed to move record',
 		errorAddCompensationTrip: 'Failed to add trip. Please try again.',
 		errorExport: 'Export failed: {error}',
 		errorSelectVehicleFirst: 'Please select a vehicle first',

@@ -156,8 +156,6 @@ const sk = {
 		endTimeLabel: 'Čas ukončenia',
 		endTimePlaceholder: 'HH:MM',
 		// Actions
-		moveUp: 'Presunúť hore',
-		moveDown: 'Presunúť dole',
 		insertAbove: 'Vložiť záznam nad',
 		deleteRecord: 'Odstrániť záznam',
 		magicFill: 'Automatické doplnenie',
@@ -542,7 +540,6 @@ const sk = {
 		errorCreateTrip: 'Nepodarilo sa vytvoriť záznam',
 		errorUpdateTrip: 'Nepodarilo sa aktualizovať záznam',
 		errorDeleteTrip: 'Nepodarilo sa odstrániť záznam',
-		errorMoveTrip: 'Nepodarilo sa presunúť záznam',
 		errorAddCompensationTrip: 'Nepodarilo sa pridať jazdu. Skúste to znova.',
 		errorExport: 'Export zlyhal: {error:string}',
 		errorSelectVehicleFirst: 'Najprv vyberte vozidlo',

@@ -489,14 +489,6 @@ type RootTranslation = {
 		 */
 		endTimePlaceholder: string
 		/**
-		 * P​r​e​s​u​n​ú​ť​ ​h​o​r​e
-		 */
-		moveUp: string
-		/**
-		 * P​r​e​s​u​n​ú​ť​ ​d​o​l​e
-		 */
-		moveDown: string
-		/**
 		 * V​l​o​ž​i​ť​ ​z​á​z​n​a​m​ ​n​a​d
 		 */
 		insertAbove: string
@@ -1789,10 +1781,6 @@ type RootTranslation = {
 		 */
 		errorDeleteTrip: string
 		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​e​s​u​n​ú​ť​ ​z​á​z​n​a​m
-		 */
-		errorMoveTrip: string
-		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​i​d​a​ť​ ​j​a​z​d​u​.​ ​S​k​ú​s​t​e​ ​t​o​ ​z​n​o​v​a​.
 		 */
 		errorAddCompensationTrip: string
@@ -2870,14 +2858,6 @@ export type TranslationFunctions = {
 		 * HH:MM
 		 */
 		endTimePlaceholder: () => LocalizedString
-		/**
-		 * Presunúť hore
-		 */
-		moveUp: () => LocalizedString
-		/**
-		 * Presunúť dole
-		 */
-		moveDown: () => LocalizedString
 		/**
 		 * Vložiť záznam nad
 		 */
@@ -4110,10 +4090,6 @@ export type TranslationFunctions = {
 		 * Nepodarilo sa odstrániť záznam
 		 */
 		errorDeleteTrip: () => LocalizedString
-		/**
-		 * Nepodarilo sa presunúť záznam
-		 */
-		errorMoveTrip: () => LocalizedString
 		/**
 		 * Nepodarilo sa pridať jazdu. Skúste to znova.
 		 */
