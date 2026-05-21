@@ -227,8 +227,7 @@
 				null, // socOverridePercent - rarely used on new trips
 				// Other
 				tripData.otherCostsEur,
-				tripData.otherCostsNote,
-				insertAtSortOrder
+				tripData.otherCostsNote
 			);
 
 			showNewRow = false;

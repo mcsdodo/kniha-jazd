@@ -54,7 +54,6 @@ pub fn create_trip_internal(
     soc_override_percent: Option<f64>,
     other_costs: Option<f64>,
     other_costs_note: Option<String>,
-    insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
     check_read_only!(app_state);
     let vehicle_uuid = Uuid::parse_str(&vehicle_id).map_err(|e| e.to_string())?;
@@ -70,15 +69,7 @@ pub fn create_trip_internal(
         }
     }
 
-    let sort_order = if let Some(position) = insert_at_position {
-        db.shift_trips_from_position(&vehicle_id, position)
-            .map_err(|e| e.to_string())?;
-        position
-    } else {
-        db.shift_trips_from_position(&vehicle_id, 0)
-            .map_err(|e| e.to_string())?;
-        0
-    };
+    let sort_order = 0;
 
     let now = Utc::now();
     let trip = Trip {

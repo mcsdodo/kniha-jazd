@@ -48,7 +48,6 @@ pub fn create_trip(
     soc_override_percent: Option<f64>,
     other_costs: Option<f64>,
     other_costs_note: Option<String>,
-    insert_at_position: Option<i32>,
 ) -> Result<Trip, String> {
     inner::create_trip_internal(
         &db,
@@ -70,7 +69,6 @@ pub fn create_trip(
         soc_override_percent,
         other_costs,
         other_costs_note,
-        insert_at_position,
     )
 }
 

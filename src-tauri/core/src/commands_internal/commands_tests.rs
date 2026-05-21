@@ -3930,7 +3930,6 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
         None,
         None,
         None,
-        None, // insert_at_position
     )
     .unwrap();
     crate::commands_internal::trips::create_trip_internal(
@@ -3953,7 +3952,6 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
         None,
         None,
         None,
-        None, // insert_at_position
     )
     .unwrap();
     crate::commands_internal::trips::create_trip_internal(
@@ -3976,7 +3974,6 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
         None,
         None,
         None,
-        None, // insert_at_position
     )
     .unwrap();
 

@@ -98,8 +98,7 @@ export async function createTrip(
 	socOverridePercent?: number | null,
 	// Other
 	otherCosts?: number | null,
-	otherCostsNote?: string | null,
-	insertAtPosition?: number | null
+	otherCostsNote?: string | null
 ): Promise<Trip> {
 	return await apiCall('create_trip', {
 		vehicleId,
@@ -118,8 +117,7 @@ export async function createTrip(
 		fullCharge,
 		socOverridePercent,
 		otherCosts,
-		otherCostsNote,
-		insertAtPosition
+		otherCostsNote
 	});
 }
 

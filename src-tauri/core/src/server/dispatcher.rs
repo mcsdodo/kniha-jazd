@@ -148,7 +148,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 soc_override_percent: Option<f64>,
                 other_costs: Option<f64>,
                 other_costs_note: Option<String>,
-                insert_at_position: Option<i32>,
             }
             let a: Args = parse_args(args)?;
             let v = crate::commands_internal::create_trip_internal(
@@ -171,7 +170,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.soc_override_percent,
                 a.other_costs,
                 a.other_costs_note,
-                a.insert_at_position,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
