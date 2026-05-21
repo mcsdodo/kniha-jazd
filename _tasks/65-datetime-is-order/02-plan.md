@@ -528,7 +528,8 @@ This is the visible UI change. After this task, integration scenarios 3 (no arro
 
 - Remove `type SortColumn = 'manual' | 'tripNumber';` and the `sortColumn` `let` / `export let`.
 - Replace conditional sort with single sort: chronological descending by `startDatetime` (with `createdAt` ASC tiebreaker if available, else `id`).
-- Remove the `<th>` toggle UI for switching modes.
+- Remove the `sortable` class and the `.sort-indicator` (▲/▼) span from the `#` / trip-number `<th>` — the column is no longer clickable to toggle direction. There is one order (newest first) and no user-facing way to change it.
+- Remove `toggleSort` function (or its body) — no longer reachable.
 - Remove `reorderDisabled` reactive and any consumers.
 - Remove `handleMoveUp` / `handleMoveDown` functions (lines ~365–399) and the `reorderTrip` import.
 - Simplify `handleInsertAbove(targetTrip)` to only pre-fill the date — no more `insertAtSortOrder` state.
