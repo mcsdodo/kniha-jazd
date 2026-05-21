@@ -487,7 +487,7 @@ describe('Tier 1: Trip Management', () => {
 
       // Initial rate: 35L / (65 + 300) km * 100 = 9.59 l/100km
 
-      // Insert a trip between them (position 1)
+      // Insert a trip between them by datetime (2026-05-08 falls between 05-01 and 05-15)
       await seedTrip({
         vehicleId: vehicle.id as string,
         startDatetime: `${year}-05-08T08:00`,
@@ -496,7 +496,6 @@ describe('Tier 1: Trip Management', () => {
         distanceKm: 70,
         odometer: 60135,
         purpose: TripPurposes.delivery,
-        insertAtPosition: 1, // Insert at position 1
       });
 
       // Refresh and check

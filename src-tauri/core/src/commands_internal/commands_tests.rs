@@ -3894,9 +3894,8 @@ fn test_month_end_rows_none_when_no_trips() {
 fn test_create_trip_orders_by_date_regardless_of_creation_order() {
     // After datetime-is-order ships, the order in which trips are CREATED
     // must not influence the final retrieval order — only start_datetime does.
-    // Today this fails because create_trip_internal forces every new trip to
-    // sort_order=0 (via the default `insert_at_position` branch), and the
-    // current get_trips_for_vehicle orders by sort_order ASC.
+    // create_trip_internal sets sort_order=0 unconditionally for all new trips,
+    // and get_trips_for_vehicle orders by start_datetime DESC.
     let db = crate::db::Database::in_memory().expect("Failed to create database");
     let vehicle = crate::models::Vehicle::new(
         "Test Car".to_string(),

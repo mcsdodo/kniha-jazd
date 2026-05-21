@@ -248,8 +248,6 @@ export interface SeedTripData {
   // Other costs
   otherCostsEur?: number;
   otherCostsNote?: string;
-  // Position control
-  insertAtPosition?: number;
 }
 
 /**
@@ -284,7 +282,6 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
     socOverridePercent: data.socOverridePercent,
     otherCosts: data.otherCostsEur,
     otherCostsNote: data.otherCostsNote,
-    insertAtPosition: data.insertAtPosition,
   };
 
   const trip = await invokeTauri<Trip>('create_trip', args);
@@ -318,7 +315,6 @@ export async function seedTripFromFixture(
     socOverridePercent: trip.socOverridePercent,
     otherCostsEur: trip.otherCostsEur,
     otherCostsNote: trip.otherCostsNote,
-    insertAtPosition: trip.sortOrder,
   });
 }
 
