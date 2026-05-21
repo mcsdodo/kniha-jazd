@@ -3887,6 +3887,191 @@ fn test_month_end_rows_none_when_no_trips() {
 }
 
 // ============================================================================
+// Chronological ordering contract (datetime-is-order, Task 65)
+// ============================================================================
+
+#[test]
+fn test_create_trip_orders_by_date_regardless_of_creation_order() {
+    // After datetime-is-order ships, the order in which trips are CREATED
+    // must not influence the final retrieval order — only start_datetime does.
+    // Today this fails because create_trip_internal forces every new trip to
+    // sort_order=0 (via the default `insert_at_position` branch), and the
+    // current get_trips_for_vehicle orders by sort_order ASC.
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+    let vehicle = crate::models::Vehicle::new(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        50.0,
+        6.0,
+        10000.0,
+    );
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    let app_state = crate::app_state::AppState::new();
+    let v = vehicle.id.to_string();
+
+    // Create in non-chronological order — exactly the user's repro
+    crate::commands_internal::trips::create_trip_internal(
+        &db,
+        &app_state,
+        v.clone(),
+        "2026-05-21T09:00:00".into(),
+        "2026-05-21T09:30:00".into(),
+        "A".into(),
+        "B".into(),
+        10.0,
+        10000.0,
+        "test".into(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None, // insert_at_position
+    )
+    .unwrap();
+    crate::commands_internal::trips::create_trip_internal(
+        &db,
+        &app_state,
+        v.clone(),
+        "2026-05-18T04:30:00".into(),
+        "2026-05-18T08:30:00".into(),
+        "A".into(),
+        "B".into(),
+        370.0,
+        10370.0,
+        "test".into(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None, // insert_at_position
+    )
+    .unwrap();
+    crate::commands_internal::trips::create_trip_internal(
+        &db,
+        &app_state,
+        v.clone(),
+        "2026-05-20T16:00:00".into(),
+        "2026-05-20T19:00:00".into(),
+        "A".into(),
+        "B".into(),
+        370.0,
+        10740.0,
+        "test".into(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None, // insert_at_position
+    )
+    .unwrap();
+
+    let trips = db.get_trips_for_vehicle(&v).unwrap();
+    assert_eq!(trips.len(), 3);
+    assert_eq!(
+        trips[0].start_datetime.date(),
+        NaiveDate::from_ymd_opt(2026, 5, 21).unwrap(),
+        "newest first"
+    );
+    assert_eq!(
+        trips[1].start_datetime.date(),
+        NaiveDate::from_ymd_opt(2026, 5, 20).unwrap(),
+        "middle second"
+    );
+    assert_eq!(
+        trips[2].start_datetime.date(),
+        NaiveDate::from_ymd_opt(2026, 5, 18).unwrap(),
+        "oldest last"
+    );
+}
+
+#[test]
+fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
+    // When two trips share the same start_datetime, the tiebreaker MUST be
+    // created_at (earlier creation = earlier number). sort_order is going
+    // away — it must NOT influence the ordering. The values below are
+    // deliberately misleading: trip_a has the LOWER sort_order but the
+    // EARLIER created_at, so trip_a must still get #1. Today's tiebreaker
+    // (sort_order DESC) would instead give #1 to trip_b — that IS the bug.
+    use chrono::Duration;
+    let dt = NaiveDate::from_ymd_opt(2026, 5, 1)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let earlier = Utc::now() - Duration::seconds(60);
+    let later = Utc::now();
+
+    let trip_a = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        start_datetime: dt,
+        end_datetime: None,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: 10.0,
+        odometer: 10000.0,
+        purpose: "test".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 0, // misleading on purpose — lower sort_order
+        created_at: earlier,
+        updated_at: earlier,
+    };
+    let trip_b = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: Uuid::new_v4(),
+        start_datetime: dt,
+        end_datetime: None,
+        origin: "A".to_string(),
+        destination: "B".to_string(),
+        distance_km: 10.0,
+        odometer: 10010.0,
+        purpose: "test".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        sort_order: 5, // misleading on purpose — higher sort_order
+        created_at: later,
+        updated_at: later,
+    };
+
+    let nums = calculate_trip_numbers(&[trip_a.clone(), trip_b.clone()]);
+    assert_eq!(
+        nums.get(&trip_a.id.to_string()),
+        Some(&1),
+        "earlier created_at gets #1"
+    );
+    assert_eq!(nums.get(&trip_b.id.to_string()), Some(&2));
+}
+
+// ============================================================================
 // Time inference (smart defaults for new trip rows) — Task 56
 // ============================================================================
 

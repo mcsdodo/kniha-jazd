@@ -542,3 +542,67 @@ fn get_trip_ids_with_invoice_unions_receipts_and_paperless() {
     assert!(!covered.contains(&trip_uncovered));
     assert_eq!(covered.len(), 2);
 }
+
+// ============================================================================
+// Chronological ordering contract (datetime-is-order, Task 65)
+// ============================================================================
+
+#[test]
+fn test_get_trips_for_vehicle_returns_chronological_order() {
+    // get_trips_for_vehicle must return trips ordered by start_datetime DESC
+    // (newest first). sort_order is intentionally MISMATCHED with dates here
+    // to expose any code path that still orders by sort_order.
+    let db = Database::in_memory().expect("Failed to create database");
+    let vehicle = create_test_vehicle("Test Car");
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    let v_id = vehicle.id.to_string();
+
+    let mut trip_old = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 5, 5).unwrap(),
+        10.0,
+        None,
+        true,
+    );
+    trip_old.vehicle_id = vehicle.id;
+    trip_old.sort_order = 0; // lowest sort_order but OLDEST date
+
+    let mut trip_new = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 5, 20).unwrap(),
+        10.0,
+        None,
+        true,
+    );
+    trip_new.vehicle_id = vehicle.id;
+    trip_new.sort_order = 2; // highest sort_order but NEWEST date
+
+    let mut trip_mid = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 5, 12).unwrap(),
+        10.0,
+        None,
+        true,
+    );
+    trip_mid.vehicle_id = vehicle.id;
+    trip_mid.sort_order = 1;
+
+    db.create_trip(&trip_old).unwrap();
+    db.create_trip(&trip_new).unwrap();
+    db.create_trip(&trip_mid).unwrap();
+
+    let trips = db.get_trips_for_vehicle(&v_id).unwrap();
+    assert_eq!(trips.len(), 3);
+    assert_eq!(
+        trips[0].start_datetime.date(),
+        NaiveDate::from_ymd_opt(2026, 5, 20).unwrap(),
+        "newest first"
+    );
+    assert_eq!(
+        trips[1].start_datetime.date(),
+        NaiveDate::from_ymd_opt(2026, 5, 12).unwrap(),
+        "middle second"
+    );
+    assert_eq!(
+        trips[2].start_datetime.date(),
+        NaiveDate::from_ymd_opt(2026, 5, 5).unwrap(),
+        "oldest last"
+    );
+}
