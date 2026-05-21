@@ -45,6 +45,21 @@ async function getVisibleStartDates(): Promise<string[]> {
 }
 
 /**
+ * Find the visible trip row whose start-datetime cell begins with the given
+ * "DD.MM." prefix. Returns null if no such row exists; callers assert.
+ */
+async function findRowByDatePrefix(
+  prefix: string
+): Promise<WebdriverIO.Element | null> {
+  const rows = await $$(TRIP_ROW_SELECTOR);
+  for (const row of rows) {
+    const text = (await row.$('.col-start-datetime').getText()).trim();
+    if (text.startsWith(prefix)) return row;
+  }
+  return null;
+}
+
+/**
  * Atomically set the value of a form input identified by `data-testid`
  * (avoids the multi-event/auto-calc pitfalls described in
  * .claude/rules/integration-tests.md).
@@ -67,6 +82,12 @@ async function setFieldByTestId(testId: string, value: string): Promise<void> {
 /**
  * Fill the (currently open) editing row with a complete trip and save via
  * Enter. Used by Scenarios 1 / 6 which exercise the UI insertion path.
+ *
+ * Waits for the editing row to close AND the visible trip-row count to
+ * increase (explicit wait — see .claude/rules/integration-tests.md "Use
+ * explicit waits instead of fixed pauses"). Both conditions are required:
+ * the `.editing` class drops before the committed row is rendered, so a
+ * single check on either condition is racy.
  */
 async function fillEditingRowAndSave(opts: {
   startDatetime: string; // "YYYY-MM-DDTHH:MM"
@@ -77,6 +98,7 @@ async function fillEditingRowAndSave(opts: {
   odometer: string;
   purpose: string;
 }): Promise<void> {
+  const rowCountBefore = (await $$(TRIP_ROW_SELECTOR)).length;
   await setFieldByTestId('trip-start-datetime', opts.startDatetime);
   await setFieldByTestId('trip-end-datetime', opts.endDatetime);
   await setFieldByTestId('trip-origin', opts.origin);
@@ -86,11 +108,25 @@ async function fillEditingRowAndSave(opts: {
   await setFieldByTestId('trip-purpose', opts.purpose);
   await browser.pause(200);
   await browser.keys('Enter');
-  await browser.pause(800);
+  // Wait for both signals: editing row gone AND committed row visible.
+  await browser.waitUntil(
+    async () => {
+      const editing = await $$('.trip-grid tbody tr.editing');
+      if (editing.length !== 0) return false;
+      const rows = await $$(TRIP_ROW_SELECTOR);
+      return rows.length > rowCountBefore;
+    },
+    {
+      timeout: 5000,
+      timeoutMsg: `save did not commit a new row (expected count > ${rowCountBefore})`,
+    }
+  );
 }
 
 describe('Tier 2: start_datetime is the single source of trip order', () => {
   let vehicleId: string;
+  // 2026 matches the project-wide `currentDate` in CLAUDE.md so dates stay
+  // inside the year picker's currently-active range.
   const year = 2026;
 
   beforeEach(async () => {
@@ -129,7 +165,9 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     });
 
     // 2) Click "+" (insert above) on the 21.05 row → 18.05 trip
-    let firstRow = (await $$(TRIP_ROW_SELECTOR))[0];
+    const rowsAfter1 = await $$(TRIP_ROW_SELECTOR);
+    expect(rowsAfter1.length).toBeGreaterThanOrEqual(1);
+    const firstRow = rowsAfter1[0];
     const insertBtn1 = await firstRow.$('button.icon-btn.insert');
     await insertBtn1.waitForClickable({ timeout: 5000 });
     await insertBtn1.click();
@@ -145,16 +183,7 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     });
 
     // 3) Find the 18.05 row and click its "+" → 20.05 trip
-    const rowsBefore3rd = await $$(TRIP_ROW_SELECTOR);
-    let rowForMay18 = null;
-    for (const row of rowsBefore3rd) {
-      const cell = await row.$('.col-start-datetime');
-      const text = (await cell.getText()).trim();
-      if (text.startsWith('18.05.')) {
-        rowForMay18 = row;
-        break;
-      }
-    }
+    const rowForMay18 = await findRowByDatePrefix('18.05.');
     expect(rowForMay18).not.toBeNull();
     const insertBtn2 = await rowForMay18!.$('button.icon-btn.insert');
     await insertBtn2.waitForClickable({ timeout: 5000 });
@@ -221,16 +250,7 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     await browser.pause(500);
 
     // Find the row for 12.05 and double-click to enter edit mode.
-    const rowsBefore = await $$(TRIP_ROW_SELECTOR);
-    let rowForMay12 = null;
-    for (const row of rowsBefore) {
-      const cell = await row.$('.col-start-datetime');
-      const text = (await cell.getText()).trim();
-      if (text.startsWith('12.05.')) {
-        rowForMay12 = row;
-        break;
-      }
-    }
+    const rowForMay12 = await findRowByDatePrefix('12.05.');
     expect(rowForMay12).not.toBeNull();
     await rowForMay12!.doubleClick();
     await browser.pause(400);
@@ -240,7 +260,20 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     await setFieldByTestId('trip-end-datetime', `${year}-05-25T09:00`);
     await browser.pause(200);
     await browser.keys('Enter');
-    await browser.pause(800);
+    // Wait until editing row closes AND a row with the new 25.05 date appears.
+    // Both signals are required — the `.editing` class drops before the
+    // re-sorted grid finishes re-rendering.
+    await browser.waitUntil(
+      async () => {
+        const editing = await $$('.trip-grid tbody tr.editing');
+        if (editing.length !== 0) return false;
+        return (await findRowByDatePrefix('25.05.')) !== null;
+      },
+      {
+        timeout: 5000,
+        timeoutMsg: 'edit save did not result in a row with date prefix 25.05.',
+      }
+    );
 
     // Assert new chronological order top → bottom: 25.05, 21.05, 5.05.
     const visibleDates = await getVisibleStartDates();
@@ -364,17 +397,9 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     await browser.pause(500);
 
     // Find the 12.05 row and click its delete button.
-    const rowsBefore = await $$(TRIP_ROW_SELECTOR);
-    let rowForMay12 = null;
-    for (const row of rowsBefore) {
-      const cell = await row.$('.col-start-datetime');
-      const text = (await cell.getText()).trim();
-      if (text.startsWith('12.05.')) {
-        rowForMay12 = row;
-        break;
-      }
-    }
+    const rowForMay12 = await findRowByDatePrefix('12.05.');
     expect(rowForMay12).not.toBeNull();
+    const rowCountBefore = (await $$(TRIP_ROW_SELECTOR)).length;
     const deleteBtn = await rowForMay12!.$('button.icon-btn.delete');
     await deleteBtn.waitForClickable({ timeout: 5000 });
     await deleteBtn.click();
@@ -385,7 +410,14 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     const confirmBtn = await $('.modal .button-small.danger');
     await confirmBtn.waitForClickable({ timeout: 5000 });
     await confirmBtn.click();
-    await browser.pause(800);
+    // Wait until the row count drops by one — signals delete + re-render done.
+    await browser.waitUntil(
+      async () => (await $$(TRIP_ROW_SELECTOR)).length === rowCountBefore - 1,
+      {
+        timeout: 5000,
+        timeoutMsg: `trip row count did not drop from ${rowCountBefore} to ${rowCountBefore - 1} after delete confirm`,
+      }
+    );
 
     // Remaining rows: 21.05 (top), 5.05 (bottom).
     const visibleDates = await getVisibleStartDates();
@@ -416,7 +448,9 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
       purpose: '21st trip',
     });
 
-    let firstRow = (await $$(TRIP_ROW_SELECTOR))[0];
+    const rowsAfter1 = await $$(TRIP_ROW_SELECTOR);
+    expect(rowsAfter1.length).toBeGreaterThanOrEqual(1);
+    const firstRow = rowsAfter1[0];
     const insertBtn1 = await firstRow.$('button.icon-btn.insert');
     await insertBtn1.waitForClickable({ timeout: 5000 });
     await insertBtn1.click();
@@ -431,16 +465,7 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
       purpose: '18th trip',
     });
 
-    const rowsBefore3rd = await $$(TRIP_ROW_SELECTOR);
-    let rowForMay18 = null;
-    for (const row of rowsBefore3rd) {
-      const cell = await row.$('.col-start-datetime');
-      const text = (await cell.getText()).trim();
-      if (text.startsWith('18.05.')) {
-        rowForMay18 = row;
-        break;
-      }
-    }
+    const rowForMay18 = await findRowByDatePrefix('18.05.');
     expect(rowForMay18).not.toBeNull();
     const insertBtn2 = await rowForMay18!.$('button.icon-btn.insert');
     await insertBtn2.waitForClickable({ timeout: 5000 });
