@@ -191,25 +191,6 @@ pub fn delete_trip_internal(
     db.delete_trip(&id).map_err(|e| e.to_string())
 }
 
-pub fn reorder_trip_internal(
-    db: &Database,
-    app_state: &AppState,
-    trip_id: String,
-    new_sort_order: i32,
-) -> Result<Vec<Trip>, String> {
-    check_read_only!(app_state);
-    let trip = db
-        .get_trip(&trip_id)
-        .map_err(|e| e.to_string())?
-        .ok_or("Trip not found")?;
-
-    db.reorder_trip(&trip_id, new_sort_order)
-        .map_err(|e| e.to_string())?;
-
-    db.get_trips_for_vehicle(&trip.vehicle_id.to_string())
-        .map_err(|e| e.to_string())
-}
-
 pub fn get_routes_internal(db: &Database, vehicle_id: String) -> Result<Vec<Route>, String> {
     db.get_routes_for_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())

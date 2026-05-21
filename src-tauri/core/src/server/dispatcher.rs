@@ -229,22 +229,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             crate::commands_internal::delete_trip_internal(&state.db, &state.app_state, a.id)?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "reorder_trip" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                trip_id: String,
-                new_sort_order: i32,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::reorder_trip_internal(
-                &state.db,
-                &state.app_state,
-                a.trip_id,
-                a.new_sort_order,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
         "get_routes" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

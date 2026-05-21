@@ -15,7 +15,6 @@ import {
   setActiveVehicle,
   updateTrip,
   deleteTrip,
-  reorderTrip,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -519,83 +518,4 @@ describe('Tier 1: Trip Management', () => {
     });
   });
 
-  describe('Trip Reordering', () => {
-    /**
-     * @flaky - Keyboard shortcuts may be unreliable in WebDriver context
-     */
-    it('should reorder trips via keyboard shortcuts', async () => {
-      // Seed vehicle
-      const vehicleData = createTestIceVehicle({
-        name: 'Reorder Test Vehicle',
-        licensePlate: 'REORD-01',
-        initialOdometer: 70000,
-        tpConsumption: 7.0,
-        tankSizeLiters: 50,
-      });
-
-      const vehicle = await seedVehicle({
-        name: vehicleData.name,
-        licensePlate: vehicleData.licensePlate,
-        initialOdometer: vehicleData.initialOdometer,
-        vehicleType: vehicleData.vehicleType,
-        tankSizeLiters: vehicleData.tankSizeLiters,
-        tpConsumption: vehicleData.tpConsumption,
-      });
-
-      const year = new Date().getFullYear();
-
-      // Create three trips
-      const trip1 = await seedTrip({
-        vehicleId: vehicle.id as string,
-        startDatetime: `${year}-06-01T08:00`,
-        origin: 'Location A',
-        destination: 'Location B',
-        distanceKm: 50,
-        odometer: 70050,
-        purpose: 'Trip 1',
-      });
-
-      const trip2 = await seedTrip({
-        vehicleId: vehicle.id as string,
-        startDatetime: `${year}-06-02T08:00`,
-        origin: 'Location B',
-        destination: 'Location C',
-        distanceKm: 60,
-        odometer: 70110,
-        purpose: 'Trip 2',
-      });
-
-      const trip3 = await seedTrip({
-        vehicleId: vehicle.id as string,
-        startDatetime: `${year}-06-03T08:00`,
-        origin: 'Location C',
-        destination: 'Location D',
-        distanceKm: 70,
-        odometer: 70180,
-        purpose: 'Trip 3',
-      });
-
-      await browser.refresh();
-      await waitForAppReady();
-
-      // Verify initial order
-      let gridData = await getTripGridData(vehicle.id as string, year);
-      expect(gridData.trips.length).toBe(3);
-
-      // Get initial sort orders
-      const initialOrder = gridData.trips.map((t) => t.purpose);
-
-      // Use reorder_trip command to move trip2 to position 0
-      await reorderTrip(trip2.id as string, 0);
-
-      // Verify new order
-      gridData = await getTripGridData(vehicle.id as string, year);
-      const newOrder = gridData.trips.map((t) => t.purpose);
-
-      // Trip 2 should now be first
-      // Expected order: Trip 2, Trip 1, Trip 3
-      expect(newOrder[0]).toBe('Trip 2');
-      expect(newOrder).not.toEqual(initialOrder);
-    });
-  });
 });

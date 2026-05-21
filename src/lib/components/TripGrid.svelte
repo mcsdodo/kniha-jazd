@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, reorderTrip, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
@@ -358,42 +358,6 @@
 		} catch (error) {
 			console.error('Magic fill calculation failed:', error);
 			return 0;
-		}
-	}
-
-	// Move trip up (swap with previous row - lower sortOrder)
-	async function handleMoveUp(tripId: string, currentIndex: number) {
-		if (reorderDisabled || currentIndex === 0) return;
-
-		try {
-			// Get the sortOrder of the trip above us
-			const targetSortOrder = sortedTrips[currentIndex - 1].sortOrder;
-			await reorderTrip(tripId, targetSortOrder);
-			// First refresh trips to get updated sortOrder, then recalculate ODO
-			await onTripsChanged();
-			await tick();
-			await recalculateAllOdo();
-		} catch (error) {
-			console.error('Failed to move trip:', error);
-			toast.error($LL.toast.errorMoveTrip());
-		}
-	}
-
-	// Move trip down (swap with next row - higher sortOrder)
-	async function handleMoveDown(tripId: string, currentIndex: number) {
-		if (reorderDisabled || currentIndex >= sortedTrips.length - 1) return;
-
-		try {
-			// Get the sortOrder of the trip below us
-			const targetSortOrder = sortedTrips[currentIndex + 1].sortOrder;
-			await reorderTrip(tripId, targetSortOrder);
-			// First refresh trips to get updated sortOrder, then recalculate ODO
-			await onTripsChanged();
-			await tick();
-			await recalculateAllOdo();
-		} catch (error) {
-			console.error('Failed to move trip:', error);
-			toast.error($LL.toast.errorMoveTrip());
 		}
 	}
 
@@ -777,8 +741,8 @@
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onEditStart={() => handleEditStart(trip.id)}
 							onEditEnd={handleEditEnd}
-							onMoveUp={() => handleMoveUp(trip.id, tripIndex)}
-							onMoveDown={() => handleMoveDown(trip.id, tripIndex)}
+							onMoveUp={() => {}}
+							onMoveDown={() => {}}
 							canMoveUp={!reorderDisabled && tripIndex > 0 && !isFirstRecord(sortedTrips[tripIndex - 1])}
 							canMoveDown={!reorderDisabled && tripIndex < sortedTrips.length - 1 && !isFirstRecord(sortedTrips[tripIndex + 1])}
 							hasDateWarning={dateWarnings.has(trip.id)}

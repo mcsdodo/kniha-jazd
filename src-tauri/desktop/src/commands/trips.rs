@@ -128,16 +128,6 @@ pub fn delete_trip(
 }
 
 #[tauri::command]
-pub fn reorder_trip(
-    db: State<Arc<Database>>,
-    app_state: State<Arc<AppState>>,
-    trip_id: String,
-    new_sort_order: i32,
-) -> Result<Vec<Trip>, String> {
-    inner::reorder_trip_internal(&db, &app_state, trip_id, new_sort_order)
-}
-
-#[tauri::command]
 pub fn get_routes(db: State<Arc<Database>>, vehicle_id: String) -> Result<Vec<Route>, String> {
     inner::get_routes_internal(&db, vehicle_id)
 }

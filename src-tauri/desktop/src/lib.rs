@@ -231,7 +231,6 @@ pub fn run() {
             commands::create_trip,
             commands::update_trip,
             commands::delete_trip,
-            commands::reorder_trip,
             commands::get_routes,
             commands::get_purposes,
             commands::get_inferred_trip_time_for_route,

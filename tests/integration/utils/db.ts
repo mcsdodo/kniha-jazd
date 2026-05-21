@@ -648,17 +648,6 @@ export async function deleteTrip(tripId: string): Promise<void> {
   await invokeTauri<void>('delete_trip', { id: tripId });
 }
 
-/**
- * Reorder a trip to a new position via backend command.
- */
-export async function reorderTrip(tripId: string, newSortOrder: number): Promise<Trip[]> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready');
-  }
-  return invokeTauri<Trip[]>('reorder_trip', { tripId, newSortOrder });
-}
-
 // =============================================================================
 // Legacy Compatibility (placeholder interfaces for existing code)
 // =============================================================================

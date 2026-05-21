@@ -168,16 +168,6 @@ export async function deleteTrip(id: string): Promise<void> {
 	return await apiCall('delete_trip', { id });
 }
 
-export async function reorderTrip(
-	tripId: string,
-	newSortOrder: number
-): Promise<Trip[]> {
-	return await apiCall('reorder_trip', {
-		tripId,
-		newSortOrder
-	});
-}
-
 // Route commands
 export async function getRoutes(vehicleId: string): Promise<Route[]> {
 	return await apiCall('get_routes', { vehicleId });
