@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-05-04 (Tasks 62 + 63 + 64 completed — Paperless toggle, configurable fields, unified invoice picker)
+**Last updated:** 2026-05-21 (Task 65 planning — datetime-is-order)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 65 | [Datetime Is Order](65-datetime-is-order/) | 📋 Planning | Drop `sort_order` column; `start_datetime` becomes the only source of trip order. Removes manual reorder UI + `calculate_date_warnings`. |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
