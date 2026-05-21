@@ -325,7 +325,7 @@ impl Database {
 
         let rows = trips::table
             .filter(trips::vehicle_id.eq(vehicle_id))
-            .order(trips::sort_order.asc())
+            .order((trips::start_datetime.desc(), trips::created_at.asc()))
             .load::<TripRow>(conn)?;
 
         Ok(rows.into_iter().map(Trip::from).collect())
@@ -348,7 +348,7 @@ impl Database {
             .filter(dsl::vehicle_id.eq(vehicle_id))
             .filter(dsl::start_datetime.ge(&start_date))
             .filter(dsl::start_datetime.le(&end_date))
-            .order(dsl::sort_order.asc())
+            .order((dsl::start_datetime.desc(), dsl::created_at.asc()))
             .load::<TripRow>(conn)?;
 
         Ok(rows.into_iter().map(Trip::from).collect())
