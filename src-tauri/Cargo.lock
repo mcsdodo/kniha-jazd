@@ -2274,7 +2274,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd-core"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2301,7 +2301,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd-desktop"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -2333,7 +2333,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd-web"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "kniha-jazd-core",
  "tokio",

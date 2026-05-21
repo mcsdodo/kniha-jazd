@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-05-21
+
 ### Zmenené
 - **Poradie jázd je teraz odvodené čisto z `start_datetime`** — manuálne preusporiadanie bolo odstránené. Nové jazdy sa automaticky zobrazia na správnej chronologickej pozícii podľa svojho dátumu a času. Jediný spôsob, ako zmeniť poradie jazdy, je upraviť jej dátum/čas.
 
