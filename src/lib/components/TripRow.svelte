@@ -59,11 +59,6 @@
 	export let onInsertAbove: () => void = () => {};
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
-	export let onMoveUp: () => void = () => {};
-	export let onMoveDown: () => void = () => {};
-	export let canMoveUp: boolean = false;
-	export let canMoveDown: boolean = false;
-	export let hasDateWarning: boolean = false;
 	export let hasConsumptionWarning: boolean = false;
 	export let isEstimatedRate: boolean = false;
 	export let hasMatchingReceipt: boolean = true;
@@ -630,7 +625,6 @@
 {:else if trip}
 	<tr
 		on:dblclick={handleEdit}
-		class:date-warning={hasDateWarning}
 		class:consumption-warning={hasConsumptionWarning}
 	>
 		{#if !hiddenColumns.includes('tripNumber')}
@@ -721,26 +715,6 @@
 		<td class="col-actions actions">
 			<span class="icon-actions">
 				<button
-					class="icon-btn move-up"
-					on:click|stopPropagation={onMoveUp}
-					title={$LL.trips.moveUp()}
-					disabled={!canMoveUp}
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="18 15 12 9 6 15"></polyline>
-					</svg>
-				</button>
-				<button
-					class="icon-btn move-down"
-					on:click|stopPropagation={onMoveDown}
-					title={$LL.trips.moveDown()}
-					disabled={!canMoveDown}
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<polyline points="6 9 12 15 18 9"></polyline>
-					</svg>
-				</button>
-				<button
 					class="icon-btn insert"
 					on:click|stopPropagation={onInsertAbove}
 					title={$LL.trips.insertAbove()}
@@ -787,25 +761,12 @@
 		width: calc(100% - 2px);
 	}
 
-	tr.date-warning {
-		background-color: var(--danger-bg); /* light red */
-	}
-
-	tr.date-warning:hover:not(.editing) {
-		background-color: var(--danger-bg-hover); /* slightly darker red on hover */
-	}
-
 	tr.consumption-warning {
 		background-color: var(--warning-bg); /* light orange */
 	}
 
 	tr.consumption-warning:hover:not(.editing) {
 		background-color: var(--warning-border); /* slightly darker orange on hover */
-	}
-
-	/* If both warnings apply, date warning takes priority */
-	tr.date-warning.consumption-warning {
-		background-color: var(--danger-bg);
 	}
 
 	td {
@@ -929,11 +890,6 @@
 	}
 
 	.icon-btn.magic:hover {
-		color: var(--accent-primary);
-	}
-
-	.icon-btn.move-up:hover:not(:disabled),
-	.icon-btn.move-down:hover:not(:disabled) {
 		color: var(--accent-primary);
 	}
 

@@ -119,28 +119,6 @@
 	let previewData: PreviewResult | null = null;
 	let previewingTripId: string | null = null; // Which row is previewing (null = new row)
 
-	// Sorting state (exported for parent access)
-	type SortColumn = 'manual' | 'tripNumber';
-	type SortDirection = 'asc' | 'desc';
-	export let sortColumn: SortColumn = 'tripNumber'; // Default: chronological order by trip number
-	export let sortDirection: SortDirection = 'desc'; // desc = newest first (highest trip # on top)
-
-	function toggleSort(column: SortColumn) {
-		if (sortColumn === column) {
-			// Toggle direction
-			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-		} else {
-			// Switch column
-			// For manual: asc (legacy display order)
-			// For tripNumber: desc (highest number = newest, chronological order)
-			sortColumn = column;
-			sortDirection = column === 'manual' ? 'asc' : 'desc';
-		}
-	}
-
-	// Disable reorder buttons when editing, adding new row, or not in manual sort mode
-	$: reorderDisabled = showNewRow || editingTripId !== null || sortColumn !== 'manual';
-
 	// Purpose suggestions loaded from backend (across all years)
 	let purposeSuggestions: string[] = [];
 
@@ -408,13 +386,12 @@
 	// Display row type: either a Trip or a MonthEndRow
 	type DisplayRow = { type: 'trip'; data: Trip } | { type: 'monthEnd'; data: MonthEndRow };
 
-	// Display order: sort by trip number (backend calculates chronological order).
-	// Manual sort mode is being removed in Task 9 — for now both modes use trip number.
+	// Display order: sort by trip number descending (newest first).
+	// Backend calculates trip numbers chronologically by (startDatetime ASC, createdAt ASC).
 	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
 		const numA = tripNumbers.get(a.id) ?? 0;
 		const numB = tripNumbers.get(b.id) ?? 0;
-		const diff = numA - numB;
-		return sortDirection === 'asc' ? diff : -diff;
+		return numB - numA;
 	});
 
 	// Combined display rows: trips + month-end rows
@@ -430,7 +407,7 @@
 			return tripRows;
 		}
 
-		// Sort using backend-provided sort keys
+		// Sort using backend-provided sort keys (descending — newest first)
 		const combined = [...tripRows, ...monthRows];
 		return combined.sort((a, b) => {
 			const getKey = (row: DisplayRow): number => {
@@ -444,8 +421,7 @@
 				}
 			};
 
-			const diff = getKey(a) - getKey(b);
-			return sortDirection === 'asc' ? diff : -diff;
+			return getKey(b) - getKey(a);
 		});
 	})();
 
@@ -552,11 +528,8 @@
 			<thead>
 				<tr>
 					{#if !hiddenColumns.includes('tripNumber')}
-						<th class="col-trip-number sortable" on:click={() => toggleSort('tripNumber')}>
+						<th class="col-trip-number">
 							{$LL.trips.columns.tripNumber()}
-							{#if sortColumn === 'tripNumber'}
-								<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-							{/if}
 						</th>
 					{/if}
 					<th class="col-start-datetime" data-testid="column-header-start">{$LL.trips.columns.startDatetime()}</th>
@@ -729,10 +702,6 @@
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onEditStart={() => handleEditStart(trip.id)}
 							onEditEnd={handleEditEnd}
-							onMoveUp={() => {}}
-							onMoveDown={() => {}}
-							canMoveUp={!reorderDisabled && tripIndex > 0 && !isFirstRecord(sortedTrips[tripIndex - 1])}
-							canMoveDown={!reorderDisabled && tripIndex < sortedTrips.length - 1 && !isFirstRecord(sortedTrips[tripIndex + 1])}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
 							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
@@ -881,22 +850,6 @@
 		border-bottom: 2px solid var(--border-default);
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-
-	th.sortable {
-		cursor: pointer;
-		user-select: none;
-		transition: background-color 0.2s;
-	}
-
-	th.sortable:hover {
-		background-color: var(--btn-secondary-hover);
-	}
-
-	.sort-indicator {
-		margin-left: 0.25rem;
-		font-size: 0.75rem;
-		color: var(--accent-primary);
 	}
 
 	/* Column widths - using class selectors for stable widths when columns are hidden */

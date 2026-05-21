@@ -20,9 +20,10 @@
 	let initialLoading = true; // Only true for first load, keeps TripGrid mounted during refreshes
 	let stats: TripStats | null = null;
 
-	// Sort state from TripGrid (for export)
-	let sortColumn: 'manual' | 'tripNumber' = 'tripNumber';
-	let sortDirection: 'asc' | 'desc' = 'desc'; // desc = newest first
+	// Export always uses trip-number descending (newest first).
+	// Manual sort mode was removed in Task 9 (task 65).
+	const exportSortColumn = 'tripNumber';
+	const exportSortDirection = 'desc';
 
 	// For compensation warning
 	let bufferKm = 0.0;
@@ -179,8 +180,8 @@
 					$activeVehicleStore.id,
 					$selectedYearStore,
 					$activeVehicleStore.licensePlate,
-					sortColumn,
-					sortDirection,
+					exportSortColumn,
+					exportSortDirection,
 					labels,
 					currentHiddenColumns
 				);
@@ -318,8 +319,6 @@
 					baselineConsumptionKwh={$activeVehicleStore.baselineConsumptionKwh ?? 0}
 					driverName={$activeVehicleStore.driverName ?? ''}
 					onTripsChanged={handleTripsChanged}
-					bind:sortColumn
-					bind:sortDirection
 				/>
 			{/if}
 		</div>
