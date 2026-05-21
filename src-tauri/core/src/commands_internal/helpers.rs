@@ -45,7 +45,7 @@ pub fn get_db_paths_for_dir(app_dir: &std::path::Path) -> Result<DbPaths, String
     Ok(db_paths)
 }
 
-/// Calculate trip sequence numbers (1-based, chronological order by date then sort_order)
+/// Calculate trip sequence numbers (1-based, chronological order by datetime then created_at)
 pub fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
     let mut sorted: Vec<_> = trips.iter().collect();
     sorted.sort_by(|a, b| {
@@ -53,7 +53,7 @@ pub fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
             .date()
             .cmp(&b.start_datetime.date())
             .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| b.sort_order.cmp(&a.sort_order))
+            .then_with(|| a.created_at.cmp(&b.created_at))
     });
 
     sorted
@@ -75,7 +75,7 @@ pub fn calculate_odometer_start(
             .date()
             .cmp(&b.start_datetime.date())
             .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| b.sort_order.cmp(&a.sort_order))
+            .then_with(|| a.created_at.cmp(&b.created_at))
     });
 
     let mut result = HashMap::new();

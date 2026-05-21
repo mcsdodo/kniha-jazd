@@ -3434,40 +3434,8 @@ fn test_trip_numbers_chronological_order() {
     assert_eq!(trip_numbers.get(&jan20_id), Some(&3));
 }
 
-#[test]
-fn test_trip_numbers_same_datetime_by_sort_order() {
-    // Multiple trips on same day and time - order by sort_order (higher = earlier)
-    let trips = vec![
-        make_trip_with_datetime_sort("2026-01-15", 8, 0, 50.0, 10100.0, 1), // sort_order=1 → #2
-        make_trip_with_datetime_sort("2026-01-15", 8, 0, 30.0, 10050.0, 2), // sort_order=2 → #1
-        make_trip_with_datetime_sort("2026-01-15", 8, 0, 25.0, 10150.0, 0), // sort_order=0 → #3
-    ];
-
-    let trip_numbers = calculate_trip_numbers(&trips);
-
-    let first = trips
-        .iter()
-        .find(|t| t.sort_order == 2)
-        .unwrap()
-        .id
-        .to_string();
-    let second = trips
-        .iter()
-        .find(|t| t.sort_order == 1)
-        .unwrap()
-        .id
-        .to_string();
-    let third = trips
-        .iter()
-        .find(|t| t.sort_order == 0)
-        .unwrap()
-        .id
-        .to_string();
-
-    assert_eq!(trip_numbers.get(&first), Some(&1));
-    assert_eq!(trip_numbers.get(&second), Some(&2));
-    assert_eq!(trip_numbers.get(&third), Some(&3));
-}
+// Same-datetime tiebreaker is now exercised by
+// `test_trip_numbers_same_datetime_tiebroken_by_created_at` below.
 
 // =============================================================================
 // Odometer Start Derivation Tests
