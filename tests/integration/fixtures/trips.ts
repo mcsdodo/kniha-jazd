@@ -336,7 +336,6 @@ export function createMonthlyTrips(
         day,
         distanceKm: distance,
         odometer: currentOdometer + distance,
-        sortOrder: i,
         ...options,
       })
     );
@@ -374,7 +373,6 @@ export function createTripsWithPeriodicRefueling(
         day,
         distanceKm: distance,
         odometer: currentOdometer + distance,
-        sortOrder: i,
         ...(isRefuelTrip
           ? {
               fuelLiters: fuelPerRefill,

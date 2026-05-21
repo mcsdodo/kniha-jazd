@@ -36,7 +36,6 @@ pub(crate) fn seed_test_trip(db: &Database, vehicle_id: &str) -> String {
         other_costs_eur: None,
         other_costs_note: None,
         full_tank: false,
-        sort_order: 0,
         energy_kwh: None,
         energy_cost_eur: None,
         full_charge: false,
@@ -165,7 +164,6 @@ fn create_test_trip(vehicle_id: Uuid, date: &str) -> Trip {
         soc_override_percent: None,
         other_costs_eur: Some(5.0),
         other_costs_note: Some("Parking fee".to_string()),
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
@@ -550,8 +548,7 @@ fn get_trip_ids_with_invoice_unions_receipts_and_paperless() {
 #[test]
 fn test_get_trips_for_vehicle_returns_chronological_order() {
     // get_trips_for_vehicle must return trips ordered by start_datetime DESC
-    // (newest first). sort_order is intentionally MISMATCHED with dates here
-    // to expose any code path that still orders by sort_order.
+    // (newest first), with insertion order intentionally unrelated to date order.
     let db = Database::in_memory().expect("Failed to create database");
     let vehicle = create_test_vehicle("Test Car");
     db.create_vehicle(&vehicle).expect("Failed to create vehicle");
@@ -564,7 +561,6 @@ fn test_get_trips_for_vehicle_returns_chronological_order() {
         true,
     );
     trip_old.vehicle_id = vehicle.id;
-    trip_old.sort_order = 0; // lowest sort_order but OLDEST date
 
     let mut trip_new = Trip::test_ice_trip(
         NaiveDate::from_ymd_opt(2026, 5, 20).unwrap(),
@@ -573,7 +569,6 @@ fn test_get_trips_for_vehicle_returns_chronological_order() {
         true,
     );
     trip_new.vehicle_id = vehicle.id;
-    trip_new.sort_order = 2; // highest sort_order but NEWEST date
 
     let mut trip_mid = Trip::test_ice_trip(
         NaiveDate::from_ymd_opt(2026, 5, 12).unwrap(),
@@ -582,7 +577,6 @@ fn test_get_trips_for_vehicle_returns_chronological_order() {
         true,
     );
     trip_mid.vehicle_id = vehicle.id;
-    trip_mid.sort_order = 1;
 
     db.create_trip(&trip_old).unwrap();
     db.create_trip(&trip_new).unwrap();

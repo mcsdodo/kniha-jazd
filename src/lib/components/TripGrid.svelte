@@ -112,7 +112,7 @@
 	let routes: Route[] = [];
 	let showNewRow = false;
 	let editingTripId: string | null = null;
-	let insertAtSortOrder: number | null = null;
+	let insertAtTripId: string | null = null;
 	let insertDate: string | null = null;
 
 	// Live preview state
@@ -131,7 +131,7 @@
 			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
 		} else {
 			// Switch column
-			// For manual: asc (sort_order 0 = newest)
+			// For manual: asc (legacy display order)
 			// For tripNumber: desc (highest number = newest, chronological order)
 			sortColumn = column;
 			sortDirection = column === 'manual' ? 'asc' : 'desc';
@@ -227,7 +227,7 @@
 			);
 
 			showNewRow = false;
-			insertAtSortOrder = null;
+			insertAtTripId = null;
 			insertDate = null;
 			// Clear preview
 			previewData = null;
@@ -297,7 +297,7 @@
 
 	function handleCancelNew() {
 		showNewRow = false;
-		insertAtSortOrder = null;
+		insertAtTripId = null;
 		insertDate = null;
 		// Clear preview
 		previewData = null;
@@ -316,7 +316,7 @@
 	}
 
 	function handleInsertAbove(targetTrip: Trip) {
-		insertAtSortOrder = targetTrip.sortOrder;
+		insertAtTripId = targetTrip.id;
 		insertDate = tripDate(targetTrip);
 		showNewRow = true;
 	}
@@ -324,7 +324,7 @@
 	// Live preview calculation handler
 	async function handlePreviewRequest(
 		tripId: string | null,
-		sortOrder: number | null,
+		anchorTripId: string | null,
 		km: number,
 		fuel: number | null,
 		fullTank: boolean
@@ -336,7 +336,7 @@
 				km,
 				fuel,
 				fullTank,
-				sortOrder,
+				anchorTripId,
 				tripId
 			);
 			previewingTripId = tripId;
@@ -358,9 +358,9 @@
 	}
 
 	async function recalculateAllOdo() {
-		const chronological = [...trips]
-			.sort((a, b) => a.sortOrder - b.sortOrder)
-			.reverse();
+		// Trips arrive from backend ordered by start_datetime DESC (newest first).
+		// Reverse to process chronologically (oldest → newest) so running ODO accumulates correctly.
+		const chronological = [...trips].reverse();
 
 		let runningOdo = effectiveInitialOdometer;
 		for (const trip of chronological) {
@@ -401,7 +401,6 @@
 		// Other
 		otherCostsEur: null,
 		otherCostsNote: null,
-		sortOrder: 999999, // Always last in manual sort
 		createdAt: '',
 		updatedAt: ''
 	} as Trip;
@@ -409,19 +408,12 @@
 	// Display row type: either a Trip or a MonthEndRow
 	type DisplayRow = { type: 'trip'; data: Trip } | { type: 'monthEnd'; data: MonthEndRow };
 
-	// Display order (based on current sort settings)
-	// Manual: sort by sortOrder
-	// TripNumber: sort by trip number (chronological, calculated by backend)
+	// Display order: sort by trip number (backend calculates chronological order).
+	// Manual sort mode is being removed in Task 9 — for now both modes use trip number.
 	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
-		let diff: number;
-		if (sortColumn === 'manual') {
-			diff = a.sortOrder - b.sortOrder;
-		} else {
-			// Sort by trip number (backend calculates chronological order)
-			const numA = tripNumbers.get(a.id) ?? 0;
-			const numB = tripNumbers.get(b.id) ?? 0;
-			diff = numA - numB;
-		}
+		const numA = tripNumbers.get(a.id) ?? 0;
+		const numB = tripNumbers.get(b.id) ?? 0;
+		const diff = numA - numB;
 		return sortDirection === 'asc' ? diff : -diff;
 	});
 
@@ -612,7 +604,7 @@
 			</thead>
 			<tbody>
 				<!-- New row at top (when adding via "Nový záznam" button) -->
-				{#if showNewRow && insertAtSortOrder === null}
+				{#if showNewRow && insertAtTripId === null}
 					<TripRow
 						trip={null}
 						{vehicleId}
@@ -643,7 +635,7 @@
 					{@const trip = row.data}
 					{@const tripIndex = sortedTrips.indexOf(trip)}
 					<!-- New row inserted above this trip (not for first record) -->
-					{#if showNewRow && insertAtSortOrder === trip.sortOrder && !isFirstRecord(trip)}
+					{#if showNewRow && insertAtTripId === trip.id && !isFirstRecord(trip)}
 						<TripRow
 							trip={null}
 							{vehicleId}
@@ -663,7 +655,7 @@
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
 							previewData={previewingTripId === null ? previewData : null}
-							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtSortOrder, km, fuel, fullTank)}
+							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtTripId, km, fuel, fullTank)}
 							onMagicFill={handleMagicFill}
 							{hiddenColumns}
 						/>
@@ -747,7 +739,7 @@
 							hasReceiptDatetimeWarning={gridData?.receiptDatetimeWarnings?.includes(trip.id) ?? false}
 							hasReceiptMismatchOverride={gridData?.receiptMismatchOverrides?.includes(trip.id) ?? false}
 							previewData={previewingTripId === trip.id ? previewData : null}
-							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.sortOrder, km, fuel, fullTank)}
+							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.id, km, fuel, fullTank)}
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}
 							onMagicFill={handleMagicFill}
 							{hiddenColumns}

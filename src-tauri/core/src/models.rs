@@ -212,7 +212,6 @@ pub struct Trip {
     // Other costs
     pub other_costs_eur: Option<f64>,
     pub other_costs_note: Option<String>,
-    pub sort_order: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -266,7 +265,6 @@ impl Trip {
             soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            sort_order: 0,
             created_at: now,
             updated_at: now,
         }
@@ -897,7 +895,6 @@ pub struct TripRow {
     // Note: column order matches actual database (migrations added columns at end)
     pub created_at: String,
     pub updated_at: String,
-    pub sort_order: i32,
     pub full_tank: i32,
     pub energy_kwh: Option<f64>,
     pub energy_cost_eur: Option<f64>,
@@ -923,7 +920,6 @@ pub struct NewTripRow<'a> {
     pub other_costs_eur: Option<f64>,
     pub other_costs_note: Option<&'a str>,
     pub full_tank: i32,
-    pub sort_order: i32,
     pub energy_kwh: Option<f64>,
     pub energy_cost_eur: Option<f64>,
     pub full_charge: Option<i32>,
@@ -1119,7 +1115,6 @@ impl From<TripRow> for Trip {
             soc_override_percent: row.soc_override_percent,
             other_costs_eur: row.other_costs_eur,
             other_costs_note: row.other_costs_note,
-            sort_order: row.sort_order,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
@@ -1302,7 +1297,6 @@ mod tests {
             other_costs_eur: None,
             other_costs_note: None,
             full_tank: 0,
-            sort_order: 0,
             energy_kwh: None,
             energy_cost_eur: None,
             full_charge: None,

@@ -73,7 +73,7 @@ pub fn preview_trip_calculation(
     distance_km: i32,
     fuel_liters: Option<f64>,
     full_tank: bool,
-    insert_at_sort_order: Option<i32>,
+    insert_at_trip_id: Option<String>,
     editing_trip_id: Option<String>,
 ) -> Result<PreviewResult, String> {
     inner::preview_trip_calculation_internal(
@@ -83,7 +83,7 @@ pub fn preview_trip_calculation(
         distance_km,
         fuel_liters,
         full_tank,
-        insert_at_sort_order,
+        insert_at_trip_id,
         editing_trip_id,
     )
 }

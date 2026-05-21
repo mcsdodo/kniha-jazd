@@ -62,7 +62,6 @@ pub async fn export_to_browser(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 999999,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };

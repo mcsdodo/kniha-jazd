@@ -69,7 +69,6 @@ diesel::table! {
         // Note: column order matches actual database (migrations added columns at end)
         created_at -> Text,
         updated_at -> Text,
-        sort_order -> Integer,
         full_tank -> Integer,
         energy_kwh -> Nullable<Double>,
         energy_cost_eur -> Nullable<Double>,

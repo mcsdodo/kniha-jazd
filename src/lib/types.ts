@@ -56,7 +56,6 @@ export interface Trip {
 	// Other
 	otherCostsEur?: number | null;
 	otherCostsNote?: string | null;
-	sortOrder: number;
 	createdAt: string;
 	updatedAt: string;
 }

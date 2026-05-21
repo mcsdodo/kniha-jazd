@@ -336,7 +336,7 @@ pub fn get_year_start_odometer(
                     .date()
                     .cmp(&b.start_datetime.date())
                     .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-                    .then_with(|| b.sort_order.cmp(&a.sort_order))
+                    .then_with(|| a.created_at.cmp(&b.created_at))
             });
             return Ok(chronological
                 .last()
@@ -367,7 +367,7 @@ pub fn build_trip_grid_data(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "Vehicle not found".to_string())?;
 
-    // Get trips sorted by sort_order (for display)
+    // Get trips sorted chronologically (by start_datetime, created_at) for display
     let trips = db
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
@@ -668,11 +668,12 @@ pub fn calculate_suggested_fillups(
         }
     }
 
-    // Find the legend suggestion: most recent trip (lowest sort_order) that has a suggestion
+    // Find the legend suggestion: most recent trip (last in chronological order) that has a suggestion.
+    // `chronological` is sorted ascending by (start_datetime, odometer), so the latest trip is at the end.
     let legend = chronological
         .iter()
-        .filter(|t| result.contains_key(&t.id.to_string()))
-        .min_by_key(|t| t.sort_order)
+        .rev()
+        .find(|t| result.contains_key(&t.id.to_string()))
         .and_then(|t| result.get(&t.id.to_string()).cloned());
 
     (result, legend)
@@ -1290,7 +1291,7 @@ pub fn preview_trip_calculation_internal(
     distance_km: i32,
     fuel_liters: Option<f64>,
     full_tank: bool,
-    insert_at_sort_order: Option<i32>,
+    insert_at_trip_id: Option<String>,
     editing_trip_id: Option<String>,
 ) -> Result<PreviewResult, String> {
     // Get vehicle for TP consumption and tank size
@@ -1310,12 +1311,12 @@ pub fn preview_trip_calculation_internal(
 
     // Determine the date and odometer for the preview trip to place it correctly
     // in chronological order for rate calculations
-    let (preview_date, preview_odometer) = if let Some(sort_order) = insert_at_sort_order {
+    let (preview_date, preview_odometer) = if let Some(target_id) = &insert_at_trip_id {
         // Inserting above a specific trip - use that trip's date and odometer - 0.5
         // (so it sorts just before the target trip on same date)
         trips
             .iter()
-            .find(|t| t.sort_order == sort_order)
+            .find(|t| t.id.to_string() == *target_id)
             .map(|t| (t.start_datetime.date(), t.odometer - 0.5))
             .unwrap_or_else(|| (NaiveDate::from_ymd_opt(year, 12, 31).unwrap(), 0.0))
     } else {
@@ -1347,7 +1348,6 @@ pub fn preview_trip_calculation_internal(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: insert_at_sort_order.unwrap_or(0),
         created_at: now,
         updated_at: now,
     };
@@ -1378,7 +1378,6 @@ pub fn preview_trip_calculation_internal(
                 soc_override_percent: existing.soc_override_percent,
                 other_costs_eur: existing.other_costs_eur,
                 other_costs_note: existing.other_costs_note.clone(),
-                sort_order: existing.sort_order,
                 created_at: existing.created_at,
                 updated_at: now,
             };

@@ -69,8 +69,6 @@ pub fn create_trip_internal(
         }
     }
 
-    let sort_order = 0;
-
     let now = Utc::now();
     let trip = Trip {
         id: Uuid::new_v4(),
@@ -91,7 +89,6 @@ pub fn create_trip_internal(
         soc_override_percent,
         other_costs_eur: other_costs,
         other_costs_note,
-        sort_order,
         created_at: now,
         updated_at: now,
     };
@@ -164,7 +161,6 @@ pub fn update_trip_internal(
         soc_override_percent,
         other_costs_eur,
         other_costs_note,
-        sort_order: existing.sort_order,
         created_at: existing.created_at,
         updated_at: Utc::now(),
     };

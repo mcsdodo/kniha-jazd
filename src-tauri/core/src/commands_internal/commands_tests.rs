@@ -37,7 +37,6 @@ fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
@@ -66,7 +65,6 @@ fn make_trip_without_fuel(date: NaiveDate) -> Trip {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
@@ -209,7 +207,6 @@ fn make_trip_with_datetime_range(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
@@ -468,7 +465,6 @@ fn make_trip_detailed(
     distance_km: f64,
     fuel_liters: Option<f64>,
     full_tank: bool,
-    sort_order: i32,
 ) -> Trip {
     let now = Utc::now();
     Trip {
@@ -490,7 +486,6 @@ fn make_trip_detailed(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order,
         created_at: now,
         updated_at: now,
     }
@@ -504,14 +499,13 @@ fn test_period_rates_partial_fillup_doesnt_close_period() {
     let tp_rate = 6.0;
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, None, false, 3), // 100km, no fuel
-        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(20.0), false, 2), // 100km, 20L PARTIAL
+        make_trip_detailed(base_date, 100.0, None, false), // 100km, no fuel
+        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(20.0), false), // 100km, 20L PARTIAL
         make_trip_detailed(
             base_date.succ_opt().unwrap().succ_opt().unwrap(),
             100.0,
             None,
             false,
-            1,
         ), // 100km, no fuel
         make_trip_detailed(
             base_date
@@ -524,7 +518,6 @@ fn test_period_rates_partial_fillup_doesnt_close_period() {
             100.0,
             Some(30.0),
             true,
-            0,
         ), // 100km, 30L FULL
     ];
 
@@ -555,14 +548,13 @@ fn test_period_rates_full_fillup_closes_period() {
     let tp_rate = 6.0;
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, None, false, 3), // Period 1: 100km
-        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(10.0), true, 2), // Period 1: closes with 10L -> rate = 10/200*100 = 5.0
+        make_trip_detailed(base_date, 100.0, None, false), // Period 1: 100km
+        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(10.0), true), // Period 1: closes with 10L -> rate = 10/200*100 = 5.0
         make_trip_detailed(
             base_date.succ_opt().unwrap().succ_opt().unwrap(),
             200.0,
             None,
             false,
-            1,
         ), // Period 2: 200km
         make_trip_detailed(
             base_date
@@ -575,7 +567,6 @@ fn test_period_rates_full_fillup_closes_period() {
             200.0,
             Some(16.0),
             true,
-            0,
         ), // Period 2: closes with 16L -> rate = 16/400*100 = 4.0
     ];
 
@@ -611,8 +602,8 @@ fn test_period_rates_no_fullup_uses_tp_rate() {
     let tp_rate = 6.0;
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, None, false, 1),
-        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(15.0), false, 0), // Partial only
+        make_trip_detailed(base_date, 100.0, None, false),
+        make_trip_detailed(base_date.succ_opt().unwrap(), 100.0, Some(15.0), false), // Partial only
     ];
 
     let (rates, estimated) = calculate_period_rates(&trips, tp_rate);
@@ -643,7 +634,7 @@ fn test_consumption_warnings_over_120_percent() {
     let limit = tp_rate * 1.2; // 6.0
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, Some(7.5), true, 0), // Rate = 7.5 l/100km > 6.0 limit
+        make_trip_detailed(base_date, 100.0, Some(7.5), true), // Rate = 7.5 l/100km > 6.0 limit
     ];
 
     let mut rates = std::collections::HashMap::new();
@@ -666,7 +657,7 @@ fn test_consumption_warnings_at_limit_not_flagged() {
     let tp_rate = 5.0;
     let at_limit_rate = tp_rate * 1.2; // Exactly 6.0
 
-    let trips = vec![make_trip_detailed(base_date, 100.0, Some(6.0), true, 0)];
+    let trips = vec![make_trip_detailed(base_date, 100.0, Some(6.0), true)];
 
     let mut rates = std::collections::HashMap::new();
     rates.insert(trips[0].id.to_string(), at_limit_rate);
@@ -686,7 +677,7 @@ fn test_consumption_warnings_under_limit_not_flagged() {
     let tp_rate = 5.0;
 
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, Some(5.0), true, 0), // Rate = 5.0 < 6.0 limit
+        make_trip_detailed(base_date, 100.0, Some(5.0), true), // Rate = 5.0 < 6.0 limit
     ];
 
     let mut rates = std::collections::HashMap::new();
@@ -712,7 +703,7 @@ fn test_has_any_period_over_limit_single_period_over() {
 
     let trips = vec![
         // Period: 100km, 7.5L filled = 7.5 l/100km > 6.0 limit
-        make_trip_detailed(base_date, 100.0, Some(7.5), true, 0),
+        make_trip_detailed(base_date, 100.0, Some(7.5), true),
     ];
 
     assert!(
@@ -734,7 +725,6 @@ fn test_has_any_period_over_limit_average_ok_but_one_period_over() {
             100.0,
             Some(5.0),
             true,
-            0,
         ),
         // Period 2: 100km, 7L = 7.0 l/100km (OVER limit)
         make_trip_detailed(
@@ -742,7 +732,6 @@ fn test_has_any_period_over_limit_average_ok_but_one_period_over() {
             100.0,
             Some(7.0),
             true,
-            1,
         ),
     ];
     // Average: (5+7) / 200 * 100 = 6.0 l/100km (exactly at limit, not over)
@@ -766,7 +755,6 @@ fn test_has_any_period_over_limit_all_periods_ok() {
             100.0,
             Some(5.0),
             true,
-            0,
         ),
         // Period 2: 100km, 5.5L = 5.5 l/100km (under)
         make_trip_detailed(
@@ -774,7 +762,6 @@ fn test_has_any_period_over_limit_all_periods_ok() {
             100.0,
             Some(5.5),
             true,
-            1,
         ),
     ];
 
@@ -796,7 +783,6 @@ fn test_has_any_period_over_limit_at_exactly_limit() {
             100.0,
             Some(6.0),
             true,
-            0,
         ),
     ];
 
@@ -814,7 +800,7 @@ fn test_has_any_period_over_limit_at_exactly_limit() {
 fn test_fuel_remaining_basic_trip() {
     // Start with 50L, drive 100km at 6 l/100km = 6L used, end with 44L
     let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
-    let trips = vec![make_trip_detailed(base_date, 100.0, None, false, 0)];
+    let trips = vec![make_trip_detailed(base_date, 100.0, None, false)];
 
     let mut rates = std::collections::HashMap::new();
     rates.insert(trips[0].id.to_string(), 6.0);
@@ -836,7 +822,7 @@ fn test_fuel_remaining_with_partial_fillup() {
     // Partial fillup adds fuel but doesn't fill tank
     let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, Some(30.0), false, 0), // 100km, add 30L partial
+        make_trip_detailed(base_date, 100.0, Some(30.0), false), // 100km, add 30L partial
     ];
 
     let mut rates = std::collections::HashMap::new();
@@ -861,7 +847,7 @@ fn test_fuel_remaining_with_full_fillup() {
     let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let tank_size = 66.0;
     let trips = vec![
-        make_trip_detailed(base_date, 100.0, Some(30.0), true, 0), // Full tank
+        make_trip_detailed(base_date, 100.0, Some(30.0), true), // Full tank
     ];
 
     let mut rates = std::collections::HashMap::new();
@@ -884,7 +870,7 @@ fn test_fuel_remaining_clamps_to_zero() {
     // Can't go negative - clamps to 0
     let base_date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trips = vec![
-        make_trip_detailed(base_date, 500.0, None, false, 0), // 500km at 6 l/100km = 30L, but only have 10L
+        make_trip_detailed(base_date, 500.0, None, false), // 500km at 6 l/100km = 30L, but only have 10L
     ];
 
     let mut rates = std::collections::HashMap::new();
@@ -977,7 +963,6 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     };
@@ -1032,7 +1017,6 @@ fn test_year_start_fuel_partial_tank_carryover() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 1,
         created_at: now,
         updated_at: now,
     };
@@ -1059,7 +1043,6 @@ fn test_year_start_fuel_partial_tank_carryover() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     };
@@ -1149,7 +1132,6 @@ fn test_year_start_odometer_with_previous_year_trips() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     };
@@ -1209,7 +1191,6 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 1,
         created_at: now,
         updated_at: now,
     };
@@ -1235,7 +1216,6 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     };
@@ -1263,7 +1243,6 @@ fn make_bev_trip(
     distance_km: f64,
     energy_kwh: Option<f64>,
     full_charge: bool,
-    sort_order: i32,
 ) -> Trip {
     let now = Utc::now();
     Trip {
@@ -1274,7 +1253,7 @@ fn make_bev_trip(
         origin: "A".to_string(),
         destination: "B".to_string(),
         distance_km,
-        odometer: 10000.0 + (sort_order as f64) * distance_km,
+        odometer: 10000.0,
         purpose: "business".to_string(),
         fuel_liters: None,
         fuel_cost_eur: None,
@@ -1285,7 +1264,6 @@ fn make_bev_trip(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order,
         created_at: now,
         updated_at: now,
     }
@@ -1304,7 +1282,7 @@ fn test_bev_energy_calculation_single_trip() {
     );
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
-    let trips = vec![make_bev_trip(date, 100.0, None, false, 0)];
+    let trips = vec![make_bev_trip(date, 100.0, None, false)];
 
     // Initial battery: 100% of 75 kWh = 75 kWh
     let initial_battery = 75.0;
@@ -1337,7 +1315,7 @@ fn test_bev_energy_with_charge() {
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trips = vec![
-        make_bev_trip(date, 100.0, Some(40.0), true, 0), // Drive 100km, charge 40 kWh full
+        make_bev_trip(date, 100.0, Some(40.0), true), // Drive 100km, charge 40 kWh full
     ];
 
     // Initial battery: 50% of 75 kWh = 37.5 kWh
@@ -1373,7 +1351,7 @@ fn test_bev_battery_clamps_to_capacity() {
 
     let date = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trips = vec![
-        make_bev_trip(date, 10.0, Some(50.0), true, 0), // Short drive, big charge
+        make_bev_trip(date, 10.0, Some(50.0), true), // Short drive, big charge
     ];
 
     // Initial battery: 90% of 75 kWh = 67.5 kWh
@@ -1553,7 +1531,6 @@ fn make_trip_for_assignment(
         soc_override_percent: None,
         other_costs_eur,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
@@ -2469,7 +2446,6 @@ fn make_trip_for_magic_fill(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
@@ -2733,7 +2709,6 @@ fn test_fuel_consumed_basic() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
@@ -2781,7 +2756,6 @@ fn test_fuel_consumed_uses_period_rate() {
             soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            sort_order: 1,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         },
@@ -2804,7 +2778,6 @@ fn test_fuel_consumed_uses_period_rate() {
             soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            sort_order: 0,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         },
@@ -2856,7 +2829,6 @@ fn test_fuel_consumed_uses_tp_rate_for_open_period() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
@@ -2896,7 +2868,6 @@ fn test_fuel_consumed_zero_distance() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
@@ -3009,31 +2980,28 @@ fn test_suggested_fillup_empty_trips() {
 
 #[test]
 fn test_legend_suggested_fillup_returns_most_recent() {
-    // Legend should return the suggestion for the MOST RECENT trip (lowest sort_order)
-    // This is the trip that would close the open period
-    let mut trip1 = make_trip_for_magic_fill(
+    // Legend should return the suggestion for the MOST RECENT trip (latest start_datetime).
+    // This is the trip that would close the open period.
+    let trip1 = make_trip_for_magic_fill(
         NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
         100.0, // older trip
         None,
         false,
     );
-    trip1.sort_order = 2; // Higher = older in display
 
-    let mut trip2 = make_trip_for_magic_fill(
+    let trip2 = make_trip_for_magic_fill(
         NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
         150.0, // newer trip
         None,
         false,
     );
-    trip2.sort_order = 1;
 
-    let mut trip3 = make_trip_for_magic_fill(
+    let trip3 = make_trip_for_magic_fill(
         NaiveDate::from_ymd_opt(2024, 1, 3).unwrap(),
         200.0, // most recent trip
         None,
         false,
     );
-    trip3.sort_order = 0; // Lowest = most recent in display
 
     // Chronological order for calculation (by date)
     let trips = vec![trip1.clone(), trip2.clone(), trip3.clone()];
@@ -3044,7 +3012,7 @@ fn test_legend_suggested_fillup_returns_most_recent() {
     // All 3 trips should have suggestions
     assert_eq!(suggestions.len(), 3);
 
-    // Legend should be the MOST RECENT trip's suggestion (trip3 with sort_order 0)
+    // Legend should be the MOST RECENT trip's suggestion (trip3, latest date).
     // Cumulative km for trip3: 100 + 150 + 200 = 450 km
     let legend = legend.expect("Legend should exist");
     let trip3_suggestion = suggestions.get(&trip3.id.to_string()).unwrap();
@@ -3524,7 +3492,6 @@ fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
@@ -3534,16 +3501,19 @@ fn make_trip_with_date_odo(date_str: &str, distance: f64, odo: f64) -> Trip {
     make_trip_with_date(date_str, distance, odo)
 }
 
-/// Helper to create a trip with specific datetime, sort_order, and odometer
-fn make_trip_with_datetime_sort(
+/// Helper to create a trip with specific datetime, created_at, and odometer.
+/// `created_at_offset_secs` shifts the trip's `created_at` from `now` —
+/// negative values make it "earlier", positive "later".
+fn make_trip_with_datetime_created(
     date_str: &str,
     hour: u32,
     minute: u32,
     distance: f64,
     odo: f64,
-    sort_order: i32,
+    created_at_offset_secs: i64,
 ) -> Trip {
     let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+    let created_at = Utc::now() + chrono::Duration::seconds(created_at_offset_secs);
     Trip {
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
@@ -3563,43 +3533,42 @@ fn make_trip_with_datetime_sort(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
+        created_at,
+        updated_at: created_at,
     }
 }
 
 #[test]
-fn test_calculate_odometer_start_same_datetime_uses_sort_order() {
-    // Two trips with identical start_datetime but different sort_orders.
-    // sort_order determines chronological position (higher = earlier).
+fn test_calculate_odometer_start_same_datetime_uses_created_at() {
+    // Two trips with identical start_datetime but different created_at timestamps.
+    // After Task 7, created_at ASC is the tiebreaker (earlier created_at = earlier in order).
     // If we sort by odometer instead (bug), wrong trip gets wrong start odo.
     let initial_odo = 10000.0;
 
-    // Trip A: sort_order=2 (earlier), has "wrong" high odometer
-    let trip_a = make_trip_with_datetime_sort("2026-01-10", 8, 0, 50.0, 10200.0, 2);
-    // Trip B: sort_order=1 (later), has "wrong" low odometer
-    let trip_b = make_trip_with_datetime_sort("2026-01-10", 8, 0, 50.0, 10100.0, 1);
+    // Trip A: created earlier (so it sorts first), has "wrong" high odometer
+    let trip_a = make_trip_with_datetime_created("2026-01-10", 8, 0, 50.0, 10200.0, -10);
+    // Trip B: created later (so it sorts second), has "wrong" low odometer
+    let trip_b = make_trip_with_datetime_created("2026-01-10", 8, 0, 50.0, 10100.0, 0);
 
     let trips = vec![trip_a.clone(), trip_b.clone()];
     let odo_start = calculate_odometer_start(&trips, initial_odo);
 
-    // Trip A (sort_order=2, earlier) should use initial_odo as start
+    // Trip A (earlier created_at = first) should use initial_odo as start
     assert_eq!(
         odo_start.get(&trip_a.id.to_string()),
         Some(&initial_odo),
-        "Earlier trip (higher sort_order) should start from initial odometer"
+        "First trip (earlier created_at) should start from initial odometer"
     );
-    // Trip B (sort_order=1, later) should use trip A's ending odo as start
+    // Trip B (later created_at = second) should use trip A's ending odo as start
     assert_eq!(
         odo_start.get(&trip_b.id.to_string()),
         Some(&10200.0),
-        "Later trip (lower sort_order) should start from previous trip's odometer"
+        "Second trip (later created_at) should start from previous trip's odometer"
     );
 }
 
 #[test]
-fn test_year_start_odometer_same_day_uses_time_and_sort_order() {
+fn test_year_start_odometer_same_day_uses_time_and_created_at() {
     // Two trips on same day with different times. The later trip's odometer
     // should be returned as year-end value.
     // Bug: get_year_start_odometer sorts by date only (strips time), then
@@ -3618,7 +3587,7 @@ fn test_year_start_odometer_same_day_uses_time_and_sort_order() {
     let now = Utc::now();
     let date = NaiveDate::from_ymd_opt(2024, 12, 31).unwrap();
 
-    // Morning trip: sort_order=1 (earlier), higher odo (data corruption scenario)
+    // Morning trip: earlier start time, higher odo (data corruption scenario)
     let trip_morning = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
@@ -3638,12 +3607,11 @@ fn test_year_start_odometer_same_day_uses_time_and_sort_order() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 1,
         created_at: now,
         updated_at: now,
     };
 
-    // Afternoon trip: sort_order=0 (later/newest), lower odo (data corruption scenario)
+    // Afternoon trip: later start time, lower odo (data corruption scenario)
     let trip_afternoon = Trip {
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
@@ -3663,7 +3631,6 @@ fn test_year_start_odometer_same_day_uses_time_and_sort_order() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     };
@@ -3786,8 +3753,7 @@ fn test_month_end_rows_none_when_no_trips() {
 fn test_create_trip_orders_by_date_regardless_of_creation_order() {
     // After datetime-is-order ships, the order in which trips are CREATED
     // must not influence the final retrieval order — only start_datetime does.
-    // create_trip_internal sets sort_order=0 unconditionally for all new trips,
-    // and get_trips_for_vehicle orders by start_datetime DESC.
+    // get_trips_for_vehicle orders by start_datetime DESC, with created_at ASC as tiebreaker.
     let db = crate::db::Database::in_memory().expect("Failed to create database");
     let vehicle = crate::models::Vehicle::new(
         "Test Car".to_string(),
@@ -3890,11 +3856,8 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
 #[test]
 fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
     // When two trips share the same start_datetime, the tiebreaker MUST be
-    // created_at (earlier creation = earlier number). sort_order is going
-    // away — it must NOT influence the ordering. The values below are
-    // deliberately misleading: trip_a has the LOWER sort_order but the
-    // EARLIER created_at, so trip_a must still get #1. Today's tiebreaker
-    // (sort_order DESC) would instead give #1 to trip_b — that IS the bug.
+    // created_at (earlier creation = earlier number). trip_a is created
+    // earlier than trip_b, so trip_a must get #1 and trip_b #2.
     use chrono::Duration;
     let dt = NaiveDate::from_ymd_opt(2026, 5, 1)
         .unwrap()
@@ -3922,7 +3885,6 @@ fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0, // misleading on purpose — lower sort_order
         created_at: earlier,
         updated_at: earlier,
     };
@@ -3945,7 +3907,6 @@ fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 5, // misleading on purpose — higher sort_order
         created_at: later,
         updated_at: later,
     };
@@ -4009,7 +3970,6 @@ mod time_inference_tests {
             soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            sort_order: 0,
             created_at: now,
             updated_at: now,
         }
@@ -4127,7 +4087,6 @@ mod time_inference_tests {
             soc_override_percent: None,
             other_costs_eur: None,
             other_costs_note: None,
-            sort_order: 0,
             created_at: now,
             updated_at: now,
         };

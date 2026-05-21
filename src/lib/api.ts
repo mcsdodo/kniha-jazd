@@ -340,7 +340,7 @@ export async function previewTripCalculation(
 	distanceKm: number,
 	fuelLiters: number | null,
 	fullTank: boolean,
-	insertAtSortOrder: number | null,
+	insertAtTripId: string | null,
 	editingTripId: string | null
 ): Promise<PreviewResult> {
 	return await apiCall('preview_trip_calculation', {
@@ -349,7 +349,7 @@ export async function previewTripCalculation(
 		distanceKm,
 		fuelLiters,
 		fullTank,
-		insertAtSortOrder,
+		insertAtTripId,
 		editingTripId
 	});
 }

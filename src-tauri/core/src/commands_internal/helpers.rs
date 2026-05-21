@@ -114,7 +114,7 @@ pub fn generate_month_end_rows(
             .date()
             .cmp(&b.start_datetime.date())
             .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| b.sort_order.cmp(&a.sort_order))
+            .then_with(|| a.created_at.cmp(&b.created_at))
     });
 
     let current_year = chrono::Utc::now().year();

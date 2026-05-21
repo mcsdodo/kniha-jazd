@@ -327,7 +327,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 distance_km: i32,
                 fuel_liters: Option<f64>,
                 full_tank: bool,
-                insert_at_sort_order: Option<i32>,
+                insert_at_trip_id: Option<String>,
                 editing_trip_id: Option<String>,
             }
             let a: Args = parse_args(args)?;
@@ -338,7 +338,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.distance_km,
                 a.fuel_liters,
                 a.full_tank,
-                a.insert_at_sort_order,
+                a.insert_at_trip_id,
                 a.editing_trip_id,
             )?;
             Ok(serde_json::to_value(v).unwrap())

@@ -504,7 +504,6 @@ fn make_trip(distance_km: f64, fuel_liters: Option<f64>, full_tank: bool) -> Tri
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }

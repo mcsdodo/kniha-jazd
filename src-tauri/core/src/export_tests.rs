@@ -28,7 +28,6 @@ fn make_trip(km: f64, fuel: Option<f64>, fuel_cost: Option<f64>, other_cost: Opt
         soc_override_percent: None,
         other_costs_eur: other_cost,
         other_costs_note: None,
-        sort_order: 0,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }

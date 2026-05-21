@@ -117,7 +117,6 @@ fn empty_trip(start: NaiveDateTime, end: NaiveDateTime) -> Trip {
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        sort_order: 0,
         created_at: now,
         updated_at: now,
     }
