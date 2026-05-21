@@ -7,6 +7,17 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Poradie jázd je teraz odvodené čisto z `start_datetime`** — manuálne preusporiadanie bolo odstránené. Nové jazdy sa automaticky zobrazia na správnej chronologickej pozícii podľa svojho dátumu a času. Jediný spôsob, ako zmeniť poradie jazdy, je upraviť jej dátum/čas.
+
+### Opravené
+- **„Varovanie o dátume" (červené riadky) sa už pri jazdách pridaných cez tlačidlo „+" mimo chronologického poradia nezobrazuje.** Pôvodný stĺpec `sort_order` bol odstránený, takže odchýlka medzi zobrazením a výpočtom je štrukturálne nemožná.
+
+### Odstránené
+- Prepínač manuálneho režimu zoraďovania v zozname jázd.
+- Šípky hore/dole na preusporiadanie jednotlivých riadkov.
+- Tauri príkaz `reorder_trip` (po odstránení manuálneho preusporiadania bol nepoužívaný).
+
 ## [0.36.0] - 2026-05-05
 
 ### Pridané

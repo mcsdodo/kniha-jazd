@@ -97,7 +97,6 @@ All write operations are guarded by the `check_read_only!` macro. When invoked i
 - `create_trip` - Add new trip
 - `update_trip` - Modify trip data
 - `delete_trip` - Remove trip
-- `reorder_trip` - Change trip sort order
 
 **Settings Commands:**
 - `save_settings` - Save app settings

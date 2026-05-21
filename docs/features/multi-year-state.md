@@ -63,24 +63,15 @@ The system maintains continuity across years by calculating the ending state of 
 
 ### Trip Ordering
 
-Trips use explicit `sort_order` for manual reordering (drag-and-drop), separate from chronological date ordering.
+Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISIONS.md)). There is no separate display ordering — the chronological order *is* the display order.
 
-**Two Orderings:**
-1. **Display order** (`sort_order ASC`) — User-controlled, 0 = top/newest
-2. **Chronological order** (date + odometer) — Used for calculations
+**Ordering rule:**
+1. Primary: `start_datetime DESC` (newest at top in the UI)
+2. Tiebreaker for same datetime: `created_at` ASC, then `id` for full determinism
 
-**Database Schema:** Baseline migration defines `sort_order INTEGER NOT NULL DEFAULT 0` on trips table.
+**Database Schema:** The `sort_order` column was dropped in migration [2026-05-21-100000_drop_sort_order](../../src-tauri/core/migrations/2026-05-21-100000_drop_sort_order/). The baseline migration still defines it for historical reasons; the new migration removes it from the live table.
 
-**Reorder Functions:**
-- `db.rs:L405` `reorder_trip()` — Database-level reordering with transaction
-- `commands.rs:L437` `reorder_trip` — Tauri command wrapper
-- `db.rs:L462` `shift_trips_from_position()` — Shifts other trips to make room
-
-**Reorder Behavior:**
-- Uses database transaction for atomicity
-- Shifts other trips up/down to make room
-- Preserves date (only changes display order)
-- New trips default to position 0 (top)
+**No reorder API:** The `reorder_trip` Tauri command and `shift_trips_from_position` helper were removed (Task 65). The only way to change a trip's position is to change its datetime.
 
 ### Frontend State
 
@@ -106,9 +97,9 @@ Trips use explicit `sort_order` for manual reordering (drag-and-drop), separate 
 
 ### Year Filtering Queries
 
-**Trip Filtering:** `db.rs:L320` `get_trips_for_vehicle_in_year()`
-- Uses `strftime('%Y', date)` to extract year from date
-- Returns trips ordered by `sort_order ASC`
+**Trip Filtering:** [`get_trips_for_vehicle_in_year()`](../../src-tauri/core/src/db.rs)
+- Uses `strftime('%Y', start_datetime)` to extract year from the trip start
+- Returns trips ordered by `start_datetime DESC`, with `created_at ASC` then `id` as tiebreakers
 - Raw SQL query (Diesel's type-safe query builder doesn't support strftime)
 
 **Years With Trips:** `db.rs:L345` `get_years_with_trips()`
@@ -120,13 +111,13 @@ Trips use explicit `sort_order` for manual reordering (drag-and-drop), separate 
 
 | File | Purpose |
 |------|---------|
-| `src-tauri/src/commands.rs` | `get_trip_grid_data()`, carryover functions, CRUD commands |
-| `src-tauri/src/db.rs` | Year filtering queries, `reorder_trip()`, `shift_trips_from_position()` |
-| `src-tauri/src/models.rs` | `Vehicle`, `Trip`, `TripGridData`, `VehicleType` |
-| `src/lib/stores/vehicles.ts` | `activeVehicleStore`, `vehiclesStore` |
-| `src/lib/stores/year.ts` | `selectedYearStore`, `resetToCurrentYear()` |
-| `src/routes/+layout.svelte` | Header with vehicle/year selectors |
-| `src/routes/+page.svelte` | Trip grid with reactive year loading |
+| [commands.rs](../../src-tauri/core/src/commands_internal/) | `get_trip_grid_data()`, carryover functions, CRUD commands |
+| [db.rs](../../src-tauri/core/src/db.rs) | Year filtering queries (ordered by `start_datetime DESC`) |
+| [models.rs](../../src-tauri/core/src/models.rs) | `Vehicle`, `Trip`, `TripGridData`, `VehicleType` |
+| [vehicles.ts](../../src/lib/stores/vehicles.ts) | `activeVehicleStore`, `vehiclesStore` |
+| [year.ts](../../src/lib/stores/year.ts) | `selectedYearStore`, `resetToCurrentYear()` |
+| [+layout.svelte](../../src/routes/+layout.svelte) | Header with vehicle/year selectors |
+| [+page.svelte](../../src/routes/+page.svelte) | Trip grid with reactive year loading |
 
 ## Design Decisions
 
@@ -134,9 +125,9 @@ Trips use explicit `sort_order` for manual reordering (drag-and-drop), separate 
 
 2. **Vehicle Type Immutability** — Changing ICE/BEV/PHEV would invalidate all historical calculations (fuel vs energy). Enforced at backend level.
 
-3. **Separate Sort Order vs Date** — Allows users to manually reorder trips (drag-drop) without affecting the chronological date used in calculations.
+3. **Datetime Is The Only Order (see [ADR-022](../../DECISIONS.md))** — `start_datetime` drives both display and calculation order. Manual reordering was removed (Task 65) to make drift between "what the user sees" and "what the math uses" structurally impossible.
 
-4. **Chronological for Calculations** — All consumption/remaining calculations use date+odometer ordering, not display order, ensuring correct fuel/energy tracking.
+4. **Chronological for Calculations** — All consumption/remaining calculations use the same `start_datetime` order as the UI, so out-of-order red rows can no longer happen.
 
 5. **Year Picker Auto-Population** — Shows current year plus all years with data, auto-selects most recent year with data when the selected year has no trips (including initial load).
 

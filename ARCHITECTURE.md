@@ -49,7 +49,6 @@ pub fn get_trip_grid_data(db: State<Database>, vehicle_id: String, year: i32)
     // ALL calculations happen here, in Rust
     let (rates, estimated_rates) = calculate_period_rates(&trips, vehicle.tp_consumption);
     let fuel_remaining = calculate_fuel_remaining(&trips, &rates, vehicle.tank_size_liters);
-    let date_warnings = calculate_date_warnings(&trips);
     let consumption_warnings = calculate_consumption_warnings(&trips, &rates, vehicle.tp_consumption);
 
     Ok(TripGridData {
@@ -57,12 +56,13 @@ pub fn get_trip_grid_data(db: State<Database>, vehicle_id: String, year: i32)
         rates,              // HashMap<trip_id, f64>
         estimated_rates,    // HashSet<trip_id>
         fuel_remaining,     // HashMap<trip_id, f64>
-        date_warnings,      // HashSet<trip_id>
         consumption_warnings,
         missing_receipts,
     })
 }
 ```
+
+Trip order is fixed by `start_datetime DESC` (with `created_at` ASC as tiebreaker) — see [ADR-022](./DECISIONS.md). There is no separate display order, and no date-warning calculation (removed in [Task 65](./_tasks/_done/65-datetime-is-order/)).
 
 **Why this pattern?** Tauri IPC is local (microseconds), so computing everything server-side has negligible latency while providing a single source of truth for legally-sensitive calculations.
 
@@ -89,12 +89,13 @@ VEHICLES (1)
   |-- initial_odometer
   |
   +--< TRIPS (N per vehicle)
-        |-- date, origin, destination, distance_km
+        |-- start_datetime, end_datetime (drive ordering)
+        |-- origin, destination, distance_km
         |-- odometer (for validation)
         |-- purpose (business/personal)
         |-- fuel_liters (nullable - fillups only)
         |-- full_tank (1=full, 0=partial)
-        |-- sort_order (manual ordering)
+        |-- created_at (same-datetime tiebreaker)
         |
         +--< RECEIPTS (0..1 per trip)
               |-- file_path (UNIQUE)

@@ -7,10 +7,10 @@
 1. User opens the **Trips** tab for a vehicle
 2. Frontend calls `get_trip_grid_data(vehicle_id, year)`
 3. Backend returns pre-calculated `TripGridData` with:
-   - All trips for the year (sorted by `sort_order` for display)
+   - All trips for the year (sorted by [`start_datetime` DESC](../../src-tauri/core/src/db.rs); same datetime tiebroken by `created_at` ASC, then `id`)
    - Consumption rates (l/100km or kWh/100km) per trip
    - Fuel/battery remaining after each trip
-   - Warnings for consumption limits, date ordering, missing receipts
+   - Warnings for consumption limits and missing receipts (date-order warnings were removed in [Task 65](../../_tasks/_done/65-datetime-is-order/))
   - `warning_lines` for UI highlighting
 4. Frontend renders the grid with rates, tank levels, and warning indicators
 5. Frontend also calls `calculate_trip_stats(vehicle_id, year)` to render the header stats and (when needed) the compensation banner
@@ -21,8 +21,8 @@
 
 When the user edits/adds a trip row, the UI calls `preview_trip_calculation` to get a quick, non-persistent preview:
 
-- Inputs include `distance_km`, optional `fuel_liters`, `full_tank`, plus placement hints (`insert_at_sort_order`) and `editing_trip_id`.
-- Backend creates a *virtual* trip, inserts/replaces it into the year’s chronological list, then re-runs the same ICE period math as the real grid.
+- Inputs include `distance_km`, optional `fuel_liters`, `full_tank`, plus `start_datetime` (placement hint) and `editing_trip_id`.
+- Backend creates a *virtual* trip, inserts/replaces it into the year's chronological list (ordered by `start_datetime`), then re-runs the same ICE period math as the real grid.
 - Output is `PreviewResult`:
   - `fuel_remaining`: estimated fuel after the edited trip
   - `consumption_rate`: the period rate applied to that trip
@@ -47,9 +47,9 @@ Note: preview currently supports ICE only; energy preview is explicitly TODO in 
         ▼                           ▼                           ▼
 ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────────────┐
 │  Year Carryover   │   │  Trip Sorting     │   │  Vehicle Type Dispatch    │
-│  - Odometer       │   │  - chronological  │   │                           │
-│  - Fuel remaining │   │  - by sort_order  │   │   ┌─────────────────────┐ │
-│  - Battery (kWh)  │   │                   │   │   │ ICE:                │ │
+│  - Odometer       │   │  - by start_      │   │                           │
+│  - Fuel remaining │   │    datetime DESC  │   │   ┌─────────────────────┐ │
+│  - Battery (kWh)  │   │  - created_at tie │   │   │ ICE:                │ │
 └───────────────────┘   └───────────────────┘   │   │ calculate_period_   │ │
                                                 │   │ rates() +           │ │
                                                 │   │ calculate_fuel_     │ │
@@ -183,24 +183,20 @@ Trip: 100 km, battery at 10 kWh, rate 20 kWh/100km
 
 ## Key Concepts
 
-### Chronological vs Sort Order
+### Trip Order
 
-The system maintains **two different orderings** for trips:
+Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISIONS.md)). Display order and calculation order are the same — by construction, they cannot drift.
 
 | Ordering | Purpose | Sorted By |
 |----------|---------|-----------|
-| **Chronological** | Calculations (fuel/battery flow) | `date`, then `odometer` |
-| **Sort Order** | Display (newest first) | `sort_order` field (0 = top) |
+| **Display + Calculation** | Both UI and fuel/battery flow | `start_datetime DESC`, then `created_at ASC`, then `id` |
 
-**Why both?**
-- Fuel/battery must flow in time order (can't use fuel before buying it)
-- Users expect newest trips at the top for quick entry
-- Date warnings compare only dates between neighboring trips in sort order (no odometer tie-break)
+Calculations iterate the trip list reversed (chronological ASC) so fuel/battery flow forward in time. Same-datetime ties are broken deterministically by `created_at` (insertion order), then `id` as a final fallback.
 
-### Warnings (Consumption, Date, Receipts)
+### Warnings (Consumption, Receipts)
 
 - Consumption warnings are based on closed periods exceeding the 20% limit.
-- Date warnings are based on adjacent date order only (see above).
+- Date-order warnings no longer exist — chronological ordering is structurally enforced by [ADR-022](../../DECISIONS.md), so out-of-order red rows are impossible.
 - Missing receipt warnings match receipts by exact `receipt_date` + `liters` + `total_price_eur` (no tolerance) and compare against all receipts, not filtered by vehicle.
 
 ### Year Carryover
@@ -313,13 +309,13 @@ This resets the battery state, breaking the chain of calculations.
 - 2025 start → looks at 2024 → empty → looks at 2023 → found!
 - Uses 2023's ending odometer/fuel/battery
 
-### Why Separate Chronological and Display Order?
+### Why Datetime Is The Only Order (formerly Two Orderings)
 
-**Problem:** Users want newest trips at top (quick entry), but calculations need time order.
+Previously the system carried two orderings — a separate `sort_order` column for display, plus `date+odometer` for calculations. They could drift, producing confusing "date-warning" red rows.
 
-**Solution:** 
-- `sort_order` field for display (0 = top = newest)
-- Sort by date+odometer for calculations
-- `date_warnings` flag trips where these orders conflict
+**Now (see [ADR-022](../../DECISIONS.md), [Task 65](../../_tasks/_done/65-datetime-is-order/)):**
+- `start_datetime DESC` drives both the display and the calculation order.
+- Same-datetime ties: `created_at ASC`, then `id`.
+- The only way to change a trip's position is to change its datetime — no manual reorder UI exists.
 
-This allows users to manually reorder trips while the system warns if the order becomes illogical.
+Result: drift is structurally impossible, so the date-warning concept no longer applies.

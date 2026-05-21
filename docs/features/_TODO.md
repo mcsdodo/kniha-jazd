@@ -39,7 +39,7 @@ Features to document, ranked by complexity and importance.
 - Period-based consumption (closed periods vs open current period)
 - PHEV depletes electricity BEFORE fuel (counterintuitive)
 - Year carryover (odometer, fuel, battery from previous year)
-- "Chronological vs sort_order" trips
+- Trip ordering by `start_datetime` only (formerly "Chronological vs sort_order"; see [ADR-022](../../DECISIONS.md))
 - 20% margin limit for legal compliance
 
 ---
@@ -118,7 +118,7 @@ Features to document, ranked by complexity and importance.
 - Year carryover: Previous year's final → current year's start
 - Fuel/battery carryover for all vehicle types
 - Vehicle type is IMMUTABLE once trips exist
-- `sort_order` column for manual trip ordering
+- Trip ordering by `start_datetime` (manual ordering was removed in [Task 65](../../_tasks/_done/65-datetime-is-order/); `sort_order` column dropped)
 - Three separate trip queries for different purposes
 
 ---

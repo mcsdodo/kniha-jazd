@@ -4,6 +4,24 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-05-21: Datetime Is The Only Source of Trip Order
+
+### ADR-022: Drop `sort_order`; `start_datetime` Drives Both Display and Calculation
+
+**Context:** Trips had a separate `sort_order` integer column (defined in the [baseline migration](./src-tauri/core/migrations/2026-01-08-095218-0000_baseline/up.sql)) that could drift from `start_datetime`. The "+" button used `sort_order` for UI insertion, which propagated the drift and produced confusing "date-warning" red rows for users with chronologically valid data. Two orderings (display vs. calculation) coexisted, and they were free to disagree.
+
+**Decision:** Drop the `sort_order` column entirely (migration [2026-05-21-100000_drop_sort_order](./src-tauri/core/migrations/2026-05-21-100000_drop_sort_order/)). `start_datetime` is the only source of trip order. New trips are auto-positioned by their datetime. The only way to change a trip's position is to change its datetime.
+
+**Consequences:**
+- Manual reordering (up/down arrows, drag-and-drop hypotheticals, the `reorder_trip` Tauri command and its `shift_trips_from_position` DB helper) is removed.
+- Same-datetime trips are tiebroken by `created_at` ASC, then by `id` for full determinism.
+- The `calculate_date_warnings` Rust helper, the `date_warnings` field on [TripGridData](./src-tauri/core/src/models.rs), and the `.date-warning` CSS class are all removed — date-order drift is structurally impossible, so the warning concept no longer applies.
+- Migration drops the column with no data repair needed — order is computed at query time, so existing inconsistent `sort_order` values simply cease to matter.
+
+**Reference:** [Task 65](./_tasks/_done/65-datetime-is-order/).
+
+---
+
 ## 2026-05-04: Unified Invoice Picker
 
 ### ADR-020: Inline `InvoiceData` at the IPC Boundary (vs. `load_invoice(InvoiceRef)`)
