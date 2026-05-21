@@ -185,7 +185,6 @@ export interface TripGridData {
   batteryRemainingPercent: Record<string, number>;
   socOverrideTrips: string[];
   // Shared warnings
-  dateWarnings: string[];
   missingReceipts: string[];
   // Legal compliance fields (2026)
   tripNumbers: Record<string, number>; // Trip sequence numbers (1-based)
