@@ -75,6 +75,9 @@ pub struct ExportData {
     pub labels: ExportLabels,
     /// Columns hidden by user (e.g., ["time", "fuelConsumed", "fuelRemaining", "otherCosts", "otherCostsNote"])
     pub hidden_columns: Vec<String>,
+    /// Sort direction for the trip rows: "asc" = oldest first (lowest trip # on top),
+    /// "desc" = newest first (highest trip # on top). Anything else is treated as "asc".
+    pub sort_direction: String,
 }
 
 /// Calculated totals for the export footer
@@ -201,10 +204,18 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         month_end: Some(m),
     }));
 
+    // Sort direction: "desc" = newest first (highest trip # on top), anything else = ASC.
+    let descending = data.sort_direction.eq_ignore_ascii_case("desc");
     sortable_rows.sort_by(|a, b| {
-        a.sort_key
+        let ordering = a
+            .sort_key
             .partial_cmp(&b.sort_key)
-            .unwrap_or(std::cmp::Ordering::Equal)
+            .unwrap_or(std::cmp::Ordering::Equal);
+        if descending {
+            ordering.reverse()
+        } else {
+            ordering
+        }
     });
 
     for sortable in &sortable_rows {

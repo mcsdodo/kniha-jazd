@@ -24,6 +24,15 @@
 	// Legal compliance (2026)
 	export let driverName: string = '';
 
+	// Sort direction for the # / trip-number column.
+	// 'desc' (default) = newest first; 'asc' = oldest first.
+	// Exported so the parent can bind and flow the choice through to exports.
+	export let sortDirection: 'asc' | 'desc' = 'desc';
+
+	function toggleSortDirection() {
+		sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+	}
+
 	// Derived: show columns based on vehicle type
 	$: showFuelColumns = vehicleType === 'Ice' || vehicleType === 'Phev';
 	$: showEnergyColumns = vehicleType === 'Bev' || vehicleType === 'Phev';
@@ -386,12 +395,14 @@
 	// Display row type: either a Trip or a MonthEndRow
 	type DisplayRow = { type: 'trip'; data: Trip } | { type: 'monthEnd'; data: MonthEndRow };
 
-	// Display order: sort by trip number descending (newest first).
-	// Backend calculates trip numbers chronologically by (startDatetime ASC, createdAt ASC).
+	// Display order: sort by trip number. Direction comes from sortDirection.
+	// Backend calculates trip numbers chronologically by (startDatetime ASC, createdAt ASC),
+	// so DESC = newest first (highest trip # on top), ASC = oldest first.
 	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
 		const numA = tripNumbers.get(a.id) ?? 0;
 		const numB = tripNumbers.get(b.id) ?? 0;
-		return numB - numA;
+		const diff = numA - numB;
+		return sortDirection === 'asc' ? diff : -diff;
 	});
 
 	// Combined display rows: trips + month-end rows
@@ -407,7 +418,8 @@
 			return tripRows;
 		}
 
-		// Sort using backend-provided sort keys (descending — newest first)
+		// Sort using backend-provided sort keys. Direction comes from sortDirection
+		// (DESC = newest first, ASC = oldest first).
 		const combined = [...tripRows, ...monthRows];
 		return combined.sort((a, b) => {
 			const getKey = (row: DisplayRow): number => {
@@ -421,7 +433,8 @@
 				}
 			};
 
-			return getKey(b) - getKey(a);
+			const diff = getKey(a) - getKey(b);
+			return sortDirection === 'asc' ? diff : -diff;
 		});
 	})();
 
@@ -528,8 +541,9 @@
 			<thead>
 				<tr>
 					{#if !hiddenColumns.includes('tripNumber')}
-						<th class="col-trip-number">
+						<th class="col-trip-number sortable" on:click={toggleSortDirection}>
 							{$LL.trips.columns.tripNumber()}
+							<span class="sort-indicator">{sortDirection === 'asc' ? '▲' : '▼'}</span>
 						</th>
 					{/if}
 					<th class="col-start-datetime" data-testid="column-header-start">{$LL.trips.columns.startDatetime()}</th>
@@ -850,6 +864,22 @@
 		border-bottom: 2px solid var(--border-default);
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	th.sortable {
+		cursor: pointer;
+		user-select: none;
+		transition: background-color 0.2s;
+	}
+
+	th.sortable:hover {
+		background-color: var(--btn-secondary-hover);
+	}
+
+	.sort-indicator {
+		margin-left: 0.25rem;
+		font-size: 0.75rem;
+		color: var(--accent-primary);
 	}
 
 	/* Column widths - using class selectors for stable widths when columns are hidden */

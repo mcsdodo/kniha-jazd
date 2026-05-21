@@ -330,7 +330,8 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     expect(moveDownButtons.length).toBe(0);
   });
 
-  it('Scenario 4: manual sort mode toggle does not exist in the grid header', async () => {
+  it('Scenario 4: # column toggles asc/desc only — no manual sort mode', async () => {
+    // Seed three trips on different dates so the order is observable.
     await seedTrip({
       vehicleId,
       startDatetime: `${year}-05-05T08:00`,
@@ -341,6 +342,26 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
       odometer: 50010,
       purpose: 'May 5',
     });
+    await seedTrip({
+      vehicleId,
+      startDatetime: `${year}-05-12T08:00`,
+      endDatetime: `${year}-05-12T09:00`,
+      origin: 'A',
+      destination: 'B',
+      distanceKm: 10,
+      odometer: 50020,
+      purpose: 'May 12',
+    });
+    await seedTrip({
+      vehicleId,
+      startDatetime: `${year}-05-21T08:00`,
+      endDatetime: `${year}-05-21T09:00`,
+      origin: 'A',
+      destination: 'B',
+      distanceKm: 10,
+      odometer: 50030,
+      purpose: 'May 21',
+    });
 
     await browser.refresh();
     await waitForAppReady();
@@ -348,14 +369,52 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     await waitForTripGrid();
     await browser.pause(500);
 
-    // No sortable column headers — start_datetime is the only ordering, and
-    // the column header for it must not advertise itself as sortable.
+    // Exactly one sortable column header — the # / trip-number column.
+    // The legacy "manual" sort mode is gone; trip-number direction is the
+    // only axis.
     const sortableHeaders = await $$('.trip-grid thead th.sortable');
-    expect(sortableHeaders.length).toBe(0);
+    expect(sortableHeaders.length).toBe(1);
 
-    // No sort-direction indicators (▲/▼) anywhere in the header row.
+    // Exactly one sort-direction indicator (always rendered, ▲ or ▼).
     const sortIndicators = await $$('.trip-grid thead .sort-indicator');
-    expect(sortIndicators.length).toBe(0);
+    expect(sortIndicators.length).toBe(1);
+
+    // Default direction is DESC (newest first): ▼ and rows top→bottom 21, 12, 5.
+    const indicator = sortIndicators[0];
+    expect((await indicator.getText()).trim()).toBe('▼');
+    let visibleDates = await getVisibleStartDates();
+    expect(visibleDates).toEqual(['21.05.', '12.05.', '05.05.']);
+
+    // Click → flip to ASC (oldest first): ▲ and rows top→bottom 5, 12, 21.
+    const sortableTh = sortableHeaders[0];
+    await sortableTh.click();
+    await browser.waitUntil(
+      async () => {
+        const txt = (await $('.trip-grid thead .sort-indicator').getText()).trim();
+        return txt === '▲';
+      },
+      {
+        timeout: 5000,
+        timeoutMsg: 'sort-indicator did not flip to ▲ after click',
+      }
+    );
+    visibleDates = await getVisibleStartDates();
+    expect(visibleDates).toEqual(['05.05.', '12.05.', '21.05.']);
+
+    // Click again → flip back to DESC. Never a third state (no "manual").
+    await sortableTh.click();
+    await browser.waitUntil(
+      async () => {
+        const txt = (await $('.trip-grid thead .sort-indicator').getText()).trim();
+        return txt === '▼';
+      },
+      {
+        timeout: 5000,
+        timeoutMsg: 'sort-indicator did not flip back to ▼ after second click',
+      }
+    );
+    visibleDates = await getVisibleStartDates();
+    expect(visibleDates).toEqual(['21.05.', '12.05.', '05.05.']);
   });
 
   it('Scenario 5: deleting a middle trip preserves chronological order', async () => {

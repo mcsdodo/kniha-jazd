@@ -39,6 +39,8 @@ pub async fn export_html_internal(
         totals,
         labels,
         hidden_columns: Vec::new(),
+        // Server-mode export keeps the legacy default order (oldest first).
+        sort_direction: "asc".to_string(),
     };
 
     generate_html(export_data)

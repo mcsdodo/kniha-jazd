@@ -24,8 +24,7 @@ pub async fn export_to_browser(
     vehicle_id: String,
     year: i32,
     license_plate: String,
-    _sort_column: String,
-    _sort_direction: String,
+    sort_direction: String,
     labels: ExportLabels,
     hidden_columns: Vec<String>,
 ) -> Result<(), String> {
@@ -87,6 +86,7 @@ pub async fn export_to_browser(
         totals,
         labels,
         hidden_columns,
+        sort_direction,
     };
 
     let html = generate_html(export_data)?;

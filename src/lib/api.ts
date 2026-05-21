@@ -266,12 +266,11 @@ export async function openExportPreview(
 	vehicleId: string,
 	year: number,
 	licensePlate: string,
-	sortColumn: string,
 	sortDirection: string,
 	labels: ExportLabels,
 	hiddenColumns: string[]
 ): Promise<void> {
-	await apiCall('export_to_browser', { vehicleId, year, licensePlate, sortColumn, sortDirection, labels, hiddenColumns });
+	await apiCall('export_to_browser', { vehicleId, year, licensePlate, sortDirection, labels, hiddenColumns });
 }
 
 // Receipt commands
