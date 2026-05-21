@@ -373,8 +373,6 @@ pub struct TripGridData {
     pub soc_override_trips: HashSet<String>,
 
     // Shared warnings
-    /// Trip IDs with date ordering issues
-    pub date_warnings: HashSet<String>,
     /// Trip IDs that have fuel but are missing a matching receipt
     pub missing_receipts: HashSet<String>,
     /// Trip IDs where assigned receipt datetime is outside trip's [start, end] range

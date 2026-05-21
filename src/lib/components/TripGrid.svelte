@@ -47,8 +47,6 @@
 	let batteryRemainingKwh: Map<string, number> = new Map();
 	let batteryRemainingPercent: Map<string, number> = new Map();
 	let socOverrideTrips: Set<string> = new Set();
-	// Shared
-	let dateWarnings: Set<string> = new Set();
 	// Suggested fillup (for trips in open period)
 	let suggestedFillup: Map<string, SuggestedFillup> = new Map();
 	// Legal compliance (2026)
@@ -96,8 +94,6 @@
 			batteryRemainingKwh = new Map(Object.entries(gridData.batteryRemainingKwh));
 			batteryRemainingPercent = new Map(Object.entries(gridData.batteryRemainingPercent));
 			socOverrideTrips = new Set(gridData.socOverrideTrips);
-			// Shared
-			dateWarnings = new Set(gridData.dateWarnings);
 			// Suggested fillup
 			suggestedFillup = new Map(Object.entries(gridData.suggestedFillup));
 			// Legal compliance (2026)
@@ -745,7 +741,6 @@
 							onMoveDown={() => {}}
 							canMoveUp={!reorderDisabled && tripIndex > 0 && !isFirstRecord(sortedTrips[tripIndex - 1])}
 							canMoveDown={!reorderDisabled && tripIndex < sortedTrips.length - 1 && !isFirstRecord(sortedTrips[tripIndex + 1])}
-							hasDateWarning={dateWarnings.has(trip.id)}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
 							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}

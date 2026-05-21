@@ -3,9 +3,9 @@
 // ============================================================================
 
 use crate::commands_internal::statistics::{
-    calculate_consumption_warnings, calculate_date_warnings, calculate_energy_grid_data,
-    calculate_missing_receipts, calculate_receipt_datetime_warnings, calculate_suggested_fillups,
-    get_open_period_km, has_any_period_over_limit,
+    calculate_consumption_warnings, calculate_energy_grid_data, calculate_missing_receipts,
+    calculate_receipt_datetime_warnings, calculate_suggested_fillups, get_open_period_km,
+    has_any_period_over_limit,
 };
 use super::*;
 use crate::db::Database;
@@ -629,82 +629,6 @@ fn test_period_rates_no_fullup_uses_tp_rate() {
             "Trips should be marked as estimated"
         );
     }
-}
-
-// ========================================================================
-// Date warning tests (calculate_date_warnings)
-// ========================================================================
-
-#[test]
-fn test_date_warnings_detects_out_of_order() {
-    // Trips sorted by sort_order (0 = newest/top), but dates out of order
-    let trips = vec![
-        make_trip_detailed(
-            NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(),
-            50.0,
-            None,
-            false,
-            0,
-        ), // Top: Jun 15
-        make_trip_detailed(
-            NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(),
-            50.0,
-            None,
-            false,
-            1,
-        ), // Middle: Jun 10 - WRONG! Should be between 15 and 20
-        make_trip_detailed(
-            NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(),
-            50.0,
-            None,
-            false,
-            2,
-        ), // Bottom: Jun 20
-    ];
-
-    let warnings = calculate_date_warnings(&trips);
-
-    // Jun 10 (middle) has earlier date than Jun 15 (top) - that's wrong for sort_order
-    // Jun 10 also has earlier date than Jun 20 (bottom) - wrong again
-    assert!(
-        warnings.contains(&trips[1].id.to_string()),
-        "Jun 10 trip should be flagged (out of order)"
-    );
-}
-
-#[test]
-fn test_date_warnings_correct_order_no_warnings() {
-    // Trips in correct order: newest (highest date) at sort_order 0
-    let trips = vec![
-        make_trip_detailed(
-            NaiveDate::from_ymd_opt(2024, 6, 20).unwrap(),
-            50.0,
-            None,
-            false,
-            0,
-        ), // Top: Jun 20 (newest)
-        make_trip_detailed(
-            NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(),
-            50.0,
-            None,
-            false,
-            1,
-        ), // Middle: Jun 15
-        make_trip_detailed(
-            NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(),
-            50.0,
-            None,
-            false,
-            2,
-        ), // Bottom: Jun 10 (oldest)
-    ];
-
-    let warnings = calculate_date_warnings(&trips);
-
-    assert!(
-        warnings.is_empty(),
-        "No warnings expected for correctly ordered trips"
-    );
 }
 
 // ========================================================================

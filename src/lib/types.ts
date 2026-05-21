@@ -156,7 +156,6 @@ export interface TripGridData {
 	batteryRemainingPercent: Record<string, number>; // tripId -> %
 	socOverrideTrips: string[]; // tripIds with manual SoC override
 	// Warnings
-	dateWarnings: string[]; // tripIds with date ordering issues
 	missingReceipts: string[]; // tripIds missing receipts
 	receiptDatetimeWarnings: string[]; // tripIds with datetime warnings
 	receiptMismatchOverrides: string[]; // tripIds where user confirmed mismatch

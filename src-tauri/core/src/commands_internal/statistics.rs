@@ -396,7 +396,6 @@ pub fn build_trip_grid_data(
             battery_remaining_kwh: HashMap::new(),
             battery_remaining_percent: HashMap::new(),
             soc_override_trips: HashSet::new(),
-            date_warnings: HashSet::new(),
             missing_receipts: HashSet::new(),
             receipt_datetime_warnings: HashSet::new(),
             receipt_mismatch_overrides: HashSet::new(),
@@ -432,9 +431,6 @@ pub fn build_trip_grid_data(
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
     });
-
-    // Calculate date warnings (trips sorted by sort_order)
-    let date_warnings = calculate_date_warnings(&trips);
 
     // Populate SoC override trips (works for all vehicle types)
     let soc_override_trips: HashSet<String> = trips
@@ -566,7 +562,6 @@ pub fn build_trip_grid_data(
         battery_remaining_kwh,
         battery_remaining_percent,
         soc_override_trips,
-        date_warnings,
         missing_receipts,
         receipt_datetime_warnings,
         receipt_mismatch_overrides,
@@ -1200,41 +1195,6 @@ fn calculate_phev_grid_data(
 // ============================================================================
 // Warning Calculations
 // ============================================================================
-
-/// Check if each trip's date is out of order relative to neighbors.
-/// Trips should be sorted by sort_order (0 = newest at top).
-pub fn calculate_date_warnings(trips_by_sort_order: &[Trip]) -> HashSet<String> {
-    let mut warnings = HashSet::new();
-
-    for i in 0..trips_by_sort_order.len() {
-        let trip = &trips_by_sort_order[i];
-        let prev = if i > 0 {
-            Some(&trips_by_sort_order[i - 1])
-        } else {
-            None
-        };
-        let next = if i < trips_by_sort_order.len() - 1 {
-            Some(&trips_by_sort_order[i + 1])
-        } else {
-            None
-        };
-
-        // sort_order 0 = newest (should have highest date)
-        // Check: prev.start_datetime.date() >= trip.start_datetime.date() >= next.start_datetime.date()
-        if let Some(p) = prev {
-            if trip.start_datetime.date() > p.start_datetime.date() {
-                warnings.insert(trip.id.to_string());
-            }
-        }
-        if let Some(n) = next {
-            if trip.start_datetime.date() < n.start_datetime.date() {
-                warnings.insert(trip.id.to_string());
-            }
-        }
-    }
-
-    warnings
-}
 
 /// Check if any trip's consumption rate exceeds 120% of TP rate.
 pub fn calculate_consumption_warnings(
