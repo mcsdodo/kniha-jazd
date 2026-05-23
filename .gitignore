@@ -29,6 +29,11 @@ vite.config.ts.timestamp-*
 # Rust build artifacts (rust-analyzer workspace cache)
 /target/
 
+# Staged SPA (copied from build/ by scripts/stage-spa.mjs at bundle time).
+# .gitkeep is tracked so the bundle.resources glob always matches during cargo build.
+/src-tauri/desktop/spa/*
+!/src-tauri/desktop/spa/.gitkeep
+
 kniha_jazd.xlsx
 
 # Generated databases

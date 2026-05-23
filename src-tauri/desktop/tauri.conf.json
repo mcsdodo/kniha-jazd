@@ -7,7 +7,7 @@
     "frontendDist": "../../build",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run tauri:prebuild"
   },
   "app": {
     "withGlobalTauri": true,
@@ -28,6 +28,7 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
+    "resources": ["spa/**/*"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
