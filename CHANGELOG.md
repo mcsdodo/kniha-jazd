@@ -7,6 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Rozdiel tachometra zobrazuje zrozumiteľný popis namiesto +/− predpony** — napr. „367 km viac v appke" alebo „367 km menej v appke", aby bolo hneď jasné, ktorá hodnota je vyššia.
+
+### Opravené
+- **Webový server v produkčnej zostave vracal 404 na všetkých stránkach** — SvelteKit rozhranie sa teraz správne pribalí do inštalátora a server ho nájde na disku. Oprava sa týka režimu `--headless` aj prepínača Nastavenia → Server.
+
 ## [0.37.0] - 2026-05-21
 
 ### Zmenené
