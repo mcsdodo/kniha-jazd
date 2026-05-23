@@ -280,7 +280,7 @@
 								{haOdoCache.value.toLocaleString('sk-SK')} km
 								{#if haOdoDelta !== null}
 									<span class="delta" class:warning={haOdoWarning}>
-										({haOdoDelta > 0 ? '+' : ''}{haOdoDelta.toFixed(0)} km)
+										({Math.abs(haOdoDelta).toFixed(0)} {haOdoDelta < 0 ? $LL.homeAssistant.deltaMoreInApp() : $LL.homeAssistant.deltaLessInApp()})
 									</span>
 								{/if}
 							</span>

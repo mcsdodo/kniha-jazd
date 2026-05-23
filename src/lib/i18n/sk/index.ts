@@ -638,6 +638,8 @@ const sk = {
 		// Header display
 		realOdo: 'Reálne ODO',
 		delta: 'od posl. jazdy',
+		deltaMoreInApp: 'km viac v appke',
+		deltaLessInApp: 'km menej v appke',
 		stale: 'pred',
 		fetchError: 'Chyba pripojenia k HA',
 		loading: 'Načítavam...',

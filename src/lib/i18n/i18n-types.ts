@@ -2102,6 +2102,14 @@ type RootTranslation = {
 		 */
 		delta: string
 		/**
+		 * k​m​ ​v​i​a​c​ ​v​ ​a​p​p​k​e
+		 */
+		deltaMoreInApp: string
+		/**
+		 * k​m​ ​m​e​n​e​j​ ​v​ ​a​p​p​k​e
+		 */
+		deltaLessInApp: string
+		/**
 		 * p​r​e​d
 		 */
 		stale: string
@@ -4410,6 +4418,14 @@ export type TranslationFunctions = {
 		 * od posl. jazdy
 		 */
 		delta: () => LocalizedString
+		/**
+		 * km viac v appke
+		 */
+		deltaMoreInApp: () => LocalizedString
+		/**
+		 * km menej v appke
+		 */
+		deltaLessInApp: () => LocalizedString
 		/**
 		 * pred
 		 */

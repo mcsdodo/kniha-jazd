@@ -638,6 +638,8 @@ const en = {
 		// Header display
 		realOdo: 'Real ODO',
 		delta: 'since last trip',
+		deltaMoreInApp: 'km more in app',
+		deltaLessInApp: 'km less in app',
 		stale: 'ago',
 		fetchError: 'HA connection error',
 		loading: 'Loading...',
