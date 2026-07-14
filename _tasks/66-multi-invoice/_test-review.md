@@ -235,3 +235,82 @@ DROP/RENAME referencing objects (none exist); in-process concurrent access
 during migration (single Mutex'd connection); statistics year/vehicle
 filtering; NULL-amount-only trips (covered by I5); backup info inspection
 (schema-agnostic COUNT queries).
+
+## Iteration 3
+
+Verification notes: `get_trip_ids_with_invoice` has exactly one production
+caller ([statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs)
+line 444, handled by Task 7). [export.rs](../../src-tauri/core/src/export.rs)
+reads trip fields only and formats money with `{:.2}` — no float-noise leak.
+Both assign entry points (desktop command and
+[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
+lines 128–138) fetch the Paperless doc backend-side — Task 6 rule 5 holds on
+the HTTP path too.
+
+### New Coverage Gaps — Critical
+
+- **[C8] The invoice-picker compatibility check false-flags every 2nd+ Other
+  invoice — the feature's headline flow — and no plan task touches it.**
+  `check_invoice_trip_compatibility`'s Other branch
+  ([invoice.rs](../../src-tauri/core/src/invoice.rs) lines 142–176) compares
+  the invoice amount against the **whole** `trip.other_costs_eur` with ±0.01.
+  Once a trip carries one applied Other (5.00), attaching the next (7.50)
+  returns `status="differs"` →
+  [TripSelectorModal.svelte](../../src/lib/components/TripSelectorModal.svelte)
+  (lines 242–292) shows ⚠ and pushes the mismatch-confirm flow, setting
+  `mismatch_override=true`, which Task 7 then surfaces permanently. Also the
+  picker's ±0.01 and Task 6's cent-exact guard disagree on borderline values
+  (12.34 vs 12.335: picker "matches", backend adds → 24.68). `invoice.rs` /
+  `invoice_tests.rs` appear in no task's file list. **Fix plan:** redefine the
+  Other branch under multi-invoice (compare against remainder, or `Matches`
+  when coverage shows existing Others). **Add:**
+  `test_compatibility_second_other_invoice_not_flagged_as_price_mismatch`,
+  `test_compatibility_other_uses_cent_exact_not_epsilon`.
+
+### New Coverage Gaps — Important
+
+- **[I13] A whole breaking test file is unlisted + two paperless DB APIs with
+  unspecified fate.**
+  [invoices_tests.rs](../../src-tauri/core/src/commands_internal/invoices_tests.rs)
+  calls the old `upsert_paperless_link(&trip_id, 435)` signature (line 222)
+  and `get_paperless_link_for_doc` (lines 156, 224) — Task 5's caller-grep
+  only hunts `get_paperless_link_for_trip`. Fate of
+  `get_paperless_link_for_doc` ([db.rs](../../src-tauri/core/src/db.rs)
+  line 894) and `list_paperless_links_for_docs` (line 914; production caller
+  [paperless_cmd.rs](../../src-tauri/core/src/commands_internal/paperless_cmd.rs)
+  line 75) unstated. **Fix plan:** add `invoices_tests.rs` to Task 5/6 lists;
+  enumerate the paperless DB API end-state.
+- **[I14] Unassign-after-manual-overwrite silently destroys the manual
+  value.** Other 5.01 applied (total 15.01) → user hand-edits to 3.00 (Req 4)
+  → unassign → `money_sub(3.00, 5.01)` clamps to `None`, erasing 3.00. Not
+  covered by C7 (price edit) or I6 (exact zero). **Add:**
+  `test_unassign_applied_other_after_manual_overwrite` pinning intended
+  semantics (+ grid `missing_other_invoices` follow-through if clamp-to-None
+  is intended).
+- **[I15] Task 1's files don't exist** — actual layout is
+  `src-tauri/core/src/calculations/{mod.rs, tests.rs, …}` (no
+  `calculations.rs` / `calculations_tests.rs`; stale names come from
+  [.claude/rules/rust-backend.md](../../.claude/rules/rust-backend.md)). An
+  executor following Task 1 verbatim creates orphan files that never compile.
+  **Fix plan:** target `calculations/mod.rs` + `calculations/tests.rs`;
+  `to_cents` must be `pub`-exported (Tasks 5 and 7 call it).
+
+### New Coverage Gaps — Minor
+
+- Task 10's doc-sweep grep provably misses the actual stale docs:
+  [paperless-integration.md](../../docs/features/paperless-integration.md)
+  lines 91–94 (documents the old PK/UNIQUE shape + ADR-019 symmetry) and
+  [unified-invoice-picker.md](../../docs/features/unified-invoice-picker.md)
+  line 10 (match-indicator semantics C8 changes). List both + an ADR-019
+  supersede note explicitly in Task 10.
+- Integration fixture type goes stale:
+  [tests/integration/fixtures/types.ts](../../tests/integration/fixtures/types.ts)
+  line 187 mirrors `missingReceipts`; update alongside
+  [src/lib/types.ts](../../src/lib/types.ts) lines 158–160.
+
+### Explicit no-new-gap areas
+
+Export & reporting (trip-fields-only, 2-dp formatting); frontend/TS contract
+beyond C8/fixture-type (all consumers in Task 8 scope); suggestions/HA/other
+modules (zero receipt/`other_costs_eur` reads, no caching); Requirement 4
+"not prevented" half (covered by Task 9 step 4).
