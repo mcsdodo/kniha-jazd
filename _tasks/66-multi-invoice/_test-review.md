@@ -141,3 +141,97 @@ Reviewed: migrations (deep, incl. real DDL history diff), money helpers
 (executed), assignment semantics, coverage/indicator logic, integration spec,
 existing-test impact. Remaining: frontend prop wiring depth, export
 non-regression, concurrency/HTTP-server angles.
+
+## Iteration 2
+
+Verification notes: full-corpus grep confirms **nothing references `receipts`**
+(no `REFERENCES receipts`, no views, no triggers in any migration) — the
+DROP/RENAME dance cannot break other objects; `legacy_alter_table` concern is
+moot. Desktop app and embedded HTTP server share one `Arc<Database>` with a
+single `Mutex<SqliteConnection>`
+([server/mod.rs](../../src-tauri/core/src/server/mod.rs) lines 28–33); an old
+binary opening a newer DB already lands in read-only mode — no new in-process
+concurrency gap.
+
+### New Coverage Gaps — Critical
+
+- **[C6] Two migration directories = two transactions = an untested
+  half-migrated state that crash-loops the app.** Diesel applies each
+  migration dir in its own transaction, and `Database::new` panics on failure
+  ([db.rs](../../src-tauri/core/src/db.rs) lines 59–60; same path in
+  [desktop/src/lib.rs](../../src-tauri/desktop/src/lib.rs) line 82 and
+  [web/src/main.rs](../../src-tauri/web/src/main.rs) line 38, both *before*
+  any backup or compatibility check). If the receipts rebuild commits and the
+  paperless rebuild fails, the production DB is permanently half-migrated and
+  **every subsequent launch panics before the UI exists**. **Fix plan:** merge
+  both rebuilds into ONE migration directory (single transaction; the
+  backfill's `receipts.assignment_type` dependency is satisfied — column
+  exists since 2026-02-03). **Add:**
+  `test_multi_invoice_migration_is_single_atomic_unit` (legacy-seeded DB →
+  run pending → both tables rebuilt; exactly one new row in
+  `__diesel_schema_migrations`).
+- **[C7] Receipts have no applied-amount snapshot — editing a receipt's price
+  after assignment corrupts the trip total on unassign.** Paperless links get
+  an `amount_eur` snapshot but the receipt side stores only the
+  `amount_applied` bool; Task 6 rule 4 subtracts the **live**
+  `total_price_eur`, and `update_receipt_internal` is a raw passthrough
+  ([receipts_cmd.rs](../../src-tauri/core/src/commands_internal/receipts_cmd.rs)
+  lines 126–133). Assign 5.00 → edit to 7.00 → unassign subtracts 7.00 →
+  total permanently off by 2.00 (clamping can silently floor to 0).
+  **Fix design:** snapshot the applied amount (e.g. applied cents instead of a
+  bool, mirroring paperless). **Add:**
+  `test_unassign_after_receipt_price_edit_subtracts_originally_applied_amount`.
+
+### New Coverage Gaps — Important
+
+- **[I8] Datetime-warning/override loops only see the FIRST receipt per trip.**
+  Both use `.find(|r| r.trip_id == Some(trip.id))`
+  ([statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs)
+  lines 1250, 1272) — with N receipts, an out-of-range second Other receipt is
+  invisible; Task 7's planned single-receipt test would pass against the bug.
+  **Add:** `test_datetime_warning_fires_for_second_other_receipt` + mirror for
+  mismatch overrides.
+- **[I9] Silent behavior change in the missing-invoice predicate unpinned.**
+  Today `is_some()` ([statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs)
+  line 1233); Task 7 switches to `> 0` — a trip with `Some(0.0)` flips from
+  flagged to unflagged, no test uses zero. **Add:**
+  `test_zero_value_costs_not_flagged_missing` (pin intended semantics).
+- **[I10] Unassigning a receipt whose trip was deleted must not fail.**
+  `delete_trip` leaves `receipts.trip_id` orphaned; naive
+  `ok_or("Trip not found")?` in the new unassign logic makes orphans
+  permanently un-unassignable. **Add:**
+  `test_unassign_orphaned_receipt_succeeds_without_trip`. (Coverage/mismatch
+  warnings key on live trips only — no test needed there.)
+- **[I11] Task 9 integration spec is not executable as written.** There is
+  **no `seedReceipt` helper**
+  ([tests/integration/utils/db.ts](../../tests/integration/utils/db.ts) has
+  only vehicle/trip/settings seeders; the `seedReceipt` in
+  [tests/integration/README.md](../../tests/integration/README.md) line 167 is
+  stale). Receipts are only creatable via the Docker-skipped scan+mock-Gemini
+  flow with two mock files, neither suitable for two distinct Other receipts.
+  **Fix plan:** add Other-cost mock JSONs (accepting Docker-skip) or a real
+  `seedReceipt` helper. Spec content itself is adequate.
+- **[I12] Assign is not idempotent — re-assign double-adds.**
+  `assign_receipt_to_trip_internal` never checks `receipt.trip_id`; Task 6
+  pseudo-code has no already-assigned pre-check; command reachable without UI
+  gating via the HTTP RPC server. Same-doc-same-trip paperless re-upsert adds
+  again; type change Fuel→Other adds without reversing. **Add:**
+  `test_assign_same_receipt_same_trip_twice_adds_once`,
+  `test_paperless_reupsert_same_trip_does_not_double_add`,
+  `test_reassign_receipt_with_new_type_reverses_old_contribution`.
+
+### New Coverage Gaps — Minor
+
+- `test_unassign_fuel_receipt_never_touches_other_costs` — proves Fuel unassign
+  keys on assignment type, not just `amount_applied`.
+- No `busy_timeout`/WAL anywhere; table rebuilds lengthen the exclusive-lock
+  window — an external connection (DB browser, query-sqlite-db skill) during
+  upgrade → `SQLITE_BUSY` → startup panic. Document or set `busy_timeout`;
+  no test proposed.
+
+### Explicit no-new-gap areas
+
+DROP/RENAME referencing objects (none exist); in-process concurrent access
+during migration (single Mutex'd connection); statistics year/vehicle
+filtering; NULL-amount-only trips (covered by I5); backup info inspection
+(schema-agnostic COUNT queries).
