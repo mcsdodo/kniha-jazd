@@ -3,7 +3,7 @@
 **Target:** _tasks/66-multi-invoice — planned test coverage in [03-plan.md](./03-plan.md)
 **Reference:** [01-task.md](./01-task.md), [02-design.md](./02-design.md)
 **Started:** 2026-07-14
-**Status:** In Progress
+**Status:** Ready for User Review
 **Focus:** Migration data integrity (HARD requirement: the two table-rebuild
 migrations MUST NOT lose or corrupt any existing data and MUST complete
 successfully on real production DBs), plus completeness/edge cases of all
@@ -314,3 +314,135 @@ Export & reporting (trip-fields-only, 2-dp formatting); frontend/TS contract
 beyond C8/fixture-type (all consumers in Task 8 scope); suggestions/HA/other
 modules (zero receipt/`other_costs_eur` reads, no caching); Requirement 4
 "not prevented" half (covered by Task 9 step 4).
+
+## Iteration 4 — Adversarial Verification + Final Sweep
+
+**All eight critical findings (C1–C8) CONFIRMED** against the codebase:
+
+| # | Verdict | Decisive evidence |
+|---|---|---|
+| C1 | CONFIRMED | Every test DB path is `Database::in_memory()` running the fresh chain ([db.rs](../../src-tauri/core/src/db.rs) lines 69–74); no plan task seeds legacy rows. |
+| C2 | CONFIRMED | The backfill `CASE WHEN EXISTS…` appears in no test in the plan. |
+| C3a | CONFIRMED (mechanism refined) | `2026-02-01…replace_receipt_date_with_datetime/up.sql` lines 13+19 drop `idx_receipts_date`, create `idx_receipts_datetime`. Silent schema drift, not an abort — the abort risk in C3 belongs to C3b. |
+| C3b | CONFIRMED (likelihood weakened, fix stands) | Column is nullable (`ADD COLUMN … INTEGER DEFAULT 0`); no in-app code writes NULL, but a hand-edited/restored DB with one NULL row aborts the whole migration under the plan's `NOT NULL` copy → per C6 a crash-loop. `COALESCE` is free; keep `NOT NULL` in new DDL (also fixes schema.rs drift). |
+| C4 | CONFIRMED | Task 6 reversal rule exists only on the paperless path. |
+| C5 | CONFIRMED | Drift already real (schema.rs vs live column); baseline used `CREATE TABLE IF NOT EXISTS`, so pre-baseline DBs never got baseline DDL. |
+| C6 | CONFIRMED | diesel_migrations 2.2 runs each dir in its own transaction (zero `metadata.toml` overrides, no outer transaction); panic paths in [desktop/src/lib.rs](../../src-tauri/desktop/src/lib.rs) line 82 / [web/src/main.rs](../../src-tauri/web/src/main.rs) line 38 fire before any backup/compat check. Merge-to-one-directory fix valid. |
+| C7 | CONFIRMED | `update_receipt_internal` is a raw passthrough; `total_price_eur` written unconditionally, no assigned-receipt guard. |
+| C8 | CONFIRMED | [invoice.rs](../../src-tauri/core/src/invoice.rs) line 157: `(tc - r_price).abs() < 0.01` against full `other_costs_eur`; both pickers route through it. |
+
+**Final-sweep results:**
+
+- C1 harness **implementable as proposed** (repo already uses
+  `MigrationSource::migrations` + `MigrationHarness`; `db_tests.rs` is a
+  private submodule that can construct `Database` around a partially-migrated
+  connection). Two wording notes for Task 4.5: (a) sort migrations by
+  `name().version()` before replay (order not contractual); (b) `version()` is
+  the dir name up to the first underscore — filter with lexical
+  `version < "2026-07-13"`, don't string-match full names.
+- down.sql is never executed anywhere (no diesel CLI, no revert in CI) —
+  down.sql finding correctly stays Minor.
+- Backup/migration interplay: no task-66 test warranted — the pre-update
+  backup is made by the *old* binary before the new one migrates, so it
+  already is the pre-migration snapshot; the backup-failure root cause is
+  owned by a separate investigation.
+- ONE new Minor: plan's `receipts_new` DDL silently drops column DEFAULTs
+  (`status TEXT NOT NULL DEFAULT 'Pending'`, confidence JSON default) —
+  functionally harmless; keep the defaults or note the intentional drop so the
+  C5 identity test's normalization is deliberate.
+
+**NO new Critical or Important gaps → quality gate met.**
+
+## Review Summary
+
+**Status:** Ready for User Review
+**Iterations:** 4 (3 discovery + 1 adversarial verification)
+**Total Gaps:** 8 Critical, 15 Important, ~12 Minor
+**Baseline:** 360 backend tests passing; implementation NOT started — all
+fixes below are plan edits + planned tests, applied before coding.
+
+### Critical (migration safety + data corruption — all verified)
+
+1. [ ] **C1** Add migration data-integrity test harness + row/column
+   preservation tests (receipts + paperless links) — no such tests exist
+   anywhere in the repo.
+2. [ ] **C2** Test the backfill heuristic on real pre-state data (Fuel-vs-Other
+   classification incl. `fuel_liters` NULL/0 and Fuel-receipt-present cases).
+3. [ ] **C3** Fix plan DDL: recreate `idx_receipts_datetime` (not the dead
+   `idx_receipts_date`); `COALESCE(mismatch_override, 0)` in the copy SELECT;
+   add NULL-tolerance test.
+4. [ ] **C4** Add receipt-path reassignment reversal rule + test (old trip's
+   sum must be restored).
+5. [ ] **C5** Add fresh-vs-migrated schema identity test (`sqlite_master`
+   diff).
+6. [ ] **C6** Merge the two migrations into ONE directory (single
+   transaction — prevents a half-migrated crash-looping DB) + atomicity test.
+7. [ ] **C7** Snapshot the applied amount on receipts (not just a bool) so
+   price edits after assignment can't corrupt totals on unassign + test.
+8. [ ] **C8** Redefine `check_invoice_trip_compatibility`'s Other branch for
+   multi-invoice (second Other must not false-flag as price mismatch;
+   cent-exact, aligned with the double-count guard) + tests.
+
+### Important (edge cases / error paths / plan executability)
+
+1. [ ] **I1** `can_attach` per Fuel cardinality (or explicit error-on-assign
+   UX asserted in integration spec).
+2. [ ] **I2** Note append/strip test (user-edited note untouched).
+3. [ ] **I3** NULL-price Other receipt: link-only + `has_unknown_amount`.
+4. [ ] **I4** Link-only paperless reassign must not touch old trip.
+5. [ ] **I5** "No false warnings after upgrade" test on migrated data.
+6. [ ] **I6** Unassign-to-zero stores `None`, not `Some(0.0)`.
+7. [ ] **I7** Name the breaking `db_tests.rs` tests + new semantics in Task 5.
+8. [ ] **I8** Datetime/mismatch loops use `.find()` (first receipt only) —
+   add second-receipt warning tests.
+9. [ ] **I9** Pin `is_some()` → `> 0` predicate change with a zero-value test.
+10. [ ] **I10** Orphaned receipt (deleted trip) unassign must succeed.
+11. [ ] **I11** Task 9 not executable: no `seedReceipt` helper — add helper or
+    Other-cost mocks.
+12. [ ] **I12** Assign idempotency: same-receipt-same-trip, paperless
+    re-upsert, type-change reassign — no double-add.
+13. [ ] **I13** `invoices_tests.rs` breaking tests unlisted; fate of
+    `get_paperless_link_for_doc` / `list_paperless_links_for_docs` unstated.
+14. [ ] **I14** Unassign after manual overwrite (clamp erases user's value) —
+    pin intended semantics.
+15. [ ] **I15** Task 1 targets nonexistent files — use
+    `calculations/mod.rs` + `calculations/tests.rs`; export `to_cents` pub.
+
+### Minor
+
+1. [ ] down.sql consequences documented in SQL comments (never executed; keep
+   forward-only).
+2. [ ] Non-finite/negative amount validation at assign time (or documented
+   trust boundary).
+3. [ ] Guard tolerance: pin cent-exact vs ±0.01 contradiction with one test.
+4. [ ] Fix "banker's-rounding trap" comment in proposed test.
+5. [ ] Integration spec step 5 phrased as display verification.
+6. [ ] i18n: integration spec asserts Slovak tooltip text, not keys.
+7. [ ] `test_unassign_fuel_receipt_never_touches_other_costs`.
+8. [ ] Document/mitigate `SQLITE_BUSY` risk during rebuild (no busy_timeout
+   anywhere).
+9. [ ] Task 10 doc sweep misses
+   [paperless-integration.md](../../docs/features/paperless-integration.md) +
+   [unified-invoice-picker.md](../../docs/features/unified-invoice-picker.md) +
+   ADR-019 supersede note.
+10. [ ] Update stale
+    [tests/integration/fixtures/types.ts](../../tests/integration/fixtures/types.ts)
+    `missingReceipts` mirror.
+11. [ ] Task 4.5 harness wording: sort by version; lexical version filter.
+12. [ ] Keep (or document dropping) column DEFAULTs in rebuilt receipts DDL.
+
+### Test Quality Issues
+
+- Proposed `to_cents`/`money_add`/`money_sub` implementation compiled and run:
+  all proposed assertions pass; bit-exact `f64` equality is sound. No changes
+  needed to Task 1's test style.
+
+### Coverage Assessment
+
+**Planned coverage as written: Sparse for the migration (zero data-integrity
+tests — the user's top requirement) and Adequate-with-holes for business
+logic.** With the fixes above folded into the plan, coverage would be
+Comprehensive. Recommended next step: update
+[03-plan.md](./03-plan.md) (new Task 4.5 harness, merged single migration
+directory, C7 snapshot design change, C8 compatibility redefinition, corrected
+file paths) before implementation starts.
