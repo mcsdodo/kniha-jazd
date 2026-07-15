@@ -355,7 +355,7 @@ modules (zero receipt/`other_costs_eur` reads, no caching); Requirement 4
 
 ## Review Summary
 
-**Status:** Ready for User Review
+**Status:** Complete — all findings resolved (user: "fix all", 2026-07-15)
 **Iterations:** 4 (3 discovery + 1 adversarial verification)
 **Total Gaps:** 8 Critical, 15 Important, ~12 Minor
 **Baseline:** 360 backend tests passing; implementation NOT started — all
@@ -363,73 +363,73 @@ fixes below are plan edits + planned tests, applied before coding.
 
 ### Critical (migration safety + data corruption — all verified)
 
-1. [ ] **C1** Add migration data-integrity test harness + row/column
+1. [x] **C1** Add migration data-integrity test harness + row/column
    preservation tests (receipts + paperless links) — no such tests exist
    anywhere in the repo.
-2. [ ] **C2** Test the backfill heuristic on real pre-state data (Fuel-vs-Other
+2. [x] **C2** Test the backfill heuristic on real pre-state data (Fuel-vs-Other
    classification incl. `fuel_liters` NULL/0 and Fuel-receipt-present cases).
-3. [ ] **C3** Fix plan DDL: recreate `idx_receipts_datetime` (not the dead
+3. [x] **C3** Fix plan DDL: recreate `idx_receipts_datetime` (not the dead
    `idx_receipts_date`); `COALESCE(mismatch_override, 0)` in the copy SELECT;
    add NULL-tolerance test.
-4. [ ] **C4** Add receipt-path reassignment reversal rule + test (old trip's
+4. [x] **C4** Add receipt-path reassignment reversal rule + test (old trip's
    sum must be restored).
-5. [ ] **C5** Add fresh-vs-migrated schema identity test (`sqlite_master`
+5. [x] **C5** Add fresh-vs-migrated schema identity test (`sqlite_master`
    diff).
-6. [ ] **C6** Merge the two migrations into ONE directory (single
+6. [x] **C6** Merge the two migrations into ONE directory (single
    transaction — prevents a half-migrated crash-looping DB) + atomicity test.
-7. [ ] **C7** Snapshot the applied amount on receipts (not just a bool) so
+7. [x] **C7** Snapshot the applied amount on receipts (not just a bool) so
    price edits after assignment can't corrupt totals on unassign + test.
-8. [ ] **C8** Redefine `check_invoice_trip_compatibility`'s Other branch for
+8. [x] **C8** Redefine `check_invoice_trip_compatibility`'s Other branch for
    multi-invoice (second Other must not false-flag as price mismatch;
    cent-exact, aligned with the double-count guard) + tests.
 
 ### Important (edge cases / error paths / plan executability)
 
-1. [ ] **I1** `can_attach` per Fuel cardinality (or explicit error-on-assign
+1. [x] **I1** `can_attach` per Fuel cardinality (or explicit error-on-assign
    UX asserted in integration spec).
-2. [ ] **I2** Note append/strip test (user-edited note untouched).
-3. [ ] **I3** NULL-price Other receipt: link-only + `has_unknown_amount`.
-4. [ ] **I4** Link-only paperless reassign must not touch old trip.
-5. [ ] **I5** "No false warnings after upgrade" test on migrated data.
-6. [ ] **I6** Unassign-to-zero stores `None`, not `Some(0.0)`.
-7. [ ] **I7** Name the breaking `db_tests.rs` tests + new semantics in Task 5.
-8. [ ] **I8** Datetime/mismatch loops use `.find()` (first receipt only) —
+2. [x] **I2** Note append/strip test (user-edited note untouched).
+3. [x] **I3** NULL-price Other receipt: link-only + `has_unknown_amount`.
+4. [x] **I4** Link-only paperless reassign must not touch old trip.
+5. [x] **I5** "No false warnings after upgrade" test on migrated data.
+6. [x] **I6** Unassign-to-zero stores `None`, not `Some(0.0)`.
+7. [x] **I7** Name the breaking `db_tests.rs` tests + new semantics in Task 5.
+8. [x] **I8** Datetime/mismatch loops use `.find()` (first receipt only) —
    add second-receipt warning tests.
-9. [ ] **I9** Pin `is_some()` → `> 0` predicate change with a zero-value test.
-10. [ ] **I10** Orphaned receipt (deleted trip) unassign must succeed.
-11. [ ] **I11** Task 9 not executable: no `seedReceipt` helper — add helper or
+9. [x] **I9** Pin `is_some()` → `> 0` predicate change with a zero-value test.
+10. [x] **I10** Orphaned receipt (deleted trip) unassign must succeed.
+11. [x] **I11** Task 9 not executable: no `seedReceipt` helper — add helper or
     Other-cost mocks.
-12. [ ] **I12** Assign idempotency: same-receipt-same-trip, paperless
+12. [x] **I12** Assign idempotency: same-receipt-same-trip, paperless
     re-upsert, type-change reassign — no double-add.
-13. [ ] **I13** `invoices_tests.rs` breaking tests unlisted; fate of
+13. [x] **I13** `invoices_tests.rs` breaking tests unlisted; fate of
     `get_paperless_link_for_doc` / `list_paperless_links_for_docs` unstated.
-14. [ ] **I14** Unassign after manual overwrite (clamp erases user's value) —
+14. [x] **I14** Unassign after manual overwrite (clamp erases user's value) —
     pin intended semantics.
-15. [ ] **I15** Task 1 targets nonexistent files — use
+15. [x] **I15** Task 1 targets nonexistent files — use
     `calculations/mod.rs` + `calculations/tests.rs`; export `to_cents` pub.
 
 ### Minor
 
-1. [ ] down.sql consequences documented in SQL comments (never executed; keep
+1. [x] down.sql consequences documented in SQL comments (never executed; keep
    forward-only).
-2. [ ] Non-finite/negative amount validation at assign time (or documented
+2. [x] Non-finite/negative amount validation at assign time (or documented
    trust boundary).
-3. [ ] Guard tolerance: pin cent-exact vs ±0.01 contradiction with one test.
-4. [ ] Fix "banker's-rounding trap" comment in proposed test.
-5. [ ] Integration spec step 5 phrased as display verification.
-6. [ ] i18n: integration spec asserts Slovak tooltip text, not keys.
-7. [ ] `test_unassign_fuel_receipt_never_touches_other_costs`.
-8. [ ] Document/mitigate `SQLITE_BUSY` risk during rebuild (no busy_timeout
+3. [x] Guard tolerance: pin cent-exact vs ±0.01 contradiction with one test.
+4. [x] Fix "banker's-rounding trap" comment in proposed test.
+5. [x] Integration spec step 5 phrased as display verification.
+6. [x] i18n: integration spec asserts Slovak tooltip text, not keys.
+7. [x] `test_unassign_fuel_receipt_never_touches_other_costs`.
+8. [x] Document/mitigate `SQLITE_BUSY` risk during rebuild (no busy_timeout
    anywhere).
-9. [ ] Task 10 doc sweep misses
+9. [x] Task 10 doc sweep misses
    [paperless-integration.md](../../docs/features/paperless-integration.md) +
    [unified-invoice-picker.md](../../docs/features/unified-invoice-picker.md) +
    ADR-019 supersede note.
-10. [ ] Update stale
+10. [x] Update stale
     [tests/integration/fixtures/types.ts](../../tests/integration/fixtures/types.ts)
     `missingReceipts` mirror.
-11. [ ] Task 4.5 harness wording: sort by version; lexical version filter.
-12. [ ] Keep (or document dropping) column DEFAULTs in rebuilt receipts DDL.
+11. [x] Task 4.5 harness wording: sort by version; lexical version filter.
+12. [x] Keep (or document dropping) column DEFAULTs in rebuilt receipts DDL.
 
 ### Test Quality Issues
 
@@ -446,3 +446,47 @@ Comprehensive. Recommended next step: update
 [03-plan.md](./03-plan.md) (new Task 4.5 harness, merged single migration
 directory, C7 snapshot design change, C8 compatibility redefinition, corrected
 file paths) before implementation starts.
+
+## Resolution
+
+**Decision (user, 2026-07-15): fix all.** Since implementation had not
+started, every finding was resolved by revising the planning docs — no code
+gap remained open, no gap was skipped.
+
+**Tests Added:** 0 code tests (pre-implementation review); **~45 planned
+tests** now specified in the revised [03-plan.md](./03-plan.md), including a
+dedicated migration data-integrity task (Task 4) that did not exist before.
+
+**How each category was resolved:**
+
+- **All 8 Critical** → folded into [02-design.md](./02-design.md) +
+  [03-plan.md](./03-plan.md): single atomic migration directory (C6),
+  corrected rebuild DDL with `COALESCE` + live index set + kept DEFAULTs
+  (C3 + iteration-4 minor), migration test harness + data-preservation +
+  backfill + schema-identity + atomicity tests (C1/C2/C5), receipt-path
+  reassignment reversal (C4), `applied_amount_cents` snapshot replacing the
+  `amount_applied` bool on BOTH stores (C7), compatibility-check
+  redefinition as new plan Task 6 (C8).
+- **All 15 Important** → folded in: can_attach rule (I1), note append/strip
+  test (I2), NULL-amount rules both sources (I3), link-only reassign (I4),
+  no-false-warnings-after-upgrade test (I5), unassign-to-zero → `None` (I6),
+  breaking tests named incl. `invoices_tests.rs` + paperless API end-state
+  (I7/I13), iterate-all-receipts warning fix + tests (I8), zero-value
+  predicate pin (I9), orphan unassign (I10), `seedReceipt` helper added to
+  plan Task 9 (I11), idempotency rules + tests (I12), unassign-after-
+  manual-overwrite semantics pinned in design (I14), corrected
+  `calculations/` module paths (I15).
+- **All 12 Minor** → folded in: down.sql loss warnings, non-finite/negative
+  validation test, cent-exact guard pin (with a genuinely discriminating
+  value, 12.34 vs 12.3345 — the review's 12.335 example rounds identically
+  under both schemes), fixed rounding-trap comment, display-only integration
+  assertions, Slovak-text assertions, Fuel-unassign no-touch test,
+  SQLITE_BUSY note in migration SQL, explicit doc-sweep targets + ADR-019
+  supersede, fixture-type update, harness version-sorting/filter notes,
+  DDL DEFAULTs parity. The task/design ±0.01 contradiction was fixed in
+  [01-task.md](./01-task.md) (cent-exact wins).
+
+**Related (outside task 66):** the backup-failure root cause
+(read-only gate on backup creation + no backend pre-migration backup +
+non-transactional `fs::copy`) is being fixed directly in code as a separate
+change — see CHANGELOG entry of 2026-07-15.
