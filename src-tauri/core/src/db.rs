@@ -5,8 +5,9 @@
 //! to domain models (Vehicle, etc.) happen via From implementations.
 
 use crate::models::{
-    NewReceiptRow, NewRouteRow, NewSettingsRow, NewTripRow, NewVehicleRow, Receipt, ReceiptRow,
-    Route, RouteRow, Settings, SettingsRow, Trip, TripRow, Vehicle, VehicleRow,
+    AssignmentType, NewReceiptRow, NewRouteRow, NewSettingsRow, NewTripRow, NewVehicleRow,
+    PaperlessLink, Receipt, ReceiptRow, Route, RouteRow, Settings, SettingsRow, Trip,
+    TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
 };
 use crate::schema::{receipts, routes, settings, trips, vehicles};
 use chrono::{NaiveDateTime, Utc};
@@ -15,7 +16,7 @@ use diesel::prelude::*;
 use diesel::result::QueryResult;
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -704,6 +705,7 @@ impl Database {
             original_currency: receipt.original_currency.as_deref(),
             assignment_type: receipt.assignment_type.map(|t| t.as_str()),
             mismatch_override: if receipt.mismatch_override { 1 } else { 0 },
+            applied_amount_cents: receipt.applied_amount_cents,
         };
 
         diesel::insert_into(receipts::table)
@@ -781,6 +783,7 @@ impl Database {
                 receipts::original_currency.eq(&receipt.original_currency),
                 receipts::assignment_type.eq(receipt.assignment_type.map(|t| t.as_str())),
                 receipts::mismatch_override.eq(if receipt.mismatch_override { 1 } else { 0 }),
+                receipts::applied_amount_cents.eq(receipt.applied_amount_cents),
             ))
             .execute(conn)?;
 
@@ -793,7 +796,8 @@ impl Database {
         Ok(())
     }
 
-    /// Unassign receipt from trip - clears trip_id, assignment_type, and mismatch_override
+    /// Unassign receipt from trip - clears trip_id, assignment_type,
+    /// mismatch_override, and the applied-amount snapshot (Task 66).
     pub fn unassign_receipt(&self, id: &str) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
         diesel::update(receipts::table.filter(receipts::id.eq(id)))
@@ -801,6 +805,7 @@ impl Database {
                 receipts::trip_id.eq::<Option<String>>(None),
                 receipts::assignment_type.eq::<Option<String>>(None),
                 receipts::mismatch_override.eq(0),
+                receipts::applied_amount_cents.eq(None::<i64>),
             ))
             .execute(conn)?;
         Ok(())
@@ -846,7 +851,8 @@ impl Database {
                     liters, total_price_eur, receipt_datetime, station_name, station_address,
                     source_year, status, confidence, raw_ocr_text, error_message,
                     created_at, updated_at, vendor_name, cost_description,
-                    original_amount, original_currency, assignment_type, mismatch_override
+                    original_amount, original_currency, assignment_type, mismatch_override,
+                        applied_amount_cents
              FROM receipts WHERE
                 (receipt_datetime IS NOT NULL AND CAST(strftime('%Y', receipt_datetime) AS INTEGER) = ?)
                 OR (receipt_datetime IS NULL AND source_year = ?)
@@ -875,7 +881,8 @@ impl Database {
                         liters, total_price_eur, receipt_datetime, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
                         created_at, updated_at, vendor_name, cost_description,
-                        original_amount, original_currency, assignment_type, mismatch_override
+                        original_amount, original_currency, assignment_type, mismatch_override,
+                        applied_amount_cents
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                    AND (
@@ -894,7 +901,8 @@ impl Database {
                         liters, total_price_eur, receipt_datetime, station_name, station_address,
                         source_year, status, confidence, raw_ocr_text, error_message,
                         created_at, updated_at, vendor_name, cost_description,
-                        original_amount, original_currency, assignment_type, mismatch_override
+                        original_amount, original_currency, assignment_type, mismatch_override,
+                        applied_amount_cents
                  FROM receipts
                  WHERE (vehicle_id IS NULL OR vehicle_id = ?)
                  ORDER BY receipt_datetime DESC, scanned_at DESC",
@@ -907,25 +915,34 @@ impl Database {
     }
 
     // ========================================================================
-    // Paperless trip links — 1:1 trip<->doc mapping
+    // Paperless trip links — one trip per doc, N docs per trip (Task 66)
     // ========================================================================
 
-    pub fn upsert_paperless_link(&self, trip_id: &str, doc_id: i64) -> QueryResult<()> {
+    /// Upsert a paperless doc→trip link, keyed on `paperless_document_id`
+    /// ONLY: any prior row for THIS doc (possibly on another trip) is
+    /// replaced. A trip may hold many docs — never delete by trip_id.
+    /// The one-Fuel-per-trip rule is enforced by the partial unique index
+    /// `idx_paperless_links_trip_fuel` (insert fails with a constraint error).
+    pub fn upsert_paperless_link(&self, link: &PaperlessLink) -> QueryResult<()> {
         use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();
         let now = chrono::Utc::now().to_rfc3339();
 
         conn.transaction::<_, diesel::result::Error, _>(|tx| {
             // Clear any prior link to THIS doc (might be on a different trip).
-            diesel::delete(p::paperless_trip_links.filter(p::paperless_document_id.eq(doc_id)))
-                .execute(tx)?;
-            // Clear any prior link FROM this trip (trip might have linked a different doc).
-            diesel::delete(p::paperless_trip_links.filter(p::trip_id.eq(trip_id)))
-                .execute(tx)?;
+            diesel::delete(
+                p::paperless_trip_links
+                    .filter(p::paperless_document_id.eq(link.paperless_document_id)),
+            )
+            .execute(tx)?;
             diesel::insert_into(p::paperless_trip_links)
                 .values((
-                    p::trip_id.eq(trip_id),
-                    p::paperless_document_id.eq(doc_id),
+                    p::paperless_document_id.eq(link.paperless_document_id),
+                    p::trip_id.eq(&link.trip_id),
+                    p::assignment_type.eq(link.assignment_type.as_str()),
+                    p::amount_eur.eq(link.amount_eur),
+                    p::title.eq(&link.title),
+                    p::applied_amount_cents.eq(link.applied_amount_cents),
                     p::created_at.eq(&now),
                     p::updated_at.eq(&now),
                 ))
@@ -942,36 +959,61 @@ impl Database {
             .map(|_| ())
     }
 
-    pub fn get_paperless_link_for_doc(&self, doc_id: i64) -> QueryResult<Option<String>> {
+    /// Full link row for a doc (one trip per doc — PK lookup).
+    pub fn get_paperless_link(&self, doc_id: i64) -> QueryResult<Option<PaperlessLink>> {
         use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();
         p::paperless_trip_links
             .filter(p::paperless_document_id.eq(doc_id))
-            .select(p::trip_id)
-            .first::<String>(conn)
+            .select((
+                p::paperless_document_id,
+                p::trip_id,
+                p::assignment_type,
+                p::amount_eur,
+                p::title,
+                p::applied_amount_cents,
+            ))
+            .first::<PaperlessLinkRow>(conn)
             .optional()
+            .map(|row| row.map(paperless_link_from_row))
     }
 
-    pub fn get_paperless_link_for_trip(&self, trip_id: &str) -> QueryResult<Option<i64>> {
+    /// All link rows attached to a trip (N docs per trip since Task 66).
+    pub fn get_paperless_links_for_trip(&self, trip_id: &str) -> QueryResult<Vec<PaperlessLink>> {
         use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();
         p::paperless_trip_links
             .filter(p::trip_id.eq(trip_id))
-            .select(p::paperless_document_id)
-            .first::<i64>(conn)
-            .optional()
+            .select((
+                p::paperless_document_id,
+                p::trip_id,
+                p::assignment_type,
+                p::amount_eur,
+                p::title,
+                p::applied_amount_cents,
+            ))
+            .load::<PaperlessLinkRow>(conn)
+            .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
     }
 
     pub fn list_paperless_links_for_docs(
         &self,
         doc_ids: &[i64],
-    ) -> QueryResult<Vec<(i64, String)>> {
+    ) -> QueryResult<Vec<PaperlessLink>> {
         use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();
         p::paperless_trip_links
             .filter(p::paperless_document_id.eq_any(doc_ids))
-            .select((p::paperless_document_id, p::trip_id))
-            .load::<(i64, String)>(conn)
+            .select((
+                p::paperless_document_id,
+                p::trip_id,
+                p::assignment_type,
+                p::amount_eur,
+                p::title,
+                p::applied_amount_cents,
+            ))
+            .load::<PaperlessLinkRow>(conn)
+            .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
     }
 
     #[cfg(test)]
@@ -985,27 +1027,82 @@ impl Database {
     // Source-agnostic invoice attachment query
     // ========================================================================
 
-    /// Trip IDs that have any invoice attached — Receipt with `trip_id` set
-    /// OR a row in `paperless_trip_links`. The two sources are equivalent for
-    /// the "is this trip documented?" check, so callers consume the union and
-    /// never branch on source.
-    pub fn get_trip_ids_with_invoice(&self) -> QueryResult<HashSet<String>> {
+    /// Per-type invoice coverage for every trip that has at least one invoice.
+    /// Union of local receipts and paperless links; sums use integer cents.
+    /// Other amounts come from receipts' live `total_price_eur` and paperless
+    /// assign-time `amount_eur` snapshots; a NULL amount on any Other invoice
+    /// sets `has_unknown_amount` so the sum-mismatch check can be skipped.
+    pub fn get_trip_invoice_coverage(&self) -> QueryResult<HashMap<String, TripInvoiceCoverage>> {
+        use crate::calculations::to_cents;
         use crate::schema::paperless_trip_links::dsl as p;
         use crate::schema::receipts::dsl as r;
         let conn = &mut *self.conn.lock().unwrap();
 
-        let receipt_ids: Vec<Option<String>> = r::receipts
-            .select(r::trip_id)
+        let mut coverage: HashMap<String, TripInvoiceCoverage> = HashMap::new();
+
+        // Assigned local receipts (amounts read live from total_price_eur)
+        let receipt_rows: Vec<(Option<String>, Option<String>, Option<f64>)> = r::receipts
             .filter(r::trip_id.is_not_null())
+            .select((r::trip_id, r::assignment_type, r::total_price_eur))
             .load(conn)?;
+        for (trip_id, assignment_type, amount) in receipt_rows {
+            let Some(trip_id) = trip_id else { continue };
+            let entry = coverage.entry(trip_id).or_default();
+            match assignment_type.as_deref().and_then(AssignmentType::from_str) {
+                Some(AssignmentType::Fuel) => entry.has_fuel = true,
+                Some(AssignmentType::Other) => {
+                    entry.has_other = true;
+                    match amount {
+                        Some(a) => entry.other_sum_cents += to_cents(a),
+                        None => entry.has_unknown_amount = true,
+                    }
+                }
+                // Legacy shape (assigned without a type): the trip counts as
+                // covered (entry exists) but sets neither per-type flag.
+                None => {}
+            }
+        }
 
-        let paperless_ids: Vec<String> = p::paperless_trip_links
-            .select(p::trip_id)
+        // Paperless links (amounts read from assign-time snapshots)
+        let link_rows: Vec<(String, String, Option<f64>)> = p::paperless_trip_links
+            .select((p::trip_id, p::assignment_type, p::amount_eur))
             .load(conn)?;
+        for (trip_id, assignment_type, amount) in link_rows {
+            let entry = coverage.entry(trip_id).or_default();
+            match AssignmentType::from_str(&assignment_type) {
+                Some(AssignmentType::Fuel) => entry.has_fuel = true,
+                // assignment_type is NOT NULL and app-constrained to
+                // Fuel/Other; treat anything unexpected as Other.
+                _ => {
+                    entry.has_other = true;
+                    match amount {
+                        Some(a) => entry.other_sum_cents += to_cents(a),
+                        None => entry.has_unknown_amount = true,
+                    }
+                }
+            }
+        }
 
-        let mut set: HashSet<String> = receipt_ids.into_iter().flatten().collect();
-        set.extend(paperless_ids);
-        Ok(set)
+        Ok(coverage)
+    }
+}
+
+/// Tuple row for paperless link selects (created_at/updated_at are
+/// DB-managed and not part of the domain struct).
+type PaperlessLinkRow = (i64, String, String, Option<f64>, Option<String>, Option<i64>);
+
+fn paperless_link_from_row(row: PaperlessLinkRow) -> PaperlessLink {
+    let (paperless_document_id, trip_id, assignment_type, amount_eur, title, applied_amount_cents) =
+        row;
+    PaperlessLink {
+        paperless_document_id,
+        trip_id,
+        // NOT NULL + app-constrained; fall back to Other for unexpected values.
+        assignment_type: AssignmentType::from_str(&assignment_type)
+            .unwrap_or(AssignmentType::Other),
+        amount_eur,
+        title,
+        applied_amount_cents,
     }
 }
 

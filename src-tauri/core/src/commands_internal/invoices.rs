@@ -130,8 +130,18 @@ pub fn assign_invoice_to_trip_internal(
                 }
             }
 
-            db.upsert_paperless_link(trip_id, *id)
-                .map_err(|e| e.to_string())?;
+            // Snapshot assignment type + doc amount/title at assign time
+            // (backend-fetched doc — never caller data). applied_amount_cents
+            // stays None here; sum-on-assign semantics land in Task 66 step 5.
+            let link = crate::models::PaperlessLink {
+                paperless_document_id: *id,
+                trip_id: trip_id.to_string(),
+                assignment_type,
+                amount_eur: doc.total_amount,
+                title: Some(doc.title.clone()),
+                applied_amount_cents: None,
+            };
+            db.upsert_paperless_link(&link).map_err(|e| e.to_string())?;
             // mismatch_override is currently ignored for Paperless — `paperless_trip_links`
             // has no override column. If users need this for Paperless, extend the schema
             // in a follow-up task.

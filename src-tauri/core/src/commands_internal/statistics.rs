@@ -439,10 +439,14 @@ pub fn build_trip_grid_data(
         .map(|t| t.id.to_string())
         .collect();
 
-    // Calculate missing invoices (trips with costs but no Receipt or Paperless link)
-    let trips_with_invoice = db
-        .get_trip_ids_with_invoice()
-        .map_err(|e| e.to_string())?;
+    // Calculate missing invoices (trips with costs but no Receipt or Paperless link).
+    // Coverage keys = trips with at least one invoice attached (either source);
+    // per-type flags get wired into the grid in Task 66's follow-up work.
+    let trips_with_invoice: HashSet<String> = db
+        .get_trip_invoice_coverage()
+        .map_err(|e| e.to_string())?
+        .into_keys()
+        .collect();
     let missing_receipts = calculate_missing_receipts(&trips, &trips_with_invoice);
 
     // Calculate receipt datetime warnings (trips with assigned receipt outside trip time range)
@@ -1221,7 +1225,7 @@ pub fn calculate_consumption_warnings(
 /// Find trips with costs that don't have any invoice attached.
 /// Source-agnostic: `trips_with_invoice` is the union of trip IDs covered by
 /// either a local Receipt or a Paperless document link. The caller is
-/// responsible for assembling that set (see `Database::get_trip_ids_with_invoice`).
+/// responsible for assembling that set (see `Database::get_trip_invoice_coverage`).
 /// A trip needs an invoice if it has fuel OR other_costs.
 pub fn calculate_missing_receipts(
     trips: &[Trip],

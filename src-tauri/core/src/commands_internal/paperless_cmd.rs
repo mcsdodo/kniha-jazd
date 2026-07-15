@@ -74,7 +74,10 @@ pub async fn get_paperless_invoices_internal(
     let doc_ids: Vec<i64> = docs.iter().map(|d| d.id).collect();
     let links = db.list_paperless_links_for_docs(&doc_ids)
         .map_err(|e| PaperlessError::Parse(e.to_string()))?;
-    let link_map: std::collections::HashMap<i64, String> = links.into_iter().collect();
+    let link_map: std::collections::HashMap<i64, String> = links
+        .into_iter()
+        .map(|l| (l.paperless_document_id, l.trip_id))
+        .collect();
 
     Ok(docs.into_iter().map(|d| PaperlessInvoiceRow {
         paperless_url: format!("{}/documents/{}/", base, d.id),

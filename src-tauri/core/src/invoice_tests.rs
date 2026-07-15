@@ -37,6 +37,7 @@ fn make_receipt() -> Receipt {
         error_message: None,
         assignment_type: None,
         mismatch_override: false,
+        applied_amount_cents: None,
         created_at: now,
         updated_at: now,
     }

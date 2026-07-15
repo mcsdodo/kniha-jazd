@@ -28,6 +28,8 @@ diesel::table! {
         // Added via migration 2026-02-03-100000_receipt_assignment_type
         assignment_type -> Nullable<Text>,
         mismatch_override -> Integer,
+        // Added via migration 2026-07-15-100000_multi_invoice
+        applied_amount_cents -> Nullable<BigInt>,
     }
 }
 
@@ -104,11 +106,15 @@ diesel::table! {
     }
 }
 
-// Added via migration 2026-05-03-100000_add_paperless_trip_links
+// Rebuilt via migration 2026-07-15-100000_multi_invoice (Task 66)
 diesel::table! {
-    paperless_trip_links (trip_id) {
-        trip_id -> Text,
+    paperless_trip_links (paperless_document_id) {
         paperless_document_id -> BigInt,
+        trip_id -> Text,
+        assignment_type -> Text,
+        amount_eur -> Nullable<Double>,
+        title -> Nullable<Text>,
+        applied_amount_cents -> Nullable<BigInt>,
         created_at -> Text,
         updated_at -> Text,
     }

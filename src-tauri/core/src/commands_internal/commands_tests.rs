@@ -245,6 +245,7 @@ fn make_receipt_with_datetime_assigned(
         error_message: None,
         assignment_type: Some(crate::models::AssignmentType::Fuel),
         mismatch_override: false,
+        applied_amount_cents: None,
         created_at: now,
         updated_at: now,
     }
@@ -1497,6 +1498,7 @@ fn make_receipt_with_details(
         error_message: None,
         assignment_type: None,
         mismatch_override: false,
+        applied_amount_cents: None,
         created_at: now,
         updated_at: now,
     }

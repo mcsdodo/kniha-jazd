@@ -542,6 +542,9 @@ pub struct Receipt {
     //                 trip_id = SET  ↔ assignment_type = SET  (assigned)
     pub assignment_type: Option<AssignmentType>, // Fuel or Other, set when assigned to trip
     pub mismatch_override: bool, // True = user confirmed data mismatch is intentional
+    /// Cents actually added to trip.other_costs_eur at assign time (Task 66).
+    /// None = nothing applied (link-only or legacy) — unassign must not subtract.
+    pub applied_amount_cents: Option<i64>,
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -583,6 +586,7 @@ impl Receipt {
             error_message: None,
             assignment_type: None,
             mismatch_override: false,
+            applied_amount_cents: None,
             created_at: now,
             updated_at: now,
         }
@@ -1014,6 +1018,8 @@ pub struct ReceiptRow {
     // Assignment fields (migration 2026-02-03-100000_receipt_assignment_type)
     pub assignment_type: Option<String>, // "Fuel" or "Other"
     pub mismatch_override: i32,          // 0 = no override, 1 = user confirmed
+    // Amount snapshot (migration 2026-07-15-100000_multi_invoice)
+    pub applied_amount_cents: Option<i64>,
 }
 
 /// For inserting new receipts
@@ -1046,6 +1052,8 @@ pub struct NewReceiptRow<'a> {
     // Assignment fields (migration 2026-02-03-100000_receipt_assignment_type)
     pub assignment_type: Option<&'a str>, // "Fuel" or "Other"
     pub mismatch_override: i32,           // 0 = no override, 1 = user confirmed
+    // Amount snapshot (migration 2026-07-15-100000_multi_invoice)
+    pub applied_amount_cents: Option<i64>,
 }
 
 // =============================================================================
@@ -1201,6 +1209,7 @@ impl From<ReceiptRow> for Receipt {
                 .assignment_type
                 .and_then(|s| AssignmentType::from_str(&s)),
             mismatch_override: row.mismatch_override != 0,
+            applied_amount_cents: row.applied_amount_cents,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
@@ -1264,17 +1273,32 @@ impl crate::invoice::Invoice for Receipt {
 }
 
 // ============================================================================
-// PaperlessTripLink — 1:1 link between Paperless document and Trip
+// PaperlessLink — doc→trip link with assignment snapshots (Task 66)
 // ============================================================================
 
-#[derive(Debug, Clone, Queryable, Selectable, Identifiable, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::paperless_trip_links)]
-#[diesel(primary_key(trip_id))]
-pub struct PaperlessTripLink {
-    pub trip_id: String,
+/// A paperless doc→trip link with assignment snapshots (Task 66).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaperlessLink {
     pub paperless_document_id: i64,
-    pub created_at: String,
-    pub updated_at: String,
+    pub trip_id: String,
+    pub assignment_type: AssignmentType,
+    pub amount_eur: Option<f64>,
+    pub title: Option<String>,
+    /// Cents actually added to trip.other_costs_eur at assign time; None = link-only.
+    pub applied_amount_cents: Option<i64>,
+}
+
+/// Per-trip invoice coverage for grid indicators (Task 66).
+#[derive(Debug, Clone, Default)]
+pub struct TripInvoiceCoverage {
+    pub has_fuel: bool,
+    pub has_other: bool,
+    /// Sum of Other invoice amounts in integer cents (receipts' live
+    /// total_price_eur + paperless amount_eur snapshots).
+    pub other_sum_cents: i64,
+    /// True if any Other invoice has an unknown (NULL) amount -> skip sum-mismatch check.
+    pub has_unknown_amount: bool,
 }
 
 #[cfg(test)]

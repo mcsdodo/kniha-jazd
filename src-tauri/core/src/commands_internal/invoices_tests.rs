@@ -42,6 +42,7 @@ fn seed_fuel_receipt(db: &Database, vehicle_id: Uuid, liters: f64, price: f64) -
         error_message: None,
         assignment_type: None,
         mismatch_override: false,
+        applied_amount_cents: None,
         created_at: now,
         updated_at: now,
     };
@@ -153,7 +154,12 @@ fn assign_paperless_populates_trip_fuel_when_empty() {
     let trip = db.get_trip(&trip_id).unwrap().unwrap();
     assert_eq!(trip.fuel_liters, Some(40.5));
     assert_eq!(trip.fuel_cost_eur, Some(58.20));
-    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), Some(trip_id));
+    let link = db.get_paperless_link(435).unwrap().expect("link created");
+    assert_eq!(link.trip_id, trip_id);
+    assert_eq!(link.assignment_type, AssignmentType::Fuel);
+    // Snapshots taken from the backend-fetched doc at assign time
+    assert_eq!(link.amount_eur, Some(58.20));
+    assert_eq!(link.title, Some("Doc 435".to_string()));
 }
 
 #[test]
@@ -219,7 +225,15 @@ fn unassign_dispatches_paperless_source() {
     db.create_vehicle(&v).unwrap();
     let trip_id = db_tests::seed_test_trip(&db, &v.id.to_string());
     let app_state = AppState::new();
-    db.upsert_paperless_link(&trip_id, 435).unwrap();
+    db.upsert_paperless_link(&crate::models::PaperlessLink {
+        paperless_document_id: 435,
+        trip_id: trip_id.clone(),
+        assignment_type: AssignmentType::Other,
+        amount_eur: Some(15.00),
+        title: Some("Iná cena".to_string()),
+        applied_amount_cents: None,
+    })
+    .unwrap();
     unassign_invoice_internal(&db, &app_state, &InvoiceRef::Paperless(435)).unwrap();
-    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
+    assert!(db.get_paperless_link(435).unwrap().is_none());
 }

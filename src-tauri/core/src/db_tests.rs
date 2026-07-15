@@ -1,7 +1,7 @@
 //! Tests for the Diesel-based Database implementation.
 
 use super::*;
-use crate::models::{ReceiptStatus, VehicleType};
+use crate::models::{AssignmentType, PaperlessLink, ReceiptStatus, VehicleType};
 use chrono::{NaiveDate, NaiveDateTime};
 
 #[test]
@@ -499,30 +499,52 @@ fn test_check_migration_compatibility_passes_for_current_app() {
 }
 
 // ============================================================================
-// Paperless trip link tests
+// Paperless trip link tests (multi-invoice since Task 66)
 // ============================================================================
+
+/// Build a PaperlessLink for tests — snapshots filled with plausible values.
+fn make_link(
+    doc_id: i64,
+    trip_id: &str,
+    assignment_type: AssignmentType,
+    amount_eur: Option<f64>,
+) -> PaperlessLink {
+    PaperlessLink {
+        paperless_document_id: doc_id,
+        trip_id: trip_id.to_string(),
+        assignment_type,
+        amount_eur,
+        title: Some(format!("doc-{}", doc_id)),
+        applied_amount_cents: None,
+    }
+}
 
 #[test]
 fn paperless_link_upsert_creates_then_replaces() {
+    // "Replaces" = re-upserting the SAME doc replaces its row (snapshots
+    // updated) — NOT same-trip replacement (that single-invoice rule is gone).
     let db = Database::in_memory().expect("db");
     let v = create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
-    let v_id = v.id.to_string();
-    let trip_a = seed_test_trip(&db, &v_id);
-    let trip_b = seed_test_trip(&db, &v_id);
+    let trip = seed_test_trip(&db, &v.id.to_string());
 
-    db.upsert_paperless_link(&trip_a, 435).unwrap();
-    assert_eq!(
-        db.get_paperless_link_for_doc(435).unwrap(),
-        Some(trip_a.clone())
-    );
+    db.upsert_paperless_link(&make_link(435, &trip, AssignmentType::Other, Some(5.0)))
+        .unwrap();
+    let link = db.get_paperless_link(435).unwrap().unwrap();
+    assert_eq!(link.trip_id, trip);
+    assert_eq!(link.assignment_type, AssignmentType::Other);
+    assert_eq!(link.amount_eur, Some(5.0));
+    assert_eq!(link.title, Some("doc-435".to_string()));
+    assert_eq!(link.applied_amount_cents, None);
 
-    db.upsert_paperless_link(&trip_b, 435).unwrap();
-    assert_eq!(
-        db.get_paperless_link_for_doc(435).unwrap(),
-        Some(trip_b.clone())
-    );
-    assert_eq!(db.get_paperless_link_for_trip(&trip_a).unwrap(), None);
+    let mut updated = make_link(435, &trip, AssignmentType::Other, Some(7.5));
+    updated.applied_amount_cents = Some(750);
+    db.upsert_paperless_link(&updated).unwrap();
+
+    let link = db.get_paperless_link(435).unwrap().unwrap();
+    assert_eq!(link.amount_eur, Some(7.5));
+    assert_eq!(link.applied_amount_cents, Some(750));
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
 }
 
 #[test]
@@ -532,10 +554,11 @@ fn paperless_link_delete_is_idempotent() {
     db.create_vehicle(&v).unwrap();
     let trip = seed_test_trip(&db, &v.id.to_string());
 
-    db.upsert_paperless_link(&trip, 435).unwrap();
+    db.upsert_paperless_link(&make_link(435, &trip, AssignmentType::Other, None))
+        .unwrap();
     db.delete_paperless_link_for_doc(435).unwrap();
     db.delete_paperless_link_for_doc(435).unwrap();
-    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
+    assert!(db.get_paperless_link(435).unwrap().is_none());
 }
 
 #[test]
@@ -546,26 +569,76 @@ fn paperless_link_unique_doc_invariant() {
     let trip_a = seed_test_trip(&db, &v.id.to_string());
     let trip_b = seed_test_trip(&db, &v.id.to_string());
 
-    db.upsert_paperless_link(&trip_a, 435).unwrap();
-    db.upsert_paperless_link(&trip_b, 435).unwrap();
+    db.upsert_paperless_link(&make_link(435, &trip_a, AssignmentType::Other, None))
+        .unwrap();
+    db.upsert_paperless_link(&make_link(435, &trip_b, AssignmentType::Other, None))
+        .unwrap();
     assert_eq!(db.count_paperless_links().unwrap(), 1);
 }
 
 #[test]
-fn paperless_link_unique_trip_invariant() {
+fn test_two_other_links_one_trip_allowed() {
+    // Inverted invariant (Task 66): one trip may hold N Other docs.
     let db = Database::in_memory().expect("db");
     let v = create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
     let trip = seed_test_trip(&db, &v.id.to_string());
 
-    // Link trip to doc 435, then re-link the same trip to doc 999.
-    // Doc 435 link must be removed — one trip can hold at most one doc.
-    db.upsert_paperless_link(&trip, 435).unwrap();
-    db.upsert_paperless_link(&trip, 999).unwrap();
+    db.upsert_paperless_link(&make_link(435, &trip, AssignmentType::Other, Some(5.0)))
+        .unwrap();
+    db.upsert_paperless_link(&make_link(999, &trip, AssignmentType::Other, Some(7.5)))
+        .unwrap();
+
+    assert_eq!(db.count_paperless_links().unwrap(), 2);
+    let links = db.get_paperless_links_for_trip(&trip).unwrap();
+    assert_eq!(links.len(), 2);
+    assert!(links.iter().any(|l| l.paperless_document_id == 435));
+    assert!(links.iter().any(|l| l.paperless_document_id == 999));
+}
+
+#[test]
+fn test_second_fuel_link_same_trip_rejected() {
+    // The partial unique index allows exactly ONE Fuel doc per trip.
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_test_trip(&db, &v.id.to_string());
+
+    db.upsert_paperless_link(&make_link(435, &trip, AssignmentType::Fuel, Some(58.2)))
+        .unwrap();
+    let err = db.upsert_paperless_link(&make_link(999, &trip, AssignmentType::Fuel, Some(60.0)));
+    assert!(err.is_err(), "second Fuel doc on the same trip must be rejected");
+
+    // First link intact, second never linked
+    assert_eq!(db.count_paperless_links().unwrap(), 1);
+    assert_eq!(
+        db.get_paperless_link(435).unwrap().unwrap().trip_id,
+        trip
+    );
+    assert!(db.get_paperless_link(999).unwrap().is_none());
+}
+
+#[test]
+fn test_upsert_link_reassign_moves_doc() {
+    // Doc linked to trip A, upsert to trip B -> only the B row remains.
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_a = seed_test_trip(&db, &v.id.to_string());
+    let trip_b = seed_test_trip(&db, &v.id.to_string());
+
+    db.upsert_paperless_link(&make_link(435, &trip_a, AssignmentType::Other, Some(5.0)))
+        .unwrap();
+    db.upsert_paperless_link(&make_link(435, &trip_b, AssignmentType::Other, Some(5.0)))
+        .unwrap();
 
     assert_eq!(db.count_paperless_links().unwrap(), 1);
-    assert_eq!(db.get_paperless_link_for_trip(&trip).unwrap(), Some(999));
-    assert_eq!(db.get_paperless_link_for_doc(435).unwrap(), None);
+    assert_eq!(
+        db.get_paperless_link(435).unwrap().unwrap().trip_id,
+        trip_b
+    );
+    assert!(db.get_paperless_links_for_trip(&trip_a).unwrap().is_empty());
+    assert_eq!(db.get_paperless_links_for_trip(&trip_b).unwrap().len(), 1);
 }
 
 #[test]
@@ -575,7 +648,8 @@ fn delete_trip_removes_paperless_link() {
     db.create_vehicle(&v).unwrap();
     let trip = seed_test_trip(&db, &v.id.to_string());
 
-    db.upsert_paperless_link(&trip, 435).unwrap();
+    db.upsert_paperless_link(&make_link(435, &trip, AssignmentType::Other, None))
+        .unwrap();
     assert_eq!(db.count_paperless_links().unwrap(), 1);
 
     db.delete_trip(&trip).unwrap();
@@ -584,11 +658,55 @@ fn delete_trip_removes_paperless_link() {
 }
 
 // ============================================================================
-// Source-agnostic invoice attachment query
+// Receipt applied-amount snapshot (Task 66)
 // ============================================================================
 
 #[test]
-fn get_trip_ids_with_invoice_unions_receipts_and_paperless() {
+fn test_receipt_applied_amount_cents_roundtrip() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = create_test_vehicle("Test Car");
+    db.create_vehicle(&vehicle).unwrap();
+    let trip = create_test_trip(vehicle.id, "2026-01-01");
+    db.create_trip(&trip).unwrap();
+
+    let mut receipt = Receipt::new("snap.jpg".to_string(), "snap.jpg".to_string());
+    receipt.vehicle_id = Some(vehicle.id);
+    receipt.trip_id = Some(trip.id);
+    receipt.assignment_type = Some(AssignmentType::Other);
+    receipt.applied_amount_cents = Some(501);
+    db.create_receipt(&receipt).unwrap();
+
+    let loaded = db
+        .get_receipt_by_id(&receipt.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.applied_amount_cents, Some(501));
+
+    // update_receipt persists the snapshot too
+    let mut edited = loaded.clone();
+    edited.applied_amount_cents = Some(750);
+    db.update_receipt(&edited).unwrap();
+    let loaded = db
+        .get_receipt_by_id(&receipt.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.applied_amount_cents, Some(750));
+
+    // unassign clears it
+    db.unassign_receipt(&receipt.id.to_string()).unwrap();
+    let loaded = db
+        .get_receipt_by_id(&receipt.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.applied_amount_cents, None);
+}
+
+// ============================================================================
+// Per-trip invoice coverage (replaces get_trip_ids_with_invoice, Task 66)
+// ============================================================================
+
+#[test]
+fn invoice_coverage_unions_receipts_and_paperless() {
     let db = Database::in_memory().expect("db");
     let v = create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
@@ -596,25 +714,95 @@ fn get_trip_ids_with_invoice_unions_receipts_and_paperless() {
     let trip_with_paperless = seed_test_trip(&db, &v.id.to_string());
     let trip_uncovered = seed_test_trip(&db, &v.id.to_string());
 
-    // Receipt-side coverage: assign a receipt to trip_with_receipt
+    // Receipt-side coverage: assign a Fuel receipt to trip_with_receipt
     let mut receipt = Receipt::new("p.jpg".to_string(), "r.jpg".to_string());
     receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_with_receipt).unwrap());
     receipt.vehicle_id = Some(v.id);
+    receipt.assignment_type = Some(AssignmentType::Fuel);
     db.create_receipt(&receipt).unwrap();
 
     // An unassigned receipt must NOT contribute to the covered set
     let unassigned = Receipt::new("u.jpg".to_string(), "u.jpg".to_string());
     db.create_receipt(&unassigned).unwrap();
 
-    // Paperless-side coverage: link a paperless doc to trip_with_paperless
-    db.upsert_paperless_link(&trip_with_paperless, 435).unwrap();
+    // Paperless-side coverage: link an Other doc to trip_with_paperless
+    db.upsert_paperless_link(&make_link(
+        435,
+        &trip_with_paperless,
+        AssignmentType::Other,
+        Some(15.0),
+    ))
+    .unwrap();
 
-    let covered = db.get_trip_ids_with_invoice().unwrap();
+    let coverage = db.get_trip_invoice_coverage().unwrap();
 
-    assert!(covered.contains(&trip_with_receipt));
-    assert!(covered.contains(&trip_with_paperless));
-    assert!(!covered.contains(&trip_uncovered));
-    assert_eq!(covered.len(), 2);
+    let receipt_cov = coverage.get(&trip_with_receipt).expect("receipt trip covered");
+    assert!(receipt_cov.has_fuel);
+    assert!(!receipt_cov.has_other);
+
+    let paperless_cov = coverage
+        .get(&trip_with_paperless)
+        .expect("paperless trip covered");
+    assert!(paperless_cov.has_other);
+    assert!(!paperless_cov.has_fuel);
+    assert_eq!(paperless_cov.other_sum_cents, 1500);
+
+    assert!(!coverage.contains_key(&trip_uncovered));
+    assert_eq!(coverage.len(), 2);
+}
+
+#[test]
+fn test_invoice_coverage_per_type_and_sum() {
+    let db = Database::in_memory().expect("db");
+    let v = create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_full = seed_test_trip(&db, &v.id.to_string());
+    let trip_unknown_link = seed_test_trip(&db, &v.id.to_string());
+    let trip_unknown_receipt = seed_test_trip(&db, &v.id.to_string());
+
+    // trip_full: 1 Fuel receipt + 2 Other links (5.00, 7.50)
+    let mut fuel_receipt = Receipt::new("f.jpg".to_string(), "f.jpg".to_string());
+    fuel_receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_full).unwrap());
+    fuel_receipt.vehicle_id = Some(v.id);
+    fuel_receipt.assignment_type = Some(AssignmentType::Fuel);
+    fuel_receipt.total_price_eur = Some(58.20);
+    db.create_receipt(&fuel_receipt).unwrap();
+    db.upsert_paperless_link(&make_link(1, &trip_full, AssignmentType::Other, Some(5.00)))
+        .unwrap();
+    db.upsert_paperless_link(&make_link(2, &trip_full, AssignmentType::Other, Some(7.50)))
+        .unwrap();
+
+    // trip_unknown_link: 1 Other link with amount NULL
+    db.upsert_paperless_link(&make_link(3, &trip_unknown_link, AssignmentType::Other, None))
+        .unwrap();
+
+    // trip_unknown_receipt: 1 Other RECEIPT with total_price_eur NULL (I3)
+    let mut other_receipt = Receipt::new("o.jpg".to_string(), "o.jpg".to_string());
+    other_receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_unknown_receipt).unwrap());
+    other_receipt.vehicle_id = Some(v.id);
+    other_receipt.assignment_type = Some(AssignmentType::Other);
+    other_receipt.total_price_eur = None;
+    db.create_receipt(&other_receipt).unwrap();
+
+    let coverage = db.get_trip_invoice_coverage().unwrap();
+
+    let full = coverage.get(&trip_full).expect("trip_full covered");
+    assert!(full.has_fuel);
+    assert!(full.has_other);
+    assert_eq!(full.other_sum_cents, 1250);
+    assert!(!full.has_unknown_amount);
+
+    let unknown_link = coverage
+        .get(&trip_unknown_link)
+        .expect("trip_unknown_link covered");
+    assert!(unknown_link.has_other);
+    assert!(unknown_link.has_unknown_amount);
+
+    let unknown_receipt = coverage
+        .get(&trip_unknown_receipt)
+        .expect("trip_unknown_receipt covered");
+    assert!(unknown_receipt.has_other);
+    assert!(unknown_receipt.has_unknown_amount);
 }
 
 // ============================================================================
