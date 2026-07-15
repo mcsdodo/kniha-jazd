@@ -110,6 +110,13 @@ pub(crate) fn generate_backup_filename(backup_type: &str, update_version: Option
 /// fails, we fail hard — a silently inconsistent "backup" is worse than a
 /// clear error the user can act on.
 fn snapshot_database_to(db: &Database, backup_path: &Path) -> Result<(), String> {
+    // Filenames are timestamped to the second, so two backups in the same
+    // second target the same path. VACUUM INTO refuses to write over an
+    // existing file — remove it first to keep the old overwrite semantics.
+    if backup_path.exists() {
+        std::fs::remove_file(backup_path)
+            .map_err(|e| format!("Zálohovanie zlyhalo (prepis existujúcej zálohy): {}", e))?;
+    }
     let path_str = backup_path
         .to_str()
         .ok_or_else(|| "Invalid backup path encoding".to_string())?;
@@ -507,6 +514,22 @@ mod tests {
             .join(paths::BACKUPS_DIR)
             .join(&info.filename)
             .exists());
+    }
+
+    #[test]
+    fn test_snapshot_overwrites_existing_backup_file() {
+        // Backup filenames are timestamped to the second, so two backups in
+        // the same second target the same path. The old fs::copy overwrote
+        // silently; VACUUM INTO refuses ("output file already exists" — seen
+        // on fast CI runners). The snapshot must replace an existing file.
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        let target = dir.path().join("snap.db");
+
+        snapshot_database_to(&db, &target).expect("first snapshot");
+        snapshot_database_to(&db, &target)
+            .expect("second snapshot to the same path must overwrite, not error");
+        assert!(target.exists());
     }
 
     #[test]
