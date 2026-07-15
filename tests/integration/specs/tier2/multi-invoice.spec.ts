@@ -17,11 +17,14 @@
  * backend must see on the same filesystem.
  */
 
+import { rmSync } from 'fs';
+import { join } from 'path';
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import {
   seedVehicle,
   seedTrip,
   seedReceipt,
+  deleteReceipt,
   setActiveVehicle,
   updateTrip,
   invokeTauri,
@@ -99,6 +102,26 @@ async function getOtherCostsCell() {
 }
 
 describeNotInDockerMode('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
+  const seededReceiptIds: string[] = [];
+
+  // Receipts are NOT vehicle-scoped and the beforeTest DB cleanup does not
+  // reliably clear cross-spec state — leftover seeded receipts poison later
+  // specs (receipts.spec picks them up via getReceipts). Delete rows AND the
+  // placeholder files so a stray re-scan cannot resurrect them.
+  after(async () => {
+    for (const id of seededReceiptIds) {
+      try {
+        await deleteReceipt(id);
+      } catch {
+        // already gone or app shutting down — best-effort cleanup
+      }
+    }
+    const dataDir = process.env.KNIHA_JAZD_DATA_DIR;
+    if (dataDir) {
+      rmSync(join(dataDir, 'seeded-receipts'), { recursive: true, force: true });
+    }
+  });
+
   it('assigns 1 Fuel + 2 Other via picker, displays sum, flags and updates mismatch', async function () {
     // Long scenario: 3 picker assignments + several full page refreshes
     this.timeout(120000);
@@ -157,6 +180,11 @@ describeNotInDockerMode('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () 
       vendorName: 'AutoWash Express',
       costDescription: 'Umytie auta',
     });
+    seededReceiptIds.push(
+      fuelReceipt.id as string,
+      otherReceipt1.id as string,
+      otherReceipt2.id as string
+    );
 
     // ----- 2. Assign all three via the picker (no mismatch dialogs) --------
     await browser.refresh();

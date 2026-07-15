@@ -531,6 +531,19 @@ export async function reprocessReceipt(receiptId: string): Promise<void> {
 }
 
 /**
+ * Delete a receipt by ID. Specs that seed receipts MUST delete them when done:
+ * the beforeTest DB cleanup does not remove cross-spec state reliably, and
+ * receipts are not vehicle-scoped — leftovers poison other specs' getReceipts.
+ */
+export async function deleteReceipt(receiptId: string): Promise<void> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready for delete');
+  }
+  await invokeTauri<void>('delete_receipt', { id: receiptId });
+}
+
+/**
  * Get all receipts for a given year
  */
 export async function getReceipts(year: number): Promise<Receipt[]> {

@@ -50,6 +50,7 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
+| 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | Open (→ Task 41) |
 | 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Resolved ([Task 58](./_done/58-tauri-workspace-split/)) |
 | 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
 | 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |

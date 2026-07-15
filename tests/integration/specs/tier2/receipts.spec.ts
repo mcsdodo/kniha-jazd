@@ -157,12 +157,15 @@ describe('Tier 2: Receipts Workflow', () => {
       const receipts = await getReceipts(2026);
       expect(receipts.length).toBeGreaterThan(0);
 
-      const receipt = receipts[0];
+      // Select the mock fuel invoice explicitly — receipts are not
+      // vehicle-scoped, so receipts[0] can be a leftover from another spec.
+      const receipt = receipts.find(r => r.fileName === 'invoice.pdf');
       expect(receipt).toBeDefined();
+      if (!receipt) return;
 
       // 7. Get trips for receipt assignment and check mismatch
       const tripsForAssignment = await getTripsForInvoiceAssignment(
-        { source: 'receipt', id: receipt.id },
+        { source: 'receipt', id: receipt.id as string },
         null, // backend loads receipt data from DB
         vehicle.id as string,
         2026
@@ -228,15 +231,18 @@ describe('Tier 2: Receipts Workflow', () => {
       await syncReceipts();
       await browser.pause(500);
 
-      // 5. Get receipts
+      // 5. Get receipts — select the mock fuel invoice explicitly (receipts
+      // are not vehicle-scoped; [0] can be a leftover from another spec)
       const receipts = await getReceipts(2026);
       expect(receipts.length).toBeGreaterThan(0);
 
-      const receipt = receipts[0];
+      const receipt = receipts.find(r => r.fileName === 'invoice.pdf');
+      expect(receipt).toBeDefined();
+      if (!receipt) return;
 
       // 6. Get trips for assignment
       const tripsForAssignment = await getTripsForInvoiceAssignment(
-        { source: 'receipt', id: receipt.id },
+        { source: 'receipt', id: receipt.id as string },
         null, // backend loads receipt data from DB
         vehicle.id as string,
         2026
@@ -294,15 +300,18 @@ describe('Tier 2: Receipts Workflow', () => {
       await syncReceipts();
       await browser.pause(500);
 
-      // 5. Get receipts
+      // 5. Get receipts — select the mock fuel invoice explicitly (receipts
+      // are not vehicle-scoped; [0] can be a leftover from another spec)
       const receipts = await getReceipts(2026);
       expect(receipts.length).toBeGreaterThan(0);
 
-      const receipt = receipts[0];
+      const receipt = receipts.find(r => r.fileName === 'invoice.pdf');
+      expect(receipt).toBeDefined();
+      if (!receipt) return;
 
       // 6. Get trips for assignment
       const tripsForAssignment = await getTripsForInvoiceAssignment(
-        { source: 'receipt', id: receipt.id },
+        { source: 'receipt', id: receipt.id as string },
         null, // backend loads receipt data from DB
         vehicle.id as string,
         2026
