@@ -7,11 +7,16 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Automatická bezpečnostná záloha pred migráciou databázy** — pri prvom štarte novej verzie sa pred úpravou schémy vytvorí kópia databázy v priečinku `backups` (`kniha-jazd-backup-…-pre-migration-v{verzia}.db`). Ak sa záloha nepodarí, aplikácia sa napriek tomu spustí (záloha je poistka, nie podmienka).
+
 ### Zmenené
 - **Rozdiel tachometra zobrazuje zrozumiteľný popis namiesto +/− predpony** — napr. „367 km viac v appke" alebo „367 km menej v appke", aby bolo hneď jasné, ktorá hodnota je vyššia.
+- **Zálohy sa vytvárajú cez SQLite `VACUUM INTO` namiesto kopírovania súboru** — záloha je konzistentný snímok databázy aj vtedy, keď sa aplikácia práve používa.
 
 ### Opravené
 - **Webový server v produkčnej zostave vracal 404 na všetkých stránkach** — SvelteKit rozhranie sa teraz správne pribalí do inštalátora a server ho nájde na disku. Oprava sa týka režimu `--headless` aj prepínača Nastavenia → Server.
+- **Vytvorenie zálohy zlyhávalo v režime len na čítanie** — záloha databázu iba číta, takže funguje aj na počítači, ktorý pri zdieľanej databáze (multi-PC) ešte nemá nainštalovanú novú verziu. Aktualizácia aplikácie tak už nezlyhá na kroku „Záloha". Obnova a mazanie záloh zostávajú v režime len na čítanie zablokované.
 
 ## [0.37.0] - 2026-05-21
 
