@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-07-15
+
 ### Pridané
 - **K jednej jazde možno priradiť viac dokladov** — jeden doklad o tankovaní + ľubovoľný počet dokladov k iným nákladom (parkovanie, umytie, diaľnica…). Suma dokladu k iným nákladom sa pri priradení automaticky pripočíta k jazde a pri odobratí presne odpočíta (počíta sa v centoch, žiadne desatinné odchýlky). Ak je suma na jazde už ručne vyplnená a zhoduje sa s dokladom, doklad sa iba priloží bez opätovného pripočítania.
 - **Upozornenia na chýbajúce doklady sú oddelené pre palivo a iné náklady** — stĺpec paliva upozorňuje na chýbajúci doklad o tankovaní, stĺpec iných nákladov na chýbajúci doklad k iným nákladom.
