@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.38.1] - 2026-07-15
+
 ### Opravené
 - **Dve zálohy v tej istej sekunde už nezlyhajú** — `VACUUM INTO` odmieta zapísať cez existujúci súbor, takže druhá záloha s rovnakým názvom (časová pečiatka na sekundy) končila chybou „output file already exists". Existujúci súbor sa teraz pred zálohou nahradí, rovnako ako pri pôvodnom kopírovaní.
 
