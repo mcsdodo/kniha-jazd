@@ -18,7 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
-| 66 | [Multi-Invoice Support](66-multi-invoice/) | 2026-07-15 |
+| 66 | [Multi-Invoice Support](./_done/66-multi-invoice/) | 2026-07-15 |
 | 65 | [Datetime Is Order](./_done/65-datetime-is-order/) | 2026-05-21 |
 | 64 | [Unified Invoice Picker](./_done/64-unified-invoice-picker/) | 2026-05-04 |
 | 63 | [Paperless Configurable Fields](./_done/63-paperless-configurable-fields/) | 2026-05-04 |
