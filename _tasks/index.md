@@ -2,13 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-05-21 (Task 65 complete — datetime-is-order archived)
+**Last updated:** 2026-07-15 (Task 66 implementation started)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 66 | [Multi-Invoice Support](66-multi-invoice/) | 📋 Planning | 1 Fuel + N Other invoices per trip; sum-on-assign, cent-exact money math, per-type grid warnings |
+| 66 | [Multi-Invoice Support](66-multi-invoice/) | 🟡 In Progress | 1 Fuel + N Other invoices per trip; sum-on-assign, cent-exact money math, per-type grid warnings |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
