@@ -34,9 +34,6 @@ pub use kniha_jazd_core::commands_internal::{
 };
 
 use kniha_jazd_core::constants::env_vars;
-#[cfg(test)]
-use kniha_jazd_core::db::Database;
-use kniha_jazd_core::db_location::DbPaths;
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -47,12 +44,5 @@ pub(crate) fn get_app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String
         Ok(path) => Ok(PathBuf::from(path)),
         Err(_) => app.path().app_data_dir().map_err(|e| e.to_string()),
     }
-}
-
-/// Get resolved database paths from a Tauri AppHandle.
-/// Convenience wrapper that resolves the app data dir first.
-pub(crate) fn get_db_paths(app: &tauri::AppHandle) -> Result<DbPaths, String> {
-    let app_dir = get_app_data_dir(app)?;
-    get_db_paths_for_dir(&app_dir)
 }
 
