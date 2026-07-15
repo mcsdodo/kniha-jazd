@@ -732,6 +732,7 @@
 							hasMatchingFuelInvoice={!gridData?.missingFuelInvoices.includes(trip.id)}
 							hasMatchingOtherInvoice={!gridData?.missingOtherInvoices.includes(trip.id)}
 							otherSumMismatch={gridData?.otherSumMismatches?.includes(trip.id) ?? false}
+							otherInvoiceSum={gridData?.otherInvoiceSums?.[trip.id] ?? null}
 							fuelDatetimeWarning={gridData?.fuelDatetimeWarnings?.includes(trip.id) ?? false}
 							otherDatetimeWarning={gridData?.otherDatetimeWarnings?.includes(trip.id) ?? false}
 							fuelMismatchOverride={gridData?.fuelMismatchOverrides?.includes(trip.id) ?? false}

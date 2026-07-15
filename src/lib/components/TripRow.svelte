@@ -65,6 +65,7 @@
 	export let hasMatchingFuelInvoice: boolean = true;
 	export let hasMatchingOtherInvoice: boolean = true;
 	export let otherSumMismatch: boolean = false;
+	export let otherInvoiceSum: number | null = null;
 	export let fuelDatetimeWarning: boolean = false;
 	export let otherDatetimeWarning: boolean = false;
 	export let fuelMismatchOverride: boolean = false;
@@ -709,7 +710,7 @@
 					{#if !hasMatchingOtherInvoice}
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingOtherInvoice()}>⚠</span>
 					{:else if otherSumMismatch}
-						<span class="receipt-indicator mismatch" title={$LL.trips.legend.otherSumMismatch({ total: (trip.otherCostsEur ?? 0).toFixed(2) })}>⚠</span>
+						<span class="receipt-indicator mismatch" title={$LL.trips.legend.otherSumMismatch({ total: (trip.otherCostsEur ?? 0).toFixed(2), sum: (otherInvoiceSum ?? 0).toFixed(2) })}>⚠</span>
 					{:else if otherDatetimeWarning && !otherMismatchOverride}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}

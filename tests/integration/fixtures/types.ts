@@ -187,6 +187,7 @@ export interface TripGridData {
   missingFuelInvoices: string[];
   missingOtherInvoices: string[];
   otherSumMismatches: string[];
+  otherInvoiceSums: Record<string, number>;
   fuelDatetimeWarnings: string[];
   otherDatetimeWarnings: string[];
   fuelMismatchOverrides: string[];

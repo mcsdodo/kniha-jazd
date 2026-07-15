@@ -158,6 +158,7 @@ export interface TripGridData {
 	missingFuelInvoices: string[]; // tripIds with fuel cost but no Fuel invoice attached
 	missingOtherInvoices: string[]; // tripIds with other costs but no Other invoice attached
 	otherSumMismatches: string[]; // tripIds where otherCostsEur != sum of attached Other invoices
+	otherInvoiceSums: Record<string, number>; // tripId -> attached Other invoice sum (EUR), only for mismatched trips
 	fuelDatetimeWarnings: string[]; // tripIds with Fuel invoice datetime outside trip range
 	otherDatetimeWarnings: string[]; // tripIds with Other invoice datetime outside trip range
 	fuelMismatchOverrides: string[]; // tripIds where user confirmed a Fuel mismatch

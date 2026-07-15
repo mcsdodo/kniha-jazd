@@ -377,6 +377,9 @@ pub struct TripGridData {
     pub missing_other_invoices: HashSet<String>,
     /// Trip IDs where other_costs_eur != sum of attached Other invoice amounts (cent-exact)
     pub other_sum_mismatches: HashSet<String>,
+    /// Attached Other-invoice sum (EUR) for each trip in `other_sum_mismatches`,
+    /// so the mismatch tooltip can show both values (ADR-008: no frontend math)
+    pub other_invoice_sums: HashMap<String, f64>,
     /// Trip IDs where an assigned Fuel invoice datetime is outside trip range
     pub fuel_datetime_warnings: HashSet<String>,
     /// Trip IDs where an assigned Other invoice datetime is outside trip range

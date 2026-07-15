@@ -12,8 +12,8 @@ use crate::calculations::energy::{
 use crate::calculations::phev::calculate_phev_trip_consumption;
 use crate::calculations::{
     calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
-    calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
-    to_cents,
+    calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, from_cents,
+    is_within_legal_limit, to_cents,
 };
 use crate::constants::defaults;
 use crate::db::Database;
@@ -401,6 +401,7 @@ pub fn build_trip_grid_data(
             missing_fuel_invoices: HashSet::new(),
             missing_other_invoices: HashSet::new(),
             other_sum_mismatches: HashSet::new(),
+            other_invoice_sums: HashMap::new(),
             fuel_datetime_warnings: HashSet::new(),
             other_datetime_warnings: HashSet::new(),
             fuel_mismatch_overrides: HashSet::new(),
@@ -454,6 +455,7 @@ pub fn build_trip_grid_data(
 
     // Other-costs sum mismatch (manual total != cent-exact sum of attached Other invoices)
     let other_sum_mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+    let other_invoice_sums = calculate_other_invoice_sums(&other_sum_mismatches, &coverage);
 
     // Receipt datetime warnings per type (assigned receipt outside trip time range)
     let (fuel_datetime_warnings, other_datetime_warnings) =
@@ -577,6 +579,7 @@ pub fn build_trip_grid_data(
         missing_fuel_invoices,
         missing_other_invoices,
         other_sum_mismatches,
+        other_invoice_sums,
         fuel_datetime_warnings,
         other_datetime_warnings,
         fuel_mismatch_overrides,
@@ -1279,6 +1282,23 @@ pub fn calculate_other_sum_mismatches(
             })
         })
         .map(|t| t.id.to_string())
+        .collect()
+}
+
+/// Invoice sums (EUR) for trips flagged with a sum mismatch, so the grid
+/// tooltip can show "{total} € vs {sum} €" without any frontend calculation
+/// (ADR-008). Only flagged trips are included — no payload for clean trips.
+pub fn calculate_other_invoice_sums(
+    mismatches: &HashSet<String>,
+    coverage: &HashMap<String, TripInvoiceCoverage>,
+) -> HashMap<String, f64> {
+    mismatches
+        .iter()
+        .filter_map(|trip_id| {
+            coverage
+                .get(trip_id)
+                .map(|c| (trip_id.clone(), from_cents(c.other_sum_cents)))
+        })
         .collect()
 }
 

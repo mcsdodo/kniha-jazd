@@ -4,7 +4,8 @@
 
 use crate::commands_internal::statistics::{
     calculate_consumption_warnings, calculate_energy_grid_data, calculate_missing_receipts,
-    calculate_other_sum_mismatches, calculate_receipt_datetime_warnings,
+    calculate_other_invoice_sums, calculate_other_sum_mismatches,
+    calculate_receipt_datetime_warnings,
     calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
     has_any_period_over_limit,
 };
@@ -302,6 +303,35 @@ fn test_other_sum_unknown_amount_skips_check() {
     assert!(
         mismatches.is_empty(),
         "Unknown invoice amount must skip the sum-mismatch check"
+    );
+}
+
+#[test]
+fn test_other_invoice_sums_exposed_for_mismatched_trips() {
+    // The sum-mismatch tooltip shows "{total} € vs {sum} €" — the invoice sum
+    // must ship with the grid data for flagged trips only (ADR-008: no
+    // frontend calculation, and no payload for trips without a warning).
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut mismatched = make_trip_without_fuel(date);
+    mismatched.other_costs_eur = Some(20.00);
+    let mut matching = make_trip_without_fuel(date);
+    matching.other_costs_eur = Some(15.01);
+    let trips = vec![mismatched, matching];
+
+    let mut coverage = coverage_for(trips[0].id, cov(false, true, 1501, false));
+    coverage.extend(coverage_for(trips[1].id, cov(false, true, 1501, false)));
+
+    let mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+    let sums = calculate_other_invoice_sums(&mismatches, &coverage);
+
+    assert_eq!(
+        sums.get(&trips[0].id.to_string()),
+        Some(&15.01),
+        "Flagged trip ships its cent-exact invoice sum in EUR"
+    );
+    assert!(
+        !sums.contains_key(&trips[1].id.to_string()),
+        "Unflagged trip must not appear in the sums map"
     );
 }
 

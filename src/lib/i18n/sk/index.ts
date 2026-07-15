@@ -184,7 +184,7 @@ const sk = {
 			// Invoice status indicators (Task 51, per-type since Task 66)
 			missingFuelInvoice: 'Chýba doklad o tankovaní',
 			missingOtherInvoice: 'Chýba doklad k iným nákladom',
-			otherSumMismatch: 'Suma iných nákladov ({total:string} €) nesedí so súčtom priradených dokladov',
+			otherSumMismatch: 'Suma iných nákladov nesedí so súčtom priradených dokladov ({total:string} € vs {sum:string} €)',
 			otherSumMismatchShort: 'suma iných nákladov nesedí so súčtom dokladov',
 			dataMismatch: 'nesúlad údajov',
 			userConfirmed: 'potvrdené',

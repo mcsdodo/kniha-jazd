@@ -581,10 +581,11 @@ type RootTranslation = {
 			 */
 			missingOtherInvoice: string
 			/**
-			 * S​u​m​a​ ​i​n​ý​c​h​ ​n​á​k​l​a​d​o​v​ ​(​{​t​o​t​a​l​}​ ​€​)​ ​n​e​s​e​d​í​ ​s​o​ ​s​ú​č​t​o​m​ ​p​r​i​r​a​d​e​n​ý​c​h​ ​d​o​k​l​a​d​o​v
+			 * S​u​m​a​ ​i​n​ý​c​h​ ​n​á​k​l​a​d​o​v​ ​n​e​s​e​d​í​ ​s​o​ ​s​ú​č​t​o​m​ ​p​r​i​r​a​d​e​n​ý​c​h​ ​d​o​k​l​a​d​o​v​ ​(​{​t​o​t​a​l​}​ ​€​ ​v​s​ ​{​s​u​m​}​ ​€​)
+			 * @param {string} sum
 			 * @param {string} total
 			 */
-			otherSumMismatch: RequiredParams<'total'>
+			otherSumMismatch: RequiredParams<'sum' | 'total'>
 			/**
 			 * s​u​m​a​ ​i​n​ý​c​h​ ​n​á​k​l​a​d​o​v​ ​n​e​s​e​d​í​ ​s​o​ ​s​ú​č​t​o​m​ ​d​o​k​l​a​d​o​v
 			 */
@@ -2973,9 +2974,9 @@ export type TranslationFunctions = {
 			 */
 			missingOtherInvoice: () => LocalizedString
 			/**
-			 * Suma iných nákladov ({total} €) nesedí so súčtom priradených dokladov
+			 * Suma iných nákladov nesedí so súčtom priradených dokladov ({total} € vs {sum} €)
 			 */
-			otherSumMismatch: (arg: { total: string }) => LocalizedString
+			otherSumMismatch: (arg: { sum: string, total: string }) => LocalizedString
 			/**
 			 * suma iných nákladov nesedí so súčtom dokladov
 			 */

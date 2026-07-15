@@ -184,7 +184,7 @@ const en = {
 			// Invoice status indicators (Task 51, per-type since Task 66)
 			missingFuelInvoice: 'Missing fuel invoice',
 			missingOtherInvoice: 'Missing invoice for other costs',
-			otherSumMismatch: 'Other costs total ({total} €) does not match the sum of attached invoices',
+			otherSumMismatch: 'Other costs total does not match the sum of attached invoices ({total} € vs {sum} €)',
 			otherSumMismatchShort: 'other costs total does not match attached invoices',
 			dataMismatch: 'data mismatch',
 			userConfirmed: 'confirmed',
