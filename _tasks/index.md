@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-07-15 (Task 66 implementation started)
+**Last updated:** 2026-07-15 (Task 66 completed)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 66 | [Multi-Invoice Support](66-multi-invoice/) | 🟡 In Progress | 1 Fuel + N Other invoices per trip; sum-on-assign, cent-exact money math, per-type grid warnings |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 66 | [Multi-Invoice Support](66-multi-invoice/) | 2026-07-15 |
 | 65 | [Datetime Is Order](./_done/65-datetime-is-order/) | 2026-05-21 |
 | 64 | [Unified Invoice Picker](./_done/64-unified-invoice-picker/) | 2026-05-04 |
 | 63 | [Paperless Configurable Fields](./_done/63-paperless-configurable-fields/) | 2026-05-04 |

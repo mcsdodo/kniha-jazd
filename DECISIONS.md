@@ -4,6 +4,29 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-07-15: Multi-Invoice Support (1 Fuel + N Other per Trip)
+
+### BIZ-023: Invoice Cardinality, Sum-on-Assign, and Cent-Exact Money Math
+
+**Context:** A trip could hold at most ONE invoice total (`receipts.trip_id UNIQUE`, `paperless_trip_links.trip_id PRIMARY KEY`), but real rides carry a fuel-up plus parking/wash/toll documents. Task 66 removes the constraint; the business rules below govern how multiple invoices interact with the trip's authoritative fields (see [docs/features/multi-invoice.md](./docs/features/multi-invoice.md)).
+
+**Decision:**
+
+1. **Cardinality:** max **1 Fuel** invoice per trip across BOTH sources combined (local receipt + Paperless — a trip has exactly one fill-up by design); **unlimited Other** invoices. Enforced by partial unique indexes within each store and by the backend assign pre-check across stores (error surfaced as „Jazda už má doklad o tankovaní"; the trip picker greys out fuel-covered trips via `can_attach = false`).
+2. **Trip stays authoritative; sum-on-assign for Other:** assigning an Other invoice adds its amount to `trip.other_costs_eur` and appends the note; unassigning subtracts. Invoices are attached proof — manual entry without documents keeps working, and export reads trip fields only (untouched).
+3. **Manual overwrite allowed, divergence surfaced:** the user can hand-edit `other_costs_eur` at any time; when it diverges from the sum of attached Other invoices, the grid shows a sum-mismatch warning (with both numbers) — never a block. Trips where any attached Other invoice has an unknown amount (legacy backfill) are excluded from the check entirely (no false warnings).
+4. **Cent-exact money math (HARD requirement):** every EUR add/subtract goes through integer cents (`to_cents`/`from_cents`/`money_add`/`money_sub` in [calculations/mod.rs](./src-tauri/core/src/calculations/mod.rs)) — never raw `f64` arithmetic. Repeated assign/unassign cycles are bit-exact. All amount comparisons (double-count guard, sum-mismatch, picker compatibility) are done in cents, **replacing the ±0.01 epsilon** — picker verdict and assign behavior can never disagree on borderline values. `money_sub` clamps at 0; a zero result is stored as `None`, not `Some(0.0)`.
+5. **`applied_amount_cents` snapshot rule:** each assignment stores the exact cents it added to the trip. Unassign subtracts **the snapshot**, never the live invoice price (the user may edit the price after assigning; the sum-mismatch indicator is what surfaces such edits). `NULL` snapshot = link-only assignment (double-count guard, unknown-amount invoice, legacy pre-migration link) — subtracts nothing. Fuel unassign never touches other costs; unassigning an orphaned receipt (trip deleted) just clears the link.
+6. **Double-count guard (cent-exact):** if the trip has zero Other invoices and `other_costs_eur` already equals the invoice amount to the cent, assignment is link-only — the "manually pre-entered, now attaching proof" case.
+
+**Reasoning:** Sum-on-assign keeps the trip the single source of truth for reporting while making the common flow (assign documents, totals follow) automatic. The snapshot decouples "what this invoice contributed" from "what the invoice says now", so unassign is always an exact reversal. Integer cents eliminate float drift that would otherwise accumulate over assign/unassign cycles and make cent-exact comparisons meaningless.
+
+**Supersedes:** the schema half of [ADR-019](#adr-019-paperless-trip-link-table-is-symmetric-trip_id-primary-key) — [paperless_trip_links](./src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql) was rebuilt with `paperless_document_id` as PRIMARY KEY plus `assignment_type`/`amount_eur`/`title`/`applied_amount_cents` snapshots (the sum check must work offline; the grid never calls the Paperless server).
+
+**Related:** [Task 66](./_tasks/66-multi-invoice/), [docs/features/multi-invoice.md](./docs/features/multi-invoice.md), [migration 2026-07-15-100000_multi_invoice](./src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql), [ADR-012](#) (forward-only migrations — the rebuild is one atomic migration directory).
+
+---
+
 ## 2026-05-21: Datetime Is The Only Source of Trip Order
 
 ### ADR-022: Drop `sort_order`; `start_datetime` Drives Both Display and Calculation
@@ -65,6 +88,8 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 ## 2026-05-03: Paperless-ngx Integration Foundations
 
 ### ADR-019: Paperless Trip-Link Table is Symmetric (`trip_id PRIMARY KEY`)
+
+> **Superseded (2026-07-15) by [BIZ-023](#biz-023-invoice-cardinality-sum-on-assign-and-cent-exact-money-math):** multi-invoice support ([Task 66](./_tasks/66-multi-invoice/)) rebuilt the table — `paperless_document_id` is now the PRIMARY KEY (a trip can carry many links), and rows carry `assignment_type`, `amount_eur`/`title`, and `applied_amount_cents` snapshots. The UPSERT is keyed on `paperless_document_id` only. See [migration 2026-07-15-100000_multi_invoice](./src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql) and [docs/features/multi-invoice.md](./docs/features/multi-invoice.md).
 
 **Context:** [paperless_trip_links](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql) mirrors the receipt↔trip 1:1 relationship. The existing [receipts](./src-tauri/core/migrations/2026-01-08-095218-0000_baseline/up.sql) table uses `id PRIMARY KEY, trip_id UNIQUE` because receipts carry their own metadata (OCR fields, file path, currency, etc.). Paperless documents live remotely; the link row holds nothing but the IDs.
 

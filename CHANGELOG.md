@@ -8,9 +8,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ## [Unreleased]
 
 ### Pridané
+- **K jednej jazde možno priradiť viac dokladov** — jeden doklad o tankovaní + ľubovoľný počet dokladov k iným nákladom (parkovanie, umytie, diaľnica…). Suma dokladu k iným nákladom sa pri priradení automaticky pripočíta k jazde a pri odobratí presne odpočíta (počíta sa v centoch, žiadne desatinné odchýlky). Ak je suma na jazde už ručne vyplnená a zhoduje sa s dokladom, doklad sa iba priloží bez opätovného pripočítania.
+- **Upozornenia na chýbajúce doklady sú oddelené pre palivo a iné náklady** — stĺpec paliva upozorňuje na chýbajúci doklad o tankovaní, stĺpec iných nákladov na chýbajúci doklad k iným nákladom.
+- **Nové upozornenie na nesúlad súm** — ak suma iných nákladov na jazde nesedí so súčtom priradených dokladov (napr. po ručnej úprave), v mriežke sa zobrazí ⚠ s oboma sumami. Ručná úprava zostáva vždy povolená.
 - **Automatická bezpečnostná záloha pred migráciou databázy** — pri prvom štarte novej verzie sa pred úpravou schémy vytvorí kópia databázy v priečinku `backups` (`kniha-jazd-backup-…-pre-migration-v{verzia}.db`). Ak sa záloha nepodarí, aplikácia sa napriek tomu spustí (záloha je poistka, nie podmienka).
 
 ### Zmenené
+- **Existujúce priradenia dokladov zostávajú po aktualizácii zachované** — pri starších Paperless priradeniach bez lokálne známej sumy sa kontrola súčtu nevyhodnocuje, takže po aktualizácii sa nezobrazia falošné varovania.
 - **Rozdiel tachometra zobrazuje zrozumiteľný popis namiesto +/− predpony** — napr. „367 km viac v appke" alebo „367 km menej v appke", aby bolo hneď jasné, ktorá hodnota je vyššia.
 - **Zálohy sa vytvárajú cez SQLite `VACUUM INTO` namiesto kopírovania súboru** — záloha je konzistentný snímok databázy aj vtedy, keď sa aplikácia práve používa.
 

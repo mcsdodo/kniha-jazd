@@ -9,7 +9,7 @@
 3. **Read-only display per row.** Each Paperless row shows: title, date (from the `receipt_datetime` custom field; falls back to `?` if missing), assignment chip (Fuel/Other), total amount, liters (only for fuel rows), and an assigned-trip indicator if linked.
 4. **Two action buttons in Paperless mode:**
    - **Otvoriť v Paperless** — opens `{paperless_url}/documents/{doc_id}/` in the user's default browser (their browser stays logged in via cookies).
-   - **Priradiť k jazde** — opens the [unified TripSelectorModal](./unified-invoice-picker.md): same proximity sort, mismatch warnings, and Fuel/Other selection as local receipts. On confirm, an UPSERT row goes into [paperless_trip_links](../../src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql), and if the trip's fuel/other-costs side was empty it auto-populates from the doc's inline data.
+   - **Priradiť k jazde** — opens the [unified TripSelectorModal](./unified-invoice-picker.md): same proximity sort, mismatch warnings, and Fuel/Other selection as local receipts. On confirm, an UPSERT row goes into [paperless_trip_links](../../src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql) (with type/amount/title snapshots), and if the trip's fuel/other-costs side was empty it auto-populates from the doc's inline data. A trip can carry one Fuel doc plus any number of Other docs — see [multi-invoice.md](./multi-invoice.md).
 5. **Edit / Reprocess / Remove are hidden** — Paperless is the source of truth for these documents; the desktop app does not modify them.
 6. **Refresh from Paperless** button in the toolbar forces a fresh fetch (no client cache of documents themselves).
 7. **Toggle off restores local view.** Clearing the Paperless URL in Settings reverts the Doklady page to the local-receipts grid; existing local receipts and their assignments are preserved untouched.
@@ -56,7 +56,7 @@ Frontend mounts the matching renderer
 | [paperless.rs](../../src-tauri/core/src/paperless.rs) | HTTP client (`PaperlessClient`), structured errors (`PaperlessError`), tag/field ID resolution, document fetch + parse with pagination, `impl Invoice for PaperlessDoc` |
 | [commands_internal/paperless_cmd.rs](../../src-tauri/core/src/commands_internal/paperless_cmd.rs) | `get_paperless_invoices_internal` (composes client + DB join), `list_paperless_custom_fields_internal`. Trip-link persistence is handled by the [unified invoice commands](./unified-invoice-picker.md), not by Paperless-specific functions. |
 | [commands_internal/integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | Settings I/O (`get_paperless_settings_internal`, `save_paperless_settings_internal`), connection test (`test_paperless_connection_internal`), mode probe (`get_invoice_source_mode_internal`) |
-| [db.rs](../../src-tauri/core/src/db.rs) | UPSERT/CRUD for `paperless_trip_links`: `upsert_paperless_link`, `delete_paperless_link_for_doc`, `get_paperless_link_for_doc`, `get_paperless_link_for_trip`, `list_paperless_links_for_docs` |
+| [db.rs](../../src-tauri/core/src/db.rs) | UPSERT/CRUD for `paperless_trip_links`: `upsert_paperless_link` (keyed on `paperless_document_id`), `delete_paperless_link_for_doc`, `get_paperless_link`, `get_paperless_links_for_trip`, `list_paperless_links_for_docs` |
 
 ### Data Flow (Paperless mode)
 
@@ -83,15 +83,18 @@ Frontend renders rows; user clicks Assign → adaptInvoice(row) → assign_invoi
 
 ### Schema Addition
 
-One new table, [paperless_trip_links](../../src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql):
+One new table, `paperless_trip_links` (introduced by [2026-05-03-100000_add_paperless_trip_links](../../src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql), rebuilt for multi-invoice support by [2026-07-15-100000_multi_invoice](../../src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql)):
 
 | Column | Type | Notes |
 |---|---|---|
-| `trip_id` | TEXT PRIMARY KEY | FK to `trips(id)` |
-| `paperless_document_id` | INTEGER NOT NULL UNIQUE | Indexed for join in `list_paperless_links_for_docs` |
+| `paperless_document_id` | INTEGER PRIMARY KEY | One trip per doc; a trip can carry many docs |
+| `trip_id` | TEXT NOT NULL | FK to `trips(id)` ON DELETE CASCADE, indexed |
+| `assignment_type` | TEXT NOT NULL | `'Fuel'` / `'Other'`; partial unique index enforces one Fuel link per trip |
+| `amount_eur`, `title` | REAL / TEXT | Snapshots taken at assign time so the grid's sum check works offline |
+| `applied_amount_cents` | INTEGER | Exact cents added to the trip at assign; NULL = link-only |
 | `created_at`, `updated_at` | TEXT | ISO-8601 timestamps |
 
-Symmetric with the dependent-side `trip_id UNIQUE` pattern of the existing `receipts` table — see [ADR-019](../../DECISIONS.md).
+The original `trip_id PRIMARY KEY` shape ([ADR-019](../../DECISIONS.md)) mirrored the one-invoice-per-trip rule of the `receipts` table; both constraints were dropped when trips gained 1 Fuel + N Other invoice support — see [multi-invoice.md](./multi-invoice.md) and BIZ-023 in [DECISIONS.md](../../DECISIONS.md).
 
 ## Design Decisions
 
@@ -114,6 +117,7 @@ Symmetric with the dependent-side `trip_id UNIQUE` pattern of the existing `rece
 
 - [Task 60](../../_tasks/_done/60-paperless-integration/) — original planning docs.
 - [unified-invoice-picker.md](./unified-invoice-picker.md) — Task 64 unified the trip-assignment flow across Paperless docs and local receipts (one modal, one compat check).
+- [multi-invoice.md](./multi-invoice.md) — Task 66 allowed 1 Fuel + N Other invoices per trip (link-table rebuild, amount snapshots, sum-on-assign).
 - [ADR-008 in DECISIONS.md](../../DECISIONS.md) — frontend-display-only constraint that drove the `get_invoice_source_mode` mode-switch command.
 - [ADR-019, BIZ-015, BIZ-016 in DECISIONS.md](../../DECISIONS.md) — schema, auth header, and v1-scope decisions.
 - [ADR-020, ADR-021 in DECISIONS.md](../../DECISIONS.md) — unified-picker boundary contract and `mismatch_override` semantics.

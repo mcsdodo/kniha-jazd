@@ -7,9 +7,9 @@
 Identical for both invoice sources. The user clicks **Priradiť k jazde** on any invoice card; the modal opens with:
 
 1. **Trip list sorted by date proximity** to the invoice's `receipt_datetime`. Trips on the same day are visually highlighted.
-2. **Match indicator per trip** — `✓ matches` (exact compat), `~ matches_date` (same day, time outside trip range), or `⚠ differs` (data conflict, hover for details).
+2. **Match indicator per trip** — `✓ matches` (exact compat), `~ matches_date` (same day, time outside trip range), or `⚠ differs` (data conflict, hover for details). Since multi-invoice support ([multi-invoice.md](./multi-invoice.md)): for an **Other** invoice, a trip that already carries at least one Other invoice skips the amount comparison entirely (`✓ matches` — the new amount will be summed on assign, there is nothing to match against); with zero Other invoices attached, the amount comparison is **cent-exact** (replacing the earlier ±0.01 epsilon), so the picker verdict always agrees with the assign-time double-count guard. For a **Fuel** invoice, trips that already have a Fuel invoice (either source) are greyed out (`can_attach = false`, reason „Jazda už má doklad o tankovaní").
 3. **Click a trip → step 2: Fuel/Other selection.** Default is pre-picked from the invoice's nature (fuel docs default to Fuel; non-fuel default to Other).
-4. **Confirm.** If the trip already had data (fuel_liters / other_costs_eur) that conflicts with the invoice, a warning + override prompt is shown; otherwise a single confirm button. On confirm, an empty trip auto-populates fuel_liters / fuel_cost_eur (or other_costs_eur / other_costs_note) from the invoice.
+4. **Confirm.** If the trip already had data (fuel_liters / other_costs_eur) that conflicts with the invoice, a warning + override prompt is shown; otherwise a single confirm button. On confirm, an empty trip auto-populates fuel_liters / fuel_cost_eur (or other_costs_eur / other_costs_note) from the invoice; an Other invoice assigned to a trip with existing other costs adds its amount to the total (sum-on-assign, see [multi-invoice.md](./multi-invoice.md)).
 
 Before this feature: local receipts had this flow, but Paperless docs got a flat alphabetical trip list with no smart matching.
 
@@ -111,5 +111,6 @@ The original [02-design.md](../../_tasks/_done/64-unified-invoice-picker/02-desi
 - [Task 64](../../_tasks/_done/64-unified-invoice-picker/) — original planning docs.
 - [paperless-integration.md](./paperless-integration.md) — Paperless-ngx invoice source.
 - [receipt-scanning.md](./receipt-scanning.md) — Local OCR'd receipt source.
+- [multi-invoice.md](./multi-invoice.md) — Task 66: 1 Fuel + N Other invoices per trip; redefined the compatibility check and `can_attach` described above.
 - [ADR-008](../../DECISIONS.md) — frontend-display-only constraint that drove the trait abstraction.
 - [ADR-020](../../DECISIONS.md) — inline-data deviation from the original design.
