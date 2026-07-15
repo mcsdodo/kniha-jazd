@@ -1790,8 +1790,10 @@ fn test_assign_fuel_with_mismatch_and_override() {
 
 #[test]
 fn test_assign_other_to_trip_with_existing_other_costs_allowed() {
-    // Scenario C6: OTHER receipt to trip that already has other_costs → Just link (like C3 for fuel)
-    // Design decision 2026-02-03: Allow assignment, don't overwrite existing data
+    // Scenario C6, updated for Task 66 (sum-on-assign): OTHER receipt to a trip
+    // that already has other_costs adds its amount to the total (cent-exact)
+    // instead of just linking (amounts differ, so the double-count guard
+    // does not trigger).
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1811,7 +1813,7 @@ fn test_assign_other_to_trip_with_existing_other_costs_allowed() {
     let receipt = make_receipt_with_details(
         Some(date),
         None,
-        Some(15.0), // Different price - but we allow it
+        Some(15.0), // Different price → summed on assign (Task 66)
         Some("AutoWash"),
         Some("Umytie auta"),
     );
@@ -1826,10 +1828,7 @@ fn test_assign_other_to_trip_with_existing_other_costs_allowed() {
         false,
     );
 
-    assert!(
-        result.is_ok(),
-        "Assignment should succeed - just link receipt to trip"
-    );
+    assert!(result.is_ok(), "Assignment should succeed");
 
     let assigned_receipt = result.unwrap();
     assert_eq!(assigned_receipt.trip_id, Some(trip.id));
@@ -1837,19 +1836,27 @@ fn test_assign_other_to_trip_with_existing_other_costs_allowed() {
         assigned_receipt.assignment_type,
         Some(crate::models::AssignmentType::Other)
     );
+    assert_eq!(
+        assigned_receipt.applied_amount_cents,
+        Some(1500),
+        "applied snapshot records the added cents"
+    );
 
-    // Verify trip's other_costs is NOT overwritten (keeps original 10.0)
+    // Task 66: the receipt amount is ADDED to the existing total (10 + 15)
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(
         updated_trip.other_costs_eur,
-        Some(10.0),
-        "Trip other_costs should remain unchanged"
+        Some(25.0),
+        "Trip other_costs should be summed on assign"
     );
 }
 
 #[test]
 fn test_reassign_invoice_to_different_trip() {
-    // Scenario C7: Reassign receipt from one trip to another
+    // Scenario C7: Reassign receipt from one trip to another.
+    // Task 66: a Fuel reassignment has no other_costs contribution to reverse;
+    // the fuel pre-check must not count the receipt's own old link.
+    // (Other-type reversal is covered by test_receipt_reassign_reverses_old_trip_sum.)
     let db = Database::in_memory().unwrap();
 
     let vehicle = crate::models::Vehicle::new(
@@ -1953,12 +1960,12 @@ fn test_assign_other_with_mismatch_and_override() {
         "Should have override set"
     );
 
-    // Verify trip's other_costs is NOT overwritten (keeps original 10.0)
+    // Task 66: the receipt amount is ADDED to the existing total (10 + 15)
     let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(
         updated_trip.other_costs_eur,
-        Some(10.0),
-        "Trip other_costs should remain unchanged"
+        Some(25.0),
+        "Trip other_costs should be summed on assign"
     );
 }
 
@@ -2054,6 +2061,741 @@ fn test_invalid_assignment_type_rejected() {
 
     assert!(result.is_err(), "Should reject invalid assignment type");
     assert!(result.unwrap_err().contains("Invalid assignment type"));
+}
+
+// ========================================================================
+// Task 66: multi-invoice assignment semantics
+// (1 Fuel + N Other per trip, cent-exact sum-on-assign/unassign)
+// ========================================================================
+
+/// In-memory DB with one vehicle (shared setup for Task 66 tests).
+fn setup_db_with_vehicle() -> (Database, Vehicle) {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0);
+    db.create_vehicle(&vehicle).unwrap();
+    (db, vehicle)
+}
+
+/// Like make_receipt_with_details but with a unique file_path so several
+/// receipts can coexist in one DB (file_path is UNIQUE).
+fn make_receipt_unique(
+    date: Option<NaiveDate>,
+    liters: Option<f64>,
+    price: Option<f64>,
+    vendor_name: Option<&str>,
+    cost_description: Option<&str>,
+) -> Receipt {
+    let mut receipt = make_receipt_with_details(date, liters, price, vendor_name, cost_description);
+    receipt.file_path = format!("/test/{}.jpg", receipt.id);
+    receipt
+}
+
+fn make_paperless_doc(
+    id: i64,
+    title: &str,
+    total_amount: Option<f64>,
+    litres: Option<f64>,
+) -> crate::paperless::PaperlessDoc {
+    crate::paperless::PaperlessDoc {
+        id,
+        title: title.to_string(),
+        tag_ids: vec![],
+        created: NaiveDate::from_ymd_opt(2024, 6, 15).unwrap(),
+        total_amount,
+        litres,
+        receipt_datetime: None,
+    }
+}
+
+fn assign_paperless(
+    db: &Database,
+    doc: &crate::paperless::PaperlessDoc,
+    trip_id: &str,
+    vehicle_id: &str,
+    assignment_type: crate::models::AssignmentType,
+) -> Result<(), String> {
+    let app_state = crate::app_state::AppState::new();
+    assign_invoice_to_trip_internal(
+        db,
+        &app_state,
+        &crate::invoice::InvoiceRef::Paperless(doc.id),
+        Some(doc),
+        trip_id,
+        vehicle_id,
+        assignment_type,
+        false,
+    )
+}
+
+fn assign_receipt(
+    db: &Database,
+    receipt_id: &Uuid,
+    trip_id: &Uuid,
+    vehicle_id: &Uuid,
+    assignment_type: &str,
+) -> Result<Receipt, String> {
+    assign_receipt_to_trip_internal(
+        db,
+        &receipt_id.to_string(),
+        &trip_id.to_string(),
+        &vehicle_id.to_string(),
+        assignment_type,
+        false,
+    )
+}
+
+fn unassign_receipt(db: &Database, receipt_id: &Uuid) -> Result<(), String> {
+    let app_state = crate::app_state::AppState::new();
+    unassign_receipt_internal(db, &app_state, receipt_id.to_string())
+}
+
+fn unassign_paperless(db: &Database, doc_id: i64) -> Result<(), String> {
+    let app_state = crate::app_state::AppState::new();
+    unassign_invoice_internal(db, &app_state, &crate::invoice::InvoiceRef::Paperless(doc_id))
+}
+
+fn get_trip_costs(db: &Database, trip_id: &Uuid) -> Option<f64> {
+    db.get_trip(&trip_id.to_string())
+        .unwrap()
+        .unwrap()
+        .other_costs_eur
+}
+
+#[test]
+fn test_assign_fuel_and_other_to_same_trip_succeeds() {
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+    db.create_trip(&trip).unwrap();
+
+    let fuel_receipt = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&fuel_receipt).unwrap();
+    let other_receipt =
+        make_receipt_unique(Some(date), None, Some(5.0), Some("Parking"), None);
+    db.create_receipt(&other_receipt).unwrap();
+
+    assign_receipt(&db, &fuel_receipt.id, &trip.id, &vehicle.id, "Fuel").unwrap();
+    assign_receipt(&db, &other_receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+
+    let fuel_loaded = db.get_receipt_by_id(&fuel_receipt.id.to_string()).unwrap().unwrap();
+    let other_loaded = db.get_receipt_by_id(&other_receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(fuel_loaded.trip_id, Some(trip.id), "Fuel receipt linked");
+    assert_eq!(other_loaded.trip_id, Some(trip.id), "Other receipt linked");
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(5.0));
+}
+
+#[test]
+fn test_second_fuel_receipt_same_trip_rejected() {
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+    db.create_trip(&trip).unwrap();
+
+    let first = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&first).unwrap();
+    let second = make_receipt_unique(Some(date), Some(40.0), Some(60.0), None, None);
+    db.create_receipt(&second).unwrap();
+
+    assign_receipt(&db, &first.id, &trip.id, &vehicle.id, "Fuel").unwrap();
+    let err = assign_receipt(&db, &second.id, &trip.id, &vehicle.id, "Fuel").unwrap_err();
+    assert!(
+        err.contains("fuel invoice"),
+        "expected clear fuel-uniqueness error, got: {}",
+        err
+    );
+
+    // First link intact, second not linked
+    let first_loaded = db.get_receipt_by_id(&first.id.to_string()).unwrap().unwrap();
+    let second_loaded = db.get_receipt_by_id(&second.id.to_string()).unwrap().unwrap();
+    assert_eq!(first_loaded.trip_id, Some(trip.id));
+    assert_eq!(second_loaded.trip_id, None);
+}
+
+#[test]
+fn test_second_fuel_cross_source_rejected() {
+    // fuel receipt assigned -> paperless Fuel assign rejected
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
+    db.create_trip(&trip).unwrap();
+    let receipt = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Fuel").unwrap();
+
+    let doc = make_paperless_doc(700, "Tankovanie", Some(58.20), Some(40.5));
+    let err = assign_paperless(
+        &db,
+        &doc,
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        crate::models::AssignmentType::Fuel,
+    )
+    .unwrap_err();
+    assert!(err.contains("fuel invoice"), "got: {}", err);
+    assert!(db.get_paperless_link(700).unwrap().is_none(), "no link created");
+
+    // and vice versa: paperless Fuel assigned -> fuel receipt rejected
+    let trip2 = make_trip_for_assignment(vehicle.id, date, Some(40.0), Some(60.0), None);
+    db.create_trip(&trip2).unwrap();
+    assign_paperless(
+        &db,
+        &doc,
+        &trip2.id.to_string(),
+        &vehicle.id.to_string(),
+        crate::models::AssignmentType::Fuel,
+    )
+    .unwrap();
+    let receipt2 = make_receipt_unique(Some(date), Some(40.0), Some(60.0), None, None);
+    db.create_receipt(&receipt2).unwrap();
+    let err = assign_receipt(&db, &receipt2.id, &trip2.id, &vehicle.id, "Fuel").unwrap_err();
+    assert!(err.contains("fuel invoice"), "got: {}", err);
+    let receipt2_loaded = db.get_receipt_by_id(&receipt2.id.to_string()).unwrap().unwrap();
+    assert_eq!(receipt2_loaded.trip_id, None, "receipt must not be linked");
+}
+
+#[test]
+fn test_other_sum_on_assign_adds_exactly() {
+    // trip other_costs 10.00 (first Other populated), assign second Other 5.01
+    // -> 15.01 (cent-exact, bit-equal)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    let first = make_receipt_unique(Some(date), None, Some(10.0), Some("A"), None);
+    db.create_receipt(&first).unwrap();
+    assign_receipt(&db, &first.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0));
+
+    let second = make_receipt_unique(Some(date), None, Some(5.01), Some("B"), None);
+    db.create_receipt(&second).unwrap();
+    assign_receipt(&db, &second.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.01), "bit-exact sum");
+}
+
+#[test]
+fn test_other_unassign_subtracts_only_if_applied() {
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Trip with manually entered 10.00
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    // Applied invoice: added 5.01 -> unassign -> back to exactly 10.00
+    let applied = make_receipt_unique(Some(date), None, Some(5.01), Some("A"), None);
+    db.create_receipt(&applied).unwrap();
+    assign_receipt(&db, &applied.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.01));
+    unassign_receipt(&db, &applied.id).unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0), "restored bit-exact");
+
+    // Link-only invoice (double-count guard: 10.00 == 10.00, zero Other
+    // invoices) -> applied None -> unassign leaves the total unchanged.
+    let link_only = make_receipt_unique(Some(date), None, Some(10.0), Some("B"), None);
+    db.create_receipt(&link_only).unwrap();
+    assign_receipt(&db, &link_only.id, &trip.id, &vehicle.id, "Other").unwrap();
+    let loaded = db.get_receipt_by_id(&link_only.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.applied_amount_cents, None, "guard -> link-only");
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0));
+    unassign_receipt(&db, &link_only.id).unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0), "link-only unassign is a no-op on totals");
+}
+
+#[test]
+fn test_unassign_after_receipt_price_edit_subtracts_originally_applied_amount() {
+    // assign Other 5.00 (applied) -> edit receipt total_price_eur to 7.00 ->
+    // unassign -> subtracts 5.00 (the snapshot), NOT 7.00 (test review C7)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(5.0), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.0));
+
+    // User edits the receipt price after assigning
+    let mut edited = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    edited.total_price_eur = Some(7.0);
+    db.update_receipt(&edited).unwrap();
+
+    unassign_receipt(&db, &receipt.id).unwrap();
+    assert_eq!(
+        get_trip_costs(&db, &trip.id),
+        Some(10.0),
+        "must subtract the applied snapshot (5.00), not the live price (7.00)"
+    );
+}
+
+#[test]
+fn test_double_count_guard_links_only() {
+    // trip other_costs=12.34 (manual), zero Other invoices, assign invoice
+    // amount 12.34 -> link-only, total stays 12.34, applied None
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(12.34));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(12.34), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.trip_id, Some(trip.id), "receipt IS linked");
+    assert_eq!(loaded.applied_amount_cents, None, "nothing applied");
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(updated_trip.other_costs_eur, Some(12.34));
+    assert_eq!(updated_trip.other_costs_note, None, "link-only must not touch the note");
+}
+
+#[test]
+fn test_double_count_guard_is_cent_exact() {
+    // Pin: comparison is to_cents(total) == to_cents(amount), no ±0.01 epsilon.
+    // 12.34 vs 12.3345: old epsilon would say "equal" (diff 0.0055),
+    // cent-exact says 1234 != 1233 -> amount IS added -> 24.67.
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(12.34));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(12.3345), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(24.67), "guard must NOT trigger");
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.applied_amount_cents, Some(1233));
+
+    // And the exact case still guards: 12.34 vs 12.34 -> link-only.
+    let trip2 = make_trip_for_assignment(vehicle.id, date, None, None, Some(12.34));
+    db.create_trip(&trip2).unwrap();
+    let receipt2 = make_receipt_unique(Some(date), None, Some(12.34), Some("B"), None);
+    db.create_receipt(&receipt2).unwrap();
+    assign_receipt(&db, &receipt2.id, &trip2.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip2.id), Some(12.34));
+    let loaded2 = db.get_receipt_by_id(&receipt2.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded2.applied_amount_cents, None);
+}
+
+#[test]
+fn test_first_other_populates_empty_trip() {
+    // Existing populate-if-empty behavior kept; snapshot records the cents.
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(15.0), Some("AutoWash"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.0));
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.applied_amount_cents, Some(1500));
+}
+
+#[test]
+fn test_assign_same_receipt_same_trip_twice_adds_once() {
+    // second call is a no-op (I12) — total unchanged, no double note
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(5.0), Some("AutoWash"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.0));
+
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(updated_trip.other_costs_eur, Some(15.0), "no double add");
+    let note = updated_trip.other_costs_note.unwrap_or_default();
+    assert_eq!(
+        note.matches("AutoWash").count(),
+        1,
+        "note segment must not be duplicated, got: {}",
+        note
+    );
+}
+
+#[test]
+fn test_paperless_reupsert_same_trip_does_not_double_add() {
+    // I12, paperless path
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let doc = make_paperless_doc(701, "Parkovné", Some(5.01), None);
+    let trip_id = trip.id.to_string();
+    let vehicle_id = vehicle.id.to_string();
+    assign_paperless(&db, &doc, &trip_id, &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.01));
+
+    assign_paperless(&db, &doc, &trip_id, &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.01), "no double add");
+    let link = db.get_paperless_link(701).unwrap().unwrap();
+    assert_eq!(link.applied_amount_cents, Some(501), "snapshot unchanged");
+}
+
+#[test]
+fn test_receipt_reassign_reverses_old_trip_sum() {
+    // applied Other receipt moved trip A -> trip B: A restored exactly,
+    // B increased, snapshot updated (test review C4)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip_a = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    let trip_b = make_trip_for_assignment(vehicle.id, date, None, None, Some(20.0));
+    db.create_trip(&trip_a).unwrap();
+    db.create_trip(&trip_b).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(5.01), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip_a.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip_a.id), Some(15.01));
+
+    assign_receipt(&db, &receipt.id, &trip_b.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip_a.id), Some(10.0), "A restored bit-exact");
+    assert_eq!(get_trip_costs(&db, &trip_b.id), Some(25.01), "B increased");
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.trip_id, Some(trip_b.id));
+    assert_eq!(loaded.applied_amount_cents, Some(501), "snapshot moved with the link");
+}
+
+#[test]
+fn test_reassign_receipt_with_new_type_reverses_old_contribution() {
+    // Other (applied) re-assigned as Fuel -> old contribution reversed first (I12)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), Some(40.0), Some(15.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.0));
+
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Fuel").unwrap();
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        updated_trip.other_costs_eur, None,
+        "Other contribution reversed on type change"
+    );
+    assert_eq!(updated_trip.fuel_liters, Some(40.0), "Fuel populate-if-empty");
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.assignment_type, Some(crate::models::AssignmentType::Fuel));
+    assert_eq!(loaded.applied_amount_cents, None, "Fuel assignments never apply");
+}
+
+#[test]
+fn test_paperless_assign_stores_snapshots() {
+    // assign paperless Other -> link row has assignment_type/amount_eur/title
+    // from backend-fetched doc + applied_amount_cents set when applied
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    let doc = make_paperless_doc(702, "Parkovné", Some(12.50), None);
+    assign_paperless(
+        &db,
+        &doc,
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        crate::models::AssignmentType::Other,
+    )
+    .unwrap();
+
+    let link = db.get_paperless_link(702).unwrap().unwrap();
+    assert_eq!(link.trip_id, trip.id.to_string());
+    assert_eq!(link.assignment_type, crate::models::AssignmentType::Other);
+    assert_eq!(link.amount_eur, Some(12.50));
+    assert_eq!(link.title, Some("Parkovné".to_string()));
+    assert_eq!(link.applied_amount_cents, Some(1250), "amount was applied");
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(12.50));
+}
+
+#[test]
+fn test_paperless_reassign_reverses_old_trip_sum() {
+    // Other doc applied to trip A, reassign to trip B -> A restored exactly, B increased
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip_a = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    let trip_b = make_trip_for_assignment(vehicle.id, date, None, None, Some(20.0));
+    db.create_trip(&trip_a).unwrap();
+    db.create_trip(&trip_b).unwrap();
+
+    let doc = make_paperless_doc(703, "Parkovné", Some(5.01), None);
+    let vehicle_id = vehicle.id.to_string();
+    assign_paperless(&db, &doc, &trip_a.id.to_string(), &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap();
+    assert_eq!(get_trip_costs(&db, &trip_a.id), Some(15.01));
+
+    assign_paperless(&db, &doc, &trip_b.id.to_string(), &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap();
+    assert_eq!(get_trip_costs(&db, &trip_a.id), Some(10.0), "A restored bit-exact");
+    assert_eq!(get_trip_costs(&db, &trip_b.id), Some(25.01), "B increased");
+    let link = db.get_paperless_link(703).unwrap().unwrap();
+    assert_eq!(link.trip_id, trip_b.id.to_string());
+    assert_eq!(link.applied_amount_cents, Some(501));
+}
+
+#[test]
+fn test_paperless_reassign_link_only_does_not_touch_old_trip() {
+    // doc linked via double-count guard (applied None), reassign -> A's total untouched (I4)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip_a = make_trip_for_assignment(vehicle.id, date, None, None, Some(15.0));
+    let trip_b = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip_a).unwrap();
+    db.create_trip(&trip_b).unwrap();
+
+    let doc = make_paperless_doc(704, "Parkovné", Some(15.0), None);
+    let vehicle_id = vehicle.id.to_string();
+    assign_paperless(&db, &doc, &trip_a.id.to_string(), &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap();
+    let link = db.get_paperless_link(704).unwrap().unwrap();
+    assert_eq!(link.applied_amount_cents, None, "guard -> link-only");
+    assert_eq!(get_trip_costs(&db, &trip_a.id), Some(15.0));
+
+    assign_paperless(&db, &doc, &trip_b.id.to_string(), &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap();
+    assert_eq!(
+        get_trip_costs(&db, &trip_a.id),
+        Some(15.0),
+        "link-only reassign must not mutate the old trip"
+    );
+    assert_eq!(get_trip_costs(&db, &trip_b.id), Some(15.0), "populated on B");
+}
+
+#[test]
+fn test_paperless_unassign_subtracts_applied_amount() {
+    // Rule 5 on the paperless path: unassign subtracts the applied snapshot
+    // and deletes the link; the trip total is restored bit-exact.
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let doc = make_paperless_doc(707, "Parkovné", Some(5.01), None);
+    assign_paperless(
+        &db,
+        &doc,
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        crate::models::AssignmentType::Other,
+    )
+    .unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.01));
+
+    unassign_paperless(&db, 707).unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0), "restored bit-exact");
+    assert!(db.get_paperless_link(707).unwrap().is_none(), "link deleted");
+}
+
+#[test]
+fn test_assign_other_receipt_null_price_is_link_only() {
+    // total_price_eur = None -> link-only, trip total unchanged, applied None (I3)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, None, Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.trip_id, Some(trip.id), "receipt IS linked");
+    assert_eq!(loaded.applied_amount_cents, None);
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0), "total unchanged");
+}
+
+#[test]
+fn test_unassign_last_applied_other_resets_costs_to_none() {
+    // populate-from-empty then unassign -> other_costs_eur == None, not Some(0.0) (I6)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(15.0), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.0));
+
+    unassign_receipt(&db, &receipt.id).unwrap();
+    assert_eq!(
+        get_trip_costs(&db, &trip.id),
+        None,
+        "zero result must be stored as None, not Some(0.0)"
+    );
+}
+
+#[test]
+fn test_unassign_applied_other_after_manual_overwrite() {
+    // applied 5.01 (total 15.01) -> user hand-edits total to 3.00 -> unassign
+    // -> money_sub(3.00, 5.01) clamps -> other_costs_eur == None (I14)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(5.01), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(15.01));
+
+    // Manual overwrite below the applied amount
+    let mut edited_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    edited_trip.other_costs_eur = Some(3.0);
+    db.update_trip(&edited_trip).unwrap();
+
+    unassign_receipt(&db, &receipt.id).unwrap();
+    assert_eq!(
+        get_trip_costs(&db, &trip.id),
+        None,
+        "clamped-to-zero result stored as None"
+    );
+}
+
+#[test]
+fn test_unassign_orphaned_receipt_succeeds_without_trip() {
+    // trip deleted (receipts.trip_id orphaned) -> unassign clears link,
+    // no error, no trip mutation attempted (I10)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), None, Some(5.0), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+
+    // Orphan the receipt the way production data got orphaned (trips deleted
+    // by app versions predating FK enforcement): delete with FKs suspended.
+    {
+        use diesel::RunQueryDsl;
+        let conn = &mut *db.connection();
+        diesel::sql_query("PRAGMA foreign_keys = OFF").execute(conn).unwrap();
+        diesel::sql_query(format!("DELETE FROM trips WHERE id = '{}'", trip.id))
+            .execute(conn)
+            .unwrap();
+        diesel::sql_query("PRAGMA foreign_keys = ON").execute(conn).unwrap();
+    }
+    assert!(db.get_trip(&trip.id.to_string()).unwrap().is_none(), "trip gone");
+
+    unassign_receipt(&db, &receipt.id).unwrap();
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.trip_id, None, "link cleared");
+    assert_eq!(loaded.applied_amount_cents, None, "snapshot cleared");
+}
+
+#[test]
+fn test_unassign_fuel_receipt_never_touches_other_costs() {
+    // Fuel unassign keys on assignment type, not just the snapshot
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    let receipt = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Fuel").unwrap();
+
+    // Simulate a corrupt row: Fuel receipt with a stale applied snapshot.
+    let mut corrupt = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    corrupt.applied_amount_cents = Some(999);
+    db.update_receipt(&corrupt).unwrap();
+
+    unassign_receipt(&db, &receipt.id).unwrap();
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        updated_trip.other_costs_eur,
+        Some(10.0),
+        "Fuel unassign must never touch other_costs_eur"
+    );
+}
+
+#[test]
+fn test_assign_rejects_non_finite_or_negative_amount() {
+    // invoice amount NaN / -5.0 -> clear error, nothing linked, nothing added
+    // (to_cents(NAN) == 0 silently — validate at the boundary instead)
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    db.create_trip(&trip).unwrap();
+
+    // Receipt with a negative amount
+    let receipt = make_receipt_unique(Some(date), None, Some(-5.0), Some("A"), None);
+    db.create_receipt(&receipt).unwrap();
+    let err = assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap_err();
+    assert!(err.to_lowercase().contains("amount"), "got: {}", err);
+    let loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.trip_id, None, "nothing linked");
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0), "nothing added");
+
+    // Paperless docs come from the server: validate NaN and negative too.
+    let vehicle_id = vehicle.id.to_string();
+    let trip_id = trip.id.to_string();
+    let nan_doc = make_paperless_doc(705, "NaN", Some(f64::NAN), None);
+    let err = assign_paperless(&db, &nan_doc, &trip_id, &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap_err();
+    assert!(err.to_lowercase().contains("amount"), "got: {}", err);
+    assert!(db.get_paperless_link(705).unwrap().is_none());
+
+    let neg_doc = make_paperless_doc(706, "Neg", Some(-1.0), None);
+    let err = assign_paperless(&db, &neg_doc, &trip_id, &vehicle_id, crate::models::AssignmentType::Other)
+        .unwrap_err();
+    assert!(err.to_lowercase().contains("amount"), "got: {}", err);
+    assert!(db.get_paperless_link(706).unwrap().is_none());
+    assert_eq!(get_trip_costs(&db, &trip.id), Some(10.0), "nothing added");
+}
+
+#[test]
+fn test_other_assign_appends_note_and_unassign_strips_it() {
+    // assign appends invoice note segment to other_costs_note;
+    // unassign removes exactly that segment; a user-edited note is left untouched
+    let (db, vehicle) = setup_db_with_vehicle();
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
+    trip.other_costs_note = Some("Manual note".to_string());
+    db.create_trip(&trip).unwrap();
+
+    let receipt =
+        make_receipt_unique(Some(date), None, Some(5.0), Some("AutoWash"), Some("Umytie auta"));
+    db.create_receipt(&receipt).unwrap();
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        updated_trip.other_costs_note.as_deref(),
+        Some("Manual note; AutoWash: Umytie auta"),
+        "segment appended"
+    );
+
+    // Unassign strips exactly the appended segment
+    unassign_receipt(&db, &receipt.id).unwrap();
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(updated_trip.other_costs_note.as_deref(), Some("Manual note"));
+    assert_eq!(updated_trip.other_costs_eur, Some(10.0));
+
+    // Re-assign, then hand-edit the note: unassign must leave it untouched
+    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Other").unwrap();
+    let mut edited_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    edited_trip.other_costs_note = Some("Something else entirely".to_string());
+    db.update_trip(&edited_trip).unwrap();
+    unassign_receipt(&db, &receipt.id).unwrap();
+    let updated_trip = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        updated_trip.other_costs_note.as_deref(),
+        Some("Something else entirely"),
+        "user-edited note left untouched"
+    );
+    assert_eq!(updated_trip.other_costs_eur, Some(10.0));
 }
 
 // ========================================================================

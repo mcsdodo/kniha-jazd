@@ -147,6 +147,25 @@ pub fn unassign_receipt_internal(
     id: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+    // Task 66 rule 5: reverse an applied Other contribution before clearing
+    // the link. Keyed on the assignment TYPE — a Fuel unassignment never
+    // touches other_costs_eur, even with a stale snapshot. Orphaned receipts
+    // (trip deleted) skip the subtract inside remove_other_contribution.
+    if let Some(receipt) = db.get_receipt_by_id(&id).map_err(|e| e.to_string())? {
+        if let (Some(trip_id), Some(AssignmentType::Other), Some(cents)) = (
+            receipt.trip_id,
+            receipt.assignment_type,
+            receipt.applied_amount_cents,
+        ) {
+            let segment = receipt_note_segment(&receipt);
+            super::invoices::remove_other_contribution(
+                db,
+                &trip_id.to_string(),
+                cents,
+                Some(&segment),
+            )?;
+        }
+    }
     db.unassign_receipt(&id).map_err(|e| e.to_string())
 }
 
@@ -349,6 +368,11 @@ pub async fn reprocess_receipt_internal(
 /// - assignment_type: "Fuel" or "Other"
 /// - mismatch_override: true = user confirms data mismatch is intentional
 ///
+/// Task 66: 1 Fuel + N Other invoices per trip. Shared rules (validation,
+/// idempotency + reversal, cross-source Fuel uniqueness, sum-on-assign
+/// decision table) live in [`super::invoices`] so the receipt and paperless
+/// paths can never drift apart.
+///
 /// Data invariant: trip_id SET ↔ assignment_type SET
 pub fn assign_receipt_to_trip_internal(
     db: &Database,
@@ -358,26 +382,64 @@ pub fn assign_receipt_to_trip_internal(
     assignment_type: &str,
     mismatch_override: bool,
 ) -> Result<Receipt, String> {
+    use super::invoices::{
+        apply_other_amount, remove_other_contribution, trip_coverage, validate_invoice_amount,
+        FUEL_INVOICE_EXISTS_ERR,
+    };
+
     // Parse assignment type
     let assignment_type_enum = AssignmentType::from_str(assignment_type)
         .ok_or_else(|| format!("Invalid assignment type: {}", assignment_type))?;
 
-    let mut receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
-    let receipt = receipts
-        .iter_mut()
-        .find(|r| r.id.to_string() == receipt_id)
+    let mut receipt = db
+        .get_receipt_by_id(receipt_id)
+        .map_err(|e| e.to_string())?
         .ok_or("Receipt not found")?;
+
+    // Rule 1: validate the amount BEFORE any mutation.
+    validate_invoice_amount(receipt.total_price_eur)?;
 
     let trip_uuid = Uuid::parse_str(trip_id).map_err(|e| e.to_string())?;
     let vehicle_uuid = Uuid::parse_str(vehicle_id).map_err(|e| e.to_string())?;
 
+    // Target trip must exist before anything is reversed.
+    if db.get_trip(trip_id).map_err(|e| e.to_string())?.is_none() {
+        return Err("Trip not found".to_string());
+    }
+
+    // Rule 2: idempotency — same trip + same type is a no-op (I12).
+    if receipt.trip_id == Some(trip_uuid) && receipt.assignment_type == Some(assignment_type_enum)
+    {
+        return Ok(receipt);
+    }
+    // Assigned elsewhere (or same trip, different type): reverse the old
+    // contribution first (C4), then proceed as a fresh assign.
+    if let Some(old_trip_id) = receipt.trip_id {
+        if receipt.assignment_type == Some(AssignmentType::Other) {
+            if let Some(cents) = receipt.applied_amount_cents {
+                let segment = receipt_note_segment(&receipt);
+                remove_other_contribution(db, &old_trip_id.to_string(), cents, Some(&segment))?;
+            }
+        }
+        receipt.applied_amount_cents = None;
+    }
+
+    // (Re-)load the target trip AFTER the reversal — it may be the same trip.
     let trip = db
         .get_trip(trip_id)
         .map_err(|e| e.to_string())?
         .ok_or("Trip not found")?;
 
+    let coverage = trip_coverage(db, trip_id)?;
+
     match assignment_type_enum {
         AssignmentType::Fuel => {
+            // Rule 3: max one Fuel invoice per trip ACROSS both stores
+            // (the partial unique indexes only guard within each table).
+            if coverage.has_fuel {
+                return Err(FUEL_INVOICE_EXISTS_ERR.to_string());
+            }
+
             // FUEL assignment: populate or link fuel fields
             let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
 
@@ -391,27 +453,20 @@ pub fn assign_receipt_to_trip_internal(
             }
             // If trip already has fuel data, just link receipt (scenarios C3, C4, C5)
             // Mismatch detection is handled by mismatch_override flag - UI decides whether to warn
+            receipt.applied_amount_cents = None;
         }
         AssignmentType::Other => {
-            // OTHER COST assignment: populate or link trip.other_costs_* fields
-            let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
-
-            if !trip_has_other_costs {
-                // Trip has no other costs → populate from receipt (scenario C2)
-                let note = match (&receipt.vendor_name, &receipt.cost_description) {
-                    (Some(v), Some(d)) => format!("{}: {}", v, d),
-                    (Some(v), None) => v.clone(),
-                    (None, Some(d)) => d.clone(),
-                    (None, None) => "Iné náklady".to_string(),
-                };
-
-                let mut updated_trip = trip.clone();
-                updated_trip.other_costs_eur = receipt.total_price_eur;
-                updated_trip.other_costs_note = Some(note);
-                db.update_trip(&updated_trip).map_err(|e| e.to_string())?;
-            }
-            // If trip already has other costs data, just link receipt (scenarios C6, C6a)
-            // Mismatch detection is handled by mismatch_override flag - UI decides whether to warn
+            // Rule 4: sum-on-assign decision table (Task 66) — populate when
+            // empty, guard against double-counting a manually pre-entered
+            // amount, otherwise add cent-exactly and append the note segment.
+            let segment = receipt_note_segment(&receipt);
+            receipt.applied_amount_cents = apply_other_amount(
+                db,
+                &trip,
+                receipt.total_price_eur,
+                &segment,
+                coverage.has_other,
+            )?;
         }
     }
 
@@ -421,9 +476,21 @@ pub fn assign_receipt_to_trip_internal(
     receipt.assignment_type = Some(assignment_type_enum);
     receipt.mismatch_override = mismatch_override;
     // Status unchanged - OCR status is orthogonal to assignment
-    db.update_receipt(receipt).map_err(|e| e.to_string())?;
+    db.update_receipt(&receipt).map_err(|e| e.to_string())?;
 
-    Ok(receipt.clone())
+    Ok(receipt)
+}
+
+/// Note segment for an Other receipt — appended to `trip.other_costs_note`
+/// when the amount is applied, and used to strip that exact segment again on
+/// unassign/reversal.
+fn receipt_note_segment(receipt: &Receipt) -> String {
+    match (&receipt.vendor_name, &receipt.cost_description) {
+        (Some(v), Some(d)) => format!("{}: {}", v, d),
+        (Some(v), None) => v.clone(),
+        (None, Some(d)) => d.clone(),
+        (None, None) => "Iné náklady".to_string(),
+    }
 }
 
 // ============================================================================
