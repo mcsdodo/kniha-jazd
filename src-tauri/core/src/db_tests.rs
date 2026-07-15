@@ -11,6 +11,82 @@ fn test_database_creation() {
     // If we got here, tables were created by migration
 }
 
+// ============================================================================
+// Pre-migration safety backup (Database::new)
+// ============================================================================
+
+/// Create a valid, non-empty SQLite file WITHOUT any app migrations applied —
+/// simulates a database created by an older app version (all migrations pending).
+fn create_legacy_db_file(db_path: &std::path::Path) {
+    let mut conn = SqliteConnection::establish(db_path.to_str().unwrap())
+        .expect("create legacy sqlite file");
+    diesel::sql_query("CREATE TABLE legacy_marker (id INTEGER PRIMARY KEY)")
+        .execute(&mut conn)
+        .expect("create marker table");
+    assert!(std::fs::metadata(db_path).unwrap().len() > 0);
+}
+
+#[test]
+fn test_pre_migration_backup_created_for_existing_db_with_pending_migrations() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("kniha-jazd.db");
+    create_legacy_db_file(&db_path);
+
+    let _db = Database::new(db_path).expect("open + migrate");
+
+    let backups_dir = dir.path().join("backups");
+    assert!(backups_dir.exists(), "backups dir must be created");
+    let names: Vec<String> = std::fs::read_dir(&backups_dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().to_string())
+        .collect();
+    assert_eq!(names.len(), 1, "exactly one pre-migration backup expected");
+    assert!(names[0].starts_with("kniha-jazd-backup-"));
+    assert!(
+        names[0].contains("-pre-migration-v"),
+        "filename must carry the pre-migration marker: {}",
+        names[0]
+    );
+    assert!(names[0].ends_with(".db"));
+}
+
+#[test]
+fn test_no_pre_migration_backup_for_fresh_or_up_to_date_db() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("kniha-jazd.db");
+
+    // Fresh DB: file does not pre-exist -> nothing to back up
+    drop(Database::new(db_path.clone()).expect("create fresh DB"));
+    assert!(!dir.path().join("backups").exists());
+
+    // Re-open with all migrations already applied -> still no backup
+    drop(Database::new(db_path).expect("re-open up-to-date DB"));
+    assert!(!dir.path().join("backups").exists());
+}
+
+#[test]
+fn test_in_memory_db_skips_pre_migration_backup() {
+    // In-memory DBs have no file to back up; Database::in_memory must not
+    // attempt one and must come up fully migrated.
+    let db = Database::in_memory().expect("in-memory DB must skip backup logic");
+    assert!(db.get_all_vehicles().is_ok());
+}
+
+#[test]
+fn test_failed_pre_migration_backup_does_not_block_startup() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("kniha-jazd.db");
+    create_legacy_db_file(&db_path);
+
+    // Occupy the backups path with a FILE so the backup directory cannot be
+    // created — the backup attempt must fail, but startup must continue.
+    std::fs::write(dir.path().join("backups"), b"not a directory").unwrap();
+
+    let db = Database::new(db_path).expect("startup must continue when backup fails");
+    // Migrations ran despite the failed backup
+    assert!(db.get_all_vehicles().is_ok());
+}
+
 // Helper to create test vehicles
 pub(crate) fn create_test_vehicle(name: &str) -> Vehicle {
     Vehicle::new(name.to_string(), "BA123XY".to_string(), 66.0, 5.1, 0.0)

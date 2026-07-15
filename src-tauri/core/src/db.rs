@@ -52,8 +52,36 @@ pub struct Database {
 
 impl Database {
     pub fn new(path: PathBuf) -> Result<Self, diesel::ConnectionError> {
+        // Detect a pre-existing database file BEFORE establishing the
+        // connection — SQLite creates an empty file on open, so checking
+        // afterwards would also match brand-new databases.
+        let file_pre_exists = path.metadata().map(|m| m.len() > 0).unwrap_or(false);
+
         let path_str = path.to_str().unwrap_or("");
         let mut conn = SqliteConnection::establish(path_str)?;
+
+        // Safety net: snapshot the existing DB file before applying pending
+        // migrations, so a failed or buggy migration can be recovered from.
+        // A failed backup must NOT block startup — it's a net, not a gate.
+        if file_pre_exists {
+            match conn.has_pending_migration(MIGRATIONS) {
+                Ok(true) => {
+                    if let Err(e) = Self::create_pre_migration_backup(&path) {
+                        log::warn!(
+                            "Pre-migration backup failed, continuing with migrations: {}",
+                            e
+                        );
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    log::warn!(
+                        "Could not check pending migrations for pre-migration backup: {}",
+                        e
+                    );
+                }
+            }
+        }
 
         // Run any pending migrations on startup
         conn.run_pending_migrations(MIGRATIONS)
@@ -62,6 +90,29 @@ impl Database {
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// Copy the database file into the sibling `backups/` directory before
+    /// migrations run. A plain `fs::copy` is safe here: this is the first
+    /// connection to the file during startup and no writes have happened yet.
+    /// Uses the same naming convention as user-facing backups
+    /// (`kniha-jazd-backup-{timestamp}-pre-migration-v{app_version}.db`).
+    fn create_pre_migration_backup(db_file: &std::path::Path) -> Result<(), String> {
+        let parent = db_file
+            .parent()
+            .ok_or_else(|| "Database file has no parent directory".to_string())?;
+        let backups_dir = parent.join(crate::constants::paths::BACKUPS_DIR);
+        std::fs::create_dir_all(&backups_dir).map_err(|e| e.to_string())?;
+
+        let filename = crate::commands_internal::backup::generate_backup_filename(
+            crate::models::BackupType::PreMigration.as_str(),
+            Some(env!("CARGO_PKG_VERSION")),
+        );
+        let backup_path = backups_dir.join(&filename);
+        std::fs::copy(db_file, &backup_path).map_err(|e| e.to_string())?;
+
+        log::info!("Pre-migration backup created: {}", backup_path.display());
+        Ok(())
     }
 
     // Test helper for in-memory databases

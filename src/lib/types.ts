@@ -100,7 +100,7 @@ export interface TripStats {
 	bufferKm: number; // Additional km needed to reach 18% margin (0.0 if under target)
 }
 
-export type BackupType = 'manual' | 'pre-update';
+export type BackupType = 'manual' | 'pre-update' | 'pre-migration';
 
 export interface BackupInfo {
 	filename: string;
