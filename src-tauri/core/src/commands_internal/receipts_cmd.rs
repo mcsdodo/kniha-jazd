@@ -530,11 +530,17 @@ pub fn get_trips_for_receipt_assignment_internal(
         .get_trips_for_vehicle_in_year(vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
+    // Fetched ONCE for the whole picker list (Task 66) — per-trip entries are
+    // passed down so the compat check can enforce multi-invoice rules.
+    let coverage = db.get_trip_invoice_coverage().map_err(|e| e.to_string())?;
+    let no_coverage = crate::models::TripInvoiceCoverage::default();
+
     // Annotate each trip with attachment eligibility
     let result = trips
         .into_iter()
         .map(|trip| {
-            let compat = crate::invoice::check_invoice_trip_compatibility(&receipt as &dyn crate::invoice::Invoice, &trip);
+            let trip_coverage = coverage.get(&trip.id.to_string()).unwrap_or(&no_coverage);
+            let compat = crate::invoice::check_invoice_trip_compatibility(&receipt as &dyn crate::invoice::Invoice, &trip, trip_coverage);
             TripForAssignment {
                 trip,
                 can_attach: compat.can_attach,

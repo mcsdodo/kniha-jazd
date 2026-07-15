@@ -3,6 +3,8 @@
 //! Source dispatch confined to the three boundary functions here.
 //! Beyond these, code consumes `&dyn Invoice` and never inspects the source.
 
+use std::collections::HashMap;
+
 use uuid::Uuid;
 
 use crate::app_state::AppState;
@@ -35,29 +37,39 @@ pub fn get_trips_for_invoice_assignment_internal(
         .get_trips_for_vehicle_in_year(vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
+    // Fetched ONCE for the whole picker list (Task 66) — per-trip entries are
+    // passed down so the compat check can enforce multi-invoice rules.
+    let coverage = db.get_trip_invoice_coverage().map_err(|e| e.to_string())?;
+
     match invoice_ref {
         InvoiceRef::Receipt(id) => {
             let receipt = db
                 .get_receipt_by_id(id)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "Receipt not found".to_string())?;
-            Ok(annotate_trips(&receipt, trips))
+            Ok(annotate_trips(&receipt, trips, &coverage))
         }
         InvoiceRef::Paperless(id) => {
             let data = data.ok_or_else(|| {
                 "InvoiceData required for Paperless invoices".to_string()
             })?;
             let view = PaperlessInvoiceView { id: *id, data };
-            Ok(annotate_trips(&view, trips))
+            Ok(annotate_trips(&view, trips, &coverage))
         }
     }
 }
 
-fn annotate_trips(invoice: &dyn Invoice, trips: Vec<Trip>) -> Vec<TripForAssignment> {
+fn annotate_trips(
+    invoice: &dyn Invoice,
+    trips: Vec<Trip>,
+    coverage: &HashMap<String, TripInvoiceCoverage>,
+) -> Vec<TripForAssignment> {
+    let no_coverage = TripInvoiceCoverage::default();
     trips
         .into_iter()
         .map(|trip| {
-            let compat = check_invoice_trip_compatibility(invoice, &trip);
+            let trip_coverage = coverage.get(&trip.id.to_string()).unwrap_or(&no_coverage);
+            let compat = check_invoice_trip_compatibility(invoice, &trip, trip_coverage);
             TripForAssignment {
                 trip,
                 can_attach: compat.can_attach,

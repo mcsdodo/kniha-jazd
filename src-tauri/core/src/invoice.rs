@@ -8,8 +8,9 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
+use crate::calculations::to_cents;
 use crate::commands_internal::statistics::is_datetime_in_trip_range;
-use crate::models::{AssignmentType, AttachmentStatus, Trip};
+use crate::models::{AssignmentType, AttachmentStatus, Trip, TripInvoiceCoverage};
 
 /// Tagged reference used at the IPC boundary.
 /// Serializes to `{ "source": "receipt", "id": "uuid" }`
@@ -85,9 +86,20 @@ fn get_datetime_mismatch_type(dt: Option<NaiveDateTime>, trip: &Trip) -> Option<
 /// Check if invoice data matches trip's existing data.
 /// Returns compatibility result with detailed mismatch reason.
 /// Handles both FUEL invoices (has liters) and OTHER cost invoices (no liters).
+///
+/// Multi-invoice semantics (Task 66, test review C8/I1): `coverage` is the
+/// trip's invoice coverage across BOTH sources (local receipts + paperless
+/// links). Fuel invoices cannot attach to a trip that already has a Fuel
+/// invoice (`can_attach = false` — the picker greys the trip out; the assign
+/// pre-check stays authoritative). Other invoices skip the amount comparison
+/// entirely once the trip carries >=1 Other invoice (the new amount is summed
+/// on assign — there is nothing to match against); with zero Others the
+/// comparison is cent-exact via `to_cents`, so the picker verdict always
+/// agrees with the assign-time double-count guard.
 pub fn check_invoice_trip_compatibility(
     invoice: &dyn Invoice,
     trip: &Trip,
+    coverage: &TripInvoiceCoverage,
 ) -> CompatibilityResult {
     let is_fuel = match invoice.assignment_type() {
         Some(AssignmentType::Fuel) => true,
@@ -96,6 +108,14 @@ pub fn check_invoice_trip_compatibility(
     };
 
     if is_fuel {
+        // A trip holds at most ONE Fuel invoice across both sources (I1).
+        if coverage.has_fuel {
+            return CompatibilityResult {
+                can_attach: false,
+                status: AttachmentStatus::Differs.as_str().to_string(),
+                mismatch_reason: Some("fuel_invoice_exists".to_string()),
+            };
+        }
         let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
         if !trip_has_fuel {
             let status = match invoice.datetime() {
@@ -139,6 +159,16 @@ pub fn check_invoice_trip_compatibility(
             mismatch_reason: Some(mismatch.to_string()),
         }
     } else {
+        // Trip already carries >=1 Other invoice: the total is a running sum,
+        // so comparing the new invoice against it is meaningless — skip the
+        // amount check entirely (C8; the amount is summed on assign).
+        if coverage.has_other {
+            return CompatibilityResult {
+                can_attach: true,
+                status: AttachmentStatus::Matches.as_str().to_string(),
+                mismatch_reason: None,
+            };
+        }
         let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
         if !trip_has_other_costs {
             let status = match invoice.datetime() {
@@ -154,7 +184,10 @@ pub fn check_invoice_trip_compatibility(
         }
         if let Some(r_price) = invoice.total_price_eur() {
             let datetime_mismatch = get_datetime_mismatch_type(invoice.datetime(), trip);
-            let price_match = trip.other_costs_eur.map(|tc| (tc - r_price).abs() < 0.01).unwrap_or(false);
+            // Cent-exact (Task 66): must agree with the assign-time
+            // double-count guard, which compares via to_cents — the old ±0.01
+            // epsilon disagreed on borderline values (12.34 vs 12.3345).
+            let price_match = trip.other_costs_eur.map(|tc| to_cents(tc) == to_cents(r_price)).unwrap_or(false);
             if datetime_mismatch.is_none() && price_match {
                 return CompatibilityResult {
                     can_attach: true,

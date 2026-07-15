@@ -4,6 +4,7 @@ use chrono::{NaiveDate, NaiveDateTime, Utc};
 use uuid::Uuid;
 use crate::models::{
     AssignmentType, ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip,
+    TripInvoiceCoverage,
 };
 use crate::paperless::PaperlessDoc;
 
@@ -153,7 +154,7 @@ fn paperless_compat_empty_trip_same_date_matches() {
         date.and_hms_opt(8, 0, 0).unwrap(),
         date.and_hms_opt(23, 59, 59).unwrap(),
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach, "Empty trip should allow attachment");
     assert_eq!(result.status, "matches", "Same date inside time range → matches");
     assert_eq!(result.mismatch_reason, None);
@@ -169,7 +170,7 @@ fn paperless_compat_empty_trip_different_date_empty() {
         trip_date.and_hms_opt(8, 0, 0).unwrap(),
         trip_date.and_hms_opt(23, 59, 59).unwrap(),
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "empty", "Different date with empty trip → empty");
     assert_eq!(result.mismatch_reason, None);
@@ -184,7 +185,7 @@ fn paperless_compat_empty_trip_same_date_outside_time_range() {
         date.and_hms_opt(8, 0, 0).unwrap(),
         date.and_hms_opt(12, 0, 0).unwrap(),
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "matches_date", "Same date but outside time range → matches_date");
     assert_eq!(result.mismatch_reason, None);
@@ -199,7 +200,7 @@ fn paperless_compat_empty_trip_inside_time_range_matches() {
         date.and_hms_opt(8, 0, 0).unwrap(),
         date.and_hms_opt(18, 0, 0).unwrap(),
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "matches", "Datetime inside trip range → matches");
     assert_eq!(result.mismatch_reason, None);
@@ -216,7 +217,7 @@ fn paperless_compat_matching_fuel_matches() {
         45.0,
         72.0,
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "matches", "All values matching → matches");
     assert_eq!(result.mismatch_reason, None);
@@ -233,7 +234,7 @@ fn paperless_compat_different_liters_differs() {
         45.0,
         72.0,
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "differs");
     assert_eq!(result.mismatch_reason, Some("liters".to_string()));
@@ -250,7 +251,7 @@ fn paperless_compat_different_price_differs() {
         45.0,
         72.0,
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "differs");
     assert_eq!(result.mismatch_reason, Some("price".to_string()));
@@ -266,7 +267,7 @@ fn compat_overnight_trip_invoice_on_end_date_outside_range_is_time_mismatch() {
     let invoice_dt = NaiveDate::from_ymd_opt(2024, 6, 16).unwrap().and_hms_opt(2, 0, 0).unwrap();
     let trip = fueled_trip(start, end, 45.0, 72.0);
     let doc = fuel_doc(invoice_dt, 45.0, 72.0);
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert_eq!(
         result.mismatch_reason.as_deref(), Some("time"),
         "Invoice on overnight trip's end date should be 'time' mismatch, not 'date'"
@@ -296,7 +297,7 @@ fn compat_paperless_other_invoice_with_liters_routes_to_other_path() {
         50.0, // different from invoice liters (40.0) — fuel path would report "liters" mismatch
         30.0,
     );
-    let result = check_invoice_trip_compatibility(&view, &trip);
+    let result = check_invoice_trip_compatibility(&view, &trip, &TripInvoiceCoverage::default());
     // Other path: trip has no other_costs → can_attach = true, mismatch_reason = None
     // Fuel path (wrong): trip has fuel, liters differ → mismatch_reason = Some("liters")
     assert!(result.can_attach);
@@ -329,11 +330,171 @@ fn compat_paperless_fuel_invoice_with_no_liters_routes_to_fuel_path_not_other() 
     // Fuel path ignores other_costs → sees no fuel_liters → returns early "matches"
     trip.other_costs_eur = Some(99.0);
     trip.other_costs_note = Some("service".into());
-    let result = check_invoice_trip_compatibility(&view, &trip);
+    let result = check_invoice_trip_compatibility(&view, &trip, &TripInvoiceCoverage::default());
     // With fix (Fuel path): no fuel_liters → returns early, status "matches", no mismatch
     // Without fix (Other path): has other_costs(99.0) ≠ invoice price(58.0) → "differs"
     assert!(result.can_attach);
     assert_ne!(result.status, "differs", "Fuel invoice should NOT be routed to Other path");
+}
+
+// ---------------------------------------------------------------------------
+// Multi-invoice compatibility (Task 66, test review C8/I1).
+//
+// The Other branch takes the trip's TripInvoiceCoverage: >=1 Other invoice
+// already attached -> amount comparison skipped entirely (Matches); zero
+// Others -> cent-exact compare via to_cents, so the picker verdict always
+// agrees with the assign-time double-count guard. Fuel-covered trips (either
+// source) return can_attach = false so the picker greys them out.
+// ---------------------------------------------------------------------------
+
+fn other_data(dt: Option<NaiveDateTime>, price: Option<f64>) -> InvoiceData {
+    InvoiceData {
+        datetime: dt,
+        liters: None,
+        total_price_eur: price,
+        title: "Parkovanie".into(),
+        assignment_type: AssignmentType::Other,
+    }
+}
+
+#[test]
+fn test_compatibility_second_other_invoice_not_flagged_as_price_mismatch() {
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let dt = date.and_hms_opt(12, 0, 0).unwrap();
+    // Invoice amount (20.0) wildly differs from the trip total (50.0) — the
+    // old whole-total comparison would flag this as a price mismatch.
+    let data = other_data(Some(dt), Some(20.0));
+    let view = PaperlessInvoiceView { id: 7, data: &data };
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    trip.other_costs_eur = Some(50.0);
+    let coverage = TripInvoiceCoverage { has_other: true, ..Default::default() };
+
+    let result = check_invoice_trip_compatibility(&view, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(
+        result.status, "matches",
+        "amount comparison must be skipped when the trip already has an Other invoice"
+    );
+    assert_eq!(result.mismatch_reason, None);
+}
+
+#[test]
+fn test_compatibility_other_uses_cent_exact_not_epsilon() {
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let dt = date.and_hms_opt(12, 0, 0).unwrap();
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    trip.other_costs_eur = Some(12.34);
+    // Zero Other invoices attached -> comparison happens, cent-exact.
+    let coverage = TripInvoiceCoverage::default();
+
+    // 12.34 vs 12.3345: old ±0.01 epsilon says "equal" (diff 0.0055) but the
+    // Task 5 double-count guard says 1234 != 1233 and WOULD add the amount —
+    // the picker must agree and report a price mismatch.
+    let data = other_data(Some(dt), Some(12.3345));
+    let view = PaperlessInvoiceView { id: 8, data: &data };
+    let result = check_invoice_trip_compatibility(&view, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(result.status, "differs");
+    assert_eq!(result.mismatch_reason, Some("price".to_string()));
+
+    // Exact cent equality still matches (the guard would link-only).
+    let data = other_data(Some(dt), Some(12.34));
+    let view = PaperlessInvoiceView { id: 9, data: &data };
+    let result = check_invoice_trip_compatibility(&view, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(result.status, "matches");
+    assert_eq!(result.mismatch_reason, None);
+}
+
+#[test]
+fn test_trips_for_fuel_invoice_assignment_excludes_covered_trip() {
+    use crate::commands_internal::invoices::get_trips_for_invoice_assignment_internal;
+    use crate::commands_internal::receipts_cmd::{
+        get_trips_for_receipt_assignment_internal, TripForAssignment,
+    };
+    use crate::db::Database;
+    use crate::db_tests;
+    use crate::models::PaperlessLink;
+
+    let db = Database::in_memory().unwrap();
+    let vehicle = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&vehicle).unwrap();
+
+    // Trip A: Fuel covered via a local receipt.
+    let trip_a = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
+    let mut assigned_fuel = make_receipt();
+    assigned_fuel.id = Uuid::new_v4();
+    assigned_fuel.file_path = format!("/x/{}.jpg", assigned_fuel.id);
+    assigned_fuel.vehicle_id = Some(vehicle.id);
+    assigned_fuel.trip_id = Some(Uuid::parse_str(&trip_a).unwrap());
+    assigned_fuel.assignment_type = Some(AssignmentType::Fuel);
+    db.create_receipt(&assigned_fuel).unwrap();
+
+    // Trip B: Fuel covered via a paperless link (the other source).
+    let trip_b = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
+    db.upsert_paperless_link(&PaperlessLink {
+        paperless_document_id: 900,
+        trip_id: trip_b.clone(),
+        assignment_type: AssignmentType::Fuel,
+        amount_eur: Some(58.20),
+        title: Some("Tankovanie".into()),
+        applied_amount_cents: None,
+    })
+    .unwrap();
+
+    // Trip C: no invoice at all.
+    let trip_c = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
+
+    fn can_attach(trips: &[TripForAssignment], id: &str) -> bool {
+        trips
+            .iter()
+            .find(|t| t.trip.id.to_string() == id)
+            .expect("trip present in picker list")
+            .can_attach
+    }
+
+    // Receipt picker entry point.
+    let mut new_fuel = make_receipt();
+    new_fuel.id = Uuid::new_v4();
+    new_fuel.file_path = format!("/x/{}.jpg", new_fuel.id);
+    new_fuel.vehicle_id = Some(vehicle.id);
+    db.create_receipt(&new_fuel).unwrap();
+    let trips = get_trips_for_receipt_assignment_internal(
+        &db,
+        &new_fuel.id.to_string(),
+        &vehicle.id.to_string(),
+        2026,
+    )
+    .unwrap();
+    assert!(!can_attach(&trips, &trip_a), "receipt picker: Fuel-receipt-covered trip excluded");
+    assert!(!can_attach(&trips, &trip_b), "receipt picker: paperless-Fuel-covered trip excluded");
+    assert!(can_attach(&trips, &trip_c), "receipt picker: uncovered trip stays attachable");
+
+    // Paperless picker entry point.
+    let data = InvoiceData {
+        datetime: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap().and_hms_opt(12, 0, 0),
+        liters: Some(40.5),
+        total_price_eur: Some(58.20),
+        title: "Fuel doc".into(),
+        assignment_type: AssignmentType::Fuel,
+    };
+    let trips = get_trips_for_invoice_assignment_internal(
+        &db,
+        &InvoiceRef::Paperless(901),
+        Some(&data),
+        &vehicle.id.to_string(),
+        2026,
+    )
+    .unwrap();
+    assert!(!can_attach(&trips, &trip_a), "paperless picker: Fuel-receipt-covered trip excluded");
+    assert!(!can_attach(&trips, &trip_b), "paperless picker: paperless-Fuel-covered trip excluded");
+    assert!(can_attach(&trips, &trip_c), "paperless picker: uncovered trip stays attachable");
 }
 
 // 8. Fueled trip, different date (liters + price match) — status "differs", reason "date"
@@ -348,7 +509,7 @@ fn paperless_compat_different_date_differs() {
         45.0,
         72.0,
     );
-    let result = check_invoice_trip_compatibility(&doc, &trip);
+    let result = check_invoice_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "differs");
     assert_eq!(result.mismatch_reason, Some("date".to_string()));
