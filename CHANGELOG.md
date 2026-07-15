@@ -15,6 +15,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Zmenené
 - **Existujúce priradenia dokladov zostávajú po aktualizácii zachované** — pri starších Paperless priradeniach bez lokálne známej sumy sa kontrola súčtu nevyhodnocuje, takže po aktualizácii sa nezobrazia falošné varovania.
+- **Známy okrajový prípad migrácie:** starším Paperless priradeniam typ dokladu (palivo / iné náklady) doplní odhad — „palivo", ak jazda má tankovanie a nemá priradený lokálny doklad o tankovaní, inak „iné náklady". Ak mala jazda s tankovaním priradený doklad k **iným nákladom** (napr. parkovanie) a doklad o tankovaní priradený nebol, tento doklad sa po aktualizácii zobrazí ako doklad o tankovaní. Oprava je jednoduchá: doklad odobrať a priradiť znova so správnym typom.
 - **Rozdiel tachometra zobrazuje zrozumiteľný popis namiesto +/− predpony** — napr. „367 km viac v appke" alebo „367 km menej v appke", aby bolo hneď jasné, ktorá hodnota je vyššia.
 - **Zálohy sa vytvárajú cez SQLite `VACUUM INTO` namiesto kopírovania súboru** — záloha je konzistentný snímok databázy aj vtedy, keď sa aplikácia práve používa.
 
