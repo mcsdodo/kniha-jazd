@@ -647,13 +647,15 @@ impl Default for MismatchReason {
 // Domain Enums - String Constant Replacements
 // =============================================================================
 
-/// Backup type - distinguishes manual from automatic pre-update backups
+/// Backup type - distinguishes manual from automatic pre-update and
+/// pre-migration backups
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum BackupType {
     #[default]
     Manual,
     PreUpdate,
+    PreMigration,
 }
 
 impl BackupType {
@@ -661,6 +663,7 @@ impl BackupType {
         match self {
             BackupType::Manual => "manual",
             BackupType::PreUpdate => "pre-update",
+            BackupType::PreMigration => "pre-migration",
         }
     }
 }

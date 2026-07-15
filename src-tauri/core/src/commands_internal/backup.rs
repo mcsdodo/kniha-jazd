@@ -50,6 +50,15 @@ pub struct CleanupResult {
 fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
     if filename.starts_with(paths::BACKUP_PREFIX) {
         let without_prefix = filename.trim_start_matches(paths::BACKUP_PREFIX);
+        // Check the pre-migration marker first — it is the more specific one.
+        if let Some(version_start) = without_prefix.find(paths::PRE_MIGRATION_MARKER) {
+            let version = without_prefix[version_start + paths::PRE_MIGRATION_MARKER.len()..]
+                .trim_end_matches(paths::BACKUP_EXTENSION);
+            return (
+                BackupType::PreMigration.as_str().to_string(),
+                Some(version.to_string()),
+            );
+        }
         if let Some(version_start) = without_prefix.find(paths::PRE_UPDATE_MARKER) {
             let version = without_prefix[version_start + paths::PRE_UPDATE_MARKER.len()..]
                 .trim_end_matches(paths::BACKUP_EXTENSION);
@@ -59,7 +68,9 @@ fn parse_backup_filename(filename: &str) -> (String, Option<String>) {
     (BackupType::Manual.as_str().to_string(), None)
 }
 
-fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
+/// Generate a timestamped backup filename. `pub(crate)` because the
+/// pre-migration safety backup in `Database::new` reuses the same naming.
+pub(crate) fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> String {
     let timestamp = Local::now().format(date_formats::BACKUP_TIMESTAMP);
     match (backup_type, update_version) {
         (t, Some(version)) if t == BackupType::PreUpdate.as_str() => {
@@ -72,6 +83,16 @@ fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> 
                 paths::BACKUP_EXTENSION
             )
         }
+        (t, Some(version)) if t == BackupType::PreMigration.as_str() => {
+            format!(
+                "{}{}{}{}{}",
+                paths::BACKUP_PREFIX,
+                timestamp,
+                paths::PRE_MIGRATION_MARKER,
+                version,
+                paths::BACKUP_EXTENSION
+            )
+        }
         _ => format!(
             "{}{}{}",
             paths::BACKUP_PREFIX,
@@ -79,6 +100,26 @@ fn generate_backup_filename(backup_type: &str, update_version: Option<&str>) -> 
             paths::BACKUP_EXTENSION
         ),
     }
+}
+
+/// Snapshot the live database into `backup_path` using SQLite `VACUUM INTO`.
+///
+/// Unlike a plain `fs::copy` of the DB file, `VACUUM INTO` produces a
+/// transactionally consistent, self-contained database even while the source
+/// connection is in active use. No `fs::copy` fallback: if the snapshot
+/// fails, we fail hard — a silently inconsistent "backup" is worse than a
+/// clear error the user can act on.
+fn snapshot_database_to(db: &Database, backup_path: &Path) -> Result<(), String> {
+    let path_str = backup_path
+        .to_str()
+        .ok_or_else(|| "Invalid backup path encoding".to_string())?;
+    // Escape single quotes for the SQL string literal
+    let escaped = path_str.replace('\'', "''");
+    let conn = &mut *db.connection();
+    diesel::sql_query(format!("VACUUM INTO '{}'", escaped))
+        .execute(conn)
+        .map_err(|e| format!("Zálohovanie zlyhalo (VACUUM INTO): {}", e))?;
+    Ok(())
 }
 
 fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<BackupInfo> {
@@ -109,9 +150,12 @@ fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<Backup
 pub fn create_backup_internal(
     app_dir: &Path,
     db: &Database,
-    app_state: &AppState,
+    _app_state: &AppState,
 ) -> Result<BackupInfo, String> {
-    check_read_only!(app_state);
+    // NOTE: deliberately NO check_read_only! here. Creating a backup only
+    // reads the database and writes a new file — it must keep working in
+    // read-only mode (e.g. the pre-update backup on a not-yet-updated PC
+    // sharing the DB). Restore/delete stay gated below.
     let db_paths = get_db_paths_for_dir(app_dir)?;
 
     fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
@@ -125,7 +169,7 @@ pub fn create_backup_internal(
     );
     let backup_path = db_paths.backups_dir.join(&filename);
 
-    fs::copy(&db_paths.db_file, &backup_path).map_err(|e| e.to_string())?;
+    snapshot_database_to(db, &backup_path)?;
 
     let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
 
@@ -154,11 +198,11 @@ pub fn create_backup_internal(
 pub fn create_backup_with_type_internal(
     app_dir: &Path,
     db: &Database,
-    app_state: &AppState,
+    _app_state: &AppState,
     backup_type: String,
     update_version: Option<String>,
 ) -> Result<BackupInfo, String> {
-    check_read_only!(app_state);
+    // NOTE: deliberately NO check_read_only! here — see create_backup_internal.
     let db_paths = get_db_paths_for_dir(app_dir)?;
 
     fs::create_dir_all(&db_paths.backups_dir).map_err(|e| e.to_string())?;
@@ -166,7 +210,7 @@ pub fn create_backup_with_type_internal(
     let filename = generate_backup_filename(&backup_type, update_version.as_deref());
     let backup_path = db_paths.backups_dir.join(&filename);
 
-    fs::copy(&db_paths.db_file, &backup_path).map_err(|e| e.to_string())?;
+    snapshot_database_to(db, &backup_path)?;
 
     let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
 
@@ -346,7 +390,10 @@ pub fn get_backup_info_internal(app_dir: &Path, filename: String) -> Result<Back
         let date_part = filename
             .trim_start_matches(paths::BACKUP_PREFIX)
             .trim_end_matches(paths::BACKUP_EXTENSION);
-        let date_part = if let Some(pred_pos) = date_part.find(paths::PRE_UPDATE_MARKER) {
+        let marker_pos = date_part
+            .find(paths::PRE_MIGRATION_MARKER)
+            .or_else(|| date_part.find(paths::PRE_UPDATE_MARKER));
+        let date_part = if let Some(pred_pos) = marker_pos {
             &date_part[..pred_pos]
         } else {
             date_part
@@ -437,6 +484,128 @@ pub fn get_backup_path_internal(app_dir: &Path, filename: String) -> Result<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app_state::AppState;
+    use crate::db::db_tests::create_test_vehicle;
+
+    /// File-based DB matching the layout `get_db_paths_for_dir` resolves
+    /// (app_dir/kniha-jazd.db, backups in app_dir/backups).
+    fn setup_file_db(app_dir: &Path) -> Database {
+        Database::new(app_dir.join(paths::DB_FILENAME)).expect("create file DB")
+    }
+
+    #[test]
+    fn test_create_backup_succeeds_in_read_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        let app_state = AppState::new();
+        app_state.enable_read_only("Databáza je z novšej verzie aplikácie");
+
+        let info = create_backup_internal(dir.path(), &db, &app_state)
+            .expect("backup creation only reads the DB and must work in read-only mode");
+        assert!(dir
+            .path()
+            .join(paths::BACKUPS_DIR)
+            .join(&info.filename)
+            .exists());
+    }
+
+    #[test]
+    fn test_create_backup_with_type_succeeds_in_read_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        let app_state = AppState::new();
+        app_state.enable_read_only("Databáza je z novšej verzie aplikácie");
+
+        let info = create_backup_with_type_internal(
+            dir.path(),
+            &db,
+            &app_state,
+            "pre-update".to_string(),
+            Some("0.99.0".to_string()),
+        )
+        .expect("pre-update backup must work in read-only mode");
+        assert_eq!(info.backup_type, "pre-update");
+        assert!(dir
+            .path()
+            .join(paths::BACKUPS_DIR)
+            .join(&info.filename)
+            .exists());
+    }
+
+    #[test]
+    fn test_restore_backup_blocked_in_read_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let app_state = AppState::new();
+        app_state.enable_read_only("test");
+
+        let err = restore_backup_internal(dir.path(), &app_state, "whatever.db".to_string())
+            .expect_err("restore mutates the live DB and must stay blocked");
+        assert!(err.contains("režime len na čítanie"));
+    }
+
+    #[test]
+    fn test_delete_backup_blocked_in_read_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let app_state = AppState::new();
+        app_state.enable_read_only("test");
+
+        let err = delete_backup_internal(dir.path(), &app_state, "whatever.db".to_string())
+            .expect_err("delete must stay blocked in read-only mode");
+        assert!(err.contains("režime len na čítanie"));
+    }
+
+    #[test]
+    fn test_set_backup_retention_blocked_in_read_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let app_state = AppState::new();
+        app_state.enable_read_only("test");
+
+        let err = set_backup_retention_internal(
+            dir.path(),
+            &app_state,
+            BackupRetention {
+                enabled: true,
+                keep_count: 3,
+            },
+        )
+        .expect_err("settings writes must stay blocked in read-only mode");
+        assert!(err.contains("režime len na čítanie"));
+    }
+
+    #[test]
+    fn test_backup_is_valid_sqlite_snapshot_with_same_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        let vehicle = create_test_vehicle("Backup Car");
+        db.create_vehicle(&vehicle).unwrap();
+
+        let app_state = AppState::new();
+        let info = create_backup_internal(dir.path(), &db, &app_state).unwrap();
+        assert_eq!(info.vehicle_count, 1);
+
+        // Open the backup with a second, independent connection and verify
+        // it is a valid SQLite database containing the same data.
+        let backup_path = dir.path().join(paths::BACKUPS_DIR).join(&info.filename);
+        let backup_db = Database::from_path(&backup_path).unwrap();
+        let vehicles = backup_db.get_all_vehicles().unwrap();
+        assert_eq!(vehicles.len(), 1);
+        assert_eq!(vehicles[0].name, "Backup Car");
+    }
+
+    #[test]
+    fn test_generate_backup_filename_pre_migration() {
+        let filename = generate_backup_filename("pre-migration", Some("0.37.0"));
+        assert!(filename.starts_with("kniha-jazd-backup-"));
+        assert!(filename.ends_with("-pre-migration-v0.37.0.db"));
+    }
+
+    #[test]
+    fn test_parse_backup_filename_pre_migration() {
+        let (backup_type, version) =
+            parse_backup_filename("kniha-jazd-backup-2026-01-24-143022-pre-migration-v0.37.0.db");
+        assert_eq!(backup_type, "pre-migration");
+        assert_eq!(version, Some("0.37.0".to_string()));
+    }
 
     #[test]
     fn test_parse_backup_filename_manual() {

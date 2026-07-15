@@ -25,6 +25,10 @@ pub mod paths {
 
     /// Pre-update backup version marker
     pub const PRE_UPDATE_MARKER: &str = "-pre-v";
+
+    /// Pre-migration backup version marker (automatic safety backup created
+    /// on startup before applying pending DB migrations)
+    pub const PRE_MIGRATION_MARKER: &str = "-pre-migration-v";
 }
 
 /// Date format strings for parsing and formatting
