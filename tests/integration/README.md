@@ -167,10 +167,16 @@ Tests seed data via Tauri IPC commands:
 import { seedVehicle, seedTrip, seedReceipt } from '../utils/db';
 
 // Creates vehicle and returns with ID
-const vehicle = await seedVehicle({ name: 'Test', tp_consumption: 7.5 });
+const vehicle = await seedVehicle({ name: 'Test', licensePlate: 'T-001', initialOdometer: 10000, tpConsumption: 7.5 });
 
 // Creates trip linked to vehicle
-const trip = await seedTrip(vehicle.id, { date: '2025-01-15', km: 100 });
+const trip = await seedTrip({ vehicleId: vehicle.id, startDatetime: '2026-01-15T08:00', origin: 'A', destination: 'B', distanceKm: 100, odometer: 10100, purpose: 'Test' });
+
+// Creates a processed (Parsed) unassigned receipt. There is no create_receipt
+// command, so this writes a placeholder file into the sandboxed data dir,
+// scans it, then fills in the parsed fields via update_receipt.
+// Requires a filesystem shared with the backend — skip in Docker mode.
+const receipt = await seedReceipt({ assignmentType: 'Other', totalPriceEur: 10.0, receiptDatetime: '2026-01-15T09:00' });
 ```
 
 ## Troubleshooting

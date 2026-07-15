@@ -123,7 +123,8 @@ export interface Receipt {
   // Parsed fields
   liters?: number | null;
   totalPriceEur?: number | null;
-  receiptDate?: string | null; // YYYY-MM-DD format
+  receiptDate?: string | null; // YYYY-MM-DD format (legacy fixtures)
+  receiptDatetime?: string | null; // YYYY-MM-DDTHH:MM:SS format
   stationName?: string | null;
   stationAddress?: string | null;
   vendorName?: string | null;
@@ -137,6 +138,10 @@ export interface Receipt {
   confidence?: FieldConfidence;
   rawOcrText?: string | null;
   errorMessage?: string | null;
+  // Assignment fields (Task 51 / Task 66)
+  assignmentType?: 'Fuel' | 'Other' | null; // Set when assigned to trip
+  mismatchOverride?: boolean;
+  appliedAmountCents?: number | null; // Cents added to trip.other_costs_eur at assign time
   createdAt?: string;
   updatedAt?: string;
 }

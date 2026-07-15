@@ -11,6 +11,8 @@
  * 3. Tests verify the real data flow path
  */
 
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import type {
   Vehicle,
   VehicleType,
@@ -624,6 +626,93 @@ export async function updateReceipt(receipt: Receipt): Promise<void> {
     throw new Error('App not ready');
   }
   await invokeTauri<void>('update_receipt', { receipt });
+}
+
+/**
+ * Data for seeding a completed/processed receipt row.
+ *
+ * `assignmentType` is the *intended* invoice type: it controls whether `liters`
+ * is set (the UI infers Fuel vs Other from `liters` presence). The stored
+ * receipt's `assignment_type` column stays NULL until the receipt is actually
+ * assigned to a trip (data invariant: trip_id NULL ↔ assignment_type NULL).
+ */
+export interface SeedReceiptData {
+  /** Intended invoice type — Fuel receipts get `liters`, Other receipts don't */
+  assignmentType: 'Fuel' | 'Other';
+  totalPriceEur: number | null;
+  /** ISO datetime "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS" */
+  receiptDatetime: string;
+  /** Required for Fuel receipts */
+  liters?: number;
+  /** Defaults to a unique generated name */
+  fileName?: string;
+  vendorName?: string;
+  costDescription?: string;
+}
+
+/**
+ * Seed a processed (Parsed) unassigned receipt.
+ *
+ * There is no direct create_receipt command — receipt rows are only created by
+ * folder scanning. This helper follows the production data flow end to end:
+ * 1. Writes a placeholder file into `<KNIHA_JAZD_DATA_DIR>/seeded-receipts/`
+ * 2. Points the scanner at that folder and runs `scan_receipts` (inserts a
+ *    Pending row — no OCR)
+ * 3. Fills in the parsed fields via `update_receipt` (status → Parsed)
+ *
+ * `applied_amount_cents` stays NULL — nothing has been applied to any trip yet.
+ *
+ * NOTE: needs a filesystem shared between the test runner and the backend —
+ * wrap specs using this helper in `describeNotInDockerMode`.
+ */
+export async function seedReceipt(data: SeedReceiptData): Promise<Receipt> {
+  const ready = await ensureAppReady();
+  if (!ready) {
+    throw new Error('App not ready for seeding');
+  }
+
+  const dataDir = getTestDataDir();
+  if (!dataDir) {
+    throw new Error('KNIHA_JAZD_DATA_DIR not set — seedReceipt requires the sandboxed test data dir');
+  }
+
+  // 1. Write a placeholder file (scanning only checks the extension, not content)
+  const folder = join(dataDir, 'seeded-receipts');
+  mkdirSync(folder, { recursive: true });
+  const fileName = data.fileName ?? `seed-${data.assignmentType.toLowerCase()}-${generateUuid()}.png`;
+  writeFileSync(join(folder, fileName), 'seeded receipt placeholder');
+
+  // 2. Scan the folder — creates a Pending receipt row for the new file
+  await invokeTauri<void>('set_receipts_folder_path', { path: folder });
+  await invokeTauri<unknown>('scan_receipts');
+
+  const pending = (await invokeTauri<Receipt[]>('get_unassigned_receipts')).find(
+    (r) => r.fileName === fileName
+  );
+  if (!pending) {
+    throw new Error(`seedReceipt: scanned receipt '${fileName}' not found in DB`);
+  }
+
+  // 3. Fill in parsed fields (backend expects seconds in the datetime)
+  const receiptDatetime = /:\d{2}:\d{2}$/.test(data.receiptDatetime)
+    ? data.receiptDatetime
+    : `${data.receiptDatetime}:00`;
+
+  const receipt: Receipt = {
+    ...pending,
+    status: 'Parsed',
+    liters: data.assignmentType === 'Fuel' ? (data.liters ?? null) : null,
+    totalPriceEur: data.totalPriceEur,
+    originalAmount: data.totalPriceEur,
+    originalCurrency: data.totalPriceEur != null ? 'EUR' : null,
+    receiptDatetime,
+    vendorName: data.vendorName ?? null,
+    costDescription: data.costDescription ?? null,
+    appliedAmountCents: null, // unassigned: nothing applied to a trip yet
+  };
+  await invokeTauri<void>('update_receipt', { receipt });
+
+  return receipt;
 }
 
 /**
