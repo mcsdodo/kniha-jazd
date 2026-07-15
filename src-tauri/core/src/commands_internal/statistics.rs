@@ -13,11 +13,13 @@ use crate::calculations::phev::calculate_phev_trip_consumption;
 use crate::calculations::{
     calculate_buffer_km, calculate_closed_period_totals, calculate_consumption_rate,
     calculate_fuel_level, calculate_fuel_used, calculate_margin_percent, is_within_legal_limit,
+    to_cents,
 };
 use crate::constants::defaults;
 use crate::db::Database;
 use crate::models::{
-    PreviewResult, Receipt, SuggestedFillup, Trip, TripGridData, TripStats, Vehicle, VehicleType,
+    AssignmentType, PreviewResult, Receipt, SuggestedFillup, Trip, TripGridData,
+    TripInvoiceCoverage, TripStats, Vehicle, VehicleType,
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use std::collections::{HashMap, HashSet};
@@ -396,9 +398,13 @@ pub fn build_trip_grid_data(
             battery_remaining_kwh: HashMap::new(),
             battery_remaining_percent: HashMap::new(),
             soc_override_trips: HashSet::new(),
-            missing_receipts: HashSet::new(),
-            receipt_datetime_warnings: HashSet::new(),
-            receipt_mismatch_overrides: HashSet::new(),
+            missing_fuel_invoices: HashSet::new(),
+            missing_other_invoices: HashSet::new(),
+            other_sum_mismatches: HashSet::new(),
+            fuel_datetime_warnings: HashSet::new(),
+            other_datetime_warnings: HashSet::new(),
+            fuel_mismatch_overrides: HashSet::new(),
+            other_mismatch_overrides: HashSet::new(),
             year_start_odometer,
             year_start_fuel,
             suggested_fillup: HashMap::new(),
@@ -439,21 +445,23 @@ pub fn build_trip_grid_data(
         .map(|t| t.id.to_string())
         .collect();
 
-    // Calculate missing invoices (trips with costs but no Receipt or Paperless link).
-    // Coverage keys = trips with at least one invoice attached (either source);
-    // per-type flags get wired into the grid in Task 66's follow-up work.
-    let trips_with_invoice: HashSet<String> = db
-        .get_trip_invoice_coverage()
-        .map_err(|e| e.to_string())?
-        .into_keys()
-        .collect();
-    let missing_receipts = calculate_missing_receipts(&trips, &trips_with_invoice);
+    // Per-trip invoice coverage (Receipts + Paperless links, per assignment type)
+    let coverage = db.get_trip_invoice_coverage().map_err(|e| e.to_string())?;
 
-    // Calculate receipt datetime warnings (trips with assigned receipt outside trip time range)
-    let receipt_datetime_warnings = calculate_receipt_datetime_warnings(&trips, &receipts);
+    // Missing invoices per type (trips with a cost > 0 but no invoice of that type)
+    let (missing_fuel_invoices, missing_other_invoices) =
+        calculate_missing_receipts(&trips, &coverage);
 
-    // Calculate receipt mismatch overrides (trips where user confirmed a mismatch)
-    let receipt_mismatch_overrides = calculate_receipt_mismatch_overrides(&trips, &receipts);
+    // Other-costs sum mismatch (manual total != cent-exact sum of attached Other invoices)
+    let other_sum_mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+
+    // Receipt datetime warnings per type (assigned receipt outside trip time range)
+    let (fuel_datetime_warnings, other_datetime_warnings) =
+        calculate_receipt_datetime_warnings(&trips, &receipts);
+
+    // Receipt mismatch overrides per type (user confirmed a mismatch)
+    let (fuel_mismatch_overrides, other_mismatch_overrides) =
+        calculate_receipt_mismatch_overrides(&trips, &receipts);
 
     // Calculate initial battery for BEV/PHEV (carryover from previous year)
     let initial_battery = if vehicle.vehicle_type.uses_electricity() {
@@ -566,9 +574,13 @@ pub fn build_trip_grid_data(
         battery_remaining_kwh,
         battery_remaining_percent,
         soc_override_trips,
-        missing_receipts,
-        receipt_datetime_warnings,
-        receipt_mismatch_overrides,
+        missing_fuel_invoices,
+        missing_other_invoices,
+        other_sum_mismatches,
+        fuel_datetime_warnings,
+        other_datetime_warnings,
+        fuel_mismatch_overrides,
+        other_mismatch_overrides,
         year_start_odometer,
         year_start_fuel,
         suggested_fillup,
@@ -1222,65 +1234,110 @@ pub fn calculate_consumption_warnings(
     warnings
 }
 
-/// Find trips with costs that don't have any invoice attached.
-/// Source-agnostic: `trips_with_invoice` is the union of trip IDs covered by
-/// either a local Receipt or a Paperless document link. The caller is
-/// responsible for assembling that set (see `Database::get_trip_invoice_coverage`).
-/// A trip needs an invoice if it has fuel OR other_costs.
+/// Find trips with costs that don't have an invoice of the matching type attached.
+/// Source-agnostic: `coverage` is built from both local Receipts and Paperless
+/// links (see `Database::get_trip_invoice_coverage`).
+/// Returns `(missing_fuel_invoices, missing_other_invoices)`. Zero-value costs
+/// never need an invoice (test review I9).
 pub fn calculate_missing_receipts(
     trips: &[Trip],
-    trips_with_invoice: &HashSet<String>,
+    coverage: &HashMap<String, TripInvoiceCoverage>,
+) -> (HashSet<String>, HashSet<String>) {
+    let mut missing_fuel = HashSet::new();
+    let mut missing_other = HashSet::new();
+
+    for trip in trips {
+        let trip_id = trip.id.to_string();
+        let cov = coverage.get(&trip_id);
+        if matches!(trip.fuel_liters, Some(v) if v > 0.0) && !cov.is_some_and(|c| c.has_fuel) {
+            missing_fuel.insert(trip_id.clone());
+        }
+        if matches!(trip.other_costs_eur, Some(v) if v > 0.0) && !cov.is_some_and(|c| c.has_other)
+        {
+            missing_other.insert(trip_id);
+        }
+    }
+
+    (missing_fuel, missing_other)
+}
+
+/// Find trips where the manual `other_costs_eur` total differs (cent-exact)
+/// from the sum of attached Other invoice amounts. Skipped when any attached
+/// Other invoice has an unknown (NULL) amount — no false warnings after the
+/// multi-invoice migration backfill (test review I5).
+pub fn calculate_other_sum_mismatches(
+    trips: &[Trip],
+    coverage: &HashMap<String, TripInvoiceCoverage>,
 ) -> HashSet<String> {
     trips
         .iter()
         .filter(|trip| {
-            let needs_invoice = trip.fuel_liters.is_some() || trip.other_costs_eur.is_some();
-            needs_invoice && !trips_with_invoice.contains(&trip.id.to_string())
+            coverage.get(&trip.id.to_string()).is_some_and(|c| {
+                c.has_other
+                    && !c.has_unknown_amount
+                    && to_cents(trip.other_costs_eur.unwrap_or(0.0)) != c.other_sum_cents
+            })
         })
         .map(|t| t.id.to_string())
         .collect()
 }
 
-/// Find trips with assigned receipt where receipt datetime is outside trip's [start, end] range.
-/// Returns trip IDs that should show a warning indicator.
+/// Find trips with an assigned receipt whose datetime is outside the trip's
+/// [start, end] range. Checks ALL receipts of a trip, not just the first
+/// (test review I8). Returns `(fuel_warnings, other_warnings)` split by the
+/// receipt's assignment type.
 pub fn calculate_receipt_datetime_warnings(
     trips: &[Trip],
     receipts: &[Receipt],
-) -> HashSet<String> {
-    let mut warnings = HashSet::new();
+) -> (HashSet<String>, HashSet<String>) {
+    let mut fuel_warnings = HashSet::new();
+    let mut other_warnings = HashSet::new();
 
     for trip in trips {
-        // Find receipt assigned to this trip
-        if let Some(receipt) = receipts.iter().find(|r| r.trip_id == Some(trip.id)) {
-            if let Some(receipt_dt) = receipt.receipt_datetime {
-                if !is_datetime_in_trip_range(receipt_dt, trip) {
-                    warnings.insert(trip.id.to_string());
-                }
+        for receipt in receipts.iter().filter(|r| r.trip_id == Some(trip.id)) {
+            let Some(receipt_dt) = receipt.receipt_datetime else {
+                continue;
+            };
+            if is_datetime_in_trip_range(receipt_dt, trip) {
+                continue;
             }
+            match receipt.assignment_type {
+                Some(AssignmentType::Other) => other_warnings.insert(trip.id.to_string()),
+                // Fuel — including a legacy assigned-without-type receipt
+                // (pre-Task-51 shape): keep the warning visible rather than drop it.
+                _ => fuel_warnings.insert(trip.id.to_string()),
+            };
         }
     }
 
-    warnings
+    (fuel_warnings, other_warnings)
 }
 
-/// Find trips with assigned receipt where user has confirmed a mismatch (mismatch_override = true).
-/// Returns trip IDs that should show an override indicator (orange warning).
+/// Find trips with an assigned receipt where the user confirmed a mismatch
+/// (mismatch_override = true). Checks ALL receipts of a trip, not just the
+/// first (test review I8). Returns `(fuel_overrides, other_overrides)` split
+/// by the receipt's assignment type.
 pub fn calculate_receipt_mismatch_overrides(
     trips: &[Trip],
     receipts: &[Receipt],
-) -> HashSet<String> {
-    let mut overrides = HashSet::new();
+) -> (HashSet<String>, HashSet<String>) {
+    let mut fuel_overrides = HashSet::new();
+    let mut other_overrides = HashSet::new();
 
     for trip in trips {
-        // Find receipt assigned to this trip
-        if let Some(receipt) = receipts.iter().find(|r| r.trip_id == Some(trip.id)) {
-            if receipt.mismatch_override {
-                overrides.insert(trip.id.to_string());
+        for receipt in receipts.iter().filter(|r| r.trip_id == Some(trip.id)) {
+            if !receipt.mismatch_override {
+                continue;
             }
+            match receipt.assignment_type {
+                Some(AssignmentType::Other) => other_overrides.insert(trip.id.to_string()),
+                // Fuel — including a legacy assigned-without-type receipt.
+                _ => fuel_overrides.insert(trip.id.to_string()),
+            };
         }
     }
 
-    overrides
+    (fuel_overrides, other_overrides)
 }
 
 // ============================================================================

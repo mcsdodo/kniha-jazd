@@ -370,13 +370,20 @@ pub struct TripGridData {
     /// Trip IDs with manual SoC override
     pub soc_override_trips: HashSet<String>,
 
-    // Shared warnings
-    /// Trip IDs that have fuel but are missing a matching receipt
-    pub missing_receipts: HashSet<String>,
-    /// Trip IDs where assigned receipt datetime is outside trip's [start, end] range
-    pub receipt_datetime_warnings: HashSet<String>,
-    /// Trip IDs where assigned receipt has mismatch_override = true (user confirmed mismatch)
-    pub receipt_mismatch_overrides: HashSet<String>,
+    // Shared warnings (per assignment type since Task 66)
+    /// Trip IDs with fuel cost but no Fuel invoice attached
+    pub missing_fuel_invoices: HashSet<String>,
+    /// Trip IDs with other costs but no Other invoice attached
+    pub missing_other_invoices: HashSet<String>,
+    /// Trip IDs where other_costs_eur != sum of attached Other invoice amounts (cent-exact)
+    pub other_sum_mismatches: HashSet<String>,
+    /// Trip IDs where an assigned Fuel invoice datetime is outside trip range
+    pub fuel_datetime_warnings: HashSet<String>,
+    /// Trip IDs where an assigned Other invoice datetime is outside trip range
+    pub other_datetime_warnings: HashSet<String>,
+    /// Trip IDs where user confirmed a mismatch (per type)
+    pub fuel_mismatch_overrides: HashSet<String>,
+    pub other_mismatch_overrides: HashSet<String>,
 
     // Year boundary data
     /// Starting odometer for this year (carryover from previous year's ending ODO)

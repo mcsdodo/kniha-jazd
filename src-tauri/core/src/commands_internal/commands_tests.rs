@@ -4,14 +4,17 @@
 
 use crate::commands_internal::statistics::{
     calculate_consumption_warnings, calculate_energy_grid_data, calculate_missing_receipts,
-    calculate_receipt_datetime_warnings, calculate_suggested_fillups, get_open_period_km,
+    calculate_other_sum_mismatches, calculate_receipt_datetime_warnings,
+    calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
     has_any_period_over_limit,
 };
 use super::*;
 use crate::db::Database;
-use crate::models::{ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, Vehicle};
+use crate::models::{
+    ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, TripInvoiceCoverage, Vehicle,
+};
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Helper to create a trip with fuel
@@ -72,58 +75,61 @@ fn make_trip_without_fuel(date: NaiveDate) -> Trip {
 
 // ========================================================================
 // Missing-invoice tests (calculate_missing_receipts)
-// Source-agnostic: the function takes a HashSet of trip IDs that have any
-// invoice attached (Receipt or Paperless link) and flags trips with costs
-// that aren't in that set.
+// Source-agnostic and per-type (Task 66): the function takes the per-trip
+// invoice coverage map (built from Receipts + Paperless links) and flags
+// trips with a fuel cost but no Fuel invoice / other costs but no Other
+// invoice. Zero-value costs never need an invoice.
 // ========================================================================
 
-fn covered(trip_ids: &[Uuid]) -> HashSet<String> {
-    trip_ids.iter().map(|id| id.to_string()).collect()
+fn cov(
+    has_fuel: bool,
+    has_other: bool,
+    other_sum_cents: i64,
+    has_unknown_amount: bool,
+) -> TripInvoiceCoverage {
+    TripInvoiceCoverage {
+        has_fuel,
+        has_other,
+        other_sum_cents,
+        has_unknown_amount,
+    }
+}
+
+fn coverage_for(trip_id: Uuid, entry: TripInvoiceCoverage) -> HashMap<String, TripInvoiceCoverage> {
+    HashMap::from([(trip_id.to_string(), entry)])
 }
 
 #[test]
 fn test_missing_receipts_trip_with_invoice_not_flagged() {
-    // Trip is in the covered set (Receipt or Paperless) → NOT missing
+    // Trip has a Fuel invoice attached (Receipt or Paperless) → NOT missing
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let with_invoice = covered(&[trips[0].id]);
+    let coverage = coverage_for(trips[0].id, cov(true, false, 0, false));
 
-    let missing = calculate_missing_receipts(&trips, &with_invoice);
-
-    assert!(
-        missing.is_empty(),
-        "Trip with any attached invoice should not be flagged as missing"
-    );
-}
-
-#[test]
-fn test_missing_receipts_trip_with_paperless_link_not_flagged() {
-    // Regression: a Paperless link (no Receipt row) covers the trip just like
-    // a Receipt does. Bug was that calculate_missing_receipts only checked
-    // the receipts table and ignored paperless_trip_links.
-    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
-    let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let with_invoice = covered(&[trips[0].id]);
-
-    let missing = calculate_missing_receipts(&trips, &with_invoice);
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
 
     assert!(
-        missing.is_empty(),
-        "Trip with paperless link should not be flagged as missing"
+        missing_fuel.is_empty() && missing_other.is_empty(),
+        "Trip with attached Fuel invoice should not be flagged as missing"
     );
 }
 
 #[test]
 fn test_missing_receipts_trip_without_invoice_flagged() {
-    // Trip with fuel but no invoice attached → missing
+    // Trip with fuel but no invoice attached → missing fuel invoice
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_with_fuel(date, 45.0, 72.50)];
-    let with_invoice = HashSet::new();
+    let coverage = HashMap::new();
 
-    let missing = calculate_missing_receipts(&trips, &with_invoice);
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
 
-    assert_eq!(missing.len(), 1, "Trip without invoice should be flagged");
-    assert!(missing.contains(&trips[0].id.to_string()));
+    assert_eq!(
+        missing_fuel.len(),
+        1,
+        "Trip without invoice should be flagged"
+    );
+    assert!(missing_fuel.contains(&trips[0].id.to_string()));
+    assert!(missing_other.is_empty(), "No other costs on this trip");
 }
 
 #[test]
@@ -131,29 +137,31 @@ fn test_missing_receipts_trip_without_costs_not_flagged() {
     // Trip without fuel or other_costs → NOT flagged (doesn't need an invoice)
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trips = vec![make_trip_without_fuel(date)];
-    let with_invoice = HashSet::new();
+    let coverage = HashMap::new();
 
-    let missing = calculate_missing_receipts(&trips, &with_invoice);
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
 
     assert!(
-        missing.is_empty(),
+        missing_fuel.is_empty() && missing_other.is_empty(),
         "Trip without fuel/other_costs should not be flagged"
     );
 }
 
 #[test]
 fn test_missing_receipts_trip_with_other_costs_and_no_invoice_flagged() {
-    // Trip with other_costs but no invoice → missing
+    // Trip with other_costs but no invoice → missing Other invoice
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let mut trip = make_trip_without_fuel(date);
     trip.other_costs_eur = Some(15.0);
     trip.other_costs_note = Some("Parkovanie".to_string());
     let trips = vec![trip];
-    let with_invoice = HashSet::new();
+    let coverage = HashMap::new();
 
-    let missing = calculate_missing_receipts(&trips, &with_invoice);
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
 
-    assert_eq!(missing.len(), 1);
+    assert_eq!(missing_other.len(), 1);
+    assert!(missing_other.contains(&trips[0].id.to_string()));
+    assert!(missing_fuel.is_empty(), "No fuel on this trip");
 }
 
 #[test]
@@ -168,14 +176,133 @@ fn test_missing_receipts_multiple_trips_partial_coverage() {
         make_trip_with_fuel(date2, 50.0, 80.00), // missing
         make_trip_without_fuel(date3),           // no costs, not flagged
     ];
-    let with_invoice = covered(&[trips[0].id]);
+    let coverage = coverage_for(trips[0].id, cov(true, false, 0, false));
 
-    let missing = calculate_missing_receipts(&trips, &with_invoice);
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
 
-    assert_eq!(missing.len(), 1);
-    assert!(missing.contains(&trips[1].id.to_string()));
-    assert!(!missing.contains(&trips[0].id.to_string()));
-    assert!(!missing.contains(&trips[2].id.to_string()));
+    assert_eq!(missing_fuel.len(), 1);
+    assert!(missing_fuel.contains(&trips[1].id.to_string()));
+    assert!(!missing_fuel.contains(&trips[0].id.to_string()));
+    assert!(!missing_fuel.contains(&trips[2].id.to_string()));
+    assert!(missing_other.is_empty());
+}
+
+#[test]
+fn test_missing_fuel_invoice_flagged_per_type() {
+    // Trip has fuel cost + other cost; only Other invoice attached
+    // -> in missing_fuel_invoices, NOT in missing_other_invoices
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_with_fuel(date, 45.0, 72.50);
+    trip.other_costs_eur = Some(15.0);
+    let trips = vec![trip];
+    let coverage = coverage_for(trips[0].id, cov(false, true, 1500, false));
+
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
+
+    assert!(
+        missing_fuel.contains(&trips[0].id.to_string()),
+        "Fuel cost without Fuel invoice should be flagged"
+    );
+    assert!(
+        missing_other.is_empty(),
+        "Other cost IS covered — must not be flagged"
+    );
+}
+
+#[test]
+fn test_missing_other_invoice_flagged_per_type() {
+    // Mirror case: fuel cost + other cost; only Fuel invoice attached
+    // -> in missing_other_invoices, NOT in missing_fuel_invoices
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_with_fuel(date, 45.0, 72.50);
+    trip.other_costs_eur = Some(15.0);
+    let trips = vec![trip];
+    let coverage = coverage_for(trips[0].id, cov(true, false, 0, false));
+
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
+
+    assert!(
+        missing_other.contains(&trips[0].id.to_string()),
+        "Other cost without Other invoice should be flagged"
+    );
+    assert!(
+        missing_fuel.is_empty(),
+        "Fuel IS covered — must not be flagged"
+    );
+}
+
+#[test]
+fn test_zero_value_costs_not_flagged_missing() {
+    // other_costs_eur = Some(0.0) / fuel_liters = Some(0.0) -> NOT flagged
+    // (pins the is_some() -> "> 0" predicate change, test review I9)
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_with_fuel(date, 0.0, 0.0);
+    trip.other_costs_eur = Some(0.0);
+    let trips = vec![trip];
+    let coverage = HashMap::new();
+
+    let (missing_fuel, missing_other) = calculate_missing_receipts(&trips, &coverage);
+
+    assert!(
+        missing_fuel.is_empty() && missing_other.is_empty(),
+        "Zero-value costs do not need an invoice"
+    );
+}
+
+// ========================================================================
+// Other sum-mismatch tests (calculate_other_sum_mismatches)
+// ========================================================================
+
+#[test]
+fn test_other_sum_mismatch_flagged() {
+    // other_costs_eur = 20.00, attached Others sum 15.01 -> trip in other_sum_mismatches
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_without_fuel(date);
+    trip.other_costs_eur = Some(20.00);
+    let trips = vec![trip];
+    let coverage = coverage_for(trips[0].id, cov(false, true, 1501, false));
+
+    let mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+
+    assert!(
+        mismatches.contains(&trips[0].id.to_string()),
+        "20.00 vs invoice sum 15.01 should be flagged as mismatch"
+    );
+}
+
+#[test]
+fn test_other_sum_match_not_flagged() {
+    // 15.01 vs 15.01 -> absent
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_without_fuel(date);
+    trip.other_costs_eur = Some(15.01);
+    let trips = vec![trip];
+    let coverage = coverage_for(trips[0].id, cov(false, true, 1501, false));
+
+    let mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+
+    assert!(
+        mismatches.is_empty(),
+        "Matching sum (cent-exact) must not be flagged"
+    );
+}
+
+#[test]
+fn test_other_sum_unknown_amount_skips_check() {
+    // One Other link with NULL amount -> trip absent even though partial sum differs
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let mut trip = make_trip_without_fuel(date);
+    trip.other_costs_eur = Some(20.00);
+    let trips = vec![trip];
+    // Partial sum 5.00 differs from 20.00, but an unknown-amount invoice exists
+    let coverage = coverage_for(trips[0].id, cov(false, true, 500, true));
+
+    let mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+
+    assert!(
+        mismatches.is_empty(),
+        "Unknown invoice amount must skip the sum-mismatch check"
+    );
 }
 
 // ========================================================================
@@ -270,7 +397,7 @@ fn test_receipt_datetime_warning_within_range() {
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
     let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
 
     assert!(
         warnings.is_empty(),
@@ -297,7 +424,7 @@ fn test_receipt_datetime_warning_before_trip_start() {
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
     let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
 
     assert_eq!(warnings.len(), 1, "Should have 1 warning");
     assert!(
@@ -325,7 +452,7 @@ fn test_receipt_datetime_warning_after_trip_end() {
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
     let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
 
     assert_eq!(warnings.len(), 1, "Should have 1 warning");
     assert!(
@@ -345,7 +472,7 @@ fn test_receipt_datetime_warning_no_receipt() {
     let trip = make_trip_with_datetime_range(trip_start, None);
     let receipts: Vec<Receipt> = vec![];
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip], &receipts);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &receipts);
 
     assert!(
         warnings.is_empty(),
@@ -364,7 +491,7 @@ fn test_receipt_datetime_warning_receipt_no_datetime() {
     let trip = make_trip_with_datetime_range(trip_start, None);
     let receipt = make_receipt_with_datetime_assigned(None, trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
 
     assert!(
         warnings.is_empty(),
@@ -388,7 +515,7 @@ fn test_receipt_datetime_warning_exactly_at_start() {
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
     let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
 
     assert!(
         warnings.is_empty(),
@@ -412,7 +539,7 @@ fn test_receipt_datetime_warning_exactly_at_end() {
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
     let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
 
     assert!(
         warnings.is_empty(),
@@ -437,7 +564,7 @@ fn test_receipt_datetime_warning_no_end_datetime_uses_start() {
     let trip = make_trip_with_datetime_range(trip_start, None);
     let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
 
     assert_eq!(
         warnings.len(),
@@ -448,11 +575,198 @@ fn test_receipt_datetime_warning_no_end_datetime_uses_start() {
     // Case 2: Receipt at exact start time - no warning
     let receipt_exact = make_receipt_with_datetime_assigned(Some(trip_start), trip.id);
 
-    let warnings = calculate_receipt_datetime_warnings(&[trip], &[receipt_exact]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt_exact]);
 
     assert!(
         warnings.is_empty(),
         "Receipt at exact start time should not generate warning"
+    );
+}
+
+// ========================================================================
+// Per-type datetime warnings + mismatch overrides (Task 66)
+// ========================================================================
+
+#[test]
+fn test_datetime_warnings_type_scoped() {
+    // Fuel receipt out of range -> fuel_datetime_warnings only
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
+    let out_of_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(18, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    // Helper creates a Fuel-typed receipt
+    let receipt = make_receipt_with_datetime_assigned(Some(out_of_range), trip.id);
+
+    let (fuel_warnings, other_warnings) =
+        calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+
+    assert!(
+        fuel_warnings.contains(&trip.id.to_string()),
+        "Out-of-range Fuel receipt should land in fuel_datetime_warnings"
+    );
+    assert!(
+        other_warnings.is_empty(),
+        "No Other receipt — other_datetime_warnings must stay empty"
+    );
+}
+
+#[test]
+fn test_datetime_warning_fires_for_second_other_receipt() {
+    // Trip with in-range Fuel receipt + out-of-range Other receipt ->
+    // trip in other_datetime_warnings (kills the `.find()` first-receipt-only
+    // bug, test review I8)
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
+    let in_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+    let out_of_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(18, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let fuel_receipt = make_receipt_with_datetime_assigned(Some(in_range), trip.id);
+    let mut other_receipt = make_receipt_with_datetime_assigned(Some(out_of_range), trip.id);
+    other_receipt.assignment_type = Some(crate::models::AssignmentType::Other);
+
+    // Fuel receipt FIRST — a `.find()` lookup would stop there and miss the Other
+    let (fuel_warnings, other_warnings) =
+        calculate_receipt_datetime_warnings(&[trip.clone()], &[fuel_receipt, other_receipt]);
+
+    assert!(
+        other_warnings.contains(&trip.id.to_string()),
+        "Second (Other) receipt out of range must fire other_datetime_warnings"
+    );
+    assert!(
+        fuel_warnings.is_empty(),
+        "Fuel receipt is in range — no fuel warning"
+    );
+}
+
+#[test]
+fn test_mismatch_override_recognized_on_second_receipt() {
+    // I8 mirror for overrides: first (Fuel) receipt has no override, second
+    // (Other) receipt has mismatch_override = true -> trip must appear in
+    // other_mismatch_overrides despite not being the first receipt found.
+    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(14, 0, 0)
+        .unwrap();
+    let in_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let fuel_receipt = make_receipt_with_datetime_assigned(Some(in_range), trip.id);
+    let mut other_receipt = make_receipt_with_datetime_assigned(Some(in_range), trip.id);
+    other_receipt.assignment_type = Some(crate::models::AssignmentType::Other);
+    other_receipt.mismatch_override = true;
+
+    let (fuel_overrides, other_overrides) =
+        calculate_receipt_mismatch_overrides(&[trip.clone()], &[fuel_receipt, other_receipt]);
+
+    assert!(
+        other_overrides.contains(&trip.id.to_string()),
+        "Override on the second (Other) receipt must be recognized"
+    );
+    assert!(
+        fuel_overrides.is_empty(),
+        "Fuel receipt has no override — fuel_mismatch_overrides must stay empty"
+    );
+}
+
+// ========================================================================
+// Migration: no false warnings after upgrade (Task 66, test review I5)
+// ========================================================================
+
+/// Raw-SQL exec against the test DB (legacy schema has no Rust structs).
+fn exec_raw(db: &Database, sql: &str) {
+    use diesel::RunQueryDsl;
+    let conn = &mut *db.connection();
+    diesel::sql_query(sql)
+        .execute(conn)
+        .unwrap_or_else(|e| panic!("SQL failed: {e}\n{sql}"));
+}
+
+#[test]
+fn test_migrated_db_produces_no_false_warnings() {
+    // Legacy DB: trip with other_costs_eur = 12.50 + one legacy paperless
+    // link (backfills to Other, amount NULL). After migration + coverage:
+    // trip absent from other_sum_mismatches (unknown amount excluded) AND
+    // absent from missing_other_invoices (has_other = true). (I5 — "don't
+    // scare users after update".)
+    let db = crate::db::open_db_legacy();
+
+    let vehicle_id = "00000000-0000-0000-0000-0000000000a1";
+    let trip_id = "00000000-0000-0000-0000-0000000000b1";
+    exec_raw(
+        &db,
+        &format!(
+            "INSERT INTO vehicles (id, name, license_plate, created_at, updated_at) \
+             VALUES ('{vehicle_id}', 'Test Vehicle', 'BA123XY', \
+                     '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        ),
+    );
+    exec_raw(
+        &db,
+        &format!(
+            "INSERT INTO trips (id, vehicle_id, origin, destination, distance_km, odometer, \
+                                purpose, other_costs_eur, start_datetime, end_datetime, \
+                                created_at, updated_at) \
+             VALUES ('{trip_id}', '{vehicle_id}', 'BA', 'TT', 50.0, 12345.0, 'test', 12.50, \
+                     '2026-01-01T08:00:00', '2026-01-01T10:00:00', \
+                     '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        ),
+    );
+    // Legacy paperless link shape: no assignment_type/amount columns yet
+    exec_raw(
+        &db,
+        &format!(
+            "INSERT INTO paperless_trip_links (trip_id, paperless_document_id, \
+                                               created_at, updated_at) \
+             VALUES ('{trip_id}', 42, '2026-04-01T08:00:00', '2026-04-01T08:00:00')"
+        ),
+    );
+
+    crate::db::migrate_to_current(&db);
+
+    let trips = db.get_trips_for_vehicle_in_year(&vehicle_id, 2026).unwrap();
+    assert_eq!(trips.len(), 1, "Seeded trip must survive the migration");
+    let coverage = db.get_trip_invoice_coverage().unwrap();
+
+    let (_, missing_other) = calculate_missing_receipts(&trips, &coverage);
+    assert!(
+        !missing_other.contains(trip_id),
+        "Trip with a backfilled Other link must not be flagged as missing an Other invoice"
+    );
+
+    let mismatches = calculate_other_sum_mismatches(&trips, &coverage);
+    assert!(
+        !mismatches.contains(trip_id),
+        "Backfilled link has unknown amount — sum-mismatch check must be skipped"
     );
 }
 
@@ -2013,7 +2327,7 @@ fn test_receipt_datetime_warnings_excludes_overrides() {
     db.create_receipt(&receipt).unwrap();
 
     // Call the warning calculation function
-    let warnings = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
 
     // Currently, the backend DOES include this in warnings
     // Frontend filters it out using the mismatch_override flag
