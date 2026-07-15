@@ -622,3 +622,46 @@ fn test_fuel_level_equals_tank_after_fillup() {
         z
     );
 }
+
+// ===== Money math (Task 66: multi-invoice, cent-exact) =====
+
+#[test]
+fn test_money_add_float_traps() {
+    assert_eq!(money_add(0.1, 0.2), 0.3);
+    assert_eq!(money_add(19.99, 5.01), 25.0);
+    assert_eq!(money_add(0.0, 12.34), 12.34);
+}
+
+#[test]
+fn test_money_sub_exact() {
+    assert_eq!(money_sub(0.3, 0.1), 0.2);
+    assert_eq!(money_sub(25.0, 19.99), 5.01);
+}
+
+#[test]
+fn test_money_long_chain_roundtrip() {
+    // N assigns followed by N unassigns in any order restores the EXACT start.
+    let amounts = [4.5, 12.99, 0.01, 33.33, 7.77, 100.0, 0.1, 0.2];
+    let start = 55.55_f64;
+    let mut total = start;
+    for a in amounts { total = money_add(total, a); }
+    // subtract in different order
+    for a in amounts.iter().rev() { total = money_sub(total, *a); }
+    assert_eq!(total, start); // bit-exact, no epsilon
+}
+
+#[test]
+fn test_money_sub_floors_to_zero() {
+    // subtracting more than the total must clamp at 0.0, never go negative
+    assert_eq!(money_sub(5.0, 5.01), 0.0);
+    assert_eq!(money_sub(0.0, 1.0), 0.0);
+}
+
+#[test]
+fn test_to_cents_rounds_binary_representation_traps() {
+    // 12.345 is stored as 12.34499999… in f64 — the trap is binary
+    // representation, not banker's rounding (f64::round is half-away already).
+    assert_eq!(to_cents(12.345), 1235);
+    assert_eq!(to_cents(12.344999), 1234);
+    assert_eq!(to_cents(1.005), 101);   // classic 1.005*100 = 100.49999 trap
+}

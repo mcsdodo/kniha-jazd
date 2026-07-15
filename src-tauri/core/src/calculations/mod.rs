@@ -127,6 +127,31 @@ pub fn calculate_closed_period_totals(trips: &[Trip]) -> (f64, f64) {
     (total_fuel, total_km)
 }
 
+// ===== Cent-exact money math (Task 66: multi-invoice) =====
+// HARD requirement: repeated assign/unassign cycles on other_costs_eur must be
+// bit-exact. All EUR add/subtract goes through integer cents — never raw f64 +/-.
+
+/// EUR → integer cents. Uses an epsilon nudge before rounding so values that
+/// are conceptually exact 2-dp money (but stored as f64 like 1.005 → 100.4999…)
+/// round to the intended cent.
+pub fn to_cents(eur: f64) -> i64 {
+    (eur * 100.0 + if eur >= 0.0 { 1e-6 } else { -1e-6 }).round() as i64
+}
+
+pub fn from_cents(cents: i64) -> f64 {
+    cents as f64 / 100.0
+}
+
+/// Exact addition of two EUR amounts.
+pub fn money_add(a: f64, b: f64) -> f64 {
+    from_cents(to_cents(a) + to_cents(b))
+}
+
+/// Exact subtraction, clamped at 0.0 (money on a trip can never go negative).
+pub fn money_sub(a: f64, b: f64) -> f64 {
+    from_cents((to_cents(a) - to_cents(b)).max(0))
+}
+
 // Submodules
 pub mod energy;
 pub mod phev;
