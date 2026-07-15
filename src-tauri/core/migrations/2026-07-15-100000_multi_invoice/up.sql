@@ -47,6 +47,13 @@ CREATE TABLE receipts_new (
 -- ALTER ... DEFAULT 0 without NOT NULL); a hand-edited/restored DB with a
 -- NULL must not abort the migration (test review C3b). The rebuilt column is
 -- NOT NULL, which also fixes the schema.rs drift.
+--
+-- Orphan healing on trip_id/assignment_type: the bundled SQLite enforces
+-- foreign keys on EVERY connection (SQLITE_DEFAULT_FOREIGN_KEYS=1), so a
+-- hand-edited/restored DB holding a receipt whose trip no longer exists
+-- would make this INSERT fail and brick startup. Such a receipt is healed
+-- to unassigned (both columns NULL, preserving the Task-51 invariant
+-- trip_id SET <-> assignment_type SET); every other column is preserved.
 INSERT INTO receipts_new (
     id, vehicle_id, trip_id, file_path, file_name, scanned_at, liters,
     total_price_eur, station_name, station_address, source_year, status,
@@ -55,11 +62,19 @@ INSERT INTO receipts_new (
     receipt_datetime, assignment_type, mismatch_override, applied_amount_cents
 )
 SELECT
-    id, vehicle_id, trip_id, file_path, file_name, scanned_at, liters,
+    id, vehicle_id,
+    CASE WHEN trip_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM trips t WHERE t.id = receipts.trip_id)
+         THEN NULL ELSE trip_id END,
+    file_path, file_name, scanned_at, liters,
     total_price_eur, station_name, station_address, source_year, status,
     confidence, raw_ocr_text, error_message, created_at, updated_at,
     vendor_name, cost_description, original_amount, original_currency,
-    receipt_datetime, assignment_type, COALESCE(mismatch_override, 0),
+    receipt_datetime,
+    CASE WHEN trip_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM trips t WHERE t.id = receipts.trip_id)
+         THEN NULL ELSE assignment_type END,
+    COALESCE(mismatch_override, 0),
     NULL  -- legacy assignments never subtract on unassign (today's behavior)
 FROM receipts;
 
@@ -99,6 +114,11 @@ CREATE TABLE paperless_trip_links_new (
 -- false warnings). applied_amount_cents = NULL (legacy links never subtract
 -- on unassign). NOTE: this runs AFTER Part 1, reading the rebuilt receipts
 -- table — same transaction, same data.
+--
+-- The WHERE EXISTS drops orphaned links (trip deleted behind SQLite's back
+-- in a hand-edited/restored DB): trip_id is NOT NULL here so they cannot be
+-- healed like receipts, and keeping them would fail the FK check and brick
+-- startup. Dropping matches the ON DELETE CASCADE this table has always had.
 INSERT INTO paperless_trip_links_new (
     paperless_document_id, trip_id, assignment_type, amount_eur, title,
     applied_amount_cents, created_at, updated_at
@@ -120,7 +140,8 @@ SELECT
     NULL,
     l.created_at,
     l.updated_at
-FROM paperless_trip_links l;
+FROM paperless_trip_links l
+WHERE EXISTS (SELECT 1 FROM trips t WHERE t.id = l.trip_id);
 
 DROP TABLE paperless_trip_links;
 ALTER TABLE paperless_trip_links_new RENAME TO paperless_trip_links;

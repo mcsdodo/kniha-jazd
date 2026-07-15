@@ -1106,6 +1106,79 @@ fn paperless_link_from_row(row: PaperlessLinkRow) -> PaperlessLink {
     }
 }
 
+// ============================================================================
+// Test-only migration harness (Task 66: migration data-integrity tests)
+// ============================================================================
+
+/// Version cutoff for the multi-invoice migration: every migration whose
+/// version sorts strictly below this date belongs to the "legacy"
+/// (pre-multi-invoice) schema. Kept in the human-readable dashed form;
+/// [`open_db_legacy`] normalizes it the way diesel does before comparing.
+#[cfg(test)]
+pub(crate) const MULTI_INVOICE_VERSION: &str = "2026-07-15";
+
+/// Test harness: open an in-memory DB migrated only UP TO (excluding) the
+/// multi-invoice migration, so tests can seed legacy-shaped rows and then
+/// run the remaining migrations against real data.
+///
+/// Implementation notes (verified against diesel_migrations 2.3 source):
+/// - `MigrationSource::migrations()` order is NOT contractually sorted —
+///   sort by `name().version()` (plain lexical `Cow<str>` ordering, the
+///   same ordering `run_pending_migrations` uses) before replaying.
+/// - `version()` is the directory name up to the FIRST underscore, with
+///   dashes STRIPPED (`migrations_internals::version_from_string`), e.g.
+///   "2026-01-09-100000_add_x" -> "20260109100000" — so the cutoff must be
+///   normalized identically, and full directory names must never be
+///   string-matched.
+/// - `run_migration` does NOT create `__diesel_schema_migrations`;
+///   `applied_migrations()` does (via `MigrationConnection::setup`), so it
+///   must be called first.
+#[cfg(test)]
+pub(crate) fn open_db_legacy() -> Database {
+    let mut conn = SqliteConnection::establish(":memory:")
+        .expect("Failed to open in-memory legacy database");
+
+    // Create the __diesel_schema_migrations tracking table (run_migration
+    // records into it but never creates it).
+    conn.applied_migrations()
+        .expect("Failed to set up migration tracking table");
+
+    let mut migrations =
+        <EmbeddedMigrations as MigrationSource<diesel::sqlite::Sqlite>>::migrations(&MIGRATIONS)
+            .expect("Failed to enumerate embedded migrations");
+    migrations.sort_by_key(|m| m.name().version().as_owned());
+
+    // Normalize the cutoff exactly like diesel normalizes versions
+    // (dashes stripped): "2026-07-15" -> "20260715".
+    let normalized_cutoff = MULTI_INVOICE_VERSION.replace('-', "");
+    let cutoff = diesel::migration::MigrationVersion::from(normalized_cutoff.as_str());
+    for migration in migrations.iter().filter(|m| m.name().version() < cutoff) {
+        conn.run_migration(migration.as_ref()).unwrap_or_else(|e| {
+            panic!(
+                "Failed to run legacy migration {}: {}",
+                migration.name(),
+                e
+            )
+        });
+    }
+
+    Database {
+        conn: Mutex::new(conn),
+    }
+}
+
+/// Run the remaining (multi-invoice) migrations on a legacy DB.
+#[cfg(test)]
+pub(crate) fn migrate_to_current(db: &Database) {
+    let conn = &mut *db.conn.lock().unwrap();
+    conn.run_pending_migrations(MIGRATIONS)
+        .expect("Failed to migrate legacy DB to current schema");
+}
+
 #[cfg(test)]
 #[path = "db_tests.rs"]
 pub(crate) mod db_tests;
+
+#[cfg(test)]
+#[path = "migration_tests.rs"]
+mod migration_tests;
