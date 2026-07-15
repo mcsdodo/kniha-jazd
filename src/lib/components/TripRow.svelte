@@ -61,9 +61,14 @@
 	export let onEditEnd: () => void = () => {};
 	export let hasConsumptionWarning: boolean = false;
 	export let isEstimatedRate: boolean = false;
-	export let hasMatchingReceipt: boolean = true;
-	export let hasReceiptDatetimeWarning: boolean = false;
-	export let hasReceiptMismatchOverride: boolean = false;
+	// Per-type invoice warnings (Task 66: 1 Fuel + N Other invoices per trip)
+	export let hasMatchingFuelInvoice: boolean = true;
+	export let hasMatchingOtherInvoice: boolean = true;
+	export let otherSumMismatch: boolean = false;
+	export let fuelDatetimeWarning: boolean = false;
+	export let otherDatetimeWarning: boolean = false;
+	export let fuelMismatchOverride: boolean = false;
+	export let otherMismatchOverride: boolean = false;
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
@@ -652,9 +657,9 @@
 					{#if !trip.fullTank}
 						<span class="partial-indicator" title={$LL.trips.partialFillup()}>*</span>
 					{/if}
-					{#if !hasMatchingReceipt}
-						<span class="receipt-indicator missing" title={$LL.trips.legend.missingReceipt()}>⚠</span>
-					{:else if hasReceiptDatetimeWarning && !hasReceiptMismatchOverride}
+					{#if !hasMatchingFuelInvoice}
+						<span class="receipt-indicator missing" title={$LL.trips.legend.missingFuelInvoice()}>⚠</span>
+					{:else if fuelDatetimeWarning && !fuelMismatchOverride}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
@@ -700,10 +705,12 @@
 		{#if !hiddenColumns.includes('otherCosts')}
 			<td class="col-other-costs number">
 				{trip.otherCostsEur?.toFixed(2) || ''}
-				{#if trip.otherCostsEur && !trip.fuelLiters}
-					{#if !hasMatchingReceipt}
-						<span class="receipt-indicator missing" title={$LL.trips.legend.missingReceipt()}>⚠</span>
-					{:else if hasReceiptDatetimeWarning && !hasReceiptMismatchOverride}
+				{#if trip.otherCostsEur || otherSumMismatch}
+					{#if !hasMatchingOtherInvoice}
+						<span class="receipt-indicator missing" title={$LL.trips.legend.missingOtherInvoice()}>⚠</span>
+					{:else if otherSumMismatch}
+						<span class="receipt-indicator mismatch" title={$LL.trips.legend.otherSumMismatch({ total: (trip.otherCostsEur ?? 0).toFixed(2) })}>⚠</span>
+					{:else if otherDatetimeWarning && !otherMismatchOverride}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}

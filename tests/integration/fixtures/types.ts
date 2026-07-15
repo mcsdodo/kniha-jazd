@@ -183,8 +183,14 @@ export interface TripGridData {
   batteryRemainingKwh: Record<string, number>;
   batteryRemainingPercent: Record<string, number>;
   socOverrideTrips: string[];
-  // Shared warnings
-  missingReceipts: string[];
+  // Shared warnings (per assignment type since Task 66)
+  missingFuelInvoices: string[];
+  missingOtherInvoices: string[];
+  otherSumMismatches: string[];
+  fuelDatetimeWarnings: string[];
+  otherDatetimeWarnings: string[];
+  fuelMismatchOverrides: string[];
+  otherMismatchOverrides: string[];
   // Legal compliance fields (2026)
   tripNumbers: Record<string, number>; // Trip sequence numbers (1-based)
   odometerStart: Record<string, number>; // Odometer at trip start

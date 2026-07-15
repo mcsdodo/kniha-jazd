@@ -181,8 +181,11 @@ const sk = {
 			highConsumption: 'vysoká spotreba',
 			suggestedFillup: 'Návrh tankovania: {liters} L → {rate} l/100km',
 			receiptDatetimeMismatch: 'dátum/čas dokladu mimo jazdy',
-			// Receipt status indicators (Task 51)
-			missingReceipt: 'chýba doklad',
+			// Invoice status indicators (Task 51, per-type since Task 66)
+			missingFuelInvoice: 'Chýba doklad o tankovaní',
+			missingOtherInvoice: 'Chýba doklad k iným nákladom',
+			otherSumMismatch: 'Suma iných nákladov ({total:string} €) nesedí so súčtom priradených dokladov',
+			otherSumMismatchShort: 'suma iných nákladov nesedí so súčtom dokladov',
 			dataMismatch: 'nesúlad údajov',
 			userConfirmed: 'potvrdené',
 		},
@@ -492,6 +495,7 @@ const sk = {
 		mismatchTimeAndPrice: 'čas mimo jazdy a iná cena',
 		mismatchTimeAndLitersAndPrice: 'čas mimo jazdy, litre a cena',
 		mismatchAll: 'všetko sa líši',
+		mismatchFuelInvoiceExists: 'Jazda už má doklad o tankovaní',
 	},
 
 	// Toast messages

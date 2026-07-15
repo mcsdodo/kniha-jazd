@@ -140,6 +140,7 @@
 			case 'time_and_price': return $LL.tripSelector.mismatchTimeAndPrice();
 			case 'time_and_liters_and_price': return $LL.tripSelector.mismatchTimeAndLitersAndPrice();
 			case 'all': return $LL.tripSelector.mismatchAll();
+			case 'fuel_invoice_exists': return $LL.tripSelector.mismatchFuelInvoiceExists();
 			default: return '';
 		}
 	}
@@ -147,6 +148,11 @@
 	// Generate detailed tooltip showing exact mismatch values
 	function getMismatchDetailTooltip(item: TripForAssignment): string {
 		if (!item.mismatchReason) return '';
+
+		// Fuel slot already taken (backend can_attach = false) — no value comparison to show
+		if (item.mismatchReason === 'fuel_invoice_exists') {
+			return $LL.tripSelector.mismatchFuelInvoiceExists();
+		}
 
 		const trip = item.trip;
 		const details: string[] = [];

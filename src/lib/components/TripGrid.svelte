@@ -447,11 +447,16 @@
 
 	// Legend counts
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
-	$: missingReceiptCount = gridData?.missingReceipts.length ?? 0;
+	$: missingFuelInvoiceCount = gridData?.missingFuelInvoices.length ?? 0;
+	$: missingOtherInvoiceCount = gridData?.missingOtherInvoices.length ?? 0;
+	$: otherSumMismatchCount = gridData?.otherSumMismatches.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
 	// Exclude warnings where user confirmed the mismatch (same logic as TripRow)
-	$: receiptDatetimeWarningCount = (gridData?.receiptDatetimeWarnings ?? [])
-		.filter(id => !(gridData?.receiptMismatchOverrides ?? []).includes(id)).length;
+	$: invoiceDatetimeWarningCount =
+		(gridData?.fuelDatetimeWarnings ?? [])
+			.filter(id => !(gridData?.fuelMismatchOverrides ?? []).includes(id)).length +
+		(gridData?.otherDatetimeWarnings ?? [])
+			.filter(id => !(gridData?.otherMismatchOverrides ?? []).includes(id)).length;
 	// Legend suggested fillup - provided directly by backend (no frontend logic needed)
 	$: legendSuggestedFillup = gridData?.legendSuggestedFillup ?? null;
 
@@ -515,7 +520,7 @@
 	</div>
 
 	<div class="table-container">
-		{#if partialCount > 0 || missingReceiptCount > 0 || consumptionWarningCount > 0 || receiptDatetimeWarningCount > 0 || legendSuggestedFillup}
+		{#if partialCount > 0 || missingFuelInvoiceCount > 0 || missingOtherInvoiceCount > 0 || otherSumMismatchCount > 0 || consumptionWarningCount > 0 || invoiceDatetimeWarningCount > 0 || legendSuggestedFillup}
 			<div class="table-legend">
 				{#if legendSuggestedFillup}
 					<span class="legend-item suggested-fillup">
@@ -526,14 +531,20 @@
 				{#if partialCount > 0}
 					<span class="legend-item"><span class="partial-indicator">*</span> {$LL.trips.legend.partialFillup()} ({partialCount})</span>
 				{/if}
-				{#if missingReceiptCount > 0}
-					<span class="legend-item"><span class="no-receipt-indicator">⚠</span> {$LL.trips.legend.noReceipt()} ({missingReceiptCount})</span>
+				{#if missingFuelInvoiceCount > 0}
+					<span class="legend-item"><span class="no-receipt-indicator">⚠</span> {$LL.trips.legend.missingFuelInvoice()} ({missingFuelInvoiceCount})</span>
+				{/if}
+				{#if missingOtherInvoiceCount > 0}
+					<span class="legend-item"><span class="no-receipt-indicator">⚠</span> {$LL.trips.legend.missingOtherInvoice()} ({missingOtherInvoiceCount})</span>
+				{/if}
+				{#if otherSumMismatchCount > 0}
+					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.otherSumMismatchShort()} ({otherSumMismatchCount})</span>
 				{/if}
 				{#if consumptionWarningCount > 0}
 					<span class="legend-item"><span class="consumption-warning-sample"></span> {$LL.trips.legend.highConsumption()} ({consumptionWarningCount})</span>
 				{/if}
-				{#if receiptDatetimeWarningCount > 0}
-					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.receiptDatetimeMismatch()} ({receiptDatetimeWarningCount})</span>
+				{#if invoiceDatetimeWarningCount > 0}
+					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.receiptDatetimeMismatch()} ({invoiceDatetimeWarningCount})</span>
 				{/if}
 			</div>
 		{/if}
@@ -718,9 +729,13 @@
 							onEditEnd={handleEditEnd}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
 							isEstimatedRate={estimatedRates.has(trip.id)}
-							hasMatchingReceipt={!gridData?.missingReceipts.includes(trip.id)}
-							hasReceiptDatetimeWarning={gridData?.receiptDatetimeWarnings?.includes(trip.id) ?? false}
-							hasReceiptMismatchOverride={gridData?.receiptMismatchOverrides?.includes(trip.id) ?? false}
+							hasMatchingFuelInvoice={!gridData?.missingFuelInvoices.includes(trip.id)}
+							hasMatchingOtherInvoice={!gridData?.missingOtherInvoices.includes(trip.id)}
+							otherSumMismatch={gridData?.otherSumMismatches?.includes(trip.id) ?? false}
+							fuelDatetimeWarning={gridData?.fuelDatetimeWarnings?.includes(trip.id) ?? false}
+							otherDatetimeWarning={gridData?.otherDatetimeWarnings?.includes(trip.id) ?? false}
+							fuelMismatchOverride={gridData?.fuelMismatchOverrides?.includes(trip.id) ?? false}
+							otherMismatchOverride={gridData?.otherMismatchOverrides?.includes(trip.id) ?? false}
 							previewData={previewingTripId === trip.id ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(trip.id, trip.id, km, fuel, fullTank)}
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}

@@ -61,7 +61,7 @@ export interface Trip {
 }
 
 export type AttachmentStatus = 'empty' | 'matches' | 'matches_date' | 'differs';
-export type MismatchReason = 'date' | 'time' | 'liters' | 'price' | 'liters_and_price' | 'date_and_liters' | 'date_and_price' | 'time_and_liters' | 'time_and_price' | 'time_and_liters_and_price' | 'all';
+export type MismatchReason = 'date' | 'time' | 'liters' | 'price' | 'liters_and_price' | 'date_and_liters' | 'date_and_price' | 'time_and_liters' | 'time_and_price' | 'time_and_liters_and_price' | 'all' | 'fuel_invoice_exists';
 
 export interface TripForAssignment {
 	trip: Trip;
@@ -154,10 +154,14 @@ export interface TripGridData {
 	batteryRemainingKwh: Record<string, number>; // tripId -> kWh
 	batteryRemainingPercent: Record<string, number>; // tripId -> %
 	socOverrideTrips: string[]; // tripIds with manual SoC override
-	// Warnings
-	missingReceipts: string[]; // tripIds missing receipts
-	receiptDatetimeWarnings: string[]; // tripIds with datetime warnings
-	receiptMismatchOverrides: string[]; // tripIds where user confirmed mismatch
+	// Warnings (per assignment type since Task 66)
+	missingFuelInvoices: string[]; // tripIds with fuel cost but no Fuel invoice attached
+	missingOtherInvoices: string[]; // tripIds with other costs but no Other invoice attached
+	otherSumMismatches: string[]; // tripIds where otherCostsEur != sum of attached Other invoices
+	fuelDatetimeWarnings: string[]; // tripIds with Fuel invoice datetime outside trip range
+	otherDatetimeWarnings: string[]; // tripIds with Other invoice datetime outside trip range
+	fuelMismatchOverrides: string[]; // tripIds where user confirmed a Fuel mismatch
+	otherMismatchOverrides: string[]; // tripIds where user confirmed an Other mismatch
 	// Year boundary data
 	yearStartOdometer: number; // Starting ODO for this year (carryover from previous year)
 	yearStartFuel: number; // Starting fuel (liters) for this year (carryover from previous year)

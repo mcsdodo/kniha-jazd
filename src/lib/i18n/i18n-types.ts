@@ -573,9 +573,22 @@ type RootTranslation = {
 			 */
 			receiptDatetimeMismatch: string
 			/**
-			 * c​h​ý​b​a​ ​d​o​k​l​a​d
+			 * C​h​ý​b​a​ ​d​o​k​l​a​d​ ​o​ ​t​a​n​k​o​v​a​n​í
 			 */
-			missingReceipt: string
+			missingFuelInvoice: string
+			/**
+			 * C​h​ý​b​a​ ​d​o​k​l​a​d​ ​k​ ​i​n​ý​m​ ​n​á​k​l​a​d​o​m
+			 */
+			missingOtherInvoice: string
+			/**
+			 * S​u​m​a​ ​i​n​ý​c​h​ ​n​á​k​l​a​d​o​v​ ​(​{​t​o​t​a​l​}​ ​€​)​ ​n​e​s​e​d​í​ ​s​o​ ​s​ú​č​t​o​m​ ​p​r​i​r​a​d​e​n​ý​c​h​ ​d​o​k​l​a​d​o​v
+			 * @param {string} total
+			 */
+			otherSumMismatch: RequiredParams<'total'>
+			/**
+			 * s​u​m​a​ ​i​n​ý​c​h​ ​n​á​k​l​a​d​o​v​ ​n​e​s​e​d​í​ ​s​o​ ​s​ú​č​t​o​m​ ​d​o​k​l​a​d​o​v
+			 */
+			otherSumMismatchShort: string
 			/**
 			 * n​e​s​ú​l​a​d​ ​ú​d​a​j​o​v
 			 */
@@ -1587,6 +1600,10 @@ type RootTranslation = {
 		 * v​š​e​t​k​o​ ​s​a​ ​l​í​š​i
 		 */
 		mismatchAll: string
+		/**
+		 * J​a​z​d​a​ ​u​ž​ ​m​á​ ​d​o​k​l​a​d​ ​o​ ​t​a​n​k​o​v​a​n​í
+		 */
+		mismatchFuelInvoiceExists: string
 	}
 	toast: {
 		/**
@@ -2948,9 +2965,21 @@ export type TranslationFunctions = {
 			 */
 			receiptDatetimeMismatch: () => LocalizedString
 			/**
-			 * chýba doklad
+			 * Chýba doklad o tankovaní
 			 */
-			missingReceipt: () => LocalizedString
+			missingFuelInvoice: () => LocalizedString
+			/**
+			 * Chýba doklad k iným nákladom
+			 */
+			missingOtherInvoice: () => LocalizedString
+			/**
+			 * Suma iných nákladov ({total} €) nesedí so súčtom priradených dokladov
+			 */
+			otherSumMismatch: (arg: { total: string }) => LocalizedString
+			/**
+			 * suma iných nákladov nesedí so súčtom dokladov
+			 */
+			otherSumMismatchShort: () => LocalizedString
 			/**
 			 * nesúlad údajov
 			 */
@@ -3928,6 +3957,10 @@ export type TranslationFunctions = {
 		 * všetko sa líši
 		 */
 		mismatchAll: () => LocalizedString
+		/**
+		 * Jazda už má doklad o tankovaní
+		 */
+		mismatchFuelInvoiceExists: () => LocalizedString
 	}
 	toast: {
 		/**

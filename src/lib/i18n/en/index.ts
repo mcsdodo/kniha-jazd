@@ -181,8 +181,11 @@ const en = {
 			highConsumption: 'high consumption',
 			suggestedFillup: 'Suggested fillup: {liters} L → {rate} l/100km',
 			receiptDatetimeMismatch: 'receipt datetime outside trip range',
-			// Receipt status indicators (Task 51)
-			missingReceipt: 'missing receipt',
+			// Invoice status indicators (Task 51, per-type since Task 66)
+			missingFuelInvoice: 'Missing fuel invoice',
+			missingOtherInvoice: 'Missing invoice for other costs',
+			otherSumMismatch: 'Other costs total ({total} €) does not match the sum of attached invoices',
+			otherSumMismatchShort: 'other costs total does not match attached invoices',
 			dataMismatch: 'data mismatch',
 			userConfirmed: 'confirmed',
 		},
@@ -492,6 +495,7 @@ const en = {
 		mismatchTimeAndPrice: 'time outside trip & price',
 		mismatchTimeAndLitersAndPrice: 'time, liters & price differ',
 		mismatchAll: 'all data differs',
+		mismatchFuelInvoiceExists: 'Trip already has a fuel invoice',
 	},
 
 	// Toast messages
