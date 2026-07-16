@@ -215,8 +215,16 @@ jobs:
           Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
 
           Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
+          $driverExe = Join-Path $PWD "edgedriver\msedgedriver.exe"
           echo "$PWD\edgedriver" >> $env:GITHUB_PATH
-          Write-Host "EdgeDriver $driverVersion installed successfully"
+          # Point wdio.conf.ts directly at THIS driver so tauri-driver is launched with
+          # --native-driver. Without it, wdio can't locate the driver ("msedgedriver.exe not
+          # found") and tauri-driver silently falls back to a stale msedgedriver on the runner's
+          # PATH. That fallback works against an older WebView2 runtime but fails once the runner's
+          # WebView2 auto-updates ahead of it ("session not created: DevToolsActivePort file
+          # doesn't exist"), hanging the job for hours via retries.
+          echo "MSEDGEDRIVER_PATH=$driverExe" >> $env:GITHUB_ENV
+          Write-Host "EdgeDriver $driverVersion installed at $driverExe"
 
       - name: Install npm dependencies
         run: npm ci
