@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.38.2] - 2026-07-16
+
+### Opravené
+- **Vydanie 0.38.1 sa nikdy nezostavilo do inštalátora** kvôli zlyhaniu testovacej CI infraštruktúry (nie chyba v aplikácii), takže inštalátor 0.38.1 nebol nikdy publikovaný. Verzia 0.38.2 prináša presne tie isté opravy ako 0.38.1 v riadne zostavenom a publikovanom vydaní. Oproti 0.38.1 nie sú žiadne zmeny v správaní aplikácie.
+
 ## [0.38.1] - 2026-07-15
 
 ### Opravené
