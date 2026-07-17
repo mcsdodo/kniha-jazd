@@ -112,14 +112,13 @@ jobs:
     name: Integration Tests (${{ matrix.tier_name }})
     needs: [check-changes, integration-build]
     if: needs.check-changes.outputs.run_tests == 'true'
-    runs-on: windows-latest
-    # Non-blocking: the native tauri-driver + WebView2 harness cannot create a
-    # WebDriver session on runners with WebView2 150 ("session not created:
-    # DevToolsActivePort file doesn't exist") — an external Edge/WebView2 150 CI
-    # regression, not an app defect. The app is still gated by backend tests (all
-    # platforms) and the Chrome/Docker integration jobs, which exercise the same
-    # UI flows. Remove once the native harness works on WebView2 150 again.
-    continue-on-error: true
+    # Pinned to windows-2022: the windows-latest (Server 2025) image patch dated
+    # 2026-07-14 bundles WebView2 runtime 150, under which msedgedriver cannot
+    # launch the WebView2 app ("session not created: DevToolsActivePort file
+    # doesn't exist"). The previous image (WebView2 149) passed. windows-2022
+    # ships an older, working WebView2. Revisit when the native harness works on
+    # WebView2 150 / Server 2025 again.
+    runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
