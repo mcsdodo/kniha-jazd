@@ -156,12 +156,6 @@ jobs:
     needs: [check-tests, integration-build]
     if: needs.check-tests.outputs.tests_passed != 'true'
     runs-on: windows-latest
-    # Non-blocking: the native tauri-driver + WebView2 harness cannot create a
-    # WebDriver session on WebView2 150 runners ("session not created:
-    # DevToolsActivePort file doesn't exist") — an external Edge/WebView2 150 CI
-    # regression, not an app defect. The release is still gated on backend tests
-    # across all platforms (below). Remove once the native harness works again.
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -232,6 +226,31 @@ jobs:
           echo "MSEDGEDRIVER_PATH=$driverExe" >> $env:GITHUB_ENV
           Write-Host "EdgeDriver $driverVersion installed at $driverExe"
 
+      - name: Allow WebView2 remote debugging (msedgedriver DevTools port)
+        shell: pwsh
+        run: |
+          # WebView2 runtime 150 started honoring the RemoteDebuggingAllowed policy.
+          # On managed/CI environments where remote debugging is disabled, msedgedriver
+          # cannot open the DevTools port, so every WebDriver session dies with
+          # "session not created: DevToolsActivePort file doesn't exist". (Reproduces
+          # only in CI, not on an unmanaged interactive desktop.) Dump the current
+          # Edge/WebView2 policy state for diagnosis, then explicitly allow it.
+          $dumpPaths = @(
+            'HKLM:\SOFTWARE\Policies\Microsoft\Edge',
+            'HKLM:\SOFTWARE\Policies\Microsoft\Edge\WebView2',
+            'HKLM:\SOFTWARE\Policies\Microsoft\EdgeWebView',
+            'HKCU:\SOFTWARE\Policies\Microsoft\Edge'
+          )
+          foreach ($p in $dumpPaths) {
+            if (Test-Path $p) { Write-Host "== $p =="; Get-ItemProperty -Path $p | Format-List * }
+            else { Write-Host "== $p == (absent)" }
+          }
+          foreach ($base in @('HKLM:\SOFTWARE\Policies\Microsoft\Edge', 'HKLM:\SOFTWARE\Policies\Microsoft\EdgeWebView')) {
+            New-Item -Path $base -Force | Out-Null
+            Set-ItemProperty -Path $base -Name 'RemoteDebuggingAllowed' -Type DWord -Value 1
+            Write-Host "Set $base\RemoteDebuggingAllowed = 1"
+          }
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -261,15 +280,11 @@ jobs:
 
   # Build and release - only after all tests pass (or were skipped because already passed)
   build:
-    # Native integration-tests are intentionally NOT a gate here: they are
-    # non-blocking due to the WebView2 150 CI regression (see that job). The
-    # release is gated on backend tests passing across all platforms; when tests
-    # already passed for this commit (green test.yml run), we skip straight to build.
-    needs: [check-tests, backend-tests]
+    needs: [check-tests, backend-tests, integration-tests]
     if: |
       always() &&
       (needs.check-tests.outputs.tests_passed == 'true' ||
-       needs.backend-tests.result == 'success')
+       (needs.backend-tests.result == 'success' && needs.integration-tests.result == 'success'))
     permissions:
       contents: write
     strategy:

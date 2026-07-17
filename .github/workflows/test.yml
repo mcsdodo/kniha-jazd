@@ -113,13 +113,6 @@ jobs:
     needs: [check-changes, integration-build]
     if: needs.check-changes.outputs.run_tests == 'true'
     runs-on: windows-latest
-    # Non-blocking: the native tauri-driver + WebView2 harness cannot create a
-    # WebDriver session on runners with WebView2 150 ("session not created:
-    # DevToolsActivePort file doesn't exist") — an external Edge/WebView2 150 CI
-    # regression, not an app defect. The app is still gated by backend tests (all
-    # platforms) and the Chrome/Docker integration jobs, which exercise the same
-    # UI flows. Remove once the native harness works on WebView2 150 again.
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -188,6 +181,31 @@ jobs:
           # doesn't exist"), hanging the job for hours via retries.
           echo "MSEDGEDRIVER_PATH=$driverExe" >> $env:GITHUB_ENV
           Write-Host "EdgeDriver $driverVersion installed at $driverExe"
+
+      - name: Allow WebView2 remote debugging (msedgedriver DevTools port)
+        shell: pwsh
+        run: |
+          # WebView2 runtime 150 started honoring the RemoteDebuggingAllowed policy.
+          # On managed/CI environments where remote debugging is disabled, msedgedriver
+          # cannot open the DevTools port, so every WebDriver session dies with
+          # "session not created: DevToolsActivePort file doesn't exist". (Reproduces
+          # only in CI, not on an unmanaged interactive desktop.) Dump the current
+          # Edge/WebView2 policy state for diagnosis, then explicitly allow it.
+          $dumpPaths = @(
+            'HKLM:\SOFTWARE\Policies\Microsoft\Edge',
+            'HKLM:\SOFTWARE\Policies\Microsoft\Edge\WebView2',
+            'HKLM:\SOFTWARE\Policies\Microsoft\EdgeWebView',
+            'HKCU:\SOFTWARE\Policies\Microsoft\Edge'
+          )
+          foreach ($p in $dumpPaths) {
+            if (Test-Path $p) { Write-Host "== $p =="; Get-ItemProperty -Path $p | Format-List * }
+            else { Write-Host "== $p == (absent)" }
+          }
+          foreach ($base in @('HKLM:\SOFTWARE\Policies\Microsoft\Edge', 'HKLM:\SOFTWARE\Policies\Microsoft\EdgeWebView')) {
+            New-Item -Path $base -Force | Out-Null
+            Set-ItemProperty -Path $base -Name 'RemoteDebuggingAllowed' -Type DWord -Value 1
+            Write-Host "Set $base\RemoteDebuggingAllowed = 1"
+          }
 
       - name: Install npm dependencies
         run: npm ci
