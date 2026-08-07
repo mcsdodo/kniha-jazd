@@ -22,7 +22,7 @@ All three modes share the same Axum HTTP layer and the same RPC dispatcher (see 
 6. **Optionally** enable "Auto-start" so the server starts automatically on next app launch
 
 **What's different in the browser:**
-- Desktop-only features are hidden (Move database, Restore backup, Export to browser, auto-updater)
+- Desktop-only features are hidden (Move database, Export to browser, auto-updater)
 - File dialogs (folder picker) are not available
 - All data changes are reflected on both desktop and browser in real time (shared database)
 
@@ -52,7 +52,7 @@ Run the desktop binary as a background HTTP server with no window. Useful for an
 | `KNIHA_JAZD_SERVER_AUTOSTART` | unset | Equivalent to enabling the in-app toggle |
 | `KNIHA_JAZD_DATA_DIR` | platform default | Override DB / receipts / backups directory |
 
-**Limitations:** The same browser-mode capability gating applies — file dialogs, the auto-updater, "Open external", "Restore backup", and "Move database" are all unavailable.
+**Limitations:** The same browser-mode capability gating applies — file dialogs, the auto-updater, "Open external", and "Move database" are all unavailable.
 
 ## Docker Deployment
 
@@ -82,6 +82,10 @@ docker compose -f docker-compose.web.yml up -d
 
 **Tech debt:** The runtime image currently carries GTK/WebKit shared libraries because Tauri is a non-optional dependency of the parent crate. See [tech debt 06](../../_tasks/_TECH_DEBT/06-tauri-feature-gating.md) for the planned fix.
 
+### Homelab Deployment
+
+The release workflow publishes an official image on every `v*` tag: `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` (plus `latest`), built by the `docker-image` job in [release.yml](../../.github/workflows/release.yml). The canonical always-on instance runs on the user's homelab from this versioned image — desktop installs act as browser clients of it. See the design in [02-design.md](../../_tasks/67-online-always-on-runner/02-design.md) (task 67).
+
 ## Technical Implementation
 
 ### Frontend
@@ -93,7 +97,7 @@ docker compose -f docker-compose.web.yml up -d
 
 **Capabilities Store:** [capabilities.ts](../../src/lib/stores/capabilities.ts)
 - Fetches `GET /api/capabilities` on load (browser mode only)
-- Returns which commands are available (68 of 72 are server-safe)
+- Returns which commands are available (69 of 72 are server-safe)
 - Components check capabilities to hide unavailable features
 
 **Settings UI:** [+page.svelte](../../src/routes/settings/+page.svelte)
@@ -112,6 +116,7 @@ docker compose -f docker-compose.web.yml up -d
 - Maps command names to `_internal` functions
 - Sync commands dispatched via `spawn_blocking`
 - Async commands (receipts OCR, HA integration, export) awaited directly
+- Backup filenames arriving over RPC pass through `validate_backup_filename` ([commands_internal/backup.rs](../../src-tauri/core/src/commands_internal/backup.rs)) — empty names, path separators, `..`, and drive/ADS colons are rejected before any file access (defense-in-depth for the network-reachable restore/delete endpoints)
 
 **Server Manager:** [manager.rs](../../src-tauri/src/server/manager.rs)
 - Start/stop lifecycle management
@@ -158,13 +163,13 @@ Browser (phone)                         Desktop (Tauri webview)
     "file_dialogs": false,
     "updater": false,
     "open_external": false,
-    "restore_backup": false,
+    "restore_backup": true,
     "move_database": false
   }
 }
 ```
 
-Frontend uses these feature flags to hide UI elements that aren't available in browser mode.
+Frontend uses these feature flags to hide UI elements that aren't available in browser mode. `restore_backup` is served in server mode — after a successful restore the browser page reloads so the UI reflects the restored database.
 
 ### CORS
 
@@ -199,7 +204,7 @@ Requests from public IPs or other origins are blocked by the browser's preflight
 
 ## Design Decisions
 
-- **Why RPC over REST?** -- Single `POST /api/rpc` endpoint mirrors Tauri IPC model exactly. No need to design 68 separate REST routes for an internal-only API. (See ADR-015)
+- **Why RPC over REST?** -- Single `POST /api/rpc` endpoint mirrors Tauri IPC model exactly. No need to design 69 separate REST routes for an internal-only API. (See ADR-015)
 
 - **Why `_internal` extraction?** -- Tauri commands take framework-injected `State<Database>`. The RPC dispatcher has `Arc<Database>` directly. Pure `_internal` functions bridge both without abstraction overhead. (See ADR-016)
 
@@ -207,7 +212,7 @@ Requests from public IPs or other origins are blocked by the browser's preflight
 
 - **Why single process, not a separate server?** -- The server opens a second SQLite connection to the same file. SQLite's built-in file-level locking handles concurrency. No IPC between processes, no stale caches.
 
-- **Why 4 commands excluded?** -- `export_to_browser` opens a desktop browser, `move_database` and `reset_database_location` use native file dialogs, `restore_backup` replaces the running database. None are safe over HTTP.
+- **Why 3 commands excluded?** -- `export_to_browser` opens a desktop browser, `move_database` and `reset_database_location` use native file dialogs. Neither is meaningful over HTTP. `restore_backup` *is* served: it performs the same `fs::copy` the desktop does, and the browser simply reloads the page after the restore so all views re-read the restored database.
 
 ## Related
 

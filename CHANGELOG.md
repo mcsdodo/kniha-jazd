@@ -7,6 +7,10 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Obnova zálohy je dostupná aj v prehliadači/serverovom režime** — dosiaľ bola len v desktopovej aplikácii. Po obnove sa stránka v prehliadači automaticky znovu načíta.
+- **Oficiálny Docker image** `ghcr.io/mcsdodo/kniha-jazd-web` sa pri každom vydaní publikuje na ghcr.io.
+
 ## [0.38.2] - 2026-07-16
 
 ### Opravené

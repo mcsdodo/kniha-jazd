@@ -4,6 +4,31 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-08-07: Always-On Homelab Deployment
+
+### ADR-024: Homelab Server is the Canonical Deployment; Desktop Becomes a Browser Client
+
+**Context:** The app so far ran as a desktop install whose SQLite database was synced between PCs via a gdrive-synced folder (with lock files guarding multi-PC access). Server mode ([docs/features/server-mode.md](./docs/features/server-mode.md)) and the standalone web binary ([ADR-018](#adr-018-workspace-members-over-feature-flags)) made a browser-only deployment viable, and restore-backup parity closed the last functional gap for browser users. Task 67 asks: where should the single source of truth live?
+
+**Decision:** The canonical instance is the always-on Docker deployment on the user's homelab, reachable at `https://kniha-jazd.lacny.me` over LAN + Tailscale only (no public exposure). Concretely:
+
+1. **Single server-side data home:** database, settings, and backups all consolidate into the container's `/data` directory (one volume to back up, one place where state lives).
+2. **gdrive-synced database retired:** with one always-on server there is nothing to sync; the multi-PC lock-file dance becomes unnecessary for daily use.
+3. **No auth, tailnet-extended trust:** extends [ADR-017](#adr-017-lan-only-cors-without-authentication)'s LAN trust model to the Tailscale tailnet — both are closed, owner-controlled networks, so the "trusted network, no login flow" reasoning carries over unchanged.
+4. **Paperless-only receipt intake:** going forward receipts come exclusively via Paperless-ngx. Legacy folder-scanned receipt images are intentionally left behind on the old desktop machine; their metadata rows stay in the database.
+5. **Versioned ghcr image is the deployment artifact:** each `v*` release publishes `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` (+ `latest`) via the `docker-image` job in [release.yml](./.github/workflows/release.yml); the homelab pins/pulls these tags instead of building from source.
+6. **Desktop demoted to a browser client:** existing desktop installs keep working but point at the server URL rather than owning a local database copy.
+
+**Reasoning:** One always-on canonical instance eliminates the whole class of sync/lock/conflict problems the gdrive setup existed to mitigate, while server mode already proved the browser UI is feature-complete for daily use. Publishing a versioned image makes homelab upgrades a tag bump with a clean rollback path. Keeping exposure to LAN + tailnet preserves the no-auth simplicity that [ADR-017](#adr-017-lan-only-cors-without-authentication) committed to.
+
+**Trade-offs accepted:**
+- Availability now depends on the homelab being up (mitigated by Tailscale reachability and the `/data` backup story).
+- Legacy folder-scanned receipt **images** are no longer reachable from the app (metadata retained); re-scanning into Paperless is the recovery path if ever needed.
+
+**Related:** [Task 67](./_tasks/67-online-always-on-runner/) — [02-design.md](./_tasks/67-online-always-on-runner/02-design.md), [docs/features/server-mode.md](./docs/features/server-mode.md), [ADR-017](#adr-017-lan-only-cors-without-authentication), [ADR-018](#adr-018-workspace-members-over-feature-flags).
+
+---
+
 ## 2026-07-15: Multi-Invoice Support (1 Fuel + N Other per Trip)
 
 ### BIZ-023: Invoice Cardinality, Sum-on-Assign, and Cent-Exact Money Math
