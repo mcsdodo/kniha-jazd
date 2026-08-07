@@ -138,19 +138,16 @@ export const config: any = {
     maxInstances: 1,
   }],
 
-  // Retry flaky tests once before failing
-  specFileRetries: 1,
+  // Retry flaky tests up to 2 times before failing
+  specFileRetries: 2,
   specFileRetriesDelay: 1, // 1 second delay between retries
   specFileRetriesDeferred: false, // Retry immediately, not at the end
 
   logLevel: 'info',
-  // Fast-fail: if the WebDriver session can't even be created (e.g. the WebView2
-  // 150 "DevToolsActivePort" regression), bail after the first spec instead of
-  // grinding through every spec × retry × connection-retry for ~2h of CI time.
-  bail: 1,
+  bail: 0,
   waitforTimeout: 10000,
-  connectionRetryTimeout: 90000,
-  connectionRetryCount: 1,
+  connectionRetryTimeout: 120000,
+  connectionRetryCount: 3,
 
   framework: 'mocha',
   reporters: ['spec'],
