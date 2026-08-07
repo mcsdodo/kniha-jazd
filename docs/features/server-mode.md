@@ -52,6 +52,8 @@ Run the desktop binary as a background HTTP server with no window. Useful for an
 | `KNIHA_JAZD_SERVER_AUTOSTART` | unset | Equivalent to enabling the in-app toggle |
 | `KNIHA_JAZD_DATA_DIR` | platform default | Override DB / receipts / backups directory |
 
+The six integration/secret variables (`GEMINI_API_KEY`, `HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED`) work here too — they are read from the process environment regardless of mode; see [Docker Deployment](#docker-deployment) for the full table and precedence rules.
+
 **Limitations:** The same browser-mode capability gating applies — file dialogs, the auto-updater, "Open external", and "Move database" are all unavailable.
 
 ## Docker Deployment
@@ -76,7 +78,14 @@ docker compose -f docker-compose.web.yml up -d
 | `KNIHA_JAZD_DATA_DIR` | `/data` | Where DB, receipts, backups live (mounted as a volume) |
 | `DATABASE_PATH` | `/data/kniha-jazd.db` | Override the DB file path |
 | `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets — generally don't change |
-| `GEMINI_API_KEY` | unset | Optional, enables receipt OCR |
+| `GEMINI_API_KEY` | unset | Optional, enables receipt OCR (magic fill) |
+| `HA_URL` | unset | Home Assistant base URL for the odometer integration |
+| `HA_API_TOKEN` | unset | Home Assistant long-lived access token |
+| `PAPERLESS_URL` | unset | Paperless-ngx base URL for receipt sync |
+| `PAPERLESS_API_TOKEN` | unset | Paperless-ngx API token |
+| `PAPERLESS_ENABLED` | unset | Enable Paperless sync — truthy values `1`/`true`/`yes` (case-insensitive); any other non-empty value means disabled |
+
+**Precedence:** The six integration/secret variables (`GEMINI_API_KEY`, `HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED`) override the corresponding fields in `local.settings.json` — env wins whenever the variable is set to a non-empty value (empty/whitespace-only values are treated as unset). Env values are never written to disk. When a field is pinned by an env variable, the Settings UI refuses to edit it and returns an explanatory error ("… is managed by the … environment variable"). Preferences such as theme, hidden columns, and Paperless custom field names remain file/UI-managed. See [settings.rs](../../src-tauri/core/src/settings.rs).
 
 **Limitations:** Same as Headless Mode — no native dialogs, no auto-updater, no LAN IP display in the UI (since the container doesn't have a real LAN IP, only the Docker bridge).
 

@@ -40,6 +40,29 @@ Stored in `local.settings.json` in the app data directory:
 
 **BackupRetention:** See `settings.rs:L11-14` for the struct definition. Contains `enabled` (bool) and `keep_count` (u32) fields, serialized with camelCase for JSON.
 
+### Environment-variable overrides (server deployments)
+
+For server/Docker and headless deployments, secrets and integration endpoints can be supplied via environment variables instead of `local.settings.json`:
+
+| Env var | Overrides field |
+|---------|-----------------|
+| `GEMINI_API_KEY` | `gemini_api_key` |
+| `HA_URL` | `ha_url` |
+| `HA_API_TOKEN` | `ha_api_token` |
+| `PAPERLESS_URL` | `paperless_url` |
+| `PAPERLESS_API_TOKEN` | `paperless_api_token` |
+| `PAPERLESS_ENABLED` | `paperless_enabled` (truthy: `1`/`true`/`yes`, case-insensitive; any other non-empty value means false) |
+
+**Precedence and behaviour:**
+
+- A set, non-empty env variable wins over the value in `local.settings.json`. Empty or whitespace-only values are treated as unset.
+- Env values are never persisted to disk — the JSON file is left untouched.
+- When a field is pinned by an env variable, the corresponding setter command refuses the change with an explanatory error ("… is managed by the … environment variable"), so the Settings UI cannot silently diverge from the deployment configuration.
+- Desktop behaviour is unchanged when the variables are unset.
+- Preferences (theme, hidden columns, date prefill, backup retention, Paperless custom field names, receipts folder) are not overridable — they remain file/UI-managed.
+
+**Consumption vs. setter rule:** Code that *reads* configuration goes through `LocalSettings::load_effective()` in [settings.rs](../../src-tauri/core/src/settings.rs), which layers env overrides on top of the file. Setter commands use plain `load()` so they read and write only the on-disk file — combined with the env-pinned guard above, this keeps env values out of the persisted JSON.
+
 ### Settings (Database)
 
 Stored in the `settings` table of `kniha-jazd.db`:
