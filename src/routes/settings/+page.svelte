@@ -21,6 +21,7 @@
 	import type { PaperlessCustomFieldInfo } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
+	import { openExternal } from '$lib/open-external';
 	import { appDataDir } from '@tauri-apps/api/path';
 
 	let showVehicleModal = false;
@@ -902,7 +903,7 @@
 
 	async function handleOpenChangelog() {
 		try {
-			await openPath('https://github.com/mcsdodo/kniha-jazd/blob/main/CHANGELOG.md');
+			await openExternal('https://github.com/mcsdodo/kniha-jazd/blob/main/CHANGELOG.md');
 		} catch (error) {
 			console.error('Failed to open changelog:', error);
 		}

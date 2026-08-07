@@ -7,6 +7,11 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-08-07
+
+### Opravené
+- **„Otvoriť v Paperless" v prehliadači/serverovom režime nič nespravilo** — tlačidlo používalo desktopový Tauri plugin, ktorý v prehliadači neexistuje. Dokument sa teraz otvorí v novej karte. Rovnako opravený aj odkaz na changelog v Nastaveniach.
+
 ## [0.40.0] - 2026-08-07
 
 ### Pridané

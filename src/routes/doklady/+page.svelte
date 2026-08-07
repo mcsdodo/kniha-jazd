@@ -10,6 +10,7 @@
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import ReceiptEditModal from '$lib/components/ReceiptEditModal.svelte';
 	import { openPath } from '@tauri-apps/plugin-opener';
+	import { openExternal } from '$lib/open-external';
 	import { appDataDir } from '@tauri-apps/api/path';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
@@ -363,6 +364,15 @@
 		}
 	}
 
+	async function handleOpenPaperless(url: string) {
+		try {
+			await openExternal(url);
+		} catch (error) {
+			console.error('Failed to open Paperless document:', error);
+			toast.error($LL.toast.errorOpenFile());
+		}
+	}
+
 	function handleAssignClick(receipt: Receipt) {
 		if (!$activeVehicleStore) {
 			toast.error($LL.toast.errorSelectVehicleFirst());
@@ -645,7 +655,7 @@
 							<button
 								type="button"
 								class="button-small"
-								onclick={() => openPath(row.paperlessUrl)}
+								onclick={() => handleOpenPaperless(row.paperlessUrl)}
 							>
 								{$LL.doklady.paperless.openInPaperless()}
 							</button>
