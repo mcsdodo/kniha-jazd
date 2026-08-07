@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-08-07
+
 ### Pridané
 - **Konfigurácia servera/Dockeru cez premenné prostredia** — API kľúče a integrácie (Gemini, Home Assistant, Paperless) možno nastaviť premennými prostredia. Premenná prostredia má prednosť pred `local.settings.json` a v takom prípade nie je príslušné pole v nastaveniach možné prepísať cez UI.
 
