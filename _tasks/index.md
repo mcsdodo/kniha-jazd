@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-07-15 (Task 66 completed)
+**Last updated:** 2026-08-07 (Task 67 design added)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 67 | [Online Always-On Runner](67-online-always-on-runner/) | 📋 Planning | Deploy web server mode 24/7 on homelab (Komodo stack, ghcr image, data migration off gdrive) |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
