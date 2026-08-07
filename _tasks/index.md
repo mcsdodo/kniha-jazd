@@ -8,7 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 67 | [Online Always-On Runner](67-online-always-on-runner/) | 📋 Planning | Deploy web server mode 24/7 on homelab (Komodo stack, ghcr image, data migration off gdrive) |
+| 67 | [Online Always-On Runner](67-online-always-on-runner/) | 🟡 In Progress | App-side done (restore parity, ghcr CI); awaiting release + homelab deployment (see 04-plan-homelab.md) |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |

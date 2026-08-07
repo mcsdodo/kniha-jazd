@@ -1,6 +1,6 @@
 **Date:** 2026-08-07
 **Subject:** Task 67 — app-repo work: restore-backup parity + web image CI + docs
-**Status:** Planning
+**Status:** In Progress (Tasks 1–4 done and reviewed; Task 5 release pending)
 
 # Homelab Deployment (App Side) Implementation Plan
 
