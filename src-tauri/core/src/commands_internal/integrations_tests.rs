@@ -4,6 +4,7 @@ use tempfile::tempdir;
 
 #[test]
 fn save_paperless_settings_persists_url_and_token() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();
     save_paperless_settings_internal(
@@ -21,6 +22,7 @@ fn save_paperless_settings_persists_url_and_token() {
 
 #[test]
 fn save_paperless_settings_none_args_preserves_existing() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();
     save_paperless_settings_internal(
@@ -41,6 +43,7 @@ fn save_paperless_settings_none_args_preserves_existing() {
 
 #[test]
 fn save_paperless_settings_rejects_invalid_url() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();
     let err = save_paperless_settings_internal(
@@ -306,6 +309,7 @@ fn invoice_source_mode_is_paperless_when_enabled_none_with_credentials_backward_
 
 #[test]
 fn save_paperless_settings_persists_enabled_flag() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();
     save_paperless_settings_internal(
@@ -336,6 +340,7 @@ fn get_paperless_settings_returns_enabled_field() {
 
 #[test]
 fn save_paperless_settings_persists_custom_field_names() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();
 
@@ -387,6 +392,7 @@ fn save_paperless_settings_empty_field_name_clears_to_use_default() {
 
 #[test]
 fn save_paperless_settings_none_field_name_keeps_existing() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();
 

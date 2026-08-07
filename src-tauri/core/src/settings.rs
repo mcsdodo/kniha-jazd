@@ -112,7 +112,9 @@ impl LocalSettings {
             .unwrap_or(false)
     }
 
-    /// Save settings to local.settings.json in app data dir
+    /// Save settings to local.settings.json in app data dir.
+    /// Never persist a `load_effective()` result — setters must round-trip
+    /// through `load()` so env-var overrides are never written to disk.
     pub fn save(&self, app_data_dir: &Path) -> std::io::Result<()> {
         use std::io::Write;
         // Ensure the directory exists before writing
@@ -130,15 +132,35 @@ impl LocalSettings {
 /// Process env is global — tests using it must serialize behind one lock.
 #[cfg(test)]
 pub(crate) mod test_env {
-    use std::sync::Mutex;
+    use std::sync::{Mutex, Once};
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+    static AMBIENT_SCRUB: Once = Once::new();
+
+    /// Remove all overridable env vars once per test process — a dev machine
+    /// or CI exporting e.g. GEMINI_API_KEY globally must not break the suite.
+    fn scrub_ambient_env() {
+        AMBIENT_SCRUB.call_once(|| {
+            for var in [
+                "GEMINI_API_KEY",
+                "HA_URL",
+                "HA_API_TOKEN",
+                "PAPERLESS_URL",
+                "PAPERLESS_API_TOKEN",
+                "PAPERLESS_ENABLED",
+            ] {
+                std::env::remove_var(var);
+            }
+        });
+    }
 
     /// Acquire the env lock without setting any vars — for tests whose
     /// assertions require the overridable env vars to be UNSET (they would
     /// otherwise race with tests that set them).
     pub fn lock() -> std::sync::MutexGuard<'static, ()> {
-        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+        let guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        scrub_ambient_env();
+        guard
     }
 
     /// Run `f` with the given env vars set, serialized against all other
@@ -157,6 +179,7 @@ pub(crate) mod test_env {
         // A poisoned lock only means a previous test panicked — env cleanup
         // ran in Cleanup::drop, so it's safe to continue.
         let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        scrub_ambient_env();
         let _cleanup = Cleanup(vars);
         for (k, v) in vars {
             std::env::set_var(k, v);
