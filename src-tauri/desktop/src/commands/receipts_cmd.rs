@@ -152,7 +152,7 @@ pub async fn process_pending_receipts(
     db: State<'_, Arc<Database>>,
 ) -> Result<SyncResult, String> {
     let app_dir = get_app_data_dir(&app)?;
-    let settings = LocalSettings::load(&app_dir);
+    let settings = LocalSettings::load_effective(&app_dir);
 
     // In mock mode, API key is not required (extract_from_image loads from JSON files)
     let api_key = if is_mock_mode_enabled() {

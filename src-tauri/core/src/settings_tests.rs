@@ -353,6 +353,152 @@ fn test_set_infer_trip_times_internal_round_trip() {
     assert!(!get_infer_trip_times_internal(&app_dir).unwrap());
 }
 
+// ============================================================================
+// Environment-variable overrides (env wins over local.settings.json)
+// ============================================================================
+
+#[test]
+fn test_apply_overrides_applies_each_field() {
+    let mut s = LocalSettings::default();
+    s.apply_overrides(|k| match k {
+        "GEMINI_API_KEY" => Some("env-gemini".to_string()),
+        "HA_URL" => Some("http://env-ha:8123".to_string()),
+        "HA_API_TOKEN" => Some("env-ha-token".to_string()),
+        "PAPERLESS_URL" => Some("https://env-paperless".to_string()),
+        "PAPERLESS_API_TOKEN" => Some("env-pl-token".to_string()),
+        "PAPERLESS_ENABLED" => Some("true".to_string()),
+        _ => None,
+    });
+    assert_eq!(s.gemini_api_key.as_deref(), Some("env-gemini"));
+    assert_eq!(s.ha_url.as_deref(), Some("http://env-ha:8123"));
+    assert_eq!(s.ha_api_token.as_deref(), Some("env-ha-token"));
+    assert_eq!(s.paperless_url.as_deref(), Some("https://env-paperless"));
+    assert_eq!(s.paperless_api_token.as_deref(), Some("env-pl-token"));
+    assert_eq!(s.paperless_enabled, Some(true));
+}
+
+#[test]
+fn test_apply_overrides_lookup_none_keeps_file_values() {
+    let mut s = LocalSettings {
+        gemini_api_key: Some("file-gemini".to_string()),
+        ha_url: Some("http://file-ha:8123".to_string()),
+        ha_api_token: Some("file-ha-token".to_string()),
+        paperless_url: Some("https://file-paperless".to_string()),
+        paperless_api_token: Some("file-pl-token".to_string()),
+        paperless_enabled: Some(false),
+        ..Default::default()
+    };
+    s.apply_overrides(|_| None);
+    assert_eq!(s.gemini_api_key.as_deref(), Some("file-gemini"));
+    assert_eq!(s.ha_url.as_deref(), Some("http://file-ha:8123"));
+    assert_eq!(s.ha_api_token.as_deref(), Some("file-ha-token"));
+    assert_eq!(s.paperless_url.as_deref(), Some("https://file-paperless"));
+    assert_eq!(s.paperless_api_token.as_deref(), Some("file-pl-token"));
+    assert_eq!(s.paperless_enabled, Some(false));
+}
+
+#[test]
+fn test_apply_overrides_empty_or_whitespace_value_keeps_file_value() {
+    let mut s = LocalSettings {
+        gemini_api_key: Some("file-gemini".to_string()),
+        ha_url: Some("http://file-ha:8123".to_string()),
+        paperless_enabled: Some(true),
+        ..Default::default()
+    };
+    s.apply_overrides(|k| match k {
+        "GEMINI_API_KEY" => Some(String::new()),
+        "HA_URL" => Some("   ".to_string()),
+        "PAPERLESS_ENABLED" => Some(" \t ".to_string()),
+        _ => None,
+    });
+    assert_eq!(s.gemini_api_key.as_deref(), Some("file-gemini"));
+    assert_eq!(s.ha_url.as_deref(), Some("http://file-ha:8123"));
+    assert_eq!(s.paperless_enabled, Some(true));
+}
+
+#[test]
+fn test_apply_overrides_trims_surrounding_whitespace() {
+    let mut s = LocalSettings::default();
+    s.apply_overrides(|k| match k {
+        "GEMINI_API_KEY" => Some("  padded-key  ".to_string()),
+        _ => None,
+    });
+    assert_eq!(s.gemini_api_key.as_deref(), Some("padded-key"));
+}
+
+#[test]
+fn test_apply_overrides_paperless_enabled_truthy_values() {
+    for v in ["1", "true", "TRUE", "yes", "Yes"] {
+        let mut s = LocalSettings::default();
+        s.apply_overrides(|k| (k == "PAPERLESS_ENABLED").then(|| v.to_string()));
+        assert_eq!(s.paperless_enabled, Some(true), "value {:?} must be truthy", v);
+    }
+}
+
+#[test]
+fn test_apply_overrides_paperless_enabled_non_truthy_values_are_false() {
+    // Documented: any non-truthy non-empty value = false
+    for v in ["false", "0", "no", "off", "banana"] {
+        let mut s = LocalSettings {
+            paperless_enabled: Some(true),
+            ..Default::default()
+        };
+        s.apply_overrides(|k| (k == "PAPERLESS_ENABLED").then(|| v.to_string()));
+        assert_eq!(s.paperless_enabled, Some(false), "value {:?} must be false", v);
+    }
+}
+
+#[test]
+fn test_apply_overrides_paperless_enabled_unset_keeps_file_value() {
+    let mut s = LocalSettings {
+        paperless_enabled: Some(true),
+        ..Default::default()
+    };
+    s.apply_overrides(|_| None);
+    assert_eq!(s.paperless_enabled, Some(true));
+}
+
+#[test]
+fn test_apply_overrides_env_wins_over_file_value() {
+    let mut s = LocalSettings {
+        gemini_api_key: Some("file-key".to_string()),
+        ..Default::default()
+    };
+    s.apply_overrides(|k| (k == "GEMINI_API_KEY").then(|| "env-key".to_string()));
+    assert_eq!(s.gemini_api_key.as_deref(), Some("env-key"));
+}
+
+#[test]
+fn test_load_effective_env_wins_over_file_real_env() {
+    let dir = tempdir().unwrap();
+    let settings = LocalSettings {
+        gemini_api_key: Some("file-key".to_string()),
+        ..Default::default()
+    };
+    settings.save(&dir.path().to_path_buf()).unwrap();
+
+    test_env::with_env_vars(&[("GEMINI_API_KEY", "env-key")], || {
+        let effective = LocalSettings::load_effective(dir.path());
+        assert_eq!(effective.gemini_api_key.as_deref(), Some("env-key"));
+        // load() must remain env-free — setters use it, env must never be persisted
+        let plain = LocalSettings::load(dir.path());
+        assert_eq!(plain.gemini_api_key.as_deref(), Some("file-key"));
+    });
+}
+
+#[test]
+fn test_env_pinned_real_env() {
+    test_env::with_env_vars(&[("GEMINI_API_KEY", "some-key")], || {
+        assert!(LocalSettings::env_pinned("GEMINI_API_KEY"));
+    });
+    test_env::with_env_vars(&[("GEMINI_API_KEY", "   ")], || {
+        assert!(!LocalSettings::env_pinned("GEMINI_API_KEY"));
+    });
+    test_env::with_env_vars(&[], || {
+        assert!(!LocalSettings::env_pinned("GEMINI_API_KEY"));
+    });
+}
+
 #[test]
 fn local_settings_round_trips_paperless_fields() {
     let dir = tempdir().unwrap();

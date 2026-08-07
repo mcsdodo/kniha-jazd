@@ -44,7 +44,7 @@ pub struct HaLocalSettingsResponse {
 }
 
 pub fn get_ha_settings_internal(app_dir: &Path) -> Result<HaSettingsResponse, String> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     Ok(HaSettingsResponse {
         url: settings.ha_url,
         has_token: settings.ha_api_token.is_some(),
@@ -56,7 +56,7 @@ pub fn get_ha_settings_internal(app_dir: &Path) -> Result<HaSettingsResponse, St
 pub fn get_local_settings_for_ha_internal(
     app_dir: &Path,
 ) -> Result<HaLocalSettingsResponse, String> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     Ok(HaLocalSettingsResponse {
         ha_url: settings.ha_url,
         ha_api_token: settings.ha_api_token,
@@ -67,7 +67,7 @@ pub fn get_local_settings_for_ha_internal(
 /// Returns Ok(false) silently when HA isn't configured — that's a normal state,
 /// not an error worth surfacing to logs or callers.
 pub async fn test_ha_connection_internal(app_dir: &Path) -> Result<bool, String> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
 
     let (url, token) = match (settings.ha_url, settings.ha_api_token) {
         (Some(url), Some(token)) => (url, token),
@@ -98,7 +98,7 @@ pub async fn fetch_ha_odo_internal(
     app_dir: &Path,
     sensor_id: String,
 ) -> Result<Option<f64>, String> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
 
     let (url, token) = match (settings.ha_url, settings.ha_api_token) {
         (Some(url), Some(token)) => (url, token),
@@ -140,6 +140,19 @@ pub fn save_ha_settings_internal(
     token: Option<String>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+
+    // Env-pinned fields are managed outside the app — refuse only when the
+    // call actually attempts to change them.
+    if url.is_some() && LocalSettings::env_pinned("HA_URL") {
+        return Err(
+            "Home Assistant URL is managed by the HA_URL environment variable".to_string(),
+        );
+    }
+    if token.is_some() && LocalSettings::env_pinned("HA_API_TOKEN") {
+        return Err(
+            "Home Assistant token is managed by the HA_API_TOKEN environment variable".to_string(),
+        );
+    }
 
     // Validate URL if provided
     if let Some(ref url_str) = url {
@@ -191,7 +204,7 @@ pub struct PaperlessSettingsResponse {
 pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
     use crate::paperless::PaperlessFieldNames;
 
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     let names = PaperlessFieldNames::from_settings(&settings);
     let enabled = settings.paperless_enabled.unwrap_or(true);
     Ok(PaperlessSettingsResponse {
@@ -219,6 +232,27 @@ pub fn save_paperless_settings_internal(
     field_name_total: Option<String>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+
+    // Env-pinned fields are managed outside the app — refuse only when the
+    // call actually attempts to change them. Field-name overrides stay editable.
+    if url.is_some() && LocalSettings::env_pinned("PAPERLESS_URL") {
+        return Err(
+            "Paperless URL is managed by the PAPERLESS_URL environment variable".to_string(),
+        );
+    }
+    if token.is_some() && LocalSettings::env_pinned("PAPERLESS_API_TOKEN") {
+        return Err(
+            "Paperless token is managed by the PAPERLESS_API_TOKEN environment variable"
+                .to_string(),
+        );
+    }
+    if enabled.is_some() && LocalSettings::env_pinned("PAPERLESS_ENABLED") {
+        return Err(
+            "Paperless enabled flag is managed by the PAPERLESS_ENABLED environment variable"
+                .to_string(),
+        );
+    }
+
     if let Some(ref url_str) = url {
         if !url_str.is_empty() {
             if !url_str.starts_with("http://") && !url_str.starts_with("https://") {
@@ -259,7 +293,7 @@ pub fn save_paperless_settings_internal(
 
 /// Test Paperless-ngx connection. Auth header is `Token <PAT>` (DRF), NOT Bearer.
 pub async fn test_paperless_connection_internal(app_dir: &Path) -> Result<bool, String> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
         (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
         _ => return Ok(false),
@@ -298,7 +332,7 @@ pub fn get_invoice_source_mode_from_settings(s: &LocalSettings) -> InvoiceSource
 }
 
 pub fn get_invoice_source_mode_internal(app_dir: &Path) -> Result<InvoiceSourceMode, String> {
-    Ok(get_invoice_source_mode_from_settings(&LocalSettings::load(app_dir)))
+    Ok(get_invoice_source_mode_from_settings(&LocalSettings::load_effective(app_dir)))
 }
 
 #[cfg(test)]

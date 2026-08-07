@@ -38,7 +38,7 @@ pub struct ReceiptSettings {
 }
 
 pub fn get_receipt_settings_internal(app_dir: &Path) -> Result<ReceiptSettings, String> {
-    let local = LocalSettings::load(app_dir);
+    let local = LocalSettings::load_effective(app_dir);
 
     Ok(ReceiptSettings {
         gemini_api_key: local.gemini_api_key.clone(),
@@ -54,6 +54,9 @@ pub fn set_gemini_api_key_internal(
     api_key: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+    if LocalSettings::env_pinned("GEMINI_API_KEY") {
+        return Err("Gemini API key is managed by the GEMINI_API_KEY environment variable".into());
+    }
     let mut settings = LocalSettings::load(app_dir);
 
     // Allow empty string to clear the key
@@ -241,7 +244,7 @@ pub async fn sync_receipts_internal(
     app_dir: &Path,
 ) -> Result<SyncResult, String> {
     check_read_only!(app_state);
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
 
     let folder_path = settings
         .receipts_folder_path
@@ -283,7 +286,7 @@ pub async fn process_pending_receipts_internal(
     db: &Database,
     app_dir: &Path,
 ) -> Result<SyncResult, String> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
 
     // In mock mode, API key is not required (extract_from_image loads from JSON files)
     let api_key = if is_mock_mode_enabled() {
@@ -329,7 +332,7 @@ pub async fn reprocess_receipt_internal(
     id: String,
 ) -> Result<Receipt, String> {
     check_read_only!(app_state);
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
 
     // In mock mode, API key is not required (extract_from_image loads from JSON files)
     let api_key = if is_mock_mode_enabled() {
@@ -667,3 +670,7 @@ fn verify_receipts_with_data(
         receipts: verifications,
     })
 }
+
+#[cfg(test)]
+#[path = "receipts_cmd_tests.rs"]
+mod tests;

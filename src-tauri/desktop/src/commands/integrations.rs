@@ -77,7 +77,7 @@ pub fn save_ha_settings(
 /// Uses the `input_text/set_value` service call so the value persists across HA restarts.
 /// Fire-and-forget: logs errors but never fails the caller.
 pub async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String, value: String) {
-    let settings = LocalSettings::load(&app_data_dir);
+    let settings = LocalSettings::load_effective(&app_data_dir);
 
     let url = match settings.ha_url {
         Some(u) => u,

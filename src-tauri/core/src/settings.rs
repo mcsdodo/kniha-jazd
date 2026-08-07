@@ -65,6 +65,53 @@ impl LocalSettings {
         }
     }
 
+    /// Load settings with environment-variable overrides applied (env wins).
+    /// Use at CONSUMPTION sites only — setters use load()/save() so env
+    /// values are never persisted to disk.
+    pub fn load_effective(app_data_dir: &Path) -> Self {
+        let mut settings = Self::load(app_data_dir);
+        settings.apply_overrides(|k| std::env::var(k).ok());
+        settings
+    }
+
+    /// Pure override application — `lookup` abstracts std::env::var for testability.
+    /// Empty/whitespace-only values are treated as unset (file value kept).
+    /// PAPERLESS_ENABLED: "1"/"true"/"yes" (case-insensitive) = true; any other
+    /// non-empty value = false.
+    fn apply_overrides(&mut self, lookup: impl Fn(&str) -> Option<String>) {
+        let get = |k: &str| {
+            lookup(k)
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty())
+        };
+        if let Some(v) = get("GEMINI_API_KEY") {
+            self.gemini_api_key = Some(v);
+        }
+        if let Some(v) = get("HA_URL") {
+            self.ha_url = Some(v);
+        }
+        if let Some(v) = get("HA_API_TOKEN") {
+            self.ha_api_token = Some(v);
+        }
+        if let Some(v) = get("PAPERLESS_URL") {
+            self.paperless_url = Some(v);
+        }
+        if let Some(v) = get("PAPERLESS_API_TOKEN") {
+            self.paperless_api_token = Some(v);
+        }
+        if let Some(v) = get("PAPERLESS_ENABLED") {
+            self.paperless_enabled = Some(matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"));
+        }
+    }
+
+    /// True when the given env var pins a settings field (non-empty value set).
+    /// Setters use this to refuse edits of env-managed fields.
+    pub fn env_pinned(var: &str) -> bool {
+        std::env::var(var)
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false)
+    }
+
     /// Save settings to local.settings.json in app data dir
     pub fn save(&self, app_data_dir: &Path) -> std::io::Result<()> {
         use std::io::Write;
@@ -76,6 +123,45 @@ impl LocalSettings {
         let mut file = fs::File::create(&path)?;
         file.write_all(json.as_bytes())?;
         file.sync_all()
+    }
+}
+
+/// Shared helper for tests that must mutate the REAL process environment.
+/// Process env is global — tests using it must serialize behind one lock.
+#[cfg(test)]
+pub(crate) mod test_env {
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Acquire the env lock without setting any vars — for tests whose
+    /// assertions require the overridable env vars to be UNSET (they would
+    /// otherwise race with tests that set them).
+    pub fn lock() -> std::sync::MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Run `f` with the given env vars set, serialized against all other
+    /// real-env tests. Vars are always removed (even on panic) before the
+    /// lock is released.
+    pub fn with_env_vars<T>(vars: &[(&str, &str)], f: impl FnOnce() -> T) -> T {
+        struct Cleanup<'a>(&'a [(&'a str, &'a str)]);
+        impl Drop for Cleanup<'_> {
+            fn drop(&mut self) {
+                for (k, _) in self.0 {
+                    std::env::remove_var(k);
+                }
+            }
+        }
+
+        // A poisoned lock only means a previous test panicked — env cleanup
+        // ran in Cleanup::drop, so it's safe to continue.
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _cleanup = Cleanup(vars);
+        for (k, v) in vars {
+            std::env::set_var(k, v);
+        }
+        f()
     }
 }
 

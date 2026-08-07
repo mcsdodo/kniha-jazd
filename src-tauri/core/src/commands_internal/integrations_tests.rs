@@ -70,6 +70,7 @@ fn save_paperless_settings_blocked_by_read_only() {
 
 #[test]
 fn get_paperless_settings_hides_token() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let mut s = crate::settings::LocalSettings::default();
     s.paperless_url = Some("https://x.example".into());
@@ -81,11 +82,109 @@ fn get_paperless_settings_hides_token() {
     assert!(r.has_token);
 }
 
+// ============================================================================
+// Environment-variable overrides (env wins; setters refuse env-pinned fields)
+// ============================================================================
+
+#[test]
+fn get_paperless_settings_reflects_env_token_override() {
+    let dir = tempdir().unwrap();
+    crate::settings::test_env::with_env_vars(&[("PAPERLESS_API_TOKEN", "env-token")], || {
+        let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
+        assert!(r.has_token, "PAPERLESS_API_TOKEN env var must yield has_token=true");
+    });
+}
+
+#[test]
+fn save_ha_settings_rejects_url_when_env_pinned() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+    crate::settings::test_env::with_env_vars(&[("HA_URL", "http://env-ha:8123")], || {
+        let err = save_ha_settings_internal(
+            &dir.path().to_path_buf(),
+            &app_state,
+            Some("http://other-ha:8123".into()),
+            None,
+        )
+        .unwrap_err();
+        assert!(err.contains("HA_URL"), "error must name HA_URL: {}", err);
+
+        // Token alone is still editable while only HA_URL is pinned
+        save_ha_settings_internal(&dir.path().to_path_buf(), &app_state, None, Some("tok".into()))
+            .unwrap();
+    });
+}
+
+#[test]
+fn save_ha_settings_rejects_token_when_env_pinned() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+    crate::settings::test_env::with_env_vars(&[("HA_API_TOKEN", "env-token")], || {
+        let err = save_ha_settings_internal(
+            &dir.path().to_path_buf(),
+            &app_state,
+            None,
+            Some("new-token".into()),
+        )
+        .unwrap_err();
+        assert!(err.contains("HA_API_TOKEN"), "error must name HA_API_TOKEN: {}", err);
+    });
+}
+
+#[test]
+fn save_paperless_settings_rejects_env_pinned_fields() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+
+    crate::settings::test_env::with_env_vars(&[("PAPERLESS_URL", "https://env-pl")], || {
+        let err = save_paperless_settings_internal(
+            &dir.path().to_path_buf(), &app_state,
+            Some("https://other-pl".into()), None, None, None, None, None,
+        ).unwrap_err();
+        assert!(err.contains("PAPERLESS_URL"), "error must name PAPERLESS_URL: {}", err);
+    });
+
+    crate::settings::test_env::with_env_vars(&[("PAPERLESS_API_TOKEN", "env-token")], || {
+        let err = save_paperless_settings_internal(
+            &dir.path().to_path_buf(), &app_state,
+            None, Some("new-token".into()), None, None, None, None,
+        ).unwrap_err();
+        assert!(err.contains("PAPERLESS_API_TOKEN"), "error must name PAPERLESS_API_TOKEN: {}", err);
+    });
+
+    crate::settings::test_env::with_env_vars(&[("PAPERLESS_ENABLED", "true")], || {
+        let err = save_paperless_settings_internal(
+            &dir.path().to_path_buf(), &app_state,
+            None, None, Some(false), None, None, None,
+        ).unwrap_err();
+        assert!(err.contains("PAPERLESS_ENABLED"), "error must name PAPERLESS_ENABLED: {}", err);
+    });
+}
+
+#[test]
+fn save_paperless_settings_field_names_editable_while_token_env_pinned() {
+    let dir = tempdir().unwrap();
+    let app_state = crate::app_state::AppState::new();
+    crate::settings::test_env::with_env_vars(&[("PAPERLESS_API_TOKEN", "env-token")], || {
+        // Field-name-only save must succeed even though the token is env-pinned
+        save_paperless_settings_internal(
+            &dir.path().to_path_buf(), &app_state,
+            None, None, None,
+            Some("Dátum".into()), Some("Litre".into()), Some("Suma".into()),
+        ).unwrap();
+    });
+    let loaded = crate::settings::LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.paperless_field_name_datetime.as_deref(), Some("Dátum"));
+    assert_eq!(loaded.paperless_field_name_liters.as_deref(), Some("Litre"));
+    assert_eq!(loaded.paperless_field_name_total.as_deref(), Some("Suma"));
+}
+
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[tokio::test]
 async fn test_paperless_connection_uses_token_auth_header_not_bearer() {
+    let _env = crate::settings::test_env::lock();
     let mock = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/api/ui_settings/"))
@@ -105,6 +204,7 @@ async fn test_paperless_connection_uses_token_auth_header_not_bearer() {
 
 #[tokio::test]
 async fn test_paperless_connection_rejects_bearer_header() {
+    let _env = crate::settings::test_env::lock();
     let mock = MockServer::start().await;
     Mock::given(method("GET")).and(path("/api/ui_settings/"))
         .and(header("authorization", "Bearer my-pat-123"))
@@ -123,6 +223,7 @@ async fn test_paperless_connection_rejects_bearer_header() {
 
 #[tokio::test]
 async fn test_paperless_connection_unconfigured_returns_false_silently() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let ok = test_paperless_connection_internal(&dir.path().to_path_buf()).await.unwrap();
     assert!(!ok);
@@ -130,6 +231,7 @@ async fn test_paperless_connection_unconfigured_returns_false_silently() {
 
 #[tokio::test]
 async fn test_paperless_connection_401_returns_false() {
+    let _env = crate::settings::test_env::lock();
     let mock = MockServer::start().await;
     Mock::given(method("GET")).and(path("/api/ui_settings/"))
         .respond_with(ResponseTemplate::new(401))
@@ -220,6 +322,7 @@ fn save_paperless_settings_persists_enabled_flag() {
 
 #[test]
 fn get_paperless_settings_returns_enabled_field() {
+    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();
     let mut s = crate::settings::LocalSettings::default();
     s.paperless_url = Some("https://x.example".into());

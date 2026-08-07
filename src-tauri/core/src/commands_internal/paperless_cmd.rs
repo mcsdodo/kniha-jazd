@@ -33,7 +33,7 @@ pub fn doc_year(dt: &Option<chrono::NaiveDateTime>, created: &chrono::NaiveDate)
 pub async fn list_paperless_custom_fields_internal(
     app_dir: &Path,
 ) -> Result<Vec<CustomFieldInfo>, PaperlessError> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
         (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
         _ => return Err(PaperlessError::NotConfigured),
@@ -53,7 +53,7 @@ pub async fn get_paperless_invoices_internal(
 ) -> Result<Vec<PaperlessInvoiceRow>, PaperlessError> {
     let _ = vehicle_id;
 
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     let names = PaperlessFieldNames::from_settings(&settings);
     let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
         (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
@@ -95,7 +95,7 @@ pub async fn fetch_paperless_doc_by_id(
     app_dir: &Path,
     doc_id: i64,
 ) -> Result<PaperlessDoc, PaperlessError> {
-    let settings = LocalSettings::load(app_dir);
+    let settings = LocalSettings::load_effective(app_dir);
     let names = PaperlessFieldNames::from_settings(&settings);
     let (url, token) = match (settings.paperless_url, settings.paperless_api_token) {
         (Some(u), Some(t)) if !u.is_empty() && !t.is_empty() => (u, t),
