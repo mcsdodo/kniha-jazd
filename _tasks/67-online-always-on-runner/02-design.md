@@ -25,7 +25,7 @@ infra LXC (192.168.0.112, Komodo-managed)
   kniha-jazd stack: ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z
         │  /data (LXC-local bind mount)
         ▼
-  /data/kniha-jazd.db + /data/receipts/ + /data/backups/ + /data/local.settings.json
+  /data/kniha-jazd.db + /data/backups/ + /data/local.settings.json
 ```
 
 Outbound integrations keep working unchanged — better, in fact, since they become
@@ -38,7 +38,7 @@ LAN-internal: Paperless (`https://documents.lacny.me`), Home Assistant
 |---|----------|--------|
 | 1 | Exposure | **LAN + Tailscale only** via `caddy: kniha-jazd.lacny.me` label. No Dockflare/public tunnel. Matches ADR-017 (no auth, trusted network). |
 | 2 | Image delivery | **CI-published image**: GH Actions in this repo builds `Dockerfile.web` on release tag → pushes `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` + `latest`. Repo is public → anonymous pulls. Homelab compose pins the version tag; deploy = bump tag + `komodo.ps1 -Stack kniha-jazd`. |
-| 3 | Receipts intake | **Paperless-only going forward.** Legacy `doklady` images copied once to `/data/receipts` with a DB path rewrite so history keeps rendering. Gemini folder-scan stays functional against `/data/receipts` but is no longer the primary flow. |
+| 3 | Receipts intake | **Paperless-only.** Legacy folder-scanned receipts are a closed set (68 rows, newest 2026-04-27, when Paperless took over — 36 paperless links since; verified in prod DB). Their metadata (liters, price, dates) lives in the DB and migrates with it; the image files are **not** copied — in-app previews for those 68 receipts 404, originals remain in gdrive. This drops the path-rewrite script entirely. |
 | 4 | Desktop apps | **Browser-only after migration** — hard requirement: *ALL features must work in the webapp* (parity audit below). The gdrive DB folder gets archived to prevent split-brain. |
 
 ## Current prod data (verified on this PC)
@@ -47,7 +47,7 @@ LAN-internal: Paperless (`https://documents.lacny.me`), Home Assistant
 |------|-------|-----------------|
 | SQLite DB | `G:\My Drive\Techlab\Kniha Jazd\db\kniha-jazd.db` (custom_db_path, gdrive) | `/data/kniha-jazd.db` |
 | Backups | next to DB in gdrive | `/data/backups/` (app) + nightly vzdump of the LXC |
-| Receipt images | `G:\My Drive\Techlab\Kniha Jazd\doklady` (gdrive) | `/data/receipts/` |
+| Receipt images | `G:\My Drive\Techlab\Kniha Jazd\doklady` (gdrive) | stays in gdrive as archive — not migrated (decision 3); new receipts live in Paperless |
 | local.settings.json | `%APPDATA%\com.notavailable.kniha-jazd\` per PC (Gemini key, HA + Paperless URLs/tokens) | `/data/local.settings.json` (single copy; `KNIHA_JAZD_DATA_DIR=/data`) |
 | Lock file (multi-PC) | gdrive lock dance | obsolete — single server writer |
 
@@ -64,7 +64,7 @@ Verified against `capabilities_handler` in [server/mod.rs](../../src-tauri/core/
 | `open_external` | ❌ — used for export preview (has fallback) and Paperless doc links | OK if Paperless links render as plain `<a target="_blank">` in browser mode — **verify during rollout (checklist C3)** |
 | `move_database` / `reset_database_location` | ❌ | Irrelevant on server — data dir is fixed by design (this task removes the need) |
 | Auto-updater | ❌ | Irrelevant — updates ship as image tags via Komodo |
-| File dialogs (folder pickers) | ❌ | Irrelevant — receipts folder is fixed `/data/receipts`; `set_receipts_folder_path` RPC still exists for the one-time setup |
+| File dialogs (folder pickers) | ❌ | Irrelevant — no receipts folder on the server (Paperless-only); `receipts_folder_path` stays unset and the folder-scan feature lies dormant |
 | Theme / auto-update prefs | ⚠ stored in *default* app-data dir, not `KNIHA_JAZD_DATA_DIR` ([settings-architecture.md](../../docs/features/settings-architecture.md) notes this) | **Work item R2** — honor `KNIHA_JAZD_DATA_DIR` so theme survives container recreation. Small fix. |
 
 CORS note: the browser UI is served from the same origin (`https://kniha-jazd.lacny.me`),
@@ -85,11 +85,7 @@ header and are likewise unaffected. No change needed.
   `docker build -f Dockerfile.web` → push `ghcr.io/mcsdodo/kniha-jazd-web:{version}`
   and `:latest` using `GITHUB_TOKEN` (`packages: write`). Make the package public once.
   x86_64 only (all Docker LXCs are amd64).
-- **R4 — Migration helper script** (`scripts/migrate-to-server.*`): one-time SQL to
-  rewrite `receipts.file_path` prefixes
-  (`G:\My Drive\Techlab\Kniha Jazd\doklady\X.jpg` → `/data/receipts/X.jpg`,
-  backslash→slash). Runs against a copy; verify counts before/after.
-- **R5 — Docs**: feature doc update ([server-mode.md](../../docs/features/server-mode.md) gains a "homelab deployment"
+- **R4 — Docs**: feature doc update ([server-mode.md](../../docs/features/server-mode.md) gains a "homelab deployment"
   section or new `docs/features/homelab-deployment.md`), [CHANGELOG](../../CHANGELOG.md) entry, `/decision`
   entry (ADR: homelab instance is the canonical deployment; desktop demoted to
   browser client).
@@ -130,17 +126,17 @@ services:
 1. Deploy the stack with an empty `/data`; verify `https://kniha-jazd.lacny.me/health`
    and that the UI loads (fresh DB).
 2. Stop using desktop apps; make a final desktop backup.
-3. Copy data from this PC:
-   `scp "G:\My Drive\Techlab\Kniha Jazd\db\kniha-jazd.db"` → server `/data/`,
-   `doklady/*` → `/data/receipts/`.
-4. Run the R4 path-rewrite SQL; spot-check receipt images render (checklist below).
-5. Seed `/data/local.settings.json`: Gemini key, `receipts_folder_path: "/data/receipts"`,
-   HA + Paperless URLs/tokens (copy from this PC's file). Restart container.
-6. **Parity checklist** — walk every feature in the browser:
-   C1 trips grid + calculations, C2 receipts list + images, C3 Paperless doc links
+3. Copy the DB from this PC:
+   `scp "G:\My Drive\Techlab\Kniha Jazd\db\kniha-jazd.db"` → server `/data/`.
+   Receipt images are intentionally left behind (decision 3).
+4. Seed `/data/local.settings.json`: Gemini key, HA + Paperless URLs/tokens (copy
+   from this PC's file); leave `receipts_folder_path` unset. Restart container.
+5. **Parity checklist** — walk every feature in the browser:
+   C1 trips grid + calculations, C2 receipts list shows legacy metadata (image
+   previews expected to 404 — accepted), C3 Paperless doc links
    open, C4 magic fill (Gemini), C5 HA integration test button, C6 export HTML/print,
    C7 backup create + **restore** (R1), C8 settings save, C9 year switching.
-7. Archive `G:\My Drive\Techlab\Kniha Jazd\db` → rename to `db_MIGRATED-2026-MM-DD`;
+6. Archive `G:\My Drive\Techlab\Kniha Jazd\db` → rename to `db_MIGRATED-2026-MM-DD`;
    desktop apps now fail to open it (intentional). Optionally uninstall.
 8. Repoint API consumers (the `kniha-jazd-trip-logging` skill) to
    `https://kniha-jazd.lacny.me/api/rpc`.
