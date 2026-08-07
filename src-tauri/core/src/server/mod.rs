@@ -87,7 +87,7 @@ async fn capabilities_handler(
             "file_dialogs": false,
             "updater": false,
             "open_external": false,
-            "restore_backup": false,
+            "restore_backup": true,
             "move_database": false,
         }
     }))
@@ -317,6 +317,7 @@ mod tests {
         assert_eq!(body["mode"], "server");
         assert_eq!(body["features"]["file_dialogs"], false);
         assert_eq!(body["features"]["updater"], false);
+        assert_eq!(body["features"]["restore_backup"], true);
 
         let _ = shutdown_tx.send(());
     }

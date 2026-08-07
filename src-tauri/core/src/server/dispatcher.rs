@@ -891,7 +891,9 @@ mod tests {
         // File-backed DB matching get_db_paths_for_dir layout:
         // <app_dir>/kniha-jazd.db, backups in <app_dir>/backups.
         let dir = tempfile::tempdir().unwrap();
-        let db = crate::db::Database::new(dir.path().join("kniha-jazd.db")).unwrap();
+        let db =
+            crate::db::Database::new(dir.path().join(crate::constants::paths::DB_FILENAME))
+                .unwrap();
         let state = ServerState {
             db: std::sync::Arc::new(db),
             app_state: std::sync::Arc::new(crate::app_state::AppState::new()),

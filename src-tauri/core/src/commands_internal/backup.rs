@@ -129,6 +129,20 @@ fn snapshot_database_to(db: &Database, backup_path: &Path) -> Result<(), String>
     Ok(())
 }
 
+/// Reject filenames that could escape the backups directory. The
+/// filename-taking internals are reachable over HTTP in server mode, so a
+/// value like `..\..\x.db` must never be joined onto `backups_dir`.
+fn validate_backup_filename(filename: &str) -> Result<(), String> {
+    if filename.is_empty()
+        || filename.contains('/')
+        || filename.contains('\\')
+        || filename.contains("..")
+    {
+        return Err(format!("Invalid backup filename: {filename}"));
+    }
+    Ok(())
+}
+
 fn get_cleanup_candidates(backups: &[BackupInfo], keep_count: u32) -> Vec<BackupInfo> {
     let mut pre_update_backups: Vec<&BackupInfo> = backups
         .iter()
@@ -365,6 +379,7 @@ pub fn list_backups_internal(app_dir: &Path) -> Result<Vec<BackupInfo>, String> 
 }
 
 pub fn get_backup_info_internal(app_dir: &Path, filename: String) -> Result<BackupInfo, String> {
+    validate_backup_filename(&filename)?;
     let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
@@ -441,6 +456,7 @@ pub fn restore_backup_internal(
     filename: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+    validate_backup_filename(&filename)?;
     let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
@@ -459,6 +475,7 @@ pub fn delete_backup_internal(
     filename: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+    validate_backup_filename(&filename)?;
     let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
@@ -471,6 +488,7 @@ pub fn delete_backup_internal(
 }
 
 pub fn get_backup_path_internal(app_dir: &Path, filename: String) -> Result<String, String> {
+    validate_backup_filename(&filename)?;
     let db_paths = get_db_paths_for_dir(app_dir)?;
     let backup_path = db_paths.backups_dir.join(&filename);
 
@@ -613,6 +631,56 @@ mod tests {
         let vehicles = backup_db.get_all_vehicles().unwrap();
         assert_eq!(vehicles.len(), 1);
         assert_eq!(vehicles[0].name, "Backup Car");
+    }
+
+    #[test]
+    fn test_filename_taking_internals_reject_traversal_and_separators() {
+        // Server-mode RPC exposes these over HTTP — a filename like
+        // "..\\..\\x.db" must never escape the backups dir. The error must be
+        // the distinct "Invalid backup filename", not "Backup not found".
+        let dir = tempfile::tempdir().unwrap();
+        let app_state = AppState::new();
+
+        let bad_filenames = [
+            "",
+            "../evil.db",
+            "..\\evil.db",
+            "..\\..\\x.db",
+            "sub/dir.db",
+            "sub\\dir.db",
+            "..",
+            "kniha-jazd..db",
+        ];
+
+        for filename in bad_filenames {
+            let err = restore_backup_internal(dir.path(), &app_state, filename.to_string())
+                .expect_err("restore must reject traversal filename");
+            assert!(
+                err.contains("Invalid backup filename"),
+                "restore_backup_internal({filename:?}) returned wrong error: {err}"
+            );
+
+            let err = delete_backup_internal(dir.path(), &app_state, filename.to_string())
+                .expect_err("delete must reject traversal filename");
+            assert!(
+                err.contains("Invalid backup filename"),
+                "delete_backup_internal({filename:?}) returned wrong error: {err}"
+            );
+
+            let err = get_backup_path_internal(dir.path(), filename.to_string())
+                .expect_err("get_backup_path must reject traversal filename");
+            assert!(
+                err.contains("Invalid backup filename"),
+                "get_backup_path_internal({filename:?}) returned wrong error: {err}"
+            );
+
+            let err = get_backup_info_internal(dir.path(), filename.to_string())
+                .expect_err("get_backup_info must reject traversal filename");
+            assert!(
+                err.contains("Invalid backup filename"),
+                "get_backup_info_internal({filename:?}) returned wrong error: {err}"
+            );
+        }
     }
 
     #[test]
