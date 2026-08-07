@@ -1,6 +1,6 @@
 **Date:** 2026-08-07
 **Subject:** Task 67 — app-repo work: restore-backup parity + web image CI + docs
-**Status:** In Progress (Tasks 1–4 done and reviewed; Task 5 release pending)
+**Status:** Complete (v0.39.0 released 2026-08-07; image `ghcr.io/mcsdodo/kniha-jazd-web:v0.39.0` published and anonymously pullable — verified from infra LXC)
 
 # Homelab Deployment (App Side) Implementation Plan
 
