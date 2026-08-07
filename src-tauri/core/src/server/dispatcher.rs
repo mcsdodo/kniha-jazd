@@ -626,7 +626,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Backup (10)
+        // Backup (11)
         // ====================================================================
         "create_backup" => {
             let v = crate::commands_internal::create_backup_internal(
@@ -735,6 +735,20 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let a: Args = parse_args(args)?;
             let v = crate::commands_internal::get_backup_path_internal(&state.app_dir, a.filename)?;
             Ok(serde_json::to_value(v).unwrap())
+        }
+        "restore_backup" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                filename: String,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::restore_backup_internal(
+                &state.app_dir,
+                &state.app_state,
+                a.filename,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
         }
 
         // ====================================================================
@@ -868,6 +882,55 @@ mod tests {
             }),
             &state,
         );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("režime len na čítanie"));
+    }
+
+    #[test]
+    fn restore_backup_roundtrip() {
+        // File-backed DB matching get_db_paths_for_dir layout:
+        // <app_dir>/kniha-jazd.db, backups in <app_dir>/backups.
+        let dir = tempfile::tempdir().unwrap();
+        let db = crate::db::Database::new(dir.path().join("kniha-jazd.db")).unwrap();
+        let state = ServerState {
+            db: std::sync::Arc::new(db),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: dir.path().to_path_buf(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let vehicle_args = |name: &str, plate: &str| {
+            json!({
+                "name": name,
+                "licensePlate": plate,
+                "initialOdometer": 0.0,
+                "vehicleType": "Ice",
+                "tankSizeLiters": 50.0,
+                "tpConsumption": 6.5
+            })
+        };
+
+        // One vehicle → snapshot → second vehicle → restore → one vehicle again.
+        dispatch_sync("create_vehicle", vehicle_args("Original", "BA-111AA"), &state).unwrap();
+        let backup = dispatch_sync("create_backup", json!({}), &state).unwrap();
+        let filename = backup["filename"].as_str().unwrap().to_string();
+
+        dispatch_sync("create_vehicle", vehicle_args("Second", "BA-222BB"), &state).unwrap();
+        let vehicles = dispatch_sync("get_vehicles", json!({}), &state).unwrap();
+        assert_eq!(vehicles.as_array().unwrap().len(), 2);
+
+        dispatch_sync("restore_backup", json!({ "filename": filename }), &state).unwrap();
+
+        let vehicles = dispatch_sync("get_vehicles", json!({}), &state).unwrap();
+        assert_eq!(vehicles.as_array().unwrap().len(), 1);
+        assert_eq!(vehicles[0]["name"], "Original");
+    }
+
+    #[test]
+    fn restore_backup_fails_in_read_only_mode() {
+        let state = test_state();
+        state.app_state.enable_read_only("Test read-only");
+        let result = dispatch_sync("restore_backup", json!({ "filename": "x.db" }), &state);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("režime len na čítanie"));
     }
