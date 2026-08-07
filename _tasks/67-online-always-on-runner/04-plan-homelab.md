@@ -14,25 +14,27 @@
 
 **Tech Stack:** Komodo (stack + secrets), Docker Compose, caddy-agent labels, ghcr.io.
 
-**Prerequisite:** The kniha-jazd release publishing the image must be done first (app-side plan Task 3/5 — release ≥ **v0.39.0**), and the ghcr package made public. Verify before starting:
+**Prerequisite:** The kniha-jazd release publishing the image must be done first — release ≥ **v0.40.0** (v0.40.0 adds env-var configuration for secrets: `GEMINI_API_KEY`, `HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED`; env wins over `local.settings.json`, and the Settings UI refuses to edit env-pinned fields). The ghcr package is public (verified 2026-08-07). Verify before starting:
 
 ```bash
-docker manifest inspect ghcr.io/mcsdodo/kniha-jazd-web:v0.39.0 > /dev/null && echo OK
+docker manifest inspect ghcr.io/mcsdodo/kniha-jazd-web:v0.40.0 > /dev/null && echo OK
 ```
 
 ---
 
-### Task 1: Add the Gemini API key to Komodo secrets
+### Task 1: Add the app's secrets to Komodo
 
-The app uses Google Gemini for receipt OCR ("magic fill"). The key lives on the Windows PC in `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json` (`gemini_api_key` field).
+All three secrets live on the Windows PC in `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json` (fields `gemini_api_key`, `ha_api_token`, `paperless_api_token`). The app consumes them as plain env vars — no secret ever goes into a file on the LXC.
 
 **Files:**
 - Modify: `compose.stacks/_komodo/core.config.toml`
 
-**Step 1:** Add (value copied from the PC's local.settings.json — never commit the key anywhere else):
+**Step 1:** Add (values copied from the PC's local.settings.json — never commit the keys anywhere else):
 
 ```toml
 KNIHA_JAZD_GEMINI_API_KEY = "<gemini_api_key from PC>"
+KNIHA_JAZD_HA_TOKEN = "<ha_api_token from PC>"
+KNIHA_JAZD_PAPERLESS_TOKEN = "<paperless_api_token from PC>"
 ```
 
 **Step 2:** Run the secrets check: `compose.stacks/_komodo/check-secrets.ps1` (if the repo workflow requires it). Do not commit `core.config.toml` if it is gitignored — follow the repo's existing secret-handling convention.
@@ -52,7 +54,7 @@ Follow the `/adding-new-service` skill checklist alongside these concrete conten
 ```yaml
 services:
   kniha-jazd:
-    image: ghcr.io/mcsdodo/kniha-jazd-web:v0.39.0   # pin; bump per app release
+    image: ghcr.io/mcsdodo/kniha-jazd-web:v0.40.0   # pin; bump per app release
     container_name: kniha-jazd
     ports:
       - "3456:3456"          # REQUIRED — caddy-agent emits HOST_IP:3456 as upstream
@@ -62,7 +64,14 @@ services:
       - PORT=3456
       - KNIHA_JAZD_DATA_DIR=/data
       - DATABASE_PATH=/data/kniha-jazd.db
+      # Secrets + integration config — env wins over local.settings.json;
+      # the Settings UI shows these but refuses to edit env-pinned fields.
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - HA_URL=${HA_URL}
+      - HA_API_TOKEN=${HA_API_TOKEN}
+      - PAPERLESS_URL=${PAPERLESS_URL}
+      - PAPERLESS_API_TOKEN=${PAPERLESS_API_TOKEN}
+      - PAPERLESS_ENABLED=${PAPERLESS_ENABLED}
     labels:
       autoheal: true
       caddy: ${KNIHA_JAZD_DOMAIN}
@@ -97,6 +106,11 @@ environment = """
 KNIHA_JAZD_DOMAIN=kniha-jazd.lacny.me
 KNIHA_JAZD_DATA_DIR=/opt/kniha-jazd/data
 GEMINI_API_KEY=[[KNIHA_JAZD_GEMINI_API_KEY]]
+HA_URL=https://homeassistant.lacny.me
+HA_API_TOKEN=[[KNIHA_JAZD_HA_TOKEN]]
+PAPERLESS_URL=https://documents.lacny.me
+PAPERLESS_API_TOKEN=[[KNIHA_JAZD_PAPERLESS_TOKEN]]
+PAPERLESS_ENABLED=true
 """
 ```
 
@@ -148,28 +162,22 @@ Context (decided in the kniha-jazd repo, task 67 design): the DB moves from gdri
 scp "G:\My Drive\Techlab\Kniha Jazd\db\kniha-jazd.db" root@192.168.0.112:/opt/kniha-jazd/data/kniha-jazd.db
 ```
 
-**Step 3: Seed `/opt/kniha-jazd/data/local.settings.json`** on the LXC. Copy the token/key values from the PC's `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json` — do NOT copy the file verbatim (it contains machine-specific `custom_db_path`, `receipts_folder_path`, and server toggles that must not travel):
+**Step 3: Seed `/opt/kniha-jazd/data/local.settings.json`** on the LXC — **preferences only, NO secrets** (all secrets and integration URLs come from the env vars in Task 2; env wins and the UI refuses to edit env-pinned fields):
 
 ```json
 {
-  "gemini_api_key": "<from PC>",
   "theme": "system",
   "auto_check_updates": false,
   "backup_retention": { "enabled": true, "keepCount": 3 },
   "date_prefill_mode": "previous",
   "hidden_columns": ["tripNumber"],
-  "ha_url": "https://homeassistant.lacny.me",
-  "ha_api_token": "<from PC>",
-  "paperless_url": "https://documents.lacny.me",
-  "paperless_api_token": "<from PC>",
-  "paperless_enabled": true,
   "paperless_field_name_datetime": "receipt_datetime",
   "paperless_field_name_liters": "litres",
   "paperless_field_name_total": "total_amount"
 }
 ```
 
-Key omissions are intentional: no `custom_db_path` (DB is at its default `/data` location now), no `receipts_folder_path` (Paperless-only; folder-scan stays dormant).
+Key omissions are intentional: no tokens/keys/URLs (env-provided), no `custom_db_path` (DB is at its default `/data` location now), no `receipts_folder_path` (Paperless-only; folder-scan stays dormant). This file is optional — the app runs with defaults if it's absent; seeding it just carries over your preferences.
 
 **Step 4: Restart the stack** to pick up the DB + settings — redeploy via Komodo (`.\komodo.ps1 -Stack kniha-jazd`), not a manual docker restart.
 

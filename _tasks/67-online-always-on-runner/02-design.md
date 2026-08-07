@@ -144,6 +144,30 @@ services:
 Rollback at any point before step 7: stop the stack, keep using gdrive DB — nothing
 was mutated at the source (all copies).
 
+## Amendment (2026-08-07): env-var configuration for secrets
+
+User requirement after plan review: the containerized webapp must be configurable via
+environment variables — `local.settings.json` must NOT be needed for secrets (matching
+the Komodo secrets pattern every other stack uses). Changeable preferences may stay in
+the file.
+
+- New `LocalSettings::load_effective()` = file + env overrides (env wins). Used at
+  **consumption sites only** — setters keep `load()`/`save()`, so env values are never
+  persisted into the JSON file.
+- Env vars (short names; `GEMINI_API_KEY` was already the documented-but-dead name in
+  [Dockerfile.web](../../Dockerfile.web) — this makes it real):
+  `GEMINI_API_KEY`, `HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`,
+  `PAPERLESS_ENABLED` (`1/true/yes`). Paperless field names, theme, hidden columns,
+  date prefill, backup retention stay file/UI-managed.
+- Settings UI: a setter that attempts to change an env-pinned field returns an error
+  naming the variable ("managed by environment"), instead of silently writing a value
+  the env would keep overriding. Per-field precision: e.g. paperless field names stay
+  editable even when the paperless token is env-pinned.
+- Desktop unaffected: nobody sets these env vars on desktop machines; behavior is
+  identical when the vars are unset.
+- Consequence for the migration runbook: `/data/local.settings.json` seed shrinks to
+  preferences only (no tokens/keys) — see [04-plan-homelab.md](./04-plan-homelab.md).
+
 ## Risks / notes
 
 - **No auth on a LAN-reachable writable app**: accepted (ADR-017 trust model,
