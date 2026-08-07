@@ -132,11 +132,16 @@ fn snapshot_database_to(db: &Database, backup_path: &Path) -> Result<(), String>
 /// Reject filenames that could escape the backups directory. The
 /// filename-taking internals are reachable over HTTP in server mode, so a
 /// value like `..\..\x.db` must never be joined onto `backups_dir`.
+///
+/// `:` is rejected too: on Windows a drive-prefixed name like `C:evil.db`
+/// makes `Path::join` replace the base path entirely (no separator needed),
+/// and `:` also names NTFS alternate data streams (`backup.db:stream`).
 fn validate_backup_filename(filename: &str) -> Result<(), String> {
     if filename.is_empty()
         || filename.contains('/')
         || filename.contains('\\')
         || filename.contains("..")
+        || filename.contains(':')
     {
         return Err(format!("Invalid backup filename: {filename}"));
     }
@@ -650,6 +655,8 @@ mod tests {
             "sub\\dir.db",
             "..",
             "kniha-jazd..db",
+            "C:evil.db",
+            "backup.db:stream",
         ];
 
         for filename in bad_filenames {
