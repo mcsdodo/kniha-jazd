@@ -16,6 +16,7 @@ pub mod invoice;
 pub mod models;
 pub mod paperless;
 pub mod receipts;
+pub mod route_map;
 pub mod schema;
 pub mod server;
 pub mod settings;
