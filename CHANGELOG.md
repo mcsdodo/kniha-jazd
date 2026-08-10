@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-08-10
+
 ### Pridané
 - **Mapa trasy k jazde (zatiaľ len vo webovej verzii)** — pri každom zázname v knihe jázd pribudla ikona špendlíka, ktorá v novej karte otvorí mapu. Aplikácia vygeneruje okružnú trasu z domovskej obce zodpovedajúcu počtu kilometrov daného záznamu a zobrazí ju na mape spolu s cieľovou a skutočnou vzdialenosťou, odchýlkou v percentách a zoznamom zastávok. Tlačidlo „Generovať znova" ponúkne inú trasu — kým mapu neuložíš, nič sa neukladá, takže sa dá skúšať dovtedy, kým trasa nevyzerá dobre. Uloženú mapu možno kedykoľvek odstrániť. Ikona pri zázname ukazuje, či preň už mapa uložená je.
 - **Mapy trás sa pridávajú do tlačového exportu ako prílohy** — za tabuľku jázd sa pripojí jedna strana na šírku (A4) pre každú uloženú mapu, s nadpisom „Príloha č. N — záznam č. X", ktorý ju spája s konkrétnym záznamom v tabuľke. Samotná tabuľka jázd sa nemení. Prílohy sa vytlačia z desktopovej aplikácie aj z prehliadača.
