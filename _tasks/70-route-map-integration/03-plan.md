@@ -22,8 +22,8 @@ Four facts that will otherwise cost you a rewrite:
 
 1. **`Route` and `RouteRow` already exist** in [models.rs](../../src-tauri/core/src/models.rs) — they are the origin/destination autocomplete entities, unrelated to maps. The new model is **`RouteMap`** / `RouteMapRow` / `NewRouteMapRow`. Likewise the existing table is `routes`; the new one is `trip_routes`.
 2. **The injected-RNG pattern already exists.** [calculations/time_inference.rs:13-31](../../src-tauri/core/src/calculations/time_inference.rs) defines `trait Jitter` + `ThreadRngJitter`. Mirror that shape exactly for the GA — do not invent a different abstraction.
-3. **Every command is wired in two places** on the Rust side: an arm in [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) (or `dispatcher_async.rs` if it awaits) **and** a `#[tauri::command]` wrapper in the desktop crate registered in its `invoke_handler`. The `_internal` fn in core is shared.
-4. **Export must render maps in *both* modes.** The UI that *creates* a map is web-only, but desktop and web share one database (multi-PC support), so a desktop user exports trips whose maps were saved from web. Wiring only the server export path is a bug.
+3. **These four commands are dispatcher-only — no Tauri wrappers.** A command in this codebase normally needs two wirings: an arm in [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) (or `dispatcher_async.rs` if it awaits) **and** a `#[tauri::command]` wrapper registered in the desktop crate's `invoke_handler`. Not here. The only caller of `generate_route` / `get_trip_route` / `save_trip_route` / `delete_trip_route` is `/mapa`, which is gated off on desktop ([01-task.md](./01-task.md), web-first), so desktop wrappers would be dead code. **Add no files to the desktop crate in Task 8.** They get added in V2, when the desktop UI is unhidden.
+4. **Export is the exception, and it is not a command.** Desktop and web share one database (multi-PC support), so a desktop user exports trips whose maps were created on web — the attachments must render there too. That happens through `collect_route_map_pages`, an internal function called inside the *existing* `export_html` command from both export paths (Task 14). No new command, no new wrapper — but skipping the desktop side is a bug.
 
 **Indentation is not uniform.** Tabs in `.svelte`, `src/lib/api.ts` and `src/lib/i18n/`; 4 spaces in `src/lib/stores/capabilities.ts`; 2 spaces in `src/lib/api-adapter.ts`. Match the file you are editing.
 
@@ -742,7 +742,7 @@ git commit -m "feat(route-map): add OSRM route provider behind a trait"
 - Create: `src-tauri/core/src/commands_internal/route_maps_tests.rs`
 - Modify: [src-tauri/core/src/commands_internal/mod.rs](../../src-tauri/core/src/commands_internal/mod.rs)
 - Modify: [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs), [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
-- Modify: desktop [src-tauri/desktop/src/commands/](../../src-tauri/desktop/src/commands/) + its `invoke_handler`
+- **Not modified:** the desktop crate — see "Read before starting" point 3
 
 **Step 1: Write the failing tests**
 
@@ -822,16 +822,15 @@ Both write commands start with `check_read_only!(app_state);`.
 Register the module in [commands_internal/mod.rs](../../src-tauri/core/src/commands_internal/mod.rs) with the `pub mod` + `pub use` pair, then wire:
 - `generate_route` → **`dispatcher_async.rs`** (it awaits OSRM)
 - `get_trip_route`, `save_trip_route`, `delete_trip_route` → **`dispatcher.rs`**
-- all four → `#[tauri::command]` wrappers in the desktop crate + `invoke_handler`
 
-Desktop wrappers are needed even though the UI is web-gated: they keep the two dispatch paths at parity and cost four thin functions.
+That is the whole wiring. **No `#[tauri::command]` wrappers**, no `invoke_handler` change, no desktop-crate files — the only caller is web-gated, so wrappers would be dead code. V2 adds them alongside the desktop UI.
 
 **Step 4: Run the tests to confirm they pass.**
 
 **Step 5: Commit**
 
 ```bash
-git add src-tauri/core/src/commands_internal/ src-tauri/core/src/server/ src-tauri/desktop/src/
+git add src-tauri/core/src/commands_internal/ src-tauri/core/src/server/
 git commit -m "feat(route-map): add generate/get/save/delete route commands"
 ```
 
@@ -847,7 +846,7 @@ git commit -m "feat(route-map): add generate/get/save/delete route commands"
 
 **Step 2:** In `capabilities.ts` add `routeMaps: boolean` to the `features` interface, `routeMaps: false` to `defaultDesktop`, and `routeMaps: data.features.route_maps` to the server branch.
 
-Desktop defaults to `false` — that is the web-first gate from [01-task.md](./01-task.md). Enabling desktop later means flipping this one value and adding the overlay wrapper.
+Desktop defaults to `false` — that is the web-first gate from [01-task.md](./01-task.md). It is also what makes the missing Tauri wrappers safe: with this `false`, nothing on desktop can invoke a route-map command, so there is no path to a "command not found" error. Enabling desktop in V2 means flipping this value **and** adding the wrappers together — one without the other breaks.
 
 **Step 3: Verify**
 
@@ -1519,5 +1518,5 @@ Recorded here so nobody implements them by accident:
 
 - Manual waypoint editing (drag, insert, remove) in the map view.
 - Honouring a row's origin and destination — start ≠ end routes, geocoding free-text place names.
-- Desktop UI: flip `routeMaps` to `true` in `defaultDesktop` and wrap `/mapa` in a full-screen overlay. The backend already supports it.
+- Desktop UI: add `#[tauri::command]` wrappers for the four route-map commands and register them in the desktop `invoke_handler`, flip `routeMaps` to `true` in `defaultDesktop`, and wrap `/mapa` in a full-screen overlay. Only the wrappers are new code — core already holds every `_internal` fn they would call, and desktop export already renders attachments (Task 14).
 - Multi-session split for trips longer than the dataset can reach.
