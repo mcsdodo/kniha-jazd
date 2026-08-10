@@ -120,10 +120,24 @@ diesel::table! {
     }
 }
 
+// Added via migration 2026-08-10-100000_add_trip_routes (Task 70)
+diesel::table! {
+    trip_routes (trip_id) {
+        trip_id -> Text,
+        waypoints -> Text,
+        polyline -> Text,
+        target_km -> Double,
+        road_km -> Double,
+        dataset_version -> Nullable<Text>,
+        created_at -> Text,
+    }
+}
+
 diesel::joinable!(receipts -> trips (trip_id));
 diesel::joinable!(receipts -> vehicles (vehicle_id));
 diesel::joinable!(routes -> vehicles (vehicle_id));
 diesel::joinable!(trips -> vehicles (vehicle_id));
 diesel::joinable!(paperless_trip_links -> trips (trip_id));
+diesel::joinable!(trip_routes -> trips (trip_id));
 
-diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, receipts, routes, settings, trips, vehicles,);
+diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, receipts, routes, settings, trip_routes, trips, vehicles,);

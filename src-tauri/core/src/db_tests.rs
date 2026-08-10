@@ -864,3 +864,16 @@ fn test_get_trips_for_vehicle_returns_chronological_order() {
         "oldest last"
     );
 }
+
+// ============================================================================
+// Route maps (Task 70)
+// ============================================================================
+
+#[test]
+fn trip_routes_table_exists_after_migration() {
+    let db = Database::in_memory().expect("Failed to create database");
+    let conn = &mut *db.connection();
+    diesel::sql_query("SELECT trip_id, waypoints, polyline, target_km, road_km, dataset_version, created_at FROM trip_routes")
+        .execute(conn)
+        .expect("trip_routes table must exist");
+}
