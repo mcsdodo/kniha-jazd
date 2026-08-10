@@ -39,7 +39,7 @@ fn route_lands_within_tolerance_across_targets() {
         let r = generate_route(*target, &ds, &mut seeded(100 + i as u64));
         let err = ((r.total_km - target) / target).abs();
         assert!(
-            err <= 0.05,
+            err <= TOLERANCE,
             "target {target}: got {} ({:.1}% off)",
             r.total_km,
             err * 100.0

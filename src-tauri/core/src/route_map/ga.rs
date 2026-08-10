@@ -15,6 +15,16 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::route_map::Dataset;
 
+/// How far a generated route may fall from its target distance before it is
+/// worth telling the user about, as a fraction.
+///
+/// The single home for this number. It is applied to the *road* distance the
+/// finished route actually covers, which is what the user compares against the
+/// trip's recorded kilometres — not to the matrix distance the algorithm
+/// optimises internally. Keeping one constant stops the display and the tests
+/// drifting onto two different measurements of "close enough".
+pub const TOLERANCE: f64 = 0.05;
+
 /// Home base node index; every route starts and ends here.
 const HOME: usize = 0;
 /// Chromosomes per generation.

@@ -4,10 +4,13 @@ pub mod dataset;
 pub mod ga;
 pub mod osrm;
 pub mod polyline;
+pub mod render;
 pub mod tiles;
 
 pub use dataset::Dataset;
-pub use ga::{generate_route, generate_route_random, RouteResult, RouteRng, ThreadRouteRng};
+pub use ga::{
+    generate_route, generate_route_random, RouteResult, RouteRng, ThreadRouteRng, TOLERANCE,
+};
 pub use osrm::{FetchedRoute, HttpRouteProvider, RouteProvider};
 
 #[cfg(test)]
@@ -29,3 +32,7 @@ mod polyline_tests;
 #[cfg(test)]
 #[path = "tiles_tests.rs"]
 mod tiles_tests;
+
+#[cfg(test)]
+#[path = "render_tests.rs"]
+mod render_tests;
