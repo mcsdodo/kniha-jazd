@@ -1,3 +1,7 @@
+**Date:** 2026-08-08
+**Subject:** Settings UI must show which values come from environment variables
+**Status:** Complete
+
 # Design — Env-managed settings in the Settings UI
 
 Goals and background: [01-task.md](./01-task.md).

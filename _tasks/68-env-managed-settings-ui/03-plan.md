@@ -1,3 +1,7 @@
+**Date:** 2026-08-08
+**Subject:** Settings UI must show which values come from environment variables
+**Status:** Complete
+
 # Plan — Env-managed settings in the Settings UI
 
 Task: [01-task.md](./01-task.md) · Design: [02-design.md](./02-design.md)

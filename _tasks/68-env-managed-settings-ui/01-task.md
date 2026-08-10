@@ -1,6 +1,6 @@
 **Date:** 2026-08-08
 **Subject:** Settings UI must show which values come from environment variables
-**Status:** Planning
+**Status:** Complete
 
 ## Background
 
