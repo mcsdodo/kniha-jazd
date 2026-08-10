@@ -515,6 +515,9 @@ export interface RouteMap {
 	tripId: string;
 	waypoints: Waypoint[];
 	polyline: string;
+	/** Decoded [lat, lon] pairs. The backend decodes on the way out so the
+	 *  load path needs no JavaScript polyline decoder (ADR-008). */
+	coordinates: [number, number][];
 	targetKm: number;
 	roadKm: number;
 	datasetVersion: string | null;

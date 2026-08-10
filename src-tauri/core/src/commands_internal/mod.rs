@@ -42,6 +42,9 @@ pub use invoices::*;
 pub mod paperless_cmd;
 pub use paperless_cmd::*;
 
+pub mod route_maps;
+pub use route_maps::*;
+
 #[cfg(test)]
 #[path = "commands_tests.rs"]
 mod tests;

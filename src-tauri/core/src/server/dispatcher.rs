@@ -820,6 +820,60 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
+        // Route maps — sync (3)
+        // ====================================================================
+        //
+        // generate_route lives in dispatcher_async — it awaits OSRM.
+        "get_trip_route" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_trip_route_internal(&state.db, a.trip_id)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "save_trip_route" => {
+            // datasetVersion and createdAt are deliberately absent: the backend
+            // stamps both, so a client cannot misreport what it used.
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                waypoints: Vec<crate::models::Waypoint>,
+                polyline: String,
+                target_km: f64,
+                road_km: f64,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::save_trip_route_internal(
+                &state.db,
+                &state.app_state,
+                a.trip_id,
+                a.waypoints,
+                a.polyline,
+                a.target_km,
+                a.road_km,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+        "delete_trip_route" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::delete_trip_route_internal(
+                &state.db,
+                &state.app_state,
+                a.trip_id,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+
+        // ====================================================================
         // Unknown
         // ====================================================================
         _ => Err(format!("Unknown command: {command}")),
@@ -1001,6 +1055,52 @@ mod tests {
         let vehicles = dispatch_sync("get_vehicles", json!({}), &state).unwrap();
         assert_eq!(vehicles.as_array().unwrap().len(), 1);
         assert_eq!(vehicles[0]["name"], "Original");
+    }
+
+    /// The argument names are a contract with `src/lib/api.ts`: a mismatch
+    /// compiles cleanly in both languages and only shows up at runtime. The
+    /// payloads below are exactly what `api.ts` sends.
+    #[test]
+    fn route_map_commands_round_trip_with_frontend_argument_names() {
+        let state = test_state();
+        let vehicle =
+            crate::models::Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+        state.db.create_vehicle(&vehicle).unwrap();
+        let mut trip = crate::models::Trip::test_ice_trip(
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            120.0,
+            None,
+            true,
+        );
+        trip.vehicle_id = vehicle.id;
+        state.db.create_trip(&trip).unwrap();
+        let trip_id = trip.id.to_string();
+
+        dispatch_sync(
+            "save_trip_route",
+            json!({
+                "tripId": trip_id,
+                "waypoints": [{ "lat": 48.935, "lon": 20.553, "name": "Domov", "nodeIdx": 0 }],
+                "polyline": "_p~iF~ps|U",
+                "targetKm": 120.0,
+                "roadKm": 118.4,
+            }),
+            &state,
+        )
+        .unwrap();
+
+        let loaded = dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state).unwrap();
+        assert_eq!(loaded["tripId"], trip_id);
+        assert_eq!(loaded["roadKm"], 118.4);
+        assert!(
+            !loaded["coordinates"].as_array().unwrap().is_empty(),
+            "the map must arrive decoded and ready to draw: {loaded}"
+        );
+
+        dispatch_sync("delete_trip_route", json!({ "tripId": trip_id }), &state).unwrap();
+        assert!(dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state)
+            .unwrap()
+            .is_null());
     }
 
     #[test]

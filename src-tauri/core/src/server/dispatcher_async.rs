@@ -216,6 +216,27 @@ pub async fn dispatch_async(
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 
+        // ====================================================================
+        // Route maps — async (1, OSRM geometry fetch)
+        // ====================================================================
+        //
+        // The other three route map commands are sync and live in dispatcher.rs.
+        "generate_route" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                target_km: f64,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let provider = crate::route_map::HttpRouteProvider::public();
+            let result =
+                crate::commands_internal::generate_route_internal(&provider, a.target_km).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+
         // Not an async command — let the caller fall through to sync dispatch.
         _ => None,
     }
@@ -284,6 +305,25 @@ mod tests {
         assert_eq!(body["entity_id"], "input_text.kniha_jazd_fillup");
         // No trips seeded → no open period → "full tank"
         assert_eq!(body["value"], "Plná nádrž");
+    }
+
+    /// generate_route must be routed here (it awaits OSRM) and must take
+    /// `targetKm`, the name `src/lib/api.ts` sends. Bad args fail during
+    /// parsing, so this pins both without touching the network.
+    #[tokio::test]
+    async fn generate_route_is_an_async_command_taking_target_km() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let result = dispatch_async("generate_route", json!({}), &state).await;
+        let err = result
+            .expect("generate_route must be handled here, not by dispatch_sync")
+            .unwrap_err();
+        assert!(err.contains("targetKm"), "got: {err}");
     }
 
     /// A vehicle without the helper configured must not generate HA traffic.

@@ -782,7 +782,10 @@ pub async fn generate_route_internal(
     target_km: f64,
 ) -> Result<GeneratedRoute, String>;
 
-pub fn get_trip_route_internal(db: &Database, trip_id: String) -> Result<Option<RouteMap>, String>;
+// Returns SavedRouteMap, NOT RouteMap: a saved map is loaded in order to be
+// drawn, so the coordinates are decoded server-side. Returning only the encoded
+// polyline would force a JS decoder into the frontend, which ADR-008 forbids.
+pub fn get_trip_route_internal(db: &Database, trip_id: String) -> Result<Option<SavedRouteMap>, String>;
 
 pub fn save_trip_route_internal(
     db: &Database,
