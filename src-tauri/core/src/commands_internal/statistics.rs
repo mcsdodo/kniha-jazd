@@ -420,6 +420,7 @@ pub fn build_trip_grid_data(
                 &HashMap::new(),
                 &HashMap::new(), // No trips = no trip numbers
             ),
+            route_map_trip_ids: HashSet::new(),
         });
     }
 
@@ -554,6 +555,16 @@ pub fn build_trip_grid_data(
     let trip_numbers = calculate_trip_numbers(&trips);
     let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
 
+    // Which rows already have a saved route map (Task 70). One batched query
+    // rather than a lookup per row: the grid reloads on every edit, and a
+    // per-trip request would mean a year's worth of round trips each time.
+    let trip_id_strings: Vec<String> = trips.iter().map(|t| t.id.to_string()).collect();
+    let route_map_trip_ids: HashSet<String> = db
+        .get_route_maps_for_trips(&trip_id_strings)
+        .map_err(|e| e.to_string())?
+        .into_keys()
+        .collect();
+
     // Generate month-end rows using already-calculated fuel_remaining and trip_numbers
     let month_end_rows = generate_month_end_rows(
         &chronological,
@@ -591,6 +602,7 @@ pub fn build_trip_grid_data(
         trip_numbers,
         odometer_start,
         month_end_rows,
+        route_map_trip_ids,
     })
 }
 

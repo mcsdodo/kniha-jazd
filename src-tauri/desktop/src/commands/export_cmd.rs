@@ -11,15 +11,18 @@ use chrono::Utc;
 use tauri::State;
 use uuid::Uuid;
 
-use kniha_jazd_core::commands_internal::{export_cmd as inner, statistics};
+use kniha_jazd_core::commands_internal::{export_cmd as inner, route_maps, statistics};
 use kniha_jazd_core::db::Database;
 use kniha_jazd_core::export::{generate_html, ExportData, ExportLabels, ExportTotals};
 use kniha_jazd_core::models::Trip;
+use kniha_jazd_core::route_map::tiles::CachedTileFetcher;
+
+use super::get_app_data_dir;
 
 /// Export trips to browser - generates HTML and opens in default browser.
 #[tauri::command]
 pub async fn export_to_browser(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     db: State<'_, Arc<Database>>,
     vehicle_id: String,
     year: i32,
@@ -78,6 +81,16 @@ pub async fn export_to_browser(
     let totals =
         ExportTotals::calculate(&grid_data.trips, tp_consumption, baseline_consumption_kwh);
 
+    // Assembled AFTER the synthetic first record is in place and with the sort
+    // direction the table is actually printed in, so the record numbers cited
+    // by the attachments are the ones on the page. `assemble_export_rows` reads
+    // them from the same source the table prints, which is what keeps this
+    // export and the server-mode one pointing at the same journey.
+    let rows = route_maps::assemble_export_rows(&grid_data, &sort_direction);
+    let app_data_dir = get_app_data_dir(&app)?;
+    let tiles = CachedTileFetcher::osm(route_maps::tile_cache_dir(&app_data_dir));
+    let map_pages = route_maps::collect_route_map_pages(&db, &tiles, &rows).await;
+
     let export_data = ExportData {
         vehicle,
         settings,
@@ -87,8 +100,7 @@ pub async fn export_to_browser(
         labels,
         hidden_columns,
         sort_direction,
-        // Populated in Task 14, which renders the maps from the assembled rows.
-        route_maps: Vec::new(),
+        route_maps: map_pages,
     };
 
     let html = generate_html(export_data)?;
@@ -106,10 +118,12 @@ pub async fn export_to_browser(
 
 #[tauri::command]
 pub async fn export_html(
+    app: tauri::AppHandle,
     db: State<'_, Arc<Database>>,
     vehicle_id: String,
     year: i32,
     labels: ExportLabels,
 ) -> Result<String, String> {
-    inner::export_html_internal(&db, vehicle_id, year, labels).await
+    let app_data_dir = get_app_data_dir(&app)?;
+    inner::export_html_internal(&db, &app_data_dir, vehicle_id, year, labels).await
 }

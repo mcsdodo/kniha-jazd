@@ -208,6 +208,7 @@ pub async fn dispatch_async(
             };
             let result = crate::commands_internal::export_html_internal(
                 &state.db,
+                &state.app_dir,
                 a.vehicle_id,
                 a.year,
                 a.labels,

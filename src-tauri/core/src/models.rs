@@ -439,6 +439,12 @@ pub struct TripGridData {
     pub odometer_start: HashMap<String, f64>,
     /// Synthetic rows for month-end state display
     pub month_end_rows: Vec<MonthEndRow>,
+
+    // Route maps (Task 70)
+    /// Trip IDs that already have a saved route map, so the grid can mark those
+    /// rows. Rides along with the grid data rather than being its own command:
+    /// per-row lookups would be one request per trip on every grid load.
+    pub route_map_trip_ids: HashSet<String>,
 }
 
 /// Synthetic row for month-end state display (legal requirement)

@@ -116,6 +116,7 @@ fn empty_grid_data(trips: Vec<Trip>) -> TripGridData {
         trip_numbers: HashMap::new(),
         odometer_start: HashMap::new(),
         month_end_rows: vec![],
+        route_map_trip_ids: HashSet::new(),
     }
 }
 
