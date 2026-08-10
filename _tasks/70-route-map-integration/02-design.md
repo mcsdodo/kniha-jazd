@@ -100,6 +100,12 @@ Nothing bulky, and nothing that a backup or a database move has to carry.
 | rendered PNG | no | ~200 KB × N would grow the DB ~10 MB/year, bloat backups, and force [Task 32](../32-portable-csv-backup/) to base64 a binary column |
 | OSM tiles | no | disposable cache |
 
+> **As built:** only tiles are cached. The attachment PNG is rasterised at
+> export time and base64'd straight into the HTML — no route-hash PNG cache was
+> implemented, so a repeat export re-stitches from cached tiles rather than
+> being instant. The disposability argument below is unaffected, and in fact
+> strengthened: less is written to disk, not more.
+
 Rendered PNGs and fetched tiles live in an app-data **cache** directory keyed by
 route hash. Deleting it costs a re-fetch and nothing else, so
 [Move Database](../../docs/features/move-database.md), the backups folder and

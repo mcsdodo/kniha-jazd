@@ -4,6 +4,47 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-08-10: Route Map Integration
+
+### ADR-028: Only the Polyline Is Persisted; Tiles Live in a Disposable Cache
+
+**Context:** [Task 70](./_tasks/70-route-map-integration/) generates a plausible driving route for a trip, draws it in the app, and rasterises it into the printed export as an attachment page. Three artefacts fall out of that pipeline and each could plausibly be stored: the chosen route (waypoints + the OSRM polyline), the OSM raster tiles the printed image is composited from, and the finished PNG itself. Storing all three is the obvious reading of "save the map" — and it is the expensive one. A rendered attachment is several hundred KB; a year of them would grow the database by roughly 10 MB, land in every automatic backup, and force [Task 32](./_tasks/32-portable-csv-backup/)'s portable CSV backup to base64 a binary column that no other table needs.
+
+**Decision:** The database stores **only what cannot be recomputed**: the waypoints, the encoded polyline OSRM returned, the target and road distances, the dataset version and a timestamp — a few KB per trip, in a `trip_routes` table ([migration](./src-tauri/core/migrations/2026-08-10-100000_add_trip_routes/)).
+
+1. **No image is persisted anywhere.** The attachment PNG is rasterised at export time and base64-embedded into the HTML document; nothing writes it to disk ([render.rs](./src-tauri/core/src/route_map/render.rs)).
+2. **OSM tiles are cached**, in a cache subdirectory of the app data dir (`tile_cache_dir` in [route_maps.rs](./src-tauri/core/src/commands_internal/route_maps.rs)) — a directory deliberately separate from the database and the backups folder, so that deleting it is always safe.
+3. **The bounding box and the GA seed are not stored either.** The box is derived from the polyline in microseconds; the seed has nothing to replay, because "regenerate" means *a fresh random route*, not the same one again.
+
+**Reasoning:** Cache loss must cost a re-fetch and nothing else, and that property is what keeps the rest of the app untouched by this feature. [Move Database](./docs/features/move-database.md) moves the database and its backups folder; the tile cache stays behind and simply refills. Backups need no new format. The portable CSV backup stays textual. Had the PNG been a column, every one of those would have needed a decision.
+
+**Two guards keep cache loss cheap rather than lossy** ([tiles.rs](./src-tauri/core/src/route_map/tiles.rs)):
+
+- **Failures are never cached.** A non-2xx response and an empty body both return an error *before* anything is written. Caching an error page or zero bytes poisons that tile for every future export, and the only cure is finding and deleting a directory the user does not know exists.
+- **Tiles are written to a temp file and renamed.** A crash or a full disk mid-write leaves either the whole tile or nothing — never a truncated PNG that is then served from cache indefinitely.
+
+**Trade-offs accepted:** A cold cache makes the first export slower, and OSM's tile usage policy caps concurrency at two connections, so that cost is real. It is bounded in practice: every route starts at the same home base, so successive maps overlap heavily at the zoom levels involved. Regenerating a saved map is also impossible by design — the polyline *is* the saved result, and a user who wants a different route generates and saves a new one.
+
+**Related:** [Task 70](./_tasks/70-route-map-integration/) — [01-task.md](./_tasks/70-route-map-integration/01-task.md), [02-design.md](./_tasks/70-route-map-integration/02-design.md); [ADR-029](#adr-029-waypoints-persist-as-coordinates-not-dataset-indices); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+---
+
+### ADR-029: Waypoints Persist as Coordinates, Not Dataset Indices
+
+**Context:** Routes are assembled by a genetic algorithm choosing settlements from a bundled 67-node Slovak dataset ([Task 61](./_tasks/61-route-map-poc/)). Inside that algorithm a route *is* a list of indices into the dataset — that is the whole representation, and the [POC](./_tasks/61-route-map-poc/02-design.md) persisted nothing else. Storing indices is smaller, self-validating, and reads naturally. It is also a shape that cannot express a point which is not in the dataset.
+
+**Decision:** A waypoint persists as `{ lat, lon, name?, node_idx? }` ([models.rs](./src-tauri/core/src/models.rs)). The **coordinates are the identity**; `node_idx` is optional provenance recording that the generator picked this point out of the dataset, and is absent for any point that did not come from there.
+
+**Reasoning:** V1 has exactly one route producer, but the planned V2 editor adds a second: a user dragging a point onto a road that is not one of the 67 nodes. An index-only column cannot represent that waypoint at all, so V2 would have to migrate every stored route — rewriting rows whose original meaning ("node 14") is only recoverable by consulting the same dataset version that wrote them. Paying two floats per waypoint now avoids a migration that gets harder the more routes exist. Storing coordinates also decouples saved routes from the dataset: regenerating the node set (or changing the home base) cannot silently re-point an existing map at a different village.
+
+**Consequence — `node_idx` must never be defaulted.** `0` is a valid index: it is the home base, the node every route begins and ends at. A `#[serde(default)]`, an `unwrap_or(0)`, or a `NOT NULL DEFAULT 0` column would turn "a human placed this point" into "this point is home". It is `Option<i32>`, and is omitted from the stored JSON entirely when absent — never written as a zero.
+
+**Trade-offs accepted:** The stored waypoint list can drift from the dataset — a node renamed or moved in a future dataset version leaves old routes carrying the old name and coordinates. That is the correct behaviour for a logbook: a saved map is evidence of what was recorded, not a live query. `dataset_version` records which node set produced the route, and is nullable so that a V2 route containing hand-placed points can record that it corresponds to no single dataset version.
+
+**Related:** [Task 70](./_tasks/70-route-map-integration/) — [02-design.md](./_tasks/70-route-map-integration/02-design.md); [ADR-028](#adr-028-only-the-polyline-is-persisted-tiles-live-in-a-disposable-cache); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+---
+
 ## 2026-08-10: PIN-Gated Secret Reveal
 
 ### ADR-027: Secrets Leave the Backend Only Through a Throttled, PIN-Gated Command

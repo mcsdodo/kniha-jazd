@@ -257,6 +257,11 @@ npm run test:backend     # Rust unit tests (195 tests)
 npm run test:integration # E2E tests (needs debug build)
 npm run test:all         # All tests
 
+# i18n — REQUIRED after editing src/lib/i18n/{sk,en}/index.ts.
+# Nothing else regenerates i18n-types.ts (the generator otherwise only runs in
+# vite dev watch mode), so `npm run check` reports phantom errors until this runs.
+npm run i18n
+
 # Linting (NOT in agent instructions - use tools)
 npm run lint && npm run format
 ```
