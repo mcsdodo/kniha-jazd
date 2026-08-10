@@ -172,7 +172,9 @@
 				footer_total_energy: $LL.export.footerTotalEnergy(),
 				footer_avg_energy_rate: $LL.export.footerAvgEnergyRate(),
 				footer_baseline_norm: $LL.export.footerBaselineNorm(),
-				print_hint: $LL.export.printHint()
+				print_hint: $LL.export.printHint(),
+				attachment_heading: $LL.export.attachmentHeading(),
+				record_reference: $LL.export.recordReference()
 			};
 
 			if ($capabilities.features.openExternal) {

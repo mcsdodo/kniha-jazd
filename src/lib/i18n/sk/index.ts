@@ -561,6 +561,26 @@ const sk = {
 		errorSetApiKeyOnlyFirst: 'Najprv nastavte API kľúč v Nastaveniach',
 	},
 
+	// Route map
+	routeMap: {
+		addMap: 'Pridať mapu trasy',
+		viewMap: 'Zobraziť mapu trasy',
+		title: 'Mapa trasy',
+		regenerate: 'Generovať znova',
+		save: 'Uložiť mapu',
+		remove: 'Odstrániť mapu',
+		generating: 'Generujem trasu...',
+		saved: 'Mapa trasy uložená',
+		removed: 'Mapa trasy odstránená',
+		targetKm: 'Cieľová vzdialenosť',
+		actualKm: 'Skutočná vzdialenosť',
+		deviation: 'Odchýlka',
+		stops: 'Zastávky',
+		error: 'Trasu sa nepodarilo vygenerovať',
+		retry: 'Skúsiť znova',
+		confirmRemove: 'Naozaj odstrániť mapu trasy?',
+	},
+
 	// PDF export labels (passed to Rust)
 	export: {
 		// Page title
@@ -616,6 +636,12 @@ const sk = {
 		footerBaselineNorm: 'Základ. norma',
 		// Print hint
 		printHint: 'Pre export do PDF použite Ctrl+P → Uložiť ako PDF',
+		// Route map attachment pages. Plain prefixes, NOT '{n}' templates: braces
+		// are typesafe-i18n's own interpolation syntax (with no escape in v5), so
+		// a templated label would generate as (arg) => LocalizedString and eat the
+		// placeholder before Rust saw it. Rust appends the number itself.
+		attachmentHeading: 'Príloha č.',
+		recordReference: 'záznam č.',
 	},
 
 	// Home Assistant section

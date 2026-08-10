@@ -1853,6 +1853,72 @@ type RootTranslation = {
 		 */
 		errorSetApiKeyOnlyFirst: string
 	}
+	routeMap: {
+		/**
+		 * P​r​i​d​a​ť​ ​m​a​p​u​ ​t​r​a​s​y
+		 */
+		addMap: string
+		/**
+		 * Z​o​b​r​a​z​i​ť​ ​m​a​p​u​ ​t​r​a​s​y
+		 */
+		viewMap: string
+		/**
+		 * M​a​p​a​ ​t​r​a​s​y
+		 */
+		title: string
+		/**
+		 * G​e​n​e​r​o​v​a​ť​ ​z​n​o​v​a
+		 */
+		regenerate: string
+		/**
+		 * U​l​o​ž​i​ť​ ​m​a​p​u
+		 */
+		save: string
+		/**
+		 * O​d​s​t​r​á​n​i​ť​ ​m​a​p​u
+		 */
+		remove: string
+		/**
+		 * G​e​n​e​r​u​j​e​m​ ​t​r​a​s​u​.​.​.
+		 */
+		generating: string
+		/**
+		 * M​a​p​a​ ​t​r​a​s​y​ ​u​l​o​ž​e​n​á
+		 */
+		saved: string
+		/**
+		 * M​a​p​a​ ​t​r​a​s​y​ ​o​d​s​t​r​á​n​e​n​á
+		 */
+		removed: string
+		/**
+		 * C​i​e​ľ​o​v​á​ ​v​z​d​i​a​l​e​n​o​s​ť
+		 */
+		targetKm: string
+		/**
+		 * S​k​u​t​o​č​n​á​ ​v​z​d​i​a​l​e​n​o​s​ť
+		 */
+		actualKm: string
+		/**
+		 * O​d​c​h​ý​l​k​a
+		 */
+		deviation: string
+		/**
+		 * Z​a​s​t​á​v​k​y
+		 */
+		stops: string
+		/**
+		 * T​r​a​s​u​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​v​y​g​e​n​e​r​o​v​a​ť
+		 */
+		error: string
+		/**
+		 * S​k​ú​s​i​ť​ ​z​n​o​v​a
+		 */
+		retry: string
+		/**
+		 * N​a​o​z​a​j​ ​o​d​s​t​r​á​n​i​ť​ ​m​a​p​u​ ​t​r​a​s​y​?
+		 */
+		confirmRemove: string
+	}
 	'export': {
 		/**
 		 * K​N​I​H​A​ ​J​Á​Z​D
@@ -2030,6 +2096,14 @@ type RootTranslation = {
 		 * P​r​e​ ​e​x​p​o​r​t​ ​d​o​ ​P​D​F​ ​p​o​u​ž​i​t​e​ ​C​t​r​l​+​P​ ​→​ ​U​l​o​ž​i​ť​ ​a​k​o​ ​P​D​F
 		 */
 		printHint: string
+		/**
+		 * P​r​í​l​o​h​a​ ​č​.
+		 */
+		attachmentHeading: string
+		/**
+		 * z​á​z​n​a​m​ ​č​.
+		 */
+		recordReference: string
 	}
 	homeAssistant: {
 		/**
@@ -4218,6 +4292,72 @@ export type TranslationFunctions = {
 		 */
 		errorSetApiKeyOnlyFirst: () => LocalizedString
 	}
+	routeMap: {
+		/**
+		 * Pridať mapu trasy
+		 */
+		addMap: () => LocalizedString
+		/**
+		 * Zobraziť mapu trasy
+		 */
+		viewMap: () => LocalizedString
+		/**
+		 * Mapa trasy
+		 */
+		title: () => LocalizedString
+		/**
+		 * Generovať znova
+		 */
+		regenerate: () => LocalizedString
+		/**
+		 * Uložiť mapu
+		 */
+		save: () => LocalizedString
+		/**
+		 * Odstrániť mapu
+		 */
+		remove: () => LocalizedString
+		/**
+		 * Generujem trasu...
+		 */
+		generating: () => LocalizedString
+		/**
+		 * Mapa trasy uložená
+		 */
+		saved: () => LocalizedString
+		/**
+		 * Mapa trasy odstránená
+		 */
+		removed: () => LocalizedString
+		/**
+		 * Cieľová vzdialenosť
+		 */
+		targetKm: () => LocalizedString
+		/**
+		 * Skutočná vzdialenosť
+		 */
+		actualKm: () => LocalizedString
+		/**
+		 * Odchýlka
+		 */
+		deviation: () => LocalizedString
+		/**
+		 * Zastávky
+		 */
+		stops: () => LocalizedString
+		/**
+		 * Trasu sa nepodarilo vygenerovať
+		 */
+		error: () => LocalizedString
+		/**
+		 * Skúsiť znova
+		 */
+		retry: () => LocalizedString
+		/**
+		 * Naozaj odstrániť mapu trasy?
+		 */
+		confirmRemove: () => LocalizedString
+	}
 	'export': {
 		/**
 		 * KNIHA JÁZD
@@ -4395,6 +4535,14 @@ export type TranslationFunctions = {
 		 * Pre export do PDF použite Ctrl+P → Uložiť ako PDF
 		 */
 		printHint: () => LocalizedString
+		/**
+		 * Príloha č.
+		 */
+		attachmentHeading: () => LocalizedString
+		/**
+		 * záznam č.
+		 */
+		recordReference: () => LocalizedString
 	}
 	homeAssistant: {
 		/**

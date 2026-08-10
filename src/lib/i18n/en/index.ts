@@ -561,6 +561,26 @@ const en = {
 		errorSetApiKeyOnlyFirst: 'Set API key in Settings first',
 	},
 
+	// Route map
+	routeMap: {
+		addMap: 'Add route map',
+		viewMap: 'View route map',
+		title: 'Route map',
+		regenerate: 'Regenerate',
+		save: 'Save map',
+		remove: 'Remove map',
+		generating: 'Generating route...',
+		saved: 'Route map saved',
+		removed: 'Route map removed',
+		targetKm: 'Target distance',
+		actualKm: 'Actual distance',
+		deviation: 'Deviation',
+		stops: 'Stops',
+		error: 'Could not generate the route',
+		retry: 'Retry',
+		confirmRemove: 'Remove this route map?',
+	},
+
 	// PDF export labels (passed to Rust)
 	export: {
 		// Page title
@@ -616,6 +636,12 @@ const en = {
 		footerBaselineNorm: 'Baseline norm',
 		// Print hint
 		printHint: 'To export to PDF use Ctrl+P → Save as PDF',
+		// Route map attachment pages. Plain prefixes, NOT '{n}' templates: braces
+		// are typesafe-i18n's own interpolation syntax (with no escape in v5), so
+		// a templated label would generate as (arg) => LocalizedString and eat the
+		// placeholder before Rust saw it. Rust appends the number itself.
+		attachmentHeading: 'Attachment no.',
+		recordReference: 'record no.',
 	},
 
 	// Home Assistant section

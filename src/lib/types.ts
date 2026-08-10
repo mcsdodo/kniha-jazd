@@ -384,6 +384,8 @@ export interface ExportLabels {
 	footer_baseline_norm: string;
 	// Print hint
 	print_hint: string;
+	attachment_heading: string;
+	record_reference: string;
 }
 
 /**
@@ -476,4 +478,45 @@ export interface InvoiceData {
 	totalPriceEur: number | null;
 	title: string;
 	assignmentType: 'Fuel' | 'Other';
+}
+
+// Route map types (Task 70)
+
+/**
+ * A single point on a generated route.
+ *
+ * `nodeIdx` is provenance, not identity: present when the generator picked the
+ * point from the bundled settlement dataset, absent when a human placed it.
+ * Never default it — 0 is a valid index (the home base).
+ */
+export interface Waypoint {
+	lat: number;
+	lon: number;
+	name?: string;
+	nodeIdx?: number;
+}
+
+/** Freshly generated route, not yet persisted to a trip. */
+export interface GeneratedRoute {
+	waypoints: Waypoint[];
+	polyline: string;
+	/** Decoded [lat, lon] pairs, fed straight to Leaflet (no frontend decoder needed). */
+	coordinates: [number, number][];
+	targetKm: number;
+	roadKm: number;
+	datasetVersion: string;
+}
+
+/**
+ * Route map persisted against a trip. Unrelated to `Route` above, which is the
+ * origin/destination autocomplete entity.
+ */
+export interface RouteMap {
+	tripId: string;
+	waypoints: Waypoint[];
+	polyline: string;
+	targetKm: number;
+	roadKm: number;
+	datasetVersion: string | null;
+	createdAt: string;
 }

@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -583,4 +583,30 @@ export async function assignInvoiceToTrip(
 
 export async function unassignInvoice(invoiceRef: InvoiceRef): Promise<void> {
 	return await apiCall('unassign_invoice', { invoiceRef });
+}
+
+// Route map commands (Task 70)
+export async function generateRoute(targetKm: number): Promise<GeneratedRoute> {
+	return await apiCall('generate_route', { targetKm });
+}
+
+export async function getTripRoute(tripId: string): Promise<RouteMap | null> {
+	return await apiCall('get_trip_route', { tripId });
+}
+
+// coordinates and datasetVersion are intentionally not sent — the backend
+// re-derives both (polyline decode + bundled dataset version). Adding them
+// here would be silently ignored: serde drops unknown fields by default.
+export async function saveTripRoute(tripId: string, route: GeneratedRoute): Promise<void> {
+	return await apiCall('save_trip_route', {
+		tripId,
+		waypoints: route.waypoints,
+		polyline: route.polyline,
+		targetKm: route.targetKm,
+		roadKm: route.roadKm,
+	});
+}
+
+export async function deleteTripRoute(tripId: string): Promise<void> {
+	return await apiCall('delete_trip_route', { tripId });
 }
