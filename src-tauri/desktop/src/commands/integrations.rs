@@ -1,22 +1,19 @@
 //! Home Assistant integration Tauri command wrappers.
 //!
 //! All `_internal` implementations live in
-//! [`kniha_jazd_core::commands_internal::integrations`]. The fire-and-forget
-//! HA push helpers (`format_suggested_fillup_text`, `push_ha_input_text`) stay
-//! in this module because they're consumed only by other desktop wrappers
-//! (e.g. `commands::statistics::get_trip_grid_data`).
+//! [`kniha_jazd_core::commands_internal::integrations`], including the
+//! fire-and-forget HA push (`ha_fillup_push_payload`, `push_ha_input_text`) —
+//! the server's async dispatcher has to perform the identical push, so it
+//! cannot live here. Re-exported below via the glob `pub use`.
 
 pub use kniha_jazd_core::commands_internal::integrations::*;
 
 use kniha_jazd_core::app_state::AppState;
 use kniha_jazd_core::commands_internal::integrations as inner;
 use kniha_jazd_core::commands_internal::paperless_cmd as paperless_inner;
-use kniha_jazd_core::constants::mime_types;
 use kniha_jazd_core::db::Database;
 use kniha_jazd_core::models::PaperlessInvoiceRow;
 use kniha_jazd_core::paperless::CustomFieldInfo;
-use kniha_jazd_core::settings::LocalSettings;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::State;
 
@@ -66,60 +63,9 @@ pub fn save_ha_settings(
     inner::save_ha_settings_internal(&app_data_dir, &app_state, url, token)
 }
 
-// ============================================================================
-// Home Assistant Sensor Push (desktop-only — used by other desktop wrappers)
-// ============================================================================
-
-// format_suggested_fillup_text moved to core (called from commands_tests.rs).
-// Available via the `pub use kniha_jazd_core::commands_internal::integrations::*` above.
-
-/// Push a value to a Home Assistant `input_text` helper entity.
-/// Uses the `input_text/set_value` service call so the value persists across HA restarts.
-/// Fire-and-forget: logs errors but never fails the caller.
-pub async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String, value: String) {
-    let settings = LocalSettings::load_effective(&app_data_dir);
-
-    let url = match settings.ha_url {
-        Some(u) => u,
-        None => return,
-    };
-    let token = match settings.ha_api_token {
-        Some(t) => t,
-        None => return,
-    };
-
-    let api_url = format!(
-        "{}/api/services/input_text/set_value",
-        url.trim_end_matches('/')
-    );
-
-    let body = serde_json::json!({
-        "entity_id": entity_id,
-        "value": value
-    });
-
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            log::warn!("HA push: failed to build client: {}", e);
-            return;
-        }
-    };
-
-    if let Err(e) = client
-        .post(&api_url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", mime_types::JSON)
-        .json(&body)
-        .send()
-        .await
-    {
-        log::warn!("HA push to {}: {}", entity_id, e);
-    }
-}
+// Home Assistant sensor push (format_suggested_fillup_text, ha_fillup_push_payload,
+// push_ha_input_text) moved to core so the server shares it — available via the
+// `pub use kniha_jazd_core::commands_internal::integrations::*` above.
 
 // ============================================================================
 // Paperless-ngx Settings Commands

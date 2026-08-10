@@ -62,6 +62,48 @@ pub async fn dispatch_async(
         }
 
         // ====================================================================
+        // Statistics — async because of the fire-and-forget HA push
+        // ====================================================================
+        //
+        // Handled here rather than in dispatch_sync so the server performs the
+        // same suggested-fillup push as the Tauri wrapper. Keeping the push in
+        // only one of the two frontends is exactly how it silently stopped
+        // working when the server became the canonical deployment (ADR-024).
+        "get_trip_grid_data" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                year: i32,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let grid_data =
+                match crate::commands_internal::build_trip_grid_data(&state.db, &a.vehicle_id, a.year)
+                {
+                    Ok(g) => g,
+                    Err(e) => return Some(Err(e)),
+                };
+
+            if let Ok(Some(vehicle)) = state.db.get_vehicle(&a.vehicle_id) {
+                if let Some((entity_id, value)) =
+                    crate::commands_internal::integrations::ha_fillup_push_payload(
+                        &vehicle, &grid_data,
+                    )
+                {
+                    let app_dir = state.app_dir.clone();
+                    tokio::spawn(crate::commands_internal::integrations::push_ha_input_text(
+                        app_dir, entity_id, value,
+                    ));
+                }
+            }
+
+            Some(Ok(serde_json::to_value(grid_data).unwrap()))
+        }
+
+        // ====================================================================
         // Integrations — async (6)
         // ====================================================================
         "test_ha_connection" => {
@@ -176,5 +218,113 @@ pub async fn dispatch_async(
 
         // Not an async command — let the caller fall through to sync dispatch.
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use wiremock::matchers::{method, path as wm_path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Regression guard for the gap this module's `get_trip_grid_data` arm closes:
+    /// the push used to exist only in the Tauri wrapper, so the server — the
+    /// canonical deployment — never pushed anything to Home Assistant.
+    #[tokio::test]
+    async fn get_trip_grid_data_pushes_suggested_fillup_to_ha() {
+        let _env = crate::settings::test_env::lock();
+        let ha = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(wm_path("/api/services/input_text/set_value"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&ha)
+            .await;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = crate::settings::LocalSettings::default();
+        settings.ha_url = Some(ha.uri());
+        settings.ha_api_token = Some("ha-token".into());
+        settings.save(dir.path()).unwrap();
+
+        let db = std::sync::Arc::new(crate::db::Database::in_memory().unwrap());
+        let mut vehicle =
+            crate::models::Vehicle::new_ice("Test".into(), "BA-123AB".into(), 50.0, 6.5, 0.0);
+        vehicle.ha_fillup_sensor = Some("input_text.kniha_jazd_fillup".into());
+        db.create_vehicle(&vehicle).unwrap();
+
+        let state = ServerState {
+            db,
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: dir.path().to_path_buf(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let result = dispatch_async(
+            "get_trip_grid_data",
+            json!({ "vehicleId": vehicle.id.to_string(), "year": 2026 }),
+            &state,
+        )
+        .await;
+        assert!(result.is_some(), "get_trip_grid_data must be handled here, not by dispatch_sync");
+        assert!(result.unwrap().is_ok());
+
+        // The push is spawned, so poll rather than assume it already landed.
+        let mut requests = Vec::new();
+        for _ in 0..50 {
+            requests = ha.received_requests().await.unwrap_or_default();
+            if !requests.is_empty() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        assert_eq!(requests.len(), 1, "server path must push the suggested fillup to HA");
+
+        let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+        assert_eq!(body["entity_id"], "input_text.kniha_jazd_fillup");
+        // No trips seeded → no open period → "full tank"
+        assert_eq!(body["value"], "Plná nádrž");
+    }
+
+    /// A vehicle without the helper configured must not generate HA traffic.
+    #[tokio::test]
+    async fn get_trip_grid_data_does_not_push_without_sensor() {
+        let _env = crate::settings::test_env::lock();
+        let ha = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(wm_path("/api/services/input_text/set_value"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&ha)
+            .await;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = crate::settings::LocalSettings::default();
+        settings.ha_url = Some(ha.uri());
+        settings.ha_api_token = Some("ha-token".into());
+        settings.save(dir.path()).unwrap();
+
+        let db = std::sync::Arc::new(crate::db::Database::in_memory().unwrap());
+        let vehicle =
+            crate::models::Vehicle::new_ice("Test".into(), "BA-123AB".into(), 50.0, 6.5, 0.0);
+        db.create_vehicle(&vehicle).unwrap();
+
+        let state = ServerState {
+            db,
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: dir.path().to_path_buf(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        dispatch_async(
+            "get_trip_grid_data",
+            json!({ "vehicleId": vehicle.id.to_string(), "year": 2026 }),
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        assert!(ha.received_requests().await.unwrap_or_default().is_empty());
     }
 }

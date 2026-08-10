@@ -288,17 +288,8 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
-        "get_trip_grid_data" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                vehicle_id: String,
-                year: i32,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::build_trip_grid_data(&state.db, &a.vehicle_id, a.year)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
+        // get_trip_grid_data lives in dispatcher_async — it also performs the
+        // fire-and-forget HA suggested-fillup push, which needs a runtime.
         "calculate_magic_fill_liters" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

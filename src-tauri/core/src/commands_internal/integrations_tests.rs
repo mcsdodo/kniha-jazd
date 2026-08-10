@@ -522,3 +522,92 @@ fn get_paperless_settings_returns_custom_field_names_when_set() {
     assert_eq!(r.field_name_liters, "Litre");
     assert_eq!(r.field_name_total, "Suma");
 }
+
+// ============================================================================
+// Suggested-fillup push to Home Assistant
+// ============================================================================
+
+fn vehicle_with_sensor(sensor: Option<&str>) -> crate::models::Vehicle {
+    let mut v = crate::models::Vehicle::new_ice("Test".into(), "BA-123AB".into(), 50.0, 6.5, 0.0);
+    v.ha_fillup_sensor = sensor.map(|s| s.to_string());
+    v
+}
+
+/// A real (empty) grid from the shared builder — TripGridData has no Default and
+/// hand-rolling its ~15 fields would rot on every schema change.
+fn grid_with_suggestion(suggestion: Option<SuggestedFillup>) -> TripGridData {
+    let db = crate::db::Database::in_memory().unwrap();
+    let v = vehicle_with_sensor(None);
+    db.create_vehicle(&v).unwrap();
+    let mut g =
+        crate::commands_internal::build_trip_grid_data(&db, &v.id.to_string(), 2026).unwrap();
+    g.legend_suggested_fillup = suggestion;
+    g
+}
+
+#[test]
+fn ha_fillup_payload_none_when_sensor_unset() {
+    let grid = grid_with_suggestion(None);
+    assert!(ha_fillup_push_payload(&vehicle_with_sensor(None), &grid).is_none());
+    // A blank entity id is "not configured", not an entity named ""
+    assert!(ha_fillup_push_payload(&vehicle_with_sensor(Some("   ")), &grid).is_none());
+}
+
+#[test]
+fn ha_fillup_payload_formats_suggestion() {
+    let grid = grid_with_suggestion(Some(SuggestedFillup {
+        liters: 20.394,
+        consumption_rate: 5.664,
+    }));
+    let (entity, value) =
+        ha_fillup_push_payload(&vehicle_with_sensor(Some("input_text.fillup")), &grid).unwrap();
+    assert_eq!(entity, "input_text.fillup");
+    assert_eq!(value, "20.39 L → 5.66 l/100km");
+}
+
+#[test]
+fn ha_fillup_payload_reports_full_tank_when_no_suggestion() {
+    let grid = grid_with_suggestion(None);
+    let (_, value) =
+        ha_fillup_push_payload(&vehicle_with_sensor(Some("input_text.fillup")), &grid).unwrap();
+    assert_eq!(value, "Plná nádrž");
+}
+
+#[tokio::test]
+async fn push_ha_input_text_calls_set_value_service() {
+    let _env = crate::settings::test_env::lock();
+    let mock = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/services/input_text/set_value"))
+        .and(header("authorization", "Bearer ha-token"))
+        .and(wiremock::matchers::body_json(serde_json::json!({
+            "entity_id": "input_text.fillup",
+            "value": "20.39 L → 5.66 l/100km",
+        })))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&mock)
+        .await;
+
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.ha_url = Some(mock.uri());
+    s.ha_api_token = Some("ha-token".into());
+    s.save(dir.path()).unwrap();
+
+    push_ha_input_text(
+        dir.path().to_path_buf(),
+        "input_text.fillup".into(),
+        "20.39 L → 5.66 l/100km".into(),
+    )
+    .await;
+    // `expect(1)` is verified on drop
+}
+
+#[tokio::test]
+async fn push_ha_input_text_noop_when_ha_unconfigured() {
+    let _env = crate::settings::test_env::lock();
+    let dir = tempdir().unwrap();
+    // No ha_url / ha_api_token — must return without panicking or hanging
+    push_ha_input_text(dir.path().to_path_buf(), "input_text.fillup".into(), "x".into()).await;
+}

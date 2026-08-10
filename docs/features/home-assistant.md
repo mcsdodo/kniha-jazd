@@ -121,6 +121,34 @@ ha_odo_sensor TEXT  -- e.g., "sensor.car_odometer"
 }
 ```
 
+## Outbound: Suggested-Fillup Push
+
+The integration also writes *to* HA. On every `get_trip_grid_data` the app pushes
+the current fillup recommendation into an HA `input_text` helper, so automations
+and dashboards can show it.
+
+- **Per-vehicle target:** `vehicles.ha_fillup_sensor`, set in Settings → Vehicles →
+  Edit ("Návrh tankovania"). Must be an **`input_text.*` helper**, not a `sensor.*`
+  — the push calls the `input_text/set_value` service, which only accepts helpers.
+  Create it in HA under Settings → Devices → Helpers → Create → Text.
+- **Value format:** `"20.39 L → 5.66 l/100km"`, or `"Plná nádrž"` when the current
+  period needs no fillup.
+- **Delivery:** fire-and-forget. Errors are logged, never surfaced, and never block
+  the grid — a wrong entity id or an unreachable HA looks like silence.
+- **Where it runs:** both frontends. `ha_fillup_push_payload` (the "should we push,
+  and what" rule) and `push_ha_input_text` live in
+  [core's integrations module](../../src-tauri/core/src/commands_internal/integrations.rs);
+  the Tauri wrapper and the server's
+  [async dispatcher](../../src-tauri/core/src/server/dispatcher_async.rs) both call
+  them. It previously lived only in the desktop wrapper and silently stopped when
+  the server became the canonical deployment — see ADR-026 in
+  [DECISIONS.md](../../DECISIONS.md).
+
+Because delivery is silent, check these first when nothing arrives: the vehicle has
+a helper configured, the entity really is an `input_text`, and `HA_URL` /
+`HA_API_TOKEN` (or their `local.settings.json` equivalents) are set on whichever
+instance is serving the UI.
+
 ## Design Decisions
 
 - **Why global credentials + per-vehicle sensor?** — Most users have one HA instance but multiple vehicles. Avoids credential duplication.

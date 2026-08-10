@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Návrh tankovania sa neposielal do Home Assistantu zo servera** — odosielanie do `input_text` helpera bolo implementované len v desktopovej aplikácii, takže po prechode na server/Docker (v0.39.0) prestalo fungovať. Server teraz odosiela návrh rovnako ako desktop.
+
 ## [0.41.0] - 2026-08-10
 
 ### Pridané

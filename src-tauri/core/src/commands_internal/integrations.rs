@@ -1,17 +1,17 @@
 //! Home Assistant integration command implementations (framework-free).
 //!
-//! Pure logic for the HA integration commands. Helpers consumed only by
-//! Tauri-flavored callers (e.g. `format_suggested_fillup_text`,
-//! `push_ha_input_text`) intentionally remain in the desktop crate's
-//! `commands::integrations` module.
+//! Pure logic for the HA integration commands, including the suggested-fillup
+//! push. The push lives here rather than in the desktop crate because BOTH
+//! frontends have to perform it: the Tauri command wrapper and the server's
+//! async RPC dispatcher (see ADR-024 — the server is the canonical deployment).
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::constants::mime_types;
-use crate::models::SuggestedFillup;
+use crate::models::{SuggestedFillup, TripGridData, Vehicle};
 use crate::settings::{env_vars, LocalSettings};
 
 /// Format suggested fillup for HA input_text helper.
@@ -20,6 +20,73 @@ pub fn format_suggested_fillup_text(suggestion: Option<&SuggestedFillup>) -> Str
     match suggestion {
         Some(s) => format!("{:.2} L → {:.2} l/100km", s.liters, s.consumption_rate),
         None => "Plná nádrž".to_string(),
+    }
+}
+
+/// Decide whether a trip-grid refresh should push to HA, and what to send.
+///
+/// Returns `(entity_id, value)` when the vehicle has an `input_text` helper
+/// configured, `None` otherwise. Split out from the push itself so both call
+/// sites share one rule and it can be tested without a network.
+pub fn ha_fillup_push_payload(
+    vehicle: &Vehicle,
+    grid_data: &TripGridData,
+) -> Option<(String, String)> {
+    let entity_id = vehicle.ha_fillup_sensor.clone()?;
+    if entity_id.trim().is_empty() {
+        return None;
+    }
+    Some((
+        entity_id,
+        format_suggested_fillup_text(grid_data.legend_suggested_fillup.as_ref()),
+    ))
+}
+
+/// Push a value to a Home Assistant `input_text` helper entity.
+/// Uses the `input_text/set_value` service call so the value persists across HA restarts.
+/// Fire-and-forget: logs errors but never fails the caller.
+pub async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String, value: String) {
+    let settings = LocalSettings::load_effective(&app_data_dir);
+
+    let url = match settings.ha_url {
+        Some(u) => u,
+        None => return,
+    };
+    let token = match settings.ha_api_token {
+        Some(t) => t,
+        None => return,
+    };
+
+    let api_url = format!(
+        "{}/api/services/input_text/set_value",
+        url.trim_end_matches('/')
+    );
+
+    let body = serde_json::json!({
+        "entity_id": entity_id,
+        "value": value
+    });
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            log::warn!("HA push: failed to build client: {}", e);
+            return;
+        }
+    };
+
+    if let Err(e) = client
+        .post(&api_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", mime_types::JSON)
+        .json(&body)
+        .send()
+        .await
+    {
+        log::warn!("HA push to {}: {}", entity_id, e);
     }
 }
 

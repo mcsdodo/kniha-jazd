@@ -4,6 +4,26 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-08-10: Command Side Effects Belong in Core
+
+### ADR-026: A Command's Side Effects Live in Core, Not in the Tauri Wrapper
+
+**Context:** `get_trip_grid_data` pushed the suggested fillup to a Home Assistant `input_text` helper. That push lived in the Tauri wrapper ([desktop/src/commands/statistics.rs](./src-tauri/desktop/src/commands/statistics.rs)), while the server's RPC dispatcher called `build_trip_grid_data` and returned. Both paths computed identical data; only one had the side effect. When [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client) made the server canonical, the push silently stopped — no error, no log, nothing to notice. The helper's doc comment even recorded the (then-true) reasoning: "consumed only by other desktop wrappers."
+
+**Decision:** A Tauri command's **side effects** live in core alongside its calculation, and the server dispatcher performs them too. Concretely:
+
+1. **Both frontends share one rule.** `ha_fillup_push_payload(vehicle, grid) -> Option<(entity_id, value)>` decides *whether and what* to push; `push_ha_input_text` performs it. Both live in [core's integrations module](./src-tauri/core/src/commands_internal/integrations.rs) and are called from both frontends.
+2. **A command belongs to exactly one dispatcher.** `get_trip_grid_data` moved from `dispatch_sync` to [dispatcher_async.rs](./src-tauri/core/src/server/dispatcher_async.rs) (the push needs a runtime), and the sync arm was **deleted** rather than left as a second implementation — two arms for one command is how they drift.
+3. **Side effects are regression-tested at the server boundary**, not only as units: a test dispatches the real command against a stub HA and asserts the request arrives.
+
+**Reasoning:** "Desktop-only" was a property of the deployment, not of the code, and deployments change. Anything a wrapper does beyond delegating is invisible to the other frontend, and the failure is silent by construction — a fire-and-forget side effect that never fires looks exactly like one that isn't configured.
+
+**Scope check:** an audit of the desktop wrappers found no other divergence. The remaining multi-line wrappers are either pure delegation with long argument lists (`create_trip`, `create_vehicle`) or legitimately desktop-only capabilities — native dialogs (`move_database`, `export_to_browser`), the updater, and server control (`start_server`).
+
+**Related:** [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client), [Task 52](./_tasks/52-ha-suggested-fillup-push/) (which introduced the push), [docs/features/home-assistant.md](./docs/features/home-assistant.md).
+
+---
+
 ## 2026-08-08: Env-Managed Settings in the UI
 
 ### ADR-025: Env-Pinned Secrets Are Echoed Back to the Settings Page

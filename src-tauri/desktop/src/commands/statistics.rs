@@ -34,17 +34,18 @@ pub fn get_trip_grid_data(
 ) -> Result<TripGridData, String> {
     let grid_data = inner::build_trip_grid_data(&db, &vehicle_id, year)?;
 
-    // Push suggested fillup to HA sensor in background (fire-and-forget)
+    // Push suggested fillup to HA sensor in background (fire-and-forget).
+    // Payload rule and push both live in core so the server's async dispatcher
+    // performs the identical push — see dispatcher_async::dispatch_async.
     if let Ok(Some(vehicle)) = db.get_vehicle(&vehicle_id) {
-        if let Some(sensor_id) = vehicle.ha_fillup_sensor {
+        if let Some((entity_id, value)) =
+            super::integrations::ha_fillup_push_payload(&vehicle, &grid_data)
+        {
             if let Ok(app_data_dir) = super::get_app_data_dir(&app_handle) {
-                let state_text = super::integrations::format_suggested_fillup_text(
-                    grid_data.legend_suggested_fillup.as_ref(),
-                );
                 tauri::async_runtime::spawn(super::integrations::push_ha_input_text(
                     app_data_dir,
-                    sensor_id,
-                    state_text,
+                    entity_id,
+                    value,
                 ));
             }
         }
