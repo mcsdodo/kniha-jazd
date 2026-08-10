@@ -27,6 +27,7 @@ const ENV_PINNED_FIXTURE: Record<string, string> = {
   PAPERLESS_URL: 'https://env-pinned-paperless.test',
   PAPERLESS_API_TOKEN: 'env-pinned-paperless-token',
   PAPERLESS_ENABLED: 'true',
+  KNIHA_JAZD_REVEAL_PIN: '4269',
 };
 
 /**

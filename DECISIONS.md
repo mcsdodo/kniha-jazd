@@ -4,6 +4,30 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-08-10: PIN-Gated Secret Reveal
+
+### ADR-027: Secrets Leave the Backend Only Through a Throttled, PIN-Gated Command
+
+**Context:** [ADR-025](#adr-025-env-pinned-secrets-are-echoed-back-to-the-settings-page) accepted that "a pinned token is readable by anyone who can reach the app", on the grounds that this is "the same trust boundary [ADR-017](#adr-017-lan-only-cors-without-authentication) already accepts for the data itself". That reasoning had a hole: ADR-017's boundary is a **CORS allowlist**, and CORS is a browser control. It governs what a page from another origin may do; it does nothing about a direct HTTP client. Verified against a running instance — `curl` with no `Origin` header reached every RPC command, and `get_receipt_settings` returned the Gemini key in full. Three commands were handing out credentials with no challenge: `get_receipt_settings`, `get_local_settings_for_ha`, and (from ADR-025) `token_env_value` on the two settings responses.
+
+**Decision:**
+
+1. **No ordinary read returns a secret.** Settings responses report only `hasToken` / `has_gemini_api_key`. `get_local_settings_for_ha` is deleted outright — it returned the full HA token and nothing referenced it.
+2. **One dedicated command, `reveal_secret(field, pin)`**, with `field` a closed enum so it cannot be aimed at arbitrary settings. It returns the *effective* value (env override included), because the point of revealing is to see what is live.
+3. **Authorization is decided by code path, not by a claim.** The Tauri wrapper passes `RevealAuth::LocalTrusted`; the HTTP dispatcher always passes `RevealAuth::Pin`, and a missing `pin` argument becomes `Pin("")` rather than a local caller. The dispatcher cannot construct `LocalTrusted`, so the desktop exemption is structural rather than a permission flag to bypass.
+4. **The PIN comes from `KNIHA_JAZD_REVEAL_PIN`**, is compared in constant time, and is required on **every** reveal — no session, no caching. With the variable unset, reveal is disabled on the server; the server still starts, because a forgotten variable should cost an eye icon, not the homelab.
+5. **Throttled**: 5 consecutive failures lock reveal out for 60s, escalating to 5/15/60 minutes. The counter is global, not per-IP — a per-IP counter is defeated by rotating source addresses on a LAN.
+
+**Reasoning:** Credentials are qualitatively different from the app's own data: they grant access to Google, Home Assistant, and Paperless, far beyond anything in this database. ADR-017's no-login model remains right for trips and invoices, and this changes nothing there. Throttling is what makes a short (4-character) PIN meaningful — 10,000 combinations fall in seconds unthrottled, so without it the gate would be decoration.
+
+**Supersedes:** the trade-off paragraph of [ADR-025](#adr-025-env-pinned-secrets-are-echoed-back-to-the-settings-page). Revealing the live value is still the behavior — the operator wants to confirm *which* credential is active — but it is no longer free to anyone on the network.
+
+**Trade-offs accepted:** losing the PIN loses in-app reveal (the values remain readable where they were set); and an attacker on the tailnet can lock the operator out by burning attempts, which on a closed network is the right failure direction — denial beats disclosure.
+
+**Related:** [Task 69](./_tasks/69-pin-gated-secret-reveal/) — [01-task.md](./_tasks/69-pin-gated-secret-reveal/01-task.md), [02-design.md](./_tasks/69-pin-gated-secret-reveal/02-design.md); [docs/features/settings-architecture.md](./docs/features/settings-architecture.md).
+
+---
+
 ## 2026-08-10: Command Side Effects Belong in Core
 
 ### ADR-026: A Command's Side Effects Live in Core, Not in the Tauri Wrapper

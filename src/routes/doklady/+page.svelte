@@ -192,7 +192,7 @@
 	}
 
 	async function handleProcessPending() {
-		if (!settings?.geminiApiKey) {
+		if (!settings?.hasGeminiApiKey) {
 			toast.error($LL.toast.errorSetApiKeyOnlyFirst());
 			return;
 		}
@@ -569,7 +569,7 @@
 	let fuelCount = $derived(receipts.filter((r) => isFuelReceipt(r)).length);
 	let otherCount = $derived(receipts.filter((r) => !isFuelReceipt(r)).length);
 
-	let isConfigured = $derived(settings?.geminiApiKey && settings?.receiptsFolderPath);
+	let isConfigured = $derived(settings?.hasGeminiApiKey && settings?.receiptsFolderPath);
 	let pendingCount = $derived(receipts.filter((r) => r.status === 'Pending').length);
 </script>
 
@@ -693,7 +693,7 @@
 			<button
 				class="button secondary"
 				onclick={handleProcessPending}
-				disabled={processing || syncing || !settings?.geminiApiKey || pendingCount === 0}
+				disabled={processing || syncing || !settings?.hasGeminiApiKey || pendingCount === 0}
 			>
 				{#if processing && processingProgress}
 					{$LL.receipts.recognizing({ current: processingProgress.current, total: processingProgress.total })}

@@ -267,6 +267,12 @@ const en = {
 		receiptsFolderNotSet: 'Not set',
 		receiptsFolderServerHint: 'Folder path on the server.',
 		browseFolder: 'Browse',
+		// Secret reveal (PIN-gated over the network)
+		revealPinTitle: 'Enter PIN',
+		revealPinDescription: 'A PIN is required to display this secret.',
+		revealPinLabel: 'PIN',
+		revealPinSubmit: 'Show',
+		revealPinCancel: 'Cancel',
 		// Environment-variable managed settings
 		envManaged: 'Managed by an environment variable.',
 		envManagedTitle: 'This value is set by the {name} environment variable and cannot be changed here.',

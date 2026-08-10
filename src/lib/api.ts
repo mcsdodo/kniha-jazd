@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, HaSettings, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -411,15 +411,15 @@ export async function saveHaSettings(url: string | null, token: string | null): 
 	return apiCall('save_ha_settings', { url, token });
 }
 
-// For frontend HA API calls (includes token)
-export interface HaLocalSettings {
-	haUrl: string | null;
-	haApiToken: string | null;
-}
-
-export async function getLocalSettingsForHa(): Promise<HaLocalSettings> {
-	// Backend uses #[serde(rename_all = "camelCase")] so fields are already camelCase
-	return apiCall<HaLocalSettings>('get_local_settings_for_ha');
+/**
+ * Reveal a configured secret for display.
+ *
+ * Over HTTP the backend demands the PIN from KNIHA_JAZD_REVEAL_PIN; in the desktop
+ * app the Tauri command path is trusted and `pin` is ignored. Throws with the
+ * backend's message on a wrong/absent PIN or while locked out.
+ */
+export async function revealSecret(field: SecretField, pin?: string): Promise<string> {
+	return apiCall<string>('reveal_secret', { field, pin: pin ?? '' });
 }
 
 // Test HA connection from backend (avoids CORS issues)

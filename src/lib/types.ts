@@ -232,7 +232,9 @@ export interface Receipt {
 }
 
 export interface ReceiptSettings {
-	geminiApiKey: string | null;
+	/** Whether a key is configured. The key itself never crosses the wire —
+	 *  reading it goes through revealSecret(). */
+	hasGeminiApiKey: boolean;
 	receiptsFolderPath: string | null;
 	/** GEMINI_API_KEY pins the key — Settings renders it read-only. */
 	geminiApiKeyFromEnv: boolean;
@@ -396,6 +398,9 @@ export function extractTime(datetime: string): string {
 	return match ? match[1] : '00:00';
 }
 
+/** Secrets that revealSecret() can return. Mirrors the Rust SecretField enum. */
+export type SecretField = 'geminiApiKey' | 'haApiToken' | 'paperlessApiToken';
+
 // Home Assistant integration types
 export interface HaSettings {
 	url: string | null;
@@ -404,8 +409,6 @@ export interface HaSettings {
 	urlFromEnv: boolean;
 	/** HA_API_TOKEN pins the token — Settings renders it read-only. */
 	tokenFromEnv: boolean;
-	/** The live token, sent only when `tokenFromEnv`; null for file-stored tokens. */
-	tokenEnvValue: string | null;
 }
 
 export interface HaOdoCache {
@@ -428,8 +431,6 @@ export interface PaperlessSettings {
 	urlFromEnv: boolean;
 	tokenFromEnv: boolean;
 	enabledFromEnv: boolean;
-	/** The live token, sent only when `tokenFromEnv`; null for file-stored tokens. */
-	tokenEnvValue: string | null;
 }
 
 /**

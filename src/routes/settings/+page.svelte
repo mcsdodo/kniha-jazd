@@ -17,8 +17,8 @@
 	import { IS_TAURI } from '$lib/api-adapter';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
-	import type { PaperlessCustomFieldInfo } from '$lib/types';
+	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import type { PaperlessCustomFieldInfo, SecretField } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 	import { openExternal } from '$lib/open-external';
@@ -59,8 +59,72 @@
 	// Receipt scanning settings state
 	let geminiApiKey = '';
 	let receiptsFolderPath = '';
-	let showApiKey = false;
+	let hasGeminiApiKey = false;
 	let geminiKeyFromEnv = false;
+
+	// ── Secret reveal ────────────────────────────────────────────────────────
+	// Secrets never arrive with the settings; each reveal is a separate backend
+	// call that needs the PIN when the request comes over the network. Values
+	// live only in `revealed` and are dropped on re-mask or unmount, so every
+	// reveal asks again.
+	let revealed: Partial<Record<SecretField, string>> = {};
+	let pinPromptFor: SecretField | null = null;
+	let pinInput = '';
+	let pinError = '';
+	let pinBusy = false;
+
+	function isRevealed(field: SecretField, r: typeof revealed): boolean {
+		return r[field] !== undefined;
+	}
+
+	/** Eye click: hide if shown, else reveal (directly on desktop, via PIN on the network). */
+	async function toggleReveal(field: SecretField) {
+		if (revealed[field] !== undefined) {
+			delete revealed[field];
+			revealed = revealed;
+			return;
+		}
+		if ($capabilities.mode === 'desktop') {
+			try {
+				revealed = { ...revealed, [field]: await revealSecret(field) };
+			} catch (error) {
+				toast.error(String(error));
+			}
+			return;
+		}
+		pinInput = '';
+		pinError = '';
+		pinPromptFor = field;
+	}
+
+	async function submitPin() {
+		if (!pinPromptFor) return;
+		pinBusy = true;
+		pinError = '';
+		try {
+			const value = await revealSecret(pinPromptFor, pinInput);
+			revealed = { ...revealed, [pinPromptFor]: value };
+			pinPromptFor = null;
+			pinInput = '';
+		} catch (error) {
+			// Keep the modal open so the PIN can be retried; the backend message
+			// distinguishes wrong PIN, unconfigured PIN, and lockout.
+			pinError = String(error).replace(/^Error:\s*/, '');
+		} finally {
+			pinBusy = false;
+		}
+	}
+
+	function cancelPin() {
+		pinPromptFor = null;
+		pinInput = '';
+		pinError = '';
+	}
+
+	onDestroy(() => {
+		// Don't leave secrets in memory after navigating away
+		revealed = {};
+	});
 
 	// Track initial values to detect actual changes
 	let initialCompanyName = '';
@@ -73,7 +137,6 @@
 	let haUrl = '';
 	let haApiToken = '';
 	let haHasToken = false;
-	let showHaToken = false;
 	let haUrlError = '';
 	let initialHaUrl = '';
 	let initialHaApiToken = '';
@@ -94,7 +157,6 @@
 	let paperlessUrl = '';
 	let paperlessApiToken = '';
 	let paperlessHasToken = false;
-	let showPaperlessToken = false;
 	let paperlessUrlError = '';
 	let initialPaperlessUrl = '';
 	let initialPaperlessApiToken = '';
@@ -190,9 +252,11 @@
 		}
 		try {
 			// The key is read-only while GEMINI_API_KEY pins it — sending it would
-			// be rejected and mask the folder save.
-			if (!geminiKeyFromEnv) {
+			// be rejected and mask the folder save. It's also write-only now, so a
+			// blank field means "unchanged", NOT "clear it".
+			if (!geminiKeyFromEnv && geminiApiKey !== '') {
 				await setGeminiApiKey(geminiApiKey);
+				hasGeminiApiKey = true;
 			}
 			await setReceiptsFolderPath(receiptsFolderPath);
 			initialGeminiApiKey = geminiApiKey;
@@ -641,11 +705,12 @@
 			// Load receipt settings
 			const receiptSettings = await getReceiptSettings();
 			if (receiptSettings) {
-				geminiApiKey = receiptSettings.geminiApiKey || '';
+				hasGeminiApiKey = receiptSettings.hasGeminiApiKey;
 				receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
 				geminiKeyFromEnv = receiptSettings.geminiApiKeyFromEnv;
-				// Track initial values for change detection
-				initialGeminiApiKey = receiptSettings.geminiApiKey || '';
+				// The key is write-only now, so the input starts empty
+				geminiApiKey = '';
+				initialGeminiApiKey = '';
 				initialReceiptsFolderPath = receiptSettings.receiptsFolderPath || '';
 			}
 
@@ -660,13 +725,6 @@
 				initialHaUrl = haSettings.url || '';
 				haUrlFromEnv = haSettings.urlFromEnv;
 				haTokenFromEnv = haSettings.tokenFromEnv;
-				// File-stored tokens are never sent back (only hasToken). An env-pinned
-				// one is, so the eye icon can reveal what's actually live — seed
-				// initial* too, or change detection would fire a doomed save.
-				if (haSettings.tokenEnvValue) {
-					haApiToken = haSettings.tokenEnvValue;
-					initialHaApiToken = haSettings.tokenEnvValue;
-				}
 				// Test connection if configured
 				await testHaConnectionStatus();
 			}
@@ -680,11 +738,6 @@
 				paperlessUrlFromEnv = paperlessSettings.urlFromEnv;
 				paperlessTokenFromEnv = paperlessSettings.tokenFromEnv;
 				paperlessEnabledFromEnv = paperlessSettings.enabledFromEnv;
-				// Same as HA: only an env-pinned token comes back with a value.
-				if (paperlessSettings.tokenEnvValue) {
-					paperlessApiToken = paperlessSettings.tokenEnvValue;
-					initialPaperlessApiToken = paperlessSettings.tokenEnvValue;
-				}
 				paperlessFieldDatetime = paperlessSettings.fieldNameDatetime;
 				paperlessFieldLiters = paperlessSettings.fieldNameLiters;
 				paperlessFieldTotal = paperlessSettings.fieldNameTotal;
@@ -1113,22 +1166,24 @@
 					</label>
 					<div class="input-with-icon">
 						<input
-							type={showApiKey ? 'text' : 'password'}
+							type={isRevealed('geminiApiKey', revealed) ? 'text' : 'password'}
 							id="gemini-api-key"
 							class="monospace-input"
-							bind:value={geminiApiKey}
+							value={isRevealed('geminiApiKey', revealed) ? revealed.geminiApiKey : geminiApiKey}
 							disabled={geminiKeyFromEnv}
-							placeholder={$LL.settings.geminiApiKeyPlaceholder()}
-							on:input={debouncedSaveReceiptSettings}
+							placeholder={hasGeminiApiKey && !geminiApiKey ? '********' : $LL.settings.geminiApiKeyPlaceholder()}
+							on:input={(e) => { geminiApiKey = (e.target as HTMLInputElement).value; debouncedSaveReceiptSettings(); }}
 							on:blur={saveReceiptSettingsNow}
 						/>
 						<button
 							type="button"
 							class="icon-btn"
-							on:click={() => (showApiKey = !showApiKey)}
-							title={showApiKey ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+							data-test="reveal-gemini-key"
+							disabled={!hasGeminiApiKey}
+							on:click={() => toggleReveal('geminiApiKey')}
+							title={isRevealed('geminiApiKey', revealed) ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
 						>
-							{#if showApiKey}
+							{#if isRevealed('geminiApiKey', revealed)}
 								<!-- Eye off icon (Lucide) -->
 								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
 							{:else}
@@ -1209,22 +1264,24 @@
 					</label>
 					<div class="input-with-icon">
 						<input
-							type={showHaToken ? 'text' : 'password'}
+							type={isRevealed('haApiToken', revealed) ? 'text' : 'password'}
 							id="ha-token"
 							class="monospace-input"
-							bind:value={haApiToken}
+							value={isRevealed('haApiToken', revealed) ? revealed.haApiToken : haApiToken}
 							disabled={haTokenFromEnv}
 							placeholder={haHasToken && !haApiToken ? '********' : $LL.homeAssistant.tokenPlaceholder()}
-							on:input={debouncedSaveHaSettings}
+							on:input={(e) => { haApiToken = (e.target as HTMLInputElement).value; debouncedSaveHaSettings(); }}
 							on:blur={saveHaSettingsNow}
 						/>
 						<button
 							type="button"
 							class="icon-btn"
-							on:click={() => (showHaToken = !showHaToken)}
-							title={showHaToken ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+							data-test="reveal-ha-token"
+							disabled={!haHasToken}
+							on:click={() => toggleReveal('haApiToken')}
+							title={isRevealed('haApiToken', revealed) ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
 						>
-							{#if showHaToken}
+							{#if isRevealed('haApiToken', revealed)}
 								<!-- Eye off icon -->
 								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
 							{:else}
@@ -1324,23 +1381,25 @@
 					</label>
 					<div class="input-with-icon">
 						<input
-							type={showPaperlessToken ? 'text' : 'password'}
+							type={isRevealed('paperlessApiToken', revealed) ? 'text' : 'password'}
 							id="paperless-token"
 							data-test="paperless-token"
 							class="monospace-input"
-							bind:value={paperlessApiToken}
+							value={isRevealed('paperlessApiToken', revealed) ? revealed.paperlessApiToken : paperlessApiToken}
 							disabled={paperlessTokenFromEnv}
 							placeholder={paperlessHasToken && !paperlessApiToken ? '********' : $LL.paperless.apiTokenPlaceholder()}
-							on:input={debouncedSavePaperlessSettings}
+							on:input={(e) => { paperlessApiToken = (e.target as HTMLInputElement).value; debouncedSavePaperlessSettings(); }}
 							on:blur={savePaperlessSettingsNow}
 						/>
 						<button
 							type="button"
 							class="icon-btn"
-							on:click={() => (showPaperlessToken = !showPaperlessToken)}
-							title={showPaperlessToken ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
+							data-test="reveal-paperless-token"
+							disabled={!paperlessHasToken}
+							on:click={() => toggleReveal('paperlessApiToken')}
+							title={isRevealed('paperlessApiToken', revealed) ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
 						>
-							{#if showPaperlessToken}
+							{#if isRevealed('paperlessApiToken', revealed)}
 								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
 							{:else}
 								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1810,6 +1869,41 @@
 		</section>
 	</div>
 </div>
+
+{#if pinPromptFor}
+	<!-- Reveal PIN prompt (server mode only; the desktop path is trusted).
+	     Shown on EVERY reveal — nothing about the PIN is remembered. -->
+	<div class="modal-overlay" data-test="reveal-pin-modal">
+		<div class="modal">
+			<h3>{$LL.settings.revealPinTitle()}</h3>
+			<p class="hint">{$LL.settings.revealPinDescription()}</p>
+			<form on:submit|preventDefault={submitPin}>
+				<label for="reveal-pin">{$LL.settings.revealPinLabel()}</label>
+				<!-- svelte-ignore a11y-autofocus -->
+				<input
+					type="password"
+					id="reveal-pin"
+					data-test="reveal-pin-input"
+					class="monospace-input"
+					bind:value={pinInput}
+					autocomplete="off"
+					autofocus
+				/>
+				{#if pinError}
+					<small class="error-text" data-test="reveal-pin-error">{pinError}</small>
+				{/if}
+				<div class="modal-actions">
+					<button type="button" class="button-secondary" on:click={cancelPin}>
+						{$LL.settings.revealPinCancel()}
+					</button>
+					<button type="submit" data-test="reveal-pin-submit" disabled={pinBusy}>
+						{$LL.settings.revealPinSubmit()}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 
 {#if showMoveConfirm}
 	<MoveDatabaseModal

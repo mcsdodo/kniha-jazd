@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-08-10 (Task 69 planned)
+**Last updated:** 2026-08-10 (Task 69 completed)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 69 | [PIN-Gated Secret Reveal](69-pin-gated-secret-reveal/) | 🟡 In Progress | Secrets leave the backend only via a throttled, PIN-gated `reveal_secret`; settings reads stop carrying them. Revises ADR-025. |
 | 67 | [Online Always-On Runner](67-online-always-on-runner/) | 🟡 In Progress | v0.39.0 released, ghcr image live; remaining: homelab deployment + data migration ([04-plan-homelab.md](67-online-always-on-runner/04-plan-homelab.md)) |
 | 61 | [Route Map POC](61-route-map-poc/) | 📋 Planning | Standalone HTML POC: target km → algorithm picks waypoints from 67-node Slovak matrix → OSM polyline. Not app-integrated. |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
@@ -20,6 +19,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 69 | [PIN-Gated Secret Reveal](69-pin-gated-secret-reveal/) | 2026-08-10 |
 | 68 | [Env-Managed Settings UI](68-env-managed-settings-ui/) | 2026-08-10 |
 | 66 | [Multi-Invoice Support](./_done/66-multi-invoice/) | 2026-07-15 |
 | 65 | [Datetime Is Order](./_done/65-datetime-is-order/) | 2026-05-21 |

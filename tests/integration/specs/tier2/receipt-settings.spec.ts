@@ -97,30 +97,40 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       expect(folderExists).toBe(true);
     });
 
-    it('should toggle API key visibility', async () => {
+    it('should mask the API key and gate revealing it', async () => {
+      // The key is write-only now (task 69): it never arrives with the settings,
+      // and revealing it is a separate backend call that needs a PIN over the
+      // network. Desktop is trusted, so it reveals directly.
+      await setGeminiApiKey('reveal-flow-key');
+      await navigateTo('trips');
       await navigateTo('settings');
       await browser.pause(500);
 
       const apiKeyInput = await $(ReceiptSettings.geminiApiKeyInput);
       const toggleBtn = await $(ReceiptSettings.showHideApiKeyBtn);
+      expect(await apiKeyInput.getAttribute('type')).toBe('password');
 
-      // Initially should be password type
-      const initialType = await apiKeyInput.getAttribute('type');
-      expect(initialType).toBe('password');
-
-      // Click toggle to show
       await toggleBtn.click();
-      await browser.pause(200);
+      await browser.pause(300);
 
-      const shownType = await apiKeyInput.getAttribute('type');
-      expect(shownType).toBe('text');
+      if (process.env.WDIO_SERVER_MODE === '1') {
+        // No KNIHA_JAZD_REVEAL_PIN in this suite, so the prompt appears and the
+        // backend refuses. The full PIN flow lives in specs/env.
+        const modal = await $('[data-test="reveal-pin-modal"]');
+        expect(await modal.isDisplayed()).toBe(true);
+        expect(await apiKeyInput.getAttribute('type')).toBe('password');
+      } else {
+        await browser.waitUntil(
+          async () => (await apiKeyInput.getAttribute('type')) === 'text',
+          { timeout: 5000, timeoutMsg: 'desktop reveal did not show the key' }
+        );
+        expect(await apiKeyInput.getValue()).toBe('reveal-flow-key');
+        await toggleBtn.click();
+        await browser.pause(200);
+        expect(await apiKeyInput.getAttribute('type')).toBe('password');
+      }
 
-      // Click toggle to hide
-      await toggleBtn.click();
-      await browser.pause(200);
-
-      const hiddenType = await apiKeyInput.getAttribute('type');
-      expect(hiddenType).toBe('password');
+      await setGeminiApiKey('');
     });
 
     it('should save receipt settings via IPC', async () => {
@@ -134,49 +144,34 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       // Verify settings were saved
       const settings = await getReceiptSettings();
       expect(settings).not.toBeNull();
-      expect(settings?.geminiApiKey).toBe(testApiKey);
+      // The key itself is never returned — only whether one is configured
+      expect(settings?.hasGeminiApiKey).toBe(true);
 
       // Clear the API key after test
       await setGeminiApiKey('');
     });
 
-    it('should display saved API key in settings UI', async function () {
-      // The settings page's onMount runs ~10 sequential RPC calls before it reaches
-      // the receipt-settings load step (getSettings → loadBackups → retention →
-      // vehicles-with-trips → version → auto-check → ... → getReceiptSettings).
-      // In server mode each is an HTTP roundtrip, so the cumulative latency makes
-      // this UI display test flaky. The persistence path is already verified by the
-      // "should persist settings through IPC" test below; this test only adds the
-      // Svelte bind:value assertion which is framework-level. Skip in server mode.
+    it('should show a placeholder instead of the saved API key', async function () {
+      // Same latency caveat as before: the settings page runs ~10 sequential RPC
+      // calls before loading receipt settings, which is flaky over HTTP.
       if (process.env.WDIO_SERVER_MODE === '1') {
         this.skip();
       }
-      const testApiKey = 'test-display-key';
-
-      await setGeminiApiKey(testApiKey);
-
-      // Small pause to ensure file system sync in CI
+      await setGeminiApiKey('test-display-key');
       await browser.pause(100);
-
-      // Navigate AWAY from settings first to ensure fresh mount
-      // (SvelteKit caches components, so navigating to the same page won't remount)
       await navigateTo('trips');
       await browser.pause(300);
-
-      // Now navigate to settings - this will trigger onMount and load settings from backend
       await navigateTo('settings');
       await browser.pause(500);
 
       const apiKeyInput = await $(ReceiptSettings.geminiApiKeyInput);
-      const value = await apiKeyInput.getValue();
-      expect(value).toBe(testApiKey);
+      // Write-only: the field stays empty and advertises the stored key instead
+      expect(await apiKeyInput.getValue()).toBe('');
+      expect(await apiKeyInput.getAttribute('placeholder')).toBe('********');
 
-      // Clean up
       await setGeminiApiKey('');
     });
-  });
 
-  describe('Database Location Settings', () => {
     it('should display database location info via IPC', async () => {
       const dbLocation = await getDbLocation();
 
@@ -286,14 +281,14 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
 
       // Verify the setting was persisted
       const settings = await getReceiptSettings();
-      expect(settings?.geminiApiKey).toBe(testApiKey);
+      expect(settings?.hasGeminiApiKey).toBe(true);
 
       // Clean up
       await setGeminiApiKey('');
 
       // Verify cleanup - empty string is stored as null
       const cleanSettings = await getReceiptSettings();
-      expect(cleanSettings?.geminiApiKey).toBeNull();
+      expect(cleanSettings?.hasGeminiApiKey).toBe(false);
     });
   });
 });

@@ -66,20 +66,27 @@ The variable names live in one place — the `env_vars` module in [settings.rs](
 **How the Settings page renders a pinned field** (see [ADR-025](../../DECISIONS.md)):
 
 - The input is **disabled** and carries a badge with the variable's name, plus an "env-managed" hint. Marking is per-field, so pinning `HA_URL` while leaving `HA_API_TOKEN` in the file leaves the token editable.
-- The **eye icon reveals the real value** for a pinned token. `get_ha_settings` / `get_paperless_settings` return `tokenEnvValue` **only** when the variable pins the field; a file-stored token is never sent back (only `hasToken`).
 - The page sends `null` for pinned fields when saving, so a pinned URL doesn't block a token edit.
 - **Connection status still runs** — a fully env-configured integration shows its ✓/✗ indicator as usual.
 - Disabling is UX only; the setter guards remain the enforcement boundary, since a browser client can call `/api/rpc` directly.
 
-**Response fields carrying this information:**
+## Reading a secret back: PIN-gated reveal
 
-| Command | Fields |
-|---------|--------|
-| `get_ha_settings` | `urlFromEnv`, `tokenFromEnv`, `tokenEnvValue` |
-| `get_paperless_settings` | `urlFromEnv`, `tokenFromEnv`, `enabledFromEnv`, `tokenEnvValue` |
-| `get_receipt_settings` | `geminiApiKeyFromEnv` (the key itself is already in `geminiApiKey`) |
+No settings command returns a credential. `get_ha_settings` / `get_paperless_settings` report `hasToken`, and `get_receipt_settings` reports `hasGeminiApiKey` — the values themselves leave the backend only through `reveal_secret`, and only under the rules in [ADR-027](../../DECISIONS.md).
 
-**Testing note:** WebdriverIO auto-loads the repo's `.env` file, so a developer with a real `PAPERLESS_API_TOKEN` there would pin that setting inside the app under test and make setter specs fail. Both [wdio.conf.ts](../../tests/integration/wdio.conf.ts) and [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) blank the six variables before launching the app; the dedicated `test:integration:server:env` run re-applies fixture values on top to exercise the pinned UI ([env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts)).
+| Caller | Rule |
+|--------|------|
+| Tauri desktop window | Reveals immediately. Not network-reachable, so a PIN would defend nothing. |
+| Browser / any HTTP client | Must send the PIN from `KNIHA_JAZD_REVEAL_PIN`, on **every** reveal — no session, no caching. |
+
+- With `KNIHA_JAZD_REVEAL_PIN` unset, reveal is disabled on the server (the server still starts normally).
+- Five consecutive wrong PINs lock reveal out for 60s, escalating to 5/15/60 minutes. The counter is global, not per-IP.
+- The `field` argument is a closed enum (`geminiApiKey`, `haApiToken`, `paperlessApiToken`), so the command can't be aimed at other settings.
+- **Why this exists:** the LAN/tailnet trust model in [ADR-017](../../DECISIONS.md) is enforced by a CORS allowlist, and CORS only constrains browsers — a direct HTTP client reaches every RPC command regardless.
+
+Consequently the Gemini key field is **write-only** in the UI, like the HA and Paperless tokens: it shows `********` when a key is stored, and leaving it blank means "unchanged", not "clear it".
+
+**Testing note:****Testing note:** WebdriverIO auto-loads the repo's `.env` file, so a developer with a real `PAPERLESS_API_TOKEN` there would pin that setting inside the app under test and make setter specs fail. Both [wdio.conf.ts](../../tests/integration/wdio.conf.ts) and [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) blank the six variables before launching the app; the dedicated `test:integration:server:env` run re-applies fixture values on top to exercise the pinned UI ([env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts)).
 
 **Consumption vs. setter rule:** Code that *reads* configuration goes through `LocalSettings::load_effective()` in [settings.rs](../../src-tauri/core/src/settings.rs), which layers env overrides on top of the file. Setter commands use plain `load()` so they read and write only the on-disk file — combined with the env-pinned guard above, this keeps env values out of the persisted JSON.
 

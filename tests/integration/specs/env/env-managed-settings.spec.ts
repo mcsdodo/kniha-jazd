@@ -16,6 +16,25 @@ import { invokeTauri } from '../../utils/db';
 
 const HA_TOKEN_FIXTURE = 'env-pinned-ha-token';
 const PAPERLESS_TOKEN_FIXTURE = 'env-pinned-paperless-token';
+const REVEAL_PIN = '4269';
+
+/** Click the eye, answer the PIN prompt, and wait for the value to appear. */
+async function revealWithPin(
+  eye: WebdriverIO.Element,
+  tokenInput: WebdriverIO.Element
+): Promise<void> {
+  const modal = await $('[data-test="reveal-pin-modal"]');
+  await eye.click();
+  await modal.waitForDisplayed({ timeout: 5000 });
+  await (await $('[data-test="reveal-pin-input"]')).setValue(REVEAL_PIN);
+  await (await $('[data-test="reveal-pin-submit"]')).click();
+  // Wait for the overlay to go before returning — it intercepts later clicks
+  await modal.waitForDisplayed({ reverse: true, timeout: 5000 });
+  await browser.waitUntil(async () => (await tokenInput.getValue()) === HA_TOKEN_FIXTURE, {
+    timeout: 5000,
+    timeoutMsg: 'PIN accepted but the token never appeared',
+  });
+}
 
 describe('Env-managed settings', () => {
   before(async () => {
@@ -24,28 +43,17 @@ describe('Env-managed settings', () => {
   });
 
   it('reports the pinned fields over the API', async () => {
-    const ha = await invokeTauri<{
-      url: string | null;
-      urlFromEnv: boolean;
-      tokenFromEnv: boolean;
-      tokenEnvValue: string | null;
-    }>('get_ha_settings');
-
+    const ha = await invokeTauri<Record<string, unknown>>('get_ha_settings');
     expect(ha.urlFromEnv).toBe(true);
     expect(ha.tokenFromEnv).toBe(true);
-    expect(ha.tokenEnvValue).toBe(HA_TOKEN_FIXTURE);
+    // The secret must not be anywhere in the response (task 69)
+    expect(JSON.stringify(ha)).not.toContain(HA_TOKEN_FIXTURE);
 
-    const paperless = await invokeTauri<{
-      urlFromEnv: boolean;
-      tokenFromEnv: boolean;
-      enabledFromEnv: boolean;
-      tokenEnvValue: string | null;
-    }>('get_paperless_settings');
-
+    const paperless = await invokeTauri<Record<string, unknown>>('get_paperless_settings');
     expect(paperless.urlFromEnv).toBe(true);
     expect(paperless.tokenFromEnv).toBe(true);
     expect(paperless.enabledFromEnv).toBe(true);
-    expect(paperless.tokenEnvValue).toBe(PAPERLESS_TOKEN_FIXTURE);
+    expect(JSON.stringify(paperless)).not.toContain(PAPERLESS_TOKEN_FIXTURE);
   });
 
   it('renders pinned inputs as disabled', async () => {
@@ -75,21 +83,58 @@ describe('Env-managed settings', () => {
     }
   });
 
-  it('reveals the live env token behind the eye icon', async () => {
+  it('requires the PIN to reveal an env token, and rejects a wrong one', async () => {
     const tokenInput = await $('#ha-token');
-    // The bound value is the env token even while masked
-    expect(await tokenInput.getValue()).toBe(HA_TOKEN_FIXTURE);
-    expect(await tokenInput.getAttribute('type')).toBe('password');
+    // The secret is NOT in the page — only a mask of the right shape
+    expect(await tokenInput.getValue()).not.toBe(HA_TOKEN_FIXTURE);
 
-    // The eye button sits next to the input inside .input-with-icon
-    const eye = await $('#ha-token').parentElement().$('button.icon-btn');
+    const eye = await $('[data-test="reveal-ha-token"]');
     await eye.click();
 
-    await browser.waitUntil(
-      async () => (await tokenInput.getAttribute('type')) === 'text',
-      { timeout: 3000, timeoutMsg: 'eye icon did not reveal the token' }
-    );
-    expect(await tokenInput.getValue()).toBe(HA_TOKEN_FIXTURE);
+    const modal = await $('[data-test="reveal-pin-modal"]');
+    await modal.waitForDisplayed({ timeout: 5000 });
+
+    // Wrong PIN: stays open, shows the backend's message, reveals nothing
+    await (await $('[data-test="reveal-pin-input"]')).setValue('0000');
+    await (await $('[data-test="reveal-pin-submit"]')).click();
+    const error = await $('[data-test="reveal-pin-error"]');
+    await error.waitForDisplayed({ timeout: 5000 });
+    expect(await tokenInput.getValue()).not.toBe(HA_TOKEN_FIXTURE);
+
+    // Correct PIN reveals
+    await (await $('[data-test="reveal-pin-input"]')).setValue(REVEAL_PIN);
+    await (await $('[data-test="reveal-pin-submit"]')).click();
+    await modal.waitForDisplayed({ reverse: true, timeout: 5000 });
+    await browser.waitUntil(async () => (await tokenInput.getValue()) === HA_TOKEN_FIXTURE, {
+      timeout: 5000,
+      timeoutMsg: 'correct PIN did not reveal the token',
+    });
+
+    // Leave the field masked so later tests start from a known state
+    await eye.click();
+  });
+
+  it('asks for the PIN again after re-masking', async () => {
+    // Start from a clean mount rather than inheriting the previous test's UI state
+    await navigateTo('trips');
+    await navigateTo('settings');
+
+    const tokenInput = await $('#ha-token');
+    const eye = await $('[data-test="reveal-ha-token"]');
+    await eye.waitForDisplayed();
+    expect(await tokenInput.getValue()).not.toBe(HA_TOKEN_FIXTURE);
+
+    await revealWithPin(eye, tokenInput);
+
+    // Re-mask
+    await eye.click();
+    await browser.waitUntil(async () => (await tokenInput.getValue()) !== HA_TOKEN_FIXTURE, {
+      timeout: 5000,
+      timeoutMsg: 'token stayed revealed after re-masking',
+    });
+
+    // Nothing was cached, so this prompts again rather than revealing outright
+    await revealWithPin(eye, tokenInput);
   });
 
   it('still shows connection status for both integrations', async () => {

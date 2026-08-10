@@ -1,6 +1,6 @@
 **Date:** 2026-08-10
 **Subject:** Require a PIN to reveal secrets, and stop serving them to the network
-**Status:** Planning
+**Status:** Complete
 
 # Design — PIN-gated secret reveal
 

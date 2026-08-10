@@ -267,6 +267,12 @@ const sk = {
 		receiptsFolderNotSet: 'Nie je nastavený',
 		receiptsFolderServerHint: 'Cesta k priečinku na serveri.',
 		browseFolder: 'Vybrať',
+		// Secret reveal (PIN-gated over the network)
+		revealPinTitle: 'Zadajte PIN',
+		revealPinDescription: 'Na zobrazenie citlivej hodnoty je potrebný PIN.',
+		revealPinLabel: 'PIN',
+		revealPinSubmit: 'Zobraziť',
+		revealPinCancel: 'Zrušiť',
 		// Environment-variable managed settings
 		envManaged: 'Spravované premennou prostredia.',
 		envManagedTitle: 'Táto hodnota je nastavená premennou prostredia {name} a nedá sa tu zmeniť.',

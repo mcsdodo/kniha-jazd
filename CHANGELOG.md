@@ -7,7 +7,12 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Zmenené
+- **Zobrazenie citlivých údajov v nastaveniach vyžaduje PIN** — v prehliadači (serverový režim) treba pri každom zobrazení tokenu či API kľúča zadať PIN z premennej prostredia `KNIHA_JAZD_REVEAL_PIN`. Bez nastavenej premennej sa hodnoty zobraziť nedajú. Desktopová aplikácia zobrazuje bez PIN-u — kto sedí pri počítači, je už za všetkými hranicami, ktoré by PIN chránil. Po piatich nesprávnych pokusoch sa zobrazovanie dočasne zablokuje.
+- **Gemini API kľúč sa už z aplikácie nevyčítava** — pole sa správa ako tokeny Home Assistanta a Paperless: prázdne s náznakom `********`, pričom prázdne pole znamená „bez zmeny", nie „vymazať".
+
 ### Opravené
+- **Citlivé údaje boli dostupné komukoľvek v sieti** — nastavenia vracali Gemini kľúč aj tokeny v plnom znení každému, kto vedel osloviť aplikáciu. Obmedzenie na lokálnu sieť platí len pre prehliadače, nie pre priame HTTP volania. Nastavenia už žiadne tajomstvá neposielajú.
 - **Návrh tankovania sa neposielal do Home Assistantu zo servera** — odosielanie do `input_text` helpera bolo implementované len v desktopovej aplikácii, takže po prechode na server/Docker (v0.39.0) prestalo fungovať. Server teraz odosiela návrh rovnako ako desktop.
 
 ## [0.41.0] - 2026-08-10

@@ -852,6 +852,26 @@ type RootTranslation = {
 		 */
 		browseFolder: string
 		/**
+		 * Z​a​d​a​j​t​e​ ​P​I​N
+		 */
+		revealPinTitle: string
+		/**
+		 * N​a​ ​z​o​b​r​a​z​e​n​i​e​ ​c​i​t​l​i​v​e​j​ ​h​o​d​n​o​t​y​ ​j​e​ ​p​o​t​r​e​b​n​ý​ ​P​I​N​.
+		 */
+		revealPinDescription: string
+		/**
+		 * P​I​N
+		 */
+		revealPinLabel: string
+		/**
+		 * Z​o​b​r​a​z​i​ť
+		 */
+		revealPinSubmit: string
+		/**
+		 * Z​r​u​š​i​ť
+		 */
+		revealPinCancel: string
+		/**
 		 * S​p​r​a​v​o​v​a​n​é​ ​p​r​e​m​e​n​n​o​u​ ​p​r​o​s​t​r​e​d​i​a​.
 		 */
 		envManaged: string
@@ -3253,6 +3273,26 @@ export type TranslationFunctions = {
 		 * Vybrať
 		 */
 		browseFolder: () => LocalizedString
+		/**
+		 * Zadajte PIN
+		 */
+		revealPinTitle: () => LocalizedString
+		/**
+		 * Na zobrazenie citlivej hodnoty je potrebný PIN.
+		 */
+		revealPinDescription: () => LocalizedString
+		/**
+		 * PIN
+		 */
+		revealPinLabel: () => LocalizedString
+		/**
+		 * Zobraziť
+		 */
+		revealPinSubmit: () => LocalizedString
+		/**
+		 * Zrušiť
+		 */
+		revealPinCancel: () => LocalizedString
 		/**
 		 * Spravované premennou prostredia.
 		 */
