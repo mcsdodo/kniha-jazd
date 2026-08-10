@@ -1,8 +1,9 @@
-//! Web Mercator (slippy-map) tile geometry for route map rendering.
+//! Web Mercator (slippy-map) tile geometry and tile fetching for route maps.
 //!
-//! This module is pure geometry — no I/O. It answers three questions for a set
-//! of route coordinates: which tiles are needed, at what zoom, and where does
-//! each coordinate land in pixels. Tile *fetching* and caching live elsewhere.
+//! The first half is pure geometry — no I/O. It answers three questions for a
+//! set of route coordinates: which tiles are needed, at what zoom, and where
+//! does each coordinate land in pixels. The second half ([`TileFetcher`] and
+//! [`CachedTileFetcher`]) turns those tile indices into PNG bytes, cache-first.
 //!
 //! Units, because mixing them up is the classic bug here:
 //!
@@ -14,6 +15,9 @@
 //! | canvas pixels | pixels relative to a [`TileGrid`]'s north-west corner      |
 
 use std::f64::consts::PI;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 /// Edge length of an OpenStreetMap raster tile, in pixels.
 pub const TILE_SIZE: u32 = 256;
@@ -222,5 +226,186 @@ fn to_tile_index(value: f64, last: u32) -> u32 {
         last
     } else {
         floored as u32
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tile fetching
+// ---------------------------------------------------------------------------
+
+/// Standard OpenStreetMap raster tile servers.
+const OSM_TILE_URL: &str = "https://tile.openstreetmap.org";
+
+/// How long to wait for a single tile. Tiles are a few kilobytes each, so a
+/// slow one is a stuck one — no reason to wait as long as for a whole route.
+const TILE_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Identifies this application to tile servers. OSM's tile usage policy
+/// requires it, and a generic or absent agent gets the whole application
+/// blocked rather than just one request.
+const USER_AGENT: &str = concat!(
+    "kniha-jazd/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/mcsdodo/kniha-jazd)"
+);
+
+/// Source of raster tile bytes. Behind a trait so the renderer can be tested
+/// against canned tiles and never touch the network.
+#[async_trait::async_trait]
+pub trait TileFetcher: Send + Sync {
+    /// PNG bytes of the tile at `(z, x, y)`.
+    async fn tile(&self, z: u8, x: u32, y: u32) -> Result<Vec<u8>, String>;
+}
+
+/// Cache-first OSM tile fetcher.
+///
+/// A tile is immutable for a given `(z, x, y)`, so anything already on disk is
+/// returned without a request — cache-first is what OSM's tile usage policy
+/// demands, not a performance tweak.
+///
+/// The cache directory is disposable: deleting it costs a re-fetch and nothing
+/// else, so it is never backed up nor moved with the database. That is why the
+/// database stores only the polyline. Do not put anything here that would make
+/// losing the cache lossy.
+pub struct CachedTileFetcher {
+    /// Root of the disposable cache; tiles land in `{cache_dir}/tiles/z/x/y.png`.
+    cache_dir: PathBuf,
+    base_url: String,
+    /// Built once in `new`. A build failure (no usable TLS backend) is kept as
+    /// an error string instead of panicking, so it can reach the UI like any
+    /// other fetch failure.
+    client: Result<reqwest::Client, String>,
+}
+
+impl CachedTileFetcher {
+    /// `base_url` without a trailing slash, e.g. "https://tile.openstreetmap.org".
+    /// A trailing slash is tolerated and stripped.
+    pub fn new(cache_dir: PathBuf, base_url: impl Into<String>) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(TILE_TIMEOUT)
+            .user_agent(USER_AGENT)
+            .build()
+            .map_err(|e| format!("Could not create an HTTP client for the map tile service: {e}"));
+
+        Self {
+            cache_dir,
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            client,
+        }
+    }
+
+    /// Standard OSM tile servers.
+    pub fn osm(cache_dir: PathBuf) -> Self {
+        Self::new(cache_dir, OSM_TILE_URL)
+    }
+
+    /// Where a tile lives on disk. One directory per zoom and column keeps any
+    /// single directory small, matching the usual slippy-map layout.
+    fn cache_path(&self, z: u8, x: u32, y: u32) -> PathBuf {
+        self.cache_dir
+            .join("tiles")
+            .join(z.to_string())
+            .join(x.to_string())
+            .join(format!("{y}.png"))
+    }
+
+    fn tile_url(&self, z: u8, x: u32, y: u32) -> String {
+        format!("{}/{z}/{x}/{y}.png", self.base_url)
+    }
+
+    /// Store a freshly downloaded tile, best effort.
+    ///
+    /// A read-only or full disk must not fail the request: the caller already
+    /// holds the bytes, and the cache is only ever an optimisation. The cost of
+    /// a silent failure is one extra download next time.
+    ///
+    /// Written to a temporary file and renamed, so a crash or a full disk
+    /// mid-write leaves either the whole tile or nothing. A plain write can
+    /// leave a truncated PNG that is then served from cache indefinitely —
+    /// undiagnosable without knowing the cache directory exists.
+    async fn store(path: &Path, bytes: &[u8]) {
+        if let Some(parent) = path.parent() {
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                log::warn!("Could not create the map tile cache directory {parent:?}: {e}");
+                return;
+            }
+        }
+        // Unique per writer: two simultaneous exports fetching the same tile
+        // would otherwise share one temp path, and the loser's rename would
+        // fail spuriously once the winner moved it away.
+        static WRITES: AtomicU64 = AtomicU64::new(0);
+        let tmp = path.with_extension(format!(
+            "png.{}.{}.part",
+            std::process::id(),
+            WRITES.fetch_add(1, Ordering::Relaxed)
+        ));
+        if let Err(e) = tokio::fs::write(&tmp, bytes).await {
+            log::warn!("Could not cache the map tile {path:?}: {e}");
+            return;
+        }
+        // std::fs::rename replaces an existing destination on every platform we
+        // ship (on Windows it passes MOVEFILE_REPLACE_EXISTING), so a tile another
+        // export cached first is simply overwritten with identical bytes.
+        if let Err(e) = tokio::fs::rename(&tmp, path).await {
+            log::warn!("Could not finalise the cached map tile {path:?}: {e}");
+            let _ = tokio::fs::remove_file(&tmp).await;
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl TileFetcher for CachedTileFetcher {
+    async fn tile(&self, z: u8, x: u32, y: u32) -> Result<Vec<u8>, String> {
+        let path = self.cache_path(z, x, y);
+        match tokio::fs::read(&path).await {
+            Ok(bytes) => return Ok(bytes),
+            // A miss is the normal case and says nothing. Anything else — bad
+            // permissions, say — silently re-downloads every tile forever, so
+            // leave a trace rather than making that invisible.
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                log::warn!("Could not read the cached map tile {path:?}: {e}");
+            }
+            Err(_) => {}
+        }
+
+        let client = self.client.as_ref().map_err(|e| e.clone())?;
+        let url = self.tile_url(z, x, y);
+
+        let response = client.get(&url).send().await.map_err(|e| {
+            format!(
+                "Could not reach the map tile service at {}: {e}. Check your internet connection and try again.",
+                self.base_url
+            )
+        })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            // Deliberately returned *before* anything is written: caching an
+            // error body would poison every later render of this tile until the
+            // user found and deleted the cache directory by hand.
+            return Err(format!(
+                "Map tile service returned HTTP {} ({}) for tile {z}/{x}/{y}. Try again in a moment.",
+                status.as_u16(),
+                status.canonical_reason().unwrap_or("unknown")
+            ));
+        }
+
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("Could not read map tile {z}/{x}/{y} from the tile service: {e}"))?
+            .to_vec();
+
+        if bytes.is_empty() {
+            // Same poisoning class as a cached error body, through a different
+            // door: zero bytes is not a tile, and caching it would render this
+            // square blank on every future export.
+            return Err(format!(
+                "Map tile service returned an empty body for tile {z}/{x}/{y}. Try again in a moment."
+            ));
+        }
+
+        Self::store(&path, &bytes).await;
+        Ok(bytes)
     }
 }

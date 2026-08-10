@@ -1,4 +1,35 @@
 use super::tiles::*;
+use std::path::Path;
+use wiremock::matchers::{method, path_regex};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+/// Every file anywhere under `dir`, relative paths, sorted. A missing directory
+/// counts as empty — never having created it is as good as having created
+/// nothing in it.
+fn files_under(dir: &Path) -> Vec<String> {
+    fn walk(dir: &Path, base: &Path, out: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, base, out);
+            } else {
+                out.push(
+                    path.strip_prefix(base)
+                        .unwrap_or(&path)
+                        .to_string_lossy()
+                        .replace('\\', "/"),
+                );
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, dir, &mut out);
+    out.sort();
+    out
+}
 
 #[test]
 fn projects_known_coordinates_to_known_tiles() {
@@ -122,5 +153,170 @@ fn pixels_are_relative_to_the_grids_north_west_corner() {
     assert!(
         se_x >= grid.width_px() as f32 - tile && se_y >= grid.height_px() as f32 - tile,
         "south-east corner must fall inside the last tile"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Tile fetching and caching
+//
+// Every test below runs against a `wiremock` server and a `tempdir` cache —
+// nothing here touches tile.openstreetmap.org or any real cache directory.
+// ---------------------------------------------------------------------------
+
+/// OSM's tile usage policy makes caching mandatory, not an optimisation: a tile
+/// is immutable for a given (z, x, y), so a second render must never re-ask.
+#[tokio::test]
+async fn a_cached_tile_is_not_refetched() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/\d+/\d+/\d+\.png$"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"PNGBYTES".to_vec()))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let cache = tempfile::tempdir().expect("tempdir");
+    let fetcher = CachedTileFetcher::new(cache.path().to_path_buf(), server.uri());
+
+    let first = fetcher.tile(12, 2281, 1407).await.expect("first fetch");
+    let second = fetcher.tile(12, 2281, 1407).await.expect("second fetch");
+
+    assert_eq!(first, b"PNGBYTES".to_vec());
+    assert_eq!(second, first, "the cached tile must be byte-identical");
+
+    let requests = server
+        .received_requests()
+        .await
+        .expect("wiremock records requests by default");
+    assert_eq!(
+        requests.len(),
+        1,
+        "the second call must be served from the cache, not the network"
+    );
+}
+
+/// OSM blocks clients that do not identify themselves. A missing or generic
+/// User-Agent gets the whole application banned, not just one request.
+#[tokio::test]
+async fn sends_an_identifying_user_agent() {
+    let server = MockServer::start().await;
+    // Deliberately permissive: assert on the request we RECORDED rather than
+    // letting a header matcher turn a wrong User-Agent into an opaque 404.
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/\d+/\d+/\d+\.png$"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"PNGBYTES".to_vec()))
+        .mount(&server)
+        .await;
+
+    let cache = tempfile::tempdir().expect("tempdir");
+    let fetcher = CachedTileFetcher::new(cache.path().to_path_buf(), server.uri());
+    fetcher.tile(3, 4, 5).await.expect("fetch should succeed");
+
+    let requests = server.received_requests().await.expect("recorded requests");
+    assert_eq!(requests.len(), 1);
+    let agent = requests[0]
+        .headers
+        .get("user-agent")
+        .map(|v| v.to_str().unwrap_or_default().to_string())
+        .unwrap_or_default();
+    assert!(
+        agent.contains("kniha-jazd"),
+        "User-Agent must name this application, got: {agent:?}"
+    );
+}
+
+/// A cached error body would poison every later render of that tile until the
+/// user found and deleted the cache directory by hand. Nothing but a 2xx body
+/// may ever reach the disk.
+#[tokio::test]
+async fn an_empty_body_is_not_written_to_the_cache() {
+    // A 200 carrying zero bytes is not a tile. Caching it poisons the square
+    // exactly the way a cached error body would, just through a different door,
+    // and renders blank on every future export until someone finds the cache.
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/\d+/\d+/\d+\.png$"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(Vec::<u8>::new()))
+        .mount(&server)
+        .await;
+
+    let cache = tempfile::tempdir().expect("tempdir");
+    let fetcher = CachedTileFetcher::new(cache.path().to_path_buf(), server.uri());
+
+    fetcher
+        .tile(12, 2281, 1407)
+        .await
+        .expect_err("an empty body must not be reported as a tile");
+
+    assert_eq!(
+        files_under(cache.path()),
+        Vec::<String>::new(),
+        "an empty body must leave nothing behind, not even a partial file"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_tile_is_not_written_to_the_cache() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/\d+/\d+/\d+\.png$"))
+        .respond_with(ResponseTemplate::new(500).set_body_string("upstream exploded"))
+        .mount(&server)
+        .await;
+
+    let cache = tempfile::tempdir().expect("tempdir");
+    let fetcher = CachedTileFetcher::new(cache.path().to_path_buf(), server.uri());
+
+    let err = fetcher
+        .tile(12, 2281, 1407)
+        .await
+        .expect_err("a 500 must not be reported as a tile");
+    assert!(
+        err.contains("500"),
+        "the error should name the HTTP status, got: {err}"
+    );
+
+    assert_eq!(
+        files_under(cache.path()),
+        Vec::<String>::new(),
+        "a failed fetch must leave no file anywhere under the cache directory"
+    );
+}
+
+/// The cache is on disk, not in the process: a later export — or a later run of
+/// the application entirely — must reuse what an earlier one downloaded.
+#[tokio::test]
+async fn a_cached_tile_survives_a_new_fetcher_instance() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/\d+/\d+/\d+\.png$"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"PNGBYTES".to_vec()))
+        .mount(&server)
+        .await;
+
+    let cache = tempfile::tempdir().expect("tempdir");
+    let first = CachedTileFetcher::new(cache.path().to_path_buf(), server.uri());
+    let bytes = first.tile(12, 2281, 1407).await.expect("first fetch");
+    drop(first);
+
+    // From here on the server can only fail, so anything returned came from disk.
+    server.reset().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/\d+/\d+/\d+\.png$"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&server)
+        .await;
+
+    let second = CachedTileFetcher::new(cache.path().to_path_buf(), server.uri());
+    let cached = second
+        .tile(12, 2281, 1407)
+        .await
+        .expect("a tile cached on disk must survive a new fetcher");
+    assert_eq!(cached, bytes);
+
+    let requests = server.received_requests().await.expect("recorded requests");
+    assert!(
+        requests.is_empty(),
+        "the new fetcher must not have gone to the network at all"
     );
 }
