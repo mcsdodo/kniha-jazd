@@ -9,10 +9,32 @@ When the user says "release", "/release", or "push, release", execute this workf
 
 ## 1. Determine Version
 
-Check current version in `package.json`. Ask user for bump type if not specified:
-- **patch**: 0.1.0 → 0.1.1 (bug fixes)
-- **minor**: 0.1.0 → 0.2.0 (new features)
-- **major**: 0.1.0 → 1.0.0 (breaking changes)
+**Decide it yourself. "Release" means release — do not stop to ask.**
+
+Read the current version from [package.json](../../../package.json) and pick the
+bump from the `[Unreleased]` section of [CHANGELOG.md](../../../CHANGELOG.md):
+
+| `[Unreleased]` contains | Bump |
+|-------------------------|------|
+| any `### Pridané` (new features) | **minor** — 0.41.0 → 0.42.0 |
+| `### Zmenené` that alters existing behaviour or needs operator action (new env var, changed defaults, a field that stops working) | **minor** |
+| only `### Opravené` (and cosmetic `Zmenené`) | **patch** — 0.41.0 → 0.41.1 |
+| an explicit decision to declare the app stable | **major** — ask first |
+
+If the user names the bump ("release patch", "minor release"), use that and skip
+the table.
+
+State the version and the one-line reason in your first message, then keep going:
+
+> Releasing **0.42.0** (minor — the PIN requirement changes existing behaviour and
+> needs a new env var).
+
+**Only ask when you genuinely cannot choose**, which in practice means:
+- `[Unreleased]` is empty or missing → ask whether to release at all.
+- The changes look breaking enough to warrant **1.0.0** → ask, because that is a
+  statement about the project, not a mechanical rule.
+
+Anything else — pick, say why, proceed.
 
 ## 2. Update Version in All Files
 
@@ -65,6 +87,19 @@ npm run tauri build
 ```
 
 If build fails, fix issues and retry. Don't proceed until build succeeds.
+
+**Expected non-failure:** the build ends with
+
+```
+A public key has been found, but no private key. Make sure to set `TAURI_SIGNING_PRIVATE_KEY`
+```
+
+after both bundles are written. That is the updater-signature step, and the key
+lives only in GitHub secrets ([release.yml](../../../.github/workflows/release.yml)
+supplies it on tag push). The local build has already served its purpose — compile
+plus bundle verified — so **continue**. It also means the locally built installers
+are unsigned and are not valid auto-update artifacts; distribute the GitHub release
+assets instead.
 
 ## 6. Commit, Tag, and Push
 
