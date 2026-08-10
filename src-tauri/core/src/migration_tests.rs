@@ -540,13 +540,19 @@ fn test_backfill_other_when_fuel_liters_null_or_zero() {
 #[test]
 fn test_multi_invoice_migration_is_single_atomic_unit() {
     let db = open_db_legacy();
-    let before = count(&db, "SELECT COUNT(*) AS cnt FROM __diesel_schema_migrations");
 
     migrate_to_current(&db);
 
-    let after = count(&db, "SELECT COUNT(*) AS cnt FROM __diesel_schema_migrations");
+    // Scoped to the multi_invoice migration's own version rather than the
+    // total migration count: the delta-from-legacy form asserted "exactly 1
+    // migration was applied", which silently meant "multi_invoice is the
+    // newest migration" and so broke the moment any later migration landed.
     assert_eq!(
-        after - before,
+        count(
+            &db,
+            "SELECT COUNT(*) AS cnt FROM __diesel_schema_migrations \
+             WHERE version LIKE '20260715%'"
+        ),
         1,
         "both table rebuilds must ship as exactly ONE migration (= one \
          transaction); two directories would allow a half-migrated DB"
