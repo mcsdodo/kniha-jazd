@@ -1,7 +1,9 @@
 //! Tests for the Diesel-based Database implementation.
 
 use super::*;
-use crate::models::{AssignmentType, PaperlessLink, ReceiptStatus, VehicleType};
+use crate::models::{
+    AssignmentType, PaperlessLink, ReceiptStatus, RouteMap, VehicleType, Waypoint,
+};
 use chrono::{NaiveDate, NaiveDateTime};
 
 #[test]
@@ -876,4 +878,191 @@ fn trip_routes_table_exists_after_migration() {
     diesel::sql_query("SELECT trip_id, waypoints, polyline, target_km, road_km, dataset_version, created_at FROM trip_routes")
         .execute(conn)
         .expect("trip_routes table must exist");
+}
+
+/// Seed a vehicle + trip and return the trip (its `id` is the route-map key).
+fn seed_vehicle_and_trip(db: &Database, day: u32) -> Trip {
+    let vehicle = Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 3, day).unwrap(),
+        120.0,
+        None,
+        true,
+    );
+    trip.vehicle_id = vehicle.id;
+    db.create_trip(&trip).unwrap();
+    trip
+}
+
+/// Build a RouteMap for `trip_id` with a caller-chosen polyline.
+fn make_route_map(trip_id: Uuid, polyline: &str) -> RouteMap {
+    RouteMap {
+        trip_id,
+        waypoints: vec![Waypoint {
+            lat: 48.935,
+            lon: 20.553,
+            name: Some("Domov".into()),
+            node_idx: Some(0),
+        }],
+        polyline: polyline.to_string(),
+        target_km: 120.0,
+        road_km: 118.4,
+        dataset_version: Some("2026-05-03".into()),
+        created_at: Utc::now(),
+    }
+}
+
+/// Row count for one trip, read straight from the table — a read through
+/// `get_route_map` alone cannot tell a replaced row from duplicates quietly
+/// accumulating behind a "first/latest wins" lookup.
+fn count_route_map_rows(db: &Database, trip_id: &str) -> i64 {
+    use crate::schema::trip_routes::dsl as tr;
+    let conn = &mut *db.connection();
+    tr::trip_routes
+        .filter(tr::trip_id.eq(trip_id))
+        .count()
+        .get_result(conn)
+        .unwrap()
+}
+
+#[test]
+fn route_map_round_trips() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+        120.0,
+        None,
+        true,
+    );
+    trip.vehicle_id = vehicle.id;
+    db.create_trip(&trip).unwrap();
+
+    let map = RouteMap {
+        trip_id: trip.id,
+        waypoints: vec![Waypoint {
+            lat: 48.935,
+            lon: 20.553,
+            name: Some("Domov".into()),
+            node_idx: Some(0),
+        }],
+        polyline: "_p~iF~ps|U".into(),
+        target_km: 120.0,
+        road_km: 118.4,
+        dataset_version: Some("2026-05-03".into()),
+        created_at: Utc::now(),
+    };
+    db.save_route_map(&map).unwrap();
+
+    let loaded = db
+        .get_route_map(&trip.id.to_string())
+        .unwrap()
+        .expect("must exist");
+    assert_eq!(loaded.trip_id, trip.id);
+    assert_eq!(loaded.polyline, "_p~iF~ps|U");
+    assert_eq!(loaded.target_km, 120.0);
+    assert_eq!(loaded.road_km, 118.4);
+    assert_eq!(loaded.dataset_version, Some("2026-05-03".to_string()));
+    assert_eq!(loaded.waypoints.len(), 1);
+    assert_eq!(loaded.waypoints[0].node_idx, Some(0));
+    assert_eq!(loaded.waypoints[0].name, Some("Domov".to_string()));
+}
+
+#[test]
+fn save_route_map_replaces_existing() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_vehicle_and_trip(&db, 2);
+    // A second mapped trip guards the upsert's delete scope: clearing the
+    // whole table before inserting would also satisfy the assertions below.
+    let bystander = seed_vehicle_and_trip(&db, 9);
+    db.save_route_map(&make_route_map(bystander.id, "bystander"))
+        .unwrap();
+
+    db.save_route_map(&make_route_map(trip.id, "first"))
+        .unwrap();
+    db.save_route_map(&make_route_map(trip.id, "second"))
+        .unwrap();
+
+    let loaded = db
+        .get_route_map(&trip.id.to_string())
+        .unwrap()
+        .expect("must exist");
+    assert_eq!(loaded.polyline, "second", "the later save must win");
+    assert_eq!(
+        count_route_map_rows(&db, &trip.id.to_string()),
+        1,
+        "an upsert must replace the row, not append a second one"
+    );
+    assert_eq!(
+        db.get_route_map(&bystander.id.to_string())
+            .unwrap()
+            .expect("another trip's map must survive")
+            .polyline,
+        "bystander"
+    );
+}
+
+#[test]
+fn route_map_cascades_when_trip_deleted() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_vehicle_and_trip(&db, 3);
+    db.save_route_map(&make_route_map(trip.id, "abc")).unwrap();
+    assert_eq!(count_route_map_rows(&db, &trip.id.to_string()), 1);
+
+    db.delete_trip(&trip.id.to_string()).unwrap();
+
+    assert!(
+        db.get_route_map(&trip.id.to_string()).unwrap().is_none(),
+        "ON DELETE CASCADE must remove the orphaned map"
+    );
+    assert_eq!(
+        count_route_map_rows(&db, &trip.id.to_string()),
+        0,
+        "the row must be gone from the table, not merely unreadable"
+    );
+}
+
+#[test]
+fn get_route_maps_for_trips_returns_only_requested() {
+    let db = Database::in_memory().unwrap();
+    let with_map = seed_vehicle_and_trip(&db, 4);
+    let without_map = seed_vehicle_and_trip(&db, 5);
+    db.save_route_map(&make_route_map(with_map.id, "mapped"))
+        .unwrap();
+
+    let maps = db
+        .get_route_maps_for_trips(&[with_map.id.to_string(), without_map.id.to_string()])
+        .unwrap();
+
+    assert_eq!(maps.len(), 1, "only trips that actually have a map appear");
+    assert_eq!(
+        maps.get(&with_map.id.to_string()).unwrap().polyline,
+        "mapped"
+    );
+    assert!(!maps.contains_key(&without_map.id.to_string()));
+}
+
+#[test]
+fn get_route_map_is_none_for_unknown_trip() {
+    let db = Database::in_memory().unwrap();
+    assert!(db
+        .get_route_map(&Uuid::new_v4().to_string())
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn delete_route_map_is_idempotent() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_vehicle_and_trip(&db, 6);
+    db.save_route_map(&make_route_map(trip.id, "abc")).unwrap();
+
+    db.delete_route_map(&trip.id.to_string()).unwrap();
+    db.delete_route_map(&trip.id.to_string())
+        .expect("deleting a non-existent map must be Ok");
+
+    assert!(db.get_route_map(&trip.id.to_string()).unwrap().is_none());
+    assert_eq!(count_route_map_rows(&db, &trip.id.to_string()), 0);
 }

@@ -5,11 +5,11 @@
 //! to domain models (Vehicle, etc.) happen via From implementations.
 
 use crate::models::{
-    AssignmentType, NewReceiptRow, NewRouteRow, NewSettingsRow, NewTripRow, NewVehicleRow,
-    PaperlessLink, Receipt, ReceiptRow, Route, RouteRow, Settings, SettingsRow, Trip,
-    TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
+    AssignmentType, NewReceiptRow, NewRouteMapRow, NewRouteRow, NewSettingsRow, NewTripRow,
+    NewVehicleRow, PaperlessLink, Receipt, ReceiptRow, Route, RouteMap, RouteMapRow, RouteRow,
+    Settings, SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
 };
-use crate::schema::{receipts, routes, settings, trips, vehicles};
+use crate::schema::{receipts, routes, settings, trip_routes, trips, vehicles};
 use chrono::{NaiveDateTime, Utc};
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
@@ -1084,6 +1084,77 @@ impl Database {
         }
 
         Ok(coverage)
+    }
+
+    // ========================================================================
+    // Route map CRUD — one generated map per trip (Task 70)
+    // ========================================================================
+
+    /// Upsert the generated map for a trip. `trip_routes.trip_id` is the
+    /// primary key, so re-generating a map must replace the old row rather
+    /// than fail on the PK. Delete + insert run inside one transaction so a
+    /// failed insert can never leave the trip mapless.
+    pub fn save_route_map(&self, map: &RouteMap) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        let trip_id_str = map.trip_id.to_string();
+        let waypoints_json = serde_json::to_string(&map.waypoints)
+            .map_err(|e| diesel::result::Error::SerializationError(Box::new(e)))?;
+        let created_at_str = map.created_at.to_rfc3339();
+
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::delete(trip_routes::table.filter(trip_routes::trip_id.eq(&trip_id_str)))
+                .execute(tx)?;
+            diesel::insert_into(trip_routes::table)
+                .values(&NewRouteMapRow {
+                    trip_id: &trip_id_str,
+                    waypoints: &waypoints_json,
+                    polyline: &map.polyline,
+                    target_km: map.target_km,
+                    road_km: map.road_km,
+                    dataset_version: map.dataset_version.as_deref(),
+                    created_at: &created_at_str,
+                })
+                .execute(tx)?;
+            Ok(())
+        })
+    }
+
+    pub fn get_route_map(&self, trip_id: &str) -> QueryResult<Option<RouteMap>> {
+        let conn = &mut *self.conn.lock().unwrap();
+
+        let row = trip_routes::table
+            .filter(trip_routes::trip_id.eq(trip_id))
+            .first::<RouteMapRow>(conn)
+            .optional()?;
+
+        Ok(row.map(RouteMap::from))
+    }
+
+    /// Deleting a map that was never generated is a no-op, not an error.
+    pub fn delete_route_map(&self, trip_id: &str) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::delete(trip_routes::table.filter(trip_routes::trip_id.eq(trip_id)))
+            .execute(conn)
+            .map(|_| ())
+    }
+
+    /// Maps for many trips in ONE query — the export renders a whole year and
+    /// must not issue a query per trip. Trips without a map are simply absent
+    /// from the returned map, so callers can look up by trip id directly.
+    pub fn get_route_maps_for_trips(
+        &self,
+        trip_ids: &[String],
+    ) -> QueryResult<HashMap<String, RouteMap>> {
+        let conn = &mut *self.conn.lock().unwrap();
+
+        let rows = trip_routes::table
+            .filter(trip_routes::trip_id.eq_any(trip_ids))
+            .load::<RouteMapRow>(conn)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.trip_id.clone(), RouteMap::from(row)))
+            .collect())
     }
 }
 
