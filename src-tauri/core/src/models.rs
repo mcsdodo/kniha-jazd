@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use uuid::Uuid;
 
-use crate::schema::{receipts, routes, settings, trips, vehicles};
+use crate::schema::{receipts, routes, settings, trip_routes, trips, vehicles};
 
 /// Vehicle powertrain type - determines which fields are required/displayed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -281,6 +281,35 @@ pub struct Route {
     pub distance_km: f64,
     pub usage_count: i32,
     pub last_used: DateTime<Utc>,
+}
+
+/// One point on a generated route. `node_idx` is present when the generator
+/// picked the point from the bundled dataset and absent when a human placed
+/// it (V2 editor) — see _tasks/70-route-map-integration/02-design.md.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Waypoint {
+    pub lat: f64,
+    pub lon: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_idx: Option<i32>,
+}
+
+/// A generated route map saved against a trip. NOT to be confused with
+/// [`Route`], which is the origin/destination autocomplete entity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteMap {
+    pub trip_id: Uuid,
+    pub waypoints: Vec<Waypoint>,
+    /// Encoded polyline5 as returned by OSRM.
+    pub polyline: String,
+    pub target_km: f64,
+    pub road_km: f64,
+    pub dataset_version: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Inferred start/end datetimes for a new trip row, derived from the most
@@ -974,6 +1003,34 @@ pub struct NewRouteRow<'a> {
     pub last_used: &'a str,
 }
 
+/// Database row for trip_routes table (generated route maps, Task 70)
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = trip_routes)]
+#[diesel(primary_key(trip_id))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct RouteMapRow {
+    pub trip_id: String,
+    pub waypoints: String,
+    pub polyline: String,
+    pub target_km: f64,
+    pub road_km: f64,
+    pub dataset_version: Option<String>,
+    pub created_at: String,
+}
+
+/// For inserting new trip_routes
+#[derive(Debug, Insertable)]
+#[diesel(table_name = trip_routes)]
+pub struct NewRouteMapRow<'a> {
+    pub trip_id: &'a str,
+    pub waypoints: &'a str,
+    pub polyline: &'a str,
+    pub target_km: f64,
+    pub road_km: f64,
+    pub dataset_version: Option<&'a str>,
+    pub created_at: &'a str,
+}
+
 /// Database row for settings table
 #[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
 #[diesel(table_name = settings)]
@@ -1157,6 +1214,22 @@ impl From<RouteRow> for Route {
             distance_km: row.distance_km,
             usage_count: row.usage_count,
             last_used: DateTime::parse_from_rfc3339(&row.last_used)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        }
+    }
+}
+
+impl From<RouteMapRow> for RouteMap {
+    fn from(row: RouteMapRow) -> Self {
+        RouteMap {
+            trip_id: Uuid::parse_str(&row.trip_id).unwrap_or_else(|_| Uuid::new_v4()),
+            waypoints: serde_json::from_str(&row.waypoints).unwrap_or_default(),
+            polyline: row.polyline,
+            target_km: row.target_km,
+            road_km: row.road_km,
+            dataset_version: row.dataset_version,
+            created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
         }
@@ -1418,6 +1491,39 @@ mod tests {
         assert_eq!(confidence.liters, ConfidenceLevel::High);
         assert_eq!(confidence.total_price, ConfidenceLevel::Medium);
         assert_eq!(confidence.date, ConfidenceLevel::Low);
+    }
+
+    // ========================================================================
+    // RouteMap / Waypoint serialization tests
+    // ========================================================================
+
+    #[test]
+    fn waypoint_serialises_camel_case_and_omits_absent_node_idx() {
+        let w = Waypoint {
+            lat: 48.935,
+            lon: 20.553,
+            name: Some("Domov".into()),
+            node_idx: None,
+        };
+        let json = serde_json::to_string(&w).unwrap();
+        assert!(json.contains("\"lat\":48.935"));
+        assert!(
+            !json.contains("nodeIdx"),
+            "a hand-placed point must omit nodeIdx: {json}"
+        );
+
+        // Pin the camelCase contract itself: node_idx is the only multi-word
+        // field, so without this the rename_all could be deleted unnoticed.
+        let generated = Waypoint {
+            lat: 48.997,
+            lon: 20.591,
+            name: None,
+            node_idx: Some(14),
+        };
+        let json = serde_json::to_string(&generated).unwrap();
+        assert!(json.contains("\"nodeIdx\":14"), "must be camelCase: {json}");
+        assert!(!json.contains("node_idx"), "must not be snake_case: {json}");
+        assert!(!json.contains("name"), "an unnamed point must omit name: {json}");
     }
 
     #[test]
