@@ -844,9 +844,22 @@ type RootTranslation = {
 		 */
 		receiptsFolderNotSet: string
 		/**
+		 * C​e​s​t​a​ ​k​ ​p​r​i​e​č​i​n​k​u​ ​n​a​ ​s​e​r​v​e​r​i​.
+		 */
+		receiptsFolderServerHint: string
+		/**
 		 * V​y​b​r​a​ť
 		 */
 		browseFolder: string
+		/**
+		 * S​p​r​a​v​o​v​a​n​é​ ​p​r​e​m​e​n​n​o​u​ ​p​r​o​s​t​r​e​d​i​a​.
+		 */
+		envManaged: string
+		/**
+		 * T​á​t​o​ ​h​o​d​n​o​t​a​ ​j​e​ ​n​a​s​t​a​v​e​n​á​ ​p​r​e​m​e​n​n​o​u​ ​p​r​o​s​t​r​e​d​i​a​ ​{​n​a​m​e​}​ ​a​ ​n​e​d​á​ ​s​a​ ​t​u​ ​z​m​e​n​i​ť​.
+		 * @param {unknown} name
+		 */
+		envManagedTitle: RequiredParams<'name'>
 		/**
 		 * Z​o​b​r​a​z​i​ť
 		 */
@@ -3233,9 +3246,21 @@ export type TranslationFunctions = {
 		 */
 		receiptsFolderNotSet: () => LocalizedString
 		/**
+		 * Cesta k priečinku na serveri.
+		 */
+		receiptsFolderServerHint: () => LocalizedString
+		/**
 		 * Vybrať
 		 */
 		browseFolder: () => LocalizedString
+		/**
+		 * Spravované premennou prostredia.
+		 */
+		envManaged: () => LocalizedString
+		/**
+		 * Táto hodnota je nastavená premennou prostredia {name} a nedá sa tu zmeniť.
+		 */
+		envManagedTitle: (arg: { name: unknown }) => LocalizedString
 		/**
 		 * Zobraziť
 		 */

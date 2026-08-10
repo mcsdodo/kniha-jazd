@@ -6,6 +6,30 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
+/// Names of the environment variables that override `LocalSettings` fields.
+///
+/// Single source of truth: `apply_overrides` reads them, the setter guards check
+/// them, and the settings responses ship them to the UI so the frontend can name
+/// the variable a field comes from without hardcoding it.
+pub mod env_vars {
+    pub const GEMINI_API_KEY: &str = "GEMINI_API_KEY";
+    pub const HA_URL: &str = "HA_URL";
+    pub const HA_API_TOKEN: &str = "HA_API_TOKEN";
+    pub const PAPERLESS_URL: &str = "PAPERLESS_URL";
+    pub const PAPERLESS_API_TOKEN: &str = "PAPERLESS_API_TOKEN";
+    pub const PAPERLESS_ENABLED: &str = "PAPERLESS_ENABLED";
+
+    /// Every overridable variable — used by the test-env scrubber.
+    pub const ALL: [&str; 6] = [
+        GEMINI_API_KEY,
+        HA_URL,
+        HA_API_TOKEN,
+        PAPERLESS_URL,
+        PAPERLESS_API_TOKEN,
+        PAPERLESS_ENABLED,
+    ];
+}
+
 /// Backup retention settings for automatic pre-update backup cleanup
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,22 +108,22 @@ impl LocalSettings {
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         };
-        if let Some(v) = get("GEMINI_API_KEY") {
+        if let Some(v) = get(env_vars::GEMINI_API_KEY) {
             self.gemini_api_key = Some(v);
         }
-        if let Some(v) = get("HA_URL") {
+        if let Some(v) = get(env_vars::HA_URL) {
             self.ha_url = Some(v);
         }
-        if let Some(v) = get("HA_API_TOKEN") {
+        if let Some(v) = get(env_vars::HA_API_TOKEN) {
             self.ha_api_token = Some(v);
         }
-        if let Some(v) = get("PAPERLESS_URL") {
+        if let Some(v) = get(env_vars::PAPERLESS_URL) {
             self.paperless_url = Some(v);
         }
-        if let Some(v) = get("PAPERLESS_API_TOKEN") {
+        if let Some(v) = get(env_vars::PAPERLESS_API_TOKEN) {
             self.paperless_api_token = Some(v);
         }
-        if let Some(v) = get("PAPERLESS_ENABLED") {
+        if let Some(v) = get(env_vars::PAPERLESS_ENABLED) {
             self.paperless_enabled = Some(matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"));
         }
     }
@@ -141,14 +165,7 @@ pub(crate) mod test_env {
     /// or CI exporting e.g. GEMINI_API_KEY globally must not break the suite.
     fn scrub_ambient_env() {
         AMBIENT_SCRUB.call_once(|| {
-            for var in [
-                "GEMINI_API_KEY",
-                "HA_URL",
-                "HA_API_TOKEN",
-                "PAPERLESS_URL",
-                "PAPERLESS_API_TOKEN",
-                "PAPERLESS_ENABLED",
-            ] {
+            for var in super::env_vars::ALL {
                 std::env::remove_var(var);
             }
         });

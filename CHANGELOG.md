@@ -7,6 +7,13 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **V nastaveniach je vidieť, čo je spravované premennými prostredia** — polia nastavené cez premenné prostredia (Gemini kľúč, Home Assistant, Paperless) sú neaktívne a označené menom premennej, takže je jasné, čo sa dá zmeniť v aplikácii a čo v konfigurácii nasadenia. Ikona oka pri takomto poli zobrazí skutočnú hodnotu z premennej prostredia. Stav pripojenia k Home Assistantu aj Paperless sa naďalej zobrazuje.
+
+### Opravené
+- **Úprava tokenu hlásila chybu o URL** — ak bola cez premennú prostredia nastavená len adresa (napr. `HA_URL`), aplikácia pri uložení tokenu poslala aj adresu a uloženie skončilo chybou. Polia spravované premennými sa už neposielajú, takže zvyšné sa dajú normálne upraviť.
+- **Priečinok s dokladmi sa nedal nastaviť v prehliadači** — jediná možnosť bolo tlačidlo otvárajúce natívny dialóg, ktorý v prehliadači nefunguje. V serverovom režime je teraz cesta k priečinku (na serveri) obyčajné textové pole.
+
 ## [0.40.1] - 2026-08-07
 
 ### Opravené

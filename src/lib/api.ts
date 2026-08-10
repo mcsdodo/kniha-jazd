@@ -1,7 +1,7 @@
 // API wrapper for Tauri commands
 
 import { apiCall, IS_TAURI } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, HaSettings, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -401,14 +401,10 @@ export async function setReceiptsFolderPath(path: string): Promise<void> {
 	return apiCall('set_receipts_folder_path', { path });
 }
 
-// Home Assistant settings
-export interface HaSettingsResponse {
-	url: string | null;
-	hasToken: boolean;
-}
-
-export async function getHaSettings(): Promise<HaSettingsResponse> {
-	return apiCall<HaSettingsResponse>('get_ha_settings');
+// Home Assistant settings — shape lives in types.ts (HaSettings) so the page and
+// the API wrapper can't drift apart.
+export async function getHaSettings(): Promise<HaSettings> {
+	return apiCall<HaSettings>('get_ha_settings');
 }
 
 export async function saveHaSettings(url: string | null, token: string | null): Promise<void> {

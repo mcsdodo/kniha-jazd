@@ -18,7 +18,7 @@ use crate::receipts::{
     detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts,
     FolderStructure,
 };
-use crate::settings::LocalSettings;
+use crate::settings::{env_vars, LocalSettings};
 
 use super::statistics::is_datetime_in_trip_range;
 
@@ -33,8 +33,9 @@ use std::path::Path;
 pub struct ReceiptSettings {
     pub gemini_api_key: Option<String>,
     pub receipts_folder_path: Option<String>,
-    pub gemini_api_key_from_override: bool,
-    pub receipts_folder_from_override: bool,
+    /// True when GEMINI_API_KEY pins the key — the Settings UI renders it read-only.
+    /// (`gemini_api_key` already carries the effective value, env override included.)
+    pub gemini_api_key_from_env: bool,
 }
 
 pub fn get_receipt_settings_internal(app_dir: &Path) -> Result<ReceiptSettings, String> {
@@ -43,8 +44,7 @@ pub fn get_receipt_settings_internal(app_dir: &Path) -> Result<ReceiptSettings, 
     Ok(ReceiptSettings {
         gemini_api_key: local.gemini_api_key.clone(),
         receipts_folder_path: local.receipts_folder_path.clone(),
-        gemini_api_key_from_override: local.gemini_api_key.is_some(),
-        receipts_folder_from_override: local.receipts_folder_path.is_some(),
+        gemini_api_key_from_env: LocalSettings::env_pinned(env_vars::GEMINI_API_KEY),
     })
 }
 
@@ -54,7 +54,7 @@ pub fn set_gemini_api_key_internal(
     api_key: String,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    if LocalSettings::env_pinned("GEMINI_API_KEY") {
+    if LocalSettings::env_pinned(env_vars::GEMINI_API_KEY) {
         return Err("Gemini API key is managed by the GEMINI_API_KEY environment variable".into());
     }
     let mut settings = LocalSettings::load(app_dir);

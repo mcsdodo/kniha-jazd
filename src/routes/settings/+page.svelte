@@ -60,6 +60,7 @@
 	let geminiApiKey = '';
 	let receiptsFolderPath = '';
 	let showApiKey = false;
+	let geminiKeyFromEnv = false;
 
 	// Track initial values to detect actual changes
 	let initialCompanyName = '';
@@ -76,6 +77,9 @@
 	let haUrlError = '';
 	let initialHaUrl = '';
 	let initialHaApiToken = '';
+	// Env-var pinning: backend decides, page only renders (ADR-008)
+	let haUrlFromEnv = false;
+	let haTokenFromEnv = false;
 	// Connection status
 	const HA_STATUS = {
 		IDLE: 'idle',
@@ -94,6 +98,9 @@
 	let paperlessUrlError = '';
 	let initialPaperlessUrl = '';
 	let initialPaperlessApiToken = '';
+	let paperlessUrlFromEnv = false;
+	let paperlessTokenFromEnv = false;
+	let paperlessEnabledFromEnv = false;
 	const PAPERLESS_STATUS = {
 		IDLE: 'idle',
 		TESTING: 'testing',
@@ -182,7 +189,11 @@
 			return;
 		}
 		try {
-			await setGeminiApiKey(geminiApiKey);
+			// The key is read-only while GEMINI_API_KEY pins it — sending it would
+			// be rejected and mask the folder save.
+			if (!geminiKeyFromEnv) {
+				await setGeminiApiKey(geminiApiKey);
+			}
 			await setReceiptsFolderPath(receiptsFolderPath);
 			initialGeminiApiKey = geminiApiKey;
 			initialReceiptsFolderPath = receiptsFolderPath;
@@ -260,6 +271,10 @@
 	}
 
 	async function saveHaSettingsNow() {
+		// Nothing here is ours to change
+		if (haUrlFromEnv && haTokenFromEnv) {
+			return;
+		}
 		// Only save if values actually changed
 		if (haUrl === initialHaUrl && haApiToken === initialHaApiToken) {
 			return;
@@ -269,7 +284,12 @@
 			return;
 		}
 		try {
-			await saveHaSettings(haUrl || null, haApiToken || null);
+			// null = "leave alone". Sending an env-pinned field would be rejected by
+			// the backend guard even when the user only edited the other one.
+			await saveHaSettings(
+				haUrlFromEnv ? null : haUrl || null,
+				haTokenFromEnv ? null : haApiToken || null
+			);
 			initialHaUrl = haUrl;
 			initialHaApiToken = haApiToken;
 			haHasToken = !!haApiToken;
@@ -317,6 +337,9 @@
 	}
 
 	async function savePaperlessSettingsNow() {
+		if (paperlessUrlFromEnv && paperlessTokenFromEnv) {
+			return;
+		}
 		if (paperlessUrl === initialPaperlessUrl && paperlessApiToken === initialPaperlessApiToken) {
 			return;
 		}
@@ -324,7 +347,10 @@
 			return;
 		}
 		try {
-			await savePaperlessSettings(paperlessUrl || null, paperlessApiToken || null);
+			await savePaperlessSettings(
+				paperlessUrlFromEnv ? null : paperlessUrl || null,
+				paperlessTokenFromEnv ? null : paperlessApiToken || null
+			);
 			initialPaperlessUrl = paperlessUrl;
 			initialPaperlessApiToken = paperlessApiToken;
 			// Re-fetch to get true has_token: backend preserves existing token when null is sent.
@@ -617,6 +643,7 @@
 			if (receiptSettings) {
 				geminiApiKey = receiptSettings.geminiApiKey || '';
 				receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
+				geminiKeyFromEnv = receiptSettings.geminiApiKeyFromEnv;
 				// Track initial values for change detection
 				initialGeminiApiKey = receiptSettings.geminiApiKey || '';
 				initialReceiptsFolderPath = receiptSettings.receiptsFolderPath || '';
@@ -631,7 +658,15 @@
 				haUrl = haSettings.url || '';
 				haHasToken = haSettings.hasToken;
 				initialHaUrl = haSettings.url || '';
-				// Token is not exposed via API, only hasToken boolean
+				haUrlFromEnv = haSettings.urlFromEnv;
+				haTokenFromEnv = haSettings.tokenFromEnv;
+				// File-stored tokens are never sent back (only hasToken). An env-pinned
+				// one is, so the eye icon can reveal what's actually live — seed
+				// initial* too, or change detection would fire a doomed save.
+				if (haSettings.tokenEnvValue) {
+					haApiToken = haSettings.tokenEnvValue;
+					initialHaApiToken = haSettings.tokenEnvValue;
+				}
 				// Test connection if configured
 				await testHaConnectionStatus();
 			}
@@ -642,6 +677,14 @@
 				paperlessUrl = paperlessSettings.url || '';
 				paperlessHasToken = paperlessSettings.hasToken;
 				paperlessEnabled = paperlessSettings.enabled;
+				paperlessUrlFromEnv = paperlessSettings.urlFromEnv;
+				paperlessTokenFromEnv = paperlessSettings.tokenFromEnv;
+				paperlessEnabledFromEnv = paperlessSettings.enabledFromEnv;
+				// Same as HA: only an env-pinned token comes back with a value.
+				if (paperlessSettings.tokenEnvValue) {
+					paperlessApiToken = paperlessSettings.tokenEnvValue;
+					initialPaperlessApiToken = paperlessSettings.tokenEnvValue;
+				}
 				paperlessFieldDatetime = paperlessSettings.fieldNameDatetime;
 				paperlessFieldLiters = paperlessSettings.fieldNameLiters;
 				paperlessFieldTotal = paperlessSettings.fieldNameTotal;
@@ -1062,13 +1105,19 @@
 			<h2>{$LL.settings.receiptScanningSection()}</h2>
 			<div class="section-content">
 				<div class="form-group">
-					<label for="gemini-api-key">{$LL.settings.geminiApiKey()}</label>
+					<label for="gemini-api-key">
+						{$LL.settings.geminiApiKey()}
+						{#if geminiKeyFromEnv}
+							<span class="env-badge" data-test="gemini-key-env-badge" title={$LL.settings.envManagedTitle({ name: 'GEMINI_API_KEY' })}>GEMINI_API_KEY</span>
+						{/if}
+					</label>
 					<div class="input-with-icon">
 						<input
 							type={showApiKey ? 'text' : 'password'}
 							id="gemini-api-key"
 							class="monospace-input"
 							bind:value={geminiApiKey}
+							disabled={geminiKeyFromEnv}
 							placeholder={$LL.settings.geminiApiKeyPlaceholder()}
 							on:input={debouncedSaveReceiptSettings}
 							on:blur={saveReceiptSettingsNow}
@@ -1088,18 +1137,35 @@
 							{/if}
 						</button>
 					</div>
-					<small class="hint">{$LL.settings.geminiApiKeyHint()}</small>
+					<small class="hint">
+						{geminiKeyFromEnv ? $LL.settings.envManaged() : $LL.settings.geminiApiKeyHint()}
+					</small>
 				</div>
 
 				<div class="form-group">
-					<label>{$LL.settings.receiptsFolder()}</label>
-					<div class="db-path-display">
-						<span id="receipts-folder" class="path-text">{receiptsFolderPath || $LL.settings.receiptsFolderNotSet()}</span>
-						<button type="button" class="link-btn browse-folder-btn" on:click={handleBrowseFolder}>
-							{$LL.settings.receiptsFolderChange()}
-						</button>
-					</div>
-					<small class="hint">{$LL.settings.receiptsFolderHint()}</small>
+					<label for="receipts-folder">{$LL.settings.receiptsFolder()}</label>
+					{#if $capabilities.features.fileDialogs}
+						<div class="db-path-display">
+							<span id="receipts-folder" class="path-text">{receiptsFolderPath || $LL.settings.receiptsFolderNotSet()}</span>
+							<button type="button" class="link-btn browse-folder-btn" on:click={handleBrowseFolder}>
+								{$LL.settings.receiptsFolderChange()}
+							</button>
+						</div>
+						<small class="hint">{$LL.settings.receiptsFolderHint()}</small>
+					{:else}
+						<!-- Server mode: no native directory dialog, so the path is typed.
+						     It resolves on the server, not on the browsing device. -->
+						<input
+							type="text"
+							id="receipts-folder"
+							data-test="receipts-folder-input"
+							bind:value={receiptsFolderPath}
+							placeholder={$LL.settings.receiptsFolderPlaceholder()}
+							on:input={debouncedSaveReceiptSettings}
+							on:blur={saveReceiptSettingsNow}
+						/>
+						<small class="hint">{$LL.settings.receiptsFolderServerHint()}</small>
+					{/if}
 				</div>
 			</div>
 		</section>
@@ -1109,11 +1175,17 @@
 			<h2>{$LL.homeAssistant.sectionTitle()}</h2>
 			<div class="section-content">
 				<div class="form-group">
-					<label for="ha-url">{$LL.homeAssistant.urlLabel()}</label>
+					<label for="ha-url">
+						{$LL.homeAssistant.urlLabel()}
+						{#if haUrlFromEnv}
+							<span class="env-badge" data-test="ha-url-env-badge" title={$LL.settings.envManagedTitle({ name: 'HA_URL' })}>HA_URL</span>
+						{/if}
+					</label>
 					<input
 						type="text"
 						id="ha-url"
 						bind:value={haUrl}
+						disabled={haUrlFromEnv}
 						placeholder={$LL.homeAssistant.urlPlaceholder()}
 						on:input={() => { validateHaUrl(haUrl); debouncedSaveHaSettings(); }}
 						on:blur={saveHaSettingsNow}
@@ -1121,19 +1193,27 @@
 					/>
 					{#if haUrlError}
 						<small class="error-text">{haUrlError}</small>
+					{:else if haUrlFromEnv}
+						<small class="hint">{$LL.settings.envManaged()}</small>
 					{:else}
 						<small class="hint">{$LL.homeAssistant.urlHint()}</small>
 					{/if}
 				</div>
 
 				<div class="form-group">
-					<label for="ha-token">{$LL.homeAssistant.tokenLabel()}</label>
+					<label for="ha-token">
+						{$LL.homeAssistant.tokenLabel()}
+						{#if haTokenFromEnv}
+							<span class="env-badge" data-test="ha-token-env-badge" title={$LL.settings.envManagedTitle({ name: 'HA_API_TOKEN' })}>HA_API_TOKEN</span>
+						{/if}
+					</label>
 					<div class="input-with-icon">
 						<input
 							type={showHaToken ? 'text' : 'password'}
 							id="ha-token"
 							class="monospace-input"
 							bind:value={haApiToken}
+							disabled={haTokenFromEnv}
 							placeholder={haHasToken && !haApiToken ? '********' : $LL.homeAssistant.tokenPlaceholder()}
 							on:input={debouncedSaveHaSettings}
 							on:blur={saveHaSettingsNow}
@@ -1154,7 +1234,9 @@
 						</button>
 					</div>
 					<small class="hint">
-						{#if haHasToken && !haApiToken}
+						{#if haTokenFromEnv}
+							{$LL.settings.envManaged()}
+						{:else if haHasToken && !haApiToken}
 							{$LL.homeAssistant.tokenSet()}
 						{:else}
 							{$LL.homeAssistant.tokenHint()}
@@ -1189,27 +1271,38 @@
 				<div class="form-group">
 					<label
 						class="checkbox-label"
-						class:disabled={!initialPaperlessUrl || !paperlessHasToken}
-						title={!initialPaperlessUrl || !paperlessHasToken ? $LL.paperless.enableToggleDisabledHint() : ''}
+						class:disabled={paperlessEnabledFromEnv || !initialPaperlessUrl || !paperlessHasToken}
+						title={paperlessEnabledFromEnv
+							? $LL.settings.envManagedTitle({ name: 'PAPERLESS_ENABLED' })
+							: !initialPaperlessUrl || !paperlessHasToken ? $LL.paperless.enableToggleDisabledHint() : ''}
 					>
 						<input
 							type="checkbox"
 							data-test="paperless-enabled-toggle"
 							checked={paperlessEnabled}
-							disabled={!initialPaperlessUrl || !paperlessHasToken}
+							disabled={paperlessEnabledFromEnv || !initialPaperlessUrl || !paperlessHasToken}
 							on:change={(e) => togglePaperlessEnabled((e.target as HTMLInputElement).checked)}
 						/>
 						{$LL.paperless.enableToggle()}
+						{#if paperlessEnabledFromEnv}
+							<span class="env-badge" data-test="paperless-enabled-env-badge">PAPERLESS_ENABLED</span>
+						{/if}
 					</label>
 				</div>
 
 				<div class="form-group">
-					<label for="paperless-url">{$LL.paperless.url()}</label>
+					<label for="paperless-url">
+						{$LL.paperless.url()}
+						{#if paperlessUrlFromEnv}
+							<span class="env-badge" data-test="paperless-url-env-badge" title={$LL.settings.envManagedTitle({ name: 'PAPERLESS_URL' })}>PAPERLESS_URL</span>
+						{/if}
+					</label>
 					<input
 						type="text"
 						id="paperless-url"
 						data-test="paperless-url"
 						bind:value={paperlessUrl}
+						disabled={paperlessUrlFromEnv}
 						placeholder={$LL.paperless.urlPlaceholder()}
 						on:input={() => { validatePaperlessUrl(paperlessUrl); debouncedSavePaperlessSettings(); }}
 						on:blur={savePaperlessSettingsNow}
@@ -1217,11 +1310,18 @@
 					/>
 					{#if paperlessUrlError}
 						<small class="error-text">{paperlessUrlError}</small>
+					{:else if paperlessUrlFromEnv}
+						<small class="hint">{$LL.settings.envManaged()}</small>
 					{/if}
 				</div>
 
 				<div class="form-group">
-					<label for="paperless-token">{$LL.paperless.apiToken()}</label>
+					<label for="paperless-token">
+						{$LL.paperless.apiToken()}
+						{#if paperlessTokenFromEnv}
+							<span class="env-badge" data-test="paperless-token-env-badge" title={$LL.settings.envManagedTitle({ name: 'PAPERLESS_API_TOKEN' })}>PAPERLESS_API_TOKEN</span>
+						{/if}
+					</label>
 					<div class="input-with-icon">
 						<input
 							type={showPaperlessToken ? 'text' : 'password'}
@@ -1229,6 +1329,7 @@
 							data-test="paperless-token"
 							class="monospace-input"
 							bind:value={paperlessApiToken}
+							disabled={paperlessTokenFromEnv}
 							placeholder={paperlessHasToken && !paperlessApiToken ? '********' : $LL.paperless.apiTokenPlaceholder()}
 							on:input={debouncedSavePaperlessSettings}
 							on:blur={savePaperlessSettingsNow}
@@ -1246,7 +1347,9 @@
 							{/if}
 						</button>
 					</div>
-					{#if paperlessHasToken && !paperlessApiToken}
+					{#if paperlessTokenFromEnv}
+						<small class="hint">{$LL.settings.envManaged()}</small>
+					{:else if paperlessHasToken && !paperlessApiToken}
 						<small class="hint">{$LL.paperless.tokenSet()}</small>
 					{/if}
 				</div>
@@ -2380,6 +2483,29 @@
 
 	.monospace-input {
 		font-family: var(--font-mono);
+	}
+
+	/* Env-var managed fields: read-only, and visibly so. The badge names the
+	   variable so the reader knows where to change the value instead. */
+	.env-badge {
+		display: inline-block;
+		margin-left: 0.5rem;
+		padding: 0.05rem 0.35rem;
+		border: 1px solid var(--border-color);
+		border-radius: 3px;
+		background: var(--bg-secondary);
+		color: var(--text-secondary);
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		font-weight: 500;
+		letter-spacing: 0.02em;
+		vertical-align: middle;
+	}
+
+	.section-content input:disabled {
+		background: var(--bg-secondary);
+		color: var(--text-secondary);
+		cursor: not-allowed;
 	}
 
 	.icon-btn {

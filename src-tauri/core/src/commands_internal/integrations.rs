@@ -12,7 +12,7 @@ use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::constants::mime_types;
 use crate::models::SuggestedFillup;
-use crate::settings::LocalSettings;
+use crate::settings::{env_vars, LocalSettings};
 
 /// Format suggested fillup for HA input_text helper.
 /// Returns "20.39 L → 5.66 l/100km" or "Plná nádrž" if no suggestion needed.
@@ -27,12 +27,20 @@ pub fn format_suggested_fillup_text(suggestion: Option<&SuggestedFillup>) -> Str
 // Home Assistant Settings
 // ============================================================================
 
-/// Response for get_ha_settings - hides token for security
+/// Response for get_ha_settings - hides file-stored tokens for security.
+///
+/// `token_env_value` is the one exception: when the token comes from
+/// `HA_API_TOKEN` the operator already controls it through the deployment, and the
+/// Settings UI needs the value so its eye icon can reveal what is actually live.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HaSettingsResponse {
     pub url: Option<String>,
     pub has_token: bool,
+    pub url_from_env: bool,
+    pub token_from_env: bool,
+    /// Populated only when `token_from_env` is true.
+    pub token_env_value: Option<String>,
 }
 
 /// Response for get_local_settings_for_ha - includes token for frontend API calls
@@ -45,9 +53,17 @@ pub struct HaLocalSettingsResponse {
 
 pub fn get_ha_settings_internal(app_dir: &Path) -> Result<HaSettingsResponse, String> {
     let settings = LocalSettings::load_effective(app_dir);
+    let token_from_env = LocalSettings::env_pinned(env_vars::HA_API_TOKEN);
     Ok(HaSettingsResponse {
-        url: settings.ha_url,
         has_token: settings.ha_api_token.is_some(),
+        url_from_env: LocalSettings::env_pinned(env_vars::HA_URL),
+        token_from_env,
+        token_env_value: if token_from_env {
+            settings.ha_api_token.clone()
+        } else {
+            None
+        },
+        url: settings.ha_url,
     })
 }
 
@@ -143,12 +159,12 @@ pub fn save_ha_settings_internal(
 
     // Env-pinned fields are managed outside the app — refuse only when the
     // call actually attempts to change them.
-    if url.is_some() && LocalSettings::env_pinned("HA_URL") {
+    if url.is_some() && LocalSettings::env_pinned(env_vars::HA_URL) {
         return Err(
             "Home Assistant URL is managed by the HA_URL environment variable".to_string(),
         );
     }
-    if token.is_some() && LocalSettings::env_pinned("HA_API_TOKEN") {
+    if token.is_some() && LocalSettings::env_pinned(env_vars::HA_API_TOKEN) {
         return Err(
             "Home Assistant token is managed by the HA_API_TOKEN environment variable".to_string(),
         );
@@ -199,6 +215,12 @@ pub struct PaperlessSettingsResponse {
     pub field_name_datetime: String,
     pub field_name_liters: String,
     pub field_name_total: String,
+    // Env-var pinning — see HaSettingsResponse for the rationale
+    pub url_from_env: bool,
+    pub token_from_env: bool,
+    pub enabled_from_env: bool,
+    /// Populated only when `token_from_env` is true.
+    pub token_env_value: Option<String>,
 }
 
 pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
@@ -207,6 +229,7 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
     let settings = LocalSettings::load_effective(app_dir);
     let names = PaperlessFieldNames::from_settings(&settings);
     let enabled = settings.paperless_enabled.unwrap_or(true);
+    let token_from_env = LocalSettings::env_pinned(env_vars::PAPERLESS_API_TOKEN);
     Ok(PaperlessSettingsResponse {
         url: settings.paperless_url,
         has_token: settings
@@ -217,6 +240,14 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
         field_name_datetime: names.datetime,
         field_name_liters: names.liters,
         field_name_total: names.total,
+        url_from_env: LocalSettings::env_pinned(env_vars::PAPERLESS_URL),
+        token_from_env,
+        enabled_from_env: LocalSettings::env_pinned(env_vars::PAPERLESS_ENABLED),
+        token_env_value: if token_from_env {
+            settings.paperless_api_token
+        } else {
+            None
+        },
     })
 }
 
@@ -235,18 +266,18 @@ pub fn save_paperless_settings_internal(
 
     // Env-pinned fields are managed outside the app — refuse only when the
     // call actually attempts to change them. Field-name overrides stay editable.
-    if url.is_some() && LocalSettings::env_pinned("PAPERLESS_URL") {
+    if url.is_some() && LocalSettings::env_pinned(env_vars::PAPERLESS_URL) {
         return Err(
             "Paperless URL is managed by the PAPERLESS_URL environment variable".to_string(),
         );
     }
-    if token.is_some() && LocalSettings::env_pinned("PAPERLESS_API_TOKEN") {
+    if token.is_some() && LocalSettings::env_pinned(env_vars::PAPERLESS_API_TOKEN) {
         return Err(
             "Paperless token is managed by the PAPERLESS_API_TOKEN environment variable"
                 .to_string(),
         );
     }
-    if enabled.is_some() && LocalSettings::env_pinned("PAPERLESS_ENABLED") {
+    if enabled.is_some() && LocalSettings::env_pinned(env_vars::PAPERLESS_ENABLED) {
         return Err(
             "Paperless enabled flag is managed by the PAPERLESS_ENABLED environment variable"
                 .to_string(),

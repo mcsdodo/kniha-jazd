@@ -99,6 +99,87 @@ fn get_paperless_settings_reflects_env_token_override() {
 }
 
 #[test]
+fn get_ha_settings_flags_env_pinned_fields() {
+    let dir = tempdir().unwrap();
+    crate::settings::test_env::with_env_vars(
+        &[("HA_URL", "http://env-ha:8123"), ("HA_API_TOKEN", "env-token")],
+        || {
+            let r = get_ha_settings_internal(&dir.path().to_path_buf()).unwrap();
+            assert_eq!(r.url.as_deref(), Some("http://env-ha:8123"));
+            assert!(r.url_from_env);
+            assert!(r.token_from_env);
+            assert!(r.has_token);
+            // Env-pinned tokens are echoed back so the UI's eye icon can reveal them
+            assert_eq!(r.token_env_value.as_deref(), Some("env-token"));
+        },
+    );
+}
+
+#[test]
+fn get_ha_settings_no_env_leaves_flags_false() {
+    let _env = crate::settings::test_env::lock();
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.ha_url = Some("http://file-ha:8123".into());
+    s.ha_api_token = Some("file-token".into());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let r = get_ha_settings_internal(&dir.path().to_path_buf()).unwrap();
+    assert!(!r.url_from_env);
+    assert!(!r.token_from_env);
+    assert!(r.has_token);
+    // A file-stored token must never leave the backend
+    assert_eq!(r.token_env_value, None);
+}
+
+#[test]
+fn get_ha_settings_pins_url_only() {
+    let dir = tempdir().unwrap();
+    crate::settings::test_env::with_env_vars(&[("HA_URL", "http://env-ha:8123")], || {
+        let r = get_ha_settings_internal(&dir.path().to_path_buf()).unwrap();
+        assert!(r.url_from_env);
+        assert!(!r.token_from_env, "token stays UI-editable when only HA_URL is pinned");
+        assert_eq!(r.token_env_value, None);
+    });
+}
+
+#[test]
+fn get_paperless_settings_flags_env_pinned_fields() {
+    let dir = tempdir().unwrap();
+    crate::settings::test_env::with_env_vars(
+        &[
+            ("PAPERLESS_URL", "https://env-pl"),
+            ("PAPERLESS_API_TOKEN", "env-token"),
+            ("PAPERLESS_ENABLED", "true"),
+        ],
+        || {
+            let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
+            assert!(r.url_from_env);
+            assert!(r.token_from_env);
+            assert!(r.enabled_from_env);
+            assert_eq!(r.token_env_value.as_deref(), Some("env-token"));
+        },
+    );
+}
+
+#[test]
+fn get_paperless_settings_no_env_hides_token_value() {
+    let _env = crate::settings::test_env::lock();
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.paperless_url = Some("https://file-pl".into());
+    s.paperless_api_token = Some("file-token".into());
+    s.save(&dir.path().to_path_buf()).unwrap();
+
+    let r = get_paperless_settings_internal(&dir.path().to_path_buf()).unwrap();
+    assert!(!r.url_from_env);
+    assert!(!r.token_from_env);
+    assert!(!r.enabled_from_env);
+    assert!(r.has_token);
+    assert_eq!(r.token_env_value, None);
+}
+
+#[test]
 fn save_ha_settings_rejects_url_when_env_pinned() {
     let dir = tempdir().unwrap();
     let app_state = crate::app_state::AppState::new();

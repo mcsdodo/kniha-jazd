@@ -265,7 +265,11 @@ const sk = {
 		receiptsFolderHint: 'Priečinok, kde sú uložené fotky dokladov.',
 		receiptsFolderChange: 'Zmeniť',
 		receiptsFolderNotSet: 'Nie je nastavený',
+		receiptsFolderServerHint: 'Cesta k priečinku na serveri.',
 		browseFolder: 'Vybrať',
+		// Environment-variable managed settings
+		envManaged: 'Spravované premennou prostredia.',
+		envManagedTitle: 'Táto hodnota je nastavená premennou prostredia {name} a nedá sa tu zmeniť.',
 		showApiKey: 'Zobraziť',
 		hideApiKey: 'Skryť',
 		receiptSettingsSaved: 'Nastavenia dokladov boli uložené',

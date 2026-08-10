@@ -10,12 +10,62 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * WDIO_ENV_PINNED=1 runs only the env-managed-settings suite, with the fixture
+ * variables exported into the spawned server. Those variables make settings
+ * read-only app-wide, which would break specs that edit them — hence a separate run.
+ */
+const ENV_PINNED = process.env.WDIO_ENV_PINNED === '1';
+
+/**
+ * Environment variables that pin settings for the ENV_PINNED run. Values are
+ * fixtures — the HA/Paperless hosts don't have to resolve, the UI assertions only
+ * care that the fields are pinned.
+ */
+const ENV_PINNED_FIXTURE: Record<string, string> = {
+  HA_URL: 'http://env-pinned-ha.test:8123',
+  HA_API_TOKEN: 'env-pinned-ha-token',
+  PAPERLESS_URL: 'https://env-pinned-paperless.test',
+  PAPERLESS_API_TOKEN: 'env-pinned-paperless-token',
+  PAPERLESS_ENABLED: 'true',
+};
+
+/**
+ * Blank out every overridable settings variable for normal runs.
+ *
+ * WebdriverIO auto-loads the repo's .env, and a developer with a real
+ * PAPERLESS_API_TOKEN or GEMINI_API_KEY there would pin those settings in the
+ * spawned server — making the setter guards reject writes and specs like
+ * paperless-integration fail with "managed by the ... environment variable".
+ * Empty values read as unset (see LocalSettings::apply_overrides), so this keeps
+ * runs hermetic. Mirrors scrub_ambient_env() in settings.rs for the Rust tests.
+ */
+const SCRUBBED_ENV: Record<string, string> = Object.fromEntries(
+  Object.keys(ENV_PINNED_FIXTURE)
+    .concat('GEMINI_API_KEY')
+    .map((key) => [key, ''])
+);
+
+/** Every tier folder, enumerated so `./specs/env/**` is never picked up by accident. */
+const TIER_SPECS = [
+  './specs/tier1/**/*.spec.ts',
+  './specs/tier2/**/*.spec.ts',
+  './specs/tier3/**/*.spec.ts',
+  './specs/existing/**/*.spec.ts',
+];
+
+/**
  * Get specs based on TIER and PARALLEL_TIERS environment variables
  * (Reuses the same logic as wdio.conf.ts for consistency)
  */
 function getSpecs(): string[] {
   const tier = process.env.TIER;
   const parallelMode = process.env.PARALLEL_TIERS === 'true';
+
+  // The env-pinned suite needs ENV_PINNED_FIXTURE set before the server starts,
+  // so it gets its own run and is never swept into a normal one.
+  if (ENV_PINNED) {
+    return ['./specs/env/**/*.spec.ts'];
+  }
 
   if (parallelMode) {
     switch (tier) {
@@ -26,7 +76,7 @@ function getSpecs(): string[] {
       case '3':
         return ['./specs/tier3/**/*.spec.ts'];
       default:
-        return ['./specs/**/*.spec.ts'];
+        return TIER_SPECS;
     }
   }
 
@@ -36,7 +86,7 @@ function getSpecs(): string[] {
   } else if (tier === '2') {
     return ['./specs/tier1/**/*.spec.ts', './specs/tier2/**/*.spec.ts', './specs/existing/**/*.spec.ts'];
   }
-  return ['./specs/**/*.spec.ts'];
+  return TIER_SPECS;
 }
 
 /**
@@ -193,6 +243,13 @@ export const config: any = {
       mkdirSync(screenshotsDir, { recursive: true });
     }
 
+    if (ENV_PINNED && EXTERNAL_SERVER) {
+      throw new Error(
+        'WDIO_ENV_PINNED=1 cannot run against an external server — the fixture ' +
+          'variables must be present when the process starts. Use the spawned-Tauri run.'
+      );
+    }
+
     if (EXTERNAL_SERVER) {
       console.log(`Connecting to external server at ${SERVER_URL}`);
       await waitForUrl(`${SERVER_URL}/health`, 30000);
@@ -209,6 +266,10 @@ export const config: any = {
     console.log(`Server URL: ${SERVER_URL}`);
     console.log(`Test data dir: ${testDataDir}`);
 
+    if (ENV_PINNED) {
+      console.log(`Pinning settings via env: ${Object.keys(ENV_PINNED_FIXTURE).join(', ')}`);
+    }
+
     tauriProcess = spawn(binaryPath, [], {
       env: {
         ...process.env,
@@ -216,6 +277,8 @@ export const config: any = {
         KNIHA_JAZD_SERVER_AUTOSTART: '1',
         KNIHA_JAZD_SERVER_PORT: String(SERVER_PORT),
         KNIHA_JAZD_MOCK_GEMINI_DIR: join(__dirname, 'data', 'mocks'),
+        ...SCRUBBED_ENV,
+        ...(ENV_PINNED ? ENV_PINNED_FIXTURE : {}),
       },
       stdio: 'ignore',
     });

@@ -265,7 +265,11 @@ const en = {
 		receiptsFolderHint: 'Folder where receipt photos are stored.',
 		receiptsFolderChange: 'Change',
 		receiptsFolderNotSet: 'Not set',
+		receiptsFolderServerHint: 'Folder path on the server.',
 		browseFolder: 'Browse',
+		// Environment-variable managed settings
+		envManaged: 'Managed by an environment variable.',
+		envManagedTitle: 'This value is set by the {name} environment variable and cannot be changed here.',
 		showApiKey: 'Show',
 		hideApiKey: 'Hide',
 		receiptSettingsSaved: 'Receipt settings saved',

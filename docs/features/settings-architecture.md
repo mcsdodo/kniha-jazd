@@ -61,6 +61,26 @@ For server/Docker and headless deployments, secrets and integration endpoints ca
 - Desktop behaviour is unchanged when the variables are unset.
 - Preferences (theme, hidden columns, date prefill, backup retention, Paperless custom field names, receipts folder) are not overridable — they remain file/UI-managed.
 
+The variable names live in one place — the `env_vars` module in [settings.rs](../../src-tauri/core/src/settings.rs) — and are consumed by `apply_overrides`, the setter guards in [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs), and the settings responses that ship the name to the UI.
+
+**How the Settings page renders a pinned field** (see [ADR-025](../../DECISIONS.md)):
+
+- The input is **disabled** and carries a badge with the variable's name, plus an "env-managed" hint. Marking is per-field, so pinning `HA_URL` while leaving `HA_API_TOKEN` in the file leaves the token editable.
+- The **eye icon reveals the real value** for a pinned token. `get_ha_settings` / `get_paperless_settings` return `tokenEnvValue` **only** when the variable pins the field; a file-stored token is never sent back (only `hasToken`).
+- The page sends `null` for pinned fields when saving, so a pinned URL doesn't block a token edit.
+- **Connection status still runs** — a fully env-configured integration shows its ✓/✗ indicator as usual.
+- Disabling is UX only; the setter guards remain the enforcement boundary, since a browser client can call `/api/rpc` directly.
+
+**Response fields carrying this information:**
+
+| Command | Fields |
+|---------|--------|
+| `get_ha_settings` | `urlFromEnv`, `tokenFromEnv`, `tokenEnvValue` |
+| `get_paperless_settings` | `urlFromEnv`, `tokenFromEnv`, `enabledFromEnv`, `tokenEnvValue` |
+| `get_receipt_settings` | `geminiApiKeyFromEnv` (the key itself is already in `geminiApiKey`) |
+
+**Testing note:** WebdriverIO auto-loads the repo's `.env` file, so a developer with a real `PAPERLESS_API_TOKEN` there would pin that setting inside the app under test and make setter specs fail. Both [wdio.conf.ts](../../tests/integration/wdio.conf.ts) and [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) blank the six variables before launching the app; the dedicated `test:integration:server:env` run re-applies fixture values on top to exercise the pinned UI ([env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts)).
+
 **Consumption vs. setter rule:** Code that *reads* configuration goes through `LocalSettings::load_effective()` in [settings.rs](../../src-tauri/core/src/settings.rs), which layers env overrides on top of the file. Setter commands use plain `load()` so they read and write only the on-disk file — combined with the env-pinned guard above, this keeps env values out of the persisted JSON.
 
 ### Settings (Database)

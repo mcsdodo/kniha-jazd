@@ -171,6 +171,21 @@ export const config: any = {
     process.env.KNIHA_JAZD_MOCK_GEMINI_DIR = join(__dirname, 'data', 'mocks');
     console.log(`Mock Gemini directory: ${process.env.KNIHA_JAZD_MOCK_GEMINI_DIR}`);
 
+    // Blank the settings-override variables. WebdriverIO auto-loads the repo's
+    // .env, and a real PAPERLESS_API_TOKEN / GEMINI_API_KEY there would pin those
+    // settings in the app under test, making the setter guards reject writes.
+    // Empty reads as unset (LocalSettings::apply_overrides).
+    for (const key of [
+      'GEMINI_API_KEY',
+      'HA_URL',
+      'HA_API_TOKEN',
+      'PAPERLESS_URL',
+      'PAPERLESS_API_TOKEN',
+      'PAPERLESS_ENABLED',
+    ]) {
+      process.env[key] = '';
+    }
+
     // Create screenshots directory if it doesn't exist
     const screenshotsDir = join(__dirname, 'screenshots');
     if (!existsSync(screenshotsDir)) {

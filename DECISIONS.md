@@ -4,6 +4,27 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-08-08: Env-Managed Settings in the UI
+
+### ADR-025: Env-Pinned Secrets Are Echoed Back to the Settings Page
+
+**Context:** [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client)'s Docker deployment configures Gemini/HA/Paperless through environment variables, which win over [local.settings.json](./local.settings.json.sample) at every read (`LocalSettings::load_effective` in [settings.rs](./src-tauri/core/src/settings.rs)) and cause the setter commands to refuse writes. The Settings page knew none of this: it rendered ordinary editable inputs holding env-provided values, and the guard only surfaced as a red error toast *after* the user typed. Task 68 makes the pinning visible. Doing that for a masked token forces a choice — reveal the variable *name*, or the variable's *value*.
+
+**Decision:**
+
+1. **Pinned fields render disabled**, each marked with a badge naming its variable (`HA_API_TOKEN`, `PAPERLESS_URL`, …) and an "env-managed" hint. Marking is per-field, not per-section: a deployment may pin `HA_URL` and leave the token file-managed.
+2. **The eye icon reveals the actual value** for an env-pinned secret. `get_ha_settings` / `get_paperless_settings` gained `tokenEnvValue`, populated **only** when the variable pins the field; file-stored tokens keep today's write-only `hasToken: bool` and are never sent.
+3. **The backend guards stay the enforcement boundary.** Disabling inputs is UX only — a browser client can POST `/api/rpc` directly, so the guards in [integrations.rs](./src-tauri/core/src/commands_internal/integrations.rs) keep refusing pinned writes.
+4. **The page sends `null` for pinned fields** instead of their current value, so pinning one field doesn't block editing its neighbour.
+
+**Reasoning:** On a homelab box the operator wants to confirm *which* token is actually live — the name of a variable they typed into their own compose file tells them nothing they don't know. The exposure is narrow by construction: only values the operator already controls through the deployment, never a secret that was typed into the app. For Gemini and Home Assistant this is not even new — `get_receipt_settings` and `get_local_settings_for_ha` already returned those values in full.
+
+**Trade-offs accepted:** Server mode serves this page over LAN/tailnet, so a pinned token is readable by anyone who can reach the app. That is the same trust boundary [ADR-017](#adr-017-lan-only-cors-without-authentication) already accepts for the data itself. Rejected: revealing only the variable name (safer, but answers a question the operator isn't asking) and hiding env-managed sections entirely (loses the connection status, which is the main reason to open the page).
+
+**Related:** [Task 68](./_tasks/68-env-managed-settings-ui/) — [02-design.md](./_tasks/68-env-managed-settings-ui/02-design.md), [docs/features/settings-architecture.md](./docs/features/settings-architecture.md), [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client).
+
+---
+
 ## 2026-08-07: Always-On Homelab Deployment
 
 ### ADR-024: Homelab Server is the Canonical Deployment; Desktop Becomes a Browser Client

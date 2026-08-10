@@ -234,8 +234,8 @@ export interface Receipt {
 export interface ReceiptSettings {
 	geminiApiKey: string | null;
 	receiptsFolderPath: string | null;
-	geminiApiKeyFromOverride: boolean;
-	receiptsFolderFromOverride: boolean;
+	/** GEMINI_API_KEY pins the key — Settings renders it read-only. */
+	geminiApiKeyFromEnv: boolean;
 }
 
 export interface SyncError {
@@ -400,6 +400,12 @@ export function extractTime(datetime: string): string {
 export interface HaSettings {
 	url: string | null;
 	hasToken: boolean;
+	/** HA_URL pins the URL — Settings renders it read-only. */
+	urlFromEnv: boolean;
+	/** HA_API_TOKEN pins the token — Settings renders it read-only. */
+	tokenFromEnv: boolean;
+	/** The live token, sent only when `tokenFromEnv`; null for file-stored tokens. */
+	tokenEnvValue: string | null;
 }
 
 export interface HaOdoCache {
@@ -418,6 +424,12 @@ export interface PaperlessSettings {
 	fieldNameDatetime: string;
 	fieldNameLiters: string;
 	fieldNameTotal: string;
+	/** PAPERLESS_URL / _API_TOKEN / _ENABLED pin these — Settings renders them read-only. */
+	urlFromEnv: boolean;
+	tokenFromEnv: boolean;
+	enabledFromEnv: boolean;
+	/** The live token, sent only when `tokenFromEnv`; null for file-stored tokens. */
+	tokenEnvValue: string | null;
 }
 
 /**
