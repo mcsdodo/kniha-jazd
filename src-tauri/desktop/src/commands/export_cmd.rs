@@ -87,6 +87,8 @@ pub async fn export_to_browser(
         labels,
         hidden_columns,
         sort_direction,
+        // Populated in Task 14, which renders the maps from the assembled rows.
+        route_maps: Vec::new(),
     };
 
     let html = generate_html(export_data)?;

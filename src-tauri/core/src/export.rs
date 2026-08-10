@@ -63,6 +63,21 @@ pub struct ExportLabels {
     pub footer_baseline_norm: String,
     // Print hint
     pub print_hint: String,
+    // Route map attachment pages ("Príloha č. {n}", "záznam č. {row}")
+    pub attachment_heading: String,
+    pub record_reference: String,
+}
+
+/// One appended A4-landscape attachment page. Carries only its attachment
+/// number, the row it references, and the image - "minimum data for the
+/// reviewer". The reference runs one way (attachment -> row), so the trip
+/// table gains no column.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteMapPage {
+    pub attachment_no: usize,
+    pub row_number: usize,
+    pub png_base64: String,
 }
 
 /// Data needed to generate the HTML export
@@ -78,6 +93,8 @@ pub struct ExportData {
     /// Sort direction for the trip rows: "asc" = oldest first (lowest trip # on top),
     /// "desc" = newest first (highest trip # on top). Anything else is treated as "asc".
     pub sort_direction: String,
+    /// Route map attachment pages appended after the trip table. Empty = no attachments.
+    pub route_maps: Vec<RouteMapPage>,
 }
 
 /// Calculated totals for the export footer
@@ -157,6 +174,69 @@ impl ExportTotals {
             energy_deviation_percent,
         }
     }
+}
+
+/// Styles for the appended map pages. Only emitted when there is at least one
+/// attachment, so exports without maps stay byte-identical to before.
+const MAP_PAGE_STYLES: &str = r#"
+    .map-page {
+      page-break-before: always;
+      text-align: center;
+    }
+
+    .map-page img {
+      max-width: 100%;
+      max-height: 170mm;
+    }
+
+    .map-attribution {
+      font-size: 9px;
+      color: #666;
+      margin-top: 4px;
+    }
+"#;
+
+/// Build the attachment pages appended after the trip table.
+///
+/// The heading is composed from two i18n labels and the two numbers:
+/// `attachment_heading` prefixes the attachment number, `record_reference`
+/// prefixes the trip row it points at — yielding "Príloha č. 1 — záznam č. 3".
+///
+/// The labels are plain prefixes rather than `{n}` / `{row}` templates on
+/// purpose. typesafe-i18n parses braces as ITS OWN interpolation, so a
+/// templated label would generate as `(arg: { n: unknown }) => LocalizedString`
+/// unlike every other zero-arg export label, and passing a real value through
+/// it would consume the placeholder before Rust ever saw it. v5's parser has
+/// no escape syntax, so composing here is the only clean option.
+fn build_map_pages(pages: &[RouteMapPage], l: &ExportLabels) -> String {
+    let mut html = String::new();
+
+    for page in pages {
+        let heading = format!(
+            "{} {} — {} {}",
+            html_escape(&l.attachment_heading),
+            page.attachment_no,
+            html_escape(&l.record_reference),
+            page.row_number,
+        );
+
+        html.push_str(&format!(
+            r#"
+  <div class="map-page">
+    <h2>{heading}</h2>
+    <img src="data:image/png;base64,{png}" alt="">
+    <p class="map-attribution">© OpenStreetMap contributors</p>
+  </div>
+"#,
+            heading = heading,
+            // Not html_escape'd on purpose: the base64 alphabet contains none
+            // of the five escaped characters, so escaping is a guaranteed no-op
+            // that still allocates five copies of a ~700 KB string per page.
+            png = &page.png_base64,
+        ));
+    }
+
+    html
 }
 
 /// Generate HTML string for the logbook export
@@ -888,6 +968,16 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         ),
     };
 
+    // Attachment pages (and their styles) are only emitted when maps exist.
+    let (map_styles, map_pages) = if data.route_maps.is_empty() {
+        (String::new(), String::new())
+    } else {
+        (
+            MAP_PAGE_STYLES.to_string(),
+            build_map_pages(&data.route_maps, l),
+        )
+    };
+
     let html = format!(
         r#"<!DOCTYPE html>
 <html lang="{lang}">
@@ -1028,7 +1118,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         display: none;
       }}
     }}
-  </style>
+{map_styles}  </style>
 </head>
 <body>
   <h1>{page_title}</h1>
@@ -1067,7 +1157,7 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
   </div>
 
   <p class="print-hint">{print_hint}</p>
-</body>
+{map_pages}</body>
 </html>
 "#,
         lang = html_escape(&l.lang),
@@ -1091,6 +1181,8 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
         rows = rows,
         footer_items = footer_items,
         print_hint = html_escape(&l.print_hint),
+        map_styles = map_styles,
+        map_pages = map_pages,
     );
 
     Ok(html)
