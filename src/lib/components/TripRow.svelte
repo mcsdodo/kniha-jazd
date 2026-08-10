@@ -4,6 +4,7 @@
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import { toast } from '$lib/stores/toast';
+	import { capabilities } from '$lib/stores/capabilities';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let trip: Trip | null = null;
@@ -57,6 +58,9 @@
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
 	export let onInsertAbove: () => void = () => {};
+	// Route map (Task 70) - web/server mode only, gated on capabilities.features.routeMaps
+	export let hasRouteMap: boolean = false;
+	export let onOpenRouteMap: () => void = () => {};
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
 	export let hasConsumptionWarning: boolean = false;
@@ -732,6 +736,19 @@
 						<line x1="5" y1="12" x2="19" y2="12"></line>
 					</svg>
 				</button>
+				{#if $capabilities.features.routeMaps}
+					<button
+						class="icon-btn map"
+						class:has-map={hasRouteMap}
+						on:click|stopPropagation={onOpenRouteMap}
+						title={hasRouteMap ? $LL.routeMap.viewMap() : $LL.routeMap.addMap()}
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={hasRouteMap ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2">
+							<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+							<circle cx="12" cy="10" r="3"></circle>
+						</svg>
+					</button>
+				{/if}
 				<button
 					class="icon-btn delete"
 					on:click|stopPropagation={handleDeleteClick}
@@ -880,6 +897,16 @@
 	}
 
 	.icon-btn.insert:hover {
+		color: var(--accent-primary);
+	}
+
+	/* Route map (Task 70): saved maps are tinted so a filled pin reads as
+	   "map exists" even before hover. */
+	.icon-btn.map:hover {
+		color: var(--accent-primary);
+	}
+
+	.icon-btn.map.has-map {
 		color: var(--accent-primary);
 	}
 

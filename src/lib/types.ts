@@ -173,6 +173,7 @@ export interface TripGridData {
 	tripNumbers: Record<string, number>; // tripId -> sequential number (1-based)
 	odometerStart: Record<string, number>; // tripId -> odometer at trip start
 	monthEndRows: MonthEndRow[]; // synthetic rows for all closed months
+	routeMapTripIds: string[]; // trips that already have a saved route map (Task 70)
 }
 
 /** Synthetic row for month-end state display (legal requirement) */
@@ -504,6 +505,10 @@ export interface GeneratedRoute {
 	coordinates: [number, number][];
 	targetKm: number;
 	roadKm: number;
+	/** Signed % by which roadKm misses targetKm — computed by the backend. */
+	deviationPercent: number;
+	/** Whether that deviation exceeds the backend's tolerance. */
+	offTarget: boolean;
 	datasetVersion: string;
 }
 
@@ -520,6 +525,10 @@ export interface RouteMap {
 	coordinates: [number, number][];
 	targetKm: number;
 	roadKm: number;
+	/** Signed % by which roadKm misses targetKm — computed by the backend. */
+	deviationPercent: number;
+	/** Whether that deviation exceeds the backend's tolerance. */
+	offTarget: boolean;
 	datasetVersion: string | null;
 	createdAt: string;
 }

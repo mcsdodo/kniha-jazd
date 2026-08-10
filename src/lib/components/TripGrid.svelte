@@ -5,7 +5,7 @@
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -61,6 +61,15 @@
 	// Legal compliance (2026)
 	let tripNumbers: Map<string, number> = new Map();
 	let odometerStart: Map<string, number> = new Map();
+	// Route maps (Task 70): trips that already have a saved route map. Arrives
+	// as a field on the grid data rather than a command of its own, so marking
+	// the rows costs no extra round trip — a per-trip lookup would be one
+	// request per row on every grid reload.
+	let routeMapTripIds: Set<string> = new Set();
+
+	// The map view lives in its own tab and announces saves on a BroadcastChannel.
+	// Guarded because the API is absent in SSR and not guaranteed in the Tauri webview.
+	let routeMapChannel: BroadcastChannel | null = null;
 
 	// Format date as "DD.MM." (no year - it's in the dropdown)
 	function formatDateShort(dateStr: string): string {
@@ -97,6 +106,7 @@
 			fuelConsumed = new Map(Object.entries(gridData.fuelConsumed));
 			fuelRemaining = new Map(Object.entries(gridData.fuelRemaining));
 			consumptionWarnings = new Set(gridData.consumptionWarnings);
+			routeMapTripIds = new Set(gridData.routeMapTripIds);
 			// Energy
 			energyRates = new Map(Object.entries(gridData.energyRates));
 			estimatedEnergyRates = new Set(gridData.estimatedEnergyRates);
@@ -152,6 +162,33 @@
 		} catch (error) {
 			console.error('Failed to load hidden columns:', error);
 		}
+		// Track route maps saved or removed in the map tab, so the pin does not go
+		// stale while both tabs are open. Both directions matter: without the
+		// removal case a deleted map keeps showing a filled pin until a reload.
+		if (typeof BroadcastChannel !== 'undefined') {
+			routeMapChannel = new BroadcastChannel('kniha-jazd');
+			// Typed rather than bare MessageEvent: event.data would otherwise be
+			// `any`, and a field-name drift against the sender would fail silently
+			// at runtime instead of at compile time.
+			type RouteMapMessage = { type?: string; tripId?: string };
+			routeMapChannel.onmessage = (event: MessageEvent<RouteMapMessage>) => {
+				const data = event.data;
+				if (!data?.tripId) return;
+				// Reassign - mutating the Set in place would not trigger a re-render.
+				if (data.type === 'route-map-saved') {
+					routeMapTripIds = new Set(routeMapTripIds).add(data.tripId);
+				} else if (data.type === 'route-map-removed') {
+					const next = new Set(routeMapTripIds);
+					next.delete(data.tripId);
+					routeMapTripIds = next;
+				}
+			};
+		}
+	});
+
+	onDestroy(() => {
+		routeMapChannel?.close();
+		routeMapChannel = null;
 	});
 
 	function handleHiddenColumnsChange(columns: string[]) {
@@ -725,6 +762,8 @@
 							onCancel={() => {}}
 							onDelete={handleDelete}
 							onInsertAbove={() => handleInsertAbove(trip)}
+							hasRouteMap={routeMapTripIds.has(trip.id)}
+							onOpenRouteMap={() => window.open(`/mapa?trip=${trip.id}`, '_blank')}
 							onEditStart={() => handleEditStart(trip.id)}
 							onEditEnd={handleEditEnd}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}

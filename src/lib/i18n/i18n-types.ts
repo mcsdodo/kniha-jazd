@@ -1918,6 +1918,14 @@ type RootTranslation = {
 		 * N​a​o​z​a​j​ ​o​d​s​t​r​á​n​i​ť​ ​m​a​p​u​ ​t​r​a​s​y​?
 		 */
 		confirmRemove: string
+		/**
+		 * M​a​p​y​ ​t​r​á​s​ ​s​ú​ ​d​o​s​t​u​p​n​é​ ​l​e​n​ ​v​o​ ​w​e​b​o​v​e​j​ ​v​e​r​z​i​i​ ​a​p​l​i​k​á​c​i​e​.
+		 */
+		notAvailable: string
+		/**
+		 * Z​á​z​n​a​m​ ​s​a​ ​n​e​n​a​š​i​e​l​.​ ​S​k​o​n​t​r​o​l​u​j​t​e​,​ ​č​i​ ​m​á​t​e​ ​v​y​b​r​a​n​é​ ​s​p​r​á​v​n​e​ ​v​o​z​i​d​l​o​.
+		 */
+		tripNotFound: string
 	}
 	'export': {
 		/**
@@ -4357,6 +4365,14 @@ export type TranslationFunctions = {
 		 * Naozaj odstrániť mapu trasy?
 		 */
 		confirmRemove: () => LocalizedString
+		/**
+		 * Mapy trás sú dostupné len vo webovej verzii aplikácie.
+		 */
+		notAvailable: () => LocalizedString
+		/**
+		 * Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.
+		 */
+		tripNotFound: () => LocalizedString
 	}
 	'export': {
 		/**

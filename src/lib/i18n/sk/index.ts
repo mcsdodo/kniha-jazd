@@ -579,6 +579,8 @@ const sk = {
 		error: 'Trasu sa nepodarilo vygenerovať',
 		retry: 'Skúsiť znova',
 		confirmRemove: 'Naozaj odstrániť mapu trasy?',
+		notAvailable: 'Mapy trás sú dostupné len vo webovej verzii aplikácie.',
+		tripNotFound: 'Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.',
 	},
 
 	// PDF export labels (passed to Rust)

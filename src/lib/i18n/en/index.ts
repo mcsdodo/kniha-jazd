@@ -579,6 +579,8 @@ const en = {
 		error: 'Could not generate the route',
 		retry: 'Retry',
 		confirmRemove: 'Remove this route map?',
+		notAvailable: 'Route maps are only available in the web version of the app.',
+		tripNotFound: 'Record not found. Check that the right vehicle is selected.',
 	},
 
 	// PDF export labels (passed to Rust)
