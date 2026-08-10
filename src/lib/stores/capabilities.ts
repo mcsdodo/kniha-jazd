@@ -10,6 +10,7 @@ interface Capabilities {
         openExternal: boolean;
         restoreBackup: boolean;
         moveDatabase: boolean;
+        routeMaps: boolean;
     };
 }
 
@@ -22,6 +23,11 @@ const defaultDesktop: Capabilities = {
         openExternal: true,
         restoreBackup: true,
         moveDatabase: true,
+        // Intentionally false, unlike every other desktop feature: route maps ship
+        // to web mode only, and the desktop build registers no Tauri command
+        // wrappers for them. Setting this true would make the UI invoke commands
+        // that do not exist on desktop.
+        routeMaps: false,
     },
 };
 
@@ -54,6 +60,7 @@ export async function loadCapabilities(): Promise<void> {
                 openExternal: data.features.open_external,
                 restoreBackup: data.features.restore_backup,
                 moveDatabase: data.features.move_database,
+                routeMaps: data.features.route_maps,
             },
         });
     } catch {

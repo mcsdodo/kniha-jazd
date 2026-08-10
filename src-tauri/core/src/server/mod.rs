@@ -89,6 +89,7 @@ async fn capabilities_handler(
             "open_external": false,
             "restore_backup": true,
             "move_database": false,
+            "route_maps": true,
         }
     }))
 }
