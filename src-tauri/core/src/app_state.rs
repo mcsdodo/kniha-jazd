@@ -7,7 +7,28 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
+use std::time::{Duration, Instant};
+
+/// Consecutive wrong PINs before reveal locks out.
+const REVEAL_FAILURES_PER_LOCKOUT: u32 = 5;
+
+/// Lockout ladder, in seconds, indexed by how many lockouts have already fired.
+/// The last entry is the cap.
+const REVEAL_LOCKOUT_LADDER: [u64; 4] = [60, 300, 900, 3600];
+
+/// Brute-force guard for PIN-gated secret reveal.
+///
+/// The counter is deliberately **global rather than per-IP**: a per-IP counter is
+/// defeated by rotating source addresses, which is trivial on a LAN. The cost is
+/// that an attacker can lock the operator out — on a closed network, denial is the
+/// better failure than disclosure. See task 69's design doc.
+#[derive(Default)]
+struct RevealThrottle {
+    consecutive_failures: u32,
+    lockouts_fired: u32,
+    locked_until: Option<Instant>,
+}
 
 /// Application mode determining write permissions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +55,8 @@ pub struct AppState {
     is_custom_path: RwLock<bool>,
     /// Reason for read-only mode (if applicable)
     read_only_reason: RwLock<Option<String>>,
+    /// Brute-force guard for PIN-gated secret reveal
+    reveal_throttle: Mutex<RevealThrottle>,
 }
 
 impl Default for AppState {
@@ -50,7 +73,46 @@ impl AppState {
             db_path: RwLock::new(None),
             is_custom_path: RwLock::new(false),
             read_only_reason: RwLock::new(None),
+            reveal_throttle: Mutex::new(RevealThrottle::default()),
         }
+    }
+
+    /// Is a PIN attempt currently allowed?
+    ///
+    /// Call BEFORE comparing the PIN, so a lockout can't be distinguished by
+    /// timing the comparison.
+    pub fn reveal_check(&self) -> Result<(), String> {
+        let throttle = self.reveal_throttle.lock().unwrap_or_else(|p| p.into_inner());
+        match throttle.locked_until {
+            Some(until) if until > Instant::now() => {
+                let secs = (until - Instant::now()).as_secs() + 1;
+                Err(format!(
+                    "Too many incorrect PIN attempts. Try again in {secs} seconds."
+                ))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Record a wrong PIN, locking out once the threshold is reached.
+    pub fn reveal_record_failure(&self) {
+        let mut t = self.reveal_throttle.lock().unwrap_or_else(|p| p.into_inner());
+        t.consecutive_failures += 1;
+        if t.consecutive_failures >= REVEAL_FAILURES_PER_LOCKOUT {
+            let idx = (t.lockouts_fired as usize).min(REVEAL_LOCKOUT_LADDER.len() - 1);
+            let secs = REVEAL_LOCKOUT_LADDER[idx];
+            // Report the ladder value exactly; reveal_check adds 1s of rounding
+            // slack, so lock slightly past the boundary.
+            t.locked_until = Some(Instant::now() + Duration::from_secs(secs));
+            t.lockouts_fired += 1;
+            t.consecutive_failures = 0;
+        }
+    }
+
+    /// Record a correct PIN — clears the lockout and the counter.
+    pub fn reveal_record_success(&self) {
+        let mut t = self.reveal_throttle.lock().unwrap_or_else(|p| p.into_inner());
+        *t = RevealThrottle::default();
     }
 
     /// Set the application mode.
@@ -104,6 +166,55 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reveal_throttle_allows_until_threshold() {
+        let s = AppState::new();
+        for _ in 0..4 {
+            assert!(s.reveal_check().is_ok());
+            s.reveal_record_failure();
+        }
+        // 4 failures recorded — still allowed to try
+        assert!(s.reveal_check().is_ok());
+        s.reveal_record_failure();
+        // 5th failure trips the lockout
+        assert!(s.reveal_check().is_err());
+    }
+
+    #[test]
+    fn reveal_throttle_success_resets() {
+        let s = AppState::new();
+        for _ in 0..5 {
+            s.reveal_record_failure();
+        }
+        assert!(s.reveal_check().is_err());
+        s.reveal_record_success();
+        assert!(s.reveal_check().is_ok());
+    }
+
+    #[test]
+    fn reveal_throttle_error_names_remaining_seconds() {
+        let s = AppState::new();
+        for _ in 0..5 {
+            s.reveal_record_failure();
+        }
+        let e = s.reveal_check().unwrap_err();
+        assert!(e.contains("60"), "lockout error must tell the operator how long: {e}");
+    }
+
+    #[test]
+    fn reveal_throttle_escalates_across_rounds() {
+        let s = AppState::new();
+        for _ in 0..5 {
+            s.reveal_record_failure();
+        }
+        assert!(s.reveal_check().unwrap_err().contains("60"));
+        // A second round of 5 escalates to the 300s step
+        for _ in 0..5 {
+            s.reveal_record_failure();
+        }
+        assert!(s.reveal_check().unwrap_err().contains("300"));
+    }
 
     #[test]
     fn test_default_mode_is_normal() {
