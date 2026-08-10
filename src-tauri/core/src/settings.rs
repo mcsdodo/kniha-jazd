@@ -19,6 +19,11 @@ pub mod env_vars {
     pub const PAPERLESS_API_TOKEN: &str = "PAPERLESS_API_TOKEN";
     pub const PAPERLESS_ENABLED: &str = "PAPERLESS_ENABLED";
 
+    /// PIN required to reveal a secret over the network (task 69).
+    /// NOT a LocalSettings override — it is server policy, so it is deliberately
+    /// absent from `ALL` below and never layered onto the settings file.
+    pub const REVEAL_PIN: &str = "KNIHA_JAZD_REVEAL_PIN";
+
     /// Every overridable variable — used by the test-env scrubber.
     pub const ALL: [&str; 6] = [
         GEMINI_API_KEY,
@@ -168,6 +173,9 @@ pub(crate) mod test_env {
             for var in super::env_vars::ALL {
                 std::env::remove_var(var);
             }
+            // Not in ALL (it's server policy, not a settings override), but a
+            // developer with it exported would break the reveal tests.
+            std::env::remove_var(super::env_vars::REVEAL_PIN);
         });
     }
 

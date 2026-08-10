@@ -29,12 +29,24 @@ pub fn get_ha_settings(app_handle: tauri::AppHandle) -> Result<HaSettingsRespons
     inner::get_ha_settings_internal(&app_data_dir)
 }
 
+/// Reveal a configured secret for display in Settings.
+///
+/// Passes `LocalTrusted`: this command is only reachable from the Tauri window,
+/// where the user is already at the machine. Browser clients reach the app through
+/// the HTTP dispatcher instead, which always demands the PIN.
 #[tauri::command]
-pub fn get_local_settings_for_ha(
+pub fn reveal_secret(
     app_handle: tauri::AppHandle,
-) -> Result<HaLocalSettingsResponse, String> {
+    app_state: State<Arc<AppState>>,
+    field: kniha_jazd_core::commands_internal::reveal::SecretField,
+) -> Result<String, String> {
     let app_data_dir = get_app_data_dir(&app_handle)?;
-    inner::get_local_settings_for_ha_internal(&app_data_dir)
+    kniha_jazd_core::commands_internal::reveal::reveal_secret_internal(
+        &app_data_dir,
+        &app_state,
+        field,
+        kniha_jazd_core::commands_internal::reveal::RevealAuth::LocalTrusted,
+    )
 }
 
 #[tauri::command]

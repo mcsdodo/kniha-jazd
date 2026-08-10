@@ -33,6 +33,9 @@ pub use settings_cmd::*;
 pub mod integrations;
 pub use integrations::*;
 
+pub mod reveal;
+pub use reveal::*;
+
 pub mod invoices;
 pub use invoices::*;
 

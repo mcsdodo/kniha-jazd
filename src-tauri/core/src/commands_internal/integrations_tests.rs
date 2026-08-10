@@ -109,8 +109,7 @@ fn get_ha_settings_flags_env_pinned_fields() {
             assert!(r.url_from_env);
             assert!(r.token_from_env);
             assert!(r.has_token);
-            // Env-pinned tokens are echoed back so the UI's eye icon can reveal them
-            assert_eq!(r.token_env_value.as_deref(), Some("env-token"));
+            // The value itself is NOT here — reveal_secret owns that (task 69).
         },
     );
 }
@@ -128,8 +127,6 @@ fn get_ha_settings_no_env_leaves_flags_false() {
     assert!(!r.url_from_env);
     assert!(!r.token_from_env);
     assert!(r.has_token);
-    // A file-stored token must never leave the backend
-    assert_eq!(r.token_env_value, None);
 }
 
 #[test]
@@ -139,7 +136,6 @@ fn get_ha_settings_pins_url_only() {
         let r = get_ha_settings_internal(&dir.path().to_path_buf()).unwrap();
         assert!(r.url_from_env);
         assert!(!r.token_from_env, "token stays UI-editable when only HA_URL is pinned");
-        assert_eq!(r.token_env_value, None);
     });
 }
 
@@ -157,7 +153,6 @@ fn get_paperless_settings_flags_env_pinned_fields() {
             assert!(r.url_from_env);
             assert!(r.token_from_env);
             assert!(r.enabled_from_env);
-            assert_eq!(r.token_env_value.as_deref(), Some("env-token"));
         },
     );
 }
@@ -176,7 +171,6 @@ fn get_paperless_settings_no_env_hides_token_value() {
     assert!(!r.token_from_env);
     assert!(!r.enabled_from_env);
     assert!(r.has_token);
-    assert_eq!(r.token_env_value, None);
 }
 
 #[test]
@@ -610,4 +604,50 @@ async fn push_ha_input_text_noop_when_ha_unconfigured() {
     let dir = tempdir().unwrap();
     // No ha_url / ha_api_token — must return without panicking or hanging
     push_ha_input_text(dir.path().to_path_buf(), "input_text.fillup".into(), "x".into()).await;
+}
+
+// ============================================================================
+// Leak guards — no settings read may carry a secret (task 69)
+// ============================================================================
+
+/// Asserts on the SERIALIZED response rather than named fields, so a newly added
+/// leaky field fails too. That is exactly how `tokenEnvValue` slipped in.
+#[test]
+fn settings_responses_never_carry_secrets() {
+    let dir = tempdir().unwrap();
+    let mut s = crate::settings::LocalSettings::default();
+    s.ha_url = Some("https://ha.example".into());
+    s.ha_api_token = Some("SECRET-ha-token".into());
+    s.paperless_url = Some("https://pl.example".into());
+    s.paperless_api_token = Some("SECRET-paperless-token".into());
+    s.gemini_api_key = Some("SECRET-gemini-key".into());
+    s.save(dir.path()).unwrap();
+
+    crate::settings::test_env::with_env_vars(
+        &[
+            ("HA_API_TOKEN", "SECRET-env-ha"),
+            ("PAPERLESS_API_TOKEN", "SECRET-env-paperless"),
+            ("GEMINI_API_KEY", "SECRET-env-gemini"),
+        ],
+        || {
+            let responses = [
+                serde_json::to_string(&get_ha_settings_internal(dir.path()).unwrap()).unwrap(),
+                serde_json::to_string(&get_paperless_settings_internal(dir.path()).unwrap())
+                    .unwrap(),
+                serde_json::to_string(
+                    &crate::commands_internal::receipts_cmd::get_receipt_settings_internal(
+                        dir.path(),
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+            ];
+            for json in responses {
+                assert!(
+                    !json.contains("SECRET-"),
+                    "a settings read leaked a secret: {json}"
+                );
+            }
+        },
+    );
 }

@@ -8,7 +8,8 @@ fn get_receipt_settings_reflects_gemini_env_override() {
     let dir = tempdir().unwrap();
     crate::settings::test_env::with_env_vars(&[("GEMINI_API_KEY", "env-gemini-key")], || {
         let r = get_receipt_settings_internal(dir.path()).unwrap();
-        assert_eq!(r.gemini_api_key.as_deref(), Some("env-gemini-key"));
+        // The key itself is never returned — only that one is configured (task 69)
+        assert!(r.has_gemini_api_key);
         assert!(r.gemini_api_key_from_env);
     });
 }
@@ -23,7 +24,7 @@ fn get_receipt_settings_file_key_not_flagged_as_env() {
     s.save(dir.path()).unwrap();
 
     let r = get_receipt_settings_internal(dir.path()).unwrap();
-    assert_eq!(r.gemini_api_key.as_deref(), Some("file-key"));
+    assert!(r.has_gemini_api_key);
     // A configured key is not the same as an env-pinned one
     assert!(!r.gemini_api_key_from_env);
 }

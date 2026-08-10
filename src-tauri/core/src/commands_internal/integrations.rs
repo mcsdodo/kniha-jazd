@@ -94,11 +94,11 @@ pub async fn push_ha_input_text(app_data_dir: PathBuf, entity_id: String, value:
 // Home Assistant Settings
 // ============================================================================
 
-/// Response for get_ha_settings - hides file-stored tokens for security.
+/// Response for get_ha_settings.
 ///
-/// `token_env_value` is the one exception: when the token comes from
-/// `HA_API_TOKEN` the operator already controls it through the deployment, and the
-/// Settings UI needs the value so its eye icon can reveal what is actually live.
+/// Carries NO secret: the token is reported only as `has_token`. Revealing the
+/// value goes through `reveal_secret`, which demands a PIN over the network
+/// (task 69 / ADR-027).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HaSettingsResponse {
@@ -106,43 +106,20 @@ pub struct HaSettingsResponse {
     pub has_token: bool,
     pub url_from_env: bool,
     pub token_from_env: bool,
-    /// Populated only when `token_from_env` is true.
-    pub token_env_value: Option<String>,
 }
 
-/// Response for get_local_settings_for_ha - includes token for frontend API calls
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HaLocalSettingsResponse {
-    pub ha_url: Option<String>,
-    pub ha_api_token: Option<String>,
-}
+// HaLocalSettingsResponse / get_local_settings_for_ha deleted in task 69: it
+// handed the full HA token to any RPC caller so the frontend could call HA
+// directly, but the frontend goes through test_ha_connection / fetch_ha_odo
+// instead and nothing referenced it.
 
 pub fn get_ha_settings_internal(app_dir: &Path) -> Result<HaSettingsResponse, String> {
     let settings = LocalSettings::load_effective(app_dir);
-    let token_from_env = LocalSettings::env_pinned(env_vars::HA_API_TOKEN);
     Ok(HaSettingsResponse {
         has_token: settings.ha_api_token.is_some(),
         url_from_env: LocalSettings::env_pinned(env_vars::HA_URL),
-        token_from_env,
-        token_env_value: if token_from_env {
-            settings.ha_api_token.clone()
-        } else {
-            None
-        },
+        token_from_env: LocalSettings::env_pinned(env_vars::HA_API_TOKEN),
         url: settings.ha_url,
-    })
-}
-
-/// Get HA settings including token for frontend to make API calls.
-/// This is needed because the frontend needs the token to call HA directly.
-pub fn get_local_settings_for_ha_internal(
-    app_dir: &Path,
-) -> Result<HaLocalSettingsResponse, String> {
-    let settings = LocalSettings::load_effective(app_dir);
-    Ok(HaLocalSettingsResponse {
-        ha_url: settings.ha_url,
-        ha_api_token: settings.ha_api_token,
     })
 }
 
@@ -282,12 +259,10 @@ pub struct PaperlessSettingsResponse {
     pub field_name_datetime: String,
     pub field_name_liters: String,
     pub field_name_total: String,
-    // Env-var pinning — see HaSettingsResponse for the rationale
+    // Env-var pinning — see HaSettingsResponse. Carries no secret either.
     pub url_from_env: bool,
     pub token_from_env: bool,
     pub enabled_from_env: bool,
-    /// Populated only when `token_from_env` is true.
-    pub token_env_value: Option<String>,
 }
 
 pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettingsResponse, String> {
@@ -296,7 +271,6 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
     let settings = LocalSettings::load_effective(app_dir);
     let names = PaperlessFieldNames::from_settings(&settings);
     let enabled = settings.paperless_enabled.unwrap_or(true);
-    let token_from_env = LocalSettings::env_pinned(env_vars::PAPERLESS_API_TOKEN);
     Ok(PaperlessSettingsResponse {
         url: settings.paperless_url,
         has_token: settings
@@ -308,13 +282,8 @@ pub fn get_paperless_settings_internal(app_dir: &Path) -> Result<PaperlessSettin
         field_name_liters: names.liters,
         field_name_total: names.total,
         url_from_env: LocalSettings::env_pinned(env_vars::PAPERLESS_URL),
-        token_from_env,
+        token_from_env: LocalSettings::env_pinned(env_vars::PAPERLESS_API_TOKEN),
         enabled_from_env: LocalSettings::env_pinned(env_vars::PAPERLESS_ENABLED),
-        token_env_value: if token_from_env {
-            settings.paperless_api_token
-        } else {
-            None
-        },
     })
 }
 

@@ -31,10 +31,11 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReceiptSettings {
-    pub gemini_api_key: Option<String>,
+    /// Whether a key is configured — the key itself is NEVER returned here.
+    /// Reading it goes through `reveal_secret` (task 69 / ADR-027).
+    pub has_gemini_api_key: bool,
     pub receipts_folder_path: Option<String>,
     /// True when GEMINI_API_KEY pins the key — the Settings UI renders it read-only.
-    /// (`gemini_api_key` already carries the effective value, env override included.)
     pub gemini_api_key_from_env: bool,
 }
 
@@ -42,7 +43,7 @@ pub fn get_receipt_settings_internal(app_dir: &Path) -> Result<ReceiptSettings, 
     let local = LocalSettings::load_effective(app_dir);
 
     Ok(ReceiptSettings {
-        gemini_api_key: local.gemini_api_key.clone(),
+        has_gemini_api_key: local.gemini_api_key.as_deref().is_some_and(|k| !k.is_empty()),
         receipts_folder_path: local.receipts_folder_path.clone(),
         gemini_api_key_from_env: LocalSettings::env_pinned(env_vars::GEMINI_API_KEY),
     })

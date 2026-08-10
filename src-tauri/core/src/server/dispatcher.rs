@@ -288,6 +288,27 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "reveal_secret" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                field: crate::commands_internal::reveal::SecretField,
+                /// Absent is treated as an empty PIN, never as "local".
+                #[serde(default)]
+                pin: String,
+            }
+            let a: Args = parse_args(args)?;
+            let value = crate::commands_internal::reveal::reveal_secret_internal(
+                &state.app_dir,
+                &state.app_state,
+                a.field,
+                // ALWAYS Pin: this dispatcher is the network-reachable path, so it
+                // must never be able to construct RevealAuth::LocalTrusted.
+                crate::commands_internal::reveal::RevealAuth::Pin(a.pin),
+            )?;
+            Ok(serde_json::to_value(value).unwrap())
+        }
+
         // get_trip_grid_data lives in dispatcher_async — it also performs the
         // fire-and-forget HA suggested-fillup push, which needs a runtime.
         "calculate_magic_fill_liters" => {
@@ -749,10 +770,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let v = crate::commands_internal::integrations::get_ha_settings_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
         }
-        "get_local_settings_for_ha" => {
-            let v = crate::commands_internal::integrations::get_local_settings_for_ha_internal(&state.app_dir)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
         "save_ha_settings" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -821,6 +838,73 @@ mod tests {
             app_dir: std::env::temp_dir(),
             static_dir: std::env::temp_dir(),
         }
+    }
+
+    #[test]
+    fn reveal_secret_over_rpc_is_disabled_without_a_configured_pin() {
+        let _env = crate::settings::test_env::lock();
+        let state = test_state();
+        let err = dispatch_sync(
+            "reveal_secret",
+            json!({ "field": "haApiToken", "pin": "4269" }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.contains("KNIHA_JAZD_REVEAL_PIN"), "got: {err}");
+    }
+
+    #[test]
+    fn reveal_secret_over_rpc_requires_the_correct_pin() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = crate::settings::LocalSettings::default();
+        s.ha_api_token = Some("file-ha".into());
+        s.save(dir.path()).unwrap();
+
+        crate::settings::test_env::with_env_vars(&[("KNIHA_JAZD_REVEAL_PIN", "4269")], || {
+            let state = ServerState {
+                db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+                app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+                app_dir: dir.path().to_path_buf(),
+                static_dir: std::env::temp_dir(),
+            };
+
+            let err = dispatch_sync(
+                "reveal_secret",
+                json!({ "field": "haApiToken", "pin": "0000" }),
+                &state,
+            )
+            .unwrap_err();
+            assert!(err.to_lowercase().contains("pin"), "got: {err}");
+
+            let ok = dispatch_sync(
+                "reveal_secret",
+                json!({ "field": "haApiToken", "pin": "4269" }),
+                &state,
+            )
+            .unwrap();
+            assert_eq!(ok, json!("file-ha"));
+        });
+    }
+
+    /// A missing "pin" argument must not be mistaken for a local caller.
+    #[test]
+    fn reveal_secret_over_rpc_without_a_pin_argument_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = crate::settings::LocalSettings::default();
+        s.ha_api_token = Some("file-ha".into());
+        s.save(dir.path()).unwrap();
+
+        crate::settings::test_env::with_env_vars(&[("KNIHA_JAZD_REVEAL_PIN", "4269")], || {
+            let state = ServerState {
+                db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+                app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+                app_dir: dir.path().to_path_buf(),
+                static_dir: std::env::temp_dir(),
+            };
+            let err = dispatch_sync("reveal_secret", json!({ "field": "haApiToken" }), &state)
+                .unwrap_err();
+            assert!(!err.contains("file-ha"), "omitting the pin revealed the secret: {err}");
+        });
     }
 
     #[test]
