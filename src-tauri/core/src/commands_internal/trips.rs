@@ -252,9 +252,14 @@ pub fn inferred_trip_time_for_route(
 /// Seed values for a row copied from an existing trip.
 ///
 /// Thin wrapper around [`compute_copied_trip_defaults`]: supplies the DB read
-/// and the clock so the rule itself stays pure and unit-testable. `Local` (not
-/// `Utc`) is deliberate — "today" must mean the user's calendar day, matching
-/// how `defaultNewDate` is derived in the grid.
+/// and the clock so the rule itself stays pure and unit-testable.
+///
+/// `Local` is the *host's* timezone. On the desktop that is the user's calendar
+/// day, which is what "today" should mean. In server mode it is the server's —
+/// a container on `TZ=UTC` serving a browser on UTC+2 will date a 01:00 copy to
+/// the previous day. That is a known divergence: the grid's own `defaultNewDate`
+/// derives its date in UTC, so the two new-row paths can disagree by a day near
+/// midnight. Fixing it properly means taking the client's date as a parameter.
 pub fn get_copied_trip_defaults_internal(
     db: &Database,
     trip_id: String,
@@ -265,9 +270,5 @@ pub fn get_copied_trip_defaults_internal(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Trip not found: {}", trip_id))?;
 
-    Ok(compute_copied_trip_defaults(
-        &source,
-        year,
-        Local::now().date_naive(),
-    ))
+    compute_copied_trip_defaults(&source, year, Local::now().date_naive())
 }

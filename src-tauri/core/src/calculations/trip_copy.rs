@@ -4,22 +4,27 @@
 use crate::models::{CopiedTripDefaults, Trip};
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime};
 
+/// Upper bound on a copyable distance, matching the guard in
+/// `tryAutoFillDistance`. A stored value above this is corruption from the
+/// old delta-accumulation bug, never a real journey.
+const MAX_PLAUSIBLE_KM: f64 = 9999.0;
+
 /// Resolve the date a copied row should carry, given the year the grid is
 /// currently showing.
 ///
 /// The row must land inside the visible grid, so "today" is clamped into
 /// `year`: a past year gets its last day, a future year its first.
-pub fn resolve_copy_target_date(year: i32, today: NaiveDate) -> NaiveDate {
+///
+/// `year` arrives straight off the wire in server mode, so an out-of-range
+/// value is an error to report, never a panic.
+pub fn resolve_copy_target_date(year: i32, today: NaiveDate) -> Result<NaiveDate, String> {
     use std::cmp::Ordering;
-    match today.year().cmp(&year) {
-        Ordering::Equal => today,
-        Ordering::Greater => {
-            NaiveDate::from_ymd_opt(year, 12, 31).expect("31 Dec is valid in every supported year")
-        }
-        Ordering::Less => {
-            NaiveDate::from_ymd_opt(year, 1, 1).expect("1 Jan is valid in every supported year")
-        }
-    }
+    let resolved = match today.year().cmp(&year) {
+        Ordering::Equal => Some(today),
+        Ordering::Greater => NaiveDate::from_ymd_opt(year, 12, 31),
+        Ordering::Less => NaiveDate::from_ymd_opt(year, 1, 1),
+    };
+    resolved.ok_or_else(|| format!("Year out of range: {}", year))
 }
 
 /// Build the seed values for a row copied from `source`.
@@ -27,27 +32,44 @@ pub fn resolve_copy_target_date(year: i32, today: NaiveDate) -> NaiveDate {
 /// Only the time-of-day travels from the source, never its date. The end
 /// datetime additionally carries the source's day span, so an overnight trip
 /// stays overnight instead of collapsing into a negative duration.
+///
+/// A distance outside `(0, MAX_PLAUSIBLE_KM]` is returned as `0.0` rather than
+/// copied. `tryAutoFillDistance` refuses to seed a new row from such a route
+/// for the same reason — corruption must not spread from one row to the next —
+/// and the copy path is just another way to seed a row.
 pub fn compute_copied_trip_defaults(
     source: &Trip,
     year: i32,
     today: NaiveDate,
-) -> CopiedTripDefaults {
-    let target_date = resolve_copy_target_date(year, today);
+) -> Result<CopiedTripDefaults, String> {
+    let target_date = resolve_copy_target_date(year, today)?;
     let start = NaiveDateTime::new(target_date, source.start_datetime.time());
 
-    let end = source.end_datetime.map(|src_end| {
-        let day_offset = (src_end.date() - source.start_datetime.date()).num_days();
-        NaiveDateTime::new(target_date + Duration::days(day_offset), src_end.time())
-    });
+    let end = match source.end_datetime {
+        Some(src_end) => {
+            let day_offset = (src_end.date() - source.start_datetime.date()).num_days();
+            let end_date = target_date
+                .checked_add_signed(Duration::days(day_offset))
+                .ok_or_else(|| format!("Copied end date out of range for year {}", year))?;
+            Some(NaiveDateTime::new(end_date, src_end.time()))
+        }
+        None => None,
+    };
 
-    CopiedTripDefaults {
+    let distance_km = if source.distance_km > 0.0 && source.distance_km <= MAX_PLAUSIBLE_KM {
+        source.distance_km
+    } else {
+        0.0
+    };
+
+    Ok(CopiedTripDefaults {
         start_datetime: start.format("%Y-%m-%dT%H:%M:%S").to_string(),
         end_datetime: end.map(|e| e.format("%Y-%m-%dT%H:%M:%S").to_string()),
         origin: source.origin.clone(),
         destination: source.destination.clone(),
-        distance_km: source.distance_km,
+        distance_km,
         purpose: source.purpose.clone(),
-    }
+    })
 }
 
 #[cfg(test)]
@@ -95,14 +117,14 @@ mod tests {
     #[test]
     fn target_date_is_today_when_viewed_year_is_current() {
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
-        assert_eq!(resolve_copy_target_date(2026, today), today);
+        assert_eq!(resolve_copy_target_date(2026, today).unwrap(), today);
     }
 
     #[test]
     fn target_date_is_dec_31_when_viewing_a_past_year() {
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
         assert_eq!(
-            resolve_copy_target_date(2025, today),
+            resolve_copy_target_date(2025, today).unwrap(),
             NaiveDate::from_ymd_opt(2025, 12, 31).unwrap(),
             "a past year's grid must receive its latest day"
         );
@@ -112,7 +134,7 @@ mod tests {
     fn target_date_is_jan_1_when_viewing_a_future_year() {
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
         assert_eq!(
-            resolve_copy_target_date(2027, today),
+            resolve_copy_target_date(2027, today).unwrap(),
             NaiveDate::from_ymd_opt(2027, 1, 1).unwrap(),
             "a future year's grid must receive its earliest day"
         );
@@ -123,7 +145,7 @@ mod tests {
         let source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
 
-        let result = compute_copied_trip_defaults(&source, 2026, today);
+        let result = compute_copied_trip_defaults(&source, 2026, today).unwrap();
 
         assert_eq!(result.start_datetime, "2026-09-03T08:30:00");
         assert_eq!(result.end_datetime.unwrap(), "2026-09-03T09:15:00");
@@ -136,7 +158,7 @@ mod tests {
         let source = make_source(dt(2026, 3, 20, 22, 0), Some(dt(2026, 3, 21, 2, 0)));
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
 
-        let result = compute_copied_trip_defaults(&source, 2026, today);
+        let result = compute_copied_trip_defaults(&source, 2026, today).unwrap();
 
         assert_eq!(result.start_datetime, "2026-09-03T22:00:00");
         assert_eq!(result.end_datetime.unwrap(), "2026-09-04T02:00:00");
@@ -147,7 +169,7 @@ mod tests {
         let source = make_source(dt(2026, 3, 20, 8, 30), None);
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
 
-        let result = compute_copied_trip_defaults(&source, 2026, today);
+        let result = compute_copied_trip_defaults(&source, 2026, today).unwrap();
 
         assert_eq!(result.end_datetime, None);
     }
@@ -157,7 +179,7 @@ mod tests {
         let source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
 
-        let result = compute_copied_trip_defaults(&source, 2026, today);
+        let result = compute_copied_trip_defaults(&source, 2026, today).unwrap();
 
         assert_eq!(result.origin, "Bratislava");
         assert_eq!(result.destination, "Trnava");
@@ -173,9 +195,76 @@ mod tests {
         let source = make_source(dt(2026, 3, 20, 22, 0), Some(dt(2026, 3, 21, 2, 0)));
         let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
 
-        let result = compute_copied_trip_defaults(&source, 2025, today);
+        let result = compute_copied_trip_defaults(&source, 2025, today).unwrap();
 
         assert_eq!(result.start_datetime, "2025-12-31T22:00:00");
         assert_eq!(result.end_datetime.unwrap(), "2026-01-01T02:00:00");
+    }
+
+    #[test]
+    fn out_of_range_year_is_an_error_not_a_panic() {
+        // `year` is deserialized straight off the wire in server mode, so a
+        // garbage value must produce a 400-shaped Err, never a 500 + backtrace.
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+        assert!(resolve_copy_target_date(i32::MAX, today).is_err());
+        assert!(resolve_copy_target_date(i32::MIN, today).is_err());
+
+        let source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        assert!(compute_copied_trip_defaults(&source, i32::MAX, today).is_err());
+    }
+
+    #[test]
+    fn end_date_overflow_is_an_error_not_a_panic() {
+        // Overnight source at the very top of chrono's range: the +1 day offset
+        // would overflow the date, which must surface as Err.
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+        let source = make_source(dt(2026, 3, 20, 22, 0), Some(dt(2026, 3, 21, 2, 0)));
+
+        let result = compute_copied_trip_defaults(&source, 262143, today);
+
+        assert!(result.is_err(), "31 Dec 262143 + 1 day must not panic");
+    }
+
+    #[test]
+    fn absurd_distance_is_not_copied() {
+        // Mirrors tryAutoFillDistance's >9999 km guard: a value left over from
+        // the delta-accumulation bug must not seed a new row (and, through the
+        // ODO derivation, the whole chain below it).
+        let mut source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        source.distance_km = 50_000.0;
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        let result = compute_copied_trip_defaults(&source, 2026, today).unwrap();
+
+        assert_eq!(result.distance_km, 0.0, "corruption must not propagate");
+    }
+
+    #[test]
+    fn non_positive_distance_is_not_copied() {
+        let mut source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        source.distance_km = 0.0;
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        assert_eq!(
+            compute_copied_trip_defaults(&source, 2026, today)
+                .unwrap()
+                .distance_km,
+            0.0
+        );
+    }
+
+    #[test]
+    fn boundary_distance_is_still_copied() {
+        let mut source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        source.distance_km = 9999.0;
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        assert_eq!(
+            compute_copied_trip_defaults(&source, 2026, today)
+                .unwrap()
+                .distance_km,
+            9999.0,
+            "the bound itself is plausible"
+        );
     }
 }
