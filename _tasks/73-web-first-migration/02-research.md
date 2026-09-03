@@ -114,8 +114,9 @@ own body precisely because the framework-free internal version cannot emit. The 
 is in [doklady/+page.svelte](../../src/routes/doklady/+page.svelte) line 56, already
 gated on `IS_TAURI`. In web mode the user sees nothing until `sync_receipts` returns.
 
-ADR-024 point 4 makes Paperless the sole intake channel going forward, so this is a
-plausible accept-the-loss. Decide explicitly (D3 in [01-task.md](./01-task.md)).
+ADR-024 point 4 makes Paperless the sole intake channel going forward, so this is an
+accepted loss — D3 in [01-task.md](./01-task.md) settles it: no SSE or polling replacement
+is built.
 
 ### 2.4 Gaps that are already handled
 
@@ -246,8 +247,9 @@ is not skipped.
 [tests/e2e/](../../tests/e2e/) holds 3 Playwright specs and has been commented out of CI
 since it was written ([test.yml](../../.github/workflows/test.yml) lines 394-407, "These
 tests need a running Vite dev server which requires complex setup"). It runs frontend-only
-against a dev server; WDIO covers the same flows against a real backend. See D1 in
-[01-task.md](./01-task.md).
+against a dev server; WDIO covers the same flows against a real backend. D1 in
+[01-task.md](./01-task.md) settles it: the directory, the config, both scripts, and the
+`@playwright/test` dependency are deleted.
 
 ---
 

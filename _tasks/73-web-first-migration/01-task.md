@@ -38,7 +38,7 @@ while [kniha-jazd-desktop](../../src-tauri/desktop/) holds 2. See
 
 - Adding authentication. [ADR-017](../../DECISIONS.md#adr-017-lan-only-cors-without-authentication)
   and ADR-024's tailnet-trust model stand unchanged.
-- Reviving Playwright as a second browser harness (see [Open decisions](#open-decisions)).
+- Reviving Playwright as a second browser harness (see [D1](#resolved-decisions)).
 - Reworking the receipts pipeline. ADR-024 already routes intake through Paperless.
 
 ## Coverage invariants
@@ -68,7 +68,8 @@ grew beyond "unskip the Docker skips".
 | R1.2 | App version is invisible in web mode | [settings/+page.svelte](../../src/routes/settings/+page.svelte) line 695 gates `getVersion()` on `IS_TAURI`; no `get_app_version` RPC exists |
 | R1.3 | Receipt processing progress events have no web equivalent | [receipts_cmd.rs](../../src-tauri/desktop/src/commands/receipts_cmd.rs) line 174 emits via `app.emit`; the RPC path returns only the final `SyncResult` |
 
-R1.1 and R1.2 are blocking. R1.3 is a deliberate-loss candidate — decide and record it.
+R1.1 and R1.2 are blocking. **R1.3 is an accepted loss** per
+[D3](#resolved-decisions) — no replacement is built.
 
 ### R2 — Restore and complete test coverage
 
@@ -135,15 +136,27 @@ reliably appearing after creation. Mode-independent, so the migration neither ca
 fixes it — but afterwards there is only one harness to repair it in, which makes this the
 cheapest moment to close it.
 
-#### R2.e — Frontend unit layer
+#### R2.e — Dead test scripts
 
-[vitest.config.ts](../../vitest.config.ts) includes `src/**/*.{test,spec}.{js,ts}` and
-**no such file exists** — `test:run` runs with `--passWithNoTests` and is a genuine
-no-op. Not a coverage hole to fill (per
-[ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication) the frontend
-holds no logic to unit-test); noted so nobody mistakes its absence from CI for an
-oversight. Either wire it in as a cheap guard or delete the script — do not leave it
-ambiguous.
+Two `test:*` scripts exist that no job invokes and no test file backs. Per
+[I1](#coverage-invariants) both must go, not be wired up:
+
+- **Playwright** — [D1](#resolved-decisions): delete
+  [tests/e2e/](../../tests/e2e/), [playwright.config.ts](../../playwright.config.ts),
+  the `test:e2e` / `test:e2e:ui` scripts, and `@playwright/test`. Also remove the
+  stale `playwright-report/` and `test-results/` output directories.
+- **vitest** — [vitest.config.ts](../../vitest.config.ts) includes
+  `src/**/*.{test,spec}.{js,ts}` and **no such file exists**, so `test:run` is a genuine
+  no-op behind `--passWithNoTests`. Per
+  [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication) the
+  frontend holds no logic to unit-test, so there is nothing to fill it with.
+  Recommendation: delete `test`, `test:run`, [vitest.config.ts](../../vitest.config.ts),
+  and the `vitest` dependency. **Flag on review** — this is the one deletion in the task
+  that removes a capability rather than dead weight, and it is a one-line reversal if a
+  frontend unit layer is ever wanted.
+
+Note `test:all` chains `test:backend && test:run && test:integration` — it needs
+rewriting whichever way the vitest call goes.
 
 ### R3 — Repoint the local test loop at the web binary
 
@@ -174,15 +187,17 @@ Resulting job set, which must account for **every** test script in
 | `integration-build-docker` | image build | — |
 | `integration-test-docker` (3 tiers) | `test:integration:docker` | 141 e2e |
 | `integration-test-docker-env` | env-pinned run | 8 e2e |
-| (per R2.e) | `test:run` or the script is deleted | vitest |
-| (per D1) | Playwright in CI, or `tests/e2e/` is deleted | — |
 
-The last two rows are decisions, not optional work: a test script that exists but no job
-invokes is exactly the I1 violation R2.b documents.
+That is the complete set. `test:e2e` and `test:run` do not appear because
+[R2.e](#r2e--dead-test-scripts) deletes both scripts — a test script that exists but no
+job invokes is exactly the I1 violation R2.b documents.
 
-[release.yml](../../.github/workflows/release.yml) — remove the 3-platform `build` matrix
-and `tauri-action`, its duplicated integration jobs, and the `TAURI_SIGNING_*` secrets.
-`docker-image` becomes the only publish step.
+[release.yml](../../.github/workflows/release.yml) — per [D2](#resolved-decisions),
+remove the 3-platform `build` matrix and `tauri-action`, the release-notes extraction step
+(it reads the version from `src-tauri/desktop/tauri.conf.json`), the duplicated
+`integration-build` / `integration-tests` jobs, and the `TAURI_SIGNING_*` env wiring.
+`docker-image` becomes the only publish step, and a `v*` tag produces **no GitHub Release
+at all** — just the ghcr image.
 
 ### R5 — Delete the desktop surface
 
@@ -212,7 +227,16 @@ and `tauri-action`, its duplicated integration jobs, and the `TAURI_SIGNING_*` s
 ### R6 — Documentation
 
 New ADR superseding [ADR-001](../../DECISIONS.md#adr-001-desktop-app-with-tauri--sveltekit)
-and extending ADR-024. Then: [CLAUDE.md](../../CLAUDE.md) (18 Tauri mentions),
+and extending ADR-024, recording D1-D3 and the two consequences worth stating outright:
+GitHub Releases stop entirely, and folder-scanned receipts survive as an unmaintained path
+rather than the intake channel.
+
+A [CHANGELOG.md](../../CHANGELOG.md) entry is the **only** user-facing announcement
+([D2](#resolved-decisions)) — it must say plainly that the desktop app is discontinued,
+that no further installers or auto-updates will be published, and that the browser UI at
+the homelab URL replaces it.
+
+Then: [CLAUDE.md](../../CLAUDE.md) (18 Tauri mentions),
 [ARCHITECTURE.md](../../ARCHITECTURE.md), [README.md](../../README.md) +
 [README.en.md](../../README.en.md),
 [rules/integration-tests.md](../../.claude/rules/integration-tests.md),
@@ -244,7 +268,10 @@ disappears).
 - [ ] Export from the browser honours hidden columns and sort direction
 - [ ] [test.yml](../../.github/workflows/test.yml) and
       [release.yml](../../.github/workflows/release.yml) contain no Windows or macOS runner
-- [ ] A `v*` tag publishes only the ghcr image
+- [ ] A `v*` tag publishes only the ghcr image and creates **no GitHub Release**
+- [ ] [CHANGELOG.md](../../CHANGELOG.md) announces the desktop app as discontinued
+- [ ] `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_KEY_PASSWORD` deleted from the
+      repository secrets (manual, outside the diff)
 
 ## Sequencing
 
@@ -271,21 +298,47 @@ The ordering is load-bearing: steps 3-5 must all be green under Docker while the
 harness still exists, so any coverage the migration would silently drop shows up as a red
 job rather than as a deleted file.
 
-## Open decisions
+## Resolved decisions
 
-**D1 — Playwright.** [tests/e2e/](../../tests/e2e/) (3 specs) has been commented out of
-CI since it was written ([test.yml](../../.github/workflows/test.yml) lines 394-407).
-Web-first makes it viable again, but WDIO already covers those flows against a real
-backend. Recommendation: delete the directory and drop `@playwright/test` rather than
-maintain two browser harnesses.
+Settled 2026-09-03. These are requirements now, not questions.
 
-**D2 — Existing desktop installs.** ADR-024 says they "keep working but point at the
-server URL". Options: (a) ship one final desktop release hardcoded to the server URL,
-(b) stop publishing and use a browser bookmark. Recommendation: (b) — this is a
-single-operator deployment.
+**D1 — Playwright: drop it.** Delete [tests/e2e/](../../tests/e2e/) (3 specs), the
+`test:e2e` / `test:e2e:ui` scripts, [playwright.config.ts](../../playwright.config.ts),
+and the `@playwright/test` dependency. It has been commented out of CI since it was
+written ([test.yml](../../.github/workflows/test.yml) lines 394-407) and WDIO covers the
+same flows against a real backend. Removing it satisfies I1 by subtraction rather than by
+adding a second browser harness.
 
-**D3 — R1.3 receipt progress events.** Accept the loss, or add SSE/polling? Accepting is
-consistent with ADR-024's Paperless-only intake.
+**D2 — Desktop is dropped outright.** No final release, no updater, **no GitHub release
+artifacts at all**. A `v*` tag publishes the ghcr image and nothing else. Concretely:
+
+- The `build` job and `tauri-action` are removed from
+  [release.yml](../../.github/workflows/release.yml); so is the release-notes extraction
+  step that reads `src-tauri/desktop/tauri.conf.json`. `docker-image` is the whole
+  workflow.
+- `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_KEY_PASSWORD` repo secrets become dead and
+  should be deleted from GitHub settings (manual step — note it in the task close-out).
+- `.tauri-keys/` is deleted.
+- Already-installed desktop copies are **not** migrated or redirected. They keep polling
+  an updater endpoint that will never serve another release, which is harmless. They are
+  simply obsolete.
+- The obsolescence is announced **in [CHANGELOG.md](../../CHANGELOG.md) only** — no
+  in-app notice, no migration prompt, no final desktop build carrying a farewell message.
+
+**D3 — Paperless-only from now on.** R1.3 is an accepted loss. The
+`receipt-processing-progress` emit path disappears with
+[receipts_cmd.rs](../../src-tauri/desktop/src/commands/receipts_cmd.rs); no SSE or
+polling replacement is built. `process_pending_receipts` in web mode returns only its
+final `SyncResult`, and the listener in
+[doklady/+page.svelte](../../src/routes/doklady/+page.svelte) is deleted along with its
+`IS_TAURI` guard. This follows
+[ADR-024](../../DECISIONS.md#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client)
+point 4, which already made Paperless the sole intake channel.
+
+One consequence to record in the new ADR: with folder-scanned receipts no longer the
+intake path, the local-receipt scanning UI stays functional but unmaintained. Do not
+delete it in this task — that is a separate decision about a feature, not about a
+deployment target.
 
 ## Related
 
