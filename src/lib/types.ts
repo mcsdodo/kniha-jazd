@@ -140,6 +140,17 @@ export interface InferredTripTime {
 	endDatetime: string;   // ISO "YYYY-MM-DDTHH:MM:SS"
 }
 
+/** Seed values for a row copied from an existing trip. Route fields only —
+ *  fuel, energy, costs and notes are deliberately absent (see Task 71). */
+export interface CopiedTripDefaults {
+	startDatetime: string;      // ISO "YYYY-MM-DDTHH:MM:SS"
+	endDatetime: string | null; // ISO, or null if the source had no end
+	origin: string;
+	destination: string;
+	distanceKm: number;
+	purpose: string;
+}
+
 export interface TripGridData {
 	trips: Trip[];
 	// Fuel data (ICE + PHEV)
