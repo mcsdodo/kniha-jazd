@@ -157,6 +157,7 @@ const sk = {
 		endTimePlaceholder: 'HH:MM',
 		// Actions
 		insertAbove: 'Vložiť záznam nad',
+		copyRecord: 'Kopírovať záznam',
 		deleteRecord: 'Odstrániť záznam',
 		magicFill: 'Automatické doplnenie',
 		// Checkbox
@@ -552,6 +553,7 @@ const sk = {
 		errorAssignReceipt: 'Nepodarilo sa prideliť doklad: {error:string}',
 		errorOpenFile: 'Nepodarilo sa otvoriť súbor',
 		errorCreateTrip: 'Nepodarilo sa vytvoriť záznam',
+		errorCopyTrip: 'Nepodarilo sa načítať údaje na kopírovanie',
 		errorUpdateTrip: 'Nepodarilo sa aktualizovať záznam',
 		errorDeleteTrip: 'Nepodarilo sa odstrániť záznam',
 		errorAddCompensationTrip: 'Nepodarilo sa pridať jazdu. Skúste to znova.',

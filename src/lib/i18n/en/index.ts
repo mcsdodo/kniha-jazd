@@ -157,6 +157,7 @@ const en = {
 		endTimePlaceholder: 'HH:MM',
 		// Actions
 		insertAbove: 'Insert record above',
+		copyRecord: 'Copy record',
 		deleteRecord: 'Delete record',
 		magicFill: 'Auto-fill',
 		// Checkbox
@@ -552,6 +553,7 @@ const en = {
 		errorAssignReceipt: 'Failed to assign receipt: {error}',
 		errorOpenFile: 'Failed to open file',
 		errorCreateTrip: 'Failed to create record',
+		errorCopyTrip: 'Failed to load copy data',
 		errorUpdateTrip: 'Failed to update record',
 		errorDeleteTrip: 'Failed to delete record',
 		errorAddCompensationTrip: 'Failed to add trip. Please try again.',

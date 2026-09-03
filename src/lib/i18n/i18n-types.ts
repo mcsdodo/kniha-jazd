@@ -493,6 +493,10 @@ type RootTranslation = {
 		 */
 		insertAbove: string
 		/**
+		 * K​o​p​í​r​o​v​a​ť​ ​z​á​z​n​a​m
+		 */
+		copyRecord: string
+		/**
 		 * O​d​s​t​r​á​n​i​ť​ ​z​á​z​n​a​m
 		 */
 		deleteRecord: string
@@ -1824,6 +1828,10 @@ type RootTranslation = {
 		 */
 		errorCreateTrip: string
 		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​n​a​č​í​t​a​ť​ ​ú​d​a​j​e​ ​n​a​ ​k​o​p​í​r​o​v​a​n​i​e
+		 */
+		errorCopyTrip: string
+		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​a​k​t​u​a​l​i​z​o​v​a​ť​ ​z​á​z​n​a​m
 		 */
 		errorUpdateTrip: string
@@ -3003,6 +3011,10 @@ export type TranslationFunctions = {
 		 * Vložiť záznam nad
 		 */
 		insertAbove: () => LocalizedString
+		/**
+		 * Kopírovať záznam
+		 */
+		copyRecord: () => LocalizedString
 		/**
 		 * Odstrániť záznam
 		 */
@@ -4271,6 +4283,10 @@ export type TranslationFunctions = {
 		 * Nepodarilo sa vytvoriť záznam
 		 */
 		errorCreateTrip: () => LocalizedString
+		/**
+		 * Nepodarilo sa načítať údaje na kopírovanie
+		 */
+		errorCopyTrip: () => LocalizedString
 		/**
 		 * Nepodarilo sa aktualizovať záznam
 		 */
