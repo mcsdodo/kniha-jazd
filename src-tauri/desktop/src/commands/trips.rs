@@ -3,7 +3,7 @@
 use kniha_jazd_core::app_state::AppState;
 use kniha_jazd_core::commands_internal::trips as inner;
 use kniha_jazd_core::db::Database;
-use kniha_jazd_core::models::{InferredTripTime, Route, Trip};
+use kniha_jazd_core::models::{CopiedTripDefaults, InferredTripTime, Route, Trip};
 use std::sync::Arc;
 use tauri::State;
 
@@ -155,4 +155,13 @@ pub fn get_inferred_trip_time_for_route(
         destination,
         row_date,
     )
+}
+
+#[tauri::command]
+pub fn get_copied_trip_defaults(
+    db: State<Arc<Database>>,
+    trip_id: String,
+    year: i32,
+) -> Result<CopiedTripDefaults, String> {
+    inner::get_copied_trip_defaults_internal(&db, trip_id, year)
 }

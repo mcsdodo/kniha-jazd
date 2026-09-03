@@ -234,6 +234,7 @@ pub fn run() {
             commands::get_routes,
             commands::get_purposes,
             commands::get_inferred_trip_time_for_route,
+            commands::get_copied_trip_defaults,
             commands::get_settings,
             commands::save_settings,
             commands::calculate_trip_stats,

@@ -269,6 +269,21 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "get_copied_trip_defaults" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                year: i32,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_copied_trip_defaults_internal(
+                &state.db,
+                a.trip_id,
+                a.year,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
 
         // ====================================================================
         // Statistics (4)
