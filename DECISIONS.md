@@ -8,7 +8,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ### BIZ-024: A Copied Row Is Dated Today, Clamped Into the Year Being Viewed
 
-**Context:** [Task 71](./_tasks/71-copy-trip-row/) adds a copy button that duplicates a trip's route into a new row dated today. "Today" is unambiguous only while the grid shows the current year. The year picker means the user may well be looking at 2025 in September 2026 — and the literal current date then belongs to a year the open grid cannot display.
+**Context:** [Task 71](./_tasks/_done/71-copy-trip-row/) adds a copy button that duplicates a trip's route into a new row dated today. "Today" is unambiguous only while the grid shows the current year. The year picker means the user may well be looking at 2025 in September 2026 — and the literal current date then belongs to a year the open grid cannot display.
 
 **Decision:** The target date is resolved against the year the grid is showing ([trip_copy.rs](./src-tauri/core/src/calculations/trip_copy.rs)):
 
@@ -24,9 +24,15 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Not copied: fuel, energy, costs, notes, invoice links.** A fill-up is a one-off event, not a property of a route. Copying `fuel_liters` would feed a fabricated fill-up into the consumption rate and the [20 % margin](#biz-003-legal-margin-limit) calculation. The command returns a `CopiedTripDefaults` struct that has no such fields, so the exclusion holds at compile time rather than relying on a frontend that remembers to skip them.
 
-**Per [ADR-008](#adr-008-remove-frontend-calculation-duplication) the rule lives in Rust**, split the same way [BIZ-014](#biz-014-opt-in-auto-fill-of-trip-startend-times)'s time inference is: a pure function taking `(source, year, today)` with no clock and no DB, plus a thin wrapper supplying both. `Local`, not `Utc` — "today" must mean the user's calendar day.
+**Not copied either: an implausible distance.** A stored `distance_km` outside `(0, 9999]` is corruption from the old delta-accumulation bug, and `tryAutoFillDistance` already refuses to seed a new row from such a route. The copy path is another way to seed a row, so it applies the same bound and returns `0.0`, which the frontend renders as an empty field for the user to fill.
 
-**Related:** [Task 71](./_tasks/71-copy-trip-row/) — [01-task.md](./_tasks/71-copy-trip-row/01-task.md), [02-plan.md](./_tasks/71-copy-trip-row/02-plan.md); [BIZ-014](#biz-014-opt-in-auto-fill-of-trip-startend-times) (whose jitter the copy deliberately suppresses); [BIZ-008](#biz-008-odo-auto-calculation).
+**A copied distance is a default, not a decision.** The seeded km is treated as auto-filled, not user-typed: changing the route on a copied row replaces it, exactly as picking a route on a blank row fills it. Without that, the row would keep the old route's km while its times re-inferred around the new one — a 400 km journey saved as 47 km, feeding the consumption and margin math. A distance the user actually types wins over both.
+
+**Per [ADR-008](#adr-008-remove-frontend-calculation-duplication) the rule lives in Rust**, split the same way [BIZ-014](#biz-014-opt-in-auto-fill-of-trip-startend-times)'s time inference is: a pure function taking `(source, year, today)` with no clock and no DB, plus a thin wrapper supplying both. `year` arrives off the wire in server mode, so an out-of-range value returns `Err` rather than panicking inside `from_ymd_opt(...).expect(...)`.
+
+**Known limitation — "today" is the host's day, not the viewer's.** The wrapper reads `Local`, which is the user's calendar day on the desktop but the *server's* in server mode: a container on `TZ=UTC` serving a browser on UTC+2 dates a 01:00 copy to the previous day. The grid's own `defaultNewDate` derives its date in UTC, so the two new-row paths can also disagree by a day near midnight. Resolving it properly means passing the client's date in as a parameter; until then the year clamp still guarantees the row lands in the visible grid.
+
+**Related:** [Task 71](./_tasks/_done/71-copy-trip-row/) — [01-task.md](./_tasks/_done/71-copy-trip-row/01-task.md), [02-plan.md](./_tasks/_done/71-copy-trip-row/02-plan.md); [BIZ-014](#biz-014-opt-in-auto-fill-of-trip-startend-times) (whose jitter the copy deliberately suppresses); [BIZ-008](#biz-008-odo-auto-calculation).
 
 ---
 
