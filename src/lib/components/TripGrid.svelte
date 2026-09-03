@@ -135,6 +135,8 @@
 	let insertDate: string | null = null;
 	// Copy source defaults (Task 71) - non-null only while a copied new row is open
 	let copyDefaults: CopiedTripDefaults | null = null;
+	// In-flight guard for the copy fetch (see handleCopy)
+	let copyPending = false;
 
 	// Live preview state
 	let previewData: PreviewResult | null = null;
@@ -228,16 +230,26 @@
 	}
 
 	async function handleCopy(trip: Trip) {
+		// showNewRow only flips after the await below, so without this latch a
+		// second click during the round-trip starts a concurrent fetch: the row
+		// mounts seeded from the first response while a later one overwrites
+		// copyDefaults, and out-of-order replies seed from the wrong trip.
+		if (copyPending || showNewRow) return;
+		copyPending = true;
 		try {
 			// Fetch BEFORE opening the row: TripRow seeds formData at init, so
 			// copyDefaults must already be set when the component mounts.
 			copyDefaults = await getCopiedTripDefaults(trip.id, year);
-			insertAtTripId = null;
-			insertDate = null;
+			// Preview state belongs to whichever row was last active; the new
+			// row must not inherit it (handleSaveNew/handleCancelNew do the same).
+			previewData = null;
+			previewingTripId = null;
 			showNewRow = true;
 		} catch (error) {
 			console.error('Failed to load copy defaults:', error);
 			toast.error($LL.toast.errorCopyTrip());
+		} finally {
+			copyPending = false;
 		}
 	}
 
@@ -665,7 +677,7 @@
 						{purposeSuggestions}
 						isNew={true}
 						previousOdometer={lastOdometer}
-						defaultDate={copyDefaults ? copyDefaults.startDatetime.slice(0, 10) : defaultNewDate}
+						defaultDate={defaultNewDate}
 						copyFrom={copyDefaults}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						fuelConsumed={0}
@@ -782,7 +794,7 @@
 							onDelete={handleDelete}
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onCopy={() => handleCopy(trip)}
-							copyDisabled={showNewRow}
+							copyDisabled={showNewRow || copyPending || editingTripId !== null}
 							hasRouteMap={routeMapTripIds.has(trip.id)}
 							onOpenRouteMap={() => window.open(`/mapa?trip=${trip.id}`, '_blank')}
 							onEditStart={() => handleEditStart(trip.id)}

@@ -101,6 +101,7 @@
 
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
+	let manualKmEdit = false; // Track if user manually edited KM (see tryAutoFillDistance)
 
 	// Form state - use null for new rows to show placeholder
 	const defaultStartDatetime = `${defaultDate}T00:00`;
@@ -126,11 +127,41 @@
 		otherCostsNote: trip?.otherCostsNote || ''
 	};
 
-	// For new trips: auto-copy startDatetime to endDatetime when start changes
+	// Tracks the start value the current endDatetime was calculated against, so
+	// a start edit can shift the end by the same amount.
+	let lastStartDatetime = formData.startDatetime;
+
+	// Format a Date back into the "YYYY-MM-DDTHH:MM" a datetime-local expects.
+	// Must be local-time components — toISOString() would shift by the offset.
+	function toDatetimeLocalValue(d: Date): string {
+		const p = (n: number) => n.toString().padStart(2, '0');
+		return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+	}
+
+	// For new trips: move the end along with the start, PRESERVING the duration.
+	// A plain new row has end == start, so this still behaves as "end follows
+	// start". A copied row may carry a real span — including the +1 day of an
+	// overnight trip — and collapsing it onto the start would destroy the day
+	// offset the backend deliberately computed (BIZ-024).
 	function handleStartDatetimeChange() {
-		if (isNew) {
+		if (!isNew) return;
+
+		const prevStart = new Date(lastStartDatetime);
+		const newStart = new Date(formData.startDatetime);
+		const end = new Date(formData.endDatetime);
+		const durationMs = end.getTime() - prevStart.getTime();
+
+		if (
+			!Number.isNaN(prevStart.getTime()) &&
+			!Number.isNaN(newStart.getTime()) &&
+			!Number.isNaN(end.getTime()) &&
+			durationMs > 0
+		) {
+			formData.endDatetime = toDatetimeLocalValue(new Date(newStart.getTime() + durationMs));
+		} else {
 			formData.endDatetime = formData.startDatetime;
 		}
+		lastStartDatetime = formData.startDatetime;
 	}
 
 	// Get unique locations from routes
@@ -150,9 +181,15 @@
 		// Such values are only plausible if a previous trip was saved with
 		// corrupted KM — e.g., from an earlier delta-accumulation bug. Do not
 		// propagate that corruption into new rows.
+		// Auto-fill when the field is empty, or when it holds a value the user
+		// did not type — a copy-seeded distance, or one this function filled in
+		// for a route the user has since changed. Without the manualKmEdit arm,
+		// a seeded row keeps the OLD route's km after the destination changes,
+		// while the times re-infer around it: a 400 km journey silently saved
+		// as 47 km, feeding the l/100km and margin calculations.
 		if (
 			matchingRoute &&
-			formData.distanceKm === null &&
+			(formData.distanceKm === null || !manualKmEdit) &&
 			matchingRoute.distanceKm > 0 &&
 			matchingRoute.distanceKm <= 9999
 		) {
@@ -179,22 +216,28 @@
 	// Task 71: seed a copied row. Applied as an override AFTER the base
 	// formData init above, so the fuel/energy/cost defaults there still hold —
 	// those fields are deliberately not copied.
-	if (copyFrom) {
+	if (copyFrom && isNew) {
 		formData.startDatetime = copyFrom.startDatetime.slice(0, 16);
 		formData.endDatetime = (copyFrom.endDatetime ?? copyFrom.startDatetime).slice(0, 16);
+		// The end was computed against this start, so a later start edit shifts
+		// it by the delta instead of collapsing an overnight span.
+		lastStartDatetime = formData.startDatetime;
 		formData.origin = copyFrom.origin;
 		formData.destination = copyFrom.destination;
-		formData.distanceKm = copyFrom.distanceKm;
-		formData.odometer = previousOdometer + copyFrom.distanceKm;
+		// The backend zeroes an implausible distance rather than copying it;
+		// null (not 0) leaves the field blank and lets auto-fill take over.
+		formData.distanceKm = copyFrom.distanceKm > 0 ? copyFrom.distanceKm : null;
+		formData.odometer = previousOdometer + (formData.distanceKm ?? 0);
 		formData.purpose = copyFrom.purpose;
 		// The copied times are explicit user intent. Marking this route pair as
 		// already-inferred makes tryInferTimes() short-circuit, so the Task 56
-		// jitter never overwrites them. (tryAutoFillDistance needs no guard —
-		// it only fires when distanceKm is null, which it no longer is.)
+		// jitter never overwrites them. Picking a DIFFERENT route changes the
+		// key, so inference correctly resumes — and manualKmEdit stays false so
+		// tryAutoFillDistance replaces the seeded km to match.
 		inferredKey = `${copyFrom.origin}␟${copyFrom.destination}`;
 		// Populate the live consumption/zostatok preview, matching what
 		// tryAutoFillDistance does when it auto-fills km.
-		onPreviewRequest(copyFrom.distanceKm, null, formData.fullTank);
+		onPreviewRequest(formData.distanceKm ?? 0, null, formData.fullTank);
 	}
 
 	// On a new row, infer start/end times from the most recent trip with the
@@ -257,6 +300,9 @@
 		const inputValue = (event.target as HTMLInputElement).value;
 		const km = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 		formData.distanceKm = km;
+		// A typed distance outranks any route the user later picks — mirrors
+		// manualOdoEdit. Clearing the field hands control back to auto-fill.
+		manualKmEdit = km !== null;
 		// Always auto-calculate ODO if not manually edited (previousOdometer can be 0)
 		if (!manualOdoEdit && km !== null) {
 			formData.odometer = previousOdometer + km;
