@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Kopírovanie záznamu** — pri každom zázname pribudla ikona kopírovania, ktorá vytvorí nový riadok s dnešným dátumom a rovnakou trasou, počtom kilometrov, účelom a časom odchodu aj príchodu. ODO sa dopočíta z predchádzajúceho stavu. Palivo, energia ani náklady sa nekopírujú — tankovanie je jednorazová udalosť, nie vlastnosť trasy. Nový riadok sa otvorí v režime úprav, takže sa dá pred uložením doladiť. Ak je zobrazený iný rok než aktuálny, záznam dostane 31.12. daného roka (pri budúcom roku 1.1.), aby zostal viditeľný v otvorenej knihe.
+
 ## [0.43.0] - 2026-08-10
 
 ### Pridané

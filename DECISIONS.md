@@ -4,6 +4,32 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-03: Copy Trip Row
+
+### BIZ-024: A Copied Row Is Dated Today, Clamped Into the Year Being Viewed
+
+**Context:** [Task 71](./_tasks/71-copy-trip-row/) adds a copy button that duplicates a trip's route into a new row dated today. "Today" is unambiguous only while the grid shows the current year. The year picker means the user may well be looking at 2025 in September 2026 — and the literal current date then belongs to a year the open grid cannot display.
+
+**Decision:** The target date is resolved against the year the grid is showing ([trip_copy.rs](./src-tauri/core/src/calculations/trip_copy.rs)):
+
+| Viewed year | Target date |
+|-------------|-------------|
+| the current year | today |
+| a past year | 31 December of that year |
+| a future year | 1 January of that year |
+
+**Reasoning:** Saving a trip into 2026 while the user is looking at 2025 makes the row vanish the instant it is written, with no error and nothing on screen to explain it — the worst kind of failure, because it looks like the save was lost. Clamping keeps the row where the user is looking. The direction of the clamp follows from which end of the year is nearest to "now": a past year is behind us, so its last day is closest; a future year is ahead, so its first is.
+
+**Consequence — only the time-of-day travels, never the source date.** The copied row takes the source trip's start `HH:MM` and its end `HH:MM` **plus the source's day span**. Carrying the day offset is what keeps a 22:00 → 02:00 trip overnight; dropping it would land the end four hours *before* the start. One accepted edge: an overnight trip copied into a past year starts 31 December and ends 1 January of the next — the start stays inside the viewed year, which is what the grid needs.
+
+**Not copied: fuel, energy, costs, notes, invoice links.** A fill-up is a one-off event, not a property of a route. Copying `fuel_liters` would feed a fabricated fill-up into the consumption rate and the [20 % margin](#biz-003-legal-margin-limit) calculation. The command returns a `CopiedTripDefaults` struct that has no such fields, so the exclusion holds at compile time rather than relying on a frontend that remembers to skip them.
+
+**Per [ADR-008](#adr-008-remove-frontend-calculation-duplication) the rule lives in Rust**, split the same way [BIZ-014](#biz-014-opt-in-auto-fill-of-trip-startend-times)'s time inference is: a pure function taking `(source, year, today)` with no clock and no DB, plus a thin wrapper supplying both. `Local`, not `Utc` — "today" must mean the user's calendar day.
+
+**Related:** [Task 71](./_tasks/71-copy-trip-row/) — [01-task.md](./_tasks/71-copy-trip-row/01-task.md), [02-plan.md](./_tasks/71-copy-trip-row/02-plan.md); [BIZ-014](#biz-014-opt-in-auto-fill-of-trip-startend-times) (whose jitter the copy deliberately suppresses); [BIZ-008](#biz-008-odo-auto-calculation).
+
+---
+
 ## 2026-08-10: Route Map Integration
 
 ### ADR-028: Only the Polyline Is Persisted; Tiles Live in a Disposable Cache
