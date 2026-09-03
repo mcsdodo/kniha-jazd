@@ -156,6 +156,7 @@ pub fn money_sub(a: f64, b: f64) -> f64 {
 pub mod energy;
 pub mod phev;
 pub mod time_inference;
+pub mod trip_copy;
 
 #[cfg(test)]
 #[path = "tests.rs"]

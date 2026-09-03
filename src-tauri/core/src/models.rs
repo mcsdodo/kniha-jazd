@@ -321,6 +321,22 @@ pub struct InferredTripTime {
     pub end_datetime: String,   // ISO "YYYY-MM-DDTHH:MM:SS"
 }
 
+/// Field set used to seed a copied trip row. Deliberately excludes fuel,
+/// energy, cost and note fields — a fill-up is a one-off event, not a
+/// property of a route, and copying `fuel_liters` would corrupt the
+/// consumption rate and the 20 % margin calculation. The struct shape *is*
+/// that guarantee: do not widen it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CopiedTripDefaults {
+    pub start_datetime: String,       // ISO "YYYY-MM-DDTHH:MM:SS"
+    pub end_datetime: Option<String>, // ISO, or None if the source had none
+    pub origin: String,
+    pub destination: String,
+    pub distance_km: f64,
+    pub purpose: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
