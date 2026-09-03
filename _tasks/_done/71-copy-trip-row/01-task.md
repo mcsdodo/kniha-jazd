@@ -1,6 +1,6 @@
 **Date:** 2026-09-03
 **Subject:** Copy button on trip rows — duplicate a route into a new today-dated row, pre-opened in edit mode
-**Status:** Planning
+**Status:** Complete
 
 # Task 71: Copy Trip Row
 

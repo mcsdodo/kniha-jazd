@@ -1,6 +1,6 @@
 **Date:** 2026-09-03
 **Subject:** Implementation plan — copy button on trip rows
-**Status:** Planning
+**Status:** Complete
 
 # Copy Trip Row Implementation Plan
 
