@@ -1,6 +1,6 @@
 **Date:** 2026-08-07
 **Subject:** Deploy kniha-jazd web app as always-on Komodo stack + migrate data off gdrive
-**Status:** Planning
+**Status:** Complete
 
 # Kniha Jázd Homelab Deployment Plan
 

@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-08-10 (Task 70 completed)
+**Last updated:** 2026-09-03 (Task 67 completed)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 67 | [Online Always-On Runner](67-online-always-on-runner/) | 🟡 In Progress | v0.39.0 released, ghcr image live; remaining: homelab deployment + data migration ([04-plan-homelab.md](67-online-always-on-runner/04-plan-homelab.md)) |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 | # | Task | Completed |
 |---|------|-----------|
 | 70 | [Route Map Integration](70-route-map-integration/) | 2026-08-10 |
+| 67 | [Online Always-On Runner](./_done/67-online-always-on-runner/) | 2026-09-03 |
 | 61 | [Route Map POC](61-route-map-poc/) — graduated by [Task 70](70-route-map-integration/) | 2026-08-10 |
 | 69 | [PIN-Gated Secret Reveal](69-pin-gated-secret-reveal/) | 2026-08-10 |
 | 68 | [Env-Managed Settings UI](68-env-managed-settings-ui/) | 2026-08-10 |
