@@ -5324,4 +5324,19 @@ mod time_inference_tests {
 
         assert!(result.is_some(), "Some(true) must allow inference to run");
     }
+
+    // ------------------------------------------------------------------------
+    // Task 71: copy-a-trip defaults. The rule itself is covered exhaustively in
+    // calculations::trip_copy; only the wrapper's DB error branch lives here.
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn copy_defaults_errors_when_trip_is_missing() {
+        use crate::commands_internal::trips::get_copied_trip_defaults_internal;
+        let (db, _vehicle_id) = test_db_with_completed_trip();
+
+        let result = get_copied_trip_defaults_internal(&db, Uuid::new_v4().to_string(), 2026);
+
+        assert!(result.is_err(), "an unknown trip id must not silently succeed");
+    }
 }

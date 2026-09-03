@@ -2,12 +2,13 @@
 
 use crate::app_state::AppState;
 use crate::calculations::time_inference::{compute_inferred_times, Jitter, ThreadRngJitter};
+use crate::calculations::trip_copy::compute_copied_trip_defaults;
 use crate::check_read_only;
 use crate::commands_internal::parse_iso_datetime;
 use crate::db::{normalize_location, Database};
-use crate::models::{InferredTripTime, Route, Trip};
+use crate::models::{CopiedTripDefaults, InferredTripTime, Route, Trip};
 use crate::settings::LocalSettings;
-use chrono::{NaiveDate, Utc};
+use chrono::{Local, NaiveDate, Utc};
 use std::path::Path;
 use uuid::Uuid;
 
@@ -246,4 +247,27 @@ pub fn inferred_trip_time_for_route(
         start_datetime: start.format("%Y-%m-%dT%H:%M:%S").to_string(),
         end_datetime: end.format("%Y-%m-%dT%H:%M:%S").to_string(),
     }))
+}
+
+/// Seed values for a row copied from an existing trip.
+///
+/// Thin wrapper around [`compute_copied_trip_defaults`]: supplies the DB read
+/// and the clock so the rule itself stays pure and unit-testable. `Local` (not
+/// `Utc`) is deliberate — "today" must mean the user's calendar day, matching
+/// how `defaultNewDate` is derived in the grid.
+pub fn get_copied_trip_defaults_internal(
+    db: &Database,
+    trip_id: String,
+    year: i32,
+) -> Result<CopiedTripDefaults, String> {
+    let source = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {}", trip_id))?;
+
+    Ok(compute_copied_trip_defaults(
+        &source,
+        year,
+        Local::now().date_naive(),
+    ))
 }
