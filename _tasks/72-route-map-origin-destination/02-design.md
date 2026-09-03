@@ -19,7 +19,8 @@ Requirements in [01-task.md](./01-task.md). V1 this extends:
                     ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │  core/src/commands_internal/route_maps.rs                        │
-│    NEW  resolve_place · remember_place · route_direct            │
+│    NEW  start_route_for_trip · resolve_place · remember_place    │
+│         · route_direct                                           │
 │    KEEP generate_route · get_trip_route · save_trip_route        │
 │         · delete_trip_route                                      │
 ├──────────────────────────────────────────────────────────────────┤
@@ -57,6 +58,14 @@ fn mode_for(origin: &str, destination: &str) -> Result<RouteMode, String>
 Empty endpoints return `Err`. A silent fallback to loop mode would hand the user a map
 of somewhere they never were, labelled as evidence — the one failure this feature must
 not have.
+
+**That one call site is `start_route_for_trip`**, the command the map view opens with:
+it decides the mode and, for a direct route, resolves both endpoints — one round trip,
+one authority. The frontend deliberately has no way to answer "is this a loop?" for
+itself. A browser-side copy of the rule would need a second `normalise`, and the two
+would eventually disagree on some letter the Rust table does not cover — at which point
+a row routes as A→B while its endpoints collide onto one cache entry, which is exactly
+what the comment above forbids.
 
 ## Geocoding
 
@@ -174,6 +183,7 @@ dispatcher-only, split by whether they await the network:
 
 | command | dispatcher | notes |
 |---|---|---|
+| `start_route_for_trip` | `dispatcher_async.rs` | the map view's entry point and `mode_for`'s only caller: decides the mode and resolves both endpoints in one round trip |
 | `resolve_place` | `dispatcher_async.rs` | cache hit → resolved, **no network call**; miss → candidates. Writes nothing. |
 | `remember_place` | `dispatcher.rs` | write — `check_read_only!` |
 | `route_direct` | `dispatcher_async.rs` | routes an ordered waypoint list; requests alternatives only for two-point input |
@@ -204,17 +214,19 @@ helper. Deviation labels the options; it does not reorder them.
 ## UI flow
 
 ```
-open /mapa?trip=id
+open /mapa?trip=id → start_route_for_trip   (mode + both endpoints, ONE call)
         │
-        ├── origin == destination ──▶ LOOP MODE (V1, unchanged)
+        ├── mode = loop ────────────▶ LOOP MODE (V1, unchanged)
         │                             generate → preview → save
         │
-        └── origin != destination ──▶ DIRECT MODE
+        └── mode = direct ──────────▶ DIRECT MODE
                     │
-                    ├─ resolve both endpoints
+                    ├─ endpoints, as the one call already resolved them
                     │     hit          → straight through
                     │     candidates   → picker → remember_place
                     │     none         → "place it on the map" → remember_place
+                    │   (a pick is applied locally and never re-asked — so a
+                    │    refused remember_place cannot loop the picker forever)
                     │
                     ├─ route_direct(alternatives = 3)
                     │     active = fastest, drawn blue

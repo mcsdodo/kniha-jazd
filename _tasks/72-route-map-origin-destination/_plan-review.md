@@ -1,7 +1,7 @@
 **Date:** 2026-09-03
 **Subject:** Plan review — Route maps V2 (origin/destination routing, alternatives, manual editing)
 **Reviewed:** [03-plan.md](./03-plan.md) against [01-task.md](./01-task.md), [02-design.md](./02-design.md) and the codebase as built
-**Status:** Needs revisions
+**Status:** Resolved — all 16 findings applied to [03-plan.md](./03-plan.md) on 2026-09-03
 
 ## Verdict
 
@@ -20,7 +20,7 @@ target test file states in its own header (integration tests and the network).
 
 ## Critical
 
-### [ ] C1 — `mode_for()` is built, tested, and never called; mode selection is duplicated in TypeScript
+### [x] C1 — `mode_for()` is built, tested, and never called; mode selection is duplicated in TypeScript
 
 Task 5 (plan L1011–1112) implements `mode_for` in Rust with four unit tests. **No later
 task ever calls it.** It appears in no dispatcher arm, no `_internal` function, and not
@@ -47,7 +47,7 @@ destination: PlaceResolution }` — one round trip on page open (the page alread
 `get_trip_route` there), mode decided by `mode_for`, both endpoints resolved in Rust.
 Then delete `normaliseForCompare` entirely.
 
-### [ ] C2 — Task 16's integration tests hit the live network, contradicting the target file's stated constraint
+### [x] C2 — Task 16's integration tests hit the live network, contradicting the target file's stated constraint
 
 [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts) opens with an explicit rule:
 
@@ -72,7 +72,7 @@ so resolution is a cache hit, and seed a saved direct route through `save_trip_r
 the page renders without routing. Under (b), test 3 (promote an alternative) is not
 reachable at all and should move to the deferred list.
 
-### [ ] C3 — Task 9's migration test calls helpers that do not exist, against a harness that cannot express the cutoff
+### [x] C3 — Task 9's migration test calls helpers that do not exist, against a harness that cannot express the cutoff
 
 The plan uses `legacy_db_before("2026-09-03-110000_add_trip_route_mode")` and
 `run_remaining_migrations(&db)`, with the note *"it already has a way to open a DB at a
@@ -97,7 +97,7 @@ that a `trip_routes` row inserted without `mode` reads back as `RouteMode::Loop`
 
 ## Important
 
-### [ ] I1 — The Nominatim rate limiter never fires: the provider is rebuilt per request
+### [x] I1 — The Nominatim rate limiter never fires: the provider is rebuilt per request
 
 `HttpGeocodeProvider` carries `last_request: Mutex<Option<Instant>>` and a `throttle()`
 enforcing `MIN_REQUEST_INTERVAL`. But Task 10's dispatcher does
@@ -110,7 +110,7 @@ compliance without the substance. Hold one provider in `ServerState` or a proces
 real second of suite time — `tokio::time::pause()` is the usual dodge but needs tokio's
 `test-util` feature, which [src-tauri/core/Cargo.toml](../../src-tauri/core/Cargo.toml) does not enable.
 
-### [ ] I2 — Task 14's "alternatives unavailable" branch is unreachable
+### [x] I2 — Task 14's "alternatives unavailable" branch is unreachable
 
 ```svelte
 {#if mode === 'direct' && alternatives.length > 0}   ← wins whenever a route exists
@@ -128,7 +128,7 @@ Invert it: `{#if mode === 'direct' && !hasWaypoints && alternatives.length > 0}`
 `{:else if mode === 'direct' && hasWaypoints}`. Also rename `hasWaypoints` — its test is
 `> 2`, so it means "has vias", and every direct route has waypoints.
 
-### [ ] I3 — A failed `remember_place` traps the user in a picker loop; guaranteed in read-only mode
+### [x] I3 — A failed `remember_place` traps the user in a picker loop; guaranteed in read-only mode
 
 `handlePlacePicked` swallows a `rememberPlace` failure ("Remembering is a convenience"),
 sets `resolvedOrigin = place`, then calls `resolveEndpoints(trip)` — which **re-reads**
@@ -140,7 +140,7 @@ is refused and the picker reappears forever with only a `console.error`. Either 
 already-resolved endpoints in `resolveEndpoints`, or surface the failure and continue
 with the in-memory pick.
 
-### [ ] I4 — Task 9 leaves the tree uncompilable, so its "whole backend suite passes" checkpoint is wrong
+### [x] I4 — Task 9 leaves the tree uncompilable, so its "whole backend suite passes" checkpoint is wrong
 
 Task 9 changes `save_trip_route_internal` to take a trailing `mode: RouteMode`. Its only
 call site outside tests is [dispatcher.rs:852](../../src-tauri/core/src/server/dispatcher.rs), which Task 10
@@ -155,7 +155,7 @@ field serde rejects that payload. The plan never names that test as needing an u
 **Fix:** merge Tasks 9 and 10, or move the dispatcher call-site edit into Task 9 and
 name the existing test's payload as part of it.
 
-### [ ] I5 — **Prepočítať** always fails on a re-opened saved direct route
+### [x] I5 — **Prepočítať** always fails on a re-opened saved direct route
 
 Task 13's `loadTripAndRoute` returns early when `savedRoute` exists, setting only `mode`
 — `resolvedOrigin` and `resolvedDestination` stay `null`. `handleRegenerate` /
@@ -169,7 +169,7 @@ Task 15's `currentWaypoints()` gets this right
 (`generated?.waypoints ?? savedRoute?.waypoints ?? []`). Task 13 should use the same
 fallback rather than a second, shorter one.
 
-### [ ] I6 — `resolveEndpoints` costs up to six geocode round trips for one row
+### [x] I6 — `resolveEndpoints` costs up to six geocode round trips for one row
 
 Origin and destination resolve sequentially, and the whole function restarts after every
 pick — so a row where both endpoints miss the cache does 2 + 2 + 2 = 6 `resolve_place`
@@ -181,13 +181,13 @@ several seconds of blank map on first open. Folding both endpoints into the sing
 
 ## Minor
 
-### [ ] M1 — `AppState::set_read_only(true)` does not exist
+### [x] M1 — `AppState::set_read_only(true)` does not exist
 
 The real API is `set_read_only_reason(Option<String>)` at
 [app_state.rs:150](../../src-tauri/core/src/app_state.rs). The plan already carries a note telling the
 implementer to check; just name the correct call and drop the note.
 
-### [ ] M2 — `RouteMapRow` binds positionally; `mode` must be appended in both places
+### [x] M2 — `RouteMapRow` binds positionally; `mode` must be appended in both places
 
 `RouteMapRow` is `Queryable` and read via `first::<RouteMapRow>` ([db.rs:1127](../../src-tauri/core/src/db.rs)) and
 `load::<RouteMapRow>` ([db.rs:1152](../../src-tauri/core/src/db.rs)). Task 9 adds `mode` to the `trip_routes` `table!`
@@ -195,35 +195,35 @@ block and to `RouteMapRow`. Both `mode` and `created_at` are `Text`, so appendin
 in **different** positions swaps the values silently with no compile error. Worth one
 explicit line: append `mode` last in both.
 
-### [ ] M3 — Swap Tasks 11 and 12 so the `npm run check` checkpoint means something
+### [x] M3 — Swap Tasks 11 and 12 so the `npm run check` checkpoint means something
 
 Task 11 Step 2 says "Expected: no errors ... (i18n key errors are expected until Task 12
 — ignore those for now)." A checkpoint whose expected output includes errors you are
 told to ignore is not a checkpoint. i18n has no dependency on the types, so run it
 first.
 
-### [ ] M4 — The ghost handle is never removed on `mouseout`
+### [x] M4 — The ghost handle is never removed on `mouseout`
 
 `attachGhost` creates a ghost on `mousemove` over the polyline and removes it only on
 `dragend`. Move the cursor off the line and a stray draggable dot stays on the map;
 because creation is guarded by `if (!ghost)`, entering a different layer reuses the
 stale one. Add a `mouseout` that clears it when not dragging.
 
-### [ ] M5 — Three i18n keys are added but never used
+### [x] M5 — Three i18n keys are added but never used
 
 `duration`, `removeWaypoint` and `placeRemembered` appear in Task 12 but no markup in
 Tasks 13–15 references them (`formatDuration` renders the value bare, the remove gesture
 is an unlabelled click, and there is no place-saved toast). Use them or drop them —
 typesafe-i18n will not flag dead keys.
 
-### [ ] M6 — `insert_waypoint` runs before the two-waypoint guard
+### [x] M6 — `insert_waypoint` runs before the two-waypoint guard
 
 In `route_direct_internal`, `insert` is applied first, so a one-waypoint list plus an
 insert silently becomes a routable two-point route rather than hitting the "A route
 needs a start and an end" error. Harmless with today's callers, but the guard reads as
 though it prevents this.
 
-### [ ] M7 — [.claude/rules/migrations.md](../../.claude/rules/migrations.md) will not auto-load for these migrations
+### [x] M7 — [.claude/rules/migrations.md](../../.claude/rules/migrations.md) will not auto-load for these migrations
 
 Its front matter declares `paths: src-tauri/migrations/**/*.sql`, but migrations live in
 `src-tauri/core/migrations/` (moved by task 58, the Tauri workspace split). Worth fixing

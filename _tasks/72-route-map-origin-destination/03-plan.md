@@ -383,8 +383,16 @@ impl HttpGeocodeProvider {
         }
     }
 
-    pub fn public() -> Self {
-        Self::new(PUBLIC_NOMINATIM_URL)
+    /// The process-wide instance.
+    ///
+    /// A `OnceLock` rather than a fresh provider per request, because the rate
+    /// limiter lives in `last_request`: a per-request instance always starts
+    /// with `None` and `throttle()` becomes a no-op that only *looks* like
+    /// compliance. `ServerState` would work too, but it is constructed in a
+    /// dozen tests and none of them care about geocoding.
+    pub fn shared() -> &'static Self {
+        static SHARED: std::sync::OnceLock<HttpGeocodeProvider> = std::sync::OnceLock::new();
+        SHARED.get_or_init(|| Self::new(PUBLIC_NOMINATIM_URL))
     }
 
     /// Block until at least [`MIN_REQUEST_INTERVAL`] has passed since the last
@@ -739,10 +747,18 @@ cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core "place_alias"
 ```
 Expected: PASS, 3 tests.
 
-**Step 5: Commit**
+**Step 5: Fix the migration rule's stale path glob**
+
+While in the area: [.claude/rules/migrations.md](../../.claude/rules/migrations.md)
+declares `paths: src-tauri/migrations/**/*.sql`, but migrations moved to
+`src-tauri/core/migrations/` in
+[task 58](../_done/58-tauri-workspace-split/). The rule therefore auto-loads for
+nothing. Change the glob to `src-tauri/core/migrations/**/*.sql`.
+
+**Step 6: Commit**
 
 ```bash
-git add src-tauri/core/migrations/2026-09-03-100000_add_place_aliases/ src-tauri/core/src/schema.rs src-tauri/core/src/models.rs src-tauri/core/src/db.rs src-tauri/core/src/db_tests.rs
+git add src-tauri/core/migrations/2026-09-03-100000_add_place_aliases/ src-tauri/core/src/schema.rs src-tauri/core/src/models.rs src-tauri/core/src/db.rs src-tauri/core/src/db_tests.rs .claude/rules/migrations.md
 git commit -m "feat(route-map): add place_aliases table for remembered geocoding"
 ```
 
@@ -876,7 +892,7 @@ async fn remembering_a_place_stores_it_under_the_normalised_key() {
 fn remembering_a_place_is_refused_in_read_only_mode() {
     let db = Database::in_memory().unwrap();
     let app_state = AppState::new();
-    app_state.set_read_only(true);
+    app_state.enable_read_only("test");
 
     assert!(remember_place_internal(
         &db,
@@ -897,9 +913,6 @@ async fn a_blank_place_name_is_an_error() {
         .is_err());
 }
 ```
-
-> Check how `AppState` exposes read-only before writing the last test — match whatever
-> the existing read-only tests in this file already do rather than inventing a setter.
 
 **Step 2: Run to verify it fails**
 
@@ -1008,12 +1021,23 @@ git commit -m "feat(route-map): add resolve_place and remember_place commands"
 
 # Phase 2 — Direct routing
 
-## Task 5: `RouteMode` and `mode_for()`
+## Task 5: `RouteMode`, `mode_for()`, and the one command that calls it
 
 **Files:**
 - Modify: [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs)
 - Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs)
 - Modify: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs)
+
+> **`mode_for` must have exactly one caller, and it must be in Rust.**
+> [02-design.md](./02-design.md#mode-selection) promises "one pure function, one call
+> site, one rule". The map view therefore does NOT compare the endpoints itself — a
+> second normalisation in TypeScript would diverge from the Rust table on the first
+> letter it does not cover (`ő` in `Győr`, say), and the row would route as A→B while
+> its endpoints collided onto one cache entry. That is the exact failure the design
+> forbids, and an ADR-008 violation besides.
+>
+> So this task also builds `start_route_for_trip_internal`, the single command the map
+> view opens with: it decides the mode AND resolves both endpoints in one round trip.
 
 **Step 1: Write the failing tests**
 
@@ -1048,12 +1072,100 @@ fn a_blank_endpoint_is_an_error_not_a_loop() {
     assert!(mode_for("Košice", "   ").is_err());
     assert!(mode_for("", "").is_err());
 }
+
+// --- start_route_for_trip: the one caller ---
+
+fn seed_trip_between(db: &Database, origin: &str, destination: &str) -> Trip {
+    let trip = seed_trip(db);
+    let mut updated = trip.clone();
+    updated.origin = origin.into();
+    updated.destination = destination.into();
+    db.update_trip(&updated).unwrap();
+    updated
+}
+
+#[tokio::test]
+async fn planning_a_same_place_row_returns_loop_and_resolves_nothing() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Domov", "domov");
+    let geocoder = CountingGeocoder::returning(vec![a_place("unused")]);
+
+    let plan = start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
+        .await
+        .unwrap();
+
+    assert_eq!(plan.mode, RouteMode::Loop);
+    assert_eq!(
+        geocoder.calls(),
+        0,
+        "a loop does not use the row's endpoints, so geocoding them is wasted"
+    );
+    assert!(plan.origin.is_none() && plan.destination.is_none());
+}
+
+#[tokio::test]
+async fn planning_an_a_to_b_row_resolves_both_endpoints_in_one_call() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Bratislava", "Spisska");
+    let geocoder = CountingGeocoder::returning(vec![a_place("Nájdené")]);
+
+    let plan = start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
+        .await
+        .unwrap();
+
+    assert_eq!(plan.mode, RouteMode::Direct);
+    // Two endpoints, two lookups — never the six a re-resolving frontend loop costs.
+    assert_eq!(geocoder.calls(), 2);
+    assert_eq!(plan.origin.unwrap().candidates.len(), 1);
+    assert_eq!(plan.destination.unwrap().candidates.len(), 1);
+}
+
+/// A cached endpoint costs no lookup even when the other one misses.
+#[tokio::test]
+async fn planning_uses_the_alias_cache_per_endpoint() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Bratislava", "Spisska");
+    db.save_place_alias(&PlaceAlias {
+        normalised_query: "bratislava".into(),
+        lat: 48.1486,
+        lon: 17.1077,
+        display_name: "Bratislava".into(),
+        source: AliasSource::Geocoder,
+        created_at: chrono::Utc::now(),
+    })
+    .unwrap();
+    let geocoder = CountingGeocoder::returning(vec![a_place("Spišská Nová Ves")]);
+
+    let plan = start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
+        .await
+        .unwrap();
+
+    assert_eq!(geocoder.calls(), 1, "the cached endpoint must cost nothing");
+    assert!(plan.origin.unwrap().resolved.is_some());
+    assert!(plan.destination.unwrap().resolved.is_none());
+}
+
+#[tokio::test]
+async fn planning_a_row_with_a_blank_endpoint_is_an_error() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Bratislava", "");
+    let geocoder = CountingGeocoder::returning(vec![]);
+    assert!(
+        start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
+            .await
+            .is_err()
+    );
+}
 ```
+
+> `seed_trip_between` uses whatever update call `db.rs` actually exposes — check the
+> name before writing it, and seed the origin/destination directly if there is no
+> update helper.
 
 **Step 2: Run to verify it fails**
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core "mode_for OR is_a_loop OR direct_route"
+cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core "mode_for OR is_a_loop OR direct_route OR planning_a"
 ```
 Expected: FAIL — `mode_for` not found.
 
@@ -1101,9 +1213,58 @@ pub fn mode_for(origin: &str, destination: &str) -> Result<RouteMode, String> {
     }
     Ok(if o == d { RouteMode::Loop } else { RouteMode::Direct })
 }
+
+/// Everything the map view needs to open a trip: which producer to use, and
+/// — for a direct route — where its two endpoints are.
+///
+/// `origin` and `destination` are `None` in loop mode: a loop runs from the
+/// dataset's home base and never consults the row's endpoints, so geocoding
+/// them would be two wasted lookups against a rate-limited service.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TripRoutePlan {
+    pub mode: RouteMode,
+    pub origin: Option<PlaceResolution>,
+    pub destination: Option<PlaceResolution>,
+}
+
+/// The map view's entry point, and `mode_for`'s ONLY caller.
+///
+/// One round trip decides the mode and resolves both endpoints. The frontend
+/// gets an answer it cannot second-guess, which is the point: a browser-side
+/// copy of the mode rule would eventually disagree with the alias cache's
+/// notion of the same name.
+///
+/// Persists nothing — resolution is still only a proposal until the user
+/// confirms a pick with `remember_place`.
+pub async fn start_route_for_trip_internal(
+    db: &Database,
+    provider: &dyn GeocodeProvider,
+    trip_id: String,
+) -> Result<TripRoutePlan, String> {
+    let trip = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip {trip_id} not found."))?;
+
+    let mode = mode_for(&trip.origin, &trip.destination)?;
+
+    if mode == RouteMode::Loop {
+        return Ok(TripRoutePlan { mode, origin: None, destination: None });
+    }
+
+    Ok(TripRoutePlan {
+        mode,
+        origin: Some(resolve_place_internal(db, provider, trip.origin).await?),
+        destination: Some(resolve_place_internal(db, provider, trip.destination).await?),
+    })
+}
 ```
 
-**Step 4: Run to verify it passes** — same command. Expected: PASS, 4 tests.
+> Check `db.get_trip`'s exact name and signature before writing this — use whatever
+> single-trip lookup already exists rather than adding one.
+
+**Step 4: Run to verify it passes** — same command. Expected: PASS, 8 tests.
 
 **Step 5: Commit**
 
@@ -1740,17 +1901,20 @@ pub async fn route_direct_internal(
     target_km: f64,
     insert: Option<InsertPoint>,
 ) -> Result<Vec<GeneratedRoute>, String> {
-    let waypoints = match insert {
-        Some(p) => insert_waypoint(&waypoints, &p.polyline, p.lat, p.lon),
-        None => waypoints,
-    };
-
+    // Guard BEFORE inserting: a one-point list plus a dragged-in point would
+    // otherwise become a routable two-point route, silently inventing a
+    // journey out of half a one.
     if waypoints.len() < 2 {
         return Err(format!(
             "A route needs a start and an end, got {} point(s).",
             waypoints.len()
         ));
     }
+
+    let waypoints = match insert {
+        Some(p) => insert_waypoint(&waypoints, &p.polyline, p.lat, p.lon),
+        None => waypoints,
+    };
 
     let coords: Vec<(f64, f64)> = waypoints.iter().map(|w| (w.lat, w.lon)).collect();
     let fetched = provider
@@ -1805,6 +1969,16 @@ git commit -m "feat(route-map): add direct A-to-B routing with alternatives"
 - Modify: [schema.rs](../../src-tauri/core/src/schema.rs) · [models.rs](../../src-tauri/core/src/models.rs) · [db.rs](../../src-tauri/core/src/db.rs)
 - Modify: [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) · [route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs)
 - Modify: [migration_tests.rs](../../src-tauri/core/src/migration_tests.rs)
+- Modify: [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) — **in this task, not Task 10**
+
+> **This task changes `save_trip_route_internal`'s signature, so its only non-test call
+> site — the `save_trip_route` arm in
+> [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) — must change with it or
+> the tree will not compile.** The existing
+> `route_map_commands_round_trip_with_frontend_argument_names` test in that file
+> dispatches `save_trip_route` with five fields; `mode` becomes a required `Args` field,
+> so serde will reject that payload until the test sends `"mode": "loop"`. Both edits
+> belong here.
 
 **Step 1: Write the failing tests**
 
@@ -1872,14 +2046,42 @@ fn a_saved_loop_route_still_stamps_the_dataset_version() {
 }
 ```
 
-In `migration_tests.rs` — the backfill guarantee:
+In `migration_tests.rs` — the backfill guarantee.
+
+**The harness cannot express this cutoff yet.** [db.rs](../../src-tauri/core/src/db.rs)
+has `open_db_legacy()` with **no parameter**, hardcoded to
+`MULTI_INVOICE_VERSION = "2026-07-15"` — which predates
+[add_trip_routes](../../src-tauri/core/migrations/2026-08-10-100000_add_trip_routes/), so
+that legacy DB has no `trip_routes` table at all and an INSERT into it fails outright.
+
+Parameterise it **additively**, so no existing call site changes:
+
+```rust
+/// Open an in-memory DB migrated only up to (excluding) `cutoff`.
+///
+/// Parameterised so a test can stand at the boundary of ITS OWN migration —
+/// the multi-invoice cutoff predates several later tables, and a test for one
+/// of those cannot seed rows a legacy DB has no table for.
+#[cfg(test)]
+pub(crate) fn open_db_legacy_before(cutoff: &str) -> Database {
+    // ...exactly the current open_db_legacy body, with `cutoff` in place of
+    // MULTI_INVOICE_VERSION on the `.replace('-', "")` line...
+}
+
+#[cfg(test)]
+pub(crate) fn open_db_legacy() -> Database {
+    open_db_legacy_before(MULTI_INVOICE_VERSION)
+}
+```
+
+Every existing caller keeps working unchanged, including the schema-parity test. Then:
 
 ```rust
 /// Every route saved by Task 70 IS a loop, so the DEFAULT backfills correctly
 /// by construction. This test is what proves that claim rather than assuming it.
 #[test]
 fn existing_route_maps_become_loop_mode() {
-    let db = legacy_db_before("2026-09-03-110000_add_trip_route_mode");
+    let db = open_db_legacy_before("2026-09-03-110000");
     seed_vehicle(&db, VEHICLE_ID);
     seed_trip(&db, TRIP_ID, VEHICLE_ID, None);
     exec(
@@ -1892,15 +2094,15 @@ fn existing_route_maps_become_loop_mode() {
         ),
     );
 
-    run_remaining_migrations(&db);
+    migrate_to_current(&db);
 
     let map = db.get_route_map(TRIP_ID).unwrap().unwrap();
     assert_eq!(map.mode, RouteMode::Loop);
 }
 ```
 
-> Match the existing helper names in `migration_tests.rs` — it already has a way to open
-> a DB at a given migration and run the rest. Reuse it; do not add a second mechanism.
+> `VEHICLE_ID` / `TRIP_ID` are illustrative — use whatever id constants or literals the
+> neighbouring tests in this file already use.
 
 **Step 2: Run to verify it fails**
 
@@ -1933,6 +2135,12 @@ to `RouteMap`, `pub mode: String` to `RouteMapRow`, `pub mode: &'a str` to
 an unrecognised value reads as the V1 default, which is always the safe reading). Pass
 `map.mode.as_str()` in `save_route_map`.
 
+> **`RouteMapRow` is `Queryable`, so its fields bind POSITIONALLY** — it is read with
+> `first::<RouteMapRow>` and `load::<RouteMapRow>`. `mode` and `created_at` are both
+> `Text`, so appending `mode` in a different position in the `table!` block than in the
+> struct swaps the two values **silently, with no compile error**. Append `mode` **last**
+> in both, after `created_at`.
+
 Add `pub mode: RouteMode` to `SavedRouteMap` and carry it through
 `impl From<RouteMap> for SavedRouteMap`. Give `save_trip_route_internal` a trailing
 `mode: RouteMode` parameter and stamp `dataset_version` from it:
@@ -1945,17 +2153,24 @@ Add `pub mode: RouteMode` to `SavedRouteMap` and carry it through
         },
 ```
 
+Finally, in the same task, update the call site and the test that would now fail to
+deserialise — add `mode: crate::models::RouteMode` to the `save_trip_route` `Args` struct
+in [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs), pass it through, and
+add `"mode": "loop"` to the payload in
+`route_map_commands_round_trip_with_frontend_argument_names`.
+
 **Step 4: Run to verify it passes**
 
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core
 ```
-Expected: PASS, whole backend suite.
+Expected: PASS, whole backend suite. (It compiles only because the dispatcher call site
+moved into this task — see the note at the top.)
 
 **Step 5: Commit**
 
 ```bash
-git add src-tauri/core/migrations/2026-09-03-110000_add_trip_route_mode/ src-tauri/core/src/schema.rs src-tauri/core/src/models.rs src-tauri/core/src/db.rs src-tauri/core/src/commands_internal/route_maps.rs src-tauri/core/src/commands_internal/route_maps_tests.rs src-tauri/core/src/migration_tests.rs
+git add src-tauri/core/migrations/2026-09-03-110000_add_trip_route_mode/ src-tauri/core/src/schema.rs src-tauri/core/src/models.rs src-tauri/core/src/db.rs src-tauri/core/src/commands_internal/route_maps.rs src-tauri/core/src/commands_internal/route_maps_tests.rs src-tauri/core/src/migration_tests.rs src-tauri/core/src/server/dispatcher.rs
 git commit -m "feat(route-map): persist which producer built each route map"
 ```
 
@@ -1996,6 +2211,31 @@ async fn resolve_place_and_route_direct_are_async_commands() {
         .expect("route_direct must be handled here")
         .unwrap_err();
     assert!(err.contains("waypoints"), "got: {err}");
+
+    let err = dispatch_async("start_route_for_trip", json!({}), &state)
+        .await
+        .expect("start_route_for_trip must be handled here")
+        .unwrap_err();
+    assert!(err.contains("tripId"), "got: {err}");
+}
+
+/// A same-place row is planned entirely offline: no endpoint is geocoded, so
+/// this exercises the real command without a stub or a network call.
+#[tokio::test]
+async fn start_route_for_trip_plans_a_loop_without_geocoding() {
+    let state = /* same ServerState construction as above */;
+    // Seed a vehicle + a trip whose origin equals its destination, then:
+    let plan = dispatch_async(
+        "start_route_for_trip",
+        json!({ "tripId": trip_id }),
+        &state,
+    )
+    .await
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(plan["mode"], "loop");
+    assert!(plan["origin"].is_null());
 }
 ```
 
@@ -2044,10 +2284,30 @@ In `dispatcher_async.rs`, in the route-maps section:
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let provider = crate::route_map::HttpGeocodeProvider::public();
+            // `shared()`, not a fresh instance: the rate limiter's state lives
+            // in the provider, so rebuilding it per request would silently
+            // disable it.
+            let provider = crate::route_map::HttpGeocodeProvider::shared();
             let result =
-                crate::commands_internal::resolve_place_internal(&state.db, &provider, a.query)
+                crate::commands_internal::resolve_place_internal(&state.db, provider, a.query)
                     .await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+        "start_route_for_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let provider = crate::route_map::HttpGeocodeProvider::shared();
+            let result = crate::commands_internal::start_route_for_trip_internal(
+                &state.db, provider, a.trip_id,
+            )
+            .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "route_direct" => {
@@ -2100,13 +2360,9 @@ In `dispatcher.rs`, in the route-maps section:
         }
 ```
 
-and add `mode` to the `save_trip_route` `Args` struct, passing it through:
-
-```rust
-                mode: crate::models::RouteMode,
-```
-
-Update both section comments ("sync (3)" → "sync (4)").
+Update both section comments — sync goes 3 → 4 (`remember_place`), async goes 1 → 4
+(`resolve_place`, `route_direct`, `start_route_for_trip`). `save_trip_route`'s `mode`
+field was already added in Task 9.
 
 **Step 4: Run to verify it passes**
 
@@ -2126,7 +2382,75 @@ git commit -m "feat(route-map): dispatch the geocoding and direct-routing comman
 
 # Phase 3 — Frontend
 
-## Task 11: Types and API wrappers
+## Task 11: i18n strings
+
+**Files:**
+- Modify: [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts) (source of truth)
+- Modify: [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts)
+- Regenerated: [src/lib/i18n/i18n-types.ts](../../src/lib/i18n/i18n-types.ts)
+
+**Step 1: Implement**
+
+Add to the existing `routeMap:` block in `sk/index.ts`:
+
+```ts
+		recalculate: 'Prepočítať',
+		alternatives: 'Alternatívne trasy',
+		alternativesUnavailable: 'Alternatívy nie sú dostupné, keď má trasa medzizastávky.',
+		duration: 'Čas jazdy',
+		pickPlace: 'Ktoré miesto to je?',
+		pickPlaceHint: 'Vyberte správne miesto. Zapamätáme si ho pre ďalšie jazdy.',
+		placeNotFound: 'Miesto sa nenašlo. Kliknite na mapu a označte ho.',
+		placeRemembered: 'Miesto uložené',
+		placeNotRemembered: 'Miesto sa nepodarilo uložiť, trasa je ale v poriadku.',
+		geocodeError: 'Miesto sa nepodarilo vyhľadať',
+		routeError: 'Trasu sa nepodarilo vypočítať',
+		missingEndpoints: 'Jazda nemá vyplnené miesto odchodu alebo príchodu.',
+		editHint: 'Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.',
+		removeWaypoint: 'Odstrániť zastávku',
+```
+
+and the matching English:
+
+```ts
+		recalculate: 'Recalculate',
+		alternatives: 'Alternative routes',
+		alternativesUnavailable: 'Alternatives are unavailable once the route has stops.',
+		duration: 'Driving time',
+		pickPlace: 'Which place is this?',
+		pickPlaceHint: 'Pick the right place. We will remember it for future trips.',
+		placeNotFound: 'Place not found. Click the map to mark it.',
+		placeRemembered: 'Place saved',
+		placeNotRemembered: 'Could not save the place, but the route is fine.',
+		geocodeError: 'Could not look up the place',
+		routeError: 'Could not calculate the route',
+		missingEndpoints: 'This trip has no origin or destination filled in.',
+		editHint: 'Drag the line to add a stop. Click a stop to remove it.',
+		removeWaypoint: 'Remove stop',
+```
+
+**Step 2: Regenerate the types — REQUIRED**
+
+Nothing else regenerates `i18n-types.ts`; the generator otherwise runs only in vite dev
+watch mode, so `npm run check` reports phantom errors for keys that do exist. Running it
+BEFORE the types task is what lets that task's checkpoint mean something.
+
+```bash
+npm run i18n
+npm run check
+```
+Expected: no i18n errors.
+
+**Step 3: Commit**
+
+```bash
+git add src/lib/i18n/sk/index.ts src/lib/i18n/en/index.ts src/lib/i18n/i18n-types.ts
+git commit -m "feat(route-map): add i18n strings for V2 map view"
+```
+
+---
+
+## Task 12: Types and API wrappers
 
 **Files:**
 - Modify: [src/lib/types.ts](../../src/lib/types.ts)
@@ -2166,6 +2490,20 @@ export interface InsertPoint {
 	lon: number;
 	polyline: string;
 }
+
+/**
+ * Everything the map view needs to open a trip. The backend decides the mode —
+ * the frontend never compares origin to destination itself, or its notion of
+ * "the same place" would drift from the alias cache's.
+ *
+ * `origin` and `destination` are null in loop mode: a loop runs from the
+ * dataset's home base and never consults the row's endpoints.
+ */
+export interface TripRoutePlan {
+	mode: RouteMode;
+	origin: PlaceResolution | null;
+	destination: PlaceResolution | null;
+}
 ```
 
 Add to `GeneratedRoute` and `RouteMap`: `durationS: number;` and `mode: RouteMode;`, and
@@ -2174,6 +2512,14 @@ widen `GeneratedRoute.datasetVersion` to `string | null`.
 In `api.ts`:
 
 ```ts
+/**
+ * Open a trip: the backend picks loop vs direct and resolves both endpoints in
+ * ONE round trip. Call this instead of comparing origin to destination here.
+ */
+export async function startRouteForTrip(tripId: string): Promise<TripRoutePlan> {
+	return await apiCall('start_route_for_trip', { tripId });
+}
+
 export async function resolvePlace(query: string): Promise<PlaceResolution> {
 	return await apiCall('resolve_place', { query });
 }
@@ -2210,8 +2556,7 @@ and add `mode: route.mode` to the `saveTripRoute` payload.
 ```bash
 npm run check
 ```
-Expected: no errors from `api.ts` or `types.ts`. (i18n key errors are expected until
-Task 12 — ignore those for now.)
+Expected: no errors. i18n ran in Task 11, so a checkpoint failure here is a real one.
 
 **Step 3: Commit**
 
@@ -2222,82 +2567,18 @@ git commit -m "feat(route-map): add frontend types and API wrappers for V2"
 
 ---
 
-## Task 12: i18n strings
-
-**Files:**
-- Modify: [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts) (source of truth)
-- Modify: [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts)
-- Regenerated: [src/lib/i18n/i18n-types.ts](../../src/lib/i18n/i18n-types.ts)
-
-**Step 1: Implement**
-
-Add to the existing `routeMap:` block in `sk/index.ts`:
-
-```ts
-		recalculate: 'Prepočítať',
-		alternatives: 'Alternatívne trasy',
-		alternativesUnavailable: 'Alternatívy nie sú dostupné, keď má trasa medzizastávky.',
-		duration: 'Čas jazdy',
-		pickPlace: 'Ktoré miesto to je?',
-		pickPlaceHint: 'Vyberte správne miesto. Zapamätáme si ho pre ďalšie jazdy.',
-		placeNotFound: 'Miesto sa nenašlo. Kliknite na mapu a označte ho.',
-		placeRemembered: 'Miesto uložené',
-		geocodeError: 'Miesto sa nepodarilo vyhľadať',
-		routeError: 'Trasu sa nepodarilo vypočítať',
-		missingEndpoints: 'Jazda nemá vyplnené miesto odchodu alebo príchodu.',
-		editHint: 'Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.',
-		removeWaypoint: 'Odstrániť zastávku',
-```
-
-and the matching English:
-
-```ts
-		recalculate: 'Recalculate',
-		alternatives: 'Alternative routes',
-		alternativesUnavailable: 'Alternatives are unavailable once the route has stops.',
-		duration: 'Driving time',
-		pickPlace: 'Which place is this?',
-		pickPlaceHint: 'Pick the right place. We will remember it for future trips.',
-		placeNotFound: 'Place not found. Click the map to mark it.',
-		placeRemembered: 'Place saved',
-		geocodeError: 'Could not look up the place',
-		routeError: 'Could not calculate the route',
-		missingEndpoints: 'This trip has no origin or destination filled in.',
-		editHint: 'Drag the line to add a stop. Click a stop to remove it.',
-		removeWaypoint: 'Remove stop',
-```
-
-**Step 2: Regenerate the types — REQUIRED**
-
-Nothing else regenerates `i18n-types.ts`; the generator otherwise runs only in vite dev
-watch mode, so `npm run check` reports phantom errors for keys that do exist.
-
-```bash
-npm run i18n
-npm run check
-```
-Expected: no i18n errors.
-
-**Step 3: Commit**
-
-```bash
-git add src/lib/i18n/sk/index.ts src/lib/i18n/en/index.ts src/lib/i18n/i18n-types.ts
-git commit -m "feat(route-map): add i18n strings for V2 map view"
-```
-
----
-
 ## Task 13: Map view — mode branch and place picker
 
 **Files:**
 - Modify: [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte)
 
 Today `loadTripAndRoute` unconditionally calls `runGenerate(trip.distanceKm)`. That
-becomes a branch.
+becomes a branch — **decided by the backend**, via the single `startRouteForTrip` call
+from Task 5. This page never compares origin to destination itself.
 
 **Step 1: Implement**
 
-Add state and helpers to the `<script>` block:
+Add state to the `<script>` block:
 
 ```ts
 	let mode = $state<RouteMode | null>(null);
@@ -2305,9 +2586,15 @@ Add state and helpers to the `<script>` block:
 	let alternatives = $state<GeneratedRoute[]>([]);
 	let activeIndex = $state(0);
 	/** The endpoint currently awaiting a pick, if any. */
-	let pendingPlace = $state<{ field: 'origin' | 'destination'; resolution: PlaceResolution } | null>(null);
+	let pendingPlace = $state<{
+		field: 'origin' | 'destination';
+		resolution: PlaceResolution;
+	} | null>(null);
+	/** Endpoints as resolved so far. Held locally so a pick is never re-asked. */
 	let resolvedOrigin = $state<Place | null>(null);
 	let resolvedDestination = $state<Place | null>(null);
+	/** The unresolved endpoint still queued behind the one being picked. */
+	let deferredPick = $state<{ field: 'destination'; resolution: PlaceResolution } | null>(null);
 ```
 
 Replace the tail of `loadTripAndRoute` with:
@@ -2316,72 +2603,72 @@ Replace the tail of `loadTripAndRoute` with:
 			savedRoute = await getTripRoute(tripId);
 			if (savedRoute) {
 				mode = savedRoute.mode;
+				rehydrateEndpoints(savedRoute);
 				return;
 			}
-			await startForTrip(trip);
+			await startForTrip();
 ```
 
 and add:
 
 ```ts
-	/** Loop or direct — the backend decides, from the row's own endpoints. */
-	async function startForTrip(t: Trip) {
-		const origin = t.origin?.trim() ?? '';
-		const destination = t.destination?.trim() ?? '';
-		if (!origin || !destination) {
-			error = $LL.routeMap.missingEndpoints();
-			retryable = false;
-			return;
-		}
-
-		if (normaliseForCompare(origin) === normaliseForCompare(destination)) {
-			mode = 'loop';
-			await runGenerate(t.distanceKm);
-			return;
-		}
-
-		mode = 'direct';
-		await resolveEndpoints(t);
+	/**
+	 * A saved route already contains its endpoints — recover them so
+	 * Prepočítať and editing work on a re-opened map without re-geocoding.
+	 * Without this the resolved state stays null and every re-route request
+	 * goes out with an empty waypoint list.
+	 */
+	function rehydrateEndpoints(route: RouteMap) {
+		const points = route.waypoints;
+		if (points.length < 2) return;
+		const first = points[0];
+		const last = points[points.length - 1];
+		resolvedOrigin = { lat: first.lat, lon: first.lon, displayName: first.name ?? '' };
+		resolvedDestination = { lat: last.lat, lon: last.lon, displayName: last.name ?? '' };
 	}
 
 	/**
-	 * Display-only echo of the backend's mode rule, so the page can pick which
-	 * flow to start without a round trip. The backend's `mode_for` remains the
-	 * authority — this only decides which request to make first, and a
-	 * disagreement costs a redundant lookup, never a wrong saved route.
+	 * Ask the backend what kind of route this row wants, and where its
+	 * endpoints are. ONE round trip: mode selection is `mode_for` in Rust, and
+	 * both endpoints resolve server-side against the alias cache.
 	 */
-	function normaliseForCompare(s: string): string {
-		return s
-			.toLowerCase()
-			.normalize('NFD')
-			.replace(/[̀-ͯ]/g, '')
-			.split(/\s+/)
-			.filter(Boolean)
-			.join(' ');
-	}
-
-	async function resolveEndpoints(t: Trip) {
+	async function startForTrip() {
+		if (!trip) return;
 		generating = true;
 		error = null;
 		try {
-			const origin = await resolvePlace(t.origin);
-			if (!origin.resolved) {
-				pendingPlace = { field: 'origin', resolution: origin };
+			const plan = await startRouteForTrip(tripId);
+			mode = plan.mode;
+
+			if (plan.mode === 'loop') {
+				await runGenerate(trip.distanceKm);
 				return;
 			}
-			resolvedOrigin = origin.resolved;
 
-			const destination = await resolvePlace(t.destination);
-			if (!destination.resolved) {
-				pendingPlace = { field: 'destination', resolution: destination };
+			// Direct: take what resolved, queue what did not.
+			resolvedOrigin = plan.origin?.resolved ?? null;
+			resolvedDestination = plan.destination?.resolved ?? null;
+
+			if (!resolvedOrigin && plan.origin) {
+				pendingPlace = { field: 'origin', resolution: plan.origin };
+				// Remember the destination's unresolved state rather than
+				// re-asking the backend for it after the origin is picked.
+				if (!resolvedDestination && plan.destination) {
+					deferredPick = { field: 'destination', resolution: plan.destination };
+				}
 				return;
 			}
-			resolvedDestination = destination.resolved;
+			if (!resolvedDestination && plan.destination) {
+				pendingPlace = { field: 'destination', resolution: plan.destination };
+				return;
+			}
 
-			await runDirect(waypointsFromEndpoints(), t.distanceKm);
+			await runDirect(waypointsFromEndpoints(), trip.distanceKm);
 		} catch (e) {
-			console.error('Failed to resolve trip endpoints:', e);
-			error = $LL.routeMap.geocodeError();
+			console.error('Failed to plan trip route:', e);
+			// A missing endpoint is the backend's error and no retry can fix it.
+			error = e instanceof Error ? e.message : $LL.routeMap.geocodeError();
+			retryable = false;
 		} finally {
 			generating = false;
 		}
@@ -2399,20 +2686,41 @@ and add:
 		];
 	}
 
-	/** The user picked a candidate (or dropped a pin). Remember it, then carry on. */
+	/**
+	 * The user picked a candidate (or dropped a pin). Take the pick, try to
+	 * remember it, then move on to whatever is still unresolved.
+	 *
+	 * The pick is applied to LOCAL state and never re-fetched. Re-resolving
+	 * here would re-ask for anything `remember_place` failed to store — and in
+	 * read-only mode, where that write is always refused, the picker would
+	 * reappear forever.
+	 */
 	async function handlePlacePicked(place: Place, source: AliasSource) {
 		if (!pendingPlace || !trip) return;
 		const { field, resolution } = pendingPlace;
-		try {
-			await rememberPlace(resolution.query, place, source);
-		} catch (e) {
-			// Remembering is a convenience; failing it must not block the route.
-			console.error('Failed to remember place:', e);
-		}
+
 		if (field === 'origin') resolvedOrigin = place;
 		else resolvedDestination = place;
 		pendingPlace = null;
-		await resolveEndpoints(trip);
+
+		try {
+			await rememberPlace(resolution.query, place, source);
+			toast.success($LL.routeMap.placeRemembered());
+		} catch (e) {
+			// The route still works — the name just will not be remembered for
+			// next time. Say so rather than failing silently; in read-only mode
+			// this is the expected path, not a bug.
+			console.error('Failed to remember place:', e);
+			toast.error($LL.routeMap.placeNotRemembered());
+		}
+
+		if (deferredPick) {
+			pendingPlace = deferredPick;
+			deferredPick = null;
+			return;
+		}
+
+		await runDirect(waypointsFromEndpoints(), trip.distanceKm);
 	}
 
 	/** Routes and displays. Persists nothing — only handleSave does. */
@@ -2437,19 +2745,23 @@ and add:
 			generating = false;
 		}
 	}
+
+	/** The waypoints any re-route should start from, in either mode. */
+	function currentWaypoints(): Waypoint[] {
+		return generated?.waypoints ?? savedRoute?.waypoints ?? waypointsFromEndpoints();
+	}
 ```
 
 Make `handleRegenerate` and `handleRetry` mode-aware: loop mode calls `runGenerate`,
-direct mode calls `runDirect(generated?.waypoints ?? waypointsFromEndpoints(), trip.distanceKm)`.
+direct mode calls `runDirect(currentWaypoints(), trip.distanceKm)`. **Use
+`currentWaypoints()`, not `waypointsFromEndpoints()`** — on a re-opened saved route the
+waypoints may include vias, and dropping them would silently discard the user's edits.
 
-Pass the mode when saving:
-
-```ts
-			await saveTripRoute(tripId, generated);   // generated.mode carries it
-```
+Pass the mode when saving — `generated.mode` already carries it, so `saveTripRoute` needs
+no change at the call site.
 
 Toolbar: show **Generovať znova** only when `mode === 'loop'`, and **Prepočítať**
-(calling `runDirect`) only when `mode === 'direct'`.
+(calling `runDirect(currentWaypoints(), trip.distanceKm)`) only when `mode === 'direct'`.
 
 Add the picker markup above the map canvas:
 
@@ -2483,8 +2795,8 @@ Add the picker markup above the map canvas:
 		{/if}
 ```
 
-When the picker is showing with no candidates, a map click resolves the endpoint. Add to
-the map-creation `$effect`:
+A map click resolves the endpoint while the picker is open. Add to the map-creation
+`$effect`:
 
 ```ts
 		map.on('click', (e: LeafletMouseEvent) => {
@@ -2495,6 +2807,11 @@ the map-creation `$effect`:
 			);
 		});
 ```
+
+**There must be no `normalise`-like function in this file.** If you find yourself
+comparing `trip.origin` to `trip.destination` here, stop — that decision belongs to
+`mode_for` in Rust, and a second implementation of it is the exact ADR-008 violation
+Task 5's header warns about.
 
 **Step 2: Verify**
 
@@ -2552,7 +2869,7 @@ and add:
 Panel markup, after the existing `.route-info` block:
 
 ```svelte
-		{#if mode === 'direct' && alternatives.length > 0}
+		{#if mode === 'direct' && !hasVias && alternatives.length > 0}
 			<div class="alternatives" data-test="alternatives">
 				<span class="label">{$LL.routeMap.alternatives()}</span>
 				<ul>
@@ -2565,7 +2882,7 @@ Panel markup, after the existing `.route-info` block:
 								onclick={() => selectAlternative(i)}
 							>
 								<span>{route.roadKm.toFixed(1)} km</span>
-								<span>{formatDuration(route.durationS)}</span>
+								<span title={$LL.routeMap.duration()}>{formatDuration(route.durationS)}</span>
 								<span class:off-target={route.offTarget}>
 									{formatDeviation(route.deviationPercent)}
 								</span>
@@ -2574,14 +2891,25 @@ Panel markup, after the existing `.route-info` block:
 					{/each}
 				</ul>
 			</div>
-		{:else if mode === 'direct' && hasWaypoints}
+		{:else if mode === 'direct' && hasVias}
 			<p class="hint" data-test="alternatives-unavailable">
 				{$LL.routeMap.alternativesUnavailable()}
 			</p>
 		{/if}
 ```
 
-with `let hasWaypoints = $derived((generated?.waypoints.length ?? 0) > 2);`.
+with `let hasVias = $derived((generated?.waypoints.length ?? 0) > 2);`.
+
+**The `!hasVias` guard is load-bearing, and the order of the two branches matters.**
+Once a via exists OSRM returns exactly one route, so `alternatives.length > 0` is still
+true — testing it first would render a one-item "Alternatívne trasy" list and the
+explanatory message would be unreachable. The design asks for the opposite:
+
+> "the panel **says so** rather than going quietly empty, because an empty list
+> otherwise reads as 'the service failed'." — [02-design.md](./02-design.md)
+
+The name is `hasVias`, not `hasWaypoints`: every direct route has waypoints, and the
+test is `> 2`.
 
 **Do not sort `alternatives`.** The backend hands them over in the routing service's
 fastest-first order and that order is the product decision — a `.sort()` here silently
@@ -2614,6 +2942,9 @@ Two gestures, one rule: **nothing is requested while the pointer is down.**
 ```ts
 	let waypointMarkers: Marker[] = [];
 	let ghost: Marker | null = null;
+	/** True between the ghost's dragstart and dragend, so `mouseout` — which
+	 *  fires as the drag leaves the line — cannot destroy the handle mid-drag. */
+	let dragging = false;
 
 	/** Small circular handle. Endpoints are visually heavier than vias. */
 	function handleIcon(L: typeof import('leaflet'), endpoint: boolean) {
@@ -2621,10 +2952,6 @@ Two gestures, one rule: **nothing is requested while the pointer is down.**
 			className: endpoint ? 'wp-handle wp-endpoint' : 'wp-handle',
 			iconSize: [endpoint ? 14 : 10, endpoint ? 14 : 10]
 		});
-	}
-
-	function currentWaypoints(): Waypoint[] {
-		return generated?.waypoints ?? savedRoute?.waypoints ?? [];
 	}
 
 	function drawHandles() {
@@ -2654,6 +2981,7 @@ Two gestures, one rule: **nothing is requested while the pointer is down.**
 			// Clicking a via removes it. Endpoints are not removable — that
 			// would change where the journey started or ended.
 			if (!endpoint) {
+				marker.bindTooltip($LL.routeMap.removeWaypoint());
 				marker.on('click', () => {
 					void reroute(points.filter((_, j) => j !== i));
 				});
@@ -2675,7 +3003,11 @@ Two gestures, one rule: **nothing is requested while the pointer is down.**
 				ghost = leaflet!
 					.marker(e.latlng, { draggable: true, icon: handleIcon(leaflet!, false) })
 					.addTo(map!);
+				ghost.on('dragstart', () => {
+					dragging = true;
+				});
 				ghost.on('dragend', () => {
+					dragging = false;
 					const { lat, lng } = ghost!.getLatLng();
 					const polyline = generated?.polyline ?? savedRoute?.polyline ?? '';
 					map!.removeLayer(ghost!);
@@ -2685,6 +3017,16 @@ Two gestures, one rule: **nothing is requested while the pointer is down.**
 			} else {
 				ghost.setLatLng(e.latlng);
 			}
+		});
+
+		// Without this the ghost outlives the hover: move the cursor off the
+		// line and a stray draggable dot stays behind, and because creation is
+		// guarded by `if (!ghost)`, hovering elsewhere reuses that stale one
+		// rather than placing a fresh handle under the cursor.
+		layer.on('mouseout', () => {
+			if (!ghost || dragging) return;
+			map!.removeLayer(ghost);
+			ghost = null;
 		});
 	}
 
@@ -2731,26 +3073,45 @@ git commit -m "feat(route-map): drag the line to edit a route, re-routing on dro
 **Files:**
 - Modify: [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts)
 
-Read the existing spec first and follow its setup helpers exactly. These cover UI flows
-only — the routing and deviation math is already proven by backend tests and must not be
-re-asserted here.
+**Read the target file's header before writing a line.** It states a constraint this
+task must obey:
+
+> "1. `generate_route` is never called. It hits the public OSRM demo server —
+> network-dependent, rate-limited and non-deterministic. Routes are seeded with
+> `save_trip_route` and a canned polyline instead."
+
+V2 makes that constraint bite harder, because **opening `/mapa` on an unmapped A→B row
+now fires two live services**: `start_route_for_trip` (Nominatim) and then `route_direct`
+(OSRM). Task 10 constructs both providers inside the dispatcher arms, so an integration
+test has no stub point. The obvious tests — pick a candidate, promote an alternative,
+drag a via — are therefore **not reachable offline** and are deferred rather than
+written against the live internet.
+
+What *is* reachable: any flow that starts from an already-saved route (the page renders
+it and requests nothing), or that fails before the first request.
 
 **Step 1: Write the failing tests**
 
-1. **An A→B row draws a route.** Seed a trip with different origin/destination, open
-   `/mapa?trip={id}`, assert `[data-test="route-map-canvas"] path` exists and
-   `[data-test="deviation"]` shows a value.
-2. **The alias is remembered.** With an ambiguous origin, assert
-   `[data-test="place-picker"]` appears; click the first
-   `[data-test="place-candidate"]`; reload the page and assert the picker does **not**
-   appear. This is the alias table's entire value, so it is worth asserting twice.
-3. **An alternative can be promoted.** Assert more than one
-   `[data-test="alternative"]`, click the second, assert it gains `.active` and
-   `[data-test="actual-km"]` changes.
-4. **A missing endpoint is reported.** Seed a trip with an empty destination, open the
-   map, assert `[data-test="route-map-error"]` is shown and no route is drawn.
-5. **A same-place row still loops.** Seed origin == destination, assert
-   `[data-test="regenerate-btn"]` is displayed — the V1 flow is intact.
+Follow the existing spec's setup helpers exactly — `seedVehicle`, `seedTrip`,
+`setActiveVehicle`, `invokeTauri`. These cover UI flows only; the routing and deviation
+math is already proven by backend tests and must not be re-asserted here.
+
+1. **A saved direct route renders, and offers the direct-mode controls.** Seed a trip
+   with different origin/destination, then seed its map via `save_trip_route` with
+   `mode: 'direct'`, three waypoints and a canned polyline. Open `/mapa?trip={id}` and
+   assert: a path is drawn, `[data-test="deviation"]` shows a value,
+   `[data-test="regenerate-btn"]` is **absent** (that is loop-only), and
+   `[data-test="alternatives-unavailable"]` is shown — the saved route has a via, which
+   is exactly the I2 branch that would otherwise be unreachable.
+2. **A saved loop route still behaves as V1.** Seed a map with `mode: 'loop'` and assert
+   `[data-test="regenerate-btn"]` **is** displayed. This is the regression guard for
+   "loop mode, unchanged".
+3. **A row with a blank destination reports it and draws nothing.** Seed a trip with an
+   empty destination, open the map, assert `[data-test="route-map-error"]` is shown, no
+   path is drawn, and no retry button appears (the error is not retryable). Offline-safe
+   because `start_route_for_trip` fails in `mode_for` before any lookup.
+4. **The existing pin/save/delete flows still pass** — they already exist in this file;
+   confirm the `mode` field addition to `save_trip_route` did not break their payloads.
 
 **Step 2: Run to verify they fail**
 
@@ -2763,11 +3124,24 @@ npx wdio run tests/integration/wdio.conf.ts --spec tests/integration/specs/tier2
 not run the full suite while iterating — a sweep is ~10 minutes, one spec is under a
 minute.
 
-**Step 4: Commit**
+**Step 4: Record what was deferred and why**
+
+Add to the spec's header comment, so the next person does not "fix" the gap by adding
+network calls:
+
+```
+ * 3. Candidate picking, alternative promotion and drag editing are NOT covered.
+ *    Each needs a live geocoder/router on page load, which constraint 1 rules
+ *    out, and the providers are constructed inside the dispatcher arms so
+ *    there is nothing to stub. Covering them needs a test-mode provider
+ *    override first — see _tasks/72-route-map-origin-destination/03-plan.md.
+```
+
+**Step 5: Commit**
 
 ```bash
 git add tests/integration/specs/tier2/route-map.spec.ts
-git commit -m "test(route-map): cover origin/destination routing UI flows"
+git commit -m "test(route-map): cover offline-reachable V2 map view flows"
 ```
 
 ---
@@ -2825,7 +3199,11 @@ Recorded so nobody implements them by accident:
   matrix the app does not have. The mode-agnostic editor is the interim answer.
 - **Desktop UI** — still no Tauri wrappers for any route-map command, and `routeMaps`
   stays `false` in `defaultDesktop`. Enabling it means adding wrappers for all
-  **seven** commands now, not four.
+  **eight** commands now, not four.
+- **A test-mode provider override** — an env var read once into `ServerState` pointing
+  the geocoder and router at a local stub, so the integration suite can cover candidate
+  picking, alternative promotion and drag editing. Task 16 defers all three for want of
+  it; today both providers are built inside the dispatcher arms with nothing to stub.
 - **A Settings screen for the place-alias book** — reviewing, editing and clearing
   remembered places outside the map view.
 - **Re-using a curated route across trips on the same origin/destination pair.**
