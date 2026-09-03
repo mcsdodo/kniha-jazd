@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup } from '$lib/types';
+	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup, CopiedTripDefaults } from '$lib/types';
 	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
@@ -58,6 +58,12 @@
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
 	export let onInsertAbove: () => void = () => {};
+	// Copy (Task 71) - duplicates this row's route into a new today-dated row
+	export let onCopy: () => void = () => {};
+	export let copyDisabled: boolean = false;
+	// Set on a NEW row that was opened via another row's copy button. Seeds
+	// formData below; null for an ordinary new row.
+	export let copyFrom: CopiedTripDefaults | null = null;
 	// Route map (Task 70) - web/server mode only, gated on capabilities.features.routeMaps
 	export let hasRouteMap: boolean = false;
 	export let onOpenRouteMap: () => void = () => {};
@@ -169,6 +175,27 @@
 	// Track the (origin, destination) we already inferred times for, so a single
 	// new row does not re-invoke the backend on every keystroke or re-render.
 	let inferredKey = '';
+
+	// Task 71: seed a copied row. Applied as an override AFTER the base
+	// formData init above, so the fuel/energy/cost defaults there still hold —
+	// those fields are deliberately not copied.
+	if (copyFrom) {
+		formData.startDatetime = copyFrom.startDatetime.slice(0, 16);
+		formData.endDatetime = (copyFrom.endDatetime ?? copyFrom.startDatetime).slice(0, 16);
+		formData.origin = copyFrom.origin;
+		formData.destination = copyFrom.destination;
+		formData.distanceKm = copyFrom.distanceKm;
+		formData.odometer = previousOdometer + copyFrom.distanceKm;
+		formData.purpose = copyFrom.purpose;
+		// The copied times are explicit user intent. Marking this route pair as
+		// already-inferred makes tryInferTimes() short-circuit, so the Task 56
+		// jitter never overwrites them. (tryAutoFillDistance needs no guard —
+		// it only fires when distanceKm is null, which it no longer is.)
+		inferredKey = `${copyFrom.origin}␟${copyFrom.destination}`;
+		// Populate the live consumption/zostatok preview, matching what
+		// tryAutoFillDistance does when it auto-fills km.
+		onPreviewRequest(copyFrom.distanceKm, null, formData.fullTank);
+	}
 
 	// On a new row, infer start/end times from the most recent trip with the
 	// same (vehicleId, origin, destination). Backend supplies the final ISO
@@ -736,6 +763,17 @@
 						<line x1="5" y1="12" x2="19" y2="12"></line>
 					</svg>
 				</button>
+				<button
+					class="icon-btn copy"
+					on:click|stopPropagation={onCopy}
+					disabled={copyDisabled}
+					title={$LL.trips.copyRecord()}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+						<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+					</svg>
+				</button>
 				{#if $capabilities.features.routeMaps}
 					<button
 						class="icon-btn map"
@@ -897,6 +935,10 @@
 	}
 
 	.icon-btn.insert:hover {
+		color: var(--accent-primary);
+	}
+
+	.icon-btn.copy:hover {
 		color: var(--accent-primary);
 	}
 
