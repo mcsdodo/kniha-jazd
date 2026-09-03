@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow } from '$lib/types';
+	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow, CopiedTripDefaults } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
@@ -133,6 +133,8 @@
 	let editingTripId: string | null = null;
 	let insertAtTripId: string | null = null;
 	let insertDate: string | null = null;
+	// Copy source defaults (Task 71) - non-null only while a copied new row is open
+	let copyDefaults: CopiedTripDefaults | null = null;
 
 	// Live preview state
 	let previewData: PreviewResult | null = null;
@@ -225,6 +227,20 @@
 		showNewRow = true;
 	}
 
+	async function handleCopy(trip: Trip) {
+		try {
+			// Fetch BEFORE opening the row: TripRow seeds formData at init, so
+			// copyDefaults must already be set when the component mounts.
+			copyDefaults = await getCopiedTripDefaults(trip.id, year);
+			insertAtTripId = null;
+			insertDate = null;
+			showNewRow = true;
+		} catch (error) {
+			console.error('Failed to load copy defaults:', error);
+			toast.error($LL.toast.errorCopyTrip());
+		}
+	}
+
 	async function handleSaveNew(tripData: Partial<Trip>) {
 		try {
 			await createTrip(
@@ -253,6 +269,7 @@
 			showNewRow = false;
 			insertAtTripId = null;
 			insertDate = null;
+			copyDefaults = null;
 			// Clear preview
 			previewData = null;
 			previewingTripId = null;
@@ -323,6 +340,7 @@
 		showNewRow = false;
 		insertAtTripId = null;
 		insertDate = null;
+		copyDefaults = null;
 		// Clear preview
 		previewData = null;
 		previewingTripId = null;
@@ -647,7 +665,8 @@
 						{purposeSuggestions}
 						isNew={true}
 						previousOdometer={lastOdometer}
-						defaultDate={defaultNewDate}
+						defaultDate={copyDefaults ? copyDefaults.startDatetime.slice(0, 10) : defaultNewDate}
+						copyFrom={copyDefaults}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						fuelConsumed={0}
 						fuelRemaining={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
@@ -762,6 +781,8 @@
 							onCancel={() => {}}
 							onDelete={handleDelete}
 							onInsertAbove={() => handleInsertAbove(trip)}
+							onCopy={() => handleCopy(trip)}
+							copyDisabled={showNewRow}
 							hasRouteMap={routeMapTripIds.has(trip.id)}
 							onOpenRouteMap={() => window.open(`/mapa?trip=${trip.id}`, '_blank')}
 							onEditStart={() => handleEditStart(trip.id)}
