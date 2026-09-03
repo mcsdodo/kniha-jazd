@@ -118,7 +118,7 @@ One new Diesel migration, `2026-09-03-100000_add_place_aliases` — see
 
 | column | type | notes |
 |---|---|---|
-| `query` | TEXT PK | the **normalised** free text — the cache key |
+| `normalised_query` | TEXT PK | the **normalised** free text — the cache key. Named in full rather than `query`, which reads ambiguously inside a `diesel::table!` block. |
 | `lat` | REAL NOT NULL | |
 | `lon` | REAL NOT NULL | |
 | `display_name` | TEXT NOT NULL | what the geocoder called it; shown in the UI |
@@ -236,6 +236,23 @@ capped at one request per second. Routing mid-drag would exhaust the budget on f
 nobody sees and make the line lag the cursor. During the drag the frontend moves a
 local handle and rubber-bands the affected segment; `pointerup` sends one request for
 the new ordered waypoint list.
+
+### Where a new waypoint lands is decided in Rust
+
+Dragging an *existing* waypoint needs no geometry — the frontend edits that entry's
+coordinates and sends the list back. Dragging a *new* point off the line does: someone
+has to work out which pair of existing waypoints it belongs between.
+
+That someone is the backend. `route_direct` accepts an optional `insert_point` and the
+polyline it was dragged from; it locates the nearest polyline vertex, maps each
+waypoint to its own nearest vertex, and inserts into the slot those boundaries imply.
+The response's `waypoints` is authoritative and the frontend adopts it wholesale.
+
+The alternative — computing the index in the browser — would put a genuinely tricky
+piece of index arithmetic outside the reach of Rust unit tests, and put a second notion
+of waypoint ordering in the codebase. This way the frontend's only geometry is where to
+draw a handle, which decides nothing, and one round trip on drop covers both the
+insertion and the re-route.
 
 ### Alternatives vanish once a waypoint exists
 
