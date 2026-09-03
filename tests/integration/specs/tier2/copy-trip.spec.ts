@@ -14,7 +14,26 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
+
+/** Type into an autocomplete and click its first suggestion, firing onSelect. */
+async function selectFromAutocomplete(inputTestId: string, value: string): Promise<void> {
+  const input = await $(`[data-testid="${inputTestId}"]`);
+  await input.waitForDisplayed({ timeout: 5000 });
+  await input.click();
+  await input.setValue(value);
+
+  const container = await input.parentElement();
+  const dropdown = await container.$('.dropdown');
+  await dropdown.waitForDisplayed({
+    timeout: 5000,
+    timeoutMsg: `Autocomplete dropdown for ${inputTestId} did not appear`,
+  });
+
+  const suggestion = await dropdown.$('.suggestion');
+  await suggestion.waitForClickable({ timeout: 5000 });
+  await suggestion.click();
+}
 
 describe('Tier 2: Copy Trip Row', () => {
   beforeEach(async () => {
@@ -106,5 +125,39 @@ describe('Tier 2: Copy Trip Row', () => {
       odoTexts.push(await cell.getText());
     }
     expect(odoTexts.some((t) => t.includes('50107'))).toBe(true);
+  });
+
+  // The copied times are explicit user intent, so the Task 56 / BIZ-014 time
+  // inference must not jitter them away. Inference only fires from the
+  // autocomplete onSelect handlers, so the path that matters is re-selecting
+  // the SAME destination on a copied row. Inference is opt-in (default OFF),
+  // hence the explicit enable — without it this test would pass vacuously.
+  describe('with time inference enabled', () => {
+    beforeEach(async () => {
+      await invokeTauri<void>('set_infer_trip_times', { enabled: true });
+    });
+
+    afterEach(async () => {
+      await invokeTauri<void>('set_infer_trip_times', { enabled: false });
+    });
+
+    it('should keep the copied times when the same destination is re-selected', async () => {
+      await (await $('.icon-btn.copy')).click();
+      await browser.pause(700);
+
+      const startInput = await $('[data-testid="trip-start-datetime"]');
+      const endInput = await $('[data-testid="trip-end-datetime"]');
+      const beforeStart = await startInput.getValue();
+      const beforeEnd = await endInput.getValue();
+      expect(beforeStart).toContain('08:30');
+
+      // Would trigger tryInferTimes() and jitter the times, were the copied
+      // route pair not already marked as inferred.
+      await selectFromAutocomplete('trip-destination', 'Trnava');
+      await browser.pause(700);
+
+      expect(await startInput.getValue()).toBe(beforeStart);
+      expect(await endInput.getValue()).toBe(beforeEnd);
+    });
   });
 });
