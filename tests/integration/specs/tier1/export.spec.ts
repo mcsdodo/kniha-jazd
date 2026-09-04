@@ -74,6 +74,33 @@ interface ExportedDocument {
   text: string;
   /** Exact text of every `<th>` in the printed table's header row. */
   headers: string[];
+  /**
+   * Exact text of every `<div class="footer-value">` in the printed summary
+   * block (`export.rs` :: `footer_items`). Totals MUST be asserted against
+   * these and never against `text`: an odometer reading like 60450 puts "450"
+   * in the document all by itself, so a whole-page `/450/` match passed even
+   * with the totals block deleted.
+   */
+  footerValues: string[];
+  /** `<td>` count of every printed body row, in document order. */
+  rowCellCounts: number[];
+}
+
+/**
+ * Every printed body row must carry exactly one cell per header.
+ *
+ * `export.rs` guards each hideable column in THREE independent places - the
+ * header (`is_visible` around the `<th>`), the trip row's `<td>`, and the
+ * synthetic month-end/first-record row's `<td>`. Comparing header arrays alone
+ * cannot see a guard that was dropped from one of the body builders: the
+ * document still renders, and every data value silently shifts one column
+ * against its heading. This is the assertion that notices.
+ */
+function expectRowsToMatchHeaders(doc: ExportedDocument): void {
+  expect(doc.rowCellCounts.length).toBeGreaterThan(0);
+  for (const cellCount of doc.rowCellCounts) {
+    expect(cellCount).toBe(doc.headers.length);
+  }
 }
 
 /**
@@ -124,13 +151,19 @@ async function exportPreview(): Promise<ExportedDocument> {
 
     const body = await $('body');
     const text = await body.getText();
-    const headers = (await browser.execute(() =>
-      Array.from(document.querySelectorAll('thead th')).map((th) =>
+    const collected = (await browser.execute(() => ({
+      headers: Array.from(document.querySelectorAll('thead th')).map((th) =>
         (th.textContent || '').trim()
-      )
-    )) as string[];
+      ),
+      footerValues: Array.from(document.querySelectorAll('.footer-value')).map((v) =>
+        (v.textContent || '').trim()
+      ),
+      rowCellCounts: Array.from(document.querySelectorAll('tbody tr')).map(
+        (tr) => tr.querySelectorAll('td').length
+      ),
+    }))) as Pick<ExportedDocument, 'headers' | 'footerValues' | 'rowCellCounts'>;
 
-    return { text, headers };
+    return { text, ...collected };
   } finally {
     await browser.closeWindow();
     await browser.switchToWindow(originalHandle);
@@ -356,18 +389,18 @@ describe('Tier 1: Export', () => {
 
       const exported = await exportPreview();
 
-      // Should contain total km (450)
-      // Note: The format might include thousand separators or decimal places
-      expect(exported.text).toMatch(/450/);
+      // Assert against the footer's own values, never the whole page: the
+      // seeded odometers are 60100/60250/60450, so a bare /450/ over `text`
+      // matched the odometer column and passed with no totals block at all.
+      // Formats are Rust's (`{:.0} km`, `{:.2} L / {:.2} €`, `{:.2} l/100km`)
+      // - see `footer_items` in export.rs.
+      expect(exported.footerValues).toContain('450 km'); // 100 + 150 + 200
+      expect(exported.footerValues).toContain('75.00 L / 112.50 €'); // 30+45 L, 45+67.50 €
+      expect(exported.footerValues).toContain('0.00 €'); // no other costs seeded
+      expect(exported.footerValues).toContain('16.67 l/100km'); // 75 L over 450 km
 
-      // Should contain total fuel (75 or 75.0)
-      expect(exported.text).toMatch(/75/);
-
-      // Should contain total fuel cost (112.5 or 112,5 in Slovak format)
-      expect(exported.text).toMatch(/112[,.]5/);
-
-      // Should show a consumption rate in the footer
-      expect(exported.text).toMatch(/L\/100km|l\/100km/i);
+      // The body still has to line up with its headings.
+      expectRowsToMatchHeaders(exported);
     });
 
     it('should omit a hidden column from the exported document', async () => {
@@ -405,6 +438,9 @@ describe('Tier 1: Export', () => {
       // Baseline: nothing hidden, so the column prints.
       const withTimeColumn = await exportPreview();
       expect(withTimeColumn.headers).toContain(TIME_COLUMN_HEADER);
+      // Header and body must agree BEFORE hiding anything, so a body/header
+      // mismatch cannot hide behind the hidden-column comparison below.
+      expectRowsToMatchHeaders(withTimeColumn);
 
       // Hide it the way the column-visibility dropdown does, then export again.
       await setHiddenColumnsViaIpc([TIME_COLUMN_KEY]);
@@ -414,6 +450,8 @@ describe('Tier 1: Export', () => {
       // Sanity: we read a real header row, not an empty one.
       expect(withoutTimeColumn.headers).toContain(ALWAYS_VISIBLE_HEADER);
       expect(withoutTimeColumn.headers.length).toBe(withTimeColumn.headers.length - 1);
+      // ...and the body dropped exactly the same cell the header did.
+      expectRowsToMatchHeaders(withoutTimeColumn);
     });
 
     it('should export rows in the sort direction chosen in the grid', async () => {

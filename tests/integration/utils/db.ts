@@ -26,17 +26,6 @@ import { waitForAppReady } from './app';
 import { hostWorkDir, backendWorkPath } from './paths';
 
 /**
- * Get test data directory from environment.
- *
- * @deprecated Empty in Docker mode — the test process has no KNIHA_JAZD_DATA_DIR
- * there. Use `hostWorkDir()` / `backendWorkPath()` from ./paths instead, which
- * resolve correctly on both sides of the container boundary.
- */
-export function getTestDataDir(): string {
-  return process.env.KNIHA_JAZD_DATA_DIR || '';
-}
-
-/**
  * Generate a UUID (simple implementation for testing)
  */
 function generateUuid(): string {

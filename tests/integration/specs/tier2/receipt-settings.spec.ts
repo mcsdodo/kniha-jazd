@@ -3,7 +3,8 @@
  *
  * Tests the new features from tasks 39 & 40:
  * - Receipt scanning settings (API key, folder path)
- * - Database location display
+ * - Database location reporting (backend only - the move-database UI is gone)
+ * - The app version the settings page renders from `get_app_version`
  * - Read-only mode banner (via API, hard to test UI without mocking migration)
  */
 
@@ -15,18 +16,14 @@ import { rpc } from '../../utils/db';
 const ReceiptSettings = {
   section: '#receipt-scanning',
   geminiApiKeyInput: '#gemini-api-key',
-  receiptsFolderDisplay: '#receipts-folder', // Note: this is a span, not input
+  receiptsFolderInput: '#receipts-folder', // editable <input> since the file dialog went away
   showHideApiKeyBtn: '.icon-btn',
-  browseFolderBtn: '.browse-folder-btn',
 };
 
-const DbLocation = {
-  section: '#db-location',
-  pathDisplay: '#db-path', // Specific ID to avoid matching receipts-folder
-  customBadge: '.badge.custom',
-  defaultBadge: '.badge.default',
-  openFolderBtn: '.button-row .button-small',
-};
+/** Version the settings page reads from the backend on mount. */
+const APP_VERSION = '[data-test="app-version"]';
+/** What the component renders until `get_app_version` answers. */
+const APP_VERSION_PLACEHOLDER = '...';
 
 type ReceiptSettingsShape = {
   geminiApiKey: string | null;
@@ -86,9 +83,9 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       const apiKeyExists = await apiKeyInput.isExisting();
       expect(apiKeyExists).toBe(true);
 
-      // Check for folder display (span, not input)
-      const folderDisplay = await $(ReceiptSettings.receiptsFolderDisplay);
-      const folderExists = await folderDisplay.isExisting();
+      // Check for the receipts folder input
+      const folderInput = await $(ReceiptSettings.receiptsFolderInput);
+      const folderExists = await folderInput.isExisting();
       expect(folderExists).toBe(true);
     });
 
@@ -162,24 +159,6 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       expect(dbLocation.dbPath).toContain('kniha-jazd');
     });
 
-    it('should show database path in settings UI', async () => {
-      await navigateTo('settings');
-      await browser.pause(500);
-
-      // Get expected path from IPC
-      const dbLocation = await getDbLocation();
-
-      // Find path display in UI
-      const pathDisplay = await $(DbLocation.pathDisplay);
-      const pathExists = await pathDisplay.isExisting();
-
-      if (pathExists) {
-        const displayedPath = await pathDisplay.getText();
-        // Path should contain kniha-jazd.db or similar
-        expect(displayedPath).toContain('kniha-jazd');
-      }
-    });
-
     it('should correctly report default path via IPC', async () => {
       // This test verifies the backend correctly reports whether using default path
       // UI badge display was removed in favor of simpler UI
@@ -187,6 +166,38 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
 
       // For a fresh test environment, path should be default (not custom)
       expect(dbLocation.isCustomPath).toBe(false);
+    });
+  });
+
+  describe('App Version', () => {
+    it('should render the backend app version on the settings page', async () => {
+      // Desktop read the version from Tauri; the browser build gets it over the
+      // `get_app_version` RPC, so this is the only place that wiring is proven.
+      await navigateTo('trips');
+      await navigateTo('settings');
+
+      const versionEl = await $(APP_VERSION);
+      await versionEl.waitForDisplayed({
+        timeout: 15000,
+        timeoutMsg: `Version element (${APP_VERSION}) never rendered on the settings page`,
+      });
+
+      // The settings page fires ~10 sequential RPCs on mount; wait for the
+      // placeholder to be replaced rather than guessing a duration.
+      await browser.waitUntil(
+        async () => (await versionEl.getText()).trim() !== APP_VERSION_PLACEHOLDER,
+        {
+          timeout: 15000,
+          timeoutMsg: 'app version stayed on its "..." placeholder - get_app_version never answered',
+        }
+      );
+
+      const rendered = (await versionEl.getText()).trim();
+      expect(rendered).toMatch(/^\d+\.\d+\.\d+/);
+
+      // ...and it is the backend's version, not something the page invented.
+      const fromBackend = await rpc<string>('get_app_version');
+      expect(rendered).toBe(fromBackend);
     });
   });
 
