@@ -392,3 +392,101 @@ jobs:
           name: integration-test-screenshots-docker-${{ matrix.tier_name }}
           path: tests/integration/screenshots/
           if-no-files-found: ignore
+
+  # Env-pinned settings suite — needs the fixture variables present when the
+  # server process starts, so it gets its own container. Never ran in CI before
+  # Task 73; see _tasks/73-web-first-migration/02-research.md section 3.2.
+  integration-test-docker-env:
+    name: Integration Tests (Docker/Chrome - Env-Pinned)
+    needs: [check-changes, integration-build-docker]
+    if: needs.check-changes.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load -i /tmp/kniha-jazd-web.tar
+
+      # Values mirror ENV_PINNED_FIXTURE in tests/integration/wdio.server.conf.ts.
+      # The hosts do not have to resolve — the assertions only check the fields are pinned.
+      - name: Start env-pinned container
+        run: |
+          mkdir -p data-env
+          docker run -d --name kniha-jazd-web-env \
+            --network=host \
+            -v "$PWD/data-env:/data" \
+            -v "$PWD/tests/integration/data:/testdata:ro" \
+            -e KNIHA_JAZD_DATA_DIR=/data \
+            -e DATABASE_PATH=/data/kniha-jazd.db \
+            -e KNIHA_JAZD_MOCK_GEMINI_DIR=/testdata/mocks \
+            -e PORT=3456 \
+            -e HA_URL=http://env-pinned-ha.test:8123 \
+            -e HA_API_TOKEN=env-pinned-ha-token \
+            -e PAPERLESS_URL=https://env-pinned-paperless.test \
+            -e PAPERLESS_API_TOKEN=env-pinned-paperless-token \
+            -e PAPERLESS_ENABLED=true \
+            -e KNIHA_JAZD_REVEAL_PIN=4269 \
+            kniha-jazd-web:test
+
+      - name: Wait for server health
+        run: |
+          for i in {1..60}; do
+            if curl -sf http://localhost:3456/health >/dev/null; then
+              echo "Server is healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Server did not become healthy within 60s"
+          docker logs kniha-jazd-web-env
+          exit 1
+
+      # The env: block is NOT redundant with the npm script. The scripts use
+      # Windows `set X=Y&&`, which under sh sets positional parameters and exports
+      # nothing — so on ubuntu the wdio config would see EXTERNAL_SERVER=false,
+      # run all four tier globs instead of ./specs/env/**, and try to spawn a
+      # binary CI never built. The existing docker job passes them the same way.
+      - name: Run env-pinned integration tests
+        env:
+          WDIO_SERVER_MODE: '1'
+          WDIO_EXTERNAL_SERVER: '1'
+          WDIO_ENV_PINNED: '1'
+        run: npm run test:integration:docker:env
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs kniha-jazd-web-env || true
+
+      - name: Tear down container
+        if: always()
+        run: docker rm -f kniha-jazd-web-env || true
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-screenshots-docker-env
+          path: tests/integration/screenshots/
+          if-no-files-found: ignore

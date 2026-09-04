@@ -244,12 +244,9 @@ export const config: any = {
       mkdirSync(screenshotsDir, { recursive: true });
     }
 
-    if (ENV_PINNED && EXTERNAL_SERVER) {
-      throw new Error(
-        'WDIO_ENV_PINNED=1 cannot run against an external server — the fixture ' +
-          'variables must be present when the process starts. Use the spawned-Tauri run.'
-      );
-    }
+    // ENV_PINNED + EXTERNAL_SERVER is valid: CI starts a second container with
+    // ENV_PINNED_FIXTURE passed as -e flags. The values below must stay in sync
+    // with the `Start env-pinned container` step in .github/workflows/test.yml.
 
     if (EXTERNAL_SERVER) {
       console.log(`Connecting to external server at ${SERVER_URL}`);
