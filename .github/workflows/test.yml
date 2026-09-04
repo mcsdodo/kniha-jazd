@@ -29,7 +29,11 @@ jobs:
           # Files that DON'T require integration tests (docs, config, planning, CI)
           safe-patterns: '^(.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$'
 
-  # Backend tests - fast, run on all platforms
+  # Backend tests - fast, run on all platforms.
+  # The matrix stays at three platforms on purpose: the crate still has
+  # platform-conditional code (DB path resolution, hostname, the
+  # #[cfg(unix)] / #[cfg(not(unix))] shutdown handler) that developers build
+  # and run on Windows and macOS.
   # Skip on main if only docs/config changed; always run on PRs
   backend-tests:
     name: Backend Tests (${{ matrix.platform }})
@@ -45,13 +49,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Linux: Install WebKitGTK build dependencies
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -64,210 +61,12 @@ jobs:
         working-directory: src-tauri
         run: cargo test --workspace
 
-      - name: Verify web binary builds without Tauri
+      - name: Verify web binary builds
         working-directory: src-tauri
         run: cargo build --release -p kniha-jazd-web
 
-  # Integration tests - build once, then run tiers in parallel
-  # This gives faster feedback than sequential execution (~14 min vs ~20 min)
-  # Skipped if only docs/config files changed
-  integration-build:
-    name: Integration Build
-    needs: check-changes
-    if: needs.check-changes.outputs.run_tests == 'true'
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Build Tauri app (debug)
-        run: npm run tauri build -- --debug --config src-tauri/desktop/tauri.conf.dev.json
-
-      - name: Upload debug binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-binary
-          path: src-tauri/target/debug/kniha-jazd-desktop.exe
-          retention-days: 1
-
-  integration-tests:
-    name: Integration Tests (${{ matrix.tier_name }})
-    needs: [check-changes, integration-build]
-    if: needs.check-changes.outputs.run_tests == 'true'
-    # Pinned to windows-2022: the windows-latest (Server 2025) image patch dated
-    # 2026-07-14 bundles WebView2 runtime 150, under which msedgedriver cannot
-    # launch the WebView2 app ("session not created: DevToolsActivePort file
-    # doesn't exist"). The previous image (WebView2 149) passed. windows-2022
-    # ships an older, working WebView2. Revisit when the native harness works on
-    # WebView2 150 / Server 2025 again.
-    runs-on: windows-2022
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - tier: '1'
-            tier_name: 'Tier 1'
-          - tier: '2'
-            tier_name: 'Tier 2'
-          - tier: '3'
-            tier_name: 'Tier 3'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      - name: Install Edge WebDriver
-        shell: pwsh
-        run: |
-          # Get WebView2 version to determine major version
-          $webview2Key = Get-ItemProperty -Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
-          if ($webview2Key -and $webview2Key.pv) {
-            $webview2Version = $webview2Key.pv
-          } else {
-            $webview2Key = Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
-            $webview2Version = $webview2Key.pv
-          }
-          Write-Host "WebView2 runtime version: $webview2Version"
-
-          # Extract major version and get latest compatible driver version
-          $majorVersion = $webview2Version.Split('.')[0]
-          $latestReleaseUrl = "https://msedgedriver.microsoft.com/LATEST_RELEASE_${majorVersion}_WINDOWS"
-          Write-Host "Fetching latest driver version from: $latestReleaseUrl"
-          $response = Invoke-WebRequest -Uri $latestReleaseUrl -UseBasicParsing
-          # Response is UTF-16 LE encoded with BOM - decode and strip BOM character (U+FEFF)
-          $decoded = [System.Text.Encoding]::Unicode.GetString($response.Content)
-          $driverVersion = $decoded.TrimStart([char]0xFEFF).Trim()
-          Write-Host "Latest EdgeDriver version for major $majorVersion`: $driverVersion"
-
-          # Download the driver
-          $driverUrl = "https://msedgedriver.microsoft.com/$driverVersion/edgedriver_win64.zip"
-          Write-Host "Downloading EdgeDriver from: $driverUrl"
-          Invoke-WebRequest -Uri $driverUrl -OutFile edgedriver.zip -TimeoutSec 60
-
-          Expand-Archive -Path edgedriver.zip -DestinationPath edgedriver -Force
-          $driverExe = Join-Path $PWD "edgedriver\msedgedriver.exe"
-          echo "$PWD\edgedriver" >> $env:GITHUB_PATH
-          # Point wdio.conf.ts directly at THIS driver so tauri-driver is launched with
-          # --native-driver. Without it, wdio can't locate the driver ("msedgedriver.exe not
-          # found") and tauri-driver silently falls back to a stale msedgedriver on the runner's
-          # PATH. That fallback works against an older WebView2 runtime but fails once the runner's
-          # WebView2 auto-updates ahead of it ("session not created: DevToolsActivePort file
-          # doesn't exist"), hanging the job for hours via retries.
-          echo "MSEDGEDRIVER_PATH=$driverExe" >> $env:GITHUB_ENV
-          Write-Host "EdgeDriver $driverVersion installed at $driverExe"
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Install tauri-driver
-        run: cargo install tauri-driver
-
-      - name: Download debug binary
-        uses: actions/download-artifact@v4
-        with:
-          name: debug-binary
-          path: src-tauri/target/debug
-
-      - name: Run integration tests (${{ matrix.tier_name }})
-        env:
-          TAURI_BINARY: src-tauri/target/debug/kniha-jazd-desktop.exe
-          TIER: ${{ matrix.tier }}
-          PARALLEL_TIERS: 'true'
-        run: npm run test:integration
-
-      - name: Upload test screenshots
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-test-screenshots-${{ matrix.tier_name }}
-          path: tests/integration/screenshots/
-          if-no-files-found: ignore
-
-  # Server-mode integration tests (Chrome against embedded HTTP server)
-  # Runs Tier 1 only — same specs as Tauri tests but via browser + RPC
-  integration-test-server:
-    name: Integration Tests (Server/Chrome) - Tier 1
-    needs: [check-changes, integration-build]
-    if: needs.check-changes.outputs.run_tests == 'true'
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Download debug binary
-        uses: actions/download-artifact@v4
-        with:
-          name: debug-binary
-          path: src-tauri/target/debug
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Run server integration tests (Tier 1)
-        env:
-          TIER: '1'
-          WDIO_SERVER_MODE: '1'
-          KNIHA_JAZD_SERVER_AUTOSTART: '1'
-        run: npm run test:integration:server
-
-      - name: Upload test screenshots
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-test-screenshots-server
-          path: tests/integration/screenshots/
-          if-no-files-found: ignore
-
-  # Docker image build — runs once, then all tier matrix jobs reuse the image artifact.
-  # Independent of integration-build (Tauri-Windows): the Docker image builds its own
-  # release `web` binary in-stage and runs on Linux.
+  # Docker image build - runs once, then all tier matrix jobs reuse the image artifact.
+  # The image builds its own release `web` binary in-stage and runs on Linux.
   integration-build-docker:
     name: Docker Image Build
     needs: check-changes
@@ -299,7 +98,7 @@ jobs:
           retention-days: 1
 
   # Docker integration tests (Chrome against containerized web binary)
-  # Mirrors the Tauri integration-tests matrix: one job per tier, in parallel.
+  # One job per tier, in parallel.
   integration-test-docker:
     name: Integration Tests (Docker/Chrome - ${{ matrix.tier_name }})
     needs: [check-changes, integration-build-docker]
@@ -372,7 +171,6 @@ jobs:
       - name: Run Docker integration tests (${{ matrix.tier_name }})
         env:
           TIER: ${{ matrix.tier }}
-          WDIO_SERVER_MODE: '1'
           WDIO_EXTERNAL_SERVER: '1'
           PARALLEL_TIERS: 'true'
         run: npm run test:integration:docker
@@ -393,7 +191,7 @@ jobs:
           path: tests/integration/screenshots/
           if-no-files-found: ignore
 
-  # Env-pinned settings suite — needs the fixture variables present when the
+  # Env-pinned settings suite - needs the fixture variables present when the
   # server process starts, so it gets its own container. Never ran in CI before
   # Task 73; see _tasks/73-web-first-migration/02-research.md section 3.2.
   integration-test-docker-env:
@@ -430,7 +228,7 @@ jobs:
         run: docker load -i /tmp/kniha-jazd-web.tar
 
       # Values mirror ENV_PINNED_FIXTURE in tests/integration/wdio.server.conf.ts.
-      # The hosts do not have to resolve — the assertions only check the fields are pinned.
+      # The hosts do not have to resolve - the assertions only check the fields are pinned.
       - name: Start env-pinned container
         run: |
           mkdir -p data-env
@@ -465,12 +263,11 @@ jobs:
 
       # The env: block is NOT redundant with the npm script. The scripts use
       # Windows `set X=Y&&`, which under sh sets positional parameters and exports
-      # nothing — so on ubuntu the wdio config would see EXTERNAL_SERVER=false,
+      # nothing - so on ubuntu the wdio config would see EXTERNAL_SERVER=false,
       # run all four tier globs instead of ./specs/env/**, and try to spawn a
       # binary CI never built. The existing docker job passes them the same way.
       - name: Run env-pinned integration tests
         env:
-          WDIO_SERVER_MODE: '1'
           WDIO_EXTERNAL_SERVER: '1'
           WDIO_ENV_PINNED: '1'
         run: npm run test:integration:docker:env
