@@ -1,6 +1,6 @@
 **Date:** 2026-09-04
 **Subject:** Publish a floating `:main` Docker image channel from every green main build
-**Status:** Planning
+**Status:** Complete
 
 # Main-Branch Image Channel Implementation Plan
 
