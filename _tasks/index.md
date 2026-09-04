@@ -26,6 +26,7 @@ Quick overview of all tasks and their status.
 | 61 | [Route Map POC](./_done/61-route-map-poc/) — graduated by [Task 70](./_done/70-route-map-integration/) | 2026-08-10 |
 | 69 | [PIN-Gated Secret Reveal](./_done/69-pin-gated-secret-reveal/) | 2026-08-10 |
 | 68 | [Env-Managed Settings UI](./_done/68-env-managed-settings-ui/) | 2026-08-10 |
+| 52 | [HA Suggested Fillup Push](./_done/52-ha-suggested-fillup-push/) | 2026-02-11 |
 | 66 | [Multi-Invoice Support](./_done/66-multi-invoice/) | 2026-07-15 |
 | 65 | [Datetime Is Order](./_done/65-datetime-is-order/) | 2026-05-21 |
 | 64 | [Unified Invoice Picker](./_done/64-unified-invoice-picker/) | 2026-05-04 |

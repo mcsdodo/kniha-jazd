@@ -192,7 +192,7 @@ That surfaced three tests that were not covering what they claimed. `export.spec
 
 **Scope check:** an audit of the desktop wrappers found no other divergence. The remaining multi-line wrappers are either pure delegation with long argument lists (`create_trip`, `create_vehicle`) or legitimately desktop-only capabilities — native dialogs (`move_database`, `export_to_browser`), the updater, and server control (`start_server`).
 
-**Related:** [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client), [Task 52](./_tasks/52-ha-suggested-fillup-push/) (which introduced the push), [docs/features/home-assistant.md](./docs/features/home-assistant.md).
+**Related:** [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client), [Task 52](./_tasks/_done/52-ha-suggested-fillup-push/) (which introduced the push), [docs/features/home-assistant.md](./docs/features/home-assistant.md).
 
 ---
 
