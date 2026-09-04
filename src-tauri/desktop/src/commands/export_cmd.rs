@@ -123,7 +123,18 @@ pub async fn export_html(
     vehicle_id: String,
     year: i32,
     labels: ExportLabels,
+    hidden_columns: Vec<String>,
+    sort_direction: String,
 ) -> Result<String, String> {
     let app_data_dir = get_app_data_dir(&app)?;
-    inner::export_html_internal(&db, &app_data_dir, vehicle_id, year, labels).await
+    inner::export_html_internal(
+        &db,
+        &app_data_dir,
+        vehicle_id,
+        year,
+        labels,
+        hidden_columns,
+        sort_direction,
+    )
+    .await
 }

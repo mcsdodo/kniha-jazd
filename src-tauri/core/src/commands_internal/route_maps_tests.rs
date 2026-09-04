@@ -488,10 +488,13 @@ async fn an_unrenderable_route_skips_only_its_own_page() {
     assert_pages_carry_pngs(&pages);
 }
 
-/// The two export paths differ: desktop prepends a synthetic "Prvý záznam" row
-/// and honours the user's sort direction, server mode does neither. Both must
-/// still cite the SAME record number for the same trip, because the attachment
-/// heading is the only link back to it.
+/// Both export paths now agree: each prepends a synthetic "Prvý záznam" row and
+/// each honours the user's sort direction (Task 73 widened
+/// `export_html_internal` so server mode does both too). This test still pins
+/// the property that made the difference safe in the first place — whatever the
+/// extra rows and whatever the order, both must cite the SAME record number for
+/// the same trip, because the attachment heading is the only link back to it.
+/// The two grids below are therefore deliberately built differently.
 #[tokio::test]
 async fn both_export_modes_cite_the_same_record_for_the_same_trip() {
     let db = Database::in_memory().unwrap();
@@ -500,11 +503,11 @@ async fn both_export_modes_cite_the_same_record_for_the_same_trip() {
     let mapped = &trips[1];
     save_map_for(&db, &mapped.id, &polyline);
 
-    // Server mode: the grid exactly as built, oldest first.
+    // Configuration A: the grid exactly as built, oldest first.
     let server_grid = build_trip_grid_data(&db, &vehicle_id.to_string(), 2026).unwrap();
     let server_rows = assemble_export_rows(&server_grid, "asc");
 
-    // Desktop mode: the same grid plus the synthetic first record, newest first.
+    // Configuration B: the same grid plus the synthetic first record, newest first.
     let mut desktop_grid = build_trip_grid_data(&db, &vehicle_id.to_string(), 2026).unwrap();
     let mut first_record = Trip::test_ice_trip(
         NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),

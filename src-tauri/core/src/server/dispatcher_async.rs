@@ -9,6 +9,11 @@ fn parse_args<T: serde::de::DeserializeOwned>(args: Value) -> Result<T, String> 
     serde_json::from_value(args).map_err(|e| format!("Invalid args: {e}"))
 }
 
+/// Older callers omit `sortDirection`; keep their behaviour (oldest first).
+fn default_sort_direction() -> String {
+    "asc".to_string()
+}
+
 /// Try to dispatch an async command.
 ///
 /// Returns `None` if the command is not handled here (caller should fall
@@ -201,6 +206,10 @@ pub async fn dispatch_async(
                 vehicle_id: String,
                 year: i32,
                 labels: crate::export::ExportLabels,
+                #[serde(default)]
+                hidden_columns: Vec<String>,
+                #[serde(default = "default_sort_direction")]
+                sort_direction: String,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
@@ -212,6 +221,8 @@ pub async fn dispatch_async(
                 a.vehicle_id,
                 a.year,
                 a.labels,
+                a.hidden_columns,
+                a.sort_direction,
             )
             .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
@@ -367,5 +378,159 @@ mod tests {
 
         tokio::time::sleep(std::time::Duration::from_millis(150)).await;
         assert!(ha.received_requests().await.unwrap_or_default().is_empty());
+    }
+
+    /// Web-mode export must honour the user's column visibility and sort choice,
+    /// and must prepend the synthetic year-opening row. Before Task 73 all three
+    /// were hardcoded away, so the browser export silently disagreed with the
+    /// grid the user was looking at.
+    #[tokio::test]
+    async fn export_html_honours_hidden_columns_and_sort_direction() {
+        use crate::models::{Settings, Trip};
+        use chrono::{NaiveDate, Utc};
+
+        let dir = tempfile::tempdir().unwrap();
+        let db = std::sync::Arc::new(crate::db::Database::in_memory().unwrap());
+
+        let vehicle =
+            crate::models::Vehicle::new_ice("Test".into(), "BA-123AB".into(), 50.0, 6.5, 10_000.0);
+        db.create_vehicle(&vehicle).unwrap();
+        db.save_settings(&Settings::default()).unwrap();
+
+        // Two trips on different days, so sort direction is observable.
+        let make_trip = |day: u32, destination: &str, odo: f64| Trip {
+            id: uuid::Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            start_datetime: NaiveDate::from_ymd_opt(2026, 3, day)
+                .unwrap()
+                .and_hms_opt(8, 0, 0)
+                .unwrap(),
+            end_datetime: None,
+            origin: "Bratislava".into(),
+            destination: destination.into(),
+            distance_km: 60.0,
+            odometer: odo,
+            purpose: "test".into(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        db.create_trip(&make_trip(1, "TRNAVA", 10_060.0)).unwrap();
+        db.create_trip(&make_trip(2, "KOSICE", 10_120.0)).unwrap();
+
+        let state = ServerState {
+            db,
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: dir.path().to_path_buf(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        // "time" is one of the five hideable columns (grep `is_visible("` in
+        // export.rs for the full set: time, fuelConsumed, fuelRemaining,
+        // otherCosts, otherCostsNote). It renders the `col_end_datetime`
+        // header, so give THAT label a distinctive marker - presence/absence in
+        // the HTML is then unambiguous.
+        let mut labels = serde_json::to_value(crate::export::sample_export_labels()).unwrap();
+        labels["col_end_datetime"] = serde_json::json!("CAS-MARKER");
+
+        let visible = dispatch_async(
+            "export_html",
+            serde_json::json!({
+                "vehicleId": vehicle.id.to_string(),
+                "year": 2026,
+                "labels": labels.clone(),
+                "hiddenColumns": [],
+                "sortDirection": "desc"
+            }),
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let visible = visible.as_str().unwrap();
+        assert!(
+            visible.contains("CAS-MARKER"),
+            "time column should render when not hidden"
+        );
+
+        let hidden = dispatch_async(
+            "export_html",
+            serde_json::json!({
+                "vehicleId": vehicle.id.to_string(),
+                "year": 2026,
+                "labels": labels.clone(),
+                "hiddenColumns": ["time"],
+                "sortDirection": "desc"
+            }),
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(
+            !hidden.as_str().unwrap().contains("CAS-MARKER"),
+            "hiddenColumns was ignored - the time column still rendered"
+        );
+
+        // sortDirection: "desc" puts the newest trip first. The `visible` render
+        // above already used "desc", so compare against an "asc" render.
+        let ascending = dispatch_async(
+            "export_html",
+            serde_json::json!({
+                "vehicleId": vehicle.id.to_string(),
+                "year": 2026,
+                "labels": labels,
+                "hiddenColumns": [],
+                "sortDirection": "asc"
+            }),
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let ascending = ascending.as_str().unwrap();
+
+        let desc_kosice = visible
+            .find("KOSICE")
+            .expect("KOSICE missing from desc render");
+        let desc_trnava = visible
+            .find("TRNAVA")
+            .expect("TRNAVA missing from desc render");
+        assert!(
+            desc_kosice < desc_trnava,
+            "sortDirection=desc should put the newer trip (KOSICE) first"
+        );
+
+        let asc_kosice = ascending
+            .find("KOSICE")
+            .expect("KOSICE missing from asc render");
+        let asc_trnava = ascending
+            .find("TRNAVA")
+            .expect("TRNAVA missing from asc render");
+        assert!(
+            asc_trnava < asc_kosice,
+            "sortDirection=asc should put the older trip (TRNAVA) first - \
+             the argument was ignored"
+        );
+
+        // The synthetic year-opening row. Desktop prepends it; web mode never did,
+        // so after the migration the printed logbook would silently lose the
+        // baseline odometer the on-screen grid still shows.
+        assert!(
+            ascending.contains("Prvý záznam"),
+            "the synthetic first-record row is missing from the web export"
+        );
+        assert!(
+            ascending.contains("10000"),
+            "the first-record row should carry year_start_odometer (10000)"
+        );
     }
 }

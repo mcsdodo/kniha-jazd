@@ -34,58 +34,10 @@ fn make_trip(km: f64, fuel: Option<f64>, fuel_cost: Option<f64>, other_cost: Opt
     }
 }
 
-/// Labels fixture. Only the strings the tests assert on carry real text -
-/// the rest are placeholders so the fixture stays readable.
+/// Labels fixture, shared with the RPC dispatcher tests - the body lives in
+/// `export::sample_export_labels` so both test modules see the same strings.
 fn sample_labels() -> ExportLabels {
-    ExportLabels {
-        lang: "sk".to_string(),
-        page_title: "KNIHA JÁZD".to_string(),
-        header_company: String::new(),
-        header_ico: String::new(),
-        header_vehicle: String::new(),
-        header_license_plate: String::new(),
-        header_tank_size: String::new(),
-        header_tp_consumption: String::new(),
-        header_year: String::new(),
-        header_battery_capacity: String::new(),
-        header_baseline_consumption: String::new(),
-        header_vin: String::new(),
-        header_driver: String::new(),
-        col_trip_number: String::new(),
-        col_start_datetime: String::new(),
-        col_end_datetime: String::new(),
-        col_driver: String::new(),
-        col_odo_start: String::new(),
-        col_time: String::new(),
-        col_origin: String::new(),
-        col_destination: String::new(),
-        col_purpose: String::new(),
-        col_km: String::new(),
-        col_odo: String::new(),
-        col_fuel_liters: String::new(),
-        col_fuel_cost: String::new(),
-        col_fuel_consumed: String::new(),
-        col_other_costs: String::new(),
-        col_note: String::new(),
-        col_remaining: String::new(),
-        col_consumption: String::new(),
-        col_energy_kwh: String::new(),
-        col_energy_cost: String::new(),
-        col_battery_remaining: String::new(),
-        col_energy_rate: String::new(),
-        footer_total_km: String::new(),
-        footer_total_fuel: String::new(),
-        footer_other_costs: String::new(),
-        footer_avg_consumption: String::new(),
-        footer_deviation: String::new(),
-        footer_tp_norm: String::new(),
-        footer_total_energy: String::new(),
-        footer_avg_energy_rate: String::new(),
-        footer_baseline_norm: String::new(),
-        print_hint: String::new(),
-        attachment_heading: "Príloha č.".to_string(),
-        record_reference: "záznam č.".to_string(),
-    }
+    sample_export_labels()
 }
 
 fn empty_grid_data(trips: Vec<Trip>) -> TripGridData {
