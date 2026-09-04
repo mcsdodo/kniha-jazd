@@ -382,9 +382,9 @@ export async function saveHaSettings(url: string | null, token: string | null): 
 /**
  * Reveal a configured secret for display.
  *
- * Over HTTP the backend demands the PIN from KNIHA_JAZD_REVEAL_PIN; in the desktop
- * app the Tauri command path is trusted and `pin` is ignored. Throws with the
- * backend's message on a wrong/absent PIN or while locked out.
+ * The backend demands the PIN from KNIHA_JAZD_REVEAL_PIN on every reveal — there
+ * is no trusted local path any more. Throws with the backend's message on a
+ * wrong/absent PIN or while locked out.
  */
 export async function revealSecret(field: SecretField, pin?: string): Promise<string> {
 	return apiCall<string>('reveal_secret', { field, pin: pin ?? '' });

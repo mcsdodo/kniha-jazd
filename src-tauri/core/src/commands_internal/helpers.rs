@@ -1,7 +1,8 @@
 //! Pure helpers shared across `*_internal` command implementations.
 //!
-//! Tauri-flavored helpers (`get_app_data_dir`, `get_db_paths`) stay in
-//! `kniha-jazd-desktop::commands` because they take `tauri::AppHandle`.
+//! Nothing here discovers the application directory on its own — the server
+//! owns it (`ServerState::app_dir`, from `KNIHA_JAZD_DATA_DIR`) and passes it
+//! down, which is what keeps these functions testable against a temp dir.
 
 use crate::db_location::{resolve_db_paths, DbPaths};
 use crate::models::{MonthEndRow, Trip};
@@ -37,7 +38,7 @@ macro_rules! check_read_only {
 }
 
 /// Get resolved database paths from a directory path.
-/// Used by both Tauri commands (via wrapper) and server RPC dispatcher.
+/// Honours a `custom_db_path` in that directory's `local.settings.json`.
 pub fn get_db_paths_for_dir(app_dir: &std::path::Path) -> Result<DbPaths, String> {
     let local_settings = LocalSettings::load(app_dir);
     let (db_paths, _is_custom) =

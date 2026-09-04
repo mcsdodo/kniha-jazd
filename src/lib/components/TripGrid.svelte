@@ -68,7 +68,7 @@
 	let routeMapTripIds: Set<string> = new Set();
 
 	// The map view lives in its own tab and announces saves on a BroadcastChannel.
-	// Guarded because the API is absent in SSR and not guaranteed in the Tauri webview.
+	// Guarded because the API is missing in older browsers and in non-secure contexts.
 	let routeMapChannel: BroadcastChannel | null = null;
 
 	// Format date as "DD.MM." (no year - it's in the dropdown)

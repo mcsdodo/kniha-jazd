@@ -44,7 +44,7 @@ async function saveSettings(settings: {
 }
 
 /**
- * Set locale. There is no Tauri command for this; use localStorage directly.
+ * Set locale. There is no backend command for this; use localStorage directly.
  */
 async function setLocale(locale: 'sk' | 'en'): Promise<void> {
   await browser.execute((loc: string) => {
@@ -96,7 +96,7 @@ describe('Tier 2: Settings', () => {
         const savedIcoValue = await companyIcoInput.getValue();
         expect(savedIcoValue).toBe(testCompanyIco);
 
-        // Verify via Tauri IPC
+        // Verify over JSON-RPC
         const settings = await getSettings();
         expect(settings).not.toBeNull();
         expect(settings?.companyName).toBe(testCompanyName);

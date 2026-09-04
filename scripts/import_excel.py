@@ -22,7 +22,8 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 # Database path
-DB_PATH = os.path.join(os.environ['APPDATA'], 'com.tauri.dev', 'kniha-jazd.db')
+# The app now stores its database in the server's data dir (/data in Docker).
+DB_PATH = os.environ.get('KNIHA_JAZD_DB', os.path.join('data', 'kniha-jazd.db'))
 
 # Defaults
 DEFAULT_EXCEL = os.path.join(os.path.dirname(__file__), '..', '_tasks', '01-init', 'kniha_jazd.xlsx')

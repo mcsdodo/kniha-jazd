@@ -308,7 +308,8 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             #[serde(rename_all = "camelCase")]
             struct Args {
                 field: crate::commands_internal::reveal::SecretField,
-                /// Absent is treated as an empty PIN, never as "local".
+                /// Absent is treated as an empty PIN, which is rejected like
+                /// any other wrong one.
                 #[serde(default)]
                 pin: String,
             }
@@ -317,9 +318,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 &state.app_dir,
                 &state.app_state,
                 a.field,
-                // ALWAYS Pin: this dispatcher is the network-reachable path, so it
-                // must never be able to construct RevealAuth::LocalTrusted.
-                crate::commands_internal::reveal::RevealAuth::Pin(a.pin),
+                &a.pin,
             )?;
             Ok(serde_json::to_value(value).unwrap())
         }
@@ -396,8 +395,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
-        // get_optimal_window_size is Tauri-only — HTTP clients (browsers) have no
-        // OS window concept. The desktop wrapper still exists for IPC callers.
         "get_theme_preference" => {
             let v = crate::commands_internal::settings_cmd::get_theme_preference_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())

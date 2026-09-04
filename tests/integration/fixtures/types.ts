@@ -1,5 +1,5 @@
 /**
- * TypeScript interfaces matching Rust models in src-tauri/src/models.rs
+ * TypeScript interfaces matching Rust models in src-tauri/core/src/models.rs
  *
  * These types are used by test fixtures to ensure type safety
  * and consistency with the backend data structures.

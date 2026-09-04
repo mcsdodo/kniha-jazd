@@ -1,134 +1,179 @@
 # Integration Tests
 
-Full end-to-end tests for the Tauri application using tauri-driver + WebdriverIO.
+End-to-end tests that drive a real Chrome browser (WebdriverIO) against the
+`kniha-jazd-web` HTTP server — the same binary the Docker image ships. The browser
+loads the built SvelteKit bundle the server serves, and both the app and the test
+helpers talk to the backend over JSON-RPC at `POST /api/rpc`.
 
 ## Test Suite Overview
 
-**Total: 64 tests across 4 tiers**
-
-| Tier | Tests | Purpose |
-|------|-------|---------|
-| existing | 10 | Original vehicle setup tests |
-| tier1 | 29 | Critical flows: trips, consumption, export |
-| tier2 | 16 | Secondary: backups, receipts, settings, multi-currency |
-| tier3 | 9 | Edge cases: compensation, validation, empty states |
+| Folder | Spec files | Purpose |
+|--------|-----------|---------|
+| [existing](./specs/existing/) | 2 | Original vehicle setup tests (ICE + BEV) |
+| [tier1](./specs/tier1/) | 9 | Critical flows: trips, consumption, export |
+| [tier2](./specs/tier2/) | 16 | Secondary: backups, receipts, settings, Paperless, route maps |
+| [tier3](./specs/tier3/) | 4 | Edge cases: compensation, validation, empty states |
+| [env](./specs/env/) | 1 | Settings pinned by environment variables — runs separately (see below) |
 
 > Tier names describe scope, not when they run. CI executes all tiers in parallel on every push to `main` and every PR (see [.github/workflows/test.yml](../../.github/workflows/test.yml)). Tiers exist to let you scope local runs — run [tier1](./specs/tier1/) for a quick check, run the full suite before claiming work done. See [CLAUDE.md](../../CLAUDE.md) → Iteration strategy for the canonical local workflow.
 
 ## Prerequisites
 
-### 1. Install tauri-driver
+### 1. Google Chrome
+
+WebdriverIO downloads a matching chromedriver itself; you only need Chrome installed
+and on the default path for your OS.
+
+### 2. Node dependencies
 
 ```bash
-cargo install tauri-driver
+npm ci
 ```
 
-### 2. Install Microsoft Edge WebDriver (Windows only)
+### 3. Build the frontend and the server binary
 
-Tauri on Windows uses WebView2 (Edge-based), so you need the Edge WebDriver:
-
-1. Check your Edge version: `edge://version` in Edge browser
-2. Download matching driver from: https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/
-3. Extract `msedgedriver.exe` to a location in your PATH, or set the `MSEDGEDRIVER_PATH` environment variable
-
-```powershell
-# Example: Add to PATH
-$env:PATH += ";C:\path\to\msedgedriver"
-
-# Or set specific path
-$env:MSEDGEDRIVER_PATH = "C:\path\to\msedgedriver.exe"
-```
-
-### 3. Build the web server binary and frontend
+The frontend must be built first: the spawned server serves `build/` as its
+`STATIC_DIR`, so a stale or missing bundle means the browser loads nothing.
 
 ```bash
 npm run build
 cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 ```
 
+Not needed for Docker mode — the container image already contains both.
+
 ## Running Tests
 
+There are two modes. Both use the same config file
+([wdio.server.conf.ts](./wdio.server.conf.ts)); `WDIO_EXTERNAL_SERVER` picks
+between them.
+
+### Spawned-server mode (default, port 3457)
+
+WDIO starts `src-tauri/target/debug/kniha-jazd-web` itself, pointed at a fresh temp
+data directory, and shuts it down afterwards. Port 3457 is deliberately not 3456 so a
+running container or app instance does not collide with the test run.
+
 ```bash
-# Run all integration tests
-npm run test:integration
+# All tiers
+npx wdio run tests/integration/wdio.server.conf.ts
+npm run test:integration        # same thing
 
-# Run only Tier 1 (fast, for PRs)
+# Single spec — use this while iterating on a fix
+npx wdio run tests/integration/wdio.server.conf.ts \
+  --spec tests/integration/specs/tier2/legal-compliance.spec.ts
+
+# Tier 1 only (fast)
 npm run test:integration:tier1
-
-# Run against an already-running container instead of a spawned binary
-npm run test:integration:docker
 ```
+
+### External-server mode (Docker, port 3456)
+
+The server must already be listening — WDIO only waits for `/health` and never spawns
+or stops anything.
+
+```bash
+WDIO_EXTERNAL_SERVER=1 npx wdio run tests/integration/wdio.server.conf.ts
+npm run test:integration:docker   # same thing
+```
+
+Start the container the way CI does (see the `Start container` step in
+[.github/workflows/test.yml](../../.github/workflows/test.yml)) — in particular
+[tests/integration/data](./data) must be mounted at `/testdata`, because specs send fixture
+paths over RPC and the backend resolves them inside the container. See
+[utils/paths.ts](./utils/paths.ts) for the two mount mappings.
+
+### Environment variables
+
+| Variable | Effect |
+|----------|--------|
+| `TIER` | `1`, `2` or `3` — scope the run to a tier (see below) |
+| `PARALLEL_TIERS` | `true` makes `TIER` select *only* that tier instead of it plus everything below |
+| `WDIO_EXTERNAL_SERVER` | `1` = connect to an already-running server instead of spawning one |
+| `WDIO_ENV_PINNED` | `1` = run only `specs/env/**`, with settings pinned via env vars |
+| `WDIO_SERVER_PORT` / `WDIO_SERVER_URL` | Override the port / full URL |
+| `KJ_WEB_BINARY` | Path to the server binary to spawn (CI uses this) |
 
 ### Tiered Execution
 
-Set the `TIER` environment variable to run specific tiers:
-
 ```bash
-# Tier 1 only (existing + tier1)
-set TIER=1 && npm run test:integration
+# Tier 1 only (tier1 + existing)
+TIER=1 npx wdio run tests/integration/wdio.server.conf.ts
 
-# Tier 1 + 2
-set TIER=2 && npm run test:integration
+# Tier 1 + 2 (sequential mode is cumulative)
+TIER=2 npx wdio run tests/integration/wdio.server.conf.ts
 
-# All tiers (default)
-npm run test:integration
+# Exactly one tier (what CI does)
+TIER=2 PARALLEL_TIERS=true npx wdio run tests/integration/wdio.server.conf.ts
 ```
 
+The npm scripts use the Windows `set VAR=x&&` form; on Linux/macOS use the inline
+`VAR=x` prefix above.
+
 **CI Behavior:**
-- All three tiers run in parallel on both PRs and pushes to `main` (matrix in [.github/workflows/test.yml](../../.github/workflows/test.yml)).
+- All three tiers run in parallel on both PRs and pushes to `main` (matrix in [.github/workflows/test.yml](../../.github/workflows/test.yml)), each against its own container.
+- The env-pinned suite runs as a fourth job against a second container started with the pinning variables.
 - The `TIER` env var is for *local* scoping — CI sets `TIER` per matrix job to fan out the suite across runners, not to skip tiers.
+
+### The env-pinned suite
+
+[specs/env/env-managed-settings.spec.ts](./specs/env/env-managed-settings.spec.ts)
+checks that settings supplied through
+environment variables (`HA_URL`, `PAPERLESS_API_TOKEN`, `KNIHA_JAZD_REVEAL_PIN`, …)
+are shown as read-only in the UI. Those variables make settings read-only app-wide,
+which would break every spec that edits them — hence a separate run:
+
+```bash
+npm run test:integration:docker:env   # WDIO_ENV_PINNED=1, against a pinned container
+```
+
+Normal runs blank those variables out before spawning the server, so a developer's
+real `.env` cannot pin settings and fail unrelated specs.
 
 ## Test Structure
 
 ```
 tests/integration/
-├── wdio.server.conf.ts   # WebdriverIO configuration
+├── wdio.server.conf.ts   # WebdriverIO config: spawns/connects, resets DB, Chrome caps
 ├── specs/                # Test files
+│   ├── _helpers/         # Spec-local helpers (mock Paperless server)
+│   ├── env/              # Env-pinned settings (separate run)
 │   ├── existing/         # Original tests (vehicle setup, BEV)
-│   ├── tier1/            # Critical path tests
-│   │   ├── seeding.spec.ts          # DB seeding verification
-│   │   ├── trip-management.spec.ts  # CRUD, calculations
-│   │   ├── consumption-warnings.spec.ts
-│   │   ├── year-handling.spec.ts
-│   │   ├── bev-trips.spec.ts
-│   │   ├── phev-trips.spec.ts
-│   │   └── export.spec.ts
-│   ├── tier2/            # Secondary features
-│   │   ├── vehicle-management.spec.ts
-│   │   ├── backup-restore.spec.ts
-│   │   ├── receipts.spec.ts          # + multi-currency (EUR, CZK, HUF, PLN)
-│   │   ├── receipt-settings.spec.ts
-│   │   ├── route-autocomplete.spec.ts
-│   │   └── settings.spec.ts
-│   └── tier3/            # Edge cases
-│       ├── compensation.spec.ts
-│       ├── validation.spec.ts
-│       ├── multi-vehicle.spec.ts
-│       └── empty-states.spec.ts
+│   ├── tier1/            # Critical path: trips, consumption, export, seeding
+│   ├── tier2/            # Secondary features: settings, receipts, Paperless, maps
+│   └── tier3/            # Edge cases: compensation, validation, multi-vehicle
 ├── fixtures/             # Test data factories
-│   └── seed-data.ts      # Vehicle/trip factories
+│   ├── vehicles.ts       # ICE / BEV / PHEV vehicle factories + UI creation helpers
+│   ├── trips.ts          # Trip factories, Slovak cities, purposes
+│   ├── receipts.ts       # Receipt factories in every status
+│   ├── scenarios.ts      # Whole-vehicle scenarios (under limit, over limit, …)
+│   └── types.ts          # TS mirrors of the Rust models
 ├── utils/                # Helper utilities
-│   ├── app.ts            # App interaction helpers
-│   ├── db.ts             # DB seeding via Tauri IPC
-│   └── navigation.ts     # Page navigation helpers
+│   ├── app.ts            # waitForAppReady, navigateTo
+│   ├── db.ts             # rpc() + all seed/query helpers
+│   ├── forms.ts          # Form filling helpers
+│   ├── assertions.ts     # Shared expectations
+│   ├── language.ts       # Locale switching
+│   └── paths.ts          # Host ↔ container path translation
+├── data/                 # Committed fixtures (invoice PDFs, Gemini mock JSON)
 └── screenshots/          # Failure screenshots
 ```
 
 ## How It Works
 
-1. **Sandboxed environment**: Tests use a temp directory (`%TEMP%\kniha-jazd-test-*`) for the database
-2. **Fresh database**: Each test starts with an empty database
-3. **DB seeding via IPC**: Tests seed data using Tauri's `invoke()` - no direct DB access needed
-4. **Real app**: Tests run against the actual Tauri application with full Rust backend
-5. **WebDriver protocol**: tauri-driver provides WebDriver API to control the app
+1. **Isolated data dir**: spawned mode creates `%TEMP%\kniha-jazd-server-test-*` and passes it as `KNIHA_JAZD_DATA_DIR`; Docker mode uses the container's `/data` mount.
+2. **Fresh database**: `before` deletes every trip and vehicle over RPC, so each spec file starts empty. It does *not* run per test — WDIO's `beforeTest` fires after a spec's own `beforeEach`, so resetting there would wipe data the spec just seeded.
+3. **Seeding over RPC**: tests seed through [`rpc()`](./utils/db.ts) → `POST /api/rpc`, the same endpoint the frontend uses, so the backend validates and stores exactly as it would in production. No direct SQLite access.
+4. **Mocked externals**: `KNIHA_JAZD_MOCK_GEMINI_DIR` makes receipt scanning read fixture JSON instead of calling Gemini; Paperless specs spin up [a local mock server](./specs/_helpers/mock-paperless-server.ts).
+5. **Real browser**: Chrome over the WebDriver protocol — the tests exercise the shipped bundle, not a component harness.
 
 ## Writing Tests
 
 ### Basic Test Structure
 
 ```typescript
-import { waitForAppReady } from '../utils/app';
-import { seedVehicle, seedTrip } from '../utils/db';
+import { waitForAppReady } from '../../utils/app';
+import { seedVehicle, seedTrip } from '../../utils/db';
 
 describe('My Feature', () => {
   beforeEach(async () => {
@@ -137,8 +182,16 @@ describe('My Feature', () => {
 
   it('should do something', async () => {
     // Seed test data
-    const vehicle = await seedVehicle({ name: 'Test Car' });
-    await seedTrip(vehicle.id, { km: 100 });
+    const vehicle = await seedVehicle({ name: 'Test Car', licensePlate: 'T-001', initialOdometer: 10000 });
+    await seedTrip({
+      vehicleId: vehicle.id,
+      startDatetime: '2026-01-15T08:00',
+      origin: 'A',
+      destination: 'B',
+      distanceKm: 100,
+      odometer: 10100,
+      purpose: 'Test',
+    });
 
     // Navigate and interact
     const button = await $('button=Click me');
@@ -153,19 +206,21 @@ describe('My Feature', () => {
 ### Using Fixtures
 
 ```typescript
-import { createICEVehicle, createBEVVehicle, createTrip } from '../fixtures/seed-data';
+import { createTestIceVehicle, createSkodaOctavia } from '../../fixtures/vehicles';
+import { createTrip, createTripWithFuel } from '../../fixtures/trips';
+import { createOverLimitScenario } from '../../fixtures/scenarios';
 
-// Pre-defined test data factories
-const vehicle = createICEVehicle({ name: 'Custom Name' });
-const trip = createTrip({ km: 150, liters_filled: 10 });
+const vehicle = createTestIceVehicle({ name: 'Custom Name' });
+const trip = createTrip({ distanceKm: 150 });
+const scenario = createOverLimitScenario();  // vehicle + trips, seed with seedScenario()
 ```
 
 ### DB Seeding
 
-Tests seed data via Tauri IPC commands:
+Tests seed data over JSON-RPC:
 
 ```typescript
-import { seedVehicle, seedTrip, seedReceipt } from '../utils/db';
+import { seedVehicle, seedTrip, seedReceipt } from '../../utils/db';
 
 // Creates vehicle and returns with ID
 const vehicle = await seedVehicle({ name: 'Test', licensePlate: 'T-001', initialOdometer: 10000, tpConsumption: 7.5 });
@@ -180,24 +235,40 @@ const trip = await seedTrip({ vehicleId: vehicle.id, startDatetime: '2026-01-15T
 const receipt = await seedReceipt({ assignmentType: 'Other', totalPriceEur: 10.0, receiptDatetime: '2026-01-15T09:00' });
 ```
 
+Reach for `rpc()` directly rather than any other route to the backend — it is the
+single point of backend communication for the whole test suite.
+
 ## Troubleshooting
 
-### "msedgedriver.exe not found"
+### "Timed out waiting for http://localhost:3457/health"
 
-Download from https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/ and add to PATH.
+The spawned server never came up. Check:
+- Was the binary built? (`cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web`, from [src-tauri/web](../../src-tauri/web))
+- Is something else already on 3457? Set `WDIO_SERVER_PORT` to a free port.
+- Run the binary by hand with `KNIHA_JAZD_DATA_DIR` set and read its output — WDIO
+  spawns it with `stdio: 'ignore'`, so startup errors are invisible in the test log.
 
-### "Timeout waiting for port 4444"
+### "Timed out waiting for http://localhost:3456/health" (Docker mode)
 
-tauri-driver failed to start. Check:
-- Is tauri-driver installed? (`cargo install tauri-driver`)
-- Is msedgedriver available? (Windows only)
-- Check console output for errors
+The container is not running or not healthy: `docker ps`, then `docker logs kniha-jazd-web`.
+
+### App loads but every page is blank
+
+`STATIC_DIR` points at the repo's `build/` directory, which is missing or stale.
+Re-run `npm run build` ([package.json](../../package.json)).
+
+### "managed by the ... environment variable" in a settings spec
+
+A real value in the repo's `.env` leaked into the spawned server.
+[wdio.server.conf.ts](./wdio.server.conf.ts) blanks
+the known variables (`SCRUBBED_ENV`); if you added a new overridable setting, add its
+variable there too.
 
 ### Tests pass locally but fail in CI
 
-- Ensure CI installs all prerequisites
-- Check platform-specific paths in `wdio.server.conf.ts`
-- Verify Edge WebDriver version matches CI Edge version
+CI runs Docker mode on Linux. Differences that bite: fixture paths must go through
+[`utils/paths.ts`](./utils/paths.ts), and specs that write files for the backend to
+read need a shared filesystem (skip them in Docker mode).
 
 ### Test timeout (30s default)
 

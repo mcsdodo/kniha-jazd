@@ -1,9 +1,9 @@
 //! Home Assistant integration command implementations (framework-free).
 //!
 //! Pure logic for the HA integration commands, including the suggested-fillup
-//! push. The push lives here rather than in the desktop crate because BOTH
-//! frontends have to perform it: the Tauri command wrapper and the server's
-//! async RPC dispatcher (see ADR-024 — the server is the canonical deployment).
+//! push. The push lives here rather than in a caller so the server's async RPC
+//! dispatcher performs it on every `get_trip_grid_data` (see ADR-024 — the
+//! server is the canonical deployment).
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

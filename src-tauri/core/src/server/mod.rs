@@ -1,7 +1,8 @@
-//! Embedded HTTP server for LAN browser access.
+//! HTTP server — the application's only entry point.
 //!
-//! When enabled, serves the same UI and RPC API that the Tauri webview uses,
-//! allowing phones/tablets/other PCs to access the app over the local network.
+//! Serves the built SvelteKit bundle as static files and the JSON-RPC API at
+//! `POST /api/rpc`, so any browser on the local network (phone, tablet, other
+//! PC) reaches the same app. CORS is restricted to LAN origins.
 
 mod dispatcher;
 mod dispatcher_async;

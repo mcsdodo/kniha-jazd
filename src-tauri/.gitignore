@@ -1,5 +1,2 @@
 # Cargo workspace target dir (shared across all members)
 /target/
-
-# Tauri-generated artifacts (created when building from src-tauri/ directly)
-/gen/

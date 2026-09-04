@@ -24,7 +24,8 @@ instead of calling the API:
 
 ## Mock JSON Schema
 
-Must match `ExtractedReceipt` struct in `src-tauri/src/gemini.rs`:
+Must match the `ExtractedReceipt` struct in
+[src-tauri/core/src/gemini.rs](../../../src-tauri/core/src/gemini.rs):
 
 ```json
 {

@@ -32,7 +32,7 @@ pub struct PaperlessFieldMap {
 
 /// Lightweight view of a Paperless custom field — what the Settings UI dropdown needs.
 /// Deserialized from Paperless's `/api/custom_fields/` response (snake_case),
-/// serialized to the frontend in camelCase (Tauri/IPC convention).
+/// serialized to the frontend in camelCase (the JSON-RPC convention).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all(serialize = "camelCase"))]
 pub struct CustomFieldInfo {

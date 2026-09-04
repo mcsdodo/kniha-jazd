@@ -43,41 +43,6 @@ pub fn save_settings_internal(
 }
 
 // ============================================================================
-// Window Size
-// ============================================================================
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WindowSize {
-    pub width: u32,
-    pub height: u32,
-}
-
-/// Parse the optimal window size from the contents of a `tauri.conf.json`.
-/// The desktop crate embeds the file via `include_str!` and calls this helper.
-pub fn parse_optimal_window_size(config_str: &str) -> WindowSize {
-    let width = config_str
-        .find("\"width\":")
-        .and_then(|i| {
-            let rest = &config_str[i + 8..];
-            let end = rest.find(',')?;
-            rest[..end].trim().parse().ok()
-        })
-        .unwrap_or(1980);
-
-    let height = config_str
-        .find("\"height\":")
-        .and_then(|i| {
-            let rest = &config_str[i + 9..];
-            let end = rest.find(',')?;
-            rest[..end].trim().parse().ok()
-        })
-        .unwrap_or(1080);
-
-    WindowSize { width, height }
-}
-
-// ============================================================================
 // Theme
 // ============================================================================
 

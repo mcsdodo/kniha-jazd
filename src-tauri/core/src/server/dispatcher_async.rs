@@ -70,10 +70,10 @@ pub async fn dispatch_async(
         // Statistics — async because of the fire-and-forget HA push
         // ====================================================================
         //
-        // Handled here rather than in dispatch_sync so the server performs the
-        // same suggested-fillup push as the Tauri wrapper. Keeping the push in
-        // only one of the two frontends is exactly how it silently stopped
-        // working when the server became the canonical deployment (ADR-024).
+        // Handled here rather than in dispatch_sync because the push needs an
+        // async runtime. The push once lived outside the dispatcher entirely,
+        // which is exactly how it silently stopped working when the server
+        // became the canonical deployment (ADR-024).
         "get_trip_grid_data" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -262,7 +262,7 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     /// Regression guard for the gap this module's `get_trip_grid_data` arm closes:
-    /// the push used to exist only in the Tauri wrapper, so the server — the
+    /// the push used to live outside the dispatcher, so the server — the
     /// canonical deployment — never pushed anything to Home Assistant.
     #[tokio::test]
     async fn get_trip_grid_data_pushes_suggested_fillup_to_ha() {

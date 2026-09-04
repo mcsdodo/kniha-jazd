@@ -1,8 +1,9 @@
-//! Kniha Jázd core library — Tauri-free.
+//! Kniha Jázd core library.
 //!
 //! Houses all business logic, persistence, HTTP server, and command
-//! internals (`*_internal` functions). Both kniha-jazd-desktop and
-//! kniha-jazd-web depend on this crate.
+//! internals (`*_internal` functions). The `kniha-jazd-web` binary is a thin
+//! shell over it: it reads configuration from the environment, opens the
+//! database, and starts `server::HttpServer`.
 
 pub mod app_state;
 pub mod calculations;

@@ -2,7 +2,7 @@
  * DB Seeding Utilities Verification Tests
  *
  * These tests verify that the DB seeding utilities work correctly,
- * allowing tests to set up complex scenarios quickly via Tauri IPC.
+ * allowing tests to set up complex scenarios quickly via the `rpc()` helper.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -25,7 +25,7 @@ describe('DB Seeding Utilities', () => {
 
   describe('Vehicle Seeding', () => {
     it('should seed a vehicle and have it appear in the UI', async () => {
-      // Seed a vehicle using the Tauri IPC
+      // Seed a vehicle over JSON-RPC
       const vehicleData = createTestIceVehicle({
         name: 'Seeding Test Vehicle',
         licensePlate: 'SEED-001',

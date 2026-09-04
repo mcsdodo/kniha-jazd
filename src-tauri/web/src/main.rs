@@ -1,7 +1,7 @@
-//! Standalone web server binary.
+//! Kniha Jázd server binary — the application's only entry point.
 //!
-//! Runs the Kniha Jázd HTTP server without the Tauri UI shell.
-//! Used for Docker deployment and headless server scenarios.
+//! Opens the database and runs `kniha_jazd_core::server::HttpServer`, which
+//! serves the built SvelteKit frontend and the JSON-RPC API together.
 //!
 //! Configuration via environment variables:
 //! - `PORT` (default: 3456) — HTTP listen port

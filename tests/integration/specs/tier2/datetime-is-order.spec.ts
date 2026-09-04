@@ -260,23 +260,33 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     await setFieldByTestId('trip-end-datetime', `${year}-05-25T09:00`);
     await browser.pause(200);
     await browser.keys('Enter');
-    // Wait until editing row closes AND a row with the new 25.05 date appears.
-    // Both signals are required — the `.editing` class drops before the
-    // re-sorted grid finishes re-rendering.
+    // Wait until editing closes, the new 25.05 row exists, AND the order has
+    // stopped changing. The first two signals are not enough: the `.editing`
+    // class drops and the row appears while the grid is still re-sorting, so
+    // reading immediately catches a stale order. Settling on two identical
+    // consecutive reads is what makes this mode-independent — over HTTP the
+    // re-render lands measurably later than it does in-process.
+    let settledDates: string[] = [];
     await browser.waitUntil(
       async () => {
         const editing = await $$('.trip-grid tbody tr.editing');
         if (editing.length !== 0) return false;
-        return (await findRowByDatePrefix('25.05.')) !== null;
+        if ((await findRowByDatePrefix('25.05.')) === null) return false;
+        const first = await getVisibleStartDates();
+        const second = await getVisibleStartDates();
+        if (first.length !== second.length) return false;
+        if (!first.every((d, i) => d === second[i])) return false;
+        settledDates = second;
+        return true;
       },
       {
-        timeout: 5000,
-        timeoutMsg: 'edit save did not result in a row with date prefix 25.05.',
+        timeout: 10000,
+        timeoutMsg: 'edit save did not settle into a grid containing 25.05.',
       }
     );
 
     // Assert new chronological order top → bottom: 25.05, 21.05, 5.05.
-    const visibleDates = await getVisibleStartDates();
+    const visibleDates = settledDates;
     expect(visibleDates.length).toBe(3);
     expect(visibleDates[0]).toBe('25.05.');
     expect(visibleDates[1]).toBe('21.05.');

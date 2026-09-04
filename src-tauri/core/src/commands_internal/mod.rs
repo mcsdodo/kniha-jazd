@@ -1,10 +1,10 @@
 //! Framework-free command implementations.
 //!
 //! Each `*_internal` function takes plain types (`&Database`, `&AppState`,
-//! plain args). The Tauri-flavored `#[tauri::command]` wrappers in
-//! kniha-jazd-desktop's `commands/` module call these. The HTTP RPC
-//! dispatcher in `kniha_jazd_core::server::dispatcher` also calls these
-//! directly.
+//! plain args) instead of web-framework extractors, so it can be unit tested
+//! without standing a server up. The JSON-RPC dispatchers in
+//! `kniha_jazd_core::server::{dispatcher, dispatcher_async}` are the only
+//! callers: they deserialize the request args and forward them here.
 
 pub mod helpers;
 pub use helpers::*;

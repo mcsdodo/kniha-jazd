@@ -19,33 +19,13 @@ fn dir_with_secrets() -> tempfile::TempDir {
 }
 
 #[test]
-fn local_trusted_reveals_without_any_pin_configured() {
-    let _env = crate::settings::test_env::lock();
-    let dir = dir_with_secrets();
-    let app_state = crate::app_state::AppState::new();
-
-    let value = reveal_secret_internal(
-        dir.path(),
-        &app_state,
-        SecretField::HaApiToken,
-        RevealAuth::LocalTrusted,
-    )
-    .unwrap();
-    assert_eq!(value, "file-ha");
-}
-
-#[test]
 fn correct_pin_reveals_value() {
     let dir = dir_with_secrets();
     let app_state = crate::app_state::AppState::new();
     crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
-        let value = reveal_secret_internal(
-            dir.path(),
-            &app_state,
-            SecretField::HaApiToken,
-            RevealAuth::Pin("4269".into()),
-        )
-        .unwrap();
+        let value =
+            reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "4269")
+                .unwrap();
         assert_eq!(value, "file-ha");
     });
 }
@@ -55,13 +35,21 @@ fn wrong_pin_is_rejected_without_leaking_the_value() {
     let dir = dir_with_secrets();
     let app_state = crate::app_state::AppState::new();
     crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
-        let err = reveal_secret_internal(
-            dir.path(),
-            &app_state,
-            SecretField::HaApiToken,
-            RevealAuth::Pin("0000".into()),
-        )
-        .unwrap_err();
+        let err = reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "0000")
+            .unwrap_err();
+        assert!(err.to_lowercase().contains("pin"), "got: {err}");
+        assert!(!err.contains("file-ha"), "error must not leak the secret: {err}");
+    });
+}
+
+#[test]
+fn absent_pin_argument_is_rejected_like_a_wrong_one() {
+    // The dispatcher turns a missing `pin` into "" — it must not be a way in.
+    let dir = dir_with_secrets();
+    let app_state = crate::app_state::AppState::new();
+    crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
+        let err = reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "")
+            .unwrap_err();
         assert!(err.to_lowercase().contains("pin"), "got: {err}");
         assert!(!err.contains("file-ha"), "error must not leak the secret: {err}");
     });
@@ -73,13 +61,8 @@ fn unset_pin_disables_reveal_with_a_distinct_error() {
     let dir = dir_with_secrets();
     let app_state = crate::app_state::AppState::new();
 
-    let err = reveal_secret_internal(
-        dir.path(),
-        &app_state,
-        SecretField::HaApiToken,
-        RevealAuth::Pin("anything".into()),
-    )
-    .unwrap_err();
+    let err = reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "anything")
+        .unwrap_err();
     // Misconfiguration and rejection are different problems for the operator
     assert!(err.contains(PIN_VAR), "error must name the variable to set: {err}");
 }
@@ -91,13 +74,9 @@ fn env_value_wins_over_file() {
     crate::settings::test_env::with_env_vars(
         &[(PIN_VAR, "4269"), ("HA_API_TOKEN", "env-ha")],
         || {
-            let value = reveal_secret_internal(
-                dir.path(),
-                &app_state,
-                SecretField::HaApiToken,
-                RevealAuth::Pin("4269".into()),
-            )
-            .unwrap();
+            let value =
+                reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "4269")
+                    .unwrap();
             // Revealing exists to show what is actually live
             assert_eq!(value, "env-ha");
         },
@@ -106,32 +85,26 @@ fn env_value_wins_over_file() {
 
 #[test]
 fn each_field_maps_to_its_own_setting() {
-    let _env = crate::settings::test_env::lock();
     let dir = dir_with_secrets();
     let app_state = crate::app_state::AppState::new();
-
-    let get = |f| {
-        reveal_secret_internal(dir.path(), &app_state, f, RevealAuth::LocalTrusted).unwrap()
-    };
-    assert_eq!(get(SecretField::GeminiApiKey), "file-gemini");
-    assert_eq!(get(SecretField::HaApiToken), "file-ha");
-    assert_eq!(get(SecretField::PaperlessApiToken), "file-paperless");
+    crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
+        let get = |f| reveal_secret_internal(dir.path(), &app_state, f, "4269").unwrap();
+        assert_eq!(get(SecretField::GeminiApiKey), "file-gemini");
+        assert_eq!(get(SecretField::HaApiToken), "file-ha");
+        assert_eq!(get(SecretField::PaperlessApiToken), "file-paperless");
+    });
 }
 
 #[test]
 fn unconfigured_secret_errors_rather_than_returning_empty() {
-    let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap(); // nothing configured
     let app_state = crate::app_state::AppState::new();
-
-    let err = reveal_secret_internal(
-        dir.path(),
-        &app_state,
-        SecretField::GeminiApiKey,
-        RevealAuth::LocalTrusted,
-    )
-    .unwrap_err();
-    assert!(!err.is_empty());
+    crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
+        let err =
+            reveal_secret_internal(dir.path(), &app_state, SecretField::GeminiApiKey, "4269")
+                .unwrap_err();
+        assert!(err.contains("not configured"), "got: {err}");
+    });
 }
 
 #[test]
@@ -140,21 +113,12 @@ fn repeated_wrong_pins_lock_out_even_a_correct_one() {
     let app_state = crate::app_state::AppState::new();
     crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
         for _ in 0..5 {
-            let _ = reveal_secret_internal(
-                dir.path(),
-                &app_state,
-                SecretField::HaApiToken,
-                RevealAuth::Pin("0000".into()),
-            );
+            let _ =
+                reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "0000");
         }
         // The right PIN is now refused too — that's the point of a lockout
-        let err = reveal_secret_internal(
-            dir.path(),
-            &app_state,
-            SecretField::HaApiToken,
-            RevealAuth::Pin("4269".into()),
-        )
-        .unwrap_err();
+        let err = reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "4269")
+            .unwrap_err();
         assert!(err.contains("Too many"), "got: {err}");
     });
 }
@@ -165,58 +129,18 @@ fn success_resets_the_failure_counter() {
     let app_state = crate::app_state::AppState::new();
     crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
         for _ in 0..4 {
-            let _ = reveal_secret_internal(
-                dir.path(),
-                &app_state,
-                SecretField::HaApiToken,
-                RevealAuth::Pin("0000".into()),
-            );
+            let _ =
+                reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "0000");
         }
         // A correct PIN clears the count...
-        reveal_secret_internal(
-            dir.path(),
-            &app_state,
-            SecretField::HaApiToken,
-            RevealAuth::Pin("4269".into()),
-        )
-        .unwrap();
+        reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "4269").unwrap();
         // ...so four more wrong ones still don't lock us out
         for _ in 0..4 {
-            let err = reveal_secret_internal(
-                dir.path(),
-                &app_state,
-                SecretField::HaApiToken,
-                RevealAuth::Pin("0000".into()),
-            )
-            .unwrap_err();
+            let err =
+                reveal_secret_internal(dir.path(), &app_state, SecretField::HaApiToken, "0000")
+                    .unwrap_err();
             assert!(!err.contains("Too many"), "locked out too early: {err}");
         }
-    });
-}
-
-#[test]
-fn local_trusted_is_never_throttled() {
-    let dir = dir_with_secrets();
-    let app_state = crate::app_state::AppState::new();
-    crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
-        for _ in 0..6 {
-            let _ = reveal_secret_internal(
-                dir.path(),
-                &app_state,
-                SecretField::HaApiToken,
-                RevealAuth::Pin("0000".into()),
-            );
-        }
-        // The desktop path isn't network-reachable, so a network attacker
-        // must not be able to lock the local user out of their own app
-        let value = reveal_secret_internal(
-            dir.path(),
-            &app_state,
-            SecretField::HaApiToken,
-            RevealAuth::LocalTrusted,
-        )
-        .unwrap();
-        assert_eq!(value, "file-ha");
     });
 }
 

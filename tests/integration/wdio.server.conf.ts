@@ -296,7 +296,7 @@ export const config: any = {
 
     await browser.url(SERVER_URL);
 
-    // Wait for DOM ready (no Tauri IPC needed in server mode)
+    // Wait for the SPA to boot — the <h1> only renders once the bundle has run.
     await browser.waitUntil(
       async () => {
         const header = await $('h1');

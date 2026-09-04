@@ -606,9 +606,9 @@ pub fn build_trip_grid_data(
     })
 }
 
-// Note: get_trip_grid_data wrapper stays in desktop because it does
-// Tauri-flavored side effects (HA sensor push via tauri::async_runtime).
-// Use build_trip_grid_data directly from this module.
+// Note: `build_trip_grid_data` is the whole of the synchronous work. The
+// `get_trip_grid_data` RPC arm lives in `server::dispatcher_async` because it
+// also fires the HA suggested-fillup push, which needs an async runtime.
 
 // ============================================================================
 // Magic Fill / Suggested Fillup

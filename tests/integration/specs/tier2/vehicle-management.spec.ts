@@ -80,7 +80,7 @@ describe('Tier 2: Vehicle Management', () => {
       expect(text).toContain(vehicleName);
       expect(text).toContain(licensePlate);
 
-      // Verify via Tauri IPC that the vehicle was saved correctly
+      // Verify over JSON-RPC that the vehicle was saved correctly
       const vehicles = await getVehicles();
       const createdVehicle = vehicles.find((v) => v.name === vehicleName);
 
@@ -97,7 +97,7 @@ describe('Tier 2: Vehicle Management', () => {
 
   describe('Vehicle Editing', () => {
     it('should edit existing vehicle and see changes reflected', async () => {
-      // First, seed a vehicle via Tauri IPC
+      // First, seed a vehicle over JSON-RPC
       const vehicleData = createTestIceVehicle({
         name: 'Edit Test Vehicle Original',
         licensePlate: 'EDIT-TST',
@@ -166,7 +166,7 @@ describe('Tier 2: Vehicle Management', () => {
 
         expect(text).toContain(newName);
 
-        // Verify via Tauri IPC that changes were saved
+        // Verify over JSON-RPC that changes were saved
         const vehicles = await getVehicles();
         const updatedVehicle = vehicles.find((v) => v.id === vehicle.id);
 
@@ -181,7 +181,7 @@ describe('Tier 2: Vehicle Management', () => {
 
   describe('Vehicle Deletion', () => {
     it('should delete vehicle and redirect to empty state', async () => {
-      // First, seed a vehicle via Tauri IPC
+      // First, seed a vehicle over JSON-RPC
       const vehicleData = createTestIceVehicle({
         name: 'Delete Test Vehicle',
         licensePlate: 'DEL-TST',
@@ -237,7 +237,7 @@ describe('Tier 2: Vehicle Management', () => {
           await browser.pause(1000);
         }
 
-        // Verify vehicle was deleted via Tauri IPC
+        // Verify over JSON-RPC that the vehicle was deleted
         const remainingVehicles = await getVehicles();
         const deletedVehicle = remainingVehicles.find((v) => v.id === vehicle.id);
 

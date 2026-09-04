@@ -10,8 +10,8 @@
  *   - GET /api/custom_fields/       (resolve total_price_eur / liters / receipt_datetime IDs)
  *   - GET /api/documents/           (returns 3 fixture invoices: doc 435 fuel, 423 + 391 car)
  *
- * Tauri runs in a separate process but shares loopback, so binding to
- * `127.0.0.1` is reachable from the backend HTTP client.
+ * The backend runs in a separate process but shares loopback, so binding to
+ * `127.0.0.1` keeps it reachable from the backend's HTTP client.
  */
 
 import http from 'http';

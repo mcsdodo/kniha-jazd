@@ -11,7 +11,8 @@ import pandas as pd
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
-DB_PATH = os.path.join(os.environ['APPDATA'], 'com.tauri.dev', 'kniha-jazd.db')
+# The app now stores its database in the server's data dir (/data in Docker).
+DB_PATH = os.environ.get('KNIHA_JAZD_DB', os.path.join('data', 'kniha-jazd.db'))
 EXCEL_PATH = os.path.join(os.path.dirname(__file__), '..', '_tasks', '01-init', 'kniha_jazd.xlsx')
 
 SHEETS = [
@@ -101,7 +102,8 @@ def get_calculated_values(year: str) -> dict:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # We can't call Tauri commands, so we'll calculate manually using the same logic
+    # This script talks to SQLite directly rather than through the RPC API, so it
+    # recalculates manually using the same logic
     cursor.execute("SELECT id, tp_consumption, tank_size_liters FROM vehicles LIMIT 1")
     vehicle = cursor.fetchone()
     vehicle_id, tp_consumption, tank_size = vehicle

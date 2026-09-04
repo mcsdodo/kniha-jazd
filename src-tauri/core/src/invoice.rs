@@ -1,9 +1,9 @@
 //! Source-agnostic invoice abstraction (Task 64).
 //!
 //! Both local receipts and Paperless documents are *invoices* from the user's
-//! perspective. This module provides the trait, IPC boundary types, and compat
+//! perspective. This module provides the trait, RPC boundary types, and compat
 //! check that the unified picker uses. Source-specific dispatch is confined to
-//! the Tauri command boundary (see desktop/src/commands/invoices.rs).
+//! `commands_internal::invoices`, which the RPC dispatcher calls.
 
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
