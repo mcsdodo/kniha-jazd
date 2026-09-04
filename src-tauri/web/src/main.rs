@@ -35,6 +35,19 @@ fn main() {
 
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
+    // Refuse to start if the file we are about to open is not the one the
+    // backup/restore commands act on — otherwise a restore reports success and
+    // leaves the served database untouched.
+    let local_settings = kniha_jazd_core::settings::LocalSettings::load(&data_dir);
+    if let Err(msg) = kniha_jazd_core::db_location::verify_db_path_consistency(
+        &data_dir,
+        &db_path,
+        local_settings.custom_db_path.as_deref(),
+    ) {
+        eprintln!("{msg}");
+        std::process::exit(1);
+    }
+
     let db = Arc::new(Database::new(db_path.clone()).expect("Failed to open database"));
     let app_state = Arc::new(AppState::new());
     // Make get_db_location and friends report the real path instead of "unknown".
