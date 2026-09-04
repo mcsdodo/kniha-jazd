@@ -17,7 +17,7 @@ fn parse_args<T: serde::de::DeserializeOwned>(args: Value) -> Result<T, String> 
 pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<Value, String> {
     match command {
         // ====================================================================
-        // Vehicles (6)
+        // Vehicles
         // ====================================================================
         "get_vehicles" => {
             let v = crate::commands_internal::get_vehicles_internal(&state.db)?;
@@ -93,7 +93,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Trips (10)
+        // Trips
         // ====================================================================
         "get_trips" => {
             #[derive(serde::Deserialize)]
@@ -286,7 +286,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Statistics (4)
+        // Statistics
         // ====================================================================
         "calculate_trip_stats" => {
             #[derive(serde::Deserialize)]
@@ -371,7 +371,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Settings (14)
+        // Settings
         // ====================================================================
         "get_settings" => {
             let v = crate::commands_internal::settings_cmd::get_settings_internal(&state.db)?;
@@ -464,7 +464,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         "get_app_version" => Ok(serde_json::to_value(env!("CARGO_PKG_VERSION")).unwrap()),
 
         // ====================================================================
-        // Receipts (11)
+        // Receipts
         // ====================================================================
         "get_receipts" => {
             #[derive(serde::Deserialize)]
@@ -629,7 +629,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Backup (11)
+        // Backup
         // ====================================================================
         "create_backup" => {
             let v = crate::commands_internal::create_backup_internal(
@@ -745,7 +745,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Integrations — sync only (6)
+        // Integrations — sync only
         // ====================================================================
         "get_ha_settings" => {
             let v = crate::commands_internal::integrations::get_ha_settings_internal(&state.app_dir)?;

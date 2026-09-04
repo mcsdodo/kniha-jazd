@@ -53,6 +53,22 @@ fn main() {
     // Make get_db_location and friends report the real path instead of "unknown".
     app_state.set_db_path(db_path, false);
 
+    // A database carrying migrations this build does not know came from a newer
+    // image. Writing to it risks corrupting a schema we cannot reason about, so
+    // serve it read-only and say why. The desktop shell used to perform this
+    // check; with versioned image tags a rollback to an older tag is a more
+    // likely way to get here than anything desktop offered.
+    match db.check_migration_compatibility() {
+        Ok(()) => {}
+        Err(unknown_migrations) => {
+            eprintln!(
+                "Database has migrations this build does not know ({}). Serving read-only.",
+                unknown_migrations.join(", ")
+            );
+            app_state.enable_read_only("Databáza bola aktualizovaná novšou verziou aplikácie.");
+        }
+    }
+
     let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
     rt.block_on(async {
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
