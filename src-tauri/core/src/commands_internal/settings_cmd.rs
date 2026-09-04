@@ -1,11 +1,10 @@
 //! Settings command implementations (framework-free).
 //!
 //! Internal logic for managing application settings, preferences, and
-//! configuration. Tauri-flavored wrappers live in the desktop crate's
-//! `commands::settings_cmd` module.
+//! configuration.
 
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use uuid::Uuid;
 
 use crate::app_state::AppState;
@@ -253,21 +252,3 @@ pub fn get_app_mode_internal(app_state: &AppState) -> Result<AppModeInfo, String
     })
 }
 
-/// Check if a target directory already contains a database.
-pub fn check_target_has_db_internal(target_path: String) -> Result<bool, String> {
-    let db_file = PathBuf::from(&target_path).join("kniha-jazd.db");
-    Ok(db_file.exists())
-}
-
-// ============================================================================
-// Move/Reset Database — Shared Result Type
-// ============================================================================
-
-/// Result of a database move operation.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MoveDbResult {
-    pub success: bool,
-    pub new_path: String,
-    pub files_moved: usize,
-}

@@ -1,3 +1,0 @@
-# Ignore test release binaries (large files)
-releases/
-latest.json

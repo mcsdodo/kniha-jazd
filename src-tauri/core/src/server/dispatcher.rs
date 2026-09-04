@@ -479,16 +479,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // The workspace version in src-tauri/Cargo.toml, which `/release` bumps in
         // lockstep with package.json — so this is the ghcr tag the container came from.
         "get_app_version" => Ok(serde_json::to_value(env!("CARGO_PKG_VERSION")).unwrap()),
-        "check_target_has_db" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                target_path: String,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::settings_cmd::check_target_has_db_internal(a.target_path)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
 
         // ====================================================================
         // Receipts (11)

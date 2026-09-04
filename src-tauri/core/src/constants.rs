@@ -8,9 +8,6 @@ pub mod paths {
     /// Main database filename
     pub const DB_FILENAME: &str = "kniha-jazd.db";
 
-    /// Lock file for concurrent access prevention
-    pub const LOCK_FILENAME: &str = "kniha-jazd.lock";
-
     /// Backups directory name
     pub const BACKUPS_DIR: &str = "backups";
 
@@ -80,10 +77,6 @@ pub mod defaults {
     /// Default battery capacity for EVs - available for gradual adoption
     #[allow(dead_code)]
     pub const BATTERY_CAPACITY_KWH: f64 = 50.0;
-
-    /// Lock file expiry in seconds (stale if older) - available for gradual adoption
-    #[allow(dead_code)]
-    pub const LOCK_EXPIRY_SECS: u64 = 300;
 }
 
 #[cfg(test)]
@@ -93,7 +86,6 @@ mod tests {
     #[test]
     fn test_paths_constants() {
         assert!(paths::DB_FILENAME.ends_with(".db"));
-        assert!(paths::LOCK_FILENAME.ends_with(".lock"));
         assert!(paths::BACKUP_PREFIX.starts_with("kniha-jazd"));
     }
 
