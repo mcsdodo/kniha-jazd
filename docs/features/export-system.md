@@ -102,13 +102,13 @@ Labels include:
 
 | File | Purpose |
 |------|---------|
-| [export.rs](src-tauri/src/export.rs) | Core export logic: `ExportTotals`, `generate_html()`, column rendering |
-| [commands.rs](src-tauri/src/commands.rs) | Tauri commands: `export_to_browser`, `export_html` |
-| [types.ts](src/lib/types.ts) | TypeScript `ExportLabels` interface |
-| [api.ts](src/lib/api.ts) | Frontend API: `openExportPreview()` |
-| [+page.svelte](src/routes/+page.svelte) | Export button handler, label construction |
-| [sk.ts](src/lib/i18n/sk.ts) | Slovak translation strings |
-| [en.ts](src/lib/i18n/en.ts) | English translation strings |
+| [export.rs](../../src-tauri/core/src/export.rs) | Core export logic: `ExportTotals`, `generate_html()`, column rendering |
+| [commands_internal/export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) | The `export_html` command: synthetic first record, hidden columns, sort direction |
+| [types.ts](../../src/lib/types.ts) | TypeScript `ExportLabels` interface |
+| [api.ts](../../src/lib/api.ts) | Frontend API: `exportHtml()` |
+| [+page.svelte](../../src/routes/+page.svelte) | Export button handler, label construction |
+| [sk/index.ts](../../src/lib/i18n/sk/index.ts) | Slovak translation strings |
+| [en.ts](../../src/lib/i18n/en/index.ts) | English translation strings |
 
 ## Design Decisions
 

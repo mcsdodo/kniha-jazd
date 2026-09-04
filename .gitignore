@@ -31,8 +31,6 @@ vite.config.ts.timestamp-*
 
 # Staged SPA (copied from build/ by scripts/stage-spa.mjs at bundle time).
 # .gitkeep is tracked so the bundle.resources glob always matches during cargo build.
-/src-tauri/desktop/spa/*
-!/src-tauri/desktop/spa/.gitkeep
 
 kniha_jazd.xlsx
 
@@ -49,8 +47,6 @@ tests/integration/screenshots/
 local.settings.json
 tmpclaude-*
 
-# Tauri signing keys (NEVER commit private keys)
-.tauri-keys/
 
 analyze-routes.mjs
 cleanup-routes.mjs

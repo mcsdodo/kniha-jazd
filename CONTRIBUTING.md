@@ -8,7 +8,8 @@ Thanks for your interest in contributing to Kniha Jázd!
 
 - [Node.js](https://nodejs.org/) 18+
 - [Rust](https://rustup.rs/) 1.77+
-- [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- [Docker](https://docs.docker.com/get-docker/) (to build or run the shipped image)
+- Chrome (for the integration tests)
 
 ### Getting Started
 
@@ -19,24 +20,46 @@ cd kniha-jazd
 
 # Install dependencies
 npm install
+```
 
-# Run in development mode
-npm run tauri:dev
+Development runs as two processes, in two terminals:
+
+```bash
+# 1) backend on port 3456 - leave STATIC_DIR unset so vite serves the SPA
+cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+
+# 2) frontend on port 5173, proxying /api to localhost:3456
+npm run dev
 ```
 
 ### Running Tests
 
 ```bash
-# Rust backend tests (72 tests)
-cd src-tauri && cargo test
+# Rust backend tests
+npm run test:backend
+
+# Integration tests (Chrome against the real server). Build both artifacts first:
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+npm run test:integration
+```
+
+### Building
+
+The Docker image is the only shipped artifact:
+
+```bash
+docker build -f Dockerfile.web -t kniha-jazd-web:local .
 ```
 
 ## Project Structure
 
 - `src/` - SvelteKit frontend (TypeScript)
-- `src-tauri/` - Tauri backend (Rust)
-- `src-tauri/src/calculations.rs` - Core business logic
-- `src-tauri/src/suggestions.rs` - Compensation trip suggestions
+- `src-tauri/` - Rust workspace (directory name kept for history)
+- `src-tauri/core/` - `kniha-jazd-core`: all business logic, the HTTP server, and the tests
+- `src-tauri/core/src/calculations/` - Core business logic
+- `src-tauri/core/src/suggestions.rs` - Compensation trip suggestions
+- `src-tauri/web/` - `kniha-jazd-web`: the headless server binary
 
 ## Code Guidelines
 
@@ -75,7 +98,7 @@ This project includes custom skills and slash commands for [Claude Code](https:/
 | `/task-plan` | Create planning folder in `_tasks/` with brainstorming |
 | `/decision` | Add ADR/BIZ entry to `DECISIONS.md` |
 | `/changelog` | Update `CHANGELOG.md` [Unreleased] section |
-| `/release` | Bump version, tag, push, build |
+| `/release` | Bump version, tag, push - CI publishes the ghcr image |
 
 ### Directory Structure
 

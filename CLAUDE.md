@@ -1,12 +1,14 @@
 ﻿# CLAUDE.md
 
-Vehicle logbook (Kniha jázd) desktop app for Slovak legal compliance - tracks trips, fuel consumption, and ensures the 20% over-consumption margin is maintained.
+Vehicle logbook (Kniha jázd) for Slovak legal compliance - tracks trips, fuel consumption, and ensures the 20% over-consumption margin is maintained. It ships as a single Docker image (`ghcr.io/mcsdodo/kniha-jazd-web`) serving a browser UI; there is no desktop build.
 
 ## Tech Stack
 
-- **Frontend:** SvelteKit + TypeScript
-- **Backend:** Tauri (Rust)
+- **Frontend:** SvelteKit + TypeScript (static SPA, served by the backend)
+- **Backend:** Rust - `kniha-jazd-core` (all logic) + `kniha-jazd-web` (Axum HTTP server)
+- **Transport:** JSON-RPC over `POST /api/rpc`
 - **Database:** SQLite
+- **Deployment:** Docker image, one `/data` volume
 - **UI Language:** Slovak (i18n-ready)
 - **Code Language:** English
 
@@ -33,28 +35,30 @@ Extract the highest folder number across BOTH and increment by 1.
 
 All business logic and calculations live in Rust backend only (ADR-008):
 - **`get_trip_grid_data`** - Returns trips + pre-calculated rates, warnings, fuel remaining
-- **Frontend is display-only** - Calls Tauri commands, renders results
-- **No calculation duplication** - Tauri IPC is local/fast, no need for client-side calculations
+- **Frontend is display-only** - Calls backend commands over RPC, renders results
+- **No calculation duplication** - the RPC round-trip is same-host and cheap, no need for client-side calculations
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              SvelteKit Frontend                 │
-│         (Display only - no calculations)        │
+│               SvelteKit Frontend                │
+│        (Display only - no calculations)         │
 ├─────────────────────────────────────────────────┤
-│              Tauri IPC Bridge                   │
+│    HTTP  -  POST /api/rpc { command, args }     │
 ├─────────────────────────────────────────────────┤
-│              Rust Backend                       │
+│  kniha-jazd-web  -  Axum server + static SPA    │
+├─────────────────────────────────────────────────┤
+│  kniha-jazd-core  -  all business logic         │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
-│  │calculations  │  │ suggestions  │  │  receipts  │
+│  │ calculations │  │ suggestions  │  │  receipts  │
 │  └──────────────┘  └──────────────┘  └────────────┘
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
-│  │     db       │  │   export     │  │   gemini   │
+│  │      db      │  │    export    │  │   gemini   │
 │  └──────────────┘  └──────────────┘  └────────────┘
 │  ┌──────────────┐  ┌──────────────┐               │
-│  │ db_location  │  │  app_state   │               │
+│  │    server    │  │  app_state   │               │
 │  └──────────────┘  └──────────────┘               │
 ├─────────────────────────────────────────────────┤
-│              SQLite Database                    │
+│      SQLite Database  -  one /data volume       │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -119,7 +123,7 @@ These load automatically when working on matching files.
 - Every edge case, every boundary condition
 
 **Integration tests** - Cover UI → Backend → Display flows:
-- Verify frontend correctly invokes Tauri commands
+- Verify frontend correctly invokes backend RPC commands
 - Verify results display correctly in UI
 - Do NOT re-test calculation logic (already proven in backend tests)
 
@@ -149,20 +153,34 @@ These load automatically when working on matching files.
 
 ```bash
 # Rust backend tests (use --manifest-path, never cd &&)
-cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core
+cargo test --manifest-path src-tauri/Cargo.toml --workspace
 
 # Run a single backend test by name filter
 cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core "test_name_filter"
 
-# E2E integration tests (requires debug build)
-npm run test:integration:build
+# Integration tests need two artifacts the harness uses: the SPA the server serves
+# (build/) and the headless binary WebdriverIO spawns. Rebuild after changes.
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 
 # Integration tests - Tier 1 only (fast, for quick checks)
 npm run test:integration:tier1
 
+# Integration tests against an already-running container on port 3456
+npm run test:integration:docker
+
 # All tests (backend + integration)
 npm run test:all
 ```
+
+**Test scripts and CI (invariant I1).** Every npm test script reaches GitHub Actions.
+`test.yml` invokes `test:backend`, `test:integration:docker` and
+`test:integration:docker:env` directly. `test:integration:tier1/2/3` are thin
+aliases: they set `TIER` (and `PARALLEL_TIERS`) and delegate to
+`test:integration`, which is exactly what the Docker jobs run - CI sets the same
+`TIER` env vars itself. `test:all` is `test:backend && test:integration`. So the
+tier scripts satisfy I1 through the script they delegate to, not by appearing in
+the workflow by name.
 
 #### Iteration strategy: focused runs, not full sweeps
 
@@ -172,16 +190,17 @@ focused runs to iterate on a fix, and reserve a full sweep for the final verific
 once you believe everything passes.
 
 ```bash
-# Single spec, Tauri integration (debug build required)
-npx wdio run tests/integration/wdio.conf.ts --spec tests/integration/specs/tier2/legal-compliance.spec.ts
+# Single spec - WebdriverIO spawns kniha-jazd-web itself on port 3457
+npx wdio run tests/integration/wdio.server.conf.ts \
+  --spec tests/integration/specs/tier2/legal-compliance.spec.ts
 
-# Multiple specs, server mode (Tauri spawned)
-WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
+# Multiple specs, same spawned server
+npx wdio run tests/integration/wdio.server.conf.ts \
   --spec tests/integration/specs/tier2/legal-compliance.spec.ts \
   --spec tests/integration/specs/tier2/time-column.spec.ts
 
-# Single spec, Docker mode (container must already be up)
-WDIO_EXTERNAL_SERVER=1 WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
+# Single spec, Docker mode (container must already be up on port 3456)
+WDIO_EXTERNAL_SERVER=1 npx wdio run tests/integration/wdio.server.conf.ts \
   --spec tests/integration/specs/tier2/legal-compliance.spec.ts
 ```
 
@@ -194,9 +213,11 @@ Run the full suite (`npm run test:integration*` without `--spec`) only:
 
 ```
 kniha-jazd/
-├── src-tauri/           # Rust backend
-│   ├── src/             # Source files (see .claude/rules/rust-backend.md)
-│   └── migrations/      # DB schema (see .claude/rules/migrations.md)
+├── src-tauri/           # Rust workspace (name kept for history)
+│   ├── core/            # kniha-jazd-core: all logic + tests
+│   │   ├── src/         # Source files (see .claude/rules/rust-backend.md)
+│   │   └── migrations/  # DB schema (see .claude/rules/migrations.md)
+│   └── web/             # kniha-jazd-web: headless HTTP server binary
 ├── src/                 # SvelteKit frontend (see .claude/rules/svelte-frontend.md)
 │   ├── lib/
 │   │   ├── components/  # UI components
@@ -204,10 +225,10 @@ kniha-jazd/
 │   │   └── i18n/        # Translations
 │   └── routes/          # Pages
 ├── tests/
-│   ├── integration/     # WebdriverIO tests (see .claude/rules/integration-tests.md)
-│   └── e2e/             # Playwright smoke tests (frontend only)
+│   └── integration/     # WebdriverIO tests (see .claude/rules/integration-tests.md)
 ├── scripts/             # Development scripts
 ├── .github/workflows/   # CI/CD pipelines
+├── Dockerfile.web       # The only build artifact
 ├── _tasks/              # Planning docs
 └── docs/
     └── features/        # Feature documentation
@@ -222,56 +243,62 @@ kniha-jazd/
 
 ## Database Location
 
-Paths are based on Tauri `identifier` in config files:
+One data directory per deployment. There is no location picker and no lock file -
+the container owns its volume, so nothing can open the database from a second
+machine.
 
-- **Production** (`tauri.conf.json` → `com.notavailable.kniha-jazd`):
-  - `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
-  - Backups: `%APPDATA%\com.notavailable.kniha-jazd\backups\`
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `KNIHA_JAZD_DATA_DIR` | `/data` | Directory holding the DB, receipts and backups |
+| `DATABASE_PATH` | `<DATA_DIR>/kniha-jazd.db` | Override just the DB file path |
+| `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets; leave unset in local dev so vite serves the UI |
+| `PORT` | `3456` | HTTP listen port |
 
-- **Development** (`tauri.conf.dev.json` → `com.notavailable.kniha-jazd.dev`):
-  - `%APPDATA%\com.notavailable.kniha-jazd.dev\kniha-jazd.db`
-  - Backups: `%APPDATA%\com.notavailable.kniha-jazd.dev\backups\`
+- **Docker:** `docker-compose.web.yml` mounts the host's `./data` at `/data`; backups
+  land in `<DATA_DIR>/backups/`.
+- **Local dev:** set `KNIHA_JAZD_DATA_DIR` to a scratch folder before starting the
+  server, otherwise it falls back to `/data`.
 
-### Custom Database Location (Multi-PC Support)
+Read-only mode still exists - it is entered when the database carries migrations
+this build does not know (i.e. it was written by a newer image). Write commands
+guard with the `check_read_only!` macro.
 
-Users can move the database via **Settings → Database Location → Change...**
-
-- Lock file (`kniha-jazd.lock`) prevents simultaneous access from multiple PCs
-- Database + backups folder moved together
-- Path stored in `local.settings.json` (survives reinstalls)
-- All write commands check for read-only mode via `check_read_only!` macro
-
-**Related commands:** `get_db_location`, `move_database`, `reset_database_location`, `get_app_mode`
+**Related commands:** `get_db_location`, `get_app_mode`
 
 ## Common Commands
 
 ```bash
-# Development
-npm run tauri:dev        # Start app in dev mode
+# Development - two processes, two terminals.
+# 1) backend (leave STATIC_DIR unset so it serves no SPA):
+cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+# 2) frontend on :5173, proxying /api to localhost:3456 (see vite.config.ts):
+npm run dev
 
-# Build
-npm run tauri build      # Production build
+# Build (the only shipped artifact)
+docker build -f Dockerfile.web -t kniha-jazd-web:local .
 
 # Testing
-npm run test:backend     # Rust unit tests (195 tests)
-npm run test:integration # E2E tests (needs debug build)
+npm run test:backend     # Rust unit tests (whole workspace)
+npm run test:integration # WebdriverIO, spawns kniha-jazd-web (needs npm run build first)
 npm run test:all         # All tests
 
 # i18n — REQUIRED after editing src/lib/i18n/{sk,en}/index.ts.
 # Nothing else regenerates i18n-types.ts (the generator otherwise only runs in
 # vite dev watch mode), so `npm run check` reports phantom errors until this runs.
 npm run i18n
-
-# Linting (NOT in agent instructions - use tools)
-npm run lint && npm run format
 ```
 
 ## CI/CD
 
 GitHub Actions workflow (`.github/workflows/test.yml`):
 - **Backend tests**: Run on Windows, macOS, Linux
-- **Integration tests**: Run on Windows only (tauri-driver limitation)
+- **Integration tests**: Linux only - the Docker image is built once, then Chrome
+  drives it through three parallel tier jobs plus the env-pinned suite
 - Triggered on push/PR to `main` branch
+
+`.github/workflows/release.yml` runs on a `v*` tag and publishes
+`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` + `:latest`. It creates **no GitHub Release**
+and no installers.
 
 ## Git Guidelines
 
@@ -286,7 +313,7 @@ GitHub Actions workflow (`.github/workflows/test.yml`):
 
 ```bash
 # Good: stage specific files
-git add src-tauri/src/db.rs src-tauri/src/commands.rs
+git add src-tauri/core/src/db.rs src-tauri/core/src/commands_internal/trips.rs
 
 # Bad: stage everything blindly
 git add -A  # Only use for releases or when you've reviewed ALL changes
@@ -308,7 +335,7 @@ After completing a planned feature, create a **Feature Doc** in `docs/features/`
 docs/
 ├── CLAUDE.md              # Convention guide for docs folder
 └── features/
-    ├── move-database.md   # Example: database relocation feature
+    ├── server-mode.md     # Example: HTTP server + Docker deployment
     └── {feature-name}.md  # Your new feature doc
 ```
 
@@ -326,11 +353,10 @@ Use skills in `.claude/skills/` for workflows:
 | `/decision` | Making architectural choices | Add ADR/BIZ entry to `DECISIONS.md` |
 | `/changelog` | After user-visible changes | Update `CHANGELOG.md` [Unreleased] section |
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
-| `/release` | Publishing new version | Bump version, update changelog, tag, build |
+| `/release` | Publishing new version | Bump version, update changelog, tag, push - CI publishes the ghcr image |
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
 | `/test-review` | After feature complete | Check test coverage, add missing tests |
-| `/test-update` | Testing auto-update | Test Tauri auto-update with mock release server |
 
 **Use `/decision` when:**
 - Choosing between multiple valid approaches (document why this one)

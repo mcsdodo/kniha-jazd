@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src-tauri/migrations/**/*.sql"
+  - "src-tauri/core/migrations/**/*.sql"
 ---
 
 # Database Migration Rules

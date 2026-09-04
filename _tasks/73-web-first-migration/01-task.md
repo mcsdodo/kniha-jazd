@@ -50,6 +50,17 @@ breaks either is not done.
 Docker job we happen to have". Every npm test script must be invoked by
 [test.yml](../../.github/workflows/test.yml).
 
+> **Alias note (from Task 13).** After the migration the final script set is
+> `test:backend`, `test:integration`, `test:integration:tier1/2/3`,
+> `test:integration:docker`, `test:integration:docker:env` and `test:all`. CI invokes
+> `test:backend`, `test:integration:docker` and `test:integration:docker:env` by name.
+> The tier scripts are thin aliases — they set `TIER` (and `PARALLEL_TIERS`) and delegate
+> to `test:integration`, which is exactly the script the Docker jobs run, with CI setting
+> the same `TIER` env vars itself. `test:all` is `test:backend && test:integration`.
+> I1 is therefore satisfied by delegation: every script's specs are executed in Actions,
+> even though the alias names do not appear in the workflow. Reading the criterion as
+> "the literal script name must appear in test.yml" would fail it on a technicality.
+
 **I2 — Every surviving use-case has an end-to-end test** exercising frontend through
 backend. Deleting a *feature* (and its tests) is allowed; deleting a *test* for a feature
 that survives is not.

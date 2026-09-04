@@ -267,17 +267,13 @@ This resets the battery state, breaking the chain of calculations.
 
 | File | Purpose |
 |------|---------|
-| [commands.rs#L819-985](src-tauri/src/commands.rs) | `get_trip_grid_data()` — main orchestrator |
-| [commands.rs#L1076-1230](src-tauri/src/commands.rs) | `calculate_period_rates()`, `calculate_fuel_remaining()` |
-| [commands.rs#L1231-1344](src-tauri/src/commands.rs) | `calculate_energy_grid_data()` for BEV |
-| [commands.rs#L1345-1479](src-tauri/src/commands.rs) | `calculate_phev_grid_data()` for PHEV |
-| [commands.rs#L668-780](src-tauri/src/commands.rs) | Year carryover functions |
-| [commands.rs](src-tauri/src/commands.rs) | `preview_trip_calculation()` — live preview (ICE-only) |
-| [commands.rs](src-tauri/src/commands.rs) | `calculate_trip_stats()` — header stats + buffer km |
-| [calculations.rs](src-tauri/src/calculations.rs) | Core fuel math (rates, margins, buffer km) |
-| [calculations_energy.rs](src-tauri/src/calculations_energy.rs) | Battery math (kWh ↔ %, remaining) |
-| [calculations_phev.rs](src-tauri/src/calculations_phev.rs) | PHEV split calculation (electricity first) |
-| [models.rs#L305-340](src-tauri/src/models.rs) | `TripGridData` struct definition |
+| [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `build_trip_grid_data()` — main orchestrator, period rates, fuel remaining, BEV/PHEV grids, year carryover |
+| [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `preview_trip_calculation_internal()` — live preview (ICE-only) |
+| [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `calculate_trip_stats_internal()` — header stats + buffer km |
+| [calculations/mod.rs](../../src-tauri/core/src/calculations/mod.rs) | Core fuel math (rates, margins, buffer km) |
+| [calculations/energy.rs](../../src-tauri/core/src/calculations/energy.rs) | Battery math (kWh ↔ %, remaining) |
+| [calculations/phev.rs](../../src-tauri/core/src/calculations/phev.rs) | PHEV split calculation (electricity first) |
+| [models.rs](../../src-tauri/core/src/models.rs) | `TripGridData` struct definition |
 
 ## Design Decisions
 

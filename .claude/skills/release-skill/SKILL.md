@@ -1,11 +1,16 @@
 ---
 name: release
-description: Bump version, update changelog, commit, tag, push, and build release installer
+description: Bump version, update changelog, commit, tag, push, and let CI publish the container image
 ---
 
 # Release Workflow
 
 When the user says "release", "/release", or "push, release", execute this workflow.
+
+**What a release is:** a `v*` tag that makes CI build and push
+`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` (plus `latest`). There is **no GitHub
+Release, no installer, and no auto-updater** — the container image is the entire
+artifact. Do not create a release, upload assets, or look for signing keys.
 
 ## 1. Determine Version
 
@@ -36,12 +41,14 @@ State the version and the one-line reason in your first message, then keep going
 
 Anything else — pick, say why, proceed.
 
-## 2. Update Version in All Files
+## 2. Update Version in Both Files
 
-Update version string in these three files:
-- `package.json` - field `"version": "X.Y.Z"`
-- `src-tauri/Cargo.toml` - field `version = "X.Y.Z"`
-- `src-tauri/desktop/tauri.conf.json` - field `"version": "X.Y.Z"`
+Update the version string in these two files:
+- `package.json` — field `"version": "X.Y.Z"`
+- `src-tauri/Cargo.toml` — field `version = "X.Y.Z"` under `[workspace.package]`
+
+Both workspace members (`core`, `web`) inherit it via `version.workspace = true`,
+so there is nothing else to edit.
 
 ## 3. Update CHANGELOG.md
 
@@ -73,37 +80,34 @@ gh run list --branch $(git branch --show-current) --limit 5 --json status,conclu
 
 ```bash
 npm run test:backend
+
+# Integration tests need both artifacts the harness starts: the SPA it serves
+# and the headless binary it spawns.
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 npm run test:integration:tier1
 ```
 
 If local tests fail, fix issues and retry. Don't proceed until tests pass.
 
-## 5. Build Release
+## 5. Verify the Image Builds
 
-Build BEFORE committing to verify everything works:
+[test.yml](../../../.github/workflows/test.yml) has a `Docker Image Build` job, so a
+green CI run in step 4 already proves the image builds — skip this step.
+
+Otherwise, build locally before committing so a broken Dockerfile is caught here and
+not on the tag:
 
 ```bash
-npm run tauri build
+docker build -f Dockerfile.web -t kniha-jazd-web:local .
 ```
 
-If build fails, fix issues and retry. Don't proceed until build succeeds.
-
-**Expected non-failure:** the build ends with
-
-```
-A public key has been found, but no private key. Make sure to set `TAURI_SIGNING_PRIVATE_KEY`
-```
-
-after both bundles are written. That is the updater-signature step, and the key
-lives only in GitHub secrets ([release.yml](../../../.github/workflows/release.yml)
-supplies it on tag push). The local build has already served its purpose — compile
-plus bundle verified — so **continue**. It also means the locally built installers
-are unsigned and are not valid auto-update artifacts; distribute the GitHub release
-assets instead.
+Don't proceed until it succeeds. The local image is a smoke check only — it is never
+pushed; CI rebuilds and publishes from the tag.
 
 ## 6. Commit, Tag, and Push
 
-Only after successful build:
+Only once steps 4 and 5 are green:
 
 ```bash
 git add -A
@@ -114,8 +118,20 @@ git push && git push --tags
 
 ## 7. Report Results
 
-Show the path to the built installer:
-- NSIS installer: `src-tauri/target/release/bundle/nsis/Kniha Jázd_X.Y.Z_x64-setup.exe`
+The tag triggers [release.yml](../../../.github/workflows/release.yml), whose
+`docker-image` job pushes:
+
+- `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z`
+- `ghcr.io/mcsdodo/kniha-jazd-web:latest`
+
+Report the run and the image tag, e.g. with:
+
+```bash
+gh run list --workflow release.yml --limit 1
+```
+
+Do **not** report an installer path or a GitHub Release URL — neither is produced.
+The homelab instance updates by pulling the new tag.
 
 ## Notes
 

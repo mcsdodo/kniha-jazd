@@ -47,15 +47,18 @@
 
 ### Backend (Rust)
 
-**Commands:** `src-tauri/src/commands.rs`
-- `test_ha_connection` (L3758) — Tests HA API connectivity using stored credentials
-- `fetch_ha_odo` (L3793) — Fetches sensor state from HA API
+**Commands:** [commands_internal/integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs)
+- `test_ha_connection_internal` — Tests HA API connectivity using stored credentials
+- `fetch_ha_odo_internal` — Fetches sensor state from HA API
 
-**Settings:** `src-tauri/src/settings.rs:L36-37`
-- `ha_url: Option<String>` — Home Assistant URL
-- `ha_api_token: Option<String>` — Long-lived access token
+Both are async, so they are dispatched from
+[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs).
 
-**Vehicle Model:** `src-tauri/src/models.rs:L595`
+**Settings:** [settings.rs](../../src-tauri/core/src/settings.rs)
+- `ha_url: Option<String>` — Home Assistant URL (env override: `HA_URL`)
+- `ha_api_token: Option<String>` — Long-lived access token (env override: `HA_API_TOKEN`)
+
+**Vehicle Model:** [models.rs](../../src-tauri/core/src/models.rs)
 - `ha_odo_sensor: Option<String>` — Entity ID for ODO sensor
 
 ### Data Flow
@@ -71,7 +74,7 @@
 │                      Rust Backend                               │
 │  fetch_ha_odo(sensor_id) → reqwest → parse JSON → return f64   │
 └───────────────────────────────────┬─────────────────────────────┘
-                                    │ Tauri IPC
+                                    │ POST /api/rpc
                                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    SvelteKit Frontend                           │
@@ -79,8 +82,8 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Why Rust backend handles API calls:**
-- Browser webview has CORS restrictions
+**Why the Rust backend handles API calls:**
+- The browser has CORS restrictions
 - HA API doesn't allow cross-origin requests from arbitrary domains
 - Rust's reqwest client has no CORS limitations
 
@@ -92,9 +95,9 @@
 | `src/routes/settings/+page.svelte` | HA configuration UI |
 | `src/lib/stores/homeAssistant.ts` | Svelte store with caching + refresh |
 | `src/lib/api.ts:L427-443` | TypeScript API wrappers |
-| `src-tauri/src/commands.rs:L3758-3830` | `test_ha_connection`, `fetch_ha_odo` |
-| `src-tauri/src/settings.rs:L36-37` | `ha_url`, `ha_api_token` fields |
-| `src-tauri/src/models.rs:L595` | `ha_odo_sensor` vehicle field |
+| [src-tauri/core/src/commands_internal/integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `test_ha_connection_internal`, `fetch_ha_odo_internal`, fillup push |
+| [src-tauri/core/src/settings.rs](../../src-tauri/core/src/settings.rs) | `ha_url`, `ha_api_token` fields |
+| [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `ha_odo_sensor` vehicle field |
 
 ## Configuration Storage
 
@@ -135,13 +138,13 @@ and dashboards can show it.
   period needs no fillup.
 - **Delivery:** fire-and-forget. Errors are logged, never surfaced, and never block
   the grid — a wrong entity id or an unreachable HA looks like silence.
-- **Where it runs:** both frontends. `ha_fillup_push_payload` (the "should we push,
-  and what" rule) and `push_ha_input_text` live in
-  [core's integrations module](../../src-tauri/core/src/commands_internal/integrations.rs);
-  the Tauri wrapper and the server's
-  [async dispatcher](../../src-tauri/core/src/server/dispatcher_async.rs) both call
-  them. It previously lived only in the desktop wrapper and silently stopped when
-  the server became the canonical deployment — see ADR-026 in
+- **Where it runs:** `ha_fillup_push_payload` (the "should we push, and what" rule) and
+  `push_ha_input_text` live in
+  [core's integrations module](../../src-tauri/core/src/commands_internal/integrations.rs),
+  and the server's
+  [async dispatcher](../../src-tauri/core/src/server/dispatcher_async.rs) calls them from
+  the `get_trip_grid_data` arm. The push once lived only in the desktop wrapper and
+  silently stopped when the server became the canonical deployment — see ADR-026 in
   [DECISIONS.md](../../DECISIONS.md).
 
 Because delivery is silent, check these first when nothing arrives: the vehicle has

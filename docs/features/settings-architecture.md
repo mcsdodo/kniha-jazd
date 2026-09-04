@@ -58,7 +58,7 @@ For server/Docker and headless deployments, secrets and integration endpoints ca
 - A set, non-empty env variable wins over the value in `local.settings.json`. Empty or whitespace-only values are treated as unset.
 - Env values are never persisted to disk — the JSON file is left untouched.
 - When a field is pinned by an env variable, the corresponding setter command refuses the change with an explanatory error ("… is managed by the … environment variable"), so the Settings UI cannot silently diverge from the deployment configuration.
-- Desktop behaviour is unchanged when the variables are unset.
+- Behaviour is unchanged when the variables are unset.
 - Preferences (theme, hidden columns, date prefill, backup retention, Paperless custom field names, receipts folder) are not overridable — they remain file/UI-managed.
 
 The variable names live in one place — the `env_vars` module in [settings.rs](../../src-tauri/core/src/settings.rs) — and are consumed by `apply_overrides`, the setter guards in [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs), and the settings responses that ship the name to the UI.
@@ -74,10 +74,9 @@ The variable names live in one place — the `env_vars` module in [settings.rs](
 
 No settings command returns a credential. `get_ha_settings` / `get_paperless_settings` report `hasToken`, and `get_receipt_settings` reports `hasGeminiApiKey` — the values themselves leave the backend only through `reveal_secret`, and only under the rules in [ADR-027](../../DECISIONS.md).
 
-| Caller | Rule |
-|--------|------|
-| Tauri desktop window | Reveals immediately. Not network-reachable, so a PIN would defend nothing. |
-| Browser / any HTTP client | Must send the PIN from `KNIHA_JAZD_REVEAL_PIN`, on **every** reveal — no session, no caching. |
+Every caller reaches `reveal_secret` through the HTTP dispatcher, so the PIN is always
+required: the client must send the value of `KNIHA_JAZD_REVEAL_PIN` on **every** reveal —
+no session, no caching.
 
 - With `KNIHA_JAZD_REVEAL_PIN` unset, reveal is disabled on the server (the server still starts normally).
 - Five consecutive wrong PINs lock reveal out for 60s, escalating to 5/15/60 minutes. The counter is global, not per-IP.
@@ -86,7 +85,7 @@ No settings command returns a credential. `get_ha_settings` / `get_paperless_set
 
 Consequently the Gemini key field is **write-only** in the UI, like the HA and Paperless tokens: it shows `********` when a key is stored, and leaving it blank means "unchanged", not "clear it".
 
-**Testing note:****Testing note:** WebdriverIO auto-loads the repo's `.env` file, so a developer with a real `PAPERLESS_API_TOKEN` there would pin that setting inside the app under test and make setter specs fail. Both [wdio.conf.ts](../../tests/integration/wdio.conf.ts) and [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) blank the six variables before launching the app; the dedicated `test:integration:server:env` run re-applies fixture values on top to exercise the pinned UI ([env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts)).
+**Testing note:** WebdriverIO auto-loads the repo's `.env` file, so a developer with a real `PAPERLESS_API_TOKEN` there would pin that setting inside the app under test and make setter specs fail. [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) blanks the six variables before launching the server; the dedicated `npm run test:integration:docker:env` run re-applies fixture values on top to exercise the pinned UI ([env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts)).
 
 **Consumption vs. setter rule:** Code that *reads* configuration goes through `LocalSettings::load_effective()` in [settings.rs](../../src-tauri/core/src/settings.rs), which layers env overrides on top of the file. Setter commands use plain `load()` so they read and write only the on-disk file — combined with the env-pinned guard above, this keeps env values out of the persisted JSON.
 
@@ -147,7 +146,7 @@ The Settings UI (`+page.svelte`) loads both setting types and presents them in a
 
 **Auto-save with debouncing:** See `+page.svelte:L117-118` for the debounce setup. Both company settings and receipt settings use 800ms debounce to prevent excessive writes while typing.
 
-## Tauri Commands
+## RPC Commands
 
 ### LocalSettings Commands
 
@@ -175,13 +174,14 @@ The Settings UI (`+page.svelte`) loads both setting types and presents them in a
 
 | File | Purpose |
 |------|---------|
-| [settings.rs](src-tauri/src/settings.rs) | `LocalSettings` struct, load/save methods, `BackupRetention` |
-| [models.rs](src-tauri/src/models.rs) | `Settings` struct definition with defaults |
-| [commands.rs](src-tauri/src/commands.rs) | All Tauri commands for both setting types |
-| [db.rs](src-tauri/src/db.rs) | Database operations for `Settings` |
-| [+page.svelte](src/routes/settings/+page.svelte) | Unified settings UI |
-| [api.ts](src/lib/api.ts) | TypeScript API wrappers |
-| [types.ts](src/lib/types.ts) | TypeScript interfaces (`Settings`, `ReceiptSettings`) |
+| [settings.rs](../../src-tauri/core/src/settings.rs) | `LocalSettings` struct, load/save methods, env overrides, `BackupRetention` |
+| [models.rs](../../src-tauri/core/src/models.rs) | `Settings` struct definition with defaults |
+| [commands_internal/settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | Settings commands for both setting types |
+| [commands_internal/reveal.rs](../../src-tauri/core/src/commands_internal/reveal.rs) | PIN-gated `reveal_secret` |
+| [db.rs](../../src-tauri/core/src/db.rs) | Database operations for `Settings` |
+| [+page.svelte](../../src/routes/settings/+page.svelte) | Unified settings UI |
+| [api.ts](../../src/lib/api.ts) | TypeScript API wrappers |
+| [types.ts](../../src/lib/types.ts) | TypeScript interfaces (`Settings`, `ReceiptSettings`) |
 
 ## Design Decisions
 

@@ -22,7 +22,7 @@ Two-phase review: First analyze and document findings, then apply approved fixes
 
 ## Required Information
 
-1. **Target** - code path or git range (e.g., `src-tauri/src/calculations.rs` or `HEAD~3..HEAD`)
+1. **Target** - code path or git range (e.g., `src-tauri/core/src/calculations/mod.rs` or `HEAD~3..HEAD`)
 2. **Reference** - plan or spec the code implements
 
 ---
@@ -234,7 +234,7 @@ Review should verify:
 ## Example
 
 ```
-User: /code-review src-tauri/src/suggestions.rs against _tasks/19-feature/02-plan.md
+User: /code-review src-tauri/core/src/suggestions.rs against _tasks/19-feature/02-plan.md
 
 Claude: [Executes Phase 1 - runs tests, creates _code-review.md, iterates until comprehensive]
 Claude: Code review complete. Please review _code-review.md for findings.

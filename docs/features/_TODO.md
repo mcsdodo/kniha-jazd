@@ -183,7 +183,3 @@ Settings      → kniha-jazd.db (settings table)
 ```
 
 ---
-
-## Completed
-
-- ✅ [Move Database](move-database.md) — Database relocation + multi-PC support

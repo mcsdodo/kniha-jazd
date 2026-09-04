@@ -40,7 +40,7 @@ If any required field is missing in Paperless, the sync surfaces a structured er
 Frontend asks the backend "are we in Paperless mode?" and renders the appropriate branch. It never inspects raw settings — see [ADR-008](../../DECISIONS.md) (no calculation/conditional logic in frontend).
 
 ```
-get_invoice_source_mode (Tauri command)
+get_invoice_source_mode (RPC command)
     ↓
 LocalSettings { paperless_url, paperless_api_token }
     ↓

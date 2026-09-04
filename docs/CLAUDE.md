@@ -17,7 +17,7 @@ This folder contains **Feature Documentation** — technical walkthroughs that d
 **Naming convention:** `{feature-name}.md` (kebab-case, descriptive)
 
 Examples:
-- `move-database.md` — Database relocation + multi-PC support
+- `server-mode.md` — HTTP server, Docker deployment and env-var configuration
 - `receipt-scanning.md` — AI-powered receipt OCR flow
 - `consumption-calculation.md` — Core business logic walkthrough
 
@@ -41,14 +41,14 @@ Examples:
 - Key functions: `handleX()`, `submitY()`
 
 ### Backend (Rust)
-- Command: `command_name` in `commands.rs:L###`
-- Core logic: `module.rs` functions
+- Command: `command_name`, registered in `server/dispatcher.rs`
+- Core logic: `commands_internal/{module}.rs` functions
 
 ### Data Flow
 ```
-User Action → Frontend → Tauri IPC → Backend → Database
-                                   ↓
-                              Response → Frontend → UI Update
+User Action → Frontend → POST /api/rpc → Dispatcher → Backend → Database
+                                                     ↓
+                                    Response → Frontend → UI Update
 ```
 
 ## Key Files

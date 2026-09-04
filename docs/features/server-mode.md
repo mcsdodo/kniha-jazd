@@ -1,83 +1,65 @@
 # Feature: Server Mode
 
-> Access the app from any browser on your local network (phone, tablet, other PC) via an embedded HTTP server. Available in three deployment shapes: in-app toggle, headless desktop binary, or Docker container.
+> The app is an HTTP server. One Rust process serves the SvelteKit SPA and a JSON-RPC
+> endpoint; every client is a browser on the local network — phone, tablet, laptop.
+> There is no desktop build and no other mode.
 
-## Deployment Modes
+## Deployment
 
-| Mode | When to use | How |
-|------|-------------|-----|
-| **In-app toggle** | You normally use the desktop UI but want occasional phone/tablet access | Settings → enable Server toggle |
-| **Headless desktop** | Always-on home/office PC running the server in the background | `KNIHA_JAZD_HEADLESS=1` or `--headless` flag |
-| **Docker container** | Linux server, NAS, or anything without a desktop session | [`docker-compose.web.yml`](../../docker-compose.web.yml) |
+| Shape | When to use | How |
+|-------|-------------|-----|
+| **Docker container** | The normal case: NAS, Raspberry Pi, homelab, any always-on Linux box | `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` or [`docker-compose.web.yml`](../../docker-compose.web.yml) |
+| **Bare binary** | Local development, or a host where Docker is unwanted | `cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web` |
 
-All three modes share the same Axum HTTP layer and the same RPC dispatcher (see [Technical Implementation](#technical-implementation)).
+Both run the same [`kniha-jazd-web`](../../src-tauri/web/src/main.rs) binary against the
+same [`kniha-jazd-core`](../../src-tauri/core/) logic — the container just supplies the
+data volume, the built SPA and the env vars.
 
 ## User Flow
 
-1. **Navigate** to Settings
-2. **Enable** the "Server" toggle
-3. **See** the server URL displayed (e.g., `http://192.168.1.42:3456`)
-4. **Open** the URL on any device connected to the same LAN
-5. **Use** the app normally — trips, vehicles, receipts, export all work
-6. **Optionally** enable "Auto-start" so the server starts automatically on next app launch
+1. **Start** the container (or the binary) on the always-on machine
+2. **Open** `http://<server-ip>:3456` on any device connected to the same LAN
+3. **Use** the app normally — trips, vehicles, receipts, maps, export all work
+4. **Bookmark** it; there is nothing to install on the client
 
-**What's different in the browser:**
-- Desktop-only features are hidden (Move database, Export to browser, auto-updater)
-- File dialogs (folder picker) are not available
-- All data changes are reflected on both desktop and browser in real time (shared database)
-
-**Disabling:** Toggle the server off in Settings. All browser sessions lose access immediately.
-
-## Headless Desktop Mode
-
-Run the desktop binary as a background HTTP server with no window. Useful for an always-on home or office PC, behind Windows Task Scheduler or a systemd-equivalent service.
-
-**Activation (any one of):**
-
-- CLI flag: `kniha-jazd.exe --headless`
-- Env var: `KNIHA_JAZD_HEADLESS=1`
-
-**Behaviour:**
-
-- The desktop window is constructed (Tauri requires it) but is hidden immediately.
-- The server is force-started even if the in-app toggle is off.
-- The server URL (with LAN IP) is printed to stdout for the user to share.
-
-**Configuration:**
-
-| Env var | Default | Purpose |
-|---------|---------|---------|
-| `KNIHA_JAZD_HEADLESS` | unset | Enable headless mode |
-| `KNIHA_JAZD_SERVER_PORT` | `3456` | HTTP listen port |
-| `KNIHA_JAZD_SERVER_AUTOSTART` | unset | Equivalent to enabling the in-app toggle |
-| `KNIHA_JAZD_DATA_DIR` | platform default | Override DB / receipts / backups directory |
-
-The six integration/secret variables (`GEMINI_API_KEY`, `HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED`) work here too — they are read from the process environment regardless of mode; see [Docker Deployment](#docker-deployment) for the full table and precedence rules.
-
-**Limitations:** The same browser-mode capability gating applies — file dialogs, the auto-updater, "Open external", and "Move database" are all unavailable.
+**Notes:**
+- The server binds `0.0.0.0`, so it is reachable from the LAN, not just localhost.
+- All data changes are immediately visible to every other open browser after a refresh —
+  there is one database.
+- Native file dialogs do not exist. Paths (such as the receipts folder) are typed in as
+  server-side paths.
 
 ## Docker Deployment
-
-A standalone [`web`](../../src-tauri/src/bin/web.rs) binary runs the same HTTP server without the Tauri shell. Packaged in a multi-stage [`Dockerfile.web`](../../Dockerfile.web) producing a slim runtime image.
 
 **Quick start:**
 
 ```sh
 mkdir -p data
-docker compose -f docker-compose.web.yml up -d
-# App is now at http://localhost:3456
+docker run -d --name kniha-jazd \
+  -p 3456:3456 \
+  -v "$PWD/data:/data" \
+  --restart unless-stopped \
+  ghcr.io/mcsdodo/kniha-jazd-web:latest
 ```
 
-**Migrating from desktop to Docker:** Copy the existing database and (optionally) the `receipts/` and `backups/` folders from the platform app data directory into the host's `./data/` folder. They'll be mounted into the container at `/data`.
+[`Dockerfile.web`](../../Dockerfile.web) is a three-stage build: the Rust web binary,
+the SvelteKit static build, then a `debian:bookworm-slim` runtime carrying only the
+binary, the SPA and `ca-certificates`. It declares a `/data` volume, exposes 3456 and
+has a `HEALTHCHECK` on `/health`.
+
+**Migrating from an old desktop install:** copy the existing database and (optionally)
+the `receipts/` and `backups/` folders from the platform app-data directory into the
+host's `./data/` folder. They are mounted into the container at `/data`, and migrations
+run on the next start.
 
 **Configuration (env vars):**
 
 | Variable | Default in image | Purpose |
 |----------|------------------|---------|
 | `PORT` | `3456` | HTTP listen port |
-| `KNIHA_JAZD_DATA_DIR` | `/data` | Where DB, receipts, backups live (mounted as a volume) |
-| `DATABASE_PATH` | `/data/kniha-jazd.db` | Override the DB file path |
-| `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets — generally don't change |
+| `KNIHA_JAZD_DATA_DIR` | `/data` | Where DB, receipts, backups and `local.settings.json` live (mounted as a volume) |
+| `DATABASE_PATH` | `<DATA_DIR>/kniha-jazd.db` | Override the DB file path |
+| `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets. Leave **unset** in local dev so vite serves the UI instead |
 | `GEMINI_API_KEY` | unset | Optional, enables receipt OCR (magic fill) |
 | `HA_URL` | unset | Home Assistant base URL for the odometer integration |
 | `HA_API_TOKEN` | unset | Home Assistant long-lived access token |
@@ -90,77 +72,86 @@ docker compose -f docker-compose.web.yml up -d
 
 **Secrets are never served to the network.** Settings reads report only whether a credential is configured; displaying one requires `KNIHA_JAZD_REVEAL_PIN` and is throttled after repeated failures. This does not extend the CORS allowlist into an access control — it is a separate gate on credentials specifically, because CORS only constrains browsers. See [ADR-027](../../DECISIONS.md). Preferences such as theme, hidden columns, and Paperless custom field names remain file/UI-managed. See [settings.rs](../../src-tauri/core/src/settings.rs).
 
-**Limitations:** Same as Headless Mode — no native dialogs, no auto-updater, no LAN IP display in the UI (since the container doesn't have a real LAN IP, only the Docker bridge).
-
-**Tech debt:** The runtime image currently carries GTK/WebKit shared libraries because Tauri is a non-optional dependency of the parent crate. See [tech debt 06](../../_tasks/_TECH_DEBT/06-tauri-feature-gating.md) for the planned fix.
+**Limitations:** no native dialogs and no LAN IP display in the UI (the container has
+only the Docker bridge address, so the operator supplies the reachable URL).
 
 ### Homelab Deployment
 
-The release workflow publishes an official image on every `v*` tag: `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` (plus `latest`), built by the `docker-image` job in [release.yml](../../.github/workflows/release.yml). The canonical always-on instance runs on the user's homelab from this versioned image — desktop installs act as browser clients of it. See the design in [02-design.md](../../_tasks/67-online-always-on-runner/02-design.md) (task 67).
+The release workflow publishes the official image on every `v*` tag:
+`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` (plus `latest`), built by the `docker-image` job
+in [release.yml](../../.github/workflows/release.yml). That image **is** the release —
+no GitHub Release, no installers, no updater. Updating means pulling a newer tag and
+restarting the container; the `/data` volume carries the database across.
+
+## Local Development
+
+Two processes:
+
+```sh
+# 1) backend on 3456 — STATIC_DIR unset, so it serves the API only
+cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+
+# 2) frontend on 5173 — vite serves the SPA and proxies /api to 3456
+npm run dev
+```
+
+The proxy lives in [vite.config.ts](../../vite.config.ts). Set `KNIHA_JAZD_DATA_DIR` to
+a scratch folder first, otherwise the binary falls back to `/data`.
 
 ## Technical Implementation
 
 ### Frontend
 
-**Runtime Detection:** [api-adapter.ts](../../src/lib/api-adapter.ts)
-- Detects whether running inside Tauri webview or a regular browser
-- Tauri mode: uses `invoke()` IPC as before
-- Browser mode: sends `POST /api/rpc` with `{ command, args }` JSON to the server
+**RPC adapter:** [api-adapter.ts](../../src/lib/api-adapter.ts)
+- A single `apiCall(command, args)` that POSTs `{ command, args }` to `/api/rpc` with an
+  `X-KJ-Client: 1` header, and throws the response body on a non-2xx
+- [api.ts](../../src/lib/api.ts) wraps each backend command in a typed function; components
+  never call `fetch` themselves
 
-**Capabilities Store:** [capabilities.ts](../../src/lib/stores/capabilities.ts)
-- Fetches `GET /api/capabilities` on load (browser mode only)
-- Returns which commands are available (69 of 72 are server-safe)
-- Components check capabilities to hide unavailable features
-
-**Settings UI:** [+page.svelte](../../src/routes/settings/+page.svelte)
-- Server toggle, auto-start checkbox, URL display
-- Shows local IP address for easy sharing
+**Read-only state:** [appMode.ts](../../src/lib/stores/appMode.ts)
+- Calls `get_app_mode` and exposes `isReadOnly` + `readOnlyReason` to the UI
+- Falls back to a permissive default if the call fails
 
 ### Backend (Rust)
 
-**Server Module:** [server/mod.rs](../../src-tauri/src/server/mod.rs)
-- Axum HTTP server with `POST /api/rpc` endpoint
-- `GET /health` for readiness checks
-- Static file serving for SPA (built frontend files)
-- CORS layer restricting origins to RFC 1918 private ranges + localhost
+**Binary:** [web/src/main.rs](../../src-tauri/web/src/main.rs)
+- Reads `PORT`, `KNIHA_JAZD_DATA_DIR`, `DATABASE_PATH`, `STATIC_DIR`
+- Creates the data directory, opens the database, then starts the server on a tokio runtime
 
-**RPC Dispatcher:** [dispatcher.rs](../../src-tauri/src/server/dispatcher.rs) + [dispatcher_async.rs](../../src-tauri/src/server/dispatcher_async.rs)
-- Maps command names to `_internal` functions
+**Server Module:** [server/mod.rs](../../src-tauri/core/src/server/mod.rs)
+- Axum router: `POST /api/rpc`, `GET /api/capabilities`, `GET /api/receipts/{id}/image`,
+  `GET /health`
+- Static file serving for the SPA, with `index.html` as the SPA fallback. If `STATIC_DIR`
+  has no `index.html` the fallback is skipped and only the API is served — which is
+  exactly what local dev wants
+- CORS layer restricting origins to RFC 1918 private ranges + localhost
+- Binds `0.0.0.0` when `bind_all` is set (the binary sets it), `127.0.0.1` otherwise
+
+**RPC Dispatcher:** [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) + [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
+- Maps command names to `_internal` functions — 68 sync, 12 async
 - Sync commands dispatched via `spawn_blocking`
-- Async commands (receipts OCR, HA integration, export) awaited directly
+- Async commands (receipts OCR, HA integration, export, `get_trip_grid_data`) awaited directly
 - Backup filenames arriving over RPC pass through `validate_backup_filename` ([commands_internal/backup.rs](../../src-tauri/core/src/commands_internal/backup.rs)) — empty names, path separators, `..`, and drive/ADS colons are rejected before any file access (defense-in-depth for the network-reachable restore/delete endpoints)
 
-**Server Manager:** [manager.rs](../../src-tauri/src/server/manager.rs)
-- Start/stop lifecycle management
-- LAN IP detection via `local-ip-address` crate
-- Port binding (default 3456)
-- Graceful shutdown via tokio oneshot channel
-
-**_internal Functions:** [commands/](../../src-tauri/src/commands/)
-- Each Tauri command split into thin wrapper + pure `_internal` function
-- `_internal` takes `&Database` / `&AppState` / `&Path` as plain references
-- Both Tauri IPC and RPC dispatcher call the same `_internal` functions
+**_internal Functions:** [commands_internal/](../../src-tauri/core/src/commands_internal/)
+- Plain functions taking `&Database` / `&AppState` / `&Path` as references
+- All orchestration lives here; the dispatcher only parses args and forwards
 
 ### Data Flow
 
 ```
-Browser (phone)                         Desktop (Tauri webview)
-     |                                         |
-     | fetch('/api/rpc')                       | invoke('command', args)
-     |                                         |
-     v                                         v
- Axum HTTP Server                     Tauri IPC Bridge
-     |                                         |
-     | dispatch(command, args)                  | extract State<Database>
-     |                                         |
-     +------------------+----------------------+
-                        |
-                        v
-              _internal(db, app_state, args)
-                        |
-                        v
-                 SQLite Database
-            (separate connection per path)
+Browser (phone, tablet, laptop)
+     |
+     | fetch('/api/rpc', { command, args })
+     v
+ Axum HTTP Server  (kniha-jazd-web)
+     |
+     | dispatch(command, args)   ->  spawn_blocking / await
+     v
+ _internal(db, app_state, args)  (kniha-jazd-core)
+     |
+     v
+ SQLite Database  (/data/kniha-jazd.db)
 ```
 
 ### Capabilities Endpoint
@@ -176,12 +167,20 @@ Browser (phone)                         Desktop (Tauri webview)
     "updater": false,
     "open_external": false,
     "restore_backup": true,
-    "move_database": false
+    "move_database": false,
+    "route_maps": true
   }
 }
 ```
 
-Frontend uses these feature flags to hide UI elements that aren't available in browser mode. `restore_backup` is served in server mode — after a successful restore the browser page reloads so the UI reflects the restored database.
+`read_only` reflects `AppState::is_read_only()`, set when the database carries migrations
+this build does not know (i.e. it was written by a newer image). The UI reads the same
+state through the `get_app_mode` command rather than this endpoint.
+
+The `features` block records what this deployment can and cannot do. The flags that are
+permanently `false` are the native affordances only a desktop shell could provide.
+`restore_backup` is served: it performs an `fs::copy`, and the browser reloads the page
+afterwards so every view re-reads the restored database.
 
 ### CORS
 
@@ -192,46 +191,47 @@ The CORS layer allows origins matching RFC 1918 private IP ranges:
 - `http://localhost:*` / `http://127.0.0.1:*`
 
 Requests from public IPs or other origins are blocked by the browser's preflight check.
+This is not authentication — see ADR-017 and the tailnet-trust model in ADR-024.
 
 ### Receipt Image Serving
 
-`GET /api/receipts/{id}/image` looks up the receipt by ID in the database, then serves the image file from disk. This enables browser-mode users to view scanned receipts.
+`GET /api/receipts/{id}/image` looks up the receipt by ID in the database, then serves the image file from disk, so the browser can display scanned receipts.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| [server/mod.rs](../../src-tauri/src/server/mod.rs) | Axum router, RPC handler, CORS, static files |
-| [server/dispatcher.rs](../../src-tauri/src/server/dispatcher.rs) | Sync command dispatch (60+ commands) |
-| [server/dispatcher_async.rs](../../src-tauri/src/server/dispatcher_async.rs) | Async command dispatch (7 commands) |
-| [server/manager.rs](../../src-tauri/src/server/manager.rs) | Server lifecycle, LAN IP, port binding |
-| [commands/](../../src-tauri/src/commands/) | `_internal` functions shared by both paths |
-| [bin/web.rs](../../src-tauri/src/bin/web.rs) | Standalone server binary (Docker) |
-| [lib.rs](../../src-tauri/src/lib.rs) | Tauri setup with `--headless` mode |
+| [web/src/main.rs](../../src-tauri/web/src/main.rs) | Binary entrypoint: env vars, DB open, server start |
+| [server/mod.rs](../../src-tauri/core/src/server/mod.rs) | Axum router, RPC handler, capabilities, CORS, static files |
+| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | Sync command dispatch (68 commands) |
+| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | Async command dispatch (12 commands) |
+| [commands_internal/](../../src-tauri/core/src/commands_internal/) | The `_internal` functions the dispatcher calls |
 | [Dockerfile.web](../../Dockerfile.web) | Multi-stage Docker build |
-| [docker-compose.web.yml](../../docker-compose.web.yml) | Docker Compose wiring |
-| [api-adapter.ts](../../src/lib/api-adapter.ts) | Runtime detection + RPC adapter |
-| [capabilities.ts](../../src/lib/stores/capabilities.ts) | Feature gating for browser mode |
-| [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) | Server-mode integration test config (Tauri + Docker) |
+| [docker-compose.web.yml](../../docker-compose.web.yml) | Local build + run wiring |
+| [api-adapter.ts](../../src/lib/api-adapter.ts) | `apiCall()` — the single RPC entry point |
+| [api.ts](../../src/lib/api.ts) | Typed wrapper per backend command |
+| [appMode.ts](../../src/lib/stores/appMode.ts) | Read-only gating for the UI |
+| [vite.config.ts](../../vite.config.ts) | Dev proxy: `/api` → `localhost:3456` |
+| [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) | Integration test config (spawned binary or container) |
 
 ## Design Decisions
 
-- **Why RPC over REST?** -- Single `POST /api/rpc` endpoint mirrors Tauri IPC model exactly. No need to design 69 separate REST routes for an internal-only API. (See ADR-015)
+- **Why RPC over REST?** -- A single `POST /api/rpc` endpoint keeps one command name per backend function. No need to design 80 separate REST routes for an internal-only API. (See ADR-015)
 
-- **Why `_internal` extraction?** -- Tauri commands take framework-injected `State<Database>`. The RPC dispatcher has `Arc<Database>` directly. Pure `_internal` functions bridge both without abstraction overhead. (See ADR-016)
+- **Why `_internal` extraction?** -- The pattern originally bridged two callers (desktop IPC and the HTTP dispatcher). Only the dispatcher remains, but plain functions over `&Database` / `&AppState` are still the right shape: they are directly unit-testable without a server. (See ADR-016)
 
-- **Why no authentication?** -- Server is LAN-only (CORS-enforced). Target environment is trusted home/office network. Authentication would add significant complexity for minimal security benefit. (See ADR-017)
+- **Why no authentication?** -- Server is LAN-only (CORS-enforced). Target environment is a trusted home network or tailnet. Authentication would add significant complexity for minimal security benefit. (See ADR-017, ADR-024)
 
-- **Why single process, not a separate server?** -- The server opens a second SQLite connection to the same file. SQLite's built-in file-level locking handles concurrency. No IPC between processes, no stale caches.
+- **Why one process?** -- One process owns one SQLite file. No IPC, no stale caches, and no second writer to coordinate with.
 
-- **Why 3 commands excluded?** -- `export_to_browser` opens a desktop browser, `move_database` and `reset_database_location` use native file dialogs. Neither is meaningful over HTTP. `restore_backup` *is* served: it performs the same `fs::copy` the desktop does, and the browser simply reloads the page after the restore so all views re-read the restored database.
+- **Why are some capability flags permanently false?** -- `file_dialogs`, `updater`, `open_external` and `move_database` describe native affordances that only a desktop shell could provide. They are reported as `false` so the UI never offers them.
 
 ## Related
 
 - ADR-015: RPC Over REST for Server Mode API
 - ADR-016: _internal Extraction Pattern
 - ADR-017: LAN-Only CORS Without Authentication
+- ADR-024: Homelab server is the canonical deployment
 - ADR-008: All business logic in Rust backend (server mode relies on this)
 - [_tasks/_done/55-server-mode/](../../_tasks/_done/55-server-mode/): Original server-mode planning and design
 - [_tasks/_done/33-web-deployment/](../../_tasks/_done/33-web-deployment/): Headless and Docker deployment work
-- [tech debt 06](../../_tasks/_TECH_DEBT/06-tauri-feature-gating.md): Planned image-size reduction

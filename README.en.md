@@ -4,8 +4,12 @@
 
 # Kniha Jázd (Vehicle Logbook)
 
-Desktop application for tracking business vehicle trips for Slovak sole proprietors and small businesses.
+Application for tracking business vehicle trips for Slovak sole proprietors and small businesses.
 Automatically calculates fuel consumption, monitors the legal 20% over-consumption limit, and helps with tax records.
+
+It runs as a Docker container on your own server (NAS, Raspberry Pi, homelab) and you
+use it from a browser on any device on the local network. The desktop build is
+discontinued — existing installs keep working but receive no further updates.
 
 ![Kniha Jázd - Main Screen](docs/screenshots/hero.png)
 
@@ -21,23 +25,37 @@ Automatically calculates fuel consumption, monitors the legal 20% over-consumpti
 - **Route memory** - Frequent routes auto-complete
 - **Yearly overviews** - Each year = separate logbook
 - **Column visibility** - Customize the trip grid by hiding/showing columns
-- **Backup and restore** - Automatic backup before updates, backup management
-- **Database relocation** - Custom database location (Google Drive, NAS) for multi-PC access
+- **Backup and restore** - Automatic backup before database migrations, backup management
 - **Export** - HTML preview with print-to-PDF (Ctrl+P), respects hidden columns
 - **Receipts (AI OCR)** - Automatic recognition of gas station receipts with multi-currency support (EUR, CZK, HUF, PLN)
 - **Home Assistant integration** - Display ODO and fuel level from HA, push suggested fill-up to HA sensor
-- **Server Mode** - Built-in HTTP server for accessing the app from a phone or tablet via browser on the local network
-- **Headless / Docker deployment** - Run as a background service (`--headless` flag) or in a Docker container for always-on devices (NAS, Raspberry Pi). See [docs/features/server-mode.md](docs/features/server-mode.md) for details.
+- **Browser access** - Phone, tablet and desktop all reach the same instance over the local network
+- **Docker deployment** - One container, one `/data` volume, for always-on devices (NAS, Raspberry Pi). See [docs/features/server-mode.md](docs/features/server-mode.md) for details.
 
 ## Installation
 
-Download the latest version for your system from [Releases](../../releases):
+The app is distributed as a Docker image. No installers are published.
 
-| Platform | File |
-|----------|------|
-| Windows | `Kniha-Jazd_x.x.x_x64-setup.msi` |
-| macOS (Apple Silicon) | `Kniha-Jazd_x.x.x_aarch64.dmg` |
-| macOS (Intel) | `Kniha-Jazd_x.x.x_x64.dmg` |
+```bash
+mkdir -p data
+docker run -d --name kniha-jazd \
+  -p 3456:3456 \
+  -v "$PWD/data:/data" \
+  --restart unless-stopped \
+  ghcr.io/mcsdodo/kniha-jazd-web:latest
+```
+
+The app is then at `http://<server-ip>:3456`.
+
+To build the image from source instead, [docker-compose.web.yml](docker-compose.web.yml)
+builds it from [Dockerfile.web](Dockerfile.web):
+
+```bash
+docker compose -f docker-compose.web.yml up -d
+```
+
+Updating = pull a newer tag (`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z`) and restart the
+container. The database in `/data` stays put; migrations run automatically on start.
 
 ## Usage
 
@@ -86,15 +104,19 @@ Supported currencies: EUR, CZK, HUF, PLN (foreign currencies require manual EUR 
    - Enter your Gemini API key
    - Select the receipts folder
 
-   > **Alternative:** Manual configuration via `local.settings.json`:
-   > - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
-   > - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
+   > **Alternative:** the `GEMINI_API_KEY` environment variable on the container (it
+   > takes precedence over the stored setting), or manual configuration in
+   > `local.settings.json` inside the data directory (`/data/local.settings.json` in
+   > the container):
    > ```json
    > {
    >   "gemini_api_key": "AIza...",
-   >   "receipts_folder_path": "C:\\Path\\To\\Receipts"
+   >   "receipts_folder_path": "/data/receipts"
    > }
    > ```
+
+   The receipts folder is a path **on the server** (inside the container), not on your
+   own machine — type it in, e.g. `/data/receipts`, and mount it into the container.
 
 #### Receipt Folder Structure
 
@@ -132,9 +154,11 @@ The app supports two ways to organize receipts:
 ## FAQ
 
 **Where is my data stored?**
-All data is stored locally in a SQLite database:
-- Windows: `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
-- macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/kniha-jazd.db`
+In a SQLite database on the container's `/data` volume — in a typical deployment that
+is the `./data` folder on the host:
+- Database: `/data/kniha-jazd.db`
+- Backups: `/data/backups/`
+- Settings: `/data/local.settings.json`
 
 **Fuel remaining shows negative value?**
 Remaining fuel is calculated from filled liters minus consumption. If negative, check:
@@ -142,31 +166,35 @@ Remaining fuel is calculated from filled liters minus consumption. If negative, 
 - Whether you recorded all fill-ups
 
 **Receipt recognition not working?**
-1. Verify your Gemini API key in `local.settings.json`
-2. Check that the receipts folder exists
+1. Verify your Gemini API key (`GEMINI_API_KEY` env var or `local.settings.json`)
+2. Check that the receipts folder exists **inside the container**
 3. Supported formats: JPG, PNG, WebP, PDF
 
-**How to transfer data to a new computer?**
+**How to move data to another server?**
+
+*Via the folder:* stop the container and copy the whole `./data` directory. It holds
+the database, the backups and the settings.
 
 *Via backup:*
 1. Create a backup in Settings
-2. Copy the `.backup` file to the new computer
+2. Copy the `.backup` file into `data/backups/` on the new server
 3. Restore from backup in Settings
 
-*Via shared storage:*
-In Settings → Database Location, move the database to shared storage (Google Drive, NAS). A lock file prevents simultaneous access from multiple computers.
+Exactly one instance opens the database — do not point two containers at the same
+`/data` directory.
 
 ## Privacy
 
-All data stays on your computer. The only external connection is when using AI receipt recognition - receipt images are sent to the Gemini API (Google). This feature is optional.
+All data stays on your server. The server has no authentication and is meant for a trusted local network only (CORS allows private IP ranges) — do not expose it to the internet. The only external connection is when using AI receipt recognition - receipt images are sent to the Gemini API (Google). This feature is optional.
 
 ## For Developers
 
 ### Tech Stack
 
-- **Frontend:** SvelteKit + TypeScript
-- **Backend:** Tauri (Rust)
+- **Frontend:** SvelteKit + TypeScript (static SPA)
+- **Backend:** Rust — `kniha-jazd-core` (logic) + `kniha-jazd-web` (Axum HTTP server)
 - **Database:** SQLite
+- **Deployment:** Docker image `ghcr.io/mcsdodo/kniha-jazd-web`
 
 ### Architecture
 
@@ -195,28 +223,34 @@ cargo --version
 
 #### Run the App
 
+Two processes in two terminals:
+
 ```bash
 # Install dependencies
 npm install
 
-# Run in development mode
-npm run tauri:dev
+# 1) backend on port 3456 (leave STATIC_DIR unset - vite serves the SPA)
+cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+
+# 2) frontend on port 5173, proxying /api to localhost:3456
+npm run dev
 ```
 
 ### Running Tests
 
 ```bash
-# Rust backend tests (257 tests)
-cd src-tauri && cargo test
+npm run test:backend      # Rust tests (whole workspace)
 
-# E2E integration tests
-npm run test:integration:build
+# Integration tests need the built SPA and the debug binary
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+npm run test:integration
 ```
 
 ### Building
 
 ```bash
-npm run tauri build
+docker build -f Dockerfile.web -t kniha-jazd-web:local .
 ```
 
 ## License

@@ -12,9 +12,13 @@ paths:
 Frontend receives pre-calculated values from Rust backend.
 **Never** duplicate calculations in TypeScript.
 
-- Calls Tauri commands, renders results
-- Tauri IPC is local/fast - no need for client-side calculations
+- Calls backend commands over RPC, renders results
+- The RPC round-trip is same-host and cheap - no need for client-side calculations
 - All business logic lives in Rust backend
+
+Every call goes through `apiCall()` in [api-adapter.ts](../../src/lib/api-adapter.ts),
+which POSTs `{ command, args }` to `/api/rpc`. `src/lib/api.ts` wraps each command in a
+typed function - add new commands there, not in components.
 
 ## Adding UI Text
 
@@ -43,3 +47,5 @@ Frontend receives pre-calculated values from Rust backend.
 | `src/lib/i18n/en/index.ts` | English translations | New UI text |
 | `src/lib/components/` | Reusable UI components | Shared UI elements |
 | `src/lib/stores/` | Svelte state management | App-wide state |
+| `src/lib/api.ts` | Typed wrapper per backend command | New backend call |
+| `src/lib/api-adapter.ts` | `apiCall()` - POSTs to `/api/rpc` | Transport-level changes |

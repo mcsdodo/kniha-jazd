@@ -24,10 +24,13 @@
 - Returns `BackupInfo` with live vehicle/trip counts from current database
 
 **Pre-Update Backup** (`create_backup_with_type`):
-- Called from update store before downloading update
 - Filename format: `kniha-jazd-backup-YYYY-MM-DD-HHMMSS-pre-v{version}.db`
 - Version encoded in filename for identification
-- See `commands.rs:L1597-1602` for filename generation logic
+- Filename generation lives in [commands_internal/backup.rs](../../src-tauri/core/src/commands_internal/backup.rs)
+
+> **Historical:** pre-update backups were created automatically by the desktop
+> auto-updater. With the updater gone, nothing creates them any more — existing ones are
+> still listed, typed and cleaned up by the retention policy.
 
 ### Backup Listing
 
@@ -52,11 +55,10 @@
 
 ### Pre-Update Backups
 
-Triggered from update store (`update.ts`) during the install flow. The store imports `createBackupWithType` from the API module and calls it with type `'pre-update'` and the target version before downloading the update.
-
-Backup step states: `pending` → `in-progress` → `done` | `failed` | `skipped`
-
-If backup fails, user can choose to "Continue Without Backup" or cancel.
+No longer produced: the flow that created them was the desktop auto-updater's install
+step, and Docker deployments update by pulling a new image tag instead. The
+`create_backup_with_type` command and the `pre-update` type survive so that backups made
+by older desktop versions keep their label and stay subject to retention cleanup.
 
 ### Retention & Cleanup
 
@@ -91,13 +93,11 @@ Key fields in `BackupInfo`:
 
 | File | Purpose |
 |------|---------|
-| [commands.rs](src-tauri/src/commands.rs) | Backend backup commands (create, list, restore, delete, cleanup) |
-| [settings.rs](src-tauri/src/settings.rs) | `BackupRetention` struct and JSON persistence |
-| [lib.rs](src-tauri/src/lib.rs) | Post-update cleanup trigger at startup |
-| [api.ts](src/lib/api.ts) | Frontend API functions for backup operations |
-| [types.ts](src/lib/types.ts) | TypeScript interfaces for backup data |
-| [update.ts](src/lib/stores/update.ts) | Pre-update backup trigger during update flow |
-| [+page.svelte](src/routes/settings/+page.svelte) | Backup UI (list, create, restore, retention settings) |
+| [commands_internal/backup.rs](../../src-tauri/core/src/commands_internal/backup.rs) | Backup commands (create, list, restore, delete, cleanup) + `validate_backup_filename` |
+| [settings.rs](../../src-tauri/core/src/settings.rs) | `BackupRetention` struct and JSON persistence |
+| [api.ts](../../src/lib/api.ts) | Frontend API functions for backup operations |
+| [types.ts](../../src/lib/types.ts) | TypeScript interfaces for backup data |
+| [+page.svelte](../../src/routes/settings/+page.svelte) | Backup UI (list, create, restore, retention settings) |
 
 ## API Functions
 
@@ -141,6 +141,5 @@ Key fields in `BackupInfo`:
    - Simple choices that cover common needs
    - Prevents configuration paralysis
 
-7. **Pre-update backup in update flow**: Backup created before download starts
-   - Captures database state at known-good version
-   - User can skip if backup fails (with warning)
+7. **Retention only ever deletes pre-update backups**: a manual backup is an explicit
+   user act, so it is never reclaimed automatically.

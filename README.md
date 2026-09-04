@@ -4,8 +4,12 @@
 
 # Kniha Jázd
 
-Desktopová aplikácia na evidenciu jázd služobných vozidiel pre SZČO a malé firmy.
+Aplikácia na evidenciu jázd služobných vozidiel pre SZČO a malé firmy.
 Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou evidenciou.
+
+Beží ako Docker kontajner na vašom serveri (NAS, Raspberry Pi, homelab) a ovládate ju
+z prehliadača na ktoromkoľvek zariadení v lokálnej sieti. Desktopová verzia už nie je
+udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ďalšie aktualizácie.
 
 ![Kniha Jázd - Hlavná obrazovka](docs/screenshots/hero.png)
 
@@ -21,23 +25,37 @@ Automaticky počíta spotrebu, sleduje 20% limit nadpotreby a pomáha s daňovou
 - **Pamätanie trás** - Časté trasy sa automaticky dopĺňajú
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby
-- **Zálohovanie a obnova** - Automatická záloha pred aktualizáciou, správa záloh
-- **Presun databázy** - Vlastné umiestnenie databázy (Google Drive, NAS) pre prístup z viacerých počítačov
+- **Zálohovanie a obnova** - Automatická záloha pred migráciou databázy, správa záloh
 - **Export** - HTML náhľad s tlačou do PDF (Ctrl+P), rešpektuje skryté stĺpce
 - **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc s podporou viacerých mien (EUR, CZK, HUF, PLN)
 - **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
-- **Režim servera** - Vstavaný HTTP server pre prístup z telefónu alebo tabletu cez prehliadač v lokálnej sieti
-- **Headless / Docker nasadenie** - Spustenie ako služba na pozadí (príznak `--headless`) alebo v Docker kontajneri pre vždy-zapnuté zariadenia (NAS, Raspberry Pi). Detaily nájdete v [docs/features/server-mode.md](docs/features/server-mode.md).
+- **Prístup z prehliadača** - Telefón, tablet aj počítač pristupujú k tej istej inštancii v lokálnej sieti
+- **Docker nasadenie** - Jeden kontajner, jeden `/data` zväzok, pre vždy-zapnuté zariadenia (NAS, Raspberry Pi). Detaily nájdete v [docs/features/server-mode.md](docs/features/server-mode.md).
 
 ## Inštalácia
 
-Stiahnite si najnovšiu verziu pre váš systém z [Releases](../../releases):
+Aplikácia sa distribuuje ako Docker image. Žiadne inštalátory sa už nezverejňujú.
 
-| Systém | Súbor |
-|--------|-------|
-| Windows | `Kniha-Jazd_x.x.x_x64-setup.msi` |
-| macOS (Apple Silicon) | `Kniha-Jazd_x.x.x_aarch64.dmg` |
-| macOS (Intel) | `Kniha-Jazd_x.x.x_x64.dmg` |
+```bash
+mkdir -p data
+docker run -d --name kniha-jazd \
+  -p 3456:3456 \
+  -v "$PWD/data:/data" \
+  --restart unless-stopped \
+  ghcr.io/mcsdodo/kniha-jazd-web:latest
+```
+
+Aplikácia beží na `http://<ip-servera>:3456`.
+
+Ak si chcete image zostaviť sami zo zdrojov, [docker-compose.web.yml](docker-compose.web.yml)
+robi build z [Dockerfile.web](Dockerfile.web):
+
+```bash
+docker compose -f docker-compose.web.yml up -d
+```
+
+Aktualizácia = stiahnutie nového tagu (`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z`) a reštart
+kontajnera. Databáza v `/data` zostáva, migrácie sa spustia automaticky pri štarte.
 
 ## Použitie
 
@@ -86,15 +104,18 @@ Podporované meny: EUR, CZK, HUF, PLN (cudzie meny vyžadujú manuálnu konverzi
    - Zadajte Gemini API kľúč
    - Vyberte priečinok s bločkami
 
-   > **Alternatíva:** Manuálna konfigurácia cez `local.settings.json`:
-   > - Windows: `%APPDATA%\com.notavailable.kniha-jazd\local.settings.json`
-   > - macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/local.settings.json`
+   > **Alternatíva:** Premenná prostredia `GEMINI_API_KEY` na kontajneri (má prednosť pred
+   > uloženým nastavením), alebo manuálna konfigurácia v `local.settings.json` v dátovom
+   > priečinku (`/data/local.settings.json` v kontajneri):
    > ```json
    > {
    >   "gemini_api_key": "AIza...",
-   >   "receipts_folder_path": "C:\\Cesta\\K\\Blokom"
+   >   "receipts_folder_path": "/data/receipts"
    > }
    > ```
+
+   Priečinok s bločkami je cesta **na serveri** (v kontajneri), nie na vašom počítači —
+   zadajte ju ako text, napr. `/data/receipts`, a namontujte ju do kontajnera.
 
 #### Štruktúra priečinka s bločkami
 
@@ -132,9 +153,11 @@ Aplikácia podporuje dva spôsoby organizácie bločkov:
 ## Často kladené otázky (FAQ)
 
 **Kde sú uložené moje dáta?**
-Všetky dáta sú uložené lokálne v SQLite databáze:
-- Windows: `%APPDATA%\com.notavailable.kniha-jazd\kniha-jazd.db`
-- macOS: `~/Library/Application Support/com.notavailable.kniha-jazd/kniha-jazd.db`
+V SQLite databáze na `/data` zväzku kontajnera — pri bežnom nasadení je to priečinok
+`./data` na hostiteľovi:
+- Databáza: `/data/kniha-jazd.db`
+- Zálohy: `/data/backups/`
+- Nastavenia: `/data/local.settings.json`
 
 **Zostatok paliva ukazuje zápornú hodnotu?**
 Zostatok sa počíta z natankovaných litrov mínus spotreba. Ak je záporný, skontrolujte:
@@ -142,23 +165,26 @@ Zostatok sa počíta z natankovaných litrov mínus spotreba. Ak je záporný, s
 - Či ste zaznamenali všetky tankovania
 
 **Rozpoznávanie blokov nefunguje?**
-1. Skontrolujte, či máte správny Gemini API kľúč v `local.settings.json`
-2. Overte, že priečinok s bločkami existuje
+1. Skontrolujte Gemini API kľúč (premenná `GEMINI_API_KEY` alebo `local.settings.json`)
+2. Overte, že priečinok s bločkami existuje **vnútri kontajnera**
 3. Podporované formáty: JPG, PNG, WebP, PDF
 
-**Ako preniesť dáta na nový počítač?**
+**Ako preniesť dáta na iný server?**
+
+*Cez priečinok:* zastavte kontajner a skopírujte celý `./data` priečinok. Obsahuje
+databázu, zálohy aj nastavenia.
 
 *Cez zálohu:*
 1. V nastaveniach vytvorte zálohu
-2. Skopírujte súbor `.backup` na nový počítač
+2. Skopírujte súbor `.backup` do `data/backups/` na novom serveri
 3. V nastaveniach obnovte zo zálohy
 
-*Cez zdieľaný priečinok:*
-V Nastaveniach → Umiestnenie databázy presuňte databázu na zdieľané úložisko (Google Drive, NAS). Zámkový súbor zabraňuje súčasnému prístupu z viacerých počítačov.
+Databázu otvára práve jedna inštancia — nespravujte ten istý `/data` priečinok
+z dvoch kontajnerov naraz.
 
 ## Súkromie
 
-Všetky dáta zostávajú na vašom počítači. Jediné externé pripojenie je pri použití AI rozpoznávania blokov - vtedy sa obrázky posielajú do Gemini API (Google). Túto funkciu nemusíte používať.
+Všetky dáta zostávajú na vašom serveri. Server nemá autentifikáciu a je určený výlučne pre dôveryhodnú lokálnu sieť (CORS povoľuje len privátne IP rozsahy) — nevystavujte ho do internetu. Jediné externé pripojenie je pri použití AI rozpoznávania blokov - vtedy sa obrázky posielajú do Gemini API (Google). Túto funkciu nemusíte používať.
 
 ## Pre vývojárov
 
@@ -166,9 +192,10 @@ Pozrite [README.en.md](README.en.md) pre dokumentáciu v angličtine.
 
 ### Technológie
 
-- **Frontend:** SvelteKit + TypeScript
-- **Backend:** Tauri (Rust)
+- **Frontend:** SvelteKit + TypeScript (statická SPA)
+- **Backend:** Rust — `kniha-jazd-core` (logika) + `kniha-jazd-web` (Axum HTTP server)
 - **Databáza:** SQLite
+- **Nasadenie:** Docker image `ghcr.io/mcsdodo/kniha-jazd-web`
 
 Pre detailnú architektúru pozrite [ARCHITECTURE.md](ARCHITECTURE.md) (v angličtine).
 
@@ -193,15 +220,33 @@ cargo --version
 
 #### Spustenie aplikácie
 
+Dva procesy v dvoch termináloch:
+
 ```bash
 npm install
-npm run tauri:dev
+
+# 1) backend na porte 3456 (STATIC_DIR nechajte nenastavený — SPA servuje vite)
+cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+
+# 2) frontend na porte 5173, /api proxuje na localhost:3456
+npm run dev
 ```
 
 ### Testy
 
 ```bash
-cd src-tauri && cargo test
+npm run test:backend      # Rust testy (celý workspace)
+
+# Integračné testy potrebujú zostavenú SPA a debug binárku
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+npm run test:integration
+```
+
+### Zostavenie
+
+```bash
+docker build -f Dockerfile.web -t kniha-jazd-web:local .
 ```
 
 ## Licencia

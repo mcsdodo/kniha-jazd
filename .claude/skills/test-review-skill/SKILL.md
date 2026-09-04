@@ -22,7 +22,7 @@ Two-phase review: First analyze coverage gaps, then add approved tests.
 
 ## Required Information
 
-1. **Target** - code module to check coverage for (e.g., `src-tauri/src/calculations.rs`)
+1. **Target** - code module to check coverage for (e.g., `src-tauri/core/src/calculations/mod.rs`)
 2. **Reference** (optional) - business rules or plan defining what should be tested
 
 ---
@@ -34,10 +34,10 @@ Two-phase review: First analyze coverage gaps, then add approved tests.
 Find tests for target:
 ```bash
 # Rust - find test module
-grep -l "test_" src-tauri/src/*_tests.rs
+grep -rl "test_" src-tauri/core/src --include=*_tests.rs
 
 # Check inline tests
-grep -A5 "#\[cfg(test)\]" src-tauri/src/{module}.rs
+grep -A5 "#\[cfg(test)\]" src-tauri/core/src/{module}.rs
 ```
 
 ### Step 2: Run Tests (Baseline)
@@ -214,7 +214,7 @@ Verify:
 ### Step 9: Commit Changes
 
 ```bash
-git add src-tauri/src/*_tests.rs
+git add src-tauri/core/src/*_tests.rs
 git commit -m "test: add coverage for {TARGET}
 
 Added:
@@ -256,7 +256,7 @@ Review should verify:
 ## Example
 
 ```
-User: /test-review src-tauri/src/calculations.rs against DECISIONS.md
+User: /test-review src-tauri/core/src/calculations/mod.rs against DECISIONS.md
 
 Claude: [Executes Phase 1 - analyzes coverage, creates _test-review.md, iterates until comprehensive]
 Claude: Test coverage review complete. Please review _test-review.md for findings.

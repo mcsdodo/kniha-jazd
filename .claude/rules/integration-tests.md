@@ -10,18 +10,34 @@ Lessons learned from debugging flaky integration tests. Follow these patterns to
 
 ## Purpose
 
-**Integration Tests (WebdriverIO + tauri-driver) - UI flow verification (61 tests):**
-- `tests/integration/` - Full app E2E tests via WebDriver protocol
+**Integration Tests (WebdriverIO + Chrome) - UI flow verification (152 tests):**
+- `tests/integration/` - Full app E2E tests via WebDriver protocol, driving a real
+  browser against the `kniha-jazd-web` HTTP server
 - **Purpose**: Verify UI correctly invokes backend and displays results
 - **NOT for**: Re-testing calculation logic (that's backend's job - see `.claude/rules/rust-backend.md`)
-- **Tiered execution**: Tier 1 (39 tests) for PRs, all tiers for main
-- Runs against debug build of Tauri app
-- DB seeding via Tauri IPC (no direct DB access)
-- CI: Windows only (tauri-driver limitation)
+- **Tiered execution**: Tier 1 (`tier1` + `existing`, 48 tests) for quick checks, all
+  tiers on CI; the `env` suite runs separately because its fixture env vars pin
+  settings app-wide
+- DB seeding via `POST /api/rpc` (no direct DB access)
+- CI: Linux only - the Docker image is built once, then Chrome drives it
+
+**Two ways to run** ([wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts)):
+
+| Mode | Trigger | Server | Port |
+|------|---------|--------|------|
+| Spawned | default | WDIO launches `src-tauri/target/debug/kniha-jazd-web` with a temp `KNIHA_JAZD_DATA_DIR` and `STATIC_DIR=build/` | 3457 |
+| External | `WDIO_EXTERNAL_SERVER=1` | already-running container | 3456 |
+
+Spawned mode therefore needs both artifacts built first:
+
+```bash
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+```
 
 **Remember:** Integration tests = "Does the UI work?"
 
-## WebDriverIO + Tauri Integration Tests
+## WebDriverIO Integration Tests
 
 ### Date Inputs - Use Atomic Setting
 
@@ -97,7 +113,9 @@ expect(await toastError.isExisting()).toBe(false);
 ### Local vs CI Differences
 
 Tests may pass locally but fail in CI due to:
-- **Browser versions:** WebView2 versions differ between local and CI
+- **Browser versions:** the Chrome build on the runner may differ from yours
+- **Server mode:** CI runs against the container (`WDIO_EXTERNAL_SERVER=1`) on a
+  bind-mounted `/data`, locally you get a fresh temp data dir per run
 - **Timing:** CI runners may be slower
 - **Screen resolution:** Can affect click coordinates
 
@@ -143,19 +161,26 @@ await browser.pause(500); // Allow Svelte reactivity to settle
 
 ## Environment Variable Consistency
 
-**Problem:** Test isolation uses `KNIHA_JAZD_DATA_DIR` env var to point to a temp directory. But if some commands use `get_app_data_dir()` (respects env var) and others use `app_handle.path().app_data_dir()` (ignores env var), data gets written/read from different locations.
+**Problem:** Test isolation depends on the data directory the server was started
+with. Spawned mode points `KNIHA_JAZD_DATA_DIR` and `DATABASE_PATH` at a fresh temp
+folder; Docker mode uses the bind-mounted `/data`. A command that resolves its own
+path instead of using the server's data directory will read and write somewhere the
+test never looks.
 
-**Solution:** Always use the same helper function for resolving paths:
+**Solution:** Resolve receipts/backups/DB paths from the data directory the server
+was configured with, never from a hardcoded or platform-derived location.
 
-```rust
-// ❌ BAD - ignores KNIHA_JAZD_DATA_DIR
-let app_data_dir = app_handle.path().app_data_dir()?;
+**Lesson:** When adding new commands that read/write to app data, grep for existing
+patterns and use the same helper.
 
-// ✅ GOOD - respects env var for test isolation
-let app_data_dir = get_app_data_dir(&app_handle)?;
-```
+## Settings Pinned by the Environment
 
-**Lesson:** When adding new commands that read/write to app data, grep for existing patterns and use the same helper.
+WebdriverIO auto-loads the repo's `.env`. A real `PAPERLESS_API_TOKEN` or
+`GEMINI_API_KEY` there would pin those settings in the spawned server and make the
+setter guards reject writes, failing specs with "... is managed by the ...
+environment variable". `wdio.server.conf.ts` blanks every overridable variable
+(`SCRUBBED_ENV`) for normal runs; the `env` suite (`WDIO_ENV_PINNED=1`,
+`npm run test:integration:docker:env`) deliberately sets them instead.
 
 ## SvelteKit Component Caching
 
@@ -216,14 +241,11 @@ expect(cleanSettings?.geminiApiKey).toBe('');
 expect(cleanSettings?.geminiApiKey).toBeNull();
 ```
 
-## WebDriver Version Matching
+## Waiting for the Server
 
-**Problem:** Edge WebDriver version must match WebView2 version exactly. CI may have different versions than local.
+**Problem:** The suite starts before the backend is listening, and the first
+navigation fails.
 
-**Solution:** Dynamically detect WebView2 version from registry (see `.github/workflows/test.yml`):
-
-```powershell
-# Read actual WebView2 version from registry
-$webviewVersion = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\...\WebView2').pv
-# Download matching Edge WebDriver
-```
+**Solution:** `wdio.server.conf.ts` polls `GET /health` for up to 30s in `onPrepare`
+before any spec runs - in both spawned and external mode. If a spec still races the
+server, the fix belongs in that poll, not in a `browser.pause()` inside the spec.

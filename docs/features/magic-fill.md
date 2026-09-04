@@ -118,12 +118,12 @@ The magic fill button is available in the trip row's edit mode.
 
 | File | Purpose |
 |------|---------|
-| [commands.rs](src-tauri/src/commands.rs) | `calculate_magic_fill_liters` — main calculation |
-| [commands.rs](src-tauri/src/commands.rs) | `get_open_period_km` — open period helper |
-| [calculations.rs](src-tauri/src/calculations.rs) | `calculate_buffer_km` — buffer calculation |
-| [api.ts](src/lib/api.ts) | `calculateMagicFillLiters()` — frontend API |
-| [TripRow.svelte](src/lib/components/TripRow.svelte) | `handleMagicFill()` — UI handler |
-| [TripGrid.svelte](src/lib/components/TripGrid.svelte) | Magic fill callback wrapper |
+| [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `calculate_magic_fill_liters_internal` — main calculation |
+| [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `get_open_period_km` — open period helper |
+| [calculations/mod.rs](../../src-tauri/core/src/calculations/mod.rs) | `calculate_buffer_km` — buffer calculation |
+| [api.ts](../../src/lib/api.ts) | `calculateMagicFillLiters()` — frontend API |
+| [TripRow.svelte](../../src/lib/components/TripRow.svelte) | `handleMagicFill()` — UI handler |
+| [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Magic fill callback wrapper |
 
 ## Edge Cases
 

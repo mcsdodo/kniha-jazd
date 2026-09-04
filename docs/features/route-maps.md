@@ -2,8 +2,8 @@
 
 > Generates a plausible driving route matching a trip's recorded distance, previews it on a map, and appends the saved routes to the printed logbook as attachment pages.
 
-Available in **web/server mode only**. The desktop build hides the feature behind a
-capability flag — see [Why the capability flag is load-bearing](#why-the-capability-flag-is-load-bearing).
+The commands are served over the HTTP API like every other command — see
+[The capability flag](#the-capability-flag).
 
 ## User Flow
 
@@ -161,7 +161,6 @@ design.
 | [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) | Map view: preview, regenerate, save, remove |
 | [src/lib/components/TripRow.svelte](../../src/lib/components/TripRow.svelte) | Map-pin row action, filled when a map is saved |
 | [src/lib/components/TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Opens the map tab; keeps pin state fresh over `BroadcastChannel` |
-| [src/lib/stores/capabilities.ts](../../src/lib/stores/capabilities.ts) | `routeMaps` flag — false on desktop |
 | [src-tauri/core/src/route_map/](../../src-tauri/core/src/route_map/) | Dataset, genetic algorithm, OSRM client, polyline codec, tiles, rasteriser |
 | [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | Commands + export attachment assembly |
 | [src-tauri/core/src/commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | Adds the "which trips have maps" set to the grid data |
@@ -174,7 +173,7 @@ design.
 ### Why a genetic algorithm rather than a deterministic heuristic
 
 Both were built and compared during the
-[POC](../../_tasks/61-route-map-poc/02-design.md). The GA's non-determinism turned out to be
+[POC](../../_tasks/_done/61-route-map-poc/02-design.md). The GA's non-determinism turned out to be
 the load-bearing property: several proof-of-driving maps at similar distances **must not look
 alike**, or the synthetic pattern is obvious to anyone reading them side by side. A
 deterministic heuristic returns the same answer for the same target every time — exactly the
@@ -204,31 +203,26 @@ route the backend considers perfectly in tolerance.
 An attachment page's only link back to the logbook is `záznam č. X`, so getting it wrong
 points the printed evidence at the wrong journey. The number is read from the same
 `trip_numbers` map the printed table's first column is rendered from — never from a position
-in a list. The two export paths are not positionally comparable: the desktop export injects
-a synthetic first record and may sort descending, and month-end summary rows are interleaved
-into the table. A positional index would therefore make desktop and browser exports cite
-different journeys for the same map.
+in a list. Positions are not comparable: the export injects a synthetic "Prvý záznam" first
+record, may sort descending, and interleaves month-end summary rows into the table. A
+positional index would therefore cite a different journey than the one the map belongs to.
 
-Both paths call the same row-assembly helper for exactly this reason, and a backend test
-asserts that a desktop-shaped export and a server-shaped export produce the same record
-number for the same map.
+The export and the on-screen grid call the same row-assembly helper for exactly this
+reason, and a backend test asserts they produce the same record number for the same map.
 
 The synthetic "Prvý záznam" row is skipped: it prints an empty record number, so an
 attachment citing it would point at a row that carries no number at all. Month-end rows are
 skipped because they are not trips and can hold no map.
 
-### Why the capability flag is load-bearing
+### The capability flag
 
-The desktop build registers **no Tauri command wrappers** for the four route-map commands —
-they exist only in the dispatchers that serve the HTTP API. `routeMaps` therefore defaults to
-`false` on desktop, and that is what stops the UI from invoking commands that do not exist.
-It is not a cosmetic hide: flipping it true without adding the wrappers breaks the feature at
-runtime. Enabling desktop later means doing both together.
+The four route-map commands live only in the dispatchers that serve the HTTP API, and the
+capabilities endpoint reports `route_maps: true`. The flag dates from when a second frontend
+existed that did not register them; with the browser as the only client it now reads as a
+plain "this deployment has route maps".
 
-Export is the deliberate exception, and it is not a command. Desktop and browser share one
-database, so a desktop user may export trips whose maps were created in the browser. The
-attachment assembly is an internal function called from *both* export paths, so it needs no
-wrapper — and skipping the desktop side would be a bug, not a saving.
+Export attachment assembly is not a command at all — it is an internal function the export
+path calls directly.
 
 ### Other choices
 
@@ -273,7 +267,6 @@ saw it.
 - [ADR-029](../../DECISIONS.md#adr-029-waypoints-persist-as-coordinates-not-dataset-indices): waypoints persist as coordinates, not dataset indices
 - [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication): all business logic in Rust
 - [ADR-016](../../DECISIONS.md#adr-016-_internal-extraction-pattern-for-command-reuse): the `_internal` command pattern these four commands follow
-- [_tasks/70-route-map-integration/](../../_tasks/70-route-map-integration/): requirements, design and implementation plan
-- [_tasks/61-route-map-poc/](../../_tasks/61-route-map-poc/): the standalone POC this graduated, and the dataset rationale
+- [_tasks/70-route-map-integration/](../../_tasks/_done/70-route-map-integration/): requirements, design and implementation plan
+- [_tasks/61-route-map-poc/](../../_tasks/_done/61-route-map-poc/): the standalone POC this graduated, and the dataset rationale
 - [docs/features/export-system.md](./export-system.md): the printed logbook these pages are appended to
-- [docs/features/move-database.md](./move-database.md): what the tile cache deliberately stays out of

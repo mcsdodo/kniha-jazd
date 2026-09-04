@@ -2,27 +2,35 @@
 
 This document describes the technical architecture of Kniha Jazd (Vehicle Logbook).
 
+The app ships as a single Docker image: one Rust process serving a static SvelteKit
+SPA and a JSON-RPC endpoint over HTTP, against one SQLite file on a `/data` volume.
+There is no desktop build.
+
 ## System Overview
 
 ```
 +-------------------------------------------------------------+
 |                    SvelteKit Frontend                       |
 |              (Display-only, zero calculations)              |
-|  +---------+  +----------+  +-----------+                   |
-|  | Logbook |  | Receipts |  | Settings  |   3 routes        |
-|  +----+----+  +----+-----+  +-----+-----+                   |
-|       +------------+--------------+                         |
-|                    | invoke()                               |
-+--------------------+----------------------------------------+
-                     |
-              Tauri IPC (~0.1ms local)
-                     |
-+--------------------v----------------------------------------+
-|                  Rust Backend                               |
-|  +----------+ +--------------+ +-------------+              |
-|  |commands  | |calculations  | | suggestions |              |
-|  |(36 cmds) | |(pure funcs)  | |(route match)|              |
-|  +----+-----+ +--------------+ +-------------+              |
+|  +---------+ +----------+ +----------+ +----------+         |
+|  | Logbook | | Receipts | | Map      | | Settings |         |
+|  +----+----+ +----+-----+ +----+-----+ +----+-----+         |
+|       +-----------+------------+------------+               |
+|                   | apiCall()                               |
++-------------------+-----------------------------------------+
+                    |
+        HTTP: POST /api/rpc { command, args }
+                    |
++-------------------v-----------------------------------------+
+|  kniha-jazd-web  -  Axum server, static files, /health       |
++-------------------+-----------------------------------------+
+                    |
++-------------------v-----------------------------------------+
+|  kniha-jazd-core  -  all business logic                     |
+|  +------------+ +--------------+ +-------------+            |
+|  |  server/   | |calculations/ | | suggestions |            |
+|  |dispatcher  | |(pure funcs)  | |(route match)|            |
+|  +----+-------+ +--------------+ +-------------+            |
 |       |                                                     |
 |  +----v-----+ +----------+ +---------+                      |
 |  |  db.rs   | | export   | | gemini  |                      |
@@ -30,7 +38,7 @@ This document describes the technical architecture of Kniha Jazd (Vehicle Logboo
 |  +----+-----+ +----------+ +---------+                      |
 +-------+-----------------------------------------------------+
         |
-     SQLite
+     SQLite  (on the /data volume)
   (vehicles, trips, routes, receipts, settings)
 ```
 
@@ -39,12 +47,12 @@ This document describes the technical architecture of Kniha Jazd (Vehicle Logboo
 All business logic lives in the Rust backend. The frontend is display-only.
 
 ```rust
-// commands.rs - The "aggregator" pattern
-pub fn get_trip_grid_data(db: State<Database>, vehicle_id: String, year: i32)
+// commands_internal/statistics.rs - The "aggregator" pattern
+pub fn build_trip_grid_data(db: &Database, vehicle_id: &str, year: i32)
     -> Result<TripGridData, String>
 {
-    let vehicle = db.get_vehicle(&vehicle_id)?;
-    let trips = db.get_trips_for_vehicle_in_year(&vehicle_id, year)?;
+    let vehicle = db.get_vehicle(vehicle_id)?;
+    let trips = db.get_trips_for_vehicle_in_year(vehicle_id, year)?;
 
     // ALL calculations happen here, in Rust
     let (rates, estimated_rates) = calculate_period_rates(&trips, vehicle.tp_consumption);
@@ -64,18 +72,26 @@ pub fn get_trip_grid_data(db: State<Database>, vehicle_id: String, year: i32)
 
 Trip order is fixed by `start_datetime DESC` (with `created_at` ASC as tiebreaker) — see [ADR-022](./DECISIONS.md). There is no separate display order, and no date-warning calculation (removed in [Task 65](./_tasks/_done/65-datetime-is-order/)).
 
-**Why this pattern?** Tauri IPC is local (microseconds), so computing everything server-side has negligible latency while providing a single source of truth for legally-sensitive calculations.
+**Why this pattern?** The RPC round-trip is same-host (or one LAN hop), so computing everything server-side has negligible latency while providing a single source of truth for legally-sensitive calculations. It is also what makes the browser the only client the app needs.
 
 ## Module Responsibilities
 
+Two crates in the `src-tauri/` workspace: `kniha-jazd-core` (everything below) and
+`kniha-jazd-web` (a `main.rs` that reads env vars and starts the server). Paths are
+relative to `src-tauri/core/src/`.
+
 | Module | Responsibility | Pattern |
 |--------|----------------|---------|
-| `commands.rs` | IPC bridge, orchestration | 36 `#[tauri::command]` handlers |
-| `calculations.rs` | Pure business logic | Stateless functions, 28 tests |
+| `server/mod.rs` | Axum router, `/api/rpc`, `/health`, CORS, static SPA | One RPC endpoint, not 80 REST routes |
+| `server/dispatcher.rs` | Command name -> `*_internal` fn | 68 sync commands, via `spawn_blocking` |
+| `server/dispatcher_async.rs` | Async commands | 12 (OCR, HA, export, grid data) |
+| `commands_internal/` | Orchestration per domain | Plain fns taking `&Database` / `&AppState` |
+| `calculations/` | Pure business logic | Stateless functions |
 | `db.rs` | SQLite CRUD | `Mutex<Connection>` singleton |
 | `suggestions.rs` | Route matching algorithm | Filter + min_by for best match |
 | `export.rs` | HTML generation | Template-based, i18n labels |
 | `gemini.rs` | OCR integration | Gemini API for receipt parsing |
+| `paperless.rs` | Paperless-ngx client | `impl Invoice for PaperlessDoc` |
 | `models.rs` | Data structures | Serde + typed enums |
 
 ## Data Model
@@ -134,15 +150,20 @@ The `full_tank` flag is critical - partial fillups don't close a period.
 
 ## Frontend Architecture
 
-### Routes (3 pages, shared layout)
+### Routes (4 pages, shared layout)
 
 ```
 src/routes/
-  +layout.svelte      # Vehicle selector, year picker, nav
-  +page.svelte        # Logbook (trip CRUD)
+  +layout.svelte          # Vehicle selector, year picker, nav
+  +page.svelte            # Logbook (trip CRUD)
   doklady/+page.svelte    # Receipts
+  mapa/+page.svelte       # Route maps
   settings/+page.svelte   # Config, backups
 ```
+
+Built with `adapter-static` into `build/`, which the Rust server serves from
+`STATIC_DIR`. In local dev `STATIC_DIR` is left unset and vite serves the SPA
+instead, proxying `/api` to the backend on port 3456.
 
 ### State Management (Minimal Svelte Stores)
 
@@ -155,20 +176,31 @@ receiptRefreshTrigger // writable<number> - signaling counter
 toast, confirmStore   // UI state
 ```
 
-### IPC Pattern (Single Entry Point)
+### RPC Pattern (Single Entry Point)
 
 ```typescript
-// src/lib/api.ts
+// src/lib/api-adapter.ts - the only place that talks to the network
+export async function apiCall<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    const response = await fetch('/api/rpc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-KJ-Client': '1' },
+        body: JSON.stringify({ command, args: args ?? {} }),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+}
+
+// src/lib/api.ts - one typed wrapper per command
 export async function getTripGridData(vehicleId: string, year: number): Promise<TripGridData> {
-    return await invoke('get_trip_grid_data', { vehicleId, year });
+    return apiCall('get_trip_grid_data', { vehicleId, year });
 }
 ```
 
-All 36 backend commands are wrapped here. Snake_case (Rust) -> camelCase (TS) conversion.
+Every backend command is wrapped in `api.ts`. Snake_case (Rust) -> camelCase (TS) conversion.
 
 ## Business Logic
 
-### Core Formulas (`calculations.rs`)
+### Core Formulas (`calculations/mod.rs`)
 
 ```rust
 // Consumption rate: liters per 100km
@@ -208,30 +240,31 @@ pub fn find_matching_route(routes: &[Route], target_km: f64) -> Option<&Route> {
 
 ## Testing Strategy
 
-72 backend tests, zero frontend tests (frontend is display-only):
+Two layers, no frontend unit tests (the frontend is display-only):
 
 ```bash
-cd src-tauri && cargo test
+# Backend: every business rule, all in kniha-jazd-core's *_tests.rs companions
+npm run test:backend
+# = cargo test --manifest-path src-tauri/Cargo.toml --workspace
 
-# Distribution:
-# calculations.rs - 28 tests (consumption, margin, zostatok)
-# suggestions.rs  - 9 tests (route matching)
-# db.rs          - 10 tests (CRUD lifecycle)
-# commands.rs    - 10 tests (receipt matching)
-# export.rs      - 7 tests (HTML escaping, totals)
-# receipts.rs    - 3 tests (extraction)
-# gemini.rs      - 3 tests (JSON parsing)
-# settings.rs    - 3 tests (loading)
+# Integration: Chrome against the real HTTP server, verifying UI flows only
+npm run test:integration
 ```
+
+Integration tests run in two shapes from the same
+[wdio.server.conf.ts](./tests/integration/wdio.server.conf.ts): WebdriverIO either
+spawns `kniha-jazd-web` itself (default, port 3457) or drives an already-running
+container (`WDIO_EXTERNAL_SERVER=1`, port 3456 - what CI uses).
 
 ## Quick Reference: Where to Look
 
 | You want to... | Look at... |
 |----------------|------------|
-| Add a new calculation | `calculations.rs` -> expose via `commands.rs` |
-| Add a new Tauri command | `commands.rs` + register in `lib.rs` |
+| Add a new calculation | `calculations/mod.rs` -> expose via `commands_internal/` |
+| Add a new command | `commands_internal/` + register in `server/dispatcher.rs` |
 | Change the grid display | `TripGrid.svelte` + `TripRow.svelte` |
 | Modify the data model | `models.rs` + `db.rs` + migrations |
 | Add UI text | `src/lib/i18n/sk/index.ts` (Slovak primary) |
-| Understand fuel logic | `calculate_period_rates()` in `commands.rs` |
+| Understand fuel logic | `calculate_period_rates()` in `commands_internal/statistics.rs` |
+| Change deployment / env vars | `Dockerfile.web`, `docker-compose.web.yml`, `src-tauri/web/src/main.rs` |
 | See architectural decisions | `DECISIONS.md` |

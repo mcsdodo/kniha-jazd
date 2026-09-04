@@ -10,7 +10,7 @@ Run this before saying "task complete" or "done".
 ## Current Status (Pre-injected)
 
 ### Test Results
-!`cd src-tauri && cargo test 2>&1 | tail -30`
+!`cargo test --manifest-path src-tauri/Cargo.toml --workspace 2>&1 | tail -30`
 
 ### Git Status
 !`git status`

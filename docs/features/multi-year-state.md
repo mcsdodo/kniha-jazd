@@ -71,7 +71,7 @@ Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISION
 
 **Database Schema:** The `sort_order` column was dropped in migration [2026-05-21-100000_drop_sort_order](../../src-tauri/core/migrations/2026-05-21-100000_drop_sort_order/). The baseline migration still defines it for historical reasons; the new migration removes it from the live table.
 
-**No reorder API:** The `reorder_trip` Tauri command and `shift_trips_from_position` helper were removed (Task 65). The only way to change a trip's position is to change its datetime.
+**No reorder API:** The `reorder_trip` command and `shift_trips_from_position` helper were removed (Task 65). The only way to change a trip's position is to change its datetime.
 
 ### Frontend State
 
@@ -111,7 +111,7 @@ Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISION
 
 | File | Purpose |
 |------|---------|
-| [commands.rs](../../src-tauri/core/src/commands_internal/) | `get_trip_grid_data()`, carryover functions, CRUD commands |
+| [commands_internal/](../../src-tauri/core/src/commands_internal/) | `build_trip_grid_data()`, carryover functions, CRUD commands |
 | [db.rs](../../src-tauri/core/src/db.rs) | Year filtering queries (ordered by `start_datetime DESC`) |
 | [models.rs](../../src-tauri/core/src/models.rs) | `Vehicle`, `Trip`, `TripGridData`, `VehicleType` |
 | [vehicles.ts](../../src/lib/stores/vehicles.ts) | `activeVehicleStore`, `vehiclesStore` |

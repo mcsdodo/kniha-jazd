@@ -44,7 +44,7 @@ Before this feature: local receipts had this flow, but Paperless docs got a flat
 
 | Layer | Boundary | Where |
 |---|---|---|
-| Rust IPC entry | `match InvoiceRef { Receipt(id) => …, Paperless(id) => … }` | [commands_internal/invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) |
+| Rust RPC entry | `match InvoiceRef { Receipt(id) => …, Paperless(id) => … }` | [commands_internal/invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) |
 | TS adapter factory | `'paperlessDocumentId' in source ? PaperlessInvoice : ReceiptInvoice` | [src/lib/invoice.ts](../../src/lib/invoice.ts) |
 
 Outside these two spots, code consumes `&dyn Invoice` (Rust) or `Invoice` (TS) and never inspects the source.
@@ -53,18 +53,18 @@ Outside these two spots, code consumes `&dyn Invoice` (Rust) or `Invoice` (TS) a
 
 | Module | Purpose |
 |---|---|
-| [invoice.rs](../../src-tauri/core/src/invoice.rs) | `Invoice` trait, `InvoiceRef` tagged enum, `InvoiceData` IPC payload, `PaperlessInvoiceView` adapter, and the single `check_invoice_trip_compatibility` compat check |
+| [invoice.rs](../../src-tauri/core/src/invoice.rs) | `Invoice` trait, `InvoiceRef` tagged enum, `InvoiceData` RPC payload, `PaperlessInvoiceView` adapter, and the single `check_invoice_trip_compatibility` compat check |
 | [models.rs](../../src-tauri/core/src/models.rs) | `impl Invoice for Receipt` (delegates to existing fields) |
 | [paperless.rs](../../src-tauri/core/src/paperless.rs) | `impl Invoice for PaperlessDoc` with UK→US naming bridge (`litres` → `liters()`, `total_amount` → `total_price_eur()`) |
 | [commands_internal/invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `get_trips_for_invoice_assignment_internal`, `assign_invoice_to_trip_internal`, `unassign_invoice_internal` (the source-dispatch boundary) |
-| [desktop/src/commands/invoices.rs](../../src-tauri/desktop/src/commands/invoices.rs) | `#[tauri::command]` wrappers exposing the three IPC endpoints |
+| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | Registers the three commands on the RPC endpoint |
 
 ## Frontend (TS / Svelte)
 
 | File | Purpose |
 |---|---|
 | [src/lib/invoice.ts](../../src/lib/invoice.ts) | `Invoice` interface, `ReceiptInvoice` + `PaperlessInvoice` adapter classes, `adaptInvoice(source)` factory |
-| [src/lib/types.ts](../../src/lib/types.ts) | `InvoiceRef` tagged-union type, `InvoiceData` IPC payload type |
+| [src/lib/types.ts](../../src/lib/types.ts) | `InvoiceRef` tagged-union type, `InvoiceData` RPC payload type |
 | [src/lib/api.ts](../../src/lib/api.ts) | Three unified API fns: `getTripsForInvoiceAssignment`, `assignInvoiceToTrip`, `unassignInvoice` |
 | [src/lib/components/TripSelectorModal.svelte](../../src/lib/components/TripSelectorModal.svelte) | Modal — props is now `invoice: Invoice` (was `receipt: Receipt`) |
 | [src/routes/doklady/+page.svelte](../../src/routes/doklady/+page.svelte) | Both invoice cards (local + Paperless) call `adaptInvoice(source)` and feed the same modal |

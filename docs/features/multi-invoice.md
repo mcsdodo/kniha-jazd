@@ -141,4 +141,4 @@ Assign invoice (either source)
 - [ADR-019 in DECISIONS.md](../../DECISIONS.md) — superseded: the paperless link table shape changed here.
 - [unified-invoice-picker.md](./unified-invoice-picker.md) — the picker flow this feature extends.
 - [paperless-integration.md](./paperless-integration.md) — Paperless invoice source.
-- [_tasks/66-multi-invoice/](../../_tasks/66-multi-invoice/) — original planning docs.
+- [_tasks/66-multi-invoice/](../../_tasks/_done/66-multi-invoice/) — original planning docs.
