@@ -25,13 +25,7 @@ import {
 } from '../../utils/db';
 import type { Receipt } from '../../fixtures/types';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
-import { describeNotInDockerMode } from '../../utils/skip';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-// ESM workaround for __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { backendFixturePath } from '../../utils/paths';
 
 describe('Tier 2: Receipts Workflow', () => {
   beforeEach(async () => {
@@ -90,9 +84,10 @@ describe('Tier 2: Receipts Workflow', () => {
     });
   });
 
-  // Mismatch tests need backend access to host filesystem for the receipt files +
-  // mock Gemini JSON. Docker container can't see host paths. Skip in Docker mode.
-  describeNotInDockerMode('Mismatch Detection E2E', () => {
+  // Mismatch tests hand the backend a receipts folder and a mock Gemini dir.
+  // Those paths are resolved through backendFixturePath(), which maps
+  // tests/integration/data/ to the container's /testdata mount in Docker mode.
+  describe('Mismatch Detection E2E', () => {
     /**
      * This test verifies the full flow:
      * 1. Seed a vehicle and trip
@@ -145,7 +140,7 @@ describe('Tier 2: Receipts Workflow', () => {
       });
 
       // 3. Set receipts folder to test invoices directory
-      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      const invoicesPath = backendFixturePath('invoices');
       await setReceiptsFolderPath(invoicesPath);
 
       // 4. Sync receipts - this both scans for new files AND processes them
@@ -224,7 +219,7 @@ describe('Tier 2: Receipts Workflow', () => {
       });
 
       // 3. Set receipts folder
-      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      const invoicesPath = backendFixturePath('invoices');
       await setReceiptsFolderPath(invoicesPath);
 
       // 4. Sync receipts (scans and processes with mock Gemini)
@@ -293,7 +288,7 @@ describe('Tier 2: Receipts Workflow', () => {
       });
 
       // 3. Set receipts folder
-      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      const invoicesPath = backendFixturePath('invoices');
       await setReceiptsFolderPath(invoicesPath);
 
       // 4. Sync receipts (scans and processes with mock Gemini)
@@ -347,7 +342,7 @@ describe('Tier 2: Receipts Workflow', () => {
     });
   });
 
-  describeNotInDockerMode('Multi-Currency Receipts', () => {
+  describe('Multi-Currency Receipts', () => {
     /**
      * Tests for multi-currency receipt support:
      * - CZK receipt should have NeedsReview status (no EUR conversion)
@@ -381,7 +376,7 @@ describe('Tier 2: Receipts Workflow', () => {
       await setActiveVehicle(vehicle.id as string);
 
       // 2. Set receipts folder to test invoices directory
-      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      const invoicesPath = backendFixturePath('invoices');
       await setReceiptsFolderPath(invoicesPath);
 
       // 3. Sync receipts - this scans for files and processes them with mock Gemini
@@ -429,7 +424,7 @@ describe('Tier 2: Receipts Workflow', () => {
       await setActiveVehicle(vehicle.id as string);
 
       // 2. Set receipts folder and sync
-      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      const invoicesPath = backendFixturePath('invoices');
       await setReceiptsFolderPath(invoicesPath);
       await syncReceipts();
       await browser.pause(500);
@@ -486,7 +481,7 @@ describe('Tier 2: Receipts Workflow', () => {
       await setActiveVehicle(vehicle.id as string);
 
       // 2. Set receipts folder and sync
-      const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
+      const invoicesPath = backendFixturePath('invoices');
       await setReceiptsFolderPath(invoicesPath);
       await syncReceipts();
       await browser.pause(500);
