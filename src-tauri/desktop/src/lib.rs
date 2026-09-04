@@ -279,6 +279,7 @@ pub fn run() {
             commands::set_infer_trip_times,
             commands::get_db_location,
             commands::get_app_mode,
+            commands::get_app_version,
             commands::check_target_has_db,
             commands::move_database,
             commands::reset_database_location,

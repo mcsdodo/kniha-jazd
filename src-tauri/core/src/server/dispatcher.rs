@@ -476,6 +476,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let v = crate::commands_internal::settings_cmd::get_app_mode_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        // The workspace version in src-tauri/Cargo.toml, which `/release` bumps in
+        // lockstep with package.json — so this is the ghcr tag the container came from.
+        "get_app_version" => Ok(serde_json::to_value(env!("CARGO_PKG_VERSION")).unwrap()),
         "check_target_has_db" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -1125,5 +1128,15 @@ mod tests {
         let result = dispatch_sync("restore_backup", json!({ "filename": "x.db" }), &state);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("režime len na čítanie"));
+    }
+
+    /// With versioned ghcr tags as the deployment unit, "which image am I running"
+    /// is the question the settings page most needs to answer.
+    #[test]
+    fn get_app_version_reports_the_crate_version() {
+        let state = test_state();
+        let v = dispatch_sync("get_app_version", json!({}), &state).unwrap();
+        assert_eq!(v.as_str().unwrap(), env!("CARGO_PKG_VERSION"));
+        assert!(!v.as_str().unwrap().is_empty());
     }
 }

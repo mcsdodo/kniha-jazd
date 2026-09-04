@@ -153,6 +153,14 @@ pub fn get_app_mode(app_state: State<Arc<AppState>>) -> Result<AppModeInfo, Stri
     inner::get_app_mode_internal(&app_state)
 }
 
+/// The web dispatcher answers `get_app_version` from `CARGO_PKG_VERSION`; the
+/// desktop shell needs the same command name so the shared settings page can ask
+/// for the version without branching on the runtime. Dies with this crate.
+#[tauri::command]
+pub fn get_app_version() -> Result<String, String> {
+    Ok(env!("CARGO_PKG_VERSION").to_string())
+}
+
 #[tauri::command]
 pub fn check_target_has_db(target_path: String) -> Result<bool, String> {
     inner::check_target_has_db_internal(target_path)
