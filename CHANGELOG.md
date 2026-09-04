@@ -7,6 +7,8 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-09-04
+
 ### Pridané
 - **Kopírovanie záznamu** — pri každom zázname pribudla ikona kopírovania, ktorá vytvorí nový riadok s dnešným dátumom a rovnakou trasou, počtom kilometrov, účelom a časom odchodu aj príchodu. ODO sa dopočíta z predchádzajúceho stavu. Palivo, energia ani náklady sa nekopírujú — tankovanie je jednorazová udalosť, nie vlastnosť trasy. Nový riadok sa otvorí v režime úprav, takže sa dá pred uložením doladiť. Ak je zobrazený iný rok než aktuálny, záznam dostane 31.12. daného roka (pri budúcom roku 1.1.), aby zostal viditeľný v otvorenej knihe.
 - **Priebežný obraz `:main`** — vetva `main` sa po každom úspešnom teste automaticky publikuje ako `ghcr.io/mcsdodo/kniha-jazd-web:main`, takže je možné vyskúšať najnovšie zmeny ešte pred vydaním. Konkrétny commit sa dá pripnúť tagom `:main-<sha>`. Tag `:latest` naďalej znamená posledné vydanie.
