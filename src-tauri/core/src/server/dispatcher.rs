@@ -409,20 +409,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             crate::commands_internal::settings_cmd::set_theme_preference_internal(&state.app_dir, a.theme)?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "get_auto_check_updates" => {
-            let v = crate::commands_internal::settings_cmd::get_auto_check_updates_internal(&state.app_dir)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "set_auto_check_updates" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                enabled: bool,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::settings_cmd::set_auto_check_updates_internal(&state.app_dir, a.enabled)?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
         "get_date_prefill_mode" => {
             let v = crate::commands_internal::settings_cmd::get_date_prefill_mode_internal(&state.app_dir)?;
             Ok(serde_json::to_value(v).unwrap())
@@ -742,16 +728,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.filename,
             )?;
             Ok(serde_json::to_value(()).unwrap())
-        }
-        "get_backup_path" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                filename: String,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::get_backup_path_internal(&state.app_dir, a.filename)?;
-            Ok(serde_json::to_value(v).unwrap())
         }
         "restore_backup" => {
             #[derive(serde::Deserialize)]

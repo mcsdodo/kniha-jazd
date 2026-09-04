@@ -77,28 +77,6 @@ pub fn set_theme_preference_internal(app_dir: &Path, theme: String) -> Result<()
 }
 
 // ============================================================================
-// Auto-Update Settings
-// ============================================================================
-
-pub fn get_auto_check_updates_internal(app_dir: &Path) -> Result<bool, String> {
-    let settings = LocalSettings::load(app_dir);
-    // Default to true if not set
-    Ok(settings.auto_check_updates.unwrap_or(true))
-}
-
-pub fn set_auto_check_updates_internal(app_dir: &Path, enabled: bool) -> Result<(), String> {
-    let mut settings = LocalSettings::load(app_dir);
-    settings.auto_check_updates = Some(enabled);
-
-    // Save to file
-    let settings_path = app_dir.join("local.settings.json");
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-// ============================================================================
 // Date Prefill Mode
 // ============================================================================
 

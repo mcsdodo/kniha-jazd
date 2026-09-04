@@ -492,20 +492,6 @@ pub fn delete_backup_internal(
     Ok(())
 }
 
-pub fn get_backup_path_internal(app_dir: &Path, filename: String) -> Result<String, String> {
-    validate_backup_filename(&filename)?;
-    let db_paths = get_db_paths_for_dir(app_dir)?;
-    let backup_path = db_paths.backups_dir.join(&filename);
-
-    if !backup_path.exists() {
-        return Err(format!("Backup not found: {}", filename));
-    }
-
-    backup_path
-        .to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| "Invalid path encoding".to_string())
-}
 
 // ============================================================================
 // Tests
@@ -672,13 +658,6 @@ mod tests {
             assert!(
                 err.contains("Invalid backup filename"),
                 "delete_backup_internal({filename:?}) returned wrong error: {err}"
-            );
-
-            let err = get_backup_path_internal(dir.path(), filename.to_string())
-                .expect_err("get_backup_path must reject traversal filename");
-            assert!(
-                err.contains("Invalid backup filename"),
-                "get_backup_path_internal({filename:?}) returned wrong error: {err}"
             );
 
             let err = get_backup_info_internal(dir.path(), filename.to_string())

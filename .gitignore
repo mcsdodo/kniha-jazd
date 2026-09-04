@@ -52,6 +52,8 @@ analyze-routes.mjs
 cleanup-routes.mjs
 _tmp
 
-# Docker integration-test work dir (bind-mounted to /data in the container)
-data/
-data-*/
+# Docker integration-test work dir (bind-mounted to /data in the container).
+# Anchored to the repo root: an unanchored "data/" also swallows
+# tests/integration/data/, silently untracking new fixtures.
+/data/
+/data-*/
