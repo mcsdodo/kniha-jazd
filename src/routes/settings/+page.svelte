@@ -14,10 +14,8 @@
 	import type { ThemeMode } from '$lib/api';
 	import { updateStore } from '$lib/stores/update';
 	import { capabilities } from '$lib/stores/capabilities';
-	import { IS_TAURI } from '$lib/api-adapter';
-	import { getVersion } from '@tauri-apps/api/app';
 	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import { getAppVersion, getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
 	import type { PaperlessCustomFieldInfo, SecretField } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
@@ -691,10 +689,8 @@
 			await loadRetentionSettings();
 			await checkVehiclesWithTrips();
 
-			// Load app version (Tauri only — getVersion() from @tauri-apps/api throws in web/server mode)
-			if (IS_TAURI) {
-				appVersion = await getVersion();
-			}
+			// Load app version (works in desktop and web/server mode)
+			appVersion = await getAppVersion();
 
 			// Load auto-check setting
 			autoCheckUpdates = await getAutoCheckUpdates();

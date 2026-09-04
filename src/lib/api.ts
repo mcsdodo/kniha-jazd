@@ -257,8 +257,10 @@ export async function exportHtml(
 	vehicleId: string,
 	year: number,
 	labels: ExportLabels,
+	hiddenColumns: string[],
+	sortDirection: string
 ): Promise<string> {
-	return await apiCall('export_html', { vehicleId, year, labels });
+	return await apiCall('export_html', { vehicleId, year, labels, hiddenColumns, sortDirection });
 }
 
 // Export - opens HTML in default browser for printing (desktop only)
@@ -363,6 +365,11 @@ export async function getThemePreference(): Promise<ThemeMode> {
 
 export async function setThemePreference(theme: ThemeMode): Promise<void> {
 	return apiCall('set_theme_preference', { theme });
+}
+
+// App version (works in desktop and web/server mode)
+export async function getAppVersion(): Promise<string> {
+	return apiCall<string>('get_app_version');
 }
 
 // Auto-update settings

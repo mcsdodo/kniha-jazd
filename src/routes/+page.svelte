@@ -187,7 +187,13 @@
 					currentHiddenColumns
 				);
 			} else {
-				const html = await exportHtml($activeVehicleStore.id, $selectedYearStore, labels);
+				const html = await exportHtml(
+					$activeVehicleStore.id,
+					$selectedYearStore,
+					labels,
+					currentHiddenColumns,
+					exportSortDirection
+				);
 				const blob = new Blob([html], { type: 'text/html' });
 				const url = URL.createObjectURL(blob);
 				window.open(url, '_blank');
