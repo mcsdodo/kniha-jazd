@@ -131,10 +131,9 @@ async function waitForPinState(destination: string, saved: boolean): Promise<voi
 }
 
 /**
- * Skipped under the desktop/Tauri config: `GET /api/capabilities` reports
- * `route_maps: true` only in server mode, and the desktop build registers no
- * Tauri wrappers for the route-map commands at all — so there the pin does not
- * render and the commands do not exist.
+ * Route maps render from commands the server dispatches directly; `GET
+ * /api/capabilities` reports `route_maps: true`. This spec used to be skipped
+ * under the desktop build, which registered no wrappers for these commands.
  */
 describe('Tier 2: Route Map', () => {
   let vehicleId: string;
@@ -169,8 +168,8 @@ describe('Tier 2: Route Map', () => {
 
       await reloadTripGrid();
 
-      // Present because the server reports route_maps: true — this fails if the
-      // capability guard or the capabilities endpoint regresses.
+      // Present because the server dispatches the route-map commands — this
+      // fails if they regress.
       const pin = await findMapPin('Trnava');
       expect(pin).not.toBeNull();
       expect(await pin!.isDisplayed()).toBe(true);

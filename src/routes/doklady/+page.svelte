@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import * as api from '$lib/api';
 	import { unassignInvoice, assignInvoiceToTrip } from '$lib/api';
@@ -9,28 +9,16 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import ReceiptEditModal from '$lib/components/ReceiptEditModal.svelte';
-	import { openPath } from '@tauri-apps/plugin-opener';
-	import { openExternal } from '$lib/open-external';
-	import { appDataDir } from '@tauri-apps/api/path';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
-	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-	import { IS_TAURI } from '$lib/api-adapter';
 	import LL from '$lib/i18n/i18n-svelte';
-
-	interface ProcessingProgress {
-		current: number;
-		total: number;
-		file_name: string;
-	}
 
 	let receipts = $state<Receipt[]>([]);
 	let settings = $state<ReceiptSettings | null>(null);
 	let loading = $state(true);
 	let syncing = $state(false);
 	let processing = $state(false);
-	let processingProgress = $state<ProcessingProgress | null>(null);
 	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
 	let typeFilter = $state<'all' | 'fuel' | 'other'>('all');
 	let receiptToDelete = $state<Receipt | null>(null);
@@ -40,7 +28,6 @@
 	let reprocessingIds = $state<Set<string>>(new Set());
 	let invoiceToAssign = $state<Invoice | null>(null);
 	let verification = $state<VerificationResult | null>(null);
-	let configFolderPath = $state<string>('');
 	let folderStructureWarning = $state<string | null>(null);
 
 	// Paperless mode state
@@ -49,24 +36,8 @@
 	let paperlessLoading = $state(false);
 	let paperlessError = $state<string | null>(null);
 
-	let unlistenProgress: UnlistenFn | null = null;
-
 	onMount(async () => {
-		// These Tauri-specific APIs throw in web/server mode — skip them there.
-		if (IS_TAURI) {
-			unlistenProgress = await listen<ProcessingProgress>('receipt-processing-progress', (event) => {
-				processingProgress = event.payload;
-			});
-			configFolderPath = await appDataDir();
-		}
-
 		await loadSettings();
-	});
-
-	onDestroy(() => {
-		if (unlistenProgress) {
-			unlistenProgress();
-		}
 	});
 
 	// Load and reload receipts whenever year or vehicle changes (including initial load).
@@ -198,7 +169,6 @@
 		}
 
 		processing = true;
-		processingProgress = null;
 		try {
 			const result = await api.processPendingReceipts();
 			await refreshReceiptData();
@@ -217,7 +187,6 @@
 			toast.error($LL.toast.errorProcessReceipts({ error: String(error) }));
 		} finally {
 			processing = false;
-			processingProgress = null;
 		}
 	}
 
@@ -355,22 +324,14 @@
 		return null;
 	}
 
-	async function handleOpenFile(filePath: string) {
-		try {
-			await openPath(filePath);
-		} catch (error) {
-			console.error('Failed to open file:', error);
-			toast.error($LL.toast.errorOpenFile());
-		}
+	function handleOpenFile(receiptId: string) {
+		// The receipt file lives on the server's disk, not the browsing device's:
+		// open it through the server's own receipt endpoint.
+		window.open(`/api/receipts/${receiptId}/image`, '_blank', 'noopener');
 	}
 
-	async function handleOpenPaperless(url: string) {
-		try {
-			await openExternal(url);
-		} catch (error) {
-			console.error('Failed to open Paperless document:', error);
-			toast.error($LL.toast.errorOpenFile());
-		}
+	function handleOpenPaperless(url: string) {
+		window.open(url, '_blank', 'noopener');
 	}
 
 	function handleAssignClick(receipt: Receipt) {
@@ -695,9 +656,7 @@
 				onclick={handleProcessPending}
 				disabled={processing || syncing || !settings?.hasGeminiApiKey || pendingCount === 0}
 			>
-				{#if processing && processingProgress}
-					{$LL.receipts.recognizing({ current: processingProgress.current, total: processingProgress.total })}
-				{:else if processing}
+				{#if processing}
 					{$LL.receipts.processing()}
 				{:else}
 					{$LL.receipts.recognizeData()}{#if pendingCount > 0} ({pendingCount}){/if}
@@ -889,7 +848,7 @@
 								{/if}
 							</div>
 							<div class="receipt-actions">
-								<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
+								<button class="button-small" onclick={() => handleOpenFile(receipt.id)}>
 									{$LL.receipts.open()}
 								</button>
 								<button class="button-small" onclick={() => handleEditClick(receipt)}>
@@ -1046,7 +1005,7 @@
 								{/if}
 							</div>
 							<div class="receipt-actions">
-								<button class="button-small" onclick={() => handleOpenFile(receipt.filePath)}>
+								<button class="button-small" onclick={() => handleOpenFile(receipt.id)}>
 									{$LL.receipts.open()}
 								</button>
 								<button class="button-small" onclick={() => handleEditClick(receipt)}>

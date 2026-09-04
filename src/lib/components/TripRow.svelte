@@ -4,7 +4,6 @@
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
 	import { toast } from '$lib/stores/toast';
-	import { capabilities } from '$lib/stores/capabilities';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let trip: Trip | null = null;
@@ -64,7 +63,7 @@
 	// Set on a NEW row that was opened via another row's copy button. Seeds
 	// formData below; null for an ordinary new row.
 	export let copyFrom: CopiedTripDefaults | null = null;
-	// Route map (Task 70) - web/server mode only, gated on capabilities.features.routeMaps
+	// Route map (Task 70)
 	export let hasRouteMap: boolean = false;
 	export let onOpenRouteMap: () => void = () => {};
 	export let onEditStart: () => void = () => {};
@@ -820,19 +819,17 @@
 						<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
 					</svg>
 				</button>
-				{#if $capabilities.features.routeMaps}
-					<button
-						class="icon-btn map"
-						class:has-map={hasRouteMap}
-						on:click|stopPropagation={onOpenRouteMap}
-						title={hasRouteMap ? $LL.routeMap.viewMap() : $LL.routeMap.addMap()}
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={hasRouteMap ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2">
-							<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-							<circle cx="12" cy="10" r="3"></circle>
-						</svg>
-					</button>
-				{/if}
+				<button
+					class="icon-btn map"
+					class:has-map={hasRouteMap}
+					on:click|stopPropagation={onOpenRouteMap}
+					title={hasRouteMap ? $LL.routeMap.viewMap() : $LL.routeMap.addMap()}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={hasRouteMap ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2">
+						<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+						<circle cx="12" cy="10" r="3"></circle>
+					</svg>
+				</button>
 				<button
 					class="icon-btn delete"
 					on:click|stopPropagation={handleDeleteClick}

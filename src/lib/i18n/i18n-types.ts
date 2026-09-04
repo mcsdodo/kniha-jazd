@@ -95,10 +95,6 @@ type RootTranslation = {
 		 * R​o​k​:
 		 */
 		yearLabel: string
-		/**
-		 * O​p​t​i​m​á​l​n​a​ ​v​e​ľ​k​o​s​ť​ ​o​k​n​a
-		 */
-		resetWindowSize: string
 	}
 	home: {
 		/**
@@ -965,49 +961,9 @@ type RootTranslation = {
 		 */
 		dbLocationConfirmMove: string
 		/**
-		 * R​e​ž​i​m​ ​s​e​r​v​e​r​a
-		 */
-		serverMode: string
-		/**
-		 * S​p​r​í​s​t​u​p​n​i​t​e​ ​a​p​l​i​k​á​c​i​u​ ​z​ ​t​e​l​e​f​ó​n​u​ ​a​l​e​b​o​ ​t​a​b​l​e​t​u​ ​c​e​z​ ​p​r​e​h​l​i​a​d​a​č​.
-		 */
-		serverModeDescription: string
-		/**
-		 * S​e​r​v​e​r​ ​a​k​t​í​v​n​y
-		 */
-		serverEnabled: string
-		/**
-		 * P​o​r​t
-		 */
-		serverPort: string
-		/**
-		 * A​d​r​e​s​a​ ​p​r​e​ ​p​r​e​h​l​i​a​d​a​č
-		 */
-		serverUrl: string
-		/**
-		 * S​e​r​v​e​r​ ​j​e​ ​v​y​p​n​u​t​ý
-		 */
-		serverStopped: string
-		/**
-		 * S​p​ú​š​ť​a​m​.​.​.
-		 */
-		serverStarting: string
-		/**
-		 * S​p​u​s​t​i​ť
-		 */
-		serverStart: string
-		/**
-		 * Z​a​s​t​a​v​i​ť
-		 */
-		serverStop: string
-		/**
 		 * D​a​t​a​b​á​z​a​ ​b​o​l​a​ ​a​k​t​u​a​l​i​z​o​v​a​n​á​ ​n​o​v​š​o​u​ ​v​e​r​z​i​o​u​ ​a​p​l​i​k​á​c​i​e​.​ ​R​e​ž​i​m​ ​l​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
 		 */
 		readOnlyBanner: string
-		/**
-		 * S​k​o​n​t​r​o​l​o​v​a​ť​ ​a​k​t​u​a​l​i​z​á​c​i​e
-		 */
-		readOnlyCheckUpdates: string
 		/**
 		 * A​u​t​o​m​a​t​i​c​k​y​ ​v​y​p​l​n​i​ť​ ​č​a​s​y​ ​p​o​d​ľ​a​ ​p​o​s​l​e​d​n​e​j​ ​t​r​a​s​y
 		 */
@@ -2615,10 +2571,6 @@ export type TranslationFunctions = {
 		 * Rok:
 		 */
 		yearLabel: () => LocalizedString
-		/**
-		 * Optimálna veľkosť okna
-		 */
-		resetWindowSize: () => LocalizedString
 	}
 	home: {
 		/**
@@ -3476,49 +3428,9 @@ export type TranslationFunctions = {
 		 */
 		dbLocationConfirmMove: () => LocalizedString
 		/**
-		 * Režim servera
-		 */
-		serverMode: () => LocalizedString
-		/**
-		 * Sprístupnite aplikáciu z telefónu alebo tabletu cez prehliadač.
-		 */
-		serverModeDescription: () => LocalizedString
-		/**
-		 * Server aktívny
-		 */
-		serverEnabled: () => LocalizedString
-		/**
-		 * Port
-		 */
-		serverPort: () => LocalizedString
-		/**
-		 * Adresa pre prehliadač
-		 */
-		serverUrl: () => LocalizedString
-		/**
-		 * Server je vypnutý
-		 */
-		serverStopped: () => LocalizedString
-		/**
-		 * Spúšťam...
-		 */
-		serverStarting: () => LocalizedString
-		/**
-		 * Spustiť
-		 */
-		serverStart: () => LocalizedString
-		/**
-		 * Zastaviť
-		 */
-		serverStop: () => LocalizedString
-		/**
 		 * Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.
 		 */
 		readOnlyBanner: () => LocalizedString
-		/**
-		 * Skontrolovať aktualizácie
-		 */
-		readOnlyCheckUpdates: () => LocalizedString
 		/**
 		 * Automaticky vyplniť časy podľa poslednej trasy
 		 */

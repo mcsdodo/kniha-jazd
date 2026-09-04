@@ -3,7 +3,6 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import MoveDatabaseModal from '$lib/components/MoveDatabaseModal.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention } from '$lib/types';
@@ -12,15 +11,9 @@
 	import type { Locales } from '$lib/i18n/i18n-types';
 	import { themeStore } from '$lib/stores/theme';
 	import type { ThemeMode } from '$lib/api';
-	import { updateStore } from '$lib/stores/update';
-	import { capabilities } from '$lib/stores/capabilities';
-	import { open as openDialog } from '@tauri-apps/plugin-dialog';
-	import { getAppVersion, getAutoCheckUpdates, setAutoCheckUpdates, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getDbLocation, moveDatabase, resetDatabaseLocation, checkTargetHasDb, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getServerStatus, startServer, stopServer, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret, type DbLocationInfo, type MoveDbResult, type ServerStatus } from '$lib/api';
+	import { getAppVersion, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
 	import type { PaperlessCustomFieldInfo, SecretField } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
-	import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
-	import { openExternal } from '$lib/open-external';
-	import { appDataDir } from '@tauri-apps/api/path';
 
 	let showVehicleModal = false;
 	let editingVehicle: Vehicle | null = null;
@@ -48,9 +41,6 @@
 	// App version
 	let appVersion = '';
 
-	// Auto-check updates setting
-	let autoCheckUpdates = true;
-
 	// Time inference toggle (default OFF until loaded)
 	let inferTripTimes = false;
 
@@ -75,19 +65,11 @@
 		return r[field] !== undefined;
 	}
 
-	/** Eye click: hide if shown, else reveal (directly on desktop, via PIN on the network). */
+	/** Eye click: hide if shown, else ask for the PIN and reveal. */
 	async function toggleReveal(field: SecretField) {
 		if (revealed[field] !== undefined) {
 			delete revealed[field];
 			revealed = revealed;
-			return;
-		}
-		if ($capabilities.mode === 'desktop') {
-			try {
-				revealed = { ...revealed, [field]: await revealSecret(field) };
-			} catch (error) {
-				toast.error(String(error));
-			}
 			return;
 		}
 		pinInput = '';
@@ -200,12 +182,6 @@
 
 	// Real ODO values from HA (keyed by vehicle ID)
 	let vehicleOdoValues: Map<string, number> = new Map();
-
-	// Server mode state
-	let serverStatus: ServerStatus = { running: false, port: null, url: null };
-	let serverPort = 3456;
-	let serverError = '';
-	let serverLoading = false;
 
 	// Debounce utility for auto-save
 	function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
@@ -496,138 +472,15 @@
 		}
 	}
 
-	// Server mode toggle
-	async function toggleServer() {
-		serverError = '';
-		serverLoading = true;
-		try {
-			if (serverStatus.running) {
-				await stopServer();
-				serverStatus = { running: false, port: null, url: null };
-			} else {
-				serverStatus = await startServer(serverPort);
-			}
-		} catch (e) {
-			serverError = e instanceof Error ? e.message : String(e);
-		}
-		serverLoading = false;
-	}
-
-	// Database location state
-	let dbLocation: DbLocationInfo | null = null;
-
 	async function handleThemeChange(theme: ThemeMode) {
 		selectedTheme = theme;
 		await themeStore.change(theme);
-	}
-
-	async function handleAutoCheckChange(event: Event) {
-		const checkbox = event.target as HTMLInputElement;
-		autoCheckUpdates = checkbox.checked;
-		await setAutoCheckUpdates(autoCheckUpdates);
 	}
 
 	async function handleInferTripTimesChange(event: Event) {
 		const checkbox = event.target as HTMLInputElement;
 		inferTripTimes = checkbox.checked;
 		await setInferTripTimes(inferTripTimes);
-	}
-
-	async function handleUpdateButtonClick() {
-		if ($updateStore.available) {
-			// Show the update modal (un-dismiss if it was dismissed)
-			updateStore.showModal();
-		} else {
-			await updateStore.checkManual();
-		}
-	}
-
-	// Receipt scanning settings handlers
-	async function handleBrowseFolder() {
-		const selected = await openDialog({
-			directory: true,
-			multiple: false,
-			defaultPath: receiptsFolderPath || undefined
-		});
-		if (selected && typeof selected === 'string') {
-			receiptsFolderPath = selected;
-			// Auto-save immediately when folder is selected (deliberate action)
-			await saveReceiptSettingsNow();
-		}
-	}
-
-	// Database location state
-	let movingDb = false;
-	let showMoveConfirm = false;
-	let pendingMovePath = '';
-
-	// Database location handlers
-	async function handleChangeDbLocation() {
-		// Get directory from current DB path (remove filename)
-		const currentDbDir = dbLocation?.dbPath
-			? dbLocation.dbPath.substring(0, dbLocation.dbPath.lastIndexOf('\\'))
-			: undefined;
-
-		const selected = await openDialog({
-			directory: true,
-			multiple: false,
-			title: $LL.settings.dbLocationSelectFolder(),
-			defaultPath: currentDbDir
-		});
-		if (selected && typeof selected === 'string') {
-			// Check if target already has a database
-			const hasDb = await checkTargetHasDb(selected);
-			if (hasDb) {
-				toast.error($LL.settings.dbLocationTargetHasDb());
-				return;
-			}
-			pendingMovePath = selected;
-			showMoveConfirm = true;
-		}
-	}
-
-	async function handleConfirmMove() {
-		if (!pendingMovePath) return;
-		movingDb = true;
-		showMoveConfirm = false;
-		try {
-			const result = await moveDatabase(pendingMovePath);
-			if (result.success) {
-				dbLocation = await getDbLocation();
-				toast.success($LL.settings.dbLocationMoved());
-				// Reload app to use new database location
-				setTimeout(() => window.location.reload(), 1500);
-			}
-		} catch (error) {
-			console.error('Failed to move database:', error);
-			toast.error($LL.toast.errorMoveDatabase({ error: String(error) }));
-		} finally {
-			movingDb = false;
-			pendingMovePath = '';
-		}
-	}
-
-	function handleCancelMove() {
-		showMoveConfirm = false;
-		pendingMovePath = '';
-	}
-
-	async function handleResetDbLocation() {
-		movingDb = true;
-		try {
-			const result = await resetDatabaseLocation();
-			if (result.success) {
-				dbLocation = await getDbLocation();
-				toast.success($LL.settings.dbLocationReset());
-				// Reload app to use default location
-				setTimeout(() => window.location.reload(), 1500);
-			}
-		} catch (error) {
-			console.error('Failed to reset database location:', error);
-			toast.error($LL.toast.errorResetDatabase({ error: String(error) }));
-		} finally {
-			movingDb = false;
-		}
 	}
 
 	// Backup state
@@ -692,9 +545,6 @@
 			// Load app version (works in desktop and web/server mode)
 			appVersion = await getAppVersion();
 
-			// Load auto-check setting
-			autoCheckUpdates = await getAutoCheckUpdates();
-
 			// Load time-inference toggle
 			inferTripTimes = await getInferTripTimes();
 
@@ -709,9 +559,6 @@
 				initialGeminiApiKey = '';
 				initialReceiptsFolderPath = receiptSettings.receiptsFolderPath || '';
 			}
-
-			// Load database location info
-			dbLocation = await getDbLocation();
 
 			// Load Home Assistant settings
 			const haSettings = await getHaSettings();
@@ -751,13 +598,6 @@
 				console.error('Failed to load Paperless settings:', error);
 			}
 
-			// Load server status (desktop only)
-			if ($capabilities.mode === 'desktop') {
-				try {
-					serverStatus = await getServerStatus();
-					if (serverStatus.port) serverPort = serverStatus.port;
-				} catch { /* ignore */ }
-			}
 		})();
 
 		return () => unsubscribeLocale();
@@ -973,43 +813,6 @@
 		deleteConfirmation = null;
 	}
 
-	// Get OS-specific "reveal" text based on platform
-	function getRevealText(): string {
-		const platform = navigator.platform.toLowerCase();
-		if (platform.includes('mac')) {
-			return $LL.settings.revealMac();
-		} else if (platform.includes('linux')) {
-			return $LL.settings.revealLinux();
-		}
-		return $LL.settings.revealWindows();
-	}
-
-	async function handleOpenSettingsFolder() {
-		try {
-			const settingsDir = await appDataDir();
-			await openPath(settingsDir);
-		} catch (error) {
-			console.error('Failed to open settings folder:', error);
-		}
-	}
-
-	async function handleOpenChangelog() {
-		try {
-			await openExternal('https://github.com/mcsdodo/kniha-jazd/blob/main/CHANGELOG.md');
-		} catch (error) {
-			console.error('Failed to open changelog:', error);
-		}
-	}
-
-	async function handleRevealBackup(backup: BackupInfo) {
-		try {
-			await api.revealBackup(backup.filename);
-		} catch (error) {
-			console.error('Failed to reveal backup:', error);
-			toast.error(String(error));
-		}
-	}
-
 	// Retention settings functions
 	async function loadRetentionSettings() {
 		try {
@@ -1085,11 +888,6 @@
 <div class="settings-page">
 	<div class="header">
 		<h1>{$LL.settings.title()}</h1>
-		{#if $capabilities.features.openExternal}
-		<button class="button-small" on:click={handleOpenSettingsFolder}>
-			{getRevealText()}
-		</button>
-		{/if}
 	</div>
 
 	<div class="sections">
@@ -1195,28 +993,18 @@
 
 				<div class="form-group">
 					<label for="receipts-folder">{$LL.settings.receiptsFolder()}</label>
-					{#if $capabilities.features.fileDialogs}
-						<div class="db-path-display">
-							<span id="receipts-folder" class="path-text">{receiptsFolderPath || $LL.settings.receiptsFolderNotSet()}</span>
-							<button type="button" class="link-btn browse-folder-btn" on:click={handleBrowseFolder}>
-								{$LL.settings.receiptsFolderChange()}
-							</button>
-						</div>
-						<small class="hint">{$LL.settings.receiptsFolderHint()}</small>
-					{:else}
-						<!-- Server mode: no native directory dialog, so the path is typed.
-						     It resolves on the server, not on the browsing device. -->
-						<input
-							type="text"
-							id="receipts-folder"
-							data-test="receipts-folder-input"
-							bind:value={receiptsFolderPath}
-							placeholder={$LL.settings.receiptsFolderPlaceholder()}
-							on:input={debouncedSaveReceiptSettings}
-							on:blur={saveReceiptSettingsNow}
-						/>
-						<small class="hint">{$LL.settings.receiptsFolderServerHint()}</small>
-					{/if}
+					<!-- The path is typed: it resolves on the server, not on the
+					     browsing device. -->
+					<input
+						type="text"
+						id="receipts-folder"
+						data-test="receipts-folder-input"
+						bind:value={receiptsFolderPath}
+						placeholder={$LL.settings.receiptsFolderPlaceholder()}
+						on:input={debouncedSaveReceiptSettings}
+						on:blur={saveReceiptSettingsNow}
+					/>
+					<small class="hint">{$LL.settings.receiptsFolderServerHint()}</small>
 				</div>
 			</div>
 		</section>
@@ -1523,140 +1311,28 @@
 			</div>
 		</section>
 
-		<!-- Server Mode Section (Tauri desktop only) -->
-		{#if $capabilities.mode === 'desktop'}
-		<section class="settings-section" id="server-mode">
-			<h2>{$LL.settings.serverMode()}</h2>
+		<!-- Version Section -->
+		<section class="settings-section" id="app-version">
+			<h2>{$LL.update.currentVersion()}</h2>
 			<div class="section-content">
-				<p class="hint server-description">{$LL.settings.serverModeDescription()}</p>
-
-				<div class="form-group">
-					<label for="server-port">{$LL.settings.serverPort()}</label>
-					<input
-						id="server-port"
-						type="number"
-						bind:value={serverPort}
-						min="1024"
-						max="65535"
-						disabled={serverStatus.running}
-						class="port-input"
-					/>
+				<div class="db-path-display">
+					<span class="version-display">
+						<span class="version-number" data-test="app-version">{appVersion || '...'}</span>
+					</span>
+					<span class="version-actions">
+						<a
+							class="link-btn"
+							href="https://github.com/mcsdodo/kniha-jazd/blob/main/CHANGELOG.md"
+							target="_blank"
+							rel="noopener noreferrer"
+							title={$LL.update.showChangelog()}
+						>
+							{$LL.update.showChangelog()}
+						</a>
+					</span>
 				</div>
-
-				<div class="server-controls">
-					<button
-						on:click={toggleServer}
-						disabled={serverLoading}
-						class="button-small"
-						class:danger={serverStatus.running}
-					>
-						{#if serverLoading}
-							{$LL.settings.serverStarting()}
-						{:else if serverStatus.running}
-							{$LL.settings.serverStop()}
-						{:else}
-							{$LL.settings.serverStart()}
-						{/if}
-					</button>
-				</div>
-
-				{#if serverStatus.running && serverStatus.url}
-					<div class="form-group">
-						<label>{$LL.settings.serverUrl()}</label>
-						<div class="db-path-display">
-							<code class="path-text server-url">{serverStatus.url}</code>
-						</div>
-					</div>
-				{/if}
-
-				{#if serverError}
-					<div class="error-text">{serverError}</div>
-				{/if}
 			</div>
 		</section>
-		{/if}
-
-		<!-- Database Location Section (Tauri desktop only) -->
-		{#if $capabilities.features.moveDatabase}
-		<section class="settings-section">
-			<h2>{$LL.settings.dbLocationSection()}</h2>
-			<div class="section-content">
-				<div class="form-group">
-					<label>{$LL.settings.dbLocationCurrent()}</label>
-					<div class="db-path-display" id="db-location">
-						<span id="db-path" class="path-text">{dbLocation?.dbPath || '...'}</span>
-						<button type="button" class="link-btn change-db-location-btn" on:click={handleChangeDbLocation} disabled={movingDb}>
-							{movingDb ? $LL.common.loading() : $LL.settings.dbLocationDefault()}
-						</button>
-					</div>
-				</div>
-
-				{#if dbLocation?.isCustomPath}
-					<div class="button-row">
-						<button class="button-small button-secondary" on:click={handleResetDbLocation} disabled={movingDb}>
-							{$LL.settings.dbLocationResetToDefault()}
-						</button>
-					</div>
-				{/if}
-
-				<small class="hint">{$LL.settings.dbLocationHint()}</small>
-			</div>
-		</section>
-		{/if}
-
-		<!-- Updates Section (Tauri desktop only) -->
-		{#if $capabilities.features.updater}
-		<section class="settings-section">
-			<h2>{$LL.update.sectionTitle()}</h2>
-			<div class="section-content">
-				<div class="form-group">
-					<label>{$LL.update.currentVersion()}</label>
-					<div class="db-path-display" title={$updateStore.checking ? $LL.update.checking() : $updateStore.available ? $LL.update.availableVersion({ version: $updateStore.version || '' }) : $updateStore.error ? $LL.update.errorChecking() : $LL.update.upToDate()}>
-						<span class="version-display">
-							{#if $updateStore.checking}
-								<span class="version-status checking" title={$LL.update.checking()} aria-label={$LL.update.checking()}>⟳</span>
-								<span class="version-number" title={$LL.update.checking()}>{appVersion}</span>
-							{:else if $updateStore.available}
-								<button type="button" class="version-update-trigger" on:click={handleUpdateButtonClick} title={$LL.update.updateNow()}>
-									<span class="version-number">{appVersion || '...'}</span>
-									<span class="version-arrow">→</span>
-									<span class="version-new">{$updateStore.version}</span>
-								</button>
-							{:else if $updateStore.error}
-								<span class="version-status error" title={$LL.update.errorChecking()} aria-label={$LL.update.errorChecking()}>!</span>
-								<span class="version-number" title={$LL.update.errorChecking()}>{appVersion}</span>
-							{:else}
-								<span class="version-status success" title={$LL.update.upToDate()} aria-label={$LL.update.upToDate()}>✓</span>
-								<span class="version-number" title={$LL.update.upToDate()}>{appVersion}</span>
-							{/if}
-						</span>
-						<span class="version-actions">
-							<button type="button" class="link-btn" on:click={handleOpenChangelog} title={$LL.update.showChangelog()}>
-								{$LL.update.showChangelog()}
-							</button>
-						</span>
-					</div>
-				</div>
-				<div class="update-options">
-					<label class="checkbox-label">
-						<input
-							type="checkbox"
-							checked={autoCheckUpdates}
-							on:change={handleAutoCheckChange}
-						/>
-						{$LL.update.autoCheckOnStart()}
-					</label>
-				</div>
-				<button
-					class="button"
-					on:click={handleUpdateButtonClick}
-					disabled={$updateStore.checking}
-				>
-					{$updateStore.checking ? $LL.update.checking() : $updateStore.available ? $LL.update.buttonUpdate() : $LL.update.checkForUpdates()}
-				</button>
-			</div>
-		</section>
-		{/if}
 
 		<!-- Vehicles Section -->
 		<section class="settings-section">
@@ -1843,16 +1519,9 @@
 									<span class="backup-size">{formatFileSize(backup.sizeBytes)}</span>
 								</div>
 								<div class="backup-actions">
-									{#if $capabilities.features.openExternal}
-									<button class="button-small" on:click={() => handleRevealBackup(backup)}>
-										{getRevealText()}
-									</button>
-									{/if}
-									{#if $capabilities.features.restoreBackup}
 									<button class="button-small" on:click={() => handleRestoreClick(backup)}>
 										{$LL.settings.restore()}
 									</button>
-									{/if}
 									<button class="button-small danger" on:click={() => handleDeleteClick(backup)}>
 										{$LL.common.delete()}
 									</button>
@@ -1899,15 +1568,6 @@
 			</form>
 		</div>
 	</div>
-{/if}
-
-{#if showMoveConfirm}
-	<MoveDatabaseModal
-		targetPath={pendingMovePath}
-		moving={movingDb}
-		onConfirm={handleConfirmMove}
-		onCancel={handleCancelMove}
-	/>
 {/if}
 
 {#if showVehicleModal}
@@ -2107,14 +1767,6 @@
 		border: 1px solid var(--border-default);
 	}
 
-	.db-path-display .path-text {
-		flex: 1;
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
-		color: var(--text-primary);
-		word-break: break-all;
-	}
-
 	.link-btn {
 		background: none;
 		border: none;
@@ -2134,11 +1786,6 @@
 	.link-btn:disabled {
 		color: var(--text-muted);
 		cursor: not-allowed;
-	}
-
-	.button-row {
-		display: flex;
-		gap: 0.5rem;
 	}
 
 	.vehicle-actions {
@@ -2441,97 +2088,10 @@
 		color: var(--text-primary);
 	}
 
-	.version-status {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.25rem;
-		height: 1.25rem;
-		border-radius: 50%;
-		font-size: 0.75rem;
-		font-weight: 600;
-	}
-
-	.version-status.success {
-		background: var(--accent-success-bg, rgba(34, 197, 94, 0.15));
-		color: var(--accent-success, #22c55e);
-	}
-
-	.version-status.available {
-		background: var(--accent-primary-bg, rgba(59, 130, 246, 0.15));
-		color: var(--accent-primary);
-	}
-
-	.version-status.error {
-		background: var(--accent-danger-bg);
-		color: var(--accent-danger);
-	}
-
-	.version-status.checking {
-		background: var(--bg-surface-alt);
-		color: var(--text-secondary);
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
-	}
-
-	.version-arrow {
-		color: var(--text-secondary);
-		font-size: 0.875rem;
-	}
-
-	.version-new {
-		font-family: monospace;
-		font-size: 0.875rem;
-		color: var(--accent-primary);
-		font-weight: 600;
-	}
-
-	.version-update-trigger {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		background: none;
-		border: none;
-		padding: 0.25rem 0.5rem;
-		margin: -0.25rem -0.5rem;
-		border-radius: 4px;
-		cursor: pointer;
-		transition: background-color 0.15s ease;
-	}
-
-	.version-update-trigger:hover {
-		background-color: var(--accent-primary-alpha, rgba(59, 130, 246, 0.1));
-	}
-
-	.version-update-trigger .version-number,
-	.version-update-trigger .version-arrow,
-	.version-update-trigger .version-new {
-		font-family: monospace;
-		font-size: 0.875rem;
-	}
-
-	.version-update-trigger .version-arrow {
-		color: var(--accent-primary);
-		opacity: 0.7;
-	}
-
-	.version-update-trigger .version-new {
-		color: var(--accent-primary);
-		font-weight: 600;
-	}
-
 	.version-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-	}
-
-	.update-options {
-		margin: 0.75rem 0;
 	}
 
 	.checkbox-label {
@@ -2669,25 +2229,5 @@
 
 	.ha-status .status-icon {
 		font-size: 1rem;
-	}
-
-	/* Server mode */
-	.server-description {
-		font-style: normal;
-		margin: 0;
-	}
-
-	.port-input {
-		max-width: 120px;
-	}
-
-	.server-controls {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.server-url {
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
 	}
 </style>

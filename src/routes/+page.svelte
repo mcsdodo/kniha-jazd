@@ -3,8 +3,7 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats, openExportPreview, exportHtml, testHaConnection, getHiddenColumns } from '$lib/api';
-	import { capabilities } from '$lib/stores/capabilities';
+	import { getTripsForYear, calculateTripStats, exportHtml, testHaConnection, getHiddenColumns } from '$lib/api';
 	import type { Trip, TripStats, ExportLabels } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -177,27 +176,16 @@
 				record_reference: $LL.export.recordReference()
 			};
 
-			if ($capabilities.features.openExternal) {
-				await openExportPreview(
-					$activeVehicleStore.id,
-					$selectedYearStore,
-					$activeVehicleStore.licensePlate,
-					exportSortDirection,
-					labels,
-					currentHiddenColumns
-				);
-			} else {
-				const html = await exportHtml(
-					$activeVehicleStore.id,
-					$selectedYearStore,
-					labels,
-					currentHiddenColumns,
-					exportSortDirection
-				);
-				const blob = new Blob([html], { type: 'text/html' });
-				const url = URL.createObjectURL(blob);
-				window.open(url, '_blank');
-			}
+			const html = await exportHtml(
+				$activeVehicleStore.id,
+				$selectedYearStore,
+				labels,
+				currentHiddenColumns,
+				exportSortDirection
+			);
+			const blob = new Blob([html], { type: 'text/html' });
+			const url = URL.createObjectURL(blob);
+			window.open(url, '_blank');
 		} catch (error) {
 			console.error('Export failed:', error);
 			toast.error($LL.toast.errorExport({ error: String(error) }));

@@ -6,7 +6,6 @@
 	import { generateRoute, getTripRoute, saveTripRoute, deleteTripRoute, getTrips } from '$lib/api';
 	import type { GeneratedRoute, RouteMap, Trip } from '$lib/types';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
-	import { capabilities } from '$lib/stores/capabilities';
 	import { toast } from '$lib/stores/toast';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -72,8 +71,8 @@
 	});
 
 	// Create the map once Leaflet and the container element exist. Not done in
-	// onMount: the container renders only after the capability check passes, and
-	// capabilities load in the layout's (async) onMount, which resolves later.
+	// onMount: Leaflet is loaded lazily, so the container element and the library
+	// only both exist some time after mount.
 	$effect(() => {
 		if (!leafletReady || !mapEl || map) return;
 		const L = leaflet;
@@ -110,7 +109,7 @@
 	// asynchronously — so react to it rather than reading it on mount.
 	$effect(() => {
 		const vehicle = $activeVehicleStore;
-		if (!$capabilities.features.routeMaps || !vehicle || dataLoadStarted) return;
+		if (!vehicle || dataLoadStarted) return;
 		dataLoadStarted = true;
 		void loadTripAndRoute(vehicle.id);
 	});
@@ -236,90 +235,85 @@
 		{/if}
 	</div>
 
-	{#if !$capabilities.features.routeMaps}
-		<!-- Desktop ships no Tauri wrappers for the route-map commands. -->
-		<p class="placeholder" data-test="route-map-unavailable">{$LL.routeMap.notAvailable()}</p>
-	{:else}
-		<div class="toolbar">
+	<div class="toolbar">
+		<button
+			class="button"
+			data-test="regenerate-btn"
+			onclick={handleRegenerate}
+			disabled={busy || !trip}
+		>
+			{generating ? $LL.routeMap.generating() : $LL.routeMap.regenerate()}
+		</button>
+		<button
+			class="button secondary"
+			data-test="save-btn"
+			onclick={handleSave}
+			disabled={busy || !generated}
+		>
+			{$LL.routeMap.save()}
+		</button>
+		{#if savedRoute}
 			<button
-				class="button"
-				data-test="regenerate-btn"
-				onclick={handleRegenerate}
-				disabled={busy || !trip}
+				class="button danger"
+				data-test="remove-btn"
+				onclick={() => (confirmingRemove = true)}
+				disabled={busy}
 			>
-				{generating ? $LL.routeMap.generating() : $LL.routeMap.regenerate()}
+				{$LL.routeMap.remove()}
 			</button>
-			<button
-				class="button secondary"
-				data-test="save-btn"
-				onclick={handleSave}
-				disabled={busy || !generated}
-			>
-				{$LL.routeMap.save()}
-			</button>
-			{#if savedRoute}
-				<button
-					class="button danger"
-					data-test="remove-btn"
-					onclick={() => (confirmingRemove = true)}
-					disabled={busy}
-				>
-					{$LL.routeMap.remove()}
+		{/if}
+	</div>
+
+	{#if savedNotice}
+		<div class="saved-notice" data-test="saved-notice">
+			<span>{$LL.routeMap.saved()}</span>
+			<button class="button-small" onclick={() => window.close()}>{$LL.common.close()}</button>
+		</div>
+	{/if}
+
+	{#if error}
+		<div class="error-box" data-test="route-map-error">
+			<span>{error}</span>
+			{#if retryable}
+				<button class="button-small" data-test="retry-btn" onclick={handleRetry}>
+					{$LL.routeMap.retry()}
 				</button>
 			{/if}
 		</div>
-
-		{#if savedNotice}
-			<div class="saved-notice" data-test="saved-notice">
-				<span>{$LL.routeMap.saved()}</span>
-				<button class="button-small" onclick={() => window.close()}>{$LL.common.close()}</button>
-			</div>
-		{/if}
-
-		{#if error}
-			<div class="error-box" data-test="route-map-error">
-				<span>{error}</span>
-				{#if retryable}
-					<button class="button-small" data-test="retry-btn" onclick={handleRetry}>
-						{$LL.routeMap.retry()}
-					</button>
-				{/if}
-			</div>
-		{/if}
-
-		{#if loading || generating}
-			<p class="status" data-test="route-map-status">
-				{generating ? $LL.routeMap.generating() : $LL.common.loading()}
-			</p>
-		{:else if displayRoute}
-			<div class="route-info">
-				<span class="info-item">
-					<span class="label">{$LL.routeMap.targetKm()}</span>
-					<span class="value" data-test="target-km">{displayRoute.targetKm.toFixed(1)} km</span>
-				</span>
-				<span class="info-item">
-					<span class="label">{$LL.routeMap.actualKm()}</span>
-					<span class="value" data-test="actual-km">{displayRoute.roadKm.toFixed(1)} km</span>
-				</span>
-				{#if deviationPercent !== null}
-					<span class="info-item">
-						<span class="label">{$LL.routeMap.deviation()}</span>
-						<span class="value" class:off-target={deviationOffTarget} data-test="deviation">
-							{formatDeviation(deviationPercent)}
-						</span>
-					</span>
-				{/if}
-			</div>
-			{#if stopNames.length > 0}
-				<p class="stops" data-test="stops">
-					<span class="label">{$LL.routeMap.stops()} ({stopNames.length})</span>
-					{stopNames.join(' → ')}
-				</p>
-			{/if}
-		{/if}
-
-		<div class="map-canvas" bind:this={mapEl} data-test="route-map-canvas"></div>
 	{/if}
+
+	{#if loading || generating}
+		<p class="status" data-test="route-map-status">
+			{generating ? $LL.routeMap.generating() : $LL.common.loading()}
+		</p>
+	{:else if displayRoute}
+		<div class="route-info">
+			<span class="info-item">
+				<span class="label">{$LL.routeMap.targetKm()}</span>
+				<span class="value" data-test="target-km">{displayRoute.targetKm.toFixed(1)} km</span>
+			</span>
+			<span class="info-item">
+				<span class="label">{$LL.routeMap.actualKm()}</span>
+				<span class="value" data-test="actual-km">{displayRoute.roadKm.toFixed(1)} km</span>
+			</span>
+			{#if deviationPercent !== null}
+				<span class="info-item">
+					<span class="label">{$LL.routeMap.deviation()}</span>
+					<span class="value" class:off-target={deviationOffTarget} data-test="deviation">
+						{formatDeviation(deviationPercent)}
+					</span>
+				</span>
+			{/if}
+		</div>
+		{#if stopNames.length > 0}
+			<p class="stops" data-test="stops">
+				<span class="label">{$LL.routeMap.stops()} ({stopNames.length})</span>
+				{stopNames.join(' → ')}
+			</p>
+		{/if}
+	{/if}
+
+	<div class="map-canvas" bind:this={mapEl} data-test="route-map-canvas"></div>
 </div>
 
 {#if confirmingRemove}
@@ -389,13 +383,6 @@
 		color: var(--text-secondary);
 		font-style: italic;
 		margin: 0 0 1rem 0;
-	}
-
-	.placeholder {
-		color: var(--text-secondary);
-		font-style: italic;
-		text-align: center;
-		padding: 2rem;
 	}
 
 	.route-info {

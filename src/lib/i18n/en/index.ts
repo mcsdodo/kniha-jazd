@@ -28,7 +28,6 @@ const en = {
 		vehiclePlaceholder: '-- Select vehicle --',
 		noVehicles: '-- No vehicles --',
 		yearLabel: 'Year:',
-		resetWindowSize: 'Optimal window size',
 	},
 
 	// Home page
@@ -298,19 +297,8 @@ const en = {
 		dbLocationConfirmMessage: 'The database and backups will be moved to:',
 		dbLocationConfirmWarning: 'The application will restart after the move.',
 		dbLocationConfirmMove: 'Move',
-		// Server mode section
-		serverMode: 'Server Mode',
-		serverModeDescription: 'Access the app from your phone or tablet via browser.',
-		serverEnabled: 'Server active',
-		serverPort: 'Port',
-		serverUrl: 'Browser address',
-		serverStopped: 'Server is off',
-		serverStarting: 'Starting...',
-		serverStart: 'Start',
-		serverStop: 'Stop',
 		// Read-only mode
 		readOnlyBanner: 'Database was updated by a newer app version. Read-only mode.',
-		readOnlyCheckUpdates: 'Check for Updates',
 		// Time inference toggle
 		inferTripTimesLabel: 'Auto-fill times from last route',
 		inferTripTimesDescription: 'When creating a new entry, fill start/end times from the most recent matching route (with a small random offset).',

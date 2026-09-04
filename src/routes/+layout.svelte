@@ -7,24 +7,14 @@
 	import { selectedYearStore, resetToCurrentYear } from '$lib/stores/year';
 	import { localeStore } from '$lib/stores/locale';
 	import { themeStore } from '$lib/stores/theme';
-	import { updateStore } from '$lib/stores/update';
 	import { appModeStore } from '$lib/stores/appMode';
-	import { loadCapabilities } from '$lib/stores/capabilities';
-	import { getAutoCheckUpdates } from '$lib/api';
-	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, getOptimalWindowSize, type WindowSize } from '$lib/api';
+	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
-	import UpdateModal from '$lib/components/UpdateModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
-	import { IS_TAURI } from '$lib/api-adapter';
-	import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 
 	let { children } = $props();
-
-	// Window size tracking (no defaults - loaded from backend)
-	let optimalSize = $state<WindowSize | null>(null);
-	let isOptimalSize = $state(true);
 
 	let availableYears = $state<number[]>([]);
 	let i18nReady = $state(false);
@@ -52,55 +42,16 @@
 		}
 	}
 
-	async function checkWindowSize() {
-		if (!optimalSize) return;
-		const win = getCurrentWindow();
-		const size = await win.innerSize();
-		// Allow small tolerance (±5px) for OS quirks
-		isOptimalSize =
-			Math.abs(size.width - optimalSize.width) <= 5 &&
-			Math.abs(size.height - optimalSize.height) <= 5;
-	}
-
-	async function resetWindowSize() {
-		if (!optimalSize) return;
-		const win = getCurrentWindow();
-		await win.setSize(new LogicalSize(optimalSize.width, optimalSize.height));
-		await win.center();
-		isOptimalSize = true;
-	}
-
 	onMount(async () => {
 		// Initialize i18n first
 		localeStore.init();
 		i18nReady = true;
-
-		// Load capabilities (desktop vs server mode)
-		await loadCapabilities();
 
 		// Initialize theme (after locale but before async vehicle loading)
 		await themeStore.init();
 
 		// Initialize app mode (check for read-only)
 		await appModeStore.refresh();
-
-		// Always check for updates in background (for dot indicator)
-		// If auto-check disabled, check but don't show modal (use check() which respects dismissed)
-		getAutoCheckUpdates().then((enabled) => {
-			if (enabled) {
-				// Auto-check enabled: show modal if update available (respects previously dismissed)
-				updateStore.check().catch((err) => {
-					console.error('Update check failed:', err);
-				});
-			} else {
-				// Auto-check disabled: check silently (mark as dismissed so no modal)
-				updateStore.checkSilent().catch((err) => {
-					console.error('Update check failed:', err);
-				});
-			}
-		}).catch((err) => {
-			console.error('Failed to get auto-check setting:', err);
-		});
 
 		try {
 			// PRESERVE parallel loading for performance
@@ -136,14 +87,6 @@
 			}
 
 			await loadYears();
-
-			// Load optimal window size and start tracking (Tauri-only)
-			if (IS_TAURI) {
-				optimalSize = await getOptimalWindowSize();
-				await checkWindowSize();
-				const win = getCurrentWindow();
-				await win.onResized(checkWindowSize);
-			}
 		} catch (error) {
 			console.error('Failed to load initial data:', error);
 		}
@@ -186,9 +129,6 @@
 					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<ReceiptIndicator /></a>
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
 						{$LL.app.nav.settings()}
-						{#if $updateStore.available && $updateStore.dismissed}
-							<span class="update-dot" aria-label="Update available"></span>
-						{/if}
 					</a>
 				</nav>
 			</div>
@@ -224,18 +164,6 @@
 						</select>
 					</div>
 				{/if}
-				{#if optimalSize && !isOptimalSize}
-					<button
-						class="resize-btn"
-						onclick={resetWindowSize}
-						title={$LL.app.resetWindowSize()}
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<rect x="3" y="3" width="18" height="18" rx="2"/>
-							<path d="M9 3v18M3 9h18"/>
-						</svg>
-					</button>
-				{/if}
 			</div>
 		</div>
 	</header>
@@ -244,9 +172,6 @@
 		<div class="read-only-banner">
 			<span class="banner-icon">⚠️</span>
 			<span class="banner-text">{$LL.settings.readOnlyBanner()}</span>
-			<button class="banner-button" onclick={() => updateStore.checkManual()}>
-				{$LL.settings.readOnlyCheckUpdates()}
-			</button>
 		</div>
 	{/if}
 
@@ -258,20 +183,6 @@
 
 <Toast />
 <GlobalConfirm />
-
-{#if $updateStore.available && !$updateStore.dismissed}
-	<UpdateModal
-		version={$updateStore.version || ''}
-		releaseNotes={$updateStore.releaseNotes}
-		downloading={$updateStore.downloading}
-		progress={$updateStore.progress}
-		backupStep={$updateStore.backupStep}
-		backupError={$updateStore.backupError}
-		onUpdate={() => updateStore.install()}
-		onLater={() => updateStore.dismiss()}
-		onContinueWithoutBackup={() => updateStore.continueWithoutBackup()}
-	/>
-{/if}
 
 <style>
 	:global(body) {
@@ -319,20 +230,6 @@
 		font-weight: 500;
 	}
 
-	.banner-button {
-		padding: 0.5rem 1rem;
-		background-color: var(--warning-button-bg, #f59e0b);
-		color: white;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-		font-weight: 500;
-	}
-
-	.banner-button:hover {
-		opacity: 0.9;
-	}
-
 	.header-content {
 		display: flex;
 		justify-content: space-between;
@@ -377,16 +274,6 @@
 		background: rgba(255, 255, 255, 0.2);
 	}
 
-	.update-dot {
-		display: inline-block;
-		width: 8px;
-		height: 8px;
-		background-color: var(--accent-primary);
-		border-radius: 50%;
-		margin-left: 6px;
-		vertical-align: middle;
-	}
-
 	.header-right {
 		display: flex;
 		align-items: center;
@@ -424,23 +311,6 @@
 		outline: none;
 		border-color: var(--accent-primary);
 		box-shadow: 0 0 0 3px var(--input-focus-shadow);
-	}
-
-	.resize-btn {
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 4px;
-		padding: 0.375rem;
-		cursor: pointer;
-		color: var(--text-on-header-muted);
-		display: flex;
-		align-items: center;
-		transition: all 0.2s;
-	}
-
-	.resize-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
-		color: var(--text-on-header);
 	}
 
 	main {

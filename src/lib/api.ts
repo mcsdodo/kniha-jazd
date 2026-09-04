@@ -1,6 +1,6 @@
-// API wrapper for Tauri commands
+// API wrapper for backend commands
 
-import { apiCall, IS_TAURI } from './api-adapter';
+import { apiCall } from './api-adapter';
 import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap } from './types';
 
 // Vehicle commands
@@ -221,14 +221,6 @@ export async function deleteBackup(filename: string): Promise<void> {
 	return await apiCall('delete_backup', { filename });
 }
 
-export async function revealBackup(filename: string): Promise<void> {
-	const path = await apiCall<string>('get_backup_path', { filename });
-	if (IS_TAURI) {
-		const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
-		await revealItemInDir(path);
-	}
-}
-
 export async function createBackupWithType(
 	backupType: BackupType,
 	updateVersion: string | null
@@ -261,18 +253,6 @@ export async function exportHtml(
 	sortDirection: string
 ): Promise<string> {
 	return await apiCall('export_html', { vehicleId, year, labels, hiddenColumns, sortDirection });
-}
-
-// Export - opens HTML in default browser for printing (desktop only)
-export async function openExportPreview(
-	vehicleId: string,
-	year: number,
-	licensePlate: string,
-	sortDirection: string,
-	labels: ExportLabels,
-	hiddenColumns: string[]
-): Promise<void> {
-	await apiCall('export_to_browser', { vehicleId, year, licensePlate, sortDirection, labels, hiddenColumns });
 }
 
 // Receipt commands
@@ -324,16 +304,6 @@ export async function verifyReceipts(vehicleId: string, year: number): Promise<V
 	return await apiCall('verify_receipts', { vehicleId, year });
 }
 
-// Window
-export interface WindowSize {
-	width: number;
-	height: number;
-}
-
-export async function getOptimalWindowSize(): Promise<WindowSize> {
-	return await apiCall('get_optimal_window_size');
-}
-
 // Live Preview
 export async function previewTripCalculation(
 	vehicleId: string,
@@ -370,15 +340,6 @@ export async function setThemePreference(theme: ThemeMode): Promise<void> {
 // App version (works in desktop and web/server mode)
 export async function getAppVersion(): Promise<string> {
 	return apiCall<string>('get_app_version');
-}
-
-// Auto-update settings
-export async function getAutoCheckUpdates(): Promise<boolean> {
-	return apiCall<boolean>('get_auto_check_updates');
-}
-
-export async function setAutoCheckUpdates(enabled: boolean): Promise<void> {
-	return apiCall('set_auto_check_updates', { enabled });
 }
 
 // Date prefill mode settings
@@ -439,43 +400,14 @@ export async function fetchHaOdo(sensorId: string): Promise<number | null> {
 	return apiCall<number | null>('fetch_ha_odo', { sensorId });
 }
 
-// Database location
-export interface DbLocationInfo {
-	dbPath: string;
-	isCustomPath: boolean;
-	backupsPath: string;
-}
-
 export interface AppModeInfo {
 	mode: string;
 	isReadOnly: boolean;
 	readOnlyReason: string | null;
 }
 
-export async function getDbLocation(): Promise<DbLocationInfo> {
-	return apiCall<DbLocationInfo>('get_db_location');
-}
-
 export async function getAppMode(): Promise<AppModeInfo> {
 	return apiCall<AppModeInfo>('get_app_mode');
-}
-
-export async function checkTargetHasDb(targetFolder: string): Promise<boolean> {
-	return apiCall<boolean>('check_target_has_db', { targetPath: targetFolder });
-}
-
-export interface MoveDbResult {
-	success: boolean;
-	newPath: string;
-	filesMoved: number;
-}
-
-export async function moveDatabase(targetFolder: string): Promise<MoveDbResult> {
-	return apiCall<MoveDbResult>('move_database', { targetFolder });
-}
-
-export async function resetDatabaseLocation(): Promise<MoveDbResult> {
-	return apiCall<MoveDbResult>('reset_database_location');
 }
 
 // Time inference
@@ -500,25 +432,6 @@ export async function getHiddenColumns(): Promise<string[]> {
 
 export async function setHiddenColumns(columns: string[]): Promise<void> {
 	return apiCall('set_hidden_columns', { columns });
-}
-
-// Server Mode
-export interface ServerStatus {
-	running: boolean;
-	port: number | null;
-	url: string | null;
-}
-
-export async function getServerStatus(): Promise<ServerStatus> {
-	return await apiCall('get_server_status');
-}
-
-export async function startServer(port: number): Promise<ServerStatus> {
-	return await apiCall('start_server', { port });
-}
-
-export async function stopServer(): Promise<void> {
-	return await apiCall('stop_server');
 }
 
 // Paperless-ngx integration

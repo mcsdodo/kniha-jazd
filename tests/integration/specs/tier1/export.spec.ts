@@ -169,12 +169,11 @@ async function currentSortArrow(): Promise<string> {
 }
 
 /**
- * Skipped under the desktop/Tauri config, where there is nothing for WebDriver
- * to read: `capabilities.features.openExternal` is true there, so `handleExport`
- * calls `export_to_browser` and the logbook opens in the user's *system*
- * browser. No new WebDriver window is ever created there — which is precisely
- * why the old version of this spec could only assert inside an `if` that never
- * ran. The blob-window path exercised here exists only in server/web mode.
+ * Export opens the logbook in a new browser window from a blob URL, which is
+ * what these assertions read. Historically this spec asserted inside an `if`
+ * that never ran under the desktop build, because that path opened the user's
+ * *system* browser and created no WebDriver window at all. With the browser UI
+ * as the only target, the blob-window path is the only path.
  */
 describe('Tier 1: Export', () => {
   beforeEach(async () => {

@@ -1,15 +1,7 @@
-import { invoke } from '@tauri-apps/api/core';
-
-const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-
 export async function apiCall<T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
-  if (IS_TAURI) {
-    return invoke<T>(command, args);
-  }
-
   const response = await fetch('/api/rpc', {
     method: 'POST',
     headers: {
@@ -25,5 +17,3 @@ export async function apiCall<T>(
   }
   return response.json();
 }
-
-export { IS_TAURI };

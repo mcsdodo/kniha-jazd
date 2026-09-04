@@ -28,7 +28,6 @@ const sk = {
 		vehiclePlaceholder: '-- Vyberte vozidlo --',
 		noVehicles: '-- Žiadne vozidlá --',
 		yearLabel: 'Rok:',
-		resetWindowSize: 'Optimálna veľkosť okna',
 	},
 
 	// Home page
@@ -298,19 +297,8 @@ const sk = {
 		dbLocationConfirmMessage: 'Databáza a zálohy budú presunuté do:',
 		dbLocationConfirmWarning: 'Aplikácia sa po presune reštartuje.',
 		dbLocationConfirmMove: 'Presunúť',
-		// Server mode section
-		serverMode: 'Režim servera',
-		serverModeDescription: 'Sprístupnite aplikáciu z telefónu alebo tabletu cez prehliadač.',
-		serverEnabled: 'Server aktívny',
-		serverPort: 'Port',
-		serverUrl: 'Adresa pre prehliadač',
-		serverStopped: 'Server je vypnutý',
-		serverStarting: 'Spúšťam...',
-		serverStart: 'Spustiť',
-		serverStop: 'Zastaviť',
 		// Read-only mode
 		readOnlyBanner: 'Databáza bola aktualizovaná novšou verziou aplikácie. Režim len na čítanie.',
-		readOnlyCheckUpdates: 'Skontrolovať aktualizácie',
 		// Time inference toggle
 		inferTripTimesLabel: 'Automaticky vyplniť časy podľa poslednej trasy',
 		inferTripTimesDescription: 'Pri novom zázname po výbere trasy doplní začiatok a koniec z poslednej rovnakej cesty (s malou náhodnou odchýlkou).',
