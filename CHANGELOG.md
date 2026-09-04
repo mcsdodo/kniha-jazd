@@ -10,6 +10,15 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ### Pridané
 - **Kopírovanie záznamu** — pri každom zázname pribudla ikona kopírovania, ktorá vytvorí nový riadok s dnešným dátumom a rovnakou trasou, počtom kilometrov, účelom a časom odchodu aj príchodu. ODO sa dopočíta z predchádzajúceho stavu. Palivo, energia ani náklady sa nekopírujú — tankovanie je jednorazová udalosť, nie vlastnosť trasy. Nový riadok sa otvorí v režime úprav, takže sa dá pred uložením doladiť. Ak je zobrazený iný rok než aktuálny, záznam dostane 31.12. daného roka (pri budúcom roku 1.1.), aby zostal viditeľný v otvorenej knihe.
 
+### Odstránené
+- **Desktopová aplikácia sa končí** — ďalej sa vyvíja a vydáva len webová verzia bežiaca v Dockeri, ktorú otvoríš v prehliadači na adrese svojho homelabu. Nové inštalátory ani automatické aktualizácie už nebudú; existujúca desktopová inštalácia bude fungovať ďalej, ale žiadnu ďalšiu aktualizáciu nedostane a nové funkcie do nej nepribudnú. Údaje zostávajú v tvojej databáze — prenesieš ich tak, že súbor skopíruješ do priečinka `/data` serverovej inštancie, prípadne obnovíš zo zálohy.
+- **Presun databázy do vlastného priečinka** — voľba „Zmeniť umiestnenie" v nastaveniach zmizla spolu so zámkom proti súčasnému prístupu z viacerých počítačov. Serverová inštancia má jedno pevné umiestnenie (`/data`) a je jediným zdrojom údajov, takže obe veci stratili zmysel.
+- **Priebeh spracovania dokladov** — pri hromadnom spracovaní dokladov z priečinka sa už nezobrazuje priebežné hlásenie „spracúvam X z Y"; výsledok sa ukáže až na konci. Hlavnou cestou pre doklady je Paperless.
+
+### Opravené
+- **Export z prehliadača nerešpektoval nastavenia knihy** — vytlačená kniha jázd ignorovala skryté stĺpce aj zvolené zoradenie a chýbal v nej úvodný riadok „Prvý záznam" so stavom tachometra na začiatku roka. Export z prehliadača teraz zodpovedá tomu, čo vidíš na obrazovke.
+- **Verzia aplikácie sa v prehliadači nezobrazovala** — nastavenia ju ukazovali len v desktopovej aplikácii. Teraz je viditeľná aj vo webovej verzii, takže je zrejmé, ktorý obraz beží.
+
 ## [0.43.0] - 2026-08-10
 
 ### Pridané

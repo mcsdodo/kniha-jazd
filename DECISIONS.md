@@ -4,6 +4,40 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-04: Web-First Migration
+
+### ADR-030: The Desktop App Is Deleted; the Container Is the Only Build
+
+**Supersedes** [ADR-001](#adr-001-desktop-app-with-tauri--sveltekit). **Completes** [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client).
+
+**Context:** ADR-024 named the always-on Docker deployment canonical and demoted the desktop app to "a browser client that keeps working". That left two of everything: two export paths, two harnesses, two release pipelines, and a CI run that spent ~15 minutes per push proving a desktop build nobody launched still worked. [Task 58](./_tasks/_done/58-tauri-workspace-split/) had already moved every piece of business logic into `kniha-jazd-core`, so the desktop crate held 2 tests against core's 569. Keeping it was paying full price for a second product.
+
+**Decision:** Delete it. `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` is the only artifact this project builds, ships and tests.
+
+1. **`src-tauri/desktop/` is gone**, along with the updater, the signing keys, the frontend's `@tauri-apps` dependencies, and the custom-database-location feature — one `/data` volume needs no path picker and no multi-PC lock dance. The workspace directory keeps the name `src-tauri/` because renaming it would rewrite every path in the repo's history for no functional gain.
+2. **A `v*` tag publishes the ghcr image and nothing else** — no GitHub Release, no installer, no release notes. `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_KEY_PASSWORD` become dead repository secrets.
+3. **Docker + Chrome is the only test harness.** The tauri-driver path is gone, and with it the EdgeDriver version-chasing block whose own comment recorded CI jobs hanging "for hours via retries". WebdriverIO now spawns the headless `kniha-jazd-web` binary locally, or talks to a container.
+4. **Playwright and vitest are deleted rather than wired up** (D1). Both were test scripts no CI job invoked; vitest matched zero files, and per [ADR-008](#adr-008-remove-frontend-calculation-duplication) the frontend holds no logic to unit-test. A test script that exists but runs nowhere is worse than no script, because it reads as coverage.
+5. **Receipt-processing progress is an accepted loss** (D3). The desktop path emitted progress events over `app.emit`; no SSE or polling replacement is built, and the UI that consumed them is deleted rather than stubbed. ADR-024 already made Paperless the sole intake channel.
+
+**Reasoning:** The deletion had to be paid for before it was taken. Web-mode export ignored the user's hidden columns and sort direction, and dropped the synthetic "Prvý záznam" row carrying the year-opening odometer — so deleting desktop first would have silently degraded the printed logbook. Both closed before anything was removed. The same rule drove the test work: every mode-conditional skip was fixed and proven green under the surviving harness *while the Tauri harness still existed*, so coverage this migration would otherwise have dropped showed up as a red job rather than as a deleted file.
+
+That surfaced three tests that were not covering what they claimed. `export.spec.ts` had never asserted anything under the desktop harness — that path opens the system browser, creating no WebDriver window, so every assertion sat inside an `if` that could not be true. The BEV badge test was skipped as flaky but failed deterministically on a case mismatch against a CSS `text-transform`. And the env-pinned suite, covering [Task 68](./_tasks/_done/68-env-managed-settings-ui/) and [Task 69](./_tasks/_done/69-pin-gated-secret-reveal/), had never run in CI at all.
+
+**Two consequences worth stating outright:**
+
+- **GitHub Releases stop entirely.** Already-installed desktop copies are not migrated or redirected; they keep polling an updater endpoint that will never serve another release, which is harmless. They are simply obsolete. The only announcement is the [CHANGELOG](./CHANGELOG.md) entry — no in-app notice, no farewell build.
+- **Folder-scanned receipts survive as an unmaintained path, not the intake channel.** The local scanning UI still works and is still tested, but Paperless is the supported route. Deleting the folder path is a separate decision about a feature, not about a deployment target.
+
+**Coverage invariants this migration was held to** — both mechanically checked:
+
+- **I1:** every `test:*` script in [package.json](./package.json) is invoked by a job in [test.yml](./.github/workflows/test.yml), or the script no longer exists. The tier scripts satisfy this by delegating to `test:integration`, which the Docker jobs run.
+- **I2:** `grep -rnE "describeNotIn[A-Za-z]+\(|it\.skip\(|this\.skip\(\)" tests/integration/specs/` returns nothing. All nine skip constructs were fixed, removed with their feature, or made moot by there being one mode.
+
+**Related:** [Task 73](./_tasks/_done/73-web-first-migration/), [ADR-017](#adr-017-lan-only-cors-without-authentication) (unchanged — still no authentication), [ADR-018](#adr-018-workspace-members-over-feature-flags), [docs/features/server-mode.md](./docs/features/server-mode.md).
+
+---
+
 ## 2026-09-03: Copy Trip Row
 
 ### BIZ-024: A Copied Row Is Dated Today, Clamped Into the Year Being Viewed
@@ -48,7 +82,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 2. **OSM tiles are cached**, in a cache subdirectory of the app data dir (`tile_cache_dir` in [route_maps.rs](./src-tauri/core/src/commands_internal/route_maps.rs)) — a directory deliberately separate from the database and the backups folder, so that deleting it is always safe.
 3. **The bounding box and the GA seed are not stored either.** The box is derived from the polyline in microseconds; the seed has nothing to replay, because "regenerate" means *a fresh random route*, not the same one again.
 
-**Reasoning:** Cache loss must cost a re-fetch and nothing else, and that property is what keeps the rest of the app untouched by this feature. [Move Database](./docs/features/move-database.md) moves the database and its backups folder; the tile cache stays behind and simply refills. Backups need no new format. The portable CSV backup stays textual. Had the PNG been a column, every one of those would have needed a decision.
+**Reasoning:** Cache loss must cost a re-fetch and nothing else, and that property is what keeps the rest of the app untouched by this feature. The now-removed Move Database feature moved the database and its backups folder; the tile cache stayed behind and simply refilled. Backups need no new format. The portable CSV backup stays textual. Had the PNG been a column, every one of those would have needed a decision.
 
 **Two guards keep cache loss cheap rather than lossy** ([tiles.rs](./src-tauri/core/src/route_map/tiles.rs)):
 
