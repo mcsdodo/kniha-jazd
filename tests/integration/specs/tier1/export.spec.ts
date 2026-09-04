@@ -1,15 +1,21 @@
 /**
  * Tier 1: Export Integration Tests
  *
- * Tests the export preview functionality which generates an HTML report
- * for printing. The export opens in a new window/tab with:
- * - Trip data in a formatted table
- * - Totals in the footer (km, fuel, costs, avg consumption)
+ * Proves the printed logbook ships what the user is actually looking at: their
+ * trip data, the columns they left visible, the sort direction they picked in
+ * the grid, and the synthetic year-opening row. In server/web mode the backend
+ * returns the report as an HTML string, the page wraps it in a blob and shows
+ * it with `window.open()` — these tests read that second window.
  *
- * Note: Export uses window.open() to create a new browser window.
+ * NOT covered here, because it is already proven in Rust: the totals
+ * arithmetic, the consumption math and the HTML template (`export_tests.rs`),
+ * and the argument plumbing (`dispatcher_async.rs` ::
+ * `export_html_honours_hidden_columns_and_sort_direction`). What this spec owns
+ * is the wiring — click Export, and the options the user actually set reach the
+ * backend and come back visible in the document.
  */
 
-import { waitForAppReady, navigateTo } from '../../utils/app';
+import { waitForAppReady } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
 import {
   seedVehicle,
@@ -17,19 +23,172 @@ import {
   seedSettings,
   getTripGridData,
   setActiveVehicle,
+  invokeTauri,
 } from '../../utils/db';
+import { waitForTripGrid } from '../../utils/assertions';
+import { describeNotInTauriMode } from '../../utils/skip';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 import { testCompanySettings } from '../../fixtures/scenarios';
-describe('Tier 1: Export', () => {
-  before(function () {
-    if (process.env.WDIO_SERVER_MODE === '1') {
-      this.skip();
-    }
+
+/** Export trigger on the home page. */
+const EXPORT_BTN = 'button.export-btn';
+
+/**
+ * The trip-number header doubles as the sort control, and its arrow is the only
+ * rendered state — 'desc' (newest first) is the grid's default. The direction
+ * is bound straight through to the export, so flipping it here changes the
+ * printed document.
+ */
+const SORT_HEADER = '.trip-grid th.col-trip-number';
+const SORT_INDICATOR = `${SORT_HEADER} .sort-indicator`;
+const SORT_DESC_ARROW = '▼';
+const SORT_ASC_ARROW = '▲';
+
+/**
+ * Column-visibility key the export honours (`is_visible("time")` in export.rs).
+ * NOTE: it renders the `col_end_datetime` label — 'End' in the `en` locale this
+ * suite runs in — NOT `col_time`, which nothing renders. Same pairing the
+ * column-visibility UI uses (`column-header-end`).
+ */
+const TIME_COLUMN_KEY = 'time';
+const TIME_COLUMN_HEADER = 'End';
+
+/** Always-printed header, used to prove we read a real header row. */
+const ALWAYS_VISIBLE_HEADER = 'Start';
+
+/** Purpose the backend stamps on the synthetic year-opening row. */
+const FIRST_RECORD_PURPOSE = 'Prvý záznam';
+
+/**
+ * Seed the user's column-visibility choice. `handleExport` re-reads it on every
+ * click, so no page reload is needed for the export to see the change.
+ * (Same command the column-visibility spec drives.)
+ */
+async function setHiddenColumnsViaIpc(columns: string[]): Promise<void> {
+  await invokeTauri<void>('set_hidden_columns', { columns });
+}
+
+/** What a test can assert on after the export window has been read and closed. */
+interface ExportedDocument {
+  /** Rendered text of the whole printed page. */
+  text: string;
+  /** Exact text of every `<th>` in the printed table's header row. */
+  headers: string[];
+}
+
+/**
+ * Click Export, switch into the preview window it opens, read it, close it and
+ * switch back.
+ *
+ * Every failure mode throws: a missing export button, a button that never
+ * enables, and a preview window that never opens are all real failures. Do not
+ * reintroduce "if the window opened" guards here — they made this spec pass
+ * while asserting nothing.
+ */
+async function exportPreview(): Promise<ExportedDocument> {
+  const originalHandle = await browser.getWindowHandle();
+  const originalHandles = await browser.getWindowHandles();
+
+  const exportBtn = await $(EXPORT_BTN);
+  await exportBtn.waitForDisplayed({
+    timeout: 10000,
+    timeoutMsg: `Export button (${EXPORT_BTN}) never appeared on the home page`,
   });
+  await browser.waitUntil(async () => exportBtn.isEnabled(), {
+    timeout: 10000,
+    timeoutMsg: 'Export button stayed disabled - the grid never loaded any trips',
+  });
+  await exportBtn.click();
+
+  let exportHandle: string | undefined;
+  await browser.waitUntil(
+    async () => {
+      const handles = await browser.getWindowHandles();
+      exportHandle = handles.find((h) => !originalHandles.includes(h));
+      return exportHandle !== undefined;
+    },
+    {
+      timeout: 20000,
+      timeoutMsg:
+        'Export opened no preview window (blocked popup, or export_html returned an error)',
+    }
+  );
+
+  await browser.switchToWindow(exportHandle as string);
+  try {
+    const table = await $('table');
+    await table.waitForExist({
+      timeout: 15000,
+      timeoutMsg: 'Export preview window rendered no table',
+    });
+
+    const body = await $('body');
+    const text = await body.getText();
+    const headers = (await browser.execute(() =>
+      Array.from(document.querySelectorAll('thead th')).map((th) =>
+        (th.textContent || '').trim()
+      )
+    )) as string[];
+
+    return { text, headers };
+  } finally {
+    await browser.closeWindow();
+    await browser.switchToWindow(originalHandle);
+  }
+}
+
+/** Toggle the grid's sort direction and wait for its arrow to flip. */
+async function flipSortDirection(): Promise<void> {
+  const indicator = await $(SORT_INDICATOR);
+  await indicator.waitForDisplayed({
+    timeout: 10000,
+    timeoutMsg: `Sort control (${SORT_INDICATOR}) never rendered`,
+  });
+  const before = await indicator.getText();
+
+  const header = await $(SORT_HEADER);
+  await header.click();
+
+  await browser.waitUntil(
+    async () => {
+      const current = await $(SORT_INDICATOR);
+      return (await current.getText()) !== before;
+    },
+    {
+      timeout: 5000,
+      timeoutMsg: `Sort direction never changed (arrow still ${before})`,
+    }
+  );
+}
+
+/** Current sort arrow shown in the grid header. */
+async function currentSortArrow(): Promise<string> {
+  const indicator = await $(SORT_INDICATOR);
+  await indicator.waitForDisplayed({ timeout: 10000 });
+  return indicator.getText();
+}
+
+/**
+ * Skipped under the desktop/Tauri config, where there is nothing for WebDriver
+ * to read: `capabilities.features.openExternal` is true there, so `handleExport`
+ * calls `export_to_browser` and the logbook opens in the user's *system*
+ * browser. No new WebDriver window is ever created there — which is precisely
+ * why the old version of this spec could only assert inside an `if` that never
+ * ran. The blob-window path exercised here exists only in server/web mode.
+ */
+describeNotInTauriMode('Tier 1: Export', () => {
   beforeEach(async () => {
     await waitForAppReady();
     await ensureLanguage('en');
+    // Column visibility lives in the settings file, which the per-test database
+    // reset does not touch - start every test from "everything visible".
+    await setHiddenColumnsViaIpc([]);
+  });
+
+  afterEach(async () => {
+    // ...and leave it that way for every other spec in the run.
+    await setHiddenColumnsViaIpc([]);
   });
 
   describe('Export Preview', () => {
@@ -95,81 +254,30 @@ describe('Tier 1: Export', () => {
         purpose: TripPurposes.conference,
       });
 
-      // Refresh to see the trips
-      await browser.refresh();
-      await waitForAppReady();
+      // Make this the exported vehicle and wait for its grid to render
+      await setActiveVehicle(vehicle.id as string);
+      await waitForTripGrid();
 
-      // Store the original window handle
-      const originalHandle = await browser.getWindowHandle();
-      const originalHandles = await browser.getWindowHandles();
+      const exported = await exportPreview();
 
-      // Find and click the export button
-      const exportBtn = await $('button.export-btn');
-      const btnExists = await exportBtn.isExisting();
+      // Should contain trip data
+      expect(exported.text).toContain(SlovakCities.bratislava);
+      expect(exported.text).toContain(SlovakCities.trnava);
+      expect(exported.text).toContain(SlovakCities.nitra);
 
-      if (!btnExists) {
-        // Try alternative selector
-        const altExportBtn = await $('button*=Export');
-        if (!(await altExportBtn.isExisting())) {
-          // Export button might be disabled if no trips
-          console.log('Export button not found, skipping test');
-          return;
-        }
-        await altExportBtn.click();
-      } else {
-        await exportBtn.click();
-      }
+      // Should contain trip purposes
+      expect(exported.text).toContain(TripPurposes.business);
 
-      // Wait for new window to open
-      await browser.pause(2000);
+      // Should contain vehicle info
+      expect(exported.text).toContain('EPV-001'); // License plate
 
-      // Get all window handles
-      const handles = await browser.getWindowHandles();
+      // Should contain company info
+      expect(exported.text).toContain(testCompanySettings.companyName);
 
-      // Check if a new window was opened
-      if (handles.length > originalHandles.length) {
-        // Switch to the new window (export preview)
-        const newHandle = handles.find((h) => !originalHandles.includes(h));
-        if (newHandle) {
-          await browser.switchToWindow(newHandle);
-
-          // Wait for content to load
-          await browser.pause(1000);
-
-          // Verify export preview content
-          const body = await $('body');
-          const text = await body.getText();
-
-          // Should contain trip data
-          expect(text).toContain(SlovakCities.bratislava);
-          expect(text).toContain(SlovakCities.trnava);
-          expect(text).toContain(SlovakCities.nitra);
-
-          // Should contain trip purposes
-          expect(text).toContain(TripPurposes.business);
-
-          // Should contain vehicle info
-          expect(text).toContain('EPV-001'); // License plate
-
-          // Should contain company info
-          expect(text).toContain(testCompanySettings.companyName);
-
-          // Close the export window
-          await browser.closeWindow();
-
-          // Switch back to original window
-          await browser.switchToWindow(originalHandle);
-        }
-      } else {
-        // Export might open in same window or as downloadable HTML
-        // Check if we're now on the export page
-        const currentUrl = await browser.getUrl();
-        if (currentUrl.includes('export') || currentUrl.includes('blob')) {
-          const body = await $('body');
-          const text = await body.getText();
-          expect(text).toContain(SlovakCities.bratislava);
-        }
-      }
+      // Should contain the synthetic year-opening row carrying
+      // year_start_odometer. Web mode used to drop it, so the printed logbook
+      // silently started without the opening odometer reading.
+      expect(exported.text).toContain(FIRST_RECORD_PURPOSE);
     });
 
     it('should show correct totals in export footer', async () => {
@@ -240,89 +348,140 @@ describe('Tier 1: Export', () => {
         purpose: TripPurposes.conference,
       });
 
-      // Set this vehicle as active and refresh to see the trips
+      // Set this vehicle as active and wait for the grid to render
       await setActiveVehicle(vehicle.id as string);
+      await waitForTripGrid();
 
-      // Verify totals via grid data first
+      // Verify the backend agrees on what is being exported
       const gridData = await getTripGridData(vehicle.id as string, year);
       expect(gridData.trips.length).toBe(3);
 
-      // Calculate expected values
-      const totalKm = 100 + 150 + 200; // 450 km
-      const totalFuel = 30 + 45; // 75 L
-      const totalFuelCost = 45 + 67.5; // 112.5 EUR
+      const exported = await exportPreview();
 
-      // Store original window handle
-      const originalHandle = await browser.getWindowHandle();
-      const originalHandles = await browser.getWindowHandles();
+      // Should contain total km (450)
+      // Note: The format might include thousand separators or decimal places
+      expect(exported.text).toMatch(/450/);
 
-      // Find and click the export button
-      const exportBtn = await $('button.export-btn');
-      const btnExists = await exportBtn.isExisting();
+      // Should contain total fuel (75 or 75.0)
+      expect(exported.text).toMatch(/75/);
 
-      if (!btnExists) {
-        const altExportBtn = await $('button*=Export');
-        if (!(await altExportBtn.isExisting())) {
-          console.log('Export button not found, checking stats display instead');
-          // Fall back to checking stats in the main UI
-          const body = await $('body');
-          const text = await body.getText();
-          // Stats should show total km
-          expect(text).toContain('450'); // Total km
-          return;
-        }
-        await altExportBtn.click();
-      } else {
-        await exportBtn.click();
-      }
+      // Should contain total fuel cost (112.5 or 112,5 in Slovak format)
+      expect(exported.text).toMatch(/112[,.]5/);
 
-      // Wait for new window to open
-      await browser.pause(2000);
+      // Should show a consumption rate in the footer
+      expect(exported.text).toMatch(/L\/100km|l\/100km/i);
+    });
 
-      // Get all window handles
-      const handles = await browser.getWindowHandles();
+    it('should omit a hidden column from the exported document', async () => {
+      await seedSettings({
+        companyName: 'Hidden Column Company',
+        companyIco: '22222222',
+        bufferTripPurpose: TripPurposes.business,
+      });
 
-      if (handles.length > originalHandles.length) {
-        // Switch to the new window (export preview)
-        const newHandle = handles.find((h) => !originalHandles.includes(h));
-        if (newHandle) {
-          await browser.switchToWindow(newHandle);
+      const vehicle = await seedVehicle({
+        name: 'Hidden Column Vehicle',
+        licensePlate: 'HCV-001',
+        initialOdometer: 70000,
+        vehicleType: 'Ice',
+        tankSizeLiters: 50,
+        tpConsumption: 7.0,
+      });
 
-          // Wait for content to load
-          await browser.pause(1000);
+      const year = new Date().getFullYear();
 
-          // Verify export footer contains correct totals
-          const body = await $('body');
-          const text = await body.getText();
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-06-05T08:00`,
+        endDatetime: `${year}-06-05T10:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 65,
+        odometer: 70065,
+        purpose: TripPurposes.business,
+      });
 
-          // Should contain total km (450)
-          // Note: The format might include thousand separators or decimal places
-          expect(text).toMatch(/450/);
+      await setActiveVehicle(vehicle.id as string);
+      await waitForTripGrid();
 
-          // Should contain total fuel (75 or 75.0)
-          expect(text).toMatch(/75/);
+      // Baseline: nothing hidden, so the column prints.
+      const withTimeColumn = await exportPreview();
+      expect(withTimeColumn.headers).toContain(TIME_COLUMN_HEADER);
 
-          // Should contain total fuel cost (112.5 or 112,5 in Slovak format)
-          expect(text).toMatch(/112[,.]5/);
+      // Hide it the way the column-visibility dropdown does, then export again.
+      await setHiddenColumnsViaIpc([TIME_COLUMN_KEY]);
+      const withoutTimeColumn = await exportPreview();
 
-          // Should show average consumption
-          // Avg consumption = 75 L / 450 km * 100 = 16.67 L/100km
-          // (This is for trips with fuel, actual calc may differ)
-          // Just verify there's a consumption rate shown
-          expect(text).toMatch(/L\/100km|l\/100km/i);
+      expect(withoutTimeColumn.headers).not.toContain(TIME_COLUMN_HEADER);
+      // Sanity: we read a real header row, not an empty one.
+      expect(withoutTimeColumn.headers).toContain(ALWAYS_VISIBLE_HEADER);
+      expect(withoutTimeColumn.headers.length).toBe(withTimeColumn.headers.length - 1);
+    });
 
-          // Close the export window
-          await browser.closeWindow();
+    it('should export rows in the sort direction chosen in the grid', async () => {
+      await seedSettings({
+        companyName: 'Sort Order Company',
+        companyIco: '33333333',
+        bufferTripPurpose: TripPurposes.business,
+      });
 
-          // Switch back to original window
-          await browser.switchToWindow(originalHandle);
-        }
-      } else {
-        // If no new window, verify totals are at least visible in main UI
-        const body = await $('body');
-        const text = await body.getText();
-        expect(text).toContain('450'); // Total km should be visible in stats
-      }
+      const vehicle = await seedVehicle({
+        name: 'Sort Order Vehicle',
+        licensePlate: 'SOV-001',
+        initialOdometer: 80000,
+        vehicleType: 'Ice',
+        tankSizeLiters: 50,
+        tpConsumption: 7.0,
+      });
+
+      const year = new Date().getFullYear();
+
+      // Both trips start in Bratislava and end somewhere that appears nowhere
+      // else in the document, so their positions in the text are unambiguous.
+      // Same month, so no month-end row can land between them.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-05-05T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 60,
+        odometer: 80060,
+        purpose: TripPurposes.business,
+      });
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-05-20T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.kosice,
+        distanceKm: 90,
+        odometer: 80150,
+        purpose: TripPurposes.business,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+      await waitForTripGrid();
+
+      // The grid defaults to newest first.
+      expect(await currentSortArrow()).toBe(SORT_DESC_ARROW);
+
+      const newestFirst = await exportPreview();
+      expect(newestFirst.text).toContain(SlovakCities.kosice);
+      expect(newestFirst.text).toContain(SlovakCities.trnava);
+      expect(newestFirst.text.indexOf(SlovakCities.kosice)).toBeLessThan(
+        newestFirst.text.indexOf(SlovakCities.trnava)
+      );
+
+      // Flip the grid's sort control - the export must follow it.
+      await flipSortDirection();
+      expect(await currentSortArrow()).toBe(SORT_ASC_ARROW);
+
+      const oldestFirst = await exportPreview();
+      expect(oldestFirst.text).toContain(SlovakCities.kosice);
+      expect(oldestFirst.text).toContain(SlovakCities.trnava);
+      expect(oldestFirst.text.indexOf(SlovakCities.trnava)).toBeLessThan(
+        oldestFirst.text.indexOf(SlovakCities.kosice)
+      );
     });
   });
 });

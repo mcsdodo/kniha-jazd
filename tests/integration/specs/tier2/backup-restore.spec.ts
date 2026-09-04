@@ -16,7 +16,6 @@ import {
   getVehicles,
   invokeTauri,
 } from '../../utils/db';
-import { describeNotInServerMode } from '../../utils/skip';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 
@@ -156,9 +155,7 @@ describe('Tier 2: Backup & Restore', () => {
     });
   });
 
-  // restore_backup replaces the running database file — excluded from server RPC
-  // by design (see ADR-017 / capabilities.restore_backup=false). Skip in server mode.
-  describeNotInServerMode('Backup Restoration', () => {
+  describe('Backup Restoration', () => {
     it('should restore backup and see data reloaded', async () => {
       // Create initial data
       const vehicleData = createTestIceVehicle({
