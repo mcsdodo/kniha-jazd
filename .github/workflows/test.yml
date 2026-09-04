@@ -349,8 +349,10 @@ jobs:
           docker run -d --name kniha-jazd-web \
             --network=host \
             -v "$PWD/data:/data" \
+            -v "$PWD/tests/integration/data:/testdata:ro" \
             -e KNIHA_JAZD_DATA_DIR=/data \
             -e DATABASE_PATH=/data/kniha-jazd.db \
+            -e KNIHA_JAZD_MOCK_GEMINI_DIR=/testdata/mocks \
             -e PORT=3456 \
             kniha-jazd-web:test
 
