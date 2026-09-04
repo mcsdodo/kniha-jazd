@@ -7,6 +7,7 @@
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
+import { getVehicles } from '../../utils/db';
 
 /**
  * Helper to create a BEV vehicle via UI interactions
@@ -53,7 +54,11 @@ async function createBevVehicleViaUI(options: { name: string; licensePlate: stri
     const saveBtn = await $('.modal-footer button.button-primary');
     await saveBtn.waitForClickable({ timeout: 5000 });
     await saveBtn.click();
-    await browser.pause(1000);
+
+    // The modal only closes once create_vehicle AND the follow-up get_vehicles have
+    // both round-tripped (see handleSaveVehicle in src/routes/settings/+page.svelte).
+    // A fixed pause races those two RPCs on a slow run, so wait for the modal to go.
+    await modalContent.waitForDisplayed({ reverse: true, timeout: 10000 });
   }
 }
 
@@ -200,7 +205,11 @@ describe('Electric Vehicle Support', () => {
       const saveBtn = await $('.modal-footer button.button-primary');
       await saveBtn.waitForClickable({ timeout: 5000 });
       await saveBtn.click();
-      await browser.pause(1000);
+
+      // The modal only closes once create_vehicle AND the follow-up get_vehicles have
+      // both round-tripped (see handleSaveVehicle in src/routes/settings/+page.svelte).
+      // A fixed pause races those two RPCs on a slow run, so wait for the modal to go.
+      await modalContent.waitForDisplayed({ reverse: true, timeout: 10000 });
 
       // Verify vehicle was created - look for the name in the list
       const body = await $('body');
@@ -210,25 +219,37 @@ describe('Electric Vehicle Support', () => {
     }
   });
 
-  // TODO: This test is flaky - the BEV badge exists in the UI (src/routes/settings/+page.svelte:349)
-  // but the createBevVehicleViaUI helper doesn't reliably make it visible.
-  // The badge uses class="badge type-{vehicle.vehicle_type.toLowerCase()}" which produces "badge type-bev".
-  // Needs investigation into why vehicle list doesn't update reliably after creation.
-  it.skip('should show BEV badge in vehicle list', async () => {
+  it('should show BEV badge in vehicle list', async () => {
     // Generate unique identifiers for this test run
     const testId = uniqueTestId();
+    const vehicleName = `Badge Test BEV ${testId}`;
 
     // Create a BEV vehicle first (each test is independent)
     await createBevVehicleViaUI({
-      name: `Badge Test BEV ${testId}`,
+      name: vehicleName,
       licensePlate: `B-${testId.substring(0, 7)}`
     });
 
-    // Look for the BEV badge in the vehicle list (wait for it to appear)
-    const bevBadge = await $('.badge.type-bev');
+    // Confirm the save actually reached the backend before asserting on the DOM.
+    // Without this, "the form never saved" and "the list did not re-render" both
+    // surface as the same missing-badge failure.
+    const vehicles = await getVehicles();
+    const created = vehicles.find((v) => v.name === vehicleName);
+    expect(created).toBeDefined();
+    expect(created?.vehicleType).toBe('Bev');
+
+    // Scope the badge lookup to the row of the vehicle we just created rather than
+    // taking the first BEV badge on the page.
+    const vehicleRow = await $(`.vehicle-item*=${vehicleName}`);
+    await vehicleRow.waitForDisplayed({ timeout: 5000 });
+    const bevBadge = await vehicleRow.$('.badge.type-bev');
     await bevBadge.waitForDisplayed({ timeout: 5000 });
-    const text = await bevBadge.getText();
-    expect(text).toContain('Bev');
+
+    // `.badge` is styled `text-transform: uppercase` (src/routes/settings/+page.svelte),
+    // and getText() returns *rendered* text — so the DOM's "Bev" arrives here as "BEV".
+    // Assert both so a change to either the rendered label or the underlying value fails.
+    expect(await bevBadge.getText()).toBe('BEV');
+    expect(await bevBadge.getProperty('textContent')).toBe('Bev');
   });
 
   it('should block vehicle type change when trips exist', async () => {
