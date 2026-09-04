@@ -152,22 +152,19 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
     });
 
     it('should show a placeholder instead of the saved API key', async function () {
-      // Same latency caveat as before: the settings page runs ~10 sequential RPC
-      // calls before loading receipt settings, which is flaky over HTTP.
-      if (process.env.WDIO_SERVER_MODE === '1') {
-        this.skip();
-      }
       await setGeminiApiKey('test-display-key');
-      await browser.pause(100);
       await navigateTo('trips');
-      await browser.pause(300);
       await navigateTo('settings');
-      await browser.pause(500);
 
       const apiKeyInput = await $(ReceiptSettings.geminiApiKeyInput);
-      // Write-only: the field stays empty and advertises the stored key instead
+      // The settings page issues ~10 sequential RPCs before receipt settings land,
+      // which is slow over HTTP — wait for the field to settle rather than guessing
+      // a duration. Write-only: the field stays empty and advertises the stored key.
+      await browser.waitUntil(
+        async () => (await apiKeyInput.getAttribute('placeholder')) === '********',
+        { timeout: 15000, timeoutMsg: 'receipt settings never loaded into the API key field' }
+      );
       expect(await apiKeyInput.getValue()).toBe('');
-      expect(await apiKeyInput.getAttribute('placeholder')).toBe('********');
 
       await setGeminiApiKey('');
     });
