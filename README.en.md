@@ -54,8 +54,21 @@ builds it from [Dockerfile.web](Dockerfile.web):
 docker compose -f docker-compose.web.yml up -d
 ```
 
-Updating = pull a newer tag (`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z`) and restart the
-container. The database in `/data` stays put; migrations run automatically on start.
+### Image channels
+
+| Tag | What it is |
+|-----|------------|
+| `:latest` | Last released version — use this by default |
+| `:vX.Y.Z` | A specific release, never moves |
+| `:main` | Tip of the `main` branch, updated after every green build |
+| `:main-<sha>` | One specific commit from `main`, never moves |
+
+`:main` is for trying changes before they are released — everything on it passed the
+full test suite, but it is not a release. If something breaks, fall back to `:latest`
+or to a specific `:main-<sha>`.
+
+Updating = pull a newer tag and restart the container. The database in `/data` stays
+put; migrations run automatically on start.
 
 ## Usage
 

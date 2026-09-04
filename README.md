@@ -54,8 +54,21 @@ robi build z [Dockerfile.web](Dockerfile.web):
 docker compose -f docker-compose.web.yml up -d
 ```
 
-Aktualizácia = stiahnutie nového tagu (`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z`) a reštart
-kontajnera. Databáza v `/data` zostáva, migrácie sa spustia automaticky pri štarte.
+### Verzie image-u
+
+| Tag | Čo obsahuje |
+|-----|-------------|
+| `:latest` | Posledná vydaná verzia — pre bežné používanie |
+| `:vX.Y.Z` | Konkrétne vydanie, nikdy sa nemení |
+| `:main` | Aktuálny stav vetvy `main`, automaticky po každom úspešnom teste |
+| `:main-<sha>` | Konkrétny commit z vetvy `main`, nikdy sa nemení |
+
+Tag `:main` slúži na vyskúšanie noviniek pred vydaním — obsahuje len zmeny, ktoré prešli
+celou testovacou sadou, ale ešte neboli vydané. Ak niečo nefunguje, vráťte sa na
+`:latest` alebo na konkrétny `:main-<sha>`.
+
+Aktualizácia = stiahnutie nového tagu a reštart kontajnera. Databáza v `/data` zostáva,
+migrácie sa spustia automaticky pri štarte.
 
 ## Použitie
 

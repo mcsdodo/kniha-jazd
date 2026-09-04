@@ -295,10 +295,15 @@ GitHub Actions workflow (`.github/workflows/test.yml`):
 - **Integration tests**: Linux only - the Docker image is built once, then Chrome
   drives it through three parallel tier jobs plus the env-pinned suite
 - Triggered on push/PR to `main` branch
+- **Publish**: a green push to `main` republishes the tested image artifact (no rebuild)
+  as `ghcr.io/mcsdodo/kniha-jazd-web:main` + `:main-<short-sha>`. PRs publish nothing.
 
 `.github/workflows/release.yml` runs on a `v*` tag and publishes
 `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` + `:latest`. It creates **no GitHub Release**
 and no installers.
+
+**Two channels, one boundary (ADR-031):** CI owns `:main` / `:main-<sha>`; `/release`
+owns `vX.Y.Z` / `:latest`. Neither writes the other's tags.
 
 ## Git Guidelines
 

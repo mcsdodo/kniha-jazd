@@ -124,6 +124,12 @@ The tag triggers [release.yml](../../../.github/workflows/release.yml), whose
 - `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z`
 - `ghcr.io/mcsdodo/kniha-jazd-web:latest`
 
+**Those two tags are all a release owns.** The floating `:main` and pinned
+`:main-<short-sha>` tags belong to [test.yml](../../../.github/workflows/test.yml),
+which moves them on every green build of `main` — never push them from a release, and
+never report them as release artifacts (see ADR-031 in
+[DECISIONS.md](../../../DECISIONS.md)).
+
 Report the run and the image tag, e.g. with:
 
 ```bash

@@ -47,6 +47,21 @@ the SvelteKit static build, then a `debian:bookworm-slim` runtime carrying only 
 binary, the SPA and `ca-certificates`. It declares a `/data` volume, exposes 3456 and
 has a `HEALTHCHECK` on `/health`.
 
+**Image channels:** two of them, with a hard ownership boundary (see
+[ADR-031](../../DECISIONS.md#adr-031-two-channels--main-moves-latest-is-cut)).
+
+| Tag | Moves | Published by |
+|-----|-------|--------------|
+| `:latest` | per release | [release.yml](../../.github/workflows/release.yml) on a `v*` tag |
+| `:vX.Y.Z` | never | same |
+| `:main` | per green build of `main` | [test.yml](../../.github/workflows/test.yml) `publish-main-image` |
+| `:main-<short-sha>` | never | same |
+
+The `:main` job republishes the *same image artifact* the integration tiers ran against
+rather than rebuilding it, and only after backend tests on all three platforms, all
+three tiers and the env-pinned suite are green. Pull requests publish nothing. Both
+channels are linux/amd64 only — an arm64 host still has to build its own.
+
 **Migrating from an old desktop install:** copy the existing database and (optionally)
 the `receipts/` and `backups/` folders from the platform app-data directory into the
 host's `./data/` folder. They are mounted into the container at `/data`, and migrations

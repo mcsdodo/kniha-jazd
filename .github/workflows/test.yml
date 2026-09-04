@@ -287,3 +287,54 @@ jobs:
           name: integration-test-screenshots-docker-env
           path: tests/integration/screenshots/
           if-no-files-found: ignore
+
+  # Publish the floating `main` channel: the tip of main, pullable without cutting a
+  # release. It republishes the exact image artifact the integration tiers just ran
+  # against - no rebuild - so the bytes on ghcr.io are the bytes that passed.
+  #
+  # `needs` covers every test job, and a job-level `if` without a status-check function
+  # still requires all of them to have succeeded, so a red or skipped test job means no
+  # publish. `:latest` and `vX.Y.Z` are NOT touched here - those stay owned by
+  # release.yml on a `v*` tag (ADR-031).
+  publish-main-image:
+    name: Publish main Docker Image
+    needs:
+      - backend-tests
+      - integration-build-docker
+      - integration-test-docker
+      - integration-test-docker-env
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load -i /tmp/kniha-jazd-web.tar
+
+      - name: Tag and push
+        run: |
+          IMAGE=ghcr.io/mcsdodo/kniha-jazd-web
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          docker tag kniha-jazd-web:test "$IMAGE:main"
+          docker tag kniha-jazd-web:test "$IMAGE:main-$SHORT_SHA"
+
+          docker push "$IMAGE:main"
+          docker push "$IMAGE:main-$SHORT_SHA"
+
+          echo "Published \`$IMAGE:main\` and \`$IMAGE:main-$SHORT_SHA\`" >> $GITHUB_STEP_SUMMARY

@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-04 (Task 73 completed)
+**Last updated:** 2026-09-04 (Task 74 completed)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 74 | [Main-Branch Image Channel](74-main-branch-image-channel/) | 📋 Planning | Publish floating `:main` + `:main-<sha>` images from every green main build |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 74 | [Main-Branch Image Channel](./_done/74-main-branch-image-channel/) | 2026-09-04 |
 | 73 | [Web-First Migration](./_done/73-web-first-migration/) | 2026-09-04 |
 | 71 | [Copy Trip Row](./_done/71-copy-trip-row/) | 2026-09-03 |
 | 70 | [Route Map Integration](./_done/70-route-map-integration/) | 2026-08-10 |

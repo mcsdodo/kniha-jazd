@@ -4,6 +4,47 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-04: Image Publishing Channels
+
+### ADR-031: Two Channels — `:main` Moves, `:latest` Is Cut
+
+**Builds on** [ADR-030](#adr-030-the-desktop-app-is-deleted-the-container-is-the-only-build).
+
+**Context:** ADR-030 made the ghcr image the only artifact this project ships, and a `v*` tag the only thing that publishes one. That left a gap between releases: [test.yml](./.github/workflows/test.yml) builds the image on every push to `main`, runs three integration tiers and the env-pinned suite against it, and then **throws it away** — the tar is a one-day artifact. Running the tip of `main` on the homelab meant building it by hand, so changes went untested-in-real-use until someone decided to cut a version.
+
+**Decision:** Publish two channels with a hard ownership boundary.
+
+| Tag | Moves | Published by | Means |
+|-----|-------|--------------|-------|
+| `:main` | yes, per green build | [test.yml](./.github/workflows/test.yml) `publish-main-image` | tip of `main`, all tests green |
+| `:main-<short-sha>` | never | same job | that exact commit, pinnable |
+| `:latest` | yes, per release | [release.yml](./.github/workflows/release.yml) | last version someone cut |
+| `vX.Y.Z` | never | same job | that release |
+
+CI never touches `:latest` or `vX.Y.Z`; [`/release`](./.claude/skills/release-skill/SKILL.md) never touches `:main`. Both halves are stated in the workflow comments and in the release skill so neither drifts into the other's tags.
+
+**Reasoning, point by point:**
+
+1. **The tested tar is republished, not rebuilt.** `integration-build-docker` already uploads the built image as an artifact so the tier jobs can share it; the publish job downloads that same artifact, `docker load`s it and re-tags. The bytes on ghcr.io are therefore the bytes the suite passed against — a rebuild could differ (base-image drift, a dependency resolving differently) and would prove nothing that the first build already proved, at the cost of several minutes.
+
+2. **`needs` is the whole gate, and it needs no `always()`.** The job depends on `backend-tests`, `integration-build-docker`, `integration-test-docker` and `integration-test-docker-env`. A job-level `if` without a status-check function still requires every `needs` job to have succeeded, and matrix needs require *all* legs — so a single red tier or a failing Windows backend run publishes nothing.
+
+3. **`:main-<short-sha>` exists because a floating tag cannot be rolled back.** If a green-but-broken build moves `:main`, the alternatives without a pinned tag are "wait for the next green main" or "drop back to `:latest`", which can be many commits behind. One extra `docker tag` line buys a real rollback target. The cost is one manifest per main commit; pruning is a problem for later, not a reason to skip it now.
+
+4. **`:main` over `:prerelease` or `:edge`.** The tag names the branch it tracks, so its provenance is unambiguous at a glance in a compose file, and the scheme extends if another branch is ever published. `:edge` is the Docker-ecosystem idiom but says nothing about where the bytes came from.
+
+5. **No `workflow_dispatch` escape hatch.** [check-file-changes](./.github/actions/check-file-changes/action.yml) short-circuits to `has_code_changes=true` for every non-PR event, so the docs-only skip applies to pull requests only and *every* push to `main` already runs the full suite and publishes. A manual trigger would duplicate a path that cannot be skipped.
+
+**Consequences:**
+
+- **A green `main` is now a published artifact, so main is a deployment target.** Anything merged is immediately pullable by the homelab. This raises the stakes on merging directly to `main` — the safety net is that the publish gate is the full suite, not a subset.
+- **Pull requests publish nothing.** The `if` requires `github.event_name == 'push'` on `refs/heads/main`; fork PRs get a read-only `GITHUB_TOKEN` and must never be able to move a published tag regardless.
+- **Both channels remain linux/amd64 only.** Neither this job nor `release.yml` builds arm64, so a Raspberry Pi still needs its own build. Unchanged by this decision, and worth its own task if it ever matters.
+
+**Related:** [Task 74](./_tasks/_done/74-main-branch-image-channel/), [ADR-030](#adr-030-the-desktop-app-is-deleted-the-container-is-the-only-build), [docs/features/server-mode.md](./docs/features/server-mode.md).
+
+---
+
 ## 2026-09-04: Web-First Migration
 
 ### ADR-030: The Desktop App Is Deleted; the Container Is the Only Build
