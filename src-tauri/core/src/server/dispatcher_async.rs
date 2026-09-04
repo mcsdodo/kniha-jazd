@@ -521,16 +521,36 @@ mod tests {
              the argument was ignored"
         );
 
-        // The synthetic year-opening row. Desktop prepends it; web mode never did,
-        // so after the migration the printed logbook would silently lose the
-        // baseline odometer the on-screen grid still shows.
+        // The synthetic year-opening row. Web mode never emitted it, so after the
+        // migration the printed logbook would silently lose the baseline odometer
+        // the on-screen grid still shows.
         assert!(
             ascending.contains("Prvý záznam"),
             "the synthetic first-record row is missing from the web export"
         );
+
+        // It must sort FIRST. The row is appended to `trips`, not inserted at the
+        // front — its position comes entirely from `trip_numbers[nil] = 0` giving
+        // it sort_key 0.0. Asserting the rendered order is what protects that; a
+        // bare `contains("10000")` would not, because the first real trip's
+        // odo-start cell renders 10000 too (the vehicle's initial odometer).
+        let asc_first_record = ascending
+            .find("Prvý záznam")
+            .expect("first-record row missing from asc render");
         assert!(
-            ascending.contains("10000"),
-            "the first-record row should carry year_start_odometer (10000)"
+            asc_first_record < asc_trnava,
+            "the year-opening row must print before the first real trip"
+        );
+
+        // The opening row carries no distance, so it must not inflate the totals
+        // on what is a legal-compliance document. Two 60 km trips = 120 km; if the
+        // synthetic row ever gained a distance this is what would catch it.
+        // Matched against the footer's own markup, not a bare "120": the second
+        // trip's odometer renders as 10120, which contains "120" and would satisfy
+        // a substring check no matter what the totals said.
+        assert!(
+            ascending.contains(r#"<div class="footer-value">120 km</div>"#),
+            "total distance should be 120 km - the synthetic row must contribute none"
         );
     }
 }
