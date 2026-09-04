@@ -8,6 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 74 | [Main-Branch Image Channel](74-main-branch-image-channel/) | 📋 Planning | Publish floating `:main` + `:main-<sha>` images from every green main build |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
