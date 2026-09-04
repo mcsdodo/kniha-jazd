@@ -23,9 +23,14 @@ import type {
 } from '../fixtures/types';
 import type { TestScenario } from '../fixtures/scenarios';
 import { waitForAppReady } from './app';
+import { hostWorkDir, backendWorkPath } from './paths';
 
 /**
- * Get test data directory from environment
+ * Get test data directory from environment.
+ *
+ * @deprecated Empty in Docker mode — the test process has no KNIHA_JAZD_DATA_DIR
+ * there. Use `hostWorkDir()` / `backendWorkPath()` from ./paths instead, which
+ * resolve correctly on both sides of the container boundary.
  */
 export function getTestDataDir(): string {
   return process.env.KNIHA_JAZD_DATA_DIR || '';
@@ -668,15 +673,21 @@ export interface SeedReceiptData {
  *
  * There is no direct create_receipt command — receipt rows are only created by
  * folder scanning. This helper follows the production data flow end to end:
- * 1. Writes a placeholder file into `<KNIHA_JAZD_DATA_DIR>/seeded-receipts/`
- * 2. Points the scanner at that folder and runs `scan_receipts` (inserts a
- *    Pending row — no OCR)
+ * 1. Writes a placeholder file into `<work dir>/seeded-receipts/` — a *host* write,
+ *    so the directory comes from `hostWorkDir()`
+ * 2. Points the scanner at that same folder as the *backend* sees it
+ *    (`backendWorkPath()`) and runs `scan_receipts` (inserts a Pending row — no OCR)
  * 3. Fills in the parsed fields via `update_receipt` (status → Parsed)
  *
  * `applied_amount_cents` stays NULL — nothing has been applied to any trip yet.
  *
- * NOTE: needs a filesystem shared between the test runner and the backend —
- * wrap specs using this helper in `describeNotInDockerMode`.
+ * Works in Docker mode: the seed folder lives under the read-write work dir
+ * (`$PWD/data` ↔ `/data`), the one filesystem shared by the test runner and the
+ * backend. Do NOT wrap specs using this helper in `describeNotInDockerMode`.
+ *
+ * The work dir OUTLIVES the spec run, so a spec that seeds receipts must delete
+ * `join(hostWorkDir(), 'seeded-receipts')` in an `after()` hook — otherwise a later
+ * scan resurrects them.
  */
 export async function seedReceipt(data: SeedReceiptData): Promise<Receipt> {
   const ready = await ensureAppReady();
@@ -684,19 +695,17 @@ export async function seedReceipt(data: SeedReceiptData): Promise<Receipt> {
     throw new Error('App not ready for seeding');
   }
 
-  const dataDir = getTestDataDir();
-  if (!dataDir) {
-    throw new Error('KNIHA_JAZD_DATA_DIR not set — seedReceipt requires the sandboxed test data dir');
-  }
-
-  // 1. Write a placeholder file (scanning only checks the extension, not content)
-  const folder = join(dataDir, 'seeded-receipts');
-  mkdirSync(folder, { recursive: true });
+  // 1. Write a placeholder file (scanning only checks the extension, not content).
+  //    Write host-side, tell the backend the path IT sees. In spawned mode the two
+  //    are identical; in Docker they are the two ends of the -v $PWD/data:/data mount.
+  const seedDirHost = join(hostWorkDir(), 'seeded-receipts');
+  const seedDirBackend = backendWorkPath('seeded-receipts');
+  mkdirSync(seedDirHost, { recursive: true });
   const fileName = data.fileName ?? `seed-${data.assignmentType.toLowerCase()}-${generateUuid()}.png`;
-  writeFileSync(join(folder, fileName), 'seeded receipt placeholder');
+  writeFileSync(join(seedDirHost, fileName), 'seeded receipt placeholder');
 
   // 2. Scan the folder — creates a Pending receipt row for the new file
-  await invokeTauri<void>('set_receipts_folder_path', { path: folder });
+  await invokeTauri<void>('set_receipts_folder_path', { path: seedDirBackend });
   await invokeTauri<unknown>('scan_receipts');
 
   const pending = (await invokeTauri<Receipt[]>('get_unassigned_receipts')).find(

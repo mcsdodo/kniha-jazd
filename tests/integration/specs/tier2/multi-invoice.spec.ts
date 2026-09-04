@@ -13,8 +13,8 @@
  * unassign) is proven in backend unit tests — this spec only verifies that the
  * UI triggers the backend and displays the results.
  *
- * Docker mode is skipped: seedReceipt writes placeholder files that the
- * backend must see on the same filesystem.
+ * Runs in Docker mode too: seedReceipt writes its placeholder files into the
+ * work dir shared with the backend (see utils/paths.ts).
  */
 
 import { rmSync } from 'fs';
@@ -30,7 +30,7 @@ import {
   invokeTauri,
 } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
-import { describeNotInDockerMode } from '../../utils/skip';
+import { hostWorkDir } from '../../utils/paths';
 import type { Receipt } from '../../fixtures/types';
 
 /** Real trip rows only — excludes first-record/month-end synthetic rows and edit rows */
@@ -101,7 +101,7 @@ async function getOtherCostsCell() {
   return $(`${TRIP_ROW} .col-other-costs`);
 }
 
-describeNotInDockerMode('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
+describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
   const seededReceiptIds: string[] = [];
 
   // Receipts are NOT vehicle-scoped and the beforeTest DB cleanup does not
@@ -116,10 +116,9 @@ describeNotInDockerMode('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () 
         // already gone or app shutting down — best-effort cleanup
       }
     }
-    const dataDir = process.env.KNIHA_JAZD_DATA_DIR;
-    if (dataDir) {
-      rmSync(join(dataDir, 'seeded-receipts'), { recursive: true, force: true });
-    }
+    // Host-side delete: this is the test process' own filesystem, so it uses
+    // hostWorkDir() — the same directory seedReceipt wrote the placeholders to.
+    rmSync(join(hostWorkDir(), 'seeded-receipts'), { recursive: true, force: true });
   });
 
   it('assigns 1 Fuel + 2 Other via picker, displays sum, flags and updates mismatch', async function () {
