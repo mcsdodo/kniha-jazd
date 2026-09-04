@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-03 (Task 73 created)
+**Last updated:** 2026-09-04 (Task 73 completed)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 73 | [Web-First Migration](73-web-first-migration/) | 📋 Planning | Retire the Tauri desktop app; Docker + browser UI become the only build, ship, and test target |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 73 | [Web-First Migration](./_done/73-web-first-migration/) | 2026-09-04 |
 | 71 | [Copy Trip Row](./_done/71-copy-trip-row/) | 2026-09-03 |
 | 70 | [Route Map Integration](./_done/70-route-map-integration/) | 2026-08-10 |
 | 67 | [Online Always-On Runner](./_done/67-online-always-on-runner/) | 2026-09-03 |
@@ -57,8 +57,8 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
-| 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | Open (→ Task 41) |
-| 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Resolved ([Task 58](./_done/58-tauri-workspace-split/)) |
+| 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted wdio.conf.ts; cross-spec sharing → Task 41) |
+| 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted the Tauri crate) |
 | 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
 | 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |
 | 03 | Dead Code & Warnings | Low | ✅ Resolved (Task 37, file archived) |

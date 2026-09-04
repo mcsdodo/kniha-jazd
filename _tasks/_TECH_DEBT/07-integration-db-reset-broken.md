@@ -3,8 +3,21 @@
 **Date:** 2026-07-15
 **Priority:** Medium
 **Effort:** Medium (2-8h)
-**Component:** [tests/integration/wdio.conf.ts](../../tests/integration/wdio.conf.ts)
-**Status:** Open
+**Component:** `tests/integration/wdio.conf.ts` (deleted)
+**Status:** Moot — resolved 2026-09-04
+
+## Resolution
+
+Moot as of [Task 73](../_done/73-web-first-migration/). The launcher/worker split this
+describes was specific to `wdio.conf.ts`, the tauri-driver harness, which was deleted
+when the desktop app was retired ([ADR-030](../../DECISIONS.md)). The surviving harness
+(`wdio.server.conf.ts`) resets the database over RPC from the worker, so there is no
+cross-process hook to get wrong.
+
+Note the *cross-spec* state sharing this file also touches is NOT resolved: specs in a
+tier still share one backend and one database, which is why `datetime-is-order` can fail
+under a full-tier run and pass in isolation. `specFileRetries: 2` absorbs it today. That
+part belongs to [Task 41](../41-integration-test-speedup/).
 
 ## Problem
 

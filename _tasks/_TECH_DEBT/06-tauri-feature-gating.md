@@ -4,7 +4,7 @@
 **Priority:** Medium
 **Effort:** High (1-3d)
 **Component:** [Cargo.toml](../../src-tauri/Cargo.toml), [lib.rs](../../src-tauri/src/lib.rs), [commands/](../../src-tauri/src/commands/), [server/mod.rs](../../src-tauri/src/server/mod.rs)
-**Status:** Fixed
+**Status:** Moot — the Tauri crate was deleted entirely in [Task 73](../_done/73-web-first-migration/) ([ADR-030](../../DECISIONS.md)), so there is nothing left to feature-gate.
 
 ## Problem
 
