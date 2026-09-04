@@ -18,6 +18,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 ### Opravené
 - **Export z prehliadača nerešpektoval nastavenia knihy** — vytlačená kniha jázd ignorovala skryté stĺpce aj zvolené zoradenie a chýbal v nej úvodný riadok „Prvý záznam" so stavom tachometra na začiatku roka. Export z prehliadača teraz zodpovedá tomu, čo vidíš na obrazovke.
 - **Verzia aplikácie sa v prehliadači nezobrazovala** — nastavenia ju ukazovali len v desktopovej aplikácii. Teraz je viditeľná aj vo webovej verzii, takže je zrejmé, ktorý obraz beží.
+- **Ochrana pred starším obrazom sa v serverovej verzii neuplatňovala** — ak databázu upravila novšia verzia aplikácie, staršia ju predtým otvorila a zapisovala do nej. Teraz sa v takom prípade spustí režim len na čítanie a zápis sa odmietne, takže sa návratom na starší obraz nedá poškodiť kniha jázd.
 
 ## [0.43.0] - 2026-08-10
 

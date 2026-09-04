@@ -1,44 +1,64 @@
 # Feature: Settings Architecture
 
-> Dual storage system separating machine-specific configuration (LocalSettings) from business data (Settings) for safe database sharing across devices.
+> Dual storage system separating deployment-specific configuration (LocalSettings) from business data (Settings), so credentials and server paths never travel inside the database.
 
 ## Overview
 
 The application uses a **two-tier settings architecture** that separates:
 
-1. **LocalSettings** — Machine-specific configuration stored in a local JSON file
+1. **LocalSettings** — Deployment-specific configuration stored in a JSON file next to the database
 2. **Settings** — Business/company data stored in the SQLite database
 
-This architecture enables users to share their database across multiple computers (via Google Drive, NAS, etc.) while keeping sensitive credentials and machine-specific paths local to each device.
+The split keeps API keys and server-side filesystem paths out of the database file, so the
+database stays portable: it can be copied to another deployment, restored from a backup, or
+handed to someone else without carrying a credential or a path that only made sense on the
+machine it came from.
 
 ## The Two Storage Systems
 
 ### LocalSettings (File-based)
 
-Stored in `local.settings.json` in the app data directory:
-- **Windows**: `%APPDATA%/com.notavailable.kniha-jazd/local.settings.json`
-- **Dev mode**: `%APPDATA%/com.notavailable.kniha-jazd.dev/local.settings.json`
+Stored as `local.settings.json` in the data directory, which is
+`KNIHA_JAZD_DATA_DIR` and defaults to **`/data`** — so in the standard container it is
+`/data/local.settings.json`, inside the mounted volume, alongside the database and
+`backups/`. There is no per-OS app-data path and no separate dev identifier; both belonged
+to the deleted desktop bundle ([ADR-030](../../DECISIONS.md)).
 
-**Fields**:
+**Fields** — the full list lives on the `LocalSettings` struct in
+[settings.rs](../../src-tauri/core/src/settings.rs); the commonly-edited ones are:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `gemini_api_key` | `Option<String>` | API key for receipt OCR scanning |
-| `receipts_folder_path` | `Option<String>` | Local folder path for receipt images |
+| `receipts_folder_path` | `Option<String>` | Server-side folder path for receipt images |
 | `theme` | `Option<String>` | UI theme: `"system"`, `"light"`, or `"dark"` |
-| `auto_check_updates` | `Option<bool>` | Enable automatic update checks (default: `true`) |
-| `custom_db_path` | `Option<String>` | Custom database location (Google Drive, NAS) |
+| `date_prefill_mode` | `Option<DatePrefillMode>` | New-trip date prefill: `previous` or `today` |
+| `infer_trip_times` | `Option<bool>` | Time-inference toggle (`None` = off) |
+| `hidden_columns` | `Option<Vec<String>>` | Trip grid columns hidden by the user |
+| `custom_db_path` | `Option<String>` | Custom database location |
 | `backup_retention` | `Option<BackupRetention>` | Auto-cleanup settings for pre-update backups |
+| `ha_url` / `ha_api_token` | `Option<String>` | Home Assistant integration |
+| `paperless_url` / `paperless_api_token` / `paperless_enabled` | — | Paperless-ngx integration |
+| `paperless_field_name_*` | `Option<String>` | Paperless custom field name overrides |
 
-**ReceiptSettings return shape:** See `types.ts:L177-182` for the TypeScript interface.
+The struct also still carries `auto_check_updates`, `server_enabled` and `server_port`.
+**All three are vestigial**: no command reads or writes them and no code branches on them.
+They survive only so an inherited `local.settings.json` from a desktop install still
+deserializes. Do not document them as behaviour.
+
+**ReceiptSettings return shape:** the `ReceiptSettings` interface in
+[types.ts](../../src/lib/types.ts).
 
 **Notes**:
-- `KNIHA_JAZD_DATA_DIR` can override the app data directory for local settings and database paths.
-- Theme and auto-update preferences currently use the default app data dir (do not honor `KNIHA_JAZD_DATA_DIR`).
+- The JSON keys are the Rust field names verbatim (snake_case) — `LocalSettings` declares no
+  serde rename. `BackupRetention` is the exception: it *is* camelCase, so its nested keys are
+  `enabled` and `keepCount`.
 - Setting `gemini_api_key` or `receipts_folder_path` to an empty string clears the value.
-- `receipts_folder_path` must exist and be a directory.
+- `receipts_folder_path` must exist and be a directory **on the server**, not on the
+  machine running the browser.
 
-**BackupRetention:** See `settings.rs:L11-14` for the struct definition. Contains `enabled` (bool) and `keep_count` (u32) fields, serialized with camelCase for JSON.
+**BackupRetention:** the struct in [settings.rs](../../src-tauri/core/src/settings.rs),
+holding `enabled` (bool) and `keep_count` (u32), serialized camelCase.
 
 ### Environment-variable overrides (server deployments)
 
@@ -98,12 +118,14 @@ Stored in the `settings` table of `kniha-jazd.db`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `Uuid` | Unique identifier |
-| `company_name` | `String` | Company name for PDF exports |
+| `company_name` | `String` | Company name printed in the HTML export header |
 | `company_ico` | `String` | Company identification number (IČO) |
 | `buffer_trip_purpose` | `String` | Default purpose text for buffer trips |
 | `updated_at` | `DateTime<Utc>` | Last modification timestamp |
 
-**Defaults:** See `models.rs:L275-285` for the `Default` implementation. The `buffer_trip_purpose` defaults to "sluzobna cesta" (service trip); other string fields default to empty.
+**Defaults:** the `Default` impl for `Settings` in
+[models.rs](../../src-tauri/core/src/models.rs). `buffer_trip_purpose` defaults to
+"sluzobna cesta" (service trip); other string fields default to empty.
 
 ## Why the Split?
 
@@ -113,38 +135,62 @@ The separation exists for **three key reasons**:
 
 API keys (like Gemini) are personal credentials that shouldn't be shared when syncing the database across computers. Each user/machine needs their own key.
 
-### 2. Paths Are Machine-Specific
+### 2. Paths Are Deployment-Specific
 
-File paths (like receipts folder) differ between computers:
-- Home PC: `C:\Users\John\Documents\Receipts`
-- Work PC: `D:\Data\Receipts`
-- Mac: `/Users/john/Documents/Receipts`
+File paths (like the receipts folder) belong to the machine running the server, not to the
+database. A path baked into a shared database would be wrong for every other deployment
+that opened it.
 
-### 3. Preferences Stay Local
+### 3. Preferences Are Not Business Data
 
-Theme preferences and update settings are personal choices that may differ between a user's devices.
+Theme, hidden columns and date-prefill mode are UI preferences. They have no place in a
+record that has to satisfy a tax audit.
+
+> **Historical note:** the split was originally designed for one database shared between
+> several desktop PCs over Google Drive or a NAS. That scenario is gone — one container owns
+> one database file — but the split still earns its keep: it keeps credentials out of the
+> file users copy around, and keeps the DB portable between deployments.
 
 ## Technical Implementation
 
 ### Loading Settings
 
-**LocalSettings loading:** See `settings.rs:L29-39` for the `load()` method. Reads from `local.settings.json` in the app data directory, falling back to defaults if the file is missing or malformed.
+**LocalSettings loading:** `LocalSettings::load()` in
+[settings.rs](../../src-tauri/core/src/settings.rs) reads `local.settings.json` from the
+data directory, falling back to defaults if the file is missing or malformed.
+`LocalSettings::load_effective()` layers env overrides on top — see the consumption-vs-setter
+rule above.
 
-**Settings loading:** See `db.rs:L593-598` for the `get_settings()` method. Queries the `settings` table and converts the row to a domain model using Diesel ORM.
+**Settings loading:** `Database::get_settings()` in
+[db.rs](../../src-tauri/core/src/db.rs) queries the `settings` table and converts the row to
+a domain model using Diesel.
 
 ### Saving Settings
 
-**LocalSettings saving:** See `settings.rs:L42-52` for the `save()` method. Writes pretty-printed JSON to disk with `sync_all()` to ensure durability (data flushed to disk before returning).
+**LocalSettings saving:** `LocalSettings::save()` writes pretty-printed JSON with
+`sync_all()`, so the data is flushed to disk before the call returns.
 
-**Settings saving:** See `db.rs:L601-636` for the `save_settings()` method. Uses an upsert pattern - checks if settings exist, then updates or inserts accordingly.
+**Settings saving:** `Database::save_settings()` uses an upsert pattern — checks whether a
+settings row exists, then updates or inserts.
 
-Write commands fail in read-only mode with a user-facing error.
+Write commands fail in read-only mode with a user-facing error — see [read-only-mode.md](./read-only-mode.md).
 
 ### Frontend Integration
 
-The Settings UI (`+page.svelte`) loads both setting types and presents them in a unified interface. See `+page.svelte:L273-308` for the `onMount()` loading pattern that fetches database settings, local settings (API key, receipts folder), and database location info in parallel.
+The Settings UI ([settings/+page.svelte](../../src/routes/settings/+page.svelte)) loads both
+setting types and presents them in a unified interface. Its `onMount()` subscribes to the
+locale and theme stores, then sequentially awaits `getSettings()`, `loadBackups()`,
+`loadRetentionSettings()`, `checkVehiclesWithTrips()`, `getAppVersion()`,
+`getInferTripTimes()` and `getReceiptSettings()`.
 
-**Auto-save with debouncing:** See `+page.svelte:L117-118` for the debounce setup. Both company settings and receipt settings use 800ms debounce to prevent excessive writes while typing.
+It does **not** fetch the database location — `getDbLocation()` has no caller in the
+frontend. The `get_db_location` command still exists on the backend and is reachable over
+RPC, but nothing in the UI displays it, and there is no "Change location" flow: moving the
+database is now an operator action on the host volume.
+
+**Auto-save with debouncing:** a local `debounce()` helper wraps `saveCompanySettingsNow`,
+`saveReceiptSettingsNow`, `saveHaSettingsNow` and `savePaperlessSettingsNow`, all at 800ms,
+to prevent excessive writes while typing.
 
 ## RPC Commands
 
@@ -154,14 +200,25 @@ The Settings UI (`+page.svelte`) loads both setting types and presents them in a
 |---------|-----------|---------|-------------|
 | `get_theme_preference` | — | `String` | Get theme ("system", "light", "dark") |
 | `set_theme_preference` | `theme` | `()` | Set theme preference |
-| `get_auto_check_updates` | — | `bool` | Get auto-update setting |
-| `set_auto_check_updates` | `enabled` | `()` | Set auto-update setting |
-| `get_receipt_settings` | — | `ReceiptSettings` | Get API key, folder path, and override flags |
+| `get_date_prefill_mode` | — | `DatePrefillMode` | Get new-trip date prefill mode |
+| `set_date_prefill_mode` | `mode` | `()` | Set new-trip date prefill mode |
+| `get_hidden_columns` | — | `Vec<String>` | Get hidden trip grid columns |
+| `set_hidden_columns` | `columns` | `()` | Set hidden trip grid columns |
+| `get_infer_trip_times` | — | `bool` | Get the time-inference toggle |
+| `set_infer_trip_times` | `enabled` | `()` | Set the time-inference toggle |
+| `get_receipt_settings` | — | `ReceiptSettings` | Get folder path plus "is a key configured / is it env-pinned" flags |
 | `set_gemini_api_key` | `key` | `()` | Set Gemini API key |
 | `set_receipts_folder_path` | `path` | `()` | Set receipts folder |
 | `get_backup_retention` | — | `BackupRetention?` | Get cleanup settings |
 | `set_backup_retention` | `retention` | `()` | Set cleanup settings |
-| `get_db_location` | — | `DbLocationInfo` | Get database path, custom-path flag, and backups path |
+| `reveal_secret` | `field`, `pin` | `String` | PIN-gated read of one credential |
+| `get_db_location` | — | `DbLocationInfo` | Database path, custom-path flag, backups path — **no frontend caller** |
+| `get_app_mode` | — | `AppModeInfo` | Read-only state (see [read-only-mode.md](./read-only-mode.md)) |
+| `get_app_version` | — | `String` | The `CARGO_PKG_VERSION` of the running binary |
+
+There are no `get_auto_check_updates` / `set_auto_check_updates` commands — they went with
+the updater. Home Assistant and Paperless settings have their own commands
+(`get_ha_settings`, `save_ha_settings`, `get_paperless_settings`, `save_paperless_settings`).
 
 ### Database Settings Commands
 
@@ -187,10 +244,11 @@ The Settings UI (`+page.svelte`) loads both setting types and presents them in a
 
 ### Why JSON for LocalSettings?
 
-1. **Survives reinstalls** — App data directory persists when updating/reinstalling
-2. **Human-readable** — Users can manually edit if needed
-3. **No migration needed** — New fields with `Option<T>` are backward compatible
-4. **Platform standard** — Uses OS-appropriate config locations
+1. **Survives upgrades** — it lives in the mounted `/data` volume, so pulling a new image
+   leaves it untouched
+2. **Human-readable** — an operator with shell access to the volume can edit it directly
+3. **No migration needed** — new fields with `Option<T>` are backward compatible, which is
+   also why fields deleted from the UI can stay in the struct without breaking old files
 
 ### Why Database for Settings?
 
@@ -210,13 +268,19 @@ The user sees one Settings page, unaware of the underlying split. This provides:
 ```json
 {
     "gemini_api_key": "YOUR_API_KEY_HERE",
-    "receipts_folder_path": "C:\\Users\\YourUsername\\Documents\\Receipts",
+    "receipts_folder_path": "/data/receipts",
     "theme": "dark",
-    "auto_check_updates": true,
-    "custom_db_path": "D:\\GoogleDrive\\kniha-jazd",
+    "date_prefill_mode": "previous",
+    "hidden_columns": ["time", "fuelConsumed"],
+    "ha_url": "http://homeassistant.local:8123",
+    "ha_api_token": "eyJhbGciOiJIUzI1NiIs...",
     "backup_retention": {
         "enabled": true,
         "keepCount": 3
     }
 }
 ```
+
+Note the casing: top-level keys are snake_case (the Rust field names), while
+`backup_retention`'s own keys are camelCase because that struct declares
+`#[serde(rename_all = "camelCase")]`.

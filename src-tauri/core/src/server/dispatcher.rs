@@ -801,7 +801,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Route maps — sync (3)
+        // Route maps — sync
         // ====================================================================
         //
         // generate_route lives in dispatcher_async — it awaits OSRM.

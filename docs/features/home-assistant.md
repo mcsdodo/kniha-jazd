@@ -40,10 +40,13 @@
 - `haStore.getCachedOdo(vehicleId)` — Returns cached value
 - LocalStorage persistence for cache
 
-**API Wrapper:** `src/lib/api.ts:L427-443`
-- `getLocalSettingsForHa()` — Retrieves HA URL + token
-- `testHaConnection()` — Tests HA connectivity
-- `fetchHaOdo(sensorId)` — Fetches sensor value
+**API Wrapper:** [api.ts](../../src/lib/api.ts)
+- `getHaSettings()` — Returns the HA URL, a `hasToken` flag and the env-pinned flags. It
+  never returns the token itself; reading that requires `revealSecret()` and a PIN (see
+  [settings-architecture.md](./settings-architecture.md))
+- `saveHaSettings(url, token)` — Saves URL and/or token (`null` = leave unchanged)
+- `testHaConnection()` — Tests HA connectivity using the stored credentials
+- `fetchHaOdo(sensorId)` — Fetches the sensor value
 
 ### Backend (Rust)
 
@@ -86,6 +89,7 @@ Both are async, so they are dispatched from
 - The browser has CORS restrictions
 - HA API doesn't allow cross-origin requests from arbitrary domains
 - Rust's reqwest client has no CORS limitations
+- The long-lived token never has to leave the server
 
 ## Key Files
 
@@ -94,20 +98,25 @@ Both are async, so they are dispatched from
 | `src/routes/+page.svelte` | Main page header with real ODO display |
 | `src/routes/settings/+page.svelte` | HA configuration UI |
 | `src/lib/stores/homeAssistant.ts` | Svelte store with caching + refresh |
-| `src/lib/api.ts:L427-443` | TypeScript API wrappers |
+| [src/lib/api.ts](../../src/lib/api.ts) | `getHaSettings`, `saveHaSettings`, `testHaConnection`, `fetchHaOdo` |
 | [src-tauri/core/src/commands_internal/integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `test_ha_connection_internal`, `fetch_ha_odo_internal`, fillup push |
 | [src-tauri/core/src/settings.rs](../../src-tauri/core/src/settings.rs) | `ha_url`, `ha_api_token` fields |
 | [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `ha_odo_sensor` vehicle field |
 
 ## Configuration Storage
 
-**Global HA credentials:** `local.settings.json` (in AppData)
+**Global HA credentials:** `local.settings.json` in the data directory
+(`/data/local.settings.json` in the container). Keys are the Rust field names, snake_case:
+
 ```json
 {
-  "haUrl": "https://my-ha.duckdns.org",
-  "haApiToken": "eyJhbGciOiJIUzI1NiIs..."
+  "ha_url": "https://my-ha.duckdns.org",
+  "ha_api_token": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
+
+Both can be overridden by the `HA_URL` / `HA_API_TOKEN` environment variables, which win
+over the file and are never written back to it.
 
 **Per-vehicle sensor:** SQLite `vehicles` table
 ```sql
@@ -156,7 +165,9 @@ instance is serving the UI.
 
 - **Why global credentials + per-vehicle sensor?** — Most users have one HA instance but multiple vehicles. Avoids credential duplication.
 
-- **Why Rust backend for API calls?** — CORS restrictions in browser webview block direct HA API calls. Rust's reqwest has no such limitations.
+- **Why Rust backend for API calls?** — the browser cannot call an arbitrary HA instance
+  cross-origin, and the token must not reach the browser at all. Rust's reqwest has no CORS
+  constraint and keeps the credential server-side.
 
 - **Why localStorage cache?** — Instant display on page load. Avoids waiting for HA response on every app start.
 

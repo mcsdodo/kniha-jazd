@@ -6,8 +6,8 @@
 
 1. User navigates to the main trips page with an active vehicle selected (button is only shown when a vehicle is active)
 2. User clicks the "Export pre tlač" (Export for Print) button in the header
-3. System generates an HTML file with the complete trip logbook for the selected year
-4. HTML file is opened in the default browser
+3. The backend returns the complete logbook for the selected year as an HTML **string**
+4. The page wraps that string in a `Blob`, takes an object URL and opens it in a new browser tab
 5. User prints via Ctrl+P → "Save as PDF" for official record keeping
 
 The export button is disabled when:
@@ -20,7 +20,7 @@ Export requires company settings (name/IČO) to be configured, otherwise the com
 
 ### Export Totals Calculation
 
-The `ExportTotals::calculate()` function (`export.rs:L96`) processes trip data to produce footer statistics. The struct is defined at `export.rs:L72-84`.
+`ExportTotals::calculate()` in [export.rs](../../src-tauri/core/src/export.rs) processes trip data to produce footer statistics; the `ExportTotals` struct sits just above it in the same file.
 
 Key fields:
 - **Distance:** `total_km` - sum of all trip distances
@@ -48,18 +48,32 @@ The `generate_html()` function builds a complete HTML document with:
 
 ### Export Command Flow
 
-The `export_to_browser` command:
-1. Loads vehicle, settings, and trips from database
-2. Creates a synthetic "First Record" trip with initial odometer
-3. Calculates consumption rates and fuel/battery remaining
-4. Applies user's current sort order (date or manual)
-5. Writes HTML to temp directory as `kniha-jazd-{license_plate}-{year}.html`
-6. Opens file in default browser via `opener::open()`
+`export_html` is the **only** export command. It is async, so it is dispatched from
+[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) into
+`export_html_internal` ([commands_internal/export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs)),
+which:
 
-The `export_html` command:
-- Returns the generated HTML string without opening a browser
-- Does **not** add the synthetic "First Record" row
-- Does **not** apply the user’s sort order (uses chronological order for calculations)
+1. Loads vehicle and company settings; fails if either is missing
+2. Builds the trip grid via `build_trip_grid_data` (rates, fuel/battery remaining, trip numbers)
+3. Appends a synthetic "Prvý záznam" (First Record) row carrying the year-start odometer,
+   keyed by `Uuid::nil()` so `generate_html` can special-case it
+4. Computes `ExportTotals` (the synthetic 0 km row is skipped by the dummy-row filter)
+5. Assembles rows in the caller's `sortDirection` (`"asc"`/`"desc"`) and renders route-map
+   attachment pages
+6. Returns the finished HTML **as a string** — it writes no file and opens nothing
+
+`handleExport()` in [+page.svelte](../../src/routes/+page.svelte) then does the opening:
+
+```
+labels        <- build from the i18n store
+hiddenColumns <- re-read from the backend (may have changed since page load)
+html          <- exportHtml(vehicleId, year, labels, hiddenColumns, sortDirection)
+blob          <- new Blob([html], 'text/html')
+window.open(URL.createObjectURL(blob), '_blank')
+```
+
+The caller passes the same `sortDirection` the grid header is sorted by, so the printed
+record numbers cannot drift from the on-screen order.
 
 ### Vehicle-Type Templates
 
@@ -96,14 +110,15 @@ Labels include:
 - BEV-specific labels (battery capacity, energy rate, baseline)
 - Print hint text
 
-**Translation location:** Slovak translations are in `src/lib/i18n/sk/index.ts:L467` (search for `export:` key). Labels cover page title, headers, column names, footer labels, and print hints.
+**Translation location:** the `export:` key in [sk/index.ts](../../src/lib/i18n/sk/index.ts) and [en/index.ts](../../src/lib/i18n/en/index.ts). Labels cover page title, headers, column names, footer labels, and print hints.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | [export.rs](../../src-tauri/core/src/export.rs) | Core export logic: `ExportTotals`, `generate_html()`, column rendering |
-| [commands_internal/export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) | The `export_html` command: synthetic first record, hidden columns, sort direction |
+| [commands_internal/export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) | `export_html_internal`: synthetic first record, totals, hidden columns, sort direction, route-map pages |
+| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | The `export_html` RPC arm (async — it awaits route-map tile fetches) |
 | [types.ts](../../src/lib/types.ts) | TypeScript `ExportLabels` interface |
 | [api.ts](../../src/lib/api.ts) | Frontend API: `exportHtml()` |
 | [+page.svelte](../../src/routes/+page.svelte) | Export button handler, label construction |
@@ -144,12 +159,22 @@ Trips with 0 km (used for recording other costs like parking without actual trav
 
 ### Why Synthetic First Record?
 
-A "Prvý záznam" (First Record) trip is auto-generated with initial odometer to establish the year's starting point. This matches the on-screen grid behavior where year-start odometer is displayed.
+A "Prvý záznam" (First Record) trip is auto-generated with the year-start odometer to
+establish the year's starting point. This matches the on-screen grid, which shows the same
+baseline row (`TripGrid.svelte`'s `FIRST_RECORD_ID`).
+
+It is added inside `export_html_internal`, not by the caller, so there is exactly one place
+that can produce it — the printed logbook and the grid cannot disagree about the opening
+odometer.
 
 ### Why Deviation as Percentage?
 
 The deviation shows actual consumption as a percentage of TP norm (e.g., 105% = 5% over norm). This is Slovak tax authority convention where < 120% is legally compliant for expense deduction.
 
-### Why Temp File Approach?
+### Why a Blob URL Instead of a Temp File?
 
-Writing to temp directory and opening via `shell::open()` works reliably across Windows/macOS/Linux without requiring a custom print dialog. The browser handles all print UI.
+The app is a server the user reaches over the LAN, so the backend has no way to open a
+window on the viewer's machine — and a file it wrote would land on the server's disk, not
+the user's. Returning the HTML as a string and letting the page open it as a `Blob` object
+URL puts the document in the tab that asked for it, on whichever device that is, with the
+browser still handling all print UI.

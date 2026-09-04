@@ -38,9 +38,9 @@ the server). New backend code almost always belongs in `core`.
 Tests are split into separate `*_tests.rs` files using the `#[path]` attribute pattern:
 
 ```rust
-// In calculations.rs
+// In calculations/mod.rs
 #[cfg(test)]
-#[path = "calculations_tests.rs"]
+#[path = "tests.rs"]
 mod tests;
 ```
 
@@ -75,8 +75,8 @@ Paths are relative to `src-tauri/core/src/` unless noted.
 | File | Purpose | When to Modify |
 |------|---------|----------------|
 | `server/mod.rs` | Axum router, `/api/rpc`, `/health`, CORS, static files | HTTP surface changes |
-| `server/dispatcher.rs` | Sync command dispatch (68 commands) | Registering a new command |
-| `server/dispatcher_async.rs` | Async command dispatch (12 commands) | Registering a new async command |
+| `server/dispatcher.rs` | Sync command dispatch — one `match` arm per command in `dispatch_sync` | Registering a new command |
+| `server/dispatcher_async.rs` | Async command dispatch — one arm per command in `dispatch_async` | Registering a new async command |
 | `commands_internal/` | The `*_internal` functions the dispatcher calls | New frontend→backend calls |
 | `commands_internal/commands_tests.rs` | Tests for commands | Adding command tests |
 | `calculations/mod.rs` | All consumption/margin math | Adding/changing calculations |

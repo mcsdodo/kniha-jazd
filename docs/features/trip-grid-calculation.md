@@ -39,7 +39,7 @@ Note: preview currently supports ICE only; energy preview is explicitly TODO in 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         get_trip_grid_data()                                │
-│                      (Main Orchestrator - commands.rs)                      │
+│          (Main Orchestrator - build_trip_grid_data in statistics.rs)        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
         ┌───────────────────────────┼───────────────────────────┐

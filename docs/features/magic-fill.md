@@ -41,7 +41,8 @@ Results are rounded to 2 decimals.
 
 Magic fill only considers kilometers in the **current open period** — the kilometers driven since the last full tank fill-up, up to the trip being edited.
 
-**Implementation:** `commands.rs:L992` `get_open_period_km()`
+**Implementation:** `get_open_period_km()` in
+[commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs)
 
 **Algorithm:**
 ```
@@ -79,7 +80,8 @@ This is controlled via the `editing_trip_id` parameter:
 
 A related function calculates how many additional kilometers are needed to bring consumption rate down to a target margin.
 
-**Implementation:** `calculations.rs:L73` `calculate_buffer_km()`
+**Implementation:** `calculate_buffer_km()` in
+[calculations/mod.rs](../../src-tauri/core/src/calculations/mod.rs)
 
 **Formula:**
 ```
@@ -100,7 +102,9 @@ This is used for warning display when consumption exceeds the legal limit.
 
 The magic fill button is available in the trip row's edit mode.
 
-**Implementation:** `TripRow.svelte:L164` `handleMagicFill()`
+**Implementation:** `handleMagicFill()` in
+[TripRow.svelte](../../src/lib/components/TripRow.svelte), wired through the wrapper of the
+same name in [TripGrid.svelte](../../src/lib/components/TripGrid.svelte)
 
 **Behavior:**
 1. Get current distance from form (exit if <= 0)

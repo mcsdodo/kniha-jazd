@@ -80,7 +80,8 @@ The Gemini client handles OCR extraction:
 - **Multi-currency**: EUR, CZK (Czech), HUF (Hungarian), PLN (Polish)
 - **Multi-language**: Slovak, Czech, Hungarian, Polish receipts
 
-**Response Schema:** See `ExtractedReceipt` struct in `gemini.rs:L14` for full field definitions.
+**Response Schema:** the `ExtractedReceipt` struct in
+[gemini.rs](../../src-tauri/core/src/gemini.rs) carries the full field definitions.
 
 Key fields:
 - `liters`, `station_name`, `station_address` — Fuel receipts only
@@ -177,7 +178,10 @@ Receipt-to-trip matching supports two paths:
 - Populates `trip.other_costs_eur` and `trip.other_costs_note`
 - Note built from `vendor_name` + `cost_description`
 
-**Assignment Logic** (`commands.rs:L2652`):
+**Assignment Logic** (`assign_receipt_to_trip_internal` in
+[commands_internal/receipts_cmd.rs](../../src-tauri/core/src/commands_internal/receipts_cmd.rs)
+— reached over RPC as `assign_invoice_to_trip`, whose shared validation and reversal rules
+live in [commands_internal/invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs)):
 
 | Trip State | Receipt Type | Result |
 |------------|--------------|--------|
@@ -203,10 +207,21 @@ The verification system checks receipts against trips for a vehicle/year, filter
 
 ### Mock Mode for Testing
 
-Environment variable `KNIHA_JAZD_MOCK_GEMINI_DIR` enables deterministic testing:
+Environment variable `KNIHA_JAZD_MOCK_GEMINI_DIR` enables deterministic testing, and the
+integration harness sets it for you — so `npm run test:integration` already runs against
+mocks. In spawned-server mode
+[wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) points the binary at
+[tests/integration/data/mocks](../../tests/integration/data/mocks); in Docker mode the
+container gets its own mock path as a `-e` flag when it is started.
+
+(There is no `npm run test` script — see the `scripts` block in
+[package.json](../../package.json) for the real set.)
+
+To run the server by hand against mocks:
 
 ```bash
-KNIHA_JAZD_MOCK_GEMINI_DIR=/path/to/mocks npm run test
+KNIHA_JAZD_MOCK_GEMINI_DIR=/path/to/mocks \
+  cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 ```
 
 When set:

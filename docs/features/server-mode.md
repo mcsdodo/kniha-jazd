@@ -128,7 +128,9 @@ a scratch folder first, otherwise the binary falls back to `/data`.
 - Binds `0.0.0.0` when `bind_all` is set (the binary sets it), `127.0.0.1` otherwise
 
 **RPC Dispatcher:** [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) + [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
-- Maps command names to `_internal` functions — 68 sync, 12 async
+- Maps command names to `_internal` functions — one `match` arm per command, currently
+  64 sync and 12 async (count the arms in `dispatch_sync` / `dispatch_async` rather than
+  trusting this number; it moves whenever a command is added or removed)
 - Sync commands dispatched via `spawn_blocking`
 - Async commands (receipts OCR, HA integration, export, `get_trip_grid_data`) awaited directly
 - Backup filenames arriving over RPC pass through `validate_backup_filename` ([commands_internal/backup.rs](../../src-tauri/core/src/commands_internal/backup.rs)) — empty names, path separators, `..`, and drive/ADS colons are rejected before any file access (defense-in-depth for the network-reachable restore/delete endpoints)
@@ -173,9 +175,10 @@ Browser (phone, tablet, laptop)
 }
 ```
 
-`read_only` reflects `AppState::is_read_only()`, set when the database carries migrations
-this build does not know (i.e. it was written by a newer image). The UI reads the same
-state through the `get_app_mode` command rather than this endpoint.
+`read_only` reflects `AppState::is_read_only()`. Note that **nothing currently sets it** —
+the migration-compatibility check that used to arm it has no caller left, so this field is
+always `false` in practice. See [read-only-mode.md](./read-only-mode.md). The UI reads the
+same state through the `get_app_mode` command rather than this endpoint.
 
 The `features` block records what this deployment can and cannot do. The flags that are
 permanently `false` are the native affordances only a desktop shell could provide.
@@ -203,8 +206,8 @@ This is not authentication — see ADR-017 and the tailnet-trust model in ADR-02
 |------|---------|
 | [web/src/main.rs](../../src-tauri/web/src/main.rs) | Binary entrypoint: env vars, DB open, server start |
 | [server/mod.rs](../../src-tauri/core/src/server/mod.rs) | Axum router, RPC handler, capabilities, CORS, static files |
-| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | Sync command dispatch (68 commands) |
-| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | Async command dispatch (12 commands) |
+| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | Sync command dispatch (`dispatch_sync`, 64 arms) |
+| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | Async command dispatch (`dispatch_async`, 12 arms) |
 | [commands_internal/](../../src-tauri/core/src/commands_internal/) | The `_internal` functions the dispatcher calls |
 | [Dockerfile.web](../../Dockerfile.web) | Multi-stage Docker build |
 | [docker-compose.web.yml](../../docker-compose.web.yml) | Local build + run wiring |
