@@ -9,11 +9,11 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
 async function resetHiddenColumns(): Promise<void> {
-  await invokeTauri<void>('set_hidden_columns', { columns: [] });
+  await rpc<void>('set_hidden_columns', { columns: [] });
 }
 
 describe('Tier 2: Datetime Column', () => {

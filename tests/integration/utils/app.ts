@@ -3,15 +3,11 @@
  */
 
 /**
- * Wait for the app to be fully loaded and ready
- * Checks for:
- * 1. Main header element (DOM ready)
- * 2. Tauri IPC bridge (window.__TAURI__ available) — skipped in server mode
+ * Wait for the app to be fully loaded and ready.
+ * DOM ready (main header visible) is the only condition — the backend is
+ * reached over HTTP RPC, not through an in-page bridge.
  */
 export async function waitForAppReady(): Promise<void> {
-  const isServerMode = process.env.WDIO_SERVER_MODE === '1';
-
-  // First wait for DOM to be ready (h1 visible)
   await browser.waitUntil(
     async () => {
       const header = await $('h1');
@@ -22,25 +18,6 @@ export async function waitForAppReady(): Promise<void> {
       timeoutMsg: 'App did not load within 30 seconds'
     }
   );
-
-  if (!isServerMode) {
-    // Tauri mode: wait for IPC bridge to be available
-    // In Tauri v2 with withGlobalTauri: true, API is at window.__TAURI__.core.invoke
-    await browser.waitUntil(
-      async () => {
-        return browser.execute(() => {
-          return typeof (window as any).__TAURI__ !== 'undefined' &&
-                 typeof (window as any).__TAURI__.core !== 'undefined' &&
-                 typeof (window as any).__TAURI__.core.invoke === 'function';
-        });
-      },
-      {
-        timeout: 10000,
-        timeoutMsg: 'Tauri IPC bridge did not initialize within 10 seconds'
-      }
-    );
-  }
-  // In server mode, DOM ready is sufficient — backend is accessed via HTTP RPC
 }
 
 /**

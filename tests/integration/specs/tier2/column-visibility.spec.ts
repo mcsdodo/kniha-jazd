@@ -9,15 +9,15 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
 async function getHiddenColumns(): Promise<string[]> {
-  return invokeTauri<string[]>('get_hidden_columns');
+  return rpc<string[]>('get_hidden_columns');
 }
 
 async function setHiddenColumnsViaIpc(columns: string[]): Promise<void> {
-  await invokeTauri<void>('set_hidden_columns', { columns });
+  await rpc<void>('set_hidden_columns', { columns });
 }
 
 describe('Tier 2: Column Visibility', () => {

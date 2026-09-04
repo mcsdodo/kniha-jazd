@@ -13,7 +13,7 @@ import {
   seedTrip,
   getTripGridData,
   getVehicles,
-  invokeTauri,
+  rpc,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -115,7 +115,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       // Explicitly activate vehicle1 (Alpha). Don't rely on +layout.svelte's
       // auto-selection — its async setActiveVehicle call races with
       // waitForAppReady on slower runners, and it's not the behavior under test.
-      await invokeTauri<void>('set_active_vehicle', { id: vehicle1.id as string });
+      await rpc<void>('set_active_vehicle', { id: vehicle1.id as string });
       await browser.refresh();
       await waitForAppReady();
       await navigateTo('trips');
@@ -126,7 +126,7 @@ describe('Tier 3: Multi-Vehicle Support', () => {
       expect(pageTextAlpha).not.toContain('Beta Origin');
 
       // Switch active vehicle to Beta
-      await invokeTauri<void>('set_active_vehicle', { id: vehicle2.id as string });
+      await rpc<void>('set_active_vehicle', { id: vehicle2.id as string });
       await browser.refresh();
       await waitForAppReady();
       await navigateTo('trips');

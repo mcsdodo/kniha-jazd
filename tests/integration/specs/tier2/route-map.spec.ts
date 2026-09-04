@@ -27,10 +27,9 @@ import {
   seedTrip,
   setActiveVehicle,
   deleteTrip,
-  invokeTauri,
+  rpc,
 } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
-import { describeNotInTauriMode } from '../../utils/skip';
 
 /**
  * Pin button in a trip row's actions cell. Neither the pin nor the row carries
@@ -60,7 +59,7 @@ interface SavedRouteMap {
 
 /** Persist a route against a trip without touching OSRM. */
 async function saveRoute(tripId: string, targetKm: number): Promise<void> {
-  await invokeTauri<null>('save_trip_route', {
+  await rpc<null>('save_trip_route', {
     tripId,
     waypoints: CANNED_WAYPOINTS,
     polyline: CANNED_POLYLINE,
@@ -71,11 +70,11 @@ async function saveRoute(tripId: string, targetKm: number): Promise<void> {
 
 /** `get_trip_route` returns null when the trip has no saved route. */
 async function getRoute(tripId: string): Promise<SavedRouteMap | null> {
-  return invokeTauri<SavedRouteMap | null>('get_trip_route', { tripId });
+  return rpc<SavedRouteMap | null>('get_trip_route', { tripId });
 }
 
 async function deleteRoute(tripId: string): Promise<void> {
-  await invokeTauri<null>('delete_trip_route', { tripId });
+  await rpc<null>('delete_trip_route', { tripId });
 }
 
 /** Reload the grid so it re-reads `routeMapTripIds` from the backend. */
@@ -137,7 +136,7 @@ async function waitForPinState(destination: string, saved: boolean): Promise<voi
  * Tauri wrappers for the route-map commands at all — so there the pin does not
  * render and the commands do not exist.
  */
-describeNotInTauriMode('Tier 2: Route Map', () => {
+describe('Tier 2: Route Map', () => {
   let vehicleId: string;
 
   beforeEach(async () => {

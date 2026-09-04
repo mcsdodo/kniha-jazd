@@ -13,7 +13,7 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
 
 const ORIGIN = 'Bratislava';
 const DESTINATION = 'Trnava';
@@ -22,11 +22,11 @@ const TYPED_START = `${ROW_DATE}T07:30`;
 const TYPED_END = `${ROW_DATE}T09:30`;
 
 async function setInferTripTimesViaIpc(enabled: boolean): Promise<void> {
-  await invokeTauri<void>('set_infer_trip_times', { enabled });
+  await rpc<void>('set_infer_trip_times', { enabled });
 }
 
 async function getInferTripTimesViaIpc(): Promise<boolean> {
-  return invokeTauri<boolean>('get_infer_trip_times');
+  return rpc<boolean>('get_infer_trip_times');
 }
 
 /**

@@ -1,7 +1,8 @@
 /**
  * Env-pinned settings suite.
  *
- * Runs ONLY under `npm run test:integration:server:env`, which starts the server
+ * Runs ONLY under `npm run test:integration:docker:env` (or `WDIO_ENV_PINNED=1`),
+ * which starts the server
  * with HA_URL / HA_API_TOKEN / PAPERLESS_* exported (see ENV_PINNED_FIXTURE in
  * wdio.server.conf.ts). Those variables make the matching settings read-only
  * app-wide, so this cannot live alongside specs that edit them.
@@ -12,7 +13,7 @@
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
-import { invokeTauri } from '../../utils/db';
+import { rpc } from '../../utils/db';
 
 const HA_TOKEN_FIXTURE = 'env-pinned-ha-token';
 const PAPERLESS_TOKEN_FIXTURE = 'env-pinned-paperless-token';
@@ -43,13 +44,13 @@ describe('Env-managed settings', () => {
   });
 
   it('reports the pinned fields over the API', async () => {
-    const ha = await invokeTauri<Record<string, unknown>>('get_ha_settings');
+    const ha = await rpc<Record<string, unknown>>('get_ha_settings');
     expect(ha.urlFromEnv).toBe(true);
     expect(ha.tokenFromEnv).toBe(true);
     // The secret must not be anywhere in the response (task 69)
     expect(JSON.stringify(ha)).not.toContain(HA_TOKEN_FIXTURE);
 
-    const paperless = await invokeTauri<Record<string, unknown>>('get_paperless_settings');
+    const paperless = await rpc<Record<string, unknown>>('get_paperless_settings');
     expect(paperless.urlFromEnv).toBe(true);
     expect(paperless.tokenFromEnv).toBe(true);
     expect(paperless.enabledFromEnv).toBe(true);

@@ -11,7 +11,7 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
 import {
-  invokeTauri,
+  rpc,
   seedVehicle,
   seedTrip,
   setActiveVehicle,
@@ -35,7 +35,7 @@ describe('Tier 2: Paperless Integration', () => {
     // Pass empty strings (not null) — backend treats None as "don't change",
     // empty string as "clear".
     try {
-      await invokeTauri<void>('save_paperless_settings', { url: '', token: '' });
+      await rpc<void>('save_paperless_settings', { url: '', token: '' });
     } catch {
       // Best-effort — if the app is gone or already cleared, ignore.
     }
@@ -50,7 +50,7 @@ describe('Tier 2: Paperless Integration', () => {
     // the WDIO test data dir is shared across retries within a session.
     for (const docId of [435, 423, 391]) {
       try {
-        await invokeTauri<void>('unassign_invoice', {
+        await rpc<void>('unassign_invoice', {
           invoiceRef: { source: 'paperless', id: docId },
         });
       } catch {
@@ -64,7 +64,7 @@ describe('Tier 2: Paperless Integration', () => {
     // collapses litres extraction (total_amount_id == litres_id → the
     // if/else-if chain in fetch_invoice_documents skips the litres branch).
     try {
-      await invokeTauri<void>('save_paperless_settings', {
+      await rpc<void>('save_paperless_settings', {
         url: null, token: null, enabled: null,
         fieldNameDatetime: '',
         fieldNameLiters: '',
@@ -112,7 +112,7 @@ describe('Tier 2: Paperless Integration', () => {
     // ----- 2. Configure Paperless in Settings via IPC -----------------------
     // We use IPC for save_paperless_settings (more reliable than typing into
     // a debounced input) and only verify the UI status indicator goes green.
-    await invokeTauri<void>('save_paperless_settings', {
+    await rpc<void>('save_paperless_settings', {
       url: mockUrl,
       token: MOCK_PAPERLESS_TOKEN,
     });
@@ -239,7 +239,7 @@ describe('Tier 2: Paperless Integration', () => {
 
     // ----- 6. Disable Paperless toggle → Doklady reverts to local mode ------
     // Use enabled:false — credentials are preserved, only mode switches.
-    await invokeTauri<void>('save_paperless_settings', { url: null, token: null, enabled: false });
+    await rpc<void>('save_paperless_settings', { url: null, token: null, enabled: false });
 
     // Force a full page remount (SvelteKit may keep route components mounted).
     await navigateTo('trips');
@@ -256,7 +256,7 @@ describe('Tier 2: Paperless Integration', () => {
     expect(await refreshAfter.isExisting()).toBe(false);
 
     // ----- 7. Re-enable Paperless → rows load again -------------------------
-    await invokeTauri<void>('save_paperless_settings', { url: null, token: null, enabled: true });
+    await rpc<void>('save_paperless_settings', { url: null, token: null, enabled: true });
 
     await navigateTo('trips');
     await browser.pause(300);
@@ -273,7 +273,7 @@ describe('Tier 2: Paperless Integration', () => {
 
   it('Custom fields: dropdowns populated from server, gated by configuration', async () => {
     // ----- 1. Configure Paperless ---------------------------------------------
-    await invokeTauri<void>('save_paperless_settings', {
+    await rpc<void>('save_paperless_settings', {
       url: mockUrl,
       token: MOCK_PAPERLESS_TOKEN,
       enabled: true,
@@ -283,7 +283,7 @@ describe('Tier 2: Paperless Integration', () => {
     // Pick the alternate float-typed field name. Valid: both 'liters' and
     // 'total_price_eur' are floats on the mock server, so either is compatible
     // with the liters concept. Confirms IPC + persistence + dropdown render.
-    await invokeTauri<void>('save_paperless_settings', {
+    await rpc<void>('save_paperless_settings', {
       url: null, token: null, enabled: null,
       fieldNameDatetime: null,
       fieldNameLiters: 'total_price_eur',
@@ -294,7 +294,7 @@ describe('Tier 2: Paperless Integration', () => {
       url: string | null; hasToken: boolean; enabled: boolean;
       fieldNameDatetime: string; fieldNameLiters: string; fieldNameTotal: string;
     };
-    const persisted = await invokeTauri<Resp>('get_paperless_settings');
+    const persisted = await rpc<Resp>('get_paperless_settings');
     expect(persisted.fieldNameLiters).toBe('total_price_eur');
 
     // ----- 3. Navigate to Settings (force fresh mount) ------------------------
@@ -345,7 +345,7 @@ describe('Tier 2: Paperless Integration', () => {
     expect(await refreshBtn.isExisting()).toBe(true);
 
     // ----- 9. Section hides when Paperless is unconfigured --------------------
-    await invokeTauri<void>('save_paperless_settings', { url: '', token: '' });
+    await rpc<void>('save_paperless_settings', { url: '', token: '' });
     await navigateTo('trips');
     await browser.pause(200);
     await navigateTo('settings');
@@ -355,13 +355,13 @@ describe('Tier 2: Paperless Integration', () => {
     expect(await litersSelectAfter.isExisting()).toBe(false);
 
     // ----- 10. Empty-string IPC clears overrides → defaults restored ----------
-    await invokeTauri<void>('save_paperless_settings', {
+    await rpc<void>('save_paperless_settings', {
       url: null, token: null, enabled: null,
       fieldNameDatetime: '',
       fieldNameLiters: '',
       fieldNameTotal: '',
     });
-    const defaulted = await invokeTauri<Resp>('get_paperless_settings');
+    const defaulted = await rpc<Resp>('get_paperless_settings');
     expect(defaulted.fieldNameDatetime).toBe('receipt_datetime');
     expect(defaulted.fieldNameLiters).toBe('liters');
     expect(defaulted.fieldNameTotal).toBe('total_price_eur');

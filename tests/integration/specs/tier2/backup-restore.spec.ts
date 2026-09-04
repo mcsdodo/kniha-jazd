@@ -14,7 +14,7 @@ import {
   seedVehicle,
   seedTrip,
   getVehicles,
-  invokeTauri,
+  rpc,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -43,54 +43,54 @@ interface BackupRetention {
 }
 
 async function createBackup(): Promise<BackupInfo> {
-  return invokeTauri<BackupInfo>('create_backup');
+  return rpc<BackupInfo>('create_backup');
 }
 
 async function listBackups(): Promise<BackupInfo[]> {
   try {
-    return await invokeTauri<BackupInfo[]>('list_backups');
+    return await rpc<BackupInfo[]>('list_backups');
   } catch {
     return [];
   }
 }
 
 async function restoreBackup(filename: string): Promise<void> {
-  await invokeTauri<void>('restore_backup', { filename });
+  await rpc<void>('restore_backup', { filename });
 }
 
 async function deleteBackup(filename: string): Promise<void> {
-  await invokeTauri<void>('delete_backup', { filename });
+  await rpc<void>('delete_backup', { filename });
 }
 
 async function createBackupWithType(
   backupType: 'manual' | 'pre-update',
   updateVersion: string | null
 ): Promise<BackupInfo> {
-  return invokeTauri<BackupInfo>('create_backup_with_type', {
+  return rpc<BackupInfo>('create_backup_with_type', {
     backupType,
     updateVersion,
   });
 }
 
 async function getCleanupPreview(keepCount: number): Promise<CleanupPreview> {
-  return invokeTauri<CleanupPreview>('get_cleanup_preview', { keepCount });
+  return rpc<CleanupPreview>('get_cleanup_preview', { keepCount });
 }
 
 async function cleanupPreUpdateBackups(
   keepCount: number
 ): Promise<{ deleted: string[]; freedBytes: number }> {
-  return invokeTauri<{ deleted: string[]; freedBytes: number }>(
+  return rpc<{ deleted: string[]; freedBytes: number }>(
     'cleanup_pre_update_backups',
     { keepCount }
   );
 }
 
 async function setBackupRetention(retention: BackupRetention): Promise<void> {
-  await invokeTauri<void>('set_backup_retention', { retention });
+  await rpc<void>('set_backup_retention', { retention });
 }
 
 async function getBackupRetention(): Promise<BackupRetention | null> {
-  return invokeTauri<BackupRetention | null>('get_backup_retention');
+  return rpc<BackupRetention | null>('get_backup_retention');
 }
 
 describe('Tier 2: Backup & Restore', () => {

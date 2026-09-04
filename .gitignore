@@ -58,3 +58,4 @@ _tmp
 
 # Docker integration-test work dir (bind-mounted to /data in the container)
 data/
+data-*/

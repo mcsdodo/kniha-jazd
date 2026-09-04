@@ -56,7 +56,6 @@ const TIER_SPECS = [
 
 /**
  * Get specs based on TIER and PARALLEL_TIERS environment variables
- * (Reuses the same logic as wdio.conf.ts for consistency)
  */
 function getSpecs(): string[] {
   const tier = process.env.TIER;
@@ -91,34 +90,26 @@ function getSpecs(): string[] {
 }
 
 /**
- * Get the path to the Tauri application binary based on platform.
- * CI can override via TAURI_BINARY env var.
+ * Get the path to the headless web server binary (`kniha-jazd-web`).
+ * CI can override via the KJ_WEB_BINARY env var.
  */
 function getBinaryPath(): string {
-  if (process.env.TAURI_BINARY) {
-    return process.env.TAURI_BINARY;
+  if (process.env.KJ_WEB_BINARY) {
+    return process.env.KJ_WEB_BINARY;
   }
 
-  const platform = process.platform;
   const base = join(__dirname, '../../src-tauri/target/debug');
 
-  switch (platform) {
-    case 'win32':
-      return join(base, 'kniha-jazd-desktop.exe');
-    case 'darwin':
-      return join(base, 'bundle/macos/Kniha Jázd.app/Contents/MacOS/Kniha Jázd');
-    case 'linux':
-      return join(base, 'kniha-jazd-desktop');
-    default:
-      throw new Error(`Unsupported platform: ${platform}`);
-  }
+  return process.platform === 'win32'
+    ? join(base, 'kniha-jazd-web.exe')
+    : join(base, 'kniha-jazd-web');
 }
 
-let tauriProcess: ChildProcess | null = null;
+let serverProcess: ChildProcess | null = null;
 let testDataDir = '';
 const EXTERNAL_SERVER = process.env.WDIO_EXTERNAL_SERVER === '1';
-// External mode (Docker) defaults to port 3456; spawned-Tauri mode uses 3457
-// to avoid colliding with a running app.
+// External mode (Docker) defaults to port 3456; spawned-server mode uses 3457
+// to avoid colliding with a running app or container.
 const DEFAULT_PORT = EXTERNAL_SERVER ? 3456 : 3457;
 const SERVER_PORT = process.env.WDIO_SERVER_PORT
   ? Number(process.env.WDIO_SERVER_PORT)
@@ -182,7 +173,7 @@ async function resetDatabase(serverUrl: string): Promise<void> {
   }
 }
 
-// WebdriverIO configuration for server mode (Chrome browser against HTTP server)
+// WebdriverIO configuration: Chrome browser against the headless HTTP server
 export const config: any = {
   runner: 'local',
   autoCompileOpts: {
@@ -227,12 +218,11 @@ export const config: any = {
   },
 
   /**
-   * Before all tests: Start Tauri binary with server auto-start, wait for HTTP ready.
+   * Before all tests: Start the headless web server binary, wait for HTTP ready.
    * If WDIO_EXTERNAL_SERVER=1 is set (Docker mode), skip the spawn — the server is
    * already running externally and we just wait for it to respond.
    */
   onPrepare: async function () {
-    process.env.WDIO_SERVER_MODE = '1';
     process.env.WDIO_SERVER_URL = SERVER_URL;
 
     // Mock Gemini API: load JSON from mocks/ instead of calling API
@@ -255,12 +245,12 @@ export const config: any = {
       return;
     }
 
-    // Spawned-Tauri mode: create temp data dir, launch binary, wait for HTTP
+    // Spawned-server mode: create temp data dir, launch binary, wait for HTTP
     testDataDir = mkdtempSync(join(tmpdir(), 'kniha-jazd-server-test-'));
     process.env.KNIHA_JAZD_DATA_DIR = testDataDir;
 
     const binaryPath = getBinaryPath();
-    console.log(`Starting Tauri binary in server mode: ${binaryPath}`);
+    console.log(`Starting web server binary: ${binaryPath}`);
     console.log(`Server URL: ${SERVER_URL}`);
     console.log(`Test data dir: ${testDataDir}`);
 
@@ -268,12 +258,13 @@ export const config: any = {
       console.log(`Pinning settings via env: ${Object.keys(ENV_PINNED_FIXTURE).join(', ')}`);
     }
 
-    tauriProcess = spawn(binaryPath, [], {
+    serverProcess = spawn(binaryPath, [], {
       env: {
         ...process.env,
         KNIHA_JAZD_DATA_DIR: testDataDir,
-        KNIHA_JAZD_SERVER_AUTOSTART: '1',
-        KNIHA_JAZD_SERVER_PORT: String(SERVER_PORT),
+        DATABASE_PATH: join(testDataDir, 'kniha-jazd.db'),
+        STATIC_DIR: join(__dirname, '../../build'),
+        PORT: String(SERVER_PORT),
         KNIHA_JAZD_MOCK_GEMINI_DIR: join(__dirname, 'data', 'mocks'),
         ...SCRUBBED_ENV,
         ...(ENV_PINNED ? ENV_PINNED_FIXTURE : {}),
@@ -281,13 +272,13 @@ export const config: any = {
       stdio: 'ignore',
     });
 
-    tauriProcess.on('error', (err) => {
-      console.error(`Failed to start Tauri binary: ${err.message}`);
+    serverProcess.on('error', (err) => {
+      console.error(`Failed to start web server binary: ${err.message}`);
     });
 
-    tauriProcess.on('exit', (code) => {
+    serverProcess.on('exit', (code) => {
       if (code !== null && code !== 0) {
-        console.error(`Tauri binary exited with code ${code}`);
+        console.error(`Web server binary exited with code ${code}`);
       }
     });
 
@@ -300,7 +291,7 @@ export const config: any = {
    * Before all tests in a worker: Navigate to server URL, wait for app to load.
    */
   before: async function () {
-    // Clear any leftover data from previous runs (Docker volume / spawned-Tauri temp dir).
+    // Clear any leftover data from previous runs (Docker volume / spawned-server temp dir).
     await resetDatabase(SERVER_URL);
 
     await browser.url(SERVER_URL);
@@ -360,7 +351,7 @@ export const config: any = {
   },
 
   /**
-   * After all tests: Kill Tauri process and clean up temp directory.
+   * After all tests: Kill the web server process and clean up temp directory.
    * In external server mode, the container/server is managed by the user — skip cleanup.
    */
   onComplete: async function () {
@@ -369,9 +360,9 @@ export const config: any = {
       return;
     }
 
-    if (tauriProcess) {
-      tauriProcess.kill();
-      tauriProcess = null;
+    if (serverProcess) {
+      serverProcess.kill();
+      serverProcess = null;
     }
 
     if (testDataDir && existsSync(testDataDir)) {

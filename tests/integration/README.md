@@ -39,10 +39,11 @@ $env:PATH += ";C:\path\to\msedgedriver"
 $env:MSEDGEDRIVER_PATH = "C:\path\to\msedgedriver.exe"
 ```
 
-### 3. Build the Tauri app (debug)
+### 3. Build the web server binary and frontend
 
 ```bash
-npm run tauri build -- --debug
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 ```
 
 ## Running Tests
@@ -54,8 +55,8 @@ npm run test:integration
 # Run only Tier 1 (fast, for PRs)
 npm run test:integration:tier1
 
-# Build and run (if you haven't built recently)
-npm run test:integration:build
+# Run against an already-running container instead of a spawned binary
+npm run test:integration:docker
 ```
 
 ### Tiered Execution
@@ -81,7 +82,7 @@ npm run test:integration
 
 ```
 tests/integration/
-├── wdio.conf.ts          # WebdriverIO configuration
+├── wdio.server.conf.ts   # WebdriverIO configuration
 ├── specs/                # Test files
 │   ├── existing/         # Original tests (vehicle setup, BEV)
 │   ├── tier1/            # Critical path tests
@@ -195,7 +196,7 @@ tauri-driver failed to start. Check:
 ### Tests pass locally but fail in CI
 
 - Ensure CI installs all prerequisites
-- Check platform-specific paths in `wdio.conf.ts`
+- Check platform-specific paths in `wdio.server.conf.ts`
 - Verify Edge WebDriver version matches CI Edge version
 
 ### Test timeout (30s default)

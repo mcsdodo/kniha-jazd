@@ -16,7 +16,7 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
 
 /** Set an input's value and fire input+change, which setValue does not do. */
 async function setFieldByTestId(testId: string, value: string): Promise<void> {
@@ -66,7 +66,7 @@ describe('Tier 2: Copy Trip Row', () => {
     // hidden_columns persists per app-dir and survives across spec files, and
     // sibling specs hide 'time'. Without this reset, trip-end-datetime may not
     // render and this spec becomes order-dependent.
-    await invokeTauri<void>('set_hidden_columns', { columns: [] });
+    await rpc<void>('set_hidden_columns', { columns: [] });
 
     const vehicle = await seedVehicle({
       name: 'Copy Test Vehicle',
@@ -241,11 +241,11 @@ describe('Tier 2: Copy Trip Row', () => {
   // hence the explicit enable — without it this test would pass vacuously.
   describe('with time inference enabled', () => {
     beforeEach(async () => {
-      await invokeTauri<void>('set_infer_trip_times', { enabled: true });
+      await rpc<void>('set_infer_trip_times', { enabled: true });
     });
 
     afterEach(async () => {
-      await invokeTauri<void>('set_infer_trip_times', { enabled: false });
+      await rpc<void>('set_infer_trip_times', { enabled: false });
     });
 
     it('should keep the copied times when the same destination is re-selected', async () => {

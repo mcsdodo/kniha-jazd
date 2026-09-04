@@ -23,10 +23,9 @@ import {
   seedSettings,
   getTripGridData,
   setActiveVehicle,
-  invokeTauri,
+  rpc,
 } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
-import { describeNotInTauriMode } from '../../utils/skip';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
 import { testCompanySettings } from '../../fixtures/scenarios';
@@ -66,7 +65,7 @@ const FIRST_RECORD_PURPOSE = 'Prvý záznam';
  * (Same command the column-visibility spec drives.)
  */
 async function setHiddenColumnsViaIpc(columns: string[]): Promise<void> {
-  await invokeTauri<void>('set_hidden_columns', { columns });
+  await rpc<void>('set_hidden_columns', { columns });
 }
 
 /** What a test can assert on after the export window has been read and closed. */
@@ -177,7 +176,7 @@ async function currentSortArrow(): Promise<string> {
  * why the old version of this spec could only assert inside an `if` that never
  * ran. The blob-window path exercised here exists only in server/web mode.
  */
-describeNotInTauriMode('Tier 1: Export', () => {
+describe('Tier 1: Export', () => {
   beforeEach(async () => {
     await waitForAppReady();
     await ensureLanguage('en');

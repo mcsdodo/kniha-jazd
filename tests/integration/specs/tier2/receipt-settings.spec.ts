@@ -9,8 +9,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { invokeTauri } from '../../utils/db';
-import { describeNotInServerMode } from '../../utils/skip';
+import { rpc } from '../../utils/db';
 
 // Selectors for new UI elements
 const ReceiptSettings = {
@@ -36,18 +35,18 @@ type ReceiptSettingsShape = {
 
 async function getReceiptSettings(): Promise<ReceiptSettingsShape | null> {
   try {
-    return await invokeTauri<ReceiptSettingsShape>('get_receipt_settings');
+    return await rpc<ReceiptSettingsShape>('get_receipt_settings');
   } catch {
     return null;
   }
 }
 
 async function setGeminiApiKey(apiKey: string): Promise<void> {
-  await invokeTauri<void>('set_gemini_api_key', { apiKey });
+  await rpc<void>('set_gemini_api_key', { apiKey });
 }
 
 async function setReceiptsFolderPath(path: string): Promise<void> {
-  await invokeTauri<void>('set_receipts_folder_path', { path });
+  await rpc<void>('set_receipts_folder_path', { path });
 }
 
 async function getDbLocation(): Promise<{
@@ -55,7 +54,7 @@ async function getDbLocation(): Promise<{
   isCustomPath: boolean;
   backupsPath: string;
 }> {
-  return invokeTauri('get_db_location');
+  return rpc('get_db_location');
 }
 
 async function getAppMode(): Promise<{
@@ -63,11 +62,7 @@ async function getAppMode(): Promise<{
   isReadOnly: boolean;
   readOnlyReason: string | null;
 }> {
-  return invokeTauri('get_app_mode');
-}
-
-async function checkTargetHasDb(targetPath: string): Promise<boolean> {
-  return invokeTauri<boolean>('check_target_has_db', { targetPath });
+  return rpc('get_app_mode');
 }
 
 describe('Tier 2: Receipt Settings & Database Location', () => {
@@ -99,8 +94,7 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
 
     it('should mask the API key and gate revealing it', async () => {
       // The key is write-only now (task 69): it never arrives with the settings,
-      // and revealing it is a separate backend call that needs a PIN over the
-      // network. Desktop is trusted, so it reveals directly.
+      // and revealing it is a separate backend call that needs a PIN.
       await setGeminiApiKey('reveal-flow-key');
       await navigateTo('trips');
       await navigateTo('settings');
@@ -113,22 +107,11 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       await toggleBtn.click();
       await browser.pause(300);
 
-      if (process.env.WDIO_SERVER_MODE === '1') {
-        // No KNIHA_JAZD_REVEAL_PIN in this suite, so the prompt appears and the
-        // backend refuses. The full PIN flow lives in specs/env.
-        const modal = await $('[data-test="reveal-pin-modal"]');
-        expect(await modal.isDisplayed()).toBe(true);
-        expect(await apiKeyInput.getAttribute('type')).toBe('password');
-      } else {
-        await browser.waitUntil(
-          async () => (await apiKeyInput.getAttribute('type')) === 'text',
-          { timeout: 5000, timeoutMsg: 'desktop reveal did not show the key' }
-        );
-        expect(await apiKeyInput.getValue()).toBe('reveal-flow-key');
-        await toggleBtn.click();
-        await browser.pause(200);
-        expect(await apiKeyInput.getAttribute('type')).toBe('password');
-      }
+      // No KNIHA_JAZD_REVEAL_PIN in this suite, so the prompt appears and the
+      // backend refuses. The full PIN flow lives in specs/env.
+      const modal = await $('[data-test="reveal-pin-modal"]');
+      expect(await modal.isDisplayed()).toBe(true);
+      expect(await apiKeyInput.getAttribute('type')).toBe('password');
 
       await setGeminiApiKey('');
     });
@@ -232,34 +215,6 @@ describe('Tier 2: Receipt Settings & Database Location', () => {
       } else {
         expect(bannerExists).toBe(false);
       }
-    });
-  });
-
-  describeNotInServerMode('Database Move Commands', () => {
-    it('should detect existing database via check_target_has_db', async () => {
-      // Get current db location
-      const dbLocation = await getDbLocation();
-      const dbDir = dbLocation.dbPath.substring(0, dbLocation.dbPath.lastIndexOf('\\'));
-
-      // The directory containing the db should have a database
-      const hasDb = await checkTargetHasDb(dbDir);
-      expect(hasDb).toBe(true);
-    });
-
-    it('should return false for empty directory', async () => {
-      // Check a path that definitely doesn't have a database
-      const hasDb = await checkTargetHasDb('C:\\Windows\\Temp');
-      expect(hasDb).toBe(false);
-    });
-
-    it('should show Change Location button in settings', async () => {
-      await navigateTo('settings');
-      await browser.pause(500);
-
-      // Find the change location button by class
-      const changeBtn = await $('.change-db-location-btn');
-      const changeBtnExists = await changeBtn.isExisting();
-      expect(changeBtnExists).toBe(true);
     });
   });
 

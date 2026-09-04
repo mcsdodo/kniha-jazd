@@ -8,7 +8,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage, detectCurrentLocale, localizedStrings } from '../../utils/language';
-import { seedSettings, invokeTauri } from '../../utils/db';
+import { seedSettings, rpc } from '../../utils/db';
 import {
   fillCompanySettings,
   fillField,
@@ -25,7 +25,7 @@ type SettingsShape = {
 
 async function getSettings(): Promise<SettingsShape | null> {
   try {
-    return await invokeTauri<SettingsShape>('get_settings');
+    return await rpc<SettingsShape>('get_settings');
   } catch {
     return null;
   }
@@ -36,7 +36,7 @@ async function saveSettings(settings: {
   companyIco: string;
   bufferTripPurpose?: string;
 }): Promise<void> {
-  await invokeTauri<void>('save_settings', {
+  await rpc<void>('save_settings', {
     companyName: settings.companyName,
     companyIco: settings.companyIco,
     bufferTripPurpose: settings.bufferTripPurpose || 'Sluzobna cesta',

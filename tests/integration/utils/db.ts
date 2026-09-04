@@ -1,13 +1,13 @@
 /**
  * Database seeding utilities for integration tests
  *
- * These utilities seed test data via Tauri IPC commands, which is the same
- * interface the frontend uses. This ensures data is properly validated and
- * stored exactly as the production app would handle it.
+ * These utilities seed test data via the backend's HTTP RPC endpoint, which is
+ * the same interface the frontend uses. This ensures data is properly validated
+ * and stored exactly as the production app would handle it.
  *
  * Note: Direct SQLite access is avoided because:
- * 1. Tauri IPC validates data the same way production does
- * 2. Database schema migrations are handled by Tauri
+ * 1. The backend validates data the same way production does
+ * 2. Database schema migrations are handled by the backend
  * 3. Tests verify the real data flow path
  */
 
@@ -48,29 +48,9 @@ function generateUuid(): string {
 }
 
 // =============================================================================
-// Type Definitions for Tauri IPC
+// Backend Configuration
 // =============================================================================
 
-/**
- * Tauri v2 global interface (requires withGlobalTauri: true in tauri.conf.json)
- */
-interface TauriGlobal {
-  core: {
-    invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
-  };
-}
-
-declare global {
-  interface Window {
-    __TAURI__?: TauriGlobal;
-  }
-}
-
-// =============================================================================
-// Dual-Mode Configuration (Tauri IPC vs HTTP RPC)
-// =============================================================================
-
-const IS_SERVER_MODE = process.env.WDIO_SERVER_MODE === '1';
 const SERVER_URL = process.env.WDIO_SERVER_URL || 'http://localhost:3457';
 
 // =============================================================================
@@ -78,79 +58,42 @@ const SERVER_URL = process.env.WDIO_SERVER_URL || 'http://localhost:3457';
 // =============================================================================
 
 /**
- * Wait for app to be ready and ensure backend is reachable.
- * In Tauri mode: checks for IPC bridge.
- * In server mode: DOM ready is sufficient (backend accessed via HTTP).
+ * Wait for the app to be ready. DOM ready means the app loaded from the
+ * server — the backend is inherently available via HTTP RPC.
  */
 async function ensureAppReady(): Promise<boolean> {
   try {
     await waitForAppReady();
-
-    if (IS_SERVER_MODE) {
-      // In server mode, DOM ready means the app loaded from the server —
-      // backend is inherently available via HTTP RPC.
-      return true;
-    }
-
-    // Tauri mode: verify IPC bridge is available
-    const tauriAvailable = await browser.execute(() => {
-      return typeof window.__TAURI__ !== 'undefined' &&
-             typeof window.__TAURI__.core !== 'undefined' &&
-             typeof window.__TAURI__.core.invoke === 'function';
-    });
-    return tauriAvailable;
+    return true;
   } catch {
     return false;
   }
 }
 
 /**
- * Execute a backend command — Tauri IPC in webview mode, HTTP RPC in server mode.
+ * Execute a backend command over the HTTP RPC endpoint.
  *
  * This is the single point of backend communication for all test utilities.
- * All seed/query functions go through this helper. Spec files should also use
- * this rather than calling `window.__TAURI__.core.invoke(...)` directly via
- * `browser.execute()`, otherwise they will fail in server / Docker mode where
- * the browser has no `__TAURI__` global.
+ * All seed/query functions go through this helper, and spec files should use it
+ * too rather than reaching for the backend any other way.
  */
-export async function invokeTauri<T>(
+export async function rpc<T>(
   cmd: string,
   args: Record<string, unknown> = {}
 ): Promise<T> {
-  if (IS_SERVER_MODE) {
-    // Server mode: call via HTTP RPC endpoint
-    const resp = await fetch(`${SERVER_URL}/api/rpc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-KJ-Client': '1',
-      },
-      body: JSON.stringify({ command: cmd, args }),
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`RPC '${cmd}' failed (${resp.status}): ${text}`);
-    }
-    return await resp.json() as T;
-  }
-
-  // Tauri mode: invoke via browser-side IPC
-  const result = await browser.execute(
-    async (command: string, commandArgs: Record<string, unknown>) => {
-      if (!window.__TAURI__ || !window.__TAURI__.core) {
-        throw new Error('Tauri not available in browser context');
-      }
-      try {
-        return await window.__TAURI__.core.invoke(command, commandArgs);
-      } catch (e) {
-        // Return error as string so it can be caught on the Node side
-        throw new Error(`Tauri command '${command}' failed: ${e}`);
-      }
+  const resp = await fetch(`${SERVER_URL}/api/rpc`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-KJ-Client': '1',
     },
-    cmd,
-    args
-  );
-  return result as T;
+    body: JSON.stringify({ command: cmd, args }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`RPC '${cmd}' failed (${resp.status}): ${text}`);
+  }
+  return await resp.json() as T;
 }
 
 // =============================================================================
@@ -177,7 +120,7 @@ export interface SeedVehicleData {
 }
 
 /**
- * Seed a vehicle via Tauri IPC
+ * Seed a vehicle via the backend RPC endpoint
  * @returns The created vehicle object with ID
  */
 export async function seedVehicle(data: SeedVehicleData): Promise<Vehicle> {
@@ -186,7 +129,7 @@ export async function seedVehicle(data: SeedVehicleData): Promise<Vehicle> {
     throw new Error('App not ready for seeding');
   }
 
-  // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
+  // Use camelCase - the RPC layer converts to snake_case for Rust
   const args = {
     name: data.name,
     licensePlate: data.licensePlate,
@@ -200,7 +143,7 @@ export async function seedVehicle(data: SeedVehicleData): Promise<Vehicle> {
     driverName: data.driverName,
   };
 
-  const vehicle = await invokeTauri<Vehicle>('create_vehicle', args);
+  const vehicle = await rpc<Vehicle>('create_vehicle', args);
 
   // Refresh the page to ensure UI reflects the new data
   await browser.refresh();
@@ -258,7 +201,7 @@ export interface SeedTripData {
 }
 
 /**
- * Seed a trip via Tauri IPC
+ * Seed a trip via the backend RPC endpoint
  * @returns The created trip object with ID
  */
 export async function seedTrip(data: SeedTripData): Promise<Trip> {
@@ -270,7 +213,7 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
   // Default endDatetime to startDatetime if not provided
   const endDatetime = data.endDatetime ?? data.startDatetime;
 
-  // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
+  // Use camelCase - the RPC layer converts to snake_case for Rust
   const args = {
     vehicleId: data.vehicleId,
     startDatetime: data.startDatetime,
@@ -291,7 +234,7 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
     otherCostsNote: data.otherCostsNote,
   };
 
-  const trip = await invokeTauri<Trip>('create_trip', args);
+  const trip = await rpc<Trip>('create_trip', args);
   return trip;
 }
 
@@ -357,7 +300,7 @@ export interface SeedSettingsData {
 }
 
 /**
- * Seed settings via Tauri IPC
+ * Seed settings via the backend RPC endpoint
  */
 export async function seedSettings(data: SeedSettingsData): Promise<Settings> {
   const ready = await ensureAppReady();
@@ -365,14 +308,14 @@ export async function seedSettings(data: SeedSettingsData): Promise<Settings> {
     throw new Error('App not ready for seeding');
   }
 
-  // Use camelCase - Tauri v2 invoke automatically converts to snake_case for Rust
+  // Use camelCase - the RPC layer converts to snake_case for Rust
   const args = {
     companyName: data.companyName,
     companyIco: data.companyIco,
     bufferTripPurpose: data.bufferTripPurpose || 'Sluzobna cesta',
   };
 
-  const settings = await invokeTauri<Settings>('save_settings', args);
+  const settings = await rpc<Settings>('save_settings', args);
   return settings;
 }
 
@@ -445,7 +388,7 @@ export async function getVehicles(): Promise<Vehicle[]> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<Vehicle[]>('get_vehicles');
+  return rpc<Vehicle[]>('get_vehicles');
 }
 
 /**
@@ -456,7 +399,7 @@ export async function getActiveVehicle(): Promise<Vehicle | null> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<Vehicle | null>('get_active_vehicle');
+  return rpc<Vehicle | null>('get_active_vehicle');
 }
 
 /**
@@ -468,7 +411,7 @@ export async function setActiveVehicle(vehicleId: string): Promise<void> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  await invokeTauri<void>('set_active_vehicle', { id: vehicleId });
+  await rpc<void>('set_active_vehicle', { id: vehicleId });
   await browser.refresh();
   await waitForAppReady();
 }
@@ -484,7 +427,7 @@ export async function getTripGridData(
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<TripGridData>('get_trip_grid_data', {
+  return rpc<TripGridData>('get_trip_grid_data', {
     vehicleId,
     year,
   });
@@ -505,7 +448,7 @@ export async function triggerReceiptScan(): Promise<void> {
   if (!ready) {
     throw new Error('App not ready for receipt scan');
   }
-  await invokeTauri<void>('scan_receipts');
+  await rpc<void>('scan_receipts');
 }
 
 /**
@@ -519,7 +462,7 @@ export async function syncReceipts(): Promise<void> {
   if (!ready) {
     throw new Error('App not ready for sync');
   }
-  await invokeTauri<void>('sync_receipts');
+  await rpc<void>('sync_receipts');
 }
 
 /**
@@ -532,7 +475,7 @@ export async function reprocessReceipt(receiptId: string): Promise<void> {
   if (!ready) {
     throw new Error('App not ready for reprocess');
   }
-  await invokeTauri<void>('reprocess_receipt', { id: receiptId });
+  await rpc<void>('reprocess_receipt', { id: receiptId });
 }
 
 /**
@@ -545,7 +488,7 @@ export async function deleteReceipt(receiptId: string): Promise<void> {
   if (!ready) {
     throw new Error('App not ready for delete');
   }
-  await invokeTauri<void>('delete_receipt', { id: receiptId });
+  await rpc<void>('delete_receipt', { id: receiptId });
 }
 
 /**
@@ -556,7 +499,7 @@ export async function getReceipts(year: number): Promise<Receipt[]> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<Receipt[]>('get_receipts', { year });
+  return rpc<Receipt[]>('get_receipts', { year });
 }
 
 /**
@@ -570,7 +513,7 @@ export async function getReceiptsForVehicle(
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<Receipt[]>('get_receipts_for_vehicle', {
+  return rpc<Receipt[]>('get_receipts_for_vehicle', {
     vehicleId,
     year,
   });
@@ -613,7 +556,7 @@ export async function getTripsForInvoiceAssignment(
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<TripForAssignment[]>('get_trips_for_invoice_assignment', {
+  return rpc<TripForAssignment[]>('get_trips_for_invoice_assignment', {
     invoiceRef,
     invoiceData,
     vehicleId,
@@ -632,7 +575,7 @@ export async function setReceiptsFolderPath(folderPath: string): Promise<void> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  await invokeTauri<void>('set_receipts_folder_path', { path: folderPath });
+  await rpc<void>('set_receipts_folder_path', { path: folderPath });
 }
 
 /**
@@ -643,7 +586,7 @@ export async function updateReceipt(receipt: Receipt): Promise<void> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  await invokeTauri<void>('update_receipt', { receipt });
+  await rpc<void>('update_receipt', { receipt });
 }
 
 /**
@@ -705,10 +648,10 @@ export async function seedReceipt(data: SeedReceiptData): Promise<Receipt> {
   writeFileSync(join(seedDirHost, fileName), 'seeded receipt placeholder');
 
   // 2. Scan the folder — creates a Pending receipt row for the new file
-  await invokeTauri<void>('set_receipts_folder_path', { path: seedDirBackend });
-  await invokeTauri<unknown>('scan_receipts');
+  await rpc<void>('set_receipts_folder_path', { path: seedDirBackend });
+  await rpc<unknown>('scan_receipts');
 
-  const pending = (await invokeTauri<Receipt[]>('get_unassigned_receipts')).find(
+  const pending = (await rpc<Receipt[]>('get_unassigned_receipts')).find(
     (r) => r.fileName === fileName
   );
   if (!pending) {
@@ -732,7 +675,7 @@ export async function seedReceipt(data: SeedReceiptData): Promise<Receipt> {
     costDescription: data.costDescription ?? null,
     appliedAmountCents: null, // unassigned: nothing applied to a trip yet
   };
-  await invokeTauri<void>('update_receipt', { receipt });
+  await rpc<void>('update_receipt', { receipt });
 
   return receipt;
 }
@@ -745,7 +688,7 @@ export async function updateTrip(args: Record<string, unknown>): Promise<Trip> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  return invokeTauri<Trip>('update_trip', args);
+  return rpc<Trip>('update_trip', args);
 }
 
 /**
@@ -756,7 +699,7 @@ export async function deleteTrip(tripId: string): Promise<void> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  await invokeTauri<void>('delete_trip', { id: tripId });
+  await rpc<void>('delete_trip', { id: tripId });
 }
 
 // =============================================================================

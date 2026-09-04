@@ -9,14 +9,14 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, invokeTauri } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
 
 async function getDatePrefillMode(): Promise<string> {
-  return invokeTauri<string>('get_date_prefill_mode');
+  return rpc<string>('get_date_prefill_mode');
 }
 
 async function setDatePrefillModeViaIpc(mode: 'previous' | 'today'): Promise<void> {
-  await invokeTauri<void>('set_date_prefill_mode', { mode });
+  await rpc<void>('set_date_prefill_mode', { mode });
 }
 
 describe('Tier 2: Date Prefill Mode', () => {

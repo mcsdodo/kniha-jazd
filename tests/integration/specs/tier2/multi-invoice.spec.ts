@@ -27,7 +27,7 @@ import {
   deleteReceipt,
   setActiveVehicle,
   updateTrip,
-  invokeTauri,
+  rpc,
 } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 import { hostWorkDir } from '../../utils/paths';
@@ -248,7 +248,7 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
 
     // ----- 5. Unassign one Other → reduced total, ⚠ state updates ----------
     // Backend subtracts the applied snapshot (5.01): 25.00 - 5.01 = 19.99
-    await invokeTauri<void>('unassign_invoice', {
+    await rpc<void>('unassign_invoice', {
       invoiceRef: { source: 'receipt', id: otherReceipt2.id as string },
     });
 
