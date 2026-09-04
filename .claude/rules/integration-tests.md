@@ -35,6 +35,27 @@ npm run build
 cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 ```
 
+### Start the external container the way CI does
+
+CI runs the container with `--network=host`. That is not cosmetic: several specs
+start a mock HTTP server in the **test process**, bound to `127.0.0.1`, and hand the
+backend its URL over RPC. The backend then has to reach back out to the host.
+
+- On Linux (CI) `--network=host` puts the container in the host's network namespace,
+  so `127.0.0.1` is the same stack and the callback works.
+- On Docker Desktop for Windows/macOS it does **not**, so developers publish a port
+  (`-p 3456:3456`) instead — and then the container's `127.0.0.1` is the container
+  itself. The mock server is unreachable.
+
+The symptom is a spec failing on a connection the *backend* could not make, which
+reads exactly like an application bug. `paperless-integration.spec.ts` is the one
+that bites: it fails locally under published ports and passes in CI, every time.
+
+If a Docker-mode spec fails on an unreachable host service, check this before
+debugging the code. Two ways out: run that spec in spawned mode (the backend is a
+host process, so loopback just works), or accept the local failure and rely on CI —
+but say which you did, rather than reporting the suite as green.
+
 **Remember:** Integration tests = "Does the UI work?"
 
 ## WebDriverIO Integration Tests

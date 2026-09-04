@@ -10,8 +10,17 @@
  *   - GET /api/custom_fields/       (resolve total_price_eur / liters / receipt_datetime IDs)
  *   - GET /api/documents/           (returns 3 fixture invoices: doc 435 fuel, 423 + 391 car)
  *
- * The backend runs in a separate process but shares loopback, so binding to
- * `127.0.0.1` keeps it reachable from the backend's HTTP client.
+ * Binds to `127.0.0.1` and hands the backend that URL, so the BACKEND has to reach
+ * back out to the host. Whether it can depends on how the backend was started:
+ *
+ *   - spawned mode      host process, same loopback          works
+ *   - Docker + --network=host (CI, Linux)  shares the host stack   works
+ *   - Docker + -p (Docker Desktop Win/mac) container loopback ≠ host   FAILS
+ *
+ * So this spec passes in CI and fails locally for anyone driving a published-port
+ * container. That is a networking property, not an application bug — see
+ * "A Docker-mode spec fails on a connection the backend could not make" in
+ * tests/integration/README.md before debugging the code.
  */
 
 import http from 'http';

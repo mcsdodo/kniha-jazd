@@ -252,6 +252,26 @@ The spawned server never came up. Check:
 
 The container is not running or not healthy: `docker ps`, then `docker logs kniha-jazd-web`.
 
+### A Docker-mode spec fails on a connection the *backend* could not make
+
+Most likely the container cannot reach a mock server running in the test process.
+Some specs start one on the host's `127.0.0.1` and hand the backend its URL, so the
+backend has to call back out to the host.
+
+CI starts the container with `--network=host`, which on Linux shares the host's
+network stack and makes that work. Docker Desktop for Windows/macOS does not support
+that, so locally you publish a port instead (`-p 3456:3456`) — and then the
+container's `127.0.0.1` is the container, not your machine.
+
+`paperless-integration.spec.ts` is the one that hits this. It fails locally under
+published ports and passes in CI, and the failure looks like an application bug
+rather than a networking one. Run that spec in spawned mode instead, where the
+backend is a host process:
+
+```bash
+npx wdio run tests/integration/wdio.server.conf.ts   --spec tests/integration/specs/tier2/paperless-integration.spec.ts
+```
+
 ### App loads but every page is blank
 
 `STATIC_DIR` points at the repo's `build/` directory, which is missing or stale.
