@@ -65,18 +65,36 @@ reversible; Phase 8 is not.
 
 ## Phase 1 — Export parity (R1.1)
 
-The blocking gap. [export_html_internal](../../src-tauri/core/src/commands_internal/export_cmd.rs)
-hardcodes `hidden_columns: Vec::new()` and a fixed `SORT_DIRECTION`, so exporting from the
-browser silently ignores the user's column visibility and sort choice. Desktop's
-`export_to_browser` passes both. Close this before desktop goes away, or the migration is a
-regression.
+The blocking gap, and it is **three** differences, not two. The repo already documents them,
+in the doc comment at
+[route_maps_tests.rs:491](../../src-tauri/core/src/commands_internal/route_maps_tests.rs):
 
-### Task 1: Thread `hidden_columns` and `sort_direction` through `export_html_internal`
+> The two export paths differ: desktop prepends a synthetic "Prvý záznam" row **and**
+> honours the user's sort direction, server mode does neither.
+
+Add hidden columns to that list. So
+[export_html_internal](../../src-tauri/core/src/commands_internal/export_cmd.rs) must gain
+all three, or Phase 8 makes the printed logbook permanently lose its year-opening odometer
+baseline — a row the on-screen grid still renders
+([TripGrid.svelte:436](../../src/lib/components/TripGrid.svelte), `FIRST_RECORD_ID`), so the
+export would stop matching the screen. That is exactly the regression
+[Goal 2](./01-task.md#goals) forbids.
+
+### Task 1: Bring `export_html_internal` to parity with the desktop export
 
 **Files:**
 - Modify: [src-tauri/core/src/commands_internal/export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs)
 - Modify: [src-tauri/core/src/server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) lines 197-218
+- Modify: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs) line 491 (the doc comment above goes stale the moment this lands)
 - Modify: [src-tauri/desktop/src/commands/export_cmd.rs](../../src-tauri/desktop/src/commands/export_cmd.rs) (the `export_html` wrapper — keep it compiling; it dies in Phase 8)
+
+> **Open question for the user — do not decide silently.** Desktop pushes the first record
+> *unconditionally*; core returns `Err("No trips found for this year")` for an empty year.
+> Once core is the only path, exporting an empty year either produces a one-row document
+> containing nothing but the synthetic placeholder (desktop's behaviour) or shows an error
+> toast (core's). This plan **keeps the error**, on the grounds that a document whose only
+> row is a placeholder is not useful output. Flag it at the Phase 1 gate; it is a one-line
+> change either way.
 
 **Step 1: Write the failing test**
 
@@ -216,6 +234,18 @@ the round trip.
             "sortDirection=asc should put the older trip (TRNAVA) first — \
              the argument was ignored"
         );
+
+        // The synthetic year-opening row. Desktop prepends it; web mode never did,
+        // so after the migration the printed logbook would silently lose the
+        // baseline odometer the on-screen grid still shows.
+        assert!(
+            ascending.contains("Prvý záznam"),
+            "the synthetic first-record row is missing from the web export"
+        );
+        assert!(
+            ascending.contains("10000"),
+            "the first-record row should carry year_start_odometer (10000)"
+        );
     }
 ```
 
@@ -277,6 +307,75 @@ Then replace the two hardcoded uses:
 Note the doc comment above `SORT_DIRECTION` explains why row assembly and `ExportData` must
 use the *same* value — keep that invariant, now via the shared parameter. Move that comment
 onto the parameter so the reasoning is not lost.
+
+**Step 3b: Prepend the synthetic first record**
+
+Port the block from
+[desktop/src/commands/export_cmd.rs](../../src-tauri/desktop/src/commands/export_cmd.rs).
+**Order matters** — it must land after `build_trip_grid_data` and before `ExportTotals` and
+`assemble_export_rows`, because the row participates in numbering. Make `grid_data` `mut`:
+
+```rust
+    let mut grid_data = statistics::build_trip_grid_data(db, &vehicle_id, year)?;
+
+    if grid_data.trips.is_empty() {
+        return Err("No trips found for this year".to_string());
+    }
+
+    // Synthetic year-opening row: carries the odometer the year started at, so the
+    // printed logbook shows the same baseline the on-screen grid does
+    // (TripGrid.svelte FIRST_RECORD_ID). Uuid::nil() is the marker export.rs keys
+    // its special-case rendering off (`is_first_record`).
+    let first_record_date =
+        chrono::NaiveDate::from_ymd_opt(year, 1, 1).ok_or_else(|| "Invalid year".to_string())?;
+    let first_record = crate::models::Trip {
+        id: uuid::Uuid::nil(),
+        vehicle_id: vehicle.id,
+        start_datetime: first_record_date.and_hms_opt(0, 0, 0).unwrap(),
+        end_datetime: None,
+        origin: "-".to_string(),
+        destination: "-".to_string(),
+        distance_km: 0.0,
+        odometer: grid_data.year_start_odometer,
+        purpose: "Prvý záznam".to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        full_tank: true,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    grid_data.trips.push(first_record);
+    grid_data
+        .fuel_remaining
+        .insert(uuid::Uuid::nil().to_string(), grid_data.year_start_fuel);
+    grid_data.trip_numbers.insert(uuid::Uuid::nil().to_string(), 0);
+    grid_data
+        .odometer_start
+        .insert(uuid::Uuid::nil().to_string(), grid_data.year_start_odometer);
+```
+
+Two things to watch:
+
+- `vehicle.id` is read here but `vehicle` is moved into `ExportData` later — read the id
+  before the move, or clone it.
+- `ExportTotals::calculate` already excludes dummy rows
+  (`test_export_totals_excludes_dummy_rows` in
+  [export_tests.rs](../../src-tauri/core/src/export_tests.rs)), so the totals are unaffected
+  by the extra row. Do not "fix" them.
+
+**Step 3c: Update the doc comment that now describes the old world**
+
+[route_maps_tests.rs:491](../../src-tauri/core/src/commands_internal/route_maps_tests.rs)
+says "desktop prepends a synthetic 'Prvý záznam' row and honours the user's sort direction,
+server mode does neither". After this task both paths do both. Rewrite it to say the paths
+now agree, and keep the test — its point (both cite the same record number for the same
+trip) is exactly what protects this change.
 
 **Step 4: Widen the dispatcher arm**
 
@@ -519,10 +618,11 @@ branch at line ~694:
 			appVersion = await getAppVersion();
 ```
 
-Delete the now-unused `getVersion` import from `@tauri-apps/api/app` and, if `IS_TAURI` has
-no other use in this file, its import too. Check with
-`grep -n "IS_TAURI" src/routes/settings/+page.svelte` — it is also used at lines 87 and 759,
-so it stays for now.
+Delete the now-unused `getVersion` import from `@tauri-apps/api/app`, **and the `IS_TAURI`
+import at line 17** — line 695 is its only use in this file. The desktop branches at lines
+87 and 759 are `$capabilities.mode === 'desktop'` checks, not `IS_TAURI`; they are Task 16's
+problem. Verify with `grep -n "IS_TAURI" src/routes/settings/+page.svelte` — expect no hits
+after this step.
 
 **Step 6: Typecheck and commit**
 
@@ -555,32 +655,72 @@ This phase mounts it and teaches the specs to address it by container path.
  * host paths. In Docker mode it is a container that only sees what we mounted, so the
  * same logical location has a different absolute path on the other side of the RPC.
  *
- * Keep the mount target in sync with the `-v` flag in the `Start container` step of
- * .github/workflows/test.yml and with docker-compose.web.yml.
+ * Keep the mount targets in sync with the `-v` flags in the `Start container` step of
+ * .github/workflows/test.yml and the local `docker run` in 03-plan.md. NOT with
+ * docker-compose.web.yml — that is the production-shaped deployment file and has no
+ * business mounting test fixtures.
+ *
+ * There are TWO mappings, and conflating them is the main way to waste an hour here:
+ *
+ *   fixtures  read-only   repo tests/integration/data  ->  /testdata
+ *   workdir   read-write  host $PWD/data               ->  /data
+ *
+ * Fixtures are committed inputs (invoice PDFs, Gemini mock JSON). The workdir is where
+ * the running instance keeps its database and where a spec that *creates* files for the
+ * backend to find must write.
  */
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** Where tests/integration/data/ is mounted inside the container. */
-export const CONTAINER_DATA_ROOT = '/testdata';
-
 const IS_DOCKER_MODE = process.env.WDIO_EXTERNAL_SERVER === '1';
 
+/** Where tests/integration/data/ is mounted inside the container (read-only). */
+export const CONTAINER_FIXTURE_ROOT = '/testdata';
+
+/** Where the writable data dir is mounted inside the container. */
+export const CONTAINER_WORK_ROOT = '/data';
+
 /** Host path to tests/integration/data/ — for reads the *test process* performs. */
-export const HOST_DATA_ROOT = join(__dirname, '..', 'data');
+export const HOST_FIXTURE_ROOT = join(__dirname, '..', 'data');
 
 /**
- * Path to a subdirectory of tests/integration/data/ as the BACKEND sees it.
- * Use for any path sent over RPC. Use HOST_DATA_ROOT for fs calls in the spec itself.
+ * Host path to the writable data dir the backend also sees.
+ * Docker: the bind-mount source. Spawned mode: the temp dir wdio exported.
  */
-export function backendDataPath(...segments: string[]): string {
+export function hostWorkDir(): string {
+  if (IS_DOCKER_MODE) return join(process.cwd(), 'data');
+  const dir = process.env.KNIHA_JAZD_DATA_DIR;
+  if (!dir) {
+    throw new Error('KNIHA_JAZD_DATA_DIR not set — spawned-server mode should export it');
+  }
+  return dir;
+}
+
+/**
+ * A committed fixture path as the BACKEND sees it.
+ * Use for any fixture path sent over RPC; use HOST_FIXTURE_ROOT for fs calls in the spec.
+ */
+export function backendFixturePath(...segments: string[]): string {
   return IS_DOCKER_MODE
-    ? [CONTAINER_DATA_ROOT, ...segments].join('/')
-    : join(HOST_DATA_ROOT, ...segments);
+    ? [CONTAINER_FIXTURE_ROOT, ...segments].join('/')
+    : join(HOST_FIXTURE_ROOT, ...segments);
+}
+
+/**
+ * A path under the writable work dir as the BACKEND sees it.
+ * Pair every call with hostWorkDir() for the write the test process performs.
+ */
+export function backendWorkPath(...segments: string[]): string {
+  return IS_DOCKER_MODE
+    ? [CONTAINER_WORK_ROOT, ...segments].join('/')
+    : join(hostWorkDir(), ...segments);
 }
 ```
+
+The names are deliberately not `backendDataPath` — "data" is the word both mappings would
+claim, and the whole point is to keep them apart.
 
 **Step 2: Commit**
 
@@ -617,8 +757,20 @@ git commit -m "test(integration): add host-to-container path helper"
 [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) sets it in `onPrepare`;
 in Docker mode the process is started by CI, so it has to be set here.
 
-Mount read-only (`:ro`) — the container has no business writing into the repo. Task 6 covers
-the one spec that writes placeholder files, which it does from the *test* process.
+Two things this step changes that are worth stating rather than discovering:
+
+- **`:ro` on the fixture mount.** The container has no business writing into the repo, and
+  receipt scanning appears to read only. If Task 6 hits a *permission* error rather than a
+  not-found, `:ro` is the explanation and it means the pipeline rewrites files it scans —
+  new information, worth reporting rather than silently dropping the flag.
+- **`KNIHA_JAZD_MOCK_GEMINI_DIR` now applies to the whole Docker suite**, not just the two
+  newly-unskipped describes. That is intended — it matches what
+  [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) already does in
+  `onPrepare` for spawned mode — but it is a behaviour change for specs that pass today.
+  Watch for it at the Phase 3 gate.
+
+Task 6b covers the separate, writable mapping that `seedReceipt` needs; the read-only
+fixture mount does not serve that purpose.
 
 **Step 2: Verify locally before touching specs**
 
@@ -645,75 +797,155 @@ git add .github/workflows/test.yml
 git commit -m "ci(docker): mount integration test data into the container"
 ```
 
-### Task 6: Unskip the receipts and multi-invoice suites
+### Task 6: Unskip the receipts suites (fixture paths only)
+
+[receipts.spec.ts](../../tests/integration/specs/tier2/receipts.spec.ts) is the easy half:
+it reads committed fixtures and hands their paths to the backend. Pure search-and-replace.
+[multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts) is
+**not** — it is Task 6b, and its blocker is somewhere else entirely.
 
 **Files:**
 - Modify: [tests/integration/specs/tier2/receipts.spec.ts](../../tests/integration/specs/tier2/receipts.spec.ts) lines 95, 350 and the six `invoicesPath` joins
-- Modify: [tests/integration/specs/tier2/multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts) line 104
 
 **Step 1: Swap the path construction**
 
-In [receipts.spec.ts](../../tests/integration/specs/tier2/receipts.spec.ts) there are six
-occurrences of:
+There are exactly six occurrences of:
 
 ```ts
       const invoicesPath = join(__dirname, '..', '..', 'data', 'invoices');
 ```
 
-Replace each with:
+at lines 148, 227, 296, 384, 432, 489. Replace each with:
 
 ```ts
-      const invoicesPath = backendDataPath('invoices');
+      const invoicesPath = backendFixturePath('invoices');
 ```
 
 and add the import:
 
 ```ts
-import { backendDataPath } from '../../utils/paths';
+import { backendFixturePath } from '../../utils/paths';
 ```
 
-Do the same for any equivalent joins in
-[multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts). Note
-line 121 there does `rmSync(join(dataDir, 'seeded-receipts'), ...)` — that is the *test
-process* cleaning up, so it must keep using a host path. Only paths sent over RPC change.
+Drop the now-unused `join` / `__dirname` scaffolding if nothing else in the file uses it.
 
 **Step 2: Change the describe wrappers**
 
-Replace `describeNotInDockerMode(` with plain `describe(` in all three places (receipts.spec
-lines 95 and 350, multi-invoice.spec line 104) and drop the now-unused imports.
+Replace `describeNotInDockerMode(` with plain `describe(` at lines 95 and 350, and drop the
+unused import.
 
-**Step 3: Run the two specs against the container**
+**Step 3: Run the spec against the container**
 
 ```bash
 WDIO_EXTERNAL_SERVER=1 WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
-  --spec tests/integration/specs/tier2/receipts.spec.ts \
-  --spec tests/integration/specs/tier2/multi-invoice.spec.ts
+  --spec tests/integration/specs/tier2/receipts.spec.ts
 ```
 
 Expected: PASS, no skipped suites in the reporter output.
 
-If receipt *seeding* fails, check whether the spec writes placeholder files into
-`tests/integration/data/` — those writes happen host-side and must not go through
-`backendDataPath`.
+If a scan fails with a permission error rather than "not found", the `:ro` on the fixture
+mount is the first thing to suspect — it means the receipts pipeline writes to files it
+scans, which the mount forbids. That would be new information; report it rather than
+silently dropping `:ro`.
 
 **Step 4: Commit**
 
 ```bash
-git add tests/integration/specs/tier2/receipts.spec.ts \
+git add tests/integration/specs/tier2/receipts.spec.ts
+git commit -m "test(integration): run the receipts suite in Docker mode"
+```
+
+### Task 6b: Make `seedReceipt` work across the container boundary
+
+**This is a helper redesign, not a rename.**
+[multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts) contains
+**no** `data/invoices` joins. It seeds through `seedReceipt`
+([utils/db.ts:681](../../tests/integration/utils/db.ts)), which:
+
+1. reads `getTestDataDir()` = `process.env.KNIHA_JAZD_DATA_DIR` — **unset in the test
+   process** under Docker — and throws before doing anything else;
+2. writes a placeholder file from the test process into `<dataDir>/seeded-receipts`;
+3. hands the backend that same absolute path and scans it.
+
+So it needs a location that is *writable by the test process* and *readable by the backend*
+— the read-only fixture mount cannot provide that. The helper's own doc comment says so
+("needs a filesystem shared between the test runner and the backend"), as does the spec
+header.
+
+**Files:**
+- Modify: [tests/integration/utils/db.ts](../../tests/integration/utils/db.ts) — `getTestDataDir`, `seedReceipt`
+- Modify: [tests/integration/specs/tier2/multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts) lines 104, 119-121
+
+**Step 1: Point the helper at the mapped work dir**
+
+`$PWD/data` ↔ `/data` is already bind-mounted read-write by the CI `docker run`, so it is the
+shared filesystem. In [db.ts](../../tests/integration/utils/db.ts), replace the
+`getTestDataDir()` call inside `seedReceipt` with the pair from Task 4:
+
+```ts
+import { hostWorkDir, backendWorkPath } from './paths';
+
+// ... inside seedReceipt:
+  // Write host-side, tell the backend the path IT sees. In spawned mode the two
+  // are identical; in Docker they are the two ends of the -v $PWD/data:/data mount.
+  const seedDirHost = join(hostWorkDir(), 'seeded-receipts');
+  const seedDirBackend = backendWorkPath('seeded-receipts');
+  mkdirSync(seedDirHost, { recursive: true });
+  writeFileSync(join(seedDirHost, fileName), PLACEHOLDER_BYTES);
+  await rpc('set_receipts_folder_path', { path: seedDirBackend });
+```
+
+Delete the `KNIHA_JAZD_DATA_DIR not set` throw and update the doc comment — in particular
+the line telling callers to wrap in `describeNotInDockerMode`, which is about to be false.
+
+**Step 2: Fix the cleanup that silently no-ops**
+
+The `after()` hook at
+[multi-invoice.spec.ts:119-121](../../tests/integration/specs/tier2/multi-invoice.spec.ts)
+is guarded by `if (dataDir)`. In Docker `dataDir` is empty, so cleanup skips and seeded
+receipts persist in the container volume — exactly the cross-spec poisoning the hook's own
+comment warns about, and the failure mode
+[_TECH_DEBT/07](../_TECH_DEBT/07-integration-db-reset-broken.md) documents. Point it at
+`hostWorkDir()` and drop the guard.
+
+**Step 3: Unskip and run**
+
+Change `describeNotInDockerMode(` to `describe(` at line 104.
+
+```bash
+WDIO_EXTERNAL_SERVER=1 WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
+  --spec tests/integration/specs/tier2/multi-invoice.spec.ts
+```
+
+Then immediately re-run the spec that the leak used to poison, to prove the cleanup works:
+
+```bash
+WDIO_EXTERNAL_SERVER=1 WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.server.conf.ts \
+  --spec tests/integration/specs/tier2/multi-invoice.spec.ts \
+  --spec tests/integration/specs/tier2/receipts.spec.ts
+```
+
+Expected: both PASS in that order. If receipts fails only in the pair, the cleanup is still
+not running — check `hostWorkDir()` resolves to the same directory the `-v` flag names.
+
+**Step 4: Commit**
+
+```bash
+git add tests/integration/utils/db.ts tests/integration/utils/paths.ts \
         tests/integration/specs/tier2/multi-invoice.spec.ts
-git commit -m "test(integration): run receipts and multi-invoice suites in Docker mode"
+git commit -m "test(integration): seed receipts across the container boundary"
 ```
 
 ### Task 7: Unskip export and backup restoration
 
 **Files:**
-- Modify: [tests/integration/specs/tier1/export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts) lines 25-29
-- Modify: [tests/integration/specs/tier2/backup-restore.spec.ts](../../tests/integration/specs/tier2/backup-restore.spec.ts) lines 159-161
+- Modify: [tests/integration/specs/tier1/export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts) lines 25-29 (the `this.skip()` is at 27)
+- Modify: [tests/integration/specs/tier2/backup-restore.spec.ts](../../tests/integration/specs/tier2/backup-restore.spec.ts) line 161 (comment above at 159-160)
 
 **Step 1: Delete both skips**
 
 In [export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts), remove the whole
-`before` hook:
+`before` hook (the `this.skip()` is at line 27):
 
 ```ts
   before(function () {
@@ -723,11 +955,37 @@ In [export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts), remove 
   });
 ```
 
-In [backup-restore.spec.ts](../../tests/integration/specs/tier2/backup-restore.spec.ts),
-change `describeNotInServerMode('Backup Restoration', ...)` to `describe(...)` and delete
-the stale comment above it — its three claims are all false (see
+In [backup-restore.spec.ts](../../tests/integration/specs/tier2/backup-restore.spec.ts) line
+161, change `describeNotInServerMode('Backup Restoration', ...)` to `describe(...)` and
+delete the stale comment above it — its three claims are all false (see
 [02-research.md §3.4](./02-research.md)). Drop the unused import if nothing else in the file
 uses it.
+
+**Step 1b: Give the export spec assertions worth unskipping**
+
+Unskipping alone buys a green tick, not coverage.
+[export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts) as written asserts only
+that city names, licence plate and company name appear — nothing about hidden columns, sort
+order, or the first-record row, which is the entire subject of Phase 1. Worse, it is
+structurally toothless: every assertion sits inside
+`if (handles.length > originalHandles.length)`, the `else` branch only asserts when the URL
+happens to contain `export` or `blob`, and a missing export button hits
+`console.log('Export button not found, skipping test'); return;`. If the export window never
+opens, the test passes having asserted nothing.
+
+Under [I2](./01-task.md#coverage-invariants) the export-argument use-case must have real
+end-to-end coverage once desktop is gone. So:
+
+1. **Delete the silent-pass escapes.** A missing export button is a failure — replace the
+   `console.log`/`return` with a `waitForDisplayed` that throws. Replace the
+   `if (handles.length > ...)` guard with a `waitUntil` on the new window handle.
+2. **Add a hidden-column assertion.** Hide a column through the grid UI (or seed it via
+   `set_hidden_columns`), export, and assert the corresponding header string is absent from
+   the exported document — the end-to-end mirror of Task 1's `CAS-MARKER` unit test.
+3. **Add a sort-order assertion.** Flip the sort control, export, and assert two seeded
+   destinations appear in the expected order.
+4. **Add a first-record assertion.** Assert `Prvý záznam` is present — the C1 regression
+   this phase exists to prevent, checked where a user would see it.
 
 **Step 2: Run both specs**
 
@@ -877,7 +1135,16 @@ After `integration-test-docker` in [test.yml](../../.github/workflows/test.yml):
           docker logs kniha-jazd-web-env
           exit 1
 
+      # The env: block is NOT redundant with the npm script. The scripts use
+      # Windows `set X=Y&&`, which under sh sets positional parameters and exports
+      # nothing — so on ubuntu the wdio config would see EXTERNAL_SERVER=false,
+      # run all four tier globs instead of ./specs/env/**, and try to spawn a
+      # binary CI never built. The existing docker job passes them the same way.
       - name: Run env-pinned integration tests
+        env:
+          WDIO_SERVER_MODE: '1'
+          WDIO_EXTERNAL_SERVER: '1'
+          WDIO_ENV_PINNED: '1'
         run: npm run test:integration:docker:env
 
       - name: Show container logs on failure
@@ -907,10 +1174,16 @@ docker run -d --name kj-env --network=host \
   -e PORT=3456 -e HA_URL=http://env-pinned-ha.test:8123 -e HA_API_TOKEN=env-pinned-ha-token \
   -e PAPERLESS_URL=https://env-pinned-paperless.test -e PAPERLESS_API_TOKEN=env-pinned-paperless-token \
   -e PAPERLESS_ENABLED=true -e KNIHA_JAZD_REVEAL_PIN=4269 kniha-jazd-web:test
-curl -sf http://localhost:3456/health && npm run test:integration:docker:env
+curl -sf http://localhost:3456/health
+WDIO_SERVER_MODE=1 WDIO_EXTERNAL_SERVER=1 WDIO_ENV_PINNED=1 \
+  npx wdio run tests/integration/wdio.server.conf.ts
 ```
 
-Expected: 8 tests PASS. Tear down with `docker rm -f kj-env`.
+Expected: 8 tests PASS, and the reporter lists specs from `specs/env/` **only**. If it lists
+tier specs instead, the environment did not reach the config — that is the same failure mode
+the `env:` block above prevents in CI (`set X=Y&&` is a no-op under Git Bash too).
+
+Tear down with `docker rm -f kj-env`.
 
 **Step 5: Commit**
 
@@ -929,7 +1202,7 @@ covered *only* by Tauri today, so deleting first would drop a live use-case sile
 ### Task 9: De-flake the API-key placeholder test
 
 **Files:**
-- Modify: [tests/integration/specs/tier2/receipt-settings.spec.ts](../../tests/integration/specs/tier2/receipt-settings.spec.ts) lines 154-173
+- Modify: [tests/integration/specs/tier2/receipt-settings.spec.ts](../../tests/integration/specs/tier2/receipt-settings.spec.ts) lines 154-173 (the `this.skip()` is at 158)
 
 **Step 1: Replace the pause chain with a wait on the settled state**
 
@@ -998,21 +1271,17 @@ WDIO_EXTERNAL_SERVER=1 WDIO_SERVER_MODE=1 npx wdio run tests/integration/wdio.se
   --spec tests/integration/specs/existing/ev-vehicle.spec.ts
 ```
 
-**Step 2: Most likely fix**
+**Step 2: Note what is already there**
 
-The badge renders as `class="badge type-bev"`. If the failure is a race between vehicle
-creation and list re-render, wait on the badge rather than asserting immediately:
+The spec **already** does `await bevBadge.waitForDisplayed({ timeout: 5000 })` at line 229.
+So "add a wait" is a no-op — do not apply it and conclude the test is fixed. Raising the
+timeout is equally unlikely to help: a test that waits longer for something that never
+happens is worse than a skip.
 
-```ts
-    const badge = await $('.badge.type-bev');
-    await badge.waitForDisplayed({
-      timeout: 10000,
-      timeoutMsg: 'BEV badge did not appear in the vehicle list after creation'
-    });
-```
-
-If instead the helper itself is not completing the creation, fix the helper — a test that
-waits longer for something that never happens is worse than a skip.
+The TODO's own suspicion is the place to start: `createBevVehicleViaUI` may not be
+completing the creation at all. Verify the vehicle exists over RPC before asserting on the
+badge — that splits "creation failed" from "list did not re-render", which are different
+bugs with different fixes.
 
 **Step 3: Run three times, then commit**
 
@@ -1168,9 +1437,10 @@ Only one mode remains, so `describeNotInTauriMode` in
 [route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts) becomes plain
 `describe(`. `describeNotInServerMode('Database Move Commands', ...)` in
 [receipt-settings.spec.ts](../../tests/integration/specs/tier2/receipt-settings.spec.ts)
-guards a feature that disappears in Phase 8 — **delete that whole describe block and its
-`getDbLocation`/`checkTargetHasDb` helpers**, per I2 (deleting a feature's tests with the
-feature is allowed).
+guards a feature that disappears in Phase 8 — **delete that whole describe block**, per I2
+(deleting a feature's tests with the feature is allowed). Of its two local helpers only
+`checkTargetHasDb` becomes unused; **keep `getDbLocation`**, which three surviving tests
+still call (lines 176, 190, 206).
 
 Then delete [utils/skip.ts](../../tests/integration/utils/skip.ts).
 
@@ -1189,15 +1459,39 @@ project-wide find/replace; verify with
 git rm tests/integration/wdio.conf.ts tests/integration/utils/skip.ts
 ```
 
-From [package.json](../../package.json), remove `test:integration:build`,
-`test:integration:tier1/2/3`, and repoint `test:integration` at the server config:
+Now collapse the script list. There are currently three families (`test:integration:*`,
+`:server:*`, `:docker:*`) because there were three harnesses; after this task there is one
+backend and two ways to reach it (spawned locally, or a container). Write the **final** set
+explicitly — this is what [I1](./01-task.md#coverage-invariants) is checked against in
+Task 17:
 
 ```json
+		"test:backend": "cargo test --manifest-path src-tauri/Cargo.toml --workspace",
 		"test:integration": "wdio run tests/integration/wdio.server.conf.ts",
 		"test:integration:tier1": "set TIER=1&& npm run test:integration",
 		"test:integration:tier2": "set TIER=2&& set PARALLEL_TIERS=true&& npm run test:integration",
 		"test:integration:tier3": "set TIER=3&& set PARALLEL_TIERS=true&& npm run test:integration",
+		"test:integration:docker": "set WDIO_EXTERNAL_SERVER=1&& npm run test:integration",
+		"test:integration:docker:env": "set WDIO_ENV_PINNED=1&& npm run test:integration:docker",
+		"test:all": "npm run test:backend && npm run test:integration"
 ```
+
+Delete `test:integration:build`, `test:integration:server`,
+`test:integration:server:tier1`, `test:integration:server:env`,
+`test:integration:docker:tier1` — the `:server:` family *is* `test:integration` now, and the
+tier variants are covered by the `TIER` aliases.
+
+`WDIO_SERVER_MODE` disappears from the scripts entirely: with one harness there is no other
+mode to distinguish. Remove the reads of it in
+[wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts),
+[utils/app.ts](../../tests/integration/utils/app.ts) and
+[utils/db.ts](../../tests/integration/utils/db.ts) as part of Step 2.
+
+> **I1 note.** `test:integration:tier1/2/3` are aliases that only set `TIER` around
+> `test:integration`, which CI does invoke. They are not separately-invoked suites, so they
+> satisfy I1 by delegation. State this in [01-task.md](./01-task.md) when you get to Task 18
+> — otherwise Task 17's literal check ("every `test:*` script is invoked by a job") fails on
+> a technicality, *after* the point of no return.
 
 **Step 4: Full sweep in both Docker and spawned modes**
 
@@ -1234,19 +1528,32 @@ Delete the `integration-build`, `integration-tests`, and `integration-test-serve
 entirely — including the 40-line EdgeDriver registry-probing block (lines 151-190) and the
 `windows-2022` pin whose comment records jobs hanging "for hours via retries".
 
-Shrink the `backend-tests` matrix to `ubuntu-latest` only, and drop the
-`Install Linux dependencies` step (WebKitGTK was for Tauri; the web binary needs none).
+**Keep the `backend-tests` matrix on all three platforms.** [R4](./01-task.md#r4--rewrite-both-pipelines)
+says "keep `backend-tests`", and the crate still has platform-conditional code — DB path
+resolution, `hostname`, the `#[cfg(unix)]` / `#[cfg(not(unix))]` shutdown handler in
+[web/src/main.rs](../../src-tauri/web/src/main.rs) — that developers build and run on
+Windows. Task 12 keeps a `win32` branch in `getBinaryPath()` for exactly that reason.
+Shrinking the matrix is a coverage reduction, not a Tauri cleanup; if it is wanted, it is a
+separate decision to record with `/decision`, not a line item inside a step about deleting
+Windows *integration* jobs.
 
-Final job list: `check-changes`, `backend-tests`, `integration-build-docker`,
-`integration-test-docker` (3 tiers), `integration-test-docker-env`.
+Do drop the `Install Linux dependencies` step — WebKitGTK was for Tauri, and the web binary
+links none of it.
+
+Final job list: `check-changes`, `backend-tests` (3 platforms),
+`integration-build-docker`, `integration-test-docker` (3 tiers),
+`integration-test-docker-env`.
 
 **Step 2: Strip release.yml**
 
 Delete the `build` matrix job, the `Extract release notes from CHANGELOG` step (it reads
 `src-tauri/desktop/tauri.conf.json`, which is about to not exist), and the duplicated
-`integration-build` / `integration-tests` jobs. Repoint `docker-image`'s `needs:` at what
-remains. Per [D2](./01-task.md#resolved-decisions) a `v*` tag now produces **no GitHub
-Release** — only the ghcr push.
+`integration-build` / `integration-tests` jobs. Per
+[D2](./01-task.md#resolved-decisions) a `v*` tag now produces **no GitHub Release** — only
+the ghcr push.
+
+`docker-image` already declares `needs: [check-tests, backend-tests]`, so its `needs:` needs
+no change once the jobs around it are gone — just confirm both still exist.
 
 **Step 3: Validate the YAML before pushing**
 
@@ -1269,8 +1576,37 @@ git commit -m "ci: drop the desktop build and release pipelines (D2)"
 
 **Files:**
 - Delete: [src-tauri/desktop/](../../src-tauri/desktop/)
-- Modify: [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml), [Dockerfile.web](../../Dockerfile.web)
+- Modify: [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml), [Dockerfile.web](../../Dockerfile.web), [package.json](../../package.json), [vite.config.ts](../../vite.config.ts)
 - Delete: `.tauri-keys/`, [scripts/stage-spa.mjs](../../scripts/stage-spa.mjs)
+
+**Step 0: Replace the dev loop before deleting it**
+
+`npm run tauri:dev` is the documented daily workflow ([CLAUDE.md](../../CLAUDE.md), "Common
+Commands"). Deleting it without a replacement leaves the project with no way to run the app
+locally — [vite.config.ts](../../vite.config.ts) has no proxy, so `npm run dev` alone cannot
+reach a backend.
+
+Add one to [vite.config.ts](../../vite.config.ts):
+
+```ts
+export default defineConfig({
+	plugins: [sveltekit()],
+	server: {
+		proxy: {
+			'/api': 'http://localhost:3456'
+		}
+	}
+});
+```
+
+Then the loop is two processes: `cargo run --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web`
+(with `STATIC_DIR` unset — vite serves the UI) alongside `npm run dev`. Document it in
+[CLAUDE.md](../../CLAUDE.md) in Task 18.
+
+Note `stage:spa` and `dev:server` are **not** `tauri:*`-prefixed and so escape a naive
+deletion pass — `stage:spa` calls
+[scripts/stage-spa.mjs](../../scripts/stage-spa.mjs), deleted in Step 1, and `dev:server`
+launches the Tauri shell. Both go. Remove `tauri:prebuild` and the `tauri` passthrough too.
 
 **Step 1: Delete and shrink the workspace**
 
@@ -1301,11 +1637,34 @@ Expected: PASS. Test count drops by exactly 2 (the `static_dir.rs` tests) — an
 means something was in the desktop crate that should have moved to core first. **Stop and
 investigate if the drop is larger.**
 
+**Step 2b: Prune the now-dead database-location machinery**
+
+[R5](./01-task.md#r5--delete-the-desktop-surface) lists this and no other task covers it.
+[db_location.rs](../../src-tauri/core/src/db_location.rs) exists to support a feature
+[ADR-024](../../DECISIONS.md#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client)
+retired: one `/data` volume means no custom paths and no multi-PC lock dance.
+
+Work outward from the compiler rather than deleting by eye:
+
+```bash
+cargo build --manifest-path src-tauri/Cargo.toml --workspace 2>&1 | grep "never used"
+```
+
+`resolve_db_paths` is still used by the web binary's path resolution — check before
+removing anything. `acquire_lock` / `check_lock` / `LockStatus` had exactly one caller
+(desktop `lib.rs`) and should now be dead.
+
+Also decide `check_target_has_db`: it stays dispatched at
+[dispatcher.rs:479](../../src-tauri/core/src/server/dispatcher.rs) while both its consumers
+disappear — the settings "Change Location" UI (Task 16) and the integration tests (Task 13).
+Remove the arm with the feature, or leave a comment saying why it stays. Do not leave it
+undecided.
+
 **Step 3: Commit**
 
 ```bash
 git add -u && git add src-tauri/Cargo.toml Dockerfile.web
-git commit -m "refactor: delete the Tauri desktop crate"
+git commit -m "refactor: delete the Tauri desktop crate and dead db-location code"
 ```
 
 ### Task 16: Strip the Tauri surface from the frontend
@@ -1360,8 +1719,30 @@ Fix each error it reports. The list, for orientation:
   import, the `unlistenProgress` state, the `onMount` `IS_TAURI` block (line ~56) and its
   `onDestroy` cleanup. Per [D3](./01-task.md#resolved-decisions) the progress display is an
   accepted loss — delete the UI that consumed it, do not stub it.
-- [api.ts](../../src/lib/api.ts) — remove `openExportPreview` and the `revealItemInDir`
-  branch (line ~227)
+- [api.ts](../../src/lib/api.ts) — remove `openExportPreview`, the `revealItemInDir` branch
+  (line ~227), and the four desktop-only command wrappers that now call nothing:
+  `getOptimalWindowSize` (line 331), `getServerStatus` (505), `startServer` (509),
+  `stopServer` (513)
+
+**Step 2b: Remove the `$capabilities.mode === 'desktop'` branches**
+
+The frontend gates desktop behaviour **three** ways, not two: `IS_TAURI`,
+`$capabilities.features.*`, and `$capabilities.mode`. The third is invisible to a grep for
+either of the others, so handle it explicitly. All three sites are in
+[settings/+page.svelte](../../src/routes/settings/+page.svelte):
+
+- **line 87** — the desktop `revealSecret` path. Keep the *server* branch: that is the
+  PIN-gated flow from [Task 69](../_done/69-pin-gated-secret-reveal/), which survives and is
+  covered by the env suite.
+- **line 759** — the `getServerStatus` load. Delete.
+- **line 1531** — the **entire Server Mode section**: port input, start/stop button, server
+  URL display, error line. It is driven by `startServer` / `stopServer` / `getServerStatus`,
+  which are desktop-only commands the web dispatcher never had. Delete the section and its
+  `settings.serverMode*` i18n keys from both
+  [sk](../../src/lib/i18n/sk/index.ts) and [en](../../src/lib/i18n/en/index.ts), then run
+  `npm run i18n` — nothing else regenerates `i18n-types.ts`.
+
+A container that *is* the server has no UI for starting one.
 
 **Step 3: Flatten the capabilities store**
 
@@ -1379,11 +1760,15 @@ Remove all 7 `@tauri-apps/*` entries from [package.json](../../package.json), th
 
 ```bash
 npm install
+npm run i18n
 npm run check
-grep -rn "@tauri-apps\|IS_TAURI" src/
+grep -rn "@tauri-apps\|IS_TAURI\|capabilities.mode" src/
+grep -rn "getServerStatus\|startServer\|stopServer\|getOptimalWindowSize" src/
 ```
 
-Expected: `npm run check` clean, grep returns nothing.
+Expected: `npm run check` clean, both greps return nothing. The `capabilities.mode` and
+command-name greps matter — a check for `@tauri-apps|IS_TAURI` alone would report clean
+while dead UI calling non-existent commands ships.
 
 **Step 5: Commit**
 
@@ -1460,7 +1845,31 @@ Per [D2](./01-task.md#resolved-decisions) this is the **only** user-facing annou
 `/changelog`. It must say plainly, in Slovak: the desktop app is discontinued, no further
 installers or automatic updates will be published, and the browser UI replaces it.
 
-**Step 3: The rest**
+**Step 3: Repair the skills — `/release` is broken, not merely stale**
+
+This is not documentation polish. After Phase 8
+[release-skill/SKILL.md](../../.claude/skills/release-skill/SKILL.md) instructs an agent to:
+
+- bump `"version"` in `src-tauri/desktop/tauri.conf.json` (step 3) — file deleted
+- run `npm run test:integration:tier1` (step 4) — repointed in Task 13
+- run `npm run tauri build` (step 5) — script and toolchain deleted
+- treat a missing `TAURI_SIGNING_PRIVATE_KEY` warning as expected
+- report an NSIS installer path (step 7) — no installer exists
+
+And [D2](./01-task.md#resolved-decisions) changes what a release *is*: bump
+[package.json](../../package.json) + the workspace
+[Cargo.toml](../../src-tauri/Cargo.toml), tag, push, let CI publish the ghcr image, no
+GitHub Release. Rewrite the skill to that flow — an ADR describing it is not enough, because
+`/release` is what actually runs.
+
+Then: delete [test-update-skill](../../.claude/skills/test-update-skill/) outright (it is
+entirely about testing Tauri auto-update), and clear the Tauri references from
+[code-review-skill](../../.claude/skills/code-review-skill/SKILL.md),
+[test-review-skill](../../.claude/skills/test-review-skill/SKILL.md) and
+[verify-skill](../../.claude/skills/verify-skill/SKILL.md). Drop `/test-update` from the
+skills table in [CLAUDE.md](../../CLAUDE.md).
+
+**Step 4: The rest**
 
 [CLAUDE.md](../../CLAUDE.md) carries 18 Tauri mentions — the architecture diagram, the
 "Common Commands" block, the test commands, and the database-location section (the custom
@@ -1469,7 +1878,11 @@ READMEs describe a desktop app in their opening lines.
 [docs/features/move-database.md](../../docs/features/move-database.md) documents a deleted
 feature — delete the file and remove it from any index.
 
-**Step 4: Commit**
+Also fold in the I1 alias note from Task 13: record in
+[01-task.md](./01-task.md#coverage-invariants) that `test:integration:tier1/2/3` satisfy I1
+by delegating to a script CI invokes, so the criterion reads as intended.
+
+**Step 5: Commit**
 
 ```bash
 git add -u

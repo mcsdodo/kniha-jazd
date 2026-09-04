@@ -64,7 +64,7 @@ grew beyond "unskip the Docker skips".
 
 | # | Gap | Evidence |
 |---|-----|----------|
-| R1.1 | Web export ignores `hidden_columns` and `sort_direction` | [export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) lines 50, 61-62 hardcode `Vec::new()` and a fixed `SORT_DIRECTION`; desktop [export_cmd.rs](../../src-tauri/desktop/src/commands/export_cmd.rs) passes both through |
+| R1.1 | Web export ignores `hidden_columns` and `sort_direction`, **and drops the "Prvý záznam" opening row** | [export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) lines 50, 61-62 hardcode `Vec::new()` and a fixed `SORT_DIRECTION`; desktop [export_cmd.rs](../../src-tauri/desktop/src/commands/export_cmd.rs) passes both through **and prepends a synthetic `Uuid::nil()` row carrying `year_start_odometer`**. All three differences are documented at [route_maps_tests.rs:491](../../src-tauri/core/src/commands_internal/route_maps_tests.rs) |
 | R1.2 | App version is invisible in web mode | [settings/+page.svelte](../../src/routes/settings/+page.svelte) line 695 gates `getVersion()` on `IS_TAURI`; no `get_app_version` RPC exists |
 | R1.3 | Receipt processing progress events have no web equivalent | [receipts_cmd.rs](../../src-tauri/desktop/src/commands/receipts_cmd.rs) line 174 emits via `app.emit`; the RPC path returns only the final `SyncResult` |
 

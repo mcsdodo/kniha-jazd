@@ -84,10 +84,27 @@ sort_direction: SORT_DIRECTION.to_string(),                                // li
 The frontend branch is in [routes/+page.svelte](../../src/routes/+page.svelte) around
 line 180: with `openExternal` it calls `openExportPreview` (full fidelity), otherwise
 `exportHtml` (degraded). So **web export is strictly worse than desktop export today**.
-Route maps *are* included on both paths — only the column/sort arguments are lost.
+Route maps *are* included on both paths.
 
-Fix: widen `export_html_internal`'s signature, add the two arguments to the
-`export_html` dispatcher arm, and drop the branch in `+page.svelte`.
+**Correction (2026-09-04, from the [plan review](./_plan-review.md) C1).** This section
+originally said "only the column/sort arguments are lost". That was wrong — the gap is
+**three** differences, and the third changes what the printed legal document says. Desktop's
+`export_to_browser` also prepends a synthetic `Uuid::nil()` trip with purpose
+`"Prvý záznam"` carrying `year_start_odometer`, and injects the matching
+`fuel_remaining` / `trip_numbers` / `odometer_start` entries.
+`export_html_internal` never does. The rendering machinery is already in core
+([export.rs:332](../../src-tauri/core/src/export.rs), `is_first_record`) — only the caller
+that builds the row is missing, and the on-screen grid still renders it
+([TripGrid.svelte:436](../../src/lib/components/TripGrid.svelte), `FIRST_RECORD_ID`).
+
+The divergence was documented in the repo all along, at
+[route_maps_tests.rs:491](../../src-tauri/core/src/commands_internal/route_maps_tests.rs):
+"desktop prepends a synthetic 'Prvý záznam' row **and** honours the user's sort direction,
+server mode does neither."
+
+Fix: widen `export_html_internal`'s signature, prepend the synthetic first record, add the
+two arguments to the `export_html` dispatcher arm, and drop the branch in `+page.svelte`.
+See [03-plan.md](./03-plan.md) Task 1.
 
 ### 2.2 No app version in web mode
 

@@ -1,9 +1,35 @@
 **Date:** 2026-09-04
 **Subject:** Plan review — Web-first migration (retire the Tauri desktop app)
 **Reviewed:** [03-plan.md](./03-plan.md) against [01-task.md](./01-task.md), [02-research.md](./02-research.md) and the codebase as built
-**Status:** Open — findings not yet applied
+**Status:** Closed — all 16 findings applied to [03-plan.md](./03-plan.md) on 2026-09-04
 
-## Verdict
+## Resolution
+
+All 16 findings applied to [03-plan.md](./03-plan.md) on 2026-09-04. Every Critical was
+independently verified against the code before being accepted — C1's "Prvý záznam"
+divergence, C2's `set X=Y&&`-under-`sh` no-op, and C3's `seedReceipt` filesystem
+requirement all check out, as do the Important and Minor claims spot-checked (I2's three
+`capabilities.mode` sites, I6's broken `/release` steps, M2's already-present
+`waitForDisplayed`, M3's surviving `getDbLocation` callers).
+
+Notable consequences beyond the plan edits:
+
+- [02-research.md §2.1](./02-research.md) carried the C1 error ("only the column/sort
+  arguments are lost") and has been corrected in place, with the correction dated and
+  attributed rather than silently rewritten.
+- [01-task.md](./01-task.md) R1.1 restated as a three-part gap.
+- Task 6 split: **Task 6** (receipts, fixture paths) and **Task 6b** (`seedReceipt` across
+  the container boundary) — 20 tasks now, not 19.
+- The path helper gained a second mapping and was renamed
+  `backendFixturePath` / `backendWorkPath`, because "data" was the word both mappings
+  wanted.
+- I5 **rejected as written**: the plan no longer shrinks `backend-tests` to ubuntu-only.
+  The reviewer was right that it is a coverage reduction smuggled into a cleanup step.
+- One item escalated to the user rather than decided: empty-year export behaviour (desktop
+  emits a placeholder-only document, core errors). The plan keeps the error and flags it at
+  the Phase 1 gate.
+
+## Verdict (as filed)
 
 **3 Critical · 6 Important · 7 Minor — Needs Revisions.**
 
@@ -22,7 +48,7 @@ believes a path helper fixes when the blocker is somewhere else entirely.
 
 ## Critical
 
-### [ ] C1 — The printed logbook loses its "Prvý záznam" opening row
+### [x] C1 — The printed logbook loses its "Prvý záznam" opening row
 
 R1.1 is described as a two-argument gap. It is a three-part gap, and the third part is the
 one that changes what the legal document says.
@@ -57,7 +83,7 @@ regardless — decide which behaviour survives; and
 `both_export_modes_cite_the_same_record_for_the_same_trip`'s doc comment goes stale the
 moment Task 1 lands, so update it rather than leaving a comment that describes the old world.
 
-### [ ] C2 — The new env-pinned CI job sets no environment, so it will not run the env suite
+### [x] C2 — The new env-pinned CI job sets no environment, so it will not run the env suite
 
 The [package.json](../../package.json) scripts use Windows `set X=Y&&` syntax. On `ubuntu-latest` that runs under `sh`,
 where `set WDIO_EXTERNAL_SERVER=1` sets positional parameters and exports nothing. This is
@@ -82,7 +108,7 @@ someone later "fixes" it by loosening the wait, pass without having run the 8 te
 `WDIO_SERVER_MODE: '1'`, `WDIO_EXTERNAL_SERVER: '1'`, `WDIO_ENV_PINNED: '1'`. The same
 applies to Step 4's local verification if it is run under Git Bash rather than cmd.
 
-### [ ] C3 — Task 6 does not make [multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts) runnable in Docker; the diagnosis is wrong
+### [x] C3 — Task 6 does not make [multi-invoice.spec.ts](../../tests/integration/specs/tier2/multi-invoice.spec.ts) runnable in Docker; the diagnosis is wrong
 
 The plan treats both Docker skips as one problem: "the container cannot see
 [tests/integration/data/](../../tests/integration/data/). Mount it and add a path helper."
@@ -121,7 +147,7 @@ as its own task — it is a helper redesign, not the search-and-replace Task 6 d
 
 ## Important
 
-### [ ] I1 — Nothing gives the R1.1 fix an end-to-end test, though the plan says [export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts) does
+### [x] I1 — Nothing gives the R1.1 fix an end-to-end test, though the plan says [export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts) does
 
 Task 2's closing note says *"the integration test for this lands in Task 7"*, and Task 7
 Step 2 says *"The export spec exercises Phase 1's work end-to-end."* It does not.
@@ -140,7 +166,7 @@ would remain uncovered end-to-end after desktop is gone.
 **Fix:** in Task 7, add real assertions (hide a column in the grid → export → assert the
 header is absent; flip the sort → assert row order) and delete the silent-pass escapes.
 
-### [ ] I2 — Task 16 misses the three `$capabilities.mode === 'desktop'` branches, including a whole settings section
+### [x] I2 — Task 16 misses the three `$capabilities.mode === 'desktop'` branches, including a whole settings section
 
 The frontend gates desktop behaviour three ways: `IS_TAURI`, `$capabilities.features.*`, and
 `$capabilities.mode === 'desktop'`. Task 16 handles the first two and never mentions the
@@ -165,7 +191,7 @@ stays for now". It is not — those are `capabilities.mode` checks. In that file
 appears only at the import (line 17) and line 695. Once Task 3 removes the 695 branch the
 import is dead and has to go with it.
 
-### [ ] I3 — R5's [db_location.rs](../../src-tauri/core/src/db_location.rs) cleanup has no task
+### [x] I3 — R5's [db_location.rs](../../src-tauri/core/src/db_location.rs) cleanup has no task
 
 [01-task.md R5](./01-task.md#r5--delete-the-desktop-surface) lists "Dead lock-file /
 `move_database` logic in [db_location.rs](../../src-tauri/core/src/db_location.rs)". No task
@@ -174,7 +200,7 @@ in the plan touches that file. Related loose end: `check_target_has_db` stays di
 consumers — the settings "Change Location" UI and the integration tests Task 13 deletes — go
 away. Either remove the arm with the feature or state why it stays.
 
-### [ ] I4 — The final npm-script set is never named, and the plan's own I1 check cannot pass
+### [x] I4 — The final npm-script set is never named, and the plan's own I1 check cannot pass
 
 After Tasks 11 and 13 the surviving scripts are at least: `test:backend`, `test:integration`,
 `test:integration:tier1/2/3`, `test:integration:server`, `test:integration:server:tier1`,
@@ -192,7 +218,7 @@ Task 13 also contradicts itself in one step: "remove `test:integration:build`,
 the convenience aliases or restate I1 to exempt aliases that only set `TIER` around a script
 a job does invoke.
 
-### [ ] I5 — Task 14 shrinks `backend-tests` to ubuntu-only; 01-task never asked for that
+### [x] I5 — Task 14 shrinks `backend-tests` to ubuntu-only; 01-task never asked for that
 
 R4 says "keep `backend-tests`". Task 14 Step 1 adds "shrink the matrix to `ubuntu-latest`
 only". That is a real coverage reduction for a crate with platform-conditional code (DB
@@ -201,7 +227,7 @@ own Task 12 keeps a `win32` branch in `getBinaryPath()`. Either keep the matrix,
 the trade-off with `/decision` rather than folding it into a step about deleting Windows
 *integration* jobs.
 
-### [ ] I6 — Task 18's doc list omits [.claude/skills/](../../.claude/skills/), and `/release` breaks outright
+### [x] I6 — Task 18's doc list omits [.claude/skills/](../../.claude/skills/), and `/release` breaks outright
 
 [release-skill/SKILL.md](../../.claude/skills/release-skill/SKILL.md) bumps
 `src-tauri/desktop/tauri.conf.json` (step 3 — deleted in Phase 8), runs
@@ -222,7 +248,7 @@ only after Phase 8.
 
 ## Minor
 
-### [ ] M1 — No replacement dev loop
+### [x] M1 — No replacement dev loop
 
 `npm run tauri:dev` is the documented daily workflow ([CLAUDE.md](../../CLAUDE.md), "Common
 Commands"). Task 16 deletes the `tauri:*` scripts and nothing defines what replaces them.
@@ -233,7 +259,7 @@ that does both. Also: `stage:spa` and `dev:server` are not `tauri:*`-prefixed an
 the plan's deletion list, while [scripts/stage-spa.mjs](../../scripts/stage-spa.mjs) — which `stage:spa` calls — is
 deleted in Task 15.
 
-### [ ] M2 — Task 10's "most likely fix" is already in the file
+### [x] M2 — Task 10's "most likely fix" is already in the file
 
 [ev-vehicle.spec.ts:229](../../tests/integration/specs/existing/ev-vehicle.spec.ts) already
 has `await bevBadge.waitForDisplayed({ timeout: 5000 })`. The plan proposes adding exactly
@@ -241,14 +267,14 @@ that. Say so, or the implementer "applies" a no-op change and concludes it is fi
 TODO's own suspicion — `createBevVehicleViaUI` not completing the creation — is where to
 start.
 
-### [ ] M3 — Task 13 over-deletes a helper
+### [x] M3 — Task 13 over-deletes a helper
 
 It says to delete the `Database Move Commands` block "and its `getDbLocation` /
 `checkTargetHasDb` helpers". `getDbLocation` is used by three tests that survive
 ([receipt-settings.spec.ts](../../tests/integration/specs/tier2/receipt-settings.spec.ts)
 lines 176, 190, 206). Only `checkTargetHasDb` becomes unused.
 
-### [ ] M4 — The new [paths.ts](../../tests/integration/utils/paths.ts) points at the wrong file to keep in sync
+### [x] M4 — The new [paths.ts](../../tests/integration/utils/paths.ts) points at the wrong file to keep in sync
 
 Its doc comment says to keep the mount target in sync with
 [docker-compose.web.yml](../../docker-compose.web.yml). That file is the production-shaped
@@ -256,20 +282,20 @@ deployment compose — [skip.ts](../../tests/integration/utils/skip.ts) says as 
 should not mount test fixtures. Only [test.yml](../../.github/workflows/test.yml) and the
 local `docker run` need the mount.
 
-### [ ] M5 — Task 5 turns mock Gemini on for the whole Docker suite
+### [x] M5 — Task 5 turns mock Gemini on for the whole Docker suite
 
 `-e KNIHA_JAZD_MOCK_GEMINI_DIR=/testdata/mocks` applies to every tier, not just the two
 newly-unskipped describes. That is a behaviour change for specs that pass today. Worth one
 line saying it is intended, and worth watching at the Phase 3 gate.
 
-### [ ] M6 — `:ro` on the fixture mount is asserted rather than verified
+### [x] M6 — `:ro` on the fixture mount is asserted rather than verified
 
 Receipt scanning appears to read only, so `:ro` looks safe — but the plan states it as a rule
 ("the container has no business writing into the repo") without naming what breaks if the
 pipeline ever moves or rewrites a scanned file. Keep it, and add a line saying a permission
 error in Task 6 is the first thing `:ro` would explain.
 
-### [ ] M7 — Line-number and claim drift
+### [x] M7 — Line-number and claim drift
 
 [export.spec.ts](../../tests/integration/specs/tier1/export.spec.ts)'s skip is at line 27 (plan says 25-29); [backup-restore.spec.ts](../../tests/integration/specs/tier2/backup-restore.spec.ts)'s at 161
 (159-161); [receipt-settings.spec.ts](../../tests/integration/specs/tier2/receipt-settings.spec.ts)'
