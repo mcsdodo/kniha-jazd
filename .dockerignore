@@ -9,7 +9,6 @@ data/
 .github/
 _tasks/
 _done/
-playwright-report/
 test-results/
 *.md
 !CHANGELOG.md

@@ -43,11 +43,6 @@ scripts/*.db
 scripts/compare_import.py
 scripts/import_excel.py
 
-# Playwright
-test-results/
-playwright-report/
-playwright/.cache/
-
 # Integration test screenshots
 tests/integration/screenshots/
 
@@ -60,3 +55,6 @@ tmpclaude-*
 analyze-routes.mjs
 cleanup-routes.mjs
 _tmp
+
+# Docker integration-test work dir (bind-mounted to /data in the container)
+data/

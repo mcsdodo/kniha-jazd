@@ -17,10 +17,6 @@
 		"i18n": "typesafe-i18n --no-watch",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"test": "vitest",
-		"test:run": "vitest run --passWithNoTests",
-		"test:e2e": "playwright test",
-		"test:e2e:ui": "playwright test --ui",
 		"test:backend": "cd src-tauri && cargo test",
 		"test:integration": "wdio run tests/integration/wdio.conf.ts",
 		"test:integration:tier1": "set TIER=1 && npm run test:integration",
@@ -32,10 +28,9 @@
 		"test:integration:server:env": "set WDIO_SERVER_MODE=1&& set WDIO_ENV_PINNED=1&& wdio run tests/integration/wdio.server.conf.ts",
 		"test:integration:docker": "set WDIO_EXTERNAL_SERVER=1&& set WDIO_SERVER_MODE=1&& wdio run tests/integration/wdio.server.conf.ts",
 		"test:integration:docker:tier1": "set TIER=1&& npm run test:integration:docker",
-		"test:all": "npm run test:backend && npm run test:run && npm run test:integration"
+		"test:all": "npm run test:backend && npm run test:integration"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.57.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.49.1",
@@ -49,8 +44,7 @@
 		"svelte": "^5.45.6",
 		"svelte-check": "^4.3.4",
 		"typescript": "^5.9.3",
-		"vite": "^7.2.6",
-		"vitest": "^4.0.16"
+		"vite": "^7.2.6"
 	},
 	"dependencies": {
 		"@tauri-apps/api": "^2.9.1",
