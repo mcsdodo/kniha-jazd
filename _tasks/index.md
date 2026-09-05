@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-04 (Task 74 completed)
+**Last updated:** 2026-09-05 (Task 75 added)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 75 | [Place Book](75-place-book/) | 📋 Planning | Curated place list with coordinates; one-off place-name cleanup first — 7 decisions open |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
