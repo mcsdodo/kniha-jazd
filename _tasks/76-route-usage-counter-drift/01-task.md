@@ -1,6 +1,6 @@
 **Date:** 2026-09-06
 **Subject:** The `routes` autocomplete cache counts saves, not trips — `usage_count` and `last_used` drift and never recover
-**Status:** Planning
+**Status:** Planning — approach decided (derive, [ADR-033](../../DECISIONS.md))
 
 # Task 76: Route Usage Counter Drift
 
@@ -155,7 +155,14 @@ table briefly carries two truths; and the aggregate is marginally more work per
 read than an ordered select — immaterial at this size, but it is a real
 difference.
 
-### Recommendation: Option B
+### DECIDED 2026-09-06: Option B — derive
+
+> Recorded as [ADR-033](../../DECISIONS.md), which covers the place book and this
+> table under one rule: **aggregates over trips are computed, not stored.** The
+> reasoning below stands as written; what follows is no longer a recommendation but
+> the decision this task implements. Option A is kept for the record only — do not
+> build it, and skip every step in this document that begins "if Option A".
+
 
 Derive. The stored counter has been wrong for the entire life of the feature and
 nobody noticed, which is the strongest possible evidence that it is not worth the

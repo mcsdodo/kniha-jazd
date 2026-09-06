@@ -182,8 +182,7 @@ CREATE TABLE places (
     display_name TEXT NOT NULL,
     lat REAL,
     lon REAL,
-    source TEXT NOT NULL,
-    confirmed_at TEXT
+    source TEXT NOT NULL
 );
 ```
 
@@ -205,7 +204,6 @@ diesel::table! {
         lat -> Nullable<Double>,
         lon -> Nullable<Double>,
         source -> Text,
-        confirmed_at -> Nullable<Text>,
     }
 }
 ```

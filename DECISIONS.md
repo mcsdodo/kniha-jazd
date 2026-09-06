@@ -20,15 +20,18 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Reasoning:** The list is **closed at 47 places** and grows by a handful a year, so the entire exercise is one pass of roughly fifteen minutes — the clicking a heuristic saves is nearly free to do by hand. Any threshold would be tuned to one geocoder's scoring and would break silently when the provider is swapped, which the design's `GeocodeProvider` trait exists to allow. Decisively: a wrongly accepted pin does not announce itself — it surfaces later as a map of the wrong place attached to an export that is legal evidence. The cheapest way not to guess wrong is not to guess.
 
-### ADR-033: The place list is derived from trips, not maintained by write paths
+### ADR-033: Aggregates over trips are computed, not stored
 
-**Context:** The Miesta section lists every place a trip refers to. It could equally be a stored list that `create_trip` / `update_trip` / `delete_trip` keep in step.
+**Context:** The Miesta section lists every place a trip refers to. It could equally be a stored list that `create_trip` / `update_trip` / `delete_trip` keep in step. The same question applies to [routes](./src-tauri/core/src/db.rs), whose `usage_count` and `last_used` are stored aggregates of exactly that kind ([task 76](./_tasks/76-route-usage-counter-drift/)).
 
-**Decision:** The list is **derived** — the distinct normalised place strings in `trips`, left joined onto a `places` table that stores nothing but coordinates and how they were set.
+**Decision:** **Aggregates over trips are computed, not stored**, in both places.
+
+- The place list is derived — the distinct normalised place strings in `trips`, left joined onto a `places` table that stores nothing but coordinates and how they were set.
+- `routes.usage_count` and `routes.last_used` are likewise derived in `get_routes_for_vehicle`, leaving only `distance_km` stored. An inner join drops orphan rows for free, and no counter backfill is needed because nothing is being corrected — the stored numbers stop existing.
 
 **Reasoning:** This codebase already contains the counterexample. [routes](./src-tauri/core/src/db.rs) stores a `usage_count` maintained by write paths, and it is **wrong in 52 of its 96 rows** ([task 76](./_tasks/76-route-usage-counter-drift/)): `update_trip` counts a second time, deleting a trip never decrements, and rows outlive every trip that justified them. Three write paths had to agree forever, and they did not. A derived list cannot drift — a place appears when a trip names it and disappears when the last one stops — costs nothing at tens of rows, and needs no backfill migration. The accepted cost is an orphan: a `places` row whose trips are all deleted keeps its coordinates on disk, invisible in the list. That is a point nobody asks for, not a wrong answer.
 
-Scope note: [task 76](./_tasks/76-route-usage-counter-drift/) faces the same stored-versus-derived choice for `routes` itself, and is deliberately left open here.
+The decisive evidence for `routes` specifically: the stored counter has **no observable effect today**. It is read in exactly one place — the `ORDER BY usage_count DESC` at `db.rs:477` — and [TripRow.svelte](./src/lib/components/TripRow.svelte) then flattens the result into a `Set` and re-sorts it alphabetically, discarding the ordering entirely. There is no behaviour to preserve, which is why deriving costs nothing and maintaining would mean holding three invariants forever to feed a value nobody reads.
 
 ### ADR-034: The book displays the spelling trips already use, not the geocoder's
 

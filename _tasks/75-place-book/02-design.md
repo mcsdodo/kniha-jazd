@@ -65,7 +65,6 @@ One new table. One Diesel migration, per
 | `display_name` | TEXT NOT NULL | **the spelling trips use**, verbatim |
 | `lat` / `lon` | REAL **NULL** | null = not yet placed |
 | `source` | TEXT NOT NULL | `geocoder` (a suggestion accepted) or `manual` (a pin dropped) |
-| `confirmed_at` | TEXT NULL | when a human last placed it |
 
 **`display_name` is the trip's own spelling, not the geocoder's.** This is easy to get
 wrong and expensive if you do. The autocomplete offers `display_name`; if that were the
@@ -73,6 +72,10 @@ geocoder's official rendering, picking it would write a *new* string into the tr
 one differing from the 200 rows already using the plain form — and the fragmentation
 the cleanup just removed would grow straight back. The geocoder's name is shown while
 choosing and then discarded.
+
+**No `confirmed_at`.** Nothing reads it. `source` earns its column by answering
+"why is this pin in a field"; a timestamp answers a question nobody has asked, and a
+speculative column is cheaper to add later than to remove after a migration ships.
 
 **No `unplaceable` state.** A pin can always be dropped by hand, so nothing is truly
 unplaceable; a row with null coordinates simply has not been done yet.
