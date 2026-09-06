@@ -9,7 +9,7 @@ Quick overview of all tasks and their status.
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 76 | [Route Usage Counter Drift](76-route-usage-counter-drift/) | 📋 Planning | `routes.usage_count` counts saves, not trips — 52 of 96 rows wrong; stored-vs-derived decision open |
-| 75 | [Place Book](75-place-book/) | 📋 Planning | Curated place list with coordinates; one-off place-name cleanup first — 7 decisions open |
+| 75 | [Place Book](75-place-book/) | 📋 Planning | Curated place list with coordinates; place-name cleanup applied to prod 2026-09-06, design doc next |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
