@@ -9,3 +9,5 @@
 *
 !.gitignore
 !README.md
+# The design carries architecture, not data - written with invented examples only.
+!02-design.md
