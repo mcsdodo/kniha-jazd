@@ -4,6 +4,51 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-06: Place Book
+
+### ADR-032: Places are placed by a human, never by a confidence heuristic
+
+**Context:** The place book ([task 75](./_tasks/75-place-book/)) gives every place string in the logbook a coordinate. The brainstorm assumed a rule that would auto-accept a geocoder result when it looked confident enough, leaving only the doubtful ones for review. Profiling the production database killed the sketched rule outright: the strings are **street addresses**, not town names, so "the geocoder's returned name equals the query" can never fire for them.
+
+**Options considered:**
+1. Accept when exactly one candidate's name matches the query — impossible for addresses.
+2. Accept when only one candidate comes back at all.
+3. Accept when the top candidate leads the runner-up by a margin on Nominatim's `importance` score.
+4. No auto-accept: a human confirms every place, once.
+
+**Decision:** Option 4. Nothing is placed without a person accepting a suggestion or dropping a pin.
+
+**Reasoning:** The list is **closed at 47 places** and grows by a handful a year, so the entire exercise is one pass of roughly fifteen minutes — the clicking a heuristic saves is nearly free to do by hand. Any threshold would be tuned to one geocoder's scoring and would break silently when the provider is swapped, which the design's `GeocodeProvider` trait exists to allow. Decisively: a wrongly accepted pin does not announce itself — it surfaces later as a map of the wrong place attached to an export that is legal evidence. The cheapest way not to guess wrong is not to guess.
+
+### ADR-033: The place list is derived from trips, not maintained by write paths
+
+**Context:** The Miesta section lists every place a trip refers to. It could equally be a stored list that `create_trip` / `update_trip` / `delete_trip` keep in step.
+
+**Decision:** The list is **derived** — the distinct normalised place strings in `trips`, left joined onto a `places` table that stores nothing but coordinates and how they were set.
+
+**Reasoning:** This codebase already contains the counterexample. [routes](./src-tauri/core/src/db.rs) stores a `usage_count` maintained by write paths, and it is **wrong in 52 of its 96 rows** ([task 76](./_tasks/76-route-usage-counter-drift/)): `update_trip` counts a second time, deleting a trip never decrements, and rows outlive every trip that justified them. Three write paths had to agree forever, and they did not. A derived list cannot drift — a place appears when a trip names it and disappears when the last one stops — costs nothing at tens of rows, and needs no backfill migration. The accepted cost is an orphan: a `places` row whose trips are all deleted keeps its coordinates on disk, invisible in the list. That is a point nobody asks for, not a wrong answer.
+
+Scope note: [task 76](./_tasks/76-route-usage-counter-drift/) faces the same stored-versus-derived choice for `routes` itself, and is deliberately left open here.
+
+### ADR-034: The book displays the spelling trips already use, not the geocoder's
+
+**Context:** A geocoder returns an official rendering — full diacritics, canonical street form, country suffix. The logbook's own strings are plain ASCII and were normalised by a one-off cleanup on 2026-09-06.
+
+**Decision:** `places.display_name` holds **the trip's own spelling, verbatim**. The geocoder's label is shown while choosing and then discarded, never stored.
+
+**Reasoning:** The trip-entry autocomplete offers `display_name`. If that were the geocoder's rendering, picking a suggestion would write a *new* string into the trip — one differing from every row already using the plain form — and the spelling fragmentation the cleanup had just removed would grow straight back, one autocomplete selection at a time. The book's job is to point at places, not to rename them.
+
+### ADR-035: The geocoder is not restricted by country
+
+**Context:** [Task 72](./_tasks/72-route-map-origin-destination/)'s design pinned Nominatim to `countrycodes=sk`, on the assumption that a Slovak logbook names Slovak places.
+
+**Decision:** No country filter is applied.
+
+**Reasoning:** The production data contradicts the assumption: five of the 47 places are in Czechia or Hungary, and a single Czech address accounts for 39 trips. The restriction would fail those outright, with a pin-by-hand as the only fallback for the most-travelled foreign destination in the book. The usage obligations that actually matter — an identifying User-Agent and one request per second — are unaffected by dropping it.
+
+---
+
+
 ## 2026-09-04: Image Publishing Channels
 
 ### ADR-031: Two Channels — `:main` Moves, `:latest` Is Cut
