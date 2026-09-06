@@ -18,7 +18,7 @@ Requirements in [01-task.md](./01-task.md). V1 this extends:
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  SvelteKit frontend — /mapa?trip={id}                            │
-│    place picker (on cache miss)                                  │
+│    place dialog (reused from task 75, when an endpoint is new)   │
 │    Leaflet: active line + inactive alternatives                  │
 │    drag endpoints · press line to add waypoint · click to remove │
 │    [Prepočítať] [Generovať znova]¹ [Uložiť] [Odstrániť mapu]     │
@@ -27,19 +27,17 @@ Requirements in [01-task.md](./01-task.md). V1 this extends:
                     ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │  core/src/commands_internal/route_maps.rs                        │
-│    NEW  start_route_for_trip · resolve_place · remember_place    │
-│         · route_direct                                           │
+│    NEW  start_route_for_trip · route_direct                      │
 │    KEEP generate_route · get_trip_route · save_trip_route        │
 │         · delete_trip_route                                      │
 ├──────────────────────────────────────────────────────────────────┤
 │  core/src/route_map/                                             │
-│    NEW  geocode.rs   normalise() + GeocodeProvider trait         │
 │    ga.rs        unchanged — loop mode only                       │
 │    osrm.rs      + alternatives, + duration                       │
 │    render.rs    unchanged                                        │
 │    tiles.rs     unchanged                                        │
 ├──────────────────────────────────────────────────────────────────┤
-│  SQLite: trip_routes (+ mode) · place_aliases (NEW)              │
+│  SQLite: trip_routes (+ mode) · places (from task 75)            │
 └──────────────────────────────────────────────────────────────────┘
 
 ¹ loop mode only

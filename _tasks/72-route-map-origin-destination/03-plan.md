@@ -1054,6 +1054,27 @@ git commit -m "feat(route-map): add resolve_place and remember_place commands"
 
 ## Task 5: `RouteMode`, `mode_for()`, and the one command that calls it
 
+> **Reworked 2026-09-06 for the place book.** `start_route_for_trip_internal` no longer
+> geocodes anything. Endpoints come from the `places` table that
+> [task 75](../75-place-book/03-plan.md) fills, so this command **looks up** rather than
+> resolves:
+>
+> ```rust
+> pub struct RouteStart {
+>     pub mode: RouteMode,
+>     /// None when the book has no coordinate for that endpoint yet. The map view
+>     /// then opens the place dialog in place, rather than failing or redirecting.
+>     pub origin: Option<Place>,
+>     pub destination: Option<Place>,
+> }
+> ```
+>
+> `resolve_place` and `remember_place` do not exist and must not be written — the book's
+> `list_places` / `save_place` cover both, and `normalise()` already lives at
+> [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs). Import it; do not
+> reimplement it. Everything the notice below says about `mode_for` having exactly one
+> caller in Rust still holds, unchanged and for the same reason.
+
 **Files:**
 - Modify: [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs)
 - Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs)
@@ -1072,6 +1093,11 @@ git commit -m "feat(route-map): add resolve_place and remember_place commands"
 
 **Step 1: Write the failing tests**
 
+The `mode_for` tests are unchanged by the place book — sameness is still judged after
+normalisation, and a blank endpoint is still an error rather than a quiet loop. Keep
+them exactly as written below. Only the `start_route_for_trip` tests change: there is no
+geocoder to count calls on, because this command makes no network request at all.
+
 ```rust
 use crate::models::RouteMode;
 
@@ -1080,8 +1106,9 @@ fn the_same_place_twice_is_a_loop() {
     assert_eq!(mode_for("Domov", "Domov").unwrap(), RouteMode::Loop);
 }
 
-/// The mode comparison and the alias cache MUST share one notion of sameness,
-/// or a row could route A→B while its endpoints collide onto one cache entry.
+/// Mode selection and the place book MUST share one notion of sameness, or a
+/// row could route A→B while its endpoints resolve to one book entry.
+/// Both call `places::normalise` — there is no second implementation.
 #[test]
 fn sameness_is_judged_after_normalisation() {
     assert_eq!(mode_for("Spišská", "spisska ").unwrap(), RouteMode::Loop);
@@ -1104,7 +1131,7 @@ fn a_blank_endpoint_is_an_error_not_a_loop() {
     assert!(mode_for("", "").is_err());
 }
 
-// --- start_route_for_trip: the one caller ---
+// --- start_route_for_trip: the one caller of mode_for ---
 
 fn seed_trip_between(db: &Database, origin: &str, destination: &str) -> Trip {
     let trip = seed_trip(db);
@@ -1115,193 +1142,127 @@ fn seed_trip_between(db: &Database, origin: &str, destination: &str) -> Trip {
     updated
 }
 
-#[tokio::test]
-async fn planning_a_same_place_row_returns_loop_and_resolves_nothing() {
+#[test]
+fn a_same_place_row_starts_in_loop_mode() {
     let db = Database::in_memory().unwrap();
-    let trip = seed_trip_between(&db, "Domov", "domov");
-    let geocoder = CountingGeocoder::returning(vec![a_place("unused")]);
+    let trip = seed_trip_between(&db, "Domov", "domov ");
 
-    let plan = start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
-        .await
-        .unwrap();
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
 
-    assert_eq!(plan.mode, RouteMode::Loop);
-    assert_eq!(
-        geocoder.calls(),
-        0,
-        "a loop does not use the row's endpoints, so geocoding them is wasted"
-    );
-    assert!(plan.origin.is_none() && plan.destination.is_none());
+    assert_eq!(start.mode, RouteMode::Loop);
 }
 
-#[tokio::test]
-async fn planning_an_a_to_b_row_resolves_both_endpoints_in_one_call() {
+#[test]
+fn a_direct_row_carries_both_endpoints_from_the_book() {
     let db = Database::in_memory().unwrap();
-    let trip = seed_trip_between(&db, "Bratislava", "Spisska");
-    let geocoder = CountingGeocoder::returning(vec![a_place("Nájdené")]);
+    let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
+    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
+    save_place_internal(&db, &app_state(), "Depot, City B".into(), 48.7, 21.2, PlaceSource::Geocoder).unwrap();
 
-    let plan = start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
-        .await
-        .unwrap();
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
 
-    assert_eq!(plan.mode, RouteMode::Direct);
-    // Two endpoints, two lookups — never the six a re-resolving frontend loop costs.
-    assert_eq!(geocoder.calls(), 2);
-    assert_eq!(plan.origin.unwrap().candidates.len(), 1);
-    assert_eq!(plan.destination.unwrap().candidates.len(), 1);
+    assert_eq!(start.mode, RouteMode::Direct);
+    assert_eq!(start.origin.unwrap().lat, 48.1);
+    assert_eq!(start.destination.unwrap().lon, 21.2);
 }
 
-/// A cached endpoint costs no lookup even when the other one misses.
-#[tokio::test]
-async fn planning_uses_the_alias_cache_per_endpoint() {
+/// The endpoint's spelling in the trip need not match the book's byte for byte —
+/// the book is keyed on the normalised form, which is the whole point.
+#[test]
+fn an_endpoint_is_found_regardless_of_spelling() {
     let db = Database::in_memory().unwrap();
-    let trip = seed_trip_between(&db, "Bratislava", "Spisska");
-    db.save_place_alias(&PlaceAlias {
-        normalised_query: "bratislava".into(),
-        lat: 48.1486,
-        lon: 17.1077,
-        display_name: "Bratislava".into(),
-        source: AliasSource::Geocoder,
-        created_at: chrono::Utc::now(),
-    })
-    .unwrap();
-    let geocoder = CountingGeocoder::returning(vec![a_place("Spišská Nová Ves")]);
+    let trip = seed_trip_between(&db, "OFFICE, CITY A", "Depot, City B");
+    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
 
-    let plan = start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
-        .await
-        .unwrap();
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
 
-    assert_eq!(geocoder.calls(), 1, "the cached endpoint must cost nothing");
-    assert!(plan.origin.unwrap().resolved.is_some());
-    assert!(plan.destination.unwrap().resolved.is_none());
+    assert_eq!(start.origin.unwrap().lat, 48.1);
 }
 
-#[tokio::test]
-async fn planning_a_row_with_a_blank_endpoint_is_an_error() {
+/// An unplaced endpoint is NOT an error: the map view opens the book's dialog in
+/// place so the user can fix it without leaving the page. Failing here would
+/// turn a two-click fix into a redirect.
+#[test]
+fn an_unplaced_endpoint_is_reported_not_refused() {
     let db = Database::in_memory().unwrap();
-    let trip = seed_trip_between(&db, "Bratislava", "");
-    let geocoder = CountingGeocoder::returning(vec![]);
-    assert!(
-        start_route_for_trip_internal(&db, &geocoder, trip.id.to_string())
-            .await
-            .is_err()
-    );
+    let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
+    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
+
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
+
+    assert!(start.origin.is_some());
+    assert!(start.destination.is_none(), "the unplaced endpoint reports as None");
+}
+
+#[test]
+fn a_blank_endpoint_still_fails_the_whole_call() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "", "Depot, City B");
+    assert!(start_route_for_trip_internal(&db, trip.id.to_string()).is_err());
 }
 ```
 
-> `seed_trip_between` uses whatever update call `db.rs` actually exposes — check the
-> name before writing it, and seed the origin/destination directly if there is no
-> update helper.
+**Step 2: Run to verify they fail**
 
-**Step 2: Run to verify it fails**
-
-```bash
-cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core "mode_for OR is_a_loop OR direct_route OR planning_a"
-```
-Expected: FAIL — `mode_for` not found.
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core start_route_for_trip`
+Expected: FAIL — `mode_for` and `start_route_for_trip_internal` do not exist.
 
 **Step 3: Implement**
 
-In `models.rs`:
-
 ```rust
-/// Which producer built a route. Serialised lowercase so the enum, the JSON
-/// the frontend sees, and the `trip_routes.mode` column all read the same.
+/// Which shape of route a row calls for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RouteMode {
-    /// Genetic-algorithm loop from the bundled dataset's home base (V1).
+    /// A→A: today's genetic-algorithm loop from Home Base (V1), unchanged.
     Loop,
-    /// A→B through the row's own geocoded origin and destination (V2).
+    /// A→B through the row's own endpoints, as the place book holds them.
     Direct,
 }
 
-impl RouteMode {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            RouteMode::Loop => "loop",
-            RouteMode::Direct => "direct",
-        }
-    }
+/// What the map view needs to open a row: the mode, and the endpoints if the
+/// book has them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteStart {
+    pub mode: RouteMode,
+    /// None when the book has no coordinate for that endpoint yet. The view
+    /// opens the place dialog rather than failing (ADR-032: places are placed
+    /// by a human, and this is where a newly typed one gets placed).
+    pub origin: Option<Place>,
+    pub destination: Option<Place>,
 }
-```
 
-In `route_maps.rs`:
-
-```rust
 /// Loop when the row names the same place twice, direct otherwise.
 ///
-/// Compared after `normalise` so this and the alias cache agree on what "the
-/// same place" means. A blank endpoint is an error, never a silent loop.
-pub fn mode_for(origin: &str, destination: &str) -> Result<RouteMode, String> {
-    let o = normalise(origin);
-    let d = normalise(destination);
-    if o.is_empty() {
-        return Err("Trip has no origin, so its route cannot be built.".to_string());
-    }
-    if d.is_empty() {
-        return Err("Trip has no destination, so its route cannot be built.".to_string());
-    }
-    Ok(if o == d { RouteMode::Loop } else { RouteMode::Direct })
-}
+/// Compared after `places::normalise`, the same function the book keys on, so a
+/// row cannot be direct-mode here and collide onto one book entry there.
+fn mode_for(origin: &str, destination: &str) -> Result<RouteMode, String> { /* … */ }
 
-/// Everything the map view needs to open a trip: which producer to use, and
-/// — for a direct route — where its two endpoints are.
+/// The map view's entry point, and `mode_for`'s only caller.
 ///
-/// `origin` and `destination` are `None` in loop mode: a loop runs from the
-/// dataset's home base and never consults the row's endpoints, so geocoding
-/// them would be two wasted lookups against a rate-limited service.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TripRoutePlan {
-    pub mode: RouteMode,
-    pub origin: Option<PlaceResolution>,
-    pub destination: Option<PlaceResolution>,
-}
-
-/// The map view's entry point, and `mode_for`'s ONLY caller.
-///
-/// One round trip decides the mode and resolves both endpoints. The frontend
-/// gets an answer it cannot second-guess, which is the point: a browser-side
-/// copy of the mode rule would eventually disagree with the alias cache's
-/// notion of the same name.
-///
-/// Persists nothing — resolution is still only a proposal until the user
-/// confirms a pick with `remember_place`.
-pub async fn start_route_for_trip_internal(
+/// Synchronous and network-free: the endpoints are a database lookup against the
+/// place book, not a geocode. That is what the book bought — see ADR-032.
+pub fn start_route_for_trip_internal(
     db: &Database,
-    provider: &dyn GeocodeProvider,
     trip_id: String,
-) -> Result<TripRoutePlan, String> {
-    let trip = db
-        .get_trip(&trip_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Trip {trip_id} not found."))?;
-
-    let mode = mode_for(&trip.origin, &trip.destination)?;
-
-    if mode == RouteMode::Loop {
-        return Ok(TripRoutePlan { mode, origin: None, destination: None });
-    }
-
-    Ok(TripRoutePlan {
-        mode,
-        origin: Some(resolve_place_internal(db, provider, trip.origin).await?),
-        destination: Some(resolve_place_internal(db, provider, trip.destination).await?),
-    })
-}
+) -> Result<RouteStart, String> { /* … */ }
 ```
 
-> Check `db.get_trip`'s exact name and signature before writing this — use whatever
-> single-trip lookup already exists rather than adding one.
+Look the endpoints up through the book's own read path rather than querying `places`
+directly here, so there is one place that knows how a trip's spelling becomes a book
+entry.
 
-**Step 4: Run to verify it passes** — same command. Expected: PASS, 8 tests.
+**Step 4: Run to verify they pass**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core start_route_for_trip`
+Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
 git add src-tauri/core/src/models.rs src-tauri/core/src/commands_internal/route_maps.rs src-tauri/core/src/commands_internal/route_maps_tests.rs
-git commit -m "feat(route-map): choose loop vs direct mode from the row's endpoints"
+git commit -m "feat(route-maps): choose the mode in Rust and read endpoints from the book"
 ```
 
 ---
@@ -2209,6 +2170,18 @@ git commit -m "feat(route-map): persist which producer built each route map"
 
 ## Task 10: Dispatcher wiring
 
+> **Reworked 2026-09-06 for the place book.** Three corrections to everything below:
+>
+> 1. **Drop the `resolve_place` and `remember_place` arms and their tests entirely.** The
+>    book's own commands cover both, wired by [task 75](../75-place-book/03-plan.md).
+> 2. **`start_route_for_trip` is now a *sync* command** and belongs in
+>    [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs), not
+>    `dispatcher_async.rs`. It stopped awaiting anything the moment endpoints became a
+>    database lookup instead of a geocode — that is the structural consequence of the
+>    book, and it is easy to miss while copying the arm below.
+> 3. The section comments therefore read: **sync 3 → 4** (`start_route_for_trip`),
+>    **async 1 → 2** (`route_direct`). `save_trip_route` still gains `mode`.
+
 **Files:**
 - Modify: [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs)
 - Modify: [src-tauri/core/src/server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
@@ -2483,6 +2456,14 @@ git commit -m "feat(route-map): add i18n strings for V2 map view"
 
 ## Task 12: Types and API wrappers
 
+> **Reworked 2026-09-06 for the place book.** Drop `PlaceResolution`, `resolvePlace` and
+> `rememberPlace` — they do not exist. [Task 75](../75-place-book/03-plan.md) already adds
+> `Place`, `listPlaces`, `geocodePlace`, `savePlace` and `clearPlace` to
+> [api.ts](../../src/lib/api.ts); import them rather than declaring anything similar.
+>
+> What this task still adds: `RouteMode`, and a `RouteStart` whose `origin` and
+> `destination` are `Place | null` — null meaning the book has no coordinate yet.
+
 **Files:**
 - Modify: [src/lib/types.ts](../../src/lib/types.ts)
 - Modify: [src/lib/api.ts](../../src/lib/api.ts)
@@ -2598,7 +2579,22 @@ git commit -m "feat(route-map): add frontend types and API wrappers for V2"
 
 ---
 
-## Task 13: Map view — mode branch and place picker
+## Task 13: Map view — mode branch and unplaced endpoints
+
+> **Reworked 2026-09-06 for the place book.** There is no candidate picker here. Every
+> place is placed once from Settings → Miesta ([ADR-032](../../DECISIONS.md)), so by the
+> time a row is opened its endpoints almost always have coordinates already and the page
+> simply draws them.
+>
+> For the case that remains — a place typed into a trip since the last visit to Miesta —
+> **the page opens the book's own dialog in place**: reuse
+> [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) from
+> [task 75](../75-place-book/03-plan.md), do not build a second place-picking UI. On save
+> it calls the book's `savePlace`, then re-runs `startRouteForTrip` and draws. The user
+> never leaves the map to finish what they opened it for.
+>
+> So the state below loses `pendingPlace` and `PlaceResolution` entirely; what it needs
+> is a nullable "which endpoint is unplaced" flag driving the shared modal.
 
 **Files:**
 - Modify: [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte)
@@ -3100,6 +3096,17 @@ git commit -m "feat(route-map): drag the line to edit a route, re-routing on dro
 # Phase 4 — Verification and documentation
 
 ## Task 16: Integration tests
+
+> **Reworked 2026-09-06 for the place book.** The candidate-picker test is gone with the
+> picker. Replace it with one that matters more: **a row whose endpoint is unplaced opens
+> the shared place dialog, and placing it there draws the route without leaving the page.**
+>
+> The three tests this task deferred for want of a stubbable provider are no longer
+> blocked on the geocoder — [task 75](../75-place-book/03-plan.md) ships
+> `KNIHA_JAZD_MOCK_GEOCODER_DIR` and wires it through
+> [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) and both Docker jobs.
+> Only the **router** still needs an equivalent before alternative promotion and drag
+> editing can be covered; build it the same way rather than inventing a second mechanism.
 
 **Files:**
 - Modify: [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts)
