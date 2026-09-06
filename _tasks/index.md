@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-05 (Task 75 added)
+**Last updated:** 2026-09-06 (Task 76 added)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 76 | [Route Usage Counter Drift](76-route-usage-counter-drift/) | 📋 Planning | `routes.usage_count` counts saves, not trips — 52 of 96 rows wrong; stored-vs-derived decision open |
 | 75 | [Place Book](75-place-book/) | 📋 Planning | Curated place list with coordinates; one-off place-name cleanup first — 7 decisions open |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
