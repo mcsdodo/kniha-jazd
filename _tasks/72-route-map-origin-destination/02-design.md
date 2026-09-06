@@ -5,6 +5,14 @@
 Requirements in [01-task.md](./01-task.md). V1 this extends:
 [../_done/70-route-map-integration/](../_done/70-route-map-integration/).
 
+> **Superseded in part (2026-09-06).** Everything about geocoding, the place-alias
+> table and resolving free-text names is now [task 75](../75-place-book/), which builds
+> a place book instead: every place is placed by a human once from Settings, the list is
+> derived from trips, and the geocoder carries no country filter
+> ([ADR-032](../../DECISIONS.md) … [ADR-035](../../DECISIONS.md)). Profiling the
+> production database contradicted three assumptions this document makes. What remains
+> this task's own: mode selection, direct routing, alternatives and waypoint editing.
+
 ## Architecture
 
 ```

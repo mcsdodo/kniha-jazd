@@ -12,10 +12,13 @@ they really drove.
 
 **Architecture:** Mode is chosen in Rust from the row's own origin/destination: same
 place twice → today's genetic-algorithm loop, unchanged; different places → a direct
-A→B route. Free text becomes coordinates through a geocoder behind an injected trait,
-cached in a `place_aliases` table so each distinct name is resolved once and confirmed
-by a human once. Editing is mode-agnostic and re-routes only on pointer release, and
-**where a dragged-in waypoint lands is computed in Rust**, not the browser.
+A→B route. Coordinates come from the place book built by
+[task 75](../75-place-book/) — this task looks them up and does not geocode. Editing is
+mode-agnostic and re-routes only on pointer release, and **where a dragged-in waypoint
+lands is computed in Rust**, not the browser.
+
+> **Phase 1 of this plan is superseded** and must not be implemented — see the notice
+> at its heading. Phases 2–4 stand, with the geocoding ground already laid.
 
 **Tech Stack:** Rust (diesel/SQLite, reqwest, async-trait, wiremock), SvelteKit 5 runes,
 Leaflet, typesafe-i18n, WebdriverIO.
@@ -48,7 +51,35 @@ Leaflet, typesafe-i18n, WebdriverIO.
 
 ---
 
-# Phase 1 — Geocoding foundation
+# Phase 1 — Geocoding foundation — **SUPERSEDED BY [TASK 75](../75-place-book/)**
+
+> **Do not implement Tasks 1–4.** The place book ([task 75](../75-place-book/03-plan.md))
+> builds this ground, and builds it differently. Read this before touching anything below.
+>
+> | this plan proposed | task 75 builds instead |
+> |---|---|
+> | `route_map/geocode.rs` | [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) + [places/geocode.rs](../../src-tauri/core/src/places/geocode.rs) — the book is its own module, not part of route maps |
+> | `place_aliases` table | `places` table, and the *list* is derived from trips, never stored ([ADR-033](../../DECISIONS.md)) |
+> | `resolve_place` / `remember_place` | `list_places` / `geocode_place` / `save_place` / `clear_place` |
+> | resolve on demand, cache-first, ask on a miss | every place placed by a human once, up front, from Settings → Miesta ([ADR-032](../../DECISIONS.md)) |
+> | `countrycodes=sk` | no country filter — five places are outside Slovakia, one carrying 39 trips ([ADR-035](../../DECISIONS.md)) |
+>
+> **Why it changed:** this phase was designed before anyone profiled the production
+> database. Doing so contradicted three of its assumptions — the entries are street
+> addresses rather than town names (so the planned auto-accept rule cannot fire at all),
+> the list is closed at 47 places (so confirming each by hand beats any heuristic), and
+> a one-off cleanup removed every spelling duplicate (so the alias indirection has
+> nothing left to do).
+>
+> **What Phase 2 onwards should assume:** by the time direct routing is built, every
+> place a row names either has a coordinate in the `places` table or is visibly unplaced
+> in Settings. `resolve_place` is not needed — a lookup against the book replaces it.
+> `normalise()` already exists at [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs)
+> and must not be reimplemented, in Rust or in TypeScript.
+>
+> Tasks 1–4 are kept below unedited, as the record of what was planned and why it was
+> not built.
+
 
 ## Task 1: `normalise()` — one notion of "the same place name"
 
@@ -3200,12 +3231,17 @@ Recorded so nobody implements them by accident:
 - **Desktop UI** — still no Tauri wrappers for any route-map command, and `routeMaps`
   stays `false` in `defaultDesktop`. Enabling it means adding wrappers for all
   **eight** commands now, not four.
-- **A test-mode provider override** — an env var read once into `ServerState` pointing
-  the geocoder and router at a local stub, so the integration suite can cover candidate
-  picking, alternative promotion and drag editing. Task 16 defers all three for want of
-  it; today both providers are built inside the dispatcher arms with nothing to stub.
-- **A Settings screen for the place-alias book** — reviewing, editing and clearing
-  remembered places outside the map view.
+- **A test-mode override for the *router*.** The geocoder half of this is no longer
+  deferred: [task 75](../75-place-book/03-plan.md) adds `KNIHA_JAZD_MOCK_GEOCODER_DIR`,
+  copying the mock-directory mode [gemini.rs](../../src-tauri/core/src/gemini.rs)
+  already has and which is already wired through
+  [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) and both Docker
+  jobs in [test.yml](../../.github/workflows/test.yml). An OSRM equivalent still has to
+  be built here — but it now has a pattern to copy rather than a design to invent, and
+  it is what Task 16's three deferred tests are waiting on.
+- ~~**A Settings screen for the place-alias book.**~~ **Built by
+  [task 75](../75-place-book/) as Settings → Miesta**, which is where every place gets
+  its coordinate before this task ever runs.
 - **Re-using a curated route across trips on the same origin/destination pair.**
   Deliberately rejected for now
   ([01-task.md](./01-task.md#non-goals)); revisit only if curating repeats proves
