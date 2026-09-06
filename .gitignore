@@ -36,6 +36,10 @@ kniha_jazd.xlsx
 
 # Generated databases
 scripts/*.db
+# Production snapshots pulled into a task folder for analysis. This repository is
+# public and the logbook holds real home and business addresses, so no database
+# reaches it by accident.
+_tasks/**/*.db
 .claude/settings.local.json*
 .claude/scheduled_tasks.lock
 scripts/compare_import.py

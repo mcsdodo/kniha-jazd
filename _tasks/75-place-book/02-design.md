@@ -3,7 +3,7 @@
 **Status:** Planning
 
 Requirements grew out of a brainstorm on 2026-09-05 and the place-name cleanup that
-preceded it ([01-cleanup.md](./01-cleanup.md), local only — see [README.md](./README.md)). This design
+preceded it (the cleanup writeup is local only — see [01-task.md](./01-task.md)). This design
 supersedes Phase 1 of
 [task 72](../72-route-map-origin-destination/02-design.md), which is reduced to its
 routing phases.
