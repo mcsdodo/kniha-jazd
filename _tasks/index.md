@@ -2,13 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-07 (Task 77 complete)
+**Last updated:** 2026-09-07 (Task 72 in progress)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
+| 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 🟡 In Progress | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |

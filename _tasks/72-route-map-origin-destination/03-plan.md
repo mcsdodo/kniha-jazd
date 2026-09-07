@@ -3199,7 +3199,128 @@ rather than quietly excluding the spec.
 
 ---
 
-## Task 18: Documentation
+## Task 18: Dev instance on the VM, on a copy of the production database
+
+The acceptance gate for this feature (see
+[01-task.md](./01-task.md#acceptance--a-dev-instance-the-user-can-drive-by-hand)).
+Route quality is a judgement about real journeys. A green suite does not make it.
+
+**`CLAUDE.local.md` governs the production database.** It is **copy-from only**.
+The dev instance opens a *copy*; it never mounts, writes to, or restores over the
+original. Nothing derived from it may be committed - this repo is public and the
+database holds real home and business addresses. `/data-*/` is already in
+[.gitignore](../../.gitignore), which is why the copy lands in `data-dev/`.
+
+**Files:**
+- Create: `scripts/dev-instance.sh`
+
+- [ ] **Step 1: Write the script**
+
+```bash
+#!/usr/bin/env bash
+# Run a dev instance on this VM against a COPY of the production database, so a
+# human can drive the app with real trips and real places.
+#
+# The production database at PROD_HOST is copy-from only (see CLAUDE.local.md).
+# This script never writes to it. The copy lives in data-dev/, which .gitignore
+# already excludes via /data-*/ - it holds real addresses and must never reach
+# this public repo.
+set -euo pipefail
+
+PROD_HOST="${PROD_HOST:-root@192.168.0.112}"
+PROD_DB="${PROD_DB:-/root/kniha-jazd/data/kniha-jazd.db}"
+PORT="${PORT:-3460}"
+NAME="kniha-jazd-dev"
+IMAGE="kniha-jazd-web:dev"
+
+cd "$(dirname "$0")/.."
+REPO="$PWD"
+
+echo "==> Building the image from the working tree"
+docker build -f Dockerfile.web -t "$IMAGE" .
+
+echo "==> Copying the production database (read-only source)"
+mkdir -p "$REPO/data-dev"
+scp -o BatchMode=yes "$PROD_HOST:$PROD_DB" "$REPO/data-dev/kniha-jazd.db"
+chmod u+w "$REPO/data-dev/kniha-jazd.db"
+
+echo "==> Starting $NAME on port $PORT"
+docker rm -f "$NAME" >/dev/null 2>&1 || true
+docker run -d --name "$NAME" \
+  -p "$PORT:3456" \
+  -v "$REPO/data-dev:/data" \
+  -e KNIHA_JAZD_DATA_DIR=/data \
+  -e DATABASE_PATH=/data/kniha-jazd.db \
+  -e PORT=3456 \
+  "$IMAGE" >/dev/null
+
+echo "==> Waiting for health"
+for _ in $(seq 1 60); do
+  if curl -sf "http://localhost:$PORT/health" >/dev/null 2>&1; then
+    echo "    healthy"
+    break
+  fi
+  sleep 1
+done
+
+echo "==> Data check"
+curl -s -X POST "http://localhost:$PORT/api/rpc" \
+  -H 'Content-Type: application/json' -H 'X-KJ-Client: 1' \
+  -d '{"command":"get_vehicles","args":{}}' |
+  python3 -c 'import sys,json; print(f"    vehicles: {len(json.load(sys.stdin))}")'
+
+echo
+echo "Open: http://ubuntu.lacny.me:$PORT/"
+echo "Stop: docker rm -f $NAME"
+```
+
+- [ ] **Step 2: Make it executable and run it**
+
+```bash
+chmod +x scripts/dev-instance.sh
+./scripts/dev-instance.sh
+```
+
+Expected: the image builds, the copy lands in `data-dev/`, the container reports
+healthy, and the vehicle count is greater than zero.
+
+- [ ] **Step 3: Prove the production database was not touched**
+
+```bash
+ssh -o BatchMode=yes root@192.168.0.112 'md5sum /root/kniha-jazd/data/kniha-jazd.db'
+```
+
+Run this before Step 2 as well. The two digests must match. If they differ, stop:
+something wrote to production.
+
+- [ ] **Step 4: Confirm the feature is actually exercisable**
+
+Find a trip whose origin and destination differ and whose places both carry
+coordinates, and open `/mapa?trip=<id>` on the dev instance. The route must follow
+A to B, not a loop. Record the trip id used.
+
+- [ ] **Step 5: Confirm the copy is not tracked**
+
+```bash
+git status --short          # must not list data-dev/
+git check-ignore -v data-dev/kniha-jazd.db   # must report /data-*/
+```
+
+- [ ] **Step 6: Commit the script only**
+
+```bash
+git add scripts/dev-instance.sh
+git commit -m "chore(dev): run a dev instance against a copy of the prod database"
+```
+
+- [ ] **Step 7: Hand the URL to the user**
+
+Report the URL, the trip id from Step 4, and the two matching digests from Step 3.
+The user's verification closes this task.
+
+---
+
+## Task 19: Documentation
 
 **Files:**
 - Modify: [DECISIONS.md](../../DECISIONS.md) — via `/decision`, one entry each:

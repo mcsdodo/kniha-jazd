@@ -116,6 +116,26 @@ This task is that V2.
 
 - Untouched. No new column, no text, no markers on the rendered page.
 
+### Acceptance — a dev instance the user can drive by hand
+
+Added 2026-09-07, at the user's request. Automated tests are not the acceptance
+gate for this feature. Route quality is a judgement about real journeys, and the
+only person who can make it is the person who drove them.
+
+- The work is **not done** until a dev instance runs on the development VM
+  (`ubuntu.lacny.me`) in Docker, built from the working tree, and the user has
+  looked at it.
+- It runs against a **copy of the production database**, so the rows on screen
+  are real trips between real places that already carry coordinates from the
+  place book.
+- The copy is read from `root@192.168.0.112:~/kniha-jazd/data/kniha-jazd.db`.
+  Per `CLAUDE.local.md` that path is **copy-from only** - the dev instance must
+  never write to it, and nothing derived from it may be committed. The repo is
+  public and the database holds real home and business addresses.
+- The instance is published on a port the user can reach from a browser, and the
+  final report gives them the URL.
+- The user verifies. Their judgement closes the task, not a green suite.
+
 ## Constraints
 
 - **[ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication):**
