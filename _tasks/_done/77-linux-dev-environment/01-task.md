@@ -1,6 +1,6 @@
 **Date:** 2026-09-07
 **Subject:** Move day-to-day development from the Windows box to an Ubuntu VM
-**Status:** Planning
+**Status:** Complete (2026-09-07)
 
 ## Goal
 
@@ -73,7 +73,7 @@ What is Windows-bound is the **dev harness only** — and the worst of it fails
 | Install pwsh on Ubuntu vs. port the hook | Port to bash | Claude Code's `settings.json` has no per-platform hook selection, and the sibling PostToolUse hook already invokes `bash`. git-bash covers Windows, so bash is the single form that works everywhere. Installing PowerShell 7 on the VM would keep two implementations alive for no gain. |
 | JSON parsing in the bash hook | grep the raw payload | [post-commit-reminder.sh](../../.claude/hooks/post-commit-reminder.sh) already does exactly this. Adding a `jq` dependency to match one field would be new setup on every machine. |
 | `.gitattributes` scope | `* text=auto eol=lf`, gated on producing zero diff | 340 tracked files are already LF-in-index / CRLF-in-worktree, so normalising costs nothing and silences the `LF will be replaced by CRLF` warnings. If `git add --renormalize .` *does* produce a diff, that is a separate call — see plan Task 5. |
-| Chrome headless | Not changed | [wdio.server.conf.ts:194-197](../../tests/integration/wdio.server.conf.ts) sets only `--no-sandbox --disable-gpu`. The VM has a desktop session, so headed Chrome works. Adding `--headless` would change the thing local runs and CI have in common, for no benefit here. |
+| Chrome headless | Not changed | [wdio.server.conf.ts:194-197](../../tests/integration/wdio.server.conf.ts) sets only `--no-sandbox --disable-gpu`. Adding `--headless` would change the thing local runs and CI have in common, for no benefit here. **Corrected 2026-09-07:** the original reason given here - "the VM has a desktop session, so headed Chrome works" - is wrong. Headed Chrome on the unattended xrdp desktop fails two tier2 specs every time. The decision stands, but the run command is `xvfb-run`, not the desktop. See the Display note below. |
 | ADR in DECISIONS.md | Yes, one short entry | "Dev environment is Linux-first; committed hooks are bash" is a convention that constrains future contributions. Without it, the next `.ps1` hook is a reasonable-looking addition. |
 
 ## Technical Notes
@@ -95,9 +95,13 @@ What is Windows-bound is the **dev harness only** — and the worst of it fails
   `receipts_folder_path` is an `Option<String>` stored as plain
   text and never resolved against the filesystem at load, so a Linux path — or no value
   at all — is fine.
-- **Display.** Chrome runs headed. Run the suite from a terminal inside the VM's desktop
-  session. A bare SSH session with no `DISPLAY` will fail at Chrome startup; the
-  fallback is `xvfb-run -a npm run test:integration`.
+- **Display.** Chrome runs headed. **Use `xvfb-run`, not the VM's desktop session.**
+  This reverses the original note, which told the reader to use the desktop and treated
+  `xvfb-run` as a fallback. On the xrdp desktop `:10` (3440x1440)
+  `time-inference-toggle` and `paperless-integration` fail every time. The cause inside
+  the browser was not isolated; only the dependence on the display is established. The same specs pass against the same
+  container under `xvfb-run -a -s "-screen 0 1280x1024x24"`. Details in
+  [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md).
 - **`--network=host` is the actual payoff.** Per
   [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md),
   several specs start a mock HTTP server *in the test process* bound to `127.0.0.1` and
@@ -125,6 +129,7 @@ Run on the VM from a clean clone — the full checklist is [02-plan.md](02-plan.
 Task 7. The two that prove the point:
 
 1. `npm run test:integration:tier1` runs **only** tier1 + existing (48 tests), not all
-   four globs.
+   four globs. **Verified 2026-09-07:** 11 spec files, 48 tests, no tier2/tier3 spec.
 2. `npm run test:integration:docker` passes `paperless-integration.spec.ts` against a
-   `--network=host` container.
+   `--network=host` container. **Verified 2026-09-07:** 32 of 32 spec files passed with
+   no retries, under `xvfb-run`.

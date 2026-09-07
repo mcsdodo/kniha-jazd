@@ -56,6 +56,38 @@ debugging the code. Two ways out: run that spec in spawned mode (the backend is 
 host process, so loopback just works), or accept the local failure and rely on CI —
 but say which you did, rather than reporting the suite as green.
 
+### Run Chrome under xvfb, not on a real desktop
+
+Chrome runs **headed** - the config sets only `--no-sandbox --disable-gpu`, with no
+window size. On a machine that has a desktop, it is tempting to point `DISPLAY` at it.
+Do not. Specs that wait on short-lived UI fail there.
+
+```bash
+xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:integration:docker
+```
+
+Measured on the Ubuntu VM (task 77), same container, same commit:
+
+| Display | Result |
+|---------|--------|
+| xrdp desktop `:10`, 3440x1440, unattended | `time-inference-toggle` and `paperless-integration` fail every time, 2 retries each |
+| xvfb 3440x1440 | both pass, `paperless-integration` needs 1 retry |
+| xvfb 1280x1024 | both pass, no retries |
+
+The backend is not involved. While the browser test failed, a direct RPC call to
+`get_inferred_trip_time_for_route` returned correct times.
+
+The cause inside the browser was **not** isolated. Window focus, the xrdp Xorg backend,
+compositing and DPI all remain candidates. Only the dependence on the display is
+established. If a spec that waits on a toast or a modal fails only on your machine,
+check the display before the code.
+
+### Pass the geocoder mock to the container
+
+`KNIHA_JAZD_MOCK_GEOCODER_DIR=/testdata/geocoder` is required. Without it
+`places.spec.ts` fails. CI passes it; a hand-written `docker run` copied from an
+older document may not.
+
 **Remember:** Integration tests = "Does the UI work?"
 
 ## WebDriverIO Integration Tests

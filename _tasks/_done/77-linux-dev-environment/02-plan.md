@@ -1,6 +1,6 @@
 **Date:** 2026-09-07
 **Subject:** Move day-to-day development from the Windows box to an Ubuntu VM
-**Status:** Planning
+**Status:** Complete (2026-09-07)
 
 # Linux Dev Environment Implementation Plan
 
@@ -353,9 +353,15 @@ docker run -d --name kniha-jazd-web \
   -e KNIHA_JAZD_DATA_DIR=/data \
   -e DATABASE_PATH=/data/kniha-jazd.db \
   -e KNIHA_JAZD_MOCK_GEMINI_DIR=/testdata/mocks \
+  -e KNIHA_JAZD_MOCK_GEOCODER_DIR=/testdata/geocoder \
   -e PORT=3456 \
   kniha-jazd-web:local
 ```
+
+**Corrected on 2026-09-07.** The command first written here omitted
+`KNIHA_JAZD_MOCK_GEOCODER_DIR`, which CI does pass. Without it `places.spec.ts` fails.
+Run the suite under `xvfb-run`, not on a desktop session - see the Display note in
+[01-task.md](01-task.md).
 
 Also recreate the two gitignored local files from Task 0 before running anything that
 touches Paperless or Gemini: `.env` and `local.settings.json`.

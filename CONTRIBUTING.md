@@ -65,11 +65,26 @@ npm run test:integration
 
 The integration suite starts Chrome **headed**. It needs a display.
 
-- In a desktop session, it works as is.
-- Over SSH, no `DISPLAY` is set and Chrome fails to start. Point `DISPLAY` at the
-  desktop, for example `export DISPLAY=:10` for an xrdp session. Run `ls /tmp/.X11-unix/`
-  to list the displays the machine has.
-- With no display at all, use `xvfb-run -a npm run test:integration`.
+**Use `xvfb-run`. Do not use a real desktop session.**
+
+```bash
+xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:integration
+```
+
+Over SSH no `DISPLAY` is set, and Chrome fails to start without one. It is tempting
+to point `DISPLAY` at an attached desktop instead. Do not do that. Two tier2 specs
+(`time-inference-toggle` and `paperless-integration`) fail every time on the 3440x1440
+xrdp desktop of the development VM, and pass under `xvfb-run` against the same
+container and the same commit.
+
+The backend is not involved: while the browser test failed, a direct RPC call to
+`get_inferred_trip_time_for_route` returned correct times. The cause inside the browser
+was **not** isolated - candidates include window focus, the xrdp Xorg backend,
+compositing and DPI. What is established is that the failure depends on the display.
+
+Viewport size matters too. At 1280x1024 the two specs pass with no retries. At
+3440x1440 `paperless-integration` needs a retry. Pin the screen size, as above, so a
+local run matches CI.
 
 ### Building
 
