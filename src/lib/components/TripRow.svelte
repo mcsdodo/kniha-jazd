@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Trip, Route, PreviewResult, VehicleType, SuggestedFillup, CopiedTripDefaults } from '$lib/types';
+	import type { Trip, Route, Place, PreviewResult, VehicleType, SuggestedFillup, CopiedTripDefaults } from '$lib/types';
 	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
@@ -8,7 +8,10 @@
 
 	export let trip: Trip | null = null;
 	export let vehicleId: string = '';
+	// Still needed by tryAutoFillDistance() below — routes carry the per-vehicle
+	// km for a known origin/destination pair; they no longer feed the autocomplete.
 	export let routes: Route[] = [];
+	export let places: Place[] = [];
 	export let purposeSuggestions: string[] = [];
 	export let isNew: boolean = false;
 	export let previousOdometer: number = 0;
@@ -163,10 +166,14 @@
 		lastStartDatetime = formData.startDatetime;
 	}
 
-	// Get unique locations from routes
-	$: locationSuggestions = Array.from(
-		new Set([...routes.map((r) => r.origin), ...routes.map((r) => r.destination)])
-	).sort();
+	// Locations come from the place book (Task 75), not this vehicle's routes:
+	// the book spans every vehicle, and folds spellings that normalise alike into
+	// one entry so the list cannot offer two variants of the same place.
+	// Always displayName — normalisedName is a folded lookup key and would be
+	// written verbatim into the trip if suggested (ADR-034).
+	// The backend orders the book for the Settings list (unplaced first, then by
+	// use); a datalist wants alphabetical, so re-sort for display.
+	$: locationSuggestions = places.map((p) => p.displayName).sort();
 
 	// Find matching route and auto-fill distance
 	function tryAutoFillDistance() {

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Trip, Route, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow, CopiedTripDefaults } from '$lib/types';
+	import type { Trip, Route, Place, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow, CopiedTripDefaults } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults } from '$lib/api';
+	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, listPlaces, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
@@ -129,6 +129,10 @@
 	}
 
 	let routes: Route[] = [];
+	// Place book (Task 75): feeds the origin/destination autocomplete. Unlike
+	// routes it is NOT vehicle-scoped — the book is derived from every trip in
+	// the logbook — so a place first driven in another vehicle is offered here.
+	let places: Place[] = [];
 	let showNewRow = false;
 	let editingTripId: string | null = null;
 	let insertAtTripId: string | null = null;
@@ -154,6 +158,7 @@
 	onMount(async () => {
 		await loadRoutes();
 		await loadPurposes();
+		await loadPlaces();
 		// Load date prefill preference
 		try {
 			datePrefillMode = await getDatePrefillMode();
@@ -212,6 +217,14 @@
 			purposeSuggestions = await getPurposes(vehicleId);
 		} catch (error) {
 			console.error('Failed to load purposes:', error);
+		}
+	}
+
+	async function loadPlaces() {
+		try {
+			places = await listPlaces();
+		} catch (error) {
+			console.error('Failed to load places:', error);
 		}
 	}
 
@@ -292,6 +305,9 @@
 			await recalculateAllOdo();
 			await loadRoutes();
 			await loadPurposes();
+			// A place typed into this trip is now in the book — refresh so it is
+			// offered on the next row without a page reload.
+			await loadPlaces();
 		} catch (error) {
 			console.error('Failed to create trip:', error);
 			toast.error($LL.toast.errorCreateTrip());
@@ -330,6 +346,7 @@
 			await recalculateAllOdo();
 			await loadRoutes();
 			await loadPurposes();
+			await loadPlaces();
 			triggerReceiptRefresh(); // Update nav badge after trip change
 		} catch (error) {
 			console.error('Failed to update trip:', error);
@@ -674,6 +691,7 @@
 						trip={null}
 						{vehicleId}
 						{routes}
+						{places}
 						{purposeSuggestions}
 						isNew={true}
 						previousOdometer={lastOdometer}
@@ -706,6 +724,7 @@
 							trip={null}
 							{vehicleId}
 							{routes}
+							{places}
 							{purposeSuggestions}
 							isNew={true}
 							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
@@ -777,6 +796,7 @@
 							{trip}
 							{vehicleId}
 							{routes}
+							{places}
 							{purposeSuggestions}
 							isNew={false}
 							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
