@@ -38,11 +38,15 @@ pub struct GeneratedRoute {
     pub coordinates: Vec<[f64; 2]>,
     pub target_km: f64,
     pub road_km: f64,
+    /// Estimated driving time in seconds. Shown while choosing; not persisted.
+    pub duration_s: f64,
     /// Signed percentage by which the road distance misses the target.
     pub deviation_percent: f64,
     /// Whether that deviation exceeds [`TOLERANCE`].
     pub off_target: bool,
-    pub dataset_version: String,
+    /// `None` for direct routes -- no dataset node was involved.
+    pub dataset_version: Option<String>,
+    pub mode: RouteMode,
 }
 
 /// How far the finished route's road distance falls from the target, and
@@ -149,10 +153,86 @@ pub async fn generate_route_internal(
         waypoints,
         target_km,
         road_km: fetched.road_km,
+        duration_s: fetched.duration_s,
         deviation_percent,
         off_target,
-        dataset_version: ds.version,
+        dataset_version: Some(ds.version),
+        mode: RouteMode::Loop,
     })
+}
+
+/// How many routes to offer. Three is what a navigation app shows and what
+/// fits a panel; more is noise nobody reads.
+const MAX_ALTERNATIVES: usize = 3;
+
+/// A point the user dragged off `polyline`, to be placed into the waypoint
+/// list before routing.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InsertPoint {
+    pub lat: f64,
+    pub lon: f64,
+    /// The geometry it was dragged from -- the ordering that decides which leg
+    /// it belongs to.
+    pub polyline: String,
+}
+
+/// Route an ordered waypoint list, offering alternatives where the routing
+/// service can produce them.
+///
+/// Persists NOTHING -- like `generate_route_internal`, the caller confirms with
+/// `save_trip_route_internal`.
+///
+/// The returned `waypoints` are AUTHORITATIVE: when `insert` is present they
+/// already include the new point in its computed slot, so the frontend adopts
+/// the list rather than maintaining its own ordering.
+pub async fn route_direct_internal(
+    provider: &dyn RouteProvider,
+    waypoints: Vec<Waypoint>,
+    target_km: f64,
+    insert: Option<InsertPoint>,
+) -> Result<Vec<GeneratedRoute>, String> {
+    // Guard BEFORE inserting: a one-point list plus a dragged-in point would
+    // otherwise become a routable two-point route, silently inventing a
+    // journey out of half a one.
+    if waypoints.len() < 2 {
+        return Err(format!(
+            "A route needs a start and an end, got {} point(s).",
+            waypoints.len()
+        ));
+    }
+
+    let waypoints = match insert {
+        Some(p) => insert_waypoint(&waypoints, &p.polyline, p.lat, p.lon),
+        None => waypoints,
+    };
+
+    let coords: Vec<(f64, f64)> = waypoints.iter().map(|w| (w.lat, w.lon)).collect();
+    let fetched = provider
+        .fetch_alternatives(&coords, MAX_ALTERNATIVES)
+        .await?;
+
+    Ok(fetched
+        .into_iter()
+        .map(|route| {
+            // The same deviation helper loop mode uses. A second, separately
+            // measured notion of "close enough" is exactly what ADR-008 rules
+            // out.
+            let (deviation_percent, off_target) = deviation(target_km, route.road_km);
+            GeneratedRoute {
+                coordinates: decode_coordinates(&route.polyline),
+                polyline: route.polyline,
+                waypoints: waypoints.clone(),
+                target_km,
+                road_km: route.road_km,
+                duration_s: route.duration_s,
+                deviation_percent,
+                off_target,
+                dataset_version: None,
+                mode: RouteMode::Direct,
+            }
+        })
+        .collect())
 }
 
 pub fn get_trip_route_internal(

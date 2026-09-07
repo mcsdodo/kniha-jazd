@@ -245,10 +245,12 @@ async fn generate_route_produces_a_home_loop_with_geometry() {
     assert_eq!(route.polyline, encode(&points));
     assert_eq!(route.target_km, 120.0);
     assert_eq!(route.road_km, 117.2);
-    assert!(
-        !route.dataset_version.is_empty(),
+    assert_eq!(
+        route.dataset_version,
+        Some(ds.version.clone()),
         "the dataset version must be reported"
     );
+    assert_eq!(route.mode, RouteMode::Loop);
 }
 
 /// Generating is a preview; only an explicit save writes anything.
@@ -775,6 +777,207 @@ fn a_broken_polyline_still_places_the_point() {
     let inserted = insert_waypoint(&waypoints, "", 48.95, 20.5);
     assert_eq!(inserted.len(), 3);
     assert!((inserted[1].lon - 20.5).abs() < 1e-9);
+}
+
+// ---------------------------------------------------------------------------
+// route_direct_internal: A-to-B routing with alternatives
+// ---------------------------------------------------------------------------
+
+/// Returns as many alternatives as asked for, each with its own distance --
+/// enough to prove per-alternative deviation is computed, not copied.
+struct MultiRouteProvider {
+    routes: Vec<FetchedRoute>,
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for MultiRouteProvider {
+    async fn fetch(&self, _coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        Ok(self.routes[0].clone())
+    }
+    async fn fetch_alternatives(
+        &self,
+        _coords: &[(f64, f64)],
+        _max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        Ok(self.routes.clone())
+    }
+}
+
+fn fetched(polyline: &str, road_km: f64, duration_s: f64) -> FetchedRoute {
+    FetchedRoute { polyline: polyline.into(), road_km, duration_s }
+}
+
+fn direct_waypoints() -> Vec<Waypoint> {
+    vec![
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+    ]
+}
+
+#[tokio::test]
+async fn direct_routes_are_returned_in_provider_order() {
+    let provider = MultiRouteProvider {
+        routes: vec![
+            fetched(&encode(&[(48.1, 17.1), (48.9, 20.5)]), 400.0, 14000.0),
+            fetched(&encode(&[(48.1, 17.1), (49.0, 20.6)]), 380.0, 16000.0),
+        ],
+    };
+
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+        .await
+        .unwrap();
+
+    assert_eq!(routes.len(), 2);
+    assert!((routes[0].road_km - 400.0).abs() < 1e-9, "fastest must stay first");
+    assert!((routes[1].road_km - 380.0).abs() < 1e-9);
+}
+
+/// Fastest-first even when the fastest route is the WORSE distance match.
+/// `direct_routes_are_returned_in_provider_order` cannot see a deviation-based
+/// sort: there the fastest route (400 km) is also the closest to 420 km, so
+/// such a sort would reproduce provider order by accident. Here the two
+/// orders disagree, so only a genuine "never re-sort" implementation passes.
+#[tokio::test]
+async fn alternatives_are_never_reordered_by_distance_match() {
+    let provider = MultiRouteProvider {
+        routes: vec![
+            fetched(&encode(&[(48.1, 17.1), (48.9, 20.5)]), 300.0, 14000.0),
+            fetched(&encode(&[(48.1, 17.1), (49.0, 20.6)]), 420.0, 16000.0),
+        ],
+    };
+
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+        .await
+        .unwrap();
+
+    assert!(
+        (routes[0].road_km - 300.0).abs() < 1e-9,
+        "the fastest route stays first even though it misses the recorded distance"
+    );
+    assert!((routes[0].duration_s - 14000.0).abs() < 1e-9);
+    assert!(routes[0].off_target, "deviation labels it, it does not move it");
+    assert!((routes[1].road_km - 420.0).abs() < 1e-9);
+    assert!(!routes[1].off_target);
+}
+
+/// Each alternative is measured against the row's own distance_km, by the
+/// SAME deviation helper loop mode uses -- one tolerance, one home.
+#[tokio::test]
+async fn every_alternative_carries_its_own_deviation() {
+    let provider = MultiRouteProvider {
+        routes: vec![
+            fetched(&encode(&[(48.1, 17.1), (48.9, 20.5)]), 420.0, 14000.0),
+            fetched(&encode(&[(48.1, 17.1), (49.0, 20.6)]), 300.0, 16000.0),
+        ],
+    };
+
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+        .await
+        .unwrap();
+
+    assert!(routes[0].deviation_percent.abs() < 1e-6);
+    assert!(!routes[0].off_target);
+    assert!(routes[1].deviation_percent < -20.0);
+    assert!(routes[1].off_target, "a 300 km route for a 420 km row must be flagged");
+}
+
+#[tokio::test]
+async fn a_direct_route_is_marked_direct_and_claims_no_dataset() {
+    let provider = MultiRouteProvider {
+        routes: vec![fetched(&encode(&[(48.1, 17.1), (48.9, 20.5)]), 400.0, 14000.0)],
+    };
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+        .await
+        .unwrap();
+
+    assert_eq!(routes[0].mode, RouteMode::Direct);
+    assert!(
+        routes[0].dataset_version.is_none(),
+        "no dataset node was used, so claiming a dataset version would be a lie"
+    );
+}
+
+/// The insert point is applied BEFORE routing, and the returned waypoints are
+/// authoritative -- that is what lets the frontend adopt them wholesale.
+#[tokio::test]
+async fn an_insert_point_is_applied_before_routing() {
+    let geometry = encode(&[(48.9, 20.0), (48.9, 20.5), (48.9, 21.0)]);
+    let provider = MultiRouteProvider {
+        routes: vec![fetched(&geometry, 400.0, 14000.0)],
+    };
+
+    let routes = route_direct_internal(
+        &provider,
+        direct_waypoints(),
+        420.0,
+        Some(InsertPoint { lat: 48.95, lon: 20.5, polyline: geometry.clone() }),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(routes[0].waypoints.len(), 3, "the dragged point must be in the result");
+    assert!((routes[0].waypoints[1].lat - 48.95).abs() < 1e-9);
+}
+
+/// The point must reach the routing service already inserted -- checking only
+/// the returned waypoints (as the mandated test above does) cannot tell
+/// "inserted before routing" apart from "inserted into the response after".
+/// This provider inspects what it was actually asked to route.
+struct CoordAssertingProvider {
+    route: FetchedRoute,
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for CoordAssertingProvider {
+    async fn fetch(&self, _coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        Ok(self.route.clone())
+    }
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        _max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        assert_eq!(
+            coords.len(),
+            3,
+            "the provider must be asked to route the dragged point, not just the endpoints"
+        );
+        assert!(
+            (coords[1].0 - 48.95).abs() < 1e-9 && (coords[1].1 - 20.5).abs() < 1e-9,
+            "the dragged point must sit in the routed coordinate list, got {:?}",
+            coords
+        );
+        Ok(vec![self.route.clone()])
+    }
+}
+
+#[tokio::test]
+async fn the_routing_service_is_asked_to_route_through_the_inserted_point() {
+    let geometry = encode(&[(48.9, 20.0), (48.9, 20.5), (48.9, 21.0)]);
+    let provider = CoordAssertingProvider {
+        route: fetched(&geometry, 400.0, 14000.0),
+    };
+
+    route_direct_internal(
+        &provider,
+        direct_waypoints(),
+        420.0,
+        Some(InsertPoint { lat: 48.95, lon: 20.5, polyline: geometry.clone() }),
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn a_route_needs_at_least_two_waypoints() {
+    let provider = MultiRouteProvider {
+        routes: vec![fetched("aaa", 1.0, 1.0)],
+    };
+    assert!(
+        route_direct_internal(&provider, vec![direct_waypoints()[0].clone()], 10.0, None)
+            .await
+            .is_err()
+    );
 }
 
 /// All five tests above drag their point onto a straight line held at a
