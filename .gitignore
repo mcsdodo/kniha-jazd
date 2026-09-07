@@ -62,3 +62,6 @@ _tmp
 /data/
 /data-*/
 CLAUDE.local.md
+# Harness-created worktrees (isolated subagent checkouts).
+# CLAUDE.md documents .worktrees/; the Claude Code harness uses this path.
+.claude/worktrees/
