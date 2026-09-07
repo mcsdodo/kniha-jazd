@@ -991,7 +991,7 @@ type RootTranslation = {
 		 */
 		backupContains: string
 		/**
-		 * {​v​e​h​i​c​l​e​s​}​ ​v​o​z​i​d​i​e​l​,​ ​{​t​r​i​p​s​}​ ​j​á​z​d
+		 * {​v​e​h​i​c​l​e​s​}​ ​{​{​v​o​z​i​d​l​o​|​v​o​z​i​d​l​á​|​v​o​z​i​d​i​e​l​}​}​,​ ​{​t​r​i​p​s​}​ ​{​{​j​a​z​d​a​|​j​a​z​d​y​|​j​á​z​d​}​}
 		 * @param {number} trips
 		 * @param {number} vehicles
 		 */
@@ -1026,7 +1026,7 @@ type RootTranslation = {
 			 */
 			backups: string
 			/**
-			 * N​a​ ​v​y​m​a​z​a​n​i​e​:​ ​{​c​o​u​n​t​}​ ​z​á​l​o​h​ ​(​{​s​i​z​e​}​)
+			 * N​a​ ​v​y​m​a​z​a​n​i​e​:​ ​{​c​o​u​n​t​}​ ​{​{​z​á​l​o​h​a​|​z​á​l​o​h​y​|​z​á​l​o​h​}​}​ ​(​{​s​i​z​e​}​)
 			 * @param {number} count
 			 * @param {string} size
 			 */
@@ -1281,7 +1281,7 @@ type RootTranslation = {
 		 */
 		assigned: RequiredParams<'count' | 'total'>
 		/**
-		 * {​c​o​u​n​t​}​ ​n​e​p​r​i​r​a​d​e​n​ý​c​h
+		 * {​c​o​u​n​t​}​ ​{​{​n​e​p​r​i​r​a​d​e​n​ý​|​n​e​p​r​i​r​a​d​e​n​é​|​n​e​p​r​i​r​a​d​e​n​ý​c​h​}​}
 		 * @param {number} count
 		 */
 		unassigned: RequiredParams<'count'>
@@ -1654,29 +1654,29 @@ type RootTranslation = {
 		 */
 		receiptAssigned: string
 		/**
-		 * N​a​č​í​t​a​n​ý​c​h​ ​{​c​o​u​n​t​}​ ​n​o​v​ý​c​h​ ​d​o​k​l​a​d​o​v
+		 * {​{​N​a​č​í​t​a​n​ý​|​N​a​č​í​t​a​n​é​|​N​a​č​í​t​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​n​o​v​ý​|​n​o​v​é​|​n​o​v​ý​c​h​}​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}
 		 * @param {number} count
 		 */
 		receiptsLoaded: RequiredParams<'count'>
 		/**
-		 * N​a​č​í​t​a​n​ý​c​h​ ​{​c​o​u​n​t​}​ ​d​o​k​l​a​d​o​v​ ​(​{​e​r​r​o​r​s​}​ ​c​h​ý​b​)
+		 * {​{​N​a​č​í​t​a​n​ý​|​N​a​č​í​t​a​n​é​|​N​a​č​í​t​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}​ ​(​{​e​r​r​o​r​s​}​ ​{​{​c​h​y​b​a​|​c​h​y​b​y​|​c​h​ý​b​}​}​)
 		 * @param {number} count
 		 * @param {number} errors
 		 */
 		receiptsLoadedWithErrors: RequiredParams<'count' | 'errors'>
 		/**
-		 * S​p​r​a​c​o​v​a​n​ý​c​h​ ​{​c​o​u​n​t​}​ ​d​o​k​l​a​d​o​v
+		 * {​{​S​p​r​a​c​o​v​a​n​ý​|​S​p​r​a​c​o​v​a​n​é​|​S​p​r​a​c​o​v​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}
 		 * @param {number} count
 		 */
 		receiptsProcessed: RequiredParams<'count'>
 		/**
-		 * S​p​r​a​c​o​v​a​n​ý​c​h​ ​{​c​o​u​n​t​}​ ​d​o​k​l​a​d​o​v​ ​(​{​e​r​r​o​r​s​}​ ​c​h​ý​b​)
+		 * {​{​S​p​r​a​c​o​v​a​n​ý​|​S​p​r​a​c​o​v​a​n​é​|​S​p​r​a​c​o​v​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}​ ​(​{​e​r​r​o​r​s​}​ ​{​{​c​h​y​b​a​|​c​h​y​b​y​|​c​h​ý​b​}​}​)
 		 * @param {number} count
 		 * @param {number} errors
 		 */
 		receiptsProcessedWithErrors: RequiredParams<'count' | 'errors'>
 		/**
-		 * N​á​j​d​e​n​ý​c​h​ ​{​c​o​u​n​t​}​ ​n​o​v​ý​c​h​ ​s​ú​b​o​r​o​v
+		 * {​{​N​á​j​d​e​n​ý​|​N​á​j​d​e​n​é​|​N​á​j​d​e​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​n​o​v​ý​|​n​o​v​é​|​n​o​v​ý​c​h​}​}​ ​{​{​s​ú​b​o​r​|​s​ú​b​o​r​y​|​s​ú​b​o​r​o​v​}​}
 		 * @param {number} count
 		 */
 		foundNewReceipts: RequiredParams<'count'>
@@ -1919,7 +1919,7 @@ type RootTranslation = {
 		 */
 		unplaced: string
 		/**
-		 * {​c​o​u​n​t​}​ ​v​ý​s​k​y​t​o​v
+		 * {​c​o​u​n​t​}​ ​{​{​v​ý​s​k​y​t​|​v​ý​s​k​y​t​y​|​v​ý​s​k​y​t​o​v​}​}
 		 * @param {number} count
 		 */
 		uses: RequiredParams<'count'>
@@ -3545,7 +3545,7 @@ export type TranslationFunctions = {
 		 */
 		backupContains: () => LocalizedString
 		/**
-		 * {vehicles} vozidiel, {trips} jázd
+		 * {vehicles} {{vozidlo|vozidlá|vozidiel}}, {trips} {{jazda|jazdy|jázd}}
 		 */
 		vehiclesAndTrips: (arg: { trips: number, vehicles: number }) => LocalizedString
 		/**
@@ -3578,7 +3578,7 @@ export type TranslationFunctions = {
 			 */
 			backups: () => LocalizedString
 			/**
-			 * Na vymazanie: {count} záloh ({size})
+			 * Na vymazanie: {count} {{záloha|zálohy|záloh}} ({size})
 			 */
 			toDelete: (arg: { count: number, size: string }) => LocalizedString
 			/**
@@ -3813,7 +3813,7 @@ export type TranslationFunctions = {
 		 */
 		assigned: (arg: { count: number, total: number }) => LocalizedString
 		/**
-		 * {count} nepriradených
+		 * {count} {{nepriradený|nepriradené|nepriradených}}
 		 */
 		unassigned: (arg: { count: number }) => LocalizedString
 		/**
@@ -4175,23 +4175,23 @@ export type TranslationFunctions = {
 		 */
 		receiptAssigned: () => LocalizedString
 		/**
-		 * Načítaných {count} nových dokladov
+		 * {{Načítaný|Načítané|Načítaných}} {count} {{nový|nové|nových}} {{doklad|doklady|dokladov}}
 		 */
 		receiptsLoaded: (arg: { count: number }) => LocalizedString
 		/**
-		 * Načítaných {count} dokladov ({errors} chýb)
+		 * {{Načítaný|Načítané|Načítaných}} {count} {{doklad|doklady|dokladov}} ({errors} {{chyba|chyby|chýb}})
 		 */
 		receiptsLoadedWithErrors: (arg: { count: number, errors: number }) => LocalizedString
 		/**
-		 * Spracovaných {count} dokladov
+		 * {{Spracovaný|Spracované|Spracovaných}} {count} {{doklad|doklady|dokladov}}
 		 */
 		receiptsProcessed: (arg: { count: number }) => LocalizedString
 		/**
-		 * Spracovaných {count} dokladov ({errors} chýb)
+		 * {{Spracovaný|Spracované|Spracovaných}} {count} {{doklad|doklady|dokladov}} ({errors} {{chyba|chyby|chýb}})
 		 */
 		receiptsProcessedWithErrors: (arg: { count: number, errors: number }) => LocalizedString
 		/**
-		 * Nájdených {count} nových súborov
+		 * {{Nájdený|Nájdené|Nájdených}} {count} {{nový|nové|nových}} {{súbor|súbory|súborov}}
 		 */
 		foundNewReceipts: (arg: { count: number }) => LocalizedString
 		/**
@@ -4415,7 +4415,7 @@ export type TranslationFunctions = {
 		 */
 		unplaced: () => LocalizedString
 		/**
-		 * {count} výskytov
+		 * {count} {{výskyt|výskyty|výskytov}}
 		 */
 		uses: (arg: { count: number }) => LocalizedString
 		/**
