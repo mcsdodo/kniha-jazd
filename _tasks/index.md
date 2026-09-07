@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-07 (Task 76 completed)
+**Last updated:** 2026-09-07 (Task 77 planned)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 77 | [Linux Dev Environment](77-linux-dev-environment/) | 📋 Planning | Move development to an Ubuntu VM; product code is already platform-clean, the dev harness is not |
 | 75 | [Place Book](75-place-book/) | 📋 Planning | Curated place list with coordinates; cleanup applied to prod 2026-09-06, planned and ready to implement |
 | 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 📋 Planning | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
