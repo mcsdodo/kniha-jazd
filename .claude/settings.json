@@ -13,7 +13,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File .claude/hooks/pre-commit.ps1",
+            "command": "bash .claude/hooks/pre-commit.sh",
             "timeout": 120000
           }
         ]

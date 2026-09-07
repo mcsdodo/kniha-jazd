@@ -11,6 +11,25 @@ Thanks for your interest in contributing to Kniha Jázd!
 - [Docker](https://docs.docker.com/get-docker/) (to build or run the shipped image)
 - Chrome (for the integration tests)
 
+#### On Ubuntu or Debian
+
+Development is Linux-first (see `DECISIONS.md` ADR-036). Install the host packages:
+
+```bash
+sudo apt install build-essential sqlite3
+```
+
+- `build-essential` gives rustc a `cc` linker. Cargo build scripts need it.
+- `sqlite3` is for the `query-sqlite-db` skill. The app does not need it.
+- Use **Docker Engine** (native). Do not use Docker Desktop. Docker Engine can put a
+  container on the host network with `--network=host`. Several integration specs start a
+  mock HTTP server in the test process and give the backend a `127.0.0.1` URL. Those
+  specs pass only with a host-network container.
+- Install Google Chrome for the integration tests.
+
+You do **not** need `libssl-dev` or `pkg-config`. `reqwest` uses rustls, and
+`libsqlite3-sys` is `bundled`. There is no `openssl-sys` in `src-tauri/Cargo.lock`.
+
 ### Getting Started
 
 ```bash
@@ -43,6 +62,14 @@ npm run build
 cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 npm run test:integration
 ```
+
+The integration suite starts Chrome **headed**. It needs a display.
+
+- In a desktop session, it works as is.
+- Over SSH, no `DISPLAY` is set and Chrome fails to start. Point `DISPLAY` at the
+  desktop, for example `export DISPLAY=:10` for an xrdp session. Run `ls /tmp/.X11-unix/`
+  to list the displays the machine has.
+- With no display at all, use `xvfb-run -a npm run test:integration`.
 
 ### Building
 

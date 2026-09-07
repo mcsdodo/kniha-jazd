@@ -4,6 +4,29 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-07: Development Environment
+
+### ADR-036: The development environment is Linux-first
+
+**Context:** [Task 73](./_tasks/_done/73-web-first-migration/) deleted the desktop app. The only shipped artifact is a Debian container, and `test.yml` runs the whole integration suite on `ubuntu-latest`. The product code was already platform-clean, but the dev harness was not. Three parts of it were Windows-bound, and the worst failed **silently**: the `test:integration:*` npm scripts used the cmd.exe form `set X=Y&&`. Under `sh`, `set TIER=1` sets positional parameters and exports nothing. The wdio config then ran all four tier globs, and `test:integration:docker` spawned a local binary on port 3457 instead of driving the container on 3456. No error was raised. The wrong thing just happened.
+
+**Options considered:**
+1. Keep PowerShell and install `pwsh` on the Linux machine.
+2. Use bare `TIER=1 npm run ...` in the scripts - POSIX-clean, but it breaks cmd.exe.
+3. Move to `cross-env` and port the committed hooks to bash.
+
+**Decision:** Option 3. The development environment is Linux-first.
+
+- Committed Claude Code hooks are **bash**. `.claude/hooks/pre-commit.ps1` is now `pre-commit.sh`.
+- npm scripts that set environment variables use **`cross-env`**.
+- `.gitattributes` pins line endings with `* text=auto eol=lf`, so line endings are a property of the repo and not of each developer's `core.autocrlf`.
+
+**Reasoning:** The dev machine should match what CI runs and what the image is. `settings.json` has no per-platform hook selection, so one hook form must work everywhere. bash is on all three platforms (git-bash on Windows), `pwsh` is not, and installing PowerShell on the Linux machine would keep two implementations of one hook alive for no gain. This repo is public and CI keeps a `windows-latest` leg, so the fix had to keep Windows working. `cross-env` is one small dev-only dependency that does exactly that, which bare `VAR=value` does not.
+
+Linux also buys a capability Windows cannot give: `--network=host`. Several integration specs start a mock HTTP server in the test process and hand the backend a `127.0.0.1` URL. Docker Desktop for Windows cannot put a container in the host's network namespace, so `paperless-integration.spec.ts` never passed locally there. On Linux it passes, and local Docker-mode runs finally match CI exactly.
+
+**Consequence:** A new `.ps1` hook is a regression. The `windows-latest` and `macos-latest` backend CI legs stay - they are cheap, and once no human runs Windows they are the only guard on the `#[cfg(not(unix))]` branch in [main.rs](./src-tauri/web/src/main.rs).
+
 ## 2026-09-06: Place Book
 
 ### ADR-032: Places are placed by a human, never by a confidence heuristic

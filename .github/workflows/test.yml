@@ -263,11 +263,12 @@ jobs:
           docker logs kniha-jazd-web-env
           exit 1
 
-      # The env: block is NOT redundant with the npm script. The scripts use
-      # Windows `set X=Y&&`, which under sh sets positional parameters and exports
-      # nothing - so on ubuntu the wdio config would see EXTERNAL_SERVER=false,
-      # run all four tier globs instead of ./specs/env/**, and try to spawn a
-      # binary CI never built. The existing docker job passes them the same way.
+      # The env: block duplicates what the npm script already exports. Keep it.
+      # Task 77 moved the scripts to `cross-env`, so they now export correctly
+      # under sh and the old silent-failure hazard is gone. The block stays
+      # because it states the run mode at the call site: CI drives the container
+      # on port 3456 and runs ./specs/env/** only. It also keeps this job correct
+      # if a script is renamed. The docker job passes them the same way.
       - name: Run env-pinned integration tests
         env:
           WDIO_EXTERNAL_SERVER: '1'
