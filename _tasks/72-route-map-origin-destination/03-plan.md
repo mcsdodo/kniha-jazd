@@ -3399,7 +3399,85 @@ shape: it is what a service call or a site visit looks like in this logbook.
 
 ---
 
-## Task 20: Documentation
+## Task 20: Persist the round trip flag
+
+Added 2026-09-07. The user reviewed Task 19's ruling that the checkbox would be a
+generation input only, and asked for it to be persisted instead. This task reverses
+that ruling.
+
+**Why it matters.** Without this, reopening a saved round trip shows the box unticked.
+The line still renders correctly from its stored polyline, so nothing looks wrong --
+but the moment the user hits Prepocitat, they silently get a one-way route back. A
+control that lies about the state of the thing it controls is worse than no control.
+
+**Files:**
+- Create: `src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/up.sql`
+- Create: `src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/down.sql`
+- Modify: `src-tauri/core/src/schema.rs`, `models.rs`, `db.rs`
+- Modify: `src-tauri/core/src/commands_internal/route_maps.rs` and its `*_tests.rs`
+- Modify: `src-tauri/core/src/migration_tests.rs`
+- Modify: `src-tauri/core/src/server/dispatcher.rs`
+- Modify: `src/lib/types.ts`, `src/lib/api.ts`
+- Modify: `src/routes/mapa/+page.svelte`
+
+**Two hazards this codebase has already been bitten by. Both are called out in the
+source itself -- read them before writing SQL.**
+
+1. **`RouteMapRow` is `Queryable` and binds POSITIONALLY.** The comment at
+   [schema.rs:131-135](../../src-tauri/core/src/schema.rs) says so in as many words,
+   because `mode` and `created_at` are both `Text` and a mismatched position swaps
+   them **silently**. Append `round_trip` **LAST**, in the migration, in `schema.rs`,
+   and in the `RouteMapRow` struct, in that same order. It is `Bool`, so a swap with a
+   `Text` column would at least fail to compile -- but do not rely on that.
+2. **Do not repeat Task 9's mistake.** Task 9 made `mode` required on
+   `save_trip_route` while `src/lib/api.ts` still did not send it, which left the
+   browser's save path broken across several commits until Task 12 caught up. This
+   task updates the Rust **and** `api.ts` **and** the map view together, so the tree is
+   never in that state.
+
+**Design decisions, already ruled:**
+
+1. **The dispatcher argument is `#[serde(default)]`, unlike `mode`.** For `mode` a
+   default was refused, because defaulting to `Loop` would silently mislabel a direct
+   route -- writing wrong data that looks right. Here `false` is the *truthful* default:
+   a payload that does not mention a round trip is not describing one. So a default is
+   correct on the merits, and it also removes any window where an older client breaks.
+2. **The column is `NOT NULL DEFAULT 0`.** Every route saved before today is one-way
+   or a genetic-algorithm loop, so `0` is the right backfill, not a guess.
+3. **Loop-mode routes always store `false`.** A loop is already closed; the flag
+   describes the direct router's behaviour only.
+
+**Steps:**
+
+- [ ] **Step 1: Failing test first.** In `route_maps_tests.rs`, assert a saved
+  round-trip route round-trips its flag: save with `round_trip: true`, read it back,
+  expect `true`. Add the mirror for `false`. Run them, watch them fail for the stated
+  reason.
+- [ ] **Step 2:** Write `up.sql` (`ALTER TABLE trip_routes ADD COLUMN round_trip
+  BOOLEAN NOT NULL DEFAULT 0;`) and a `down.sql` that is its true inverse. Add the
+  column LAST in `schema.rs` and LAST in `RouteMapRow`.
+- [ ] **Step 3:** Thread it through `save_trip_route_internal` and `SavedRouteMap`.
+  Make the tests pass.
+- [ ] **Step 4: Prove the tests are not vacuous.** Mutate so the flag is always stored
+  as `false`, confirm the round-trip test fails; restore, `diff` clean, show the output.
+  Then mutate the migration's DEFAULT to `1` and confirm the backfill test catches it.
+- [ ] **Step 5:** Add a backfill test in `migration_tests.rs`: a `trip_routes` row that
+  existed before the migration reads back with `round_trip == false`.
+- [ ] **Step 6:** Dispatcher: `#[serde(default)] round_trip: bool` on `save_trip_route`.
+  Add a test that a payload omitting `roundTrip` still parses and stores `false`.
+- [ ] **Step 7:** `src/lib/types.ts` and `src/lib/api.ts`: carry `roundTrip` on the
+  saved-route type and send it from `saveTripRoute`. Marshal only.
+- [ ] **Step 8:** `src/routes/mapa/+page.svelte`: when a saved route loads, set the
+  checkbox from its stored flag; when saving, send the current state.
+- [ ] **Step 9: Verify for real.** `npm run check` (0 errors), rebuild, run the
+  route-map spec under `xvfb-run` (8 of 8). Then on the dev instance: tick the box,
+  save, reload the page, and confirm the box comes back ticked and the route is still
+  the round trip. Report what you observed.
+- [ ] **Step 10: Commit** only the staged files. Never `git add -A`.
+
+---
+
+## Task 21: Documentation
 
 **Files:**
 - Modify: [DECISIONS.md](../../DECISIONS.md) — via `/decision`, one entry each:
