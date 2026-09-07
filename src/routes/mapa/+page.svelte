@@ -80,6 +80,10 @@
 	let map: LeafletMap | null = null;
 	let routeLayer: Polyline | null = null;
 	let inactiveLayers: Polyline[] = [];
+	/** Set by selectAlternative, consumed once by the draw effect, so picking
+	 *  an alternative redraws the lines without re-zooming the map -- fitting
+	 *  bounds still happens on every other draw (first load, regenerate). */
+	let skipFit = false;
 	let dataLoadStarted = false;
 
 	let displayRoute = $derived<GeneratedRoute | RouteMap | null>(generated ?? savedRoute);
@@ -135,6 +139,12 @@
 		const active = activeIndex;
 		if (!mapReady || !map || !leaflet) return;
 
+		// Consumed exactly once per draw, regardless of which branch below
+		// returns early, so a stale `true` can never leak into a later,
+		// unrelated redraw.
+		const shouldSkipFit = skipFit;
+		skipFit = false;
+
 		if (routeLayer) {
 			map.removeLayer(routeLayer);
 			routeLayer = null;
@@ -159,7 +169,9 @@
 		routeLayer = leaflet
 			.polyline(route.coordinates, { color: '#0066cc', weight: 5, opacity: 0.85 })
 			.addTo(map);
-		map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+		if (!shouldSkipFit) {
+			map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+		}
 	});
 
 	// The trip comes from the vehicle the layout activates, which is populated
@@ -277,16 +289,36 @@
 
 			await runDirect(waypointsFromEndpoints(), trip.distanceKm);
 		} catch (e) {
-			// mode_for is synchronous and network-free (a DB lookup against the
-			// place book), so the only realistic failure here is a trip with a
-			// blank origin or destination — not retryable, and not the
-			// backend's raw English text, which would bypass i18n.
 			console.error('Failed to plan trip route:', e);
-			error = $LL.routeMap.missingEndpoints();
-			retryable = false;
+			if (isMissingEndpointsError(e)) {
+				// mode_for's own validation failure for a blank origin or
+				// destination -- a real data problem, not retryable, and not
+				// the backend's raw English text, which would bypass i18n.
+				error = $LL.routeMap.missingEndpoints();
+				retryable = false;
+			} else {
+				// Everything else start_route_for_trip_internal can throw --
+				// db.get_trip failing, "Trip not found", list_places_internal
+				// failing, or a plain transport error -- is transient. Keep
+				// the retryable path, same as every other route-map failure.
+				error = $LL.routeMap.routeError();
+				retryable = true;
+			}
 		} finally {
 			generating = false;
 		}
+	}
+
+	/**
+	 * The one start_route_for_trip failure that is a genuine data problem
+	 * rather than a transient one: `mode_for`'s exact validation text for a
+	 * blank origin or destination
+	 * (src-tauri/core/src/commands_internal/route_maps.rs:428). Matched
+	 * verbatim rather than guessed, per the review that found this catch
+	 * previously treated every error as this one.
+	 */
+	function isMissingEndpointsError(e: unknown): boolean {
+		return e instanceof Error && e.message === 'A trip needs both an origin and a destination';
 	}
 
 	function waypointsFromEndpoints(): Waypoint[] {
@@ -411,6 +443,12 @@
 			// Re-read so the displayed route is the persisted one, not a local copy.
 			savedRoute = await getTripRoute(tripId);
 			generated = null;
+			// The alternatives panel guards on `alternatives.length`, not on
+			// `generated` -- leaving it populated here would show the picker
+			// (and its grey map layers) for a proposal that no longer exists,
+			// next to the just-saved route.
+			alternatives = [];
+			activeIndex = 0;
 			announce('route-map-saved');
 			savedNotice = true;
 			toast.success($LL.routeMap.saved());
@@ -430,6 +468,10 @@
 			await deleteTripRoute(tripId);
 			savedRoute = null;
 			savedNotice = false;
+			// Unlike handleSave, this never touches `generated` -- Remove only
+			// deletes the persisted route, not an in-progress unsaved proposal
+			// -- so `alternatives`/`activeIndex` stay in sync with whatever is
+			// (or is not) currently generated and need no reset here.
 			announce('route-map-removed');
 			toast.success($LL.routeMap.removed());
 		} catch (e) {
@@ -458,6 +500,7 @@
 	function selectAlternative(index: number) {
 		activeIndex = index;
 		generated = alternatives[index];
+		skipFit = true;
 	}
 
 	function formatDuration(seconds: number): string {
@@ -568,7 +611,8 @@
 							<button
 								class="alternative"
 								class:active={i === activeIndex}
-								data-test="alternative"
+								data-test="alternative-btn"
+								aria-pressed={i === activeIndex}
 								onclick={() => selectAlternative(i)}
 							>
 								<span>{route.roadKm.toFixed(1)} km</span>
@@ -755,6 +799,19 @@
 	.alternative .off-target {
 		color: var(--accent-warning-dark);
 		font-weight: 600;
+	}
+
+	/* .alternative.active and .alternative .off-target have equal specificity
+	   (two classes each), so source order alone decided the winner --
+	   --accent-warning-dark on --btn-active-primary-bg is ~1.1:1 in light
+	   theme, effectively invisible. Three classes here always wins, and
+	   inheriting the active row's own text color keeps this label exactly as
+	   legible as its neighbours in both themes (see theme.css); weight and
+	   underline carry the "off target" signal instead of hue. */
+	.alternative.active .off-target {
+		color: inherit;
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
 	}
 
 	.hint {
