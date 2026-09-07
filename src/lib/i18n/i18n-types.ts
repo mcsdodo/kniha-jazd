@@ -1890,6 +1890,62 @@ type RootTranslation = {
 		 * Z​á​z​n​a​m​ ​s​a​ ​n​e​n​a​š​i​e​l​.​ ​S​k​o​n​t​r​o​l​u​j​t​e​,​ ​č​i​ ​m​á​t​e​ ​v​y​b​r​a​n​é​ ​s​p​r​á​v​n​e​ ​v​o​z​i​d​l​o​.
 		 */
 		tripNotFound: string
+		/**
+		 * P​r​e​p​o​č​í​t​a​ť
+		 */
+		recalculate: string
+		/**
+		 * A​l​t​e​r​n​a​t​í​v​n​e​ ​t​r​a​s​y
+		 */
+		alternatives: string
+		/**
+		 * A​l​t​e​r​n​a​t​í​v​y​ ​n​i​e​ ​s​ú​ ​d​o​s​t​u​p​n​é​,​ ​k​e​ď​ ​m​á​ ​t​r​a​s​a​ ​m​e​d​z​i​z​a​s​t​á​v​k​y​.
+		 */
+		alternativesUnavailable: string
+		/**
+		 * Č​a​s​ ​j​a​z​d​y
+		 */
+		duration: string
+		/**
+		 * K​t​o​r​é​ ​m​i​e​s​t​o​ ​t​o​ ​j​e​?
+		 */
+		pickPlace: string
+		/**
+		 * V​y​b​e​r​t​e​ ​s​p​r​á​v​n​e​ ​m​i​e​s​t​o​.​ ​Z​a​p​a​m​ä​t​á​m​e​ ​s​i​ ​h​o​ ​p​r​e​ ​ď​a​l​š​i​e​ ​j​a​z​d​y​.
+		 */
+		pickPlaceHint: string
+		/**
+		 * M​i​e​s​t​o​ ​s​a​ ​n​e​n​a​š​l​o​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​m​a​p​u​ ​a​ ​o​z​n​a​č​t​e​ ​h​o​.
+		 */
+		placeNotFound: string
+		/**
+		 * M​i​e​s​t​o​ ​u​l​o​ž​e​n​é
+		 */
+		placeRemembered: string
+		/**
+		 * M​i​e​s​t​o​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​u​l​o​ž​i​ť​,​ ​t​r​a​s​a​ ​j​e​ ​a​l​e​ ​v​ ​p​o​r​i​a​d​k​u​.
+		 */
+		placeNotRemembered: string
+		/**
+		 * M​i​e​s​t​o​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​v​y​h​ľ​a​d​a​ť
+		 */
+		geocodeError: string
+		/**
+		 * T​r​a​s​u​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​v​y​p​o​č​í​t​a​ť
+		 */
+		routeError: string
+		/**
+		 * J​a​z​d​a​ ​n​e​m​á​ ​v​y​p​l​n​e​n​é​ ​m​i​e​s​t​o​ ​o​d​c​h​o​d​u​ ​a​l​e​b​o​ ​p​r​í​c​h​o​d​u​.
+		 */
+		missingEndpoints: string
+		/**
+		 * P​o​t​i​a​h​n​u​t​í​m​ ​č​i​a​r​y​ ​p​r​i​d​á​t​e​ ​m​e​d​z​i​z​a​s​t​á​v​k​u​.​ ​K​l​i​k​n​u​t​í​m​ ​n​a​ ​z​a​s​t​á​v​k​u​ ​j​u​ ​o​d​s​t​r​á​n​i​t​e​.
+		 */
+		editHint: string
+		/**
+		 * O​d​s​t​r​á​n​i​ť​ ​z​a​s​t​á​v​k​u
+		 */
+		removeWaypoint: string
 	}
 	places: {
 		/**
@@ -4388,6 +4444,62 @@ export type TranslationFunctions = {
 		 * Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.
 		 */
 		tripNotFound: () => LocalizedString
+		/**
+		 * Prepočítať
+		 */
+		recalculate: () => LocalizedString
+		/**
+		 * Alternatívne trasy
+		 */
+		alternatives: () => LocalizedString
+		/**
+		 * Alternatívy nie sú dostupné, keď má trasa medzizastávky.
+		 */
+		alternativesUnavailable: () => LocalizedString
+		/**
+		 * Čas jazdy
+		 */
+		duration: () => LocalizedString
+		/**
+		 * Ktoré miesto to je?
+		 */
+		pickPlace: () => LocalizedString
+		/**
+		 * Vyberte správne miesto. Zapamätáme si ho pre ďalšie jazdy.
+		 */
+		pickPlaceHint: () => LocalizedString
+		/**
+		 * Miesto sa nenašlo. Kliknite na mapu a označte ho.
+		 */
+		placeNotFound: () => LocalizedString
+		/**
+		 * Miesto uložené
+		 */
+		placeRemembered: () => LocalizedString
+		/**
+		 * Miesto sa nepodarilo uložiť, trasa je ale v poriadku.
+		 */
+		placeNotRemembered: () => LocalizedString
+		/**
+		 * Miesto sa nepodarilo vyhľadať
+		 */
+		geocodeError: () => LocalizedString
+		/**
+		 * Trasu sa nepodarilo vypočítať
+		 */
+		routeError: () => LocalizedString
+		/**
+		 * Jazda nemá vyplnené miesto odchodu alebo príchodu.
+		 */
+		missingEndpoints: () => LocalizedString
+		/**
+		 * Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.
+		 */
+		editHint: () => LocalizedString
+		/**
+		 * Odstrániť zastávku
+		 */
+		removeWaypoint: () => LocalizedString
 	}
 	places: {
 		/**
