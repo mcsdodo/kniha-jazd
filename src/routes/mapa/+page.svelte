@@ -167,6 +167,21 @@
 			map.removeLayer(routeLayer);
 			routeLayer = null;
 		}
+		// A hovering-but-not-yet-dragged ghost is bound to THIS routeLayer
+		// instance (attachGhost's mousemove/mouseout listeners live on it).
+		// Every draw removes and recreates routeLayer from scratch, even when
+		// the coordinates are unchanged, so a live ghost left over from the
+		// old instance would survive on the map -- draggable, but anchored to
+		// a line that is no longer displayed (or that no longer exists at
+		// all). Reachable without ever touching the ghost itself: hover the
+		// line, then pick a different alternative (selectAlternative reruns
+		// this effect via activeIndex). Clear it unconditionally, same as
+		// routeLayer and waypointMarkers below, so the next hover spawns a
+		// fresh ghost against whatever line is actually on screen.
+		if (ghost) {
+			map.removeLayer(ghost);
+			ghost = null;
+		}
 		for (const layer of inactiveLayers) {
 			map.removeLayer(layer);
 		}
@@ -235,7 +250,7 @@
 				void reroute(next);
 			});
 
-			// Clicking a via removes it. Endpoints are not removable — that
+			// Clicking a via removes it. Endpoints are not removable -- that
 			// would change where the journey started or ended.
 			if (!endpoint) {
 				marker.bindTooltip($LL.routeMap.removeWaypoint());
@@ -339,7 +354,7 @@
 		// a result the user is already looking at.
 		skipFit = true;
 		// Editing produces a concrete road route, so an edited loop becomes a
-		// direct route — which is exactly the escape hatch the design wants.
+		// direct route -- which is exactly the escape hatch the design wants.
 		mode = 'direct';
 		await runDirect(waypoints, trip.distanceKm, insert);
 	}
