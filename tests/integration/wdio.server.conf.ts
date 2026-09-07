@@ -228,6 +228,10 @@ export const config: any = {
     // Mock Gemini API: load JSON from mocks/ instead of calling API
     process.env.KNIHA_JAZD_MOCK_GEMINI_DIR = join(__dirname, 'data', 'mocks');
 
+    // Mock Nominatim: load canned candidates from geocoder/ instead of calling
+    // the public instance. Files are named after `places::normalise(query)`.
+    process.env.KNIHA_JAZD_MOCK_GEOCODER_DIR = join(__dirname, 'data', 'geocoder');
+
     // Create screenshots directory if it doesn't exist
     const screenshotsDir = join(__dirname, 'screenshots');
     if (!existsSync(screenshotsDir)) {
@@ -266,6 +270,7 @@ export const config: any = {
         STATIC_DIR: join(__dirname, '../../build'),
         PORT: String(SERVER_PORT),
         KNIHA_JAZD_MOCK_GEMINI_DIR: join(__dirname, 'data', 'mocks'),
+        KNIHA_JAZD_MOCK_GEOCODER_DIR: join(__dirname, 'data', 'geocoder'),
         ...SCRUBBED_ENV,
         ...(ENV_PINNED ? ENV_PINNED_FIXTURE : {}),
       },

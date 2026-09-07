@@ -152,6 +152,7 @@ jobs:
             -e KNIHA_JAZD_DATA_DIR=/data \
             -e DATABASE_PATH=/data/kniha-jazd.db \
             -e KNIHA_JAZD_MOCK_GEMINI_DIR=/testdata/mocks \
+            -e KNIHA_JAZD_MOCK_GEOCODER_DIR=/testdata/geocoder \
             -e PORT=3456 \
             kniha-jazd-web:test
 
@@ -239,6 +240,7 @@ jobs:
             -e KNIHA_JAZD_DATA_DIR=/data \
             -e DATABASE_PATH=/data/kniha-jazd.db \
             -e KNIHA_JAZD_MOCK_GEMINI_DIR=/testdata/mocks \
+            -e KNIHA_JAZD_MOCK_GEOCODER_DIR=/testdata/geocoder \
             -e PORT=3456 \
             -e HA_URL=http://env-pinned-ha.test:8123 \
             -e HA_API_TOKEN=env-pinned-ha-token \
