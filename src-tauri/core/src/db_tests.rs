@@ -367,13 +367,19 @@ fn test_find_or_create_route_upsert() {
     let route1 = db
         .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
         .expect("Failed to create route");
-    assert_eq!(route1.usage_count, 1);
-
     let route2 = db
         .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
         .expect("Failed to find route");
+
+    // One row per pair, still. What changed is that saving twice no longer
+    // pretends the journey was driven twice — usage is counted from trips now.
     assert_eq!(route2.id, route1.id);
-    assert_eq!(route2.usage_count, 2);
+    assert_eq!(
+        db.all_route_rows_for_test(&vehicle.id.to_string())
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 // ============================================================================

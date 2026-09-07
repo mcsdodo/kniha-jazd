@@ -619,22 +619,10 @@ impl Database {
             .optional()?;
 
         if let Some(row) = existing {
-            // Update existing route: increment usage_count
-            let new_count = row.usage_count + 1;
-            let now = Utc::now().to_rfc3339();
-
-            diesel::update(routes::table.filter(routes::id.eq(&row.id)))
-                .set((
-                    routes::usage_count.eq(new_count),
-                    routes::last_used.eq(&now),
-                ))
-                .execute(conn)?;
-
-            // Return updated route
-            let mut route = Route::from(row);
-            route.usage_count = new_count;
-            route.last_used = Utc::now();
-            Ok(route)
+            // The pair is already recorded; nothing about the row needs
+            // updating. How often it is driven is counted from `trips` on read
+            // (ADR-033), so saving the same trip again no longer touches it.
+            Ok(Route::from(row))
         } else {
             // Create new route with normalized values
             let route = Route {
@@ -667,6 +655,16 @@ impl Database {
 
             Ok(route)
         }
+    }
+
+    /// Rows as stored, bypassing the trips join. Tests about the table itself
+    /// need this; nothing in the application does.
+    #[cfg(test)]
+    pub fn all_route_rows_for_test(&self, vehicle_id: &str) -> QueryResult<Vec<RouteRow>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        routes::table
+            .filter(routes::vehicle_id.eq(vehicle_id))
+            .load::<RouteRow>(conn)
     }
 
     // ========================================================================
