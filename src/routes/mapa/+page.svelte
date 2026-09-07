@@ -431,17 +431,23 @@
 			// it is stripped back open here -- exactly what `runDirect` does
 			// to its own result (see below) -- keyed off the persisted
 			// `roundTrip` flag, never a first/last comparison (that stays
-			// ruled out). Without this, unticking the checkbox as the FIRST
-			// action after a cold load calls `runDirect` with `round_trip:
-			// false` on the still-closed `[A, B, A]` list: Rust's
-			// idempotence guard only fires when `round_trip` is true, so
-			// nothing strips the trailing point and the route stays a
-			// 3-stop round trip while the box reads unticked -- the exact
-			// lying control this task exists to remove, now reachable
-			// because a cold load can restore the box to ticked. Rust's own
-			// guard is still what stops a SECOND closing point on a re-tick
-			// (fix round 1, review finding "Important 1") -- this line only
-			// keeps `baseWaypoints` itself always open, its own invariant.
+			// ruled out).
+			//
+			// NOT the fix for the "unticked but still 3 stops" bug (fix
+			// round 1) -- that bug had a second door (fix round 2, review
+			// finding): `runDirect`'s catch block below nulls
+			// `baseWaypoints` on a failed request, so `currentWaypoints()`
+			// falls back to `savedRoute.waypoints` anyway, bypassing
+			// whatever this line stored. Two frontend doors in two rounds is
+			// what moved the real fix into Rust: `route_direct_internal`
+			// (route_maps.rs) now normalises the waypoint list to match
+			// `round_trip` on every call, regardless of whether the shape it
+			// was handed is open or closed. THAT function is authoritative
+			// (ADR-008); this line is a redundant courtesy that keeps
+			// `baseWaypoints` matching its own documented invariant (always
+			// open) from the moment of a cold load, not a correctness
+			// requirement -- an unticked request against a still-closed list
+			// now gets stripped in Rust either way.
 			baseWaypoints = savedRoute.roundTrip
 				? savedRoute.waypoints.slice(0, -1)
 				: savedRoute.waypoints;
@@ -637,6 +643,16 @@
 			// never have a stale, saveable route sitting behind it.
 			generated = null;
 			alternatives = [];
+			// Nulling this here is what let a failed request re-expose the
+			// "unticked but still N stops" bug (fix round 2, review finding):
+			// `currentWaypoints()` falls back to `savedRoute.waypoints`,
+			// which can be closed, and the NEXT call could carry
+			// `round_trip: false` if the user unticks before retrying. Left
+			// as `null` deliberately anyway -- this page does not special-
+			// case it, because `route_direct_internal` now normalises the
+			// list to match `round_trip` on every call regardless of the
+			// shape it receives, so a stale closed fallback here is no
+			// longer able to produce a wrong stop count.
 			baseWaypoints = null;
 			error = $LL.routeMap.routeError();
 		} finally {

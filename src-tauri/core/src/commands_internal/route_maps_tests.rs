@@ -1147,6 +1147,49 @@ async fn round_trip_does_not_double_close_an_already_closed_route() {
     );
 }
 
+/// The mirror of the test above (Task 20, fix round 2): `round_trip: false`
+/// against an ALREADY-CLOSED list must strip the trailing closing point back
+/// open, not leave it in place. Before this fix the guard only normalised in
+/// one direction (close when true); a frontend that handed this function a
+/// stale closed list with `round_trip: false` -- e.g. unticking the checkbox
+/// after a cold load, before any successful recalculate re-derived
+/// `baseWaypoints` -- got a 3-stop route back while reporting itself
+/// unticked. Fixing that in the frontend closes one door; a caller can always
+/// find another. This function is the one place ADR-008 says must be
+/// authoritative regardless of what state the frontend leaks: a closed list
+/// reaching `route_direct_internal` can only be one this function itself
+/// closed (a same-place row is routed as Loop by `mode_for`, never Direct),
+/// so `round_trip: false` on a closed list is unambiguously "this used to be
+/// a round trip and no longer is."
+///
+/// Uses `RoundTripAssertingProvider` with `expect_closed: false`, the same
+/// helper the test above uses with `true` -- it inspects the coordinates
+/// actually sent to routing, so this proves the strip happens BEFORE the
+/// request goes out, not that the response is trimmed afterward.
+#[tokio::test]
+async fn round_trip_false_reopens_an_already_closed_list() {
+    let already_closed = vec![
+        wp(48.1486, 17.1077),
+        wp(48.9444, 20.5675),
+        wp(48.1486, 17.1077),
+    ];
+    let provider = RoundTripAssertingProvider {
+        expect_closed: false,
+        route: fetched(&encode(&[(48.1486, 17.1077), (48.9444, 20.5675)]), 400.0, 14000.0),
+    };
+
+    let routes = route_direct_internal(&provider, already_closed, 420.0, None, false)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        routes[0].waypoints.len(),
+        2,
+        "round_trip: false must strip the trailing closing point from an \
+         already-closed list, not leave it in place"
+    );
+}
+
 /// All five tests above drag their point onto a straight line held at a
 /// constant latitude, so the longitude term alone could be driving every
 /// placement decision and the latitude term would never be exercised. This

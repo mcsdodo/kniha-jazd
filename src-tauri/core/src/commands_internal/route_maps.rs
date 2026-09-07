@@ -194,7 +194,13 @@ pub struct InsertPoint {
 /// The returned `waypoints` are AUTHORITATIVE: when `insert` is present they
 /// already include the new point in its computed slot, so the frontend adopts
 /// the list rather than maintaining its own ordering. `round_trip` is applied
-/// the same way, appending a clone of the (post-insert) first waypoint.
+/// the same way, and symmetrically (Task 20, fix round 2): the list is
+/// normalised to match `round_trip` regardless of whether the caller handed
+/// it open or already closed, appending a clone of the (post-insert) first
+/// waypoint when `round_trip` is true and the list is open, and stripping a
+/// stale closing point back off when `round_trip` is false and the list is
+/// already closed. The caller's own waypoint list is never trusted to
+/// already be in the right shape -- see the comment at the guard itself.
 pub async fn route_direct_internal(
     provider: &dyn RouteProvider,
     waypoints: Vec<Waypoint>,
@@ -217,27 +223,44 @@ pub async fn route_direct_internal(
         None => waypoints,
     };
 
-    // Close the loop AFTER insert, never before (design decision 2): the
-    // dragged-in via is placed by nearest-vertex geometry, and that geometry
-    // is ambiguous on a route that already doubles back on itself. Insert
-    // against the open one-way line, then close it.
+    // Close (or open) the loop AFTER insert, never before (design decision
+    // 2): the dragged-in via is placed by nearest-vertex geometry, and that
+    // geometry is ambiguous on a route that already doubles back on itself.
+    // Insert against the open one-way line, then normalise it.
     //
-    // Idempotent: a reopened saved round trip is ALREADY a closed list
-    // (`[A, B, A]` -- that is what got persisted). Appending onto that again
-    // would silently invent a zero-length final leg and a wrong stop count on
-    // every subsequent regenerate. In direct mode `last == first` can only
-    // mean "already closed" -- `mode_for` sends a same-place row through the
-    // loop path instead -- so this check owns the decision for every caller,
-    // including one that sends a persisted round-trip flag straight through.
-    if round_trip {
-        let already_closed = waypoints
+    // Symmetric, not just idempotent (Task 20, fix round 2 -- this is the
+    // THIRD frontend entry point that leaked a stale closed list into this
+    // function with `round_trip: false`; closing each one individually
+    // invites a fourth). This function is the single place ADR-008 says must
+    // be authoritative, so it normalises the list to match `round_trip`
+    // regardless of what shape the caller handed it:
+    //
+    // - `round_trip == true`, list open -> append a clone of the first point.
+    // - `round_trip == false`, list closed -> strip the trailing point back off.
+    // - Otherwise the list already matches `round_trip` -- leave it alone.
+    //
+    // "Closed" can only mean "this function closed it before": a same-place
+    // row is routed as Loop by `mode_for` and never reaches `route_direct`,
+    // so a closed list arriving here with `round_trip: false` is
+    // unambiguously "this used to be a round trip and no longer is," never a
+    // genuine two-point route that happens to start and end in the same spot.
+    let already_closed = waypoints.len() > 1
+        && waypoints
             .first()
             .zip(waypoints.last())
             .is_some_and(|(first, last)| first.lat == last.lat && first.lon == last.lon);
+    if round_trip {
         if !already_closed {
             let first = waypoints[0].clone();
             waypoints.push(first);
         }
+    } else if already_closed && waypoints.len() > 2 {
+        // The `> 2` guard is defensive, not load-bearing: a genuine 2-point
+        // `[A, A]` cannot reach this function per the paragraph above, so it
+        // never fires in practice. It exists only so a hypothetical caller
+        // that violates that invariant gets left alone instead of collapsed
+        // to a single, unroutable point.
+        waypoints.pop();
     }
 
     let coords: Vec<(f64, f64)> = waypoints.iter().map(|w| (w.lat, w.lon)).collect();
