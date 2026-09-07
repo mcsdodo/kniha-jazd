@@ -67,6 +67,10 @@ pub mod env_vars {
 
     /// Enable mock Gemini responses for testing
     pub const MOCK_GEMINI_DIR: &str = "KNIHA_JAZD_MOCK_GEMINI_DIR";
+
+    /// Set to a directory of `{normalised-query}.json` files to make geocoding
+    /// deterministic in tests. Mirrors MOCK_GEMINI_DIR.
+    pub const MOCK_GEOCODER_DIR: &str = "KNIHA_JAZD_MOCK_GEOCODER_DIR";
 }
 
 /// Default values
