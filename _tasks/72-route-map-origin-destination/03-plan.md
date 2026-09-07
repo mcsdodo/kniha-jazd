@@ -3320,7 +3320,86 @@ The user's verification closes this task.
 
 ---
 
-## Task 19: Documentation
+## Task 19: Round trip option on a direct route
+
+Added 2026-09-07 at the user's request, after they drove the Task 18 dev instance.
+
+**Why it earns its place.** The acceptance run opened trip
+`32631e0e-1ef8-4869-ad1a-75b95109a0dc` and got a direct route of 25.6 km against a
+recorded 50.0 km -- a deviation of **-48.9%**. The row is a there-and-back that the
+book records as one line. A one-way route can never match it. This is not a rare
+shape: it is what a service call or a site visit looks like in this logbook.
+
+**Files:**
+- Modify: `src-tauri/core/src/commands_internal/route_maps.rs`
+- Modify: `src-tauri/core/src/commands_internal/route_maps_tests.rs`
+- Modify: `src-tauri/core/src/server/dispatcher_async.rs`
+- Modify: `src/lib/api.ts`
+- Modify: `src/lib/i18n/sk/index.ts`, `src/lib/i18n/en/index.ts` (+ regenerate `i18n-types.ts`)
+- Modify: `src/routes/mapa/+page.svelte`
+
+**Design decisions, already ruled -- do not relitigate:**
+
+1. **The return leg is appended in Rust, never in Svelte.** `route_direct_internal`
+   gains a `round_trip: bool` parameter and appends a clone of the FIRST waypoint to
+   the end of the list. The dispatcher arm takes `#[serde(default)] round_trip: bool`,
+   so an old caller that omits it still gets today's behaviour.
+2. **Append the return leg AFTER applying `insert`, not before.** A dragged-in via is
+   placed by nearest-vertex geometry, and that geometry is ambiguous on a route that
+   doubles back ([Task 7](#task-7-waypoint-insertion-placement-pure-rust) review). If
+   the list were closed first, every insert would face exactly that ambiguity. Insert
+   against the open one-way line, then close it.
+3. **The mode stays `direct`.** No third `RouteMode`. A round trip is produced by the
+   direct router, and `mode_for` still decides Loop vs Direct from the row's own
+   origin and destination text. A new mode would ripple into the DB column, the serde
+   wire form, the persistence tests and the loop/direct UI branch, and buy nothing.
+4. **Deviation is unchanged.** It compares the returned `roadKm` to the row's recorded
+   `distanceKm` exactly as before. That is the whole point: with the box ticked, the
+   trip above should read close to 0% instead of -48.9%.
+5. **The checkbox is a generation input and is NOT persisted.** No migration, no new
+   wire field, no client-side inference from "first waypoint equals last". Reopening a
+   saved round trip renders correctly from its saved polyline; the box simply defaults
+   to unticked. If the user wants it remembered, that is a follow-up they can ask for
+   once they have used it.
+6. **The checkbox appears only in direct mode.** In loop mode it is meaningless -- the
+   route is already a loop.
+
+**Steps:**
+
+- [ ] **Step 1: Failing Rust test first.** In `route_maps_tests.rs`, assert that with
+  `round_trip: true` the provider is asked to route through a coordinate list whose
+  last point equals its first, and that with `round_trip: false` it is not. Use the
+  existing `CoordAssertingProvider` pattern -- it already exists for exactly this.
+  Run it, watch it fail for the stated reason.
+- [ ] **Step 2:** Add the parameter and the append in `route_direct_internal`, after
+  the `insert` handling. Make the test pass.
+- [ ] **Step 3: Prove the test is not vacuous.** Mutate the append (for example append
+  the LAST waypoint instead of the first, which still lengthens the list) and confirm
+  the test fails. Restore, verify byte-identical with `diff`, and show that output.
+  Six mandated tests in this plan have already turned out vacuous; assume yours is
+  until you have seen it fail.
+- [ ] **Step 4:** Add `#[serde(default)] round_trip: bool` to the dispatcher's `Args`
+  and pass it through. Add a dispatcher test that a payload omitting `roundTrip` still
+  parses -- that is the backward-compatibility guarantee, and it must be pinned.
+- [ ] **Step 5:** Extend `routeDirect()` in `src/lib/api.ts` with an optional
+  `roundTrip` argument. Marshal only; no logic.
+- [ ] **Step 6:** Add Slovak and English strings for the checkbox label and a short
+  hint. Slovak is the source of truth. Then run `npm run i18n` -- nothing else
+  regenerates `i18n-types.ts`.
+- [ ] **Step 7:** Add the checkbox to the direct-mode toolbar in
+  `src/routes/mapa/+page.svelte`, with `data-test="round-trip-checkbox"` matching the
+  file's existing convention. Ticking or unticking it re-routes. Do not re-sort
+  alternatives, do not compute anything in Svelte, do not rewrite `distanceKm`.
+- [ ] **Step 8: Verify against the real thing.** `npm run check` (0 errors), then
+  rebuild and run the route-map spec under `xvfb-run` (8 of 8). Then drive it in a real
+  browser against the dev instance and confirm the deviation on trip
+  `32631e0e-1ef8-4869-ad1a-75b95109a0dc` moves from about -48.9% to near 0% when the box
+  is ticked. Report the two numbers you actually observed.
+- [ ] **Step 9: Commit** the staged files only. Never `git add -A`.
+
+---
+
+## Task 20: Documentation
 
 **Files:**
 - Modify: [DECISIONS.md](../../DECISIONS.md) — via `/decision`, one entry each:
