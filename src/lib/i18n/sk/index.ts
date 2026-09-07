@@ -573,6 +573,28 @@ const sk = {
 		tripNotFound: 'Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.',
 	},
 
+	// Place book
+	places: {
+		title: 'Miesta',
+		placed: '{count:number}/{total:number} umiestnených',
+		filterPlaceholder: 'Hľadať...',
+		empty: 'Žiadne miesta. Zoznam sa vytvára z jázd — pridajte prvú jazdu a jej miesta sa tu zobrazia.',
+		unplaced: 'Neumiestnené',
+		uses: '{count:number} výskytov',
+		// Edit dialog
+		editTitle: 'Umiestniť na mape',
+		searchPlaceholder: 'Zadajte adresu alebo názov miesta',
+		search: 'Hľadať',
+		searching: 'Hľadám...',
+		noResults: 'Nič sa nenašlo. Umiestnite špendlík na mape ručne.',
+		pinHint: 'Špendlík presuniete myšou na presné miesto.',
+		searchError: 'Vyhľadávanie zlyhalo. Skúste to znova.',
+		save: 'Uložiť miesto',
+		clear: 'Odstrániť umiestnenie',
+		saved: 'Miesto uložené',
+		cleared: 'Umiestnenie odstránené',
+	},
+
 	// PDF export labels (passed to Rust)
 	export: {
 		// Page title

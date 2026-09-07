@@ -573,6 +573,28 @@ const en = {
 		tripNotFound: 'Record not found. Check that the right vehicle is selected.',
 	},
 
+	// Place book
+	places: {
+		title: 'Places',
+		placed: '{count}/{total} placed',
+		filterPlaceholder: 'Search...',
+		empty: 'No places yet. The list is built from your trips — add the first trip and its places appear here.',
+		unplaced: 'Not placed',
+		uses: '{count} uses',
+		// Edit dialog
+		editTitle: 'Place on the map',
+		searchPlaceholder: 'Enter an address or place name',
+		search: 'Search',
+		searching: 'Searching...',
+		noResults: 'Nothing found. Drop the pin on the map by hand.',
+		pinHint: 'Drag the pin to the exact spot.',
+		searchError: 'Search failed. Please try again.',
+		save: 'Save place',
+		clear: 'Remove location',
+		saved: 'Place saved',
+		cleared: 'Location removed',
+	},
+
 	// PDF export labels (passed to Rust)
 	export: {
 		// Page title

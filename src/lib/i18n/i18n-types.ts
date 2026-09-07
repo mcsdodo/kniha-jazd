@@ -1891,6 +1891,79 @@ type RootTranslation = {
 		 */
 		tripNotFound: string
 	}
+	places: {
+		/**
+		 * M​i​e​s​t​a
+		 */
+		title: string
+		/**
+		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​u​m​i​e​s​t​n​e​n​ý​c​h
+		 * @param {number} count
+		 * @param {number} total
+		 */
+		placed: RequiredParams<'count' | 'total'>
+		/**
+		 * H​ľ​a​d​a​ť​.​.​.
+		 */
+		filterPlaceholder: string
+		/**
+		 * Ž​i​a​d​n​e​ ​m​i​e​s​t​a​.​ ​Z​o​z​n​a​m​ ​s​a​ ​v​y​t​v​á​r​a​ ​z​ ​j​á​z​d​ ​—​ ​p​r​i​d​a​j​t​e​ ​p​r​v​ú​ ​j​a​z​d​u​ ​a​ ​j​e​j​ ​m​i​e​s​t​a​ ​s​a​ ​t​u​ ​z​o​b​r​a​z​i​a​.
+		 */
+		empty: string
+		/**
+		 * N​e​u​m​i​e​s​t​n​e​n​é
+		 */
+		unplaced: string
+		/**
+		 * {​c​o​u​n​t​}​ ​v​ý​s​k​y​t​o​v
+		 * @param {number} count
+		 */
+		uses: RequiredParams<'count'>
+		/**
+		 * U​m​i​e​s​t​n​i​ť​ ​n​a​ ​m​a​p​e
+		 */
+		editTitle: string
+		/**
+		 * Z​a​d​a​j​t​e​ ​a​d​r​e​s​u​ ​a​l​e​b​o​ ​n​á​z​o​v​ ​m​i​e​s​t​a
+		 */
+		searchPlaceholder: string
+		/**
+		 * H​ľ​a​d​a​ť
+		 */
+		search: string
+		/**
+		 * H​ľ​a​d​á​m​.​.​.
+		 */
+		searching: string
+		/**
+		 * N​i​č​ ​s​a​ ​n​e​n​a​š​l​o​.​ ​U​m​i​e​s​t​n​i​t​e​ ​š​p​e​n​d​l​í​k​ ​n​a​ ​m​a​p​e​ ​r​u​č​n​e​.
+		 */
+		noResults: string
+		/**
+		 * Š​p​e​n​d​l​í​k​ ​p​r​e​s​u​n​i​e​t​e​ ​m​y​š​o​u​ ​n​a​ ​p​r​e​s​n​é​ ​m​i​e​s​t​o​.
+		 */
+		pinHint: string
+		/**
+		 * V​y​h​ľ​a​d​á​v​a​n​i​e​ ​z​l​y​h​a​l​o​.​ ​S​k​ú​s​t​e​ ​t​o​ ​z​n​o​v​a​.
+		 */
+		searchError: string
+		/**
+		 * U​l​o​ž​i​ť​ ​m​i​e​s​t​o
+		 */
+		save: string
+		/**
+		 * O​d​s​t​r​á​n​i​ť​ ​u​m​i​e​s​t​n​e​n​i​e
+		 */
+		clear: string
+		/**
+		 * M​i​e​s​t​o​ ​u​l​o​ž​e​n​é
+		 */
+		saved: string
+		/**
+		 * U​m​i​e​s​t​n​e​n​i​e​ ​o​d​s​t​r​á​n​e​n​é
+		 */
+		cleared: string
+	}
 	'export': {
 		/**
 		 * K​N​I​H​A​ ​J​Á​Z​D
@@ -4301,6 +4374,76 @@ export type TranslationFunctions = {
 		 * Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.
 		 */
 		tripNotFound: () => LocalizedString
+	}
+	places: {
+		/**
+		 * Miesta
+		 */
+		title: () => LocalizedString
+		/**
+		 * {count}/{total} umiestnených
+		 */
+		placed: (arg: { count: number, total: number }) => LocalizedString
+		/**
+		 * Hľadať...
+		 */
+		filterPlaceholder: () => LocalizedString
+		/**
+		 * Žiadne miesta. Zoznam sa vytvára z jázd — pridajte prvú jazdu a jej miesta sa tu zobrazia.
+		 */
+		empty: () => LocalizedString
+		/**
+		 * Neumiestnené
+		 */
+		unplaced: () => LocalizedString
+		/**
+		 * {count} výskytov
+		 */
+		uses: (arg: { count: number }) => LocalizedString
+		/**
+		 * Umiestniť na mape
+		 */
+		editTitle: () => LocalizedString
+		/**
+		 * Zadajte adresu alebo názov miesta
+		 */
+		searchPlaceholder: () => LocalizedString
+		/**
+		 * Hľadať
+		 */
+		search: () => LocalizedString
+		/**
+		 * Hľadám...
+		 */
+		searching: () => LocalizedString
+		/**
+		 * Nič sa nenašlo. Umiestnite špendlík na mape ručne.
+		 */
+		noResults: () => LocalizedString
+		/**
+		 * Špendlík presuniete myšou na presné miesto.
+		 */
+		pinHint: () => LocalizedString
+		/**
+		 * Vyhľadávanie zlyhalo. Skúste to znova.
+		 */
+		searchError: () => LocalizedString
+		/**
+		 * Uložiť miesto
+		 */
+		save: () => LocalizedString
+		/**
+		 * Odstrániť umiestnenie
+		 */
+		clear: () => LocalizedString
+		/**
+		 * Miesto uložené
+		 */
+		saved: () => LocalizedString
+		/**
+		 * Umiestnenie odstránené
+		 */
+		cleared: () => LocalizedString
 	}
 	'export': {
 		/**
