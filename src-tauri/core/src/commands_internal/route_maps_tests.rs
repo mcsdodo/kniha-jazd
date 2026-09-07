@@ -18,6 +18,7 @@ use uuid::Uuid;
 struct StubProvider {
     polyline: String,
     road_km: f64,
+    duration_s: f64,
 }
 
 impl StubProvider {
@@ -27,6 +28,7 @@ impl StubProvider {
         Self {
             polyline: encode(points),
             road_km,
+            duration_s: 3600.0,
         }
     }
 }
@@ -42,6 +44,7 @@ impl RouteProvider for StubProvider {
         Ok(FetchedRoute {
             polyline: self.polyline.clone(),
             road_km: self.road_km,
+            duration_s: self.duration_s,
         })
     }
 }

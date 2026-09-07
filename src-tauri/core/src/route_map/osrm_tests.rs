@@ -206,3 +206,137 @@ async fn sends_an_identifying_user_agent() {
         "User-Agent must name this application, got: {agent:?}"
     );
 }
+
+#[tokio::test]
+async fn returns_duration_alongside_distance() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [{
+                "geometry": "_p~iF~ps|U_ulLnnqC",
+                "distance": 118432.0,
+                "duration": 5400.0
+            }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = HttpRouteProvider::new(server.uri());
+    let r = client.fetch(&[(48.935, 20.553), (48.997, 20.591)]).await.unwrap();
+    assert!((r.duration_s - 5400.0).abs() < 1e-6);
+}
+
+/// OSRM lists alternatives fastest-first. That order IS the product decision
+/// (navigation-app convention), so it must survive untouched -- never re-sorted
+/// by distance.
+#[tokio::test]
+async fn preserves_osrm_alternative_order() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [
+                { "geometry": "aaa", "distance": 120000.0, "duration": 5000.0 },
+                { "geometry": "bbb", "distance": 100000.0, "duration": 6000.0 },
+                { "geometry": "ccc", "distance": 130000.0, "duration": 7000.0 }
+            ]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = HttpRouteProvider::new(server.uri());
+    let routes = client
+        .fetch_alternatives(&[(48.935, 20.553), (48.997, 20.591)], 3)
+        .await
+        .unwrap();
+
+    assert_eq!(routes.len(), 3);
+    // The SHORTEST route is second. If anything ever sorts by distance this
+    // assertion is what catches it.
+    assert_eq!(routes[0].polyline, "aaa");
+    assert_eq!(routes[1].polyline, "bbb");
+    assert_eq!(routes[2].polyline, "ccc");
+}
+
+#[tokio::test]
+async fn requests_alternatives_only_for_two_point_routes() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [{ "geometry": "aaa", "distance": 1000.0, "duration": 100.0 }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = HttpRouteProvider::new(server.uri());
+    client
+        .fetch_alternatives(
+            &[(48.9, 20.5), (48.95, 20.55), (49.0, 20.6)],
+            3,
+        )
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let url = requests[0].url.to_string();
+    assert!(
+        !url.contains("alternatives=true"),
+        "OSRM computes alternatives only for two-point queries; asking with vias \
+         wastes the request. Got: {url}"
+    );
+}
+
+/// The negative assertion in `requests_alternatives_only_for_two_point_routes`
+/// passes for an implementation that never asks for alternatives at all. This
+/// is the other half: a two-point request must actually carry the parameter.
+#[tokio::test]
+async fn asks_for_alternatives_on_a_two_point_route() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [{ "geometry": "aaa", "distance": 1000.0, "duration": 100.0 }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = HttpRouteProvider::new(server.uri());
+    client
+        .fetch_alternatives(&[(48.9, 20.5), (49.0, 20.6)], 3)
+        .await
+        .unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let url = requests[0].url.to_string();
+    assert!(
+        url.contains("alternatives=2"),
+        "a two-point request for up to 3 routes must ask OSRM for 2 alternatives, got: {url}"
+    );
+}
+
+/// A single-route response is one alternative, not a failure.
+#[tokio::test]
+async fn a_lone_route_is_returned_as_one_alternative() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [{ "geometry": "aaa", "distance": 1000.0, "duration": 100.0 }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = HttpRouteProvider::new(server.uri());
+    let routes = client
+        .fetch_alternatives(&[(48.9, 20.5), (49.0, 20.6)], 3)
+        .await
+        .unwrap();
+    assert_eq!(routes.len(), 1);
+}

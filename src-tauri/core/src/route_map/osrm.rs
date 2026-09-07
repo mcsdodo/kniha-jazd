@@ -38,12 +38,31 @@ pub struct FetchedRoute {
     pub polyline: String,
     /// Total road distance in kilometres (OSRM reports metres).
     pub road_km: f64,
+    /// Estimated driving time in seconds (OSRM reports seconds directly).
+    /// Displayed while choosing between alternatives; never persisted -- the
+    /// printed export renders no text, so a stored duration has no reader.
+    pub duration_s: f64,
 }
 
 #[async_trait::async_trait]
 pub trait RouteProvider: Send + Sync {
     /// `coords` are `(lat, lon)` pairs in visit order.
     async fn fetch(&self, coords: &[(f64, f64)]) -> Result<FetchedRoute, String>;
+
+    /// Up to `max` routes for the same points, **in the order the service
+    /// returned them** -- OSRM lists them fastest first, which is the order the
+    /// UI shows and must never re-sort.
+    ///
+    /// Defaulted to a single `fetch` so stubs need no extra impl. Only the
+    /// HTTP provider overrides it.
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        let _ = max;
+        Ok(vec![self.fetch(coords).await?])
+    }
 }
 
 pub struct HttpRouteProvider {
@@ -81,17 +100,25 @@ impl HttpRouteProvider {
     /// dataset use — but OSRM wants `lon,lat`. Transposing these silently
     /// produces a route in the wrong part of the world rather than an error, so
     /// `sends_coordinates_as_lon_lat_in_order` pins it.
-    fn route_url(&self, coords: &[(f64, f64)]) -> String {
+    fn route_url(&self, coords: &[(f64, f64)], alternatives: Option<usize>) -> String {
         let points = coords
             .iter()
             .map(|(lat, lon)| format!("{lon:.6},{lat:.6}"))
             .collect::<Vec<_>>()
             .join(";");
 
-        format!(
+        let mut url = format!(
             "{}/route/v1/driving/{}?geometries=polyline&overview=full&steps=false",
             self.base_url, points
-        )
+        );
+        // Only meaningful for exactly two points -- with vias OSRM returns the
+        // single through-route regardless.
+        if let Some(n) = alternatives {
+            if coords.len() == 2 && n > 1 {
+                url.push_str(&format!("&alternatives={}", n - 1));
+            }
+        }
+        url
     }
 }
 
@@ -112,23 +139,20 @@ struct OsrmRoute {
     geometry: String,
     /// Metres.
     distance: f64,
+    /// Seconds.
+    #[serde(default)]
+    duration: f64,
 }
 
-#[async_trait::async_trait]
-impl RouteProvider for HttpRouteProvider {
-    async fn fetch(&self, coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
-        // Guard before building a request: OSRM needs a start and an end.
-        if coords.len() < 2 {
-            return Err(format!(
-                "Route needs at least 2 points, got {}. Nothing was requested from OSRM.",
-                coords.len()
-            ));
-        }
-
+impl HttpRouteProvider {
+    /// Issues the request and maps every `OsrmRoute` in the response to a
+    /// [`FetchedRoute`], preserving OSRM's order. Shared by `fetch` and
+    /// `fetch_alternatives` so every error branch (connection, non-2xx,
+    /// non-`Ok` code, empty `routes`) is handled exactly once.
+    async fn request(&self, url: &str) -> Result<Vec<FetchedRoute>, String> {
         let client = self.client.as_ref().map_err(|e| e.clone())?;
-        let url = self.route_url(coords);
 
-        let response = client.get(&url).send().await.map_err(|e| {
+        let response = client.get(url).send().await.map_err(|e| {
             format!(
                 "Could not reach the routing service at {}: {e}. Check your internet connection and try again.",
                 self.base_url
@@ -159,13 +183,50 @@ impl RouteProvider for HttpRouteProvider {
             ));
         }
 
-        const NO_ROUTE: &str = "Routing service reported success but returned no route.";
-        let first = body.routes.into_iter().next();
-        let route = first.ok_or_else(|| NO_ROUTE.to_string())?;
+        if body.routes.is_empty() {
+            return Err("Routing service reported success but returned no route.".to_string());
+        }
 
-        Ok(FetchedRoute {
-            polyline: route.geometry,
-            road_km: route.distance / 1000.0,
-        })
+        Ok(body
+            .routes
+            .into_iter()
+            .map(|route| FetchedRoute {
+                polyline: route.geometry,
+                road_km: route.distance / 1000.0,
+                duration_s: route.duration,
+            })
+            .collect())
+    }
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for HttpRouteProvider {
+    async fn fetch(&self, coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        // Guard before building a request: OSRM needs a start and an end.
+        if coords.len() < 2 {
+            return Err(format!(
+                "Route needs at least 2 points, got {}. Nothing was requested from OSRM.",
+                coords.len()
+            ));
+        }
+
+        let mut routes = self.request(&self.route_url(coords, None)).await?;
+        Ok(routes.remove(0))
+    }
+
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        // Same guard as `fetch`: OSRM needs a start and an end.
+        if coords.len() < 2 {
+            return Err(format!(
+                "Route needs at least 2 points, got {}. Nothing was requested from OSRM.",
+                coords.len()
+            ));
+        }
+
+        self.request(&self.route_url(coords, Some(max))).await
     }
 }
