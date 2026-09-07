@@ -79,9 +79,11 @@
 	let leaflet: typeof import('leaflet') | null = null;
 	let map: LeafletMap | null = null;
 	let routeLayer: Polyline | null = null;
+	let inactiveLayers: Polyline[] = [];
 	let dataLoadStarted = false;
 
 	let displayRoute = $derived<GeneratedRoute | RouteMap | null>(generated ?? savedRoute);
+	let hasVias = $derived((generated?.waypoints.length ?? 0) > 2);
 	let stopNames = $derived(
 		displayRoute
 			? displayRoute.waypoints.map((w) => w.name).filter((name): name is string => !!name)
@@ -125,15 +127,33 @@
 		mapReady = true;
 	});
 
-	// Draw whatever route is currently on display.
+	// Draw whatever route is currently on display, plus any inactive
+	// alternatives underneath it.
 	$effect(() => {
 		const route = displayRoute;
+		const alts = alternatives;
+		const active = activeIndex;
 		if (!mapReady || !map || !leaflet) return;
 
 		if (routeLayer) {
 			map.removeLayer(routeLayer);
 			routeLayer = null;
 		}
+		for (const layer of inactiveLayers) {
+			map.removeLayer(layer);
+		}
+		inactiveLayers = [];
+
+		// Inactive alternatives sit UNDER the active line and are clickable.
+		alts.forEach((route, i) => {
+			if (i === active || route.coordinates.length === 0) return;
+			const layer = leaflet!
+				.polyline(route.coordinates, { color: '#94a3b8', weight: 4, opacity: 0.6 })
+				.addTo(map!);
+			layer.on('click', () => selectAlternative(i));
+			inactiveLayers.push(layer);
+		});
+
 		if (!route || route.coordinates.length === 0) return;
 
 		routeLayer = leaflet
@@ -432,6 +452,20 @@
 	function formatDeviation(percent: number): string {
 		return `${percent >= 0 ? '+' : ''}${percent.toFixed(1)} %`;
 	}
+
+	/** Alternatives stay in the backend's fastest-first order (see the brief) -
+	 *  this only moves which index is active, never reorders `alternatives`. */
+	function selectAlternative(index: number) {
+		activeIndex = index;
+		generated = alternatives[index];
+	}
+
+	function formatDuration(seconds: number): string {
+		const total = Math.round(seconds / 60);
+		const h = Math.floor(total / 60);
+		const m = total % 60;
+		return h > 0 ? `${h} h ${m} min` : `${m} min`;
+	}
 </script>
 
 <div class="map-page" data-test="route-map-page">
@@ -525,6 +559,33 @@
 				</span>
 			{/if}
 		</div>
+		{#if mode === 'direct' && !hasVias && alternatives.length > 0}
+			<div class="alternatives" data-test="alternatives">
+				<span class="label">{$LL.routeMap.alternatives()}</span>
+				<ul>
+					{#each alternatives as route, i}
+						<li>
+							<button
+								class="alternative"
+								class:active={i === activeIndex}
+								data-test="alternative"
+								onclick={() => selectAlternative(i)}
+							>
+								<span>{route.roadKm.toFixed(1)} km</span>
+								<span title={$LL.routeMap.duration()}>{formatDuration(route.durationS)}</span>
+								<span class:off-target={route.offTarget}>
+									{formatDeviation(route.deviationPercent)}
+								</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{:else if mode === 'direct' && hasVias}
+			<p class="hint" data-test="alternatives-unavailable">
+				{$LL.routeMap.alternativesUnavailable()}
+			</p>
+		{/if}
 		{#if stopNames.length > 0}
 			<p class="stops" data-test="stops">
 				<span class="label">{$LL.routeMap.stops()} ({stopNames.length})</span>
@@ -651,6 +712,56 @@
 		margin: 0 0 1rem 0;
 		color: var(--text-primary);
 		font-size: 0.875rem;
+	}
+
+	.alternatives {
+		margin: 0 0 1rem 0;
+	}
+
+	.alternatives ul {
+		list-style: none;
+		margin: 0.375rem 0 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.alternative {
+		display: flex;
+		width: 100%;
+		gap: 1rem;
+		align-items: baseline;
+		padding: 0.5rem 0.75rem;
+		background-color: var(--btn-secondary-bg);
+		color: var(--text-primary);
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		font-size: 0.875rem;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.alternative:hover {
+		background-color: var(--btn-secondary-hover);
+	}
+
+	.alternative.active {
+		border-color: var(--btn-active-primary-bg);
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
+	}
+
+	.alternative .off-target {
+		color: var(--accent-warning-dark);
+		font-weight: 600;
+	}
+
+	.hint {
+		margin: 0 0 1rem 0;
+		color: var(--text-secondary);
+		font-size: 0.875rem;
+		font-style: italic;
 	}
 
 	.map-canvas {
