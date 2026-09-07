@@ -298,6 +298,32 @@ fn saving_the_same_place_twice_replaces_the_coordinate() {
 }
 
 #[test]
+fn a_place_with_no_name_is_refused() {
+    // The read side has already decided an empty key is not a place —
+    // `list_places_internal` skips it — so storing one would leave a row no
+    // list can show and only someone who knew it was there could remove.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+
+    let result = save_place_internal(
+        &db,
+        &app_state,
+        "   ".to_string(),
+        48.1,
+        17.1,
+        PlaceSource::Manual,
+    );
+
+    let err = result.expect_err("a place with no name must be refused");
+    assert!(err.contains("name"), "got: {err}");
+    // A guard that refuses only after writing would still return that error.
+    assert!(
+        db.all_places().unwrap().is_empty(),
+        "a refused save must not have written anything"
+    );
+}
+
+#[test]
 fn clearing_a_place_removes_its_coordinate() {
     let db = Database::in_memory().unwrap();
     let app_state = AppState::new();

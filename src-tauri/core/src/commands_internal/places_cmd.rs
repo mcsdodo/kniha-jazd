@@ -116,6 +116,13 @@ pub fn save_place_internal(
 ) -> Result<(), String> {
     check_read_only!(app_state);
     let normalised_name = normalise(&display_name);
+    // The read side has already decided an empty key is not a place:
+    // `list_places_internal` skips it. Storing one anyway would leave a row
+    // no list can show, and the guard cannot live in the caller because
+    // `POST /api/rpc` is reachable without the UI.
+    if normalised_name.is_empty() {
+        return Err("A place must have a name".to_string());
+    }
 
     db.upsert_place(&NewPlaceRow {
         normalised_name: &normalised_name,
