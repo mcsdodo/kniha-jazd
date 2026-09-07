@@ -898,9 +898,27 @@
 
 	// Display formatting of backend data, not business logic.
 	$: placedCount = places.filter((place) => place.lat !== null && place.lon !== null).length;
-	$: placeFilterNeedle = placeFilter.trim().toLocaleLowerCase();
+	// Lowercase with the invariant rules - no locale argument. The only
+	// locale-sensitive case-folding that matters is Turkish dotted/dotless i, and
+	// there is no Turkish UI; for Slovak this is identical to a locale-aware fold.
+	$: placeFilterNeedle = placeFilter.trim().toLowerCase();
+	// Match both spellings the row already carries. `normalisedName` is the
+	// backend's `places::normalise` output - lowercased, diacritics folded,
+	// whitespace collapsed - so an ASCII query finds a name written with
+	// diacritics, which is the case that actually occurs: production data shows
+	// users type "Kosice", not "Košice" (see `normalize_location` in db.rs).
+	// Folding the needle here instead would mean a second, divergent
+	// copy of `normalise` in TypeScript, which ADR-008 forbids - so the needle
+	// stays unfolded and the two spellings are reached by two routes: a query
+	// typed with diacritics matches `displayName`, an ASCII one matches
+	// `normalisedName`. That asymmetry is deliberate; do not "complete" it with a
+	// JS folding table.
 	$: visiblePlaces = placeFilterNeedle
-		? places.filter((place) => place.displayName.toLocaleLowerCase().includes(placeFilterNeedle))
+		? places.filter(
+				(place) =>
+					place.displayName.toLowerCase().includes(placeFilterNeedle) ||
+					place.normalisedName.includes(placeFilterNeedle)
+			)
 		: places;
 
 	async function loadPlaces() {
