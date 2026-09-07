@@ -5,11 +5,12 @@
 //! to domain models (Vehicle, etc.) happen via From implementations.
 
 use crate::models::{
-    AssignmentType, NewReceiptRow, NewRouteMapRow, NewRouteRow, NewSettingsRow, NewTripRow,
-    NewVehicleRow, PaperlessLink, Receipt, ReceiptRow, Route, RouteMap, RouteMapRow, RouteRow,
-    Settings, SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
+    AssignmentType, NewPlaceRow, NewReceiptRow, NewRouteMapRow, NewRouteRow, NewSettingsRow,
+    NewTripRow, NewVehicleRow, PaperlessLink, PlaceRow, Receipt, ReceiptRow, Route, RouteMap,
+    RouteMapRow, RouteRow, Settings, SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle,
+    VehicleRow,
 };
-use crate::schema::{receipts, routes, settings, trip_routes, trips, vehicles};
+use crate::schema::{places, receipts, routes, settings, trip_routes, trips, vehicles};
 use chrono::{NaiveDateTime, Utc};
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
@@ -1204,6 +1205,74 @@ impl Database {
             .into_iter()
             .map(|row| (row.trip_id.clone(), RouteMap::from(row)))
             .collect())
+    }
+
+    // ========================================================================
+    // Place book — coordinates keyed by normalised place name (Task 75)
+    // ========================================================================
+
+    /// Every place string any trip names, with how many trip endpoints use it.
+    ///
+    /// Raw SQL: this is a UNION ALL of two columns, which Diesel's DSL expresses
+    /// far less clearly than the query itself. The spellings come back verbatim
+    /// — folding them onto one key is `places::normalise`, which SQLite cannot
+    /// call, so the caller does it.
+    pub fn distinct_trip_places(&self) -> QueryResult<Vec<(String, i64)>> {
+        let conn = &mut *self.conn.lock().unwrap();
+
+        #[derive(QueryableByName)]
+        struct Row {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            raw: String,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            uses: i64,
+        }
+
+        let rows = diesel::sql_query(
+            "SELECT raw, SUM(uses) AS uses FROM (
+                 SELECT origin AS raw, COUNT(*) AS uses FROM trips GROUP BY origin
+                 UNION ALL
+                 SELECT destination AS raw, COUNT(*) AS uses FROM trips GROUP BY destination
+             ) GROUP BY raw",
+        )
+        .load::<Row>(conn)?;
+
+        Ok(rows.into_iter().map(|r| (r.raw, r.uses)).collect())
+    }
+
+    /// Every stored coordinate. Small by construction — one row per place a
+    /// human has placed — so the caller indexes it in memory rather than
+    /// querying per place.
+    pub fn all_places(&self) -> QueryResult<Vec<PlaceRow>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        places::table.select(PlaceRow::as_select()).load(conn)
+    }
+
+    /// Store the coordinate for a place, replacing whatever it held.
+    ///
+    /// Delete + insert in one transaction, as `save_route_map` does for the
+    /// same "primary key that is not an id" problem. An `AsChangeset` update
+    /// would not do: it reads `None` as "leave this column alone", so it could
+    /// set a coordinate but never clear one, and the row would end up a merge
+    /// of two answers rather than the latest one.
+    pub fn upsert_place(&self, place: &NewPlaceRow) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::delete(places::table.filter(places::normalised_name.eq(place.normalised_name)))
+                .execute(tx)?;
+            diesel::insert_into(places::table)
+                .values(place)
+                .execute(tx)?;
+            Ok(())
+        })
+    }
+
+    /// Forgetting a coordinate the book never held is a no-op, not an error.
+    pub fn delete_place(&self, normalised_name: &str) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::delete(places::table.filter(places::normalised_name.eq(normalised_name)))
+            .execute(conn)
+            .map(|_| ())
     }
 }
 

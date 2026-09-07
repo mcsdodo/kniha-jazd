@@ -2,7 +2,8 @@
 
 use super::*;
 use crate::models::{
-    AssignmentType, PaperlessLink, PlaceRow, ReceiptStatus, RouteMap, VehicleType, Waypoint,
+    AssignmentType, NewPlaceRow, PaperlessLink, PlaceRow, ReceiptStatus, RouteMap, VehicleType,
+    Waypoint,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -1098,10 +1099,14 @@ fn trip_routes_table_exists_after_migration() {
         .expect("trip_routes table must exist");
 }
 
-/// Nothing queries `places` until Task 3, so without this the migration and the
-/// `schema.rs` entry could disagree and no test would notice. Selecting through
-/// `PlaceRow` checks both at once: the table the migration built, and the
-/// columns Diesel believes it has.
+/// Catches the migration and `schema.rs` naming different columns: the SELECT
+/// Diesel generates names every column explicitly, so a missing table or a
+/// misspelt or absent column fails to prepare.
+///
+/// It checks names and nothing more. The table is empty, so `FromSqlRow` never
+/// runs and a type mismatch (`lat REAL NOT NULL`, say) or a differing
+/// constraint goes unnoticed; column order it cannot check by construction,
+/// since the generated SELECT does not depend on it.
 #[test]
 fn places_table_matches_the_schema_after_migration() {
     let db = Database::in_memory().expect("Failed to create database");
@@ -1111,6 +1116,49 @@ fn places_table_matches_the_schema_after_migration() {
         .load(conn)
         .expect("places table must match the schema");
     assert!(rows.is_empty(), "a fresh place book starts empty");
+}
+
+/// The second write must leave the row as the second write describes it, not as
+/// a merge of both. Diesel's `AsChangeset` on `PlaceRow` reads `None` as "leave
+/// this column alone", so an update through it would keep the first write's
+/// coordinate forever — the book would be unable to forget one.
+#[test]
+fn upsert_place_replaces_the_row_rather_than_merging_it() {
+    let db = Database::in_memory().expect("Failed to create database");
+
+    db.upsert_place(&NewPlaceRow {
+        normalised_name: "kosice",
+        display_name: "Kosice",
+        lat: Some(48.7),
+        lon: Some(21.2),
+        source: "geocoder",
+    })
+    .expect("first write");
+
+    db.upsert_place(&NewPlaceRow {
+        normalised_name: "kosice",
+        display_name: "KOŠICE",
+        lat: None,
+        lon: None,
+        source: "manual",
+    })
+    .expect("second write");
+
+    let rows = db.all_places().expect("read back");
+    assert_eq!(rows.len(), 1, "one key, one row");
+    assert_eq!(rows[0].display_name, "KOŠICE");
+    assert_eq!(rows[0].source, "manual");
+    assert_eq!(rows[0].lat, None, "the first write's latitude must be gone");
+    assert_eq!(rows[0].lon, None, "the first write's longitude must be gone");
+}
+
+/// Forgetting a coordinate the book never held is a no-op, not an error.
+#[test]
+fn delete_place_is_a_no_op_for_an_unknown_place() {
+    let db = Database::in_memory().expect("Failed to create database");
+    db.delete_place("nowhere")
+        .expect("deleting nothing is fine");
+    assert!(db.all_places().unwrap().is_empty());
 }
 
 /// Seed a vehicle + trip and return the trip (its `id` is the route-map key).

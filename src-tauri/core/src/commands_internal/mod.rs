@@ -45,6 +45,9 @@ pub use paperless_cmd::*;
 pub mod route_maps;
 pub use route_maps::*;
 
+pub mod places_cmd;
+pub use places_cmd::*;
+
 #[cfg(test)]
 #[path = "commands_tests.rs"]
 mod tests;

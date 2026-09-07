@@ -5,7 +5,9 @@
 -- (ADR-033), so this table stores coordinates and nothing else. A row whose
 -- trips are all deleted becomes a harmless orphan rather than a wrong answer.
 CREATE TABLE places (
-    normalised_name TEXT PRIMARY KEY,
+    -- NOT NULL is not redundant: SQLite lets a non-INTEGER PRIMARY KEY hold
+    -- NULL, and `schema.rs` types this column as a non-nullable String.
+    normalised_name TEXT PRIMARY KEY NOT NULL,
     display_name TEXT NOT NULL,
     lat REAL,
     lon REAL,
