@@ -1050,13 +1050,25 @@ pub struct NewRouteMapRow<'a> {
 }
 
 /// Database row for places table (the place book, Task 75)
-#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+///
+/// Deliberately no `AsChangeset`: it reads `None` as "leave this column alone",
+/// so an update through it could set a coordinate but never clear one, and the
+/// row would end up a merge of two answers rather than the latest one.
+/// `db::upsert_place` deletes and re-inserts instead, and the absent derive is
+/// what stops a future edit from quietly taking the other route.
+#[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = places)]
-#[diesel(primary_key(normalised_name))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct PlaceRow {
     pub normalised_name: String,
     /// The spelling trips use, verbatim (ADR-034).
+    ///
+    /// Write-only: `save_place_internal` stores it, and nothing reads it back.
+    /// The list takes its label from the trips themselves, so this is a
+    /// forensic record of what the human saw when they confirmed the
+    /// coordinate — not an authority on what the place is called now. It goes
+    /// stale the moment a new trip makes a different spelling lead the fold,
+    /// so a future reader must not start displaying it.
     pub display_name: String,
     pub lat: Option<f64>,
     pub lon: Option<f64>,

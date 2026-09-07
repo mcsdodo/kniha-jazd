@@ -1,4 +1,4 @@
-//! The place book. See _tasks/75-place-book/02-design.md.
+//! The place book. See _tasks/_done/75-place-book/02-design.md.
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::db::Database;
 use crate::models::{NewPlaceRow, Place, PlaceSource};
-use crate::places::normalise;
+use crate::places::{normalise, Candidate, GeocodeProvider};
 
 /// One place part-way through the fold: the spelling to show, how often that
 /// exact spelling is used, and the total across every spelling of the place.
@@ -94,6 +94,22 @@ pub fn list_places_internal(db: &Database) -> Result<Vec<Place>, String> {
             .then(a.display_name.cmp(&b.display_name))
     });
     Ok(out)
+}
+
+/// Candidate coordinates for one typed address. Writes nothing — looking and
+/// committing are separate calls, so no coordinate is stored without a human
+/// confirming it.
+///
+/// The provider is passed in rather than built here, the same way
+/// `generate_route_internal` takes its `RouteProvider`: it is the only seam at
+/// which a test can answer for the geocoder without a network stack of any
+/// kind underneath, and it keeps the choice of *which* geocoder in the
+/// dispatcher, where the rest of the process-level wiring already lives.
+pub async fn geocode_place_internal(
+    provider: &dyn GeocodeProvider,
+    query: String,
+) -> Result<Vec<Candidate>, String> {
+    provider.search(&query).await
 }
 
 /// Store the coordinate a human confirmed for a place.

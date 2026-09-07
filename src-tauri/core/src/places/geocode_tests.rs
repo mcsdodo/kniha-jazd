@@ -116,7 +116,9 @@ async fn an_http_error_is_an_error() {
         .expect_err("a failed request must not be reported as zero matches");
     assert!(
         err.contains("503"),
-        "the error should name the HTTP status so the UI can offer Retry, got: {err}"
+        "the error should name the HTTP status: the UI shows one fixed string \
+         for every failure, so the console and the server log are the only \
+         places a rate limit can be told apart from an outage, got: {err}"
     );
 }
 

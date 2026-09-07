@@ -185,8 +185,11 @@ impl GeocodeProvider for HttpGeocodeProvider {
 
         let status = response.status();
         if !status.is_success() {
-            // Nominatim rate-limits with 429; the UI turns this into a Retry
-            // prompt, so the status code has to survive.
+            // The status is carried into the message for diagnosis, not for
+            // the UI, which renders one fixed string for every failure: a 429
+            // (Nominatim's rate limit, wait and retry) and a 403 (blocked user
+            // agent, nothing will fix it by waiting) are otherwise
+            // indistinguishable in the browser console and the server log.
             return Err(format!(
                 "Geocoding service returned HTTP {} ({}). Try again in a moment.",
                 status.as_u16(),

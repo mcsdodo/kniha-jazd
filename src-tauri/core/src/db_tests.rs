@@ -1118,10 +1118,16 @@ fn places_table_matches_the_schema_after_migration() {
     assert!(rows.is_empty(), "a fresh place book starts empty");
 }
 
-/// The second write must leave the row as the second write describes it, not as
-/// a merge of both. Diesel's `AsChangeset` on `PlaceRow` reads `None` as "leave
-/// this column alone", so an update through it would keep the first write's
-/// coordinate forever — the book would be unable to forget one.
+/// A second write must leave the row as that write describes it, not as a merge
+/// of both. `upsert_place` deletes and re-inserts to get that; the update it
+/// avoids is a Diesel `AsChangeset`, which writes only the columns it is given
+/// and so would leave every column the second write did not mention holding the
+/// first write's answer.
+///
+/// The two writes here differ in every column for that reason: a correction is
+/// the real case — someone geocoded the wrong Košice and then dropped a pin on
+/// the right one — and it is exactly the case a per-column merge cannot be
+/// distinguished from a replace unless the columns actually disagree.
 #[test]
 fn upsert_place_replaces_the_row_rather_than_merging_it() {
     let db = Database::in_memory().expect("Failed to create database");
@@ -1138,8 +1144,8 @@ fn upsert_place_replaces_the_row_rather_than_merging_it() {
     db.upsert_place(&NewPlaceRow {
         normalised_name: "kosice",
         display_name: "KOŠICE",
-        lat: None,
-        lon: None,
+        lat: Some(48.72),
+        lon: Some(21.26),
         source: "manual",
     })
     .expect("second write");
@@ -1147,9 +1153,13 @@ fn upsert_place_replaces_the_row_rather_than_merging_it() {
     let rows = db.all_places().expect("read back");
     assert_eq!(rows.len(), 1, "one key, one row");
     assert_eq!(rows[0].display_name, "KOŠICE");
-    assert_eq!(rows[0].source, "manual");
-    assert_eq!(rows[0].lat, None, "the first write's latitude must be gone");
-    assert_eq!(rows[0].lon, None, "the first write's longitude must be gone");
+    assert_eq!(rows[0].source, "manual", "the pin replaced the geocode");
+    assert_eq!(rows[0].lat, Some(48.72), "the corrected latitude, not 48.7");
+    assert_eq!(
+        rows[0].lon,
+        Some(21.26),
+        "the corrected longitude, not 21.2"
+    );
 }
 
 /// Forgetting a coordinate the book never held is a no-op, not an error.

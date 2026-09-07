@@ -269,9 +269,8 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            use crate::places::GeocodeProvider as _;
             let provider = crate::places::HttpGeocodeProvider::public();
-            let result = provider.search(&a.query).await;
+            let result = crate::commands_internal::geocode_place_internal(&provider, a.query).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 

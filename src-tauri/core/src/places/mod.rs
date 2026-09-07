@@ -1,5 +1,5 @@
 //! The place book: every place a trip names, with a coordinate confirmed by a
-//! human. See _tasks/75-place-book/02-design.md.
+//! human. See _tasks/_done/75-place-book/02-design.md.
 
 mod geocode;
 mod normalise;
