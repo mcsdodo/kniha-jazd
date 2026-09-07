@@ -594,6 +594,8 @@ const sk = {
 		clear: 'Odstrániť umiestnenie',
 		saved: 'Miesto uložené',
 		cleared: 'Umiestnenie odstránené',
+		saveError: 'Nepodarilo sa uložiť miesto: {error:string}',
+		clearError: 'Nepodarilo sa odstrániť umiestnenie: {error:string}',
 	},
 
 	// PDF export labels (passed to Rust)

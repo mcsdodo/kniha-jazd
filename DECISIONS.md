@@ -8,7 +8,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ### ADR-032: Places are placed by a human, never by a confidence heuristic
 
-**Context:** The place book ([task 75](./_tasks/75-place-book/)) gives every place string in the logbook a coordinate. The brainstorm assumed a rule that would auto-accept a geocoder result when it looked confident enough, leaving only the doubtful ones for review. Profiling the production database killed the sketched rule outright: the strings are **street addresses**, not town names, so "the geocoder's returned name equals the query" can never fire for them.
+**Context:** The place book ([task 75](./_tasks/_done/75-place-book/)) gives every place string in the logbook a coordinate. The brainstorm assumed a rule that would auto-accept a geocoder result when it looked confident enough, leaving only the doubtful ones for review. Profiling the production database killed the sketched rule outright: the strings are **street addresses**, not town names, so "the geocoder's returned name equals the query" can never fire for them.
 
 **Options considered:**
 1. Accept when exactly one candidate's name matches the query — impossible for addresses.

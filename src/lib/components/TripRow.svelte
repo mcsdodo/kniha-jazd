@@ -172,7 +172,8 @@
 	// Always displayName — normalisedName is a folded lookup key and would be
 	// written verbatim into the trip if suggested (ADR-034).
 	// The backend orders the book for the Settings list (unplaced first, then by
-	// use); a datalist wants alphabetical, so re-sort for display.
+	// use). Autocomplete renders whatever order it is handed, and a work queue is
+	// no order to look a place up in, so re-sort alphabetically for display.
 	$: locationSuggestions = places.map((p) => p.displayName).sort();
 
 	// Find matching route and auto-fill distance

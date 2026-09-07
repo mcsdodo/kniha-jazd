@@ -358,6 +358,11 @@
 		try {
 			await deleteTrip(id);
 			onTripsChanged();
+			// The book is the autocomplete's source, so a place whose last trip just
+			// went is no longer a place — reload or the row keeps offering it for the
+			// rest of the session. Only the book: a stale `routes` row merely feeds
+			// distance auto-fill, where a pair nobody drives simply never matches.
+			await loadPlaces();
 			triggerReceiptRefresh(); // Update nav badge after trip deletion
 		} catch (error) {
 			console.error('Failed to delete trip:', error);

@@ -594,6 +594,8 @@ const en = {
 		clear: 'Remove location',
 		saved: 'Place saved',
 		cleared: 'Location removed',
+		saveError: 'Failed to save place: {error}',
+		clearError: 'Failed to remove location: {error}',
 	},
 
 	// PDF export labels (passed to Rust)

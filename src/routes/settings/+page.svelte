@@ -961,7 +961,7 @@
 			toast.success($LL.places.saved());
 		} catch (error) {
 			console.error('Failed to save place:', error);
-			toast.error(String(error));
+			toast.error($LL.places.saveError({ error: String(error) }));
 		}
 	}
 
@@ -975,7 +975,7 @@
 			toast.success($LL.places.cleared());
 		} catch (error) {
 			console.error('Failed to clear place:', error);
-			toast.error(String(error));
+			toast.error($LL.places.clearError({ error: String(error) }));
 		}
 	}
 </script>

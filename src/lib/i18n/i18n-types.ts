@@ -1967,6 +1967,16 @@ type RootTranslation = {
 		 * U​m​i​e​s​t​n​e​n​i​e​ ​o​d​s​t​r​á​n​e​n​é
 		 */
 		cleared: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​u​l​o​ž​i​ť​ ​m​i​e​s​t​o​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		saveError: RequiredParams<'error'>
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​d​s​t​r​á​n​i​ť​ ​u​m​i​e​s​t​n​e​n​i​e​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		clearError: RequiredParams<'error'>
 	}
 	'export': {
 		/**
@@ -4452,6 +4462,14 @@ export type TranslationFunctions = {
 		 * Umiestnenie odstránené
 		 */
 		cleared: () => LocalizedString
+		/**
+		 * Nepodarilo sa uložiť miesto: {error}
+		 */
+		saveError: (arg: { error: string }) => LocalizedString
+		/**
+		 * Nepodarilo sa odstrániť umiestnenie: {error}
+		 */
+		clearError: (arg: { error: string }) => LocalizedString
 	}
 	'export': {
 		/**

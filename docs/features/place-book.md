@@ -71,8 +71,13 @@ stores*; `normalise` throws that information away to make a *matching key*.
 
 ### The derived list
 
-The `places` table stores coordinates and nothing else — there is no list of places in
-it. The list is computed at read time (ADR-033):
+The `places` table holds one row per normalised name: the coordinate, plus the spelling
+that coordinate was confirmed under. Nothing reads the spelling back —
+`list_places_internal` takes every displayed name from the trips fold below — so
+`display_name` records what was on screen at save time and goes stale as soon as a new
+trip makes a different spelling lead the fold. It is a note, never the book's answer for
+how a place is spelled. What the table does **not** hold is a list of places (ADR-033);
+that is computed at read time:
 
 ```
 raw = SELECT origin, COUNT(*) FROM trips GROUP BY origin
@@ -108,8 +113,14 @@ origin and destination are the same place adds two to it. Hence the Slovak label
 
 ### Geocoding
 
-Nominatim sits behind a `GeocodeProvider` trait so tests can stand in a fake and never
-touch the network. `HttpGeocodeProvider` asks the public instance for `format=jsonv2`,
+Nominatim sits behind a `GeocodeProvider` trait, and the provider is a parameter rather
+than a hard-wired choice: `geocode_place_internal(provider: &dyn GeocodeProvider, query)`
+in [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) uses whatever
+it is handed, and the real one is constructed at the call site in
+[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
+(`HttpGeocodeProvider::public()`) — the same seam `generate_route_internal` takes its
+`RouteProvider` through. A test can therefore stand in a fake and never touch a network
+stack at all. `HttpGeocodeProvider` asks the public instance for `format=jsonv2`,
 `limit=5`, `accept-language=sk`, with an identifying User-Agent (Nominatim's usage
 policy requires one; a generic or absent agent gets the whole application blocked
 rather than just one request). The timeout is 15 seconds — a person is watching a
@@ -195,14 +206,20 @@ coordinate in the dialog under B's name, which is exactly the wrong-pin outcome 
 exists to prevent.
 
 **Trip autocomplete** — [TripGrid.svelte](../../src/lib/components/TripGrid.svelte)
-loads the book on mount and again after a trip is created or updated, so a place just
-typed into a trip is offered on the next row without a page reload.
+loads the book on mount and again after every trip write — create, update **and
+delete** — so a place just typed into a trip is offered on the next row without a page
+reload, and one whose last trip has gone stops being offered. (Only the book is
+reloaded on delete: a stale `routes` row merely feeds distance auto-fill, where a pair
+nobody drives simply never matches.)
 [TripRow.svelte](../../src/lib/components/TripRow.svelte) offers `displayName` (never
 `normalisedName`, which is a folded key and would be written verbatim into the trip),
-re-sorted alphabetically because a datalist wants alphabetical order rather than the
-book's work-queue order. `routes` is still passed to the row — it carries the
-per-vehicle kilometres for a known origin/destination pair — but it no longer feeds the
-suggestions.
+re-sorted alphabetically.
+[Autocomplete.svelte](../../src/lib/components/Autocomplete.svelte) is a custom dropdown
+— it filters the list client-side and renders it in whatever order it was handed — and
+the order the book arrives in is the Settings work queue (unplaced first, then by use),
+which is no order to look a place up in. `routes` is still passed to the row — it
+carries the per-vehicle kilometres for a known origin/destination pair — but it no
+longer feeds the suggestions.
 
 ### Data Flow
 
@@ -238,7 +255,7 @@ Settings → Miesta
 |------|---------|
 | [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | `normalise()` — the one lookup key |
 | [places/geocode.rs](../../src-tauri/core/src/places/geocode.rs) | `GeocodeProvider` trait, Nominatim client, mock mode |
-| [commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `list_places_internal`, `save_place_internal`, `clear_place_internal` |
+| [commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `list_places_internal`, `geocode_place_internal`, `save_place_internal`, `clear_place_internal` |
 | [db.rs](../../src-tauri/core/src/db.rs) | `distinct_trip_places`, `all_places`, `upsert_place`, `delete_place` |
 | [models.rs](../../src-tauri/core/src/models.rs) | `Place`, `PlaceRow`, `NewPlaceRow`, `PlaceSource` |
 | [migrations/2026-09-07-100000_add_places](../../src-tauri/core/migrations/2026-09-07-100000_add_places/up.sql) | The `places` table |
