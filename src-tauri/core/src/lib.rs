@@ -16,6 +16,7 @@ pub mod gemini;
 pub mod invoice;
 pub mod models;
 pub mod paperless;
+pub mod places;
 pub mod receipts;
 pub mod route_map;
 pub mod schema;
