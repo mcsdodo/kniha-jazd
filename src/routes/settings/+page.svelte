@@ -3,9 +3,10 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import PlaceModal from '$lib/components/PlaceModal.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention, Place } from '$lib/types';
+	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention, Place, PlaceSource } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { localeStore } from '$lib/stores/locale';
 	import type { Locales } from '$lib/i18n/i18n-types';
@@ -892,7 +893,7 @@
 	// order it arrives, never re-sort here (ADR-008).
 	let places: Place[] = [];
 	let placeFilter = '';
-	// Set by the row's edit button; the map dialog binds to it in a later task.
+	// Set by the row's edit button; drives the map dialog.
 	let editingPlace: Place | null = null;
 
 	// Display formatting of backend data, not business logic.
@@ -922,6 +923,42 @@
 
 	function openEditPlace(place: Place) {
 		editingPlace = place;
+	}
+
+	function closePlaceModal() {
+		editingPlace = null;
+	}
+
+	/** The dialog hands back only the coordinate a human confirmed. The name
+	 *  stored against it is `displayName` - the spelling the trips already use,
+	 *  never the geocoder's rendering of the address (ADR-034), which would seed
+	 *  a second spelling into the trip autocomplete. */
+	async function handleSavePlace(coords: { lat: number; lon: number; source: PlaceSource }) {
+		const place = editingPlace;
+		if (!place) return;
+		try {
+			await api.savePlace(place.displayName, coords.lat, coords.lon, coords.source);
+			editingPlace = null;
+			await loadPlaces();
+			toast.success($LL.places.saved());
+		} catch (error) {
+			console.error('Failed to save place:', error);
+			toast.error(String(error));
+		}
+	}
+
+	async function handleClearPlace() {
+		const place = editingPlace;
+		if (!place) return;
+		try {
+			await api.clearPlace(place.displayName);
+			editingPlace = null;
+			await loadPlaces();
+			toast.success($LL.places.cleared());
+		} catch (error) {
+			console.error('Failed to clear place:', error);
+			toast.error(String(error));
+		}
 	}
 </script>
 
@@ -1488,6 +1525,12 @@
 									</button>
 								</div>
 							</div>
+						{:else}
+							<!-- Distinct from places-empty: there are places, the filter just
+							     matches none of them. -->
+							<p class="placeholder" data-testid="places-no-matches">
+								{$LL.places.noMatches()}
+							</p>
 						{/each}
 					</div>
 				{:else}
@@ -1683,6 +1726,15 @@
 		haConfigured={!!(haUrl && haHasToken)}
 		onSave={handleSaveVehicle}
 		onClose={closeVehicleModal}
+	/>
+{/if}
+
+{#if editingPlace}
+	<PlaceModal
+		place={editingPlace}
+		onSave={handleSavePlace}
+		onClear={handleClearPlace}
+		onClose={closePlaceModal}
 	/>
 {/if}
 

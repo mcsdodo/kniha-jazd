@@ -1911,6 +1911,10 @@ type RootTranslation = {
 		 */
 		empty: string
 		/**
+		 * H​ľ​a​d​a​n​i​u​ ​n​e​z​o​d​p​o​v​e​d​á​ ​ž​i​a​d​n​e​ ​m​i​e​s​t​o​.
+		 */
+		noMatches: string
+		/**
 		 * N​e​u​m​i​e​s​t​n​e​n​é
 		 */
 		unplaced: string
@@ -4392,6 +4396,10 @@ export type TranslationFunctions = {
 		 * Žiadne miesta. Zoznam sa vytvára z jázd — pridajte prvú jazdu a jej miesta sa tu zobrazia.
 		 */
 		empty: () => LocalizedString
+		/**
+		 * Hľadaniu nezodpovedá žiadne miesto.
+		 */
+		noMatches: () => LocalizedString
 		/**
 		 * Neumiestnené
 		 */

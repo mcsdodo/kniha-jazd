@@ -579,6 +579,7 @@ const sk = {
 		placed: '{count:number}/{total:number} umiestnených',
 		filterPlaceholder: 'Hľadať...',
 		empty: 'Žiadne miesta. Zoznam sa vytvára z jázd — pridajte prvú jazdu a jej miesta sa tu zobrazia.',
+		noMatches: 'Hľadaniu nezodpovedá žiadne miesto.',
 		unplaced: 'Neumiestnené',
 		uses: '{count:number} výskytov',
 		// Edit dialog

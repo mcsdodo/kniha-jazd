@@ -579,6 +579,7 @@ const en = {
 		placed: '{count}/{total} placed',
 		filterPlaceholder: 'Search...',
 		empty: 'No places yet. The list is built from your trips — add the first trip and its places appear here.',
+		noMatches: 'No place matches your search.',
 		unplaced: 'Not placed',
 		uses: '{count} uses',
 		// Edit dialog
