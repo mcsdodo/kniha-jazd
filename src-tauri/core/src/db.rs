@@ -37,8 +37,9 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 /// This prevents duplicates like "Bratislava" vs "Bratislava " (trailing space)
 /// which was observed in production data.
 ///
-/// Note: Based on real data analysis, Slovak diacritics are NOT normalized
-/// because users consistently type ASCII-only (Kosice, not Košice).
+/// Note: case and Slovak diacritics are deliberately preserved here — this is
+/// the string the trip displays, and real users type ASCII anyway (Kosice, not
+/// Košice). The place book's lookup key does fold them: `places::normalise`.
 pub fn normalize_location(location: &str) -> String {
     location
         .trim()

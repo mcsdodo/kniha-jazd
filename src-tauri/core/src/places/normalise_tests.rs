@@ -34,3 +34,10 @@ fn keeps_punctuation_that_distinguishes_addresses() {
 fn empty_input_is_empty_output() {
     assert_eq!(normalise("   "), "");
 }
+
+#[test]
+fn a_letter_the_table_does_not_know_keeps_its_accent() {
+    // The table is closed by design: unknown letters are left alone rather
+    // than silently stripped, at the cost of getting their own key.
+    assert_eq!(normalise("Ærø"), "ærø");
+}

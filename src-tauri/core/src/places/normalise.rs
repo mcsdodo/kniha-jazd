@@ -5,16 +5,27 @@
 /// Digits and punctuation survive: they are what distinguishes one street
 /// number from another, and the book's entries are addresses.
 ///
-/// Folding is a closed table rather than Unicode NFD because the frontend must
-/// never grow a second implementation to disagree with (ADR-008) — a table is
-/// explicit about which letters it knows, and an unknown letter is left alone
-/// rather than silently stripped of its accent.
+/// Not [`crate::db::normalize_location`]: that one only collapses whitespace
+/// and keeps case and diacritics, because it rewrites the string a trip stores.
+/// This one throws that information away to make a key.
+///
+/// Folding is a closed table, not Unicode NFD: NFD would pull in a new
+/// dependency for a 44-letter problem, and being a one-liner in JS it invites
+/// the frontend to grow a second implementation that disagrees (ADR-008). The
+/// price is that a letter the table does not know keeps its accent, and so
+/// gets a key of its own. Decomposed (NFD) input is the same case: `Kos` +
+/// U+030C + `ice` keys apart from the precomposed spelling — a duplicate row
+/// in the cache, not a wrong coordinate, and keyboards and Nominatim emit
+/// precomposed.
 pub fn normalise(query: &str) -> String {
     let folded: String = query.chars().flat_map(fold_char).collect();
     folded.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn fold_char(c: char) -> Vec<char> {
+    // `to_lowercase` can yield several chars — realistically only 'İ', which
+    // becomes 'i' plus a combining dot. Taking the first drops the dot, which is
+    // the key we want. The iterator is never empty, so the fallback never fires.
     let lower = c.to_lowercase().next().unwrap_or(c);
     let replacement = match lower {
         'á' | 'ä' | 'à' | 'â' | 'ą' | 'ă' => "a",
