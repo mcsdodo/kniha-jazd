@@ -5,7 +5,7 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention } from '$lib/types';
+	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention, Place } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { localeStore } from '$lib/stores/locale';
 	import type { Locales } from '$lib/i18n/i18n-types';
@@ -541,6 +541,7 @@
 			await loadBackups();
 			await loadRetentionSettings();
 			await checkVehiclesWithTrips();
+			await loadPlaces();
 
 			// Load app version (works in desktop and web/server mode)
 			appVersion = await getAppVersion();
@@ -882,6 +883,45 @@
 		if (bytes < 1024) return `${bytes} B`;
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	// ── Places (Miesta) ──────────────────────────────────────────────────────
+	// Reference data curated once: every distinct place string the trips use,
+	// with the coordinate a human confirmed for it. The backend already orders
+	// the list (unplaced first, then most-used, then by name) - render it in the
+	// order it arrives, never re-sort here (ADR-008).
+	let places: Place[] = [];
+	let placeFilter = '';
+	// Set by the row's edit button; the map dialog binds to it in a later task.
+	let editingPlace: Place | null = null;
+
+	// Display formatting of backend data, not business logic.
+	$: placedCount = places.filter((place) => place.lat !== null && place.lon !== null).length;
+	$: placeFilterNeedle = placeFilter.trim().toLocaleLowerCase();
+	$: visiblePlaces = placeFilterNeedle
+		? places.filter((place) => place.displayName.toLocaleLowerCase().includes(placeFilterNeedle))
+		: places;
+
+	async function loadPlaces() {
+		try {
+			places = await api.listPlaces();
+		} catch (error) {
+			console.error('Failed to load places:', error);
+		}
+	}
+
+	function isPlaced(place: Place): boolean {
+		return place.lat !== null && place.lon !== null;
+	}
+
+	/** Three decimals is ~100 m - enough to recognise a place, short enough to read. */
+	function formatCoordinates(place: Place): string {
+		if (place.lat === null || place.lon === null) return '';
+		return `${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}`;
+	}
+
+	function openEditPlace(place: Place) {
+		editingPlace = place;
 	}
 </script>
 
@@ -1390,6 +1430,72 @@
 			</div>
 		</section>
 
+		<!-- Places Section -->
+		<section class="settings-section" id="places" data-testid="places-section">
+			<h2 class="places-heading">
+				<span>{$LL.places.title()}</span>
+				<span class="places-counter" data-testid="places-counter">
+					{$LL.places.placed({ count: placedCount, total: places.length })}
+				</span>
+			</h2>
+			<div class="section-content">
+				{#if places.length > 0}
+					<input
+						type="text"
+						class="places-filter"
+						data-testid="places-filter"
+						bind:value={placeFilter}
+						placeholder={$LL.places.filterPlaceholder()}
+						aria-label={$LL.places.filterPlaceholder()}
+					/>
+					<div class="place-list" data-testid="places-list">
+						{#each visiblePlaces as place (place.normalisedName)}
+							<div
+								class="place-item"
+								data-testid="place-item"
+								data-place-name={place.displayName}
+								data-place-placed={isPlaced(place)}
+							>
+								<div class="place-info">
+									<strong>
+										{#if !isPlaced(place)}
+											<span
+												class="unplaced-icon"
+												data-testid="place-unplaced-icon"
+												title={$LL.places.unplaced()}
+											>⚠</span>
+										{/if}
+										<span data-testid="place-name">{place.displayName}</span>
+									</strong>
+									<span class="details" data-testid="place-uses">
+										{$LL.places.uses({ count: place.uses })}
+									</span>
+								</div>
+								<div class="place-actions">
+									{#if isPlaced(place)}
+										<span class="place-coords" data-testid="place-coords">
+											{formatCoordinates(place)}
+										</span>
+									{:else}
+										<span class="place-coords missing" data-testid="place-coords">—</span>
+									{/if}
+									<button
+										class="button-small"
+										data-testid="place-edit"
+										on:click={() => openEditPlace(place)}
+									>
+										{$LL.common.edit()}
+									</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="placeholder" data-testid="places-empty">{$LL.places.empty()}</p>
+				{/if}
+			</div>
+		</section>
+
 		<!-- Company Settings Section -->
 		<section class="settings-section">
 			<h2>{$LL.settings.companySection()}</h2>
@@ -1755,6 +1861,87 @@
 	.badge.default {
 		background-color: var(--bg-surface-alt);
 		color: var(--text-secondary);
+	}
+
+	.places-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 1rem;
+	}
+
+	.places-counter {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+	}
+
+	.places-filter {
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--border-input);
+		border-radius: 4px;
+		font-size: 0.875rem;
+		font-family: inherit;
+		background-color: var(--input-bg);
+		color: var(--text-primary);
+	}
+
+	.places-filter:focus {
+		outline: none;
+		border-color: var(--accent-primary);
+		box-shadow: 0 0 0 3px var(--input-focus-shadow);
+	}
+
+	.place-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.place-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.625rem 1rem;
+		border: 1px solid var(--border-default);
+		border-radius: 4px;
+		background: var(--bg-surface-alt);
+	}
+
+	.place-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		min-width: 0;
+	}
+
+	.place-info strong {
+		font-size: 0.9375rem;
+		font-weight: 500;
+		color: var(--text-primary);
+	}
+
+	.unplaced-icon {
+		color: var(--warning-highlight);
+	}
+
+	.place-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-shrink: 0;
+	}
+
+	.place-coords {
+		font-size: 0.8125rem;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-secondary);
+		white-space: nowrap;
+	}
+
+	.place-coords.missing {
+		color: var(--text-muted);
 	}
 
 	.db-path-display {
