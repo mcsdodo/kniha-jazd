@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Pridané
+- **Miesta** — v nastaveniach pribudla sekcia „Miesta“ so zoznamom všetkých miest, ktoré sa v tvojich jazdách vyskytujú. Zoznam sa vytvára priamo zo zapísaných jázd, takže nič nemusíš pridávať ručne a na žiadne miesto sa nezabudne. Každému miestu vieš určiť bod na mape — vyhľadáš adresu a vyberieš si z ponuky, alebo špendlík umiestniš kliknutím do mapy a presunieš presne tam, kam patrí. Uloží sa vždy len to, čo sám potvrdíš. V nadpise vidíš, koľko miest už svoj bod má, a tie bez neho sú v zozname prvé, takže sa dá prejsť odhora nadol. Zároveň sa ponuka v poliach „Odkiaľ“ a „Kam“ berie z tohto spoločného zoznamu — miesto, ktoré si prvýkrát zapísal pri jednom aute, ti aplikácia ponúkne aj pri ostatných, a rôzne zápisy toho istého miesta sa v ponuke zlúčia do jednej položky.
+
 ### Opravené
 - **Našepkávač trás ponúkal miesta, ktoré už v knihe nie sú** — polia „Odkiaľ“ a „Kam“ ponúkali aj dvojice, ktorých jazdy boli medzičasom vymazané, vrátane prázdnej položky a preklepov opravených len pri jazdách; takáto dvojica navyše predvyplnila počet kilometrov pre trasu, ktorá v knihe neexistuje. Ponuka miest aj predvyplnená vzdialenosť teraz vychádzajú priamo zo zapísaných jázd.
 
