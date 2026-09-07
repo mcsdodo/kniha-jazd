@@ -2,7 +2,7 @@
 	import 'leaflet/dist/leaflet.css';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
-	import type { Map as LeafletMap, Polyline } from 'leaflet';
+	import type { Map as LeafletMap, Polyline, Marker, LeafletMouseEvent } from 'leaflet';
 	import {
 		generateRoute,
 		getTripRoute,
@@ -80,9 +80,18 @@
 	let map: LeafletMap | null = null;
 	let routeLayer: Polyline | null = null;
 	let inactiveLayers: Polyline[] = [];
+	let waypointMarkers: Marker[] = [];
+	let ghost: Marker | null = null;
+	/** True between the ghost's mousedown and its dragend/mouseup, so a
+	 *  `mouseout` on the line underneath -- which fires both mid-drag and as
+	 *  a same-tick side effect of the ghost's own creation, see `attachGhost`
+	 *  -- cannot destroy the handle before or during a real drag. */
+	let dragging = false;
 	/** Set by selectAlternative, consumed once by the draw effect, so picking
 	 *  an alternative redraws the lines without re-zooming the map -- fitting
-	 *  bounds still happens on every other draw (first load, regenerate). */
+	 *  bounds still happens on every other draw (first load, regenerate).
+	 *  Dragging a handle or the ghost sets it too, for the same reason: an
+	 *  edit reroutes to a concrete road result and the map should not jump. */
 	let skipFit = false;
 	let dataLoadStarted = false;
 
@@ -109,6 +118,8 @@
 
 	onDestroy(() => {
 		routeLayer = null;
+		waypointMarkers = [];
+		ghost = null;
 		map?.remove();
 		map = null;
 	});
@@ -164,15 +175,167 @@
 			inactiveLayers.push(layer);
 		});
 
-		if (!route || route.coordinates.length === 0) return;
-
-		routeLayer = leaflet
-			.polyline(route.coordinates, { color: '#0066cc', weight: 5, opacity: 0.85 })
-			.addTo(map);
-		if (!shouldSkipFit) {
-			map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+		if (route && route.coordinates.length > 0) {
+			routeLayer = leaflet
+				.polyline(route.coordinates, { color: '#0066cc', weight: 5, opacity: 0.85 })
+				.addTo(map);
+			attachGhost(routeLayer);
+			if (!shouldSkipFit) {
+				map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+			}
 		}
+
+		// Runs on every draw, including the empty-route branch above, so
+		// handles left over from a route that just got removed (or a load
+		// that just failed) do not linger on the map with no line under them.
+		drawHandles();
 	});
+
+	/** Small circular handle. Endpoints are visually heavier than vias. */
+	function handleIcon(L: typeof import('leaflet'), endpoint: boolean) {
+		return L.divIcon({
+			className: endpoint ? 'wp-handle wp-endpoint' : 'wp-handle',
+			iconSize: [endpoint ? 14 : 10, endpoint ? 14 : 10]
+		});
+	}
+
+	/**
+	 * Draggable handles for every waypoint of the route on display, endpoints
+	 * included. Dragging one re-routes through its new position on release;
+	 * clicking a via (not an endpoint) removes it and re-routes without it.
+	 */
+	function drawHandles() {
+		if (!map || !leaflet) return;
+		waypointMarkers.forEach((m) => map!.removeLayer(m));
+		waypointMarkers = [];
+
+		const points = currentWaypoints();
+		points.forEach((wp, i) => {
+			const endpoint = i === 0 || i === points.length - 1;
+			const marker = leaflet!
+				.marker([wp.lat, wp.lon], {
+					draggable: true,
+					icon: handleIcon(leaflet!, endpoint)
+				})
+				.addTo(map!);
+
+			// ONE request, on release. Never during the drag: the routing
+			// service is capped at a request a second, and mid-drag routing
+			// would spend that budget on frames nobody sees.
+			marker.on('dragend', () => {
+				const { lat, lng } = marker.getLatLng();
+				const next = points.map((p, j) => (j === i ? { ...p, lat, lon: lng } : p));
+				void reroute(next);
+			});
+
+			// Clicking a via removes it. Endpoints are not removable — that
+			// would change where the journey started or ended.
+			if (!endpoint) {
+				marker.bindTooltip($LL.routeMap.removeWaypoint());
+				marker.on('click', () => {
+					void reroute(points.filter((_, j) => j !== i));
+				});
+			}
+
+			waypointMarkers.push(marker);
+		});
+	}
+
+	/**
+	 * Ghost handle: appears on the active line under the cursor, and dragging
+	 * it off creates a new waypoint. Where that waypoint LANDS in the ordered
+	 * list is decided by the backend, using the same placement geometry as
+	 * generation (route_maps.rs::insert_waypoint) -- never recomputed here.
+	 */
+	function attachGhost(layer: Polyline) {
+		if (!map || !leaflet) return;
+		layer.on('mousemove', (e: LeafletMouseEvent) => {
+			if (!ghost) {
+				ghost = leaflet!
+					.marker(e.latlng, { draggable: true, icon: handleIcon(leaflet!, false) })
+					.addTo(map!);
+				// Armed on `mousedown`, ahead of Leaflet's own `dragstart`:
+				// `dragstart` only fires once movement is detected, and the
+				// very next native event after the ghost appears -- often the
+				// `mousedown` itself -- already carries a `mouseout` for the
+				// line underneath it (see the comment on the `mouseout`
+				// handler below). Arming this early costs nothing and closes
+				// that window completely.
+				ghost.on('mousedown', () => {
+					dragging = true;
+				});
+				// A plain click (mousedown+mouseup with no real movement)
+				// never fires `dragend`, so reset the guard here too --
+				// otherwise a click-without-drag would leave `dragging` stuck
+				// true and the next hover-away could never clean up its ghost.
+				ghost.on('mouseup', () => {
+					dragging = false;
+				});
+				ghost.on('dragend', () => {
+					dragging = false;
+					const { lat, lng } = ghost!.getLatLng();
+					const polyline = generated?.polyline ?? savedRoute?.polyline ?? '';
+					map!.removeLayer(ghost!);
+					ghost = null;
+					void reroute(currentWaypoints(), { lat, lon: lng, polyline });
+				});
+			} else {
+				ghost.setLatLng(e.latlng);
+			}
+		});
+
+		// Without this the ghost outlives the hover: move the cursor off the
+		// line and a stray draggable dot stays behind, and because creation is
+		// guarded by `if (!ghost)`, hovering elsewhere reuses that stale one
+		// rather than placing a fresh handle under the cursor.
+		//
+		// A `mouseout` on the line also fires as a side effect that has
+		// nothing to do with the cursor actually leaving it: inserting the
+		// ghost marker on top of the line, exactly under the cursor, does not
+		// itself fire a transition, but the browser's hover tracking is still
+		// pointing at the line (that is what the `mousemove` which created
+		// the ghost was resolved against, before the handler above added
+		// anything on top of it) -- so it owes a catch-up "line to ghost"
+		// mouseout/mouseover pair, and fires it ahead of whatever native
+		// event comes next, even `mousedown` with the pointer never having
+		// moved at all. Verified live: with only the `dragging` guard above,
+		// that catch-up `mouseout` reaches here first, while `dragging` is
+		// still false, and deletes the ghost before a drag ever starts --
+		// `route_direct` never fired. A real hit-test at the event's own
+		// coordinates tells the two cases apart where the event type alone
+		// cannot: only actually remove the ghost when the cursor has left
+		// both it and the line, not merely because a `mouseout` arrived.
+		layer.on('mouseout', (e: LeafletMouseEvent) => {
+			if (!ghost || dragging) return;
+			const original = e.originalEvent;
+			const stillHovering =
+				original &&
+				(() => {
+					const under = document.elementFromPoint(original.clientX, original.clientY);
+					return under === ghost!.getElement() || under === layer.getElement();
+				})();
+			if (stillHovering) return;
+			map!.removeLayer(ghost);
+			ghost = null;
+		});
+	}
+
+	/**
+	 * Re-route through an edited waypoint list. Works in BOTH modes: a route
+	 * is an ordered waypoint list either way, which is what lets a
+	 * mis-anchored loop be dragged into shape.
+	 */
+	async function reroute(waypoints: Waypoint[], insert?: InsertPoint) {
+		if (!trip) return;
+		// The map already shows the dragged position (the handle followed the
+		// pointer); re-fitting bounds on top of that would re-zoom the map for
+		// a result the user is already looking at.
+		skipFit = true;
+		// Editing produces a concrete road route, so an edited loop becomes a
+		// direct route — which is exactly the escape hatch the design wants.
+		mode = 'direct';
+		await runDirect(waypoints, trip.distanceKm, insert);
+	}
 
 	// The trip comes from the vehicle the layout activates, which is populated
 	// asynchronously — so react to it rather than reading it on mount.
@@ -636,6 +799,7 @@
 				{stopNames.join(' → ')}
 			</p>
 		{/if}
+		<p class="hint" data-test="edit-hint">{$LL.routeMap.editHint()}</p>
 	{/if}
 
 	<div class="map-canvas" bind:this={mapEl} data-test="route-map-canvas"></div>
@@ -827,6 +991,25 @@
 		width: 100%;
 		border-radius: 6px;
 		border: 1px solid var(--border-default);
+	}
+
+	/* Leaflet renders these outside Svelte's tree (a plain divIcon), so the
+	   rule must be :global -- scoped styling never reaches them. Supplying
+	   `className` on the divIcon replaces Leaflet's own default styling, so
+	   the circle, border and shadow below are drawn entirely by this rule. */
+	:global(.wp-handle) {
+		box-sizing: border-box;
+		border-radius: 50%;
+		background: var(--accent-primary);
+		border: 2px solid var(--bg-surface);
+		box-shadow: 0 1px 4px var(--shadow-default);
+		cursor: grab;
+	}
+
+	/* Endpoints are visually heavier than vias: bigger (set via iconSize) and
+	   a thicker border, so the two ends of the trip read as fixed anchors. */
+	:global(.wp-endpoint) {
+		border-width: 3px;
 	}
 
 	.button {
