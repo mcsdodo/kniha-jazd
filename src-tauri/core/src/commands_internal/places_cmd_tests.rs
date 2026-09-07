@@ -92,18 +92,27 @@ fn spellings_that_normalise_alike_are_one_place() {
 
     let places = list_places_internal(&db).unwrap();
 
-    // One entry, both trips counted. The displayed spelling is the most-used
-    // one — arbitrary between equals, but never both.
+    // One entry, both trips counted, and never two rows.
     let kosice: Vec<_> = places
         .iter()
         .filter(|p| p.normalised_name == "kosice")
         .collect();
     assert_eq!(kosice.len(), 1, "two spellings, one place: {places:?}");
     assert_eq!(kosice[0].uses, 2);
-    assert!(
-        kosice[0].display_name == "Kosice" || kosice[0].display_name == "KOŠICE",
-        "the displayed name is one of the spellings trips use, got {:?}",
-        kosice[0].display_name
+
+    // The two spellings are used once each, so this is the tie case, settled on
+    // the spelling itself: byte-wise "KOŠICE" < "Kosice", because 'O' (0x4F)
+    // precedes 'o' (0x6F). Pinning the exact winner keeps the label from
+    // flipping between two reads of the same book.
+    //
+    // Measured, not assumed: reversing the tie rule fails this assertion, but
+    // DELETING it does not, because `distinct_trip_places` emits groups
+    // ascending by `raw`, so the byte-smaller spelling arrives first and
+    // first-in-wins agrees with the rule. Nothing at this level can separate
+    // the two while that query has no ORDER BY.
+    assert_eq!(
+        kosice[0].display_name, "KOŠICE",
+        "equally used spellings are settled on the spelling, not on arrival order"
     );
 }
 
@@ -112,8 +121,16 @@ fn the_most_used_spelling_is_the_one_displayed() {
     let db = Database::in_memory().unwrap();
     let v = create_test_vehicle("Car");
     db.create_vehicle(&v).unwrap();
-    // Three spellings of one place, each used a different number of times.
-    // "Kosice" is rarest, "KOSICE " (whitespace only) is commonest.
+    // Three spellings of one place, used once, twice and three times.
+    //
+    // The fixture's power depends on the order `distinct_trip_places` returns:
+    // its `GROUP BY raw` has no ORDER BY, and SQLite happens to emit groups
+    // ascending by `raw` under BINARY collation, which puts "Košice" — the
+    // three-use spelling — last. The bug this pins (comparing a spelling's
+    // count against the running total rather than the leading spelling's own
+    // count) only shows when the most-used spelling arrives late; it survives
+    // two of the six arrival orders. So if that query ever grows an ORDER BY,
+    // recheck this fixture rather than trusting a green run.
     seed_trip_between(&db, &v.id, "Kosice", "Depot, City B");
     seed_trip_between(&db, &v.id, "KOŠICE", "Depot, City B");
     seed_trip_between(&db, &v.id, "KOŠICE", "Depot, City B");
@@ -159,15 +176,27 @@ fn an_orphan_place_row_is_not_listed() {
 }
 
 #[test]
-fn unplaced_places_sort_ahead_of_placed_ones() {
-    // The list is a worklist: what still needs a pin comes first, and within
-    // each group the most-used place is the most worth placing.
+fn the_list_is_ordered_unplaced_first_then_most_used_then_by_name() {
+    // The list is a worklist, and all three sort keys have to be here: what
+    // still needs a pin comes first, then the places most worth pinning, then
+    // the name.
+    //
+    // That last key is not cosmetic. The entries come out of a `HashMap`, whose
+    // iteration order Rust randomises per process, and `sort_by` is stable — so
+    // without the name key, places tied on placement and use count would come
+    // back in a different order on every run. Three are tied here, so dropping
+    // it leaves only a one-in-six chance of the assertion passing anyway.
     let db = Database::in_memory().unwrap();
     let v = create_test_vehicle("Car");
     db.create_vehicle(&v).unwrap();
-    seed_trip_between(&db, &v.id, "Placed", "Rare");
-    seed_trip_between(&db, &v.id, "Placed", "Common");
-    seed_trip_between(&db, &v.id, "Placed", "Common");
+    // Placed: 3 uses, the most-used place of all — and still last, because it
+    // is the only one that already has a pin.
+    seed_trip_between(&db, &v.id, "Placed", "Bratislava");
+    seed_trip_between(&db, &v.id, "Placed", "Bratislava");
+    seed_trip_between(&db, &v.id, "Placed", "Trnava");
+    // Bratislava, Trnava and Zvolen end on 2 uses each; Rare on 1.
+    seed_trip_between(&db, &v.id, "Trnava", "Zvolen");
+    seed_trip_between(&db, &v.id, "Zvolen", "Rare");
     place_at(&db, "Placed", 48.1, 17.1, PlaceSource::Manual);
 
     let order: Vec<String> = list_places_internal(&db)
@@ -176,5 +205,9 @@ fn unplaced_places_sort_ahead_of_placed_ones() {
         .map(|p| p.display_name)
         .collect();
 
-    assert_eq!(order, ["Common", "Rare", "Placed"]);
+    assert_eq!(
+        order,
+        ["Bratislava", "Trnava", "Zvolen", "Rare", "Placed"],
+        "unplaced before placed, then uses descending, then name ascending"
+    );
 }

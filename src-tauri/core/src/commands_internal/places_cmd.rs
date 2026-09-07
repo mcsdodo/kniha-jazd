@@ -54,8 +54,8 @@ pub fn list_places_internal(db: &Database) -> Result<Vec<Place>, String> {
                 // total: the total has already absorbed other spellings, so it
                 // outgrows any single one and would freeze the display on
                 // whichever spelling SQLite happened to return first. Equal
-                // counts are settled on the spelling itself, so the winner does
-                // not depend on that order either.
+                // counts are settled on the spelling itself — the byte-wise
+                // smaller wins — so that order does not decide those either.
                 let leads = uses > folded.display_uses
                     || (uses == folded.display_uses && spelling < folded.display);
                 if leads {
