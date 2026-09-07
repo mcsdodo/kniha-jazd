@@ -9,6 +9,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Pridané
 - **Miesta** — v nastaveniach pribudla sekcia „Miesta“ so zoznamom všetkých miest, ktoré sa v tvojich jazdách vyskytujú. Zoznam sa vytvára priamo zo zapísaných jázd, takže nič nemusíš pridávať ručne a na žiadne miesto sa nezabudne. Každému miestu vieš určiť bod na mape — vyhľadáš adresu a vyberieš si z ponuky, alebo špendlík umiestniš kliknutím do mapy a presunieš presne tam, kam patrí. Uloží sa vždy len to, čo sám potvrdíš. V nadpise vidíš, koľko miest už svoj bod má, a tie bez neho sú v zozname prvé, takže sa dá prejsť odhora nadol. Zároveň sa ponuka v poliach „Odkiaľ“ a „Kam“ berie z tohto spoločného zoznamu — miesto, ktoré si prvýkrát zapísal pri jednom aute, ti aplikácia ponúkne aj pri ostatných, a rôzne zápisy toho istého miesta sa v ponuke zlúčia do jednej položky.
+- **Cesta tam a späť na mape trasy** — pri vytváraní trasy v režime „Priamo“ pribudlo políčko „Cesta tam a späť“. Po zaškrtnutí sa trasa dopočíta späť do miesta odchodu, takže jazdu zapísanú ako jeden riadok vieš porovnať so skutočne okružnou trasou namiesto jednosmernej. Voľba sa neukladá — po opätovnom otvorení uloženej trasy je vždy odškrtnutá.
 
 ### Opravené
 - **Generovanie mapy trasy zlyhalo so všeobecnou chybou** - požiadavky na verejný smerovací server (OSRM) neobsahovali hlavičku identifikujúcu aplikáciu, server preto odpovedal chybou 403 Forbidden. Požiadavky teraz posielajú identifikáciu, takže sa mapa vygeneruje.
