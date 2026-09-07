@@ -2,7 +2,7 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-07 (Task 75 complete)
+**Last updated:** 2026-09-07 (Tech debt 08 recorded)
 
 ## Active Tasks
 
@@ -62,6 +62,7 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
+| 08 | [Integration Suite Not Type-Checked](./_TECH_DEBT/08-integration-suite-not-type-checked.md) | Low | Open (35 tsc errors, 11 specs; 12 weakened `waitUntil` guards) |
 | 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted wdio.conf.ts; cross-spec sharing → Task 41) |
 | 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted the Tauri crate) |
 | 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
