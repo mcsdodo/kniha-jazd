@@ -168,3 +168,41 @@ async fn a_transport_failure_is_reported_as_such() {
         "the transport error should name the host it could not reach: {err}"
     );
 }
+
+/// The public OSRM demo server answers 403 Forbidden to a request that carries
+/// no User-Agent, which reqwest omits by default. That is exactly what shipped:
+/// route generation failed in production with "Routing service returned HTTP
+/// 403" while the same URL returned 200 from curl. `tiles.rs` already learned
+/// this lesson for the tile server; the routing client had not.
+#[tokio::test]
+async fn sends_an_identifying_user_agent() {
+    let server = MockServer::start().await;
+    // Deliberately permissive: assert on the request we RECORDED rather than
+    // letting a header matcher turn a wrong User-Agent into an opaque 404.
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [{ "geometry": "abc", "distance": 1000.0 }]
+        })))
+        .mount(&server)
+        .await;
+
+    let client = HttpRouteProvider::new(server.uri());
+    client
+        .fetch(&[(48.935, 20.553), (48.997, 20.591)])
+        .await
+        .expect("request should succeed");
+
+    let requests = server.received_requests().await.expect("recorded requests");
+    assert_eq!(requests.len(), 1);
+    let agent = requests[0]
+        .headers
+        .get("user-agent")
+        .map(|v| v.to_str().unwrap_or_default().to_string())
+        .unwrap_or_default();
+    assert!(
+        agent.contains("kniha-jazd"),
+        "User-Agent must name this application, got: {agent:?}"
+    );
+}

@@ -17,6 +17,16 @@ use std::time::Duration;
 /// map generation, not for bulk use.
 const PUBLIC_OSRM_URL: &str = "https://router.project-osrm.org";
 
+/// Identifies this application to the routing service. The public OSRM demo
+/// server answers **403 Forbidden** when a request carries no User-Agent, and
+/// reqwest sends none by default. Mirrors `tiles.rs`, which learned the same
+/// lesson for the tile server.
+const USER_AGENT: &str = concat!(
+    "kniha-jazd/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/mcsdodo/kniha-jazd)"
+);
+
 /// How long to wait for the whole request. Routes over many waypoints can take
 /// the public server a few seconds.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -50,6 +60,7 @@ impl HttpRouteProvider {
     pub fn new(base_url: impl Into<String>) -> Self {
         let client = reqwest::Client::builder()
             .timeout(REQUEST_TIMEOUT)
+            .user_agent(USER_AGENT)
             .build()
             .map_err(|e| format!("Could not create an HTTP client for the routing service: {e}"));
 
