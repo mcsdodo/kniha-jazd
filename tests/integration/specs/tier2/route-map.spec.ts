@@ -147,6 +147,7 @@ async function saveDirectRoundTrip(tripId: string, targetKm: number): Promise<vo
     targetKm,
     roadKm: targetKm,
     mode: 'direct',
+    roundTrip: true,
   });
 }
 
@@ -448,10 +449,11 @@ describe('Tier 2: Route Map', () => {
       // `round_trip_does_not_double_close_an_already_closed_route`
       // (route_maps_tests.rs). What this test CAN pin without the network is
       // the reopened state itself: the persisted round trip renders with its
-      // correct (un-doubled) stop count, the checkbox stays unticked because
-      // it is a generation input and is never persisted (design decision 5),
-      // and the alternatives-unavailable copy (fix round 1, "Important 2")
-      // now reads true for a plain round trip that has no via at all.
+      // correct (un-doubled) stop count, the checkbox comes back TICKED
+      // because the flag is now persisted (Task 20, reversing design
+      // decision 5), and the alternatives-unavailable copy (fix round 1,
+      // "Important 2") now reads true for a plain round trip that has no via
+      // at all.
       const trip = await seedTrip({
         vehicleId,
         startDatetime: '2026-03-16T08:00',
@@ -475,11 +477,11 @@ describe('Tier 2: Route Map', () => {
       expect(stopsText).toContain('(3)');
       expect(stopsText).toContain('Bratislava → Trnava → Bratislava');
 
-      // Not persisted: reopening always starts unticked, even though the
-      // saved list is already a round trip.
+      // Persisted (Task 20): reopening restores the checkbox from the saved
+      // flag, so it comes back ticked -- not always unticked as before.
       const checkbox = await $('[data-test="round-trip-checkbox"]');
       expect(await checkbox.isExisting()).toBe(true);
-      expect(await checkbox.isSelected()).toBe(false);
+      expect(await checkbox.isSelected()).toBe(true);
 
       // The corrected copy names the real condition (more than two points),
       // which is true here even though this route has no via -- only a

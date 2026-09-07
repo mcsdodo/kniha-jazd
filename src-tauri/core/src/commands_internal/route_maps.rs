@@ -80,6 +80,11 @@ pub struct SavedRouteMap {
     pub off_target: bool,
     pub dataset_version: Option<String>,
     pub mode: RouteMode,
+    /// Direct mode only: whether this saved route closes back to its own
+    /// start. The frontend restores the round-trip checkbox from this on
+    /// cold load -- without it, reopening a saved round trip would always
+    /// show the box unticked (Task 20).
+    pub round_trip: bool,
     pub created_at: String,
 }
 
@@ -97,6 +102,7 @@ impl From<RouteMap> for SavedRouteMap {
             off_target,
             dataset_version: map.dataset_version,
             mode: map.mode,
+            round_trip: map.round_trip,
             created_at: map.created_at.to_rfc3339(),
         }
     }
@@ -275,6 +281,11 @@ pub fn get_trip_route_internal(
 /// `dataset_version` and `created_at` are stamped here rather than accepted
 /// from the caller: they describe what the backend actually used and when it
 /// stored it, so a client cannot misreport either.
+///
+/// `round_trip` gets the same treatment as `dataset_version`: a loop is
+/// already closed, so `round_trip` is forced to `false` for `RouteMode::Loop`
+/// regardless of what the caller sends, rather than trusting the caller to
+/// only ever send `false` for a loop (design decision 3, Task 20).
 pub fn save_trip_route_internal(
     db: &Database,
     app_state: &AppState,
@@ -284,6 +295,7 @@ pub fn save_trip_route_internal(
     target_km: f64,
     road_km: f64,
     mode: RouteMode,
+    round_trip: bool,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     let trip_uuid = Uuid::parse_str(&trip_id).map_err(|e| format!("Invalid trip id: {e}"))?;
@@ -301,6 +313,10 @@ pub fn save_trip_route_internal(
             RouteMode::Direct => None,
         },
         created_at: Utc::now(),
+        round_trip: match mode {
+            RouteMode::Loop => false,
+            RouteMode::Direct => round_trip,
+        },
     };
 
     db.save_route_map(&map).map_err(|e| e.to_string())

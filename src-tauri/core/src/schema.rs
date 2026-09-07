@@ -133,6 +133,13 @@ diesel::table! {
         // Queryable and binds POSITIONALLY, and `mode`/`created_at` are both
         // Text -- a mismatched position here swaps the two silently.
         mode -> Text,
+        // Added via migration 2026-09-07-120000_add_trip_route_round_trip
+        // (Task 20). Appended LAST for the same reason as `mode` above: this
+        // column must stay the last field in RouteMapRow. It is Bool, not
+        // Text, so a swap with `mode` or `created_at` would at least fail to
+        // compile -- but the ordering rule still applies, so a future TEXT
+        // column added after this one does not inherit that accidental safety.
+        round_trip -> Bool,
     }
 }
 

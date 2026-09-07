@@ -556,6 +556,10 @@ export interface RouteMap {
 	offTarget: boolean;
 	datasetVersion: string | null;
 	mode: RouteMode;
+	/** Direct mode only: whether this saved route closes back to its own
+	 *  start. Read back on load so the round-trip checkbox reflects what was
+	 *  actually saved, instead of always starting unticked. */
+	roundTrip: boolean;
 	createdAt: string;
 }
 

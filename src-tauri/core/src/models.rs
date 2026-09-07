@@ -311,6 +311,10 @@ pub struct RouteMap {
     pub mode: RouteMode,
     pub dataset_version: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// Direct mode only: whether the saved route closes back to its own
+    /// start. Always `false` for a loop -- a loop is already closed, so the
+    /// flag describes only the direct router's behaviour.
+    pub round_trip: bool,
 }
 
 /// Inferred start/end datetimes for a new trip row, derived from the most
@@ -1040,6 +1044,10 @@ pub struct RouteMapRow {
     /// Text -- a mismatched position swaps the two silently, with no compile
     /// error.
     pub mode: String,
+    /// Appended LAST again, after `mode` (Task 20) -- same positional-bind
+    /// hazard, same rule: any future column goes after this one, never
+    /// between existing ones.
+    pub round_trip: bool,
 }
 
 /// For inserting new trip_routes
@@ -1054,6 +1062,7 @@ pub struct NewRouteMapRow<'a> {
     pub dataset_version: Option<&'a str>,
     pub created_at: &'a str,
     pub mode: &'a str,
+    pub round_trip: bool,
 }
 
 /// Database row for places table (the place book, Task 75)
@@ -1281,6 +1290,7 @@ impl From<RouteMapRow> for RouteMap {
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
+            round_trip: row.round_trip,
         }
     }
 }

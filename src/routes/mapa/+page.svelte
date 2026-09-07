@@ -51,8 +51,9 @@
 	let alternatives = $state<GeneratedRoute[]>([]);
 	let activeIndex = $state(0);
 	/** Direct-mode only (Task 19): ticking appends a return leg back to the
-	 *  route's own start. A generation input, never persisted -- reopening a
-	 *  saved route always starts unticked (design decision 5). */
+	 *  route's own start. Persisted (Task 20): reopening a saved route sets
+	 *  this from `savedRoute.roundTrip` in `loadRoute()`, so Prepočítať
+	 *  reproduces the same shape without the user re-ticking the box. */
 	let roundTrip = $state(false);
 	/** The open (un-closed) waypoint list behind the currently displayed
 	 *  direct route -- i.e. `generated.waypoints` with the round-trip closing
@@ -415,6 +416,10 @@
 		savedRoute = await getTripRoute(tripId);
 		if (savedRoute) {
 			mode = savedRoute.mode;
+			// Restores the checkbox to what was actually saved (Task 20) --
+			// without this, Prepočítať would silently hand back a one-way
+			// route for a trip the user already marked as a round trip.
+			roundTrip = savedRoute.roundTrip;
 			rehydrateEndpoints(savedRoute);
 			// Explicit, not implied: `currentWaypoints()` would fall back to
 			// `savedRoute.waypoints` anyway, but naming it here means a cold
@@ -424,6 +429,10 @@
 			// (`[A, B, A]`) -- Rust's own idempotence guard in
 			// `route_direct_internal` is what makes re-ticking that safe
 			// (fix round 1, review finding "Important 1"), not this line.
+			// That guard is what makes it SAFE to restore `roundTrip` to
+			// `true` here and still hand this same closed list to the next
+			// `runDirect` call: the guard, not this page, is what stops a
+			// second closing point from being appended.
 			baseWaypoints = savedRoute.waypoints;
 			return;
 		}
@@ -662,7 +671,7 @@
 		if (!generated || !tripId) return;
 		saving = true;
 		try {
-			await saveTripRoute(tripId, generated);
+			await saveTripRoute(tripId, generated, roundTrip);
 			// Re-read so the displayed route is the persisted one, not a local copy.
 			savedRoute = await getTripRoute(tripId);
 			generated = null;

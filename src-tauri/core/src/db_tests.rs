@@ -1202,6 +1202,7 @@ fn make_route_map(trip_id: Uuid, polyline: &str) -> RouteMap {
         mode: RouteMode::Loop,
         dataset_version: Some("2026-05-03".into()),
         created_at: Utc::now(),
+        round_trip: false,
     }
 }
 
@@ -1246,6 +1247,7 @@ fn route_map_round_trips() {
         mode: RouteMode::Loop,
         dataset_version: Some("2026-05-03".into()),
         created_at: Utc::now(),
+        round_trip: false,
     };
     db.save_route_map(&map).unwrap();
 

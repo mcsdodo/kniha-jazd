@@ -104,6 +104,7 @@ fn save_rejects_read_only_mode() {
         120.0,
         118.4,
         RouteMode::Loop,
+        false,
     )
     .unwrap_err();
     assert!(err.contains("len na čítanie"), "got: {err}");
@@ -132,6 +133,7 @@ fn delete_rejects_read_only_mode() {
         120.0,
         118.4,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 
@@ -188,6 +190,7 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         120.0,
         118.4,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 
@@ -220,6 +223,7 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         "the bundled dataset version must be stamped on save"
     );
     assert_eq!(loaded.mode, RouteMode::Loop);
+    assert!(!loaded.round_trip, "a loop must never be saved as a round trip");
     assert!(!loaded.created_at.is_empty());
 }
 
@@ -304,6 +308,7 @@ fn grid_data_marks_only_the_trips_that_have_a_saved_map() {
         120.0,
         118.4,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 
@@ -375,6 +380,7 @@ fn save_map_for(db: &Database, trip_id: &Uuid, polyline: &str) {
         120.0,
         118.4,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 }
@@ -575,6 +581,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         100.0,
         108.0,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 
@@ -594,6 +601,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         100.0,
         102.0,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 
@@ -1207,6 +1215,7 @@ fn a_saved_direct_route_round_trips_with_its_mode_and_vias() {
         420.0,
         400.0,
         RouteMode::Direct,
+        false,
     )
     .unwrap();
 
@@ -1236,6 +1245,7 @@ fn a_saved_loop_route_still_stamps_the_dataset_version() {
         120.0,
         118.0,
         RouteMode::Loop,
+        false,
     )
     .unwrap();
 
@@ -1244,4 +1254,96 @@ fn a_saved_loop_route_still_stamps_the_dataset_version() {
         .unwrap();
     assert_eq!(loaded.mode, RouteMode::Loop);
     assert!(loaded.dataset_version.is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Persisting the round-trip flag (Task 20)
+// ---------------------------------------------------------------------------
+
+/// The mirror pair below deliberately saves a DIRECT route, not a loop:
+/// design decision 3 forces `round_trip` to `false` for `RouteMode::Loop`
+/// regardless of what is passed in, so a Loop-mode test could not tell
+/// "the flag round-trips" apart from "the flag is always false by policy".
+/// Only Direct exercises the actual plumbing.
+#[test]
+fn a_saved_direct_round_trip_round_trips_true() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        direct_waypoints(),
+        encode(&[(48.1, 17.1), (48.9, 20.5), (48.1, 17.1)]),
+        420.0,
+        400.0,
+        RouteMode::Direct,
+        true,
+    )
+    .unwrap();
+
+    let loaded = get_trip_route_internal(&db, trip.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert!(loaded.round_trip, "a saved round trip must read back as true");
+}
+
+#[test]
+fn a_saved_direct_one_way_round_trips_false() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        direct_waypoints(),
+        encode(&[(48.1, 17.1), (48.9, 20.5)]),
+        420.0,
+        400.0,
+        RouteMode::Direct,
+        false,
+    )
+    .unwrap();
+
+    let loaded = get_trip_route_internal(&db, trip.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert!(!loaded.round_trip, "a saved one-way route must read back as false");
+}
+
+/// The load-bearing test for design decision 3: a caller passing
+/// `round_trip: true` alongside `RouteMode::Loop` must still be stored as
+/// `false`, because a loop is already closed and the flag describes only the
+/// direct router's behaviour. Without this test, forcing the value for Loop
+/// is only a comment.
+#[test]
+fn a_saved_loop_route_never_stores_round_trip_even_if_asked() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        encode(&[(48.9, 20.5), (49.0, 20.6)]),
+        120.0,
+        118.0,
+        RouteMode::Loop,
+        true,
+    )
+    .unwrap();
+
+    let loaded = get_trip_route_internal(&db, trip.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert!(
+        !loaded.round_trip,
+        "a loop must never be stored as a round trip, even if the caller asked for one"
+    );
 }

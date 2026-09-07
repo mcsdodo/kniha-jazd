@@ -560,7 +560,16 @@ export async function getTripRoute(tripId: string): Promise<RouteMap | null> {
 // backend re-derives coordinates and datasetVersion (polyline decode +
 // bundled dataset version) and never persists durationS at all. Adding them
 // here would be silently ignored: serde drops unknown fields by default.
-export async function saveTripRoute(tripId: string, route: GeneratedRoute): Promise<void> {
+//
+// roundTrip is a separate parameter, not a field on GeneratedRoute: the
+// backend's GeneratedRoute carries no such field (it describes geometry, not
+// the request that produced it), so the checkbox state the caller is
+// currently showing is the only source of truth for what to persist.
+export async function saveTripRoute(
+	tripId: string,
+	route: GeneratedRoute,
+	roundTrip: boolean
+): Promise<void> {
 	return await apiCall('save_trip_route', {
 		tripId,
 		waypoints: route.waypoints,
@@ -568,6 +577,7 @@ export async function saveTripRoute(tripId: string, route: GeneratedRoute): Prom
 		targetKm: route.targetKm,
 		roadKm: route.roadKm,
 		mode: route.mode,
+		roundTrip,
 	});
 }
 

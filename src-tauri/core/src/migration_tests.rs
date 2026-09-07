@@ -706,3 +706,32 @@ fn existing_route_maps_become_loop_mode() {
     let map = db.get_route_map("t1").unwrap().unwrap();
     assert_eq!(map.mode, RouteMode::Loop);
 }
+
+// ============================================================================
+// Task 20 -- persisting the round-trip flag (2026-09-07-120000)
+// ============================================================================
+
+/// Every route saved before this migration is either a loop (already closed)
+/// or a one-way direct route, so `DEFAULT 0` backfills correctly by
+/// construction. This test is what proves that claim rather than assuming it.
+#[test]
+fn existing_route_maps_backfill_round_trip_false() {
+    let db = open_db_legacy_before("2026-09-07-120000");
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t1", "v1", None);
+    exec(
+        &db,
+        "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+                                  dataset_version, created_at) \
+         VALUES ('t1', '[]', 'abc', 100.0, 98.0, '2026-05-03', \
+                 '2026-01-01T00:00:00+00:00')",
+    );
+
+    migrate_to_current(&db);
+
+    let map = db.get_route_map("t1").unwrap().unwrap();
+    assert!(
+        !map.round_trip,
+        "a route saved before round_trip existed must backfill to false"
+    );
+}

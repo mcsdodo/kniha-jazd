@@ -830,6 +830,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         "save_trip_route" => {
             // datasetVersion and createdAt are deliberately absent: the backend
             // stamps both, so a client cannot misreport what it used.
+            //
+            // roundTrip is `#[serde(default)]`, unlike `mode`: a payload that
+            // does not mention a round trip is not describing one, so `false`
+            // is the truthful default (design decision 1, Task 20) -- not a
+            // guess the way defaulting `mode` would be.
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
@@ -839,6 +844,8 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 target_km: f64,
                 road_km: f64,
                 mode: crate::models::RouteMode,
+                #[serde(default)]
+                round_trip: bool,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::save_trip_route_internal(
@@ -850,6 +857,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.target_km,
                 a.road_km,
                 a.mode,
+                a.round_trip,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
@@ -1097,14 +1105,8 @@ mod tests {
     }
 
     /// The argument names are a contract with `src/lib/api.ts`: a mismatch
-    /// compiles cleanly in both languages and only shows up at runtime.
-    ///
-    /// KNOWN DIVERGENCE (Task 72, Phase 2): `mode` below is NOT yet what
-    /// `api.ts::saveTripRoute` sends -- that function does not send `mode` at
-    /// all, so every save from the live UI fails deserialization until a
-    /// later task (route maps V2 direct mode, frontend wiring) passes
-    /// `route.mode` through. This test payload shows the CONTRACT this
-    /// command now requires, not yet what the shipped frontend sends.
+    /// compiles cleanly in both languages and only shows up at runtime. This
+    /// test payload is exactly what the shipped frontend sends.
     #[test]
     fn route_map_commands_round_trip_with_frontend_argument_names() {
         let state = test_state();
@@ -1147,6 +1149,89 @@ mod tests {
         assert!(dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state)
             .unwrap()
             .is_null());
+    }
+
+    /// A trip and vehicle to save a route against, shared by the round-trip
+    /// pair below.
+    fn seed_trip_for_route(state: &ServerState) -> String {
+        let vehicle = crate::models::Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+        state.db.create_vehicle(&vehicle).unwrap();
+        let mut trip = crate::models::Trip::test_ice_trip(
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            120.0,
+            None,
+            true,
+        );
+        trip.vehicle_id = vehicle.id;
+        state.db.create_trip(&trip).unwrap();
+        trip.id.to_string()
+    }
+
+    /// A payload omitting `roundTrip` (every caller before Task 20) must still
+    /// parse and store `false` -- `#[serde(default)] round_trip: bool` is the
+    /// backward-compatibility guarantee. Paired with the test below that sends
+    /// `roundTrip: true`: alone, this test would pass even if the dispatcher
+    /// hardcoded `false` regardless of input.
+    #[test]
+    fn save_trip_route_without_round_trip_field_stores_false() {
+        let state = test_state();
+        let trip_id = seed_trip_for_route(&state);
+
+        dispatch_sync(
+            "save_trip_route",
+            json!({
+                "tripId": trip_id,
+                "waypoints": [
+                    { "lat": 48.1486, "lon": 17.1077, "name": "Bratislava" },
+                    { "lat": 48.9444, "lon": 20.5675, "name": "Spišská" },
+                ],
+                "polyline": "_p~iF~ps|U",
+                "targetKm": 420.0,
+                "roadKm": 400.0,
+                "mode": "direct",
+            }),
+            &state,
+        )
+        .unwrap();
+
+        let loaded = dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state).unwrap();
+        assert_eq!(
+            loaded["roundTrip"], false,
+            "a payload omitting roundTrip must store false, got: {loaded}"
+        );
+    }
+
+    /// The other half of the pair above: an explicit `roundTrip: true` on a
+    /// direct route must be threaded through and stored, not just defaulted.
+    #[test]
+    fn save_trip_route_with_round_trip_true_stores_true() {
+        let state = test_state();
+        let trip_id = seed_trip_for_route(&state);
+
+        dispatch_sync(
+            "save_trip_route",
+            json!({
+                "tripId": trip_id,
+                "waypoints": [
+                    { "lat": 48.1486, "lon": 17.1077, "name": "Bratislava" },
+                    { "lat": 48.9444, "lon": 20.5675, "name": "Spišská" },
+                    { "lat": 48.1486, "lon": 17.1077, "name": "Bratislava" },
+                ],
+                "polyline": "_p~iF~ps|U",
+                "targetKm": 420.0,
+                "roadKm": 400.0,
+                "mode": "direct",
+                "roundTrip": true,
+            }),
+            &state,
+        )
+        .unwrap();
+
+        let loaded = dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state).unwrap();
+        assert_eq!(
+            loaded["roundTrip"], true,
+            "an explicit roundTrip: true must be stored, got: {loaded}"
+        );
     }
 
     /// start_route_for_trip must be routed here (the book's endpoints come

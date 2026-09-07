@@ -1164,6 +1164,7 @@ impl Database {
                     dataset_version: map.dataset_version.as_deref(),
                     created_at: &created_at_str,
                     mode: map.mode.as_str(),
+                    round_trip: map.round_trip,
                 })
                 .execute(tx)?;
             Ok(())
