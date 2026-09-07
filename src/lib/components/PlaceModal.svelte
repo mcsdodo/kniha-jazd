@@ -27,9 +27,16 @@
 	/** Close enough to read a street once the place has been located. */
 	const PLACED_ZOOM = 15;
 
-	// The pending pin. Every field here is local until Save. It is seeded from
-	// the prop once and then diverges - untrack() says so out loud, since a
-	// dialog that re-mirrored the prop would throw away the user's edits.
+	// The pending pin. Every field here is local until Save: it is seeded from
+	// the prop and then free to diverge, since a dialog that re-mirrored `place`
+	// would throw the user's edits away.
+	//
+	// What makes it a snapshot is that a $state(...) initialiser runs exactly
+	// once — untrack() adds no guarantee of its own, it only marks that
+	// once-only read as deliberate and silences `state_referenced_locally`.
+	// That once-only seeding is also why the settings page wraps this dialog in
+	// {#key}: a `place` swapped in under a live instance would leave the
+	// previous place's coordinate sitting here, under the new place's name.
 	let lat = $state<number | null>(untrack(() => place.lat));
 	let lon = $state<number | null>(untrack(() => place.lon));
 	let source = $state<PlaceSource | null>(untrack(() => place.source));

@@ -1748,12 +1748,23 @@
 {/if}
 
 {#if editingPlace}
-	<PlaceModal
-		place={editingPlace}
-		onSave={handleSavePlace}
-		onClear={handleClearPlace}
-		onClose={closePlaceModal}
-	/>
+	<!-- The key is what forces a fresh dialog when it is re-targeted, so the
+	     dialog cannot keep a previous place's pin. PlaceModal seeds its pending
+	     coordinate from the prop exactly once, so swapping the prop under a live
+	     instance would leave place A's coordinate in it under place B's name -
+	     the wrong-pin outcome ADR-032 exists to prevent. The #if above does not
+	     prevent that on its own: nothing traps focus, so a keyboard user can tab
+	     to another row's edit button behind the open dialog, and editingPlace
+	     goes straight from A to B without ever being null. normalisedName is the
+	     row identity - the same key the list's #each uses. -->
+	{#key editingPlace.normalisedName}
+		<PlaceModal
+			place={editingPlace}
+			onSave={handleSavePlace}
+			onClear={handleClearPlace}
+			onClose={closePlaceModal}
+		/>
+	{/key}
 {/if}
 
 {#if vehicleToDelete}
