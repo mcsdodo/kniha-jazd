@@ -1907,30 +1907,6 @@ type RootTranslation = {
 		 */
 		duration: string
 		/**
-		 * K​t​o​r​é​ ​m​i​e​s​t​o​ ​t​o​ ​j​e​?
-		 */
-		pickPlace: string
-		/**
-		 * V​y​b​e​r​t​e​ ​s​p​r​á​v​n​e​ ​m​i​e​s​t​o​.​ ​Z​a​p​a​m​ä​t​á​m​e​ ​s​i​ ​h​o​ ​p​r​e​ ​ď​a​l​š​i​e​ ​j​a​z​d​y​.
-		 */
-		pickPlaceHint: string
-		/**
-		 * M​i​e​s​t​o​ ​s​a​ ​n​e​n​a​š​l​o​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​m​a​p​u​ ​a​ ​o​z​n​a​č​t​e​ ​h​o​.
-		 */
-		placeNotFound: string
-		/**
-		 * M​i​e​s​t​o​ ​u​l​o​ž​e​n​é
-		 */
-		placeRemembered: string
-		/**
-		 * M​i​e​s​t​o​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​u​l​o​ž​i​ť​,​ ​t​r​a​s​a​ ​j​e​ ​a​l​e​ ​v​ ​p​o​r​i​a​d​k​u​.
-		 */
-		placeNotRemembered: string
-		/**
-		 * M​i​e​s​t​o​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​v​y​h​ľ​a​d​a​ť
-		 */
-		geocodeError: string
-		/**
 		 * T​r​a​s​u​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​v​y​p​o​č​í​t​a​ť
 		 */
 		routeError: string
@@ -4468,30 +4444,6 @@ export type TranslationFunctions = {
 		 * Čas jazdy
 		 */
 		duration: () => LocalizedString
-		/**
-		 * Ktoré miesto to je?
-		 */
-		pickPlace: () => LocalizedString
-		/**
-		 * Vyberte správne miesto. Zapamätáme si ho pre ďalšie jazdy.
-		 */
-		pickPlaceHint: () => LocalizedString
-		/**
-		 * Miesto sa nenašlo. Kliknite na mapu a označte ho.
-		 */
-		placeNotFound: () => LocalizedString
-		/**
-		 * Miesto uložené
-		 */
-		placeRemembered: () => LocalizedString
-		/**
-		 * Miesto sa nepodarilo uložiť, trasa je ale v poriadku.
-		 */
-		placeNotRemembered: () => LocalizedString
-		/**
-		 * Miesto sa nepodarilo vyhľadať
-		 */
-		geocodeError: () => LocalizedString
 		/**
 		 * Trasu sa nepodarilo vypočítať
 		 */

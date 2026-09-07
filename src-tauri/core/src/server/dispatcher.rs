@@ -804,7 +804,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Route maps — sync
         // ====================================================================
         //
-        // generate_route and route_direct live in dispatcher_async — they
+        // generate_route and route_direct live in dispatcher_async -- they
         // await OSRM. start_route_for_trip stays here: the book's endpoints
         // come from a database lookup, not a geocode, so it awaits nothing.
         "start_route_for_trip" => {

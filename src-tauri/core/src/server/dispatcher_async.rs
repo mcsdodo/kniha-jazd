@@ -229,7 +229,7 @@ pub async fn dispatch_async(
         }
 
         // ====================================================================
-        // Route maps — async (2, OSRM geometry fetch)
+        // Route maps -- async (2, OSRM geometry fetch)
         // ====================================================================
         //
         // The other four route map commands are sync and live in dispatcher.rs.

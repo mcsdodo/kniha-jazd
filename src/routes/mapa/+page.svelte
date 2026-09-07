@@ -29,7 +29,7 @@
 	import PlaceModal from '$lib/components/PlaceModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
 
-	/** Just enough to route from an endpoint — not the full place-book `Place`. */
+	/** Just enough to route from an endpoint -- not the full place-book `Place`. */
 	type Endpoint = { lat: number; lon: number; displayName: string };
 
 	// Map view before the first route arrives. Every render calls fitBounds, so
@@ -44,7 +44,7 @@
 	let savedRoute = $state<RouteMap | null>(null);
 	/** Freshly generated, not persisted. Regenerating writes nothing. */
 	let generated = $state<GeneratedRoute | null>(null);
-	/** Decided by the backend (`mode_for`) — this page never compares origin
+	/** Decided by the backend (`mode_for`) -- this page never compares origin
 	 *  to destination itself. Null until the first plan or saved route loads. */
 	let mode = $state<RouteMode | null>(null);
 	/** Alternatives for the current direct route, in the backend's order. */
@@ -67,7 +67,7 @@
 	let baseWaypoints = $state<Waypoint[] | null>(null);
 	/** Endpoints as resolved so far, for building waypoint lists. Populated
 	 *  only from a fresh plan (`startForTrip`) or a saved route's own
-	 *  waypoints (`rehydrateEndpoints`) — never from the place dialog, so
+	 *  waypoints (`rehydrateEndpoints`) -- never from the place dialog, so
 	 *  there is exactly one writer for each. */
 	let resolvedOrigin = $state<Endpoint | null>(null);
 	let resolvedDestination = $state<Endpoint | null>(null);
@@ -457,7 +457,7 @@
 	}
 
 	/**
-	 * A saved route already contains its endpoints — recover them so
+	 * A saved route already contains its endpoints -- recover them so
 	 * Prepočítať and editing work on a re-opened map without re-geocoding.
 	 * Without this the resolved state stays null and every re-route request
 	 * goes out with an empty waypoint list.
@@ -478,7 +478,7 @@
 		return { lat: place.lat!, lon: place.lon!, displayName: place.displayName };
 	}
 
-	/** A shell `Place` for the endpoint the book has no coordinate for yet —
+	/** A shell `Place` for the endpoint the book has no coordinate for yet --
 	 *  only `displayName` is real, the rest are values PlaceModal never reads
 	 *  for an unplaced entry (its own `canClear` stays false throughout). */
 	function unplacedShell(field: 'origin' | 'destination'): Place {
@@ -570,13 +570,13 @@
 	}
 
 	/**
-	 * The place dialog hands back only the coordinate a human confirmed — it
+	 * The place dialog hands back only the coordinate a human confirmed -- it
 	 * imports no write command itself (PlaceModal's own contract). This page
 	 * owns the write, exactly like the Miesta settings page's own handler.
 	 * On success the book now has the entry, so re-running `startForTrip`
 	 * picks it up and continues to the next unplaced endpoint, or routes.
 	 * On failure the dialog is left open (its pin survives) so Save can be
-	 * retried — most likely cause is read-only mode, where `save_place` is
+	 * retried -- most likely cause is read-only mode, where `save_place` is
 	 * always refused.
 	 */
 	async function handlePlaceSaved(coords: { lat: number; lon: number; source: PlaceSource }) {
@@ -598,7 +598,7 @@
 		unplacedField = null;
 	}
 
-	/** Generates and displays a loop route. Persists nothing — only handleSave does. */
+	/** Generates and displays a loop route. Persists nothing -- only handleSave does. */
 	async function runGenerate(targetKm: number) {
 		generating = true;
 		error = null;
@@ -616,7 +616,7 @@
 		}
 	}
 
-	/** Routes and displays a direct route. Persists nothing — only handleSave does.
+	/** Routes and displays a direct route. Persists nothing -- only handleSave does.
 	 *  `roundTrip` is captured into a local at the top, not read again after the
 	 *  await -- the checkbox could otherwise change while the request is in
 	 *  flight and this would append (or not) based on a value that no longer
@@ -661,7 +661,7 @@
 	}
 
 	/** The waypoints any re-route should start from, in either mode. On a
-	 *  re-opened saved route these may include vias — always prefer this over
+	 *  re-opened saved route these may include vias -- always prefer this over
 	 *  `waypointsFromEndpoints()`, which drops them. Direct mode reads
 	 *  `baseWaypoints` rather than `generated.waypoints` directly so a round
 	 *  trip's closing leg is never fed back in as if it were a permanent via. */
