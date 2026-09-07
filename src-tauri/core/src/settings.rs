@@ -176,6 +176,10 @@ pub(crate) mod test_env {
             // Not in ALL (it's server policy, not a settings override), but a
             // developer with it exported would break the reveal tests.
             std::env::remove_var(super::env_vars::REVEAL_PIN);
+            // Not in ALL (it's a test hook, not a settings override), but a
+            // developer with it exported — plausible, the integration fixtures
+            // set it — would break the geocoder's HTTP tests.
+            std::env::remove_var(crate::constants::env_vars::MOCK_GEOCODER_DIR);
         });
     }
 

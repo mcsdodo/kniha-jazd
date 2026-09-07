@@ -3,9 +3,14 @@
 //! Every test runs against a `wiremock` server — nothing here ever touches
 //! Nominatim or any other network host.
 //!
-//! All of them take `settings::test_env::lock()`. `mock_mode_short_circuits_the_network`
-//! sets a process-global env var, and the HTTP tests only behave as written
-//! while it is unset, so the two groups must never overlap.
+//! All of them take `settings::test_env::lock()`, for two separate reasons.
+//! It serialises them against `mock_mode_short_circuits_the_network`, which
+//! sets a process-global env var. And its `scrub_ambient_env` clears an
+//! ambient `KNIHA_JAZD_MOCK_GEOCODER_DIR` — with that exported (plausible: the
+//! integration fixtures set it) the HTTP tests would otherwise short-circuit
+//! onto canned data and three of them would fail. That second half works only
+//! because `settings.rs` names this var in the scrub; the lock alone does not
+//! protect anything the scrub does not cover.
 
 use super::geocode::{GeocodeProvider, HttpGeocodeProvider};
 use crate::constants::env_vars::MOCK_GEOCODER_DIR;
@@ -184,6 +189,21 @@ async fn the_request_carries_no_country_filter() {
     // Assert on what the server RECEIVED, not on a URL built here — otherwise
     // this only tests our own string formatting.
     assert_eq!(requests[0].url.path(), "/search");
+
+    // The address itself is the payload: without this, every other assertion
+    // here could hold while `q` went out empty or mangled. Read through
+    // `query_pairs`, which decodes, so the assertion survives `+`-for-space
+    // form encoding rather than pinning one encoder's output.
+    let searched = requests[0]
+        .url
+        .query_pairs()
+        .find(|(k, _)| k == "q")
+        .map(|(_, v)| v.into_owned())
+        .unwrap_or_default();
+    assert_eq!(
+        searched, "Brno, Česko",
+        "the address searched for must reach the geocoder verbatim"
+    );
 
     let query = requests[0].url.query().unwrap_or_default();
     assert!(
