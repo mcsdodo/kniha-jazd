@@ -61,3 +61,4 @@ _tmp
 # tests/integration/data/, silently untracking new fixtures.
 /data/
 /data-*/
+CLAUDE.local.md
