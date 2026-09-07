@@ -629,3 +629,54 @@ fn test_migrated_schema_identical_to_fresh_schema() {
          fresh install gets — any diff is schema.rs/DDL drift"
     );
 }
+
+// ============================================================================
+// Task 76 — dropping the stored route counters (2026-09-06-110000)
+// ============================================================================
+
+/// A database written before the counters were dropped must still produce
+/// autocomplete suggestions afterwards, with counts that now reflect its trips
+/// rather than the stored number the old write paths kept getting wrong — and
+/// a row those trips no longer justify must stop being offered.
+#[test]
+fn dropping_the_route_counters_keeps_the_suggestions() {
+    let db = open_db_legacy();
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t1", "v1", None);
+    seed_trip(&db, "t2", "v1", None);
+    // A legacy row carrying the kind of inflated counter this migration deletes.
+    exec(
+        &db,
+        "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km, \
+                             usage_count, last_used) \
+         VALUES ('r1', 'v1', 'BA', 'TT', 50.0, 126, '2026-01-01T00:00:00+00:00')",
+    );
+    // ...and an orphan of the kind production carries: no trip matches it.
+    exec(
+        &db,
+        "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km, \
+                             usage_count, last_used) \
+         VALUES ('r2', 'v1', '', '', 0.0, 7, '2026-01-01T00:00:00+00:00')",
+    );
+
+    migrate_to_current(&db);
+
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS cnt FROM pragma_table_info('routes') \
+             WHERE name IN ('usage_count', 'last_used')"
+        ),
+        0,
+        "both stored counters must be gone from the table"
+    );
+
+    let routes = db.get_routes_for_vehicle("v1").unwrap();
+    assert_eq!(routes.len(), 1, "the orphan row is no longer suggested");
+    assert_eq!(routes[0].origin, "BA");
+    assert_eq!(
+        routes[0].usage_count, 2,
+        "counted from the two trips, not from the stored 126"
+    );
+    assert_eq!(routes[0].distance_km, 50.0, "distance_km survives the drop");
+}

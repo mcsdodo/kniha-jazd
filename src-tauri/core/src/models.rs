@@ -1008,8 +1008,6 @@ pub struct RouteRow {
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
-    pub usage_count: i32,
-    pub last_used: String,
 }
 
 /// For inserting new routes
@@ -1021,8 +1019,6 @@ pub struct NewRouteRow<'a> {
     pub origin: &'a str,
     pub destination: &'a str,
     pub distance_km: f64,
-    pub usage_count: i32,
-    pub last_used: &'a str,
 }
 
 /// Database row for trip_routes table (generated route maps, Task 70)
@@ -1219,23 +1215,6 @@ impl From<TripRow> for Trip {
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
             updated_at: DateTime::parse_from_rfc3339(&row.updated_at)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
-        }
-    }
-}
-
-impl From<RouteRow> for Route {
-    fn from(row: RouteRow) -> Self {
-        Route {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
-                .unwrap_or_else(|_| Uuid::new_v4()),
-            vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
-            origin: row.origin,
-            destination: row.destination,
-            distance_km: row.distance_km,
-            usage_count: row.usage_count,
-            last_used: DateTime::parse_from_rfc3339(&row.last_used)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
         }

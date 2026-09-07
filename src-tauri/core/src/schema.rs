@@ -40,8 +40,6 @@ diesel::table! {
         origin -> Text,
         destination -> Text,
         distance_km -> Double,
-        usage_count -> Integer,
-        last_used -> Text,
     }
 }
 

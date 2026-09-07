@@ -597,13 +597,16 @@ impl Database {
     ///
     /// Input locations are normalized (trimmed, whitespace collapsed) before
     /// lookup and storage to prevent duplicates like "Bratislava" vs "Bratislava ".
+    ///
+    /// Returns the stored row, which carries no usage figures: how often a pair
+    /// is driven is derived from `trips` by `get_routes_for_vehicle` (ADR-033).
     pub fn find_or_create_route(
         &self,
         vehicle_id: &str,
         origin: &str,
         destination: &str,
         distance_km: f64,
-    ) -> QueryResult<Route> {
+    ) -> QueryResult<RouteRow> {
         // Normalize inputs to prevent whitespace-based duplicates
         let origin = normalize_location(origin);
         let destination = normalize_location(destination);
@@ -619,42 +622,33 @@ impl Database {
             .optional()?;
 
         if let Some(row) = existing {
-            // The pair is already recorded; nothing about the row needs
-            // updating. How often it is driven is counted from `trips` on read
-            // (ADR-033), so saving the same trip again no longer touches it.
-            Ok(Route::from(row))
-        } else {
-            // Create new route with normalized values
-            let route = Route {
-                id: Uuid::new_v4(),
-                vehicle_id: vehicle_id.parse().unwrap(),
-                origin: origin.clone(),
-                destination: destination.clone(),
-                distance_km,
-                usage_count: 1,
-                last_used: Utc::now(),
-            };
-
-            let id_str = route.id.to_string();
-            let vehicle_id_str = route.vehicle_id.to_string();
-            let last_used_str = route.last_used.to_rfc3339();
-
-            let new_route = NewRouteRow {
-                id: &id_str,
-                vehicle_id: &vehicle_id_str,
-                origin: &route.origin,
-                destination: &route.destination,
-                distance_km: route.distance_km,
-                usage_count: route.usage_count,
-                last_used: &last_used_str,
-            };
-
-            diesel::insert_into(routes::table)
-                .values(&new_route)
-                .execute(conn)?;
-
-            Ok(route)
+            // The pair is already recorded and nothing about it needs updating:
+            // saving the same trip again used to bump a counter here, and that
+            // counter is what made the table lie.
+            return Ok(row);
         }
+
+        // Create new route with normalized values
+        let id = Uuid::new_v4().to_string();
+        let new_route = NewRouteRow {
+            id: &id,
+            vehicle_id,
+            origin: &origin,
+            destination: &destination,
+            distance_km,
+        };
+
+        diesel::insert_into(routes::table)
+            .values(&new_route)
+            .execute(conn)?;
+
+        Ok(RouteRow {
+            id: Some(id),
+            vehicle_id: vehicle_id.to_string(),
+            origin,
+            destination,
+            distance_km,
+        })
     }
 
     /// Rows as stored, bypassing the trips join. Tests about the table itself
