@@ -96,7 +96,14 @@
 	let dataLoadStarted = false;
 
 	let displayRoute = $derived<GeneratedRoute | RouteMap | null>(generated ?? savedRoute);
-	let hasVias = $derived((generated?.waypoints.length ?? 0) > 2);
+	/** Reads `displayRoute`, not just `generated`, so a re-opened saved direct
+	 *  route with vias also reaches the "alternatives unavailable" branch below
+	 *  -- without this, that branch was only reachable right after a fresh
+	 *  `runDirect` proposal, never on cold load (task 72's I2 fix only covered
+	 *  the freshly-generated case). Safe for loop mode too: both branches that
+	 *  read this are gated on `mode === 'direct'`, so a saved loop route's own
+	 *  multi-stop waypoint list never lights them up. */
+	let hasVias = $derived((displayRoute?.waypoints.length ?? 0) > 2);
 	let stopNames = $derived(
 		displayRoute
 			? displayRoute.waypoints.map((w) => w.name).filter((name): name is string => !!name)
