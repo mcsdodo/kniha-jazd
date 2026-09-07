@@ -3,12 +3,34 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import type { Map as LeafletMap, Polyline } from 'leaflet';
-	import { generateRoute, getTripRoute, saveTripRoute, deleteTripRoute, getTrips } from '$lib/api';
-	import type { GeneratedRoute, RouteMap, Trip } from '$lib/types';
+	import {
+		generateRoute,
+		getTripRoute,
+		saveTripRoute,
+		deleteTripRoute,
+		getTrips,
+		startRouteForTrip,
+		routeDirect,
+		savePlace
+	} from '$lib/api';
+	import type {
+		GeneratedRoute,
+		RouteMap,
+		Trip,
+		RouteMode,
+		Waypoint,
+		InsertPoint,
+		Place,
+		PlaceSource
+	} from '$lib/types';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { toast } from '$lib/stores/toast';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+	import PlaceModal from '$lib/components/PlaceModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
+
+	/** Just enough to route from an endpoint — not the full place-book `Place`. */
+	type Endpoint = { lat: number; lon: number; displayName: string };
 
 	// Map view before the first route arrives. Every render calls fitBounds, so
 	// this is only ever visible for the moment between mount and first draw.
@@ -22,6 +44,21 @@
 	let savedRoute = $state<RouteMap | null>(null);
 	/** Freshly generated, not persisted. Regenerating writes nothing. */
 	let generated = $state<GeneratedRoute | null>(null);
+	/** Decided by the backend (`mode_for`) — this page never compares origin
+	 *  to destination itself. Null until the first plan or saved route loads. */
+	let mode = $state<RouteMode | null>(null);
+	/** Alternatives for the current direct route, in the backend's order. */
+	let alternatives = $state<GeneratedRoute[]>([]);
+	let activeIndex = $state(0);
+	/** Endpoints as resolved so far, for building waypoint lists. Populated
+	 *  only from a fresh plan (`startForTrip`) or a saved route's own
+	 *  waypoints (`rehydrateEndpoints`) — never from the place dialog, so
+	 *  there is exactly one writer for each. */
+	let resolvedOrigin = $state<Endpoint | null>(null);
+	let resolvedDestination = $state<Endpoint | null>(null);
+	/** Which endpoint has no coordinate in the place book yet, if any. Drives
+	 *  the shared place dialog (PlaceModal, task 75) opened in place. */
+	let unplacedField = $state<'origin' | 'destination' | null>(null);
 
 	let loading = $state(true);
 	let generating = $state(false);
@@ -129,10 +166,7 @@
 				return;
 			}
 
-			savedRoute = await getTripRoute(tripId);
-			if (!savedRoute) {
-				await runGenerate(trip.distanceKm);
-			}
+			await loadRoute();
 		} catch (e) {
 			console.error('Failed to load route map:', e);
 			error = $LL.routeMap.error();
@@ -141,7 +175,142 @@
 		}
 	}
 
-	/** Generates and displays a route. Persists nothing — only handleSave does. */
+	/** The saved-route-or-fresh-plan pipeline, factored out so a retry after a
+	 *  failure that happened before `mode` was known (e.g. `getTripRoute`
+	 *  itself failing) can re-run the whole decision, not just one mode's path. */
+	async function loadRoute() {
+		savedRoute = await getTripRoute(tripId);
+		if (savedRoute) {
+			mode = savedRoute.mode;
+			rehydrateEndpoints(savedRoute);
+			return;
+		}
+		await startForTrip();
+	}
+
+	/**
+	 * A saved route already contains its endpoints — recover them so
+	 * Prepočítať and editing work on a re-opened map without re-geocoding.
+	 * Without this the resolved state stays null and every re-route request
+	 * goes out with an empty waypoint list.
+	 */
+	function rehydrateEndpoints(route: RouteMap) {
+		const points = route.waypoints;
+		if (points.length < 2) return;
+		const first = points[0];
+		const last = points[points.length - 1];
+		resolvedOrigin = { lat: first.lat, lon: first.lon, displayName: first.name ?? '' };
+		resolvedDestination = { lat: last.lat, lon: last.lon, displayName: last.name ?? '' };
+	}
+
+	/** `RouteStart` only returns a `Place` when the book holds both lat and
+	 *  lon (see `placed_endpoint` in Rust), so the assertion here reflects
+	 *  that invariant rather than guessing. */
+	function toEndpoint(place: Place): Endpoint {
+		return { lat: place.lat!, lon: place.lon!, displayName: place.displayName };
+	}
+
+	/** A shell `Place` for the endpoint the book has no coordinate for yet —
+	 *  only `displayName` is real, the rest are values PlaceModal never reads
+	 *  for an unplaced entry (its own `canClear` stays false throughout). */
+	function unplacedShell(field: 'origin' | 'destination'): Place {
+		return {
+			displayName: field === 'origin' ? (trip?.origin ?? '') : (trip?.destination ?? ''),
+			normalisedName: '',
+			uses: 0,
+			lat: null,
+			lon: null,
+			source: null
+		};
+	}
+
+	/**
+	 * Ask the backend what kind of route this row wants, and where its
+	 * endpoints are. ONE round trip: mode selection is `mode_for` in Rust, and
+	 * both endpoints resolve server-side against the place book.
+	 */
+	async function startForTrip() {
+		if (!trip) return;
+		generating = true;
+		error = null;
+		try {
+			const plan = await startRouteForTrip(tripId);
+			mode = plan.mode;
+
+			if (plan.mode === 'loop') {
+				await runGenerate(trip.distanceKm);
+				return;
+			}
+
+			resolvedOrigin = plan.origin ? toEndpoint(plan.origin) : null;
+			resolvedDestination = plan.destination ? toEndpoint(plan.destination) : null;
+
+			if (!resolvedOrigin) {
+				unplacedField = 'origin';
+				return;
+			}
+			if (!resolvedDestination) {
+				unplacedField = 'destination';
+				return;
+			}
+			unplacedField = null;
+
+			await runDirect(waypointsFromEndpoints(), trip.distanceKm);
+		} catch (e) {
+			// mode_for is synchronous and network-free (a DB lookup against the
+			// place book), so the only realistic failure here is a trip with a
+			// blank origin or destination — not retryable, and not the
+			// backend's raw English text, which would bypass i18n.
+			console.error('Failed to plan trip route:', e);
+			error = $LL.routeMap.missingEndpoints();
+			retryable = false;
+		} finally {
+			generating = false;
+		}
+	}
+
+	function waypointsFromEndpoints(): Waypoint[] {
+		if (!resolvedOrigin || !resolvedDestination) return [];
+		return [
+			{ lat: resolvedOrigin.lat, lon: resolvedOrigin.lon, name: resolvedOrigin.displayName },
+			{
+				lat: resolvedDestination.lat,
+				lon: resolvedDestination.lon,
+				name: resolvedDestination.displayName
+			}
+		];
+	}
+
+	/**
+	 * The place dialog hands back only the coordinate a human confirmed — it
+	 * imports no write command itself (PlaceModal's own contract). This page
+	 * owns the write, exactly like the Miesta settings page's own handler.
+	 * On success the book now has the entry, so re-running `startForTrip`
+	 * picks it up and continues to the next unplaced endpoint, or routes.
+	 * On failure the dialog is left open (its pin survives) so Save can be
+	 * retried — most likely cause is read-only mode, where `save_place` is
+	 * always refused.
+	 */
+	async function handlePlaceSaved(coords: { lat: number; lon: number; source: PlaceSource }) {
+		const field = unplacedField;
+		if (!field || !trip) return;
+		const displayName = field === 'origin' ? trip.origin : trip.destination;
+		try {
+			await savePlace(displayName, coords.lat, coords.lon, coords.source);
+			toast.success($LL.places.saved());
+			unplacedField = null;
+			await startForTrip();
+		} catch (e) {
+			console.error('Failed to save place:', e);
+			toast.error($LL.places.saveError({ error: String(e) }));
+		}
+	}
+
+	function closePlaceDialog() {
+		unplacedField = null;
+	}
+
+	/** Generates and displays a loop route. Persists nothing — only handleSave does. */
 	async function runGenerate(targetKm: number) {
 		generating = true;
 		error = null;
@@ -159,15 +328,55 @@
 		}
 	}
 
+	/** Routes and displays a direct route. Persists nothing — only handleSave does. */
+	async function runDirect(waypoints: Waypoint[], targetKm: number, insert?: InsertPoint) {
+		generating = true;
+		error = null;
+		savedNotice = false;
+		try {
+			const routes = await routeDirect(waypoints, targetKm, insert);
+			if (routes.length === 0) throw new Error('no routes returned');
+			alternatives = routes;
+			activeIndex = 0;
+			generated = routes[0];
+		} catch (e) {
+			console.error('Failed to route trip:', e);
+			// Same rule as loop mode: drop the proposal so an error banner can
+			// never have a stale, saveable route sitting behind it.
+			generated = null;
+			alternatives = [];
+			error = $LL.routeMap.routeError();
+		} finally {
+			generating = false;
+		}
+	}
+
+	/** The waypoints any re-route should start from, in either mode. On a
+	 *  re-opened saved route these may include vias — always prefer this over
+	 *  `waypointsFromEndpoints()`, which drops them. */
+	function currentWaypoints(): Waypoint[] {
+		return generated?.waypoints ?? savedRoute?.waypoints ?? waypointsFromEndpoints();
+	}
+
 	function handleRegenerate() {
 		if (!trip) return;
-		void runGenerate(trip.distanceKm);
+		if (mode === 'loop') {
+			void runGenerate(trip.distanceKm);
+		} else if (mode === 'direct') {
+			void runDirect(currentWaypoints(), trip.distanceKm);
+		}
 	}
 
 	function handleRetry() {
 		error = null;
 		if (trip) {
-			void runGenerate(trip.distanceKm);
+			if (mode === 'loop') {
+				void runGenerate(trip.distanceKm);
+			} else if (mode === 'direct') {
+				void runDirect(currentWaypoints(), trip.distanceKm);
+			} else {
+				void loadRoute();
+			}
 			return;
 		}
 		const vehicle = $activeVehicleStore;
@@ -236,14 +445,25 @@
 	</div>
 
 	<div class="toolbar">
-		<button
-			class="button"
-			data-test="regenerate-btn"
-			onclick={handleRegenerate}
-			disabled={busy || !trip}
-		>
-			{generating ? $LL.routeMap.generating() : $LL.routeMap.regenerate()}
-		</button>
+		{#if mode === 'loop'}
+			<button
+				class="button"
+				data-test="regenerate-btn"
+				onclick={handleRegenerate}
+				disabled={busy || !trip}
+			>
+				{generating ? $LL.routeMap.generating() : $LL.routeMap.regenerate()}
+			</button>
+		{:else if mode === 'direct'}
+			<button
+				class="button"
+				data-test="recalculate-btn"
+				onclick={handleRegenerate}
+				disabled={busy || !trip}
+			>
+				{generating ? $LL.routeMap.generating() : $LL.routeMap.recalculate()}
+			</button>
+		{/if}
 		<button
 			class="button secondary"
 			data-test="save-btn"
@@ -325,6 +545,20 @@
 		onConfirm={handleRemoveConfirmed}
 		onCancel={() => (confirmingRemove = false)}
 	/>
+{/if}
+
+{#if unplacedField}
+	<!-- The key forces a fresh dialog if the target field changes, so a pin
+	     from placing the origin cannot survive under the destination's name -
+	     PlaceModal seeds its pending coordinate from the prop exactly once. -->
+	{#key unplacedField}
+		<PlaceModal
+			place={unplacedShell(unplacedField)}
+			onSave={handlePlaceSaved}
+			onClear={closePlaceDialog}
+			onClose={closePlaceDialog}
+		/>
+	{/key}
 {/if}
 
 <style>
