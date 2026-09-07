@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use uuid::Uuid;
 
-use crate::schema::{receipts, routes, settings, trip_routes, trips, vehicles};
+use crate::schema::{places, receipts, routes, settings, trip_routes, trips, vehicles};
 
 /// Vehicle powertrain type - determines which fields are required/displayed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -1049,6 +1049,31 @@ pub struct NewRouteMapRow<'a> {
     pub created_at: &'a str,
 }
 
+/// Database row for places table (the place book, Task 75)
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
+#[diesel(table_name = places)]
+#[diesel(primary_key(normalised_name))]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct PlaceRow {
+    pub normalised_name: String,
+    /// The spelling trips use, verbatim (ADR-034).
+    pub display_name: String,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
+    pub source: String,
+}
+
+/// For inserting new places
+#[derive(Debug, Insertable)]
+#[diesel(table_name = places)]
+pub struct NewPlaceRow<'a> {
+    pub normalised_name: &'a str,
+    pub display_name: &'a str,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
+    pub source: &'a str,
+}
+
 /// Database row for settings table
 #[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset)]
 #[diesel(table_name = settings)]
@@ -1385,6 +1410,55 @@ pub struct TripInvoiceCoverage {
     pub has_unknown_amount: bool,
 }
 
+// ============================================================================
+// Place book — a place a trip names, and its confirmed coordinate (Task 75)
+// ============================================================================
+
+/// How a place got its coordinates. Kept so a later reader can tell a
+/// suggestion someone accepted from a pin someone dropped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PlaceSource {
+    Geocoder,
+    Manual,
+}
+
+impl PlaceSource {
+    /// The TEXT stored in `places.source` — the same two strings serde emits,
+    /// so a row and its JSON never disagree.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PlaceSource::Geocoder => "geocoder",
+            PlaceSource::Manual => "manual",
+        }
+    }
+
+    /// Reads [`as_str`] back. An unrecognised string yields `None` rather than
+    /// panicking: a row written by a newer build must not crash an older one.
+    pub fn parse(source: &str) -> Option<Self> {
+        match source {
+            "geocoder" => Some(PlaceSource::Geocoder),
+            "manual" => Some(PlaceSource::Manual),
+            _ => None,
+        }
+    }
+}
+
+/// One row of the Miesta list: a place a trip names, and its coordinate if a
+/// human has confirmed one. `lat`/`lon` are None until then.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Place {
+    /// The spelling trips use, verbatim (ADR-034).
+    pub display_name: String,
+    pub normalised_name: String,
+    /// How many trip endpoints name this place.
+    pub uses: i64,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
+    pub source: Option<PlaceSource>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1539,5 +1613,24 @@ mod tests {
 
         assert!(json.contains("totalPrice")); // camelCase
         assert!(!json.contains("total_price")); // NOT snake_case
+    }
+
+    #[test]
+    fn place_source_text_mapping_round_trips_and_matches_serde() {
+        for source in [PlaceSource::Geocoder, PlaceSource::Manual] {
+            assert_eq!(PlaceSource::parse(source.as_str()), Some(source));
+            // The stored TEXT and the JSON must be the same string, or a row
+            // and its wire form would name the same source differently.
+            assert_eq!(
+                serde_json::to_string(&source).unwrap(),
+                format!("\"{}\"", source.as_str())
+            );
+        }
+
+        assert_eq!(
+            PlaceSource::parse("satellite"),
+            None,
+            "a value a newer build wrote must read as unknown, not panic"
+        );
     }
 }

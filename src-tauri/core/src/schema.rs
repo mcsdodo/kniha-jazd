@@ -131,6 +131,17 @@ diesel::table! {
     }
 }
 
+// Added via migration 2026-09-07-100000_add_places (Task 75)
+diesel::table! {
+    places (normalised_name) {
+        normalised_name -> Text,
+        display_name -> Text,
+        lat -> Nullable<Double>,
+        lon -> Nullable<Double>,
+        source -> Text,
+    }
+}
+
 diesel::joinable!(receipts -> trips (trip_id));
 diesel::joinable!(receipts -> vehicles (vehicle_id));
 diesel::joinable!(routes -> vehicles (vehicle_id));

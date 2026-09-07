@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::models::{
-    AssignmentType, PaperlessLink, ReceiptStatus, RouteMap, VehicleType, Waypoint,
+    AssignmentType, PaperlessLink, PlaceRow, ReceiptStatus, RouteMap, VehicleType, Waypoint,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -1096,6 +1096,21 @@ fn trip_routes_table_exists_after_migration() {
     diesel::sql_query("SELECT trip_id, waypoints, polyline, target_km, road_km, dataset_version, created_at FROM trip_routes")
         .execute(conn)
         .expect("trip_routes table must exist");
+}
+
+/// Nothing queries `places` until Task 3, so without this the migration and the
+/// `schema.rs` entry could disagree and no test would notice. Selecting through
+/// `PlaceRow` checks both at once: the table the migration built, and the
+/// columns Diesel believes it has.
+#[test]
+fn places_table_matches_the_schema_after_migration() {
+    let db = Database::in_memory().expect("Failed to create database");
+    let conn = &mut *db.connection();
+    let rows: Vec<PlaceRow> = crate::schema::places::table
+        .select(PlaceRow::as_select())
+        .load(conn)
+        .expect("places table must match the schema");
+    assert!(rows.is_empty(), "a fresh place book starts empty");
 }
 
 /// Seed a vehicle + trip and return the trip (its `id` is the route-map key).
