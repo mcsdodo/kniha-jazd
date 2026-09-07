@@ -543,3 +543,39 @@ export interface RouteMap {
 	datasetVersion: string | null;
 	createdAt: string;
 }
+
+// Place book types (Task 75)
+
+/** How a place got its coordinate. Mirrors the Rust `PlaceSource` enum. */
+export type PlaceSource = 'geocoder' | 'manual';
+
+/**
+ * One row of the Miesta list: a place trips name, and its coordinate once a
+ * human has confirmed one.
+ *
+ * `displayName` is the spelling trips already use, verbatim — never the
+ * geocoder's rendering (ADR-034). The autocomplete offers this string, so a
+ * geocoder's official name here would write a *new* spelling into a trip and
+ * regrow the place-name fragmentation the data cleanup removed.
+ *
+ * `uses` counts trip endpoints, not trips: A → B adds 1 to each, and a trip
+ * whose origin and destination are the same place adds 2 to it. Hence the
+ * Slovak label $LL.places.uses() — "výskytov" (occurrences), not "jázd".
+ */
+export interface Place {
+	displayName: string;
+	normalisedName: string;
+	uses: number;
+	lat: number | null;  // null until a human places it
+	lon: number | null;  // null until a human places it
+	source: PlaceSource | null; // null while unplaced
+}
+
+/** One geocoder match offered while placing. Mirrors the Rust `Candidate` —
+ *  renamed here because TypeScript's namespace is flat and a bare `Candidate`
+ *  says nothing about what it is a candidate for. */
+export interface GeocodeCandidate {
+	lat: number;
+	lon: number;
+	label: string;
+}

@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -535,4 +535,26 @@ export async function saveTripRoute(tripId: string, route: GeneratedRoute): Prom
 
 export async function deleteTripRoute(tripId: string): Promise<void> {
 	return await apiCall('delete_trip_route', { tripId });
+}
+
+// Place book commands (Task 75)
+export async function listPlaces(): Promise<Place[]> {
+	return await apiCall('list_places');
+}
+
+export async function geocodePlace(query: string): Promise<GeocodeCandidate[]> {
+	return await apiCall('geocode_place', { query });
+}
+
+export async function savePlace(
+	displayName: string,
+	lat: number,
+	lon: number,
+	source: PlaceSource
+): Promise<void> {
+	return await apiCall('save_place', { displayName, lat, lon, source });
+}
+
+export async function clearPlace(displayName: string): Promise<void> {
+	return await apiCall('clear_place', { displayName });
 }
