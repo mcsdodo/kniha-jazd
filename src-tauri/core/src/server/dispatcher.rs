@@ -804,7 +804,19 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // Route maps — sync
         // ====================================================================
         //
-        // generate_route lives in dispatcher_async — it awaits OSRM.
+        // generate_route and route_direct live in dispatcher_async — they
+        // await OSRM. start_route_for_trip stays here: the book's endpoints
+        // come from a database lookup, not a geocode, so it awaits nothing.
+        "start_route_for_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::start_route_for_trip_internal(&state.db, a.trip_id)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         "get_trip_route" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -1135,6 +1147,38 @@ mod tests {
         assert!(dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state)
             .unwrap()
             .is_null());
+    }
+
+    /// start_route_for_trip must be routed here (the book's endpoints come
+    /// from a database lookup, not a geocode, so it awaits nothing) and must
+    /// take `tripId`, the name `src/lib/api.ts` sends. A missing id fails
+    /// during parsing, so this pins the name without touching the database.
+    #[test]
+    fn start_route_for_trip_over_rpc_takes_trip_id() {
+        let state = test_state();
+        let err = dispatch_sync("start_route_for_trip", json!({}), &state).unwrap_err();
+        assert!(err.contains("tripId"), "got: {err}");
+    }
+
+    /// A same-place row is planned entirely offline: no endpoint is geocoded,
+    /// so this exercises the real command through the dispatcher without a
+    /// stub or a network call.
+    #[test]
+    fn start_route_for_trip_plans_a_loop_without_geocoding() {
+        let state = test_state();
+        let vehicle = crate::models::Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+        state.db.create_vehicle(&vehicle).unwrap();
+        let trip = crate::db_tests::seed_trip_between(&state.db, &vehicle.id, "Domov", "domov ");
+
+        let plan = dispatch_sync(
+            "start_route_for_trip",
+            json!({ "tripId": trip.id.to_string() }),
+            &state,
+        )
+        .unwrap();
+
+        assert_eq!(plan["mode"], "loop");
+        assert!(plan["origin"].is_null());
     }
 
     #[test]

@@ -229,10 +229,10 @@ pub async fn dispatch_async(
         }
 
         // ====================================================================
-        // Route maps — async (1, OSRM geometry fetch)
+        // Route maps — async (2, OSRM geometry fetch)
         // ====================================================================
         //
-        // The other three route map commands are sync and live in dispatcher.rs.
+        // The other four route map commands are sync and live in dispatcher.rs.
         "generate_route" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -246,6 +246,29 @@ pub async fn dispatch_async(
             let provider = crate::route_map::HttpRouteProvider::public();
             let result =
                 crate::commands_internal::generate_route_internal(&provider, a.target_km).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+        "route_direct" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                waypoints: Vec<crate::models::Waypoint>,
+                target_km: f64,
+                #[serde(default)]
+                insert: Option<crate::commands_internal::InsertPoint>,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let provider = crate::route_map::HttpRouteProvider::public();
+            let result = crate::commands_internal::route_direct_internal(
+                &provider,
+                a.waypoints,
+                a.target_km,
+                a.insert,
+            )
+            .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 
@@ -360,6 +383,41 @@ mod tests {
         let err = result
             .expect("generate_route must be handled here, not by dispatch_sync")
             .unwrap_err();
+        assert!(err.contains("targetKm"), "got: {err}");
+    }
+
+    /// route_direct must be routed here (it awaits OSRM) and must take
+    /// `waypoints`, the name `src/lib/api.ts` sends. Bad args fail during
+    /// parsing, so this pins both without touching the network.
+    #[tokio::test]
+    async fn route_direct_is_an_async_command_taking_waypoints() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let result = dispatch_async("route_direct", json!({}), &state).await;
+        let err = result
+            .expect("route_direct must be handled here, not by dispatch_sync")
+            .unwrap_err();
+        assert!(err.contains("waypoints"), "got: {err}");
+
+        // serde reports only the first missing field, so `waypoints` above
+        // pins nothing about `targetKm` -- send a valid waypoint list and
+        // check the next missing field by itself.
+        let err = dispatch_async(
+            "route_direct",
+            json!({ "waypoints": [
+                { "lat": 48.1, "lon": 17.1 },
+                { "lat": 48.7, "lon": 21.2 }
+            ] }),
+            &state,
+        )
+        .await
+        .expect("route_direct must be handled here, not by dispatch_sync")
+        .unwrap_err();
         assert!(err.contains("targetKm"), "got: {err}");
     }
 
