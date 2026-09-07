@@ -132,6 +132,61 @@ pub(crate) fn seed_test_trip(db: &Database, vehicle_id: &str) -> String {
     id
 }
 
+// Seed a trip on a specific origin/destination pair and register its route,
+// mirroring what `create_trip_internal` does on the real write path. Returns
+// the trip so callers can edit or delete it.
+pub(crate) fn seed_trip_between(
+    db: &Database,
+    vehicle_id: &Uuid,
+    origin: &str,
+    destination: &str,
+) -> Trip {
+    seed_trip_between_on(db, vehicle_id, origin, destination, "2026-01-01T08:00:00")
+}
+
+// As `seed_trip_between`, but with an explicit `start_datetime` so tests can
+// order trips on the same pair.
+pub(crate) fn seed_trip_between_on(
+    db: &Database,
+    vehicle_id: &Uuid,
+    origin: &str,
+    destination: &str,
+    start_datetime: &str,
+) -> Trip {
+    let trip = Trip {
+        id: Uuid::new_v4(),
+        vehicle_id: *vehicle_id,
+        origin: origin.into(),
+        destination: destination.into(),
+        distance_km: 50.0,
+        odometer: 12345.0,
+        purpose: "test".into(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        start_datetime: NaiveDateTime::parse_from_str(start_datetime, "%Y-%m-%dT%H:%M:%S")
+            .expect("valid start_datetime"),
+        end_datetime: None,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    db.create_trip(&trip).expect("seed trip");
+    db.find_or_create_route(
+        &vehicle_id.to_string(),
+        origin,
+        destination,
+        trip.distance_km,
+    )
+    .expect("seed route");
+    trip
+}
+
 #[test]
 fn test_vehicle_crud_lifecycle() {
     let db = Database::in_memory().expect("Failed to create database");
@@ -319,6 +374,163 @@ fn test_find_or_create_route_upsert() {
         .expect("Failed to find route");
     assert_eq!(route2.id, route1.id);
     assert_eq!(route2.usage_count, 2);
+}
+
+// ============================================================================
+// Route usage is counted from trips, not from saves (Task 76 / ADR-033)
+// ============================================================================
+
+#[test]
+fn route_usage_counts_trips_not_saves() {
+    // The bug in one assertion: re-saving a trip must not inflate the count.
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+
+    let trip = seed_trip_between(&db, &v.id, "Office, City A", "Depot, City B");
+    // Two edits that leave the pair alone, taking the same two steps
+    // `update_trip_internal` takes: save the trip, re-register its route.
+    for _ in 0..2 {
+        db.update_trip(&trip).unwrap();
+        db.find_or_create_route(
+            &v.id.to_string(),
+            &trip.origin,
+            &trip.destination,
+            trip.distance_km,
+        )
+        .unwrap();
+    }
+
+    let routes = db.get_routes_for_vehicle(&v.id.to_string()).unwrap();
+    assert_eq!(routes.len(), 1);
+    assert_eq!(
+        routes[0].usage_count, 1,
+        "one trip, however many times it was saved"
+    );
+}
+
+#[test]
+fn editing_a_trip_moves_the_count_to_the_new_pair() {
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+
+    let mut trip = seed_trip_between(&db, &v.id, "Warehouse, City B", "Office, City A");
+    trip.destination = "Depot, City C".into();
+    db.update_trip(&trip).unwrap();
+    db.find_or_create_route(
+        &v.id.to_string(),
+        &trip.origin,
+        &trip.destination,
+        trip.distance_km,
+    )
+    .unwrap();
+
+    let routes = db.get_routes_for_vehicle(&v.id.to_string()).unwrap();
+    assert_eq!(routes.len(), 1, "both pairs must not claim the same trip");
+    assert_eq!(routes[0].destination, "Depot, City C");
+    assert_eq!(routes[0].usage_count, 1);
+}
+
+#[test]
+fn deleting_the_last_trip_removes_the_suggestion() {
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_trip_between(&db, &v.id, "Office, City A", "Depot, City B");
+
+    db.delete_trip(&trip.id.to_string()).unwrap();
+
+    assert!(db
+        .get_routes_for_vehicle(&v.id.to_string())
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn deleting_one_of_several_trips_lowers_the_count() {
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+    let trip = seed_trip_between(&db, &v.id, "Office, City A", "Depot, City B");
+    seed_trip_between(&db, &v.id, "Office, City A", "Depot, City B");
+
+    db.delete_trip(&trip.id.to_string()).unwrap();
+
+    let routes = db.get_routes_for_vehicle(&v.id.to_string()).unwrap();
+    assert_eq!(routes[0].usage_count, 1);
+}
+
+#[test]
+fn last_used_is_the_most_recent_trip_on_that_pair() {
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+    seed_trip_between_on(
+        &db,
+        &v.id,
+        "Office, City A",
+        "Depot, City B",
+        "2024-03-01T08:00:00",
+    );
+    seed_trip_between_on(
+        &db,
+        &v.id,
+        "Office, City A",
+        "Depot, City B",
+        "2025-07-14T08:00:00",
+    );
+
+    let routes = db.get_routes_for_vehicle(&v.id.to_string()).unwrap();
+    assert_eq!(routes[0].usage_count, 2);
+    assert!(routes[0].last_used.to_rfc3339().starts_with("2025-07-14"));
+}
+
+#[test]
+fn suggestions_are_ordered_by_real_usage() {
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+    seed_trip_between(&db, &v.id, "Rare, City C", "Depot, City B");
+    seed_trip_between(&db, &v.id, "Office, City A", "Depot, City B");
+    seed_trip_between(&db, &v.id, "Office, City A", "Depot, City B");
+
+    let routes = db.get_routes_for_vehicle(&v.id.to_string()).unwrap();
+    assert_eq!(routes[0].origin, "Office, City A", "most-used first");
+}
+
+/// The 8 rows the production database carries whose trips are gone — including
+/// one with empty endpoints — must stop being suggested. This also covers R5:
+/// a route row whose place text matches no trip is junk, not a hidden route.
+#[test]
+fn a_route_row_no_trip_justifies_is_not_returned() {
+    let db = Database::in_memory().unwrap();
+    let v = create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+    // Written directly, the way a deleted trip leaves one behind.
+    db.find_or_create_route(&v.id.to_string(), "Ghost, City X", "Nowhere", 10.0)
+        .unwrap();
+
+    assert!(db
+        .get_routes_for_vehicle(&v.id.to_string())
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn another_vehicles_trips_do_not_count_towards_this_ones_routes() {
+    // routes are vehicle-scoped and the join must stay so.
+    let db = Database::in_memory().unwrap();
+    let a = create_test_vehicle("A");
+    let b = create_test_vehicle("B");
+    db.create_vehicle(&a).unwrap();
+    db.create_vehicle(&b).unwrap();
+    seed_trip_between(&db, &a.id, "Office, City A", "Depot, City B");
+    seed_trip_between(&db, &b.id, "Office, City A", "Depot, City B");
+
+    let routes = db.get_routes_for_vehicle(&a.id.to_string()).unwrap();
+    assert_eq!(routes.len(), 1);
+    assert_eq!(routes[0].usage_count, 1);
 }
 
 #[test]

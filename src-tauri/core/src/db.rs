@@ -474,15 +474,71 @@ impl Database {
     // Route CRUD Operations
     // ========================================================================
 
+    /// Autocomplete suggestions for a vehicle, most-used first.
+    ///
+    /// `usage_count` and `last_used` are computed from `trips` rather than
+    /// stored (ADR-033): three write paths were meant to keep stored copies
+    /// current and none did, leaving 52 of 96 rows wrong in production.
+    ///
+    /// The join is INNER by design. A `routes` row whose trips have all been
+    /// deleted is a suggestion for a journey the logbook no longer contains,
+    /// so it drops out here instead of needing a cleanup pass.
     pub fn get_routes_for_vehicle(&self, vehicle_id: &str) -> QueryResult<Vec<Route>> {
         let conn = &mut *self.conn.lock().unwrap();
 
-        let rows = routes::table
-            .filter(routes::vehicle_id.eq(vehicle_id))
-            .order(routes::usage_count.desc())
-            .load::<RouteRow>(conn)?;
+        #[derive(QueryableByName)]
+        struct DerivedRouteRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            id: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            vehicle_id: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            origin: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            destination: String,
+            #[diesel(sql_type = diesel::sql_types::Double)]
+            distance_km: f64,
+            #[diesel(sql_type = diesel::sql_types::Integer)]
+            usage_count: i32,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            last_used: String,
+        }
 
-        Ok(rows.into_iter().map(Route::from).collect())
+        // `last_used` arrives as a `trips.start_datetime` string, not the
+        // RFC 3339 the dropped column held, so it is parsed the way
+        // `find_most_recent_trip_times_for_route` parses the same field.
+        fn derived_route(row: DerivedRouteRow) -> Route {
+            Route {
+                id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
+                    .unwrap_or_else(|_| Uuid::new_v4()),
+                vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
+                origin: row.origin,
+                destination: row.destination,
+                distance_km: row.distance_km,
+                usage_count: row.usage_count,
+                last_used: NaiveDateTime::parse_from_str(&row.last_used, "%Y-%m-%dT%H:%M:%S")
+                    .map(|dt| dt.and_utc())
+                    .unwrap_or_else(|_| Utc::now()),
+            }
+        }
+
+        let rows = diesel::sql_query(
+            "SELECT r.id, r.vehicle_id, r.origin, r.destination, r.distance_km,
+                    COUNT(t.id) AS usage_count,
+                    MAX(t.start_datetime) AS last_used
+               FROM routes r
+               JOIN trips t
+                 ON t.vehicle_id = r.vehicle_id
+                AND t.origin = r.origin
+                AND t.destination = r.destination
+              WHERE r.vehicle_id = ?
+              GROUP BY r.id
+              ORDER BY usage_count DESC",
+        )
+        .bind::<diesel::sql_types::Text, _>(vehicle_id)
+        .load::<DerivedRouteRow>(conn)?;
+
+        Ok(rows.into_iter().map(derived_route).collect())
     }
 
     /// Get all unique trip purposes for a vehicle (raw SQL for DISTINCT TRIM)
