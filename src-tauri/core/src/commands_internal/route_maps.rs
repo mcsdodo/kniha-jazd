@@ -18,9 +18,11 @@ use uuid::Uuid;
 
 use crate::app_state::AppState;
 use crate::check_read_only;
+use crate::commands_internal::list_places_internal;
 use crate::db::Database;
 use crate::export::RouteMapPage;
-use crate::models::{RouteMap, TripGridData, Waypoint};
+use crate::models::{Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint};
+use crate::places::normalise;
 use crate::route_map::polyline::decode;
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
@@ -321,6 +323,65 @@ pub async fn collect_route_map_pages(
     }
 
     pages
+}
+
+// ---------------------------------------------------------------------------
+// Route mode decision (Task 72, Phase 2)
+// ---------------------------------------------------------------------------
+
+/// Loop when the row names the same place twice, direct otherwise.
+///
+/// Compared after `places::normalise`, the same function the book keys on, so a
+/// row cannot be direct-mode here and collide onto one book entry there.
+fn mode_for(origin: &str, destination: &str) -> Result<RouteMode, String> {
+    let origin_key = normalise(origin);
+    let destination_key = normalise(destination);
+    if origin_key.is_empty() || destination_key.is_empty() {
+        return Err("A trip needs both an origin and a destination".to_string());
+    }
+
+    if origin_key == destination_key {
+        Ok(RouteMode::Loop)
+    } else {
+        Ok(RouteMode::Direct)
+    }
+}
+
+/// The book's entry for `name`, or `None` when a human has not yet confirmed a
+/// coordinate for it (or no trip has ever named it at all).
+fn placed_endpoint(places: &[Place], name: &str) -> Option<Place> {
+    let key = normalise(name);
+    places
+        .iter()
+        .find(|p| p.normalised_name == key && p.lat.is_some() && p.lon.is_some())
+        .cloned()
+}
+
+/// The map view's entry point, and `mode_for`'s only caller.
+///
+/// Synchronous and network-free: the endpoints are a database lookup against the
+/// place book, not a geocode. That is what the book bought -- see ADR-032.
+pub fn start_route_for_trip_internal(
+    db: &Database,
+    trip_id: String,
+) -> Result<RouteStart, String> {
+    let trip = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
+
+    let mode = mode_for(&trip.origin, &trip.destination)?;
+
+    // The book's own read path, so there is one place that knows how a trip's
+    // spelling becomes a book entry (list_places_internal folds spellings and
+    // joins the stored coordinate).
+    let places = list_places_internal(db)?;
+
+    Ok(RouteStart {
+        mode,
+        origin: placed_endpoint(&places, &trip.origin),
+        destination: placed_endpoint(&places, &trip.destination),
+    })
 }
 
 #[cfg(test)]

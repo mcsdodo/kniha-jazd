@@ -1471,6 +1471,33 @@ pub struct Place {
     pub source: Option<PlaceSource>,
 }
 
+// ============================================================================
+// Route mode -- loop or direct (Task 72, Phase 2)
+// ============================================================================
+
+/// Which shape of route a row calls for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RouteMode {
+    /// A->A: today's genetic-algorithm loop from Home Base (V1), unchanged.
+    Loop,
+    /// A->B through the row's own endpoints, as the place book holds them.
+    Direct,
+}
+
+/// What the map view needs to open a row: the mode, and the endpoints if the
+/// book has them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteStart {
+    pub mode: RouteMode,
+    /// None when the book has no coordinate for that endpoint yet. The view
+    /// opens the place dialog rather than failing (ADR-032: places are placed
+    /// by a human, and this is where a newly typed one gets placed).
+    pub origin: Option<Place>,
+    pub destination: Option<Place>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

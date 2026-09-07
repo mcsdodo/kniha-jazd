@@ -6,10 +6,10 @@ use super::*;
 use crate::app_state::AppState;
 use crate::db::Database;
 use crate::export::RouteMapPage;
-use crate::models::{Trip, Vehicle, Waypoint};
+use crate::models::{PlaceSource, RouteMode, Trip, Vehicle, Waypoint};
 use crate::route_map::polyline::encode;
 use crate::route_map::tiles::TileFetcher;
-use crate::commands_internal::build_trip_grid_data;
+use crate::commands_internal::{build_trip_grid_data, save_place_internal};
 use crate::route_map::{Dataset, FetchedRoute, RouteProvider};
 use chrono::NaiveDate;
 use uuid::Uuid;
@@ -589,4 +589,112 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         .expect("must exist");
     assert!((loaded.deviation_percent - 2.0).abs() < 1e-9);
     assert!(!loaded.off_target, "2% must be within tolerance");
+}
+
+// ---------------------------------------------------------------------------
+// mode_for / start_route_for_trip: the place-book route mode decision
+// ---------------------------------------------------------------------------
+
+fn app_state() -> AppState {
+    AppState::new()
+}
+
+#[test]
+fn the_same_place_twice_is_a_loop() {
+    assert_eq!(mode_for("Domov", "Domov").unwrap(), RouteMode::Loop);
+}
+
+/// Mode selection and the place book MUST share one notion of sameness, or a
+/// row could route A->B while its endpoints resolve to one book entry.
+/// Both call `places::normalise` -- there is no second implementation.
+#[test]
+fn sameness_is_judged_after_normalisation() {
+    assert_eq!(mode_for("Spišská", "spisska ").unwrap(), RouteMode::Loop);
+}
+
+#[test]
+fn different_places_are_a_direct_route() {
+    assert_eq!(
+        mode_for("Bratislava", "Spišská Nová Ves").unwrap(),
+        RouteMode::Direct
+    );
+}
+
+/// A blank endpoint must NOT quietly become a home loop: that hands the user
+/// a map of somewhere they never were, labelled as evidence.
+#[test]
+fn a_blank_endpoint_is_an_error_not_a_loop() {
+    assert!(mode_for("", "Košice").is_err());
+    assert!(mode_for("Košice", "   ").is_err());
+    assert!(mode_for("", "").is_err());
+}
+
+// --- start_route_for_trip: the one caller of mode_for ---
+
+fn seed_trip_between(db: &Database, origin: &str, destination: &str) -> Trip {
+    let trip = seed_trip(db);
+    let mut updated = trip.clone();
+    updated.origin = origin.into();
+    updated.destination = destination.into();
+    db.update_trip(&updated).unwrap();
+    updated
+}
+
+#[test]
+fn a_same_place_row_starts_in_loop_mode() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Domov", "domov ");
+
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
+
+    assert_eq!(start.mode, RouteMode::Loop);
+}
+
+#[test]
+fn a_direct_row_carries_both_endpoints_from_the_book() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
+    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
+    save_place_internal(&db, &app_state(), "Depot, City B".into(), 48.7, 21.2, PlaceSource::Geocoder).unwrap();
+
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
+
+    assert_eq!(start.mode, RouteMode::Direct);
+    assert_eq!(start.origin.unwrap().lat, Some(48.1));
+    assert_eq!(start.destination.unwrap().lon, Some(21.2));
+}
+
+/// The endpoint's spelling in the trip need not match the book's byte for byte --
+/// the book is keyed on the normalised form, which is the whole point.
+#[test]
+fn an_endpoint_is_found_regardless_of_spelling() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "OFFICE, CITY A", "Depot, City B");
+    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
+
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
+
+    assert_eq!(start.origin.unwrap().lat, Some(48.1));
+}
+
+/// An unplaced endpoint is NOT an error: the map view opens the book's dialog in
+/// place so the user can fix it without leaving the page. Failing here would
+/// turn a two-click fix into a redirect.
+#[test]
+fn an_unplaced_endpoint_is_reported_not_refused() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
+    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
+
+    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
+
+    assert!(start.origin.is_some());
+    assert!(start.destination.is_none(), "the unplaced endpoint reports as None");
+}
+
+#[test]
+fn a_blank_endpoint_still_fails_the_whole_call() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "", "Depot, City B");
+    assert!(start_route_for_trip_internal(&db, trip.id.to_string()).is_err());
 }
