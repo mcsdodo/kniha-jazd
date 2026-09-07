@@ -12,6 +12,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ### Opravené
 - **Našepkávač trás ponúkal miesta, ktoré už v knihe nie sú** — polia „Odkiaľ“ a „Kam“ ponúkali aj dvojice, ktorých jazdy boli medzičasom vymazané, vrátane prázdnej položky a preklepov opravených len pri jazdách; takáto dvojica navyše predvyplnila počet kilometrov pre trasu, ktorá v knihe neexistuje. Ponuka miest aj predvyplnená vzdialenosť teraz vychádzajú priamo zo zapísaných jázd.
+- **Slovenské texty s počtami sa neskloňovali** — používala sa jedna podoba pre všetky čísla, takže sa zobrazovalo „1 výskytov“ alebo „Spracovaných 1 dokladov“. Počet jeden aj počty dva až štyri teraz dostávajú správny tvar — „1 výskyt“, „2 výskyty“, „Spracovaný 1 doklad“.
 
 ## [0.44.0] - 2026-09-04
 
