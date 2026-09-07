@@ -285,7 +285,7 @@ async fn requests_alternatives_only_for_two_point_routes() {
     let requests = server.received_requests().await.unwrap();
     let url = requests[0].url.to_string();
     assert!(
-        !url.contains("alternatives=true"),
+        !url.contains("alternatives="),
         "OSRM computes alternatives only for two-point queries; asking with vias \
          wastes the request. Got: {url}"
     );
