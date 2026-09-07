@@ -75,6 +75,13 @@ fn keeps_punctuation_that_distinguishes_addresses() {
 fn empty_input_is_empty_output() {
     assert_eq!(normalise("   "), "");
 }
+
+#[test]
+fn a_letter_the_table_does_not_know_keeps_its_accent() {
+    // The table is closed by design: unknown letters are left alone rather
+    // than silently stripped, at the cost of getting their own key.
+    assert_eq!(normalise("Ærø"), "ærø");
+}
 ```
 
 **Step 2: Run to verify they fail**
@@ -158,7 +165,7 @@ Add `pub mod places;` to `src-tauri/core/src/lib.rs`, keeping the list alphabeti
 **Step 4: Run to verify they pass**
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core normalise`
-Expected: PASS, 6 tests.
+Expected: PASS, 7 tests.
 
 **Step 5: Commit**
 
@@ -172,8 +179,8 @@ git commit -m "feat(places): add normalise, the one notion of the same place nam
 ## Task 2: The `places` table
 
 **Files:**
-- Create: `src-tauri/core/migrations/2026-09-06-100000_add_places/up.sql`
-- Create: `src-tauri/core/migrations/2026-09-06-100000_add_places/down.sql`
+- Create: `src-tauri/core/migrations/2026-09-07-100000_add_places/up.sql`
+- Create: `src-tauri/core/migrations/2026-09-07-100000_add_places/down.sql`
 - Modify: `src-tauri/core/src/schema.rs`
 - Modify: `src-tauri/core/src/models.rs`
 
@@ -200,7 +207,7 @@ CREATE TABLE places (
 `down.sql`:
 
 ```sql
-DROP TABLE places;
+DROP TABLE IF EXISTS places;
 ```
 
 **Step 2: Add the schema entry**
@@ -257,7 +264,7 @@ Expected: PASS — the existing migration tests build a database from scratch, s
 **Step 5: Commit**
 
 ```bash
-git add src-tauri/core/migrations/2026-09-06-100000_add_places/ src-tauri/core/src/schema.rs src-tauri/core/src/models.rs
+git add src-tauri/core/migrations/2026-09-07-100000_add_places/ src-tauri/core/src/schema.rs src-tauri/core/src/models.rs
 git commit -m "feat(places): add the places table"
 ```
 
