@@ -776,3 +776,46 @@ fn a_broken_polyline_still_places_the_point() {
     assert_eq!(inserted.len(), 3);
     assert!((inserted[1].lon - 20.5).abs() < 1e-9);
 }
+
+/// All five tests above drag their point onto a straight line held at a
+/// constant latitude, so the longitude term alone could be driving every
+/// placement decision and the latitude term would never be exercised. This
+/// route is a dogleg (east, then north) built so neither single-axis metric
+/// agrees with the true two-axis nearest-vertex answer:
+///
+/// - `decoy_lat` sits on the first (east) leg but carries the SAME latitude
+///   as the dragged point, so a latitude-only search picks it over the true
+///   answer on the second leg.
+/// - `decoy_lon` sits on the first leg but carries the SAME longitude as the
+///   dragged point, so a longitude-only search picks it over the true answer
+///   too.
+/// - Only comparing both axes together correctly prefers the vertex that is
+///   actually nearest, which sits on the second (north) leg.
+///
+/// If `nearest()` ever degenerated to a single coordinate, this test fails
+/// while the five above would keep passing silently.
+#[test]
+fn a_point_dragged_off_a_dogleg_lands_by_the_full_route_not_one_axis() {
+    let points = vec![
+        (48.80, 20.00), // origin
+        (48.85, 20.10),
+        (49.30, 20.02), // decoy_lat: shares the dragged point's latitude
+        (48.88, 20.50), // decoy_lon: shares the dragged point's longitude
+        (48.90, 20.55), // corner (middle waypoint)
+        (49.10, 20.52),
+        (49.29, 20.53), // the true nearest vertex, on the north leg
+        (49.50, 20.60), // destination
+    ];
+    let waypoints = vec![wp(48.80, 20.00), wp(48.90, 20.55), wp(49.50, 20.60)];
+
+    let inserted = insert_waypoint(&waypoints, &encode(&points), 49.30, 20.50);
+
+    assert_eq!(inserted.len(), 4);
+    assert!(
+        (inserted[2].lat - 49.30).abs() < 1e-9 && (inserted[2].lon - 20.50).abs() < 1e-9,
+        "a point nearest the north leg must land there even though one decoy \
+         vertex on the first leg shares its latitude and another shares its \
+         longitude, got lat/lon pairs {:?}",
+        inserted.iter().map(|w| (w.lat, w.lon)).collect::<Vec<_>>()
+    );
+}
