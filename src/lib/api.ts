@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -516,12 +516,39 @@ export async function generateRoute(targetKm: number): Promise<GeneratedRoute> {
 	return await apiCall('generate_route', { targetKm });
 }
 
+/**
+ * Open a trip's route map: the backend decides loop vs direct and resolves
+ * both endpoints against the place book in ONE round trip. Call this instead
+ * of comparing origin to destination here (ADR-008).
+ */
+export async function startRouteForTrip(tripId: string): Promise<RouteStart> {
+	return await apiCall('start_route_for_trip', { tripId });
+}
+
+/**
+ * Route an ordered waypoint list, offering alternatives where the routing
+ * service can produce them. Pass `insert` to have the backend slot a
+ * dragged-in point into the list first -- the returned routes' `waypoints`
+ * are authoritative and should be adopted as-is.
+ *
+ * Returns alternatives in the routing service's own order (fastest first).
+ * Never re-sort them -- that ordering is the product decision.
+ */
+export async function routeDirect(
+	waypoints: Waypoint[],
+	targetKm: number,
+	insert?: InsertPoint
+): Promise<GeneratedRoute[]> {
+	return await apiCall('route_direct', { waypoints, targetKm, insert: insert ?? null });
+}
+
 export async function getTripRoute(tripId: string): Promise<RouteMap | null> {
 	return await apiCall('get_trip_route', { tripId });
 }
 
-// coordinates and datasetVersion are intentionally not sent — the backend
-// re-derives both (polyline decode + bundled dataset version). Adding them
+// coordinates, datasetVersion and durationS are intentionally not sent -- the
+// backend re-derives coordinates and datasetVersion (polyline decode +
+// bundled dataset version) and never persists durationS at all. Adding them
 // here would be silently ignored: serde drops unknown fields by default.
 export async function saveTripRoute(tripId: string, route: GeneratedRoute): Promise<void> {
 	return await apiCall('save_trip_route', {
@@ -530,6 +557,7 @@ export async function saveTripRoute(tripId: string, route: GeneratedRoute): Prom
 		polyline: route.polyline,
 		targetKm: route.targetKm,
 		roadKm: route.roadKm,
+		mode: route.mode,
 	});
 }
 

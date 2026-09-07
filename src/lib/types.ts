@@ -508,6 +508,9 @@ export interface Waypoint {
 	nodeIdx?: number;
 }
 
+/** Mirrors the Rust `RouteMode` enum. Its serde wire form is lowercase. */
+export type RouteMode = 'loop' | 'direct';
+
 /** Freshly generated route, not yet persisted to a trip. */
 export interface GeneratedRoute {
 	waypoints: Waypoint[];
@@ -516,11 +519,22 @@ export interface GeneratedRoute {
 	coordinates: [number, number][];
 	targetKm: number;
 	roadKm: number;
+	/** Estimated driving time in seconds. Shown while choosing; not persisted. */
+	durationS: number;
 	/** Signed % by which roadKm misses targetKm — computed by the backend. */
 	deviationPercent: number;
 	/** Whether that deviation exceeds the backend's tolerance. */
 	offTarget: boolean;
-	datasetVersion: string;
+	/** null for a direct route -- no dataset node was involved. */
+	datasetVersion: string | null;
+	mode: RouteMode;
+}
+
+/** A point dragged off `polyline`, for the backend to slot into the waypoint list. */
+export interface InsertPoint {
+	lat: number;
+	lon: number;
+	polyline: string;
 }
 
 /**
@@ -541,6 +555,7 @@ export interface RouteMap {
 	/** Whether that deviation exceeds the backend's tolerance. */
 	offTarget: boolean;
 	datasetVersion: string | null;
+	mode: RouteMode;
 	createdAt: string;
 }
 
@@ -578,4 +593,20 @@ export interface GeocodeCandidate {
 	lat: number;
 	lon: number;
 	label: string;
+}
+
+/**
+ * What the map view needs to open a trip: the mode, and each endpoint's
+ * place-book entry if the book has one.
+ *
+ * `origin` and `destination` are null when the book has no coordinate for
+ * that endpoint yet -- the view opens the place dialog rather than failing.
+ * The backend decides `mode`; the frontend never compares origin to
+ * destination itself, or its notion of "the same place" would drift from
+ * the place book's own fold (`normalise`).
+ */
+export interface RouteStart {
+	mode: RouteMode;
+	origin: Place | null;
+	destination: Place | null;
 }
