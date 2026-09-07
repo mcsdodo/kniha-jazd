@@ -8,6 +8,7 @@
 //! REAL migration bug — fix the SQL, never the test.
 
 use super::*;
+use crate::models::RouteMode;
 use diesel::sql_types::{BigInt, Double, Integer, Nullable, Text};
 
 // ============================================================================
@@ -679,4 +680,29 @@ fn dropping_the_route_counters_keeps_the_suggestions() {
         "counted from the two trips, not from the stored 126"
     );
     assert_eq!(routes[0].distance_km, 50.0, "distance_km survives the drop");
+}
+
+// ============================================================================
+// Task 72 — persisting the route mode (2026-09-07-110000)
+// ============================================================================
+
+/// Every route saved by Task 70 IS a loop, so the DEFAULT backfills correctly
+/// by construction. This test is what proves that claim rather than assuming it.
+#[test]
+fn existing_route_maps_become_loop_mode() {
+    let db = open_db_legacy_before("2026-09-07-110000");
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t1", "v1", None);
+    exec(
+        &db,
+        "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+                                  dataset_version, created_at) \
+         VALUES ('t1', '[]', 'abc', 100.0, 98.0, '2026-05-03', \
+                 '2026-01-01T00:00:00+00:00')",
+    );
+
+    migrate_to_current(&db);
+
+    let map = db.get_route_map("t1").unwrap().unwrap();
+    assert_eq!(map.mode, RouteMode::Loop);
 }

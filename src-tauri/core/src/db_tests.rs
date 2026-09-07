@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::models::{
-    AssignmentType, NewPlaceRow, PaperlessLink, PlaceRow, ReceiptStatus, RouteMap, VehicleType,
-    Waypoint,
+    AssignmentType, NewPlaceRow, PaperlessLink, PlaceRow, ReceiptStatus, RouteMap, RouteMode,
+    VehicleType, Waypoint,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -1199,6 +1199,7 @@ fn make_route_map(trip_id: Uuid, polyline: &str) -> RouteMap {
         polyline: polyline.to_string(),
         target_km: 120.0,
         road_km: 118.4,
+        mode: RouteMode::Loop,
         dataset_version: Some("2026-05-03".into()),
         created_at: Utc::now(),
     }
@@ -1242,6 +1243,7 @@ fn route_map_round_trips() {
         polyline: "_p~iF~ps|U".into(),
         target_km: 120.0,
         road_km: 118.4,
+        mode: RouteMode::Loop,
         dataset_version: Some("2026-05-03".into()),
         created_at: Utc::now(),
     };
@@ -1255,6 +1257,7 @@ fn route_map_round_trips() {
     assert_eq!(loaded.polyline, "_p~iF~ps|U");
     assert_eq!(loaded.target_km, 120.0);
     assert_eq!(loaded.road_km, 118.4);
+    assert_eq!(loaded.mode, RouteMode::Loop);
     assert_eq!(loaded.dataset_version, Some("2026-05-03".to_string()));
     assert_eq!(loaded.waypoints.len(), 1);
     assert_eq!(loaded.waypoints[0].node_idx, Some(0));

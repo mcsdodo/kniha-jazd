@@ -1163,6 +1163,7 @@ impl Database {
                     road_km: map.road_km,
                     dataset_version: map.dataset_version.as_deref(),
                     created_at: &created_at_str,
+                    mode: map.mode.as_str(),
                 })
                 .execute(tx)?;
             Ok(())
@@ -1322,8 +1323,13 @@ pub(crate) const MULTI_INVOICE_VERSION: &str = "2026-07-15";
 /// - `run_migration` does NOT create `__diesel_schema_migrations`;
 ///   `applied_migrations()` does (via `MigrationConnection::setup`), so it
 ///   must be called first.
+/// Open an in-memory DB migrated only up to (excluding) `cutoff`.
+///
+/// Parameterised so a test can stand at the boundary of ITS OWN migration --
+/// the multi-invoice cutoff predates several later tables, and a test for one
+/// of those cannot seed rows a legacy DB has no table for.
 #[cfg(test)]
-pub(crate) fn open_db_legacy() -> Database {
+pub(crate) fn open_db_legacy_before(cutoff: &str) -> Database {
     let mut conn = SqliteConnection::establish(":memory:")
         .expect("Failed to open in-memory legacy database");
 
@@ -1339,7 +1345,7 @@ pub(crate) fn open_db_legacy() -> Database {
 
     // Normalize the cutoff exactly like diesel normalizes versions
     // (dashes stripped): "2026-07-15" -> "20260715".
-    let normalized_cutoff = MULTI_INVOICE_VERSION.replace('-', "");
+    let normalized_cutoff = cutoff.replace('-', "");
     let cutoff = diesel::migration::MigrationVersion::from(normalized_cutoff.as_str());
     for migration in migrations.iter().filter(|m| m.name().version() < cutoff) {
         conn.run_migration(migration.as_ref()).unwrap_or_else(|e| {
@@ -1354,6 +1360,11 @@ pub(crate) fn open_db_legacy() -> Database {
     Database {
         conn: Mutex::new(conn),
     }
+}
+
+#[cfg(test)]
+pub(crate) fn open_db_legacy() -> Database {
+    open_db_legacy_before(MULTI_INVOICE_VERSION)
 }
 
 /// Run the remaining (multi-invoice) migrations on a legacy DB.

@@ -79,6 +79,7 @@ pub struct SavedRouteMap {
     /// Whether that deviation exceeds [`TOLERANCE`].
     pub off_target: bool,
     pub dataset_version: Option<String>,
+    pub mode: RouteMode,
     pub created_at: String,
 }
 
@@ -95,6 +96,7 @@ impl From<RouteMap> for SavedRouteMap {
             deviation_percent,
             off_target,
             dataset_version: map.dataset_version,
+            mode: map.mode,
             created_at: map.created_at.to_rfc3339(),
         }
     }
@@ -256,6 +258,7 @@ pub fn save_trip_route_internal(
     polyline: String,
     target_km: f64,
     road_km: f64,
+    mode: RouteMode,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     let trip_uuid = Uuid::parse_str(&trip_id).map_err(|e| format!("Invalid trip id: {e}"))?;
@@ -266,7 +269,12 @@ pub fn save_trip_route_internal(
         polyline,
         target_km,
         road_km,
-        dataset_version: Some(Dataset::bundled().version),
+        mode,
+        dataset_version: match mode {
+            // Only a loop actually used the bundled node set.
+            RouteMode::Loop => Some(Dataset::bundled().version),
+            RouteMode::Direct => None,
+        },
         created_at: Utc::now(),
     };
 

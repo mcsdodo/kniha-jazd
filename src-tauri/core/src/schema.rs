@@ -128,6 +128,11 @@ diesel::table! {
         road_km -> Double,
         dataset_version -> Nullable<Text>,
         created_at -> Text,
+        // Added via migration 2026-09-07-110000_add_trip_route_mode (Task 72).
+        // Appended LAST, matching RouteMapRow field order: RouteMapRow is
+        // Queryable and binds POSITIONALLY, and `mode`/`created_at` are both
+        // Text -- a mismatched position here swaps the two silently.
+        mode -> Text,
     }
 }
 

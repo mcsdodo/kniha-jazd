@@ -826,6 +826,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 polyline: String,
                 target_km: f64,
                 road_km: f64,
+                mode: crate::models::RouteMode,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::save_trip_route_internal(
@@ -836,6 +837,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.polyline,
                 a.target_km,
                 a.road_km,
+                a.mode,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
@@ -1083,8 +1085,14 @@ mod tests {
     }
 
     /// The argument names are a contract with `src/lib/api.ts`: a mismatch
-    /// compiles cleanly in both languages and only shows up at runtime. The
-    /// payloads below are exactly what `api.ts` sends.
+    /// compiles cleanly in both languages and only shows up at runtime.
+    ///
+    /// KNOWN DIVERGENCE (Task 72, Phase 2): `mode` below is NOT yet what
+    /// `api.ts::saveTripRoute` sends -- that function does not send `mode` at
+    /// all, so every save from the live UI fails deserialization until a
+    /// later task (route maps V2 direct mode, frontend wiring) passes
+    /// `route.mode` through. This test payload shows the CONTRACT this
+    /// command now requires, not yet what the shipped frontend sends.
     #[test]
     fn route_map_commands_round_trip_with_frontend_argument_names() {
         let state = test_state();
@@ -1109,6 +1117,7 @@ mod tests {
                 "polyline": "_p~iF~ps|U",
                 "targetKm": 120.0,
                 "roadKm": 118.4,
+                "mode": "loop",
             }),
             &state,
         )

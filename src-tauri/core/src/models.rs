@@ -308,6 +308,7 @@ pub struct RouteMap {
     pub polyline: String,
     pub target_km: f64,
     pub road_km: f64,
+    pub mode: RouteMode,
     pub dataset_version: Option<String>,
     pub created_at: DateTime<Utc>,
 }
@@ -1034,6 +1035,11 @@ pub struct RouteMapRow {
     pub road_km: f64,
     pub dataset_version: Option<String>,
     pub created_at: String,
+    /// Appended LAST, matching the `trip_routes` table! block: this struct is
+    /// Queryable and binds POSITIONALLY, and `mode`/`created_at` are both
+    /// Text -- a mismatched position swaps the two silently, with no compile
+    /// error.
+    pub mode: String,
 }
 
 /// For inserting new trip_routes
@@ -1047,6 +1053,7 @@ pub struct NewRouteMapRow<'a> {
     pub road_km: f64,
     pub dataset_version: Option<&'a str>,
     pub created_at: &'a str,
+    pub mode: &'a str,
 }
 
 /// Database row for places table (the place book, Task 75)
@@ -1266,6 +1273,10 @@ impl From<RouteMapRow> for RouteMap {
             polyline: row.polyline,
             target_km: row.target_km,
             road_km: row.road_km,
+            // An unrecognised value reads as the V1 default -- always the
+            // safe reading, since every route before this column existed was
+            // a loop.
+            mode: RouteMode::parse(&row.mode).unwrap_or(RouteMode::Loop),
             dataset_version: row.dataset_version,
             created_at: DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
@@ -1485,6 +1496,27 @@ pub enum RouteMode {
     Direct,
 }
 
+impl RouteMode {
+    /// The TEXT stored in `trip_routes.mode` -- the same two strings serde
+    /// emits, so a row and its JSON never disagree.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RouteMode::Loop => "loop",
+            RouteMode::Direct => "direct",
+        }
+    }
+
+    /// Reads [`as_str`] back. An unrecognised string yields `None` rather than
+    /// panicking: a row written by a newer build must not crash an older one.
+    pub fn parse(mode: &str) -> Option<Self> {
+        match mode {
+            "loop" => Some(RouteMode::Loop),
+            "direct" => Some(RouteMode::Direct),
+            _ => None,
+        }
+    }
+}
+
 /// What the map view needs to open a row: the mode, and the endpoints if the
 /// book has them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1668,6 +1700,35 @@ mod tests {
 
         assert_eq!(
             PlaceSource::parse("satellite"),
+            None,
+            "a value a newer build wrote must read as unknown, not panic"
+        );
+    }
+
+    /// Pins the exact wire strings a saved route's `mode` round-trips
+    /// through. Nothing else in the codebase checks this: if the serde
+    /// representation silently changed (e.g. to "Loop"/"Direct"), every
+    /// route saved under the old strings would fail to parse back.
+    #[test]
+    fn route_mode_text_mapping_round_trips_and_matches_serde() {
+        for mode in [RouteMode::Loop, RouteMode::Direct] {
+            assert_eq!(RouteMode::parse(mode.as_str()), Some(mode));
+            // The stored TEXT and the JSON must be the same string, or a row
+            // and its wire form would name the same mode differently.
+            assert_eq!(
+                serde_json::to_string(&mode).unwrap(),
+                format!("\"{}\"", mode.as_str())
+            );
+        }
+
+        assert_eq!(serde_json::to_string(&RouteMode::Loop).unwrap(), "\"loop\"");
+        assert_eq!(
+            serde_json::to_string(&RouteMode::Direct).unwrap(),
+            "\"direct\""
+        );
+
+        assert_eq!(
+            RouteMode::parse("orbit"),
             None,
             "a value a newer build wrote must read as unknown, not panic"
         );

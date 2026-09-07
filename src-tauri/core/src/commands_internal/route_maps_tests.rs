@@ -103,6 +103,7 @@ fn save_rejects_read_only_mode() {
         encoded,
         120.0,
         118.4,
+        RouteMode::Loop,
     )
     .unwrap_err();
     assert!(err.contains("len na čítanie"), "got: {err}");
@@ -130,6 +131,7 @@ fn delete_rejects_read_only_mode() {
         encoded,
         120.0,
         118.4,
+        RouteMode::Loop,
     )
     .unwrap();
 
@@ -185,6 +187,7 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         encoded.clone(),
         120.0,
         118.4,
+        RouteMode::Loop,
     )
     .unwrap();
 
@@ -216,6 +219,7 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         Some(Dataset::bundled().version),
         "the bundled dataset version must be stamped on save"
     );
+    assert_eq!(loaded.mode, RouteMode::Loop);
     assert!(!loaded.created_at.is_empty());
 }
 
@@ -299,6 +303,7 @@ fn grid_data_marks_only_the_trips_that_have_a_saved_map() {
         polyline,
         120.0,
         118.4,
+        RouteMode::Loop,
     )
     .unwrap();
 
@@ -369,6 +374,7 @@ fn save_map_for(db: &Database, trip_id: &Uuid, polyline: &str) {
         polyline.to_string(),
         120.0,
         118.4,
+        RouteMode::Loop,
     )
     .unwrap();
 }
@@ -568,6 +574,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         polyline.clone(),
         100.0,
         108.0,
+        RouteMode::Loop,
     )
     .unwrap();
 
@@ -586,6 +593,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         polyline,
         100.0,
         102.0,
+        RouteMode::Loop,
     )
     .unwrap();
 
@@ -1021,4 +1029,68 @@ fn a_point_dragged_off_a_dogleg_lands_by_the_full_route_not_one_axis() {
          longitude, got lat/lon pairs {:?}",
         inserted.iter().map(|w| (w.lat, w.lon)).collect::<Vec<_>>()
     );
+}
+
+// ---------------------------------------------------------------------------
+// Persisting the mode (Task 72, Phase 2)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_saved_direct_route_round_trips_with_its_mode_and_vias() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    let waypoints = vec![
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        Waypoint { lat: 48.7, lon: 19.1, name: None, node_idx: None },
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská".into()), node_idx: None },
+    ];
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        waypoints.clone(),
+        encode(&[(48.1, 17.1), (48.9, 20.5)]),
+        420.0,
+        400.0,
+        RouteMode::Direct,
+    )
+    .unwrap();
+
+    let loaded = get_trip_route_internal(&db, trip.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.mode, RouteMode::Direct);
+    assert_eq!(loaded.waypoints.len(), 3);
+    assert!(
+        loaded.dataset_version.is_none(),
+        "a direct route must not claim a dataset version"
+    );
+}
+
+#[test]
+fn a_saved_loop_route_still_stamps_the_dataset_version() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        encode(&[(48.9, 20.5), (49.0, 20.6)]),
+        120.0,
+        118.0,
+        RouteMode::Loop,
+    )
+    .unwrap();
+
+    let loaded = get_trip_route_internal(&db, trip.id.to_string())
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.mode, RouteMode::Loop);
+    assert!(loaded.dataset_version.is_some());
 }
