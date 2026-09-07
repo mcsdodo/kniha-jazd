@@ -1946,6 +1946,14 @@ type RootTranslation = {
 		 * O​d​s​t​r​á​n​i​ť​ ​z​a​s​t​á​v​k​u
 		 */
 		removeWaypoint: string
+		/**
+		 * C​e​s​t​a​ ​t​a​m​ ​a​ ​s​p​ä​ť
+		 */
+		roundTrip: string
+		/**
+		 * T​r​a​s​a​ ​p​o​v​e​d​i​e​ ​z​ ​c​i​e​ľ​a​ ​s​p​ä​ť​ ​d​o​ ​m​i​e​s​t​a​ ​o​d​c​h​o​d​u​.
+		 */
+		roundTripHint: string
 	}
 	places: {
 		/**
@@ -4500,6 +4508,14 @@ export type TranslationFunctions = {
 		 * Odstrániť zastávku
 		 */
 		removeWaypoint: () => LocalizedString
+		/**
+		 * Cesta tam a späť
+		 */
+		roundTrip: () => LocalizedString
+		/**
+		 * Trasa povedie z cieľa späť do miesta odchodu.
+		 */
+		roundTripHint: () => LocalizedString
 	}
 	places: {
 		/**

@@ -831,7 +831,7 @@ async fn direct_routes_are_returned_in_provider_order() {
         ],
     };
 
-    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None, false)
         .await
         .unwrap();
 
@@ -854,7 +854,7 @@ async fn alternatives_are_never_reordered_by_distance_match() {
         ],
     };
 
-    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None, false)
         .await
         .unwrap();
 
@@ -879,7 +879,7 @@ async fn every_alternative_carries_its_own_deviation() {
         ],
     };
 
-    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None, false)
         .await
         .unwrap();
 
@@ -894,7 +894,7 @@ async fn a_direct_route_is_marked_direct_and_claims_no_dataset() {
     let provider = MultiRouteProvider {
         routes: vec![fetched(&encode(&[(48.1, 17.1), (48.9, 20.5)]), 400.0, 14000.0)],
     };
-    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None)
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None, false)
         .await
         .unwrap();
 
@@ -919,6 +919,7 @@ async fn an_insert_point_is_applied_before_routing() {
         direct_waypoints(),
         420.0,
         Some(InsertPoint { lat: 48.95, lon: 20.5, polyline: geometry.clone() }),
+        false,
     )
     .await
     .unwrap();
@@ -971,6 +972,7 @@ async fn the_routing_service_is_asked_to_route_through_the_inserted_point() {
         direct_waypoints(),
         420.0,
         Some(InsertPoint { lat: 48.95, lon: 20.5, polyline: geometry.clone() }),
+        false,
     )
     .await
     .unwrap();
@@ -982,10 +984,124 @@ async fn a_route_needs_at_least_two_waypoints() {
         routes: vec![fetched("aaa", 1.0, 1.0)],
     };
     assert!(
-        route_direct_internal(&provider, vec![direct_waypoints()[0].clone()], 10.0, None)
+        route_direct_internal(&provider, vec![direct_waypoints()[0].clone()], 10.0, None, false)
             .await
             .is_err()
     );
+}
+
+// ---------------------------------------------------------------------------
+// route_direct_internal: round_trip appends a return leg (Task 19)
+// ---------------------------------------------------------------------------
+
+/// Inspects the coordinate list actually sent to routing, the same way
+/// `CoordAssertingProvider` does for `insert` -- checking only the RETURNED
+/// waypoints cannot tell "closed before routing" apart from "closed after the
+/// response came back".
+struct RoundTripAssertingProvider {
+    /// Whether the routed coordinate list is expected to end where it began.
+    expect_closed: bool,
+    route: FetchedRoute,
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for RoundTripAssertingProvider {
+    async fn fetch(&self, _coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        Ok(self.route.clone())
+    }
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        _max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        // Comparing the FIRST and LAST coordinate the provider actually
+        // received -- not the length of the list -- so a mutation that
+        // lengthens the list without truly closing the loop (e.g. appending
+        // the last waypoint again instead of the first) is still caught.
+        let closed = coords.first() == coords.last();
+        assert_eq!(
+            closed, self.expect_closed,
+            "round_trip={} must{} route a coordinate list whose last point equals \
+             its first, got {:?}",
+            self.expect_closed,
+            if self.expect_closed { "" } else { " not" },
+            coords
+        );
+        Ok(vec![self.route.clone()])
+    }
+}
+
+#[tokio::test]
+async fn round_trip_true_closes_the_loop_back_to_the_first_waypoint() {
+    let provider = RoundTripAssertingProvider {
+        expect_closed: true,
+        route: fetched(
+            &encode(&[(48.1486, 17.1077), (48.9444, 20.5675), (48.1486, 17.1077)]),
+            800.0,
+            28000.0,
+        ),
+    };
+
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None, true)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        routes[0].waypoints.len(),
+        3,
+        "the return leg must be appended to the returned waypoints too"
+    );
+    assert_eq!(routes[0].waypoints.first().unwrap().lat, routes[0].waypoints.last().unwrap().lat);
+    assert_eq!(routes[0].waypoints.first().unwrap().lon, routes[0].waypoints.last().unwrap().lon);
+}
+
+#[tokio::test]
+async fn round_trip_false_leaves_the_route_one_way() {
+    let provider = RoundTripAssertingProvider {
+        expect_closed: false,
+        route: fetched(&encode(&[(48.1486, 17.1077), (48.9444, 20.5675)]), 400.0, 14000.0),
+    };
+
+    let routes = route_direct_internal(&provider, direct_waypoints(), 420.0, None, false)
+        .await
+        .unwrap();
+
+    assert_eq!(routes[0].waypoints.len(), 2, "no return leg means no third waypoint");
+}
+
+/// The return leg is appended AFTER `insert` is applied (design decision 2):
+/// the dragged-in via must sit between the endpoints, not get caught up in
+/// the ambiguity of a route that already doubles back on itself.
+#[tokio::test]
+async fn round_trip_closes_the_loop_after_the_insert_is_placed() {
+    let geometry = encode(&[(48.9, 20.0), (48.9, 20.5), (48.9, 21.0)]);
+    let provider = RoundTripAssertingProvider {
+        expect_closed: true,
+        route: fetched(&geometry, 900.0, 30000.0),
+    };
+
+    let waypoints = vec![wp(48.9, 20.0), wp(48.9, 21.0)];
+    let routes = route_direct_internal(
+        &provider,
+        waypoints,
+        420.0,
+        Some(InsertPoint { lat: 48.9, lon: 20.5, polyline: geometry.clone() }),
+        true,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        routes[0].waypoints.len(),
+        4,
+        "one inserted via plus one appended return leg, on top of the two endpoints"
+    );
+    assert!(
+        (routes[0].waypoints[1].lon - 20.5).abs() < 1e-9,
+        "the via must sit between the endpoints, not be swallowed by the return leg"
+    );
+    assert_eq!(routes[0].waypoints.first().unwrap().lat, routes[0].waypoints.last().unwrap().lat);
+    assert_eq!(routes[0].waypoints.first().unwrap().lon, routes[0].waypoints.last().unwrap().lon);
 }
 
 /// All five tests above drag their point onto a straight line held at a

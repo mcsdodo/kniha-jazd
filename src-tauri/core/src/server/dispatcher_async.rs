@@ -256,6 +256,10 @@ pub async fn dispatch_async(
                 target_km: f64,
                 #[serde(default)]
                 insert: Option<crate::commands_internal::InsertPoint>,
+                // Defaulted so a caller that predates this field (Task 19) still
+                // gets today's one-way behaviour instead of a parse error.
+                #[serde(default)]
+                round_trip: bool,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
@@ -267,6 +271,7 @@ pub async fn dispatch_async(
                 a.waypoints,
                 a.target_km,
                 a.insert,
+                a.round_trip,
             )
             .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
@@ -419,6 +424,46 @@ mod tests {
         .expect("route_direct must be handled here, not by dispatch_sync")
         .unwrap_err();
         assert!(err.contains("targetKm"), "got: {err}");
+    }
+
+    /// A payload omitting `roundTrip` (every caller before Task 19, and any
+    /// client that has not picked up the new field) must still parse --
+    /// `#[serde(default)] round_trip: bool` is the backward-compatibility
+    /// guarantee and must be pinned here, not just asserted in prose.
+    ///
+    /// Routing this through the real network would make the test slow and
+    /// flaky, so it leans on `route_direct_internal`'s own "needs a start and
+    /// an end" guard: a single waypoint fails there, AFTER argument parsing
+    /// succeeded, and before any provider is ever called. If `round_trip`
+    /// were a required field instead, parsing itself would fail first and
+    /// this exact error text would never be reached.
+    #[tokio::test]
+    async fn route_direct_without_round_trip_field_still_parses() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let err = dispatch_async(
+            "route_direct",
+            json!({
+                "waypoints": [{ "lat": 48.1, "lon": 17.1 }],
+                "targetKm": 420.0
+            }),
+            &state,
+        )
+        .await
+        .expect("route_direct must be handled here, not by dispatch_sync")
+        .unwrap_err();
+
+        assert!(
+            err.contains("got 1 point"),
+            "a payload omitting roundTrip must still parse and reach \
+             route_direct_internal's own waypoint-count guard, not fail on a \
+             missing field, got: {err}"
+        );
     }
 
     /// A vehicle without the helper configured must not generate HA traffic.

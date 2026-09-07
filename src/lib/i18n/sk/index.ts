@@ -585,6 +585,8 @@ const sk = {
 		missingEndpoints: 'Jazda nemá vyplnené miesto odchodu alebo príchodu.',
 		editHint: 'Potiahnutím čiary pridáte medzizastávku. Kliknutím na zastávku ju odstránite.',
 		removeWaypoint: 'Odstrániť zastávku',
+		roundTrip: 'Cesta tam a späť',
+		roundTripHint: 'Trasa povedie z cieľa späť do miesta odchodu.',
 	},
 
 	// Place book

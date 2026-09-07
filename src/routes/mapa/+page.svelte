@@ -50,6 +50,20 @@
 	/** Alternatives for the current direct route, in the backend's order. */
 	let alternatives = $state<GeneratedRoute[]>([]);
 	let activeIndex = $state(0);
+	/** Direct-mode only (Task 19): ticking appends a return leg back to the
+	 *  route's own start. A generation input, never persisted -- reopening a
+	 *  saved route always starts unticked (design decision 5). */
+	let roundTrip = $state(false);
+	/** The open (un-closed) waypoint list behind the currently displayed
+	 *  direct route -- i.e. `generated.waypoints` with the round-trip closing
+	 *  leg stripped back off when one was requested. Used to seed the NEXT
+	 *  routeDirect call so toggling the checkbox, regenerating, or dragging a
+	 *  handle can never compound the append (each `runDirect` would otherwise
+	 *  re-close an already-closed list). Never derived by comparing the first
+	 *  and last waypoint -- design decision 5 rules out inferring round-trip
+	 *  state from the data; this instead relies on knowing structurally that
+	 *  the backend appends exactly one trailing waypoint when asked to. */
+	let baseWaypoints = $state<Waypoint[] | null>(null);
 	/** Endpoints as resolved so far, for building waypoint lists. Populated
 	 *  only from a fresh plan (`startForTrip`) or a saved route's own
 	 *  waypoints (`rehydrateEndpoints`) — never from the place dialog, so
@@ -567,23 +581,34 @@
 		}
 	}
 
-	/** Routes and displays a direct route. Persists nothing — only handleSave does. */
+	/** Routes and displays a direct route. Persists nothing — only handleSave does.
+	 *  `roundTrip` is captured into a local at the top, not read again after the
+	 *  await -- the checkbox could otherwise change while the request is in
+	 *  flight and this would append (or not) based on a value that no longer
+	 *  matches what was actually requested. */
 	async function runDirect(waypoints: Waypoint[], targetKm: number, insert?: InsertPoint) {
 		generating = true;
 		error = null;
 		savedNotice = false;
+		const closeLoop = roundTrip;
 		try {
-			const routes = await routeDirect(waypoints, targetKm, insert);
+			const routes = await routeDirect(waypoints, targetKm, insert, closeLoop);
 			if (routes.length === 0) throw new Error('no routes returned');
 			alternatives = routes;
 			activeIndex = 0;
 			generated = routes[0];
+			// The backend appends exactly one trailing waypoint -- a clone of
+			// the route's own (post-insert) first point -- when closeLoop is
+			// set. Strip it back off so the next regenerate/insert/drag starts
+			// from the open line again; see the `baseWaypoints` doc comment.
+			baseWaypoints = closeLoop ? routes[0].waypoints.slice(0, -1) : routes[0].waypoints;
 		} catch (e) {
 			console.error('Failed to route trip:', e);
 			// Same rule as loop mode: drop the proposal so an error banner can
 			// never have a stale, saveable route sitting behind it.
 			generated = null;
 			alternatives = [];
+			baseWaypoints = null;
 			error = $LL.routeMap.routeError();
 		} finally {
 			generating = false;
@@ -592,9 +617,11 @@
 
 	/** The waypoints any re-route should start from, in either mode. On a
 	 *  re-opened saved route these may include vias — always prefer this over
-	 *  `waypointsFromEndpoints()`, which drops them. */
+	 *  `waypointsFromEndpoints()`, which drops them. Direct mode reads
+	 *  `baseWaypoints` rather than `generated.waypoints` directly so a round
+	 *  trip's closing leg is never fed back in as if it were a permanent via. */
 	function currentWaypoints(): Waypoint[] {
-		return generated?.waypoints ?? savedRoute?.waypoints ?? waypointsFromEndpoints();
+		return baseWaypoints ?? savedRoute?.waypoints ?? waypointsFromEndpoints();
 	}
 
 	function handleRegenerate() {
@@ -727,6 +754,16 @@
 			>
 				{generating ? $LL.routeMap.generating() : $LL.routeMap.recalculate()}
 			</button>
+			<label class="round-trip-label" title={$LL.routeMap.roundTripHint()}>
+				<input
+					type="checkbox"
+					data-test="round-trip-checkbox"
+					bind:checked={roundTrip}
+					onchange={handleRegenerate}
+					disabled={busy || !trip}
+				/>
+				{$LL.routeMap.roundTrip()}
+			</label>
 		{/if}
 		<button
 			class="button secondary"
@@ -882,6 +919,14 @@
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 		flex-wrap: wrap;
+	}
+
+	.round-trip-label {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		color: var(--text-primary);
+		cursor: pointer;
 	}
 
 	.saved-notice {

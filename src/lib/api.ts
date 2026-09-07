@@ -531,15 +531,25 @@ export async function startRouteForTrip(tripId: string): Promise<RouteStart> {
  * dragged-in point into the list first -- the returned routes' `waypoints`
  * are authoritative and should be adopted as-is.
  *
+ * `roundTrip` asks the backend to append a return leg back to the route's own
+ * first waypoint (Task 19) -- marshalling only, the append itself happens in
+ * Rust (`route_direct_internal`).
+ *
  * Returns alternatives in the routing service's own order (fastest first).
  * Never re-sort them -- that ordering is the product decision.
  */
 export async function routeDirect(
 	waypoints: Waypoint[],
 	targetKm: number,
-	insert?: InsertPoint
+	insert?: InsertPoint,
+	roundTrip?: boolean
 ): Promise<GeneratedRoute[]> {
-	return await apiCall('route_direct', { waypoints, targetKm, insert: insert ?? null });
+	return await apiCall('route_direct', {
+		waypoints,
+		targetKm,
+		insert: insert ?? null,
+		roundTrip: roundTrip ?? false
+	});
 }
 
 export async function getTripRoute(tripId: string): Promise<RouteMap | null> {

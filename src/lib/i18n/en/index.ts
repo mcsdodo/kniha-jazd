@@ -585,6 +585,8 @@ const en = {
 		missingEndpoints: 'This trip has no origin or destination filled in.',
 		editHint: 'Drag the line to add a stop. Click a stop to remove it.',
 		removeWaypoint: 'Remove stop',
+		roundTrip: 'Round trip',
+		roundTripHint: 'The route continues back to the starting point.',
 	},
 
 	// Place book

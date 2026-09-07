@@ -187,12 +187,14 @@ pub struct InsertPoint {
 ///
 /// The returned `waypoints` are AUTHORITATIVE: when `insert` is present they
 /// already include the new point in its computed slot, so the frontend adopts
-/// the list rather than maintaining its own ordering.
+/// the list rather than maintaining its own ordering. `round_trip` is applied
+/// the same way, appending a clone of the (post-insert) first waypoint.
 pub async fn route_direct_internal(
     provider: &dyn RouteProvider,
     waypoints: Vec<Waypoint>,
     target_km: f64,
     insert: Option<InsertPoint>,
+    round_trip: bool,
 ) -> Result<Vec<GeneratedRoute>, String> {
     // Guard BEFORE inserting: a one-point list plus a dragged-in point would
     // otherwise become a routable two-point route, silently inventing a
@@ -204,10 +206,19 @@ pub async fn route_direct_internal(
         ));
     }
 
-    let waypoints = match insert {
+    let mut waypoints = match insert {
         Some(p) => insert_waypoint(&waypoints, &p.polyline, p.lat, p.lon),
         None => waypoints,
     };
+
+    // Close the loop AFTER insert, never before (design decision 2): the
+    // dragged-in via is placed by nearest-vertex geometry, and that geometry
+    // is ambiguous on a route that already doubles back on itself. Insert
+    // against the open one-way line, then close it.
+    if round_trip {
+        let first = waypoints[0].clone();
+        waypoints.push(first);
+    }
 
     let coords: Vec<(f64, f64)> = waypoints.iter().map(|w| (w.lat, w.lon)).collect();
     let fetched = provider
