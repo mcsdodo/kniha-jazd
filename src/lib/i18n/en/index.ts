@@ -573,7 +573,7 @@ const en = {
 		tripNotFound: 'Record not found. Check that the right vehicle is selected.',
 		recalculate: 'Recalculate',
 		alternatives: 'Alternative routes',
-		alternativesUnavailable: 'Alternatives are unavailable once the route has stops.',
+		alternativesUnavailable: 'Alternatives are unavailable once the route passes through more than two points.',
 		duration: 'Driving time',
 		pickPlace: 'Which place is this?',
 		pickPlaceHint: 'Pick the right place. We will remember it for future trips.',

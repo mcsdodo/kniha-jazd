@@ -573,7 +573,7 @@ const sk = {
 		tripNotFound: 'Záznam sa nenašiel. Skontrolujte, či máte vybrané správne vozidlo.',
 		recalculate: 'Prepočítať',
 		alternatives: 'Alternatívne trasy',
-		alternativesUnavailable: 'Alternatívy nie sú dostupné, keď má trasa medzizastávky.',
+		alternativesUnavailable: 'Alternatívy nie sú dostupné, keď trasa vedie cez viac ako dva body.',
 		duration: 'Čas jazdy',
 		pickPlace: 'Ktoré miesto to je?',
 		pickPlaceHint: 'Vyberte správne miesto. Zapamätáme si ho pre ďalšie jazdy.',

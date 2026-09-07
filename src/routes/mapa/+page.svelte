@@ -416,6 +416,15 @@
 		if (savedRoute) {
 			mode = savedRoute.mode;
 			rehydrateEndpoints(savedRoute);
+			// Explicit, not implied: `currentWaypoints()` would fall back to
+			// `savedRoute.waypoints` anyway, but naming it here means a cold
+			// load and a fresh `runDirect` leave the SAME field holding the
+			// open list, rather than one relying on a fallback the other
+			// writes directly. A saved round trip's list is already closed
+			// (`[A, B, A]`) -- Rust's own idempotence guard in
+			// `route_direct_internal` is what makes re-ticking that safe
+			// (fix round 1, review finding "Important 1"), not this line.
+			baseWaypoints = savedRoute.waypoints;
 			return;
 		}
 		await startForTrip();

@@ -1899,7 +1899,7 @@ type RootTranslation = {
 		 */
 		alternatives: string
 		/**
-		 * A​l​t​e​r​n​a​t​í​v​y​ ​n​i​e​ ​s​ú​ ​d​o​s​t​u​p​n​é​,​ ​k​e​ď​ ​m​á​ ​t​r​a​s​a​ ​m​e​d​z​i​z​a​s​t​á​v​k​y​.
+		 * A​l​t​e​r​n​a​t​í​v​y​ ​n​i​e​ ​s​ú​ ​d​o​s​t​u​p​n​é​,​ ​k​e​ď​ ​t​r​a​s​a​ ​v​e​d​i​e​ ​c​e​z​ ​v​i​a​c​ ​a​k​o​ ​d​v​a​ ​b​o​d​y​.
 		 */
 		alternativesUnavailable: string
 		/**
@@ -4461,7 +4461,7 @@ export type TranslationFunctions = {
 		 */
 		alternatives: () => LocalizedString
 		/**
-		 * Alternatívy nie sú dostupné, keď má trasa medzizastávky.
+		 * Alternatívy nie sú dostupné, keď trasa vedie cez viac ako dva body.
 		 */
 		alternativesUnavailable: () => LocalizedString
 		/**

@@ -76,6 +76,19 @@ const CANNED_VIA_WAYPOINTS = [
   { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
 ];
 
+/**
+ * Bratislava -> Trnava -> Bratislava: the ALREADY-CLOSED shape a round trip
+ * persists as (Task 19). This is exactly what `save_trip_route` stores once
+ * a user ticks "Round trip" and saves -- the third waypoint is a clone of the
+ * first, same coordinates AND name, mirroring what `route_direct_internal`
+ * actually appends.
+ */
+const CANNED_ROUND_TRIP_WAYPOINTS = [
+  { lat: 48.1486, lon: 17.1077, name: 'Bratislava' },
+  { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
+  { lat: 48.1486, lon: 17.1077, name: 'Bratislava' },
+];
+
 /** Only the identity fields matter here — the tests assert presence, not values. */
 interface SavedRouteMap {
   tripId: string;
@@ -106,6 +119,30 @@ async function saveDirectRouteWithVia(tripId: string, targetKm: number): Promise
   await rpc<null>('save_trip_route', {
     tripId,
     waypoints: CANNED_VIA_WAYPOINTS,
+    polyline: CANNED_POLYLINE,
+    targetKm,
+    roadKm: targetKm,
+    mode: 'direct',
+  });
+}
+
+/**
+ * Persist an already-closed round trip against a trip, without touching
+ * OSRM (Task 19, fix round 1). This is the exact shape that exposed the
+ * bug the review caught: re-ticking the checkbox against an already-closed
+ * `[A, B, A]` list could append a SECOND closing point in Rust -- proving
+ * that end to end needs a live `route_direct` call to OSRM, which this file
+ * deliberately never makes (see the header). The guard itself is pinned
+ * directly in Rust
+ * (`round_trip_does_not_double_close_an_already_closed_route` in
+ * `route_maps_tests.rs`); this fixture instead lets the UI-level test below
+ * pin what CAN be asserted without the network -- that the reopened state
+ * renders the persisted round trip correctly.
+ */
+async function saveDirectRoundTrip(tripId: string, targetKm: number): Promise<void> {
+  await rpc<null>('save_trip_route', {
+    tripId,
+    waypoints: CANNED_ROUND_TRIP_WAYPOINTS,
     polyline: CANNED_POLYLINE,
     targetKm,
     roadKm: targetKm,
@@ -397,6 +434,60 @@ describe('Tier 2: Route Map', () => {
       // branch (I2, _tasks/72-route-map-origin-destination/_plan-review.md)
       // is reachable on a cold load, not only right after a fresh proposal.
       expect(await $('[data-test="alternatives-unavailable"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="alternatives"]').isExisting()).toBe(false);
+    });
+
+    it('reopens an already-closed round trip without corrupting its stop count', async () => {
+      // Task 19, fix round 1 (review finding "Important 1"): reopening a
+      // saved round trip yields an already-closed `[A, B, A]` list. Ticking
+      // the checkbox again and re-routing that list is what exposed the bug
+      // -- Rust appended a SECOND closing point, `[A, B, A, A]`. Proving that
+      // exact click end to end needs a live `route_direct` call to OSRM,
+      // which this file deliberately never makes (see the header); Rust's
+      // own idempotence guard is pinned directly in
+      // `round_trip_does_not_double_close_an_already_closed_route`
+      // (route_maps_tests.rs). What this test CAN pin without the network is
+      // the reopened state itself: the persisted round trip renders with its
+      // correct (un-doubled) stop count, the checkbox stays unticked because
+      // it is a generation input and is never persisted (design decision 5),
+      // and the alternatives-unavailable copy (fix round 1, "Important 2")
+      // now reads true for a plain round trip that has no via at all.
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-16T08:00',
+        endDatetime: '2026-03-16T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50165,
+        purpose: 'Business trip',
+      });
+
+      await saveDirectRoundTrip(trip.id as string, 65);
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      expect(await drawnPathCount()).toBeGreaterThan(0);
+
+      // Three stops, closing back on the origin's own name -- not silently
+      // dropped to two, and not doubled to four.
+      const stopsText = await $('[data-test="stops"]').getText();
+      expect(stopsText).toContain('(3)');
+      expect(stopsText).toContain('Bratislava → Trnava → Bratislava');
+
+      // Not persisted: reopening always starts unticked, even though the
+      // saved list is already a round trip.
+      const checkbox = await $('[data-test="round-trip-checkbox"]');
+      expect(await checkbox.isExisting()).toBe(true);
+      expect(await checkbox.isSelected()).toBe(false);
+
+      // The corrected copy names the real condition (more than two points),
+      // which is true here even though this route has no via -- only a
+      // return leg. The old wording named intermediate stops as the cause,
+      // which was false for exactly this shape.
+      expect(await $('[data-test="alternatives-unavailable"]').isDisplayed()).toBe(true);
+      const unavailableText = await $('[data-test="alternatives-unavailable"]').getText();
+      expect(unavailableText).toContain('more than two points');
       expect(await $('[data-test="alternatives"]').isExisting()).toBe(false);
     });
 

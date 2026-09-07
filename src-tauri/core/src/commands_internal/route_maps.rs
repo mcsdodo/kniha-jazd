@@ -215,9 +215,23 @@ pub async fn route_direct_internal(
     // dragged-in via is placed by nearest-vertex geometry, and that geometry
     // is ambiguous on a route that already doubles back on itself. Insert
     // against the open one-way line, then close it.
+    //
+    // Idempotent: a reopened saved round trip is ALREADY a closed list
+    // (`[A, B, A]` -- that is what got persisted). Appending onto that again
+    // would silently invent a zero-length final leg and a wrong stop count on
+    // every subsequent regenerate. In direct mode `last == first` can only
+    // mean "already closed" -- `mode_for` sends a same-place row through the
+    // loop path instead -- so this check owns the decision for every caller,
+    // including one that sends a persisted round-trip flag straight through.
     if round_trip {
-        let first = waypoints[0].clone();
-        waypoints.push(first);
+        let already_closed = waypoints
+            .first()
+            .zip(waypoints.last())
+            .is_some_and(|(first, last)| first.lat == last.lat && first.lon == last.lon);
+        if !already_closed {
+            let first = waypoints[0].clone();
+            waypoints.push(first);
+        }
     }
 
     let coords: Vec<(f64, f64)> = waypoints.iter().map(|w| (w.lat, w.lon)).collect();

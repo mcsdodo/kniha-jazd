@@ -1104,6 +1104,41 @@ async fn round_trip_closes_the_loop_after_the_insert_is_placed() {
     assert_eq!(routes[0].waypoints.first().unwrap().lon, routes[0].waypoints.last().unwrap().lon);
 }
 
+/// Reopening a saved round trip yields an ALREADY-CLOSED waypoint list
+/// (`[A, B, A]`) -- that is what got persisted the first time round. Ticking
+/// the checkbox again must not append a SECOND closing point on top of an
+/// already-closed route: that would silently invent a zero-length final leg
+/// and a wrong stop count on every subsequent regenerate (fix round 1,
+/// review finding "Important 1"). The guard belongs here, in Rust: it is the
+/// layer that owns this logic (ADR-008), and it defends every caller,
+/// including a persisted round-trip flag that does not exist yet.
+#[tokio::test]
+async fn round_trip_does_not_double_close_an_already_closed_route() {
+    let already_closed = vec![
+        wp(48.1486, 17.1077),
+        wp(48.9444, 20.5675),
+        wp(48.1486, 17.1077),
+    ];
+    let provider = RoundTripAssertingProvider {
+        expect_closed: true,
+        route: fetched(
+            &encode(&[(48.1486, 17.1077), (48.9444, 20.5675), (48.1486, 17.1077)]),
+            800.0,
+            28000.0,
+        ),
+    };
+
+    let routes = route_direct_internal(&provider, already_closed, 420.0, None, true)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        routes[0].waypoints.len(),
+        3,
+        "an already-closed route must not gain a second, redundant closing point"
+    );
+}
+
 /// All five tests above drag their point onto a straight line held at a
 /// constant latitude, so the longitude term alone could be driving every
 /// placement decision and the latitude term would never be exercised. This
