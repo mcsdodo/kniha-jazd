@@ -1,16 +1,17 @@
-//! Tests for the place book's derived list.
+//! Tests for the place book: the derived list, and the two write commands.
 //!
-//! Coordinates are seeded through `db.upsert_place` rather than a command:
-//! the write commands arrive with Task 4, and this list must not depend on
-//! them to be provable.
+//! The list tests seed coordinates through `db.upsert_place` rather than
+//! through `save_place_internal`, so that what trips say and what the book
+//! stores stay provable independently of each other.
 
 use super::*;
+use crate::app_state::AppState;
 use crate::db::Database;
 use crate::db_tests::{create_test_vehicle, seed_trip_between};
-use crate::models::{NewPlaceRow, PlaceSource};
+use crate::models::{NewPlaceRow, PlaceRow, PlaceSource};
 use crate::places::normalise;
 
-/// Store a coordinate for `display_name` the way Task 4's command will.
+/// Store a coordinate for `display_name` the way `save_place_internal` does.
 fn place_at(db: &Database, display_name: &str, lat: f64, lon: f64, source: PlaceSource) {
     db.upsert_place(&NewPlaceRow {
         normalised_name: &normalise(display_name),
@@ -209,5 +210,175 @@ fn the_list_is_ordered_unplaced_first_then_most_used_then_by_name() {
         order,
         ["Bratislava", "Trnava", "Zvolen", "Rare", "Placed"],
         "unplaced before placed, then uses descending, then name ascending"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Writing a place's coordinate
+// ---------------------------------------------------------------------------
+
+/// The stored row, when there is supposed to be exactly one.
+fn only_row(db: &Database) -> PlaceRow {
+    let mut rows = db.all_places().expect("read the place book");
+    assert_eq!(rows.len(), 1, "expected exactly one stored place: {rows:?}");
+    rows.remove(0)
+}
+
+#[test]
+fn saving_a_place_stores_the_trips_own_spelling() {
+    // ADR-034: the row keeps the spelling trips already use, never the
+    // geocoder's own rendering. Storing the geocoder's string would put a
+    // second spelling into circulation the moment someone picked it from the
+    // autocomplete, re-growing the name fragmentation a cleanup just removed.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+
+    save_place_internal(
+        &db,
+        &app_state,
+        "Office, City A".to_string(),
+        48.1,
+        17.1,
+        PlaceSource::Geocoder,
+    )
+    .unwrap();
+
+    let row = only_row(&db);
+    assert_eq!(
+        row.display_name, "Office, City A",
+        "the spelling is stored verbatim"
+    );
+    assert_eq!(
+        row.normalised_name,
+        normalise("Office, City A"),
+        "the command derives the key itself — the db layer never normalises"
+    );
+    assert_eq!(row.normalised_name, "office, city a");
+    assert_eq!(row.lat, Some(48.1));
+    assert_eq!(row.lon, Some(17.1));
+    assert_eq!(row.source, PlaceSource::Geocoder.as_str());
+}
+
+#[test]
+fn saving_the_same_place_twice_replaces_the_coordinate() {
+    // Two spellings of one place must not become two pins: whichever was saved
+    // last is the answer, because the second save is the human correcting the
+    // first.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+
+    save_place_internal(
+        &db,
+        &app_state,
+        "Office, City A".to_string(),
+        48.1,
+        17.1,
+        PlaceSource::Geocoder,
+    )
+    .unwrap();
+    save_place_internal(
+        &db,
+        &app_state,
+        "OFFICE, CITY A".to_string(),
+        49.2,
+        18.2,
+        PlaceSource::Manual,
+    )
+    .unwrap();
+
+    let row = only_row(&db);
+    assert_eq!(row.normalised_name, "office, city a");
+    assert_eq!(row.lat, Some(49.2));
+    assert_eq!(row.lon, Some(18.2));
+    assert_eq!(row.source, PlaceSource::Manual.as_str());
+    assert_eq!(
+        row.display_name, "OFFICE, CITY A",
+        "the row carries the spelling of the save that wrote it"
+    );
+}
+
+#[test]
+fn clearing_a_place_removes_its_coordinate() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    save_place_internal(
+        &db,
+        &app_state,
+        "Office, City A".to_string(),
+        48.1,
+        17.1,
+        PlaceSource::Manual,
+    )
+    .unwrap();
+    assert_eq!(
+        db.all_places().unwrap().len(),
+        1,
+        "precondition: it is saved"
+    );
+
+    // Cleared under a different spelling on purpose: clearing keys the same way
+    // saving does, so a command that forwarded the raw string to the db layer
+    // would silently forget nothing at all.
+    clear_place_internal(&db, &app_state, "OFFICE, CITY A".to_string()).unwrap();
+
+    assert!(
+        db.all_places().unwrap().is_empty(),
+        "the coordinate is gone"
+    );
+}
+
+#[test]
+fn clearing_a_place_that_was_never_saved_is_a_no_op() {
+    // Deliberate: the command's postcondition is "this place has no stored
+    // coordinate", which is already true, so there is nothing to report. It
+    // also keeps the derived list honest — a place the user sees unplaced can
+    // always be cleared without the UI first proving a row exists.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+
+    clear_place_internal(&db, &app_state, "Nowhere, City Z".to_string())
+        .expect("clearing a place that was never placed must be Ok");
+}
+
+#[test]
+fn writes_are_refused_in_read_only_mode() {
+    let db = Database::in_memory().unwrap();
+    let writable = AppState::new();
+    let read_only = AppState::new();
+    read_only.enable_read_only("Test read-only");
+
+    let err = save_place_internal(
+        &db,
+        &read_only,
+        "Office, City A".to_string(),
+        48.1,
+        17.1,
+        PlaceSource::Manual,
+    )
+    .unwrap_err();
+    assert!(err.contains("len na čítanie"), "got: {err}");
+    // A guard that errors *after* writing would still produce that message.
+    assert!(
+        db.all_places().unwrap().is_empty(),
+        "a read-only save must not have written anything"
+    );
+
+    save_place_internal(
+        &db,
+        &writable,
+        "Office, City A".to_string(),
+        48.1,
+        17.1,
+        PlaceSource::Manual,
+    )
+    .unwrap();
+
+    let err = clear_place_internal(&db, &read_only, "Office, City A".to_string()).unwrap_err();
+    assert!(err.contains("len na čítanie"), "got: {err}");
+    // The refusal has to be a refusal, not a delete plus an error message.
+    assert_eq!(
+        db.all_places().unwrap().len(),
+        1,
+        "a read-only clear must have left the coordinate in place"
     );
 }

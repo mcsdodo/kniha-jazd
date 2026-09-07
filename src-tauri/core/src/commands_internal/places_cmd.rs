@@ -3,8 +3,10 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+use crate::app_state::AppState;
+use crate::check_read_only;
 use crate::db::Database;
-use crate::models::{Place, PlaceSource};
+use crate::models::{NewPlaceRow, Place, PlaceSource};
 use crate::places::normalise;
 
 /// One place part-way through the fold: the spelling to show, how often that
@@ -92,6 +94,51 @@ pub fn list_places_internal(db: &Database) -> Result<Vec<Place>, String> {
             .then(a.display_name.cmp(&b.display_name))
     });
     Ok(out)
+}
+
+/// Store the coordinate a human confirmed for a place.
+///
+/// `display_name` is the spelling trips already use, verbatim, and is stored as
+/// such (ADR-034) — never the geocoder's own rendering of the same place, which
+/// would put a second spelling into circulation the moment someone picked a
+/// suggestion.
+///
+/// The key is derived here, not by the caller and not by the db layer: one
+/// place in the code decides what "the same place" means, so a save and the
+/// list that reads it back can never disagree.
+pub fn save_place_internal(
+    db: &Database,
+    app_state: &AppState,
+    display_name: String,
+    lat: f64,
+    lon: f64,
+    source: PlaceSource,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let normalised_name = normalise(&display_name);
+
+    db.upsert_place(&NewPlaceRow {
+        normalised_name: &normalised_name,
+        display_name: &display_name,
+        lat: Some(lat),
+        lon: Some(lon),
+        source: source.as_str(),
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Forget a place's coordinate, whichever spelling it is asked for by.
+///
+/// Clearing a place that was never placed is a no-op, not an error: the caller
+/// asked for the book to hold no coordinate for it, and it already holds none.
+pub fn clear_place_internal(
+    db: &Database,
+    app_state: &AppState,
+    display_name: String,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    db.delete_place(&normalise(&display_name))
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
