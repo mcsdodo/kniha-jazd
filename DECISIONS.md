@@ -4,6 +4,60 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-07: Route Map Origin/Destination Routing
+
+### ADR-037: The route mode comes from the trip's own text, decided in Rust
+
+**Context:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) replaces the V1 loop-only generator, which drew a random genetic-algorithm loop sized to a trip's distance and ignored where the trip actually went -- a Bratislava-to-Trnava row got a loop that need not pass either place. The row already carries the two strings the trip was booked with, `origin` and `destination`.
+
+**Decision:** `mode_for` ([route_maps.rs](./src-tauri/core/src/commands_internal/route_maps.rs)) compares `normalise(origin) == normalise(destination)`: equal means `RouteMode::Loop` (unchanged V1 behaviour), different means `RouteMode::Direct`, a fresh A-to-B route. There is no toggle -- the frontend never inspects the two strings itself, it only renders whichever mode `start_route_for_trip` returns. An origin or destination that normalises to empty is an `Err`, surfaced as a visible error, never a silent loop.
+
+**Reasoning:** ADR-008 already rules out a second copy of this comparison living in Svelte. Reusing `normalise` -- the same function [task 75](./_tasks/_done/75-place-book/)'s place book keys its aliases on -- means a trip typed "Bratislava" and one typed "bratislava " match the same book entry and pick the same mode, with one normalisation rule instead of two that could drift apart. Treating an empty endpoint as an error rather than falling back to a loop matters specifically because this map is legal evidence: a silently wrong map is worse than a page that says routing needs both fields filled in.
+
+**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/); [ADR-035](#adr-035-the-geocoder-is-not-restricted-by-country) and [ADR-032](#adr-032-places-are-placed-by-a-human-never-by-a-confidence-heuristic) (the place book `mode_for` reads endpoints from); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+### ADR-038: Alternatives are ordered by duration; deviation labels, never reorders
+
+**Context:** Direct-mode routing can return more than one road option from OSRM. The obvious second axis to sort by is deviation from the trip's recorded distance -- showing "the one closest to what was already logged" first.
+
+**Decision:** Alternatives stay in the order OSRM returns them -- fastest first -- for as long as the route has exactly two points. `fetch_alternatives` ([osrm.rs](./src-tauri/core/src/route_map/osrm.rs)) requests `MAX_ALTERNATIVES = 3` and never sorts the response; `route_direct_internal` computes a `deviation_percent` per alternative with the same `deviation` helper Loop mode uses, but that number is display-only, it labels an entry and never moves it. A route with more than two points, including a round trip's own closing leg, sends no `alternatives` parameter at all: OSRM only offers alternatives for a plain two-point request and returns the single through-route regardless for anything longer, so the UI shows "alternatives unavailable" instead of a list that looks live but cannot change.
+
+**Reasoning:** Reordering by deviation would put the road route that happens to match the logged kilometres first, which sounds helpful until the logged number is itself the thing in question -- that is exactly the deviation this app exists to surface, not launder by promoting whichever route agrees with it. OSRM's own order is the routing service's opinion of what a driver would actually take, which is what "alternative routes" means to a user. Keeping the two concerns separate, order by what a driver would pick, label by how far it sits from the logged trip, means neither number can quietly stand in for the other's job.
+
+**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the deviation math has one home); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+### ADR-039: `distance_km` is never rewritten from a route's road distance
+
+**Context:** A generated or edited route's road distance routinely differs from the trip's recorded `distance_km` -- that gap is exactly what the deviation percentage exists to display. Now that Direct mode can produce an accurate, road-following distance for a real A-to-B trip, overwriting the logged value with it is technically easy and would make the two numbers agree.
+
+**Decision:** Nothing route-map related ever writes `distance_km`. `generate_route_internal`, `route_direct_internal` and `save_trip_route_internal` all take the trip's distance as an immutable input (`target_km`) and never call back into the trips table. Reconciling a deviation -- deciding the logged kilometres were wrong and should be corrected -- stays a decision the user makes explicitly on the trip row, never a side effect of looking at a map.
+
+**Reasoning:** `distance_km` feeds the consumption rate (l/100km) and the [20% legal margin](#biz-003-legal-margin-limit), both computed straight from the logged number. A route-map save silently nudging it would move which fuel-consumption period a fill-up lands in and which side of the margin a period sits on, with no warning and no record of why the number changed. A follow-up task is expected to add an explicit "apply this distance to the trip" action carrying exactly that warning; until it ships, the map stays read-only with respect to the number it is illustrating.
+
+**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/); [BIZ-003](#biz-003-legal-margin-limit); the follow-up task that will add a warned distance-reconciliation action.
+
+### ADR-040: The waypoint editor is mode-agnostic
+
+**Context:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) also deferred re-anchoring the genetic algorithm at an arbitrary geocoded point, so a distant Loop row (a "Bratislava -- Bratislava" trip that actually visited a distant town) still loops around the home base -- doing better needs a distance matrix the app does not have. Something still has to make that recoverable without one.
+
+**Decision:** `insert_waypoint` and the drag-to-edit flow in `route_direct_internal` know nothing about how the route was produced. A route is just an ordered list of `{lat, lon}` waypoints; dragging the line inserts a new point into that list by nearest-vertex geometry against whichever polyline is currently drawn, whether that polyline came from the genetic algorithm (Loop) or from geocoded endpoints (Direct). The frontend's `reroute()` sets `mode = 'direct'` the moment an edit happens: editing produces a concrete road route, so an edited loop becomes a direct route, which is the escape hatch itself.
+
+**Reasoning:** Building a distance matrix good enough to re-anchor the GA is real work with no clear payoff size (how often does a Loop row's home base genuinely need to move?). A mode-agnostic editor sidesteps the question: a user who notices a loop passing nowhere near the right town can already drag it there today, one via point at a time, using the same mechanism Direct mode's own editing needed anyway. The interim answer costs nothing extra to have built, because it was going to be built for Direct mode regardless.
+
+**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) -- deferred: re-anchoring the GA; [ADR-029](#adr-029-waypoints-persist-as-coordinates-not-dataset-indices) (coordinates as identity is what makes a waypoint list mode-independent in the first place).
+
+### ADR-041: Round-trip normalisation is symmetric, and lives entirely in Rust
+
+**Context:** Task 20 (within [Task 72](./_tasks/_done/72-route-map-origin-destination/)) persists a `round_trip` flag and appends a closing leg back to the route's own start when it is set. The append/strip logic first lived at each frontend call site that could reach `route_direct`, keyed on "if `round_trip` is true, close the list." That guard was one-directional, and the same bug -- a closed waypoint list reaching `route_direct_internal` with `round_trip: false` -- recurred three times against three different frontend entry points: reopening an already-saved round trip and re-ticking the box, cold-loading a saved round trip and unticking it as the very first action before any recalculation, and `runDirect`'s own catch block nulling `baseWaypoints` on a failed OSRM request so the next call fell back to the still-closed `savedRoute.waypoints`.
+
+**Decision:** `route_direct_internal` normalises the waypoint list to match `round_trip` on every call, in both directions: append a clone of the first point when `round_trip` is true and the list is open, strip the trailing point back off when `round_trip` is false and the list is already closed. A closed list arriving with `round_trip: false` can only mean "this function closed it before," because `mode_for` already routes a same-place row through Loop, never Direct -- so the guard is unambiguous regardless of what shape the frontend hands it.
+
+**Reasoning:** Three fix rounds against three call sites is a pattern, not three unrelated bugs: the frontend has as many places that can leak a stale shape as it has ways to reach this function, and patching them one at a time only ever fixes the ones found so far. Per ADR-008 one Rust function is supposed to be authoritative; making it defend its own invariant on every call, rather than trusting a caller to hand it pre-normalised state, is what actually closes the class of bug instead of the next instance of it.
+
+**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) -- Task 20 (persist the round trip flag); [ADR-008](#adr-008-remove-frontend-calculation-duplication).
+
+---
+
 ## 2026-09-07: Development Environment
 
 ### ADR-036: The development environment is Linux-first

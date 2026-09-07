@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-07 (Task 72 in progress)
+**Last updated:** 2026-09-07 (Task 72 complete)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 72 | [Route Map Origin/Destination](72-route-map-origin-destination/) | 🟡 In Progress | Geocode the row's origin/destination, route A→B, alternatives + manual waypoint editing |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
@@ -18,6 +17,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 72 | [Route Map Origin/Destination](./_done/72-route-map-origin-destination/) — see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-07 |
 | 77 | [Linux Dev Environment](./_done/77-linux-dev-environment/) | 2026-09-07 |
 | 75 | [Place Book](./_done/75-place-book/) — see [docs/features/place-book.md](../docs/features/place-book.md) | 2026-09-07 |
 | 76 | [Route Usage Counter Drift](./_done/76-route-usage-counter-drift/) | 2026-09-07 |

@@ -1,6 +1,6 @@
 # Feature: Route Maps
 
-> Generates a plausible driving route matching a trip's recorded distance, previews it on a map, and appends the saved routes to the printed logbook as attachment pages.
+> Draws a road-following map for a trip -- a direct route between its actual origin and destination, or a loop sized to its recorded distance when the two are the same place -- lets the user pick an alternative or drag the line to fix it, and appends saved routes to the printed logbook as attachment pages.
 
 The commands are served over the HTTP API like every other command — see
 [The capability flag](#the-capability-flag).
@@ -11,21 +11,45 @@ The commands are served over the HTTP API like every other command — see
    map-pin icon beside the existing insert-above and delete actions. The pin is outlined
    when the trip has no saved map and filled when it has one.
 2. **Click the pin.** A new browser tab opens at `/mapa?trip={id}`.
-3. **The route generates on open** (if none is saved), targeting the trip's recorded
-   distance. The map shows the route as a single blue line — no markers, no pins — over
-   live OpenStreetMap tiles, plus a readout of target distance, actual road distance, the
-   deviation in percent, and the settlement names the route passes through.
-4. **"Generovať znova"** produces a different route for the same target. **Nothing is
-   persisted until "Uložiť mapu"** — the user can regenerate until a route looks right.
-5. **Saving** writes the route, tells the logbook tab to fill in that row's pin, and offers
+3. **The backend decides the mode from the row's own text**, nothing the user picks: if
+   "Odkiaľ" and "Kam" name the same place, the map opens as a **loop** sized to the trip's
+   recorded distance (unchanged from V1); otherwise it opens as a **direct route** between
+   the two. See [Two modes, chosen in Rust](#two-modes-chosen-in-rust).
+4. **A direct route needs both endpoints placed.** Endpoint coordinates come from the place
+   book ([Task 75](../../_tasks/_done/75-place-book/)), never from a fresh geocode. If either
+   endpoint has no saved coordinate yet, the shared place dialog opens right there on the
+   page; saving a pin resumes routing immediately, with no navigation away from the map. See
+   [Endpoints come from the place book](#endpoints-come-from-the-place-book).
+5. **A direct route offers alternatives** when it has exactly two points: a row of up to
+   three options, fastest first, each labelled with its deviation from the trip's recorded
+   distance. Picking one redraws the map without re-fetching. See
+   [Alternatives are ordered by duration, never by deviation](#alternatives-are-ordered-by-duration-never-by-deviation).
+6. **Dragging the line** inserts a new stop and re-routes through it on release, in both
+   modes -- the same mechanism that lets a mis-anchored loop be corrected also lets a direct
+   route pick up a real via point. See
+   [The waypoint editor doesn't know which mode drew the line](#the-waypoint-editor-doesnt-know-which-mode-drew-the-line).
+7. **A direct route can be a round trip.** Ticking "Cesta tam a späť" appends a return leg
+   back to the route's own start; the flag is saved with the route so reopening it restores
+   the checkbox. A round trip currently shows no alternatives -- see
+   [Known limitation: a round trip is one three-point request](#known-limitation-a-round-trip-is-one-three-point-request).
+8. **"Generovať znova" / "Prepočítať"** produces a different route for the same target
+   (loop) or re-routes the current waypoint list (direct). **Nothing is persisted until
+   "Uložiť mapu"** -- the user can retry until a route looks right.
+9. **Saving** writes the route, tells the logbook tab to fill in that row's pin, and offers
    to close the map tab. **"Odstrániť mapu"** removes a saved route after confirmation.
-6. **"Export pre tlač"** appends one A4-landscape page per saved map after the trip table,
-   each headed `Príloha č. N — záznam č. X`.
+   Saving never changes the trip's own recorded distance -- see
+   [The recorded distance is never rewritten](#the-recorded-distance-is-never-rewritten).
+10. **"Export pre tlač"** appends one A4-landscape page per saved map after the trip table,
+    each headed `Príloha č. N — záznam č. X`.
 
 **Failure cases:**
 
-- The generator cannot reach the target within tolerance → the best attempt is drawn and
-  the deviation percentage is flagged. See
+- Origin or destination is blank → routing refuses with a visible error rather than
+  falling back to a loop; a trip missing either field is not one the map can draw.
+- Either endpoint has no place-book coordinate → the shared place dialog opens instead of
+  failing (step 4 above).
+- The loop generator cannot reach the target within tolerance → the best attempt is drawn
+  and the deviation percentage is flagged. See
   [Why short trips can miss target](#why-short-trips-can-legitimately-miss-target).
 - The routing service is unreachable or rate-limits → an error with a Retry button; the
   stale proposal is dropped so it cannot be saved behind the error banner.
@@ -45,7 +69,31 @@ runes. Leaflet is bundled through Vite (not loaded from a CDN) and imported lazi
 `onMount`, because it touches `window` at import time. The page holds two separate pieces
 of state: the *saved* route and the *generated* proposal. Only save and remove touch the
 first; regenerate only replaces the second. That split is what makes "regenerating persists
-nothing" structural rather than a rule someone has to remember.
+nothing" structural rather than a rule someone has to remember. `mode` itself is state the
+page only ever reads off a backend response (`start_route_for_trip`, a saved route, or the
+result of an edit) -- it is never derived here from the trip's origin and destination.
+
+The page also holds the direct-route pieces: `baseWaypoints` (the open, un-closed waypoint
+list an edit or a round-trip toggle re-routes from), `alternatives` and `activeIndex` (the
+backend's ordered list and which one is on screen), `roundTrip` (mirrors the persisted
+flag), and `unplacedField` (which endpoint, if any, has no place-book coordinate yet -- this
+drives the shared place dialog described below).
+
+**Endpoint placement:** when `start_route_for_trip` reports an endpoint with no coordinate,
+the page renders [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) -- the same
+dialog [the place book's Settings page](./place-book.md) uses -- in place, seeded with the
+trip's own origin or destination text. Saving a pin calls `savePlace` and re-runs the
+start-of-trip flow, which picks up the new coordinate and either asks for the other endpoint
+next or proceeds to route. The map page never writes anywhere else in the place book; it
+reuses the dialog's save contract exactly as Settings → Miesta does.
+
+**Alternatives and editing:** picking a row in the alternatives list only swaps which
+already-fetched `GeneratedRoute` is drawn -- no new request. Dragging the line calls the
+same `reroute()` path a checkbox toggle or a "Prepočítať" click does: it always re-fetches
+through `route_direct`, because an edited position can only be resolved by asking the
+routing service again. A drag on a loop's line still works, and flips `mode` to `'direct'`
+the moment it resolves -- see
+[The waypoint editor doesn't know which mode drew the line](#the-waypoint-editor-doesnt-know-which-mode-drew-the-line).
 
 **Row action:** [src/lib/components/TripRow.svelte](../../src/lib/components/TripRow.svelte)
 renders the pin, gated on the capability flag.
@@ -53,8 +101,9 @@ renders the pin, gated on the capability flag.
 of trips that have maps, opens the map tab, and listens on a `BroadcastChannel` so a save or
 a removal in the map tab updates the row icon without a reload.
 
-**API wrappers:** [src/lib/api.ts](../../src/lib/api.ts) — `generateRoute`, `getTripRoute`,
-`saveTripRoute`, `deleteTripRoute`.
+**API wrappers:** [src/lib/api.ts](../../src/lib/api.ts) -- `generateRoute`, `routeDirect`,
+`startRouteForTrip`, `getTripRoute`, `saveTripRoute`, `deleteTripRoute`, plus the place
+book's `savePlace` for the in-place dialog.
 
 ### Backend (Rust)
 
@@ -65,32 +114,41 @@ frontend draws a coordinate list and confirms it.
 | Module | Responsibility |
 |---|---|
 | [dataset.rs](../../src-tauri/core/src/route_map/dataset.rs) | Loads the bundled 67-node settlement set and its 67×67 driving-distance matrix |
-| [ga.rs](../../src-tauri/core/src/route_map/ga.rs) | Genetic algorithm picking the settlement sequence |
-| [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) | Fetches road-following geometry, behind a `RouteProvider` trait |
+| [ga.rs](../../src-tauri/core/src/route_map/ga.rs) | Genetic algorithm picking the settlement sequence (Loop mode) |
+| [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) | Fetches road-following geometry and, for a plain two-point request, up to three alternatives -- behind a `RouteProvider` trait |
 | [polyline.rs](../../src-tauri/core/src/route_map/polyline.rs) | Polyline5 encode/decode; never panics on malformed input |
 | [tiles.rs](../../src-tauri/core/src/route_map/tiles.rs) | Web Mercator tile geometry plus the cache-first tile fetcher |
 | [render.rs](../../src-tauri/core/src/route_map/render.rs) | Composites tiles and strokes the route into a PNG |
-| [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | The four commands, plus export attachment assembly |
+| [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | The six commands, `mode_for`, waypoint-insertion geometry, plus export attachment assembly |
+| [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | The text normalisation `mode_for` and the place book both key on |
 
-**Commands** are dispatcher-only. `generate_route` awaits the routing service so it lives in
-[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs); `get_trip_route`,
-`save_trip_route` and `delete_trip_route` are in
-[dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). The two write commands are
+**Commands are dispatcher-only, and there are six of them.** `generate_route` (Loop) and
+`route_direct` (Direct, plus alternatives and edits) both await the routing service, so they
+live in
+[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs).
+`start_route_for_trip`, `get_trip_route`, `save_trip_route` and `delete_trip_route` need no
+network call -- the place-book lookup is a database read -- and stay in
+[dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). The write commands are
 guarded by the read-only check like every other write.
 
 **Storage:** the `trip_routes` table
 ([migration](../../src-tauri/core/migrations/2026-08-10-100000_add_trip_routes/)), keyed by
 `trip_id` with `ON DELETE CASCADE`. It holds the waypoints (JSON), the encoded polyline, the
-target and road distances, the dataset version and a timestamp — a few KB per trip. No image
-is stored anywhere; see
+target and road distances, the dataset version, a `mode`
+([migration](../../src-tauri/core/migrations/2026-09-07-110000_add_trip_route_mode/)), a
+`round_trip` flag
+([migration](../../src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/))
+and a timestamp -- a few KB per trip. No image is stored anywhere; see
 [ADR-028](../../DECISIONS.md#adr-028-only-the-polyline-is-persisted-tiles-live-in-a-disposable-cache).
+`round_trip` is meaningful for Direct mode only -- a saved loop is always stored `false`,
+since a loop is already closed by construction.
 
 ### Data Flow
 
-Generation and preview:
+Loop mode -- generation and preview, unchanged from V1:
 
 ```
-Row pin → /mapa?trip=id → generate_route
+Row pin → /mapa?trip=id → start_route_for_trip → mode: loop → generate_route
                             ↓
        genetic algorithm picks a settlement sequence (offline, matrix only)
                             ↓
@@ -101,6 +159,29 @@ Row pin → /mapa?trip=id → generate_route
        Leaflet draws one polyline · user regenerates or saves
                             ↓
                     save_trip_route → trip_routes
+```
+
+Direct mode -- endpoint lookup, alternatives, and editing:
+
+```
+Row pin → /mapa?trip=id → start_route_for_trip
+                            ↓
+        mode_for(origin, destination) → direct (normalise() differs)
+                            ↓
+    each endpoint looked up in the place book (no geocode here) ──┐
+                            ↓                                     │ missing coordinate
+                    route_direct → OSRM /route                    ↓
+                            ↓                          PlaceModal opens in place,
+       up to 3 alternatives, fastest first,            savePlace, then retry lookup
+       each labelled with its deviation %                        │
+                            ↓ ←─────────────────────────────────┘
+       Leaflet draws the active alternative
+                            ↓
+    user drags the line (insert_waypoint) or ticks "Cesta tam a späť"
+                            ↓
+                 route_direct again, on release · never on drag
+                            ↓
+                    save_trip_route → trip_routes (mode, round_trip)
 ```
 
 Export:
@@ -158,14 +239,18 @@ design.
 
 | File | Purpose |
 |------|---------|
-| [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) | Map view: preview, regenerate, save, remove |
+| [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) | Map view: mode-agnostic preview, alternatives, drag editing, round trip, save, remove |
+| [src/lib/components/PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) | Shared place dialog; opened in place when an endpoint has no coordinate |
 | [src/lib/components/TripRow.svelte](../../src/lib/components/TripRow.svelte) | Map-pin row action, filled when a map is saved |
 | [src/lib/components/TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Opens the map tab; keeps pin state fresh over `BroadcastChannel` |
-| [src-tauri/core/src/route_map/](../../src-tauri/core/src/route_map/) | Dataset, genetic algorithm, OSRM client, polyline codec, tiles, rasteriser |
-| [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | Commands + export attachment assembly |
+| [src-tauri/core/src/route_map/](../../src-tauri/core/src/route_map/) | Dataset, genetic algorithm, OSRM client (fetch + alternatives), polyline codec, tiles, rasteriser |
+| [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | The six commands, `mode_for`, `insert_waypoint`, round-trip normalisation, export attachment assembly |
+| [src-tauri/core/src/places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | Text normalisation shared by `mode_for` and the place book |
 | [src-tauri/core/src/commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | Adds the "which trips have maps" set to the grid data |
 | [src-tauri/core/src/export.rs](../../src-tauri/core/src/export.rs) | Attachment page markup and print CSS |
-| [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `Waypoint`, `RouteMap` |
+| [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `Waypoint`, `RouteMap`, `RouteMode`, `RouteStart` |
+| [src-tauri/core/migrations/2026-09-07-110000_add_trip_route_mode/](../../src-tauri/core/migrations/2026-09-07-110000_add_trip_route_mode/) | Adds `trip_routes.mode`, defaulted to `loop` for every pre-existing row |
+| [src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/](../../src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/) | Adds `trip_routes.round_trip` |
 | [src-tauri/core/assets/](../../src-tauri/core/assets/) | Bundled 67-node dataset and distance matrix |
 
 ## Design Decisions
@@ -216,7 +301,7 @@ skipped because they are not trips and can hold no map.
 
 ### The capability flag
 
-The four route-map commands live only in the dispatchers that serve the HTTP API, and the
+The six route-map commands live only in the dispatchers that serve the HTTP API, and the
 capabilities endpoint reports `route_maps: true`. The flag dates from when a second frontend
 existed that did not register them; with the browser as the only client it now reads as a
 plain "this deployment has route maps".
@@ -237,9 +322,94 @@ path calls directly.
   [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication) rules out.
 - **Why no markers on the map?** — The POC established the visual: a single line reads as a
   drive; numbered pins read as a plan.
-- **Why loops from a home base, and no origin/destination honouring?** — V1 targets rows
-  recording navigation-app testing, where a loop is the correct route shape. Geocoding a
-  row's free-text origin and destination is V2, alongside the manual editor.
+
+### Two modes, chosen in Rust
+
+V1 always drew a loop from a home base, which matched the navigation-app test trips it was
+built against, where a loop is the correct route shape. [Task 72](../../_tasks/_done/72-route-map-origin-destination/)
+replaces that blanket rule: `mode_for` ([route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs))
+compares `normalise(origin)` against `normalise(destination)` -- equal means Loop, unchanged
+from V1; different means Direct, a fresh point-to-point route. See
+[ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust).
+
+The frontend never makes this comparison itself (ADR-008): the map page reads `mode` off
+whatever the backend already decided, whether that is a fresh `start_route_for_trip` call or
+a saved route's own stored `mode` column. An origin or destination that normalises to empty
+is a routing error, not a fallback to Loop -- a trip missing either field would otherwise draw
+a plausible-looking map for a journey nobody described.
+
+### Endpoints come from the place book
+
+Direct mode needs coordinates for two free-text strings, and geocoding them on every map open
+would be slow, rate-limited, and non-deterministic -- the same place typed identically twice
+could resolve to two different pins. [Task 75](../../_tasks/_done/75-place-book/)'s place book
+already solves exactly this for a different feature (trip-entry autocomplete), so
+`start_route_for_trip` reads from it instead of calling a geocoder: `placed_endpoint` looks up
+`normalise(origin)` / `normalise(destination)` in the book and returns nothing when no human
+has confirmed a coordinate for that place yet
+([ADR-032](../../DECISIONS.md#adr-032-places-are-placed-by-a-human-never-by-a-confidence-heuristic)).
+
+A missing endpoint is not a routing failure. The map page opens the shared
+[PlaceModal](../../src/lib/components/PlaceModal.svelte) -- the same dialog
+[Settings → Miesta](./place-book.md) uses -- seeded with the trip's own text, right on the map
+page. Saving a pin writes to the same place book Settings edits, so placing an endpoint from
+the map also fixes every other trip already using that spelling.
+
+### Alternatives are ordered by duration, never by deviation
+
+See [ADR-038](../../DECISIONS.md#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders).
+OSRM's own fastest-first order is preserved exactly; the deviation percentage each alternative
+carries is a label, not a sort key, so the option a driver would actually take is never
+displaced by the option that happens to match the trip's logged kilometres.
+
+Alternatives exist only for a plain two-point route -- OSRM ignores the `alternatives`
+parameter once a via point is in play and returns a single through-route regardless. Any
+route with an inserted via, and a round trip's own closing leg, therefore shows
+`alternativesUnavailable` instead of a list.
+
+### The waypoint editor doesn't know which mode drew the line
+
+See [ADR-040](../../DECISIONS.md#adr-040-the-waypoint-editor-is-mode-agnostic).
+`insert_waypoint` and the drag-to-edit flow operate on an ordered `{lat, lon}` list and a
+polyline, with no idea whether the genetic algorithm or a pair of geocoded endpoints produced
+either one. Dragging the line always ends by calling `route_direct`, which is also why an
+edited loop becomes a direct route: the moment a drag decides the shape, the result is a
+concrete road route, not a synthetic GA loop.
+
+This doubles as the interim answer to a deferred limitation: re-anchoring the genetic
+algorithm at an arbitrary point -- so a distant "Bratislava -- Bratislava" loop draws around the
+right town instead of the home base -- needs a distance matrix the app does not have. Until
+that exists, dragging a mis-anchored loop into shape is the escape hatch, and it needed no new
+mechanism: Direct mode's own editing needed exactly this already.
+
+### The recorded distance is never rewritten
+
+See [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance).
+A Direct route's road distance can differ from the trip's logged `distance_km`, sometimes
+considerably, and nothing in the save path ever writes that number back onto the trip.
+Reconciling the two is a decision about the trip, not a side effect of drawing its map:
+`distance_km` feeds the consumption rate and the
+[20% legal margin](../../DECISIONS.md#biz-003-legal-margin-limit) directly, so silently
+moving it would shift which fuel period a fill-up belongs to.
+
+A follow-up task after [Task 72](../../_tasks/_done/72-route-map-origin-destination/) is
+expected to add an explicit action for applying a route's distance to its trip, carrying a
+warning about that exact consequence.
+
+### Known limitation: a round trip is one three-point request
+
+A round trip is not two routing requests -- it is a single `[origin, destination, origin]`
+call to OSRM. That follows from what OSRM offers: alternatives only exist for a two-point
+request, so a single call could never have offered the return leg a different road anyway.
+The consequence is visible in the UI itself: a round trip always shows the
+`alternativesUnavailable` message instead of a choice, even though the app can offer
+alternatives on either leg individually.
+
+**This has already been reviewed against real data and is considered incomplete, not
+finished.** The intended fix -- splitting a round trip into two independent routing requests,
+A-to-B and B-to-A, so each leg gets its own alternatives and the return can legitimately take
+a different road than the outbound trip -- is planned for a follow-up task, alongside the
+distance-reconciliation action from the previous section. Neither is implemented here.
 
 ## Working on this feature
 
@@ -263,10 +433,18 @@ saw it.
 
 ## Related
 
+- [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust): the route mode comes from the trip's own text, decided in Rust
+- [ADR-038](../../DECISIONS.md#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders): alternatives are ordered by duration; deviation labels, never reorders
+- [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance): `distance_km` is never rewritten from a route's road distance
+- [ADR-040](../../DECISIONS.md#adr-040-the-waypoint-editor-is-mode-agnostic): the waypoint editor is mode-agnostic
+- [ADR-041](../../DECISIONS.md#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust): round-trip normalisation is symmetric, and lives entirely in Rust
+- [ADR-032](../../DECISIONS.md#adr-032-places-are-placed-by-a-human-never-by-a-confidence-heuristic): places are placed by a human, never by a confidence heuristic
 - [ADR-028](../../DECISIONS.md#adr-028-only-the-polyline-is-persisted-tiles-live-in-a-disposable-cache): only the polyline is persisted; tiles live in a disposable cache
 - [ADR-029](../../DECISIONS.md#adr-029-waypoints-persist-as-coordinates-not-dataset-indices): waypoints persist as coordinates, not dataset indices
 - [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication): all business logic in Rust
-- [ADR-016](../../DECISIONS.md#adr-016-_internal-extraction-pattern-for-command-reuse): the `_internal` command pattern these four commands follow
-- [_tasks/70-route-map-integration/](../../_tasks/_done/70-route-map-integration/): requirements, design and implementation plan
-- [_tasks/61-route-map-poc/](../../_tasks/_done/61-route-map-poc/): the standalone POC this graduated, and the dataset rationale
+- [ADR-016](../../DECISIONS.md#adr-016-_internal-extraction-pattern-for-command-reuse): the `_internal` command pattern these six commands follow
+- [_tasks/_done/72-route-map-origin-destination/](../../_tasks/_done/72-route-map-origin-destination/): requirements, design and implementation plan for origin/destination routing, alternatives, editing and the round trip
+- [_tasks/_done/70-route-map-integration/](../../_tasks/_done/70-route-map-integration/): requirements, design and implementation plan
+- [_tasks/_done/61-route-map-poc/](../../_tasks/_done/61-route-map-poc/): the standalone POC this graduated, and the dataset rationale
+- [docs/features/place-book.md](./place-book.md): the place book Direct-mode endpoints and the shared `PlaceModal` come from
 - [docs/features/export-system.md](./export-system.md): the printed logbook these pages are appended to
