@@ -249,6 +249,32 @@ pub async fn dispatch_async(
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 
+        // ====================================================================
+        // Place book — async (1, Nominatim geocode)
+        // ====================================================================
+        //
+        // The other three place commands are sync and live in dispatcher.rs.
+        //
+        // This one writes nothing. Looking and committing are separate calls on
+        // purpose: a geocode that saved its first guess would make that guess
+        // permanent before anyone saw it, and the whole point of the book is
+        // that no coordinate is stored without a human confirming it.
+        "geocode_place" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                query: String,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            use crate::places::GeocodeProvider as _;
+            let provider = crate::places::HttpGeocodeProvider::public();
+            let result = provider.search(&a.query).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+
         // Not an async command — let the caller fall through to sync dispatch.
         _ => None,
     }
@@ -552,5 +578,24 @@ mod tests {
             ascending.contains(r#"<div class="footer-value">120 km</div>"#),
             "total distance should be 120 km - the synthetic row must contribute none"
         );
+    }
+
+    /// geocode_place must be routed here (it awaits Nominatim) and must take
+    /// `query`, the name `src/lib/api.ts` sends. Bad args fail during parsing,
+    /// so this pins both without touching the network.
+    #[tokio::test]
+    async fn geocode_place_is_an_async_command_taking_query() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let result = dispatch_async("geocode_place", json!({}), &state).await;
+        let err = result
+            .expect("geocode_place must be handled here, not by dispatch_sync")
+            .unwrap_err();
+        assert!(err.contains("query"), "got: {err}");
     }
 }
