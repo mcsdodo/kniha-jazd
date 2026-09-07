@@ -1,6 +1,6 @@
 **Date:** 2026-09-06
 **Subject:** Derive the route autocomplete's counters instead of storing them
-**Status:** Planning
+**Status:** Complete
 
 # Route Usage Counter Drift Implementation Plan
 

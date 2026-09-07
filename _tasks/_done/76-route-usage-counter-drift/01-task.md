@@ -1,6 +1,6 @@
 **Date:** 2026-09-06
 **Subject:** The `routes` autocomplete cache counts saves, not trips — `usage_count` and `last_used` drift and never recover
-**Status:** Planning — approach decided (derive, [ADR-033](../../DECISIONS.md))
+**Status:** Complete
 
 # Task 76: Route Usage Counter Drift
 

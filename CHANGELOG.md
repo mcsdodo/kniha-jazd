@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Našepkávač trás ponúkal miesta, ktoré už v knihe nie sú** — polia „Odkiaľ“ a „Kam“ ponúkali aj dvojice, ktorých jazdy boli medzičasom vymazané, vrátane prázdnej položky a preklepov opravených len pri jazdách; takáto dvojica navyše predvyplnila počet kilometrov pre trasu, ktorá v knihe neexistuje. Ponuka miest aj predvyplnená vzdialenosť teraz vychádzajú priamo zo zapísaných jázd.
+
 ## [0.44.0] - 2026-09-04
 
 ### Pridané
