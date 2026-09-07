@@ -7,6 +7,9 @@
  * - The book is one list for the whole database, so a place one vehicle used is
  *   offered in another vehicle's trip form (the old per-vehicle `routes`
  *   autocomplete could not do this — that is the behaviour worth pinning)
+ * - A pin dropped on the map by hand is stored as a `manual` coordinate, and
+ *   Clear puts the row back to unplaced
+ * - An ASCII query in the list filter finds a name written with diacritics
  *
  * NOT covered here on purpose — all of it lives in the Rust unit tests:
  * `places::normalise`, how the derived list folds spellings and orders itself,
@@ -52,6 +55,22 @@ const UNPLACED_DESTINATION = 'Beta Depot, Testville';
 const SHARED_PLACE = 'Delta Yard, Testville';
 
 /**
+ * The place that gets its pin by hand. Deliberately absent from the geocoder
+ * fixture directory: the manual path never searches, and a name the mock could
+ * answer would leave open which of the two paths actually produced the pin.
+ */
+const MANUAL_PLACE = 'Theta Quarry, Testville';
+const MANUAL_COMPANION = 'Iota Bend, Testville';
+
+/**
+ * The place the filter has to find from an ASCII query. Its display name carries
+ * diacritics, so the row's own rendered text never contains "kosice" — the match
+ * can only come through the backend's `normalisedName`.
+ */
+const DIACRITIC_PLACE = 'Košice Sklad';
+const FILTER_OTHER_PLACE = 'Lambda Gate, Testville';
+
+/**
  * Every place name this spec puts in the book, one set per test so a coordinate
  * stored by one can never colour another's assertions.
  *
@@ -69,6 +88,10 @@ const SPEC_PLACES = [
   'Epsilon Site, Testville',
   'Zeta Hub, Otherton',
   'Eta Ramp, Otherton',
+  MANUAL_PLACE,
+  MANUAL_COMPANION,
+  DIACRITIC_PLACE,
+  FILTER_OTHER_PLACE,
 ];
 
 /** Trips are seeded into the running year so the grid and the reset both see them. */
@@ -132,6 +155,39 @@ async function placedCounter(): Promise<{ placed: number; total: number }> {
     throw new Error(`Unrecognised places counter: '${text}'`);
   }
   return { placed: Number(match[1]), total: Number(match[2]) };
+}
+
+/**
+ * The names of the rows the list is currently showing, in render order.
+ *
+ * The filter's assertions go through this rather than through the rows' text:
+ * a row can match on its normalised name while nothing it renders contains the
+ * query, which is exactly the case worth pinning.
+ */
+async function visiblePlaceNames(): Promise<string[]> {
+  const rows = await $$('[data-testid="place-item"]');
+  const names: string[] = [];
+  for (const row of rows) {
+    names.push((await row.getAttribute('data-place-name')) ?? '');
+  }
+  return names;
+}
+
+/**
+ * Wait for the dialog's map div to actually be a Leaflet map.
+ *
+ * Leaflet is imported lazily (it touches `window` at import time), so the
+ * container exists for a while before it can answer a click. `leaflet-container`
+ * is the class `L.map()` puts on the element it takes over.
+ */
+async function waitForLeafletMap() {
+  const map = await $('[data-testid="place-map"]');
+  await map.waitForDisplayed({ timeout: 10000 });
+  await browser.waitUntil(
+    async () => ((await map.getAttribute('class')) ?? '').includes('leaflet-container'),
+    { timeout: 10000, timeoutMsg: 'Leaflet never took over the map container' }
+  );
+  return map;
 }
 
 /** Open the new-trip row in the grid and wait for its inputs. */
@@ -378,6 +434,155 @@ describe('Tier 2: Place Book', () => {
 
       // Only vehicle A has ever been to a "Delta" place, and it is offered here.
       expect(offered).toEqual([SHARED_PLACE]);
+    });
+  });
+
+  describe('Placing By Hand', () => {
+    /**
+     * The map click (and the marker drag beside it) is the only producer of a
+     * `manual` source, and the documented answer for a place whose bare name the
+     * geocoder cannot resolve — so this test never searches. It ends by clearing
+     * the coordinate it just stored, which is also the only way to reach the
+     * Clear button: it is rendered only for a place that already has one.
+     */
+    it('should pin a place by hand and then clear it again', async () => {
+      const vehicle = await seedVehicle({
+        name: 'Place Book Manual Pin',
+        licensePlate: 'PLC-003',
+        initialOdometer: 50000,
+        tankSizeLiters: 50,
+        tpConsumption: 6.5,
+      });
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${YEAR}-05-16T08:00`,
+        endDatetime: `${YEAR}-05-16T09:00`,
+        origin: MANUAL_PLACE,
+        destination: MANUAL_COMPANION,
+        distanceKm: 20,
+        odometer: 50020,
+        purpose: 'Business trip',
+      });
+
+      await openPlacesSection();
+      const row = await waitForPlaceRow(MANUAL_PLACE, false);
+      await row.$('[data-testid="place-edit"]').click();
+
+      const modal = await $('[data-testid="place-modal"]');
+      await modal.waitForDisplayed({ timeout: 10000 });
+
+      const map = await waitForLeafletMap();
+
+      // Nothing pinned yet: no coordinate to show, and nothing to save.
+      const save = await $('[data-testid="place-modal-save"]');
+      expect(await save.isEnabled()).toBe(false);
+      expect(await $('[data-testid="place-modal-coords"]').getText()).toBe(NO_COORDS);
+
+      // The whole point of this path: a click on the map, no search, no
+      // candidate, no request. WebdriverIO clicks the element's centre, which
+      // for a Leaflet container is the map's own centre — "somewhere" is all
+      // this test needs, since which point was hit is the map's business.
+      await map.click();
+
+      // This is the assertion the feature had nowhere else: the UI can produce
+      // a `manual` source at all. The Rust tests only prove one round-trips
+      // once it has been handed over.
+      await browser.waitUntil(
+        async () => (await modal.getAttribute('data-place-source')) === 'manual',
+        {
+          timeout: 10000,
+          timeoutMsg: 'Clicking the map did not turn the pending pin into a manual one',
+        }
+      );
+
+      expect(await save.isEnabled()).toBe(true);
+
+      const pinned = await $('[data-testid="place-modal-coords"]').getText();
+      expect(pinned).not.toBe(NO_COORDS);
+      expect(pinned).toMatch(/^-?\d+\.\d{3}, -?\d+\.\d{3}$/);
+
+      await save.click();
+      await modal.waitForDisplayed({ timeout: 10000, reverse: true });
+
+      // Same string the dialog showed, now coming back from the list the page
+      // re-read after the save — so the hand-dropped pin reached the database.
+      const placedRow = await waitForPlaceRow(MANUAL_PLACE, true);
+      expect(await placedRow.$('[data-testid="place-coords"]').getText()).toBe(pinned);
+      expect(
+        await placedRow.$('[data-testid="place-unplaced-icon"]').isExisting()
+      ).toBe(false);
+      expect((await placedCounter()).placed).toBe(1);
+
+      // Reopen the now-placed row: only now does the dialog offer Clear.
+      await placedRow.$('[data-testid="place-edit"]').click();
+      const reopened = await $('[data-testid="place-modal"]');
+      await reopened.waitForDisplayed({ timeout: 10000 });
+
+      const clear = await $('[data-testid="place-modal-clear"]');
+      await clear.waitForClickable({ timeout: 10000 });
+      await clear.click();
+      await reopened.waitForDisplayed({ timeout: 10000, reverse: true });
+
+      // Back to where the row started, header included.
+      const clearedRow = await waitForPlaceRow(MANUAL_PLACE, false);
+      expect((await clearedRow.$('[data-testid="place-coords"]').getText()).trim()).toBe(
+        NO_COORDS
+      );
+      expect(
+        await clearedRow.$('[data-testid="place-unplaced-icon"]').isExisting()
+      ).toBe(true);
+      expect((await placedCounter()).placed).toBe(0);
+    });
+  });
+
+  describe('Filtering The List', () => {
+    /**
+     * Rows are matched against two spellings: the one they display and the
+     * backend's `normalisedName`. Only the second can answer an ASCII query for
+     * a name written with diacritics, which is what production data shows users
+     * type — so this asserts on *which* rows survive, by name. "The visible text
+     * contains what I typed" is false here by design.
+     */
+    it('should match an ASCII query against a name written with diacritics', async () => {
+      const vehicle = await seedVehicle({
+        name: 'Place Book Filter',
+        licensePlate: 'PLC-004',
+        initialOdometer: 60000,
+        tankSizeLiters: 50,
+        tpConsumption: 6.5,
+      });
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${YEAR}-05-17T08:00`,
+        endDatetime: `${YEAR}-05-17T09:00`,
+        origin: DIACRITIC_PLACE,
+        destination: FILTER_OTHER_PLACE,
+        distanceKm: 35,
+        odometer: 60035,
+        purpose: 'Business trip',
+      });
+
+      await openPlacesSection();
+      await waitForPlaceRow(DIACRITIC_PLACE, false);
+      await waitForPlaceRow(FILTER_OTHER_PLACE, false);
+
+      const filter = await $('[data-testid="places-filter"]');
+      await filter.setValue('kosice');
+
+      await browser.waitUntil(async () => (await visiblePlaceNames()).length === 1, {
+        timeout: 10000,
+        timeoutMsg: "Filtering for 'kosice' did not narrow the list to one row",
+      });
+      expect(await visiblePlaceNames()).toEqual([DIACRITIC_PLACE]);
+
+      // A query nothing matches leaves the book intact and says so with its own
+      // message — not the one for a book with no places in it at all.
+      await filter.setValue('nonesuch');
+      await $('[data-testid="places-no-matches"]').waitForDisplayed({ timeout: 10000 });
+      expect(await visiblePlaceNames()).toEqual([]);
+      expect(await $('[data-testid="places-empty"]').isExisting()).toBe(false);
     });
   });
 });
