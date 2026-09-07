@@ -1105,8 +1105,15 @@ mod tests {
     }
 
     /// The argument names are a contract with `src/lib/api.ts`: a mismatch
-    /// compiles cleanly in both languages and only shows up at runtime. This
-    /// test payload is exactly what the shipped frontend sends.
+    /// compiles cleanly in both languages and only shows up at runtime.
+    ///
+    /// This payload deliberately OMITS `roundTrip` -- unlike the live
+    /// `api.ts::saveTripRoute`, which always sends it (Task 20). That
+    /// omission is the point: it pins the backward-compatibility guarantee
+    /// that `#[serde(default)] round_trip: bool` exists to give, the same
+    /// way an older client (or a caller that predates this field) still
+    /// parses and stores `false`. See `save_trip_route_without_round_trip_field_stores_false`
+    /// below for the same guarantee pinned explicitly against `get_trip_route`.
     #[test]
     fn route_map_commands_round_trip_with_frontend_argument_names() {
         let state = test_state();

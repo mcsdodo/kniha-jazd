@@ -151,6 +151,26 @@ async function saveDirectRoundTrip(tripId: string, targetKm: number): Promise<vo
   });
 }
 
+/**
+ * Persist a plain one-way direct route against a trip, without touching
+ * OSRM. The mirror fixture to `saveDirectRoundTrip` above -- explicitly
+ * sends `roundTrip: false` (rather than omitting it) so the test below pins
+ * the OTHER direction of the persisted flag: a saved one-way route must not
+ * come back ticked, the same way a saved round trip must not come back
+ * unticked (Task 20).
+ */
+async function saveDirectOneWay(tripId: string, targetKm: number): Promise<void> {
+  await rpc<null>('save_trip_route', {
+    tripId,
+    waypoints: CANNED_WAYPOINTS,
+    polyline: CANNED_POLYLINE,
+    targetKm,
+    roadKm: targetKm,
+    mode: 'direct',
+    roundTrip: false,
+  });
+}
+
 /** `get_trip_route` returns null when the trip has no saved route. */
 async function getRoute(tripId: string): Promise<SavedRouteMap | null> {
   return rpc<SavedRouteMap | null>('get_trip_route', { tripId });
@@ -491,6 +511,39 @@ describe('Tier 2: Route Map', () => {
       const unavailableText = await $('[data-test="alternatives-unavailable"]').getText();
       expect(unavailableText).toContain('more than two points');
       expect(await $('[data-test="alternatives"]').isExisting()).toBe(false);
+    });
+
+    it('reopens a saved one-way route with the checkbox unticked', async () => {
+      // The other half of the guard above: a saved round trip must come back
+      // ticked, but a saved ONE-WAY route must come back unticked. Without
+      // this test, an implementation that hardcoded the checkbox to `true`
+      // on load (or ignored the stored flag and always ticked it) would
+      // still pass "reopens an already-closed round trip...", since that
+      // test only ever seeds `roundTrip: true`. This test seeds
+      // `roundTrip: false` explicitly and checks the box reflects it.
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-17T08:00',
+        endDatetime: '2026-03-17T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50265,
+        purpose: 'Business trip',
+      });
+
+      await saveDirectOneWay(trip.id as string, 65);
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      expect(await drawnPathCount()).toBeGreaterThan(0);
+
+      const stopsText = await $('[data-test="stops"]').getText();
+      expect(stopsText).toContain('(2)');
+
+      const checkbox = await $('[data-test="round-trip-checkbox"]');
+      expect(await checkbox.isExisting()).toBe(true);
+      expect(await checkbox.isSelected()).toBe(false);
     });
 
     it('still renders a saved loop route with the V1 controls', async () => {

@@ -425,15 +425,26 @@
 			// `savedRoute.waypoints` anyway, but naming it here means a cold
 			// load and a fresh `runDirect` leave the SAME field holding the
 			// open list, rather than one relying on a fallback the other
-			// writes directly. A saved round trip's list is already closed
-			// (`[A, B, A]`) -- Rust's own idempotence guard in
-			// `route_direct_internal` is what makes re-ticking that safe
-			// (fix round 1, review finding "Important 1"), not this line.
-			// That guard is what makes it SAFE to restore `roundTrip` to
-			// `true` here and still hand this same closed list to the next
-			// `runDirect` call: the guard, not this page, is what stops a
-			// second closing point from being appended.
-			baseWaypoints = savedRoute.waypoints;
+			// writes directly.
+			//
+			// A saved round trip's list is already closed (`[A, B, A]`), so
+			// it is stripped back open here -- exactly what `runDirect` does
+			// to its own result (see below) -- keyed off the persisted
+			// `roundTrip` flag, never a first/last comparison (that stays
+			// ruled out). Without this, unticking the checkbox as the FIRST
+			// action after a cold load calls `runDirect` with `round_trip:
+			// false` on the still-closed `[A, B, A]` list: Rust's
+			// idempotence guard only fires when `round_trip` is true, so
+			// nothing strips the trailing point and the route stays a
+			// 3-stop round trip while the box reads unticked -- the exact
+			// lying control this task exists to remove, now reachable
+			// because a cold load can restore the box to ticked. Rust's own
+			// guard is still what stops a SECOND closing point on a re-tick
+			// (fix round 1, review finding "Important 1") -- this line only
+			// keeps `baseWaypoints` itself always open, its own invariant.
+			baseWaypoints = savedRoute.roundTrip
+				? savedRoute.waypoints.slice(0, -1)
+				: savedRoute.waypoints;
 			return;
 		}
 		await startForTrip();
