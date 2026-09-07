@@ -1223,6 +1223,47 @@ mod tests {
         );
     }
 
+    /// `source` is a typed `PlaceSource`, not a String, so an unrecognised
+    /// value is rejected while the arguments are parsed and never reaches the
+    /// database. That holds only as long as the enum has no catch-all: a
+    /// `#[serde(other)]` fallback, or loosening the field back to a String,
+    /// would silently start storing whatever a client sent.
+    #[test]
+    fn save_place_rejects_an_unknown_source_at_argument_parsing() {
+        let state = state_with_a_trip_between("Office, City A", "Depot, City B");
+
+        let err = dispatch_sync(
+            "save_place",
+            json!({
+                "displayName": "Office, City A",
+                "lat": 48.1486,
+                "lon": 17.1077,
+                "source": "satellite",
+            }),
+            &state,
+        )
+        .unwrap_err();
+        // The "Invalid args:" prefix is `parse_args`' own and nothing else's,
+        // so it separates a rejection during parsing from a command that ran
+        // and failed later for some unrelated reason — which a bare `is_err()`
+        // would not.
+        assert!(
+            err.starts_with("Invalid args:"),
+            "an unknown source must be refused while parsing, got: {err}"
+        );
+        assert!(
+            err.contains("satellite") && err.contains("geocoder"),
+            "the error should name the value rejected and the ones accepted, got: {err}"
+        );
+
+        let places = dispatch_sync("list_places", json!({}), &state).unwrap();
+        let office = place_named(&places, "Office, City A");
+        assert!(
+            office["lat"].is_null() && office["source"].is_null(),
+            "the rejected save reached the database anyway: {office}"
+        );
+    }
+
     /// A refusal has to be a refusal: the guard must stop the write, not report
     /// an error after making it.
     #[test]
@@ -1234,7 +1275,7 @@ mod tests {
                 "displayName": "Office, City A",
                 "lat": 48.1486,
                 "lon": 17.1077,
-                "source": "manual",
+                "source": "geocoder",
             }),
             &state,
         )
@@ -1242,6 +1283,8 @@ mod tests {
 
         state.app_state.enable_read_only("Test read-only");
 
+        // Every field differs from what is stored, `source` included, so each
+        // assertion below fails on its own if the write got through.
         let err = dispatch_sync(
             "save_place",
             json!({
@@ -1271,8 +1314,8 @@ mod tests {
         );
         assert_eq!(office["lon"], 17.1077, "got: {office}");
         assert_eq!(
-            office["source"], "manual",
-            "the refused clear erased the coordinate: {office}"
+            office["source"], "geocoder",
+            "the refused save overwrote the stored source: {office}"
         );
     }
 }
