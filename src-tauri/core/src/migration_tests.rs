@@ -683,7 +683,7 @@ fn dropping_the_route_counters_keeps_the_suggestions() {
 }
 
 // ============================================================================
-// Task 72 — persisting the route mode (2026-09-07-110000)
+// Task 72 -- persisting the route mode (2026-09-07-110000)
 // ============================================================================
 
 /// Every route saved by Task 70 IS a loop, so the DEFAULT backfills correctly

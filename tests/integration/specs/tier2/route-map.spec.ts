@@ -65,6 +65,10 @@ async function saveRoute(tripId: string, targetKm: number): Promise<void> {
     polyline: CANNED_POLYLINE,
     targetKm,
     roadKm: targetKm,
+    // These are canned home-loop fixtures (Task 72, Phase 2): mode is a
+    // required field on the wire, and 'loop' is the value RouteMode's serde
+    // form pins it to.
+    mode: 'loop',
   });
 }
 
