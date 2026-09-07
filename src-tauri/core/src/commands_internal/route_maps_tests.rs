@@ -1190,6 +1190,129 @@ async fn round_trip_false_reopens_an_already_closed_list() {
     );
 }
 
+/// Asserts on the NUMBER of coordinates actually sent to routing, not just
+/// the length of the returned waypoints -- the same reasoning
+/// `RoundTripAssertingProvider` documents: the returned list and the routed
+/// list happen to be the same variable today, but a test that only reads the
+/// response could not tell a future refactor apart from a genuine fix.
+struct WaypointCountAssertingProvider {
+    expected_count: usize,
+    route: FetchedRoute,
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for WaypointCountAssertingProvider {
+    async fn fetch(&self, _coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        Ok(self.route.clone())
+    }
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        _max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        assert_eq!(
+            coords.len(),
+            self.expected_count,
+            "expected {} coordinate(s) sent to routing, got {:?}",
+            self.expected_count,
+            coords
+        );
+        Ok(vec![self.route.clone()])
+    }
+}
+
+/// Task 20, fix round 3: two DIFFERENT places can carry bit-identical
+/// coordinates. `mode_for` (this module, below) decides Direct vs Loop by
+/// comparing NAMES after `places::normalise`, never by coordinate, and
+/// `save_place_internal` (`places_cmd.rs`) keys the book on
+/// `normalised_name` alone -- it enforces no coordinate uniqueness. So a
+/// book with two entries for one real address under different spellings
+/// (e.g. "Mlynske Nivy 14" and "Mlynske Nivy 14, Bratislava") can hand this
+/// function a `[A, via, B]` list where A and B share a coordinate but are
+/// not the same waypoint. Comparing only lat/lon for "already closed" would
+/// mistake B for a stale closing point this function itself appended, and
+/// pop it -- the user silently loses their destination. Comparing the name
+/// too tells the cases apart: see the doc comment on `already_closed`.
+#[tokio::test]
+async fn round_trip_false_leaves_a_coincidentally_co_located_destination_alone() {
+    let origin = Waypoint {
+        lat: 48.1486,
+        lon: 17.1077,
+        name: Some("Mlynske Nivy 14".into()),
+        node_idx: None,
+    };
+    let via = wp(48.9444, 20.5675);
+    let destination = Waypoint {
+        lat: 48.1486,
+        lon: 17.1077,
+        name: Some("Mlynske Nivy 14, Bratislava".into()),
+        node_idx: None,
+    };
+    let waypoints = vec![origin, via, destination];
+
+    let provider = WaypointCountAssertingProvider {
+        expected_count: 3,
+        route: fetched(
+            &encode(&[(48.1486, 17.1077), (48.9444, 20.5675), (48.1486, 17.1077)]),
+            800.0,
+            28000.0,
+        ),
+    };
+
+    let routes = route_direct_internal(&provider, waypoints, 420.0, None, false)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        routes[0].waypoints.len(),
+        3,
+        "two DIFFERENT places that merely share a coordinate must not be \
+         mistaken for a stale closing point and popped"
+    );
+    assert_eq!(
+        routes[0].waypoints.last().and_then(|w| w.name.as_deref()),
+        Some("Mlynske Nivy 14, Bratislava"),
+        "the real destination must survive -- the returned last waypoint \
+         must still be B, not the via or a truncated list"
+    );
+}
+
+/// The mirror case, and the regression guard for the test above: a GENUINE
+/// closing point -- cloned from the first waypoint by this very function, so
+/// it carries the SAME name as well as the same coordinate -- must still be
+/// stripped when `round_trip` goes back to `false`. Without this test, a fix
+/// that starts comparing names could over-correct (e.g. by requiring a
+/// `Some` name and refusing to close a list of unnamed waypoints) and this
+/// would not be caught.
+#[tokio::test]
+async fn round_trip_false_still_strips_a_genuinely_closed_named_list() {
+    let start = Waypoint {
+        lat: 48.1486,
+        lon: 17.1077,
+        name: Some("Bratislava".into()),
+        node_idx: None,
+    };
+    let via = wp(48.9444, 20.5675);
+    let already_closed = vec![start.clone(), via, start.clone()];
+
+    let provider = WaypointCountAssertingProvider {
+        expected_count: 2,
+        route: fetched(&encode(&[(48.1486, 17.1077), (48.9444, 20.5675)]), 400.0, 14000.0),
+    };
+
+    let routes = route_direct_internal(&provider, already_closed, 420.0, None, false)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        routes[0].waypoints.len(),
+        2,
+        "a genuine closing point -- cloned from the first waypoint, same \
+         name and coordinates -- must still be stripped when round_trip is \
+         false"
+    );
+}
+
 /// All five tests above drag their point onto a straight line held at a
 /// constant latitude, so the longitude term alone could be driving every
 /// placement decision and the latitude term would never be exercised. This

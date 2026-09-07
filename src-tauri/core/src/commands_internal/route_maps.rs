@@ -239,27 +239,47 @@ pub async fn route_direct_internal(
     // - `round_trip == false`, list closed -> strip the trailing point back off.
     // - Otherwise the list already matches `round_trip` -- leave it alone.
     //
-    // "Closed" can only mean "this function closed it before": a same-place
-    // row is routed as Loop by `mode_for` and never reaches `route_direct`,
-    // so a closed list arriving here with `round_trip: false` is
-    // unambiguously "this used to be a round trip and no longer is," never a
-    // genuine two-point route that happens to start and end in the same spot.
+    // "Closed" cannot be decided from coordinates alone. `mode_for` (below)
+    // guards Direct-vs-Loop by comparing NAMES after `places::normalise`,
+    // never by coordinate, and `save_place_internal` (`places_cmd.rs`) keys
+    // the book on `normalised_name` alone -- it enforces no coordinate
+    // uniqueness. So two DIFFERENT book entries for one real address under
+    // different spellings (e.g. "Mlynske Nivy 14" and "Mlynske Nivy 14,
+    // Bratislava") can hold bit-identical coordinates and still reach this
+    // function in Direct mode: `mode_for` never sees them as the same place,
+    // because their names differ.
+    //
+    // A genuine closing point, by contrast, is always a CLONE of the first
+    // waypoint -- see the `push` below -- so it carries the identical name
+    // too (`None` clones to `None`, `Some(x)` clones to `Some(x)`). Comparing
+    // the name as well as the coordinate is what tells "this function closed
+    // it before" apart from "two distinct, merely co-located places": the
+    // former matches on both, the latter only on coordinate.
+    //
+    // `None == None` counts as a name match, so two UNNAMED points at one
+    // coordinate still read as closed. That is the right call, not a gap:
+    // `first`/`last` are the row's origin/destination, always sourced from a
+    // named place (`name` is `None` only for a via a human dragged onto the
+    // map, never for an endpoint), so two unnamed endpoints sharing a
+    // coordinate is not a real scenario this guard needs to separate.
     let already_closed = waypoints.len() > 1
-        && waypoints
-            .first()
-            .zip(waypoints.last())
-            .is_some_and(|(first, last)| first.lat == last.lat && first.lon == last.lon);
+        && waypoints.first().zip(waypoints.last()).is_some_and(|(first, last)| {
+            first.lat == last.lat && first.lon == last.lon && first.name == last.name
+        });
     if round_trip {
         if !already_closed {
             let first = waypoints[0].clone();
             waypoints.push(first);
         }
     } else if already_closed && waypoints.len() > 2 {
-        // The `> 2` guard is defensive, not load-bearing: a genuine 2-point
-        // `[A, A]` cannot reach this function per the paragraph above, so it
-        // never fires in practice. It exists only so a hypothetical caller
-        // that violates that invariant gets left alone instead of collapsed
-        // to a single, unroutable point.
+        // The `> 2` guard IS load-bearing, not defensive: a 2-point list
+        // that is "closed" (same coordinate AND same name on both ends) can
+        // still reach here, because `route_direct_internal` is reachable
+        // directly over `POST /api/rpc`, not only through the UI's
+        // `mode_for` decision that would normally have routed such a row as
+        // Loop instead. Without this guard, that call would pop down to a
+        // single, unroutable point. With it, the list is left alone -- the
+        // "otherwise leave it alone" case in the summary above.
         waypoints.pop();
     }
 
