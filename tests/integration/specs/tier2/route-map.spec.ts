@@ -18,6 +18,11 @@
  * 2. No export is triggered for a vehicle that has a saved route map. Export
  *    renders map PNGs from live OSM tiles (15s timeout), which would stall
  *    this suite on an offline or throttled CI box.
+ * 3. Candidate picking, alternative promotion and drag editing are NOT covered.
+ *    Each needs a live geocoder/router on page load, which constraint 1 rules
+ *    out, and the providers are constructed inside the dispatcher arms so
+ *    there is nothing to stub. Covering them needs a test-mode provider
+ *    override first -- see _tasks/72-route-map-origin-destination/03-plan.md.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -51,6 +56,19 @@ const CANNED_WAYPOINTS = [
   { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
 ];
 
+/**
+ * Bratislava -> Trnava with a via in the middle. A separate constant from
+ * `CANNED_WAYPOINTS` -- the existing tests seed that one and must not see it
+ * grow a third stop. `save_trip_route_internal` never checks waypoints
+ * against the polyline's own decoded points, so reusing `CANNED_POLYLINE`
+ * here is fine -- these tests assert presence, not geometry.
+ */
+const CANNED_VIA_WAYPOINTS = [
+  { lat: 48.1486, lon: 17.1077, name: 'Bratislava' },
+  { lat: 48.26, lon: 17.34, name: 'Via stop' },
+  { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
+];
+
 /** Only the identity fields matter here — the tests assert presence, not values. */
 interface SavedRouteMap {
   tripId: string;
@@ -72,6 +90,22 @@ async function saveRoute(tripId: string, targetKm: number): Promise<void> {
   });
 }
 
+/**
+ * Persist a direct route with a via stop against a trip, without touching
+ * OSRM. Waypoint count (not the decoded polyline) is what the map view reads
+ * to decide a route "has vias" -- see `hasVias` in mapa/+page.svelte.
+ */
+async function saveDirectRouteWithVia(tripId: string, targetKm: number): Promise<void> {
+  await rpc<null>('save_trip_route', {
+    tripId,
+    waypoints: CANNED_VIA_WAYPOINTS,
+    polyline: CANNED_POLYLINE,
+    targetKm,
+    roadKm: targetKm,
+    mode: 'direct',
+  });
+}
+
 /** `get_trip_route` returns null when the trip has no saved route. */
 async function getRoute(tripId: string): Promise<SavedRouteMap | null> {
   return rpc<SavedRouteMap | null>('get_trip_route', { tripId });
@@ -79,6 +113,36 @@ async function getRoute(tripId: string): Promise<SavedRouteMap | null> {
 
 async function deleteRoute(tripId: string): Promise<void> {
   await rpc<null>('delete_trip_route', { tripId });
+}
+
+/**
+ * Open the map view the same way production does -- `TripGrid` opens
+ * `/mapa?trip=<id>` via `window.open`, so a direct navigation to that URL is
+ * the real entry point, not a shortcut around it.
+ */
+async function openMap(tripId: string): Promise<void> {
+  await browser.url(`/mapa?trip=${tripId}`);
+}
+
+/**
+ * Path elements Leaflet's SVG renderer draws for polyline layers, scoped to
+ * the overlay pane. A plain `path` selector under the canvas also matches
+ * the attribution control's own flag icon -- three `<path>`s that exist on
+ * every map instance whether or not a route is drawn -- so counting those
+ * would make this helper pass even on a blank map.
+ */
+async function drawnPathCount(): Promise<number> {
+  const paths = await $$('[data-test="route-map-canvas"] .leaflet-overlay-pane path');
+  return paths.length;
+}
+
+/** Wait until the map view has either rendered a loaded route or reported an
+ *  error -- whichever this fixture is expected to reach without a network
+ *  call. Polls instead of pausing so a slow render never turns into flake. */
+async function waitForMapOutcome(kind: 'route' | 'error'): Promise<void> {
+  const selector = kind === 'route' ? '[data-test="deviation"]' : '[data-test="route-map-error"]';
+  const el = await $(selector);
+  await el.waitForDisplayed({ timeout: 10000 });
 }
 
 /** Reload the grid so it re-reads `routeMapTripIds` from the backend. */
@@ -268,6 +332,109 @@ describe('Tier 2: Route Map', () => {
       await deleteTrip(tripId);
 
       expect(await getRoute(tripId)).toBeNull();
+    });
+  });
+
+  /**
+   * The map view (Task 72, Phase 2 / V2). Only flows that start from an
+   * already-saved route, or fail before the first network request, are
+   * reachable here -- see constraint 3 in the header comment.
+   */
+  describe('Map View (V2, offline-reachable flows)', () => {
+    // A previous test in this block leaves the browser on /mapa?trip=<id>.
+    // WDIO's own beforeTest only waits for *an* h1 -- the map page has one
+    // too -- so without this, the next test's seeding refreshes would keep
+    // landing back on a stale map URL instead of the trip grid.
+    afterEach(async () => {
+      await browser.url('/');
+      await waitForAppReady();
+    });
+
+    it('renders a saved direct route with a via and offers direct-mode controls', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-12T08:00',
+        endDatetime: '2026-03-12T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50065,
+        purpose: 'Business trip',
+      });
+
+      await saveDirectRouteWithVia(trip.id as string, 65);
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      // A route is actually drawn, not just the info panel around it.
+      expect(await drawnPathCount()).toBeGreaterThan(0);
+
+      const deviationText = await $('[data-test="deviation"]').getText();
+      expect(deviationText).toMatch(/%/);
+
+      // Loop-only control is absent; direct-mode's own control is present.
+      expect(await $('[data-test="regenerate-btn"]').isExisting()).toBe(false);
+      expect(await $('[data-test="recalculate-btn"]').isDisplayed()).toBe(true);
+
+      // The saved route already has a via -- the "alternatives unavailable"
+      // branch (I2, _tasks/72-route-map-origin-destination/_plan-review.md)
+      // is reachable on a cold load, not only right after a fresh proposal.
+      expect(await $('[data-test="alternatives-unavailable"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="alternatives"]').isExisting()).toBe(false);
+    });
+
+    it('still renders a saved loop route with the V1 controls', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-13T08:00',
+        endDatetime: '2026-03-13T09:00',
+        origin: 'Bratislava',
+        destination: 'Bratislava',
+        distanceKm: 40,
+        odometer: 50040,
+        purpose: 'Business trip',
+      });
+
+      await saveRoute(trip.id as string, 40);
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      expect(await drawnPathCount()).toBeGreaterThan(0);
+
+      // Regression guard for "loop mode, unchanged": Generovat/Regenerate
+      // stays, Recalculate (direct-only) does not appear.
+      expect(await $('[data-test="regenerate-btn"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="recalculate-btn"]').isExisting()).toBe(false);
+
+      // Guards the hasVias fix above: a loop route's own multi-point
+      // waypoint list must never light up the direct-only alternatives copy.
+      expect(await $('[data-test="alternatives-unavailable"]').isExisting()).toBe(false);
+    });
+
+    it('reports a blank destination and draws nothing, without offering retry', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-14T08:00',
+        endDatetime: '2026-03-14T09:00',
+        origin: 'Bratislava',
+        destination: '',
+        distanceKm: 10,
+        odometer: 50010,
+        purpose: 'Business trip',
+      });
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('error');
+
+      // The page actually mounted with the real trip, not a blank screen.
+      expect(await $('[data-test="trip-summary"]').isDisplayed()).toBe(true);
+      const errorText = await $('[data-test="route-map-error"]').getText();
+      expect(errorText).toContain('no origin or destination');
+
+      expect(await drawnPathCount()).toBe(0);
+      // mode_for's validation failure is a data problem, not a transient
+      // one -- retrying would fail identically forever.
+      expect(await $('[data-test="retry-btn"]').isExisting()).toBe(false);
     });
   });
 });
