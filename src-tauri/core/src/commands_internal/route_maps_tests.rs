@@ -701,3 +701,78 @@ fn a_blank_endpoint_still_fails_the_whole_call() {
     let trip = seed_trip_between(&db, "", "Depot, City B");
     assert!(start_route_for_trip_internal(&db, trip.id.to_string()).is_err());
 }
+
+// ---------------------------------------------------------------------------
+// insert_waypoint: where a dragged-in point lands in the waypoint sequence
+// ---------------------------------------------------------------------------
+
+/// Points along a straight west->east line, so "between" is unambiguous.
+fn line_points() -> Vec<(f64, f64)> {
+    (0..=10).map(|i| (48.9, 20.0 + i as f64 * 0.1)).collect()
+}
+
+fn wp(lat: f64, lon: f64) -> Waypoint {
+    Waypoint { lat, lon, name: None, node_idx: None }
+}
+
+#[test]
+fn a_point_dragged_mid_route_lands_between_the_endpoints() {
+    let points = line_points();
+    let waypoints = vec![wp(48.9, 20.0), wp(48.9, 21.0)];
+    // Dragged off the middle of the line.
+    let inserted = insert_waypoint(&waypoints, &encode(&points), 48.95, 20.5);
+
+    assert_eq!(inserted.len(), 3);
+    assert!((inserted[1].lat - 48.95).abs() < 1e-9);
+    assert!((inserted[1].lon - 20.5).abs() < 1e-9);
+}
+
+#[test]
+fn a_point_dragged_from_the_first_leg_lands_in_the_first_slot() {
+    let points = line_points();
+    // Three waypoints: start, middle of the line, end.
+    let waypoints = vec![wp(48.9, 20.0), wp(48.9, 20.5), wp(48.9, 21.0)];
+    let inserted = insert_waypoint(&waypoints, &encode(&points), 48.95, 20.2);
+
+    assert_eq!(inserted.len(), 4);
+    assert!(
+        (inserted[1].lon - 20.2).abs() < 1e-9,
+        "a point on the first leg belongs before the middle waypoint, got {:?}",
+        inserted.iter().map(|w| w.lon).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn a_point_dragged_from_the_last_leg_lands_in_the_last_slot() {
+    let points = line_points();
+    let waypoints = vec![wp(48.9, 20.0), wp(48.9, 20.5), wp(48.9, 21.0)];
+    let inserted = insert_waypoint(&waypoints, &encode(&points), 48.95, 20.8);
+
+    assert_eq!(inserted.len(), 4);
+    assert!((inserted[2].lon - 20.8).abs() < 1e-9);
+}
+
+/// A new waypoint is never an endpoint: dragging must not silently change
+/// where the journey started or finished.
+#[test]
+fn insertion_never_displaces_an_endpoint() {
+    let points = line_points();
+    let waypoints = vec![wp(48.9, 20.0), wp(48.9, 21.0)];
+    let inserted = insert_waypoint(&waypoints, &encode(&points), 48.95, 20.01);
+
+    assert!((inserted[0].lon - 20.0).abs() < 1e-9, "origin moved");
+    assert!(
+        (inserted.last().unwrap().lon - 21.0).abs() < 1e-9,
+        "destination moved"
+    );
+}
+
+/// Undecodable geometry must not lose the point or panic -- append before the
+/// destination, which is the only slot that is always valid.
+#[test]
+fn a_broken_polyline_still_places_the_point() {
+    let waypoints = vec![wp(48.9, 20.0), wp(48.9, 21.0)];
+    let inserted = insert_waypoint(&waypoints, "", 48.95, 20.5);
+    assert_eq!(inserted.len(), 3);
+    assert!((inserted[1].lon - 20.5).abs() < 1e-9);
+}

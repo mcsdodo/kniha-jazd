@@ -384,6 +384,74 @@ pub fn start_route_for_trip_internal(
     })
 }
 
+// ---------------------------------------------------------------------------
+// Waypoint insertion placement (Task 7, route maps V2)
+// ---------------------------------------------------------------------------
+
+/// Place a dragged-in point into an ordered waypoint list.
+///
+/// The polyline is the geometry the point was dragged off, so its vertices
+/// give the ordering that matters: every existing waypoint lies on the line,
+/// so mapping each to its nearest vertex yields the leg boundaries, and the
+/// new point's nearest vertex says which leg it came from.
+///
+/// Comparing squared degrees rather than true distances is deliberate -- over a
+/// single route's extent the distortion cannot reorder two candidates, and
+/// nothing here needs a distance, only an argmin.
+///
+/// Never returns a list with a new first or last element: a drag must not
+/// silently move where the journey began or ended.
+pub fn insert_waypoint(
+    waypoints: &[Waypoint],
+    polyline: &str,
+    lat: f64,
+    lon: f64,
+) -> Vec<Waypoint> {
+    let new_point = Waypoint { lat, lon, name: None, node_idx: None };
+    let mut out = waypoints.to_vec();
+
+    // Fewer than two waypoints is not a route; appending is the only sane act.
+    if out.len() < 2 {
+        out.push(new_point);
+        return out;
+    }
+
+    let points = decode(polyline);
+    // No usable geometry: put it immediately before the destination, the one
+    // slot that is always valid.
+    if points.len() < 2 {
+        out.insert(out.len() - 1, new_point);
+        return out;
+    }
+
+    let nearest = |lat: f64, lon: f64| -> usize {
+        points
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                let da = (a.0 - lat).powi(2) + (a.1 - lon).powi(2);
+                let db = (b.0 - lat).powi(2) + (b.1 - lon).powi(2);
+                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(i, _)| i)
+            .unwrap_or(0)
+    };
+
+    let new_vertex = nearest(lat, lon);
+    // The first slot a new point may take is 1, the last is len()-1.
+    let mut slot = out.len() - 1;
+    for (i, wp) in out.iter().enumerate().skip(1) {
+        if new_vertex <= nearest(wp.lat, wp.lon) {
+            slot = i;
+            break;
+        }
+    }
+    let slot = slot.clamp(1, out.len() - 1);
+
+    out.insert(slot, new_point);
+    out
+}
+
 #[cfg(test)]
 #[path = "route_maps_tests.rs"]
 mod tests;
