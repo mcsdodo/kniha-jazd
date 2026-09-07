@@ -19,10 +19,17 @@
  *    renders map PNGs from live OSM tiles (15s timeout), which would stall
  *    this suite on an offline or throttled CI box.
  * 3. Candidate picking, alternative promotion and drag editing are NOT covered.
- *    Each needs a live geocoder/router on page load, which constraint 1 rules
- *    out, and the providers are constructed inside the dispatcher arms so
- *    there is nothing to stub. Covering them needs a test-mode provider
- *    override first -- see _tasks/72-route-map-origin-destination/03-plan.md.
+ *    Each needs a live geocoder/router mid-flow, which constraint 1 rules out,
+ *    and the providers are constructed inside the dispatcher arms so there is
+ *    nothing to stub. Covering them needs a test-mode provider override first
+ *    -- see _tasks/72-route-map-origin-destination/03-plan.md.
+ *
+ *    An unplaced endpoint opening the shared place dialog IS covered below,
+ *    though: `start_route_for_trip` is DB-only (a place-book lookup, not a
+ *    geocode -- see ADR-032), and the page returns as soon as it finds an
+ *    unplaced field, before `route_direct` is ever called. Only the second
+ *    half of that flow -- placing the pin there and watching the route get
+ *    drawn -- needs the router and stays deferred with the rest of this list.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -143,6 +150,16 @@ async function waitForMapOutcome(kind: 'route' | 'error'): Promise<void> {
   const selector = kind === 'route' ? '[data-test="deviation"]' : '[data-test="route-map-error"]';
   const el = await $(selector);
   await el.waitForDisplayed({ timeout: 10000 });
+}
+
+/** Wait for the shared place dialog (PlaceModal) to appear in place, and
+ *  return the field name it is asking about -- read off `data-place-name`,
+ *  the attribute the modal stamps with `place.displayName` verbatim, rather
+ *  than parsing the header text mixed in with i18n copy. */
+async function waitForPlaceDialog(): Promise<string | null> {
+  const modal = await $('[data-testid="place-modal"]');
+  await modal.waitForDisplayed({ timeout: 10000 });
+  return modal.getAttribute('data-place-name');
 }
 
 /** Reload the grid so it re-reads `routeMapTripIds` from the backend. */
@@ -435,6 +452,39 @@ describe('Tier 2: Route Map', () => {
       // mode_for's validation failure is a data problem, not a transient
       // one -- retrying would fail identically forever.
       expect(await $('[data-test="retry-btn"]').isExisting()).toBe(false);
+    });
+
+    it('opens the shared place dialog for a row with an unplaced endpoint, in place', async () => {
+      // Neither name has ever been placed (see the header comment for why
+      // that is safe to assume across this suite): start_route_for_trip is a
+      // place-book lookup (ADR-032), never a geocode, and it checks origin
+      // before destination -- so a trip with both endpoints unplaced reaches
+      // exactly the same branch a real first-time user hits, and resolves
+      // deterministically on 'origin' without needing to single one out.
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-15T08:00',
+        endDatetime: '2026-03-15T09:00',
+        origin: 'Bratislava',
+        destination: 'Kosice',
+        distanceKm: 400,
+        odometer: 50400,
+        purpose: 'Business trip',
+      });
+
+      await openMap(trip.id as string);
+      const placeName = await waitForPlaceDialog();
+      expect(placeName).toBe('Bratislava');
+
+      // In place: still the same map view, same trip, no error state --
+      // route_direct was never reached to produce one either way.
+      expect(await $('[data-test="route-map-page"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="trip-summary"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="route-map-error"]').isExisting()).toBe(false);
+
+      // Nothing was routed yet -- confirms the page really did stop before
+      // route_direct, not just that the dialog happens to render on top.
+      expect(await drawnPathCount()).toBe(0);
     });
   });
 });
