@@ -160,6 +160,20 @@ closes. That is how `32631e0e` broke without ever being edited.
   The values in "Correct the data" above still need the user's explicit
   confirmation, with the affected period's rate and margin shown before and
   after.
-- **The `00:00` default and the `created_at` tie-break.** Named as the upstream
-  cause, deliberately not touched: moving either renumbers every trip and
-  re-derives every starting odometer across the book.
+- **The three rows are independent of [task 80](../80-one-trip-ordering/).** 2026
+  has zero ordering disagreements, because those rows carry distinct `created_at`
+  values. The data correction can happen before or after that refactor.
+
+### Moved to task 80
+
+The third requirement above, "Consider the tie-break", is answered in
+[task 80](../80-one-trip-ordering/) rather than here. The measurement that settles
+it: the two candidate tie-breaks agree in 30 of the 31 tied groups, and the one
+group where they disagree is the 2026-08-19 pair, where the place chain proves
+`created_at` right and the odometer wrong. Task 80 also covers what the same
+investigation uncovered: the order is decided in three different places, two of them
+in Svelte, so the row editor and the grid can show different numbers for the same
+row.
+
+- **The `00:00` default** stays untouched in both tasks. It is what makes the ties
+  common, but changing it does not fix an existing book.

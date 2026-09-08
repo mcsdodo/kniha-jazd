@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-08 (Task 79 warnings shipped; the data correction is open)
+**Last updated:** 2026-09-08 (Task 79 warnings shipped; task 80 opened for the ordering)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 80 | [One Trip Ordering](80-one-trip-ordering/) | 📋 Planning | Three different rules decide trip order, two of them in Svelte, so the editor and the grid disagree on 89 rows |
 | 79 | [Odometer Span Inconsistency](79-odometer-span-inconsistency/) | 🟡 In Progress | Grid warnings for a broken odometer span and a tied start datetime are shipped; the three production rows are still uncorrected |
 | 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 📋 Planning | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
