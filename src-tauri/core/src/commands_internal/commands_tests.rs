@@ -1411,13 +1411,28 @@ fn virtual_preview_trip(trips: &[Trip], insert_at_trip_id: Option<&str>) -> Trip
 
 #[test]
 fn test_preview_anchor_top_path_picks_the_last_trip_in_trip_order() {
-    // A new row at the top anchors to the last row of the book, which inside
-    // a tied group is the highest odometer.
-    let trips = tied_preview_group();
+    // A new row at the top anchors to the last row of the book in trip_order.
+    // The extra row is what separates the two implementations: it is LATER on
+    // the same date but carries a LOWER odometer than the tied group.
+    //
+    //   trip_order                            -> the 18:00 row, odometer 69408
+    //   max_by_key((date, odometer as i64))   -> the 15:00 row, odometer 69415
+    //
+    // The second is what the preview command used before task 80. Without this
+    // row both answers are the same trip and the test guards nothing.
+    let mut trips = tied_preview_group();
+    let mut later_but_lower = make_trip_at(NaiveDate::from_ymd_opt(2026, 8, 19).unwrap(), 18, 0);
+    later_but_lower.created_at = trips[0].created_at;
+    later_but_lower.odometer = 69408.0;
+    later_but_lower.id = Uuid::from_u128(4);
+    trips.push(later_but_lower);
 
     let (anchor, offset) = preview_anchor(&trips, None).expect("the group is not empty");
 
-    assert_eq!(anchor.odometer, 69415.0);
+    assert_eq!(
+        anchor.odometer, 69408.0,
+        "the last row by datetime, not the highest odometer"
+    );
     assert_eq!(offset, 0.5);
 }
 
@@ -1474,6 +1489,117 @@ fn test_preview_row_lands_directly_above_its_insert_target() {
         preview_index + 1,
         target_index,
         "the preview row belongs immediately above the row it is inserted at"
+    );
+}
+
+/// Seed one trip into a real DB, with every field the preview placement reads.
+fn seed_trip(
+    db: &Database,
+    vehicle_id: Uuid,
+    start: NaiveDateTime,
+    distance_km: f64,
+    odometer: f64,
+    fuel_liters: Option<f64>,
+    created_at: chrono::DateTime<Utc>,
+) -> Trip {
+    let mut trip = make_trip_detailed(
+        start.date(),
+        distance_km,
+        fuel_liters,
+        fuel_liters.is_some(),
+    );
+    trip.vehicle_id = vehicle_id;
+    trip.start_datetime = start;
+    trip.odometer = odometer;
+    trip.created_at = created_at;
+    db.create_trip(&trip).unwrap();
+    trip
+}
+
+#[test]
+fn test_preview_command_places_the_row_beside_its_insert_target() {
+    // This drives preview_trip_calculation_internal itself, not a copy of it.
+    //
+    // The book has two closed periods on one day and a tied pair between them:
+    //
+    //   09:00  100 km, 8.0 L full  -- closes period A
+    //   12:00  100 km, no fuel     -- tied pair, one created_at
+    //   12:00  100 km, 10.0 L full -- tied pair, closes period B
+    //
+    // Insert a 50 km preview row above the 10.0 L row. Where it lands decides
+    // the rate the command reports, and each way of getting it wrong reports a
+    // different number:
+    //
+    //   beside its anchor (correct) -> period B, 10.0 L / 250 km = 4.0
+    //   created_at not copied       -> after the pair, open period, TP 5.1
+    //   pinned to midnight          -> period A, 8.0 L / 150 km = 5.333
+    let (db, vehicle) = setup_db_with_vehicle(); // tank 66.0 l, TP 5.1 l/100km
+    let year = 2026;
+    let day = NaiveDate::from_ymd_opt(year, 6, 1).unwrap();
+    let older = Utc::now() - chrono::Duration::days(2);
+    let tied_stamp = Utc::now() - chrono::Duration::days(1);
+
+    // A full tank early in the year, so period A starts from a known state.
+    seed_trip(
+        &db,
+        vehicle.id,
+        NaiveDate::from_ymd_opt(year, 1, 5)
+            .unwrap()
+            .and_hms_opt(8, 0, 0)
+            .unwrap(),
+        100.0,
+        1100.0,
+        Some(20.0),
+        older,
+    );
+    seed_trip(
+        &db,
+        vehicle.id,
+        day.and_hms_opt(9, 0, 0).unwrap(),
+        100.0,
+        1200.0,
+        Some(8.0),
+        older,
+    );
+    seed_trip(
+        &db,
+        vehicle.id,
+        day.and_hms_opt(12, 0, 0).unwrap(),
+        100.0,
+        1300.0,
+        None,
+        tied_stamp,
+    );
+    let fillup = seed_trip(
+        &db,
+        vehicle.id,
+        day.and_hms_opt(12, 0, 0).unwrap(),
+        100.0,
+        1400.0,
+        Some(10.0),
+        tied_stamp,
+    );
+
+    let result = preview_trip_calculation_internal(
+        &db,
+        vehicle.id.to_string(),
+        year,
+        50,
+        None,
+        false,
+        Some(fillup.id.to_string()),
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        !result.is_estimated_rate,
+        "the preview row belongs in the period the fill-up below it closes, not in the open period after it"
+    );
+    assert!(
+        (result.consumption_rate - 4.0).abs() < 0.0001,
+        "expected 10.0 L over 250 km (100 + 50 preview + 100) = 4.0, got {}",
+        result.consumption_rate
     );
 }
 
