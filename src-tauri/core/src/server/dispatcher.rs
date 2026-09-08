@@ -1534,6 +1534,15 @@ mod tests {
         assert!(change.get("tripNumber").is_some(), "got: {change}");
         assert!(change.get("oldOdometer").is_some(), "got: {change}");
         assert!(change.get("newOdometer").is_some(), "got: {change}");
+
+        // Presence alone lets every field serialize to null and still pass:
+        // `Value::get` returns `Some(Value::Null)` for a present-but-null key.
+        // The fixture's numbers are deterministic -- one trip, so trip number
+        // 1; initial odometer 0.0 plus the trip's 120.0 km gives a running
+        // total of 120.0 against the stored 10000.0 from `test_ice_trip`.
+        assert_eq!(change["tripNumber"], 1, "got: {change}");
+        assert_eq!(change["oldOdometer"], 10000.0, "got: {change}");
+        assert_eq!(change["newOdometer"], 120.0, "got: {change}");
     }
 
     /// `Args::dry_run` has no `#[serde(default)]`, so an omitted `dryRun`
