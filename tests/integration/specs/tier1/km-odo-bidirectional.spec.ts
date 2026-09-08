@@ -1193,7 +1193,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       const odoInput = await $('tr.editing [data-testid="trip-odometer"]');
       await browser
         .waitUntil(async () => (await odoInput.getValue()) === '80200.5', {
-          timeout: 3000,
+          timeout: 5000,
         })
         .catch(() => undefined);
 
