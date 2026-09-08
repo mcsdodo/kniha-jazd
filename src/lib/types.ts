@@ -60,6 +60,44 @@ export interface Trip {
 	updatedAt: string;
 }
 
+/** One row a cascading save moves. Mirrors Rust `OdometerChange`. */
+export interface OdometerChange {
+	tripId: string;
+	tripNumber: number;
+	oldOdometer: number;
+	newOdometer: number;
+}
+
+/**
+ * What a cascading save would do (task 81). `delta` is reported in two parts
+ * so the modal can say which of them the user asked for:
+ * `delta === deltaFromDistance + deltaFromRepair`.
+ */
+export interface CascadePlan {
+	newOdometer: number;
+	newDistanceKm: number;
+	delta: number;
+	/** From the distance the user typed. */
+	deltaFromDistance: number;
+	/** From repairing the edited row's pre-existing span error. */
+	deltaFromRepair: number;
+	/** The repair is measured against the previous year's last odometer. */
+	repairCrossesYear: boolean;
+	/** The year's last odometer moves. */
+	yearEndOdometerMoved: boolean;
+	/** That, and a later year has trips, so a chain that lined up will not any
+	 *  more. Only this one is worth showing: appending to the newest year moves
+	 *  the year end every time and breaks nothing. */
+	nextYearChainBreaks: boolean;
+	/** Rows AFTER the edited one. The edited row is `newOdometer` above. */
+	changes: OdometerChange[];
+}
+
+export interface CascadeResult {
+	trip: Trip | null;
+	plan: CascadePlan;
+}
+
 export type AttachmentStatus = 'empty' | 'matches' | 'matches_date' | 'differs';
 export type MismatchReason = 'date' | 'time' | 'liters' | 'price' | 'liters_and_price' | 'date_and_liters' | 'date_and_price' | 'time_and_liters' | 'time_and_price' | 'time_and_liters_and_price' | 'all' | 'fuel_invoice_exists';
 

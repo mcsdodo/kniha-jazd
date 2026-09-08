@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, CascadePlan, CascadeResult } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -166,6 +166,120 @@ export async function updateTrip(
 
 export async function deleteTrip(id: string): Promise<void> {
 	return await apiCall('delete_trip', { id });
+}
+
+/**
+ * Save a trip and move the odometer of every later row of the same year.
+ *
+ * With `dryRun: true` nothing is written and the returned plan is what fills
+ * the confirmation modal. Call it again with `dryRun: false` to apply. The
+ * apply recomputes from the stored book, so the two calls can disagree if the
+ * book moved in between -- which is the point.
+ */
+export async function updateTripCascade(
+	id: string,
+	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
+	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
+	origin: string,
+	destination: string,
+	distanceKm: number,
+	odometer: number,
+	purpose: string,
+	// Fuel fields (ICE + PHEV)
+	fuelLiters: number | null | undefined,
+	fuelCostEur: number | null | undefined,
+	fullTank: boolean | null | undefined,
+	// Energy fields (BEV + PHEV)
+	energyKwh: number | null | undefined,
+	energyCostEur: number | null | undefined,
+	fullCharge: boolean | null | undefined,
+	socOverridePercent: number | null | undefined,
+	// Other
+	otherCostsEur: number | null | undefined,
+	otherCostsNote: string | null | undefined,
+	dryRun: boolean
+): Promise<CascadeResult> {
+	return await apiCall('update_trip_cascade', {
+		id,
+		startDatetime,
+		endDatetime,
+		origin,
+		destination,
+		distanceKm,
+		odometer,
+		purpose,
+		fuelLiters,
+		fuelCostEur,
+		fullTank,
+		energyKwh,
+		energyCostEur,
+		fullCharge,
+		socOverridePercent,
+		otherCostsEur,
+		otherCostsNote,
+		dryRun
+	});
+}
+
+/**
+ * Create a trip and move the odometer of every later row of the same year.
+ * The backend derives the new row's odometer from the chain, so this takes
+ * no `odometer` parameter -- passing one would let the browser overrule the
+ * book.
+ *
+ * With `dryRun: true` nothing is written and the returned plan is what fills
+ * the confirmation modal.
+ */
+export async function createTripCascade(
+	vehicleId: string,
+	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
+	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
+	origin: string,
+	destination: string,
+	distanceKm: number,
+	purpose: string,
+	// Fuel fields (ICE + PHEV)
+	fuelLiters: number | null | undefined,
+	fuelCost: number | null | undefined,
+	fullTank: boolean | null | undefined,
+	// Energy fields (BEV + PHEV)
+	energyKwh: number | null | undefined,
+	energyCostEur: number | null | undefined,
+	fullCharge: boolean | null | undefined,
+	socOverridePercent: number | null | undefined,
+	// Other
+	otherCosts: number | null | undefined,
+	otherCostsNote: string | null | undefined,
+	dryRun: boolean
+): Promise<CascadeResult> {
+	return await apiCall('create_trip_cascade', {
+		vehicleId,
+		startDatetime,
+		endDatetime,
+		origin,
+		destination,
+		distanceKm,
+		purpose,
+		fuelLiters,
+		fuelCost,
+		fullTank,
+		energyKwh,
+		energyCostEur,
+		fullCharge,
+		socOverridePercent,
+		otherCosts,
+		otherCostsNote,
+		dryRun
+	});
+}
+
+/**
+ * Remove a trip and close the gap it leaves in the odometer chain.
+ * With `dryRun: true` nothing is deleted and the returned plan is what fills
+ * the confirmation modal.
+ */
+export async function deleteTripCascade(id: string, dryRun: boolean): Promise<CascadePlan> {
+	return await apiCall('delete_trip_cascade', { id, dryRun });
 }
 
 // Route commands
