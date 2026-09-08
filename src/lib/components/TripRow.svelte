@@ -55,7 +55,7 @@
 		}
 		return formatDatetimeShort(endDatetime);
 	}
-	export let onSave: (tripData: Partial<Trip>) => void;
+	export let onSave: (tripData: Partial<Trip>) => Promise<boolean>;
 	export let onCancel: () => void;
 	export let onDelete: (id: string) => void;
 	export let onInsertAbove: () => void = () => {};
@@ -478,7 +478,7 @@
 		}
 	}
 
-	function handleSave() {
+	async function handleSave() {
 		// Final ODO clamp: never persist a value below this row's anchor, and
 		// never pay for that with the distance. With no anchor (no preview
 		// returned, and no odoStart on a new row) there is nothing to clamp
@@ -513,7 +513,10 @@
 			distanceKm: km,
 			odometer: odo
 		};
-		onSave(dataToSave);
+		// The grid answers false when nothing was written -- a cascade the user
+		// cancelled. The row then stays open on what the user typed.
+		const saved = await onSave(dataToSave);
+		if (!saved) return;
 		isEditing = false;
 		resetEditSessionFlags();
 		if (!isNew) {

@@ -8,6 +8,7 @@
 	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
+	import { confirmStore } from '$lib/stores/confirm';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
 
@@ -144,6 +145,13 @@
 		plan: CascadePlan;
 		oldDistanceKm: number;
 		apply: () => Promise<void>;
+		// Edit only. TripRow's handleSave is awaiting the promise handleUpdate
+		// returned, so this is how the row is told to close (or to stay open)
+		// once the user answers the modal -- the insert and delete rows have
+		// no such promise to settle: insert closes by TripGrid unmounting it
+		// (showNewRow), delete closes because the trip leaves the `trips`
+		// array the each-block is keyed on.
+		resolveSaved?: (saved: boolean) => void;
 	} | null = null;
 
 	/**
@@ -400,14 +408,20 @@
 				return true;
 			}
 
-			pendingCascade = {
-				kind: 'edit',
-				plan: preview.plan,
-				oldDistanceKm: trip.distanceKm,
-				apply: () => applyCascade(trip, tripData)
-			};
-			// The modal decides. The row stays open until it does.
-			return false;
+			// TripRow's handleSave is awaiting this very call (it awaits
+			// `onSave`), so the row only closes when this promise settles.
+			// confirmCascade resolves it true after a successful apply;
+			// cancelCascade resolves it false. Until then the row stays open
+			// exactly as the user left it -- no second `onSave` round trip.
+			return await new Promise<boolean>((resolve) => {
+				pendingCascade = {
+					kind: 'edit',
+					plan: preview.plan,
+					oldDistanceKm: trip.distanceKm,
+					apply: () => applyCascade(trip, tripData),
+					resolveSaved: resolve
+				};
+			});
 		} catch (error) {
 			console.error('Failed to update trip:', error);
 			toast.error($LL.toast.errorUpdateTrip());
@@ -452,24 +466,32 @@
 	}
 
 	/**
-	 * `TripRow` closes itself only when the save resolves true. A cancelled
-	 * cascade writes nothing, so the row stays open on the values the user
-	 * typed (task 81, R5).
+	 * `TripRow` closes itself only when the save resolves true (task 8's
+	 * `handleSave` awaits `onSave`). For `kind: 'edit'` that promise is
+	 * `handleUpdate`'s, parked on `resolveSaved` until now -- settling it
+	 * true here is what lets the row close; a failed apply settles it false,
+	 * so the row stays open exactly as if the user had cancelled.
 	 */
 	async function confirmCascade() {
 		if (!pendingCascade) return;
-		const { apply } = pendingCascade;
+		const { apply, resolveSaved } = pendingCascade;
 		pendingCascade = null;
 		try {
 			await apply();
+			resolveSaved?.(true);
 		} catch (error) {
 			console.error('Failed to update trip:', error);
 			toast.error($LL.toast.errorUpdateTrip());
+			resolveSaved?.(false);
 		}
 	}
 
 	function cancelCascade() {
-		// Nothing was written, including the edited row itself.
+		// Nothing was written, including the edited row itself. For
+		// `kind: 'edit'` this also settles handleUpdate's parked promise
+		// false, so TripRow's handleSave stops awaiting and leaves the row
+		// open on what the user typed, instead of hanging forever.
+		pendingCascade?.resolveSaved?.(false);
 		pendingCascade = null;
 	}
 
@@ -477,7 +499,26 @@
 		try {
 			const plan = await deleteTripCascade(id, true);
 			if (!needsApproval(plan)) {
-				await applyDelete(id);
+				// The cascade modal only appears when the delete moves another
+				// row. One that doesn't still destroys a legal record with no
+				// undo, so it keeps the one-line confirmation TripRow used to
+				// show itself (task 81, step 3's noted alternative).
+				confirmStore.show({
+					title: $LL.confirm.deleteRecordTitle(),
+					message: $LL.confirm.deleteRecordMessage(),
+					confirmText: $LL.common.delete(),
+					danger: true,
+					// confirmStore.onConfirm is fire-and-forget (it does not await
+					// or see a rejection), so applyDelete's own errors need their
+					// own catch here -- the outer try/catch below only covers the
+					// dry run above, which already returned by the time this runs.
+					onConfirm: () => {
+						applyDelete(id).catch((error) => {
+							console.error('Failed to delete trip:', error);
+							toast.error($LL.toast.errorDeleteTrip());
+						});
+					}
+				});
 				return;
 			}
 			pendingCascade = {
