@@ -450,8 +450,9 @@
 	type DisplayRow = { type: 'trip'; data: Trip } | { type: 'monthEnd'; data: MonthEndRow };
 
 	// Display order: sort by trip number. Direction comes from sortDirection.
-	// Backend calculates trip numbers chronologically by (startDatetime ASC, createdAt ASC),
-	// so DESC = newest first (highest trip # on top), ASC = oldest first.
+	// The backend numbers the trips in the one book order, `trip_order`:
+	// startDatetime, then createdAt, then odometer, then id (task 80, ADR-044).
+	// So DESC = newest first (highest trip # on top), ASC = oldest first.
 	$: sortedTrips = [...trips, firstRecordTrip].sort((a, b) => {
 		const numA = tripNumbers.get(a.id) ?? 0;
 		const numB = tripNumbers.get(b.id) ?? 0;

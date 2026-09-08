@@ -1585,7 +1585,7 @@ fn test_preview_command_places_the_row_beside_its_insert_target() {
         &db,
         vehicle.id.to_string(),
         year,
-        50,
+        50.0,
         None,
         false,
         Some(fillup.id.to_string()),
@@ -5774,7 +5774,7 @@ fn test_preview_returns_the_row_odometer() {
         &db,
         vehicle.id.to_string(),
         2026,
-        70,    // distance_km is i32 on this command
+        70.0,
         None,  // fuel_liters
         false, // full_tank
         None,  // insert_at_trip_id
@@ -5784,6 +5784,30 @@ fn test_preview_returns_the_row_odometer() {
 
     assert_eq!(preview.odometer_start, 50050.0);
     assert_eq!(preview.odometer, 50120.0);
+}
+
+#[test]
+fn test_preview_answers_a_fractional_distance() {
+    // The book holds odometers that end in .5, so the editor sends a
+    // fractional km. The command took an i32, so `parse_args` rejected the
+    // request, the preview came back null, and a new row saved odometer 0.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let preview = preview_trip_calculation_internal(
+        &db,
+        vehicle.id.to_string(),
+        2026,
+        100.5,
+        None,  // fuel_liters
+        false, // full_tank
+        None,  // insert_at_trip_id
+        None,  // editing_trip_id
+    )
+    .unwrap();
+
+    assert_eq!(preview.odometer_start, 50050.0);
+    assert_eq!(preview.odometer, 50150.5);
 }
 
 #[test]
@@ -5833,7 +5857,7 @@ fn test_preview_of_an_edited_row_anchors_on_its_canonical_predecessor() {
         &db,
         vehicle.id.to_string(),
         2026,
-        70,
+        70.0,
         None,
         false,
         None,

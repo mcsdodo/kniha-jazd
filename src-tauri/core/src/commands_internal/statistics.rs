@@ -1216,12 +1216,12 @@ pub fn calculate_consumption_warnings(
 
 /// Find trips that share their exact `start_datetime` with another trip.
 ///
-/// The grid sorts by date, then datetime, then `created_at`
-/// (`helpers::calculate_trip_numbers`). When two trips carry the same
-/// datetime, the order falls to `created_at`, which is data-entry order and
-/// not travel order. The derived starting odometer then chains in an order
-/// the driver never drove (task 79). This is a warning, not a block: a book
-/// under correction is temporarily inconsistent by design.
+/// The book has one order, `helpers::trip_order`: `start_datetime`, then
+/// `created_at`, then `odometer`, then `id` (task 80, ADR-044). When two trips
+/// carry the same `start_datetime`, the order falls to `created_at`, which is
+/// data-entry order and not travel order. The derived starting odometer then
+/// chains in an order the driver never drove (task 79). This is a warning, not
+/// a block: a book under correction is temporarily inconsistent by design.
 ///
 /// Every member of a tied group is flagged, because the pair is the problem;
 /// neither row is more wrong than the other.
@@ -1454,7 +1454,7 @@ pub fn preview_trip_calculation_internal(
     db: &Database,
     vehicle_id: String,
     year: i32,
-    distance_km: i32,
+    distance_km: f64,
     fuel_liters: Option<f64>,
     full_tank: bool,
     insert_at_trip_id: Option<String>,
@@ -1501,7 +1501,7 @@ pub fn preview_trip_calculation_internal(
         end_datetime: None,
         origin: "Preview".to_string(),
         destination: "Preview".to_string(),
-        distance_km: distance_km as f64,
+        distance_km,
         odometer: preview_odometer,
         purpose: "Preview".to_string(),
         fuel_liters,
@@ -1531,7 +1531,7 @@ pub fn preview_trip_calculation_internal(
                 end_datetime: existing.end_datetime,
                 origin: existing.origin.clone(),
                 destination: existing.destination.clone(),
-                distance_km: distance_km as f64,
+                distance_km,
                 odometer: existing.odometer,
                 purpose: existing.purpose.clone(),
                 fuel_liters,
@@ -1600,6 +1600,6 @@ pub fn preview_trip_calculation_internal(
         is_over_limit,
         is_estimated_rate,
         odometer_start,
-        odometer: odometer_start + distance_km as f64,
+        odometer: odometer_start + distance_km,
     })
 }

@@ -368,7 +368,10 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 vehicle_id: String,
                 year: i32,
-                distance_km: i32,
+                // f64, like `Trip.distance_km` everywhere else. An i32 here
+                // rejected a fractional km outright, so the preview never
+                // answered and a new row saved odometer 0.
+                distance_km: f64,
                 fuel_liters: Option<f64>,
                 full_tank: bool,
                 insert_at_trip_id: Option<String>,

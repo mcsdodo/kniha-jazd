@@ -11,6 +11,7 @@ import {
   seedVehicle,
   seedTrip,
   setActiveVehicle,
+  getTripGridData,
   rpc,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
@@ -1100,6 +1101,115 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
         }
       );
       expect(await odoInput.getValue()).toBe(expectedOdo);
+    });
+  });
+
+  describe('A fractional km on a new row', () => {
+    it('saves the odometer the chain gives it, not 0', async () => {
+      // The whole editor chain runs on the backend preview (task 80). The
+      // preview command took `distance_km` as an i32, so a km like 100.5
+      // failed to parse, the preview came back null, the new row had no
+      // anchor, the save clamp did not fire, and `formData.odometer` -- null
+      // on a new row -- was saved as 0. A legal odometer of 0.
+      //
+      // Fractional km are real in this book: they arrive from manual edits.
+      const vehicleData = createTestIceVehicle({
+        name: 'Fractional Km New Row',
+        licensePlate: 'FRAC-001',
+        initialOdometer: 80000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-05-02T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 100,
+        odometer: 80100,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      const newTripBtn = await $('button.new-record');
+      await newTripBtn.waitForClickable({ timeout: 5000 });
+      await newTripBtn.click();
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 10000, timeoutMsg: 'The new row did not open' }
+      );
+
+      // Type the text fields first. Typing does not auto-fill the distance --
+      // only picking a suggestion does -- so the km typed below stands.
+      await browser.execute(
+        (origin: string, destination: string, purpose: string) => {
+          const set = (testId: string, value: string) => {
+            const input = document.querySelector(
+              `tr.editing [data-testid="${testId}"]`
+            ) as HTMLInputElement;
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          };
+          set('trip-origin', origin);
+          set('trip-destination', destination);
+          set('trip-purpose', purpose);
+        },
+        SlovakCities.trnava,
+        SlovakCities.nitra,
+        TripPurposes.business
+      );
+
+      // The fractional km. The anchor is 80100, so the row ends at 80200.5.
+      await browser.execute(() => {
+        const km = document.querySelector(
+          'tr.editing [data-testid="trip-distance"]'
+        ) as HTMLInputElement;
+        km.value = '100.5';
+        km.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      // Give the preview time to land and fill the ODO. Do not assert it here:
+      // on the broken build it never lands, and the number this test is about
+      // is the one that reaches the database.
+      const odoInput = await $('tr.editing [data-testid="trip-odometer"]');
+      await browser
+        .waitUntil(async () => (await odoInput.getValue()) === '80200.5', {
+          timeout: 3000,
+        })
+        .catch(() => undefined);
+
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      // Read the stored value, not the grid cell: the grid rounds to whole km.
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const saved = grid.trips.find((t) => t.destination === SlovakCities.nitra);
+      expect(saved).toBeDefined();
+      expect(saved!.distanceKm).toBe(100.5);
+      expect(saved!.odometer).toBe(80200.5);
     });
   });
 });

@@ -170,10 +170,10 @@
 	// `$:` block that also writes to it would re-trigger itself.
 	//
 	// The second guard says "this preview answers the km the field holds NOW".
-	// It rejects a response that a later km edit has already superseded (the
-	// requests are not sequenced, so they can land out of order), and it
-	// rejects a fractional km, which the command truncates to i32 and would
-	// answer with an odometer short of the distance the row records.
+	// It rejects a response that a later km edit has already superseded: the
+	// requests are not sequenced, so they can land out of order. A response
+	// for the km the field still holds is applied, whether that km is whole or
+	// fractional -- the command takes an f64, so it answers both the same way.
 	function applyPreviewOdometer(preview: PreviewResult | null) {
 		if (!preview || manualOdoEdit || !odoFollowsKm) return;
 		// No km, nothing to derive an ODO from. Tested on its own: a NaN
