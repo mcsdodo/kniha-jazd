@@ -2,8 +2,9 @@
  * Tier 1: Smart Trip Defaults Integration Tests
  *
  * Covers two related conveniences for the trip grid:
- *   1. ODO clamp — any ODO entered below the previous row's ODO is silently
- *      snapped to (previousOdometer + 1) on blur. Applies to all rows.
+ *   1. ODO clamp - any ODO entered below the row's odometer anchor is
+ *      silently snapped to (anchor + 1) on blur. Applies to all rows. The
+ *      anchor is the backend's "Km pred" for the row (task 80).
  *   2. Time inference — on a NEW row, picking origin + destination that match
  *      a previous trip auto-fills start/end datetimes (jittered) from the
  *      most recent matching trip. Editing existing rows must NOT trigger this.
@@ -85,7 +86,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
   });
 
   describe('ODO auto-clamp', () => {
-    it('clamps ODO entered below previousOdometer up to previous + 1', async () => {
+    it('clamps ODO entered below the anchor up to anchor + 1', async () => {
       const vehicleData = createTestIceVehicle({
         name: 'ODO Clamp Test',
         licensePlate: 'CLMP-001',
@@ -102,7 +103,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
 
       const year = new Date().getFullYear();
 
-      // Existing trip — establishes previousOdometer = 51000 for next new row.
+      // Existing trip - the new row's anchor is its odometer, 51000.
       await seedTrip({
         vehicleId: vehicle.id as string,
         startDatetime: `${year}-02-01T08:00`,
@@ -134,7 +135,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
 
       const odoInput = await $('[data-testid="trip-odometer"]');
       const clampedValue = await odoInput.getValue();
-      // previousOdometer is 51000, so the clamped value must be 51001.
+      // The anchor is 51000, so the clamped value must be 51001.
       expect(parseFloat(clampedValue)).toBe(51001);
     });
   });
@@ -143,7 +144,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
     it('computes KM from (newODO − previousODO) on every keystroke, not via delta accumulation', async () => {
       // Regression: when a user typed an ODO value digit-by-digit into a fresh
       // new row, the KM field would accumulate via the delta branch of
-      // handleOdoChange and land at ~previousOdometer (e.g., 60194 when the
+      // handleOdoChange and land at ~the anchor (e.g., 60194 when the
       // last row's ODO was 60000) — the user described this as "KM fills with
       // last ODO". The fix derives KM directly from the current ODO on new
       // rows so intermediate keystrokes cannot accumulate.
@@ -161,8 +162,8 @@ describe('Tier 1: Smart Trip Defaults', () => {
         tpConsumption: vehicleData.tpConsumption,
       });
 
-      // No prior trips — previousOdometer on the new row will equal the
-      // vehicle's initialOdometer (60000).
+      // No prior trips - the new row's anchor is the vehicle's
+      // initialOdometer (60000).
       await setActiveVehicle(vehicle.id as string);
       await navigateTo('trips');
       await waitForTripGrid();
@@ -181,9 +182,9 @@ describe('Tier 1: Smart Trip Defaults', () => {
       expect(parseFloat(await distanceInput.getValue())).toBe(200);
     });
 
-    it('leaves KM blank when previousOdometer is 0 (vehicle without initialOdometer)', async () => {
+    it('leaves KM blank when the anchor is 0 (vehicle without initialOdometer)', async () => {
       // When a user creates a vehicle without an initial odometer and enters
-      // their first trip, previousOdometer is 0. Auto-deriving KM from
+      // their first trip, the anchor is 0. Auto-deriving KM from
       // (ODO − 0) surfaces the raw ODO value in the KM field, which looks
       // identical to "the last ODO ended up in KM". Guard: skip auto-derive
       // and let the user type KM explicitly.

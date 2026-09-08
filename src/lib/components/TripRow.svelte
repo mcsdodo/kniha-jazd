@@ -136,29 +136,45 @@
 	};
 
 	// The odometer this row starts from -- the "Km pred" the grid shows for it.
-	// It comes from the backend preview, which derives it from the canonical
-	// trip order (task 80, ADR-008). null means no preview has returned yet;
-	// there is no local substitute, because the display neighbour this used to
-	// read disagrees with that order on tied rows.
-	$: odometerAnchor = previewData ? previewData.odometerStart : null;
+	// Both sources are the same backend value, `calculate_odometer_start` over
+	// the canonical trip order (task 80, ADR-008):
+	//   - an existing row carries it in the odoStart prop, which the grid reads
+	//     from the same map it prints, and which is there before any preview;
+	//   - a new row has no row in that map, so it waits for its preview.
+	// null means neither is available yet. There is no local substitute: the
+	// display neighbour this used to read disagrees with the canonical order.
+	$: odometerAnchor =
+		!isNew && odoStart > 0 ? odoStart : previewData ? previewData.odometerStart : null;
+
+	// A km edit is what makes the ODO follow the backend. Set by the sites that
+	// put a km in the field: a typed km, a route auto-fill, a copied row.
+	// Without it every OTHER preview -- opening the editor, typing litres,
+	// toggling the full-tank box, magic fill -- would rewrite the odometer of a
+	// row the user only looked at (task 80 asked for the km direction only).
+	let odoFollowsKm = false;
 
 	// Fill the ODO from the preview when it returns. Called from a reactive
 	// statement that depends on previewData ALONE -- reading formData inside a
 	// `$:` block that also writes to it would re-trigger itself.
 	//
-	// The distanceKm guard keeps the three sites this replaced: a route
-	// auto-fill, a copied row and a km edit all set a km first, so the ODO is
-	// only ever derived once there is a km to add. Without it a fresh new row
-	// would show the anchor in an ODO field the user has not typed into yet.
+	// The second guard says "this preview answers the km the field holds NOW".
+	// It rejects a response that a later km edit has already superseded (the
+	// requests are not sequenced, so they can land out of order), and it
+	// rejects a fractional km, which the command truncates to i32 and would
+	// answer with an odometer short of the distance the row records.
 	function applyPreviewOdometer(preview: PreviewResult | null) {
-		if (!preview || manualOdoEdit || formData.distanceKm === null) return;
+		if (!preview || manualOdoEdit || !odoFollowsKm) return;
+		const previewedKm = preview.odometer - preview.odometerStart;
+		// Tolerance, not equality: the difference of two f64 odometers can miss
+		// the whole km it was built from by a rounding step.
+		if (Math.abs(previewedKm - (formData.distanceKm ?? NaN)) > 1e-6) return;
 		formData.odometer = preview.odometer;
 	}
 	$: applyPreviewOdometer(previewData);
 
-	// A new row has no preview yet, so the ODO field has no anchor to derive KM
-	// from until one returns. Ask for it as the row opens. An existing row gets
-	// its preview from handleEdit, and a copied row asks during init below.
+	// A new row has no odoStart prop, so it has no anchor to derive KM from
+	// until a preview returns. Ask for it as the row opens. An existing row
+	// reads odoStart instead, and a copied row asks during init below.
 	onMount(() => {
 		if (isNew && !copyFrom) {
 			onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
@@ -243,7 +259,9 @@
 			// on that route.
 			const roundedKm = Math.round(matchingRoute.distanceKm);
 			formData.distanceKm = roundedKm;
-			// The preview fills the ODO in when it returns (applyPreviewOdometer).
+			// An auto-filled km is still a km edit: the ODO follows it, and the
+			// preview requested below is what fills it in (applyPreviewOdometer).
+			odoFollowsKm = true;
 			// Trigger live preview calculation for consumption/zostatok
 			onPreviewRequest(roundedKm, formData.fuelLiters, formData.fullTank);
 		}
@@ -267,6 +285,7 @@
 		// The backend zeroes an implausible distance rather than copying it;
 		// null (not 0) leaves the field blank and lets auto-fill take over.
 		formData.distanceKm = copyFrom.distanceKm > 0 ? copyFrom.distanceKm : null;
+		odoFollowsKm = formData.distanceKm !== null;
 		formData.purpose = copyFrom.purpose;
 		// The copied times are explicit user intent. Marking this route pair as
 		// already-inferred makes tryInferTimes() short-circuit, so the Task 56
@@ -342,7 +361,8 @@
 		// A typed distance outranks any route the user later picks — mirrors
 		// manualOdoEdit. Clearing the field hands control back to auto-fill.
 		manualKmEdit = km !== null;
-		// The ODO follows from the preview, not from a display neighbour.
+		// The ODO follows this km, and comes from the preview that answers it.
+		odoFollowsKm = km !== null;
 		// Request live preview calculation
 		onPreviewRequest(km ?? 0, formData.fuelLiters, formData.fullTank);
 	}
@@ -391,10 +411,11 @@
 
 		// KM is the gap between this row's ODO and the anchor the backend
 		// reported. Three guards protect against degenerate situations:
-		//   1. A null anchor means no preview has returned yet, so there is
-		//      no baseline to subtract. The display neighbour this used to
-		//      read is not a substitute — it disagrees with the canonical
-		//      order (task 80) — so leave KM to the user.
+		//   1. A null anchor means neither source has one yet: a new row
+		//      whose first preview has not returned. There is no baseline to
+		//      subtract, and the display neighbour this used to read is not a
+		//      substitute -- it disagrees with the canonical order (task 80)
+		//      -- so leave KM to the user.
 		//   2. An anchor of 0 means there is no meaningful baseline either
 		//      (fresh vehicle with no initialOdometer set). In that case the
 		//      subtraction produces the raw ODO value — which looks to the

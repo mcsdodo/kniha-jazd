@@ -321,18 +321,117 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
     });
   });
 
-  describe('Odometer anchor inside a tied group', () => {
-    it('offers the ODO the grid shows as Km pred for the same row', async () => {
-      // The last two rows share one start datetime -- the shape the real book
-      // has, and the shape the editor and the grid used to disagree on.
+  describe('The ODO follows a km edit, nothing else', () => {
+    it('leaves the ODO alone when the row is only opened, or only its fuel is typed', async () => {
+      // The editor asks for a preview whenever it opens, when litres are
+      // typed, when the full-tank box is toggled and after magic fill. None of
+      // those is a km edit, so none of them may move the odometer of a row the
+      // user did not retype -- on a row whose stored ODO disagrees with the
+      // canonical chain that would silently rewrite a legal record.
       //
+      // Seeded to disagree on purpose: the anchor is 80000 and the row records
+      // 100 km, so the chain says 80100, but 80150 is stored.
+      const vehicleData = createTestIceVehicle({
+        name: 'Opened Not Edited',
+        licensePlate: 'OPENED-1',
+        initialOdometer: 80000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-05-02T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.nitra,
+        distanceKm: 100,
+        odometer: 80150,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      await browser.execute(() => {
+        const row = document.querySelector(
+          'tbody tr:not(.first-record):not(.editing)'
+        ) as HTMLElement;
+        row?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      });
+
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 5000, timeoutMsg: 'Editing row did not appear after double-click' }
+      );
+
+      // The preview marker on the rate cell says the response landed, so the
+      // assertion below is not just outrunning the request.
+      const previewMark = await $('tr.editing td.col-consumption-rate.preview');
+      await previewMark.waitForExist({
+        timeout: 5000,
+        timeoutMsg: 'The editor never received a preview to react to',
+      });
+
+      const odoInput = await $('tr.editing [data-testid="trip-odometer"]');
+      expect(await odoInput.getValue()).toBe('80150');
+
+      // Typing litres asks for another preview. Still not a km edit.
+      await browser.execute((sel: string, newValue: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = newValue;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 'tr.editing [data-testid="trip-fuel-liters"]', '30');
+      await browser.pause(500);
+
+      expect(await odoInput.getValue()).toBe('80150');
+
+      // A km edit DOES move it, to the canonical chain: 80000 + 120.
+      await browser.execute((sel: string, newValue: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = newValue;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 'tr.editing [data-testid="trip-distance"]', '120');
+
+      await browser.waitUntil(async () => (await odoInput.getValue()) === '80120', {
+        timeout: 5000,
+        timeoutMsg: 'A km edit must still fill the ODO from the backend',
+      });
+    });
+  });
+
+  describe('Odometer anchor: the canonical order, not the display neighbour', () => {
+    it('offers Km pred + km for a row with no row below it in display order', async () => {
       // The editor took its anchor from the row below in DISPLAY order; the
       // grid derives Km pred from the canonical order. The two agree only
-      // while the grid is sorted descending by trip number. Sorted ascending,
-      // the row under edit is the LAST row on screen, so there is no row below
-      // it and the anchor fell back to the year start (70000): a 150 km trip
-      // was offered ODO 70150. The canonical anchor is the row before it in
-      // trip order (70200), so the ODO must be 70350.
+      // while the grid is sorted descending by trip number, its default.
+      // Sorted ascending, the row under edit is the LAST row on screen, so
+      // there is no row below it and the anchor fell back to the year start
+      // (70000): a 150 km trip was offered ODO 70150. The canonical anchor is
+      // the row before it in trip order (70200), so the ODO must be 70350.
+      //
+      // The last two rows share one start datetime because that is the shape
+      // the real book has. The tie itself is covered in Rust, by
+      // test_preview_of_an_edited_row_anchors_on_its_canonical_predecessor.
       const vehicleData = createTestIceVehicle({
         name: 'Tied Group Anchor',
         licensePlate: 'TIEDG-01',
