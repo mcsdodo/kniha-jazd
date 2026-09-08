@@ -157,10 +157,16 @@ Only the row numbers differ.
 ## Part 3 - The legal figures
 
 `calculate_trip_stats` returns both an average and a worst case, and they are
-different figures. `avgConsumptionRate` is the year's total fuel over its total
-km. `marginPercent` and `isOverLimit` describe the **worst** closed fill-up
-period, because each period is separately auditable. The two builds return the
-same numbers, to the last digit.
+different figures. `avgConsumptionRate` counts the CLOSED fill-up periods only
+(`statistics.rs:91-95`, `calculate_closed_period_totals`): the fuel of those
+periods over their km. The `Total km` and `Fuel L` columns beside it count every
+trip of the year (`statistics.rs:86-88`), so in a year that ends inside an open
+period the two do not agree. 2026 is such a year: the table prints 5.964591,
+while 843.93 / 14552 * 100 is 5.799. The 2023 to 2025 rows agree only because
+those years end on a fill-up, which leaves no open period outside the average.
+`marginPercent` and `isOverLimit` describe the **worst** closed fill-up period,
+because each period is separately auditable.
+The two builds return the same numbers, to the last digit.
 
 | Year | Average rate over closed periods, l/100km | Worst period margin over TP 5.1 | Over the 20 % limit | Total km | Fuel L |
 |---|---|---|---|---|---|
@@ -215,7 +221,9 @@ snapshot taken before that edit (`_tmp/79-local/data/kniha-jazd.db.pre-run-16270
 md5 `ed75de8573ad2afceb5f0ed8a59c8594`), the same command returns **two** rows for
 2026, 69415 -> 69063 and 69411 -> 69415, which is the pair
 [02-correction.md](../79-odometer-span-inconsistency/02-correction.md) records.
-The 2023, 2024 and 2025 answers are identical on both copies. So take the local
+The 2023, 2024 and 2025 answers are identical on both copies. Both answers are
+measured, and both are measured on a LOCAL copy. Nobody ran the command against
+production, so neither answer states what production held. So take the local
 copy to production first, or expect the 2026 table below to disagree with what
 production answers.
 
@@ -264,7 +272,18 @@ dry run still answers.
 
 **Do not run it on 2023 or 2025.** See the table above.
 
+**Do not run it on 2026 either, and do not expect the three rows above.** The
+2026 correction was applied by hand after this part was written, so the book has
+moved past every figure in it. See [04-closed.md](04-closed.md). The dry run
+against the corrected book was not measured, and the 0 span warnings reported
+there do not imply 0 rows: the warning carries a 1 km tolerance and the command
+rewrites on any difference, which is exactly the 2025 -0.5 km case above.
+
 ## Part 6 - What you decide
+
+**All three are decided. [04-closed.md](04-closed.md) records the answers.** The
+items below are the question as it was put, kept so the decision can be read
+against it.
 
 1. **The renumbering in Part 2.** It arrives with the build. Nothing runs it and
    nothing can undo it row by row: it is what the one comparator computes from
@@ -272,11 +291,16 @@ dry run still answers.
 2. **The 2026 odometer correction.** Three rows, -352 km each, from Part 5. It
    changes no rate and no margin, as
    [02-correction.md](../79-odometer-span-inconsistency/02-correction.md)
-   measured for the same period.
+   measured for the same period. Those three rows are what the LOCAL copy of
+   Part 5 answers; the pre-edit snapshot answers two rows, and neither figure
+   was measured against production. **Decided and applied by hand, not by
+   `recalculate_odometers`** -- see
+   [79-odometer-span-inconsistency/03-closed.md](../79-odometer-span-inconsistency/03-closed.md)
+   for the values production carries now.
 3. **The 2023 row 1 warning.** Still open, still the choice in
    [02-correction.md](../79-odometer-span-inconsistency/02-correction.md):
    `initial_odometer` 3147 -> 3125 (one field), the +22 cascade over 69 rows, or
-   leave it.
+   leave it. **Decided: leave it.**
 
 ## Part 7 - Parked, not fixed here
 

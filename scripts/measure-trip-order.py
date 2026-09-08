@@ -42,7 +42,14 @@ ORDERINGS = (
 
 
 def fold(text):
-    """Lower case, drop diacritics, collapse whitespace. Mirrors places::normalise."""
+    """Lower case, drop diacritics, collapse whitespace.
+
+    Close to `places::normalise` (normalise.rs), not identical: this drops the
+    combining marks Unicode NFD produces, while the Rust side maps a closed table
+    of accented letters. They differ on letters NFD does not decompose but the
+    table still maps -- l-stroke and sharp-s. No place name in this book carries
+    either, so no figure this script prints depends on the difference.
+    """
     lowered = (text or "").lower()
     decomposed = unicodedata.normalize("NFD", lowered)
     stripped = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
