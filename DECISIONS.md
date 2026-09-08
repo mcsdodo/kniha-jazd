@@ -4,6 +4,48 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-08: One Trip Ordering
+
+### ADR-044: One comparator decides trip order, and the odometer is its third key
+
+**Context:** Three rules decided which trip comes before which. `chronological` ([statistics.rs](./src-tauri/core/src/commands_internal/statistics.rs)) fed the "Km pred" chain by date and then odometer; the row editor read its anchor from the row above it on screen, that is by trip number; and `recalculateAllOdo` ([TripGrid.svelte](./src/lib/components/TripGrid.svelte)) rewrote the year in DB order. Measured on the production copy (329 trips), the number the editor would use differed from the number the grid displayed on 34 rows of 2023, 36 of 2024 and 19 of 2025. The same stored row therefore showed a different starting odometer depending on which rule produced it.
+
+**Decision:** `trip_order(a, b)` ([helpers.rs](./src-tauri/core/src/commands_internal/helpers.rs)) is the one order of the book: `start_datetime`, then `created_at`, then `odometer`, then `id`. Each key applies only when the one before it carries no information. Every trip sort in the backend routes through it, including the preview command's virtual row. The frontend keeps no rule of its own: it orders the rows by the trip number the backend computed, and reverses that list for the descending view.
+
+**Reasoning:** The order of the two middle keys was chosen by measurement, not by taste. Span warnings raised over the whole book, measured on the snapshot of 2026-09-08 16:27 (`kniha-jazd.db.pre-run-162703`, the book before rows 107 and 108 of 2026 were edited by hand):
+
+| Order | Warnings | Verdict |
+|---|---|---|
+| `datetime, created_at, id` | 65 | Declares two thirds of the imported book broken |
+| `datetime, odometer, id` | 1 | Reads perfectly, but silences all three 2026 errors; only row 1 of 2023 survives |
+| `datetime, created_at, odometer, id` | 4 | 2024 and 2025 clean, the three 2026 errors kept, plus row 1 of 2023 |
+
+Ordering by the odometer first makes the chain agree with itself by construction, so a wrong odometer can never be detected. That is the whole reason the odometer sits below `created_at`.
+
+The two candidate tie-breaks disagreed in exactly one of the 31 tied groups, the 2026-08-19 pair, and there the place chain settles it: in the window "row before -> the tied group -> row after", `created_at` order connects 3 of 3 place links (Mlynske Nivy -> OMV, OMV -> Spisska Nova Ves, Spisska Nova Ves -> the next row), and odometer order connects 0 of 3.
+
+The place chain itself cannot be the rule. It settles only 13 of the 31 tied groups, counting a group as settled when exactly one order of it connects every link in that same window. Under the weaker test, "one order connects more links than any other", it settles 23 of 31. Two things leave the rest undetermined: a round trip starts and ends at the same place, and the book has gaps where one row's destination is not the next row's origin.
+
+**Measured effect on the book** (the pre-task-80 build `860a98f` against the head `c818fe7`, on identical copies of the book of 2026-09-08 16:29): 62 rows get a new trip number -- 24 in 2023, 24 in 2024, 14 in 2025, none in 2026 -- and every swap sits inside a group that shares a date and time. No stored odometer, no "Km pred" cell, no rate, no margin and no warning changes. Rows whose "Km pred" did not follow the row above them fall from 34, 36 and 19 to **0** in every year. In the imported years the swaps are free because those rows all carry one `created_at` from a single import, so the comparator falls through to the odometer, which is the order the old chain already used.
+
+**Note for a later reader:** the same three measurements on the book of today read 63, 2 and 2, and the two candidate tie-breaks no longer disagree in any group. The hand edit of 2026-08-19 row 107 removed the one group that discriminated them. The decision rests on the snapshot named above.
+
+**Related:** [Task 80](./_tasks/80-one-trip-ordering/); [Task 79](./_tasks/79-odometer-span-inconsistency/); [ADR-043](#adr-043-the-span-is-the-check-that-finds-the-error-the-tied-datetime-only-explains-it) (the span check the odometer key must not silence); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the order has one home, in Rust).
+
+### ADR-045: The odometer rewrite is a command the user runs, never a side effect of a save
+
+**Context:** Saving any row rewrote the stored odometer of every following row of the year. `recalculateAllOdo` ([TripGrid.svelte](./src/lib/components/TripGrid.svelte)) walked the year in DB order, computed a running total from the distances, and wrote back every row that differed. The user saw it as "I change the values, something updates, yet when full refresh the DATA IS DIFFERENT". Task 80 moved that walk into Rust as `recalculate_odometers` ([trips.rs](./src-tauri/core/src/commands_internal/trips.rs)) and removed the automatic call in the same step. This ADR records why the call did not come back.
+
+**Decision:** It does not. Nothing calls `recalculate_odometers` automatically, there is no UI for it, and it is reached over RPC only. It takes a `dryRun` flag: with `dryRun: true` it writes nothing and returns the rows it would change, each as `{tripId, tripNumber, oldOdometer, newOdometer}`. A save now writes exactly the row the user edited.
+
+**Reasoning:** The measurement decided it. On the book as it stands, an automatic rewrite on the first save would change 0 rows in 2024, but **69 in 2023, 68 in 2025 and 3 in 2026**, none of them touched by the user. The 2023 run pushes the 22 km of row 1 through the whole year, which is the 223-row option the task 79 package argues against. The 2025 run moves 68 legal values by -0.5 km to chase a rounding artefact that the 1 km span tolerance ignores on purpose. Worse, both runs would erase the span warnings that exist to surface exactly those errors: a rewrite makes the chain agree with itself, so the sign disappears and the wrong data stays.
+
+This book is legal evidence, and the spec requires the user to approve a change against a copy before it runs on the production book. A dry run is what makes that approval possible: the same command that applies the change first states it, row by row, with the old and the new value.
+
+**Related:** [Task 80](./_tasks/80-one-trip-ordering/) and its [03-status.md](./_tasks/80-one-trip-ordering/03-status.md) (the dry-run figures and the operator procedure); [ADR-042](#adr-042-a-broken-odometer-chain-warns-it-never-blocks-the-save) (the chain warns, it never blocks); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the walk belongs in Rust).
+
+---
+
 ## 2026-09-08: Odometer Chain Warnings
 
 ### ADR-042: A broken odometer chain warns, it never blocks the save

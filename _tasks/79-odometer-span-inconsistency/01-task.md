@@ -53,12 +53,26 @@ the 4 km error.
 
 Both 2026-08-19 rows are `fullTank = true`, and `03f46d80` records 45.2 litres. A
 full-tank fill-up **closes a consumption period**
-([calculations/mod.rs:101-119](../../src-tauri/core/src/calculations/mod.rs)), and a
+([calculations/mod.rs:105-128](../../src-tauri/core/src/calculations/mod.rs)), and a
 period's rate is `period_fuel / period_km * 100`. These rows sit exactly on a period
-boundary, so the wrong spans have been feeding the consumption figures -- and consumption
-is judged against the 20% legal limit
+boundary, and consumption is judged against the 20% legal limit
 ([calculations/mod.rs:46-52](../../src-tauri/core/src/calculations/mod.rs)). This book is
 legal evidence.
+
+**Correction, 2026-09-08.** An earlier version of this section said the wrong spans
+"have been feeding the consumption figures". They were not, and that was measured. A
+period sums the `distance_km` column of each row and never reads the odometer
+(`calculate_closed_period_totals`,
+[calculations/mod.rs:105-128](../../src-tauri/core/src/calculations/mod.rs), and the
+rate loop at
+[statistics.rs:108-129](../../src-tauri/core/src/commands_internal/statistics.rs)). What
+did skew this period was the **order** of the two tied rows, and
+[task 80](../80-one-trip-ordering/) fixed that: under the old rules the 352 km leg fell
+inside the period, which read 45.2 L over 1134 km, that is 3.986 l/100km; in the one book
+order the leg falls after the fill-up and the period reads 45.2 L over 782 km, that is
+5.780 l/100km (measured). Both are under the limit. The three rows still need correcting
+-- a span of -4 km is impossible -- but no consumption figure depends on them. The
+measured decision package is in [02-correction.md](./02-correction.md).
 
 ## Requirements
 
@@ -167,7 +181,13 @@ closes. That is how `32631e0e` broke without ever being edited.
 ### Moved to task 80
 
 The third requirement above, "Consider the tie-break", is answered in
-[task 80](../80-one-trip-ordering/) rather than here. The measurement that settles
+[task 80](../80-one-trip-ordering/) rather than here. **It is now settled**: one
+comparator, `trip_order` in
+[helpers.rs](../../src-tauri/core/src/commands_internal/helpers.rs), orders the whole
+book by `start_datetime`, then `created_at`, then `odometer`, then `id`, and the odometer
+sits below `created_at` so that it cannot silence the span check
+([ADR-044](../../DECISIONS.md), and the measured effect on this book in
+[80-one-trip-ordering/03-status.md](../80-one-trip-ordering/03-status.md)). The measurement that settles
 it: the two candidate tie-breaks agree in 30 of the 31 tied groups, and the one
 group where they disagree is the 2026-08-19 pair, where the place chain proves
 `created_at` right and the odometer wrong. Task 80 also covers what the same

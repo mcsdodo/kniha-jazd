@@ -2,14 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-08 (Task 79 warnings shipped; task 80 opened for the ordering)
+**Last updated:** 2026-09-08 (Task 80 landed: one trip ordering in Rust, the odometer rewrite is now a command)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 80 | [One Trip Ordering](80-one-trip-ordering/) | 📋 Planning | Three different rules decide trip order, two of them in Svelte, so the editor and the grid disagree on 89 rows |
-| 79 | [Odometer Span Inconsistency](79-odometer-span-inconsistency/) | 🟡 In Progress | Grid warnings for a broken odometer span and a tied start datetime are shipped; the three production rows are still uncorrected |
+| 79 | [Odometer Span Inconsistency](79-odometer-span-inconsistency/) | 🟡 In Progress | Grid warnings are shipped; the production rows are still uncorrected. The measured values and the choice they need are in [02-correction.md](79-odometer-span-inconsistency/02-correction.md) |
 | 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 📋 Planning | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -20,6 +19,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 80 | [One Trip Ordering](./80-one-trip-ordering/) -- the renumbering it causes needs your approval, see [03-status.md](./80-one-trip-ordering/03-status.md) | 2026-09-08 |
 | 72 | [Route Map Origin/Destination](./_done/72-route-map-origin-destination/) — see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-07 |
 | 77 | [Linux Dev Environment](./_done/77-linux-dev-environment/) | 2026-09-07 |
 | 75 | [Place Book](./_done/75-place-book/) — see [docs/features/place-book.md](../docs/features/place-book.md) | 2026-09-07 |
