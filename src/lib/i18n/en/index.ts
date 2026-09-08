@@ -188,6 +188,11 @@ const en = {
 			otherSumMismatchShort: 'other costs total does not match attached invoices',
 			dataMismatch: 'data mismatch',
 			userConfirmed: 'confirmed',
+			// Odometer chain warnings (Task 79)
+			duplicateDatetime: 'same date and time',
+			duplicateDatetimeTooltip: 'Another trip has the same date and time. The row order then follows the entry order, not the travel order.',
+			odometerSpanMismatch: 'odometer does not match the distance',
+			odometerSpanMismatchTooltip: 'The odometer shows {span} km, the row records {km} km.',
 		},
 		// Column visibility
 		columnVisibility: {

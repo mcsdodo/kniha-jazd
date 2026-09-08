@@ -404,6 +404,9 @@ pub fn build_trip_grid_data(
             other_invoice_sums: HashMap::new(),
             fuel_datetime_warnings: HashSet::new(),
             other_datetime_warnings: HashSet::new(),
+            duplicate_datetime_warnings: HashSet::new(),
+            odometer_span_warnings: HashSet::new(),
+            odometer_spans: HashMap::new(),
             fuel_mismatch_overrides: HashSet::new(),
             other_mismatch_overrides: HashSet::new(),
             year_start_odometer,
@@ -461,6 +464,9 @@ pub fn build_trip_grid_data(
     // Receipt datetime warnings per type (assigned receipt outside trip time range)
     let (fuel_datetime_warnings, other_datetime_warnings) =
         calculate_receipt_datetime_warnings(&trips, &receipts);
+
+    // Trips sharing an exact start datetime (task 79)
+    let duplicate_datetime_warnings = calculate_duplicate_datetime_warnings(&trips);
 
     // Receipt mismatch overrides per type (user confirmed a mismatch)
     let (fuel_mismatch_overrides, other_mismatch_overrides) =
@@ -555,6 +561,11 @@ pub fn build_trip_grid_data(
     let trip_numbers = calculate_trip_numbers(&trips);
     let odometer_start = calculate_odometer_start(&chronological, year_start_odometer);
 
+    // Rows whose odometer span contradicts their recorded distance (task 79)
+    let odometer_span_warnings = calculate_odometer_span_warnings(&trips, &odometer_start);
+    let odometer_spans =
+        calculate_odometer_spans(&odometer_span_warnings, &odometer_start, &trips);
+
     // Which rows already have a saved route map (Task 70). One batched query
     // rather than a lookup per row: the grid reloads on every edit, and a
     // per-trip request would mean a year's worth of round trips each time.
@@ -593,6 +604,9 @@ pub fn build_trip_grid_data(
         other_invoice_sums,
         fuel_datetime_warnings,
         other_datetime_warnings,
+        duplicate_datetime_warnings,
+        odometer_span_warnings,
+        odometer_spans,
         fuel_mismatch_overrides,
         other_mismatch_overrides,
         year_start_odometer,
@@ -1247,6 +1261,89 @@ pub fn calculate_consumption_warnings(
     }
 
     warnings
+}
+
+/// Find trips that share their exact `start_datetime` with another trip.
+///
+/// The grid sorts by date, then datetime, then `created_at`
+/// (`helpers::calculate_trip_numbers`). When two trips carry the same
+/// datetime, the order falls to `created_at`, which is data-entry order and
+/// not travel order. The derived starting odometer then chains in an order
+/// the driver never drove (task 79). This is a warning, not a block: a book
+/// under correction is temporarily inconsistent by design.
+///
+/// Every member of a tied group is flagged, because the pair is the problem;
+/// neither row is more wrong than the other.
+pub fn calculate_duplicate_datetime_warnings(trips: &[Trip]) -> HashSet<String> {
+    let mut by_datetime: HashMap<NaiveDateTime, Vec<String>> = HashMap::new();
+
+    for trip in trips {
+        by_datetime
+            .entry(trip.start_datetime)
+            .or_default()
+            .push(trip.id.to_string());
+    }
+
+    by_datetime
+        .into_values()
+        .filter(|ids| ids.len() > 1)
+        .flatten()
+        .collect()
+}
+
+/// Largest odometer difference (km) that the span check accepts in silence.
+///
+/// The grid shows odometers to whole kilometres, and a year carryover can hold
+/// a half kilometre from an older row. One kilometre is therefore the first
+/// difference that means a real data error rather than a rounding artefact.
+const ODOMETER_SPAN_TOLERANCE_KM: f64 = 1.0;
+
+/// Find trips whose odometer span contradicts their recorded distance.
+///
+/// The span is `odometer - odometer_start`. The end value is stored on the row,
+/// the start value is derived from the previous row, so the span moves whenever
+/// a row is inserted, deleted, or re-dated. No write path checks it, which is
+/// how a row can break without ever being edited (task 79). A negative span is
+/// never valid: it means the odometer went backwards.
+///
+/// `odometer_start` is the map the grid already builds, so the first row of a
+/// year is measured against the year carryover and not against nothing.
+/// A trip with no entry in the map is left alone rather than guessed at.
+pub fn calculate_odometer_span_warnings(
+    trips: &[Trip],
+    odometer_start: &HashMap<String, f64>,
+) -> HashSet<String> {
+    trips
+        .iter()
+        .filter(|trip| {
+            odometer_start
+                .get(&trip.id.to_string())
+                .is_some_and(|start| {
+                    (trip.odometer - start - trip.distance_km).abs()
+                        >= ODOMETER_SPAN_TOLERANCE_KM
+                })
+        })
+        .map(|trip| trip.id.to_string())
+        .collect()
+}
+
+/// Measured odometer span (km) for the flagged trips, so the grid tooltip can
+/// show it beside the recorded distance without any frontend arithmetic
+/// (ADR-008). Clean trips carry no value.
+pub fn calculate_odometer_spans(
+    warnings: &HashSet<String>,
+    odometer_start: &HashMap<String, f64>,
+    trips: &[Trip],
+) -> HashMap<String, f64> {
+    trips
+        .iter()
+        .filter(|trip| warnings.contains(&trip.id.to_string()))
+        .filter_map(|trip| {
+            odometer_start
+                .get(&trip.id.to_string())
+                .map(|start| (trip.id.to_string(), trip.odometer - start))
+        })
+        .collect()
 }
 
 /// Find trips with costs that don't have an invoice of the matching type attached.

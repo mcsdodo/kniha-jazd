@@ -4,6 +4,32 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-08: Odometer Chain Warnings
+
+### ADR-042: A broken odometer chain warns, it never blocks the save
+
+**Context:** [Task 79](./_tasks/79-odometer-span-inconsistency/) found three rows in the production book whose odometer span contradicts their recorded distance, one of them negative. No write path checks the odometer: `update_trip_internal` ([trips.rs](./src-tauri/core/src/commands_internal/trips.rs)) validates only the SoC range. The guards that do exist -- `handleKmChange`, `handleOdoBlur` ([TripRow.svelte](./src/lib/components/TripRow.svelte)) -- live in the open row editor and stop applying the moment the row closes.
+
+**Decision:** `get_trip_grid_data` returns `odometer_span_warnings` and `duplicate_datetime_warnings`, the grid marks the rows, and every write still succeeds. There is no validation error and no confirmation dialog on save.
+
+**Reasoning:** The start odometer is derived from the previous row and only the end odometer is stored, so a chain under correction is inconsistent halfway through by construction. A hard block traps the user in exactly the state the task 79 data fix has to edit through: the first of two rows cannot be corrected without the second one being wrong for a moment. A warning states the problem without deciding when it must be resolved, which is the right split for a book whose owner is also its only auditor.
+
+**Related:** [Task 79](./_tasks/79-odometer-span-inconsistency/); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (both checks and the reported span are computed in Rust).
+
+### ADR-043: The span is the check that finds the error; the tied datetime only explains it
+
+**Context:** Task 79 traced the three bad rows to two trips that share a `start_datetime`. With the first two sort keys tied, `calculate_trip_numbers` ([helpers.rs](./src-tauri/core/src/commands_internal/helpers.rs)) falls back to `created_at`, which is data-entry order and not travel order. That reads as a complete diagnosis, so the first design warned on the tie alone. Measuring the production book contradicted it: 68 of 329 rows sit in a tied group, **30 of the 31 groups are at `00:00:00`** -- the default time a new row gets -- and only 2 of the 68 are wrong. The same measurement flags 4 rows on the span rule, including the 2026-08-27 row, whose datetime is unique.
+
+**Decision:** Ship both checks, but treat them as different things. `calculate_odometer_span_warnings` compares `odometer - odometer_start` against `distance_km` with a 1 km tolerance and is the detector. `calculate_duplicate_datetime_warnings` marks the tie and is context: it says why a chain that looks wrong got that way. The span warning sits on the odo cell, the tie warning on the start datetime cell, and neither reuses the consumption-warning row colour.
+
+**Reasoning:** A tie is normal in this book because the app supplies `00:00` and the user rarely types a time, so warning on it alone is about 97% noise and still misses a third of the known-bad rows. The span rule is independent of ordering, so it survives an insert, a delete, or a re-dated row -- the mechanisms that broke the 2026-08-27 row without it ever being edited. The 1 km tolerance exists for a measured case: a half kilometre carried across the 2024/2025 year boundary is a rounding artefact, not an error, and the grid shows odometers to whole kilometres anyway.
+
+**Deliberately not changed:** the `00:00` default and the `created_at` tie-break are the upstream cause, and both are left alone. Moving either renumbers every trip and re-derives every starting odometer across the whole book, which is a separate decision with its own evidence requirements.
+
+**Related:** [Task 79](./_tasks/79-odometer-span-inconsistency/); [BIZ-003](#biz-003-legal-margin-limit) (the periods a wrong span feeds).
+
+---
+
 ## 2026-09-07: Route Map Origin/Destination Routing
 
 ### ADR-037: The route mode comes from the trip's own text, decided in Rust

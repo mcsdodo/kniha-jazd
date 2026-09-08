@@ -20,6 +20,7 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Automatický výpočet spotreby** - l/100km sa vypočíta automaticky pri tankovaní
 - **Sledovanie zostatku paliva** - Zostatok v nádrži po každej jazde
 - **20% limit nadpotreby** - Upozornenie pri prekročení zákonného limitu
+- **Kontrola tachometra** - Upozornenie pri zázname, ktorého stav tachometra nesedí so zapísanými kilometrami, a pri jazdách s rovnakým dátumom a časom
 - **Návrhy kompenzačných jázd** - Ako sa dostať späť pod limit
 - **Návrh tankovania** - Automatický výpočet litrov pre dosiahnutie optimálnej spotreby
 - **Pamätanie trás** - Časté trasy sa automaticky dopĺňajú

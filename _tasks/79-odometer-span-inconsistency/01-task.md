@@ -1,6 +1,6 @@
 **Date:** 2026-09-08
 **Subject:** Three trips whose odometer span does not match their recorded distance, one of them negative
-**Status:** Planning
+**Status:** Partly done -- the warnings ship, the data correction is open
 
 ## Goal
 
@@ -99,3 +99,67 @@ legal evidence.
 - Scope note: [task 78](../78-round-trip-legs-and-distance-writeback/) will let a routed
   distance be written onto a row. It must preserve this same invariant, so these two
   tasks share a constraint but not a fix.
+
+## Progress, 2026-09-08
+
+### Landed: the warnings
+
+The "stop it recurring" requirement is implemented as **warnings, never a block**
+(ADR-042). Two checks, split by what each one is for (ADR-043):
+
+- `calculate_odometer_span_warnings` -- `odometer - odometer_start` against
+  `distance_km`, 1 km tolerance. This is the detector. The sign sits on the odo
+  cell and its tooltip names both numbers.
+- `calculate_duplicate_datetime_warnings` -- trips sharing an exact
+  `start_datetime`. This is context, not a detector. The sign sits on the start
+  datetime cell.
+
+Both ride along with `get_trip_grid_data`. Backend unit tests own the rules
+(12 tests); `tests/integration/specs/tier2/odometer-chain-warnings.spec.ts`
+covers the UI flow.
+
+### What the measurement changed
+
+The task above reads the tie as the root cause. Measured against the read-only
+snapshot at `_tmp/75-place-cleanup/prod-snapshot.db` (329 trips), it is not the
+whole one:
+
+| Measure | Count |
+|---|---|
+| Rows in a tied-datetime group | 68 of 329 |
+| Tied groups | 31 |
+| Tied groups at exactly `00:00:00` | **30 of 31** |
+| Tied rows that are actually wrong | 2 |
+| Rows breaking the span invariant | 5 (3 of them this task's rows) |
+
+`00:00` is the default a new row gets, so a tie is what the app produces
+whenever the user does not type a time. A warning on the tie alone would mark
+68 rows to find 2, and would still miss `32631e0e`, whose datetime is unique.
+The span check is the one that finds all three.
+
+The other two span hits are not this task's rows:
+
+- 2025-01-12, span 88.5 vs 88 km recorded. A half kilometre carried over the
+  2024/2025 boundary. The 1 km tolerance keeps it quiet.
+- 2023-04-25, span -34910. The book starts at odometer 3147, but the vehicle's
+  `initial_odometer` is 38057. Setting `initial_odometer` to 3125 clears it.
+  **Not changed here** -- it is production data and needs the user's decision.
+
+### Also confirmed while measuring
+
+No write path checks the odometer at all. `update_trip_internal`
+([trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)) validates only
+the SoC range. The km/odo guards in
+[TripRow.svelte](../../src/lib/components/TripRow.svelte) run in the open row
+editor and use the current display neighbour, so they stop applying once the row
+closes. That is how `32631e0e` broke without ever being edited.
+
+### Still open
+
+- **The data correction.** The three rows in the production book are unchanged.
+  The values in "Correct the data" above still need the user's explicit
+  confirmation, with the affected period's rate and margin shown before and
+  after.
+- **The `00:00` default and the `created_at` tie-break.** Named as the upstream
+  cause, deliberately not touched: moving either renumbers every trip and
+  re-derives every starting odometer across the book.

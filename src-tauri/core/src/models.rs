@@ -434,6 +434,18 @@ pub struct TripGridData {
     pub fuel_datetime_warnings: HashSet<String>,
     /// Trip IDs where an assigned Other invoice datetime is outside trip range
     pub other_datetime_warnings: HashSet<String>,
+    /// Trip IDs that share their exact start datetime with another trip.
+    /// The grid tie-breaks such rows by `created_at` (data-entry order), which
+    /// is not travel order, so the derived starting odometer can chain wrong
+    /// (task 79).
+    pub duplicate_datetime_warnings: HashSet<String>,
+    /// Trip IDs whose odometer span (`odometer - odometer_start`) differs from
+    /// the recorded distance by a kilometre or more (task 79)
+    pub odometer_span_warnings: HashSet<String>,
+    /// Measured odometer span (km) for each trip in `odometer_span_warnings`,
+    /// so the mismatch tooltip can show it beside the recorded distance
+    /// (ADR-008: no frontend math)
+    pub odometer_spans: HashMap<String, f64>,
     /// Trip IDs where user confirmed a mismatch (per type)
     pub fuel_mismatch_overrides: HashSet<String>,
     pub other_mismatch_overrides: HashSet<String>,

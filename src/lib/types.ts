@@ -172,6 +172,9 @@ export interface TripGridData {
 	otherInvoiceSums: Record<string, number>; // tripId -> attached Other invoice sum (EUR), only for mismatched trips
 	fuelDatetimeWarnings: string[]; // tripIds with Fuel invoice datetime outside trip range
 	otherDatetimeWarnings: string[]; // tripIds with Other invoice datetime outside trip range
+	duplicateDatetimeWarnings: string[]; // tripIds sharing an exact start datetime with another trip (Task 79)
+	odometerSpanWarnings: string[]; // tripIds whose odometer span differs from the recorded distance (Task 79)
+	odometerSpans: Record<string, number>; // tripId -> measured odometer span (km), only for flagged trips
 	fuelMismatchOverrides: string[]; // tripIds where user confirmed a Fuel mismatch
 	otherMismatchOverrides: string[]; // tripIds where user confirmed an Other mismatch
 	// Year boundary data

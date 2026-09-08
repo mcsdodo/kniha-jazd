@@ -72,6 +72,12 @@
 	export let onEditStart: () => void = () => {};
 	export let onEditEnd: () => void = () => {};
 	export let hasConsumptionWarning: boolean = false;
+	// Odometer chain warnings (Task 79)
+	export let duplicateDatetimeWarning: boolean = false;
+	export let odometerSpanWarning: boolean = false;
+	/// Measured odometer span (km) for a flagged row, sent by the backend so the
+	/// tooltip needs no frontend arithmetic (ADR-008).
+	export let odometerSpan: number | null = null;
 	export let isEstimatedRate: boolean = false;
 	// Per-type invoice warnings (Task 66: 1 Fuel + N Other invoices per trip)
 	export let hasMatchingFuelInvoice: boolean = true;
@@ -720,7 +726,12 @@
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{tripNumber}</td>
 		{/if}
-		<td class="col-start-datetime">{formatDatetimeShort(trip.startDatetime)}</td>
+		<td class="col-start-datetime">
+			{formatDatetimeShort(trip.startDatetime)}
+			{#if duplicateDatetimeWarning}
+				<span class="chain-indicator" title={$LL.trips.legend.duplicateDatetimeTooltip()}>⚠</span>
+			{/if}
+		</td>
 		{#if !hiddenColumns.includes('time')}
 			<td class="col-end-datetime">{formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}</td>
 		{/if}
@@ -730,7 +741,18 @@
 		{#if !hiddenColumns.includes('odoStart')}
 			<td class="col-odo-start number">{odoStart.toFixed(0)}</td>
 		{/if}
-		<td class="col-odo number">{trip.odometer.toFixed(0)}</td>
+		<td class="col-odo number">
+			{trip.odometer.toFixed(0)}
+			{#if odometerSpanWarning}
+				<span
+					class="chain-indicator"
+					title={$LL.trips.legend.odometerSpanMismatchTooltip({
+						span: (odometerSpan ?? 0).toFixed(0),
+						km: trip.distanceKm.toFixed(0)
+					})}
+				>⚠</span>
+			{/if}
+		</td>
 		<td class="col-purpose">{trip.purpose}</td>
 		{#if !hiddenColumns.includes('driver')}
 			<td class="col-driver">{driverName}</td>
@@ -1064,6 +1086,15 @@
 		margin-left: 0.25rem;
 		cursor: help;
 		font-weight: bold;
+	}
+
+	/* Odometer chain warning - tied start datetime, or a span that
+	   contradicts the recorded distance (Task 79) */
+	.chain-indicator {
+		margin-left: 0.25rem;
+		cursor: help;
+		font-weight: bold;
+		color: var(--accent-danger);
 	}
 
 	/* 🔴 Missing receipt - red */

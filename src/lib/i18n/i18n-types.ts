@@ -598,6 +598,24 @@ type RootTranslation = {
 			 * p​o​t​v​r​d​e​n​é
 			 */
 			userConfirmed: string
+			/**
+			 * r​o​v​n​a​k​ý​ ​d​á​t​u​m​ ​a​ ​č​a​s
+			 */
+			duplicateDatetime: string
+			/**
+			 * I​n​á​ ​j​a​z​d​a​ ​m​á​ ​r​o​v​n​a​k​ý​ ​d​á​t​u​m​ ​a​ ​č​a​s​.​ ​P​o​r​a​d​i​e​ ​r​i​a​d​k​o​v​ ​p​o​t​o​m​ ​u​r​č​í​ ​p​o​r​a​d​i​e​ ​z​á​p​i​s​u​,​ ​n​i​e​ ​p​o​r​a​d​i​e​ ​j​a​z​d​e​n​i​a​.
+			 */
+			duplicateDatetimeTooltip: string
+			/**
+			 * t​a​c​h​o​m​e​t​e​r​ ​n​e​s​e​d​í​ ​s​o​ ​v​z​d​i​a​l​e​n​o​s​ť​o​u
+			 */
+			odometerSpanMismatch: string
+			/**
+			 * P​o​d​ľ​a​ ​t​a​c​h​o​m​e​t​r​a​ ​{​s​p​a​n​}​ ​k​m​,​ ​z​a​p​í​s​a​n​ý​c​h​ ​{​k​m​}​ ​k​m​.
+			 * @param {string} km
+			 * @param {string} span
+			 */
+			odometerSpanMismatchTooltip: RequiredParams<'km' | 'span'>
 		}
 		columnVisibility: {
 			/**
@@ -3195,6 +3213,22 @@ export type TranslationFunctions = {
 			 * potvrdené
 			 */
 			userConfirmed: () => LocalizedString
+			/**
+			 * rovnaký dátum a čas
+			 */
+			duplicateDatetime: () => LocalizedString
+			/**
+			 * Iná jazda má rovnaký dátum a čas. Poradie riadkov potom určí poradie zápisu, nie poradie jazdenia.
+			 */
+			duplicateDatetimeTooltip: () => LocalizedString
+			/**
+			 * tachometer nesedí so vzdialenosťou
+			 */
+			odometerSpanMismatch: () => LocalizedString
+			/**
+			 * Podľa tachometra {span} km, zapísaných {km} km.
+			 */
+			odometerSpanMismatchTooltip: (arg: { km: string, span: string }) => LocalizedString
 		}
 		columnVisibility: {
 			/**

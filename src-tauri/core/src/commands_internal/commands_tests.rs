@@ -3,7 +3,9 @@
 // ============================================================================
 
 use crate::commands_internal::statistics::{
-    calculate_consumption_warnings, calculate_energy_grid_data, calculate_missing_receipts,
+    calculate_consumption_warnings, calculate_duplicate_datetime_warnings,
+    calculate_odometer_span_warnings, calculate_odometer_spans,
+    calculate_energy_grid_data, calculate_missing_receipts,
     calculate_other_invoice_sums, calculate_other_sum_mismatches,
     calculate_receipt_datetime_warnings,
     calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
@@ -1034,6 +1036,206 @@ fn test_consumption_warnings_under_limit_not_flagged() {
         warnings.is_empty(),
         "Trip under limit should not be flagged"
     );
+}
+
+// ========================================================================
+// Duplicate start-datetime tests (calculate_duplicate_datetime_warnings)
+// ========================================================================
+
+/// Build a trip with an exact start datetime (make_trip_detailed pins 08:00).
+fn make_trip_at(date: NaiveDate, hour: u32, minute: u32) -> Trip {
+    let mut trip = make_trip_detailed(date, 10.0, None, false);
+    trip.start_datetime = date.and_hms_opt(hour, minute, 0).unwrap();
+    trip
+}
+
+#[test]
+fn test_duplicate_datetime_flags_both_trips() {
+    // Two trips at the identical start datetime: the grid order then falls to
+    // created_at, which is data-entry order, not travel order (task 79).
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let trips = vec![make_trip_at(date, 15, 0), make_trip_at(date, 15, 0)];
+
+    let warnings = calculate_duplicate_datetime_warnings(&trips);
+
+    assert_eq!(warnings.len(), 2, "Both trips of the pair must be flagged");
+    assert!(warnings.contains(&trips[0].id.to_string()));
+    assert!(warnings.contains(&trips[1].id.to_string()));
+}
+
+#[test]
+fn test_duplicate_datetime_flags_all_members_of_a_group() {
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let trips = vec![
+        make_trip_at(date, 15, 0),
+        make_trip_at(date, 15, 0),
+        make_trip_at(date, 15, 0),
+        make_trip_at(date, 16, 0), // alone at 16:00
+    ];
+
+    let warnings = calculate_duplicate_datetime_warnings(&trips);
+
+    assert_eq!(warnings.len(), 3, "All three of the 15:00 group must be flagged");
+    assert!(!warnings.contains(&trips[3].id.to_string()), "The lone 16:00 trip must stay clean");
+}
+
+#[test]
+fn test_duplicate_datetime_same_date_different_time_is_clean() {
+    // Several trips on one day are normal. Only an identical time is a problem.
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let trips = vec![
+        make_trip_at(date, 8, 0),
+        make_trip_at(date, 8, 30),
+        make_trip_at(date, 15, 0),
+    ];
+
+    let warnings = calculate_duplicate_datetime_warnings(&trips);
+
+    assert!(warnings.is_empty(), "Same date with different times must not warn");
+}
+
+#[test]
+fn test_duplicate_datetime_distinct_dates_is_clean() {
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let trips = vec![
+        make_trip_at(date, 15, 0),
+        make_trip_at(date.succ_opt().unwrap(), 15, 0),
+    ];
+
+    let warnings = calculate_duplicate_datetime_warnings(&trips);
+
+    assert!(warnings.is_empty(), "The same time on different days must not warn");
+}
+
+// ========================================================================
+// Odometer span tests (calculate_odometer_span_warnings)
+// ========================================================================
+
+/// Build the odometer_start map the grid passes to the span check.
+fn odo_starts(pairs: &[(&Trip, f64)]) -> HashMap<String, f64> {
+    pairs
+        .iter()
+        .map(|(trip, start)| (trip.id.to_string(), *start))
+        .collect()
+}
+
+#[test]
+fn test_odometer_span_matching_distance_is_clean() {
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let mut trip = make_trip_at(date, 8, 0);
+    trip.distance_km = 50.0;
+    trip.odometer = 69465.0;
+
+    let starts = odo_starts(&[(&trip, 69415.0)]);
+    let warnings = calculate_odometer_span_warnings(&[trip], &starts);
+
+    assert!(warnings.is_empty(), "A span equal to the recorded distance must not warn");
+}
+
+#[test]
+fn test_odometer_span_longer_than_distance_is_flagged() {
+    // Task 79, row 03f46d80: 4 km recorded, 356 km of odometer.
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let mut trip = make_trip_at(date, 15, 0);
+    trip.distance_km = 4.0;
+    trip.odometer = 69415.0;
+
+    let starts = odo_starts(&[(&trip, 69059.0)]);
+    let warnings = calculate_odometer_span_warnings(std::slice::from_ref(&trip), &starts);
+
+    assert!(warnings.contains(&trip.id.to_string()), "A 356 km span on a 4 km trip must warn");
+}
+
+#[test]
+fn test_odometer_span_negative_is_flagged() {
+    // Task 79, row a51cb498: the odometer goes backwards, which is impossible.
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let mut trip = make_trip_at(date, 15, 0);
+    trip.distance_km = 352.0;
+    trip.odometer = 69411.0;
+
+    let starts = odo_starts(&[(&trip, 69415.0)]);
+    let warnings = calculate_odometer_span_warnings(std::slice::from_ref(&trip), &starts);
+
+    assert!(warnings.contains(&trip.id.to_string()), "A negative span must always warn");
+}
+
+#[test]
+fn test_odometer_span_half_kilometre_stays_quiet() {
+    // A half kilometre carried over a year boundary is not an error worth a
+    // warning: the grid shows odometers to whole kilometres.
+    let date = NaiveDate::from_ymd_opt(2025, 1, 12).unwrap();
+    let mut trip = make_trip_at(date, 8, 0);
+    trip.distance_km = 88.0;
+    trip.odometer = 38145.0;
+
+    let starts = odo_starts(&[(&trip, 38056.5)]);
+    let warnings = calculate_odometer_span_warnings(std::slice::from_ref(&trip), &starts);
+
+    assert!(warnings.is_empty(), "A 0.5 km difference is under the tolerance");
+}
+
+#[test]
+fn test_odometer_span_one_kilometre_is_flagged() {
+    // The tolerance boundary: 1.0 km is the first difference that warns.
+    let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let mut trip = make_trip_at(date, 8, 0);
+    trip.distance_km = 50.0;
+    trip.odometer = 1051.0;
+
+    let starts = odo_starts(&[(&trip, 1000.0)]);
+    let warnings = calculate_odometer_span_warnings(std::slice::from_ref(&trip), &starts);
+
+    assert!(warnings.contains(&trip.id.to_string()), "A full kilometre of difference must warn");
+}
+
+#[test]
+fn test_odometer_span_first_row_of_year_uses_carryover() {
+    // The first row of a year has no previous trip. Its start comes from the
+    // year carryover, so a clean first row must not warn.
+    let date = NaiveDate::from_ymd_opt(2026, 1, 3).unwrap();
+    let mut trip = make_trip_at(date, 8, 0);
+    trip.distance_km = 370.0;
+    trip.odometer = 55275.0;
+
+    let starts = odo_starts(&[(&trip, 54905.0)]);
+    let warnings = calculate_odometer_span_warnings(std::slice::from_ref(&trip), &starts);
+
+    assert!(warnings.is_empty(), "A first row seeded from the carryover must not warn");
+}
+
+#[test]
+fn test_odometer_span_missing_start_does_not_warn() {
+    // No derived start means nothing to compare. Stay silent rather than guess.
+    let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let mut trip = make_trip_at(date, 8, 0);
+    trip.distance_km = 50.0;
+    trip.odometer = 1500.0;
+
+    let warnings = calculate_odometer_span_warnings(std::slice::from_ref(&trip), &HashMap::new());
+
+    assert!(warnings.is_empty(), "A trip with no derived start must not warn");
+}
+
+#[test]
+fn test_odometer_spans_reported_for_flagged_trips_only() {
+    // The grid tooltip shows the measured span, so the backend sends it
+    // (ADR-008). Only flagged rows carry a value.
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let mut broken = make_trip_at(date, 15, 0);
+    broken.distance_km = 4.0;
+    broken.odometer = 69415.0;
+    let mut clean = make_trip_at(date, 16, 0);
+    clean.distance_km = 50.0;
+    clean.odometer = 69465.0;
+
+    let starts = odo_starts(&[(&broken, 69059.0), (&clean, 69415.0)]);
+    let trips = vec![broken.clone(), clean.clone()];
+    let warnings = calculate_odometer_span_warnings(&trips, &starts);
+    let spans = calculate_odometer_spans(&warnings, &starts, &trips);
+
+    assert_eq!(spans.len(), 1, "Only the flagged trip carries a span");
+    assert_eq!(spans.get(&broken.id.to_string()), Some(&356.0));
 }
 
 // ========================================================================

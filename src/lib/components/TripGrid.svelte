@@ -50,6 +50,10 @@
 	let fuelConsumed: Map<string, number> = new Map();
 	let fuelRemaining: Map<string, number> = new Map();
 	let consumptionWarnings: Set<string> = new Set();
+	// Odometer chain warnings (Task 79)
+	let duplicateDatetimeWarnings: Set<string> = new Set();
+	let odometerSpanWarnings: Set<string> = new Set();
+	let odometerSpans: Map<string, number> = new Map();
 	// Energy data (BEV/PHEV)
 	let energyRates: Map<string, number> = new Map();
 	let estimatedEnergyRates: Set<string> = new Set();
@@ -106,6 +110,9 @@
 			fuelConsumed = new Map(Object.entries(gridData.fuelConsumed));
 			fuelRemaining = new Map(Object.entries(gridData.fuelRemaining));
 			consumptionWarnings = new Set(gridData.consumptionWarnings);
+			duplicateDatetimeWarnings = new Set(gridData.duplicateDatetimeWarnings);
+			odometerSpanWarnings = new Set(gridData.odometerSpanWarnings);
+			odometerSpans = new Map(Object.entries(gridData.odometerSpans));
 			routeMapTripIds = new Set(gridData.routeMapTripIds);
 			// Energy
 			energyRates = new Map(Object.entries(gridData.energyRates));
@@ -540,6 +547,8 @@
 	$: missingOtherInvoiceCount = gridData?.missingOtherInvoices.length ?? 0;
 	$: otherSumMismatchCount = gridData?.otherSumMismatches.length ?? 0;
 	$: consumptionWarningCount = consumptionWarnings.size;
+	$: duplicateDatetimeCount = duplicateDatetimeWarnings.size;
+	$: odometerSpanCount = odometerSpanWarnings.size;
 	// Exclude warnings where user confirmed the mismatch (same logic as TripRow)
 	$: invoiceDatetimeWarningCount =
 		(gridData?.fuelDatetimeWarnings ?? [])
@@ -609,7 +618,7 @@
 	</div>
 
 	<div class="table-container">
-		{#if partialCount > 0 || missingFuelInvoiceCount > 0 || missingOtherInvoiceCount > 0 || otherSumMismatchCount > 0 || consumptionWarningCount > 0 || invoiceDatetimeWarningCount > 0 || legendSuggestedFillup}
+		{#if partialCount > 0 || missingFuelInvoiceCount > 0 || missingOtherInvoiceCount > 0 || otherSumMismatchCount > 0 || consumptionWarningCount > 0 || invoiceDatetimeWarningCount > 0 || duplicateDatetimeCount > 0 || odometerSpanCount > 0 || legendSuggestedFillup}
 			<div class="table-legend">
 				{#if legendSuggestedFillup}
 					<span class="legend-item suggested-fillup">
@@ -634,6 +643,12 @@
 				{/if}
 				{#if invoiceDatetimeWarningCount > 0}
 					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.receiptDatetimeMismatch()} ({invoiceDatetimeWarningCount})</span>
+				{/if}
+				{#if odometerSpanCount > 0}
+					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.odometerSpanMismatch()} ({odometerSpanCount})</span>
+				{/if}
+				{#if duplicateDatetimeCount > 0}
+					<span class="legend-item"><span class="datetime-warning-indicator">⚠</span> {$LL.trips.legend.duplicateDatetime()} ({duplicateDatetimeCount})</span>
 				{/if}
 			</div>
 		{/if}
@@ -825,6 +840,9 @@
 							onEditStart={() => handleEditStart(trip.id)}
 							onEditEnd={handleEditEnd}
 							hasConsumptionWarning={consumptionWarnings.has(trip.id)}
+							duplicateDatetimeWarning={duplicateDatetimeWarnings.has(trip.id)}
+							odometerSpanWarning={odometerSpanWarnings.has(trip.id)}
+							odometerSpan={odometerSpans.get(trip.id) ?? null}
 							isEstimatedRate={estimatedRates.has(trip.id)}
 							hasMatchingFuelInvoice={!gridData?.missingFuelInvoices.includes(trip.id)}
 							hasMatchingOtherInvoice={!gridData?.missingOtherInvoices.includes(trip.id)}

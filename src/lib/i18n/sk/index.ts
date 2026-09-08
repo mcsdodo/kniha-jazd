@@ -188,6 +188,11 @@ const sk = {
 			otherSumMismatchShort: 'suma iných nákladov nesedí so súčtom dokladov',
 			dataMismatch: 'nesúlad údajov',
 			userConfirmed: 'potvrdené',
+			// Odometer chain warnings (Task 79)
+			duplicateDatetime: 'rovnaký dátum a čas',
+			duplicateDatetimeTooltip: 'Iná jazda má rovnaký dátum a čas. Poradie riadkov potom určí poradie zápisu, nie poradie jazdenia.',
+			odometerSpanMismatch: 'tachometer nesedí so vzdialenosťou',
+			odometerSpanMismatchTooltip: 'Podľa tachometra {span:string} km, zapísaných {km:string} km.',
 		},
 		// Column visibility
 		columnVisibility: {

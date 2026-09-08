@@ -20,6 +20,7 @@ discontinued — existing installs keep working but receive no further updates.
 - **Automatic consumption calculation** - l/100km calculated automatically on fill-up
 - **Fuel remaining tracking** - Tank balance after each trip
 - **20% limit monitoring** - Warning when exceeding the legal over-consumption limit
+- **Odometer check** - A warning on a row whose odometer does not match the recorded kilometres, and on trips that share a date and time
 - **Compensation trip suggestions** - How to get back under the limit
 - **Fill-up suggestions** - Automatic calculation of liters needed for optimal consumption
 - **Route memory** - Frequent routes auto-complete
