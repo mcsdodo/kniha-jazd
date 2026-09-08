@@ -8,9 +8,9 @@ use crate::commands_internal::{
     calculate_trip_numbers, get_year_start_odometer, parse_iso_datetime, trip_order,
 };
 use crate::db::{normalize_location, Database};
-use crate::models::{CopiedTripDefaults, InferredTripTime, OdometerChange, Route, Trip};
+use crate::models::{CascadePlan, CopiedTripDefaults, InferredTripTime, OdometerChange, Route, Trip};
 use crate::settings::LocalSettings;
-use chrono::{Local, NaiveDate, Utc};
+use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
 use std::path::Path;
 use uuid::Uuid;
 
@@ -240,6 +240,219 @@ pub fn recalculate_odometers_internal(
     }
 
     Ok(changes)
+}
+
+/// Largest float difference the cascade treats as "the same number". Matches
+/// the tolerance `recalculate_odometers_internal` uses.
+const CASCADE_EPSILON: f64 = 0.001;
+
+/// Plan the odometer cascade for one edited row, without touching the database.
+///
+/// `trips` is every trip of the vehicle in that year, in any order; this
+/// function sorts them by `trip_order` itself. `year_start_odometer` is what
+/// `get_year_start_odometer` returns, so the first row of a year is anchored
+/// on the previous year and not on nothing.
+///
+/// Which number gives way depends on which one the user changed. A km edit
+/// makes the odometer follow (`anchor + km`); an odometer edit makes the km
+/// follow (`odometer - anchor`); an edit to neither moves nothing at all, so
+/// a save that only fixed a typo in the purpose leaves a deliberately broken
+/// row exactly as it was (task 79).
+///
+/// The walk stops at the end of the year. That is on purpose and it is
+/// visible: `year_end_odometer_moved` tells the caller the boundary to the
+/// next year has opened by `delta`, and the span warning marks the first row
+/// of that year.
+///
+/// The reported trip numbers come from the book BEFORE the shift, and they
+/// stay correct after it. `trip_order` falls through to the odometer only when
+/// `start_datetime` and `created_at` both tie, and every member of such a group
+/// moves by the same `delta`, so the group keeps its internal order. A shift
+/// can therefore never renumber the book.
+pub fn plan_odometer_cascade(
+    trips: &[Trip],
+    year_start_odometer: f64,
+    trip_id: &str,
+    submitted_distance_km: f64,
+    submitted_odometer: f64,
+) -> Result<CascadePlan, String> {
+    let mut sorted: Vec<&Trip> = trips.iter().collect();
+    sorted.sort_by(|a, b| trip_order(a, b));
+
+    let idx = sorted
+        .iter()
+        .position(|t| t.id.to_string() == trip_id)
+        .ok_or_else(|| format!("Trip not found in this year: {}", trip_id))?;
+
+    let stored = sorted[idx];
+    let anchor = if idx == 0 {
+        year_start_odometer
+    } else {
+        sorted[idx - 1].odometer
+    };
+
+    let km_changed = (submitted_distance_km - stored.distance_km).abs() > CASCADE_EPSILON;
+    let odo_changed = (submitted_odometer - stored.odometer).abs() > CASCADE_EPSILON;
+
+    let (new_distance_km, new_odometer) = if km_changed {
+        (submitted_distance_km, anchor + submitted_distance_km)
+    } else if odo_changed {
+        (submitted_odometer - anchor, submitted_odometer)
+    } else {
+        // Nothing the user did moves the chain. Report a no-op rather than a
+        // repair: the row keeps whatever the book records for it.
+        return Ok(CascadePlan {
+            new_odometer: stored.odometer,
+            new_distance_km: stored.distance_km,
+            delta: 0.0,
+            delta_from_distance: 0.0,
+            delta_from_repair: 0.0,
+            repair_crosses_year: false,
+            year_end_odometer_moved: false,
+            next_year_chain_breaks: false,
+            changes: Vec::new(),
+        });
+    };
+
+    let delta = new_odometer - stored.odometer;
+    let delta_from_distance = new_distance_km - stored.distance_km;
+    let delta_from_repair = delta - delta_from_distance;
+
+    let trip_numbers = calculate_trip_numbers(trips);
+    let changes = sorted[idx + 1..]
+        .iter()
+        .map(|t| OdometerChange {
+            trip_id: t.id.to_string(),
+            trip_number: *trip_numbers.get(&t.id.to_string()).unwrap_or(&0),
+            old_odometer: t.odometer,
+            new_odometer: t.odometer + delta,
+        })
+        .collect::<Vec<_>>();
+
+    Ok(CascadePlan {
+        new_odometer,
+        new_distance_km,
+        delta,
+        delta_from_distance,
+        delta_from_repair,
+        repair_crosses_year: idx == 0 && delta_from_repair.abs() > CASCADE_EPSILON,
+        year_end_odometer_moved: delta.abs() > CASCADE_EPSILON,
+        next_year_chain_breaks: false, // the command knows, this function does not
+        changes,
+    })
+}
+
+/// Plan the cascade for a row that does not exist yet.
+///
+/// The new row lands where `trip_order` puts it, and its odometer is
+/// `anchor + km`. Everything after it then starts `km` later, so the whole
+/// tail shifts by exactly the distance of the new row (task 81, R8).
+///
+/// The position is decided on `start_datetime` and then `created_at` alone. A
+/// new row's `created_at` is the moment it is written, so it sorts last inside
+/// any group it ties with, and the odometer key of `trip_order` never decides
+/// an insert. That is what stops the position and the odometer -- which is
+/// derived from the position -- from depending on each other.
+///
+/// A new row carries no span error, so `delta_from_repair` is always 0.
+pub fn plan_insert_cascade(
+    trips: &[Trip],
+    year_start_odometer: f64,
+    new_start_datetime: NaiveDateTime,
+    new_distance_km: f64,
+) -> CascadePlan {
+    let mut sorted: Vec<&Trip> = trips.iter().collect();
+    sorted.sort_by(|a, b| trip_order(a, b));
+
+    // The new row goes after every row whose start_datetime is not later. Its
+    // created_at is now, so it also goes after every row it ties with.
+    let idx = sorted
+        .iter()
+        .position(|t| t.start_datetime > new_start_datetime)
+        .unwrap_or(sorted.len());
+
+    let anchor = if idx == 0 {
+        year_start_odometer
+    } else {
+        sorted[idx - 1].odometer
+    };
+
+    let trip_numbers = calculate_trip_numbers(trips);
+    let changes = sorted[idx..]
+        .iter()
+        .map(|t| OdometerChange {
+            trip_id: t.id.to_string(),
+            trip_number: *trip_numbers.get(&t.id.to_string()).unwrap_or(&0),
+            old_odometer: t.odometer,
+            new_odometer: t.odometer + new_distance_km,
+        })
+        .collect::<Vec<_>>();
+
+    CascadePlan {
+        new_odometer: anchor + new_distance_km,
+        new_distance_km,
+        delta: new_distance_km,
+        delta_from_distance: new_distance_km,
+        delta_from_repair: 0.0,
+        repair_crosses_year: false,
+        year_end_odometer_moved: new_distance_km.abs() > CASCADE_EPSILON,
+        next_year_chain_breaks: false,
+        changes,
+    }
+}
+
+/// Plan the cascade for removing a row.
+///
+/// The row after the deleted one inherits the deleted row's start, so the
+/// chain loses exactly the deleted row's SPAN -- `odometer - anchor` -- and
+/// not its recorded distance (task 81, R9). The two are the same number when
+/// the row was consistent. When it was not, only the span leaves the chain
+/// continuous.
+pub fn plan_delete_cascade(
+    trips: &[Trip],
+    year_start_odometer: f64,
+    trip_id: &str,
+) -> Result<CascadePlan, String> {
+    let mut sorted: Vec<&Trip> = trips.iter().collect();
+    sorted.sort_by(|a, b| trip_order(a, b));
+
+    let idx = sorted
+        .iter()
+        .position(|t| t.id.to_string() == trip_id)
+        .ok_or_else(|| format!("Trip not found in this year: {}", trip_id))?;
+
+    let removed = sorted[idx];
+    let anchor = if idx == 0 {
+        year_start_odometer
+    } else {
+        sorted[idx - 1].odometer
+    };
+
+    let span = removed.odometer - anchor;
+    let delta = -span;
+
+    let trip_numbers = calculate_trip_numbers(trips);
+    let changes = sorted[idx + 1..]
+        .iter()
+        .map(|t| OdometerChange {
+            trip_id: t.id.to_string(),
+            trip_number: *trip_numbers.get(&t.id.to_string()).unwrap_or(&0),
+            old_odometer: t.odometer,
+            new_odometer: t.odometer + delta,
+        })
+        .collect::<Vec<_>>();
+
+    Ok(CascadePlan {
+        new_odometer: removed.odometer,
+        new_distance_km: removed.distance_km,
+        delta,
+        delta_from_distance: -removed.distance_km,
+        delta_from_repair: delta + removed.distance_km,
+        repair_crosses_year: idx == 0 && (span - removed.distance_km).abs() > CASCADE_EPSILON,
+        year_end_odometer_moved: delta.abs() > CASCADE_EPSILON,
+        next_year_chain_breaks: false,
+        changes,
+    })
 }
 
 pub fn delete_trip_internal(

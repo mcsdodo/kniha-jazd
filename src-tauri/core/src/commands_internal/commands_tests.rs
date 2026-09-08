@@ -5758,6 +5758,266 @@ fn test_recalculate_odometers_closes_a_carryover_gap() {
 }
 
 // ============================================================================
+// Task 81: the cascade planner. Pure arithmetic that plans what a cascading
+// edit, insert, or delete would do to the odometer chain of a year, without
+// touching the database. Nothing calls these yet.
+// ============================================================================
+
+/// Three consecutive rows of 2026, chain intact from a year start of 50000.
+/// Returns them in `trip_order`.
+fn make_cascade_chain() -> Vec<Trip> {
+    let mut trips = Vec::new();
+    let mut odo = 50000.0;
+    for (day, km) in [(1u32, 50.0), (2, 70.0), (3, 30.0)] {
+        let date = NaiveDate::from_ymd_opt(2026, 3, day).unwrap();
+        let mut trip = make_trip_detailed(date, km, None, false);
+        odo += km;
+        trip.odometer = odo;
+        trips.push(trip);
+    }
+    trips
+}
+
+#[test]
+fn test_cascade_km_edit_shifts_every_later_row() {
+    // The whole point of task 81: change the middle row's km by +10 and the
+    // rows after it move +10. The row before it does not move.
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string();
+
+    let plan = plan_odometer_cascade(&trips, 50000.0, &target, 80.0, trips[1].odometer)
+        .unwrap();
+
+    assert_eq!(plan.new_distance_km, 80.0);
+    assert_eq!(plan.new_odometer, 50130.0, "anchor 50050 + 80 km");
+    assert_eq!(plan.delta, 10.0);
+    assert_eq!(plan.changes.len(), 1, "only the row after the target moves");
+    assert_eq!(plan.changes[0].trip_id, trips[2].id.to_string());
+    assert_eq!(plan.changes[0].old_odometer, 50150.0);
+    assert_eq!(plan.changes[0].new_odometer, 50160.0);
+}
+
+#[test]
+fn test_cascade_odo_edit_derives_the_km() {
+    // The mirrored direction: type an odometer, and the km becomes the gap to
+    // the anchor. The shift is the same.
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string();
+
+    let plan = plan_odometer_cascade(&trips, 50000.0, &target, 70.0, 50130.0).unwrap();
+
+    assert_eq!(plan.new_odometer, 50130.0);
+    assert_eq!(plan.new_distance_km, 80.0, "50130 - anchor 50050");
+    assert_eq!(plan.delta, 10.0);
+    assert_eq!(plan.changes.len(), 1);
+}
+
+#[test]
+fn test_cascade_km_wins_when_both_fields_change() {
+    // Save can beat the preview, so both fields can arrive changed. The km is
+    // what the user types; the odometer is derived. The km wins.
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string();
+
+    let plan = plan_odometer_cascade(&trips, 50000.0, &target, 80.0, 99999.0).unwrap();
+
+    assert_eq!(plan.new_odometer, 50130.0, "anchor + km, not the stale 99999");
+    assert_eq!(plan.new_distance_km, 80.0);
+}
+
+#[test]
+fn test_cascade_does_nothing_when_neither_field_changed() {
+    // Editing a purpose or a time must not move a single odometer. A row that
+    // sits below its anchor is a record the book keeps on purpose (task 79).
+    let mut trips = make_cascade_chain();
+    trips[1].odometer = 50999.0; // a broken row, left alone on an unrelated save
+    let target = trips[1].id.to_string();
+
+    let plan = plan_odometer_cascade(&trips, 50000.0, &target, 70.0, 50999.0).unwrap();
+
+    assert_eq!(plan.delta, 0.0);
+    assert_eq!(plan.new_odometer, 50999.0, "unchanged");
+    assert!(plan.changes.is_empty());
+    assert_eq!(plan.delta_from_repair, 0.0, "no repair on an untouched row");
+}
+
+#[test]
+fn test_cascade_decomposes_the_repair_from_the_edit() {
+    // Row 1 of 2025 in the production book: anchor 38056.5 carried from
+    // 2024-12-31, stored odometer 38145, recorded 88 km, so the span is 88.5.
+    // Change the km 88 -> 90 and the delta is +1.5, not +2. The modal must be
+    // able to say why, so the plan reports both parts.
+    let date = NaiveDate::from_ymd_opt(2025, 1, 12).unwrap();
+    let mut first = make_trip_detailed(date, 88.0, None, false);
+    first.odometer = 38145.0;
+    let second_date = NaiveDate::from_ymd_opt(2025, 1, 20).unwrap();
+    let mut second = make_trip_detailed(second_date, 10.0, None, false);
+    second.odometer = 38155.0;
+    let trips = vec![first.clone(), second.clone()];
+
+    let plan =
+        plan_odometer_cascade(&trips, 38056.5, &first.id.to_string(), 90.0, 38145.0).unwrap();
+
+    assert_eq!(plan.new_odometer, 38146.5);
+    assert_eq!(plan.delta, 1.5);
+    assert_eq!(plan.delta_from_distance, 2.0, "what the user typed");
+    assert_eq!(plan.delta_from_repair, -0.5, "the half kilometre from 2024");
+    assert!(plan.repair_crosses_year, "the anchor is the previous year's");
+    assert_eq!(plan.changes.len(), 1);
+    assert_eq!(plan.changes[0].new_odometer, 38156.5);
+}
+
+#[test]
+fn test_cascade_reports_that_the_year_end_moved() {
+    // A shift confined to one year opens the boundary to the next. The modal
+    // must warn, so the plan says whether the year's last odometer moved.
+    let trips = make_cascade_chain();
+    let target = trips[2].id.to_string(); // the last row of the year
+
+    let plan = plan_odometer_cascade(&trips, 50000.0, &target, 40.0, trips[2].odometer)
+        .unwrap();
+
+    assert!(plan.changes.is_empty(), "no row follows the last one");
+    assert_eq!(plan.delta, 10.0);
+    assert!(plan.year_end_odometer_moved);
+}
+
+#[test]
+fn test_cascade_keeps_the_order_of_a_tied_group() {
+    // The imported years tie on start_datetime AND created_at, so trip_order
+    // falls through to the odometer. Measured on the production copy: 2025 has
+    // 6 such groups, 14 rows. A shift moves every member by the same delta, so
+    // the group must keep its order and its trip numbers. This is the one place
+    // a cascade could reorder a legal book.
+    let date = NaiveDate::from_ymd_opt(2025, 5, 5).unwrap();
+    let stamp = chrono::Utc::now();
+    let mut edited = make_trip_detailed(
+        NaiveDate::from_ymd_opt(2025, 5, 1).unwrap(), 20.0, None, false,
+    );
+    edited.created_at = stamp;
+    edited.odometer = 43000.0;
+    let mut low = make_trip_detailed(date, 91.0, None, false);
+    low.created_at = stamp;
+    low.odometer = 43091.0;
+    let mut high = make_trip_detailed(date, 120.0, None, false);
+    high.created_at = stamp;
+    high.odometer = 43211.0;
+    let trips = vec![edited.clone(), low.clone(), high.clone()];
+
+    let plan =
+        plan_odometer_cascade(&trips, 42980.0, &edited.id.to_string(), 30.0, 43000.0)
+            .unwrap();
+
+    assert_eq!(plan.delta, 10.0);
+    assert_eq!(plan.changes.len(), 2);
+    assert_eq!(plan.changes[0].trip_id, low.id.to_string(), "the lower odometer stays first");
+    assert_eq!(plan.changes[0].new_odometer, 43101.0);
+    assert_eq!(plan.changes[1].trip_id, high.id.to_string());
+    assert_eq!(plan.changes[1].new_odometer, 43221.0);
+    assert!(
+        plan.changes[0].trip_number < plan.changes[1].trip_number,
+        "the shift must not renumber the group"
+    );
+}
+
+#[test]
+fn test_cascade_rejects_a_trip_that_is_not_in_the_year() {
+    let trips = make_cascade_chain();
+
+    let result = plan_odometer_cascade(&trips, 50000.0, "not-a-trip-id", 10.0, 1.0);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_cascade_insert_in_the_middle_shifts_every_row_after_it() {
+    // The chain is 1 March 50 km, 2 March 70 km, 3 March 30 km. Put a 25 km
+    // row on 2 March at 06:00 and everything from the 70 km row onward moves
+    // +25.
+    let trips = make_cascade_chain();
+    let when = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap().and_hms_opt(6, 0, 0).unwrap();
+
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 25.0);
+
+    assert_eq!(plan.new_odometer, 50075.0, "anchor 50050 + 25 km");
+    assert_eq!(plan.delta, 25.0);
+    assert_eq!(plan.delta_from_repair, 0.0, "a new row carries no span error");
+    assert_eq!(plan.changes.len(), 2);
+    assert_eq!(plan.changes[0].new_odometer, 50145.0);
+    assert_eq!(plan.changes[1].new_odometer, 50175.0);
+}
+
+#[test]
+fn test_cascade_insert_at_the_end_moves_no_other_row() {
+    // Appending is the daily action. It must stay a silent write: no row moves,
+    // so the grid opens no modal.
+    let trips = make_cascade_chain();
+    let when = NaiveDate::from_ymd_opt(2026, 3, 9).unwrap().and_hms_opt(8, 0, 0).unwrap();
+
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 25.0);
+
+    assert_eq!(plan.new_odometer, 50175.0, "anchor is the last row, 50150");
+    assert!(plan.changes.is_empty());
+    assert!(plan.year_end_odometer_moved);
+    assert!(!plan.next_year_chain_breaks, "the planner never sets this");
+}
+
+#[test]
+fn test_cascade_insert_before_every_row_anchors_on_the_year_start() {
+    let trips = make_cascade_chain();
+    let when = NaiveDate::from_ymd_opt(2026, 1, 4).unwrap().and_hms_opt(8, 0, 0).unwrap();
+
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 12.0);
+
+    assert_eq!(plan.new_odometer, 50012.0);
+    assert_eq!(plan.changes.len(), 3, "the whole year moves");
+    assert_eq!(plan.changes[0].new_odometer, 50062.0);
+}
+
+#[test]
+fn test_cascade_delete_shifts_by_the_removed_span_not_its_distance() {
+    // The row records 70 km but spans 80. Deleting it takes 80 out of the
+    // chain, because 80 is what the chain actually loses. Shifting by 70 would
+    // leave the next row 10 km adrift.
+    let mut trips = make_cascade_chain();
+    trips[1].odometer = 50130.0; // 70 km recorded, 80 km span from 50050
+    trips[2].odometer = 50160.0;
+    let target = trips[1].id.to_string();
+
+    let plan = plan_delete_cascade(&trips, 50000.0, &target).unwrap();
+
+    assert_eq!(plan.delta, -80.0);
+    assert_eq!(plan.delta_from_distance, -70.0, "what the row records");
+    assert_eq!(plan.delta_from_repair, -10.0, "the span error it also removes");
+    assert_eq!(plan.changes.len(), 1);
+    assert_eq!(plan.changes[0].old_odometer, 50160.0);
+    assert_eq!(plan.changes[0].new_odometer, 50080.0, "50050 + 30 km");
+}
+
+#[test]
+fn test_cascade_delete_of_a_consistent_row_shifts_by_its_distance() {
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string();
+
+    let plan = plan_delete_cascade(&trips, 50000.0, &target).unwrap();
+
+    assert_eq!(plan.delta, -70.0);
+    assert_eq!(plan.delta_from_repair, 0.0);
+    assert_eq!(plan.changes[0].new_odometer, 50080.0);
+}
+
+#[test]
+fn test_cascade_delete_of_the_last_row_moves_nothing_but_the_year_end() {
+    let trips = make_cascade_chain();
+    let target = trips[2].id.to_string();
+
+    let plan = plan_delete_cascade(&trips, 50000.0, &target).unwrap();
+
+    assert!(plan.changes.is_empty());
+    assert!(plan.year_end_odometer_moved);
+}
+
+// ============================================================================
 // Task 80: the preview returns the row's odometer, the editor does not compute
 // it. Both fields come from the canonical order, so the editor and the grid
 // read one chain (ADR-008).

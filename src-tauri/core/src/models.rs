@@ -917,6 +917,45 @@ pub struct OdometerChange {
     pub new_odometer: f64,
 }
 
+/// What one cascading save would do to the odometer chain of a year.
+///
+/// `delta` is the number every row after the edited one moves by. It is
+/// reported in two parts because they have different causes and the user
+/// needs to tell them apart before approving the write (task 81):
+///
+/// - `delta_from_distance` is what the user typed: `new_km - stored_km`.
+/// - `delta_from_repair` is the pre-existing span error of the edited row,
+///   negated. Setting `odometer = anchor + km` repairs that error, and the
+///   repair travels down the chain with the edit.
+///
+/// `delta == delta_from_distance + delta_from_repair` always.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CascadePlan {
+    /// The odometer the edited row ends at.
+    pub new_odometer: f64,
+    /// The distance the edited row records.
+    pub new_distance_km: f64,
+    pub delta: f64,
+    pub delta_from_distance: f64,
+    pub delta_from_repair: f64,
+    /// True when the edited row is the first of its year, so the repair above
+    /// is measured against the previous year's last odometer.
+    pub repair_crosses_year: bool,
+    /// True when the year's last stored odometer moves, which opens the
+    /// boundary to the next year by `delta`.
+    pub year_end_odometer_moved: bool,
+    /// True when `year_end_odometer_moved` is true AND a later year has trips,
+    /// so a chain that used to line up will not any more. The planner cannot
+    /// know this -- it sees one year -- so it always writes `false` here and
+    /// the command fills it in. Only this flag is worth a warning: appending
+    /// to the newest year moves its year end every time and breaks nothing.
+    pub next_year_chain_breaks: bool,
+    /// Every row AFTER the edited one, in `trip_order`. The edited row is not
+    /// here -- its values are `new_odometer` and `new_distance_km` above.
+    pub changes: Vec<OdometerChange>,
+}
+
 // =============================================================================
 // Diesel ORM Row Structs
 // =============================================================================
