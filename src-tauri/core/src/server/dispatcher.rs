@@ -219,6 +219,116 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "update_trip_cascade" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                id: String,
+                start_datetime: String,
+                end_datetime: String,
+                origin: String,
+                destination: String,
+                distance_km: f64,
+                odometer: f64,
+                purpose: String,
+                fuel_liters: Option<f64>,
+                fuel_cost_eur: Option<f64>,
+                full_tank: Option<bool>,
+                energy_kwh: Option<f64>,
+                energy_cost_eur: Option<f64>,
+                full_charge: Option<bool>,
+                soc_override_percent: Option<f64>,
+                other_costs_eur: Option<f64>,
+                other_costs_note: Option<String>,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::update_trip_cascade_internal(
+                &state.db,
+                &state.app_state,
+                a.id,
+                a.start_datetime,
+                a.end_datetime,
+                a.origin,
+                a.destination,
+                a.distance_km,
+                a.odometer,
+                a.purpose,
+                a.fuel_liters,
+                a.fuel_cost_eur,
+                a.full_tank,
+                a.energy_kwh,
+                a.energy_cost_eur,
+                a.full_charge,
+                a.soc_override_percent,
+                a.other_costs_eur,
+                a.other_costs_note,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "create_trip_cascade" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                start_datetime: String,
+                end_datetime: String,
+                origin: String,
+                destination: String,
+                distance_km: f64,
+                purpose: String,
+                fuel_liters: Option<f64>,
+                fuel_cost: Option<f64>,
+                full_tank: Option<bool>,
+                energy_kwh: Option<f64>,
+                energy_cost_eur: Option<f64>,
+                full_charge: Option<bool>,
+                soc_override_percent: Option<f64>,
+                other_costs: Option<f64>,
+                other_costs_note: Option<String>,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::create_trip_cascade_internal(
+                &state.db,
+                &state.app_state,
+                a.vehicle_id,
+                a.start_datetime,
+                a.end_datetime,
+                a.origin,
+                a.destination,
+                a.distance_km,
+                a.purpose,
+                a.fuel_liters,
+                a.fuel_cost,
+                a.full_tank,
+                a.energy_kwh,
+                a.energy_cost_eur,
+                a.full_charge,
+                a.soc_override_percent,
+                a.other_costs,
+                a.other_costs_note,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "delete_trip_cascade" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                id: String,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::delete_trip_cascade_internal(
+                &state.db,
+                &state.app_state,
+                a.id,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         "recalculate_odometers" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -1562,6 +1672,153 @@ mod tests {
             json!({ "vehicleId": vehicle_id, "year": 2026 }),
             &state,
         );
+        assert!(
+            result.is_err(),
+            "an omitted dryRun must be refused, not defaulted, on a write command"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // update_trip_cascade / create_trip_cascade / delete_trip_cascade
+    // (Task 4): the three arms that expose Task 3's cascade planner over
+    // RPC. `dryRun` is required, never defaulted -- a missing field must
+    // fail closed on a command that writes the legal odometer chain.
+    // ------------------------------------------------------------------
+
+    /// One vehicle (`initialOdometer` 50000) with two chained 2026 trips: 50
+    /// km ending at 50050 on 2026-03-01T00:00:00, then 70 km ending at 50120
+    /// on 2026-03-02T00:00:00. Returns the state, the vehicle id and the
+    /// FIRST trip's id -- the anchor the cascade tests edit or delete.
+    ///
+    /// The first trip's `startDatetime` is pinned to exactly what the
+    /// `update_trip_cascade` test submits, so the edit is not mistaken for a
+    /// re-date (which would zero out the cascade). The second trip's date is
+    /// picked to fall after what the `create_trip_cascade` test inserts, so
+    /// the new row lands between them rather than after both.
+    fn seed_two_trip_chain() -> (ServerState, String, String) {
+        let state = test_state();
+        let vehicle =
+            crate::models::Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 50000.0);
+        state.db.create_vehicle(&vehicle).unwrap();
+
+        let mut trip1 = crate::models::Trip::test_ice_trip(
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            50.0,
+            None,
+            false,
+        );
+        trip1.vehicle_id = vehicle.id;
+        trip1.odometer = 50050.0;
+        state.db.create_trip(&trip1).unwrap();
+
+        let mut trip2 = crate::models::Trip::test_ice_trip(
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 2).unwrap(),
+            70.0,
+            None,
+            false,
+        );
+        trip2.vehicle_id = vehicle.id;
+        trip2.odometer = 50120.0;
+        state.db.create_trip(&trip2).unwrap();
+
+        (state, vehicle.id.to_string(), trip1.id.to_string())
+    }
+
+    /// The modal reads `deltaFromDistance` and `deltaFromRepair` by name. A
+    /// snake_case response would render an empty explanation.
+    #[test]
+    fn update_trip_cascade_over_rpc_returns_a_camelcase_plan() {
+        let (state, vehicle_id, trip_id) = seed_two_trip_chain();
+
+        let v = dispatch_sync(
+            "update_trip_cascade",
+            json!({
+                "id": trip_id,
+                "startDatetime": "2026-03-01T00:00:00",
+                "endDatetime": "2026-03-01T00:00:00",
+                "origin": "A",
+                "destination": "B",
+                "distanceKm": 60.0,
+                "odometer": 50050.0,
+                "purpose": "work",
+                "dryRun": true
+            }),
+            &state,
+        )
+        .unwrap();
+
+        assert_eq!(v["plan"]["delta"], 10.0, "got: {v}");
+        assert_eq!(v["plan"]["deltaFromDistance"], 10.0, "got: {v}");
+        assert_eq!(v["plan"]["deltaFromRepair"], 0.0, "got: {v}");
+        assert_eq!(v["plan"]["yearEndOdometerMoved"], true, "got: {v}");
+        assert_eq!(v["plan"]["changes"][0]["newOdometer"], 50130.0, "got: {v}");
+        assert!(v["trip"].is_null(), "a dry run saves nothing: {v}");
+        let _ = vehicle_id;
+    }
+
+    /// The backend derives the odometer from the anchor. An `odometer` field
+    /// in the args would let the browser overrule the book (ADR-008).
+    #[test]
+    fn create_trip_cascade_over_rpc_takes_no_odometer() {
+        let (state, vehicle_id, _trip_id) = seed_two_trip_chain();
+
+        let v = dispatch_sync(
+            "create_trip_cascade",
+            json!({
+                "vehicleId": vehicle_id,
+                "startDatetime": "2026-03-01T12:00:00",
+                "endDatetime": "2026-03-01T13:00:00",
+                "origin": "B",
+                "destination": "C",
+                "distanceKm": 25.0,
+                "purpose": "work",
+                "dryRun": true
+            }),
+            &state,
+        )
+        .unwrap();
+
+        assert_eq!(v["plan"]["newOdometer"], 50075.0, "got: {v}");
+        assert_eq!(v["plan"]["delta"], 25.0, "got: {v}");
+        assert_eq!(v["plan"]["deltaFromRepair"], 0.0, "got: {v}");
+    }
+
+    #[test]
+    fn delete_trip_cascade_over_rpc_returns_a_plan() {
+        let (state, _vehicle_id, trip_id) = seed_two_trip_chain();
+
+        let v = dispatch_sync(
+            "delete_trip_cascade",
+            json!({ "id": trip_id, "dryRun": true }),
+            &state,
+        )
+        .unwrap();
+
+        assert_eq!(v["delta"], -50.0, "got: {v}");
+        assert_eq!(v["changes"][0]["newOdometer"], 50070.0, "got: {v}");
+    }
+
+    /// Defaulting `dryRun` to `false` would make a missing field write the
+    /// book. `Args::dry_run` has no `#[serde(default)]`.
+    #[test]
+    fn update_trip_cascade_over_rpc_requires_the_dry_run_field() {
+        let (state, _vehicle_id, trip_id) = seed_two_trip_chain();
+
+        let result = dispatch_sync(
+            "update_trip_cascade",
+            json!({
+                "id": trip_id,
+                "startDatetime": "2026-03-01T00:00:00",
+                "endDatetime": "2026-03-01T00:00:00",
+                "origin": "A",
+                "destination": "B",
+                "distanceKm": 60.0,
+                "odometer": 50050.0,
+                "purpose": "work"
+            }),
+            &state,
+        );
+
         assert!(
             result.is_err(),
             "an omitted dryRun must be refused, not defaulted, on a write command"
