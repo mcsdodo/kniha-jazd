@@ -46,16 +46,38 @@ pub fn get_db_paths_for_dir(app_dir: &std::path::Path) -> Result<DbPaths, String
     Ok(db_paths)
 }
 
+/// The one order the whole book uses.
+///
+/// Each key applies only when the one before it carries no information:
+///
+/// 1. `start_datetime` -- what the driver recorded.
+/// 2. `created_at` -- real evidence when it differs. It is what separates the
+///    two 2026-08-19 rows correctly, which the places confirm (task 79).
+/// 3. `odometer` -- the only surviving evidence for rows imported under one
+///    identical timestamp. The odometer only moves forward, so the lower
+///    ending value came first.
+/// 4. `id` -- makes the order total, so nothing depends on the DB row order
+///    or on a stable-sort accident.
+///
+/// The odometer sits BELOW `created_at` on purpose. Ordering by the odometer
+/// first makes the chain agree with itself by construction, which would
+/// silence the span warnings that exist to test those very odometers.
+pub fn trip_order(a: &Trip, b: &Trip) -> std::cmp::Ordering {
+    a.start_datetime
+        .cmp(&b.start_datetime)
+        .then_with(|| a.created_at.cmp(&b.created_at))
+        .then_with(|| {
+            a.odometer
+                .partial_cmp(&b.odometer)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .then_with(|| a.id.cmp(&b.id))
+}
+
 /// Calculate trip sequence numbers (1-based, chronological order by datetime then created_at)
 pub fn calculate_trip_numbers(trips: &[Trip]) -> HashMap<String, i32> {
     let mut sorted: Vec<_> = trips.iter().collect();
-    sorted.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| a.created_at.cmp(&b.created_at))
-    });
+    sorted.sort_by(|a, b| trip_order(a, b));
 
     sorted
         .iter()
@@ -71,13 +93,7 @@ pub fn calculate_odometer_start(
     initial_odometer: f64,
 ) -> HashMap<String, f64> {
     let mut sorted: Vec<_> = trips.iter().collect();
-    sorted.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| a.created_at.cmp(&b.created_at))
-    });
+    sorted.sort_by(|a, b| trip_order(a, b));
 
     let mut result = HashMap::new();
     let mut prev_odo = initial_odometer;
@@ -110,13 +126,7 @@ pub fn generate_month_end_rows(
     trip_numbers: &HashMap<String, i32>,
 ) -> Vec<MonthEndRow> {
     let mut sorted: Vec<_> = trips.iter().collect();
-    sorted.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-            .then_with(|| a.created_at.cmp(&b.created_at))
-    });
+    sorted.sort_by(|a, b| trip_order(a, b));
 
     let current_year = chrono::Utc::now().year();
     let last_month = if sorted.is_empty() {

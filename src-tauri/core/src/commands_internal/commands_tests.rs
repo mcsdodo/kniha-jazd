@@ -11,6 +11,7 @@ use crate::commands_internal::statistics::{
     calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
     has_any_period_over_limit,
 };
+use crate::commands_internal::helpers::trip_order;
 use super::*;
 use crate::db::Database;
 use crate::models::{
@@ -1236,6 +1237,85 @@ fn test_odometer_spans_reported_for_flagged_trips_only() {
 
     assert_eq!(spans.len(), 1, "Only the flagged trip carries a span");
     assert_eq!(spans.get(&broken.id.to_string()), Some(&356.0));
+}
+
+// ========================================================================
+// Trip order tests (trip_order) - task 1
+// ========================================================================
+
+#[test]
+fn test_trip_order_prefers_created_at_over_odometer() {
+    // The 2026-08-19 pair: same datetime, different created_at. The places
+    // prove the 4 km hop to the petrol station came first, and created_at
+    // agrees. The odometer must not override that.
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let mut first = make_trip_at(date, 15, 0); // 4 km hop, higher odometer
+    first.created_at = Utc::now() - chrono::Duration::seconds(60);
+    first.odometer = 69415.0;
+    let mut second = make_trip_at(date, 15, 0); // 352 km leg, lower odometer
+    second.created_at = Utc::now();
+    second.odometer = 69411.0;
+
+    assert_eq!(trip_order(&first, &second), std::cmp::Ordering::Less);
+}
+
+#[test]
+fn test_trip_order_falls_back_to_odometer_when_created_at_ties() {
+    // The imported rows: one datetime, one identical import timestamp. The
+    // odometer is then the only surviving evidence of order.
+    let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+    let stamp = Utc::now();
+    let mut low = make_trip_at(date, 0, 0);
+    low.created_at = stamp;
+    low.odometer = 17416.0;
+    let mut high = make_trip_at(date, 0, 0);
+    high.created_at = stamp;
+    high.odometer = 17618.0;
+
+    assert_eq!(trip_order(&low, &high), std::cmp::Ordering::Less);
+}
+
+#[test]
+fn test_trip_order_is_total() {
+    // Same datetime, same created_at, same odometer: id decides, so the
+    // result never depends on the DB row order or a stable-sort accident.
+    let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+    let stamp = Utc::now();
+    let mut a = make_trip_at(date, 0, 0);
+    let mut b = make_trip_at(date, 0, 0);
+    a.created_at = stamp;
+    b.created_at = stamp;
+    a.odometer = 100.0;
+    b.odometer = 100.0;
+
+    assert_ne!(trip_order(&a, &b), std::cmp::Ordering::Equal);
+    assert_eq!(trip_order(&a, &b), a.id.cmp(&b.id));
+}
+
+#[test]
+fn test_trip_numbers_and_odometer_start_agree_on_a_tied_group() {
+    // The bug this task exists for: numbering said one order, the chain said
+    // another, so Km pred did not equal the previous row's ODO.
+    let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+    let stamp = Utc::now();
+    let mut long_leg = make_trip_at(date, 0, 0);
+    long_leg.created_at = stamp;
+    long_leg.distance_km = 377.0;
+    long_leg.odometer = 17416.0;
+    let mut short_leg = make_trip_at(date, 0, 0);
+    short_leg.created_at = stamp;
+    short_leg.distance_km = 202.0;
+    short_leg.odometer = 17618.0;
+
+    // Hand them in the order that used to break it: short leg first.
+    let trips = vec![short_leg.clone(), long_leg.clone()];
+    let numbers = calculate_trip_numbers(&trips);
+    let starts = calculate_odometer_start(&trips, 17039.0);
+
+    assert_eq!(numbers.get(&long_leg.id.to_string()), Some(&1));
+    assert_eq!(numbers.get(&short_leg.id.to_string()), Some(&2));
+    assert_eq!(starts.get(&long_leg.id.to_string()), Some(&17039.0));
+    assert_eq!(starts.get(&short_leg.id.to_string()), Some(&17416.0));
 }
 
 // ========================================================================
