@@ -153,6 +153,18 @@
 	// row the user only looked at (task 80 asked for the km direction only).
 	let odoFollowsKm = false;
 
+	// Both flags describe the CURRENT edit session: whether a km edit is behind
+	// the odometer, and whether the user took the odometer over by hand. The
+	// component outlives its sessions -- the grid keys its rows by trip id, so
+	// one instance serves display and every edit of that row, and formData is
+	// never re-seeded after a save. A flag left set therefore leaks into the
+	// next session: re-open a row whose anchor moved in the meantime and the
+	// preview would write an odometer from a km edit made minutes ago.
+	function resetEditSessionFlags() {
+		odoFollowsKm = false;
+		manualOdoEdit = false;
+	}
+
 	// Fill the ODO from the preview when it returns. Called from a reactive
 	// statement that depends on previewData ALONE -- reading formData inside a
 	// `$:` block that also writes to it would re-trigger itself.
@@ -164,10 +176,13 @@
 	// answer with an odometer short of the distance the row records.
 	function applyPreviewOdometer(preview: PreviewResult | null) {
 		if (!preview || manualOdoEdit || !odoFollowsKm) return;
+		// No km, nothing to derive an ODO from. Tested on its own: a NaN
+		// comparison below would be false and let the write through.
+		if (formData.distanceKm === null) return;
 		const previewedKm = preview.odometer - preview.odometerStart;
 		// Tolerance, not equality: the difference of two f64 odometers can miss
 		// the whole km it was built from by a rounding step.
-		if (Math.abs(previewedKm - (formData.distanceKm ?? NaN)) > 1e-6) return;
+		if (Math.abs(previewedKm - formData.distanceKm) > 1e-6) return;
 		formData.odometer = preview.odometer;
 	}
 	$: applyPreviewOdometer(previewData);
@@ -433,6 +448,9 @@
 
 	function handleEdit() {
 		isEditing = true;
+		// Before the preview below, so its response cannot be applied on the
+		// strength of a flag from the previous session.
+		resetEditSessionFlags();
 		onEditStart();
 		// Trigger preview immediately with current values
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
@@ -480,12 +498,14 @@
 		};
 		onSave(dataToSave);
 		isEditing = false;
+		resetEditSessionFlags();
 		if (!isNew) {
 			onEditEnd();
 		}
 	}
 
 	function handleCancel() {
+		resetEditSessionFlags();
 		if (isNew) {
 			onCancel();
 		} else {

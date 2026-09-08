@@ -419,6 +419,138 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
     });
   });
 
+  describe('The ODO of a re-opened row', () => {
+    /** The grid row whose destination cell reads `dest`, as a CSS selector. */
+    async function rowSelectorFor(dest: string): Promise<string> {
+      const index = await browser.execute((d: string) => {
+        const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
+        return rows.findIndex(
+          (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
+        );
+      }, dest);
+      expect(index).toBeGreaterThan(-1);
+      return `.trip-grid tbody tr:nth-of-type(${index + 1})`;
+    }
+
+    async function openEditor(rowSelector: string): Promise<void> {
+      await browser.execute((sel: string) => {
+        const row = document.querySelector(sel) as HTMLElement;
+        row?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      }, rowSelector);
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 5000, timeoutMsg: `No editor opened for ${rowSelector}` }
+      );
+      // The preview marker on the rate cell says the response landed, so an
+      // assertion after this is not merely outrunning the request.
+      await $('tr.editing td.col-consumption-rate.preview').waitForExist({
+        timeout: 5000,
+        timeoutMsg: 'The editor never received a preview to react to',
+      });
+    }
+
+    async function typeKm(km: string): Promise<void> {
+      await browser.execute((sel: string, value: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 'tr.editing [data-testid="trip-distance"]', km);
+    }
+
+    async function saveEditor(): Promise<void> {
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(300);
+    }
+
+    it('stays put when an earlier row moved its anchor since the last km edit', async () => {
+      // A row component serves its grid row for the whole page lifetime, so a
+      // km edit made in one edit session must not still be "behind" the
+      // odometer in the next one. Here the anchor MOVES between the two
+      // sessions, so a leftover km edit is visible: it would rewrite an
+      // odometer the user never retyped, and Save would persist it.
+      const vehicleData = createTestIceVehicle({
+        name: 'Re-opened Row',
+        licensePlate: 'REOPEN-1',
+        initialOdometer: 90000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      // The earlier row, W.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-06-03T09:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 100,
+        odometer: 90100,
+        purpose: TripPurposes.business,
+      });
+      // The row under test, X.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-06-03T11:00`,
+        origin: SlovakCities.trnava,
+        destination: SlovakCities.nitra,
+        distanceKm: 100,
+        odometer: 90200,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      const odoInput = () => $('tr.editing [data-testid="trip-odometer"]');
+
+      // Session 1 on X: a real km edit. Anchor 90100 + 120.
+      await openEditor(await rowSelectorFor(SlovakCities.nitra));
+      await typeKm('120');
+      await browser.waitUntil(async () => (await (await odoInput()).getValue()) === '90220', {
+        timeout: 5000,
+        timeoutMsg: 'A km edit must fill the ODO from the backend',
+      });
+      await saveEditor();
+
+      // Session 2 on W: its km changes, so its odometer does -- and that is X's
+      // anchor. X keeps the 90220 it was saved with (nothing recalculates it).
+      await openEditor(await rowSelectorFor(SlovakCities.trnava));
+      await typeKm('150');
+      await browser.waitUntil(async () => (await (await odoInput()).getValue()) === '90150', {
+        timeout: 5000,
+        timeoutMsg: "The earlier row's ODO did not follow its km",
+      });
+      await saveEditor();
+
+      // Session 3 on X: opened, not edited. Its ODO must be the saved 90220,
+      // not the 90270 a leftover km edit would derive from the new anchor.
+      await openEditor(await rowSelectorFor(SlovakCities.nitra));
+      await browser.pause(500);
+      expect(await (await odoInput()).getValue()).toBe('90220');
+    });
+  });
+
   describe('Odometer anchor: the canonical order, not the display neighbour', () => {
     it('offers Km pred + km for a row with no row below it in display order', async () => {
       // The editor took its anchor from the row below in DISPLAY order; the
