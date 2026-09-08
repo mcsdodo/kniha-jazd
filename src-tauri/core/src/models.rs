@@ -956,6 +956,15 @@ pub struct CascadePlan {
     pub changes: Vec<OdometerChange>,
 }
 
+/// The answer `update_trip_cascade_internal` gives. `trip` is `None` on a dry
+/// run, because a dry run saves nothing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CascadeResult {
+    pub trip: Option<Trip>,
+    pub plan: CascadePlan,
+}
+
 // =============================================================================
 // Diesel ORM Row Structs
 // =============================================================================

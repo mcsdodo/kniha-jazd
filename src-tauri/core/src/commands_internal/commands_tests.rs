@@ -6136,6 +6136,274 @@ fn test_preview_of_an_edited_row_anchors_on_its_canonical_predecessor() {
 }
 
 // ============================================================================
+// Task 81: the three cascade commands -- load, plan, apply.
+// ============================================================================
+
+/// Build the argument list `update_trip_cascade_internal` takes for a row that
+/// changes only its distance. Keeps the tests below to the numbers that matter.
+fn cascade_args(trip: &Trip, km: f64, odo: f64) -> (String, String, String, f64, f64) {
+    (
+        trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
+        trip.origin.clone(),
+        trip.destination.clone(),
+        km,
+        odo,
+    )
+}
+
+#[test]
+fn test_update_trip_cascade_dry_run_writes_nothing() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let (start, origin, destination, km, odo) = cascade_args(&trip_a, 60.0, 50050.0);
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), start.clone(), start, origin, destination,
+        km, odo, trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        true,
+    )
+    .unwrap();
+
+    assert!(result.trip.is_none(), "a dry run returns no saved trip");
+    assert_eq!(result.plan.delta, 10.0);
+    assert_eq!(result.plan.changes.len(), 1);
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().odometer, 50050.0);
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50120.0);
+}
+
+#[test]
+fn test_update_trip_cascade_applies_the_shift() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+    let c = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50150.0);
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let (start, origin, destination, km, odo) = cascade_args(&trip_a, 60.0, 50050.0);
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), start.clone(), start, origin, destination,
+        km, odo, trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        false,
+    )
+    .unwrap();
+
+    assert!(result.trip.is_some());
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().odometer, 50060.0);
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50130.0);
+    assert_eq!(db.get_trip(&c.to_string()).unwrap().unwrap().odometer, 50160.0);
+    // The shifted rows keep their own distances.
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().distance_km, 70.0);
+}
+
+#[test]
+fn test_update_trip_cascade_does_not_cross_the_year_boundary() {
+    // The user's explicit call: the shift stops at 31 December. Pin it, so the
+    // boundary break stays a visible span warning rather than a silent rewrite
+    // of the next year.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let mut next_year = make_trip_detailed(
+        NaiveDate::from_ymd_opt(2027, 1, 4).unwrap(), 20.0, None, false,
+    );
+    next_year.vehicle_id = vehicle.id;
+    next_year.odometer = 50070.0;
+    db.create_trip(&next_year).unwrap();
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let (start, origin, destination, km, odo) = cascade_args(&trip_a, 60.0, 50050.0);
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), start.clone(), start, origin, destination,
+        km, odo, trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        false,
+    )
+    .unwrap();
+
+    assert!(result.plan.year_end_odometer_moved, "the caller must be told");
+    assert_eq!(
+        db.get_trip(&next_year.id.to_string()).unwrap().unwrap().odometer,
+        50070.0,
+        "2027 is untouched"
+    );
+}
+
+#[test]
+fn test_update_trip_cascade_does_not_cascade_a_re_dated_row() {
+    // Moving the datetime moves the row in trip_order, so two positions shift,
+    // not one. That is not modelled: write the row, cascade nothing.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let moved = "2026-03-05T08:00:00".to_string();
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), moved.clone(), moved,
+        trip_a.origin.clone(), trip_a.destination.clone(), 60.0, 50050.0,
+        trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(result.plan.delta, 0.0);
+    assert!(result.plan.changes.is_empty());
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50120.0);
+}
+
+#[test]
+fn test_update_trip_cascade_is_read_only_guarded() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    app_state.enable_read_only("newer migrations");
+    let (start, origin, destination, km, odo) = cascade_args(&trip_a, 60.0, 50050.0);
+
+    let applied = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), start.clone(), start.clone(), origin.clone(),
+        destination.clone(), km, odo, trip_a.purpose.clone(),
+        None, None, None, None, None, None, None, None, None, false,
+    );
+    assert!(applied.is_err(), "a write must respect read-only mode");
+
+    let dry = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), start.clone(), start, origin, destination,
+        km, odo, trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        true,
+    );
+    assert!(dry.is_ok(), "a dry run reads only, so it is always allowed");
+}
+
+#[test]
+fn test_create_trip_cascade_inserts_and_shifts() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50080.0);
+
+    let result = create_trip_cascade_internal(
+        &db, &app_state, vehicle.id.to_string(),
+        "2026-03-02T08:00:00".to_string(), "2026-03-02T09:00:00".to_string(),
+        "A".to_string(), "B".to_string(), 25.0, "work".to_string(),
+        None, None, None, None, None, None, None, None, None, false,
+    )
+    .unwrap();
+
+    let created = result.trip.unwrap();
+    assert_eq!(created.odometer, 50075.0, "the backend derived it, 50050 + 25");
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50105.0);
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().odometer, 50050.0, "untouched");
+}
+
+#[test]
+fn test_create_trip_cascade_appending_moves_no_row_and_raises_no_warning() {
+    // The daily action. It must stay a single silent write: no other row moves,
+    // and there is no later year to break.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let result = create_trip_cascade_internal(
+        &db, &app_state, vehicle.id.to_string(),
+        "2026-03-09T08:00:00".to_string(), "2026-03-09T09:00:00".to_string(),
+        "A".to_string(), "B".to_string(), 25.0, "work".to_string(),
+        None, None, None, None, None, None, None, None, None, true,
+    )
+    .unwrap();
+
+    assert!(result.plan.changes.is_empty());
+    assert!(result.plan.year_end_odometer_moved);
+    assert!(
+        !result.plan.next_year_chain_breaks,
+        "no later year, so nothing to warn about"
+    );
+}
+
+#[test]
+fn test_create_trip_cascade_warns_when_a_later_year_exists() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let mut next_year = make_trip_detailed(
+        NaiveDate::from_ymd_opt(2027, 1, 4).unwrap(), 20.0, None, false,
+    );
+    next_year.vehicle_id = vehicle.id;
+    next_year.odometer = 50070.0;
+    db.create_trip(&next_year).unwrap();
+
+    let result = create_trip_cascade_internal(
+        &db, &app_state, vehicle.id.to_string(),
+        "2026-03-09T08:00:00".to_string(), "2026-03-09T09:00:00".to_string(),
+        "A".to_string(), "B".to_string(), 25.0, "work".to_string(),
+        None, None, None, None, None, None, None, None, None, true,
+    )
+    .unwrap();
+
+    assert!(result.plan.next_year_chain_breaks);
+}
+
+#[test]
+fn test_delete_trip_cascade_closes_the_gap() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+    let c = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50150.0);
+
+    let plan = delete_trip_cascade_internal(&db, &app_state, b.to_string(), false).unwrap();
+
+    assert_eq!(plan.delta, -70.0);
+    assert!(db.get_trip(&b.to_string()).unwrap().is_none());
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().odometer, 50050.0, "untouched");
+    assert_eq!(db.get_trip(&c.to_string()).unwrap().unwrap().odometer, 50080.0);
+}
+
+#[test]
+fn test_delete_trip_cascade_dry_run_writes_nothing() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50070.0);
+
+    let plan = delete_trip_cascade_internal(&db, &app_state, b.to_string(), true).unwrap();
+
+    assert_eq!(plan.delta, -70.0);
+    assert!(db.get_trip(&b.to_string()).unwrap().is_some(), "still there");
+}
+
+#[test]
+fn test_update_trip_cascade_agrees_with_the_preview_command() {
+    // preview_trip_calculation answers the open editor and the cascade answers
+    // the save. If they ever disagree the ODO jumps on save (task 80).
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+    let trip_b = db.get_trip(&b.to_string()).unwrap().unwrap();
+
+    let preview = preview_trip_calculation_internal(
+        &db, vehicle.id.to_string(), 2026, 80.0, None, true, None, Some(b.to_string()),
+    )
+    .unwrap();
+
+    let (start, origin, destination, km, odo) = cascade_args(&trip_b, 80.0, trip_b.odometer);
+    let plan = update_trip_cascade_internal(
+        &db, &app_state, b.to_string(), start.clone(), start, origin, destination,
+        km, odo, trip_b.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        true,
+    )
+    .unwrap()
+    .plan;
+
+    assert_eq!(preview.odometer, plan.new_odometer, "one arithmetic, two callers");
+    let _ = a;
+}
+
+// ============================================================================
 // Time inference (smart defaults for new trip rows) — Task 56
 // ============================================================================
 
