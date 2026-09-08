@@ -1,6 +1,6 @@
 **Date:** 2026-09-08
 **Subject:** Three trips whose odometer span does not match their recorded distance, one of them negative
-**Status:** Partly done -- the warnings ship, the data correction is open
+**Status:** Closed -- see [03-closed.md](03-closed.md). The 2026 rows are corrected in production; the 2023 row stays as it is.
 
 ## Goal
 

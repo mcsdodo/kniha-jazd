@@ -30,7 +30,7 @@ The place chain itself cannot be the rule. It settles only 13 of the 31 tied gro
 
 **Note for a later reader:** the same three measurements on the book of today read 63, 2 and 2, and the two candidate tie-breaks no longer disagree in any group. The hand edit of 2026-08-19 row 107 removed the one group that discriminated them. The decision rests on the snapshot named above.
 
-**Related:** [Task 80](./_tasks/80-one-trip-ordering/) and its [03-status.md](./_tasks/80-one-trip-ordering/03-status.md) (the two builds, the copy's md5, the method table and the full renumbering list); [Task 79](./_tasks/79-odometer-span-inconsistency/); [ADR-043](#adr-043-the-span-is-the-check-that-finds-the-error-the-tied-datetime-only-explains-it) (the span check the odometer key must not silence); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the order has one home, in Rust).
+**Related:** [Task 80](./_tasks/_done/80-one-trip-ordering/) and its [03-status.md](./_tasks/_done/80-one-trip-ordering/03-status.md) (the two builds, the copy's md5, the method table and the full renumbering list); [Task 79](./_tasks/_done/79-odometer-span-inconsistency/); [ADR-043](#adr-043-the-span-is-the-check-that-finds-the-error-the-tied-datetime-only-explains-it) (the span check the odometer key must not silence); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the order has one home, in Rust).
 
 ### ADR-045: The odometer rewrite is a command the user runs, never a side effect of a save
 
@@ -42,7 +42,7 @@ The place chain itself cannot be the rule. It settles only 13 of the 31 tied gro
 
 This book is legal evidence, and the spec requires the user to approve a change against a copy before it runs on the production book. A dry run is what makes that approval possible: the same command that applies the change first states it, row by row, with the old and the new value.
 
-**Related:** [Task 80](./_tasks/80-one-trip-ordering/) and its [03-status.md](./_tasks/80-one-trip-ordering/03-status.md) (the dry-run figures and the operator procedure); [ADR-042](#adr-042-a-broken-odometer-chain-warns-it-never-blocks-the-save) (the chain warns, it never blocks); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the walk belongs in Rust).
+**Related:** [Task 80](./_tasks/_done/80-one-trip-ordering/) and its [03-status.md](./_tasks/_done/80-one-trip-ordering/03-status.md) (the dry-run figures and the operator procedure); [ADR-042](#adr-042-a-broken-odometer-chain-warns-it-never-blocks-the-save) (the chain warns, it never blocks); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the walk belongs in Rust).
 
 ---
 
@@ -50,13 +50,13 @@ This book is legal evidence, and the spec requires the user to approve a change 
 
 ### ADR-042: A broken odometer chain warns, it never blocks the save
 
-**Context:** [Task 79](./_tasks/79-odometer-span-inconsistency/) found three rows in the production book whose odometer span contradicts their recorded distance, one of them negative. No write path checks the odometer: `update_trip_internal` ([trips.rs](./src-tauri/core/src/commands_internal/trips.rs)) validates only the SoC range. The guards that do exist -- `handleKmChange`, `handleOdoBlur` ([TripRow.svelte](./src/lib/components/TripRow.svelte)) -- live in the open row editor and stop applying the moment the row closes.
+**Context:** [Task 79](./_tasks/_done/79-odometer-span-inconsistency/) found three rows in the production book whose odometer span contradicts their recorded distance, one of them negative. No write path checks the odometer: `update_trip_internal` ([trips.rs](./src-tauri/core/src/commands_internal/trips.rs)) validates only the SoC range. The guards that do exist -- `handleKmChange`, `handleOdoBlur` ([TripRow.svelte](./src/lib/components/TripRow.svelte)) -- live in the open row editor and stop applying the moment the row closes.
 
 **Decision:** `get_trip_grid_data` returns `odometer_span_warnings` and `duplicate_datetime_warnings`, the grid marks the rows, and every write still succeeds. There is no validation error and no confirmation dialog on save.
 
 **Reasoning:** The start odometer is derived from the previous row and only the end odometer is stored, so a chain under correction is inconsistent halfway through by construction. A hard block traps the user in exactly the state the task 79 data fix has to edit through: the first of two rows cannot be corrected without the second one being wrong for a moment. A warning states the problem without deciding when it must be resolved, which is the right split for a book whose owner is also its only auditor.
 
-**Related:** [Task 79](./_tasks/79-odometer-span-inconsistency/); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (both checks and the reported span are computed in Rust).
+**Related:** [Task 79](./_tasks/_done/79-odometer-span-inconsistency/); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (both checks and the reported span are computed in Rust).
 
 ### ADR-043: The span is the check that finds the error; the tied datetime only explains it
 
@@ -68,7 +68,7 @@ This book is legal evidence, and the spec requires the user to approve a change 
 
 **Deliberately not changed:** the `00:00` default and the `created_at` tie-break are the upstream cause, and both are left alone. Moving either renumbers every trip and re-derives every starting odometer across the whole book, which is a separate decision with its own evidence requirements.
 
-**Related:** [Task 79](./_tasks/79-odometer-span-inconsistency/); [BIZ-003](#biz-003-legal-margin-limit) (the periods a wrong span feeds).
+**Related:** [Task 79](./_tasks/_done/79-odometer-span-inconsistency/); [BIZ-003](#biz-003-legal-margin-limit) (the periods a wrong span feeds).
 
 ---
 

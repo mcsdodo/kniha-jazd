@@ -1,6 +1,6 @@
 **Date:** 2026-09-08
 **Subject:** One trip ordering, computed once in Rust
-**Status:** Planning
+**Status:** Closed -- see [04-closed.md](04-closed.md).
 
 ## Goal
 

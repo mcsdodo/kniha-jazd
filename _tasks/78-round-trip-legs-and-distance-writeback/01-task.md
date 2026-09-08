@@ -97,7 +97,7 @@ was not planned in the same session it was written.
 
 - Three rows in the production book currently violate the invariant, including one with
   a **negative** span. That is a separate data-integrity task, not this one --
-  see [task 79](../79-odometer-span-inconsistency/).
+  see [task 79](../_done/79-odometer-span-inconsistency/).
 - Dragging a via onto the **return** leg of a round trip currently places it on the
   outbound leg: `currentWaypoints()` returns the open `[A, v1, B]` while the polyline is
   the closed line, so the nearest-vertex search falls through and clamps

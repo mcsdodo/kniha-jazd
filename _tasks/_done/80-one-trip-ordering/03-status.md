@@ -1,6 +1,6 @@
 **Date:** 2026-09-08
 **Subject:** What one trip ordering does to the real book, measured on two builds
-**Status:** Code landed. The renumbering below needs your approval before the build reaches production.
+**Status:** Closed -- see [04-closed.md](04-closed.md). The renumbering is live in production.
 
 ## What this document is
 
