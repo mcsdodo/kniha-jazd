@@ -655,6 +655,93 @@ type RootTranslation = {
 			 */
 			otherCostsNote: string
 		}
+		cascade: {
+			/**
+			 * P​o​s​u​n​ ​t​a​c​h​o​m​e​t​r​a
+			 */
+			title: string
+			/**
+			 * T​á​t​o​ ​z​m​e​n​a​ ​p​o​s​u​n​i​e​ ​{​c​o​u​n​t​}​ ​n​a​s​l​e​d​u​j​ú​c​i​c​h​ ​j​á​z​d​ ​o​ ​{​d​e​l​t​a​}​ ​k​m​.
+			 * @param {number} count
+			 * @param {string} delta
+			 */
+			summary: RequiredParams<'count' | 'delta'>
+			/**
+			 * N​o​v​á​ ​j​a​z​d​a​ ​p​o​s​u​n​i​e​ ​{​c​o​u​n​t​}​ ​n​a​s​l​e​d​u​j​ú​c​i​c​h​ ​j​á​z​d​ ​o​ ​{​d​e​l​t​a​}​ ​k​m​.
+			 * @param {number} count
+			 * @param {string} delta
+			 */
+			summaryInsert: RequiredParams<'count' | 'delta'>
+			/**
+			 * Z​m​a​z​a​n​i​e​ ​p​o​s​u​n​i​e​ ​{​c​o​u​n​t​}​ ​n​a​s​l​e​d​u​j​ú​c​i​c​h​ ​j​á​z​d​ ​o​ ​{​d​e​l​t​a​}​ ​k​m​.
+			 * @param {number} count
+			 * @param {string} delta
+			 */
+			summaryDelete: RequiredParams<'count' | 'delta'>
+			/**
+			 * {​d​e​l​t​a​}​ ​k​m​ ​-​-​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​n​o​v​e​j​ ​j​a​z​d​y
+			 * @param {string} delta
+			 */
+			fromInsert: RequiredParams<'delta'>
+			/**
+			 * {​d​e​l​t​a​}​ ​k​m​ ​-​-​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​z​m​a​z​a​n​e​j​ ​j​a​z​d​y
+			 * @param {string} delta
+			 */
+			fromDelete: RequiredParams<'delta'>
+			/**
+			 * Z​m​a​z​a​ť​ ​a​ ​p​o​s​u​n​ú​ť
+			 */
+			confirmDelete: string
+			/**
+			 * {​d​e​l​t​a​}​ ​k​m​ ​-​-​ ​v​a​š​a​ ​z​m​e​n​a​ ​v​z​d​i​a​l​e​n​o​s​t​i​ ​(​{​o​l​d​K​m​}​ ​-​>​ ​{​n​e​w​K​m​}​ ​k​m​)
+			 * @param {string} delta
+			 * @param {string} newKm
+			 * @param {string} oldKm
+			 */
+			fromDistance: RequiredParams<'delta' | 'newKm' | 'oldKm'>
+			/**
+			 * {​d​e​l​t​a​}​ ​k​m​ ​-​-​ ​o​p​r​a​v​a​ ​t​a​c​h​o​m​e​t​r​a​ ​t​e​j​t​o​ ​j​a​z​d​y​:​ ​n​e​s​e​d​e​l​ ​s​o​ ​z​a​p​í​s​a​n​o​u​ ​v​z​d​i​a​l​e​n​o​s​ť​o​u
+			 * @param {string} delta
+			 */
+			fromRepair: RequiredParams<'delta'>
+			/**
+			 * {​d​e​l​t​a​}​ ​k​m​ ​-​-​ ​o​p​r​a​v​a​ ​t​a​c​h​o​m​e​t​r​a​ ​t​e​j​t​o​ ​j​a​z​d​y​ ​o​p​r​o​t​i​ ​k​o​n​c​u​ ​p​r​e​d​c​h​á​d​z​a​j​ú​c​e​h​o​ ​r​o​k​a
+			 * @param {string} delta
+			 */
+			fromRepairCrossYear: RequiredParams<'delta'>
+			/**
+			 * P​o​s​u​n​i​e​ ​s​a​ ​a​j​ ​p​o​s​l​e​d​n​á​ ​j​a​z​d​a​ ​r​o​k​a​,​ ​t​a​k​ž​e​ ​p​r​v​á​ ​j​a​z​d​a​ ​n​a​s​l​e​d​u​j​ú​c​e​h​o​ ​r​o​k​a​ ​b​u​d​e​ ​h​l​á​s​i​ť​ ​n​e​s​ú​l​a​d​ ​t​a​c​h​o​m​e​t​r​a​.
+			 */
+			yearEndWarning: string
+			/**
+			 * J​a​z​d​a
+			 */
+			columnTrip: string
+			/**
+			 * D​á​t​u​m
+			 */
+			columnDate: string
+			/**
+			 * T​r​a​s​a
+			 */
+			columnRoute: string
+			/**
+			 * T​a​c​h​o​m​e​t​e​r​ ​t​e​r​a​z
+			 */
+			columnOld: string
+			/**
+			 * T​a​c​h​o​m​e​t​e​r​ ​p​o​ ​z​m​e​n​e
+			 */
+			columnNew: string
+			/**
+			 * U​l​o​ž​i​ť​ ​a​ ​p​o​s​u​n​ú​ť
+			 */
+			confirm: string
+			/**
+			 * Z​r​u​š​i​ť
+			 */
+			cancel: string
+		}
 	}
 	compensation: {
 		/**
@@ -3267,6 +3354,80 @@ export type TranslationFunctions = {
 			 * Iná poznámka
 			 */
 			otherCostsNote: () => LocalizedString
+		}
+		cascade: {
+			/**
+			 * Posun tachometra
+			 */
+			title: () => LocalizedString
+			/**
+			 * Táto zmena posunie {count} nasledujúcich jázd o {delta} km.
+			 */
+			summary: (arg: { count: number, delta: string }) => LocalizedString
+			/**
+			 * Nová jazda posunie {count} nasledujúcich jázd o {delta} km.
+			 */
+			summaryInsert: (arg: { count: number, delta: string }) => LocalizedString
+			/**
+			 * Zmazanie posunie {count} nasledujúcich jázd o {delta} km.
+			 */
+			summaryDelete: (arg: { count: number, delta: string }) => LocalizedString
+			/**
+			 * {delta} km -- vzdialenosť novej jazdy
+			 */
+			fromInsert: (arg: { delta: string }) => LocalizedString
+			/**
+			 * {delta} km -- vzdialenosť zmazanej jazdy
+			 */
+			fromDelete: (arg: { delta: string }) => LocalizedString
+			/**
+			 * Zmazať a posunúť
+			 */
+			confirmDelete: () => LocalizedString
+			/**
+			 * {delta} km -- vaša zmena vzdialenosti ({oldKm} -> {newKm} km)
+			 */
+			fromDistance: (arg: { delta: string, newKm: string, oldKm: string }) => LocalizedString
+			/**
+			 * {delta} km -- oprava tachometra tejto jazdy: nesedel so zapísanou vzdialenosťou
+			 */
+			fromRepair: (arg: { delta: string }) => LocalizedString
+			/**
+			 * {delta} km -- oprava tachometra tejto jazdy oproti koncu predchádzajúceho roka
+			 */
+			fromRepairCrossYear: (arg: { delta: string }) => LocalizedString
+			/**
+			 * Posunie sa aj posledná jazda roka, takže prvá jazda nasledujúceho roka bude hlásiť nesúlad tachometra.
+			 */
+			yearEndWarning: () => LocalizedString
+			/**
+			 * Jazda
+			 */
+			columnTrip: () => LocalizedString
+			/**
+			 * Dátum
+			 */
+			columnDate: () => LocalizedString
+			/**
+			 * Trasa
+			 */
+			columnRoute: () => LocalizedString
+			/**
+			 * Tachometer teraz
+			 */
+			columnOld: () => LocalizedString
+			/**
+			 * Tachometer po zmene
+			 */
+			columnNew: () => LocalizedString
+			/**
+			 * Uložiť a posunúť
+			 */
+			confirm: () => LocalizedString
+			/**
+			 * Zrušiť
+			 */
+			cancel: () => LocalizedString
 		}
 	}
 	compensation: {

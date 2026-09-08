@@ -206,6 +206,27 @@ const sk = {
 			otherCosts: 'Iné (€)',
 			otherCostsNote: 'Iná poznámka',
 		},
+		// Odometer cascade on save (Task 81)
+		cascade: {
+			title: 'Posun tachometra',
+			summary: 'Táto zmena posunie {count:number} nasledujúcich jázd o {delta:string} km.',
+			summaryInsert: 'Nová jazda posunie {count:number} nasledujúcich jázd o {delta:string} km.',
+			summaryDelete: 'Zmazanie posunie {count:number} nasledujúcich jázd o {delta:string} km.',
+			fromInsert: '{delta:string} km -- vzdialenosť novej jazdy',
+			fromDelete: '{delta:string} km -- vzdialenosť zmazanej jazdy',
+			confirmDelete: 'Zmazať a posunúť',
+			fromDistance: '{delta:string} km -- vaša zmena vzdialenosti ({oldKm:string} -> {newKm:string} km)',
+			fromRepair: '{delta:string} km -- oprava tachometra tejto jazdy: nesedel so zapísanou vzdialenosťou',
+			fromRepairCrossYear: '{delta:string} km -- oprava tachometra tejto jazdy oproti koncu predchádzajúceho roka',
+			yearEndWarning: 'Posunie sa aj posledná jazda roka, takže prvá jazda nasledujúceho roka bude hlásiť nesúlad tachometra.',
+			columnTrip: 'Jazda',
+			columnDate: 'Dátum',
+			columnRoute: 'Trasa',
+			columnOld: 'Tachometer teraz',
+			columnNew: 'Tachometer po zmene',
+			confirm: 'Uložiť a posunúť',
+			cancel: 'Zrušiť',
+		},
 	},
 
 	// Compensation banner

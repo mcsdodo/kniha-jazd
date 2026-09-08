@@ -206,6 +206,27 @@ const en = {
 			otherCosts: 'Other (EUR)',
 			otherCostsNote: 'Other note',
 		},
+		// Odometer cascade on save (Task 81)
+		cascade: {
+			title: 'Odometer shift',
+			summary: 'This change moves {count} following trips by {delta} km.',
+			summaryInsert: 'The new trip moves {count} following trips by {delta} km.',
+			summaryDelete: 'Deleting moves {count} following trips by {delta} km.',
+			fromInsert: '{delta} km -- the distance of the new trip',
+			fromDelete: '{delta} km -- the distance of the deleted trip',
+			confirmDelete: 'Delete and shift',
+			fromDistance: '{delta} km -- your change to the distance ({oldKm} -> {newKm} km)',
+			fromRepair: '{delta} km -- correcting the odometer of this trip, which did not match its recorded distance',
+			fromRepairCrossYear: '{delta} km -- correcting the odometer of this trip against the end of the previous year',
+			yearEndWarning: 'The last trip of the year moves too, so the first trip of the next year will report an odometer mismatch.',
+			columnTrip: 'Trip',
+			columnDate: 'Date',
+			columnRoute: 'Route',
+			columnOld: 'Odometer now',
+			columnNew: 'Odometer after',
+			confirm: 'Save and shift',
+			cancel: 'Cancel',
+		},
 	},
 
 	// Compensation banner
