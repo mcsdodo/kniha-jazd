@@ -113,7 +113,6 @@
 	$: showEnergyFields = vehicleType === 'Bev' || vehicleType === 'Phev';
 
 	let isEditing = isNew;
-	let manualOdoEdit = false; // Track if user manually edited ODO
 	let manualKmEdit = false; // Track if user manually edited KM (see tryAutoFillDistance)
 
 	// In-flight guard (mirrors copyPending in TripGrid): a save is still
@@ -151,47 +150,47 @@
 		otherCostsNote: trip?.otherCostsNote || ''
 	};
 
-	// The odometer this row starts from -- the "Km pred" the grid shows for it.
-	// Both sources are the same backend value, `calculate_odometer_start` over
-	// the canonical trip order (task 80, ADR-008):
-	//   - an existing row carries it in the odoStart prop, which the grid reads
-	//     from the same map it prints, and which is there before any preview;
-	//   - a new row has no row in that map, so it waits for its preview.
-	// null means neither is available yet. There is no local substitute: the
-	// display neighbour this used to read disagrees with the canonical order.
-	$: odometerAnchor =
-		!isNew && odoStart > 0 ? odoStart : previewData ? previewData.odometerStart : null;
-
-	// A km edit is what makes the ODO follow the backend. Set by the sites that
-	// put a km in the field: a typed km, a route auto-fill, a copied row.
-	// Without it every OTHER preview -- opening the editor, typing litres,
-	// toggling the full-tank box, magic fill -- would rewrite the odometer of a
-	// row the user only looked at (task 80 asked for the km direction only).
-	let odoFollowsKm = false;
-
-	// Both flags describe the CURRENT edit session: whether a km edit is behind
-	// the odometer, and whether the user took the odometer over by hand. The
-	// component outlives its sessions -- the grid keys its rows by trip id, so
-	// one instance serves display and every edit of that row, and formData is
-	// never re-seeded after a save. A flag left set therefore leaks into the
-	// next session: re-open a row whose anchor moved in the meantime and the
-	// preview would write an odometer from a km edit made minutes ago.
-	function resetEditSessionFlags() {
-		odoFollowsKm = false;
-		manualOdoEdit = false;
+	// A cascade moves the odometer of rows the user never opened, and this
+	// component survives that: the grid keys its rows by trip id, so one
+	// instance serves display and every edit of that row. formData was seeded
+	// once at construction, so without this a shifted row would open with the
+	// pre-cascade number and write it back (task 81, R6).
+	//
+	// Guarded on !isEditing so it can never fight the user mid-edit, and it
+	// depends on `trip` alone -- a reactive block that both read and wrote
+	// formData would re-trigger itself.
+	$: if (trip && !isEditing) {
+		formData = {
+			startDatetime: toDatetimeLocal(trip.startDatetime),
+			endDatetime: toDatetimeLocal(trip.endDatetime),
+			origin: trip.origin,
+			destination: trip.destination,
+			distanceKm: trip.distanceKm,
+			odometer: trip.odometer,
+			purpose: trip.purpose,
+			fuelLiters: trip.fuelLiters ?? null,
+			fuelCostEur: trip.fuelCostEur ?? null,
+			fullTank: trip.fullTank,
+			energyKwh: trip.energyKwh ?? null,
+			energyCostEur: trip.energyCostEur ?? null,
+			fullCharge: trip.fullCharge,
+			socOverridePercent: trip.socOverridePercent ?? null,
+			otherCostsEur: trip.otherCostsEur ?? null,
+			otherCostsNote: trip.otherCostsNote ?? ''
+		};
 	}
 
 	// Fill the ODO from the preview when it returns. Called from a reactive
 	// statement that depends on previewData ALONE -- reading formData inside a
 	// `$:` block that also writes to it would re-trigger itself.
 	//
-	// The second guard says "this preview answers the km the field holds NOW".
-	// It rejects a response that a later km edit has already superseded: the
+	// The guard says "this preview answers the km the field holds NOW". It
+	// rejects a response that a later km edit has already superseded: the
 	// requests are not sequenced, so they can land out of order. A response
 	// for the km the field still holds is applied, whether that km is whole or
 	// fractional -- the command takes an f64, so it answers both the same way.
 	function applyPreviewOdometer(preview: PreviewResult | null) {
-		if (!preview || manualOdoEdit || !odoFollowsKm) return;
+		if (!preview) return;
 		// No km, nothing to derive an ODO from. Tested on its own: a NaN
 		// comparison below would be false and let the write through.
 		if (formData.distanceKm === null) return;
@@ -290,9 +289,6 @@
 			// on that route.
 			const roundedKm = Math.round(matchingRoute.distanceKm);
 			formData.distanceKm = roundedKm;
-			// An auto-filled km is still a km edit: the ODO follows it, and the
-			// preview requested below is what fills it in (applyPreviewOdometer).
-			odoFollowsKm = true;
 			// Trigger live preview calculation for consumption/zostatok
 			onPreviewRequest(roundedKm, formData.fuelLiters, formData.fullTank);
 		}
@@ -316,7 +312,6 @@
 		// The backend zeroes an implausible distance rather than copying it;
 		// null (not 0) leaves the field blank and lets auto-fill take over.
 		formData.distanceKm = copyFrom.distanceKm > 0 ? copyFrom.distanceKm : null;
-		odoFollowsKm = formData.distanceKm !== null;
 		formData.purpose = copyFrom.purpose;
 		// The copied times are explicit user intent. Marking this route pair as
 		// already-inferred makes tryInferTimes() short-circuit, so the Task 56
@@ -389,11 +384,9 @@
 		const inputValue = (event.target as HTMLInputElement).value;
 		const km = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 		formData.distanceKm = km;
-		// A typed distance outranks any route the user later picks — mirrors
-		// manualOdoEdit. Clearing the field hands control back to auto-fill.
+		// A typed distance outranks any route the user later picks. Clearing
+		// the field hands control back to auto-fill.
 		manualKmEdit = km !== null;
-		// The ODO follows this km, and comes from the preview that answers it.
-		odoFollowsKm = km !== null;
 		// Request live preview calculation
 		onPreviewRequest(km ?? 0, formData.fuelLiters, formData.fullTank);
 	}
@@ -410,63 +403,21 @@
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
-	// Clamp ODO to (odometerAnchor + 1) when finalised below the anchor.
-	// Runs on `change` (blur / Enter) so mid-typing keystrokes are not snapped away.
-	function handleOdoBlur() {
-		if (
-			odometerAnchor !== null &&
-			odometerAnchor > 0 &&
-			formData.odometer !== null &&
-			formData.odometer < odometerAnchor
-		) {
-			formData.odometer = odometerAnchor + 1;
-			formData.distanceKm = 1;
-			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
-		}
-	}
-
+	// ODO is now independent of KM: the backend derives and cascades the
+	// odometer chain from the anchor (tasks 1-7, ADR-008). This row only sends
+	// what the user typed and asks for a preview to show them the effect.
 	function handleOdoChange(event: Event) {
 		const inputValue = (event.target as HTMLInputElement).value;
 		const newOdo = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 
 		if (newOdo === formData.odometer) return;
 
-		manualOdoEdit = true;
 		formData.odometer = newOdo;
-
-		if (newOdo === null) {
-			formData.distanceKm = null;
-			onPreviewRequest(0, formData.fuelLiters, formData.fullTank);
-			return;
-		}
-
-		// KM is the gap between this row's ODO and the anchor the backend
-		// reported. Three guards protect against degenerate situations:
-		//   1. A null anchor means neither source has one yet: a new row
-		//      whose first preview has not returned. There is no baseline to
-		//      subtract, and the display neighbour this used to read is not a
-		//      substitute -- it disagrees with the canonical order (task 80)
-		//      -- so leave KM to the user.
-		//   2. An anchor of 0 means there is no meaningful baseline either
-		//      (fresh vehicle with no initialOdometer set). In that case the
-		//      subtraction produces the raw ODO value — which looks to the
-		//      user like "ODO ended up in the KM field". Skip auto-derivation
-		//      and let the user type KM explicitly.
-		//   3. Any single-trip distance > 9999 km is almost certainly the
-		//      result of a missing baseline rather than a real trip.
-		const candidate =
-			odometerAnchor !== null && odometerAnchor > 0 ? newOdo - odometerAnchor : null;
-		if (candidate !== null && candidate >= 0 && candidate <= 9999) {
-			formData.distanceKm = candidate;
-			onPreviewRequest(candidate, formData.fuelLiters, formData.fullTank);
-		}
+		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
 	function handleEdit() {
 		isEditing = true;
-		// Before the preview below, so its response cannot be applied on the
-		// strength of a flag from the previous session.
-		resetEditSessionFlags();
 		onEditStart();
 		// Trigger preview immediately with current values
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
@@ -509,76 +460,38 @@
 	}
 
 	async function doSave() {
-		// Final ODO clamp: never persist a value below this row's anchor, and
-		// never pay for that with the distance. With no anchor (no preview
-		// returned, and no odoStart on a new row) there is nothing to clamp
-		// against, and the saved values stand as typed.
+		// The frontend sends exactly what the user typed -- no clamp, no
+		// derivation. The backend derives the odometer from the anchor and
+		// cascades every later row (tasks 1-7, ADR-008); a row that sits below
+		// its anchor is the backend's call to flag (ADR-042), not this row's
+		// to silently correct.
 		//
-		// Which number gives way depends on which one the user just entered:
-		//
-		//   a km edit is behind it -- the km is theirs and the odometer is the
-		//     derived one, so put the odometer where the backend would have
-		//     put it. Reachable when Save beats the preview response, or when
-		//     the response was rejected as superseded;
-		//   a typed ODO is behind it -- handleOdoBlur normally snapped it on
-		//     `change` already, so this is the last resort for the same edit
-		//     and gives the same answer it would have;
-		//   neither -- the clamp does not fire at all. A row can sit below its
-		//     canonical anchor for a reason the book records (the negative-span
-		//     row task 79 exists to correct), and a Save that only fixed a typo
-		//     must leave both numbers exactly as they were.
-		let odo = formData.odometer ?? 0;
-		let km = formData.distanceKm ?? 0;
-		const anchor = odometerAnchor;
-		if (anchor !== null && anchor > 0 && odo < anchor) {
-			if (odoFollowsKm) {
-				odo = anchor + km;
-			} else if (manualOdoEdit) {
-				odo = anchor + 1;
-				km = 1; // the shortest row the chain allows, as handleOdoBlur does
-			}
-		}
-		const dataToSave = {
-			...formData,
-			distanceKm: km,
-			odometer: odo
-		};
 		// The grid answers false when nothing was written -- a cascade the user
 		// cancelled. The row then stays open on what the user typed.
-		const saved = await onSave(dataToSave);
+		//
+		// The 0-fallback below is typing only, not a clamp: distanceKm/odometer
+		// are `number | null` here (formData starts null on a new row, until
+		// the user types a value or a preview fills it in), but Trip requires
+		// `number`. An empty field is sent as 0 -- the same value the field
+		// itself displays as a placeholder -- not derived from anything.
+		const saved = await onSave({
+			...formData,
+			distanceKm: formData.distanceKm ?? 0,
+			odometer: formData.odometer ?? 0
+		});
 		if (!saved) return;
 		isEditing = false;
-		resetEditSessionFlags();
 		if (!isNew) {
 			onEditEnd();
 		}
 	}
 
 	function handleCancel() {
-		resetEditSessionFlags();
 		if (isNew) {
 			onCancel();
 		} else {
-			// Reset form data
-			const currentDate = new Date().toISOString().split('T')[0];
-			formData = {
-				startDatetime: trip ? toDatetimeLocal(trip.startDatetime) : `${currentDate}T00:00`,
-				endDatetime: trip ? toDatetimeLocal(trip.endDatetime) : `${currentDate}T00:00`,
-				origin: trip?.origin || '',
-				destination: trip?.destination || '',
-				distanceKm: trip?.distanceKm || 0,
-				odometer: trip?.odometer || 0,
-				purpose: trip?.purpose || '',
-				fuelLiters: trip?.fuelLiters || null,
-				fuelCostEur: trip?.fuelCostEur || null,
-				fullTank: trip?.fullTank ?? true, // Default to full tank
-				energyKwh: trip?.energyKwh || null,
-				energyCostEur: trip?.energyCostEur || null,
-				fullCharge: trip?.fullCharge ?? false,
-				socOverridePercent: trip?.socOverridePercent || null,
-				otherCostsEur: trip?.otherCostsEur || null,
-				otherCostsNote: trip?.otherCostsNote || ''
-			};
+			// formData is restored by the re-seed block above: it depends on
+			// isEditing, so this assignment re-runs it against `trip`.
 			isEditing = false;
 			onEditEnd();
 		}
@@ -683,7 +596,7 @@
 			<td class="col-odo-start number">{isNew ? '-' : odoStart.toFixed(0)}</td>
 		{/if}
 		<td class="col-odo">
-			<input type="number" value={formData.odometer} on:input={handleOdoChange} on:change={handleOdoBlur} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
+			<input type="number" value={formData.odometer} on:input={handleOdoChange} step="1" min="0" placeholder="0" data-testid="trip-odometer" />
 		</td>
 		<td class="col-purpose">
 			<Autocomplete
