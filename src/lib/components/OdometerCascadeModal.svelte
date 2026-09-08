@@ -23,9 +23,32 @@
 	// the row being saved - and neither keydown handler below ever sees it
 	// (task 81, fix round 2).
 	let modalEl: HTMLDivElement;
+	// The element the modal stole focus from on mount (task 81, fix round 3)
+	// -- usually the Save/Delete button or whatever input the user was in.
+	// Restored on both Cancel and Confirm so the caret does not land on
+	// <body>, forcing the user to click back into the row.
+	let previouslyFocused: HTMLElement | null = null;
 	onMount(() => {
+		previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		modalEl?.focus();
 	});
+
+	function restoreFocus() {
+		previouslyFocused?.focus();
+	}
+
+	// Every path that closes the modal - the Cancel button, the overlay
+	// click, and Escape - must go through this, not the bare `onCancel`
+	// prop, or focus stays on the (about to be destroyed) modal.
+	function handleCancel() {
+		restoreFocus();
+		onCancel();
+	}
+
+	function handleConfirm() {
+		restoreFocus();
+		onConfirm();
+	}
 
 	// Stops here unconditionally: TripRow's window-level ESC/Enter handler
 	// must never see a key pressed while this modal owns the decision, or
@@ -34,7 +57,7 @@
 	function handleKeydown(event: KeyboardEvent) {
 		event.stopPropagation();
 		if (event.key === 'Escape') {
-			onCancel();
+			handleCancel();
 		}
 	}
 
@@ -54,7 +77,7 @@
 
 <div
 	class="modal-overlay"
-	on:click={onCancel}
+	on:click={handleCancel}
 	on:keydown={handleKeydown}
 	role="button"
 	tabindex="0"
@@ -145,10 +168,10 @@
 			</div>
 		</div>
 		<div class="modal-actions">
-			<button class="button-small" on:click={onCancel} data-testid="cascade-cancel">
+			<button class="button-small" on:click={handleCancel} data-testid="cascade-cancel">
 				{$LL.trips.cascade.cancel()}
 			</button>
-			<button class="button-small" on:click={onConfirm} data-testid="cascade-confirm">
+			<button class="button-small" on:click={handleConfirm} data-testid="cascade-confirm">
 				{kind === 'delete' ? $LL.trips.cascade.confirmDelete() : $LL.trips.cascade.confirm()}
 			</button>
 		</div>

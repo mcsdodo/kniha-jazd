@@ -57,7 +57,7 @@
 	}
 	export let onSave: (tripData: Partial<Trip>) => Promise<boolean>;
 	export let onCancel: () => void;
-	export let onDelete: (id: string) => void;
+	export let onDelete: (id: string) => Promise<void>;
 	export let onInsertAbove: () => void = () => {};
 	// Copy (Task 71) - duplicates this row's route into a new today-dated row
 	export let onCopy: () => void = () => {};
@@ -115,6 +115,17 @@
 	let isEditing = isNew;
 	let manualOdoEdit = false; // Track if user manually edited ODO
 	let manualKmEdit = false; // Track if user manually edited KM (see tryAutoFillDistance)
+
+	// In-flight guard (mirrors copyPending in TripGrid): a save is still
+	// awaiting `onSave` across BOTH the dry-run window (before the grid's
+	// pendingCascade exists) and the apply window after the grid clears it
+	// (`cascadePending` is already false there, but this row's own
+	// `handleSave` has not settled yet) - Enter or a second click on Save
+	// must not start a second concurrent write for the same row (task 81,
+	// fix round 3). Delete shares it: the delete button only renders while
+	// this row is not `isEditing`, so the two actions are already mutually
+	// exclusive on one row.
+	let savePending = false;
 
 	// Form state - use null for new rows to show placeholder
 	const defaultStartDatetime = `${defaultDate}T00:00`;
@@ -485,6 +496,19 @@
 	}
 
 	async function handleSave() {
+		// Second entry while the first is still awaiting `onSave` (Enter
+		// fired again, or a stray double-click) must be a no-op, not a
+		// second concurrent write -- see `savePending`'s declaration.
+		if (savePending) return;
+		savePending = true;
+		try {
+			await doSave();
+		} finally {
+			savePending = false;
+		}
+	}
+
+	async function doSave() {
 		// Final ODO clamp: never persist a value below this row's anchor, and
 		// never pay for that with the distance. With no anchor (no preview
 		// returned, and no odoStart on a new row) there is nothing to clamp
@@ -560,12 +584,19 @@
 		}
 	}
 
-	function handleDeleteClick() {
-		if (trip?.id) {
+	async function handleDeleteClick() {
+		// Shares `savePending` with handleSave (see its declaration): a rapid
+		// double-click here used to fire `onDelete` twice, the second one
+		// erroring against an already-deleted trip (task 81, fix round 3).
+		if (savePending || !trip?.id) return;
+		savePending = true;
+		try {
 			// The cascade modal (task 81) now states what the delete does, so a
 			// second "are you sure" here would just be a duplicate dialog. A
 			// delete that moves no other row writes with no confirmation at all.
-			onDelete(trip.id);
+			await onDelete(trip.id);
+		} finally {
+			savePending = false;
 		}
 	}
 

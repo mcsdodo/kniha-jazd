@@ -887,7 +887,7 @@
 						batteryRemainingPercent={sortedTrips.length > 0 ? batteryRemainingPercent.get(sortedTrips[0].id) || 100 : 100}
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
-						onDelete={() => {}}
+						onDelete={async () => {}}
 						cascadePending={pendingCascade !== null}
 						previewData={previewingTripId === null ? previewData : null}
 						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
@@ -918,7 +918,7 @@
 							batteryRemainingPercent={batteryRemainingPercent.get(trip.id) || 100}
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
-							onDelete={() => {}}
+							onDelete={async () => {}}
 							cascadePending={pendingCascade !== null}
 							previewData={previewingTripId === null ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtTripId, km, fuel, fullTank)}
