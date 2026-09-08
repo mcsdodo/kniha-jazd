@@ -69,19 +69,27 @@ see [rust-backend.md](../../.claude/rules/rust-backend.md), step 3 of "Adding a 
 
 ### Guarded Commands
 
-Every write path carries the guard. Grouped by module under
+Every write path carries the guard, unconditionally or conditionally (see the
+note below the table). Grouped by module under
 [commands_internal/](../../src-tauri/core/src/commands_internal/):
 
 | Module | Guarded `*_internal` functions |
 |--------|-------------------------------|
 | [vehicles.rs](../../src-tauri/core/src/commands_internal/vehicles.rs) | `update_vehicle`, `delete_vehicle`, `set_active_vehicle` |
-| [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip` |
+| [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip`, `recalculate_odometers` (conditional, see below) |
 | [settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | `save_settings` |
 | [backup.rs](../../src-tauri/core/src/commands_internal/backup.rs) | `set_backup_retention`, `restore_backup`, `delete_backup` |
 | [receipts_cmd.rs](../../src-tauri/core/src/commands_internal/receipts_cmd.rs) | `set_gemini_api_key`, `set_receipts_folder_path`, `update_receipt`, `delete_receipt`, `unassign_receipt`, `revert_receipt_override`, `scan_receipts`, `sync_receipts`, `reprocess_receipt` |
 | [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_invoice_to_trip`, `unassign_invoice` |
 | [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `save_ha_settings`, `save_paperless_settings` |
 | [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `delete_trip_route` |
+
+`recalculate_odometers_internal` in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
+is the first conditionally guarded write: it takes a `dry_run` flag, and the
+`check_read_only!` call only runs when `dry_run == false`. A dry run only
+reports the rows it would change; it writes nothing, so read-only mode must
+not block it, the same reasoning as the two backup exceptions below. Unlike
+them, though, the same function also has a write path, gated normally.
 
 Two deliberate exceptions in [backup.rs](../../src-tauri/core/src/commands_internal/backup.rs), both marked with a `NOTE:` comment in the source:
 `create_backup_internal` and `create_backup_with_type_internal` carry **no** guard. Creating

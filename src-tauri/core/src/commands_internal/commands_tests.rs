@@ -5636,6 +5636,9 @@ fn test_recalculate_odometers_rewrites_only_rows_that_move() {
 fn test_recalculate_odometers_is_read_only_guarded() {
     let (db, vehicle) = setup_db_with_start_odometer(50000.0);
     let app_state = crate::app_state::AppState::new();
+    // Seeded with a mismatch so the dry-run assertion below is checking a
+    // real proposed change, not vacuously passing over an empty walk.
+    seed_chain_trip(&db, vehicle.id, 1, 50.0, 99999.0);
     app_state.enable_read_only("newer migrations");
 
     let result =
@@ -5645,8 +5648,13 @@ fn test_recalculate_odometers_is_read_only_guarded() {
     // Reading is always allowed: a dry run proposes changes but writes
     // nothing, so read-only mode must not block it.
     let dry_run =
-        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, true);
-    assert!(dry_run.is_ok(), "a dry run must not be blocked by read-only mode");
+        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, true)
+            .unwrap();
+    assert_eq!(
+        dry_run.len(),
+        1,
+        "the dry run must still propose the seeded trip's correction, got: {dry_run:?}"
+    );
 }
 
 #[test]
@@ -5685,9 +5693,10 @@ fn test_recalculate_odometers_is_idempotent_with_tied_start_datetimes() {
     let first =
         recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, false)
             .unwrap();
-    assert!(
-        !first.is_empty(),
-        "the fixture must actually need correcting or this test proves nothing"
+    assert_eq!(
+        first.len(),
+        3,
+        "all three tied rows must need correcting or this test proves nothing"
     );
 
     let second =

@@ -1481,4 +1481,78 @@ mod tests {
             "the refused save overwrote the stored source: {office}"
         );
     }
+
+    // ------------------------------------------------------------------
+    // recalculate_odometers (Task 3): the controller's override removed the
+    // `api.ts` wrapper, so this dispatcher arm is the command's only
+    // reachable path in this repo. Nothing else exercises it.
+    // ------------------------------------------------------------------
+
+    /// Same shape as `seed_trip_for_route`: one vehicle (initial odometer
+    /// 0.0), one trip whose stored odometer (10000.0, from
+    /// `Trip::test_ice_trip`) does not match the running total (0.0 + 120.0
+    /// km), so a dry run always has something to report.
+    fn seed_vehicle_id_with_one_trip(state: &ServerState) -> String {
+        let vehicle = crate::models::Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+        state.db.create_vehicle(&vehicle).unwrap();
+        let mut trip = crate::models::Trip::test_ice_trip(
+            chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            120.0,
+            None,
+            true,
+        );
+        trip.vehicle_id = vehicle.id;
+        state.db.create_trip(&trip).unwrap();
+        vehicle.id.to_string()
+    }
+
+    /// Pins the wire contract: a JSON array whose objects carry the
+    /// camelCase keys `tripId`, `tripNumber`, `oldOdometer`, `newOdometer` --
+    /// the fields `api.ts` would need if it ever called this. A typo in the
+    /// command string, a wrong field in `Args`, or a serde rename mismatch
+    /// on `Vec<OdometerChange>` would be caught by nothing else in this repo.
+    #[test]
+    fn recalculate_odometers_over_rpc_returns_camelcase_changes() {
+        let state = test_state();
+        let vehicle_id = seed_vehicle_id_with_one_trip(&state);
+
+        let result = dispatch_sync(
+            "recalculate_odometers",
+            json!({ "vehicleId": vehicle_id, "year": 2026, "dryRun": true }),
+            &state,
+        )
+        .unwrap();
+
+        let changes = result.as_array().expect("must return a JSON array");
+        assert!(
+            !changes.is_empty(),
+            "the seeded trip's stored odometer does not match the running \
+             total, so a dry run must propose at least one change: {result}"
+        );
+        let change = &changes[0];
+        assert!(change.get("tripId").is_some(), "got: {change}");
+        assert!(change.get("tripNumber").is_some(), "got: {change}");
+        assert!(change.get("oldOdometer").is_some(), "got: {change}");
+        assert!(change.get("newOdometer").is_some(), "got: {change}");
+    }
+
+    /// `Args::dry_run` has no `#[serde(default)]`, so an omitted `dryRun`
+    /// must fail closed rather than silently defaulting to a write -- the
+    /// right behaviour on a write command. Pins it so nobody adds a default
+    /// later without noticing.
+    #[test]
+    fn recalculate_odometers_over_rpc_requires_dry_run_field() {
+        let state = test_state();
+        let vehicle_id = seed_vehicle_id_with_one_trip(&state);
+
+        let result = dispatch_sync(
+            "recalculate_odometers",
+            json!({ "vehicleId": vehicle_id, "year": 2026 }),
+            &state,
+        );
+        assert!(
+            result.is_err(),
+            "an omitted dryRun must be refused, not defaulted, on a write command"
+        );
+    }
 }
