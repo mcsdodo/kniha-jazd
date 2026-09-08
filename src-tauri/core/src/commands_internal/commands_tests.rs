@@ -5758,6 +5758,100 @@ fn test_recalculate_odometers_closes_a_carryover_gap() {
 }
 
 // ============================================================================
+// Task 80: the preview returns the row's odometer, the editor does not compute
+// it. Both fields come from the canonical order, so the editor and the grid
+// read one chain (ADR-008).
+// ============================================================================
+
+#[test]
+fn test_preview_returns_the_row_odometer() {
+    // The editor stops computing odo = previous + km. The preview command
+    // already runs on every km change, so it returns the answer instead.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let preview = preview_trip_calculation_internal(
+        &db,
+        vehicle.id.to_string(),
+        2026,
+        70,    // distance_km is i32 on this command
+        None,  // fuel_liters
+        false, // full_tank
+        None,  // insert_at_trip_id
+        None,  // editing_trip_id
+    )
+    .unwrap();
+
+    assert_eq!(preview.odometer_start, 50050.0);
+    assert_eq!(preview.odometer, 50120.0);
+}
+
+#[test]
+fn test_preview_of_an_edited_row_anchors_on_its_canonical_predecessor() {
+    // Two of the three rows are tied on start_datetime and created_at, so
+    // only trip_order decides which of them comes first. The edited row is
+    // the second one; its anchor must be the row BEFORE it in that order.
+    //
+    // Each way of getting it wrong reports a different number:
+    //   the canonical predecessor (correct) -> 50050
+    //   the tied row below it               -> 50250
+    //   the year start                      -> 50000
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let day = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let older = Utc::now() - chrono::Duration::days(2);
+    let tied_stamp = Utc::now() - chrono::Duration::days(1);
+
+    seed_trip(
+        &db,
+        vehicle.id,
+        day.and_hms_opt(8, 0, 0).unwrap(),
+        50.0,
+        50050.0,
+        None,
+        older,
+    );
+    let edited = seed_trip(
+        &db,
+        vehicle.id,
+        day.and_hms_opt(12, 0, 0).unwrap(),
+        100.0,
+        50150.0,
+        None,
+        tied_stamp,
+    );
+    seed_trip(
+        &db,
+        vehicle.id,
+        day.and_hms_opt(12, 0, 0).unwrap(),
+        100.0,
+        50250.0,
+        None,
+        tied_stamp,
+    );
+
+    let preview = preview_trip_calculation_internal(
+        &db,
+        vehicle.id.to_string(),
+        2026,
+        70,
+        None,
+        false,
+        None,
+        Some(edited.id.to_string()),
+    )
+    .unwrap();
+
+    assert_eq!(
+        preview.odometer_start, 50050.0,
+        "the anchor is the odometer of the row before this one in trip_order"
+    );
+    assert_eq!(
+        preview.odometer, 50120.0,
+        "the row ends at anchor + the previewed distance"
+    );
+}
+
+// ============================================================================
 // Time inference (smart defaults for new trip rows) — Task 56
 // ============================================================================
 

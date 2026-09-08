@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Trip, Route, Place, PreviewResult, VehicleType, SuggestedFillup, CopiedTripDefaults } from '$lib/types';
+	import { onMount } from 'svelte';
 	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { confirmStore } from '$lib/stores/confirm';
@@ -14,7 +15,6 @@
 	export let places: Place[] = [];
 	export let purposeSuggestions: string[] = [];
 	export let isNew: boolean = false;
-	export let previousOdometer: number = 0;
 	export let consumptionRate: number = 0;
 	export let fuelConsumed: number = 0;
 	export let fuelRemaining: number = 0;
@@ -135,6 +135,36 @@
 		otherCostsNote: trip?.otherCostsNote || ''
 	};
 
+	// The odometer this row starts from -- the "Km pred" the grid shows for it.
+	// It comes from the backend preview, which derives it from the canonical
+	// trip order (task 80, ADR-008). null means no preview has returned yet;
+	// there is no local substitute, because the display neighbour this used to
+	// read disagrees with that order on tied rows.
+	$: odometerAnchor = previewData ? previewData.odometerStart : null;
+
+	// Fill the ODO from the preview when it returns. Called from a reactive
+	// statement that depends on previewData ALONE -- reading formData inside a
+	// `$:` block that also writes to it would re-trigger itself.
+	//
+	// The distanceKm guard keeps the three sites this replaced: a route
+	// auto-fill, a copied row and a km edit all set a km first, so the ODO is
+	// only ever derived once there is a km to add. Without it a fresh new row
+	// would show the anchor in an ODO field the user has not typed into yet.
+	function applyPreviewOdometer(preview: PreviewResult | null) {
+		if (!preview || manualOdoEdit || formData.distanceKm === null) return;
+		formData.odometer = preview.odometer;
+	}
+	$: applyPreviewOdometer(previewData);
+
+	// A new row has no preview yet, so the ODO field has no anchor to derive KM
+	// from until one returns. Ask for it as the row opens. An existing row gets
+	// its preview from handleEdit, and a copied row asks during init below.
+	onMount(() => {
+		if (isNew && !copyFrom) {
+			onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
+		}
+	});
+
 	// Tracks the start value the current endDatetime was calculated against, so
 	// a start edit can shift the end by the same amount.
 	let lastStartDatetime = formData.startDatetime;
@@ -213,10 +243,7 @@
 			// on that route.
 			const roundedKm = Math.round(matchingRoute.distanceKm);
 			formData.distanceKm = roundedKm;
-			// Also update ODO if not manually edited
-			if (!manualOdoEdit) {
-				formData.odometer = previousOdometer + roundedKm;
-			}
+			// The preview fills the ODO in when it returns (applyPreviewOdometer).
 			// Trigger live preview calculation for consumption/zostatok
 			onPreviewRequest(roundedKm, formData.fuelLiters, formData.fullTank);
 		}
@@ -240,7 +267,6 @@
 		// The backend zeroes an implausible distance rather than copying it;
 		// null (not 0) leaves the field blank and lets auto-fill take over.
 		formData.distanceKm = copyFrom.distanceKm > 0 ? copyFrom.distanceKm : null;
-		formData.odometer = previousOdometer + (formData.distanceKm ?? 0);
 		formData.purpose = copyFrom.purpose;
 		// The copied times are explicit user intent. Marking this route pair as
 		// already-inferred makes tryInferTimes() short-circuit, so the Task 56
@@ -316,10 +342,7 @@
 		// A typed distance outranks any route the user later picks — mirrors
 		// manualOdoEdit. Clearing the field hands control back to auto-fill.
 		manualKmEdit = km !== null;
-		// Always auto-calculate ODO if not manually edited (previousOdometer can be 0)
-		if (!manualOdoEdit && km !== null) {
-			formData.odometer = previousOdometer + km;
-		}
+		// The ODO follows from the preview, not from a display neighbour.
 		// Request live preview calculation
 		onPreviewRequest(km ?? 0, formData.fuelLiters, formData.fullTank);
 	}
@@ -336,15 +359,16 @@
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
-	// Clamp ODO to (previousOdometer + 1) when finalised below the previous row's value.
+	// Clamp ODO to (odometerAnchor + 1) when finalised below the anchor.
 	// Runs on `change` (blur / Enter) so mid-typing keystrokes are not snapped away.
 	function handleOdoBlur() {
 		if (
-			previousOdometer > 0 &&
+			odometerAnchor !== null &&
+			odometerAnchor > 0 &&
 			formData.odometer !== null &&
-			formData.odometer < previousOdometer
+			formData.odometer < odometerAnchor
 		) {
-			formData.odometer = previousOdometer + 1;
+			formData.odometer = odometerAnchor + 1;
 			formData.distanceKm = 1;
 			onPreviewRequest(formData.distanceKm, formData.fuelLiters, formData.fullTank);
 		}
@@ -365,17 +389,22 @@
 			return;
 		}
 
-		// KM is the gap between this row's ODO and the previous row's ODO.
-		// Two guards protect against degenerate situations:
-		//   1. previousOdometer === 0 means there is no meaningful baseline
+		// KM is the gap between this row's ODO and the anchor the backend
+		// reported. Three guards protect against degenerate situations:
+		//   1. A null anchor means no preview has returned yet, so there is
+		//      no baseline to subtract. The display neighbour this used to
+		//      read is not a substitute — it disagrees with the canonical
+		//      order (task 80) — so leave KM to the user.
+		//   2. An anchor of 0 means there is no meaningful baseline either
 		//      (fresh vehicle with no initialOdometer set). In that case the
 		//      subtraction produces the raw ODO value — which looks to the
 		//      user like "ODO ended up in the KM field". Skip auto-derivation
 		//      and let the user type KM explicitly.
-		//   2. Any single-trip distance > 9999 km is almost certainly the
+		//   3. Any single-trip distance > 9999 km is almost certainly the
 		//      result of a missing baseline rather than a real trip.
-		const candidate = newOdo - previousOdometer;
-		if (previousOdometer > 0 && candidate >= 0 && candidate <= 9999) {
+		const candidate =
+			odometerAnchor !== null && odometerAnchor > 0 ? newOdo - odometerAnchor : null;
+		if (candidate !== null && candidate >= 0 && candidate <= 9999) {
 			formData.distanceKm = candidate;
 			onPreviewRequest(candidate, formData.fuelLiters, formData.fullTank);
 		}
@@ -412,15 +441,17 @@
 	}
 
 	function handleSave() {
-		// Final ODO clamp: never persist a value below the previous row's ODO.
+		// Final ODO clamp: never persist a value below this row's anchor.
 		// Belt-and-suspenders behind the on:change clamp in handleOdoBlur.
+		// With no anchor (no preview returned) there is nothing to clamp
+		// against, and the saved value stands as typed.
 		let odo = formData.odometer ?? 0;
-		if (previousOdometer > 0 && odo < previousOdometer) {
-			odo = previousOdometer + 1;
+		let km = formData.distanceKm ?? 0;
+		const anchor = odometerAnchor;
+		if (anchor !== null && anchor > 0 && odo < anchor) {
+			odo = anchor + 1;
+			km = Math.max(1, odo - anchor);
 		}
-		const km = odo === (formData.odometer ?? 0)
-			? (formData.distanceKm ?? 0)
-			: Math.max(1, odo - previousOdometer);
 		const dataToSave = {
 			...formData,
 			distanceKm: km,

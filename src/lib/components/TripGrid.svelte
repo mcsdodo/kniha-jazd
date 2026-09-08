@@ -497,8 +497,6 @@
 		return trip.id === FIRST_RECORD_ID;
 	}
 
-	$: lastOdometer = sortedTrips.length > 0 ? sortedTrips[0].odometer : effectiveInitialOdometer;
-
 	// Legend counts
 	$: partialCount = trips.filter(t => t.fuelLiters && !t.fullTank).length;
 	$: missingFuelInvoiceCount = gridData?.missingFuelInvoices.length ?? 0;
@@ -672,7 +670,6 @@
 						{places}
 						{purposeSuggestions}
 						isNew={true}
-						previousOdometer={lastOdometer}
 						defaultDate={defaultNewDate}
 						copyFrom={copyDefaults}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
@@ -695,7 +692,6 @@
 				{#each displayRows as row, index (row.type === 'trip' ? row.data.id : `monthend-${row.data.month}`)}
 					{#if row.type === 'trip'}
 					{@const trip = row.data}
-					{@const tripIndex = sortedTrips.indexOf(trip)}
 					<!-- New row inserted above this trip (not for first record) -->
 					{#if showNewRow && insertAtTripId === trip.id && !isFirstRecord(trip)}
 						<TripRow
@@ -705,7 +701,6 @@
 							{places}
 							{purposeSuggestions}
 							isNew={true}
-							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
 							defaultDate={insertDate || tripDate(trip)}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelConsumed={0}
@@ -777,7 +772,6 @@
 							{places}
 							{purposeSuggestions}
 							isNew={false}
-							previousOdometer={tripIndex < sortedTrips.length - 1 ? sortedTrips[tripIndex + 1].odometer : effectiveInitialOdometer}
 							consumptionRate={consumptionRates.get(trip.id) || tpConsumption}
 							fuelConsumed={fuelConsumed.get(trip.id) || 0}
 							fuelRemaining={fuelRemaining.get(trip.id) || 0}

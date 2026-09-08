@@ -1583,11 +1583,23 @@ pub fn preview_trip_calculation_internal(
     let margin_percent = calculate_margin_percent(consumption_rate, tp_consumption);
     let is_over_limit = !is_within_legal_limit(margin_percent);
 
+    // The odometer this row starts from (task 80). It reads the same helper
+    // over the same order the grid's "Km pred" column reads, so the value the
+    // editor offers cannot drift from the value the grid shows.
+    let year_start_odometer =
+        get_year_start_odometer(db, &vehicle_id, year, vehicle.initial_odometer)?;
+    let odometer_start = calculate_odometer_start(&trips, year_start_odometer)
+        .get(&target_id)
+        .copied()
+        .unwrap_or(year_start_odometer);
+
     Ok(PreviewResult {
         fuel_remaining: fuel_remaining_value,
         consumption_rate,
         margin_percent,
         is_over_limit,
         is_estimated_rate,
+        odometer_start,
+        odometer: odometer_start + distance_km as f64,
     })
 }

@@ -212,6 +212,10 @@ export interface PreviewResult {
   marginPercent: number;
   isOverLimit: boolean;
   isEstimatedRate: boolean;
+  /** Odometer this row starts from, from the canonical trip order */
+  odometerStart: number;
+  /** Odometer this row ends at (odometerStart + km), computed in Rust */
+  odometer: number;
 }
 
 /**

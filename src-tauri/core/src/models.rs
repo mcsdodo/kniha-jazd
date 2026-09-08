@@ -895,6 +895,11 @@ pub struct PreviewResult {
     pub is_over_limit: bool,
     /// True if rate is estimated (no full-tank fill-up yet in this period)
     pub is_estimated_rate: bool,
+    /// Odometer this row starts from, derived from the canonical order
+    pub odometer_start: f64,
+    /// Odometer this row ends at: `odometer_start + km` (task 80: the editor
+    /// must not do this arithmetic itself, see ADR-008)
+    pub odometer: f64,
 }
 
 /// One row `recalculate_odometers_internal` did (or, on a dry run, would)
