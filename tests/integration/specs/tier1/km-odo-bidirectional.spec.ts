@@ -533,8 +533,11 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       //
       // The snap here comes from handleOdoBlur, on the `change` event, which
       // is unconditional -- so by the time handleSave runs, its own clamp has
-      // nothing left to do. handleSave's clamp is covered by the case below,
-      // where Save beats the `change` and the preview alike.
+      // nothing left to do. handleSave's own clamp has two branches: the
+      // odoFollowsKm one is covered by the case in the next describe block,
+      // where Save beats the `change` and the preview alike; the
+      // manualOdoEdit one is covered by the case right below this one, where
+      // Enter beats the `change` event the same way.
       const vehicleData = createTestIceVehicle({
         name: 'Typed Below Anchor',
         licensePlate: 'BELOW-02',
@@ -628,6 +631,113 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       }, SlovakCities.martin);
       const savedSelector = `.trip-grid tbody tr:nth-of-type(${savedIndex + 1})`;
       expect(parseFloat(await (await $(`${savedSelector} .col-odo`)).getText())).toBe(110201);
+    });
+
+    it('gives the same anchor + 1 answer when Enter saves before the ODO blurs', async () => {
+      // handleSave's own clamp, on the manualOdoEdit branch this time --
+      // reached the only way it can be. Enter is bound with
+      // <svelte:window on:keydown>, and handleGlobalKeydown calls
+      // preventDefault() and then handleSave() synchronously while the ODO
+      // input still has focus. No blur fires, so no `change` event, so
+      // handleOdoBlur's snap never runs first -- and there is no <form>
+      // wrapping the row, so there is no implicit-submit blur either.
+      // handleSave therefore reaches its clamp with manualOdoEdit set and the
+      // raw typed value still in formData.odometer.
+      //
+      // One script: type the ODO, then Enter. Nothing can run in between, so
+      // this is the manualOdoEdit branch, not handleOdoBlur's snap. The
+      // answer must match what the blur snap would have given: anchor + 1,
+      // km 1.
+      const vehicleData = createTestIceVehicle({
+        name: 'Enter Beats Blur',
+        licensePlate: 'BELOW-03',
+        initialOdometer: 140000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-09-10T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.kosice,
+        distanceKm: 275,
+        odometer: 140275,
+        purpose: TripPurposes.business,
+      });
+      // The row under test: its anchor is 140275, its stored odometer is 140150.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-09-10T14:00`,
+        origin: SlovakCities.kosice,
+        destination: SlovakCities.presov,
+        distanceKm: 50,
+        odometer: 140150,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      const rowFor = async (dest: string): Promise<string> => {
+        const index = await browser.execute((d: string) => {
+          const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
+          return rows.findIndex(
+            (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
+          );
+        }, dest);
+        expect(index).toBeGreaterThan(-1);
+        return `.trip-grid tbody tr:nth-of-type(${index + 1})`;
+      };
+
+      await browser.execute((sel: string) => {
+        const row = document.querySelector(sel) as HTMLElement;
+        row?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      }, await rowFor(SlovakCities.presov));
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 5000, timeoutMsg: 'Editing row did not appear after double-click' }
+      );
+
+      // Type an ODO below the anchor (140275) and press Enter -- input only,
+      // no change event, both in one synchronous script.
+      await browser.execute((sel: string, value: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+        );
+      }, 'tr.editing [data-testid="trip-odometer"]', '139000');
+
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      const savedRow = await rowFor(SlovakCities.presov);
+      // handleOdoBlur never ran: if it had, the field would already show
+      // 140276 before Save fired. This is handleSave's own clamp giving the
+      // same answer on the manualOdoEdit branch.
+      expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(1);
+      expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(140276);
     });
   });
 
