@@ -480,25 +480,34 @@
 	}
 
 	function handleSave() {
-		// Final ODO clamp: never persist a value below this row's anchor.
-		// Belt-and-suspenders behind the on:change clamp in handleOdoBlur.
-		// With no anchor (no preview returned) there is nothing to clamp
-		// against, and the saved value stands as typed.
+		// Final ODO clamp: never persist a value below this row's anchor, and
+		// never pay for that with the distance. With no anchor (no preview
+		// returned, and no odoStart on a new row) there is nothing to clamp
+		// against, and the saved values stand as typed.
 		//
-		// It fires only on numbers the user touched in THIS session. A row can
-		// sit below its canonical anchor for a reason the book records -- the
-		// negative-span row task 79 exists to correct is exactly that -- and
-		// clamping it on a Save that only fixed a typo would rewrite its
-		// odometer and collapse its distance to 1 km on a legal record. On a
-		// new row the user types every number, so one of the two flags is
-		// always set by the time there is anything to clamp.
+		// Which number gives way depends on which one the user just entered:
+		//
+		//   a km edit is behind it -- the km is theirs and the odometer is the
+		//     derived one, so put the odometer where the backend would have
+		//     put it. Reachable when Save beats the preview response, or when
+		//     the response was rejected as superseded;
+		//   a typed ODO is behind it -- handleOdoBlur normally snapped it on
+		//     `change` already, so this is the last resort for the same edit
+		//     and gives the same answer it would have;
+		//   neither -- the clamp does not fire at all. A row can sit below its
+		//     canonical anchor for a reason the book records (the negative-span
+		//     row task 79 exists to correct), and a Save that only fixed a typo
+		//     must leave both numbers exactly as they were.
 		let odo = formData.odometer ?? 0;
 		let km = formData.distanceKm ?? 0;
 		const anchor = odometerAnchor;
-		const userEditedTheNumbers = manualOdoEdit || odoFollowsKm;
-		if (userEditedTheNumbers && anchor !== null && anchor > 0 && odo < anchor) {
-			odo = anchor + 1;
-			km = Math.max(1, odo - anchor);
+		if (anchor !== null && anchor > 0 && odo < anchor) {
+			if (odoFollowsKm) {
+				odo = anchor + km;
+			} else if (manualOdoEdit) {
+				odo = anchor + 1;
+				km = 1; // the shortest row the chain allows, as handleOdoBlur does
+			}
 		}
 		const dataToSave = {
 			...formData,

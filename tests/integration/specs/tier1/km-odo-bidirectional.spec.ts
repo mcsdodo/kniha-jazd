@@ -527,9 +527,14 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(100200);
     });
 
-    it('still clamps an ODO the user types below the anchor', async () => {
-      // The clamp itself must survive the gate: an ODO the user actually
-      // typed below the anchor is snapped to anchor + 1 and saved that way.
+    it('still snaps an ODO the user types below the anchor, and saves it', async () => {
+      // The snap must survive the gate: an ODO the user actually typed below
+      // the anchor becomes anchor + 1 and is saved that way.
+      //
+      // The snap here comes from handleOdoBlur, on the `change` event, which
+      // is unconditional -- so by the time handleSave runs, its own clamp has
+      // nothing left to do. handleSave's clamp is covered by the case below,
+      // where Save beats the `change` and the preview alike.
       const vehicleData = createTestIceVehicle({
         name: 'Typed Below Anchor',
         licensePlate: 'BELOW-02',
@@ -623,6 +628,107 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       }, SlovakCities.martin);
       const savedSelector = `.trip-grid tbody tr:nth-of-type(${savedIndex + 1})`;
       expect(parseFloat(await (await $(`${savedSelector} .col-odo`)).getText())).toBe(110201);
+    });
+  });
+
+  describe('Saving before the preview lands', () => {
+    it('keeps the km the user typed and moves the ODO to the chain', async () => {
+      // handleSave's own clamp, reached the only way it can be: the km input
+      // and the Save click in ONE synchronous script, so no preview response
+      // and no `change` event can come between them. The row sits below its
+      // canonical anchor, so the clamp fires with a stale odometer in the
+      // field and a km the user typed a moment ago.
+      //
+      // The km is the number to keep. Before this fix the clamp kept the
+      // odometer instead and collapsed a 400 km leg to 1 km.
+      const vehicleData = createTestIceVehicle({
+        name: 'Save Beats Preview',
+        licensePlate: 'RACE-001',
+        initialOdometer: 120000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-09-06T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.zvolen,
+        distanceKm: 300,
+        odometer: 120300,
+        purpose: TripPurposes.business,
+      });
+      // Under test: anchor 120300, stored odometer 120200.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-09-06T14:00`,
+        origin: SlovakCities.zvolen,
+        destination: SlovakCities.michalovce,
+        distanceKm: 352,
+        odometer: 120200,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      const rowFor = async (dest: string): Promise<string> => {
+        const index = await browser.execute((d: string) => {
+          const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
+          return rows.findIndex(
+            (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
+          );
+        }, dest);
+        expect(index).toBeGreaterThan(-1);
+        return `.trip-grid tbody tr:nth-of-type(${index + 1})`;
+      };
+
+      await browser.execute((sel: string) => {
+        const row = document.querySelector(sel) as HTMLElement;
+        row?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      }, await rowFor(SlovakCities.michalovce));
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 5000, timeoutMsg: 'Editing row did not appear after double-click' }
+      );
+
+      // One script: type the km, then Save. Nothing can run in between.
+      await browser.execute(() => {
+        const km = document.querySelector(
+          'tr.editing [data-testid="trip-distance"]'
+        ) as HTMLInputElement;
+        km.value = '400';
+        km.dispatchEvent(new Event('input', { bubbles: true }));
+        (document.querySelector('tr.editing .icon-btn.save') as HTMLElement).click();
+      });
+
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      const savedRow = await rowFor(SlovakCities.michalovce);
+      // The typed distance survives, and the odometer is where the chain puts
+      // it: 120300 + 400. The old clamp saved 1 km and 120301.
+      expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(400);
+      expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(120700);
     });
   });
 
