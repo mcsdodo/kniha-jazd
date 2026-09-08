@@ -1258,7 +1258,7 @@ pub fn update_trip_cascade_internal(
 
     // A re-dated row moves in trip_order, so its old and its new position both
     // shift. That is not modelled here: write the row and cascade nothing.
-    let plan = if re_dated {
+    let mut plan = if re_dated {
         CascadePlan {
             new_odometer: odometer,
             new_distance_km: distance_km,
@@ -1273,6 +1273,7 @@ pub fn update_trip_cascade_internal(
     } else {
         plan_odometer_cascade(&trips, year_start, &id, distance_km, odometer)?
     };
+    mark_next_year_chain_breaks(db, &vehicle_id, year, &mut plan)?;
 
     if dry_run {
         return Ok(CascadeResult { trip: None, plan });
@@ -1344,8 +1345,9 @@ fn mark_next_year_chain_breaks(
 }
 ```
 
-Call it on the plan in all three commands, after planning and before the `dry_run`
-return, so the dry run and the apply report the same thing.
+It is called in all three commands, after planning and before the `dry_run` return, so
+the dry run and the apply report the same thing. The call is already in the code blocks
+of Steps 5, 6 and 7; write the helper itself once, next to them.
 
 - [ ] **Step 6: Implement `create_trip_cascade_internal`**
 
