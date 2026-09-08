@@ -472,6 +472,151 @@ impl Database {
         Ok(())
     }
 
+    /// Apply the odometer shifts of one cascade inside an open transaction.
+    /// A shift naming a row that is not there is an error, not a silent
+    /// no-op: it means the caller planned against a book that has since moved.
+    fn apply_odometer_shifts(
+        tx: &mut SqliteConnection,
+        shifts: &[(String, f64)],
+        updated_at: &str,
+    ) -> QueryResult<()> {
+        for (shift_id, new_odometer) in shifts {
+            let rows = diesel::update(trips::table.filter(trips::id.eq(shift_id)))
+                .set((
+                    trips::odometer.eq(new_odometer),
+                    trips::updated_at.eq(updated_at),
+                ))
+                .execute(tx)?;
+            if rows != 1 {
+                return Err(diesel::result::Error::NotFound);
+            }
+        }
+        Ok(())
+    }
+
+    /// Write one full row and move the odometer of others, in one transaction.
+    ///
+    /// A cascading save is one correction to a legal record, so it commits
+    /// whole or not at all (task 81). The shifted rows change their odometer
+    /// and their `updated_at` and nothing else -- never their distance, which
+    /// is what the book records as driven.
+    ///
+    /// A shift naming a row that is not in the table is an error, not a
+    /// silent no-op: it means the caller planned against a book that has
+    /// since moved.
+    pub fn update_trip_with_odometer_shift(
+        &self,
+        trip: &Trip,
+        shifts: &[(String, f64)],
+    ) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        let id_str = trip.id.to_string();
+        let vehicle_id_str = trip.vehicle_id.to_string();
+        let start_datetime_str = trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let end_datetime_str = trip
+            .end_datetime
+            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
+        let updated_at_str = trip.updated_at.to_rfc3339();
+
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::update(trips::table.filter(trips::id.eq(&id_str)))
+                .set((
+                    trips::vehicle_id.eq(&vehicle_id_str),
+                    trips::origin.eq(&trip.origin),
+                    trips::destination.eq(&trip.destination),
+                    trips::distance_km.eq(trip.distance_km),
+                    trips::odometer.eq(trip.odometer),
+                    trips::purpose.eq(&trip.purpose),
+                    trips::fuel_liters.eq(trip.fuel_liters),
+                    trips::fuel_cost_eur.eq(trip.fuel_cost_eur),
+                    trips::other_costs_eur.eq(trip.other_costs_eur),
+                    trips::other_costs_note.eq(&trip.other_costs_note),
+                    trips::full_tank.eq(if trip.full_tank { 1 } else { 0 }),
+                    trips::energy_kwh.eq(trip.energy_kwh),
+                    trips::energy_cost_eur.eq(trip.energy_cost_eur),
+                    trips::full_charge.eq(Some(if trip.full_charge { 1 } else { 0 })),
+                    trips::soc_override_percent.eq(trip.soc_override_percent),
+                    trips::updated_at.eq(&updated_at_str),
+                    trips::start_datetime.eq(&start_datetime_str),
+                    trips::end_datetime.eq(end_datetime_str.as_deref()),
+                ))
+                .execute(tx)?;
+
+            Self::apply_odometer_shifts(tx, shifts, &updated_at_str)
+        })
+    }
+
+    /// Insert one full row and move the odometer of others, in one
+    /// transaction. See `update_trip_with_odometer_shift` for why this must
+    /// be all-or-nothing and why a shift naming an unknown row is an error.
+    pub fn create_trip_with_odometer_shift(
+        &self,
+        trip: &Trip,
+        shifts: &[(String, f64)],
+    ) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        let id_str = trip.id.to_string();
+        let vehicle_id_str = trip.vehicle_id.to_string();
+        let start_datetime_str = trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let end_datetime_str = trip
+            .end_datetime
+            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
+        let created_at_str = trip.created_at.to_rfc3339();
+        let updated_at_str = trip.updated_at.to_rfc3339();
+        let other_costs_note_ref = trip.other_costs_note.as_deref();
+
+        let new_trip = NewTripRow {
+            id: &id_str,
+            vehicle_id: &vehicle_id_str,
+            origin: &trip.origin,
+            destination: &trip.destination,
+            distance_km: trip.distance_km,
+            odometer: trip.odometer,
+            purpose: &trip.purpose,
+            fuel_liters: trip.fuel_liters,
+            fuel_cost_eur: trip.fuel_cost_eur,
+            other_costs_eur: trip.other_costs_eur,
+            other_costs_note: other_costs_note_ref,
+            full_tank: if trip.full_tank { 1 } else { 0 },
+            energy_kwh: trip.energy_kwh,
+            energy_cost_eur: trip.energy_cost_eur,
+            full_charge: Some(if trip.full_charge { 1 } else { 0 }),
+            soc_override_percent: trip.soc_override_percent,
+            created_at: &created_at_str,
+            updated_at: &updated_at_str,
+            start_datetime: &start_datetime_str,
+            end_datetime: end_datetime_str.as_deref(),
+        };
+
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::insert_into(trips::table)
+                .values(&new_trip)
+                .execute(tx)?;
+
+            Self::apply_odometer_shifts(tx, shifts, &updated_at_str)
+        })
+    }
+
+    /// Delete one row and move the odometer of others, in one transaction.
+    /// See `update_trip_with_odometer_shift` for why this must be
+    /// all-or-nothing and why a shift naming an unknown row is an error.
+    pub fn delete_trip_with_odometer_shift(
+        &self,
+        id: &str,
+        shifts: &[(String, f64)],
+    ) -> QueryResult<()> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        let updated_at_str = Utc::now().to_rfc3339();
+
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::delete(p::paperless_trip_links.filter(p::trip_id.eq(id))).execute(tx)?;
+            diesel::delete(trips::table.filter(trips::id.eq(id))).execute(tx)?;
+
+            Self::apply_odometer_shifts(tx, shifts, &updated_at_str)
+        })
+    }
+
     // ========================================================================
     // Route CRUD Operations
     // ========================================================================

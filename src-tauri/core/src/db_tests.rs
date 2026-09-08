@@ -1362,3 +1362,197 @@ fn delete_route_map_is_idempotent() {
     assert!(db.get_route_map(&trip.id.to_string()).unwrap().is_none());
     assert_eq!(count_route_map_rows(&db, &trip.id.to_string()), 0);
 }
+
+// ============================================================================
+// Odometer cascade writes -- one row and its shift in one transaction
+// (task 81, plan task 2). Nothing calls these methods yet.
+// ============================================================================
+
+/// Build a trip without saving it. The plan sketches a
+/// `Trip::new(vehicle_id, origin, destination, distance_km, odometer,
+/// purpose, date)` constructor that does not exist in this codebase, so
+/// build the struct literal directly, mirroring `seed_trip_between_on`.
+fn build_odometer_shift_trip(
+    vehicle_id: Uuid,
+    origin: &str,
+    destination: &str,
+    distance_km: f64,
+    odometer: f64,
+    purpose: &str,
+    date: NaiveDate,
+) -> Trip {
+    let now = Utc::now();
+    Trip {
+        id: Uuid::new_v4(),
+        vehicle_id,
+        start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
+        end_datetime: None,
+        origin: origin.to_string(),
+        destination: destination.to_string(),
+        distance_km,
+        odometer,
+        purpose: purpose.to_string(),
+        fuel_liters: None,
+        fuel_cost_eur: None,
+        other_costs_eur: None,
+        other_costs_note: None,
+        full_tank: false,
+        energy_kwh: None,
+        energy_cost_eur: None,
+        full_charge: false,
+        soc_override_percent: None,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+#[test]
+fn test_update_trip_with_odometer_shift_writes_all_or_nothing() {
+    // The shifted rows and the edited row are one legal correction. A failure
+    // on any of them must leave the book exactly as it was.
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new(
+        "Shift Car".to_string(),
+        "BA111AA".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+
+    let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let mut edited = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
+    let later = build_odometer_shift_trip(vehicle.id, "B", "C", 20.0, 70.0, "work", date);
+    db.create_trip(&edited).unwrap();
+    db.create_trip(&later).unwrap();
+
+    edited.distance_km = 60.0;
+    edited.odometer = 60.0;
+    db.update_trip_with_odometer_shift(&edited, &[(later.id.to_string(), 80.0)])
+        .unwrap();
+
+    assert_eq!(
+        db.get_trip(&edited.id.to_string()).unwrap().unwrap().odometer,
+        60.0
+    );
+    assert_eq!(
+        db.get_trip(&edited.id.to_string())
+            .unwrap()
+            .unwrap()
+            .distance_km,
+        60.0
+    );
+    assert_eq!(
+        db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer,
+        80.0
+    );
+    // A shift touches the odometer and nothing else.
+    assert_eq!(
+        db.get_trip(&later.id.to_string())
+            .unwrap()
+            .unwrap()
+            .distance_km,
+        20.0
+    );
+    assert_eq!(
+        db.get_trip(&later.id.to_string()).unwrap().unwrap().origin,
+        "B"
+    );
+}
+
+#[test]
+fn test_update_trip_with_odometer_shift_rejects_an_unknown_row() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new(
+        "Shift Car".to_string(),
+        "BA111AA".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+    let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let mut edited = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
+    db.create_trip(&edited).unwrap();
+    // Change the value so the rollback assertion below is discriminating: if
+    // the write were not transactional, the update would still land and this
+    // test would pass for the wrong reason.
+    edited.odometer = 999.0;
+
+    let result = db.update_trip_with_odometer_shift(
+        &edited,
+        &[(
+            "00000000-0000-0000-0000-000000000000".to_string(),
+            80.0,
+        )],
+    );
+
+    assert!(
+        result.is_err(),
+        "a shift naming a row that is not there must fail"
+    );
+    assert_eq!(
+        db.get_trip(&edited.id.to_string()).unwrap().unwrap().odometer,
+        50.0,
+        "and it must roll the edited row back"
+    );
+}
+
+#[test]
+fn test_create_trip_with_odometer_shift_inserts_and_shifts() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new(
+        "Shift Car".to_string(),
+        "BA111AA".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+    let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let later = build_odometer_shift_trip(vehicle.id, "B", "C", 20.0, 70.0, "work", date);
+    db.create_trip(&later).unwrap();
+    let inserted = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
+
+    db.create_trip_with_odometer_shift(&inserted, &[(later.id.to_string(), 120.0)])
+        .unwrap();
+
+    assert_eq!(
+        db.get_trip(&inserted.id.to_string())
+            .unwrap()
+            .unwrap()
+            .odometer,
+        50.0
+    );
+    assert_eq!(
+        db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer,
+        120.0
+    );
+}
+
+#[test]
+fn test_delete_trip_with_odometer_shift_removes_and_shifts() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new(
+        "Shift Car".to_string(),
+        "BA111AA".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).unwrap();
+    let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let removed = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
+    let later = build_odometer_shift_trip(vehicle.id, "B", "C", 20.0, 70.0, "work", date);
+    db.create_trip(&removed).unwrap();
+    db.create_trip(&later).unwrap();
+
+    db.delete_trip_with_odometer_shift(&removed.id.to_string(), &[(later.id.to_string(), 20.0)])
+        .unwrap();
+
+    assert!(db.get_trip(&removed.id.to_string()).unwrap().is_none());
+    assert_eq!(
+        db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer,
+        20.0
+    );
+}
