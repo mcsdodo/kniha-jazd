@@ -113,6 +113,7 @@
 	$: showEnergyFields = vehicleType === 'Bev' || vehicleType === 'Phev';
 
 	let isEditing = isNew;
+	let manualOdoEdit = false; // Track if user manually edited ODO
 	let manualKmEdit = false; // Track if user manually edited KM (see tryAutoFillDistance)
 
 	// In-flight guard (mirrors copyPending in TripGrid): a save is still
@@ -180,17 +181,44 @@
 		};
 	}
 
+	// A km edit is what makes the ODO follow the backend. Set by the sites that
+	// put a km in the field: a typed km, a route auto-fill, a copied row.
+	// Without it every OTHER preview -- opening the editor, typing litres,
+	// toggling the full-tank box, magic fill -- would rewrite the odometer of a
+	// row the user only looked at (task 80 asked for the km direction only;
+	// task 81 fix round 1 confirmed by measurement that dropping this guard
+	// lets a mere open silently move a row's odometer and cascade the year).
+	let odoFollowsKm = false;
+
+	// Both flags describe the CURRENT edit session: whether a km edit is behind
+	// the odometer, and whether the user took the odometer over by hand. The
+	// component outlives its sessions -- the grid keys its rows by trip id, so
+	// one instance serves display and every edit of that row, and formData is
+	// never re-seeded after a save. A flag left set therefore leaks into the
+	// next session: re-open a row whose anchor moved in the meantime and the
+	// preview would write an odometer from a km edit made minutes ago.
+	function resetEditSessionFlags() {
+		odoFollowsKm = false;
+		manualOdoEdit = false;
+	}
+
 	// Fill the ODO from the preview when it returns. Called from a reactive
 	// statement that depends on previewData ALONE -- reading formData inside a
 	// `$:` block that also writes to it would re-trigger itself.
 	//
-	// The guard says "this preview answers the km the field holds NOW". It
-	// rejects a response that a later km edit has already superseded: the
+	// The first guard applies ONLY while a km edit is behind the preview and
+	// the user has not taken the odometer over by hand -- without it, opening
+	// a row (or typing fuel, or toggling full-tank) asks for a preview that
+	// answers the row's OWN unchanged km, and this would silently overwrite a
+	// stored odometer that disagrees with the canonical chain on purpose (the
+	// task 79 below-anchor row exists to record such a mismatch, not erase it).
+	// The second guard says "this preview answers the km the field holds NOW".
+	// It rejects a response that a later km edit has already superseded: the
 	// requests are not sequenced, so they can land out of order. A response
 	// for the km the field still holds is applied, whether that km is whole or
 	// fractional -- the command takes an f64, so it answers both the same way.
 	function applyPreviewOdometer(preview: PreviewResult | null) {
-		if (!preview) return;
+		if (!preview || manualOdoEdit || !odoFollowsKm) return;
 		// No km, nothing to derive an ODO from. Tested on its own: a NaN
 		// comparison below would be false and let the write through.
 		if (formData.distanceKm === null) return;
@@ -289,6 +317,9 @@
 			// on that route.
 			const roundedKm = Math.round(matchingRoute.distanceKm);
 			formData.distanceKm = roundedKm;
+			// An auto-filled km is still a km edit: the ODO follows it, and the
+			// preview requested below is what fills it in (applyPreviewOdometer).
+			odoFollowsKm = true;
 			// Trigger live preview calculation for consumption/zostatok
 			onPreviewRequest(roundedKm, formData.fuelLiters, formData.fullTank);
 		}
@@ -312,6 +343,7 @@
 		// The backend zeroes an implausible distance rather than copying it;
 		// null (not 0) leaves the field blank and lets auto-fill take over.
 		formData.distanceKm = copyFrom.distanceKm > 0 ? copyFrom.distanceKm : null;
+		odoFollowsKm = formData.distanceKm !== null;
 		formData.purpose = copyFrom.purpose;
 		// The copied times are explicit user intent. Marking this route pair as
 		// already-inferred makes tryInferTimes() short-circuit, so the Task 56
@@ -384,9 +416,11 @@
 		const inputValue = (event.target as HTMLInputElement).value;
 		const km = inputValue === '' ? null : (parseFloat(inputValue) || 0);
 		formData.distanceKm = km;
-		// A typed distance outranks any route the user later picks. Clearing
-		// the field hands control back to auto-fill.
+		// A typed distance outranks any route the user later picks — mirrors
+		// manualOdoEdit. Clearing the field hands control back to auto-fill.
 		manualKmEdit = km !== null;
+		// The ODO follows this km, and comes from the preview that answers it.
+		odoFollowsKm = km !== null;
 		// Request live preview calculation
 		onPreviewRequest(km ?? 0, formData.fuelLiters, formData.fullTank);
 	}
@@ -412,12 +446,19 @@
 
 		if (newOdo === formData.odometer) return;
 
+		// Marks this as a hand-typed ODO so applyPreviewOdometer will not let an
+		// in-flight preview -- one that still answers the row's unchanged km --
+		// overwrite what the user just typed (task 81, fix round 1).
+		manualOdoEdit = true;
 		formData.odometer = newOdo;
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 	}
 
 	function handleEdit() {
 		isEditing = true;
+		// Before the preview below, so its response cannot be applied on the
+		// strength of a flag from the previous session.
+		resetEditSessionFlags();
 		onEditStart();
 		// Trigger preview immediately with current values
 		onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
@@ -481,12 +522,14 @@
 		});
 		if (!saved) return;
 		isEditing = false;
+		resetEditSessionFlags();
 		if (!isNew) {
 			onEditEnd();
 		}
 	}
 
 	function handleCancel() {
+		resetEditSessionFlags();
 		if (isNew) {
 			onCancel();
 		} else {
