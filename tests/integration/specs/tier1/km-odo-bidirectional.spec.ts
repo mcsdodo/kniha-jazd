@@ -419,6 +419,213 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
     });
   });
 
+  describe('Saving a row that sits below its anchor', () => {
+    /**
+     * A row can legitimately hold an odometer BELOW the one the canonical
+     * chain gives it: the production book has such a row, and the odometer
+     * span warning exists to show it rather than to erase it. Saving that row
+     * after editing only text must leave both numbers exactly as they were.
+     */
+    it('keeps the numbers when only a text field was edited', async () => {
+      const vehicleData = createTestIceVehicle({
+        name: 'Below Anchor Row',
+        licensePlate: 'BELOW-01',
+        initialOdometer: 100000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-07-04T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.zilina,
+        distanceKm: 300,
+        odometer: 100300,
+        purpose: TripPurposes.business,
+      });
+      // The row under test: its anchor is 100300, its odometer is 100200.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-07-04T14:00`,
+        origin: SlovakCities.zilina,
+        destination: SlovakCities.poprad,
+        distanceKm: 352,
+        odometer: 100200,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      const rowFor = async (dest: string): Promise<string> => {
+        const index = await browser.execute((d: string) => {
+          const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
+          return rows.findIndex(
+            (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
+          );
+        }, dest);
+        expect(index).toBeGreaterThan(-1);
+        return `.trip-grid tbody tr:nth-of-type(${index + 1})`;
+      };
+
+      const rowSelector = await rowFor(SlovakCities.poprad);
+      await browser.execute((sel: string) => {
+        const row = document.querySelector(sel) as HTMLElement;
+        row?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      }, rowSelector);
+
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 5000, timeoutMsg: 'Editing row did not appear after double-click' }
+      );
+      await $('tr.editing td.col-consumption-rate.preview').waitForExist({
+        timeout: 5000,
+        timeoutMsg: 'The editor never received a preview to react to',
+      });
+
+      // Edit text only. The numbers are not touched.
+      await browser.execute((sel: string, value: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 'tr.editing [data-testid="trip-purpose"]', 'Opraveny ucel');
+
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      const savedRow = await rowFor(SlovakCities.poprad);
+      // The text edit did land, so this is a real save, not a no-op.
+      expect((await (await $(`${savedRow} .col-purpose`)).getText()).trim()).toBe(
+        'Opraveny ucel'
+      );
+      // The numbers are untouched. An ungated clamp collapses the distance to
+      // 1 km and writes 100301 into the odometer of a legal record.
+      expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(352);
+      expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(100200);
+    });
+
+    it('still clamps an ODO the user types below the anchor', async () => {
+      // The clamp itself must survive the gate: an ODO the user actually
+      // typed below the anchor is snapped to anchor + 1 and saved that way.
+      const vehicleData = createTestIceVehicle({
+        name: 'Typed Below Anchor',
+        licensePlate: 'BELOW-02',
+        initialOdometer: 110000,
+      });
+
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+
+      await setActiveVehicle(vehicle.id as string);
+
+      const year = new Date().getFullYear();
+
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-08-05T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trencin,
+        distanceKm: 200,
+        odometer: 110200,
+        purpose: TripPurposes.business,
+      });
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-08-05T14:00`,
+        origin: SlovakCities.trencin,
+        destination: SlovakCities.martin,
+        distanceKm: 100,
+        odometer: 110300,
+        purpose: TripPurposes.business,
+      });
+
+      await browser.refresh();
+      await waitForAppReady();
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      const rowIndex = await browser.execute((d: string) => {
+        const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
+        return rows.findIndex(
+          (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
+        );
+      }, SlovakCities.martin);
+      expect(rowIndex).toBeGreaterThan(-1);
+      const rowSelector = `.trip-grid tbody tr:nth-of-type(${rowIndex + 1})`;
+
+      await browser.execute((sel: string) => {
+        const row = document.querySelector(sel) as HTMLElement;
+        row?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      }, rowSelector);
+      await browser.waitUntil(
+        async () => {
+          const editingRow = await $('tr.editing');
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
+        },
+        { timeout: 5000, timeoutMsg: 'Editing row did not appear after double-click' }
+      );
+
+      // Type an ODO below the anchor (110200) and finalise it.
+      await browser.execute((sel: string, value: string) => {
+        const input = document.querySelector(sel) as HTMLInputElement;
+        if (input) {
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, 'tr.editing [data-testid="trip-odometer"]', '109000');
+      await browser.pause(300);
+
+      const odoInput = await $('tr.editing [data-testid="trip-odometer"]');
+      expect(parseFloat(await odoInput.getValue())).toBe(110201);
+
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      const savedIndex = await browser.execute((d: string) => {
+        const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
+        return rows.findIndex(
+          (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
+        );
+      }, SlovakCities.martin);
+      const savedSelector = `.trip-grid tbody tr:nth-of-type(${savedIndex + 1})`;
+      expect(parseFloat(await (await $(`${savedSelector} .col-odo`)).getText())).toBe(110201);
+    });
+  });
+
   describe('The ODO of a re-opened row', () => {
     /** The grid row whose destination cell reads `dest`, as a CSS selector. */
     async function rowSelectorFor(dest: string): Promise<string> {
