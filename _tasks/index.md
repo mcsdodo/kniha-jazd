@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-08 (Tasks 79 and 80 closed: the 2026 odometer rows are corrected in production, 2023 stays as it is)
+**Last updated:** 2026-09-08 (Task 81 planned: a distance edit cascades the odometer to every later row of the year)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 81 | [Odometer Cascade On Save](81-odometer-cascade-on-save/) | 📋 Planning | An edit, an insert or a delete moves the odometer of every later row of that year, behind a confirmation modal; supersedes part of ADR-045 |
 | 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 📋 Planning | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
