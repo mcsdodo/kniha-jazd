@@ -1271,6 +1271,10 @@ fn test_trip_order_falls_back_to_odometer_when_created_at_ties() {
     let mut high = make_trip_at(date, 0, 0);
     high.created_at = stamp;
     high.odometer = 17618.0;
+    // Ids run opposite to the expected odometer order, so a dropped odometer
+    // key falls through to id and fails the assertion below every run.
+    low.id = Uuid::from_u128(2);
+    high.id = Uuid::from_u128(1);
 
     assert_eq!(trip_order(&low, &high), std::cmp::Ordering::Less);
 }
@@ -1306,6 +1310,10 @@ fn test_trip_numbers_and_odometer_start_agree_on_a_tied_group() {
     short_leg.created_at = stamp;
     short_leg.distance_km = 202.0;
     short_leg.odometer = 17618.0;
+    // Ids run opposite to the expected odometer order, so a dropped odometer
+    // key falls through to id and fails the assertions below every run.
+    long_leg.id = Uuid::from_u128(2);
+    short_leg.id = Uuid::from_u128(1);
 
     // Hand them in the order that used to break it: short leg first.
     let trips = vec![short_leg.clone(), long_leg.clone()];
