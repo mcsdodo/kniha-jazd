@@ -207,6 +207,11 @@ The two other 2026 rows stopped warning because they were edited by hand at
 agree with their own distances. Row 106 still records a 4 km hop across a
 356 km span, so the whole tail of 2026 sits 352 km high.
 
+The table above describes the pre-correction book. Production was corrected by
+hand afterward; see
+[03-closed.md](../79-odometer-span-inconsistency/03-closed.md) for the current
+state.
+
 ## Part 5 - `recalculate_odometers`, dry run per year
 
 The command rewrites the year's stored odometers from the distances, in the one
@@ -223,9 +228,11 @@ md5 `ed75de8573ad2afceb5f0ed8a59c8594`), the same command returns **two** rows f
 [02-correction.md](../79-odometer-span-inconsistency/02-correction.md) records.
 The 2023, 2024 and 2025 answers are identical on both copies. Both answers are
 measured, and both are measured on a LOCAL copy. Nobody ran the command against
-production, so neither answer states what production held. So take the local
-copy to production first, or expect the 2026 table below to disagree with what
-production answers.
+production, so neither answer states what production held at the time. Since
+then, production was corrected by hand (2026-09-08 17:13-17:14). The local copy
+above is now superseded and behind production. Do **not** push it to production.
+See [03-closed.md](../79-odometer-span-inconsistency/03-closed.md) for the
+values production holds now.
 
 | Year | Rows it would change | Change | What it means |
 |---|---|---|---|
