@@ -3,7 +3,6 @@
 	import { onMount } from 'svelte';
 	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
-	import { confirmStore } from '$lib/stores/confirm';
 	import { toast } from '$lib/stores/toast';
 	import LL from '$lib/i18n/i18n-svelte';
 
@@ -554,13 +553,10 @@
 
 	function handleDeleteClick() {
 		if (trip?.id) {
-			confirmStore.show({
-				title: $LL.confirm.deleteRecordTitle(),
-				message: $LL.confirm.deleteRecordMessage(),
-				confirmText: $LL.common.delete(),
-				danger: true,
-				onConfirm: () => onDelete(trip!.id)
-			});
+			// The cascade modal (task 81) now states what the delete does, so a
+			// second "are you sure" here would just be a duplicate dialog. A
+			// delete that moves no other row writes with no confirmation at all.
+			onDelete(trip.id);
 		}
 	}
 

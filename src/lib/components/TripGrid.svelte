@@ -1,10 +1,11 @@
 <script lang="ts">
-	import type { Trip, Route, Place, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow, CopiedTripDefaults } from '$lib/types';
+	import type { Trip, Route, Place, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow, CopiedTripDefaults, CascadePlan } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
-	import { createTrip, updateTrip, deleteTrip, getRoutes, getPurposes, listPlaces, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults } from '$lib/api';
+	import { updateTripCascade, createTripCascade, deleteTripCascade, getRoutes, getPurposes, listPlaces, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
+	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
@@ -136,6 +137,24 @@
 	// In-flight guard for the copy fetch (see handleCopy)
 	let copyPending = false;
 
+	// The write waiting on the cascade modal (task 81). Null when no modal is up.
+	// One shape for all three kinds, so there is one modal and one gate.
+	let pendingCascade: {
+		kind: 'edit' | 'insert' | 'delete';
+		plan: CascadePlan;
+		oldDistanceKm: number;
+		apply: () => Promise<void>;
+	} | null = null;
+
+	/**
+	 * A plan needs the user's approval when it moves another row, or when it
+	 * breaks the chain of a year that actually has trips. Appending to the
+	 * newest year satisfies neither, so it stays a silent write.
+	 */
+	function needsApproval(plan: CascadePlan): boolean {
+		return plan.changes.length > 0 || plan.nextYearChainBreaks;
+	}
+
 	// Live preview state
 	let previewData: PreviewResult | null = null;
 	let previewingTripId: string | null = null; // Which row is previewing (null = new row)
@@ -260,16 +279,17 @@
 		}
 	}
 
-	async function handleSaveNew(tripData: Partial<Trip>) {
+	async function handleSaveNew(tripData: Partial<Trip>): Promise<boolean> {
 		try {
-			await createTrip(
+			// Ask what this insert would do before doing it. The answer is also
+			// the save itself when nothing else moves.
+			const preview = await createTripCascade(
 				vehicleId,
 				tripData.startDatetime!,
 				tripData.endDatetime!,
 				tripData.origin!,
 				tripData.destination!,
 				tripData.distanceKm!,
-				tripData.odometer!,
 				tripData.purpose!,
 				// Fuel fields
 				tripData.fuelLiters,
@@ -282,31 +302,77 @@
 				null, // socOverridePercent - rarely used on new trips
 				// Other
 				tripData.otherCostsEur,
-				tripData.otherCostsNote
+				tripData.otherCostsNote,
+				true
 			);
 
-			showNewRow = false;
-			insertAtTripId = null;
-			insertDate = null;
-			copyDefaults = null;
-			// Clear preview
-			previewData = null;
-			previewingTripId = null;
-			await onTripsChanged();
-			await loadRoutes();
-			await loadPurposes();
-			// A place typed into this trip is now in the book — refresh so it is
-			// offered on the next row without a page reload.
-			await loadPlaces();
+			if (!needsApproval(preview.plan)) {
+				// Nothing else is affected: a trip appended to the end of the
+				// newest year. Write it without asking, and let the row close.
+				await applyCascadeNew(tripData);
+				return true;
+			}
+
+			pendingCascade = {
+				kind: 'insert',
+				plan: preview.plan,
+				oldDistanceKm: 0,
+				apply: () => applyCascadeNew(tripData)
+			};
+			// The modal decides. The row stays open until it does.
+			return false;
 		} catch (error) {
 			console.error('Failed to create trip:', error);
 			toast.error($LL.toast.errorCreateTrip());
+			return false;
 		}
 	}
 
-	async function handleUpdate(trip: Trip, tripData: Partial<Trip>) {
+	/**
+	 * Write the insert for real. Planned again on the backend from the stored
+	 * book, so this does not replay the numbers the modal showed.
+	 */
+	async function applyCascadeNew(tripData: Partial<Trip>) {
+		await createTripCascade(
+			vehicleId,
+			tripData.startDatetime!,
+			tripData.endDatetime!,
+			tripData.origin!,
+			tripData.destination!,
+			tripData.distanceKm!,
+			tripData.purpose!,
+			tripData.fuelLiters,
+			tripData.fuelCostEur,
+			tripData.fullTank,
+			tripData.energyKwh,
+			tripData.energyCostEur,
+			tripData.fullCharge,
+			null, // socOverridePercent - rarely used on new trips
+			tripData.otherCostsEur,
+			tripData.otherCostsNote,
+			false
+		);
+
+		showNewRow = false;
+		insertAtTripId = null;
+		insertDate = null;
+		copyDefaults = null;
+		// Clear preview
+		previewData = null;
+		previewingTripId = null;
+		await onTripsChanged();
+		await loadRoutes();
+		await loadPurposes();
+		// A place typed into this trip is now in the book — refresh so it is
+		// offered on the next row without a page reload.
+		await loadPlaces();
+	}
+
+	async function handleUpdate(trip: Trip, tripData: Partial<Trip>): Promise<boolean> {
 		try {
-			await updateTrip(
+			// Ask what this save would do before doing it. The answer is also
+			// the save itself when nothing else moves.
+			const preview = await updateTripCascade(
 				trip.id,
 				tripData.startDatetime!,
 				tripData.endDatetime!,
@@ -315,45 +381,124 @@
 				tripData.distanceKm!,
 				tripData.odometer!,
 				tripData.purpose!,
-				// Fuel fields
 				tripData.fuelLiters,
 				tripData.fuelCostEur,
 				tripData.fullTank,
-				// Energy fields
 				tripData.energyKwh,
 				tripData.energyCostEur,
 				tripData.fullCharge,
 				trip.socOverridePercent, // Preserve existing SoC override
-				// Other
 				tripData.otherCostsEur,
-				tripData.otherCostsNote
+				tripData.otherCostsNote,
+				true
 			);
 
-			await onTripsChanged();
-			await loadRoutes();
-			await loadPurposes();
-			await loadPlaces();
-			triggerReceiptRefresh(); // Update nav badge after trip change
+			if (!needsApproval(preview.plan)) {
+				// Nothing else is affected: an edit to a purpose, a time or the
+				// litres. Write it without asking, and let the row close.
+				await applyCascade(trip, tripData);
+				return true;
+			}
+
+			pendingCascade = {
+				kind: 'edit',
+				plan: preview.plan,
+				oldDistanceKm: trip.distanceKm,
+				apply: () => applyCascade(trip, tripData)
+			};
+			// The modal decides. The row stays open until it does.
+			return false;
+		} catch (error) {
+			console.error('Failed to update trip:', error);
+			toast.error($LL.toast.errorUpdateTrip());
+			return false;
+		}
+	}
+
+	/**
+	 * Write the save for real. Planned again on the backend from the stored
+	 * book, so this does not replay the numbers the modal showed.
+	 */
+	async function applyCascade(trip: Trip, tripData: Partial<Trip>) {
+		await updateTripCascade(
+			trip.id,
+			tripData.startDatetime!,
+			tripData.endDatetime!,
+			tripData.origin!,
+			tripData.destination!,
+			tripData.distanceKm!,
+			tripData.odometer!,
+			tripData.purpose!,
+			tripData.fuelLiters,
+			tripData.fuelCostEur,
+			tripData.fullTank,
+			tripData.energyKwh,
+			tripData.energyCostEur,
+			tripData.fullCharge,
+			trip.socOverridePercent,
+			tripData.otherCostsEur,
+			tripData.otherCostsNote,
+			false
+		);
+
+		// The existing refresh path. loadTrips(false) leaves TripGrid mounted and
+		// the each block is keyed, so the shifted rows repaint in place and the
+		// scroll position survives (task 81, R6).
+		await onTripsChanged();
+		await loadRoutes();
+		await loadPurposes();
+		await loadPlaces();
+		triggerReceiptRefresh();
+	}
+
+	/**
+	 * `TripRow` closes itself only when the save resolves true. A cancelled
+	 * cascade writes nothing, so the row stays open on the values the user
+	 * typed (task 81, R5).
+	 */
+	async function confirmCascade() {
+		if (!pendingCascade) return;
+		const { apply } = pendingCascade;
+		pendingCascade = null;
+		try {
+			await apply();
 		} catch (error) {
 			console.error('Failed to update trip:', error);
 			toast.error($LL.toast.errorUpdateTrip());
 		}
 	}
 
+	function cancelCascade() {
+		// Nothing was written, including the edited row itself.
+		pendingCascade = null;
+	}
+
 	async function handleDelete(id: string) {
 		try {
-			await deleteTrip(id);
-			onTripsChanged();
-			// The book is the autocomplete's source, so a place whose last trip just
-			// went is no longer a place — reload or the row keeps offering it for the
-			// rest of the session. Only the book: a stale `routes` row merely feeds
-			// distance auto-fill, where a pair nobody drives simply never matches.
-			await loadPlaces();
-			triggerReceiptRefresh(); // Update nav badge after trip deletion
+			const plan = await deleteTripCascade(id, true);
+			if (!needsApproval(plan)) {
+				await applyDelete(id);
+				return;
+			}
+			pendingCascade = {
+				kind: 'delete',
+				plan,
+				oldDistanceKm: 0,
+				apply: () => applyDelete(id)
+			};
 		} catch (error) {
 			console.error('Failed to delete trip:', error);
 			toast.error($LL.toast.errorDeleteTrip());
 		}
+	}
+
+	async function applyDelete(id: string) {
+		await deleteTripCascade(id, false);
+		await onTripsChanged();
+		// The book is the autocomplete's source, so a place whose last trip just
+		// went is no longer a place.
+		await loadPlaces();
+		triggerReceiptRefresh();
 	}
 
 	function handleCancelNew() {
@@ -874,6 +1019,17 @@
 		</table>
 	</div>
 </div>
+
+{#if pendingCascade}
+	<OdometerCascadeModal
+		plan={pendingCascade.plan}
+		kind={pendingCascade.kind}
+		{trips}
+		oldDistanceKm={pendingCascade.oldDistanceKm}
+		onConfirm={confirmCascade}
+		onCancel={cancelCascade}
+	/>
+{/if}
 
 <style>
 	.trip-grid {
