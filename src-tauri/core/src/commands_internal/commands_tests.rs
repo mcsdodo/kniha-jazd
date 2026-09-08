@@ -9,7 +9,7 @@ use crate::commands_internal::statistics::{
     calculate_other_invoice_sums, calculate_other_sum_mismatches,
     calculate_receipt_datetime_warnings,
     calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
-    has_any_period_over_limit,
+    has_any_period_over_limit, preview_anchor,
 };
 use crate::commands_internal::helpers::trip_order;
 use super::*;
@@ -1324,6 +1324,157 @@ fn test_trip_numbers_and_odometer_start_agree_on_a_tied_group() {
     assert_eq!(numbers.get(&short_leg.id.to_string()), Some(&2));
     assert_eq!(starts.get(&long_leg.id.to_string()), Some(&17039.0));
     assert_eq!(starts.get(&short_leg.id.to_string()), Some(&17416.0));
+}
+
+// ========================================================================
+// Trip sort routing tests (task 80 task 2)
+// ========================================================================
+
+#[test]
+fn test_grid_chain_reads_correctly_in_trip_number_order() {
+    // Walking the rows in the order the grid displays them, every row's
+    // start must equal the previous row's stored odometer. This held only
+    // by accident before: numbering and the chain used different sorts.
+    let date = NaiveDate::from_ymd_opt(2024, 1, 4).unwrap();
+    let stamp = Utc::now();
+    let mut a = make_trip_at(date, 0, 0);
+    a.created_at = stamp;
+    a.distance_km = 377.0;
+    a.odometer = 17416.0;
+    let mut b = make_trip_at(date, 0, 0);
+    b.created_at = stamp;
+    b.distance_km = 202.0;
+    b.odometer = 17618.0;
+    let mut c = make_trip_at(date.succ_opt().unwrap(), 8, 0);
+    c.created_at = stamp;
+    c.distance_km = 168.0;
+    c.odometer = 17786.0;
+
+    let trips = vec![b.clone(), c.clone(), a.clone()];
+    let numbers = calculate_trip_numbers(&trips);
+    let starts = calculate_odometer_start(&trips, 17039.0);
+
+    let mut ordered: Vec<_> = trips.iter().collect();
+    ordered.sort_by_key(|t| numbers[&t.id.to_string()]);
+
+    let mut prev = 17039.0;
+    for trip in ordered {
+        assert_eq!(
+            starts[&trip.id.to_string()], prev,
+            "row {} starts where the previous row ended",
+            numbers[&trip.id.to_string()]
+        );
+        prev = trip.odometer;
+    }
+}
+
+// ========================================================================
+// Preview anchor tests (preview_anchor) - task 80 task 2
+// ========================================================================
+
+/// Three trips at one start_datetime and one created_at, separated only by
+/// the odometer. Two details make the tests below discriminate:
+///
+/// * the group sits at 15:00, not at midnight, so a preview row pinned to
+///   midnight sorts ahead of the whole group instead of inside it.
+/// * created_at is a day old, so a preview row that keeps `Utc::now()` sorts
+///   after the whole group instead of beside its anchor.
+///
+/// The ids run opposite to the odometers, so a pick that fell through to the
+/// id key would return a different trip than the one asserted.
+fn tied_preview_group() -> Vec<Trip> {
+    let date = NaiveDate::from_ymd_opt(2026, 8, 19).unwrap();
+    let stamp = Utc::now() - chrono::Duration::days(1);
+    let mut trips = Vec::new();
+    for (index, odometer) in [69400.0, 69411.0, 69415.0].iter().enumerate() {
+        let mut trip = make_trip_at(date, 15, 0);
+        trip.created_at = stamp;
+        trip.odometer = *odometer;
+        trip.id = Uuid::from_u128(3 - index as u128);
+        trips.push(trip);
+    }
+    trips
+}
+
+/// Build the virtual preview row the way `preview_trip_calculation_internal`
+/// does: copy the anchor's start_datetime and created_at, and offset the
+/// odometer.
+fn virtual_preview_trip(trips: &[Trip], insert_at_trip_id: Option<&str>) -> Trip {
+    let (anchor, offset) = preview_anchor(trips, insert_at_trip_id).expect("anchor exists");
+    let mut preview = make_trip_at(anchor.start_datetime.date(), 0, 0);
+    preview.id = Uuid::from_u128(999);
+    preview.start_datetime = anchor.start_datetime;
+    preview.created_at = anchor.created_at;
+    preview.odometer = anchor.odometer + offset;
+    preview
+}
+
+#[test]
+fn test_preview_anchor_top_path_picks_the_last_trip_in_trip_order() {
+    // A new row at the top anchors to the last row of the book, which inside
+    // a tied group is the highest odometer.
+    let trips = tied_preview_group();
+
+    let (anchor, offset) = preview_anchor(&trips, None).expect("the group is not empty");
+
+    assert_eq!(anchor.odometer, 69415.0);
+    assert_eq!(offset, 0.5);
+}
+
+#[test]
+fn test_preview_anchor_insert_path_picks_the_named_target() {
+    let trips = tied_preview_group();
+    let target_id = trips[1].id.to_string();
+
+    let (anchor, offset) = preview_anchor(&trips, Some(target_id.as_str())).expect("target exists");
+
+    assert_eq!(anchor.id, trips[1].id);
+    assert_eq!(offset, -0.5);
+}
+
+#[test]
+fn test_preview_anchor_has_no_anchor_without_trips_or_target() {
+    // The caller keeps its own fallbacks for both of these.
+    let trips = tied_preview_group();
+
+    assert!(preview_anchor(&[], None).is_none());
+    assert!(preview_anchor(&trips, Some("not-a-trip-id")).is_none());
+}
+
+#[test]
+fn test_preview_row_lands_after_the_whole_book_on_the_top_path() {
+    let mut trips = tied_preview_group();
+    let preview = virtual_preview_trip(&trips, None);
+    let preview_id = preview.id;
+    trips.push(preview);
+
+    trips.sort_by(|a, b| trip_order(a, b));
+
+    let index = trips.iter().position(|t| t.id == preview_id).unwrap();
+    assert_eq!(
+        index, 3,
+        "a new top row belongs after the tied group, not at the top of its day"
+    );
+}
+
+#[test]
+fn test_preview_row_lands_directly_above_its_insert_target() {
+    let mut trips = tied_preview_group();
+    let target_id = trips[1].id;
+    let target = target_id.to_string();
+    let preview = virtual_preview_trip(&trips, Some(target.as_str()));
+    let preview_id = preview.id;
+    trips.push(preview);
+
+    trips.sort_by(|a, b| trip_order(a, b));
+
+    let preview_index = trips.iter().position(|t| t.id == preview_id).unwrap();
+    let target_index = trips.iter().position(|t| t.id == target_id).unwrap();
+    assert_eq!(
+        preview_index + 1,
+        target_index,
+        "the preview row belongs immediately above the row it is inserted at"
+    );
 }
 
 // ========================================================================

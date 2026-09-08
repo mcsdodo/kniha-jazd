@@ -25,7 +25,9 @@ use chrono::{NaiveDate, NaiveDateTime, Utc};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use super::{calculate_odometer_start, calculate_trip_numbers, generate_month_end_rows};
+use super::{
+    calculate_odometer_start, calculate_trip_numbers, generate_month_end_rows, trip_order,
+};
 
 // ============================================================================
 // Helper Functions
@@ -59,20 +61,11 @@ pub fn calculate_trip_stats_internal(
     let tank_size = vehicle.tank_size_liters.unwrap_or_default();
     let tp_consumption = vehicle.tp_consumption.unwrap_or_default();
 
-    // Get all trips for this vehicle, sorted by date + odometer (for same-day trips)
+    // Get all trips for this vehicle, in the one book order (trip_order)
     let mut trips = db
         .get_trips_for_vehicle_in_year(&vehicle_id, year)
         .map_err(|e| e.to_string())?;
-    trips.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-    });
+    trips.sort_by(|a, b| trip_order(a, b));
 
     // If no trips, return default values
     if trips.is_empty() {
@@ -217,16 +210,7 @@ pub fn get_year_start_fuel_remaining(
 
     // Sort previous year's trips chronologically
     let mut chronological = prev_trips;
-    chronological.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-    });
+    chronological.sort_by(|a, b| trip_order(a, b));
 
     // Calculate rates for previous year
     let (rates, _) = calculate_period_rates(&chronological, tp_consumption);
@@ -278,16 +262,7 @@ pub fn get_year_start_battery_remaining(
 
     // Sort previous year's trips chronologically
     let mut chronological = prev_trips;
-    chronological.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-    });
+    chronological.sort_by(|a, b| trip_order(a, b));
 
     // Get the starting battery for the previous year (recursive carryover)
     let prev_year_start = get_year_start_battery_remaining(db, vehicle_id, prev_year, vehicle)?;
@@ -333,13 +308,7 @@ pub fn get_year_start_odometer(
         if !trips.is_empty() {
             // Found trips - sort and get the last one's odometer
             let mut chronological = trips;
-            chronological.sort_by(|a, b| {
-                a.start_datetime
-                    .date()
-                    .cmp(&b.start_datetime.date())
-                    .then_with(|| a.start_datetime.cmp(&b.start_datetime))
-                    .then_with(|| a.created_at.cmp(&b.created_at))
-            });
+            chronological.sort_by(|a, b| trip_order(a, b));
             return Ok(chronological
                 .last()
                 .map(|t| t.odometer)
@@ -430,18 +399,9 @@ pub fn build_trip_grid_data(
     // Get all receipts for matching
     let receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
 
-    // Sort chronologically for calculations (by date, then odometer)
+    // Sort chronologically for calculations (trip_order)
     let mut chronological = trips.clone();
-    chronological.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-    });
+    chronological.sort_by(|a, b| trip_order(a, b));
 
     // Populate SoC override trips (works for all vehicle types)
     let soc_override_trips: HashSet<String> = trips
@@ -749,16 +709,7 @@ pub fn calculate_magic_fill_liters_internal(
         .map_err(|e| e.to_string())?;
 
     let mut chronological = trips;
-    chronological.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-    });
+    chronological.sort_by(|a, b| trip_order(a, b));
 
     // Parse editing_trip_id to Uuid if provided
     let editing_uuid = editing_trip_id
@@ -1474,6 +1425,31 @@ pub fn calculate_receipt_mismatch_overrides(
 // ============================================================================
 
 
+/// Pick the trip the preview row anchors to, and the odometer offset that puts
+/// the virtual row on the correct side of it.
+///
+/// The virtual row copies the anchor's `start_datetime` and `created_at`, so
+/// `trip_order` ties on both and the offset decides. Before task 80 the virtual
+/// row sat at midnight and the sort compared dates only; a full-datetime
+/// comparator would have moved it to the top of its day.
+///
+/// Returns `None` when there is nothing to anchor to -- an empty book, or an
+/// `insert_at_trip_id` that is not in it. The caller keeps its own fallbacks.
+pub(crate) fn preview_anchor<'a>(
+    trips: &'a [Trip],
+    insert_at_trip_id: Option<&str>,
+) -> Option<(&'a Trip, f64)> {
+    match insert_at_trip_id {
+        // Inserting above a named row: sit just below its odometer.
+        Some(target_id) => trips
+            .iter()
+            .find(|t| t.id.to_string() == target_id)
+            .map(|t| (t, -0.5)),
+        // A new row at the top: sit just above the last row of the book.
+        None => trips.iter().max_by(|a, b| trip_order(a, b)).map(|t| (t, 0.5)),
+    }
+}
+
 pub fn preview_trip_calculation_internal(
     db: &Database,
     vehicle_id: String,
@@ -1499,29 +1475,29 @@ pub fn preview_trip_calculation_internal(
     let preview_trip_id = Uuid::new_v4();
     let now = Utc::now();
 
-    // Determine the date and odometer for the preview trip to place it correctly
-    // in chronological order for rate calculations
-    let (preview_date, preview_odometer) = if let Some(target_id) = &insert_at_trip_id {
-        // Inserting above a specific trip - use that trip's date and odometer - 0.5
-        // (so it sorts just before the target trip on same date)
-        trips
-            .iter()
-            .find(|t| t.id.to_string() == *target_id)
-            .map(|t| (t.start_datetime.date(), t.odometer - 0.5))
-            .unwrap_or_else(|| (NaiveDate::from_ymd_opt(year, 12, 31).unwrap(), 0.0))
+    // Place the preview trip in the book so the rate calculations see it in the
+    // right neighbourhood. It copies the anchor's start_datetime AND created_at,
+    // so trip_order ties on both keys and the +/- 0.5 odometer decides which
+    // side of the anchor it lands on.
+    let fallback_date = if insert_at_trip_id.is_some() {
+        NaiveDate::from_ymd_opt(year, 12, 31).unwrap()
     } else {
-        // New row at top - use the most recent trip's date and odometer + 0.5
-        trips
-            .iter()
-            .max_by_key(|t| (t.start_datetime.date(), t.odometer as i64))
-            .map(|t| (t.start_datetime.date(), t.odometer + 0.5))
-            .unwrap_or_else(|| (Utc::now().date_naive(), 0.0))
+        Utc::now().date_naive()
     };
+    let (preview_datetime, preview_created_at, preview_odometer) =
+        match preview_anchor(&trips, insert_at_trip_id.as_deref()) {
+            Some((anchor, offset)) => (
+                anchor.start_datetime,
+                anchor.created_at,
+                anchor.odometer + offset,
+            ),
+            None => (fallback_date.and_hms_opt(0, 0, 0).unwrap(), now, 0.0),
+        };
 
     let virtual_trip = Trip {
         id: preview_trip_id,
         vehicle_id: Uuid::parse_str(&vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
-        start_datetime: preview_date.and_hms_opt(0, 0, 0).unwrap(),
+        start_datetime: preview_datetime,
         end_datetime: None,
         origin: "Preview".to_string(),
         destination: "Preview".to_string(),
@@ -1538,7 +1514,7 @@ pub fn preview_trip_calculation_internal(
         soc_override_percent: None,
         other_costs_eur: None,
         other_costs_note: None,
-        created_at: now,
+        created_at: preview_created_at,
         updated_at: now,
     };
 
@@ -1579,16 +1555,7 @@ pub fn preview_trip_calculation_internal(
     }
 
     // Sort chronologically for calculations
-    trips.sort_by(|a, b| {
-        a.start_datetime
-            .date()
-            .cmp(&b.start_datetime.date())
-            .then_with(|| {
-                a.odometer
-                    .partial_cmp(&b.odometer)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-    });
+    trips.sort_by(|a, b| trip_order(a, b));
 
     // Calculate rates and remaining fuel (ICE vehicles only for now)
     // TODO: Phase 2 will add BEV/PHEV preview support
