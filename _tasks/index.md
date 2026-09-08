@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-07 (Task 72 complete)
+**Last updated:** 2026-09-08 (Tasks 78 and 79 opened)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 79 | [Odometer Span Inconsistency](79-odometer-span-inconsistency/) | 📋 Planning | Three production rows whose odometer span contradicts their recorded distance, one negative; both sit on a consumption-period boundary |
 | 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 📋 Planning | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
