@@ -101,6 +101,12 @@
 	export let tripNumber: number = 0;
 	export let odoStart: number = 0;
 	export let driverName: string = '';
+	// True while this row's save/insert/delete is parked on the cascade
+	// modal (task 81, fix round 2). `isEditing` stays true for the whole
+	// time the modal is up, so without this the window-level ESC/Enter
+	// handler below would still fire for a row whose focus the modal never
+	// received (for example after a click on the overlay).
+	export let cascadePending: boolean = false;
 
 	// Derived: show fuel/energy fields based on vehicle type
 	$: showFuelFields = vehicleType === 'Ice' || vehicleType === 'Phev';
@@ -567,6 +573,11 @@
 	// ESC = cancel, Enter = submit (works regardless of focus)
 	function handleGlobalKeydown(event: KeyboardEvent) {
 		if (!isEditing) return;
+		// The cascade modal owns ESC/Enter while it is up (its own keydown
+		// handler cancels/ignores them) - this row must not also react, or
+		// ESC here would revert formData and close the row while the modal
+		// stays armed, so a later Confirm would still write.
+		if (cascadePending) return;
 
 		if (event.key === 'Escape') {
 			// ESC always cancels editing

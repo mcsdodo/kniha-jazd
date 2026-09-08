@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import LL from '$lib/i18n/i18n-svelte';
 	import type { CascadePlan, Trip } from '$lib/types';
 
@@ -17,6 +18,26 @@
 	// trips the grid already holds, so the backend does not repeat them.
 	$: byId = new Map(trips.map((t) => [t.id, t]));
 
+	// Nothing else moves focus into the dialog, so without this a keydown
+	// still targets whatever had focus before the modal opened - typically
+	// the row being saved - and neither keydown handler below ever sees it
+	// (task 81, fix round 2).
+	let modalEl: HTMLDivElement;
+	onMount(() => {
+		modalEl?.focus();
+	});
+
+	// Stops here unconditionally: TripRow's window-level ESC/Enter handler
+	// must never see a key pressed while this modal owns the decision, or
+	// ESC would revert the row's form while the modal stays armed and a
+	// later Confirm would still write it.
+	function handleKeydown(event: KeyboardEvent) {
+		event.stopPropagation();
+		if (event.key === 'Escape') {
+			onCancel();
+		}
+	}
+
 	function signed(value: number): string {
 		return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
 	}
@@ -34,14 +55,15 @@
 <div
 	class="modal-overlay"
 	on:click={onCancel}
-	on:keydown={(e) => e.key === 'Escape' && onCancel()}
+	on:keydown={handleKeydown}
 	role="button"
 	tabindex="0"
 >
 	<div
 		class="modal"
+		bind:this={modalEl}
 		on:click|stopPropagation
-		on:keydown={() => {}}
+		on:keydown={handleKeydown}
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"

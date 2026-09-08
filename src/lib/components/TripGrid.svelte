@@ -138,9 +138,7 @@
 	// In-flight guard for the copy fetch (see handleCopy)
 	let copyPending = false;
 
-	// The write waiting on the cascade modal (task 81). Null when no modal is up.
-	// One shape for all three kinds, so there is one modal and one gate.
-	let pendingCascade: {
+	type PendingCascade = {
 		kind: 'edit' | 'insert' | 'delete';
 		plan: CascadePlan;
 		oldDistanceKm: number;
@@ -152,7 +150,11 @@
 		// (showNewRow), delete closes because the trip leaves the `trips`
 		// array the each-block is keyed on.
 		resolveSaved?: (saved: boolean) => void;
-	} | null = null;
+	};
+
+	// The write waiting on the cascade modal (task 81). Null when no modal is up.
+	// One shape for all three kinds, so there is one modal and one gate.
+	let pendingCascade: PendingCascade | null = null;
 
 	/**
 	 * A plan needs the user's approval when it moves another row, or when it
@@ -161,6 +163,20 @@
 	 */
 	function needsApproval(plan: CascadePlan): boolean {
 		return plan.changes.length > 0 || plan.nextYearChainBreaks;
+	}
+
+	/**
+	 * `pendingCascade` is about to be replaced or cleared outright (not via
+	 * confirmCascade/cancelCascade, which already settle the one they hold).
+	 * If what it currently holds still carries an unsettled `resolveSaved`
+	 * (kind: 'edit'), settle it false first -- otherwise that promise, and
+	 * the `TripRow.handleSave` call still awaiting it, would hang forever
+	 * instead of the row just staying open, the way an ordinary cancel
+	 * leaves it. Settling an already-settled promise is a harmless no-op.
+	 */
+	function settlePendingCascade<T extends PendingCascade | null>(next: T): T {
+		pendingCascade?.resolveSaved?.(false);
+		return next;
 	}
 
 	// Live preview state
@@ -219,6 +235,9 @@
 	onDestroy(() => {
 		routeMapChannel?.close();
 		routeMapChannel = null;
+		// Leaving the page mid-modal must not leave an edit's handleUpdate
+		// promise (and the TripRow.handleSave call awaiting it) unsettled.
+		pendingCascade = settlePendingCascade(null);
 	});
 
 	function handleHiddenColumnsChange(columns: string[]) {
@@ -321,12 +340,12 @@
 				return true;
 			}
 
-			pendingCascade = {
+			pendingCascade = settlePendingCascade({
 				kind: 'insert',
 				plan: preview.plan,
 				oldDistanceKm: 0,
 				apply: () => applyCascadeNew(tripData)
-			};
+			});
 			// The modal decides. The row stays open until it does.
 			return false;
 		} catch (error) {
@@ -414,13 +433,13 @@
 			// cancelCascade resolves it false. Until then the row stays open
 			// exactly as the user left it -- no second `onSave` round trip.
 			return await new Promise<boolean>((resolve) => {
-				pendingCascade = {
+				pendingCascade = settlePendingCascade({
 					kind: 'edit',
 					plan: preview.plan,
 					oldDistanceKm: trip.distanceKm,
 					apply: () => applyCascade(trip, tripData),
 					resolveSaved: resolve
-				};
+				});
 			});
 		} catch (error) {
 			console.error('Failed to update trip:', error);
@@ -521,12 +540,12 @@
 				});
 				return;
 			}
-			pendingCascade = {
+			pendingCascade = settlePendingCascade({
 				kind: 'delete',
 				plan,
 				oldDistanceKm: 0,
 				apply: () => applyDelete(id)
-			};
+			});
 		} catch (error) {
 			console.error('Failed to delete trip:', error);
 			toast.error($LL.toast.errorDeleteTrip());
@@ -869,6 +888,7 @@
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={() => {}}
+						cascadePending={pendingCascade !== null}
 						previewData={previewingTripId === null ? previewData : null}
 						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
 						onMagicFill={handleMagicFill}
@@ -899,6 +919,7 @@
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={() => {}}
+							cascadePending={pendingCascade !== null}
 							previewData={previewingTripId === null ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtTripId, km, fuel, fullTank)}
 							onMagicFill={handleMagicFill}
@@ -971,6 +992,7 @@
 							onSave={(data) => handleUpdate(trip, data)}
 							onCancel={() => {}}
 							onDelete={handleDelete}
+							cascadePending={pendingCascade !== null}
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onCopy={() => handleCopy(trip)}
 							copyDisabled={showNewRow || copyPending || editingTripId !== null}
