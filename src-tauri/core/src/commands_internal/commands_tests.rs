@@ -15,7 +15,8 @@ use crate::commands_internal::helpers::trip_order;
 use super::*;
 use crate::db::Database;
 use crate::models::{
-    ConfidenceLevel, FieldConfidence, Receipt, ReceiptStatus, Trip, TripInvoiceCoverage, Vehicle,
+    ConfidenceLevel, FieldConfidence, OdometerChange, Receipt, ReceiptStatus, Trip,
+    TripInvoiceCoverage, Vehicle,
 };
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use std::collections::HashMap;
@@ -5573,6 +5574,178 @@ fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
         "earlier created_at gets #1"
     );
     assert_eq!(nums.get(&trip_b.id.to_string()), Some(&2));
+}
+
+// ============================================================================
+// Odometer rewrite as an explicit Rust command, not an automatic browser
+// loop (Task 3 / task 80)
+// ============================================================================
+
+/// A vehicle whose odometer starts at a known value. `setup_db_with_vehicle`
+/// hardcodes 0.0, and this task needs a real start. `Vehicle::new` already
+/// sets `initial_odometer` from its fifth argument, so there is nothing left
+/// to assign after construction.
+fn setup_db_with_start_odometer(initial: f64) -> (Database, Vehicle) {
+    let db = Database::in_memory().unwrap();
+    let vehicle =
+        Vehicle::new("Order Car".to_string(), "BA999XY".to_string(), 66.0, 5.1, initial);
+    db.create_vehicle(&vehicle).unwrap();
+    (db, vehicle)
+}
+
+fn seed_chain_trip(db: &Database, vehicle_id: Uuid, day: u32, km: f64, odo: f64) -> Uuid {
+    let date = NaiveDate::from_ymd_opt(2026, 3, day).unwrap();
+    let mut trip = make_trip_detailed(date, km, None, false);
+    trip.vehicle_id = vehicle_id;
+    trip.odometer = odo;
+    db.create_trip(&trip).unwrap();
+    trip.id
+}
+
+#[test]
+fn test_recalculate_odometers_rewrites_only_rows_that_move() {
+    // The frontend loop rewrote a whole year on every save. The command
+    // writes a row only when its value actually changes, and it walks the
+    // canonical order rather than the DB order.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50999.0); // wrong
+    let c = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50150.0);
+
+    let changes =
+        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, false)
+            .unwrap();
+
+    // Running total: a=50050 (matches, no write), b=50120 (differs, writes),
+    // c=50150 (matches, no write). Only one row actually moves.
+    assert_eq!(changes.len(), 1, "only b moves");
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().odometer, 50050.0);
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50120.0);
+    assert_eq!(db.get_trip(&c.to_string()).unwrap().unwrap().odometer, 50150.0);
+
+    // The one change reported must name the row that moved and the values
+    // it moved between -- this is the review record the old silent
+    // frontend loop never left behind.
+    assert_eq!(changes[0].trip_id, b.to_string());
+    assert_eq!(changes[0].old_odometer, 50999.0);
+    assert_eq!(changes[0].new_odometer, 50120.0);
+}
+
+#[test]
+fn test_recalculate_odometers_is_read_only_guarded() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    app_state.enable_read_only("newer migrations");
+
+    let result =
+        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, false);
+    assert!(result.is_err(), "a write command must respect read-only mode");
+
+    // Reading is always allowed: a dry run proposes changes but writes
+    // nothing, so read-only mode must not block it.
+    let dry_run =
+        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, true);
+    assert!(dry_run.is_ok(), "a dry run must not be blocked by read-only mode");
+}
+
+#[test]
+fn test_recalculate_odometers_is_idempotent_with_tied_start_datetimes() {
+    // trip_order's final tiebreaker is the odometer, and this command
+    // writes odometers -- so it can change the order it just walked. The
+    // three trips below share one start_datetime and one created_at, so the
+    // tiebreak (ascending odometer) alone decides the first pass's walk
+    // order; the stored odometers are scrambled on purpose. One pass must
+    // be a fixed point: the second call has nothing left to change.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+
+    let tied_date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
+    let tied_start = tied_date.and_hms_opt(9, 0, 0).unwrap();
+    let tied_created = Utc::now();
+
+    let seed_tied = |km: f64, odo: f64| -> Uuid {
+        let mut trip = make_trip_detailed(tied_date, km, None, false);
+        trip.vehicle_id = vehicle.id;
+        trip.start_datetime = tied_start;
+        trip.created_at = tied_created;
+        trip.updated_at = tied_created;
+        trip.odometer = odo;
+        db.create_trip(&trip).unwrap();
+        trip.id
+    };
+
+    // Seeded (inserted) in the opposite order from their correct odometer
+    // order, so a version that trusted insertion order instead of sorting
+    // would walk them backwards.
+    seed_tied(70.0, 50999.0);
+    seed_tied(30.0, 50010.0);
+    seed_tied(50.0, 50020.0);
+
+    let first =
+        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, false)
+            .unwrap();
+    assert!(
+        !first.is_empty(),
+        "the fixture must actually need correcting or this test proves nothing"
+    );
+
+    let second =
+        recalculate_odometers_internal(&db, &app_state, vehicle.id.to_string(), 2026, false)
+            .unwrap();
+    assert!(second.is_empty(), "one pass must be a fixed point");
+}
+
+#[test]
+fn test_recalculate_odometers_closes_a_carryover_gap() {
+    // Pins the shape task 80 found in production: the year opens with a
+    // stored odometer that already sits above the true carryover by a real,
+    // unexplained gap (391.5 km in the 2026 book). Every row after the gap
+    // is internally consistent with its neighbour, so nothing local looks
+    // wrong -- but every one of them is still wrong against the carryover,
+    // and the command reports and closes the gap for the whole chain.
+    //
+    // This is acceptable ONLY because the command runs on demand and never
+    // automatically: an automatic rewrite would silently erase the exact
+    // discontinuity the odometer-span warning exists to raise on a legal
+    // column.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+
+    let a = seed_chain_trip(&db, vehicle.id, 1, 370.0, 50761.5); // gap opens the year
+    let b = seed_chain_trip(&db, vehicle.id, 2, 50.0, 50811.5); // consistent with a
+    let c = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50841.5); // consistent with b
+
+    let changes = recalculate_odometers_internal(
+        &db,
+        &app_state,
+        vehicle.id.to_string(),
+        2026,
+        true, // dry run -- this is the review step before anything is written
+    )
+    .unwrap();
+
+    assert_eq!(changes.len(), 3, "the gap displaces every row from the first one on");
+
+    let by_trip: HashMap<String, &OdometerChange> =
+        changes.iter().map(|c| (c.trip_id.clone(), c)).collect();
+
+    assert_eq!(by_trip[&a.to_string()].new_odometer, 50370.0);
+    assert_eq!(by_trip[&b.to_string()].new_odometer, 50420.0);
+    assert_eq!(by_trip[&c.to_string()].new_odometer, 50450.0);
+
+    // Every proposed value closes exactly the same 391.5 km gap: the
+    // chain's internal shape is kept, only its anchor moves.
+    for change in &changes {
+        assert_eq!(change.old_odometer - change.new_odometer, 391.5);
+    }
+
+    // A dry run must not have written anything.
+    assert_eq!(
+        db.get_trip(&a.to_string()).unwrap().unwrap().odometer,
+        50761.5,
+        "dry run must not write"
+    );
 }
 
 // ============================================================================

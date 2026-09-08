@@ -219,6 +219,24 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "recalculate_odometers" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                year: i32,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::recalculate_odometers_internal(
+                &state.db,
+                &state.app_state,
+                a.vehicle_id,
+                a.year,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         "delete_trip" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

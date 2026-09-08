@@ -897,6 +897,21 @@ pub struct PreviewResult {
     pub is_estimated_rate: bool,
 }
 
+/// One row `recalculate_odometers_internal` did (or, on a dry run, would)
+/// rewrite. The command reports these instead of a bare count so a
+/// deliberate correction to a legal record can be reviewed before it runs
+/// (task 80).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OdometerChange {
+    pub trip_id: String,
+    /// The legal "Poradove cislo jazdy" sequence number from
+    /// `calculate_trip_numbers`, so the report reads without a second lookup.
+    pub trip_number: i32,
+    pub old_odometer: f64,
+    pub new_odometer: f64,
+}
+
 // =============================================================================
 // Diesel ORM Row Structs
 // =============================================================================

@@ -4,9 +4,11 @@ use crate::app_state::AppState;
 use crate::calculations::time_inference::{compute_inferred_times, Jitter, ThreadRngJitter};
 use crate::calculations::trip_copy::compute_copied_trip_defaults;
 use crate::check_read_only;
-use crate::commands_internal::parse_iso_datetime;
+use crate::commands_internal::{
+    calculate_trip_numbers, get_year_start_odometer, parse_iso_datetime, trip_order,
+};
 use crate::db::{normalize_location, Database};
-use crate::models::{CopiedTripDefaults, InferredTripTime, Route, Trip};
+use crate::models::{CopiedTripDefaults, InferredTripTime, OdometerChange, Route, Trip};
 use crate::settings::LocalSettings;
 use chrono::{Local, NaiveDate, Utc};
 use std::path::Path;
@@ -177,6 +179,67 @@ pub fn update_trip_internal(
     .map_err(|e| e.to_string())?;
 
     Ok(trip)
+}
+
+/// Rewrite the year's odometers so each row starts where the previous one
+/// ended, walking `trip_order`. Reports every row it did (or, on a dry run,
+/// would) change instead of a bare count, so a correction to a legal record
+/// can be reviewed before it is written.
+///
+/// This replaces a loop that used to run in the browser after every create
+/// and every update, rewrote rows the user never touched, and walked the DB
+/// order rather than the canonical one (task 80). Nothing calls this
+/// automatically now -- it runs only when invoked directly, deliberately.
+///
+/// `dry_run == true` writes nothing and is always allowed, even in
+/// read-only mode, because reading is always allowed. `dry_run == false`
+/// writes and is subject to `check_read_only!`.
+pub fn recalculate_odometers_internal(
+    db: &Database,
+    app_state: &AppState,
+    vehicle_id: String,
+    year: i32,
+    dry_run: bool,
+) -> Result<Vec<OdometerChange>, String> {
+    if !dry_run {
+        check_read_only!(app_state);
+    }
+
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    let mut trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+    trips.sort_by(|a, b| trip_order(a, b));
+
+    let trip_numbers = calculate_trip_numbers(&trips);
+
+    let mut running = get_year_start_odometer(db, &vehicle_id, year, vehicle.initial_odometer)?;
+    let mut changes = Vec::new();
+
+    for trip in trips.iter_mut() {
+        running += trip.distance_km;
+        if (trip.odometer - running).abs() > 0.001 {
+            let trip_number = *trip_numbers.get(&trip.id.to_string()).unwrap_or(&0);
+            changes.push(OdometerChange {
+                trip_id: trip.id.to_string(),
+                trip_number,
+                old_odometer: trip.odometer,
+                new_odometer: running,
+            });
+
+            if !dry_run {
+                trip.odometer = running;
+                trip.updated_at = Utc::now();
+                db.update_trip(trip).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    Ok(changes)
 }
 
 pub fn delete_trip_internal(

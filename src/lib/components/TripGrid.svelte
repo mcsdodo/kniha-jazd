@@ -5,7 +5,7 @@
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -79,19 +79,6 @@
 	function formatDateShort(dateStr: string): string {
 		const parts = dateStr.split('-'); // "YYYY-MM-DD"
 		return `${parts[2]}.${parts[1]}.`;
-	}
-
-	// Convert trip's startDatetime to datetime-local format for API calls
-	function tripToStartDatetime(trip: Trip): string {
-		// trip.startDatetime is "YYYY-MM-DDTHH:MM:SS", we need "YYYY-MM-DDTHH:MM"
-		return trip.startDatetime.slice(0, 16);
-	}
-
-	// Convert trip's endDatetime to datetime-local format for API calls
-	function tripToEndDatetime(trip: Trip): string {
-		// trip.endDatetime is "YYYY-MM-DDTHH:MM:SS" or null
-		if (!trip.endDatetime) return trip.startDatetime.slice(0, 16);
-		return trip.endDatetime.slice(0, 16);
 	}
 
 	// Extract date portion from startDatetime for comparison
@@ -305,11 +292,7 @@
 			// Clear preview
 			previewData = null;
 			previewingTripId = null;
-			// First refresh trips from DB, then recalculate ODO on updated list
-			// (Fix: recalculateAllOdo was running on stale trips prop before)
 			await onTripsChanged();
-			await tick(); // Wait for Svelte prop update
-			await recalculateAllOdo();
 			await loadRoutes();
 			await loadPurposes();
 			// A place typed into this trip is now in the book — refresh so it is
@@ -346,11 +329,7 @@
 				tripData.otherCostsNote
 			);
 
-			// Refresh trips from DB first, then recalculate ODO on updated list
-			// (Same pattern as handleSaveNew — prevents stale data recalculation)
 			await onTripsChanged();
-			await tick();
-			await recalculateAllOdo();
 			await loadRoutes();
 			await loadPurposes();
 			await loadPlaces();
@@ -437,27 +416,6 @@
 		} catch (error) {
 			console.error('Magic fill calculation failed:', error);
 			return 0;
-		}
-	}
-
-	async function recalculateAllOdo() {
-		// Trips arrive from backend ordered by start_datetime DESC (newest first).
-		// Reverse to process chronologically (oldest → newest) so running ODO accumulates correctly.
-		const chronological = [...trips].reverse();
-
-		let runningOdo = effectiveInitialOdometer;
-		for (const trip of chronological) {
-			runningOdo += trip.distanceKm;
-			if (Math.abs(trip.odometer - runningOdo) > 0.01) {
-				await updateTrip(
-					trip.id, tripToStartDatetime(trip), tripToEndDatetime(trip),
-					trip.origin, trip.destination, trip.distanceKm, runningOdo,
-					trip.purpose,
-					trip.fuelLiters, trip.fuelCostEur, trip.fullTank,
-					trip.energyKwh, trip.energyCostEur, trip.fullCharge, trip.socOverridePercent,
-					trip.otherCostsEur, trip.otherCostsNote
-				);
-			}
 		}
 	}
 
