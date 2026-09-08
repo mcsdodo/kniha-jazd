@@ -68,9 +68,9 @@ rate loop at
 [statistics.rs:108-129](../../src-tauri/core/src/commands_internal/statistics.rs)). What
 did skew this period was the **order** of the two tied rows, and
 [task 80](../80-one-trip-ordering/) fixed that: under the old rules the 352 km leg fell
-inside the period, which read 45.2 L over 1134 km, that is 3.986 l/100km; in the one book
-order the leg falls after the fill-up and the period reads 45.2 L over 782 km, that is
-5.780 l/100km (measured). Both are under the limit. The three rows still need correcting
+inside the period, which read 45.2 L over 1134 km, that is 3.986 l/100km (arithmetic, from
+the figures in the task 80 brief); in the one book order the leg falls after the fill-up
+and the period reads 45.2 L over 782 km, that is 5.780 l/100km (measured). Both are under the limit. The three rows still need correcting
 -- a span of -4 km is impossible -- but no consumption figure depends on them. The
 measured decision package is in [02-correction.md](./02-correction.md).
 

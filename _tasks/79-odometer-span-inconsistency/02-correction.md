@@ -19,7 +19,7 @@ production book. This is that decision package. It has four parts:
 | Item | Value |
 |---|---|
 | Build | `kniha-jazd-web:local`, built from `b1af28e`, app version `0.44.0` |
-| Database | A copy of the production book, taken 2026-09-08 |
+| Database | A copy of the local working copy `_tmp/79-local/data/kniha-jazd.db`, taken 2026-09-08. It matches the snapshot `kniha-jazd.db.pre-run-162703` (md5 `ed75de8573ad2afceb5f0ed8a59c8594`), that is the book **before** the hand edit of 2026 rows 107 and 108 at 16:27. Whether production still matches it was not checked. |
 | Container | `kniha-jazd-t79` on port 3468, `kniha-jazd-t79b` on port 3469 |
 | Source of the numbers | `get_trip_grid_data`, `preview_trip_calculation`, `recalculate_odometers` with `dryRun` |
 
@@ -75,7 +75,7 @@ there. So the order is right and the two stored odometers are wrong.
 
 | # | Trip | Date | Route | km | Start | End | Span | Error |
 |---|---|---|---|---|---|---|---|---|
-| 1 | `4d1273be` | 2023-04-25 00:00 | Horny dvor 4665, Senec -> Narcisova 44, Bratislava | 22 | 3125 or 3147 | 3147 | **0** | -22 |
+| 1 | `4d1273be` | 2023-04-25 00:00 | Horný dvor 4665, Senec -> Narcisova 44, Bratislava | 22 | 3125 or 3147 | 3147 | **0** | -22 |
 
 Purpose: `prevzatie auta (1 cesta)`. It is the first row of the whole book.
 
@@ -198,8 +198,8 @@ That is a real finding, and it corrects the task 79 file. That file says "the
 wrong spans have been feeding the consumption figures". They were not. A period's
 distance comes from the `distance_km` column of each row, never from the
 odometer (`calculate_closed_period_totals`,
-`src-tauri/core/src/calculations/mod.rs:96-121`, and the rate loop at
-`src-tauri/core/src/commands_internal/statistics.rs:113-128`). The odometer is
+`src-tauri/core/src/calculations/mod.rs:105-128`, and the rate loop at
+`src-tauri/core/src/commands_internal/statistics.rs:108-129`). The odometer is
 not an input to any consumption number.
 
 What did skew this period was the **ordering**, and task 80 already fixed it.

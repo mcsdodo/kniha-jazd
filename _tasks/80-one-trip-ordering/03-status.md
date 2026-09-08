@@ -21,7 +21,7 @@ that does to your book. It has three parts:
 | Old build | `kniha-jazd-web:pre80`, from commit `860a98f`, the commit before task 80 |
 | New build | `kniha-jazd-web:local`, from commit `c818fe7`, the head of task 80 |
 | App version, both | `0.44.0` |
-| Database | One copy of the production book, made 2026-09-08 16:29, md5 `9fd6052e4247b1ad4dab9fe701bb8a23` |
+| Database | One copy of the **local working copy** of the book, `_tmp/79-local/data/kniha-jazd.db`, made 2026-09-08 16:29, md5 `9fd6052e4247b1ad4dab9fe701bb8a23`. That copy carries a hand edit of 2026 rows 107 and 108 that production does not have (Part 4). |
 | Copies | Three identical copies, one per container: `kj80-pre` (port 3471), `kj80-post` (3472), `kj80-dry` (3473) |
 | Source of the numbers | `get_trip_grid_data`, `calculate_trip_stats`, `recalculate_odometers` with `dryRun` |
 | Book size | 329 trips, one vehicle (BT014IN). The Tesla has no trips in any year. |
@@ -156,15 +156,26 @@ Only the row numbers differ.
 
 ## Part 3 - The legal figures
 
-`calculate_trip_stats` returns the worst period of the year. The two builds
-return the same numbers, to the last digit.
+`calculate_trip_stats` returns both an average and a worst case, and they are
+different figures. `avgConsumptionRate` is the year's total fuel over its total
+km. `marginPercent` and `isOverLimit` describe the **worst** closed fill-up
+period, because each period is separately auditable. The two builds return the
+same numbers, to the last digit.
 
-| Year | Worst rate l/100km | Margin over TP 5.1 | Over the 20 % limit | Total km | Fuel L |
+| Year | Average rate over closed periods, l/100km | Worst period margin over TP 5.1 | Over the 20 % limit | Total km | Fuel L |
 |---|---|---|---|---|---|
 | 2023 | 6.109889 | 30.82 % | **yes** | 13914 | 850.13 |
 | 2024 | 5.987772 | 24.17 % | **yes** | 21017.5 | 1258.48 |
 | 2025 | 6.002670 | 19.78 % | no | 16857 | 1011.87 |
 | 2026 | 5.964591 | 19.85 % | no | 14552 | 843.93 |
+
+Do not read the two middle columns as one number. The margin does not belong to
+the rate beside it: (6.109889 / 5.1 - 1) * 100 is 19.80 %, not 30.82 %. The worst
+period's own rate is not in the command's answer. It follows from the margin,
+because `calculate_margin_percent` is `(rate / tp - 1) * 100`
+([calculations/mod.rs:38-43](../../src-tauri/core/src/calculations/mod.rs)): 6.672
+in 2023, 6.333 in 2024, 6.109 in 2025 and 6.112 in 2026 l/100km (arithmetic, not
+measured).
 
 Task 80 moves none of this. The 2023 and 2024 books were already over the limit
 before this work and are over it after, by the same amount.
@@ -197,7 +208,16 @@ book order. It has **no UI**. Nothing calls it on save. It is reached over RPC
 only, and `dryRun: true` writes nothing (verified: the database file's md5 was
 identical before and after all four dry runs).
 
-Measured on the untouched copy, 2026-09-08:
+Measured on the untouched copy described above, 2026-09-08. **That copy is not
+production.** It carries the hand edit of 2026 rows 107 and 108 made in the local
+app at 16:27 and 16:28 (Part 4), and production does not have it. Measured on the
+snapshot taken before that edit (`_tmp/79-local/data/kniha-jazd.db.pre-run-162703`,
+md5 `ed75de8573ad2afceb5f0ed8a59c8594`), the same command returns **two** rows for
+2026, 69415 -> 69063 and 69411 -> 69415, which is the pair
+[02-correction.md](../79-odometer-span-inconsistency/02-correction.md) records.
+The 2023, 2024 and 2025 answers are identical on both copies. So take the local
+copy to production first, or expect the 2026 table below to disagree with what
+production answers.
 
 | Year | Rows it would change | Change | What it means |
 |---|---|---|---|
@@ -217,7 +237,9 @@ The 2026 rows in full:
 ### The operator procedure
 
 Run the dry run first, always. If it returns rows or values other than the ones
-above, **stop**: the book moved since this document was written.
+above, **stop** and read Part 4: either the book moved again, or the target is a
+book without the 16:27 hand edit, which answers with the two rows of
+[02-correction.md](../79-odometer-span-inconsistency/02-correction.md) instead.
 
 ```bash
 # 1. Dry run. Writes nothing.

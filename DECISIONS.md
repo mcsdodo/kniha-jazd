@@ -12,11 +12,11 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Decision:** `trip_order(a, b)` ([helpers.rs](./src-tauri/core/src/commands_internal/helpers.rs)) is the one order of the book: `start_datetime`, then `created_at`, then `odometer`, then `id`. Each key applies only when the one before it carries no information. Every trip sort in the backend routes through it, including the preview command's virtual row. The frontend keeps no rule of its own: it orders the rows by the trip number the backend computed, and reverses that list for the descending view.
 
-**Reasoning:** The order of the two middle keys was chosen by measurement, not by taste. Span warnings raised over the whole book, measured on the snapshot of 2026-09-08 16:27 (`kniha-jazd.db.pre-run-162703`, the book before rows 107 and 108 of 2026 were edited by hand):
+**Reasoning:** The order of the two middle keys was chosen by measurement, not by taste. Every figure in this ADR comes from [scripts/measure-trip-order.py](./scripts/measure-trip-order.py), run against a snapshot of the book taken on 2026-09-08 at 16:27, before rows 107 and 108 of 2026 were edited by hand: `_tmp/79-local/data/kniha-jazd.db.pre-run-162703`, md5 `ed75de8573ad2afceb5f0ed8a59c8594`, 329 trips, vehicle BT014IN. That path is gitignored, so the file does not travel with the repository; the script does, and it prints every number below from any copy of the book. Span warnings raised over the whole book, under the rule the app ships (`|odometer - odometer_start - distance_km| >= 1 km`):
 
 | Order | Warnings | Verdict |
 |---|---|---|
-| `datetime, created_at, id` | 65 | Declares two thirds of the imported book broken |
+| `datetime, created_at, id` | 65 | Declares 62 of the 221 imported rows of 2023 to 2025 broken, plus 3 of 2026 |
 | `datetime, odometer, id` | 1 | Reads perfectly, but silences all three 2026 errors; only row 1 of 2023 survives |
 | `datetime, created_at, odometer, id` | 4 | 2024 and 2025 clean, the three 2026 errors kept, plus row 1 of 2023 |
 
@@ -30,7 +30,7 @@ The place chain itself cannot be the rule. It settles only 13 of the 31 tied gro
 
 **Note for a later reader:** the same three measurements on the book of today read 63, 2 and 2, and the two candidate tie-breaks no longer disagree in any group. The hand edit of 2026-08-19 row 107 removed the one group that discriminated them. The decision rests on the snapshot named above.
 
-**Related:** [Task 80](./_tasks/80-one-trip-ordering/); [Task 79](./_tasks/79-odometer-span-inconsistency/); [ADR-043](#adr-043-the-span-is-the-check-that-finds-the-error-the-tied-datetime-only-explains-it) (the span check the odometer key must not silence); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the order has one home, in Rust).
+**Related:** [Task 80](./_tasks/80-one-trip-ordering/) and its [03-status.md](./_tasks/80-one-trip-ordering/03-status.md) (the two builds, the copy's md5, the method table and the full renumbering list); [Task 79](./_tasks/79-odometer-span-inconsistency/); [ADR-043](#adr-043-the-span-is-the-check-that-finds-the-error-the-tied-datetime-only-explains-it) (the span check the odometer key must not silence); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (the order has one home, in Rust).
 
 ### ADR-045: The odometer rewrite is a command the user runs, never a side effect of a save
 
@@ -38,7 +38,7 @@ The place chain itself cannot be the rule. It settles only 13 of the 31 tied gro
 
 **Decision:** It does not. Nothing calls `recalculate_odometers` automatically, there is no UI for it, and it is reached over RPC only. It takes a `dryRun` flag: with `dryRun: true` it writes nothing and returns the rows it would change, each as `{tripId, tripNumber, oldOdometer, newOdometer}`. A save now writes exactly the row the user edited.
 
-**Reasoning:** The measurement decided it. On the book as it stands, an automatic rewrite on the first save would change 0 rows in 2024, but **69 in 2023, 68 in 2025 and 3 in 2026**, none of them touched by the user. The 2023 run pushes the 22 km of row 1 through the whole year, which is the 223-row option the task 79 package argues against. The 2025 run moves 68 legal values by -0.5 km to chase a rounding artefact that the 1 km span tolerance ignores on purpose. Worse, both runs would erase the span warnings that exist to surface exactly those errors: a rewrite makes the chain agree with itself, so the sign disappears and the wrong data stays.
+**Reasoning:** The measurement decided it. `recalculate_odometers` with `dryRun: true` reports what such a rewrite would do to the book as it stands: 0 rows in 2024, but **69 in 2023, 68 in 2025 and 3 in 2026**, none of them touched by the user. The 2023 run pushes the 22 km of row 1 through the whole year, which is the 223-row option the task 79 package argues against. The 2025 run moves 68 legal values by -0.5 km to chase a rounding artefact that the 1 km span tolerance ignores on purpose. Worse, both runs would erase the span warnings that exist to surface exactly those errors: a rewrite makes the chain agree with itself, so the sign disappears and the wrong data stays.
 
 This book is legal evidence, and the spec requires the user to approve a change against a copy before it runs on the production book. A dry run is what makes that approval possible: the same command that applies the change first states it, row by row, with the old and the new value.
 
