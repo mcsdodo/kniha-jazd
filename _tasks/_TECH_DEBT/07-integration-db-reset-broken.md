@@ -17,7 +17,8 @@ cross-process hook to get wrong.
 Note the *cross-spec* state sharing this file also touches is NOT resolved: specs in a
 tier still share one backend and one database, which is why `datetime-is-order` can fail
 under a full-tier run and pass in isolation. `specFileRetries: 2` absorbs it today. That
-part belongs to [Task 41](../41-integration-test-speedup/).
+part belongs to [Task 82](../82-integration-db-reset/), which also names the tables the
+RPC reset misses today (receipts, routes, places, settings).
 
 ## Problem
 
@@ -56,8 +57,10 @@ processes; masked because nothing leaked visibly.
 
 ## Recommended Solution
 
-Fold into [Task 41](../41-integration-test-speedup/) (IPC-based DB reset), which replaces
-file deletion with an explicit backend reset command:
+Superseded. This section was written for the Tauri harness. Task 41 was archived unbuilt
+(see [_done/41-integration-test-speedup/04-superseded.md](../_done/41-integration-test-speedup/04-superseded.md));
+[Task 82](../82-integration-db-reset/) carries the surviving work. Keep the original text
+below for the reasoning, not for the file paths:
 
 1. Add a test-only `reset_database` IPC command (guarded by `KNIHA_JAZD_DATA_DIR` /
    debug builds) that truncates all tables in the open connection — no file locking
@@ -71,5 +74,6 @@ file deletion with an explicit backend reset command:
 
 ## Related
 
-- [Task 41 — Integration Test Speedup](../41-integration-test-speedup/)
+- [Task 82 — Integration DB Reset](../82-integration-db-reset/) -- the live successor
+- [Task 41 — Integration Test Speedup](../_done/41-integration-test-speedup/) -- archived unbuilt
 - [Task 66 — Multi-Invoice Support](../66-multi-invoice/) (where the leak surfaced)
