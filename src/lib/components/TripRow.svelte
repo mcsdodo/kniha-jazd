@@ -483,7 +483,10 @@
 		// new row saved afterwards -- could cascade this row while it stays
 		// open on the old odometer. The display row only renders when this row
 		// is not editing, so `otherRowEditing` is always about a different row.
-		if (otherRowEditing || newRowOpen) return;
+		// `cascadePending` is the same rule from the other side: a cascade
+		// waiting on the modal moves stored odometers, so no editor may open
+		// while one is armed (ADR-046, rule 2).
+		if (otherRowEditing || newRowOpen || cascadePending) return;
 		isEditing = true;
 		// Before the preview below, so its response cannot be applied on the
 		// strength of a flag from the previous session.
