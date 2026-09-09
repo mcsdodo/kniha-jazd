@@ -5,11 +5,13 @@ use crate::calculations::time_inference::{compute_inferred_times, Jitter, Thread
 use crate::calculations::trip_copy::compute_copied_trip_defaults;
 use crate::check_read_only;
 use crate::commands_internal::{
-    calculate_trip_numbers, get_year_start_odometer, parse_iso_datetime, trip_order,
+    calculate_trip_numbers, get_year_start_odometer, parse_iso_datetime, period_margin_impact,
+    trip_order,
 };
 use crate::db::{normalize_location, Database};
 use crate::models::{
-    CascadePlan, CascadeResult, CopiedTripDefaults, InferredTripTime, OdometerChange, Route, Trip,
+    CascadePlan, CascadeResult, CopiedTripDefaults, DistanceWriteback, InferredTripTime,
+    OdometerChange, Route, Trip,
 };
 use crate::settings::LocalSettings;
 use chrono::{Datelike, Local, NaiveDate, NaiveDateTime, Utc};
@@ -723,6 +725,115 @@ pub fn update_trip_cascade_internal(
     .map_err(|e| e.to_string())?;
 
     Ok(CascadeResult { trip: Some(trip), plan })
+}
+
+/// Write a route's road distance onto the trip it illustrates.
+///
+/// This reverses ADR-039, behind the two things that ADR named as the reason
+/// not to do it silently: the odometer chain and the consumption period. Both
+/// are computed first and returned as a dry run, so the user approves a
+/// specific set of numbers rather than a general idea.
+///
+/// It deliberately does NOT go through `update_trip_cascade_internal`. That
+/// path rebuilds the whole row from submitted strings, and `build_updated_trip`
+/// writes `end_datetime: Some(parse(...))` unconditionally -- a trip that
+/// stored `None` would silently gain an end time as a side effect of applying
+/// a distance. Here the stored row is the base and exactly three fields move:
+/// `distance_km`, `odometer` and `updated_at`. `find_or_create_route` is not
+/// called either: the origin and the destination did not change.
+///
+/// The cascade itself is not reimplemented -- `plan_odometer_cascade` is the
+/// same planner the grid's own save uses, so the two paths cannot disagree
+/// about what a distance change does to the chain.
+pub fn apply_route_distance_internal(
+    db: &Database,
+    app_state: &AppState,
+    trip_id: String,
+    road_km: f64,
+    dry_run: bool,
+) -> Result<DistanceWriteback, String> {
+    if !dry_run {
+        check_read_only!(app_state);
+    }
+
+    if !road_km.is_finite() || road_km < 0.0 {
+        return Err(format!(
+            "Road distance {road_km} is not a distance that can be written to a trip"
+        ));
+    }
+
+    let existing = db
+        .get_trip(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
+    let distance_before = existing.distance_km;
+
+    let vehicle_id = existing.vehicle_id.to_string();
+    let vehicle = db
+        .get_vehicle(&vehicle_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vehicle not found".to_string())?;
+
+    let year = existing.start_datetime.year();
+    let trips = db
+        .get_trips_for_vehicle_in_year(&vehicle_id, year)
+        .map_err(|e| e.to_string())?;
+    let year_start = get_year_start_odometer(db, &vehicle_id, year, vehicle.initial_odometer)?;
+
+    // The stored odometer is submitted unchanged, so `plan_odometer_cascade`
+    // takes its km-wins branch: the row ends at `anchor + road_km` and every
+    // later row of the year moves by the same delta. On a row whose stored
+    // odometer already disagreed with `anchor + km`, that delta also carries
+    // the repair -- the plan reports the two parts separately and the modal
+    // shows both.
+    let mut plan =
+        plan_odometer_cascade(&trips, year_start, &trip_id, road_km, existing.odometer)?;
+    mark_next_year_chain_breaks(db, &vehicle_id, year, &mut plan)?;
+
+    let margin = period_margin_impact(
+        &trips,
+        vehicle.tp_consumption.unwrap_or_default(),
+        &trip_id,
+        plan.new_distance_km,
+    );
+
+    if dry_run {
+        return Ok(DistanceWriteback {
+            trip_id,
+            distance_before,
+            distance_after: plan.new_distance_km,
+            plan,
+            margin,
+            trip: None,
+        });
+    }
+
+    let trip = Trip {
+        distance_km: plan.new_distance_km,
+        odometer: plan.new_odometer,
+        updated_at: Utc::now(),
+        ..existing
+    };
+
+    // The row and its shift go to the database in one transaction. They are
+    // one correction to a legal record, so a partial write is never
+    // acceptable.
+    let shifts: Vec<(String, f64)> = plan
+        .changes
+        .iter()
+        .map(|c| (c.trip_id.clone(), c.new_odometer))
+        .collect();
+    db.update_trip_with_odometer_shift(&trip, &shifts)
+        .map_err(|e| e.to_string())?;
+
+    Ok(DistanceWriteback {
+        trip_id,
+        distance_before,
+        distance_after: plan.new_distance_km,
+        plan,
+        margin,
+        trip: Some(trip),
+    })
 }
 
 /// Insert a trip and move every later row of the same year by its distance.

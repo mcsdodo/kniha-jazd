@@ -6714,6 +6714,121 @@ fn test_period_margin_impact_leaves_other_periods_alone() {
     assert!((same_period.rate_before - 6.0).abs() < 1e-9);
 }
 
+#[test]
+fn test_apply_route_distance_dry_run_writes_nothing() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+
+    let result =
+        apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, true).unwrap();
+
+    assert!(result.trip.is_none(), "a dry run returns no saved trip");
+    assert!((result.distance_before - 50.0).abs() < 1e-9);
+    assert!((result.distance_after - 61.5).abs() < 1e-9);
+    assert!((result.plan.delta - 11.5).abs() < 1e-9);
+    assert_eq!(result.plan.changes.len(), 1, "the one row after it would move");
+
+    // Nothing moved.
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().distance_km, 50.0);
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50120.0);
+}
+
+#[test]
+fn test_apply_route_distance_writes_the_row_and_shifts_the_rest() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+    let c = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50150.0);
+
+    apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, false).unwrap();
+
+    let written = db.get_trip(&a.to_string()).unwrap().unwrap();
+    assert!((written.distance_km - 61.5).abs() < 1e-9);
+    // The odometer follows the distance: anchor (the year start) + km.
+    assert!((written.odometer - 50061.5).abs() < 1e-9);
+    // The invariant holds for the edited row and for every row after it.
+    assert!((db.get_trip(&b.to_string()).unwrap().unwrap().odometer - 50131.5).abs() < 1e-9);
+    assert!((db.get_trip(&c.to_string()).unwrap().unwrap().odometer - 50161.5).abs() < 1e-9);
+}
+
+#[test]
+fn test_apply_route_distance_does_not_invent_an_end_time() {
+    // `update_trip_cascade_internal` rebuilds a row from submitted strings and
+    // writes `end_datetime: Some(...)` unconditionally. Routing that path here
+    // would stamp an end time onto a trip that stored none, as a side effect
+    // of applying a distance. This write touches three fields and no others.
+    //
+    // No stored row is affected TODAY: `create_trip`, `update_trip` and
+    // `update_trip_cascade` all take `end_datetime: String`, so no caller can
+    // write a NULL, and the production copy holds none (329 rows, 0 null,
+    // measured 2026-09-09). This is a guard on the write-back path, not a
+    // repair -- it keeps the property true before something else can create
+    // such a row.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    assert!(db.get_trip(&a.to_string()).unwrap().unwrap().end_datetime.is_none());
+
+    let before = db.get_trip(&a.to_string()).unwrap().unwrap();
+    apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, false).unwrap();
+    let after = db.get_trip(&a.to_string()).unwrap().unwrap();
+
+    assert!(after.end_datetime.is_none(), "a trip with no end time keeps none");
+    assert_eq!(after.start_datetime, before.start_datetime);
+    assert_eq!(after.origin, before.origin);
+    assert_eq!(after.destination, before.destination);
+    assert_eq!(after.purpose, before.purpose);
+    assert_eq!(after.fuel_liters, before.fuel_liters);
+    assert_eq!(after.full_tank, before.full_tank);
+    assert_eq!(after.created_at, before.created_at);
+}
+
+#[test]
+fn test_apply_route_distance_reports_the_margin_it_would_cause() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new("Writeback".to_string(), "BA2".to_string(), 60.0, 5.0, 50000.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let app_state = crate::app_state::AppState::new();
+    let (a, _b) = seed_closed_period(&db, vehicle.id);
+
+    let result =
+        apply_route_distance_internal(&db, &app_state, a.to_string(), 90.0, true).unwrap();
+
+    assert!(result.margin.period_closed);
+    assert!(!result.margin.over_limit_before);
+    assert!(
+        result.margin.over_limit_after,
+        "the warning must say the write crosses the 20 % limit"
+    );
+}
+
+#[test]
+fn test_apply_route_distance_is_read_only_guarded() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    app_state.enable_read_only("newer migrations");
+
+    // Reading is always allowed, so the dry run still answers.
+    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, true).is_ok());
+    // Writing is not.
+    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, false).is_err());
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().distance_km, 50.0);
+}
+
+#[test]
+fn test_apply_route_distance_refuses_a_distance_that_is_not_one() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), -1.0, true).is_err());
+    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), f64::NAN, true).is_err());
+}
+
 // ============================================================================
 // Time inference (smart defaults for new trip rows) — Task 56
 // ============================================================================

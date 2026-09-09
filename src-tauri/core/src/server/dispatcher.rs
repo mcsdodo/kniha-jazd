@@ -267,6 +267,27 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "apply_route_distance" => {
+            // Two arguments and nothing else. The trip's other fields are not
+            // resubmitted, so this command cannot change them even by mistake
+            // -- which is the point (task 78).
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                road_km: f64,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::apply_route_distance_internal(
+                &state.db,
+                &state.app_state,
+                a.trip_id,
+                a.road_km,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         "create_trip_cascade" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

@@ -997,6 +997,21 @@ pub struct CascadeResult {
     pub plan: CascadePlan,
 }
 
+/// The answer `apply_route_distance` gives. `trip` is `None` on a dry run,
+/// because a dry run saves nothing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DistanceWriteback {
+    pub trip_id: String,
+    pub distance_before: f64,
+    pub distance_after: f64,
+    /// What the write does to the odometer chain of the year (ADR-046).
+    pub plan: CascadePlan,
+    /// What it does to the consumption period the row sits in (BIZ-003).
+    pub margin: PeriodMarginImpact,
+    pub trip: Option<Trip>,
+}
+
 // =============================================================================
 // Diesel ORM Row Structs
 // =============================================================================
