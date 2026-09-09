@@ -55,7 +55,8 @@ Explicit assignment model:
 - [x] Mismatch warning shows on both grids
 - [x] Override suppresses warning
 - [x] Trip grid shows inline triangles (not column)
-- [x] All scenarios from design doc work (A1-E6)
+- [x] The C1-C7 assignment scenarios of the design doc work (C6 later reversed, see Outcome).
+      A, B, D and E were not re-verified when this folder was archived.
 - [x] Backend tests cover assignment logic
 - [x] Integration tests cover UI flow
 
@@ -78,10 +79,11 @@ header until 2026-09-09, so read the header of any `_tasks/` file with care.
 
 **Three things differ from the plan above:**
 
-1. **C6 was reversed later.** The plan blocked a second OTHER invoice on a trip
-   that already had other costs. A later change allowed it, and
-   [task 66](../66-multi-invoice/) made 1 FUEL + N OTHER per trip the model. The
-   test is now `test_assign_other_to_trip_with_existing_other_costs_allowed`.
+1. **The plan's "block" decision was reversed.** `02-plan.md` chose to block an
+   OTHER invoice on a trip that already had other costs. A later change allowed
+   it, and [task 66](../66-multi-invoice/) made 1 FUEL + N OTHER per trip the
+   model, which also widens scenario E2 of the design doc. The test is now
+   `test_assign_other_to_trip_with_existing_other_costs_allowed`.
 2. **`ReceiptDisplayState` never reached Rust.** Design spec v7 kept the flatter
    `ReceiptVerification` shape instead. The TypeScript type in
    [src/lib/types.ts](../../../src/lib/types.ts) has no producer and no consumer.

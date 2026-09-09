@@ -4,7 +4,7 @@
 **Priority:** Medium
 **Effort:** Medium (2-8h)
 **Component:** `src-tauri/core/src/models.rs`, `src/lib/types.ts`, `src/routes/doklady/+page.svelte`
-**Status:** ✅ Resolved by [Task 51](../_done/51-receipt-state-model/), shipped in 0.29.0 on 2026-02-04
+**Status:** Fixed
 
 ## Problem
 
@@ -113,8 +113,10 @@ Feature evolved incrementally:
 
 ## Related
 
-- Task 50: Receipt datetime validation (`_tasks/50-receipt-datetime-validation/`)
-- `src-tauri/src/models.rs` - Rust types
+- [Task 51](../_done/51-receipt-state-model/) - the redesign that fixed this item
+- [05-receipt-trip-state-model-design.md](./05-receipt-trip-state-model-design.md) - the v7 design it implemented
+- [Task 50](../_done/50-receipt-datetime-validation/): Receipt datetime validation
+- `src-tauri/core/src/models.rs` - Rust types
 - `src/lib/types.ts` - TypeScript types
 - `src/routes/doklady/+page.svelte` - Receipt list UI
 
@@ -123,3 +125,5 @@ Feature evolved incrementally:
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-02-01 | Created documentation | After Task 50 completion, state model needs explicit documentation for future iteration |
+| 2026-02-04 | Fixed by [Task 51](../_done/51-receipt-state-model/) | Explicit assignment shipped in 0.29.0: the user picks FUEL or OTHER, `trip_id` alone means assigned, no auto-matching |
+| 2026-09-09 | Closed the item | The status said Open for seven months after the fix shipped |
