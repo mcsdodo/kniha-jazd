@@ -612,6 +612,10 @@ const en = {
 		removeWaypoint: 'Remove stop',
 		roundTrip: 'Round trip',
 		roundTripHint: 'The route continues back to the starting point.',
+		legOutbound: 'There',
+		legInbound: 'Back',
+		endpointMissing: 'The origin or the destination has no place on the map yet.',
+		placeEndpoint: 'Place it',
 	},
 
 	// Place book

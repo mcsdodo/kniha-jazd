@@ -612,6 +612,10 @@ const sk = {
 		removeWaypoint: 'Odstrániť zastávku',
 		roundTrip: 'Cesta tam a späť',
 		roundTripHint: 'Trasa povedie z cieľa späť do miesta odchodu.',
+		legOutbound: 'Tam',
+		legInbound: 'Späť',
+		endpointMissing: 'Miesto odchodu alebo príchodu nie je umiestnené na mape.',
+		placeEndpoint: 'Umiestniť miesto',
 	},
 
 	// Place book

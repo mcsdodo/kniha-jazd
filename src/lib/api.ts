@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, CascadePlan, CascadeResult } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, CascadePlan, CascadeResult } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -587,6 +587,32 @@ export async function getTripRoute(tripId: string): Promise<RouteMap | null> {
 	return await apiCall('get_trip_route', { tripId });
 }
 
+/**
+ * Route a round trip as TWO requests, one per leg, so each leg gets its own
+ * alternatives and the way home can differ from the way out.
+ *
+ * Send `inbound: []` on the first call after the checkbox is ticked -- the
+ * backend derives the return leg from the outbound one. On every later call,
+ * send the lists the previous response returned: they are authoritative, and
+ * the backend re-joins their ends anyway.
+ *
+ * Alternatives come back in the routing service's own order (fastest first).
+ * Never re-sort them (ADR-038).
+ */
+export async function routeRoundTrip(
+	outbound: Waypoint[],
+	inbound: Waypoint[],
+	targetKm: number,
+	insert?: LegInsertPoint
+): Promise<RoundTripRoutes> {
+	return await apiCall('route_round_trip', {
+		outbound,
+		inbound,
+		targetKm,
+		insert: insert ?? null
+	});
+}
+
 // coordinates, datasetVersion and durationS are intentionally not sent -- the
 // backend re-derives coordinates and datasetVersion (polyline decode +
 // bundled dataset version) and never persists durationS at all. Adding them
@@ -609,6 +635,35 @@ export async function saveTripRoute(
 		roadKm: route.roadKm,
 		mode: route.mode,
 		roundTrip,
+	});
+}
+
+/**
+ * Persist the chosen pair of legs as one route.
+ *
+ * No waypoint list, no polyline, no combined distance: the backend joins the
+ * legs, concatenates the geometry and sums the distances itself (ADR-008).
+ * Every value sent here is one the routing response produced.
+ */
+export async function saveTripRoundTripRoute(
+	tripId: string,
+	outboundWaypoints: Waypoint[],
+	inboundWaypoints: Waypoint[],
+	outboundPolyline: string,
+	inboundPolyline: string,
+	outboundRoadKm: number,
+	inboundRoadKm: number,
+	targetKm: number
+): Promise<void> {
+	return await apiCall('save_trip_round_trip_route', {
+		tripId,
+		outboundWaypoints,
+		inboundWaypoints,
+		outboundPolyline,
+		inboundPolyline,
+		outboundRoadKm,
+		inboundRoadKm,
+		targetKm
 	});
 }
 

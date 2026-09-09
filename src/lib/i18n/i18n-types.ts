@@ -2043,6 +2043,22 @@ type RootTranslation = {
 		 * T​r​a​s​a​ ​p​o​v​e​d​i​e​ ​z​ ​c​i​e​ľ​a​ ​s​p​ä​ť​ ​d​o​ ​m​i​e​s​t​a​ ​o​d​c​h​o​d​u​.
 		 */
 		roundTripHint: string
+		/**
+		 * T​a​m
+		 */
+		legOutbound: string
+		/**
+		 * S​p​ä​ť
+		 */
+		legInbound: string
+		/**
+		 * M​i​e​s​t​o​ ​o​d​c​h​o​d​u​ ​a​l​e​b​o​ ​p​r​í​c​h​o​d​u​ ​n​i​e​ ​j​e​ ​u​m​i​e​s​t​n​e​n​é​ ​n​a​ ​m​a​p​e​.
+		 */
+		endpointMissing: string
+		/**
+		 * U​m​i​e​s​t​n​i​ť​ ​m​i​e​s​t​o
+		 */
+		placeEndpoint: string
 	}
 	places: {
 		/**
@@ -4679,6 +4695,22 @@ export type TranslationFunctions = {
 		 * Trasa povedie z cieľa späť do miesta odchodu.
 		 */
 		roundTripHint: () => LocalizedString
+		/**
+		 * Tam
+		 */
+		legOutbound: () => LocalizedString
+		/**
+		 * Späť
+		 */
+		legInbound: () => LocalizedString
+		/**
+		 * Miesto odchodu alebo príchodu nie je umiestnené na mape.
+		 */
+		endpointMissing: () => LocalizedString
+		/**
+		 * Umiestniť miesto
+		 */
+		placeEndpoint: () => LocalizedString
 	}
 	places: {
 		/**

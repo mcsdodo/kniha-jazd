@@ -582,6 +582,51 @@ export interface InsertPoint {
 	polyline: string;
 }
 
+/** Which leg of a round trip an edit belongs to. */
+export type Leg = 'outbound' | 'inbound';
+
+/** A point dragged off ONE leg's polyline. The leg is reported, not derived:
+ *  the ghost handle is attached to a specific leg's line, so the browser knows
+ *  it for certain, and deriving it from geometry is what put a via on the
+ *  wrong leg before. */
+export interface LegInsertPoint {
+	lat: number;
+	lon: number;
+	polyline: string;
+	leg: Leg;
+}
+
+/** One alternative for one leg. It carries no deviation: a leg is half a
+ *  journey, and the target distance describes the whole one. */
+export interface LegRoute {
+	polyline: string;
+	coordinates: [number, number][];
+	roadKm: number;
+	durationS: number;
+}
+
+/** What one pair of legs adds up to -- computed in Rust for every pair, so
+ *  picking an alternative is an index change here and never a sum (ADR-008). */
+export interface CombinedLeg {
+	roadKm: number;
+	durationS: number;
+	deviationPercent: number;
+	offTarget: boolean;
+}
+
+/** Both legs of a round trip, as the backend last normalised them. */
+export interface RoundTripRoutes {
+	/** The OPEN list for each leg. Authoritative -- adopt them, do not keep
+	 *  your own: the backend derives the return leg and re-joins the ends. */
+	outboundWaypoints: Waypoint[];
+	inboundWaypoints: Waypoint[];
+	outbound: LegRoute[];
+	inbound: LegRoute[];
+	/** combined[outboundIndex][inboundIndex]. */
+	combined: CombinedLeg[][];
+	targetKm: number;
+}
+
 /**
  * Route map persisted against a trip. Unrelated to `Route` above, which is the
  * origin/destination autocomplete entity.
@@ -605,6 +650,11 @@ export interface RouteMap {
 	 *  start. Read back on load so the round-trip checkbox reflects what was
 	 *  actually saved, instead of always starting unticked. */
 	roundTrip: boolean;
+	/** Round trips only: where the outbound leg ends in `waypoints`. null for
+	 *  a one-way route, a loop, and a round trip saved before this column
+	 *  existed -- those always closed by appending one clone of the first
+	 *  waypoint, so they split at `length - 2`. */
+	turnaroundIndex: number | null;
 	createdAt: string;
 }
 
