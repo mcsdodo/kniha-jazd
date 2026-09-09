@@ -489,7 +489,7 @@ saw it.
 - [ADR-029](../../DECISIONS.md#adr-029-waypoints-persist-as-coordinates-not-dataset-indices): waypoints persist as coordinates, not dataset indices
 - [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication): all business logic in Rust
 - [ADR-016](../../DECISIONS.md#adr-016-_internal-extraction-pattern-for-command-reuse): the `_internal` command pattern these commands follow
-- [_tasks/78-round-trip-legs-and-distance-writeback/](../../_tasks/78-round-trip-legs-and-distance-writeback/): requirements, design and implementation plan for two-leg round trips and the distance write-back
+- [_tasks/78-round-trip-legs-and-distance-writeback/](../../_tasks/_done/78-round-trip-legs-and-distance-writeback/): requirements, design and implementation plan for two-leg round trips and the distance write-back
 - [_tasks/_done/72-route-map-origin-destination/](../../_tasks/_done/72-route-map-origin-destination/): requirements, design and implementation plan for origin/destination routing, alternatives, editing and the round trip
 - [_tasks/_done/70-route-map-integration/](../../_tasks/_done/70-route-map-integration/): requirements, design and implementation plan
 - [_tasks/_done/61-route-map-poc/](../../_tasks/_done/61-route-map-poc/): the standalone POC this graduated, and the dataset rationale

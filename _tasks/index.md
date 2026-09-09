@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-09 (Task 81 complete: an edit, an insert and a delete now cascade the odometer, see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own))
+**Last updated:** 2026-09-09 (Task 78 complete: a round trip routes as two independent legs, and the routed distance can be written back to the trip behind a fuel-bucket and legal-margin warning, see [ADR-047](../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg) and [ADR-048](../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for))
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 🟡 In Progress | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
@@ -18,6 +17,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 78 | [Round Trip Legs and Distance Write-Back](./_done/78-round-trip-legs-and-distance-writeback/) -- a round trip routes as two independent legs with a picker each, and the routed distance can be written back to the trip behind a fuel-period and legal-margin warning; see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-09 |
 | 81 | [Odometer Cascade On Save](./_done/81-odometer-cascade-on-save/) -- an edit, an insert and a delete cascade the odometer to every later row of the year, behind a confirmation modal; see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) | 2026-09-09 |
 | 80 | [One Trip Ordering](./_done/80-one-trip-ordering/) -- the renumbering is live in production, see [04-closed.md](./_done/80-one-trip-ordering/04-closed.md) | 2026-09-08 |
 | 79 | [Odometer Span Inconsistency](./_done/79-odometer-span-inconsistency/) -- the 2026 rows are corrected in production, 2023 stays as it is, see [03-closed.md](./_done/79-odometer-span-inconsistency/03-closed.md) | 2026-09-08 |

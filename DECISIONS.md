@@ -16,7 +16,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Consequence for the copy:** `alternativesUnavailable` becomes true again. It now appears only for a leg that genuinely passes through an intermediate stop, which is what it always said. A plain round trip no longer triggers it.
 
-**Related:** [Task 78](./_tasks/78-round-trip-legs-and-distance-writeback/); [ADR-038](#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders) (each leg keeps the service's own order); [ADR-041](#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust) (the one-way normalisation this does not replace); [ADR-040](#adr-040-the-waypoint-editor-is-mode-agnostic); [ADR-008](#adr-008-remove-frontend-calculation-duplication); [docs/features/route-maps.md](./docs/features/route-maps.md).
+**Related:** [Task 78](./_tasks/_done/78-round-trip-legs-and-distance-writeback/); [ADR-038](#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders) (each leg keeps the service's own order); [ADR-041](#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust) (the one-way normalisation this does not replace); [ADR-040](#adr-040-the-waypoint-editor-is-mode-agnostic); [ADR-008](#adr-008-remove-frontend-calculation-duplication); [docs/features/route-maps.md](./docs/features/route-maps.md).
 
 ### ADR-048: The routed distance can be written back, behind the warning this ADR asked for
 
@@ -32,7 +32,7 @@ The write touches three fields -- `distance_km`, `odometer`, `updated_at` -- and
 
 **Reasoning:** ADR-039's reasoning was never "this must not be possible" -- it was "this must not be silent". Every clause of that reasoning is now a visible number in the modal: which period moves, what its rate becomes, and which side of the 20 % limit it lands on. Refusing the write in a closed period was considered and rejected: the worked example above IS a closed period, so refusing there refuses the case the feature exists for, and leaves the user hand-editing the same number in the grid with no warning at all. Reusing the cascade planner rather than writing a second one is what keeps a routed distance and a typed distance from meaning different things to the odometer chain.
 
-**Related:** [Task 78](./_tasks/78-round-trip-legs-and-distance-writeback/); [ADR-039](#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance) (superseded); [ADR-046](#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) (the cascade this reuses); [BIZ-003](#biz-003-legal-margin-limit) (the limit the warning names); [ADR-008](#adr-008-remove-frontend-calculation-duplication).
+**Related:** [Task 78](./_tasks/_done/78-round-trip-legs-and-distance-writeback/); [ADR-039](#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance) (superseded); [ADR-046](#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) (the cascade this reuses); [BIZ-003](#biz-003-legal-margin-limit) (the limit the warning names); [ADR-008](#adr-008-remove-frontend-calculation-duplication).
 
 ---
 
