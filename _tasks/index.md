@@ -2,13 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-08 (Task 81 planned: a distance edit cascades the odometer to every later row of the year)
+**Last updated:** 2026-09-09 (Task 81 complete: an edit, an insert and a delete now cascade the odometer, see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own))
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 81 | [Odometer Cascade On Save](81-odometer-cascade-on-save/) | 📋 Planning | An edit, an insert or a delete moves the odometer of every later row of that year, behind a confirmation modal; supersedes part of ADR-045 |
 | 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 📋 Planning | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
@@ -19,6 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 81 | [Odometer Cascade On Save](81-odometer-cascade-on-save/) -- an edit, an insert and a delete cascade the odometer to every later row of the year, behind a confirmation modal; see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) | 2026-09-09 |
 | 80 | [One Trip Ordering](./_done/80-one-trip-ordering/) -- the renumbering is live in production, see [04-closed.md](./_done/80-one-trip-ordering/04-closed.md) | 2026-09-08 |
 | 79 | [Odometer Span Inconsistency](./_done/79-odometer-span-inconsistency/) -- the 2026 rows are corrected in production, 2023 stays as it is, see [03-closed.md](./_done/79-odometer-span-inconsistency/03-closed.md) | 2026-09-08 |
 | 72 | [Route Map Origin/Destination](./_done/72-route-map-origin-destination/) — see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-07 |
