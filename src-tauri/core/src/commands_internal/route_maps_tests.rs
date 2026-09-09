@@ -1513,3 +1513,243 @@ fn a_saved_loop_route_never_stores_round_trip_even_if_asked() {
         "a loop must never be stored as a round trip, even if the caller asked for one"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Round trip as two legs (Task 78)
+// ---------------------------------------------------------------------------
+
+/// Answers each call with its own routes and records the coordinate lists it
+/// was asked for, so a test can prove there were TWO requests and see the
+/// points of each.
+struct TwoLegProvider {
+    outbound: Vec<FetchedRoute>,
+    inbound: Vec<FetchedRoute>,
+    calls: std::sync::Mutex<Vec<Vec<(f64, f64)>>>,
+}
+
+impl TwoLegProvider {
+    fn new(outbound: Vec<FetchedRoute>, inbound: Vec<FetchedRoute>) -> Self {
+        Self { outbound, inbound, calls: std::sync::Mutex::new(Vec::new()) }
+    }
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for TwoLegProvider {
+    async fn fetch(&self, _coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        Ok(self.outbound[0].clone())
+    }
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        _max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        let mut calls = self.calls.lock().unwrap();
+        calls.push(coords.to_vec());
+        if calls.len() == 1 {
+            Ok(self.outbound.clone())
+        } else {
+            Ok(self.inbound.clone())
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_round_trip_is_two_requests_one_per_leg() {
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0), fetched("out2", 27.0, 1400.0)],
+        vec![fetched("back1", 26.0, 1600.0)],
+    );
+
+    let result = route_round_trip_internal(
+        &provider,
+        direct_waypoints(),
+        Vec::new(),
+        50.0,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let calls = provider.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2, "each leg must be its own routing request");
+    assert_eq!(calls[0].len(), 2, "the outbound leg is a two-point request");
+    assert_eq!(calls[1].len(), 2, "the return leg is a two-point request");
+    // Reversed: the return leg starts where the outbound one ended.
+    assert_eq!(calls[1][0], calls[0][1]);
+    assert_eq!(calls[1][1], calls[0][0]);
+
+    assert_eq!(result.outbound.len(), 2, "the outbound leg keeps its alternatives");
+    assert_eq!(result.inbound.len(), 1);
+}
+
+#[tokio::test]
+async fn the_return_leg_is_derived_when_the_caller_sends_none() {
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0)],
+        vec![fetched("back1", 26.0, 1600.0)],
+    );
+
+    let result =
+        route_round_trip_internal(&provider, direct_waypoints(), Vec::new(), 50.0, None)
+            .await
+            .unwrap();
+
+    let out = &result.outbound_waypoints;
+    let back = &result.inbound_waypoints;
+    assert_eq!(back.len(), 2);
+    assert_eq!(back[0].lat, out[out.len() - 1].lat);
+    assert_eq!(back[0].lon, out[out.len() - 1].lon);
+    assert_eq!(back[1].lat, out[0].lat);
+    assert_eq!(back[1].lon, out[0].lon);
+}
+
+#[tokio::test]
+async fn the_two_legs_are_always_joined_even_when_the_caller_sends_them_apart() {
+    // The user dragged the outbound leg's destination handle. The return leg
+    // the browser still holds starts at the OLD point. The backend must not
+    // route a pair that does not join.
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0)],
+        vec![fetched("back1", 26.0, 1600.0)],
+    );
+
+    let stale_inbound = vec![
+        Waypoint { lat: 1.0, lon: 1.0, name: None, node_idx: None },
+        Waypoint { lat: 2.0, lon: 2.0, name: None, node_idx: None },
+    ];
+
+    let result = route_round_trip_internal(
+        &provider,
+        direct_waypoints(),
+        stale_inbound,
+        50.0,
+        None,
+    )
+    .await
+    .unwrap();
+
+    let out = &result.outbound_waypoints;
+    let back = &result.inbound_waypoints;
+    assert_eq!(back[0].lat, out[out.len() - 1].lat);
+    assert_eq!(back[back.len() - 1].lat, out[0].lat);
+}
+
+#[tokio::test]
+async fn a_via_dropped_on_the_return_leg_stays_on_the_return_leg() {
+    // The bug this task exists to remove: with one three-point request, a via
+    // dragged onto the way home landed on the way out, because the search ran
+    // against the open outbound list while the polyline was the closed line.
+    let leg_points = vec![(48.9444, 20.5675), (48.55, 18.85), (48.1486, 17.1077)];
+    let leg_polyline = encode(&leg_points);
+
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0)],
+        vec![fetched(&leg_polyline, 26.0, 1600.0)],
+    );
+
+    let inbound = vec![
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+    ];
+
+    let result = route_round_trip_internal(
+        &provider,
+        direct_waypoints(),
+        inbound,
+        50.0,
+        Some(LegInsertPoint {
+            lat: 48.55,
+            lon: 18.85,
+            polyline: leg_polyline.clone(),
+            leg: Leg::Inbound,
+        }),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        result.outbound_waypoints.len(),
+        2,
+        "the outbound leg must be untouched by a drag on the return leg"
+    );
+    assert_eq!(result.inbound_waypoints.len(), 3, "the via belongs to the return leg");
+    assert!(result.inbound_waypoints[1].name.is_none(), "a dragged point is unnamed");
+}
+
+#[tokio::test]
+async fn the_deviation_of_a_pair_is_measured_against_the_two_legs_together() {
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0), fetched("out2", 30.0, 1400.0)],
+        vec![fetched("back1", 25.0, 1600.0)],
+    );
+
+    let result =
+        route_round_trip_internal(&provider, direct_waypoints(), Vec::new(), 50.0, None)
+            .await
+            .unwrap();
+
+    assert_eq!(result.combined.len(), 2);
+    assert_eq!(result.combined[0].len(), 1);
+    // 25 + 25 against a 50 km target is exact.
+    assert!((result.combined[0][0].road_km - 50.0).abs() < 1e-9);
+    assert!((result.combined[0][0].deviation_percent).abs() < 1e-9);
+    assert!(!result.combined[0][0].off_target);
+    // 30 + 25 is 55 km, ten percent long.
+    assert!((result.combined[1][0].road_km - 55.0).abs() < 1e-9);
+    assert!((result.combined[1][0].deviation_percent - 10.0).abs() < 1e-6);
+    // Durations add too -- the panel shows the time of the whole journey.
+    assert!((result.combined[0][0].duration_s - 3100.0).abs() < 1e-9);
+}
+
+#[tokio::test]
+async fn a_leg_keeps_the_routing_services_own_order() {
+    // ADR-038: fastest first, never re-sorted, even when a slower alternative
+    // is closer to the target distance.
+    let provider = TwoLegProvider::new(
+        vec![fetched("fast", 40.0, 1000.0), fetched("slow", 25.0, 2000.0)],
+        vec![fetched("back1", 25.0, 1600.0)],
+    );
+
+    let result =
+        route_round_trip_internal(&provider, direct_waypoints(), Vec::new(), 50.0, None)
+            .await
+            .unwrap();
+
+    assert_eq!(result.outbound[0].polyline, "fast");
+    assert_eq!(result.outbound[1].polyline, "slow");
+}
+
+#[tokio::test]
+async fn a_loop_row_cannot_be_routed_as_a_round_trip() {
+    // A row whose two endpoints are one place is a Loop (`mode_for`), and a
+    // loop has no second leg. The same first/last comparison ADR-041 uses:
+    // coordinate AND name.
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0)],
+        vec![fetched("back1", 26.0, 1600.0)],
+    );
+
+    let same_place = vec![
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+    ];
+
+    let err = route_round_trip_internal(&provider, same_place, Vec::new(), 50.0, None)
+        .await
+        .unwrap_err();
+    assert!(err.contains("two different endpoints"), "got: {err}");
+}
+
+#[tokio::test]
+async fn a_round_trip_needs_a_start_and_an_end() {
+    let provider = TwoLegProvider::new(
+        vec![fetched("out1", 25.0, 1500.0)],
+        vec![fetched("back1", 26.0, 1600.0)],
+    );
+
+    let one = vec![Waypoint { lat: 48.1, lon: 17.1, name: None, node_idx: None }];
+    let err = route_round_trip_internal(&provider, one, Vec::new(), 50.0, None)
+        .await
+        .unwrap_err();
+    assert!(err.contains("start and an end"), "got: {err}");
+}

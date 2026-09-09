@@ -276,6 +276,34 @@ pub async fn dispatch_async(
             .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
+        "route_round_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                outbound: Vec<crate::models::Waypoint>,
+                // Absent on the first request after the checkbox is ticked --
+                // the backend derives the return leg from the outbound one.
+                #[serde(default)]
+                inbound: Vec<crate::models::Waypoint>,
+                target_km: f64,
+                #[serde(default)]
+                insert: Option<crate::commands_internal::LegInsertPoint>,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let provider = crate::route_map::HttpRouteProvider::public();
+            let result = crate::commands_internal::route_round_trip_internal(
+                &provider,
+                a.outbound,
+                a.inbound,
+                a.target_km,
+                a.insert,
+            )
+            .await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
 
         // ====================================================================
         // Place book — async (1, Nominatim geocode)
@@ -463,6 +491,38 @@ mod tests {
             "a payload omitting roundTrip must still parse and reach \
              route_direct_internal's own waypoint-count guard, not fail on a \
              missing field, got: {err}"
+        );
+    }
+
+    /// route_round_trip awaits OSRM twice, so it must be routed here and not
+    /// by dispatch_sync. Like the route_direct tests beside it, this asserts
+    /// on the ARGUMENT parsing only -- it leans on the function's own
+    /// endpoint guard to fail before any network call is made.
+    #[tokio::test]
+    async fn route_round_trip_is_an_async_command_and_inbound_is_optional() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let result = dispatch_async(
+            "route_round_trip",
+            json!({
+                "outbound": [{ "lat": 48.1, "lon": 17.1 }],
+                "targetKm": 50.0
+            }),
+            &state,
+        )
+        .await
+        .expect("route_round_trip must be handled here, not by dispatch_sync");
+
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("start and an end"),
+            "a one-point outbound leg must reach the function's own guard, not \
+             fail on a missing `inbound` field: {err}"
         );
     }
 

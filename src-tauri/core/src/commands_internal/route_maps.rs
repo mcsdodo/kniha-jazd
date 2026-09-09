@@ -26,7 +26,7 @@ use crate::places::normalise;
 use crate::route_map::polyline::decode;
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
-use crate::route_map::{generate_route_random, Dataset, RouteProvider, TOLERANCE};
+use crate::route_map::{generate_route_random, Dataset, FetchedRoute, RouteProvider, TOLERANCE};
 
 /// A freshly generated route. Not persisted — see the module docs.
 #[derive(Debug, Serialize)]
@@ -309,6 +309,204 @@ pub async fn route_direct_internal(
             }
         })
         .collect())
+}
+
+// ---------------------------------------------------------------------------
+// Round trip as two legs (Task 78)
+// ---------------------------------------------------------------------------
+
+/// Which leg of a round trip a dragged-in point belongs to.
+///
+/// Reported by the caller, never re-derived here from geometry. The browser
+/// knows it for certain -- the ghost handle is attached to one leg's own
+/// polyline -- and the derivation is exactly what Task 72 got wrong: a via
+/// dropped on the way home was searched for in the open outbound list against
+/// the closed polyline, so it landed on the way out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Leg {
+    Outbound,
+    Inbound,
+}
+
+/// A point the user dragged off ONE leg's polyline.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LegInsertPoint {
+    pub lat: f64,
+    pub lon: f64,
+    /// That leg's own geometry -- the ordering that decides where in that
+    /// leg's waypoint list the point belongs.
+    pub polyline: String,
+    pub leg: Leg,
+}
+
+/// One alternative for one leg. Carries no deviation of its own: a leg is
+/// half a journey, and the target distance describes the whole one.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LegRoute {
+    pub polyline: String,
+    /// Decoded `[lat, lon]` pairs, ready for L.polyline.
+    pub coordinates: Vec<[f64; 2]>,
+    pub road_km: f64,
+    pub duration_s: f64,
+}
+
+impl LegRoute {
+    fn from_fetched(route: &FetchedRoute) -> Self {
+        Self {
+            coordinates: decode_coordinates(&route.polyline),
+            polyline: route.polyline.clone(),
+            road_km: route.road_km,
+            duration_s: route.duration_s,
+        }
+    }
+}
+
+/// What one pair of legs adds up to. Precomputed for every pair the two
+/// requests could produce (at most 3 x 3), so selecting an alternative is an
+/// index change in the browser and not a calculation (ADR-008).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CombinedLeg {
+    pub road_km: f64,
+    pub duration_s: f64,
+    /// Signed percentage by which the PAIR misses the target -- the whole
+    /// journey is what the trip records, so the whole journey is what the
+    /// deviation measures.
+    pub deviation_percent: f64,
+    pub off_target: bool,
+}
+
+/// Both legs of a round trip, and the table of what each pair adds up to.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoundTripRoutes {
+    /// The normalised OPEN list for each leg. AUTHORITATIVE: the caller adopts
+    /// these rather than keeping its own, exactly as `route_direct_internal`'s
+    /// `waypoints` are adopted.
+    pub outbound_waypoints: Vec<Waypoint>,
+    pub inbound_waypoints: Vec<Waypoint>,
+    pub outbound: Vec<LegRoute>,
+    pub inbound: Vec<LegRoute>,
+    /// `combined[i][j]` for outbound alternative `i` and return alternative `j`.
+    pub combined: Vec<Vec<CombinedLeg>>,
+    pub target_km: f64,
+}
+
+/// Route a round trip as TWO requests, one per leg.
+///
+/// This is the whole point of the task. OSRM offers alternatives only for a
+/// two-point request, so the single `[A, B, A]` call this replaces could never
+/// have offered a choice, and the way home was whatever the through-route
+/// produced. Two requests give each leg its own alternatives and let the
+/// return take a different road.
+///
+/// Persists NOTHING. The caller confirms with
+/// `save_trip_round_trip_route_internal`.
+///
+/// The returned waypoint lists are authoritative in the same sense as
+/// `route_direct_internal`'s (ADR-041): the caller's own shapes are never
+/// trusted. The return leg is derived when it is absent, and its two ends are
+/// overwritten from the outbound leg when it is present, so the pair always
+/// joins -- dragging the outbound leg's destination handle moves the return
+/// leg's start with it, and no caller can hand in a broken pair.
+pub async fn route_round_trip_internal(
+    provider: &dyn RouteProvider,
+    outbound: Vec<Waypoint>,
+    inbound: Vec<Waypoint>,
+    target_km: f64,
+    insert: Option<LegInsertPoint>,
+) -> Result<RoundTripRoutes, String> {
+    if outbound.len() < 2 {
+        return Err(format!(
+            "A route needs a start and an end, got {} point(s).",
+            outbound.len()
+        ));
+    }
+
+    // The same first/last comparison ADR-041 uses -- coordinate AND name. A
+    // row naming one place twice is a Loop (`mode_for`), and a loop is already
+    // closed: it has no second leg to route.
+    let first = &outbound[0];
+    let last = &outbound[outbound.len() - 1];
+    if first.lat == last.lat && first.lon == last.lon && first.name == last.name {
+        return Err("A round trip needs two different endpoints.".to_string());
+    }
+
+    let mut outbound = outbound;
+    let mut inbound = inbound;
+
+    // Insert into the named leg only, against that leg's own polyline, and
+    // BEFORE the ends are re-joined below. `insert_waypoint` never returns a
+    // list with a new first or last element, so a drag can never move where a
+    // leg began or ended.
+    if let Some(point) = insert {
+        match point.leg {
+            Leg::Outbound => {
+                outbound = insert_waypoint(&outbound, &point.polyline, point.lat, point.lon);
+            }
+            Leg::Inbound => {
+                if inbound.len() >= 2 {
+                    inbound = insert_waypoint(&inbound, &point.polyline, point.lat, point.lon);
+                }
+                // A drag on a return leg the caller did not send is not a real
+                // scenario -- the leg has to be on screen to be dragged -- and
+                // inserting into a list that is about to be replaced wholesale
+                // would only invent a via nobody placed.
+            }
+        }
+    }
+
+    if inbound.len() < 2 {
+        inbound = vec![outbound[outbound.len() - 1].clone(), outbound[0].clone()];
+    } else {
+        let last_index = inbound.len() - 1;
+        inbound[0] = outbound[outbound.len() - 1].clone();
+        inbound[last_index] = outbound[0].clone();
+    }
+
+    let out_coords: Vec<(f64, f64)> = outbound.iter().map(|w| (w.lat, w.lon)).collect();
+    let in_coords: Vec<(f64, f64)> = inbound.iter().map(|w| (w.lat, w.lon)).collect();
+
+    let out_routes = provider
+        .fetch_alternatives(&out_coords, MAX_ALTERNATIVES)
+        .await?;
+    let in_routes = provider
+        .fetch_alternatives(&in_coords, MAX_ALTERNATIVES)
+        .await?;
+
+    let combined = out_routes
+        .iter()
+        .map(|out| {
+            in_routes
+                .iter()
+                .map(|back| {
+                    let road_km = out.road_km + back.road_km;
+                    // The same `deviation` helper loop mode and one-way mode
+                    // use. A second, separately measured notion of "close
+                    // enough" is exactly what ADR-008 rules out.
+                    let (deviation_percent, off_target) = deviation(target_km, road_km);
+                    CombinedLeg {
+                        road_km,
+                        duration_s: out.duration_s + back.duration_s,
+                        deviation_percent,
+                        off_target,
+                    }
+                })
+                .collect()
+        })
+        .collect();
+
+    Ok(RoundTripRoutes {
+        outbound_waypoints: outbound,
+        inbound_waypoints: inbound,
+        outbound: out_routes.iter().map(LegRoute::from_fetched).collect(),
+        inbound: in_routes.iter().map(LegRoute::from_fetched).collect(),
+        combined,
+        target_km,
+    })
 }
 
 pub fn get_trip_route_internal(
