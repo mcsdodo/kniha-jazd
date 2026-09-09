@@ -992,6 +992,37 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
+        "save_trip_round_trip_route" => {
+            // No `waypoints`, `polyline`, `roadKm` or `mode`: the backend
+            // assembles all four from the two legs (ADR-008). Everything here
+            // is a value the routing response itself produced.
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                outbound_waypoints: Vec<crate::models::Waypoint>,
+                inbound_waypoints: Vec<crate::models::Waypoint>,
+                outbound_polyline: String,
+                inbound_polyline: String,
+                outbound_road_km: f64,
+                inbound_road_km: f64,
+                target_km: f64,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::save_trip_round_trip_route_internal(
+                &state.db,
+                &state.app_state,
+                a.trip_id,
+                a.outbound_waypoints,
+                a.inbound_waypoints,
+                a.outbound_polyline,
+                a.inbound_polyline,
+                a.outbound_road_km,
+                a.inbound_road_km,
+                a.target_km,
+            )?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
         "delete_trip_route" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

@@ -567,9 +567,14 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
     // The threshold lives in Rust so the display cannot invent a second,
     // differently-measured notion of "close enough" (ADR-008).
     let db = Database::in_memory().unwrap();
-    let trip = seed_trip(&db);
+    let mut trip = seed_trip(&db);
     let app_state = AppState::new();
     let (_, polyline) = sample_geometry();
+
+    // Task 78: the target is read from the trip's own distance, not from the
+    // value passed to save_trip_route_internal, so the trip must carry it.
+    trip.distance_km = 100.0;
+    db.update_trip(&trip).unwrap();
 
     // 100 km target, 108 km of road: 8% out, beyond the 5% tolerance.
     save_trip_route_internal(
@@ -1752,4 +1757,180 @@ async fn a_round_trip_needs_a_start_and_an_end() {
         .await
         .unwrap_err();
     assert!(err.contains("start and an end"), "got: {err}");
+}
+
+#[test]
+fn saving_a_round_trip_joins_the_two_legs_into_one_row() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    let out_points = vec![(48.1486, 17.1077), (48.5, 18.0), (48.9444, 20.5675)];
+    let back_points = vec![(48.9444, 20.5675), (48.6, 18.4), (48.1486, 17.1077)];
+
+    let outbound_waypoints = vec![
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+    ];
+    let inbound_waypoints = vec![
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+        Waypoint { lat: 48.6, lon: 18.4, name: None, node_idx: None },
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+    ];
+
+    save_trip_round_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        outbound_waypoints,
+        inbound_waypoints,
+        encode(&out_points),
+        encode(&back_points),
+        25.0,
+        27.0,
+        50.0,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+
+    // The shared turnaround point is stored once, not twice.
+    assert_eq!(saved.waypoints.len(), 4);
+    assert_eq!(saved.turnaround_index, Some(1));
+    assert_eq!(saved.waypoints[1].name.as_deref(), Some("Spišská Nová Ves"));
+    assert!(saved.round_trip);
+    assert_eq!(saved.mode, RouteMode::Direct);
+
+    // The distance is the sum of the two legs -- the backend adds it, not the
+    // browser.
+    assert!((saved.road_km - 52.0).abs() < 1e-9);
+
+    // The geometry is the two legs, in order, as one line.
+    assert_eq!(saved.coordinates.len(), out_points.len() + back_points.len());
+    assert!((saved.coordinates[0][0] - 48.1486).abs() < 1e-4);
+    assert!((saved.coordinates[3][0] - 48.9444).abs() < 1e-4);
+}
+
+#[test]
+fn a_round_trip_save_refuses_a_leg_that_is_not_a_leg() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    let one = vec![Waypoint { lat: 48.1, lon: 17.1, name: None, node_idx: None }];
+    let two = direct_waypoints();
+
+    let err = save_trip_round_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        one,
+        two,
+        "a".into(),
+        "b".into(),
+        1.0,
+        1.0,
+        2.0,
+    )
+    .unwrap_err();
+    assert!(err.contains("two legs"), "got: {err}");
+}
+
+#[test]
+fn a_round_trip_saved_before_the_index_existed_resolves_its_own_split_point() {
+    // The legacy shape, written the way the old code wrote it: one clone of
+    // the first waypoint appended to close the route, and no stored index.
+    // The rule that recovers the split -- the outbound leg ended at `len - 2`
+    // -- is a rule about how this application wrote its own data, so it is
+    // resolved in Rust and never in the browser (ADR-008).
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    let mut closed = direct_waypoints();
+    let via = Waypoint { lat: 48.5, lon: 18.0, name: None, node_idx: None };
+    closed.insert(1, via);
+    closed.push(closed[0].clone());
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        closed,
+        polyline,
+        trip.distance_km,
+        120.0,
+        RouteMode::Direct,
+        true,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.waypoints.len(), 4, "[A, via, B, A]");
+    assert_eq!(
+        saved.turnaround_index,
+        Some(2),
+        "the outbound leg of a legacy round trip ended at len - 2"
+    );
+}
+
+#[test]
+fn a_one_way_saved_map_resolves_no_split_point() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        polyline,
+        trip.distance_km,
+        120.0,
+        RouteMode::Direct,
+        false,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.turnaround_index, None);
+}
+
+#[test]
+fn a_saved_map_reports_the_trips_distance_as_its_target() {
+    // trip_routes.target_km records what the trip measured when the map was
+    // saved. After a write-back (or any ordinary edit of the row) the trip's
+    // distance moves, and a map still reporting the old target would show a
+    // deviation against a distance the book no longer holds.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let mut trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        polyline,
+        trip.distance_km,
+        118.0,
+        RouteMode::Direct,
+        false,
+    )
+    .unwrap();
+
+    trip.distance_km = 118.0;
+    db.update_trip(&trip).unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert!((saved.target_km - 118.0).abs() < 1e-9);
+    assert!(
+        saved.deviation_percent.abs() < 1e-9,
+        "a route whose distance now matches the trip has no deviation left"
+    );
+    assert!(!saved.off_target);
 }

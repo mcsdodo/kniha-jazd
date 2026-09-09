@@ -23,7 +23,7 @@ use crate::db::Database;
 use crate::export::RouteMapPage;
 use crate::models::{Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint};
 use crate::places::normalise;
-use crate::route_map::polyline::decode;
+use crate::route_map::polyline::{decode, encode};
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
 use crate::route_map::{generate_route_random, Dataset, FetchedRoute, RouteProvider, TOLERANCE};
@@ -85,6 +85,10 @@ pub struct SavedRouteMap {
     /// cold load -- without it, reopening a saved round trip would always
     /// show the box unticked (Task 20).
     pub round_trip: bool,
+    /// Round trips only: where the outbound leg ends in `waypoints`. `None`
+    /// for a one-way route, a loop, and a round trip saved before Task 78 --
+    /// see the note on `RouteMap::turnaround_index`.
+    pub turnaround_index: Option<i32>,
     pub created_at: String,
 }
 
@@ -103,6 +107,7 @@ impl From<RouteMap> for SavedRouteMap {
             dataset_version: map.dataset_version,
             mode: map.mode,
             round_trip: map.round_trip,
+            turnaround_index: map.turnaround_index,
             created_at: map.created_at.to_rfc3339(),
         }
     }
@@ -509,25 +514,49 @@ pub async fn route_round_trip_internal(
     })
 }
 
+/// The saved map for a trip, with `target_km` taken from the trip as it stands
+/// now, and the round trip's split point resolved.
+///
+/// `trip_routes.target_km` records what the trip measured when the map was
+/// saved. A distance write-back -- or any ordinary edit of the row -- moves
+/// `trips.distance_km` afterwards, and a map that kept the old number would
+/// report a deviation against a distance the book no longer holds. The target
+/// is a fact about the trip, so the trip is where it is read from. The stored
+/// column stays as the fallback for a map whose trip has gone.
+///
+/// The legacy split point is resolved here too. A round trip saved before
+/// Task 78 stores no index, and the rule that recovers it -- the old code
+/// closed a route by appending exactly one clone of the first waypoint, so the
+/// outbound leg ended at `len - 2` -- is a rule about how this application
+/// wrote its own data. It belongs in Rust (ADR-008), and resolving it here
+/// means every round trip that reaches the browser carries a real index, so
+/// the browser only ever slices a list.
 pub fn get_trip_route_internal(
     db: &Database,
     trip_id: String,
 ) -> Result<Option<SavedRouteMap>, String> {
-    let map = db.get_route_map(&trip_id).map_err(|e| e.to_string())?;
-    Ok(map.map(SavedRouteMap::from))
+    let Some(mut map) = db.get_route_map(&trip_id).map_err(|e| e.to_string())? else {
+        return Ok(None);
+    };
+    if let Some(trip) = db.get_trip(&trip_id).map_err(|e| e.to_string())? {
+        map.target_km = trip.distance_km;
+    }
+    if map.round_trip && map.turnaround_index.is_none() && map.waypoints.len() >= 3 {
+        map.turnaround_index = i32::try_from(map.waypoints.len() - 2).ok();
+    }
+    Ok(Some(SavedRouteMap::from(map)))
 }
 
-/// Save (or replace) the map for a trip.
+/// The one place a `trip_routes` row is built. Both save paths funnel through
+/// it, so they cannot disagree about what the backend stamps and what it takes
+/// from the caller.
 ///
-/// `dataset_version` and `created_at` are stamped here rather than accepted
-/// from the caller: they describe what the backend actually used and when it
-/// stored it, so a client cannot misreport either.
-///
-/// `round_trip` gets the same treatment as `dataset_version`: a loop is
-/// already closed, so `round_trip` is forced to `false` for `RouteMode::Loop`
-/// regardless of what the caller sends, rather than trusting the caller to
-/// only ever send `false` for a loop (design decision 3, Task 20).
-pub fn save_trip_route_internal(
+/// `dataset_version` and `created_at` are stamped here rather than accepted:
+/// they describe what the backend used and when it stored it, so a client
+/// cannot misreport either. `round_trip` gets the same treatment -- a loop is
+/// already closed, so it is forced to `false` for `RouteMode::Loop`.
+#[allow(clippy::too_many_arguments)]
+fn persist_route_map(
     db: &Database,
     app_state: &AppState,
     trip_id: String,
@@ -537,9 +566,15 @@ pub fn save_trip_route_internal(
     road_km: f64,
     mode: RouteMode,
     round_trip: bool,
+    turnaround_index: Option<i32>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     let trip_uuid = Uuid::parse_str(&trip_id).map_err(|e| format!("Invalid trip id: {e}"))?;
+
+    let round_trip = match mode {
+        RouteMode::Loop => false,
+        RouteMode::Direct => round_trip,
+    };
 
     let map = RouteMap {
         trip_id: trip_uuid,
@@ -554,14 +589,81 @@ pub fn save_trip_route_internal(
             RouteMode::Direct => None,
         },
         created_at: Utc::now(),
-        round_trip: match mode {
-            RouteMode::Loop => false,
-            RouteMode::Direct => round_trip,
-        },
-        turnaround_index: None,
+        round_trip,
+        // A split point is meaningless without a return leg, and NULL rather
+        // than 0 so a one-way route can never be split at its own origin.
+        turnaround_index: if round_trip { turnaround_index } else { None },
     };
 
     db.save_route_map(&map).map_err(|e| e.to_string())
+}
+
+/// Save (or replace) the map for a trip. One-way and loop routes.
+#[allow(clippy::too_many_arguments)]
+pub fn save_trip_route_internal(
+    db: &Database,
+    app_state: &AppState,
+    trip_id: String,
+    waypoints: Vec<Waypoint>,
+    polyline: String,
+    target_km: f64,
+    road_km: f64,
+    mode: RouteMode,
+    round_trip: bool,
+) -> Result<(), String> {
+    persist_route_map(
+        db, app_state, trip_id, waypoints, polyline, target_km, road_km, mode, round_trip, None,
+    )
+}
+
+/// Save the chosen pair of legs as one route.
+///
+/// Everything the row stores is assembled HERE, from values the routing
+/// response itself produced: the waypoint list is the two legs joined at their
+/// shared turnaround point, the geometry is the two polylines concatenated,
+/// and the road distance is their sum. The browser assembles none of it
+/// (ADR-008) -- it only says which alternative it picked.
+#[allow(clippy::too_many_arguments)]
+pub fn save_trip_round_trip_route_internal(
+    db: &Database,
+    app_state: &AppState,
+    trip_id: String,
+    outbound_waypoints: Vec<Waypoint>,
+    inbound_waypoints: Vec<Waypoint>,
+    outbound_polyline: String,
+    inbound_polyline: String,
+    outbound_road_km: f64,
+    inbound_road_km: f64,
+    target_km: f64,
+) -> Result<(), String> {
+    if outbound_waypoints.len() < 2 || inbound_waypoints.len() < 2 {
+        return Err("A round trip needs two legs of at least two points each.".to_string());
+    }
+
+    let turnaround_index = i32::try_from(outbound_waypoints.len() - 1)
+        .map_err(|_| "The outbound leg has too many points".to_string())?;
+
+    // The legs share their turnaround point, so the return leg's first
+    // waypoint is dropped rather than stored twice. `turnaround_index` above
+    // is computed BEFORE the join, from the outbound leg's own length.
+    let mut waypoints = outbound_waypoints;
+    waypoints.extend(inbound_waypoints.into_iter().skip(1));
+
+    let mut points = decode(&outbound_polyline);
+    points.extend(decode(&inbound_polyline));
+
+    persist_route_map(
+        db,
+        app_state,
+        trip_id,
+        waypoints,
+        encode(&points),
+        target_km,
+        outbound_road_km + inbound_road_km,
+        RouteMode::Direct,
+        true,
+        Some(turnaround_index),
+    )
 }
 
 /// Deleting a map a trip never had is a no-op, not an error.
