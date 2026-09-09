@@ -483,9 +483,11 @@
 		// new row saved afterwards -- could cascade this row while it stays
 		// open on the old odometer. The display row only renders when this row
 		// is not editing, so `otherRowEditing` is always about a different row.
-		// `cascadePending` is the same rule from the other side: a cascade
-		// waiting on the modal moves stored odometers, so no editor may open
-		// while one is armed (ADR-046, rule 2).
+		// `cascadePending` states the same rule from the other side, but it
+		// never fires: the modal's overlay covers the viewport and cancels on
+		// the first click, so a double-click aimed at the grid clears the
+		// cascade before this runs (measured; ADR-046). Kept as defence, not
+		// as the thing that makes that moment safe.
 		if (otherRowEditing || newRowOpen || cascadePending) return;
 		isEditing = true;
 		// Before the preview below, so its response cannot be applied on the

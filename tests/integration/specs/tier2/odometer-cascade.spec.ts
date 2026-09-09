@@ -718,4 +718,44 @@ describe('Odometer cascade on save', () => {
     expect(await odoOf('Row B')).toBe('50050');
     expect(await odoOf('Row C')).toBe('50075');
   });
+
+  it('cancels an armed cascade when the click lands on the grid behind it', async () => {
+    await seedThreeRowChain();
+
+    await browser.refresh();
+    await waitForAppReady();
+    await navigateTo('trips');
+    await waitForTripGrid();
+    await browser.pause(300);
+
+    // Arm a cascade with no row in edit mode. Delete is the only write that
+    // does this: the row it removes is a display row, so nothing is open
+    // when the modal appears.
+    const rowB = await findRowByPurpose('Row B');
+    expect(rowB).not.toBeNull();
+    const deleteBtn = await rowB!.$('button.icon-btn.delete');
+    await deleteBtn.waitForClickable({ timeout: 5000 });
+    await deleteBtn.click();
+    await waitForCascadeModal();
+    expect(await editingRowCount()).toBe(0);
+
+    // Double-click Row C, one of the rows this delete would move. The modal
+    // overlay is fixed over the whole viewport, so the first click hits the
+    // overlay and cancels; only the second reaches the row. This is what
+    // makes an editor opened here safe, and it is the reason ADR-046 needs
+    // no `cascadePending` term in `TripRow.handleEdit` -- see the ADR.
+    const rowC = await findRowByPurpose('Row C');
+    expect(rowC).not.toBeNull();
+    await rowC!.doubleClick();
+    await browser.pause(500);
+
+    // The cascade is off, and nothing was written: Row B is still there.
+    await waitForNoCascadeModal();
+    expect(await findRowByPurpose('Row B')).not.toBeNull();
+
+    // Row C opened on its stored odometer, not on a pre-cascade copy of it.
+    // 50075 is what the book holds, because the delete never ran.
+    expect(await editingRowCount()).toBe(1);
+    expect(await $('[data-testid="trip-odometer"]').getValue()).toBe('50075');
+  });
 });
