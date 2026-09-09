@@ -746,6 +746,54 @@ type RootTranslation = {
 			 */
 			cancel: string
 		}
+		writeback: {
+			/**
+			 * Z​á​p​i​s​ ​v​z​d​i​a​l​e​n​o​s​t​i​ ​t​r​a​s​y
+			 */
+			title: string
+			/**
+			 * V​z​d​i​a​l​e​n​o​s​ť​ ​j​a​z​d​y​ ​s​a​ ​z​m​e​n​í​ ​z​ ​{​o​l​d​K​m​}​ ​n​a​ ​{​n​e​w​K​m​}​ ​k​m​.
+			 * @param {string} newKm
+			 * @param {string} oldKm
+			 */
+			summary: RequiredParams<'newKm' | 'oldKm'>
+			/**
+			 * Ž​i​a​d​n​a​ ​n​a​s​l​e​d​u​j​ú​c​a​ ​j​a​z​d​a​ ​s​a​ ​n​e​p​o​s​u​n​i​e​.
+			 */
+			noShift: string
+			/**
+			 * J​a​z​d​a​ ​p​a​t​r​í​ ​d​o​ ​n​e​u​z​a​v​r​e​t​é​h​o​ ​o​b​d​o​b​i​a​.​ ​S​p​o​t​r​e​b​a​ ​s​a​ ​z​a​t​i​a​ľ​ ​p​o​č​í​t​a​ ​z​ ​h​o​d​n​o​t​y​ ​v​ ​T​P​,​ ​t​a​k​ž​e​ ​s​a​ ​n​e​m​e​n​í​.
+			 */
+			periodOpen: string
+			/**
+			 * S​p​o​t​r​e​b​a​ ​o​b​d​o​b​i​a​:​ ​{​b​e​f​o​r​e​}​ ​-​>​ ​{​a​f​t​e​r​}​ ​l​/​1​0​0​k​m
+			 * @param {string} after
+			 * @param {string} before
+			 */
+			periodRate: RequiredParams<'after' | 'before'>
+			/**
+			 * O​d​c​h​ý​l​k​a​ ​o​d​ ​T​P​:​ ​{​b​e​f​o​r​e​}​ ​%​ ​-​>​ ​{​a​f​t​e​r​}​ ​%​ ​(​z​á​k​o​n​n​ý​ ​l​i​m​i​t​ ​2​0​ ​%​)
+			 * @param {string} after
+			 * @param {string} before
+			 */
+			periodMargin: RequiredParams<'after' | 'before'>
+			/**
+			 * P​o​z​o​r​:​ ​p​o​ ​z​á​p​i​s​e​ ​o​b​d​o​b​i​e​ ​p​r​e​k​r​o​č​í​ ​z​á​k​o​n​n​ý​ ​l​i​m​i​t​ ​2​0​ ​%​.
+			 */
+			crossesLimit: string
+			/**
+			 * O​b​d​o​b​i​e​ ​j​e​ ​n​a​d​ ​z​á​k​o​n​n​ý​m​ ​l​i​m​i​t​o​m​ ​2​0​ ​%​ ​p​r​e​d​ ​z​á​p​i​s​o​m​ ​a​j​ ​p​o​ ​ň​o​m​.
+			 */
+			staysOverLimit: string
+			/**
+			 * P​o​ ​z​á​p​i​s​e​ ​s​a​ ​o​b​d​o​b​i​e​ ​v​r​á​t​i​ ​p​o​d​ ​z​á​k​o​n​n​ý​ ​l​i​m​i​t​ ​2​0​ ​%​.
+			 */
+			leavesLimit: string
+			/**
+			 * Z​a​p​í​s​a​ť​ ​v​z​d​i​a​l​e​n​o​s​ť
+			 */
+			confirm: string
+		}
 	}
 	compensation: {
 		/**
@@ -2059,6 +2107,22 @@ type RootTranslation = {
 		 * U​m​i​e​s​t​n​i​ť​ ​m​i​e​s​t​o
 		 */
 		placeEndpoint: string
+		/**
+		 * P​o​u​ž​i​ť​ ​v​z​d​i​a​l​e​n​o​s​ť
+		 */
+		applyDistance: string
+		/**
+		 * Z​a​p​í​s​a​ť​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​t​r​a​s​y​ ​d​o​ ​j​a​z​d​y
+		 */
+		applyDistanceTitle: string
+		/**
+		 * V​z​d​i​a​l​e​n​o​s​ť​ ​z​a​p​í​s​a​n​á​ ​d​o​ ​j​a​z​d​y
+		 */
+		applyDistanceDone: string
+		/**
+		 * V​z​d​i​a​l​e​n​o​s​ť​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​z​a​p​í​s​a​ť
+		 */
+		applyDistanceError: string
 	}
 	places: {
 		/**
@@ -3457,6 +3521,48 @@ export type TranslationFunctions = {
 			 */
 			cancel: () => LocalizedString
 		}
+		writeback: {
+			/**
+			 * Zápis vzdialenosti trasy
+			 */
+			title: () => LocalizedString
+			/**
+			 * Vzdialenosť jazdy sa zmení z {oldKm} na {newKm} km.
+			 */
+			summary: (arg: { newKm: string, oldKm: string }) => LocalizedString
+			/**
+			 * Žiadna nasledujúca jazda sa neposunie.
+			 */
+			noShift: () => LocalizedString
+			/**
+			 * Jazda patrí do neuzavretého obdobia. Spotreba sa zatiaľ počíta z hodnoty v TP, takže sa nemení.
+			 */
+			periodOpen: () => LocalizedString
+			/**
+			 * Spotreba obdobia: {before} -> {after} l/100km
+			 */
+			periodRate: (arg: { after: string, before: string }) => LocalizedString
+			/**
+			 * Odchýlka od TP: {before} % -> {after} % (zákonný limit 20 %)
+			 */
+			periodMargin: (arg: { after: string, before: string }) => LocalizedString
+			/**
+			 * Pozor: po zápise obdobie prekročí zákonný limit 20 %.
+			 */
+			crossesLimit: () => LocalizedString
+			/**
+			 * Obdobie je nad zákonným limitom 20 % pred zápisom aj po ňom.
+			 */
+			staysOverLimit: () => LocalizedString
+			/**
+			 * Po zápise sa obdobie vráti pod zákonný limit 20 %.
+			 */
+			leavesLimit: () => LocalizedString
+			/**
+			 * Zapísať vzdialenosť
+			 */
+			confirm: () => LocalizedString
+		}
 	}
 	compensation: {
 		/**
@@ -4711,6 +4817,22 @@ export type TranslationFunctions = {
 		 * Umiestniť miesto
 		 */
 		placeEndpoint: () => LocalizedString
+		/**
+		 * Použiť vzdialenosť
+		 */
+		applyDistance: () => LocalizedString
+		/**
+		 * Zapísať vzdialenosť trasy do jazdy
+		 */
+		applyDistanceTitle: () => LocalizedString
+		/**
+		 * Vzdialenosť zapísaná do jazdy
+		 */
+		applyDistanceDone: () => LocalizedString
+		/**
+		 * Vzdialenosť sa nepodarilo zapísať
+		 */
+		applyDistanceError: () => LocalizedString
 	}
 	places: {
 		/**

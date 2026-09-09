@@ -230,6 +230,18 @@ const sk = {
 			confirm: 'Uložiť a posunúť',
 			cancel: 'Zrušiť',
 		},
+		writeback: {
+			title: 'Zápis vzdialenosti trasy',
+			summary: 'Vzdialenosť jazdy sa zmení z {oldKm:string} na {newKm:string} km.',
+			noShift: 'Žiadna nasledujúca jazda sa neposunie.',
+			periodOpen: 'Jazda patrí do neuzavretého obdobia. Spotreba sa zatiaľ počíta z hodnoty v TP, takže sa nemení.',
+			periodRate: 'Spotreba obdobia: {before:string} -> {after:string} l/100km',
+			periodMargin: 'Odchýlka od TP: {before:string} % -> {after:string} % (zákonný limit 20 %)',
+			crossesLimit: 'Pozor: po zápise obdobie prekročí zákonný limit 20 %.',
+			staysOverLimit: 'Obdobie je nad zákonným limitom 20 % pred zápisom aj po ňom.',
+			leavesLimit: 'Po zápise sa obdobie vráti pod zákonný limit 20 %.',
+			confirm: 'Zapísať vzdialenosť',
+		},
 	},
 
 	// Compensation banner
@@ -616,6 +628,10 @@ const sk = {
 		legInbound: 'Späť',
 		endpointMissing: 'Miesto odchodu alebo príchodu nie je umiestnené na mape.',
 		placeEndpoint: 'Umiestniť miesto',
+		applyDistance: 'Použiť vzdialenosť',
+		applyDistanceTitle: 'Zapísať vzdialenosť trasy do jazdy',
+		applyDistanceDone: 'Vzdialenosť zapísaná do jazdy',
+		applyDistanceError: 'Vzdialenosť sa nepodarilo zapísať',
 	},
 
 	// Place book

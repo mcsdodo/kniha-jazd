@@ -254,6 +254,11 @@
 					const next = new Set(routeMapTripIds);
 					next.delete(data.tripId);
 					routeMapTripIds = next;
+				} else if (data.type === 'trip-distance-updated') {
+					// The map view wrote a routed distance onto a row. That
+					// moves the row's own km and the odometer of every later
+					// row of the year, so nothing short of a reload is right.
+					void loadGridData();
 				}
 			};
 		}

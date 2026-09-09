@@ -230,6 +230,18 @@ const en = {
 			confirm: 'Save and shift',
 			cancel: 'Cancel',
 		},
+		writeback: {
+			title: 'Apply the route distance',
+			summary: 'The trip distance changes from {oldKm} to {newKm} km.',
+			noShift: 'No following trip moves.',
+			periodOpen: 'This trip is in an open period. Its consumption still comes from the TP rate, so it does not change.',
+			periodRate: 'Period consumption: {before} -> {after} l/100km',
+			periodMargin: 'Deviation from TP: {before} % -> {after} % (legal limit 20 %)',
+			crossesLimit: 'Warning: after this write the period goes over the 20 % legal limit.',
+			staysOverLimit: 'The period is over the 20 % legal limit before and after this write.',
+			leavesLimit: 'After this write the period comes back under the 20 % legal limit.',
+			confirm: 'Apply the distance',
+		},
 	},
 
 	// Compensation banner
@@ -616,6 +628,10 @@ const en = {
 		legInbound: 'Back',
 		endpointMissing: 'The origin or the destination has no place on the map yet.',
 		placeEndpoint: 'Place it',
+		applyDistance: 'Apply distance',
+		applyDistanceTitle: 'Write the route distance onto the trip',
+		applyDistanceDone: 'The distance was written onto the trip',
+		applyDistanceError: 'Could not write the distance',
 	},
 
 	// Place book

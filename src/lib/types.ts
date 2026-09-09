@@ -98,6 +98,35 @@ export interface CascadeResult {
 	plan: CascadePlan;
 }
 
+/** What a change to one trip's distance does to the consumption period that
+ *  contains it. A period closes on a full-tank fill-up, and its rate decides
+ *  the 20 % legal margin -- so this is what the user must see BEFORE the
+ *  write, not discover in the grid afterwards. */
+export interface PeriodMarginImpact {
+	/** False when the trip is in the still-open period, whose rate is the TP
+	 *  rate: an estimate, not a legal number. */
+	periodClosed: boolean;
+	/** Zero for a vehicle with no TP rate (a BEV). The cue to omit the margin
+	 *  lines entirely rather than print a row of zeroes. */
+	tpConsumption: number;
+	rateBefore: number;
+	rateAfter: number;
+	marginBefore: number;
+	marginAfter: number;
+	overLimitBefore: boolean;
+	overLimitAfter: boolean;
+}
+
+/** The answer `apply_route_distance` gives. `trip` is null on a dry run. */
+export interface DistanceWriteback {
+	tripId: string;
+	distanceBefore: number;
+	distanceAfter: number;
+	plan: CascadePlan;
+	margin: PeriodMarginImpact;
+	trip: Trip | null;
+}
+
 export type AttachmentStatus = 'empty' | 'matches' | 'matches_date' | 'differs';
 export type MismatchReason = 'date' | 'time' | 'liters' | 'price' | 'liters_and_price' | 'date_and_liters' | 'date_and_price' | 'time_and_liters' | 'time_and_price' | 'time_and_liters_and_price' | 'all' | 'fuel_invoice_exists';
 

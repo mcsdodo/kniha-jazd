@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import LL from '$lib/i18n/i18n-svelte';
-	import type { CascadePlan, Trip } from '$lib/types';
+	import type { CascadePlan, PeriodMarginImpact, Trip } from '$lib/types';
 
 	export let plan: CascadePlan;
 	export let trips: Trip[];
@@ -10,7 +10,10 @@
 	export let oldDistanceKm: number = 0;
 	/** Which write is being confirmed. It picks the summary and the breakdown
 	 *  line, and it is the only thing that differs between the three. */
-	export let kind: 'edit' | 'insert' | 'delete' = 'edit';
+	export let kind: 'edit' | 'insert' | 'delete' | 'writeback' = 'edit';
+	/** Write-back only: what the change does to the consumption period. Null
+	 *  for the three grid kinds, which do not carry one. */
+	export let margin: PeriodMarginImpact | null = null;
 	export let onConfirm: () => void;
 	export let onCancel: () => void;
 
@@ -78,6 +81,13 @@
 		return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
 	}
 
+	/** Litres per 100 km and percentages, to one decimal. The grid shows
+	 *  consumption to one decimal, and the warning must not look more precise
+	 *  than the number it is warning about. */
+	function rate(value: number): string {
+		return (Math.round(value * 10) / 10 || 0).toFixed(1);
+	}
+
 	function signed(value: number): string {
 		return `${value >= 0 ? '+' : ''}${km(value)}`;
 	}
@@ -109,10 +119,15 @@
 		tabindex="-1"
 		data-testid="cascade-modal"
 	>
-		<h2>{$LL.trips.cascade.title()}</h2>
+		<h2>{kind === 'writeback' ? $LL.trips.writeback.title() : $LL.trips.cascade.title()}</h2>
 		<div class="modal-content">
 			<p class="summary" data-testid="cascade-summary">
-				{#if kind === 'insert'}
+				{#if kind === 'writeback'}
+					{$LL.trips.writeback.summary({
+						oldKm: km(oldDistanceKm),
+						newKm: km(plan.newDistanceKm)
+					})}
+				{:else if kind === 'insert'}
 					{$LL.trips.cascade.summaryInsert({
 						count: plan.changes.length,
 						delta: signed(plan.delta)
@@ -129,6 +144,42 @@
 					})}
 				{/if}
 			</p>
+			{#if kind === 'writeback' && margin}
+				<div class="margin" data-testid="writeback-margin">
+					{#if !margin.periodClosed}
+						<p data-testid="writeback-period-open">{$LL.trips.writeback.periodOpen()}</p>
+					{:else if margin.tpConsumption > 0}
+						<p>
+							{$LL.trips.writeback.periodRate({
+								before: rate(margin.rateBefore),
+								after: rate(margin.rateAfter)
+							})}
+						</p>
+						<p>
+							{$LL.trips.writeback.periodMargin({
+								before: rate(margin.marginBefore),
+								after: rate(margin.marginAfter)
+							})}
+						</p>
+						{#if margin.overLimitAfter && !margin.overLimitBefore}
+							<p class="crosses" data-testid="writeback-crosses-limit">
+								{$LL.trips.writeback.crossesLimit()}
+							</p>
+						{:else if margin.overLimitAfter}
+							<p class="crosses" data-testid="writeback-stays-over-limit">
+								{$LL.trips.writeback.staysOverLimit()}
+							</p>
+						{:else if margin.overLimitBefore}
+							<p data-testid="writeback-leaves-limit">{$LL.trips.writeback.leavesLimit()}</p>
+						{/if}
+					{/if}
+				</div>
+			{/if}
+			{#if kind === 'writeback' && plan.changes.length === 0}
+				<p data-testid="writeback-no-shift">{$LL.trips.writeback.noShift()}</p>
+			{:else if kind === 'writeback'}
+				<p>{$LL.trips.cascade.summary({ count: plan.changes.length, delta: signed(plan.delta) })}</p>
+			{/if}
 			<ul class="breakdown">
 				<li>
 					{#if kind === 'insert'}
@@ -156,40 +207,48 @@
 					{$LL.trips.cascade.yearEndWarning()}
 				</p>
 			{/if}
-			<div class="changes">
-				<table>
-					<thead>
-						<tr>
-							<th>{$LL.trips.cascade.columnTrip()}</th>
-							<th>{$LL.trips.cascade.columnDate()}</th>
-							<th>{$LL.trips.cascade.columnRoute()}</th>
-							<th class="number">{$LL.trips.cascade.columnOld()}</th>
-							<th class="number">{$LL.trips.cascade.columnNew()}</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each plan.changes as change (change.tripId)}
+			{#if plan.changes.length > 0}
+				<div class="changes">
+					<table>
+						<thead>
 							<tr>
-								<td>{change.tripNumber}</td>
-								<td>{shortDate(byId.get(change.tripId))}</td>
-								<td class="route">
-									{byId.get(change.tripId)?.origin ?? ''} -&gt;
-									{byId.get(change.tripId)?.destination ?? ''}
-								</td>
-								<td class="number">{km(change.oldOdometer)}</td>
-								<td class="number">{km(change.newOdometer)}</td>
+								<th>{$LL.trips.cascade.columnTrip()}</th>
+								<th>{$LL.trips.cascade.columnDate()}</th>
+								<th>{$LL.trips.cascade.columnRoute()}</th>
+								<th class="number">{$LL.trips.cascade.columnOld()}</th>
+								<th class="number">{$LL.trips.cascade.columnNew()}</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+						</thead>
+						<tbody>
+							{#each plan.changes as change (change.tripId)}
+								<tr>
+									<td>{change.tripNumber}</td>
+									<td>{shortDate(byId.get(change.tripId))}</td>
+									<td class="route">
+										{byId.get(change.tripId)?.origin ?? ''} -&gt;
+										{byId.get(change.tripId)?.destination ?? ''}
+									</td>
+									<td class="number">{km(change.oldOdometer)}</td>
+									<td class="number">{km(change.newOdometer)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
 		</div>
 		<div class="modal-actions">
 			<button class="button-small" on:click={handleCancel} data-testid="cascade-cancel">
 				{$LL.trips.cascade.cancel()}
 			</button>
 			<button class="button-small" on:click={handleConfirm} data-testid="cascade-confirm">
-				{kind === 'delete' ? $LL.trips.cascade.confirmDelete() : $LL.trips.cascade.confirm()}
+				{#if kind === 'delete'}
+					{$LL.trips.cascade.confirmDelete()}
+				{:else if kind === 'writeback'}
+					{$LL.trips.writeback.confirm()}
+				{:else}
+					{$LL.trips.cascade.confirm()}
+				{/if}
 			</button>
 		</div>
 	</div>
@@ -254,6 +313,19 @@
 	}
 
 	.summary {
+		font-weight: 600;
+	}
+	.margin {
+		margin: 0 0 0.75rem 0;
+	}
+
+	.margin p {
+		margin: 0.25rem 0;
+		font-size: 0.875rem;
+	}
+
+	.crosses {
+		color: var(--accent-warning-dark);
 		font-weight: 600;
 	}
 	.breakdown {

@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, CascadePlan, CascadeResult } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, CascadePlan, CascadeResult, DistanceWriteback } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -136,6 +136,25 @@ export async function updateTripCascade(
 		otherCostsNote,
 		dryRun
 	});
+}
+
+/**
+ * Write a route's road distance onto the trip it illustrates.
+ *
+ * Call it twice: `dryRun: true` fills the confirmation modal and writes
+ * nothing, then `dryRun: false` writes. The apply call plans again from the
+ * stored book rather than replaying the dry run's numbers, so a book that
+ * moved in between is corrected against as it is now.
+ *
+ * Only the distance crosses the wire. The trip's other fields are not
+ * resubmitted, so this command cannot change them even by mistake.
+ */
+export async function applyRouteDistance(
+	tripId: string,
+	roadKm: number,
+	dryRun: boolean
+): Promise<DistanceWriteback> {
+	return await apiCall('apply_route_distance', { tripId, roadKm, dryRun });
 }
 
 /**

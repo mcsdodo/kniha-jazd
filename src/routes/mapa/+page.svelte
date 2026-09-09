@@ -13,6 +13,7 @@
 		startRouteForTrip,
 		routeDirect,
 		routeRoundTrip,
+		applyRouteDistance,
 		savePlace
 	} from '$lib/api';
 	import type {
@@ -27,12 +28,14 @@
 		Leg,
 		LegInsertPoint,
 		LegRoute,
-		RoundTripRoutes
+		RoundTripRoutes,
+		DistanceWriteback
 	} from '$lib/types';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { toast } from '$lib/stores/toast';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import PlaceModal from '$lib/components/PlaceModal.svelte';
+	import OdometerCascadeModal from '$lib/components/OdometerCascadeModal.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	/** Just enough to route from an endpoint -- not the full place-book `Place`. */
@@ -115,6 +118,13 @@
 	let retryable = $state(true);
 	let confirmingRemove = $state(false);
 	let savedNotice = $state(false);
+	/** The dry run currently awaiting the user's approval. Nothing is written
+	 *  while this is null, and nothing is written when it is dismissed. */
+	let writeback = $state<DistanceWriteback | null>(null);
+	let applying = $state(false);
+	/** The vehicle's trips, so the modal can name the rows the shift moves.
+	 *  The plan reports ids only. */
+	let yearTrips = $state<Trip[]>([]);
 
 	let mapEl = $state<HTMLDivElement | null>(null);
 	let leafletReady = $state(false);
@@ -203,7 +213,7 @@
 	let endpointsMissing = $derived(
 		mode === 'direct' && (!resolvedOrigin || !resolvedDestination)
 	);
-	let busy = $derived(loading || generating || saving || removing);
+	let busy = $derived(loading || generating || saving || removing || applying);
 
 	onMount(async () => {
 		// Leaflet touches `window` at import time — keep it out of the module graph.
@@ -589,6 +599,7 @@
 		retryable = true;
 		try {
 			const trips = await getTrips(vehicleId);
+			yearTrips = trips;
 			trip = trips.find((t) => t.id === tripId) ?? null;
 			if (!trip) {
 				// Not a generation failure — nothing was generated. Retrying would
@@ -1029,6 +1040,51 @@
 		}
 	}
 
+	/** Plans the write and opens the modal. Writes NOTHING -- the dry run is
+	 *  what fills the warning the user then approves. */
+	async function handleApplyDistance() {
+		if (!trip || displayRoadKm === null) return;
+		applying = true;
+		try {
+			writeback = await applyRouteDistance(tripId, displayRoadKm, true);
+		} catch (e) {
+			console.error('Failed to plan the distance write-back:', e);
+			toast.error($LL.routeMap.applyDistanceError());
+		} finally {
+			applying = false;
+		}
+	}
+
+	/** Writes the distance the user approved -- `writeback.distanceAfter`, not
+	 *  whatever the panel shows now: picking a different alternative behind the
+	 *  modal must not change what Confirm commits. */
+	async function confirmWriteback() {
+		const approved = writeback;
+		writeback = null;
+		if (!approved || !trip) return;
+		applying = true;
+		try {
+			await applyRouteDistance(tripId, approved.distanceAfter, false);
+			// The trip's distance IS the map's target, so both the target and
+			// the deviation move with it -- re-read the row and the saved map
+			// rather than patching the numbers here.
+			const vehicle = $activeVehicleStore;
+			if (vehicle) {
+				const trips = await getTrips(vehicle.id);
+				yearTrips = trips;
+				trip = trips.find((t) => t.id === tripId) ?? trip;
+			}
+			savedRoute = await getTripRoute(tripId);
+			announce('trip-distance-updated');
+			toast.success($LL.routeMap.applyDistanceDone());
+		} catch (e) {
+			console.error('Failed to write the distance back:', e);
+			toast.error($LL.routeMap.applyDistanceError());
+		} finally {
+			applying = false;
+		}
+	}
+
 	async function handleRemoveConfirmed() {
 		confirmingRemove = false;
 		if (!savedRoute || !tripId) return;
@@ -1053,7 +1109,7 @@
 
 	/** Tells an open logbook tab that this trip's map appeared or disappeared,
 	 *  so its row icon does not go stale while both tabs are open. */
-	function announce(type: 'route-map-saved' | 'route-map-removed') {
+	function announce(type: 'route-map-saved' | 'route-map-removed' | 'trip-distance-updated') {
 		if (typeof BroadcastChannel === 'undefined') return;
 		const channel = new BroadcastChannel('kniha-jazd');
 		channel.postMessage({ type, tripId });
@@ -1119,6 +1175,15 @@
 				/>
 				{$LL.routeMap.roundTrip()}
 			</label>
+			<button
+				class="button secondary"
+				data-test="apply-distance-btn"
+				title={$LL.routeMap.applyDistanceTitle()}
+				onclick={handleApplyDistance}
+				disabled={busy || displayRoadKm === null}
+			>
+				{$LL.routeMap.applyDistance()}
+			</button>
 		{/if}
 		<button
 			class="button secondary"
@@ -1295,6 +1360,18 @@
 		danger={true}
 		onConfirm={handleRemoveConfirmed}
 		onCancel={() => (confirmingRemove = false)}
+	/>
+{/if}
+
+{#if writeback}
+	<OdometerCascadeModal
+		kind="writeback"
+		plan={writeback.plan}
+		margin={writeback.margin}
+		trips={yearTrips}
+		oldDistanceKm={writeback.distanceBefore}
+		onConfirm={confirmWriteback}
+		onCancel={() => (writeback = null)}
 	/>
 {/if}
 
