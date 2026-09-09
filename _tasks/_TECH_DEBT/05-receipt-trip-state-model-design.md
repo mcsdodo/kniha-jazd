@@ -1,7 +1,10 @@
 # Receipt-Trip State Model Redesign
 
 **Date:** 2026-02-02
-**Status:** Draft v7
+**Status:** v7, implemented by [Task 51](../_done/51-receipt-state-model/) and shipped in 0.29.0 on 2026-02-04.
+Two later changes moved past it: a trip can now carry a second OTHER invoice (scenario C6 was reversed,
+see [Task 66](../_done/66-multi-invoice/)), and the `ReceiptDisplayState` shape in `## Data Model` never
+reached Rust -- the flatter `ReceiptVerification` stayed.
 **Related:** `05-receipt-trip-state-model.md`
 
 ---
@@ -510,3 +513,4 @@ receipts: {
 | v6 | 2026-02-02 | Major rewrite: 3-state model (Green/Red/Orange), removed "Noted" state, trip_id only for exceptions |
 | v7 | 2026-02-02 | **Final**: No magic, explicit assignment required, user picks FUEL or OTHER type |
 | v7.1 | 2026-02-02 | Added C1/C2 data population details, inline triangles instead of column, implementation reference |
+| -- | 2026-09-09 | Closed the doc: v7 shipped in 0.29.0 on 2026-02-04. `ReceiptDisplayState` never reached Rust, and C6 was reversed by [Task 66](../_done/66-multi-invoice/) |

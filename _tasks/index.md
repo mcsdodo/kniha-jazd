@@ -2,14 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-09 (Task 78 complete: a round trip routes as two independent legs, and the routed distance can be written back to the trip behind a fuel-bucket and legal-margin warning, see [ADR-047](../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg) and [ADR-048](../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for))
+**Last updated:** 2026-09-09 (Task 51 archived: it shipped in 0.29.0 on 2026-02-04 but kept its `Planning` header until now. Task 78 complete: a round trip routes as two independent legs, and the routed distance can be written back to the trip behind a fuel-bucket and legal-margin warning, see [ADR-047](../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg) and [ADR-048](../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for))
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
-| 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |
 
@@ -48,6 +47,7 @@ Quick overview of all tasks and their status.
 | 54 | Fix Odometer Recalculation Bugs | 2026-03-04 |
 | 53 | HA Real Fuel Level | 2026-02-12 |
 | 50 | [Receipt Datetime Validation](50-receipt-datetime-validation/) | 2026-02-11 |
+| 51 | [Receipt State Model](./_done/51-receipt-state-model/) -- explicit assignment replaced the auto-matching: the user picks FUEL or OTHER, `trip_id` alone means assigned, and a data mismatch is a warning the user can confirm; shipped in 0.29.0, archived 2026-09-09 | 2026-02-04 |
 | 49 | [Claude Rules Restructuring](49-claude-rules-restructuring/) | 2026-02-01 |
 | 48 | end_datetime Cleanup | 2026-01-31 |
 | 47 | [Datetime Consolidation](47-datetime-consolidation/) | 2026-02-11 |
@@ -69,7 +69,7 @@ Quick overview of all tasks and their status.
 | 08 | [Integration Suite Not Type-Checked](./_TECH_DEBT/08-integration-suite-not-type-checked.md) | Low | Open (35 tsc errors, 11 specs; 12 weakened `waitUntil` guards) |
 | 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted wdio.conf.ts; cross-spec sharing → Task 41) |
 | 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted the Tauri crate) |
-| 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | → Task 51 |
+| 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | ✅ Resolved ([Task 51](./_done/51-receipt-state-model/), 0.29.0) |
 | 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |
 | 03 | Dead Code & Warnings | Low | ✅ Resolved (Task 37, file archived) |
 | 02 | PHEV Compensation | Low | Open (see Task 19 status for context) |

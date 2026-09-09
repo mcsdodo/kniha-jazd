@@ -3,8 +3,8 @@
 **Date:** 2026-02-01
 **Priority:** Medium
 **Effort:** Medium (2-8h)
-**Component:** `src-tauri/src/models.rs`, `src/lib/types.ts`, `src/routes/doklady/+page.svelte`
-**Status:** Open
+**Component:** `src-tauri/core/src/models.rs`, `src/lib/types.ts`, `src/routes/doklady/+page.svelte`
+**Status:** ✅ Resolved by [Task 51](../_done/51-receipt-state-model/), shipped in 0.29.0 on 2026-02-04
 
 ## Problem
 
