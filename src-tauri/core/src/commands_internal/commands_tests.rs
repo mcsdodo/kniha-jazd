@@ -9,7 +9,7 @@ use crate::commands_internal::statistics::{
     calculate_other_invoice_sums, calculate_other_sum_mismatches,
     calculate_receipt_datetime_warnings,
     calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
-    has_any_period_over_limit, preview_anchor,
+    has_any_period_over_limit, period_margin_impact, preview_anchor,
 };
 use crate::commands_internal::helpers::trip_order;
 use super::*;
@@ -6610,6 +6610,108 @@ fn test_update_trip_cascade_dry_run_rejects_a_negative_resulting_distance() {
     );
 
     assert!(result.is_err(), "a value that cannot be saved must not reach the modal");
+}
+
+// ============================================================================
+// Task 78: what a distance write-back does to the consumption period
+// ============================================================================
+
+/// Two trips in one closed period: 100 km with no fill-up, then 100 km closing
+/// on 12 litres. 200 km on 12 l is 6.0 l/100km, which against a 5.0 l/100km TP
+/// rate is exactly the 20 % legal limit.
+fn seed_closed_period(db: &Database, vehicle_id: Uuid) -> (Uuid, Uuid) {
+    let a = seed_chain_trip(db, vehicle_id, 1, 100.0, 50100.0);
+    let date = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap();
+    let mut b = make_trip_detailed(date, 100.0, Some(12.0), true);
+    b.vehicle_id = vehicle_id;
+    b.odometer = 50200.0;
+    db.create_trip(&b).unwrap();
+    (a, b.id)
+}
+
+#[test]
+fn test_period_margin_impact_moves_the_period_rate_and_the_margin() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new("Impact".to_string(), "BA1".to_string(), 60.0, 5.0, 50000.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let (a, _b) = seed_closed_period(&db, vehicle.id);
+
+    let trips = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2026).unwrap();
+
+    // Shorten the first trip from 100 km to 90 km: the period keeps its 12
+    // litres but loses 10 km, so its rate goes up.
+    let impact = period_margin_impact(&trips, 5.0, &a.to_string(), 90.0);
+
+    assert!(impact.period_closed, "a full-tank fill-up closed this period");
+    assert!((impact.rate_before - 6.0).abs() < 1e-9);
+    assert!((impact.margin_before - 20.0).abs() < 1e-9);
+    assert!(!impact.over_limit_before, "exactly 20 % is still legal");
+
+    // 12 l over 190 km is 6.3158 l/100km, 26.3 % over a 5.0 TP rate.
+    assert!((impact.rate_after - (1200.0 / 190.0)).abs() < 1e-9);
+    assert!((impact.margin_after - 26.315_789_473_684_2).abs() < 1e-6);
+    assert!(impact.over_limit_after, "the write crosses the 20 % legal limit");
+}
+
+#[test]
+fn test_period_margin_impact_can_bring_a_period_back_under_the_limit() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new("Impact".to_string(), "BA1".to_string(), 60.0, 5.0, 50000.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let (a, _b) = seed_closed_period(&db, vehicle.id);
+    let trips = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2026).unwrap();
+
+    // Lengthen the first trip to 140 km: 240 km on 12 l is 5.0 l/100km, the TP
+    // rate exactly, so the margin falls to zero.
+    let impact = period_margin_impact(&trips, 5.0, &a.to_string(), 140.0);
+    assert!((impact.rate_after - 5.0).abs() < 1e-9);
+    assert!((impact.margin_after).abs() < 1e-9);
+    assert!(!impact.over_limit_after);
+}
+
+#[test]
+fn test_period_margin_impact_reports_an_open_period_as_open() {
+    // No full-tank fill-up, so nothing closed. The period's rate is the TP
+    // rate -- an estimate, not a measurement -- and the modal has to say so
+    // rather than present it as a legal number.
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new("Impact".to_string(), "BA1".to_string(), 60.0, 5.0, 50000.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 100.0, 50100.0);
+    let trips = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2026).unwrap();
+
+    let impact = period_margin_impact(&trips, 5.0, &a.to_string(), 90.0);
+    assert!(!impact.period_closed);
+    assert!((impact.rate_before - 5.0).abs() < 1e-9);
+    assert!((impact.rate_after - 5.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_period_margin_impact_leaves_other_periods_alone() {
+    // Period membership is decided by order and by the full_tank flag, never
+    // by distance, so exactly one period's rate can move.
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new("Impact".to_string(), "BA1".to_string(), 60.0, 5.0, 50000.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let (a, b) = seed_closed_period(&db, vehicle.id);
+
+    let date = NaiveDate::from_ymd_opt(2026, 3, 3).unwrap();
+    let mut c = make_trip_detailed(date, 100.0, Some(5.0), true);
+    c.vehicle_id = vehicle.id;
+    c.odometer = 50300.0;
+    db.create_trip(&c).unwrap();
+
+    let trips = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2026).unwrap();
+
+    let second = period_margin_impact(&trips, 5.0, &c.id.to_string(), 90.0);
+    assert!((second.rate_before - 5.0).abs() < 1e-9, "100 km on 5 l");
+
+    let first = period_margin_impact(&trips, 5.0, &a.to_string(), 90.0);
+    assert!((first.rate_before - 6.0).abs() < 1e-9, "the first period is untouched");
+
+    // b sits in the first period, so it reports the first period's numbers.
+    let same_period = period_margin_impact(&trips, 5.0, &b.to_string(), 100.0);
+    assert!((same_period.rate_before - 6.0).abs() < 1e-9);
 }
 
 // ============================================================================

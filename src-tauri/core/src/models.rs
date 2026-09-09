@@ -961,6 +961,33 @@ pub struct CascadePlan {
     pub changes: Vec<OdometerChange>,
 }
 
+/// What a change to one trip's distance does to the fuel-consumption period
+/// that contains it.
+///
+/// A period closes on a full-tank fill-up and its rate is
+/// `period_fuel / period_km * 100`. Changing one trip's distance moves that
+/// period's kilometres, so it moves the rate, the margin, and which side of
+/// the 20 % legal limit the period sits on ([BIZ-003]). The user has to see
+/// that BEFORE the write, not discover it in the grid afterwards.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PeriodMarginImpact {
+    /// False when the trip sits in the still-open period. That period's rate
+    /// is the vehicle's TP rate -- an estimate, not a measurement -- so it is
+    /// not a legal number and must not be presented as one.
+    pub period_closed: bool,
+    /// The vehicle's TP rate. Zero for a vehicle that has none (a BEV), which
+    /// is the display's cue to omit the margin entirely rather than print a
+    /// row of zeroes.
+    pub tp_consumption: f64,
+    pub rate_before: f64,
+    pub rate_after: f64,
+    pub margin_before: f64,
+    pub margin_after: f64,
+    pub over_limit_before: bool,
+    pub over_limit_after: bool,
+}
+
 /// The answer `update_trip_cascade_internal` gives. `trip` is `None` on a dry
 /// run, because a dry run saves nothing.
 #[derive(Debug, Clone, Serialize, Deserialize)]

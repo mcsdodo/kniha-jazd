@@ -18,8 +18,8 @@ use crate::calculations::{
 use crate::constants::defaults;
 use crate::db::Database;
 use crate::models::{
-    AssignmentType, PreviewResult, Receipt, SuggestedFillup, Trip, TripGridData,
-    TripInvoiceCoverage, TripStats, Vehicle, VehicleType,
+    AssignmentType, PeriodMarginImpact, PreviewResult, Receipt, SuggestedFillup, Trip,
+    TripGridData, TripInvoiceCoverage, TripStats, Vehicle, VehicleType,
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use std::collections::{HashMap, HashSet};
@@ -862,6 +862,50 @@ fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, boo
 pub fn has_any_period_over_limit(trips: &[Trip], tp_consumption: f64) -> bool {
     let (_, _, is_over) = get_worst_period_stats(trips, tp_consumption);
     is_over
+}
+
+/// What setting `trip_id`'s distance to `new_distance_km` would do to the
+/// consumption period that contains it.
+///
+/// Period MEMBERSHIP does not move: `calculate_period_rates` groups by order
+/// and by the `full_tank` flag, never by distance. So exactly one period's
+/// rate changes, and it is the period this trip is in.
+///
+/// The rate is read through `calculate_period_rates` rather than recomputed,
+/// so the number in the warning is the same number the grid shows for that
+/// row -- a warning measured a second way would be worse than no warning.
+pub fn period_margin_impact(
+    trips: &[Trip],
+    tp_consumption: f64,
+    trip_id: &str,
+    new_distance_km: f64,
+) -> PeriodMarginImpact {
+    let mut before: Vec<Trip> = trips.to_vec();
+    before.sort_by(|a, b| trip_order(a, b));
+
+    let mut after = before.clone();
+    if let Some(trip) = after.iter_mut().find(|t| t.id.to_string() == trip_id) {
+        trip.distance_km = new_distance_km;
+    }
+
+    let (rates_before, estimated) = calculate_period_rates(&before, tp_consumption);
+    let (rates_after, _) = calculate_period_rates(&after, tp_consumption);
+
+    let rate_before = rates_before.get(trip_id).copied().unwrap_or(tp_consumption);
+    let rate_after = rates_after.get(trip_id).copied().unwrap_or(tp_consumption);
+    let margin_before = calculate_margin_percent(rate_before, tp_consumption);
+    let margin_after = calculate_margin_percent(rate_after, tp_consumption);
+
+    PeriodMarginImpact {
+        period_closed: !estimated.contains(trip_id),
+        tp_consumption,
+        rate_before,
+        rate_after,
+        margin_before,
+        margin_after,
+        over_limit_before: !is_within_legal_limit(margin_before),
+        over_limit_after: !is_within_legal_limit(margin_after),
+    }
 }
 
 // ============================================================================
