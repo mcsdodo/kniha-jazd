@@ -152,6 +152,32 @@ async function saveDirectRoundTrip(tripId: string, targetKm: number): Promise<vo
 }
 
 /**
+ * A round trip whose VIA is on the return leg -- the shape that could not be
+ * recovered before Task 78. `turnaroundIndex: 1` says the outbound leg is
+ * `[A, B]` and the return leg is `[B, via, A]`; without it, the old
+ * "split at length - 2" rule would put the via on the way out.
+ *
+ * Saved through the new command, so the backend does the joining: the request
+ * carries two legs and the row comes back as one four-point list.
+ */
+async function saveRoundTripWithReturnVia(tripId: string, targetKm: number): Promise<void> {
+  await rpc<null>('save_trip_round_trip_route', {
+    tripId,
+    outboundWaypoints: CANNED_WAYPOINTS,
+    inboundWaypoints: [
+      { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
+      { lat: 48.28, lon: 17.35 },
+      { lat: 48.1486, lon: 17.1077, name: 'Bratislava' },
+    ],
+    outboundPolyline: CANNED_POLYLINE,
+    inboundPolyline: CANNED_POLYLINE,
+    outboundRoadKm: targetKm / 2,
+    inboundRoadKm: targetKm / 2,
+    targetKm,
+  });
+}
+
+/**
  * Persist a plain one-way direct route against a trip, without touching
  * OSRM. The mirror fixture to `saveDirectRoundTrip` above -- explicitly
  * sends `roundTrip: false` (rather than omitting it) so the test below pins
@@ -503,14 +529,50 @@ describe('Tier 2: Route Map', () => {
       expect(await checkbox.isExisting()).toBe(true);
       expect(await checkbox.isSelected()).toBe(true);
 
-      // The corrected copy names the real condition (more than two points),
-      // which is true here even though this route has no via -- only a
-      // return leg. The old wording named intermediate stops as the cause,
-      // which was false for exactly this shape.
-      expect(await $('[data-test="alternatives-unavailable"]').isDisplayed()).toBe(true);
-      const unavailableText = await $('[data-test="alternatives-unavailable"]').getText();
-      expect(unavailableText).toContain('more than two points');
-      expect(await $('[data-test="alternatives"]').isExisting()).toBe(false);
+      // Task 78: a round trip is two routed legs now, so it is no longer a
+      // route through more than two points and the unavailable copy is false
+      // for it. Neither leg of this fixture has a via, so neither leg shows
+      // the message.
+      expect(await $('[data-test="alternatives-unavailable"]').isExisting()).toBe(false);
+      expect(await $('[data-test="alternatives-unavailable-outbound"]').isExisting()).toBe(false);
+      expect(await $('[data-test="alternatives-unavailable-inbound"]').isExisting()).toBe(false);
+      // The two leg pickers exist even before a recalculation -- each is empty
+      // until the routing service answers, which this file never asks it to.
+      expect(await $('[data-test="leg-outbound"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="leg-inbound"]').isDisplayed()).toBe(true);
+    });
+
+    it('reopens a round trip with the via on the leg it was placed on', async () => {
+      // Task 78: the saved row is one list, `[A, B, via, A]`, and only the
+      // stored turnaround index says where the outbound leg ended. Splitting
+      // it wrong is what used to move a via from the way home to the way out.
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-18T08:00',
+        endDatetime: '2026-03-18T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50365,
+        purpose: 'Business trip',
+      });
+
+      await saveRoundTripWithReturnVia(trip.id as string, 65);
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      // Four stops: the turnaround is stored once, not twice.
+      const stopsText = await $('[data-test="stops"]').getText();
+      expect(stopsText).toContain('(3)');
+      expect(stopsText).toContain('Bratislava → Trnava → Bratislava');
+
+      const checkbox = await $('[data-test="round-trip-checkbox"]');
+      expect(await checkbox.isSelected()).toBe(true);
+
+      // The via is on the RETURN leg, so only that leg reports that it can
+      // offer no alternatives.
+      expect(await $('[data-test="alternatives-unavailable-inbound"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="alternatives-unavailable-outbound"]').isExisting()).toBe(false);
     });
 
     it('reopens a saved one-way route with the checkbox unticked', async () => {
