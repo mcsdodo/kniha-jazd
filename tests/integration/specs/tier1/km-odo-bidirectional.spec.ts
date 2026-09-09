@@ -38,7 +38,11 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
   });
 
   describe('Editing existing trip', () => {
-    it('should recalculate KM when ODO is changed', async () => {
+    it('leaves KM in the field alone when ODO is typed, and derives it on save', async () => {
+      // Task 8 deleted handleOdoChange's km derivation: typing an ODO no
+      // longer touches the km field live. The backend still derives km as
+      // (odometer - anchor) on save (ADR-046), so the field must stay put
+      // and only the SAVED row may show the derived value.
       // Seed a vehicle with initialOdometer = 10000
       const vehicleData = createTestIceVehicle({
         name: 'ODO-KM Test Vehicle',
@@ -110,7 +114,8 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       const initialOdo = await odoInput.getValue();
       expect(initialOdo).toBe('10100');
 
-      // Change ODO from 10100 to 10150 (should make KM = 10150 - 10000 = 150)
+      // Change ODO from 10100 to 10150. No field-level recalculation any more --
+      // the km input must stay exactly where it was.
       // IMPORTANT: Set value atomically to avoid intermediate input events from clearValue()/setValue()
       // which would cause cumulative delta calculations
       await browser.execute((sel: string, newValue: string) => {
@@ -123,12 +128,29 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
 
       await browser.pause(100);
 
-      // Verify KM was recalculated to 150
-      const newKm = await kmInput.getValue();
-      expect(newKm).toBe('150');
+      // The km FIELD never moved.
+      expect(await kmInput.getValue()).toBe('100');
+
+      // Only the last row of the year, so this save is silent (no cascade to
+      // approve). The backend derives km = 10150 - 10000 = 150 on save.
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const saved = grid.trips.find((t) => t.destination === SlovakCities.kosice);
+      expect(saved).toBeDefined();
+      expect(saved!.distanceKm).toBe(150);
+      expect(saved!.odometer).toBe(10150);
     });
 
-    it('should maintain correct KM when ODO is edited multiple times', async () => {
+    it('derives KM from only the FINAL ODO on save, not each keystroke', async () => {
+      // Regression guard, restated: the km field must never move while ODO
+      // is typed, however many times it changes before Save. The backend
+      // derives km once, from whatever ODO is in the field at save time.
       // Seed a vehicle with initialOdometer = 20000
       const vehicleData = createTestIceVehicle({
         name: 'Multi-Edit Test Vehicle',
@@ -193,45 +215,42 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       const kmInput = await $('[data-testid="trip-distance"]');
       const odoInput = await $('[data-testid="trip-odometer"]');
 
-      // First edit: ODO 20050 -> 20060 (KM should be 60)
-      // IMPORTANT: Set value atomically to avoid intermediate input events
-      await browser.execute((sel: string, newValue: string) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) {
-          input.value = newValue;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }, '[data-testid="trip-odometer"]', '20060');
-      await browser.pause(100);
+      const typeOdo = async (value: string) => {
+        await browser.execute((sel: string, newValue: string) => {
+          const input = document.querySelector(sel) as HTMLInputElement;
+          if (input) {
+            input.value = newValue;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, sel, value);
+        await browser.pause(100);
+      };
+      const sel = '[data-testid="trip-odometer"]';
 
-      let newKm = await kmInput.getValue();
-      expect(newKm).toBe('60');
+      // Three edits in a row. The km field must stay exactly where it was
+      // (the original stored value) after every one of them -- there is no
+      // more live derivation to check per keystroke.
+      await typeOdo('20060');
+      expect(await kmInput.getValue()).toBe('50');
+      await typeOdo('20075');
+      expect(await kmInput.getValue()).toBe('50');
+      await typeOdo('20030');
+      expect(await kmInput.getValue()).toBe('50');
 
-      // Second edit: ODO 20060 -> 20075 (KM should be 75)
-      await browser.execute((sel: string, newValue: string) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) {
-          input.value = newValue;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }, '[data-testid="trip-odometer"]', '20075');
-      await browser.pause(100);
+      // Only the FINAL ODO (20030) reaches the backend. Anchor is 20000, so
+      // the derived km is 30 -- not 60, not 75, and not any running total.
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
 
-      newKm = await kmInput.getValue();
-      expect(newKm).toBe('75');
-
-      // Third edit: ODO 20075 -> 20030 (KM should be 30)
-      await browser.execute((sel: string, newValue: string) => {
-        const input = document.querySelector(sel) as HTMLInputElement;
-        if (input) {
-          input.value = newValue;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }, '[data-testid="trip-odometer"]', '20030');
-      await browser.pause(100);
-
-      newKm = await kmInput.getValue();
-      expect(newKm).toBe('30');
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const saved = grid.trips.find((t) => t.destination === SlovakCities.nitra);
+      expect(saved).toBeDefined();
+      expect(saved!.distanceKm).toBe(30);
+      expect(saved!.odometer).toBe(20030);
     });
 
     it('should recalculate ODO when KM is changed', async () => {
@@ -511,6 +530,10 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       }, 'tr.editing [data-testid="trip-purpose"]', 'Opraveny ucel');
 
       await (await $('tr.editing .icon-btn.save')).click();
+      await browser.pause(500);
+      // Neither number moved (km unchanged, odometer unchanged), so the
+      // backend plan is a no-op: no modal, no confirmation to give.
+      expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
       await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
         timeout: 5000,
         timeoutMsg: 'The editor stayed open after save',
@@ -526,19 +549,28 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // 1 km and writes 100301 into the odometer of a legal record.
       expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(352);
       expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(100200);
+      // The pre-existing mismatch (anchor 100300, so this row's span is
+      // 100200 - 100300 = -100 km against its recorded 352) is still flagged:
+      // a text-only edit does not repair it (contrast the number edit below,
+      // which does, per ADR-046).
+      expect(
+        await $(`${savedRow} .col-odo .chain-indicator`).isExisting()
+      ).toBe(true);
     });
 
-    it('still snaps an ODO the user types below the anchor, and saves it', async () => {
-      // The snap must survive the gate: an ODO the user actually typed below
-      // the anchor becomes anchor + 1 and is saved that way.
+    it('saves an ODO typed below the anchor exactly as typed, no clamp', async () => {
+      // Task 8 deleted both clamps (handleOdoBlur's snap-on-change and
+      // handleSave's own clamp). There is no snap left anywhere: the field
+      // shows exactly what was typed and the save writes exactly what was
+      // typed (ADR-042: no silent correction).
       //
-      // The snap here comes from handleOdoBlur, on the `change` event, which
-      // is unconditional -- so by the time handleSave runs, its own clamp has
-      // nothing left to do. handleSave's own clamp has two branches: the
-      // odoFollowsKm one is covered by the case in the next describe block,
-      // where Save beats the `change` and the preview alike; the
-      // manualOdoEdit one is covered by the case right below this one, where
-      // Enter beats the `change` event the same way.
+      // km is untouched here (the odometer field alone was edited), so the
+      // backend's "km differs -> km wins; else odo differs -> odo wins" rule
+      // (plan_odometer_cascade) takes the odo-wins branch: new_distance_km =
+      // submitted_odometer - anchor = 109000 - 110200 = -1200. Deriving the
+      // distance FROM the odometer this way makes the saved pair internally
+      // consistent again -- so, unlike a text-only edit on an already-broken
+      // row, this save carries no span warning (see the assertion below).
       const vehicleData = createTestIceVehicle({
         name: 'Typed Below Anchor',
         licensePlate: 'BELOW-02',
@@ -603,7 +635,9 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
         { timeout: 5000, timeoutMsg: 'Editing row did not appear after double-click' }
       );
 
-      // Type an ODO below the anchor (110200) and finalise it.
+      // Type an ODO below the anchor (110200) and finalise it with a
+      // `change` event too -- there is no listener left on it, so it must
+      // have no effect either way.
       await browser.execute((sel: string, value: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
@@ -615,14 +649,25 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.pause(300);
 
       const odoInput = await $('tr.editing [data-testid="trip-odometer"]');
-      expect(parseFloat(await odoInput.getValue())).toBe(110201);
+      // No clamp: the field still shows exactly what was typed.
+      expect(parseFloat(await odoInput.getValue())).toBe(109000);
 
       await (await $('tr.editing .icon-btn.save')).click();
+      await browser.pause(500);
+      // km is unchanged and this is the last row of the year, so the plan
+      // moves nothing else -- silent write, no modal to confirm.
+      expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
       await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
         timeout: 5000,
         timeoutMsg: 'The editor stayed open after save',
       });
       await browser.pause(500);
+
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const saved = grid.trips.find((t) => t.destination === SlovakCities.martin);
+      expect(saved).toBeDefined();
+      expect(saved!.odometer).toBe(109000);
+      expect(saved!.distanceKm).toBe(-1200);
 
       const savedIndex = await browser.execute((d: string) => {
         const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
@@ -631,24 +676,28 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
         );
       }, SlovakCities.martin);
       const savedSelector = `.trip-grid tbody tr:nth-of-type(${savedIndex + 1})`;
-      expect(parseFloat(await (await $(`${savedSelector} .col-odo`)).getText())).toBe(110201);
+      expect(parseFloat(await (await $(`${savedSelector} .col-odo`)).getText())).toBe(109000);
+      // The edit repairs this row's own span (ADR-046): the backend derived
+      // the distance from the odometer, so the saved pair is self-consistent
+      // and carries no warning. Only a TEXT-only edit leaves a pre-existing
+      // mismatch alone (see 'keeps the numbers when only a text field was
+      // edited' above, which asserts the opposite on a seeded mismatch).
+      expect(
+        await $(`${savedSelector} .col-odo .chain-indicator`).isExisting()
+      ).toBe(false);
     });
 
-    it('gives the same anchor + 1 answer when Enter saves before the ODO blurs', async () => {
-      // handleSave's own clamp, on the manualOdoEdit branch this time --
-      // reached the only way it can be. Enter is bound with
-      // <svelte:window on:keydown>, and handleGlobalKeydown calls
-      // preventDefault() and then handleSave() synchronously while the ODO
-      // input still has focus. No blur fires, so no `change` event, so
-      // handleOdoBlur's snap never runs first -- and there is no <form>
-      // wrapping the row, so there is no implicit-submit blur either.
-      // handleSave therefore reaches its clamp with manualOdoEdit set and the
-      // raw typed value still in formData.odometer.
-      //
-      // One script: type the ODO, then Enter. Nothing can run in between, so
-      // this is the manualOdoEdit branch, not handleOdoBlur's snap. The
-      // answer must match what the blur snap would have given: anchor + 1,
-      // km 1.
+    it('Enter saves the typed ODO unclamped, same as a Save click', async () => {
+      // Both clamps are gone (Task 8): handleOdoBlur, which fired on the
+      // `change` event before handleSave ever ran, and handleSave's own
+      // clamp. Enter is bound with <svelte:window on:keydown>, and
+      // handleGlobalKeydown calls preventDefault() then handleSave()
+      // synchronously while the ODO input still has focus -- no blur, no
+      // `change` event, no implicit-submit blur (there is no <form> wrapping
+      // the row). So this path was the more exacting of the two clamp
+      // branches to reach; now that neither clamp exists, it must save
+      // exactly what was typed, the same as clicking Save directly (the
+      // case above).
       const vehicleData = createTestIceVehicle({
         name: 'Enter Beats Blur',
         licensePlate: 'BELOW-03',
@@ -734,11 +783,16 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.pause(500);
 
       const savedRow = await rowFor(SlovakCities.presov);
-      // handleOdoBlur never ran: if it had, the field would already show
-      // 140276 before Save fired. This is handleSave's own clamp giving the
-      // same answer on the manualOdoEdit branch.
-      expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(1);
-      expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(140276);
+      // No clamp: the odometer is exactly what was typed. km is unchanged
+      // (50, same as stored), so the backend's odo-wins branch derives
+      // distance = 139000 - 140275 (anchor) = -1275.
+      expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(-1275);
+      expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(139000);
+      // Self-consistent by construction (ADR-046) -- same as the Save-click
+      // case above, no warning survives this edit.
+      expect(
+        await $(`${savedRow} .col-odo .chain-indicator`).isExisting()
+      ).toBe(false);
     });
   });
 
@@ -886,6 +940,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       }, 'tr.editing [data-testid="trip-distance"]', km);
     }
 
+    /** Strict: the row must close on its own, with no cascade modal to answer. */
     async function saveEditor(): Promise<void> {
       await (await $('tr.editing .icon-btn.save')).click();
       await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
@@ -895,12 +950,41 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.pause(300);
     }
 
-    it('stays put when an earlier row moved its anchor since the last km edit', async () => {
-      // A row component serves its grid row for the whole page lifetime, so a
-      // km edit made in one edit session must not still be "behind" the
-      // odometer in the next one. Here the anchor MOVES between the two
-      // sessions, so a leftover km edit is visible: it would rewrite an
-      // odometer the user never retyped, and Save would persist it.
+    /**
+     * A save that DOES move a later row's odometer asks first (task 81,
+     * Task 7). Assert the modal actually appeared -- a helper that merely
+     * tolerated one could hide it popping up where it shouldn't -- then
+     * confirm it. Returns the modal's summary text, read before it closes.
+     */
+    async function saveEditorConfirmingCascade(): Promise<string> {
+      await (await $('tr.editing .icon-btn.save')).click();
+      await $('[data-testid="cascade-modal"]').waitForExist({
+        timeout: 5000,
+        timeoutMsg: 'Expected a cascade modal (this save moves a later row) but none appeared',
+      });
+      const summary = await (await $('[data-testid="cascade-summary"]')).getText();
+      await (await $('[data-testid="cascade-confirm"]')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after confirming the cascade',
+      });
+      await browser.pause(300);
+      return summary;
+    }
+
+    it('reflects a cascade it never opened for, on re-open (task 81, R6)', async () => {
+      // TripGrid keys its rows by trip id, so ONE TripRow instance serves
+      // display and every edit session of that row for the page's whole
+      // lifetime -- it is never remounted. `formData` is only seeded once,
+      // at construction.
+      //
+      // This is the ONLY spec that exercises that guarantee through the row
+      // EDITOR: the grid's own display cell (`.col-odo`) binds straight to
+      // the `trip` prop and would read the fresh value even if the reseed
+      // guard were deleted outright. Only re-opening the editor and reading
+      // `formData` (the input's value) can tell the two apart -- which is
+      // exactly what Task 10's cascade spec (grid-cell assertions only)
+      // does not do.
       const vehicleData = createTestIceVehicle({
         name: 'Re-opened Row',
         licensePlate: 'REOPEN-1',
@@ -948,7 +1032,8 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
 
       const odoInput = () => $('tr.editing [data-testid="trip-odometer"]');
 
-      // Session 1 on X: a real km edit. Anchor 90100 + 120.
+      // Session 1 on X: a real km edit. Anchor 90100 + 120. X is the last
+      // row of the year, so nothing else moves -- this save is silent.
       await openEditor(await rowSelectorFor(SlovakCities.nitra));
       await typeKm('120');
       await browser.waitUntil(async () => (await (await odoInput()).getValue()) === '90220', {
@@ -957,21 +1042,33 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       });
       await saveEditor();
 
-      // Session 2 on W: its km changes, so its odometer does -- and that is X's
-      // anchor. X keeps the 90220 it was saved with (nothing recalculates it).
+      // Session 2 on W: its km changes, so its odometer does -- and that is
+      // X's anchor. This DOES move a later row (X), so the cascade modal
+      // must appear; confirm it so the shift is actually written.
       await openEditor(await rowSelectorFor(SlovakCities.trnava));
       await typeKm('150');
       await browser.waitUntil(async () => (await (await odoInput()).getValue()) === '90150', {
         timeout: 5000,
         timeoutMsg: "The earlier row's ODO did not follow its km",
       });
-      await saveEditor();
+      const summary = await saveEditorConfirmingCascade();
+      // Sanity on the modal's own claim, not just that one appeared.
+      expect(summary).toContain('1');
 
-      // Session 3 on X: opened, not edited. Its ODO must be the saved 90220,
-      // not the 90270 a leftover km edit would derive from the new anchor.
+      // Session 3 on X: opened, not edited. The cascade moved X's anchor
+      // from 90100 to 90150 and confirming wrote X's own odometer forward
+      // by the same +50 -- 90220 -> 90270. Re-opening X must show that FRESH
+      // value: if the formData re-seed guard ($: if (trip && !isEditing) in
+      // TripRow.svelte) were missing, the field would still hold the STALE
+      // 90220 from session 1's construction-time formData.
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const persistedX = grid.trips.find((t) => t.destination === SlovakCities.nitra);
+      expect(persistedX).toBeDefined();
+      expect(persistedX!.odometer).toBe(90270);
+
       await openEditor(await rowSelectorFor(SlovakCities.nitra));
       await browser.pause(500);
-      expect(await (await odoInput()).getValue()).toBe('90220');
+      expect(await (await odoInput()).getValue()).toBe('90270');
     });
   });
 

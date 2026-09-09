@@ -2,9 +2,12 @@
  * Tier 1: Smart Trip Defaults Integration Tests
  *
  * Covers two related conveniences for the trip grid:
- *   1. ODO clamp - any ODO entered below the row's odometer anchor is
- *      silently snapped to (anchor + 1) on blur. Applies to all rows. The
- *      anchor is the backend's "Km pred" for the row (task 80).
+ *   1. ODO on a NEW row - no clamp (Task 8 deleted it; ADR-042). Typing an
+ *      ODO below the anchor just shows what was typed. More than that: a NEW
+ *      row's odometer is never even sent to the backend (createTripCascade
+ *      takes only `distanceKm`; see `plan_insert_cascade`, which derives
+ *      `new_odometer = anchor + distance_km` unconditionally) -- so whatever
+ *      the ODO field shows is a live preview only, never the saved value.
  *   2. Time inference — on a NEW row, picking origin + destination that match
  *      a previous trip auto-fills start/end datetimes (jittered) from the
  *      most recent matching trip. Editing existing rows must NOT trigger this.
@@ -16,6 +19,7 @@ import {
   seedVehicle,
   seedTrip,
   setActiveVehicle,
+  getTripGridData,
   rpc,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
@@ -85,8 +89,11 @@ describe('Tier 1: Smart Trip Defaults', () => {
     await ensureLanguage('en');
   });
 
-  describe('ODO auto-clamp', () => {
-    it('clamps ODO entered below the anchor up to anchor + 1', async () => {
+  describe('ODO on a new row: no clamp, and never sent to the backend', () => {
+    it('does not clamp an ODO entered below the anchor', async () => {
+      // Task 8 deleted handleOdoBlur, the only place this clamp lived. The
+      // field now shows exactly what was typed, however far below the
+      // anchor (ADR-042: no silent correction).
       const vehicleData = createTestIceVehicle({
         name: 'ODO Clamp Test',
         licensePlate: 'CLMP-001',
@@ -134,20 +141,41 @@ describe('Tier 1: Smart Trip Defaults', () => {
       await browser.pause(150);
 
       const odoInput = await $('[data-testid="trip-odometer"]');
-      const clampedValue = await odoInput.getValue();
-      // The anchor is 51000, so the clamped value must be 51001.
-      expect(parseFloat(clampedValue)).toBe(51001);
+      // No clamp: the field shows exactly what was typed, even below the
+      // anchor (51000).
+      expect(await odoInput.getValue()).toBe('40000');
+
+      // Saving a NEW row never even sends this field -- createTripCascade
+      // takes only distanceKm (plan_insert_cascade always derives the
+      // odometer as anchor + distance_km). km was never typed here, so it
+      // is saved as 0 and the odometer is the anchor, untouched by the
+      // typed-but-unsent 40000.
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const newRow = grid.trips.find((t) => t.destination !== 'Trnava');
+      expect(newRow).toBeDefined();
+      expect(newRow!.distanceKm).toBe(0);
+      expect(newRow!.odometer).toBe(51000);
     });
   });
 
-  describe('KM derivation on NEW rows (regression: "KM fills with last ODO")', () => {
-    it('computes KM from (newODO − previousODO) on every keystroke, not via delta accumulation', async () => {
-      // Regression: when a user typed an ODO value digit-by-digit into a fresh
-      // new row, the KM field would accumulate via the delta branch of
-      // handleOdoChange and land at ~the anchor (e.g., 60194 when the
-      // last row's ODO was 60000) — the user described this as "KM fills with
-      // last ODO". The fix derives KM directly from the current ODO on new
-      // rows so intermediate keystrokes cannot accumulate.
+  describe('ODO on a new row never derives KM (regression: "KM fills with last ODO")', () => {
+    it('leaves KM alone while ODO is typed, and never sends the ODO on save', async () => {
+      // Original regression: typing an ODO digit-by-digit into a fresh new
+      // row made the KM field accumulate via a delta branch and land at
+      // ~the anchor (60194 for an anchor of 60000) — "KM fills with last
+      // ODO". Task 8 deleted that whole derivation. It is not merely
+      // disabled live: a NEW row's ODO is never sent to the backend at all
+      // (createTripCascade takes only distanceKm; plan_insert_cascade always
+      // derives new_odometer = anchor + distance_km). So typing only the ODO
+      // and saving must leave distanceKm at 0 and the odometer at the
+      // anchor, regardless of what the ODO field showed.
       const vehicleData = createTestIceVehicle({
         name: 'KM-from-ODO Regression',
         licensePlate: 'KMBUG-01',
@@ -171,23 +199,41 @@ describe('Tier 1: Smart Trip Defaults', () => {
 
       await openNewTripRow();
 
-      // Simulate a user typing "60200" one character at a time.
+      const distanceInput = await $('[data-testid="trip-distance"]');
+      const kmBefore = await distanceInput.getValue();
+
+      // Simulate a user typing "60200" one character at a time. Even
+      // keystroke-by-keystroke, the km field must never move.
       await simulateTyping('[data-testid="trip-odometer"]', '60200');
       await browser.pause(150);
 
       const odoInput = await $('[data-testid="trip-odometer"]');
-      const distanceInput = await $('[data-testid="trip-distance"]');
+      // No clamp, no live derivation: the ODO field just shows what was typed.
       expect(parseFloat(await odoInput.getValue())).toBe(60200);
-      // Correct KM = 60200 − 60000 = 200. Pre-fix value was ≈60194.
-      expect(parseFloat(await distanceInput.getValue())).toBe(200);
+      expect(await distanceInput.getValue()).toBe(kmBefore);
+
+      await (await $('tr.editing .icon-btn.save')).click();
+      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
+        timeout: 5000,
+        timeoutMsg: 'The editor stayed open after save',
+      });
+      await browser.pause(500);
+
+      // The typed 60200 never reached the backend. km saved as 0 (nothing
+      // typed into the km field), and the odometer is the untouched anchor.
+      const grid = await getTripGridData(vehicle.id as string, new Date().getFullYear());
+      expect(grid.trips).toHaveLength(1);
+      expect(grid.trips[0].distanceKm).toBe(0);
+      expect(grid.trips[0].odometer).toBe(60000);
     });
 
-    it('leaves KM blank when the anchor is 0 (vehicle without initialOdometer)', async () => {
-      // When a user creates a vehicle without an initial odometer and enters
-      // their first trip, the anchor is 0. Auto-deriving KM from
-      // (ODO − 0) surfaces the raw ODO value in the KM field, which looks
-      // identical to "the last ODO ended up in KM". Guard: skip auto-derive
-      // and let the user type KM explicitly.
+    it('leaves KM alone the same way when the anchor is 0 (no initialOdometer)', async () => {
+      // Folded from the old "leaves KM blank when the anchor is 0" case: that
+      // guarded specifically against (ODO - 0) surfacing the raw ODO value
+      // in the km field. There is no more derivation of any kind now, from
+      // any anchor, so this is the same invariant as the case above --
+      // restated here only because the vehicle shape (anchor 0) differs
+      // enough to be worth its own regression guard.
       const vehicleData = createTestIceVehicle({
         name: 'No Initial ODO',
         licensePlate: 'NOINI-01',
