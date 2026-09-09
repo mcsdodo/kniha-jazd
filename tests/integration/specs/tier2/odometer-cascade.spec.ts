@@ -128,6 +128,28 @@ function dateAt(year: number, dayOffset: number): string {
   return `${year}-${mm}-${dd}T08:00`;
 }
 
+/**
+ * Hold every `delete_trip_cascade` dry run open for `ms` before it answers.
+ * The window between the click and the modal is a real one -- `handleDelete`
+ * awaits its dry run before it sets `pendingCascade`, so during it there is
+ * no overlay over the grid. On a same-host RPC it lasts tens of
+ * milliseconds; this widens it so a test can act inside it.
+ */
+async function delayDeleteDryRun(ms: number): Promise<void> {
+  await browser.execute((delayMs: number) => {
+    const w = window as unknown as { __kjFetch?: typeof fetch };
+    if (!w.__kjFetch) w.__kjFetch = window.fetch.bind(window);
+    const original = w.__kjFetch;
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = typeof init?.body === 'string' ? init.body : '';
+      if (body.includes('delete_trip_cascade') && body.includes('"dryRun":true')) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      return original(input, init);
+    };
+  }, ms);
+}
+
 describe('Odometer cascade on save', () => {
   let vehicleId: string;
   // 2026 matches the project-wide `currentDate` in CLAUDE.md, keeping dates
@@ -756,6 +778,56 @@ describe('Odometer cascade on save', () => {
     // Row C opened on its stored odometer, not on a pre-cascade copy of it.
     // 50075 is what the book holds, because the delete never ran.
     expect(await editingRowCount()).toBe(1);
+    expect(await $('[data-testid="trip-odometer"]').getValue()).toBe('50075');
+  });
+
+  it('does not open a row editor while a cascade dry run is in flight', async () => {
+    await seedThreeRowChain();
+
+    await browser.refresh();
+    await waitForAppReady();
+    await navigateTo('trips');
+    await waitForTripGrid();
+    await browser.pause(300);
+
+    // The delete arms its cascade only after the dry run answers, so until
+    // then no modal and no overlay stand between the user and the grid.
+    await delayDeleteDryRun(3000);
+
+    const rowB = await findRowByPurpose('Row B');
+    expect(rowB).not.toBeNull();
+    const deleteBtn = await rowB!.$('button.icon-btn.delete');
+    await deleteBtn.waitForClickable({ timeout: 5000 });
+    await deleteBtn.click();
+
+    // Inside the window. An editor opened here would seed Row C's form from
+    // its pre-cascade odometer, and rule 1 stops it re-seeding while it is
+    // open -- so confirming the delete below would move the book underneath
+    // it, and a later save would submit the stale number (ADR-046, C1, with
+    // the steps reversed).
+    const rowC = await findRowByPurpose('Row C');
+    expect(rowC).not.toBeNull();
+
+    // Rule 2 names more than the editor. Every control that could start a
+    // second cascade is blocked for the same window.
+    expect(await rowC!.$('button.icon-btn.delete').isEnabled()).toBe(false);
+    expect(await rowC!.$('button.icon-btn.copy').isEnabled()).toBe(false);
+    expect(await rowC!.$('button.icon-btn.insert').isEnabled()).toBe(false);
+    expect(await $('button.new-record').isEnabled()).toBe(false);
+
+    // And the editor itself.
+    await rowC!.doubleClick();
+    await browser.pause(400);
+    expect(await editingRowCount()).toBe(0);
+
+    // The window closes and the cascade arms as usual.
+    await waitForCascadeModal(6000);
+    expect(await editingRowCount()).toBe(0);
+    await $(CASCADE_CANCEL).click();
+    await waitForNoCascadeModal();
+
+    // The block lifts with it.
+    await openRowForEdit('Row C');
     expect(await $('[data-testid="trip-odometer"]').getValue()).toBe('50075');
   });
 });

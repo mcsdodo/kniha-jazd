@@ -155,6 +155,16 @@
 	// The write waiting on the cascade modal (task 81). Null when no modal is up.
 	// One shape for all three kinds, so there is one modal and one gate.
 	let pendingCascade: PendingCascade | null = null;
+	// True from the click that starts a delete until its cascade is armed or
+	// refused. `handleDelete` awaits its dry run before it can set
+	// `pendingCascade`, so without this the grid stands unguarded for the
+	// length of that round trip: no modal, no overlay, and every control rule 2
+	// names still live. An editor opened inside that window holds a pre-cascade
+	// odometer that rule 1 will not re-seed, and confirming the delete then
+	// moves the book underneath it -- ADR-046's C1 with the steps reversed.
+	// The edit and insert arms need no flag of their own: a row is already open
+	// in both, so `otherRowEditing` and `newRowOpen` cover their windows.
+	let cascadeArming = false;
 
 	/**
 	 * A plan needs the user's approval when it moves another row, or when it
@@ -532,6 +542,7 @@
 	}
 
 	async function handleDelete(id: string) {
+		cascadeArming = true;
 		try {
 			const plan = await deleteTripCascade(id, true);
 			if (!needsApproval(plan)) {
@@ -566,6 +577,8 @@
 		} catch (error) {
 			console.error('Failed to delete trip:', error);
 			toast.error($LL.toast.errorDeleteTrip());
+		} finally {
+			cascadeArming = false;
 		}
 	}
 
@@ -785,7 +798,7 @@
 			<button
 				class="new-record"
 				on:click={handleNewRecord}
-				disabled={showNewRow || editingTripId !== null}
+				disabled={showNewRow || editingTripId !== null || cascadeArming}
 				title={showNewRow || editingTripId !== null ? $LL.trips.actionBlockedWhileEditing() : ''}
 			>
 				{$LL.trips.newRecord()}
@@ -916,7 +929,7 @@
 						onSave={handleSaveNew}
 						onCancel={handleCancelNew}
 						onDelete={async () => {}}
-						cascadePending={pendingCascade !== null}
+						cascadePending={pendingCascade !== null || cascadeArming}
 						previewData={previewingTripId === null ? previewData : null}
 						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
 						onMagicFill={handleMagicFill}
@@ -947,7 +960,7 @@
 							onSave={handleSaveNew}
 							onCancel={handleCancelNew}
 							onDelete={async () => {}}
-							cascadePending={pendingCascade !== null}
+							cascadePending={pendingCascade !== null || cascadeArming}
 							previewData={previewingTripId === null ? previewData : null}
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtTripId, km, fuel, fullTank)}
 							onMagicFill={handleMagicFill}
@@ -1020,10 +1033,10 @@
 							onSave={(data) => handleUpdate(trip, data)}
 							onCancel={() => {}}
 							onDelete={handleDelete}
-							cascadePending={pendingCascade !== null}
+							cascadePending={pendingCascade !== null || cascadeArming}
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onCopy={() => handleCopy(trip)}
-							copyDisabled={showNewRow || copyPending || editingTripId !== null}
+							copyDisabled={showNewRow || copyPending || editingTripId !== null || cascadeArming}
 							otherRowEditing={editingTripId !== null}
 							newRowOpen={showNewRow}
 							hasRouteMap={routeMapTripIds.has(trip.id)}

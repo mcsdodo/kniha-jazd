@@ -483,11 +483,12 @@
 		// new row saved afterwards -- could cascade this row while it stays
 		// open on the old odometer. The display row only renders when this row
 		// is not editing, so `otherRowEditing` is always about a different row.
-		// `cascadePending` states the same rule from the other side, but it
-		// never fires: the modal's overlay covers the viewport and cancels on
-		// the first click, so a double-click aimed at the grid clears the
-		// cascade before this runs (measured; ADR-046). Kept as defence, not
-		// as the thing that makes that moment safe.
+		// `cascadePending` states the same rule from the other side. Once the
+		// modal is up it never fires -- the overlay covers the viewport and
+		// cancels on the first click, so a double-click aimed at the grid
+		// clears the cascade before this runs (measured; ADR-046). What it
+		// does catch is the window before that, while the dry run is still in
+		// flight and no overlay exists yet (TripGrid's `cascadeArming`).
 		if (otherRowEditing || newRowOpen || cascadePending) return;
 		isEditing = true;
 		// Before the preview below, so its response cannot be applied on the
@@ -952,7 +953,7 @@
 				<button
 					class="icon-btn insert"
 					on:click|stopPropagation={onInsertAbove}
-					disabled={otherRowEditing}
+					disabled={otherRowEditing || cascadePending}
 					title={otherRowEditing ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.insertAbove()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -985,7 +986,7 @@
 				<button
 					class="icon-btn delete"
 					on:click|stopPropagation={handleDeleteClick}
-					disabled={otherRowEditing}
+					disabled={otherRowEditing || cascadePending}
 					title={otherRowEditing ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.deleteRecord()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
