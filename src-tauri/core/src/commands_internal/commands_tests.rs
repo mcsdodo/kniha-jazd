@@ -6314,6 +6314,14 @@ fn test_update_trip_cascade_does_not_cross_the_year_boundary() {
     .unwrap();
 
     assert!(result.plan.year_end_odometer_moved, "the caller must be told");
+    // The flag that actually opens the modal on a last-row-of-year edit
+    // (needsApproval in TripGrid.svelte). This state -- the year end moves and
+    // 2027 has trips -- is the only thing mark_next_year_chain_breaks reports,
+    // so without this assertion the call can be deleted and no test fails.
+    assert!(
+        result.plan.next_year_chain_breaks,
+        "2027 has trips and the 2026 year end moved, so the chain break must be reported"
+    );
     assert_eq!(
         db.get_trip(&next_year.id.to_string()).unwrap().unwrap().odometer,
         50070.0,
