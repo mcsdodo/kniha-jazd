@@ -31,6 +31,25 @@ const SORT_HEADER = '.trip-grid th.col-trip-number';
 const SORT_INDICATOR = `${SORT_HEADER} .sort-indicator`;
 const SORT_ASC_ARROW = '▲';
 
+/**
+ * Wait for the error toast raised by a rejected save (task 81's
+ * negative-distance guard) and confirm its message. `waitForExist` alone is
+ * not enough -- the toast's `fly` transition can leave `getText()` reading
+ * empty for one tick right after the element attaches, so the text itself
+ * is polled too.
+ */
+async function waitForErrorToast(expectedText: string, timeout = 5000): Promise<void> {
+  const toast = await $('.toast-error');
+  await toast.waitForExist({
+    timeout,
+    timeoutMsg: 'no error toast appeared for the rejected save',
+  });
+  await browser.waitUntil(
+    async () => (await toast.getText()).includes(expectedText),
+    { timeout, timeoutMsg: `error toast never showed "${expectedText}"` }
+  );
+}
+
 describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
   beforeEach(async () => {
     await waitForAppReady();
@@ -558,19 +577,23 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       ).toBe(true);
     });
 
-    it('saves an ODO typed below the anchor exactly as typed, no clamp', async () => {
+    it('rejects an ODO typed below the anchor instead of saving a negative distance', async () => {
       // Task 8 deleted both clamps (handleOdoBlur's snap-on-change and
       // handleSave's own clamp). There is no snap left anywhere: the field
-      // shows exactly what was typed and the save writes exactly what was
-      // typed (ADR-042: no silent correction).
+      // still shows exactly what was typed (ADR-042: no silent correction).
       //
       // km is untouched here (the odometer field alone was edited), so the
       // backend's "km differs -> km wins; else odo differs -> odo wins" rule
       // (plan_odometer_cascade) takes the odo-wins branch: new_distance_km =
-      // submitted_odometer - anchor = 109000 - 110200 = -1200. Deriving the
-      // distance FROM the odometer this way makes the saved pair internally
-      // consistent again -- so, unlike a text-only edit on an already-broken
-      // row, this save carries no span warning (see the assertion below).
+      // submitted_odometer - anchor = 109000 - 110200 = -1200. Task 81
+      // (fix round: "reject a negative distance_km in the odometer cascade")
+      // added a guard that rejects any plan whose derived distance_km would
+      // be negative -- distance_km feeds calculate_closed_period_totals and
+      // the 20% legal margin (BIZ-003), so a negative value would silently
+      // corrupt that calculation, and the odometer span warning can never
+      // catch it on this branch (the pair IS internally consistent, just
+      // consistent with a car whose odometer ran backwards). The guard wins:
+      // this save must be refused, not written.
       const vehicleData = createTestIceVehicle({
         name: 'Typed Below Anchor',
         licensePlate: 'BELOW-02',
@@ -653,41 +676,29 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       expect(parseFloat(await odoInput.getValue())).toBe(109000);
 
       await (await $('tr.editing .icon-btn.save')).click();
-      await browser.pause(500);
-      // km is unchanged and this is the last row of the year, so the plan
-      // moves nothing else -- silent write, no modal to confirm.
-      expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
-      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
-        timeout: 5000,
-        timeoutMsg: 'The editor stayed open after save',
-      });
-      await browser.pause(500);
 
+      // The guard rejects this before any cascade plan could need approval:
+      // handleUpdate's own dry-run preview call is what throws, so the
+      // catch runs and no modal -- cascade or otherwise -- ever appears.
+      // errorUpdateTrip() in en/index.ts -- read from i18n, not guessed.
+      await waitForErrorToast('Failed to update record');
+      expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
+
+      // Nothing was written: the row stays open exactly as the user left it
+      // (doSave's `if (!saved) return;` -- handleUpdate's catch returns
+      // false, so isEditing never flips and formData is never re-seeded).
+      expect(await $('tr.editing').isExisting()).toBe(true);
+      expect(parseFloat(await odoInput.getValue())).toBe(109000);
+
+      // The stored book is untouched -- the seeded pair, not the rejected one.
       const grid = await getTripGridData(vehicle.id as string, year);
       const saved = grid.trips.find((t) => t.destination === SlovakCities.martin);
       expect(saved).toBeDefined();
-      expect(saved!.odometer).toBe(109000);
-      expect(saved!.distanceKm).toBe(-1200);
-
-      const savedIndex = await browser.execute((d: string) => {
-        const rows = Array.from(document.querySelectorAll('.trip-grid tbody tr'));
-        return rows.findIndex(
-          (r) => r.querySelector('.col-destination')?.textContent?.trim() === d
-        );
-      }, SlovakCities.martin);
-      const savedSelector = `.trip-grid tbody tr:nth-of-type(${savedIndex + 1})`;
-      expect(parseFloat(await (await $(`${savedSelector} .col-odo`)).getText())).toBe(109000);
-      // The edit repairs this row's own span (ADR-046): the backend derived
-      // the distance from the odometer, so the saved pair is self-consistent
-      // and carries no warning. Only a TEXT-only edit leaves a pre-existing
-      // mismatch alone (see 'keeps the numbers when only a text field was
-      // edited' above, which asserts the opposite on a seeded mismatch).
-      expect(
-        await $(`${savedSelector} .col-odo .chain-indicator`).isExisting()
-      ).toBe(false);
+      expect(saved!.odometer).toBe(110300);
+      expect(saved!.distanceKm).toBe(100);
     });
 
-    it('Enter saves the typed ODO unclamped, same as a Save click', async () => {
+    it('Enter rejects the typed ODO below anchor, same as a Save click', async () => {
       // Both clamps are gone (Task 8): handleOdoBlur, which fired on the
       // `change` event before handleSave ever ran, and handleSave's own
       // clamp. Enter is bound with <svelte:window on:keydown>, and
@@ -695,9 +706,9 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // synchronously while the ODO input still has focus -- no blur, no
       // `change` event, no implicit-submit blur (there is no <form> wrapping
       // the row). So this path was the more exacting of the two clamp
-      // branches to reach; now that neither clamp exists, it must save
-      // exactly what was typed, the same as clicking Save directly (the
-      // case above).
+      // branches to reach the backend's negative-distance guard (task 81,
+      // see the Save-click case above for why the guard exists) through --
+      // it must refuse exactly the same way a Save click does.
       const vehicleData = createTestIceVehicle({
         name: 'Enter Beats Blur',
         licensePlate: 'BELOW-03',
@@ -767,6 +778,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
 
       // Type an ODO below the anchor (140275) and press Enter -- input only,
       // no change event, both in one synchronous script.
+      const odoInput = await $('tr.editing [data-testid="trip-odometer"]');
       await browser.execute((sel: string, value: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         input.value = value;
@@ -776,23 +788,23 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
         );
       }, 'tr.editing [data-testid="trip-odometer"]', '139000');
 
-      await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
-        timeout: 5000,
-        timeoutMsg: 'The editor stayed open after save',
-      });
-      await browser.pause(500);
+      // km is unchanged (50, same as stored), so the backend's odo-wins
+      // branch would derive distance = 139000 - 140275 (anchor) = -1275 --
+      // the same negative-distance guard as the Save-click case rejects it
+      // before any cascade plan could need approval.
+      await waitForErrorToast('Failed to update record');
+      expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
 
-      const savedRow = await rowFor(SlovakCities.presov);
-      // No clamp: the odometer is exactly what was typed. km is unchanged
-      // (50, same as stored), so the backend's odo-wins branch derives
-      // distance = 139000 - 140275 (anchor) = -1275.
-      expect(parseFloat(await (await $(`${savedRow} .col-km`)).getText())).toBe(-1275);
-      expect(parseFloat(await (await $(`${savedRow} .col-odo`)).getText())).toBe(139000);
-      // Self-consistent by construction (ADR-046) -- same as the Save-click
-      // case above, no warning survives this edit.
-      expect(
-        await $(`${savedRow} .col-odo .chain-indicator`).isExisting()
-      ).toBe(false);
+      // Nothing was written: the row stays open on exactly what was typed.
+      expect(await $('tr.editing').isExisting()).toBe(true);
+      expect(parseFloat(await odoInput.getValue())).toBe(139000);
+
+      // The stored book is untouched -- the seeded pair, not the rejected one.
+      const grid = await getTripGridData(vehicle.id as string, year);
+      const saved = grid.trips.find((t) => t.destination === SlovakCities.presov);
+      expect(saved).toBeDefined();
+      expect(saved!.odometer).toBe(140150);
+      expect(saved!.distanceKm).toBe(50);
     });
   });
 

@@ -179,6 +179,29 @@ export const Toast = {
   closeBtn: '.toast .close-button',
 } as const;
 
+/**
+ * The odometer cascade modal (task 81). Shown instead of a silent write
+ * whenever a create, edit or delete would move another row's odometer.
+ * Same testids as odometer-cascade.spec.ts, which owns the feature spec.
+ */
+export const CascadeModal = {
+  container: '[data-testid="cascade-modal"]',
+  summary: '[data-testid="cascade-summary"]',
+  confirm: '[data-testid="cascade-confirm"]',
+  cancel: '[data-testid="cascade-cancel"]',
+} as const;
+
+/**
+ * The old one-line confirmStore dialog (`GlobalConfirm.svelte` /
+ * `ConfirmModal.svelte`). Task 81 left it in place for the one case the
+ * cascade modal does not cover: a delete that moves no other row. It has no
+ * data-testid, so the danger button is the identifying selector -- the
+ * cascade modal's own buttons never carry the `danger` class.
+ */
+export const LegacyConfirmDialog = {
+  dangerButton: '.modal .button-small.danger',
+} as const;
+
 // =============================================================================
 // Custom Assertion Helpers
 // =============================================================================
@@ -420,6 +443,74 @@ export async function waitForModal(timeout = 5000): Promise<void> {
 export async function waitForModalClose(timeout = 5000): Promise<void> {
   const modal = await $(Modal.container);
   await modal.waitForDisplayed({ timeout, reverse: true });
+}
+
+/** What `resolveTripDialog` found and settled. */
+export type TripDialogKind = 'none' | 'cascade' | 'confirm';
+
+/**
+ * Settle whatever dialog (if any) follows a trip create, edit or delete
+ * (task 81's odometer cascade; task 11b's stale-spec fix).
+ *
+ * Call this immediately after triggering the write (Enter, the Save
+ * icon-button, or the delete icon-button). The write lands one of three
+ * ways, and only one of them ever happens for a single action:
+ *  - silently -- the plan moves no other row (creates/edits only; a delete
+ *    always shows one of the dialogs below, see TripGrid.svelte
+ *    `handleDelete`).
+ *  - the cascade modal -- the plan moves at least one later row's odometer.
+ *  - delete only: the old one-line confirmStore dialog -- the delete moves
+ *    nothing, but still destroys a legal record with no undo.
+ *
+ * `isDone` is the caller's fast, context-specific proof the write already
+ * landed with nothing to confirm -- e.g. the editing row's `.editing` class
+ * having dropped for a save. It defaults to "never", which is correct for a
+ * delete (there is no silent path to detect) and makes a save caller that
+ * omits it wait out the full timeout on the genuinely-silent path -- pass it
+ * whenever that path is possible, so the common case does not eat the whole
+ * timeout every time.
+ */
+export async function resolveTripDialog(
+  isDone: () => Promise<boolean> = async () => false,
+  timeout = 5000
+): Promise<TripDialogKind> {
+  let kind: TripDialogKind | undefined;
+  await browser.waitUntil(
+    async () => {
+      if (await $(CascadeModal.container).isExisting()) {
+        kind = 'cascade';
+        return true;
+      }
+      if (await $(LegacyConfirmDialog.dangerButton).isExisting()) {
+        kind = 'confirm';
+        return true;
+      }
+      if (await isDone()) {
+        kind = 'none';
+        return true;
+      }
+      return false;
+    },
+    {
+      timeout,
+      timeoutMsg:
+        'resolveTripDialog: the write neither completed silently nor opened a dialog',
+    }
+  );
+
+  if (kind === 'cascade') {
+    const confirmBtn = await $(CascadeModal.confirm);
+    await confirmBtn.waitForClickable({ timeout });
+    await confirmBtn.click();
+    await $(CascadeModal.container).waitForExist({ timeout, reverse: true });
+  } else if (kind === 'confirm') {
+    const dangerBtn = await $(LegacyConfirmDialog.dangerButton);
+    await dangerBtn.waitForClickable({ timeout });
+    await dangerBtn.click();
+    await dangerBtn.waitForExist({ timeout, reverse: true });
+  }
+
+  return kind as TripDialogKind;
 }
 
 // =============================================================================

@@ -18,7 +18,7 @@
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
-import { waitForTripGrid } from '../../utils/assertions';
+import { waitForTripGrid, resolveTripDialog } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
 import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
 
@@ -83,6 +83,12 @@ async function setFieldByTestId(testId: string, value: string): Promise<void> {
  * Fill the (currently open) editing row with a complete trip and save via
  * Enter. Used by Scenarios 1 / 6 which exercise the UI insertion path.
  *
+ * An out-of-order insert can shift every later row's odometer (task 81), in
+ * which case the save waits behind the cascade modal instead of committing
+ * straight away -- `resolveTripDialog` confirms it if one appears, and is a
+ * no-op if the plan moved nothing (the common case: the very first insert
+ * into an empty year).
+ *
  * Waits for the editing row to close AND the visible trip-row count to
  * increase (explicit wait — see .claude/rules/integration-tests.md "Use
  * explicit waits instead of fixed pauses"). Both conditions are required:
@@ -99,6 +105,12 @@ async function fillEditingRowAndSave(opts: {
   purpose: string;
 }): Promise<void> {
   const rowCountBefore = (await $$(TRIP_ROW_SELECTOR)).length;
+  const settled = async () => {
+    const editing = await $$('.trip-grid tbody tr.editing');
+    if (editing.length !== 0) return false;
+    const rows = await $$(TRIP_ROW_SELECTOR);
+    return rows.length > rowCountBefore;
+  };
   await setFieldByTestId('trip-start-datetime', opts.startDatetime);
   await setFieldByTestId('trip-end-datetime', opts.endDatetime);
   await setFieldByTestId('trip-origin', opts.origin);
@@ -108,19 +120,12 @@ async function fillEditingRowAndSave(opts: {
   await setFieldByTestId('trip-purpose', opts.purpose);
   await browser.pause(200);
   await browser.keys('Enter');
+  await resolveTripDialog(settled);
   // Wait for both signals: editing row gone AND committed row visible.
-  await browser.waitUntil(
-    async () => {
-      const editing = await $$('.trip-grid tbody tr.editing');
-      if (editing.length !== 0) return false;
-      const rows = await $$(TRIP_ROW_SELECTOR);
-      return rows.length > rowCountBefore;
-    },
-    {
-      timeout: 5000,
-      timeoutMsg: `save did not commit a new row (expected count > ${rowCountBefore})`,
-    }
-  );
+  await browser.waitUntil(settled, {
+    timeout: 5000,
+    timeoutMsg: `save did not commit a new row (expected count > ${rowCountBefore})`,
+  });
 }
 
 describe('Tier 2: start_datetime is the single source of trip order', () => {
@@ -472,13 +477,13 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     const deleteBtn = await rowForMay12!.$('button.icon-btn.delete');
     await deleteBtn.waitForClickable({ timeout: 5000 });
     await deleteBtn.click();
-    await browser.pause(300);
 
-    // Confirm in the modal — the danger button carries the localized "Delete"
-    // label (common.delete → "Delete" in English).
-    const confirmBtn = await $('.modal .button-small.danger');
-    await confirmBtn.waitForClickable({ timeout: 5000 });
-    await confirmBtn.click();
+    // May 12 sits between May 5 and May 21 in canonical order, so deleting
+    // it shifts May 21's odometer -- the cascade modal gates this delete,
+    // not the plain one-line confirmStore dialog it used to be (task 81
+    // replaced that path once a delete moves another row).
+    const kind = await resolveTripDialog();
+    expect(kind).toBe('cascade');
     // Wait until the row count drops by one — signals delete + re-render done.
     await browser.waitUntil(
       async () => (await $$(TRIP_ROW_SELECTOR)).length === rowCountBefore - 1,

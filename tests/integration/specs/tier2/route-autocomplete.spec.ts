@@ -483,9 +483,28 @@ describe('Tier 2: Route Autocomplete', () => {
         { timeout: 10000 }
       );
 
-      // Fill date
-      const dateInput = await $('[data-testid="trip-start-datetime"]');
-      await dateInput.setValue(`${year}-04-01`);
+      // Fill date. Atomic setting (see .claude/rules/integration-tests.md
+      // "Date Inputs - Use Atomic Setting") -- `setValue()` types into a
+      // native datetime-local input one character at a time, and the
+      // browser's own segment-cycling turns "2026-04-01" into a scrambled
+      // value (observed: "60401-02-02T00:00"). Before task 81 that garbage
+      // date's `parse_iso_datetime` failure was invisible: the row closed
+      // unconditionally on save regardless of whether the create actually
+      // landed (TripRow's old `handleSave` never awaited `onSave`). Task 81
+      // made the row stay open until the backend confirms the write, which
+      // is what surfaced this test's own latent bug.
+      await browser.execute(
+        (sel: string, newValue: string) => {
+          const input = document.querySelector(sel) as HTMLInputElement | null;
+          if (input) {
+            input.value = newValue;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        },
+        '[data-testid="trip-start-datetime"]',
+        `${year}-04-01T00:00`
+      );
 
       // Type in origin - this should trigger autocomplete dropdown
       const originInput = await $('[data-testid="trip-origin"]');
@@ -538,20 +557,24 @@ describe('Tier 2: Route Autocomplete', () => {
         { timeout: 10000, timeoutMsg: 'Editing row did not disappear after Enter' }
       );
 
-      // Wait for trip origin to appear in page
+      // Wait for the new row's destination to appear in page. "AnotherPlace"
+      // is unique to this save (the seeded row's destination is
+      // "SomePlace") -- "Dropdown" alone would already match the seeded
+      // origin "DropdownTest" and pass even if this save never landed.
       await browser.waitUntil(
         async () => {
           const body = await $('body');
           const text = await body.getText();
-          return text.includes('Dropdown');
+          return text.includes('AnotherPlace');
         },
-        { timeout: 5000, timeoutMsg: 'Dropdown not found in page after save' }
+        { timeout: 5000, timeoutMsg: 'AnotherPlace not found in page after save' }
       );
 
       // Verify trip was saved
       const body = await $('body');
       const text = await body.getText();
       expect(text).toContain('Dropdown'); // Origin contains "Dropdown"
+      expect(text).toContain('AnotherPlace'); // Destination, unique to this row
     });
 
     it('should cancel editing with Escape key', async () => {
