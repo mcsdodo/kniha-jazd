@@ -497,6 +497,10 @@ type RootTranslation = {
 		 */
 		deleteRecord: string
 		/**
+		 * N​a​j​p​r​v​ ​d​o​k​o​n​č​i​t​e​ ​o​t​v​o​r​e​n​ý​ ​z​á​z​n​a​m
+		 */
+		actionBlockedWhileEditing: string
+		/**
 		 * A​u​t​o​m​a​t​i​c​k​é​ ​d​o​p​l​n​e​n​i​e
 		 */
 		magicFill: string
@@ -1897,6 +1901,10 @@ type RootTranslation = {
 		 */
 		errorUpdateTrip: string
 		/**
+		 * T​a​c​h​o​m​e​t​e​r​ ​j​e​ ​n​i​ž​š​í​ ​a​k​o​ ​p​r​e​d​c​h​á​d​z​a​j​ú​c​i​ ​z​á​z​n​a​m​,​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​b​y​ ​b​o​l​a​ ​z​á​p​o​r​n​á
+		 */
+		errorOdometerBelowAnchor: string
+		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​d​s​t​r​á​n​i​ť​ ​z​á​z​n​a​m
 		 */
 		errorDeleteTrip: string
@@ -3203,6 +3211,10 @@ export type TranslationFunctions = {
 		 * Odstrániť záznam
 		 */
 		deleteRecord: () => LocalizedString
+		/**
+		 * Najprv dokončite otvorený záznam
+		 */
+		actionBlockedWhileEditing: () => LocalizedString
 		/**
 		 * Automatické doplnenie
 		 */
@@ -4525,6 +4537,10 @@ export type TranslationFunctions = {
 		 * Nepodarilo sa aktualizovať záznam
 		 */
 		errorUpdateTrip: () => LocalizedString
+		/**
+		 * Tachometer je nižší ako predchádzajúci záznam, vzdialenosť by bola záporná
+		 */
+		errorOdometerBelowAnchor: () => LocalizedString
 		/**
 		 * Nepodarilo sa odstrániť záznam
 		 */

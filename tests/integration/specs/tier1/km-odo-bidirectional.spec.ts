@@ -680,8 +680,12 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // The guard rejects this before any cascade plan could need approval:
       // handleUpdate's own dry-run preview call is what throws, so the
       // catch runs and no modal -- cascade or otherwise -- ever appears.
-      // errorUpdateTrip() in en/index.ts -- read from i18n, not guessed.
-      await waitForErrorToast('Failed to update record');
+      // The toast names the reason: TripGrid's updateErrorMessage() reads the
+      // backend message and picks errorOdometerBelowAnchor() over the generic
+      // errorUpdateTrip() (task 81, M4). Text read from en/index.ts, not guessed.
+      await waitForErrorToast(
+        'The odometer is below the previous record, so the distance would be negative'
+      );
       expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
 
       // Nothing was written: the row stays open exactly as the user left it
@@ -791,8 +795,11 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       // km is unchanged (50, same as stored), so the backend's odo-wins
       // branch would derive distance = 139000 - 140275 (anchor) = -1275 --
       // the same negative-distance guard as the Save-click case rejects it
-      // before any cascade plan could need approval.
-      await waitForErrorToast('Failed to update record');
+      // before any cascade plan could need approval, and the same specific
+      // toast names the reason (task 81, M4).
+      await waitForErrorToast(
+        'The odometer is below the previous record, so the distance would be negative'
+      );
       expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
 
       // Nothing was written: the row stays open on exactly what was typed.

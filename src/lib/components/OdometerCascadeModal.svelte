@@ -61,8 +61,25 @@
 		}
 	}
 
+	/**
+	 * Kilometres, printed the way the grid prints them: whole, unless a real
+	 * fraction would be lost. The book is kept in whole kilometres, but a
+	 * cascade can carry a fractional shift -- ADR-046's own example moves row
+	 * 1 of 2025 by 1.5 km, because the same write also absorbs a 0.5 km span
+	 * error. The summary and the table below must agree about that fraction:
+	 * a summary of "+1.5 km" over a table reading 38145 -> 38147 contradicts
+	 * itself. One decimal is the granularity of the delta, so it is also the
+	 * granularity of the odometers the delta produces.
+	 */
+	function km(value: number): string {
+		// `|| 0` turns -0 (from a rounded -0.04) back into 0, so a shift of
+		// nothing never prints as "-0".
+		const rounded = Math.round(value * 10) / 10 || 0;
+		return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+	}
+
 	function signed(value: number): string {
-		return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
+		return `${value >= 0 ? '+' : ''}${km(value)}`;
 	}
 
 	function shortDate(trip: Trip | undefined): string {
@@ -121,8 +138,8 @@
 					{:else}
 						{$LL.trips.cascade.fromDistance({
 							delta: signed(plan.deltaFromDistance),
-							oldKm: oldDistanceKm.toFixed(0),
-							newKm: plan.newDistanceKm.toFixed(0)
+							oldKm: km(oldDistanceKm),
+							newKm: km(plan.newDistanceKm)
 						})}
 					{/if}
 				</li>
@@ -159,8 +176,8 @@
 									{byId.get(change.tripId)?.origin ?? ''} -&gt;
 									{byId.get(change.tripId)?.destination ?? ''}
 								</td>
-								<td class="number">{change.oldOdometer.toFixed(0)}</td>
-								<td class="number">{change.newOdometer.toFixed(0)}</td>
+								<td class="number">{km(change.oldOdometer)}</td>
+								<td class="number">{km(change.newOdometer)}</td>
 							</tr>
 						{/each}
 					</tbody>

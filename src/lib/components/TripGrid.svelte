@@ -179,6 +179,23 @@
 		return next;
 	}
 
+	/**
+	 * The toast text for a failed save. One backend refusal is worth naming:
+	 * the negative-distance guard (`plan_odometer_cascade`, trips.rs). It
+	 * fires when the odometer the user typed sits below the previous row's,
+	 * which the user can see and correct -- the generic toast tells them
+	 * nothing. The guard's message travels as the plain HTTP body (server
+	 * mod.rs answers `(BAD_REQUEST, msg)` and api-adapter.ts throws it
+	 * verbatim), so this English fragment is the marker. Anything else keeps
+	 * the generic toast.
+	 */
+	function updateErrorMessage(error: unknown): string {
+		const text = error instanceof Error ? error.message : String(error);
+		return text.includes('is below the anchor')
+			? $LL.toast.errorOdometerBelowAnchor()
+			: $LL.toast.errorUpdateTrip();
+	}
+
 	// Live preview state
 	let previewData: PreviewResult | null = null;
 	let previewingTripId: string | null = null; // Which row is previewing (null = new row)
@@ -443,7 +460,7 @@
 			});
 		} catch (error) {
 			console.error('Failed to update trip:', error);
-			toast.error($LL.toast.errorUpdateTrip());
+			toast.error(updateErrorMessage(error));
 			return false;
 		}
 	}
@@ -500,7 +517,7 @@
 			resolveSaved?.(true);
 		} catch (error) {
 			console.error('Failed to update trip:', error);
-			toast.error($LL.toast.errorUpdateTrip());
+			toast.error(updateErrorMessage(error));
 			resolveSaved?.(false);
 		}
 	}
@@ -759,7 +776,18 @@
 	<div class="header">
 		<h2>{$LL.trips.title()} ({trips.length})</h2>
 		<div class="header-actions">
-			<button class="new-record" on:click={handleNewRecord} disabled={showNewRow}>
+			<!--
+				Disabled while a row is in its editor for the same reason as the
+				copy, insert-above and delete controls (task 81, C1): a new trip
+				dated before the open row cascades its odometer, and the open
+				editor would then write the pre-cascade number back.
+			-->
+			<button
+				class="new-record"
+				on:click={handleNewRecord}
+				disabled={showNewRow || editingTripId !== null}
+				title={showNewRow || editingTripId !== null ? $LL.trips.actionBlockedWhileEditing() : ''}
+			>
 				{$LL.trips.newRecord()}
 			</button>
 			<SegmentedToggle
@@ -996,6 +1024,8 @@
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onCopy={() => handleCopy(trip)}
 							copyDisabled={showNewRow || copyPending || editingTripId !== null}
+							otherRowEditing={editingTripId !== null}
+							newRowOpen={showNewRow}
 							hasRouteMap={routeMapTripIds.has(trip.id)}
 							onOpenRouteMap={() => window.open(`/mapa?trip=${trip.id}`, '_blank')}
 							onEditStart={() => handleEditStart(trip.id)}

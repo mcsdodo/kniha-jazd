@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Trip, Route, Place, PreviewResult, VehicleType, SuggestedFillup, CopiedTripDefaults } from '$lib/types';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { getInferredTripTimeForRoute } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { toast } from '$lib/stores/toast';
@@ -62,6 +62,21 @@
 	// Copy (Task 71) - duplicates this row's route into a new today-dated row
 	export let onCopy: () => void = () => {};
 	export let copyDisabled: boolean = false;
+	// True while ANOTHER row of the grid is open in its editor (task 81, C1).
+	// A cascade started from here -- insert-above, delete, or the save of a
+	// second editor -- shifts the stored odometer of that open row, but its
+	// `formData` re-seed below is guarded on `!isEditing`, so the open editor
+	// keeps the pre-cascade number and writes it back as a distance. The grid
+	// therefore disables every control that can start a cascade while an
+	// editor is open, exactly as it already does for the copy button.
+	export let otherRowEditing: boolean = false;
+	// True while an unsaved NEW row is open somewhere in the grid. It only
+	// blocks opening THIS row's editor (task 81, C1): saving that new row can
+	// insert a trip dated before this one, which cascades this row's stored
+	// odometer while its editor holds the old one. The new row itself is not
+	// at risk the other way round -- `createTripCascade` takes no odometer, so
+	// a new row can never submit a stale one.
+	export let newRowOpen: boolean = false;
 	// Set on a NEW row that was opened via another row's copy button. Seeds
 	// formData below; null for an ordinary new row.
 	export let copyFrom: CopiedTripDefaults | null = null;
@@ -126,6 +141,15 @@
 	// this row is not `isEditing`, so the two actions are already mutually
 	// exclusive on one row.
 	let savePending = false;
+
+	// The grid can unmount an open editor without the user closing it -- a
+	// year or a vehicle switch replaces `trips` under a live TripGrid. The
+	// grid's `editingTripId` would then stay set to a row that is gone, and
+	// every control gated on it (copy, insert-above, delete, and opening any
+	// other row) would stay disabled until a page reload (task 81, C1).
+	onDestroy(() => {
+		if (isEditing && !isNew) onEditEnd();
+	});
 
 	// Form state - use null for new rows to show placeholder
 	const defaultStartDatetime = `${defaultDate}T00:00`;
@@ -455,6 +479,11 @@
 	}
 
 	function handleEdit() {
+		// One open row at a time (task 81, C1). A second editor -- or an open
+		// new row saved afterwards -- could cascade this row while it stays
+		// open on the old odometer. The display row only renders when this row
+		// is not editing, so `otherRowEditing` is always about a different row.
+		if (otherRowEditing || newRowOpen) return;
 		isEditing = true;
 		// Before the preview below, so its response cannot be applied on the
 		// strength of a flag from the previous session.
@@ -918,7 +947,8 @@
 				<button
 					class="icon-btn insert"
 					on:click|stopPropagation={onInsertAbove}
-					title={$LL.trips.insertAbove()}
+					disabled={otherRowEditing}
+					title={otherRowEditing ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.insertAbove()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<line x1="12" y1="5" x2="12" y2="19"></line>
@@ -929,7 +959,7 @@
 					class="icon-btn copy"
 					on:click|stopPropagation={onCopy}
 					disabled={copyDisabled}
-					title={$LL.trips.copyRecord()}
+					title={copyDisabled ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.copyRecord()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -950,7 +980,8 @@
 				<button
 					class="icon-btn delete"
 					on:click|stopPropagation={handleDeleteClick}
-					title={$LL.trips.deleteRecord()}
+					disabled={otherRowEditing}
+					title={otherRowEditing ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.deleteRecord()}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<polyline points="3 6 5 6 21 6"></polyline>

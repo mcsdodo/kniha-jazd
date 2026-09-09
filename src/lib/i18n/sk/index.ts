@@ -158,6 +158,9 @@ const sk = {
 		insertAbove: 'Vložiť záznam nad',
 		copyRecord: 'Kopírovať záznam',
 		deleteRecord: 'Odstrániť záznam',
+		// Tooltip on every control that can shift the odometer of an open row
+		// (task 81, C1): kopírovanie, vloženie nad, odstránenie, nový záznam.
+		actionBlockedWhileEditing: 'Najprv dokončite otvorený záznam',
 		magicFill: 'Automatické doplnenie',
 		// Checkbox
 		fullTank: 'Plná',
@@ -569,6 +572,8 @@ const sk = {
 		errorCreateTrip: 'Nepodarilo sa vytvoriť záznam',
 		errorCopyTrip: 'Nepodarilo sa načítať údaje na kopírovanie',
 		errorUpdateTrip: 'Nepodarilo sa aktualizovať záznam',
+		errorOdometerBelowAnchor:
+			'Tachometer je nižší ako predchádzajúci záznam, vzdialenosť by bola záporná',
 		errorDeleteTrip: 'Nepodarilo sa odstrániť záznam',
 		errorAddCompensationTrip: 'Nepodarilo sa pridať jazdu. Skúste to znova.',
 		errorExport: 'Export zlyhal: {error:string}',

@@ -158,6 +158,9 @@ const en = {
 		insertAbove: 'Insert record above',
 		copyRecord: 'Copy record',
 		deleteRecord: 'Delete record',
+		// Tooltip on every control that can shift the odometer of an open row
+		// (task 81, C1): copy, insert above, delete, new record.
+		actionBlockedWhileEditing: 'Finish the open record first',
 		magicFill: 'Auto-fill',
 		// Checkbox
 		fullTank: 'Full',
@@ -569,6 +572,8 @@ const en = {
 		errorCreateTrip: 'Failed to create record',
 		errorCopyTrip: 'Failed to load copy data',
 		errorUpdateTrip: 'Failed to update record',
+		errorOdometerBelowAnchor:
+			'The odometer is below the previous record, so the distance would be negative',
 		errorDeleteTrip: 'Failed to delete record',
 		errorAddCompensationTrip: 'Failed to add trip. Please try again.',
 		errorExport: 'Export failed: {error}',

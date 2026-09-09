@@ -198,8 +198,11 @@ describe('Odometer cascade on save', () => {
 
     await waitForCascadeModal();
     // The summary decomposes the shift (R3) -- proves the plan reached the
-    // screen, not only that a modal of some kind appeared.
-    expect(await $(CASCADE_SUMMARY).getText()).toContain('+20.0');
+    // screen, not only that a modal of some kind appeared. A whole-kilometre
+    // shift now prints as "+20", matching the odometers in the table below it
+    // and the grid behind it (task 81, M2). A fractional shift still prints
+    // its decimal.
+    expect(await $(CASCADE_SUMMARY).getText()).toContain('+20 km');
 
     await $(CASCADE_CONFIRM).click();
     await waitForNoCascadeModal();
@@ -248,6 +251,123 @@ describe('Odometer cascade on save', () => {
 
     expect(await odoOf('Row B')).toBe('50050');
     expect(await odoOf('Row C')).toBe('50075');
+  });
+
+  it('blocks every cascade control while a row is open for edit', async () => {
+    // Task 81, C1. TripRow re-seeds its `formData` from the `trip` prop only
+    // while it is NOT editing, so a cascade started from another row moves the
+    // open row's stored odometer while its editor keeps the old number. The
+    // next save then submits an unchanged km with a changed odometer, the
+    // backend takes its odo-wins branch, and it writes distance_km = odometer
+    // - anchor -- inflated by exactly the shift. Nothing catches it: the value
+    // grows rather than going negative, the span equals the km by
+    // construction, and an inflated distance lowers the computed l/100km, so
+    // it hides a BIZ-003 breach instead of inventing one.
+    //
+    // The fix is the gate this test pins: while an editor is open, no control
+    // that can start a cascade is actionable.
+    await seedThreeRowChain();
+
+    await browser.refresh();
+    await waitForAppReady();
+    await navigateTo('trips');
+    await waitForTripGrid();
+    await browser.pause(300);
+
+    await openRowForEdit('Row B');
+
+    // TRIP_ROW_SELECTOR skips the editing row, so this is Row C's display row.
+    const rowC = await findRowByPurpose('Row C');
+    expect(rowC).not.toBeNull();
+    expect(await rowC!.$('button.icon-btn.delete').isEnabled()).toBe(false);
+    expect(await rowC!.$('button.icon-btn.insert').isEnabled()).toBe(false);
+    // The control this gate was copied from, asserted here so the three stay
+    // one pattern.
+    expect(await rowC!.$('button.icon-btn.copy').isEnabled()).toBe(false);
+    // A new trip dated before the open row cascades it just as an insert does.
+    expect(await $('button.new-record').isEnabled()).toBe(false);
+
+    // Not merely styled as disabled: a real click reaches nothing. A disabled
+    // button fires no click handler, so this is the strongest form of the
+    // check available in the page.
+    for (const selector of ['button.icon-btn.delete', 'button.icon-btn.insert']) {
+      const state = await browser.execute(
+        (purpose: string, sel: string) => {
+          const rows = Array.from(
+            document.querySelectorAll(
+              '.trip-grid tbody tr:not(.synthetic-row):not(.editing):not(.empty)'
+            )
+          );
+          const row = rows.find(
+            (r) => r.querySelector('.col-purpose')?.textContent?.trim() === purpose
+          );
+          const button = row?.querySelector(sel) as HTMLButtonElement | null;
+          if (!button) return 'missing';
+          button.click();
+          return button.disabled ? 'disabled' : 'enabled';
+        },
+        'Row C',
+        selector
+      );
+      expect(state).toBe('disabled');
+    }
+
+    // A second editor is the same seam by another door: saving it would
+    // cascade the first one just as well.
+    await rowC!.doubleClick();
+    await browser.pause(500);
+    expect(await editingRowCount()).toBe(1);
+
+    // Nothing started: no modal of any kind is up -- neither the cascade
+    // modal nor the plain delete confirmation (ConfirmModal.svelte), which
+    // share the `.modal-overlay` wrapper.
+    expect(await $(CASCADE_MODAL).isExisting()).toBe(false);
+    expect(await $('.modal-overlay').isExisting()).toBe(false);
+
+    // The gate lifts when the editor closes -- it is a gate, not a lock.
+    await browser.keys('Escape');
+    await waitForEditingRowClosed('Escape did not close the editor');
+    const rowCAgain = await findRowByPurpose('Row C');
+    expect(rowCAgain).not.toBeNull();
+    await browser.waitUntil(
+      async () => await rowCAgain!.$('button.icon-btn.delete').isEnabled(),
+      { timeout: 5000, timeoutMsg: 'delete stayed disabled after the editor closed' }
+    );
+    expect(await rowCAgain!.$('button.icon-btn.insert').isEnabled()).toBe(true);
+    expect(await $('button.new-record').isEnabled()).toBe(true);
+
+    // The book is untouched by any of it.
+    expect(await odoOf('Row B')).toBe('50050');
+    expect(await odoOf('Row C')).toBe('50075');
+  });
+
+  it('does not open a row editor while an unsaved new row is open', async () => {
+    // The mirror of the gate above (task 81, C1). A new row dated before an
+    // existing one cascades it on save, so an editor opened next to a pending
+    // new row is the same stale-editor seam by another door.
+    await seedThreeRowChain();
+
+    await browser.refresh();
+    await waitForAppReady();
+    await navigateTo('trips');
+    await waitForTripGrid();
+    await browser.pause(300);
+
+    const newRecordBtn = await $('button.new-record');
+    await newRecordBtn.waitForClickable({ timeout: 5000 });
+    await newRecordBtn.click();
+    // The new row is itself an editing row, so this is the only one open.
+    await browser.waitUntil(async () => (await editingRowCount()) === 1, {
+      timeout: 5000,
+      timeoutMsg: 'new-record did not open a new editing row',
+    });
+
+    const rowC = await findRowByPurpose('Row C');
+    expect(rowC).not.toBeNull();
+    await rowC!.doubleClick();
+    await browser.pause(500);
+    expect(await editingRowCount()).toBe(1);
+    expect(await findRowByPurpose('Row C')).not.toBeNull();
   });
 
   it('keeps the scroll position after a cascade', async function () {
