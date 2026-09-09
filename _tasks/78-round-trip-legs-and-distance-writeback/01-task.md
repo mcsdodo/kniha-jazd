@@ -1,6 +1,6 @@
 **Date:** 2026-09-08
 **Subject:** Route each round-trip leg separately, and let the routed distance be written back to the row
-**Status:** Planning
+**Status:** In Progress
 
 ## Goal
 

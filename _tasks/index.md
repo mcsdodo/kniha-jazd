@@ -8,7 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 📋 Planning | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
+| 78 | [Round Trip Legs and Distance Write-Back](78-round-trip-legs-and-distance-writeback/) | 🟡 In Progress | Route each round-trip leg separately; write the routed distance back to the row behind a fuel-bucket and legal-margin warning |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 51 | [Receipt State Model](51-receipt-state-model/) | 📋 Planning | Explicit assignment, user picks FUEL/OTHER |
 | 41 | [Integration Test Speedup](41-integration-test-speedup/) | 📋 Planning | IPC-based DB reset for faster tests |
