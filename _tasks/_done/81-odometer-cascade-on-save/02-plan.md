@@ -19,10 +19,10 @@
 - In all three, every row after the affected position gets `odometer += delta`, and rows before it are never touched.
 - The cascade never crosses a year boundary.
 - A submitted `startDatetime` that differs from the stored one cascades nothing.
-- Float comparison tolerance is `0.001`, the same value `recalculate_odometers_internal` uses ([trips.rs:229](../../src-tauri/core/src/commands_internal/trips.rs)).
+- Float comparison tolerance is `0.001`, the same value `recalculate_odometers_internal` uses ([trips.rs:229](../../../src-tauri/core/src/commands_internal/trips.rs)).
 - `update_trip`, `create_trip`, `delete_trip` and `recalculate_odometers` keep their current behaviour. Do not change them.
 - `yearEndOdometerMoved` says the year's last odometer changed. `nextYearChainBreaks` says that AND a later year has trips. Only the second opens a modal on its own -- appending to the newest year must stay a silent write.
-- All business logic in Rust ([ADR-008](../../DECISIONS.md)). The frontend displays what the backend returns.
+- All business logic in Rust ([ADR-008](../../../DECISIONS.md)). The frontend displays what the backend returns.
 - Slovak UI strings go through i18n. Run `npm run i18n` after editing `src/lib/i18n/{sk,en}/index.ts`.
 - The task 79 span warnings must still fire. A change that silences them is wrong.
 - Do not write to the production database. Test against a copy under `_tmp/`.
@@ -818,7 +818,7 @@ methods share it:
 calls `apply_odometer_shifts`, both inside one `conn.transaction`.
 
 `delete_trip_with_odometer_shift` deletes from `paperless_trip_links` and then from
-`trips`, exactly as `delete_trip` does at [db.rs:466-473](../../src-tauri/core/src/db.rs),
+`trips`, exactly as `delete_trip` does at [db.rs:466-473](../../../src-tauri/core/src/db.rs),
 then calls `apply_odometer_shifts`, all inside one `conn.transaction`. Use the current
 UTC time for `updated_at`.
 
@@ -847,7 +847,7 @@ git commit -m "feat(db): write a trip and its odometer shift in one transaction"
 - Test: `src-tauri/core/src/commands_internal/commands_tests.rs`
 
 **Interfaces:**
-- Consumes: the three planners (Task 1), the three `*_with_odometer_shift` methods (Task 2), `get_year_start_odometer` (already in `statistics.rs`), `db.get_years_with_trips` ([db.rs:411](../../src-tauri/core/src/db.rs)).
+- Consumes: the three planners (Task 1), the three `*_with_odometer_shift` methods (Task 2), `get_year_start_odometer` (already in `statistics.rs`), `db.get_years_with_trips` ([db.rs:411](../../../src-tauri/core/src/db.rs)).
 - Produces:
   - `pub struct CascadeResult { trip: Option<Trip>, plan: CascadePlan }`
   - `pub fn update_trip_cascade_internal(db, app_state, id, start_datetime, end_datetime, origin, destination, distance_km, odometer, purpose, fuel_liters, fuel_cost_eur, full_tank, energy_kwh, energy_cost_eur, full_charge, soc_override_percent, other_costs_eur, other_costs_note, dry_run) -> Result<CascadeResult, String>`
@@ -1122,7 +1122,7 @@ fn test_update_trip_cascade_agrees_with_the_preview_command() {
 }
 ```
 
-Check the real signature of `preview_trip_calculation_internal` before writing the last test and match it exactly; the dispatcher arm is at [dispatcher.rs:365](../../src-tauri/core/src/server/dispatcher.rs).
+Check the real signature of `preview_trip_calculation_internal` before writing the last test and match it exactly; the dispatcher arm is at [dispatcher.rs:365](../../../src-tauri/core/src/server/dispatcher.rs).
 
 - [ ] **Step 2: Run the tests and watch them fail**
 
@@ -1149,7 +1149,7 @@ pub struct CascadeResult {
 
 Both save paths must build the `Trip` the same way, or they will drift. Cut the body of
 `update_trip_internal` between the `check_read_only!` line and the `db.update_trip` call
-([trips.rs:127-170](../../src-tauri/core/src/commands_internal/trips.rs)) into a private
+([trips.rs:127-170](../../../src-tauri/core/src/commands_internal/trips.rs)) into a private
 function, and call it from `update_trip_internal`:
 
 ```rust
@@ -1440,7 +1440,7 @@ pub fn create_trip_cascade_internal(
 ```
 
 Extract `build_new_trip` out of `create_trip_internal`
-([trips.rs:64-104](../../src-tauri/core/src/commands_internal/trips.rs)) the same way
+([trips.rs:64-104](../../../src-tauri/core/src/commands_internal/trips.rs)) the same way
 Step 4 extracted `build_updated_trip`: it keeps the `Uuid::parse_str`,
 `parse_iso_datetime`, `normalize_location` and SoC range check exactly as they are, and
 returns the `Trip`. `create_trip_internal` then calls it too.
@@ -1849,7 +1849,7 @@ export async function updateTripCascade(
 ```
 
 Add the two other calls beside it. `createTripCascade` mirrors `createTrip`
-([api.ts:81](../../src/lib/api.ts)) with the `odometer` parameter **removed** and
+([api.ts:81](../../../src/lib/api.ts)) with the `odometer` parameter **removed** and
 `dryRun` appended -- the backend derives the odometer, so passing one would let the
 browser overrule the book. `deleteTripCascade` is two lines:
 
@@ -2359,7 +2359,7 @@ Add the imports at the top:
 - [ ] **Step 3: Drop the second delete dialog**
 
 `TripRow` shows its own confirmation before it calls `onDelete`
-([TripRow.svelte:557](../../src/lib/components/TripRow.svelte)). The cascade modal now
+([TripRow.svelte:557](../../../src/lib/components/TripRow.svelte)). The cascade modal now
 states what the delete does, and two dialogs for one action is worse than one dialog that
 says more (task 81, R5). Remove the `confirmStore.show({...})` wrapper so the delete
 button calls `onDelete(trip.id)` directly, and drop the `confirmStore` import if nothing

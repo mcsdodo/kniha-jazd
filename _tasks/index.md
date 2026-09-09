@@ -18,7 +18,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
-| 81 | [Odometer Cascade On Save](81-odometer-cascade-on-save/) -- an edit, an insert and a delete cascade the odometer to every later row of the year, behind a confirmation modal; see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) | 2026-09-09 |
+| 81 | [Odometer Cascade On Save](./_done/81-odometer-cascade-on-save/) -- an edit, an insert and a delete cascade the odometer to every later row of the year, behind a confirmation modal; see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) | 2026-09-09 |
 | 80 | [One Trip Ordering](./_done/80-one-trip-ordering/) -- the renumbering is live in production, see [04-closed.md](./_done/80-one-trip-ordering/04-closed.md) | 2026-09-08 |
 | 79 | [Odometer Span Inconsistency](./_done/79-odometer-span-inconsistency/) -- the 2026 rows are corrected in production, 2023 stays as it is, see [03-closed.md](./_done/79-odometer-span-inconsistency/03-closed.md) | 2026-09-08 |
 | 72 | [Route Map Origin/Destination](./_done/72-route-map-origin-destination/) — see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-07 |

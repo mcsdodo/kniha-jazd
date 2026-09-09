@@ -1,6 +1,6 @@
 **Date:** 2026-09-08
 **Subject:** Editing a trip's distance must move the odometer of every later row of that year
-**Status:** Planning
+**Status:** Complete -- shipped behind the cascade modal, see [ADR-046](../../../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own).
 
 ## Goal
 
@@ -15,7 +15,7 @@ then shows the new numbers without a full reload, so the scroll position survive
 > (obviously)
 
 "Above" is the display direction. The grid sorts newest first by default
-([TripGrid.svelte:30](../../src/lib/components/TripGrid.svelte)), so a row later in time
+([TripGrid.svelte:30](../../../src/lib/components/TripGrid.svelte)), so a row later in time
 is drawn above. The chain itself only ever runs forward in time.
 
 ## Background
@@ -24,11 +24,11 @@ is drawn above. The chain itself only ever runs forward in time.
 
 Only the **end** odometer is stored on a row. The start is derived:
 `start[K] = odometer[K-1]` in `trip_order`
-([helpers.rs:91](../../src-tauri/core/src/commands_internal/helpers.rs)). One stored
+([helpers.rs:91](../../../src-tauri/core/src/commands_internal/helpers.rs)). One stored
 number is therefore the end of row K and the start of row K+1.
 
 The span check is `|odometer[K] - start[K] - distance_km[K]| >= 1 km`
-([statistics.rs:1263](../../src-tauri/core/src/commands_internal/statistics.rs)). Move
+([statistics.rs:1263](../../../src-tauri/core/src/commands_internal/statistics.rs)). Move
 `odometer[N]` by `d` and, in the same write, row N's span changes by `+d` and row N+1's
 span changes by `-d`. The error is conserved. It moves one link forward and stops
 nowhere until a row absorbs it.
@@ -52,13 +52,13 @@ the feature:
 
 The cause was that the browser did the walk itself, over the stale `trips` prop, in DB
 order rather than in `trip_order`. The correct fix under
-[ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication) is to move
+[ADR-008](../../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication) is to move
 the walk into Rust **and keep calling it**. Task 80 moved it and dropped the call. This
 task restores the call.
 
 ### Why ADR-045 is superseded, not overturned
 
-[ADR-045](../../DECISIONS.md#adr-045-the-odometer-rewrite-is-a-command-the-user-runs-never-a-side-effect-of-a-save)
+[ADR-045](../../../DECISIONS.md#adr-045-the-odometer-rewrite-is-a-command-the-user-runs-never-a-side-effect-of-a-save)
 says no save may cascade. Its evidence measures one specific operation: the **full-year
 rebase** from `initial_odometer` over `distance_km`, which is what the removed code did
 and what `recalculate_odometers` still does. That rebase would rewrite 69 rows in 2023
@@ -80,7 +80,7 @@ ban on the automatic rebase and permits the delta shift.
 ### R1: Three new commands, one per write that moves the chain
 
 `update_trip` stays as it is: one row, no cascade. The task 79 correction procedure
-depends on that ([79/02-correction.md](../_done/79-odometer-span-inconsistency/02-correction.md),
+depends on that ([79/02-correction.md](../79-odometer-span-inconsistency/02-correction.md),
 Part 5). `recalculate_odometers` also stays unchanged and UI-less. It is the deliberate
 full-year rebase.
 
@@ -156,7 +156,7 @@ distance. When it names an anchor from another year, it says so.
 
 The shift never crosses into the next year. This matches `recalculateAllOdo`, which
 walked only the loaded year from `gridData.yearStartOdometer`
-([TripGrid.svelte:42,448](../../src/lib/components/TripGrid.svelte) at `4f451ee^`).
+([TripGrid.svelte:42,448](../../../src/lib/components/TripGrid.svelte) at `4f451ee^`).
 
 The consequence must be stated, not hidden. If the last row of the year moves, the
 boundary to the next year opens by `d`, and the first row of the next year raises a span
@@ -180,7 +180,7 @@ warning on that would be noise on the most common action in the app.
   first. It lists trip number, date, route, old odometer and new odometer for every row,
   in a scrollable table, under the decomposed summary of R3.
 - For a delete, the modal replaces the existing delete confirmation
-  ([TripRow.svelte:557](../../src/lib/components/TripRow.svelte)) rather than following
+  ([TripRow.svelte:557](../../../src/lib/components/TripRow.svelte)) rather than following
   it. Two dialogs for one action is worse than one dialog that says more.
 - **OK** applies. **Cancel** writes nothing at all, including row N, and leaves the row
   open in edit mode. The row editor therefore cannot close itself on Save: `onSave` must
@@ -199,16 +199,16 @@ and must not regress:
 
 - `handleTripsChanged` calls `loadTrips(false)`, which does not set `initialLoading`, so
   `TripGrid` never unmounts
-  ([+page.svelte:86,105](../../src/routes/+page.svelte));
+  ([+page.svelte:86,105](../../../src/routes/+page.svelte));
 - the rows are a keyed each block on `row.data.id`
-  ([TripGrid.svelte:693](../../src/lib/components/TripGrid.svelte)), so Svelte patches
+  ([TripGrid.svelte:693](../../../src/lib/components/TripGrid.svelte)), so Svelte patches
   the changed rows in place;
 - display mode reads `trip.odometer` straight off the prop
-  ([TripRow.svelte:835](../../src/lib/components/TripRow.svelte)).
+  ([TripRow.svelte:835](../../../src/lib/components/TripRow.svelte)).
 
 One real gap must be closed. `TripRow.formData` is seeded once at construction and is
 never re-seeded after a save; the component says so at
-[TripRow.svelte:155-160](../../src/lib/components/TripRow.svelte). Today that leaves
+[TripRow.svelte:155-160](../../../src/lib/components/TripRow.svelte). Today that leaves
 stale form state on one row. After a cascade it leaves stale form state on every shifted
 row, and opening one for edit would show and then write back the pre-cascade odometer.
 `formData` must re-seed from the `trip` prop whenever the row is not in edit mode.
@@ -217,7 +217,7 @@ row, and opening one for edit would show and then write back the pre-cascade odo
 
 `handleOdoBlur`, the `handleSave` clamp, `odoFollowsKm` and `manualOdoEdit` all exist
 because the browser had to guess the anchor
-([TripRow.svelte:398-430, 483-520](../../src/lib/components/TripRow.svelte)). The backend
+([TripRow.svelte:398-430, 483-520](../../../src/lib/components/TripRow.svelte)). The backend
 has the anchor. They go.
 
 `tests/integration/specs/tier1/km-odo-bidirectional.spec.ts` pins the behaviour of those
@@ -268,25 +268,25 @@ and the next row warns. This closes that.
 Also out of scope, deliberately:
 
 - The `00:00` default start time (ADR-043).
-- The 2023 anchor question, closed in [task 79](../_done/79-odometer-span-inconsistency/03-closed.md).
+- The 2023 anchor question, closed in [task 79](../79-odometer-span-inconsistency/03-closed.md).
 - The 2025 half kilometre. The delta shift preserves it. Only a rebase would move it,
   and nothing in this task runs one.
 
 ## Documentation this task must change
 
-- **[DECISIONS.md](../../DECISIONS.md), ADR-045.** Its sentence "A save now writes exactly
+- **[DECISIONS.md](../../../DECISIONS.md), ADR-045.** Its sentence "A save now writes exactly
   the row the user edited" becomes false. Supersede the never-automatic claim. Keep the
   rebase ban, which the 69 and 68 row measurements still support.
 - **A new ADR** for the delta rule, the repair, the per-year stop and the modal gate.
-- **[CHANGELOG.md](../../CHANGELOG.md)**, user-visible behaviour.
+- **[CHANGELOG.md](../../../CHANGELOG.md)**, user-visible behaviour.
 
 ## Technical notes
 
 - The whole book must not be read to find row N's neighbours. `get_trips_for_vehicle_in_year`
   plus `trip_order` is what every other command already does.
 - `db.rs` has the transaction pattern to copy: `conn.transaction::<_, diesel::result::Error, _>`
-  at [db.rs:981,1154,1262](../../src-tauri/core/src/db.rs).
-- `OdometerChange` ([models.rs:905](../../src-tauri/core/src/models.rs)) is already the
+  at [db.rs:981,1154,1262](../../../src-tauri/core/src/db.rs).
+- `OdometerChange` ([models.rs:905](../../../src-tauri/core/src/models.rs)) is already the
   right shape for the modal rows. It carries `tripId`, `tripNumber`, `oldOdometer` and
   `newOdometer`. Date and route must be added, or the modal must read them from the
   `trips` it already holds.
