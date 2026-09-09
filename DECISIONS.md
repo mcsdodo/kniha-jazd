@@ -4,6 +4,38 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-09: Round-Trip Legs and Distance Write-Back
+
+### ADR-047: A round trip is two routing requests, one per leg
+
+**Context:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) sent a round trip to OSRM as a single `[origin, destination, origin]` request. Two consequences showed up on real data immediately. OSRM offers alternatives only for a two-point request, so a round trip always showed `alternativesUnavailable` instead of a choice. And a through-route decides the way home for itself, which the user's own point contradicts: the road home is often not the road out. A third consequence was a bug rather than a limitation -- a via dragged onto the return leg landed on the outbound one, because `insert_waypoint` searched the OPEN outbound waypoint list against the CLOSED polyline, so the nearest-vertex match fell through and clamped.
+
+**Decision:** `route_round_trip_internal` issues two `fetch_alternatives` calls, A to B and B to A, and returns each leg's alternatives separately along with `combined[i][j]` -- the road distance, duration, deviation and off-target flag of every pair, computed with the same `deviation()` helper the one-way path uses. The user picks per leg. The saved row stays one row: `save_trip_round_trip_route_internal` joins the two waypoint lists at their shared turnaround point, concatenates the two polylines and sums the two distances, all in Rust, and stores where the join happened in `trip_routes.turnaround_index`. The frontend reports which leg an edit belongs to (`LegInsertPoint.leg`) rather than having Rust infer it from geometry. `route_direct_internal` is unchanged, ADR-041 and all: it is still the one-way path, it is still reachable over RPC, and its symmetric normalisation is still what protects a direct caller.
+
+**Reasoning:** Splitting the request is the only thing that can produce alternatives at all -- it is a property of the routing service, not a design preference. Everything else follows from that. The deviation has to be a property of the PAIR, because the pair is what the trip drove; precomputing all nine combinations costs nothing and keeps the browser from ever adding two distances (ADR-008). The turnaround index is stored rather than inferred because inference is exactly what produced the via bug: two legs cannot be recovered from `[A, B, v, A]` without knowing where the outbound one ended. Legacy rows need no backfill -- the old code appended exactly one clone of the first waypoint, so a `NULL` index means "split at `length - 2`", which is exact rather than a guess. Reporting the leg from the browser is the same call: the ghost handle is attached to one leg's own line, so the browser knows it for certain, and the geometry does not.
+
+**Consequence for the copy:** `alternativesUnavailable` becomes true again. It now appears only for a leg that genuinely passes through an intermediate stop, which is what it always said. A plain round trip no longer triggers it.
+
+**Related:** [Task 78](./_tasks/78-round-trip-legs-and-distance-writeback/); [ADR-038](#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders) (each leg keeps the service's own order); [ADR-041](#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust) (the one-way normalisation this does not replace); [ADR-040](#adr-040-the-waypoint-editor-is-mode-agnostic); [ADR-008](#adr-008-remove-frontend-calculation-duplication); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+### ADR-048: The routed distance can be written back, behind the warning this ADR asked for
+
+**Supersedes [ADR-039](#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance).**
+
+**Context:** ADR-039 banned any route-map write to `distance_km` and named the follow-up that would lift the ban: an explicit action carrying a warning about the consumption period and the legal margin. Real data made the case for it. Trip `32631e0e` records 50.0 km; its one-way route is 25.6 km and its round trip 51.5 km, so the row is a there-and-back written as one line. A second one-way trip showed the same shape independently.
+
+**Decision:** `apply_route_distance` writes `trips.distance_km` from a route's road distance, in two calls. The first is a dry run: it plans the odometer cascade with `plan_odometer_cascade` (the same planner the grid's own save uses, ADR-046) and measures the consumption period with `period_margin_impact`, and it writes nothing. The modal shows the new distance, the period's rate and margin before and after, whether the change crosses the 20 % legal limit, and every row whose odometer moves. The second call writes the row and its cascade in one transaction. It re-plans from the stored book rather than replaying the dry run's numbers.
+
+The write touches three fields -- `distance_km`, `odometer`, `updated_at` -- and no others. It does not go through `update_trip_cascade_internal`, which rebuilds a row from submitted strings and would stamp an `end_datetime` onto a trip that stored none. It does not call `find_or_create_route`: the origin and the destination did not change.
+
+`get_trip_route_internal` now reports `target_km` from the trip rather than from `trip_routes.target_km`. The stored column records what the trip measured when the map was saved, and a target that does not follow the row would show a deviation against a distance the book no longer holds.
+
+**Reasoning:** ADR-039's reasoning was never "this must not be possible" -- it was "this must not be silent". Every clause of that reasoning is now a visible number in the modal: which period moves, what its rate becomes, and which side of the 20 % limit it lands on. Refusing the write in a closed period was considered and rejected: the worked example above IS a closed period, so refusing there refuses the case the feature exists for, and leaves the user hand-editing the same number in the grid with no warning at all. Reusing the cascade planner rather than writing a second one is what keeps a routed distance and a typed distance from meaning different things to the odometer chain.
+
+**Related:** [Task 78](./_tasks/78-round-trip-legs-and-distance-writeback/); [ADR-039](#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance) (superseded); [ADR-046](#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) (the cascade this reuses); [BIZ-003](#biz-003-legal-margin-limit) (the limit the warning names); [ADR-008](#adr-008-remove-frontend-calculation-duplication).
+
+---
+
 ## 2026-09-09: Odometer Cascade On Save
 
 ### ADR-046: A save cascades the odometer by delta; a rebase never runs on its own
@@ -146,13 +178,15 @@ This book is legal evidence, and the spec requires the user to approve a change 
 
 ### ADR-039: `distance_km` is never rewritten from a route's road distance
 
+**Superseded by [ADR-048](#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for):** the Decision below is no longer true. `apply_route_distance` writes `distance_km` from a route's road distance. What survives is the Reasoning: the write is never a side effect, it names the consumption period and the 20 % margin it moves before it happens, and it carries the odometer cascade with it. This ADR named "a follow-up task ... carrying exactly that warning" as the intended path; ADR-048 is that task.
+
 **Context:** A generated or edited route's road distance routinely differs from the trip's recorded `distance_km` -- that gap is exactly what the deviation percentage exists to display. Now that Direct mode can produce an accurate, road-following distance for a real A-to-B trip, overwriting the logged value with it is technically easy and would make the two numbers agree.
 
 **Decision:** Nothing route-map related ever writes `distance_km`. `generate_route_internal`, `route_direct_internal` and `save_trip_route_internal` all take the trip's distance as an immutable input (`target_km`) and never call back into the trips table. Reconciling a deviation -- deciding the logged kilometres were wrong and should be corrected -- stays a decision the user makes explicitly on the trip row, never a side effect of looking at a map.
 
 **Reasoning:** `distance_km` feeds the consumption rate (l/100km) and the [20% legal margin](#biz-003-legal-margin-limit), both computed straight from the logged number. A route-map save silently nudging it would move which fuel-consumption period a fill-up lands in and which side of the margin a period sits on, with no warning and no record of why the number changed. A follow-up task is expected to add an explicit "apply this distance to the trip" action carrying exactly that warning; until it ships, the map stays read-only with respect to the number it is illustrating.
 
-**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/); [BIZ-003](#biz-003-legal-margin-limit); the follow-up task that will add a warned distance-reconciliation action.
+**Related:** [Task 72](./_tasks/_done/72-route-map-origin-destination/); [BIZ-003](#biz-003-legal-margin-limit); [ADR-048](#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for).
 
 ### ADR-040: The waypoint editor is mode-agnostic
 

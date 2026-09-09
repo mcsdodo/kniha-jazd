@@ -30,6 +30,14 @@
  *    unplaced field, before `route_direct` is ever called. Only the second
  *    half of that flow -- placing the pin there and watching the route get
  *    drawn -- needs the router and stays deferred with the rest of this list.
+ * 4. Two-leg round-trip routing (`route_round_trip`) is NOT covered here, for
+ *    the same reason as 3: it needs a live router. It is covered exhaustively
+ *    in Rust unit tests (route_maps_tests.rs, Task 78) with a stub
+ *    `RouteProvider`. What this file CAN and does cover, with no network at
+ *    all, is a round trip already SAVED: `save_trip_round_trip_route` writes
+ *    the joined row directly, and reopening it exercises the real split
+ *    (`turnaround_index`), the real per-leg `alternativesUnavailable` gate,
+ *    and the write-back flow (route-distance-writeback.spec.ts) end to end.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';

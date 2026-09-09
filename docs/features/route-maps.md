@@ -20,25 +20,28 @@ The commands are served over the HTTP API like every other command — see
    endpoint has no saved coordinate yet, the shared place dialog opens right there on the
    page; saving a pin resumes routing immediately, with no navigation away from the map. See
    [Endpoints come from the place book](#endpoints-come-from-the-place-book).
-5. **A direct route offers alternatives** when it has exactly two points: a row of up to
+5. **A direct route offers alternatives** when a leg has exactly two points: a row of up to
    three options, fastest first, each labelled with its deviation from the trip's recorded
-   distance. Picking one redraws the map without re-fetching. See
+   distance. A one-way route has one leg and one picker; a round trip has two, one per leg,
+   and each picks independently. Picking one redraws the map without re-fetching. See
    [Alternatives are ordered by duration, never by deviation](#alternatives-are-ordered-by-duration-never-by-deviation).
 6. **Dragging the line** inserts a new stop and re-routes through it on release, in both
    modes -- the same mechanism that lets a mis-anchored loop be corrected also lets a direct
    route pick up a real via point. See
    [The waypoint editor doesn't know which mode drew the line](#the-waypoint-editor-doesnt-know-which-mode-drew-the-line).
-7. **A direct route can be a round trip.** Ticking "Cesta tam a späť" appends a return leg
-   back to the route's own start; the flag is saved with the route so reopening it restores
-   the checkbox. A round trip currently shows no alternatives -- see
-   [Known limitation: a round trip is one three-point request](#known-limitation-a-round-trip-is-one-three-point-request).
+7. **A direct route can be a round trip.** Ticking "Cesta tam a späť" routes the outbound leg
+   and the return leg as two independent requests, so the way home can take a different road
+   than the way out; the flag is saved with the route so reopening it restores the checkbox.
+   The outbound line is drawn blue, the return line amber. See
+   [A round trip is two routing requests, one per leg](#a-round-trip-is-two-routing-requests-one-per-leg).
 8. **"Generovať znova" / "Prepočítať"** produces a different route for the same target
    (loop) or re-routes the current waypoint list (direct). **Nothing is persisted until
    "Uložiť mapu"** -- the user can retry until a route looks right.
 9. **Saving** writes the route, tells the logbook tab to fill in that row's pin, and offers
    to close the map tab. **"Odstrániť mapu"** removes a saved route after confirmation.
-   Saving never changes the trip's own recorded distance -- see
-   [The recorded distance is never rewritten](#the-recorded-distance-is-never-rewritten).
+   Saving never changes the trip's own recorded distance -- that needs the separate
+   **"Použiť vzdialenosť"** action described below. See
+   [The recorded distance is written back only explicitly](#the-recorded-distance-is-written-back-only-explicitly).
 10. **"Export pre tlač"** appends one A4-landscape page per saved map after the trip table,
     each headed `Príloha č. N — záznam č. X`.
 
@@ -73,11 +76,21 @@ nothing" structural rather than a rule someone has to remember. `mode` itself is
 page only ever reads off a backend response (`start_route_for_trip`, a saved route, or the
 result of an edit) -- it is never derived here from the trip's origin and destination.
 
-The page also holds the direct-route pieces: `baseWaypoints` (the open, un-closed waypoint
-list an edit or a round-trip toggle re-routes from), `alternatives` and `activeIndex` (the
-backend's ordered list and which one is on screen), `roundTrip` (mirrors the persisted
-flag), and `unplacedField` (which endpoint, if any, has no place-book coordinate yet -- this
-drives the shared place dialog described below).
+The page also holds the direct-route pieces: `baseWaypoints` (the open, un-closed outbound
+waypoint list an edit or a round-trip toggle re-routes from), `alternatives` and
+`activeIndex` (the backend's ordered list and which one is on screen, one-way mode only),
+`roundTrip` (mirrors the persisted flag), and `unplacedField` (which endpoint, if any, has no
+place-book coordinate yet -- this drives the shared place dialog described below).
+
+Round-trip mode adds its own pieces, live only while `roundTripRoutes` is non-null:
+`roundTripRoutes` itself (both legs as the backend last normalised them, with each leg's own
+alternatives and the `combined[i][j]` table), `outboundIndex` / `inboundIndex` (which
+alternative is chosen per leg, independent of each other), and `baseInbound` (the return
+leg's open waypoint list -- the counterpart to `baseWaypoints`, which holds the outbound leg
+in this mode). `savedLegs` holds a saved round trip already split into its two legs, and acts
+as the fallback `baseWaypoints`/`baseInbound` fall back to before a live re-route has run.
+`writeback` holds the dry-run plan awaiting the user's confirmation for the distance
+write-back described below; nothing is written while it is null.
 
 **Endpoint placement:** when `start_route_for_trip` reports an endpoint with no coordinate,
 the page renders [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) -- the same
@@ -122,14 +135,17 @@ frontend draws a coordinate list and confirms it.
 | [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | The six commands, `mode_for`, waypoint-insertion geometry, plus export attachment assembly |
 | [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | The text normalisation `mode_for` and the place book both key on |
 
-**Commands are dispatcher-only, and there are six of them.** `generate_route` (Loop) and
-`route_direct` (Direct, plus alternatives and edits) both await the routing service, so they
-live in
+**Commands are dispatcher-only.** `generate_route` (Loop), `route_direct` (Direct, plus
+alternatives and edits) and `route_round_trip` (Direct round trip: two legs, one call each)
+all await the routing service, so they live in
 [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs).
-`start_route_for_trip`, `get_trip_route`, `save_trip_route` and `delete_trip_route` need no
-network call -- the place-book lookup is a database read -- and stay in
-[dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). The write commands are
-guarded by the read-only check like every other write.
+`start_route_for_trip`, `get_trip_route`, `save_trip_route`, `save_trip_round_trip_route` and
+`delete_trip_route` need no network call -- the place-book lookup is a database read -- and
+stay in [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). `apply_route_distance`
+(the distance write-back) lives there too, alongside the other trip-cascade commands in
+[trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) rather than
+`route_maps.rs` -- it writes the trip, not the map. The write commands are guarded by the
+read-only check like every other write.
 
 **Storage:** the `trip_routes` table
 ([migration](../../src-tauri/core/migrations/2026-08-10-100000_add_trip_routes/)), keyed by
@@ -137,11 +153,29 @@ guarded by the read-only check like every other write.
 target and road distances, the dataset version, a `mode`
 ([migration](../../src-tauri/core/migrations/2026-09-07-110000_add_trip_route_mode/)), a
 `round_trip` flag
-([migration](../../src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/))
+([migration](../../src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/)),
+a `turnaround_index`
+([migration](../../src-tauri/core/migrations/2026-09-09-100000_add_trip_route_turnaround_index/))
 and a timestamp -- a few KB per trip. No image is stored anywhere; see
 [ADR-028](../../DECISIONS.md#adr-028-only-the-polyline-is-persisted-tiles-live-in-a-disposable-cache).
 `round_trip` is meaningful for Direct mode only -- a saved loop is always stored `false`,
 since a loop is already closed by construction.
+
+`turnaround_index` is where, in `waypoints`, the outbound leg ends and the return leg
+begins -- meaningful for a round trip only. `NULL` means "split at `length - 2`": every round
+trip saved before this column existed was closed by appending exactly one clone of the first
+waypoint, so `[A, ...vias, B, A]` splits unambiguously at that position, and legacy rows need
+no backfill. A value written by the new save path means "split here" exactly, because the two
+legs can carry a via each and their combined length is no longer a fixed offset from the end.
+`get_trip_route` resolves both cases before the frontend ever sees the row, so the browser
+only ever slices a list -- it never decides where the split falls.
+
+The `target_km` a saved map reports comes from the **trip's own `distance_km` at read time**,
+not from the column stored above. The stored column records what the trip measured when the
+map was saved; after a distance write-back (or any ordinary edit of the row) the trip's
+distance moves, and a target that did not follow it would show a deviation against a number
+the book no longer holds. The stored column is the fallback only for a map whose trip has
+since been deleted.
 
 ### Data Flow
 
@@ -382,34 +416,43 @@ right town instead of the home base -- needs a distance matrix the app does not 
 that exists, dragging a mis-anchored loop into shape is the escape hatch, and it needed no new
 mechanism: Direct mode's own editing needed exactly this already.
 
-### The recorded distance is never rewritten
+### The recorded distance is written back only explicitly
 
-See [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance).
+See [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance)
+(superseded) and [ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for).
 A Direct route's road distance can differ from the trip's logged `distance_km`, sometimes
-considerably, and nothing in the save path ever writes that number back onto the trip.
-Reconciling the two is a decision about the trip, not a side effect of drawing its map:
-`distance_km` feeds the consumption rate and the
+considerably, and saving the map never writes that number back onto the trip -- reconciling
+the two is a decision about the trip, not a side effect of drawing its map. `distance_km`
+feeds the consumption rate and the
 [20% legal margin](../../DECISIONS.md#biz-003-legal-margin-limit) directly, so silently
 moving it would shift which fuel period a fill-up belongs to.
 
-A follow-up task after [Task 72](../../_tasks/_done/72-route-map-origin-destination/) is
-expected to add an explicit action for applying a route's distance to its trip, carrying a
-warning about that exact consequence.
+An explicit **"Použiť vzdialenosť"** button offers the write instead, behind a warning. The
+first click plans the write -- the odometer cascade (reusing
+[ADR-046](../../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own)'s
+planner) and the consumption-period impact -- and shows it in a confirmation modal: the new
+distance, the period's rate and margin before and after, whether the change crosses the 20%
+legal limit, and every later row whose odometer moves. Nothing is written until the user
+confirms. Only Direct mode gets the button: a Loop route's road distance is the genetic
+algorithm's own approximation of the trip's recorded distance, so writing it back would be
+circular.
 
-### Known limitation: a round trip is one three-point request
+### A round trip is two routing requests, one per leg
 
-A round trip is not two routing requests -- it is a single `[origin, destination, origin]`
-call to OSRM. That follows from what OSRM offers: alternatives only exist for a two-point
-request, so a single call could never have offered the return leg a different road anyway.
-The consequence is visible in the UI itself: a round trip always shows the
-`alternativesUnavailable` message instead of a choice, even though the app can offer
-alternatives on either leg individually.
+See [ADR-047](../../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg).
+A round trip is two independent OSRM requests, A-to-B and B-to-A, not one
+`[origin, destination, origin]` call. That follows from what OSRM offers: alternatives only
+exist for a two-point request, so a single three-point call could never have offered the
+return leg a different road anyway, or offered a choice on either leg. Splitting the request
+fixes both: each leg gets its own picker, fastest first, and the way home can legitimately
+take a different road than the way out. `alternativesUnavailable` now appears only for a leg
+that genuinely passes through a via -- a plain round trip, with no via on either leg, no
+longer triggers it.
 
-**This has already been reviewed against real data and is considered incomplete, not
-finished.** The intended fix -- splitting a round trip into two independent routing requests,
-A-to-B and B-to-A, so each leg gets its own alternatives and the return can legitimately take
-a different road than the outbound trip -- is planned for a follow-up task, alongside the
-distance-reconciliation action from the previous section. Neither is implemented here.
+The saved row is still one row: the backend joins the two legs at their shared turnaround
+point, concatenates the geometry and sums the distances, and records where the join happened
+(`turnaround_index`, below) so reopening the map can split it back into its two legs
+correctly.
 
 ## Working on this feature
 
@@ -433,16 +476,20 @@ saw it.
 
 ## Related
 
+- [ADR-047](../../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg): a round trip is two routing requests, one per leg
+- [ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for): the routed distance can be written back, behind the warning this ADR asked for
 - [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust): the route mode comes from the trip's own text, decided in Rust
 - [ADR-038](../../DECISIONS.md#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders): alternatives are ordered by duration; deviation labels, never reorders
-- [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance): `distance_km` is never rewritten from a route's road distance
+- [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance): `distance_km` is never rewritten from a route's road distance -- **superseded by ADR-048**
 - [ADR-040](../../DECISIONS.md#adr-040-the-waypoint-editor-is-mode-agnostic): the waypoint editor is mode-agnostic
-- [ADR-041](../../DECISIONS.md#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust): round-trip normalisation is symmetric, and lives entirely in Rust
+- [ADR-041](../../DECISIONS.md#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust): round-trip normalisation is symmetric, and lives entirely in Rust (the one-way path; unchanged by ADR-047)
+- [ADR-046](../../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own): a save cascades the odometer by delta -- the planner the distance write-back reuses
 - [ADR-032](../../DECISIONS.md#adr-032-places-are-placed-by-a-human-never-by-a-confidence-heuristic): places are placed by a human, never by a confidence heuristic
 - [ADR-028](../../DECISIONS.md#adr-028-only-the-polyline-is-persisted-tiles-live-in-a-disposable-cache): only the polyline is persisted; tiles live in a disposable cache
 - [ADR-029](../../DECISIONS.md#adr-029-waypoints-persist-as-coordinates-not-dataset-indices): waypoints persist as coordinates, not dataset indices
 - [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication): all business logic in Rust
-- [ADR-016](../../DECISIONS.md#adr-016-_internal-extraction-pattern-for-command-reuse): the `_internal` command pattern these six commands follow
+- [ADR-016](../../DECISIONS.md#adr-016-_internal-extraction-pattern-for-command-reuse): the `_internal` command pattern these commands follow
+- [_tasks/78-round-trip-legs-and-distance-writeback/](../../_tasks/78-round-trip-legs-and-distance-writeback/): requirements, design and implementation plan for two-leg round trips and the distance write-back
 - [_tasks/_done/72-route-map-origin-destination/](../../_tasks/_done/72-route-map-origin-destination/): requirements, design and implementation plan for origin/destination routing, alternatives, editing and the round trip
 - [_tasks/_done/70-route-map-integration/](../../_tasks/_done/70-route-map-integration/): requirements, design and implementation plan
 - [_tasks/_done/61-route-map-poc/](../../_tasks/_done/61-route-map-poc/): the standalone POC this graduated, and the dataset rationale
