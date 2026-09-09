@@ -5929,6 +5929,74 @@ fn test_cascade_rejects_a_trip_that_is_not_in_the_year() {
     assert!(result.is_err());
 }
 
+// ============================================================================
+// Task 9b: a negative distance_km is an impossible value on a single row --
+// the odometer went backwards. Reject it in the backend, on every branch that
+// can derive or receive one. Zero stays allowed: an odometer-correction row
+// can legitimately record no distance (TripRow.svelte's own `min="0"` treats
+// zero as the floor, not below it), and `calculate_consumption_rate` already
+// treats a zero span as a no-op rather than a division.
+// ============================================================================
+
+#[test]
+fn test_cascade_odo_edit_below_the_anchor_is_rejected() {
+    // The odo-wins branch: typing an odometer below the row's anchor derives
+    // a negative distance_km. That must never reach the database silently.
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string(); // anchor is trips[0].odometer, 50050.0
+
+    let result = plan_odometer_cascade(&trips, 50000.0, &target, 70.0, 50040.0);
+
+    let err = result.unwrap_err();
+    assert!(err.contains("50040"), "names the submitted odometer: {}", err);
+    assert!(err.contains("50050"), "names the anchor: {}", err);
+}
+
+#[test]
+fn test_cascade_km_edit_negative_is_rejected() {
+    // The km-wins branch: the HTML input has `min="0"`, but the JSON-RPC
+    // layer does not, so a negative distance_km can arrive directly.
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string();
+
+    let result = plan_odometer_cascade(&trips, 50000.0, &target, -5.0, trips[1].odometer);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_cascade_zero_km_edit_is_allowed() {
+    // Only NEGATIVE is impossible. A zero-km row (an odometer correction) is
+    // odd but valid, and must not be trapped by the guard.
+    let trips = make_cascade_chain();
+    let target = trips[1].id.to_string(); // anchor 50050.0
+
+    let plan =
+        plan_odometer_cascade(&trips, 50000.0, &target, 0.0, trips[1].odometer).unwrap();
+
+    assert_eq!(plan.new_distance_km, 0.0);
+    assert_eq!(plan.new_odometer, 50050.0, "anchor + 0");
+}
+
+#[test]
+fn test_cascade_no_change_on_a_row_already_below_its_anchor_still_succeeds() {
+    // Task 79: three production rows already sit below their anchor from a
+    // save the guard did not exist to stop. A save that touches neither field
+    // must keep succeeding for them -- the guard must not retroactively block
+    // a row it did not create, and it must cascade nothing.
+    let mut trips = make_cascade_chain();
+    trips[1].odometer = 50010.0; // below the 50050.0 anchor: already broken
+    trips[1].distance_km = -40.0; // what task 79's rows actually look like
+    let target = trips[1].id.to_string();
+
+    let plan = plan_odometer_cascade(&trips, 50000.0, &target, -40.0, 50010.0).unwrap();
+
+    assert_eq!(plan.delta, 0.0);
+    assert_eq!(plan.new_odometer, 50010.0, "unchanged");
+    assert_eq!(plan.new_distance_km, -40.0, "unchanged, no repair attempted");
+    assert!(plan.changes.is_empty());
+}
+
 #[test]
 fn test_cascade_insert_in_the_middle_shifts_every_row_after_it() {
     // The chain is 1 March 50 km, 2 March 70 km, 3 March 30 km. Put a 25 km
@@ -5937,7 +6005,7 @@ fn test_cascade_insert_in_the_middle_shifts_every_row_after_it() {
     let trips = make_cascade_chain();
     let when = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap().and_hms_opt(6, 0, 0).unwrap();
 
-    let plan = plan_insert_cascade(&trips, 50000.0, when, 25.0);
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 25.0).unwrap();
 
     assert_eq!(plan.new_odometer, 50075.0, "anchor 50050 + 25 km");
     assert_eq!(plan.delta, 25.0);
@@ -5954,7 +6022,7 @@ fn test_cascade_insert_at_the_end_moves_no_other_row() {
     let trips = make_cascade_chain();
     let when = NaiveDate::from_ymd_opt(2026, 3, 9).unwrap().and_hms_opt(8, 0, 0).unwrap();
 
-    let plan = plan_insert_cascade(&trips, 50000.0, when, 25.0);
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 25.0).unwrap();
 
     assert_eq!(plan.new_odometer, 50175.0, "anchor is the last row, 50150");
     assert!(plan.changes.is_empty());
@@ -5967,11 +6035,33 @@ fn test_cascade_insert_before_every_row_anchors_on_the_year_start() {
     let trips = make_cascade_chain();
     let when = NaiveDate::from_ymd_opt(2026, 1, 4).unwrap().and_hms_opt(8, 0, 0).unwrap();
 
-    let plan = plan_insert_cascade(&trips, 50000.0, when, 12.0);
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 12.0).unwrap();
 
     assert_eq!(plan.new_odometer, 50012.0);
     assert_eq!(plan.changes.len(), 3, "the whole year moves");
     assert_eq!(plan.changes[0].new_odometer, 50062.0);
+}
+
+#[test]
+fn test_cascade_insert_with_negative_distance_is_rejected() {
+    // Task 9b: an insert has no odometer field to derive from, so the only
+    // guard is on the distance itself.
+    let trips = make_cascade_chain();
+    let when = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap().and_hms_opt(6, 0, 0).unwrap();
+
+    let result = plan_insert_cascade(&trips, 50000.0, when, -5.0);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_cascade_insert_with_zero_distance_is_allowed() {
+    let trips = make_cascade_chain();
+    let when = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap().and_hms_opt(6, 0, 0).unwrap();
+
+    let plan = plan_insert_cascade(&trips, 50000.0, when, 0.0).unwrap();
+
+    assert_eq!(plan.new_distance_km, 0.0);
 }
 
 #[test]
@@ -6401,6 +6491,27 @@ fn test_update_trip_cascade_agrees_with_the_preview_command() {
 
     assert_eq!(preview.odometer, plan.new_odometer, "one arithmetic, two callers");
     let _ = a;
+}
+
+#[test]
+fn test_update_trip_cascade_dry_run_rejects_a_negative_resulting_distance() {
+    // Task 9b: the dry run fills the confirmation modal, so it must reject a
+    // value that cannot be saved before any modal opens on it.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0); // anchor: year start 50000.0
+    seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    // km unchanged (50.0), odometer dropped below the year-start anchor.
+    let (start, origin, destination, km, odo) = cascade_args(&trip_a, 50.0, 49900.0);
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), start.clone(), start, origin, destination,
+        km, odo, trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        true,
+    );
+
+    assert!(result.is_err(), "a value that cannot be saved must not reach the modal");
 }
 
 // ============================================================================

@@ -406,6 +406,17 @@ pub fn plan_odometer_cascade(
         });
     };
 
+    // A negative span is never valid: it means the odometer went backwards
+    // (task 79). Zero is left alone -- an odometer-correction row can
+    // legitimately record no distance, and the HTML input's own `min="0"`
+    // (TripRow.svelte) already treats zero as the floor, not below it.
+    if new_distance_km < -CASCADE_EPSILON {
+        return Err(format!(
+            "Odometer {:.3} is below the anchor {:.3}: distance would be {:.3} km",
+            new_odometer, anchor, new_distance_km
+        ));
+    }
+
     let delta = new_odometer - stored.odometer;
     let delta_from_distance = new_distance_km - stored.distance_km;
     let delta_from_repair = delta - delta_from_distance;
@@ -447,12 +458,23 @@ pub fn plan_odometer_cascade(
 /// derived from the position -- from depending on each other.
 ///
 /// A new row carries no span error, so `delta_from_repair` is always 0.
+///
+/// Rejects a negative `new_distance_km` (task 9b): the JSON-RPC layer has no
+/// `min="0"` the way the HTML input does, so a negative value can arrive
+/// directly. Zero is allowed -- see `plan_odometer_cascade`.
 pub fn plan_insert_cascade(
     trips: &[Trip],
     year_start_odometer: f64,
     new_start_datetime: NaiveDateTime,
     new_distance_km: f64,
-) -> CascadePlan {
+) -> Result<CascadePlan, String> {
+    if new_distance_km < -CASCADE_EPSILON {
+        return Err(format!(
+            "Distance {:.3} km cannot be negative",
+            new_distance_km
+        ));
+    }
+
     let mut sorted: Vec<&Trip> = trips.iter().collect();
     sorted.sort_by(|a, b| trip_order(a, b));
 
@@ -480,7 +502,7 @@ pub fn plan_insert_cascade(
         })
         .collect::<Vec<_>>();
 
-    CascadePlan {
+    Ok(CascadePlan {
         new_odometer: anchor + new_distance_km,
         new_distance_km,
         delta: new_distance_km,
@@ -490,7 +512,7 @@ pub fn plan_insert_cascade(
         year_end_odometer_moved: new_distance_km.abs() > CASCADE_EPSILON,
         next_year_chain_breaks: false,
         changes,
-    }
+    })
 }
 
 /// Plan the cascade for removing a row.
@@ -734,7 +756,7 @@ pub fn create_trip_cascade_internal(
         get_year_start_odometer(db, &vehicle_id, year, vehicle.initial_odometer)?;
 
     let mut plan =
-        plan_insert_cascade(&trips, year_start, trip_start_datetime, distance_km);
+        plan_insert_cascade(&trips, year_start, trip_start_datetime, distance_km)?;
     mark_next_year_chain_breaks(db, &vehicle_id, year, &mut plan)?;
 
     if dry_run {
