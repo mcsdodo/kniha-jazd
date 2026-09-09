@@ -6346,6 +6346,42 @@ fn test_update_trip_cascade_does_not_cascade_a_re_dated_row() {
 }
 
 #[test]
+fn test_update_trip_cascade_re_dated_negative_distance_is_rejected() {
+    // Fix round 1 (task 9b): the re_dated branch takes distance_km as
+    // submitted, not derived through plan_odometer_cascade, so it bypassed
+    // the earlier guard entirely. It needs its own check, on both dry_run and
+    // a real write, and the row must stay unchanged when a write is rejected.
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let moved = "2026-03-05T08:00:00".to_string();
+
+    let dry = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), moved.clone(), moved.clone(),
+        trip_a.origin.clone(), trip_a.destination.clone(), -10.0, 50040.0,
+        trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        true,
+    );
+    assert!(dry.is_err(), "dry run must reject it before any modal opens");
+
+    let applied = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), moved.clone(), moved,
+        trip_a.origin.clone(), trip_a.destination.clone(), -10.0, 50040.0,
+        trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        false,
+    );
+    assert!(applied.is_err(), "a real write must reject it too");
+
+    assert_eq!(
+        db.get_trip(&a.to_string()).unwrap().unwrap().odometer,
+        50050.0,
+        "the row must be unchanged after the rejected write"
+    );
+}
+
+#[test]
 fn test_update_trip_cascade_is_read_only_guarded() {
     let (db, vehicle) = setup_db_with_start_odometer(50000.0);
     let app_state = crate::app_state::AppState::new();

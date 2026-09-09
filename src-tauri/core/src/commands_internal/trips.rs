@@ -651,6 +651,13 @@ pub fn update_trip_cascade_internal(
     // A re-dated row moves in trip_order, so its old and its new position both
     // shift. That is not modelled here: write the row and cascade nothing.
     let mut plan = if re_dated {
+        // This branch takes distance_km as submitted, not derived from an
+        // anchor -- there is no "below the anchor" here, only a distance that
+        // is itself negative (task 9b, fix round 1). Zero stays allowed, for
+        // the same reasons as plan_odometer_cascade and plan_insert_cascade.
+        if distance_km < -CASCADE_EPSILON {
+            return Err(format!("Distance {:.3} km cannot be negative", distance_km));
+        }
         CascadePlan {
             new_odometer: odometer,
             new_distance_km: distance_km,
