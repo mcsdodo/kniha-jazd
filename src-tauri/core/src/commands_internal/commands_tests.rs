@@ -6382,6 +6382,60 @@ fn test_update_trip_cascade_re_dated_negative_distance_is_rejected() {
 }
 
 #[test]
+fn test_update_trip_cascade_re_dated_unchanged_negative_distance_still_succeeds() {
+    // Fix round 2 (task 9b): task 79's already-broken rows must stay
+    // re-datable when the save resubmits the SAME (already negative)
+    // distance. The guard fires only on a value the caller is actually
+    // INTRODUCING -- mirroring plan_odometer_cascade's own no-op carve-out
+    // for a row that "sits below its anchor... on purpose" (task 79).
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, -40.0, 50010.0); // already broken
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let moved = "2026-03-05T08:00:00".to_string();
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), moved.clone(), moved,
+        trip_a.origin.clone(), trip_a.destination.clone(), -40.0, 50010.0,
+        trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(result.plan.delta, 0.0);
+    assert!(result.plan.changes.is_empty());
+    assert_eq!(
+        db.get_trip(&a.to_string()).unwrap().unwrap().distance_km,
+        -40.0,
+        "written as it was, not repaired and not refused"
+    );
+}
+
+#[test]
+fn test_update_trip_cascade_re_dated_zero_distance_is_allowed() {
+    // Fix round 2: zero is not negative, so a re-dated save introducing it
+    // must still succeed -- the same rule already pinned for the other two
+    // branches (test_cascade_zero_km_edit_is_allowed,
+    // test_cascade_insert_with_zero_distance_is_allowed).
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
+    let moved = "2026-03-05T08:00:00".to_string();
+    let result = update_trip_cascade_internal(
+        &db, &app_state, a.to_string(), moved.clone(), moved,
+        trip_a.origin.clone(), trip_a.destination.clone(), 0.0, 50000.0,
+        trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(result.plan.new_distance_km, 0.0);
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().distance_km, 0.0);
+}
+
+#[test]
 fn test_update_trip_cascade_is_read_only_guarded() {
     let (db, vehicle) = setup_db_with_start_odometer(50000.0);
     let app_state = crate::app_state::AppState::new();

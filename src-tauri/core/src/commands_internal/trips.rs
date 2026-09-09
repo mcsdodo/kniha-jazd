@@ -655,7 +655,14 @@ pub fn update_trip_cascade_internal(
         // anchor -- there is no "below the anchor" here, only a distance that
         // is itself negative (task 9b, fix round 1). Zero stays allowed, for
         // the same reasons as plan_odometer_cascade and plan_insert_cascade.
-        if distance_km < -CASCADE_EPSILON {
+        //
+        // Mirrors plan_odometer_cascade's own rule (fix round 2): only a value
+        // the caller is actually INTRODUCING is rejected. A resubmitted,
+        // unchanged distance passes through untouched even when it is already
+        // negative -- the row is a record the book keeps on purpose (task 79),
+        // and re-dating it must not be the save that suddenly refuses it.
+        let distance_changed = (distance_km - existing.distance_km).abs() > CASCADE_EPSILON;
+        if distance_changed && distance_km < -CASCADE_EPSILON {
             return Err(format!("Distance {:.3} km cannot be negative", distance_km));
         }
         CascadePlan {
