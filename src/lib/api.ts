@@ -78,95 +78,12 @@ export async function calculateMagicFillLiters(
 	return await apiCall('calculate_magic_fill_liters', { vehicleId, year, currentTripKm, editingTripId });
 }
 
-export async function createTrip(
-	vehicleId: string,
-	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
-	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
-	origin: string,
-	destination: string,
-	distanceKm: number,
-	odometer: number,
-	purpose: string,
-	// Fuel fields (ICE + PHEV)
-	fuelLiters?: number | null,
-	fuelCost?: number | null,
-	fullTank?: boolean | null,
-	// Energy fields (BEV + PHEV)
-	energyKwh?: number | null,
-	energyCostEur?: number | null,
-	fullCharge?: boolean | null,
-	socOverridePercent?: number | null,
-	// Other
-	otherCosts?: number | null,
-	otherCostsNote?: string | null
-): Promise<Trip> {
-	return await apiCall('create_trip', {
-		vehicleId,
-		startDatetime,
-		endDatetime,
-		origin,
-		destination,
-		distanceKm,
-		odometer,
-		purpose,
-		fuelLiters,
-		fuelCost,
-		fullTank,
-		energyKwh,
-		energyCostEur,
-		fullCharge,
-		socOverridePercent,
-		otherCosts,
-		otherCostsNote
-	});
-}
-
-export async function updateTrip(
-	id: string,
-	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
-	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
-	origin: string,
-	destination: string,
-	distanceKm: number,
-	odometer: number,
-	purpose: string,
-	// Fuel fields (ICE + PHEV)
-	fuelLiters?: number | null,
-	fuelCostEur?: number | null,
-	fullTank?: boolean | null,
-	// Energy fields (BEV + PHEV)
-	energyKwh?: number | null,
-	energyCostEur?: number | null,
-	fullCharge?: boolean | null,
-	socOverridePercent?: number | null,
-	// Other
-	otherCostsEur?: number | null,
-	otherCostsNote?: string | null
-): Promise<Trip> {
-	return await apiCall('update_trip', {
-		id,
-		startDatetime,
-		endDatetime,
-		origin,
-		destination,
-		distanceKm,
-		odometer,
-		purpose,
-		fuelLiters,
-		fuelCostEur,
-		fullTank,
-		energyKwh,
-		energyCostEur,
-		fullCharge,
-		socOverridePercent,
-		otherCostsEur,
-		otherCostsNote
-	});
-}
-
-export async function deleteTrip(id: string): Promise<void> {
-	return await apiCall('delete_trip', { id });
-}
+// The plain `create_trip`, `update_trip` and `delete_trip` commands have no
+// wrapper here on purpose (task 81, M3). They write exactly what they are
+// given, with no cascade and no confirmation, so a wrapper in this module
+// invites a component to save a trip the way the cascade was built to stop.
+// The commands themselves stay on the RPC dispatcher: the task 79 correction
+// procedure depends on `update_trip` writing a row verbatim.
 
 /**
  * Save a trip and move the odometer of every later row of the same year.
