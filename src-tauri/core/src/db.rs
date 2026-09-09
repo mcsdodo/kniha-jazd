@@ -1310,6 +1310,7 @@ impl Database {
                     created_at: &created_at_str,
                     mode: map.mode.as_str(),
                     round_trip: map.round_trip,
+                    turnaround_index: map.turnaround_index,
                 })
                 .execute(tx)?;
             Ok(())

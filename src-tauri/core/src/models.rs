@@ -315,6 +315,11 @@ pub struct RouteMap {
     /// start. Always `false` for a loop -- a loop is already closed, so the
     /// flag describes only the direct router's behaviour.
     pub round_trip: bool,
+    /// Round trips only: the index in `waypoints` where the outbound leg ends
+    /// and the return leg begins. `None` for a one-way route, for a loop, and
+    /// for a round trip saved before Task 78 -- those were always closed by
+    /// appending one clone of the first waypoint, so they split at `len - 2`.
+    pub turnaround_index: Option<i32>,
 }
 
 /// Inferred start/end datetimes for a new trip row, derived from the most
@@ -1128,6 +1133,9 @@ pub struct RouteMapRow {
     /// hazard, same rule: any future column goes after this one, never
     /// between existing ones.
     pub round_trip: bool,
+    /// Appended LAST again, after `round_trip` (Task 78) -- same positional-
+    /// bind hazard, same rule: any future column goes after this one.
+    pub turnaround_index: Option<i32>,
 }
 
 /// For inserting new trip_routes
@@ -1143,6 +1151,7 @@ pub struct NewRouteMapRow<'a> {
     pub created_at: &'a str,
     pub mode: &'a str,
     pub round_trip: bool,
+    pub turnaround_index: Option<i32>,
 }
 
 /// Database row for places table (the place book, Task 75)
@@ -1371,6 +1380,7 @@ impl From<RouteMapRow> for RouteMap {
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
             round_trip: row.round_trip,
+            turnaround_index: row.turnaround_index,
         }
     }
 }

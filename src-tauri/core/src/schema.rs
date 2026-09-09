@@ -140,6 +140,12 @@ diesel::table! {
         // compile -- but the ordering rule still applies, so a future TEXT
         // column added after this one does not inherit that accidental safety.
         round_trip -> Bool,
+        // Added via migration 2026-09-09-100000_add_trip_route_turnaround_index
+        // (Task 78). Appended LAST for the third time, for the same reason as
+        // `mode` and `round_trip` above: RouteMapRow is Queryable and binds
+        // POSITIONALLY. Any future column goes after this one, never between
+        // existing ones.
+        turnaround_index -> Nullable<Integer>,
     }
 }
 

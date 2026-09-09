@@ -1203,6 +1203,7 @@ fn make_route_map(trip_id: Uuid, polyline: &str) -> RouteMap {
         dataset_version: Some("2026-05-03".into()),
         created_at: Utc::now(),
         round_trip: false,
+        turnaround_index: None,
     }
 }
 
@@ -1248,6 +1249,7 @@ fn route_map_round_trips() {
         dataset_version: Some("2026-05-03".into()),
         created_at: Utc::now(),
         round_trip: false,
+        turnaround_index: None,
     };
     db.save_route_map(&map).unwrap();
 
@@ -1555,4 +1557,89 @@ fn test_delete_trip_with_odometer_shift_removes_and_shifts() {
         db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer,
         20.0
     );
+}
+
+#[test]
+fn route_map_round_trips_its_turnaround_index() {
+    // RouteMap, RouteMode and Waypoint are already imported at the top of
+    // this file; Utc is not. `trip_routes.trip_id` foreign-keys to `trips`,
+    // so a real trip must exist first -- same pattern as `route_map_round_trips`.
+    use chrono::Utc;
+
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+        120.0,
+        None,
+        true,
+    );
+    trip.vehicle_id = vehicle.id;
+    db.create_trip(&trip).unwrap();
+    let trip_id = trip.id;
+
+    let map = RouteMap {
+        trip_id,
+        waypoints: vec![
+            Waypoint { lat: 48.0, lon: 17.0, name: Some("A".into()), node_idx: None },
+            Waypoint { lat: 49.0, lon: 18.0, name: Some("B".into()), node_idx: None },
+            Waypoint { lat: 48.5, lon: 17.5, name: None, node_idx: None },
+            Waypoint { lat: 48.0, lon: 17.0, name: Some("A".into()), node_idx: None },
+        ],
+        polyline: "abc".to_string(),
+        target_km: 100.0,
+        road_km: 102.0,
+        mode: RouteMode::Direct,
+        dataset_version: None,
+        created_at: Utc::now(),
+        round_trip: true,
+        turnaround_index: Some(1),
+    };
+    db.save_route_map(&map).unwrap();
+
+    let loaded = db.get_route_map(&trip_id.to_string()).unwrap().unwrap();
+    assert_eq!(
+        loaded.turnaround_index,
+        Some(1),
+        "the split point between the two legs must survive a save and a load"
+    );
+}
+
+#[test]
+fn a_route_map_without_a_turnaround_index_loads_as_none() {
+    use chrono::Utc;
+
+    let db = Database::in_memory().unwrap();
+    let vehicle = Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = Trip::test_ice_trip(
+        NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+        120.0,
+        None,
+        true,
+    );
+    trip.vehicle_id = vehicle.id;
+    db.create_trip(&trip).unwrap();
+    let trip_id = trip.id;
+
+    let map = RouteMap {
+        trip_id,
+        waypoints: vec![
+            Waypoint { lat: 48.0, lon: 17.0, name: Some("A".into()), node_idx: None },
+            Waypoint { lat: 49.0, lon: 18.0, name: Some("B".into()), node_idx: None },
+        ],
+        polyline: "abc".to_string(),
+        target_km: 100.0,
+        road_km: 102.0,
+        mode: RouteMode::Direct,
+        dataset_version: None,
+        created_at: Utc::now(),
+        round_trip: false,
+        turnaround_index: None,
+    };
+    db.save_route_map(&map).unwrap();
+
+    let loaded = db.get_route_map(&trip_id.to_string()).unwrap().unwrap();
+    assert_eq!(loaded.turnaround_index, None);
 }

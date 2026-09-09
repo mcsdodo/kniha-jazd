@@ -360,6 +360,7 @@ pub fn save_trip_route_internal(
             RouteMode::Loop => false,
             RouteMode::Direct => round_trip,
         },
+        turnaround_index: None,
     };
 
     db.save_route_map(&map).map_err(|e| e.to_string())
