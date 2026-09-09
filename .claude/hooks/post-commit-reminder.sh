@@ -4,8 +4,9 @@
 input=$(cat)
 [ -z "$input" ] && exit 0
 
-# Clean up tmpclaude-* temp files (always, on any bash command)
-find . -name "tmpclaude-*" -delete 2>/dev/null
+# Clean up tmpclaude-* temp files (always, on any bash command).
+# Anchor to the project dir: the hook cwd can be any subfolder.
+find "${CLAUDE_PROJECT_DIR:-.}" -name "tmpclaude-*" -delete 2>/dev/null
 
 # Only show reminder for git commit commands
 if ! echo "$input" | grep -q '"command"[^}]*git commit'; then
