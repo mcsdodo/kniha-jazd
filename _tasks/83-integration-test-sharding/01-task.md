@@ -36,45 +36,50 @@ It is the wrong axis for CI parallelism.
 
 ## Approach
 
-Decouple the two. WebdriverIO 9.23 shards natively, so `getSpecs()` needs no
-change: CI drops `TIER` and `PARALLEL_TIERS`, `getSpecs()` returns all four tier
-globs, and the matrix carries shard indices.
+Decouple the two. CI drops `TIER` and `PARALLEL_TIERS` and passes a shard index
+instead; the tier npm scripts stay exactly as they are for local use, so invariant
+I1 still holds through `test:integration:docker`. The env-pinned job is untouched,
+because it needs its own container environment and cannot join the pool.
 
-- [test.yml:107-116](../../.github/workflows/test.yml): the `tier` / `tier_name`
-  matrix becomes `shard: ['1/4', '2/4', '3/4', '4/4']`.
-- [test.yml:172-177](../../.github/workflows/test.yml): the run step becomes
-  `npm run test:integration:docker -- --shard ${{ matrix.shard }}`, with the
-  `TIER` and `PARALLEL_TIERS` env lines removed.
-- The env-pinned job is untouched. It needs its own container environment and
-  cannot join the pool.
-- The tier npm scripts stay exactly as they are, for local use. Invariant I1 still
-  holds through `test:integration:docker`.
+**Do not use WDIO's own `--shard`.** It slices the spec list *contiguously*
+(`node_modules/@wdio/config/build/node/index.js:567-576`:
+`specs.slice(current * specsPerShard - specsPerShard, end)`), and our spec list is
+grouped by tier. At 4 shards, shard 2 would draw `odometer-cascade` (31.1 s),
+`legal-compliance` (23.4 s), `copy-trip` (18.9 s), `column-visibility` (17.8 s) and
+`datetime-is-order` (16.1 s) together: 3m16, worse than the target.
+
+Shard round-robin instead (`index % total === current - 1`), which interleaves the
+tiers. `getSpecs()` resolves the tier folders to files and returns only this shard's
+files. See [02-plan.md](02-plan.md) for the implementation.
 
 ## Projected result
 
 435 s of test work to spread across the pool (tiers 1 to 3), 40 s fixed per job:
 
-| Shards | Projected job | vs today (5m26) |
-|---|---|---|
-| 3 | 3m05 | -2m21 |
-| **4** | **2m29** | **-2m57** |
-| 5 | 2m07 | -3m19 |
-| 6 | 1m53 | -3m33 |
+The floor assumes a perfect split. The second column is the real one: each spec
+placed by round-robin, using its measured duration plus 2.9 s of session startup,
+plus 40 s of job setup.
 
-Take 4. Returns flatten after that against two floors: the 40 s setup, and the
-longest single spec file, which cannot be split (`odometer-cascade.spec.ts`,
-31.1 s plus about 2.7 s of session startup).
+| Shards | Perfect split (floor) | Round-robin, computed | vs today (5m26) |
+|---|---|---|---|
+| 4 | 2m29 | 2m57 | -2m29 |
+| 5 | 2m08 | 2m37 | -2m49 |
+| **6** | **1m53** | **2m16** | **-3m10** |
 
-Pipeline effect: 4m33 build + 5m26 tests today, against 4m33 + about 2m30 after.
-About 10 minutes becomes about 7.
+Take 6. Round-robin does not balance perfectly, so the gap between the two columns
+is the price of not maintaining a duration table. Two floors sit under both columns:
+the 40 s job setup, and the longest single spec, which cannot be split
+(`odometer-cascade.spec.ts`, 31.1 s plus session startup).
+
+Pipeline effect: 4m33 build + 5m26 tests today, against 4m33 + 2m16 after. About
+10 minutes becomes under 7.
 
 ## Risks
 
-- **Sharding splits by file count, not by duration.** WDIO divides the resolved
-  spec list evenly by number of files. With 35 files ranging from 0.9 s to 31.1 s,
-  one shard can draw several long specs. The worst plausible draw at 4 shards is
-  about 97 s against a 109 s average, so it is tolerable. If it drifts, order the
-  globs so the long specs spread across shards.
+- **The split is by file count, not by duration.** With 35 files ranging from 0.9 s
+  to 31.1 s, round-robin leaves a real gap: the heaviest shard is predicted at 79 s
+  of test time against a 56 s average. Adding a spec can shift every assignment. If
+  the gap widens, the fix is a duration-weighted split, not more shards.
 - **Spec order changes.** Cross-spec leaks are order-dependent today:
   `datetime-is-order` fails under a full-tier run and passes alone, absorbed by
   `specFileRetries: 2`. Land [Task 82](../82-integration-db-reset/) first.
@@ -84,7 +89,7 @@ About 10 minutes becomes about 7.
 ## Acceptance criteria
 
 - [ ] The matrix runs shards, not tiers, and every spec file runs exactly once.
-- [ ] Slowest integration job is under 3 minutes on a green run.
+- [ ] Slowest integration job is under 2m30 on a green run (predicted 2m16).
 - [ ] `npm run test:integration:tier1` still works locally, unchanged.
 - [ ] Screenshot artifacts still upload with distinct names.
 - [ ] Verify shard balance from the step timings of the first green run, not from this
