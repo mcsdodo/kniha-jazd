@@ -8,7 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 83 | [Integration Test Sharding](83-integration-test-sharding/) | 📋 Planning | Shard specs across the CI matrix instead of by tier (5m26 -> ~2m30); needs 82 first |
+| 83 | [Integration Test Sharding](83-integration-test-sharding/) | 🟡 In Progress | Built and measured on [PR #7](https://github.com/mcsdodo/kniha-jazd/pull/7): integration stage 5m26 -> 2m42 ([03-results.md](83-integration-test-sharding/03-results.md)). Merge waits on 82 |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |

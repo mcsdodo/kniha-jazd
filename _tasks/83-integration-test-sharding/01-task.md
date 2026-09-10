@@ -1,6 +1,6 @@
 **Date:** 2026-09-10
 **Subject:** Shard the integration specs by file across the CI matrix instead of by semantic tier
-**Status:** Planning
+**Status:** Complete -- built and measured on PR #7; merge waits on Task 82
 
 **Depends on:** [Task 82](../82-integration-db-reset/) -- sharding reorders which specs share a database
 
@@ -52,27 +52,39 @@ Shard round-robin instead (`index % total === current - 1`), which interleaves t
 tiers. `getSpecs()` resolves the tier folders to files and returns only this shard's
 files. See [02-plan.md](02-plan.md) for the implementation.
 
-## Projected result
+## Result
 
-435 s of test work to spread across the pool (tiers 1 to 3), 40 s fixed per job:
+Measured on two green runs of PR [#7](https://github.com/mcsdodo/kniha-jazd/pull/7),
+[`34480532011`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34480532011) (A) and
+[`34481357652`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34481357652) (B).
+70 spec executions, zero retries. Full numbers in [03-results.md](03-results.md).
 
-The floor assumes a perfect split. The second column is the real one: each spec
-placed by round-robin, using its measured duration plus 2.9 s of session startup,
-plus 40 s of job setup.
-
-| Shards | Perfect split (floor) | Round-robin, computed | vs today (5m26) |
+| Shard | Specs | Mocha time A / B | Job total A / B |
 |---|---|---|---|
-| 4 | 2m29 | 2m57 | -2m29 |
-| 5 | 2m08 | 2m37 | -2m49 |
-| **6** | **1m53** | **2m16** | **-3m10** |
+| 1 | 6 | 47.2 / 48.6 s | 1m48 / 2m00 |
+| 2 | 6 | 42.8 / 42.8 s | 1m58 / 1m46 |
+| 3 | 6 | 61.7 / 60.3 s | 2m14 / **2m24** |
+| 4 | 6 | 61.7 / 64.0 s | 2m08 / 2m10 |
+| **5** | 6 | **75.4 / 75.7 s** | **2m42** / 2m07 |
+| 6 | 5 | 31.8 / 31.8 s | 1m32 / 1m32 |
 
-Take 6. Round-robin does not balance perfectly, so the gap between the two columns
-is the price of not maintaining a duration table. Two floors sit under both columns:
-the 40 s job setup, and the longest single spec, which cannot be split
-(`odometer-cascade.spec.ts`, 31.1 s plus session startup).
+The integration stage went from 5m26 to 2m42 (run A), 2m24 (run B) and 2m35 (run C), a
+fall of about 50%. The predicted 2m16 was not reached, for two measured reasons:
 
-Pipeline effect: 4m33 build + 5m26 tests today, against 4m33 + 2m16 after. About
-10 minutes becomes under 7.
+- Round-robin balances spec *count*, not cost. Shard 5 holds 75.4 s of work against a
+  53.4 s ideal, because `odometer-cascade` alone (30.5 s) is as large as all of shard 6.
+  This part is deterministic: it reproduced within 0.3 s across the two runs.
+- The first worker of each job pays a Chrome cold start that the projection folded into
+  a flat per-spec constant. It is per-job, not per-spec, and it ranged from 3.5 s to
+  31.1 s across the 12 samples. Run A put the worst draw on the heaviest shard.
+
+**Follow-up:** a duration-weighted split cuts the work spread from 43.6 s to 0.9 s.
+That matters in the worst case: with round-robin the slowest job is `75.7 s + a 31 s cold
+start`, about 2m42, so it cannot hold under the 2m30 target. Weighted, it is about 2m20 on
+every draw. See [03-results.md](03-results.md), "The split needs duration weighting".
+
+Pipeline effect: this task does not touch the 4m33 Docker Image Build, so the stage
+saving is the whole of the win.
 
 ## Risks
 
@@ -83,21 +95,24 @@ Pipeline effect: 4m33 build + 5m26 tests today, against 4m33 + 2m16 after. About
 - **Spec order changes.** Cross-spec leaks are order-dependent today:
   `datetime-is-order` fails under a full-tier run and passes alone, absorbed by
   `specFileRetries: 2`. Land [Task 82](../82-integration-db-reset/) first.
+  *Outcome:* three runs passed all 35 specs with zero retries each, so the new order
+  surfaced no leak in 105 spec executions. That is not a proof. Keep the Task 82 dependency.
 - Screenshot artifact names are keyed on `matrix.tier_name`
   ([test.yml:191](../../.github/workflows/test.yml)) and must follow the matrix.
 
 ## Acceptance criteria
 
-- [ ] The matrix runs shards, not tiers, and every spec file runs exactly once.
+- [x] The matrix runs shards, not tiers, and every spec file runs exactly once.
 - [ ] Slowest integration job is under 2m30 on a green run (predicted 2m16).
-- [ ] `npm run test:integration:tier1` still works locally, unchanged.
-- [ ] Screenshot artifacts still upload with distinct names.
-- [ ] Verify shard balance from the step timings of the first green run, not from this
-      estimate. A shard's step time should match `sum(its spec durations) + 2.9 x (its
-      spec count)`. The 2.9 s is the per-spec Chrome session cost, derived from this run:
-      tier 1 gives `A + 11s = 29.7`, tier 2 gives `A + 20s = 56.5`, so `s = 2.9` and the
-      fixed wdio boot `A` is about zero. If a shard overshoots that formula, the skew is
-      in spec count, and the fix is to reorder the globs, not to add a shard.
+      **Not held: 2m42 in run A, 2m24 in run B.** It depends on where the cold-start draw
+      lands. Duration weighting makes it hold on every draw; see [03-results.md](03-results.md).
+- [x] `npm run test:integration:tier1` still works locally, unchanged.
+- [x] Screenshot artifacts still upload with distinct names.
+- [x] Verify shard balance from the step timings of the first green run. Done, and the
+      formula needed a correction: the per-spec session cost is 2.4 s, not 2.9 s, and it
+      is tight. The remainder is a *per-job* Chrome cold start of 8.5 s to 28.7 s that the
+      2.9 s constant had absorbed. The skew is in duration, not in spec count, so the fix
+      is a weighted split, not a reordered glob. See [03-results.md](03-results.md).
 
 ## Out of scope
 

@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { spawn, ChildProcess } from 'child_process';
-import { mkdtempSync, rmSync, existsSync, mkdirSync } from 'fs';
+import { mkdtempSync, rmSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
-import { join, dirname } from 'path';
+import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
+
+import { parseShard, shardSpecs } from './utils/shard.ts';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -55,6 +57,31 @@ const TIER_SPECS = [
 ];
 
 /**
+ * The spec folders, in the order the shard split walks them. The order decides
+ * which shard a file lands in, so keep it stable: changing it reshuffles every
+ * shard. `./specs/env/**` is excluded on purpose, it has its own CI job.
+ */
+const SHARD_FOLDERS = ['tier1', 'tier2', 'tier3', 'existing'];
+
+/**
+ * Resolve the tier folders to spec files, sorted, so the split is deterministic.
+ *
+ * `recursive` matches the `**` in the tier globs: without it a spec in a future
+ * subfolder would run under `TIER=2` and silently vanish under a shard. Paths come
+ * back in the same `./specs/...` form the globs use, so the spec reporter keeps
+ * printing greppable repo-relative paths.
+ */
+function resolveAllSpecFiles(): string[] {
+  return SHARD_FOLDERS.flatMap((folder) => {
+    const dir = join(__dirname, 'specs', folder);
+    return readdirSync(dir, { recursive: true })
+      .filter((file) => (file as string).endsWith('.spec.ts'))
+      .sort()
+      .map((file) => `./${relative(__dirname, join(dir, file as string))}`);
+  });
+}
+
+/**
  * Get specs based on TIER and PARALLEL_TIERS environment variables
  */
 function getSpecs(): string[] {
@@ -65,6 +92,15 @@ function getSpecs(): string[] {
   // so it gets its own run and is never swept into a normal one.
   if (ENV_PINNED) {
     return ['./specs/env/**/*.spec.ts'];
+  }
+
+  // CI shards by file. Local runs keep using TIER, which is untouched below.
+  const shard = process.env.WDIO_SHARD;
+  if (shard) {
+    const { current, total } = parseShard(shard);
+    const files = shardSpecs(resolveAllSpecFiles(), current, total);
+    console.log(`Shard ${current}/${total}: ${files.length} spec files`);
+    return files;
   }
 
   if (parallelMode) {
