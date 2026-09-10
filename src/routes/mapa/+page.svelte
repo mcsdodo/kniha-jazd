@@ -1262,7 +1262,10 @@
 		{#if mode === 'direct' && roundTrip}
 			<div class="alternatives legs" data-test="leg-alternatives">
 				<div class="leg" data-test="leg-outbound">
-					<span class="label">{$LL.routeMap.alternatives()} - {$LL.routeMap.legOutbound()}</span>
+					<span class="label">
+						<span class="leg-swatch" style="background-color: {OUTBOUND_COLOR}"></span>
+						{$LL.routeMap.alternatives()} - {$LL.routeMap.legOutbound()}
+					</span>
 					{#if outboundHasVias}
 						<p class="hint" data-test="alternatives-unavailable-outbound">
 							{$LL.routeMap.alternativesUnavailable()}
@@ -1287,7 +1290,10 @@
 					{/if}
 				</div>
 				<div class="leg" data-test="leg-inbound">
-					<span class="label">{$LL.routeMap.alternatives()} - {$LL.routeMap.legInbound()}</span>
+					<span class="label">
+						<span class="leg-swatch" style="background-color: {INBOUND_COLOR}"></span>
+						{$LL.routeMap.alternatives()} - {$LL.routeMap.legInbound()}
+					</span>
 					{#if inboundHasVias}
 						<p class="hint" data-test="alternatives-unavailable-inbound">
 							{$LL.routeMap.alternativesUnavailable()}
@@ -1471,6 +1477,15 @@
 	.label {
 		color: var(--text-secondary);
 		font-size: 0.875rem;
+	}
+
+	.leg-swatch {
+		display: inline-block;
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 50%;
+		margin-right: 0.25rem;
+		vertical-align: middle;
 	}
 
 	.value {
