@@ -164,6 +164,23 @@
 	let dataLoadStarted = false;
 
 	let displayRoute = $derived<GeneratedRoute | RouteMap | null>(generated ?? savedRoute);
+	/** The geometry a re-opened saved round trip is drawn from: the two legs
+	 *  the backend split out of the one stored line.
+	 *
+	 *  Without it a saved round trip came back as a single blue line with
+	 *  handles on the outbound leg only, because `roundTripRoutes` is null
+	 *  until the routing service answers -- so a via on the way home had no
+	 *  handle at all until the user pressed Prepočítať.
+	 *
+	 *  Only while the saved row IS what is on display: a fresh proposal
+	 *  (`generated`), a live pair of legs (`roundTripRoutes`), or unticking
+	 *  the checkbox each mean the saved legs are no longer what the map
+	 *  shows. Carries no distance or duration -- the row stores those for the
+	 *  round trip as a whole, so the leg pickers stay empty until a real
+	 *  routing run fills them, exactly as before. */
+	let savedLegGeometry = $derived(
+		!generated && !roundTripRoutes && roundTrip ? (savedRoute?.legs ?? null) : null
+	);
 	/** Reads `displayRoute`, not just `generated`, so the "alternatives
 	 *  unavailable" branch below is reachable whenever the display falls back
 	 *  to `savedRoute` -- a cold-loaded saved route, and equally the state
@@ -254,6 +271,7 @@
 		const alts = alternatives;
 		const active = activeIndex;
 		const legs = roundTripRoutes;
+		const saved = savedLegGeometry;
 		const outIndex = outboundIndex;
 		const inIndex = inboundIndex;
 		if (!mapReady || !map || !leaflet) return;
@@ -296,13 +314,15 @@
 		if (roundTripRoutes) {
 			drawLegLayers(roundTripRoutes.outbound, outboundIndex, OUTBOUND_COLOR, 'outbound');
 			drawLegLayers(roundTripRoutes.inbound, inboundIndex, INBOUND_COLOR, 'inbound');
-			if (!shouldSkipFit && legLayers.length > 0) {
-				let bounds = legLayers[0].getBounds();
-				for (const layer of legLayers.slice(1)) {
-					bounds = bounds.extend(layer.getBounds());
-				}
-				map.fitBounds(bounds, { padding: [30, 30] });
-			}
+			fitToLegs(shouldSkipFit);
+		} else if (savedLegGeometry) {
+			// A re-opened saved round trip. No grey alternatives underneath:
+			// the row stores the pair the user chose and nothing else, and
+			// asking the routing service for the others is what Prepočítať is
+			// for.
+			drawChosenLeg(savedLegGeometry.outbound.coordinates, OUTBOUND_COLOR, 'outbound');
+			drawChosenLeg(savedLegGeometry.inbound.coordinates, INBOUND_COLOR, 'inbound');
+			fitToLegs(shouldSkipFit);
 		} else {
 			// Inactive alternatives sit UNDER the active line and are clickable.
 			alts.forEach((route, i) => {
@@ -344,12 +364,30 @@
 			inactiveLayers.push(layer);
 		});
 		const chosen = routes[active];
-		if (!chosen || chosen.coordinates.length === 0) return;
+		if (!chosen) return;
+		drawChosenLeg(chosen.coordinates, color, leg);
+	}
+
+	/** The line one leg is actually driven on. It carries that leg's ghost
+	 *  handle, so a waypoint dropped on it is reported against the right leg. */
+	function drawChosenLeg(coordinates: [number, number][], color: string, leg: Leg) {
+		if (!map || !leaflet || coordinates.length === 0) return;
 		const layer = leaflet
-			.polyline(chosen.coordinates, { color, weight: 5, opacity: 0.85 })
+			.polyline(coordinates, { color, weight: 5, opacity: 0.85 })
 			.addTo(map);
 		attachGhost(layer, leg);
 		legLayers.push(layer);
+	}
+
+	/** Zoom to both legs together. Skipped after an edit -- the user is already
+	 *  looking at the result and the map should not jump. */
+	function fitToLegs(skip: boolean) {
+		if (!map || skip || legLayers.length === 0) return;
+		let bounds = legLayers[0].getBounds();
+		for (const layer of legLayers.slice(1)) {
+			bounds = bounds.extend(layer.getBounds());
+		}
+		map.fitBounds(bounds, { padding: [30, 30] });
 	}
 
 	/** Moves which alternative is active on ONE leg. Never reorders the list
@@ -382,7 +420,10 @@
 		waypointMarkers.forEach((m) => map!.removeLayer(m));
 		waypointMarkers = [];
 
-		if (roundTripRoutes && baseWaypoints && baseInbound) {
+		// `savedLegGeometry` is the cold-load case: the legs come from the
+		// saved row rather than from a routing result, and both of them still
+		// need handles -- otherwise a via on the way home has none.
+		if ((roundTripRoutes || savedLegGeometry) && baseWaypoints && baseInbound) {
 			drawLegHandles(baseWaypoints, 'outbound');
 			drawLegHandles(baseInbound, 'inbound');
 			return;
@@ -507,15 +548,26 @@
 					map!.removeLayer(ghost!);
 					ghost = null;
 					ghostOwner = null;
-					if (leg && roundTripRoutes) {
-						const polyline =
-							leg === 'outbound'
+					// The leg's own line is the placement geometry the backend
+					// inserts against. On a re-opened saved round trip there is
+					// no routing result yet, so it comes from the saved row --
+					// without that fallback the drag fell through to the
+					// one-way `reroute` below, which nulls `roundTripRoutes`
+					// and turns the round trip into a closed one-way route.
+					const legPolyline = !leg
+						? undefined
+						: roundTripRoutes
+							? leg === 'outbound'
 								? roundTripRoutes.outbound[outboundIndex].polyline
-								: roundTripRoutes.inbound[inboundIndex].polyline;
+								: roundTripRoutes.inbound[inboundIndex].polyline
+							: leg === 'outbound'
+								? savedLegGeometry?.outbound.polyline
+								: savedLegGeometry?.inbound.polyline;
+					if (leg && legPolyline) {
 						void rerouteLegs(currentOutbound(), currentInbound(), {
 							lat,
 							lon: lng,
-							polyline,
+							polyline: legPolyline,
 							leg
 						});
 						return;

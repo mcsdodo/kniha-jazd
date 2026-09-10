@@ -89,6 +89,13 @@ alternative is chosen per leg, independent of each other), and `baseInbound` (th
 leg's open waypoint list -- the counterpart to `baseWaypoints`, which holds the outbound leg
 in this mode). `savedLegs` holds a saved round trip already split into its two legs, and acts
 as the fallback `baseWaypoints`/`baseInbound` fall back to before a live re-route has run.
+`savedLegGeometry` is its counterpart for the LINES rather than the stops: the two leg
+geometries the backend split out of the stored polyline, non-null only while the saved row
+is what the map shows (no `generated` proposal, no live `roundTripRoutes`, the checkbox
+still ticked). It is what lets a re-opened round trip draw in its two colours, hand both
+legs their handles, and place a dragged-in stop against the right leg -- all before any
+routing call. It carries no distance or duration, so the leg pickers stay empty until a
+real routing run fills them.
 `writeback` holds the dry-run plan awaiting the user's confirmation for the distance
 write-back described below; nothing is written while it is null.
 
@@ -169,6 +176,16 @@ no backfill. A value written by the new save path means "split here" exactly, be
 legs can carry a via each and their combined length is no longer a fixed offset from the end.
 `get_trip_route` resolves both cases before the frontend ever sees the row, so the browser
 only ever slices a list -- it never decides where the split falls.
+
+**The geometry is split on the way out too.** A round trip stores one polyline, and
+`get_trip_route` returns it split at the turnaround as `legs.outbound` / `legs.inbound` --
+each an encoded polyline plus its decoded coordinates, overlapping by one point exactly like
+the waypoint lists above. The seam is found by searching the decoded line for the point
+nearest `waypoints[turnaround_index]`, not by a stored offset: `save_trip_round_trip_route`
+concatenates the two legs' polylines, so the turnaround sits in the line twice and the search
+lands on it, while a legacy row is one continuous routing result whose seam can only be found
+this way at all. `legs` is `null` for a one-way route and a loop. See
+[ADR-049](../../DECISIONS.md#adr-049-a-saved-round-trips-geometry-is-split-back-into-legs-in-rust-and-the-split-point-is-derived).
 
 The `target_km` a saved map reports comes from the **trip's own `distance_km` at read time**,
 not from the column stored above. The stored column records what the trip measured when the

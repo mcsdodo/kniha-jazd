@@ -28,6 +28,7 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 - **Medzizastávka pridaná na ceste späť skončila na ceste tam** - pri okružnej trase sa nová zastávka umiestňovala vždy do cesty tam, aj keď si ju pridal potiahnutím čiary na ceste späť. Obe strany sa teraz počítajú zvlášť, takže zastávka zostane tam, kam si ju dal.
 - **Tlačidlo "Prepočítať" zostalo aktívne aj bez určeného miesta** - ak si dialóg na umiestnenie miesta zavrel klávesom Esc, tlačidlo sa dalo stlačiť, ale nič sa nestalo. Teraz je neaktívne a na stránke sa ukáže, ktoré miesto ešte nemá bod na mape, aj s tlačidlom na jeho umiestnenie.
 - **Uložená mapa ukazovala odchýlku voči starej vzdialenosti** - cieľová vzdialenosť sa brala z hodnoty uloženej spolu s mapou, takže po zmene počtu kilometrov jazdy mapa naďalej hlásila odchýlku voči starému číslu. Berie sa teraz priamo z jazdy.
+- **Znovu otvorená uložená cesta tam a späť sa kreslila ako jedna čiara** - po opätovnom otvorení uloženej mapy sa cesta tam a cesta späť neodlišovali farbou a medzizastávka na ceste späť nemala úchytku, takže sa nedala posunúť ani odstrániť. Potiahnutie čiary na ceste späť navyše zmenilo okružnú trasu na jednosmernú. Mapa teraz uloženú trasu pri otvorení rozdelí v mieste otočky, takže obe strany majú hneď vlastnú farbu aj úchytky, rovnako ako pri prvom výpočte trasy.
 
 ## [0.44.0] - 2026-09-04
 

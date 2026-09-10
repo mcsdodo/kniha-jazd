@@ -235,6 +235,28 @@ async function drawnPathCount(): Promise<number> {
   return paths.length;
 }
 
+/**
+ * The stroke colour of every polyline Leaflet drew, in the order it drew them.
+ * A round trip is two lines -- the way out and the way home -- and the colour
+ * is the only thing that tells them apart, so the colour is what this asserts.
+ */
+async function drawnPathStrokes(): Promise<string[]> {
+  const paths = await $$('[data-test="route-map-canvas"] .leaflet-overlay-pane path');
+  const strokes: string[] = [];
+  for (const path of paths) {
+    strokes.push(await path.getAttribute('stroke'));
+  }
+  return strokes;
+}
+
+/** Draggable waypoint handles currently on the map, and the heavier endpoint
+ *  subset of them. Both are `L.divIcon` classNames from `handleIcon`. */
+async function handleCounts(): Promise<{ handles: number; endpoints: number }> {
+  const handles = await $$('[data-test="route-map-canvas"] .wp-handle');
+  const endpoints = await $$('[data-test="route-map-canvas"] .wp-endpoint');
+  return { handles: handles.length, endpoints: endpoints.length };
+}
+
 /** Wait until the map view has either rendered a loaded route or reported an
  *  error -- whichever this fixture is expected to reach without a network
  *  call. Polls instead of pausing so a slow render never turns into flake. */
@@ -581,6 +603,39 @@ describe('Tier 2: Route Map', () => {
       // offer no alternatives.
       expect(await $('[data-test="alternatives-unavailable-inbound"]').isDisplayed()).toBe(true);
       expect(await $('[data-test="alternatives-unavailable-outbound"]').isExisting()).toBe(false);
+    });
+
+    it('draws a reopened round trip as two coloured legs with handles on both', async () => {
+      // The saved row is one stored line, and `roundTripRoutes` stays null
+      // until the routing service answers. So a re-opened round trip used to
+      // come back as a single blue line whose handles covered the OUTBOUND
+      // leg only -- a via on the way home had no handle at all until the user
+      // pressed Prepočítať. Rust now splits the stored geometry at the
+      // turnaround (ADR-008) and the map draws both legs from it, with no
+      // network call.
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-19T08:00',
+        endDatetime: '2026-03-19T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50465,
+        purpose: 'Business trip',
+      });
+
+      await saveRoundTripWithReturnVia(trip.id as string, 65);
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      // Two lines, in the two leg colours the panel's swatches name --
+      // outbound blue, return amber. One line, or two blue ones, is the bug.
+      expect(await drawnPathStrokes()).toEqual(['#0066cc', '#d97706']);
+
+      // The outbound leg is [A, B]: two endpoint handles. The return leg is
+      // [B, via, A] and its shared ends are not drawn twice, so its via is
+      // the third handle -- the one that was missing.
+      expect(await handleCounts()).toEqual({ handles: 3, endpoints: 2 });
     });
 
     it('reopens a saved one-way route with the checkbox unticked', async () => {

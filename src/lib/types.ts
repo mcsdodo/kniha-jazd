@@ -656,6 +656,20 @@ export interface RoundTripRoutes {
 	targetKm: number;
 }
 
+/** One leg of a saved round trip: the geometry it is drawn from, and the
+ *  polyline a waypoint dropped on it is placed against. */
+export interface SavedLeg {
+	polyline: string;
+	coordinates: [number, number][];
+}
+
+/** Both legs of a saved round trip, split out of the one stored line by the
+ *  backend (ADR-008 -- the browser ships no polyline codec). */
+export interface SavedLegs {
+	outbound: SavedLeg;
+	inbound: SavedLeg;
+}
+
 /**
  * Route map persisted against a trip. Unrelated to `Route` above, which is the
  * origin/destination autocomplete entity.
@@ -684,6 +698,11 @@ export interface RouteMap {
 	 *  existed -- those always closed by appending one clone of the first
 	 *  waypoint, so they split at `length - 2`. */
 	turnaroundIndex: number | null;
+	/** Round trips only: the stored geometry split at the turnaround, so a
+	 *  re-opened map draws the way out and the way home in their own colours
+	 *  and gives both legs handles -- with no call to the routing service.
+	 *  null for a one-way route and a loop. */
+	legs: SavedLegs | null;
 	createdAt: string;
 }
 

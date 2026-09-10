@@ -4,6 +4,27 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-10: Saved Round-Trip Geometry
+
+### ADR-049: A saved round trip's geometry is split back into legs in Rust, and the split point is derived
+
+**Context:** [ADR-047](#adr-047-a-round-trip-is-two-routing-requests-one-per-leg) made a round trip two routed legs, drawn in two colours, each with its own draggable handles. All of that hung off `roundTripRoutes`, which only a live routing call fills. Re-opening a saved map therefore lost it: the row holds one waypoint list and one polyline, so the map drew one blue line and put handles on the outbound leg only. On the real row `253ce43c` -- turnaround at index 1, the via on the way home -- that via had no handle at all until the user pressed Prepočítať, and dragging the line anywhere fell through to the one-way `reroute`, which turns the round trip into a closed one-way route.
+
+**Options considered:**
+1. Store the geometry split point in a new `trip_routes` column, written by `save_trip_round_trip_route_internal`.
+2. Derive it on read, from the turnaround waypoint the row already names.
+3. Rebuild `roundTripRoutes` in the browser from the saved row.
+
+**Decision:** `get_trip_route_internal` returns `legs.outbound` and `legs.inbound` -- each an encoded polyline plus its decoded coordinates -- split at the geometry point nearest `waypoints[turnaround_index]`. The two halves overlap by one point, exactly like the waypoint lists the browser slices. The map draws a re-opened round trip from them, gives both legs handles, and places a dropped waypoint against the leg's own polyline. `legs` is `null` for a one-way route and a loop. No new column and no migration.
+
+**Reasoning:** Option 3 is out on ADR-008 alone -- it needs a polyline codec in the browser, and `roundTripRoutes` also carries per-leg distance and duration the row never stored, so the browser would have to invent them. Between 1 and 2, the column does not remove the derivation: a round trip saved before Task 78 is one continuous routing result with no seam in it, so those rows need the nearest-point search regardless, and a column would be a second code path on top of it rather than instead of it. The derivation is exact where it matters: `save_trip_round_trip_route_internal` concatenates the two polylines, so the turnaround is stored TWICE at the seam and the search lands on it. Verified on the production row -- 1481 points split 578 / 903, each leg's seam end 6 m from the turnaround waypoint, the offset the routing service's own snap onto the road leaves.
+
+The leg pickers stay empty until a real routing run fills them. The row stores one distance and one duration for the round trip as a whole, and showing a fabricated per-leg number under a button the user can press would be worse than showing none.
+
+**Related:** [ADR-047](#adr-047-a-round-trip-is-two-routing-requests-one-per-leg) (the two-leg model this restores on load); [ADR-008](#adr-008-remove-frontend-calculation-duplication) (why the split is in Rust); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+---
+
 ## 2026-09-09: Round-Trip Legs and Distance Write-Back
 
 ### ADR-047: A round trip is two routing requests, one per leg

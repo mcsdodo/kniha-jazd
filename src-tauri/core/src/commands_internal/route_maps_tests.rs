@@ -1934,3 +1934,170 @@ fn a_saved_map_reports_the_trips_distance_as_its_target() {
     );
     assert!(!saved.off_target);
 }
+
+#[test]
+fn a_saved_round_trip_returns_its_geometry_split_into_two_legs() {
+    // The row stores one line -- the two legs concatenated. The map draws the
+    // outbound leg and the return leg in different colours, and a waypoint
+    // dropped on one of them is placed against that leg's own geometry, so
+    // the split has to come back with the row. Deriving it in the browser
+    // would need a polyline codec there (ADR-008), so Rust splits it.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    let out_points = vec![(48.1486, 17.1077), (48.5, 18.0), (48.9444, 20.5675)];
+    let back_points = vec![(48.9444, 20.5675), (48.6, 18.4), (48.1486, 17.1077)];
+
+    let outbound_waypoints = vec![
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+    ];
+    let inbound_waypoints = vec![
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+        Waypoint { lat: 48.6, lon: 18.4, name: None, node_idx: None },
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+    ];
+
+    save_trip_round_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        outbound_waypoints,
+        inbound_waypoints,
+        encode(&out_points),
+        encode(&back_points),
+        25.0,
+        27.0,
+        50.0,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    let legs = saved.legs.expect("a saved round trip carries its two legs");
+
+    // Each leg is exactly the geometry that was saved for it. The turnaround
+    // point belongs to both, so the two halves overlap by one point.
+    assert_eq!(legs.outbound.coordinates.len(), out_points.len());
+    assert_eq!(legs.inbound.coordinates.len(), back_points.len());
+    assert!((legs.outbound.coordinates[0][0] - 48.1486).abs() < 1e-4);
+    assert!((legs.outbound.coordinates[2][0] - 48.9444).abs() < 1e-4);
+    assert!((legs.inbound.coordinates[0][0] - 48.9444).abs() < 1e-4);
+    assert!((legs.inbound.coordinates[2][0] - 48.1486).abs() < 1e-4);
+
+    // The polyline comes back too: a waypoint dropped on a leg is placed
+    // against that leg's line, not against the whole round trip.
+    assert_eq!(legs.outbound.polyline, encode(&out_points));
+    assert_eq!(legs.inbound.polyline, encode(&back_points));
+}
+
+#[test]
+fn a_saved_round_trip_splits_at_the_turnaround_even_when_the_legs_differ() {
+    // The seam is found by the turnaround waypoint, not by halving the line:
+    // the return leg here is longer than the way out.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    let out_points = vec![(48.1486, 17.1077), (48.9444, 20.5675)];
+    let back_points = vec![
+        (48.9444, 20.5675),
+        (48.8, 20.0),
+        (48.6, 19.0),
+        (48.4, 18.0),
+        (48.1486, 17.1077),
+    ];
+
+    save_trip_round_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        direct_waypoints(),
+        vec![
+            Waypoint { lat: 48.9444, lon: 20.5675, name: None, node_idx: None },
+            Waypoint { lat: 48.1486, lon: 17.1077, name: None, node_idx: None },
+        ],
+        encode(&out_points),
+        encode(&back_points),
+        25.0,
+        30.0,
+        50.0,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    let legs = saved.legs.expect("a saved round trip carries its two legs");
+    assert_eq!(legs.outbound.coordinates.len(), 2);
+    assert_eq!(legs.inbound.coordinates.len(), 5);
+}
+
+#[test]
+fn a_round_trip_saved_before_the_index_existed_still_splits_its_geometry() {
+    // A legacy row's line has no seam -- it was one routing result. The split
+    // still has to land on the turnaround the resolved index names, so the
+    // return leg is drawn as a return leg.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+
+    let points = vec![
+        (48.1486, 17.1077),
+        (48.5, 18.0),
+        (48.9444, 20.5675),
+        (48.6, 18.4),
+        (48.1486, 17.1077),
+    ];
+
+    // The legacy shape: one clone of the first waypoint appended, no index.
+    let closed = vec![
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+        Waypoint { lat: 48.6, lon: 18.4, name: None, node_idx: None },
+        Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+    ];
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        closed,
+        encode(&points),
+        trip.distance_km,
+        120.0,
+        RouteMode::Direct,
+        true,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    // len - 2 == 2, the via -- that is the legacy rule, already pinned above.
+    assert_eq!(saved.turnaround_index, Some(2));
+    let legs = saved.legs.expect("a legacy round trip carries its two legs too");
+    // Split at the point nearest waypoint[2] == (48.6, 18.4), index 3.
+    assert_eq!(legs.outbound.coordinates.len(), 4);
+    assert_eq!(legs.inbound.coordinates.len(), 2);
+}
+
+#[test]
+fn a_one_way_saved_map_carries_no_legs() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        polyline,
+        trip.distance_km,
+        120.0,
+        RouteMode::Direct,
+        false,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert!(saved.legs.is_none(), "a one-way route has no return leg to colour");
+}

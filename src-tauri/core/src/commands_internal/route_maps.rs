@@ -63,6 +63,25 @@ fn deviation(target_km: f64, road_km: f64) -> (f64, bool) {
     (fraction * 100.0, fraction.abs() > TOLERANCE)
 }
 
+/// One leg of a saved round trip: the geometry it was drawn from, and the
+/// polyline a new waypoint dropped on it is placed against.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLeg {
+    pub polyline: String,
+    /// Decoded `[lat, lon]` pairs, ready for L.polyline.
+    pub coordinates: Vec<[f64; 2]>,
+}
+
+/// Both legs of a saved round trip, recovered from the one line the row
+/// stores. See [`split_legs`].
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLegs {
+    pub outbound: SavedLeg,
+    pub inbound: SavedLeg,
+}
+
 /// A route map loaded back from the database, ready to draw.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,16 +108,25 @@ pub struct SavedRouteMap {
     /// for a one-way route, a loop, and a round trip saved before Task 78 --
     /// see the note on `RouteMap::turnaround_index`.
     pub turnaround_index: Option<i32>,
+    /// Round trips only: the stored geometry split back into its two legs, so
+    /// a re-opened map can draw the way out and the way home in their own
+    /// colours and give both legs draggable handles -- without asking the
+    /// routing service for anything. `None` for a one-way route and a loop.
+    pub legs: Option<SavedLegs>,
     pub created_at: String,
 }
 
 impl From<RouteMap> for SavedRouteMap {
     fn from(map: RouteMap) -> Self {
         let (deviation_percent, off_target) = deviation(map.target_km, map.road_km);
+        let points = decode(&map.polyline);
+        // Runs after `get_trip_route_internal` has resolved a legacy index, so
+        // every round trip that reaches here carries a real turnaround.
+        let legs = split_legs(&points, &map.waypoints, map.round_trip, map.turnaround_index);
         Self {
             trip_id: map.trip_id.to_string(),
             waypoints: map.waypoints,
-            coordinates: decode_coordinates(&map.polyline),
+            coordinates: to_pairs(&points),
             polyline: map.polyline,
             target_km: map.target_km,
             road_km: map.road_km,
@@ -108,6 +136,7 @@ impl From<RouteMap> for SavedRouteMap {
             mode: map.mode,
             round_trip: map.round_trip,
             turnaround_index: map.turnaround_index,
+            legs,
             created_at: map.created_at.to_rfc3339(),
         }
     }
@@ -116,10 +145,69 @@ impl From<RouteMap> for SavedRouteMap {
 /// Polyline5 -> `[lat, lon]` pairs. `decode` never panics; malformed input
 /// simply yields the prefix that parsed cleanly.
 fn decode_coordinates(polyline: &str) -> Vec<[f64; 2]> {
-    decode(polyline)
-        .into_iter()
-        .map(|(lat, lon)| [lat, lon])
-        .collect()
+    to_pairs(&decode(polyline))
+}
+
+/// `(lat, lon)` tuples -> `[lat, lon]` pairs, the shape L.polyline reads.
+fn to_pairs(points: &[(f64, f64)]) -> Vec<[f64; 2]> {
+    points.iter().map(|&(lat, lon)| [lat, lon]).collect()
+}
+
+/// Squared distance in metres, flat-earth. Only ever compared against another
+/// value from this same function, so the approximation costs nothing.
+fn distance_sq(point: (f64, f64), waypoint: &Waypoint) -> f64 {
+    const METRES_PER_DEGREE: f64 = 111_320.0;
+    let dlat = (point.0 - waypoint.lat) * METRES_PER_DEGREE;
+    let dlon = (point.1 - waypoint.lon) * METRES_PER_DEGREE * point.0.to_radians().cos();
+    dlat * dlat + dlon * dlon
+}
+
+/// Split a saved round trip's line back into its two legs.
+///
+/// `save_trip_round_trip_route_internal` stores the two legs concatenated, so
+/// the seam is the point closest to the turnaround waypoint -- and it is
+/// stored twice there, once as the outbound leg's last point and once as the
+/// return leg's first. A legacy row is one continuous routing result with no
+/// seam at all, and the same search still lands on the turnaround.
+///
+/// The two halves overlap by one point on purpose: the turnaround belongs to
+/// both legs, exactly like the waypoint lists the browser slices.
+///
+/// Index 0 and the last index are excluded from the search. A round trip
+/// starts and ends at its origin, so a row whose turnaround has drifted onto
+/// the origin would otherwise produce an empty leg.
+fn split_legs(
+    points: &[(f64, f64)],
+    waypoints: &[Waypoint],
+    round_trip: bool,
+    turnaround_index: Option<i32>,
+) -> Option<SavedLegs> {
+    if !round_trip || points.len() < 3 {
+        return None;
+    }
+    let at = usize::try_from(turnaround_index?).ok()?;
+    let turnaround = waypoints.get(at)?;
+
+    let seam = (1..points.len() - 1).min_by(|&a, &b| {
+        distance_sq(points[a], turnaround)
+            .partial_cmp(&distance_sq(points[b], turnaround))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })?;
+    // The concatenated shape stores the turnaround twice. Start the return leg
+    // after the clone, so each leg comes back with exactly the geometry that
+    // was saved for it rather than a doubled first point.
+    let inbound_start = if points.get(seam + 1) == Some(&points[seam]) {
+        seam + 1
+    } else {
+        seam
+    };
+
+    let outbound = &points[..=seam];
+    let inbound = &points[inbound_start..];
+    Some(SavedLegs {
+        outbound: SavedLeg { polyline: encode(outbound), coordinates: to_pairs(outbound) },
+        inbound: SavedLeg { polyline: encode(inbound), coordinates: to_pairs(inbound) },
+    })
 }
 
 /// Turn the genetic algorithm's node indices into waypoints carrying the
