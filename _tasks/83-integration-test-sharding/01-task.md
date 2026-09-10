@@ -68,8 +68,12 @@ Measured on two green runs of PR [#7](https://github.com/mcsdodo/kniha-jazd/pull
 | **5** | 6 | **75.4 / 75.7 s** | **2m42** / 2m07 |
 | 6 | 5 | 31.8 / 31.8 s | 1m32 / 1m32 |
 
-The integration stage went from 5m26 to 2m42 (run A), 2m24 (run B) and 2m35 (run C), a
-fall of about 50%. The predicted 2m16 was not reached, for two measured reasons:
+**On a controlled same-pool comparison the integration stage goes from 5m47 to 2m36, a
+saving of 3m11 and a fall of 55%.** The tier matrix was re-timed today on
+[PR #8](https://github.com/mcsdodo/kniha-jazd/pull/8) against a shard rerun started 19
+seconds later; see [03-results.md](03-results.md), "The controlled comparison". Against
+the older cross-day baseline the figures were 2m42 (run A), 2m24 (B), 2m35 (C) and 3m11
+(D), the spread being runner variance of about 45 s on the slowest job. The predicted 2m16 was not reached, for two measured reasons:
 
 - Round-robin balances spec *count*, not cost. Shard 5 holds 75.4 s of work against a
   53.4 s ideal, because `odometer-cascade` alone (30.5 s) is as large as all of shard 6.
@@ -104,8 +108,9 @@ saving is the whole of the win.
 
 - [x] The matrix runs shards, not tiers, and every spec file runs exactly once.
 - [ ] Slowest integration job is under 2m30 on a green run (predicted 2m16).
-      **Not held: 2m42 in run A, 2m24 in run B.** It depends on where the cold-start draw
-      lands. Duration weighting makes it hold on every draw; see [03-results.md](03-results.md).
+      **Not held.** Observed 2m24, 2m35, 2m36, 2m42 and 3m11 across five runs. The spread
+      is runner variance, not the split. Duration weighting removes the 22 s of work
+      imbalance but not the cold-start draw; see [03-results.md](03-results.md).
 - [x] `npm run test:integration:tier1` still works locally, unchanged.
 - [x] Screenshot artifacts still upload with distinct names.
 - [x] Verify shard balance from the step timings of the first green run. Done, and the

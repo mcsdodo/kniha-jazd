@@ -50,6 +50,41 @@ went from 641 s to 213 s, but 235 s of that is the Docker Image Build, which fel
 from 273 s to 38 s on a warm `type=gha` cache. This task does not touch the build.
 The honest number is the integration stage: 5m26 to 2m42.
 
+## The controlled comparison
+
+The runs above compare the shards against run `34349086458`, a push to `main` on
+2026-09-09. That is a different day and a different runner pool, and the pool matters:
+run D of the shard matrix ran the same code as runs A to C, with no retries, and every
+shard inflated by 2 to 4 times on runner speed alone. Its slowest job was 3m11.
+
+So the tier matrix was timed again on today's pool.
+[PR #8](https://github.com/mcsdodo/kniha-jazd/pull/8) is `main` untouched apart from one
+inert comment, which exists only to make `check-changes` run the integration jobs. Its
+run [`34487593396`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34487593396)
+started at `14:13:38Z`; a rerun of the shard matrix
+([`34486316051`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34486316051))
+started at `14:13:57Z`, 19 seconds later, on the same pool.
+
+| Tier matrix (today) | Job | | Shard matrix (same minute) | Job |
+|---|---|---|---|---|
+| Tier 1 | 2m39 | | Shard 1 | 1m53 |
+| **Tier 2** | **5m47** | | Shard 2 | 1m59 |
+| Tier 3 | 1m27 | | Shard 3 | 2m01 |
+| | | | **Shard 4** | **2m36** |
+| | | | Shard 5 | 2m20 |
+| | | | Shard 6 | 1m25 |
+
+**Integration stage: 5m47 to 2m36 on the same pool, a saving of 3m11, a fall of 55%.**
+
+This is the number to quote. It is larger than the cross-day comparison suggested,
+because today's pool is slower and the tier matrix pays that penalty on one 311 s job
+while the shards spread it across six short ones. The cross-day figure of 5m26 to 2m35
+was, if anything, conservative.
+
+Note also which shard was slowest: shard 4, not shard 5. Under a slow pool the
+cold-start draw dominates the 22 s of work imbalance, which is further evidence that
+duration weighting is a second-order fix, not the main lever.
+
 ## The balance formula
 
 The plan predicted `sum(durations) + 2.9 x specs`. The measurement splits that
