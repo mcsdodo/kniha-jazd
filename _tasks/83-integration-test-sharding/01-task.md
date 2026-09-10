@@ -1,6 +1,6 @@
 **Date:** 2026-09-10
 **Subject:** Shard the integration specs by file across the CI matrix instead of by semantic tier
-**Status:** Complete
+**Status:** Complete -- built and measured on PR #7; merge waits on Task 82
 
 **Depends on:** [Task 82](../82-integration-db-reset/) -- sharding reorders which specs share a database
 
