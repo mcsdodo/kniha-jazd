@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 
-import { shardSpecs } from './utils/shard.ts';
+import { parseShard, shardSpecs } from './utils/shard.ts';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -97,7 +97,7 @@ function getSpecs(): string[] {
   // CI shards by file. Local runs keep using TIER, which is untouched below.
   const shard = process.env.WDIO_SHARD;
   if (shard) {
-    const [current, total] = shard.split('/').map(Number);
+    const { current, total } = parseShard(shard);
     const files = shardSpecs(resolveAllSpecFiles(), current, total);
     console.log(`Shard ${current}/${total}: ${files.length} spec files`);
     return files;

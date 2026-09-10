@@ -19,3 +19,22 @@ export function shardSpecs<T>(files: T[], current: number, total: number): T[] {
   }
   return files.filter((_, index) => index % total === current - 1);
 }
+
+/**
+ * Parse the `WDIO_SHARD` env contract, `"<current>/<total>"`, one-based.
+ *
+ * The value must have exactly two components. Plain array destructuring silently
+ * drops anything after the second, so `1/6/extra` would have run shard 1 of 6
+ * instead of failing.
+ */
+export function parseShard(value: string): { current: number; total: number } {
+  const parts = value.split('/');
+  if (parts.length !== 2 || parts.some((part) => part === '')) {
+    throw new Error(`shard must use the current/total form, got "${value}"`);
+  }
+  const [current, total] = parts.map(Number);
+  if (!Number.isInteger(current) || !Number.isInteger(total)) {
+    throw new Error(`shard must be given as integers, got ${parts.join('/')}`);
+  }
+  return { current, total };
+}

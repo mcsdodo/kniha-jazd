@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { shardSpecs } from './shard.ts';
+import { parseShard, shardSpecs } from './shard.ts';
 
 const files = Array.from({ length: 35 }, (_, i) => `spec-${i}.spec.ts`);
 
@@ -38,4 +38,21 @@ test('it rejects a shard outside the range', () => {
 test('it rejects a non-integer shard', () => {
   assert.throws(() => shardSpecs(files, 1.5, 6), /integers/);
   assert.throws(() => shardSpecs(files, Number.NaN, 6), /integers/);
+});
+
+test('parseShard reads the current/total form', () => {
+  assert.deepEqual(parseShard('3/6'), { current: 3, total: 6 });
+});
+
+test('parseShard rejects a value that is not exactly current/total', () => {
+  // '1/6/extra' used to destructure to 1/6 and silently drop the rest.
+  assert.throws(() => parseShard('1/6/extra'), /current\/total/);
+  assert.throws(() => parseShard('1'), /current\/total/);
+  assert.throws(() => parseShard(''), /current\/total/);
+  assert.throws(() => parseShard('1/6/'), /current\/total/);
+});
+
+test('parseShard rejects a component that is not a number', () => {
+  assert.throws(() => parseShard('a/6'), /integers/);
+  assert.throws(() => parseShard('1/b'), /integers/);
 });
