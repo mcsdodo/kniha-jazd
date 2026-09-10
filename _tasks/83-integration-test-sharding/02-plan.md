@@ -137,7 +137,7 @@ git commit -m "test(83): add round-robin spec sharding helper"
 `getSpecs()` returns globs today. When `WDIO_SHARD` is set it must resolve those folders to files and return only this shard's files. Everything else in `getSpecs()` stays untouched.
 
 **Files:**
-- Modify: `tests/integration/wdio.server.conf.ts:3` (add `readdirSync` to the existing `fs` import)
+- Modify: `tests/integration/wdio.server.conf.ts:3-5` (add `readdirSync` to the `fs` import, `relative` to the `path` import)
 - Modify: `tests/integration/wdio.server.conf.ts:50-89` (`TIER_SPECS`, `getSpecs`)
 
 **Interfaces:**
@@ -150,6 +150,12 @@ In `tests/integration/wdio.server.conf.ts`, extend the existing `fs` import on l
 
 ```ts
 import { mkdtempSync, rmSync, existsSync, mkdirSync, readdirSync } from 'fs';
+```
+
+Extend the `path` import on line 5 in the same way, `relative` is needed by the resolver:
+
+```ts
+import { join, dirname, relative } from 'path';
 ```
 
 Then, below the other imports:
@@ -176,17 +182,27 @@ Directly below the existing `TIER_SPECS` declaration (line 50-55), add:
  */
 const SHARD_FOLDERS = ['tier1', 'tier2', 'tier3', 'existing'];
 
-/** Resolve the tier folders to spec files, sorted, so the split is deterministic. */
+/**
+ * Resolve the tier folders to spec files, sorted, so the split is deterministic.
+ *
+ * `recursive` matches the `**` in the tier globs: without it a spec in a future
+ * subfolder would run under `TIER=2` and silently vanish under a shard. Paths come
+ * back in the same `./specs/...` form the globs use, so the spec reporter keeps
+ * printing greppable repo-relative paths.
+ */
 function resolveAllSpecFiles(): string[] {
   return SHARD_FOLDERS.flatMap((folder) => {
     const dir = join(__dirname, 'specs', folder);
-    return readdirSync(dir)
+    return readdirSync(dir, { recursive: true })
       .filter((file) => file.endsWith('.spec.ts'))
       .sort()
-      .map((file) => join(dir, file));
+      .map((file) => `./${relative(__dirname, join(dir, file))}`);
   });
 }
 ```
+
+Verified output: 35 files, first `./specs/tier1/bev-trips.spec.ts`, index 16
+`./specs/tier2/odometer-cascade.spec.ts`.
 
 - [ ] **Step 3: Return the shard from `getSpecs()`**
 
@@ -243,7 +259,15 @@ Expected, unchanged from today:
 
 Run: `WDIO_SHARD=5/6 npx wdio run tests/integration/wdio.server.conf.ts`
 
-Expected: PASS. Shard 5 is the predicted heaviest: `phev-trips`, `column-visibility`, `odometer-cascade`, `route-autocomplete`, `vehicle-management`, `vehicle-setup`. WDIO spawns its own server on port 3457, so no container is needed.
+Expected: PASS, `6 passed, 6 total`, 37 tests, about 1m30 locally. Shard 5 is the
+predicted heaviest: `phev-trips`, `column-visibility`, `odometer-cascade`,
+`route-autocomplete`, `vehicle-management`, `vehicle-setup`. WDIO spawns its own server
+on port 3457, so no container is needed.
+
+This exact combination was run green on 2026-09-10, before Task 82 was merged, so a
+failure here is a real regression in the sharding code and not leakage. If a *different*
+shard fails on cross-spec state, that is the Task 82 dependency showing: land 82 first
+rather than debugging this task.
 
 - [ ] **Step 7: Commit**
 
