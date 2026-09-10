@@ -15,7 +15,7 @@ edits. The surviving work moved to [Task 82](../82-integration-db-reset/).
 | `reset_test_database` Tauri IPC command in `src-tauri/src/commands.rs` | Dead. There is no Tauri command layer. The harness resets over JSON-RPC, in `resetDatabase()` at [wdio.server.conf.ts:140](../../tests/integration/wdio.server.conf.ts). |
 | Replace file deletion, journal unlink and the lock retries | **Delivered** by Task 73. The harness deletes no files and waits for no IPC bridge. |
 | Store reset helper `window.__TEST_RESET_STORES__` | Never built. [Task 82](../82-integration-db-reset/) does not want it either: the per-test `browser.refresh()` already gives that isolation for 99 ms. |
-| Drop `browser.refresh()` between tests | **Rejected on measurement.** The refresh costs 75 to 122 ms per test, about 19 s across the whole suite. It stays. |
+| Drop `browser.refresh()` between tests | **Rejected.** The refresh costs 75 to 122 ms per test locally, about 19 s across the suite. CI may be 2 to 3 times slower; it is bounded there, not isolated. It stays, for the isolation. |
 | Edits to `tests/integration/wdio.conf.ts` | The file is deleted. |
 | [_plan-review.md](_plan-review.md) findings | All three "Critical" items are Diesel and `State<Database>` specifics for code that no longer exists. The review is not reusable as a checklist. |
 

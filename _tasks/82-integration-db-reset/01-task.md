@@ -23,8 +23,11 @@ instrumented run of `tier2/legal-compliance.spec.ts` (12 tests, 22.9 s):
 | `browser.refresh()` | 75 to 122 ms (avg 99) | about 19 s |
 | The test body | about 1.8 s | about 340 s |
 
-CI agrees: in run `34349086458`, `backup-restore.spec.ts` runs 7 tests in 3.2 s,
-so seven resets and seven refreshes cannot cost seconds there either.
+The measurement is local, under `xvfb-run`, on one spec. CI bounds it but does not
+isolate it: in run `34349086458`, `backup-restore.spec.ts` runs 7 tests in 3.2 s, so
+reset plus refresh plus test body is under 460 ms per test there. If the CI runner is
+2 to 3 times slower than this machine, the refresh costs 40 to 60 s across the suite,
+not 19 s. Either way the reset loop is milliseconds, which is what this task turns on.
 
 Do not reintroduce a speed target here. The speed work is [Task 83](../83-integration-test-sharding/).
 
