@@ -87,7 +87,12 @@ About 10 minutes becomes about 7.
 - [ ] Slowest integration job is under 3 minutes on a green run.
 - [ ] `npm run test:integration:tier1` still works locally, unchanged.
 - [ ] Screenshot artifacts still upload with distinct names.
-- [ ] Verify shard balance from the step timings of the first green run, not from this estimate.
+- [ ] Verify shard balance from the step timings of the first green run, not from this
+      estimate. A shard's step time should match `sum(its spec durations) + 2.9 x (its
+      spec count)`. The 2.9 s is the per-spec Chrome session cost, derived from this run:
+      tier 1 gives `A + 11s = 29.7`, tier 2 gives `A + 20s = 56.5`, so `s = 2.9` and the
+      fixed wdio boot `A` is about zero. If a shard overshoots that formula, the skew is
+      in spec count, and the fix is to reorder the globs, not to add a shard.
 
 ## Out of scope
 
