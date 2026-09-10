@@ -76,20 +76,23 @@ note below the table). Grouped by module under
 | Module | Guarded `*_internal` functions |
 |--------|-------------------------------|
 | [vehicles.rs](../../src-tauri/core/src/commands_internal/vehicles.rs) | `update_vehicle`, `delete_vehicle`, `set_active_vehicle` |
-| [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip`, `recalculate_odometers` (conditional, see below) |
+| [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip`, `create_trip_cascade`, `update_trip_cascade`, `delete_trip_cascade`, `apply_route_distance`, `recalculate_odometers` (the last five conditional — see below) |
 | [settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | `save_settings` |
 | [backup.rs](../../src-tauri/core/src/commands_internal/backup.rs) | `set_backup_retention`, `restore_backup`, `delete_backup` |
 | [receipts_cmd.rs](../../src-tauri/core/src/commands_internal/receipts_cmd.rs) | `set_gemini_api_key`, `set_receipts_folder_path`, `update_receipt`, `delete_receipt`, `unassign_receipt`, `revert_receipt_override`, `scan_receipts`, `sync_receipts`, `reprocess_receipt` |
 | [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_invoice_to_trip`, `unassign_invoice` |
 | [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `save_ha_settings`, `save_paperless_settings` |
-| [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `delete_trip_route` |
+| [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `save_trip_round_trip_route` (both through the shared guarded save), `delete_trip_route` |
+| [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `save_place`, `clear_place` (see [place-book.md](./place-book.md)) |
 
-`recalculate_odometers_internal` in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
-is the first conditionally guarded write: it takes a `dry_run` flag, and the
-`check_read_only!` call only runs when `dry_run == false`. A dry run only
-reports the rows it would change; it writes nothing, so read-only mode must
-not block it, the same reasoning as the two backup exceptions below. Unlike
-them, though, the same function also has a write path, gated normally.
+The **dry-run family** in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
+is conditional: `recalculate_odometers_internal`, `update_trip_cascade_internal`,
+`create_trip_cascade_internal`, `delete_trip_cascade_internal` and
+`apply_route_distance_internal` all take a `dry_run` flag, and the `check_read_only!`
+call only runs when `dry_run == false`. A dry run only reports the rows it would change;
+it writes nothing, so read-only mode must not block it, the same reasoning as the two
+backup exceptions below. Unlike them, though, the same functions also have a write path,
+gated normally — see [trip-odometer-cascade.md](./trip-odometer-cascade.md).
 
 Two deliberate exceptions in [backup.rs](../../src-tauri/core/src/commands_internal/backup.rs), both marked with a `NOTE:` comment in the source:
 `create_backup_internal` and `create_backup_with_type_internal` carry **no** guard. Creating
@@ -128,7 +131,7 @@ reads the same state through `get_app_mode` — but it lets an operator check th
 | [app_state.rs](../../src-tauri/core/src/app_state.rs) | `AppMode` enum, `AppState`, `enable_read_only`, `is_read_only` |
 | [commands_internal/helpers.rs](../../src-tauri/core/src/commands_internal/helpers.rs) | The `check_read_only!` macro |
 | [commands_internal/](../../src-tauri/core/src/commands_internal/) | Guarded `*_internal` write functions |
-| [db.rs](../../src-tauri/core/src/db.rs) | `check_migration_compatibility()` — present, currently uncalled |
+| [db.rs](../../src-tauri/core/src/db.rs) | `check_migration_compatibility()` — called from [web/src/main.rs](../../src-tauri/web/src/main.rs) at startup |
 | [commands_internal/settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | `get_app_mode_internal`, `AppModeInfo` |
 | [server/mod.rs](../../src-tauri/core/src/server/mod.rs) | `read_only` in the capabilities response |
 | [appMode.ts](../../src/lib/stores/appMode.ts) | Frontend read-only state |

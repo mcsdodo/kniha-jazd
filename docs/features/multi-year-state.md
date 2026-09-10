@@ -68,11 +68,20 @@ The three carryover helpers all live in
 
 ### Trip Ordering
 
-Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISIONS.md)). There is no separate display ordering — the chronological order *is* the display order.
+Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISIONS.md)),
+with one canonical comparator `trip_order` deciding every tie
+([ADR-044](../../DECISIONS.md)). There is no separate display ordering — the chronological
+order *is* the display order.
 
-**Ordering rule:**
+**Ordering rule (`trip_order`):**
 1. Primary: `start_datetime DESC` (newest at top in the UI)
-2. Tiebreaker for same datetime: `created_at` ASC, then `id` for full determinism
+2. Tiebreak for same datetime: `created_at` ASC
+3. Then `odometer`
+4. Then `id` — makes the order total
+
+The odometer sits below `created_at` on purpose: ordering by it first would make the
+odometer chain agree with itself by construction and silence the span warnings
+([ADR-044](../../DECISIONS.md), [trip-odometer-cascade.md](./trip-odometer-cascade.md)).
 
 **Database Schema:** The `sort_order` column was dropped in migration [2026-05-21-100000_drop_sort_order](../../src-tauri/core/migrations/2026-05-21-100000_drop_sort_order/). The baseline migration still defines it for historical reasons; the new migration removes it from the live table.
 
@@ -105,7 +114,8 @@ Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISION
 
 **Trip Filtering:** [`get_trips_for_vehicle_in_year()`](../../src-tauri/core/src/db.rs)
 - Uses `strftime('%Y', start_datetime)` to extract year from the trip start
-- Returns trips ordered by `start_datetime DESC`, with `created_at ASC` then `id` as tiebreakers
+- Raw SQL ordered by `start_datetime DESC, created_at ASC`; the canonical `trip_order`
+  comparator (with its odometer and `id` tiebreaks) is applied in Rust afterwards
 - Raw SQL query (Diesel's type-safe query builder doesn't support strftime)
 
 **Years With Trips:** `get_years_with_trips()` in
@@ -134,7 +144,7 @@ Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISION
 
 2. **Vehicle Type Immutability** — Changing ICE/BEV/PHEV would invalidate all historical calculations (fuel vs energy). Enforced at backend level.
 
-3. **Datetime Is The Only Order (see [ADR-022](../../DECISIONS.md))** — `start_datetime` drives both display and calculation order. Manual reordering was removed (Task 65) to make drift between "what the user sees" and "what the math uses" structurally impossible.
+3. **Datetime Is The Only Order (see [ADR-022](../../DECISIONS.md), [ADR-044](../../DECISIONS.md))** — `start_datetime` drives both display and calculation order. Manual reordering was removed (Task 65) to make drift between "what the user sees" and "what the math uses" structurally impossible; `trip_order` (datetime, created_at, odometer, id) is the single comparator for the ties that remain.
 
 4. **Chronological for Calculations** — All consumption/remaining calculations use the same `start_datetime` order as the UI, so out-of-order red rows can no longer happen.
 

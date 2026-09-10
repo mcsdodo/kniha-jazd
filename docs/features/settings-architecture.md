@@ -180,13 +180,21 @@ Write commands fail in read-only mode with a user-facing error — see [read-onl
 The Settings UI ([settings/+page.svelte](../../src/routes/settings/+page.svelte)) loads both
 setting types and presents them in a unified interface. Its `onMount()` subscribes to the
 locale and theme stores, then sequentially awaits `getSettings()`, `loadBackups()`,
-`loadRetentionSettings()`, `checkVehiclesWithTrips()`, `getAppVersion()`,
-`getInferTripTimes()` and `getReceiptSettings()`.
+`loadRetentionSettings()`, `checkVehiclesWithTrips()`, `loadPlaces()`, `getAppVersion()`,
+`getInferTripTimes()`, `getReceiptSettings()`, `getHaSettings()` and
+`getPaperlessSettings()`, in that order. The last two each follow with a connection test
+when the integration is configured, and Paperless also loads its custom-field names.
 
 It does **not** fetch the database location — `getDbLocation()` has no caller in the
 frontend. The `get_db_location` command still exists on the backend and is reachable over
 RPC, but nothing in the UI displays it, and there is no "Change location" flow: moving the
 database is now an operator action on the host volume.
+
+**Language** is the one preference that lives **neither** in `local.settings.json` nor in
+the database: the Settings page's Language section switches the UI locale through
+[locale.ts](../../src/lib/stores/locale.ts), which persists it in `localStorage`
+(`kniha-jazd-locale`) and falls back to browser detection. There is no backend command for
+it.
 
 **Auto-save with debouncing:** a local `debounce()` helper wraps `saveCompanySettingsNow`,
 `saveReceiptSettingsNow`, `saveHaSettingsNow` and `savePaperlessSettingsNow`, all at 800ms,

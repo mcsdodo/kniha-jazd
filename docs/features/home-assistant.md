@@ -14,10 +14,17 @@
 3. **View real ODO** in main page header
    - Shows "Reálne ODO: 45,230 km (+130 km)" with delta from last logged trip
    - Positive delta indicates unlogged trips
+4. **Real fuel level** (optional, per vehicle): a second sensor
+   (`sensor.car_fuel_level`) reporting a percentage is converted to litres against the
+   vehicle's tank size and shown in brackets after the computed zostatok as
+   `45.3 L (42.0 L)`. A tooltip on the bracketed value names Home Assistant as its source.
+   If the fetch fails, the brackets carry the error text instead. The sensor drives
+   display only; it never overwrites the book's own calculation.
 
 **Refresh behavior:**
-- ODO fetched on app startup and every 5 minutes
+- ODO and fuel level fetched on app startup and every 5 minutes (in parallel)
 - Cached in localStorage for instant display on page load
+- Fuel level and ODO track their errors independently (`fuelError` vs `odoError`)
 
 ## Technical Implementation
 
@@ -27,6 +34,9 @@
 - Subscribes to `haStore` for cached ODO value
 - Calculates delta: `haOdoValue - Math.max(...trips.map(t => t.odometer))`
 - Displays in header stats row
+- Converts the cached fuel-level percentage to litres (`percent × tank_size / 100`) and
+  renders it inline after the computed zostatok. The conversion is display formatting,
+  deliberately done here (see [ADR-013](../../DECISIONS.md)) — the backend never sees it.
 
 **Settings Page:** `src/routes/settings/+page.svelte`
 - `handleSaveHaSettings()` — Saves URL + token to backend
@@ -36,7 +46,9 @@
 
 **Store:** `src/lib/stores/homeAssistant.ts`
 - `haStore.fetchOdo(vehicleId, sensorId)` — Fetches via Rust backend
-- `haStore.startPeriodicRefresh()` — 5-minute refresh interval
+- `haStore.fetchFuelLevel(vehicleId, sensorId)` — Same `fetch_ha_odo` RPC command
+  (a generic sensor fetcher); keeps the fuel reading on the same per-vehicle cache entry
+- `haStore.startPeriodicRefresh(vehicleId, odoSensorId, fuelSensorId?)` — 5-minute refresh interval for both sensors, fetched in parallel
 - `haStore.getCachedOdo(vehicleId)` — Returns cached value
 - LocalStorage persistence for cache
 
@@ -63,6 +75,11 @@ Both are async, so they are dispatched from
 
 **Vehicle Model:** [models.rs](../../src-tauri/core/src/models.rs)
 - `ha_odo_sensor: Option<String>` — Entity ID for ODO sensor
+- `ha_fuel_level_sensor: Option<String>` — Entity ID for a fuel-level percentage sensor
+  (migration `2026-02-12-100000_add_vehicle_ha_fuel_level_sensor`; display-only)
+- `ha_fillup_sensor: Option<String>` -- `input_text.*` helper the app pushes the fillup
+  recommendation to (migration `2026-02-11-100000_add_vehicle_ha_fillup_sensor`; see
+  [Outbound: Suggested-Fillup Push](#outbound-suggested-fillup-push))
 
 ### Data Flow
 
@@ -101,7 +118,7 @@ Both are async, so they are dispatched from
 | [src/lib/api.ts](../../src/lib/api.ts) | `getHaSettings`, `saveHaSettings`, `testHaConnection`, `fetchHaOdo` |
 | [src-tauri/core/src/commands_internal/integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `test_ha_connection_internal`, `fetch_ha_odo_internal`, fillup push |
 | [src-tauri/core/src/settings.rs](../../src-tauri/core/src/settings.rs) | `ha_url`, `ha_api_token` fields |
-| [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `ha_odo_sensor` vehicle field |
+| [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `ha_odo_sensor`, `ha_fuel_level_sensor`, `ha_fillup_sensor` vehicle fields |
 
 ## Configuration Storage
 
@@ -120,7 +137,9 @@ over the file and are never written back to it.
 
 **Per-vehicle sensor:** SQLite `vehicles` table
 ```sql
-ha_odo_sensor TEXT  -- e.g., "sensor.car_odometer"
+ha_odo_sensor        TEXT  -- e.g., "sensor.car_odometer"
+ha_fuel_level_sensor TEXT  -- e.g., "sensor.car_fuel_level" (percentage)
+ha_fillup_sensor     TEXT  -- e.g., "input_text.car_fillup" (push target, see below)
 ```
 
 **ODO cache:** LocalStorage (`kniha-jazd-ha-odo-cache`)
@@ -128,7 +147,9 @@ ha_odo_sensor TEXT  -- e.g., "sensor.car_odometer"
 {
   "vehicle-uuid-123": {
     "value": 45230,
-    "fetchedAt": 1706351234567
+    "fetchedAt": 1706351234567,
+    "fuelLevelPercent": 42.0,
+    "fuelFetchedAt": 1706351234567
   }
 }
 ```
@@ -175,7 +196,15 @@ instance is serving the UI.
 
 - **Why delta uses `Math.max()`?** — Trip array order may not match chronological order. Using max ensures correct delta calculation.
 
+- **Why is the percentage→litres conversion in the frontend?** — See
+  [ADR-013](../../DECISIONS.md). It is display formatting, not business logic: the sensor
+  reports a percentage, the vehicle knows its tank, and the book's own computed zostatok
+  is never touched by the HA reading.
+
 ## Related
 
-- `_tasks/40-home-assistant-odo/` — Original planning docs
+- `_tasks/_done/40-home-assistant-odo/` — Original planning docs
+- `_tasks/_done/53-ha-real-fuel-level/` — the fuel-level sensor display
 - Migration `2026-01-27-100000_add_vehicle_ha_sensor` — Added `ha_odo_sensor` column
+- Migration `2026-02-12-100000_add_vehicle_ha_fuel_level_sensor` — Added `ha_fuel_level_sensor` column
+- [ADR-013](../../DECISIONS.md) — HA sensor percentage-to-litres conversion lives in the frontend

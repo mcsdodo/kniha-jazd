@@ -59,7 +59,8 @@ which:
    keyed by `Uuid::nil()` so `generate_html` can special-case it
 4. Computes `ExportTotals` (the synthetic 0 km row is skipped by the dummy-row filter)
 5. Assembles rows in the caller's `sortDirection` (`"asc"`/`"desc"`) and renders route-map
-   attachment pages
+   attachment pages. The grid's month-end rows are interleaved here -- see
+   [Month-End Rows in the Printout](#month-end-rows-in-the-printout)
 6. Returns the finished HTML **as a string** — it writes no file and opens nothing
 
 `handleExport()` in [+page.svelte](../../src/routes/+page.svelte) then does the opening:
@@ -74,6 +75,33 @@ window.open(URL.createObjectURL(blob), '_blank')
 
 The caller passes the same `sortDirection` the grid header is sorted by, so the printed
 record numbers cannot drift from the on-screen order.
+
+### Month-End Rows in the Printout
+
+The printout carries the same month-end summary rows the grid shows (see
+[trip-grid-calculation.md](./trip-grid-calculation.md)). `generate_html` builds one
+`SortableRow` list from two sources -- the trips, keyed by their trip number, and
+`grid_data.month_end_rows`, keyed by their own `sort_key` -- then sorts that single list by
+the key. So a month-end row lands directly after the last trip of its month in either sort
+direction.
+
+A month-end row prints as `<tr class="month-end-synthetic">` and fills only what it can
+answer for. Hidden columns and the vehicle-type gates drop out of it exactly as they do
+for a trip row, so the table below lists a cell only when its column is printed at all:
+
+| Cell | Month-end row |
+|------|---------------|
+| Record number | empty -- it is not a record |
+| Start datetime | the month's last day, `dd.mm.`, with a dash for the time |
+| End datetime, driver, route, purpose, km | empty -- no travel happened |
+| Odo start / Odo end | the same carried-forward odometer in both |
+| Fuel remaining | the carried-forward state |
+| Fuel/energy amounts, costs, rates, notes | empty |
+| Battery remaining | empty -- month-end rows carry no battery state yet |
+
+The rows never reach the footer: `ExportTotals::calculate` takes the trip list, and the
+month-end rows are a separate struct that is never in it. So they cannot move a total, an
+average or the deviation percentage.
 
 ### Vehicle-Type Templates
 

@@ -52,10 +52,11 @@ The scanning flow is split into two phases:
 **Phase 2: AI Processing** (`process_pending_receipts` command)
 - Fetches all receipts with `Pending` status
 - For each pending receipt:
-  - Emits progress event for UI updates
   - Calls `process_receipt_with_gemini()` async
   - Updates receipt in database with extracted data
   - On error: returns an error entry and keeps the receipt `Pending` in the DB for retry (no DB update on failure)
+- The old "spracúvam X z Y" progress reporting was removed (0.44.0) — the result
+  appears when the whole batch is done
 
 **Alternative one-shot path** (`sync_receipts` command)
 - Scans for new files and immediately processes only those newly discovered receipts

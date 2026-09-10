@@ -10,8 +10,9 @@ Two things read the book:
 
 - **Trip autocomplete** — the „Odkiaľ" / „Kam" suggestions used to come from the
   per-vehicle `routes` table; they now come from the book, which spans every vehicle.
-- **Route maps** ([task 72](../../_tasks/72-route-map-origin-destination/)) — a row can
-  only be routed A→B once both endpoints have coordinates. This is where they come from.
+- **Route maps** — a row can only be routed A→B once both endpoints have coordinates.
+  This is where they come from; see [route-maps.md](./route-maps.md) and
+  [task 72](../../_tasks/_done/72-route-map-origin-destination/).
 
 ## User Flow
 
@@ -136,7 +137,8 @@ limiter (see Design Decisions).
 
 **Mock mode** — `KNIHA_JAZD_MOCK_GEOCODER_DIR` points the provider at a directory of
 canned `jsonv2` bodies ([tests/integration/data/geocoder/](../../tests/integration/data/geocoder/)), filed under `normalise(query) + ".json"`. So
-`"Gamma Warehouse, Testville"` is answered by [gamma warehouse, testville.json](../../tests/integration/data/geocoder/gamma%20warehouse,%20testville.json). A
+`"Gamma Warehouse, Testville"` is answered by
+[gamma warehouse, testville.json](../../tests/integration/data/geocoder/gamma%20warehouse,%20testville.json). A
 missing file is an empty answer; a file that is present but unreadable is an error —
 a broken fixture must shout rather than quietly turn a test green. The integration
 harness sets the variable for you, both for the spawned server
@@ -314,7 +316,7 @@ is to point at places, not to rename them.
 
 ### The geocoder is not restricted by country (ADR-035)
 
-[Task 72](../../_tasks/72-route-map-origin-destination/)'s earlier design pinned
+[Task 72](../../_tasks/_done/72-route-map-origin-destination/)'s earlier design pinned
 Nominatim to `countrycodes=sk`, assuming a Slovak logbook names Slovak places. The
 production data contradicts it: five of the 47 places are Czech or Hungarian, and a
 single Czech address accounts for **39 trips**. The restriction would fail those
@@ -384,5 +386,5 @@ on disk when the "unplaced" assertions run.
 - [ADR-035](../../DECISIONS.md): The geocoder is not restricted by country
 - [ADR-008](../../DECISIONS.md): All business logic lives in the Rust backend
 - [_tasks/_done/75-place-book/](../../_tasks/_done/75-place-book/) — task, design and plan
-- [_tasks/72-route-map-origin-destination/](../../_tasks/72-route-map-origin-destination/) — the next reader of the book
+- [_tasks/_done/72-route-map-origin-destination/](../../_tasks/_done/72-route-map-origin-destination/) — the next reader of the book
 - [_tasks/_done/76-route-usage-counter-drift/](../../_tasks/_done/76-route-usage-counter-drift/) — the stored-counter drift that shaped ADR-033

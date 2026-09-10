@@ -7,10 +7,10 @@
 1. User opens the **Trips** tab for a vehicle
 2. Frontend calls `get_trip_grid_data(vehicle_id, year)`
 3. Backend returns pre-calculated `TripGridData` with:
-   - All trips for the year (sorted by [`start_datetime` DESC](../../src-tauri/core/src/db.rs); same datetime tiebroken by `created_at` ASC, then `id`)
+   - All trips for the year (sorted by [`start_datetime` DESC](../../src-tauri/core/src/commands_internal/helpers.rs); the canonical `trip_order` comparator breaks ties by `created_at`, then `odometer`, then `id` — [ADR-044](../../DECISIONS.md))
    - Consumption rates (l/100km or kWh/100km) per trip
    - Fuel/battery remaining after each trip
-   - Warnings for consumption limits and missing receipts (date-order warnings were removed in [Task 65](../../_tasks/_done/65-datetime-is-order/))
+   - Warning sets for consumption limits, odometer spans, tied datetimes and invoices -- see [Warnings](#warnings-consumption-odometer-invoices) for the full list (date-order warnings were removed in [Task 65](../../_tasks/_done/65-datetime-is-order/))
   - `warning_lines` for UI highlighting
 4. Frontend renders the grid with rates, tank levels, and warning indicators
 5. Frontend also calls `calculate_trip_stats(vehicle_id, year)` to render the header stats and (when needed) the compensation banner
@@ -185,19 +185,62 @@ Trip: 100 km, battery at 10 kWh, rate 20 kWh/100km
 
 ### Trip Order
 
-Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISIONS.md)). Display order and calculation order are the same — by construction, they cannot drift.
+Trip order is derived purely from `start_datetime` (see [ADR-022](../../DECISIONS.md)),
+with one canonical comparator `trip_order` deciding every tie
+([ADR-044](../../DECISIONS.md)). Display order and calculation order are the same — by
+construction, they cannot drift.
 
 | Ordering | Purpose | Sorted By |
 |----------|---------|-----------|
-| **Display + Calculation** | Both UI and fuel/battery flow | `start_datetime DESC`, then `created_at ASC`, then `id` |
+| **Display + Calculation** | Both UI and fuel/battery flow | `start_datetime DESC`, then `created_at ASC`, then `odometer`, then `id` |
 
-Calculations iterate the trip list reversed (chronological ASC) so fuel/battery flow forward in time. Same-datetime ties are broken deterministically by `created_at` (insertion order), then `id` as a final fallback.
+Calculations iterate the trip list reversed (chronological ASC) so fuel/battery flow
+forward in time. Same-datetime ties are broken deterministically by `created_at`
+(insertion order), then `odometer`, then `id` as a final fallback. The odometer sits
+below `created_at` on purpose — ordering by it first would make the chain agree with
+itself and silence the span warnings (see [trip-odometer-cascade.md](./trip-odometer-cascade.md)).
 
-### Warnings (Consumption, Receipts)
+### Warnings (Consumption, Odometer, Invoices)
 
 - Consumption warnings are based on closed periods exceeding the 20% limit.
-- Date-order warnings no longer exist — chronological ordering is structurally enforced by [ADR-022](../../DECISIONS.md), so out-of-order red rows are impossible.
-- Missing receipt warnings match receipts by exact `receipt_date` + `liters` + `total_price_eur` (no tolerance) and compare against all receipts, not filtered by vehicle.
+- Odometer span warnings flag rows whose odometer disagrees with their recorded
+  kilometres; tied-datetime warnings explain same-timestamp groups. Neither blocks the
+  save — see [trip-odometer-cascade.md](./trip-odometer-cascade.md) and [ADR-042](../../DECISIONS.md).
+- Missing-receipt warnings are computed per type (missing fuel invoice / missing other
+  invoice) from the union of local receipts and Paperless links, with zero-value costs
+  deliberately excluded -- see [multi-invoice.md](./multi-invoice.md).
+- Invoice-datetime warnings (`fuelDatetimeWarnings` / `otherDatetimeWarnings`) flag a trip
+  whose **assigned** invoice carries a datetime outside the trip's start-end range. All
+  invoices of a trip are checked, not only the first, and the warning is split by
+  assignment type. A legacy receipt assigned before the type existed counts as fuel.
+
+### Month-End Summary Rows
+
+The grid interleaves an artificial **month-end row** after the last trip of every closed
+month (Slovak "Umelé riadky konca mesiaca"). It is not a trip — it carries no record
+number, no travel, and no map — it is a snapshot of the book's state at the month
+boundary.
+
+`generate_month_end_rows` in
+[helpers.rs](../../src-tauri/core/src/commands_internal/helpers.rs) builds one row per
+month:
+
+- **Which months are "closed":** for a past year, all twelve. For the current year, only
+  the months **before** the month of the year's latest trip -- so the latest trip's own
+  month and everything after it get no row, December included. An empty current year gets
+  no rows; an empty past year still gets all twelve, each carrying the year-start odometer.
+- **Odometer:** the odometer of the last trip on or before the month's last day (carried
+  forward when a month has no trips).
+- **Fuel remaining:** the fuel-remaining state after that same last trip, taken from the
+  same map the per-trip grid uses.
+- **Sort key:** `max trip number in month + 0.5`, so the frontend slots the row right
+  after the month's last trip in the combined display order.
+
+Both totals come from maps the grid already computed, so the row cannot disagree with the
+trips above it ([ADR-008](../../DECISIONS.md)). The export prints these rows too, on the
+same `sort_key`, but they stay out of the arithmetic: `ExportTotals::calculate` sums trips
+only, so a month-end row cannot reach a total or an average
+([export-system.md](./export-system.md)).
 
 ### Year Carryover
 
@@ -309,9 +352,10 @@ This resets the battery state, breaking the chain of calculations.
 
 Previously the system carried two orderings — a separate `sort_order` column for display, plus `date+odometer` for calculations. They could drift, producing confusing "date-warning" red rows.
 
-**Now (see [ADR-022](../../DECISIONS.md), [Task 65](../../_tasks/_done/65-datetime-is-order/)):**
+**Now (see [ADR-022](../../DECISIONS.md), [ADR-044](../../DECISIONS.md), [Task 65](../../_tasks/_done/65-datetime-is-order/)):**
 - `start_datetime DESC` drives both the display and the calculation order.
-- Same-datetime ties: `created_at ASC`, then `id`.
+- Same-datetime ties: `created_at`, then `odometer`, then `id` — the single `trip_order`
+  comparator.
 - The only way to change a trip's position is to change its datetime — no manual reorder UI exists.
 
 Result: drift is structurally impossible, so the date-warning concept no longer applies.
