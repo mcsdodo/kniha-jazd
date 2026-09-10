@@ -14,8 +14,8 @@ edits. The surviving work moved to [Task 82](../82-integration-db-reset/).
 |---|---|
 | `reset_test_database` Tauri IPC command in `src-tauri/src/commands.rs` | Dead. There is no Tauri command layer. The harness resets over JSON-RPC, in `resetDatabase()` at [wdio.server.conf.ts:140](../../tests/integration/wdio.server.conf.ts). |
 | Replace file deletion, journal unlink and the lock retries | **Delivered** by Task 73. The harness deletes no files and waits for no IPC bridge. |
-| Store reset helper `window.__TEST_RESET_STORES__` | Never built. Task 82 does not want it either: the per-test `browser.refresh()` gives the same isolation, and the plan is to drop the refresh only where a spec does not need it. |
-| Drop `browser.refresh()` between tests | **Open.** `beforeTest` still refreshes, and the specs hold 95 more `browser.refresh()` calls. |
+| Store reset helper `window.__TEST_RESET_STORES__` | Never built. [Task 82](../82-integration-db-reset/) does not want it either: the per-test `browser.refresh()` already gives that isolation for 99 ms. |
+| Drop `browser.refresh()` between tests | **Rejected on measurement.** The refresh costs 75 to 122 ms per test, about 19 s across the whole suite. It stays. |
 | Edits to `tests/integration/wdio.conf.ts` | The file is deleted. |
 | [_plan-review.md](_plan-review.md) findings | All three "Critical" items are Diesel and `State<Database>` specifics for code that no longer exists. The review is not reusable as a checklist. |
 
@@ -37,4 +37,16 @@ edits. The surviving work moved to [Task 82](../82-integration-db-reset/).
 ## Numbers
 
 The savings table in [01-task.md](01-task.md) (4 to 5 seconds per test, 39 tier-1 tests,
-"50% reduction") is Tauri-era and dead. Task 82 measures a new baseline first.
+"50% reduction") is Tauri-era and dead. Measured on 2026-09-10, on an instrumented run of
+`tier2/legal-compliance.spec.ts` (12 tests, 22.9 s):
+
+| Hook | Per test | Across all 190 tests |
+|---|---|---|
+| `resetDatabase()` | 8 to 25 ms (avg 17) | about 3.2 s |
+| `browser.refresh()` | 75 to 122 ms (avg 99) | about 19 s |
+| The test body | about 1.8 s | about 340 s |
+
+So this task's whole premise was false: the mechanism it wanted to replace costs
+milliseconds. The real levers are the CI job balance and the Docker build, which is
+[Task 83](../83-integration-test-sharding/). What survives here is correctness, in
+[Task 82](../82-integration-db-reset/).
