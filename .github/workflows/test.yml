@@ -98,22 +98,18 @@ jobs:
           retention-days: 1
 
   # Docker integration tests (Chrome against containerized web binary)
-  # One job per tier, in parallel.
+  # One job per shard, in parallel.
   integration-test-docker:
-    name: Integration Tests (Docker/Chrome - ${{ matrix.tier_name }})
+    name: Integration Tests (Docker/Chrome - Shard ${{ matrix.shard }} of 6)
     needs: [check-changes, integration-build-docker]
     if: needs.check-changes.outputs.run_tests == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - tier: '1'
-            tier_name: 'Tier 1'
-          - tier: '2'
-            tier_name: 'Tier 2'
-          - tier: '3'
-            tier_name: 'Tier 3'
+        # Shards, not tiers. The tiers group specs by meaning and are unbalanced:
+        # tier 2 ran 293 s of tests while tier 3 ran 22 s. See _tasks/83-*/01-task.md.
+        shard: [1, 2, 3, 4, 5, 6]
 
     steps:
       - name: Checkout
@@ -169,11 +165,10 @@ jobs:
           docker logs kniha-jazd-web
           exit 1
 
-      - name: Run Docker integration tests (${{ matrix.tier_name }})
+      - name: Run Docker integration tests (shard ${{ matrix.shard }})
         env:
-          TIER: ${{ matrix.tier }}
+          WDIO_SHARD: ${{ matrix.shard }}/6
           WDIO_EXTERNAL_SERVER: '1'
-          PARALLEL_TIERS: 'true'
         run: npm run test:integration:docker
 
       - name: Show container logs on failure
@@ -188,7 +183,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-screenshots-docker-${{ matrix.tier_name }}
+          name: integration-test-screenshots-docker-shard-${{ matrix.shard }}
           path: tests/integration/screenshots/
           if-no-files-found: ignore
 
