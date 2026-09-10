@@ -4,10 +4,11 @@
 
 # Result
 
-Two green runs on PR [#7](https://github.com/mcsdodo/kniha-jazd/pull/7), 6 shards each,
-70 spec executions, **zero retries**. Every timing is a first-attempt measurement.
+Three green runs on PR [#7](https://github.com/mcsdodo/kniha-jazd/pull/7), 6 shards each,
+105 spec executions, **zero retries**. Every timing is a first-attempt measurement.
 Run A is [`34480532011`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34480532011),
-run B is [`34481357652`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34481357652).
+run B is [`34481357652`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34481357652),
+run C is [`34485666118`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34485666118).
 
 | Shard | Specs | Mocha time A / B | Cold start A / B | Job total A / B |
 |---|---|---|---|---|
@@ -28,18 +29,21 @@ The two runs separate the two effects cleanly:
 - **The cold start is runner noise.** It moved from 28.7 s to 3.5 s on shard 5, and from
   12.5 s to 31.1 s on shard 3. Range across 12 samples: 3.5 s to 31.1 s.
 
-So the slowest job is not a fixed number. It is 2m42 in run A and 2m24 in run B, because
-the bad cold-start draw landed on different shards.
+So the slowest job is not a fixed number. It is 2m42 in run A, 2m24 in run B and 2m35 in
+run C, because the bad cold-start draw landed on a different shard each time. Shard 5 was
+the slowest job in two of the three runs, which is what its work load predicts.
+
+Run C job totals, for the third sample: 1m56, 1m59, 2m07, 2m20, **2m35**, 1m28.
 
 ## Speed, before and after
 
-| | Before (`34349086458`) | After, run A | After, run B |
-|---|---|---|---|
-| Slowest integration job | 5m26 (Tier 2) | **2m42** (Shard 5) | **2m24** (Shard 3) |
-| Fastest integration job | 0m56 (Tier 3) | 1m32 (Shard 6) | 1m32 (Shard 6) |
-| Integration stage wall time | 5m26 | 2m42 | 2m24 |
+| | Before (`34349086458`) | Run A | Run B | Run C |
+|---|---|---|---|---|
+| Slowest integration job | 5m26 (Tier 2) | **2m42** (Shard 5) | **2m24** (Shard 3) | **2m35** (Shard 5) |
+| Fastest integration job | 0m56 (Tier 3) | 1m32 (Shard 6) | 1m32 (Shard 6) | 1m28 (Shard 6) |
+| Integration stage wall time | 5m26 | 2m42 | 2m24 | 2m35 |
 
-The integration stage costs 164 s less in the worse of the two runs, a fall of 50%.
+The integration stage costs 164 s less in the worst of the three runs, a fall of 50%.
 
 **Do not read the full-pipeline numbers as a win from this change.** The whole run
 went from 641 s to 213 s, but 235 s of that is the Docker Image Build, which fell

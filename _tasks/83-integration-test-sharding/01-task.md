@@ -68,8 +68,8 @@ Measured on two green runs of PR [#7](https://github.com/mcsdodo/kniha-jazd/pull
 | **5** | 6 | **75.4 / 75.7 s** | **2m42** / 2m07 |
 | 6 | 5 | 31.8 / 31.8 s | 1m32 / 1m32 |
 
-The integration stage went from 5m26 to 2m42 (run A) and 2m24 (run B), a fall of about
-50%. The predicted 2m16 was not reached, for two measured reasons:
+The integration stage went from 5m26 to 2m42 (run A), 2m24 (run B) and 2m35 (run C), a
+fall of about 50%. The predicted 2m16 was not reached, for two measured reasons:
 
 - Round-robin balances spec *count*, not cost. Shard 5 holds 75.4 s of work against a
   53.4 s ideal, because `odometer-cascade` alone (30.5 s) is as large as all of shard 6.
@@ -95,8 +95,8 @@ saving is the whole of the win.
 - **Spec order changes.** Cross-spec leaks are order-dependent today:
   `datetime-is-order` fails under a full-tier run and passes alone, absorbed by
   `specFileRetries: 2`. Land [Task 82](../82-integration-db-reset/) first.
-  *Outcome:* two runs passed all 35 specs with zero retries each, so the new order
-  surfaced no leak in 70 spec executions. That is not a proof. Keep the Task 82 dependency.
+  *Outcome:* three runs passed all 35 specs with zero retries each, so the new order
+  surfaced no leak in 105 spec executions. That is not a proof. Keep the Task 82 dependency.
 - Screenshot artifact names are keyed on `matrix.tier_name`
   ([test.yml:191](../../.github/workflows/test.yml)) and must follow the matrix.
 
