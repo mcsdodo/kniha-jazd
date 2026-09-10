@@ -54,35 +54,37 @@ files. See [02-plan.md](02-plan.md) for the implementation.
 
 ## Result
 
-Measured on run [`34480532011`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34480532011),
-6 shards, all green, no retries. Full numbers in [03-results.md](03-results.md).
+Measured on two green runs of PR [#7](https://github.com/mcsdodo/kniha-jazd/pull/7),
+[`34480532011`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34480532011) (A) and
+[`34481357652`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34481357652) (B).
+70 spec executions, zero retries. Full numbers in [03-results.md](03-results.md).
 
-| Shard | Specs | Mocha time | Test step | Job total |
-|---|---|---|---|---|
-| 1 | 6 | 47.2 s | 74 s | 1m48 |
-| 2 | 6 | 42.8 s | 81 s | 1m58 |
-| 3 | 6 | 61.7 s | 91 s | 2m14 |
-| 4 | 6 | 61.7 s | 87 s | 2m08 |
-| **5** | 6 | **75.4 s** | **124 s** | **2m42** |
-| 6 | 5 | 31.8 s | 58 s | 1m32 |
+| Shard | Specs | Mocha time A / B | Job total A / B |
+|---|---|---|---|
+| 1 | 6 | 47.2 / 48.6 s | 1m48 / 2m00 |
+| 2 | 6 | 42.8 / 42.8 s | 1m58 / 1m46 |
+| 3 | 6 | 61.7 / 60.3 s | 2m14 / **2m24** |
+| 4 | 6 | 61.7 / 64.0 s | 2m08 / 2m10 |
+| **5** | 6 | **75.4 / 75.7 s** | **2m42** / 2m07 |
+| 6 | 5 | 31.8 / 31.8 s | 1m32 / 1m32 |
 
-The integration stage went from 5m26 to 2m42, a fall of 50%. The predicted 2m16 was
-not reached, for two measured reasons:
+The integration stage went from 5m26 to 2m42 (run A) and 2m24 (run B), a fall of about
+50%. The predicted 2m16 was not reached, for two measured reasons:
 
 - Round-robin balances spec *count*, not cost. Shard 5 holds 75.4 s of work against a
   53.4 s ideal, because `odometer-cascade` alone (30.5 s) is as large as all of shard 6.
+  This part is deterministic: it reproduced within 0.3 s across the two runs.
 - The first worker of each job pays a Chrome cold start that the projection folded into
-  a flat per-spec constant. It is per-job, not per-spec, and it varied from 8.5 s to
-  28.7 s across the six. Shard 5 drew the worst one.
+  a flat per-spec constant. It is per-job, not per-spec, and it ranged from 3.5 s to
+  31.1 s across the 12 samples. Run A put the worst draw on the heaviest shard.
 
-The projection said 2m16. The two corrections above account for the 26 s gap.
-
-**Follow-up:** a duration-weighted split cuts the spread from 43.6 s to 0.9 s and the
-slowest job to about 2m03. See [03-results.md](03-results.md), "The split needs
-duration weighting".
+**Follow-up:** a duration-weighted split cuts the work spread from 43.6 s to 0.9 s.
+That matters in the worst case: with round-robin the slowest job is `75.7 s + a 31 s cold
+start`, about 2m42, so it cannot hold under the 2m30 target. Weighted, it is about 2m20 on
+every draw. See [03-results.md](03-results.md), "The split needs duration weighting".
 
 Pipeline effect: this task does not touch the 4m33 Docker Image Build, so the stage
-saving of 2m44 is the whole of the win.
+saving is the whole of the win.
 
 ## Risks
 
@@ -93,8 +95,8 @@ saving of 2m44 is the whole of the win.
 - **Spec order changes.** Cross-spec leaks are order-dependent today:
   `datetime-is-order` fails under a full-tier run and passes alone, absorbed by
   `specFileRetries: 2`. Land [Task 82](../82-integration-db-reset/) first.
-  *Outcome:* run `34480532011` passed all 35 specs with zero retries, so the new order
-  surfaced no leak. That is one sample, not a proof. Keep the Task 82 dependency.
+  *Outcome:* two runs passed all 35 specs with zero retries each, so the new order
+  surfaced no leak in 70 spec executions. That is not a proof. Keep the Task 82 dependency.
 - Screenshot artifact names are keyed on `matrix.tier_name`
   ([test.yml:191](../../.github/workflows/test.yml)) and must follow the matrix.
 
@@ -102,7 +104,8 @@ saving of 2m44 is the whole of the win.
 
 - [x] The matrix runs shards, not tiers, and every spec file runs exactly once.
 - [ ] Slowest integration job is under 2m30 on a green run (predicted 2m16).
-      **Missed: 2m42.** See [03-results.md](03-results.md); duration weighting closes it.
+      **Not held: 2m42 in run A, 2m24 in run B.** It depends on where the cold-start draw
+      lands. Duration weighting makes it hold on every draw; see [03-results.md](03-results.md).
 - [x] `npm run test:integration:tier1` still works locally, unchanged.
 - [x] Screenshot artifacts still upload with distinct names.
 - [x] Verify shard balance from the step timings of the first green run. Done, and the
