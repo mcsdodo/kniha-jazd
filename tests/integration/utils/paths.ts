@@ -68,3 +68,7 @@ export function backendWorkPath(...segments: string[]): string {
     ? [CONTAINER_WORK_ROOT, ...segments].join('/')
     : join(hostWorkDir(), ...segments);
 }
+
+// Benchmark branch only: forces check-changes to run the integration matrix, so the
+// tier implementation can be timed on the same day and the same runner pool as the
+// sharded matrix in PR #7. Not for merge.
