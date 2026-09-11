@@ -1,6 +1,6 @@
 **Date:** 2026-09-11
 **Subject:** Code review of task 84 (branch `feat/84-paperless-only-invoices`)
-**Status:** Review complete
+**Status:** Review complete; all findings resolved
 **Range:** `2d3d6200..7cc5eb99` (12 commits, 98 files, +3888 / -16812)
 
 # 84 -- Code Review
@@ -317,3 +317,49 @@ Paperless first.
 Suggested order: C1, then I3 (it changes where the I2 and I4 edits land), then
 I1, then the CHANGELOG/DECISIONS pass (I8, I6), then fold the Minor items into
 one cleanup commit.
+
+## Resolution (2026-09-11)
+
+Every finding above was fixed on the branch. Commits `ba9decf`, `949fae9`,
+`ebae65a`, `5e36299`, `62e93af`.
+
+| Finding | Resolution |
+|---|---|
+| C1 rescue script | **Script deleted** at the user's direction, not repaired. All six documents now state the real upgrade path: 51 unassigned receipts are discarded, with the export command. The pre-migration backup is documented as an offline `sqlite3` read, never a restore. |
+| I1 nav badge | `src/lib/stores/invoices.ts` restores the trigger; fires on assign, unassign, trip save and trip delete. |
+| I2 repair UNIQUE violation | `MIN(paperless_document_id)` predicate added. The vacuous test now stands at the repair's own boundary and was proven to fail without the guard (`UniqueViolation`). |
+| I3 migration ordering | Repair folded into `2026-09-11-130000_drop_receipts`; the `125000` folder is gone. |
+| I4 ambiguous retype | Trips carrying both a Fuel and an Other receipt are skipped. |
+| I5 dead command | `get_invoice_source_mode`, both helpers, the enum and 7 tests removed. |
+| I6 losses table | Gap item 10 added to the design; tech-debt item 7 added. Two of the three found losses were fixed rather than accepted. |
+| I7 undismissable warning | Both empty-trip branches share `datetime_only_result`; the picker gates the override on the mismatch reason, so `matches_date` survives and is confirmable. |
+| I8 CHANGELOG / ADR | Entries added for the persisted override, Paperless datetime warnings and the link repair; section order fixed; 4 superseded ADRs marked inline. |
+| Minor items | All applied: dead i18n keys, `_tasks/index.md` row, settings sample, stale command counts, override-on-reassign, allocation hoist, `NotConfigured` marker, dead `hasMismatch` rune, `Dockerfile.web` comment, task-83 sharding drift. |
+
+### Verification after the fixes
+
+| Gate | Result |
+|---|---|
+| `cargo test --workspace` | 681 passed, 0 failed |
+| `npm run test:integration` (full) | 33 of 33 spec files, no retries |
+| `npm run check` | 0 errors |
+| `npm run i18n` | idempotent, no drift |
+
+### Production rehearsal, on the real database
+
+Synced with [data/sync-from-prod.sh](../../data/sync-from-prod.sh) and run under
+[docker-compose.web.yml](../../docker-compose.web.yml).
+
+| Check | Result |
+|---|---|
+| Container start | healthy, no migration panic |
+| Migrations applied | `20260911120000`, `20260911130000` |
+| `receipts` | dropped |
+| Repair effect | Fuel links 7 -> 18; false "missing fuel invoice" 67 -> 56 |
+| `integrity_check` / `foreign_key_check` | ok / clean |
+| Pre-migration backup | `sha256 f5090af4...`, byte-identical to the synced prod file |
+| App over RPC | v0.44.0, Normal mode, grid renders 111 trips (2026) and 84 (2024) |
+| `count_unlinked_paperless_fuel_invoices` | returns 1 against the live Paperless API |
+
+The backup is an untouched copy. The migrated database differs from it in exactly
+the three intended ways: two new columns, 11 links retyped, `receipts` gone.
