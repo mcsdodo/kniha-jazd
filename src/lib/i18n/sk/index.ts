@@ -695,6 +695,10 @@ const sk = {
 			unassignedToast: 'Priradenie dokladu bolo zrušené',
 			assignError: 'Nepodarilo sa prideliť doklad: {error:string}',
 			unassignError: 'Nepodarilo sa zrušiť priradenie dokladu',
+			overrideConfirmed: 'Potvrdené napriek nezhode',
+			clearOverride: 'Zrušiť potvrdenie',
+			overrideClearedToast: 'Potvrdenie nezhody bolo zrušené',
+			overrideError: 'Nepodarilo sa zrušiť potvrdenie: {error:string}',
 		},
 	},
 } satisfies BaseTranslation;

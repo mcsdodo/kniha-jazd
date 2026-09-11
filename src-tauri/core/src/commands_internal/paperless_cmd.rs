@@ -74,19 +74,28 @@ pub async fn get_paperless_invoices_internal(
     let doc_ids: Vec<i64> = docs.iter().map(|d| d.id).collect();
     let links = db.list_paperless_links_for_docs(&doc_ids)
         .map_err(|e| PaperlessError::Parse(e.to_string()))?;
-    let link_map: std::collections::HashMap<i64, String> = links
-        .into_iter()
-        .map(|l| (l.paperless_document_id, l.trip_id))
-        .collect();
+    let link_map = link_lookup(links);
 
     Ok(docs.into_iter().map(|d| PaperlessInvoiceRow {
         paperless_url: format!("{}/documents/{}/", base, d.id),
-        trip_id: link_map.get(&d.id).cloned(),
+        trip_id: link_map.get(&d.id).map(|(trip_id, _)| trip_id.clone()),
+        mismatch_override: link_map.get(&d.id).map(|(_, o)| *o).unwrap_or(false),
         assignment_type: map_assignment(&d.tag_ids, fuel_id, car_id),
         paperless_document_id: d.id, title: d.title,
         total_price_eur: d.total_amount, liters: d.litres,
         receipt_datetime: d.receipt_datetime, created_date: d.created,
     }).collect())
+}
+
+/// Map doc id -> (linked trip id, mismatch-override flag). Rows with no link
+/// are absent, so the caller reads `false`/`None` for them.
+fn link_lookup(
+    links: Vec<crate::models::PaperlessLink>,
+) -> std::collections::HashMap<i64, (String, bool)> {
+    links
+        .into_iter()
+        .map(|l| (l.paperless_document_id, (l.trip_id, l.mismatch_override)))
+        .collect()
 }
 
 /// Count fuel-tagged docs that are not linked to a trip yet.

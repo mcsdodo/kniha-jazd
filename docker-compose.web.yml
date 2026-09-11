@@ -13,6 +13,4 @@ services:
       - DATABASE_PATH=/data/kniha-jazd.db
       - KNIHA_JAZD_DATA_DIR=/data
       - PORT=3456
-      # Uncomment for receipt OCR:
-      # - GEMINI_API_KEY=your-key
     restart: unless-stopped

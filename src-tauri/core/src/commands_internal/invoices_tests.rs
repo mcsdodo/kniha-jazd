@@ -78,7 +78,7 @@ fn assign_paperless_populates_trip_fuel_when_empty() {
 }
 
 #[test]
-fn assign_invoice_blocked_when_read_only() {
+fn assign_paperless_invoice_blocked_when_read_only() {
     let db = Database::in_memory().unwrap();
     let v = db_tests::create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
@@ -219,4 +219,187 @@ fn unassign_dispatches_paperless_source() {
     .unwrap();
     unassign_paperless_invoice_internal(&db, &app_state, 435).unwrap();
     assert!(db.get_paperless_link(435).unwrap().is_none());
+}
+
+// ============================================================================
+// Other-cost note append/strip and unassign edge cases (ported from the
+// deleted local-receipt coverage in task 84).
+// ============================================================================
+
+/// Seed a trip with a known `other_costs_eur` / `other_costs_note` and return
+/// its id.
+fn seed_other_trip(
+    db: &Database,
+    vehicle_id: &str,
+    eur: Option<f64>,
+    note: Option<&str>,
+) -> String {
+    let trip_id = db_tests::seed_test_trip(db, vehicle_id);
+    let mut trip = db.get_trip(&trip_id).unwrap().unwrap();
+    trip.other_costs_eur = eur;
+    trip.other_costs_note = note.map(|s| s.to_string());
+    db.update_trip(&trip).unwrap();
+    trip_id
+}
+
+#[test]
+fn other_assign_appends_title_to_note_and_unassign_strips_it() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = seed_other_trip(&db, &v.id.to_string(), Some(10.0), Some("Manual note"));
+    let trip = db.get_trip(&trip_id).unwrap().unwrap();
+
+    let applied = apply_other_amount(&db, &trip, Some(5.0), "AutoWash", false).unwrap();
+    assert_eq!(applied, Some(500), "5.00 EUR applied in cents");
+
+    let updated = db.get_trip(&trip_id).unwrap().unwrap();
+    assert_eq!(updated.other_costs_eur, Some(15.0));
+    assert_eq!(
+        updated.other_costs_note.as_deref(),
+        Some("Manual note; AutoWash"),
+        "the doc title is appended as a note segment"
+    );
+
+    remove_other_contribution(&db, &trip_id, 500, Some("AutoWash")).unwrap();
+    let restored = db.get_trip(&trip_id).unwrap().unwrap();
+    assert_eq!(restored.other_costs_eur, Some(10.0), "restored bit-exact");
+    assert_eq!(restored.other_costs_note.as_deref(), Some("Manual note"));
+}
+
+#[test]
+fn other_assign_populates_empty_note_with_title_then_unassign_clears_both() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = seed_other_trip(&db, &v.id.to_string(), None, None);
+    let trip = db.get_trip(&trip_id).unwrap().unwrap();
+
+    apply_other_amount(&db, &trip, Some(15.0), "Toll", false).unwrap();
+    let updated = db.get_trip(&trip_id).unwrap().unwrap();
+    assert_eq!(updated.other_costs_eur, Some(15.0));
+    assert_eq!(updated.other_costs_note.as_deref(), Some("Toll"));
+
+    remove_other_contribution(&db, &trip_id, 1500, Some("Toll")).unwrap();
+    let restored = db.get_trip(&trip_id).unwrap().unwrap();
+    assert_eq!(
+        restored.other_costs_eur, None,
+        "zero result stored as None, not Some(0.0)"
+    );
+    assert_eq!(restored.other_costs_note, None, "whole-note segment removed");
+}
+
+#[test]
+fn strip_note_segment_removes_whole_suffix_and_prefix() {
+    assert_eq!(strip_note_segment(Some("Toll".into()), "Toll"), None);
+    assert_eq!(
+        strip_note_segment(Some("Manual; Toll".into()), "Toll").as_deref(),
+        Some("Manual"),
+        "suffix segment removed"
+    );
+    assert_eq!(
+        strip_note_segment(Some("Toll; Manual".into()), "Toll").as_deref(),
+        Some("Manual"),
+        "prefix segment removed"
+    );
+    assert_eq!(
+        strip_note_segment(Some("Something else entirely".into()), "Toll").as_deref(),
+        Some("Something else entirely"),
+        "edited note left untouched"
+    );
+}
+
+#[test]
+fn unassign_leaves_manually_edited_note_untouched() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = seed_other_trip(&db, &v.id.to_string(), Some(10.0), Some("Manual note"));
+    let trip = db.get_trip(&trip_id).unwrap().unwrap();
+
+    apply_other_amount(&db, &trip, Some(5.0), "AutoWash", false).unwrap();
+
+    // User edits the note after assigning, dropping the appended segment.
+    let mut edited = db.get_trip(&trip_id).unwrap().unwrap();
+    edited.other_costs_note = Some("Something else entirely".to_string());
+    db.update_trip(&edited).unwrap();
+
+    remove_other_contribution(&db, &trip_id, 500, Some("AutoWash")).unwrap();
+    let restored = db.get_trip(&trip_id).unwrap().unwrap();
+    assert_eq!(
+        restored.other_costs_note.as_deref(),
+        Some("Something else entirely"),
+        "user-edited note left untouched"
+    );
+    assert_eq!(restored.other_costs_eur, Some(10.0));
+}
+
+#[test]
+fn unassign_after_manual_overwrite_below_applied_clamps_to_none() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = seed_other_trip(&db, &v.id.to_string(), Some(10.0), None);
+    let trip = db.get_trip(&trip_id).unwrap().unwrap();
+
+    apply_other_amount(&db, &trip, Some(5.01), "Parking", false).unwrap();
+    assert_eq!(db.get_trip(&trip_id).unwrap().unwrap().other_costs_eur, Some(15.01));
+
+    // User hand-edits the total below the applied snapshot.
+    let mut edited = db.get_trip(&trip_id).unwrap().unwrap();
+    edited.other_costs_eur = Some(3.0);
+    db.update_trip(&edited).unwrap();
+
+    remove_other_contribution(&db, &trip_id, 501, Some("Parking")).unwrap();
+    assert_eq!(
+        db.get_trip(&trip_id).unwrap().unwrap().other_costs_eur,
+        None,
+        "clamped-to-zero result stored as None"
+    );
+}
+
+#[test]
+fn remove_other_contribution_tolerates_orphaned_link() {
+    let db = Database::in_memory().unwrap();
+    // No trip exists with this id: an orphaned link must be a no-op, not an error.
+    remove_other_contribution(&db, "00000000-0000-0000-0000-0000000000ff", 500, Some("Toll"))
+        .expect("orphaned link must not error");
+}
+
+#[test]
+fn unassign_orphaned_paperless_link_succeeds_without_trip() {
+    use diesel::RunQueryDsl;
+
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = seed_other_trip(&db, &v.id.to_string(), Some(10.0), None);
+    let app_state = AppState::new();
+    db.upsert_paperless_link(&crate::models::PaperlessLink {
+        paperless_document_id: 435,
+        trip_id: trip_id.clone(),
+        assignment_type: AssignmentType::Other,
+        amount_eur: Some(5.0),
+        title: Some("Parking".to_string()),
+        applied_amount_cents: Some(500),
+        receipt_datetime: None,
+        mismatch_override: false,
+    })
+    .unwrap();
+
+    // Orphan the link the way production data got orphaned (trips deleted by
+    // app versions predating FK enforcement): delete with FKs suspended.
+    {
+        let conn = &mut *db.connection();
+        diesel::sql_query("PRAGMA foreign_keys = OFF").execute(conn).unwrap();
+        diesel::sql_query(format!("DELETE FROM trips WHERE id = '{}'", trip_id))
+            .execute(conn)
+            .unwrap();
+        diesel::sql_query("PRAGMA foreign_keys = ON").execute(conn).unwrap();
+    }
+    assert!(db.get_trip(&trip_id).unwrap().is_none(), "trip gone");
+
+    unassign_paperless_invoice_internal(&db, &app_state, 435)
+        .expect("orphaned link unassign must not error");
+    assert!(db.get_paperless_link(435).unwrap().is_none(), "link deleted");
 }

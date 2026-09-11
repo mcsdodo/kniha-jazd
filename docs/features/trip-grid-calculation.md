@@ -206,13 +206,13 @@ itself and silence the span warnings (see [trip-odometer-cascade.md](./trip-odom
 - Odometer span warnings flag rows whose odometer disagrees with their recorded
   kilometres; tied-datetime warnings explain same-timestamp groups. Neither blocks the
   save — see [trip-odometer-cascade.md](./trip-odometer-cascade.md) and [ADR-042](../../DECISIONS.md).
-- Missing-receipt warnings are computed per type (missing fuel invoice / missing other
-  invoice) from the union of local receipts and Paperless links, with zero-value costs
+- Missing-invoice warnings are computed per type (missing fuel invoice / missing other
+  invoice) from the Paperless links, with zero-value costs
   deliberately excluded -- see [multi-invoice.md](./multi-invoice.md).
 - Invoice-datetime warnings (`fuelDatetimeWarnings` / `otherDatetimeWarnings`) flag a trip
   whose **assigned** invoice carries a datetime outside the trip's start-end range. All
   invoices of a trip are checked, not only the first, and the warning is split by
-  assignment type. A legacy receipt assigned before the type existed counts as fuel.
+  assignment type.
 
 ### Month-End Summary Rows
 

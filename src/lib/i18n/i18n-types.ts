@@ -2296,6 +2296,23 @@ type RootTranslation = {
 			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u
 			 */
 			unassignError: string
+			/**
+			 * P​o​t​v​r​d​e​n​é​ ​n​a​p​r​i​e​k​ ​n​e​z​h​o​d​e
+			 */
+			overrideConfirmed: string
+			/**
+			 * Z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
+			 */
+			clearOverride: string
+			/**
+			 * P​o​t​v​r​d​e​n​i​e​ ​n​e​z​h​o​d​y​ ​b​o​l​o​ ​z​r​u​š​e​n​é
+			 */
+			overrideClearedToast: string
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			overrideError: RequiredParams<'error'>
 		}
 	}
 }
@@ -4523,6 +4540,22 @@ export type TranslationFunctions = {
 			 * Nepodarilo sa zrušiť priradenie dokladu
 			 */
 			unassignError: () => LocalizedString
+			/**
+			 * Potvrdené napriek nezhode
+			 */
+			overrideConfirmed: () => LocalizedString
+			/**
+			 * Zrušiť potvrdenie
+			 */
+			clearOverride: () => LocalizedString
+			/**
+			 * Potvrdenie nezhody bolo zrušené
+			 */
+			overrideClearedToast: () => LocalizedString
+			/**
+			 * Nepodarilo sa zrušiť potvrdenie: {error}
+			 */
+			overrideError: (arg: { error: string }) => LocalizedString
 		}
 	}
 }

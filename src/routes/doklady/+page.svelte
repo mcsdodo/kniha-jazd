@@ -123,6 +123,17 @@
 			invoiceToUnassign = null;
 		}
 	}
+
+	async function handleClearOverride(row: PaperlessInvoiceRow) {
+		try {
+			await api.revertPaperlessOverride(row.paperlessDocumentId);
+			await loadInvoices();
+			toast.success($LL.doklady.paperless.overrideClearedToast());
+		} catch (error) {
+			console.error('Failed to clear override:', error);
+			toast.error($LL.doklady.paperless.overrideError({ error: String(error) }));
+		}
+	}
 </script>
 
 <div class="doklady-page">
@@ -181,6 +192,11 @@
 									{:else}
 										<span class="badge danger">{$LL.doklady.paperless.unassigned()}</span>
 									{/if}
+									{#if row.tripId && row.mismatchOverride}
+										<span class="badge override" data-test="override-chip">
+											{$LL.doklady.paperless.overrideConfirmed()}
+										</span>
+									{/if}
 								</div>
 							</div>
 							<div class="receipt-details">
@@ -223,6 +239,16 @@
 									>
 										{$LL.doklady.paperless.unassign()}
 									</button>
+									{#if row.mismatchOverride}
+										<button
+											type="button"
+											class="button-small"
+											data-test="clear-override-btn"
+											onclick={() => handleClearOverride(row)}
+										>
+											{$LL.doklady.paperless.clearOverride()}
+										</button>
+									{/if}
 								{:else}
 									<button
 										type="button"
@@ -372,6 +398,12 @@
 	.badge.danger {
 		background: var(--toast-error-bg);
 		color: var(--toast-error-color);
+	}
+
+	.badge.override {
+		background: var(--warning-bg);
+		color: var(--text-primary);
+		border: 1px solid var(--warning-border);
 	}
 
 	.receipt-details {

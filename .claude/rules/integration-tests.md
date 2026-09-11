@@ -220,7 +220,7 @@ folder; Docker mode uses the bind-mounted `/data`. A command that resolves its o
 path instead of using the server's data directory will read and write somewhere the
 test never looks.
 
-**Solution:** Resolve receipts/backups/DB paths from the data directory the server
+**Solution:** Resolve backups and DB paths from the data directory the server
 was configured with, never from a hardcoded or platform-derived location.
 
 **Lesson:** When adding new commands that read/write to app data, grep for existing
@@ -228,12 +228,12 @@ patterns and use the same helper.
 
 ## Settings Pinned by the Environment
 
-WebdriverIO auto-loads the repo's `.env`. A real `PAPERLESS_API_TOKEN` or
-`GEMINI_API_KEY` there would pin those settings in the spawned server and make the
-setter guards reject writes, failing specs with "... is managed by the ...
-environment variable". `wdio.server.conf.ts` blanks every overridable variable
-(`SCRUBBED_ENV`) for normal runs; the `env` suite (`WDIO_ENV_PINNED=1`,
-`npm run test:integration:docker:env`) deliberately sets them instead.
+WebdriverIO auto-loads the repo's `.env`. A real `PAPERLESS_API_TOKEN` there would
+pin that setting in the spawned server and make the setter guards reject writes,
+failing specs with "... is managed by the ... environment variable".
+`wdio.server.conf.ts` blanks every overridable variable (`SCRUBBED_ENV`) for normal
+runs; the `env` suite (`WDIO_ENV_PINNED=1`, `npm run test:integration:docker:env`)
+deliberately sets them instead.
 
 ## SvelteKit Component Caching
 
@@ -249,15 +249,15 @@ environment variable". `wdio.server.conf.ts` blanks every overridable variable
 
 ```typescript
 // ❌ BAD - component may be cached
-await setGeminiApiKey(testApiKey);
+await rpc<void>('save_paperless_settings', { url: mockUrl, token: MOCK_PAPERLESS_TOKEN });
 await navigateTo('settings');
-const value = await apiKeyInput.getValue(); // Empty!
+const value = await paperlessUrlInput.getValue(); // Empty!
 
 // ✅ GOOD - force remount by navigating away first
-await setGeminiApiKey(testApiKey);
-await navigateTo('trips');      // Navigate away
-await navigateTo('settings');   // Now onMount runs fresh
-const value = await apiKeyInput.getValue(); // Has value!
+await rpc<void>('save_paperless_settings', { url: mockUrl, token: MOCK_PAPERLESS_TOKEN });
+await navigateTo('trips');           // Navigate away
+await navigateTo('settings');        // Now onMount runs fresh
+const value = await paperlessUrlInput.getValue(); // Has value!
 ```
 
 ## File System Sync in CI
@@ -277,10 +277,10 @@ file.sync_all()?;  // Force flush to disk
 **Problem:** Rust's `Option<String>` serializes to `null` in JSON when `None`, not `""`.
 
 ```rust
-settings.gemini_api_key = if api_key.is_empty() {
+settings.paperless_api_token = if token.is_empty() {
     None  // Becomes null in JSON
 } else {
-    Some(api_key)
+    Some(token)
 };
 ```
 
@@ -288,10 +288,10 @@ settings.gemini_api_key = if api_key.is_empty() {
 
 ```typescript
 // ❌ BAD
-expect(cleanSettings?.geminiApiKey).toBe('');
+expect(cleanSettings?.paperlessApiToken).toBe('');
 
 // ✅ GOOD
-expect(cleanSettings?.geminiApiKey).toBeNull();
+expect(cleanSettings?.paperlessApiToken).toBeNull();
 ```
 
 ## Waiting for the Server

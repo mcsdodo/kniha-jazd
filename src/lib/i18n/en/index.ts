@@ -694,6 +694,10 @@ const en = {
 			unassignedToast: 'Invoice unassigned from trip',
 			assignError: 'Failed to assign invoice: {error}',
 			unassignError: 'Failed to unassign invoice',
+			overrideConfirmed: 'Confirmed despite mismatch',
+			clearOverride: 'Clear confirmation',
+			overrideClearedToast: 'Mismatch confirmation cleared',
+			overrideError: 'Failed to clear confirmation: {error}',
 		},
 	},
 } satisfies Translation;

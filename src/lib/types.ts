@@ -420,6 +420,9 @@ export interface PaperlessInvoiceRow {
 	createdDate: string;              // "2026-04-27"
 	assignmentType: AssignmentType;
 	tripId: string | null;
+	/** True when the user confirmed a data mismatch when assigning and has not
+	 *  cleared it. Only meaningful when tripId is set. */
+	mismatchOverride: boolean;
 }
 
 // Route map types (Task 70)

@@ -546,6 +546,9 @@ pub struct PaperlessInvoiceRow {
     pub created_date: chrono::NaiveDate,
     pub assignment_type: AssignmentType,
     pub trip_id: Option<String>,
+    /// True when the user confirmed a data mismatch at assign time and has not
+    /// since cleared it. Only meaningful when `trip_id` is set.
+    pub mismatch_override: bool,
 }
 
 // =============================================================================

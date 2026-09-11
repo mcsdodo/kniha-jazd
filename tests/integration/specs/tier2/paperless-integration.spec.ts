@@ -357,4 +357,73 @@ describe('Tier 2: Paperless Integration', () => {
     expect(await emptyState.getText()).toContain('Paperless-ngx is not configured.');
     expect(await $$('[data-test="paperless-row"]').length).toBe(0);
   });
+
+  it('override assignment shows a chip that can be cleared', async () => {
+    const vehicle = await seedVehicle({
+      name: 'Override Test Car',
+      licensePlate: 'OVR-001',
+      initialOdometer: 10000,
+      tankSizeLiters: 60,
+      tpConsumption: 6.5,
+    });
+    const trip = await seedTrip({
+      vehicleId: vehicle.id as string,
+      startDatetime: `${year}-04-27T08:00`,
+      endDatetime: `${year}-04-27T09:30`,
+      origin: 'Bratislava',
+      destination: 'Nitra',
+      distanceKm: 60,
+      odometer: 10060,
+      purpose: 'Sluzobna cesta',
+    });
+    await setActiveVehicle(vehicle.id as string);
+
+    await rpc<void>('save_paperless_settings', {
+      url: mockUrl,
+      token: MOCK_PAPERLESS_TOKEN,
+    });
+
+    // Assign with the override flag set: the row must render the override chip.
+    await rpc<void>('assign_paperless_invoice', {
+      docId: 435,
+      tripId: trip.id,
+      vehicleId: vehicle.id,
+      assignmentType: 'Fuel',
+      mismatchOverride: true,
+    });
+
+    // Force a fresh mount: an earlier spec may have left the browser on
+    // /doklady, and SvelteKit does not remount a route it is already on.
+    await navigateTo('trips');
+    await navigateTo('doklady');
+    const chip = await $(
+      '[data-test="paperless-row"][data-doc-id="435"] [data-test="override-chip"]'
+    );
+    await chip.waitForDisplayed({ timeout: 10000 });
+
+    const clearBtn = await $(
+      '[data-test="paperless-row"][data-doc-id="435"] [data-test="clear-override-btn"]'
+    );
+    await clearBtn.waitForDisplayed({ timeout: 5000 });
+    await clearBtn.click();
+
+    // Poll the DOM directly: the chip's element reference goes stale when the
+    // row re-renders, which makes isExisting() on it fail on some Chrome builds.
+    await browser.waitUntil(
+      async () =>
+        await browser.execute(
+          () =>
+            !document.querySelector(
+              '[data-test="paperless-row"][data-doc-id="435"] [data-test="override-chip"]'
+            )
+        ),
+      { timeout: 5000, timeoutMsg: 'Override chip did not disappear after clearing' }
+    );
+
+    // Clearing the override keeps the link: the row stays assigned.
+    const indicator = await $(
+      '[data-test="paperless-row"][data-doc-id="435"] [data-test="trip-indicator"]'
+    );
+    expect(await indicator.isDisplayed()).toBe(true);
+  });
 });

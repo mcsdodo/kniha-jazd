@@ -49,14 +49,14 @@ All business logic and calculations live in Rust backend only (ADR-008):
 ├─────────────────────────────────────────────────┤
 │  kniha-jazd-core  -  all business logic         │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
-│  │ calculations │  │ suggestions  │  │  receipts  │
+│  │ calculations │  │ suggestions  │  │ paperless  │
 │  └──────────────┘  └──────────────┘  └────────────┘
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
-│  │      db      │  │    export    │  │   gemini   │
+│  │      db      │  │    export    │  │  invoice   │
 │  └──────────────┘  └──────────────┘  └────────────┘
-│  ┌──────────────┐  ┌──────────────┐               │
-│  │    server    │  │  app_state   │               │
-│  └──────────────┘  └──────────────┘               │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
+│  │    server    │  │  app_state   │  │   models   │
+│  └──────────────┘  └──────────────┘  └────────────┘
 ├─────────────────────────────────────────────────┤
 │      SQLite Database  -  one /data volume       │
 └─────────────────────────────────────────────────┘
@@ -250,7 +250,7 @@ machine.
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
-| `KNIHA_JAZD_DATA_DIR` | `/data` | Directory holding the DB, receipts and backups |
+| `KNIHA_JAZD_DATA_DIR` | `/data` | Directory holding the DB and backups |
 | `DATABASE_PATH` | `<DATA_DIR>/kniha-jazd.db` | Override just the DB file path |
 | `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets; leave unset in local dev so vite serves the UI |
 | `PORT` | `3456` | HTTP listen port |

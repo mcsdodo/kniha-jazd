@@ -28,18 +28,6 @@ export const TOAST_TYPES = {
 export type ToastType = (typeof TOAST_TYPES)[keyof typeof TOAST_TYPES];
 
 // =============================================================================
-// Confidence Levels
-// =============================================================================
-
-export const CONFIDENCE_LEVELS = {
-	HIGH: 'High',
-	MEDIUM: 'Medium',
-	LOW: 'Low',
-	UNKNOWN: 'Unknown'
-} as const;
-export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[keyof typeof CONFIDENCE_LEVELS];
-
-// =============================================================================
 // Theme Modes
 // =============================================================================
 
@@ -109,19 +97,6 @@ export const MISMATCH_REASONS = {
 	ALL: 'all'
 } as const;
 export type MismatchReason = (typeof MISMATCH_REASONS)[keyof typeof MISMATCH_REASONS];
-
-// =============================================================================
-// Currencies
-// =============================================================================
-
-export const CURRENCIES = {
-	EUR: 'EUR',
-	CZK: 'CZK',
-	HUF: 'HUF',
-	PLN: 'PLN'
-} as const;
-export type Currency = (typeof CURRENCIES)[keyof typeof CURRENCIES];
-export const PRIMARY_CURRENCY = CURRENCIES.EUR;
 
 // =============================================================================
 // Locales
