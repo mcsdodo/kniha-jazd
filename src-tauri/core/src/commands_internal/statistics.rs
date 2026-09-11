@@ -1415,7 +1415,8 @@ pub fn calculate_invoice_datetime_warnings(
     let mut fuel = HashSet::new();
     let mut other = HashSet::new();
     for trip in trips {
-        for link in links.iter().filter(|l| l.trip_id == trip.id.to_string()) {
+        let trip_id = trip.id.to_string();
+        for link in links.iter().filter(|l| l.trip_id == trip_id) {
             let Some(dt) = link.receipt_datetime else { continue };
             if is_datetime_in_trip_range(dt, trip) {
                 continue;
@@ -1437,7 +1438,8 @@ pub fn calculate_invoice_override_warnings(
     let mut fuel = HashSet::new();
     let mut other = HashSet::new();
     for trip in trips {
-        for link in links.iter().filter(|l| l.trip_id == trip.id.to_string()) {
+        let trip_id = trip.id.to_string();
+        for link in links.iter().filter(|l| l.trip_id == trip_id) {
             if !link.mismatch_override {
                 continue;
             }

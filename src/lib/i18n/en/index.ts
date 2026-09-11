@@ -172,15 +172,11 @@ const en = {
 		// Tooltips/indicators
 		partialFillup: 'Partial fillup',
 		partialCharge: 'Partial charge',
-		noReceipt: 'No receipt',
 		estimatedRate: 'Estimated from TP',
 		estimatedEnergyRate: 'Estimated from baseline consumption',
-		receiptDatetimeMismatch: 'Receipt datetime outside trip range',
-		receiptDatetimeMismatchWithRange: 'Receipt datetime outside trip range (trip {timeRange})',
 		// Legend
 		legend: {
 			partialFillup: 'partial fillup',
-			noReceipt: 'no receipt',
 			highConsumption: 'high consumption',
 			suggestedFillup: 'Suggested fillup: {liters} L → {rate} l/100km',
 			receiptDatetimeMismatch: 'receipt datetime outside trip range',

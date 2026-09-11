@@ -533,10 +533,6 @@ type RootTranslation = {
 		 */
 		partialCharge: string
 		/**
-		 * B​e​z​ ​d​o​k​l​a​d​u
-		 */
-		noReceipt: string
-		/**
 		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​T​P
 		 */
 		estimatedRate: string
@@ -544,24 +540,11 @@ type RootTranslation = {
 		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​z​á​k​l​a​d​n​e​j​ ​s​p​o​t​r​e​b​y
 		 */
 		estimatedEnergyRate: string
-		/**
-		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y
-		 */
-		receiptDatetimeMismatch: string
-		/**
-		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y​ ​(​j​a​z​d​a​ ​{​t​i​m​e​R​a​n​g​e​}​)
-		 * @param {string} timeRange
-		 */
-		receiptDatetimeMismatchWithRange: RequiredParams<'timeRange'>
 		legend: {
 			/**
 			 * č​i​a​s​t​o​č​n​é​ ​t​a​n​k​o​v​a​n​i​e
 			 */
 			partialFillup: string
-			/**
-			 * b​e​z​ ​d​o​k​l​a​d​u
-			 */
-			noReceipt: string
 			/**
 			 * v​y​s​o​k​á​ ​s​p​o​t​r​e​b​a
 			 */
@@ -2836,10 +2819,6 @@ export type TranslationFunctions = {
 		 */
 		partialCharge: () => LocalizedString
 		/**
-		 * Bez dokladu
-		 */
-		noReceipt: () => LocalizedString
-		/**
 		 * Odhad podľa TP
 		 */
 		estimatedRate: () => LocalizedString
@@ -2847,23 +2826,11 @@ export type TranslationFunctions = {
 		 * Odhad podľa základnej spotreby
 		 */
 		estimatedEnergyRate: () => LocalizedString
-		/**
-		 * Dátum/čas dokladu mimo jazdy
-		 */
-		receiptDatetimeMismatch: () => LocalizedString
-		/**
-		 * Dátum/čas dokladu mimo jazdy (jazda {timeRange})
-		 */
-		receiptDatetimeMismatchWithRange: (arg: { timeRange: string }) => LocalizedString
 		legend: {
 			/**
 			 * čiastočné tankovanie
 			 */
 			partialFillup: () => LocalizedString
-			/**
-			 * bez dokladu
-			 */
-			noReceipt: () => LocalizedString
 			/**
 			 * vysoká spotreba
 			 */

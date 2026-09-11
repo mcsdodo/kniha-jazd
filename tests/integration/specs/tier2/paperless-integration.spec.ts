@@ -197,12 +197,14 @@ describe('Tier 2: Paperless Integration', () => {
     await tripItems[0].click();
 
     // Step 2: Fuel/Other -- Paperless fuel docs default to "Fuel" via looksLikeFuel().
-    // Trip 2 (the closest) is empty, so attachmentStatus is "matches_date" (not
-    // "differs"), meaning the modal shows the regular confirm button -- no mismatch
-    // warning, no override flow.
-    const confirmBtn = await $('[data-test="confirm-assign-btn"]');
-    await confirmBtn.waitForDisplayed({ timeout: 5000 });
-    await confirmBtn.click();
+    // Trip 2 (the closest) is empty and the doc time falls outside the trip window,
+    // so attachmentStatus is "matches_date" WITH a "time" mismatch reason. The grid
+    // warns on exactly that, so the modal offers the override actions instead of the
+    // plain confirm (task 84 review, I7). Assign without confirming here -- the
+    // override flow has its own spec below.
+    const assignAnywayBtn = await $('[data-test="assign-with-warning-btn"]');
+    await assignAnywayBtn.waitForDisplayed({ timeout: 5000 });
+    await assignAnywayBtn.click();
 
     // Wait for the row to re-render with a trip indicator visible.
     await browser.waitUntil(

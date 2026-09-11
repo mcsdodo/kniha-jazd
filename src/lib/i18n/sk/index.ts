@@ -172,15 +172,11 @@ const sk = {
 		// Tooltips/indicators
 		partialFillup: 'Čiastočné tankovanie',
 		partialCharge: 'Čiastočné nabitie',
-		noReceipt: 'Bez dokladu',
 		estimatedRate: 'Odhad podľa TP',
 		estimatedEnergyRate: 'Odhad podľa základnej spotreby',
-		receiptDatetimeMismatch: 'Dátum/čas dokladu mimo jazdy',
-		receiptDatetimeMismatchWithRange: 'Dátum/čas dokladu mimo jazdy (jazda {timeRange:string})',
 		// Legend
 		legend: {
 			partialFillup: 'čiastočné tankovanie',
-			noReceipt: 'bez dokladu',
 			highConsumption: 'vysoká spotreba',
 			suggestedFillup: 'Návrh tankovania: {liters} L → {rate} l/100km',
 			receiptDatetimeMismatch: 'dátum/čas dokladu mimo jazdy',

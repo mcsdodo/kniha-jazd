@@ -74,9 +74,11 @@ fn paperless_compat_empty_trip_same_date_matches() {
     assert_eq!(result.mismatch_reason, None);
 }
 
-// 2. Empty trip, different date -- status "empty"
+// 2. Empty trip, different date -- "differs", and the reason must be set so the
+//    picker offers the override (Task 84 review, I7). The grid warns on this
+//    snapshot, so the warning has to be confirmable.
 #[test]
-fn paperless_compat_empty_trip_different_date_empty() {
+fn paperless_compat_empty_trip_different_date_differs() {
     let trip_date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let doc_date = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap();
     let doc = fuel_doc(doc_date.and_hms_opt(12, 0, 0).unwrap(), 45.0, 72.0);
@@ -86,11 +88,16 @@ fn paperless_compat_empty_trip_different_date_empty() {
     );
     let result = check_paperless_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
-    assert_eq!(result.status, "empty", "Different date with empty trip -> empty");
-    assert_eq!(result.mismatch_reason, None);
+    assert_eq!(result.status, "differs", "Different date with empty trip -> differs");
+    assert_eq!(
+        result.mismatch_reason.as_deref(),
+        Some("date"),
+        "the grid warns on this link, so the picker must offer the override"
+    );
 }
 
-// 3. Empty trip, same date but outside time range -- status "matches_date"
+// 3. Empty trip, same date but outside time range -- stays "matches_date" for the
+//    picker list, but carries a reason so the override is reachable (I7).
 #[test]
 fn paperless_compat_empty_trip_same_date_outside_time_range() {
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
@@ -102,7 +109,11 @@ fn paperless_compat_empty_trip_same_date_outside_time_range() {
     let result = check_paperless_trip_compatibility(&doc, &trip, &TripInvoiceCoverage::default());
     assert!(result.can_attach);
     assert_eq!(result.status, "matches_date", "Same date but outside time range -> matches_date");
-    assert_eq!(result.mismatch_reason, None);
+    assert_eq!(
+        result.mismatch_reason.as_deref(),
+        Some("time"),
+        "outside the trip range means the grid warns, so it must be confirmable"
+    );
 }
 
 // 4. Empty trip, datetime inside time range -- status "matches"

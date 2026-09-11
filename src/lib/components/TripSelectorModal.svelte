@@ -33,10 +33,6 @@
 	let looksLikeFuel = $derived(invoice.assignmentType === 'Fuel');
 
 	// Detect if there's a mismatch when assigning (FUEL or OTHER)
-	let hasMismatch = $derived(() => {
-		if (!selectedTrip) return false;
-		return selectedTrip.attachmentStatus === 'differs';
-	});
 
 	onMount(async () => {
 		await loadTrips();
@@ -293,7 +289,7 @@
 				</label>
 			</div>
 
-			{#if selectedTrip.attachmentStatus === 'differs'}
+			{#if selectedTrip.mismatchReason}
 				<!-- Mismatch warning for assignment (FUEL or OTHER) -->
 				<div class="mismatch-warning">
 					<div class="warning-header">
@@ -307,10 +303,10 @@
 					</div>
 					<div class="mismatch-actions">
 						<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
-						<button class="button-small warning" onclick={() => handleAssign(false)}>
+						<button class="button-small warning" data-test="assign-with-warning-btn" onclick={() => handleAssign(false)}>
 							{$LL.tripSelector.assignWithWarning()}
 						</button>
-						<button class="button-small primary" onclick={() => handleAssign(true)}>
+						<button class="button-small primary" data-test="assign-and-confirm-btn" onclick={() => handleAssign(true)}>
 							{$LL.tripSelector.assignAndConfirm()}
 						</button>
 					</div>

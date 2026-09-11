@@ -5,6 +5,7 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { triggerInvoiceRefresh } from '$lib/stores/invoices';
 	import { selectedYearStore } from '$lib/stores/year';
 	import LL from '$lib/i18n/i18n-svelte';
 
@@ -42,8 +43,9 @@
 		} catch (error) {
 			paperlessError = String(error);
 			paperlessRows = [];
-			needsPaperlessSetup =
-				paperlessError.includes('NotConfigured') || paperlessError.includes('not configured');
+			// PaperlessError::NotConfigured renders with a stable "NotConfigured:"
+			// prefix -- see the comment on the variant in paperless.rs.
+			needsPaperlessSetup = paperlessError.includes('NotConfigured');
 		} finally {
 			loading = false;
 		}
@@ -97,6 +99,8 @@
 				result.mismatchOverride,
 			);
 			await loadInvoices();
+			// The doc is now linked, so the nav badge count dropped.
+			triggerInvoiceRefresh();
 			invoiceToAssign = null;
 			toast.success($LL.doklady.paperless.assignedToast());
 		} catch (error) {
@@ -115,6 +119,8 @@
 		try {
 			await api.unassignPaperlessInvoice(row.paperlessDocumentId);
 			await loadInvoices();
+			// The doc is unlinked again, so the nav badge count rose.
+			triggerInvoiceRefresh();
 			toast.success($LL.doklady.paperless.unassignedToast());
 		} catch (error) {
 			console.error('Failed to unassign invoice:', error);

@@ -31,6 +31,31 @@ fn get_datetime_mismatch_type(dt: Option<NaiveDateTime>, trip: &Trip) -> Option<
     }
 }
 
+/// Compat result for a trip that carries no comparable value yet -- no fuel
+/// recorded for a fuel document, or no other costs for an Other document. Only
+/// the datetime can disagree.
+///
+/// The grid warns whenever a snapshot datetime falls outside the trip range
+/// (`calculate_invoice_datetime_warnings`), and the picker is the only place
+/// that can set `mismatch_override`. So a reason must be reported in exactly the
+/// cases the grid will warn about, or the warning lands on the grid with no way
+/// to confirm it away (Task 84 review, I7).
+fn datetime_only_result(doc: &PaperlessDoc, trip: &Trip) -> CompatibilityResult {
+    let (status, reason) = match doc.receipt_datetime {
+        None => (AttachmentStatus::Empty, None),
+        Some(dt) if is_datetime_in_trip_range(dt, trip) => (AttachmentStatus::Matches, None),
+        // Same day, time outside the trip window: still worth showing as a date
+        // match in the picker list, but it must be confirmable.
+        Some(dt) if is_same_date(dt, trip) => (AttachmentStatus::MatchesDate, Some("time")),
+        Some(_) => (AttachmentStatus::Differs, Some("date")),
+    };
+    CompatibilityResult {
+        can_attach: true,
+        status: status.as_str().to_string(),
+        mismatch_reason: reason.map(str::to_string),
+    }
+}
+
 /// Check if a Paperless document matches a trip's existing data.
 /// Returns compatibility result with detailed mismatch reason.
 /// Handles both FUEL documents (has litres) and OTHER cost documents (no litres).
@@ -64,16 +89,7 @@ pub fn check_paperless_trip_compatibility(
         }
         let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
         if !trip_has_fuel {
-            let status = match doc.receipt_datetime {
-                Some(dt) if is_datetime_in_trip_range(dt, trip) => AttachmentStatus::Matches,
-                Some(dt) if is_same_date(dt, trip) => AttachmentStatus::MatchesDate,
-                _ => AttachmentStatus::Empty,
-            };
-            return CompatibilityResult {
-                can_attach: true,
-                status: status.as_str().to_string(),
-                mismatch_reason: None,
-            };
+            return datetime_only_result(doc, trip);
         }
         let r_liters = doc.litres.unwrap();
         let r_price = doc.total_amount.unwrap_or(0.0);
@@ -117,16 +133,7 @@ pub fn check_paperless_trip_compatibility(
         }
         let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
         if !trip_has_other_costs {
-            let status = match doc.receipt_datetime {
-                Some(dt) if is_datetime_in_trip_range(dt, trip) => AttachmentStatus::Matches,
-                Some(dt) if is_same_date(dt, trip) => AttachmentStatus::MatchesDate,
-                _ => AttachmentStatus::Empty,
-            };
-            return CompatibilityResult {
-                can_attach: true,
-                status: status.as_str().to_string(),
-                mismatch_reason: None,
-            };
+            return datetime_only_result(doc, trip);
         }
         if let Some(r_price) = doc.total_amount {
             let datetime_mismatch = get_datetime_mismatch_type(doc.receipt_datetime, trip);

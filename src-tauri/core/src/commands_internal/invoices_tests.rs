@@ -166,6 +166,36 @@ fn assign_paperless_persists_datetime_and_override() {
     assert!(link.mismatch_override);
 }
 
+/// Re-assigning the same document to the same trip is a no-op for the link
+/// itself, but the override flag is a separate user decision. Flipping it must
+/// still be persisted (Task 84 review, Minor 4).
+#[test]
+fn reassign_same_trip_and_type_still_applies_a_changed_override() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = db_tests::seed_test_trip(&db, &v.id.to_string());
+    let app_state = AppState::new();
+    let doc = paperless_doc_fuel();
+
+    assign_paperless_invoice_internal(
+        &db, &app_state, &doc, &trip_id, &v.id.to_string(), AssignmentType::Fuel, false,
+    )
+    .unwrap();
+    assert!(!db.get_paperless_link(doc.id).unwrap().unwrap().mismatch_override);
+
+    // Same trip, same type, override now confirmed.
+    assign_paperless_invoice_internal(
+        &db, &app_state, &doc, &trip_id, &v.id.to_string(), AssignmentType::Fuel, true,
+    )
+    .unwrap();
+
+    assert!(
+        db.get_paperless_link(doc.id).unwrap().unwrap().mismatch_override,
+        "the idempotent path must not discard a changed override"
+    );
+}
+
 #[test]
 fn revert_paperless_override_clears_the_flag() {
     let db = Database::in_memory().unwrap();

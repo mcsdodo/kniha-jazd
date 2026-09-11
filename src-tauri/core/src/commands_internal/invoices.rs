@@ -111,6 +111,13 @@ pub fn assign_paperless_invoice_internal(
     // old contribution first (C4), then proceed as a fresh assign.
     if let Some(old_link) = db.get_paperless_link(id).map_err(|e| e.to_string())? {
         if old_link.trip_id == trip_id && old_link.assignment_type == assignment_type {
+            // The assignment itself is unchanged, but the override flag is a
+            // separate user decision and may have flipped -- persist it rather
+            // than silently discarding it (Task 84 review, Minor 4).
+            if old_link.mismatch_override != mismatch_override {
+                db.set_paperless_override(id, mismatch_override)
+                    .map_err(|e| e.to_string())?;
+            }
             return Ok(());
         }
         if old_link.assignment_type == AssignmentType::Other {

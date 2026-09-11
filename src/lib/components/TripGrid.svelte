@@ -8,6 +8,7 @@
 	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
+	import { triggerInvoiceRefresh } from '$lib/stores/invoices';
 	import { confirmStore } from '$lib/stores/confirm';
 	import LL from '$lib/i18n/i18n-svelte';
 
@@ -512,6 +513,9 @@
 		await loadRoutes();
 		await loadPurposes();
 		await loadPlaces();
+		// A trip that gained or lost fuel changes which Paperless documents count
+		// as unlinked, so the nav badge must recount.
+		triggerInvoiceRefresh();
 	}
 
 	/**
@@ -591,6 +595,8 @@
 		// The book is the autocomplete's source, so a place whose last trip just
 		// went is no longer a place.
 		await loadPlaces();
+		// Deleting the trip cascades its links away, so the doc is unlinked again.
+		triggerInvoiceRefresh();
 	}
 
 	function handleCancelNew() {

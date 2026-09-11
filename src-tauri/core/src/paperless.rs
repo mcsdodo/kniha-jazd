@@ -13,7 +13,10 @@ pub enum PaperlessError {
     TagNotFound(String),
     #[error("Custom field '{0}' not found in Paperless")]
     CustomFieldNotFound(String),
-    #[error("Paperless URL not configured")]
+    /// The "NotConfigured:" prefix is load-bearing: the Doklady page matches on
+    /// it to show the setup empty state instead of an error banner. Keep the
+    /// prefix if the wording changes.
+    #[error("NotConfigured: Paperless URL or API token is not set")]
     NotConfigured,
     #[error("Failed to parse Paperless response: {0}")]
     Parse(String),
