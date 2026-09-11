@@ -10,7 +10,7 @@
 
 **Spec:** [01-task.md](01-task.md)
 
-**Depends on:** [Task 82](../82-integration-db-reset/). Sharding reorders which specs share a database. Do not merge this before 82 is green.
+**Depends on:** [Task 82](../../82-integration-db-reset/). Sharding reorders which specs share a database. Do not merge this before 82 is green.
 
 ## Global Constraints
 

@@ -4,7 +4,10 @@
 
 **Source:** [_TECH_DEBT/07-integration-db-reset-broken.md](../_TECH_DEBT/07-integration-db-reset-broken.md) (the cross-spec half)
 **Supersedes:** [Task 41](../_done/41-integration-test-speedup/) (archived unbuilt, see its [04-superseded.md](../_done/41-integration-test-speedup/04-superseded.md))
-**Blocks:** [Task 83](../83-integration-test-sharding/) -- sharding reorders specs, which is unsafe until the reset is complete
+**Was declared to block:** [Task 83](../_done/83-integration-test-sharding/) -- sharding reorders
+specs, which is unsafe until the reset is complete. **83 shipped first anyway** (merged
+2026-09-10). So this is no longer a gate, it is live risk: the shard order is in effect on
+`main` and round-robin reshuffles every assignment when a spec file is added.
 
 ## Goal
 
@@ -29,7 +32,7 @@ reset plus refresh plus test body is under 460 ms per test there. If the CI runn
 2 to 3 times slower than this machine, the refresh costs 40 to 60 s across the suite,
 not 19 s. Either way the reset loop is milliseconds, which is what this task turns on.
 
-Do not reintroduce a speed target here. The speed work is [Task 83](../83-integration-test-sharding/).
+Do not reintroduce a speed target here. The speed work is [Task 83](../_done/83-integration-test-sharding/).
 
 ## The problem
 
@@ -124,4 +127,4 @@ is the mistake Task 41's plan made.
   removing them is not worth the isolation risk.
 - Store reset helpers in the frontend (`window.__TEST_RESET_STORES__`). Task 41
   wanted them; the refresh already does that job.
-- Any CI timing change. That is [Task 83](../83-integration-test-sharding/).
+- Any CI timing change. That is [Task 83](../_done/83-integration-test-sharding/).

@@ -1,6 +1,6 @@
 **Date:** 2026-09-10
 **Subject:** Measured shard balance after the matrix change
-**Status:** Complete
+**Status:** Complete -- run D added 2026-09-11 after the merge to `main`
 
 # Result
 
@@ -109,3 +109,35 @@ either way, only the assignment function changes.
 
 The floor stays where the plan put it: 88 s, being the longest single spec
 (`odometer-cascade`, 30.5 s) plus its session cost, cold start and 40 s of job setup.
+
+## Run D, the first run on `main` (added 2026-09-11)
+
+Run [`34487769820`](https://github.com/mcsdodo/kniha-jazd/actions/runs/34487769820) is the
+merge commit `062def0`. It is green, 35 specs, zero retries. Step timings:
+
+| Shard | Test step | Setup Chrome | Job total |
+|---|---|---|---|
+| 1 | 85 s | **47 s** | **157 s (2m37)** |
+| 2 | 62 s | 9 s | 102 s |
+| 3 | 87 s | 10 s | 131 s |
+| 4 | 77 s | 10 s | 115 s |
+| 5 | **106 s** | 9 s | 141 s (2m21) |
+| 6 | 53 s | 10 s | 91 s |
+
+Two things this run adds.
+
+**A third variance source: the `Setup Chrome` step itself.** The slowest job is shard 1,
+and its test work is not the reason -- 85 s against shard 5's 106 s. It is slow because
+`Setup Chrome` took 47 s where the other five paid 9 to 10 s. That step runs before any
+test, so it is neither of the two causes measured above (work skew, and Chrome cold start
+inside the first worker). Strip the outlier and shard 1 lands near 2m00, shard 5 becomes
+the stage at 2m21, and the target holds. So a 37 s setup outlier is enough on its own to
+miss 2m30, and the duration-weighted split cannot remove it.
+
+**Shard 5 carries the heaviest test step again**, a fourth run confirming the work skew is
+deterministic. That is the case for weighting, unchanged.
+
+**Do not read a pipeline total off this run.** `Docker Image Build` took 8 s, a full buildx
+cache hit, because the merge commit's tree matches the PR head built two hours earlier. The
+same job took 233 s on the preceding run. The integration stage number is sound; the
+end-to-end one is not.

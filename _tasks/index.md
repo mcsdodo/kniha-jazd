@@ -2,14 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-10 (Task 41 archived unbuilt and split in two: [Task 82](82-integration-db-reset/) fixes the incomplete test reset -- receipts survive `delete_vehicle`, and most settings live in `local.settings.json`, not the DB -- and [Task 83](83-integration-test-sharding/) takes the measured speed lever, sharding the specs across the CI matrix. Task 41's own speedup premise was measured false: the reset loop costs 17 ms per test, not seconds.)
+**Last updated:** 2026-09-11 ([Task 83](_done/83-integration-test-sharding/) archived: the shard matrix is on `main` and the integration stage fell from 5m26 to 2m37. It merged ahead of [Task 82](82-integration-db-reset/), which was declared to block it, so 82 is now live correctness risk rather than a gate.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 83 | [Integration Test Sharding](83-integration-test-sharding/) | 🟡 In Progress | Built and measured on [PR #7](https://github.com/mcsdodo/kniha-jazd/pull/7): integration stage 5m26 -> 2m42 ([03-results.md](83-integration-test-sharding/03-results.md)). Merge waits on 82 |
-| 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed |
+| 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |
 
@@ -17,6 +16,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 83 | [Integration Test Sharding](./_done/83-integration-test-sharding/) -- the CI matrix shards the specs six ways instead of by tier; integration stage 5m26 -> 2m37 on `main`. The under-2m30 criterion was not met and is closed as unattainable by a round-robin split; the duration-weighted split is the open follow-up, see [03-results.md](./_done/83-integration-test-sharding/03-results.md) | 2026-09-11 |
 | 41 | [Integration Test Speedup](./_done/41-integration-test-speedup/) -- archived unbuilt: written for the Tauri harness that [Task 73](./_done/73-web-first-migration/) deleted, and its speedup premise measured false (the reset it replaced costs 17 ms per test); the surviving work is [Task 82](82-integration-db-reset/), see [04-superseded.md](./_done/41-integration-test-speedup/04-superseded.md) | 2026-09-09 |
 | 78 | [Round Trip Legs and Distance Write-Back](./_done/78-round-trip-legs-and-distance-writeback/) -- a round trip routes as two independent legs with a picker each, and the routed distance can be written back to the trip behind a fuel-period and legal-margin warning; see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-09 |
 | 81 | [Odometer Cascade On Save](./_done/81-odometer-cascade-on-save/) -- an edit, an insert and a delete cascade the odometer to every later row of the year, behind a confirmation modal; see [ADR-046](../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) | 2026-09-09 |

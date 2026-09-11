@@ -1,8 +1,9 @@
 **Date:** 2026-09-10
 **Subject:** Shard the integration specs by file across the CI matrix instead of by semantic tier
-**Status:** Complete -- built and measured on PR #7; merge waits on Task 82
+**Status:** Complete -- merged to `main` 2026-09-10 ([PR #7](https://github.com/mcsdodo/kniha-jazd/pull/7), `062def0`), archived 2026-09-11
 
-**Depends on:** [Task 82](../82-integration-db-reset/) -- sharding reorders which specs share a database
+**Merged ahead of [Task 82](../../82-integration-db-reset/).** 82 was declared a blocker and is
+still in planning. The order risk it covers is therefore live on `main`; see Risks below.
 
 ## Goal
 
@@ -29,7 +30,7 @@ Call it 40 s per job. That is the floor a new job cannot go below.
 
 They are not a partition for speed. They group specs by meaning: tier 1 is the
 critical path, tier 2 is features, tier 3 is edge cases
-([getSpecs()](../../tests/integration/wdio.server.conf.ts), lines 58-89). Features
+([getSpecs()](../../../tests/integration/wdio.server.conf.ts), lines 58-89). Features
 outnumber the rest, so tier 2 holds 20 spec files and tier 3 holds 4. The grouping
 is right for local work, where `npm run test:integration:tier1` is the fast check.
 It is the wrong axis for CI parallelism.
@@ -94,18 +95,24 @@ saving is the whole of the win.
   the gap widens, the fix is a duration-weighted split, not more shards.
 - **Spec order changes.** Cross-spec leaks are order-dependent today:
   `datetime-is-order` fails under a full-tier run and passes alone, absorbed by
-  `specFileRetries: 2`. Land [Task 82](../82-integration-db-reset/) first.
-  *Outcome:* three runs passed all 35 specs with zero retries each, so the new order
-  surfaced no leak in 105 spec executions. That is not a proof. Keep the Task 82 dependency.
+  `specFileRetries: 2`. Land [Task 82](../../82-integration-db-reset/) first.
+  *Outcome:* four runs passed all 35 specs with zero retries each, so the new order
+  surfaced no leak in 140 spec executions. That is not a proof, and this task shipped
+  without 82. **The risk is live on `main`.** Round-robin assigns by `index % total`,
+  so adding one spec file reshuffles every shard: the next spec somebody adds is a
+  fresh draw on a leak that `specFileRetries: 2` will report as a flake. Task 82
+  remains the fix; it is no longer a gate on anything.
 - Screenshot artifact names are keyed on `matrix.tier_name`
-  ([test.yml:191](../../.github/workflows/test.yml)) and must follow the matrix.
+  ([test.yml:191](../../../.github/workflows/test.yml)) and must follow the matrix.
 
 ## Acceptance criteria
 
 - [x] The matrix runs shards, not tiers, and every spec file runs exactly once.
 - [ ] Slowest integration job is under 2m30 on a green run (predicted 2m16).
-      **Not held: 2m42 in run A, 2m24 in run B.** It depends on where the cold-start draw
-      lands. Duration weighting makes it hold on every draw; see [03-results.md](03-results.md).
+      **Not held, and closed as not attainable by this implementation.** Measured 2m42,
+      2m24, 2m35 on PR #7 and 2m37 on `main`. [03-results.md](03-results.md) shows why a
+      round-robin split cannot hold the target on a bad draw. The follow-up that wins it
+      is the duration-weighted (LPT) split, predicted 2m20 on every draw.
 - [x] `npm run test:integration:tier1` still works locally, unchanged.
 - [x] Screenshot artifacts still upload with distinct names.
 - [x] Verify shard balance from the step timings of the first green run. Done, and the
