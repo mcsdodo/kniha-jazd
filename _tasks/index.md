@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-11 ([Task 83](_done/83-integration-test-sharding/) archived: the shard matrix is on `main` and the integration stage fell from 5m26 to 2m37. It merged ahead of [Task 82](82-integration-db-reset/), which was declared to block it, so 82 is now live correctness risk rather than a gate.)
+**Last updated:** 2026-09-11 ([Task 84](84-paperless-only-invoices/) opened: remove the local receipt + Gemini OCR subsystem, make Paperless-ngx the only invoice source, drop the `receipts` table. [Task 83](_done/83-integration-test-sharding/) archived: the shard matrix is on `main` and the integration stage fell from 5m26 to 2m37. It merged ahead of [Task 82](82-integration-db-reset/), which was declared to block it, so 82 is now live correctness risk rather than a gate.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 📋 Planning | Remove local receipts + Gemini OCR; Paperless is the only invoice source; drop the `receipts` table |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |
