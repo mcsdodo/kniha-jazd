@@ -441,7 +441,7 @@ fn receipts_table_is_dropped_by_the_migration_chain() {
 
 // ============================================================================
 // Task 84 -- repair links the multi-invoice backfill mislabelled
-// (2026-09-11-125000)
+// (the UPDATE at the top of 2026-09-11-130000_drop_receipts)
 // ============================================================================
 
 /// Seed a legacy receipt row. The legacy schema still carries the receipt
@@ -495,15 +495,55 @@ fn legacy_other_receipt_link_stays_other() {
     assert_eq!(link_assignment_type(&db, 302), "Other");
 }
 
-/// The repair must not produce two Fuel links on one trip.
+/// The version the repair lives in. A test that needs to stand right before the
+/// repair uses this cutoff: `multi_invoice` has run (so `assignment_type` exists
+/// and the link table takes more than one row per trip), and `receipts` is still
+/// there for the repair to read.
+const DROP_RECEIPTS_VERSION: &str = "2026-09-11-130000";
+
+/// Seed a link on the post-multi-invoice schema, where `assignment_type` is
+/// NOT NULL and a trip may carry several links. `amount_eur` / `applied_amount_cents`
+/// stay NULL unless given: NULL is what the Task 66 backfill wrote, and the
+/// repair keys on it.
+#[allow(clippy::too_many_arguments)]
+fn seed_typed_link(
+    db: &Database,
+    doc_id: i64,
+    trip_id: &str,
+    assignment_type: &str,
+    created_at: &str,
+    amount_eur: Option<f64>,
+) {
+    let amount = amount_eur.map_or("NULL".to_string(), |v| v.to_string());
+    exec(
+        db,
+        &format!(
+            "INSERT INTO paperless_trip_links (trip_id, paperless_document_id, \
+                                               assignment_type, amount_eur, \
+                                               created_at, updated_at) \
+             VALUES ('{trip_id}', {doc_id}, '{assignment_type}', {amount}, \
+                     '{created_at}', '{created_at}')"
+        ),
+    );
+}
+
+/// Two candidate links on one trip must not both be promoted: the partial
+/// unique index allows a single Fuel link per trip, so the second promotion
+/// would abort the whole upgrade with a UNIQUE violation and panic on startup.
+///
+/// This stands at the repair's own boundary. The pre-multi-invoice link table
+/// had `trip_id` as PRIMARY KEY and could not hold two links for one trip, so
+/// seeding this shape needs the rebuilt table.
 #[test]
 fn repair_does_not_add_a_second_fuel_link() {
-    let db = open_db_legacy();
+    let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
     seed_vehicle(&db, "v1");
     seed_trip(&db, "t-fueled", "v1", Some(45.0));
-    seed_paperless_link(&db, 401, "t-fueled");
+    seed_typed_link(&db, 402, "t-fueled", "Other", "2026-04-01T08:00:00", None);
+    seed_typed_link(&db, 401, "t-fueled", "Other", "2026-04-02T08:00:00", None);
     seed_receipt(&db, "r1", "t-fueled", "Fuel");
 
+    // Must not panic: a UNIQUE violation here aborts every upgrade.
     migrate_to_current(&db);
 
     assert_eq!(
@@ -512,6 +552,86 @@ fn repair_does_not_add_a_second_fuel_link() {
             "SELECT COUNT(*) AS cnt FROM paperless_trip_links \
              WHERE trip_id = 't-fueled' AND assignment_type = 'Fuel'"
         ),
-        1
+        1,
+        "exactly one link may be promoted per trip"
     );
+    assert_eq!(
+        link_assignment_type(&db, 401),
+        "Fuel",
+        "the lowest document id wins, so the choice is deterministic"
+    );
+    assert_eq!(link_assignment_type(&db, 402), "Other");
+}
+
+/// A trip carrying BOTH a Fuel and an Other receipt is ambiguous: the old
+/// relink script inserted one link per trip, and it may have been the Other
+/// document. Promoting it would file a parking or toll document as the trip's
+/// fuel invoice, so the repair must skip the trip entirely.
+#[test]
+fn repair_skips_trip_with_ambiguous_other_receipt() {
+    let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-both", "v1", Some(45.0));
+    seed_typed_link(&db, 403, "t-both", "Other", "2026-04-01T08:00:00", None);
+    seed_receipt(&db, "r-fuel", "t-both", "Fuel");
+    seed_receipt(&db, "r-other", "t-both", "Other");
+
+    migrate_to_current(&db);
+
+    assert_eq!(
+        link_assignment_type(&db, 403),
+        "Other",
+        "the link may be the Other document; the repair must not guess"
+    );
+}
+
+/// The repair's main safety property: a link assigned after Task 66 carries an
+/// explicit type and amount snapshots. It is a deliberate user choice and must
+/// never be retyped, even on a trip that otherwise matches.
+#[test]
+fn repair_skips_link_with_post_task66_snapshots() {
+    let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-snap", "v1", Some(45.0));
+    seed_typed_link(&db, 404, "t-snap", "Other", "2026-04-01T08:00:00", Some(12.34));
+    seed_receipt(&db, "r1", "t-snap", "Fuel");
+
+    migrate_to_current(&db);
+
+    assert_eq!(
+        link_assignment_type(&db, 404),
+        "Other",
+        "an amount snapshot marks a deliberate post-Task-66 assignment"
+    );
+}
+
+/// The cutoff is the multi-invoice migration DAY, not the instant it ran. A link
+/// written on 2026-07-15 before the upgrade was still backfilled, so the bound
+/// is `< '2026-07-16'`.
+#[test]
+fn repair_covers_a_link_created_on_the_multi_invoice_day() {
+    let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-boundary", "v1", Some(45.0));
+    seed_typed_link(&db, 405, "t-boundary", "Other", "2026-07-15T08:00:00", None);
+    seed_receipt(&db, "r1", "t-boundary", "Fuel");
+
+    migrate_to_current(&db);
+
+    assert_eq!(link_assignment_type(&db, 405), "Fuel");
+}
+
+/// A link created after the multi-invoice migration was never backfilled, so it
+/// is outside the repair's window and must stay untouched.
+#[test]
+fn repair_skips_a_link_created_after_the_backfill() {
+    let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-late", "v1", Some(45.0));
+    seed_typed_link(&db, 406, "t-late", "Other", "2026-08-01T08:00:00", None);
+    seed_receipt(&db, "r1", "t-late", "Fuel");
+
+    migrate_to_current(&db);
+
+    assert_eq!(link_assignment_type(&db, 406), "Other");
 }

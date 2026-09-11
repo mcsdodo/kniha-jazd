@@ -1,1 +1,3 @@
--- Forward-only (ADR-012). The receipts table and its rows cannot be restored.
+-- Forward-only (ADR-012). The receipts table and its rows cannot be restored,
+-- and the link repair above is not reverted: re-mislabelling the fuel links
+-- would restore a bug, not a state worth keeping.
