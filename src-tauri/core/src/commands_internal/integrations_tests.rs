@@ -325,64 +325,6 @@ async fn test_paperless_connection_401_returns_false() {
 }
 
 #[test]
-fn invoice_source_mode_is_paperless_when_both_fields_populated() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_url = Some("https://x".into());
-    s.paperless_api_token = Some("t".into());
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
-}
-
-#[test]
-fn invoice_source_mode_is_local_when_url_missing() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_api_token = Some("t".into());
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
-}
-
-#[test]
-fn invoice_source_mode_is_local_when_token_missing() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_url = Some("https://x".into());
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
-}
-
-#[test]
-fn invoice_source_mode_is_local_when_url_is_empty_string() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_url = Some(String::new());
-    s.paperless_api_token = Some("t".into());
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
-}
-
-#[test]
-fn invoice_source_mode_is_local_when_disabled_even_with_credentials() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_url = Some("https://x".into());
-    s.paperless_api_token = Some("t".into());
-    s.paperless_enabled = Some(false);
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Local);
-}
-
-#[test]
-fn invoice_source_mode_is_paperless_when_enabled_true_with_credentials() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_url = Some("https://x".into());
-    s.paperless_api_token = Some("t".into());
-    s.paperless_enabled = Some(true);
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
-}
-
-#[test]
-fn invoice_source_mode_is_paperless_when_enabled_none_with_credentials_backward_compat() {
-    let mut s = crate::settings::LocalSettings::default();
-    s.paperless_url = Some("https://x".into());
-    s.paperless_api_token = Some("t".into());
-    // None means "not explicitly set" — treat as enabled for backward compat
-    s.paperless_enabled = None;
-    assert_eq!(get_invoice_source_mode_from_settings(&s), InvoiceSourceMode::Paperless);
-}
-
-#[test]
 fn save_paperless_settings_persists_enabled_flag() {
     let _env = crate::settings::test_env::lock();
     let dir = tempdir().unwrap();

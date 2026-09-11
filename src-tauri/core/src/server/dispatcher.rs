@@ -817,10 +817,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "get_invoice_source_mode" => {
-            let v = crate::commands_internal::integrations::get_invoice_source_mode_internal(&state.app_dir)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
 
         // ====================================================================
         // Route maps — sync
