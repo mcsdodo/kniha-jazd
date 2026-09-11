@@ -677,17 +677,17 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "revert_receipt_override" => {
+        "revert_paperless_override" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
-                id: String,
+                doc_id: i64,
             }
             let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::revert_receipt_override_internal(
+            crate::commands_internal::invoices::revert_paperless_override_internal(
                 &state.db,
                 &state.app_state,
-                a.id,
+                a.doc_id,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }

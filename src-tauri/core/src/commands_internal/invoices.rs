@@ -190,13 +190,10 @@ pub fn assign_invoice_to_trip_internal(
                 amount_eur: doc.total_amount,
                 title: Some(doc.title.clone()),
                 applied_amount_cents,
-                receipt_datetime: None,
-                mismatch_override: false,
+                receipt_datetime: doc.receipt_datetime,
+                mismatch_override,
             };
             db.upsert_paperless_link(&link).map_err(|e| e.to_string())?;
-            // Task 84 Task 1 adds the mismatch_override column but does not
-            // persist it yet; a later task wires the override through.
-            let _ = mismatch_override;
             Ok(())
         }
     }
@@ -321,6 +318,16 @@ fn strip_note_segment(note: Option<String>, segment: &str) -> Option<String> {
         return Some(rest.to_string());
     }
     Some(note)
+}
+
+/// Clear the user-confirmed mismatch flag on a Paperless link.
+pub fn revert_paperless_override_internal(
+    db: &Database,
+    app_state: &AppState,
+    doc_id: i64,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    db.set_paperless_override(doc_id, false).map_err(|e| e.to_string())
 }
 
 /// Unassign an invoice from its trip.

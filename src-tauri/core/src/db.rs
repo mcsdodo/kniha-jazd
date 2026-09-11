@@ -1149,6 +1149,17 @@ impl Database {
         })
     }
 
+    /// Set the mismatch_override flag for one link.
+    pub fn set_paperless_override(&self, doc_id: i64, value: bool) -> QueryResult<()> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+        diesel::update(p::paperless_trip_links.filter(p::paperless_document_id.eq(doc_id)))
+            .set((p::mismatch_override.eq(value), p::updated_at.eq(now)))
+            .execute(conn)
+            .map(|_| ())
+    }
+
     pub fn delete_paperless_link_for_doc(&self, doc_id: i64) -> QueryResult<()> {
         use crate::schema::paperless_trip_links::dsl as p;
         let conn = &mut *self.conn.lock().unwrap();

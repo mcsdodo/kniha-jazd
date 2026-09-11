@@ -219,6 +219,74 @@ fn assign_paperless_rejects_trip_from_different_vehicle() {
 }
 
 #[test]
+fn assign_paperless_persists_datetime_and_override() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = db_tests::seed_test_trip(&db, &v.id.to_string());
+    let app_state = AppState::new();
+    let dt = chrono::NaiveDateTime::parse_from_str("2026-05-04T13:24:14", "%Y-%m-%dT%H:%M:%S")
+        .unwrap();
+    let doc = PaperlessDoc {
+        id: 435,
+        title: "Fuel".into(),
+        tag_ids: vec![],
+        created: NaiveDate::from_ymd_opt(2026, 5, 4).unwrap(),
+        total_amount: Some(63.34),
+        litres: Some(40.0),
+        receipt_datetime: Some(dt),
+    };
+    assign_invoice_to_trip_internal(
+        &db,
+        &app_state,
+        &InvoiceRef::Paperless(435),
+        Some(&doc),
+        &trip_id,
+        &v.id.to_string(),
+        AssignmentType::Fuel,
+        true,
+    )
+    .unwrap();
+    let link = db.get_paperless_link(435).unwrap().unwrap();
+    assert_eq!(link.receipt_datetime, Some(dt));
+    assert!(link.mismatch_override);
+}
+
+#[test]
+fn revert_paperless_override_clears_the_flag() {
+    let db = Database::in_memory().unwrap();
+    let v = db_tests::create_test_vehicle("Test");
+    db.create_vehicle(&v).unwrap();
+    let trip_id = db_tests::seed_test_trip(&db, &v.id.to_string());
+    let app_state = AppState::new();
+    let dt = chrono::NaiveDateTime::parse_from_str("2026-05-04T13:24:14", "%Y-%m-%dT%H:%M:%S")
+        .unwrap();
+    let doc = PaperlessDoc {
+        id: 435,
+        title: "Fuel".into(),
+        tag_ids: vec![],
+        created: NaiveDate::from_ymd_opt(2026, 5, 4).unwrap(),
+        total_amount: Some(63.34),
+        litres: Some(40.0),
+        receipt_datetime: Some(dt),
+    };
+    assign_invoice_to_trip_internal(
+        &db,
+        &app_state,
+        &InvoiceRef::Paperless(435),
+        Some(&doc),
+        &trip_id,
+        &v.id.to_string(),
+        AssignmentType::Fuel,
+        true,
+    )
+    .unwrap();
+    revert_paperless_override_internal(&db, &app_state, 435).unwrap();
+    let link = db.get_paperless_link(435).unwrap().unwrap();
+    assert!(!link.mismatch_override);
+}
+
+#[test]
 fn unassign_dispatches_paperless_source() {
     let db = Database::in_memory().unwrap();
     let v = db_tests::create_test_vehicle("Test");
