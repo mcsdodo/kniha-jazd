@@ -929,7 +929,7 @@ fn test_receipt_applied_amount_cents_roundtrip() {
 // ============================================================================
 
 #[test]
-fn invoice_coverage_unions_receipts_and_paperless() {
+fn invoice_coverage_reads_paperless_links_only() {
     let db = Database::in_memory().expect("db");
     let v = create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
@@ -937,16 +937,12 @@ fn invoice_coverage_unions_receipts_and_paperless() {
     let trip_with_paperless = seed_test_trip(&db, &v.id.to_string());
     let trip_uncovered = seed_test_trip(&db, &v.id.to_string());
 
-    // Receipt-side coverage: assign a Fuel receipt to trip_with_receipt
+    // Receipt-side coverage no longer contributes (Task 84, Task 3).
     let mut receipt = Receipt::new("p.jpg".to_string(), "r.jpg".to_string());
     receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_with_receipt).unwrap());
     receipt.vehicle_id = Some(v.id);
     receipt.assignment_type = Some(AssignmentType::Fuel);
     db.create_receipt(&receipt).unwrap();
-
-    // An unassigned receipt must NOT contribute to the covered set
-    let unassigned = Receipt::new("u.jpg".to_string(), "u.jpg".to_string());
-    db.create_receipt(&unassigned).unwrap();
 
     // Paperless-side coverage: link an Other doc to trip_with_paperless
     db.upsert_paperless_link(&make_link(
@@ -959,9 +955,10 @@ fn invoice_coverage_unions_receipts_and_paperless() {
 
     let coverage = db.get_trip_invoice_coverage().unwrap();
 
-    let receipt_cov = coverage.get(&trip_with_receipt).expect("receipt trip covered");
-    assert!(receipt_cov.has_fuel);
-    assert!(!receipt_cov.has_other);
+    assert!(
+        !coverage.contains_key(&trip_with_receipt),
+        "Receipt-only trip must not be covered once coverage is paperless-only"
+    );
 
     let paperless_cov = coverage
         .get(&trip_with_paperless)
@@ -971,7 +968,7 @@ fn invoice_coverage_unions_receipts_and_paperless() {
     assert_eq!(paperless_cov.other_sum_cents, 1500);
 
     assert!(!coverage.contains_key(&trip_uncovered));
-    assert_eq!(coverage.len(), 2);
+    assert_eq!(coverage.len(), 1);
 }
 
 #[test]
@@ -981,31 +978,18 @@ fn test_invoice_coverage_per_type_and_sum() {
     db.create_vehicle(&v).unwrap();
     let trip_full = seed_test_trip(&db, &v.id.to_string());
     let trip_unknown_link = seed_test_trip(&db, &v.id.to_string());
-    let trip_unknown_receipt = seed_test_trip(&db, &v.id.to_string());
 
-    // trip_full: 1 Fuel receipt + 2 Other links (5.00, 7.50)
-    let mut fuel_receipt = Receipt::new("f.jpg".to_string(), "f.jpg".to_string());
-    fuel_receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_full).unwrap());
-    fuel_receipt.vehicle_id = Some(v.id);
-    fuel_receipt.assignment_type = Some(AssignmentType::Fuel);
-    fuel_receipt.total_price_eur = Some(58.20);
-    db.create_receipt(&fuel_receipt).unwrap();
-    db.upsert_paperless_link(&make_link(1, &trip_full, AssignmentType::Other, Some(5.00)))
+    // trip_full: 1 Fuel link + 2 Other links (5.00, 7.50)
+    db.upsert_paperless_link(&make_link(1, &trip_full, AssignmentType::Fuel, Some(58.20)))
         .unwrap();
-    db.upsert_paperless_link(&make_link(2, &trip_full, AssignmentType::Other, Some(7.50)))
+    db.upsert_paperless_link(&make_link(2, &trip_full, AssignmentType::Other, Some(5.00)))
+        .unwrap();
+    db.upsert_paperless_link(&make_link(3, &trip_full, AssignmentType::Other, Some(7.50)))
         .unwrap();
 
     // trip_unknown_link: 1 Other link with amount NULL
-    db.upsert_paperless_link(&make_link(3, &trip_unknown_link, AssignmentType::Other, None))
+    db.upsert_paperless_link(&make_link(4, &trip_unknown_link, AssignmentType::Other, None))
         .unwrap();
-
-    // trip_unknown_receipt: 1 Other RECEIPT with total_price_eur NULL (I3)
-    let mut other_receipt = Receipt::new("o.jpg".to_string(), "o.jpg".to_string());
-    other_receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_unknown_receipt).unwrap());
-    other_receipt.vehicle_id = Some(v.id);
-    other_receipt.assignment_type = Some(AssignmentType::Other);
-    other_receipt.total_price_eur = None;
-    db.create_receipt(&other_receipt).unwrap();
 
     let coverage = db.get_trip_invoice_coverage().unwrap();
 
@@ -1020,12 +1004,6 @@ fn test_invoice_coverage_per_type_and_sum() {
         .expect("trip_unknown_link covered");
     assert!(unknown_link.has_other);
     assert!(unknown_link.has_unknown_amount);
-
-    let unknown_receipt = coverage
-        .get(&trip_unknown_receipt)
-        .expect("trip_unknown_receipt covered");
-    assert!(unknown_receipt.has_other);
-    assert!(unknown_receipt.has_unknown_amount);
 }
 
 // ============================================================================

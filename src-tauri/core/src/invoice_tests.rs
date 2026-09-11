@@ -426,21 +426,11 @@ fn test_trips_for_fuel_invoice_assignment_excludes_covered_trip() {
     let vehicle = db_tests::create_test_vehicle("Test");
     db.create_vehicle(&vehicle).unwrap();
 
-    // Trip A: Fuel covered via a local receipt.
+    // Trip A: Fuel covered via a paperless link.
     let trip_a = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
-    let mut assigned_fuel = make_receipt();
-    assigned_fuel.id = Uuid::new_v4();
-    assigned_fuel.file_path = format!("/x/{}.jpg", assigned_fuel.id);
-    assigned_fuel.vehicle_id = Some(vehicle.id);
-    assigned_fuel.trip_id = Some(Uuid::parse_str(&trip_a).unwrap());
-    assigned_fuel.assignment_type = Some(AssignmentType::Fuel);
-    db.create_receipt(&assigned_fuel).unwrap();
-
-    // Trip B: Fuel covered via a paperless link (the other source).
-    let trip_b = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
     db.upsert_paperless_link(&PaperlessLink {
         paperless_document_id: 900,
-        trip_id: trip_b.clone(),
+        trip_id: trip_a.clone(),
         assignment_type: AssignmentType::Fuel,
         amount_eur: Some(58.20),
         title: Some("Tankovanie".into()),
@@ -450,8 +440,8 @@ fn test_trips_for_fuel_invoice_assignment_excludes_covered_trip() {
     })
     .unwrap();
 
-    // Trip C: no invoice at all.
-    let trip_c = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
+    // Trip B: no invoice at all.
+    let trip_b = db_tests::seed_test_trip(&db, &vehicle.id.to_string());
 
     fn can_attach(trips: &[TripForAssignment], id: &str) -> bool {
         trips
@@ -474,9 +464,14 @@ fn test_trips_for_fuel_invoice_assignment_excludes_covered_trip() {
         2026,
     )
     .unwrap();
-    assert!(!can_attach(&trips, &trip_a), "receipt picker: Fuel-receipt-covered trip excluded");
-    assert!(!can_attach(&trips, &trip_b), "receipt picker: paperless-Fuel-covered trip excluded");
-    assert!(can_attach(&trips, &trip_c), "receipt picker: uncovered trip stays attachable");
+    assert!(
+        !can_attach(&trips, &trip_a),
+        "receipt picker: paperless-Fuel-covered trip excluded"
+    );
+    assert!(
+        can_attach(&trips, &trip_b),
+        "receipt picker: uncovered trip stays attachable"
+    );
 
     // Paperless picker entry point.
     let data = InvoiceData {
@@ -494,9 +489,14 @@ fn test_trips_for_fuel_invoice_assignment_excludes_covered_trip() {
         2026,
     )
     .unwrap();
-    assert!(!can_attach(&trips, &trip_a), "paperless picker: Fuel-receipt-covered trip excluded");
-    assert!(!can_attach(&trips, &trip_b), "paperless picker: paperless-Fuel-covered trip excluded");
-    assert!(can_attach(&trips, &trip_c), "paperless picker: uncovered trip stays attachable");
+    assert!(
+        !can_attach(&trips, &trip_a),
+        "paperless picker: paperless-Fuel-covered trip excluded"
+    );
+    assert!(
+        can_attach(&trips, &trip_b),
+        "paperless picker: uncovered trip stays attachable"
+    );
 }
 
 // 8. Fueled trip, different date (liters + price match) — status "differs", reason "date"

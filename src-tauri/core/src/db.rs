@@ -1262,40 +1262,15 @@ impl Database {
     // ========================================================================
 
     /// Per-type invoice coverage for every trip that has at least one invoice.
-    /// Union of local receipts and paperless links; sums use integer cents.
-    /// Other amounts come from receipts' live `total_price_eur` and paperless
-    /// assign-time `amount_eur` snapshots; a NULL amount on any Other invoice
-    /// sets `has_unknown_amount` so the sum-mismatch check can be skipped.
+    /// Paperless links only; sums use integer cents. Other amounts come from
+    /// paperless assign-time `amount_eur` snapshots; a NULL amount on any Other
+    /// invoice sets `has_unknown_amount` so the sum-mismatch check can be skipped.
     pub fn get_trip_invoice_coverage(&self) -> QueryResult<HashMap<String, TripInvoiceCoverage>> {
         use crate::calculations::to_cents;
         use crate::schema::paperless_trip_links::dsl as p;
-        use crate::schema::receipts::dsl as r;
         let conn = &mut *self.conn.lock().unwrap();
 
         let mut coverage: HashMap<String, TripInvoiceCoverage> = HashMap::new();
-
-        // Assigned local receipts (amounts read live from total_price_eur)
-        let receipt_rows: Vec<(Option<String>, Option<String>, Option<f64>)> = r::receipts
-            .filter(r::trip_id.is_not_null())
-            .select((r::trip_id, r::assignment_type, r::total_price_eur))
-            .load(conn)?;
-        for (trip_id, assignment_type, amount) in receipt_rows {
-            let Some(trip_id) = trip_id else { continue };
-            let entry = coverage.entry(trip_id).or_default();
-            match assignment_type.as_deref().and_then(AssignmentType::from_str) {
-                Some(AssignmentType::Fuel) => entry.has_fuel = true,
-                Some(AssignmentType::Other) => {
-                    entry.has_other = true;
-                    match amount {
-                        Some(a) => entry.other_sum_cents += to_cents(a),
-                        None => entry.has_unknown_amount = true,
-                    }
-                }
-                // Legacy shape (assigned without a type): the trip counts as
-                // covered (entry exists) but sets neither per-type flag.
-                None => {}
-            }
-        }
 
         // Paperless links (amounts read from assign-time snapshots)
         let link_rows: Vec<(String, String, Option<f64>)> = p::paperless_trip_links

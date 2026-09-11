@@ -5,18 +5,18 @@
 use crate::commands_internal::statistics::{
     calculate_consumption_warnings, calculate_duplicate_datetime_warnings,
     calculate_odometer_span_warnings, calculate_odometer_spans,
-    calculate_energy_grid_data, calculate_missing_receipts,
+    calculate_energy_grid_data, calculate_invoice_datetime_warnings,
+    calculate_invoice_override_warnings, calculate_missing_receipts,
     calculate_other_invoice_sums, calculate_other_sum_mismatches,
-    calculate_receipt_datetime_warnings,
-    calculate_receipt_mismatch_overrides, calculate_suggested_fillups, get_open_period_km,
+    calculate_suggested_fillups, get_open_period_km,
     has_any_period_over_limit, period_margin_impact, preview_anchor,
 };
 use crate::commands_internal::helpers::trip_order;
 use super::*;
 use crate::db::Database;
 use crate::models::{
-    ConfidenceLevel, FieldConfidence, OdometerChange, Receipt, ReceiptStatus, Trip,
-    TripInvoiceCoverage, Vehicle,
+    AssignmentType, ConfidenceLevel, FieldConfidence, OdometerChange, PaperlessLink, Receipt,
+    ReceiptStatus, Trip, TripInvoiceCoverage, Vehicle,
 };
 use chrono::{Datelike, NaiveDate, NaiveDateTime, Utc};
 use std::collections::HashMap;
@@ -340,7 +340,7 @@ fn test_other_invoice_sums_exposed_for_mismatched_trips() {
 }
 
 // ========================================================================
-// Receipt datetime warning tests (calculate_receipt_datetime_warnings)
+// Invoice datetime warning tests (calculate_invoice_datetime_warnings)
 // ========================================================================
 
 /// Helper to create a trip with specific start and end datetimes
@@ -373,362 +373,306 @@ fn make_trip_with_datetime_range(
     }
 }
 
-/// Helper to create a receipt with a specific datetime and assigned to a trip
-fn make_receipt_with_datetime_assigned(
-    receipt_datetime: Option<NaiveDateTime>,
+/// Helper to create a Paperless link with a specific datetime snapshot and
+/// override flag, assigned to a trip.
+fn make_paperless_link(
     trip_id: Uuid,
-) -> Receipt {
-    let now = Utc::now();
-    Receipt {
-        id: Uuid::new_v4(),
-        vehicle_id: None,
-        trip_id: Some(trip_id),
-        file_path: "/test/receipt.jpg".to_string(),
-        file_name: "receipt.jpg".to_string(),
-        scanned_at: now,
-        liters: Some(45.0),
-        total_price_eur: Some(72.50),
-        receipt_datetime,
-        station_name: None,
-        station_address: None,
-        vendor_name: None,
-        cost_description: None,
-        original_amount: Some(72.50),
-        original_currency: Some("EUR".to_string()),
-        source_year: None,
-        status: ReceiptStatus::Parsed,
-        confidence: FieldConfidence {
-            liters: ConfidenceLevel::High,
-            total_price: ConfidenceLevel::High,
-            date: ConfidenceLevel::High,
-        },
-        raw_ocr_text: None,
-        error_message: None,
-        assignment_type: Some(crate::models::AssignmentType::Fuel),
-        mismatch_override: false,
+    assignment_type: AssignmentType,
+    receipt_datetime: Option<NaiveDateTime>,
+    mismatch_override: bool,
+) -> PaperlessLink {
+    PaperlessLink {
+        paperless_document_id: 1,
+        trip_id: trip_id.to_string(),
+        assignment_type,
+        amount_eur: Some(50.0),
+        title: Some("doc".to_string()),
         applied_amount_cents: None,
-        created_at: now,
-        updated_at: now,
+        receipt_datetime,
+        mismatch_override,
     }
 }
 
 #[test]
-fn test_receipt_datetime_warning_within_range() {
-    // Receipt datetime inside trip [start, end] -> no warning
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn datetime_warning_flags_link_outside_trip_range() {
+    // Fuel link with a datetime outside [start, end] -> fuel warning
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(9, 0, 0)
+        .unwrap();
+    let link_dt = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(20, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(link_dt), false);
+
+    let (fuel, other) = calculate_invoice_datetime_warnings(&[trip.clone()], &[link]);
+
+    assert!(
+        fuel.contains(&trip.id.to_string()),
+        "Out-of-range Fuel link must land in fuel_datetime_warnings"
+    );
+    assert!(
+        other.is_empty(),
+        "No Other link -- other_datetime_warnings must stay empty"
+    );
+}
+
+#[test]
+fn datetime_warning_ignores_link_inside_range() {
+    // Link datetime inside trip [start, end] -> no warning
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(17, 0, 0)
         .unwrap();
-    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let link_dt = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(12, 0, 0)
         .unwrap();
 
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+    let link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(link_dt), false);
 
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+    let (fuel, other) = calculate_invoice_datetime_warnings(&[trip], &[link]);
 
-    assert!(
-        warnings.is_empty(),
-        "Receipt within trip range should not generate warning"
-    );
+    assert!(fuel.is_empty(), "Link within range must not warn");
+    assert!(other.is_empty());
 }
 
 #[test]
-fn test_receipt_datetime_warning_before_trip_start() {
-    // Receipt datetime before trip.start_datetime -> warning
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(10, 0, 0)
-        .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(17, 0, 0)
-        .unwrap();
-    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(8, 0, 0) // Before trip start
-        .unwrap();
-
-    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
-
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
-
-    assert_eq!(warnings.len(), 1, "Should have 1 warning");
-    assert!(
-        warnings.contains(&trip.id.to_string()),
-        "Trip should be flagged when receipt is before start"
-    );
-}
-
-#[test]
-fn test_receipt_datetime_warning_after_trip_end() {
-    // Receipt datetime after trip.end_datetime -> warning
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(8, 0, 0)
-        .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(14, 0, 0)
-        .unwrap();
-    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(18, 0, 0) // After trip end
-        .unwrap();
-
-    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
-
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
-
-    assert_eq!(warnings.len(), 1, "Should have 1 warning");
-    assert!(
-        warnings.contains(&trip.id.to_string()),
-        "Trip should be flagged when receipt is after end"
-    );
-}
-
-#[test]
-fn test_receipt_datetime_warning_no_receipt() {
-    // Trip without receipt -> no warning
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn datetime_warning_ignores_link_without_datetime() {
+    // Link with None datetime -> no warning (cannot validate)
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
 
     let trip = make_trip_with_datetime_range(trip_start, None);
-    let receipts: Vec<Receipt> = vec![];
+    let link = make_paperless_link(trip.id, AssignmentType::Fuel, None, false);
 
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &receipts);
+    let (fuel, other) = calculate_invoice_datetime_warnings(&[trip], &[link]);
 
-    assert!(
-        warnings.is_empty(),
-        "Trip without receipt should not generate warning"
-    );
+    assert!(fuel.is_empty(), "Link without datetime must not warn");
+    assert!(other.is_empty());
 }
 
 #[test]
-fn test_receipt_datetime_warning_receipt_no_datetime() {
-    // Receipt with None datetime -> no warning (can't validate)
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn datetime_warning_honours_inclusive_boundaries() {
+    // Datetime exactly at start or end is inside the range
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
-
-    let trip = make_trip_with_datetime_range(trip_start, None);
-    let receipt = make_receipt_with_datetime_assigned(None, trip.id);
-
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
-
-    assert!(
-        warnings.is_empty(),
-        "Receipt without datetime should not generate warning"
-    );
-}
-
-#[test]
-fn test_receipt_datetime_warning_exactly_at_start() {
-    // Receipt datetime == trip.start_datetime -> no warning (boundary: inclusive)
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(8, 0, 0)
-        .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(17, 0, 0)
         .unwrap();
-    let receipt_dt = trip_start; // Exactly at start
 
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+    let at_start = make_paperless_link(trip.id, AssignmentType::Fuel, Some(trip_start), false);
+    let at_end = make_paperless_link(trip.id, AssignmentType::Fuel, Some(trip_end), false);
 
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
+    let (start_fuel, _) = calculate_invoice_datetime_warnings(&[trip.clone()], &[at_start]);
+    let (end_fuel, _) = calculate_invoice_datetime_warnings(&[trip], &[at_end]);
 
-    assert!(
-        warnings.is_empty(),
-        "Receipt at exact start time should not generate warning (inclusive boundary)"
-    );
+    assert!(start_fuel.is_empty(), "Link at exact start must not warn");
+    assert!(end_fuel.is_empty(), "Link at exact end must not warn");
 }
 
 #[test]
-fn test_receipt_datetime_warning_exactly_at_end() {
-    // Receipt datetime == trip.end_datetime -> no warning (boundary: inclusive)
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn datetime_warning_uses_start_when_no_end() {
+    // Trip without end_datetime: the range is just the start instant
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(17, 0, 0)
-        .unwrap();
-    let receipt_dt = trip_end; // Exactly at end
-
-    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
-
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt]);
-
-    assert!(
-        warnings.is_empty(),
-        "Receipt at exact end time should not generate warning (inclusive boundary)"
-    );
-}
-
-#[test]
-fn test_receipt_datetime_warning_no_end_datetime_uses_start() {
-    // Trip without end_datetime - receipt must match start_datetime exactly
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(8, 0, 0)
-        .unwrap();
-
-    // Case 1: Receipt at different time on same day - should warn (range is just start_datetime)
-    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let later = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(12, 0, 0)
         .unwrap();
 
     let trip = make_trip_with_datetime_range(trip_start, None);
-    let receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
+    let later_link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(later), false);
+    let exact_link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(trip_start), false);
 
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+    let (later_fuel, _) = calculate_invoice_datetime_warnings(&[trip.clone()], &[later_link]);
+    let (exact_fuel, _) = calculate_invoice_datetime_warnings(&[trip], &[exact_link]);
 
     assert_eq!(
-        warnings.len(),
+        later_fuel.len(),
         1,
-        "Receipt not at exact start time should generate warning when no end_datetime"
+        "Later link must warn when no end_datetime"
     );
-
-    // Case 2: Receipt at exact start time - no warning
-    let receipt_exact = make_receipt_with_datetime_assigned(Some(trip_start), trip.id);
-
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip], &[receipt_exact]);
-
-    assert!(
-        warnings.is_empty(),
-        "Receipt at exact start time should not generate warning"
-    );
+    assert!(exact_fuel.is_empty(), "Link at exact start must not warn");
 }
 
-// ========================================================================
-// Per-type datetime warnings + mismatch overrides (Task 66)
-// ========================================================================
-
 #[test]
-fn test_datetime_warnings_type_scoped() {
-    // Fuel receipt out of range -> fuel_datetime_warnings only
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn datetime_warning_splits_by_assignment_type() {
+    // Out-of-range Other link -> other warning only
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(14, 0, 0)
         .unwrap();
-    let out_of_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let out_of_range = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(18, 0, 0)
         .unwrap();
 
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    // Helper creates a Fuel-typed receipt
-    let receipt = make_receipt_with_datetime_assigned(Some(out_of_range), trip.id);
+    let link = make_paperless_link(trip.id, AssignmentType::Other, Some(out_of_range), false);
 
-    let (fuel_warnings, other_warnings) =
-        calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
+    let (fuel, other) = calculate_invoice_datetime_warnings(&[trip.clone()], &[link]);
 
     assert!(
-        fuel_warnings.contains(&trip.id.to_string()),
-        "Out-of-range Fuel receipt should land in fuel_datetime_warnings"
+        other.contains(&trip.id.to_string()),
+        "Out-of-range Other link must land in other_datetime_warnings"
     );
     assert!(
-        other_warnings.is_empty(),
-        "No Other receipt — other_datetime_warnings must stay empty"
+        fuel.is_empty(),
+        "No Fuel link -- fuel_datetime_warnings must stay empty"
     );
 }
 
 #[test]
-fn test_datetime_warning_fires_for_second_other_receipt() {
-    // Trip with in-range Fuel receipt + out-of-range Other receipt ->
-    // trip in other_datetime_warnings (kills the `.find()` first-receipt-only
-    // bug, test review I8)
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn datetime_warning_fires_for_second_link() {
+    // Trip with in-range Fuel link + out-of-range Other link -> other warning
+    // fires even though the mismatched link is not first (test review I8)
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(14, 0, 0)
         .unwrap();
-    let in_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let in_range = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(12, 0, 0)
         .unwrap();
-    let out_of_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let out_of_range = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(18, 0, 0)
         .unwrap();
 
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let fuel_receipt = make_receipt_with_datetime_assigned(Some(in_range), trip.id);
-    let mut other_receipt = make_receipt_with_datetime_assigned(Some(out_of_range), trip.id);
-    other_receipt.assignment_type = Some(crate::models::AssignmentType::Other);
+    let fuel_link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(in_range), false);
+    let other_link = make_paperless_link(trip.id, AssignmentType::Other, Some(out_of_range), false);
 
-    // Fuel receipt FIRST — a `.find()` lookup would stop there and miss the Other
-    let (fuel_warnings, other_warnings) =
-        calculate_receipt_datetime_warnings(&[trip.clone()], &[fuel_receipt, other_receipt]);
+    let (fuel, other) =
+        calculate_invoice_datetime_warnings(&[trip.clone()], &[fuel_link, other_link]);
 
     assert!(
-        other_warnings.contains(&trip.id.to_string()),
-        "Second (Other) receipt out of range must fire other_datetime_warnings"
+        other.contains(&trip.id.to_string()),
+        "Second (Other) link out of range must fire other_datetime_warnings"
+    );
+    assert!(fuel.is_empty(), "Fuel link is in range -- no fuel warning");
+}
+
+// ========================================================================
+// Invoice mismatch override tests (calculate_invoice_override_warnings)
+// ========================================================================
+
+#[test]
+fn override_warning_flags_only_true_links() {
+    // Other link with mismatch_override = true -> other warning
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(9, 0, 0)
+        .unwrap();
+    let in_range = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(8, 30, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let link = make_paperless_link(trip.id, AssignmentType::Other, Some(in_range), true);
+
+    let (fuel, other) = calculate_invoice_override_warnings(&[trip.clone()], &[link]);
+
+    assert!(
+        other.contains(&trip.id.to_string()),
+        "Confirmed Other link must land in other_mismatch_overrides"
     );
     assert!(
-        fuel_warnings.is_empty(),
-        "Fuel receipt is in range — no fuel warning"
+        fuel.is_empty(),
+        "No Fuel link -- fuel_mismatch_overrides must stay empty"
     );
 }
 
 #[test]
-fn test_mismatch_override_recognized_on_second_receipt() {
-    // I8 mirror for overrides: first (Fuel) receipt has no override, second
-    // (Other) receipt has mismatch_override = true -> trip must appear in
-    // other_mismatch_overrides despite not being the first receipt found.
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
+fn override_warning_ignores_false_links() {
+    // mismatch_override = false -> no warning even when the datetime mismatches
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(8, 0, 0)
         .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(9, 0, 0)
+        .unwrap();
+    let out_of_range = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(20, 0, 0)
+        .unwrap();
+
+    let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
+    let link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(out_of_range), false);
+
+    let (fuel, other) = calculate_invoice_override_warnings(&[trip], &[link]);
+
+    assert!(fuel.is_empty(), "Unconfirmed link must not warn");
+    assert!(other.is_empty());
+}
+
+#[test]
+fn override_warning_recognized_on_second_link() {
+    // I8 mirror: first (Fuel) link has no override, second (Other) link has
+    // mismatch_override = true -> other_mismatch_overrides must contain the trip.
+    let trip_start = NaiveDate::from_ymd_opt(2026, 5, 4)
+        .unwrap()
+        .and_hms_opt(8, 0, 0)
+        .unwrap();
+    let trip_end = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(14, 0, 0)
         .unwrap();
-    let in_range = NaiveDate::from_ymd_opt(2024, 6, 15)
+    let in_range = NaiveDate::from_ymd_opt(2026, 5, 4)
         .unwrap()
         .and_hms_opt(12, 0, 0)
         .unwrap();
 
     let trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    let fuel_receipt = make_receipt_with_datetime_assigned(Some(in_range), trip.id);
-    let mut other_receipt = make_receipt_with_datetime_assigned(Some(in_range), trip.id);
-    other_receipt.assignment_type = Some(crate::models::AssignmentType::Other);
-    other_receipt.mismatch_override = true;
+    let fuel_link = make_paperless_link(trip.id, AssignmentType::Fuel, Some(in_range), false);
+    let other_link = make_paperless_link(trip.id, AssignmentType::Other, Some(in_range), true);
 
-    let (fuel_overrides, other_overrides) =
-        calculate_receipt_mismatch_overrides(&[trip.clone()], &[fuel_receipt, other_receipt]);
+    let (fuel, other) =
+        calculate_invoice_override_warnings(&[trip.clone()], &[fuel_link, other_link]);
 
     assert!(
-        other_overrides.contains(&trip.id.to_string()),
-        "Override on the second (Other) receipt must be recognized"
+        other.contains(&trip.id.to_string()),
+        "Override on the second (Other) link must be recognized"
     );
     assert!(
-        fuel_overrides.is_empty(),
-        "Fuel receipt has no override — fuel_mismatch_overrides must stay empty"
+        fuel.is_empty(),
+        "Fuel link has no override -- fuel_mismatch_overrides must stay empty"
     );
 }
 
@@ -2882,66 +2826,6 @@ fn test_assign_other_with_mismatch_and_override() {
 }
 
 #[test]
-fn test_receipt_datetime_warnings_excludes_overrides() {
-    // Scenario F2: Receipt with datetime OUTSIDE trip range but with mismatch_override=true
-    // The current implementation returns the warning, but frontend filters it out.
-    // This test documents the current behavior.
-    let db = Database::in_memory().unwrap();
-
-    let vehicle = crate::models::Vehicle::new(
-        "Test Car".to_string(),
-        "BA123XY".to_string(),
-        66.0,
-        5.1,
-        0.0,
-    );
-    db.create_vehicle(&vehicle).unwrap();
-
-    // Trip on June 15, 8:00-14:00
-    let trip_start = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(8, 0, 0)
-        .unwrap();
-    let trip_end = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(14, 0, 0)
-        .unwrap();
-
-    let mut trip = make_trip_with_datetime_range(trip_start, Some(trip_end));
-    trip.vehicle_id = vehicle.id;
-    trip.fuel_liters = Some(45.0);
-    trip.fuel_cost_eur = Some(72.0);
-    db.create_trip(&trip).unwrap();
-
-    // Receipt datetime AFTER trip end (18:00) - would normally trigger warning
-    let receipt_dt = NaiveDate::from_ymd_opt(2024, 6, 15)
-        .unwrap()
-        .and_hms_opt(18, 0, 0)
-        .unwrap();
-
-    let mut receipt = make_receipt_with_datetime_assigned(Some(receipt_dt), trip.id);
-    receipt.vehicle_id = Some(vehicle.id);
-    receipt.mismatch_override = true; // User confirmed the mismatch
-    db.create_receipt(&receipt).unwrap();
-
-    // Call the warning calculation function
-    let (warnings, _) = calculate_receipt_datetime_warnings(&[trip.clone()], &[receipt]);
-
-    // Currently, the backend DOES include this in warnings
-    // Frontend filters it out using the mismatch_override flag
-    // This test documents that behavior
-    assert_eq!(
-        warnings.len(),
-        1,
-        "Backend returns warning (frontend will filter it)"
-    );
-    assert!(
-        warnings.contains(&trip.id.to_string()),
-        "Trip ID should be in warnings set (frontend filters using mismatch_override)"
-    );
-}
-
-#[test]
 fn test_invalid_assignment_type_rejected() {
     // Test: Invalid assignment type string → error
     let db = Database::in_memory().unwrap();
@@ -3097,72 +2981,66 @@ fn test_assign_fuel_and_other_to_same_trip_succeeds() {
 }
 
 #[test]
-fn test_second_fuel_receipt_same_trip_rejected() {
+fn test_second_fuel_link_same_trip_rejected() {
+    // Paperless-only coverage: a trip can hold at most ONE Fuel invoice.
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
     db.create_trip(&trip).unwrap();
 
-    let first = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
-    db.create_receipt(&first).unwrap();
-    let second = make_receipt_unique(Some(date), Some(40.0), Some(60.0), None, None);
-    db.create_receipt(&second).unwrap();
+    let first = make_paperless_doc(801, "Tankovanie", Some(72.0), Some(45.0));
+    assign_paperless(
+        &db,
+        &first,
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        AssignmentType::Fuel,
+    )
+    .unwrap();
 
-    assign_receipt(&db, &first.id, &trip.id, &vehicle.id, "Fuel").unwrap();
-    let err = assign_receipt(&db, &second.id, &trip.id, &vehicle.id, "Fuel").unwrap_err();
+    let second = make_paperless_doc(802, "Tankovanie 2", Some(60.0), Some(40.0));
+    let err = assign_paperless(
+        &db,
+        &second,
+        &trip.id.to_string(),
+        &vehicle.id.to_string(),
+        AssignmentType::Fuel,
+    )
+    .unwrap_err();
     assert!(
         err.contains("fuel invoice"),
         "expected clear fuel-uniqueness error, got: {}",
         err
     );
 
-    // First link intact, second not linked
-    let first_loaded = db.get_receipt_by_id(&first.id.to_string()).unwrap().unwrap();
-    let second_loaded = db.get_receipt_by_id(&second.id.to_string()).unwrap().unwrap();
-    assert_eq!(first_loaded.trip_id, Some(trip.id));
-    assert_eq!(second_loaded.trip_id, None);
+    assert!(db.get_paperless_link(801).unwrap().is_some(), "first link intact");
+    assert!(db.get_paperless_link(802).unwrap().is_none(), "second link not created");
 }
 
 #[test]
 fn test_second_fuel_cross_source_rejected() {
-    // fuel receipt assigned -> paperless Fuel assign rejected
+    // Paperless Fuel assigned -> a later fuel receipt is rejected.
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
     db.create_trip(&trip).unwrap();
-    let receipt = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
-    db.create_receipt(&receipt).unwrap();
-    assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Fuel").unwrap();
 
     let doc = make_paperless_doc(700, "Tankovanie", Some(58.20), Some(40.5));
-    let err = assign_paperless(
+    assign_paperless(
         &db,
         &doc,
         &trip.id.to_string(),
         &vehicle.id.to_string(),
-        crate::models::AssignmentType::Fuel,
-    )
-    .unwrap_err();
-    assert!(err.contains("fuel invoice"), "got: {}", err);
-    assert!(db.get_paperless_link(700).unwrap().is_none(), "no link created");
-
-    // and vice versa: paperless Fuel assigned -> fuel receipt rejected
-    let trip2 = make_trip_for_assignment(vehicle.id, date, Some(40.0), Some(60.0), None);
-    db.create_trip(&trip2).unwrap();
-    assign_paperless(
-        &db,
-        &doc,
-        &trip2.id.to_string(),
-        &vehicle.id.to_string(),
-        crate::models::AssignmentType::Fuel,
+        AssignmentType::Fuel,
     )
     .unwrap();
-    let receipt2 = make_receipt_unique(Some(date), Some(40.0), Some(60.0), None, None);
-    db.create_receipt(&receipt2).unwrap();
-    let err = assign_receipt(&db, &receipt2.id, &trip2.id, &vehicle.id, "Fuel").unwrap_err();
+
+    let receipt = make_receipt_unique(Some(date), Some(45.0), Some(72.0), None, None);
+    db.create_receipt(&receipt).unwrap();
+    let err = assign_receipt(&db, &receipt.id, &trip.id, &vehicle.id, "Fuel").unwrap_err();
     assert!(err.contains("fuel invoice"), "got: {}", err);
-    let receipt2_loaded = db.get_receipt_by_id(&receipt2.id.to_string()).unwrap().unwrap();
-    assert_eq!(receipt2_loaded.trip_id, None, "receipt must not be linked");
+    let receipt_loaded = db.get_receipt_by_id(&receipt.id.to_string()).unwrap().unwrap();
+    assert_eq!(receipt_loaded.trip_id, None, "receipt must not be linked");
 }
 
 #[test]

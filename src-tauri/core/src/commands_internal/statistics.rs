@@ -18,7 +18,7 @@ use crate::calculations::{
 use crate::constants::defaults;
 use crate::db::Database;
 use crate::models::{
-    AssignmentType, PeriodMarginImpact, PreviewResult, Receipt, SuggestedFillup, Trip,
+    AssignmentType, PaperlessLink, PeriodMarginImpact, PreviewResult, SuggestedFillup, Trip,
     TripGridData, TripInvoiceCoverage, TripStats, Vehicle, VehicleType,
 };
 use chrono::{NaiveDate, NaiveDateTime, Utc};
@@ -396,8 +396,8 @@ pub fn build_trip_grid_data(
         });
     }
 
-    // Get all receipts for matching
-    let receipts = db.get_all_receipts().map_err(|e| e.to_string())?;
+    // Get all paperless links for matching
+    let links = db.get_all_paperless_links().map_err(|e| e.to_string())?;
 
     // Sort chronologically for calculations (trip_order)
     let mut chronological = trips.clone();
@@ -421,16 +421,16 @@ pub fn build_trip_grid_data(
     let other_sum_mismatches = calculate_other_sum_mismatches(&trips, &coverage);
     let other_invoice_sums = calculate_other_invoice_sums(&other_sum_mismatches, &coverage);
 
-    // Receipt datetime warnings per type (assigned receipt outside trip time range)
+    // Invoice datetime warnings per type (assigned invoice outside trip time range)
     let (fuel_datetime_warnings, other_datetime_warnings) =
-        calculate_receipt_datetime_warnings(&trips, &receipts);
+        calculate_invoice_datetime_warnings(&trips, &links);
 
     // Trips sharing an exact start datetime (task 79)
     let duplicate_datetime_warnings = calculate_duplicate_datetime_warnings(&trips);
 
-    // Receipt mismatch overrides per type (user confirmed a mismatch)
+    // Invoice mismatch overrides per type (user confirmed a mismatch)
     let (fuel_mismatch_overrides, other_mismatch_overrides) =
-        calculate_receipt_mismatch_overrides(&trips, &receipts);
+        calculate_invoice_override_warnings(&trips, &links);
 
     // Calculate initial battery for BEV/PHEV (carryover from previous year)
     let initial_battery = if vehicle.vehicle_type.uses_electricity() {
@@ -1406,62 +1406,48 @@ pub fn calculate_other_invoice_sums(
         .collect()
 }
 
-/// Find trips with an assigned receipt whose datetime is outside the trip's
-/// [start, end] range. Checks ALL receipts of a trip, not just the first
-/// (test review I8). Returns `(fuel_warnings, other_warnings)` split by the
-/// receipt's assignment type.
-pub fn calculate_receipt_datetime_warnings(
+/// Find trips with an assigned invoice whose datetime is outside the trip's
+/// [start, end] range. The datetime is the assign-time snapshot on the link.
+pub fn calculate_invoice_datetime_warnings(
     trips: &[Trip],
-    receipts: &[Receipt],
+    links: &[PaperlessLink],
 ) -> (HashSet<String>, HashSet<String>) {
-    let mut fuel_warnings = HashSet::new();
-    let mut other_warnings = HashSet::new();
-
+    let mut fuel = HashSet::new();
+    let mut other = HashSet::new();
     for trip in trips {
-        for receipt in receipts.iter().filter(|r| r.trip_id == Some(trip.id)) {
-            let Some(receipt_dt) = receipt.receipt_datetime else {
-                continue;
-            };
-            if is_datetime_in_trip_range(receipt_dt, trip) {
+        for link in links.iter().filter(|l| l.trip_id == trip.id.to_string()) {
+            let Some(dt) = link.receipt_datetime else { continue };
+            if is_datetime_in_trip_range(dt, trip) {
                 continue;
             }
-            match receipt.assignment_type {
-                Some(AssignmentType::Other) => other_warnings.insert(trip.id.to_string()),
-                // Fuel — including a legacy assigned-without-type receipt
-                // (pre-Task-51 shape): keep the warning visible rather than drop it.
-                _ => fuel_warnings.insert(trip.id.to_string()),
+            match link.assignment_type {
+                AssignmentType::Other => other.insert(trip.id.to_string()),
+                AssignmentType::Fuel => fuel.insert(trip.id.to_string()),
             };
         }
     }
-
-    (fuel_warnings, other_warnings)
+    (fuel, other)
 }
 
-/// Find trips with an assigned receipt where the user confirmed a mismatch
-/// (mismatch_override = true). Checks ALL receipts of a trip, not just the
-/// first (test review I8). Returns `(fuel_overrides, other_overrides)` split
-/// by the receipt's assignment type.
-pub fn calculate_receipt_mismatch_overrides(
+/// Find trips with an assigned invoice whose mismatch the user confirmed.
+pub fn calculate_invoice_override_warnings(
     trips: &[Trip],
-    receipts: &[Receipt],
+    links: &[PaperlessLink],
 ) -> (HashSet<String>, HashSet<String>) {
-    let mut fuel_overrides = HashSet::new();
-    let mut other_overrides = HashSet::new();
-
+    let mut fuel = HashSet::new();
+    let mut other = HashSet::new();
     for trip in trips {
-        for receipt in receipts.iter().filter(|r| r.trip_id == Some(trip.id)) {
-            if !receipt.mismatch_override {
+        for link in links.iter().filter(|l| l.trip_id == trip.id.to_string()) {
+            if !link.mismatch_override {
                 continue;
             }
-            match receipt.assignment_type {
-                Some(AssignmentType::Other) => other_overrides.insert(trip.id.to_string()),
-                // Fuel — including a legacy assigned-without-type receipt.
-                _ => fuel_overrides.insert(trip.id.to_string()),
+            match link.assignment_type {
+                AssignmentType::Other => other.insert(trip.id.to_string()),
+                AssignmentType::Fuel => fuel.insert(trip.id.to_string()),
             };
         }
     }
-
-    (fuel_overrides, other_overrides)
+    (fuel, other)
 }
 
 // ============================================================================
