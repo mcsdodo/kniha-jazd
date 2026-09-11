@@ -2911,11 +2911,10 @@ fn assign_paperless(
     assignment_type: crate::models::AssignmentType,
 ) -> Result<(), String> {
     let app_state = crate::app_state::AppState::new();
-    assign_invoice_to_trip_internal(
+    assign_paperless_invoice_internal(
         db,
         &app_state,
-        &crate::invoice::InvoiceRef::Paperless(doc.id),
-        Some(doc),
+        doc,
         trip_id,
         vehicle_id,
         assignment_type,
@@ -2947,7 +2946,7 @@ fn unassign_receipt(db: &Database, receipt_id: &Uuid) -> Result<(), String> {
 
 fn unassign_paperless(db: &Database, doc_id: i64) -> Result<(), String> {
     let app_state = crate::app_state::AppState::new();
-    unassign_invoice_internal(db, &app_state, &crate::invoice::InvoiceRef::Paperless(doc_id))
+    unassign_paperless_invoice_internal(db, &app_state, doc_id)
 }
 
 fn get_trip_costs(db: &Database, trip_id: &Uuid) -> Option<f64> {

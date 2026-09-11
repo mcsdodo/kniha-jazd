@@ -616,67 +616,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         "get_app_version" => Ok(serde_json::to_value(env!("CARGO_PKG_VERSION")).unwrap()),
 
         // ====================================================================
-        // Receipts
+        // Invoices -- sync
         // ====================================================================
-        "get_receipts" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                year: Option<i32>,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::get_receipts_internal(
-                &state.db, a.year,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "get_receipts_for_vehicle" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                vehicle_id: String,
-                year: Option<i32>,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::get_receipts_for_vehicle_internal(
-                &state.db,
-                a.vehicle_id,
-                a.year,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "get_unassigned_receipts" => {
-            let v = crate::commands_internal::receipts_cmd::get_unassigned_receipts_internal(&state.db)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "update_receipt" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                receipt: crate::models::Receipt,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::update_receipt_internal(
-                &state.db,
-                &state.app_state,
-                a.receipt,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
-        "delete_receipt" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                id: String,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::delete_receipt_internal(
-                &state.db,
-                &state.app_state,
-                a.id,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
+        //
+        // get_trips_for_paperless_assignment and assign_paperless_invoice live
+        // in dispatcher_async: they await the Paperless fetch.
         "revert_paperless_override" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -691,93 +635,19 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "get_trips_for_invoice_assignment" => {
+        "unassign_paperless_invoice" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
-                invoice_ref: crate::invoice::InvoiceRef,
-                invoice_data: Option<crate::invoice::InvoiceData>,
-                vehicle_id: String,
-                year: i32,
+                doc_id: i64,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::invoices::get_trips_for_invoice_assignment_internal(
-                &state.db,
-                &a.invoice_ref,
-                a.invoice_data.as_ref(),
-                &a.vehicle_id,
-                a.year,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "unassign_invoice" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                invoice_ref: crate::invoice::InvoiceRef,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::invoices::unassign_invoice_internal(
+            crate::commands_internal::invoices::unassign_paperless_invoice_internal(
                 &state.db,
                 &state.app_state,
-                &a.invoice_ref,
+                a.doc_id,
             )?;
             Ok(serde_json::to_value(()).unwrap())
-        }
-        "verify_receipts" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                vehicle_id: String,
-                year: i32,
-            }
-            let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::receipts_cmd::verify_receipts_internal(
-                &state.db,
-                &a.vehicle_id,
-                a.year,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "get_receipt_settings" => {
-            let v = crate::commands_internal::receipts_cmd::get_receipt_settings_internal(&state.app_dir)?;
-            Ok(serde_json::to_value(v).unwrap())
-        }
-        "set_gemini_api_key" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                api_key: String,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::set_gemini_api_key_internal(
-                &state.app_dir,
-                &state.app_state,
-                a.api_key,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
-        "set_receipts_folder_path" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                path: String,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::receipts_cmd::set_receipts_folder_path_internal(
-                &state.app_dir,
-                &state.app_state,
-                a.path,
-            )?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
-        "scan_receipts" => {
-            let v = crate::commands_internal::receipts_cmd::scan_receipts_internal(
-                &state.db,
-                &state.app_state,
-                &state.app_dir,
-            )?;
-            Ok(serde_json::to_value(v).unwrap())
         }
 
         // ====================================================================

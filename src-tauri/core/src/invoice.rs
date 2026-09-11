@@ -1,66 +1,14 @@
-//! Source-agnostic invoice abstraction (Task 64).
+//! Paperless invoice compatibility check (Task 84).
 //!
-//! Both local receipts and Paperless documents are *invoices* from the user's
-//! perspective. This module provides the trait, RPC boundary types, and compat
-//! check that the unified picker uses. Source-specific dispatch is confined to
-//! `commands_internal::invoices`, which the RPC dispatcher calls.
+//! The source-agnostic trait and enum were removed when local receipts were
+//! deleted: Paperless is the only source.
 
 use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
 
 use crate::calculations::to_cents;
 use crate::commands_internal::statistics::is_datetime_in_trip_range;
-use crate::models::{AssignmentType, AttachmentStatus, Trip, TripInvoiceCoverage};
-
-/// Tagged reference used at the IPC boundary.
-/// Serializes to `{ "source": "receipt", "id": "uuid" }`
-/// or            `{ "source": "paperless", "id": 12345 }`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag = "source", content = "id", rename_all = "lowercase")]
-pub enum InvoiceRef {
-    Receipt(String), // UUID string
-    Paperless(i64),  // Paperless document ID
-}
-
-/// Inline invoice payload sent by the frontend alongside the InvoiceRef.
-/// For Receipt: backend ignores this and loads from DB by id.
-/// For Paperless: backend uses these fields directly (paperless_trip_links has no doc data).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InvoiceData {
-    pub datetime: Option<NaiveDateTime>,
-    pub liters: Option<f64>,
-    pub total_price_eur: Option<f64>,
-    pub title: String,
-    pub assignment_type: AssignmentType,
-}
-
-/// Source-agnostic view of an invoice.
-/// All matching, sorting, and display code consumes this — never the concrete types.
-pub trait Invoice {
-    fn datetime(&self) -> Option<NaiveDateTime>;
-    fn liters(&self) -> Option<f64>;
-    fn total_price_eur(&self) -> Option<f64>;
-    fn display_name(&self) -> &str;
-    fn invoice_ref(&self) -> InvoiceRef;
-    fn assignment_type(&self) -> Option<AssignmentType>;
-}
-
-/// Adapter for Paperless invoices when only the inline `InvoiceData` is available.
-/// Used at the IPC boundary to give the compat check an `&dyn Invoice` for paperless docs.
-pub struct PaperlessInvoiceView<'a> {
-    pub id: i64,
-    pub data: &'a InvoiceData,
-}
-
-impl<'a> Invoice for PaperlessInvoiceView<'a> {
-    fn datetime(&self) -> Option<NaiveDateTime> { self.data.datetime }
-    fn liters(&self) -> Option<f64> { self.data.liters }
-    fn total_price_eur(&self) -> Option<f64> { self.data.total_price_eur }
-    fn display_name(&self) -> &str { &self.data.title }
-    fn invoice_ref(&self) -> InvoiceRef { InvoiceRef::Paperless(self.id) }
-    fn assignment_type(&self) -> Option<AssignmentType> { Some(self.data.assignment_type) }
-}
+use crate::models::{AttachmentStatus, Trip, TripInvoiceCoverage};
+use crate::paperless::PaperlessDoc;
 
 /// Compat check result.
 pub struct CompatibilityResult {
@@ -83,29 +31,27 @@ fn get_datetime_mismatch_type(dt: Option<NaiveDateTime>, trip: &Trip) -> Option<
     }
 }
 
-/// Check if invoice data matches trip's existing data.
+/// Check if a Paperless document matches a trip's existing data.
 /// Returns compatibility result with detailed mismatch reason.
-/// Handles both FUEL invoices (has liters) and OTHER cost invoices (no liters).
+/// Handles both FUEL documents (has litres) and OTHER cost documents (no litres).
 ///
 /// Multi-invoice semantics (Task 66, test review C8/I1): `coverage` is the
-/// trip's invoice coverage across BOTH sources (local receipts + paperless
-/// links). Fuel invoices cannot attach to a trip that already has a Fuel
-/// invoice (`can_attach = false` — the picker greys the trip out; the assign
-/// pre-check stays authoritative). Other invoices skip the amount comparison
-/// entirely once the trip carries >=1 Other invoice (the new amount is summed
-/// on assign — there is nothing to match against); with zero Others the
-/// comparison is cent-exact via `to_cents`, so the picker verdict always
-/// agrees with the assign-time double-count guard.
-pub fn check_invoice_trip_compatibility(
-    invoice: &dyn Invoice,
+/// trip's invoice coverage across the Paperless links. Fuel documents cannot
+/// attach to a trip that already has a Fuel document (`can_attach = false` --
+/// the picker greys the trip out; the assign pre-check stays authoritative).
+/// Other documents skip the amount comparison entirely once the trip carries
+/// >=1 Other document (the new amount is summed on assign -- there is nothing
+/// to match against); with zero Others the comparison is cent-exact via
+/// `to_cents`, so the picker verdict always agrees with the assign-time
+/// double-count guard.
+pub fn check_paperless_trip_compatibility(
+    doc: &PaperlessDoc,
     trip: &Trip,
     coverage: &TripInvoiceCoverage,
 ) -> CompatibilityResult {
-    let is_fuel = match invoice.assignment_type() {
-        Some(AssignmentType::Fuel) => true,
-        Some(AssignmentType::Other) => false,
-        None => invoice.liters().is_some(),
-    };
+    // PaperlessDoc carries no assignment type: a document with litres is Fuel,
+    // otherwise it is Other.
+    let is_fuel = doc.litres.is_some();
 
     if is_fuel {
         // A trip holds at most ONE Fuel invoice across both sources (I1).
@@ -118,7 +64,7 @@ pub fn check_invoice_trip_compatibility(
         }
         let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
         if !trip_has_fuel {
-            let status = match invoice.datetime() {
+            let status = match doc.receipt_datetime {
                 Some(dt) if is_datetime_in_trip_range(dt, trip) => AttachmentStatus::Matches,
                 Some(dt) if is_same_date(dt, trip) => AttachmentStatus::MatchesDate,
                 _ => AttachmentStatus::Empty,
@@ -129,9 +75,9 @@ pub fn check_invoice_trip_compatibility(
                 mismatch_reason: None,
             };
         }
-        let r_liters = invoice.liters().unwrap();
-        let r_price = invoice.total_price_eur().unwrap_or(0.0);
-        let datetime_mismatch = get_datetime_mismatch_type(invoice.datetime(), trip);
+        let r_liters = doc.litres.unwrap();
+        let r_price = doc.total_amount.unwrap_or(0.0);
+        let datetime_mismatch = get_datetime_mismatch_type(doc.receipt_datetime, trip);
         let liters_match = trip.fuel_liters.map(|fl| (fl - r_liters).abs() < 0.01).unwrap_or(false);
         let price_match = trip.fuel_cost_eur.map(|fc| (fc - r_price).abs() < 0.01).unwrap_or(false);
 
@@ -160,7 +106,7 @@ pub fn check_invoice_trip_compatibility(
         }
     } else {
         // Trip already carries >=1 Other invoice: the total is a running sum,
-        // so comparing the new invoice against it is meaningless — skip the
+        // so comparing the new document against it is meaningless -- skip the
         // amount check entirely (C8; the amount is summed on assign).
         if coverage.has_other {
             return CompatibilityResult {
@@ -171,7 +117,7 @@ pub fn check_invoice_trip_compatibility(
         }
         let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
         if !trip_has_other_costs {
-            let status = match invoice.datetime() {
+            let status = match doc.receipt_datetime {
                 Some(dt) if is_datetime_in_trip_range(dt, trip) => AttachmentStatus::Matches,
                 Some(dt) if is_same_date(dt, trip) => AttachmentStatus::MatchesDate,
                 _ => AttachmentStatus::Empty,
@@ -182,10 +128,10 @@ pub fn check_invoice_trip_compatibility(
                 mismatch_reason: None,
             };
         }
-        if let Some(r_price) = invoice.total_price_eur() {
-            let datetime_mismatch = get_datetime_mismatch_type(invoice.datetime(), trip);
+        if let Some(r_price) = doc.total_amount {
+            let datetime_mismatch = get_datetime_mismatch_type(doc.receipt_datetime, trip);
             // Cent-exact (Task 66): must agree with the assign-time
-            // double-count guard, which compares via to_cents — the old ±0.01
+            // double-count guard, which compares via to_cents -- the old +/-0.01
             // epsilon disagreed on borderline values (12.34 vs 12.3345).
             let price_match = trip.other_costs_eur.map(|tc| to_cents(tc) == to_cents(r_price)).unwrap_or(false);
             if datetime_mismatch.is_none() && price_match {

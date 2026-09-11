@@ -1,35 +1,45 @@
-//! Unified invoice command implementations (Task 64).
+//! Paperless invoice command implementations (Task 64, collapsed in Task 84).
 //!
-//! Source dispatch confined to the three boundary functions here.
-//! Beyond these, code consumes `&dyn Invoice` and never inspects the source.
+//! Paperless is the only invoice source. These three boundary functions are
+//! what the RPC dispatchers call; everything below them is source-free.
 
 use std::collections::HashMap;
 
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::app_state::AppState;
 use crate::calculations::{from_cents, money_add, money_sub, to_cents};
 use crate::check_read_only;
 use crate::db::Database;
-use crate::invoice::{
-    check_invoice_trip_compatibility, Invoice, InvoiceData, InvoiceRef, PaperlessInvoiceView,
-};
+use crate::invoice::check_paperless_trip_compatibility;
 use crate::models::{AssignmentType, Trip, TripInvoiceCoverage};
 use crate::paperless::PaperlessDoc;
-
-use super::receipts_cmd::TripForAssignment;
 
 /// Rule 3 error: a trip can hold at most ONE Fuel invoice across both sources
 /// (local receipts + paperless links). Translated frontend-side (i18n).
 pub(crate) const FUEL_INVOICE_EXISTS_ERR: &str = "Trip already has a fuel invoice";
 
-/// Get trips annotated with attachment status for a given invoice.
-/// For Receipt: backend loads from DB by id (ignores `data`).
-/// For Paperless: backend uses `data` directly (the inline doc payload from the frontend).
-pub fn get_trips_for_invoice_assignment_internal(
+/// A trip annotated with whether a Paperless document can be attached to it.
+/// Used by the frontend to show which trips are eligible for assignment.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TripForAssignment {
+    pub trip: Trip,
+    /// Whether this document can be attached to this trip
+    pub can_attach: bool,
+    /// Status explaining why: "empty" (no fuel), "matches" (document matches trip fuel), "differs" (data conflicts)
+    pub attachment_status: String,
+    /// When status is "differs", explains what specifically doesn't match (for UI display)
+    /// Values: null, "date", "liters", "price", "liters_and_price", "date_and_liters", "date_and_price", "all"
+    pub mismatch_reason: Option<String>,
+}
+
+/// Get trips annotated with attachment status for a Paperless document.
+/// The document is always backend-fetched; inline caller data is never trusted.
+pub fn get_trips_for_paperless_assignment_internal(
     db: &Database,
-    invoice_ref: &InvoiceRef,
-    data: Option<&InvoiceData>,
+    doc: &PaperlessDoc,
     vehicle_id: &str,
     year: i32,
 ) -> Result<Vec<TripForAssignment>, String> {
@@ -37,30 +47,15 @@ pub fn get_trips_for_invoice_assignment_internal(
         .get_trips_for_vehicle_in_year(vehicle_id, year)
         .map_err(|e| e.to_string())?;
 
-    // Fetched ONCE for the whole picker list (Task 66) — per-trip entries are
+    // Fetched ONCE for the whole picker list (Task 66) -- per-trip entries are
     // passed down so the compat check can enforce multi-invoice rules.
     let coverage = db.get_trip_invoice_coverage().map_err(|e| e.to_string())?;
 
-    match invoice_ref {
-        InvoiceRef::Receipt(id) => {
-            let receipt = db
-                .get_receipt_by_id(id)
-                .map_err(|e| e.to_string())?
-                .ok_or_else(|| "Receipt not found".to_string())?;
-            Ok(annotate_trips(&receipt, trips, &coverage))
-        }
-        InvoiceRef::Paperless(id) => {
-            let data = data.ok_or_else(|| {
-                "InvoiceData required for Paperless invoices".to_string()
-            })?;
-            let view = PaperlessInvoiceView { id: *id, data };
-            Ok(annotate_trips(&view, trips, &coverage))
-        }
-    }
+    Ok(annotate_trips(doc, trips, &coverage))
 }
 
 fn annotate_trips(
-    invoice: &dyn Invoice,
+    doc: &PaperlessDoc,
     trips: Vec<Trip>,
     coverage: &HashMap<String, TripInvoiceCoverage>,
 ) -> Vec<TripForAssignment> {
@@ -69,7 +64,7 @@ fn annotate_trips(
         .into_iter()
         .map(|trip| {
             let trip_coverage = coverage.get(&trip.id.to_string()).unwrap_or(&no_coverage);
-            let compat = check_invoice_trip_compatibility(invoice, &trip, trip_coverage);
+            let compat = check_paperless_trip_compatibility(doc, &trip, trip_coverage);
             TripForAssignment {
                 trip,
                 can_attach: compat.can_attach,
@@ -80,15 +75,13 @@ fn annotate_trips(
         .collect()
 }
 
-/// Assign an invoice to a trip.
-/// For Receipt: delegates to existing receipt-assignment logic.
-/// For Paperless: `doc` must be backend-fetched (never trust caller-supplied data for writes).
+/// Assign a Paperless document to a trip.
+/// `doc` must be backend-fetched (never trust caller-supplied data for writes).
 #[allow(clippy::too_many_arguments)]
-pub fn assign_invoice_to_trip_internal(
+pub fn assign_paperless_invoice_internal(
     db: &Database,
     app_state: &AppState,
-    invoice_ref: &InvoiceRef,
-    doc: Option<&PaperlessDoc>,
+    doc: &PaperlessDoc,
     trip_id: &str,
     vehicle_id: &str,
     assignment_type: AssignmentType,
@@ -96,117 +89,98 @@ pub fn assign_invoice_to_trip_internal(
 ) -> Result<(), String> {
     check_read_only!(app_state);
 
-    match invoice_ref {
-        InvoiceRef::Receipt(id) => {
-            super::receipts_cmd::assign_receipt_to_trip_internal(
-                db,
-                id,
-                trip_id,
-                vehicle_id,
-                assignment_type.as_str(),
-                mismatch_override,
-            )
-            .map(|_| ())
+    let id = doc.id;
+
+    // Rule 1: validate the backend-fetched amount BEFORE any mutation.
+    validate_invoice_amount(doc.total_amount)?;
+
+    let vehicle_uuid =
+        Uuid::parse_str(vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
+
+    let trip = db
+        .get_trip(trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Trip not found".to_string())?;
+
+    if trip.vehicle_id != vehicle_uuid {
+        return Err("Trip does not belong to the selected vehicle".to_string());
+    }
+
+    // Rule 2: idempotency -- same trip + same type is a no-op (I12).
+    // Assigned elsewhere (or same trip, different type): reverse the
+    // old contribution first (C4), then proceed as a fresh assign.
+    if let Some(old_link) = db.get_paperless_link(id).map_err(|e| e.to_string())? {
+        if old_link.trip_id == trip_id && old_link.assignment_type == assignment_type {
+            return Ok(());
         }
-        InvoiceRef::Paperless(id) => {
-            let doc = doc.ok_or_else(|| {
-                "PaperlessDoc required for Paperless invoices".to_string()
-            })?;
-
-            // Rule 1: validate the backend-fetched amount BEFORE any mutation.
-            validate_invoice_amount(doc.total_amount)?;
-
-            let vehicle_uuid =
-                Uuid::parse_str(vehicle_id).map_err(|e| format!("Invalid vehicle ID: {}", e))?;
-
-            let trip = db
-                .get_trip(trip_id)
-                .map_err(|e| e.to_string())?
-                .ok_or_else(|| "Trip not found".to_string())?;
-
-            if trip.vehicle_id != vehicle_uuid {
-                return Err("Trip does not belong to the selected vehicle".to_string());
-            }
-
-            // Rule 2: idempotency — same trip + same type is a no-op (I12).
-            // Assigned elsewhere (or same trip, different type): reverse the
-            // old contribution first (C4), then proceed as a fresh assign.
-            if let Some(old_link) = db.get_paperless_link(*id).map_err(|e| e.to_string())? {
-                if old_link.trip_id == trip_id && old_link.assignment_type == assignment_type {
-                    return Ok(());
-                }
-                if old_link.assignment_type == AssignmentType::Other {
-                    if let Some(cents) = old_link.applied_amount_cents {
-                        remove_other_contribution(
-                            db,
-                            &old_link.trip_id,
-                            cents,
-                            old_link.title.as_deref(),
-                        )?;
-                    }
-                }
-            }
-            // Re-load: the reversal may have mutated THIS trip (same-trip type change).
-            let trip = db
-                .get_trip(trip_id)
-                .map_err(|e| e.to_string())?
-                .ok_or_else(|| "Trip not found".to_string())?;
-
-            let coverage = trip_coverage(db, trip_id)?;
-            let applied_amount_cents = match assignment_type {
-                AssignmentType::Fuel => {
-                    // Rule 3: max one Fuel invoice per trip ACROSS both stores
-                    // (the partial unique indexes only guard within each table).
-                    if coverage.has_fuel {
-                        return Err(FUEL_INVOICE_EXISTS_ERR.to_string());
-                    }
-                    // Populate-if-empty unchanged.
-                    let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
-                    if !trip_has_fuel {
-                        let mut updated = trip.clone();
-                        updated.fuel_liters = doc.litres;
-                        updated.fuel_cost_eur = doc.total_amount;
-                        updated.full_tank = true;
-                        db.update_trip(&updated).map_err(|e| e.to_string())?;
-                    }
-                    None
-                }
-                // Rule 4: sum-on-assign decision table.
-                AssignmentType::Other => apply_other_amount(
+        if old_link.assignment_type == AssignmentType::Other {
+            if let Some(cents) = old_link.applied_amount_cents {
+                remove_other_contribution(
                     db,
-                    &trip,
-                    doc.total_amount,
-                    &doc.title,
-                    coverage.has_other,
-                )?,
-            };
-
-            // Rule 6: snapshot assignment type + doc amount/title at assign
-            // time — always from the backend-fetched doc, never caller data.
-            let link = crate::models::PaperlessLink {
-                paperless_document_id: *id,
-                trip_id: trip_id.to_string(),
-                assignment_type,
-                amount_eur: doc.total_amount,
-                title: Some(doc.title.clone()),
-                applied_amount_cents,
-                receipt_datetime: doc.receipt_datetime,
-                mismatch_override,
-            };
-            db.upsert_paperless_link(&link).map_err(|e| e.to_string())?;
-            Ok(())
+                    &old_link.trip_id,
+                    cents,
+                    old_link.title.as_deref(),
+                )?;
+            }
         }
     }
+    // Re-load: the reversal may have mutated THIS trip (same-trip type change).
+    let trip = db
+        .get_trip(trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Trip not found".to_string())?;
+
+    let coverage = trip_coverage(db, trip_id)?;
+    let applied_amount_cents = match assignment_type {
+        AssignmentType::Fuel => {
+            // Rule 3: max one Fuel invoice per trip ACROSS both stores
+            // (the partial unique indexes only guard within each table).
+            if coverage.has_fuel {
+                return Err(FUEL_INVOICE_EXISTS_ERR.to_string());
+            }
+            // Populate-if-empty unchanged.
+            let trip_has_fuel = trip.fuel_liters.map(|l| l > 0.0).unwrap_or(false);
+            if !trip_has_fuel {
+                let mut updated = trip.clone();
+                updated.fuel_liters = doc.litres;
+                updated.fuel_cost_eur = doc.total_amount;
+                updated.full_tank = true;
+                db.update_trip(&updated).map_err(|e| e.to_string())?;
+            }
+            None
+        }
+        // Rule 4: sum-on-assign decision table.
+        AssignmentType::Other => apply_other_amount(
+            db,
+            &trip,
+            doc.total_amount,
+            &doc.title,
+            coverage.has_other,
+        )?,
+    };
+
+    // Rule 6: snapshot assignment type + doc amount/title at assign
+    // time -- always from the backend-fetched doc, never caller data.
+    let link = crate::models::PaperlessLink {
+        paperless_document_id: id,
+        trip_id: trip_id.to_string(),
+        assignment_type,
+        amount_eur: doc.total_amount,
+        title: Some(doc.title.clone()),
+        applied_amount_cents,
+        receipt_datetime: doc.receipt_datetime,
+        mismatch_override,
+    };
+    db.upsert_paperless_link(&link).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 // ============================================================================
-// Shared assignment rules (Task 66) — used by BOTH invoice sources.
-// receipts_cmd::assign_receipt_to_trip_internal and the Paperless arm above
-// route through these helpers so the semantics can never drift apart.
+// Shared assignment rules (Task 66).
 // ============================================================================
 
 /// Rule 1: an invoice amount, when present, must be finite and non-negative.
-/// Validated at the boundary before any mutation — `to_cents(f64::NAN)` would
+/// Validated at the boundary before any mutation -- `to_cents(f64::NAN)` would
 /// silently be 0, corrupting sums downstream.
 pub(crate) fn validate_invoice_amount(amount: Option<f64>) -> Result<(), String> {
     match amount {
@@ -218,7 +192,7 @@ pub(crate) fn validate_invoice_amount(amount: Option<f64>) -> Result<(), String>
     }
 }
 
-/// Per-trip invoice coverage across BOTH stores (receipts + paperless links).
+/// Per-trip invoice coverage across the stored links.
 pub(crate) fn trip_coverage(db: &Database, trip_id: &str) -> Result<TripInvoiceCoverage, String> {
     Ok(db
         .get_trip_invoice_coverage()
@@ -231,7 +205,7 @@ pub(crate) fn trip_coverage(db: &Database, trip_id: &str) -> Result<TripInvoiceC
 /// Other contribution from a trip. Subtracts exactly the applied snapshot in
 /// cents (never the live invoice amount, which the user may have edited),
 /// stores a zero result as `None` (not `Some(0.0)`), strips the appended note
-/// segment when trivially identifiable, and tolerates orphaned links — a
+/// segment when trivially identifiable, and tolerates orphaned links -- a
 /// deleted trip means there is nothing to mutate (I10).
 pub(crate) fn remove_other_contribution(
     db: &Database,
@@ -264,13 +238,13 @@ pub(crate) fn remove_other_contribution(
 /// ```text
 /// amount None                                   -> link-only; applied None (I3)
 /// no existing Other && total == amount (cents)  -> link-only; applied None
-///                                                  (double-count guard — the user
+///                                                  (double-count guard -- the user
 ///                                                  pre-entered the cost manually)
 /// otherwise                                     -> total = money_add(total, amount);
 ///                                                  append note; applied Some(cents)
 /// ```
 ///
-/// Populate-if-empty is the money_add branch with an empty total — identical
+/// Populate-if-empty is the money_add branch with an empty total -- identical
 /// arithmetic, and appending a segment to an empty note sets it.
 pub(crate) fn apply_other_amount(
     db: &Database,
@@ -303,7 +277,7 @@ fn append_note_segment(existing: Option<String>, segment: &str) -> String {
     }
 }
 
-/// Strip the note segment appended at assign time — only when trivially
+/// Strip the note segment appended at assign time -- only when trivially
 /// identifiable (the whole note, or a "; "-joined suffix/prefix). Anything
 /// else means the user edited the note: leave it untouched.
 fn strip_note_segment(note: Option<String>, segment: &str) -> Option<String> {
@@ -330,30 +304,23 @@ pub fn revert_paperless_override_internal(
     db.set_paperless_override(doc_id, false).map_err(|e| e.to_string())
 }
 
-/// Unassign an invoice from its trip.
-pub fn unassign_invoice_internal(
+/// Unassign a Paperless document from its trip.
+pub fn unassign_paperless_invoice_internal(
     db: &Database,
     app_state: &AppState,
-    invoice_ref: &InvoiceRef,
+    doc_id: i64,
 ) -> Result<(), String> {
     check_read_only!(app_state);
-    match invoice_ref {
-        InvoiceRef::Receipt(id) => {
-            super::receipts_cmd::unassign_receipt_internal(db, app_state, id.clone())
-        }
-        InvoiceRef::Paperless(id) => {
-            // Rule 5: reverse an applied Other contribution before deleting
-            // the link. Fuel unassignments never touch other_costs.
-            if let Some(link) = db.get_paperless_link(*id).map_err(|e| e.to_string())? {
-                if link.assignment_type == AssignmentType::Other {
-                    if let Some(cents) = link.applied_amount_cents {
-                        remove_other_contribution(db, &link.trip_id, cents, link.title.as_deref())?;
-                    }
-                }
+    // Rule 5: reverse an applied Other contribution before deleting
+    // the link. Fuel unassignments never touch other_costs.
+    if let Some(link) = db.get_paperless_link(doc_id).map_err(|e| e.to_string())? {
+        if link.assignment_type == AssignmentType::Other {
+            if let Some(cents) = link.applied_amount_cents {
+                remove_other_contribution(db, &link.trip_id, cents, link.title.as_deref())?;
             }
-            db.delete_paperless_link_for_doc(*id).map_err(|e| e.to_string())
         }
     }
+    db.delete_paperless_link_for_doc(doc_id).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

@@ -26,47 +26,6 @@ pub async fn dispatch_async(
 ) -> Option<Result<Value, String>> {
     match command {
         // ====================================================================
-        // Receipts — async (3)
-        // ====================================================================
-        "sync_receipts" => {
-            let result = crate::commands_internal::receipts_cmd::sync_receipts_internal(
-                &state.db,
-                &state.app_state,
-                &state.app_dir,
-            )
-            .await;
-            Some(result.map(|v| serde_json::to_value(v).unwrap()))
-        }
-        "process_pending_receipts" => {
-            let result =
-                crate::commands_internal::receipts_cmd::process_pending_receipts_internal(
-                    &state.db,
-                    &state.app_dir,
-                )
-                .await;
-            Some(result.map(|v| serde_json::to_value(v).unwrap()))
-        }
-        "reprocess_receipt" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                id: String,
-            }
-            let a: Args = match parse_args(args) {
-                Ok(a) => a,
-                Err(e) => return Some(Err(e)),
-            };
-            let result = crate::commands_internal::receipts_cmd::reprocess_receipt_internal(
-                &state.db,
-                &state.app_state,
-                &state.app_dir,
-                a.id,
-            )
-            .await;
-            Some(result.map(|v| serde_json::to_value(v).unwrap()))
-        }
-
-        // ====================================================================
         // Statistics — async because of the fire-and-forget HA push
         // ====================================================================
         //
@@ -169,13 +128,39 @@ pub async fn dispatch_async(
         }
 
         // ====================================================================
-        // Invoices — async (1, Paperless fetch required for writes)
+        // Invoices — async (2, Paperless fetch required)
         // ====================================================================
-        "assign_invoice_to_trip" => {
+        "get_trips_for_paperless_assignment" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
-                invoice_ref: crate::invoice::InvoiceRef,
+                doc_id: i64,
+                vehicle_id: String,
+                year: i32,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let doc = match crate::commands_internal::paperless_cmd::fetch_paperless_doc_by_id(
+                &state.app_dir, a.doc_id,
+            ).await {
+                Ok(doc) => doc,
+                Err(e) => return Some(Err(e.to_string())),
+            };
+            let v = match crate::commands_internal::invoices::get_trips_for_paperless_assignment_internal(
+                &state.db, &doc, &a.vehicle_id, a.year,
+            ) {
+                Ok(v) => v,
+                Err(e) => return Some(Err(e)),
+            };
+            Some(Ok(serde_json::to_value(v).unwrap()))
+        }
+        "assign_paperless_invoice" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                doc_id: i64,
                 trip_id: String,
                 vehicle_id: String,
                 assignment_type: crate::models::AssignmentType,
@@ -185,22 +170,16 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let paperless_doc = match &a.invoice_ref {
-                crate::invoice::InvoiceRef::Paperless(id) => {
-                    match crate::commands_internal::paperless_cmd::fetch_paperless_doc_by_id(
-                        &state.app_dir, *id,
-                    ).await {
-                        Ok(doc) => Some(doc),
-                        Err(e) => return Some(Err(e.to_string())),
-                    }
-                }
-                crate::invoice::InvoiceRef::Receipt(_) => None,
+            let doc = match crate::commands_internal::paperless_cmd::fetch_paperless_doc_by_id(
+                &state.app_dir, a.doc_id,
+            ).await {
+                Ok(doc) => doc,
+                Err(e) => return Some(Err(e.to_string())),
             };
-            let result = crate::commands_internal::invoices::assign_invoice_to_trip_internal(
+            let result = crate::commands_internal::invoices::assign_paperless_invoice_internal(
                 &state.db,
                 &state.app_state,
-                &a.invoice_ref,
-                paperless_doc.as_ref(),
+                &doc,
                 &a.trip_id,
                 &a.vehicle_id,
                 a.assignment_type,

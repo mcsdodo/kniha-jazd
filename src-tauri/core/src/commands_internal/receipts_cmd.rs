@@ -12,7 +12,7 @@ use crate::check_read_only;
 use crate::db::Database;
 use crate::gemini::is_mock_mode_enabled;
 use crate::models::{
-    AssignmentType, Receipt, ReceiptStatus, ReceiptVerification, Trip, VerificationResult,
+    AssignmentType, Receipt, ReceiptStatus, ReceiptVerification, VerificationResult,
 };
 use crate::receipts::{
     detect_folder_structure, process_receipt_with_gemini, scan_folder_for_new_receipts,
@@ -21,6 +21,7 @@ use crate::receipts::{
 use crate::settings::{env_vars, LocalSettings};
 
 use super::statistics::is_datetime_in_trip_range;
+use super::invoices::TripForAssignment;
 
 use std::path::Path;
 
@@ -500,20 +501,27 @@ fn receipt_note_segment(receipt: &Receipt) -> String {
 // ============================================================================
 // Trip Selection for Receipt Assignment
 // ============================================================================
+//
+// Task 84 moved `TripForAssignment` into `invoices.rs` and removed the
+// source-agnostic compat check. This module stays until Task 7 deletes local
+// receipts; the picker below bridges a receipt into the Paperless compat check.
 
-/// A trip annotated with whether a receipt can be attached to it.
-/// Used by the frontend to show which trips are eligible for receipt assignment.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TripForAssignment {
-    pub trip: Trip,
-    /// Whether this receipt can be attached to this trip
-    pub can_attach: bool,
-    /// Status explaining why: "empty" (no fuel), "matches" (receipt matches trip fuel), "differs" (data conflicts)
-    pub attachment_status: String,
-    /// When status is "differs", explains what specifically doesn't match (for UI display)
-    /// Values: null, "date", "liters", "price", "liters_and_price", "date_and_liters", "date_and_price", "all"
-    pub mismatch_reason: Option<String>,
+/// Bridge a local receipt into a `PaperlessDoc` so the legacy receipt picker
+/// can reuse `check_paperless_trip_compatibility`. `PaperlessDoc` carries no
+/// assignment type; the compat check derives Fuel/Other from `litres`.
+fn receipt_as_paperless_doc(receipt: &Receipt) -> crate::paperless::PaperlessDoc {
+    crate::paperless::PaperlessDoc {
+        id: 0,
+        title: receipt.file_name.clone(),
+        tag_ids: Vec::new(),
+        created: receipt
+            .receipt_datetime
+            .map(|dt| dt.date())
+            .unwrap_or_else(|| chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap()),
+        total_amount: receipt.total_price_eur,
+        litres: receipt.liters,
+        receipt_datetime: receipt.receipt_datetime,
+    }
 }
 
 /// Internal get_trips_for_receipt_assignment logic (testable without State wrapper)
@@ -538,13 +546,14 @@ pub fn get_trips_for_receipt_assignment_internal(
     // passed down so the compat check can enforce multi-invoice rules.
     let coverage = db.get_trip_invoice_coverage().map_err(|e| e.to_string())?;
     let no_coverage = crate::models::TripInvoiceCoverage::default();
+    let doc = receipt_as_paperless_doc(&receipt);
 
     // Annotate each trip with attachment eligibility
     let result = trips
         .into_iter()
         .map(|trip| {
             let trip_coverage = coverage.get(&trip.id.to_string()).unwrap_or(&no_coverage);
-            let compat = crate::invoice::check_invoice_trip_compatibility(&receipt as &dyn crate::invoice::Invoice, &trip, trip_coverage);
+            let compat = crate::invoice::check_paperless_trip_compatibility(&doc, &trip, trip_coverage);
             TripForAssignment {
                 trip,
                 can_attach: compat.can_attach,

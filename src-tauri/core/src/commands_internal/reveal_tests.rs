@@ -89,7 +89,6 @@ fn each_field_maps_to_its_own_setting() {
     let app_state = crate::app_state::AppState::new();
     crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
         let get = |f| reveal_secret_internal(dir.path(), &app_state, f, "4269").unwrap();
-        assert_eq!(get(SecretField::GeminiApiKey), "file-gemini");
         assert_eq!(get(SecretField::HaApiToken), "file-ha");
         assert_eq!(get(SecretField::PaperlessApiToken), "file-paperless");
     });
@@ -101,7 +100,7 @@ fn unconfigured_secret_errors_rather_than_returning_empty() {
     let app_state = crate::app_state::AppState::new();
     crate::settings::test_env::with_env_vars(&[(PIN_VAR, "4269")], || {
         let err =
-            reveal_secret_internal(dir.path(), &app_state, SecretField::GeminiApiKey, "4269")
+            reveal_secret_internal(dir.path(), &app_state, SecretField::PaperlessApiToken, "4269")
                 .unwrap_err();
         assert!(err.contains("not configured"), "got: {err}");
     });
