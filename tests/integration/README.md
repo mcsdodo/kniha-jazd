@@ -102,17 +102,21 @@ TIER=1 npx wdio run tests/integration/wdio.server.conf.ts
 # Tier 1 + 2 (sequential mode is cumulative)
 TIER=2 npx wdio run tests/integration/wdio.server.conf.ts
 
-# Exactly one tier (what CI does)
+# Exactly one tier
 TIER=2 PARALLEL_TIERS=true npx wdio run tests/integration/wdio.server.conf.ts
+
+# One shard of six (what CI does)
+WDIO_SHARD=2/6 npx wdio run tests/integration/wdio.server.conf.ts
 ```
 
-The npm scripts use the Windows `set VAR=x&&` form; on Linux/macOS use the inline
-`VAR=x` prefix above.
+The npm scripts use [cross-env](https://www.npmjs.com/package/cross-env), so the same
+script works on Linux, macOS and Windows. The inline `VAR=x` prefix above is for running
+wdio directly.
 
 **CI Behavior:**
-- All three tiers run in parallel on both PRs and pushes to `main` (matrix in [.github/workflows/test.yml](../../.github/workflows/test.yml)), each against its own container.
-- The env-pinned suite runs as a fourth job against a second container started with the pinning variables.
-- The `TIER` env var is for *local* scoping -- CI sets `TIER` per matrix job to fan out the suite across runners, not to skip tiers.
+- The suite is split into **six shards** (matrix `shard: [1..6]` in [.github/workflows/test.yml](../../.github/workflows/test.yml)), each against its own container. CI sets `WDIO_SHARD: <n>/6`, not `TIER` (task 83).
+- The env-pinned suite runs as a further job against a second container started with the pinning variables.
+- The `TIER` env var is for *local* scoping only. It groups specs by cost; the shards ignore it and split every spec file across runners.
 
 ### The env-pinned suite
 

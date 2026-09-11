@@ -33,6 +33,11 @@ RUN cargo build --release -p kniha-jazd-web \
 # dependency stays cached from the layer above.
 COPY src-tauri/core ./core
 COPY src-tauri/web ./web
+# The touch is load-bearing: it is what defeats the cached stub layer. Cargo
+# decides by fingerprint, and a COPY can land a source file whose mtime is older
+# than the stub .rlib built above (an old working tree, a local build), in which
+# case cargo considers the crate fresh and ships a binary built from the stubs.
+# Touching both crate roots forces the rebuild. Do not remove it.
 RUN touch core/src/lib.rs web/src/main.rs \
     && cargo build --release -p kniha-jazd-web
 

@@ -175,13 +175,15 @@ npm run test:all
 ```
 
 **Test scripts and CI (invariant I1).** Every npm test script reaches GitHub Actions.
-`test.yml` invokes `test:backend`, `test:integration:docker` and
-`test:integration:docker:env` directly. `test:integration:tier1/2/3` are thin
-aliases: they set `TIER` (and `PARALLEL_TIERS`) and delegate to
-`test:integration`, which is exactly what the Docker jobs run - CI sets the same
-`TIER` env vars itself. `test:all` is `test:backend && test:integration`. So the
-tier scripts satisfy I1 through the script they delegate to, not by appearing in
-the workflow by name.
+`test.yml` invokes `test:integration:docker` and `test:integration:docker:env`
+directly, and runs the backend with `cargo test --manifest-path ... --workspace`
+- the same command `test:backend` wraps. The Docker jobs are sharded: CI sets
+`WDIO_SHARD: <n>/6` per matrix job (task 83), not `TIER`.
+`test:integration:tier1/2/3` are thin local aliases: they set `TIER` (and
+`PARALLEL_TIERS`) and delegate to `test:integration`, which is exactly the
+script the Docker jobs run. `test:all` is `test:backend && test:integration`. So
+the tier scripts satisfy I1 through the script they delegate to, not by
+appearing in the workflow by name.
 
 #### Iteration strategy: focused runs, not full sweeps
 
