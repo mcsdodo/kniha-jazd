@@ -28,35 +28,6 @@ export const TOAST_TYPES = {
 export type ToastType = (typeof TOAST_TYPES)[keyof typeof TOAST_TYPES];
 
 // =============================================================================
-// Receipt Status
-// =============================================================================
-
-export const RECEIPT_STATUS = {
-	PENDING: 'Pending',
-	PARSED: 'Parsed',
-	NEEDS_REVIEW: 'NeedsReview'
-} as const;
-export type ReceiptStatus = (typeof RECEIPT_STATUS)[keyof typeof RECEIPT_STATUS];
-
-// =============================================================================
-// Receipt Filters
-// =============================================================================
-
-export const RECEIPT_FILTERS = {
-	ALL: 'all',
-	UNASSIGNED: 'unassigned',
-	NEEDS_REVIEW: 'needs_review'
-} as const;
-export type ReceiptFilter = (typeof RECEIPT_FILTERS)[keyof typeof RECEIPT_FILTERS];
-
-export const RECEIPT_TYPE_FILTERS = {
-	ALL: 'all',
-	FUEL: 'fuel',
-	OTHER: 'other'
-} as const;
-export type ReceiptTypeFilter = (typeof RECEIPT_TYPE_FILTERS)[keyof typeof RECEIPT_TYPE_FILTERS];
-
-// =============================================================================
 // Confidence Levels
 // =============================================================================
 

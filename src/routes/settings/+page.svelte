@@ -12,7 +12,7 @@
 	import type { Locales } from '$lib/i18n/i18n-types';
 	import { themeStore } from '$lib/stores/theme';
 	import type { ThemeMode } from '$lib/api';
-	import { getAppVersion, getReceiptSettings, setGeminiApiKey, setReceiptsFolderPath, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
+	import { getAppVersion, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
 	import type { PaperlessCustomFieldInfo, SecretField } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 
@@ -44,12 +44,6 @@
 
 	// Time inference toggle (default OFF until loaded)
 	let inferTripTimes = false;
-
-	// Receipt scanning settings state
-	let geminiApiKey = '';
-	let receiptsFolderPath = '';
-	let hasGeminiApiKey = false;
-	let geminiKeyFromEnv = false;
 
 	// ── Secret reveal ────────────────────────────────────────────────────────
 	// Secrets never arrive with the settings; each reveal is a separate backend
@@ -111,8 +105,6 @@
 	let initialCompanyName = '';
 	let initialCompanyIco = '';
 	let initialBufferTripPurpose = '';
-	let initialGeminiApiKey = '';
-	let initialReceiptsFolderPath = '';
 
 	// Home Assistant settings state
 	let haUrl = '';
@@ -216,36 +208,8 @@
 		}
 	}
 
-	// Auto-save functions for receipt settings
-	async function saveReceiptSettingsNow() {
-		// Only save if values actually changed
-		if (
-			geminiApiKey === initialGeminiApiKey &&
-			receiptsFolderPath === initialReceiptsFolderPath
-		) {
-			return;
-		}
-		try {
-			// The key is read-only while GEMINI_API_KEY pins it — sending it would
-			// be rejected and mask the folder save. It's also write-only now, so a
-			// blank field means "unchanged", NOT "clear it".
-			if (!geminiKeyFromEnv && geminiApiKey !== '') {
-				await setGeminiApiKey(geminiApiKey);
-				hasGeminiApiKey = true;
-			}
-			await setReceiptsFolderPath(receiptsFolderPath);
-			initialGeminiApiKey = geminiApiKey;
-			initialReceiptsFolderPath = receiptsFolderPath;
-			toast.success($LL.settings.receiptSettingsSaved());
-		} catch (error) {
-			console.error('Failed to save receipt settings:', error);
-			toast.error($LL.toast.errorSaveSettings({ error: String(error) }));
-		}
-	}
-
 	// Debounced versions (800ms delay)
 	const debouncedSaveCompanySettings = debounce(saveCompanySettingsNow, 800);
-	const debouncedSaveReceiptSettings = debounce(saveReceiptSettingsNow, 800);
 
 	// Home Assistant settings handlers
 	function validateHaUrl(url: string): boolean {
@@ -549,18 +513,6 @@
 
 			// Load time-inference toggle
 			inferTripTimes = await getInferTripTimes();
-
-			// Load receipt settings
-			const receiptSettings = await getReceiptSettings();
-			if (receiptSettings) {
-				hasGeminiApiKey = receiptSettings.hasGeminiApiKey;
-				receiptsFolderPath = receiptSettings.receiptsFolderPath || '';
-				geminiKeyFromEnv = receiptSettings.geminiApiKeyFromEnv;
-				// The key is write-only now, so the input starts empty
-				geminiApiKey = '';
-				initialGeminiApiKey = '';
-				initialReceiptsFolderPath = receiptSettings.receiptsFolderPath || '';
-			}
 
 			// Load Home Assistant settings
 			const haSettings = await getHaSettings();
@@ -1039,68 +991,6 @@
 						</label>
 					</div>
 				</fieldset>
-			</div>
-		</section>
-
-		<!-- Receipt Scanning Section -->
-		<section class="settings-section" id="receipt-scanning">
-			<h2>{$LL.settings.receiptScanningSection()}</h2>
-			<div class="section-content">
-				<div class="form-group">
-					<label for="gemini-api-key">
-						{$LL.settings.geminiApiKey()}
-						{#if geminiKeyFromEnv}
-							<span class="env-badge" data-test="gemini-key-env-badge" title={$LL.settings.envManagedTitle({ name: 'GEMINI_API_KEY' })}>GEMINI_API_KEY</span>
-						{/if}
-					</label>
-					<div class="input-with-icon">
-						<input
-							type={isRevealed('geminiApiKey', revealed) ? 'text' : 'password'}
-							id="gemini-api-key"
-							class="monospace-input"
-							value={isRevealed('geminiApiKey', revealed) ? revealed.geminiApiKey : geminiApiKey}
-							disabled={geminiKeyFromEnv}
-							placeholder={hasGeminiApiKey && !geminiApiKey ? '********' : $LL.settings.geminiApiKeyPlaceholder()}
-							on:input={(e) => { geminiApiKey = (e.target as HTMLInputElement).value; debouncedSaveReceiptSettings(); }}
-							on:blur={saveReceiptSettingsNow}
-						/>
-						<button
-							type="button"
-							class="icon-btn"
-							data-test="reveal-gemini-key"
-							disabled={!hasGeminiApiKey}
-							on:click={() => toggleReveal('geminiApiKey')}
-							title={isRevealed('geminiApiKey', revealed) ? $LL.settings.hideApiKey() : $LL.settings.showApiKey()}
-						>
-							{#if isRevealed('geminiApiKey', revealed)}
-								<!-- Eye off icon (Lucide) -->
-								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
-							{:else}
-								<!-- Eye icon (Lucide) -->
-								<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-							{/if}
-						</button>
-					</div>
-					<small class="hint">
-						{geminiKeyFromEnv ? $LL.settings.envManaged() : $LL.settings.geminiApiKeyHint()}
-					</small>
-				</div>
-
-				<div class="form-group">
-					<label for="receipts-folder">{$LL.settings.receiptsFolder()}</label>
-					<!-- The path is typed: it resolves on the server, not on the
-					     browsing device. -->
-					<input
-						type="text"
-						id="receipts-folder"
-						data-test="receipts-folder-input"
-						bind:value={receiptsFolderPath}
-						placeholder={$LL.settings.receiptsFolderPlaceholder()}
-						on:input={debouncedSaveReceiptSettings}
-						on:blur={saveReceiptSettingsNow}
-					/>
-					<small class="hint">{$LL.settings.receiptsFolderServerHint()}</small>
-				</div>
 			</div>
 		</section>
 

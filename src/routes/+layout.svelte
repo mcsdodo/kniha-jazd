@@ -11,7 +11,7 @@
 	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
-	import ReceiptIndicator from '$lib/components/ReceiptIndicator.svelte';
+	import InvoiceIndicator from '$lib/components/InvoiceIndicator.svelte';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	let { children } = $props();
@@ -126,7 +126,7 @@
 				<h1>{$LL.app.title()}</h1>
 				<nav class="main-nav">
 					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>{$LL.app.nav.logbook()}</a>
-					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<ReceiptIndicator /></a>
+					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<InvoiceIndicator /></a>
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
 						{$LL.app.nav.settings()}
 					</a>

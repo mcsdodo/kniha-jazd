@@ -9,7 +9,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
 	import { confirmStore } from '$lib/stores/confirm';
-	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
 
 	export let vehicleId: string;
@@ -513,7 +512,6 @@
 		await loadRoutes();
 		await loadPurposes();
 		await loadPlaces();
-		triggerReceiptRefresh();
 	}
 
 	/**
@@ -593,7 +591,6 @@
 		// The book is the autocomplete's source, so a place whose last trip just
 		// went is no longer a place.
 		await loadPlaces();
-		triggerReceiptRefresh();
 	}
 
 	function handleCancelNew() {
