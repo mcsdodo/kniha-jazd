@@ -190,11 +190,12 @@ pub fn assign_invoice_to_trip_internal(
                 amount_eur: doc.total_amount,
                 title: Some(doc.title.clone()),
                 applied_amount_cents,
+                receipt_datetime: None,
+                mismatch_override: false,
             };
             db.upsert_paperless_link(&link).map_err(|e| e.to_string())?;
-            // mismatch_override is currently ignored for Paperless — `paperless_trip_links`
-            // has no override column. If users need this for Paperless, extend the schema
-            // in a follow-up task.
+            // Task 84 Task 1 adds the mismatch_override column but does not
+            // persist it yet; a later task wires the override through.
             let _ = mismatch_override;
             Ok(())
         }

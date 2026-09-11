@@ -737,6 +737,8 @@ fn make_link(
         amount_eur,
         title: Some(format!("doc-{}", doc_id)),
         applied_amount_cents: None,
+        receipt_datetime: None,
+        mismatch_override: false,
     }
 }
 

@@ -445,6 +445,8 @@ fn test_trips_for_fuel_invoice_assignment_excludes_covered_trip() {
         amount_eur: Some(58.20),
         title: Some("Tankovanie".into()),
         applied_amount_cents: None,
+        receipt_datetime: None,
+        mismatch_override: false,
     })
     .unwrap();
 

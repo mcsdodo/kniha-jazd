@@ -1,0 +1,2 @@
+-- Forward-only in practice (ADR-012). The added columns are additive and no
+-- data restore is needed, so no down migration is provided.

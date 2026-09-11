@@ -1561,6 +1561,10 @@ pub struct PaperlessLink {
     pub title: Option<String>,
     /// Cents actually added to trip.other_costs_eur at assign time; None = link-only.
     pub applied_amount_cents: Option<i64>,
+    /// Doc datetime snapshot at assign time (grid datetime warning).
+    pub receipt_datetime: Option<chrono::NaiveDateTime>,
+    /// User confirmed a data mismatch at assign time (grid override marker).
+    pub mismatch_override: bool,
 }
 
 /// Per-trip invoice coverage for grid indicators (Task 66).

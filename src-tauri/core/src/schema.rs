@@ -115,6 +115,9 @@ diesel::table! {
         applied_amount_cents -> Nullable<BigInt>,
         created_at -> Text,
         updated_at -> Text,
+        // Added via migration 2026-09-11-120000_paperless_only_invoice_columns (Task 84)
+        receipt_datetime -> Nullable<Text>,
+        mismatch_override -> Bool,
     }
 }
 

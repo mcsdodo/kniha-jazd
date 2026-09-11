@@ -1138,6 +1138,9 @@ impl Database {
                     p::amount_eur.eq(link.amount_eur),
                     p::title.eq(&link.title),
                     p::applied_amount_cents.eq(link.applied_amount_cents),
+                    p::receipt_datetime
+                        .eq(link.receipt_datetime.map(|d| d.format("%Y-%m-%dT%H:%M:%S").to_string())),
+                    p::mismatch_override.eq(link.mismatch_override),
                     p::created_at.eq(&now),
                     p::updated_at.eq(&now),
                 ))
@@ -1167,6 +1170,8 @@ impl Database {
                 p::amount_eur,
                 p::title,
                 p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
             ))
             .first::<PaperlessLinkRow>(conn)
             .optional()
@@ -1186,6 +1191,8 @@ impl Database {
                 p::amount_eur,
                 p::title,
                 p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
             ))
             .load::<PaperlessLinkRow>(conn)
             .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
@@ -1206,6 +1213,27 @@ impl Database {
                 p::amount_eur,
                 p::title,
                 p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
+            ))
+            .load::<PaperlessLinkRow>(conn)
+            .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
+    }
+
+    /// All link rows (grid datetime warnings read the whole set once).
+    pub fn get_all_paperless_links(&self) -> QueryResult<Vec<PaperlessLink>> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        p::paperless_trip_links
+            .select((
+                p::paperless_document_id,
+                p::trip_id,
+                p::assignment_type,
+                p::amount_eur,
+                p::title,
+                p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
             ))
             .load::<PaperlessLinkRow>(conn)
             .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
@@ -1426,11 +1454,28 @@ impl Database {
 
 /// Tuple row for paperless link selects (created_at/updated_at are
 /// DB-managed and not part of the domain struct).
-type PaperlessLinkRow = (i64, String, String, Option<f64>, Option<String>, Option<i64>);
+type PaperlessLinkRow = (
+    i64,
+    String,
+    String,
+    Option<f64>,
+    Option<String>,
+    Option<i64>,
+    Option<String>,
+    bool,
+);
 
 fn paperless_link_from_row(row: PaperlessLinkRow) -> PaperlessLink {
-    let (paperless_document_id, trip_id, assignment_type, amount_eur, title, applied_amount_cents) =
-        row;
+    let (
+        paperless_document_id,
+        trip_id,
+        assignment_type,
+        amount_eur,
+        title,
+        applied_amount_cents,
+        receipt_datetime,
+        mismatch_override,
+    ) = row;
     PaperlessLink {
         paperless_document_id,
         trip_id,
@@ -1440,6 +1485,10 @@ fn paperless_link_from_row(row: PaperlessLinkRow) -> PaperlessLink {
         amount_eur,
         title,
         applied_amount_cents,
+        receipt_datetime: receipt_datetime.as_deref().and_then(|s| {
+            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").ok()
+        }),
+        mismatch_override,
     }
 }
 

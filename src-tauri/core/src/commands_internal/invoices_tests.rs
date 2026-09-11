@@ -232,6 +232,8 @@ fn unassign_dispatches_paperless_source() {
         amount_eur: Some(15.00),
         title: Some("Iná cena".to_string()),
         applied_amount_cents: None,
+        receipt_datetime: None,
+        mismatch_override: false,
     })
     .unwrap();
     unassign_invoice_internal(&db, &app_state, &InvoiceRef::Paperless(435)).unwrap();
