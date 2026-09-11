@@ -68,9 +68,20 @@ folder. They are mounted into the container at `/data`, and migrations run on th
 start.
 
 > **Upgrade rule -- local receipts are dropped.** This release removes the local receipt
-> store, and the upgrade drops the `receipts` table. If the database still holds local
-> receipts you need, run [`scripts/migrate_local_to_paperless.py`](../../scripts/migrate_local_to_paperless.py)
-> BEFORE you upgrade, so the rows reach Paperless first.
+> store, and the upgrade drops the `receipts` table. Receipts already assigned to a trip
+> survive as `paperless_trip_links` rows; every other receipt row is discarded.
+>
+> Export them BEFORE you upgrade if you still need them:
+>
+> ```bash
+> sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv
+> ```
+>
+> `Database::new` writes an automatic pre-migration backup to
+> `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-*.db`, and the cleanup never
+> prunes it, so the table stays readable offline with `sqlite3`. Restoring that file into
+> this build does **not** restore the table: the new migrations are absent from its
+> `__diesel_schema_migrations`, so they re-run on start and drop `receipts` again.
 
 **Configuration (env vars):**
 
@@ -147,7 +158,7 @@ a scratch folder first, otherwise the binary falls back to `/data`.
 
 **RPC Dispatcher:** [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) + [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
 - Maps command names to `_internal` functions — one `match` arm per command, currently
-  74 sync and 15 async (count the arms in `dispatch_sync` / `dispatch_async` rather than
+  62 sync and 14 async (count the arms in `dispatch_sync` / `dispatch_async` rather than
   trusting this number; it moves whenever a command is added or removed)
 - Sync commands dispatched via `spawn_blocking`
 - Async commands (HA integration, export, `get_trip_grid_data`) awaited directly

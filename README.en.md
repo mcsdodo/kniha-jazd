@@ -125,8 +125,20 @@ shows it, and assigns it to a trip.
 The "Otvoriť v Paperless" button opens the document in a new browser tab.
 
 > **Important before you upgrade:** this release removes the local receipt scanning and
-> the upgrade drops the `receipts` table. If the database still holds local receipts you
-> need, run `scripts/migrate_local_to_paperless.py` BEFORE upgrading.
+> the upgrade drops the `receipts` table. Local receipts are **discarded for good**.
+> Receipts already assigned to a trip survive as Paperless links; every other row is lost.
+>
+> If you still need them, export them BEFORE you upgrade:
+>
+> ```bash
+> sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv
+> ```
+>
+> The app writes its own backup to
+> `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-*.db` before the migration runs,
+> and never prunes it, so you can read the table from that file later with `sqlite3`.
+> Restoring the backup does **not** bring the receipts back: this build re-runs the
+> pending migrations on start and drops the table again.
 
 ## FAQ
 

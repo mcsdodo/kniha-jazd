@@ -84,7 +84,7 @@ relative to `src-tauri/core/src/`.
 | Module | Responsibility | Pattern |
 |--------|----------------|---------|
 | `server/mod.rs` | Axum router, `/api/rpc`, `/health`, CORS, static SPA | One RPC endpoint, not 80 REST routes |
-| `server/dispatcher.rs` | Command name -> `*_internal` fn | 68 sync commands, via `spawn_blocking` |
+| `server/dispatcher.rs` | Command name -> `*_internal` fn | 62 sync commands, via `spawn_blocking` |
 | `server/dispatcher_async.rs` | Async commands | HA, export, grid data, Paperless assignment |
 | `commands_internal/` | Orchestration per domain | Plain fns taking `&Database` / `&AppState` |
 | `calculations/` | Pure business logic | Stateless functions |

@@ -75,6 +75,21 @@ current behaviour.
 - **Current:** the grid warnings cover assignment health, but there is no per-document
   verification report with a mismatch reason list.
 
+### 7. Historical links carry no datetime or override snapshot
+
+- **Lost:** every `paperless_trip_links` row that existed before task 84 keeps
+  `receipt_datetime = NULL` and `mismatch_override = 0`. The grid therefore shows no
+  datetime warning for those trips, whatever the document actually says, and a mismatch
+  confirmed before the upgrade is forgotten.
+- **Paperless-side path:** a backfill `UPDATE` inside
+  [2026-09-11-130000_drop_receipts](../../src-tauri/core/migrations/2026-09-11-130000_drop_receipts/up.sql),
+  joining `receipts` on `trip_id` + `assignment_type` while the table still exists. The
+  repair `UPDATE` already in that migration proves the join works in that window.
+  After the drop the data is gone, so the only later source is the Paperless API.
+- **Current:** the snapshots are taken on assign, so a user can refresh one link by
+  unassigning and reassigning it. There is no bulk path.
+- **Found:** code review of task 84, not in the original design table.
+
 ## Impact
 
 - The user cannot see OCR quality, correct a bad extraction in the app, or re-run OCR
@@ -127,3 +142,4 @@ response shape against the live Paperless version before building.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-09-11 | Created item | Task 84 accepted the loss of the Gemini OCR capabilities and deferred their Paperless-side implementations |
+| 2026-09-11 | Added gap item 7 | Code review found that pre-existing links never receive the two new snapshots; a backfill was feasible in the drop migration but was not built |

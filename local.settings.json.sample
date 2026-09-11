@@ -1,1 +1,7 @@
-{}
+{
+  "paperless_url": "https://paperless.example.com",
+  "paperless_api_token": "REPLACE_WITH_YOUR_TOKEN",
+  "paperless_enabled": true,
+  "ha_url": "https://homeassistant.example.com",
+  "theme": "system"
+}

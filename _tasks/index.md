@@ -73,7 +73,7 @@ Quick overview of all tasks and their status.
 | 08 | [Integration Suite Not Type-Checked](./_TECH_DEBT/08-integration-suite-not-type-checked.md) | Low | Open (35 tsc errors, 11 specs; 12 weakened `waitUntil` guards) |
 | 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | 🟡 Partly moot ([Task 73](./_done/73-web-first-migration/) deleted wdio.conf.ts; cross-spec sharing open -> [Task 82](82-integration-db-reset/)) |
 | 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted the Tauri crate) |
-| 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | ✅ Resolved ([Task 51](./_done/51-receipt-state-model/), 0.29.0) |
+| 05 | [Receipt State Model](_TECH_DEBT/05-receipt-trip-state-model.md) | Medium | ✅ Obsolete (Task 84 deleted the local receipt store the model described) |
 | 04 | [Backup Restore Versioning](_TECH_DEBT/04-backup-restore-versioning.md) | Low | Open |
 | 03 | Dead Code & Warnings | Low | ✅ Resolved (Task 37, file archived) |
 | 02 | PHEV Compensation | Low | Open (see Task 19 status for context) |

@@ -126,9 +126,21 @@ si od neho doklady načíta, zobrazí a priradí ich k jazdám.
 Tlačidlo "Otvoriť v Paperless" otvorí doklad v novej karte prehliadača.
 
 > **Dôležité pred aktualizáciou:** táto verzia odstraňuje miestne skenovanie dokladov
-> a pri aktualizácii zruší tabuľku `receipts`. Ak v databáze ešte máte miestne doklady,
-> ktoré potrebujete, spustite `scripts/migrate_local_to_paperless.py` **pred**
-> aktualizáciou.
+> a pri aktualizácii zruší tabuľku `receipts`. Miestne doklady sa tým **nenávratne
+> zahodia**. Doklady priradené k jazde ostávajú ako odkazy na Paperless, ostatné
+> riadky zmiznú.
+>
+> Ak ich ešte potrebujete, vyexportujte si ich **pred** aktualizáciou:
+>
+> ```bash
+> sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv
+> ```
+>
+> Aplikácia pred migráciou sama uloží zálohu do
+> `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-*.db`. Túto zálohu nikdy
+> nemaže, takže sa z nej dá tabuľka prečítať aj neskôr cez `sqlite3`. Obnova zálohy
+> ale doklady **nevráti**: nová verzia pri štarte znova spustí migrácie a tabuľku
+> znova zruší.
 
 ## Často kladené otázky (FAQ)
 

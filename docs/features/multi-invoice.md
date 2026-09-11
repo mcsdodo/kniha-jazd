@@ -91,11 +91,20 @@ Task 84 added two columns to the same table in
   datetime warning.
 - `mismatch_override INTEGER NOT NULL DEFAULT 0` -- the user-confirmed mismatch flag.
 
-Existing rows get NULL and 0, so no false warning appears on upgrade. The `receipts`
-table was dropped in the following migration,
-[2026-09-11-130000_drop_receipts](../../src-tauri/core/migrations/2026-09-11-130000_drop_receipts/up.sql).
-Run [scripts/migrate_local_to_paperless.py](../../scripts/migrate_local_to_paperless.py)
-BEFORE upgrading if you still need the old local receipt rows.
+Existing rows get NULL and 0, so no false warning appears on upgrade.
+
+[2026-09-11-130000_drop_receipts](../../src-tauri/core/migrations/2026-09-11-130000_drop_receipts/up.sql)
+then does two things in one migration, and the order inside it is load-bearing:
+
+1. It repairs links the multi-invoice backfill mislabelled as `Other`. Those links were
+   written before `assignment_type` existed, and the backfill guard
+   `NOT EXISTS (Fuel receipt)` was false for them, so a fuel document was stored as
+   `Other`. The repair reads `receipts`, so it must run **before** the drop.
+2. It drops the `receipts` table.
+
+Both statements live in one migration folder so they cannot be separated or reordered.
+The upgrade discards every receipt row that was not already assigned to a trip -- see the
+upgrade rule in [server-mode.md](./server-mode.md).
 
 The multi-invoice migration is covered by a data-integrity suite in
 [migration_tests.rs](../../src-tauri/core/src/migration_tests.rs): row/column
