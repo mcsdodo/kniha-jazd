@@ -40,3 +40,26 @@ fn year_filter_falls_back_to_created_when_no_datetime() {
     assert_eq!(doc_year(&None, &created), 2025);
 }
 
+fn row(assignment_type: AssignmentType, trip_id: Option<&str>) -> PaperlessInvoiceRow {
+    PaperlessInvoiceRow {
+        paperless_document_id: 0,
+        title: "t".into(),
+        paperless_url: "http://localhost/documents/0/".into(),
+        total_price_eur: None,
+        liters: None,
+        receipt_datetime: None,
+        created_date: chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        assignment_type,
+        trip_id: trip_id.map(|s| s.to_string()),
+    }
+}
+
+#[test]
+fn count_unlinked_fuel_counts_only_unlinked_fuel_rows() {
+    let rows = vec![
+        row(AssignmentType::Fuel, None),
+        row(AssignmentType::Fuel, Some("trip-1")),
+        row(AssignmentType::Other, None),
+    ];
+    assert_eq!(count_unlinked_fuel(&rows), 1);
+}

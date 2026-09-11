@@ -154,6 +154,19 @@ pub async fn dispatch_async(
             ).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
         }
+        "count_unlinked_paperless_fuel_invoices" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args { vehicle_id: String, year: i32 }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::paperless_cmd::count_unlinked_paperless_fuel_invoices_internal(
+                &state.app_dir, &state.db, &a.vehicle_id, a.year,
+            ).await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()).map_err(|e| e.to_string()))
+        }
 
         // ====================================================================
         // Invoices — async (1, Paperless fetch required for writes)

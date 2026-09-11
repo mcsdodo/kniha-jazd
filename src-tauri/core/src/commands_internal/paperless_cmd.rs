@@ -89,6 +89,24 @@ pub async fn get_paperless_invoices_internal(
     }).collect())
 }
 
+/// Count fuel-tagged docs that are not linked to a trip yet.
+pub fn count_unlinked_fuel(rows: &[PaperlessInvoiceRow]) -> i64 {
+    rows.iter()
+        .filter(|r| r.assignment_type == AssignmentType::Fuel && r.trip_id.is_none())
+        .count() as i64
+}
+
+/// Nav badge count for the active vehicle and year.
+pub async fn count_unlinked_paperless_fuel_invoices_internal(
+    app_dir: &Path,
+    db: &Database,
+    vehicle_id: &str,
+    year: i32,
+) -> Result<i64, PaperlessError> {
+    let rows = get_paperless_invoices_internal(app_dir, db, vehicle_id, year).await?;
+    Ok(count_unlinked_fuel(&rows))
+}
+
 /// Fetch a single Paperless document by ID using backend settings.
 /// Used by the invoice-assignment command to avoid trusting caller-supplied data (ADR-008).
 pub async fn fetch_paperless_doc_by_id(
