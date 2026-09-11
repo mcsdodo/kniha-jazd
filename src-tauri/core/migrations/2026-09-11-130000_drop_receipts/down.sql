@@ -1,0 +1,1 @@
+-- Forward-only (ADR-012). The receipts table and its rows cannot be restored.

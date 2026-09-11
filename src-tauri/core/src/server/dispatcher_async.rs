@@ -128,7 +128,7 @@ pub async fn dispatch_async(
         }
 
         // ====================================================================
-        // Invoices — async (2, Paperless fetch required)
+        // Invoices -- async (2, Paperless fetch required)
         // ====================================================================
         "get_trips_for_paperless_assignment" => {
             #[derive(serde::Deserialize)]

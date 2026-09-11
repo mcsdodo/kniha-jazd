@@ -11,7 +11,6 @@ const PIN_VAR: &str = "KNIHA_JAZD_REVEAL_PIN";
 fn dir_with_secrets() -> tempfile::TempDir {
     let dir = tempdir().unwrap();
     let mut s = crate::settings::LocalSettings::default();
-    s.gemini_api_key = Some("file-gemini".into());
     s.ha_api_token = Some("file-ha".into());
     s.paperless_api_token = Some("file-paperless".into());
     s.save(dir.path()).unwrap();

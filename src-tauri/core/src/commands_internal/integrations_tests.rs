@@ -620,27 +620,18 @@ fn settings_responses_never_carry_secrets() {
     s.ha_api_token = Some("SECRET-ha-token".into());
     s.paperless_url = Some("https://pl.example".into());
     s.paperless_api_token = Some("SECRET-paperless-token".into());
-    s.gemini_api_key = Some("SECRET-gemini-key".into());
     s.save(dir.path()).unwrap();
 
     crate::settings::test_env::with_env_vars(
         &[
             ("HA_API_TOKEN", "SECRET-env-ha"),
             ("PAPERLESS_API_TOKEN", "SECRET-env-paperless"),
-            ("GEMINI_API_KEY", "SECRET-env-gemini"),
         ],
         || {
             let responses = [
                 serde_json::to_string(&get_ha_settings_internal(dir.path()).unwrap()).unwrap(),
                 serde_json::to_string(&get_paperless_settings_internal(dir.path()).unwrap())
                     .unwrap(),
-                serde_json::to_string(
-                    &crate::commands_internal::receipts_cmd::get_receipt_settings_internal(
-                        dir.path(),
-                    )
-                    .unwrap(),
-                )
-                .unwrap(),
             ];
             for json in responses {
                 assert!(

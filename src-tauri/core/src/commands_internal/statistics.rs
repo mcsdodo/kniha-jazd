@@ -410,7 +410,7 @@ pub fn build_trip_grid_data(
         .map(|t| t.id.to_string())
         .collect();
 
-    // Per-trip invoice coverage (Receipts + Paperless links, per assignment type)
+    // Per-trip invoice coverage (Paperless links, per assignment type)
     let coverage = db.get_trip_invoice_coverage().map_err(|e| e.to_string())?;
 
     // Missing invoices per type (trips with a cost > 0 but no invoice of that type)
@@ -1342,8 +1342,8 @@ pub fn calculate_odometer_spans(
 }
 
 /// Find trips with costs that don't have an invoice of the matching type attached.
-/// Source-agnostic: `coverage` is built from both local Receipts and Paperless
-/// links (see `Database::get_trip_invoice_coverage`).
+/// Source-agnostic: `coverage` is built from Paperless links
+/// (see `Database::get_trip_invoice_coverage`).
 /// Returns `(missing_fuel_invoices, missing_other_invoices)`. Zero-value costs
 /// never need an invoice (test review I9).
 pub fn calculate_missing_receipts(

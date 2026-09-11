@@ -5,7 +5,7 @@
 //!
 //! Configuration via environment variables:
 //! - `PORT` (default: 3456) — HTTP listen port
-//! - `KNIHA_JAZD_DATA_DIR` (default: `/data`) — directory for DB, receipts, backups
+//! - `KNIHA_JAZD_DATA_DIR` (default: `/data`) — directory for DB, backups
 //! - `DATABASE_PATH` (default: `<DATA_DIR>/kniha-jazd.db`) — SQLite DB file
 //! - `STATIC_DIR` (default: `/var/www/html`) — built SvelteKit assets
 

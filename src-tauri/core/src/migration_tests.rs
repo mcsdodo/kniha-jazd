@@ -9,7 +9,7 @@
 
 use super::*;
 use crate::models::RouteMode;
-use diesel::sql_types::{BigInt, Double, Integer, Nullable, Text};
+use diesel::sql_types::{BigInt, Double, Nullable, Text};
 
 // ============================================================================
 // Raw-SQL helpers (legacy schema — no Rust structs exist for it)
@@ -44,27 +44,6 @@ fn seed_trip(db: &Database, id: &str, vehicle_id: &str, fuel_liters: Option<f64>
              VALUES ('{id}', '{vehicle_id}', 'BA', 'TT', 50.0, 12345.0, 'test', {fuel}, \
                      '2026-01-01T08:00:00', '2026-01-01T10:00:00', \
                      '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
-        ),
-    );
-}
-
-/// Minimal legacy receipt: only NOT-NULL-without-default columns filled,
-/// plus optional trip assignment. Everything else takes column defaults.
-fn seed_minimal_receipt(
-    db: &Database,
-    id: &str,
-    trip_id: Option<&str>,
-    assignment_type: Option<&str>,
-) {
-    let trip = trip_id.map_or("NULL".to_string(), |t| format!("'{t}'"));
-    let atype = assignment_type.map_or("NULL".to_string(), |a| format!("'{a}'"));
-    exec(
-        db,
-        &format!(
-            "INSERT INTO receipts (id, trip_id, file_path, file_name, scanned_at, \
-                                   created_at, updated_at, assignment_type) \
-             VALUES ('{id}', {trip}, '/scans/{id}.jpg', '{id}.jpg', '2026-03-01T10:00:00', \
-                     '2026-03-01T10:00:00', '2026-03-01T10:00:00', {atype})"
         ),
     );
 }
@@ -121,176 +100,6 @@ fn text_values(db: &Database, sql: &str) -> Vec<String> {
         .into_iter()
         .map(|r| r.value)
         .collect()
-}
-
-// ============================================================================
-// Receipts: row/column preservation
-// ============================================================================
-
-/// Every legacy receipts column, snapshot-able both before and after the
-/// migration (the column set is a strict subset of the rebuilt table).
-#[derive(diesel::QueryableByName, Debug, Clone, PartialEq)]
-struct ReceiptSnapshot {
-    #[diesel(sql_type = Text)]
-    id: String,
-    #[diesel(sql_type = Nullable<Text>)]
-    vehicle_id: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    trip_id: Option<String>,
-    #[diesel(sql_type = Text)]
-    file_path: String,
-    #[diesel(sql_type = Text)]
-    file_name: String,
-    #[diesel(sql_type = Text)]
-    scanned_at: String,
-    #[diesel(sql_type = Nullable<Double>)]
-    liters: Option<f64>,
-    #[diesel(sql_type = Nullable<Double>)]
-    total_price_eur: Option<f64>,
-    #[diesel(sql_type = Nullable<Text>)]
-    station_name: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    station_address: Option<String>,
-    #[diesel(sql_type = Nullable<Integer>)]
-    source_year: Option<i32>,
-    #[diesel(sql_type = Text)]
-    status: String,
-    #[diesel(sql_type = Text)]
-    confidence: String,
-    #[diesel(sql_type = Nullable<Text>)]
-    raw_ocr_text: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    error_message: Option<String>,
-    #[diesel(sql_type = Text)]
-    created_at: String,
-    #[diesel(sql_type = Text)]
-    updated_at: String,
-    #[diesel(sql_type = Nullable<Text>)]
-    vendor_name: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    cost_description: Option<String>,
-    #[diesel(sql_type = Nullable<Double>)]
-    original_amount: Option<f64>,
-    #[diesel(sql_type = Nullable<Text>)]
-    original_currency: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    receipt_datetime: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    assignment_type: Option<String>,
-    #[diesel(sql_type = Nullable<Integer>)]
-    mismatch_override: Option<i32>,
-}
-
-const RECEIPT_SNAPSHOT_SELECT: &str =
-    "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at, liters, \
-            total_price_eur, station_name, station_address, source_year, status, \
-            confidence, raw_ocr_text, error_message, created_at, updated_at, \
-            vendor_name, cost_description, original_amount, original_currency, \
-            receipt_datetime, assignment_type, mismatch_override \
-     FROM receipts ORDER BY id";
-
-fn snapshot_receipts(db: &Database) -> Vec<ReceiptSnapshot> {
-    let conn = &mut *db.connection();
-    diesel::sql_query(RECEIPT_SNAPSHOT_SELECT)
-        .load(conn)
-        .expect("receipt snapshot query")
-}
-
-#[test]
-fn test_receipts_migration_preserves_every_row_and_column() {
-    let db = open_db_legacy();
-    seed_vehicle(&db, "v1");
-    seed_trip(&db, "t-fuel", "v1", Some(40.5));
-    seed_trip(&db, "t-other", "v1", None);
-
-    // r1: assigned Fuel — every single column populated
-    exec(
-        &db,
-        r#"INSERT INTO receipts (id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-               liters, total_price_eur, station_name, station_address, source_year, status,
-               confidence, raw_ocr_text, error_message, created_at, updated_at, vendor_name,
-               cost_description, original_amount, original_currency, receipt_datetime,
-               assignment_type, mismatch_override)
-           VALUES ('r1-fuel', 'v1', 't-fuel', '/scans/r1.jpg', 'r1.jpg', '2026-03-01T10:00:00',
-               40.5, 62.99, 'Slovnaft', 'Hlavna 1, Bratislava', 2026, 'Parsed',
-               '{"liters":"High","totalPrice":"High","date":"High"}',
-               'NATURAL 95   40.5 l', 'parse warning kept verbatim', '2026-03-01T10:05:00',
-               '2026-03-01T10:06:00', 'Slovnaft a.s.', 'fuel fill-up', 1580.25, 'CZK',
-               '2026-03-01T09:55:00', 'Fuel', 1)"#,
-    );
-    // r2: assigned Other
-    exec(
-        &db,
-        r#"INSERT INTO receipts (id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-               total_price_eur, status, created_at, updated_at, vendor_name, cost_description,
-               receipt_datetime, assignment_type)
-           VALUES ('r2-other', 'v1', 't-other', '/scans/r2.jpg', 'r2.jpg', '2026-03-02T11:00:00',
-               12.34, 'Parsed', '2026-03-02T11:01:00', '2026-03-02T11:02:00',
-               'NDS a.s.', 'dialnicna znamka', '2026-03-02T10:55:00', 'Other')"#,
-    );
-    // r3: unassigned (trip_id NULL) but otherwise populated
-    exec(
-        &db,
-        r#"INSERT INTO receipts (id, vehicle_id, file_path, file_name, scanned_at, liters,
-               total_price_eur, status, created_at, updated_at)
-           VALUES ('r3-unassigned', 'v1', '/scans/r3.jpg', 'r3.jpg', '2026-03-03T12:00:00',
-               33.3, 51.20, 'Parsed', '2026-03-03T12:01:00', '2026-03-03T12:02:00')"#,
-    );
-    // r4: every optional column NULL (defaults for status/confidence/mismatch_override)
-    seed_minimal_receipt(&db, "r4-nulls", None, None);
-    // r5: orphaned trip_id — trip deleted behind SQLite's back (hand-edited DB)
-    exec_with_fk_off(
-        &db,
-        "INSERT INTO receipts (id, trip_id, file_path, file_name, scanned_at, \
-                               created_at, updated_at, assignment_type, total_price_eur) \
-         VALUES ('r5-orphan', 'trip-deleted', '/scans/r5.jpg', 'r5.jpg', '2026-03-05T10:00:00', \
-                 '2026-03-05T10:00:00', '2026-03-05T10:00:00', 'Other', 9.99)",
-    );
-    // r6: non-ASCII text survives byte-identical
-    exec(
-        &db,
-        r#"INSERT INTO receipts (id, file_path, file_name, scanned_at, status, raw_ocr_text,
-               station_name, created_at, updated_at)
-           VALUES ('r6-utf8', '/scans/r6.jpg', 'r6.jpg', '2026-03-06T09:00:00', 'Error',
-               'Košice — čerpacia stanica č. 5, ľubovoľný text s diakritikou: žŕďočšťým €',
-               'Šaľa', '2026-03-06T09:01:00', '2026-03-06T09:02:00')"#,
-    );
-
-    let before = snapshot_receipts(&db);
-    assert_eq!(before.len(), 6, "seed sanity check");
-
-    migrate_to_current(&db);
-
-    // Expected: everything byte-identical, EXCEPT the orphaned receipt which
-    // is healed to unassigned (trip_id + assignment_type NULLed) — with FKs
-    // enforced (SQLITE_DEFAULT_FOREIGN_KEYS=1) preserving the dangling
-    // pointer verbatim would abort the migration and brick startup.
-    let expected: Vec<ReceiptSnapshot> = before
-        .into_iter()
-        .map(|mut r| {
-            if r.id == "r5-orphan" {
-                r.trip_id = None;
-                r.assignment_type = None;
-            }
-            r
-        })
-        .collect();
-    let after = snapshot_receipts(&db);
-    assert_eq!(
-        expected, after,
-        "every legacy receipts row and column must survive the rebuild \
-         byte-identical (orphans healed to unassigned, nothing else touched)"
-    );
-    // The new column starts NULL for ALL migrated rows (legacy assignments
-    // never subtract on unassign — today's behavior).
-    assert_eq!(
-        count(
-            &db,
-            "SELECT COUNT(*) AS cnt FROM receipts WHERE applied_amount_cents IS NULL"
-        ),
-        6,
-        "applied_amount_cents must be NULL for every migrated receipt"
-    );
 }
 
 // ============================================================================
@@ -369,10 +178,10 @@ fn test_paperless_links_migration_preserves_rows() {
 #[test]
 fn test_paperless_links_migration_drops_orphaned_links() {
     // A link whose trip was deleted behind SQLite's back (hand-edited DB)
-    // cannot be carried over: trip_id is NOT NULL so it cannot be healed
-    // like an orphaned receipt, and copying it verbatim would fail the FK
-    // check and brick startup. It is dropped — the same outcome its
-    // ON DELETE CASCADE would have produced in-app. Healthy links survive.
+    // cannot be carried over: trip_id is NOT NULL, and copying it verbatim
+    // would fail the FK check and brick startup. It is dropped -- the same
+    // outcome its ON DELETE CASCADE would have produced in-app. Healthy links
+    // survive.
     let db = open_db_legacy();
     seed_vehicle(&db, "v1");
     seed_trip(&db, "t-alive", "v1", None);
@@ -407,67 +216,6 @@ fn test_paperless_links_migration_drops_orphaned_links() {
 }
 
 // ============================================================================
-// Index recreation
-// ============================================================================
-
-#[test]
-fn test_receipts_migration_recreates_indexes() {
-    let db = open_db_legacy();
-    migrate_to_current(&db);
-
-    let names = text_values(
-        &db,
-        "SELECT name AS value FROM sqlite_master \
-         WHERE type = 'index' AND tbl_name = 'receipts' AND name NOT LIKE 'sqlite_%' \
-         ORDER BY name",
-    );
-    assert_eq!(
-        names,
-        vec![
-            "idx_receipts_datetime",
-            "idx_receipts_status",
-            "idx_receipts_trip",
-            "idx_receipts_trip_fuel",
-            "idx_receipts_vehicle",
-        ],
-        "rebuild must recreate the LIVE index set (idx_receipts_datetime, not the \
-         dead idx_receipts_date) plus the new partial unique index"
-    );
-}
-
-// ============================================================================
-// NULL mismatch_override tolerance (hand-edited / restored DBs)
-// ============================================================================
-
-#[test]
-fn test_receipts_migration_tolerates_null_mismatch_override() {
-    let db = open_db_legacy();
-    // The legacy column is nullable (ALTER ... DEFAULT 0 without NOT NULL);
-    // force a NULL as a hand-edited/restored DB would have.
-    exec(
-        &db,
-        "INSERT INTO receipts (id, file_path, file_name, scanned_at, created_at, updated_at, \
-                               mismatch_override) \
-         VALUES ('r-null-override', '/scans/rno.jpg', 'rno.jpg', '2026-03-01T10:00:00', \
-                 '2026-03-01T10:00:00', '2026-03-01T10:00:00', NULL)",
-    );
-
-    // Without COALESCE in the migration this panics (NOT NULL violation)
-    // and would brick startup on a real DB.
-    migrate_to_current(&db);
-
-    assert_eq!(
-        count(
-            &db,
-            "SELECT COUNT(*) AS cnt FROM receipts \
-             WHERE id = 'r-null-override' AND mismatch_override = 0"
-        ),
-        1,
-        "NULL mismatch_override must migrate to 0"
-    );
-}
-
-// ============================================================================
 // Paperless backfill heuristic
 // ============================================================================
 
@@ -496,29 +244,6 @@ fn test_backfill_fuel_when_trip_fueled_and_no_fuel_receipt() {
 }
 
 #[test]
-fn test_backfill_other_when_fuel_receipt_already_attached() {
-    let db = open_db_legacy();
-    seed_vehicle(&db, "v1");
-    seed_trip(&db, "t-fueled", "v1", Some(45.0));
-    seed_minimal_receipt(&db, "r-fuel", Some("t-fueled"), Some("Fuel"));
-    seed_paperless_link(&db, 302, "t-fueled");
-
-    migrate_to_current(&db);
-
-    // Also proves no cross-source double-Fuel state exists after upgrade:
-    // the receipt keeps the Fuel slot, the link demotes to Other.
-    assert_eq!(link_assignment_type(&db, 302), "Other");
-    assert_eq!(
-        count(
-            &db,
-            "SELECT COUNT(*) AS cnt FROM paperless_trip_links \
-             WHERE trip_id = 't-fueled' AND assignment_type = 'Fuel'"
-        ),
-        0
-    );
-}
-
-#[test]
 fn test_backfill_other_when_fuel_liters_null_or_zero() {
     let db = open_db_legacy();
     seed_vehicle(&db, "v1");
@@ -532,51 +257,6 @@ fn test_backfill_other_when_fuel_liters_null_or_zero() {
     // SQL `NULL > 0` is falsy -> Other; 0 > 0 is false -> Other.
     assert_eq!(link_assignment_type(&db, 303), "Other");
     assert_eq!(link_assignment_type(&db, 304), "Other");
-}
-
-// ============================================================================
-// Atomicity: ONE migration directory = ONE transaction
-// ============================================================================
-
-#[test]
-fn test_multi_invoice_migration_is_single_atomic_unit() {
-    let db = open_db_legacy();
-
-    migrate_to_current(&db);
-
-    // Scoped to the multi_invoice migration's own version rather than the
-    // total migration count: the delta-from-legacy form asserted "exactly 1
-    // migration was applied", which silently meant "multi_invoice is the
-    // newest migration" and so broke the moment any later migration landed.
-    assert_eq!(
-        count(
-            &db,
-            "SELECT COUNT(*) AS cnt FROM __diesel_schema_migrations \
-             WHERE version LIKE '20260715%'"
-        ),
-        1,
-        "both table rebuilds must ship as exactly ONE migration (= one \
-         transaction); two directories would allow a half-migrated DB"
-    );
-    // ...and that single unit rebuilt BOTH tables.
-    assert_eq!(
-        count(
-            &db,
-            "SELECT COUNT(*) AS cnt FROM pragma_table_info('receipts') \
-             WHERE name = 'applied_amount_cents'"
-        ),
-        1,
-        "receipts must be rebuilt (applied_amount_cents present)"
-    );
-    assert_eq!(
-        count(
-            &db,
-            "SELECT COUNT(*) AS cnt FROM pragma_table_info('paperless_trip_links') \
-             WHERE name = 'assignment_type'"
-        ),
-        1,
-        "paperless_trip_links must be rebuilt (assignment_type present)"
-    );
 }
 
 // ============================================================================
@@ -733,5 +413,28 @@ fn existing_route_maps_backfill_round_trip_false() {
     assert!(
         !map.round_trip,
         "a route saved before round_trip existed must backfill to false"
+    );
+}
+
+// ============================================================================
+// Task 84 -- local receipts are removed (2026-09-11-130000)
+// ============================================================================
+
+/// The legacy chain still builds a `receipts` table for the multi-invoice
+/// migration, then the drop migration removes it. A fresh install never creates
+/// it. This is the only assertion that the table is really gone.
+#[test]
+fn receipts_table_is_dropped_by_the_migration_chain() {
+    let db = open_db_legacy();
+    migrate_to_current(&db);
+
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS cnt FROM sqlite_master \
+             WHERE type = 'table' AND name = 'receipts'"
+        ),
+        0,
+        "the local receipts table must not survive the migration chain"
     );
 }

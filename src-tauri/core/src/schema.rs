@@ -2,38 +2,6 @@
 // NOTE: Manually adjusted - use Double instead of Float for f64 compatibility
 
 diesel::table! {
-    receipts (id) {
-        id -> Nullable<Text>,
-        vehicle_id -> Nullable<Text>,
-        trip_id -> Nullable<Text>,
-        file_path -> Text,
-        file_name -> Text,
-        scanned_at -> Text,
-        liters -> Nullable<Double>,
-        total_price_eur -> Nullable<Double>,
-        receipt_datetime -> Nullable<Text>,
-        station_name -> Nullable<Text>,
-        station_address -> Nullable<Text>,
-        source_year -> Nullable<Integer>,
-        status -> Text,
-        confidence -> Text,
-        raw_ocr_text -> Nullable<Text>,
-        error_message -> Nullable<Text>,
-        created_at -> Text,
-        updated_at -> Text,
-        vendor_name -> Nullable<Text>,
-        cost_description -> Nullable<Text>,
-        original_amount -> Nullable<Double>,
-        original_currency -> Nullable<Text>,
-        // Added via migration 2026-02-03-100000_receipt_assignment_type
-        assignment_type -> Nullable<Text>,
-        mismatch_override -> Integer,
-        // Added via migration 2026-07-15-100000_multi_invoice
-        applied_amount_cents -> Nullable<BigInt>,
-    }
-}
-
-diesel::table! {
     routes (id) {
         id -> Nullable<Text>,
         vehicle_id -> Text,
@@ -163,11 +131,9 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(receipts -> trips (trip_id));
-diesel::joinable!(receipts -> vehicles (vehicle_id));
 diesel::joinable!(routes -> vehicles (vehicle_id));
 diesel::joinable!(trips -> vehicles (vehicle_id));
 diesel::joinable!(paperless_trip_links -> trips (trip_id));
 diesel::joinable!(trip_routes -> trips (trip_id));
 
-diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, receipts, routes, settings, trip_routes, trips, vehicles,);
+diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, routes, settings, trip_routes, trips, vehicles,);

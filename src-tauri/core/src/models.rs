@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use uuid::Uuid;
 
-use crate::schema::{places, receipts, routes, settings, trip_routes, trips, vehicles};
+use crate::schema::{places, routes, settings, trip_routes, trips, vehicles};
 
 /// Vehicle powertrain type - determines which fields are required/displayed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -504,47 +504,13 @@ pub struct MonthEndRow {
     pub sort_key: f64,
 }
 
-/// Status of a scanned receipt (OCR state only)
-/// Assignment is determined by trip_id, not status
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ReceiptStatus {
-    Pending,     // File detected, not yet parsed
-    Parsed,      // Successfully parsed with high confidence
-    NeedsReview, // Parsed but has uncertain fields
-}
-
-impl Default for ReceiptStatus {
-    fn default() -> Self {
-        Self::Pending
-    }
-}
-
-/// Typed confidence levels - prevents string inconsistencies
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub enum ConfidenceLevel {
-    #[default]
-    Unknown,
-    High,
-    Medium,
-    Low,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FieldConfidence {
-    pub liters: ConfidenceLevel,
-    #[serde(alias = "total_price")] // Accept legacy snake_case from old DB records
-    pub total_price: ConfidenceLevel,
-    pub date: ConfidenceLevel,
-}
-
-/// Assignment type for receipt-to-trip relationship
-/// User explicitly selects FUEL or OTHER when assigning receipt to trip
+/// Assignment type for invoice-to-trip relationship
+/// User explicitly selects FUEL or OTHER when assigning an invoice to a trip
 /// Stored in DB as TEXT using serde default serialization ("Fuel" or "Other")
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssignmentType {
-    Fuel,  // Receipt is for fuel/refueling
-    Other, // Receipt is for other costs (parking, toll, car wash, etc.)
+    Fuel,  // Invoice is for fuel/refueling
+    Other, // Invoice is for other costs (parking, toll, car wash, etc.)
 }
 
 impl AssignmentType {
@@ -566,7 +532,7 @@ impl AssignmentType {
     }
 }
 
-/// Mode-aware row for the doklady page (works for both local receipts and Paperless docs).
+/// Mode-aware row for the doklady page (Paperless docs only since Task 84).
 /// `paperless_url` opens the doc in Paperless UI; `trip_id` indicates current link state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -581,154 +547,6 @@ pub struct PaperlessInvoiceRow {
     pub assignment_type: AssignmentType,
     pub trip_id: Option<String>,
 }
-
-/// A scanned fuel receipt (blocek)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Receipt {
-    pub id: Uuid,
-    pub vehicle_id: Option<Uuid>, // Set when assigned
-    pub trip_id: Option<Uuid>,    // Set when assigned (UNIQUE when not null)
-    pub file_path: String,        // Full path to image (UNIQUE)
-    pub file_name: String,        // Just filename for display
-    pub scanned_at: DateTime<Utc>,
-
-    // Parsed fields (None = uncertain/failed)
-    pub liters: Option<f64>,
-    pub total_price_eur: Option<f64>,
-    pub receipt_datetime: Option<NaiveDateTime>,
-    pub station_name: Option<String>,
-    pub station_address: Option<String>,
-
-    // Additional cost fields (for non-fuel receipts: car wash, parking, toll, service)
-    pub vendor_name: Option<String>, // Shop/service provider name (e.g., "OMV", "AutoWash Express")
-    pub cost_description: Option<String>, // Brief expense description (e.g., "Umytie auta", "Parkovanie 2h")
-
-    // Multi-currency support: original OCR amount + currency (EUR, CZK, HUF, PLN)
-    // - EUR receipts: original_amount copied to total_price_eur
-    // - Foreign currency: user must manually convert to total_price_eur
-    pub original_amount: Option<f64>,
-    pub original_currency: Option<String>,
-
-    // Year folder support: which year folder the receipt came from (e.g., 2024 from "2024/" folder)
-    // None = flat folder structure, Some(year) = from year subfolder
-    pub source_year: Option<i32>,
-
-    // Status tracking
-    pub status: ReceiptStatus,
-    pub confidence: FieldConfidence,   // Typed struct, not strings
-    pub raw_ocr_text: Option<String>,  // For debugging (local only)
-    pub error_message: Option<String>, // If parsing failed
-
-    // Assignment fields (Task 51: Receipt-Trip State Model)
-    // Data invariant: trip_id = NULL ↔ assignment_type = NULL (unassigned)
-    //                 trip_id = SET  ↔ assignment_type = SET  (assigned)
-    pub assignment_type: Option<AssignmentType>, // Fuel or Other, set when assigned to trip
-    pub mismatch_override: bool, // True = user confirmed data mismatch is intentional
-    /// Cents actually added to trip.other_costs_eur at assign time (Task 66).
-    /// None = nothing applied (link-only or legacy) — unassign must not subtract.
-    pub applied_amount_cents: Option<i64>,
-
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-impl Receipt {
-    #[allow(dead_code)]
-    // Convenience constructor for testing
-    pub fn new(file_path: String, file_name: String) -> Self {
-        Self::new_with_source_year(file_path, file_name, None)
-    }
-
-    pub fn new_with_source_year(
-        file_path: String,
-        file_name: String,
-        source_year: Option<i32>,
-    ) -> Self {
-        let now = Utc::now();
-        Self {
-            id: Uuid::new_v4(),
-            vehicle_id: None,
-            trip_id: None,
-            file_path,
-            file_name,
-            scanned_at: now,
-            liters: None,
-            total_price_eur: None,
-            receipt_datetime: None,
-            station_name: None,
-            station_address: None,
-            vendor_name: None,
-            cost_description: None,
-            original_amount: None,
-            original_currency: None,
-            source_year,
-            status: ReceiptStatus::Pending,
-            confidence: FieldConfidence::default(),
-            raw_ocr_text: None,
-            error_message: None,
-            assignment_type: None,
-            mismatch_override: false,
-            applied_amount_cents: None,
-            created_at: now,
-            updated_at: now,
-        }
-    }
-}
-
-/// Reason why a receipt could not be matched to a trip
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum MismatchReason {
-    /// Receipt is verified - no mismatch
-    None,
-    /// Receipt missing date, liters, or price (OCR incomplete)
-    MissingReceiptData,
-    /// No trip with fuel data found for this year
-    NoFuelTripFound,
-    /// Found trip with matching liters+price but different date
-    DateMismatch {
-        #[serde(rename = "receiptDate")]
-        receipt_date: String,
-        #[serde(rename = "closestTripDate")]
-        closest_trip_date: String,
-    },
-    /// Receipt datetime is outside trip's [start, end] time range (same date, wrong time)
-    DatetimeOutOfRange {
-        #[serde(rename = "receiptTime")]
-        receipt_time: String,
-        #[serde(rename = "tripStart")]
-        trip_start: String,
-        #[serde(rename = "tripEnd")]
-        trip_end: String,
-    },
-    /// Found trip with matching date+price but different liters
-    LitersMismatch {
-        #[serde(rename = "receiptLiters")]
-        receipt_liters: f64,
-        #[serde(rename = "tripLiters")]
-        trip_liters: f64,
-    },
-    /// Found trip with matching date+liters but different price
-    PriceMismatch {
-        #[serde(rename = "receiptPrice")]
-        receipt_price: f64,
-        #[serde(rename = "tripPrice")]
-        trip_price: f64,
-    },
-    /// Other-cost receipt - no trip with matching price
-    NoOtherCostMatch,
-}
-
-impl Default for MismatchReason {
-    fn default() -> Self {
-        MismatchReason::None
-    }
-}
-
-// =============================================================================
-// Receipt Display State (Task 51: Computed, never stored)
-// =============================================================================
 
 // =============================================================================
 // Domain Enums - String Constant Replacements
@@ -761,15 +579,15 @@ impl std::fmt::Display for BackupType {
     }
 }
 
-/// Attachment status for receipt-to-trip matching
+/// Attachment status for invoice-to-trip matching
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum AttachmentStatus {
     #[default]
-    Empty,        // Trip has no receipt attached
-    Matches,      // Receipt datetime is within trip time range (exact match)
-    MatchesDate,  // Receipt is on same date but time is outside trip range
-    Differs,      // Receipt values differ from trip
+    Empty,        // Trip has no invoice attached
+    Matches,      // Invoice datetime is within trip time range (exact match)
+    MatchesDate,  // Invoice is on same date but time is outside trip range
+    Differs,      // Invoice values differ from trip
 }
 
 impl AttachmentStatus {
@@ -780,45 +598,6 @@ impl AttachmentStatus {
             AttachmentStatus::MatchesDate => "matches_date",
             AttachmentStatus::Differs => "differs",
         }
-    }
-}
-
-/// Currency codes for multi-currency receipt support
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum Currency {
-    #[default]
-    EUR,
-    CZK,
-    HUF,
-    PLN,
-}
-
-impl Currency {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Currency::EUR => "EUR",
-            Currency::CZK => "CZK",
-            Currency::HUF => "HUF",
-            Currency::PLN => "PLN",
-        }
-    }
-
-    /// Parse currency from string (case insensitive) - available for gradual adoption
-    #[allow(dead_code)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_uppercase().as_str() {
-            "EUR" => Some(Currency::EUR),
-            "CZK" => Some(Currency::CZK),
-            "HUF" => Some(Currency::HUF),
-            "PLN" => Some(Currency::PLN),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for Currency {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
@@ -856,33 +635,6 @@ impl std::fmt::Display for Theme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
-}
-
-/// Verification status of a single receipt against trips
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReceiptVerification {
-    pub receipt_id: String,
-    pub matched: bool,
-    pub matched_trip_id: Option<String>,
-    /// Formatted as "D.M. HH:MM–HH:MM" (e.g., "22.1. 15:00–17:00")
-    pub matched_trip_datetime: Option<String>,
-    pub matched_trip_route: Option<String>,
-    pub mismatch_reason: MismatchReason,
-    /// True if receipt datetime is outside the matched trip's [start, end] range
-    pub datetime_warning: bool,
-    /// Trip time range for warning message (e.g., "09:00–11:34")
-    pub matched_trip_time_range: Option<String>,
-}
-
-/// Result of verifying all receipts for a vehicle/year
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VerificationResult {
-    pub total: usize,
-    pub matched: usize,
-    pub unmatched: usize,
-    pub receipts: Vec<ReceiptVerification>,
 }
 
 /// Preview result for live calculation feedback during trip editing.
@@ -1256,75 +1008,6 @@ pub struct NewSettingsRow<'a> {
     pub updated_at: &'a str,
 }
 
-/// Database row for receipts table
-#[derive(Debug, Clone, Queryable, Selectable, Identifiable, AsChangeset, QueryableByName)]
-#[diesel(table_name = receipts)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct ReceiptRow {
-    pub id: Option<String>,
-    pub vehicle_id: Option<String>,
-    pub trip_id: Option<String>,
-    pub file_path: String,
-    pub file_name: String,
-    pub scanned_at: String,
-    pub liters: Option<f64>,
-    pub total_price_eur: Option<f64>,
-    pub receipt_datetime: Option<String>,
-    pub station_name: Option<String>,
-    pub station_address: Option<String>,
-    pub source_year: Option<i32>,
-    pub status: String,
-    pub confidence: String,
-    pub raw_ocr_text: Option<String>,
-    pub error_message: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-    pub vendor_name: Option<String>,
-    pub cost_description: Option<String>,
-    // Multi-currency support (migration 2026-01-21-100000)
-    pub original_amount: Option<f64>,
-    pub original_currency: Option<String>,
-    // Assignment fields (migration 2026-02-03-100000_receipt_assignment_type)
-    pub assignment_type: Option<String>, // "Fuel" or "Other"
-    pub mismatch_override: i32,          // 0 = no override, 1 = user confirmed
-    // Amount snapshot (migration 2026-07-15-100000_multi_invoice)
-    pub applied_amount_cents: Option<i64>,
-}
-
-/// For inserting new receipts
-#[derive(Debug, Insertable)]
-#[diesel(table_name = receipts)]
-pub struct NewReceiptRow<'a> {
-    pub id: &'a str,
-    pub vehicle_id: Option<&'a str>,
-    pub trip_id: Option<&'a str>,
-    pub file_path: &'a str,
-    pub file_name: &'a str,
-    pub scanned_at: &'a str,
-    pub liters: Option<f64>,
-    pub total_price_eur: Option<f64>,
-    pub receipt_datetime: Option<&'a str>,
-    pub station_name: Option<&'a str>,
-    pub station_address: Option<&'a str>,
-    pub source_year: Option<i32>,
-    pub status: &'a str,
-    pub confidence: &'a str,
-    pub raw_ocr_text: Option<&'a str>,
-    pub error_message: Option<&'a str>,
-    pub created_at: &'a str,
-    pub updated_at: &'a str,
-    pub vendor_name: Option<&'a str>,
-    pub cost_description: Option<&'a str>,
-    // Multi-currency support (migration 2026-01-21-100000)
-    pub original_amount: Option<f64>,
-    pub original_currency: Option<&'a str>,
-    // Assignment fields (migration 2026-02-03-100000_receipt_assignment_type)
-    pub assignment_type: Option<&'a str>, // "Fuel" or "Other"
-    pub mismatch_override: i32,           // 0 = no override, 1 = user confirmed
-    // Amount snapshot (migration 2026-07-15-100000_multi_invoice)
-    pub applied_amount_cents: Option<i64>,
-}
-
 // =============================================================================
 // Conversion implementations: Row <-> Domain
 // =============================================================================
@@ -1442,58 +1125,6 @@ impl From<SettingsRow> for Settings {
     }
 }
 
-impl From<ReceiptRow> for Receipt {
-    fn from(row: ReceiptRow) -> Self {
-        let status = match row.status.as_str() {
-            "Pending" => ReceiptStatus::Pending,
-            "Parsed" | "Assigned" => ReceiptStatus::Parsed, // Legacy "Assigned" → Parsed
-            "NeedsReview" => ReceiptStatus::NeedsReview,
-            _ => ReceiptStatus::Pending,
-        };
-
-        let confidence: FieldConfidence = serde_json::from_str(&row.confidence).unwrap_or_default();
-
-        Receipt {
-            id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
-                .unwrap_or_else(|_| Uuid::new_v4()),
-            vehicle_id: row.vehicle_id.and_then(|s| Uuid::parse_str(&s).ok()),
-            trip_id: row.trip_id.and_then(|s| Uuid::parse_str(&s).ok()),
-            file_path: row.file_path,
-            file_name: row.file_name,
-            scanned_at: DateTime::parse_from_rfc3339(&row.scanned_at)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
-            liters: row.liters,
-            total_price_eur: row.total_price_eur,
-            receipt_datetime: row
-                .receipt_datetime
-                .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S").ok()),
-            station_name: row.station_name,
-            station_address: row.station_address,
-            vendor_name: row.vendor_name,
-            cost_description: row.cost_description,
-            original_amount: row.original_amount,
-            original_currency: row.original_currency,
-            source_year: row.source_year,
-            status,
-            confidence,
-            raw_ocr_text: row.raw_ocr_text,
-            error_message: row.error_message,
-            assignment_type: row
-                .assignment_type
-                .and_then(|s| AssignmentType::from_str(&s)),
-            mismatch_override: row.mismatch_override != 0,
-            applied_amount_cents: row.applied_amount_cents,
-            created_at: DateTime::parse_from_rfc3339(&row.created_at)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
-            updated_at: DateTime::parse_from_rfc3339(&row.updated_at)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
-        }
-    }
-}
-
 // =============================================================================
 // Helper functions for domain -> row conversion (used in db.rs)
 // =============================================================================
@@ -1506,22 +1137,6 @@ impl Vehicle {
             VehicleType::Bev => "Bev",
             VehicleType::Phev => "Phev",
         }
-    }
-}
-
-impl Receipt {
-    /// Convert status to database string
-    pub fn status_to_str(&self) -> &'static str {
-        match self.status {
-            ReceiptStatus::Pending => "Pending",
-            ReceiptStatus::Parsed => "Parsed",
-            ReceiptStatus::NeedsReview => "NeedsReview",
-        }
-    }
-
-    /// Convert confidence to JSON string
-    pub fn confidence_to_json(&self) -> String {
-        serde_json::to_string(&self.confidence).unwrap_or_default()
     }
 }
 
@@ -1551,8 +1166,8 @@ pub struct PaperlessLink {
 pub struct TripInvoiceCoverage {
     pub has_fuel: bool,
     pub has_other: bool,
-    /// Sum of Other invoice amounts in integer cents (receipts' live
-    /// total_price_eur + paperless amount_eur snapshots).
+    /// Sum of Other invoice amounts in integer cents, from the assign-time
+    /// paperless `amount_eur` snapshots.
     pub other_sum_cents: i64,
     /// True if any Other invoice has an unknown (NULL) amount -> skip sum-mismatch check.
     pub has_unknown_amount: bool,
@@ -1739,32 +1354,6 @@ mod tests {
     }
 
     // ========================================================================
-    // FieldConfidence serialization tests
-    // ========================================================================
-
-    #[test]
-    fn test_confidence_parses_camelcase() {
-        // New format with camelCase (post-migration and new receipts)
-        let json = r#"{"liters":"High","totalPrice":"Medium","date":"Low"}"#;
-        let confidence: FieldConfidence = serde_json::from_str(json).unwrap();
-
-        assert_eq!(confidence.liters, ConfidenceLevel::High);
-        assert_eq!(confidence.total_price, ConfidenceLevel::Medium);
-        assert_eq!(confidence.date, ConfidenceLevel::Low);
-    }
-
-    #[test]
-    fn test_confidence_parses_legacy_snake_case() {
-        // Legacy format with snake_case (pre-migration records)
-        let json = r#"{"liters":"High","total_price":"Medium","date":"Low"}"#;
-        let confidence: FieldConfidence = serde_json::from_str(json).unwrap();
-
-        assert_eq!(confidence.liters, ConfidenceLevel::High);
-        assert_eq!(confidence.total_price, ConfidenceLevel::Medium);
-        assert_eq!(confidence.date, ConfidenceLevel::Low);
-    }
-
-    // ========================================================================
     // RouteMap / Waypoint serialization tests
     // ========================================================================
 
@@ -1795,20 +1384,6 @@ mod tests {
         assert!(json.contains("\"nodeIdx\":14"), "must be camelCase: {json}");
         assert!(!json.contains("node_idx"), "must not be snake_case: {json}");
         assert!(!json.contains("name"), "an unnamed point must omit name: {json}");
-    }
-
-    #[test]
-    fn test_confidence_serializes_to_camelcase() {
-        // Ensure new records are saved with camelCase
-        let confidence = FieldConfidence {
-            liters: ConfidenceLevel::High,
-            total_price: ConfidenceLevel::Medium,
-            date: ConfidenceLevel::Low,
-        };
-        let json = serde_json::to_string(&confidence).unwrap();
-
-        assert!(json.contains("totalPrice")); // camelCase
-        assert!(!json.contains("total_price")); // NOT snake_case
     }
 
     #[test]

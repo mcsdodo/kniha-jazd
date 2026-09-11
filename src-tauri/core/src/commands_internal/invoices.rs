@@ -16,8 +16,8 @@ use crate::invoice::check_paperless_trip_compatibility;
 use crate::models::{AssignmentType, Trip, TripInvoiceCoverage};
 use crate::paperless::PaperlessDoc;
 
-/// Rule 3 error: a trip can hold at most ONE Fuel invoice across both sources
-/// (local receipts + paperless links). Translated frontend-side (i18n).
+/// Rule 3 error: a trip can hold at most ONE Fuel invoice. Translated
+/// frontend-side (i18n).
 pub(crate) const FUEL_INVOICE_EXISTS_ERR: &str = "Trip already has a fuel invoice";
 
 /// A trip annotated with whether a Paperless document can be attached to it.
