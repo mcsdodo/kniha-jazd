@@ -2,10 +2,10 @@
  * Tier 2: Paperless-ngx Integration
  *
  * End-to-end flow against a mock Paperless HTTP server:
- *   1. Configure Paperless URL + token in Settings → connection probe succeeds.
+ *   1. Configure Paperless URL + token in Settings -> connection probe succeeds.
  *   2. Doklady page renders 3 invoice rows from the mock (1 fuel, 2 car).
  *   3. Assigning a fuel doc to a trip persists across a Refresh click.
- *   4. Clearing the Paperless URL via IPC reverts Doklady to local-receipts mode.
+ *   4. With Paperless unconfigured, Doklady shows the setup empty state.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -31,13 +31,13 @@ describe('Tier 2: Paperless Integration', () => {
   });
 
   after(async () => {
-    // Always clear Paperless settings so subsequent specs start in local mode.
-    // Pass empty strings (not null) — backend treats None as "don't change",
+    // Always clear Paperless settings so subsequent specs start unconfigured.
+    // Pass empty strings (not null) -- backend treats None as "don't change",
     // empty string as "clear".
     try {
       await rpc<void>('save_paperless_settings', { url: '', token: '' });
     } catch {
-      // Best-effort — if the app is gone or already cleared, ignore.
+      // Best-effort -- if the app is gone or already cleared, ignore.
     }
     await stopMockPaperless();
   });
@@ -46,13 +46,11 @@ describe('Tier 2: Paperless Integration', () => {
     await waitForAppReady();
     await ensureLanguage('en');
 
-    // Clear any lingering doc assignments from previous retry attempts —
+    // Clear any lingering doc assignments from previous retry attempts --
     // the WDIO test data dir is shared across retries within a session.
     for (const docId of [435, 423, 391]) {
       try {
-        await rpc<void>('unassign_invoice', {
-          invoiceRef: { source: 'paperless', id: docId },
-        });
+        await rpc<void>('unassign_paperless_invoice', { docId });
       } catch {
         // No-op when there's no link to remove.
       }
@@ -61,7 +59,7 @@ describe('Tier 2: Paperless Integration', () => {
     // Reset Paperless field-name overrides. The "Custom fields" test sets
     // `fieldNameLiters: 'total_price_eur'` mid-flow; if it crashes before its
     // own cleanup, the override leaks into subsequent specFileRetries and
-    // collapses litres extraction (total_amount_id == litres_id → the
+    // collapses litres extraction (total_amount_id == litres_id -> the
     // if/else-if chain in fetch_invoice_documents skips the litres branch).
     try {
       await rpc<void>('save_paperless_settings', {
@@ -75,7 +73,7 @@ describe('Tier 2: Paperless Integration', () => {
     }
   });
 
-  it('configure → render → assign → toggle off restores local mode', async () => {
+  it('configure -> render -> assign, and assignment persists across refresh', async () => {
     // ----- 1. Seed a vehicle and at least one trip in 2026 -------------------
     const vehicle = await seedVehicle({
       name: 'Paperless Test Car',
@@ -124,19 +122,19 @@ describe('Tier 2: Paperless Integration', () => {
     // Settings onMount runs ~12 sequential IPC calls before reaching the
     // Paperless section; on slow CI runners this can take several seconds.
     // Anchoring on the input value (which is Svelte-bound to `paperlessUrl`)
-    // ensures we wait exactly as long as needed — and gives a clear error if
+    // ensures we wait exactly as long as needed -- and gives a clear error if
     // onMount aborts early (e.g. an uncaught IPC error earlier in the chain).
     const urlInput = await $('[data-test="paperless-url"]');
     await browser.waitUntil(
       async () => ((await urlInput.getValue()) ?? '').length > 0,
       {
         timeout: 15000,
-        timeoutMsg: 'Paperless URL never populated in Settings input — onMount may have failed early',
+        timeoutMsg: 'Paperless URL never populated in Settings input -- onMount may have failed early',
       }
     );
 
     // Once paperlessUrl is set, testPaperlessConnectionStatus() fires immediately
-    // and flips the status from IDLE → TESTING → CONNECTED. The badge renders
+    // and flips the status from IDLE -> TESTING -> CONNECTED. The badge renders
     // the moment status leaves IDLE, so it should appear within ~1-2 seconds.
     const statusBadge = await $('[data-test="paperless-status"]');
     await statusBadge.waitForDisplayed({ timeout: 5000 });
@@ -168,7 +166,7 @@ describe('Tier 2: Paperless Integration', () => {
     const rows = await $$('[data-test="paperless-row"]');
     expect(rows.length).toBe(3);
 
-    // Fuel doc 435 — title + liters
+    // Fuel doc 435 -- title + liters
     const fuelRow = await $('[data-test="paperless-row"][data-doc-id="435"]');
     await fuelRow.waitForDisplayed({ timeout: 5000 });
     const fuelTitle = await fuelRow.$('[data-test="title"]');
@@ -179,18 +177,18 @@ describe('Tier 2: Paperless Integration', () => {
     const fuelLitersText = (await fuelLiters.getText()).trim();
     expect(fuelLitersText).toContain('63.34');
 
-    // Car doc 423 — liters cell shows em-dash (non-fuel doc)
+    // Car doc 423 -- liters cell shows a hyphen (non-fuel doc)
     const carRow = await $('[data-test="paperless-row"][data-doc-id="423"]');
     const carLiters = await carRow.$('[data-test="liters"]');
     const carLitersText = (await carLiters.getText()).trim();
-    expect(carLitersText).toBe('—');
+    expect(carLitersText).toBe('-');
 
     // ----- 4. Assign fuel doc 435 to a trip via the unified TripSelectorModal -----
     const assignBtn = await fuelRow.$('[data-test="assign-btn"]');
     await assignBtn.waitForDisplayed({ timeout: 5000 });
     await assignBtn.click();
 
-    // Step 1: trip list — pick the first item (trips are sorted by date proximity
+    // Step 1: trip list -- pick the first item (trips are sorted by date proximity
     // to the doc's receipt_datetime; the doc is from 2026-04-27 so trip on 04-27
     // sorts first).
     const tripItems = await $$('[data-test="trip-item"]');
@@ -198,9 +196,9 @@ describe('Tier 2: Paperless Integration', () => {
     await tripItems[0].waitForDisplayed({ timeout: 5000 });
     await tripItems[0].click();
 
-    // Step 2: Fuel/Other — Paperless fuel docs default to "Fuel" via looksLikeFuel().
+    // Step 2: Fuel/Other -- Paperless fuel docs default to "Fuel" via looksLikeFuel().
     // Trip 2 (the closest) is empty, so attachmentStatus is "matches_date" (not
-    // "differs"), meaning the modal shows the regular confirm button — no mismatch
+    // "differs"), meaning the modal shows the regular confirm button -- no mismatch
     // warning, no override flow.
     const confirmBtn = await $('[data-test="confirm-assign-btn"]');
     await confirmBtn.waitForDisplayed({ timeout: 5000 });
@@ -220,7 +218,7 @@ describe('Tier 2: Paperless Integration', () => {
       }
     );
 
-    // ----- 5. Click Refresh — assignment persists ---------------------------
+    // ----- 5. Click Refresh -- assignment persists ---------------------------
     const refreshBtn = await $('[data-test="paperless-refresh"]');
     await refreshBtn.click();
 
@@ -235,39 +233,6 @@ describe('Tier 2: Paperless Integration', () => {
         timeout: 5000,
         timeoutMsg: 'Trip indicator did not persist across Refresh',
       }
-    );
-
-    // ----- 6. Disable Paperless toggle → Doklady reverts to local mode ------
-    // Use enabled:false — credentials are preserved, only mode switches.
-    await rpc<void>('save_paperless_settings', { url: null, token: null, enabled: false });
-
-    // Force a full page remount (SvelteKit may keep route components mounted).
-    await navigateTo('trips');
-    await browser.pause(300);
-    await navigateTo('doklady');
-    await browser.pause(800);
-
-    const paperlessRowsAfter = await $$('[data-test="paperless-row"]');
-    expect(paperlessRowsAfter.length).toBe(0);
-
-    // The local-mode header (Scan / Recognize buttons) should now be present.
-    // Easiest selector-free assertion: paperless-refresh button is gone.
-    const refreshAfter = await $('[data-test="paperless-refresh"]');
-    expect(await refreshAfter.isExisting()).toBe(false);
-
-    // ----- 7. Re-enable Paperless → rows load again -------------------------
-    await rpc<void>('save_paperless_settings', { url: null, token: null, enabled: true });
-
-    await navigateTo('trips');
-    await browser.pause(300);
-    await navigateTo('doklady');
-
-    await browser.waitUntil(
-      async () => {
-        const r = await $$('[data-test="paperless-row"]');
-        return r.length === 3;
-      },
-      { timeout: 10000, timeoutMsg: 'Paperless rows did not reload after re-enabling' }
     );
   });
 
@@ -304,7 +269,7 @@ describe('Tier 2: Paperless Integration', () => {
     await browser.pause(800); // allow listPaperlessCustomFields fetch
 
     // ----- 4. Dropdowns visible AND populated --------------------------------
-    // `waitForDisplayed` only waits for the <select> tag to render — Svelte
+    // `waitForDisplayed` only waits for the <select> tag to render -- Svelte
     // mounts it before listPaperlessCustomFields resolves, so options arrive
     // a moment later. Anchor on option count to avoid asserting against an
     // empty dropdown on slow CI runners.
@@ -330,7 +295,7 @@ describe('Tier 2: Paperless Integration', () => {
 
     // ----- 7. Liters dropdown contains both float fields ----------------------
     // WDIO 9: `$$()` returns a ChainablePromiseArray whose `.map()` does not
-    // produce a plain Array — `Promise.all(litersOptions.map(...))` raises
+    // produce a plain Array -- `Promise.all(litersOptions.map(...))` raises
     // "object is not iterable". Sequential await over a for-of loop is safe.
     const litersOptions = await litersSelect.$$('option');
     const litersValues: string[] = [];
@@ -354,7 +319,7 @@ describe('Tier 2: Paperless Integration', () => {
     const litersSelectAfter = await $('[data-test="paperless-field-liters"]');
     expect(await litersSelectAfter.isExisting()).toBe(false);
 
-    // ----- 10. Empty-string IPC clears overrides → defaults restored ----------
+    // ----- 10. Empty-string IPC clears overrides -> defaults restored ----------
     await rpc<void>('save_paperless_settings', {
       url: null, token: null, enabled: null,
       fieldNameDatetime: '',
@@ -365,5 +330,31 @@ describe('Tier 2: Paperless Integration', () => {
     expect(defaulted.fieldNameDatetime).toBe('receipt_datetime');
     expect(defaulted.fieldNameLiters).toBe('liters');
     expect(defaulted.fieldNameTotal).toBe('total_price_eur');
+  });
+
+  it('shows the setup empty state when Paperless is not configured', async () => {
+    // The Doklady page only calls get_paperless_invoices (and so only sees
+    // NotConfigured) once an active vehicle exists.
+    const vehicle = await seedVehicle({
+      name: 'Empty State Car',
+      licensePlate: 'EMPTY-01',
+      initialOdometer: 10000,
+      tankSizeLiters: 60,
+      tpConsumption: 6.5,
+    });
+    await setActiveVehicle(vehicle.id as string);
+
+    // Clear both credentials -> get_paperless_invoices returns NotConfigured.
+    await rpc<void>('save_paperless_settings', { url: '', token: '' });
+
+    // Force a fresh mount so onMount/$effect fetches with the cleared settings.
+    await navigateTo('trips');
+    await browser.pause(200);
+    await navigateTo('doklady');
+
+    const emptyState = await $('.empty-state');
+    await emptyState.waitForDisplayed({ timeout: 10000 });
+    expect(await emptyState.getText()).toContain('Paperless-ngx is not configured.');
+    expect(await $$('[data-test="paperless-row"]').length).toBe(0);
   });
 });

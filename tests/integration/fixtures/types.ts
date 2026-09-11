@@ -87,66 +87,6 @@ export interface Settings {
 }
 
 /**
- * Receipt status enum matching Rust ReceiptStatus
- */
-export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview' | 'Assigned';
-
-/**
- * Confidence level for parsed receipt fields
- */
-export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
-
-/**
- * Field confidence structure
- */
-export interface FieldConfidence {
-  liters: ConfidenceLevel;
-  totalPrice: ConfidenceLevel;
-  date: ConfidenceLevel;
-}
-
-/**
- * Currency codes for multi-currency receipts
- */
-export type ReceiptCurrency = 'EUR' | 'CZK' | 'HUF' | 'PLN';
-
-/**
- * Receipt data structure matching Rust Receipt struct
- */
-export interface Receipt {
-  id?: string;
-  vehicleId?: string;
-  tripId?: string;
-  filePath: string;
-  fileName: string;
-  scannedAt?: string;
-  // Parsed fields
-  liters?: number | null;
-  totalPriceEur?: number | null;
-  receiptDate?: string | null; // YYYY-MM-DD format (legacy fixtures)
-  receiptDatetime?: string | null; // YYYY-MM-DDTHH:MM:SS format
-  stationName?: string | null;
-  stationAddress?: string | null;
-  vendorName?: string | null;
-  costDescription?: string | null;
-  // Multi-currency support
-  originalAmount?: number | null;
-  originalCurrency?: ReceiptCurrency | null;
-  sourceYear?: number | null;
-  // Status tracking
-  status?: ReceiptStatus;
-  confidence?: FieldConfidence;
-  rawOcrText?: string | null;
-  errorMessage?: string | null;
-  // Assignment fields (Task 51 / Task 66)
-  assignmentType?: 'Fuel' | 'Other' | null; // Set when assigned to trip
-  mismatchOverride?: boolean;
-  appliedAmountCents?: number | null; // Cents added to trip.other_costs_eur at assign time
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/**
  * Trip statistics returned by get_trip_grid_data
  */
 export interface TripStats {
@@ -216,25 +156,4 @@ export interface PreviewResult {
   odometerStart: number;
   /** Odometer this row ends at (odometerStart + km), computed in Rust */
   odometer: number;
-}
-
-/**
- * Receipt verification status
- */
-export interface ReceiptVerification {
-  receiptId: string;
-  matched: boolean;
-  matchedTripId?: string;
-  matchedTripDate?: string;
-  matchedTripRoute?: string;
-}
-
-/**
- * Result of verifying all receipts
- */
-export interface VerificationResult {
-  total: number;
-  matched: number;
-  unmatched: number;
-  receipts: ReceiptVerification[];
 }

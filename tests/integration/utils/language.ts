@@ -162,7 +162,6 @@ export const localizedStrings = {
   // Navigation
   trips: { sk: 'Jazdy', en: 'Trips' },
   settings: { sk: 'Nastavenia', en: 'Settings' },
-  receipts: { sk: 'Doklady', en: 'Receipts' },
   backups: { sk: 'Zalohy', en: 'Backups' },
 
   // Actions
@@ -199,7 +198,6 @@ export const localizedStrings = {
 
   // Warnings
   overLimit: { sk: 'Prekroceny limit', en: 'Over limit' },
-  missingReceipt: { sk: 'Chybajuci doklad', en: 'Missing receipt' },
 } as const;
 
 /**

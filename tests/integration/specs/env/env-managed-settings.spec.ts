@@ -7,7 +7,7 @@
  * wdio.server.conf.ts). Those variables make the matching settings read-only
  * app-wide, so this cannot live alongside specs that edit them.
  *
- * Covers the UI contract only — that env-pinned fields render read-only, name
+ * Covers the UI contract only -- that env-pinned fields render read-only, name
  * their variable, and still expose the connection status. The pinning logic
  * itself is proven by the Rust unit tests in integrations_tests.rs.
  */
@@ -29,7 +29,7 @@ async function revealWithPin(
   await modal.waitForDisplayed({ timeout: 5000 });
   await (await $('[data-test="reveal-pin-input"]')).setValue(REVEAL_PIN);
   await (await $('[data-test="reveal-pin-submit"]')).click();
-  // Wait for the overlay to go before returning — it intercepts later clicks
+  // Wait for the overlay to go before returning -- it intercepts later clicks
   await modal.waitForDisplayed({ reverse: true, timeout: 5000 });
   await browser.waitUntil(async () => (await tokenInput.getValue()) === HA_TOKEN_FIXTURE, {
     timeout: 5000,
@@ -86,7 +86,7 @@ describe('Env-managed settings', () => {
 
   it('requires the PIN to reveal an env token, and rejects a wrong one', async () => {
     const tokenInput = await $('#ha-token');
-    // The secret is NOT in the page — only a mask of the right shape
+    // The secret is NOT in the page -- only a mask of the right shape
     expect(await tokenInput.getValue()).not.toBe(HA_TOKEN_FIXTURE);
 
     const eye = await $('[data-test="reveal-ha-token"]');
@@ -140,7 +140,7 @@ describe('Env-managed settings', () => {
 
   it('still shows connection status for both integrations', async () => {
     // Both fixtures point at hosts that do not resolve, so the status settles on
-    // "disconnected" — the point is that the block renders at all when the
+    // "disconnected" -- the point is that the block renders at all when the
     // configuration comes from the environment rather than the settings file.
     const haStatus = await $('.ha-status');
     await haStatus.waitForDisplayed({ timeout: 15000 });
@@ -159,12 +159,5 @@ describe('Env-managed settings', () => {
 
     const errorToast = await $('.toast-error');
     expect(await errorToast.isExisting()).toBe(false);
-  });
-
-  it('offers a typed receipts-folder path in server mode', async () => {
-    // No native directory dialog over HTTP — the browse button is replaced by an input
-    const input = await $('[data-test="receipts-folder-input"]');
-    expect(await input.isDisplayed()).toBe(true);
-    expect(await input.isEnabled()).toBe(true);
   });
 });

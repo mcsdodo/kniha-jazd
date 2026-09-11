@@ -1,7 +1,7 @@
 # Integration Tests
 
 End-to-end tests that drive a real Chrome browser (WebdriverIO) against the
-`kniha-jazd-web` HTTP server — the same binary the Docker image ships. The browser
+`kniha-jazd-web` HTTP server -- the same binary the Docker image ships. The browser
 loads the built SvelteKit bundle the server serves, and both the app and the test
 helpers talk to the backend over JSON-RPC at `POST /api/rpc`.
 
@@ -11,11 +11,11 @@ helpers talk to the backend over JSON-RPC at `POST /api/rpc`.
 |--------|-----------|---------|
 | [existing](./specs/existing/) | 2 | Original vehicle setup tests (ICE + BEV) |
 | [tier1](./specs/tier1/) | 9 | Critical flows: trips, consumption, export |
-| [tier2](./specs/tier2/) | 16 | Secondary: backups, receipts, settings, Paperless, route maps |
+| [tier2](./specs/tier2/) | 18 | Secondary: backups, settings, Paperless, route maps |
 | [tier3](./specs/tier3/) | 4 | Edge cases: compensation, validation, empty states |
-| [env](./specs/env/) | 1 | Settings pinned by environment variables — runs separately (see below) |
+| [env](./specs/env/) | 1 | Settings pinned by environment variables -- runs separately (see below) |
 
-> Tier names describe scope, not when they run. CI executes all tiers in parallel on every push to `main` and every PR (see [.github/workflows/test.yml](../../.github/workflows/test.yml)). Tiers exist to let you scope local runs — run [tier1](./specs/tier1/) for a quick check, run the full suite before claiming work done. See [CLAUDE.md](../../CLAUDE.md) → Iteration strategy for the canonical local workflow.
+> Tier names describe scope, not when they run. CI executes all tiers in parallel on every push to `main` and every PR (see [.github/workflows/test.yml](../../.github/workflows/test.yml)). Tiers exist to let you scope local runs -- run [tier1](./specs/tier1/) for a quick check, run the full suite before claiming work done. See [CLAUDE.md](../../CLAUDE.md) -> Iteration strategy for the canonical local workflow.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ npm run build
 cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
 ```
 
-Not needed for Docker mode — the container image already contains both.
+Not needed for Docker mode -- the container image already contains both.
 
 ## Running Tests
 
@@ -59,7 +59,7 @@ running container or app instance does not collide with the test run.
 npx wdio run tests/integration/wdio.server.conf.ts
 npm run test:integration        # same thing
 
-# Single spec — use this while iterating on a fix
+# Single spec -- use this while iterating on a fix
 npx wdio run tests/integration/wdio.server.conf.ts \
   --spec tests/integration/specs/tier2/legal-compliance.spec.ts
 
@@ -69,7 +69,7 @@ npm run test:integration:tier1
 
 ### External-server mode (Docker, port 3456)
 
-The server must already be listening — WDIO only waits for `/health` and never spawns
+The server must already be listening -- WDIO only waits for `/health` and never spawns
 or stops anything.
 
 ```bash
@@ -78,16 +78,15 @@ npm run test:integration:docker   # same thing
 ```
 
 Start the container the way CI does (see the `Start container` step in
-[.github/workflows/test.yml](../../.github/workflows/test.yml)) — in particular
-[tests/integration/data](./data) must be mounted at `/testdata`, because specs send fixture
-paths over RPC and the backend resolves them inside the container. See
-[utils/paths.ts](./utils/paths.ts) for the two mount mappings.
+[.github/workflows/test.yml](../../.github/workflows/test.yml)) -- in particular
+[tests/integration/data](./data) must be mounted at `/testdata`, because the
+geocoder specs read canned responses from that directory.
 
 ### Environment variables
 
 | Variable | Effect |
 |----------|--------|
-| `TIER` | `1`, `2` or `3` — scope the run to a tier (see below) |
+| `TIER` | `1`, `2` or `3` -- scope the run to a tier (see below) |
 | `PARALLEL_TIERS` | `true` makes `TIER` select *only* that tier instead of it plus everything below |
 | `WDIO_EXTERNAL_SERVER` | `1` = connect to an already-running server instead of spawning one |
 | `WDIO_ENV_PINNED` | `1` = run only `specs/env/**`, with settings pinned via env vars |
@@ -113,15 +112,15 @@ The npm scripts use the Windows `set VAR=x&&` form; on Linux/macOS use the inlin
 **CI Behavior:**
 - All three tiers run in parallel on both PRs and pushes to `main` (matrix in [.github/workflows/test.yml](../../.github/workflows/test.yml)), each against its own container.
 - The env-pinned suite runs as a fourth job against a second container started with the pinning variables.
-- The `TIER` env var is for *local* scoping — CI sets `TIER` per matrix job to fan out the suite across runners, not to skip tiers.
+- The `TIER` env var is for *local* scoping -- CI sets `TIER` per matrix job to fan out the suite across runners, not to skip tiers.
 
 ### The env-pinned suite
 
 [specs/env/env-managed-settings.spec.ts](./specs/env/env-managed-settings.spec.ts)
 checks that settings supplied through
-environment variables (`HA_URL`, `PAPERLESS_API_TOKEN`, `KNIHA_JAZD_REVEAL_PIN`, …)
+environment variables (`HA_URL`, `PAPERLESS_API_TOKEN`, `KNIHA_JAZD_REVEAL_PIN`, ...)
 are shown as read-only in the UI. Those variables make settings read-only app-wide,
-which would break every spec that edits them — hence a separate run:
+which would break every spec that edits them -- hence a separate run:
 
 ```bash
 npm run test:integration:docker:env   # WDIO_ENV_PINNED=1, against a pinned container
@@ -140,32 +139,30 @@ tests/integration/
 │   ├── env/              # Env-pinned settings (separate run)
 │   ├── existing/         # Original tests (vehicle setup, BEV)
 │   ├── tier1/            # Critical path: trips, consumption, export, seeding
-│   ├── tier2/            # Secondary features: settings, receipts, Paperless, maps
+│   ├── tier2/            # Secondary features: settings, Paperless, maps
 │   └── tier3/            # Edge cases: compensation, validation, multi-vehicle
 ├── fixtures/             # Test data factories
 │   ├── vehicles.ts       # ICE / BEV / PHEV vehicle factories + UI creation helpers
 │   ├── trips.ts          # Trip factories, Slovak cities, purposes
-│   ├── receipts.ts       # Receipt factories in every status
-│   ├── scenarios.ts      # Whole-vehicle scenarios (under limit, over limit, …)
+│   ├── scenarios.ts      # Whole-vehicle scenarios (under limit, over limit, ...)
 │   └── types.ts          # TS mirrors of the Rust models
 ├── utils/                # Helper utilities
 │   ├── app.ts            # waitForAppReady, navigateTo
 │   ├── db.ts             # rpc() + all seed/query helpers
 │   ├── forms.ts          # Form filling helpers
 │   ├── assertions.ts     # Shared expectations
-│   ├── language.ts       # Locale switching
-│   └── paths.ts          # Host ↔ container path translation
-├── data/                 # Committed fixtures (invoice PDFs, Gemini mock JSON)
+│   └── language.ts       # Locale switching
+├── data/                 # Committed fixtures (geocoder canned responses)
 └── screenshots/          # Failure screenshots
 ```
 
 ## How It Works
 
 1. **Isolated data dir**: spawned mode creates `%TEMP%\kniha-jazd-server-test-*` and passes it as `KNIHA_JAZD_DATA_DIR`; Docker mode uses the container's `/data` mount.
-2. **Fresh database**: `before` deletes every trip and vehicle over RPC, so each spec file starts empty. It does *not* run per test — WDIO's `beforeTest` fires after a spec's own `beforeEach`, so resetting there would wipe data the spec just seeded.
-3. **Seeding over RPC**: tests seed through [`rpc()`](./utils/db.ts) → `POST /api/rpc`, the same endpoint the frontend uses, so the backend validates and stores exactly as it would in production. No direct SQLite access.
-4. **Mocked externals**: `KNIHA_JAZD_MOCK_GEMINI_DIR` makes receipt scanning read fixture JSON instead of calling Gemini; Paperless specs spin up [a local mock server](./specs/_helpers/mock-paperless-server.ts).
-5. **Real browser**: Chrome over the WebDriver protocol — the tests exercise the shipped bundle, not a component harness.
+2. **Fresh database**: `before` deletes every trip and vehicle over RPC, so each spec file starts empty. It does *not* run per test -- WDIO's `beforeTest` fires after a spec's own `beforeEach`, so resetting there would wipe data the spec just seeded.
+3. **Seeding over RPC**: tests seed through [`rpc()`](./utils/db.ts) -> `POST /api/rpc`, the same endpoint the frontend uses, so the backend validates and stores exactly as it would in production. No direct SQLite access.
+4. **Mocked externals**: Paperless specs spin up [a local mock server](./specs/_helpers/mock-paperless-server.ts); geocoder specs read canned responses from [data/geocoder](./data/geocoder).
+5. **Real browser**: Chrome over the WebDriver protocol -- the tests exercise the shipped bundle, not a component harness.
 
 ## Writing Tests
 
@@ -220,22 +217,16 @@ const scenario = createOverLimitScenario();  // vehicle + trips, seed with seedS
 Tests seed data over JSON-RPC:
 
 ```typescript
-import { seedVehicle, seedTrip, seedReceipt } from '../../utils/db';
+import { seedVehicle, seedTrip } from '../../utils/db';
 
 // Creates vehicle and returns with ID
 const vehicle = await seedVehicle({ name: 'Test', licensePlate: 'T-001', initialOdometer: 10000, tpConsumption: 7.5 });
 
 // Creates trip linked to vehicle
 const trip = await seedTrip({ vehicleId: vehicle.id, startDatetime: '2026-01-15T08:00', origin: 'A', destination: 'B', distanceKm: 100, odometer: 10100, purpose: 'Test' });
-
-// Creates a processed (Parsed) unassigned receipt. There is no create_receipt
-// command, so this writes a placeholder file into the sandboxed data dir,
-// scans it, then fills in the parsed fields via update_receipt.
-// Requires a filesystem shared with the backend — skip in Docker mode.
-const receipt = await seedReceipt({ assignmentType: 'Other', totalPriceEur: 10.0, receiptDatetime: '2026-01-15T09:00' });
 ```
 
-Reach for `rpc()` directly rather than any other route to the backend — it is the
+Reach for `rpc()` directly rather than any other route to the backend -- it is the
 single point of backend communication for the whole test suite.
 
 ## Troubleshooting
@@ -245,7 +236,7 @@ single point of backend communication for the whole test suite.
 The spawned server never came up. Check:
 - Was the binary built? (`cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web`, from [src-tauri/web](../../src-tauri/web))
 - Is something else already on 3457? Set `WDIO_SERVER_PORT` to a free port.
-- Run the binary by hand with `KNIHA_JAZD_DATA_DIR` set and read its output — WDIO
+- Run the binary by hand with `KNIHA_JAZD_DATA_DIR` set and read its output -- WDIO
   spawns it with `stdio: 'ignore'`, so startup errors are invisible in the test log.
 
 ### "Timed out waiting for http://localhost:3456/health" (Docker mode)
@@ -260,7 +251,7 @@ backend has to call back out to the host.
 
 CI starts the container with `--network=host`, which on Linux shares the host's
 network stack and makes that work. Docker Desktop for Windows/macOS does not support
-that, so locally you publish a port instead (`-p 3456:3456`) — and then the
+that, so locally you publish a port instead (`-p 3456:3456`) -- and then the
 container's `127.0.0.1` is the container, not your machine.
 
 `paperless-integration.spec.ts` is the one that hits this. It fails locally under
@@ -286,9 +277,9 @@ variable there too.
 
 ### Tests pass locally but fail in CI
 
-CI runs Docker mode on Linux. Differences that bite: fixture paths must go through
-[`utils/paths.ts`](./utils/paths.ts), and specs that write files for the backend to
-read need a shared filesystem (skip them in Docker mode).
+CI runs Docker mode on Linux. Differences that bite: the geocoder fixtures must be
+mounted into the container, and specs that write files for the backend to read need a
+shared filesystem.
 
 ### Test timeout (30s default)
 

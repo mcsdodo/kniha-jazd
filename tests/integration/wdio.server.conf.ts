@@ -14,13 +14,13 @@ const __dirname = dirname(__filename);
 /**
  * WDIO_ENV_PINNED=1 runs only the env-managed-settings suite, with the fixture
  * variables exported into the spawned server. Those variables make settings
- * read-only app-wide, which would break specs that edit them — hence a separate run.
+ * read-only app-wide, which would break specs that edit them -- hence a separate run.
  */
 const ENV_PINNED = process.env.WDIO_ENV_PINNED === '1';
 
 /**
  * Environment variables that pin settings for the ENV_PINNED run. Values are
- * fixtures — the HA/Paperless hosts don't have to resolve, the UI assertions only
+ * fixtures -- the HA/Paperless hosts don't have to resolve, the UI assertions only
  * care that the fields are pinned.
  */
 const ENV_PINNED_FIXTURE: Record<string, string> = {
@@ -36,16 +36,14 @@ const ENV_PINNED_FIXTURE: Record<string, string> = {
  * Blank out every overridable settings variable for normal runs.
  *
  * WebdriverIO auto-loads the repo's .env, and a developer with a real
- * PAPERLESS_API_TOKEN or GEMINI_API_KEY there would pin those settings in the
- * spawned server — making the setter guards reject writes and specs like
- * paperless-integration fail with "managed by the ... environment variable".
- * Empty values read as unset (see LocalSettings::apply_overrides), so this keeps
- * runs hermetic. Mirrors scrub_ambient_env() in settings.rs for the Rust tests.
+ * PAPERLESS_API_TOKEN there would pin those settings in the spawned server --
+ * making the setter guards reject writes and specs like paperless-integration
+ * fail with "managed by the ... environment variable". Empty values read as
+ * unset (see LocalSettings::apply_overrides), so this keeps runs hermetic.
+ * Mirrors scrub_ambient_env() in settings.rs for the Rust tests.
  */
 const SCRUBBED_ENV: Record<string, string> = Object.fromEntries(
-  Object.keys(ENV_PINNED_FIXTURE)
-    .concat('GEMINI_API_KEY')
-    .map((key) => [key, ''])
+  Object.keys(ENV_PINNED_FIXTURE).map((key) => [key, ''])
 );
 
 /** Every tier folder, enumerated so `./specs/env/**` is never picked up by accident. */
@@ -171,7 +169,7 @@ async function waitForUrl(url: string, timeoutMs: number): Promise<void> {
 
 /**
  * Reset the database via RPC. Trips must be deleted before vehicles because
- * SQLite enforces the trips.vehicle_id → vehicles.id FK.
+ * SQLite enforces the trips.vehicle_id -> vehicles.id FK.
  */
 async function resetDatabase(serverUrl: string): Promise<void> {
   try {
@@ -223,7 +221,7 @@ export const config: any = {
   specs: getSpecs(),
   exclude: [],
 
-  // Run one at a time — server mode shares a single backend instance
+  // Run one at a time -- server mode shares a single backend instance
   maxInstances: 1,
 
   capabilities: [{
@@ -255,14 +253,11 @@ export const config: any = {
 
   /**
    * Before all tests: Start the headless web server binary, wait for HTTP ready.
-   * If WDIO_EXTERNAL_SERVER=1 is set (Docker mode), skip the spawn — the server is
+   * If WDIO_EXTERNAL_SERVER=1 is set (Docker mode), skip the spawn -- the server is
    * already running externally and we just wait for it to respond.
    */
   onPrepare: async function () {
     process.env.WDIO_SERVER_URL = SERVER_URL;
-
-    // Mock Gemini API: load JSON from mocks/ instead of calling API
-    process.env.KNIHA_JAZD_MOCK_GEMINI_DIR = join(__dirname, 'data', 'mocks');
 
     // Mock Nominatim: load canned candidates from geocoder/ instead of calling
     // the public instance. Files are named after `places::normalise(query)`.
@@ -305,7 +300,6 @@ export const config: any = {
         DATABASE_PATH: join(testDataDir, 'kniha-jazd.db'),
         STATIC_DIR: join(__dirname, '../../build'),
         PORT: String(SERVER_PORT),
-        KNIHA_JAZD_MOCK_GEMINI_DIR: join(__dirname, 'data', 'mocks'),
         KNIHA_JAZD_MOCK_GEOCODER_DIR: join(__dirname, 'data', 'geocoder'),
         ...SCRUBBED_ENV,
         ...(ENV_PINNED ? ENV_PINNED_FIXTURE : {}),
@@ -337,7 +331,7 @@ export const config: any = {
 
     await browser.url(SERVER_URL);
 
-    // Wait for the SPA to boot — the <h1> only renders once the bundle has run.
+    // Wait for the SPA to boot -- the <h1> only renders once the bundle has run.
     await browser.waitUntil(
       async () => {
         const header = await $('h1');
@@ -354,7 +348,7 @@ export const config: any = {
    * the previous test (open dialogs, edited form rows) is cleared. Do NOT reset the
    * database here: WDIO's `beforeTest` runs AFTER the spec's `beforeEach`, so a
    * database reset here would wipe out vehicles the spec just seeded. Database
-   * cleanup runs in `afterTest` instead — the next test then starts with an empty DB.
+   * cleanup runs in `afterTest` instead -- the next test then starts with an empty DB.
    */
   beforeTest: async function () {
     // Set locale to English for consistent test output
@@ -393,11 +387,11 @@ export const config: any = {
 
   /**
    * After all tests: Kill the web server process and clean up temp directory.
-   * In external server mode, the container/server is managed by the user — skip cleanup.
+   * In external server mode, the container/server is managed by the user -- skip cleanup.
    */
   onComplete: async function () {
     if (EXTERNAL_SERVER) {
-      console.log('External server mode — skipping process cleanup');
+      console.log('External server mode -- skipping process cleanup');
       return;
     }
 
@@ -411,7 +405,7 @@ export const config: any = {
         rmSync(testDataDir, { recursive: true, force: true });
         console.log(`Cleaned up test data directory: ${testDataDir}`);
       } catch {
-        // Ignore cleanup errors — temp dir will be cleaned by OS eventually
+        // Ignore cleanup errors -- temp dir will be cleaned by OS eventually
       }
     }
   },

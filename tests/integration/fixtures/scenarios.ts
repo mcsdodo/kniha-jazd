@@ -5,7 +5,7 @@
  * for common test cases like consumption limits, year transitions, etc.
  */
 
-import type { Vehicle, Trip, Settings, Receipt } from './types';
+import type { Vehicle, Trip, Settings } from './types';
 import {
   createSkodaOctavia,
   createSkodaEnyaq,
@@ -22,7 +22,6 @@ import {
   TripPurposes,
   SlovakCities,
 } from './trips';
-import { createReceipt, createReceiptsMatchingTrips } from './receipts';
 
 // =============================================================================
 // Test Company Settings
@@ -55,7 +54,6 @@ export interface TestScenario {
   description: string;
   vehicle: Vehicle;
   trips: Trip[];
-  receipts?: Receipt[];
   settings?: Settings;
   expectedMarginPercent?: number;
   expectedIsOverLimit?: boolean;
@@ -103,14 +101,11 @@ export function createUnderLimitScenario(year: number = new Date().getFullYear()
     }),
   ];
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Under Limit - Exact TP Rate',
     description: 'Consumption exactly at TP rate (0% over)',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
     expectedMarginPercent: 0,
     expectedIsOverLimit: false,
@@ -149,14 +144,11 @@ export function createSafeMarginScenario(year: number = new Date().getFullYear()
     }),
   ];
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Under Limit - Safe Margin',
     description: 'Consumption at 115% of TP rate (safe 15% margin)',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
     expectedMarginPercent: 15,
     expectedIsOverLimit: false,
@@ -195,14 +187,11 @@ export function createBoundaryScenario(year: number = new Date().getFullYear()):
     }),
   ];
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Boundary - Exactly 20%',
     description: 'Consumption exactly at 120% of TP rate (legal boundary)',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
     expectedMarginPercent: 20,
     expectedIsOverLimit: false, // 20% is still within limit
@@ -245,14 +234,11 @@ export function createOverLimitScenario(year: number = new Date().getFullYear())
     }),
   ];
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Over Limit - 25%',
     description: 'Consumption at 125% of TP rate (5% over legal limit)',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
     expectedMarginPercent: 25,
     expectedIsOverLimit: true,
@@ -293,14 +279,11 @@ export function createSignificantlyOverLimitScenario(
     }),
   ];
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Over Limit - 30%',
     description: 'Consumption at 130% of TP rate (needs compensation trips)',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
     expectedMarginPercent: 30,
     expectedIsOverLimit: true,
@@ -378,14 +361,12 @@ export function createYearTransitionScenario(
   ];
 
   const trips = [...prevYearTrips, ...newYearTrips];
-  const receipts = createReceiptsMatchingTrips(trips);
 
   return {
     name: 'Year Transition',
     description: 'Tests fuel carryover from one year to the next',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
   };
 }
@@ -415,14 +396,11 @@ export function createMultiYearScenario(
     odometer += yearTrips.reduce((sum, t) => sum + t.distanceKm, 0);
   }
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Multi-Year Data',
     description: 'Tests year picker filtering across multiple years',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
   };
 }
@@ -570,14 +548,11 @@ export function createNeedsCompensationScenario(
     }),
   ];
 
-  const receipts = createReceiptsMatchingTrips(trips);
-
   return {
     name: 'Needs Compensation',
     description: 'Over limit (28%), needs compensation trips to bring margin down to 16-19%',
     vehicle,
     trips,
-    receipts,
     settings: testCompanySettings,
     expectedMarginPercent: 28,
     expectedIsOverLimit: true,
@@ -596,4 +571,3 @@ export {
   createTestBevVehicle,
 } from './vehicles';
 export { createTrip, createTripWithFuel, createBevTripWithCharge } from './trips';
-export { createReceipt } from './receipts';

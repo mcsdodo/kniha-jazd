@@ -118,40 +118,12 @@ export const TripGrid = {
   /** Warning indicators */
   consumptionWarning: '.consumption-warning',
   dateWarning: '.date-warning',
-  receiptWarning: '.receipt-warning',
 
   /** Stats/summary */
   totalKm: '.stats .total-km',
   totalFuel: '.stats .total-fuel',
   avgConsumption: '.stats .avg-consumption',
   marginPercent: '.stats .margin-percent',
-} as const;
-
-/**
- * Doklady (receipts) page selectors
- */
-export const Doklady = {
-  /** Main elements */
-  receiptList: '.receipt-list',
-  receiptCard: '.receipt-card',
-  scanBtn: 'button*=Scan',
-  assignBtn: 'button*=Assign',
-
-  /** Receipt details */
-  receiptDate: '.receipt-date',
-  receiptLiters: '.receipt-liters',
-  receiptPrice: '.receipt-price',
-  receiptStation: '.receipt-station',
-
-  /** Status badges */
-  pendingBadge: '.status-pending',
-  parsedBadge: '.status-parsed',
-  needsReviewBadge: '.status-needs-review',
-  assignedBadge: '.status-assigned',
-
-  /** Verification */
-  verifyBtn: 'button*=Verify',
-  verificationResult: '.verification-result',
 } as const;
 
 /**
