@@ -1,0 +1,3 @@
+-- Forward-only in practice (ADR-012). Reverting would re-mislabel the fuel
+-- links and is not wanted; the receipts the repair read are dropped by the
+-- next migration anyway.

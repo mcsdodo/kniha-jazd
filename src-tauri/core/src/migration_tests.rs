@@ -438,3 +438,80 @@ fn receipts_table_is_dropped_by_the_migration_chain() {
         "the local receipts table must not survive the migration chain"
     );
 }
+
+// ============================================================================
+// Task 84 -- repair links the multi-invoice backfill mislabelled
+// (2026-09-11-125000)
+// ============================================================================
+
+/// Seed a legacy receipt row. The legacy schema still carries the receipt
+/// columns the multi-invoice migration reads.
+fn seed_receipt(db: &Database, id: &str, trip_id: &str, assignment_type: &str) {
+    exec(
+        db,
+        &format!(
+            "INSERT INTO receipts (id, vehicle_id, trip_id, file_path, file_name, \
+                                    scanned_at, status, assignment_type, created_at, updated_at) \
+             VALUES ('{id}', 'v1', '{trip_id}', '/tmp/{id}.pdf', '{id}.pdf', \
+                     '2026-01-01T00:00:00', 'Parsed', '{assignment_type}', \
+                     '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        ),
+    );
+}
+
+/// A pre-Task-66 link on a fuel trip that still had a Fuel receipt was
+/// backfilled to 'Other'. Task 84 must retype it to 'Fuel' before dropping the
+/// receipts, or the trip loses its fuel coverage.
+#[test]
+fn legacy_fuel_receipt_link_is_retyped_to_fuel() {
+    let db = open_db_legacy();
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-fueled", "v1", Some(45.0));
+    seed_paperless_link(&db, 301, "t-fueled");
+    seed_receipt(&db, "r1", "t-fueled", "Fuel");
+
+    migrate_to_current(&db);
+
+    assert_eq!(
+        link_assignment_type(&db, 301),
+        "Fuel",
+        "the backfill labelled a fuel document's link 'Other' only because a \
+         Fuel receipt existed; the repair must retype it before the drop"
+    );
+}
+
+/// A legacy link on a trip whose only receipt is an Other expense must stay
+/// 'Other' -- the repair keys on a Fuel receipt, so it must not touch it.
+#[test]
+fn legacy_other_receipt_link_stays_other() {
+    let db = open_db_legacy();
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-other", "v1", None);
+    seed_paperless_link(&db, 302, "t-other");
+    seed_receipt(&db, "r2", "t-other", "Other");
+
+    migrate_to_current(&db);
+
+    assert_eq!(link_assignment_type(&db, 302), "Other");
+}
+
+/// The repair must not produce two Fuel links on one trip.
+#[test]
+fn repair_does_not_add_a_second_fuel_link() {
+    let db = open_db_legacy();
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t-fueled", "v1", Some(45.0));
+    seed_paperless_link(&db, 401, "t-fueled");
+    seed_receipt(&db, "r1", "t-fueled", "Fuel");
+
+    migrate_to_current(&db);
+
+    assert_eq!(
+        count(
+            &db,
+            "SELECT COUNT(*) AS cnt FROM paperless_trip_links \
+             WHERE trip_id = 't-fueled' AND assignment_type = 'Fuel'"
+        ),
+        1
+    );
+}
