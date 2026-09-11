@@ -1,10 +1,16 @@
 # Tech Debt: Receipt & Trip State Model Documentation
 
+> **OBSOLETE (2026-09-11):** [Task 84](../84-paperless-only-invoices/) removed the
+> local receipt path and the Gemini OCR subsystem; the `receipts` table is dropped on
+> upgrade. Every state described below belonged to that path and no longer exists. This
+> file is kept only as history. The surviving assignment state lives on
+> `paperless_trip_links` and in the Paperless-only docs.
+
 **Date:** 2026-02-01
 **Priority:** Medium
 **Effort:** Medium (2-8h)
 **Component:** `src-tauri/core/src/models.rs`, `src/lib/types.ts`, `src/routes/doklady/+page.svelte`
-**Status:** Fixed
+**Status:** Obsolete
 
 ## Problem
 
@@ -127,3 +133,4 @@ Feature evolved incrementally:
 | 2026-02-01 | Created documentation | After Task 50 completion, state model needs explicit documentation for future iteration |
 | 2026-02-04 | Fixed by [Task 51](../_done/51-receipt-state-model/) | Explicit assignment shipped in 0.29.0: the user picks FUEL or OTHER, `trip_id` alone means assigned, no auto-matching |
 | 2026-09-09 | Closed the item | The status said Open for seven months after the fix shipped |
+| 2026-09-11 | Marked obsolete | [Task 84](../84-paperless-only-invoices/) removed the local receipt path, so the documented states no longer exist |

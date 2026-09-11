@@ -19,15 +19,15 @@ data volume, the built SPA and the env vars.
 
 1. **Start** the container (or the binary) on the always-on machine
 2. **Open** `http://<server-ip>:3456` on any device connected to the same LAN
-3. **Use** the app normally — trips, vehicles, receipts, maps, export all work
+3. **Use** the app normally -- trips, vehicles, invoices, maps, export all work
 4. **Bookmark** it; there is nothing to install on the client
 
 **Notes:**
 - The server binds `0.0.0.0`, so it is reachable from the LAN, not just localhost.
-- All data changes are immediately visible to every other open browser after a refresh —
+- All data changes are immediately visible to every other open browser after a refresh --
   there is one database.
-- Native file dialogs do not exist. Paths (such as the receipts folder) are typed in as
-  server-side paths.
+- Native file dialogs do not exist. A server-side path is typed into the one field that
+  still takes one (the custom database location), not picked.
 
 ## Docker Deployment
 
@@ -63,27 +63,31 @@ three tiers and the env-pinned suite are green. Pull requests publish nothing. B
 channels are linux/amd64 only — an arm64 host still has to build its own.
 
 **Migrating from an old desktop install:** copy the existing database and (optionally)
-the `receipts/` and `backups/` folders from the platform app-data directory into the
-host's `./data/` folder. They are mounted into the container at `/data`, and migrations
-run on the next start.
+the `backups/` folder from the platform app-data directory into the host's `./data/`
+folder. They are mounted into the container at `/data`, and migrations run on the next
+start.
+
+> **Upgrade rule -- local receipts are dropped.** This release removes the local receipt
+> store, and the upgrade drops the `receipts` table. If the database still holds local
+> receipts you need, run [`scripts/migrate_local_to_paperless.py`](../../scripts/migrate_local_to_paperless.py)
+> BEFORE you upgrade, so the rows reach Paperless first.
 
 **Configuration (env vars):**
 
 | Variable | Default in image | Purpose |
 |----------|------------------|---------|
 | `PORT` | `3456` | HTTP listen port |
-| `KNIHA_JAZD_DATA_DIR` | `/data` | Where DB, receipts, backups and `local.settings.json` live (mounted as a volume) |
+| `KNIHA_JAZD_DATA_DIR` | `/data` | Where DB, backups and `local.settings.json` live (mounted as a volume) |
 | `DATABASE_PATH` | `<DATA_DIR>/kniha-jazd.db` | Override the DB file path |
 | `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets. Leave **unset** in local dev so vite serves the UI instead |
-| `GEMINI_API_KEY` | unset | Optional, enables receipt OCR (magic fill) |
 | `HA_URL` | unset | Home Assistant base URL for the odometer integration |
 | `HA_API_TOKEN` | unset | Home Assistant long-lived access token |
-| `PAPERLESS_URL` | unset | Paperless-ngx base URL for receipt sync |
+| `PAPERLESS_URL` | unset | Paperless-ngx base URL for invoice sync |
 | `PAPERLESS_API_TOKEN` | unset | Paperless-ngx API token |
-| `PAPERLESS_ENABLED` | unset | Enable Paperless sync — truthy values `1`/`true`/`yes` (case-insensitive); any other non-empty value means disabled |
+| `PAPERLESS_ENABLED` | unset | Enable Paperless sync -- truthy values `1`/`true`/`yes` (case-insensitive); any other non-empty value means disabled |
 | `KNIHA_JAZD_REVEAL_PIN` | unset | PIN required to display a secret in Settings. Unset means secrets cannot be revealed over the network at all. |
 
-**Precedence:** The six integration/secret variables (`GEMINI_API_KEY`, `HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED`) override the corresponding fields in `local.settings.json` — env wins whenever the variable is set to a non-empty value (empty/whitespace-only values are treated as unset). Env values are never written to disk. When a field is pinned by an env variable, the Settings page renders it **disabled** and badges it with the variable's name; the eye icon on a pinned token reveals the live value. The setter commands still refuse such writes with an explanatory error ("… is managed by the … environment variable") — see [settings-architecture.md](./settings-architecture.md).
+**Precedence:** The five integration/secret variables (`HA_URL`, `HA_API_TOKEN`, `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED`) override the corresponding fields in `local.settings.json` -- env wins whenever the variable is set to a non-empty value (empty/whitespace-only values are treated as unset). Env values are never written to disk. When a field is pinned by an env variable, the Settings page renders it **disabled** and badges it with the variable's name; the eye icon on a pinned token reveals the live value. The setter commands still refuse such writes with an explanatory error ("… is managed by the … environment variable") -- see [settings-architecture.md](./settings-architecture.md).
 
 **Secrets are never served to the network.** Settings reads report only whether a credential is configured; displaying one requires `KNIHA_JAZD_REVEAL_PIN` and is throttled after repeated failures. This does not extend the CORS allowlist into an access control — it is a separate gate on credentials specifically, because CORS only constrains browsers. See [ADR-027](../../DECISIONS.md). Preferences such as theme, hidden columns, and Paperless custom field names remain file/UI-managed. See [settings.rs](../../src-tauri/core/src/settings.rs).
 
@@ -134,8 +138,7 @@ a scratch folder first, otherwise the binary falls back to `/data`.
 - Creates the data directory, opens the database, then starts the server on a tokio runtime
 
 **Server Module:** [server/mod.rs](../../src-tauri/core/src/server/mod.rs)
-- Axum router: `POST /api/rpc`, `GET /api/capabilities`, `GET /api/receipts/{id}/image`,
-  `GET /health`
+- Axum router: `POST /api/rpc`, `GET /api/capabilities`, `GET /health`
 - Static file serving for the SPA, with `index.html` as the SPA fallback. If `STATIC_DIR`
   has no `index.html` the fallback is skipped and only the API is served — which is
   exactly what local dev wants
@@ -147,7 +150,7 @@ a scratch folder first, otherwise the binary falls back to `/data`.
   74 sync and 15 async (count the arms in `dispatch_sync` / `dispatch_async` rather than
   trusting this number; it moves whenever a command is added or removed)
 - Sync commands dispatched via `spawn_blocking`
-- Async commands (receipts OCR, HA integration, export, `get_trip_grid_data`) awaited directly
+- Async commands (HA integration, export, `get_trip_grid_data`) awaited directly
 - Backup filenames arriving over RPC pass through `validate_backup_filename` ([commands_internal/backup.rs](../../src-tauri/core/src/commands_internal/backup.rs)) — empty names, path separators, `..`, and drive/ADS colons are rejected before any file access (defense-in-depth for the network-reachable restore/delete endpoints)
 
 **_internal Functions:** [commands_internal/](../../src-tauri/core/src/commands_internal/)
@@ -212,10 +215,6 @@ The CORS layer allows origins matching RFC 1918 private IP ranges:
 
 Requests from public IPs or other origins are blocked by the browser's preflight check.
 This is not authentication — see ADR-017 and the tailnet-trust model in ADR-024.
-
-### Receipt Image Serving
-
-`GET /api/receipts/{id}/image` looks up the receipt by ID in the database, then serves the image file from disk, so the browser can display scanned receipts.
 
 ## Key Files
 

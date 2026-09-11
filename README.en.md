@@ -28,7 +28,7 @@ discontinued — existing installs keep working but receive no further updates.
 - **Column visibility** - Customize the trip grid by hiding/showing columns
 - **Backup and restore** - Automatic backup before database migrations, backup management
 - **Export** - HTML preview with print-to-PDF (Ctrl+P), respects hidden columns
-- **Receipts (AI OCR)** - Automatic recognition of gas station receipts with multi-currency support (EUR, CZK, HUF, PLN)
+- **Invoices (Paperless-ngx)** - Invoices are pulled from your Paperless-ngx and assigned to trips; Paperless-ngx is the only invoice source
 - **Home Assistant integration** - Display ODO and fuel level from HA, push suggested fill-up to HA sensor
 - **Browser access** - Phone, tablet and desktop all reach the same instance over the local network
 - **Docker deployment** - One container, one `/data` volume, for always-on devices (NAS, Raspberry Pi). See [docs/features/server-mode.md](docs/features/server-mode.md) for details.
@@ -103,67 +103,30 @@ The app calculates consumption automatically.
 - Margin under 20% = OK
 - Margin over 20% = warning + compensation trip suggestions
 
-### 5. Receipts (AI OCR Recognition)
+### 5. Invoices (Paperless-ngx)
 
-The app supports automatic recognition of gas station receipts using AI (Gemini).
-Supported currencies: EUR, CZK, HUF, PLN (foreign currencies require manual EUR conversion).
+Invoices come from [Paperless-ngx](https://docs.paperless-ngx.com/). Paperless-ngx is
+the only invoice source: it OCRs the document on its own server, and the app fetches it,
+shows it, and assigns it to a trip.
 
 #### Setup
 
-1. **Get a Gemini API key:**
-   - Visit [Google AI Studio](https://aistudio.google.com/apikey)
-   - Create a new API key (free tier is sufficient for typical usage)
+1. In Paperless-ngx, tag documents with `fuel` (fill-ups) and `car` (other costs), and
+   create the custom fields `total_amount` (EUR), `litres` (fuel only), and
+   `receipt_datetime` (ISO-8601 date and time).
+2. In the app, open Settings -> Paperless-ngx and enter the instance URL and API token.
 
-2. **Configure in the app** under Settings → Receipt Scanning:
-   - Enter your Gemini API key
-   - Select the receipts folder
+   > **Alternative:** the `PAPERLESS_URL`, `PAPERLESS_API_TOKEN` and `PAPERLESS_ENABLED`
+   > environment variables on the container take precedence over the stored setting.
 
-   > **Alternative:** the `GEMINI_API_KEY` environment variable on the container (it
-   > takes precedence over the stored setting), or manual configuration in
-   > `local.settings.json` inside the data directory (`/data/local.settings.json` in
-   > the container):
-   > ```json
-   > {
-   >   "gemini_api_key": "AIza...",
-   >   "receipts_folder_path": "/data/receipts"
-   > }
-   > ```
+3. The Doklady page loads the invoices for the selected vehicle and year.
+4. Use "Priradiť k jazde" on a row to assign the invoice to a trip.
 
-   The receipts folder is a path **on the server** (inside the container), not on your
-   own machine — type it in, e.g. `/data/receipts`, and mount it into the container.
+The "Otvoriť v Paperless" button opens the document in a new browser tab.
 
-#### Receipt Folder Structure
-
-The app supports two ways to organize receipts:
-
-**Flat structure** - all files directly in the folder:
-```
-/receipts/
-  receipt1.jpg
-  receipt2.png
-```
-→ Receipts are shown in all years
-
-**Year-based structure** - files in year subfolders:
-```
-/receipts/
-  2024/
-    receipt1.jpg
-  2025/
-    receipt2.png
-```
-→ Receipts are filtered by selected year
-
-**Notes:**
-- Mixed structure (files + folders) shows a warning and receipts won't load
-- OCR date takes priority over folder year (helps identify misfiled receipts)
-
-#### Usage
-
-1. Save receipt photos to the configured folder
-2. Open the "Doklady" section and click "Sync"
-3. AI will recognize date, liters, and total amount
-4. Assign receipts to trips
+> **Important before you upgrade:** this release removes the local receipt scanning and
+> the upgrade drops the `receipts` table. If the database still holds local receipts you
+> need, run `scripts/migrate_local_to_paperless.py` BEFORE upgrading.
 
 ## FAQ
 
@@ -179,10 +142,12 @@ Remaining fuel is calculated from filled liters minus consumption. If negative, 
 - Whether you entered correct km
 - Whether you recorded all fill-ups
 
-**Receipt recognition not working?**
-1. Verify your Gemini API key (`GEMINI_API_KEY` env var or `local.settings.json`)
-2. Check that the receipts folder exists **inside the container**
-3. Supported formats: JPG, PNG, WebP, PDF
+**Paperless invoices not showing?**
+1. Check the Paperless URL and API token (the `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`,
+   `PAPERLESS_ENABLED` env vars or `local.settings.json`)
+2. Verify the documents carry the `fuel` or `car` tag and the `total_amount`, `litres`,
+   `receipt_datetime` custom fields
+3. Check the connection status under Settings -> Paperless-ngx
 
 **How to move data to another server?**
 
@@ -199,7 +164,7 @@ Exactly one instance opens the database — do not point two containers at the s
 
 ## Privacy
 
-All data stays on your server. The server has no authentication and is meant for a trusted local network only (CORS allows private IP ranges) — do not expose it to the internet. The only external connection is when using AI receipt recognition - receipt images are sent to the Gemini API (Google). This feature is optional.
+All data stays on your server. The server has no authentication and is meant for a trusted local network only (CORS allows private IP ranges). Do not expose it to the internet. The app now talks only to your Paperless-ngx and your Home Assistant, both of which you host yourself.
 
 ## For Developers
 

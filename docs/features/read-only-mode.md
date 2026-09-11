@@ -79,8 +79,7 @@ note below the table). Grouped by module under
 | [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip`, `create_trip_cascade`, `update_trip_cascade`, `delete_trip_cascade`, `apply_route_distance`, `recalculate_odometers` (the last five conditional — see below) |
 | [settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | `save_settings` |
 | [backup.rs](../../src-tauri/core/src/commands_internal/backup.rs) | `set_backup_retention`, `restore_backup`, `delete_backup` |
-| [receipts_cmd.rs](../../src-tauri/core/src/commands_internal/receipts_cmd.rs) | `set_gemini_api_key`, `set_receipts_folder_path`, `update_receipt`, `delete_receipt`, `unassign_receipt`, `revert_receipt_override`, `scan_receipts`, `sync_receipts`, `reprocess_receipt` |
-| [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_invoice_to_trip`, `unassign_invoice` |
+| [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_paperless_invoice`, `unassign_paperless_invoice`, `revert_paperless_override` |
 | [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `save_ha_settings`, `save_paperless_settings` |
 | [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `save_trip_round_trip_route` (both through the shared guarded save), `delete_trip_route` |
 | [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `save_place`, `clear_place` (see [place-book.md](./place-book.md)) |

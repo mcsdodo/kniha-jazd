@@ -29,8 +29,6 @@ to the deleted desktop bundle ([ADR-030](../../DECISIONS.md)).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `gemini_api_key` | `Option<String>` | API key for receipt OCR scanning |
-| `receipts_folder_path` | `Option<String>` | Server-side folder path for receipt images |
 | `theme` | `Option<String>` | UI theme: `"system"`, `"light"`, or `"dark"` |
 | `date_prefill_mode` | `Option<DatePrefillMode>` | New-trip date prefill: `previous` or `today` |
 | `infer_trip_times` | `Option<bool>` | Time-inference toggle (`None` = off) |
@@ -46,16 +44,13 @@ The struct also still carries `auto_check_updates`, `server_enabled` and `server
 They survive only so an inherited `local.settings.json` from a desktop install still
 deserializes. Do not document them as behaviour.
 
-**ReceiptSettings return shape:** the `ReceiptSettings` interface in
-[types.ts](../../src/lib/types.ts).
-
 **Notes**:
-- The JSON keys are the Rust field names verbatim (snake_case) — `LocalSettings` declares no
+- The JSON keys are the Rust field names verbatim (snake_case) -- `LocalSettings` declares no
   serde rename. `BackupRetention` is the exception: it *is* camelCase, so its nested keys are
   `enabled` and `keepCount`.
-- Setting `gemini_api_key` or `receipts_folder_path` to an empty string clears the value.
-- `receipts_folder_path` must exist and be a directory **on the server**, not on the
-  machine running the browser.
+- A file left over from an older install may still carry `gemini_api_key` or
+  `receipts_folder_path`. The struct no longer declares them, so serde ignores the extra
+  keys and the file loads without error.
 
 **BackupRetention:** the struct in [settings.rs](../../src-tauri/core/src/settings.rs),
 holding `enabled` (bool) and `keep_count` (u32), serialized camelCase.
@@ -66,7 +61,6 @@ For server/Docker and headless deployments, secrets and integration endpoints ca
 
 | Env var | Overrides field |
 |---------|-----------------|
-| `GEMINI_API_KEY` | `gemini_api_key` |
 | `HA_URL` | `ha_url` |
 | `HA_API_TOKEN` | `ha_api_token` |
 | `PAPERLESS_URL` | `paperless_url` |
@@ -79,7 +73,7 @@ For server/Docker and headless deployments, secrets and integration endpoints ca
 - Env values are never persisted to disk — the JSON file is left untouched.
 - When a field is pinned by an env variable, the corresponding setter command refuses the change with an explanatory error ("… is managed by the … environment variable"), so the Settings UI cannot silently diverge from the deployment configuration.
 - Behaviour is unchanged when the variables are unset.
-- Preferences (theme, hidden columns, date prefill, backup retention, Paperless custom field names, receipts folder) are not overridable — they remain file/UI-managed.
+- Preferences (theme, hidden columns, date prefill, backup retention, Paperless custom field names) are not overridable -- they remain file/UI-managed.
 
 The variable names live in one place — the `env_vars` module in [settings.rs](../../src-tauri/core/src/settings.rs) — and are consumed by `apply_overrides`, the setter guards in [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs), and the settings responses that ship the name to the UI.
 
@@ -92,7 +86,7 @@ The variable names live in one place — the `env_vars` module in [settings.rs](
 
 ## Reading a secret back: PIN-gated reveal
 
-No settings command returns a credential. `get_ha_settings` / `get_paperless_settings` report `hasToken`, and `get_receipt_settings` reports `hasGeminiApiKey` — the values themselves leave the backend only through `reveal_secret`, and only under the rules in [ADR-027](../../DECISIONS.md).
+No settings command returns a credential. `get_ha_settings` / `get_paperless_settings` report `hasToken` -- the values themselves leave the backend only through `reveal_secret`, and only under the rules in [ADR-027](../../DECISIONS.md).
 
 Every caller reaches `reveal_secret` through the HTTP dispatcher, so the PIN is always
 required: the client must send the value of `KNIHA_JAZD_REVEAL_PIN` on **every** reveal —
@@ -100,10 +94,10 @@ no session, no caching.
 
 - With `KNIHA_JAZD_REVEAL_PIN` unset, reveal is disabled on the server (the server still starts normally).
 - Five consecutive wrong PINs lock reveal out for 60s, escalating to 5/15/60 minutes. The counter is global, not per-IP.
-- The `field` argument is a closed enum (`geminiApiKey`, `haApiToken`, `paperlessApiToken`), so the command can't be aimed at other settings.
+- The `field` argument is a closed enum (`haApiToken`, `paperlessApiToken`), so the command can't be aimed at other settings.
 - **Why this exists:** the LAN/tailnet trust model in [ADR-017](../../DECISIONS.md) is enforced by a CORS allowlist, and CORS only constrains browsers — a direct HTTP client reaches every RPC command regardless.
 
-Consequently the Gemini key field is **write-only** in the UI, like the HA and Paperless tokens: it shows `********` when a key is stored, and leaving it blank means "unchanged", not "clear it".
+Consequently the HA and Paperless token fields are **write-only** in the UI: they show `********` when a token is stored, and leaving one blank means "unchanged", not "clear it".
 
 **Testing note:** WebdriverIO auto-loads the repo's `.env` file, so a developer with a real `PAPERLESS_API_TOKEN` there would pin that setting inside the app under test and make setter specs fail. [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) blanks the six variables before launching the server; the dedicated `npm run test:integration:docker:env` run re-applies fixture values on top to exercise the pinned UI ([env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts)).
 
@@ -133,13 +127,13 @@ The separation exists for **three key reasons**:
 
 ### 1. API Keys Don't Travel
 
-API keys (like Gemini) are personal credentials that shouldn't be shared when syncing the database across computers. Each user/machine needs their own key.
+API keys (Home Assistant, Paperless) are personal credentials that shouldn't be shared when syncing the database across computers. Each user/machine needs their own key.
 
 ### 2. Paths Are Deployment-Specific
 
-File paths (like the receipts folder) belong to the machine running the server, not to the
-database. A path baked into a shared database would be wrong for every other deployment
-that opened it.
+File paths (like the custom database location) belong to the machine running the server, not
+to the database. A path baked into a shared database would be wrong for every other
+deployment that opened it.
 
 ### 3. Preferences Are Not Business Data
 
@@ -181,9 +175,9 @@ The Settings UI ([settings/+page.svelte](../../src/routes/settings/+page.svelte)
 setting types and presents them in a unified interface. Its `onMount()` subscribes to the
 locale and theme stores, then sequentially awaits `getSettings()`, `loadBackups()`,
 `loadRetentionSettings()`, `checkVehiclesWithTrips()`, `loadPlaces()`, `getAppVersion()`,
-`getInferTripTimes()`, `getReceiptSettings()`, `getHaSettings()` and
-`getPaperlessSettings()`, in that order. The last two each follow with a connection test
-when the integration is configured, and Paperless also loads its custom-field names.
+`getInferTripTimes()`, `getHaSettings()` and `getPaperlessSettings()`, in that order. The
+last two each follow with a connection test when the integration is configured, and
+Paperless also loads its custom-field names.
 
 It does **not** fetch the database location — `getDbLocation()` has no caller in the
 frontend. The `get_db_location` command still exists on the backend and is reachable over
@@ -197,8 +191,8 @@ the database: the Settings page's Language section switches the UI locale throug
 it.
 
 **Auto-save with debouncing:** a local `debounce()` helper wraps `saveCompanySettingsNow`,
-`saveReceiptSettingsNow`, `saveHaSettingsNow` and `savePaperlessSettingsNow`, all at 800ms,
-to prevent excessive writes while typing.
+`saveHaSettingsNow` and `savePaperlessSettingsNow`, all at 800ms, to prevent excessive
+writes while typing.
 
 ## RPC Commands
 
@@ -214,9 +208,6 @@ to prevent excessive writes while typing.
 | `set_hidden_columns` | `columns` | `()` | Set hidden trip grid columns |
 | `get_infer_trip_times` | — | `bool` | Get the time-inference toggle |
 | `set_infer_trip_times` | `enabled` | `()` | Set the time-inference toggle |
-| `get_receipt_settings` | — | `ReceiptSettings` | Get folder path plus "is a key configured / is it env-pinned" flags |
-| `set_gemini_api_key` | `key` | `()` | Set Gemini API key |
-| `set_receipts_folder_path` | `path` | `()` | Set receipts folder |
 | `get_backup_retention` | — | `BackupRetention?` | Get cleanup settings |
 | `set_backup_retention` | `retention` | `()` | Set cleanup settings |
 | `reveal_secret` | `field`, `pin` | `String` | PIN-gated read of one credential |
@@ -246,7 +237,7 @@ the updater. Home Assistant and Paperless settings have their own commands
 | [db.rs](../../src-tauri/core/src/db.rs) | Database operations for `Settings` |
 | [+page.svelte](../../src/routes/settings/+page.svelte) | Unified settings UI |
 | [api.ts](../../src/lib/api.ts) | TypeScript API wrappers |
-| [types.ts](../../src/lib/types.ts) | TypeScript interfaces (`Settings`, `ReceiptSettings`) |
+| [types.ts](../../src/lib/types.ts) | TypeScript interfaces (`Settings`, `PaperlessSettings`, ...) |
 
 ## Design Decisions
 
@@ -275,8 +266,6 @@ The user sees one Settings page, unaware of the underlying split. This provides:
 
 ```json
 {
-    "gemini_api_key": "YOUR_API_KEY_HERE",
-    "receipts_folder_path": "/data/receipts",
     "theme": "dark",
     "date_prefill_mode": "previous",
     "hidden_columns": ["time", "fuelConsumed"],

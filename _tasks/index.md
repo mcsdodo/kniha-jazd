@@ -2,13 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-11 ([Task 84](84-paperless-only-invoices/) opened: remove the local receipt + Gemini OCR subsystem, make Paperless-ngx the only invoice source, drop the `receipts` table. [Task 83](_done/83-integration-test-sharding/) archived: the shard matrix is on `main` and the integration stage fell from 5m26 to 2m37. It merged ahead of [Task 82](82-integration-db-reset/), which was declared to block it, so 82 is now live correctness risk rather than a gate.)
+**Last updated:** 2026-09-11 ([Task 84](84-paperless-only-invoices/) is implemented on `feat/84-paperless-only-invoices` and in progress, not merged: local receipts + Gemini OCR removed, Paperless is the only invoice source, the `receipts` table is dropped on upgrade. Tech debt [09](_TECH_DEBT/09-paperless-ocr-capability-gaps.md) records the six accepted capability losses. [Task 83](_done/83-integration-test-sharding/) archived: the shard matrix is on `main` and the integration stage fell from 5m26 to 2m37. It merged ahead of [Task 82](82-integration-db-reset/), which was declared to block it, so 82 is now live correctness risk rather than a gate.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 📋 Planning | Remove local receipts + Gemini OCR; Paperless is the only invoice source; drop the `receipts` table |
+| 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
 | 32 | [Portable CSV Backup](32-portable-csv-backup/) | 📋 Planning | Cross-platform backup format |
@@ -69,6 +69,7 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
+| 09 | [Paperless-Only Invoice Capability Gaps](./_TECH_DEBT/09-paperless-ocr-capability-gaps.md) | Low | Open (six Gemini-path capabilities accepted as lost in [Task 84](84-paperless-only-invoices/)) |
 | 08 | [Integration Suite Not Type-Checked](./_TECH_DEBT/08-integration-suite-not-type-checked.md) | Low | Open (35 tsc errors, 11 specs; 12 weakened `waitUntil` guards) |
 | 07 | [Integration DB Reset Broken](./_TECH_DEBT/07-integration-db-reset-broken.md) | Medium | 🟡 Partly moot ([Task 73](./_done/73-web-first-migration/) deleted wdio.conf.ts; cross-spec sharing open -> [Task 82](82-integration-db-reset/)) |
 | 06 | [Tauri Feature Gating](./_TECH_DEBT/06-tauri-feature-gating.md) | Medium | ✅ Moot ([Task 73](./_done/73-web-first-migration/) deleted the Tauri crate) |
