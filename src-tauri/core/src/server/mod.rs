@@ -11,7 +11,7 @@ pub mod manager;
 use crate::app_state::AppState;
 use crate::db::Database;
 use axum::{
-    extract::{Path as AxumPath, State as AxumState},
+    extract::{State as AxumState},
     http::{header, HeaderName, Method, StatusCode},
     response::IntoResponse,
     routing::{get, post},
@@ -96,42 +96,6 @@ async fn capabilities_handler(
 }
 
 // ============================================================================
-// Receipt Image Endpoint
-// ============================================================================
-
-async fn receipt_image_handler(
-    AxumState(state): AxumState<ServerState>,
-    AxumPath(id): AxumPath<String>,
-) -> impl IntoResponse {
-    let db = &state.db;
-    let receipt = match db.get_receipt_by_id(&id) {
-        Ok(Some(r)) => r,
-        Ok(None) => return (StatusCode::NOT_FOUND, "Receipt not found").into_response(),
-        Err(e) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
-        }
-    };
-
-    let file_path = &receipt.file_path;
-
-    match tokio::fs::read(file_path).await {
-        Ok(bytes) => {
-            let content_type = if file_path.ends_with(".png") {
-                "image/png"
-            } else if file_path.ends_with(".jpg") || file_path.ends_with(".jpeg") {
-                "image/jpeg"
-            } else if file_path.ends_with(".webp") {
-                "image/webp"
-            } else {
-                "application/octet-stream"
-            };
-            ([(header::CONTENT_TYPE, content_type)], bytes).into_response()
-        }
-        Err(_) => (StatusCode::NOT_FOUND, "Image file not found on disk").into_response(),
-    }
-}
-
-// ============================================================================
 // CORS — LAN Origins Only
 // ============================================================================
 
@@ -193,8 +157,7 @@ impl HttpServer {
         // Build API routes
         let api_router = Router::new()
             .route("/rpc", post(rpc_handler))
-            .route("/capabilities", get(capabilities_handler))
-            .route("/receipts/{id}/image", get(receipt_image_handler));
+            .route("/capabilities", get(capabilities_handler));
 
         // Build full app with static fallback
         let index_html = state.static_dir.join("index.html");

@@ -1,102 +1,38 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import * as api from '$lib/api';
-	import { unassignInvoice, assignInvoiceToTrip } from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Receipt, ReceiptSettings, ConfidenceLevel, Trip, VerificationResult, ReceiptVerification, ReceiptMismatchReason, InvoiceSourceMode, PaperlessInvoiceRow } from '$lib/types';
-	import { adaptInvoice, type Invoice } from '$lib/invoice';
+	import type { PaperlessInvoiceRow, Trip } from '$lib/types';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import TripSelectorModal from '$lib/components/TripSelectorModal.svelte';
-	import ReceiptEditModal from '$lib/components/ReceiptEditModal.svelte';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
+	import { triggerInvoiceRefresh } from '$lib/stores/invoices';
 	import { selectedYearStore } from '$lib/stores/year';
-	import { triggerReceiptRefresh } from '$lib/stores/receipts';
 	import LL from '$lib/i18n/i18n-svelte';
 
-	let receipts = $state<Receipt[]>([]);
-	let settings = $state<ReceiptSettings | null>(null);
-	let loading = $state(true);
-	let syncing = $state(false);
-	let processing = $state(false);
-	let filter = $state<'all' | 'unassigned' | 'needs_review'>('all');
-	let typeFilter = $state<'all' | 'fuel' | 'other'>('all');
-	let receiptToDelete = $state<Receipt | null>(null);
-	let receiptToUnassign = $state<Receipt | null>(null);
-	let receiptToRevertOverride = $state<Receipt | null>(null);
-	let receiptToEdit = $state<Receipt | null>(null);
-	let reprocessingIds = $state<Set<string>>(new Set());
-	let invoiceToAssign = $state<Invoice | null>(null);
-	let verification = $state<VerificationResult | null>(null);
-	let folderStructureWarning = $state<string | null>(null);
-
-	// Paperless mode state
-	let invoiceSourceMode = $state<InvoiceSourceMode>('local');
 	let paperlessRows = $state<PaperlessInvoiceRow[]>([]);
-	let paperlessLoading = $state(false);
+	let loading = $state(true);
 	let paperlessError = $state<string | null>(null);
+	let needsPaperlessSetup = $state(false);
+	let invoiceToAssign = $state<PaperlessInvoiceRow | null>(null);
+	let invoiceToUnassign = $state<PaperlessInvoiceRow | null>(null);
 
-	onMount(async () => {
-		await loadSettings();
-	});
-
-	// Load and reload receipts whenever year or vehicle changes (including initial load).
+	// Load and reload invoices whenever year or vehicle changes (including initial load).
 	// This runs after the layout populates the stores, fixing the race where the page
 	// mounts before activeVehicleStore is set.
 	$effect(() => {
-		const currentYear = $selectedYearStore;
+		const _year = $selectedYearStore;
 		const currentVehicle = $activeVehicleStore;
 		if (currentVehicle) {
 			loadInvoices();
-			loadVerification();
 		} else {
 			loading = false;
 		}
 	});
 
-	async function loadSettings() {
-		try {
-			settings = await api.getReceiptSettings();
-		} catch (error) {
-			console.error('Failed to load receipt settings:', error);
-		}
-	}
-
 	async function loadInvoices() {
 		loading = true;
-		try {
-			invoiceSourceMode = await api.getInvoiceSourceMode();
-			if (invoiceSourceMode === 'paperless') {
-				await loadPaperlessRows();
-			} else {
-				await loadLocalReceipts();
-			}
-		} catch (error) {
-			console.error('Failed to determine invoice source mode:', error);
-			invoiceSourceMode = 'local';
-			await loadLocalReceipts();
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function loadLocalReceipts() {
-		try {
-			const vehicle = $activeVehicleStore;
-			if (vehicle) {
-				receipts = await api.getReceiptsForVehicle(vehicle.id, $selectedYearStore);
-			} else {
-				receipts = [];
-			}
-		} catch (error) {
-			console.error('Failed to load receipts:', error);
-			toast.error($LL.toast.errorLoadReceipts());
-		}
-	}
-
-	async function loadPaperlessRows() {
 		paperlessError = null;
-		paperlessLoading = true;
+		needsPaperlessSetup = false;
 		try {
 			const vehicle = $activeVehicleStore;
 			if (!vehicle) {
@@ -105,172 +41,13 @@
 			}
 			paperlessRows = await api.getPaperlessInvoices(vehicle.id, $selectedYearStore);
 		} catch (error) {
-			console.error('Failed to load Paperless invoices:', error);
 			paperlessError = String(error);
 			paperlessRows = [];
+			// PaperlessError::NotConfigured renders with a stable "NotConfigured:"
+			// prefix -- see the comment on the variant in paperless.rs.
+			needsPaperlessSetup = paperlessError.includes('NotConfigured');
 		} finally {
-			paperlessLoading = false;
-		}
-	}
-
-	async function loadVerification() {
-		const vehicle = $activeVehicleStore;
-		if (!vehicle) return;
-
-		try {
-			verification = await api.verifyReceipts(vehicle.id, $selectedYearStore);
-		} catch (error) {
-			console.error('Failed to verify receipts:', error);
-		}
-	}
-
-	// Refresh all receipt data and update nav badge
-	async function refreshReceiptData() {
-		await loadInvoices();
-		await loadVerification();
-		triggerReceiptRefresh();
-	}
-
-	function getVerificationForReceipt(receiptId: string): ReceiptVerification | null {
-		return verification?.receipts.find(v => v.receiptId === receiptId) ?? null;
-	}
-
-	async function handleScan() {
-		if (!settings?.receiptsFolderPath) {
-			toast.error($LL.toast.errorSetApiKeyFirst());
-			return;
-		}
-
-		syncing = true;
-		try {
-			const result = await api.scanReceipts();
-			await refreshReceiptData();
-
-			// Handle folder structure warning
-			folderStructureWarning = result.warning;
-
-			if (result.newCount > 0) {
-				toast.success($LL.toast.foundNewReceipts({ count: result.newCount }));
-			} else {
-				toast.success($LL.toast.noNewReceipts());
-			}
-		} catch (error) {
-			console.error('Failed to scan receipts:', error);
-			toast.error($LL.toast.errorSyncReceipts({ error: String(error) }));
-		} finally {
-			syncing = false;
-		}
-	}
-
-	async function handleProcessPending() {
-		if (!settings?.hasGeminiApiKey) {
-			toast.error($LL.toast.errorSetApiKeyOnlyFirst());
-			return;
-		}
-
-		processing = true;
-		try {
-			const result = await api.processPendingReceipts();
-			await refreshReceiptData();
-
-			if (result.processed.length > 0) {
-				if (result.errors.length > 0) {
-					toast.success($LL.toast.receiptsProcessedWithErrors({ count: result.processed.length, errors: result.errors.length }));
-				} else {
-					toast.success($LL.toast.receiptsProcessed({ count: result.processed.length }));
-				}
-			} else {
-				toast.success($LL.toast.noPendingReceipts());
-			}
-		} catch (error) {
-			console.error('Failed to process pending receipts:', error);
-			toast.error($LL.toast.errorProcessReceipts({ error: String(error) }));
-		} finally {
-			processing = false;
-		}
-	}
-
-	function handleDeleteClick(receipt: Receipt) {
-		receiptToDelete = receipt;
-	}
-
-	async function handleConfirmDelete() {
-		if (!receiptToDelete) return;
-		try {
-			await api.deleteReceipt(receiptToDelete.id);
-			await refreshReceiptData();
-			toast.success($LL.toast.receiptDeleted());
-		} catch (error) {
-			console.error('Failed to delete receipt:', error);
-			toast.error($LL.toast.errorDeleteReceipt());
-		} finally {
-			receiptToDelete = null;
-		}
-	}
-
-	function handleUnassignClick(receipt: Receipt) {
-		receiptToUnassign = receipt;
-	}
-
-	async function handleConfirmUnassign() {
-		if (!receiptToUnassign) return;
-		try {
-			await handleUnassignInvoice(adaptInvoice(receiptToUnassign));
-		} finally {
-			receiptToUnassign = null;
-		}
-	}
-
-	async function handleUnassignInvoice(invoice: Invoice) {
-		try {
-			await unassignInvoice(invoice.getRef());
-			await refreshReceiptData();
-			toast.success($LL.toast.receiptUnassigned());
-		} catch (error) {
-			console.error('Failed to unassign invoice:', error);
-			toast.error($LL.toast.errorUnassignReceipt());
-		}
-	}
-
-	function handleRevertOverrideClick(receipt: Receipt) {
-		receiptToRevertOverride = receipt;
-	}
-
-	async function handleConfirmRevertOverride() {
-		if (!receiptToRevertOverride) return;
-		try {
-			await api.revertReceiptOverride(receiptToRevertOverride.id);
-			await refreshReceiptData();
-			toast.success($LL.toast.overrideReverted());
-		} catch (error) {
-			console.error('Failed to revert override:', error);
-			toast.error($LL.toast.errorRevertOverride());
-		} finally {
-			receiptToRevertOverride = null;
-		}
-	}
-
-	async function handleReprocess(receipt: Receipt) {
-		reprocessingIds = new Set([...reprocessingIds, receipt.id]);
-		try {
-			await api.reprocessReceipt(receipt.id);
-			await refreshReceiptData();
-			toast.success($LL.toast.receiptReprocessed({ name: receipt.fileName }));
-		} catch (error) {
-			console.error('Failed to reprocess receipt:', error);
-			toast.error($LL.toast.errorReprocessReceipt({ name: receipt.fileName, error: String(error) }));
-		} finally {
-			reprocessingIds = new Set([...reprocessingIds].filter((id) => id !== receipt.id));
-		}
-	}
-
-	function formatDate(dateStr: string | null): string {
-		if (!dateStr) return '--';
-		try {
-			const date = new Date(dateStr);
-			return date.toLocaleDateString('sk-SK');
-		} catch {
-			return dateStr;
+			loading = false;
 		}
 	}
 
@@ -278,7 +55,6 @@
 		if (!datetimeStr) return '--';
 		try {
 			const date = new Date(datetimeStr);
-			// Check if time component is present (not 00:00:00)
 			const hasTime = datetimeStr.includes('T') && !datetimeStr.endsWith('T00:00:00');
 			if (hasTime) {
 				return date.toLocaleString('sk-SK', {
@@ -288,784 +64,224 @@
 					hour: '2-digit',
 					minute: '2-digit'
 				});
-			} else {
-				return date.toLocaleDateString('sk-SK');
 			}
+			return date.toLocaleDateString('sk-SK');
 		} catch {
 			return datetimeStr;
 		}
-	}
-
-	function getConfidenceInfo(level: ConfidenceLevel): { class: string; label: string } {
-		switch (level) {
-			case 'High':
-				return { class: 'confidence-high', label: $LL.receipts.confidenceHigh() };
-			case 'Medium':
-				return { class: 'confidence-medium', label: $LL.receipts.confidenceMedium() };
-			case 'Low':
-				return { class: 'confidence-low', label: $LL.receipts.confidenceLow() };
-			default:
-				return { class: 'confidence-unknown', label: $LL.receipts.confidenceUnknown() };
-		}
-	}
-
-	/**
-	 * Check if a receipt has a date mismatch between sourceYear (folder) and receiptDatetime (OCR).
-	 * Returns null if no mismatch, or { receiptYear, folderYear } if there's a mismatch.
-	 */
-	function getDateMismatch(receipt: Receipt): { receiptYear: number; folderYear: number } | null {
-		if (!receipt.receiptDatetime || !receipt.sourceYear) {
-			return null;
-		}
-		const receiptYear = new Date(receipt.receiptDatetime).getFullYear();
-		if (receiptYear !== receipt.sourceYear) {
-			return { receiptYear, folderYear: receipt.sourceYear };
-		}
-		return null;
-	}
-
-	function handleOpenFile(receiptId: string) {
-		// The receipt file lives on the server's disk, not the browsing device's:
-		// open it through the server's own receipt endpoint.
-		window.open(`/api/receipts/${receiptId}/image`, '_blank', 'noopener');
 	}
 
 	function handleOpenPaperless(url: string) {
 		window.open(url, '_blank', 'noopener');
 	}
 
-	function handleAssignClick(receipt: Receipt) {
+	function handleAssignClick(row: PaperlessInvoiceRow) {
 		if (!$activeVehicleStore) {
 			toast.error($LL.toast.errorSelectVehicleFirst());
 			return;
 		}
-		invoiceToAssign = adaptInvoice(receipt);
+		invoiceToAssign = row;
 	}
 
-	function handleAssignPaperlessClick(row: PaperlessInvoiceRow) {
-		if (!$activeVehicleStore) {
-			toast.error($LL.toast.errorSelectVehicleFirst());
-			return;
-		}
-		invoiceToAssign = adaptInvoice(row);
-	}
-
-	async function handleAssignInvoice(result: { trip: Trip; assignmentType: 'Fuel' | 'Other'; mismatchOverride: boolean }) {
+	async function handleAssignInvoice(result: {
+		trip: Trip;
+		assignmentType: 'Fuel' | 'Other';
+		mismatchOverride: boolean;
+	}) {
 		if (!invoiceToAssign || !$activeVehicleStore) return;
+		const row = invoiceToAssign;
 		try {
-			await assignInvoiceToTrip(
-				invoiceToAssign.getRef(),
-				invoiceToAssign.getData(),
+			await api.assignPaperlessInvoice(
+				row.paperlessDocumentId,
 				result.trip.id,
 				$activeVehicleStore.id,
 				result.assignmentType,
 				result.mismatchOverride,
 			);
-			await refreshReceiptData();
+			await loadInvoices();
+			// The doc is now linked, so the nav badge count dropped.
+			triggerInvoiceRefresh();
 			invoiceToAssign = null;
-			toast.success($LL.toast.receiptAssigned());
+			toast.success($LL.doklady.paperless.assignedToast());
 		} catch (error) {
 			console.error('Failed to assign invoice:', error);
-			toast.error($LL.toast.errorAssignReceipt({ error: String(error) }));
+			toast.error($LL.doklady.paperless.assignError({ error: String(error) }));
 		}
 	}
 
-	function handleEditClick(receipt: Receipt) {
-		receiptToEdit = receipt;
+	function handleUnassignClick(row: PaperlessInvoiceRow) {
+		invoiceToUnassign = row;
 	}
 
-	async function handleSaveReceipt(data: {
-		receiptDatetime: string | null;
-		liters: number | null;
-		originalAmount: number | null;
-		originalCurrency: import('$lib/types').ReceiptCurrency | null;
-		totalPriceEur: number | null;
-		stationName: string | null;
-		vendorName: string | null;
-		costDescription: string | null;
-	}) {
-		if (!receiptToEdit) return;
-
+	async function handleConfirmUnassign() {
+		if (!invoiceToUnassign) return;
+		const row = invoiceToUnassign;
 		try {
-			// datetime-local input gives "YYYY-MM-DDTHH:mm", backend expects "YYYY-MM-DDTHH:mm:ss"
-			// Only append :00 if seconds not already present (regex checks for :NN:NN ending)
-			const normalizedDatetime = data.receiptDatetime
-				? /:\d{2}:\d{2}$/.test(data.receiptDatetime)
-					? data.receiptDatetime
-					: `${data.receiptDatetime}:00`
-				: null;
-
-			// Build updated receipt object
-			const updatedReceipt: Receipt = {
-				...receiptToEdit,
-				receiptDatetime: normalizedDatetime,
-				liters: data.liters,
-				originalAmount: data.originalAmount,
-				originalCurrency: data.originalCurrency,
-				totalPriceEur: data.totalPriceEur,
-				stationName: data.stationName,
-				vendorName: data.vendorName,
-				costDescription: data.costDescription,
-				// Clear NeedsReview if we now have EUR value
-				status: data.totalPriceEur != null && receiptToEdit.status === 'NeedsReview'
-					? 'Parsed'
-					: receiptToEdit.status,
-			};
-
-		await api.updateReceipt(updatedReceipt);
-			await refreshReceiptData();
-			receiptToEdit = null;
-			toast.success($LL.toast.receiptUpdated());
+			await api.unassignPaperlessInvoice(row.paperlessDocumentId);
+			await loadInvoices();
+			// The doc is unlinked again, so the nav badge count rose.
+			triggerInvoiceRefresh();
+			toast.success($LL.doklady.paperless.unassignedToast());
 		} catch (error) {
-			console.error('Failed to update receipt:', error);
-			toast.error($LL.toast.errorAssignReceipt({ error: String(error) }));
+			console.error('Failed to unassign invoice:', error);
+			toast.error($LL.doklady.paperless.unassignError());
+		} finally {
+			invoiceToUnassign = null;
 		}
 	}
 
-	// Helper to check if receipt is assigned to a trip (design spec v7: trip_id based)
-	function isReceiptAssigned(receipt: Receipt): boolean {
-		return receipt.tripId != null;
-	}
-
-	// Helper to check if receipt is fuel or other cost
-	function isFuelReceipt(receipt: Receipt): boolean {
-		return receipt.liters !== null;
-	}
-
-	// Helper to check if receipt has foreign currency (needs EUR conversion)
-	function isForeignCurrency(receipt: Receipt): boolean {
-		return receipt.originalCurrency != null && receipt.originalCurrency !== 'EUR';
-	}
-
-	// Helper to check if foreign currency receipt has been converted
-	function hasEurConversion(receipt: Receipt): boolean {
-		return isForeignCurrency(receipt) && receipt.totalPriceEur != null;
-	}
-
-	// Helper to format price display based on currency
-	function formatPriceDisplay(receipt: Receipt): string {
-		if (isForeignCurrency(receipt)) {
-			// Foreign currency receipt
-			const originalPart = receipt.originalAmount != null
-				? `${receipt.originalAmount.toFixed(2)} ${receipt.originalCurrency}`
-				: `?? ${receipt.originalCurrency}`;
-			if (receipt.totalPriceEur != null) {
-				// Has EUR conversion
-				return `${originalPart} → ${receipt.totalPriceEur.toFixed(2)} €`;
-			} else {
-				// Needs conversion
-				return `${originalPart} → ⚠️`;
-			}
-		} else {
-			// EUR or no currency specified
-			return receipt.totalPriceEur != null ? `${receipt.totalPriceEur.toFixed(2)} €` : '??';
+	async function handleClearOverride(row: PaperlessInvoiceRow) {
+		try {
+			await api.revertPaperlessOverride(row.paperlessDocumentId);
+			await loadInvoices();
+			toast.success($LL.doklady.paperless.overrideClearedToast());
+		} catch (error) {
+			console.error('Failed to clear override:', error);
+			toast.error($LL.doklady.paperless.overrideError({ error: String(error) }));
 		}
 	}
-
-	// Helper to format mismatch reason for display
-	function formatMismatchReason(reason: ReceiptMismatchReason | undefined): string {
-		if (!reason || reason.type === 'none') return '';
-		switch (reason.type) {
-			case 'missingReceiptData':
-				return $LL.receipts.mismatchMissingData();
-			case 'noFuelTripFound':
-				return $LL.receipts.mismatchNoFuelTrip();
-			case 'dateMismatch':
-				return $LL.receipts.mismatchDate({
-					receiptDate: reason.receiptDate,
-					tripDate: reason.closestTripDate
-				});
-			case 'datetimeOutOfRange':
-				return $LL.receipts.mismatchDatetimeOutOfRange({
-					receiptTime: reason.receiptTime,
-					tripStart: reason.tripStart,
-					tripEnd: reason.tripEnd
-				});
-			case 'litersMismatch':
-				return $LL.receipts.mismatchLiters({
-					receiptLiters: reason.receiptLiters,
-					tripLiters: reason.tripLiters
-				});
-			case 'priceMismatch':
-				return $LL.receipts.mismatchPrice({
-					receiptPrice: reason.receiptPrice,
-					tripPrice: reason.tripPrice
-				});
-			case 'noOtherCostMatch':
-				return $LL.receipts.mismatchNoOtherCost();
-			default:
-				return '';
-		}
-	}
-
-	// Svelte 5: use $derived instead of $:
-	// Apply type filter only
-	let typeFilteredReceipts = $derived(
-		receipts.filter((r) => {
-			if (typeFilter === 'fuel' && !isFuelReceipt(r)) return false;
-			if (typeFilter === 'other' && isFuelReceipt(r)) return false;
-			return true;
-		})
-	);
-
-	// Split into unassigned and assigned sections (design spec v7)
-	let unassignedReceipts = $derived(
-		typeFilteredReceipts.filter((r) => {
-			if (filter === 'needs_review' && r.status !== 'NeedsReview') return false;
-			return !isReceiptAssigned(r);
-		})
-	);
-	let assignedReceipts = $derived(
-		typeFilteredReceipts.filter((r) => {
-			// needs_review filter: show assigned receipts that need review (e.g., CZK needs EUR conversion)
-			if (filter === 'needs_review' && r.status !== 'NeedsReview') return false;
-			if (filter === 'unassigned') return false; // unassigned filter hides assigned
-			return isReceiptAssigned(r);
-		})
-	);
-
-	// Counts for filter badges (respect typeFilter for consistency with display)
-	let unassignedCount = $derived(typeFilteredReceipts.filter((r) => !isReceiptAssigned(r)).length);
-	let needsReviewCount = $derived(typeFilteredReceipts.filter((r) => r.status === 'NeedsReview').length);
-	let fuelCount = $derived(receipts.filter((r) => isFuelReceipt(r)).length);
-	let otherCount = $derived(receipts.filter((r) => !isFuelReceipt(r)).length);
-
-	let isConfigured = $derived(settings?.hasGeminiApiKey && settings?.receiptsFolderPath);
-	let pendingCount = $derived(receipts.filter((r) => r.status === 'Pending').length);
 </script>
 
 <div class="doklady-page">
-{#if invoiceSourceMode === 'paperless'}
-	<!-- Paperless mode renderer -->
 	<div class="header">
-		<h1>{$LL.receipts.title()}</h1>
+		<h1>{$LL.app.nav.receipts()}</h1>
 		<div class="header-actions">
 			<button
 				type="button"
 				data-test="paperless-refresh"
 				class="button"
-				onclick={loadPaperlessRows}
-				disabled={paperlessLoading}
+				onclick={loadInvoices}
+				disabled={loading}
 			>
 				{$LL.doklady.paperless.refresh()}
 			</button>
 		</div>
 	</div>
 
-	{#if paperlessError}
-		<div class="config-warning" data-test="paperless-error">
-			<div class="warning-icon">⚠</div>
-			<p>{paperlessError}</p>
-		</div>
-	{/if}
-
-	{#if paperlessLoading}
-		<p class="placeholder">{$LL.common.loading()}</p>
-	{:else if paperlessRows.length === 0}
-		<p class="placeholder">{$LL.receipts.noReceipts()}</p>
-	{:else}
-		<div class="receipts-section">
-			<div class="receipts-list">
-				{#each paperlessRows as row (row.paperlessDocumentId)}
-					<div
-						class="receipt-card"
-						class:unmatched={row.tripId === null}
-						data-test="paperless-row"
-						data-doc-id={row.paperlessDocumentId}
-					>
-						<div class="receipt-header">
-							<span class="file-name" data-test="title">
-								<span class="receipt-type-icon">
-									{row.assignmentType === 'Fuel' ? '⛽' : '📄'}
-								</span>
-								{row.title}
-							</span>
-							<div class="header-badges">
-								{#if row.tripId}
-									<span class="badge success" data-test="trip-indicator">{$LL.receipts.statusAssigned()}</span>
-								{:else}
-									<span class="badge danger">{$LL.receipts.statusUnassigned()}</span>
-								{/if}
-							</div>
-						</div>
-						<div class="receipt-details">
-							<div class="detail-row">
-								<span class="label">{$LL.receipts.date()}</span>
-								<span class="value">
-									{row.receiptDatetime ? formatDatetime(row.receiptDatetime) : $LL.doklady.paperless.noDate()}
-								</span>
-							</div>
-							<div class="detail-row">
-								<span class="label">{$LL.receipts.price()}</span>
-								<span class="value">
-									{row.totalPriceEur != null ? `${row.totalPriceEur.toFixed(2)} €` : '—'}
-								</span>
-							</div>
-							<div class="detail-row">
-								<span class="label">{$LL.receipts.liters()}</span>
-								<span class="value" data-test="liters">
-									{#if row.assignmentType === 'Fuel' && row.liters != null}
-										{row.liters.toFixed(2)} L
-									{:else}
-										—
-									{/if}
-								</span>
-							</div>
-						</div>
-						<div class="receipt-actions">
-							<button
-								type="button"
-								class="button-small"
-								onclick={() => handleOpenPaperless(row.paperlessUrl)}
-							>
-								{$LL.doklady.paperless.openInPaperless()}
-							</button>
-							{#if row.tripId}
-								<button
-									type="button"
-									class="button-small"
-									onclick={() => handleUnassignInvoice(adaptInvoice(row))}
-								>
-									{$LL.confirm.unassignConfirm()}
-								</button>
-							{:else}
-								<button
-									type="button"
-									data-test="assign-btn"
-									class="button-small primary"
-									onclick={() => handleAssignPaperlessClick(row)}
-								>
-									{$LL.receipts.assignToTrip()}
-								</button>
-							{/if}
-						</div>
-					</div>
-				{/each}
-			</div>
-		</div>
-	{/if}
-{:else}
-	<div class="header">
-		<h1>{$LL.receipts.title()}</h1>
-		<div class="header-actions">
-			<button class="button" onclick={handleScan} disabled={syncing || processing || !settings?.receiptsFolderPath}>
-				{syncing ? $LL.receipts.scanning() : $LL.receipts.scanFolder()}
-			</button>
-			<button
-				class="button secondary"
-				onclick={handleProcessPending}
-				disabled={processing || syncing || !settings?.hasGeminiApiKey || pendingCount === 0}
-			>
-				{#if processing}
-					{$LL.receipts.processing()}
-				{:else}
-					{$LL.receipts.recognizeData()}{#if pendingCount > 0} ({pendingCount}){/if}
-				{/if}
-			</button>
-		</div>
-	</div>
-
-	{#if !isConfigured}
-		<div class="config-warning">
-			<div class="warning-icon">⚠</div>
-			<h3>{$LL.receipts.notConfiguredTitle()}</h3>
-			<p>{$LL.receipts.notConfiguredDescription()}</p>
-			<ul class="requirements-list">
-				<li>{$LL.receipts.notConfiguredApiKey()}</li>
-				<li>{$LL.receipts.notConfiguredFolder()}</li>
-			</ul>
-			<button class="button" onclick={() => goto('/settings#receipt-scanning')}>
-				{$LL.receipts.goToSettings()}
-			</button>
-		</div>
-	{/if}
-
-	{#if folderStructureWarning}
-		<div class="folder-structure-warning">
-			<div class="warning-title">{$LL.receipts.folderStructureWarning()}</div>
-			<div class="warning-details">{folderStructureWarning}</div>
-			<div class="warning-hint">{$LL.receipts.folderStructureHint()}</div>
-		</div>
-	{/if}
-
-	<div class="filters">
-		<div class="filter-group">
-			<button class="filter-btn" class:active={filter === 'all'} onclick={() => (filter = 'all')}>
-				{$LL.receipts.filterAll()} ({receipts.length})
-			</button>
-			<button
-				class="filter-btn"
-				class:active={filter === 'unassigned'}
-				onclick={() => (filter = 'unassigned')}
-			>
-				{$LL.receipts.filterUnassigned()} ({unassignedCount})
-			</button>
-			<button
-				class="filter-btn"
-				class:active={filter === 'needs_review'}
-				onclick={() => (filter = 'needs_review')}
-			>
-				{$LL.receipts.filterNeedsReview()} ({needsReviewCount})
-			</button>
-		</div>
-		<select class="type-filter" bind:value={typeFilter}>
-			<option value="all">{$LL.receipts.filterAll()}</option>
-			<option value="fuel">{$LL.receipts.filterFuel()} ({fuelCount})</option>
-			<option value="other">{$LL.receipts.filterOther()} ({otherCount})</option>
-		</select>
-	</div>
-
-	{#if verification}
-		<div class="verification-summary" class:all-matched={verification.unmatched === 0}>
-			{#if verification.unmatched === 0}
-				<span class="status-ok">✓ {$LL.receipts.allAssigned({ count: verification.matched, total: verification.total })}</span>
-			{:else}
-				<span class="status-ok">✓ {$LL.receipts.assigned({ count: verification.matched, total: verification.total })}</span>
-				<span class="status-warning">⚠ {$LL.receipts.unassigned({ count: verification.unmatched })}</span>
-			{/if}
-		</div>
-	{/if}
-
 	{#if loading}
 		<p class="placeholder">{$LL.common.loading()}</p>
-	{:else if receipts.length === 0}
-		<p class="placeholder">{$LL.receipts.noReceipts()}</p>
+	{:else if needsPaperlessSetup}
+		<div class="empty-state">
+			<p>{$LL.doklady.paperless.notConfigured()}</p>
+			<a class="button" href="/settings">{$LL.doklady.paperless.openSettings()}</a>
+		</div>
 	{:else}
-		<!-- Design spec v7: Two sections - Unassigned and Assigned -->
+		{#if paperlessError}
+			<div class="config-warning" data-test="paperless-error">
+				<div class="warning-icon">⚠</div>
+				<p>{paperlessError}</p>
+			</div>
+		{/if}
 
-		{#if unassignedReceipts.length > 0}
+		{#if paperlessRows.length === 0}
+			<p class="placeholder">{$LL.doklady.paperless.noInvoices()}</p>
+		{:else}
 			<div class="receipts-section">
-				<h2 class="section-header unassigned">
-					<span class="section-icon">🔴</span>
-					{$LL.receipts.sectionUnassigned()} ({unassignedReceipts.length})
-				</h2>
 				<div class="receipts-list">
-					{#each unassignedReceipts as receipt}
-						{@const verif = getVerificationForReceipt(receipt.id)}
-						{@const dateMismatch = getDateMismatch(receipt)}
-						<div class="receipt-card unmatched">
+					{#each paperlessRows as row (row.paperlessDocumentId)}
+						<div
+							class="receipt-card"
+							class:unmatched={row.tripId === null}
+							data-test="paperless-row"
+							data-doc-id={row.paperlessDocumentId}
+						>
 							<div class="receipt-header">
-								<span class="file-name">
-									<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
-										{isFuelReceipt(receipt) ? '\u26FD' : '\uD83D\uDCC4'}
+								<span class="file-name" data-test="title">
+									<span class="receipt-type-icon">
+										{row.assignmentType === 'Fuel' ? '⛽' : '📄'}
 									</span>
-									{receipt.fileName}
+									{row.title}
 								</span>
 								<div class="header-badges">
-									{#if receipt.status === 'NeedsReview'}
-										<span class="badge warning" title={$LL.receipts.statusNeedsReviewTooltip()}>{$LL.receipts.statusNeedsReview()}</span>
+									{#if row.tripId}
+										<span class="badge success" data-test="trip-indicator">{$LL.doklady.paperless.assigned()}</span>
 									{:else}
-										<span class="badge danger">{$LL.receipts.statusUnassigned()}</span>
+										<span class="badge danger">{$LL.doklady.paperless.unassigned()}</span>
+									{/if}
+									{#if row.tripId && row.mismatchOverride}
+										<span class="badge override" data-test="override-chip">
+											{$LL.doklady.paperless.overrideConfirmed()}
+										</span>
 									{/if}
 								</div>
 							</div>
 							<div class="receipt-details">
 								<div class="detail-row">
-									<span class="label">{$LL.receipts.date()}</span>
-									<span class="value-with-confidence">
-										<span class="value">{formatDatetime(receipt.receiptDatetime)}</span>
-										<span
-											class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
-											title={getConfidenceInfo(receipt.confidence.date).label}
-										></span>
-										{#if dateMismatch}
-											<span
-												class="date-mismatch-icon"
-												title={$LL.receipts.dateMismatch({ receiptYear: dateMismatch.receiptYear, folderYear: dateMismatch.folderYear })}
-											>⚠</span>
-										{/if}
+									<span class="label">{$LL.doklady.paperless.date()}</span>
+									<span class="value">
+										{row.receiptDatetime ? formatDatetime(row.receiptDatetime) : $LL.doklady.paperless.noDate()}
 									</span>
 								</div>
-								{#if isFuelReceipt(receipt)}
-									<div class="detail-row">
-										<span class="label">{$LL.receipts.liters()}</span>
-										<span class="value-with-confidence">
-											<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
-												{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
-											</span>
-											<span
-												class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
-												title={getConfidenceInfo(receipt.confidence.liters).label}
-											></span>
-										</span>
-									</div>
-									<div class="detail-row">
-										<span class="label">{$LL.receipts.price()}</span>
-										<span class="value-with-confidence">
-											<span
-												class="value"
-												class:uncertain={receipt.confidence.totalPrice === 'Low'}
-												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
-												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
-											>
-												{formatPriceDisplay(receipt)}
-											</span>
-											<span
-												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-											></span>
-										</span>
-									</div>
-									{#if receipt.stationName}
-										<div class="detail-row">
-											<span class="label">{$LL.receipts.station()}</span>
-											<span class="value">{receipt.stationName}</span>
-										</div>
-									{/if}
-								{:else}
-									<div class="detail-row">
-										<span class="label">{$LL.receipts.price()}</span>
-										<span class="value-with-confidence">
-											<span
-												class="value"
-												class:uncertain={receipt.confidence.totalPrice === 'Low'}
-												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
-												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
-											>
-												{formatPriceDisplay(receipt)}
-											</span>
-											<span
-												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-											></span>
-										</span>
-									</div>
-									{#if receipt.vendorName}
-										<div class="detail-row">
-											<span class="label">{$LL.receipts.vendor()}</span>
-											<span class="value">{receipt.vendorName}</span>
-										</div>
-									{/if}
-									{#if receipt.costDescription}
-										<div class="detail-row full-width">
-											<span class="label">{$LL.receipts.description()}</span>
-											<span class="value">{receipt.costDescription}</span>
-										</div>
-									{/if}
-								{/if}
-								{#if receipt.errorMessage}
-									<div class="error-message">{receipt.errorMessage}</div>
-								{/if}
-							</div>
-							<div class="receipt-actions">
-								<button class="button-small" onclick={() => handleOpenFile(receipt.id)}>
-									{$LL.receipts.open()}
-								</button>
-								<button class="button-small" onclick={() => handleEditClick(receipt)}>
-									{$LL.common.edit()}
-								</button>
-								<button
-									class="button-small"
-									onclick={() => handleReprocess(receipt)}
-									disabled={reprocessingIds.has(receipt.id)}
-								>
-									{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
-								</button>
-								<button class="button-small primary" onclick={() => handleAssignClick(receipt)}>{$LL.receipts.assignToTrip()}</button>
-								<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
-									{$LL.common.delete()}
-								</button>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
-		{#if assignedReceipts.length > 0}
-			<div class="receipts-section">
-				<h2 class="section-header assigned">
-					<span class="section-icon">🟢</span>
-					{$LL.receipts.sectionAssigned()} ({assignedReceipts.length})
-				</h2>
-				<div class="receipts-list">
-					{#each assignedReceipts as receipt}
-						{@const verif = getVerificationForReceipt(receipt.id)}
-						{@const dateMismatch = getDateMismatch(receipt)}
-						<div class="receipt-card">
-							<div class="receipt-header">
-								<span class="file-name">
-									<span class="receipt-type-icon" title={isFuelReceipt(receipt) ? $LL.receipts.filterFuel() : $LL.receipts.otherCost()}>
-										{isFuelReceipt(receipt) ? '\u26FD' : '\uD83D\uDCC4'}
-									</span>
-									{receipt.fileName}
-								</span>
-								<div class="header-badges">
-									{#if receipt.assignmentType}
-										<span class="badge {receipt.assignmentType === 'Fuel' ? 'fuel' : 'other'}">
-											{receipt.assignmentType === 'Fuel' ? $LL.receipts.assignedAsFuel() : $LL.receipts.assignedAsOther()}
-										</span>
-										{#if receipt.mismatchOverride}
-											<button class="badge override clickable" title={$LL.receipts.overrideConfirmed()} onclick={() => handleRevertOverrideClick(receipt)}>✓ Potvrdené</button>
-										{/if}
-									{/if}
-									{#if receipt.status === 'NeedsReview'}
-										<span class="badge warning" title={$LL.receipts.statusNeedsReviewTooltip()}>{$LL.receipts.statusNeedsReview()}</span>
-									{/if}
-									<button class="badge success clickable" onclick={() => handleUnassignClick(receipt)}>{$LL.receipts.statusAssigned()}</button>
-								</div>
-							</div>
-							<div class="receipt-details">
 								<div class="detail-row">
-									<span class="label">{$LL.receipts.date()}</span>
-									<span class="value-with-confidence">
-										<span class="value">{formatDatetime(receipt.receiptDatetime)}</span>
-										<span
-											class="confidence-dot {getConfidenceInfo(receipt.confidence.date).class}"
-											title={getConfidenceInfo(receipt.confidence.date).label}
-										></span>
-										{#if dateMismatch}
-											<span
-												class="date-mismatch-icon"
-												title={$LL.receipts.dateMismatch({ receiptYear: dateMismatch.receiptYear, folderYear: dateMismatch.folderYear })}
-											>⚠</span>
+									<span class="label">{$LL.doklady.paperless.price()}</span>
+									<span class="value">
+										{row.totalPriceEur != null ? `${row.totalPriceEur.toFixed(2)} €` : '-'}
+									</span>
+								</div>
+								<div class="detail-row">
+									<span class="label">{$LL.doklady.paperless.liters()}</span>
+									<span class="value" data-test="liters">
+										{#if row.assignmentType === 'Fuel' && row.liters != null}
+											{row.liters.toFixed(2)} L
+										{:else}
+											-
 										{/if}
 									</span>
 								</div>
-								{#if isFuelReceipt(receipt)}
-									<div class="detail-row">
-										<span class="label">{$LL.receipts.liters()}</span>
-										<span class="value-with-confidence">
-											<span class="value" class:uncertain={receipt.confidence.liters === 'Low'}>
-												{receipt.liters != null ? `${receipt.liters.toFixed(2)} L` : '??'}
-											</span>
-											<span
-												class="confidence-dot {getConfidenceInfo(receipt.confidence.liters).class}"
-												title={getConfidenceInfo(receipt.confidence.liters).label}
-											></span>
-										</span>
-									</div>
-									<div class="detail-row">
-										<span class="label">{$LL.receipts.price()}</span>
-										<span class="value-with-confidence">
-											<span
-												class="value"
-												class:uncertain={receipt.confidence.totalPrice === 'Low'}
-												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
-												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
-											>
-												{formatPriceDisplay(receipt)}
-											</span>
-											<span
-												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-											></span>
-										</span>
-									</div>
-									{#if receipt.stationName}
-										<div class="detail-row">
-											<span class="label">{$LL.receipts.station()}</span>
-											<span class="value">{receipt.stationName}</span>
-										</div>
-									{/if}
-								{:else}
-									<div class="detail-row">
-										<span class="label">{$LL.receipts.price()}</span>
-										<span class="value-with-confidence">
-											<span
-												class="value"
-												class:uncertain={receipt.confidence.totalPrice === 'Low'}
-												class:needs-conversion={isForeignCurrency(receipt) && !hasEurConversion(receipt)}
-												title={isForeignCurrency(receipt) && !hasEurConversion(receipt) ? $LL.receipts.statusNeedsReviewTooltip() : ''}
-											>
-												{formatPriceDisplay(receipt)}
-											</span>
-											<span
-												class="confidence-dot {getConfidenceInfo(receipt.confidence.totalPrice).class}"
-												title={getConfidenceInfo(receipt.confidence.totalPrice).label}
-											></span>
-										</span>
-									</div>
-									{#if receipt.vendorName}
-										<div class="detail-row">
-											<span class="label">{$LL.receipts.vendor()}</span>
-											<span class="value">{receipt.vendorName}</span>
-										</div>
-									{/if}
-									{#if receipt.costDescription}
-										<div class="detail-row full-width">
-											<span class="label">{$LL.receipts.description()}</span>
-											<span class="value">{receipt.costDescription}</span>
-										</div>
-									{/if}
-								{/if}
-								{#if receipt.errorMessage}
-									<div class="error-message">{receipt.errorMessage}</div>
-								{/if}
-								{#if verif?.matched}
-									<div class="matched-trip">
-										{$LL.receipts.trip()} {verif.matchedTripDatetime} | {verif.matchedTripRoute}
-									</div>
-									{#if verif.datetimeWarning && verif.matchedTripTimeRange}
-										<div class="datetime-warning-row" class:confirmed={receipt.mismatchOverride}>
-											<span class="warning-icon">⚠</span>
-											<span class="warning-text">{$LL.trips.receiptDatetimeMismatchWithRange({ timeRange: verif.matchedTripTimeRange })}</span>
-										</div>
-									{/if}
-								{/if}
 							</div>
 							<div class="receipt-actions">
-								<button class="button-small" onclick={() => handleOpenFile(receipt.id)}>
-									{$LL.receipts.open()}
-								</button>
-								<button class="button-small" onclick={() => handleEditClick(receipt)}>
-									{$LL.common.edit()}
-								</button>
 								<button
+									type="button"
 									class="button-small"
-									onclick={() => handleReprocess(receipt)}
-									disabled={reprocessingIds.has(receipt.id)}
+									onclick={() => handleOpenPaperless(row.paperlessUrl)}
 								>
-									{reprocessingIds.has(receipt.id) ? $LL.receipts.reprocessing() : $LL.receipts.reprocess()}
+									{$LL.doklady.paperless.openInPaperless()}
 								</button>
-								<button class="button-small danger" onclick={() => handleDeleteClick(receipt)}>
-									{$LL.common.delete()}
-								</button>
+								{#if row.tripId}
+									<button
+										type="button"
+										class="button-small"
+										onclick={() => handleUnassignClick(row)}
+									>
+										{$LL.doklady.paperless.unassign()}
+									</button>
+									{#if row.mismatchOverride}
+										<button
+											type="button"
+											class="button-small"
+											data-test="clear-override-btn"
+											onclick={() => handleClearOverride(row)}
+										>
+											{$LL.doklady.paperless.clearOverride()}
+										</button>
+									{/if}
+								{:else}
+									<button
+										type="button"
+										data-test="assign-btn"
+										class="button-small primary"
+										onclick={() => handleAssignClick(row)}
+									>
+										{$LL.doklady.paperless.assignToTrip()}
+									</button>
+								{/if}
 							</div>
 						</div>
 					{/each}
 				</div>
 			</div>
-		{/if}
-
-		{#if unassignedReceipts.length === 0 && assignedReceipts.length === 0}
-			<p class="placeholder">{$LL.receipts.noReceipts()}</p>
 		{/if}
 	{/if}
-{/if}
-
 </div>
 
-{#if receiptToDelete}
+{#if invoiceToUnassign}
 	<ConfirmModal
-		title={$LL.confirm.deleteReceiptTitle()}
-		message={$LL.confirm.deleteReceiptMessage({ name: receiptToDelete.fileName })}
-		confirmText={$LL.common.delete()}
-		danger={true}
-		onConfirm={handleConfirmDelete}
-		onCancel={() => (receiptToDelete = null)}
-	/>
-{/if}
-
-{#if receiptToUnassign}
-	<ConfirmModal
-		title={$LL.confirm.unassignReceiptTitle()}
-		message={$LL.confirm.unassignReceiptMessage({ name: receiptToUnassign.fileName })}
-		confirmText={$LL.confirm.unassignConfirm()}
+		title={$LL.doklady.paperless.unassignTitle()}
+		message={$LL.doklady.paperless.unassignMessage({ name: invoiceToUnassign.title })}
+		confirmText={$LL.doklady.paperless.unassign()}
 		danger={true}
 		onConfirm={handleConfirmUnassign}
-		onCancel={() => (receiptToUnassign = null)}
-	/>
-{/if}
-
-{#if receiptToRevertOverride}
-	<ConfirmModal
-		title={$LL.confirm.revertOverrideTitle()}
-		message={$LL.confirm.revertOverrideMessage({ name: receiptToRevertOverride.fileName })}
-		confirmText={$LL.confirm.revertOverrideConfirm()}
-		danger={false}
-		onConfirm={handleConfirmRevertOverride}
-		onCancel={() => (receiptToRevertOverride = null)}
+		onCancel={() => (invoiceToUnassign = null)}
 	/>
 {/if}
 
@@ -1074,14 +290,6 @@
 		invoice={invoiceToAssign}
 		onSelect={handleAssignInvoice}
 		onClose={() => (invoiceToAssign = null)}
-	/>
-{/if}
-
-{#if receiptToEdit}
-	<ReceiptEditModal
-		receipt={receiptToEdit}
-		onSave={handleSaveReceipt}
-		onClose={() => (receiptToEdit = null)}
 	/>
 {/if}
 
@@ -1103,6 +311,20 @@
 		color: var(--text-primary);
 	}
 
+	.empty-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+		padding: 3rem 1rem;
+		text-align: center;
+		color: var(--text-secondary);
+	}
+
+	.empty-state .button {
+		text-decoration: none;
+	}
+
 	.config-warning {
 		background: var(--warning-bg);
 		border: 1px solid var(--warning-border);
@@ -1111,166 +333,17 @@
 		margin-bottom: 1.5rem;
 	}
 
-	.config-warning h3 {
-		margin: 0 0 0.5rem 0;
-		color: var(--warning-color);
-		font-size: 1.1rem;
-	}
-
 	.config-warning .warning-icon {
 		font-size: 2rem;
 		margin-bottom: 0.5rem;
-	}
-
-	.config-warning .requirements-list {
-		margin: 0.75rem 0;
-		padding-left: 1.5rem;
-		color: var(--text-primary);
-	}
-
-	.config-warning .requirements-list li {
-		margin-bottom: 0.25rem;
 	}
 
 	.config-warning p {
 		margin: 0.5rem 0;
 	}
 
-	.config-warning code {
-		background: var(--bg-surface-alt);
-		padding: 0.2rem 0.4rem;
-		border-radius: 3px;
-		font-size: 0.875rem;
-	}
-
-	.config-warning code.filename {
-		background: var(--bg-surface-alt);
-		font-weight: 600;
-		color: var(--text-primary);
-	}
-
-	.config-sample {
-		background: var(--bg-surface-alt);
-		color: var(--text-primary);
-		border: 1px solid var(--border-default);
-		padding: 1rem;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		overflow-x: auto;
-		margin: 0.75rem 0;
-		font-family: var(--font-mono);
-	}
-
-	.config-note {
-		font-size: 0.8rem;
-		color: var(--warning-color);
-		font-style: italic;
-		margin: 0.25rem 0 0.5rem 0 !important;
-	}
-
-	.config-path-btn {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.5rem;
-		margin-top: 0.75rem;
-		padding: 0.75rem 1rem;
-		background: var(--bg-surface);
-		border: 1px solid var(--border-input);
-		border-radius: 6px;
-		cursor: pointer;
-		text-align: left;
-		width: 100%;
-		transition: all 0.2s ease;
-	}
-
-	.config-path-btn:hover {
-		background: var(--bg-surface-alt);
-		border-color: var(--accent-primary);
-	}
-
-	.config-path-btn code {
-		word-break: break-all;
-		color: var(--text-secondary);
-	}
-
-	.config-path-btn .open-icon {
-		color: var(--accent-primary);
-		font-weight: 500;
-	}
-
-	.filters {
-		display: flex;
-		gap: 1rem;
-		margin-bottom: 1.5rem;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.filter-group {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.type-filter {
-		padding: 0.5rem 1rem;
-		border: 1px solid var(--border-input);
-		background: var(--bg-surface);
-		color: var(--text-primary);
-		border-radius: 4px;
-		cursor: pointer;
-		font-size: 0.875rem;
-	}
-
-	.type-filter:hover {
-		border-color: var(--accent-primary);
-	}
-
-	.filter-btn {
-		padding: 0.5rem 1rem;
-		border: 1px solid var(--border-input);
-		background: var(--bg-surface);
-		color: var(--text-primary);
-		border-radius: 4px;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.filter-btn:hover {
-		background: var(--bg-surface-alt);
-	}
-
-	.filter-btn.active {
-		background: var(--btn-active-primary-bg);
-		color: var(--btn-active-primary-color);
-		border-color: var(--btn-active-primary-bg);
-	}
-
 	.receipts-section {
 		margin-bottom: 2rem;
-	}
-
-	.section-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 1.1rem;
-		font-weight: 600;
-		margin-bottom: 1rem;
-		padding-bottom: 0.5rem;
-		border-bottom: 2px solid var(--border-muted);
-	}
-
-	.section-header.unassigned {
-		border-bottom-color: var(--color-danger);
-	}
-
-	.section-header.assigned {
-		border-bottom-color: var(--color-success);
-	}
-
-	.section-icon {
-		font-size: 0.9rem;
 	}
 
 	.receipts-list {
@@ -1310,6 +383,12 @@
 		font-size: 1rem;
 	}
 
+	.header-badges {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
 	.badge {
 		padding: 0.25rem 0.5rem;
 		border-radius: 3px;
@@ -1322,86 +401,15 @@
 		color: var(--toast-success-color);
 	}
 
-	.badge.warning {
-		background: var(--warning-bg);
-		color: var(--warning-color);
-	}
-
-	.badge.info {
-		background: var(--toast-info-bg);
-		color: var(--toast-info-color);
-	}
-
-	.badge.neutral {
-		background: var(--bg-surface-alt);
-		color: var(--text-primary);
-	}
-
 	.badge.danger {
 		background: var(--toast-error-bg);
 		color: var(--toast-error-color);
 	}
 
-	.badge.fuel {
-		background: var(--accent-primary-light-bg, #e0f2fe);
-		color: var(--accent-primary, #0284c7);
-	}
-
-	.badge.other {
-		background: var(--bg-surface-alt);
-		color: var(--text-secondary);
-	}
-
 	.badge.override {
 		background: var(--warning-bg);
-		color: var(--warning-color);
-		padding: 0.15rem 0.35rem;
-	}
-
-	.badge.clickable {
-		cursor: pointer;
-		border: none;
-		transition: filter 0.15s ease;
-	}
-
-	.badge.clickable:hover {
-		filter: brightness(0.9);
-	}
-
-	.header-badges {
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
-	}
-
-	.verification-summary {
-		display: flex;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background: var(--bg-surface-alt);
-		border-radius: 4px;
-		margin-bottom: 1rem;
-	}
-
-	.verification-summary.all-matched {
-		background: var(--toast-success-bg);
-	}
-
-	.status-ok {
-		color: var(--toast-success-color);
-		font-weight: 500;
-	}
-
-	.status-warning {
-		color: var(--warning-color);
-		font-weight: 500;
-	}
-
-	.matched-trip {
-		font-size: 0.875rem;
-		color: var(--accent-success);
-		margin-top: 0.5rem;
-		grid-column: 1 / -1;
+		color: var(--text-primary);
+		border: 1px solid var(--warning-border);
 	}
 
 	.receipt-details {
@@ -1416,70 +424,14 @@
 		gap: 0.5rem;
 	}
 
-	.detail-row.full-width {
-		grid-column: 1 / -1;
-	}
-
 	.label {
 		color: var(--text-secondary);
 		font-size: 0.875rem;
 	}
 
-	.value-with-confidence {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-	}
-
 	.value {
 		font-weight: 500;
 		color: var(--text-primary);
-	}
-
-	.value.uncertain {
-		color: var(--accent-warning-dark);
-	}
-
-	.value.needs-conversion {
-		color: var(--accent-danger);
-		font-style: italic;
-	}
-
-	.confidence-dot {
-		display: inline-block;
-		width: 10px;
-		height: 10px;
-		min-width: 10px;
-		min-height: 10px;
-		border-radius: 50%;
-		cursor: help;
-		flex-shrink: 0;
-		border: 1px solid rgba(0, 0, 0, 0.2);
-	}
-
-	.confidence-high {
-		background-color: var(--accent-success);
-	}
-
-	.confidence-medium {
-		background-color: #f39c12;
-	}
-
-	.confidence-low {
-		background-color: #e74c3c;
-	}
-
-	.confidence-unknown {
-		background-color: var(--text-muted);
-	}
-
-	.error-message {
-		grid-column: 1 / -1;
-		color: var(--accent-danger);
-		font-size: 0.875rem;
-		padding: 0.5rem;
-		background: var(--accent-danger-bg);
-		border-radius: 4px;
 	}
 
 	.receipt-actions {
@@ -1515,15 +467,6 @@
 		cursor: not-allowed;
 	}
 
-	.button.secondary {
-		background-color: var(--btn-active-success-bg);
-		color: var(--btn-active-success-color);
-	}
-
-	.button.secondary:hover:not(:disabled) {
-		background-color: var(--btn-active-success-hover);
-	}
-
 	.button-small {
 		padding: 0.5rem 1rem;
 		background-color: var(--btn-secondary-bg);
@@ -1538,66 +481,12 @@
 		background-color: var(--btn-secondary-hover);
 	}
 
-	.button-small.danger {
-		background-color: var(--accent-danger-bg);
-		color: var(--accent-danger);
+	.button-small.primary {
+		background-color: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
 	}
 
-	.button-small.danger:hover {
-		background-color: var(--accent-danger-hover-bg);
+	.button-small.primary:hover {
+		background-color: var(--btn-active-primary-hover);
 	}
-
-	.folder-structure-warning {
-		background: var(--toast-error-bg);
-		border: 1px solid var(--toast-error-border);
-		padding: 1rem;
-		border-radius: 8px;
-		margin-bottom: 1.5rem;
-	}
-
-	.folder-structure-warning .warning-title {
-		font-weight: 600;
-		color: var(--toast-error-color);
-		margin-bottom: 0.5rem;
-	}
-
-	.folder-structure-warning .warning-details {
-		color: var(--toast-error-color);
-		font-size: 0.875rem;
-		margin-bottom: 0.5rem;
-	}
-
-	.folder-structure-warning .warning-hint {
-		color: var(--warning-color);
-		font-size: 0.8rem;
-		font-style: italic;
-	}
-
-	.date-mismatch-icon {
-		color: var(--accent-warning-dark);
-		cursor: help;
-		font-size: 0.875rem;
-	}
-
-	.datetime-warning-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-top: 0.25rem;
-		font-size: 0.75rem;
-		color: var(--accent-danger);
-	}
-
-	.datetime-warning-row .warning-icon {
-		font-size: 0.875rem;
-	}
-
-	.datetime-warning-row .warning-text {
-		font-style: italic;
-	}
-
-	.datetime-warning-row.confirmed {
-		color: var(--warning-color);
-	}
-
 </style>

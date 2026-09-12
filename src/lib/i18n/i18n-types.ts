@@ -533,10 +533,6 @@ type RootTranslation = {
 		 */
 		partialCharge: string
 		/**
-		 * B​e​z​ ​d​o​k​l​a​d​u
-		 */
-		noReceipt: string
-		/**
 		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​T​P
 		 */
 		estimatedRate: string
@@ -544,24 +540,11 @@ type RootTranslation = {
 		 * O​d​h​a​d​ ​p​o​d​ľ​a​ ​z​á​k​l​a​d​n​e​j​ ​s​p​o​t​r​e​b​y
 		 */
 		estimatedEnergyRate: string
-		/**
-		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y
-		 */
-		receiptDatetimeMismatch: string
-		/**
-		 * D​á​t​u​m​/​č​a​s​ ​d​o​k​l​a​d​u​ ​m​i​m​o​ ​j​a​z​d​y​ ​(​j​a​z​d​a​ ​{​t​i​m​e​R​a​n​g​e​}​)
-		 * @param {string} timeRange
-		 */
-		receiptDatetimeMismatchWithRange: RequiredParams<'timeRange'>
 		legend: {
 			/**
 			 * č​i​a​s​t​o​č​n​é​ ​t​a​n​k​o​v​a​n​i​e
 			 */
 			partialFillup: string
-			/**
-			 * b​e​z​ ​d​o​k​l​a​d​u
-			 */
-			noReceipt: string
 			/**
 			 * v​y​s​o​k​á​ ​s​p​o​t​r​e​b​a
 			 */
@@ -965,50 +948,6 @@ type RootTranslation = {
 		 */
 		themeDark: string
 		/**
-		 * S​k​e​n​o​v​a​n​i​e​ ​d​o​k​l​a​d​o​v
-		 */
-		receiptScanningSection: string
-		/**
-		 * G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č
-		 */
-		geminiApiKey: string
-		/**
-		 * Z​a​d​a​j​t​e​ ​A​P​I​ ​k​ľ​ú​č
-		 */
-		geminiApiKeyPlaceholder: string
-		/**
-		 * A​P​I​ ​k​ľ​ú​č​ ​z​ ​G​o​o​g​l​e​ ​A​I​ ​S​t​u​d​i​o​ ​p​r​e​ ​r​o​z​p​o​z​n​á​v​a​n​i​e​ ​d​o​k​l​a​d​o​v​.
-		 */
-		geminiApiKeyHint: string
-		/**
-		 * P​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i
-		 */
-		receiptsFolder: string
-		/**
-		 * V​y​b​e​r​t​e​ ​p​r​i​e​č​i​n​o​k
-		 */
-		receiptsFolderPlaceholder: string
-		/**
-		 * P​r​i​e​č​i​n​o​k​,​ ​k​d​e​ ​s​ú​ ​u​l​o​ž​e​n​é​ ​f​o​t​k​y​ ​d​o​k​l​a​d​o​v​.
-		 */
-		receiptsFolderHint: string
-		/**
-		 * Z​m​e​n​i​ť
-		 */
-		receiptsFolderChange: string
-		/**
-		 * N​i​e​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
-		 */
-		receiptsFolderNotSet: string
-		/**
-		 * C​e​s​t​a​ ​k​ ​p​r​i​e​č​i​n​k​u​ ​n​a​ ​s​e​r​v​e​r​i​.
-		 */
-		receiptsFolderServerHint: string
-		/**
-		 * V​y​b​r​a​ť
-		 */
-		browseFolder: string
-		/**
 		 * Z​a​d​a​j​t​e​ ​P​I​N
 		 */
 		revealPinTitle: string
@@ -1045,10 +984,6 @@ type RootTranslation = {
 		 * S​k​r​y​ť
 		 */
 		hideApiKey: string
-		/**
-		 * N​a​s​t​a​v​e​n​i​a​ ​d​o​k​l​a​d​o​v​ ​b​o​l​i​ ​u​l​o​ž​e​n​é
-		 */
-		receiptSettingsSaved: string
 		/**
 		 * U​m​i​e​s​t​n​e​n​i​e​ ​d​a​t​a​b​á​z​y
 		 */
@@ -1223,428 +1158,6 @@ type RootTranslation = {
 		 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​o​d​s​t​r​á​n​i​ť​ ​t​e​n​t​o​ ​z​á​z​n​a​m​?
 		 */
 		deleteRecordMessage: string
-		/**
-		 * O​d​s​t​r​á​n​i​ť​ ​d​o​k​l​a​d
-		 */
-		deleteReceiptTitle: string
-		/**
-		 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​o​d​s​t​r​á​n​i​ť​ ​d​o​k​l​a​d​ ​"​{​n​a​m​e​}​"​?
-		 * @param {string} name
-		 */
-		deleteReceiptMessage: RequiredParams<'name'>
-		/**
-		 * Z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e
-		 */
-		unassignReceiptTitle: string
-		/**
-		 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u​ ​"​{​n​a​m​e​}​"​ ​k​ ​j​a​z​d​e​?
-		 * @param {string} name
-		 */
-		unassignReceiptMessage: RequiredParams<'name'>
-		/**
-		 * Z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e
-		 */
-		unassignConfirm: string
-		/**
-		 * Z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
-		 */
-		revertOverrideTitle: string
-		/**
-		 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e​ ​n​e​z​h​o​d​y​ ​p​r​e​ ​d​o​k​l​a​d​ ​"​{​n​a​m​e​}​"​?
-		 * @param {string} name
-		 */
-		revertOverrideMessage: RequiredParams<'name'>
-		/**
-		 * Z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
-		 */
-		revertOverrideConfirm: string
-	}
-	receipts: {
-		/**
-		 * D​o​k​l​a​d​y
-		 */
-		title: string
-		/**
-		 * S​k​e​n​o​v​a​ť​ ​p​r​i​e​č​i​n​o​k
-		 */
-		scanFolder: string
-		/**
-		 * S​k​e​n​u​j​e​m​.​.​.
-		 */
-		scanning: string
-		/**
-		 * R​o​z​p​o​z​n​a​ť​ ​d​á​t​a
-		 */
-		recognizeData: string
-		/**
-		 * R​o​z​p​o​z​n​á​v​a​m​ ​{​c​u​r​r​e​n​t​}​/​{​t​o​t​a​l​}​.​.​.
-		 * @param {number} current
-		 * @param {number} total
-		 */
-		recognizing: RequiredParams<'current' | 'total'>
-		/**
-		 * N​a​č​í​t​a​ť
-		 */
-		sync: string
-		/**
-		 * S​y​n​c​h​r​o​n​i​z​u​j​e​m​.​.​.
-		 */
-		syncing: string
-		/**
-		 * S​p​r​a​c​o​v​a​ť​ ​č​a​k​a​j​ú​c​e​ ​(​{​c​o​u​n​t​}​)
-		 * @param {number} count
-		 */
-		processPending: RequiredParams<'count'>
-		/**
-		 * S​p​r​a​c​o​v​á​v​a​m​.​.​.
-		 */
-		processing: string
-		/**
-		 * S​p​r​a​c​o​v​á​v​a​m​ ​{​c​u​r​r​e​n​t​}​/​{​t​o​t​a​l​}​.​.​.
-		 * @param {number} current
-		 * @param {number} total
-		 */
-		processingProgress: RequiredParams<'current' | 'total'>
-		/**
-		 * M​e​n​a
-		 */
-		currency: string
-		/**
-		 * E​U​R​ ​(​E​u​r​o​)
-		 */
-		currencyEur: string
-		/**
-		 * C​Z​K​ ​(​Č​e​s​k​á​ ​k​o​r​u​n​a​)
-		 */
-		currencyCzk: string
-		/**
-		 * H​U​F​ ​(​M​a​ď​a​r​s​k​ý​ ​f​o​r​i​n​t​)
-		 */
-		currencyHuf: string
-		/**
-		 * P​L​N​ ​(​P​o​ľ​s​k​ý​ ​z​l​o​t​ý​)
-		 */
-		currencyPln: string
-		/**
-		 * P​ô​v​o​d​n​á​ ​s​u​m​a​:
-		 */
-		originalAmount: string
-		/**
-		 * S​u​m​a​ ​v​ ​E​U​R​:
-		 */
-		eurAmount: string
-		/**
-		 * V​y​ž​a​d​u​j​e​ ​k​o​n​v​e​r​z​i​u​ ​n​a​ ​E​U​R
-		 */
-		needsConversion: string
-		/**
-		 * {​a​m​o​u​n​t​}​ ​{​c​u​r​r​e​n​c​y​}​ ​→
-		 * @param {number} amount
-		 * @param {string} currency
-		 */
-		convertedFrom: RequiredParams<'amount' | 'currency'>
-		/**
-		 * F​u​n​k​c​i​a​ ​d​o​k​l​a​d​o​v​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​á​.
-		 */
-		notConfigured: string
-		/**
-		 * V​y​t​v​o​r​t​e​ ​s​ú​b​o​r​ ​s​ ​n​á​z​v​o​m
-		 */
-		configurePrompt: string
-		/**
-		 * l​o​c​a​l​.​s​e​t​t​i​n​g​s​.​j​s​o​n
-		 */
-		configurePromptFile: string
-		/**
-		 * s​ ​n​a​s​l​e​d​u​j​ú​c​i​m​ ​o​b​s​a​h​o​m​:
-		 */
-		configurePromptSuffix: string
-		/**
-		 * P​o​z​n​á​m​k​a​:​ ​N​a​ ​W​i​n​d​o​w​s​ ​p​o​u​ž​í​v​a​j​t​e​ ​d​v​o​j​i​t​é​ ​s​p​ä​t​n​é​ ​l​o​m​k​y​ ​(​\​\​)​ ​v​ ​c​e​s​t​á​c​h​.
-		 */
-		configNote: string
-		/**
-		 * O​t​v​o​r​i​ť​ ​p​r​i​e​č​i​n​o​k
-		 */
-		openConfigFolder: string
-		/**
-		 * S​k​e​n​o​v​a​n​i​e​ ​d​o​k​l​a​d​o​v​ ​n​i​e​ ​j​e​ ​n​a​k​o​n​f​i​g​u​r​o​v​a​n​é
-		 */
-		notConfiguredTitle: string
-		/**
-		 * P​r​e​ ​p​o​u​ž​í​v​a​n​i​e​ ​t​e​j​t​o​ ​f​u​n​k​c​i​e​ ​p​o​t​r​e​b​u​j​e​t​e​:
-		 */
-		notConfiguredDescription: string
-		/**
-		 * N​a​s​t​a​v​i​ť​ ​G​e​m​i​n​i​ ​A​P​I​ ​k​ľ​ú​č​ ​(​z​ ​G​o​o​g​l​e​ ​A​I​ ​S​t​u​d​i​o​)
-		 */
-		notConfiguredApiKey: string
-		/**
-		 * V​y​b​r​a​ť​ ​p​r​i​e​č​i​n​o​k​ ​s​ ​d​o​k​l​a​d​m​i
-		 */
-		notConfiguredFolder: string
-		/**
-		 * P​r​e​j​s​ť​ ​d​o​ ​n​a​s​t​a​v​e​n​í
-		 */
-		goToSettings: string
-		/**
-		 * N​e​p​l​a​t​n​á​ ​š​t​r​u​k​t​ú​r​a​ ​p​r​i​e​č​i​n​k​a
-		 */
-		folderStructureWarning: string
-		/**
-		 * P​r​i​e​č​i​n​o​k​ ​m​u​s​í​ ​o​b​s​a​h​o​v​a​ť​ ​b​u​ď​ ​l​e​n​ ​s​ú​b​o​r​y​,​ ​a​l​e​b​o​ ​l​e​n​ ​p​r​i​e​č​i​n​k​y​ ​s​ ​n​á​z​v​a​m​i​ ​r​o​k​o​v​ ​(​2​0​2​4​,​ ​2​0​2​5​,​ ​.​.​.​)
-		 */
-		folderStructureHint: string
-		/**
-		 * D​á​t​u​m​ ​d​o​k​l​a​d​u​ ​(​{​r​e​c​e​i​p​t​Y​e​a​r​}​)​ ​n​e​z​o​d​p​o​v​e​d​á​ ​p​r​i​e​č​i​n​k​u​ ​(​{​f​o​l​d​e​r​Y​e​a​r​}​)
-		 * @param {number} folderYear
-		 * @param {number} receiptYear
-		 */
-		dateMismatch: RequiredParams<'folderYear' | 'receiptYear'>
-		/**
-		 * Č​a​s​ ​n​e​r​o​z​p​o​z​n​a​n​ý
-		 */
-		timeNotExtracted: string
-		/**
-		 * V​š​e​t​k​y
-		 */
-		filterAll: string
-		/**
-		 * N​e​p​r​i​r​a​d​e​n​é
-		 */
-		filterUnassigned: string
-		/**
-		 * N​a​ ​k​o​n​t​r​o​l​u
-		 */
-		filterNeedsReview: string
-		/**
-		 * T​a​n​k​o​v​a​n​i​e
-		 */
-		filterFuel: string
-		/**
-		 * I​n​é​ ​n​á​k​l​a​d​y
-		 */
-		filterOther: string
-		/**
-		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​d​o​k​l​a​d​o​v​ ​p​r​i​r​a​d​e​n​ý​c​h
-		 * @param {number} count
-		 * @param {number} total
-		 */
-		allAssigned: RequiredParams<'count' | 'total'>
-		/**
-		 * {​c​o​u​n​t​}​/​{​t​o​t​a​l​}​ ​p​r​i​r​a​d​e​n​ý​c​h
-		 * @param {number} count
-		 * @param {number} total
-		 */
-		assigned: RequiredParams<'count' | 'total'>
-		/**
-		 * {​c​o​u​n​t​}​ ​{​{​n​e​p​r​i​r​a​d​e​n​ý​|​n​e​p​r​i​r​a​d​e​n​é​|​n​e​p​r​i​r​a​d​e​n​ý​c​h​}​}
-		 * @param {number} count
-		 */
-		unassigned: RequiredParams<'count'>
-		/**
-		 * N​e​p​r​i​r​a​d​e​n​é
-		 */
-		sectionUnassigned: string
-		/**
-		 * P​r​i​r​a​d​e​n​é
-		 */
-		sectionAssigned: string
-		/**
-		 * D​á​t​u​m​:
-		 */
-		date: string
-		/**
-		 * L​i​t​r​e​:
-		 */
-		liters: string
-		/**
-		 * C​e​n​a​:
-		 */
-		price: string
-		/**
-		 * S​t​a​n​i​c​a​:
-		 */
-		station: string
-		/**
-		 * J​a​z​d​a​:
-		 */
-		trip: string
-		/**
-		 * V​y​s​o​k​á​ ​i​s​t​o​t​a
-		 */
-		confidenceHigh: string
-		/**
-		 * S​t​r​e​d​n​á​ ​i​s​t​o​t​a
-		 */
-		confidenceMedium: string
-		/**
-		 * N​í​z​k​a​ ​i​s​t​o​t​a
-		 */
-		confidenceLow: string
-		/**
-		 * N​e​z​n​á​m​a​ ​i​s​t​o​t​a
-		 */
-		confidenceUnknown: string
-		/**
-		 * P​r​i​r​a​d​e​n​ý
-		 */
-		statusAssigned: string
-		/**
-		 * N​a​ ​k​o​n​t​r​o​l​u
-		 */
-		statusNeedsReview: string
-		/**
-		 * C​u​d​z​i​a​ ​m​e​n​a​ ​–​ ​z​a​d​a​j​t​e​ ​E​U​R​ ​h​o​d​n​o​t​u
-		 */
-		statusNeedsReviewTooltip: string
-		/**
-		 * N​e​p​r​i​r​a​d​e​n​ý
-		 */
-		statusUnassigned: string
-		/**
-		 * P​A​L​I​V​O
-		 */
-		assignedAsFuel: string
-		/**
-		 * I​N​É
-		 */
-		assignedAsOther: string
-		/**
-		 * P​o​t​v​r​d​e​n​é​ ​p​o​u​ž​í​v​a​t​e​ľ​o​m
-		 */
-		overrideConfirmed: string
-		/**
-		 * C​h​ý​b​a​j​ú​ ​ú​d​a​j​e​ ​n​a​ ​d​o​k​l​a​d​e
-		 */
-		mismatchMissingData: string
-		/**
-		 * Ž​i​a​d​n​a​ ​j​a​z​d​a​ ​s​ ​t​a​n​k​o​v​a​n​í​m
-		 */
-		mismatchNoFuelTrip: string
-		/**
-		 * D​á​t​u​m​ ​{​r​e​c​e​i​p​t​D​a​t​e​}​ ​–​ ​j​a​z​d​a​ ​j​e​ ​{​t​r​i​p​D​a​t​e​}
-		 * @param {string} receiptDate
-		 * @param {string} tripDate
-		 */
-		mismatchDate: RequiredParams<'receiptDate' | 'tripDate'>
-		/**
-		 * Č​a​s​ ​{​r​e​c​e​i​p​t​T​i​m​e​}​ ​–​ ​j​a​z​d​a​ ​j​e​ ​{​t​r​i​p​S​t​a​r​t​}​–​{​t​r​i​p​E​n​d​}
-		 * @param {string} receiptTime
-		 * @param {string} tripEnd
-		 * @param {string} tripStart
-		 */
-		mismatchDatetimeOutOfRange: RequiredParams<'receiptTime' | 'tripEnd' | 'tripStart'>
-		/**
-		 * {​r​e​c​e​i​p​t​L​i​t​e​r​s​}​ ​L​ ​–​ ​j​a​z​d​a​ ​m​á​ ​{​t​r​i​p​L​i​t​e​r​s​}​ ​L
-		 * @param {number} receiptLiters
-		 * @param {number} tripLiters
-		 */
-		mismatchLiters: RequiredParams<'receiptLiters' | 'tripLiters'>
-		/**
-		 * {​r​e​c​e​i​p​t​P​r​i​c​e​}​ ​€​ ​–​ ​j​a​z​d​a​ ​m​á​ ​{​t​r​i​p​P​r​i​c​e​}​ ​€
-		 * @param {number} receiptPrice
-		 * @param {number} tripPrice
-		 */
-		mismatchPrice: RequiredParams<'receiptPrice' | 'tripPrice'>
-		/**
-		 * Ž​i​a​d​n​a​ ​j​a​z​d​a​ ​s​ ​t​o​u​t​o​ ​c​e​n​o​u
-		 */
-		mismatchNoOtherCost: string
-		/**
-		 * O​t​v​o​r​i​ť
-		 */
-		open: string
-		/**
-		 * Z​n​o​v​u​ ​s​p​r​a​c​o​v​a​ť
-		 */
-		reprocess: string
-		/**
-		 * S​p​r​a​c​o​v​á​v​a​m​.​.​.
-		 */
-		reprocessing: string
-		/**
-		 * P​r​i​d​e​l​i​ť​ ​k​ ​j​a​z​d​e
-		 */
-		assignToTrip: string
-		/**
-		 * I​n​é​ ​n​á​k​l​a​d​y
-		 */
-		otherCost: string
-		/**
-		 * P​r​e​d​a​j​c​a​:
-		 */
-		vendor: string
-		/**
-		 * P​o​p​i​s​:
-		 */
-		description: string
-		/**
-		 * J​a​z​d​a​ ​u​ž​ ​m​á​ ​i​n​é​ ​n​á​k​l​a​d​y
-		 */
-		assignmentBlocked: string
-		/**
-		 * Ž​i​a​d​n​e​ ​d​o​k​l​a​d​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​N​a​č​í​t​a​ť​ ​p​r​e​ ​n​a​č​í​t​a​n​i​e​ ​n​o​v​ý​c​h​.
-		 */
-		noReceipts: string
-	}
-	receiptEdit: {
-		/**
-		 * U​p​r​a​v​i​ť​ ​d​o​k​l​a​d
-		 */
-		title: string
-		/**
-		 * D​á​t​u​m
-		 */
-		date: string
-		/**
-		 * L​i​t​r​e
-		 */
-		liters: string
-		/**
-		 * S​u​m​a
-		 */
-		amountSection: string
-		/**
-		 * P​ô​v​o​d​n​á​ ​s​u​m​a
-		 */
-		originalAmount: string
-		/**
-		 * M​e​n​a
-		 */
-		currency: string
-		/**
-		 * S​u​m​a​ ​v​ ​E​U​R
-		 */
-		eurAmount: string
-		/**
-		 * P​r​e​ ​c​u​d​z​i​u​ ​m​e​n​u​ ​j​e​ ​p​o​t​r​e​b​n​é​ ​z​a​d​a​ť​ ​s​u​m​u​ ​v​ ​E​U​R
-		 */
-		eurAmountRequired: string
-		/**
-		 * Č​e​r​p​a​c​i​a​ ​s​t​a​n​i​c​a
-		 */
-		stationName: string
-		/**
-		 * n​a​p​r​.​ ​S​l​o​v​n​a​f​t
-		 */
-		stationNamePlaceholder: string
-		/**
-		 * P​r​e​d​a​j​c​a
-		 */
-		vendorName: string
-		/**
-		 * n​a​p​r​.​ ​A​u​t​o​U​m​y​v​á​r​e​ň
-		 */
-		vendorNamePlaceholder: string
-		/**
-		 * P​o​p​i​s
-		 */
-		costDescription: string
-		/**
-		 * n​a​p​r​.​ ​U​m​y​t​i​e​ ​a​u​t​a
-		 */
-		costDescriptionPlaceholder: string
 	}
 	tripSelector: {
 		/**
@@ -1786,66 +1299,6 @@ type RootTranslation = {
 		 */
 		cleanupComplete: string
 		/**
-		 * D​o​k​l​a​d​ ​b​o​l​ ​o​d​s​t​r​á​n​e​n​ý
-		 */
-		receiptDeleted: string
-		/**
-		 * P​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u​ ​b​o​l​o​ ​z​r​u​š​e​n​é
-		 */
-		receiptUnassigned: string
-		/**
-		 * P​o​t​v​r​d​e​n​i​e​ ​n​e​z​h​o​d​y​ ​b​o​l​o​ ​z​r​u​š​e​n​é
-		 */
-		overrideReverted: string
-		/**
-		 * D​o​k​l​a​d​ ​b​o​l​ ​a​k​t​u​a​l​i​z​o​v​a​n​ý
-		 */
-		receiptUpdated: string
-		/**
-		 * D​o​k​l​a​d​ ​"​{​n​a​m​e​}​"​ ​b​o​l​ ​z​n​o​v​u​ ​s​p​r​a​c​o​v​a​n​ý
-		 * @param {string} name
-		 */
-		receiptReprocessed: RequiredParams<'name'>
-		/**
-		 * D​o​k​l​a​d​ ​b​o​l​ ​p​r​i​d​e​l​e​n​ý​ ​k​ ​j​a​z​d​e
-		 */
-		receiptAssigned: string
-		/**
-		 * {​{​N​a​č​í​t​a​n​ý​|​N​a​č​í​t​a​n​é​|​N​a​č​í​t​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​n​o​v​ý​|​n​o​v​é​|​n​o​v​ý​c​h​}​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}
-		 * @param {number} count
-		 */
-		receiptsLoaded: RequiredParams<'count'>
-		/**
-		 * {​{​N​a​č​í​t​a​n​ý​|​N​a​č​í​t​a​n​é​|​N​a​č​í​t​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}​ ​(​{​e​r​r​o​r​s​}​ ​{​{​c​h​y​b​a​|​c​h​y​b​y​|​c​h​ý​b​}​}​)
-		 * @param {number} count
-		 * @param {number} errors
-		 */
-		receiptsLoadedWithErrors: RequiredParams<'count' | 'errors'>
-		/**
-		 * {​{​S​p​r​a​c​o​v​a​n​ý​|​S​p​r​a​c​o​v​a​n​é​|​S​p​r​a​c​o​v​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}
-		 * @param {number} count
-		 */
-		receiptsProcessed: RequiredParams<'count'>
-		/**
-		 * {​{​S​p​r​a​c​o​v​a​n​ý​|​S​p​r​a​c​o​v​a​n​é​|​S​p​r​a​c​o​v​a​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​d​o​k​l​a​d​|​d​o​k​l​a​d​y​|​d​o​k​l​a​d​o​v​}​}​ ​(​{​e​r​r​o​r​s​}​ ​{​{​c​h​y​b​a​|​c​h​y​b​y​|​c​h​ý​b​}​}​)
-		 * @param {number} count
-		 * @param {number} errors
-		 */
-		receiptsProcessedWithErrors: RequiredParams<'count' | 'errors'>
-		/**
-		 * {​{​N​á​j​d​e​n​ý​|​N​á​j​d​e​n​é​|​N​á​j​d​e​n​ý​c​h​}​}​ ​{​c​o​u​n​t​}​ ​{​{​n​o​v​ý​|​n​o​v​é​|​n​o​v​ý​c​h​}​}​ ​{​{​s​ú​b​o​r​|​s​ú​b​o​r​y​|​s​ú​b​o​r​o​v​}​}
-		 * @param {number} count
-		 */
-		foundNewReceipts: RequiredParams<'count'>
-		/**
-		 * Ž​i​a​d​n​e​ ​n​o​v​é​ ​s​ú​b​o​r​y
-		 */
-		noNewReceipts: string
-		/**
-		 * Ž​i​a​d​n​e​ ​č​a​k​a​j​ú​c​e​ ​d​o​k​l​a​d​y
-		 */
-		noPendingReceipts: string
-		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​u​l​o​ž​i​ť​ ​v​o​z​i​d​l​o​:​ ​{​e​r​r​o​r​}
 		 * @param {string} error
 		 */
@@ -1896,47 +1349,6 @@ type RootTranslation = {
 		 */
 		errorResetDatabase: RequiredParams<'error'>
 		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​n​a​č​í​t​a​ť​ ​d​o​k​l​a​d​y
-		 */
-		errorLoadReceipts: string
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​y​n​c​h​r​o​n​i​z​o​v​a​ť​:​ ​{​e​r​r​o​r​}
-		 * @param {string} error
-		 */
-		errorSyncReceipts: RequiredParams<'error'>
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​p​r​a​c​o​v​a​ť​:​ ​{​e​r​r​o​r​}
-		 * @param {string} error
-		 */
-		errorProcessReceipts: RequiredParams<'error'>
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​d​s​t​r​á​n​i​ť​ ​d​o​k​l​a​d
-		 */
-		errorDeleteReceipt: string
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u
-		 */
-		errorUnassignReceipt: string
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
-		 */
-		errorRevertOverride: string
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​p​r​a​c​o​v​a​ť​ ​"​{​n​a​m​e​}​"​:​ ​{​e​r​r​o​r​}
-		 * @param {string} error
-		 * @param {string} name
-		 */
-		errorReprocessReceipt: RequiredParams<'error' | 'name'>
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​i​d​e​l​i​ť​ ​d​o​k​l​a​d​:​ ​{​e​r​r​o​r​}
-		 * @param {string} error
-		 */
-		errorAssignReceipt: RequiredParams<'error'>
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​t​v​o​r​i​ť​ ​s​ú​b​o​r
-		 */
-		errorOpenFile: string
-		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​v​y​t​v​o​r​i​ť​ ​z​á​z​n​a​m
 		 */
 		errorCreateTrip: string
@@ -1969,14 +1381,6 @@ type RootTranslation = {
 		 * N​a​j​p​r​v​ ​v​y​b​e​r​t​e​ ​v​o​z​i​d​l​o
 		 */
 		errorSelectVehicleFirst: string
-		/**
-		 * N​a​j​p​r​v​ ​n​a​s​t​a​v​t​e​ ​p​r​i​e​č​i​n​o​k​ ​a​ ​A​P​I​ ​k​ľ​ú​č​ ​v​ ​N​a​s​t​a​v​e​n​i​a​c​h
-		 */
-		errorSetApiKeyFirst: string
-		/**
-		 * N​a​j​p​r​v​ ​n​a​s​t​a​v​t​e​ ​A​P​I​ ​k​ľ​ú​č​ ​v​ ​N​a​s​t​a​v​e​n​i​a​c​h
-		 */
-		errorSetApiKeyOnlyFirst: string
 	}
 	routeMap: {
 		/**
@@ -2805,6 +2209,93 @@ type RootTranslation = {
 			 * ?
 			 */
 			noDate: string
+			/**
+			 * P​a​p​e​r​l​e​s​s​-​n​g​x​ ​n​i​e​ ​j​e​ ​n​a​s​t​a​v​e​n​ý​.
+			 */
+			notConfigured: string
+			/**
+			 * O​t​v​o​r​i​ť​ ​n​a​s​t​a​v​e​n​i​a
+			 */
+			openSettings: string
+			/**
+			 * N​e​p​r​i​r​a​d​e​n​é​ ​d​o​k​l​a​d​y
+			 */
+			unlinkedBadge: string
+			/**
+			 * P​r​i​r​a​d​e​n​ý
+			 */
+			assigned: string
+			/**
+			 * N​e​p​r​i​r​a​d​e​n​ý
+			 */
+			unassigned: string
+			/**
+			 * D​á​t​u​m​:
+			 */
+			date: string
+			/**
+			 * C​e​n​a​:
+			 */
+			price: string
+			/**
+			 * L​i​t​r​e​:
+			 */
+			liters: string
+			/**
+			 * P​r​i​d​e​l​i​ť​ ​k​ ​j​a​z​d​e
+			 */
+			assignToTrip: string
+			/**
+			 * Z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e
+			 */
+			unassign: string
+			/**
+			 * Z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e
+			 */
+			unassignTitle: string
+			/**
+			 * N​a​o​z​a​j​ ​c​h​c​e​t​e​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u​ ​"​{​n​a​m​e​}​"​ ​k​ ​j​a​z​d​e​?
+			 * @param {string} name
+			 */
+			unassignMessage: RequiredParams<'name'>
+			/**
+			 * Ž​i​a​d​n​e​ ​d​o​k​l​a​d​y​.
+			 */
+			noInvoices: string
+			/**
+			 * D​o​k​l​a​d​ ​b​o​l​ ​p​r​i​d​e​l​e​n​ý​ ​k​ ​j​a​z​d​e
+			 */
+			assignedToast: string
+			/**
+			 * P​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u​ ​b​o​l​o​ ​z​r​u​š​e​n​é
+			 */
+			unassignedToast: string
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​i​d​e​l​i​ť​ ​d​o​k​l​a​d​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			assignError: RequiredParams<'error'>
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​r​i​r​a​d​e​n​i​e​ ​d​o​k​l​a​d​u
+			 */
+			unassignError: string
+			/**
+			 * P​o​t​v​r​d​e​n​é​ ​n​a​p​r​i​e​k​ ​n​e​z​h​o​d​e
+			 */
+			overrideConfirmed: string
+			/**
+			 * Z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e
+			 */
+			clearOverride: string
+			/**
+			 * P​o​t​v​r​d​e​n​i​e​ ​n​e​z​h​o​d​y​ ​b​o​l​o​ ​z​r​u​š​e​n​é
+			 */
+			overrideClearedToast: string
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​r​u​š​i​ť​ ​p​o​t​v​r​d​e​n​i​e​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			overrideError: RequiredParams<'error'>
 		}
 	}
 }
@@ -3328,10 +2819,6 @@ export type TranslationFunctions = {
 		 */
 		partialCharge: () => LocalizedString
 		/**
-		 * Bez dokladu
-		 */
-		noReceipt: () => LocalizedString
-		/**
 		 * Odhad podľa TP
 		 */
 		estimatedRate: () => LocalizedString
@@ -3339,23 +2826,11 @@ export type TranslationFunctions = {
 		 * Odhad podľa základnej spotreby
 		 */
 		estimatedEnergyRate: () => LocalizedString
-		/**
-		 * Dátum/čas dokladu mimo jazdy
-		 */
-		receiptDatetimeMismatch: () => LocalizedString
-		/**
-		 * Dátum/čas dokladu mimo jazdy (jazda {timeRange})
-		 */
-		receiptDatetimeMismatchWithRange: (arg: { timeRange: string }) => LocalizedString
 		legend: {
 			/**
 			 * čiastočné tankovanie
 			 */
 			partialFillup: () => LocalizedString
-			/**
-			 * bez dokladu
-			 */
-			noReceipt: () => LocalizedString
 			/**
 			 * vysoká spotreba
 			 */
@@ -3732,50 +3207,6 @@ export type TranslationFunctions = {
 		 */
 		themeDark: () => LocalizedString
 		/**
-		 * Skenovanie dokladov
-		 */
-		receiptScanningSection: () => LocalizedString
-		/**
-		 * Gemini API kľúč
-		 */
-		geminiApiKey: () => LocalizedString
-		/**
-		 * Zadajte API kľúč
-		 */
-		geminiApiKeyPlaceholder: () => LocalizedString
-		/**
-		 * API kľúč z Google AI Studio pre rozpoznávanie dokladov.
-		 */
-		geminiApiKeyHint: () => LocalizedString
-		/**
-		 * Priečinok s dokladmi
-		 */
-		receiptsFolder: () => LocalizedString
-		/**
-		 * Vyberte priečinok
-		 */
-		receiptsFolderPlaceholder: () => LocalizedString
-		/**
-		 * Priečinok, kde sú uložené fotky dokladov.
-		 */
-		receiptsFolderHint: () => LocalizedString
-		/**
-		 * Zmeniť
-		 */
-		receiptsFolderChange: () => LocalizedString
-		/**
-		 * Nie je nastavený
-		 */
-		receiptsFolderNotSet: () => LocalizedString
-		/**
-		 * Cesta k priečinku na serveri.
-		 */
-		receiptsFolderServerHint: () => LocalizedString
-		/**
-		 * Vybrať
-		 */
-		browseFolder: () => LocalizedString
-		/**
 		 * Zadajte PIN
 		 */
 		revealPinTitle: () => LocalizedString
@@ -3811,10 +3242,6 @@ export type TranslationFunctions = {
 		 * Skryť
 		 */
 		hideApiKey: () => LocalizedString
-		/**
-		 * Nastavenia dokladov boli uložené
-		 */
-		receiptSettingsSaved: () => LocalizedString
 		/**
 		 * Umiestnenie databázy
 		 */
@@ -3983,402 +3410,6 @@ export type TranslationFunctions = {
 		 * Naozaj chcete odstrániť tento záznam?
 		 */
 		deleteRecordMessage: () => LocalizedString
-		/**
-		 * Odstrániť doklad
-		 */
-		deleteReceiptTitle: () => LocalizedString
-		/**
-		 * Naozaj chcete odstrániť doklad "{name}"?
-		 */
-		deleteReceiptMessage: (arg: { name: string }) => LocalizedString
-		/**
-		 * Zrušiť priradenie
-		 */
-		unassignReceiptTitle: () => LocalizedString
-		/**
-		 * Naozaj chcete zrušiť priradenie dokladu "{name}" k jazde?
-		 */
-		unassignReceiptMessage: (arg: { name: string }) => LocalizedString
-		/**
-		 * Zrušiť priradenie
-		 */
-		unassignConfirm: () => LocalizedString
-		/**
-		 * Zrušiť potvrdenie
-		 */
-		revertOverrideTitle: () => LocalizedString
-		/**
-		 * Naozaj chcete zrušiť potvrdenie nezhody pre doklad "{name}"?
-		 */
-		revertOverrideMessage: (arg: { name: string }) => LocalizedString
-		/**
-		 * Zrušiť potvrdenie
-		 */
-		revertOverrideConfirm: () => LocalizedString
-	}
-	receipts: {
-		/**
-		 * Doklady
-		 */
-		title: () => LocalizedString
-		/**
-		 * Skenovať priečinok
-		 */
-		scanFolder: () => LocalizedString
-		/**
-		 * Skenujem...
-		 */
-		scanning: () => LocalizedString
-		/**
-		 * Rozpoznať dáta
-		 */
-		recognizeData: () => LocalizedString
-		/**
-		 * Rozpoznávam {current}/{total}...
-		 */
-		recognizing: (arg: { current: number, total: number }) => LocalizedString
-		/**
-		 * Načítať
-		 */
-		sync: () => LocalizedString
-		/**
-		 * Synchronizujem...
-		 */
-		syncing: () => LocalizedString
-		/**
-		 * Spracovať čakajúce ({count})
-		 */
-		processPending: (arg: { count: number }) => LocalizedString
-		/**
-		 * Spracovávam...
-		 */
-		processing: () => LocalizedString
-		/**
-		 * Spracovávam {current}/{total}...
-		 */
-		processingProgress: (arg: { current: number, total: number }) => LocalizedString
-		/**
-		 * Mena
-		 */
-		currency: () => LocalizedString
-		/**
-		 * EUR (Euro)
-		 */
-		currencyEur: () => LocalizedString
-		/**
-		 * CZK (Česká koruna)
-		 */
-		currencyCzk: () => LocalizedString
-		/**
-		 * HUF (Maďarský forint)
-		 */
-		currencyHuf: () => LocalizedString
-		/**
-		 * PLN (Poľský zlotý)
-		 */
-		currencyPln: () => LocalizedString
-		/**
-		 * Pôvodná suma:
-		 */
-		originalAmount: () => LocalizedString
-		/**
-		 * Suma v EUR:
-		 */
-		eurAmount: () => LocalizedString
-		/**
-		 * Vyžaduje konverziu na EUR
-		 */
-		needsConversion: () => LocalizedString
-		/**
-		 * {amount} {currency} →
-		 */
-		convertedFrom: (arg: { amount: number, currency: string }) => LocalizedString
-		/**
-		 * Funkcia dokladov nie je nakonfigurovaná.
-		 */
-		notConfigured: () => LocalizedString
-		/**
-		 * Vytvorte súbor s názvom
-		 */
-		configurePrompt: () => LocalizedString
-		/**
-		 * local.settings.json
-		 */
-		configurePromptFile: () => LocalizedString
-		/**
-		 * s nasledujúcim obsahom:
-		 */
-		configurePromptSuffix: () => LocalizedString
-		/**
-		 * Poznámka: Na Windows používajte dvojité spätné lomky (\\) v cestách.
-		 */
-		configNote: () => LocalizedString
-		/**
-		 * Otvoriť priečinok
-		 */
-		openConfigFolder: () => LocalizedString
-		/**
-		 * Skenovanie dokladov nie je nakonfigurované
-		 */
-		notConfiguredTitle: () => LocalizedString
-		/**
-		 * Pre používanie tejto funkcie potrebujete:
-		 */
-		notConfiguredDescription: () => LocalizedString
-		/**
-		 * Nastaviť Gemini API kľúč (z Google AI Studio)
-		 */
-		notConfiguredApiKey: () => LocalizedString
-		/**
-		 * Vybrať priečinok s dokladmi
-		 */
-		notConfiguredFolder: () => LocalizedString
-		/**
-		 * Prejsť do nastavení
-		 */
-		goToSettings: () => LocalizedString
-		/**
-		 * Neplatná štruktúra priečinka
-		 */
-		folderStructureWarning: () => LocalizedString
-		/**
-		 * Priečinok musí obsahovať buď len súbory, alebo len priečinky s názvami rokov (2024, 2025, ...)
-		 */
-		folderStructureHint: () => LocalizedString
-		/**
-		 * Dátum dokladu ({receiptYear}) nezodpovedá priečinku ({folderYear})
-		 */
-		dateMismatch: (arg: { folderYear: number, receiptYear: number }) => LocalizedString
-		/**
-		 * Čas nerozpoznaný
-		 */
-		timeNotExtracted: () => LocalizedString
-		/**
-		 * Všetky
-		 */
-		filterAll: () => LocalizedString
-		/**
-		 * Nepriradené
-		 */
-		filterUnassigned: () => LocalizedString
-		/**
-		 * Na kontrolu
-		 */
-		filterNeedsReview: () => LocalizedString
-		/**
-		 * Tankovanie
-		 */
-		filterFuel: () => LocalizedString
-		/**
-		 * Iné náklady
-		 */
-		filterOther: () => LocalizedString
-		/**
-		 * {count}/{total} dokladov priradených
-		 */
-		allAssigned: (arg: { count: number, total: number }) => LocalizedString
-		/**
-		 * {count}/{total} priradených
-		 */
-		assigned: (arg: { count: number, total: number }) => LocalizedString
-		/**
-		 * {count} {{nepriradený|nepriradené|nepriradených}}
-		 */
-		unassigned: (arg: { count: number }) => LocalizedString
-		/**
-		 * Nepriradené
-		 */
-		sectionUnassigned: () => LocalizedString
-		/**
-		 * Priradené
-		 */
-		sectionAssigned: () => LocalizedString
-		/**
-		 * Dátum:
-		 */
-		date: () => LocalizedString
-		/**
-		 * Litre:
-		 */
-		liters: () => LocalizedString
-		/**
-		 * Cena:
-		 */
-		price: () => LocalizedString
-		/**
-		 * Stanica:
-		 */
-		station: () => LocalizedString
-		/**
-		 * Jazda:
-		 */
-		trip: () => LocalizedString
-		/**
-		 * Vysoká istota
-		 */
-		confidenceHigh: () => LocalizedString
-		/**
-		 * Stredná istota
-		 */
-		confidenceMedium: () => LocalizedString
-		/**
-		 * Nízka istota
-		 */
-		confidenceLow: () => LocalizedString
-		/**
-		 * Neznáma istota
-		 */
-		confidenceUnknown: () => LocalizedString
-		/**
-		 * Priradený
-		 */
-		statusAssigned: () => LocalizedString
-		/**
-		 * Na kontrolu
-		 */
-		statusNeedsReview: () => LocalizedString
-		/**
-		 * Cudzia mena – zadajte EUR hodnotu
-		 */
-		statusNeedsReviewTooltip: () => LocalizedString
-		/**
-		 * Nepriradený
-		 */
-		statusUnassigned: () => LocalizedString
-		/**
-		 * PALIVO
-		 */
-		assignedAsFuel: () => LocalizedString
-		/**
-		 * INÉ
-		 */
-		assignedAsOther: () => LocalizedString
-		/**
-		 * Potvrdené používateľom
-		 */
-		overrideConfirmed: () => LocalizedString
-		/**
-		 * Chýbajú údaje na doklade
-		 */
-		mismatchMissingData: () => LocalizedString
-		/**
-		 * Žiadna jazda s tankovaním
-		 */
-		mismatchNoFuelTrip: () => LocalizedString
-		/**
-		 * Dátum {receiptDate} – jazda je {tripDate}
-		 */
-		mismatchDate: (arg: { receiptDate: string, tripDate: string }) => LocalizedString
-		/**
-		 * Čas {receiptTime} – jazda je {tripStart}–{tripEnd}
-		 */
-		mismatchDatetimeOutOfRange: (arg: { receiptTime: string, tripEnd: string, tripStart: string }) => LocalizedString
-		/**
-		 * {receiptLiters} L – jazda má {tripLiters} L
-		 */
-		mismatchLiters: (arg: { receiptLiters: number, tripLiters: number }) => LocalizedString
-		/**
-		 * {receiptPrice} € – jazda má {tripPrice} €
-		 */
-		mismatchPrice: (arg: { receiptPrice: number, tripPrice: number }) => LocalizedString
-		/**
-		 * Žiadna jazda s touto cenou
-		 */
-		mismatchNoOtherCost: () => LocalizedString
-		/**
-		 * Otvoriť
-		 */
-		open: () => LocalizedString
-		/**
-		 * Znovu spracovať
-		 */
-		reprocess: () => LocalizedString
-		/**
-		 * Spracovávam...
-		 */
-		reprocessing: () => LocalizedString
-		/**
-		 * Prideliť k jazde
-		 */
-		assignToTrip: () => LocalizedString
-		/**
-		 * Iné náklady
-		 */
-		otherCost: () => LocalizedString
-		/**
-		 * Predajca:
-		 */
-		vendor: () => LocalizedString
-		/**
-		 * Popis:
-		 */
-		description: () => LocalizedString
-		/**
-		 * Jazda už má iné náklady
-		 */
-		assignmentBlocked: () => LocalizedString
-		/**
-		 * Žiadne doklady. Kliknite na Načítať pre načítanie nových.
-		 */
-		noReceipts: () => LocalizedString
-	}
-	receiptEdit: {
-		/**
-		 * Upraviť doklad
-		 */
-		title: () => LocalizedString
-		/**
-		 * Dátum
-		 */
-		date: () => LocalizedString
-		/**
-		 * Litre
-		 */
-		liters: () => LocalizedString
-		/**
-		 * Suma
-		 */
-		amountSection: () => LocalizedString
-		/**
-		 * Pôvodná suma
-		 */
-		originalAmount: () => LocalizedString
-		/**
-		 * Mena
-		 */
-		currency: () => LocalizedString
-		/**
-		 * Suma v EUR
-		 */
-		eurAmount: () => LocalizedString
-		/**
-		 * Pre cudziu menu je potrebné zadať sumu v EUR
-		 */
-		eurAmountRequired: () => LocalizedString
-		/**
-		 * Čerpacia stanica
-		 */
-		stationName: () => LocalizedString
-		/**
-		 * napr. Slovnaft
-		 */
-		stationNamePlaceholder: () => LocalizedString
-		/**
-		 * Predajca
-		 */
-		vendorName: () => LocalizedString
-		/**
-		 * napr. AutoUmyváreň
-		 */
-		vendorNamePlaceholder: () => LocalizedString
-		/**
-		 * Popis
-		 */
-		costDescription: () => LocalizedString
-		/**
-		 * napr. Umytie auta
-		 */
-		costDescriptionPlaceholder: () => LocalizedString
 	}
 	tripSelector: {
 		/**
@@ -4520,58 +3551,6 @@ export type TranslationFunctions = {
 		 */
 		cleanupComplete: () => LocalizedString
 		/**
-		 * Doklad bol odstránený
-		 */
-		receiptDeleted: () => LocalizedString
-		/**
-		 * Priradenie dokladu bolo zrušené
-		 */
-		receiptUnassigned: () => LocalizedString
-		/**
-		 * Potvrdenie nezhody bolo zrušené
-		 */
-		overrideReverted: () => LocalizedString
-		/**
-		 * Doklad bol aktualizovaný
-		 */
-		receiptUpdated: () => LocalizedString
-		/**
-		 * Doklad "{name}" bol znovu spracovaný
-		 */
-		receiptReprocessed: (arg: { name: string }) => LocalizedString
-		/**
-		 * Doklad bol pridelený k jazde
-		 */
-		receiptAssigned: () => LocalizedString
-		/**
-		 * {{Načítaný|Načítané|Načítaných}} {count} {{nový|nové|nových}} {{doklad|doklady|dokladov}}
-		 */
-		receiptsLoaded: (arg: { count: number }) => LocalizedString
-		/**
-		 * {{Načítaný|Načítané|Načítaných}} {count} {{doklad|doklady|dokladov}} ({errors} {{chyba|chyby|chýb}})
-		 */
-		receiptsLoadedWithErrors: (arg: { count: number, errors: number }) => LocalizedString
-		/**
-		 * {{Spracovaný|Spracované|Spracovaných}} {count} {{doklad|doklady|dokladov}}
-		 */
-		receiptsProcessed: (arg: { count: number }) => LocalizedString
-		/**
-		 * {{Spracovaný|Spracované|Spracovaných}} {count} {{doklad|doklady|dokladov}} ({errors} {{chyba|chyby|chýb}})
-		 */
-		receiptsProcessedWithErrors: (arg: { count: number, errors: number }) => LocalizedString
-		/**
-		 * {{Nájdený|Nájdené|Nájdených}} {count} {{nový|nové|nových}} {{súbor|súbory|súborov}}
-		 */
-		foundNewReceipts: (arg: { count: number }) => LocalizedString
-		/**
-		 * Žiadne nové súbory
-		 */
-		noNewReceipts: () => LocalizedString
-		/**
-		 * Žiadne čakajúce doklady
-		 */
-		noPendingReceipts: () => LocalizedString
-		/**
 		 * Nepodarilo sa uložiť vozidlo: {error}
 		 */
 		errorSaveVehicle: (arg: { error: string }) => LocalizedString
@@ -4612,42 +3591,6 @@ export type TranslationFunctions = {
 		 */
 		errorResetDatabase: (arg: { error: string }) => LocalizedString
 		/**
-		 * Nepodarilo sa načítať doklady
-		 */
-		errorLoadReceipts: () => LocalizedString
-		/**
-		 * Nepodarilo sa synchronizovať: {error}
-		 */
-		errorSyncReceipts: (arg: { error: string }) => LocalizedString
-		/**
-		 * Nepodarilo sa spracovať: {error}
-		 */
-		errorProcessReceipts: (arg: { error: string }) => LocalizedString
-		/**
-		 * Nepodarilo sa odstrániť doklad
-		 */
-		errorDeleteReceipt: () => LocalizedString
-		/**
-		 * Nepodarilo sa zrušiť priradenie dokladu
-		 */
-		errorUnassignReceipt: () => LocalizedString
-		/**
-		 * Nepodarilo sa zrušiť potvrdenie
-		 */
-		errorRevertOverride: () => LocalizedString
-		/**
-		 * Nepodarilo sa spracovať "{name}": {error}
-		 */
-		errorReprocessReceipt: (arg: { error: string, name: string }) => LocalizedString
-		/**
-		 * Nepodarilo sa prideliť doklad: {error}
-		 */
-		errorAssignReceipt: (arg: { error: string }) => LocalizedString
-		/**
-		 * Nepodarilo sa otvoriť súbor
-		 */
-		errorOpenFile: () => LocalizedString
-		/**
 		 * Nepodarilo sa vytvoriť záznam
 		 */
 		errorCreateTrip: () => LocalizedString
@@ -4679,14 +3622,6 @@ export type TranslationFunctions = {
 		 * Najprv vyberte vozidlo
 		 */
 		errorSelectVehicleFirst: () => LocalizedString
-		/**
-		 * Najprv nastavte priečinok a API kľúč v Nastaveniach
-		 */
-		errorSetApiKeyFirst: () => LocalizedString
-		/**
-		 * Najprv nastavte API kľúč v Nastaveniach
-		 */
-		errorSetApiKeyOnlyFirst: () => LocalizedString
 	}
 	routeMap: {
 		/**
@@ -5504,6 +4439,90 @@ export type TranslationFunctions = {
 			 * ?
 			 */
 			noDate: () => LocalizedString
+			/**
+			 * Paperless-ngx nie je nastavený.
+			 */
+			notConfigured: () => LocalizedString
+			/**
+			 * Otvoriť nastavenia
+			 */
+			openSettings: () => LocalizedString
+			/**
+			 * Nepriradené doklady
+			 */
+			unlinkedBadge: () => LocalizedString
+			/**
+			 * Priradený
+			 */
+			assigned: () => LocalizedString
+			/**
+			 * Nepriradený
+			 */
+			unassigned: () => LocalizedString
+			/**
+			 * Dátum:
+			 */
+			date: () => LocalizedString
+			/**
+			 * Cena:
+			 */
+			price: () => LocalizedString
+			/**
+			 * Litre:
+			 */
+			liters: () => LocalizedString
+			/**
+			 * Prideliť k jazde
+			 */
+			assignToTrip: () => LocalizedString
+			/**
+			 * Zrušiť priradenie
+			 */
+			unassign: () => LocalizedString
+			/**
+			 * Zrušiť priradenie
+			 */
+			unassignTitle: () => LocalizedString
+			/**
+			 * Naozaj chcete zrušiť priradenie dokladu "{name}" k jazde?
+			 */
+			unassignMessage: (arg: { name: string }) => LocalizedString
+			/**
+			 * Žiadne doklady.
+			 */
+			noInvoices: () => LocalizedString
+			/**
+			 * Doklad bol pridelený k jazde
+			 */
+			assignedToast: () => LocalizedString
+			/**
+			 * Priradenie dokladu bolo zrušené
+			 */
+			unassignedToast: () => LocalizedString
+			/**
+			 * Nepodarilo sa prideliť doklad: {error}
+			 */
+			assignError: (arg: { error: string }) => LocalizedString
+			/**
+			 * Nepodarilo sa zrušiť priradenie dokladu
+			 */
+			unassignError: () => LocalizedString
+			/**
+			 * Potvrdené napriek nezhode
+			 */
+			overrideConfirmed: () => LocalizedString
+			/**
+			 * Zrušiť potvrdenie
+			 */
+			clearOverride: () => LocalizedString
+			/**
+			 * Potvrdenie nezhody bolo zrušené
+			 */
+			overrideClearedToast: () => LocalizedString
+			/**
+			 * Nepodarilo sa zrušiť potvrdenie: {error}
+			 */
+			overrideError: (arg: { error: string }) => LocalizedString
 		}
 	}
 }

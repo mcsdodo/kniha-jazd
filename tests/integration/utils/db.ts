@@ -11,19 +11,15 @@
  * 3. Tests verify the real data flow path
  */
 
-import { mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
 import type {
   Vehicle,
   VehicleType,
   Trip,
-  Receipt,
   Settings,
   TripGridData,
 } from '../fixtures/types';
 import type { TestScenario } from '../fixtures/scenarios';
 import { waitForAppReady } from './app';
-import { hostWorkDir, backendWorkPath } from './paths';
 
 /**
  * Generate a UUID (simple implementation for testing)
@@ -48,7 +44,7 @@ const SERVER_URL = process.env.WDIO_SERVER_URL || 'http://localhost:3457';
 
 /**
  * Wait for the app to be ready. DOM ready means the app loaded from the
- * server — the backend is inherently available via HTTP RPC.
+ * server -- the backend is inherently available via HTTP RPC.
  */
 async function ensureAppReady(): Promise<boolean> {
   try {
@@ -420,253 +416,6 @@ export async function getTripGridData(
     vehicleId,
     year,
   });
-}
-
-// =============================================================================
-// Receipt Seeding and Processing
-// =============================================================================
-
-/**
- * Scan receipts folder for new files (creates Pending receipts in database)
- *
- * Note: Receipts can only be created via folder scanning - there's no direct
- * create_receipt command. Place files in the receipts folder and call this.
- */
-export async function triggerReceiptScan(): Promise<void> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready for receipt scan');
-  }
-  await rpc<void>('scan_receipts');
-}
-
-/**
- * Process all pending receipts with Gemini (or mock in test mode)
- *
- * When KNIHA_JAZD_MOCK_GEMINI_DIR is set, this loads mock JSON files
- * instead of calling the real Gemini API.
- */
-export async function syncReceipts(): Promise<void> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready for sync');
-  }
-  await rpc<void>('sync_receipts');
-}
-
-/**
- * Reprocess a single receipt by ID
- *
- * @param receiptId The receipt ID to reprocess
- */
-export async function reprocessReceipt(receiptId: string): Promise<void> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready for reprocess');
-  }
-  await rpc<void>('reprocess_receipt', { id: receiptId });
-}
-
-/**
- * Delete a receipt by ID. Specs that seed receipts MUST delete them when done:
- * the beforeTest DB cleanup does not remove cross-spec state reliably, and
- * receipts are not vehicle-scoped — leftovers poison other specs' getReceipts.
- */
-export async function deleteReceipt(receiptId: string): Promise<void> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready for delete');
-  }
-  await rpc<void>('delete_receipt', { id: receiptId });
-}
-
-/**
- * Get all receipts for a given year
- */
-export async function getReceipts(year: number): Promise<Receipt[]> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready');
-  }
-  return rpc<Receipt[]>('get_receipts', { year });
-}
-
-/**
- * Get receipts for a specific vehicle
- */
-export async function getReceiptsForVehicle(
-  vehicleId: string,
-  year: number
-): Promise<Receipt[]> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready');
-  }
-  return rpc<Receipt[]>('get_receipts_for_vehicle', {
-    vehicleId,
-    year,
-  });
-}
-
-/**
- * Result from get_trips_for_invoice_assignment
- */
-export interface TripForAssignment {
-  trip: Trip;
-  canAttach: boolean;
-  attachmentStatus: string; // "matches" | "differs" | "empty"
-  mismatchReason: string | null; // "date" | "liters" | "price" | "date_and_*" | "all"
-}
-
-export type InvoiceRef =
-  | { source: 'receipt'; id: string }
-  | { source: 'paperless'; id: number };
-
-export interface InvoiceData {
-  datetime: string | null;
-  liters: number | null;
-  totalPriceEur: number | null;
-  title: string;
-  assignmentType: 'Fuel' | 'Other';
-}
-
-/**
- * Get trips available for invoice (receipt or paperless) assignment with compatibility info.
- * For receipts: pass `null` for invoiceData (backend loads from DB by ID).
- * For paperless: pass the inline invoice data.
- */
-export async function getTripsForInvoiceAssignment(
-  invoiceRef: InvoiceRef,
-  invoiceData: InvoiceData | null,
-  vehicleId: string,
-  year: number
-): Promise<TripForAssignment[]> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready');
-  }
-  return rpc<TripForAssignment[]>('get_trips_for_invoice_assignment', {
-    invoiceRef,
-    invoiceData,
-    vehicleId,
-    year,
-  });
-}
-
-/**
- * Set the receipts folder path via settings
- *
- * Note: KNIHA_JAZD_RECEIPTS_FOLDER env var is NOT implemented in Rust.
- * Must set the folder via this settings command.
- */
-export async function setReceiptsFolderPath(folderPath: string): Promise<void> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready');
-  }
-  await rpc<void>('set_receipts_folder_path', { path: folderPath });
-}
-
-/**
- * Update a receipt (for editing currency conversions, etc.)
- */
-export async function updateReceipt(receipt: Receipt): Promise<void> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready');
-  }
-  await rpc<void>('update_receipt', { receipt });
-}
-
-/**
- * Data for seeding a completed/processed receipt row.
- *
- * `assignmentType` is the *intended* invoice type: it controls whether `liters`
- * is set (the UI infers Fuel vs Other from `liters` presence). The stored
- * receipt's `assignment_type` column stays NULL until the receipt is actually
- * assigned to a trip (data invariant: trip_id NULL ↔ assignment_type NULL).
- */
-export interface SeedReceiptData {
-  /** Intended invoice type — Fuel receipts get `liters`, Other receipts don't */
-  assignmentType: 'Fuel' | 'Other';
-  totalPriceEur: number | null;
-  /** ISO datetime "YYYY-MM-DDTHH:MM" or "YYYY-MM-DDTHH:MM:SS" */
-  receiptDatetime: string;
-  /** Required for Fuel receipts */
-  liters?: number;
-  /** Defaults to a unique generated name */
-  fileName?: string;
-  vendorName?: string;
-  costDescription?: string;
-}
-
-/**
- * Seed a processed (Parsed) unassigned receipt.
- *
- * There is no direct create_receipt command — receipt rows are only created by
- * folder scanning. This helper follows the production data flow end to end:
- * 1. Writes a placeholder file into `<work dir>/seeded-receipts/` — a *host* write,
- *    so the directory comes from `hostWorkDir()`
- * 2. Points the scanner at that same folder as the *backend* sees it
- *    (`backendWorkPath()`) and runs `scan_receipts` (inserts a Pending row — no OCR)
- * 3. Fills in the parsed fields via `update_receipt` (status → Parsed)
- *
- * `applied_amount_cents` stays NULL — nothing has been applied to any trip yet.
- *
- * Works in Docker mode: the seed folder lives under the read-write work dir
- * (`$PWD/data` ↔ `/data`), the one filesystem shared by the test runner and the
- * backend. Do NOT wrap specs using this helper in `describeNotInDockerMode`.
- *
- * The work dir OUTLIVES the spec run, so a spec that seeds receipts must delete
- * `join(hostWorkDir(), 'seeded-receipts')` in an `after()` hook — otherwise a later
- * scan resurrects them.
- */
-export async function seedReceipt(data: SeedReceiptData): Promise<Receipt> {
-  const ready = await ensureAppReady();
-  if (!ready) {
-    throw new Error('App not ready for seeding');
-  }
-
-  // 1. Write a placeholder file (scanning only checks the extension, not content).
-  //    Write host-side, tell the backend the path IT sees. In spawned mode the two
-  //    are identical; in Docker they are the two ends of the -v $PWD/data:/data mount.
-  const seedDirHost = join(hostWorkDir(), 'seeded-receipts');
-  const seedDirBackend = backendWorkPath('seeded-receipts');
-  mkdirSync(seedDirHost, { recursive: true });
-  const fileName = data.fileName ?? `seed-${data.assignmentType.toLowerCase()}-${generateUuid()}.png`;
-  writeFileSync(join(seedDirHost, fileName), 'seeded receipt placeholder');
-
-  // 2. Scan the folder — creates a Pending receipt row for the new file
-  await rpc<void>('set_receipts_folder_path', { path: seedDirBackend });
-  await rpc<unknown>('scan_receipts');
-
-  const pending = (await rpc<Receipt[]>('get_unassigned_receipts')).find(
-    (r) => r.fileName === fileName
-  );
-  if (!pending) {
-    throw new Error(`seedReceipt: scanned receipt '${fileName}' not found in DB`);
-  }
-
-  // 3. Fill in parsed fields (backend expects seconds in the datetime)
-  const receiptDatetime = /:\d{2}:\d{2}$/.test(data.receiptDatetime)
-    ? data.receiptDatetime
-    : `${data.receiptDatetime}:00`;
-
-  const receipt: Receipt = {
-    ...pending,
-    status: 'Parsed',
-    liters: data.assignmentType === 'Fuel' ? (data.liters ?? null) : null,
-    totalPriceEur: data.totalPriceEur,
-    originalAmount: data.totalPriceEur,
-    originalCurrency: data.totalPriceEur != null ? 'EUR' : null,
-    receiptDatetime,
-    vendorName: data.vendorName ?? null,
-    costDescription: data.costDescription ?? null,
-    appliedAmountCents: null, // unassigned: nothing applied to a trip yet
-  };
-  await rpc<void>('update_receipt', { receipt });
-
-  return receipt;
 }
 
 /**

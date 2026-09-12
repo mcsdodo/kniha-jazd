@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { Trip, TripForAssignment, MismatchReason, AssignmentType } from '$lib/types';
-	import { getTripsForInvoiceAssignment } from '$lib/api';
-	import type { Invoice } from '$lib/invoice';
+	import type { Trip, TripForAssignment, MismatchReason, AssignmentType, PaperlessInvoiceRow } from '$lib/types';
+	import { getTripsForPaperlessAssignment } from '$lib/api';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { onMount } from 'svelte';
@@ -14,7 +13,7 @@
 	}
 
 	interface Props {
-		invoice: Invoice;
+		invoice: PaperlessInvoiceRow;
 		onSelect: (result: AssignmentResult) => void;
 		onClose: () => void;
 	}
@@ -31,13 +30,9 @@
 	let error = $state<string | null>(null);
 
 	// Determine if this invoice looks like fuel
-	let looksLikeFuel = $derived(invoice.looksLikeFuel());
+	let looksLikeFuel = $derived(invoice.assignmentType === 'Fuel');
 
 	// Detect if there's a mismatch when assigning (FUEL or OTHER)
-	let hasMismatch = $derived(() => {
-		if (!selectedTrip) return false;
-		return selectedTrip.attachmentStatus === 'differs';
-	});
 
 	onMount(async () => {
 		await loadTrips();
@@ -53,16 +48,15 @@
 
 		loading = true;
 		try {
-			const items = await getTripsForInvoiceAssignment(
-				invoice.getRef(),
-				invoice.getData(),
+			const items = await getTripsForPaperlessAssignment(
+				invoice.paperlessDocumentId,
 				vehicle.id,
 				$selectedYearStore
 			);
 			// Sort by date proximity to invoice date
 			tripItems = items.sort((a, b) => {
-				const aDiff = dateProximity(getTripDate(a.trip), invoice.getDateTime());
-				const bDiff = dateProximity(getTripDate(b.trip), invoice.getDateTime());
+				const aDiff = dateProximity(getTripDate(a.trip), invoice.receiptDatetime);
+				const bDiff = dateProximity(getTripDate(b.trip), invoice.receiptDatetime);
 				return aDiff - bDiff;
 			});
 		} catch (e) {
@@ -156,10 +150,10 @@
 
 		const trip = item.trip;
 		const details: string[] = [];
-		const isFuelInvoice = invoice.looksLikeFuel();
-		const invoiceDatetime = invoice.getDateTime();
-		const invoiceLiters = invoice.getLiters();
-		const invoicePrice = invoice.getPrice();
+		const isFuelInvoice = invoice.assignmentType === 'Fuel';
+		const invoiceDatetime = invoice.receiptDatetime;
+		const invoiceLiters = invoice.liters;
+		const invoicePrice = invoice.totalPriceEur;
 
 		// Check what mismatches
 		const hasDateMismatch = item.mismatchReason.includes('date') || item.mismatchReason === 'all';
@@ -212,14 +206,14 @@
 			<!-- Step 1: Select trip -->
 			<h2>{$LL.tripSelector.title()}</h2>
 			<div class="receipt-info">
-				<span class="file-name">{invoice.getDisplayName()}</span>
+				<span class="file-name">{invoice.title}</span>
 				<span class="separator">|</span>
-				<span>{invoice.getLiters()?.toFixed(2) ?? '??'} L</span>
+				<span>{invoice.liters?.toFixed(2) ?? '??'} L</span>
 				<span class="separator">|</span>
-				<span>{invoice.getPrice()?.toFixed(2) ?? '??'} EUR</span>
-				{#if invoice.getDateTime()}
+				<span>{invoice.totalPriceEur?.toFixed(2) ?? '??'} EUR</span>
+				{#if invoice.receiptDatetime}
 					<span class="separator">|</span>
-					<span>{formatDate(invoice.getDateTime()!)}</span>
+					<span>{formatDate(invoice.receiptDatetime)}</span>
 				{/if}
 			</div>
 
@@ -233,7 +227,7 @@
 				<div class="trip-list">
 					{#each tripItems as item}
 						{@const disabled = !item.canAttach}
-						{@const highlighted = isWithin3Days(getTripDate(item.trip), invoice.getDateTime())}
+						{@const highlighted = isWithin3Days(getTripDate(item.trip), invoice.receiptDatetime)}
 						<button
 							class="trip-item"
 							data-test="trip-item"
@@ -295,7 +289,7 @@
 				</label>
 			</div>
 
-			{#if selectedTrip.attachmentStatus === 'differs'}
+			{#if selectedTrip.mismatchReason}
 				<!-- Mismatch warning for assignment (FUEL or OTHER) -->
 				<div class="mismatch-warning">
 					<div class="warning-header">
@@ -309,10 +303,10 @@
 					</div>
 					<div class="mismatch-actions">
 						<button class="button-small" onclick={handleBack}>{$LL.common.cancel()}</button>
-						<button class="button-small warning" onclick={() => handleAssign(false)}>
+						<button class="button-small warning" data-test="assign-with-warning-btn" onclick={() => handleAssign(false)}>
 							{$LL.tripSelector.assignWithWarning()}
 						</button>
-						<button class="button-small primary" onclick={() => handleAssign(true)}>
+						<button class="button-small primary" data-test="assign-and-confirm-btn" onclick={() => handleAssign(true)}>
 							{$LL.tripSelector.assignAndConfirm()}
 						</button>
 					</div>

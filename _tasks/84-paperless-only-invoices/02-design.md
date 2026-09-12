@@ -96,9 +96,26 @@ coverage, and missing-invoice warnings.
 | 7 | Nav badge (unmatched invoices) | -- | **Ported** (unlinked Paperless fuel docs) |
 | 8 | Trip-grid datetime warnings | Snapshot `receipt_datetime` on the link | **Ported** |
 | 9 | Mismatch-override persistence | `mismatch_override` column on the link | **Ported** |
+| 10 | Historical link state -- every link created before this task keeps `receipt_datetime = NULL` and `mismatch_override = 0` forever | A backfill `UPDATE` joining `receipts` on `trip_id` + `assignment_type`, inside the drop migration while the table still exists | Accept loss; tech-debt |
 
-Items 1 to 6 are recorded in `_tasks/_TECH_DEBT/` during implementation. Items 7
-to 9 are built in this task.
+Items 1 to 6 and item 10 are recorded in `_tasks/_TECH_DEBT/` during
+implementation. Items 7 to 9 are built in this task.
+
+Item 10 was found during code review. The recovery for a single link today is
+unassign and reassign, which re-takes both snapshots. Note the repair `UPDATE` in
+the drop migration proves the join is feasible in that window, so this is a
+choice about scope, not a constraint.
+
+Two further losses were found during code review and **fixed rather than
+accepted**, so they are not in the table:
+
+- The nav badge lost its invalidation when `stores/receipts.ts` was deleted, and
+  the poll went from 30 s to 5 minutes. A replacement `stores/invoices.ts`
+  trigger now fires on assign, unassign, and trip save or delete.
+- A datetime mismatch on a trip with no fuel produced a grid warning the user
+  could never dismiss: the picker only offered the override when the status was
+  `differs`, which that branch never returned. The compat check now reports a
+  mismatch reason in exactly the cases the grid warns about.
 
 ## Schema Changes
 

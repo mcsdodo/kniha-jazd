@@ -12,7 +12,6 @@ use std::path::Path;
 /// them, and the settings responses ship them to the UI so the frontend can name
 /// the variable a field comes from without hardcoding it.
 pub mod env_vars {
-    pub const GEMINI_API_KEY: &str = "GEMINI_API_KEY";
     pub const HA_URL: &str = "HA_URL";
     pub const HA_API_TOKEN: &str = "HA_API_TOKEN";
     pub const PAPERLESS_URL: &str = "PAPERLESS_URL";
@@ -25,8 +24,7 @@ pub mod env_vars {
     pub const REVEAL_PIN: &str = "KNIHA_JAZD_REVEAL_PIN";
 
     /// Every overridable variable — used by the test-env scrubber.
-    pub const ALL: [&str; 6] = [
-        GEMINI_API_KEY,
+    pub const ALL: [&str; 5] = [
         HA_URL,
         HA_API_TOKEN,
         PAPERLESS_URL,
@@ -54,8 +52,6 @@ pub enum DatePrefillMode {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalSettings {
-    pub gemini_api_key: Option<String>,
-    pub receipts_folder_path: Option<String>,
     pub theme: Option<String>,            // "system" | "light" | "dark"
     pub auto_check_updates: Option<bool>, // true by default if None
     pub custom_db_path: Option<String>,   // Custom database location (e.g., Google Drive, NAS)
@@ -113,9 +109,6 @@ impl LocalSettings {
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         };
-        if let Some(v) = get(env_vars::GEMINI_API_KEY) {
-            self.gemini_api_key = Some(v);
-        }
         if let Some(v) = get(env_vars::HA_URL) {
             self.ha_url = Some(v);
         }
@@ -167,7 +160,7 @@ pub(crate) mod test_env {
     static AMBIENT_SCRUB: Once = Once::new();
 
     /// Remove all overridable env vars once per test process — a dev machine
-    /// or CI exporting e.g. GEMINI_API_KEY globally must not break the suite.
+    /// or CI exporting e.g. HA_URL globally must not break the suite.
     fn scrub_ambient_env() {
         AMBIENT_SCRUB.call_once(|| {
             for var in super::env_vars::ALL {

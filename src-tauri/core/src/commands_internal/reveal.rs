@@ -19,7 +19,6 @@ use crate::settings::LocalSettings;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SecretField {
-    GeminiApiKey,
     HaApiToken,
     PaperlessApiToken,
 }
@@ -27,7 +26,6 @@ pub enum SecretField {
 impl SecretField {
     fn label(self) -> &'static str {
         match self {
-            SecretField::GeminiApiKey => "Gemini API key",
             SecretField::HaApiToken => "Home Assistant token",
             SecretField::PaperlessApiToken => "Paperless token",
         }
@@ -35,7 +33,6 @@ impl SecretField {
 
     fn value_from(self, settings: LocalSettings) -> Option<String> {
         match self {
-            SecretField::GeminiApiKey => settings.gemini_api_key,
             SecretField::HaApiToken => settings.ha_api_token,
             SecretField::PaperlessApiToken => settings.paperless_api_token,
         }

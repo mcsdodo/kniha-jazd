@@ -13,7 +13,7 @@ There is no desktop build.
 |                    SvelteKit Frontend                       |
 |              (Display-only, zero calculations)              |
 |  +---------+ +----------+ +----------+ +----------+         |
-|  | Logbook | | Receipts | | Map      | | Settings |         |
+|  | Logbook | | Invoices | | Map      | | Settings |         |
 |  +----+----+ +----+-----+ +----+-----+ +----+-----+         |
 |       +-----------+------------+------------+               |
 |                   | apiCall()                               |
@@ -32,14 +32,14 @@ There is no desktop build.
 |  |dispatcher  | |(pure funcs)  | |(route match)|            |
 |  +----+-------+ +--------------+ +-------------+            |
 |       |                                                     |
-|  +----v-----+ +----------+ +---------+                      |
-|  |  db.rs   | | export   | | gemini  |                      |
-|  |(Mutex<C>)| | (HTML)   | | (OCR)   |                      |
-|  +----+-----+ +----------+ +---------+                      |
+|  +----v-----+ +----------+ +-------------+                  |
+|  |  db.rs   | | export   | | paperless   |                  |
+|  |(Mutex<C>)| | (HTML)   | | (client)    |                  |
+|  +----+-----+ +----------+ +-------------+                  |
 +-------+-----------------------------------------------------+
         |
      SQLite  (on the /data volume)
-  (vehicles, trips, routes, receipts, settings)
+  (vehicles, trips, routes, paperless_trip_links, settings)
 ```
 
 ## Core Principle: Backend-Only Calculations (ADR-008)
@@ -65,7 +65,8 @@ pub fn build_trip_grid_data(db: &Database, vehicle_id: &str, year: i32)
         estimated_rates,    // HashSet<trip_id>
         fuel_remaining,     // HashMap<trip_id, f64>
         consumption_warnings,
-        missing_receipts,
+        missing_fuel_invoices,
+        missing_other_invoices,
     })
 }
 ```
@@ -83,15 +84,14 @@ relative to `src-tauri/core/src/`.
 | Module | Responsibility | Pattern |
 |--------|----------------|---------|
 | `server/mod.rs` | Axum router, `/api/rpc`, `/health`, CORS, static SPA | One RPC endpoint, not 80 REST routes |
-| `server/dispatcher.rs` | Command name -> `*_internal` fn | 68 sync commands, via `spawn_blocking` |
-| `server/dispatcher_async.rs` | Async commands | 12 (OCR, HA, export, grid data) |
+| `server/dispatcher.rs` | Command name -> `*_internal` fn | 62 sync commands, via `spawn_blocking` |
+| `server/dispatcher_async.rs` | Async commands | HA, export, grid data, Paperless assignment |
 | `commands_internal/` | Orchestration per domain | Plain fns taking `&Database` / `&AppState` |
 | `calculations/` | Pure business logic | Stateless functions |
 | `db.rs` | SQLite CRUD | `Mutex<Connection>` singleton |
 | `suggestions.rs` | Route matching algorithm | Filter + min_by for best match |
 | `export.rs` | HTML generation | Template-based, i18n labels |
-| `gemini.rs` | OCR integration | Gemini API for receipt parsing |
-| `paperless.rs` | Paperless-ngx client | `impl Invoice for PaperlessDoc` |
+| `paperless.rs` | Paperless-ngx client | Live invoice fetch, custom fields, link assignment |
 | `models.rs` | Data structures | Serde + typed enums |
 
 ## Data Model
@@ -113,16 +113,21 @@ VEHICLES (1)
         |-- full_tank (1=full, 0=partial)
         |-- created_at (same-datetime tiebreaker)
         |
-        +--< RECEIPTS (0..1 per trip)
-              |-- file_path (UNIQUE)
-              |-- liters, total_price_eur (OCR)
-              |-- receipt_date, station_name
-              |-- status (Pending->Parsed->Assigned)
-              |-- confidence (typed enum per field)
+        +--< PAPERLESS_TRIP_LINKS (N per trip: 1 Fuel + N Other)
+              |-- paperless_document_id (PK)
+              |-- trip_id
+              |-- assignment_type (Fuel/Other)
+              |-- amount_eur, title (assign-time snapshots)
+              |-- applied_amount_cents (snapshot for exact unassign)
+              |-- receipt_datetime, mismatch_override
 
 ROUTES (autocomplete cache, populated from trips)
 SETTINGS (singleton: company_name, ico, buffer_trip_purpose)
 ```
+
+The Paperless documents themselves live in Paperless-ngx, not in this database. The link
+row holds only the ids and the snapshots the grid needs offline. Paperless-ngx is the
+only invoice source ([Task 84](./_tasks/84-paperless-only-invoices/)).
 
 ### Key Pattern: Dual-Purpose Trip Records
 
@@ -156,7 +161,7 @@ The `full_tank` flag is critical - partial fillups don't close a period.
 src/routes/
   +layout.svelte          # Vehicle selector, year picker, nav
   +page.svelte            # Logbook (trip CRUD)
-  doklady/+page.svelte    # Receipts
+  doklady/+page.svelte    # Invoices (Paperless-only)
   mapa/+page.svelte       # Route maps
   settings/+page.svelte   # Config, backups
 ```
@@ -172,7 +177,6 @@ instead, proxying `/api` to the backend on port 3456.
 vehiclesStore      // writable<Vehicle[]>
 activeVehicleStore // writable<Vehicle|null>
 selectedYearStore  // writable<number>
-receiptRefreshTrigger // writable<number> - signaling counter
 toast, confirmStore   // UI state
 ```
 

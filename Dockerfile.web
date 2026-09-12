@@ -11,16 +11,33 @@ RUN apt-get update \
 
 WORKDIR /app/src-tauri
 
-# Workspace skeleton — only the members the web binary needs.
+# Copy manifests only, plus stub sources for the two workspace members.
+# This makes the dependency build below cacheable: Cargo sees the real
+# Cargo.toml/Cargo.lock (so it resolves and compiles every dependency) but a
+# trivial lib.rs/main.rs, so the layer only busts when a manifest or the lock
+# file changes -- NOT when core/ or web/ source changes.
 COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./
+COPY src-tauri/core/Cargo.toml ./core/Cargo.toml
+COPY src-tauri/web/Cargo.toml ./web/Cargo.toml
+RUN mkdir -p core/src web/src \
+    && echo '' > core/src/lib.rs \
+    && echo 'fn main() {}' > web/src/main.rs
+
+# Compile all dependencies (and the stub crates) in a layer keyed only on the
+# manifests + toolchain. If a manifest or Cargo.lock changes this rebuilds;
+# otherwise it is reused verbatim on every source-only change.
+RUN cargo build --release -p kniha-jazd-web \
+    && rm -rf core/src web/src
+
+# Real sources. Only kniha-jazd-core and kniha-jazd-web recompile; every
+# dependency stays cached from the layer above.
 COPY src-tauri/core ./core
 COPY src-tauri/web ./web
-
-# Pre-build dependencies (cached layer) — `|| true` is a no-op once real
-# sources are present; the second touch+build below is the authoritative one.
-RUN cargo build --release -p kniha-jazd-web || true
-
-# Force a fresh recompile of our crates, deps stay cached
+# The touch is load-bearing: it is what defeats the cached stub layer. Cargo
+# decides by fingerprint, and a COPY can land a source file whose mtime is older
+# than the stub .rlib built above (an old working tree, a local build), in which
+# case cargo considers the crate fresh and ships a binary built from the stubs.
+# Touching both crate roots forces the rebuild. Do not remove it.
 RUN touch core/src/lib.rs web/src/main.rs \
     && cargo build --release -p kniha-jazd-web
 

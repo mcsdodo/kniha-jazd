@@ -10,7 +10,7 @@
 4. **Year Carryover** — Starting odometer, fuel, and battery levels automatically carry over from previous year's ending state
 5. **Add/Edit Trips** — Trip year is derived from the trip date (selected year only filters the UI)
 6. **Switch Years** — User can navigate between years; data recalculates based on carryover rules
-7. **Receipts/Verification** — Receipts list, verification, and header badges are filtered by the selected year
+7. **Invoices/Verification** - Paperless invoice list, verification, and header badges are filtered by the selected year
 8. **Export/Print** — Export and print use the selected year
 
 ## Technical Implementation

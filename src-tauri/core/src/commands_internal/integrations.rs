@@ -380,28 +380,6 @@ pub async fn test_paperless_connection_internal(app_dir: &Path) -> Result<bool, 
     Ok(response.status().is_success())
 }
 
-/// Single source of truth for "are we in Paperless mode?" — frontend never inspects raw settings (ADR-008).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum InvoiceSourceMode {
-    Local,
-    Paperless,
-}
-
-pub fn get_invoice_source_mode_from_settings(s: &LocalSettings) -> InvoiceSourceMode {
-    let enabled = s.paperless_enabled.unwrap_or(true);
-    match (&s.paperless_url, &s.paperless_api_token) {
-        (Some(u), Some(t)) if enabled && !u.trim().is_empty() && !t.trim().is_empty() => {
-            InvoiceSourceMode::Paperless
-        }
-        _ => InvoiceSourceMode::Local,
-    }
-}
-
-pub fn get_invoice_source_mode_internal(app_dir: &Path) -> Result<InvoiceSourceMode, String> {
-    Ok(get_invoice_source_mode_from_settings(&LocalSettings::load_effective(app_dir)))
-}
-
 #[cfg(test)]
 #[path = "integrations_tests.rs"]
 mod tests;

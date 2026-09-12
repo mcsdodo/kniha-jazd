@@ -266,139 +266,9 @@ export interface MonthEndRow {
 	sortKey: number; // For chronological sorting (lastTripInMonth + 0.5)
 }
 
-export type ReceiptStatus = 'Pending' | 'Parsed' | 'NeedsReview';
-export type ConfidenceLevel = 'Unknown' | 'High' | 'Medium' | 'Low';
-
-// Assignment type for receipt-to-trip relationship (Task 51)
-// User explicitly selects FUEL or OTHER when assigning receipt to trip
+// Assignment type for invoice-to-trip relationship (Task 51)
+// User explicitly selects FUEL or OTHER when assigning an invoice to a trip
 export type AssignmentType = 'Fuel' | 'Other';
-
-export interface FieldConfidence {
-	liters: ConfidenceLevel;
-	totalPrice: ConfidenceLevel;
-	date: ConfidenceLevel;
-}
-
-// Currency codes supported for multi-currency receipts
-export type ReceiptCurrency = 'EUR' | 'CZK' | 'HUF' | 'PLN';
-
-export interface Receipt {
-	id: string;
-	vehicleId: string | null;
-	tripId: string | null;
-	filePath: string;
-	fileName: string;
-	scannedAt: string;
-	liters: number | null;
-	totalPriceEur: number | null; // EUR value for matching + accounting (null for unconverted foreign currency)
-	receiptDatetime: string | null; // ISO datetime string (e.g., "2026-01-15T14:30:00") or date-only for time not extracted
-	stationName: string | null;
-	stationAddress: string | null;
-	sourceYear: number | null; // Year from folder structure (e.g., 2024 from "2024/" folder)
-	vendorName: string | null; // Vendor/store name for non-fuel receipts
-	costDescription: string | null; // Description of cost for non-fuel receipts
-	// Multi-currency support
-	originalAmount: number | null; // Raw amount from OCR (in original currency)
-	originalCurrency: ReceiptCurrency | null; // Currency code: EUR, CZK, HUF, PLN
-	status: ReceiptStatus;
-	confidence: FieldConfidence;
-	rawOcrText: string | null;
-	errorMessage: string | null;
-	// Assignment fields (Task 51: Receipt-Trip State Model)
-	// Data invariant: tripId = null ↔ assignmentType = null (unassigned)
-	//                 tripId = set  ↔ assignmentType = set  (assigned)
-	assignmentType: AssignmentType | null; // Fuel or Other, set when assigned to trip
-	mismatchOverride: boolean; // True = user confirmed data mismatch is intentional
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface ReceiptSettings {
-	/** Whether a key is configured. The key itself never crosses the wire —
-	 *  reading it goes through revealSecret(). */
-	hasGeminiApiKey: boolean;
-	receiptsFolderPath: string | null;
-	/** GEMINI_API_KEY pins the key — Settings renders it read-only. */
-	geminiApiKeyFromEnv: boolean;
-}
-
-export interface SyncError {
-	fileName: string;
-	error: string;
-}
-
-export interface SyncResult {
-	processed: Receipt[];
-	errors: SyncError[];
-	warning: string | null; // Warning message for invalid folder structure
-}
-
-export interface ScanResult {
-	newCount: number;
-	warning: string | null;
-}
-
-// Reason why a receipt could not be matched to a trip (verification)
-export type ReceiptMismatchReason =
-	| { type: 'none' }
-	| { type: 'missingReceiptData' }
-	| { type: 'noFuelTripFound' }
-	| { type: 'dateMismatch'; receiptDate: string; closestTripDate: string }
-	| { type: 'datetimeOutOfRange'; receiptTime: string; tripStart: string; tripEnd: string }
-	| { type: 'litersMismatch'; receiptLiters: number; tripLiters: number }
-	| { type: 'priceMismatch'; receiptPrice: number; tripPrice: number }
-	| { type: 'noOtherCostMatch' };
-
-export interface ReceiptVerification {
-	receiptId: string;
-	matched: boolean;
-	matchedTripId: string | null;
-	matchedTripDatetime: string | null; // "D.M. HH:MM–HH:MM" (e.g., "22.1. 15:00–17:00")
-	matchedTripTimeRange: string | null; // "HH:MM–HH:MM" for warning message
-	matchedTripRoute: string | null;
-	mismatchReason: ReceiptMismatchReason;
-	datetimeWarning: boolean; // True if receipt datetime is outside matched trip's range
-}
-
-export interface VerificationResult {
-	total: number;
-	matched: number;
-	unmatched: number;
-	receipts: ReceiptVerification[];
-}
-
-// =============================================================================
-// Receipt Display State (Task 51: Computed, never stored)
-// =============================================================================
-
-/** Summary of a trip for display in receipt UI */
-export interface TripSummary {
-	tripId: string;
-	date: string; // "D.M." format (e.g., "15.1.")
-	route: string; // "Origin → Destination"
-	timeRange: string; // "HH:MM–HH:MM"
-}
-
-/** Data mismatch details for UI display */
-export type DataMismatch =
-	| { type: 'timeOutsideRange'; receiptTime: string; tripRange: string }
-	| { type: 'litersDiffer'; receipt: number; trip: number }
-	| { type: 'priceDiffers'; receipt: number; trip: number };
-
-/** Computed display state for receipts - NEVER stored in DB */
-export type ReceiptDisplayState =
-	| { state: 'processing' }
-	| { state: 'needsReview' }
-	| { state: 'unassigned' }
-	| { state: 'assigned'; tripSummary: TripSummary; assignmentType: AssignmentType }
-	| {
-			state: 'assignedMismatch';
-			tripSummary: TripSummary;
-			assignmentType: AssignmentType;
-			mismatches: DataMismatch[];
-	  }
-	| { state: 'assignedOverride'; tripSummary: TripSummary; assignmentType: AssignmentType };
-
 // Live preview result for trip editing
 export interface PreviewResult {
 	fuelRemaining: number;
@@ -487,7 +357,7 @@ export function extractTime(datetime: string): string {
 }
 
 /** Secrets that revealSecret() can return. Mirrors the Rust SecretField enum. */
-export type SecretField = 'geminiApiKey' | 'haApiToken' | 'paperlessApiToken';
+export type SecretField = 'haApiToken' | 'paperlessApiToken';
 
 // Home Assistant integration types
 export interface HaSettings {
@@ -540,8 +410,6 @@ export interface PaperlessCustomFieldInfo {
 	dataType: string;
 }
 
-export type InvoiceSourceMode = 'local' | 'paperless';
-
 export interface PaperlessInvoiceRow {
 	paperlessDocumentId: number;
 	title: string;
@@ -552,18 +420,9 @@ export interface PaperlessInvoiceRow {
 	createdDate: string;              // "2026-04-27"
 	assignmentType: AssignmentType;
 	tripId: string | null;
-}
-
-export type InvoiceRef =
-	| { source: 'receipt'; id: string }
-	| { source: 'paperless'; id: number };
-
-export interface InvoiceData {
-	datetime: string | null;          // ISO-8601 NaiveDateTime, e.g. "2026-04-27T13:24:14"
-	liters: number | null;
-	totalPriceEur: number | null;
-	title: string;
-	assignmentType: 'Fuel' | 'Other';
+	/** True when the user confirmed a data mismatch when assigning and has not
+	 *  cleared it. Only meaningful when tripId is set. */
+	mismatchOverride: boolean;
 }
 
 // Route map types (Task 70)

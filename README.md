@@ -28,7 +28,7 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby
 - **Zálohovanie a obnova** - Automatická záloha pred migráciou databázy, správa záloh
 - **Export** - HTML náhľad s tlačou do PDF (Ctrl+P), rešpektuje skryté stĺpce
-- **Doklady (AI OCR)** - Automatické rozpoznávanie blokov z čerpacích staníc s podporou viacerých mien (EUR, CZK, HUF, PLN)
+- **Doklady (Paperless-ngx)** - Doklady sa preberajú z vášho Paperless-ngx a priraďujú sa k jazdám; Paperless-ngx je jediný zdroj dokladov
 - **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
 - **Prístup z prehliadača** - Telefón, tablet aj počítač pristupujú k tej istej inštancii v lokálnej sieti
 - **Docker nasadenie** - Jeden kontajner, jeden `/data` zväzok, pre vždy-zapnuté zariadenia (NAS, Raspberry Pi). Detaily nájdete v [docs/features/server-mode.md](docs/features/server-mode.md).
@@ -103,66 +103,44 @@ Aplikácia vypočíta spotrebu automaticky.
 - Margin pod 20% = v poriadku
 - Margin nad 20% = upozornenie + návrhy kompenzačných jázd
 
-### 5. Doklady (AI rozpoznávanie blokov)
+### 5. Doklady (Paperless-ngx)
 
-Aplikácia podporuje automatické rozpoznávanie blokov z čerpacích staníc pomocou AI (Gemini).
-Podporované meny: EUR, CZK, HUF, PLN (cudzie meny vyžadujú manuálnu konverziu na EUR).
+Doklady sa do knihy jázd preberajú z [Paperless-ngx](https://docs.paperless-ngx.com/).
+Paperless-ngx je jediný zdroj dokladov: rozpozná text na svojom serveri a aplikácia
+si od neho doklady načíta, zobrazí a priradí ich k jazdám.
 
 #### Nastavenie
 
-1. **Získajte Gemini API kľúč:**
-   - Navštívte [Google AI Studio](https://aistudio.google.com/apikey)
-   - Vytvorte nový API kľúč (bezplatný tier stačí pre bežné použitie)
+1. V Paperless-ngx označte doklady značkami `fuel` (tankovanie) a `car` (ostatné
+   náklady) a vytvorte doplnkové polia `total_amount` (suma v EUR), `litres` (litre,
+   len pri tankovaní) a `receipt_datetime` (dátum a čas dokladu, formát ISO-8601).
+2. V aplikácii v časti Nastavenia -> Paperless-ngx zadajte adresu inštancie
+   a API token.
 
-2. **Nastavte v aplikácii** v časti Nastavenia → Skenovanie dokladov:
-   - Zadajte Gemini API kľúč
-   - Vyberte priečinok s bločkami
+   > **Alternatíva:** premenné prostredia `PAPERLESS_URL`, `PAPERLESS_API_TOKEN`
+   > a `PAPERLESS_ENABLED` na kontajneri majú prednosť pred uloženým nastavením.
 
-   > **Alternatíva:** Premenná prostredia `GEMINI_API_KEY` na kontajneri (má prednosť pred
-   > uloženým nastavením), alebo manuálna konfigurácia v `local.settings.json` v dátovom
-   > priečinku (`/data/local.settings.json` v kontajneri):
-   > ```json
-   > {
-   >   "gemini_api_key": "AIza...",
-   >   "receipts_folder_path": "/data/receipts"
-   > }
-   > ```
+3. V časti Doklady sa načítajú doklady pre zvolené vozidlo a rok.
+4. Tlačidlom "Priradiť k jazde" priradíte doklad k jazde.
 
-   Priečinok s bločkami je cesta **na serveri** (v kontajneri), nie na vašom počítači —
-   zadajte ju ako text, napr. `/data/receipts`, a namontujte ju do kontajnera.
+Tlačidlo "Otvoriť v Paperless" otvorí doklad v novej karte prehliadača.
 
-#### Štruktúra priečinka s bločkami
-
-Aplikácia podporuje dva spôsoby organizácie bločkov:
-
-**Plochá štruktúra** - všetky súbory priamo v priečinku:
-```
-/bloky/
-  blocok1.jpg
-  blocok2.png
-```
-→ Bločky sa zobrazujú vo všetkých rokoch
-
-**Ročná štruktúra** - súbory v podpriečinkoch podľa roku:
-```
-/bloky/
-  2024/
-    blocok1.jpg
-  2025/
-    blocok2.png
-```
-→ Bločky sa filtrujú podľa vybraného roku
-
-**Poznámky:**
-- Miešaná štruktúra (súbory + priečinky) zobrazí upozornenie a bločky sa nenačítajú
-- Dátum z OCR má prednosť pred rokom priečinka (pomáha odhaliť nesprávne zaradené bločky)
-
-#### Použitie
-
-1. Uložte fotky blokov do nastaveného priečinka
-2. Otvorte sekciu "Doklady" a kliknite na "Sync"
-3. AI rozpozná dátum, litre a sumu
-4. Priraďte bloky k jazdám
+> **Dôležité pred aktualizáciou:** táto verzia odstraňuje miestne skenovanie dokladov
+> a pri aktualizácii zruší tabuľku `receipts`. Miestne doklady sa tým **nenávratne
+> zahodia**. Doklady priradené k jazde ostávajú ako odkazy na Paperless, ostatné
+> riadky zmiznú.
+>
+> Ak ich ešte potrebujete, vyexportujte si ich **pred** aktualizáciou:
+>
+> ```bash
+> sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv
+> ```
+>
+> Aplikácia pred migráciou sama uloží zálohu do
+> `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-*.db`. Túto zálohu nikdy
+> nemaže, takže sa z nej dá tabuľka prečítať aj neskôr cez `sqlite3`. Obnova zálohy
+> ale doklady **nevráti**: nová verzia pri štarte znova spustí migrácie a tabuľku
+> znova zruší.
 
 ## Často kladené otázky (FAQ)
 
@@ -178,10 +156,12 @@ Zostatok sa počíta z natankovaných litrov mínus spotreba. Ak je záporný, s
 - Či ste zadali správny počet km
 - Či ste zaznamenali všetky tankovania
 
-**Rozpoznávanie blokov nefunguje?**
-1. Skontrolujte Gemini API kľúč (premenná `GEMINI_API_KEY` alebo `local.settings.json`)
-2. Overte, že priečinok s bločkami existuje **vnútri kontajnera**
-3. Podporované formáty: JPG, PNG, WebP, PDF
+**Doklady z Paperlessu sa nezobrazujú?**
+1. Skontrolujte adresu a API token Paperlessu (premenné `PAPERLESS_URL`,
+   `PAPERLESS_API_TOKEN`, `PAPERLESS_ENABLED` alebo `local.settings.json`)
+2. Overte, že doklady majú značky `fuel` alebo `car` a doplnkové polia
+   `total_amount`, `litres`, `receipt_datetime`
+3. Skontrolujte stav pripojenia v Nastaveniach -> Paperless-ngx
 
 **Ako preniesť dáta na iný server?**
 
@@ -198,7 +178,7 @@ z dvoch kontajnerov naraz.
 
 ## Súkromie
 
-Všetky dáta zostávajú na vašom serveri. Server nemá autentifikáciu a je určený výlučne pre dôveryhodnú lokálnu sieť (CORS povoľuje len privátne IP rozsahy) — nevystavujte ho do internetu. Jediné externé pripojenie je pri použití AI rozpoznávania blokov - vtedy sa obrázky posielajú do Gemini API (Google). Túto funkciu nemusíte používať.
+Všetky dáta zostávajú na vašom serveri. Server nemá autentifikáciu a je určený výlučne pre dôveryhodnú lokálnu sieť (CORS povoľuje len privátne IP rozsahy). Nevystavujte ho do internetu. Aplikácia komunikuje už len s vaším Paperless-ngx a Home Assistantom, teda so službami, ktoré si sami prevádzkujete.
 
 ## Pre vývojárov
 

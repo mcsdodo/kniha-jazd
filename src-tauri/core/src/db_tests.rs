@@ -2,8 +2,7 @@
 
 use super::*;
 use crate::models::{
-    AssignmentType, NewPlaceRow, PaperlessLink, PlaceRow, ReceiptStatus, RouteMap, RouteMode,
-    VehicleType, Waypoint,
+    AssignmentType, NewPlaceRow, PaperlessLink, PlaceRow, RouteMap, RouteMode, VehicleType, Waypoint,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -232,26 +231,6 @@ fn test_vehicle_crud_lifecycle() {
     db.delete_vehicle(&vehicle.id.to_string())
         .expect("Failed to delete");
     assert!(db.get_vehicle(&vehicle.id.to_string()).unwrap().is_none());
-}
-
-#[test]
-fn test_delete_vehicle_unassigns_receipts_first() {
-    let db = Database::in_memory().unwrap();
-
-    let vehicle = create_test_vehicle("Car A");
-    db.create_vehicle(&vehicle).unwrap();
-
-    let mut receipt = Receipt::new("path.jpg".to_string(), "receipt.jpg".to_string());
-    receipt.vehicle_id = Some(vehicle.id);
-    db.create_receipt(&receipt).unwrap();
-
-    db.delete_vehicle(&vehicle.id.to_string()).unwrap();
-
-    assert!(db.get_vehicle(&vehicle.id.to_string()).unwrap().is_none());
-
-    let receipts = db.get_all_receipts().unwrap();
-    assert_eq!(receipts.len(), 1);
-    assert!(receipts[0].vehicle_id.is_none());
 }
 
 #[test]
@@ -540,77 +519,6 @@ fn another_vehicles_trips_do_not_count_towards_this_ones_routes() {
     assert_eq!(routes[0].usage_count, 1);
 }
 
-#[test]
-fn test_receipt_crud() {
-    let db = Database::in_memory().unwrap();
-
-    let receipt = Receipt::new(
-        "C:\\test\\receipt.jpg".to_string(),
-        "receipt.jpg".to_string(),
-    );
-    db.create_receipt(&receipt).unwrap();
-
-    let receipts = db.get_all_receipts().unwrap();
-    assert_eq!(receipts.len(), 1);
-    assert_eq!(receipts[0].file_name, "receipt.jpg");
-    assert_eq!(receipts[0].status, ReceiptStatus::Pending);
-
-    let found = db
-        .get_receipt_by_file_path("C:\\test\\receipt.jpg")
-        .unwrap();
-    assert!(found.is_some());
-
-    let mut updated = receipt.clone();
-    updated.liters = Some(45.5);
-    updated.status = ReceiptStatus::Parsed;
-    db.update_receipt(&updated).unwrap();
-
-    let receipts = db.get_all_receipts().unwrap();
-    assert_eq!(receipts[0].liters, Some(45.5));
-    assert_eq!(receipts[0].status, ReceiptStatus::Parsed);
-
-    db.delete_receipt(&receipt.id.to_string()).unwrap();
-    assert_eq!(db.get_all_receipts().unwrap().len(), 0);
-}
-
-#[test]
-fn test_get_unassigned_receipts() {
-    let db = Database::in_memory().unwrap();
-
-    let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).unwrap();
-
-    let trip = create_test_trip(vehicle.id, "2024-12-01");
-    db.create_trip(&trip).unwrap();
-
-    let receipt1 = Receipt::new("path1.jpg".to_string(), "1.jpg".to_string());
-    let mut receipt2 = Receipt::new("path2.jpg".to_string(), "2.jpg".to_string());
-    receipt2.trip_id = Some(trip.id);
-    receipt2.vehicle_id = Some(vehicle.id);
-
-    db.create_receipt(&receipt1).unwrap();
-    db.create_receipt(&receipt2).unwrap();
-
-    let unassigned = db.get_unassigned_receipts().unwrap();
-    assert_eq!(unassigned.len(), 1);
-    assert_eq!(unassigned[0].file_name, "1.jpg");
-}
-
-#[test]
-fn test_get_pending_receipts() {
-    let db = Database::in_memory().unwrap();
-
-    let receipt1 = Receipt::new("path1.jpg".to_string(), "pending.jpg".to_string());
-    let mut receipt2 = Receipt::new("path2.jpg".to_string(), "parsed.jpg".to_string());
-    receipt2.status = ReceiptStatus::Parsed;
-
-    db.create_receipt(&receipt1).unwrap();
-    db.create_receipt(&receipt2).unwrap();
-
-    let pending = db.get_pending_receipts().unwrap();
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0].file_name, "pending.jpg");
-}
 
 #[test]
 fn test_settings_crud() {
@@ -633,71 +541,6 @@ fn test_settings_crud() {
 
     let after_update = db.get_settings().unwrap().unwrap();
     assert_eq!(after_update.company_name, "Test Company");
-}
-
-fn create_receipt_for_year_test(
-    file_path: &str,
-    receipt_datetime: Option<NaiveDateTime>,
-    source_year: Option<i32>,
-) -> Receipt {
-    let mut receipt =
-        Receipt::new_with_source_year(file_path.to_string(), file_path.to_string(), source_year);
-    receipt.receipt_datetime = receipt_datetime;
-    receipt
-}
-
-#[test]
-fn test_get_receipts_for_year_filters_by_receipt_datetime() {
-    let db = Database::in_memory().unwrap();
-
-    let receipt = create_receipt_for_year_test(
-        "r1.jpg",
-        Some(
-            NaiveDateTime::parse_from_str("2024-05-01T10:30:00", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        ),
-        Some(2024),
-    );
-    db.create_receipt(&receipt).unwrap();
-
-    let receipt2 = create_receipt_for_year_test(
-        "r2.jpg",
-        Some(
-            NaiveDateTime::parse_from_str("2023-12-31T23:59:59", "%Y-%m-%dT%H:%M:%S").unwrap(),
-        ),
-        Some(2024),
-    );
-    db.create_receipt(&receipt2).unwrap();
-
-    let receipts_2024 = db.get_receipts_for_year(2024).unwrap();
-    assert_eq!(receipts_2024.len(), 1);
-    assert_eq!(receipts_2024[0].file_name, "r1.jpg");
-}
-
-#[test]
-fn test_get_receipts_for_vehicle_returns_unassigned_and_own() {
-    let db = Database::in_memory().unwrap();
-
-    let vehicle_a = create_test_vehicle("Car A");
-    let vehicle_b = create_test_vehicle("Car B");
-    db.create_vehicle(&vehicle_a).unwrap();
-    db.create_vehicle(&vehicle_b).unwrap();
-
-    let unassigned = Receipt::new("path1.jpg".to_string(), "receipt1.jpg".to_string());
-    let mut receipt_a = Receipt::new("path2.jpg".to_string(), "receipt2.jpg".to_string());
-    receipt_a.vehicle_id = Some(vehicle_a.id);
-    let mut receipt_b = Receipt::new("path3.jpg".to_string(), "receipt3.jpg".to_string());
-    receipt_b.vehicle_id = Some(vehicle_b.id);
-
-    db.create_receipt(&unassigned).unwrap();
-    db.create_receipt(&receipt_a).unwrap();
-    db.create_receipt(&receipt_b).unwrap();
-
-    let results = db.get_receipts_for_vehicle(&vehicle_a.id, None).unwrap();
-
-    assert_eq!(results.len(), 2);
-    assert!(results.iter().any(|r| r.id == unassigned.id));
-    assert!(results.iter().any(|r| r.id == receipt_a.id));
-    assert!(!results.iter().any(|r| r.id == receipt_b.id));
 }
 
 #[test]
@@ -737,6 +580,8 @@ fn make_link(
         amount_eur,
         title: Some(format!("doc-{}", doc_id)),
         applied_amount_cents: None,
+        receipt_datetime: None,
+        mismatch_override: false,
     }
 }
 
@@ -879,72 +724,16 @@ fn delete_trip_removes_paperless_link() {
 }
 
 // ============================================================================
-// Receipt applied-amount snapshot (Task 66)
-// ============================================================================
-
-#[test]
-fn test_receipt_applied_amount_cents_roundtrip() {
-    let db = Database::in_memory().unwrap();
-    let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle).unwrap();
-    let trip = create_test_trip(vehicle.id, "2026-01-01");
-    db.create_trip(&trip).unwrap();
-
-    let mut receipt = Receipt::new("snap.jpg".to_string(), "snap.jpg".to_string());
-    receipt.vehicle_id = Some(vehicle.id);
-    receipt.trip_id = Some(trip.id);
-    receipt.assignment_type = Some(AssignmentType::Other);
-    receipt.applied_amount_cents = Some(501);
-    db.create_receipt(&receipt).unwrap();
-
-    let loaded = db
-        .get_receipt_by_id(&receipt.id.to_string())
-        .unwrap()
-        .unwrap();
-    assert_eq!(loaded.applied_amount_cents, Some(501));
-
-    // update_receipt persists the snapshot too
-    let mut edited = loaded.clone();
-    edited.applied_amount_cents = Some(750);
-    db.update_receipt(&edited).unwrap();
-    let loaded = db
-        .get_receipt_by_id(&receipt.id.to_string())
-        .unwrap()
-        .unwrap();
-    assert_eq!(loaded.applied_amount_cents, Some(750));
-
-    // unassign clears it
-    db.unassign_receipt(&receipt.id.to_string()).unwrap();
-    let loaded = db
-        .get_receipt_by_id(&receipt.id.to_string())
-        .unwrap()
-        .unwrap();
-    assert_eq!(loaded.applied_amount_cents, None);
-}
-
-// ============================================================================
 // Per-trip invoice coverage (replaces get_trip_ids_with_invoice, Task 66)
 // ============================================================================
 
 #[test]
-fn invoice_coverage_unions_receipts_and_paperless() {
+fn invoice_coverage_reads_paperless_links_only() {
     let db = Database::in_memory().expect("db");
     let v = create_test_vehicle("Test");
     db.create_vehicle(&v).unwrap();
-    let trip_with_receipt = seed_test_trip(&db, &v.id.to_string());
     let trip_with_paperless = seed_test_trip(&db, &v.id.to_string());
     let trip_uncovered = seed_test_trip(&db, &v.id.to_string());
-
-    // Receipt-side coverage: assign a Fuel receipt to trip_with_receipt
-    let mut receipt = Receipt::new("p.jpg".to_string(), "r.jpg".to_string());
-    receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_with_receipt).unwrap());
-    receipt.vehicle_id = Some(v.id);
-    receipt.assignment_type = Some(AssignmentType::Fuel);
-    db.create_receipt(&receipt).unwrap();
-
-    // An unassigned receipt must NOT contribute to the covered set
-    let unassigned = Receipt::new("u.jpg".to_string(), "u.jpg".to_string());
-    db.create_receipt(&unassigned).unwrap();
 
     // Paperless-side coverage: link an Other doc to trip_with_paperless
     db.upsert_paperless_link(&make_link(
@@ -957,10 +746,6 @@ fn invoice_coverage_unions_receipts_and_paperless() {
 
     let coverage = db.get_trip_invoice_coverage().unwrap();
 
-    let receipt_cov = coverage.get(&trip_with_receipt).expect("receipt trip covered");
-    assert!(receipt_cov.has_fuel);
-    assert!(!receipt_cov.has_other);
-
     let paperless_cov = coverage
         .get(&trip_with_paperless)
         .expect("paperless trip covered");
@@ -969,7 +754,7 @@ fn invoice_coverage_unions_receipts_and_paperless() {
     assert_eq!(paperless_cov.other_sum_cents, 1500);
 
     assert!(!coverage.contains_key(&trip_uncovered));
-    assert_eq!(coverage.len(), 2);
+    assert_eq!(coverage.len(), 1);
 }
 
 #[test]
@@ -979,31 +764,18 @@ fn test_invoice_coverage_per_type_and_sum() {
     db.create_vehicle(&v).unwrap();
     let trip_full = seed_test_trip(&db, &v.id.to_string());
     let trip_unknown_link = seed_test_trip(&db, &v.id.to_string());
-    let trip_unknown_receipt = seed_test_trip(&db, &v.id.to_string());
 
-    // trip_full: 1 Fuel receipt + 2 Other links (5.00, 7.50)
-    let mut fuel_receipt = Receipt::new("f.jpg".to_string(), "f.jpg".to_string());
-    fuel_receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_full).unwrap());
-    fuel_receipt.vehicle_id = Some(v.id);
-    fuel_receipt.assignment_type = Some(AssignmentType::Fuel);
-    fuel_receipt.total_price_eur = Some(58.20);
-    db.create_receipt(&fuel_receipt).unwrap();
-    db.upsert_paperless_link(&make_link(1, &trip_full, AssignmentType::Other, Some(5.00)))
+    // trip_full: 1 Fuel link + 2 Other links (5.00, 7.50)
+    db.upsert_paperless_link(&make_link(1, &trip_full, AssignmentType::Fuel, Some(58.20)))
         .unwrap();
-    db.upsert_paperless_link(&make_link(2, &trip_full, AssignmentType::Other, Some(7.50)))
+    db.upsert_paperless_link(&make_link(2, &trip_full, AssignmentType::Other, Some(5.00)))
+        .unwrap();
+    db.upsert_paperless_link(&make_link(3, &trip_full, AssignmentType::Other, Some(7.50)))
         .unwrap();
 
     // trip_unknown_link: 1 Other link with amount NULL
-    db.upsert_paperless_link(&make_link(3, &trip_unknown_link, AssignmentType::Other, None))
+    db.upsert_paperless_link(&make_link(4, &trip_unknown_link, AssignmentType::Other, None))
         .unwrap();
-
-    // trip_unknown_receipt: 1 Other RECEIPT with total_price_eur NULL (I3)
-    let mut other_receipt = Receipt::new("o.jpg".to_string(), "o.jpg".to_string());
-    other_receipt.trip_id = Some(uuid::Uuid::parse_str(&trip_unknown_receipt).unwrap());
-    other_receipt.vehicle_id = Some(v.id);
-    other_receipt.assignment_type = Some(AssignmentType::Other);
-    other_receipt.total_price_eur = None;
-    db.create_receipt(&other_receipt).unwrap();
 
     let coverage = db.get_trip_invoice_coverage().unwrap();
 
@@ -1018,12 +790,6 @@ fn test_invoice_coverage_per_type_and_sum() {
         .expect("trip_unknown_link covered");
     assert!(unknown_link.has_other);
     assert!(unknown_link.has_unknown_amount);
-
-    let unknown_receipt = coverage
-        .get(&trip_unknown_receipt)
-        .expect("trip_unknown_receipt covered");
-    assert!(unknown_receipt.has_other);
-    assert!(unknown_receipt.has_unknown_amount);
 }
 
 // ============================================================================

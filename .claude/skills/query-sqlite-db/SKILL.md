@@ -34,7 +34,7 @@ It reports the path the process actually opened.
 sqlite3 ./data/kniha-jazd.db "SELECT * FROM vehicles;"
 
 # Schema
-sqlite3 ./data/kniha-jazd.db ".schema receipts"
+sqlite3 ./data/kniha-jazd.db ".schema paperless_trip_links"
 
 # Tables
 sqlite3 ./data/kniha-jazd.db ".tables"
@@ -52,7 +52,7 @@ bind-mounted file on the host.
 |-------|-------------|
 | `vehicles` | `id`, `name`, `tp_consumption` |
 | `trips` | `id`, `vehicle_id`, `start_datetime`, `end_datetime`, `fuel_liters` |
-| `receipts` | `id`, `trip_id`, `receipt_datetime`, `liters`, `total_price_eur` |
+| `paperless_trip_links` | `paperless_document_id`, `trip_id`, `assignment_type`, `amount_eur`, `applied_amount_cents`, `mismatch_override` |
 
 ## Common Mistakes
 

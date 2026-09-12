@@ -18,7 +18,6 @@ This folder contains **Feature Documentation** — technical walkthroughs that d
 
 Examples:
 - `server-mode.md` — HTTP server, Docker deployment and env-var configuration
-- `receipt-scanning.md` — AI-powered receipt OCR flow
 - `consumption-calculation.md` — Core business logic walkthrough
 
 ## Template

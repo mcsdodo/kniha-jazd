@@ -9,8 +9,6 @@ use tempfile::tempdir;
 fn test_load_missing_file_returns_default() {
     let dir = tempdir().unwrap();
     let settings = LocalSettings::load(&dir.path().to_path_buf());
-    assert!(settings.gemini_api_key.is_none());
-    assert!(settings.receipts_folder_path.is_none());
     assert!(settings.theme.is_none());
     assert!(settings.custom_db_path.is_none());
 }
@@ -21,12 +19,12 @@ fn test_load_existing_file() {
     let path = dir.path().join("local.settings.json");
     let mut file = fs::File::create(&path).unwrap();
     // Use forward slashes which work on all platforms and don't need escaping
-    file.write_all(br#"{"gemini_api_key": "test-key", "receipts_folder_path": "C:/test"}"#)
+    file.write_all(br#"{"ha_url": "http://ha.local:8123", "server_port": 3456}"#)
         .unwrap();
 
     let settings = LocalSettings::load(&dir.path().to_path_buf());
-    assert_eq!(settings.gemini_api_key, Some("test-key".to_string()));
-    assert_eq!(settings.receipts_folder_path, Some("C:/test".to_string()));
+    assert_eq!(settings.ha_url, Some("http://ha.local:8123".to_string()));
+    assert_eq!(settings.server_port, Some(3456));
 }
 
 #[test]
@@ -34,12 +32,12 @@ fn test_load_partial_file() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("local.settings.json");
     let mut file = fs::File::create(&path).unwrap();
-    file.write_all(br#"{"gemini_api_key": "only-key"}"#)
+    file.write_all(br#"{"ha_url": "http://ha.local:8123"}"#)
         .unwrap();
 
     let settings = LocalSettings::load(&dir.path().to_path_buf());
-    assert_eq!(settings.gemini_api_key, Some("only-key".to_string()));
-    assert!(settings.receipts_folder_path.is_none());
+    assert_eq!(settings.ha_url, Some("http://ha.local:8123".to_string()));
+    assert!(settings.paperless_url.is_none());
 }
 
 #[test]
@@ -93,8 +91,6 @@ fn test_save_creates_file() {
 fn test_save_preserves_all_fields() {
     let dir = tempdir().unwrap();
     let settings = LocalSettings {
-        gemini_api_key: Some("my-key".to_string()),
-        receipts_folder_path: Some("C:/receipts".to_string()),
         theme: Some("dark".to_string()),
         auto_check_updates: Some(false),
         custom_db_path: Some("D:/NAS/data".to_string()),
@@ -117,8 +113,6 @@ fn test_save_preserves_all_fields() {
     settings.save(&dir.path().to_path_buf()).unwrap();
 
     let loaded = LocalSettings::load(&dir.path().to_path_buf());
-    assert_eq!(loaded.gemini_api_key, Some("my-key".to_string()));
-    assert_eq!(loaded.receipts_folder_path, Some("C:/receipts".to_string()));
     assert_eq!(loaded.theme, Some("dark".to_string()));
     assert_eq!(loaded.auto_check_updates, Some(false));
     assert_eq!(loaded.custom_db_path, Some("D:/NAS/data".to_string()));
@@ -361,7 +355,6 @@ fn test_set_infer_trip_times_internal_round_trip() {
 fn test_apply_overrides_applies_each_field() {
     let mut s = LocalSettings::default();
     s.apply_overrides(|k| match k {
-        "GEMINI_API_KEY" => Some("env-gemini".to_string()),
         "HA_URL" => Some("http://env-ha:8123".to_string()),
         "HA_API_TOKEN" => Some("env-ha-token".to_string()),
         "PAPERLESS_URL" => Some("https://env-paperless".to_string()),
@@ -369,7 +362,6 @@ fn test_apply_overrides_applies_each_field() {
         "PAPERLESS_ENABLED" => Some("true".to_string()),
         _ => None,
     });
-    assert_eq!(s.gemini_api_key.as_deref(), Some("env-gemini"));
     assert_eq!(s.ha_url.as_deref(), Some("http://env-ha:8123"));
     assert_eq!(s.ha_api_token.as_deref(), Some("env-ha-token"));
     assert_eq!(s.paperless_url.as_deref(), Some("https://env-paperless"));
@@ -380,7 +372,6 @@ fn test_apply_overrides_applies_each_field() {
 #[test]
 fn test_apply_overrides_lookup_none_keeps_file_values() {
     let mut s = LocalSettings {
-        gemini_api_key: Some("file-gemini".to_string()),
         ha_url: Some("http://file-ha:8123".to_string()),
         ha_api_token: Some("file-ha-token".to_string()),
         paperless_url: Some("https://file-paperless".to_string()),
@@ -389,7 +380,6 @@ fn test_apply_overrides_lookup_none_keeps_file_values() {
         ..Default::default()
     };
     s.apply_overrides(|_| None);
-    assert_eq!(s.gemini_api_key.as_deref(), Some("file-gemini"));
     assert_eq!(s.ha_url.as_deref(), Some("http://file-ha:8123"));
     assert_eq!(s.ha_api_token.as_deref(), Some("file-ha-token"));
     assert_eq!(s.paperless_url.as_deref(), Some("https://file-paperless"));
@@ -400,18 +390,15 @@ fn test_apply_overrides_lookup_none_keeps_file_values() {
 #[test]
 fn test_apply_overrides_empty_or_whitespace_value_keeps_file_value() {
     let mut s = LocalSettings {
-        gemini_api_key: Some("file-gemini".to_string()),
         ha_url: Some("http://file-ha:8123".to_string()),
         paperless_enabled: Some(true),
         ..Default::default()
     };
     s.apply_overrides(|k| match k {
-        "GEMINI_API_KEY" => Some(String::new()),
         "HA_URL" => Some("   ".to_string()),
         "PAPERLESS_ENABLED" => Some(" \t ".to_string()),
         _ => None,
     });
-    assert_eq!(s.gemini_api_key.as_deref(), Some("file-gemini"));
     assert_eq!(s.ha_url.as_deref(), Some("http://file-ha:8123"));
     assert_eq!(s.paperless_enabled, Some(true));
 }
@@ -420,10 +407,10 @@ fn test_apply_overrides_empty_or_whitespace_value_keeps_file_value() {
 fn test_apply_overrides_trims_surrounding_whitespace() {
     let mut s = LocalSettings::default();
     s.apply_overrides(|k| match k {
-        "GEMINI_API_KEY" => Some("  padded-key  ".to_string()),
+        "HA_URL" => Some("  http://padded-ha:8123  ".to_string()),
         _ => None,
     });
-    assert_eq!(s.gemini_api_key.as_deref(), Some("padded-key"));
+    assert_eq!(s.ha_url.as_deref(), Some("http://padded-ha:8123"));
 }
 
 #[test]
@@ -461,41 +448,41 @@ fn test_apply_overrides_paperless_enabled_unset_keeps_file_value() {
 #[test]
 fn test_apply_overrides_env_wins_over_file_value() {
     let mut s = LocalSettings {
-        gemini_api_key: Some("file-key".to_string()),
+        ha_url: Some("http://file-ha:8123".to_string()),
         ..Default::default()
     };
-    s.apply_overrides(|k| (k == "GEMINI_API_KEY").then(|| "env-key".to_string()));
-    assert_eq!(s.gemini_api_key.as_deref(), Some("env-key"));
+    s.apply_overrides(|k| (k == "HA_URL").then(|| "http://env-ha:8123".to_string()));
+    assert_eq!(s.ha_url.as_deref(), Some("http://env-ha:8123"));
 }
 
 #[test]
 fn test_load_effective_env_wins_over_file_real_env() {
     let dir = tempdir().unwrap();
     let settings = LocalSettings {
-        gemini_api_key: Some("file-key".to_string()),
+        ha_url: Some("http://file-ha:8123".to_string()),
         ..Default::default()
     };
     settings.save(&dir.path().to_path_buf()).unwrap();
 
-    test_env::with_env_vars(&[("GEMINI_API_KEY", "env-key")], || {
+    test_env::with_env_vars(&[("HA_URL", "http://env-ha:8123")], || {
         let effective = LocalSettings::load_effective(dir.path());
-        assert_eq!(effective.gemini_api_key.as_deref(), Some("env-key"));
+        assert_eq!(effective.ha_url.as_deref(), Some("http://env-ha:8123"));
         // load() must remain env-free — setters use it, env must never be persisted
         let plain = LocalSettings::load(dir.path());
-        assert_eq!(plain.gemini_api_key.as_deref(), Some("file-key"));
+        assert_eq!(plain.ha_url.as_deref(), Some("http://file-ha:8123"));
     });
 }
 
 #[test]
 fn test_env_pinned_real_env() {
-    test_env::with_env_vars(&[("GEMINI_API_KEY", "some-key")], || {
-        assert!(LocalSettings::env_pinned("GEMINI_API_KEY"));
+    test_env::with_env_vars(&[("HA_API_TOKEN", "some-token")], || {
+        assert!(LocalSettings::env_pinned("HA_API_TOKEN"));
     });
-    test_env::with_env_vars(&[("GEMINI_API_KEY", "   ")], || {
-        assert!(!LocalSettings::env_pinned("GEMINI_API_KEY"));
+    test_env::with_env_vars(&[("HA_API_TOKEN", "   ")], || {
+        assert!(!LocalSettings::env_pinned("HA_API_TOKEN"));
     });
     test_env::with_env_vars(&[], || {
-        assert!(!LocalSettings::env_pinned("GEMINI_API_KEY"));
+        assert!(!LocalSettings::env_pinned("HA_API_TOKEN"));
     });
 }
 

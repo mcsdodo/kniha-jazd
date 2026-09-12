@@ -1,40 +1,42 @@
 /**
- * Tier 2: Multi-Invoice Integration Test (Task 66)
+ * Tier 2: Multi-Invoice Integration Test (Task 66, Paperless-only in Task 84)
  *
- * UI flow for "1 Fuel + N Other invoices per trip":
- * 1. Seed trip + 1 Fuel + 2 Other receipts (via seedReceipt helper)
- * 2. Assign Fuel, then both Others via the unified picker — no mismatch-confirm
- *    dialog appears for the second Other (C8 regression guard at UI level)
- * 3. Grid DISPLAYS the summed other-costs total
- * 4. Hand-edit other_costs_eur → sum-mismatch ⚠ + Slovak tooltip in the grid
- * 5. Unassign one Other → grid displays the reduced total, ⚠ state updates
+ * UI flow for "1 Fuel + N Other invoices per trip" against a mock Paperless
+ * server:
+ * 1. Configure Paperless and seed a trip that covers the mock docs' dates.
+ * 2. Assign 1 Fuel + 2 Other docs via the unified picker -- no mismatch-confirm
+ *    dialog appears for the second Other (C8 regression guard at UI level).
+ * 3. Grid DISPLAYS the summed other-costs total.
+ * 4. Hand-edit other_costs_eur -> sum-mismatch warning + Slovak tooltip.
+ * 5. Unassign one Other -> grid displays the reduced total, warning updates.
  *
  * The arithmetic itself (cent-exact money math, sum-on-assign, snapshot-based
- * unassign) is proven in backend unit tests — this spec only verifies that the
+ * unassign) is proven in backend unit tests -- this spec only verifies that the
  * UI triggers the backend and displays the results.
- *
- * Runs in Docker mode too: seedReceipt writes its placeholder files into the
- * work dir shared with the backend (see utils/paths.ts).
  */
 
-import { rmSync } from 'fs';
-import { join } from 'path';
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import {
   seedVehicle,
   seedTrip,
-  seedReceipt,
-  deleteReceipt,
   setActiveVehicle,
   updateTrip,
   rpc,
 } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
-import { hostWorkDir } from '../../utils/paths';
-import type { Receipt } from '../../fixtures/types';
+import {
+  startMockPaperless,
+  stopMockPaperless,
+  MOCK_PAPERLESS_TOKEN,
+} from '../_helpers/mock-paperless-server';
 
-/** Real trip rows only — excludes first-record/month-end synthetic rows and edit rows */
+/** Real trip rows only -- excludes first-record/month-end synthetic rows and edit rows */
 const TRIP_ROW = '.trip-grid tbody tr:not(.synthetic-row):not(.editing)';
+
+/** Mock Paperless doc IDs (see specs/_helpers/mock-paperless-server.ts). */
+const FUEL_DOC = 435; // 63.34 L, 113.95 EUR, 2026-04-27
+const OTHER_DOC_1 = 423; // 1.95 EUR, 2026-04-14
+const OTHER_DOC_2 = 391; // 110.00 EUR, 2026-03-27
 
 /**
  * Force Slovak locale and reload. The wdio beforeTest hook resets the locale
@@ -50,24 +52,19 @@ async function forceSlovakLocale(): Promise<void> {
 }
 
 /**
- * Assign a seeded receipt to a trip through the doklady picker UI.
+ * Assign a Paperless doc to a trip through the doklady picker UI.
  * Asserts that NO mismatch-confirm dialog appears (every assignment in this
- * scenario must be a clean "matches" flow — that is the C8 regression guard).
+ * scenario must be a clean "matches" flow -- that is the C8 regression guard).
  */
 async function assignViaPicker(
-  receipt: Receipt,
+  docId: number,
   assignmentType: 'Fuel' | 'Other',
   tripId: string
 ): Promise<void> {
-  // Find the receipt card by its unique file name (unassigned section).
-  // Strip the extension — WDIO treats selectors ending in ".png" as an
-  // image-file locator strategy instead of a partial-text match.
-  const nameToken = (receipt.fileName ?? '').replace(/\.[a-z0-9]+$/i, '');
-  const card = await $(`.receipt-card*=${nameToken}`);
-  await card.waitForDisplayed({ timeout: 5000 });
+  const row = await $(`[data-test="paperless-row"][data-doc-id="${docId}"]`);
+  await row.waitForDisplayed({ timeout: 5000 });
 
-  // The only primary button on an unassigned card is "Assign to trip"
-  const assignBtn = await card.$('.button-small.primary');
+  const assignBtn = await row.$('[data-test="assign-btn"]');
   await assignBtn.waitForClickable({ timeout: 5000 });
   await assignBtn.click();
 
@@ -76,7 +73,7 @@ async function assignViaPicker(
   await tripItem.waitForClickable({ timeout: 5000 });
   await tripItem.click();
 
-  // Step 2: type selection — wait for the radios to render
+  // Step 2: type selection -- wait for the radios to render
   const typeRadio = await $(`input[name="assignmentType"][value="${assignmentType}"]`);
   await typeRadio.waitForExist({ timeout: 5000 });
   await typeRadio.click();
@@ -102,23 +99,23 @@ async function getOtherCostsCell() {
 }
 
 describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
-  const seededReceiptIds: string[] = [];
+  let mockUrl: string;
+  const year = 2026;
 
-  // Receipts are NOT vehicle-scoped and the beforeTest DB cleanup does not
-  // reliably clear cross-spec state — leftover seeded receipts poison later
-  // specs (receipts.spec picks them up via getReceipts). Delete rows AND the
-  // placeholder files so a stray re-scan cannot resurrect them.
+  before(async () => {
+    mockUrl = await startMockPaperless();
+  });
+
   after(async () => {
-    for (const id of seededReceiptIds) {
-      try {
-        await deleteReceipt(id);
-      } catch {
-        // already gone or app shutting down — best-effort cleanup
-      }
+    // Always clear Paperless settings so subsequent specs start unconfigured.
+    // Pass empty strings (not null) -- backend treats None as "don't change",
+    // empty string as "clear".
+    try {
+      await rpc<void>('save_paperless_settings', { url: '', token: '' });
+    } catch {
+      // Best-effort -- if the app is gone or already cleared, ignore.
     }
-    // Host-side delete: this is the test process' own filesystem, so it uses
-    // hostWorkDir() — the same directory seedReceipt wrote the placeholders to.
-    rmSync(join(hostWorkDir(), 'seeded-receipts'), { recursive: true, force: true });
+    await stopMockPaperless();
   });
 
   it('assigns 1 Fuel + 2 Other via picker, displays sum, flags and updates mismatch', async function () {
@@ -128,9 +125,14 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
     await waitForAppReady();
     await forceSlovakLocale();
 
-    const year = new Date().getFullYear();
+    // ----- 1. Configure Paperless --------------------------------------------
+    await rpc<void>('save_paperless_settings', {
+      url: mockUrl,
+      token: MOCK_PAPERLESS_TOKEN,
+      enabled: true,
+    });
 
-    // ----- 1. Seed vehicle, trip, and 3 receipts ---------------------------
+    // ----- 2. Seed vehicle and a trip covering every mock doc datetime --------
     const vehicle = await seedVehicle({
       name: 'Multi-Invoice Test Vehicle',
       licensePlate: 'MULTI-01',
@@ -141,81 +143,58 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
     const vehicleId = vehicle.id as string;
     await setActiveVehicle(vehicleId);
 
-    // Trip with fuel data matching the Fuel receipt exactly (clean "matches"
-    // picker flow) and NO other costs yet (first Other populates the field).
+    // The three mock docs fall on 2026-03-27, 2026-04-14 and 2026-04-27, so
+    // the trip must span them: any doc datetime outside [start, end] would
+    // raise a datetime warning and obscure the sum-mismatch assertions.
     const trip = await seedTrip({
       vehicleId,
-      startDatetime: `${year}-05-10T08:00`,
-      endDatetime: `${year}-05-10T18:00`,
+      startDatetime: `${year}-03-27T00:00`,
+      endDatetime: `${year}-04-27T23:59`,
       origin: 'Bratislava',
       destination: 'Kosice',
       distanceKm: 400,
       odometer: 10400,
       purpose: 'Sluzobna cesta',
-      fuelLiters: 40.0,
-      fuelCostEur: 60.0,
+      fuelLiters: 63.34,
+      fuelCostEur: 113.95,
       fullTank: true,
     });
     const tripId = trip.id as string;
 
-    // All receipt datetimes inside the trip range (08:00–18:00 on 05-10)
-    const fuelReceipt = await seedReceipt({
-      assignmentType: 'Fuel',
-      liters: 40.0,
-      totalPriceEur: 60.0,
-      receiptDatetime: `${year}-05-10T10:00`,
-    });
-    const otherReceipt1 = await seedReceipt({
-      assignmentType: 'Other',
-      totalPriceEur: 10.0,
-      receiptDatetime: `${year}-05-10T11:00`,
-      vendorName: 'Parking Central',
-      costDescription: 'Parkovanie 2h',
-    });
-    const otherReceipt2 = await seedReceipt({
-      assignmentType: 'Other',
-      totalPriceEur: 5.01,
-      receiptDatetime: `${year}-05-10T12:00`,
-      vendorName: 'AutoWash Express',
-      costDescription: 'Umytie auta',
-    });
-    seededReceiptIds.push(
-      fuelReceipt.id as string,
-      otherReceipt1.id as string,
-      otherReceipt2.id as string
-    );
-
-    // ----- 2. Assign all three via the picker (no mismatch dialogs) --------
+    // ----- 3. Assign all three via the picker (no mismatch dialogs) ----------
     await browser.refresh();
     await waitForAppReady();
     await navigateTo('doklady');
-    await browser.pause(500);
+    await browser.waitUntil(
+      async () => (await $$('[data-test="paperless-row"]')).length === 3,
+      { timeout: 10000, timeoutMsg: 'Expected 3 paperless rows to render' }
+    );
 
-    await assignViaPicker(fuelReceipt, 'Fuel', tripId);
-    await assignViaPicker(otherReceipt1, 'Other', tripId);
-    // Second Other on a trip that already carries an Other invoice —
+    await assignViaPicker(FUEL_DOC, 'Fuel', tripId);
+    await assignViaPicker(OTHER_DOC_1, 'Other', tripId);
+    // Second Other on a trip that already carries an Other invoice --
     // assignViaPicker asserts no mismatch-confirm dialog appears (C8).
-    await assignViaPicker(otherReceipt2, 'Other', tripId);
+    await assignViaPicker(OTHER_DOC_2, 'Other', tripId);
 
-    // ----- 3. Grid displays the summed other-costs total -------------------
+    // ----- 4. Grid displays the summed other-costs total --------------------
     await navigateTo('trips');
     await waitForTripGrid();
     await browser.pause(500);
 
     let otherCell = await getOtherCostsCell();
     await otherCell.waitForDisplayed({ timeout: 5000 });
-    expect(await otherCell.getText()).toContain('15.01'); // 10.00 + 5.01
+    expect(await otherCell.getText()).toContain('111.95'); // 1.95 + 110.00
 
-    // Totals match the attached invoices — no warning of any kind
+    // Totals match the attached invoices -- no warning of any kind
     let indicator = await otherCell.$('.receipt-indicator');
     expect(await indicator.isExisting()).toBe(false);
 
-    // Fuel column is covered by the Fuel receipt — no missing-fuel warning
+    // Fuel column is covered by the Fuel doc -- no missing-fuel warning
     const fuelCell = await $(`${TRIP_ROW} .col-fuel-liters`);
     const fuelIndicator = await fuelCell.$('.receipt-indicator');
     expect(await fuelIndicator.isExisting()).toBe(false);
 
-    // ----- 4. Hand-edit other_costs_eur → sum-mismatch ⚠ + Slovak tooltip --
+    // ----- 5. Hand-edit other_costs_eur -> sum-mismatch warning + tooltip ---
     await updateTrip({
       id: tripId,
       startDatetime: trip.startDatetime,
@@ -228,7 +207,7 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
       fuelLiters: trip.fuelLiters,
       fuelCostEur: trip.fuelCostEur,
       fullTank: trip.fullTank,
-      otherCostsEur: 25.0, // != 15.01 invoice sum
+      otherCostsEur: 25.0, // != 111.95 invoice sum
     });
 
     await browser.refresh();
@@ -243,14 +222,12 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
     await mismatchIcon.waitForExist({ timeout: 5000 });
     // Assert the visible translated Slovak text (not an i18n key)
     expect(await mismatchIcon.getAttribute('title')).toBe(
-      'Suma iných nákladov nesedí so súčtom priradených dokladov (25.00 € vs 15.01 €)'
+      'Suma iných nákladov nesedí so súčtom priradených dokladov (25.00 € vs 111.95 €)'
     );
 
-    // ----- 5. Unassign one Other → reduced total, ⚠ state updates ----------
-    // Backend subtracts the applied snapshot (5.01): 25.00 - 5.01 = 19.99
-    await rpc<void>('unassign_invoice', {
-      invoiceRef: { source: 'receipt', id: otherReceipt2.id as string },
-    });
+    // ----- 6. Unassign one Other -> reduced total, warning updates ----------
+    // Backend subtracts the applied snapshot (1.95): 25.00 - 1.95 = 23.05
+    await rpc<void>('unassign_paperless_invoice', { docId: OTHER_DOC_1 });
 
     await browser.refresh();
     await waitForAppReady();
@@ -258,14 +235,14 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
     await browser.pause(500);
 
     otherCell = await getOtherCostsCell();
-    expect(await otherCell.getText()).toContain('19.99');
+    expect(await otherCell.getText()).toContain('23.05');
 
-    // Still mismatched (19.99 vs remaining invoice sum 10.00) — the ⚠ state
+    // Still mismatched (23.05 vs remaining invoice sum 110.00) -- the warning
     // updated to reflect both the new total and the reduced invoice sum
     mismatchIcon = await otherCell.$('.receipt-indicator.mismatch');
     await mismatchIcon.waitForExist({ timeout: 5000 });
     expect(await mismatchIcon.getAttribute('title')).toBe(
-      'Suma iných nákladov nesedí so súčtom priradených dokladov (19.99 € vs 10.00 €)'
+      'Suma iných nákladov nesedí so súčtom priradených dokladov (23.05 € vs 110.00 €)'
     );
   });
 });

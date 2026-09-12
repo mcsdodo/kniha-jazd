@@ -5,12 +5,11 @@
 //! to domain models (Vehicle, etc.) happen via From implementations.
 
 use crate::models::{
-    AssignmentType, NewPlaceRow, NewReceiptRow, NewRouteMapRow, NewRouteRow, NewSettingsRow,
-    NewTripRow, NewVehicleRow, PaperlessLink, PlaceRow, Receipt, ReceiptRow, Route, RouteMap,
-    RouteMapRow, RouteRow, Settings, SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle,
-    VehicleRow,
+    AssignmentType, NewPlaceRow, NewRouteMapRow, NewRouteRow, NewSettingsRow, NewTripRow,
+    NewVehicleRow, PaperlessLink, PlaceRow, Route, RouteMap, RouteMapRow, RouteRow, Settings,
+    SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
 };
-use crate::schema::{places, receipts, routes, settings, trip_routes, trips, vehicles};
+use crate::schema::{places, routes, settings, trip_routes, trips, vehicles};
 use chrono::{NaiveDateTime, Utc};
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
@@ -300,11 +299,6 @@ impl Database {
 
     pub fn delete_vehicle(&self, id: &str) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
-
-        // Unassign all receipts from this vehicle before deletion (FK SET NULL)
-        diesel::update(receipts::table.filter(receipts::vehicle_id.eq(id)))
-            .set(receipts::vehicle_id.eq::<Option<String>>(None))
-            .execute(conn)?;
 
         // Cascade-delete autocomplete routes for this vehicle. Routes are
         // internal helper data created when trips are saved with new origin/
@@ -858,258 +852,6 @@ impl Database {
     }
 
     // ========================================================================
-    // Receipt CRUD Operations
-    // ========================================================================
-
-    pub fn create_receipt(&self, receipt: &Receipt) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let id_str = receipt.id.to_string();
-        let vehicle_id_str = receipt.vehicle_id.map(|id| id.to_string());
-        let trip_id_str = receipt.trip_id.map(|id| id.to_string());
-        let scanned_at_str = receipt.scanned_at.to_rfc3339();
-        let receipt_datetime_str = receipt
-            .receipt_datetime
-            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
-        let created_at_str = receipt.created_at.to_rfc3339();
-        let updated_at_str = receipt.updated_at.to_rfc3339();
-        let confidence_json = receipt.confidence_to_json();
-
-        let new_receipt = NewReceiptRow {
-            id: &id_str,
-            vehicle_id: vehicle_id_str.as_deref(),
-            trip_id: trip_id_str.as_deref(),
-            file_path: &receipt.file_path,
-            file_name: &receipt.file_name,
-            scanned_at: &scanned_at_str,
-            liters: receipt.liters,
-            total_price_eur: receipt.total_price_eur,
-            receipt_datetime: receipt_datetime_str.as_deref(),
-            station_name: receipt.station_name.as_deref(),
-            station_address: receipt.station_address.as_deref(),
-            source_year: receipt.source_year,
-            status: receipt.status_to_str(),
-            confidence: &confidence_json,
-            raw_ocr_text: receipt.raw_ocr_text.as_deref(),
-            error_message: receipt.error_message.as_deref(),
-            created_at: &created_at_str,
-            updated_at: &updated_at_str,
-            vendor_name: receipt.vendor_name.as_deref(),
-            cost_description: receipt.cost_description.as_deref(),
-            original_amount: receipt.original_amount,
-            original_currency: receipt.original_currency.as_deref(),
-            assignment_type: receipt.assignment_type.map(|t| t.as_str()),
-            mismatch_override: if receipt.mismatch_override { 1 } else { 0 },
-            applied_amount_cents: receipt.applied_amount_cents,
-        };
-
-        diesel::insert_into(receipts::table)
-            .values(&new_receipt)
-            .execute(conn)?;
-
-        Ok(())
-    }
-
-    pub fn get_all_receipts(&self) -> QueryResult<Vec<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let rows = receipts::table
-            .order(receipts::scanned_at.desc())
-            .load::<ReceiptRow>(conn)?;
-
-        Ok(rows.into_iter().map(Receipt::from).collect())
-    }
-
-    pub fn get_unassigned_receipts(&self) -> QueryResult<Vec<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let rows = receipts::table
-            .filter(receipts::trip_id.is_null())
-            .order((
-                receipts::receipt_datetime.desc(),
-                receipts::scanned_at.desc(),
-            ))
-            .load::<ReceiptRow>(conn)?;
-
-        Ok(rows.into_iter().map(Receipt::from).collect())
-    }
-
-    pub fn get_pending_receipts(&self) -> QueryResult<Vec<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let rows = receipts::table
-            .filter(receipts::status.eq("Pending"))
-            .order(receipts::scanned_at.asc())
-            .load::<ReceiptRow>(conn)?;
-
-        Ok(rows.into_iter().map(Receipt::from).collect())
-    }
-
-    pub fn update_receipt(&self, receipt: &Receipt) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let id_str = receipt.id.to_string();
-        let vehicle_id_str = receipt.vehicle_id.map(|id| id.to_string());
-        let trip_id_str = receipt.trip_id.map(|id| id.to_string());
-        let receipt_datetime_str = receipt
-            .receipt_datetime
-            .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
-        let updated_at_str = Utc::now().to_rfc3339();
-        let confidence_json = receipt.confidence_to_json();
-
-        diesel::update(receipts::table.filter(receipts::id.eq(&id_str)))
-            .set((
-                receipts::vehicle_id.eq(vehicle_id_str),
-                receipts::trip_id.eq(trip_id_str),
-                receipts::liters.eq(receipt.liters),
-                receipts::total_price_eur.eq(receipt.total_price_eur),
-                receipts::receipt_datetime.eq(receipt_datetime_str),
-                receipts::station_name.eq(&receipt.station_name),
-                receipts::station_address.eq(&receipt.station_address),
-                receipts::source_year.eq(receipt.source_year),
-                receipts::status.eq(receipt.status_to_str()),
-                receipts::confidence.eq(&confidence_json),
-                receipts::raw_ocr_text.eq(&receipt.raw_ocr_text),
-                receipts::error_message.eq(&receipt.error_message),
-                receipts::updated_at.eq(&updated_at_str),
-                receipts::vendor_name.eq(&receipt.vendor_name),
-                receipts::cost_description.eq(&receipt.cost_description),
-                receipts::original_amount.eq(receipt.original_amount),
-                receipts::original_currency.eq(&receipt.original_currency),
-                receipts::assignment_type.eq(receipt.assignment_type.map(|t| t.as_str())),
-                receipts::mismatch_override.eq(if receipt.mismatch_override { 1 } else { 0 }),
-                receipts::applied_amount_cents.eq(receipt.applied_amount_cents),
-            ))
-            .execute(conn)?;
-
-        Ok(())
-    }
-
-    pub fn delete_receipt(&self, id: &str) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        diesel::delete(receipts::table.filter(receipts::id.eq(id))).execute(conn)?;
-        Ok(())
-    }
-
-    /// Unassign receipt from trip - clears trip_id, assignment_type,
-    /// mismatch_override, and the applied-amount snapshot (Task 66).
-    pub fn unassign_receipt(&self, id: &str) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        diesel::update(receipts::table.filter(receipts::id.eq(id)))
-            .set((
-                receipts::trip_id.eq::<Option<String>>(None),
-                receipts::assignment_type.eq::<Option<String>>(None),
-                receipts::mismatch_override.eq(0),
-                receipts::applied_amount_cents.eq(None::<i64>),
-            ))
-            .execute(conn)?;
-        Ok(())
-    }
-
-    /// Revert mismatch override - sets mismatch_override to false (0)
-    pub fn revert_receipt_override(&self, id: &str) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        diesel::update(receipts::table.filter(receipts::id.eq(id)))
-            .set(receipts::mismatch_override.eq(0))
-            .execute(conn)?;
-        Ok(())
-    }
-
-    pub fn get_receipt_by_file_path(&self, file_path: &str) -> QueryResult<Option<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let row = receipts::table
-            .filter(receipts::file_path.eq(file_path))
-            .first::<ReceiptRow>(conn)
-            .optional()?;
-
-        Ok(row.map(Receipt::from))
-    }
-
-    pub fn get_receipt_by_id(&self, id: &str) -> QueryResult<Option<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let row = receipts::table
-            .filter(receipts::id.eq(id))
-            .first::<ReceiptRow>(conn)
-            .optional()?;
-
-        Ok(row.map(Receipt::from))
-    }
-
-    /// Get receipts filtered by year (raw SQL for strftime)
-    pub fn get_receipts_for_year(&self, year: i32) -> QueryResult<Vec<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-
-        let rows = diesel::sql_query(
-            "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                    liters, total_price_eur, receipt_datetime, station_name, station_address,
-                    source_year, status, confidence, raw_ocr_text, error_message,
-                    created_at, updated_at, vendor_name, cost_description,
-                    original_amount, original_currency, assignment_type, mismatch_override,
-                        applied_amount_cents
-             FROM receipts WHERE
-                (receipt_datetime IS NOT NULL AND CAST(strftime('%Y', receipt_datetime) AS INTEGER) = ?)
-                OR (receipt_datetime IS NULL AND source_year = ?)
-                OR (receipt_datetime IS NULL AND source_year IS NULL)
-             ORDER BY receipt_datetime DESC, scanned_at DESC",
-        )
-        .bind::<diesel::sql_types::Integer, _>(year)
-        .bind::<diesel::sql_types::Integer, _>(year)
-        .load::<ReceiptRow>(conn)?;
-
-        Ok(rows.into_iter().map(Receipt::from).collect())
-    }
-
-    /// Get receipts filtered by vehicle (unassigned + own)
-    pub fn get_receipts_for_vehicle(
-        &self,
-        vehicle_id: &Uuid,
-        year: Option<i32>,
-    ) -> QueryResult<Vec<Receipt>> {
-        let conn = &mut *self.conn.lock().unwrap();
-        let vehicle_id_str = vehicle_id.to_string();
-
-        let rows = match year {
-            Some(y) => diesel::sql_query(
-                "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                        liters, total_price_eur, receipt_datetime, station_name, station_address,
-                        source_year, status, confidence, raw_ocr_text, error_message,
-                        created_at, updated_at, vendor_name, cost_description,
-                        original_amount, original_currency, assignment_type, mismatch_override,
-                        applied_amount_cents
-                 FROM receipts
-                 WHERE (vehicle_id IS NULL OR vehicle_id = ?)
-                   AND (
-                     (receipt_datetime IS NOT NULL AND CAST(strftime('%Y', receipt_datetime) AS INTEGER) = ?)
-                     OR (receipt_datetime IS NULL AND source_year = ?)
-                     OR (receipt_datetime IS NULL AND source_year IS NULL)
-                   )
-                 ORDER BY receipt_datetime DESC, scanned_at DESC",
-            )
-            .bind::<diesel::sql_types::Text, _>(&vehicle_id_str)
-            .bind::<diesel::sql_types::Integer, _>(y)
-            .bind::<diesel::sql_types::Integer, _>(y)
-            .load::<ReceiptRow>(conn)?,
-            None => diesel::sql_query(
-                "SELECT id, vehicle_id, trip_id, file_path, file_name, scanned_at,
-                        liters, total_price_eur, receipt_datetime, station_name, station_address,
-                        source_year, status, confidence, raw_ocr_text, error_message,
-                        created_at, updated_at, vendor_name, cost_description,
-                        original_amount, original_currency, assignment_type, mismatch_override,
-                        applied_amount_cents
-                 FROM receipts
-                 WHERE (vehicle_id IS NULL OR vehicle_id = ?)
-                 ORDER BY receipt_datetime DESC, scanned_at DESC",
-            )
-            .bind::<diesel::sql_types::Text, _>(&vehicle_id_str)
-            .load::<ReceiptRow>(conn)?,
-        };
-
-        Ok(rows.into_iter().map(Receipt::from).collect())
-    }
-
-    // ========================================================================
     // Paperless trip links — one trip per doc, N docs per trip (Task 66)
     // ========================================================================
 
@@ -1138,12 +880,26 @@ impl Database {
                     p::amount_eur.eq(link.amount_eur),
                     p::title.eq(&link.title),
                     p::applied_amount_cents.eq(link.applied_amount_cents),
+                    p::receipt_datetime
+                        .eq(link.receipt_datetime.map(|d| d.format("%Y-%m-%dT%H:%M:%S").to_string())),
+                    p::mismatch_override.eq(link.mismatch_override),
                     p::created_at.eq(&now),
                     p::updated_at.eq(&now),
                 ))
                 .execute(tx)?;
             Ok(())
         })
+    }
+
+    /// Set the mismatch_override flag for one link.
+    pub fn set_paperless_override(&self, doc_id: i64, value: bool) -> QueryResult<()> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+        diesel::update(p::paperless_trip_links.filter(p::paperless_document_id.eq(doc_id)))
+            .set((p::mismatch_override.eq(value), p::updated_at.eq(now)))
+            .execute(conn)
+            .map(|_| ())
     }
 
     pub fn delete_paperless_link_for_doc(&self, doc_id: i64) -> QueryResult<()> {
@@ -1167,6 +923,8 @@ impl Database {
                 p::amount_eur,
                 p::title,
                 p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
             ))
             .first::<PaperlessLinkRow>(conn)
             .optional()
@@ -1186,6 +944,8 @@ impl Database {
                 p::amount_eur,
                 p::title,
                 p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
             ))
             .load::<PaperlessLinkRow>(conn)
             .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
@@ -1206,6 +966,27 @@ impl Database {
                 p::amount_eur,
                 p::title,
                 p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
+            ))
+            .load::<PaperlessLinkRow>(conn)
+            .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
+    }
+
+    /// All link rows (grid datetime warnings read the whole set once).
+    pub fn get_all_paperless_links(&self) -> QueryResult<Vec<PaperlessLink>> {
+        use crate::schema::paperless_trip_links::dsl as p;
+        let conn = &mut *self.conn.lock().unwrap();
+        p::paperless_trip_links
+            .select((
+                p::paperless_document_id,
+                p::trip_id,
+                p::assignment_type,
+                p::amount_eur,
+                p::title,
+                p::applied_amount_cents,
+                p::receipt_datetime,
+                p::mismatch_override,
             ))
             .load::<PaperlessLinkRow>(conn)
             .map(|rows| rows.into_iter().map(paperless_link_from_row).collect())
@@ -1223,40 +1004,15 @@ impl Database {
     // ========================================================================
 
     /// Per-type invoice coverage for every trip that has at least one invoice.
-    /// Union of local receipts and paperless links; sums use integer cents.
-    /// Other amounts come from receipts' live `total_price_eur` and paperless
-    /// assign-time `amount_eur` snapshots; a NULL amount on any Other invoice
-    /// sets `has_unknown_amount` so the sum-mismatch check can be skipped.
+    /// Paperless links only; sums use integer cents. Other amounts come from
+    /// paperless assign-time `amount_eur` snapshots; a NULL amount on any Other
+    /// invoice sets `has_unknown_amount` so the sum-mismatch check can be skipped.
     pub fn get_trip_invoice_coverage(&self) -> QueryResult<HashMap<String, TripInvoiceCoverage>> {
         use crate::calculations::to_cents;
         use crate::schema::paperless_trip_links::dsl as p;
-        use crate::schema::receipts::dsl as r;
         let conn = &mut *self.conn.lock().unwrap();
 
         let mut coverage: HashMap<String, TripInvoiceCoverage> = HashMap::new();
-
-        // Assigned local receipts (amounts read live from total_price_eur)
-        let receipt_rows: Vec<(Option<String>, Option<String>, Option<f64>)> = r::receipts
-            .filter(r::trip_id.is_not_null())
-            .select((r::trip_id, r::assignment_type, r::total_price_eur))
-            .load(conn)?;
-        for (trip_id, assignment_type, amount) in receipt_rows {
-            let Some(trip_id) = trip_id else { continue };
-            let entry = coverage.entry(trip_id).or_default();
-            match assignment_type.as_deref().and_then(AssignmentType::from_str) {
-                Some(AssignmentType::Fuel) => entry.has_fuel = true,
-                Some(AssignmentType::Other) => {
-                    entry.has_other = true;
-                    match amount {
-                        Some(a) => entry.other_sum_cents += to_cents(a),
-                        None => entry.has_unknown_amount = true,
-                    }
-                }
-                // Legacy shape (assigned without a type): the trip counts as
-                // covered (entry exists) but sets neither per-type flag.
-                None => {}
-            }
-        }
 
         // Paperless links (amounts read from assign-time snapshots)
         let link_rows: Vec<(String, String, Option<f64>)> = p::paperless_trip_links
@@ -1426,11 +1182,28 @@ impl Database {
 
 /// Tuple row for paperless link selects (created_at/updated_at are
 /// DB-managed and not part of the domain struct).
-type PaperlessLinkRow = (i64, String, String, Option<f64>, Option<String>, Option<i64>);
+type PaperlessLinkRow = (
+    i64,
+    String,
+    String,
+    Option<f64>,
+    Option<String>,
+    Option<i64>,
+    Option<String>,
+    bool,
+);
 
 fn paperless_link_from_row(row: PaperlessLinkRow) -> PaperlessLink {
-    let (paperless_document_id, trip_id, assignment_type, amount_eur, title, applied_amount_cents) =
-        row;
+    let (
+        paperless_document_id,
+        trip_id,
+        assignment_type,
+        amount_eur,
+        title,
+        applied_amount_cents,
+        receipt_datetime,
+        mismatch_override,
+    ) = row;
     PaperlessLink {
         paperless_document_id,
         trip_id,
@@ -1440,6 +1213,10 @@ fn paperless_link_from_row(row: PaperlessLinkRow) -> PaperlessLink {
         amount_eur,
         title,
         applied_amount_cents,
+        receipt_datetime: receipt_datetime.as_deref().and_then(|s| {
+            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").ok()
+        }),
+        mismatch_override,
     }
 }
 
@@ -1514,7 +1291,7 @@ pub(crate) fn open_db_legacy() -> Database {
     open_db_legacy_before(MULTI_INVOICE_VERSION)
 }
 
-/// Run the remaining (multi-invoice) migrations on a legacy DB.
+/// Run the remaining migrations on a legacy DB.
 #[cfg(test)]
 pub(crate) fn migrate_to_current(db: &Database) {
     let conn = &mut *db.conn.lock().unwrap();

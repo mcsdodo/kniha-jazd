@@ -4,6 +4,36 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-11: Paperless-Only Invoices
+
+### ADR-050: Paperless-ngx Is the Only Invoice Source
+
+**Context:** [ADR-024](#adr-024-homelab-server-is-the-canonical-deployment-desktop-becomes-a-browser-client) made Paperless the intake channel and left the folder-scanned receipt path as "an unmaintained path, not the intake channel"; [ADR-030](#adr-030-the-desktop-app-is-deleted-the-container-is-the-only-build) repeated that position. The folder path then cost real money: it owned the receipt image, the Gemini OCR call, per-field confidence, a review queue, foreign-currency conversion, in-app edit and reprocess, a status lifecycle, and a full verification report. Keeping it alive meant carrying a second invoice source, a second schema, and a second test surface behind an `Invoice` trait whose only implementation besides Paperless was the local one. One implementation is not an extension point; it is unused indirection.
+
+**Decision:** Delete the local receipt path and the Gemini OCR subsystem. Paperless-ngx is the only invoice source.
+
+1. **Deleted:** `receipts.rs`, `gemini.rs`, `commands_internal/receipts_cmd.rs`, the receipt DB functions, models and Diesel schema, the receipt image route, the `SecretField::GeminiApiKey` reveal variant, the `gemini_api_key` and `receipts_folder_path` settings, and the `Invoice` trait + `InvoiceRef` + `PaperlessInvoiceView` abstraction.
+2. **Deployed:** `count_unlinked_paperless_fuel_invoices` (nav badge), `receipt_datetime` and `mismatch_override` columns on `paperless_trip_links`, and `revert_paperless_override`.
+3. **Migration:** [2026-09-11-120000_paperless_only_invoice_columns](./src-tauri/core/migrations/2026-09-11-120000_paperless_only_invoice_columns/up.sql) adds the two columns. [2026-09-11-130000_drop_receipts](./src-tauri/core/migrations/2026-09-11-130000_drop_receipts/up.sql) then repairs links the multi-invoice backfill mislabelled as `Other` **and** drops the table, in that order, in one folder. The repair reads `receipts`, so it cannot run after the drop; keeping both statements in one migration makes the order impossible to break. The drop is destructive and runs last, after the code compiles against the new schema.
+4. **No import path for the dropped rows:** receipts already assigned to a trip survive as `paperless_trip_links` rows; every other receipt row is discarded. Nothing in the app uploads them to Paperless. Export the table before upgrading if the rows are still wanted. The automatic pre-migration backup keeps a readable copy (`sqlite3` offline), but restoring it does not undo the drop -- this build re-runs the pending migrations on start.
+5. **Graceful degradation:** without Paperless configured the app stays fully usable; the Doklady page shows a setup empty state.
+
+**Ported features (cheap to keep, users rely on them):**
+
+- **Nav badge** -- `InvoiceIndicator.svelte` calls the new count command for the active vehicle and year; the poll drops from 30s to 5 minutes because the count hits the Paperless API.
+- **Grid datetime warnings** -- the link snapshots `receipt_datetime` at assign time; `calculate_invoice_datetime_warnings` reads the snapshot instead of a receipt row.
+- **Mismatch-override persistence** -- the once-discarded `mismatch_override` parameter is now stored on the link and can be reverted, closing the [ADR-021](#adr-021-mismatch_override-is-receipt-only-paperless-path-accepts-and-ignores) gap.
+
+**Accepted losses (the six capability gaps):** per-field OCR confidence and the `NeedsReview` queue; foreign-currency capture and manual EUR conversion; in-app edit of extracted values; in-app reprocess; station name/address, raw OCR text and the status lifecycle; and the full `verify_receipts` report. Each has a named Paperless-side implementation path in [_TECH_DEBT/09-paperless-ocr-capability-gaps.md](./_tasks/_TECH_DEBT/09-paperless-ocr-capability-gaps.md). None blocks the logbook, the consumption math, or the 20% margin.
+
+**Reasoning:** The user chose a clean end state with one invoice source. Keeping the local path would preserve a schema, a test surface, and a settings panel for a feature the user no longer uses, while Paperless already provides OCR, storage, tags, custom fields, live fetch, and assignment. The ported features cover the grid signals users actually relied on; the six losses need Paperless API writes or new custom fields, which is a larger feature than this change.
+
+**Supersedes:** the local-receipt half of [ADR-010](#adr-010-receipt-year-filtering); the receipt-side wording of [ADR-019](#adr-019-paperless-trip-link-table-is-symmetric-trip_id-primary-key), [ADR-020](#adr-020-inline-invoicedata-at-the-ipc-boundary-vs-load_invoiceinvoiceref), and [ADR-021](#adr-021-mismatch_override-is-receipt-only-paperless-path-accepts-and-ignores). [BIZ-015](#biz-015-paperless-drf-auth-header-is-token-not-bearer) and [BIZ-016](#biz-016-paperless-v1-is-single-vehicle-scoped-vehicle_id-intentionally-unused) stay in force -- they describe the surviving Paperless client. Closes the [ADR-030](#adr-030-the-desktop-app-is-deleted-the-container-is-the-only-build) note that "folder-scanned receipts survive as an unmaintained path".
+
+**Related:** [Task 84](./_tasks/84-paperless-only-invoices/), [02-design.md](./_tasks/84-paperless-only-invoices/02-design.md), [docs/features/paperless-integration.md](./docs/features/paperless-integration.md), [docs/features/multi-invoice.md](./docs/features/multi-invoice.md), [_TECH_DEBT/09-paperless-ocr-capability-gaps.md](./_tasks/_TECH_DEBT/09-paperless-ocr-capability-gaps.md).
+
+---
+
 ## 2026-09-10: Saved Round-Trip Geometry
 
 ### ADR-049: A saved round trip's geometry is split back into legs in Rust, and the split point is derived
@@ -585,6 +615,8 @@ That surfaced three tests that were not covering what they claimed. `export.spec
 
 ### ADR-020: Inline `InvoiceData` at the IPC Boundary (vs. `load_invoice(InvoiceRef)`)
 
+**Superseded (2026-09-11) by [ADR-050](#adr-050-paperless-ngx-is-the-only-invoice-source):** the `InvoiceRef` enum and the inline `InvoiceData` indirection are deleted. Paperless is the only source, so the commands take a concrete document id. The reasoning below is kept because it explains why the indirection existed.
+
 **Context:** Task 64 unifies the trip-picker for both local OCR'd receipts and Paperless-ngx documents behind a single `Invoice` trait + `check_invoice_trip_compatibility(&dyn Invoice, &Trip)` compat check (see [docs/features/unified-invoice-picker.md](./docs/features/unified-invoice-picker.md)). The original design ([02-design.md](./_tasks/_done/64-unified-invoice-picker/02-design.md)) proposed a centralized `load_invoice(db, &InvoiceRef) -> Box<dyn Invoice>` boundary function: pass an `InvoiceRef`, get back a fully-loaded invoice regardless of source. For local receipts that's trivial (`db.get_receipt_by_id`). For Paperless documents it isn't — the [paperless_trip_links](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql) table only stores `(trip_id, doc_id)`, with no doc data cached locally. Document state lives in Paperless-ngx and is fetched live.
 
 **Decision:** Carry **inline `InvoiceData`** through the IPC boundary alongside `InvoiceRef`. The frontend already has the full Paperless row from `get_paperless_invoices`; it passes the relevant fields (datetime, liters, total_price_eur, title, assignment_type) inline. Receipts ignore the inline data — backend loads from DB by ID. Paperless docs use the inline data directly via `PaperlessInvoiceView<'a>` (a thin trait adapter at the boundary).
@@ -611,6 +643,8 @@ That surfaced three tests that were not covering what they claimed. `export.spec
 
 ### ADR-021: `mismatch_override` is Receipt-Only (Paperless Path Accepts-and-Ignores)
 
+**Superseded (2026-09-11) by [ADR-050](#adr-050-paperless-ngx-is-the-only-invoice-source):** no longer true. `paperless_trip_links` now carries a `mismatch_override` column, the assign command persists the flag, and `revert_paperless_override` clears it. The "deferred until a real user need surfaces" position below is closed.
+
 **Context:** Local receipts can be assigned to a trip even when their data conflicts with the trip's existing `fuel_liters` / `fuel_cost_eur` / `other_costs_eur`. The user explicitly confirms via the modal's "Assign and confirm" button, which sets `mismatch_override = true` on the [receipts](./src-tauri/core/migrations/2026-02-03-100000_receipt_assignment_type/up.sql) row. This persists across sessions: the assigned receipt card shows a "✓ Potvrdené" badge, signalling the user has reviewed and accepted the discrepancy. The [paperless_trip_links](./src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql) table has no equivalent column.
 
 **Decision:** The unified `assign_invoice_to_trip_internal` accepts `mismatch_override: bool` for both sources, but for the Paperless arm the flag is documented as accepted-and-ignored (`let _ = mismatch_override;` with a doc comment). Schema extension to add an override column to `paperless_trip_links` is deferred until a real user need surfaces.
@@ -624,6 +658,8 @@ That surfaced three tests that were not covering what they claimed. `export.spec
 ## 2026-05-03: Paperless-ngx Integration Foundations
 
 ### ADR-019: Paperless Trip-Link Table is Symmetric (`trip_id PRIMARY KEY`)
+
+**Superseded in part (2026-09-11) by [ADR-050](#adr-050-paperless-ngx-is-the-only-invoice-source):** the receipt half of the symmetry argument is gone with the `receipts` table. The link table itself stays, and its shape was already changed by the multi-invoice rebuild -- `trip_id` is no longer the primary key.
 
 > **Superseded (2026-07-15) by [BIZ-023](#biz-023-invoice-cardinality-sum-on-assign-and-cent-exact-money-math):** multi-invoice support ([Task 66](./_tasks/66-multi-invoice/)) rebuilt the table — `paperless_document_id` is now the PRIMARY KEY (a trip can carry many links), and rows carry `assignment_type`, `amount_eur`/`title`, and `applied_amount_cents` snapshots. The UPSERT is keyed on `paperless_document_id` only. See [migration 2026-07-15-100000_multi_invoice](./src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql) and [docs/features/multi-invoice.md](./docs/features/multi-invoice.md).
 
@@ -958,6 +994,8 @@ Unit tests (4 in `time_inference.rs`, 4 in `commands_tests.rs`) supply a `StubJi
 ## 2025-12-30: Receipt Organization
 
 ### ADR-010: Receipt Year Filtering
+
+**Superseded (2026-09-11) by [ADR-050](#adr-050-paperless-ngx-is-the-only-invoice-source):** local receipts are deleted, so the year filter described below no longer has a table to filter. Paperless documents are filtered by year on the Paperless side.
 
 **Context:** Users may organize receipts in different folder structures - either flat (all files in one folder) or year-based (files in YYYY subfolders like `2024/`, `2025/`). The app needs to handle both cases and filter receipts by year while maintaining clear behavior.
 

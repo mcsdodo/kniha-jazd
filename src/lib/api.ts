@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, Receipt, ReceiptSettings, ScanResult, SyncResult, VerificationResult, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, InvoiceSourceMode, PaperlessInvoiceRow, InvoiceRef, InvoiceData, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, CascadePlan, CascadeResult, DistanceWriteback } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, CascadePlan, CascadeResult, DistanceWriteback } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -305,55 +305,6 @@ export async function exportHtml(
 	return await apiCall('export_html', { vehicleId, year, labels, hiddenColumns, sortDirection });
 }
 
-// Receipt commands
-export async function getReceiptSettings(): Promise<ReceiptSettings> {
-	return await apiCall('get_receipt_settings');
-}
-
-export async function getReceipts(year?: number): Promise<Receipt[]> {
-	return await apiCall('get_receipts', { year: year ?? null });
-}
-
-export async function getReceiptsForVehicle(vehicleId: string, year?: number): Promise<Receipt[]> {
-	return await apiCall('get_receipts_for_vehicle', { vehicleId, year: year ?? null });
-}
-
-export async function getUnassignedReceipts(): Promise<Receipt[]> {
-	return await apiCall('get_unassigned_receipts');
-}
-
-export async function scanReceipts(): Promise<ScanResult> {
-	return await apiCall('scan_receipts');
-}
-
-export async function syncReceipts(): Promise<SyncResult> {
-	return await apiCall('sync_receipts');
-}
-
-export async function processPendingReceipts(): Promise<SyncResult> {
-	return await apiCall('process_pending_receipts');
-}
-
-export async function updateReceipt(receipt: Receipt): Promise<void> {
-	return await apiCall('update_receipt', { receipt });
-}
-
-export async function deleteReceipt(id: string): Promise<void> {
-	return await apiCall('delete_receipt', { id });
-}
-
-export async function revertReceiptOverride(id: string): Promise<void> {
-	return await apiCall('revert_receipt_override', { id });
-}
-
-export async function reprocessReceipt(id: string): Promise<Receipt> {
-	return await apiCall('reprocess_receipt', { id });
-}
-
-export async function verifyReceipts(vehicleId: string, year: number): Promise<VerificationResult> {
-	return await apiCall('verify_receipts', { vehicleId, year });
-}
-
 // Live Preview
 export async function previewTripCalculation(
 	vehicleId: string,
@@ -408,15 +359,6 @@ export async function getInferTripTimes(): Promise<boolean> {
 
 export async function setInferTripTimes(enabled: boolean): Promise<void> {
 	return apiCall('set_infer_trip_times', { enabled });
-}
-
-// Receipt settings
-export async function setGeminiApiKey(apiKey: string): Promise<void> {
-	return apiCall('set_gemini_api_key', { apiKey });
-}
-
-export async function setReceiptsFolderPath(path: string): Promise<void> {
-	return apiCall('set_receipts_folder_path', { path });
 }
 
 // Home Assistant settings — shape lives in types.ts (HaSettings) so the page and
@@ -524,41 +466,43 @@ export async function listPaperlessCustomFields(): Promise<PaperlessCustomFieldI
 	return apiCall<PaperlessCustomFieldInfo[]>('list_paperless_custom_fields');
 }
 
-export async function getInvoiceSourceMode(): Promise<InvoiceSourceMode> {
-	return apiCall<InvoiceSourceMode>('get_invoice_source_mode');
-}
-
 export async function getPaperlessInvoices(vehicleId: string, year: number): Promise<PaperlessInvoiceRow[]> {
 	return apiCall<PaperlessInvoiceRow[]>('get_paperless_invoices', { vehicleId, year });
 }
 
-// Unified invoice commands (Task 64)
-export async function getTripsForInvoiceAssignment(
-	invoiceRef: InvoiceRef,
-	invoiceData: InvoiceData | null,
+export async function countUnlinkedPaperlessFuelInvoices(
+	vehicleId: string,
+	year: number,
+): Promise<number> {
+	return apiCall<number>('count_unlinked_paperless_fuel_invoices', { vehicleId, year });
+}
+
+export async function getTripsForPaperlessAssignment(
+	docId: number,
 	vehicleId: string,
 	year: number,
 ): Promise<TripForAssignment[]> {
-	return await apiCall('get_trips_for_invoice_assignment', {
-		invoiceRef, invoiceData, vehicleId, year,
-	});
+	return await apiCall('get_trips_for_paperless_assignment', { docId, vehicleId, year });
 }
 
-export async function assignInvoiceToTrip(
-	invoiceRef: InvoiceRef,
-	invoiceData: InvoiceData | null,
+export async function assignPaperlessInvoice(
+	docId: number,
 	tripId: string,
 	vehicleId: string,
 	assignmentType: 'Fuel' | 'Other',
 	mismatchOverride: boolean = false,
 ): Promise<void> {
-	return await apiCall('assign_invoice_to_trip', {
-		invoiceRef, invoiceData, tripId, vehicleId, assignmentType, mismatchOverride,
+	return await apiCall('assign_paperless_invoice', {
+		docId, tripId, vehicleId, assignmentType, mismatchOverride,
 	});
 }
 
-export async function unassignInvoice(invoiceRef: InvoiceRef): Promise<void> {
-	return await apiCall('unassign_invoice', { invoiceRef });
+export async function unassignPaperlessInvoice(docId: number): Promise<void> {
+	return await apiCall('unassign_paperless_invoice', { docId });
+}
+
+export async function revertPaperlessOverride(docId: number): Promise<void> {
+	return await apiCall('revert_paperless_override', { docId });
 }
 
 // Route map commands (Task 70)

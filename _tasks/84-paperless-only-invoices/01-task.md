@@ -33,8 +33,16 @@ page tells me to configure it and the rest of the app still works.
    concrete Paperless row.
 4. The `receipts` table is dropped by a new migration. Existing local receipt rows
    are gone after the upgrade.
-5. `scripts/migrate_local_to_paperless.py` stays in the repo and is documented as a
-   pre-upgrade step, because it can only read the table while the table exists.
+5. ~~`scripts/migrate_local_to_paperless.py` stays in the repo and is documented as a
+   pre-upgrade step, because it can only read the table while the table exists.~~
+   **Reversed after code review (2026-09-11):** the script is deleted. It never wrote
+   to Paperless (one HTTP call site, a GET), it crashed on Linux before parsing
+   arguments (`KeyError: 'APPDATA'` at module scope), and its INSERT omitted
+   `assignment_type`, which Task 66 made `NOT NULL` -- so `INSERT OR IGNORE` silently
+   wrote zero rows. It also joined `trips INNER JOIN receipts`, so it only ever covered
+   receipts already assigned to a trip, which are exactly the rows that survive the
+   upgrade anyway. The documented upgrade path is now: export the table yourself before
+   upgrading. See [04-code-review.md](./04-code-review.md).
 6. The Gemini OCR path is removed: `gemini.rs`, `GEMINI_API_KEY`, the Settings
    "Skenovanie dokladov" section, and the mock-Gemini test wiring.
 7. The nav badge is ported: it counts unlinked Paperless fuel documents for the

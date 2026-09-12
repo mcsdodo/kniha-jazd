@@ -53,15 +53,13 @@ This keeps source files clean while maintaining private access (tests are still 
 **Backend (Rust) - Authoritative source for all business logic.** All of it lives in
 `kniha-jazd-core`; `kniha-jazd-web` has no logic to test. Companion `*_tests.rs` files
 cover, among others:
-- `commands_internal/commands_tests.rs` - receipt matching, period rates, warnings, fuel remaining, year carryover, BEV energy, receipt assignment, backup cleanup, magic fill
+- `commands_internal/commands_tests.rs` - period rates, warnings, fuel remaining, year carryover, BEV energy, backup cleanup, magic fill
 - `calculations/tests.rs` - consumption rate, spotreba, zostatok, margin, Excel verification
 - `calculations/energy_tests.rs` / `calculations/phev_tests.rs` - BEV battery and PHEV split
-- `receipts_tests.rs` - folder detection, extraction, scanning
 - `db_tests.rs` - CRUD lifecycle, year filtering
 - `migration_tests.rs` - migration data integrity
 - `settings_tests.rs` - local settings loading/saving, env overrides
 - `export_tests.rs` - export totals, HTML escaping
-- `gemini_tests.rs` - JSON deserialization
 
 Run them with `npm run test:backend`
 (`cargo test --manifest-path src-tauri/Cargo.toml --workspace`).
@@ -84,11 +82,9 @@ Paths are relative to `src-tauri/core/src/` unless noted.
 | `calculations/energy.rs` | BEV battery, energy calculations | Electric vehicle logic |
 | `calculations/phev.rs` | PHEV combined fuel + energy | Plug-in hybrid logic |
 | `suggestions.rs` | Compensation trip logic | Route matching, suggestions |
-| `receipts.rs` | Receipt folder scanning | Receipt processing logic |
 | `db.rs` | SQLite CRUD operations | Schema changes, queries |
 | `app_state.rs` | Read-only mode, app mode | App state management |
 | `settings.rs` | Local settings + env overrides | User preferences, new env vars |
-| `gemini.rs` | AI receipt OCR | Receipt recognition |
 | `paperless.rs` | Paperless-ngx client | Invoice source integration |
 | `export.rs` | HTML/PDF generation | Report format changes |
 | `models.rs` | Data structures | Adding fields to Trip/Vehicle |
