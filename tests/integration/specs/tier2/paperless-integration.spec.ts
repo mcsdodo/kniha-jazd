@@ -190,7 +190,17 @@ describe('Tier 2: Paperless Integration', () => {
 
     // Step 1: trip list -- pick the first item (trips are sorted by date proximity
     // to the doc's receipt_datetime; the doc is from 2026-04-27 so trip on 04-27
-    // sorts first).
+    // sorts first). The modal fetches the trips over RPC after it opens, so the
+    // list starts empty: read it only after the first row renders, or the spec
+    // fails intermittently on an empty list.
+    await browser.waitUntil(
+      async () => (await $$('[data-test="trip-item"]')).length > 0,
+      {
+        timeout: 10000,
+        timeoutMsg: 'Expected the trip list to render at least one trip',
+      }
+    );
+
     const tripItems = await $$('[data-test="trip-item"]');
     expect(tripItems.length).toBeGreaterThanOrEqual(1);
     await tripItems[0].waitForDisplayed({ timeout: 5000 });

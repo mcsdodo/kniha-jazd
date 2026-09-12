@@ -70,6 +70,21 @@ fn seed_paperless_link(db: &Database, doc_id: i64, trip_id: &str) {
     );
 }
 
+/// Same, on the pre-multi-invoice schema, with a caller-chosen `created_at`.
+/// The old table stamps the time the user made the link, and the multi-invoice
+/// backfill copies that value forward -- so a late upgrade produces backfilled
+/// rows with a recent timestamp.
+fn seed_paperless_link_at(db: &Database, doc_id: i64, trip_id: &str, created_at: &str) {
+    exec(
+        db,
+        &format!(
+            "INSERT INTO paperless_trip_links (trip_id, paperless_document_id, \
+                                               created_at, updated_at) \
+             VALUES ('{trip_id}', {doc_id}, '{created_at}', '{created_at}')"
+        ),
+    );
+}
+
 #[derive(diesel::QueryableByName)]
 struct CountRow {
     #[diesel(sql_type = BigInt)]
@@ -501,10 +516,12 @@ fn legacy_other_receipt_link_stays_other() {
 /// there for the repair to read.
 const DROP_RECEIPTS_VERSION: &str = "2026-09-11-130000";
 
-/// Seed a link on the post-multi-invoice schema, where `assignment_type` is
-/// NOT NULL and a trip may carry several links. `amount_eur` / `applied_amount_cents`
-/// stay NULL unless given: NULL is what the Task 66 backfill wrote, and the
-/// repair keys on it.
+/// Seed a BACKFILLED link on the post-multi-invoice schema, where
+/// `assignment_type` is NOT NULL and a trip may carry several links. The INSERT
+/// omits `title`, so it stays NULL -- that is what the backfill wrote and what
+/// the repair keys on. `amount_eur` / `applied_amount_cents` stay NULL unless
+/// given, the backfill's second marker. Use `seed_assigned_link` for a row the
+/// app itself wrote.
 #[allow(clippy::too_many_arguments)]
 fn seed_typed_link(
     db: &Database,
@@ -605,33 +622,71 @@ fn repair_skips_link_with_post_task66_snapshots() {
     );
 }
 
-/// The cutoff is the multi-invoice migration DAY, not the instant it ran. A link
-/// written on 2026-07-15 before the upgrade was still backfilled, so the bound
-/// is `< '2026-07-16'`.
+/// Seed a link the APP wrote, as `upsert_paperless_link` writes it: with a
+/// title. The title is the marker that keeps the repair off it, whatever its
+/// amounts are -- a document Paperless read no amount from leaves both amount
+/// columns NULL, exactly like the backfill.
+fn seed_assigned_link(
+    db: &Database,
+    doc_id: i64,
+    trip_id: &str,
+    assignment_type: &str,
+    created_at: &str,
+    title: &str,
+) {
+    exec(
+        db,
+        &format!(
+            "INSERT INTO paperless_trip_links (trip_id, paperless_document_id, \
+                                               assignment_type, title, \
+                                               created_at, updated_at) \
+             VALUES ('{trip_id}', {doc_id}, '{assignment_type}', '{title}', \
+                     '{created_at}', '{created_at}')"
+        ),
+    );
+}
+
+/// A backfilled link carries the timestamp of the day the USER made it, not of
+/// the day the backfill ran: the multi-invoice migration copies `l.created_at`
+/// forward. So its `created_at` says nothing about which rows the backfill
+/// touched, and a repair keyed on a calendar cutoff misses every row on a
+/// database that upgrades late. This is that database, end to end: the link is
+/// made on the old schema in August, and both migrations run afterwards.
 #[test]
-fn repair_covers_a_link_created_on_the_multi_invoice_day() {
-    let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
+fn delayed_upgrade_still_repairs_a_backfilled_link() {
+    let db = open_db_legacy();
     seed_vehicle(&db, "v1");
-    seed_trip(&db, "t-boundary", "v1", Some(45.0));
-    seed_typed_link(&db, 405, "t-boundary", "Other", "2026-07-15T08:00:00", None);
-    seed_receipt(&db, "r1", "t-boundary", "Fuel");
+    seed_trip(&db, "t-late-upgrade", "v1", Some(45.0));
+    seed_paperless_link_at(&db, 405, "t-late-upgrade", "2026-08-20T10:00:00");
+    seed_receipt(&db, "r1", "t-late-upgrade", "Fuel");
 
     migrate_to_current(&db);
 
-    assert_eq!(link_assignment_type(&db, 405), "Fuel");
+    assert_eq!(
+        link_assignment_type(&db, 405),
+        "Fuel",
+        "the backfill mislabelled this link whatever its created_at says; \
+         dropping the receipts without the repair loses the trip's fuel coverage"
+    );
 }
 
-/// A link created after the multi-invoice migration was never backfilled, so it
-/// is outside the repair's window and must stay untouched.
+/// The repair's main safety property, second half: a link the app wrote must
+/// never be retyped, even with no amount snapshots (the document carried no
+/// amount) and even on a trip that otherwise matches. The title separates it
+/// from a backfilled row.
 #[test]
-fn repair_skips_a_link_created_after_the_backfill() {
+fn repair_skips_an_app_written_link_without_amounts() {
     let db = open_db_legacy_before(DROP_RECEIPTS_VERSION);
     seed_vehicle(&db, "v1");
     seed_trip(&db, "t-late", "v1", Some(45.0));
-    seed_typed_link(&db, 406, "t-late", "Other", "2026-08-01T08:00:00", None);
+    seed_assigned_link(&db, 406, "t-late", "Other", "2026-08-01T08:00:00", "Parkovanie");
     seed_receipt(&db, "r1", "t-late", "Fuel");
 
     migrate_to_current(&db);
 
-    assert_eq!(link_assignment_type(&db, 406), "Other");
+    assert_eq!(
+        link_assignment_type(&db, 406),
+        "Other",
+        "a title marks a deliberate assignment by the app"
+    );
 }

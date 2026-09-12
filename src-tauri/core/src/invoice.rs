@@ -31,9 +31,11 @@ fn get_datetime_mismatch_type(dt: Option<NaiveDateTime>, trip: &Trip) -> Option<
     }
 }
 
-/// Compat result for a trip that carries no comparable value yet -- no fuel
-/// recorded for a fuel document, or no other costs for an Other document. Only
-/// the datetime can disagree.
+/// Compat result for the cases with no amount to compare: the trip carries no
+/// value yet (no fuel recorded for a fuel document, no other costs for an Other
+/// document), the document carries no amount, or the comparison is skipped
+/// because the trip already holds an Other document. Only the datetime can
+/// disagree.
 ///
 /// The grid warns whenever a snapshot datetime falls outside the trip range
 /// (`calculate_invoice_datetime_warnings`), and the picker is the only place
@@ -123,13 +125,11 @@ pub fn check_paperless_trip_compatibility(
     } else {
         // Trip already carries >=1 Other invoice: the total is a running sum,
         // so comparing the new document against it is meaningless -- skip the
-        // amount check entirely (C8; the amount is summed on assign).
+        // amount check entirely (C8; the amount is summed on assign). The
+        // datetime is still checked: skipping it leaves an undismissable grid
+        // warning (I7).
         if coverage.has_other {
-            return CompatibilityResult {
-                can_attach: true,
-                status: AttachmentStatus::Matches.as_str().to_string(),
-                mismatch_reason: None,
-            };
+            return datetime_only_result(doc, trip);
         }
         let trip_has_other_costs = trip.other_costs_eur.map(|c| c > 0.0).unwrap_or(false);
         if !trip_has_other_costs {
@@ -161,11 +161,9 @@ pub fn check_paperless_trip_compatibility(
                 mismatch_reason: Some(mismatch.to_string()),
             }
         } else {
-            CompatibilityResult {
-                can_attach: true,
-                status: AttachmentStatus::Empty.as_str().to_string(),
-                mismatch_reason: None,
-            }
+            // No amount to compare against: the datetime is the only thing
+            // that can disagree, and the assign still snapshots it (I7).
+            datetime_only_result(doc, trip)
         }
     }
 }

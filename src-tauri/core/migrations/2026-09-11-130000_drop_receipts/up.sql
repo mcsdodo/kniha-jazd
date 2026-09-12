@@ -32,9 +32,17 @@
 --
 -- Only links the backfill could have mislabelled are touched:
 --   * assignment_type = 'Other'
+--   * title IS NULL. This is the durable marker of a backfilled row: the
+--     backfill wrote NULL into the title slot, and `upsert_paperless_link`
+--     (db.rs) -- the only INSERT into this table -- always writes the document
+--     title. Nothing later nulls it: setting an override updates two columns,
+--     unassign deletes the row. A calendar cutoff cannot do this job, because
+--     the backfill COPIES the old link's created_at instead of stamping the
+--     migration time, so a database that applies multi_invoice late carries
+--     backfilled rows with a recent created_at.
 --   * amount_eur / applied_amount_cents are NULL (the backfill wrote NULL;
---     anything assigned after Task 66 carries an explicit type and snapshots)
---   * created_at predates the multi-invoice migration
+--     kept as a second guard -- a document with no amount also leaves both
+--     NULL, so this alone cannot identify a backfilled row)
 --   * the trip has fuel, has a Fuel receipt, has no Fuel link yet, and has no
 --     Other receipt (an ambiguous trip could promote a parking or toll document
 --     into the fuel slot, so it is skipped)
@@ -47,17 +55,17 @@ UPDATE paperless_trip_links
 SET assignment_type = 'Fuel',
     updated_at = strftime('%Y-%m-%dT%H:%M:%S', 'now')
 WHERE assignment_type = 'Other'
+  AND title IS NULL
   AND amount_eur IS NULL
   AND applied_amount_cents IS NULL
-  AND created_at < '2026-07-16'
   AND paperless_document_id = (
       SELECT MIN(p2.paperless_document_id)
       FROM paperless_trip_links p2
       WHERE p2.trip_id = paperless_trip_links.trip_id
         AND p2.assignment_type = 'Other'
+        AND p2.title IS NULL
         AND p2.amount_eur IS NULL
         AND p2.applied_amount_cents IS NULL
-        AND p2.created_at < '2026-07-16'
   )
   AND trip_id IN (
       SELECT t.id

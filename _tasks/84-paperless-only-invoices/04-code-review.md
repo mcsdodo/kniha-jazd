@@ -363,3 +363,130 @@ Synced with [data/sync-from-prod.sh](../../data/sync-from-prod.sh) and run under
 
 The backup is an untouched copy. The migrated database differs from it in exactly
 the three intended ways: two new columns, 11 links retyped, `receipts` gone.
+
+## CodeRabbit review on PR #9 (2026-09-12)
+
+Three findings, all rated Major. Two are real. Each one was checked against the
+code before any edit.
+
+### R1 -- the repair keyed on a calendar date (valid, minimal fix)
+
+`2026-09-11-130000_drop_receipts/up.sql` selected backfilled links with
+`created_at < '2026-07-16'`. That predicate is wrong, for the reason CodeRabbit
+gives: the multi-invoice backfill **copies** the old link timestamp
+([2026-07-15-100000_multi_invoice/up.sql:141](../../src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql)),
+it does not stamp the time it runs. A database that applies `multi_invoice` late
+carries backfilled rows with a recent `created_at`; the repair skipped them, and
+the `DROP TABLE receipts` below then took the trip's fuel coverage with it.
+
+CodeRabbit asked for a new durable marker and called it a heavy lift. One
+already exists: **`title IS NULL`**.
+
+- The backfill writes `NULL` into the title slot (`multi_invoice/up.sql:139`).
+- `upsert_paperless_link` ([db.rs:880](../../src-tauri/core/src/db.rs)) always
+  writes the document title, and it is the only INSERT into the table.
+- Nothing later nulls it: `set_paperless_override` updates two columns, unassign
+  deletes the row.
+
+So the predicate is now `title IS NULL`, with the amount columns kept as a second
+guard. No new column, no schema change.
+
+The amount guard alone cannot do this job: a document Paperless read no amount
+from leaves `amount_eur` and `applied_amount_cents` NULL exactly like the
+backfill (`apply_other_amount` returns `None`), so the date was the only thing
+separating those rows. The title separates them durably.
+
+Two tests, both proven to fail without the fix:
+
+| Test | Proves |
+|---|---|
+| `delayed_upgrade_still_repairs_a_backfilled_link` | an August link on the old schema is still repaired after both migrations run. Fails with the date predicate restored (`Other`, expected `Fuel`). |
+| `repair_skips_an_app_written_link_without_amounts` | a link the app wrote, with no amount snapshots, is never retyped. Fails with no marker at all (`Fuel`, expected `Other`). |
+
+`repair_covers_a_link_created_on_the_multi_invoice_day` and
+`repair_skips_a_link_created_after_the_backfill` asserted the calendar semantics
+and were replaced by those two.
+
+**This had to land before the merge.** A follow-up migration cannot do the
+repair: it reads `receipts`, which this migration drops. That is the same trap as
+I3 above. Production runs `:main` and has seen neither migration, so the in-place
+edit is safe.
+
+### R2 -- `MIN()` resolves an ambiguous candidate set (no change)
+
+CodeRabbit asks to skip trips with more than one candidate instead of taking the
+lowest document id. Both branches are unreachable: the pre-multi-invoice table
+was `trip_id TEXT PRIMARY KEY`
+([2026-05-03-100000_add_paperless_trip_links/up.sql:2](../../src-tauri/core/migrations/2026-05-03-100000_add_paperless_trip_links/up.sql)),
+so the backfill can emit at most one legacy link per trip, and that stays true
+under `title IS NULL`. The production diagnostic found no such trip (I2 above).
+
+`MIN()` is kept because it is already proven to prevent the `UniqueViolation`
+that aborts the whole upgrade, and `repair_does_not_add_a_second_fuel_link`
+asserts it. The only argument for the alternative is a failure mode neither
+version can reach.
+
+### R3 -- the datetime mismatch reason was still missing in two branches (valid)
+
+I7 above was fixed for the `!trip_has_fuel` and `!trip_has_other_costs` pair, but
+two branches in `check_paperless_trip_compatibility` still returned
+`mismatch_reason: None` without looking at the datetime:
+
+- `coverage.has_other` is true -- a second parking or toll document on one trip.
+- `doc.total_amount` is `None` while the trip has other costs -- a document
+  Paperless read no amount from.
+
+Both are reachable, and the invariant holds for them too:
+[invoices.rs:178](../../src-tauri/core/src/commands_internal/invoices.rs)
+snapshots the datetime on every assign, and
+[statistics.rs:1424](../../src-tauri/core/src/commands_internal/statistics.rs)
+warns on `Other` links as well as `Fuel`. The picker gates the confirm button on
+the reason ([TripSelectorModal.svelte:292](../../src/lib/components/TripSelectorModal.svelte)),
+so the grid warning could not be confirmed away.
+
+Both branches now route through `datetime_only_result`, which keeps the
+amount-comparison skip. Four tests were added, two of which failed before the
+fix. The PR description claimed this was already fixed; it was corrected.
+
+One picker label changes with it: a second Other document carrying **no**
+datetime used to show the green "sedí s dokladom" tick, an agreement that was
+never checked (the amount comparison is skipped in that branch and there was no
+datetime to compare). It now shows no badge, like the three sibling branches with
+nothing to compare. No grid warning and no stored value is affected -- nothing is
+snapshotted when the document has no datetime.
+
+### R4 -- flaky spec found while verifying (fixed)
+
+`paperless-integration.spec.ts:194` read the trip list immediately after the
+click that opens the picker. The modal fetches its trips over RPC after it
+opens, so the list starts empty and the assertion failed on an empty list. The
+full sweep hid it behind a retry.
+
+Measured, with the picker fix reverted to prove it is not a side effect of R3:
+**3 failures in 6 runs** on the unchanged code. With a `waitUntil` on the first
+row: **8 passes in 8 runs**. Every other step in the spec already waits this way.
+
+### Verification after the CodeRabbit fixes
+
+| Gate | Result |
+|---|---|
+| `cargo test --workspace` | 685 passed, 0 failed |
+| `npm run check` | 0 errors |
+| `npm run test:integration` (full) | 33 of 33 spec files, 1 retry -- the R4 flake, fixed after the run |
+| `paperless-integration` spec, 8 consecutive runs | 8 passing, no retry |
+
+Rehearsal repeated against a fresh production copy (`sha256 f5090af4...`,
+byte-identical to the one used on 2026-09-11), so the numbers below describe the
+new predicate and not the old one:
+
+| Check | Before | After |
+|---|---|---|
+| Fuel links | 7 | 18 |
+| False "missing fuel invoice" | 67 | 56 |
+| `receipts` | 68 rows | dropped |
+| `integrity_check` / `foreign_key_check` | -- | ok / clean |
+
+Backfilled links on production carry `created_at` before the old cutoff
+(`title IS NULL AND created_at >= '2026-07-16'` selects 0 rows), so both
+predicates repair the same 11 rows there. The change matters only for a database
+that upgrades late.

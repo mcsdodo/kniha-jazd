@@ -244,6 +244,100 @@ fn test_compatibility_second_other_invoice_not_flagged_as_price_mismatch() {
     assert_eq!(result.mismatch_reason, None);
 }
 
+// I7: the grid warns on ANY link whose snapshot datetime falls outside the trip
+// range (`calculate_invoice_datetime_warnings`), Other links included, and the
+// picker is the only place that can set `mismatch_override`. A branch that
+// skips the amount comparison must still report the datetime, or the warning
+// lands on the grid with no way to confirm it away.
+#[test]
+fn test_compatibility_second_other_invoice_still_reports_datetime_mismatch() {
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Document dated a different day than the trip.
+    let dt = NaiveDate::from_ymd_opt(2024, 6, 20).unwrap().and_hms_opt(12, 0, 0).unwrap();
+    let doc = other_doc(Some(dt), Some(20.0));
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    trip.other_costs_eur = Some(50.0);
+    let coverage = TripInvoiceCoverage { has_other: true, ..Default::default() };
+
+    let result = check_paperless_trip_compatibility(&doc, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(result.status, "differs");
+    assert_eq!(
+        result.mismatch_reason,
+        Some("date".to_string()),
+        "the grid warns on this snapshot, so the picker must offer the override"
+    );
+}
+
+// Same rule for a document Paperless could not read an amount from: the
+// assignment still persists the datetime, so the grid still warns.
+#[test]
+fn test_compatibility_other_without_amount_still_reports_datetime_mismatch() {
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    // Same day, but 02:00 falls outside the 08:00-23:59 trip window.
+    let dt = date.and_hms_opt(2, 0, 0).unwrap();
+    let doc = other_doc(Some(dt), None);
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    trip.other_costs_eur = Some(50.0);
+    let coverage = TripInvoiceCoverage::default();
+
+    let result = check_paperless_trip_compatibility(&doc, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(result.status, "matches_date");
+    assert_eq!(
+        result.mismatch_reason,
+        Some("time".to_string()),
+        "the grid warns on this snapshot, so the picker must offer the override"
+    );
+}
+
+// A second Other document with no datetime at all: nothing can be compared, so
+// the picker claims nothing. The old answer here was "matches", a green tick for
+// an agreement never checked -- the amount comparison is skipped in this branch
+// and there is no datetime to check either. All four no-amount branches now
+// agree on "empty". No grid warning is at stake: nothing is snapshotted.
+#[test]
+fn test_compatibility_second_other_invoice_without_datetime_is_empty() {
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let doc = other_doc(None, Some(20.0));
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    trip.other_costs_eur = Some(50.0);
+    let coverage = TripInvoiceCoverage { has_other: true, ..Default::default() };
+
+    let result = check_paperless_trip_compatibility(&doc, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(result.status, "empty");
+    assert_eq!(result.mismatch_reason, None);
+}
+
+// A document with no datetime at all cannot produce a grid warning: nothing is
+// snapshotted, so "empty" with no reason stays correct.
+#[test]
+fn test_compatibility_other_without_amount_or_datetime_stays_empty() {
+    let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let doc = other_doc(None, None);
+    let mut trip = empty_trip(
+        date.and_hms_opt(8, 0, 0).unwrap(),
+        date.and_hms_opt(23, 59, 59).unwrap(),
+    );
+    trip.other_costs_eur = Some(50.0);
+    let coverage = TripInvoiceCoverage::default();
+
+    let result = check_paperless_trip_compatibility(&doc, &trip, &coverage);
+    assert!(result.can_attach);
+    assert_eq!(result.status, "empty");
+    assert_eq!(result.mismatch_reason, None);
+}
+
 #[test]
 fn test_compatibility_other_uses_cent_exact_not_epsilon() {
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
