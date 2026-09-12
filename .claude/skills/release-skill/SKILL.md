@@ -148,7 +148,10 @@ gh run list --workflow release.yml --limit 1
 ```
 
 Do **not** report an installer path or a GitHub Release URL — neither is produced.
-The homelab instance updates by pulling the new tag.
+
+**A release publishes images. It does not deploy.** No running instance pulls
+`vX.Y.Z` or `:latest` on its own. A deploy is a separate, deliberate step. Do not
+report a release as an update to any live instance.
 
 ## Notes
 
