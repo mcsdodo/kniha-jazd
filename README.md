@@ -24,6 +24,8 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Návrhy kompenzačných jázd** - Ako sa dostať späť pod limit
 - **Návrh tankovania** - Automatický výpočet litrov pre dosiahnutie optimálnej spotreby
 - **Pamätanie trás** - Časté trasy sa automaticky dopĺňajú
+- **Miesta** - Zoznam všetkých miest z vašich jázd; každému určíte bod na mape a ponuka "Odkiaľ"/"Kam" je spoločná pre všetky vozidlá. Detaily nájdete v [docs/features/place-book.md](docs/features/place-book.md).
+- **Mapy trás** - Ku každej jazde vygenerujete trasu po cestách z miesta odchodu do miesta príchodu (alebo okružnú, ak sú rovnaké), vyberiete si z alternatív, doladíte ju potiahnutím čiary a vzdialenosť zapíšete do jazdy. Uložené mapy sa pripoja do tlačového exportu. Detaily nájdete v [docs/features/route-maps.md](docs/features/route-maps.md).
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby
 - **Zálohovanie a obnova** - Automatická záloha pred migráciou databázy, správa záloh
