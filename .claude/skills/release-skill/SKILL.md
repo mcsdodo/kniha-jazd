@@ -41,14 +41,25 @@ State the version and the one-line reason in your first message, then keep going
 
 Anything else — pick, say why, proceed.
 
-## 2. Update Version in Both Files
+## 2. Update Version
 
-Update the version string in these two files:
+Edit the version string in these two files:
 - `package.json` — field `"version": "X.Y.Z"`
 - `src-tauri/Cargo.toml` — field `version = "X.Y.Z"` under `[workspace.package]`
 
 Both workspace members (`core`, `web`) inherit it via `version.workspace = true`,
-so there is nothing else to edit.
+so there is no other source file to edit.
+
+Then refresh the two lock files. A hand edit does not update them, and a stale
+lock file is not visible in a test run:
+
+```bash
+npm install --package-lock-only --no-audit --no-fund
+cargo check --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web --offline
+```
+
+Check that each command changed only the version fields (`git diff --stat`).
+Commit all four files together.
 
 ## 3. Update CHANGELOG.md
 
@@ -141,5 +152,6 @@ The homelab instance updates by pulling the new tag.
 
 ## Notes
 
-- Cargo.lock will auto-update - include it in the commit
+- `Cargo.lock` and `package-lock.json` do not update from a hand edit. Step 2
+  refreshes both. Include both in the commit.
 - CHANGELOG is in Slovak (Pridane, Zmenene, Opravene)
