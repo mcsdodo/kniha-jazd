@@ -2,7 +2,7 @@
 **Subject:** One guarded backend command resets the whole test state, so specs stop leaking into each other
 **Status:** Planning
 
-**Source:** [_TECH_DEBT/07-integration-db-reset-broken.md](../_TECH_DEBT/07-integration-db-reset-broken.md) (the cross-spec half)
+**Source:** tech debt #07, "Integration DB Reset Broken" (the cross-spec half). The item was deleted on 2026-09-13; this task is now the only record of the open work.
 **Supersedes:** [Task 41](../_done/41-integration-test-speedup/) (archived unbuilt, see its [04-superseded.md](../_done/41-integration-test-speedup/04-superseded.md))
 **Was declared to block:** [Task 83](../_done/83-integration-test-sharding/) -- sharding reorders
 specs, which is unsafe until the reset is complete. **83 shipped first anyway** (merged

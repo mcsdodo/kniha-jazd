@@ -163,7 +163,7 @@ This project includes custom skills and slash commands for [Claude Code](https:/
 - **Commands** (`/command`) - Manual invocation by typing in Claude Code
 - **Skills** - Claude auto-invokes based on task context and description
 
-Skills use `-skill` suffix due to [a bug](https://github.com/anthropics/claude-code/issues/14945) where same-name skill/command conflicts. See `_tasks/_TECH_DEBT/01-skill-command-name-conflict.md`.
+Skill folders use a `-skill` suffix. It was a workaround for [a bug](https://github.com/anthropics/claude-code/issues/14945) where a skill and a command with the same name conflicted. The bug is fixed upstream and the commands are gone, so the suffix is now only a naming habit.
 
 ### Key Files
 

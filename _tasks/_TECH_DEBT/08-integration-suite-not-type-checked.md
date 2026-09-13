@@ -243,8 +243,8 @@ own baseline to establish first — out of scope here.
   that exists and is never invoked.
 - [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md) — where a
   house rule about awaiting element queries belongs once the suite is clean.
-- [07-integration-db-reset-broken.md](./07-integration-db-reset-broken.md) — same theme: a
-  test-harness guarantee that silently did not hold.
+- [Task 82](../82-integration-db-reset/) -- same theme: a test-harness guarantee that
+  silently did not hold (the successor of the deleted tech debt #07).
 
 ## Decision Log
 

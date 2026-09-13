@@ -745,7 +745,7 @@ That surfaced three tests that were not covering what they claimed. `export.spec
 
 **Result:** Web binary's dep graph (`cargo tree -p kniha-jazd-web`) contains zero Tauri packages. [Dockerfile.web](./Dockerfile.web) drops GTK/WebKit runtime libs (~150 MB savings, image goes from ~300 MB to ~80 MB target). All 280 backend tests preserved across the move.
 
-**Related:** [Task 58](./_tasks/58-tauri-workspace-split/) (implementation), [Tech Debt #06](./_tasks/_TECH_DEBT/06-tauri-feature-gating.md) (origin).
+**Related:** [Task 58](./_tasks/_done/58-tauri-workspace-split/) (implementation; tech debt #06, its origin, was deleted as moot after Task 73).
 
 ---
 
