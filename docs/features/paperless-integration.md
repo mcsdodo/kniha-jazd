@@ -15,7 +15,7 @@ calculations, and export are unaffected.
 4. **Two action buttons:**
    - **Otvoriť v Paperless** -- opens `{paperless_url}/documents/{doc_id}/` in the user's default browser (their browser stays logged in via cookies).
    - **Priradiť k jazde** -- opens the [unified TripSelectorModal](./unified-invoice-picker.md): proximity sort, mismatch warnings, and Fuel/Other selection. On confirm, an UPSERT row goes into [paperless_trip_links](../../src-tauri/core/migrations/2026-07-15-100000_multi_invoice/up.sql) (with type/amount/title/datetime snapshots and the override flag), and if the trip's fuel/other-costs side was empty it auto-populates from the doc's inline data. A trip can carry one Fuel doc plus any number of Other docs -- see [multi-invoice.md](./multi-invoice.md).
-5. **Edit / Reprocess / Remove are hidden** -- Paperless is the source of truth for these documents; the app does not modify them. These are listed as deferred capability gaps in [_TECH_DEBT/09](../../_tasks/_TECH_DEBT/09-paperless-ocr-capability-gaps.md).
+5. **Edit / Reprocess / Remove are hidden** -- Paperless is the source of truth for these documents; the app does not modify them. An LLM OCR step fills the custom fields in Paperless, so corrections happen there too.
 6. **Refresh from Paperless** button in the toolbar forces a fresh fetch (no client cache of documents themselves).
 
 ## Tag to Assignment Mapping
@@ -119,7 +119,7 @@ and BIZ-023 in [DECISIONS.md](../../DECISIONS.md).
 - Paperless tags beyond `fuel` and `car`.
 - Encrypting the PAT in the OS keyring (matches HA's plaintext-JSON convention; revisit globally with HA).
 - Multi-vehicle scoping -- see [BIZ-016](../../DECISIONS.md).
-- The six Gemini-path capabilities lost in Task 84 -- see [_TECH_DEBT/09-paperless-ocr-capability-gaps.md](../../_tasks/_TECH_DEBT/09-paperless-ocr-capability-gaps.md).
+- The six Gemini-path capabilities lost in Task 84 (OCR confidence, foreign currency, in-app edit and reprocess, station data, `verify_receipts` report) -- the LLM OCR step in Paperless replaces them.
 
 ## Related
 
