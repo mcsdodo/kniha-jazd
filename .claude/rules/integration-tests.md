@@ -205,6 +205,27 @@ await waitForTripGrid();
 await browser.pause(500); // Allow Svelte reactivity to settle
 ```
 
+### Await Every Element Query, and Run the Type-Check
+
+wdio strips types at run time, so it reports no type errors. Run
+`npm run typecheck:tests` after you edit a spec. CI runs it too (job
+`typecheck-tests`), and it must stay at zero errors.
+
+- **Await both halves of a condition.** `isExisting()` returns a `Promise<boolean>`,
+  which is always truthy. TS2801 reports it.
+  ```typescript
+  return (await el.isExisting()) && (await el.isDisplayed()); // correct
+  return el.isExisting() && (await el.isDisplayed());          // left half is dead
+  ```
+  In an `expect(...)` the same mistake cannot fail: `expect(el.isExisting()).toBe(true)`
+  compares a Promise object.
+- **Count elements with `getElements()`.** The wdio 9 typings give
+  `(await $$(sel)).length` the type `Promise<number>`, although at run time it is a
+  number. Use `(await $$(sel).getElements()).length`, which is typed `number`.
+- **A helper that takes the result of `$()` types it as `ChainablePromiseElement`**
+  (`import type { ChainablePromiseElement } from 'webdriverio'`), not
+  `WebdriverIO.Element`.
+
 ## Debugging Flaky Tests
 
 1. **Add diagnostic logging:** `console.log()` values to CI output

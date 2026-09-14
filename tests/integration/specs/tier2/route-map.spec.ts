@@ -252,8 +252,8 @@ async function drawnPathStrokes(): Promise<string[]> {
 /** Draggable waypoint handles currently on the map, and the heavier endpoint
  *  subset of them. Both are `L.divIcon` classNames from `handleIcon`. */
 async function handleCounts(): Promise<{ handles: number; endpoints: number }> {
-  const handles = await $$('[data-test="route-map-canvas"] .wp-handle');
-  const endpoints = await $$('[data-test="route-map-canvas"] .wp-endpoint');
+  const handles = await $$('[data-test="route-map-canvas"] .wp-handle').getElements();
+  const endpoints = await $$('[data-test="route-map-canvas"] .wp-endpoint').getElements();
   return { handles: handles.length, endpoints: endpoints.length };
 }
 

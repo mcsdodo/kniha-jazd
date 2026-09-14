@@ -115,7 +115,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && await editingRow.isDisplayed();
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         {
           timeout: 5000,
@@ -223,7 +223,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && await editingRow.isDisplayed();
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         {
           timeout: 5000,
@@ -326,7 +326,7 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && await editingRow.isDisplayed();
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         {
           timeout: 5000,

@@ -104,11 +104,11 @@ async function fillEditingRowAndSave(opts: {
   odometer: string;
   purpose: string;
 }): Promise<void> {
-  const rowCountBefore = (await $$(TRIP_ROW_SELECTOR)).length;
+  const rowCountBefore = (await $$(TRIP_ROW_SELECTOR).getElements()).length;
   const settled = async () => {
-    const editing = await $$('.trip-grid tbody tr.editing');
+    const editing = await $$('.trip-grid tbody tr.editing').getElements();
     if (editing.length !== 0) return false;
-    const rows = await $$(TRIP_ROW_SELECTOR);
+    const rows = await $$(TRIP_ROW_SELECTOR).getElements();
     return rows.length > rowCountBefore;
   };
   await setFieldByTestId('trip-start-datetime', opts.startDatetime);
@@ -274,7 +274,7 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     let settledDates: string[] = [];
     await browser.waitUntil(
       async () => {
-        const editing = await $$('.trip-grid tbody tr.editing');
+        const editing = await $$('.trip-grid tbody tr.editing').getElements();
         if (editing.length !== 0) return false;
         if ((await findRowByDatePrefix('25.05.')) === null) return false;
         const first = await getVisibleStartDates();
@@ -473,7 +473,7 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     // Find the 12.05 row and click its delete button.
     const rowForMay12 = await findRowByDatePrefix('12.05.');
     expect(rowForMay12).not.toBeNull();
-    const rowCountBefore = (await $$(TRIP_ROW_SELECTOR)).length;
+    const rowCountBefore = (await $$(TRIP_ROW_SELECTOR).getElements()).length;
     const deleteBtn = await rowForMay12!.$('button.icon-btn.delete');
     await deleteBtn.waitForClickable({ timeout: 5000 });
     await deleteBtn.click();
@@ -486,7 +486,7 @@ describe('Tier 2: start_datetime is the single source of trip order', () => {
     expect(kind).toBe('cascade');
     // Wait until the row count drops by one — signals delete + re-render done.
     await browser.waitUntil(
-      async () => (await $$(TRIP_ROW_SELECTOR)).length === rowCountBefore - 1,
+      async () => (await $$(TRIP_ROW_SELECTOR).getElements()).length === rowCountBefore - 1,
       {
         timeout: 5000,
         timeoutMsg: `trip row count did not drop from ${rowCountBefore} to ${rowCountBefore - 1} after delete confirm`,

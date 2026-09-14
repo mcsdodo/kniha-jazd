@@ -12,6 +12,7 @@
  * itself is proven by the Rust unit tests in integrations_tests.rs.
  */
 
+import type { ChainablePromiseElement } from 'webdriverio';
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { rpc } from '../../utils/db';
 
@@ -21,8 +22,8 @@ const REVEAL_PIN = '4269';
 
 /** Click the eye, answer the PIN prompt, and wait for the value to appear. */
 async function revealWithPin(
-  eye: WebdriverIO.Element,
-  tokenInput: WebdriverIO.Element
+  eye: ChainablePromiseElement,
+  tokenInput: ChainablePromiseElement
 ): Promise<void> {
   const modal = await $('[data-test="reveal-pin-modal"]');
   await eye.click();

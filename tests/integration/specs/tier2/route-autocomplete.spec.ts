@@ -82,7 +82,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && (await editingRow.isDisplayed());
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         { timeout: 10000 }
       );
@@ -102,7 +102,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const dropdown = await $('.autocomplete .dropdown');
-          return dropdown.isExisting() && (await dropdown.isDisplayed());
+          return (await dropdown.isExisting()) && (await dropdown.isDisplayed());
         },
         { timeout: 5000, timeoutMsg: 'Origin autocomplete dropdown did not appear' }
       );
@@ -214,7 +214,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && (await editingRow.isDisplayed());
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         { timeout: 10000 }
       );
@@ -235,7 +235,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const dropdown = await $('.autocomplete .dropdown');
-          return dropdown.isExisting() && (await dropdown.isDisplayed());
+          return (await dropdown.isExisting()) && (await dropdown.isDisplayed());
         },
         { timeout: 5000 }
       );
@@ -337,7 +337,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && (await editingRow.isDisplayed());
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         { timeout: 10000 }
       );
@@ -478,7 +478,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && (await editingRow.isDisplayed());
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         { timeout: 10000 }
       );
@@ -515,7 +515,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const dropdown = await $('.autocomplete .dropdown');
-          return dropdown.isExisting() && (await dropdown.isDisplayed());
+          return (await dropdown.isExisting()) && (await dropdown.isDisplayed());
         },
         { timeout: 5000, timeoutMsg: 'Autocomplete dropdown did not appear' }
       );
@@ -617,7 +617,7 @@ describe('Tier 2: Route Autocomplete', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && (await editingRow.isDisplayed());
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         { timeout: 10000 }
       );

@@ -113,7 +113,7 @@ describe('Tier 3: Compensation Trip Suggestions', () => {
       const warningStatExists = await warningStat.isExisting();
 
       // Check for warning class on any element
-      const warningElements = await $$('.warning');
+      const warningElements = await $$('.warning').getElements();
       const hasWarningElements = warningElements.length > 0;
 
       // Get page text to check for visual warning indicators

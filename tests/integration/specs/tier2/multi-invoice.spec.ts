@@ -166,7 +166,7 @@ describe('Tier 2: Multi-Invoice (1 Fuel + N Other per trip)', () => {
     await waitForAppReady();
     await navigateTo('doklady');
     await browser.waitUntil(
-      async () => (await $$('[data-test="paperless-row"]')).length === 3,
+      async () => (await $$('[data-test="paperless-row"]').getElements()).length === 3,
       { timeout: 10000, timeoutMsg: 'Expected 3 paperless rows to render' }
     );
 

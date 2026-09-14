@@ -29,6 +29,31 @@ jobs:
           # Files that DON'T require integration tests (docs, config, planning, CI)
           safe-patterns: '^(.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$'
 
+  # Type-check the WebdriverIO suite. wdio strips types at run time and reports
+  # no type errors, so a missing `await` in a spec is otherwise invisible
+  # (.claude/rules/integration-tests.md). Needs no Docker image; runs in seconds.
+  typecheck-tests:
+    name: Type-check Integration Tests
+    needs: check-changes
+    if: github.event_name == 'pull_request' || needs.check-changes.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Type-check tests/integration
+        run: npm run typecheck:tests
+
   # Backend tests - fast, run on all platforms.
   # The matrix stays at three platforms on purpose: the crate still has
   # platform-conditional code (DB path resolution, hostname, the
@@ -296,6 +321,7 @@ jobs:
     name: Publish main Docker Image
     needs:
       - backend-tests
+      - typecheck-tests
       - integration-build-docker
       - integration-test-docker
       - integration-test-docker-env

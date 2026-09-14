@@ -186,7 +186,9 @@ directly, and runs the backend with `cargo test --manifest-path ... --workspace`
 `PARALLEL_TIERS`) and delegate to `test:integration`, which is exactly the
 script the Docker jobs run. `test:all` is `test:backend && test:integration`. So
 the tier scripts satisfy I1 through the script they delegate to, not by
-appearing in the workflow by name.
+appearing in the workflow by name. `typecheck:tests` (`tsc` over
+[tests/integration/](tests/integration/)) runs in the `typecheck-tests` job and must stay at zero
+errors - wdio itself reports no type errors (see [integration-tests.md](.claude/rules/integration-tests.md)).
 
 #### Iteration strategy: focused runs, not full sweeps
 

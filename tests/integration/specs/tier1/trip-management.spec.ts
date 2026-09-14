@@ -84,7 +84,7 @@ describe('Tier 1: Trip Management', () => {
       await browser.waitUntil(
         async () => {
           const editingRow = await $('tr.editing');
-          return editingRow.isExisting() && await editingRow.isDisplayed();
+          return (await editingRow.isExisting()) && (await editingRow.isDisplayed());
         },
         {
           timeout: 10000,

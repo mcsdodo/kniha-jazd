@@ -52,7 +52,6 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await seedTrip({
         vehicleId,
         startDatetime: `${year}-01-15T08:00`,
-        time: '10:00',
         origin: 'Bratislava',
         destination: 'Trnava',
         distanceKm: 50,
@@ -63,7 +62,6 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await seedTrip({
         vehicleId,
         startDatetime: `${year}-01-10T08:00`,
-        time: '08:00',
         origin: 'Home',
         destination: 'Office',
         distanceKm: 25,
@@ -74,7 +72,6 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await seedTrip({
         vehicleId,
         startDatetime: `${year}-01-20T08:00`,
-        time: '14:00',
         origin: 'Trnava',
         destination: 'Nitra',
         distanceKm: 70,

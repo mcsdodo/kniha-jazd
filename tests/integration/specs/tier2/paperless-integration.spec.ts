@@ -154,7 +154,7 @@ describe('Tier 2: Paperless Integration', () => {
     // Allow live HTTP fetch + Svelte render
     await browser.waitUntil(
       async () => {
-        const rows = await $$('[data-test="paperless-row"]');
+        const rows = await $$('[data-test="paperless-row"]').getElements();
         return rows.length === 3;
       },
       {
@@ -194,7 +194,7 @@ describe('Tier 2: Paperless Integration', () => {
     // list starts empty: read it only after the first row renders, or the spec
     // fails intermittently on an empty list.
     await browser.waitUntil(
-      async () => (await $$('[data-test="trip-item"]')).length > 0,
+      async () => (await $$('[data-test="trip-item"]').getElements()).length > 0,
       {
         timeout: 10000,
         timeoutMsg: 'Expected the trip list to render at least one trip',
@@ -291,7 +291,7 @@ describe('Tier 2: Paperless Integration', () => {
     await litersSelect.waitForDisplayed({ timeout: 5000 });
     await browser.waitUntil(
       async () => {
-        const opts = await litersSelect.$$('option');
+        const opts = await litersSelect.$$('option').getElements();
         return opts.length >= 2;
       },
       { timeout: 10000, timeoutMsg: 'Liters dropdown never populated with custom-field options' }

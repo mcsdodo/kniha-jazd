@@ -34,7 +34,7 @@ describe('Tier 2: Date Prefill Mode', () => {
       tankSizeLiters: 50,
       tpConsumption: 6.5,
     });
-    vehicleId = vehicle.id;
+    vehicleId = vehicle.id as string;
     await setActiveVehicle(vehicleId);
 
     // Seed a trip from yesterday

@@ -329,7 +329,7 @@ describe('Tier 1: BEV Trips', () => {
       expect(savedTrip.fuelCostEur).toBeNull();
 
       // No fuel-related data in grid (BEV has no fuel system)
-      const tripId = savedTrip.id;
+      const tripId = savedTrip.id as string;
       // For BEV, fuel rates may be undefined (not in the HashMap) rather than null
       expect(gridData.rates[tripId]).toBeFalsy(); // No fuel rate
       expect(gridData.fuelRemaining[tripId]).toBeFalsy(); // No fuel remaining

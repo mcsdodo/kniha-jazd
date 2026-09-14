@@ -4,7 +4,7 @@
 **Priority:** Low
 **Effort:** Medium (2-8h)
 **Component:** [tests/integration/](../../tests/integration/), [tsconfig.json](../../tsconfig.json), [package.json](../../package.json), [.github/workflows/test.yml](../../.github/workflows/test.yml)
-**Status:** Open
+**Status:** Fixed
 
 ## Problem
 
@@ -253,3 +253,5 @@ own baseline to establish first — out of scope here.
 | 2026-09-07 | Created analysis | Surfaced during [Task 75](../_done/75-place-book/): the new spec's own missing `await`s were caught by an IDE, not by any command, which prompted checking whether *anything* type-checks `tests/`. Nothing does. Measured 35 errors across 11 specs on `2374a72`. |
 | 2026-09-07 | Priority Low, not Medium | The suite demonstrably catches real regressions, and no fully-inert `expect(...)` exists in the tree today — only 12 weakened `waitUntil` guards. Raise to Medium the moment an inert assertion is found, since the class of bug is invisible by construction. |
 | 2026-09-07 | Recommend `typecheck:tests` script + CI step over merging tsconfigs | The two trees need different `types` and `moduleResolution`; a second one-line script is cheaper than reconciling them. Fixing the 35 existing errors is a hard prerequisite either way. |
+| 2026-09-14 | Re-measured before the fix | On `82f2e5d`: 37 errors in 14 files. `receipt-settings` (3) was gone with task 84. New: 3 more category B (`route-map`, `multi-invoice`), and 2x TS5097 in [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) and [utils/shard.test.ts](../../tests/integration/utils/shard.test.ts) (`.ts` import suffix from task 83, which Node 24 type stripping needs). Categories A (12) and D (3) unchanged; still no inert `expect`. |
+| 2026-09-14 | Implemented fix | A: awaited `isExisting()`. D: deleted the `time:` fields. C: `as string` on the ids. B: `$$(sel).getElements()` at each site, not a `countElements` helper, because `getElements()` is the typed wdio API and needs no later revisit; `revealWithPin` takes `ChainablePromiseElement`. TS5097: `allowImportingTsExtensions` + `noEmit` in [tests/integration/tsconfig.json](../../tests/integration/tsconfig.json). Added `npm run typecheck:tests` and the CI job `typecheck-tests` in [test.yml](../../.github/workflows/test.yml) (a `needs` of `publish-main-image`). House rule in [integration-tests.md](../../.claude/rules/integration-tests.md). `tsc` exit 0. |
