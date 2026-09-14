@@ -7,6 +7,9 @@ a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 ## [Unreleased]
 
+### Opravené
+- **Obnovenie zálohy zo staršej verzie aplikácie** - po obnovení takej zálohy (napríklad automatickej zálohy pred migráciou) aplikácia zlyhávala s chybou databázy, kým sa server nereštartoval. Obnovená databáza sa teraz hneď aktualizuje na aktuálnu verziu. Zálohu z novšej verzie aplikácie (napríklad po návrate na starší obraz) aplikácia neobnoví a vysvetlí prečo. Neobnoví ani súbor, ktorý nie je platná záloha knihy jázd. Obnovenie zálohy tiež už nemôže naraziť na zápis, ktorý práve prebieha.
+
 ## [1.0.0] - 2026-09-12
 
 ### Pridané

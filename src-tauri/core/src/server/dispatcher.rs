@@ -760,6 +760,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let a: Args = parse_args(args)?;
             crate::commands_internal::restore_backup_internal(
                 &state.app_dir,
+                &state.db,
                 &state.app_state,
                 a.filename,
             )?;

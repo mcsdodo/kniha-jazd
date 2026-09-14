@@ -457,6 +457,7 @@ pub fn get_backup_info_internal(app_dir: &Path, filename: String) -> Result<Back
 
 pub fn restore_backup_internal(
     app_dir: &Path,
+    db: &Database,
     app_state: &AppState,
     filename: String,
 ) -> Result<(), String> {
@@ -469,8 +470,32 @@ pub fn restore_backup_internal(
         return Err(format!("Backup not found: {}", filename));
     }
 
-    fs::copy(&backup_path, &db_paths.db_file).map_err(|e| e.to_string())?;
+    check_backup_restorable(&backup_path)?;
+    db.restore_from_file(&backup_path, &db_paths.db_file)
+}
 
+/// Refuse a backup this build cannot serve: one that is not a kniha-jazd
+/// database, or one with migrations this build does not embed (a snapshot from
+/// a newer image, still on the volume after a rollback). A backup from an
+/// older build passes; `Database::restore_from_file` migrates it.
+fn check_backup_restorable(backup_path: &Path) -> Result<(), String> {
+    let invalid = |e: String| format!("Súbor nie je platná záloha knihy jázd: {}", e);
+    let backup_db = Database::from_path(backup_path).map_err(|e| invalid(e.to_string()))?;
+    let applied = backup_db
+        .applied_migration_versions()
+        .map_err(|e| invalid(e.to_string()))?;
+
+    let embedded = Database::get_embedded_migration_versions();
+    let unknown: Vec<String> = applied
+        .into_iter()
+        .filter(|v| !embedded.contains(v))
+        .collect();
+    if !unknown.is_empty() {
+        return Err(format!(
+            "Záloha bola vytvorená novšou verziou aplikácie (neznáme migrácie: {}). Táto verzia ju nemôže obnoviť.",
+            unknown.join(", ")
+        ));
+    }
     Ok(())
 }
 
@@ -567,12 +592,110 @@ mod tests {
     #[test]
     fn test_restore_backup_blocked_in_read_only_mode() {
         let dir = tempfile::tempdir().unwrap();
+        let db = Database::in_memory().unwrap();
         let app_state = AppState::new();
         app_state.enable_read_only("test");
 
-        let err = restore_backup_internal(dir.path(), &app_state, "whatever.db".to_string())
+        let err = restore_backup_internal(dir.path(), &db, &app_state, "whatever.db".to_string())
             .expect_err("restore mutates the live DB and must stay blocked");
         assert!(err.contains("režime len na čítanie"));
+    }
+
+    #[derive(diesel::QueryableByName)]
+    struct MigrationCount {
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        count: i32,
+    }
+
+    fn applied_migration_count(db: &Database) -> usize {
+        diesel::sql_query("SELECT COUNT(*) AS count FROM __diesel_schema_migrations")
+            .get_result::<MigrationCount>(&mut *db.connection())
+            .expect("count applied migrations")
+            .count as usize
+    }
+
+    #[test]
+    fn test_restore_rejects_backup_from_newer_build() {
+        // After an image rollback the backups dir still holds snapshots taken
+        // by the newer build. Copying one over the live DB would serve a schema
+        // this build cannot reason about, with read-only mode off.
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        db.create_vehicle(&create_test_vehicle("Before backup")).unwrap();
+        let filename = create_backup_internal(dir.path(), &db, &AppState::new())
+            .unwrap()
+            .filename;
+        {
+            let backup_path = dir.path().join(paths::BACKUPS_DIR).join(&filename);
+            let backup_db = Database::from_path(&backup_path).unwrap();
+            diesel::sql_query(
+                "INSERT INTO __diesel_schema_migrations (version) VALUES ('99991231235959')",
+            )
+            .execute(&mut *backup_db.connection())
+            .unwrap();
+        }
+        db.create_vehicle(&create_test_vehicle("After backup")).unwrap();
+
+        let err = restore_backup_internal(dir.path(), &db, &AppState::new(), filename)
+            .expect_err("a backup from a newer build must not restore");
+
+        assert!(err.contains("novšou verziou"), "wrong error: {err}");
+        assert_eq!(
+            db.get_all_vehicles().unwrap().len(),
+            2,
+            "the live DB must stay untouched"
+        );
+    }
+
+    #[test]
+    fn test_restore_older_backup_applies_missing_migrations() {
+        // Every pre-migration backup has an older schema by design. Migrations
+        // only run at startup, so without this the running server would query
+        // columns the restored file does not have until the container restarts.
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        let embedded = Database::get_embedded_migration_versions();
+        let newest = embedded.iter().max().unwrap().clone();
+
+        let older = crate::db::open_db_legacy_before(&newest);
+        assert_eq!(
+            applied_migration_count(&older),
+            embedded.len() - 1,
+            "fixture must lack exactly the newest migration"
+        );
+        let filename = "kniha-jazd-backup-older-build.db".to_string();
+        fs::create_dir_all(dir.path().join(paths::BACKUPS_DIR)).unwrap();
+        snapshot_database_to(&older, &dir.path().join(paths::BACKUPS_DIR).join(&filename))
+            .unwrap();
+
+        restore_backup_internal(dir.path(), &db, &AppState::new(), filename)
+            .expect("a backup from an older build must restore");
+
+        assert_eq!(
+            applied_migration_count(&db),
+            embedded.len(),
+            "restore must migrate the restored file to this build's schema"
+        );
+        db.create_vehicle(&create_test_vehicle("After restore"))
+            .expect("the live connection must write to the restored DB");
+    }
+
+    #[test]
+    fn test_restore_rejects_backup_without_migration_history() {
+        // A file that is not a kniha-jazd database has no readable
+        // __diesel_schema_migrations. That is not "compatible" - reject it.
+        let dir = tempfile::tempdir().unwrap();
+        let db = setup_file_db(dir.path());
+        db.create_vehicle(&create_test_vehicle("Live")).unwrap();
+        let backups_dir = dir.path().join(paths::BACKUPS_DIR);
+        fs::create_dir_all(&backups_dir).unwrap();
+        fs::write(backups_dir.join("garbage.db"), b"not a sqlite database").unwrap();
+
+        let err = restore_backup_internal(dir.path(), &db, &AppState::new(), "garbage.db".into())
+            .expect_err("a file without migration history must not restore");
+
+        assert!(err.contains("nie je platná záloha"), "wrong error: {err}");
+        assert_eq!(db.get_all_vehicles().unwrap().len(), 1);
     }
 
     #[test]
@@ -630,6 +753,7 @@ mod tests {
         // "..\\..\\x.db" must never escape the backups dir. The error must be
         // the distinct "Invalid backup filename", not "Backup not found".
         let dir = tempfile::tempdir().unwrap();
+        let db = Database::in_memory().unwrap();
         let app_state = AppState::new();
 
         let bad_filenames = [
@@ -646,7 +770,7 @@ mod tests {
         ];
 
         for filename in bad_filenames {
-            let err = restore_backup_internal(dir.path(), &app_state, filename.to_string())
+            let err = restore_backup_internal(dir.path(), &db, &app_state, filename.to_string())
                 .expect_err("restore must reject traversal filename");
             assert!(
                 err.contains("Invalid backup filename"),

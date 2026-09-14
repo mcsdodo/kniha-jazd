@@ -141,6 +141,53 @@ impl Database {
         })
     }
 
+    /// Replace the live database file with `source`, then reopen and migrate it.
+    ///
+    /// The copy, the reopen and the migrations run in one critical section, so
+    /// no request writes to the file in between. The old connection is dropped:
+    /// its schema cache describes the file as it was before the copy. Migrations
+    /// run here because an older backup would otherwise stay on its old schema
+    /// until the next process start. No pre-migration snapshot is taken - the
+    /// source backup file is still on disk.
+    ///
+    /// The caller must reject a source with unknown migrations first
+    /// (`check_backup_restorable`). That keeps the startup read-only flag
+    /// correct: the migrated file only has migrations this build knows.
+    pub fn restore_from_file(
+        &self,
+        source: &std::path::Path,
+        db_file: &std::path::Path,
+    ) -> Result<(), String> {
+        let mut conn = self.conn.lock().unwrap();
+        std::fs::copy(source, db_file).map_err(|e| e.to_string())?;
+        let path_str = db_file
+            .to_str()
+            .ok_or_else(|| "Invalid database path encoding".to_string())?;
+        *conn = SqliteConnection::establish(path_str).map_err(|e| e.to_string())?;
+        conn.run_pending_migrations(MIGRATIONS)
+            .map_err(|e| format!("Migrácia obnovenej zálohy zlyhala: {}", e))?;
+        Ok(())
+    }
+
+    /// Versions recorded in `__diesel_schema_migrations`.
+    ///
+    /// Unlike [`Self::check_migration_compatibility`], an unreadable table is an
+    /// error, not "no migrations": a file without migration history is not a
+    /// kniha-jazd database. Startup keeps the lenient check on purpose.
+    pub(crate) fn applied_migration_versions(&self) -> QueryResult<Vec<String>> {
+        #[derive(diesel::QueryableByName)]
+        struct MigrationRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            version: String,
+        }
+
+        let conn = &mut *self.conn.lock().unwrap();
+        let rows: Vec<MigrationRow> =
+            diesel::sql_query("SELECT version FROM __diesel_schema_migrations ORDER BY version")
+                .load(conn)?;
+        Ok(rows.into_iter().map(|r| r.version).collect())
+    }
+
     /// Get a raw connection for direct SQL (backup inspection, etc.)
     pub fn connection(&self) -> std::sync::MutexGuard<'_, SqliteConnection> {
         self.conn.lock().unwrap()
