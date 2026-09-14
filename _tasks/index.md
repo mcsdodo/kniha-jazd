@@ -69,7 +69,7 @@ Quick overview of all tasks and their status.
 
 | # | Item | Priority | Status |
 |---|------|----------|--------|
-| 08 | [Integration Suite Not Type-Checked](./_TECH_DEBT/08-integration-suite-not-type-checked.md) | Low | Fixed (0 tsc errors; `typecheck-tests` CI job) |
+| 08 | Integration Suite Not Type-Checked | Low | ✅ Fixed (commit 3339148, file deleted) |
 | 04 | Backup Restore Versioning | Medium | ✅ Fixed (commit 96ecf67, file deleted) |
 | 03 | Dead Code & Warnings | Low | ✅ Resolved (Task 37, file archived) |
 | 02 | PHEV Compensation | Low | Open (see Task 19 status for context) |
