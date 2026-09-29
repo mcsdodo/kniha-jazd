@@ -857,6 +857,25 @@
 		return e instanceof Error && e.message === 'A trip needs both an origin and a destination';
 	}
 
+	/** Same string as `AVOID_NEEDS_SYGIC` in src-tauri/core/src/route_map/provider.rs. */
+	const AVOID_NEEDS_SYGIC = 'AVOID_NEEDS_SYGIC';
+
+	function isAvoidNeedsSygicError(e: unknown): boolean {
+		const msg = e instanceof Error ? e.message : String(e);
+		return msg.includes(AVOID_NEEDS_SYGIC);
+	}
+
+	/** Show the route error. A missing Sygic key cannot be fixed by a retry. */
+	function showRouteError(e: unknown) {
+		if (isAvoidNeedsSygicError(e)) {
+			error = $LL.routeMap.avoidNeedsSygic();
+			retryable = false;
+		} else {
+			error = $LL.routeMap.routeError();
+			retryable = true;
+		}
+	}
+
 	function waypointsFromEndpoints(): Waypoint[] {
 		if (!resolvedOrigin || !resolvedDestination) return [];
 		return [
@@ -959,7 +978,7 @@
 			// shape it receives, so a stale closed fallback here is no
 			// longer able to produce a wrong stop count.
 			baseWaypoints = null;
-			error = $LL.routeMap.routeError();
+			showRouteError(e);
 		} finally {
 			generating = false;
 		}
@@ -1002,7 +1021,7 @@
 			// Same rule as the other two modes: drop the proposal so an error
 			// banner can never have a saveable route sitting behind it.
 			roundTripRoutes = null;
-			error = $LL.routeMap.routeError();
+			showRouteError(e);
 		} finally {
 			generating = false;
 		}

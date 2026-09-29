@@ -1,7 +1,7 @@
 //! Tests for the routing provider choice. `from_lookup` takes a closure, so
 //! nothing here reads or writes the real process environment.
 
-use super::provider::{build_provider, ProviderConfig};
+use super::provider::{build_provider, ProviderConfig, AVOID_NEEDS_SYGIC};
 use crate::constants::env_vars::{MOCK_ROUTER, SYGIC_API_KEY, SYGIC_REFERER};
 
 fn lookup(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
@@ -45,6 +45,14 @@ fn osrm_refuses_a_non_empty_avoid_list() {
         .err()
         .expect("OSRM cannot avoid per country");
     assert!(err.contains("SYGIC_API_KEY"), "got: {err}");
+    assert!(err.starts_with(AVOID_NEEDS_SYGIC), "got: {err}");
+}
+
+#[test]
+fn debug_output_hides_the_api_key() {
+    let cfg = ProviderConfig::Sygic { api_key: "k-secret".into(), referer: None };
+    let shown = format!("{cfg:?}");
+    assert!(!shown.contains("k-secret"), "key leaked: {shown}");
 }
 
 #[test]

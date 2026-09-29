@@ -1472,6 +1472,10 @@ type RootTranslation = {
 		 */
 		duration: string
 		/**
+		 * V​y​h​n​ú​ť​ ​s​a​ ​s​p​o​p​l​a​t​n​e​n​ý​m​ ​c​e​s​t​á​m​ ​s​a​ ​d​á​ ​l​e​n​ ​s​o​ ​s​l​u​ž​b​o​u​ ​S​y​g​i​c​.​ ​S​e​r​v​e​r​ ​j​u​ ​n​e​m​á​ ​n​a​s​t​a​v​e​n​ú​,​ ​z​r​u​š​t​e​ ​z​a​š​k​r​t​n​u​t​i​e​ ​k​r​a​j​i​n​y​.
+		 */
+		avoidNeedsSygic: string
+		/**
 		 * T​r​a​s​u​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​v​y​p​o​č​í​t​a​ť
 		 */
 		routeError: string
@@ -1524,6 +1528,26 @@ type RootTranslation = {
 			 * P​L
 			 */
 			pol: string
+			/**
+			 * D​E
+			 */
+			deu: string
+			/**
+			 * S​I
+			 */
+			svn: string
+			/**
+			 * H​R
+			 */
+			hrv: string
+			/**
+			 * I​T
+			 */
+			ita: string
+			/**
+			 * C​H
+			 */
+			che: string
 		}
 		/**
 		 * T​a​m
@@ -3743,6 +3767,10 @@ export type TranslationFunctions = {
 		 */
 		duration: () => LocalizedString
 		/**
+		 * Vyhnúť sa spoplatneným cestám sa dá len so službou Sygic. Server ju nemá nastavenú, zrušte zaškrtnutie krajiny.
+		 */
+		avoidNeedsSygic: () => LocalizedString
+		/**
 		 * Trasu sa nepodarilo vypočítať
 		 */
 		routeError: () => LocalizedString
@@ -3795,6 +3823,26 @@ export type TranslationFunctions = {
 			 * PL
 			 */
 			pol: () => LocalizedString
+			/**
+			 * DE
+			 */
+			deu: () => LocalizedString
+			/**
+			 * SI
+			 */
+			svn: () => LocalizedString
+			/**
+			 * HR
+			 */
+			hrv: () => LocalizedString
+			/**
+			 * IT
+			 */
+			ita: () => LocalizedString
+			/**
+			 * CH
+			 */
+			che: () => LocalizedString
 		}
 		/**
 		 * Tam

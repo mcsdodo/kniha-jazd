@@ -11,11 +11,27 @@ use super::osrm::{FetchedRoute, HttpRouteProvider, RouteProvider};
 use super::polyline::encode;
 use super::sygic::{SygicRouteProvider, PUBLIC_SYGIC_URL};
 
-#[derive(Debug)]
+/// Stable marker at the start of the "avoid needs Sygic" error. The page
+/// matches it (`AVOID_NEEDS_SYGIC` in src/routes/mapa/+page.svelte).
+pub const AVOID_NEEDS_SYGIC: &str = "AVOID_NEEDS_SYGIC";
+
 pub enum ProviderConfig {
     Mock,
     Sygic { api_key: String, referer: Option<String> },
     Osrm,
+}
+
+/// Manual `Debug`: the API key must never reach a log line.
+impl std::fmt::Debug for ProviderConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Mock => write!(f, "Mock"),
+            Self::Sygic { referer, .. } => {
+                f.debug_struct("Sygic").field("api_key", &"***").field("referer", referer).finish()
+            }
+            Self::Osrm => write!(f, "Osrm"),
+        }
+    }
 }
 
 impl ProviderConfig {
@@ -47,7 +63,7 @@ pub fn build_provider(config: ProviderConfig, avoid: Vec<String>) -> Result<Box<
         // No silent fallback (01-task.md, decision 5): OSRM would return a
         // route that ignores the avoid list and looks correct.
         ProviderConfig::Osrm => Err(format!(
-            "Avoiding paid roads ({}) needs the Sygic routing service. Set SYGIC_API_KEY on the server, or uncheck the avoid options.",
+            "{AVOID_NEEDS_SYGIC}: Avoiding paid roads ({}) needs the Sygic routing service. Set SYGIC_API_KEY on the server, or uncheck the avoid options.",
             avoid.join(", ")
         )),
     }
