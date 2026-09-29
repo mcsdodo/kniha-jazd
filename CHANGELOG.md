@@ -16,8 +16,17 @@ databázu len na čítanie.
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Obraz, zväzok, port:** bez zmeny
+
+## [1.2.0] - 2026-09-29
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
 - **Premenné prostredia:** bez novej premennej. Zmena správania: `SYGIC_API_KEY` už nemení predvolenú službu. Predvolene trasy počíta OSRM aj s kľúčom; Sygic sa vyberá na stránke Mapa.
-- **Migrácie databázy:** 1 nová (`trip_routes.provider`). Uloženým trasám doplní službu, ktorá ich vypočítala, ak sa dá dokázať: trasy uložené pred 2026-09-29 07:39 UTC dostanú OSRM, trasy s vyhnutím sa spoplatneným cestám dostanú Sygic, ostatné ostanú bez údaja. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db`, ktorú aplikácia uloží pred migráciou.
+- **Migrácie databázy:** 1 nová (`trip_routes.provider`). Uloženým trasám doplní službu, ktorá ich vypočítala, ak sa dá dokázať: trasy uložené pred 2026-09-29 07:39 UTC dostanú OSRM, trasy s vyhnutím sa spoplatneným cestám dostanú Sygic, ostatné ostanú bez údaja. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.2.0.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** žiadna
 - **Obraz, zväzok, port:** bez zmeny
 
