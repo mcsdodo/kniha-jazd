@@ -4,6 +4,31 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-29: Save and Apply Distance
+
+### ADR-054: A saved map always writes its whole-km distance to the trip
+
+**Supersedes in part [ADR-048](#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for):** the Direct-only scope of the write-back, and the "circular" reason that kept Loop routes out.
+
+**Context:** The `/mapa` page had two buttons. "Uložiť mapu" wrote only `trip_routes`. "Použiť vzdialenosť" wrote `trips.distance_km`, only in Direct mode. A map and its trip could therefore disagree, and a Loop route never wrote its distance. [Task 87](./_tasks/87-save-and-apply-distance/01-task.md).
+
+**Decision:**
+
+1. One button, "Uložiť a použiť vzdialenosť", replaces the two. It saves the map and writes its distance to the trip in every mode: Direct one-way, Direct round trip and Loop (D1).
+2. The written km is whole km: `road_km.round()` (`logbook_km`, D4). `trip_routes.road_km` stays raw, so the map still shows the real road distance. On commit, `trip_routes.target_km` is the new trip km.
+3. `save_trip_route` and `save_trip_round_trip_route` take a required `dryRun` and return a `DistanceWriteback`. A dry run writes nothing, not even the map. A commit plans again from the stored book and writes the map row, the trip row and the odometer shifts in ONE transaction (`save_route_map_with_trip_distance`). A partial write is not possible.
+4. If the rounded km already equals the trip km, `changesTrip` is `false` and the page saves without the modal (D3).
+5. `apply_saved_route_distance { tripId, dryRun }` replaces `apply_route_distance`. It reads the road km from `trip_routes`, so no km crosses the wire. It syncs a map saved before this task, or a trip whose km was edited after the save (D2).
+6. `SavedRouteMap.distanceInSync` is a backend fact: `road_km.round() == trip.distance_km`. An in-sync map is never `offTarget`. `deviationPercent` still shows the real value.
+
+The dry-run modal, the replan on commit and the three-field write stay from ADR-048.
+
+**Reasoning:** A map that illustrates a trip must agree with the trip, or the logbook shows two distances for one trip. The "circular" reason for Loop does not hold: the generator uses the trip km as a target, but the user approves the result in the modal like any other change. Whole km matches the way the logbook records distances. Without the in-sync rule, a short trip shows a permanent warning after a sync: 2.4 km written as 2 km is a 20 % deviation, and the tolerance is 5 %.
+
+**Related:** [ADR-048](#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for) (superseded in part); [ADR-046](#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own) (the cascade); [ADR-008](#adr-008-remove-frontend-calculation-duplication).
+
+---
+
 ## 2026-09-29: Routing Provider per Request
 
 ### ADR-053: The Page Picks the Routing Provider per Request; the Server Decides What Exists
@@ -149,6 +174,8 @@ The leg pickers stay empty until a real routing run fills them. The row stores o
 ### ADR-048: The routed distance can be written back, behind the warning this ADR asked for
 
 **Supersedes [ADR-039](#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance).**
+
+**Superseded in part by [ADR-054](#adr-054-a-saved-map-always-writes-its-whole-km-distance-to-the-trip):** the write-back is now part of every map save, in every mode, in whole km.
 
 **Context:** ADR-039 banned any route-map write to `distance_km` and named the follow-up that would lift the ban: an explicit action carrying a warning about the consumption period and the legal margin. Real data made the case for it. Trip `32631e0e` records 50.0 km; its one-way route is 25.6 km and its round trip 51.5 km, so the row is a there-and-back written as one line. A second one-way trip showed the same shape independently.
 

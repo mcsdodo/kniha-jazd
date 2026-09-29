@@ -24,6 +24,10 @@ databázu len na čítanie.
 ### Pridané
 - **Výber služby na výpočet trasy** - na stránke Mapa pribudol výber "Smerovanie: OSRM (OpenStreetMap) / Sygic". Zobrazí sa, ak server má nastavené `SYGIC_API_KEY`. Zmena pri priamej trase trasu hneď prepočíta. Pri okružnej trase platí pre ďalšie "Regenerovať". Predvolená služba je teraz OSRM, aj keď server má `SYGIC_API_KEY`: mapa Sygic ešte nemá tunel Višňové, preto trasy cez Žilinu počítala inak. Sygic vyberte, ak sa chcete vyhnúť spoplatneným cestám. Uložená trasa si pamätá službu, ktorá ju vypočítala, a po otvorení ju znova vyberie. Prepnutie na OSRM zruší vyhnutie sa spoplatneným cestám, lebo OSRM ho nepozná.
 
+### Zmenené
+- **Jedno tlačidlo "Uložiť a použiť vzdialenosť"** - na stránke Mapa nahradilo tlačidlá "Uložiť mapu" a "Použiť vzdialenosť". Uloží trasu a zapíše jej vzdialenosť do jazdy naraz, pri každom druhu trasy: priamej, tam a späť aj okružnej. Ak sa vzdialenosť mení, aplikácia najprv ukáže dopad na odometer a spotrebu. Zrušenie nezapíše nič.
+- **Vzdialenosť z mapy v celých km** - do jazdy sa zapisuje vzdialenosť trasy zaokrúhlená na celé km (25,634 sa zapíše ako 26). Mapa si ponecháva presnú vzdialenosť. Ak sa vzdialenosť jazdy zhoduje s mapou, upozornenie na odchýlku sa nezobrazí.
+
 ## [1.1.0] - 2026-09-29
 
 ### Pokyny k aktualizácii

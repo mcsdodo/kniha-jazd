@@ -36,12 +36,13 @@ The commands are served over the HTTP API like every other command — see
    [A round trip is two routing requests, one per leg](#a-round-trip-is-two-routing-requests-one-per-leg).
 8. **"Generovať znova" / "Prepočítať"** produces a different route for the same target
    (loop) or re-routes the current waypoint list (direct). **Nothing is persisted until
-   "Uložiť mapu"** -- the user can retry until a route looks right.
-9. **Saving** writes the route, tells the logbook tab to fill in that row's pin, and offers
-   to close the map tab. **"Odstrániť mapu"** removes a saved route after confirmation.
-   Saving never changes the trip's own recorded distance -- that needs the separate
-   **"Použiť vzdialenosť"** action described below. See
-   [The recorded distance is written back only explicitly](#the-recorded-distance-is-written-back-only-explicitly).
+   "Uložiť a použiť vzdialenosť"** -- the user can retry until a route looks right.
+9. **"Uložiť a použiť vzdialenosť"** saves the route and writes its distance, in whole km,
+   to the trip. It works the same in every mode. If the trip km changes, a confirmation
+   modal shows the change first. The save tells the logbook tab to fill in that row's pin,
+   and offers to close the map tab. **"Odstrániť mapu"** removes a saved route after
+   confirmation. It does not change the trip km. See
+   [A map save writes its distance to the trip](#a-map-save-writes-its-distance-to-the-trip).
 10. **"Export pre tlač"** appends one A4-landscape page per saved map after the trip table,
     each headed `Príloha č. N — záznam č. X`.
 
@@ -151,11 +152,13 @@ all await the routing service, so they live in
 [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs).
 `start_route_for_trip`, `get_trip_route`, `save_trip_route`, `save_trip_round_trip_route` and
 `delete_trip_route` need no network call -- the place-book lookup is a database read -- and
-stay in [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). `apply_route_distance`
-(the distance write-back) lives there too, alongside the other trip-cascade commands in
-[trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) rather than
-`route_maps.rs` -- it writes the trip, not the map. The write commands are guarded by the
-read-only check like every other write.
+stay in [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). The two saves take a
+required `dryRun` and return a `DistanceWriteback`: a save also writes the trip km (task 87).
+`apply_saved_route_distance` (sync of a saved map) lives there too. Its planner,
+`plan_route_distance`, is in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
+with the other trip-cascade code, and the saves call the same planner. A dry run writes
+nothing and also works in read-only mode. A commit is guarded by the read-only check like
+every other write.
 
 **Storage:** the `trip_routes` table
 ([migration](../../src-tauri/core/migrations/2026-08-10-100000_add_trip_routes/)), keyed by
@@ -192,7 +195,7 @@ this way at all. `legs` is `null` for a one-way route and a loop. See
 
 The `target_km` a saved map reports comes from the **trip's own `distance_km` at read time**,
 not from the column stored above. The stored column records what the trip measured when the
-map was saved; after a distance write-back (or any ordinary edit of the row) the trip's
+map was saved; after an edit of the row the trip's
 distance moves, and a target that did not follow it would show a deviation against a number
 the book no longer holds. The stored column is the fallback only for a map whose trip has
 since been deleted.
@@ -436,26 +439,46 @@ right town instead of the home base -- needs a distance matrix the app does not 
 that exists, dragging a mis-anchored loop into shape is the escape hatch, and it needed no new
 mechanism: Direct mode's own editing needed exactly this already.
 
-### The recorded distance is written back only explicitly
+### A map save writes its distance to the trip
 
-See [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance)
-(superseded) and [ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for).
-A Direct route's road distance can differ from the trip's logged `distance_km`, sometimes
-considerably, and saving the map never writes that number back onto the trip -- reconciling
-the two is a decision about the trip, not a side effect of drawing its map. `distance_km`
-feeds the consumption rate and the
-[20% legal margin](../../DECISIONS.md#biz-003-legal-margin-limit) directly, so silently
-moving it would shift which fuel period a fill-up belongs to.
+See [ADR-054](../../DECISIONS.md#adr-054-a-saved-map-always-writes-its-whole-km-distance-to-the-trip),
+[ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for)
+(superseded in part) and [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance)
+(superseded). If a trip has a saved map, the trip's `distance_km` agrees with the map.
 
-An explicit **"Použiť vzdialenosť"** button offers the write instead, behind a warning. The
-first click plans the write -- the odometer cascade (reusing
-[ADR-046](../../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own)'s
-planner) and the consumption-period impact -- and shows it in a confirmation modal: the new
-distance, the period's rate and margin before and after, whether the change crosses the 20%
-legal limit, and every later row whose odometer moves. Nothing is written until the user
-confirms. Only Direct mode gets the button: a Loop route's road distance is the genetic
-algorithm's own approximation of the trip's recorded distance, so writing it back would be
-circular.
+The page has one button, **"Uložiť a použiť vzdialenosť"**. It saves the route and writes
+the route's distance to the trip in one step. It does the same thing in every mode: Direct
+one-way, Direct round trip ("Cesta tam a späť") and Loop.
+
+- **Whole km.** The trip gets `road_km.round()`: 25.634 km becomes 26 km. The map keeps the
+  raw `road_km`, so it still shows the real road distance. On commit, `trip_routes.target_km`
+  is the new trip km.
+- **Dry run first.** The click sends the save with `dryRun: true`. It plans the odometer
+  cascade (the planner of
+  [ADR-046](../../DECISIONS.md#adr-046-a-save-cascades-the-odometer-by-delta-a-rebase-never-runs-on-its-own))
+  and the consumption-period impact, and it writes nothing, not even the map.
+- **The modal.** If the trip km changes, the confirmation modal shows the new km, the
+  period's rate and margin before and after, the 20% legal limit, and every later row whose
+  odometer moves. `distance_km` feeds the consumption rate and the
+  [20% legal margin](../../DECISIONS.md#biz-003-legal-margin-limit), so the user approves
+  the numbers first.
+- **No modal on a no-op.** If the rounded km already equals the trip km, the backend reports
+  `changesTrip: false` and the page saves at once.
+- **One transaction.** Confirm sends the same save with `dryRun: false`. The backend plans
+  again from the stored book, then writes the map row, the trip row and the odometer shifts
+  in one transaction (`save_route_map_with_trip_distance`). Cancel writes nothing. The page
+  keeps a copy of the save call from the click, so a different alternative picked behind
+  the modal does not change what Confirm commits.
+- **Sync of a saved map.** A map saved before task 87, or a trip whose km was edited after
+  the save, is not in sync. `SavedRouteMap.distanceInSync` reports this (a backend fact). The
+  button is then enabled with no proposal, and it calls `apply_saved_route_distance`. The
+  backend reads the road km from `trip_routes`.
+- **No false warning.** A map in sync is never `offTarget`. Without this rule, 2.4 km written
+  as 2 km is a 20% deviation, over the 5% tolerance, and the warning could never clear.
+  `deviationPercent` still shows the real value.
+
+The button is enabled if there is an unsaved proposal, or if the saved map is not in sync.
+"Odstrániť mapu" removes the map and does not change the trip km.
 
 ### A round trip is two routing requests, one per leg
 

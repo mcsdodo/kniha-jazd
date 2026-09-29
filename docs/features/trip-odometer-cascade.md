@@ -102,10 +102,11 @@ Every write path runs **dry run first**:
    leave half the year shifted.
 
 `CascadeResult.trip` is `None` on a dry run; the command's write arm returns the saved
-trip. `apply_route_distance` (route-map distance write-back) is a separate command with
+trip. The route-map saves (`save_trip_route`, `save_trip_round_trip_route`) and
+`apply_saved_route_distance` write the route distance to the trip with
 the same two-call contract, though it answers with a `DistanceWriteback` rather than a
 `CascadeResult` -- see
-[route-maps.md](./route-maps.md#the-recorded-distance-is-written-back-only-explicitly).
+[route-maps.md](./route-maps.md#a-map-save-writes-its-distance-to-the-trip).
 
 ### Odometer warnings
 
@@ -161,11 +162,11 @@ agree with itself. So the command is **RPC-only**:
 
 | File | Purpose |
 |------|---------|
-| [commands_internal/trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | The three planners, `update_trip_cascade_internal`, `create_trip_cascade_internal`, `delete_trip_cascade_internal`, `recalculate_odometers_internal`, `apply_route_distance_internal`, `mark_next_year_chain_breaks` |
+| [commands_internal/trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | The three planners, `update_trip_cascade_internal`, `create_trip_cascade_internal`, `delete_trip_cascade_internal`, `recalculate_odometers_internal`, `plan_route_distance`, `apply_saved_route_distance_internal`, `mark_next_year_chain_breaks` |
 | [commands_internal/helpers.rs](../../src-tauri/core/src/commands_internal/helpers.rs) | `trip_order` (the one comparator), `calculate_trip_numbers`, `calculate_odometer_start` |
 | [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `calculate_odometer_span_warnings`, `calculate_odometer_spans`, `calculate_duplicate_datetime_warnings`, preview anchor |
 | [models.rs](../../src-tauri/core/src/models.rs) | `OdometerChange`, `CascadePlan`, `CascadeResult`, warning sets on `TripGridData` |
-| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | RPC arms: `update_trip_cascade`, `create_trip_cascade`, `delete_trip_cascade`, `apply_route_distance`, `recalculate_odometers` |
+| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | RPC arms: `update_trip_cascade`, `create_trip_cascade`, `delete_trip_cascade`, `apply_saved_route_distance`, `save_trip_route`, `save_trip_round_trip_route`, `recalculate_odometers` |
 | [api.ts](../../src/lib/api.ts) | `updateTripCascade`, `createTripCascade`, `deleteTripCascade`, `applyRouteDistance`; the no-wrapper rule for plain CRUD |
 | [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Dry-run-then-apply handlers, `needsApproval`, pending-cascade state, arming windows |
 | [OdometerCascadeModal.svelte](../../src/lib/components/OdometerCascadeModal.svelte) | The confirmation modal |
@@ -213,7 +214,7 @@ just the row anyway would leave the very inconsistency the modal was about to fi
 - [ADR-044](../../DECISIONS.md): one comparator decides trip order, and the odometer is its third key
 - [ADR-045](../../DECISIONS.md): the odometer rewrite is a command the user runs, never a side effect of a save
 - [ADR-046](../../DECISIONS.md): a save cascades the odometer by delta; a rebase never runs on its own
-- [route-maps.md](./route-maps.md) -- the distance write-back (`apply_route_distance`) reuses the same planner
+- [route-maps.md](./route-maps.md) -- the map saves and `apply_saved_route_distance` reuse the same planner
 - [read-only-mode.md](./read-only-mode.md) -- dry runs stay allowed in read-only mode
 - [_tasks/_done/79-odometer-span-inconsistency/](../../_tasks/_done/79-odometer-span-inconsistency/) -- the warnings
 - [_tasks/_done/80-one-trip-ordering/](../../_tasks/_done/80-one-trip-ordering/) -- the one comparator

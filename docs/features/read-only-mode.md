@@ -76,19 +76,21 @@ note below the table). Grouped by module under
 | Module | Guarded `*_internal` functions |
 |--------|-------------------------------|
 | [vehicles.rs](../../src-tauri/core/src/commands_internal/vehicles.rs) | `update_vehicle`, `delete_vehicle`, `set_active_vehicle` |
-| [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip`, `create_trip_cascade`, `update_trip_cascade`, `delete_trip_cascade`, `apply_route_distance`, `recalculate_odometers` (the last five conditional — see below) |
+| [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `create_trip`, `update_trip`, `delete_trip`, `create_trip_cascade`, `update_trip_cascade`, `delete_trip_cascade`, `apply_saved_route_distance`, `recalculate_odometers` (the last five conditional -- see below) |
 | [settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | `save_settings` |
 | [backup.rs](../../src-tauri/core/src/commands_internal/backup.rs) | `set_backup_retention`, `restore_backup`, `delete_backup` |
 | [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_paperless_invoice`, `unassign_paperless_invoice`, `revert_paperless_override` |
 | [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `save_ha_settings`, `save_paperless_settings` |
-| [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `save_trip_round_trip_route` (both through the shared guarded save), `delete_trip_route` |
+| [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `save_trip_round_trip_route` (conditional: both take `dry_run`, see below), `delete_trip_route` |
 | [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `save_place`, `clear_place` (see [place-book.md](./place-book.md)) |
 
 The **dry-run family** in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
 is conditional: `recalculate_odometers_internal`, `update_trip_cascade_internal`,
 `create_trip_cascade_internal`, `delete_trip_cascade_internal` and
-`apply_route_distance_internal` all take a `dry_run` flag, and the `check_read_only!`
-call only runs when `dry_run == false`. A dry run only reports the rows it would change;
+`apply_saved_route_distance_internal` all take a `dry_run` flag, and the `check_read_only!`
+call only runs when `dry_run == false`. The two route-map saves in
+[route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) follow the same
+rule since task 87: their dry run plans the trip-km write and reaches no guard. A dry run only reports the rows it would change;
 it writes nothing, so read-only mode must not block it, the same reasoning as the two
 backup exceptions below. Unlike them, though, the same functions also have a write path,
 gated normally — see [trip-odometer-cascade.md](./trip-odometer-cascade.md).
