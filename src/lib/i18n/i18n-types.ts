@@ -1400,9 +1400,17 @@ type RootTranslation = {
 		 */
 		regenerate: string
 		/**
-		 * U​l​o​ž​i​ť​ ​m​a​p​u
+		 * U​l​o​ž​i​ť​ ​a​ ​p​o​u​ž​i​ť​ ​v​z​d​i​a​l​e​n​o​s​ť
 		 */
-		save: string
+		saveAndApply: string
+		/**
+		 * U​l​o​ž​í​ ​t​r​a​s​u​ ​a​ ​z​a​p​í​š​e​ ​j​e​j​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​d​o​ ​j​a​z​d​y​,​ ​z​a​o​k​r​ú​h​l​e​n​ú​ ​n​a​ ​c​e​l​é​ ​k​m
+		 */
+		saveAndApplyTitle: string
+		/**
+		 * T​r​a​s​u​ ​a​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​u​l​o​ž​i​ť
+		 */
+		saveError: string
 		/**
 		 * O​d​s​t​r​á​n​i​ť​ ​m​a​p​u
 		 */
@@ -1412,7 +1420,7 @@ type RootTranslation = {
 		 */
 		generating: string
 		/**
-		 * M​a​p​a​ ​t​r​a​s​y​ ​u​l​o​ž​e​n​á
+		 * T​r​a​s​a​ ​u​l​o​ž​e​n​á​,​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​j​a​z​d​y​ ​z​o​d​p​o​v​e​d​á​ ​m​a​p​e
 		 */
 		saved: string
 		/**
@@ -1587,22 +1595,6 @@ type RootTranslation = {
 		 * U​m​i​e​s​t​n​i​ť​ ​m​i​e​s​t​o
 		 */
 		placeEndpoint: string
-		/**
-		 * P​o​u​ž​i​ť​ ​v​z​d​i​a​l​e​n​o​s​ť
-		 */
-		applyDistance: string
-		/**
-		 * Z​a​p​í​s​a​ť​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​t​r​a​s​y​ ​d​o​ ​j​a​z​d​y
-		 */
-		applyDistanceTitle: string
-		/**
-		 * V​z​d​i​a​l​e​n​o​s​ť​ ​z​a​p​í​s​a​n​á​ ​d​o​ ​j​a​z​d​y
-		 */
-		applyDistanceDone: string
-		/**
-		 * V​z​d​i​a​l​e​n​o​s​ť​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​z​a​p​í​s​a​ť
-		 */
-		applyDistanceError: string
 	}
 	places: {
 		/**
@@ -3717,9 +3709,17 @@ export type TranslationFunctions = {
 		 */
 		regenerate: () => LocalizedString
 		/**
-		 * Uložiť mapu
+		 * Uložiť a použiť vzdialenosť
 		 */
-		save: () => LocalizedString
+		saveAndApply: () => LocalizedString
+		/**
+		 * Uloží trasu a zapíše jej vzdialenosť do jazdy, zaokrúhlenú na celé km
+		 */
+		saveAndApplyTitle: () => LocalizedString
+		/**
+		 * Trasu a vzdialenosť sa nepodarilo uložiť
+		 */
+		saveError: () => LocalizedString
 		/**
 		 * Odstrániť mapu
 		 */
@@ -3729,7 +3729,7 @@ export type TranslationFunctions = {
 		 */
 		generating: () => LocalizedString
 		/**
-		 * Mapa trasy uložená
+		 * Trasa uložená, vzdialenosť jazdy zodpovedá mape
 		 */
 		saved: () => LocalizedString
 		/**
@@ -3904,22 +3904,6 @@ export type TranslationFunctions = {
 		 * Umiestniť miesto
 		 */
 		placeEndpoint: () => LocalizedString
-		/**
-		 * Použiť vzdialenosť
-		 */
-		applyDistance: () => LocalizedString
-		/**
-		 * Zapísať vzdialenosť trasy do jazdy
-		 */
-		applyDistanceTitle: () => LocalizedString
-		/**
-		 * Vzdialenosť zapísaná do jazdy
-		 */
-		applyDistanceDone: () => LocalizedString
-		/**
-		 * Vzdialenosť sa nepodarilo zapísať
-		 */
-		applyDistanceError: () => LocalizedString
 	}
 	places: {
 		/**

@@ -139,22 +139,18 @@ export async function updateTripCascade(
 }
 
 /**
- * Write a route's road distance onto the trip it illustrates.
+ * Sync a SAVED map's distance onto its trip (task 87). The backend reads the
+ * road km from the saved map, so none crosses the wire.
  *
  * Call it twice: `dryRun: true` fills the confirmation modal and writes
- * nothing, then `dryRun: false` writes. The apply call plans again from the
- * stored book rather than replaying the dry run's numbers, so a book that
- * moved in between is corrected against as it is now.
- *
- * Only the distance crosses the wire. The trip's other fields are not
- * resubmitted, so this command cannot change them even by mistake.
+ * nothing, then `dryRun: false` writes. The commit plans again from the
+ * stored book rather than replaying the dry run's numbers.
  */
-export async function applyRouteDistance(
+export async function applySavedRouteDistance(
 	tripId: string,
-	roadKm: number,
 	dryRun: boolean
 ): Promise<DistanceWriteback> {
-	return await apiCall('apply_route_distance', { tripId, roadKm, dryRun });
+	return await apiCall('apply_saved_route_distance', { tripId, dryRun });
 }
 
 /**
@@ -602,23 +598,29 @@ export async function routeRoundTrip(
 // backend's GeneratedRoute carries no such field (it describes geometry, not
 // the request that produced it), so the checkbox state the caller is
 // currently showing is the only source of truth for what to persist.
+//
+// Task 87: a save also writes the route's whole-km distance to the trip, in
+// one transaction. `dryRun: true` plans it and writes nothing (not even the
+// map); `dryRun: false` commits. No target km is sent: the stored target is
+// the committed trip km.
 export async function saveTripRoute(
 	tripId: string,
 	route: GeneratedRoute,
 	roundTrip: boolean,
-	avoid: string[] = []
-): Promise<void> {
+	avoid: string[],
+	dryRun: boolean
+): Promise<DistanceWriteback> {
 	return await apiCall('save_trip_route', {
 		tripId,
 		waypoints: route.waypoints,
 		polyline: route.polyline,
-		targetKm: route.targetKm,
 		roadKm: route.roadKm,
 		mode: route.mode,
 		roundTrip,
 		avoid,
 		// The service that produced this geometry, as the backend reported it.
-		provider: route.provider
+		provider: route.provider,
+		dryRun
 	});
 }
 
@@ -628,6 +630,9 @@ export async function saveTripRoute(
  * No waypoint list, no polyline, no combined distance: the backend joins the
  * legs, concatenates the geometry and sums the distances itself (ADR-008).
  * Every value sent here is one the routing response produced.
+ *
+ * Task 87: the save also writes the whole-km sum of the legs to the trip, in
+ * one transaction. `dryRun: true` plans it and writes nothing.
  */
 export async function saveTripRoundTripRoute(
 	tripId: string,
@@ -637,10 +642,10 @@ export async function saveTripRoundTripRoute(
 	inboundPolyline: string,
 	outboundRoadKm: number,
 	inboundRoadKm: number,
-	targetKm: number,
-	avoid: string[] = [],
-	provider: RouteProviderKind | null = null
-): Promise<void> {
+	avoid: string[],
+	provider: RouteProviderKind | null,
+	dryRun: boolean
+): Promise<DistanceWriteback> {
 	return await apiCall('save_trip_round_trip_route', {
 		tripId,
 		outboundWaypoints,
@@ -649,9 +654,9 @@ export async function saveTripRoundTripRoute(
 		inboundPolyline,
 		outboundRoadKm,
 		inboundRoadKm,
-		targetKm,
 		avoid,
-		provider
+		provider,
+		dryRun
 	});
 }
 

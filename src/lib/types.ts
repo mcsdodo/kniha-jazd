@@ -117,11 +117,14 @@ export interface PeriodMarginImpact {
 	overLimitAfter: boolean;
 }
 
-/** The answer `apply_route_distance` gives. `trip` is null on a dry run. */
+/** The answer of a route-distance write (`apply_saved_route_distance` and the
+ *  two map saves). `trip` is null on a dry run and on a commit that changed nothing. */
 export interface DistanceWriteback {
 	tripId: string;
 	distanceBefore: number;
 	distanceAfter: number;
+	/** False when the write changes nothing: the page saves without the modal. */
+	changesTrip: boolean;
 	plan: CascadePlan;
 	margin: PeriodMarginImpact;
 	trip: Trip | null;
@@ -568,6 +571,8 @@ export interface RouteMap {
 	deviationPercent: number;
 	/** Whether that deviation exceeds the backend's tolerance. */
 	offTarget: boolean;
+	/** Whether the trip km equals the rounded road km. Computed by the backend. */
+	distanceInSync: boolean;
 	datasetVersion: string | null;
 	mode: RouteMode;
 	/** Direct mode only: whether this saved route closes back to its own

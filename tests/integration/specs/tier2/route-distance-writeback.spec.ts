@@ -1,21 +1,22 @@
 /**
- * Tier 2: writing a routed distance back onto a trip (Task 78).
+ * Tier 2: "Uložiť a použiť vzdialenosť" -- a map save writes its distance to
+ * the trip (Task 78, Task 87).
  *
- * This flow is fully testable here, unlike leg routing: a SAVED route is drawn
- * with no call to the routing service, so the Apply button, its modal and the
- * write are all reachable without the network. The same constraint as
- * route-map.spec.ts still applies -- nothing in this file calls
- * `generate_route`, `route_direct` or `route_round_trip`.
+ * One button saves the route and writes its whole-km distance to the trip, in
+ * every route mode, behind the dry-run modal. Routing runs offline here:
+ * `KNIHA_JAZD_MOCK_ROUTER` answers every route (OSRM, the default: 90.0 km),
+ * so the button, its modal and the write are all reachable without the network.
  *
- * NOT covered here on purpose: the period rate, the margin and the odometer
- * cascade are proven in Rust (`period_margin_impact` and
- * `apply_route_distance_internal` in commands_tests.rs). This file proves the
- * UI reaches them and shows what they answered.
+ * NOT covered here on purpose: the rounding, the period rate, the margin and
+ * the odometer cascade are proven in Rust (`logbook_km`, `plan_route_distance`
+ * and `period_margin_impact` in commands_tests.rs, the save commands in
+ * route_maps_tests.rs). This file proves the UI reaches them and shows what
+ * they answered.
  */
 
 import { waitForAppReady } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc, updateTrip } from '../../utils/db';
 
 const CANNED_POLYLINE = 'w_{dHcjlgBg}L{pd@wv]_bw@';
 const CANNED_WAYPOINTS = [
@@ -23,17 +24,37 @@ const CANNED_WAYPOINTS = [
   { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
 ];
 
-/** Persist a one-way direct route whose road distance differs from the row. */
-async function saveRouteWithRoadKm(tripId: string, targetKm: number, roadKm: number) {
-  await rpc<null>('save_trip_route', {
+/** Persist a one-way direct route whose road km equals the trip km (no trip change). */
+async function saveSyncedRoute(tripId: string, km: number) {
+  await rpc('save_trip_route', {
     tripId,
     waypoints: CANNED_WAYPOINTS,
     polyline: CANNED_POLYLINE,
-    targetKm,
-    roadKm,
+    roadKm: km,
     mode: 'direct',
     roundTrip: false,
+    dryRun: false,
   });
+}
+
+/** A map saved before task 87, or a trip km edited after the save. */
+async function editTripKm(trip: Record<string, unknown>, distanceKm: number) {
+  await updateTrip({ ...trip, id: trip.id, distanceKm });
+}
+
+async function getTrip(vehicleId: string, tripId: unknown) {
+  const trips = await rpc<Array<Record<string, unknown>>>('get_trips', { vehicleId });
+  return trips.find((t) => t.id === tripId)!;
+}
+
+async function getRoute(tripId: unknown) {
+  return rpc<Record<string, unknown> | null>('get_trip_route', { tripId });
+}
+
+/** Route the shown trip again through the mock (OSRM: 90.0 km). */
+async function recalculate() {
+  await $('[data-test="recalculate-btn"]').click();
+  await expect($('[data-test="actual-km"]')).toHaveText('90.0 km');
 }
 
 /**
@@ -67,7 +88,7 @@ describe('Route distance write-back', () => {
     await setActiveVehicle(vehicleId);
   });
 
-  it('writes the routed distance onto the trip and shifts the later rows', async () => {
+  it('saves the map and writes its distance, shifting the later rows', async () => {
     const first = await seedTrip({
       vehicleId,
       startDatetime: '2026-04-01T08:00',
@@ -89,31 +110,34 @@ describe('Route distance write-back', () => {
       purpose: 'Business trip',
     });
 
-    await saveRouteWithRoadKm(first.id as string, 50, 61.5);
+    await saveSyncedRoute(first.id as string, 50);
     await openMap(first.id as string);
+    await recalculate();
 
-    await $('[data-test="apply-distance-btn"]').click();
+    await $('[data-test="save-apply-btn"]').click();
 
     const modal = await $('[data-testid="cascade-modal"]');
     await modal.waitForDisplayed({ timeout: 5000 });
     const summary = await $('[data-testid="cascade-summary"]').getText();
     expect(summary).toContain('50');
-    expect(summary).toContain('61.5');
+    expect(summary).toContain('90');
 
     await $('[data-testid="cascade-confirm"]').click();
     await modal.waitForDisplayed({ timeout: 5000, reverse: true });
+    await $('[data-test="saved-notice"]').waitForDisplayed();
 
     // The row moved, and so did the one after it.
-    const trips = await rpc<Array<Record<string, unknown>>>('get_trips', { vehicleId });
-    const a = trips.find((t) => t.id === first.id)!;
-    const b = trips.find((t) => t.id === second.id)!;
-    expect(a.distanceKm).toBe(61.5);
-    expect(a.odometer).toBe(50061.5);
-    expect(b.odometer).toBe(50101.5);
+    const a = await getTrip(vehicleId, first.id);
+    const b = await getTrip(vehicleId, second.id);
+    expect(a.distanceKm).toBe(90);
+    expect(a.odometer).toBe(50090);
+    expect(b.odometer).toBe(50130);
+    // The map was saved in the same step.
+    expect((await getRoute(first.id))?.roadKm).toBe(90);
 
     // The map now measures against the new distance, so the deviation is gone.
     await browser.waitUntil(
-      async () => (await $('[data-test="target-km"]').getText()).includes('61.5'),
+      async () => (await $('[data-test="target-km"]').getText()).includes('90.0'),
       { timeout: 5000, timeoutMsg: 'the target distance did not follow the write' }
     );
     expect(await $('[data-test="deviation"]').getText()).toContain('0.0');
@@ -131,17 +155,111 @@ describe('Route distance write-back', () => {
       purpose: 'Business trip',
     });
 
-    await saveRouteWithRoadKm(trip.id as string, 50, 61.5);
+    await saveSyncedRoute(trip.id as string, 50);
     await openMap(trip.id as string);
+    await recalculate();
 
-    await $('[data-test="apply-distance-btn"]').click();
+    await $('[data-test="save-apply-btn"]').click();
     const modal = await $('[data-testid="cascade-modal"]');
     await modal.waitForDisplayed({ timeout: 5000 });
     await $('[data-testid="cascade-cancel"]').click();
     await modal.waitForDisplayed({ timeout: 5000, reverse: true });
 
-    const trips = await rpc<Array<Record<string, unknown>>>('get_trips', { vehicleId });
-    expect(trips.find((t) => t.id === trip.id)!.distanceKm).toBe(50);
+    expect((await getTrip(vehicleId, trip.id)).distanceKm).toBe(50);
+    // The proposal was not saved either: the stored map is the old one.
+    expect((await getRoute(trip.id))?.roadKm).toBe(50);
+  });
+
+  it('saves at once when the distance already matches', async () => {
+    const trip = await seedTrip({
+      vehicleId,
+      startDatetime: '2026-04-04T08:00',
+      endDatetime: '2026-04-04T10:00',
+      origin: 'Bratislava',
+      destination: 'Trnava',
+      distanceKm: 90,
+      odometer: 50090,
+      purpose: 'Business trip',
+    });
+
+    await saveSyncedRoute(trip.id as string, 90);
+    await openMap(trip.id as string);
+    await recalculate();
+
+    await $('[data-test="save-apply-btn"]').click();
+    await $('[data-test="saved-notice"]').waitForDisplayed({ timeout: 5000 });
+    expect(await $('[data-testid="cascade-modal"]').isExisting()).toBe(false);
+  });
+
+  it("writes a loop route's distance too", async () => {
+    const trip = await seedTrip({
+      vehicleId,
+      startDatetime: '2026-04-05T08:00',
+      endDatetime: '2026-04-05T10:00',
+      origin: 'Bratislava',
+      destination: 'Bratislava',
+      distanceKm: 37,
+      odometer: 50037,
+      purpose: 'Business trip',
+    });
+
+    // No saved map: a loop generates at once through the mock (OSRM, 90 km).
+    await openMap(trip.id as string);
+    await expect($('[data-test="actual-km"]')).toHaveText('90.0 km');
+
+    await $('[data-test="save-apply-btn"]').click();
+    const modal = await $('[data-testid="cascade-modal"]');
+    await modal.waitForDisplayed({ timeout: 5000 });
+    await $('[data-testid="cascade-confirm"]').click();
+    await $('[data-test="saved-notice"]').waitForDisplayed();
+
+    expect((await getTrip(vehicleId, trip.id)).distanceKm).toBe(90);
+    expect((await getRoute(trip.id))?.mode).toBe('loop');
+  });
+
+  it('syncs a saved map whose trip km was edited later', async () => {
+    const trip = await seedTrip({
+      vehicleId,
+      startDatetime: '2026-04-06T08:00',
+      endDatetime: '2026-04-06T10:00',
+      origin: 'Bratislava',
+      destination: 'Trnava',
+      distanceKm: 100,
+      odometer: 50100,
+      purpose: 'Business trip',
+    });
+    await saveSyncedRoute(trip.id as string, 100);
+    await editTripKm(trip as unknown as Record<string, unknown>, 80);
+
+    await openMap(trip.id as string);
+
+    const button = await $('[data-test="save-apply-btn"]');
+    await expect(button).toBeEnabled();
+    await button.click();
+    const modal = await $('[data-testid="cascade-modal"]');
+    await modal.waitForDisplayed({ timeout: 5000 });
+    await $('[data-testid="cascade-confirm"]').click();
+    await $('[data-test="saved-notice"]').waitForDisplayed();
+
+    expect((await getTrip(vehicleId, trip.id)).distanceKm).toBe(100);
+  });
+
+  it('disables the button on a saved map that is in sync', async () => {
+    const trip = await seedTrip({
+      vehicleId,
+      startDatetime: '2026-04-07T08:00',
+      endDatetime: '2026-04-07T10:00',
+      origin: 'Bratislava',
+      destination: 'Trnava',
+      distanceKm: 100,
+      odometer: 50100,
+      purpose: 'Business trip',
+    });
+    await saveSyncedRoute(trip.id as string, 100);
+
+    await openMap(trip.id as string);
+
+    await expect($('[data-test="save-apply-btn"]')).toBeDisabled();
   });
 
   it('names the 20 % legal limit before it is crossed', async () => {
@@ -151,8 +269,8 @@ describe('Route distance write-back', () => {
     // 26.3 % -- over the limit.
     const first = await seedTrip({
       vehicleId,
-      startDatetime: '2026-04-04T08:00',
-      endDatetime: '2026-04-04T10:00',
+      startDatetime: '2026-04-08T08:00',
+      endDatetime: '2026-04-08T10:00',
       origin: 'Bratislava',
       destination: 'Trnava',
       distanceKm: 100,
@@ -161,8 +279,8 @@ describe('Route distance write-back', () => {
     });
     await seedTrip({
       vehicleId,
-      startDatetime: '2026-04-05T08:00',
-      endDatetime: '2026-04-05T10:00',
+      startDatetime: '2026-04-09T08:00',
+      endDatetime: '2026-04-09T10:00',
       origin: 'Trnava',
       destination: 'Bratislava',
       distanceKm: 100,
@@ -172,10 +290,11 @@ describe('Route distance write-back', () => {
       fullTank: true,
     });
 
-    await saveRouteWithRoadKm(first.id as string, 100, 90);
+    await saveSyncedRoute(first.id as string, 100);
     await openMap(first.id as string);
+    await recalculate();
 
-    await $('[data-test="apply-distance-btn"]').click();
+    await $('[data-test="save-apply-btn"]').click();
     await $('[data-testid="cascade-modal"]').waitForDisplayed({ timeout: 5000 });
 
     expect(await $('[data-testid="writeback-margin"]').isDisplayed()).toBe(true);

@@ -14,7 +14,7 @@
 		startRouteForTrip,
 		routeDirect,
 		routeRoundTrip,
-		applyRouteDistance,
+		applySavedRouteDistance,
 		savePlace
 	} from '$lib/api';
 	import type {
@@ -130,7 +130,6 @@
 	/** The dry run currently awaiting the user's approval. Nothing is written
 	 *  while this is null, and nothing is written when it is dismissed. */
 	let writeback = $state<DistanceWriteback | null>(null);
-	let applying = $state(false);
 	/** The vehicle's trips, so the modal can name the rows the shift moves.
 	 *  The plan reports ids only. */
 	let yearTrips = $state<Trip[]>([]);
@@ -231,7 +230,7 @@
 	/** Reads `displayRoute`, not just `generated`, so the "alternatives
 	 *  unavailable" branch below is reachable whenever the display falls back
 	 *  to `savedRoute` -- a cold-loaded saved route, and equally the state
-	 *  right after `handleSave` nulls `generated` and re-reads `savedRoute`.
+	 *  right after `commitSave` nulls `generated` and re-reads `savedRoute`.
 	 *  Previously only reachable right after a fresh `runDirect` proposal
 	 *  (task 72's I2 fix only covered the freshly-generated case). Safe for
 	 *  loop mode too: both branches that read this are gated on
@@ -277,7 +276,19 @@
 	let endpointsMissing = $derived(
 		mode === 'direct' && (!resolvedOrigin || !resolvedDestination)
 	);
-	let busy = $derived(loading || generating || saving || removing || applying);
+	let busy = $derived(loading || generating || saving || removing);
+
+	type SaveCall = (dryRun: boolean) => Promise<DistanceWriteback>;
+
+	/** The call Confirm sends. Captured at the click, so a change on the page
+	 *  behind the modal cannot change what the user approved (ADR-048). */
+	let pendingSave: SaveCall | null = null;
+
+	/** An unsaved proposal, or a saved map the backend reports as not in sync
+	 *  with its trip (task 87, R1). The frontend compares no numbers (ADR-008). */
+	let canSaveAndApply = $derived(
+		!!generated || !!roundTripRoutes || (savedRoute !== null && !savedRoute.distanceInSync)
+	);
 
 	onMount(async () => {
 		// Leaflet touches `window` at import time — keep it out of the module graph.
@@ -959,7 +970,7 @@
 		unplacedField = null;
 	}
 
-	/** Generates and displays a loop route. Persists nothing -- only handleSave does. */
+	/** Generates and displays a loop route. Persists nothing -- only commitSave does. */
 	async function runGenerate(targetKm: number) {
 		generating = true;
 		error = null;
@@ -980,7 +991,7 @@
 		}
 	}
 
-	/** Routes and displays a direct route. Persists nothing -- only handleSave does.
+	/** Routes and displays a direct route. Persists nothing -- only commitSave does.
 	 *  `roundTrip` is captured into a local at the top, not read again after the
 	 *  await -- the checkbox could otherwise change while the request is in
 	 *  flight and this would append (or not) based on a value that no longer
@@ -1036,7 +1047,7 @@
 	}
 
 	/** Routes and displays a round trip as two legs. Persists nothing -- only
-	 *  handleSave does. The returned waypoint lists are adopted wholesale: the
+	 *  commitSave does. The returned waypoint lists are adopted wholesale: the
 	 *  backend derives the return leg when none is sent and re-joins the two
 	 *  ends on every call, so its lists are the only correct ones. */
 	async function runRoundTrip(
@@ -1162,80 +1173,83 @@
 		if (vehicle) void loadTripAndRoute(vehicle.id);
 	}
 
-	async function handleSave() {
-		if (!tripId) return;
-		const legs = roundTripRoutes;
-		if (!generated && !legs) return;
-		saving = true;
-		try {
-			if (legs) {
-				// Only which alternative was picked crosses the wire. The
-				// backend joins the legs, concatenates the geometry and sums
-				// the distances (ADR-008).
-				await saveTripRoundTripRoute(
-					tripId,
+	/** Snapshot of what the button would save now. Null if nothing to save. */
+	function captureSave(): SaveCall | null {
+		if (!tripId) return null;
+		const id = tripId;
+		const avoidNow = [...routedAvoid];
+		if (roundTripRoutes) {
+			// Only which alternative was picked crosses the wire. The backend
+			// joins the legs, concatenates the geometry and sums the distances
+			// (ADR-008).
+			const legs = roundTripRoutes;
+			const out = legs.outbound[outboundIndex];
+			const back = legs.inbound[inboundIndex];
+			return (dryRun) =>
+				saveTripRoundTripRoute(
+					id,
 					legs.outboundWaypoints,
 					legs.inboundWaypoints,
-					legs.outbound[outboundIndex].polyline,
-					legs.inbound[inboundIndex].polyline,
-					legs.outbound[outboundIndex].roadKm,
-					legs.inbound[inboundIndex].roadKm,
-					legs.targetKm,
-					routedAvoid,
-					legs.provider
+					out.polyline,
+					back.polyline,
+					out.roadKm,
+					back.roadKm,
+					avoidNow,
+					legs.provider,
+					dryRun
 				);
-			} else {
-				await saveTripRoute(tripId, generated!, roundTrip, routedAvoid);
+		}
+		if (generated) {
+			const route = generated;
+			const closeLoop = roundTrip;
+			return (dryRun) => saveTripRoute(id, route, closeLoop, avoidNow, dryRun);
+		}
+		if (savedRoute && !savedRoute.distanceInSync) {
+			return (dryRun) => applySavedRouteDistance(id, dryRun);
+		}
+		return null;
+	}
+
+	/** Plans the save. Writes NOTHING: the dry run fills the modal. If the trip
+	 *  would not change, it saves at once (task 87, D3). */
+	async function handleSaveAndApply() {
+		const run = captureSave();
+		if (!run) return;
+		saving = true;
+		try {
+			const plan = await run(true);
+			if (plan.changesTrip) {
+				pendingSave = run;
+				writeback = plan;
+				return;
 			}
-			// Re-read so the displayed route is the persisted one, not a local copy.
-			savedRoute = await getTripRoute(tripId);
-			generated = null;
-			// The alternatives panel guards on `alternatives.length`, not on
-			// `generated` -- leaving it populated here would show the picker
-			// (and its grey map layers) for a proposal that no longer exists,
-			// next to the just-saved route.
-			alternatives = [];
-			activeIndex = 0;
-			roundTripRoutes = null;
-			announce('route-map-saved');
-			savedNotice = true;
-			toast.success($LL.routeMap.saved());
+			await commitSave(run);
 		} catch (e) {
-			console.error('Failed to save route map:', e);
-			toast.error($LL.routeMap.error());
+			console.error('Failed to plan the route save:', e);
+			toast.error($LL.routeMap.saveError());
 		} finally {
 			saving = false;
 		}
 	}
 
-	/** Plans the write and opens the modal. Writes NOTHING -- the dry run is
-	 *  what fills the warning the user then approves. */
-	async function handleApplyDistance() {
-		if (!trip || displayRoadKm === null) return;
-		applying = true;
-		try {
-			writeback = await applyRouteDistance(tripId, displayRoadKm, true);
-		} catch (e) {
-			console.error('Failed to plan the distance write-back:', e);
-			toast.error($LL.routeMap.applyDistanceError());
-		} finally {
-			applying = false;
-		}
+	async function confirmWriteback() {
+		const run = pendingSave;
+		pendingSave = null;
+		writeback = null;
+		if (run) await commitSave(run);
 	}
 
-	/** Writes the distance the user approved -- `writeback.distanceAfter`, not
-	 *  whatever the panel shows now: picking a different alternative behind the
-	 *  modal must not change what Confirm commits. */
-	async function confirmWriteback() {
-		const approved = writeback;
+	function cancelWriteback() {
+		pendingSave = null;
 		writeback = null;
-		if (!approved || !trip) return;
-		applying = true;
+	}
+
+	async function commitSave(run: SaveCall) {
+		saving = true;
 		try {
-			await applyRouteDistance(tripId, approved.distanceAfter, false);
-			// The trip's distance IS the map's target, so both the target and
-			// the deviation move with it -- re-read the row and the saved map
-			// rather than patching the numbers here.
+			const result = await run(false);
+			// The trip's distance IS the map's target: re-read the row and the
+			// saved map rather than patch numbers here.
 			const vehicle = $activeVehicleStore;
 			if (vehicle) {
 				const trips = await getTrips(vehicle.id);
@@ -1243,13 +1257,22 @@
 				trip = trips.find((t) => t.id === tripId) ?? trip;
 			}
 			savedRoute = await getTripRoute(tripId);
-			announce('trip-distance-updated');
-			toast.success($LL.routeMap.applyDistanceDone());
+			generated = null;
+			// The alternatives panel guards on `alternatives.length`, not on
+			// `generated`: leaving it populated would show the picker (and its
+			// grey map layers) for a proposal that no longer exists.
+			alternatives = [];
+			activeIndex = 0;
+			roundTripRoutes = null;
+			if (result.changesTrip) announce('trip-distance-updated');
+			announce('route-map-saved');
+			savedNotice = true;
+			toast.success($LL.routeMap.saved());
 		} catch (e) {
-			console.error('Failed to write the distance back:', e);
-			toast.error($LL.routeMap.applyDistanceError());
+			console.error('Failed to save the route and its distance:', e);
+			toast.error($LL.routeMap.saveError());
 		} finally {
-			applying = false;
+			saving = false;
 		}
 	}
 
@@ -1261,7 +1284,7 @@
 			await deleteTripRoute(tripId);
 			savedRoute = null;
 			savedNotice = false;
-			// Unlike handleSave, this never touches `generated` -- Remove only
+			// Unlike commitSave, this never touches `generated` -- Remove only
 			// deletes the persisted route, not an in-progress unsaved proposal
 			// -- so `alternatives`/`activeIndex` stay in sync with whatever is
 			// (or is not) currently generated and need no reset here.
@@ -1376,23 +1399,15 @@
 					{/each}
 				</span>
 			{/if}
-			<button
-				class="button secondary"
-				data-test="apply-distance-btn"
-				title={$LL.routeMap.applyDistanceTitle()}
-				onclick={handleApplyDistance}
-				disabled={busy || displayRoadKm === null}
-			>
-				{$LL.routeMap.applyDistance()}
-			</button>
 		{/if}
 		<button
-			class="button secondary"
-			data-test="save-btn"
-			onclick={handleSave}
-			disabled={busy || (!generated && !roundTripRoutes)}
+			class="button"
+			data-test="save-apply-btn"
+			title={$LL.routeMap.saveAndApplyTitle()}
+			onclick={handleSaveAndApply}
+			disabled={busy || !canSaveAndApply}
 		>
-			{$LL.routeMap.save()}
+			{$LL.routeMap.saveAndApply()}
 		</button>
 		{#if savedRoute}
 			<button
@@ -1578,7 +1593,7 @@
 		trips={yearTrips}
 		oldDistanceKm={writeback.distanceBefore}
 		onConfirm={confirmWriteback}
-		onCancel={() => (writeback = null)}
+		onCancel={cancelWriteback}
 	/>
 {/if}
 
@@ -1846,15 +1861,6 @@
 	.button:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
-	}
-
-	.button.secondary {
-		background-color: var(--btn-active-success-bg);
-		color: var(--btn-active-success-color);
-	}
-
-	.button.secondary:hover:not(:disabled) {
-		background-color: var(--btn-active-success-hover);
 	}
 
 	.button.danger {

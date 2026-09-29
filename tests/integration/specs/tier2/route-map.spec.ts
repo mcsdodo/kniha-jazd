@@ -116,12 +116,12 @@ async function saveRoute(tripId: string, targetKm: number): Promise<void> {
     tripId,
     waypoints: CANNED_WAYPOINTS,
     polyline: CANNED_POLYLINE,
-    targetKm,
     roadKm: targetKm,
     // These are canned home-loop fixtures (Task 72, Phase 2): mode is a
     // required field on the wire, and 'loop' is the value RouteMode's serde
     // form pins it to.
     mode: 'loop',
+    dryRun: false,
   });
 }
 
@@ -135,9 +135,9 @@ async function saveDirectRouteWithVia(tripId: string, targetKm: number): Promise
     tripId,
     waypoints: CANNED_VIA_WAYPOINTS,
     polyline: CANNED_POLYLINE,
-    targetKm,
     roadKm: targetKm,
     mode: 'direct',
+    dryRun: false,
   });
 }
 
@@ -159,10 +159,10 @@ async function saveDirectRoundTrip(tripId: string, targetKm: number): Promise<vo
     tripId,
     waypoints: CANNED_ROUND_TRIP_WAYPOINTS,
     polyline: CANNED_POLYLINE,
-    targetKm,
     roadKm: targetKm,
     mode: 'direct',
     roundTrip: true,
+    dryRun: false,
   });
 }
 
@@ -188,7 +188,7 @@ async function saveRoundTripWithReturnVia(tripId: string, targetKm: number): Pro
     inboundPolyline: CANNED_POLYLINE,
     outboundRoadKm: targetKm / 2,
     inboundRoadKm: targetKm / 2,
-    targetKm,
+    dryRun: false,
   });
 }
 
@@ -205,10 +205,10 @@ async function saveDirectOneWay(tripId: string, targetKm: number): Promise<void>
     tripId,
     waypoints: CANNED_WAYPOINTS,
     polyline: CANNED_POLYLINE,
-    targetKm,
     roadKm: targetKm,
     mode: 'direct',
     roundTrip: false,
+    dryRun: false,
   });
 }
 
@@ -660,10 +660,10 @@ describe('Tier 2: Route Map', () => {
         tripId: trip.id as string,
         waypoints: CANNED_VIA_WAYPOINTS,
         polyline: CANNED_POLYLINE,
-        targetKm: 65,
         roadKm: 65,
         mode: 'direct',
         avoid: ['cze:tolls'],
+        dryRun: false,
       });
 
       await openMap(trip.id as string);
@@ -705,7 +705,11 @@ describe('Tier 2: Route Map', () => {
 
       // Review Focus 5: the save must carry the avoid list that produced
       // the shown route. Reopen from the database to prove it was stored.
-      await $('[data-test="save-btn"]').click();
+      // The shown route differs from the 65 km trip, so the save plans a
+      // distance change and asks first (task 87).
+      await $('[data-test="save-apply-btn"]').click();
+      await $('[data-testid="cascade-modal"]').waitForDisplayed({ timeout: 5000 });
+      await $('[data-testid="cascade-confirm"]').click();
       await $('[data-test="saved-notice"]').waitForDisplayed();
       await openMap(trip.id as string);
       await waitForMapOutcome('route');
@@ -750,7 +754,11 @@ describe('Tier 2: Route Map', () => {
       // the stored provider, not the default.
       await select.selectByAttribute('value', 'sygic');
       await expect($('[data-test="actual-km"]')).toHaveText('100.0 km');
-      await $('[data-test="save-btn"]').click();
+      // The shown route differs from the 65 km trip, so the save plans a
+      // distance change and asks first (task 87).
+      await $('[data-test="save-apply-btn"]').click();
+      await $('[data-testid="cascade-modal"]').waitForDisplayed({ timeout: 5000 });
+      await $('[data-testid="cascade-confirm"]').click();
       await $('[data-test="saved-notice"]').waitForDisplayed();
       expect((await getRoute(trip.id as string))?.provider).toBe('sygic');
 
