@@ -1,6 +1,6 @@
 **Date:** 2026-09-29
 **Subject:** One "Uložiť a použiť vzdialenosť" button: a saved map always writes its distance to the trip, in every route mode
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 

@@ -167,7 +167,7 @@ agree with itself. So the command is **RPC-only**:
 | [commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | `calculate_odometer_span_warnings`, `calculate_odometer_spans`, `calculate_duplicate_datetime_warnings`, preview anchor |
 | [models.rs](../../src-tauri/core/src/models.rs) | `OdometerChange`, `CascadePlan`, `CascadeResult`, warning sets on `TripGridData` |
 | [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | RPC arms: `update_trip_cascade`, `create_trip_cascade`, `delete_trip_cascade`, `apply_saved_route_distance`, `save_trip_route`, `save_trip_round_trip_route`, `recalculate_odometers` |
-| [api.ts](../../src/lib/api.ts) | `updateTripCascade`, `createTripCascade`, `deleteTripCascade`, `applyRouteDistance`; the no-wrapper rule for plain CRUD |
+| [api.ts](../../src/lib/api.ts) | `updateTripCascade`, `createTripCascade`, `deleteTripCascade`, `applySavedRouteDistance`, `saveTripRoute`, `saveTripRoundTripRoute`; the no-wrapper rule for plain CRUD |
 | [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Dry-run-then-apply handlers, `needsApproval`, pending-cascade state, arming windows |
 | [OdometerCascadeModal.svelte](../../src/lib/components/OdometerCascadeModal.svelte) | The confirmation modal |
 | [TripRow.svelte](../../src/lib/components/TripRow.svelte) | km/odo edit handlers, warning glyphs, row-action disabling while editing |

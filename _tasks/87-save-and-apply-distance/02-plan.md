@@ -4,7 +4,7 @@
 
 **Date:** 2026-09-29
 **Subject:** One "Uložiť a použiť vzdialenosť" button for every route mode
-**Status:** Planning
+**Status:** Complete
 
 **Goal:** A map save always writes the route's whole-km distance to the trip, in one transaction, behind the existing dry-run modal, in every route mode.
 
