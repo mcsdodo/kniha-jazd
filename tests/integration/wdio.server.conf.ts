@@ -263,6 +263,10 @@ export const config: any = {
     // the public instance. Files are named after `places::normalise(query)`.
     process.env.KNIHA_JAZD_MOCK_GEOCODER_DIR = join(__dirname, 'data', 'geocoder');
 
+    // Mock router (Task 85): fixed, offline routes. Wins over SYGIC_API_KEY,
+    // and the key is scrubbed below too, so the suite never calls Sygic.
+    process.env.KNIHA_JAZD_MOCK_ROUTER = '1';
+
     // Create screenshots directory if it doesn't exist
     const screenshotsDir = join(__dirname, 'screenshots');
     if (!existsSync(screenshotsDir)) {
@@ -301,6 +305,9 @@ export const config: any = {
         STATIC_DIR: join(__dirname, '../../build'),
         PORT: String(SERVER_PORT),
         KNIHA_JAZD_MOCK_GEOCODER_DIR: join(__dirname, 'data', 'geocoder'),
+        KNIHA_JAZD_MOCK_ROUTER: '1',
+        SYGIC_API_KEY: '',
+        SYGIC_REFERER: '',
         ...SCRUBBED_ENV,
         ...(ENV_PINNED ? ENV_PINNED_FIXTURE : {}),
       },

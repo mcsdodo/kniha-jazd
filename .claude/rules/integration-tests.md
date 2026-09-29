@@ -82,11 +82,14 @@ compositing and DPI all remain candidates. Only the dependence on the display is
 established. If a spec that waits on a toast or a modal fails only on your machine,
 check the display before the code.
 
-### Pass the geocoder mock to the container
+### Pass the mocks to the container
 
 `KNIHA_JAZD_MOCK_GEOCODER_DIR=/testdata/geocoder` is required. Without it
 `places.spec.ts` fails. CI passes it; a hand-written `docker run` copied from an
 older document may not.
+
+`KNIHA_JAZD_MOCK_ROUTER=1` is required too. Without it `route-map.spec.ts` fails,
+or calls a real routing service if the container has `SYGIC_API_KEY`.
 
 **Remember:** Integration tests = "Does the UI work?"
 

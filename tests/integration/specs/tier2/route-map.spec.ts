@@ -38,6 +38,10 @@
  *    the joined row directly, and reopening it exercises the real split
  *    (`turnaround_index`), the real per-leg `alternativesUnavailable` gate,
  *    and the write-back flow (route-distance-writeback.spec.ts) end to end.
+ *
+ * Exception to 1 and 3: the avoid-checkbox tests use the offline mock router
+ * (`KNIHA_JAZD_MOCK_ROUTER=1`, set by the wdio config), which returns fixed
+ * distances: 100.0 km with no avoid list, 120.0 km with any.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -636,6 +640,72 @@ describe('Tier 2: Route Map', () => {
       // [B, via, A] and its shared ends are not drawn twice, so its via is
       // the third handle -- the one that was missing.
       expect(await handleCounts()).toEqual({ handles: 3, endpoints: 2 });
+    });
+
+    it('reopens a saved route with its avoid list checked', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-13T08:00',
+        endDatetime: '2026-03-13T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50065,
+        purpose: 'Business trip',
+      });
+      await rpc<null>('save_trip_route', {
+        tripId: trip.id as string,
+        waypoints: CANNED_VIA_WAYPOINTS,
+        polyline: CANNED_POLYLINE,
+        targetKm: 65,
+        roadKm: 65,
+        mode: 'direct',
+        avoid: ['cze:tolls'],
+      });
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      const box = await $('[data-test="avoid-cze:tolls"]');
+      await box.waitForDisplayed();
+      expect(await box.isSelected()).toBe(true);
+    });
+
+    it('routes again with the avoid value when a country is checked', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-14T08:00',
+        endDatetime: '2026-03-14T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50065,
+        purpose: 'Business trip',
+      });
+      await saveDirectRouteWithVia(trip.id as string, 65);
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      // A saved route with no avoid list offers no options until it is routed.
+      expect(await $('[data-test="avoid-options"]').isExisting()).toBe(false);
+
+      await $('[data-test="recalculate-btn"]').click();
+      await expect($('[data-test="actual-km"]')).toHaveText('100.0 km');
+
+      await $('[data-test="avoid-cze:tolls"]').click();
+      // The mock returns 120.0 km for any non-empty avoid list.
+      await expect($('[data-test="actual-km"]')).toHaveText('120.0 km');
+      expect(await $('[data-test="avoid-cze:tolls"]').isSelected()).toBe(true);
+
+      // Review Focus 5: the save must carry the avoid list that produced
+      // the shown route. Reopen from the database to prove it was stored.
+      await $('[data-test="save-btn"]').click();
+      await $('[data-test="saved-notice"]').waitForDisplayed();
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      const reopened = await $('[data-test="avoid-cze:tolls"]');
+      await reopened.waitForDisplayed();
+      expect(await reopened.isSelected()).toBe(true);
     });
 
     it('reopens a saved one-way route with the checkbox unticked', async () => {
