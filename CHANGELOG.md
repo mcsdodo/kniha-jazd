@@ -5,12 +5,42 @@ Všetky významné zmeny v projekte sú zdokumentované v tomto súbore.
 Formát je založený na [Keep a Changelog](https://keepachangelog.com/sk/1.1.0/),
 a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
+Každé vydanie od 1.0.0 (pri 1.0.0 doplnený dodatočne) začína blokom **Pokyny k aktualizácii** pre toho, kto
+prevádzkuje Docker obraz `ghcr.io/mcsdodo/kniha-jazd-web`. Blok uvádza zmenené
+premenné prostredia, migrácie databázy, stratu údajov a zmeny obrazu. Hlavná
+verzia sa zvýši, ak aktualizácia vyžaduje zásah do existujúcej konfigurácie alebo
+zahodí údaje. Každá migrácia je jednosmerná: starší obraz otvorí aktualizovanú
+databázu len na čítanie.
+
 ## [Unreleased]
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** pridaná `SYGIC_API_KEY` (voliteľná; s ňou počíta mapy trás služba Sygic Routing API a mapa ponúkne vyhnúť sa spoplatneným cestám po krajinách, bez nej mapa ďalej používa verejný OSRM); pridaná `SYGIC_REFERER` (voliteľná; hlavička `Referer` pre kľúč Sygic s obmedzením na referer)
+- **Migrácie databázy:** 1 nová. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-vX.Y.Z.db`, ktorú aplikácia uloží pred migráciou.
+- **Strata údajov:** žiadna
+- **Obraz, zväzok, port:** bez zmeny
 
 ### Opravené
 - **Obnovenie zálohy zo staršej verzie aplikácie** - po obnovení takej zálohy (napríklad automatickej zálohy pred migráciou) aplikácia zlyhávala s chybou databázy, kým sa server nereštartoval. Obnovená databáza sa teraz hneď aktualizuje na aktuálnu verziu. Zálohu z novšej verzie aplikácie (napríklad po návrate na starší obraz) aplikácia neobnoví a vysvetlí prečo. Neobnoví ani súbor, ktorý nie je platná záloha knihy jázd. Obnovenie zálohy tiež už nemôže naraziť na zápis, ktorý práve prebieha.
 
 ## [1.0.0] - 2026-09-12
+
+### Pokyny k aktualizácii
+Tento blok bol doplnený dodatočne, po vydaní 1.0.0.
+
+- **Potrebný zásah:** áno
+- **Premenné prostredia:** odstránená `GEMINI_API_KEY` (aplikácia ju ignoruje)
+- **Migrácie databázy:** 7 nových. Návrat na 0.44.0 otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.0.0.db`, ktorú aplikácia uloží pred migráciou.
+- **Strata údajov:** tabuľka `receipts` (miestne doklady) sa zruší. Doklady priradené k jazde ostanú ako odkazy na Paperless, ostatné sa zahodia.
+- **Obraz, zväzok, port:** bez zmeny. Ak ste do kontajnera pripájali priečinok s dokladmi, aplikácia ho už nečíta.
+
+Pred aktualizáciou:
+1. Ak ešte potrebujete miestne doklady, vyexportujte ich: `sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv`
+
+Po aktualizácii:
+1. Odstráňte `GEMINI_API_KEY` z compose súboru.
+2. Voliteľne odstráňte pripojenie priečinka s dokladmi.
 
 ### Pridané
 - **Miesta** — v nastaveniach pribudla sekcia „Miesta“ so zoznamom všetkých miest, ktoré sa v tvojich jazdách vyskytujú. Zoznam sa vytvára priamo zo zapísaných jázd, takže nič nemusíš pridávať ručne a na žiadne miesto sa nezabudne. Každému miestu vieš určiť bod na mape — vyhľadáš adresu a vyberieš si z ponuky, alebo špendlík umiestniš kliknutím do mapy a presunieš presne tam, kam patrí. Uloží sa vždy len to, čo sám potvrdíš. V nadpise vidíš, koľko miest už svoj bod má, a tie bez neho sú v zozname prvé, takže sa dá prejsť odhora nadol. Zároveň sa ponuka v poliach „Odkiaľ“ a „Kam“ berie z tohto spoločného zoznamu — miesto, ktoré si prvýkrát zapísal pri jednom aute, ti aplikácia ponúkne aj pri ostatných, a rôzne zápisy toho istého miesta sa v ponuke zlúčia do jednej položky.

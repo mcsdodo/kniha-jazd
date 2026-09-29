@@ -5,127 +5,84 @@ on:
     tags:
       - 'v*'
 
+# A `v*` tag does not build anything (ADR-051). It:
+#   1. reads the `## [X.Y.Z]` section of CHANGELOG.md - no section, no release;
+#   2. waits for test.yml to finish on the tagged commit - test.yml runs the full
+#      suite and publishes `:main-<short-sha>` for every push to main (ADR-031);
+#   3. promotes that tested image to `:vX.Y.Z` and `:latest` with
+#      `imagetools create`, so the released bytes are the bytes the suite passed;
+#   4. creates a GitHub Release that holds the changelog section and no assets.
+#
+# `:main` and `:main-<sha>` are owned by test.yml and are NOT touched here.
+
 jobs:
-  # Check if tests already passed for this commit (or ancestor if only docs/release changes)
-  check-tests:
-    name: Check Prior Test Results
+  release:
+    name: Promote Tested Image and Publish Notes
     runs-on: ubuntu-latest
-    outputs:
-      tests_passed: ${{ steps.check-api.outputs.tests_passed }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 15  # Need ancestors for traversing past docs-only commits
-
-      - name: Check for non-code changes
-        id: check-files
-        uses: ./.github/actions/check-file-changes
-        with:
-          # Files that don't require tests: release files + docs/config (matching test.yml)
-          safe-patterns: '^(CHANGELOG\.md|package\.json|package-lock\.json|src-tauri/Cargo\.toml|src-tauri/Cargo\.lock|.*\.md|_tasks/.*|\.claude/.*|\.github/.*|docs/.*)$'
-
-      - name: Check if Tests workflow passed
-        id: check-api
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          COMMIT_SHA="${{ github.sha }}"
-          echo "Checking for Tests workflow results on commit: $COMMIT_SHA"
-
-          # First: check if tests passed on this commit
-          RESULT=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$COMMIT_SHA&status=success" \
-            --jq '.total_count' 2>/dev/null || echo "0")
-
-          if [ "$RESULT" -gt 0 ]; then
-            echo "tests_passed=true" >> $GITHUB_OUTPUT
-            echo "✅ Tests passed on this commit"
-            exit 0
-          fi
-
-          echo "No test results on tagged commit - checking if release-only changes..."
-
-          # Second: if only non-code files changed (release/docs), traverse ancestors
-          if [ "${{ steps.check-files.outputs.has-code-changes }}" = "false" ]; then
-            echo "✅ Only non-code files changed - searching ancestors for test results..."
-
-            # Traverse up to 10 ancestors looking for successful tests
-            CURRENT_SHA=$(git rev-parse HEAD)
-            for i in $(seq 1 10); do
-              ANCESTOR_SHA=$(git rev-parse HEAD~$i 2>/dev/null || break)
-              echo "  Checking ancestor ~$i: $ANCESTOR_SHA"
-
-              ANCESTOR_RESULT=$(gh api \
-                -H "Accept: application/vnd.github+json" \
-                "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$ANCESTOR_SHA&status=success" \
-                --jq '.total_count' 2>/dev/null || echo "0")
-
-              if [ "$ANCESTOR_RESULT" -gt 0 ]; then
-                echo "tests_passed=true" >> $GITHUB_OUTPUT
-                echo "✅ Ancestor ~$i ($ANCESTOR_SHA) passed tests - skipping"
-                exit 0
-              fi
-            done
-            echo "⚠️ No ancestor with successful test run found (checked 10 commits)"
-          else
-            echo "❌ Code changes detected - cannot skip tests"
-          fi
-
-          echo "tests_passed=false" >> $GITHUB_OUTPUT
-          echo "⚠️ No prior successful test run found - will run tests"
-
-  # Run tests first - backend tests on all platforms (skip if already passed)
-  backend-tests:
-    name: Backend Tests (${{ matrix.platform }})
-    needs: check-tests
-    if: needs.check-tests.outputs.tests_passed != 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      - name: Run backend tests
-        working-directory: src-tauri
-        run: cargo test --workspace
-
-      - name: Verify web binary builds
-        working-directory: src-tauri
-        run: cargo build --release -p kniha-jazd-web
-
-  # Publish the web (homelab) Docker image.
-  # Per D2 a `v*` tag produces no GitHub Release - the ghcr image is the release.
-  docker-image:
-    name: Publish Web Docker Image
-    needs: [check-tests, backend-tests]
-    if: |
-      always() &&
-      (needs.check-tests.outputs.tests_passed == 'true' ||
-       needs.backend-tests.result == 'success')
-    runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
-      contents: read
-      packages: write
+      contents: write   # gh release create
+      packages: write   # push vX.Y.Z and latest
+      actions: read     # read the test.yml run of the tagged commit
+    env:
+      IMAGE: ghcr.io/mcsdodo/kniha-jazd-web
+      GH_TOKEN: ${{ github.token }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # Fail before the wait: a tag without notes must not publish an image.
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section. Run /release, which writes it."
+            exit 1
+          fi
+          if ! grep -q '^### Pokyny k aktualizácii' release-notes.md; then
+            echo "::error::The '## [$VERSION]' section has no '### Pokyny k aktualizácii' block for the integrator."
+            exit 1
+          fi
+
+      - name: Wait for test.yml on the tagged commit
+        id: tested
+        run: |
+          SHA=$(git rev-parse HEAD)   # checkout leaves HEAD on the tagged commit
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          echo "Tagged commit: $SHA"
+
+          # 50 x 60 s. A tag on a commit that was never pushed to main gets no run.
+          for i in $(seq 1 50); do
+            RUN=$(gh api \
+              "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$SHA&event=push" \
+              --jq '.workflow_runs | sort_by(.created_at) | last | "\(.status) \(.conclusion) \(.html_url)"' \
+              2>/dev/null || echo "")
+
+            case "$RUN" in
+              "completed success "*)
+                echo "test.yml passed: ${RUN##* }"
+                exit 0 ;;
+              completed*)
+                echo "::error::test.yml did not pass on $SHA: $RUN"
+                exit 1 ;;
+              "" | null*)
+                echo "[$i] no test.yml run for $SHA yet" ;;
+              *)
+                echo "[$i] test.yml is $RUN" ;;
+            esac
+            sleep 60
+          done
+
+          echo "::error::No finished test.yml run for $SHA. Tag a commit that you pushed to main."
+          exit 1
 
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
@@ -134,14 +91,46 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.web
-          push: true
-          tags: |
-            ghcr.io/mcsdodo/kniha-jazd-web:${{ github.ref_name }}
-            ghcr.io/mcsdodo/kniha-jazd-web:latest
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Promote the tested image
+        run: |
+          SOURCE="$IMAGE:main-${{ steps.tested.outputs.short }}"
+
+          # publish-main-image is the last job of test.yml, so the image exists
+          # when the run is green. Fail with a clear message if it does not.
+          if ! docker buildx imagetools inspect "$SOURCE" > /dev/null; then
+            echo "::error::$SOURCE does not exist, although test.yml passed."
+            exit 1
+          fi
+
+          # --prefer-index=false: copy the manifest as it is. The default (true)
+          # wraps a single-platform source in a new index with a new digest.
+          docker buildx imagetools create --prefer-index=false \
+            --tag "$IMAGE:$GITHUB_REF_NAME" \
+            --tag "$IMAGE:latest" \
+            "$SOURCE"
+
+          # Same digest = same bytes as the image the suite passed against.
+          digest() { docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' | jq -r .digest; }
+          SRC_DIGEST=$(digest "$SOURCE")
+          for TAG in "$GITHUB_REF_NAME" latest; do
+            if [ "$(digest "$IMAGE:$TAG")" != "$SRC_DIGEST" ]; then
+              echo "::error::$IMAGE:$TAG has a different digest than $SOURCE ($SRC_DIGEST)."
+              exit 1
+            fi
+          done
+
+          echo "Promoted \`$SOURCE\` ($SRC_DIGEST) to \`$IMAGE:$GITHUB_REF_NAME\` and \`$IMAGE:latest\`." \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # Notes only, no assets. `--latest` moves the GitHub "Latest" marker off the
+      # last desktop release.
+      - name: Create GitHub Release
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --latest \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md

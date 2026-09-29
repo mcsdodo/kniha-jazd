@@ -73,6 +73,12 @@ or to a specific `:main-<sha>`.
 Updating = pull a newer tag and restart the container. The database in `/data` stays
 put; migrations run automatically on start.
 
+Before you upgrade, read the **Pokyny k aktualizácii** (upgrade notes) block in
+[CHANGELOG.md](CHANGELOG.md) or in [GitHub Releases](https://github.com/mcsdodo/kniha-jazd/releases)
+for each version you skip. It lists changed env vars, database migrations and data loss.
+Every migration is one-way: an older image opens the migrated database read-only. The way
+back is the automatic pre-migration backup in `/data/backups/`.
+
 ## Usage
 
 ### 1. Add a Vehicle

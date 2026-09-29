@@ -4,6 +4,38 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-29: Release Contract for the Integrator
+
+### ADR-051: A Release Promotes the Tested Image and Publishes Upgrade Notes
+
+**Context:** Since [ADR-030](#adr-030-the-desktop-app-is-deleted-the-container-is-the-only-build) the Docker image is the only product, so the person who reads a release is an integrator who upgrades a container. A review of the release process found four gaps:
+
+1. The changelog skill forbade env names and commands ("write for users"), so the notes had no place for the facts an integrator needs. 1.0.0 removed `GEMINI_API_KEY` and added 7 one-way migrations, and no entry said so.
+2. The bump rules were from before 1.0: a new env var was "minor", and a major bump was "a statement about the project".
+3. [release.yml](./.github/workflows/release.yml) built the image again from the tag and ran only backend tests on it. [ADR-031](#adr-031-two-channels--main-moves-latest-is-cut) point 1 argues against a rebuild: "a rebuild could differ ... and would prove nothing". So `vX.Y.Z` was the one tag that no integration test ran against.
+4. With no GitHub Release since the desktop era, GitHub showed v0.43.0 as "Latest", and an integrator had no release feed to watch.
+
+**Decision:**
+
+1. **Each version starts with a `### Pokyny k aktualizácii` block** of five fixed rows: action required, env vars, migrations (with the rollback path), data loss, image/volume/port. Env names, paths and commands go in it word for word. See the [changelog skill](./.claude/skills/changelog-skill/SKILL.md).
+2. **`/release` checks the block against the diff since the last tag** (migrations, `env_vars` constants, `Dockerfile.web`) and stops if the block misses a fact. See the [release skill](./.claude/skills/release-skill/SKILL.md).
+3. **Semver is measured against the integrator contract.** Major: a removed or renamed env var, a config-breaking default, data loss, or a changed volume, path, port or tag. Minor: features, behavior changes, new env vars, and **any migration**, because a migration is one-way and a patch must be safe to roll back. An env var is removed only after a `### Zastarané` entry in an earlier release.
+4. **release.yml builds nothing.** It waits for test.yml to finish on the tagged commit, then runs `docker buildx imagetools create --prefer-index=false` to tag the published `:main-<short-sha>` as `:vX.Y.Z` and `:latest`. The flag makes a carbon copy (the default wraps a single-platform image in a new index with a new digest), and the job fails if the digests of the new tags differ from the source. The image carries OCI `version` and `revision` labels, set in test.yml, because a promotion cannot change labels.
+5. **A tag creates a GitHub Release with notes only**: the `## [X.Y.Z]` section of the changelog, no assets. release.yml fails before it publishes anything if that section or its integrator block is missing.
+
+**Reasoning:**
+
+- The tested image must be the image of the release commit, not of its parent: `get_app_version` reads `Cargo.toml`, and only the release commit carries the new version. That is why release.yml waits for test.yml instead of promoting the last `:main`.
+- Every push to `main` runs the full suite and publishes `:main-<short-sha>` ([check-file-changes](./.github/actions/check-file-changes/action.yml) forces this for push events), so the image a tag needs always comes. A tag on a commit that was never pushed to `main` fails with a message.
+- ADR-030 stopped GitHub Releases mainly because of the desktop updater and its signing keys. Both are deleted. One consequence remains: an old desktop copy (0.43.0 or older) polls `releases/latest/download/latest.json`. Today that file is on v0.43.0 and reports no newer version. After the first notes-only release, the URL returns 404. The update store of v0.43.0 catches the error, shows no modal, and marks the version in Settings with a `!` ("error checking"). We accept this: the desktop app is obsolete since ADR-030.
+- The backend matrix on Windows and macOS no longer runs from release.yml. It still runs in test.yml on the same commit, and the promotion requires that run to be green.
+
+**Supersedes:** point 2 of ADR-030 ("no GitHub Release, no installer, no release notes") for the notes; the rebuild in release.yml that ADR-031 left in place.
+
+**Related:** [ADR-031](#adr-031-two-channels--main-moves-latest-is-cut), [release.yml](./.github/workflows/release.yml), [test.yml](./.github/workflows/test.yml), [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
 ## 2026-09-11: Paperless-Only Invoices
 
 ### ADR-050: Paperless-ngx Is the Only Invoice Source
@@ -346,7 +378,7 @@ The decisive evidence for `routes` specifically: the stored counter has **no obs
 |-----|-------|--------------|-------|
 | `:main` | yes, per green build | [test.yml](./.github/workflows/test.yml) `publish-main-image` | tip of `main`, all tests green |
 | `:main-<short-sha>` | never | same job | that exact commit, pinnable |
-| `:latest` | yes, per release | [release.yml](./.github/workflows/release.yml) | last version someone cut |
+| `:latest` | yes, per release | [release.yml](./.github/workflows/release.yml) (promotes `:main-<short-sha>` since [ADR-051](#adr-051-a-release-promotes-the-tested-image-and-publishes-upgrade-notes)) | last version someone cut |
 | `vX.Y.Z` | never | same job | that release |
 
 CI never touches `:latest` or `vX.Y.Z`; [`/release`](./.claude/skills/release-skill/SKILL.md) never touches `:main`. Both halves are stated in the workflow comments and in the release skill so neither drifts into the other's tags.
@@ -384,7 +416,7 @@ CI never touches `:latest` or `vX.Y.Z`; [`/release`](./.claude/skills/release-sk
 **Decision:** Delete it. `ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` is the only artifact this project builds, ships and tests.
 
 1. **`src-tauri/desktop/` is gone**, along with the updater, the signing keys, the frontend's `@tauri-apps` dependencies, and the custom-database-location feature — one `/data` volume needs no path picker and no multi-PC lock dance. The workspace directory keeps the name `src-tauri/` because renaming it would rewrite every path in the repo's history for no functional gain.
-2. **A `v*` tag publishes the ghcr image and nothing else** — no GitHub Release, no installer, no release notes. `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_KEY_PASSWORD` become dead repository secrets.
+2. **A `v*` tag publishes the ghcr image and nothing else** — no GitHub Release, no installer, no release notes. `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_KEY_PASSWORD` become dead repository secrets. *(Changed by [ADR-051](#adr-051-a-release-promotes-the-tested-image-and-publishes-upgrade-notes): a tag now also creates a GitHub Release with notes only.)*
 3. **Docker + Chrome is the only test harness.** The tauri-driver path is gone, and with it the EdgeDriver version-chasing block whose own comment recorded CI jobs hanging "for hours via retries". WebdriverIO now spawns the headless `kniha-jazd-web` binary locally, or talks to a container.
 4. **Playwright and vitest are deleted rather than wired up** (D1). Both were test scripts no CI job invoked; vitest matched zero files, and per [ADR-008](#adr-008-remove-frontend-calculation-duplication) the frontend holds no logic to unit-test. A test script that exists but runs nowhere is worse than no script, because it reads as coverage.
 5. **Receipt-processing progress is an accepted loss** (D3). The desktop path emitted progress events over `app.emit`; no SSE or polling replacement is built, and the UI that consumed them is deleted rather than stubbed. ADR-024 already made Paperless the sole intake channel.

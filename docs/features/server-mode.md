@@ -52,7 +52,7 @@ has a `HEALTHCHECK` on `/health`.
 
 | Tag | Moves | Published by |
 |-----|-------|--------------|
-| `:latest` | per release | [release.yml](../../.github/workflows/release.yml) on a `v*` tag |
+| `:latest` | per release | [release.yml](../../.github/workflows/release.yml) on a `v*` tag, which promotes the tested `:main-<short-sha>` of the tagged commit |
 | `:vX.Y.Z` | never | same |
 | `:main` | per green build of `main` | [test.yml](../../.github/workflows/test.yml) `publish-main-image` |
 | `:main-<short-sha>` | never | same |
@@ -107,11 +107,29 @@ only the Docker bridge address, so the operator supplies the reachable URL).
 
 ### Homelab Deployment
 
-The release workflow publishes the official image on every `v*` tag:
-`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` (plus `latest`), built by the `docker-image` job
-in [release.yml](../../.github/workflows/release.yml). That image **is** the release —
-no GitHub Release, no installers, no updater. Updating means pulling a newer tag and
-restarting the container; the `/data` volume carries the database across.
+A `v*` tag makes [release.yml](../../.github/workflows/release.yml) wait until
+[test.yml](../../.github/workflows/test.yml) has tested and published
+`:main-<short-sha>` for the tagged commit. It then tags that same image as
+`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` and `:latest` (no rebuild), and creates a GitHub
+Release that holds the version's section of [CHANGELOG.md](../../CHANGELOG.md) and no
+assets. See [ADR-051](../../DECISIONS.md#adr-051-a-release-promotes-the-tested-image-and-publishes-upgrade-notes).
+
+Updating means pulling a newer tag and restarting the container; the `/data` volume
+carries the database across. Before you upgrade, read the `Pokyny k aktualizácii` block
+of each version you skip. It lists changed env vars, migrations, data loss and image
+changes. Every migration is one-way: an older image opens the migrated database
+read-only ([read-only-mode.md](./read-only-mode.md)). The way back is the pre-migration
+backup in `<DATA_DIR>/backups/`.
+
+The image carries the OCI labels `org.opencontainers.image.version` (the version the
+app reports) and `org.opencontainers.image.revision` (the commit). A `:main` image
+reports the version of the last release commit before it, so use `revision` to tell
+two `:main` images apart:
+
+```bash
+docker inspect ghcr.io/mcsdodo/kniha-jazd-web:latest \
+  --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}'
+```
 
 ## Local Development
 

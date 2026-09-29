@@ -306,9 +306,15 @@ GitHub Actions workflow (`.github/workflows/test.yml`):
 - **Publish**: a green push to `main` republishes the tested image artifact (no rebuild)
   as `ghcr.io/mcsdodo/kniha-jazd-web:main` + `:main-<short-sha>`. PRs publish nothing.
 
-`.github/workflows/release.yml` runs on a `v*` tag and publishes
-`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` + `:latest`. It creates **no GitHub Release**
-and no installers.
+`.github/workflows/release.yml` runs on a `v*` tag. It builds nothing: it waits for
+test.yml to publish `:main-<short-sha>` for the tagged commit, promotes that image to
+`ghcr.io/mcsdodo/kniha-jazd-web:vX.Y.Z` + `:latest`, and creates a notes-only GitHub
+Release from the `## [X.Y.Z]` section of CHANGELOG.md (ADR-051). No installers.
+
+**Release notes are the integrator contract (ADR-051).** Every version in CHANGELOG.md
+starts with a `### Pokyny k aktualizácii` block: env vars, migrations, data loss, image
+changes. Update it in the same commit as a change that touches a migration, an
+`env_vars` constant or `Dockerfile.web`. `/release` refuses to release without it.
 
 **Two channels, one boundary (ADR-031):** CI owns `:main` / `:main-<sha>`; `/release`
 owns `vX.Y.Z` / `:latest`. Neither writes the other's tags.
@@ -364,9 +370,9 @@ Use skills in `.claude/skills/` for workflows:
 |-------|-------------|---------|
 | `/task-plan` | Starting new feature | Create `_tasks/{NN}-feature/` planning folder |
 | `/decision` | Making architectural choices | Add ADR/BIZ entry to `DECISIONS.md` |
-| `/changelog` | After user-visible changes | Update `CHANGELOG.md` [Unreleased] section |
+| `/changelog` | After user-visible or integrator-visible changes | Update `CHANGELOG.md` [Unreleased] section, including the upgrade-notes block |
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
-| `/release` | Publishing new version | Bump version, update changelog, tag, push - CI publishes the ghcr image |
+| `/release` | Publishing new version | Check upgrade notes, bump version, update changelog, tag, push - CI promotes the tested image |
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
 | `/test-review` | After feature complete | Check test coverage, add missing tests |

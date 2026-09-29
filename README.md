@@ -73,6 +73,12 @@ celou testovacou sadou, ale ešte neboli vydané. Ak niečo nefunguje, vráťte 
 Aktualizácia = stiahnutie nového tagu a reštart kontajnera. Databáza v `/data` zostáva,
 migrácie sa spustia automaticky pri štarte.
 
+Pred aktualizáciou si prečítajte blok **Pokyny k aktualizácii** v [CHANGELOG.md](CHANGELOG.md)
+alebo v [GitHub Releases](https://github.com/mcsdodo/kniha-jazd/releases) pre každú verziu,
+ktorú preskakujete. Blok uvádza zmenené premenné prostredia, migrácie databázy a stratu
+údajov. Každá migrácia je jednosmerná: starší obraz otvorí aktualizovanú databázu len na
+čítanie. Späť vedie automatická záloha pred migráciou v `/data/backups/`.
+
 ## Použitie
 
 ### 1. Pridanie vozidla
