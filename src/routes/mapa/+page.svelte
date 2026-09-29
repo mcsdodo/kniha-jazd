@@ -170,11 +170,12 @@
 	let skipFit = false;
 	let dataLoadStarted = false;
 
-	/** Options come from the backend (ADR-008). A saved route that was not
-	 *  routed again offers only the values it was saved with. */
-	let avoidOptions = $derived(
-		roundTripRoutes?.avoidOptions ?? generated?.avoidOptions ?? savedRoute?.avoid ?? []
-	);
+	/** Options come from the backend (ADR-008): copied, never filtered or sorted.
+	 *  State, not derived from `generated` / `roundTripRoutes`: a failed request
+	 *  nulls those, and the checkboxes must stay so the user can uncheck the
+	 *  value that made it fail. Set only on success, `loadRoute()` and
+	 *  `selectAlternative()`. A saved route offers the values it was saved with. */
+	let avoidOptions = $state<string[]>([]);
 
 	function countryLabel(value: string): string {
 		const iso = value.split(':')[0];
@@ -726,6 +727,7 @@
 			// route for a trip the user already marked as a round trip.
 			roundTrip = savedRoute.roundTrip;
 			avoid = [...savedRoute.avoid];
+			avoidOptions = [...savedRoute.avoid];
 			routedAvoid = [...savedRoute.avoid];
 			const legs = savedRoute.roundTrip ? splitSavedLegs(savedRoute) : null;
 			savedLegs = legs;
@@ -904,6 +906,7 @@
 		try {
 			generated = await generateRoute(targetKm);
 			routedAvoid = [];
+			avoidOptions = [];
 		} catch (e) {
 			console.error('Failed to generate route:', e);
 			// Drop the previous proposal: leaving it would let the user save a
@@ -933,6 +936,7 @@
 			activeIndex = 0;
 			generated = routes[0];
 			routedAvoid = requestAvoid;
+			avoidOptions = [...routes[0].avoidOptions];
 			// The backend appends exactly one trailing waypoint -- a clone of
 			// the route's own (post-insert) first point -- when closeLoop is
 			// set. Strip it back off so the next regenerate/insert/drag starts
@@ -982,6 +986,7 @@
 			}
 			roundTripRoutes = routes;
 			routedAvoid = requestAvoid;
+			avoidOptions = [...routes.avoidOptions];
 			outboundIndex = 0;
 			inboundIndex = 0;
 			baseWaypoints = routes.outboundWaypoints;
@@ -1209,6 +1214,7 @@
 	function selectAlternative(index: number) {
 		activeIndex = index;
 		generated = alternatives[index];
+		avoidOptions = [...alternatives[index].avoidOptions];
 		skipFit = true;
 	}
 
