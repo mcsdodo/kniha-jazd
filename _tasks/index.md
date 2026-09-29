@@ -8,7 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 85 | [Route Avoid Tolls Per Country](85-route-avoid-tolls-per-country/) | 📋 Planning | Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise |
+| 85 | [Route Avoid Tolls Per Country](85-route-avoid-tolls-per-country/) | ✅ Complete | Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |

@@ -1,6 +1,6 @@
 **Date:** 2026-09-29
 **Subject:** Route map: avoid paid roads per country (Sygic routing provider)
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 
@@ -152,8 +152,8 @@ Do not write a key or a referer value into this repo. The repo is public.
 - A DB test: save and get keep the avoid list. A row from before the migration
   reads as `[]`.
 - Integration tests with the mock router: a reopened saved route shows its
-  checked box, and a click routes again. Before this task the suite had no way
-  to route at all (header of `route-map.spec.ts`).
+  checked box, and a click routes again. The suite uses `KNIHA_JAZD_MOCK_ROUTER`
+  (Task 8).
 
 ### Documentation
 

@@ -4,6 +4,31 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-29: Routing Provider
+
+### ADR-052: Sygic Is the Optional Routing Provider for Per-Country Toll Avoidance
+
+**Context:** The user wants Bratislava to Brno with the Slovak D2 and no Czech vignette roads. That needs a router that knows countries. [Task 85](./_tasks/85-route-avoid-tolls-per-country/01-task.md) checked the options on 2026-09-29.
+
+**Options considered:**
+1. Public OSRM - rejects `exclude=motorway` and `exclude=toll` with `InvalidValue`. It can know countries only on a self-hosted server with a custom profile.
+2. Public Valhalla - `use_highways: 0` is global. The Slovak D2 is lost too.
+3. Google Routes API - `avoidTolls` is global. Its terms (section 19.2) forbid Google route content on a non-Google map.
+4. Sygic Routing API v3 - `avoid=cze:tolls` avoids one country, and `return_possible_avoids=true` lists the values that apply to the route.
+
+**Decision:**
+
+1. Sygic computes all routes when `SYGIC_API_KEY` is set. Public OSRM stays the default when the key is unset, and the page shows no avoid checkboxes.
+2. There is no silent fallback to OSRM. OSRM refuses a non-empty avoid list, and a Sygic error reaches the page. A fallback route would ignore the avoid list and look correct.
+3. The avoid type is `tolls` only. The backend accepts only values that match `^[a-z]{3}:tolls$`, because the value goes into a URL. Free highway sections stay allowed.
+4. The provider choice, the value filter and the union of options are in Rust ([ADR-008](#adr-008-remove-frontend-calculation-duplication)). The page renders `avoidOptions` and sends the checked values back.
+5. A route stores its avoid list in `trip_routes.avoid`. A reopened route shows its saved values. Only a recompute calls the provider.
+6. The integration tests use an offline mock router, selected with `KNIHA_JAZD_MOCK_ROUTER`. It wins over the two other providers. It is for tests only.
+
+**Reasoning:** Only Sygic gives per-country avoidance with no server to run. One engine for routes with and without an avoid keeps their kilometre values comparable. A checked country stays visible because the backend adds the avoided values to the options, and Sygic does not offer an avoid again after it has been applied. Open items before the live deploy: the Sygic terms on stored geometry, and the request quota of the plan. See [route-maps.md](./docs/features/route-maps.md#avoid-paid-roads-per-country).
+
+---
+
 ## 2026-09-29: Release Contract for the Integrator
 
 ### ADR-051: A Release Promotes the Tested Image and Publishes Upgrade Notes

@@ -57,6 +57,16 @@ builds it from [Dockerfile.web](Dockerfile.web):
 docker compose -f docker-compose.web.yml up -d
 ```
 
+### Route maps: Sygic (optional)
+
+The route map uses the public OSRM server by default. If you set `SYGIC_API_KEY`, the Sygic Routing API computes the routes and the Map page offers "Avoid paid roads" per country.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SYGIC_API_KEY` | unset | If set, Sygic computes the routes. If unset, public OSRM is used and the option is hidden. |
+| `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
+| `KNIHA_JAZD_MOCK_ROUTER` | unset | For the integration tests only. Do not set it on a live instance. |
+
 ### Image channels
 
 | Tag | What it is |

@@ -57,6 +57,16 @@ robi build z [Dockerfile.web](Dockerfile.web):
 docker compose -f docker-compose.web.yml up -d
 ```
 
+### Mapy trás: Sygic (voliteľné)
+
+Mapa trás štandardne používa verejný server OSRM. Ak nastavíte `SYGIC_API_KEY`, trasy počíta služba Sygic Routing API a stránka Mapa ponúkne voľbu "Vyhnúť sa spoplatneným cestám" po jednotlivých krajinách.
+
+| Premenná | Predvolene | Účel |
+|----------|------------|------|
+| `SYGIC_API_KEY` | nenastavená | Ak je nastavená, trasy počíta Sygic. Bez nej sa použije verejný OSRM a voľba sa nezobrazí. |
+| `SYGIC_REFERER` | nenastavená | Hlavička `Referer` pre kľúč Sygic s obmedzením na referer |
+| `KNIHA_JAZD_MOCK_ROUTER` | nenastavená | Len pre integračné testy. Na produkcii ju nenastavujte. |
+
 ### Verzie image-u
 
 | Tag | Čo obsahuje |

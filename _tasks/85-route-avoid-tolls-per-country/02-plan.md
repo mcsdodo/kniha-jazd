@@ -1,6 +1,6 @@
 **Date:** 2026-09-29
 **Subject:** Route map: avoid paid roads per country (Sygic routing provider)
-**Status:** Planning
+**Status:** Complete
 
 # Route Avoid Tolls Per Country Implementation Plan
 

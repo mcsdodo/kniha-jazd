@@ -16,10 +16,13 @@ databázu len na čítanie.
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
-- **Premenné prostredia:** pridaná `SYGIC_API_KEY` (voliteľná; s ňou počíta mapy trás služba Sygic Routing API a mapa ponúkne vyhnúť sa spoplatneným cestám po krajinách, bez nej mapa ďalej používa verejný OSRM); pridaná `SYGIC_REFERER` (voliteľná; hlavička `Referer` pre kľúč Sygic s obmedzením na referer)
+- **Premenné prostredia:** pridaná `SYGIC_API_KEY` (voliteľná; s ňou počíta mapy trás služba Sygic Routing API a mapa ponúkne vyhnúť sa spoplatneným cestám po krajinách, bez nej mapa ďalej používa verejný OSRM); pridaná `SYGIC_REFERER` (voliteľná; hlavička `Referer` pre kľúč Sygic s obmedzením na referer); pridaná `KNIHA_JAZD_MOCK_ROUTER` (len pre integračné testy, na produkcii nenastavovať)
 - **Migrácie databázy:** 1 nová. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-vX.Y.Z.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** žiadna
 - **Obraz, zväzok, port:** bez zmeny
+
+### Pridané
+- **Vyhnúť sa spoplatneným cestám po krajinách** - na stránke Mapa pri priamej trase (aj pri ceste tam a späť) zaškrtnete krajinu, napríklad CZ, a trasa sa prepočíta bez jej spoplatnených ciest. Cesty ostatných krajín ostanú. Voľba je dostupná, ak server má nastavené `SYGIC_API_KEY`. Uložená trasa si pamätá zaškrtnuté krajiny.
 
 ### Opravené
 - **Obnovenie zálohy zo staršej verzie aplikácie** - po obnovení takej zálohy (napríklad automatickej zálohy pred migráciou) aplikácia zlyhávala s chybou databázy, kým sa server nereštartoval. Obnovená databáza sa teraz hneď aktualizuje na aktuálnu verziu. Zálohu z novšej verzie aplikácie (napríklad po návrate na starší obraz) aplikácia neobnoví a vysvetlí prečo. Neobnoví ani súbor, ktorý nie je platná záloha knihy jázd. Obnovenie zálohy tiež už nemôže naraziť na zápis, ktorý práve prebieha.

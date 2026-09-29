@@ -136,6 +136,9 @@ frontend draws a coordinate list and confirms it.
 | [dataset.rs](../../src-tauri/core/src/route_map/dataset.rs) | Loads the bundled 67-node settlement set and its 67×67 driving-distance matrix |
 | [ga.rs](../../src-tauri/core/src/route_map/ga.rs) | Genetic algorithm picking the settlement sequence (Loop mode) |
 | [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) | Fetches road-following geometry and, for a plain two-point request, up to three alternatives -- behind a `RouteProvider` trait |
+| [sygic.rs](../../src-tauri/core/src/route_map/sygic.rs) | Sygic Routing API v3 client. Same trait as OSRM; adds `avoid` and returns the avoid options |
+| [provider.rs](../../src-tauri/core/src/route_map/provider.rs) | Picks the provider from the environment: mock, Sygic or OSRM |
+| [avoid.rs](../../src-tauri/core/src/route_map/avoid.rs) | Validates the avoid values and builds the option union |
 | [polyline.rs](../../src-tauri/core/src/route_map/polyline.rs) | Polyline5 encode/decode; never panics on malformed input |
 | [tiles.rs](../../src-tauri/core/src/route_map/tiles.rs) | Web Mercator tile geometry plus the cache-first tile fetcher |
 | [render.rs](../../src-tauri/core/src/route_map/render.rs) | Composites tiles and strokes the route into a PNG |
@@ -471,6 +474,32 @@ point, concatenates the geometry and sums the distances, and records where the j
 (`turnaround_index`, below) so reopening the map can split it back into its two legs
 correctly.
 
+### Avoid paid roads per country
+
+See [ADR-052](../../DECISIONS.md#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance) and [the task](../../_tasks/85-route-avoid-tolls-per-country/01-task.md).
+
+On `/mapa`, in direct mode only (one-way and round trip), one checkbox per country shows: "Vyhnúť sa spoplatneným cestám: SK / CZ ...". A click routes again with the new list. Loop mode has no checkboxes and sends no avoid list. A change of the list would run the genetic algorithm again and replace the loop.
+
+**Provider choice** ([provider.rs](../../src-tauri/core/src/route_map/provider.rs)). The first rule that matches wins:
+
+1. `KNIHA_JAZD_MOCK_ROUTER` is set: the offline mock. For the integration tests only.
+2. `SYGIC_API_KEY` is set: Sygic. If `SYGIC_REFERER` is set, the request sends it as the `Referer` header.
+3. Otherwise: public OSRM.
+
+OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback route would ignore the avoid list and look correct. A saved route with an avoid list still draws when the key is gone, because it needs no routing call. A recompute shows an error.
+
+**The `tolls`-only rule** ([avoid.rs](../../src-tauri/core/src/route_map/avoid.rs)). The backend accepts only values that match `^[a-z]{3}:tolls$`, for example `cze:tolls`. Any other value is an error, and no request goes out, because the value goes into a URL. Free highway sections stay allowed.
+
+**The option union.** Sygic returns the avoids that apply to the route (`return_possible_avoids=true`). The backend keeps the `*:tolls` values and adds the values in the current avoid list. Sygic does not offer an avoid again after it has been applied, so without this step a checked country would disappear. A round trip returns the sorted union of both legs, and both legs use the same avoid list. The page renders `avoidOptions` and does not compute anything.
+
+**Saved column.** `trip_routes.avoid` holds a JSON list, `TEXT NOT NULL DEFAULT '[]'`, as the last column (migration `2026-09-29-100000_add_trip_route_avoid`). A save stores the list that produced the shown route, not the newest checkbox state. A reopened route shows its saved values as checked, until "Prepočítať". `get_trip_route` returns them as `avoid`.
+
+**The mock.** With `KNIHA_JAZD_MOCK_ROUTER` set, an offline router answers all routing calls. It offers `cze:tolls`, so the integration tests can click a checkbox with no network.
+
+**Checked example** (2026-09-29, Bratislava to Brno): 130.1 km and 88 min with no avoid. 132.9 km and 111 min with `cze:tolls`. That route still uses the D2 from the border to the Breclav exit. The section has had no vignette since March 2025, while the II/425 bridge Lanzhot-Brodske is closed, and Sygic knows it.
+
+**Open items before the deploy:** the Sygic terms on stored geometry, and the request quota of the plan.
+
 ## Working on this feature
 
 The i18n strings live in [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts) and
@@ -493,6 +522,7 @@ saw it.
 
 ## Related
 
+- [ADR-052](../../DECISIONS.md#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance): Sygic is the optional routing provider for per-country toll avoidance
 - [ADR-047](../../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg): a round trip is two routing requests, one per leg
 - [ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for): the routed distance can be written back, behind the warning this ADR asked for
 - [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust): the route mode comes from the trip's own text, decided in Rust
