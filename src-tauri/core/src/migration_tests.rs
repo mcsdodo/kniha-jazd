@@ -432,6 +432,29 @@ fn existing_route_maps_backfill_round_trip_false() {
 }
 
 // ============================================================================
+// Task 85 -- per-country avoid list (2026-09-29-100000)
+// ============================================================================
+
+#[test]
+fn existing_route_maps_backfill_an_empty_avoid_list() {
+    let db = open_db_legacy_before("2026-09-29-100000");
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t1", "v1", None);
+    exec(
+        &db,
+        "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+                                  dataset_version, created_at) \
+         VALUES ('t1', '[]', 'abc', 100.0, 98.0, '2026-05-03', \
+                 '2026-01-01T00:00:00+00:00')",
+    );
+
+    migrate_to_current(&db);
+
+    let map = db.get_route_map("t1").unwrap().unwrap();
+    assert!(map.avoid.is_empty(), "a route saved before the avoid column must read as no avoid");
+}
+
+// ============================================================================
 // Task 84 -- local receipts are removed (2026-09-11-130000)
 // ============================================================================
 

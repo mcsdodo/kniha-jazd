@@ -1097,6 +1097,8 @@ impl Database {
         let trip_id_str = map.trip_id.to_string();
         let waypoints_json = serde_json::to_string(&map.waypoints)
             .map_err(|e| diesel::result::Error::SerializationError(Box::new(e)))?;
+        let avoid_json = serde_json::to_string(&map.avoid)
+            .map_err(|e| diesel::result::Error::SerializationError(Box::new(e)))?;
         let created_at_str = map.created_at.to_rfc3339();
 
         conn.transaction::<_, diesel::result::Error, _>(|tx| {
@@ -1114,6 +1116,7 @@ impl Database {
                     mode: map.mode.as_str(),
                     round_trip: map.round_trip,
                     turnaround_index: map.turnaround_index,
+                    avoid: &avoid_json,
                 })
                 .execute(tx)?;
             Ok(())

@@ -106,6 +106,7 @@ fn save_rejects_read_only_mode() {
         118.4,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap_err();
     assert!(err.contains("len na čítanie"), "got: {err}");
@@ -135,6 +136,7 @@ fn delete_rejects_read_only_mode() {
         118.4,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -192,6 +194,7 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         118.4,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -310,6 +313,7 @@ fn grid_data_marks_only_the_trips_that_have_a_saved_map() {
         118.4,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -382,6 +386,7 @@ fn save_map_for(db: &Database, trip_id: &Uuid, polyline: &str) {
         118.4,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 }
@@ -588,6 +593,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         108.0,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -608,6 +614,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         102.0,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -1388,6 +1395,7 @@ fn a_saved_direct_route_round_trips_with_its_mode_and_vias() {
         400.0,
         RouteMode::Direct,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -1418,6 +1426,7 @@ fn a_saved_loop_route_still_stamps_the_dataset_version() {
         118.0,
         RouteMode::Loop,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -1453,6 +1462,7 @@ fn a_saved_direct_round_trip_round_trips_true() {
         400.0,
         RouteMode::Direct,
         true,
+        vec![],
     )
     .unwrap();
 
@@ -1478,6 +1488,7 @@ fn a_saved_direct_one_way_round_trips_false() {
         400.0,
         RouteMode::Direct,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -1508,6 +1519,7 @@ fn a_saved_loop_route_never_stores_round_trip_even_if_asked() {
         118.0,
         RouteMode::Loop,
         true,
+        vec![],
     )
     .unwrap();
 
@@ -1790,6 +1802,7 @@ fn saving_a_round_trip_joins_the_two_legs_into_one_row() {
         25.0,
         27.0,
         50.0,
+        vec![],
     )
     .unwrap();
 
@@ -1832,6 +1845,7 @@ fn a_round_trip_save_refuses_a_leg_that_is_not_a_leg() {
         1.0,
         1.0,
         2.0,
+        vec![],
     )
     .unwrap_err();
     assert!(err.contains("two legs"), "got: {err}");
@@ -1864,6 +1878,7 @@ fn a_round_trip_saved_before_the_index_existed_resolves_its_own_split_point() {
         120.0,
         RouteMode::Direct,
         true,
+        vec![],
     )
     .unwrap();
 
@@ -1893,6 +1908,7 @@ fn a_one_way_saved_map_resolves_no_split_point() {
         120.0,
         RouteMode::Direct,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -1921,6 +1937,7 @@ fn a_saved_map_reports_the_trips_distance_as_its_target() {
         118.0,
         RouteMode::Direct,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -1971,6 +1988,7 @@ fn a_saved_round_trip_returns_its_geometry_split_into_two_legs() {
         25.0,
         27.0,
         50.0,
+        vec![],
     )
     .unwrap();
 
@@ -2023,6 +2041,7 @@ fn a_saved_round_trip_splits_at_the_turnaround_even_when_the_legs_differ() {
         25.0,
         30.0,
         50.0,
+        vec![],
     )
     .unwrap();
 
@@ -2067,6 +2086,7 @@ fn a_round_trip_saved_before_the_index_existed_still_splits_its_geometry() {
         120.0,
         RouteMode::Direct,
         true,
+        vec![],
     )
     .unwrap();
 
@@ -2096,6 +2116,7 @@ fn a_one_way_saved_map_carries_no_legs() {
         120.0,
         RouteMode::Direct,
         false,
+        vec![],
     )
     .unwrap();
 
@@ -2135,4 +2156,60 @@ async fn a_round_trip_offers_the_union_of_both_legs() {
     };
     let rt = route_round_trip_internal(&provider, direct_waypoints(), vec![], 260.0, None).await.unwrap();
     assert_eq!(rt.avoid_options, vec!["cze:tolls".to_string(), "svk:tolls".to_string()]);
+}
+
+#[test]
+fn a_saved_avoid_list_comes_back_normalised() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let app_state = AppState::new();
+    save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(),
+        encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, 132.9, RouteMode::Direct, false,
+        vec!["svk:tolls".into(), "CZE:tolls".into()],
+    ).unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.avoid, vec!["cze:tolls".to_string(), "svk:tolls".to_string()]);
+}
+
+#[test]
+fn saving_a_bad_avoid_value_is_refused() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let err = save_trip_route_internal(
+        &db, &AppState::new(), trip.id.to_string(), sample_waypoints(),
+        encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, 132.9, RouteMode::Direct, false,
+        vec!["cze:highways".into()],
+    ).expect_err("only tolls values are stored");
+    assert!(err.contains("avoid"), "got: {err}");
+}
+
+#[test]
+fn a_saved_round_trip_keeps_its_avoid_list() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let app_state = AppState::new();
+    let out_points = vec![(48.1486, 17.1077), (48.9444, 20.5675)];
+    let back_points = vec![(48.9444, 20.5675), (48.1486, 17.1077)];
+    save_trip_round_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        direct_waypoints(),
+        vec![
+            Waypoint { lat: 48.9444, lon: 20.5675, name: Some("Spišská Nová Ves".into()), node_idx: None },
+            Waypoint { lat: 48.1486, lon: 17.1077, name: Some("Bratislava".into()), node_idx: None },
+        ],
+        encode(&out_points),
+        encode(&back_points),
+        25.0,
+        27.0,
+        50.0,
+        vec!["cze:tolls".into()],
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.avoid, vec!["cze:tolls".to_string()]);
 }

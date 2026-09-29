@@ -23,7 +23,7 @@ use crate::db::Database;
 use crate::export::RouteMapPage;
 use crate::models::{Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint};
 use crate::places::normalise;
-use crate::route_map::avoid::merge_options;
+use crate::route_map::avoid::{merge_options, normalise_avoid};
 use crate::route_map::polyline::{decode, encode};
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
@@ -117,6 +117,9 @@ pub struct SavedRouteMap {
     /// colours and give both legs draggable handles -- without asking the
     /// routing service for anything. `None` for a one-way route and a loop.
     pub legs: Option<SavedLegs>,
+    /// Restores the checked boxes on reopen. Also the only options a saved
+    /// route offers until it is routed again.
+    pub avoid: Vec<String>,
     pub created_at: String,
 }
 
@@ -141,6 +144,7 @@ impl From<RouteMap> for SavedRouteMap {
             round_trip: map.round_trip,
             turnaround_index: map.turnaround_index,
             legs,
+            avoid: map.avoid,
             created_at: map.created_at.to_rfc3339(),
         }
     }
@@ -669,8 +673,10 @@ fn persist_route_map(
     mode: RouteMode,
     round_trip: bool,
     turnaround_index: Option<i32>,
+    avoid: Vec<String>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
+    let avoid = normalise_avoid(avoid)?;
     let trip_uuid = Uuid::parse_str(&trip_id).map_err(|e| format!("Invalid trip id: {e}"))?;
 
     let round_trip = match mode {
@@ -695,6 +701,7 @@ fn persist_route_map(
         // A split point is meaningless without a return leg, and NULL rather
         // than 0 so a one-way route can never be split at its own origin.
         turnaround_index: if round_trip { turnaround_index } else { None },
+        avoid,
     };
 
     db.save_route_map(&map).map_err(|e| e.to_string())
@@ -712,9 +719,11 @@ pub fn save_trip_route_internal(
     road_km: f64,
     mode: RouteMode,
     round_trip: bool,
+    avoid: Vec<String>,
 ) -> Result<(), String> {
     persist_route_map(
         db, app_state, trip_id, waypoints, polyline, target_km, road_km, mode, round_trip, None,
+        avoid,
     )
 }
 
@@ -737,6 +746,7 @@ pub fn save_trip_round_trip_route_internal(
     outbound_road_km: f64,
     inbound_road_km: f64,
     target_km: f64,
+    avoid: Vec<String>,
 ) -> Result<(), String> {
     if outbound_waypoints.len() < 2 || inbound_waypoints.len() < 2 {
         return Err("A round trip needs two legs of at least two points each.".to_string());
@@ -765,6 +775,7 @@ pub fn save_trip_round_trip_route_internal(
         RouteMode::Direct,
         true,
         Some(turnaround_index),
+        avoid,
     )
 }
 

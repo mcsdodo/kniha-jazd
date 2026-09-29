@@ -970,6 +970,7 @@ fn make_route_map(trip_id: Uuid, polyline: &str) -> RouteMap {
         created_at: Utc::now(),
         round_trip: false,
         turnaround_index: None,
+        avoid: vec![],
     }
 }
 
@@ -1016,6 +1017,7 @@ fn route_map_round_trips() {
         created_at: Utc::now(),
         round_trip: false,
         turnaround_index: None,
+        avoid: vec![],
     };
     db.save_route_map(&map).unwrap();
 
@@ -1361,6 +1363,7 @@ fn route_map_round_trips_its_turnaround_index() {
         created_at: Utc::now(),
         round_trip: true,
         turnaround_index: Some(1),
+        avoid: vec![],
     };
     db.save_route_map(&map).unwrap();
 
@@ -1403,6 +1406,7 @@ fn a_route_map_without_a_turnaround_index_loads_as_none() {
         created_at: Utc::now(),
         round_trip: false,
         turnaround_index: None,
+        avoid: vec![],
     };
     db.save_route_map(&map).unwrap();
 

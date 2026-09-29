@@ -117,6 +117,11 @@ diesel::table! {
         // POSITIONALLY. Any future column goes after this one, never between
         // existing ones.
         turnaround_index -> Nullable<Integer>,
+        // Added via migration 2026-09-29-100000_add_trip_route_avoid (Task 85).
+        // Appended LAST for the fourth time: RouteMapRow binds POSITIONALLY.
+        // It is Text like `mode` and `created_at`, so a wrong position here
+        // would compile and swap them silently.
+        avoid -> Text,
     }
 }
 

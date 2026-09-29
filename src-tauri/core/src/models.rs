@@ -320,6 +320,9 @@ pub struct RouteMap {
     /// for a round trip saved before Task 78 -- those were always closed by
     /// appending one clone of the first waypoint, so they split at `len - 2`.
     pub turnaround_index: Option<i32>,
+    /// `<iso3>:tolls` values the route was computed with. Empty for OSRM and
+    /// for routes saved before Task 85.
+    pub avoid: Vec<String>,
 }
 
 /// Inferred start/end datetimes for a new trip row, derived from the most
@@ -933,6 +936,10 @@ pub struct RouteMapRow {
     /// Appended LAST again, after `round_trip` (Task 78) -- same positional-
     /// bind hazard, same rule: any future column goes after this one.
     pub turnaround_index: Option<i32>,
+    /// Appended LAST again, after `turnaround_index` (Task 85) -- same
+    /// positional-bind hazard, and this one is Text, so a swap would compile.
+    /// Any future column goes after this one.
+    pub avoid: String,
 }
 
 /// For inserting new trip_routes
@@ -949,6 +956,7 @@ pub struct NewRouteMapRow<'a> {
     pub mode: &'a str,
     pub round_trip: bool,
     pub turnaround_index: Option<i32>,
+    pub avoid: &'a str,
 }
 
 /// Database row for places table (the place book, Task 75)
@@ -1109,6 +1117,7 @@ impl From<RouteMapRow> for RouteMap {
                 .unwrap_or_else(|_| Utc::now()),
             round_trip: row.round_trip,
             turnaround_index: row.turnaround_index,
+            avoid: serde_json::from_str(&row.avoid).unwrap_or_default(),
         }
     }
 }

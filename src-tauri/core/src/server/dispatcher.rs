@@ -865,6 +865,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 mode: crate::models::RouteMode,
                 #[serde(default)]
                 round_trip: bool,
+                // Task 85. Defaulted: a payload that predates it avoided nothing.
+                #[serde(default)]
+                avoid: Vec<String>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::save_trip_route_internal(
@@ -877,6 +880,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.road_km,
                 a.mode,
                 a.round_trip,
+                a.avoid,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
@@ -895,6 +899,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 outbound_road_km: f64,
                 inbound_road_km: f64,
                 target_km: f64,
+                // Task 85. Defaulted: a payload that predates it avoided nothing.
+                #[serde(default)]
+                avoid: Vec<String>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::save_trip_round_trip_route_internal(
@@ -908,6 +915,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.outbound_road_km,
                 a.inbound_road_km,
                 a.target_km,
+                a.avoid,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
