@@ -17,9 +17,12 @@ databázu len na čítanie.
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
 - **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** žiadne
+- **Migrácie databázy:** 1 nová (`trip_routes.provider`). Uloženým trasám doplní službu, ktorá ich vypočítala, ak sa dá dokázať: trasy uložené pred 2026-09-29 07:39 UTC dostanú OSRM, trasy s vyhnutím sa spoplatneným cestám dostanú Sygic, ostatné ostanú bez údaja. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** žiadna
 - **Obraz, zväzok, port:** bez zmeny
+
+### Pridané
+- **Výber služby na výpočet trasy** - na stránke Mapa pribudol výber "Smerovanie: OSRM (OpenStreetMap) / Sygic". Zobrazí sa, ak server má nastavené `SYGIC_API_KEY`. Zmena pri priamej trase trasu hneď prepočíta. Pri okružnej trase platí pre ďalšie "Regenerovať". Predvolená služba je ako doteraz Sygic. OSRM použite napríklad pre cesty cez Žilinu: mapa Sygic ešte nemá tunel Višňové. Uložená trasa si pamätá službu, ktorá ju vypočítala, a po otvorení ju znova vyberie. Prepnutie na OSRM zruší vyhnutie sa spoplatneným cestám, lebo OSRM ho nepozná.
 
 ## [1.1.0] - 2026-09-29
 

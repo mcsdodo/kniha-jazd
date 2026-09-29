@@ -107,6 +107,7 @@ fn save_rejects_read_only_mode() {
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap_err();
     assert!(err.contains("len na čítanie"), "got: {err}");
@@ -137,6 +138,7 @@ fn delete_rejects_read_only_mode() {
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -195,6 +197,7 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -314,6 +317,7 @@ fn grid_data_marks_only_the_trips_that_have_a_saved_map() {
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -387,6 +391,7 @@ fn save_map_for(db: &Database, trip_id: &Uuid, polyline: &str) {
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 }
@@ -594,6 +599,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -615,6 +621,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1396,6 +1403,7 @@ fn a_saved_direct_route_round_trips_with_its_mode_and_vias() {
         RouteMode::Direct,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1427,6 +1435,7 @@ fn a_saved_loop_route_still_stamps_the_dataset_version() {
         RouteMode::Loop,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1463,6 +1472,7 @@ fn a_saved_direct_round_trip_round_trips_true() {
         RouteMode::Direct,
         true,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1489,6 +1499,7 @@ fn a_saved_direct_one_way_round_trips_false() {
         RouteMode::Direct,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1520,6 +1531,7 @@ fn a_saved_loop_route_never_stores_round_trip_even_if_asked() {
         RouteMode::Loop,
         true,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1803,6 +1815,7 @@ fn saving_a_round_trip_joins_the_two_legs_into_one_row() {
         27.0,
         50.0,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1846,6 +1859,7 @@ fn a_round_trip_save_refuses_a_leg_that_is_not_a_leg() {
         1.0,
         2.0,
         vec![],
+        None,
     )
     .unwrap_err();
     assert!(err.contains("two legs"), "got: {err}");
@@ -1879,6 +1893,7 @@ fn a_round_trip_saved_before_the_index_existed_resolves_its_own_split_point() {
         RouteMode::Direct,
         true,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1909,6 +1924,7 @@ fn a_one_way_saved_map_resolves_no_split_point() {
         RouteMode::Direct,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1938,6 +1954,7 @@ fn a_saved_map_reports_the_trips_distance_as_its_target() {
         RouteMode::Direct,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -1989,6 +2006,7 @@ fn a_saved_round_trip_returns_its_geometry_split_into_two_legs() {
         27.0,
         50.0,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -2042,6 +2060,7 @@ fn a_saved_round_trip_splits_at_the_turnaround_even_when_the_legs_differ() {
         30.0,
         50.0,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -2087,6 +2106,7 @@ fn a_round_trip_saved_before_the_index_existed_still_splits_its_geometry() {
         RouteMode::Direct,
         true,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -2117,6 +2137,7 @@ fn a_one_way_saved_map_carries_no_legs() {
         RouteMode::Direct,
         false,
         vec![],
+        None,
     )
     .unwrap();
 
@@ -2180,6 +2201,7 @@ fn a_saved_avoid_list_comes_back_normalised() {
         &db, &app_state, trip.id.to_string(), sample_waypoints(),
         encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, 132.9, RouteMode::Direct, false,
         vec!["svk:tolls".into(), "CZE:tolls".into()],
+        None,
     ).unwrap();
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
@@ -2194,6 +2216,7 @@ fn saving_a_bad_avoid_value_is_refused() {
         &db, &AppState::new(), trip.id.to_string(), sample_waypoints(),
         encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, 132.9, RouteMode::Direct, false,
         vec!["cze:highways".into()],
+        None,
     ).expect_err("only tolls values are stored");
     assert!(err.contains("avoid"), "got: {err}");
 }
@@ -2220,9 +2243,130 @@ fn a_saved_round_trip_keeps_its_avoid_list() {
         27.0,
         50.0,
         vec!["cze:tolls".into()],
+        None,
     )
     .unwrap();
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert_eq!(saved.avoid, vec!["cze:tolls".to_string()]);
+}
+
+// ============================================================================
+// Task 86 -- the provider that routed is reported and stored
+// ============================================================================
+
+use crate::route_map::provider::{build_provider, ProviderConfig};
+use crate::route_map::RouteProviderKind;
+
+fn mock_as(kind: RouteProviderKind) -> Box<dyn RouteProvider> {
+    build_provider(ProviderConfig::Mock, Some(kind), vec![]).unwrap()
+}
+
+#[tokio::test]
+async fn every_direct_route_reports_the_provider_that_routed_it() {
+    for kind in [RouteProviderKind::Osrm, RouteProviderKind::Sygic] {
+        let p = mock_as(kind);
+        let routes = route_direct_internal(p.as_ref(), direct_waypoints(), 100.0, None, false)
+            .await
+            .unwrap();
+        assert!(routes.iter().all(|r| r.provider == kind), "expected {kind:?}");
+    }
+}
+
+#[tokio::test]
+async fn a_round_trip_reports_the_provider_that_routed_it() {
+    let p = mock_as(RouteProviderKind::Osrm);
+    let res = route_round_trip_internal(p.as_ref(), direct_waypoints(), vec![], 180.0, None)
+        .await
+        .unwrap();
+    assert_eq!(res.provider, RouteProviderKind::Osrm);
+}
+
+#[tokio::test]
+async fn a_generated_loop_reports_the_provider_that_routed_it() {
+    let p = mock_as(RouteProviderKind::Sygic);
+    let route = generate_route_internal(p.as_ref(), 60.0).await.unwrap();
+    assert_eq!(route.provider, RouteProviderKind::Sygic);
+}
+
+#[test]
+fn a_saved_route_keeps_its_provider() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let app_state = AppState::new();
+    let (_, encoded) = sample_geometry();
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        direct_waypoints(),
+        encoded,
+        120.0,
+        118.4,
+        RouteMode::Direct,
+        false,
+        vec![],
+        Some(RouteProviderKind::Osrm),
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.provider, Some(RouteProviderKind::Osrm));
+}
+
+#[test]
+fn a_route_saved_without_a_provider_reads_back_as_unknown() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let app_state = AppState::new();
+    let (_, encoded) = sample_geometry();
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        encoded,
+        120.0,
+        118.4,
+        RouteMode::Loop,
+        false,
+        vec![],
+        None,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.provider, None);
+}
+
+#[test]
+fn a_saved_round_trip_keeps_its_provider() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let app_state = AppState::new();
+    let out_points = vec![(48.9, 20.5), (48.1, 17.1)];
+    let back_points = vec![(48.1, 17.1), (48.9, 20.5)];
+    let outbound = direct_waypoints();
+    let inbound: Vec<Waypoint> = outbound.iter().rev().cloned().collect();
+
+    save_trip_round_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        outbound,
+        inbound,
+        encode(&out_points),
+        encode(&back_points),
+        25.0,
+        27.0,
+        50.0,
+        vec![],
+        Some(RouteProviderKind::Sygic),
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.provider, Some(RouteProviderKind::Sygic));
 }

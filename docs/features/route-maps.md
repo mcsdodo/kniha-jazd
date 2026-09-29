@@ -137,7 +137,7 @@ frontend draws a coordinate list and confirms it.
 | [ga.rs](../../src-tauri/core/src/route_map/ga.rs) | Genetic algorithm picking the settlement sequence (Loop mode) |
 | [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) | Fetches road-following geometry and, for a plain two-point request, up to three alternatives -- behind a `RouteProvider` trait |
 | [sygic.rs](../../src-tauri/core/src/route_map/sygic.rs) | Sygic Routing API v3 client. Same trait as OSRM; adds `avoid` and returns the avoid options |
-| [provider.rs](../../src-tauri/core/src/route_map/provider.rs) | Picks the provider from the environment: mock, Sygic or OSRM |
+| [provider.rs](../../src-tauri/core/src/route_map/provider.rs) | Picks the provider: the environment decides what exists and the default (mock, Sygic or OSRM), the request can pick one of them (Task 86) |
 | [avoid.rs](../../src-tauri/core/src/route_map/avoid.rs) | Validates the avoid values and builds the option union |
 | [polyline.rs](../../src-tauri/core/src/route_map/polyline.rs) | Polyline5 encode/decode; never panics on malformed input |
 | [tiles.rs](../../src-tauri/core/src/route_map/tiles.rs) | Web Mercator tile geometry plus the cache-first tile fetcher |
@@ -488,13 +488,23 @@ On `/mapa`, in direct mode only (one-way and round trip), one checkbox per count
 
 OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback route would ignore the avoid list and look correct. A saved route with an avoid list still draws when the key is gone, because it needs no routing call. A recompute shows an error. The page matches the marker `AVOID_NEEDS_SYGIC` at the start of that message. It then shows `routeMap.avoidNeedsSygic` with no Retry button, because a retry cannot succeed without the key.
 
+**Provider per request** ([ADR-053](../../DECISIONS.md#adr-053-the-page-picks-the-routing-provider-per-request-the-server-decides-what-exists), [Task 86](../../_tasks/86-route-provider-switch/01-task.md)). The rules above give what EXISTS and the default. The page can pick one of them per request:
+
+- `get_route_providers` returns `{ available, default }`. The page shows the select "Smerovanie: OSRM (OpenStreetMap) / Sygic" only when `available` has two entries.
+- `generate_route`, `route_direct` and `route_round_trip` take an optional `provider`. Absent means the default. `sygic` without a key fails with `PROVIDER_NEEDS_SYGIC`, and the page shows `routeMap.providerNeedsSygic` with no Retry button.
+- Every response carries `provider`. The page adopts it for the next request and saves it (`save_trip_route` sends `route.provider`, the round-trip save sends `legs.provider`).
+- `trip_routes.provider` (nullable, last column, migration `2026-09-29-110000_add_trip_route_provider`) stores it. `get_trip_route` returns it, and a reopened route selects it. NULL means unknown: the page selects the default.
+- A switch in direct mode routes again at once. A switch to OSRM clears the avoid list first. A switch in loop mode does not regenerate (a new random loop would replace the drawn one); it applies to the next "Regenerovať".
+
+Why: the Sygic map has no D1 Visnove tunnel, so its Zilina route to Bratislava goes through the Strecno gorge. OSRM (OpenStreetMap) has the tunnel.
+
 **The `tolls`-only rule** ([avoid.rs](../../src-tauri/core/src/route_map/avoid.rs)). The backend accepts only values that match `^[a-z]{3}:tolls$`, for example `cze:tolls`. Any other value is an error, and no request goes out, because the value goes into a URL. Free highway sections stay allowed.
 
 **The option union.** Sygic returns the avoids that apply to the route (`return_possible_avoids=true`). The backend keeps the `*:tolls` values and adds the values in the current avoid list. Sygic does not offer an avoid again after it has been applied, so without this step a checked country would disappear. A round trip returns the sorted union of both legs, and both legs use the same avoid list. The page renders `avoidOptions` and does not compute anything.
 
 **Saved column.** `trip_routes.avoid` holds a JSON list, `TEXT NOT NULL DEFAULT '[]'`, as the last column (migration `2026-09-29-100000_add_trip_route_avoid`). A save stores the list that produced the shown route, not the newest checkbox state. A reopened route shows its saved values as checked, until "Prepočítať". `get_trip_route` returns them as `avoid`.
 
-**The mock.** With `KNIHA_JAZD_MOCK_ROUTER` set, an offline router answers all routing calls. It offers `cze:tolls`, so the integration tests can click a checkbox with no network.
+**The mock.** With `KNIHA_JAZD_MOCK_ROUTER` set, an offline router answers all routing calls. It offers `cze:tolls`, so the integration tests can click a checkbox with no network. It offers both providers, like a keyed server. As OSRM it returns 90.0 km and no avoid options.
 
 **Checked example** (2026-09-29, Bratislava to Brno): 130.1 km and 88 min with no avoid. 132.9 km and 111 min with `cze:tolls`. That route still uses the D2 from the border to the Breclav exit. The section has had no vignette since March 2025 ([source](https://www.novinykraje.cz/2025/03/07/dalnice-d2-na-hranicich-se-slovenskem-je-uz-prujezdna-bez-zpoplatneni/)), and Sygic knows it. The exemption is temporary: it lasts while the II/425 bridge Lanzhot-Brodske stays closed.
 
@@ -523,6 +533,7 @@ saw it.
 ## Related
 
 - [ADR-052](../../DECISIONS.md#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance): Sygic is the optional routing provider for per-country toll avoidance
+- [ADR-053](../../DECISIONS.md#adr-053-the-page-picks-the-routing-provider-per-request-the-server-decides-what-exists): the page picks the routing provider per request; the server decides what exists
 - [ADR-047](../../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg): a round trip is two routing requests, one per leg
 - [ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for): the routed distance can be written back, behind the warning this ADR asked for
 - [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust): the route mode comes from the trip's own text, decided in Rust

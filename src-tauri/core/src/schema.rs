@@ -122,6 +122,11 @@ diesel::table! {
         // It is Text like `mode` and `created_at`, so a wrong position here
         // would compile and swap them silently.
         avoid -> Text,
+        // Added via migration 2026-09-29-110000_add_trip_route_provider
+        // (Task 86). Appended LAST for the fifth time: RouteMapRow binds
+        // POSITIONALLY. Nullable Text, so a swap with `dataset_version` would
+        // compile -- keep it last.
+        provider -> Nullable<Text>,
     }
 }
 

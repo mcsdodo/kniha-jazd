@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, CascadePlan, CascadeResult, DistanceWriteback } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -508,9 +508,15 @@ export async function revertPaperlessOverride(docId: number): Promise<void> {
 // Route map commands (Task 70)
 export async function generateRoute(
 	targetKm: number,
-	avoid: string[] = []
+	avoid: string[] = [],
+	provider: RouteProviderKind | null = null
 ): Promise<GeneratedRoute> {
-	return await apiCall('generate_route', { targetKm, avoid });
+	return await apiCall('generate_route', { targetKm, avoid, provider });
+}
+
+/** Which routing services the page may offer, and the server default (Task 86). */
+export async function getRouteProviders(): Promise<RouteProvidersInfo> {
+	return await apiCall('get_route_providers', {});
 }
 
 /**
@@ -540,14 +546,16 @@ export async function routeDirect(
 	targetKm: number,
 	insert?: InsertPoint,
 	roundTrip?: boolean,
-	avoid: string[] = []
+	avoid: string[] = [],
+	provider: RouteProviderKind | null = null
 ): Promise<GeneratedRoute[]> {
 	return await apiCall('route_direct', {
 		waypoints,
 		targetKm,
 		insert: insert ?? null,
 		roundTrip: roundTrip ?? false,
-		avoid
+		avoid,
+		provider
 	});
 }
 
@@ -572,14 +580,16 @@ export async function routeRoundTrip(
 	inbound: Waypoint[],
 	targetKm: number,
 	insert?: LegInsertPoint,
-	avoid: string[] = []
+	avoid: string[] = [],
+	provider: RouteProviderKind | null = null
 ): Promise<RoundTripRoutes> {
 	return await apiCall('route_round_trip', {
 		outbound,
 		inbound,
 		targetKm,
 		insert: insert ?? null,
-		avoid
+		avoid,
+		provider
 	});
 }
 
@@ -606,7 +616,9 @@ export async function saveTripRoute(
 		roadKm: route.roadKm,
 		mode: route.mode,
 		roundTrip,
-		avoid
+		avoid,
+		// The service that produced this geometry, as the backend reported it.
+		provider: route.provider
 	});
 }
 
@@ -626,7 +638,8 @@ export async function saveTripRoundTripRoute(
 	outboundRoadKm: number,
 	inboundRoadKm: number,
 	targetKm: number,
-	avoid: string[] = []
+	avoid: string[] = [],
+	provider: RouteProviderKind | null = null
 ): Promise<void> {
 	return await apiCall('save_trip_round_trip_route', {
 		tripId,
@@ -637,7 +650,8 @@ export async function saveTripRoundTripRoute(
 		outboundRoadKm,
 		inboundRoadKm,
 		targetKm,
-		avoid
+		avoid,
+		provider
 	});
 }
 

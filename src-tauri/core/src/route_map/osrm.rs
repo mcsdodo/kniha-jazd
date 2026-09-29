@@ -50,6 +50,12 @@ pub struct FetchedRoute {
 
 #[async_trait::async_trait]
 pub trait RouteProvider: Send + Sync {
+    /// Which service this is (Task 86). Defaulted to OSRM so stubs need no
+    /// extra impl; the Sygic provider and the mock override it.
+    fn kind(&self) -> crate::route_map::provider::RouteProviderKind {
+        crate::route_map::provider::RouteProviderKind::Osrm
+    }
+
     /// `coords` are `(lat, lon)` pairs in visit order.
     async fn fetch(&self, coords: &[(f64, f64)]) -> Result<FetchedRoute, String>;
 

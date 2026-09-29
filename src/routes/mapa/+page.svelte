@@ -5,6 +5,7 @@
 	import type { Map as LeafletMap, Polyline, Marker, LeafletMouseEvent } from 'leaflet';
 	import {
 		generateRoute,
+		getRouteProviders,
 		getTripRoute,
 		saveTripRoute,
 		saveTripRoundTripRoute,
@@ -21,6 +22,7 @@
 		RouteMap,
 		Trip,
 		RouteMode,
+		RouteProviderKind,
 		Waypoint,
 		InsertPoint,
 		Place,
@@ -176,6 +178,16 @@
 	 *  value that made it fail. Set only on success, `loadRoute()` and
 	 *  `selectAlternative()`. A saved route offers the values it was saved with. */
 	let avoidOptions = $state<string[]>([]);
+	/** What the server offers (Task 86). The selector is shown only when there
+	 *  is a choice. Empty until `get_route_providers` answers; the requests
+	 *  then send `null` and the server uses its own default. */
+	let providers = $state<RouteProviderKind[]>([]);
+	let defaultProvider = $state<RouteProviderKind | null>(null);
+	/** The provider the NEXT request sends. Restored from the saved route in
+	 *  `loadRoute()`, and adopted from every response (the backend reports
+	 *  which service really routed). The save sends the route's own
+	 *  `provider`, never this value. */
+	let provider = $state<RouteProviderKind | null>(null);
 
 	function countryLabel(value: string): string {
 		const iso = value.split(':')[0];
@@ -186,6 +198,16 @@
 	function toggleAvoid(value: string, checked: boolean) {
 		avoid = checked ? [...avoid, value] : avoid.filter((v) => v !== value);
 		handleRegenerate();
+	}
+
+	/** A switch routes a direct trip again at once, like an avoid checkbox.
+	 *  A loop is NOT regenerated: that would draw a new random loop; the
+	 *  choice applies to the next Regenerovať. OSRM cannot avoid per country,
+	 *  so a switch to it clears the avoid list instead of failing. */
+	function selectProvider(value: RouteProviderKind) {
+		provider = value;
+		if (value === 'osrm') avoid = [];
+		if (mode === 'direct') handleRegenerate();
 	}
 
 	let displayRoute = $derived<GeneratedRoute | RouteMap | null>(generated ?? savedRoute);
@@ -261,6 +283,18 @@
 		// Leaflet touches `window` at import time — keep it out of the module graph.
 		leaflet = (await import('leaflet')).default;
 		leafletReady = true;
+	});
+
+	onMount(async () => {
+		try {
+			const info = await getRouteProviders();
+			providers = info.available;
+			defaultProvider = info.default;
+			provider ??= info.default;
+		} catch (e) {
+			// No selector; every request falls back to the server default.
+			console.error('Failed to load route providers:', e);
+		}
 	});
 
 	onDestroy(() => {
@@ -729,6 +763,7 @@
 			avoid = [...savedRoute.avoid];
 			avoidOptions = [...savedRoute.avoid];
 			routedAvoid = [...savedRoute.avoid];
+			provider = savedRoute.provider ?? defaultProvider;
 			const legs = savedRoute.roundTrip ? splitSavedLegs(savedRoute) : null;
 			savedLegs = legs;
 			rehydrateEndpoints(savedRoute, legs);
@@ -865,9 +900,16 @@
 		return msg.includes(AVOID_NEEDS_SYGIC);
 	}
 
+	/** Same string as `PROVIDER_NEEDS_SYGIC` in src-tauri/core/src/route_map/provider.rs. */
+	const PROVIDER_NEEDS_SYGIC = 'PROVIDER_NEEDS_SYGIC';
+
 	/** Show the route error. A missing Sygic key cannot be fixed by a retry. */
 	function showRouteError(e: unknown) {
-		if (isAvoidNeedsSygicError(e)) {
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg.includes(PROVIDER_NEEDS_SYGIC)) {
+			error = $LL.routeMap.providerNeedsSygic();
+			retryable = false;
+		} else if (isAvoidNeedsSygicError(e)) {
 			error = $LL.routeMap.avoidNeedsSygic();
 			retryable = false;
 		} else {
@@ -923,7 +965,8 @@
 		error = null;
 		savedNotice = false;
 		try {
-			generated = await generateRoute(targetKm);
+			generated = await generateRoute(targetKm, [], provider);
+			provider = generated.provider;
 			routedAvoid = [];
 			avoidOptions = [];
 		} catch (e) {
@@ -949,11 +992,19 @@
 		const closeLoop = roundTrip;
 		const requestAvoid = [...avoid];
 		try {
-			const routes = await routeDirect(waypoints, targetKm, insert, closeLoop, requestAvoid);
+			const routes = await routeDirect(
+				waypoints,
+				targetKm,
+				insert,
+				closeLoop,
+				requestAvoid,
+				provider
+			);
 			if (routes.length === 0) throw new Error('no routes returned');
 			alternatives = routes;
 			activeIndex = 0;
 			generated = routes[0];
+			provider = routes[0].provider;
 			routedAvoid = requestAvoid;
 			avoidOptions = [...routes[0].avoidOptions];
 			// The backend appends exactly one trailing waypoint -- a clone of
@@ -999,11 +1050,19 @@
 		savedNotice = false;
 		const requestAvoid = [...avoid];
 		try {
-			const routes = await routeRoundTrip(outbound, inbound, targetKm, insert, requestAvoid);
+			const routes = await routeRoundTrip(
+				outbound,
+				inbound,
+				targetKm,
+				insert,
+				requestAvoid,
+				provider
+			);
 			if (routes.outbound.length === 0 || routes.inbound.length === 0) {
 				throw new Error('no routes returned');
 			}
 			roundTripRoutes = routes;
+			provider = routes.provider;
 			routedAvoid = requestAvoid;
 			avoidOptions = [...routes.avoidOptions];
 			outboundIndex = 0;
@@ -1122,7 +1181,8 @@
 					legs.outbound[outboundIndex].roadKm,
 					legs.inbound[inboundIndex].roadKm,
 					legs.targetKm,
-					routedAvoid
+					routedAvoid,
+					legs.provider
 				);
 			} else {
 				await saveTripRoute(tripId, generated!, roundTrip, routedAvoid);
@@ -1256,6 +1316,21 @@
 	</div>
 
 	<div class="toolbar">
+		{#if (mode === 'loop' || mode === 'direct') && providers.length > 1}
+			<label class="provider-label" title={$LL.routeMap.providerHint()}>
+				{$LL.routeMap.provider()}:
+				<select
+					data-test="provider-select"
+					value={provider ?? defaultProvider}
+					onchange={(e) => selectProvider(e.currentTarget.value as RouteProviderKind)}
+					disabled={busy || !trip}
+				>
+					{#each providers as value (value)}
+						<option {value}>{$LL.routeMap.providerNames[value]()}</option>
+					{/each}
+				</select>
+			</label>
+		{/if}
 		{#if mode === 'loop'}
 			<button
 				class="button"
@@ -1557,6 +1632,13 @@
 		gap: 0.35rem;
 		color: var(--text-primary);
 		cursor: pointer;
+	}
+
+	.provider-label {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		color: var(--text-primary);
 	}
 
 	.avoid-options {

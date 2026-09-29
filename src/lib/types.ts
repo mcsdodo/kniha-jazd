@@ -444,6 +444,16 @@ export interface Waypoint {
 /** Mirrors the Rust `RouteMode` enum. Its serde wire form is lowercase. */
 export type RouteMode = 'loop' | 'direct';
 
+/** Mirrors the Rust `RouteProviderKind` enum (Task 86): the routing service. */
+export type RouteProviderKind = 'osrm' | 'sygic';
+
+/** What `get_route_providers` answers: what the page may offer, and the
+ *  server default it starts on. Sygic is in `available` only with a key. */
+export interface RouteProvidersInfo {
+	available: RouteProviderKind[];
+	default: RouteProviderKind;
+}
+
 /** Freshly generated route, not yet persisted to a trip. */
 export interface GeneratedRoute {
 	/** `<iso3>:tolls` values offered as "avoid paid roads" checkboxes. Empty
@@ -464,6 +474,8 @@ export interface GeneratedRoute {
 	/** null for a direct route -- no dataset node was involved. */
 	datasetVersion: string | null;
 	mode: RouteMode;
+	/** The service that routed this. Authoritative: adopt it, save it. */
+	provider: RouteProviderKind;
 }
 
 /** A point dragged off `polyline`, for the backend to slot into the waypoint list. */
@@ -519,6 +531,8 @@ export interface RoundTripRoutes {
 	/** `<iso3>:tolls` values offered as "avoid paid roads" checkboxes. Empty
 	 *  with OSRM. Already includes the values the request avoided (backend). */
 	avoidOptions: string[];
+	/** The service that routed both legs. */
+	provider: RouteProviderKind;
 }
 
 /** One leg of a saved round trip: the geometry it is drawn from, and the
@@ -570,6 +584,9 @@ export interface RouteMap {
 	 *  and gives both legs handles -- with no call to the routing service.
 	 *  null for a one-way route and a loop. */
 	legs: SavedLegs | null;
+	/** The service that computed this route. null = unknown (a route saved
+	 *  before Task 86 that the migration could not attribute). */
+	provider: RouteProviderKind | null;
 	createdAt: string;
 }
 

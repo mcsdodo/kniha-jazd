@@ -4,6 +4,26 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-09-29: Routing Provider per Request
+
+### ADR-053: The Page Picks the Routing Provider per Request; the Server Decides What Exists
+
+**Context:** The Sygic map does not have the D1 Visnove tunnel (Lietavska Lucka to Dubna Skala). A Sygic route from Spisska Nova Ves to Bratislava through Zilina goes through the old I/18 road in the Strecno gorge (365.256 km). The Sygic primary route goes south through Banska Bystrica. The public OSRM route (356.975 km) uses the tunnel. [ADR-052](#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance) made the provider a server setting only, so a server with a Sygic key could not route with OSRM. [Task 86](./_tasks/86-route-provider-switch/01-task.md).
+
+**Decision:**
+
+1. `generate_route`, `route_direct` and `route_round_trip` take an optional `provider` (`"osrm"` or `"sygic"`). Absent means the server default, unchanged from ADR-052: Sygic when `SYGIC_API_KEY` is set, else OSRM.
+2. The server config decides what exists. `get_route_providers` returns `available` and `default`. Sygic is available only with a key. A request for Sygic without a key fails with the marker `PROVIDER_NEEDS_SYGIC`. There is no silent downgrade.
+3. OSRM with a non-empty avoid list still fails with `AVOID_NEEDS_SYGIC`, also on a keyed server. The page clears the avoid list when the user selects OSRM.
+4. Each routing response returns the `provider` that routed it. The page adopts it and sends it back on save, the same rule as the waypoint lists ([ADR-041](#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust)).
+5. `trip_routes.provider` stores it (nullable). The migration backfills only what can be proven: `osrm` before the first Sygic commit (2026-09-29T07:39:53Z), `sygic` for a row with an avoid list. Other rows stay NULL, and the page shows the default for them.
+6. In loop mode a switch does not regenerate. A regenerate draws a new random loop, so the choice applies to the next "Regenerovať".
+7. The mock router offers both providers, like a keyed server. As OSRM it returns 90.0 km and no avoid options, so a spec can see a switch.
+
+**Reasoning:** Neither map is correct everywhere. Sygic knows per-country tolls, OSM knows the new tunnel. The user must pick per trip, and a stored provider makes the pick survive a reopen and makes old routes explainable. The server still owns the key and the default, so a page cannot ask for a service that is not configured.
+
+---
+
 ## 2026-09-29: Routing Provider
 
 ### ADR-052: Sygic Is the Optional Routing Provider for Per-Country Toll Avoidance

@@ -40,7 +40,9 @@
  *    and the write-back flow (route-distance-writeback.spec.ts) end to end.
  *
  * The avoid-checkbox tests use the offline mock router, which returns fixed
- * distances: 100.0 km with no avoid list, 120.0 km with any.
+ * distances: 100.0 km with no avoid list, 120.0 km with any. The mock offers
+ * both providers, like a server with a Sygic key (Task 86); routed as OSRM it
+ * returns 90.0 km and no avoid options.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -104,6 +106,7 @@ const CANNED_ROUND_TRIP_WAYPOINTS = [
 interface SavedRouteMap {
   tripId: string;
   polyline: string;
+  provider: 'osrm' | 'sygic' | null;
 }
 
 /** Persist a route against a trip without touching OSRM. */
@@ -705,6 +708,48 @@ describe('Tier 2: Route Map', () => {
       const reopened = await $('[data-test="avoid-cze:tolls"]');
       await reopened.waitForDisplayed();
       expect(await reopened.isSelected()).toBe(true);
+    });
+
+    it('routes again with OSRM when the provider is switched, and keeps it on reopen', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-15T08:00',
+        endDatetime: '2026-03-15T10:00',
+        origin: 'Bratislava',
+        destination: 'Trnava',
+        distanceKm: 65,
+        odometer: 50065,
+        purpose: 'Business trip',
+      });
+      await saveDirectRouteWithVia(trip.id as string, 65);
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      const select = await $('[data-test="provider-select"]');
+      await select.waitForDisplayed();
+      // A route saved without a provider shows the server default.
+      expect(await select.getValue()).toBe('sygic');
+
+      await $('[data-test="recalculate-btn"]').click();
+      await expect($('[data-test="actual-km"]')).toHaveText('100.0 km');
+      await $('[data-test="avoid-cze:tolls"]').click();
+      await expect($('[data-test="actual-km"]')).toHaveText('120.0 km');
+
+      // OSRM cannot avoid per country: the switch clears the avoid list and
+      // routes again instead of failing.
+      await select.selectByAttribute('value', 'osrm');
+      await expect($('[data-test="actual-km"]')).toHaveText('90.0 km');
+      expect(await $('[data-test="avoid-options"]').isExisting()).toBe(false);
+
+      await $('[data-test="save-btn"]').click();
+      await $('[data-test="saved-notice"]').waitForDisplayed();
+      expect((await getRoute(trip.id as string))?.provider).toBe('osrm');
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      const reopened = await $('[data-test="provider-select"]');
+      await reopened.waitForDisplayed();
+      expect(await reopened.getValue()).toBe('osrm');
     });
 
     it('reopens a saved one-way route with the checkbox unticked', async () => {

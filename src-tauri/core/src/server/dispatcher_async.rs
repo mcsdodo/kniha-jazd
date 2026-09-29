@@ -233,13 +233,17 @@ pub async fn dispatch_async(
                 // Task 85. Defaulted so a caller that predates it still routes.
                 #[serde(default)]
                 avoid: Vec<String>,
+                // Task 86. Absent means the server default (Sygic with a key).
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
+            let requested = a.provider;
             let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
-                .and_then(crate::route_map::route_provider)
+                .and_then(|avoid| crate::route_map::route_provider(requested, avoid))
             {
                 Ok(p) => p,
                 Err(e) => return Some(Err(e)),
@@ -263,13 +267,17 @@ pub async fn dispatch_async(
                 // Task 85. Defaulted so a caller that predates it still routes.
                 #[serde(default)]
                 avoid: Vec<String>,
+                // Task 86. Absent means the server default (Sygic with a key).
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
+            let requested = a.provider;
             let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
-                .and_then(crate::route_map::route_provider)
+                .and_then(|avoid| crate::route_map::route_provider(requested, avoid))
             {
                 Ok(p) => p,
                 Err(e) => return Some(Err(e)),
@@ -299,13 +307,17 @@ pub async fn dispatch_async(
                 // Task 85. Defaulted so a caller that predates it still routes.
                 #[serde(default)]
                 avoid: Vec<String>,
+                // Task 86. Absent means the server default (Sygic with a key).
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
+            let requested = a.provider;
             let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
-                .and_then(crate::route_map::route_provider)
+                .and_then(|avoid| crate::route_map::route_provider(requested, avoid))
             {
                 Ok(p) => p,
                 Err(e) => return Some(Err(e)),

@@ -459,6 +459,13 @@ const en = {
 		removeWaypoint: 'Remove stop',
 		roundTrip: 'Round trip',
 		roundTripHint: 'The route continues back to the starting point.',
+		provider: 'Routing',
+		providerHint: 'The service that computes the route. OSRM uses the OpenStreetMap map (it has the Visnove tunnel). Sygic can avoid paid roads.',
+		providerNames: {
+			osrm: 'OSRM (OpenStreetMap)',
+			sygic: 'Sygic',
+		},
+		providerNeedsSygic: 'The server does not have the Sygic routing service set up. Select OSRM.',
 		avoidTolls: 'Avoid paid roads',
 		avoidTollsHint: 'The route avoids sections that need a vignette or a toll in that country.',
 		countries: {

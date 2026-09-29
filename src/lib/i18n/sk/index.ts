@@ -459,6 +459,13 @@ const sk = {
 		removeWaypoint: 'Odstrániť zastávku',
 		roundTrip: 'Cesta tam a späť',
 		roundTripHint: 'Trasa povedie z cieľa späť do miesta odchodu.',
+		provider: 'Smerovanie',
+		providerHint: 'Služba, ktorá vypočíta trasu. OSRM používa mapu OpenStreetMap (má tunel Višňové). Sygic vie obísť spoplatnené cesty.',
+		providerNames: {
+			osrm: 'OSRM (OpenStreetMap)',
+			sygic: 'Sygic',
+		},
+		providerNeedsSygic: 'Služba Sygic nie je na serveri nastavená. Vyberte OSRM.',
 		avoidTolls: 'Vyhnúť sa spoplatneným cestám',
 		avoidTollsHint: 'Trasa sa vyhne úsekom s povinnou diaľničnou známkou alebo mýtom v danej krajine.',
 		countries: {

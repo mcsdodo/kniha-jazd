@@ -27,7 +27,10 @@ use crate::route_map::avoid::{merge_options, normalise_avoid};
 use crate::route_map::polyline::{decode, encode};
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
-use crate::route_map::{generate_route_random, Dataset, FetchedRoute, RouteProvider, TOLERANCE};
+use crate::route_map::{
+    generate_route_random, Dataset, FetchedRoute, RouteProvider, RouteProviderKind,
+    RouteProvidersInfo, TOLERANCE,
+};
 
 /// A freshly generated route. Not persisted — see the module docs.
 #[derive(Debug, Serialize)]
@@ -51,6 +54,9 @@ pub struct GeneratedRoute {
     /// `<iso3>:tolls` values the page offers as "avoid paid roads" checkboxes.
     /// Empty with OSRM. Includes the values this request already avoided.
     pub avoid_options: Vec<String>,
+    /// The service that routed this (Task 86). AUTHORITATIVE: the page adopts
+    /// it and sends it back on save.
+    pub provider: RouteProviderKind,
 }
 
 /// How far the finished route's road distance falls from the target, and
@@ -120,6 +126,9 @@ pub struct SavedRouteMap {
     /// Restores the checked boxes on reopen. Also the only options a saved
     /// route offers until it is routed again.
     pub avoid: Vec<String>,
+    /// Restores the provider selector on reopen (Task 86). `None` = unknown,
+    /// the page shows the server default.
+    pub provider: Option<RouteProviderKind>,
     pub created_at: String,
 }
 
@@ -145,6 +154,7 @@ impl From<RouteMap> for SavedRouteMap {
             turnaround_index: map.turnaround_index,
             legs,
             avoid: map.avoid,
+            provider: map.provider,
             created_at: map.created_at.to_rfc3339(),
         }
     }
@@ -268,6 +278,7 @@ pub async fn generate_route_internal(
         off_target,
         dataset_version: Some(ds.version),
         mode: RouteMode::Loop,
+        provider: provider.kind(),
     })
 }
 
@@ -409,6 +420,7 @@ pub async fn route_direct_internal(
                 off_target,
                 dataset_version: None,
                 mode: RouteMode::Direct,
+                provider: provider.kind(),
             }
         })
         .collect())
@@ -499,6 +511,8 @@ pub struct RoundTripRoutes {
     /// Union over every alternative of both legs. One list for the whole round
     /// trip, because both legs are routed with the same avoid list.
     pub avoid_options: Vec<String>,
+    /// The service that routed both legs (Task 86).
+    pub provider: RouteProviderKind,
 }
 
 /// Route a round trip as TWO requests, one per leg.
@@ -617,6 +631,7 @@ pub async fn route_round_trip_internal(
         combined,
         target_km,
         avoid_options,
+        provider: provider.kind(),
     })
 }
 
@@ -674,6 +689,7 @@ fn persist_route_map(
     round_trip: bool,
     turnaround_index: Option<i32>,
     avoid: Vec<String>,
+    provider: Option<RouteProviderKind>,
 ) -> Result<(), String> {
     check_read_only!(app_state);
     let avoid = normalise_avoid(avoid)?;
@@ -702,6 +718,7 @@ fn persist_route_map(
         // than 0 so a one-way route can never be split at its own origin.
         turnaround_index: if round_trip { turnaround_index } else { None },
         avoid,
+        provider,
     };
 
     db.save_route_map(&map).map_err(|e| e.to_string())
@@ -720,10 +737,11 @@ pub fn save_trip_route_internal(
     mode: RouteMode,
     round_trip: bool,
     avoid: Vec<String>,
+    provider: Option<RouteProviderKind>,
 ) -> Result<(), String> {
     persist_route_map(
         db, app_state, trip_id, waypoints, polyline, target_km, road_km, mode, round_trip, None,
-        avoid,
+        avoid, provider,
     )
 }
 
@@ -747,6 +765,7 @@ pub fn save_trip_round_trip_route_internal(
     inbound_road_km: f64,
     target_km: f64,
     avoid: Vec<String>,
+    provider: Option<RouteProviderKind>,
 ) -> Result<(), String> {
     if outbound_waypoints.len() < 2 || inbound_waypoints.len() < 2 {
         return Err("A round trip needs two legs of at least two points each.".to_string());
@@ -776,7 +795,14 @@ pub fn save_trip_round_trip_route_internal(
         true,
         Some(turnaround_index),
         avoid,
+        provider,
     )
+}
+
+/// Which providers the page may offer, and which one it starts on (Task 86).
+/// Read from the server env on every call, like the routing commands.
+pub fn get_route_providers_internal() -> RouteProvidersInfo {
+    crate::route_map::provider::ProviderConfig::from_env().info()
 }
 
 /// Deleting a map a trip never had is a no-op, not an error.

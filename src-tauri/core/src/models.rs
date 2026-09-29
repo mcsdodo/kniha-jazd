@@ -323,6 +323,9 @@ pub struct RouteMap {
     /// `<iso3>:tolls` values the route was computed with. Empty for OSRM and
     /// for routes saved before Task 85.
     pub avoid: Vec<String>,
+    /// The routing service that computed the route (Task 86). `None` when it
+    /// cannot be proven -- see the migration's backfill rules.
+    pub provider: Option<crate::route_map::RouteProviderKind>,
 }
 
 /// Inferred start/end datetimes for a new trip row, derived from the most
@@ -940,6 +943,9 @@ pub struct RouteMapRow {
     /// positional-bind hazard, and this one is Text, so a swap would compile.
     /// Any future column goes after this one.
     pub avoid: String,
+    /// Appended LAST again, after `avoid` (Task 86) -- same positional-bind
+    /// hazard. Any future column goes after this one.
+    pub provider: Option<String>,
 }
 
 /// For inserting new trip_routes
@@ -957,6 +963,7 @@ pub struct NewRouteMapRow<'a> {
     pub round_trip: bool,
     pub turnaround_index: Option<i32>,
     pub avoid: &'a str,
+    pub provider: Option<&'a str>,
 }
 
 /// Database row for places table (the place book, Task 75)
@@ -1118,6 +1125,8 @@ impl From<RouteMapRow> for RouteMap {
             round_trip: row.round_trip,
             turnaround_index: row.turnaround_index,
             avoid: serde_json::from_str(&row.avoid).unwrap_or_default(),
+            // An unrecognised value reads as unknown, never as a guess.
+            provider: row.provider.as_deref().and_then(crate::route_map::RouteProviderKind::parse),
         }
     }
 }

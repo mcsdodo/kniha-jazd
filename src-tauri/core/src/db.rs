@@ -1117,6 +1117,7 @@ impl Database {
                     round_trip: map.round_trip,
                     turnaround_index: map.turnaround_index,
                     avoid: &avoid_json,
+                    provider: map.provider.map(|k| k.as_str()),
                 })
                 .execute(tx)?;
             Ok(())

@@ -59,7 +59,7 @@ docker compose -f docker-compose.web.yml up -d
 
 ### Route maps: Sygic (optional)
 
-The route map uses the public OSRM server by default. If you set `SYGIC_API_KEY`, the Sygic Routing API computes the routes and the Map page offers "Avoid paid roads" per country.
+The route map uses the public OSRM server by default. If you set `SYGIC_API_KEY`, the Sygic Routing API computes the routes and the Map page offers "Avoid paid roads" per country. The "Routing" select on the Map page then also lets you compute a route with OSRM (for example through the Visnove tunnel, which the Sygic map does not have yet). A saved route remembers which service computed it.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|

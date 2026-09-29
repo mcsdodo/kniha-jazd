@@ -1500,6 +1500,28 @@ type RootTranslation = {
 		 */
 		roundTripHint: string
 		/**
+		 * S​m​e​r​o​v​a​n​i​e
+		 */
+		provider: string
+		/**
+		 * S​l​u​ž​b​a​,​ ​k​t​o​r​á​ ​v​y​p​o​č​í​t​a​ ​t​r​a​s​u​.​ ​O​S​R​M​ ​p​o​u​ž​í​v​a​ ​m​a​p​u​ ​O​p​e​n​S​t​r​e​e​t​M​a​p​ ​(​m​á​ ​t​u​n​e​l​ ​V​i​š​ň​o​v​é​)​.​ ​S​y​g​i​c​ ​v​i​e​ ​o​b​í​s​ť​ ​s​p​o​p​l​a​t​n​e​n​é​ ​c​e​s​t​y​.
+		 */
+		providerHint: string
+		providerNames: {
+			/**
+			 * O​S​R​M​ ​(​O​p​e​n​S​t​r​e​e​t​M​a​p​)
+			 */
+			osrm: string
+			/**
+			 * S​y​g​i​c
+			 */
+			sygic: string
+		}
+		/**
+		 * S​l​u​ž​b​a​ ​S​y​g​i​c​ ​n​i​e​ ​j​e​ ​n​a​ ​s​e​r​v​e​r​i​ ​n​a​s​t​a​v​e​n​á​.​ ​V​y​b​e​r​t​e​ ​O​S​R​M​.
+		 */
+		providerNeedsSygic: string
+		/**
 		 * V​y​h​n​ú​ť​ ​s​a​ ​s​p​o​p​l​a​t​n​e​n​ý​m​ ​c​e​s​t​á​m
 		 */
 		avoidTolls: string
@@ -3794,6 +3816,28 @@ export type TranslationFunctions = {
 		 * Trasa povedie z cieľa späť do miesta odchodu.
 		 */
 		roundTripHint: () => LocalizedString
+		/**
+		 * Smerovanie
+		 */
+		provider: () => LocalizedString
+		/**
+		 * Služba, ktorá vypočíta trasu. OSRM používa mapu OpenStreetMap (má tunel Višňové). Sygic vie obísť spoplatnené cesty.
+		 */
+		providerHint: () => LocalizedString
+		providerNames: {
+			/**
+			 * OSRM (OpenStreetMap)
+			 */
+			osrm: () => LocalizedString
+			/**
+			 * Sygic
+			 */
+			sygic: () => LocalizedString
+		}
+		/**
+		 * Služba Sygic nie je na serveri nastavená. Vyberte OSRM.
+		 */
+		providerNeedsSygic: () => LocalizedString
 		/**
 		 * Vyhnúť sa spoplatneným cestám
 		 */

@@ -713,3 +713,47 @@ fn repair_skips_an_app_written_link_without_amounts() {
         "a title marks a deliberate assignment by the app"
     );
 }
+
+// ============================================================================
+// Task 86 -- the provider a route was computed with (2026-09-29-110000)
+// ============================================================================
+
+#[test]
+fn existing_route_maps_backfill_the_provider_they_can_be_proven_to_use() {
+    let db = open_db_legacy_before("2026-09-29-110000");
+    seed_vehicle(&db, "v1");
+    seed_trip(&db, "t1", "v1", None);
+    seed_trip(&db, "t2", "v1", None);
+    seed_trip(&db, "t3", "v1", None);
+    // Before the first Sygic commit: no code could have used Sygic.
+    exec(
+        &db,
+        "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+                                  dataset_version, created_at, avoid) \
+         VALUES ('t1', '[]', 'abc', 100.0, 98.0, NULL, \
+                 '2026-09-10T14:21:06.645630932+00:00', '[]')",
+    );
+    // An avoid list needs Sygic.
+    exec(
+        &db,
+        "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+                                  dataset_version, created_at, avoid) \
+         VALUES ('t2', '[]', 'abc', 100.0, 98.0, NULL, \
+                 '2026-09-29T13:42:21.677781185+00:00', '[\"cze:tolls\"]')",
+    );
+    // After the Sygic commit, no avoid list: either provider, so unknown.
+    exec(
+        &db,
+        "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+                                  dataset_version, created_at, avoid) \
+         VALUES ('t3', '[]', 'abc', 100.0, 98.0, NULL, \
+                 '2026-09-29T12:00:00+00:00', '[]')",
+    );
+
+    migrate_to_current(&db);
+
+    use crate::route_map::RouteProviderKind;
+    assert_eq!(db.get_route_map("t1").unwrap().unwrap().provider, Some(RouteProviderKind::Osrm));
+    assert_eq!(db.get_route_map("t2").unwrap().unwrap().provider, Some(RouteProviderKind::Sygic));
+    assert_eq!(db.get_route_map("t3").unwrap().unwrap().provider, None);
+}

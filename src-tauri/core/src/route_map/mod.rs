@@ -15,7 +15,7 @@ pub use ga::{
     generate_route, generate_route_random, RouteResult, RouteRng, ThreadRouteRng, TOLERANCE,
 };
 pub use osrm::{FetchedRoute, HttpRouteProvider, RouteProvider};
-pub use provider::route_provider;
+pub use provider::{route_provider, RouteProviderKind, RouteProvidersInfo};
 
 #[cfg(test)]
 #[path = "dataset_tests.rs"]

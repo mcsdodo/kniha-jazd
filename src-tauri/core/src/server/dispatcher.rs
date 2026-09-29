@@ -868,6 +868,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 // Task 85. Defaulted: a payload that predates it avoided nothing.
                 #[serde(default)]
                 avoid: Vec<String>,
+                // Task 86. Absent = unknown, stored as NULL.
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::save_trip_route_internal(
@@ -881,6 +884,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.mode,
                 a.round_trip,
                 a.avoid,
+                a.provider,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
@@ -902,6 +906,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 // Task 85. Defaulted: a payload that predates it avoided nothing.
                 #[serde(default)]
                 avoid: Vec<String>,
+                // Task 86. Absent = unknown, stored as NULL.
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::save_trip_round_trip_route_internal(
@@ -916,10 +923,15 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.inbound_road_km,
                 a.target_km,
                 a.avoid,
+                a.provider,
             )?;
             Ok(serde_json::to_value(()).unwrap())
         }
-        "delete_trip_route" => {
+        "get_route_providers" => {
+            let v = crate::commands_internal::get_route_providers_internal();
+            Ok(serde_json::to_value(v).unwrap())
+        }
+                "delete_trip_route" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
@@ -1214,6 +1226,61 @@ mod tests {
         assert!(dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state)
             .unwrap()
             .is_null());
+    }
+
+    #[test]
+    fn save_trip_route_over_rpc_stores_the_provider_and_get_returns_it() {
+        let state = test_state();
+        let trip_id = seed_trip_for_route(&state);
+        dispatch_sync(
+            "save_trip_route",
+            json!({
+                "tripId": trip_id,
+                "waypoints": [
+                    { "lat": 48.935, "lon": 20.553, "name": "A" },
+                    { "lat": 48.145, "lon": 17.127, "name": "B" }
+                ],
+                "polyline": "_p~iF~ps|U",
+                "targetKm": 357.0,
+                "roadKm": 356.9,
+                "mode": "direct",
+                "provider": "osrm",
+            }),
+            &state,
+        )
+        .unwrap();
+        let loaded = dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state).unwrap();
+        assert_eq!(loaded["provider"], "osrm");
+    }
+
+    #[test]
+    fn save_trip_route_over_rpc_rejects_an_unknown_provider() {
+        let state = test_state();
+        let trip_id = seed_trip_for_route(&state);
+        let err = dispatch_sync(
+            "save_trip_route",
+            json!({
+                "tripId": trip_id,
+                "waypoints": [{ "lat": 48.935, "lon": 20.553, "name": "A" }],
+                "polyline": "_p~iF~ps|U",
+                "targetKm": 1.0,
+                "roadKm": 1.0,
+                "mode": "loop",
+                "provider": "google",
+            }),
+            &state,
+        );
+        assert!(err.is_err(), "an unknown provider must not be stored");
+    }
+
+    #[test]
+    fn get_route_providers_offers_osrm_and_a_default_it_offers() {
+        let state = test_state();
+        let v = dispatch_sync("get_route_providers", json!({}), &state).unwrap();
+        let available: Vec<&str> =
+            v["available"].as_array().unwrap().iter().map(|x| x.as_str().unwrap()).collect();
+        assert!(available.contains(&"osrm"), "OSRM needs no key: {v}");
+        assert!(available.contains(&v["default"].as_str().unwrap()), "{v}");
     }
 
     /// A trip and vehicle to save a route against, shared by the round-trip

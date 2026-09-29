@@ -180,6 +180,10 @@ struct SygicValue {
 
 #[async_trait::async_trait]
 impl RouteProvider for SygicRouteProvider {
+    fn kind(&self) -> crate::route_map::provider::RouteProviderKind {
+        crate::route_map::provider::RouteProviderKind::Sygic
+    }
+
     async fn fetch(&self, coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
         let mut routes = self.request(coords, false).await?;
         Ok(routes.remove(0))
