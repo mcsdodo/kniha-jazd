@@ -2146,16 +2146,29 @@ async fn direct_routes_carry_each_routes_own_avoid_options() {
     assert_eq!(routes[1].avoid_options, vec!["aut:tolls".to_string()]);
 }
 
+/// Answers by the first coordinate, so the two legs of a round trip differ:
+/// the outbound leg starts at Bratislava, the inbound leg starts elsewhere.
+struct PerLegAvoidProvider;
+
+#[async_trait::async_trait]
+impl RouteProvider for PerLegAvoidProvider {
+    async fn fetch(&self, coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        Ok(self.fetch_alternatives(coords, 1).await?.remove(0))
+    }
+    async fn fetch_alternatives(
+        &self,
+        coords: &[(f64, f64)],
+        _max: usize,
+    ) -> Result<Vec<FetchedRoute>, String> {
+        let avoid = if (coords[0].0 - 48.1486).abs() < 1e-6 { "svk:tolls" } else { "aut:tolls" };
+        Ok(vec![fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, &[avoid])])
+    }
+}
+
 #[tokio::test]
 async fn a_round_trip_offers_the_union_of_both_legs() {
-    let provider = MultiRouteProvider {
-        routes: vec![
-            fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, &["svk:tolls"]),
-            fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 150.0, &["cze:tolls", "svk:tolls"]),
-        ],
-    };
-    let rt = route_round_trip_internal(&provider, direct_waypoints(), vec![], 260.0, None).await.unwrap();
-    assert_eq!(rt.avoid_options, vec!["cze:tolls".to_string(), "svk:tolls".to_string()]);
+    let rt = route_round_trip_internal(&PerLegAvoidProvider, direct_waypoints(), vec![], 260.0, None).await.unwrap();
+    assert_eq!(rt.avoid_options, vec!["aut:tolls".to_string(), "svk:tolls".to_string()]);
 }
 
 #[test]

@@ -187,3 +187,28 @@ async fn one_point_is_an_error_not_a_request() {
     assert!(err.contains("at least 2 points"), "got: {err}");
     assert!(server.received_requests().await.unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn a_401_names_the_status_and_does_not_leak_the_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(401).set_body_string("invalid key secret-test-key"))
+        .mount(&server).await;
+
+    let p = SygicRouteProvider::new(server.uri(), "secret-test-key".into(), None, vec![]);
+    let err = p.fetch(&[BA, BRNO]).await.expect_err("401 is not a route");
+    assert!(err.contains("401") && err.contains("Sygic"), "got: {err}");
+    assert!(!err.contains("secret-test-key"), "key leaked: {err}");
+}
+
+#[tokio::test]
+async fn three_points_never_ask_for_alternatives() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(one_route()))
+        .mount(&server).await;
+
+    provider(&server, &[]).fetch_alternatives(&[BA, (48.7, 17.0), BRNO], 3).await.unwrap();
+
+    let req = only_request(server.received_requests().await.unwrap());
+    assert_eq!(query(&req, "compute_alternatives"), None, "vias: no alternatives");
+}

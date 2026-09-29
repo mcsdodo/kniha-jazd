@@ -81,7 +81,21 @@ impl SygicRouteProvider {
         p
     }
 
+    /// Replace the key with `***`. The key is in the query string, and a
+    /// Sygic error body could echo it (Review Focus 6).
+    fn redact(&self, msg: String) -> String {
+        if self.api_key.is_empty() {
+            msg
+        } else {
+            msg.replace(&self.api_key, "***")
+        }
+    }
+
     async fn request(&self, coords: &[(f64, f64)], alternatives: bool) -> Result<Vec<FetchedRoute>, String> {
+        self.request_unredacted(coords, alternatives).await.map_err(|e| self.redact(e))
+    }
+
+    async fn request_unredacted(&self, coords: &[(f64, f64)], alternatives: bool) -> Result<Vec<FetchedRoute>, String> {
         if coords.len() < 2 {
             return Err(format!(
                 "Route needs at least 2 points, got {}. Nothing was requested from Sygic.",
