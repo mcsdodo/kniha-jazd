@@ -5,6 +5,7 @@ pub mod dataset;
 pub mod ga;
 pub mod osrm;
 pub mod polyline;
+pub mod provider;
 pub mod render;
 pub mod sygic;
 pub mod tiles;
@@ -14,6 +15,7 @@ pub use ga::{
     generate_route, generate_route_random, RouteResult, RouteRng, ThreadRouteRng, TOLERANCE,
 };
 pub use osrm::{FetchedRoute, HttpRouteProvider, RouteProvider};
+pub use provider::route_provider;
 
 #[cfg(test)]
 #[path = "dataset_tests.rs"]
@@ -46,3 +48,7 @@ mod avoid_tests;
 #[cfg(test)]
 #[path = "sygic_tests.rs"]
 mod sygic_tests;
+
+#[cfg(test)]
+#[path = "provider_tests.rs"]
+mod provider_tests;

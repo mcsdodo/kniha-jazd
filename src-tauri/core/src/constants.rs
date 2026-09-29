@@ -68,6 +68,17 @@ pub mod env_vars {
     /// Set to a directory of `{normalised-query}.json` files to make geocoding
     /// deterministic in tests.
     pub const MOCK_GEOCODER_DIR: &str = "KNIHA_JAZD_MOCK_GEOCODER_DIR";
+
+    /// Sygic Routing API key. Set: Sygic computes every route map, and the
+    /// page offers per-country "avoid paid roads". Unset: public OSRM.
+    pub const SYGIC_API_KEY: &str = "SYGIC_API_KEY";
+
+    /// Optional `Referer` header for a Sygic key with a referer restriction.
+    pub const SYGIC_REFERER: &str = "SYGIC_REFERER";
+
+    /// Set to any non-empty value to route with a fixed, offline mock
+    /// (integration tests). Wins over `SYGIC_API_KEY`.
+    pub const MOCK_ROUTER: &str = "KNIHA_JAZD_MOCK_ROUTER";
 }
 
 /// Default values
