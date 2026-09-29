@@ -18,10 +18,13 @@ use uuid::Uuid;
 
 use crate::app_state::AppState;
 use crate::check_read_only;
+use crate::commands_internal::trips::{logbook_km, plan_route_distance};
 use crate::commands_internal::list_places_internal;
 use crate::db::Database;
 use crate::export::RouteMapPage;
-use crate::models::{Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint};
+use crate::models::{
+    DistanceWriteback, Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint,
+};
 use crate::places::normalise;
 use crate::route_map::avoid::{merge_options, normalise_avoid};
 use crate::route_map::polyline::{decode, encode};
@@ -105,8 +108,13 @@ pub struct SavedRouteMap {
     pub road_km: f64,
     /// Signed percentage by which the road distance misses the target.
     pub deviation_percent: f64,
-    /// Whether that deviation exceeds [`TOLERANCE`].
+    /// Whether that deviation exceeds [`TOLERANCE`]. Always `false` for a
+    /// map in sync with its trip (task 87, R4).
     pub off_target: bool,
+    /// The trip's km equals the road km rounded to whole km (task 87, R4).
+    /// `false` means the km was edited after the save, or the map was saved
+    /// before task 87: the page then offers to write the saved distance.
+    pub distance_in_sync: bool,
     pub dataset_version: Option<String>,
     pub mode: RouteMode,
     /// Direct mode only: whether this saved route closes back to its own
@@ -134,7 +142,11 @@ pub struct SavedRouteMap {
 
 impl From<RouteMap> for SavedRouteMap {
     fn from(map: RouteMap) -> Self {
+        // `target_km` is the trip's km here: get_trip_route_internal overwrote it.
+        let distance_in_sync = (logbook_km(map.road_km) - map.target_km).abs() < 0.001;
         let (deviation_percent, off_target) = deviation(map.target_km, map.road_km);
+        // An in-sync map is the logbook's own number: never flag it (task 87, R4).
+        let off_target = off_target && !distance_in_sync;
         let points = decode(&map.polyline);
         // Runs after `get_trip_route_internal` has resolved a legacy index, so
         // every round trip that reaches here carries a real turnaround.
@@ -148,6 +160,7 @@ impl From<RouteMap> for SavedRouteMap {
             road_km: map.road_km,
             deviation_percent,
             off_target,
+            distance_in_sync,
             dataset_version: map.dataset_version,
             mode: map.mode,
             round_trip: map.round_trip,
@@ -680,35 +693,35 @@ pub fn get_trip_route_internal(
 /// they describe what the backend used and when it stored it, so a client
 /// cannot misreport either. `round_trip` gets the same treatment -- a loop is
 /// already closed, so it is forced to `false` for `RouteMode::Loop`.
+///
+/// No read-only check: a dry run builds the row too, to validate the payload,
+/// and throws it away. `target_km` is set to `road_km` here and overwritten
+/// with the committed trip km on commit.
 #[allow(clippy::too_many_arguments)]
-fn persist_route_map(
-    db: &Database,
-    app_state: &AppState,
-    trip_id: String,
+fn build_route_map(
+    trip_id: &str,
     waypoints: Vec<Waypoint>,
     polyline: String,
-    target_km: f64,
     road_km: f64,
     mode: RouteMode,
     round_trip: bool,
     turnaround_index: Option<i32>,
     avoid: Vec<String>,
     provider: Option<RouteProviderKind>,
-) -> Result<(), String> {
-    check_read_only!(app_state);
+) -> Result<RouteMap, String> {
     let avoid = normalise_avoid(avoid)?;
-    let trip_uuid = Uuid::parse_str(&trip_id).map_err(|e| format!("Invalid trip id: {e}"))?;
+    let trip_uuid = Uuid::parse_str(trip_id).map_err(|e| format!("Invalid trip id: {e}"))?;
 
     let round_trip = match mode {
         RouteMode::Loop => false,
         RouteMode::Direct => round_trip,
     };
 
-    let map = RouteMap {
+    Ok(RouteMap {
         trip_id: trip_uuid,
         waypoints,
         polyline,
-        target_km,
+        target_km: road_km,
         road_km,
         mode,
         dataset_version: match mode {
@@ -723,12 +736,34 @@ fn persist_route_map(
         turnaround_index: if round_trip { turnaround_index } else { None },
         avoid,
         provider,
-    };
-
-    db.save_route_map(&map).map_err(|e| e.to_string())
+    })
 }
 
-/// Save (or replace) the map for a trip. One-way and loop routes.
+/// Task 87: a map save always writes the distance it implies, in every mode.
+/// Dry run: plan only, write nothing. Commit: plan again from the stored book
+/// (the book can move between the dry run and Confirm), then write the map
+/// row, the trip row and the odometer shifts in one transaction.
+fn save_route_and_distance(
+    db: &Database,
+    app_state: &AppState,
+    mut map: RouteMap,
+    dry_run: bool,
+) -> Result<DistanceWriteback, String> {
+    let trip_id = map.trip_id.to_string();
+    let p = plan_route_distance(db, &trip_id, map.road_km)?;
+    if dry_run {
+        return Ok(p.into_writeback(None));
+    }
+    check_read_only!(app_state);
+    map.target_km = p.plan.new_distance_km;
+    let trip = p.updated_trip();
+    db.save_route_map_with_trip_distance(&map, trip.as_ref(), &p.shifts())
+        .map_err(|e| e.to_string())?;
+    Ok(p.into_writeback(trip))
+}
+
+/// Save (or replace) the map for a trip and write its whole-km distance to
+/// the trip. One-way and loop routes.
 #[allow(clippy::too_many_arguments)]
 pub fn save_trip_route_internal(
     db: &Database,
@@ -736,17 +771,17 @@ pub fn save_trip_route_internal(
     trip_id: String,
     waypoints: Vec<Waypoint>,
     polyline: String,
-    target_km: f64,
     road_km: f64,
     mode: RouteMode,
     round_trip: bool,
     avoid: Vec<String>,
     provider: Option<RouteProviderKind>,
-) -> Result<(), String> {
-    persist_route_map(
-        db, app_state, trip_id, waypoints, polyline, target_km, road_km, mode, round_trip, None,
-        avoid, provider,
-    )
+    dry_run: bool,
+) -> Result<DistanceWriteback, String> {
+    let map = build_route_map(
+        &trip_id, waypoints, polyline, road_km, mode, round_trip, None, avoid, provider,
+    )?;
+    save_route_and_distance(db, app_state, map, dry_run)
 }
 
 /// Save the chosen pair of legs as one route.
@@ -767,10 +802,10 @@ pub fn save_trip_round_trip_route_internal(
     inbound_polyline: String,
     outbound_road_km: f64,
     inbound_road_km: f64,
-    target_km: f64,
     avoid: Vec<String>,
     provider: Option<RouteProviderKind>,
-) -> Result<(), String> {
+    dry_run: bool,
+) -> Result<DistanceWriteback, String> {
     if outbound_waypoints.len() < 2 || inbound_waypoints.len() < 2 {
         return Err("A round trip needs two legs of at least two points each.".to_string());
     }
@@ -787,20 +822,18 @@ pub fn save_trip_round_trip_route_internal(
     let mut points = decode(&outbound_polyline);
     points.extend(decode(&inbound_polyline));
 
-    persist_route_map(
-        db,
-        app_state,
-        trip_id,
+    let map = build_route_map(
+        &trip_id,
         waypoints,
         encode(&points),
-        target_km,
         outbound_road_km + inbound_road_km,
         RouteMode::Direct,
         true,
         Some(turnaround_index),
         avoid,
         provider,
-    )
+    )?;
+    save_route_and_distance(db, app_state, map, dry_run)
 }
 
 /// Which providers the page may offer, and which one it starts on (Task 86).

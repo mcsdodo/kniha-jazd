@@ -102,12 +102,12 @@ fn save_rejects_read_only_mode() {
         trip.id.to_string(),
         sample_waypoints(),
         encoded,
-        120.0,
         118.4,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap_err();
     assert!(err.contains("len na čítanie"), "got: {err}");
@@ -133,12 +133,12 @@ fn delete_rejects_read_only_mode() {
         trip.id.to_string(),
         sample_waypoints(),
         encoded,
-        120.0,
         118.4,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -192,12 +192,12 @@ fn saved_route_is_returned_with_decoded_coordinates() {
         trip.id.to_string(),
         sample_waypoints(),
         encoded.clone(),
-        120.0,
         118.4,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -207,7 +207,8 @@ fn saved_route_is_returned_with_decoded_coordinates() {
 
     assert_eq!(loaded.trip_id, trip.id.to_string());
     assert_eq!(loaded.polyline, encoded);
-    assert_eq!(loaded.target_km, 120.0);
+    // Task 87: the save wrote the whole-km road distance to the trip.
+    assert_eq!(loaded.target_km, 118.0);
     assert_eq!(loaded.road_km, 118.4);
     assert_eq!(loaded.waypoints, sample_waypoints());
     assert!(
@@ -312,12 +313,12 @@ fn grid_data_marks_only_the_trips_that_have_a_saved_map() {
         mapped.id.to_string(),
         sample_waypoints(),
         polyline,
-        120.0,
         118.4,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -386,12 +387,12 @@ fn save_map_for(db: &Database, trip_id: &Uuid, polyline: &str) {
         trip_id.to_string(),
         sample_waypoints(),
         polyline.to_string(),
-        120.0,
         118.4,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 }
@@ -582,11 +583,9 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
     let app_state = AppState::new();
     let (_, polyline) = sample_geometry();
 
-    // Task 78: the target is read from the trip's own distance, not from the
-    // value passed to save_trip_route_internal, so the trip must carry it.
-    trip.distance_km = 100.0;
-    db.update_trip(&trip).unwrap();
-
+    // Task 78: the target is read from the trip's own distance. Task 87: a
+    // save writes the road km to the trip, so a map that misses its target
+    // is one whose trip km was edited after the save (the legacy path).
     // 100 km target, 108 km of road: 8% out, beyond the 5% tolerance.
     save_trip_route_internal(
         &db,
@@ -594,14 +593,16 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         trip.id.to_string(),
         sample_waypoints(),
         polyline.clone(),
-        100.0,
         108.0,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
+    trip.distance_km = 100.0;
+    db.update_trip(&trip).unwrap();
 
     let loaded = get_trip_route_internal(&db, trip.id.to_string())
         .unwrap()
@@ -616,14 +617,16 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
         trip.id.to_string(),
         sample_waypoints(),
         polyline,
-        100.0,
         102.0,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
+    trip.distance_km = 100.0;
+    db.update_trip(&trip).unwrap();
 
     let loaded = get_trip_route_internal(&db, trip.id.to_string())
         .unwrap()
@@ -1398,12 +1401,12 @@ fn a_saved_direct_route_round_trips_with_its_mode_and_vias() {
         trip.id.to_string(),
         waypoints.clone(),
         encode(&[(48.1, 17.1), (48.9, 20.5)]),
-        420.0,
         400.0,
         RouteMode::Direct,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1430,12 +1433,12 @@ fn a_saved_loop_route_still_stamps_the_dataset_version() {
         trip.id.to_string(),
         sample_waypoints(),
         encode(&[(48.9, 20.5), (49.0, 20.6)]),
-        120.0,
         118.0,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1467,12 +1470,12 @@ fn a_saved_direct_round_trip_round_trips_true() {
         trip.id.to_string(),
         direct_waypoints(),
         encode(&[(48.1, 17.1), (48.9, 20.5), (48.1, 17.1)]),
-        420.0,
         400.0,
         RouteMode::Direct,
         true,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1494,12 +1497,12 @@ fn a_saved_direct_one_way_round_trips_false() {
         trip.id.to_string(),
         direct_waypoints(),
         encode(&[(48.1, 17.1), (48.9, 20.5)]),
-        420.0,
         400.0,
         RouteMode::Direct,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1526,12 +1529,12 @@ fn a_saved_loop_route_never_stores_round_trip_even_if_asked() {
         trip.id.to_string(),
         sample_waypoints(),
         encode(&[(48.9, 20.5), (49.0, 20.6)]),
-        120.0,
         118.0,
         RouteMode::Loop,
         true,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1813,9 +1816,9 @@ fn saving_a_round_trip_joins_the_two_legs_into_one_row() {
         encode(&back_points),
         25.0,
         27.0,
-        50.0,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1857,9 +1860,9 @@ fn a_round_trip_save_refuses_a_leg_that_is_not_a_leg() {
         "b".into(),
         1.0,
         1.0,
-        2.0,
         vec![],
         None,
+        false,
     )
     .unwrap_err();
     assert!(err.contains("two legs"), "got: {err}");
@@ -1888,12 +1891,12 @@ fn a_round_trip_saved_before_the_index_existed_resolves_its_own_split_point() {
         trip.id.to_string(),
         closed,
         polyline,
-        trip.distance_km,
         120.0,
         RouteMode::Direct,
         true,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1919,12 +1922,12 @@ fn a_one_way_saved_map_resolves_no_split_point() {
         trip.id.to_string(),
         sample_waypoints(),
         polyline,
-        trip.distance_km,
         120.0,
         RouteMode::Direct,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -1940,7 +1943,7 @@ fn a_saved_map_reports_the_trips_distance_as_its_target() {
     // deviation against a distance the book no longer holds.
     let db = Database::in_memory().unwrap();
     let app_state = AppState::new();
-    let mut trip = seed_trip(&db);
+    let trip = seed_trip(&db);
     let (_, polyline) = sample_geometry();
 
     save_trip_route_internal(
@@ -1949,17 +1952,15 @@ fn a_saved_map_reports_the_trips_distance_as_its_target() {
         trip.id.to_string(),
         sample_waypoints(),
         polyline,
-        trip.distance_km,
         118.0,
         RouteMode::Direct,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
-
-    trip.distance_km = 118.0;
-    db.update_trip(&trip).unwrap();
+    // Task 87: the save itself wrote 118 km to the trip.
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert!((saved.target_km - 118.0).abs() < 1e-9);
@@ -2004,9 +2005,9 @@ fn a_saved_round_trip_returns_its_geometry_split_into_two_legs() {
         encode(&back_points),
         25.0,
         27.0,
-        50.0,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -2058,9 +2059,9 @@ fn a_saved_round_trip_splits_at_the_turnaround_even_when_the_legs_differ() {
         encode(&back_points),
         25.0,
         30.0,
-        50.0,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -2101,12 +2102,12 @@ fn a_round_trip_saved_before_the_index_existed_still_splits_its_geometry() {
         trip.id.to_string(),
         closed,
         encode(&points),
-        trip.distance_km,
         120.0,
         RouteMode::Direct,
         true,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -2132,12 +2133,12 @@ fn a_one_way_saved_map_carries_no_legs() {
         trip.id.to_string(),
         sample_waypoints(),
         polyline,
-        trip.distance_km,
         120.0,
         RouteMode::Direct,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -2198,10 +2199,17 @@ fn a_saved_avoid_list_comes_back_normalised() {
     let trip = seed_trip(&db);
     let app_state = AppState::new();
     save_trip_route_internal(
-        &db, &app_state, trip.id.to_string(), sample_waypoints(),
-        encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, 132.9, RouteMode::Direct, false,
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        sample_waypoints(),
+        encode(&[(48.1, 17.1), (49.2, 16.6)]),
+        132.9,
+        RouteMode::Direct,
+        false,
         vec!["svk:tolls".into(), "CZE:tolls".into()],
         None,
+        false,
     ).unwrap();
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
@@ -2213,10 +2221,17 @@ fn saving_a_bad_avoid_value_is_refused() {
     let db = Database::in_memory().unwrap();
     let trip = seed_trip(&db);
     let err = save_trip_route_internal(
-        &db, &AppState::new(), trip.id.to_string(), sample_waypoints(),
-        encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, 132.9, RouteMode::Direct, false,
+        &db,
+        &AppState::new(),
+        trip.id.to_string(),
+        sample_waypoints(),
+        encode(&[(48.1, 17.1), (49.2, 16.6)]),
+        132.9,
+        RouteMode::Direct,
+        false,
         vec!["cze:highways".into()],
         None,
+        false,
     ).expect_err("only tolls values are stored");
     assert!(err.contains("avoid"), "got: {err}");
 }
@@ -2241,9 +2256,9 @@ fn a_saved_round_trip_keeps_its_avoid_list() {
         encode(&back_points),
         25.0,
         27.0,
-        50.0,
         vec!["cze:tolls".into()],
         None,
+        false,
     )
     .unwrap();
 
@@ -2302,12 +2317,12 @@ fn a_saved_route_keeps_its_provider() {
         trip.id.to_string(),
         direct_waypoints(),
         encoded,
-        120.0,
         118.4,
         RouteMode::Direct,
         false,
         vec![],
         Some(RouteProviderKind::Osrm),
+        false,
     )
     .unwrap();
 
@@ -2328,12 +2343,12 @@ fn a_route_saved_without_a_provider_reads_back_as_unknown() {
         trip.id.to_string(),
         sample_waypoints(),
         encoded,
-        120.0,
         118.4,
         RouteMode::Loop,
         false,
         vec![],
         None,
+        false,
     )
     .unwrap();
 
@@ -2361,9 +2376,9 @@ fn a_saved_round_trip_keeps_its_provider() {
         encode(&back_points),
         25.0,
         27.0,
-        50.0,
         vec![],
         Some(RouteProviderKind::Sygic),
+        false,
     )
     .unwrap();
 
@@ -2386,15 +2401,196 @@ fn a_saved_route_with_an_avoid_list_and_no_provider_reads_as_sygic() {
         trip.id.to_string(),
         direct_waypoints(),
         encoded,
-        120.0,
         118.4,
         RouteMode::Direct,
         false,
         vec!["cze:tolls".into()],
         None,
+        false,
     )
     .unwrap();
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert_eq!(saved.provider, Some(RouteProviderKind::Sygic));
+}
+
+// ============================================================================
+// Save and apply the distance (task 87)
+// ============================================================================
+
+#[test]
+fn a_dry_run_save_writes_neither_the_map_nor_the_km() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    let r = save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline,
+        133.7, RouteMode::Direct, false, vec![], None, true,
+    )
+    .unwrap();
+
+    assert!(r.changes_trip);
+    assert_eq!(r.distance_after, 134.0);
+    assert!(db.get_route_map(&trip.id.to_string()).unwrap().is_none());
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().distance_km, 120.0);
+}
+
+#[test]
+fn a_committed_direct_save_writes_the_map_and_the_whole_km() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline,
+        133.7, RouteMode::Direct, false, vec![], None, false,
+    )
+    .unwrap();
+
+    let map = db.get_route_map(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(map.road_km, 133.7, "the map keeps the raw road km");
+    assert_eq!(map.target_km, 134.0, "the stored target is the committed trip km");
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().distance_km, 134.0);
+}
+
+#[test]
+fn a_committed_loop_save_writes_the_km_too() {
+    // Before task 87 a loop never wrote the distance (route-maps.md called it
+    // circular). D1: every mode writes it.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline,
+        118.4, RouteMode::Loop, false, vec![], None, false,
+    )
+    .unwrap();
+
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().distance_km, 118.0);
+}
+
+#[test]
+fn a_committed_round_trip_save_writes_the_rounded_sum_of_its_legs() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+    let out = sample_waypoints();
+    let back: Vec<Waypoint> = out.iter().rev().cloned().collect();
+
+    save_trip_round_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), out, back,
+        polyline.clone(), polyline, 60.3, 61.4, vec![], None, false,
+    )
+    .unwrap();
+
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().distance_km, 122.0);
+}
+
+#[test]
+fn a_save_that_changes_nothing_still_saves_the_map() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+
+    let r = save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline,
+        120.3, RouteMode::Direct, false, vec![], None, false,
+    )
+    .unwrap();
+
+    assert!(!r.changes_trip);
+    assert!(r.trip.is_none());
+    assert!(db.get_route_map(&trip.id.to_string()).unwrap().is_some());
+}
+
+#[test]
+fn save_and_apply_is_read_only_guarded() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+    app_state.enable_read_only("newer migrations");
+
+    let save = |dry_run| {
+        save_trip_route_internal(
+            &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline.clone(),
+            133.7, RouteMode::Direct, false, vec![], None, dry_run,
+        )
+    };
+
+    assert!(save(true).is_ok(), "a dry run only reads");
+    assert!(save(false).is_err());
+    assert!(db.get_route_map(&trip.id.to_string()).unwrap().is_none());
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().distance_km, 120.0);
+}
+
+#[test]
+fn commit_replans_from_the_book_not_from_the_dry_run() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let mut trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+    let save = |dry_run| {
+        save_trip_route_internal(
+            &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline.clone(),
+            133.7, RouteMode::Direct, false, vec![], None, dry_run,
+        )
+    };
+
+    let dry = save(true).unwrap();
+    assert_eq!(dry.distance_before, 120.0);
+
+    // Another tab edits the trip between the dry run and Confirm.
+    trip.distance_km = 100.0;
+    db.update_trip(&trip).unwrap();
+
+    let done = save(false).unwrap();
+    assert_eq!(done.distance_before, 100.0, "the commit reads the book as it is now");
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().distance_km, 134.0);
+}
+
+#[test]
+fn a_map_in_sync_reports_it_and_is_never_off_target() {
+    // 2.4 km written as 2 km is a 20 % deviation, over TOLERANCE (5 %). An
+    // in-sync map must not show a warning the user can never clear.
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+    save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline,
+        2.4, RouteMode::Direct, false, vec![], None, false,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert!(saved.distance_in_sync);
+    assert!(!saved.off_target);
+    assert!(saved.deviation_percent > 19.0, "the real deviation is still reported");
+}
+
+#[test]
+fn a_map_whose_trip_km_was_edited_later_is_not_in_sync() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let mut trip = seed_trip(&db);
+    let (_, polyline) = sample_geometry();
+    save_trip_route_internal(
+        &db, &app_state, trip.id.to_string(), sample_waypoints(), polyline,
+        120.0, RouteMode::Direct, false, vec![], None, false,
+    )
+    .unwrap();
+
+    trip.distance_km = 100.0;
+    db.update_trip(&trip).unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert!(!saved.distance_in_sync);
 }
