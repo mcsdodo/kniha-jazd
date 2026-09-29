@@ -1,5 +1,6 @@
 //! Generated trip route maps — GA route selection, OSRM geometry, tile rendering.
 
+pub mod avoid;
 pub mod dataset;
 pub mod ga;
 pub mod osrm;
@@ -36,3 +37,7 @@ mod tiles_tests;
 #[cfg(test)]
 #[path = "render_tests.rs"]
 mod render_tests;
+
+#[cfg(test)]
+#[path = "avoid_tests.rs"]
+mod avoid_tests;
