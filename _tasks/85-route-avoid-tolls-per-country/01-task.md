@@ -85,8 +85,8 @@ Other results:
 
 ### Backend
 
-- R1. `RouteProvider::fetch` and `fetch_alternatives` take an avoid list
-  (`&[String]`). `HttpRouteProvider` (OSRM) ignores it.
+- R1. The avoid list is fixed when a provider is built. The `RouteProvider`
+  trait does not change. OSRM refuses a non-empty avoid list (decision 5).
 - R2. New `SygicRouteProvider` in [route_map/](../../src-tauri/core/src/route_map/):
   - Sends `origin`, `destination`, `waypoints` (pipe-separated) in `lat,lon`
     order with 6 decimals.
@@ -97,16 +97,18 @@ Other results:
     [DECISIONS.md](../../DECISIONS.md): order as returned, never re-sorted.
   - Sends a `Referer` header when `SYGIC_REFERER` is set.
   - Maps `route`, `distance.value / 1000`, `duration.value` and the
-    `*:tolls` values of `possible_avoids` into `FetchedRoute`.
+    `*:tolls` values of `possible_avoids`, plus its own avoid list, into
+    `FetchedRoute`.
   - Keeps the error style of [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs): HTTP status in the message, 429
     readable by the existing Retry prompt, no panic on a bad client build.
 - R3. `FetchedRoute` gets `possible_avoids: Vec<String>`. OSRM returns an empty
   list.
-- R4. One function selects the provider from the environment. All three async
-  commands use it, in place of the three `HttpRouteProvider::public()` calls.
+- R4. One function selects the provider from the environment: the test mock,
+  Sygic or OSRM. All three async commands use it, in place of the three
+  `HttpRouteProvider::public()` calls.
 - R5. `generate_route`, `route_direct` and `route_round_trip` take an optional
   `avoid: Vec<String>` (serde default `[]`), so an old caller still works.
-- R6. `GeneratedRoute` gets `possibleAvoids`. A round trip returns the union of
+- R6. `GeneratedRoute` gets `avoidOptions`. A round trip returns the union of
   both legs. Both legs use the same avoid list.
 - R7. Migration: add `avoid TEXT NOT NULL DEFAULT '[]'` to `trip_routes`, as the
   LAST column (`RouteMapRow` binds by position, see the notes in
@@ -116,8 +118,8 @@ Other results:
 
 ### Frontend (`/mapa`)
 
-- R9. One checkbox per value in the union of `possibleAvoids` and the current
-  avoid list. Label from i18n, for example "Vyhnúť sa spoplatneným cestám: CZ".
+- R9. One checkbox per value in `avoidOptions`. The backend already adds the
+  avoided values, so a checked country stays visible. Label from i18n, for example "Vyhnúť sa spoplatneným cestám: CZ".
   Country names for at least SVK, CZE, AUT, HUN, POL, with the ISO code as the
   fallback for other countries.
 - R10. A checkbox change fetches the route again in the current mode (loop,
@@ -133,6 +135,7 @@ Other results:
 |---|---|---|
 | `SYGIC_API_KEY` | unset | If set, Sygic computes all routes. If unset, public OSRM. |
 | `SYGIC_REFERER` | unset | `Referer` header for a key with a referer restriction. |
+| `KNIHA_JAZD_MOCK_ROUTER` | unset | Any value: an offline mock computes all routes. For the integration suite only. |
 
 Do not write a key or a referer value into this repo. The repo is public.
 
@@ -143,13 +146,14 @@ Do not write a key or a referer value into this repo. The repo is public.
 - Backend unit tests for the response mapping: polyline, km, seconds, the
   `*:tolls` filter, errors (non-`OK` status, empty `routes`, HTTP 401, 403,
   429).
-- A `route_maps` test with a fake provider: the avoid list reaches the
-  provider, and `possibleAvoids` reaches the result, round trip union included.
+- Provider choice tests: mock, Sygic, OSRM, and OSRM refusing an avoid list.
+- A `route_maps` test with a fake provider: `avoidOptions` reaches the result,
+  round trip union included.
 - A DB test: save and get keep the avoid list. A row from before the migration
   reads as `[]`.
-- One integration test: with a fake provider that returns `cze:tolls`, the
-  checkbox appears, and a click sends `avoid: ["cze:tolls"]`. Check first how
-  the integration suite fakes the routing service today.
+- Integration tests with the mock router: a reopened saved route shows its
+  checked box, and a click routes again. Before this task the suite had no way
+  to route at all (header of `route-map.spec.ts`).
 
 ### Documentation
 
