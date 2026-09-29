@@ -267,10 +267,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
-        "apply_route_distance" => {
-            // Two arguments and nothing else. The trip's other fields are not
-            // resubmitted, so this command cannot change them even by mistake
-            // -- which is the point (task 78).
+        "apply_saved_route_distance" => {
+            // Trip id and dry run only: the road km comes from trip_routes, not
+            // from the browser (task 87, D2).
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
@@ -858,7 +857,6 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 trip_id: String,
                 waypoints: Vec<crate::models::Waypoint>,
                 polyline: String,
-                target_km: f64,
                 road_km: f64,
                 mode: crate::models::RouteMode,
                 #[serde(default)]
@@ -869,22 +867,25 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 // Task 86. Absent = unknown, stored as NULL.
                 #[serde(default)]
                 provider: Option<crate::route_map::RouteProviderKind>,
+                // Task 87. No default: a save now writes the trip's km, so a
+                // client that forgets the flag must be refused, not guessed.
+                dry_run: bool,
             }
             let a: Args = parse_args(args)?;
-            crate::commands_internal::save_trip_route_internal(
+            let v = crate::commands_internal::save_trip_route_internal(
                 &state.db,
                 &state.app_state,
                 a.trip_id,
                 a.waypoints,
                 a.polyline,
-                a.target_km,
                 a.road_km,
                 a.mode,
                 a.round_trip,
                 a.avoid,
                 a.provider,
+                a.dry_run,
             )?;
-            Ok(serde_json::to_value(()).unwrap())
+            Ok(serde_json::to_value(v).unwrap())
         }
         "save_trip_round_trip_route" => {
             // No `waypoints`, `polyline`, `roadKm` or `mode`: the backend
@@ -900,16 +901,17 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 inbound_polyline: String,
                 outbound_road_km: f64,
                 inbound_road_km: f64,
-                target_km: f64,
                 // Task 85. Defaulted: a payload that predates it avoided nothing.
                 #[serde(default)]
                 avoid: Vec<String>,
                 // Task 86. Absent = unknown, stored as NULL.
                 #[serde(default)]
                 provider: Option<crate::route_map::RouteProviderKind>,
+                // Task 87. No default, same reason as `save_trip_route`.
+                dry_run: bool,
             }
             let a: Args = parse_args(args)?;
-            crate::commands_internal::save_trip_round_trip_route_internal(
+            let v = crate::commands_internal::save_trip_round_trip_route_internal(
                 &state.db,
                 &state.app_state,
                 a.trip_id,
@@ -919,11 +921,11 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 a.inbound_polyline,
                 a.outbound_road_km,
                 a.inbound_road_km,
-                a.target_km,
                 a.avoid,
                 a.provider,
+                a.dry_run,
             )?;
-            Ok(serde_json::to_value(()).unwrap())
+            Ok(serde_json::to_value(v).unwrap())
         }
         "get_route_providers" => {
             let v = crate::commands_internal::get_route_providers_internal();
@@ -1204,7 +1206,7 @@ mod tests {
                 "tripId": trip_id,
                 "waypoints": [{ "lat": 48.935, "lon": 20.553, "name": "Domov", "nodeIdx": 0 }],
                 "polyline": "_p~iF~ps|U",
-                "targetKm": 120.0,
+                "dryRun": false,
                 "roadKm": 118.4,
                 "mode": "loop",
             }),
@@ -1239,7 +1241,7 @@ mod tests {
                     { "lat": 48.145, "lon": 17.127, "name": "B" }
                 ],
                 "polyline": "_p~iF~ps|U",
-                "targetKm": 357.0,
+                "dryRun": false,
                 "roadKm": 356.9,
                 "mode": "direct",
                 "provider": "osrm",
@@ -1252,6 +1254,30 @@ mod tests {
     }
 
     #[test]
+    fn save_trip_route_without_dry_run_is_refused() {
+        // dryRun has no default: a client that forgets it must not write the
+        // trip's km by accident (task 87).
+        let state = test_state();
+        let trip_id = seed_trip_for_route(&state);
+        let err = dispatch_sync(
+            "save_trip_route",
+            json!({
+                "tripId": trip_id,
+                "waypoints": [{ "lat": 48.935, "lon": 20.553, "name": "Domov", "nodeIdx": 0 }],
+                "polyline": "_p~iF~ps|U",
+                "roadKm": 118.4,
+                "mode": "loop",
+            }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("dryRun"), "{err}");
+        assert!(dispatch_sync("get_trip_route", json!({ "tripId": trip_id }), &state)
+            .unwrap()
+            .is_null());
+    }
+
+    #[test]
     fn save_trip_route_over_rpc_rejects_an_unknown_provider() {
         let state = test_state();
         let trip_id = seed_trip_for_route(&state);
@@ -1261,7 +1287,7 @@ mod tests {
                 "tripId": trip_id,
                 "waypoints": [{ "lat": 48.935, "lon": 20.553, "name": "A" }],
                 "polyline": "_p~iF~ps|U",
-                "targetKm": 1.0,
+                "dryRun": false,
                 "roadKm": 1.0,
                 "mode": "loop",
                 "provider": "google",
@@ -1316,7 +1342,7 @@ mod tests {
                     { "lat": 48.9444, "lon": 20.5675, "name": "Spišská" },
                 ],
                 "polyline": "_p~iF~ps|U",
-                "targetKm": 420.0,
+                "dryRun": false,
                 "roadKm": 400.0,
                 "mode": "direct",
             }),
@@ -1348,7 +1374,7 @@ mod tests {
                     { "lat": 48.1486, "lon": 17.1077, "name": "Bratislava" },
                 ],
                 "polyline": "_p~iF~ps|U",
-                "targetKm": 420.0,
+                "dryRun": false,
                 "roadKm": 400.0,
                 "mode": "direct",
                 "roundTrip": true,
