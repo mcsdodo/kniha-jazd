@@ -8,6 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 87 | [Save And Apply Distance](87-save-and-apply-distance/) | 📋 Planning | One "Uložiť a použiť vzdialenosť" button on `/mapa`: every save writes the route's whole-km distance to the trip in one transaction, in every mode (Loop too); supersedes the Direct-only scope of ADR-048 |
 | 86 | [Route Provider Switch](86-route-provider-switch/) | ✅ Complete | Select OSRM or Sygic per route on `/mapa`, stored in `trip_routes.provider` (Sygic has no D1 Visnove tunnel); see ADR-053 |
 | 85 | [Route Avoid Tolls Per Country](85-route-avoid-tolls-per-country/) | ✅ Complete | Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
