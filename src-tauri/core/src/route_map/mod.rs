@@ -6,6 +6,7 @@ pub mod ga;
 pub mod osrm;
 pub mod polyline;
 pub mod render;
+pub mod sygic;
 pub mod tiles;
 
 pub use dataset::Dataset;
@@ -41,3 +42,7 @@ mod render_tests;
 #[cfg(test)]
 #[path = "avoid_tests.rs"]
 mod avoid_tests;
+
+#[cfg(test)]
+#[path = "sygic_tests.rs"]
+mod sygic_tests;
