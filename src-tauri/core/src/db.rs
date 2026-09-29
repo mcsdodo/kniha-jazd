@@ -551,40 +551,46 @@ impl Database {
         shifts: &[(String, f64)],
     ) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
+        let updated_at_str = trip.updated_at.to_rfc3339();
+
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            Self::update_trip_tx(tx, trip, &updated_at_str)?;
+            Self::apply_odometer_shifts(tx, shifts, &updated_at_str)
+        })
+    }
+
+    /// Write every column of one trip row inside an open transaction.
+    fn update_trip_tx(tx: &mut SqliteConnection, trip: &Trip, updated_at: &str) -> QueryResult<()> {
         let id_str = trip.id.to_string();
         let vehicle_id_str = trip.vehicle_id.to_string();
         let start_datetime_str = trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string();
         let end_datetime_str = trip
             .end_datetime
             .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
-        let updated_at_str = trip.updated_at.to_rfc3339();
 
-        conn.transaction::<_, diesel::result::Error, _>(|tx| {
-            diesel::update(trips::table.filter(trips::id.eq(&id_str)))
-                .set((
-                    trips::vehicle_id.eq(&vehicle_id_str),
-                    trips::origin.eq(&trip.origin),
-                    trips::destination.eq(&trip.destination),
-                    trips::distance_km.eq(trip.distance_km),
-                    trips::odometer.eq(trip.odometer),
-                    trips::purpose.eq(&trip.purpose),
-                    trips::fuel_liters.eq(trip.fuel_liters),
-                    trips::fuel_cost_eur.eq(trip.fuel_cost_eur),
-                    trips::other_costs_eur.eq(trip.other_costs_eur),
-                    trips::other_costs_note.eq(&trip.other_costs_note),
-                    trips::full_tank.eq(if trip.full_tank { 1 } else { 0 }),
-                    trips::energy_kwh.eq(trip.energy_kwh),
-                    trips::energy_cost_eur.eq(trip.energy_cost_eur),
-                    trips::full_charge.eq(Some(if trip.full_charge { 1 } else { 0 })),
-                    trips::soc_override_percent.eq(trip.soc_override_percent),
-                    trips::updated_at.eq(&updated_at_str),
-                    trips::start_datetime.eq(&start_datetime_str),
-                    trips::end_datetime.eq(end_datetime_str.as_deref()),
-                ))
-                .execute(tx)?;
-
-            Self::apply_odometer_shifts(tx, shifts, &updated_at_str)
-        })
+        diesel::update(trips::table.filter(trips::id.eq(&id_str)))
+            .set((
+                trips::vehicle_id.eq(&vehicle_id_str),
+                trips::origin.eq(&trip.origin),
+                trips::destination.eq(&trip.destination),
+                trips::distance_km.eq(trip.distance_km),
+                trips::odometer.eq(trip.odometer),
+                trips::purpose.eq(&trip.purpose),
+                trips::fuel_liters.eq(trip.fuel_liters),
+                trips::fuel_cost_eur.eq(trip.fuel_cost_eur),
+                trips::other_costs_eur.eq(trip.other_costs_eur),
+                trips::other_costs_note.eq(&trip.other_costs_note),
+                trips::full_tank.eq(if trip.full_tank { 1 } else { 0 }),
+                trips::energy_kwh.eq(trip.energy_kwh),
+                trips::energy_cost_eur.eq(trip.energy_cost_eur),
+                trips::full_charge.eq(Some(if trip.full_charge { 1 } else { 0 })),
+                trips::soc_override_percent.eq(trip.soc_override_percent),
+                trips::updated_at.eq(updated_at),
+                trips::start_datetime.eq(&start_datetime_str),
+                trips::end_datetime.eq(end_datetime_str.as_deref()),
+            ))
+            .execute(tx)?;
+        Ok(())
     }
 
     /// Insert one full row and move the odometer of others, in one
@@ -1094,6 +1100,34 @@ impl Database {
     /// failed insert can never leave the trip mapless.
     pub fn save_route_map(&self, map: &RouteMap) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
+        conn.transaction::<_, diesel::result::Error, _>(|tx| Self::insert_route_map_tx(tx, map))
+    }
+
+    /// Save a route map and write the distance it implies, in one transaction
+    /// (task 87). `trip` is `None` when the rounded road distance already equals
+    /// the trip's: the map is saved and the trip row is not touched. A shift
+    /// naming an unknown row rolls back the map too -- a saved map whose distance
+    /// did not reach the trip is the state this method exists to prevent.
+    pub fn save_route_map_with_trip_distance(
+        &self,
+        map: &RouteMap,
+        trip: Option<&Trip>,
+        shifts: &[(String, f64)],
+    ) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            Self::insert_route_map_tx(tx, map)?;
+            if let Some(trip) = trip {
+                let updated_at = trip.updated_at.to_rfc3339();
+                Self::update_trip_tx(tx, trip, &updated_at)?;
+                Self::apply_odometer_shifts(tx, shifts, &updated_at)?;
+            }
+            Ok(())
+        })
+    }
+
+    /// Delete + insert the map row for one trip inside an open transaction.
+    fn insert_route_map_tx(tx: &mut SqliteConnection, map: &RouteMap) -> QueryResult<()> {
         let trip_id_str = map.trip_id.to_string();
         let waypoints_json = serde_json::to_string(&map.waypoints)
             .map_err(|e| diesel::result::Error::SerializationError(Box::new(e)))?;
@@ -1101,27 +1135,25 @@ impl Database {
             .map_err(|e| diesel::result::Error::SerializationError(Box::new(e)))?;
         let created_at_str = map.created_at.to_rfc3339();
 
-        conn.transaction::<_, diesel::result::Error, _>(|tx| {
-            diesel::delete(trip_routes::table.filter(trip_routes::trip_id.eq(&trip_id_str)))
-                .execute(tx)?;
-            diesel::insert_into(trip_routes::table)
-                .values(&NewRouteMapRow {
-                    trip_id: &trip_id_str,
-                    waypoints: &waypoints_json,
-                    polyline: &map.polyline,
-                    target_km: map.target_km,
-                    road_km: map.road_km,
-                    dataset_version: map.dataset_version.as_deref(),
-                    created_at: &created_at_str,
-                    mode: map.mode.as_str(),
-                    round_trip: map.round_trip,
-                    turnaround_index: map.turnaround_index,
-                    avoid: &avoid_json,
-                    provider: map.provider.map(|k| k.as_str()),
-                })
-                .execute(tx)?;
-            Ok(())
-        })
+        diesel::delete(trip_routes::table.filter(trip_routes::trip_id.eq(&trip_id_str)))
+            .execute(tx)?;
+        diesel::insert_into(trip_routes::table)
+            .values(&NewRouteMapRow {
+                trip_id: &trip_id_str,
+                waypoints: &waypoints_json,
+                polyline: &map.polyline,
+                target_km: map.target_km,
+                road_km: map.road_km,
+                dataset_version: map.dataset_version.as_deref(),
+                created_at: &created_at_str,
+                mode: map.mode.as_str(),
+                round_trip: map.round_trip,
+                turnaround_index: map.turnaround_index,
+                avoid: &avoid_json,
+                provider: map.provider.map(|k| k.as_str()),
+            })
+            .execute(tx)?;
+        Ok(())
     }
 
     pub fn get_route_map(&self, trip_id: &str) -> QueryResult<Option<RouteMap>> {

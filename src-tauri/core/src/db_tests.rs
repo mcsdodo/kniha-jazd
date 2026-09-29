@@ -1417,3 +1417,92 @@ fn a_route_map_without_a_turnaround_index_loads_as_none() {
     let loaded = db.get_route_map(&trip_id.to_string()).unwrap().unwrap();
     assert_eq!(loaded.turnaround_index, None);
 }
+
+// ============================================================================
+// Map + trip distance in one transaction (task 87)
+// ============================================================================
+
+/// A vehicle at 50000 km with two chained trips: `a` on 2026-04-01 (50 km,
+/// odometer 50050) and `b` on 2026-04-02 (70 km, odometer 50120).
+fn seed_two_chained_trips(db: &Database) -> (Vehicle, Trip, Trip) {
+    let vehicle = Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 50000.0);
+    db.create_vehicle(&vehicle).unwrap();
+    let mut a = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2026, 4, 1).unwrap(), 50.0, None, false);
+    a.vehicle_id = vehicle.id;
+    a.odometer = 50050.0;
+    db.create_trip(&a).unwrap();
+    let mut b = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2026, 4, 2).unwrap(), 70.0, None, false);
+    b.vehicle_id = vehicle.id;
+    b.odometer = 50120.0;
+    db.create_trip(&b).unwrap();
+    (vehicle, a, b)
+}
+
+/// A Direct map for `trip_id` with `road_km` as both road and target km.
+fn sample_route_map(trip_id: Uuid, road_km: f64) -> RouteMap {
+    RouteMap {
+        trip_id,
+        waypoints: vec![
+            Waypoint { lat: 48.935, lon: 20.553, name: Some("Domov".into()), node_idx: Some(0) },
+            Waypoint { lat: 48.72, lon: 21.26, name: Some("Košice".into()), node_idx: Some(1) },
+        ],
+        polyline: "_p~iF~ps|U".to_string(),
+        target_km: road_km,
+        road_km,
+        mode: RouteMode::Direct,
+        dataset_version: None,
+        created_at: Utc::now(),
+        round_trip: false,
+        turnaround_index: None,
+        avoid: vec![],
+        provider: None,
+    }
+}
+
+#[test]
+fn save_route_map_with_trip_distance_writes_all_three_together() {
+    let db = Database::in_memory().unwrap();
+    let (vehicle, mut a, b) = seed_two_chained_trips(&db); // a: 50 km @ 50050, b: 70 km @ 50120
+    let map = sample_route_map(a.id, 61.0);
+
+    a.distance_km = 61.0;
+    a.odometer = 50061.0;
+    a.updated_at = Utc::now();
+    db.save_route_map_with_trip_distance(&map, Some(&a), &[(b.id.to_string(), 50131.0)])
+        .unwrap();
+
+    assert!(db.get_route_map(&a.id.to_string()).unwrap().is_some());
+    assert_eq!(db.get_trip(&a.id.to_string()).unwrap().unwrap().distance_km, 61.0);
+    assert_eq!(db.get_trip(&b.id.to_string()).unwrap().unwrap().odometer, 50131.0);
+    let _ = vehicle;
+}
+
+#[test]
+fn save_route_map_with_trip_distance_saves_the_map_alone_when_the_trip_does_not_change() {
+    let db = Database::in_memory().unwrap();
+    let (_vehicle, a, _b) = seed_two_chained_trips(&db);
+    let map = sample_route_map(a.id, 50.0);
+
+    db.save_route_map_with_trip_distance(&map, None, &[]).unwrap();
+
+    assert!(db.get_route_map(&a.id.to_string()).unwrap().is_some());
+    assert_eq!(db.get_trip(&a.id.to_string()).unwrap().unwrap().distance_km, 50.0);
+}
+
+#[test]
+fn save_route_map_with_trip_distance_rolls_back_on_a_bad_shift() {
+    let db = Database::in_memory().unwrap();
+    let (_vehicle, mut a, _b) = seed_two_chained_trips(&db);
+    let map = sample_route_map(a.id, 61.0);
+    a.distance_km = 61.0;
+
+    let result = db.save_route_map_with_trip_distance(
+        &map,
+        Some(&a),
+        &[("00000000-0000-0000-0000-000000000000".to_string(), 1.0)],
+    );
+
+    assert!(result.is_err());
+    assert!(db.get_route_map(&a.id.to_string()).unwrap().is_none(), "no map on a failed commit");
+    assert_eq!(db.get_trip(&a.id.to_string()).unwrap().unwrap().distance_km, 50.0);
+}
