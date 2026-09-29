@@ -31,6 +31,7 @@ Diesel + SQLite, SvelteKit 5 (runes), typesafe-i18n, WebdriverIO.
 - Sygic takes `lat,lon` with 6 decimals. OSRM takes `lon,lat`. Do not mix them.
 - Alternatives only for a request with exactly two points, in the order Sygic returns them, at most `MAX_ALTERNATIVES` (3).
 - ADR-008: the value filter, the union and the provider choice are in Rust. The page only renders `avoidOptions` and sends the checked values back.
+- The checkboxes show only in direct mode (one-way and round trip). In loop mode a click would run the GA again and replace the loop, so loop mode sends `avoid: []` and shows no checkboxes.
 - The new `trip_routes` column is the LAST column. `RouteMapRow` binds by position.
 - Do not write a key or a referer value into the repo. The repo is public.
 - All user text through i18n (`sk` and `en`). Run `npm run i18n` after an i18n edit.
@@ -39,11 +40,14 @@ Diesel + SQLite, SvelteKit 5 (runes), typesafe-i18n, WebdriverIO.
 
 ## Review Focus
 
+Five input classes plus one security rule.
+
 1. **A saved route with an avoid list, reopened when `SYGIC_API_KEY` is gone.** Expect: the saved line still draws (no routing call). A recompute shows an error that names the missing key. It does not silently route through OSRM. Test in Task 4.
 2. **A crafted RPC call with `avoid: ["cze:country"]` or `["x|y"]`.** Expect: an error, no request to Sygic. The value goes into a URL. Test in Task 1 and Task 5.
 3. **The user checks CZ, and the new route no longer passes a CZ toll road.** Expect: the CZ checkbox stays visible and checked. Test in Task 3 (provider union) and Task 8 (UI).
 4. **Sygic answers 403 `Allowed referers do not match.` or 401.** Expect: the error names Sygic and the status. The page shows the normal route error with Retry. Test in Task 3.
-5. **The avoid list changes while a request is in flight, then the user saves.** Expect: the save stores the avoid list that produced the shown route, not the newest checkbox state. Covered by the `routedAvoid` capture in Task 7, checked by review.
+5. **The user checks a country, then saves.** Expect: the save stores the avoid list that produced the shown route (`routedAvoid`), not the newest checkbox state and not `[]`. Test in Task 8 (save, reopen, still checked).
+6. **The Sygic key leaks into an error message.** The request URL carries `key=`, and reqwest can print the URL in an error. Expect: no error text contains the key. Test in Task 3.
 
 ---
 
@@ -498,6 +502,27 @@ async fn an_ok_status_with_no_routes_is_an_error() {
     assert!(provider(&server, &[]).fetch(&[BA, BRNO]).await.is_err());
 }
 
+/// Review Focus 6: the key is in the query string, and reqwest errors print
+/// the URL. No error may carry it.
+#[tokio::test]
+async fn a_transport_failure_does_not_leak_the_key() {
+    // Port 9 (discard) on localhost: nothing listens, the connect fails.
+    let p = SygicRouteProvider::new("http://127.0.0.1:9", "secret-test-key".into(), None, vec![]);
+    let err = p.fetch(&[BA, BRNO]).await.expect_err("nothing listens");
+    assert!(!err.contains("secret-test-key"), "key leaked: {err}");
+}
+
+#[tokio::test]
+async fn a_malformed_body_does_not_leak_the_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_string("not json"))
+        .mount(&server).await;
+
+    let p = SygicRouteProvider::new(server.uri(), "secret-test-key".into(), None, vec![]);
+    let err = p.fetch(&[BA, BRNO]).await.expect_err("bad body");
+    assert!(!err.contains("secret-test-key"), "key leaked: {err}");
+}
+
 #[tokio::test]
 async fn one_point_is_an_error_not_a_request() {
     let server = MockServer::start().await;
@@ -625,11 +650,13 @@ impl SygicRouteProvider {
             req = req.header(reqwest::header::REFERER, referer);
         }
 
+        // `without_url`: reqwest prints the URL in its errors, and the URL
+        // carries the key (Review Focus 6).
         let response = req.send().await.map_err(|e| {
-            // `e` can print the URL, and the URL carries the key. Say what
-            // failed without it.
-            let kind = if e.is_timeout() { "timed out" } else { "failed" };
-            format!("Could not reach the Sygic routing service: the request {kind}. Check your internet connection and try again.")
+            format!(
+                "Could not reach the Sygic routing service: {}. Check your internet connection and try again.",
+                e.without_url()
+            )
         })?;
 
         let status = response.status();
@@ -644,10 +671,11 @@ impl SygicRouteProvider {
             ));
         }
 
+        // `without_url`: a decode error prints the URL, and the URL carries the key.
         let body: SygicResponse = response
             .json()
             .await
-            .map_err(|e| format!("Could not read the Sygic routing service response: {e}"))?;
+            .map_err(|e| format!("Could not read the Sygic routing service response: {}", e.without_url()))?;
         if body.status != "OK" {
             return Err(format!("Sygic routing service could not build a route: {}", body.status));
         }
@@ -708,7 +736,7 @@ impl RouteProvider for SygicRouteProvider {
 - [ ] **Step 4: Run the tests and see them pass**
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core sygic_tests`
-Expected: PASS, 10 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Manual check against the real API (optional, needs the key)**
 
@@ -1357,20 +1385,22 @@ In `loadRoute()`, where `roundTrip = savedRoute.roundTrip;` is set, also set:
 			routedAvoid = [...savedRoute.avoid];
 ```
 
-In `runGenerate`, `runDirect` and `runRoundTrip`: at the top, next to `const closeLoop = roundTrip;` (or at the same place in the other two), capture:
+In `runDirect` and `runRoundTrip`: at the top, next to `const closeLoop = roundTrip;` (or at the same place in `runRoundTrip`), capture:
 
 ```ts
 		const requestAvoid = [...avoid];
 ```
 
-pass `requestAvoid` as the new last argument of `generateRoute` / `routeDirect` / `routeRoundTrip`, and after a successful response set `routedAvoid = requestAvoid;`.
+pass `requestAvoid` as the new last argument of `routeDirect` / `routeRoundTrip`, and after a successful response set `routedAvoid = requestAvoid;`.
+
+`runGenerate` (loop mode) does not change: `generateRoute(targetKm)` sends the default `avoid = []`. In it, after a successful response, set `routedAvoid = [];` so a loop is never saved with an avoid list.
 
 In `handleSave`: pass `routedAvoid` as the last argument of `saveTripRoundTripRoute(...)` and `saveTripRoute(tripId, generated!, roundTrip, routedAvoid)`.
 
 - [ ] **Step 5: Markup** (right after the round-trip `<label>`, inside the same controls row)
 
 ```svelte
-			{#if avoidOptions.length > 0}
+			{#if mode === 'direct' && avoidOptions.length > 0}
 				<span class="avoid-options" data-test="avoid-options" title={$LL.routeMap.avoidTollsHint()}>
 					{$LL.routeMap.avoidTolls()}:
 					{#each avoidOptions as value (value)}
@@ -1417,6 +1447,11 @@ git commit -m "feat(route-map): per-country avoid paid roads checkboxes"
 - Modify: [tests/integration/wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) (`onPrepare`: `process.env` and the `spawn` env)
 - Modify: [.github/workflows/test.yml](../../.github/workflows/test.yml) (both `docker run` steps, lines about 175 and 261)
 - Modify: [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts)
+- Modify: [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md) (section "Pass the geocoder mock to the container")
+
+`grep -rn MOCK_GEOCODER_DIR` on 2026-09-29 found the env only in `wdio.server.conf.ts`
+(2 places), `test.yml` (2 places) and docs. No script in `scripts/` or `package.json`
+starts a container. Set the router mock in the same places.
 
 **Interfaces:**
 - Consumes: `KNIHA_JAZD_MOCK_ROUTER` (Task 4), `data-test="avoid-cze:tolls"`, `data-test="actual-km"` (Task 7 and existing).
@@ -1447,7 +1482,18 @@ In the `spawn` env, after `KNIHA_JAZD_MOCK_GEOCODER_DIR`:
             -e KNIHA_JAZD_MOCK_ROUTER=1 \
 ```
 
+- [ ] **Step 1b: Update the docker-mode note**
+
+In [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md), rename the section to "Pass the mocks to the container" and add:
+
+```markdown
+`KNIHA_JAZD_MOCK_ROUTER=1` is required too. Without it `route-map.spec.ts` fails,
+or calls a real routing service if the container has `SYGIC_API_KEY`.
+```
+
 - [ ] **Step 2: Write the tests** (in `describe('Map View (V2, offline-reachable flows)')`)
+
+Both tests use a direct route. Loop mode shows no checkboxes (Global Constraints).
 
 A saved route sets both endpoints from its own waypoints (`rehydrateEndpoints`),
 so `recalculate-btn` is enabled with no place-book entries. With the mock,
@@ -1508,6 +1554,16 @@ so `recalculate-btn` is enabled with no place-book entries. With the mock,
       // The mock returns 120.0 km for any non-empty avoid list.
       await expect($('[data-test="actual-km"]')).toHaveText('120.0 km');
       expect(await $('[data-test="avoid-cze:tolls"]').isSelected()).toBe(true);
+
+      // Review Focus 5: the save must carry the avoid list that produced
+      // the shown route. Reopen from the database to prove it was stored.
+      await $('[data-test="save-btn"]').click();
+      await $('[data-test="saved-notice"]').waitForDisplayed();
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      const reopened = await $('[data-test="avoid-cze:tolls"]');
+      await reopened.waitForDisplayed();
+      expect(await reopened.isSelected()).toBe(true);
     });
 ```
 
@@ -1535,7 +1591,7 @@ Expected: 0 errors.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add tests/integration/wdio.server.conf.ts tests/integration/specs/tier2/route-map.spec.ts .github/workflows/test.yml
+git add tests/integration/wdio.server.conf.ts tests/integration/specs/tier2/route-map.spec.ts .github/workflows/test.yml .claude/rules/integration-tests.md
 git commit -m "test(route-map): cover avoid checkboxes with an offline mock router"
 ```
 

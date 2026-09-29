@@ -122,8 +122,8 @@ Other results:
   avoided values, so a checked country stays visible. Label from i18n, for example "Vyhnúť sa spoplatneným cestám: CZ".
   Country names for at least SVK, CZE, AUT, HUN, POL, with the ISO code as the
   fallback for other countries.
-- R10. A checkbox change fetches the route again in the current mode (loop,
-  direct, round trip) with the new list.
+- R10. A checkbox change fetches the route again in the current direct mode
+  (one-way or round trip) with the new list. Loop mode has no checkboxes.
 - R11. A reopened saved route shows its saved list as checked.
 - R12. No checkboxes when the union is empty (OSRM, or a route with no paid
   road).
@@ -179,6 +179,8 @@ Do not write a key or a referer value into this repo. The repo is public.
 - ADR-008: the avoid filter (`*:tolls`), the round trip union and the provider
   choice are backend logic. The page only renders `possibleAvoids` and sends
   the checked values back.
-- `generate_route` (loop mode) calls `fetch` once, after the GA picks the
-  points. The avoid list only changes the road geometry, not the GA choice.
+- Loop mode shows no checkboxes and sends no avoid list. A change of the list
+  would call `generate_route` again, and the GA would replace the loop with a
+  new random one. The bundled dataset is Slovak, so a loop rarely crosses a
+  border anyway.
 - A saved route keeps its polyline. Only a recompute calls the provider again.
