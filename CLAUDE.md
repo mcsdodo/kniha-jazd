@@ -263,7 +263,7 @@ machine.
 | `PORT` | `3456` | HTTP listen port |
 | `SYGIC_API_KEY` | unset | If set, Sygic computes all route maps and `/mapa` shows the "avoid paid roads" checkboxes. If unset, public OSRM. |
 | `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
-| `KNIHA_JAZD_MOCK_ROUTER` | unset | Any value: an offline mock computes all routes. For the integration tests only. Never set it on a live instance. |
+| `KNIHA_JAZD_MOCK_ROUTER` | unset | Any non-empty value: an offline mock computes all routes. For the integration tests only. Never set it on a live instance. |
 
 - **Docker:** `docker-compose.web.yml` mounts the host's `./data` at `/data`; backups
   land in `<DATA_DIR>/backups/`.

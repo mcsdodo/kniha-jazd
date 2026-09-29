@@ -486,7 +486,7 @@ On `/mapa`, in direct mode only (one-way and round trip), one checkbox per count
 2. `SYGIC_API_KEY` is set: Sygic. If `SYGIC_REFERER` is set, the request sends it as the `Referer` header.
 3. Otherwise: public OSRM.
 
-OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback route would ignore the avoid list and look correct. A saved route with an avoid list still draws when the key is gone, because it needs no routing call. A recompute shows an error.
+OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback route would ignore the avoid list and look correct. A saved route with an avoid list still draws when the key is gone, because it needs no routing call. A recompute shows an error. The page matches the marker `AVOID_NEEDS_SYGIC` at the start of that message. It then shows `routeMap.avoidNeedsSygic` with no Retry button, because a retry cannot succeed without the key.
 
 **The `tolls`-only rule** ([avoid.rs](../../src-tauri/core/src/route_map/avoid.rs)). The backend accepts only values that match `^[a-z]{3}:tolls$`, for example `cze:tolls`. Any other value is an error, and no request goes out, because the value goes into a URL. Free highway sections stay allowed.
 
@@ -496,7 +496,7 @@ OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback rou
 
 **The mock.** With `KNIHA_JAZD_MOCK_ROUTER` set, an offline router answers all routing calls. It offers `cze:tolls`, so the integration tests can click a checkbox with no network.
 
-**Checked example** (2026-09-29, Bratislava to Brno): 130.1 km and 88 min with no avoid. 132.9 km and 111 min with `cze:tolls`. That route still uses the D2 from the border to the Breclav exit. The section has had no vignette since March 2025, while the II/425 bridge Lanzhot-Brodske is closed, and Sygic knows it.
+**Checked example** (2026-09-29, Bratislava to Brno): 130.1 km and 88 min with no avoid. 132.9 km and 111 min with `cze:tolls`. That route still uses the D2 from the border to the Breclav exit. The section has had no vignette since March 2025 ([source](https://www.novinykraje.cz/2025/03/07/dalnice-d2-na-hranicich-se-slovenskem-je-uz-prujezdna-bez-zpoplatneni/)), and Sygic knows it. The exemption is temporary: it lasts while the II/425 bridge Lanzhot-Brodske stays closed.
 
 **Open items before the deploy:** the Sygic terms on stored geometry, and the request quota of the plan.
 

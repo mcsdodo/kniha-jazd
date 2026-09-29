@@ -12,17 +12,17 @@
  * distance/deviation math, PNG rendering and export HTML.
  *
  * Two deliberate constraints on this file:
- * 1. `generate_route` is never called. It hits the public OSRM demo server —
- *    network-dependent, rate-limited and non-deterministic. Routes are seeded
- *    with `save_trip_route` and a canned polyline instead.
+ * 1. Routing never reaches a public server. The wdio config and the CI
+ *    `docker run` set `KNIHA_JAZD_MOCK_ROUTER`, so routing runs against an
+ *    offline mock router with fixed numbers. Saved routes are still seeded
+ *    with `save_trip_route` and a canned polyline.
  * 2. No export is triggered for a vehicle that has a saved route map. Export
  *    renders map PNGs from live OSM tiles (15s timeout), which would stall
  *    this suite on an offline or throttled CI box.
- * 3. Candidate picking, alternative promotion and drag editing are NOT covered.
- *    Each needs a live geocoder/router mid-flow, which constraint 1 rules out,
- *    and the providers are constructed inside the dispatcher arms so there is
- *    nothing to stub. Covering them needs a test-mode provider override first
- *    -- see _tasks/72-route-map-origin-destination/03-plan.md.
+ * 3. Candidate picking, alternative promotion and drag editing are NOT
+ *    covered. They need a live geocoder or a mock with several routes. The
+ *    avoid-checkbox flow IS covered, through the mock router (see the end
+ *    of this comment).
  *
  *    An unplaced endpoint opening the shared place dialog IS covered below,
  *    though: `start_route_for_trip` is DB-only (a place-book lookup, not a
@@ -31,16 +31,15 @@
  *    half of that flow -- placing the pin there and watching the route get
  *    drawn -- needs the router and stays deferred with the rest of this list.
  * 4. Two-leg round-trip routing (`route_round_trip`) is NOT covered here, for
- *    the same reason as 3: it needs a live router. It is covered exhaustively
- *    in Rust unit tests (route_maps_tests.rs, Task 78) with a stub
+ *    the same reason as 3: the mock router gives no distinct legs. It is
+ *    covered exhaustively in Rust unit tests (route_maps_tests.rs, Task 78) with a stub
  *    `RouteProvider`. What this file CAN and does cover, with no network at
  *    all, is a round trip already SAVED: `save_trip_round_trip_route` writes
  *    the joined row directly, and reopening it exercises the real split
  *    (`turnaround_index`), the real per-leg `alternativesUnavailable` gate,
  *    and the write-back flow (route-distance-writeback.spec.ts) end to end.
  *
- * Exception to 1 and 3: the avoid-checkbox tests use the offline mock router
- * (`KNIHA_JAZD_MOCK_ROUTER=1`, set by the wdio config), which returns fixed
+ * The avoid-checkbox tests use the offline mock router, which returns fixed
  * distances: 100.0 km with no avoid list, 120.0 km with any.
  */
 
