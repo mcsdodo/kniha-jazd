@@ -2102,3 +2102,37 @@ fn a_one_way_saved_map_carries_no_legs() {
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert!(saved.legs.is_none(), "a one-way route has no return leg to colour");
 }
+
+fn fetched_with_avoids(polyline: &str, road_km: f64, avoids: &[&str]) -> FetchedRoute {
+    FetchedRoute {
+        polyline: polyline.into(),
+        road_km,
+        duration_s: 1.0,
+        possible_avoids: avoids.iter().map(|s| s.to_string()).collect(),
+    }
+}
+
+#[tokio::test]
+async fn direct_routes_carry_each_routes_own_avoid_options() {
+    let provider = MultiRouteProvider {
+        routes: vec![
+            fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, &["cze:tolls", "svk:tolls"]),
+            fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 160.0, &["aut:tolls"]),
+        ],
+    };
+    let routes = route_direct_internal(&provider, direct_waypoints(), 130.0, None, false).await.unwrap();
+    assert_eq!(routes[0].avoid_options, vec!["cze:tolls".to_string(), "svk:tolls".to_string()]);
+    assert_eq!(routes[1].avoid_options, vec!["aut:tolls".to_string()]);
+}
+
+#[tokio::test]
+async fn a_round_trip_offers_the_union_of_both_legs() {
+    let provider = MultiRouteProvider {
+        routes: vec![
+            fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 130.0, &["svk:tolls"]),
+            fetched_with_avoids(&encode(&[(48.1, 17.1), (49.2, 16.6)]), 150.0, &["cze:tolls", "svk:tolls"]),
+        ],
+    };
+    let rt = route_round_trip_internal(&provider, direct_waypoints(), vec![], 260.0, None).await.unwrap();
+    assert_eq!(rt.avoid_options, vec!["cze:tolls".to_string(), "svk:tolls".to_string()]);
+}

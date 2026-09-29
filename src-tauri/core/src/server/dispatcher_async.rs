@@ -230,14 +230,22 @@ pub async fn dispatch_async(
             #[serde(rename_all = "camelCase")]
             struct Args {
                 target_km: f64,
+                // Task 85. Defaulted so a caller that predates it still routes.
+                #[serde(default)]
+                avoid: Vec<String>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let provider = crate::route_map::HttpRouteProvider::public();
+            let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
+                .and_then(crate::route_map::route_provider)
+            {
+                Ok(p) => p,
+                Err(e) => return Some(Err(e)),
+            };
             let result =
-                crate::commands_internal::generate_route_internal(&provider, a.target_km).await;
+                crate::commands_internal::generate_route_internal(provider.as_ref(), a.target_km).await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "route_direct" => {
@@ -252,14 +260,22 @@ pub async fn dispatch_async(
                 // gets today's one-way behaviour instead of a parse error.
                 #[serde(default)]
                 round_trip: bool,
+                // Task 85. Defaulted so a caller that predates it still routes.
+                #[serde(default)]
+                avoid: Vec<String>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let provider = crate::route_map::HttpRouteProvider::public();
+            let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
+                .and_then(crate::route_map::route_provider)
+            {
+                Ok(p) => p,
+                Err(e) => return Some(Err(e)),
+            };
             let result = crate::commands_internal::route_direct_internal(
-                &provider,
+                provider.as_ref(),
                 a.waypoints,
                 a.target_km,
                 a.insert,
@@ -280,14 +296,22 @@ pub async fn dispatch_async(
                 target_km: f64,
                 #[serde(default)]
                 insert: Option<crate::commands_internal::LegInsertPoint>,
+                // Task 85. Defaulted so a caller that predates it still routes.
+                #[serde(default)]
+                avoid: Vec<String>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
-            let provider = crate::route_map::HttpRouteProvider::public();
+            let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
+                .and_then(crate::route_map::route_provider)
+            {
+                Ok(p) => p,
+                Err(e) => return Some(Err(e)),
+            };
             let result = crate::commands_internal::route_round_trip_internal(
-                &provider,
+                provider.as_ref(),
                 a.outbound,
                 a.inbound,
                 a.target_km,
@@ -444,6 +468,32 @@ mod tests {
         .expect("route_direct must be handled here, not by dispatch_sync")
         .unwrap_err();
         assert!(err.contains("targetKm"), "got: {err}");
+    }
+
+    /// A crafted avoid value is rejected before any provider is built or any
+    /// request is sent (the value would end up in a URL).
+    #[tokio::test]
+    async fn route_direct_rejects_a_bad_avoid_value_before_any_network_call() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+        let result = dispatch_async(
+            "route_direct",
+            json!({
+                "waypoints": [{ "lat": 48.1486, "lon": 17.1077 }, { "lat": 49.1951, "lon": 16.6068 }],
+                "targetKm": 130.0,
+                "avoid": ["cze:tolls|svk:tolls"]
+            }),
+            &state,
+        )
+        .await;
+        match result {
+            Some(Err(e)) => assert!(e.contains("Unsupported avoid value"), "got: {e}"),
+            other => panic!("expected an avoid error, got: {other:?}"),
+        }
     }
 
     /// A payload omitting `roundTrip` (every caller before Task 19, and any

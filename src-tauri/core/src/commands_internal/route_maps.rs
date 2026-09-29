@@ -23,6 +23,7 @@ use crate::db::Database;
 use crate::export::RouteMapPage;
 use crate::models::{Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint};
 use crate::places::normalise;
+use crate::route_map::avoid::merge_options;
 use crate::route_map::polyline::{decode, encode};
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
@@ -47,6 +48,9 @@ pub struct GeneratedRoute {
     /// `None` for direct routes -- no dataset node was involved.
     pub dataset_version: Option<String>,
     pub mode: RouteMode,
+    /// `<iso3>:tolls` values the page offers as "avoid paid roads" checkboxes.
+    /// Empty with OSRM. Includes the values this request already avoided.
+    pub avoid_options: Vec<String>,
 }
 
 /// How far the finished route's road distance falls from the target, and
@@ -249,6 +253,7 @@ pub async fn generate_route_internal(
     let (deviation_percent, off_target) = deviation(target_km, fetched.road_km);
 
     Ok(GeneratedRoute {
+        avoid_options: fetched.possible_avoids.clone(),
         coordinates: decode_coordinates(&fetched.polyline),
         polyline: fetched.polyline,
         waypoints,
@@ -389,6 +394,7 @@ pub async fn route_direct_internal(
             // out.
             let (deviation_percent, off_target) = deviation(target_km, route.road_km);
             GeneratedRoute {
+                avoid_options: route.possible_avoids.clone(),
                 coordinates: decode_coordinates(&route.polyline),
                 polyline: route.polyline,
                 waypoints: waypoints.clone(),
@@ -486,6 +492,9 @@ pub struct RoundTripRoutes {
     /// `combined[i][j]` for outbound alternative `i` and return alternative `j`.
     pub combined: Vec<Vec<CombinedLeg>>,
     pub target_km: f64,
+    /// Union over every alternative of both legs. One list for the whole round
+    /// trip, because both legs are routed with the same avoid list.
+    pub avoid_options: Vec<String>,
 }
 
 /// Route a round trip as TWO requests, one per leg.
@@ -592,6 +601,10 @@ pub async fn route_round_trip_internal(
         })
         .collect();
 
+    let avoid_options = merge_options(
+        out_routes.iter().chain(in_routes.iter()).map(|r| r.possible_avoids.as_slice()),
+    );
+
     Ok(RoundTripRoutes {
         outbound_waypoints: outbound,
         inbound_waypoints: inbound,
@@ -599,6 +612,7 @@ pub async fn route_round_trip_internal(
         inbound: in_routes.iter().map(LegRoute::from_fetched).collect(),
         combined,
         target_km,
+        avoid_options,
     })
 }
 
