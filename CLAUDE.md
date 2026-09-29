@@ -261,7 +261,7 @@ machine.
 | `DATABASE_PATH` | `<DATA_DIR>/kniha-jazd.db` | Override just the DB file path |
 | `STATIC_DIR` | `/var/www/html` | Built SvelteKit assets; leave unset in local dev so vite serves the UI |
 | `PORT` | `3456` | HTTP listen port |
-| `SYGIC_API_KEY` | unset | If set, Sygic computes all route maps and `/mapa` shows the "avoid paid roads" checkboxes. If unset, public OSRM. |
+| `SYGIC_API_KEY` | unset | If set, `/mapa` offers Sygic next to OSRM (the default stays OSRM, ADR-053); a Sygic route shows the "avoid paid roads" checkboxes. If unset, public OSRM only. |
 | `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
 | `KNIHA_JAZD_MOCK_ROUTER` | unset | Any non-empty value: an offline mock computes all routes. For the integration tests only. Never set it on a live instance. |
 

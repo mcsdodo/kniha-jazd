@@ -41,8 +41,9 @@
  *
  * The avoid-checkbox tests use the offline mock router, which returns fixed
  * distances: 100.0 km with no avoid list, 120.0 km with any. The mock offers
- * both providers, like a server with a Sygic key (Task 86); routed as OSRM it
- * returns 90.0 km and no avoid options.
+ * both providers, like a server with a Sygic key (Task 86). The default is
+ * OSRM, which returns 90.0 km and no avoid options, so the avoid tests select
+ * Sygic first.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -691,7 +692,10 @@ describe('Tier 2: Route Map', () => {
       // A saved route with no avoid list offers no options until it is routed.
       expect(await $('[data-test="avoid-options"]').isExisting()).toBe(false);
 
-      await $('[data-test="recalculate-btn"]').click();
+      // Only Sygic offers avoid options; the default is OSRM.
+      const provider = await $('[data-test="provider-select"]');
+      await provider.waitForDisplayed();
+      await provider.selectByAttribute('value', 'sygic');
       await expect($('[data-test="actual-km"]')).toHaveText('100.0 km');
 
       await $('[data-test="avoid-cze:tolls"]').click();
@@ -708,9 +712,10 @@ describe('Tier 2: Route Map', () => {
       const reopened = await $('[data-test="avoid-cze:tolls"]');
       await reopened.waitForDisplayed();
       expect(await reopened.isSelected()).toBe(true);
+      expect(await $('[data-test="provider-select"]').getValue()).toBe('sygic');
     });
 
-    it('routes again with OSRM when the provider is switched, and keeps it on reopen', async () => {
+    it('switches provider, clears the avoid list for OSRM, and keeps the saved provider on reopen', async () => {
       const trip = await seedTrip({
         vehicleId,
         startDatetime: '2026-03-15T08:00',
@@ -727,10 +732,10 @@ describe('Tier 2: Route Map', () => {
       await waitForMapOutcome('route');
       const select = await $('[data-test="provider-select"]');
       await select.waitForDisplayed();
-      // A route saved without a provider shows the server default.
-      expect(await select.getValue()).toBe('sygic');
+      // A route saved without a provider shows the server default: OSRM.
+      expect(await select.getValue()).toBe('osrm');
 
-      await $('[data-test="recalculate-btn"]').click();
+      await select.selectByAttribute('value', 'sygic');
       await expect($('[data-test="actual-km"]')).toHaveText('100.0 km');
       await $('[data-test="avoid-cze:tolls"]').click();
       await expect($('[data-test="actual-km"]')).toHaveText('120.0 km');
@@ -741,15 +746,19 @@ describe('Tier 2: Route Map', () => {
       await expect($('[data-test="actual-km"]')).toHaveText('90.0 km');
       expect(await $('[data-test="avoid-options"]').isExisting()).toBe(false);
 
+      // Back to Sygic, with no avoid list now, and save: the reopen must show
+      // the stored provider, not the default.
+      await select.selectByAttribute('value', 'sygic');
+      await expect($('[data-test="actual-km"]')).toHaveText('100.0 km');
       await $('[data-test="save-btn"]').click();
       await $('[data-test="saved-notice"]').waitForDisplayed();
-      expect((await getRoute(trip.id as string))?.provider).toBe('osrm');
+      expect((await getRoute(trip.id as string))?.provider).toBe('sygic');
 
       await openMap(trip.id as string);
       await waitForMapOutcome('route');
       const reopened = await $('[data-test="provider-select"]');
       await reopened.waitForDisplayed();
-      expect(await reopened.getValue()).toBe('osrm');
+      expect(await reopened.getValue()).toBe('sygic');
     });
 
     it('reopens a saved one-way route with the checkbox unticked', async () => {

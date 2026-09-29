@@ -2370,3 +2370,31 @@ fn a_saved_round_trip_keeps_its_provider() {
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert_eq!(saved.provider, Some(RouteProviderKind::Sygic));
 }
+
+#[test]
+fn a_saved_route_with_an_avoid_list_and_no_provider_reads_as_sygic() {
+    // The migration's rule, applied on read too: only Sygic can avoid, and
+    // the OSRM default must not reopen a route it cannot recompute.
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip(&db);
+    let app_state = AppState::new();
+    let (_, encoded) = sample_geometry();
+
+    save_trip_route_internal(
+        &db,
+        &app_state,
+        trip.id.to_string(),
+        direct_waypoints(),
+        encoded,
+        120.0,
+        118.4,
+        RouteMode::Direct,
+        false,
+        vec!["cze:tolls".into()],
+        None,
+    )
+    .unwrap();
+
+    let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.provider, Some(RouteProviderKind::Sygic));
+}

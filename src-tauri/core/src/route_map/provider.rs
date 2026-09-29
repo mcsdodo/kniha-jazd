@@ -5,9 +5,10 @@
 //! provider for every request anyway.
 //!
 //! Task 86: the page can ask for a provider per request. The server config
-//! still decides what EXISTS (Sygic only with a key) and what the default is;
-//! the request only picks among what exists. Sygic's map lacks the D1 Visnove
-//! tunnel, so a Bratislava trip must be routable with OSRM on a keyed server.
+//! still decides what EXISTS (Sygic only with a key); the request only picks
+//! among what exists. The default is OSRM, also with a key: Sygic's map lacks
+//! the D1 Visnove tunnel, so Sygic is chosen explicitly (for example to avoid
+//! paid roads).
 
 use crate::constants::env_vars::{MOCK_ROUTER, SYGIC_API_KEY, SYGIC_REFERER};
 
@@ -96,18 +97,15 @@ impl ProviderConfig {
     }
 
     /// The mock stands in for a keyed server, so the integration suite can
-    /// see and use the selector.
+    /// see and use the selector. The default is OSRM in every config.
     pub fn info(&self) -> RouteProvidersInfo {
-        match self {
-            Self::Osrm => RouteProvidersInfo {
-                available: vec![RouteProviderKind::Osrm],
-                default: RouteProviderKind::Osrm,
-            },
-            Self::Sygic { .. } | Self::Mock => RouteProvidersInfo {
-                available: vec![RouteProviderKind::Osrm, RouteProviderKind::Sygic],
-                default: RouteProviderKind::Sygic,
-            },
-        }
+        let available = match self {
+            Self::Osrm => vec![RouteProviderKind::Osrm],
+            Self::Sygic { .. } | Self::Mock => {
+                vec![RouteProviderKind::Osrm, RouteProviderKind::Sygic]
+            }
+        };
+        RouteProvidersInfo { available, default: RouteProviderKind::Osrm }
     }
 }
 

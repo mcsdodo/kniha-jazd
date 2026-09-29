@@ -12,7 +12,7 @@ Decided with the user on 2026-09-29:
 
 1. **Scope:** a selector on `/mapa` only. No bulk recalculation feature in the app.
 2. **Persistence:** a saved route stores its provider (`trip_routes.provider`). A reopened route selects it.
-3. **Default:** unchanged. Sygic when `SYGIC_API_KEY` is set, otherwise OSRM. No new env var.
+3. **Default:** OSRM, also when `SYGIC_API_KEY` is set (changed after the first deploy, on the user's request). No new env var.
 4. The selector shows only when the server offers more than one provider.
 5. OSRM cannot avoid per country. A switch to OSRM clears the avoid list.
 6. Loop mode: a switch does not regenerate the loop. It applies to the next "Regenerovať".

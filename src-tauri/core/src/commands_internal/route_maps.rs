@@ -662,6 +662,10 @@ pub fn get_trip_route_internal(
     if let Some(trip) = db.get_trip(&trip_id).map_err(|e| e.to_string())? {
         map.target_km = trip.distance_km;
     }
+    // Same rule as the provider migration's backfill: only Sygic can avoid.
+    if map.provider.is_none() && !map.avoid.is_empty() {
+        map.provider = Some(RouteProviderKind::Sygic);
+    }
     if map.round_trip && map.turnaround_index.is_none() && map.waypoints.len() >= 3 {
         map.turnaround_index = i32::try_from(map.waypoints.len() - 2).ok();
     }

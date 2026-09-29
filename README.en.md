@@ -59,11 +59,11 @@ docker compose -f docker-compose.web.yml up -d
 
 ### Route maps: Sygic (optional)
 
-The route map uses the public OSRM server by default. If you set `SYGIC_API_KEY`, the Sygic Routing API computes the routes and the Map page offers "Avoid paid roads" per country. The "Routing" select on the Map page then also lets you compute a route with OSRM (for example through the Visnove tunnel, which the Sygic map does not have yet). A saved route remembers which service computed it.
+The route map uses the public OSRM server by default. If you set `SYGIC_API_KEY`, the Map page offers a "Routing: OSRM / Sygic" select. With the Sygic Routing API, the Map page offers "Avoid paid roads" per country. The default stays OSRM also with a key, because the Sygic map does not have the Visnove tunnel yet. A saved route remembers which service computed it.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `SYGIC_API_KEY` | unset | If set, Sygic computes the routes. If unset, public OSRM is used and the option is hidden. |
+| `SYGIC_API_KEY` | unset | If set, the Map page offers Sygic as a second service (the default stays OSRM). If unset, only public OSRM is used and the select is hidden. |
 | `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
 | `KNIHA_JAZD_MOCK_ROUTER` | unset | For the integration tests only. Do not set it on a live instance. |
 

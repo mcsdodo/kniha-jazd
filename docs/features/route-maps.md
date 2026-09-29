@@ -480,20 +480,22 @@ See [ADR-052](../../DECISIONS.md#adr-052-sygic-is-the-optional-routing-provider-
 
 On `/mapa`, in direct mode only (one-way and round trip), one checkbox per country shows: "Vyhnúť sa spoplatneným cestám: SK / CZ ...". A click routes again with the new list. Loop mode has no checkboxes and sends no avoid list. A change of the list would run the genetic algorithm again and replace the loop.
 
-**Provider choice** ([provider.rs](../../src-tauri/core/src/route_map/provider.rs)). The first rule that matches wins:
+**Provider choice** ([provider.rs](../../src-tauri/core/src/route_map/provider.rs)). The environment decides which providers exist. The first rule that matches wins:
 
-1. `KNIHA_JAZD_MOCK_ROUTER` is set: the offline mock. For the integration tests only.
-2. `SYGIC_API_KEY` is set: Sygic. If `SYGIC_REFERER` is set, the request sends it as the `Referer` header.
-3. Otherwise: public OSRM.
+1. `KNIHA_JAZD_MOCK_ROUTER` is set: the offline mock, which offers both. For the integration tests only.
+2. `SYGIC_API_KEY` is set: OSRM and Sygic. If `SYGIC_REFERER` is set, a Sygic request sends it as the `Referer` header.
+3. Otherwise: public OSRM only.
+
+The default is **OSRM in every case**. Sygic is used only when the request asks for it (see "Provider per request" below).
 
 OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback route would ignore the avoid list and look correct. A saved route with an avoid list still draws when the key is gone, because it needs no routing call. A recompute shows an error. The page matches the marker `AVOID_NEEDS_SYGIC` at the start of that message. It then shows `routeMap.avoidNeedsSygic` with no Retry button, because a retry cannot succeed without the key.
 
 **Provider per request** ([ADR-053](../../DECISIONS.md#adr-053-the-page-picks-the-routing-provider-per-request-the-server-decides-what-exists), [Task 86](../../_tasks/86-route-provider-switch/01-task.md)). The rules above give what EXISTS and the default. The page can pick one of them per request:
 
 - `get_route_providers` returns `{ available, default }`. The page shows the select "Smerovanie: OSRM (OpenStreetMap) / Sygic" only when `available` has two entries.
-- `generate_route`, `route_direct` and `route_round_trip` take an optional `provider`. Absent means the default. `sygic` without a key fails with `PROVIDER_NEEDS_SYGIC`, and the page shows `routeMap.providerNeedsSygic` with no Retry button.
+- `generate_route`, `route_direct` and `route_round_trip` take an optional `provider`. Absent means the default, OSRM. An avoid list with no provider therefore fails with `AVOID_NEEDS_SYGIC`: there is no silent switch to Sygic. `sygic` without a key fails with `PROVIDER_NEEDS_SYGIC`, and the page shows `routeMap.providerNeedsSygic` with no Retry button.
 - Every response carries `provider`. The page adopts it for the next request and saves it (`save_trip_route` sends `route.provider`, the round-trip save sends `legs.provider`).
-- `trip_routes.provider` (nullable, last column, migration `2026-09-29-110000_add_trip_route_provider`) stores it. `get_trip_route` returns it, and a reopened route selects it. NULL means unknown: the page selects the default.
+- `trip_routes.provider` (nullable, last column, migration `2026-09-29-110000_add_trip_route_provider`) stores it. `get_trip_route` returns it, and a reopened route selects it. NULL means unknown: `get_trip_route` returns `sygic` if the route has an avoid list (the migration's rule), otherwise NULL, and the page selects the default.
 - A switch in direct mode routes again at once. A switch to OSRM clears the avoid list first. A switch in loop mode does not regenerate (a new random loop would replace the drawn one); it applies to the next "Regenerovať".
 
 Why: the Sygic map has no D1 Visnove tunnel, so its Zilina route to Bratislava goes through the Strecno gorge. OSRM (OpenStreetMap) has the tunnel.

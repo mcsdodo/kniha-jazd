@@ -59,11 +59,11 @@ docker compose -f docker-compose.web.yml up -d
 
 ### Mapy trás: Sygic (voliteľné)
 
-Mapa trás štandardne používa verejný server OSRM. Ak nastavíte `SYGIC_API_KEY`, trasy počíta služba Sygic Routing API a stránka Mapa ponúkne voľbu "Vyhnúť sa spoplatneným cestám" po jednotlivých krajinách. Výber "Smerovanie" na stránke Mapa potom dovolí vypočítať konkrétnu trasu aj cez OSRM (napríklad cez tunel Višňové, ktorý mapa Sygic ešte nemá). Uložená trasa si pamätá, ktorá služba ju vypočítala.
+Mapa trás štandardne používa verejný server OSRM. Ak nastavíte `SYGIC_API_KEY`, stránka Mapa ponúkne výber "Smerovanie: OSRM / Sygic". So službou Sygic Routing API je dostupná voľba "Vyhnúť sa spoplatneným cestám" po jednotlivých krajinách. Predvolená služba je aj s kľúčom OSRM, lebo mapa Sygic ešte nemá tunel Višňové. Uložená trasa si pamätá, ktorá služba ju vypočítala.
 
 | Premenná | Predvolene | Účel |
 |----------|------------|------|
-| `SYGIC_API_KEY` | nenastavená | Ak je nastavená, trasy počíta Sygic. Bez nej sa použije verejný OSRM a voľba sa nezobrazí. |
+| `SYGIC_API_KEY` | nenastavená | Ak je nastavená, stránka Mapa ponúkne Sygic ako druhú službu (predvolená ostáva OSRM). Bez nej sa používa len verejný OSRM a výber sa nezobrazí. |
 | `SYGIC_REFERER` | nenastavená | Hlavička `Referer` pre kľúč Sygic s obmedzením na referer |
 | `KNIHA_JAZD_MOCK_ROUTER` | nenastavená | Len pre integračné testy. Na produkcii ju nenastavujte. |
 
