@@ -275,15 +275,13 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             #[serde(rename_all = "camelCase")]
             struct Args {
                 trip_id: String,
-                road_km: f64,
                 dry_run: bool,
             }
             let a: Args = parse_args(args)?;
-            let v = crate::commands_internal::apply_route_distance_internal(
+            let v = crate::commands_internal::apply_saved_route_distance_internal(
                 &state.db,
                 &state.app_state,
                 a.trip_id,
-                a.road_km,
                 a.dry_run,
             )?;
             Ok(serde_json::to_value(v).unwrap())

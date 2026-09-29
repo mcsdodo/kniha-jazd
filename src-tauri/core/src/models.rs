@@ -758,14 +758,17 @@ pub struct CascadeResult {
     pub plan: CascadePlan,
 }
 
-/// The answer `apply_route_distance` gives. `trip` is `None` on a dry run,
-/// because a dry run saves nothing.
+/// The answer of a route-distance write (`apply_saved_route_distance`, and the
+/// two map saves since task 87). `trip` is `None` on a dry run, because a dry
+/// run saves nothing, and on a commit that changed nothing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DistanceWriteback {
     pub trip_id: String,
     pub distance_before: f64,
     pub distance_after: f64,
+    /// False when the write would change nothing (task 87). The page skips the modal.
+    pub changes_trip: bool,
     /// What the write does to the odometer chain of the year (ADR-046).
     pub plan: CascadePlan,
     /// What it does to the consumption period the row sits in (BIZ-003).

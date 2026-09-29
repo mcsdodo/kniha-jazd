@@ -11,7 +11,7 @@ use crate::commands_internal::{
 use crate::db::{normalize_location, Database};
 use crate::models::{
     CascadePlan, CascadeResult, CopiedTripDefaults, DistanceWriteback, InferredTripTime,
-    OdometerChange, Route, Trip,
+    OdometerChange, PeriodMarginImpact, Route, Trip,
 };
 use crate::settings::LocalSettings;
 use chrono::{Datelike, Local, NaiveDate, NaiveDateTime, Utc};
@@ -727,46 +727,96 @@ pub fn update_trip_cascade_internal(
     Ok(CascadeResult { trip: Some(trip), plan })
 }
 
-/// Write a route's road distance onto the trip it illustrates.
+/// Whole km: what a routed distance becomes in the logbook (task 87, D4).
+/// The map keeps the raw value; only the trip's `distance_km` is rounded.
+pub(crate) fn logbook_km(road_km: f64) -> f64 {
+    road_km.round()
+}
+
+/// What writing a route's distance onto its trip would do, planned against
+/// the stored book and not yet written (task 87).
+pub(crate) struct RouteDistancePlan {
+    pub existing: Trip,
+    pub plan: CascadePlan,
+    pub margin: PeriodMarginImpact,
+}
+
+impl RouteDistancePlan {
+    /// False when the rounded road km equals the stored km. The page then
+    /// saves without the modal (task 87, D3).
+    pub fn changes_trip(&self) -> bool {
+        (self.plan.new_distance_km - self.existing.distance_km).abs() > CASCADE_EPSILON
+    }
+
+    /// The row to write: three fields move, nothing else. `None` for a no-op.
+    pub fn updated_trip(&self) -> Option<Trip> {
+        self.changes_trip().then(|| Trip {
+            distance_km: self.plan.new_distance_km,
+            odometer: self.plan.new_odometer,
+            updated_at: Utc::now(),
+            ..self.existing.clone()
+        })
+    }
+
+    pub fn shifts(&self) -> Vec<(String, f64)> {
+        self.plan
+            .changes
+            .iter()
+            .map(|c| (c.trip_id.clone(), c.new_odometer))
+            .collect()
+    }
+
+    pub fn into_writeback(self, saved: Option<Trip>) -> DistanceWriteback {
+        DistanceWriteback {
+            trip_id: self.existing.id.to_string(),
+            distance_before: self.existing.distance_km,
+            distance_after: self.plan.new_distance_km,
+            changes_trip: self.changes_trip(),
+            plan: self.plan,
+            margin: self.margin,
+            trip: saved,
+        }
+    }
+}
+
+/// Plan the write of a route's road distance onto the trip it illustrates.
 ///
 /// This reverses ADR-039, behind the two things that ADR named as the reason
 /// not to do it silently: the odometer chain and the consumption period. Both
-/// are computed first and returned as a dry run, so the user approves a
+/// are computed here, before anything is written, so the user approves a
 /// specific set of numbers rather than a general idea.
 ///
-/// It deliberately does NOT go through `update_trip_cascade_internal`. That
-/// path rebuilds the whole row from submitted strings, and `build_updated_trip`
-/// writes `end_datetime: Some(parse(...))` unconditionally -- a trip that
-/// stored `None` would silently gain an end time as a side effect of applying
-/// a distance. Here the stored row is the base and exactly three fields move:
-/// `distance_km`, `odometer` and `updated_at`. `find_or_create_route` is not
-/// called either: the origin and the destination did not change.
+/// The road km is rounded to whole km first (task 87, D4). A distance that
+/// already matches after rounding then takes the cascade's no-op branch.
+///
+/// The write deliberately does NOT go through `update_trip_cascade_internal`.
+/// That path rebuilds the whole row from submitted strings, and
+/// `build_updated_trip` writes `end_datetime: Some(parse(...))`
+/// unconditionally -- a trip that stored `None` would silently gain an end
+/// time as a side effect of applying a distance. Here the stored row is the
+/// base and exactly three fields move: `distance_km`, `odometer` and
+/// `updated_at`. `find_or_create_route` is not called either: the origin and
+/// the destination did not change.
 ///
 /// The cascade itself is not reimplemented -- `plan_odometer_cascade` is the
 /// same planner the grid's own save uses, so the two paths cannot disagree
 /// about what a distance change does to the chain.
-pub fn apply_route_distance_internal(
+pub(crate) fn plan_route_distance(
     db: &Database,
-    app_state: &AppState,
-    trip_id: String,
+    trip_id: &str,
     road_km: f64,
-    dry_run: bool,
-) -> Result<DistanceWriteback, String> {
-    if !dry_run {
-        check_read_only!(app_state);
-    }
-
+) -> Result<RouteDistancePlan, String> {
     if !road_km.is_finite() || road_km < 0.0 {
         return Err(format!(
             "Road distance {road_km} is not a distance that can be written to a trip"
         ));
     }
+    let km = logbook_km(road_km);
 
     let existing = db
-        .get_trip(&trip_id)
+        .get_trip(trip_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
-    let distance_before = existing.distance_km;
 
     let vehicle_id = existing.vehicle_id.to_string();
     let vehicle = db
@@ -781,59 +831,51 @@ pub fn apply_route_distance_internal(
     let year_start = get_year_start_odometer(db, &vehicle_id, year, vehicle.initial_odometer)?;
 
     // The stored odometer is submitted unchanged, so `plan_odometer_cascade`
-    // takes its km-wins branch: the row ends at `anchor + road_km` and every
+    // takes its km-wins branch: the row ends at `anchor + km` and every
     // later row of the year moves by the same delta. On a row whose stored
     // odometer already disagreed with `anchor + km`, that delta also carries
     // the repair -- the plan reports the two parts separately and the modal
     // shows both.
-    let mut plan =
-        plan_odometer_cascade(&trips, year_start, &trip_id, road_km, existing.odometer)?;
+    let mut plan = plan_odometer_cascade(&trips, year_start, trip_id, km, existing.odometer)?;
     mark_next_year_chain_breaks(db, &vehicle_id, year, &mut plan)?;
 
     let margin = period_margin_impact(
         &trips,
         vehicle.tp_consumption.unwrap_or_default(),
-        &trip_id,
+        trip_id,
         plan.new_distance_km,
     );
 
+    Ok(RouteDistancePlan { existing, plan, margin })
+}
+
+/// Write a SAVED map's road distance onto its trip (task 87, D2): the map was
+/// saved before task 87, or the trip's km was edited after the save. The road
+/// km is read from `trip_routes`, never taken from the browser.
+pub fn apply_saved_route_distance_internal(
+    db: &Database,
+    app_state: &AppState,
+    trip_id: String,
+    dry_run: bool,
+) -> Result<DistanceWriteback, String> {
+    let map = db
+        .get_route_map(&trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip {trip_id} has no saved route map"))?;
+    let p = plan_route_distance(db, &trip_id, map.road_km)?;
     if dry_run {
-        return Ok(DistanceWriteback {
-            trip_id,
-            distance_before,
-            distance_after: plan.new_distance_km,
-            plan,
-            margin,
-            trip: None,
-        });
+        return Ok(p.into_writeback(None));
     }
-
-    let trip = Trip {
-        distance_km: plan.new_distance_km,
-        odometer: plan.new_odometer,
-        updated_at: Utc::now(),
-        ..existing
+    check_read_only!(app_state);
+    let Some(trip) = p.updated_trip() else {
+        return Ok(p.into_writeback(None));
     };
-
     // The row and its shift go to the database in one transaction. They are
     // one correction to a legal record, so a partial write is never
     // acceptable.
-    let shifts: Vec<(String, f64)> = plan
-        .changes
-        .iter()
-        .map(|c| (c.trip_id.clone(), c.new_odometer))
-        .collect();
-    db.update_trip_with_odometer_shift(&trip, &shifts)
+    db.update_trip_with_odometer_shift(&trip, &p.shifts())
         .map_err(|e| e.to_string())?;
-
-    Ok(DistanceWriteback {
-        trip_id,
-        distance_before,
-        distance_after: plan.new_distance_km,
-        plan,
-        margin,
-        trip: Some(trip),
-    })
+    Ok(p.into_writeback(Some(trip)))
 }
 
 /// Insert a trip and move every later row of the same year by its distance.

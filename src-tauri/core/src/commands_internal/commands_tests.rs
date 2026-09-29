@@ -5154,48 +5154,123 @@ fn test_period_margin_impact_leaves_other_periods_alone() {
     assert!((same_period.rate_before - 6.0).abs() < 1e-9);
 }
 
+/// Save a map for `trip_id` straight through the DB, so the sync tests do not
+/// depend on the save commands (task 87).
+fn save_map(db: &Database, trip_id: Uuid, road_km: f64) {
+    use crate::models::{RouteMap, RouteMode, Waypoint};
+    db.save_route_map(&RouteMap {
+        trip_id,
+        waypoints: vec![
+            Waypoint { lat: 48.935, lon: 20.553, name: Some("Domov".into()), node_idx: Some(0) },
+            Waypoint { lat: 48.72, lon: 21.26, name: Some("Košice".into()), node_idx: Some(1) },
+        ],
+        polyline: "_p~iF~ps|U".to_string(),
+        target_km: road_km,
+        road_km,
+        mode: RouteMode::Direct,
+        dataset_version: None,
+        created_at: Utc::now(),
+        round_trip: false,
+        turnaround_index: None,
+        avoid: vec![],
+        provider: None,
+    })
+    .unwrap();
+}
+
 #[test]
-fn test_apply_route_distance_dry_run_writes_nothing() {
+fn logbook_km_rounds_half_away_from_zero() {
+    assert_eq!(logbook_km(25.634), 26.0);
+    assert_eq!(logbook_km(25.5), 26.0);
+    assert_eq!(logbook_km(25.49), 25.0);
+    assert_eq!(logbook_km(0.4), 0.0);
+}
+
+#[test]
+fn plan_route_distance_rounds_before_it_plans() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+
+    let p = plan_route_distance(&db, &a.to_string(), 61.4).unwrap();
+
+    assert_eq!(p.plan.new_distance_km, 61.0);
+    assert!((p.plan.delta - 11.0).abs() < 1e-9);
+    assert!(p.changes_trip());
+}
+
+#[test]
+fn plan_route_distance_is_a_no_op_when_the_rounded_km_already_matches() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let p = plan_route_distance(&db, &a.to_string(), 50.3).unwrap();
+
+    assert!(!p.changes_trip());
+    assert!(p.plan.changes.is_empty());
+    assert!(p.updated_trip().is_none());
+}
+
+#[test]
+fn plan_route_distance_refuses_a_distance_that_is_not_one() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    assert!(plan_route_distance(&db, &a.to_string(), -1.0).is_err());
+    assert!(plan_route_distance(&db, &a.to_string(), f64::NAN).is_err());
+}
+
+#[test]
+fn apply_saved_route_distance_dry_run_writes_nothing() {
     let (db, vehicle) = setup_db_with_start_odometer(50000.0);
     let app_state = crate::app_state::AppState::new();
     let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
     let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
+    save_map(&db, a, 61.5);
 
-    let result =
-        apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, true).unwrap();
+    let r = apply_saved_route_distance_internal(&db, &app_state, a.to_string(), true).unwrap();
 
-    assert!(result.trip.is_none(), "a dry run returns no saved trip");
-    assert!((result.distance_before - 50.0).abs() < 1e-9);
-    assert!((result.distance_after - 61.5).abs() < 1e-9);
-    assert!((result.plan.delta - 11.5).abs() < 1e-9);
-    assert_eq!(result.plan.changes.len(), 1, "the one row after it would move");
-
-    // Nothing moved.
+    assert!(r.trip.is_none());
+    assert!(r.changes_trip);
+    assert_eq!(r.distance_before, 50.0);
+    assert_eq!(r.distance_after, 62.0, "61.5 rounds to 62");
     assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().distance_km, 50.0);
     assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50120.0);
 }
 
 #[test]
-fn test_apply_route_distance_writes_the_row_and_shifts_the_rest() {
+fn apply_saved_route_distance_writes_the_row_and_shifts_the_rest() {
     let (db, vehicle) = setup_db_with_start_odometer(50000.0);
     let app_state = crate::app_state::AppState::new();
     let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
     let b = seed_chain_trip(&db, vehicle.id, 2, 70.0, 50120.0);
-    let c = seed_chain_trip(&db, vehicle.id, 3, 30.0, 50150.0);
+    save_map(&db, a, 61.5);
 
-    apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, false).unwrap();
+    apply_saved_route_distance_internal(&db, &app_state, a.to_string(), false).unwrap();
 
     let written = db.get_trip(&a.to_string()).unwrap().unwrap();
-    assert!((written.distance_km - 61.5).abs() < 1e-9);
-    // The odometer follows the distance: anchor (the year start) + km.
-    assert!((written.odometer - 50061.5).abs() < 1e-9);
-    // The invariant holds for the edited row and for every row after it.
-    assert!((db.get_trip(&b.to_string()).unwrap().unwrap().odometer - 50131.5).abs() < 1e-9);
-    assert!((db.get_trip(&c.to_string()).unwrap().unwrap().odometer - 50161.5).abs() < 1e-9);
+    assert_eq!(written.distance_km, 62.0);
+    assert_eq!(written.odometer, 50062.0);
+    assert_eq!(db.get_trip(&b.to_string()).unwrap().unwrap().odometer, 50132.0);
+    // The map row is not rewritten: its road km stays the raw routed value.
+    assert_eq!(db.get_route_map(&a.to_string()).unwrap().unwrap().road_km, 61.5);
 }
 
 #[test]
-fn test_apply_route_distance_does_not_invent_an_end_time() {
+fn apply_saved_route_distance_needs_a_saved_map() {
+    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
+    let app_state = crate::app_state::AppState::new();
+    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+
+    let err = apply_saved_route_distance_internal(&db, &app_state, a.to_string(), true)
+        .unwrap_err();
+
+    assert!(err.contains("no saved route map"), "{err}");
+    assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().distance_km, 50.0);
+}
+
+#[test]
+fn apply_saved_route_distance_does_not_invent_an_end_time() {
     // `update_trip_cascade_internal` rebuilds a row from submitted strings and
     // writes `end_datetime: Some(...)` unconditionally. Routing that path here
     // would stamp an end time onto a trip that stored none, as a side effect
@@ -5211,9 +5286,10 @@ fn test_apply_route_distance_does_not_invent_an_end_time() {
     let app_state = crate::app_state::AppState::new();
     let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
     assert!(db.get_trip(&a.to_string()).unwrap().unwrap().end_datetime.is_none());
+    save_map(&db, a, 61.5);
 
     let before = db.get_trip(&a.to_string()).unwrap().unwrap();
-    apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, false).unwrap();
+    apply_saved_route_distance_internal(&db, &app_state, a.to_string(), false).unwrap();
     let after = db.get_trip(&a.to_string()).unwrap().unwrap();
 
     assert!(after.end_datetime.is_none(), "a trip with no end time keeps none");
@@ -5227,15 +5303,16 @@ fn test_apply_route_distance_does_not_invent_an_end_time() {
 }
 
 #[test]
-fn test_apply_route_distance_reports_the_margin_it_would_cause() {
+fn apply_saved_route_distance_reports_the_margin_it_would_cause() {
     let db = Database::in_memory().unwrap();
     let vehicle = Vehicle::new("Writeback".to_string(), "BA2".to_string(), 60.0, 5.0, 50000.0);
     db.create_vehicle(&vehicle).unwrap();
     let app_state = crate::app_state::AppState::new();
     let (a, _b) = seed_closed_period(&db, vehicle.id);
+    save_map(&db, a, 90.0);
 
     let result =
-        apply_route_distance_internal(&db, &app_state, a.to_string(), 90.0, true).unwrap();
+        apply_saved_route_distance_internal(&db, &app_state, a.to_string(), true).unwrap();
 
     assert!(result.margin.period_closed);
     assert!(!result.margin.over_limit_before);
@@ -5246,27 +5323,18 @@ fn test_apply_route_distance_reports_the_margin_it_would_cause() {
 }
 
 #[test]
-fn test_apply_route_distance_is_read_only_guarded() {
+fn apply_saved_route_distance_is_read_only_guarded() {
     let (db, vehicle) = setup_db_with_start_odometer(50000.0);
     let app_state = crate::app_state::AppState::new();
     let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
+    save_map(&db, a, 61.5);
     app_state.enable_read_only("newer migrations");
 
     // Reading is always allowed, so the dry run still answers.
-    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, true).is_ok());
+    assert!(apply_saved_route_distance_internal(&db, &app_state, a.to_string(), true).is_ok());
     // Writing is not.
-    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), 61.5, false).is_err());
+    assert!(apply_saved_route_distance_internal(&db, &app_state, a.to_string(), false).is_err());
     assert_eq!(db.get_trip(&a.to_string()).unwrap().unwrap().distance_km, 50.0);
-}
-
-#[test]
-fn test_apply_route_distance_refuses_a_distance_that_is_not_one() {
-    let (db, vehicle) = setup_db_with_start_odometer(50000.0);
-    let app_state = crate::app_state::AppState::new();
-    let a = seed_chain_trip(&db, vehicle.id, 1, 50.0, 50050.0);
-
-    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), -1.0, true).is_err());
-    assert!(apply_route_distance_internal(&db, &app_state, a.to_string(), f64::NAN, true).is_err());
 }
 
 // ============================================================================
