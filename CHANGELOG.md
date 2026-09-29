@@ -16,8 +16,17 @@ databázu len na čítanie.
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Obraz, zväzok, port:** bez zmeny
+
+## [1.1.0] - 2026-09-29
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
 - **Premenné prostredia:** pridaná `SYGIC_API_KEY` (voliteľná; s ňou počíta mapy trás služba Sygic Routing API a mapa ponúkne vyhnúť sa spoplatneným cestám po krajinách, bez nej mapa ďalej používa verejný OSRM); pridaná `SYGIC_REFERER` (voliteľná; hlavička `Referer` pre kľúč Sygic s obmedzením na referer); pridaná `KNIHA_JAZD_MOCK_ROUTER` (len pre integračné testy, na produkcii nenastavovať)
-- **Migrácie databázy:** 1 nová. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-vX.Y.Z.db`, ktorú aplikácia uloží pred migráciou.
+- **Migrácie databázy:** 1 nová. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.1.0.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** žiadna
 - **Obraz, zväzok, port:** bez zmeny
 
