@@ -64,6 +64,13 @@
 	 *  this from `savedRoute.roundTrip` in `loadRoute()`, so Prepočítať
 	 *  reproduces the same shape without the user re-ticking the box. */
 	let roundTrip = $state(false);
+	/** The avoid values the NEXT request sends. Restored from the saved route
+	 *  in `loadRoute()`, changed by the checkboxes. */
+	let avoid = $state<string[]>([]);
+	/** The avoid values the SHOWN route was computed with. Captured when a
+	 *  request starts, adopted when it succeeds: the save must store what
+	 *  produced the line on screen, not the newest checkbox state. */
+	let routedAvoid = $state<string[]>([]);
 	/** The open (un-closed) waypoint list behind the currently displayed
 	 *  direct route -- i.e. `generated.waypoints` with the round-trip closing
 	 *  leg stripped back off when one was requested. Used to seed the NEXT
@@ -162,6 +169,23 @@
 	 *  edit reroutes to a concrete road result and the map should not jump. */
 	let skipFit = false;
 	let dataLoadStarted = false;
+
+	/** Options come from the backend (ADR-008). A saved route that was not
+	 *  routed again offers only the values it was saved with. */
+	let avoidOptions = $derived(
+		roundTripRoutes?.avoidOptions ?? generated?.avoidOptions ?? savedRoute?.avoid ?? []
+	);
+
+	function countryLabel(value: string): string {
+		const iso = value.split(':')[0];
+		const names = $LL.routeMap.countries as unknown as Record<string, () => string>;
+		return names[iso]?.() ?? iso.toUpperCase();
+	}
+
+	function toggleAvoid(value: string, checked: boolean) {
+		avoid = checked ? [...avoid, value] : avoid.filter((v) => v !== value);
+		handleRegenerate();
+	}
 
 	let displayRoute = $derived<GeneratedRoute | RouteMap | null>(generated ?? savedRoute);
 	/** The geometry a re-opened saved round trip is drawn from: the two legs
@@ -701,6 +725,8 @@
 			// without this, Prepočítať would silently hand back a one-way
 			// route for a trip the user already marked as a round trip.
 			roundTrip = savedRoute.roundTrip;
+			avoid = [...savedRoute.avoid];
+			routedAvoid = [...savedRoute.avoid];
 			const legs = savedRoute.roundTrip ? splitSavedLegs(savedRoute) : null;
 			savedLegs = legs;
 			rehydrateEndpoints(savedRoute, legs);
@@ -877,6 +903,7 @@
 		savedNotice = false;
 		try {
 			generated = await generateRoute(targetKm);
+			routedAvoid = [];
 		} catch (e) {
 			console.error('Failed to generate route:', e);
 			// Drop the previous proposal: leaving it would let the user save a
@@ -898,12 +925,14 @@
 		error = null;
 		savedNotice = false;
 		const closeLoop = roundTrip;
+		const requestAvoid = [...avoid];
 		try {
-			const routes = await routeDirect(waypoints, targetKm, insert, closeLoop);
+			const routes = await routeDirect(waypoints, targetKm, insert, closeLoop, requestAvoid);
 			if (routes.length === 0) throw new Error('no routes returned');
 			alternatives = routes;
 			activeIndex = 0;
 			generated = routes[0];
+			routedAvoid = requestAvoid;
 			// The backend appends exactly one trailing waypoint -- a clone of
 			// the route's own (post-insert) first point -- when closeLoop is
 			// set. Strip it back off so the next regenerate/insert/drag starts
@@ -945,12 +974,14 @@
 		generating = true;
 		error = null;
 		savedNotice = false;
+		const requestAvoid = [...avoid];
 		try {
-			const routes = await routeRoundTrip(outbound, inbound, targetKm, insert);
+			const routes = await routeRoundTrip(outbound, inbound, targetKm, insert, requestAvoid);
 			if (routes.outbound.length === 0 || routes.inbound.length === 0) {
 				throw new Error('no routes returned');
 			}
 			roundTripRoutes = routes;
+			routedAvoid = requestAvoid;
 			outboundIndex = 0;
 			inboundIndex = 0;
 			baseWaypoints = routes.outboundWaypoints;
@@ -1066,10 +1097,11 @@
 					legs.inbound[inboundIndex].polyline,
 					legs.outbound[outboundIndex].roadKm,
 					legs.inbound[inboundIndex].roadKm,
-					legs.targetKm
+					legs.targetKm,
+					routedAvoid
 				);
 			} else {
-				await saveTripRoute(tripId, generated!, roundTrip);
+				await saveTripRoute(tripId, generated!, roundTrip, routedAvoid);
 			}
 			// Re-read so the displayed route is the persisted one, not a local copy.
 			savedRoute = await getTripRoute(tripId);
@@ -1227,6 +1259,23 @@
 				/>
 				{$LL.routeMap.roundTrip()}
 			</label>
+			{#if mode === 'direct' && avoidOptions.length > 0}
+				<span class="avoid-options" data-test="avoid-options" title={$LL.routeMap.avoidTollsHint()}>
+					{$LL.routeMap.avoidTolls()}:
+					{#each avoidOptions as value (value)}
+						<label class="avoid-label">
+							<input
+								type="checkbox"
+								data-test={`avoid-${value}`}
+								checked={avoid.includes(value)}
+								onchange={(e) => toggleAvoid(value, e.currentTarget.checked)}
+								disabled={busy || !trip || endpointsMissing}
+							/>
+							{countryLabel(value)}
+						</label>
+					{/each}
+				</span>
+			{/if}
 			<button
 				class="button secondary"
 				data-test="apply-distance-btn"
@@ -1478,6 +1527,21 @@
 	}
 
 	.round-trip-label {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		color: var(--text-primary);
+		cursor: pointer;
+	}
+
+	.avoid-options {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		color: var(--text-primary);
+	}
+
+	.avoid-label {
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;

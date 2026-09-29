@@ -1496,6 +1496,36 @@ type RootTranslation = {
 		 */
 		roundTripHint: string
 		/**
+		 * V​y​h​n​ú​ť​ ​s​a​ ​s​p​o​p​l​a​t​n​e​n​ý​m​ ​c​e​s​t​á​m
+		 */
+		avoidTolls: string
+		/**
+		 * T​r​a​s​a​ ​s​a​ ​v​y​h​n​e​ ​ú​s​e​k​o​m​ ​s​ ​p​o​v​i​n​n​o​u​ ​d​i​a​ľ​n​i​č​n​o​u​ ​z​n​á​m​k​o​u​ ​a​l​e​b​o​ ​m​ý​t​o​m​ ​v​ ​d​a​n​e​j​ ​k​r​a​j​i​n​e​.
+		 */
+		avoidTollsHint: string
+		countries: {
+			/**
+			 * S​K
+			 */
+			svk: string
+			/**
+			 * C​Z
+			 */
+			cze: string
+			/**
+			 * A​T
+			 */
+			aut: string
+			/**
+			 * H​U
+			 */
+			hun: string
+			/**
+			 * P​L
+			 */
+			pol: string
+		}
+		/**
 		 * T​a​m
 		 */
 		legOutbound: string
@@ -3736,6 +3766,36 @@ export type TranslationFunctions = {
 		 * Trasa povedie z cieľa späť do miesta odchodu.
 		 */
 		roundTripHint: () => LocalizedString
+		/**
+		 * Vyhnúť sa spoplatneným cestám
+		 */
+		avoidTolls: () => LocalizedString
+		/**
+		 * Trasa sa vyhne úsekom s povinnou diaľničnou známkou alebo mýtom v danej krajine.
+		 */
+		avoidTollsHint: () => LocalizedString
+		countries: {
+			/**
+			 * SK
+			 */
+			svk: () => LocalizedString
+			/**
+			 * CZ
+			 */
+			cze: () => LocalizedString
+			/**
+			 * AT
+			 */
+			aut: () => LocalizedString
+			/**
+			 * HU
+			 */
+			hun: () => LocalizedString
+			/**
+			 * PL
+			 */
+			pol: () => LocalizedString
+		}
 		/**
 		 * Tam
 		 */

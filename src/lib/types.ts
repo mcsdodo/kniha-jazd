@@ -446,6 +446,9 @@ export type RouteMode = 'loop' | 'direct';
 
 /** Freshly generated route, not yet persisted to a trip. */
 export interface GeneratedRoute {
+	/** `<iso3>:tolls` values offered as "avoid paid roads" checkboxes. Empty
+	 *  with OSRM. Already includes the values the request avoided (backend). */
+	avoidOptions: string[];
 	waypoints: Waypoint[];
 	polyline: string;
 	/** Decoded [lat, lon] pairs, fed straight to Leaflet (no frontend decoder needed). */
@@ -513,6 +516,9 @@ export interface RoundTripRoutes {
 	/** combined[outboundIndex][inboundIndex]. */
 	combined: CombinedLeg[][];
 	targetKm: number;
+	/** `<iso3>:tolls` values offered as "avoid paid roads" checkboxes. Empty
+	 *  with OSRM. Already includes the values the request avoided (backend). */
+	avoidOptions: string[];
 }
 
 /** One leg of a saved round trip: the geometry it is drawn from, and the
@@ -535,6 +541,8 @@ export interface SavedLegs {
  */
 export interface RouteMap {
 	tripId: string;
+	/** The `<iso3>:tolls` values this route was computed with. */
+	avoid: string[];
 	waypoints: Waypoint[];
 	polyline: string;
 	/** Decoded [lat, lon] pairs. The backend decodes on the way out so the

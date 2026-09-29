@@ -506,8 +506,11 @@ export async function revertPaperlessOverride(docId: number): Promise<void> {
 }
 
 // Route map commands (Task 70)
-export async function generateRoute(targetKm: number): Promise<GeneratedRoute> {
-	return await apiCall('generate_route', { targetKm });
+export async function generateRoute(
+	targetKm: number,
+	avoid: string[] = []
+): Promise<GeneratedRoute> {
+	return await apiCall('generate_route', { targetKm, avoid });
 }
 
 /**
@@ -536,13 +539,15 @@ export async function routeDirect(
 	waypoints: Waypoint[],
 	targetKm: number,
 	insert?: InsertPoint,
-	roundTrip?: boolean
+	roundTrip?: boolean,
+	avoid: string[] = []
 ): Promise<GeneratedRoute[]> {
 	return await apiCall('route_direct', {
 		waypoints,
 		targetKm,
 		insert: insert ?? null,
-		roundTrip: roundTrip ?? false
+		roundTrip: roundTrip ?? false,
+		avoid
 	});
 }
 
@@ -566,13 +571,15 @@ export async function routeRoundTrip(
 	outbound: Waypoint[],
 	inbound: Waypoint[],
 	targetKm: number,
-	insert?: LegInsertPoint
+	insert?: LegInsertPoint,
+	avoid: string[] = []
 ): Promise<RoundTripRoutes> {
 	return await apiCall('route_round_trip', {
 		outbound,
 		inbound,
 		targetKm,
-		insert: insert ?? null
+		insert: insert ?? null,
+		avoid
 	});
 }
 
@@ -588,7 +595,8 @@ export async function routeRoundTrip(
 export async function saveTripRoute(
 	tripId: string,
 	route: GeneratedRoute,
-	roundTrip: boolean
+	roundTrip: boolean,
+	avoid: string[] = []
 ): Promise<void> {
 	return await apiCall('save_trip_route', {
 		tripId,
@@ -598,6 +606,7 @@ export async function saveTripRoute(
 		roadKm: route.roadKm,
 		mode: route.mode,
 		roundTrip,
+		avoid
 	});
 }
 
@@ -616,7 +625,8 @@ export async function saveTripRoundTripRoute(
 	inboundPolyline: string,
 	outboundRoadKm: number,
 	inboundRoadKm: number,
-	targetKm: number
+	targetKm: number,
+	avoid: string[] = []
 ): Promise<void> {
 	return await apiCall('save_trip_round_trip_route', {
 		tripId,
@@ -626,7 +636,8 @@ export async function saveTripRoundTripRoute(
 		inboundPolyline,
 		outboundRoadKm,
 		inboundRoadKm,
-		targetKm
+		targetKm,
+		avoid
 	});
 }
 
