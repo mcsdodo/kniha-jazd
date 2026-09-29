@@ -38,8 +38,8 @@
 ### Task 1: One transaction for the map, the trip and the shifts
 
 **Files:**
-- Modify: [src-tauri/core/src/db.rs](../../src-tauri/core/src/db.rs) (`apply_odometer_shifts` near line 519, `update_trip_with_odometer_shift` near line 548, `save_route_map` near line 1095)
-- Test: [src-tauri/core/src/db_tests.rs](../../src-tauri/core/src/db_tests.rs)
+- Modify: [src-tauri/core/src/db.rs](../../../src-tauri/core/src/db.rs) (`apply_odometer_shifts` near line 519, `update_trip_with_odometer_shift` near line 548, `save_route_map` near line 1095)
+- Test: [src-tauri/core/src/db_tests.rs](../../../src-tauri/core/src/db_tests.rs)
 
 **Interfaces:**
 - Produces: `Database::save_route_map_with_trip_distance(&self, map: &RouteMap, trip: Option<&Trip>, shifts: &[(String, f64)]) -> QueryResult<()>`
@@ -150,9 +150,9 @@ git commit -m "feat(db): save a route map and its trip distance in one transacti
 ### Task 2: Shared planner, whole-km rounding, saved-map sync
 
 **Files:**
-- Modify: [src-tauri/core/src/commands_internal/trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) (`apply_route_distance_internal` at line 748, its doc comment from line 730)
-- Modify: [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) (`DistanceWriteback` at line 765)
-- Test: [src-tauri/core/src/commands_internal/commands_tests.rs](../../src-tauri/core/src/commands_internal/commands_tests.rs) (the `test_apply_route_distance_*` block from line 5158)
+- Modify: [src-tauri/core/src/commands_internal/trips.rs](../../../src-tauri/core/src/commands_internal/trips.rs) (`apply_route_distance_internal` at line 748, its doc comment from line 730)
+- Modify: [src-tauri/core/src/models.rs](../../../src-tauri/core/src/models.rs) (`DistanceWriteback` at line 765)
+- Test: [src-tauri/core/src/commands_internal/commands_tests.rs](../../../src-tauri/core/src/commands_internal/commands_tests.rs) (the `test_apply_route_distance_*` block from line 5158)
 
 **Interfaces:**
 - Consumes: `Database::save_route_map_with_trip_distance` (Task 1)
@@ -370,8 +370,8 @@ git commit -m "feat(trips): plan a route distance in whole km, sync a saved map 
 ### Task 3: The save commands write the distance (every mode)
 
 **Files:**
-- Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) (`SavedRouteMap` near line 98, `From<RouteMap>` near line 135, `persist_route_map` at line 680, `save_trip_route_internal` at line 729, `save_trip_round_trip_route_internal` at line 756)
-- Test: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs) (27 call sites of the two save functions)
+- Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../../src-tauri/core/src/commands_internal/route_maps.rs) (`SavedRouteMap` near line 98, `From<RouteMap>` near line 135, `persist_route_map` at line 680, `save_trip_route_internal` at line 729, `save_trip_round_trip_route_internal` at line 756)
+- Test: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../../src-tauri/core/src/commands_internal/route_maps_tests.rs) (27 call sites of the two save functions)
 
 **Interfaces:**
 - Consumes: `plan_route_distance`, `logbook_km`, `RouteDistancePlan` (Task 2), `save_route_map_with_trip_distance` (Task 1)
@@ -644,7 +644,7 @@ git commit -m "feat(route-map): a map save writes its whole-km distance to the t
 ### Task 4: RPC arms
 
 **Files:**
-- Modify: [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) (`apply_route_distance` arm at line 270, `save_trip_route` at line 849, `save_trip_round_trip_route` at line 891, the dispatcher tests near lines 1204 and 1236)
+- Modify: [src-tauri/core/src/server/dispatcher.rs](../../../src-tauri/core/src/server/dispatcher.rs) (`apply_route_distance` arm at line 270, `save_trip_route` at line 849, `save_trip_round_trip_route` at line 891, the dispatcher tests near lines 1204 and 1236)
 
 **Interfaces:**
 - Consumes: the Task 2 and Task 3 signatures
@@ -728,11 +728,11 @@ git commit -m "feat(rpc): dryRun on both route saves, apply_saved_route_distance
 ### Task 5: One button on `/mapa`
 
 **Files:**
-- Modify: [src/lib/types.ts](../../src/lib/types.ts) (`DistanceWriteback` line 121, `RouteMap` line 556)
-- Modify: [src/lib/api.ts](../../src/lib/api.ts) (`applyRouteDistance` line 152, `saveTripRoute` line 605, `saveTripRoundTripRoute` line 632)
-- Modify: [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts) (`routeMap` block)
-- Modify: [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) (`handleSave` line 1165, `handleApplyDistance` line 1211, `confirmWriteback` line 1229, `busy` line 280, toolbar buttons lines 1377 to 1396, modal line 1573)
-- Test: [tests/integration/specs/tier2/route-distance-writeback.spec.ts](../../tests/integration/specs/tier2/route-distance-writeback.spec.ts) (rewrite), [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts) (fixtures and two `save-btn` clicks)
+- Modify: [src/lib/types.ts](../../../src/lib/types.ts) (`DistanceWriteback` line 121, `RouteMap` line 556)
+- Modify: [src/lib/api.ts](../../../src/lib/api.ts) (`applyRouteDistance` line 152, `saveTripRoute` line 605, `saveTripRoundTripRoute` line 632)
+- Modify: [src/lib/i18n/sk/index.ts](../../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../../src/lib/i18n/en/index.ts) (`routeMap` block)
+- Modify: [src/routes/mapa/+page.svelte](../../../src/routes/mapa/+page.svelte) (`handleSave` line 1165, `handleApplyDistance` line 1211, `confirmWriteback` line 1229, `busy` line 280, toolbar buttons lines 1377 to 1396, modal line 1573)
+- Test: [tests/integration/specs/tier2/route-distance-writeback.spec.ts](../../../tests/integration/specs/tier2/route-distance-writeback.spec.ts) (rewrite), [tests/integration/specs/tier2/route-map.spec.ts](../../../tests/integration/specs/tier2/route-map.spec.ts) (fixtures and two `save-btn` clicks)
 
 **Interfaces:**
 - Consumes: the Task 4 wire contract
@@ -769,7 +769,7 @@ async function editTripKm(trip: Record<string, unknown>, distanceKm: number) {
 }
 ```
 
-The tests. Since commit `6ff0bfb` the default provider is OSRM, also with a key (ADR-053). The mock router returns 90.0 km for OSRM, 100.0 km for Sygic without avoid, and 120.0 km for Sygic with avoid (`MockRouteProvider` in [provider.rs](../../src-tauri/core/src/route_map/provider.rs)). A route with no provider routes as OSRM, so each `recalculate-btn` click below gives 90.0 km:
+The tests. Since commit `6ff0bfb` the default provider is OSRM, also with a key (ADR-053). The mock router returns 90.0 km for OSRM, 100.0 km for Sygic without avoid, and 120.0 km for Sygic with avoid (`MockRouteProvider` in [provider.rs](../../../src-tauri/core/src/route_map/provider.rs)). A route with no provider routes as OSRM, so each `recalculate-btn` click below gives 90.0 km:
 
 1. `saves the map and writes its distance, shifting the later rows`: trip A 50 km @ 50050, trip B 40 km @ 50090. `saveSyncedRoute(A, 50)`, open the map, click `recalculate-btn`, wait for `actual-km` = `90.0 km`, click `save-apply-btn`. The modal summary contains `50` and `90`. Confirm. Expect A `distanceKm` 90, A `odometer` 50090, B `odometer` 50130, `get_trip_route(A).roadKm` 90, and `deviation` shows `0.0`.
 2. `writes nothing when the confirmation is dismissed`: same setup. Cancel. Expect A `distanceKm` 50 and `get_trip_route(A).roadKm` still 50 (the proposal was not saved).
@@ -959,12 +959,12 @@ git commit -m "feat(route-map): one 'Uložiť a použiť vzdialenosť' button fo
 ### Task 6: Documentation
 
 **Files:**
-- Modify: [DECISIONS.md](../../DECISIONS.md) (via `/decision`)
-- Modify: [docs/features/route-maps.md](../../docs/features/route-maps.md) (lines 43, 99, 154, the section from line 440)
-- Modify: [docs/features/trip-odometer-cascade.md](../../docs/features/trip-odometer-cascade.md) (lines 105, 164, 168, 216)
-- Modify: [docs/features/read-only-mode.md](../../docs/features/read-only-mode.md) (lines 79, 90)
-- Modify: [CHANGELOG.md](../../CHANGELOG.md) (via `/changelog`)
-- Check: [README.md](../../README.md), [README.en.md](../../README.en.md)
+- Modify: [DECISIONS.md](../../../DECISIONS.md) (via `/decision`)
+- Modify: [docs/features/route-maps.md](../../../docs/features/route-maps.md) (lines 43, 99, 154, the section from line 440)
+- Modify: [docs/features/trip-odometer-cascade.md](../../../docs/features/trip-odometer-cascade.md) (lines 105, 164, 168, 216)
+- Modify: [docs/features/read-only-mode.md](../../../docs/features/read-only-mode.md) (lines 79, 90)
+- Modify: [CHANGELOG.md](../../../CHANGELOG.md) (via `/changelog`)
+- Check: [README.md](../../../README.md), [README.en.md](../../../README.en.md)
 
 - [ ] **Step 1: ADR-054.** Run `/decision`. Title: "A saved map always writes its whole-km distance to the trip". Record D1 to D4 from [01-task.md](./01-task.md), the one transaction, and the in-sync rule for `off_target`. Mark it as a replacement for the Direct-only scope of ADR-048 and for the "circular" Loop reason. Add a "Superseded in part by ADR-054" line under ADR-048. The dry-run modal and the replan on commit stay from ADR-048.
 - [ ] **Step 2: Feature docs.** Replace every `apply_route_distance` with `apply_saved_route_distance` or the save commands, as fits. In `route-maps.md`, rewrite the section from line 440: one button, all modes, whole km, no modal on a no-op, sync of a saved map. Delete the "Only Direct mode gets the button" paragraph.
@@ -985,4 +985,4 @@ git commit -m "docs: ADR-054, one save-and-apply button, whole-km write-back in 
 - [ ] **Step 2:** Run `npm run build && cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web && npm run test:integration`. Expected: PASS.
 - [ ] **Step 3:** Run `grep -rn "apply_route_distance\|applyRouteDistance\|apply-distance-btn\|save-btn\|applyDistance" src src-tauri tests docs`. Expected: no hits, except history in `_tasks/_done` and in superseded ADR text.
 - [ ] **Step 4:** Run `/verify`.
-- [ ] **Step 5:** Set **Status** in [01-task.md](./01-task.md) and in this file to `Complete`, and set the row in [../index.md](../index.md) to ✅. Commit.
+- [ ] **Step 5:** Set **Status** in [01-task.md](./01-task.md) and in this file to `Complete`, and set the row in [../index.md](../../index.md) to ✅. Commit.

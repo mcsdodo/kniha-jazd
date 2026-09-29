@@ -15,8 +15,8 @@ route mode: Direct one-way, Direct round trip ("Cesta tam a späť") and Loop.
 |------|-------|
 | "Uložiť mapu" | Writes only `trip_routes`. The trip does not change. |
 | "Použiť vzdialenosť" | Writes `trips.distance_km` and the odometer cascade, behind a dry-run modal (ADR-048). Direct mode only. |
-| Loop mode (origin equals destination, `mode_for` in [route_maps.rs:948](../../src-tauri/core/src/commands_internal/route_maps.rs#L948)) | No write-back. [route-maps.md:450](../../docs/features/route-maps.md) calls a Loop write-back "circular". |
-| Written value | Raw road km, for example `25.634` (`apply_route_distance_internal`, [trips.rs:748](../../src-tauri/core/src/commands_internal/trips.rs#L748)). |
+| Loop mode (origin equals destination, `mode_for` in [route_maps.rs:948](../../../src-tauri/core/src/commands_internal/route_maps.rs#L948)) | No write-back. [route-maps.md:450](../../../docs/features/route-maps.md) calls a Loop write-back "circular". |
+| Written value | Raw road km, for example `25.634` (`apply_route_distance_internal`, [trips.rs:748](../../../src-tauri/core/src/commands_internal/trips.rs#L748)). |
 
 ## Decisions from the brainstorm (2026-09-29)
 
@@ -44,7 +44,7 @@ route mode: Direct one-way, Direct round trip ("Cesta tam a späť") and Loop.
 - The click runs a dry run first. The dry run writes nothing.
 - If the dry run reports no change (the rounded km equals the trip km and no odometer moves),
   the page commits at once, with no modal (D3).
-- If it reports a change, the existing [OdometerCascadeModal](../../src/lib/components/OdometerCascadeModal.svelte) (`kind="writeback"`) shows the
+- If it reports a change, the existing [OdometerCascadeModal](../../../src/lib/components/OdometerCascadeModal.svelte) (`kind="writeback"`) shows the
   plan: the new km, the period rate and margin before and after, the 20 % limit, and every
   later row whose odometer moves.
 - Confirm writes the map row, the trip row and the odometer shifts in ONE database
@@ -69,7 +69,7 @@ route mode: Direct one-way, Direct round trip ("Cesta tam a späť") and Loop.
 - The frontend reads the flag. It does not compare numbers (ADR-008).
 - If the map is in sync, `off_target` is `false`. Without this, a short trip shows a
   permanent warning after a sync: 2.4 km written as 2 km is a 20 % deviation, and
-  `TOLERANCE` is 5 % ([ga.rs:26](../../src-tauri/core/src/route_map/ga.rs#L26)). `deviation_percent` still shows the real value.
+  `TOLERANCE` is 5 % ([ga.rs:26](../../../src-tauri/core/src/route_map/ga.rs#L26)). `deviation_percent` still shows the real value.
 
 ### R5. Sync of a saved map (D2)
 
@@ -86,7 +86,7 @@ route mode: Direct one-way, Direct round trip ("Cesta tam a späť") and Loop.
 ## Technical Notes
 
 - **Atomicity.** `Database::save_route_map` and `Database::update_trip_with_odometer_shift`
-  each lock the connection and open their own transaction ([db.rs:1095](../../src-tauri/core/src/db.rs#L1095), [db.rs:548](../../src-tauri/core/src/db.rs#L548)).
+  each lock the connection and open their own transaction ([db.rs:1095](../../../src-tauri/core/src/db.rs#L1095), [db.rs:548](../../../src-tauri/core/src/db.rs#L548)).
   Factor both bodies into `tx`-level helpers, and add one method that runs both in one
   transaction.
 - **Shared planner.** Extract the plan part of `apply_route_distance_internal`
@@ -96,16 +96,16 @@ route mode: Direct one-way, Direct round trip ("Cesta tam a späť") and Loop.
 - **No-op detection comes free.** Round before `plan_odometer_cascade`. Its
   `CASCADE_EPSILON` branch then returns an empty plan with `delta == 0`, and the frontend
   skips the modal on that result (the backend tells, the frontend only reads).
-- **Integration fixtures.** [route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts) and [route-distance-writeback.spec.ts](../../tests/integration/specs/tier2/route-distance-writeback.spec.ts) seed
+- **Integration fixtures.** [route-map.spec.ts](../../../tests/integration/specs/tier2/route-map.spec.ts) and [route-distance-writeback.spec.ts](../../../tests/integration/specs/tier2/route-distance-writeback.spec.ts) seed
   maps through `save_trip_route` and `save_trip_round_trip_route` (7 calls). After this task
   each seeded map also writes the trip km. Audit each fixture. If a fixture must seed a
   mismatched map (legacy state), save it in sync and then change the trip km with
   `update_trip_cascade`. That is the real legacy path ("the km was edited later").
-- **Loop in integration tests.** `MockRouteProvider` ([provider.rs:153](../../src-tauri/core/src/route_map/provider.rs#L153)) answers
+- **Loop in integration tests.** `MockRouteProvider` ([provider.rs:153](../../../src-tauri/core/src/route_map/provider.rs#L153)) answers
   `route_direct` offline. Check whether `generate_route` (Loop) also runs offline under
   `KNIHA_JAZD_MOCK_ROUTER`. If it does not, the backend unit test is the authoritative test
   for Loop, and the integration test covers Direct only.
-- **Superseded text.** [ADR-048](../../DECISIONS.md) limits the write-back to Direct mode, and [route-maps.md:450](../../docs/features/route-maps.md)
+- **Superseded text.** [ADR-048](../../../DECISIONS.md) limits the write-back to Direct mode, and [route-maps.md:450](../../../docs/features/route-maps.md)
   gives the "circular" reason for Loop. A new ADR-054 records D1 to D4 and supersedes that
   scope.
 

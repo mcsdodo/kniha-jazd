@@ -3,7 +3,7 @@
 //! Used in place of OSRM when `SYGIC_API_KEY` is set, because Sygic can avoid
 //! the paid roads of ONE country (`avoid=cze:tolls`). The public OSRM servers
 //! reject every `exclude` value and know no countries -- see
-//! _tasks/85-route-avoid-tolls-per-country/01-task.md.
+//! _tasks/_done/85-route-avoid-tolls-per-country/01-task.md.
 //!
 //! The avoid list is fixed when the provider is built, so the `RouteProvider`
 //! trait and its callers do not change.

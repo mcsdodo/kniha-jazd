@@ -2,15 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-13 ([Task 84](_done/84-paperless-only-invoices/) is merged and released in v1.0.0: local receipts + Gemini OCR removed, Paperless is the only invoice source, the `receipts` table is dropped on upgrade. Tech debt 09 (the capability gaps) was deleted: an LLM OCR step fills the Paperless fields. [Task 83](_done/83-integration-test-sharding/) archived: the shard matrix is on `main` and the integration stage fell from 5m26 to 2m37. It merged ahead of [Task 82](82-integration-db-reset/), which was declared to block it, so 82 is now live correctness risk rather than a gate.)
+**Last updated:** 2026-09-29 (Tasks [85](_done/85-route-avoid-tolls-per-country/), [86](_done/86-route-provider-switch/) and [87](_done/87-save-and-apply-distance/) are archived. 85 is released in v1.1.0. 86 is on `origin/main` and not released. 87 is committed on local `main` and not pushed.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 87 | [Save And Apply Distance](87-save-and-apply-distance/) | ✅ Complete | One "Uložiť a použiť vzdialenosť" button on `/mapa`: every save writes the route's whole-km distance to the trip in one transaction, in every mode (Loop too); supersedes the Direct-only scope of ADR-048 |
-| 86 | [Route Provider Switch](86-route-provider-switch/) | ✅ Complete | Select OSRM or Sygic per route on `/mapa`, stored in `trip_routes.provider` (Sygic has no D1 Visnove tunnel); see ADR-053 |
-| 85 | [Route Avoid Tolls Per Country](85-route-avoid-tolls-per-country/) | ✅ Complete | Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
@@ -20,6 +17,9 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 87 | [Save And Apply Distance](./_done/87-save-and-apply-distance/) -- One "Uložiť a použiť vzdialenosť" button on `/mapa`: every save writes the route's whole-km distance to the trip in one transaction, in every mode (Loop too); supersedes the Direct-only scope of ADR-048 | 2026-09-29 |
+| 86 | [Route Provider Switch](./_done/86-route-provider-switch/) -- Select OSRM or Sygic per route on `/mapa`, stored in `trip_routes.provider` (Sygic has no D1 Visnove tunnel); see ADR-053 | 2026-09-29 |
+| 85 | [Route Avoid Tolls Per Country](./_done/85-route-avoid-tolls-per-country/) -- Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise | 2026-09-29 |
 | 83 | [Integration Test Sharding](./_done/83-integration-test-sharding/) -- the CI matrix shards the specs six ways instead of by tier; integration stage 5m26 -> 2m37 on `main`. The under-2m30 criterion was not met and is closed as unattainable by a round-robin split; the duration-weighted split is the open follow-up, see [03-results.md](./_done/83-integration-test-sharding/03-results.md) | 2026-09-11 |
 | 41 | [Integration Test Speedup](./_done/41-integration-test-speedup/) -- archived unbuilt: written for the Tauri harness that [Task 73](./_done/73-web-first-migration/) deleted, and its speedup premise measured false (the reset it replaced costs 17 ms per test); the surviving work is [Task 82](82-integration-db-reset/), see [04-superseded.md](./_done/41-integration-test-speedup/04-superseded.md) | 2026-09-09 |
 | 78 | [Round Trip Legs and Distance Write-Back](./_done/78-round-trip-legs-and-distance-writeback/) -- a round trip routes as two independent legs with a picker each, and the routed distance can be written back to the trip behind a fuel-period and legal-margin warning; see [docs/features/route-maps.md](../docs/features/route-maps.md) | 2026-09-09 |

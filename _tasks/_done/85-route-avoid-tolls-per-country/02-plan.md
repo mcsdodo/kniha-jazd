@@ -55,37 +55,37 @@ Five input classes plus one security rule.
 
 | File | Change | Responsibility |
 |---|---|---|
-| [src-tauri/core/src/route_map/avoid.rs](../../src-tauri/core/src/route_map/avoid.rs) | Create | Pure functions: validate the avoid list, filter `*:tolls`, merge option lists. |
-| [src-tauri/core/src/route_map/avoid_tests.rs](../../src-tauri/core/src/route_map/avoid_tests.rs) | Create | Tests for `avoid.rs`. |
-| [src-tauri/core/src/route_map/osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) | Modify | `FetchedRoute.possible_avoids`. OSRM fills it with `[]`. |
-| [src-tauri/core/src/route_map/sygic.rs](../../src-tauri/core/src/route_map/sygic.rs) | Create | `SygicRouteProvider`: URL, headers, response mapping. |
-| [src-tauri/core/src/route_map/sygic_tests.rs](../../src-tauri/core/src/route_map/sygic_tests.rs) | Create | `wiremock` tests for Sygic. |
-| [src-tauri/core/src/route_map/provider.rs](../../src-tauri/core/src/route_map/provider.rs) | Create | `ProviderConfig` from env, `route_provider(avoid)` factory, `MockRouteProvider`. |
-| [src-tauri/core/src/route_map/provider_tests.rs](../../src-tauri/core/src/route_map/provider_tests.rs) | Create | Tests for the factory and the mock. |
-| [src-tauri/core/src/route_map/mod.rs](../../src-tauri/core/src/route_map/mod.rs) | Modify | Register the new modules. |
-| [src-tauri/core/src/constants.rs](../../src-tauri/core/src/constants.rs) | Modify | Env var names. |
-| [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | Modify | `avoid_options` on `GeneratedRoute` and `RoundTripRoutes`. `avoid` on save, get. |
-| [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs) | Modify | Tests for the pass-through and the round trip union. |
-| [src-tauri/core/src/server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | Modify | `avoid` arg on 3 commands, factory in place of `HttpRouteProvider::public()`. |
-| [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | Modify | `avoid` arg on 2 save commands. |
-| [src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/](../../src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/) | Create | `up.sql`, `down.sql`. |
-| [src-tauri/core/src/schema.rs](../../src-tauri/core/src/schema.rs), `models.rs`, `db.rs` | Modify | The `avoid` column end to end. |
-| [src-tauri/core/src/db_tests.rs](../../src-tauri/core/src/db_tests.rs), `migration_tests.rs` | Modify | Round trip of the column, backfill to `[]`. |
-| [src/lib/types.ts](../../src/lib/types.ts), [src/lib/api.ts](../../src/lib/api.ts) | Modify | `avoidOptions`, `avoid`, new API args. |
-| [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) | Modify | Avoid state, checkboxes, capture of `routedAvoid`. |
-| [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts) | Modify | Labels and country names. |
-| [tests/integration/wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts), [.github/workflows/test.yml](../../.github/workflows/test.yml) | Modify | Mock router env, scrub the Sygic key. |
-| [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts) | Modify | Two new tests. |
-| [DECISIONS.md](../../DECISIONS.md), [CHANGELOG.md](../../CHANGELOG.md), [docs/features/route-maps.md](../../docs/features/route-maps.md), [CLAUDE.md](../../CLAUDE.md), [README.md](../../README.md), [README.en.md](../../README.en.md) | Modify | Docs. |
+| [src-tauri/core/src/route_map/avoid.rs](../../../src-tauri/core/src/route_map/avoid.rs) | Create | Pure functions: validate the avoid list, filter `*:tolls`, merge option lists. |
+| [src-tauri/core/src/route_map/avoid_tests.rs](../../../src-tauri/core/src/route_map/avoid_tests.rs) | Create | Tests for `avoid.rs`. |
+| [src-tauri/core/src/route_map/osrm.rs](../../../src-tauri/core/src/route_map/osrm.rs) | Modify | `FetchedRoute.possible_avoids`. OSRM fills it with `[]`. |
+| [src-tauri/core/src/route_map/sygic.rs](../../../src-tauri/core/src/route_map/sygic.rs) | Create | `SygicRouteProvider`: URL, headers, response mapping. |
+| [src-tauri/core/src/route_map/sygic_tests.rs](../../../src-tauri/core/src/route_map/sygic_tests.rs) | Create | `wiremock` tests for Sygic. |
+| [src-tauri/core/src/route_map/provider.rs](../../../src-tauri/core/src/route_map/provider.rs) | Create | `ProviderConfig` from env, `route_provider(avoid)` factory, `MockRouteProvider`. |
+| [src-tauri/core/src/route_map/provider_tests.rs](../../../src-tauri/core/src/route_map/provider_tests.rs) | Create | Tests for the factory and the mock. |
+| [src-tauri/core/src/route_map/mod.rs](../../../src-tauri/core/src/route_map/mod.rs) | Modify | Register the new modules. |
+| [src-tauri/core/src/constants.rs](../../../src-tauri/core/src/constants.rs) | Modify | Env var names. |
+| [src-tauri/core/src/commands_internal/route_maps.rs](../../../src-tauri/core/src/commands_internal/route_maps.rs) | Modify | `avoid_options` on `GeneratedRoute` and `RoundTripRoutes`. `avoid` on save, get. |
+| [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../../src-tauri/core/src/commands_internal/route_maps_tests.rs) | Modify | Tests for the pass-through and the round trip union. |
+| [src-tauri/core/src/server/dispatcher_async.rs](../../../src-tauri/core/src/server/dispatcher_async.rs) | Modify | `avoid` arg on 3 commands, factory in place of `HttpRouteProvider::public()`. |
+| [src-tauri/core/src/server/dispatcher.rs](../../../src-tauri/core/src/server/dispatcher.rs) | Modify | `avoid` arg on 2 save commands. |
+| [src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/](../../../src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/) | Create | `up.sql`, `down.sql`. |
+| [src-tauri/core/src/schema.rs](../../../src-tauri/core/src/schema.rs), `models.rs`, `db.rs` | Modify | The `avoid` column end to end. |
+| [src-tauri/core/src/db_tests.rs](../../../src-tauri/core/src/db_tests.rs), `migration_tests.rs` | Modify | Round trip of the column, backfill to `[]`. |
+| [src/lib/types.ts](../../../src/lib/types.ts), [src/lib/api.ts](../../../src/lib/api.ts) | Modify | `avoidOptions`, `avoid`, new API args. |
+| [src/routes/mapa/+page.svelte](../../../src/routes/mapa/+page.svelte) | Modify | Avoid state, checkboxes, capture of `routedAvoid`. |
+| [src/lib/i18n/sk/index.ts](../../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../../src/lib/i18n/en/index.ts) | Modify | Labels and country names. |
+| [tests/integration/wdio.server.conf.ts](../../../tests/integration/wdio.server.conf.ts), [.github/workflows/test.yml](../../../.github/workflows/test.yml) | Modify | Mock router env, scrub the Sygic key. |
+| [tests/integration/specs/tier2/route-map.spec.ts](../../../tests/integration/specs/tier2/route-map.spec.ts) | Modify | Two new tests. |
+| [DECISIONS.md](../../../DECISIONS.md), [CHANGELOG.md](../../../CHANGELOG.md), [docs/features/route-maps.md](../../../docs/features/route-maps.md), [CLAUDE.md](../../../CLAUDE.md), [README.md](../../../README.md), [README.en.md](../../../README.en.md) | Modify | Docs. |
 
 ---
 
 ### Task 1: Avoid value rules (`avoid.rs`)
 
 **Files:**
-- Create: [src-tauri/core/src/route_map/avoid.rs](../../src-tauri/core/src/route_map/avoid.rs)
-- Create: [src-tauri/core/src/route_map/avoid_tests.rs](../../src-tauri/core/src/route_map/avoid_tests.rs)
-- Modify: [src-tauri/core/src/route_map/mod.rs](../../src-tauri/core/src/route_map/mod.rs)
+- Create: [src-tauri/core/src/route_map/avoid.rs](../../../src-tauri/core/src/route_map/avoid.rs)
+- Create: [src-tauri/core/src/route_map/avoid_tests.rs](../../../src-tauri/core/src/route_map/avoid_tests.rs)
+- Modify: [src-tauri/core/src/route_map/mod.rs](../../../src-tauri/core/src/route_map/mod.rs)
 
 **Interfaces:**
 - Produces:
@@ -235,9 +235,9 @@ git commit -m "feat(route-map): add avoid value rules for paid roads"
 ### Task 2: `FetchedRoute.possible_avoids`
 
 **Files:**
-- Modify: [src-tauri/core/src/route_map/osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) (struct `FetchedRoute`, the `.map(|route| FetchedRoute {...})` in `request`)
-- Modify: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs) (3 `FetchedRoute {` literals, including `fn fetched`)
-- Modify: [src-tauri/core/src/route_map/osrm_tests.rs](../../src-tauri/core/src/route_map/osrm_tests.rs)
+- Modify: [src-tauri/core/src/route_map/osrm.rs](../../../src-tauri/core/src/route_map/osrm.rs) (struct `FetchedRoute`, the `.map(|route| FetchedRoute {...})` in `request`)
+- Modify: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../../src-tauri/core/src/commands_internal/route_maps_tests.rs) (3 `FetchedRoute {` literals, including `fn fetched`)
+- Modify: [src-tauri/core/src/route_map/osrm_tests.rs](../../../src-tauri/core/src/route_map/osrm_tests.rs)
 
 **Interfaces:**
 - Produces: `FetchedRoute { polyline: String, road_km: f64, duration_s: f64, possible_avoids: Vec<String> }`. Derive `Default` too, so test literals can use `..Default::default()`.
@@ -323,9 +323,9 @@ git commit -m "feat(route-map): carry possible avoid values on a fetched route"
 ### Task 3: `SygicRouteProvider`
 
 **Files:**
-- Create: [src-tauri/core/src/route_map/sygic.rs](../../src-tauri/core/src/route_map/sygic.rs)
-- Create: [src-tauri/core/src/route_map/sygic_tests.rs](../../src-tauri/core/src/route_map/sygic_tests.rs)
-- Modify: [src-tauri/core/src/route_map/mod.rs](../../src-tauri/core/src/route_map/mod.rs)
+- Create: [src-tauri/core/src/route_map/sygic.rs](../../../src-tauri/core/src/route_map/sygic.rs)
+- Create: [src-tauri/core/src/route_map/sygic_tests.rs](../../../src-tauri/core/src/route_map/sygic_tests.rs)
+- Modify: [src-tauri/core/src/route_map/mod.rs](../../../src-tauri/core/src/route_map/mod.rs)
 
 **Interfaces:**
 - Consumes: `avoid::toll_options` (Task 1), `FetchedRoute` (Task 2), `RouteProvider` trait (unchanged).
@@ -757,10 +757,10 @@ git commit -m "feat(route-map): add Sygic routing provider with per-country toll
 ### Task 4: Provider factory and test mock (`provider.rs`)
 
 **Files:**
-- Create: [src-tauri/core/src/route_map/provider.rs](../../src-tauri/core/src/route_map/provider.rs)
-- Create: [src-tauri/core/src/route_map/provider_tests.rs](../../src-tauri/core/src/route_map/provider_tests.rs)
-- Modify: [src-tauri/core/src/route_map/mod.rs](../../src-tauri/core/src/route_map/mod.rs)
-- Modify: [src-tauri/core/src/constants.rs](../../src-tauri/core/src/constants.rs) (`env_vars`)
+- Create: [src-tauri/core/src/route_map/provider.rs](../../../src-tauri/core/src/route_map/provider.rs)
+- Create: [src-tauri/core/src/route_map/provider_tests.rs](../../../src-tauri/core/src/route_map/provider_tests.rs)
+- Modify: [src-tauri/core/src/route_map/mod.rs](../../../src-tauri/core/src/route_map/mod.rs)
+- Modify: [src-tauri/core/src/constants.rs](../../../src-tauri/core/src/constants.rs) (`env_vars`)
 
 **Interfaces:**
 - Consumes: `SygicRouteProvider`, `PUBLIC_SYGIC_URL` (Task 3), `HttpRouteProvider` (existing), `avoid::toll_options` (Task 1), `polyline::encode` (existing).
@@ -981,9 +981,9 @@ git commit -m "feat(route-map): choose Sygic, OSRM or a test mock from the envir
 ### Task 5: `avoidOptions` in the route commands, `avoid` on the RPC
 
 **Files:**
-- Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) (`GeneratedRoute`, `RoundTripRoutes`, the 3 `*_internal` builders)
-- Modify: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs)
-- Modify: [src-tauri/core/src/server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) (arms `generate_route`, `route_direct`, `route_round_trip`, and the existing arg tests near line 395)
+- Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../../src-tauri/core/src/commands_internal/route_maps.rs) (`GeneratedRoute`, `RoundTripRoutes`, the 3 `*_internal` builders)
+- Modify: [src-tauri/core/src/commands_internal/route_maps_tests.rs](../../../src-tauri/core/src/commands_internal/route_maps_tests.rs)
+- Modify: [src-tauri/core/src/server/dispatcher_async.rs](../../../src-tauri/core/src/server/dispatcher_async.rs) (arms `generate_route`, `route_direct`, `route_round_trip`, and the existing arg tests near line 395)
 
 **Interfaces:**
 - Consumes: `FetchedRoute.possible_avoids` (Task 2), `normalise_avoid`, `merge_options` (Task 1), `route_provider` (Task 4).
@@ -1119,13 +1119,13 @@ git commit -m "feat(route-map): take an avoid list and return avoid options on e
 ### Task 6: Store the avoid list (`trip_routes.avoid`)
 
 **Files:**
-- Create: [src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/up.sql](../../src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/up.sql), `down.sql`
-- Modify: [src-tauri/core/src/schema.rs](../../src-tauri/core/src/schema.rs) (`trip_routes`, after `turnaround_index`)
-- Modify: [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) (`RouteMap`, `RouteMapRow`, `NewRouteMapRow`, `From<RouteMapRow> for RouteMap`)
-- Modify: [src-tauri/core/src/db.rs](../../src-tauri/core/src/db.rs) (`save_route_map`)
-- Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) (`persist_route_map`, both save fns, `SavedRouteMap`)
-- Modify: [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) (`save_trip_route`, `save_trip_round_trip_route` args)
-- Modify: [src-tauri/core/src/db_tests.rs](../../src-tauri/core/src/db_tests.rs) (4 `RouteMap {` literals), [src-tauri/core/src/migration_tests.rs](../../src-tauri/core/src/migration_tests.rs), `route_maps_tests.rs`
+- Create: [src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/up.sql](../../../src-tauri/core/migrations/2026-09-29-100000_add_trip_route_avoid/up.sql), `down.sql`
+- Modify: [src-tauri/core/src/schema.rs](../../../src-tauri/core/src/schema.rs) (`trip_routes`, after `turnaround_index`)
+- Modify: [src-tauri/core/src/models.rs](../../../src-tauri/core/src/models.rs) (`RouteMap`, `RouteMapRow`, `NewRouteMapRow`, `From<RouteMapRow> for RouteMap`)
+- Modify: [src-tauri/core/src/db.rs](../../../src-tauri/core/src/db.rs) (`save_route_map`)
+- Modify: [src-tauri/core/src/commands_internal/route_maps.rs](../../../src-tauri/core/src/commands_internal/route_maps.rs) (`persist_route_map`, both save fns, `SavedRouteMap`)
+- Modify: [src-tauri/core/src/server/dispatcher.rs](../../../src-tauri/core/src/server/dispatcher.rs) (`save_trip_route`, `save_trip_round_trip_route` args)
+- Modify: [src-tauri/core/src/db_tests.rs](../../../src-tauri/core/src/db_tests.rs) (4 `RouteMap {` literals), [src-tauri/core/src/migration_tests.rs](../../../src-tauri/core/src/migration_tests.rs), `route_maps_tests.rs`
 
 **Interfaces:**
 - Consumes: `normalise_avoid` (Task 1).
@@ -1280,10 +1280,10 @@ git commit -m "feat(route-map): save the avoid list with the route map"
 ### Task 7: Checkboxes on `/mapa`
 
 **Files:**
-- Modify: [src/lib/types.ts](../../src/lib/types.ts) (`GeneratedRoute`, `RoundTripRoutes`, `RouteMap`)
-- Modify: [src/lib/api.ts](../../src/lib/api.ts) (`generateRoute`, `routeDirect`, `routeRoundTrip`, `saveTripRoute`, `saveTripRoundTripRoute`)
-- Modify: [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte)
-- Modify: [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts) (`routeMap` block)
+- Modify: [src/lib/types.ts](../../../src/lib/types.ts) (`GeneratedRoute`, `RoundTripRoutes`, `RouteMap`)
+- Modify: [src/lib/api.ts](../../../src/lib/api.ts) (`generateRoute`, `routeDirect`, `routeRoundTrip`, `saveTripRoute`, `saveTripRoundTripRoute`)
+- Modify: [src/routes/mapa/+page.svelte](../../../src/routes/mapa/+page.svelte)
+- Modify: [src/lib/i18n/sk/index.ts](../../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../../src/lib/i18n/en/index.ts) (`routeMap` block)
 
 **Interfaces:**
 - Consumes: JSON fields `avoidOptions` (Task 5) and `avoid` (Task 6), RPC arg `avoid`.
@@ -1444,10 +1444,10 @@ git commit -m "feat(route-map): per-country avoid paid roads checkboxes"
 ### Task 8: Integration tests with the mock router
 
 **Files:**
-- Modify: [tests/integration/wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) (`onPrepare`: `process.env` and the `spawn` env)
-- Modify: [.github/workflows/test.yml](../../.github/workflows/test.yml) (both `docker run` steps, lines about 175 and 261)
-- Modify: [tests/integration/specs/tier2/route-map.spec.ts](../../tests/integration/specs/tier2/route-map.spec.ts)
-- Modify: [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md) (section "Pass the geocoder mock to the container")
+- Modify: [tests/integration/wdio.server.conf.ts](../../../tests/integration/wdio.server.conf.ts) (`onPrepare`: `process.env` and the `spawn` env)
+- Modify: [.github/workflows/test.yml](../../../.github/workflows/test.yml) (both `docker run` steps, lines about 175 and 261)
+- Modify: [tests/integration/specs/tier2/route-map.spec.ts](../../../tests/integration/specs/tier2/route-map.spec.ts)
+- Modify: [.claude/rules/integration-tests.md](../../../.claude/rules/integration-tests.md) (section "Pass the geocoder mock to the container")
 
 `grep -rn MOCK_GEOCODER_DIR` on 2026-09-29 found the env only in `wdio.server.conf.ts`
 (2 places), `test.yml` (2 places) and docs. No script in `scripts/` or `package.json`
@@ -1484,7 +1484,7 @@ In the `spawn` env, after `KNIHA_JAZD_MOCK_GEOCODER_DIR`:
 
 - [ ] **Step 1b: Update the docker-mode note**
 
-In [.claude/rules/integration-tests.md](../../.claude/rules/integration-tests.md), rename the section to "Pass the mocks to the container" and add:
+In [.claude/rules/integration-tests.md](../../../.claude/rules/integration-tests.md), rename the section to "Pass the mocks to the container" and add:
 
 ```markdown
 `KNIHA_JAZD_MOCK_ROUTER=1` is required too. Without it `route-map.spec.ts` fails,
@@ -1600,16 +1600,16 @@ git commit -m "test(route-map): cover avoid checkboxes with an offline mock rout
 ### Task 9: Documentation
 
 **Files:**
-- Modify: [DECISIONS.md](../../DECISIONS.md) (through `/decision`)
-- Modify: [CHANGELOG.md](../../CHANGELOG.md) (through `/changelog`)
-- Modify: [docs/features/route-maps.md](../../docs/features/route-maps.md), [CLAUDE.md](../../CLAUDE.md) (the env var table under "Database Location"), [README.md](../../README.md), [README.en.md](../../README.en.md)
-- Modify: [_tasks/85-route-avoid-tolls-per-country/01-task.md](../../_tasks/85-route-avoid-tolls-per-country/01-task.md) (Status, and the integration test note), [_tasks/index.md](../../_tasks/index.md)
+- Modify: [DECISIONS.md](../../../DECISIONS.md) (through `/decision`)
+- Modify: [CHANGELOG.md](../../../CHANGELOG.md) (through `/changelog`)
+- Modify: [docs/features/route-maps.md](../../../docs/features/route-maps.md), [CLAUDE.md](../../../CLAUDE.md) (the env var table under "Database Location"), [README.md](../../../README.md), [README.en.md](../../../README.en.md)
+- Modify: [_tasks/85-route-avoid-tolls-per-country/01-task.md](../../../_tasks/_done/85-route-avoid-tolls-per-country/01-task.md) (Status, and the integration test note), [_tasks/index.md](../../../_tasks/index.md)
 
 - [ ] **Step 1: ADR** through `/decision`: "Sygic as the optional routing provider". Content: per-country avoid needs a service that knows countries. Public OSRM rejects `exclude`, Valhalla and Google are global only, and Google's terms forbid its routes on a non-Google map (section 19.2). Sygic is chosen when `SYGIC_API_KEY` is set. No silent fallback to OSRM. Link [01-task.md](./01-task.md).
 - [ ] **Step 2: CHANGELOG** through `/changelog`, section `Pridané` (Slovak): the per-country "Vyhnúť sa spoplatneným cestám" checkboxes, available when the server has `SYGIC_API_KEY`.
 - [ ] **Step 3: Env var table** in `CLAUDE.md`: add `SYGIC_API_KEY`, `SYGIC_REFERER`, `KNIHA_JAZD_MOCK_ROUTER` with default and purpose. Same rows in the README env sections (Slovak in `README.md`). No key or referer values.
 - [ ] **Step 4: Feature doc** `docs/features/route-maps.md`: a section "Avoid paid roads per country": provider choice, the `tolls`-only rule, the option union, the saved column, the mock.
-- [ ] **Step 5: Task status**: set `**Status:** Complete` in `01-task.md`, replace "Check first how the integration suite fakes the routing service today" with "The suite uses `KNIHA_JAZD_MOCK_ROUTER` (Task 8)". Move the index row per [_tasks/CLAUDE.md](../CLAUDE.md).
+- [ ] **Step 5: Task status**: set `**Status:** Complete` in `01-task.md`, replace "Check first how the integration suite fakes the routing service today" with "The suite uses `KNIHA_JAZD_MOCK_ROUTER` (Task 8)". Move the index row per [_tasks/CLAUDE.md](../../CLAUDE.md).
 - [ ] **Step 6: Final check** with `/verify`: `cargo test --manifest-path src-tauri/Cargo.toml --workspace`, `npm run check`, `npm run typecheck:tests`, `npm run test:integration`.
 - [ ] **Step 7: Commit**
 

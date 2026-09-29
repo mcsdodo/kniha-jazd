@@ -499,7 +499,7 @@ correctly.
 
 ### Avoid paid roads per country
 
-See [ADR-052](../../DECISIONS.md#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance) and [the task](../../_tasks/85-route-avoid-tolls-per-country/01-task.md).
+See [ADR-052](../../DECISIONS.md#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance) and [the task](../../_tasks/_done/85-route-avoid-tolls-per-country/01-task.md).
 
 On `/mapa`, in direct mode only (one-way and round trip), one checkbox per country shows: "Vyhnúť sa spoplatneným cestám: SK / CZ ...". A click routes again with the new list. Loop mode has no checkboxes and sends no avoid list. A change of the list would run the genetic algorithm again and replace the loop.
 
@@ -513,7 +513,7 @@ The default is **OSRM in every case**. Sygic is used only when the request asks 
 
 OSRM refuses a non-empty avoid list. There is no silent fallback: a fallback route would ignore the avoid list and look correct. A saved route with an avoid list still draws when the key is gone, because it needs no routing call. A recompute shows an error. The page matches the marker `AVOID_NEEDS_SYGIC` at the start of that message. It then shows `routeMap.avoidNeedsSygic` with no Retry button, because a retry cannot succeed without the key.
 
-**Provider per request** ([ADR-053](../../DECISIONS.md#adr-053-the-page-picks-the-routing-provider-per-request-the-server-decides-what-exists), [Task 86](../../_tasks/86-route-provider-switch/01-task.md)). The rules above give what EXISTS and the default. The page can pick one of them per request:
+**Provider per request** ([ADR-053](../../DECISIONS.md#adr-053-the-page-picks-the-routing-provider-per-request-the-server-decides-what-exists), [Task 86](../../_tasks/_done/86-route-provider-switch/01-task.md)). The rules above give what EXISTS and the default. The page can pick one of them per request:
 
 - `get_route_providers` returns `{ available, default }`. The page shows the select "Smerovanie: OSRM (OpenStreetMap) / Sygic" only when `available` has two entries.
 - `generate_route`, `route_direct` and `route_round_trip` take an optional `provider`. Absent means the default, OSRM. An avoid list with no provider therefore fails with `AVOID_NEEDS_SYGIC`: there is no silent switch to Sygic. `sygic` without a key fails with `PROVIDER_NEEDS_SYGIC`, and the page shows `routeMap.providerNeedsSygic` with no Retry button.

@@ -10,7 +10,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Supersedes in part [ADR-048](#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for):** the Direct-only scope of the write-back, and the "circular" reason that kept Loop routes out.
 
-**Context:** The `/mapa` page had two buttons. "Uložiť mapu" wrote only `trip_routes`. "Použiť vzdialenosť" wrote `trips.distance_km`, only in Direct mode. A map and its trip could therefore disagree, and a Loop route never wrote its distance. [Task 87](./_tasks/87-save-and-apply-distance/01-task.md).
+**Context:** The `/mapa` page had two buttons. "Uložiť mapu" wrote only `trip_routes`. "Použiť vzdialenosť" wrote `trips.distance_km`, only in Direct mode. A map and its trip could therefore disagree, and a Loop route never wrote its distance. [Task 87](./_tasks/_done/87-save-and-apply-distance/01-task.md).
 
 **Decision:**
 
@@ -33,7 +33,7 @@ The dry-run modal, the replan on commit and the three-field write stay from ADR-
 
 ### ADR-053: The Page Picks the Routing Provider per Request; the Server Decides What Exists
 
-**Context:** The Sygic map does not have the D1 Visnove tunnel (Lietavska Lucka to Dubna Skala). A Sygic route from Spisska Nova Ves to Bratislava through Zilina goes through the old I/18 road in the Strecno gorge (365.256 km). The Sygic primary route goes south through Banska Bystrica. The public OSRM route (356.975 km) uses the tunnel. [ADR-052](#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance) made the provider a server setting only, so a server with a Sygic key could not route with OSRM. [Task 86](./_tasks/86-route-provider-switch/01-task.md).
+**Context:** The Sygic map does not have the D1 Visnove tunnel (Lietavska Lucka to Dubna Skala). A Sygic route from Spisska Nova Ves to Bratislava through Zilina goes through the old I/18 road in the Strecno gorge (365.256 km). The Sygic primary route goes south through Banska Bystrica. The public OSRM route (356.975 km) uses the tunnel. [ADR-052](#adr-052-sygic-is-the-optional-routing-provider-for-per-country-toll-avoidance) made the provider a server setting only, so a server with a Sygic key could not route with OSRM. [Task 86](./_tasks/_done/86-route-provider-switch/01-task.md).
 
 **Decision:**
 
@@ -53,7 +53,7 @@ The dry-run modal, the replan on commit and the three-field write stay from ADR-
 
 ### ADR-052: Sygic Is the Optional Routing Provider for Per-Country Toll Avoidance
 
-**Context:** The user wants Bratislava to Brno with the Slovak D2 and no Czech vignette roads. That needs a router that knows countries. [Task 85](./_tasks/85-route-avoid-tolls-per-country/01-task.md) checked the options on 2026-09-29.
+**Context:** The user wants Bratislava to Brno with the Slovak D2 and no Czech vignette roads. That needs a router that knows countries. [Task 85](./_tasks/_done/85-route-avoid-tolls-per-country/01-task.md) checked the options on 2026-09-29.
 
 **Options considered:**
 1. Public OSRM - rejects `exclude=motorway` and `exclude=toll` with `InvalidValue`. It can know countries only on a self-hosted server with a custom profile.

@@ -15,7 +15,7 @@ vignette roads.
 
 The app routes with the public OSRM demo server
 (`HttpRouteProvider::public()` in
-[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)).
+[dispatcher_async.rs](../../../src-tauri/core/src/server/dispatcher_async.rs)).
 Checked on 2026-09-29, Bratislava to Brno:
 
 | Service | Result |
@@ -87,19 +87,19 @@ Other results:
 
 - R1. The avoid list is fixed when a provider is built. The `RouteProvider`
   trait does not change. OSRM refuses a non-empty avoid list (decision 5).
-- R2. New `SygicRouteProvider` in [route_map/](../../src-tauri/core/src/route_map/):
+- R2. New `SygicRouteProvider` in [route_map/](../../../src-tauri/core/src/route_map/):
   - Sends `origin`, `destination`, `waypoints` (pipe-separated) in `lat,lon`
     order with 6 decimals.
   - Sends `avoid` joined with `|`, `return_possible_avoids=true`,
     `vehicle_type=car`, and the key.
   - Sends `compute_alternatives=true` only for a request with exactly two
     points. This keeps the rule of the alternatives ADR in
-    [DECISIONS.md](../../DECISIONS.md): order as returned, never re-sorted.
+    [DECISIONS.md](../../../DECISIONS.md): order as returned, never re-sorted.
   - Sends a `Referer` header when `SYGIC_REFERER` is set.
   - Maps `route`, `distance.value / 1000`, `duration.value` and the
     `*:tolls` values of `possible_avoids`, plus its own avoid list, into
     `FetchedRoute`.
-  - Keeps the error style of [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs): HTTP status in the message, 429
+  - Keeps the error style of [osrm.rs](../../../src-tauri/core/src/route_map/osrm.rs): HTTP status in the message, 429
     readable by the existing Retry prompt, no panic on a bad client build.
 - R3. `FetchedRoute` gets `possible_avoids: Vec<String>`. OSRM returns an empty
   list.
@@ -112,7 +112,7 @@ Other results:
   both legs. Both legs use the same avoid list.
 - R7. Migration: add `avoid TEXT NOT NULL DEFAULT '[]'` to `trip_routes`, as the
   LAST column (`RouteMapRow` binds by position, see the notes in
-  [schema.rs](../../src-tauri/core/src/schema.rs)).
+  [schema.rs](../../../src-tauri/core/src/schema.rs)).
 - R8. `save_trip_route` and `save_trip_round_trip_route` store the list.
   `get_trip_route` returns it as `RouteMap.avoid`.
 
@@ -159,10 +159,10 @@ Do not write a key or a referer value into this repo. The repo is public.
 
 - ADR through `/decision`: Sygic as an optional routing provider, and why not
   Google, Valhalla or public OSRM.
-- [CHANGELOG.md](../../CHANGELOG.md) through `/changelog`.
-- [route-maps.md](../../docs/features/route-maps.md), the env var table in
-  [CLAUDE.md](../../CLAUDE.md), [README.md](../../README.md) and
-  [README.en.md](../../README.en.md).
+- [CHANGELOG.md](../../../CHANGELOG.md) through `/changelog`.
+- [route-maps.md](../../../docs/features/route-maps.md), the env var table in
+  [CLAUDE.md](../../../CLAUDE.md), [README.md](../../../README.md) and
+  [README.en.md](../../../README.en.md).
 
 ## Open items
 
