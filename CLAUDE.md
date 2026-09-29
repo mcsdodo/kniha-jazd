@@ -375,6 +375,7 @@ Use skills in `.claude/skills/` for workflows:
 | `/decision` | Making architectural choices | Add ADR/BIZ entry to `DECISIONS.md` |
 | `/changelog` | After user-visible or integrator-visible changes | Update `CHANGELOG.md` [Unreleased] section, including the upgrade-notes block |
 | `/verify` | Before claiming "done" | Run tests, check git status, verify changelog |
+| `/move-to-done` | Task is complete or abandoned | Move `_tasks/{NN}-*` to `_tasks/_done/`, repoint its links, update the index |
 | `/release` | Publishing new version | Check upgrade notes, bump version, update changelog, tag, push - CI promotes the tested image |
 | `/plan-review` | Before coding | Review plan for completeness, feasibility, clarity |
 | `/code-review` | After implementation | Review code quality, run tests, iterate until passing |
