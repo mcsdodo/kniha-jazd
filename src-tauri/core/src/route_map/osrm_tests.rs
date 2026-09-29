@@ -340,3 +340,24 @@ async fn a_lone_route_is_returned_as_one_alternative() {
         .unwrap();
     assert_eq!(routes.len(), 1);
 }
+
+/// OSRM knows no countries, so it can offer no avoid values. An empty list is
+/// what hides the checkboxes on the page.
+#[tokio::test]
+async fn osrm_offers_no_avoid_values() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/route/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "routes": [{ "geometry": "_p~iF~ps|U_ulLnnqC", "distance": 1000.0, "duration": 60.0 }]
+        })))
+        .mount(&server)
+        .await;
+
+    let r = HttpRouteProvider::new(server.uri())
+        .fetch(&[(48.935, 20.553), (48.997, 20.591)])
+        .await
+        .unwrap();
+    assert!(r.possible_avoids.is_empty());
+}

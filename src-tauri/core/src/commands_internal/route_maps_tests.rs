@@ -45,6 +45,7 @@ impl RouteProvider for StubProvider {
             polyline: self.polyline.clone(),
             road_km: self.road_km,
             duration_s: self.duration_s,
+            ..Default::default()
         })
     }
 }
@@ -825,7 +826,7 @@ impl RouteProvider for MultiRouteProvider {
 }
 
 fn fetched(polyline: &str, road_km: f64, duration_s: f64) -> FetchedRoute {
-    FetchedRoute { polyline: polyline.into(), road_km, duration_s }
+    FetchedRoute { polyline: polyline.into(), road_km, duration_s, ..Default::default() }
 }
 
 fn direct_waypoints() -> Vec<Waypoint> {

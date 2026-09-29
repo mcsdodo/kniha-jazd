@@ -32,7 +32,7 @@ const USER_AGENT: &str = concat!(
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// A single road-following route as returned by OSRM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FetchedRoute {
     /// Encoded polyline5, as returned by OSRM.
     pub polyline: String,
@@ -42,6 +42,10 @@ pub struct FetchedRoute {
     /// Displayed while choosing between alternatives; never persisted -- the
     /// printed export renders no text, so a stored duration has no reader.
     pub duration_s: f64,
+    /// The `<iso3>:tolls` values this route could avoid, plus the values the
+    /// request already avoided (see `avoid::toll_options`). Always empty for
+    /// OSRM, which knows no countries.
+    pub possible_avoids: Vec<String>,
 }
 
 #[async_trait::async_trait]
@@ -194,6 +198,7 @@ impl HttpRouteProvider {
                 polyline: route.geometry,
                 road_km: route.distance / 1000.0,
                 duration_s: route.duration,
+                possible_avoids: Vec::new(),
             })
             .collect())
     }
