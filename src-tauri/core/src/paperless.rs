@@ -206,13 +206,18 @@ impl PaperlessClient {
         }
         #[derive(Deserialize)] struct Page { next: Option<String>, results: Vec<Raw> }
 
-        let mut url = format!(
+        let first = format!(
             "{}/api/documents/?tags__id__in={},{}&page_size=100",
             self.base_url, fuel_id, car_id
         );
 
+        // `next` only says "there is another page". Never follow it verbatim:
+        // behind a TLS proxy Paperless builds it as http://, and reqwest drops the
+        // Authorization header on the http -> https redirect, so page 2 gets a 401.
         let mut out = Vec::new();
+        let mut page_no = 1;
         loop {
+            let url = if page_no == 1 { first.clone() } else { format!("{}&page={}", first, page_no) };
             let resp = self.http.get(&url).header("Authorization", self.auth()).send().await?;
             if !resp.status().is_success() { return Err(PaperlessError::Http(resp.status().as_u16())); }
             let page: Page = resp.json().await.map_err(|e| PaperlessError::Parse(e.to_string()))?;
@@ -242,7 +247,8 @@ impl PaperlessClient {
                 });
             }
 
-            match page.next { Some(n) => url = n, None => break }
+            if page.next.is_none() { break }
+            page_no += 1;
         }
         Ok(out)
     }

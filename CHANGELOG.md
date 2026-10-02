@@ -21,6 +21,9 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Obraz, zväzok, port:** bez zmeny
 
+### Opravené
+- **Paperless: chyba 401 pri viac ako 100 dokladoch** - ak Paperless beží za reverznou proxy s HTTPS, vracia odkaz na ďalšiu stranu výsledkov s `http://`. Aplikácia tento odkaz nasledovala, pri presmerovaní na `https://` stratila token a Paperless odpovedal "Paperless returned status 401". Aplikácia teraz zostaví adresu každej strany z nastavenej adresy Paperless.
+
 ## [1.2.0] - 2026-09-29
 
 ### Pokyny k aktualizácii

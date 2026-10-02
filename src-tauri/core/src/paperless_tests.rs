@@ -1,6 +1,6 @@
 //! Tests for paperless module.
 use super::*;
-use wiremock::matchers::{method, path, query_param, query_param_is_missing};
+use wiremock::matchers::{header, method, path, query_param, query_param_is_missing};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[test]
@@ -268,6 +268,48 @@ async fn fetch_documents_follows_pagination_next_link() {
         .mount(&mock).await;
 
     let client = PaperlessClient::new(mock_uri, "tok".into());
+    let map = PaperlessFieldMap { total_amount_id: 1, litres_id: 5, receipt_datetime_id: 6 };
+    let docs = client.fetch_invoice_documents(51, 59, &map).await.unwrap();
+    assert_eq!(docs.iter().map(|d| d.id).collect::<Vec<_>>(), vec![1, 2]);
+}
+
+/// Behind a TLS proxy, Paperless builds `next` with the scheme and host it sees
+/// (`http://...`). Following that link verbatim makes reqwest drop the token on
+/// the http -> https redirect, and Paperless answers 401. The client must build
+/// each page URL from its own base URL and use `next` only as a "more pages" flag.
+#[tokio::test]
+async fn fetch_documents_builds_next_page_from_base_url_not_next_link() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET")).and(path("/api/documents/"))
+        .and(query_param("page_size", "100"))
+        .and(query_param_is_missing("page"))
+        .and(header("Authorization", "Token tok"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "count": 2,
+            "next": "http://paperless.invalid:1/api/documents/?page=2&page_size=100&tags__id__in=51%2C59",
+            "results": [{
+                "id": 1, "title": "p1", "tags": [51], "created": "2026-01-01",
+                "custom_fields": [{"value": 10.0, "field": 1}, {"value": "2026-01-01T00:00:00", "field": 6}]
+            }]
+        })))
+        .mount(&mock).await;
+
+    Mock::given(method("GET")).and(path("/api/documents/"))
+        .and(query_param("page", "2"))
+        .and(query_param("page_size", "100"))
+        .and(query_param("tags__id__in", "51,59"))
+        .and(header("Authorization", "Token tok"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "count": 2, "next": null,
+            "results": [{
+                "id": 2, "title": "p2", "tags": [59], "created": "2026-01-02",
+                "custom_fields": [{"value": 20.0, "field": 1}, {"value": "2026-01-02T00:00:00", "field": 6}]
+            }]
+        })))
+        .mount(&mock).await;
+
+    let client = PaperlessClient::new(mock.uri(), "tok".into());
     let map = PaperlessFieldMap { total_amount_id: 1, litres_id: 5, receipt_datetime_id: 6 };
     let docs = client.fetch_invoice_documents(51, 59, &map).await.unwrap();
     assert_eq!(docs.iter().map(|d| d.id).collect::<Vec<_>>(), vec![1, 2]);
