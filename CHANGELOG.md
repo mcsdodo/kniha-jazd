@@ -21,6 +21,15 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Obraz, zväzok, port:** bez zmeny
 
+## [1.3.0] - 2026-10-02
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Obraz, zväzok, port:** bez zmeny
+
 ### Zmenené
 - **Home Assistant: zrozumiteľnejšie rozdiely** - rozdiel tachometra teraz hovorí "X km chýba v knihe jázd" alebo "Y km treba najazdiť". Pri zostatku paliva sa namiesto reálnej hodnoty zobrazí, koľko "treba dotankovať" (alebo o koľko litrov je v nádrži viac), aby reálny stav sedel s vypočítaným zostatkom.
 
