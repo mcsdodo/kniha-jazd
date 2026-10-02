@@ -610,8 +610,10 @@ const en = {
 		// Header display
 		realOdo: 'Real ODO',
 		delta: 'since last trip',
-		deltaMoreInApp: 'km more in app',
-		deltaLessInApp: 'km less in app',
+		deltaMissingInLog: 'km missing in the logbook',
+		deltaToDrive: 'km left to drive',
+		fuelToRefill: 'refill {liters} L',
+		fuelSurplus: '{liters} L more in the tank',
 		stale: 'ago',
 		fetchError: 'HA connection error',
 		loading: 'Loading...',

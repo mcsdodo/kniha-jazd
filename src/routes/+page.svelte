@@ -58,6 +58,7 @@
 
 	// HA fuel level: convert percentage to liters (ADR-013: display formatting in frontend)
 	$: haFuelPercent = haOdoCache?.fuelLevelPercent ?? null;
+	$: haFuelRefill = stats && haFuelLiters !== null ? stats.fuelRemainingLiters - haFuelLiters : 0;
 	$: haFuelLiters = haFuelPercent !== null && $activeVehicleStore?.tankSizeLiters
 		? (haFuelPercent * $activeVehicleStore.tankSizeLiters / 100)
 		: null;
@@ -253,7 +254,7 @@
 						<span class="value">
 							{stats.fuelRemainingLiters.toFixed(1)} L
 							{#if haFuelLiters !== null}
-								<span class="ha-fuel" title={$LL.homeAssistant.realFuelTooltip()}>({haFuelLiters.toFixed(1)} L)</span>
+								<span class="ha-fuel" title={$LL.homeAssistant.realFuelTooltip()}>({haFuelRefill >= 0 ? $LL.homeAssistant.fuelToRefill({ liters: haFuelRefill.toFixed(1) }) : $LL.homeAssistant.fuelSurplus({ liters: Math.abs(haFuelRefill).toFixed(1) })})</span>
 							{:else if $haStore.fuelError && $activeVehicleStore?.haFuelLevelSensor}
 								<span class="ha-fuel-error" title={$LL.homeAssistant.realFuelTooltip()}>({$LL.homeAssistant.fetchError()})</span>
 							{/if}
@@ -276,7 +277,7 @@
 								{haOdoCache.value.toLocaleString('sk-SK')} km
 								{#if haOdoDelta !== null}
 									<span class="delta" class:warning={haOdoWarning}>
-										({Math.abs(haOdoDelta).toFixed(0)} {haOdoDelta < 0 ? $LL.homeAssistant.deltaMoreInApp() : $LL.homeAssistant.deltaLessInApp()})
+										({Math.abs(haOdoDelta).toFixed(0)} {haOdoDelta < 0 ? $LL.homeAssistant.deltaToDrive() : $LL.homeAssistant.deltaMissingInLog()})
 									</span>
 								{/if}
 							</span>

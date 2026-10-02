@@ -1991,13 +1991,23 @@ type RootTranslation = {
 		 */
 		delta: string
 		/**
-		 * k​m​ ​v​i​a​c​ ​v​ ​a​p​p​k​e
+		 * k​m​ ​c​h​ý​b​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d
 		 */
-		deltaMoreInApp: string
+		deltaMissingInLog: string
 		/**
-		 * k​m​ ​m​e​n​e​j​ ​v​ ​a​p​p​k​e
+		 * k​m​ ​t​r​e​b​a​ ​n​a​j​a​z​d​i​ť
 		 */
-		deltaLessInApp: string
+		deltaToDrive: string
+		/**
+		 * t​r​e​b​a​ ​d​o​t​a​n​k​o​v​a​ť​ ​{​l​i​t​e​r​s​}​ ​L
+		 * @param {string} liters
+		 */
+		fuelToRefill: RequiredParams<'liters'>
+		/**
+		 * v​ ​n​á​d​r​ž​i​ ​j​e​ ​o​ ​{​l​i​t​e​r​s​}​ ​L​ ​v​i​a​c
+		 * @param {string} liters
+		 */
+		fuelSurplus: RequiredParams<'liters'>
 		/**
 		 * p​r​e​d
 		 */
@@ -4295,13 +4305,21 @@ export type TranslationFunctions = {
 		 */
 		delta: () => LocalizedString
 		/**
-		 * km viac v appke
+		 * km chýba v knihe jázd
 		 */
-		deltaMoreInApp: () => LocalizedString
+		deltaMissingInLog: () => LocalizedString
 		/**
-		 * km menej v appke
+		 * km treba najazdiť
 		 */
-		deltaLessInApp: () => LocalizedString
+		deltaToDrive: () => LocalizedString
+		/**
+		 * treba dotankovať {liters} L
+		 */
+		fuelToRefill: (arg: { liters: string }) => LocalizedString
+		/**
+		 * v nádrži je o {liters} L viac
+		 */
+		fuelSurplus: (arg: { liters: string }) => LocalizedString
 		/**
 		 * pred
 		 */
