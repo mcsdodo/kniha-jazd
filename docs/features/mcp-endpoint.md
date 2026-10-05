@@ -180,6 +180,7 @@ MCP client -> POST /mcp -> rmcp service -> tool -> spawn_blocking -> LogbookRead
 | [journeys/tests.rs](../../src-tauri/core/src/journeys/tests.rs) | The journey rules, all edge cases |
 | [server/mod.rs](../../src-tauri/core/src/server/mod.rs) | The `/mcp` route |
 | [mcp-endpoint.spec.ts](../../tests/integration/specs/tier2/mcp-endpoint.spec.ts) | `tools/list` over HTTP |
+| [home-place.spec.ts](../../tests/integration/specs/tier2/home-place.spec.ts) | The home icon on Miesta, the precondition of `list_journeys` |
 
 ## Design Decisions
 

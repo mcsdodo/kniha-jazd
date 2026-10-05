@@ -222,6 +222,7 @@ Trip form (save)
 | [TripRow.svelte](../../src/lib/components/TripRow.svelte) | Place choice and `find_place` on save |
 | [types.ts](../../src/lib/types.ts) / [api.ts](../../src/lib/api.ts) | `Place`, `PlaceSource`; the RPC wrappers |
 | [places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts) | Tier 2 flows |
+| [home-place.spec.ts](../../tests/integration/specs/tier2/home-place.spec.ts) | Tier 2 flow: the home icon |
 
 ## Design Decisions
 
@@ -258,8 +259,9 @@ Trip form (save)
   child rows) and the parse of a Nominatim answer (`wiremock`).
 - **Integration tests** ([places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts))
   own the UI flows: add, rename, delete, the disabled delete of a used place and the
-  trip form that accepts only an existing place. The home icon flow (mark, replace, reload)
-  is in the same spec.
+  trip form that accepts only an existing place.
+- **Integration test** ([home-place.spec.ts](../../tests/integration/specs/tier2/home-place.spec.ts))
+  owns the home icon flow: mark, replace and reload.
 
 No test reaches Nominatim. What the geocoder answers for a real address is not this
 project's behaviour.

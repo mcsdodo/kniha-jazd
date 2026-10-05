@@ -181,7 +181,7 @@ a scratch folder first, otherwise the binary falls back to `/data`.
 
 **RPC Dispatcher:** [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) + [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
 - Maps command names to `_internal` functions — one `match` arm per command, currently
-  62 sync and 14 async (count the arms in `dispatch_sync` / `dispatch_async` rather than
+  66 sync and 14 async (count the arms in `dispatch_sync` / `dispatch_async` rather than
   trusting this number; it moves whenever a command is added or removed)
 - Sync commands dispatched via `spawn_blocking`
 - Async commands (HA integration, export, `get_trip_grid_data`) awaited directly
