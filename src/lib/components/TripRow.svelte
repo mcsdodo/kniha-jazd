@@ -307,11 +307,12 @@
 	// Locations come from the place book (Task 75), not this vehicle's routes:
 	// the book spans every vehicle, and folds spellings that normalise alike into
 	// one entry so the list cannot offer two variants of the same place.
-	// Always the place name — normalisedName is a folded lookup key and would be
+	// Always the place name -- normalisedName is a folded lookup key and would be
 	// written verbatim into the trip if suggested (ADR-034).
-	// The backend orders the book for the Settings list (unplaced first, then by
-	// use). Autocomplete renders whatever order it is handed, and a work queue is
-	// no order to look a place up in, so re-sort alphabetically for display.
+	// The backend orders the book as a work queue (unplaced first, then by use).
+	// Autocomplete renders whatever order it is handed, and a work queue is no
+	// order to look a place up in, so re-sort alphabetically for display. The
+	// list itself is managed on the Miesta tab.
 	$: locationSuggestions = places.map((p) => p.name).sort();
 
 	// The id of the place whose name equals `name` exactly, or ''. An exact match
@@ -323,20 +324,38 @@
 		return places.find((p) => p.name === name)?.id ?? '';
 	}
 
+	// Message shown under the row when a save is blocked on a place; '' hides it.
+	let placeError = '';
+
 	// Resolve both endpoints at save time and write the ids (and the canonical
 	// place names) into formData. Returns false, writing nothing, when an
-	// endpoint matches no place: the caller aborts the save.
+	// endpoint matches no place or the lookup fails: the caller aborts the save
+	// and placeError says why.
 	async function resolveEndpoints(): Promise<boolean> {
-		const resolve = async (text: string): Promise<Place | null> =>
-			places.find((p) => p.name === text) ?? (await findPlace(text));
-		const origin = await resolve(formData.origin);
-		const destination = await resolve(formData.destination);
-		if (!origin || !destination) return false;
-		formData.originPlaceId = origin.id;
-		formData.origin = origin.name;
-		formData.destinationPlaceId = destination.id;
-		formData.destination = destination.name;
-		return true;
+		placeError = '';
+		try {
+			const resolve = async (text: string): Promise<Place | null> =>
+				places.find((p) => p.name === text) ?? (await findPlace(text));
+			const origin = await resolve(formData.origin);
+			if (!origin) {
+				placeError = $LL.trips.unknownPlace({ name: formData.origin });
+				return false;
+			}
+			const destination = await resolve(formData.destination);
+			if (!destination) {
+				placeError = $LL.trips.unknownPlace({ name: formData.destination });
+				return false;
+			}
+			formData.originPlaceId = origin.id;
+			formData.origin = origin.name;
+			formData.destinationPlaceId = destination.id;
+			formData.destination = destination.name;
+			return true;
+		} catch (error) {
+			console.error('Place lookup failed:', error);
+			placeError = $LL.trips.placeLookupFailed();
+			return false;
+		}
 	}
 
 	// Find matching route and auto-fill distance
@@ -572,7 +591,7 @@
 
 	async function doSave() {
 		// Ids come from the typed text at save time, never from an earlier pick.
-		// An endpoint that matches no place aborts the save (Task 6 adds the message).
+		// An endpoint that matches no place aborts the save and sets placeError.
 		if (!(await resolveEndpoints())) return;
 		// The frontend sends exactly what the user typed -- no clamp, no
 		// derivation. The backend derives the odometer from the anchor and
@@ -878,6 +897,15 @@
 			</button>
 		</td>
 	</tr>
+	{#if placeError}
+		<tr class="place-error-row">
+			<td colspan="99">
+				<div class="place-error" data-testid="trip-place-error" role="alert">
+					{placeError} <a href="/miesta">{$LL.trips.unknownPlaceHint()}</a>
+				</div>
+			</td>
+		</tr>
+	{/if}
 {:else if trip}
 	<tr
 		on:dblclick={handleEdit}
@@ -1038,6 +1066,11 @@
 {/if}
 
 <style>
+	.place-error {
+		color: var(--accent-danger);
+		padding: 0.25rem 0.5rem;
+	}
+
 	tr {
 		cursor: default;
 		transition: background-color 0.2s;

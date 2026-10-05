@@ -31,8 +31,9 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
-import { waitForTripGrid } from '../../utils/assertions';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc, getTripGridData, ensurePlace } from '../../utils/db';
+import { waitForTripGrid, TripGrid } from '../../utils/assertions';
+import { fillTripForm, fillField } from '../../utils/forms';
 
 /** What `place-coords` renders for a row with no coordinate yet (em dash). */
 const NO_COORDS = '—';
@@ -584,5 +585,66 @@ describe('Tier 2: Place Book', () => {
       expect(await visiblePlaceNames()).toEqual([]);
       expect(await $('[data-testid="places-empty"]').isExisting()).toBe(false);
     });
+  });
+});
+
+describe('Trip Form Uses Existing Places', () => {
+  beforeEach(async () => {
+    await waitForAppReady();
+    await ensureLanguage('en');
+  });
+
+  async function openFormForNewVehicle(plate: string): Promise<string> {
+    const vehicle = await seedVehicle({
+      name: `Place Form ${plate}`,
+      licensePlate: plate,
+      initialOdometer: 10000,
+      tankSizeLiters: 50,
+      tpConsumption: 6.5,
+    });
+    await setActiveVehicle(vehicle.id as string);
+    await navigateTo('trips');
+    await waitForTripGrid();
+    await openNewTripRow();
+    return vehicle.id as string;
+  }
+
+  it('should block a save when the origin names no place', async () => {
+    const vehicleId = await openFormForNewVehicle('PLC-F01');
+    await fillTripForm({
+      startDatetime: `${YEAR}-03-01T08:00`,
+      origin: 'Iota Square, Testville', // fillTripForm calls ensurePlace
+      destination: 'Iota Square, Testville',
+      distanceKm: 5,
+      purpose: 'Business trip',
+    });
+    // Overwrite the origin with text that matches no place.
+    await fillField(TripGrid.tripForm.origin, 'Nowhere At All');
+    await (await $('tr.editing .icon-btn.save')).click();
+
+    const error = await $('[data-testid="trip-place-error"]');
+    await error.waitForDisplayed({ timeout: 5000 });
+    expect(await error.getText()).toContain('Nowhere At All');
+    expect((await getTripGridData(vehicleId, YEAR)).trips.length).toBe(0);
+  });
+
+  it('should save typed text that matches a place in another case', async () => {
+    await ensurePlace('Kappa Plaza, Testville');
+    const vehicleId = await openFormForNewVehicle('PLC-F02');
+    await fillTripForm({
+      startDatetime: `${YEAR}-03-01T08:00`,
+      origin: 'Kappa Plaza, Testville',
+      destination: 'Kappa Plaza, Testville',
+      distanceKm: 5,
+      purpose: 'Business trip',
+    });
+    await fillField(TripGrid.tripForm.origin, 'KAPPA PLAZA, TESTVILLE');
+    await (await $('tr.editing .icon-btn.save')).click();
+
+    await browser.waitUntil(
+      async () => (await getTripGridData(vehicleId, YEAR)).trips.length === 1,
+      { timeout: 10000, timeoutMsg: 'the trip with a case-folded origin was not saved' }
+    );
+    expect((await getTripGridData(vehicleId, YEAR)).trips[0].origin).toBe('Kappa Plaza, Testville');
   });
 });

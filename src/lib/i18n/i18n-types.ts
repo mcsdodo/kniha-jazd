@@ -310,6 +310,19 @@ type RootTranslation = {
 	}
 	trips: {
 		/**
+		 * M​i​e​s​t​o​ ​"​{​n​a​m​e​}​"​ ​n​e​e​x​i​s​t​u​j​e​.
+		 * @param {string} name
+		 */
+		unknownPlace: RequiredParams<'name'>
+		/**
+		 * P​r​i​d​a​j​t​e​ ​h​o​ ​n​a​ ​k​a​r​t​e​ ​M​i​e​s​t​a​.
+		 */
+		unknownPlaceHint: string
+		/**
+		 * M​i​e​s​t​o​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​o​v​e​r​i​ť​.​ ​S​k​ú​s​t​e​ ​t​o​ ​z​n​o​v​a​.
+		 */
+		placeLookupFailed: string
+		/**
 		 * J​a​z​d​y
 		 */
 		title: string
@@ -2674,6 +2687,18 @@ export type TranslationFunctions = {
 		batterySection: () => LocalizedString
 	}
 	trips: {
+		/**
+		 * Miesto "{name}" neexistuje.
+		 */
+		unknownPlace: (arg: { name: string }) => LocalizedString
+		/**
+		 * Pridajte ho na karte Miesta.
+		 */
+		unknownPlaceHint: () => LocalizedString
+		/**
+		 * Miesto sa nepodarilo overiť. Skúste to znova.
+		 */
+		placeLookupFailed: () => LocalizedString
 		/**
 		 * Jazdy
 		 */

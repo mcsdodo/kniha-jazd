@@ -103,6 +103,9 @@ const sk = {
 
 	// Trip grid
 	trips: {
+		unknownPlace: 'Miesto "{name:string}" neexistuje.',
+		unknownPlaceHint: 'Pridajte ho na karte Miesta.',
+		placeLookupFailed: 'Miesto sa nepodarilo overiť. Skúste to znova.',
 		title: 'Jazdy',
 		count: '({count:number})',
 		newRecord: 'Nový záznam',

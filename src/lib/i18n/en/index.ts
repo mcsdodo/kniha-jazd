@@ -103,6 +103,9 @@ const en = {
 
 	// Trip grid
 	trips: {
+		unknownPlace: 'The place "{name}" does not exist.',
+		unknownPlaceHint: 'Add it on the Places tab.',
+		placeLookupFailed: 'The place could not be checked. Try again.',
 		title: 'Trips',
 		count: '({count})',
 		newRecord: 'New record',
