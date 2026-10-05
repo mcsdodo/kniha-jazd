@@ -9,6 +9,8 @@ use std::collections::HashSet;
 use chrono::{NaiveDate, NaiveDateTime};
 use uuid::Uuid;
 
+use crate::models::Trip;
+
 #[derive(Debug, Clone)]
 pub struct Leg {
     pub id: Uuid,
@@ -19,6 +21,23 @@ pub struct Leg {
     pub destination_name: String,
     pub distance_km: f64,
     pub purpose: String,
+}
+
+impl Leg {
+    /// `destination_name` is the place name (joined by `Trip::from_row`), so
+    /// journeys dedupe places by name.
+    pub fn from_trip(trip: &Trip) -> Self {
+        Self {
+            id: trip.id,
+            start: trip.start_datetime,
+            odometer: trip.odometer,
+            origin_place_id: trip.origin_place_id,
+            destination_place_id: trip.destination_place_id,
+            destination_name: trip.destination.clone(),
+            distance_km: trip.distance_km,
+            purpose: trip.purpose.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -10,7 +10,7 @@ use crate::models::{
     SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
 };
 use crate::schema::{places, routes, settings, trip_routes, trips, vehicles};
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
 use diesel::result::QueryResult;
@@ -461,6 +461,31 @@ impl Database {
             .filter(dsl::start_datetime.ge(&start_date))
             .filter(dsl::start_datetime.le(&end_date))
             .order((dsl::start_datetime.desc(), dsl::created_at.asc()))
+            .load::<TripRow>(conn)?;
+        let names = place_names(conn)?;
+
+        Ok(rows.into_iter().map(|r| Trip::from_row(r, &names)).collect())
+    }
+
+    /// Trips of a vehicle whose start is in `from..=to` (both days inclusive),
+    /// oldest first. Same "YYYY-MM-DDTHH:MM:SS" string range as the year query.
+    pub fn get_trips_for_vehicle_in_range(
+        &self,
+        vehicle_id: &str,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> QueryResult<Vec<Trip>> {
+        use crate::schema::trips::dsl;
+        let conn = &mut *self.conn.lock().unwrap();
+
+        let start = format!("{}T00:00:00", from.format("%Y-%m-%d"));
+        let end = format!("{}T23:59:59", to.format("%Y-%m-%d"));
+
+        let rows = dsl::trips
+            .filter(dsl::vehicle_id.eq(vehicle_id))
+            .filter(dsl::start_datetime.ge(&start))
+            .filter(dsl::start_datetime.le(&end))
+            .order((dsl::start_datetime.asc(), dsl::odometer.asc()))
             .load::<TripRow>(conn)?;
         let names = place_names(conn)?;
 

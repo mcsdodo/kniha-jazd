@@ -95,9 +95,12 @@ async fn list_vehicles_returns_the_vehicle_fields() {
 /// Anything else (for example `clear_place_internal`) fails the guard.
 const ALLOWED_READS: &[&str] = &[
     // read functions
-    "get_vehicles_internal",
+    "get_vehicles_internal", "get_vehicle", "get_trips_for_vehicle_in_range",
+    "get_trips_for_vehicle", "get_route_maps_for_trips", "get_home_place",
+    // pure journey grouping (no database access)
+    "group_journeys", "overlaps", "Journey", "Leg",
     // types and the reader itself
-    "LogbookReader", "ReadError", "Database", "Vehicle",
+    "LogbookReader", "ReadError", "Database", "Vehicle", "Trip",
 ];
 
 /// Names after `marker` up to the end of the path or `use` list. A brace list
