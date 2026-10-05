@@ -20,7 +20,6 @@ const sk = {
 	app: {
 		title: 'Kniha Jázd',
 		nav: {
-			logbook: 'Kniha jázd',
 			receipts: 'Doklady',
 			settings: 'Nastavenia',
 			places: 'Miesta',

@@ -20,7 +20,6 @@ const en = {
 	app: {
 		title: 'Trip Logbook',
 		nav: {
-			logbook: 'Logbook',
 			receipts: 'Receipts',
 			settings: 'Settings',
 			places: 'Places',

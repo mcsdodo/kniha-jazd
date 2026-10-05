@@ -190,6 +190,24 @@ describe('Tier 2: Place Book', () => {
     await forgetSpecPlaces();
   });
 
+  describe('Header Title Link', () => {
+    it('should return to the logbook when the header title is clicked', async () => {
+      await navigateTo('miesta');
+      await (await $('[data-testid="places-list"]')).waitForDisplayed({ timeout: 10000 });
+
+      const title = await $('[data-testid="nav-logbook"]');
+      await title.waitForExist({ timeout: 5000 });
+      expect(await title.getText()).toBe(await $('h1').getText());
+      await title.click();
+
+      await browser.waitUntil(async () => new URL(await browser.getUrl()).pathname === '/', {
+        timeout: 10000,
+        timeoutMsg: 'the title link did not open the logbook',
+      });
+      expect(await $('[data-testid="nav-logbook"]').getAttribute('class')).toContain('active');
+    });
+  });
+
   describe('Placing From The Dialog', () => {
     /**
      * The dialog itself writes nothing (ADR-032): it hands the coordinate back

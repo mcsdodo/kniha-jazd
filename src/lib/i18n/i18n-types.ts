@@ -67,10 +67,6 @@ type RootTranslation = {
 		title: string
 		nav: {
 			/**
-			 * K​n​i​h​a​ ​j​á​z​d
-			 */
-			logbook: string
-			/**
 			 * D​o​k​l​a​d​y
 			 */
 			receipts: string
@@ -2495,10 +2491,6 @@ export type TranslationFunctions = {
 		 */
 		title: () => LocalizedString
 		nav: {
-			/**
-			 * Kniha jázd
-			 */
-			logbook: () => LocalizedString
 			/**
 			 * Doklady
 			 */

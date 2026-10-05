@@ -123,9 +123,8 @@
 	<header>
 		<div class="header-content">
 			<div class="header-left">
-				<h1>{$LL.app.title()}</h1>
+				<h1><a href="/" class="title-link" class:active={$page.url.pathname === '/'} data-testid="nav-logbook">{$LL.app.title()}</a></h1>
 				<nav class="main-nav">
-					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>{$LL.app.nav.logbook()}</a>
 					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<InvoiceIndicator /></a>
 					<a href="/miesta" class="nav-link" class:active={$page.url.pathname === '/miesta'} data-testid="nav-places">{$LL.app.nav.places()}</a>
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
@@ -245,6 +244,24 @@
 		font-weight: 600;
 	}
 
+	.title-link {
+		display: inline-block;
+		padding: 0.5rem 1rem;
+		border-radius: 4px;
+		color: inherit;
+		text-decoration: none;
+		white-space: nowrap;
+		transition: all 0.2s;
+	}
+
+	.title-link:hover {
+		background: rgba(255, 255, 255, 0.1);
+	}
+
+	.title-link.active {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
 	.header-left {
 		display: flex;
 		align-items: center;
@@ -262,6 +279,7 @@
 		padding: 0.5rem 1rem;
 		border-radius: 4px;
 		font-weight: 500;
+		white-space: nowrap;
 		transition: all 0.2s;
 	}
 
