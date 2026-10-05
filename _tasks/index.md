@@ -2,12 +2,14 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-09-29 (Tasks [85](_done/85-route-avoid-tolls-per-country/), [86](_done/86-route-provider-switch/) and [87](_done/87-save-and-apply-distance/) are archived. 85 is released in v1.1.0. 86 is on `origin/main` and not released. 87 is committed on local `main` and not pushed.)
+**Last updated:** 2026-10-05 (Tasks [88](88-places-as-entities/) and [89](89-home-place-mcp/) are planned. 89 depends on 88.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 89 | [Home Place + MCP](89-home-place-mcp/) | 📋 Planning | Home mark on a place, journey grouping in core, read-only MCP at `/mcp` (stateless streamable HTTP, `rmcp`). Depends on 88 |
+| 88 | [Places As Entities](88-places-as-entities/) | 📋 Planning | Places get an ID; trips and routes reference places by ID; Miesta tab; a trip accepts only an existing place. One-way migration |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
