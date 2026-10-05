@@ -41,6 +41,8 @@ export interface Trip {
 	endDatetime: string | null; // NaiveDateTime serialized as string, or null
 	origin: string;
 	destination: string;
+	originPlaceId: string;
+	destinationPlaceId: string;
 	distanceKm: number;
 	odometer: number;
 	purpose: string;
@@ -145,6 +147,8 @@ export interface Route {
 	vehicleId: string;
 	origin: string;
 	destination: string;
+	originPlaceId: string;
+	destinationPlaceId: string;
 	distanceKm: number;
 	usageCount: number;
 	lastUsed: string;
@@ -217,6 +221,8 @@ export interface CopiedTripDefaults {
 	endDatetime: string | null; // ISO, or null if the source had no end
 	origin: string;
 	destination: string;
+	originPlaceId: string;
+	destinationPlaceId: string;
 	distanceKm: number;
 	purpose: string;
 }
@@ -601,25 +607,18 @@ export interface RouteMap {
 export type PlaceSource = 'geocoder' | 'manual';
 
 /**
- * One row of the Miesta list: a place trips name, and its coordinate once a
- * human has confirmed one.
- *
- * `displayName` is the spelling trips already use, verbatim — never the
- * geocoder's rendering (ADR-034). The autocomplete offers this string, so a
- * geocoder's official name here would write a *new* spelling into a trip and
- * regrow the place-name fragmentation the data cleanup removed.
- *
- * `uses` counts trip endpoints, not trips: A → B adds 1 to each, and a trip
- * whose origin and destination are the same place adds 2 to it. Hence the
- * Slovak label $LL.places.uses() — "výskytov" (occurrences), not "jázd".
+ * One place in the book (Task 88). `lat`/`lon` are null only for a place the
+ * migration made from a trip string without a coordinate.
+ * `uses` counts trip endpoints: A -> B adds 1 to each place.
  */
 export interface Place {
-	displayName: string;
+	id: string;
+	name: string;
 	normalisedName: string;
+	lat: number | null;
+	lon: number | null;
+	source: PlaceSource | null;
 	uses: number;
-	lat: number | null;  // null until a human places it
-	lon: number | null;  // null until a human places it
-	source: PlaceSource | null; // null while unplaced
 }
 
 /** One geocoder match offered while placing. Mirrors the Rust `Candidate` —

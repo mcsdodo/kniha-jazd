@@ -3,10 +3,9 @@
 	import { vehiclesStore, activeVehicleStore } from '$lib/stores/vehicles';
 	import VehicleModal from '$lib/components/VehicleModal.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import PlaceModal from '$lib/components/PlaceModal.svelte';
 	import * as api from '$lib/api';
 	import { toast } from '$lib/stores/toast';
-	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention, Place, PlaceSource } from '$lib/types';
+	import type { Vehicle, Settings, BackupInfo, CleanupPreview, BackupRetention } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { localeStore } from '$lib/stores/locale';
 	import type { Locales } from '$lib/i18n/i18n-types';
@@ -506,7 +505,6 @@
 			await loadBackups();
 			await loadRetentionSettings();
 			await checkVehiclesWithTrips();
-			await loadPlaces();
 
 			// Load app version (works in desktop and web/server mode)
 			appVersion = await getAppVersion();
@@ -836,99 +834,6 @@
 		if (bytes < 1024) return `${bytes} B`;
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-	}
-
-	// ── Places (Miesta) ──────────────────────────────────────────────────────
-	// Reference data curated once: every distinct place string the trips use,
-	// with the coordinate a human confirmed for it. The backend already orders
-	// the list (unplaced first, then most-used, then by name) - render it in the
-	// order it arrives, never re-sort here (ADR-008).
-	let places: Place[] = [];
-	let placeFilter = '';
-	// Set by the row's edit button; drives the map dialog.
-	let editingPlace: Place | null = null;
-
-	// Display formatting of backend data, not business logic.
-	$: placedCount = places.filter((place) => place.lat !== null && place.lon !== null).length;
-	// Lowercase with the invariant rules - no locale argument. The only
-	// locale-sensitive case-folding that matters is Turkish dotted/dotless i, and
-	// there is no Turkish UI; for Slovak this is identical to a locale-aware fold.
-	$: placeFilterNeedle = placeFilter.trim().toLowerCase();
-	// Match both spellings the row already carries. `normalisedName` is the
-	// backend's `places::normalise` output - lowercased, diacritics folded,
-	// whitespace collapsed - so an ASCII query finds a name written with
-	// diacritics, which is the case that actually occurs: production data shows
-	// users type "Kosice", not "Košice" (see `normalize_location` in db.rs).
-	// Folding the needle here instead would mean a second, divergent
-	// copy of `normalise` in TypeScript, which ADR-008 forbids - so the needle
-	// stays unfolded and the two spellings are reached by two routes: a query
-	// typed with diacritics matches `displayName`, an ASCII one matches
-	// `normalisedName`. That asymmetry is deliberate; do not "complete" it with a
-	// JS folding table.
-	$: visiblePlaces = placeFilterNeedle
-		? places.filter(
-				(place) =>
-					place.displayName.toLowerCase().includes(placeFilterNeedle) ||
-					place.normalisedName.includes(placeFilterNeedle)
-			)
-		: places;
-
-	async function loadPlaces() {
-		try {
-			places = await api.listPlaces();
-		} catch (error) {
-			console.error('Failed to load places:', error);
-		}
-	}
-
-	function isPlaced(place: Place): boolean {
-		return place.lat !== null && place.lon !== null;
-	}
-
-	/** Three decimals is ~100 m - enough to recognise a place, short enough to read. */
-	function formatCoordinates(place: Place): string {
-		if (place.lat === null || place.lon === null) return '';
-		return `${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}`;
-	}
-
-	function openEditPlace(place: Place) {
-		editingPlace = place;
-	}
-
-	function closePlaceModal() {
-		editingPlace = null;
-	}
-
-	/** The dialog hands back only the coordinate a human confirmed. The name
-	 *  stored against it is `displayName` - the spelling the trips already use,
-	 *  never the geocoder's rendering of the address (ADR-034), which would seed
-	 *  a second spelling into the trip autocomplete. */
-	async function handleSavePlace(coords: { lat: number; lon: number; source: PlaceSource }) {
-		const place = editingPlace;
-		if (!place) return;
-		try {
-			await api.savePlace(place.displayName, coords.lat, coords.lon, coords.source);
-			editingPlace = null;
-			await loadPlaces();
-			toast.success($LL.places.saved());
-		} catch (error) {
-			console.error('Failed to save place:', error);
-			toast.error($LL.places.saveError({ error: String(error) }));
-		}
-	}
-
-	async function handleClearPlace() {
-		const place = editingPlace;
-		if (!place) return;
-		try {
-			await api.clearPlace(place.displayName);
-			editingPlace = null;
-			await loadPlaces();
-			toast.success($LL.places.cleared());
-		} catch (error) {
-			console.error('Failed to clear place:', error);
-			toast.error($LL.places.clearError({ error: String(error) }));
-		}
 	}
 </script>
 
@@ -1375,78 +1280,6 @@
 			</div>
 		</section>
 
-		<!-- Places Section -->
-		<section class="settings-section" id="places" data-testid="places-section">
-			<h2 class="places-heading">
-				<span>{$LL.places.title()}</span>
-				<span class="places-counter" data-testid="places-counter">
-					{$LL.places.placed({ count: placedCount, total: places.length })}
-				</span>
-			</h2>
-			<div class="section-content">
-				{#if places.length > 0}
-					<input
-						type="text"
-						class="places-filter"
-						data-testid="places-filter"
-						bind:value={placeFilter}
-						placeholder={$LL.places.filterPlaceholder()}
-						aria-label={$LL.places.filterPlaceholder()}
-					/>
-					<div class="place-list" data-testid="places-list">
-						{#each visiblePlaces as place (place.normalisedName)}
-							<div
-								class="place-item"
-								data-testid="place-item"
-								data-place-name={place.displayName}
-								data-place-placed={isPlaced(place)}
-							>
-								<div class="place-info">
-									<strong>
-										{#if !isPlaced(place)}
-											<span
-												class="unplaced-icon"
-												data-testid="place-unplaced-icon"
-												title={$LL.places.unplaced()}
-											>⚠</span>
-										{/if}
-										<span data-testid="place-name">{place.displayName}</span>
-									</strong>
-									<span class="details" data-testid="place-uses">
-										{$LL.places.uses({ count: place.uses })}
-									</span>
-								</div>
-								<div class="place-actions">
-									{#if isPlaced(place)}
-										<span class="place-coords" data-testid="place-coords">
-											{formatCoordinates(place)}
-										</span>
-									{:else}
-										<span class="place-coords missing" data-testid="place-coords">—</span>
-									{/if}
-									<button
-										class="button-small"
-										data-testid="place-edit"
-										on:click={() => openEditPlace(place)}
-									>
-										{$LL.common.edit()}
-									</button>
-								</div>
-							</div>
-						{:else}
-							<!-- Distinct from places-empty: there are places, the filter just
-							     matches none of them. -->
-							<p class="placeholder" data-testid="places-no-matches">
-								{$LL.places.noMatches()}
-							</p>
-						{/each}
-					</div>
-				{:else}
-					<p class="placeholder" data-testid="places-empty">{$LL.places.empty()}</p>
-				{/if}
-			</div>
-		</section>
-
 		<!-- Company Settings Section -->
 		<section class="settings-section">
 			<h2>{$LL.settings.companySection()}</h2>
@@ -1637,26 +1470,6 @@
 	/>
 {/if}
 
-{#if editingPlace}
-	<!-- The key is what forces a fresh dialog when it is re-targeted, so the
-	     dialog cannot keep a previous place's pin. PlaceModal seeds its pending
-	     coordinate from the prop exactly once, so swapping the prop under a live
-	     instance would leave place A's coordinate in it under place B's name -
-	     the wrong-pin outcome ADR-032 exists to prevent. The #if above does not
-	     prevent that on its own: nothing traps focus, so a keyboard user can tab
-	     to another row's edit button behind the open dialog, and editingPlace
-	     goes straight from A to B without ever being null. normalisedName is the
-	     row identity - the same key the list's #each uses. -->
-	{#key editingPlace.normalisedName}
-		<PlaceModal
-			place={editingPlace}
-			onSave={handleSavePlace}
-			onClear={handleClearPlace}
-			onClose={closePlaceModal}
-		/>
-	{/key}
-{/if}
-
 {#if vehicleToDelete}
 	<ConfirmModal
 		title={$LL.confirm.deleteVehicleTitle()}
@@ -1832,87 +1645,6 @@
 	.badge.default {
 		background-color: var(--bg-surface-alt);
 		color: var(--text-secondary);
-	}
-
-	.places-heading {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 1rem;
-	}
-
-	.places-counter {
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--text-secondary);
-	}
-
-	.places-filter {
-		padding: 0.5rem 0.75rem;
-		border: 1px solid var(--border-input);
-		border-radius: 4px;
-		font-size: 0.875rem;
-		font-family: inherit;
-		background-color: var(--input-bg);
-		color: var(--text-primary);
-	}
-
-	.places-filter:focus {
-		outline: none;
-		border-color: var(--accent-primary);
-		box-shadow: 0 0 0 3px var(--input-focus-shadow);
-	}
-
-	.place-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.place-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 1rem;
-		padding: 0.625rem 1rem;
-		border: 1px solid var(--border-default);
-		border-radius: 4px;
-		background: var(--bg-surface-alt);
-	}
-
-	.place-info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		min-width: 0;
-	}
-
-	.place-info strong {
-		font-size: 0.9375rem;
-		font-weight: 500;
-		color: var(--text-primary);
-	}
-
-	.unplaced-icon {
-		color: var(--warning-highlight);
-	}
-
-	.place-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-shrink: 0;
-	}
-
-	.place-coords {
-		font-size: 0.8125rem;
-		font-variant-numeric: tabular-nums;
-		color: var(--text-secondary);
-		white-space: nowrap;
-	}
-
-	.place-coords.missing {
-		color: var(--text-muted);
 	}
 
 	.db-path-display {

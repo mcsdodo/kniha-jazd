@@ -186,6 +186,20 @@ export interface SeedTripData {
 }
 
 /**
+ * The id of the place called `name`, created at a fixed position if missing.
+ * Lets specs keep naming places as strings (Task 88). No cache: the DB reset
+ * between specs deletes places, so a cached id would point at nothing.
+ */
+export async function ensurePlace(name: string): Promise<string> {
+  const found = await rpc<{ id: string } | null>('find_place', { name });
+  if (found) return found.id;
+  const created = await rpc<{ id: string }>('create_place', {
+    name, lat: 48.15, lon: 17.11, source: 'manual',
+  });
+  return created.id;
+}
+
+/**
  * Seed a trip via the backend RPC endpoint
  * @returns The created trip object with ID
  */
@@ -203,8 +217,8 @@ export async function seedTrip(data: SeedTripData): Promise<Trip> {
     vehicleId: data.vehicleId,
     startDatetime: data.startDatetime,
     endDatetime: endDatetime,
-    origin: data.origin,
-    destination: data.destination,
+    originPlaceId: await ensurePlace(data.origin),
+    destinationPlaceId: await ensurePlace(data.destination),
     distanceKm: data.distanceKm,
     odometer: data.odometer,
     purpose: data.purpose,
@@ -426,7 +440,15 @@ export async function updateTrip(args: Record<string, unknown>): Promise<Trip> {
   if (!ready) {
     throw new Error('App not ready');
   }
-  return rpc<Trip>('update_trip', args);
+  // Specs name places as strings; the command takes ids (Task 88).
+  const withIds = { ...args };
+  if (typeof args.origin === 'string' && args.originPlaceId === undefined) {
+    withIds.originPlaceId = await ensurePlace(args.origin);
+  }
+  if (typeof args.destination === 'string' && args.destinationPlaceId === undefined) {
+    withIds.destinationPlaceId = await ensurePlace(args.destination);
+  }
+  return rpc<Trip>('update_trip', withIds);
 }
 
 /**

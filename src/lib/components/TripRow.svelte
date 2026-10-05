@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Trip, Route, Place, PreviewResult, VehicleType, SuggestedFillup, CopiedTripDefaults } from '$lib/types';
 	import { onDestroy, onMount } from 'svelte';
-	import { getInferredTripTimeForRoute } from '$lib/api';
+	import { getInferredTripTimeForRoute, findPlace } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
 	import { toast } from '$lib/stores/toast';
 	import LL from '$lib/i18n/i18n-svelte';
@@ -158,6 +158,8 @@
 		endDatetime: trip ? toDatetimeLocal(trip.endDatetime) : defaultStartDatetime,
 		origin: trip?.origin || '',
 		destination: trip?.destination || '',
+		originPlaceId: trip?.originPlaceId ?? '',
+		destinationPlaceId: trip?.destinationPlaceId ?? '',
 		distanceKm: trip?.distanceKm ?? (isNew ? null : 0),
 		odometer: trip?.odometer ?? (isNew ? null : 0),
 		purpose: trip?.purpose || '',
@@ -190,6 +192,8 @@
 			endDatetime: toDatetimeLocal(trip.endDatetime),
 			origin: trip.origin,
 			destination: trip.destination,
+			originPlaceId: trip.originPlaceId,
+			destinationPlaceId: trip.destinationPlaceId,
 			distanceKm: trip.distanceKm,
 			odometer: trip.odometer,
 			purpose: trip.purpose,
@@ -303,19 +307,46 @@
 	// Locations come from the place book (Task 75), not this vehicle's routes:
 	// the book spans every vehicle, and folds spellings that normalise alike into
 	// one entry so the list cannot offer two variants of the same place.
-	// Always displayName — normalisedName is a folded lookup key and would be
+	// Always the place name — normalisedName is a folded lookup key and would be
 	// written verbatim into the trip if suggested (ADR-034).
 	// The backend orders the book for the Settings list (unplaced first, then by
 	// use). Autocomplete renders whatever order it is handed, and a work queue is
 	// no order to look a place up in, so re-sort alphabetically for display.
-	$: locationSuggestions = places.map((p) => p.displayName).sort();
+	$: locationSuggestions = places.map((p) => p.name).sort();
+
+	// The id of the place whose name equals `name` exactly, or ''. An exact match
+	// against the list the user picks from is not a fold: typed text in another
+	// case or spelling stays '' here and resolveEndpoints() asks find_place, so
+	// the fold stays in Rust (ADR-008). Computed on demand, never stored, so an
+	// id from an earlier pick cannot outlive the text it belonged to.
+	function exactPlaceId(name: string): string {
+		return places.find((p) => p.name === name)?.id ?? '';
+	}
+
+	// Resolve both endpoints at save time and write the ids (and the canonical
+	// place names) into formData. Returns false, writing nothing, when an
+	// endpoint matches no place: the caller aborts the save.
+	async function resolveEndpoints(): Promise<boolean> {
+		const resolve = async (text: string): Promise<Place | null> =>
+			places.find((p) => p.name === text) ?? (await findPlace(text));
+		const origin = await resolve(formData.origin);
+		const destination = await resolve(formData.destination);
+		if (!origin || !destination) return false;
+		formData.originPlaceId = origin.id;
+		formData.origin = origin.name;
+		formData.destinationPlaceId = destination.id;
+		formData.destination = destination.name;
+		return true;
+	}
 
 	// Find matching route and auto-fill distance
 	function tryAutoFillDistance() {
-		if (!formData.origin || !formData.destination) return;
+		const originPlaceId = exactPlaceId(formData.origin);
+		const destinationPlaceId = exactPlaceId(formData.destination);
+		if (!originPlaceId || !destinationPlaceId) return;
 
 		const matchingRoute = routes.find(
-			(r) => r.origin === formData.origin && r.destination === formData.destination
+			(r) => r.originPlaceId === originPlaceId && r.destinationPlaceId === destinationPlaceId
 		);
 
 		// Defensive guard: ignore routes with absurd stored distances (> 9999 km).
@@ -364,6 +395,8 @@
 		lastStartDatetime = formData.startDatetime;
 		formData.origin = copyFrom.origin;
 		formData.destination = copyFrom.destination;
+		formData.originPlaceId = copyFrom.originPlaceId;
+		formData.destinationPlaceId = copyFrom.destinationPlaceId;
 		// The backend zeroes an implausible distance rather than copying it;
 		// null (not 0) leaves the field blank and lets auto-fill take over.
 		formData.distanceKm = copyFrom.distanceKm > 0 ? copyFrom.distanceKm : null;
@@ -374,7 +407,7 @@
 		// jitter never overwrites them. Picking a DIFFERENT route changes the
 		// key, so inference correctly resumes — and manualKmEdit stays false so
 		// tryAutoFillDistance replaces the seeded km to match.
-		inferredKey = `${copyFrom.origin}␟${copyFrom.destination}`;
+		inferredKey = `${copyFrom.originPlaceId}\u241F${copyFrom.destinationPlaceId}`;
 		// Populate the live consumption/zostatok preview, matching what
 		// tryAutoFillDistance does when it auto-fills km.
 		onPreviewRequest(formData.distanceKm ?? 0, null, formData.fullTank);
@@ -385,15 +418,17 @@
 	// datetimes (jitter is applied in Rust per ADR-008).
 	async function tryInferTimes() {
 		if (!isNew || !vehicleId) return;
-		if (!formData.origin || !formData.destination) return;
-		const key = `${formData.origin}\u241F${formData.destination}`;
+		const originPlaceId = exactPlaceId(formData.origin);
+		const destinationPlaceId = exactPlaceId(formData.destination);
+		if (!originPlaceId || !destinationPlaceId) return;
+		const key = `${originPlaceId}\u241F${destinationPlaceId}`;
 		if (key === inferredKey) return;
 		inferredKey = key;
 
 		const rowDate = formData.startDatetime.slice(0, 10); // "YYYY-MM-DD"
 		try {
 			const result = await getInferredTripTimeForRoute(
-				vehicleId, formData.origin, formData.destination, rowDate
+				vehicleId, originPlaceId, destinationPlaceId, rowDate
 			);
 			if (result) {
 				// Snapshot pre-overwrite values so undo can restore them.
@@ -536,6 +571,9 @@
 	}
 
 	async function doSave() {
+		// Ids come from the typed text at save time, never from an earlier pick.
+		// An endpoint that matches no place aborts the save (Task 6 adds the message).
+		if (!(await resolveEndpoints())) return;
 		// The frontend sends exactly what the user typed -- no clamp, no
 		// derivation. The backend derives the odometer from the anchor and
 		// cascades every later row (tasks 1-7, ADR-008); a row that sits below

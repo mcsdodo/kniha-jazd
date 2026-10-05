@@ -6,6 +6,7 @@
  */
 
 import { Nav, Settings, TripGrid } from './assertions';
+import { ensurePlace } from './db';
 
 // =============================================================================
 // Generic Form Helpers
@@ -393,6 +394,9 @@ export async function fillTripForm(options: TripFormOptions): Promise<void> {
   // Fill basic fields
   // Note: datetime-local input requires format "YYYY-MM-DDTHH:MM"
   await fillField(TripGrid.tripForm.date, startDatetime);
+  // The place must exist when the form looks it up at save time (Task 88).
+  await ensurePlace(origin);
+  await ensurePlace(destination);
   await fillField(TripGrid.tripForm.origin, origin);
   await fillField(TripGrid.tripForm.destination, destination);
   await fillNumericField(TripGrid.tripForm.distance, distanceKm);

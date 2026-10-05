@@ -97,8 +97,8 @@ export async function updateTripCascade(
 	id: string,
 	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
 	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
-	origin: string,
-	destination: string,
+	originPlaceId: string,
+	destinationPlaceId: string,
 	distanceKm: number,
 	odometer: number,
 	purpose: string,
@@ -120,8 +120,8 @@ export async function updateTripCascade(
 		id,
 		startDatetime,
 		endDatetime,
-		origin,
-		destination,
+		originPlaceId,
+		destinationPlaceId,
 		distanceKm,
 		odometer,
 		purpose,
@@ -166,8 +166,8 @@ export async function createTripCascade(
 	vehicleId: string,
 	startDatetime: string, // Full ISO datetime "YYYY-MM-DDTHH:MM"
 	endDatetime: string,   // Full ISO datetime "YYYY-MM-DDTHH:MM"
-	origin: string,
-	destination: string,
+	originPlaceId: string,
+	destinationPlaceId: string,
 	distanceKm: number,
 	purpose: string,
 	// Fuel fields (ICE + PHEV)
@@ -188,8 +188,8 @@ export async function createTripCascade(
 		vehicleId,
 		startDatetime,
 		endDatetime,
-		origin,
-		destination,
+		originPlaceId,
+		destinationPlaceId,
 		distanceKm,
 		purpose,
 		fuelLiters,
@@ -400,10 +400,10 @@ export async function getAppMode(): Promise<AppModeInfo> {
 
 // Time inference
 export async function getInferredTripTimeForRoute(
-	vehicleId: string, origin: string, destination: string, rowDate: string
+	vehicleId: string, originPlaceId: string, destinationPlaceId: string, rowDate: string
 ): Promise<InferredTripTime | null> {
 	return await apiCall('get_inferred_trip_time_for_route', {
-		vehicleId, origin, destination, rowDate,
+		vehicleId, originPlaceId, destinationPlaceId, rowDate,
 	});
 }
 
@@ -673,15 +673,22 @@ export async function geocodePlace(query: string): Promise<GeocodeCandidate[]> {
 	return await apiCall('geocode_place', { query });
 }
 
-export async function savePlace(
-	displayName: string,
-	lat: number,
-	lon: number,
-	source: PlaceSource
-): Promise<void> {
-	return await apiCall('save_place', { displayName, lat, lon, source });
+export async function createPlace(name: string, lat: number, lon: number, source: PlaceSource): Promise<Place> {
+	return await apiCall('create_place', { name, lat, lon, source });
 }
 
-export async function clearPlace(displayName: string): Promise<void> {
-	return await apiCall('clear_place', { displayName });
+export async function renamePlace(id: string, name: string): Promise<Place> {
+	return await apiCall('rename_place', { id, name });
+}
+
+export async function setPlacePosition(id: string, lat: number, lon: number, source: PlaceSource): Promise<Place> {
+	return await apiCall('set_place_position', { id, lat, lon, source });
+}
+
+export async function deletePlace(id: string): Promise<void> {
+	return await apiCall('delete_place', { id });
+}
+
+export async function findPlace(name: string): Promise<Place | null> {
+	return await apiCall('find_place', { name });
 }

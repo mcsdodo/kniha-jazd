@@ -15,7 +15,7 @@
 		routeDirect,
 		routeRoundTrip,
 		applySavedRouteDistance,
-		savePlace
+		setPlacePosition
 	} from '$lib/api';
 	import type {
 		GeneratedRoute,
@@ -41,7 +41,7 @@
 	import LL from '$lib/i18n/i18n-svelte';
 
 	/** Just enough to route from an endpoint -- not the full place-book `Place`. */
-	type Endpoint = { lat: number; lon: number; displayName: string };
+	type Endpoint = { lat: number; lon: number; name: string };
 
 	// Map view before the first route arrives. Every render calls fitBounds, so
 	// this is only ever visible for the moment between mount and first draw.
@@ -813,23 +813,24 @@
 		if (points.length < 2) return;
 		const first = points[0];
 		const last = points[points.length - 1];
-		resolvedOrigin = { lat: first.lat, lon: first.lon, displayName: first.name ?? '' };
-		resolvedDestination = { lat: last.lat, lon: last.lon, displayName: last.name ?? '' };
+		resolvedOrigin = { lat: first.lat, lon: first.lon, name: first.name ?? '' };
+		resolvedDestination = { lat: last.lat, lon: last.lon, name: last.name ?? '' };
 	}
 
 	/** `RouteStart` only returns a `Place` when the book holds both lat and
 	 *  lon (see `placed_endpoint` in Rust), so the assertion here reflects
 	 *  that invariant rather than guessing. */
 	function toEndpoint(place: Place): Endpoint {
-		return { lat: place.lat!, lon: place.lon!, displayName: place.displayName };
+		return { lat: place.lat!, lon: place.lon!, name: place.name };
 	}
 
 	/** A shell `Place` for the endpoint the book has no coordinate for yet --
-	 *  only `displayName` is real, the rest are values PlaceModal never reads
-	 *  for an unplaced entry (its own `canClear` stays false throughout). */
+	 *  only `id` and `name` are real, the rest are values PlaceModal never reads
+	 *  for an unplaced entry. */
 	function unplacedShell(field: 'origin' | 'destination'): Place {
 		return {
-			displayName: field === 'origin' ? (trip?.origin ?? '') : (trip?.destination ?? ''),
+			id: field === 'origin' ? (trip?.originPlaceId ?? '') : (trip?.destinationPlaceId ?? ''),
+			name: field === 'origin' ? (trip?.origin ?? '') : (trip?.destination ?? ''),
 			normalisedName: '',
 			uses: 0,
 			lat: null,
@@ -932,11 +933,11 @@
 	function waypointsFromEndpoints(): Waypoint[] {
 		if (!resolvedOrigin || !resolvedDestination) return [];
 		return [
-			{ lat: resolvedOrigin.lat, lon: resolvedOrigin.lon, name: resolvedOrigin.displayName },
+			{ lat: resolvedOrigin.lat, lon: resolvedOrigin.lon, name: resolvedOrigin.name },
 			{
 				lat: resolvedDestination.lat,
 				lon: resolvedDestination.lon,
-				name: resolvedDestination.displayName
+				name: resolvedDestination.name
 			}
 		];
 	}
@@ -948,15 +949,15 @@
 	 * On success the book now has the entry, so re-running `startForTrip`
 	 * picks it up and continues to the next unplaced endpoint, or routes.
 	 * On failure the dialog is left open (its pin survives) so Save can be
-	 * retried -- most likely cause is read-only mode, where `save_place` is
+	 * retried -- most likely cause is read-only mode, where `set_place_position` is
 	 * always refused.
 	 */
 	async function handlePlaceSaved(coords: { lat: number; lon: number; source: PlaceSource }) {
 		const field = unplacedField;
 		if (!field || !trip) return;
-		const displayName = field === 'origin' ? trip.origin : trip.destination;
+		const placeId = field === 'origin' ? trip.originPlaceId : trip.destinationPlaceId;
 		try {
-			await savePlace(displayName, coords.lat, coords.lon, coords.source);
+			await setPlacePosition(placeId, coords.lat, coords.lon, coords.source);
 			toast.success($LL.places.saved());
 			unplacedField = null;
 			await startForTrip();
@@ -1605,7 +1606,6 @@
 		<PlaceModal
 			place={unplacedShell(unplacedField)}
 			onSave={handlePlaceSaved}
-			onClear={closePlaceDialog}
 			onClose={closePlaceDialog}
 		/>
 	{/key}

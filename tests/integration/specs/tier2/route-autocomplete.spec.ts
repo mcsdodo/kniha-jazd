@@ -12,6 +12,7 @@ import {
   seedVehicle,
   seedTrip,
   setActiveVehicle,
+  ensurePlace,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { waitForTripGrid } from '../../utils/assertions';
@@ -354,6 +355,9 @@ describe('Tier 2: Route Autocomplete', () => {
         }
       }, '[data-testid="trip-start-datetime"]', `${year}-03-15T08:00`);
 
+      // Task 88: save resolves typed text to a place, so the places must exist.
+      await ensurePlace('TestOrigin');
+      await ensurePlace('TestDest');
       const originInput = await $('[data-testid="trip-origin"]');
       await originInput.setValue('TestOrigin');
 
@@ -505,6 +509,10 @@ describe('Tier 2: Route Autocomplete', () => {
         '[data-testid="trip-start-datetime"]',
         `${year}-04-01T00:00`
       );
+
+      // Task 88: save resolves typed text to a place, so the places must exist.
+      await ensurePlace('Dropdown');
+      await ensurePlace('AnotherPlace');
 
       // Type in origin - this should trigger autocomplete dropdown
       const originInput = await $('[data-testid="trip-origin"]');

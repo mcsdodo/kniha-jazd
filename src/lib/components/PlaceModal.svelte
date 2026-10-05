@@ -9,15 +9,14 @@
 	let {
 		place,
 		onSave,
-		onClear,
 		onClose
 	}: {
-		place: Place;
+		/** A place may be name-only (a new place has no id and no position yet). */
+		place: Pick<Place, 'name'> & Partial<Place>;
 		/** Hands the confirmed coordinate to the page, which owns the write. This
 		 *  dialog imports no write command at all, so a geocoder answer physically
 		 *  cannot reach the database before a human presses Save (ADR-032). */
 		onSave: (coords: { lat: number; lon: number; source: PlaceSource }) => void;
-		onClear: () => void;
 		onClose: () => void;
 	} = $props();
 
@@ -37,13 +36,13 @@
 	// That once-only seeding is also why the settings page wraps this dialog in
 	// {#key}: a `place` swapped in under a live instance would leave the
 	// previous place's coordinate sitting here, under the new place's name.
-	let lat = $state<number | null>(untrack(() => place.lat));
-	let lon = $state<number | null>(untrack(() => place.lon));
-	let source = $state<PlaceSource | null>(untrack(() => place.source));
+	let lat = $state<number | null>(untrack(() => place.lat ?? null));
+	let lon = $state<number | null>(untrack(() => place.lon ?? null));
+	let source = $state<PlaceSource | null>(untrack(() => place.source ?? null));
 
 	// Prefilled with the name the trips use so walking the list is one click per
 	// row. It is only ever a query — the search still waits for a submit.
-	let query = $state(untrack(() => place.displayName));
+	let query = $state(untrack(() => place.name));
 	let candidates = $state<GeocodeCandidate[]>([]);
 	let searching = $state(false);
 	let searchFailed = $state(false);
@@ -61,8 +60,6 @@
 	let pinIcon: DivIcon | null = null;
 
 	let canSave = $derived(lat !== null && lon !== null && source !== null);
-	// Clearing only means something for a coordinate that is already stored.
-	let canClear = $derived(place.lat !== null && place.lon !== null);
 
 	onMount(async () => {
 		// Leaflet touches `window` at import time — keep it out of the module graph.
@@ -220,13 +217,13 @@
 	<div
 		class="modal-content"
 		data-testid="place-modal"
-		data-place-name={place.displayName}
+		data-place-name={place.name}
 		data-place-source={source ?? ''}
 	>
 		<div class="modal-header">
 			<h2>
 				{$LL.places.editTitle()}
-				<span class="place-name" data-testid="place-modal-name">{place.displayName}</span>
+				<span class="place-name" data-testid="place-modal-name">{place.name}</span>
 			</h2>
 			<button
 				class="close-button"
@@ -288,15 +285,6 @@
 		</div>
 
 		<div class="modal-footer">
-			{#if canClear}
-				<button
-					class="button button-danger"
-					data-testid="place-modal-clear"
-					onclick={onClear}
-				>
-					{$LL.places.clear()}
-				</button>
-			{/if}
 			<button class="button button-secondary" data-testid="place-modal-cancel" onclick={onClose}>
 				{$LL.common.cancel()}
 			</button>

@@ -198,6 +198,21 @@ async function resetDatabase(serverUrl: string): Promise<void> {
           }
         } catch { /* ignore */ }
       }
+    }
+
+    // Task 88: places are records now and outlive their trips. Delete them so
+    // each spec starts with an empty Miesta list. A place that a trip outside
+    // the three checked years still uses refuses the delete; ignore that.
+    // This runs after the trips of EVERY vehicle are gone, so no checked trip
+    // can hold a place.
+    const places = await rpc('list_places') as Array<{ id: string }>;
+    for (const p of places) {
+      try {
+        await rpc('delete_place', { id: p.id });
+      } catch { /* ignore: still in use */ }
+    }
+
+    for (const v of vehicles) {
       try {
         await rpc('delete_vehicle', { id: v.id });
       } catch { /* ignore */ }
