@@ -98,8 +98,9 @@ runs for each vehicle. It sorts the legs by `start_datetime`, then by `odometer`
      home to home loop). The new departure starts a new chain.
 7. Legs outside a chain are ignored.
 
-A journey **overlaps** the range if one day of it is in the range. An incomplete journey
-is open towards the future. The reader groups all legs first and filters after, so a
+A journey **overlaps** the range if one day of it is in the range. A broken chain lasts
+until the day of the leg from home that broke it. Only the chain that is open after the
+last leg of the vehicle is open towards the future. The reader groups all legs first and filters after, so a
 journey that starts before `date_from` is found.
 
 **Example 1: a complete journey.** Home is `Home St 1, Hometown`.

@@ -230,6 +230,35 @@ fn broken_chain_is_incomplete_and_next_departure_starts_a_new_one() {
 }
 
 #[test]
+fn broken_chain_is_not_open_after_the_next_departure() {
+    // The broken chain has no end, but the car left home again on 2025-03-10.
+    // So the chain cannot reach any range after that departure.
+    let mut fx = Fixture::new();
+    fx.leg("2025-03-01 07:00", HOME, "City A", 357.0, "Project");
+    fx.leg("2025-03-02 07:00", "City A", "City B", 100.0, "Project");
+    fx.leg("2025-03-10 07:00", HOME, "Village", 52.0, "Delivery");
+    let broken = fx.run().remove(0);
+
+    assert!(!broken.complete);
+    assert_eq!(broken.end, None);
+    assert!(!overlaps(&broken, d("2026-10-01"), d("2026-10-31")));
+    assert!(!overlaps(&broken, d("2025-03-11"), d("2025-03-31")));
+    assert!(overlaps(&broken, d("2025-03-05"), d("2025-03-05")));
+    assert!(overlaps(&broken, d("2025-03-10"), d("2025-03-10")));
+}
+
+#[test]
+fn chain_broken_by_a_loop_is_not_open_after_the_loop() {
+    let mut fx = Fixture::new();
+    fx.leg("2025-03-01 07:00", HOME, "City A", 357.0, "Project");
+    fx.leg("2025-03-02 07:00", "City A", "City B", 100.0, "Project");
+    fx.leg("2025-03-10 07:00", HOME, HOME, 40.0, "Errands");
+    let broken = fx.run().remove(0);
+
+    assert!(!overlaps(&broken, d("2025-04-01"), d("2025-04-30")));
+}
+
+#[test]
 fn loop_after_open_chain_closes_it_as_incomplete() {
     let mut fx = Fixture::new();
     fx.leg("2026-09-01 07:00", HOME, "City A", 357.0, "Project");

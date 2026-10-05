@@ -51,6 +51,10 @@ pub struct Journey {
     pub purposes: Vec<String>,
     pub complete: bool,
     pub leg_ids: Vec<Uuid>,
+    /// Start of the leg from home that broke an incomplete chain. The chain
+    /// cannot last past it. None for a complete journey and for the chain
+    /// that is open at the end of the data.
+    pub broken_at: Option<NaiveDateTime>,
 }
 
 /// Group the legs of ONE vehicle into journeys away from `home`.
@@ -62,7 +66,8 @@ pub struct Journey {
 ///    leg starts at home (a departure or a loop).
 /// 4. A home -> home leg is never a journey.
 /// 5. A chain with no return leg is incomplete: at the end of the data, or when
-///    a chain of two or more legs meets a new leg from home.
+///    a chain of two or more legs meets a new leg from home. That leg is the
+///    upper bound of the broken chain (`broken_at`).
 /// 6. Legs outside a chain are ignored.
 pub fn group_journeys(
     vehicle_id: Uuid,
@@ -87,7 +92,7 @@ pub fn group_journeys(
             // One leg: a day trip (rule 3). Two or more: incomplete (rule 5).
             if let Some(chain) = open.take() {
                 if chain.len() >= 2 {
-                    journeys.push(build(vehicle_id, &chain, home, false));
+                    journeys.push(build(vehicle_id, &chain, home, false, Some(leg.start)));
                 }
             }
             if !to_home && !round_trip_ids.contains(&leg.id) {
@@ -96,19 +101,25 @@ pub fn group_journeys(
         } else if to_home {
             if let Some(mut chain) = open.take() {
                 chain.push(leg);
-                journeys.push(build(vehicle_id, &chain, home, true));
+                journeys.push(build(vehicle_id, &chain, home, true, None));
             }
         } else if let Some(chain) = open.as_mut() {
             chain.push(leg);
         }
     }
     if let Some(chain) = open {
-        journeys.push(build(vehicle_id, &chain, home, false));
+        journeys.push(build(vehicle_id, &chain, home, false, None));
     }
     journeys
 }
 
-fn build(vehicle_id: Uuid, chain: &[&Leg], home: Uuid, complete: bool) -> Journey {
+fn build(
+    vehicle_id: Uuid,
+    chain: &[&Leg],
+    home: Uuid,
+    complete: bool,
+    broken_at: Option<NaiveDateTime>,
+) -> Journey {
     let start = chain[0].start;
     let end = complete.then(|| chain[chain.len() - 1].start);
     let nights = end.map(|e| (e.date() - start.date()).num_days());
@@ -135,13 +146,16 @@ fn build(vehicle_id: Uuid, chain: &[&Leg], home: Uuid, complete: bool) -> Journe
         purposes,
         complete,
         leg_ids: chain.iter().map(|l| l.id).collect(),
+        broken_at,
     }
 }
 
-/// True if any day of the journey is inside `from..=to`. An incomplete
-/// journey has no end, so it is open towards the future.
+/// True if any day of the journey is inside `from..=to`. A broken chain lasts
+/// until the departure that broke it. Only the chain at the end of the data
+/// has no upper bound, so it is open towards the future.
 pub fn overlaps(journey: &Journey, from: NaiveDate, to: NaiveDate) -> bool {
-    journey.start.date() <= to && journey.end.map_or(true, |e| e.date() >= from)
+    let last = journey.end.or(journey.broken_at);
+    journey.start.date() <= to && last.map_or(true, |e| e.date() >= from)
 }
 
 #[cfg(test)]

@@ -39,7 +39,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 5. **Loop.** A leg from home to home is never a journey.
 6. **Incomplete journey.** A chain with no return leg is incomplete (`complete = false`, `end = null`, `nights = null`). This happens when the chain is open after the last leg of the vehicle. It also happens when a chain of **two or more legs** meets a new leg from home (a new departure or a home to home loop). A **single leg** followed by a leg from home is a day trip. The user decided this on 2026-10-05.
 7. **Other legs.** Legs outside a chain are ignored.
-8. **Overlap.** The grouping reads all legs of the vehicle and filters the journeys after. A journey that overlaps the date range is returned, also when it starts before `date_from`. An incomplete journey is open towards the future.
+8. **Overlap.** The grouping reads all legs of the vehicle and filters the journeys after. A journey that overlaps the date range is returned, also when it starts before `date_from`. A broken chain (rule 6, second case) lasts until the day of the leg from home that broke it: the car left home again, so the chain cannot reach a later range. Only the chain that is open after the last leg of the vehicle is open towards the future. The code review of 2026-10-05 found that the first version left every broken chain open, so a journey from March 2025 showed in every later range.
 9. **No home place is an error**, not an empty list. An empty list would look like "nothing to check".
 10. **No accounting rule.** The app does not decide which journey needs a travel order. The consumer applies its own rule to `nights` and `total_km`.
 
