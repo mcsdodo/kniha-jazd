@@ -53,6 +53,14 @@ pub struct Database {
     conn: Mutex<SqliteConnection>,
 }
 
+/// Result of `Database::delete_place_if_unused`.
+#[derive(Debug, PartialEq)]
+pub enum DeletePlaceOutcome {
+    Deleted,
+    InUse(i64),
+    NotFound,
+}
+
 impl Database {
     pub fn new(path: PathBuf) -> Result<Self, diesel::ConnectionError> {
         // Detect a pre-existing database file BEFORE establishing the
@@ -1277,6 +1285,29 @@ impl Database {
         diesel::update(places::table.filter(places::id.eq(id)))
             .set((places::name.eq(name), places::normalised_name.eq(normalised_name)))
             .execute(conn)
+    }
+
+    /// Delete a place that no trip points at. Routes on it go too: a route with
+    /// no trip is invisible (get_routes_for_vehicle joins trips), so it is not a
+    /// use a person could see or act on.
+    pub fn delete_place_if_unused(&self, id: &str) -> QueryResult<DeletePlaceOutcome> {
+        let conn = &mut *self.conn.lock().unwrap();
+        conn.transaction(|tx| {
+            let uses: i64 = trips::table
+                .filter(trips::origin_place_id.eq(id).or(trips::destination_place_id.eq(id)))
+                .count()
+                .get_result(tx)?;
+            if uses > 0 {
+                return Ok(DeletePlaceOutcome::InUse(uses));
+            }
+            diesel::delete(
+                routes::table
+                    .filter(routes::origin_place_id.eq(id).or(routes::destination_place_id.eq(id))),
+            )
+            .execute(tx)?;
+            let n = diesel::delete(places::table.filter(places::id.eq(id))).execute(tx)?;
+            Ok(if n == 1 { DeletePlaceOutcome::Deleted } else { DeletePlaceOutcome::NotFound })
+        })
     }
 
     pub fn set_place_position(

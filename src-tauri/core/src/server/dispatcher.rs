@@ -955,6 +955,42 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let v = crate::commands_internal::list_places_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "create_place" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args { name: String, lat: f64, lon: f64, source: crate::models::PlaceSource }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::create_place_internal(&state.db, &state.app_state, a.name, a.lat, a.lon, a.source)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "rename_place" => {
+            #[derive(serde::Deserialize)]
+            struct Args { id: String, name: String }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::rename_place_internal(&state.db, &state.app_state, a.id, a.name)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "set_place_position" => {
+            #[derive(serde::Deserialize)]
+            struct Args { id: String, lat: f64, lon: f64, source: crate::models::PlaceSource }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::set_place_position_internal(&state.db, &state.app_state, a.id, a.lat, a.lon, a.source)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "delete_place" => {
+            #[derive(serde::Deserialize)]
+            struct Args { id: String }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::delete_place_internal(&state.db, &state.app_state, a.id)?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+        "find_place" => {
+            #[derive(serde::Deserialize)]
+            struct Args { name: String }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::find_place_internal(&state.db, a.name)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
 
         // ====================================================================
         // Unknown
@@ -1042,6 +1078,62 @@ mod tests {
                 .unwrap_err();
             assert!(!err.contains("file-ha"), "omitting the pin revealed the secret: {err}");
         });
+    }
+
+    /// The frontend sends these exact camelCase argument names.
+    #[test]
+    fn place_commands_round_trip_with_frontend_argument_names() {
+        let state = test_state();
+        let created = dispatch_sync(
+            "create_place",
+            json!({ "name": "Nitra", "lat": 48.3, "lon": 18.1, "source": "geocoder" }),
+            &state,
+        )
+        .unwrap();
+        let id = created["id"].as_str().unwrap().to_string();
+        assert_eq!(created["name"], "Nitra");
+        assert_eq!(created["source"], "geocoder");
+
+        let renamed = dispatch_sync("rename_place", json!({ "id": id, "name": "Nitra 2" }), &state).unwrap();
+        assert_eq!(renamed["name"], "Nitra 2");
+
+        let moved = dispatch_sync(
+            "set_place_position",
+            json!({ "id": id, "lat": 48.31, "lon": 18.09, "source": "manual" }),
+            &state,
+        )
+        .unwrap();
+        assert_eq!(moved["id"], id.as_str());
+        assert_eq!(moved["source"], "manual");
+
+        let found = dispatch_sync("find_place", json!({ "name": "nitra 2" }), &state).unwrap();
+        assert_eq!(found["id"], id.as_str());
+
+        dispatch_sync("delete_place", json!({ "id": id }), &state).unwrap();
+        let gone = dispatch_sync("find_place", json!({ "name": "Nitra 2" }), &state).unwrap();
+        assert!(gone.is_null());
+    }
+
+    #[test]
+    fn an_unknown_place_source_is_rejected_at_argument_parsing() {
+        let state = test_state();
+        assert!(dispatch_sync(
+            "create_place",
+            json!({ "name": "Nitra", "lat": 48.3, "lon": 18.1, "source": "gps" }),
+            &state,
+        )
+        .is_err());
+        let p = crate::commands_internal::create_place_internal(
+            &state.db, &state.app_state, "Levice".into(), 48.2, 18.6, crate::models::PlaceSource::Manual,
+        )
+        .unwrap();
+        assert!(dispatch_sync(
+            "set_place_position",
+            json!({ "id": p.id.to_string(), "lat": 48.2, "lon": 18.6, "source": "gps" }),
+            &state,
+        )
+        .is_err());
+        assert!(state.db.all_places().unwrap().len() == 1, "nothing was created");
     }
 
     #[test]
