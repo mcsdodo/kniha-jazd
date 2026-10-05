@@ -11,15 +11,15 @@ The commands are served over the HTTP API like every other command — see
    map-pin icon beside the existing insert-above and delete actions. The pin is outlined
    when the trip has no saved map and filled when it has one.
 2. **Click the pin.** A new browser tab opens at `/mapa?trip={id}`.
-3. **The backend decides the mode from the row's own places**, nothing the user picks: if
-   "Odkiaľ" and "Kam" point at the same place (the same place ID), the map opens as a **loop** sized to the trip's
-   recorded distance (unchanged from V1); otherwise it opens as a **direct route** between
-   the two. See [Two modes, chosen in Rust](#two-modes-chosen-in-rust).
+3. **The backend decides the mode from the row's own places.** The user picks nothing.
+   If "Odkiaľ" and "Kam" have the same place ID, the map opens as a **loop** sized to the
+   trip's recorded distance (unchanged from V1). Otherwise it opens as a **direct route**
+   between the two. See [Two modes, chosen in Rust](#two-modes-chosen-in-rust).
 4. **A direct route needs both endpoints placed.** Endpoint coordinates come from the place
    book ([Task 75](../../_tasks/_done/75-place-book/)), found by the trip's
-   `origin_place_id` and `destination_place_id`, never from a fresh geocode. A place from
-   an old database can have no position. If either endpoint has none, the shared place
-   dialog opens right there on the page; saving a pin resumes routing immediately, with no navigation away from the map. See
+   `origin_place_id` and `destination_place_id`. The app never geocodes them again.
+   A place from an old database can have no position. If an endpoint has none, the shared
+   place dialog opens on the page. Saving a pin resumes routing at once. See
    [Endpoints come from the place book](#endpoints-come-from-the-place-book).
 5. **A direct route offers alternatives** when a leg has exactly two points: a row of up to
    three options, fastest first, each labelled with its deviation from the trip's recorded
@@ -302,7 +302,7 @@ design.
 | [src/lib/components/TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Opens the map tab; keeps pin state fresh over `BroadcastChannel` |
 | [src-tauri/core/src/route_map/](../../src-tauri/core/src/route_map/) | Dataset, genetic algorithm, OSRM client (fetch + alternatives), polyline codec, tiles, rasteriser |
 | [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | The six commands, `mode_for`, `insert_waypoint`, round-trip normalisation, export attachment assembly |
-| [src-tauri/core/src/places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | Text normalisation shared by `mode_for` and the place book |
+| [src-tauri/core/src/places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | Text normalisation the place book keys on; `mode_for` compares place IDs |
 | [src-tauri/core/src/commands_internal/statistics.rs](../../src-tauri/core/src/commands_internal/statistics.rs) | Adds the "which trips have maps" set to the grid data |
 | [src-tauri/core/src/export.rs](../../src-tauri/core/src/export.rs) | Attachment page markup and print CSS |
 | [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `Waypoint`, `RouteMap`, `RouteMode`, `RouteStart` |
@@ -386,14 +386,16 @@ V1 always drew a loop from a home base, which matched the navigation-app test tr
 built against, where a loop is the correct route shape. [Task 72](../../_tasks/_done/72-route-map-origin-destination/)
 replaces that blanket rule: `mode_for` ([route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs))
 compares `origin_place_id` against `destination_place_id` -- equal means Loop, unchanged
-from V1; different means Direct, a fresh point-to-point route. Since [task 88](../../_tasks/88-places-as-entities/)
-the comparison is an ID equality: two spellings of one place are one place, so no string fold is involved. See
+from V1; different means Direct, a fresh point-to-point route. Since
+[task 88](../../_tasks/88-places-as-entities/) the comparison is an ID equality. No string
+fold is involved. See
 [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust).
 
 The frontend never makes this comparison itself (ADR-008): the map page reads `mode` off
 whatever the backend already decided, whether that is a fresh `start_route_for_trip` call or
-a saved route's own stored `mode` column. A trip always has both places, so
-a blank endpoint cannot reach the router. (The migration maps a blank endpoint to the place `Neznáme miesto`.)
+a saved route's own stored `mode` column. A trip always has both places,
+so a blank endpoint cannot reach the router. The migration maps a blank endpoint to the
+place `Neznáme miesto`.
 
 ### Endpoints come from the place book
 
