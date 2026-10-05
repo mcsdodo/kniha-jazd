@@ -242,7 +242,10 @@ export const config: any = {
   capabilities: [{
     browserName: 'chrome',
     'goog:chromeOptions': {
-      args: ['--no-sandbox', '--disable-gpu'],
+      // A fixed window: some specs click by geometry (odometer-cascade.spec.ts aims a
+      // double-click at the overlay beside the dialog). 1050x1004 is the size
+      // Chrome chose on the dev VM before this pin, so local runs do not change.
+      args: ['--no-sandbox', '--disable-gpu', '--window-size=1050,1004'],
     },
   }],
 
