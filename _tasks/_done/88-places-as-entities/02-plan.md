@@ -48,25 +48,25 @@
 
 | File | Responsibility | Task |
 |------|----------------|------|
-| [src-tauri/core/src/db.rs](../../src-tauri/core/src/db.rs) | `prepare_connection`, place CRUD, trip and route reads by ID, name fill | 1, 3, 4 |
-| [src-tauri/core/migrations/2026-10-05-100000_places_as_entities/](../../src-tauri/core/migrations/) | `up.sql`, `down.sql` | 2 |
-| [src-tauri/core/src/migration_tests.rs](../../src-tauri/core/src/migration_tests.rs) | Migration tests | 1, 2 |
-| [src-tauri/core/src/schema.rs](../../src-tauri/core/src/schema.rs) | Diesel tables | 3 |
-| [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `Trip`, `TripRow`, `Route`, `RouteRow`, `PlaceRow`, `Place`, `CopiedTripDefaults` | 3 |
-| [src-tauri/core/src/commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | Place commands | 3, 4 |
-| [src-tauri/core/src/commands_internal/trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | Trip writes by place ID, time inference by ID | 3 |
-| [src-tauri/core/src/commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `mode_for`, `placed_endpoint` by ID | 3 |
-| [src-tauri/core/src/calculations/trip_copy.rs](../../src-tauri/core/src/calculations/trip_copy.rs) | Copied defaults carry place IDs | 3 |
-| [src-tauri/core/src/server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | RPC args | 3, 4 |
-| [src/lib/types.ts](../../src/lib/types.ts), [src/lib/api.ts](../../src/lib/api.ts) | Types and RPC wrappers | 5 |
-| [src/lib/components/TripRow.svelte](../../src/lib/components/TripRow.svelte), [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Trip form by place ID | 5, 6 |
-| [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) | Position a legacy place by ID | 5 |
-| `src/routes/miesta/+page.svelte` (new), [src/routes/+layout.svelte](../../src/routes/+layout.svelte) | Miesta tab and nav link | 7 |
-| [src/routes/settings/+page.svelte](../../src/routes/settings/+page.svelte) | Remove the place section | 7 |
-| [tests/integration/utils/db.ts](../../tests/integration/utils/db.ts), [forms.ts](../../tests/integration/utils/forms.ts) | `ensurePlace`, seed by name | 5 |
-| [tests/integration/wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) | `resetDatabase` also deletes places | 5 |
-| [tests/integration/specs/tier2/places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts) | Miesta tab flows, trip-form block | 6, 7 |
-| [docs/features/](../../docs/features/), READMEs, [DECISIONS.md](../../DECISIONS.md), [CHANGELOG.md](../../CHANGELOG.md) | Docs | 8, 9 |
+| [src-tauri/core/src/db.rs](../../../src-tauri/core/src/db.rs) | `prepare_connection`, place CRUD, trip and route reads by ID, name fill | 1, 3, 4 |
+| [src-tauri/core/migrations/2026-10-05-100000_places_as_entities/](../../../src-tauri/core/migrations/) | `up.sql`, `down.sql` | 2 |
+| [src-tauri/core/src/migration_tests.rs](../../../src-tauri/core/src/migration_tests.rs) | Migration tests | 1, 2 |
+| [src-tauri/core/src/schema.rs](../../../src-tauri/core/src/schema.rs) | Diesel tables | 3 |
+| [src-tauri/core/src/models.rs](../../../src-tauri/core/src/models.rs) | `Trip`, `TripRow`, `Route`, `RouteRow`, `PlaceRow`, `Place`, `CopiedTripDefaults` | 3 |
+| [src-tauri/core/src/commands_internal/places_cmd.rs](../../../src-tauri/core/src/commands_internal/places_cmd.rs) | Place commands | 3, 4 |
+| [src-tauri/core/src/commands_internal/trips.rs](../../../src-tauri/core/src/commands_internal/trips.rs) | Trip writes by place ID, time inference by ID | 3 |
+| [src-tauri/core/src/commands_internal/route_maps.rs](../../../src-tauri/core/src/commands_internal/route_maps.rs) | `mode_for`, `placed_endpoint` by ID | 3 |
+| [src-tauri/core/src/calculations/trip_copy.rs](../../../src-tauri/core/src/calculations/trip_copy.rs) | Copied defaults carry place IDs | 3 |
+| [src-tauri/core/src/server/dispatcher.rs](../../../src-tauri/core/src/server/dispatcher.rs) | RPC args | 3, 4 |
+| [src/lib/types.ts](../../../src/lib/types.ts), [src/lib/api.ts](../../../src/lib/api.ts) | Types and RPC wrappers | 5 |
+| [src/lib/components/TripRow.svelte](../../../src/lib/components/TripRow.svelte), [TripGrid.svelte](../../../src/lib/components/TripGrid.svelte) | Trip form by place ID | 5, 6 |
+| [src/routes/mapa/+page.svelte](../../../src/routes/mapa/+page.svelte) | Position a legacy place by ID | 5 |
+| `src/routes/miesta/+page.svelte` (new), [src/routes/+layout.svelte](../../../src/routes/+layout.svelte) | Miesta tab and nav link | 7 |
+| [src/routes/settings/+page.svelte](../../../src/routes/settings/+page.svelte) | Remove the place section | 7 |
+| [tests/integration/utils/db.ts](../../../tests/integration/utils/db.ts), [forms.ts](../../../tests/integration/utils/forms.ts) | `ensurePlace`, seed by name | 5 |
+| [tests/integration/wdio.server.conf.ts](../../../tests/integration/wdio.server.conf.ts) | `resetDatabase` also deletes places | 5 |
+| [tests/integration/specs/tier2/places.spec.ts](../../../tests/integration/specs/tier2/places.spec.ts) | Miesta tab flows, trip-form block | 6, 7 |
+| [docs/features/](../../../docs/features/), READMEs, [DECISIONS.md](../../../DECISIONS.md), [CHANGELOG.md](../../../CHANGELOG.md) | Docs | 8, 9 |
 
 **Build state between tasks.** Tasks 2 and 3 commit together: the migration changes the tables, and the Rust code reads the new tables, so neither half is green alone. From Task 3 to Task 5, the backend is green, but the frontend sends the old trip args, so the integration suite is red. Do this work on a feature branch. Do not push to `main` before Task 9 passes.
 
@@ -75,8 +75,8 @@
 ### Task 1: Register `kj_normalise` on every connection
 
 **Files:**
-- Modify: [src-tauri/core/src/db.rs:56-170](../../src-tauri/core/src/db.rs#L56) (`new`, `in_memory`, `restore_from_file`), [db.rs:1339](../../src-tauri/core/src/db.rs#L1339) (`open_db_legacy_before`)
-- Test: [src-tauri/core/src/migration_tests.rs](../../src-tauri/core/src/migration_tests.rs)
+- Modify: [src-tauri/core/src/db.rs:56-170](../../../src-tauri/core/src/db.rs#L56) (`new`, `in_memory`, `restore_from_file`), [db.rs:1339](../../../src-tauri/core/src/db.rs#L1339) (`open_db_legacy_before`)
+- Test: [src-tauri/core/src/migration_tests.rs](../../../src-tauri/core/src/migration_tests.rs)
 
 **Interfaces:**
 - Produces: `pub(crate) fn prepare_connection(conn: &mut SqliteConnection) -> QueryResult<()>` in `db.rs`. It registers `kj_normalise(Text) -> Text`. Each path that opens a connection calls it before `run_pending_migrations`.
@@ -185,7 +185,7 @@ fn restore_registers_kj_normalise() {
 }
 ```
 
-`tempfile = "3"` is already a dependency of core ([Cargo.toml:38](../../src-tauri/core/Cargo.toml)).
+`tempfile = "3"` is already a dependency of core ([Cargo.toml:38](../../../src-tauri/core/Cargo.toml)).
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core restore_registers_kj_normalise`
 Expected: PASS.
@@ -209,7 +209,7 @@ git commit -m "feat(db): register kj_normalise SQL function on every connection"
 **Files:**
 - Create: `src-tauri/core/migrations/2026-10-05-100000_places_as_entities/up.sql`
 - Create: `src-tauri/core/migrations/2026-10-05-100000_places_as_entities/down.sql`
-- Test: [src-tauri/core/src/migration_tests.rs](../../src-tauri/core/src/migration_tests.rs)
+- Test: [src-tauri/core/src/migration_tests.rs](../../../src-tauri/core/src/migration_tests.rs)
 
 **Interfaces:**
 - Consumes: `kj_normalise` (Task 1).
@@ -225,11 +225,11 @@ routes (id, vehicle_id, origin_place_id, destination_place_id, distance_km,
 ```
 
 **Rules that the SQL implements** (from the spec, plus three that the spec does not state; Task 9 records them in the ADR):
-- Place name: the most-used spelling of the key, then the byte-wise smaller spelling. This is the same rule as `list_places_internal` today ([places_cmd.rs:55-66](../../src-tauri/core/src/commands_internal/places_cmd.rs#L55)). SQLite `BINARY` collation compares bytes, the same as Rust `String` `<`.
+- Place name: the most-used spelling of the key, then the byte-wise smaller spelling. This is the same rule as `list_places_internal` today ([places_cmd.rs:55-66](../../../src-tauri/core/src/commands_internal/places_cmd.rs#L55)). SQLite `BINARY` collation compares bytes, the same as Rust `String` `<`.
 - Coordinates and `source` come from the old `places` row with the same key. A key without an old row gets NULL coordinates and a NULL source.
 - An old `places` row that no trip uses becomes a place with its `display_name` as the name.
 - **Not in the spec:** an empty or whitespace-only trip endpoint maps to one place named `Neznáme miesto`. Without this, the trip has no place to point to and the migration would drop it. The live data has none.
-- **Not in the spec:** a `routes` row whose pair no trip uses is dropped. Today `get_routes_for_vehicle` already hides it through an inner join ([db.rs:720-733](../../src-tauri/core/src/db.rs#L720)), so nothing visible changes. Without this rule, a route-only string would need a place with no position (the live copy has 9 such strings).
+- **Not in the spec:** a `routes` row whose pair no trip uses is dropped. Today `get_routes_for_vehicle` already hides it through an inner join ([db.rs:720-733](../../../src-tauri/core/src/db.rs#L720)), so nothing visible changes. Without this rule, a route-only string would need a place with no position (the live copy has 9 such strings).
 - Routes that collapse onto one place pair: keep the row whose exact old strings the most recent trip on that pair used. If no row has them, keep the first row by `id`.
 - Foreign keys are ON while the migration runs (see Global Constraints). `DROP TABLE trips` would delete every `trip_routes` and `paperless_trip_links` row through `ON DELETE CASCADE`. The SQL copies both tables into TEMP tables before the drop and inserts them back after the rename. Do not use `run_in_transaction = false` with `PRAGMA foreign_keys = OFF`: Diesel writes the version row outside the SQL file. The `places` and `routes` rebuilds have no child tables with `REFERENCES`, so they need no copy.
 - The trip copy uses LEFT JOINs. If a trip key has no place, the `NOT NULL` column aborts the transaction. A trip is never dropped without notice.
@@ -426,7 +426,7 @@ fn trip_children_survive_the_trips_rebuild() {
 }
 ```
 
-The existing `test_migrated_schema_identical_to_fresh_schema` ([migration_tests.rs:315](../../src-tauri/core/src/migration_tests.rs#L315)) also covers the new DDL. Keep it.
+The existing `test_migrated_schema_identical_to_fresh_schema` ([migration_tests.rs:315](../../../src-tauri/core/src/migration_tests.rs#L315)) also covers the new DDL. Keep it.
 
 - [ ] **Step 2: Run the tests and see them fail**
 
@@ -603,7 +603,7 @@ DROP TABLE kj_ptl;
 DROP TABLE kj_spellings;
 ```
 
-Before you run it, check the `trips` DDL against the live column order: `sqlite3 <a scratch copy of a DB> ".schema trips"`. The `CREATE TABLE trips_new` column list must keep the order that `TripRow` binds in ([models.rs:847-870](../../src-tauri/core/src/models.rs#L847)). If any `CREATE INDEX` on `trips` or `routes` exists in an earlier migration and is not listed above, add it (`grep -rn "CREATE INDEX\|CREATE UNIQUE INDEX" src-tauri/core/migrations | grep -E "trips|routes"`).
+Before you run it, check the `trips` DDL against the live column order: `sqlite3 <a scratch copy of a DB> ".schema trips"`. The `CREATE TABLE trips_new` column list must keep the order that `TripRow` binds in ([models.rs:847-870](../../../src-tauri/core/src/models.rs#L847)). If any `CREATE INDEX` on `trips` or `routes` exists in an earlier migration and is not listed above, add it (`grep -rn "CREATE INDEX\|CREATE UNIQUE INDEX" src-tauri/core/migrations | grep -E "trips|routes"`).
 
 - [ ] **Step 4: Write `down.sql`**
 
@@ -685,7 +685,7 @@ DROP TABLE places;
 ALTER TABLE places_old RENAME TO places;
 ```
 
-Check the old `places` DDL comment lines in [2026-09-07-100000_add_places/up.sql](../../src-tauri/core/migrations/2026-09-07-100000_add_places/up.sql). `down.sql` does not need them.
+Check the old `places` DDL comment lines in [2026-09-07-100000_add_places/up.sql](../../../src-tauri/core/migrations/2026-09-07-100000_add_places/up.sql). `down.sql` does not need them.
 
 - [ ] **Step 5: Add the `down.sql` round-trip test**
 
@@ -731,9 +731,9 @@ Expected: the Task 88 migration tests PASS. Other suites fail at runtime now, be
 ### Task 3: Switch the Rust code to place IDs (commit Tasks 2 and 3 together)
 
 **Files:**
-- Modify: [schema.rs](../../src-tauri/core/src/schema.rs), [models.rs](../../src-tauri/core/src/models.rs), [db.rs](../../src-tauri/core/src/db.rs), [commands_internal/trips.rs](../../src-tauri/core/src/commands_internal/trips.rs), [commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs), [commands_internal/route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs), [calculations/trip_copy.rs](../../src-tauri/core/src/calculations/trip_copy.rs), [commands_internal/statistics.rs:1530-1570](../../src-tauri/core/src/commands_internal/statistics.rs#L1530), [commands_internal/export_cmd.rs:56](../../src-tauri/core/src/commands_internal/export_cmd.rs#L56), [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs), [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
-- Modify (doc comments only): [places/normalise.rs:8](../../src-tauri/core/src/places/normalise.rs#L8)
-- Test: [db_tests.rs](../../src-tauri/core/src/db_tests.rs), [commands_internal/commands_tests.rs](../../src-tauri/core/src/commands_internal/commands_tests.rs), [commands_internal/places_cmd_tests.rs](../../src-tauri/core/src/commands_internal/places_cmd_tests.rs), [commands_internal/route_maps_tests.rs](../../src-tauri/core/src/commands_internal/route_maps_tests.rs), [export_tests.rs](../../src-tauri/core/src/export_tests.rs), [invoice_tests.rs](../../src-tauri/core/src/invoice_tests.rs), [calculations/tests.rs](../../src-tauri/core/src/calculations/tests.rs), [migration_tests.rs](../../src-tauri/core/src/migration_tests.rs), the inline tests in `models.rs`, `dispatcher.rs`, `dispatcher_async.rs` and `trip_copy.rs`
+- Modify: [schema.rs](../../../src-tauri/core/src/schema.rs), [models.rs](../../../src-tauri/core/src/models.rs), [db.rs](../../../src-tauri/core/src/db.rs), [commands_internal/trips.rs](../../../src-tauri/core/src/commands_internal/trips.rs), [commands_internal/places_cmd.rs](../../../src-tauri/core/src/commands_internal/places_cmd.rs), [commands_internal/route_maps.rs](../../../src-tauri/core/src/commands_internal/route_maps.rs), [calculations/trip_copy.rs](../../../src-tauri/core/src/calculations/trip_copy.rs), [commands_internal/statistics.rs:1530-1570](../../../src-tauri/core/src/commands_internal/statistics.rs#L1530), [commands_internal/export_cmd.rs:56](../../../src-tauri/core/src/commands_internal/export_cmd.rs#L56), [server/dispatcher.rs](../../../src-tauri/core/src/server/dispatcher.rs), [server/dispatcher_async.rs](../../../src-tauri/core/src/server/dispatcher_async.rs)
+- Modify (doc comments only): [places/normalise.rs:8](../../../src-tauri/core/src/places/normalise.rs#L8)
+- Test: [db_tests.rs](../../../src-tauri/core/src/db_tests.rs), [commands_internal/commands_tests.rs](../../../src-tauri/core/src/commands_internal/commands_tests.rs), [commands_internal/places_cmd_tests.rs](../../../src-tauri/core/src/commands_internal/places_cmd_tests.rs), [commands_internal/route_maps_tests.rs](../../../src-tauri/core/src/commands_internal/route_maps_tests.rs), [export_tests.rs](../../../src-tauri/core/src/export_tests.rs), [invoice_tests.rs](../../../src-tauri/core/src/invoice_tests.rs), [calculations/tests.rs](../../../src-tauri/core/src/calculations/tests.rs), [migration_tests.rs](../../../src-tauri/core/src/migration_tests.rs), the inline tests in `models.rs`, `dispatcher.rs`, `dispatcher_async.rs` and `trip_copy.rs`
 
 **`Trip` struct literals.** `Trip` has no `Default`, so each `Trip { ... }` literal fails to **compile** until it has `origin_place_id` and `destination_place_id`. There are about 55 literals in these 12 files (`grep -rc "Trip {$" src-tauri/core/src --include=*.rs | grep -v ":0"`): `models.rs` (4), `db_tests.rs` (9), `commands_internal/commands_tests.rs` (40), `invoice_tests.rs` (3), `export_tests.rs` (2), `calculations/tests.rs` (2), `calculations/trip_copy.rs` (2), `commands_internal/route_maps_tests.rs` (2), `commands_internal/statistics.rs` (2), `commands_internal/trips.rs` (3), `commands_internal/export_cmd.rs` (1), `server/dispatcher_async.rs` (1). Add `origin_place_id: Uuid::nil(), destination_place_id: Uuid::nil(),` to each literal. A literal that is then inserted into the DB needs real IDs (Step 9.3).
 
@@ -757,7 +757,7 @@ Expected: the Task 88 migration tests PASS. Other suites fail at runtime now, be
 
 - [ ] **Step 1: Write the failing tests for the new behaviour**
 
-The real helpers are `create_test_vehicle(name) -> Vehicle` ([db_tests.rs:93](../../src-tauri/core/src/db_tests.rs#L93), not inserted), `create_test_trip(vehicle_id, "YYYY-MM-DD") -> Trip` ([db_tests.rs:257](../../src-tauri/core/src/db_tests.rs#L257), origin `Prague`, destination `Brno`, not inserted) and `setup_db_with_vehicle() -> (Database, Vehicle)` ([commands_tests.rs:2267](../../src-tauri/core/src/commands_internal/commands_tests.rs#L2267)). Add to `db_tests.rs`:
+The real helpers are `create_test_vehicle(name) -> Vehicle` ([db_tests.rs:93](../../../src-tauri/core/src/db_tests.rs#L93), not inserted), `create_test_trip(vehicle_id, "YYYY-MM-DD") -> Trip` ([db_tests.rs:257](../../../src-tauri/core/src/db_tests.rs#L257), origin `Prague`, destination `Brno`, not inserted) and `setup_db_with_vehicle() -> (Database, Vehicle)` ([commands_tests.rs:2267](../../../src-tauri/core/src/commands_internal/commands_tests.rs#L2267)). Add to `db_tests.rs`:
 
 ```rust
 /// Insert `trip` after pointing it at places named like its old strings.
@@ -992,14 +992,14 @@ origin_place_id: Uuid::parse_str(&row.origin_place_id).unwrap_or_else(|_| Uuid::
 destination_place_id: Uuid::parse_str(&row.destination_place_id).unwrap_or_else(|_| Uuid::nil()),
 ```
 
-Update the `make_trip_row` tests at [models.rs:1302](../../src-tauri/core/src/models.rs#L1302) to call `Trip::from_row(row, &HashMap::new())`.
+Update the `make_trip_row` tests at [models.rs:1302](../../../src-tauri/core/src/models.rs#L1302) to call `Trip::from_row(row, &HashMap::new())`.
 
 7. `Route`: add `origin_place_id: Uuid, destination_place_id: Uuid` before `origin`.
-8. `CopiedTripDefaults`: add `origin_place_id: Uuid, destination_place_id: Uuid` before `origin`. In [trip_copy.rs:68](../../src-tauri/core/src/calculations/trip_copy.rs#L68), copy `source.origin_place_id` and `source.destination_place_id`.
+8. `CopiedTripDefaults`: add `origin_place_id: Uuid, destination_place_id: Uuid` before `origin`. In [trip_copy.rs:68](../../../src-tauri/core/src/calculations/trip_copy.rs#L68), copy `source.origin_place_id` and `source.destination_place_id`.
 
 - [ ] **Step 5: Update `db.rs`**
 
-1. Delete `normalize_location` ([db.rs:43](../../src-tauri/core/src/db.rs#L43)) and `distinct_trip_places` ([db.rs:1207](../../src-tauri/core/src/db.rs#L1207)). Delete `upsert_place` and the old `delete_place`.
+1. Delete `normalize_location` ([db.rs:43](../../../src-tauri/core/src/db.rs#L43)) and `distinct_trip_places` ([db.rs:1207](../../../src-tauri/core/src/db.rs#L1207)). Delete `upsert_place` and the old `delete_place`.
 2. Add a private name map and use it in every read that returns `Trip`:
 
 ```rust
@@ -1144,7 +1144,7 @@ fn resolve_place(db: &Database, id: &str) -> Result<crate::models::PlaceRow, Str
 Set `origin_place_id: Uuid::parse_str(&origin.id)`, and `origin: origin.name` (so the returned `Trip` carries the name). Do the same for the destination.
 
 2. `create_trip_internal`, `update_trip_internal`, `create_trip_cascade_internal`, `update_trip_cascade_internal`: rename the two parameters to `origin_place_id: String, destination_place_id: String`, and pass `&trip.origin_place_id.to_string()` to `find_or_create_route`.
-3. `get_inferred_trip_time_for_route_internal` and `inferred_trip_time_for_route`: rename the parameters to `origin_place_id`, `destination_place_id`. Delete the `normalize_location` calls at [trips.rs:1065-1066](../../src-tauri/core/src/commands_internal/trips.rs#L1065).
+3. `get_inferred_trip_time_for_route_internal` and `inferred_trip_time_for_route`: rename the parameters to `origin_place_id`, `destination_place_id`. Delete the `normalize_location` calls at [trips.rs:1065-1066](../../../src-tauri/core/src/commands_internal/trips.rs#L1065).
 
 - [ ] **Step 7: Update `places_cmd.rs` `list_places_internal`**
 
@@ -1173,11 +1173,11 @@ pub fn list_places_internal(db: &Database) -> Result<Vec<Place>, String> {
 }
 ```
 
-Delete `Folded`. Delete `save_place_internal` and `clear_place_internal`, their `save_place` and `clear_place` arms in `dispatcher.rs` ([dispatcher.rs:958-990](../../src-tauri/core/src/server/dispatcher.rs#L958)), and their exports. Task 4 adds the new commands. The frontend still calls the old ones until Task 5; that is the expected red integration state of the branch.
+Delete `Folded`. Delete `save_place_internal` and `clear_place_internal`, their `save_place` and `clear_place` arms in `dispatcher.rs` ([dispatcher.rs:958-990](../../../src-tauri/core/src/server/dispatcher.rs#L958)), and their exports. Task 4 adds the new commands. The frontend still calls the old ones until Task 5; that is the expected red integration state of the branch.
 
 Delete the old place tests in this task, so the commit is green:
-- In [places_cmd_tests.rs](../../src-tauri/core/src/commands_internal/places_cmd_tests.rs): the `place_at` helper (:16, it calls `upsert_place`), `only_row` (:222) and every test from :27 to :398 about the derived list, the spelling fold, `save_place` and `clear_place`, including `writes_are_refused_in_read_only_mode` (Task 4 adds a new one). Keep the geocoder section (:400 and after) and the module doc comment, rewritten without `upsert_place`.
-- In [db_tests.rs](../../src-tauri/core/src/db_tests.rs): `upsert_place_replaces_the_row_rather_than_merging_it` (:898) and `delete_place_is_a_no_op_for_an_unknown_place` (:933), with their doc comments.
+- In [places_cmd_tests.rs](../../../src-tauri/core/src/commands_internal/places_cmd_tests.rs): the `place_at` helper (:16, it calls `upsert_place`), `only_row` (:222) and every test from :27 to :398 about the derived list, the spelling fold, `save_place` and `clear_place`, including `writes_are_refused_in_read_only_mode` (Task 4 adds a new one). Keep the geocoder section (:400 and after) and the module doc comment, rewritten without `upsert_place`.
+- In [db_tests.rs](../../../src-tauri/core/src/db_tests.rs): `upsert_place_replaces_the_row_rather_than_merging_it` (:898) and `delete_place_is_a_no_op_for_an_unknown_place` (:933), with their doc comments.
 - The migration tests of Task 2 now own the spelling fold.
 
 - [ ] **Step 8: Update `route_maps.rs`**
@@ -1201,9 +1201,9 @@ fn placed_endpoint(places: &[Place], id: Uuid) -> Option<Place> {
 
 In `start_route_for_trip_internal`, call `mode_for(&trip)` and `placed_endpoint(&places, trip.origin_place_id)`. Delete the `use crate::places::normalise;` import if nothing else uses it.
 
-Update the doc comment at [route_maps.rs:367-372](../../src-tauri/core/src/commands_internal/route_maps.rs#L367). It says `mode_for` compares "NAMES after `places::normalise`" and names `save_place_internal`. Rewrite those lines: `mode_for` compares place IDs, and the book keys a place on `normalised_name` (UNIQUE) through `create_place_internal`, with no coordinate uniqueness. The rest of the comment (two places can hold identical coordinates) stays true.
+Update the doc comment at [route_maps.rs:367-372](../../../src-tauri/core/src/commands_internal/route_maps.rs#L367). It says `mode_for` compares "NAMES after `places::normalise`" and names `save_place_internal`. Rewrite those lines: `mode_for` compares place IDs, and the book keys a place on `normalised_name` (UNIQUE) through `create_place_internal`, with no coordinate uniqueness. The rest of the comment (two places can hold identical coordinates) stays true.
 
-Update [places/normalise.rs:8-10](../../src-tauri/core/src/places/normalise.rs#L8): delete the paragraph "Not [`crate::db::normalize_location`]: ...". The function is gone. Add one line: "Each place stores this as its `normalised_name`, which is UNIQUE (Task 88)."
+Update [places/normalise.rs:8-10](../../../src-tauri/core/src/places/normalise.rs#L8): delete the paragraph "Not [`crate::db::normalize_location`]: ...". The function is gone. Add one line: "Each place stores this as its `normalised_name`, which is UNIQUE (Task 88)."
 
 `route_maps_tests.rs` imports `save_place_internal` (:12) and calls it at :701, :702, :717 and :731. Its local `seed_trip_between(&db, origin, destination)` inserts a trip by names; change its body to set the IDs with `ensure_place_for_test` (Step 9.3). Then:
 
@@ -1246,7 +1246,7 @@ Read each other failing test in the file before you change it.
    db.create_trip(&trip).unwrap();
    ```
 
-   The shared helper `seed_trip_between_on` ([db_tests.rs:149](../../src-tauri/core/src/db_tests.rs#L149)) takes names: change its body the same way, and its callers (including `seed_trip_between` and the place tests) need no change. In `db_tests.rs`, use `insert_trip_with_places` from Step 1. A file with many sites can have its own local helper with the same body. Do the same for `create_trip_with_odometer_shift` and the other insert paths (`grep -rn "create_trip_with_odometer_shift(&\|update_trip(&" src-tauri/core/src --include=*_tests.rs`): an update with a nil ID also fails.
+   The shared helper `seed_trip_between_on` ([db_tests.rs:149](../../../src-tauri/core/src/db_tests.rs#L149)) takes names: change its body the same way, and its callers (including `seed_trip_between` and the place tests) need no change. In `db_tests.rs`, use `insert_trip_with_places` from Step 1. A file with many sites can have its own local helper with the same body. Do the same for `create_trip_with_odometer_shift` and the other insert paths (`grep -rn "create_trip_with_odometer_shift(&\|update_trip(&" src-tauri/core/src --include=*_tests.rs`): an update with a nil ID also fails.
 4. A test that calls a `*_trip_internal` function with names: pass `db.ensure_place_for_test("<name>").to_string()`.
 5. A test that compares `Route.origin` or `Trip.origin` keeps working: the name is filled by the read.
 
@@ -1290,8 +1290,8 @@ git commit -m "feat(places)!: trips and routes reference places by id"
 ### Task 4: Place commands
 
 **Files:**
-- Modify: [commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs), [db.rs](../../src-tauri/core/src/db.rs), [server/dispatcher.rs:950-990](../../src-tauri/core/src/server/dispatcher.rs#L950), [commands_internal/mod.rs](../../src-tauri/core/src/commands_internal/mod.rs) (exports)
-- Test: [commands_internal/places_cmd_tests.rs](../../src-tauri/core/src/commands_internal/places_cmd_tests.rs)
+- Modify: [commands_internal/places_cmd.rs](../../../src-tauri/core/src/commands_internal/places_cmd.rs), [db.rs](../../../src-tauri/core/src/db.rs), [server/dispatcher.rs:950-990](../../../src-tauri/core/src/server/dispatcher.rs#L950), [commands_internal/mod.rs](../../../src-tauri/core/src/commands_internal/mod.rs) (exports)
+- Test: [commands_internal/places_cmd_tests.rs](../../../src-tauri/core/src/commands_internal/places_cmd_tests.rs)
 
 **Interfaces:**
 - Consumes: Task 3 DB functions.
@@ -1306,7 +1306,7 @@ git commit -m "feat(places)!: trips and routes reference places by id"
 
 - [ ] **Step 1: Write the failing tests**
 
-Task 3 already deleted the old place tests. Add these to `places_cmd_tests.rs`. The helpers are real: `AppState::new()`, `AppState::enable_read_only(&str)` ([app_state.rs:160](../../src-tauri/core/src/app_state.rs#L160)), and `create_test_vehicle` and `seed_trip_between` from `crate::db_tests` (already imported at the top of the file).
+Task 3 already deleted the old place tests. Add these to `places_cmd_tests.rs`. The helpers are real: `AppState::new()`, `AppState::enable_read_only(&str)` ([app_state.rs:160](../../../src-tauri/core/src/app_state.rs#L160)), and `create_test_vehicle` and `seed_trip_between` from `crate::db_tests` (already imported at the top of the file).
 
 ```rust
 #[test]
@@ -1626,8 +1626,8 @@ git commit -m "feat(places): create, rename, position, delete and find commands"
 ### Task 5: Frontend API, trip writes by ID, and the test helpers
 
 **Files:**
-- Modify: [src/lib/types.ts](../../src/lib/types.ts) (`Trip` :37, `Place` :616, `Route`, `CopiedTripDefaults`), [src/lib/api.ts](../../src/lib/api.ts) (:96, :165, :402, :667-687), [src/lib/components/TripRow.svelte](../../src/lib/components/TripRow.svelte), [src/lib/components/TripGrid.svelte](../../src/lib/components/TripGrid.svelte), [src/routes/mapa/+page.svelte](../../src/routes/mapa/+page.svelte) (:18, :44, :824-833, :957-959), [src/lib/components/PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) (:46, :223, :229)
-- Modify: [tests/integration/utils/db.ts](../../tests/integration/utils/db.ts) (:160-262, :493), [tests/integration/utils/forms.ts](../../tests/integration/utils/forms.ts) (:367)
+- Modify: [src/lib/types.ts](../../../src/lib/types.ts) (`Trip` :37, `Place` :616, `Route`, `CopiedTripDefaults`), [src/lib/api.ts](../../../src/lib/api.ts) (:96, :165, :402, :667-687), [src/lib/components/TripRow.svelte](../../../src/lib/components/TripRow.svelte), [src/lib/components/TripGrid.svelte](../../../src/lib/components/TripGrid.svelte), [src/routes/mapa/+page.svelte](../../../src/routes/mapa/+page.svelte) (:18, :44, :824-833, :957-959), [src/lib/components/PlaceModal.svelte](../../../src/lib/components/PlaceModal.svelte) (:46, :223, :229)
+- Modify: [tests/integration/utils/db.ts](../../../tests/integration/utils/db.ts) (:160-262, :493), [tests/integration/utils/forms.ts](../../../tests/integration/utils/forms.ts) (:367)
 
 **Interfaces:**
 - Consumes: the RPC commands from Tasks 3 and 4.
@@ -1657,7 +1657,7 @@ export async function ensurePlace(name: string): Promise<string> {
 }
 ```
 
-In [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) `resetDatabase` (:174), after the loop that deletes trips and before the vehicles are deleted, delete the places:
+In [wdio.server.conf.ts](../../../tests/integration/wdio.server.conf.ts) `resetDatabase` (:174), after the loop that deletes trips and before the vehicles are deleted, delete the places:
 
 ```ts
     // Task 88: places are records now and outlive their trips. Delete them so
@@ -1792,8 +1792,8 @@ git commit -m "feat(trips): the trip form saves place ids"
 ### Task 6: The trip form accepts only existing places
 
 **Files:**
-- Modify: [src/lib/components/TripRow.svelte](../../src/lib/components/TripRow.svelte), [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts)
-- Test: [tests/integration/specs/tier2/places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts)
+- Modify: [src/lib/components/TripRow.svelte](../../../src/lib/components/TripRow.svelte), [src/lib/i18n/sk/index.ts](../../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../../src/lib/i18n/en/index.ts)
+- Test: [tests/integration/specs/tier2/places.spec.ts](../../../tests/integration/specs/tier2/places.spec.ts)
 
 **Interfaces:**
 - Consumes: `findPlace(name)` from Task 5.
@@ -1938,8 +1938,8 @@ git commit -m "feat(trips): a trip accepts only an existing place"
 
 **Files:**
 - Create: `src/routes/miesta/+page.svelte`
-- Modify: [src/routes/+layout.svelte:127-133](../../src/routes/+layout.svelte#L127), [src/lib/i18n/sk/index.ts](../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../src/lib/i18n/en/index.ts)
-- Test: [tests/integration/specs/tier2/places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts)
+- Modify: [src/routes/+layout.svelte:127-133](../../../src/routes/+layout.svelte#L127), [src/lib/i18n/sk/index.ts](../../../src/lib/i18n/sk/index.ts), [src/lib/i18n/en/index.ts](../../../src/lib/i18n/en/index.ts)
+- Test: [tests/integration/specs/tier2/places.spec.ts](../../../tests/integration/specs/tier2/places.spec.ts)
 
 **Interfaces:**
 - Consumes: `listPlaces`, `createPlace`, `renamePlace`, `setPlacePosition`, `deletePlace`, `geocodePlace`, `PlaceModal`.
@@ -2034,7 +2034,7 @@ describe('Managing Places', () => {
 });
 ```
 
-The rename and delete tests need a `vehicleId` and an active vehicle: seed one with `seedVehicle` and call `setActiveVehicle` at the start of each test, as the add test does. Add `'miesta'` to the `navigateTo` path map in [utils/app.ts:26](../../tests/integration/utils/app.ts#L26) (`miesta: '/miesta'`), and use `navigateTo('miesta')` in place of `browser.url('/miesta')` if a full page load drops the app state; the existing specs navigate by link. `GEOCODED_PLACE`, `GEOCODED_COORDS`, `openNewTripRow` and `waitForPlaceRow` are in the file already; change `placeRowSelector` (:121) to take a place ID and build `[data-testid="place-row"][data-place-id="..."]`.
+The rename and delete tests need a `vehicleId` and an active vehicle: seed one with `seedVehicle` and call `setActiveVehicle` at the start of each test, as the add test does. Add `'miesta'` to the `navigateTo` path map in [utils/app.ts:26](../../../tests/integration/utils/app.ts#L26) (`miesta: '/miesta'`), and use `navigateTo('miesta')` in place of `browser.url('/miesta')` if a full page load drops the app state; the existing specs navigate by link. `GEOCODED_PLACE`, `GEOCODED_COORDS`, `openNewTripRow` and `waitForPlaceRow` are in the file already; change `placeRowSelector` (:121) to take a place ID and build `[data-testid="place-row"][data-place-id="..."]`.
 
 - [ ] **Step 2: Run them and see them fail**
 
@@ -2113,7 +2113,7 @@ git commit -m "feat(places): Miesta tab with add, rename and delete"
 ### Task 8: Feature docs and READMEs
 
 **Files:**
-- Modify: all 16 files in [docs/features/](../../docs/features/), [README.md](../../README.md), [README.en.md](../../README.en.md)
+- Modify: all 16 files in [docs/features/](../../../docs/features/), [README.md](../../../README.md), [README.en.md](../../../README.en.md)
 
 - [ ] **Step 1: Find each place reference**
 
@@ -2123,12 +2123,12 @@ Run: `grep -nE "place|Miesta|origin|destination|normali|save_place|clear_place|d
 
 | Doc | Change |
 |-----|--------|
-| [place-book.md](../../docs/features/place-book.md) | Rewrite: a place is an entity (`id`, `name`, `normalised_name`, position). The Miesta tab: add (name and position required), rename (applies to all trips, a key collision is an error), position, delete (only if no trip uses it; orphan routes go with it). The migration rules from Task 2. `find_place` for typed text. Remove the derived-list and ADR-034 display-spelling text, and link the new ADR. |
-| [route-maps.md](../../docs/features/route-maps.md) | Endpoints come from `trip.origin_place_id`/`destination_place_id`. Loop mode is ID equality. A legacy place without a position opens the place dialog, which saves with `set_place_position`. |
-| [trip-entry-defaults.md](../../docs/features/trip-entry-defaults.md) | The autocomplete offers place names. A save resolves typed text with `find_place` and blocks if no place matches. Distance auto-fill and time inference match on place IDs. |
-| [settings-architecture.md](../../docs/features/settings-architecture.md) | Settings has no place section. Link `/miesta`. |
-| [backup-system.md](../../docs/features/backup-system.md) | A restore runs the migrations with `kj_normalise` registered, so an old backup becomes the new schema. |
-| [read-only-mode.md](../../docs/features/read-only-mode.md) | An image older than this migration opens the migrated DB read-only. |
+| [place-book.md](../../../docs/features/place-book.md) | Rewrite: a place is an entity (`id`, `name`, `normalised_name`, position). The Miesta tab: add (name and position required), rename (applies to all trips, a key collision is an error), position, delete (only if no trip uses it; orphan routes go with it). The migration rules from Task 2. `find_place` for typed text. Remove the derived-list and ADR-034 display-spelling text, and link the new ADR. |
+| [route-maps.md](../../../docs/features/route-maps.md) | Endpoints come from `trip.origin_place_id`/`destination_place_id`. Loop mode is ID equality. A legacy place without a position opens the place dialog, which saves with `set_place_position`. |
+| [trip-entry-defaults.md](../../../docs/features/trip-entry-defaults.md) | The autocomplete offers place names. A save resolves typed text with `find_place` and blocks if no place matches. Distance auto-fill and time inference match on place IDs. |
+| [settings-architecture.md](../../../docs/features/settings-architecture.md) | Settings has no place section. Link `/miesta`. |
+| [backup-system.md](../../../docs/features/backup-system.md) | A restore runs the migrations with `kj_normalise` registered, so an old backup becomes the new schema. |
+| [read-only-mode.md](../../../docs/features/read-only-mode.md) | An image older than this migration opens the migrated DB read-only. |
 
 - [ ] **Step 3: Check the other 10 docs**
 
@@ -2150,7 +2150,7 @@ git commit -m "docs: places as entities in the feature docs and READMEs"
 ### Task 9: Decisions, changelog and the final check
 
 **Files:**
-- Modify: [DECISIONS.md](../../DECISIONS.md), [CHANGELOG.md](../../CHANGELOG.md), [_tasks/index.md](../index.md), [01-task.md](./01-task.md) (status)
+- Modify: [DECISIONS.md](../../../DECISIONS.md), [CHANGELOG.md](../../../CHANGELOG.md), [_tasks/index.md](../../index.md), [01-task.md](./01-task.md) (status)
 
 - [ ] **Step 1: Record the decisions with `/decision`**
 
@@ -2163,7 +2163,7 @@ Check the next free numbers first: `grep -n "^### ADR-\|^### BIZ-" DECISIONS.md 
 
 - [ ] **Step 2: Update the changelog with `/changelog`**
 
-Under `[Unreleased]`, add the user-visible change (the Miesta tab, the trip-form rule, rename, delete) under `### Pridané` and `### Zmenené`. Replace the `### Pokyny k aktualizácii` block with the five fields of the template ([CHANGELOG.md:17-22](../../CHANGELOG.md), [release-skill](../../.claude/skills/release-skill/SKILL.md) checks them). Write it in Slovak:
+Under `[Unreleased]`, add the user-visible change (the Miesta tab, the trip-form rule, rename, delete) under `### Pridané` and `### Zmenené`. Replace the `### Pokyny k aktualizácii` block with the five fields of the template ([CHANGELOG.md:17-22](../../../CHANGELOG.md), [release-skill](../../../.claude/skills/release-skill/SKILL.md) checks them). Write it in Slovak:
 
 ```markdown
 ### Pokyny k aktualizácii
@@ -2174,7 +2174,7 @@ Under `[Unreleased]`, add the user-visible change (the Miesta tab, the trip-form
 - **Obraz, zväzok, port:** bez zmeny
 ```
 
-Decide **Potrebný zásah** and the major version with the rule in [CHANGELOG.md:8-13](../../CHANGELOG.md): an update that drops data raises the major version. Ask the user before `/release` if the spellings loss counts as "drops data".
+Decide **Potrebný zásah** and the major version with the rule in [CHANGELOG.md:8-13](../../../CHANGELOG.md): an update that drops data raises the major version. Ask the user before `/release` if the spellings loss counts as "drops data".
 
 - [ ] **Step 3: Run the full verification with `/verify`**
 
@@ -2186,11 +2186,11 @@ npm run build && cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-
 npm run test:integration
 ```
 
-Expected: all green. If the Docker mode is needed, build the image and run `xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:integration:docker` (see [integration-tests.md](../../.claude/rules/integration-tests.md)).
+Expected: all green. If the Docker mode is needed, build the image and run `xvfb-run -a -s "-screen 0 1280x1024x24" npm run test:integration:docker` (see [integration-tests.md](../../../.claude/rules/integration-tests.md)).
 
 - [ ] **Step 4: Update the task status**
 
-Set `**Status:** Complete` in [01-task.md](./01-task.md) and in this file. Set the row in [_tasks/index.md](../index.md) to ✅.
+Set `**Status:** Complete` in [01-task.md](./01-task.md) and in this file. Set the row in [_tasks/index.md](../../index.md) to ✅.
 
 - [ ] **Step 5: Commit**
 

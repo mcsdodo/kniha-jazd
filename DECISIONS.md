@@ -8,7 +8,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ### ADR-057: A read-only MCP endpoint at `/mcp`, stateless and read-only by construction
 
-**Context:** An AI assistant must read the logbook to find business trips. `POST /api/rpc` has no auth and accepts write commands, so the assistant must not use it. [Task 89](./_tasks/89-home-place-mcp/01-task.md) adds a separate surface that can only read. See [ADR-008](#adr-008-remove-frontend-calculation-duplication) for the rule that logic stays in Rust.
+**Context:** An AI assistant must read the logbook to find business trips. `POST /api/rpc` has no auth and accepts write commands, so the assistant must not use it. [Task 89](./_tasks/_done/89-home-place-mcp/01-task.md) adds a separate surface that can only read. See [ADR-008](#adr-008-remove-frontend-calculation-duplication) for the rule that logic stays in Rust.
 
 **Decision:**
 
@@ -28,7 +28,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ### BIZ-026: Journeys away from home
 
-**Context:** The assistant needs journeys, not trip rows. A trip row is one leg. The app had no home place. [Task 89](./_tasks/89-home-place-mcp/01-task.md) adds one, on top of [task 88](./_tasks/88-places-as-entities/01-task.md).
+**Context:** The assistant needs journeys, not trip rows. A trip row is one leg. The app had no home place. [Task 89](./_tasks/_done/89-home-place-mcp/01-task.md) adds one, on top of [task 88](./_tasks/_done/88-places-as-entities/01-task.md).
 
 **Decision:**
 
@@ -53,7 +53,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ### BIZ-025: A trip accepts only an existing place
 
-**Context:** A trip held two free-text strings. Any typo made a new place. A rename touched one trip only. [Task 88](./_tasks/88-places-as-entities/01-task.md) makes a place a record.
+**Context:** A trip held two free-text strings. Any typo made a new place. A rename touched one trip only. [Task 88](./_tasks/_done/88-places-as-entities/01-task.md) makes a place a record.
 
 **Decision:**
 
@@ -89,7 +89,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Supersedes in part [ADR-034](#adr-034-the-book-displays-the-spelling-trips-already-use-not-the-geocoders):** the display name is the stored `places.name`. It is no longer copied from a trip.
 
-**Context:** The place list was computed from the strings in `trips.origin` and `trips.destination`. Coordinates lived in a side table keyed by a normalised string. Two folds existed: `normalise_location` and `places::normalise`. They could drift. A place could not carry more facts (task 89 adds `is_home`). [Task 88](./_tasks/88-places-as-entities/01-task.md).
+**Context:** The place list was computed from the strings in `trips.origin` and `trips.destination`. Coordinates lived in a side table keyed by a normalised string. Two folds existed: `normalise_location` and `places::normalise`. They could drift. A place could not carry more facts (task 89 adds `is_home`). [Task 88](./_tasks/_done/88-places-as-entities/01-task.md).
 
 **Decision:**
 

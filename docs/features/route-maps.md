@@ -390,7 +390,7 @@ built against, where a loop is the correct route shape. [Task 72](../../_tasks/_
 replaces that blanket rule: `mode_for` ([route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs))
 compares `origin_place_id` against `destination_place_id` -- equal means Loop, unchanged
 from V1; different means Direct, a fresh point-to-point route. Since
-[task 88](../../_tasks/88-places-as-entities/) the comparison is an ID equality. No string
+[task 88](../../_tasks/_done/88-places-as-entities/) the comparison is an ID equality. No string
 fold is involved. See
 [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust).
 

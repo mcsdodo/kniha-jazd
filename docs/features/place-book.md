@@ -276,5 +276,5 @@ project's behaviour.
 - [ADR-034](../../DECISIONS.md): The display spelling (superseded by ADR-055: the name is stored)
 - [ADR-035](../../DECISIONS.md): The geocoder is not restricted by country
 - [ADR-008](../../DECISIONS.md): All business logic lives in the Rust backend
-- [_tasks/88-places-as-entities/](../../_tasks/88-places-as-entities/): task and plan
+- [_tasks/_done/88-places-as-entities/](../../_tasks/_done/88-places-as-entities/): task and plan
 - [_tasks/_done/75-place-book/](../../_tasks/_done/75-place-book/): the first place book

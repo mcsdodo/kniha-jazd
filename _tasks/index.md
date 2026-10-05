@@ -2,7 +2,7 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-10-05 (Tasks [88](88-places-as-entities/) and [89](89-home-place-mcp/) are complete.)
+**Last updated:** 2026-10-05 (Tasks [88](./_done/88-places-as-entities/) and [89](./_done/89-home-place-mcp/) are archived.)
 
 ## Active Tasks
 
@@ -17,8 +17,8 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
-| 89 | [Home Place + MCP](./89-home-place-mcp/) -- ✅ A home mark on a place, journey grouping in core, and a read-only MCP endpoint at `/mcp`; see [docs/features/mcp-endpoint.md](../docs/features/mcp-endpoint.md) and [BIZ-026](../DECISIONS.md#biz-026-journeys-away-from-home) | 2026-10-05 |
-| 88 | [Places As Entities](./88-places-as-entities/) -- ✅ Places get an ID; trips and routes reference places by ID; a trip accepts only an existing place; one-way migration; see [docs/features/place-book.md](../docs/features/place-book.md) | 2026-10-05 |
+| 89 | [Home Place + MCP](./_done/89-home-place-mcp/) -- ✅ A home mark on a place, journey grouping in core, and a read-only MCP endpoint at `/mcp`; see [docs/features/mcp-endpoint.md](../docs/features/mcp-endpoint.md) and [BIZ-026](../DECISIONS.md#biz-026-journeys-away-from-home) | 2026-10-05 |
+| 88 | [Places As Entities](./_done/88-places-as-entities/) -- ✅ Places get an ID; trips and routes reference places by ID; a trip accepts only an existing place; one-way migration; see [docs/features/place-book.md](../docs/features/place-book.md) | 2026-10-05 |
 | 87 | [Save And Apply Distance](./_done/87-save-and-apply-distance/) -- One "Uložiť a použiť vzdialenosť" button on `/mapa`: every save writes the route's whole-km distance to the trip in one transaction, in every mode (Loop too); supersedes the Direct-only scope of ADR-048 | 2026-09-29 |
 | 86 | [Route Provider Switch](./_done/86-route-provider-switch/) -- Select OSRM or Sygic per route on `/mapa`, stored in `trip_routes.provider` (Sygic has no D1 Visnove tunnel); see ADR-053 | 2026-09-29 |
 | 85 | [Route Avoid Tolls Per Country](./_done/85-route-avoid-tolls-per-country/) -- Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise | 2026-09-29 |

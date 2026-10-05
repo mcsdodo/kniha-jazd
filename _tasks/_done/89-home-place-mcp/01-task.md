@@ -1,7 +1,7 @@
 **Date:** 2026-10-05
 **Subject:** Home place setting, journey grouping in core, and a read-only MCP endpoint at `/mcp`
 **Status:** Complete
-**Depends on:** [Task 88: Places as Entities](../88-places-as-entities/01-task.md). Write `02-plan.md` only after 88 is merged, because 88 moves the code this plan will cite.
+**Depends on:** [Task 88: Places as Entities](../../_done/88-places-as-entities/01-task.md). Write `02-plan.md` only after 88 is merged, because 88 moves the code this plan will cite.
 
 ## Goal
 
@@ -20,16 +20,16 @@ does not deploy.
 
 ## Current state
 
-After [task 88](../88-places-as-entities/01-task.md), a place is a record with an `id`, and
+After [task 88](../../_done/88-places-as-entities/01-task.md), a place is a record with an `id`, and
 each trip has `origin_place_id` and `destination_place_id`. The app still has no home. The
 only home base is node 0 of the static route-map dataset
-([ga.rs:29](../../src-tauri/core/src/route_map/ga.rs#L29)), which is not a user setting.
+([ga.rs:29](../../../src-tauri/core/src/route_map/ga.rs#L29)), which is not a user setting.
 
 | Item | Today (after task 88) |
 |------|-------|
 | Places | Table `places` with `id`, `name`, `normalised_name`, coordinates. UI on the Miesta tab. |
-| Round-trip map | `trip_routes.round_trip -> Bool` ([schema.rs:113](../../src-tauri/core/src/schema.rs#L113)) marks a saved map that goes there and back on one trip row. |
-| Router | [server/mod.rs:158-190](../../src-tauri/core/src/server/mod.rs#L158): `/health`, `/api/rpc`, `/api/capabilities`, SPA fallback. Axum 0.8. |
+| Round-trip map | `trip_routes.round_trip -> Bool` ([schema.rs:113](../../../src-tauri/core/src/schema.rs#L113)) marks a saved map that goes there and back on one trip row. |
+| Router | [server/mod.rs:158-190](../../../src-tauri/core/src/server/mod.rs#L158): `/health`, `/api/rpc`, `/api/capabilities`, SPA fallback. Axum 0.8. |
 | MCP | None. `rmcp` is not a dependency. |
 
 ## Requirements
@@ -180,12 +180,12 @@ The fixture uses invented addresses. Home = `Home St 1, Hometown`.
 
 ## Documentation
 
-- New [docs/features/mcp-endpoint.md](../../docs/features/): the three tools, the
+- New [docs/features/mcp-endpoint.md](../../../docs/features/): the three tools, the
   journey rules, stateless transport, read-only rule, host check.
-- [docs/features/place-book.md](../../docs/features/place-book.md): the home mark.
-- Check **every** other feature doc in [docs/features/](../../docs/features/) and update
+- [docs/features/place-book.md](../../../docs/features/place-book.md): the home mark.
+- Check **every** other feature doc in [docs/features/](../../../docs/features/) and update
   each doc that the home place or `/mcp` affects (for example
-  [server-mode.md](../../docs/features/server-mode.md) for the new path). In the commit message, list
+  [server-mode.md](../../../docs/features/server-mode.md) for the new path). In the commit message, list
   each doc as "updated" or "checked, no change".
 
 ## Done when
@@ -193,10 +193,10 @@ The fixture uses invented addresses. Home = `Home St 1, Hometown`.
 - [ ] The home mark is in the database (migration) and in the Miesta UI (home icon).
 - [ ] The journey grouping is in core with the unit tests above.
 - [ ] `/mcp` serves the three tools, and the integration test passes.
-- [ ] [DECISIONS.md](../../DECISIONS.md) and [CHANGELOG.md](../../CHANGELOG.md) are updated. The changelog has the
+- [ ] [DECISIONS.md](../../../DECISIONS.md) and [CHANGELOG.md](../../../CHANGELOG.md) are updated. The changelog has the
       `### Pokyny k aktualizácii` block (new migration, new `/mcp` path).
 - [ ] The feature docs are updated (see Documentation).
-- [ ] [README.md](../../README.md) and [README.en.md](../../README.en.md) mention the MCP endpoint.
+- [ ] [README.md](../../../README.md) and [README.en.md](../../../README.en.md) mention the MCP endpoint.
 - [ ] The change is on `main`, and the publish job built the `:main` image.
 
 This repo is public. Do not add a homelab address, host, IP or real trip data.

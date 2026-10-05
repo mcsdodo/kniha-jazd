@@ -215,4 +215,4 @@ MCP client -> POST /mcp -> rmcp service -> tool -> spawn_blocking -> LogbookRead
 - [ADR-057](../../DECISIONS.md#adr-057-a-read-only-mcp-endpoint-at-mcp-stateless-and-read-only-by-construction): the endpoint
 - [BIZ-026](../../DECISIONS.md#biz-026-journeys-away-from-home): the journey rules
 - [ADR-008](../../DECISIONS.md#adr-008-remove-frontend-calculation-duplication): logic in Rust
-- [_tasks/89-home-place-mcp/](../../_tasks/89-home-place-mcp/): task and plan
+- [_tasks/_done/89-home-place-mcp/](../../_tasks/_done/89-home-place-mcp/): task and plan

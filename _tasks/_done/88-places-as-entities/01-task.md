@@ -9,7 +9,7 @@ place by ID. They do not hold a free-text copy of the name.
 
 Today the place list is computed from the free text in `trips.origin` and
 `trips.destination`. The coordinates live in a side table that is keyed by a normalised
-string ([ADR-033](../../DECISIONS.md#adr-033-aggregates-over-trips-are-computed-not-stored)).
+string ([ADR-033](../../../DECISIONS.md#adr-033-aggregates-over-trips-are-computed-not-stored)).
 Every feature that needs "the same place" must fold strings with `places::normalise`. A
 second fold, `normalize_location`, keeps case and diacritics, so the two disagree.
 [Task 89](../89-home-place-mcp/01-task.md) needs a home place, and a home flag does not fit
@@ -21,15 +21,15 @@ Out of scope, follow-up task: create a new place from inside the trip form.
 
 | Item | Today |
 |------|-------|
-| Place strings | Free text on each trip: `trips.origin`, `trips.destination` ([models.rs:191](../../src-tauri/core/src/models.rs#L191)). Trimmed by `normalize_location` ([db.rs:43](../../src-tauri/core/src/db.rs#L43)). |
-| Place list | Derived on each read: `distinct_trip_places` ([db.rs:1207](../../src-tauri/core/src/db.rs#L1207)) plus a fold in Rust in `list_places_internal` ([places_cmd.rs:29](../../src-tauri/core/src/commands_internal/places_cmd.rs#L29)). The most-used spelling is the display name, and a tie goes to the byte-wise smaller spelling. |
-| Coordinates | Table `places`, key `normalised_name`, columns `display_name`, `lat`, `lon`, `source` ([schema.rs:134](../../src-tauri/core/src/schema.rs#L134)). A row exists only for a place with coordinates. `clear_place` and `upsert_place` delete the row. |
-| Routes | `routes` has `UNIQUE(vehicle_id, origin, destination)` on raw strings. `find_or_create_route` ([db.rs:798](../../src-tauri/core/src/db.rs#L798)), `get_routes_for_vehicle` ([db.rs:720](../../src-tauri/core/src/db.rs#L720)) joins trips on the strings. |
-| Time inference | `find_most_recent_trip_times_for_route` ([db.rs:763](../../src-tauri/core/src/db.rs#L763)) matches the strings exactly. |
-| Route maps | `mode_for` and `placed_endpoint` ([route_maps.rs:985](../../src-tauri/core/src/commands_internal/route_maps.rs#L985)) fold the strings to find coordinates. |
-| Trip form | `Autocomplete` with free text, suggestions from `listPlaces()` ([TripRow.svelte:652](../../src/lib/components/TripRow.svelte#L652)). Distance auto-fill matches `r.origin === formData.origin` ([TripRow.svelte:314](../../src/lib/components/TripRow.svelte#L314)). |
-| Place UI | Section "Miesta" inside Settings ([settings/+page.svelte:1379](../../src/routes/settings/+page.svelte#L1379)). |
-| Migrations | Run on three paths: `Database::new`, `in_memory`, `restore_from_file` ([db.rs:89](../../src-tauri/core/src/db.rs#L89), [:126](../../src-tauri/core/src/db.rs#L126), [:167](../../src-tauri/core/src/db.rs#L167)). Foreign keys are **on** for every connection, also during migrations: the bundled `libsqlite3-sys` 0.30.1 builds SQLite with `-DSQLITE_DEFAULT_FOREIGN_KEYS=1` (its `build.rs:123`). So `DROP TABLE trips` cascades into `trip_routes` and `paperless_trip_links`. |
+| Place strings | Free text on each trip: `trips.origin`, `trips.destination` ([models.rs:191](../../../src-tauri/core/src/models.rs#L191)). Trimmed by `normalize_location` ([db.rs:43](../../../src-tauri/core/src/db.rs#L43)). |
+| Place list | Derived on each read: `distinct_trip_places` ([db.rs:1207](../../../src-tauri/core/src/db.rs#L1207)) plus a fold in Rust in `list_places_internal` ([places_cmd.rs:29](../../../src-tauri/core/src/commands_internal/places_cmd.rs#L29)). The most-used spelling is the display name, and a tie goes to the byte-wise smaller spelling. |
+| Coordinates | Table `places`, key `normalised_name`, columns `display_name`, `lat`, `lon`, `source` ([schema.rs:134](../../../src-tauri/core/src/schema.rs#L134)). A row exists only for a place with coordinates. `clear_place` and `upsert_place` delete the row. |
+| Routes | `routes` has `UNIQUE(vehicle_id, origin, destination)` on raw strings. `find_or_create_route` ([db.rs:798](../../../src-tauri/core/src/db.rs#L798)), `get_routes_for_vehicle` ([db.rs:720](../../../src-tauri/core/src/db.rs#L720)) joins trips on the strings. |
+| Time inference | `find_most_recent_trip_times_for_route` ([db.rs:763](../../../src-tauri/core/src/db.rs#L763)) matches the strings exactly. |
+| Route maps | `mode_for` and `placed_endpoint` ([route_maps.rs:985](../../../src-tauri/core/src/commands_internal/route_maps.rs#L985)) fold the strings to find coordinates. |
+| Trip form | `Autocomplete` with free text, suggestions from `listPlaces()` ([TripRow.svelte:652](../../../src/lib/components/TripRow.svelte#L652)). Distance auto-fill matches `r.origin === formData.origin` ([TripRow.svelte:314](../../../src/lib/components/TripRow.svelte#L314)). |
+| Place UI | Section "Miesta" inside Settings ([settings/+page.svelte:1379](../../../src/routes/settings/+page.svelte#L1379)). |
+| Migrations | Run on three paths: `Database::new`, `in_memory`, `restore_from_file` ([db.rs:89](../../../src-tauri/core/src/db.rs#L89), [:126](../../../src-tauri/core/src/db.rs#L126), [:167](../../../src-tauri/core/src/db.rs#L167)). Foreign keys are **on** for every connection, also during migrations: the bundled `libsqlite3-sys` 0.30.1 builds SQLite with `-DSQLITE_DEFAULT_FOREIGN_KEYS=1` (its `build.rs:123`). So `DROP TABLE trips` cascades into `trip_routes` and `paperless_trip_links`. |
 
 **Real data** (read-only copy of the live DB, 2026-10-05): 339 trips, 2 vehicles, 95 routes.
 The trips use 48 distinct normalised place keys, and all 48 have coordinates. One more
@@ -88,7 +88,7 @@ The trips use 48 distinct normalised place keys, and all 48 have coordinates. On
   Do not turn foreign keys off: Diesel writes the version row outside the SQL file.
 - `down.sql` rebuilds `origin` and `destination` from the place names, with the same
   TEMP copy of the child rows. It cannot give back the other spellings of a place.
-- The existing pre-migration backup at startup stays ([db.rs:66-86](../../src-tauri/core/src/db.rs#L66)).
+- The existing pre-migration backup at startup stays ([db.rs:66-86](../../../src-tauri/core/src/db.rs#L66)).
 
 ### 3. Backend API
 
@@ -179,36 +179,36 @@ The trips use 48 distinct normalised place keys, and all 48 have coordinates. On
 
 ## Documentation
 
-Check **every** feature doc in [docs/features/](../../docs/features/). Update each doc that
+Check **every** feature doc in [docs/features/](../../../docs/features/). Update each doc that
 describes places, trip endpoints, routes or the Settings layout. In the PR, list each doc
 as "updated" or "checked, no change".
 
 | Doc | Action |
 |-----|--------|
-| [backup-system.md](../../docs/features/backup-system.md) | restore runs the new migration with the registered SQLite function |
-| [export-system.md](../../docs/features/export-system.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [home-assistant.md](../../docs/features/home-assistant.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [magic-fill.md](../../docs/features/magic-fill.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [multi-invoice.md](../../docs/features/multi-invoice.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [multi-year-state.md](../../docs/features/multi-year-state.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [paperless-integration.md](../../docs/features/paperless-integration.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [place-book.md](../../docs/features/place-book.md) | rewrite for the new model (entity, Miesta tab, migration, rename and delete rules) |
-| [read-only-mode.md](../../docs/features/read-only-mode.md) | an older image opens the migrated DB read-only |
-| [route-maps.md](../../docs/features/route-maps.md) | endpoints by place ID, not by a folded string |
-| [server-mode.md](../../docs/features/server-mode.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [settings-architecture.md](../../docs/features/settings-architecture.md) | Miesta is no longer in Settings |
-| [trip-entry-defaults.md](../../docs/features/trip-entry-defaults.md) | autocomplete accepts only existing places; distance auto-fill and time inference on IDs |
-| [trip-grid-calculation.md](../../docs/features/trip-grid-calculation.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [trip-odometer-cascade.md](../../docs/features/trip-odometer-cascade.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
-| [unified-invoice-picker.md](../../docs/features/unified-invoice-picker.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [backup-system.md](../../../docs/features/backup-system.md) | restore runs the new migration with the registered SQLite function |
+| [export-system.md](../../../docs/features/export-system.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [home-assistant.md](../../../docs/features/home-assistant.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [magic-fill.md](../../../docs/features/magic-fill.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [multi-invoice.md](../../../docs/features/multi-invoice.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [multi-year-state.md](../../../docs/features/multi-year-state.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [paperless-integration.md](../../../docs/features/paperless-integration.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [place-book.md](../../../docs/features/place-book.md) | rewrite for the new model (entity, Miesta tab, migration, rename and delete rules) |
+| [read-only-mode.md](../../../docs/features/read-only-mode.md) | an older image opens the migrated DB read-only |
+| [route-maps.md](../../../docs/features/route-maps.md) | endpoints by place ID, not by a folded string |
+| [server-mode.md](../../../docs/features/server-mode.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [settings-architecture.md](../../../docs/features/settings-architecture.md) | Miesta is no longer in Settings |
+| [trip-entry-defaults.md](../../../docs/features/trip-entry-defaults.md) | autocomplete accepts only existing places; distance auto-fill and time inference on IDs |
+| [trip-grid-calculation.md](../../../docs/features/trip-grid-calculation.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [trip-odometer-cascade.md](../../../docs/features/trip-odometer-cascade.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
+| [unified-invoice-picker.md](../../../docs/features/unified-invoice-picker.md) | Check for place strings, `origin`/`destination` as text, or the Settings place section. Fix what is out of date. |
 
-Also update [README.md](../../README.md) and [README.en.md](../../README.en.md) for the
+Also update [README.md](../../../README.md) and [README.en.md](../../../README.en.md) for the
 Miesta tab.
 
 ## Decisions to record (`/decision`)
 
 - **ADR:** places are entities, trips and routes reference them by ID. Supersedes
-  [ADR-033](../../DECISIONS.md#adr-033-aggregates-over-trips-are-computed-not-stored) for
+  [ADR-033](../../../DECISIONS.md#adr-033-aggregates-over-trips-are-computed-not-stored) for
   places (the route counters stay derived) and ADR-034 (the display spelling is now the
   stored name). Check ADR-032 for the place-book endpoints on the map.
 - **ADR:** the migration uses a SQLite function registered from Rust; the TEMP copy of
@@ -219,7 +219,7 @@ Miesta tab.
 
 ## Upgrade notes (`### Pokyny k aktualizácii`)
 
-Use the five fields of the template in [CHANGELOG.md](../../CHANGELOG.md):
+Use the five fields of the template in [CHANGELOG.md](../../../CHANGELOG.md):
 
 - **Potrebný zásah:** take a backup before the redeploy (the app also writes a
   pre-migration backup).
