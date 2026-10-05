@@ -134,3 +134,38 @@ These claims were checked against the source. Phase 2 does not need to check the
    (`Trip::from`, `From<TripRow>`, `normalize_location`, `distinct_trip_places`,
    `upsert_place`, `save_place`, `clear_place`, `origin: data.origin`). Only C1 matched.
    No new findings, so the review stops.
+
+## Addendum: second reviewer pass
+
+A second plan-review run found the same C1, I2, I3, M2, M3, M5 and M8. It also
+found these items, which the first pass does not list. They are all Minor. With
+them, the counts are 1 Critical, 3 Important, 14 Minor. The recommendation stays
+**Needs Revisions**.
+
+- [ ] **M9. `list_vehicles_read` duplicates `get_vehicles_internal`.**
+  [vehicles.rs:10](../../src-tauri/core/src/commands_internal/vehicles.rs#L10) has the
+  same body (`db.get_all_vehicles().map_err(|e| e.to_string())`). Use
+  `get_vehicles_internal` in Task 3 and Task 4, and remove `list_vehicles_read`. The
+  name has no guard word, so `mcp_module_has_no_write_path` still passes.
+- [ ] **M10. `insert_test_place` duplicates a 88 helper.** The
+  [88 plan](../88-places-as-entities/02-plan.md) (Task 2, Step 5) adds
+  `#[cfg(test)] Database::ensure_place_for_test(&self, name) -> Uuid`. Use it in
+  Tasks 1, 3 and 4 in place of the raw-SQL helper.
+- [ ] **M11. `$readOnly` does not exist.** The read-only flag is
+  `$appModeStore.isReadOnly` ([appMode.ts](../../src/lib/stores/appMode.ts)). Write
+  the real name in Task 5 Step 4.
+- [ ] **M12. Svelte event syntax is not fixed.** Task 5 uses `on:click`. The repo uses
+  both styles (`onclick=` in [+page.svelte](../../src/routes/+page.svelte), `on:click`
+  in [settings/+page.svelte](../../src/routes/settings/+page.svelte)), and the 88 plan
+  does not say which style the new Miesta page uses. Svelte 5 rejects both styles in
+  one component. Tell the implementer to use the style of the 88 page.
+- [ ] **M13. The doc-check list has no place to go.** The spec says to list each
+  feature doc as "updated" or "checked, no change" in the PR. Task 8 pushes to `main`,
+  and no PR exists. Put the list in the commit body of Task 7, or in a `03-status.md`.
+- [ ] **M14. The Task 0 Step 1 grep is too loose.** `grep -i "places as entities\|88"`
+  also matches any commit hash or message that contains "88". Grep for
+  `places_as_entities` (the migration name) or for the 88 commit subject.
+
+Also for C1: add `Trip::from_row`, `place_names`, `Place::from_row` and
+`ensure_place_for_test` to the Task 0 Step 2 greps, so that the next drift shows
+before Task 1 starts.
