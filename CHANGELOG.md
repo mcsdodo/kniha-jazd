@@ -23,6 +23,7 @@ databázu len na čítanie.
   - Uložené trasy, ktoré sa po zlúčení zápisov miesta ocitnú na jednej dvojici miest, sa spoja do jednej trasy. Ostane trasa najnovšej jazdy na tej dvojici, inak prvá podľa `id`.
   - Uložené trasy, ktoré nepoužíva žiadna jazda, sa zmažú. Doteraz sa nikde nezobrazovali.
   - Prázdny začiatok alebo cieľ jazdy dostane miesto `Neznáme miesto`.
+  - Uložená trasa s prázdnym začiatkom alebo cieľom sa zmaže. Jazda ostane a dostane `Neznáme miesto`.
   - Miesto jazdy bez súradníc sa stane miestom bez polohy, označeným "Treba doplniť polohu".
 - **Obraz, zväzok, port:** nová cesta `/mcp` na tom istom porte (MCP len na čítanie, bez prihlásenia, ako `/api/rpc`). Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Obraz sa zostavuje s Rust 1.88.
 
@@ -36,6 +37,9 @@ databázu len na čítanie.
 - **Jazda prijme len existujúce miesto** - pole Odkiaľ a Kam v jazde ponúka len miesta z karty Miesta. Neznámy text jazdu neuloží. Nové miesto najprv pridajte na karte Miesta.
 - **Premenovanie miesta platí pre všetky jazdy** - aj pre minulé roky, ktoré už boli vytlačené. Premenovanie na názov, ktorý už iné miesto má, skončí chybou. Miesta sa nezlučujú.
 - **Druh trasy podľa miesta** - mapa rozhodne medzi okružnou a priamou trasou podľa toho, či je začiatok a cieľ to isté miesto, nie podľa textu.
+
+### Opravené
+- **CORS porovná celú adresu** - prehliadač smie volať `/api/rpc` a `/mcp` z inej stránky, len ak je jej hostiteľ `localhost` alebo súkromná adresa IPv4 (10.x, 172.16-31.x, 192.168.x, 127.x). Doteraz stačil začiatok textu, takže prešla aj stránka `http://localhost.evil.com` alebo `http://10.evil.com`.
 
 ## [1.3.0] - 2026-10-02
 
