@@ -969,6 +969,78 @@ fn a_route_no_trip_uses_is_dropped() {
     assert_eq!(route_rows(&db), vec![("r-used".to_string(), 40.0)]);
 }
 
+// The four tests below need both endpoints to be places, so only the "a trip
+// uses this pair" join can drop the route (code review, 2026-10-05: the test
+// above drops its route at the places join, before that rule decides).
+
+#[test]
+fn a_route_in_the_reverse_direction_of_a_trip_is_dropped() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-there', 'v1', 'Nitra', 'Levice', 40.0), \
+               ('r-back', 'v1', 'Levice', 'Nitra', 41.0)");
+    migrate_to_current(&db);
+    assert_eq!(route_rows(&db), vec![("r-there".to_string(), 40.0)]);
+}
+
+#[test]
+fn a_route_only_another_vehicle_drives_is_dropped() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_vehicle(&db, "v2");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-v1', 'v1', 'Nitra', 'Levice', 40.0), \
+               ('r-v2', 'v2', 'Nitra', 'Levice', 42.0)");
+    migrate_to_current(&db);
+    assert_eq!(route_rows(&db), vec![("r-v1".to_string(), 40.0)]);
+}
+
+#[test]
+fn a_route_to_an_old_place_no_trip_names_is_dropped() {
+    // Senec stays a place (step 4), but no trip drives Nitra -> Senec.
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO places (normalised_name, display_name, lat, lon, source) \
+               VALUES ('senec', 'Senec', 48.2, 17.4, 'geocoder')");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-used', 'v1', 'Nitra', 'Levice', 40.0), \
+               ('r-senec', 'v1', 'Nitra', 'Senec', 70.0)");
+    migrate_to_current(&db);
+    assert_eq!(route_rows(&db), vec![("r-used".to_string(), 40.0)]);
+}
+
+#[test]
+fn routes_that_collapse_with_no_exact_match_keep_the_first_by_id() {
+    // The latest trip used a third spelling, so neither route matches it.
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Kosice", "Presov", "2026-01-01T08:00:00");
+    seed_trip_at(&db, "t2", "v1", "KOŠICE", "Prešov", "2026-02-01T08:00:00");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-b', 'v1', 'Košice', 'Prešov', 37.0), \
+               ('r-a', 'v1', 'Kosice ', 'Presov', 36.0)");
+    migrate_to_current(&db);
+    assert_eq!(route_rows(&db), vec![("r-a".to_string(), 36.0)]);
+}
+
+#[test]
+fn a_route_with_a_blank_endpoint_is_dropped() {
+    // The trip keeps its target through the 'Neznáme miesto' place, but step 5
+    // joins the route on its raw text, and a blank text is no place. The
+    // CHANGELOG upgrade notes list this loss.
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "", "Nitra", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-blank', 'v1', '', 'Nitra', 12.0)");
+    migrate_to_current(&db);
+    assert_eq!(route_rows(&db), Vec::<(String, f64)>::new());
+}
+
 #[test]
 fn trip_children_survive_the_trips_rebuild() {
     let db = open_db_legacy_before(PLACES_AS_ENTITIES);
