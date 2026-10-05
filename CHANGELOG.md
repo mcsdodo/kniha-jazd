@@ -28,8 +28,11 @@ databázu len na čítanie.
 
 ### Pridané
 - **Karta Miesta** - zoznam všetkých miest s pridaním, premenovaním, určením polohy a zmazaním. Miesto sa dá zmazať, len ak ho nepoužíva žiadna jazda. Miesto bez polohy je označené "Treba doplniť polohu".
+- **Domov** - jedno miesto sa dá označiť ako domov ikonou domčeka na karte Miesta. Označenie sa dá presunúť na iné miesto.
+- **Rozhranie MCP len na čítanie** - na adrese `/mcp` môže AI asistent čítať vozidlá, jazdy a cesty v rozsahu dátumov. Cesta sa začína jazdou z domova a končí nasledujúcou jazdou späť domov. Rozhranie nič nezmení.
 
 ### Zmenené
+- **Nadpis v hlavičke** - klik na názov aplikácie otvorí knihu jázd.
 - **Jazda prijme len existujúce miesto** - pole Odkiaľ a Kam v jazde ponúka len miesta z karty Miesta. Neznámy text jazdu neuloží. Nové miesto najprv pridajte na karte Miesta.
 - **Premenovanie miesta platí pre všetky jazdy** - aj pre minulé roky, ktoré už boli vytlačené. Premenovanie na názov, ktorý už iné miesto má, skončí chybou. Miesta sa nezlučujú.
 - **Druh trasy podľa miesta** - mapa rozhodne medzi okružnou a priamou trasou podľa toho, či je začiatok a cieľ to isté miesto, nie podľa textu.
