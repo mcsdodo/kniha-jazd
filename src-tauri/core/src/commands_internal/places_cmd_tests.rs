@@ -253,3 +253,33 @@ fn set_home_place_internal_refuses_in_read_only_mode() {
     assert!(set_home_place_internal(&db, &app_state, Some(id.to_string())).is_err());
     assert!(db.get_home_place().unwrap().is_none());
 }
+
+// ---------------------------------------------------------------------------
+// Two writes that race for one name
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_unique_violation_on_the_name_gives_the_slovak_message() {
+    // The free-name check and the write are two DB calls. If another write
+    // takes the name between them, the UNIQUE index refuses the second write.
+    // The user must see the same message as for a normal collision, not the
+    // raw "UNIQUE constraint failed" text (code review, 2026-10-05).
+    let db = Database::in_memory().unwrap();
+    db.ensure_place_for_test("Košice");
+    let key = normalise("Košice");
+    let raced = db
+        .insert_place(&NewPlaceRow {
+            id: "raced",
+            name: "Kosice",
+            normalised_name: &key,
+            lat: None,
+            lon: None,
+            source: None,
+            created_at: "2026-10-05T00:00:00Z",
+        })
+        .unwrap_err();
+
+    let msg = write_error(&db, &key, None, raced);
+
+    assert_eq!(msg, "Miesto s týmto názvom už existuje: Košice");
+}

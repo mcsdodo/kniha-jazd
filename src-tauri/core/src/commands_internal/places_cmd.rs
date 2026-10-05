@@ -74,6 +74,25 @@ fn ensure_key_free(db: &Database, key: &str, except: Option<&str>) -> Result<(),
     }
 }
 
+/// The message for a failed place write. The free-name check and the write
+/// are two DB calls, so another write can take the name between them. Then
+/// the UNIQUE index refuses the write, and the user gets the same message as
+/// from `ensure_key_free`, not the raw SQLite text.
+fn write_error(
+    db: &Database,
+    key: &str,
+    except: Option<&str>,
+    e: diesel::result::Error,
+) -> String {
+    use diesel::result::{DatabaseErrorKind, Error};
+    if let Error::DatabaseError(DatabaseErrorKind::UniqueViolation, _) = e {
+        if let Err(msg) = ensure_key_free(db, key, except) {
+            return msg;
+        }
+    }
+    e.to_string()
+}
+
 pub fn create_place_internal(
     db: &Database,
     app_state: &AppState,
@@ -96,7 +115,7 @@ pub fn create_place_internal(
         source: Some(source.as_str()),
         created_at: &now,
     })
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| write_error(db, &key, None, e))?;
     place_by_id(db, &id)
 }
 
@@ -109,7 +128,10 @@ pub fn rename_place_internal(
     check_read_only!(app_state);
     let (name, key) = name_and_key(&name)?;
     ensure_key_free(db, &key, Some(&id))?;
-    if db.rename_place(&id, &name, &key).map_err(|e| e.to_string())? != 1 {
+    let renamed = db
+        .rename_place(&id, &name, &key)
+        .map_err(|e| write_error(db, &key, Some(&id), e))?;
+    if renamed != 1 {
         return Err(format!("Miesto neexistuje: {id}"));
     }
     place_by_id(db, &id)
