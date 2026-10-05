@@ -1040,3 +1040,32 @@ fn restore_of_an_old_backup_runs_the_places_migration() {
     assert_eq!((trip.origin.as_str(), trip.destination.as_str()), ("Nitra", "Levice"));
     assert_ne!(trip.origin_place_id, Uuid::nil());
 }
+
+// ============================================================================
+// Home mark column (task 89)
+// ============================================================================
+
+const ADD_PLACE_IS_HOME: &str = "2026-10-05-110000";
+
+#[test]
+fn add_place_is_home_down_then_up_again() {
+    let db = Database::in_memory().unwrap();
+    let id = db.ensure_place_for_test("City A").to_string();
+    db.set_home_place(Some(&id)).unwrap();
+    {
+        let conn = &mut *db.connection();
+        let reverted = conn.revert_last_migration(crate::db::MIGRATIONS).unwrap();
+        assert!(reverted.to_string().replace('-', "").starts_with(&ADD_PLACE_IS_HOME.replace('-', "")));
+    }
+    {
+        let conn = &mut *db.connection();
+        let left: Result<usize, _> = diesel::sql_query("SELECT is_home FROM places").execute(conn);
+        assert!(left.is_err(), "down.sql must drop the column");
+        conn.run_pending_migrations(crate::db::MIGRATIONS).unwrap();
+    }
+    let rows = db.all_places().unwrap();
+    assert_eq!(rows.len(), 1, "the place survives the round trip");
+    assert!(!rows[0].is_home, "the mark is not kept: the column is new again");
+    db.set_home_place(Some(&id)).unwrap();
+    assert!(db.get_home_place().unwrap().is_some());
+}

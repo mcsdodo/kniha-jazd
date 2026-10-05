@@ -1000,6 +1000,8 @@ pub struct PlaceRow {
     pub lon: Option<f64>,
     pub source: Option<String>,
     pub created_at: String,
+    /// Last field: `Queryable` binds by position (Task 89).
+    pub is_home: bool,
 }
 
 /// For inserting new places
@@ -1257,6 +1259,8 @@ pub struct Place {
     pub lat: Option<f64>,
     pub lon: Option<f64>,
     pub source: Option<PlaceSource>,
+    /// True for the one place marked as home (Task 89).
+    pub is_home: bool,
     /// How many trip endpoints point at this place.
     pub uses: i64,
 }
@@ -1270,6 +1274,7 @@ impl Place {
             lat: row.lat,
             lon: row.lon,
             source: row.source.as_deref().and_then(PlaceSource::parse),
+            is_home: row.is_home,
             uses,
         }
     }

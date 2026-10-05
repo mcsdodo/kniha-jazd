@@ -1250,6 +1250,38 @@ impl Database {
         places::table.select(PlaceRow::as_select()).load(conn)
     }
 
+    /// The place marked as home, if any (task 89). The partial unique index
+    /// `idx_places_single_home` guarantees at most one row.
+    pub fn get_home_place(&self) -> QueryResult<Option<PlaceRow>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        places::table
+            .filter(places::is_home.eq(true))
+            .select(PlaceRow::as_select())
+            .first(conn)
+            .optional()
+    }
+
+    /// Move the home mark to `id`, or clear it with `None`. One transaction:
+    /// the old mark goes first, so the unique index never sees two homes.
+    /// An unknown ID rolls back and returns `NotFound`, so the old mark stays.
+    pub fn set_home_place(&self, id: Option<&str>) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::update(places::table.filter(places::is_home.eq(true)))
+                .set(places::is_home.eq(false))
+                .execute(tx)?;
+            if let Some(id) = id {
+                let changed = diesel::update(places::table.filter(places::id.eq(id)))
+                    .set(places::is_home.eq(true))
+                    .execute(tx)?;
+                if changed == 0 {
+                    return Err(diesel::result::Error::NotFound);
+                }
+            }
+            Ok(())
+        })
+    }
+
     /// Place id -> number of trip endpoints that point at it. A place no trip
     /// uses is absent; the caller reads that as 0.
     pub fn place_uses(&self) -> QueryResult<HashMap<String, i64>> {

@@ -955,6 +955,16 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let v = crate::commands_internal::list_places_internal(&state.db)?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "set_home_place" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                id: Option<String>,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::set_home_place_internal(&state.db, &state.app_state, a.id)?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
         "create_place" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]

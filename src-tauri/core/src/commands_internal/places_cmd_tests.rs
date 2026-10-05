@@ -217,3 +217,39 @@ fn place_writes_are_refused_in_read_only_mode() {
     assert!(err.contains("len na čítanie"), "got: {err}");
     assert!(db.all_places().unwrap().is_empty(), "a read-only create must not write");
 }
+
+// ---------------------------------------------------------------------------
+// Home mark (task 89)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn set_home_place_internal_marks_and_list_places_reports_it() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let id = db.ensure_place_for_test("Home St 1, Hometown");
+
+    set_home_place_internal(&db, &app_state, Some(id.to_string())).unwrap();
+
+    let places = list_places_internal(&db).unwrap();
+    let home: Vec<_> = places.iter().filter(|p| p.is_home).collect();
+    assert_eq!(home.len(), 1);
+    assert_eq!(home[0].id, id);
+}
+
+#[test]
+fn set_home_place_internal_unknown_id_is_an_error() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let err = set_home_place_internal(&db, &app_state, Some(uuid::Uuid::new_v4().to_string()));
+    assert_eq!(err.unwrap_err(), "Place not found");
+}
+
+#[test]
+fn set_home_place_internal_refuses_in_read_only_mode() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    app_state.enable_read_only("test");
+    let id = db.ensure_place_for_test("Home St 1, Hometown");
+    assert!(set_home_place_internal(&db, &app_state, Some(id.to_string())).is_err());
+    assert!(db.get_home_place().unwrap().is_none());
+}

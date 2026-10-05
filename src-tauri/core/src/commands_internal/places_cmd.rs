@@ -29,6 +29,21 @@ pub fn list_places_internal(db: &Database) -> Result<Vec<Place>, String> {
     Ok(out)
 }
 
+/// Mark a place as home, or clear the mark with `None` (task 89). The journey
+/// grouping and the MCP tool `list_journeys` read this mark.
+pub fn set_home_place_internal(
+    db: &Database,
+    app_state: &AppState,
+    id: Option<String>,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    match db.set_home_place(id.as_deref()) {
+        Ok(()) => Ok(()),
+        Err(diesel::result::Error::NotFound) => Err("Place not found".to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 fn place_by_id(db: &Database, id: &str) -> Result<Place, String> {
     let row = db
         .get_place(id)

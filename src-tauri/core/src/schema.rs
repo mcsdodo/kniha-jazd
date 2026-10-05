@@ -144,6 +144,9 @@ diesel::table! {
         lon -> Nullable<Double>,
         source -> Nullable<Text>,
         created_at -> Text,
+        // Last on purpose: `PlaceRow` is `Queryable` and binds by position
+        // (migration 2026-10-05-110000_add_place_is_home, Task 89).
+        is_home -> Bool,
     }
 }
 

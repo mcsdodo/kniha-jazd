@@ -1504,3 +1504,59 @@ fn a_trip_cannot_point_at_a_missing_place() {
     trip.destination_place_id = Uuid::new_v4();
     assert!(db.create_trip(&db.with_places_for_test(&trip)).is_err(), "FOREIGN KEY constraint failed");
 }
+
+// ============================================================================
+// Home mark (task 89)
+// ============================================================================
+
+#[test]
+fn home_place_is_none_by_default() {
+    let db = Database::in_memory().unwrap();
+    db.ensure_place_for_test("Home St 1, Hometown");
+    assert!(db.get_home_place().unwrap().is_none());
+}
+
+#[test]
+fn set_home_place_moves_the_mark() {
+    let db = Database::in_memory().unwrap();
+    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
+    let b = db.ensure_place_for_test("City A").to_string();
+
+    db.set_home_place(Some(&a)).unwrap();
+    assert_eq!(db.get_home_place().unwrap().unwrap().id, a);
+
+    db.set_home_place(Some(&b)).unwrap();
+    assert_eq!(db.get_home_place().unwrap().unwrap().id, b);
+    let homes = db.all_places().unwrap().into_iter().filter(|p| p.is_home).count();
+    assert_eq!(homes, 1);
+}
+
+#[test]
+fn set_home_place_none_clears_the_mark() {
+    let db = Database::in_memory().unwrap();
+    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
+    db.set_home_place(Some(&a)).unwrap();
+    db.set_home_place(None).unwrap();
+    assert!(db.get_home_place().unwrap().is_none());
+}
+
+#[test]
+fn set_home_place_unknown_id_fails_and_keeps_the_old_mark() {
+    let db = Database::in_memory().unwrap();
+    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
+    db.set_home_place(Some(&a)).unwrap();
+
+    let err = db.set_home_place(Some("no-such-id"));
+    assert!(matches!(err, Err(diesel::result::Error::NotFound)));
+    assert_eq!(db.get_home_place().unwrap().unwrap().id, a);
+}
+
+#[test]
+fn second_home_violates_unique_index() {
+    let db = Database::in_memory().unwrap();
+    db.ensure_place_for_test("Home St 1, Hometown");
+    db.ensure_place_for_test("City A");
+    let result = diesel::sql_query("UPDATE places SET is_home = 1")
+        .execute(&mut *db.connection());
+    assert!(result.is_err(), "the partial unique index must allow one home only");
+}
