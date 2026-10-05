@@ -65,6 +65,8 @@ pub fn compute_copied_trip_defaults(
     Ok(CopiedTripDefaults {
         start_datetime: start.format("%Y-%m-%dT%H:%M:%S").to_string(),
         end_datetime: end.map(|e| e.format("%Y-%m-%dT%H:%M:%S").to_string()),
+        origin_place_id: source.origin_place_id,
+        destination_place_id: source.destination_place_id,
         origin: source.origin.clone(),
         destination: source.destination.clone(),
         distance_km,
@@ -91,6 +93,8 @@ mod tests {
     fn make_source(start: NaiveDateTime, end: Option<NaiveDateTime>) -> Trip {
         let now = Utc::now();
         Trip {
+            origin_place_id: Uuid::nil(),
+            destination_place_id: Uuid::nil(),
             id: Uuid::new_v4(),
             vehicle_id: Uuid::new_v4(),
             start_datetime: start,

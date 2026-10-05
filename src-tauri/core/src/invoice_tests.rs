@@ -15,6 +15,8 @@ use crate::paperless::PaperlessDoc;
 fn empty_trip(start: NaiveDateTime, end: NaiveDateTime) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::nil(),
         start_datetime: start,

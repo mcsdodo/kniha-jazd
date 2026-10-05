@@ -486,6 +486,8 @@ fn make_trip(distance_km: f64, fuel_liters: Option<f64>, full_tank: bool) -> Tri
         .and_hms_opt(8, 0, 0)
         .unwrap();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime,

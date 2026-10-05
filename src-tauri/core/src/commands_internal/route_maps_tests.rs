@@ -6,10 +6,10 @@ use super::*;
 use crate::app_state::AppState;
 use crate::db::Database;
 use crate::export::RouteMapPage;
-use crate::models::{PlaceSource, RouteMode, Trip, Vehicle, Waypoint};
+use crate::models::{RouteMode, Trip, Vehicle, Waypoint};
 use crate::route_map::polyline::encode;
 use crate::route_map::tiles::TileFetcher;
-use crate::commands_internal::{build_trip_grid_data, save_place_internal};
+use crate::commands_internal::build_trip_grid_data;
 use crate::route_map::{Dataset, FetchedRoute, RouteProvider};
 use chrono::NaiveDate;
 use uuid::Uuid;
@@ -60,7 +60,7 @@ fn seed_trip(db: &Database) -> Trip {
         true,
     );
     trip.vehicle_id = vehicle.id;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
     trip
 }
 
@@ -303,7 +303,7 @@ fn grid_data_marks_only_the_trips_that_have_a_saved_map() {
     );
     unmapped.vehicle_id = mapped.vehicle_id;
     unmapped.odometer = mapped.odometer + 80.0;
-    db.create_trip(&unmapped).unwrap();
+    db.create_trip(&db.with_places_for_test(&unmapped)).unwrap();
 
     let app_state = AppState::new();
     let (_, polyline) = sample_geometry();
@@ -373,7 +373,7 @@ fn seed_vehicle_with_trips(db: &Database, count: usize) -> (Uuid, Vec<Trip>) {
         );
         trip.vehicle_id = vehicle.id;
         trip.odometer = 10_000.0 + 100.0 * (i as f64 + 1.0);
-        db.create_trip(&trip).unwrap();
+        db.create_trip(&db.with_places_for_test(&trip)).unwrap();
         trips.push(trip);
     }
 
@@ -602,7 +602,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
     )
     .unwrap();
     trip.distance_km = 100.0;
-    db.update_trip(&trip).unwrap();
+    db.update_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let loaded = get_trip_route_internal(&db, trip.id.to_string())
         .unwrap()
@@ -626,7 +626,7 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
     )
     .unwrap();
     trip.distance_km = 100.0;
-    db.update_trip(&trip).unwrap();
+    db.update_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let loaded = get_trip_route_internal(&db, trip.id.to_string())
         .unwrap()
@@ -639,40 +639,6 @@ fn deviation_is_measured_against_the_road_distance_and_flagged_from_one_constant
 // mode_for / start_route_for_trip: the place-book route mode decision
 // ---------------------------------------------------------------------------
 
-fn app_state() -> AppState {
-    AppState::new()
-}
-
-#[test]
-fn the_same_place_twice_is_a_loop() {
-    assert_eq!(mode_for("Domov", "Domov").unwrap(), RouteMode::Loop);
-}
-
-/// Mode selection and the place book MUST share one notion of sameness, or a
-/// row could route A->B while its endpoints resolve to one book entry.
-/// Both call `places::normalise` -- there is no second implementation.
-#[test]
-fn sameness_is_judged_after_normalisation() {
-    assert_eq!(mode_for("Spišská", "spisska ").unwrap(), RouteMode::Loop);
-}
-
-#[test]
-fn different_places_are_a_direct_route() {
-    assert_eq!(
-        mode_for("Bratislava", "Spišská Nová Ves").unwrap(),
-        RouteMode::Direct
-    );
-}
-
-/// A blank endpoint must NOT quietly become a home loop: that hands the user
-/// a map of somewhere they never were, labelled as evidence.
-#[test]
-fn a_blank_endpoint_is_an_error_not_a_loop() {
-    assert!(mode_for("", "Košice").is_err());
-    assert!(mode_for("Košice", "   ").is_err());
-    assert!(mode_for("", "").is_err());
-}
-
 // --- start_route_for_trip: the one caller of mode_for ---
 
 fn seed_trip_between(db: &Database, origin: &str, destination: &str) -> Trip {
@@ -680,6 +646,8 @@ fn seed_trip_between(db: &Database, origin: &str, destination: &str) -> Trip {
     let mut updated = trip.clone();
     updated.origin = origin.into();
     updated.destination = destination.into();
+    updated.origin_place_id = db.ensure_place_for_test(origin);
+    updated.destination_place_id = db.ensure_place_for_test(destination);
     db.update_trip(&updated).unwrap();
     updated
 }
@@ -698,8 +666,8 @@ fn a_same_place_row_starts_in_loop_mode() {
 fn a_direct_row_carries_both_endpoints_from_the_book() {
     let db = Database::in_memory().unwrap();
     let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
-    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
-    save_place_internal(&db, &app_state(), "Depot, City B".into(), 48.7, 21.2, PlaceSource::Geocoder).unwrap();
+    db.set_place_position(&trip.origin_place_id.to_string(), 48.1, 17.1, "manual").unwrap();
+    db.set_place_position(&trip.destination_place_id.to_string(), 48.7, 21.2, "geocoder").unwrap();
 
     let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
 
@@ -708,39 +676,19 @@ fn a_direct_row_carries_both_endpoints_from_the_book() {
     assert_eq!(start.destination.unwrap().lon, Some(21.2));
 }
 
-/// The endpoint's spelling in the trip need not match the book's byte for byte --
-/// the book is keyed on the normalised form, which is the whole point.
-#[test]
-fn an_endpoint_is_found_regardless_of_spelling() {
-    let db = Database::in_memory().unwrap();
-    let trip = seed_trip_between(&db, "OFFICE, CITY A", "Depot, City B");
-    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
-
-    let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
-
-    assert_eq!(start.origin.unwrap().lat, Some(48.1));
-}
-
 /// An unplaced endpoint is NOT an error: the map view opens the book's dialog in
 /// place so the user can fix it without leaving the page. Failing here would
 /// turn a two-click fix into a redirect.
 #[test]
 fn an_unplaced_endpoint_is_reported_not_refused() {
     let db = Database::in_memory().unwrap();
+    db.ensure_unplaced_place_for_test("Depot, City B");
     let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
-    save_place_internal(&db, &app_state(), "Office, City A".into(), 48.1, 17.1, PlaceSource::Manual).unwrap();
 
     let start = start_route_for_trip_internal(&db, trip.id.to_string()).unwrap();
 
     assert!(start.origin.is_some());
     assert!(start.destination.is_none(), "the unplaced endpoint reports as None");
-}
-
-#[test]
-fn a_blank_endpoint_still_fails_the_whole_call() {
-    let db = Database::in_memory().unwrap();
-    let trip = seed_trip_between(&db, "", "Depot, City B");
-    assert!(start_route_for_trip_internal(&db, trip.id.to_string()).is_err());
 }
 
 // ---------------------------------------------------------------------------
@@ -1245,11 +1193,10 @@ impl RouteProvider for WaypointCountAssertingProvider {
 }
 
 /// Task 20, fix round 3: two DIFFERENT places can carry bit-identical
-/// coordinates. `mode_for` (this module, below) decides Direct vs Loop by
-/// comparing NAMES after `places::normalise`, never by coordinate, and
-/// `save_place_internal` (`places_cmd.rs`) keys the book on
-/// `normalised_name` alone -- it enforces no coordinate uniqueness. So a
-/// book with two entries for one real address under different spellings
+/// coordinates. `mode_for` decides Direct vs Loop by comparing PLACE IDS,
+/// never by coordinate, and the book keys a place on `normalised_name`
+/// (UNIQUE) alone -- it enforces no coordinate uniqueness. So a
+/// book with two entries for one real address under different names
 /// (e.g. "Mlynske Nivy 14" and "Mlynske Nivy 14, Bratislava") can hand this
 /// function a `[A, via, B]` list where A and B share a coordinate but are
 /// not the same waypoint. Comparing only lat/lon for "already closed" would
@@ -2549,7 +2496,7 @@ fn commit_replans_from_the_book_not_from_the_dry_run() {
 
     // Another tab edits the trip between the dry run and Confirm.
     trip.distance_km = 100.0;
-    db.update_trip(&trip).unwrap();
+    db.update_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let done = save(false).unwrap();
     assert_eq!(done.distance_before, 100.0, "the commit reads the book as it is now");
@@ -2589,7 +2536,7 @@ fn a_map_whose_trip_km_was_edited_later_is_not_in_sync() {
     .unwrap();
 
     trip.distance_km = 100.0;
-    db.update_trip(&trip).unwrap();
+    db.update_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert!(!saved.distance_in_sync);

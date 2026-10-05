@@ -5,8 +5,9 @@ diesel::table! {
     routes (id) {
         id -> Nullable<Text>,
         vehicle_id -> Text,
-        origin -> Text,
-        destination -> Text,
+        // Rebuilt by migration 2026-10-05-100000_places_as_entities (Task 88).
+        origin_place_id -> Text,
+        destination_place_id -> Text,
         distance_km -> Double,
     }
 }
@@ -25,8 +26,10 @@ diesel::table! {
     trips (id) {
         id -> Nullable<Text>,
         vehicle_id -> Text,
-        origin -> Text,
-        destination -> Text,
+        // Rebuilt by migration 2026-10-05-100000_places_as_entities (Task 88):
+        // the two place ids keep the position the old strings had.
+        origin_place_id -> Text,
+        destination_place_id -> Text,
         distance_km -> Double,
         odometer -> Double,
         purpose -> Text,
@@ -130,14 +133,17 @@ diesel::table! {
     }
 }
 
-// Added via migration 2026-09-07-100000_add_places (Task 75)
+// Added via migration 2026-09-07-100000_add_places (Task 75), rebuilt by
+// migration 2026-10-05-100000_places_as_entities (Task 88).
 diesel::table! {
-    places (normalised_name) {
+    places (id) {
+        id -> Text,
+        name -> Text,
         normalised_name -> Text,
-        display_name -> Text,
         lat -> Nullable<Double>,
         lon -> Nullable<Double>,
-        source -> Text,
+        source -> Nullable<Text>,
+        created_at -> Text,
     }
 }
 
@@ -146,4 +152,4 @@ diesel::joinable!(trips -> vehicles (vehicle_id));
 diesel::joinable!(paperless_trip_links -> trips (trip_id));
 diesel::joinable!(trip_routes -> trips (trip_id));
 
-diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, routes, settings, trip_routes, trips, vehicles,);
+diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, places, routes, settings, trip_routes, trips, vehicles,);

@@ -268,7 +268,7 @@ fn seed_other_trip(
     let mut trip = db.get_trip(&trip_id).unwrap().unwrap();
     trip.other_costs_eur = eur;
     trip.other_costs_note = note.map(|s| s.to_string());
-    db.update_trip(&trip).unwrap();
+    db.update_trip(&db.with_places_for_test(&trip)).unwrap();
     trip_id
 }
 
@@ -352,7 +352,7 @@ fn unassign_leaves_manually_edited_note_untouched() {
     // User edits the note after assigning, dropping the appended segment.
     let mut edited = db.get_trip(&trip_id).unwrap().unwrap();
     edited.other_costs_note = Some("Something else entirely".to_string());
-    db.update_trip(&edited).unwrap();
+    db.update_trip(&db.with_places_for_test(&edited)).unwrap();
 
     remove_other_contribution(&db, &trip_id, 500, Some("AutoWash")).unwrap();
     let restored = db.get_trip(&trip_id).unwrap().unwrap();
@@ -378,7 +378,7 @@ fn unassign_after_manual_overwrite_below_applied_clamps_to_none() {
     // User hand-edits the total below the applied snapshot.
     let mut edited = db.get_trip(&trip_id).unwrap().unwrap();
     edited.other_costs_eur = Some(3.0);
-    db.update_trip(&edited).unwrap();
+    db.update_trip(&db.with_places_for_test(&edited)).unwrap();
 
     remove_other_contribution(&db, &trip_id, 501, Some("Parking")).unwrap();
     assert_eq!(

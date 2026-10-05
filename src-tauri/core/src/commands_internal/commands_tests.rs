@@ -26,6 +26,8 @@ use uuid::Uuid;
 fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -54,6 +56,8 @@ fn make_trip_with_fuel(date: NaiveDate, liters: f64, cost: f64) -> Trip {
 fn make_trip_without_fuel(date: NaiveDate) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -349,6 +353,8 @@ fn make_trip_with_datetime_range(
 ) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime,
@@ -760,6 +766,8 @@ fn make_trip_detailed(
 ) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -1456,7 +1464,7 @@ fn seed_trip(
     trip.start_datetime = start;
     trip.odometer = odometer;
     trip.created_at = created_at;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
     trip
 }
 
@@ -1801,6 +1809,8 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
     let now = Utc::now();
     let date = NaiveDate::from_ymd_opt(2024, 12, 15).unwrap();
     let trip_2024 = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -1822,7 +1832,7 @@ fn test_year_start_fuel_with_previous_year_full_tank() {
         created_at: now,
         updated_at: now,
     };
-    db.create_trip(&trip_2024).expect("Failed to create trip");
+    db.create_trip(&db.with_places_for_test(&trip_2024)).expect("Failed to create trip");
 
     let result = get_year_start_fuel_remaining(&db, &vehicle.id.to_string(), 2025, 50.0, 6.0);
 
@@ -1855,6 +1865,8 @@ fn test_year_start_fuel_partial_tank_carryover() {
     // Starts at 50L (no prior year), uses 6L, ends at 50L (full tank)
     let date1 = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trip1 = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date1.and_hms_opt(8, 0, 0).unwrap(),
@@ -1881,6 +1893,8 @@ fn test_year_start_fuel_partial_tank_carryover() {
     // Rate from trip1 is 6%, so uses 12L, starts at 50L, ends at 50-12+10=48L
     let date2 = NaiveDate::from_ymd_opt(2024, 12, 20).unwrap();
     let trip2 = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date2.and_hms_opt(8, 0, 0).unwrap(),
@@ -1903,8 +1917,8 @@ fn test_year_start_fuel_partial_tank_carryover() {
         updated_at: now,
     };
 
-    db.create_trip(&trip1).expect("Failed to create trip1");
-    db.create_trip(&trip2).expect("Failed to create trip2");
+    db.create_trip(&db.with_places_for_test(&trip1)).expect("Failed to create trip1");
+    db.create_trip(&db.with_places_for_test(&trip2)).expect("Failed to create trip2");
 
     let result = get_year_start_fuel_remaining(&db, &vehicle.id.to_string(), 2025, 50.0, 6.0);
 
@@ -1970,6 +1984,8 @@ fn test_year_start_odometer_with_previous_year_trips() {
     // Trip in 2024 ending at 54914 km (like the bug scenario)
     let date = NaiveDate::from_ymd_opt(2024, 12, 13).unwrap();
     let trip_2024 = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -1991,7 +2007,7 @@ fn test_year_start_odometer_with_previous_year_trips() {
         created_at: now,
         updated_at: now,
     };
-    db.create_trip(&trip_2024).expect("Failed to create trip");
+    db.create_trip(&db.with_places_for_test(&trip_2024)).expect("Failed to create trip");
 
     // Query for 2025 should return 54914 (last trip's odometer from 2024)
     let result = get_year_start_odometer(
@@ -2029,6 +2045,8 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     // First trip (earlier date)
     let date1 = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
     let trip1 = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date1.and_hms_opt(8, 0, 0).unwrap(),
@@ -2054,6 +2072,8 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
     // Last trip (later date, higher odometer)
     let date2 = NaiveDate::from_ymd_opt(2024, 12, 31).unwrap();
     let trip2 = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date2.and_hms_opt(8, 0, 0).unwrap(),
@@ -2076,8 +2096,8 @@ fn test_year_start_odometer_multiple_trips_returns_last() {
         updated_at: now,
     };
 
-    db.create_trip(&trip1).expect("Failed to create trip1");
-    db.create_trip(&trip2).expect("Failed to create trip2");
+    db.create_trip(&db.with_places_for_test(&trip1)).expect("Failed to create trip1");
+    db.create_trip(&db.with_places_for_test(&trip2)).expect("Failed to create trip2");
 
     let result = get_year_start_odometer(&db, &vehicle.id.to_string(), 2025, 10000.0);
 
@@ -2102,6 +2122,8 @@ fn make_bev_trip(
 ) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -2235,6 +2257,8 @@ fn make_trip_for_assignment(
 ) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id,
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -2325,7 +2349,7 @@ fn test_second_fuel_link_same_trip_rejected() {
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, Some(45.0), Some(72.0), None);
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let first = make_paperless_doc(801, "Tankovanie", Some(72.0), Some(45.0));
     assign_paperless(
@@ -2362,7 +2386,7 @@ fn test_paperless_reupsert_same_trip_does_not_double_add() {
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let doc = make_paperless_doc(701, "Parkovné", Some(5.01), None);
     let trip_id = trip.id.to_string();
@@ -2385,7 +2409,7 @@ fn test_paperless_assign_stores_snapshots() {
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, None);
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let doc = make_paperless_doc(702, "Parkovné", Some(12.50), None);
     assign_paperless(
@@ -2413,8 +2437,8 @@ fn test_paperless_reassign_reverses_old_trip_sum() {
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip_a = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
     let trip_b = make_trip_for_assignment(vehicle.id, date, None, None, Some(20.0));
-    db.create_trip(&trip_a).unwrap();
-    db.create_trip(&trip_b).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_a)).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_b)).unwrap();
 
     let doc = make_paperless_doc(703, "Parkovné", Some(5.01), None);
     let vehicle_id = vehicle.id.to_string();
@@ -2438,8 +2462,8 @@ fn test_paperless_reassign_link_only_does_not_touch_old_trip() {
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip_a = make_trip_for_assignment(vehicle.id, date, None, None, Some(15.0));
     let trip_b = make_trip_for_assignment(vehicle.id, date, None, None, None);
-    db.create_trip(&trip_a).unwrap();
-    db.create_trip(&trip_b).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_a)).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_b)).unwrap();
 
     let doc = make_paperless_doc(704, "Parkovné", Some(15.0), None);
     let vehicle_id = vehicle.id.to_string();
@@ -2466,7 +2490,7 @@ fn test_paperless_unassign_subtracts_applied_amount() {
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let doc = make_paperless_doc(707, "Parkovné", Some(5.01), None);
     assign_paperless(
@@ -2491,7 +2515,7 @@ fn test_assign_rejects_non_finite_or_negative_amount() {
     let (db, vehicle) = setup_db_with_vehicle();
     let date = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
     let trip = make_trip_for_assignment(vehicle.id, date, None, None, Some(10.0));
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
     // Paperless docs come from the server: validate NaN and negative too.
     let vehicle_id = vehicle.id.to_string();
@@ -2524,6 +2548,8 @@ fn make_trip_for_magic_fill(
 ) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -2787,6 +2813,8 @@ fn test_fuel_consumed_basic() {
     // Trip: 100 km at 6.0 l/100km = 6.0 L consumed
     let date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
     let trip = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -2834,6 +2862,8 @@ fn test_fuel_consumed_uses_period_rate() {
 
     let trips = vec![
         Trip {
+            origin_place_id: Uuid::nil(),
+            destination_place_id: Uuid::nil(),
             id: trip1_id,
             vehicle_id,
             start_datetime: date1.and_hms_opt(8, 0, 0).unwrap(),
@@ -2856,6 +2886,8 @@ fn test_fuel_consumed_uses_period_rate() {
             updated_at: Utc::now(),
         },
         Trip {
+            origin_place_id: Uuid::nil(),
+            destination_place_id: Uuid::nil(),
             id: trip2_id,
             vehicle_id,
             start_datetime: date2.and_hms_opt(8, 0, 0).unwrap(),
@@ -2907,6 +2939,8 @@ fn test_fuel_consumed_uses_tp_rate_for_open_period() {
     let date = NaiveDate::from_ymd_opt(2024, 1, 20).unwrap();
 
     let trip = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: trip_id,
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -2946,6 +2980,8 @@ fn test_fuel_consumed_zero_distance() {
     let date = NaiveDate::from_ymd_opt(2024, 1, 25).unwrap();
 
     let trip = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: trip_id,
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -3570,6 +3606,8 @@ fn test_odometer_start_respects_chronological_order() {
 fn make_trip_with_date(date_str: &str, distance: f64, odo: f64) -> Trip {
     let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -3611,6 +3649,8 @@ fn make_trip_with_datetime_created(
     let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
     let created_at = Utc::now() + chrono::Duration::seconds(created_at_offset_secs);
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: date.and_hms_opt(hour, minute, 0).unwrap(),
@@ -3685,6 +3725,8 @@ fn test_year_start_odometer_same_day_uses_time_and_created_at() {
 
     // Morning trip: earlier start time, higher odo (data corruption scenario)
     let trip_morning = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -3709,6 +3751,8 @@ fn test_year_start_odometer_same_day_uses_time_and_created_at() {
 
     // Afternoon trip: later start time, lower odo (data corruption scenario)
     let trip_afternoon = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: vehicle.id,
         start_datetime: date.and_hms_opt(16, 0, 0).unwrap(),
@@ -3731,8 +3775,8 @@ fn test_year_start_odometer_same_day_uses_time_and_created_at() {
         updated_at: now,
     };
 
-    db.create_trip(&trip_morning).expect("Failed to create trip");
-    db.create_trip(&trip_afternoon).expect("Failed to create trip");
+    db.create_trip(&db.with_places_for_test(&trip_morning)).expect("Failed to create trip");
+    db.create_trip(&db.with_places_for_test(&trip_afternoon)).expect("Failed to create trip");
 
     let result = get_year_start_odometer(&db, &vehicle.id.to_string(), 2025, 10000.0);
 
@@ -3869,8 +3913,8 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
         v.clone(),
         "2026-05-21T09:00:00".into(),
         "2026-05-21T09:30:00".into(),
-        "A".into(),
-        "B".into(),
+        db.ensure_place_for_test("A").to_string(),
+        db.ensure_place_for_test("B").to_string(),
         10.0,
         10000.0,
         "test".into(),
@@ -3891,8 +3935,8 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
         v.clone(),
         "2026-05-18T04:30:00".into(),
         "2026-05-18T08:30:00".into(),
-        "A".into(),
-        "B".into(),
+        db.ensure_place_for_test("A").to_string(),
+        db.ensure_place_for_test("B").to_string(),
         370.0,
         10370.0,
         "test".into(),
@@ -3913,8 +3957,8 @@ fn test_create_trip_orders_by_date_regardless_of_creation_order() {
         v.clone(),
         "2026-05-20T16:00:00".into(),
         "2026-05-20T19:00:00".into(),
-        "A".into(),
-        "B".into(),
+        db.ensure_place_for_test("A").to_string(),
+        db.ensure_place_for_test("B").to_string(),
         370.0,
         10740.0,
         "test".into(),
@@ -3963,6 +4007,8 @@ fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
     let later = Utc::now();
 
     let trip_a = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: dt,
@@ -3985,6 +4031,8 @@ fn test_trip_numbers_same_datetime_tiebroken_by_created_at() {
         updated_at: earlier,
     };
     let trip_b = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime: dt,
@@ -4038,7 +4086,7 @@ fn seed_chain_trip(db: &Database, vehicle_id: Uuid, day: u32, km: f64, odo: f64)
     let mut trip = make_trip_detailed(date, km, None, false);
     trip.vehicle_id = vehicle_id;
     trip.odometer = odo;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
     trip.id
 }
 
@@ -4119,7 +4167,7 @@ fn test_recalculate_odometers_is_idempotent_with_tied_start_datetimes() {
         trip.created_at = tied_created;
         trip.updated_at = tied_created;
         trip.odometer = odo;
-        db.create_trip(&trip).unwrap();
+        db.create_trip(&db.with_places_for_test(&trip)).unwrap();
         trip.id
     };
 
@@ -4674,8 +4722,8 @@ fn test_preview_of_an_edited_row_anchors_on_its_canonical_predecessor() {
 fn cascade_args(trip: &Trip, km: f64, odo: f64) -> (String, String, String, f64, f64) {
     (
         trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
-        trip.origin.clone(),
-        trip.destination.clone(),
+        trip.origin_place_id.to_string(),
+        trip.destination_place_id.to_string(),
         km,
         odo,
     )
@@ -4742,7 +4790,7 @@ fn test_update_trip_cascade_does_not_cross_the_year_boundary() {
     );
     next_year.vehicle_id = vehicle.id;
     next_year.odometer = 50070.0;
-    db.create_trip(&next_year).unwrap();
+    db.create_trip(&db.with_places_for_test(&next_year)).unwrap();
 
     let trip_a = db.get_trip(&a.to_string()).unwrap().unwrap();
     let (start, origin, destination, km, odo) = cascade_args(&trip_a, 60.0, 50050.0);
@@ -4782,7 +4830,7 @@ fn test_update_trip_cascade_does_not_cascade_a_re_dated_row() {
     let moved = "2026-03-05T08:00:00".to_string();
     let result = update_trip_cascade_internal(
         &db, &app_state, a.to_string(), moved.clone(), moved,
-        trip_a.origin.clone(), trip_a.destination.clone(), 60.0, 50050.0,
+        trip_a.origin_place_id.to_string(), trip_a.destination_place_id.to_string(), 60.0, 50050.0,
         trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
         false,
     )
@@ -4808,7 +4856,7 @@ fn test_update_trip_cascade_re_dated_negative_distance_is_rejected() {
 
     let dry = update_trip_cascade_internal(
         &db, &app_state, a.to_string(), moved.clone(), moved.clone(),
-        trip_a.origin.clone(), trip_a.destination.clone(), -10.0, 50040.0,
+        trip_a.origin_place_id.to_string(), trip_a.destination_place_id.to_string(), -10.0, 50040.0,
         trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
         true,
     );
@@ -4816,7 +4864,7 @@ fn test_update_trip_cascade_re_dated_negative_distance_is_rejected() {
 
     let applied = update_trip_cascade_internal(
         &db, &app_state, a.to_string(), moved.clone(), moved,
-        trip_a.origin.clone(), trip_a.destination.clone(), -10.0, 50040.0,
+        trip_a.origin_place_id.to_string(), trip_a.destination_place_id.to_string(), -10.0, 50040.0,
         trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
         false,
     );
@@ -4844,7 +4892,7 @@ fn test_update_trip_cascade_re_dated_unchanged_negative_distance_still_succeeds(
     let moved = "2026-03-05T08:00:00".to_string();
     let result = update_trip_cascade_internal(
         &db, &app_state, a.to_string(), moved.clone(), moved,
-        trip_a.origin.clone(), trip_a.destination.clone(), -40.0, 50010.0,
+        trip_a.origin_place_id.to_string(), trip_a.destination_place_id.to_string(), -40.0, 50010.0,
         trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
         false,
     )
@@ -4873,7 +4921,7 @@ fn test_update_trip_cascade_re_dated_zero_distance_is_allowed() {
     let moved = "2026-03-05T08:00:00".to_string();
     let result = update_trip_cascade_internal(
         &db, &app_state, a.to_string(), moved.clone(), moved,
-        trip_a.origin.clone(), trip_a.destination.clone(), 0.0, 50000.0,
+        trip_a.origin_place_id.to_string(), trip_a.destination_place_id.to_string(), 0.0, 50000.0,
         trip_a.purpose.clone(), None, None, None, None, None, None, None, None, None,
         false,
     )
@@ -4917,7 +4965,7 @@ fn test_create_trip_cascade_inserts_and_shifts() {
     let result = create_trip_cascade_internal(
         &db, &app_state, vehicle.id.to_string(),
         "2026-03-02T08:00:00".to_string(), "2026-03-02T09:00:00".to_string(),
-        "A".to_string(), "B".to_string(), 25.0, "work".to_string(),
+        db.ensure_place_for_test("A").to_string(), db.ensure_place_for_test("B").to_string(), 25.0, "work".to_string(),
         None, None, None, None, None, None, None, None, None, false,
     )
     .unwrap();
@@ -4939,7 +4987,7 @@ fn test_create_trip_cascade_appending_moves_no_row_and_raises_no_warning() {
     let result = create_trip_cascade_internal(
         &db, &app_state, vehicle.id.to_string(),
         "2026-03-09T08:00:00".to_string(), "2026-03-09T09:00:00".to_string(),
-        "A".to_string(), "B".to_string(), 25.0, "work".to_string(),
+        db.ensure_place_for_test("A").to_string(), db.ensure_place_for_test("B").to_string(), 25.0, "work".to_string(),
         None, None, None, None, None, None, None, None, None, true,
     )
     .unwrap();
@@ -4962,12 +5010,12 @@ fn test_create_trip_cascade_warns_when_a_later_year_exists() {
     );
     next_year.vehicle_id = vehicle.id;
     next_year.odometer = 50070.0;
-    db.create_trip(&next_year).unwrap();
+    db.create_trip(&db.with_places_for_test(&next_year)).unwrap();
 
     let result = create_trip_cascade_internal(
         &db, &app_state, vehicle.id.to_string(),
         "2026-03-09T08:00:00".to_string(), "2026-03-09T09:00:00".to_string(),
-        "A".to_string(), "B".to_string(), 25.0, "work".to_string(),
+        db.ensure_place_for_test("A").to_string(), db.ensure_place_for_test("B").to_string(), 25.0, "work".to_string(),
         None, None, None, None, None, None, None, None, None, true,
     )
     .unwrap();
@@ -5065,7 +5113,7 @@ fn seed_closed_period(db: &Database, vehicle_id: Uuid) -> (Uuid, Uuid) {
     let mut b = make_trip_detailed(date, 100.0, Some(12.0), true);
     b.vehicle_id = vehicle_id;
     b.odometer = 50200.0;
-    db.create_trip(&b).unwrap();
+    db.create_trip(&db.with_places_for_test(&b)).unwrap();
     (a, b.id)
 }
 
@@ -5139,7 +5187,7 @@ fn test_period_margin_impact_leaves_other_periods_alone() {
     let mut c = make_trip_detailed(date, 100.0, Some(5.0), true);
     c.vehicle_id = vehicle.id;
     c.odometer = 50300.0;
-    db.create_trip(&c).unwrap();
+    db.create_trip(&db.with_places_for_test(&c)).unwrap();
 
     let trips = db.get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2026).unwrap();
 
@@ -5369,6 +5417,8 @@ mod time_inference_tests {
     ) -> Trip {
         let now = Utc::now();
         Trip {
+            origin_place_id: Uuid::nil(),
+            destination_place_id: Uuid::nil(),
             id: Uuid::new_v4(),
             vehicle_id,
             start_datetime: start,
@@ -5411,8 +5461,8 @@ mod time_inference_tests {
             &db,
             &mut j,
             &vehicle.id.to_string(),
-            "Bratislava",
-            "Trnava",
+            &db.ensure_place_for_test("Bratislava").to_string(),
+            &db.ensure_place_for_test("Trnava").to_string(),
             row_date,
         )
         .unwrap();
@@ -5440,7 +5490,7 @@ mod time_inference_tests {
             NaiveDate::from_ymd_opt(2026, 1, 10).unwrap().and_hms_opt(6, 0, 0).unwrap(),
             NaiveDate::from_ymd_opt(2026, 1, 10).unwrap().and_hms_opt(7, 0, 0).unwrap(),
         );
-        db.create_trip(&older).unwrap();
+        db.create_trip(&db.with_places_for_test(&older)).unwrap();
 
         // Newer trip: 8:30–9:15 (45 min duration)
         let newer = make_completed_trip(
@@ -5450,7 +5500,7 @@ mod time_inference_tests {
             NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 30, 0).unwrap(),
             NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(9, 15, 0).unwrap(),
         );
-        db.create_trip(&newer).unwrap();
+        db.create_trip(&db.with_places_for_test(&newer)).unwrap();
 
         // Zero jitter → result equals newer trip's HH:MM applied to row_date.
         let mut j = StubJitter { minutes: 0, factor: 1.0 };
@@ -5460,8 +5510,8 @@ mod time_inference_tests {
             &db,
             &mut j,
             &vehicle.id.to_string(),
-            "Bratislava",
-            "Trnava",
+            &db.ensure_place_for_test("Bratislava").to_string(),
+            &db.ensure_place_for_test("Trnava").to_string(),
             row_date,
         )
         .unwrap()
@@ -5486,6 +5536,8 @@ mod time_inference_tests {
         // Only trip on this route has no end_datetime.
         let now = Utc::now();
         let open_trip = Trip {
+            origin_place_id: Uuid::nil(),
+            destination_place_id: Uuid::nil(),
             id: Uuid::new_v4(),
             vehicle_id: vehicle.id,
             start_datetime: NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 0, 0).unwrap(),
@@ -5507,7 +5559,7 @@ mod time_inference_tests {
             created_at: now,
             updated_at: now,
         };
-        db.create_trip(&open_trip).unwrap();
+        db.create_trip(&db.with_places_for_test(&open_trip)).unwrap();
 
         let mut j = StubJitter { minutes: 0, factor: 1.0 };
         let row_date = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
@@ -5516,8 +5568,8 @@ mod time_inference_tests {
             &db,
             &mut j,
             &vehicle.id.to_string(),
-            "Bratislava",
-            "Trnava",
+            &db.ensure_place_for_test("Bratislava").to_string(),
+            &db.ensure_place_for_test("Trnava").to_string(),
             row_date,
         )
         .unwrap();
@@ -5541,7 +5593,7 @@ mod time_inference_tests {
             NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 30, 0).unwrap(),
             NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(9, 15, 0).unwrap(),
         );
-        db.create_trip(&trip).unwrap();
+        db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
         let mut j = StubJitter { minutes: 0, factor: 1.0 };
         let row_date = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
@@ -5550,8 +5602,8 @@ mod time_inference_tests {
             &db,
             &mut j,
             &v1.id.to_string(),
-            "Bratislava",
-            "Trnava",
+            &db.ensure_place_for_test("Bratislava").to_string(),
+            &db.ensure_place_for_test("Trnava").to_string(),
             row_date,
         )
         .unwrap();
@@ -5585,7 +5637,7 @@ mod time_inference_tests {
             NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(8, 30, 0).unwrap(),
             NaiveDate::from_ymd_opt(2026, 3, 20).unwrap().and_hms_opt(9, 15, 0).unwrap(),
         );
-        db.create_trip(&trip).unwrap();
+        db.create_trip(&db.with_places_for_test(&trip)).unwrap();
         (db, vehicle.id.to_string())
     }
 
@@ -5601,8 +5653,8 @@ mod time_inference_tests {
             &db,
             &app_dir,
             vehicle_id,
-            "Bratislava".to_string(),
-            "Trnava".to_string(),
+            db.ensure_place_for_test("Bratislava").to_string(),
+            db.ensure_place_for_test("Trnava").to_string(),
             "2026-04-27".to_string(),
         )
         .unwrap();
@@ -5623,8 +5675,8 @@ mod time_inference_tests {
             &db,
             &app_dir,
             vehicle_id,
-            "Bratislava".to_string(),
-            "Trnava".to_string(),
+            db.ensure_place_for_test("Bratislava").to_string(),
+            db.ensure_place_for_test("Trnava").to_string(),
             "2026-04-27".to_string(),
         )
         .unwrap();
@@ -5645,8 +5697,8 @@ mod time_inference_tests {
             &db,
             &app_dir,
             vehicle_id,
-            "Bratislava".to_string(),
-            "Trnava".to_string(),
+            db.ensure_place_for_test("Bratislava").to_string(),
+            db.ensure_place_for_test("Trnava").to_string(),
             "2026-04-27".to_string(),
         )
         .unwrap();
@@ -5668,4 +5720,49 @@ mod time_inference_tests {
 
         assert!(result.is_err(), "an unknown trip id must not silently succeed");
     }
+}
+
+// ============================================================================
+// Task 88 -- a trip write accepts only an existing place id
+// ============================================================================
+
+#[test]
+fn create_trip_with_an_unknown_place_id_fails() {
+    let (db, vehicle) = setup_db_with_vehicle();
+    let app_state = crate::app_state::AppState::new();
+    let known = db.ensure_place_for_test("Nitra").to_string();
+    let err = crate::commands_internal::trips::create_trip_internal(
+        &db, &app_state, vehicle.id.to_string(),
+        "2026-03-01T08:00:00".into(), "2026-03-01T09:00:00".into(),
+        known, Uuid::new_v4().to_string(),
+        10.0, 1010.0, "p".into(),
+        None, None, None, None, None, None, None, None, None,
+    )
+    .unwrap_err();
+    assert!(err.starts_with("Miesto neexistuje"), "{err}");
+}
+
+#[test]
+fn update_trip_with_an_unknown_place_id_fails() {
+    let (db, vehicle) = setup_db_with_vehicle();
+    let app_state = crate::app_state::AppState::new();
+    let a = db.ensure_place_for_test("Nitra").to_string();
+    let b = db.ensure_place_for_test("Levice").to_string();
+    let trip = crate::commands_internal::trips::create_trip_internal(
+        &db, &app_state, vehicle.id.to_string(),
+        "2026-03-01T08:00:00".into(), "2026-03-01T09:00:00".into(),
+        a.clone(), b,
+        10.0, 1010.0, "p".into(),
+        None, None, None, None, None, None, None, None, None,
+    )
+    .unwrap();
+    let err = crate::commands_internal::trips::update_trip_internal(
+        &db, &app_state, trip.id.to_string(),
+        "2026-03-01T08:00:00".into(), "2026-03-01T09:00:00".into(),
+        a, Uuid::new_v4().to_string(),
+        10.0, 1010.0, "p".into(),
+        None, None, None, None, None, None, None, None, None,
+    )
+    .unwrap_err();
+    assert!(err.starts_with("Miesto neexistuje"), "{err}");
 }

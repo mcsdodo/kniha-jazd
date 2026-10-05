@@ -11,6 +11,8 @@ fn make_trip(km: f64, fuel: Option<f64>, fuel_cost: Option<f64>, other_cost: Opt
         .and_hms_opt(8, 0, 0)
         .unwrap();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::new_v4(),
         start_datetime,

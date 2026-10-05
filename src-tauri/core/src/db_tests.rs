@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::models::{
-    AssignmentType, NewPlaceRow, PaperlessLink, PlaceRow, RouteMap, RouteMode, VehicleType, Waypoint,
+    AssignmentType, PaperlessLink, PlaceRow, RouteMap, RouteMode, VehicleType, Waypoint,
 };
 use chrono::{NaiveDate, NaiveDateTime};
 
@@ -102,6 +102,8 @@ pub(crate) fn seed_test_trip(db: &Database, vehicle_id: &str) -> String {
     use chrono::NaiveDateTime;
     use uuid::Uuid;
     let trip = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: Uuid::parse_str(vehicle_id).unwrap(),
         origin: "BA".into(),
@@ -128,7 +130,7 @@ pub(crate) fn seed_test_trip(db: &Database, vehicle_id: &str) -> String {
         updated_at: chrono::Utc::now(),
     };
     let id = trip.id.to_string();
-    db.create_trip(&trip).expect("seed trip");
+    db.create_trip(&db.with_places_for_test(&trip)).expect("seed trip");
     id
 }
 
@@ -154,6 +156,8 @@ pub(crate) fn seed_trip_between_on(
     start_datetime: &str,
 ) -> Trip {
     let trip = Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id: *vehicle_id,
         origin: origin.into(),
@@ -176,11 +180,12 @@ pub(crate) fn seed_trip_between_on(
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     };
+    let trip = db.with_places_for_test(&trip);
     db.create_trip(&trip).expect("seed trip");
     db.find_or_create_route(
         &vehicle_id.to_string(),
-        origin,
-        destination,
+        &trip.origin_place_id.to_string(),
+        &trip.destination_place_id.to_string(),
         trip.distance_km,
     )
     .expect("seed route");
@@ -259,6 +264,8 @@ fn create_test_trip(vehicle_id: Uuid, date: &str) -> Trip {
     let parsed_date = NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
     let start_datetime = parsed_date.and_hms_opt(8, 0, 0).unwrap();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id,
         start_datetime,
@@ -290,7 +297,7 @@ fn test_trip_crud_lifecycle() {
         .expect("Failed to create vehicle");
 
     let trip = create_test_trip(vehicle.id, "2024-12-01");
-    db.create_trip(&trip).expect("Failed to create trip");
+    db.create_trip(&db.with_places_for_test(&trip)).expect("Failed to create trip");
 
     let retrieved = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(retrieved.origin, "Prague");
@@ -300,8 +307,8 @@ fn test_trip_crud_lifecycle() {
     assert_eq!(trips.len(), 1);
 
     let mut updated = retrieved;
-    updated.origin = "Berlin".to_string();
-    db.update_trip(&updated).expect("Failed to update");
+    updated.origin_place_id = db.ensure_place_for_test("Berlin");
+    db.update_trip(&db.with_places_for_test(&updated)).expect("Failed to update");
 
     let after_update = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
     assert_eq!(after_update.origin, "Berlin");
@@ -322,9 +329,9 @@ fn test_get_trips_for_vehicle_in_year() {
     let trip2 = create_test_trip(vehicle.id, "2024-06-15");
     let trip3 = create_test_trip(vehicle.id, "2023-12-10");
 
-    db.create_trip(&trip1).unwrap();
-    db.create_trip(&trip2).unwrap();
-    db.create_trip(&trip3).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip1)).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip2)).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip3)).unwrap();
 
     let trips_2024 = db
         .get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2024)
@@ -335,31 +342,6 @@ fn test_get_trips_for_vehicle_in_year() {
         .get_trips_for_vehicle_in_year(&vehicle.id.to_string(), 2023)
         .unwrap();
     assert_eq!(trips_2023.len(), 1);
-}
-
-#[test]
-fn test_find_or_create_route_upsert() {
-    let db = Database::in_memory().expect("Failed to create database");
-    let vehicle = create_test_vehicle("Test Car");
-    db.create_vehicle(&vehicle)
-        .expect("Failed to create vehicle");
-
-    let route1 = db
-        .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
-        .expect("Failed to create route");
-    let route2 = db
-        .find_or_create_route(&vehicle.id.to_string(), "Budapest", "Prague", 500.0)
-        .expect("Failed to find route");
-
-    // One row per pair, still. What changed is that saving twice no longer
-    // pretends the journey was driven twice — usage is counted from trips now.
-    assert_eq!(route2.id, route1.id);
-    assert_eq!(
-        db.all_route_rows_for_test(&vehicle.id.to_string())
-            .unwrap()
-            .len(),
-        1
-    );
 }
 
 // ============================================================================
@@ -377,11 +359,11 @@ fn route_usage_counts_trips_not_saves() {
     // Two edits that leave the pair alone, taking the same two steps
     // `update_trip_internal` takes: save the trip, re-register its route.
     for _ in 0..2 {
-        db.update_trip(&trip).unwrap();
+        db.update_trip(&db.with_places_for_test(&trip)).unwrap();
         db.find_or_create_route(
             &v.id.to_string(),
-            &trip.origin,
-            &trip.destination,
+            &trip.origin_place_id.to_string(),
+            &trip.destination_place_id.to_string(),
             trip.distance_km,
         )
         .unwrap();
@@ -402,12 +384,12 @@ fn editing_a_trip_moves_the_count_to_the_new_pair() {
     db.create_vehicle(&v).unwrap();
 
     let mut trip = seed_trip_between(&db, &v.id, "Warehouse, City B", "Office, City A");
-    trip.destination = "Depot, City C".into();
+    trip.destination_place_id = db.ensure_place_for_test("Depot, City C");
     db.update_trip(&trip).unwrap();
     db.find_or_create_route(
         &v.id.to_string(),
-        &trip.origin,
-        &trip.destination,
+        &trip.origin_place_id.to_string(),
+        &trip.destination_place_id.to_string(),
         trip.distance_km,
     )
     .unwrap();
@@ -494,7 +476,9 @@ fn a_route_row_no_trip_justifies_is_not_returned() {
     let v = create_test_vehicle("Car");
     db.create_vehicle(&v).unwrap();
     // Written directly, the way a deleted trip leaves one behind.
-    db.find_or_create_route(&v.id.to_string(), "Ghost, City X", "Nowhere", 10.0)
+    let ghost = db.ensure_place_for_test("Ghost, City X").to_string();
+    let nowhere = db.ensure_place_for_test("Nowhere").to_string();
+    db.find_or_create_route(&v.id.to_string(), &ghost, &nowhere, 10.0)
         .unwrap();
 
     assert!(db
@@ -829,9 +813,9 @@ fn test_get_trips_for_vehicle_returns_chronological_order() {
     );
     trip_mid.vehicle_id = vehicle.id;
 
-    db.create_trip(&trip_old).unwrap();
-    db.create_trip(&trip_new).unwrap();
-    db.create_trip(&trip_mid).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_old)).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_new)).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip_mid)).unwrap();
 
     let trips = db.get_trips_for_vehicle(&v_id).unwrap();
     assert_eq!(trips.len(), 3);
@@ -884,59 +868,6 @@ fn places_table_matches_the_schema_after_migration() {
     assert!(rows.is_empty(), "a fresh place book starts empty");
 }
 
-/// A second write must leave the row as that write describes it, not as a merge
-/// of both. `upsert_place` deletes and re-inserts to get that; the update it
-/// avoids is a Diesel `AsChangeset`, which writes only the columns it is given
-/// and so would leave every column the second write did not mention holding the
-/// first write's answer.
-///
-/// The two writes here differ in every column for that reason: a correction is
-/// the real case — someone geocoded the wrong Košice and then dropped a pin on
-/// the right one — and it is exactly the case a per-column merge cannot be
-/// distinguished from a replace unless the columns actually disagree.
-#[test]
-fn upsert_place_replaces_the_row_rather_than_merging_it() {
-    let db = Database::in_memory().expect("Failed to create database");
-
-    db.upsert_place(&NewPlaceRow {
-        normalised_name: "kosice",
-        display_name: "Kosice",
-        lat: Some(48.7),
-        lon: Some(21.2),
-        source: "geocoder",
-    })
-    .expect("first write");
-
-    db.upsert_place(&NewPlaceRow {
-        normalised_name: "kosice",
-        display_name: "KOŠICE",
-        lat: Some(48.72),
-        lon: Some(21.26),
-        source: "manual",
-    })
-    .expect("second write");
-
-    let rows = db.all_places().expect("read back");
-    assert_eq!(rows.len(), 1, "one key, one row");
-    assert_eq!(rows[0].display_name, "KOŠICE");
-    assert_eq!(rows[0].source, "manual", "the pin replaced the geocode");
-    assert_eq!(rows[0].lat, Some(48.72), "the corrected latitude, not 48.7");
-    assert_eq!(
-        rows[0].lon,
-        Some(21.26),
-        "the corrected longitude, not 21.2"
-    );
-}
-
-/// Forgetting a coordinate the book never held is a no-op, not an error.
-#[test]
-fn delete_place_is_a_no_op_for_an_unknown_place() {
-    let db = Database::in_memory().expect("Failed to create database");
-    db.delete_place("nowhere")
-        .expect("deleting nothing is fine");
-    assert!(db.all_places().unwrap().is_empty());
-}
-
 /// Seed a vehicle + trip and return the trip (its `id` is the route-map key).
 fn seed_vehicle_and_trip(db: &Database, day: u32) -> Trip {
     let vehicle = Vehicle::new_ice("V".into(), "BA-1".into(), 50.0, 6.5, 0.0);
@@ -948,7 +879,7 @@ fn seed_vehicle_and_trip(db: &Database, day: u32) -> Trip {
         true,
     );
     trip.vehicle_id = vehicle.id;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
     trip
 }
 
@@ -1000,7 +931,7 @@ fn route_map_round_trips() {
         true,
     );
     trip.vehicle_id = vehicle.id;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
 
     let map = RouteMap {
         trip_id: trip.id,
@@ -1155,6 +1086,8 @@ fn build_odometer_shift_trip(
 ) -> Trip {
     let now = Utc::now();
     Trip {
+        origin_place_id: Uuid::nil(),
+        destination_place_id: Uuid::nil(),
         id: Uuid::new_v4(),
         vehicle_id,
         start_datetime: date.and_hms_opt(8, 0, 0).unwrap(),
@@ -1195,12 +1128,12 @@ fn test_update_trip_with_odometer_shift_writes_all_or_nothing() {
     let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
     let mut edited = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
     let later = build_odometer_shift_trip(vehicle.id, "B", "C", 20.0, 70.0, "work", date);
-    db.create_trip(&edited).unwrap();
-    db.create_trip(&later).unwrap();
+    db.create_trip(&db.with_places_for_test(&edited)).unwrap();
+    db.create_trip(&db.with_places_for_test(&later)).unwrap();
 
     edited.distance_km = 60.0;
     edited.odometer = 60.0;
-    db.update_trip_with_odometer_shift(&edited, &[(later.id.to_string(), 80.0)])
+    db.update_trip_with_odometer_shift(&db.with_places_for_test(&edited), &[(later.id.to_string(), 80.0)])
         .unwrap();
 
     assert_eq!(
@@ -1245,7 +1178,7 @@ fn test_update_trip_with_odometer_shift_rejects_an_unknown_row() {
     db.create_vehicle(&vehicle).unwrap();
     let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
     let mut edited = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
-    db.create_trip(&edited).unwrap();
+    db.create_trip(&db.with_places_for_test(&edited)).unwrap();
     // Change the value so the rollback assertion below is discriminating: if
     // the write were not transactional, the update would still land and this
     // test would pass for the wrong reason.
@@ -1283,10 +1216,10 @@ fn test_create_trip_with_odometer_shift_inserts_and_shifts() {
     db.create_vehicle(&vehicle).unwrap();
     let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
     let later = build_odometer_shift_trip(vehicle.id, "B", "C", 20.0, 70.0, "work", date);
-    db.create_trip(&later).unwrap();
+    db.create_trip(&db.with_places_for_test(&later)).unwrap();
     let inserted = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
 
-    db.create_trip_with_odometer_shift(&inserted, &[(later.id.to_string(), 120.0)])
+    db.create_trip_with_odometer_shift(&db.with_places_for_test(&inserted), &[(later.id.to_string(), 120.0)])
         .unwrap();
 
     assert_eq!(
@@ -1316,8 +1249,8 @@ fn test_delete_trip_with_odometer_shift_removes_and_shifts() {
     let date = NaiveDate::from_ymd_opt(2026, 3, 1).unwrap();
     let removed = build_odometer_shift_trip(vehicle.id, "A", "B", 50.0, 50.0, "work", date);
     let later = build_odometer_shift_trip(vehicle.id, "B", "C", 20.0, 70.0, "work", date);
-    db.create_trip(&removed).unwrap();
-    db.create_trip(&later).unwrap();
+    db.create_trip(&db.with_places_for_test(&removed)).unwrap();
+    db.create_trip(&db.with_places_for_test(&later)).unwrap();
 
     db.delete_trip_with_odometer_shift(&removed.id.to_string(), &[(later.id.to_string(), 20.0)])
         .unwrap();
@@ -1346,7 +1279,7 @@ fn route_map_round_trips_its_turnaround_index() {
         true,
     );
     trip.vehicle_id = vehicle.id;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
     let trip_id = trip.id;
 
     let map = RouteMap {
@@ -1392,7 +1325,7 @@ fn a_route_map_without_a_turnaround_index_loads_as_none() {
         true,
     );
     trip.vehicle_id = vehicle.id;
-    db.create_trip(&trip).unwrap();
+    db.create_trip(&db.with_places_for_test(&trip)).unwrap();
     let trip_id = trip.id;
 
     let map = RouteMap {
@@ -1430,10 +1363,12 @@ fn seed_two_chained_trips(db: &Database) -> (Vehicle, Trip, Trip) {
     let mut a = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2026, 4, 1).unwrap(), 50.0, None, false);
     a.vehicle_id = vehicle.id;
     a.odometer = 50050.0;
+    let a = db.with_places_for_test(&a);
     db.create_trip(&a).unwrap();
     let mut b = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2026, 4, 2).unwrap(), 70.0, None, false);
     b.vehicle_id = vehicle.id;
     b.odometer = 50120.0;
+    let b = db.with_places_for_test(&b);
     db.create_trip(&b).unwrap();
     (vehicle, a, b)
 }
@@ -1505,4 +1440,67 @@ fn save_route_map_with_trip_distance_rolls_back_on_a_bad_shift() {
     assert!(result.is_err());
     assert!(db.get_route_map(&a.id.to_string()).unwrap().is_none(), "no map on a failed commit");
     assert_eq!(db.get_trip(&a.id.to_string()).unwrap().unwrap().distance_km, 50.0);
+}
+
+// ============================================================================
+// Task 88 -- trips and routes point at places by id
+// ============================================================================
+
+/// Insert `trip` after pointing it at places named like its old strings.
+fn insert_trip_with_places(db: &Database, trip: &mut Trip) {
+    trip.origin_place_id = db.ensure_place_for_test(&trip.origin);
+    trip.destination_place_id = db.ensure_place_for_test(&trip.destination);
+    db.create_trip(trip).unwrap();
+}
+
+#[test]
+fn a_trip_reads_back_its_place_names() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = create_test_vehicle("Car");
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = create_test_trip(vehicle.id, "2026-03-01");
+    insert_trip_with_places(&db, &mut trip);
+
+    let back = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!((back.origin.as_str(), back.destination.as_str()), ("Prague", "Brno"));
+    assert_eq!(back.origin_place_id, db.ensure_place_for_test("prague"));
+}
+
+#[test]
+fn a_rename_shows_on_every_trip_of_the_place() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = create_test_vehicle("Car");
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = create_test_trip(vehicle.id, "2026-03-01");
+    insert_trip_with_places(&db, &mut trip);
+    db.rename_place(&trip.origin_place_id.to_string(), "Praha", "praha").unwrap();
+    assert_eq!(db.get_trip(&trip.id.to_string()).unwrap().unwrap().origin, "Praha");
+}
+
+#[test]
+fn routes_are_found_by_place_ids() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = create_test_vehicle("Car");
+    db.create_vehicle(&vehicle).unwrap();
+    let a = db.ensure_place_for_test("Nitra").to_string();
+    let b = db.ensure_place_for_test("Levice").to_string();
+    let v = vehicle.id.to_string();
+    let first = db.find_or_create_route(&v, &a, &b, 40.0).unwrap();
+    let second = db.find_or_create_route(&v, &a, &b, 99.0).unwrap();
+    assert_eq!(first.id, second.id);
+    assert_eq!(second.distance_km, 40.0, "an existing pair is not overwritten");
+}
+
+/// Regression guard: the bundled SQLite turns foreign keys on by default
+/// (SQLITE_DEFAULT_FOREIGN_KEYS=1). If that ever changes, place ids stop
+/// being enforced and this test fails.
+#[test]
+fn a_trip_cannot_point_at_a_missing_place() {
+    let db = Database::in_memory().unwrap();
+    let vehicle = create_test_vehicle("Car");
+    db.create_vehicle(&vehicle).unwrap();
+    let mut trip = create_test_trip(vehicle.id, "2026-03-01");
+    trip.origin_place_id = Uuid::new_v4();
+    trip.destination_place_id = Uuid::new_v4();
+    assert!(db.create_trip(&db.with_places_for_test(&trip)).is_err(), "FOREIGN KEY constraint failed");
 }

@@ -195,7 +195,15 @@ pub struct Trip {
     pub vehicle_id: Uuid,
     pub start_datetime: NaiveDateTime, // Trip start date + time
     pub end_datetime: Option<NaiveDateTime>, // Trip end date + time (optional)
+    /// The place the trip starts at (Task 88). A write uses this id.
+    pub origin_place_id: Uuid,
+    /// The place the trip ends at (Task 88). A write uses this id.
+    pub destination_place_id: Uuid,
+    /// Display name of the place, filled on read. A write uses the
+    /// `*_place_id` fields and ignores this.
     pub origin: String,
+    /// Display name of the place, filled on read. A write uses the
+    /// `*_place_id` fields and ignores this.
     pub destination: String,
     pub distance_km: f64,
     pub odometer: f64,
@@ -251,6 +259,8 @@ impl Trip {
             vehicle_id: Uuid::new_v4(),
             start_datetime,
             end_datetime: None,
+            origin_place_id: Uuid::nil(),
+            destination_place_id: Uuid::nil(),
             origin: "A".to_string(),
             destination: "B".to_string(),
             distance_km,
@@ -276,7 +286,11 @@ impl Trip {
 pub struct Route {
     pub id: Uuid,
     pub vehicle_id: Uuid,
+    pub origin_place_id: Uuid,
+    pub destination_place_id: Uuid,
+    /// Display name of the origin place, filled on read.
     pub origin: String,
+    /// Display name of the destination place, filled on read.
     pub destination: String,
     pub distance_km: f64,
     pub usage_count: i32,
@@ -347,6 +361,8 @@ pub struct InferredTripTime {
 pub struct CopiedTripDefaults {
     pub start_datetime: String,       // ISO "YYYY-MM-DDTHH:MM:SS"
     pub end_datetime: Option<String>, // ISO, or None if the source had none
+    pub origin_place_id: Uuid,
+    pub destination_place_id: Uuid,
     pub origin: String,
     pub destination: String,
     pub distance_km: f64,
@@ -847,8 +863,8 @@ pub struct NewVehicleRow<'a> {
 pub struct TripRow {
     pub id: Option<String>,
     pub vehicle_id: String,
-    pub origin: String,
-    pub destination: String,
+    pub origin_place_id: String,
+    pub destination_place_id: String,
     pub distance_km: f64,
     pub odometer: f64,
     pub purpose: String,
@@ -874,8 +890,8 @@ pub struct TripRow {
 pub struct NewTripRow<'a> {
     pub id: &'a str,
     pub vehicle_id: &'a str,
-    pub origin: &'a str,
-    pub destination: &'a str,
+    pub origin_place_id: &'a str,
+    pub destination_place_id: &'a str,
     pub distance_km: f64,
     pub odometer: f64,
     pub purpose: &'a str,
@@ -901,8 +917,8 @@ pub struct NewTripRow<'a> {
 pub struct RouteRow {
     pub id: Option<String>,
     pub vehicle_id: String,
-    pub origin: String,
-    pub destination: String,
+    pub origin_place_id: String,
+    pub destination_place_id: String,
     pub distance_km: f64,
 }
 
@@ -912,8 +928,8 @@ pub struct RouteRow {
 pub struct NewRouteRow<'a> {
     pub id: &'a str,
     pub vehicle_id: &'a str,
-    pub origin: &'a str,
-    pub destination: &'a str,
+    pub origin_place_id: &'a str,
+    pub destination_place_id: &'a str,
     pub distance_km: f64,
 }
 
@@ -969,41 +985,34 @@ pub struct NewRouteMapRow<'a> {
     pub provider: Option<&'a str>,
 }
 
-/// Database row for places table (the place book, Task 75)
+/// Database row for the places table (Task 88: a place is an entity).
 ///
-/// Deliberately no `AsChangeset`: it reads `None` as "leave this column alone",
-/// so an update through it could set a coordinate but never clear one, and the
-/// row would end up a merge of two answers rather than the latest one.
-/// `db::upsert_place` deletes and re-inserts instead, and the absent derive is
-/// what stops a future edit from quietly taking the other route.
+/// Still no `AsChangeset`: every update names its columns, so `None` can never
+/// be read as "leave this column alone".
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = places)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct PlaceRow {
+    pub id: String,
+    pub name: String,
     pub normalised_name: String,
-    /// The spelling trips use, verbatim (ADR-034).
-    ///
-    /// Write-only: `save_place_internal` stores it, and nothing reads it back.
-    /// The list takes its label from the trips themselves, so this is a
-    /// forensic record of what the human saw when they confirmed the
-    /// coordinate — not an authority on what the place is called now. It goes
-    /// stale the moment a new trip makes a different spelling lead the fold,
-    /// so a future reader must not start displaying it.
-    pub display_name: String,
     pub lat: Option<f64>,
     pub lon: Option<f64>,
-    pub source: String,
+    pub source: Option<String>,
+    pub created_at: String,
 }
 
 /// For inserting new places
 #[derive(Debug, Insertable)]
 #[diesel(table_name = places)]
 pub struct NewPlaceRow<'a> {
+    pub id: &'a str,
+    pub name: &'a str,
     pub normalised_name: &'a str,
-    pub display_name: &'a str,
     pub lat: Option<f64>,
     pub lon: Option<f64>,
-    pub source: &'a str,
+    pub source: Option<&'a str>,
+    pub created_at: &'a str,
 }
 
 /// Database row for settings table
@@ -1067,8 +1076,11 @@ impl From<VehicleRow> for Vehicle {
     }
 }
 
-impl From<TripRow> for Trip {
-    fn from(row: TripRow) -> Self {
+impl Trip {
+    /// Build the API trip from its row. `names` maps a place id to its
+    /// display name (see `db::place_names`); an id with no entry reads as an
+    /// empty name.
+    pub fn from_row(row: TripRow, names: &HashMap<String, String>) -> Self {
         // Parse start_datetime
         let start_datetime =
             NaiveDateTime::parse_from_str(&row.start_datetime, "%Y-%m-%dT%H:%M:%S")
@@ -1085,8 +1097,11 @@ impl From<TripRow> for Trip {
             vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
             start_datetime,
             end_datetime,
-            origin: row.origin,
-            destination: row.destination,
+            origin: names.get(&row.origin_place_id).cloned().unwrap_or_default(),
+            destination: names.get(&row.destination_place_id).cloned().unwrap_or_default(),
+            origin_place_id: Uuid::parse_str(&row.origin_place_id).unwrap_or_else(|_| Uuid::nil()),
+            destination_place_id: Uuid::parse_str(&row.destination_place_id)
+                .unwrap_or_else(|_| Uuid::nil()),
             distance_km: row.distance_km,
             odometer: row.odometer,
             purpose: row.purpose,
@@ -1198,7 +1213,7 @@ pub struct TripInvoiceCoverage {
 }
 
 // ============================================================================
-// Place book — a place a trip names, and its confirmed coordinate (Task 75)
+// Places -- an entity with an id, a name and a position (Task 75, Task 88)
 // ============================================================================
 
 /// How a place got its coordinates. Kept so a later reader can tell a
@@ -1231,19 +1246,33 @@ impl PlaceSource {
     }
 }
 
-/// One row of the Miesta list: a place a trip names, and its coordinate if a
-/// human has confirmed one. `lat`/`lon` are None until then.
+/// One place in the book (Task 88). `lat`/`lon` are None only for a place the
+/// migration made from a trip string that had no coordinate.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Place {
-    /// The spelling trips use, verbatim (ADR-034).
-    pub display_name: String,
+    pub id: Uuid,
+    pub name: String,
     pub normalised_name: String,
-    /// How many trip endpoints name this place.
-    pub uses: i64,
     pub lat: Option<f64>,
     pub lon: Option<f64>,
     pub source: Option<PlaceSource>,
+    /// How many trip endpoints point at this place.
+    pub uses: i64,
+}
+
+impl Place {
+    pub fn from_row(row: PlaceRow, uses: i64) -> Self {
+        Place {
+            id: Uuid::parse_str(&row.id).unwrap_or_else(|_| Uuid::nil()),
+            name: row.name,
+            normalised_name: row.normalised_name,
+            lat: row.lat,
+            lon: row.lon,
+            source: row.source.as_deref().and_then(PlaceSource::parse),
+            uses,
+        }
+    }
 }
 
 // ============================================================================
@@ -1299,7 +1328,7 @@ mod tests {
     use super::*;
 
     // ========================================================================
-    // TripRow datetime parsing tests (From<TripRow> for Trip)
+    // TripRow datetime parsing tests (Trip::from_row)
     // ========================================================================
 
     /// Helper to create a TripRow with specified start_datetime
@@ -1307,8 +1336,8 @@ mod tests {
         TripRow {
             id: Some("00000000-0000-0000-0000-000000000001".to_string()),
             vehicle_id: "00000000-0000-0000-0000-000000000002".to_string(),
-            origin: "A".to_string(),
-            destination: "B".to_string(),
+            origin_place_id: "00000000-0000-0000-0000-000000000003".to_string(),
+            destination_place_id: "00000000-0000-0000-0000-000000000004".to_string(),
             distance_km: 100.0,
             odometer: 10000.0,
             purpose: "test".to_string(),
@@ -1332,7 +1361,7 @@ mod tests {
     fn test_trip_row_datetime_parsing_valid() {
         // Test valid start_datetime parsing
         let row = make_trip_row("2026-01-15T08:30:00", None);
-        let trip: Trip = row.into();
+        let trip = Trip::from_row(row, &HashMap::new());
 
         assert_eq!(
             trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
@@ -1348,7 +1377,7 @@ mod tests {
     fn test_trip_row_end_datetime_parsing() {
         // Test end_datetime parsing when provided
         let row = make_trip_row("2026-01-15T08:30:00", Some("2026-01-15T17:00:00"));
-        let trip: Trip = row.into();
+        let trip = Trip::from_row(row, &HashMap::new());
 
         assert_eq!(
             trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),
@@ -1368,7 +1397,7 @@ mod tests {
     fn test_trip_row_datetime_midnight() {
         // Test edge case: midnight "2026-01-15T00:00:00" parses correctly
         let row = make_trip_row("2026-01-15T00:00:00", None);
-        let trip: Trip = row.into();
+        let trip = Trip::from_row(row, &HashMap::new());
 
         assert_eq!(
             trip.start_datetime.format("%Y-%m-%dT%H:%M:%S").to_string(),

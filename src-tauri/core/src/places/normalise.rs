@@ -5,9 +5,7 @@
 /// Digits and punctuation survive: they are what distinguishes one street
 /// number from another, and the book's entries are addresses.
 ///
-/// Not [`crate::db::normalize_location`]: that one only collapses whitespace
-/// and keeps case and diacritics, because it rewrites the string a trip stores.
-/// This one throws that information away to make a key.
+/// Each place stores this as its `normalised_name`, which is UNIQUE (Task 88).
 ///
 /// Folding is a closed table, not Unicode NFD: NFD would pull in a new
 /// dependency for a 44-letter problem, and being a one-liner in JS it invites

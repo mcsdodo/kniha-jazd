@@ -800,3 +800,243 @@ fn restore_registers_kj_normalise() {
     db.restore_from_file(&backup, &live).unwrap();
     assert_eq!(kj(&db, "Žilina"), "zilina");
 }
+
+// ============================================================================
+// Task 88 -- places as entities (2026-10-05-100000)
+// ============================================================================
+
+const PLACES_AS_ENTITIES: &str = "2026-10-05-100000";
+
+fn seed_trip_at(db: &Database, id: &str, vehicle: &str, origin: &str, dest: &str, start: &str) {
+    exec(
+        db,
+        &format!(
+            "INSERT INTO trips (id, vehicle_id, origin, destination, distance_km, odometer, \
+             purpose, created_at, updated_at, start_datetime) VALUES \
+             ('{id}', '{vehicle}', '{origin}', '{dest}', 10.0, 1000.0, 'p', \
+              '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', '{start}')"
+        ),
+    );
+}
+
+#[derive(diesel::QueryableByName, Debug, PartialEq)]
+struct PlaceView {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    name: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    normalised_name: String,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Double>)]
+    lat: Option<f64>,
+}
+
+fn places_view(db: &Database) -> Vec<PlaceView> {
+    let conn = &mut *db.connection();
+    diesel::sql_query("SELECT name, normalised_name, lat FROM places ORDER BY normalised_name")
+        .load(conn)
+        .unwrap()
+}
+
+#[derive(diesel::QueryableByName)]
+struct TripNames {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    id: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    o: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    d: String,
+}
+
+fn trip_names(db: &Database) -> Vec<(String, String, String)> {
+    let conn = &mut *db.connection();
+    diesel::sql_query(
+        "SELECT t.id, po.name AS o, pd.name AS d FROM trips t \
+         JOIN places po ON po.id = t.origin_place_id \
+         JOIN places pd ON pd.id = t.destination_place_id ORDER BY t.id",
+    )
+    .load::<TripNames>(conn)
+    .unwrap()
+    .into_iter()
+    .map(|r| (r.id, r.o, r.d))
+    .collect()
+}
+
+#[test]
+fn spellings_fold_into_one_place_named_by_the_most_used_spelling() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Košice", "Hlavná 5, Žilina", "2026-01-01T08:00:00");
+    seed_trip_at(&db, "t2", "v1", "Kosice", "Hlavna 5, Zilina", "2026-01-02T08:00:00");
+    seed_trip_at(&db, "t3", "v1", "Kosice", "Hlavná 5, Žilina", "2026-01-03T08:00:00");
+    exec(&db, "INSERT INTO places (normalised_name, display_name, lat, lon, source) \
+               VALUES ('kosice', 'Kosice', 48.7, 21.2, 'manual')");
+
+    migrate_to_current(&db);
+
+    let places = places_view(&db);
+    assert_eq!(places.len(), 2, "two keys, two places: {places:?}");
+    // "Kosice" has 2 uses, "Košice" 1: the most-used spelling wins.
+    assert_eq!(places[0].name, "Hlavná 5, Žilina");
+    assert_eq!(places[1].name, "Kosice");
+    assert_eq!(places[1].lat, Some(48.7), "the old coordinate moves across");
+    // Each trip now points at the folded place.
+    for (_, o, _) in trip_names(&db) {
+        assert_eq!(o, "Kosice");
+    }
+}
+
+#[test]
+fn a_tie_goes_to_the_byte_wise_smaller_spelling() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Trnava", "trnava", "2026-01-01T08:00:00");
+    migrate_to_current(&db);
+    // One use each. "Trnava" < "trnava" byte-wise ('T' = 0x54 < 't' = 0x74).
+    assert_eq!(places_view(&db)[0].name, "Trnava");
+}
+
+#[test]
+fn a_trip_string_without_coordinates_becomes_a_place_with_null_coordinates() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Nitra", "2026-01-01T08:00:00");
+    migrate_to_current(&db);
+    let places = places_view(&db);
+    assert_eq!(places.len(), 1);
+    assert_eq!(places[0].lat, None);
+}
+
+#[test]
+fn an_unused_old_place_row_stays_a_place() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    exec(&db, "INSERT INTO places (normalised_name, display_name, lat, lon, source) \
+               VALUES ('senec', 'Senec', 48.2, 17.4, 'geocoder')");
+    migrate_to_current(&db);
+    assert_eq!(places_view(&db), vec![PlaceView {
+        name: "Senec".into(), normalised_name: "senec".into(), lat: Some(48.2),
+    }]);
+}
+
+#[test]
+fn an_empty_endpoint_maps_to_the_unknown_place_and_the_trip_survives() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "   ", "Nitra", "2026-01-01T08:00:00");
+    migrate_to_current(&db);
+    assert_eq!(trip_names(&db), vec![("t1".into(), "Neznáme miesto".into(), "Nitra".into())]);
+}
+
+#[derive(diesel::QueryableByName)]
+struct RouteView {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    id: String,
+    #[diesel(sql_type = diesel::sql_types::Double)]
+    distance_km: f64,
+}
+
+fn route_rows(db: &Database) -> Vec<(String, f64)> {
+    let conn = &mut *db.connection();
+    diesel::sql_query("SELECT id, distance_km FROM routes ORDER BY id")
+        .load::<RouteView>(conn)
+        .unwrap()
+        .into_iter()
+        .map(|r| (r.id, r.distance_km))
+        .collect()
+}
+
+#[test]
+fn routes_that_collapse_keep_the_row_the_latest_trip_used() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Kosice", "Presov", "2026-01-01T08:00:00");
+    seed_trip_at(&db, "t2", "v1", "Košice", "Prešov", "2026-02-01T08:00:00");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-a', 'v1', 'Kosice', 'Presov', 36.0), \
+               ('r-b', 'v1', 'Košice', 'Prešov', 37.0)");
+    migrate_to_current(&db);
+    // t2 is the latest trip and used the spelling of r-b.
+    assert_eq!(route_rows(&db), vec![("r-b".to_string(), 37.0)]);
+}
+
+#[test]
+fn a_route_no_trip_uses_is_dropped() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO routes (id, vehicle_id, origin, destination, distance_km) VALUES \
+               ('r-used', 'v1', 'Nitra', 'Levice', 40.0), \
+               ('r-orphan', 'v1', 'Nowhere', 'Levice', 99.0)");
+    migrate_to_current(&db);
+    assert_eq!(route_rows(&db), vec![("r-used".to_string(), 40.0)]);
+}
+
+#[test]
+fn trip_children_survive_the_trips_rebuild() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+               dataset_version, created_at, avoid) VALUES \
+               ('t1', '[]', 'abc', 40.0, 41.0, NULL, '2026-01-01T00:00:00+00:00', '[]')");
+    exec(&db, "INSERT INTO paperless_trip_links (paperless_document_id, trip_id, assignment_type, \
+               amount_eur, title, applied_amount_cents, created_at, updated_at) VALUES \
+               (7, 't1', 'Fuel', 50.0, 'doc', 5000, '2026-01-01T00:00:00+00:00', \
+                '2026-01-01T00:00:00+00:00')");
+    migrate_to_current(&db);
+    assert!(db.get_route_map("t1").unwrap().is_some(), "DROP TABLE trips must not cascade");
+    assert_eq!(db.get_paperless_links_for_trip("t1").unwrap().len(), 1,
+        "the Paperless link must survive the trips rebuild");
+}
+
+#[test]
+fn down_sql_gives_back_the_trip_strings() {
+    let db = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&db, "v1");
+    seed_trip_at(&db, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&db, "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, \
+               dataset_version, created_at, avoid) VALUES \
+               ('t1', '[]', 'abc', 40.0, 41.0, NULL, '2026-01-01T00:00:00+00:00', '[]')");
+    migrate_to_current(&db);
+    {
+        // Revert down to (and including) this migration, so a later
+        // migration on top does not break the test.
+        let conn = &mut *db.connection();
+        loop {
+            let reverted = conn.revert_last_migration(crate::db::MIGRATIONS).unwrap();
+            if reverted.to_string().replace('-', "").starts_with(&PLACES_AS_ENTITIES.replace('-', "")) {
+                break;
+            }
+        }
+    }
+    #[derive(diesel::QueryableByName)]
+    struct Row {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        origin: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        destination: String,
+    }
+    let rows: Vec<Row> = {
+        let conn = &mut *db.connection();
+        diesel::sql_query("SELECT origin, destination FROM trips").load(conn).unwrap()
+    };
+    assert_eq!((rows[0].origin.as_str(), rows[0].destination.as_str()), ("Nitra", "Levice"));
+    assert!(db.get_route_map("t1").unwrap().is_some(), "the revert must keep the route map");
+}
+
+#[test]
+fn restore_of_an_old_backup_runs_the_places_migration() {
+    let dir = tempfile::tempdir().unwrap();
+    let live = dir.path().join("live.db");
+    let backup = dir.path().join("backup.db");
+
+    let legacy = open_db_legacy_before(PLACES_AS_ENTITIES);
+    seed_vehicle(&legacy, "v1");
+    seed_trip_at(&legacy, "t1", "v1", "Nitra", "Levice", "2026-01-01T08:00:00");
+    exec(&legacy, &format!("VACUUM INTO '{}'", backup.display()));
+
+    let db = Database::new(live.clone()).unwrap();
+    db.restore_from_file(&backup, &live).unwrap();
+
+    let trip = db.get_trip("t1").unwrap().expect("the restored trip");
+    assert_eq!((trip.origin.as_str(), trip.destination.as_str()), ("Nitra", "Levice"));
+    assert_ne!(trip.origin_place_id, Uuid::nil());
+}

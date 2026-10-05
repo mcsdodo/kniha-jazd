@@ -15,10 +15,14 @@ databázu len na čítanie.
 ## [Unreleased]
 
 ### Pokyny k aktualizácii
-- **Potrebný zásah:** nie
+- **Potrebný zásah:** áno. Pred nasadením urobte zálohu databázy. Aplikácia pred migráciou uloží aj vlastnú zálohu `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db`.
 - **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** žiadne
-- **Strata údajov:** žiadna
+- **Migrácie databázy:** 1 nová (`2026-10-05-100000_places_as_entities`). Miesta sú samostatné záznamy, jazdy a uložené trasy na ne odkazujú cez ID. Migrácia je jednosmerná: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len obnova zálohy.
+- **Strata údajov:**
+  - Rôzne zápisy jedného miesta (napr. "Kosice" a "Košice") sa zlúčia do jedného miesta s najčastejším zápisom. Ostatné zápisy sa stratia a každá jazda ukáže názov miesta.
+  - Uložené trasy, ktoré nepoužíva žiadna jazda, sa zmažú. Doteraz sa nikde nezobrazovali.
+  - Prázdny začiatok alebo cieľ jazdy dostane miesto `Neznáme miesto`.
+  - Miesto jazdy bez súradníc sa stane miestom bez polohy, označeným "treba určiť polohu".
 - **Obraz, zväzok, port:** bez zmeny
 
 ## [1.3.0] - 2026-10-02

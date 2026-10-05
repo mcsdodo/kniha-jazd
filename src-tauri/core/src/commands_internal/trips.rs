@@ -8,7 +8,7 @@ use crate::commands_internal::{
     calculate_trip_numbers, get_year_start_odometer, parse_iso_datetime, period_margin_impact,
     trip_order,
 };
-use crate::db::{normalize_location, Database};
+use crate::db::Database;
 use crate::models::{
     CascadePlan, CascadeResult, CopiedTripDefaults, DistanceWriteback, InferredTripTime,
     OdometerChange, PeriodMarginImpact, Route, Trip,
@@ -40,16 +40,30 @@ pub fn get_years_with_trips_internal(
         .map_err(|e| e.to_string())
 }
 
+/// The place a trip endpoint points at, or an error the UI can show.
+fn resolve_place(db: &Database, id: &str) -> Result<crate::models::PlaceRow, String> {
+    db.get_place(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Miesto neexistuje: {id}"))
+}
+
+/// The UUID of a place row. The id column holds a UUID string for every row
+/// the app or the migration writes.
+fn place_uuid(place: &crate::models::PlaceRow) -> Result<Uuid, String> {
+    Uuid::parse_str(&place.id).map_err(|e| e.to_string())
+}
+
 /// Build the `Trip` a create writes, from the submitted fields. Shared by
 /// `create_trip_internal` and `create_trip_cascade_internal` so the two save
-/// paths can never disagree about validation or normalisation.
+/// paths can never disagree about validation.
 #[allow(clippy::too_many_arguments)]
 fn build_new_trip(
+    db: &Database,
     vehicle_id: &str,
     start_datetime: &str,
     end_datetime: &str,
-    origin: &str,
-    destination: &str,
+    origin_place_id: &str,
+    destination_place_id: &str,
     distance_km: f64,
     odometer: f64,
     purpose: String,
@@ -67,8 +81,8 @@ fn build_new_trip(
     let trip_start_datetime = parse_iso_datetime(start_datetime)?;
     let trip_end_datetime = parse_iso_datetime(end_datetime)?;
 
-    let origin = normalize_location(origin);
-    let destination = normalize_location(destination);
+    let origin = resolve_place(db, origin_place_id)?;
+    let destination = resolve_place(db, destination_place_id)?;
 
     if let Some(soc) = soc_override_percent {
         if !(0.0..=100.0).contains(&soc) {
@@ -82,8 +96,10 @@ fn build_new_trip(
         vehicle_id: vehicle_uuid,
         start_datetime: trip_start_datetime,
         end_datetime: Some(trip_end_datetime),
-        origin,
-        destination,
+        origin_place_id: place_uuid(&origin)?,
+        destination_place_id: place_uuid(&destination)?,
+        origin: origin.name,
+        destination: destination.name,
         distance_km,
         odometer,
         purpose,
@@ -108,8 +124,8 @@ pub fn create_trip_internal(
     vehicle_id: String,
     start_datetime: String,
     end_datetime: String,
-    origin: String,
-    destination: String,
+    origin_place_id: String,
+    destination_place_id: String,
     distance_km: f64,
     odometer: f64,
     purpose: String,
@@ -125,11 +141,12 @@ pub fn create_trip_internal(
 ) -> Result<Trip, String> {
     check_read_only!(app_state);
     let trip = build_new_trip(
+        db,
         &vehicle_id,
         &start_datetime,
         &end_datetime,
-        &origin,
-        &destination,
+        &origin_place_id,
+        &destination_place_id,
         distance_km,
         odometer,
         purpose,
@@ -146,23 +163,28 @@ pub fn create_trip_internal(
 
     db.create_trip(&trip).map_err(|e| e.to_string())?;
 
-    db.find_or_create_route(&vehicle_id, &trip.origin, &trip.destination, distance_km)
-        .map_err(|e| e.to_string())?;
+    db.find_or_create_route(
+        &vehicle_id,
+        &trip.origin_place_id.to_string(),
+        &trip.destination_place_id.to_string(),
+        distance_km,
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(trip)
 }
 
 /// Build the `Trip` a save writes, from the submitted fields and the stored row.
 /// Shared by `update_trip_internal` and `update_trip_cascade_internal` so the
-/// two save paths can never disagree about validation or normalisation.
+/// two save paths can never disagree about validation.
 #[allow(clippy::too_many_arguments)]
 fn build_updated_trip(
     db: &Database,
     id: &str,
     start_datetime: &str,
     end_datetime: &str,
-    origin: &str,
-    destination: &str,
+    origin_place_id: &str,
+    destination_place_id: &str,
     distance_km: f64,
     odometer: f64,
     purpose: String,
@@ -180,8 +202,8 @@ fn build_updated_trip(
     let trip_start_datetime = parse_iso_datetime(start_datetime)?;
     let trip_end_datetime = parse_iso_datetime(end_datetime)?;
 
-    let origin = normalize_location(origin);
-    let destination = normalize_location(destination);
+    let origin = resolve_place(db, origin_place_id)?;
+    let destination = resolve_place(db, destination_place_id)?;
 
     if let Some(soc) = soc_override_percent {
         if !(0.0..=100.0).contains(&soc) {
@@ -199,8 +221,10 @@ fn build_updated_trip(
         vehicle_id: existing.vehicle_id,
         start_datetime: trip_start_datetime,
         end_datetime: Some(trip_end_datetime),
-        origin,
-        destination,
+        origin_place_id: place_uuid(&origin)?,
+        destination_place_id: place_uuid(&destination)?,
+        origin: origin.name,
+        destination: destination.name,
         distance_km,
         odometer,
         purpose,
@@ -225,8 +249,8 @@ pub fn update_trip_internal(
     id: String,
     start_datetime: String,
     end_datetime: String,
-    origin: String,
-    destination: String,
+    origin_place_id: String,
+    destination_place_id: String,
     distance_km: f64,
     odometer: f64,
     purpose: String,
@@ -246,8 +270,8 @@ pub fn update_trip_internal(
         &id,
         &start_datetime,
         &end_datetime,
-        &origin,
-        &destination,
+        &origin_place_id,
+        &destination_place_id,
         distance_km,
         odometer,
         purpose,
@@ -266,8 +290,8 @@ pub fn update_trip_internal(
 
     db.find_or_create_route(
         &trip.vehicle_id.to_string(),
-        &trip.origin,
-        &trip.destination,
+        &trip.origin_place_id.to_string(),
+        &trip.destination_place_id.to_string(),
         distance_km,
     )
     .map_err(|e| e.to_string())?;
@@ -609,8 +633,8 @@ pub fn update_trip_cascade_internal(
     id: String,
     start_datetime: String,
     end_datetime: String,
-    origin: String,
-    destination: String,
+    origin_place_id: String,
+    destination_place_id: String,
     distance_km: f64,
     odometer: f64,
     purpose: String,
@@ -692,8 +716,8 @@ pub fn update_trip_cascade_internal(
         &id,
         &start_datetime,
         &end_datetime,
-        &origin,
-        &destination,
+        &origin_place_id,
+        &destination_place_id,
         plan.new_distance_km,
         plan.new_odometer,
         purpose,
@@ -718,8 +742,8 @@ pub fn update_trip_cascade_internal(
 
     db.find_or_create_route(
         &trip.vehicle_id.to_string(),
-        &trip.origin,
-        &trip.destination,
+        &trip.origin_place_id.to_string(),
+        &trip.destination_place_id.to_string(),
         plan.new_distance_km,
     )
     .map_err(|e| e.to_string())?;
@@ -890,8 +914,8 @@ pub fn create_trip_cascade_internal(
     vehicle_id: String,
     start_datetime: String,
     end_datetime: String,
-    origin: String,
-    destination: String,
+    origin_place_id: String,
+    destination_place_id: String,
     distance_km: f64,
     purpose: String,
     fuel_liters: Option<f64>,
@@ -931,11 +955,12 @@ pub fn create_trip_cascade_internal(
     }
 
     let trip = build_new_trip(
+        db,
         &vehicle_id,
         &start_datetime,
         &end_datetime,
-        &origin,
-        &destination,
+        &origin_place_id,
+        &destination_place_id,
         distance_km,
         plan.new_odometer,
         purpose,
@@ -958,8 +983,13 @@ pub fn create_trip_cascade_internal(
     db.create_trip_with_odometer_shift(&trip, &shifts)
         .map_err(|e| e.to_string())?;
 
-    db.find_or_create_route(&vehicle_id, &trip.origin, &trip.destination, distance_km)
-        .map_err(|e| e.to_string())?;
+    db.find_or_create_route(
+        &vehicle_id,
+        &trip.origin_place_id.to_string(),
+        &trip.destination_place_id.to_string(),
+        distance_km,
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(CascadeResult { trip: Some(trip), plan })
 }
@@ -1036,8 +1066,8 @@ pub fn get_inferred_trip_time_for_route_internal(
     db: &Database,
     app_dir: &Path,
     vehicle_id: String,
-    origin: String,
-    destination: String,
+    origin_place_id: String,
+    destination_place_id: String,
     row_date: String,
 ) -> Result<Option<InferredTripTime>, String> {
     // Default OFF — None and Some(false) both disable inference (opt-in).
@@ -1049,24 +1079,28 @@ pub fn get_inferred_trip_time_for_route_internal(
     let row_date = NaiveDate::parse_from_str(&row_date, "%Y-%m-%d")
         .map_err(|e| format!("Invalid row_date (expected YYYY-MM-DD): {}", e))?;
     let mut jitter = ThreadRngJitter;
-    inferred_trip_time_for_route(db, &mut jitter, &vehicle_id, &origin, &destination, row_date)
+    inferred_trip_time_for_route(
+        db,
+        &mut jitter,
+        &vehicle_id,
+        &origin_place_id,
+        &destination_place_id,
+        row_date,
+    )
 }
 
 /// Inner, testable seam: takes any `Jitter` so unit tests can stub randomness.
-/// Returns `None` when no completed historical trip matches the route.
+/// Returns `None` when no completed historical trip matches the place pair.
 pub fn inferred_trip_time_for_route(
     db: &Database,
     jitter: &mut dyn Jitter,
     vehicle_id: &str,
-    origin: &str,
-    destination: &str,
+    origin_place_id: &str,
+    destination_place_id: &str,
     row_date: NaiveDate,
 ) -> Result<Option<InferredTripTime>, String> {
-    let origin = normalize_location(origin);
-    let destination = normalize_location(destination);
-
     let times = db
-        .find_most_recent_trip_times_for_route(vehicle_id, &origin, &destination)
+        .find_most_recent_trip_times_for_route(vehicle_id, origin_place_id, destination_place_id)
         .map_err(|e| e.to_string())?;
 
     let Some((base_start_dt, base_end_dt)) = times else {

@@ -641,6 +641,8 @@ mod tests {
 
         // Two trips on different days, so sort direction is observable.
         let make_trip = |day: u32, destination: &str, odo: f64| Trip {
+            origin_place_id: uuid::Uuid::nil(),
+            destination_place_id: uuid::Uuid::nil(),
             id: uuid::Uuid::new_v4(),
             vehicle_id: vehicle.id,
             start_datetime: NaiveDate::from_ymd_opt(2026, 3, day)
@@ -665,8 +667,8 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
-        db.create_trip(&make_trip(1, "TRNAVA", 10_060.0)).unwrap();
-        db.create_trip(&make_trip(2, "KOSICE", 10_120.0)).unwrap();
+        db.create_trip(&db.with_places_for_test(&make_trip(1, "TRNAVA", 10_060.0))).unwrap();
+        db.create_trip(&db.with_places_for_test(&make_trip(2, "KOSICE", 10_120.0))).unwrap();
 
         let state = ServerState {
             db,

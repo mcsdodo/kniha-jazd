@@ -39,28 +39,14 @@ pub(crate) fn prepare_connection(conn: &mut SqliteConnection) -> QueryResult<()>
     kj_normalise_utils::register_impl(conn, |x: String| crate::places::normalise(&x))
 }
 
-// ============================================================================
-// Location Normalization
-// ============================================================================
-
-/// Normalize a location string for consistent storage and matching.
-///
-/// Currently performs:
-/// - Trimming leading/trailing whitespace
-/// - Collapsing multiple consecutive spaces into single space
-///
-/// This prevents duplicates like "Bratislava" vs "Bratislava " (trailing space)
-/// which was observed in production data.
-///
-/// Note: case and Slovak diacritics are deliberately preserved here — this is
-/// the string the trip displays, and real users type ASCII anyway (Kosice, not
-/// Košice). The place book's lookup key does fold them: `places::normalise`.
-pub fn normalize_location(location: &str) -> String {
-    location
-        .trim()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+/// Place id -> display name. Loaded once per read: tens of rows, and a trip
+/// list always needs most of them.
+fn place_names(conn: &mut SqliteConnection) -> QueryResult<HashMap<String, String>> {
+    Ok(places::table
+        .select((places::id, places::name))
+        .load::<(String, String)>(conn)?
+        .into_iter()
+        .collect())
 }
 
 pub struct Database {
@@ -392,12 +378,14 @@ impl Database {
         let created_at_str = trip.created_at.to_rfc3339();
         let updated_at_str = trip.updated_at.to_rfc3339();
         let other_costs_note_ref = trip.other_costs_note.as_deref();
+        let origin_place_id_str = trip.origin_place_id.to_string();
+        let destination_place_id_str = trip.destination_place_id.to_string();
 
         let new_trip = NewTripRow {
             id: &id_str,
             vehicle_id: &vehicle_id_str,
-            origin: &trip.origin,
-            destination: &trip.destination,
+            origin_place_id: &origin_place_id_str,
+            destination_place_id: &destination_place_id_str,
             distance_km: trip.distance_km,
             odometer: trip.odometer,
             purpose: &trip.purpose,
@@ -430,8 +418,9 @@ impl Database {
             .filter(trips::id.eq(id))
             .first::<TripRow>(conn)
             .optional()?;
+        let names = place_names(conn)?;
 
-        Ok(row.map(Trip::from))
+        Ok(row.map(|r| Trip::from_row(r, &names)))
     }
 
     pub fn get_trips_for_vehicle(&self, vehicle_id: &str) -> QueryResult<Vec<Trip>> {
@@ -441,8 +430,9 @@ impl Database {
             .filter(trips::vehicle_id.eq(vehicle_id))
             .order((trips::start_datetime.desc(), trips::created_at.asc()))
             .load::<TripRow>(conn)?;
+        let names = place_names(conn)?;
 
-        Ok(rows.into_iter().map(Trip::from).collect())
+        Ok(rows.into_iter().map(|r| Trip::from_row(r, &names)).collect())
     }
 
     /// Get trips for a vehicle in a specific year
@@ -464,8 +454,9 @@ impl Database {
             .filter(dsl::start_datetime.le(&end_date))
             .order((dsl::start_datetime.desc(), dsl::created_at.asc()))
             .load::<TripRow>(conn)?;
+        let names = place_names(conn)?;
 
-        Ok(rows.into_iter().map(Trip::from).collect())
+        Ok(rows.into_iter().map(|r| Trip::from_row(r, &names)).collect())
     }
 
     /// Get distinct years that have trips for a vehicle
@@ -498,12 +489,14 @@ impl Database {
             .end_datetime
             .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
         let updated_at_str = trip.updated_at.to_rfc3339();
+        let origin_place_id_str = trip.origin_place_id.to_string();
+        let destination_place_id_str = trip.destination_place_id.to_string();
 
         diesel::update(trips::table.filter(trips::id.eq(&id_str)))
             .set((
                 trips::vehicle_id.eq(&vehicle_id_str),
-                trips::origin.eq(&trip.origin),
-                trips::destination.eq(&trip.destination),
+                trips::origin_place_id.eq(&origin_place_id_str),
+                trips::destination_place_id.eq(&destination_place_id_str),
                 trips::distance_km.eq(trip.distance_km),
                 trips::odometer.eq(trip.odometer),
                 trips::purpose.eq(&trip.purpose),
@@ -587,12 +580,14 @@ impl Database {
         let end_datetime_str = trip
             .end_datetime
             .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S").to_string());
+        let origin_place_id_str = trip.origin_place_id.to_string();
+        let destination_place_id_str = trip.destination_place_id.to_string();
 
         diesel::update(trips::table.filter(trips::id.eq(&id_str)))
             .set((
                 trips::vehicle_id.eq(&vehicle_id_str),
-                trips::origin.eq(&trip.origin),
-                trips::destination.eq(&trip.destination),
+                trips::origin_place_id.eq(&origin_place_id_str),
+                trips::destination_place_id.eq(&destination_place_id_str),
                 trips::distance_km.eq(trip.distance_km),
                 trips::odometer.eq(trip.odometer),
                 trips::purpose.eq(&trip.purpose),
@@ -631,12 +626,14 @@ impl Database {
         let created_at_str = trip.created_at.to_rfc3339();
         let updated_at_str = trip.updated_at.to_rfc3339();
         let other_costs_note_ref = trip.other_costs_note.as_deref();
+        let origin_place_id_str = trip.origin_place_id.to_string();
+        let destination_place_id_str = trip.destination_place_id.to_string();
 
         let new_trip = NewTripRow {
             id: &id_str,
             vehicle_id: &vehicle_id_str,
-            origin: &trip.origin,
-            destination: &trip.destination,
+            origin_place_id: &origin_place_id_str,
+            destination_place_id: &destination_place_id_str,
             distance_km: trip.distance_km,
             odometer: trip.odometer,
             purpose: &trip.purpose,
@@ -707,6 +704,10 @@ impl Database {
             #[diesel(sql_type = diesel::sql_types::Text)]
             vehicle_id: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
+            origin_place_id: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            destination_place_id: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
             origin: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
             destination: String,
@@ -726,6 +727,10 @@ impl Database {
                 id: Uuid::parse_str(row.id.as_deref().unwrap_or_default())
                     .unwrap_or_else(|_| Uuid::new_v4()),
                 vehicle_id: Uuid::parse_str(&row.vehicle_id).unwrap_or_else(|_| Uuid::new_v4()),
+                origin_place_id: Uuid::parse_str(&row.origin_place_id)
+                    .unwrap_or_else(|_| Uuid::nil()),
+                destination_place_id: Uuid::parse_str(&row.destination_place_id)
+                    .unwrap_or_else(|_| Uuid::nil()),
                 origin: row.origin,
                 destination: row.destination,
                 distance_km: row.distance_km,
@@ -737,14 +742,17 @@ impl Database {
         }
 
         let rows = diesel::sql_query(
-            "SELECT r.id, r.vehicle_id, r.origin, r.destination, r.distance_km,
+            "SELECT r.id, r.vehicle_id, r.origin_place_id, r.destination_place_id,
+                    po.name AS origin, pd.name AS destination, r.distance_km,
                     COUNT(t.id) AS usage_count,
                     MAX(t.start_datetime) AS last_used
                FROM routes r
+               JOIN places po ON po.id = r.origin_place_id
+               JOIN places pd ON pd.id = r.destination_place_id
                JOIN trips t
                  ON t.vehicle_id = r.vehicle_id
-                AND t.origin = r.origin
-                AND t.destination = r.destination
+                AND t.origin_place_id = r.origin_place_id
+                AND t.destination_place_id = r.destination_place_id
               WHERE r.vehicle_id = ?
               GROUP BY r.id
               ORDER BY usage_count DESC",
@@ -778,21 +786,21 @@ impl Database {
     }
 
     /// Find the most recent trip's `(start_datetime, end_datetime)` for a given
-    /// vehicle and route. Excludes trips with a null `end_datetime`. Returns
-    /// `None` if no completed match exists.
+    /// vehicle and place pair. Excludes trips with a null `end_datetime`.
+    /// Returns `None` if no completed match exists.
     pub fn find_most_recent_trip_times_for_route(
         &self,
         vehicle_id: &str,
-        origin: &str,
-        destination: &str,
+        origin_place_id: &str,
+        destination_place_id: &str,
     ) -> QueryResult<Option<(NaiveDateTime, NaiveDateTime)>> {
         use crate::schema::trips::dsl;
         let conn = &mut *self.conn.lock().unwrap();
 
         let row = dsl::trips
             .filter(dsl::vehicle_id.eq(vehicle_id))
-            .filter(dsl::origin.eq(origin))
-            .filter(dsl::destination.eq(destination))
+            .filter(dsl::origin_place_id.eq(origin_place_id))
+            .filter(dsl::destination_place_id.eq(destination_place_id))
             .filter(dsl::end_datetime.is_not_null())
             .order(dsl::start_datetime.desc())
             .first::<TripRow>(conn)
@@ -807,31 +815,23 @@ impl Database {
         }))
     }
 
-    /// Find existing route with same origin/destination, or create new one.
-    ///
-    /// Input locations are normalized (trimmed, whitespace collapsed) before
-    /// lookup and storage to prevent duplicates like "Bratislava" vs "Bratislava ".
+    /// Find the route for this vehicle and place pair, or create it.
     ///
     /// Returns the stored row, which carries no usage figures: how often a pair
     /// is driven is derived from `trips` by `get_routes_for_vehicle` (ADR-033).
     pub fn find_or_create_route(
         &self,
         vehicle_id: &str,
-        origin: &str,
-        destination: &str,
+        origin_place_id: &str,
+        destination_place_id: &str,
         distance_km: f64,
     ) -> QueryResult<RouteRow> {
-        // Normalize inputs to prevent whitespace-based duplicates
-        let origin = normalize_location(origin);
-        let destination = normalize_location(destination);
-
         let conn = &mut *self.conn.lock().unwrap();
 
-        // Try to find existing route with normalized values
         let existing = routes::table
             .filter(routes::vehicle_id.eq(vehicle_id))
-            .filter(routes::origin.eq(&origin))
-            .filter(routes::destination.eq(&destination))
+            .filter(routes::origin_place_id.eq(origin_place_id))
+            .filter(routes::destination_place_id.eq(destination_place_id))
             .first::<RouteRow>(conn)
             .optional()?;
 
@@ -842,13 +842,12 @@ impl Database {
             return Ok(row);
         }
 
-        // Create new route with normalized values
         let id = Uuid::new_v4().to_string();
         let new_route = NewRouteRow {
             id: &id,
             vehicle_id,
-            origin: &origin,
-            destination: &destination,
+            origin_place_id,
+            destination_place_id,
             distance_km,
         };
 
@@ -859,8 +858,8 @@ impl Database {
         Ok(RouteRow {
             id: Some(id),
             vehicle_id: vehicle_id.to_string(),
-            origin,
-            destination,
+            origin_place_id: origin_place_id.to_string(),
+            destination_place_id: destination_place_id.to_string(),
             distance_km,
         })
     }
@@ -1215,71 +1214,148 @@ impl Database {
     }
 
     // ========================================================================
-    // Place book — coordinates keyed by normalised place name (Task 75)
+    // Places -- an entity with an id, a name and a position (Task 88)
     // ========================================================================
 
-    /// Every place string any trip names, with how many trip endpoints use it.
-    ///
-    /// Raw SQL: this is a UNION ALL of two columns, which Diesel's DSL expresses
-    /// far less clearly than the query itself. The spellings come back verbatim
-    /// — folding them onto one key is `places::normalise`, which SQLite cannot
-    /// call, so the caller does it.
-    pub fn distinct_trip_places(&self) -> QueryResult<Vec<(String, i64)>> {
+    pub fn get_place(&self, id: &str) -> QueryResult<Option<PlaceRow>> {
         let conn = &mut *self.conn.lock().unwrap();
-
-        #[derive(QueryableByName)]
-        struct Row {
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            raw: String,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            uses: i64,
-        }
-
-        let rows = diesel::sql_query(
-            "SELECT raw, SUM(uses) AS uses FROM (
-                 SELECT origin AS raw, COUNT(*) AS uses FROM trips GROUP BY origin
-                 UNION ALL
-                 SELECT destination AS raw, COUNT(*) AS uses FROM trips GROUP BY destination
-             ) GROUP BY raw",
-        )
-        .load::<Row>(conn)?;
-
-        Ok(rows.into_iter().map(|r| (r.raw, r.uses)).collect())
+        places::table
+            .filter(places::id.eq(id))
+            .select(PlaceRow::as_select())
+            .first(conn)
+            .optional()
     }
 
-    /// Every stored coordinate. Small by construction — one row per place a
-    /// human has placed — so the caller indexes it in memory rather than
-    /// querying per place.
+    pub fn get_place_by_key(&self, normalised_name: &str) -> QueryResult<Option<PlaceRow>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        places::table
+            .filter(places::normalised_name.eq(normalised_name))
+            .select(PlaceRow::as_select())
+            .first(conn)
+            .optional()
+    }
+
+    /// Every place in the book. Small by construction (tens of rows), so the
+    /// caller indexes it in memory rather than querying per place.
     pub fn all_places(&self) -> QueryResult<Vec<PlaceRow>> {
         let conn = &mut *self.conn.lock().unwrap();
         places::table.select(PlaceRow::as_select()).load(conn)
     }
 
-    /// Store the coordinate for a place, replacing whatever it held.
-    ///
-    /// Delete + insert in one transaction, as `save_route_map` does for the
-    /// same "primary key that is not an id" problem. An `AsChangeset` update
-    /// would not do: it reads `None` as "leave this column alone", so it could
-    /// set a coordinate but never clear one, and the row would end up a merge
-    /// of two answers rather than the latest one.
-    pub fn upsert_place(&self, place: &NewPlaceRow) -> QueryResult<()> {
+    /// Place id -> number of trip endpoints that point at it. A place no trip
+    /// uses is absent; the caller reads that as 0.
+    pub fn place_uses(&self) -> QueryResult<HashMap<String, i64>> {
         let conn = &mut *self.conn.lock().unwrap();
-        conn.transaction::<_, diesel::result::Error, _>(|tx| {
-            diesel::delete(places::table.filter(places::normalised_name.eq(place.normalised_name)))
-                .execute(tx)?;
-            diesel::insert_into(places::table)
-                .values(place)
-                .execute(tx)?;
-            Ok(())
-        })
+        #[derive(QueryableByName)]
+        struct Row {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            id: String,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            uses: i64,
+        }
+        let rows = diesel::sql_query(
+            "SELECT id, SUM(n) AS uses FROM (
+                 SELECT origin_place_id AS id, COUNT(*) AS n FROM trips GROUP BY origin_place_id
+                 UNION ALL
+                 SELECT destination_place_id, COUNT(*) FROM trips GROUP BY destination_place_id
+             ) GROUP BY id",
+        )
+        .load::<Row>(conn)?;
+        Ok(rows.into_iter().map(|r| (r.id, r.uses)).collect())
     }
 
-    /// Forgetting a coordinate the book never held is a no-op, not an error.
-    pub fn delete_place(&self, normalised_name: &str) -> QueryResult<()> {
+    pub fn insert_place(&self, place: &NewPlaceRow) -> QueryResult<()> {
         let conn = &mut *self.conn.lock().unwrap();
-        diesel::delete(places::table.filter(places::normalised_name.eq(normalised_name)))
+        diesel::insert_into(places::table)
+            .values(place)
             .execute(conn)
             .map(|_| ())
+    }
+
+    pub fn rename_place(&self, id: &str, name: &str, normalised_name: &str) -> QueryResult<usize> {
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::update(places::table.filter(places::id.eq(id)))
+            .set((places::name.eq(name), places::normalised_name.eq(normalised_name)))
+            .execute(conn)
+    }
+
+    pub fn set_place_position(
+        &self,
+        id: &str,
+        lat: f64,
+        lon: f64,
+        source: &str,
+    ) -> QueryResult<usize> {
+        let conn = &mut *self.conn.lock().unwrap();
+        diesel::update(places::table.filter(places::id.eq(id)))
+            .set((
+                places::lat.eq(Some(lat)),
+                places::lon.eq(Some(lon)),
+                places::source.eq(Some(source)),
+            ))
+            .execute(conn)
+    }
+}
+
+#[cfg(test)]
+impl Database {
+    /// The id of the place with this name's key, created at a fixed
+    /// coordinate if it is missing. Tests that insert a trip set both
+    /// place ids from it: foreign keys are on, so a nil id fails.
+    pub fn ensure_place_for_test(&self, name: &str) -> Uuid {
+        let key = crate::places::normalise(name);
+        if let Some(row) = self.get_place_by_key(&key).unwrap() {
+            return Uuid::parse_str(&row.id).unwrap();
+        }
+        let id = Uuid::new_v4();
+        let id_str = id.to_string();
+        let now = Utc::now().to_rfc3339();
+        self.insert_place(&NewPlaceRow {
+            id: &id_str,
+            name,
+            normalised_name: &key,
+            lat: Some(48.15),
+            lon: Some(17.11),
+            source: Some("manual"),
+            created_at: &now,
+        })
+        .unwrap();
+        id
+    }
+
+    /// A copy of `trip` whose nil place ids are filled from its names, by
+    /// `ensure_place_for_test`. Tests build trips by name; foreign keys are
+    /// on, so each insert or update of such a trip goes through this.
+    pub fn with_places_for_test(&self, trip: &Trip) -> Trip {
+        let mut placed = trip.clone();
+        if placed.origin_place_id.is_nil() {
+            placed.origin_place_id = self.ensure_place_for_test(&trip.origin);
+        }
+        if placed.destination_place_id.is_nil() {
+            placed.destination_place_id = self.ensure_place_for_test(&trip.destination);
+        }
+        placed
+    }
+
+    /// Like `ensure_place_for_test`, but the place has no coordinates, as a
+    /// migrated legacy place can. Only the migration makes such a place in
+    /// the app, so tests need this to reach the "unplaced" paths.
+    pub fn ensure_unplaced_place_for_test(&self, name: &str) -> Uuid {
+        let key = crate::places::normalise(name);
+        let id = Uuid::new_v4();
+        let id_str = id.to_string();
+        let now = Utc::now().to_rfc3339();
+        self.insert_place(&NewPlaceRow {
+            id: &id_str,
+            name,
+            normalised_name: &key,
+            lat: None,
+            lon: None,
+            source: None,
+            created_at: &now,
+        })
+        .unwrap();
+        id
     }
 }
 

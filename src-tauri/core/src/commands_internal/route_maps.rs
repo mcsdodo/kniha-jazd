@@ -23,9 +23,8 @@ use crate::commands_internal::list_places_internal;
 use crate::db::Database;
 use crate::export::RouteMapPage;
 use crate::models::{
-    DistanceWriteback, Place, RouteMap, RouteMode, RouteStart, TripGridData, Waypoint,
+    DistanceWriteback, Place, RouteMap, RouteMode, RouteStart, Trip, TripGridData, Waypoint,
 };
-use crate::places::normalise;
 use crate::route_map::avoid::{merge_options, normalise_avoid};
 use crate::route_map::polyline::{decode, encode};
 use crate::route_map::render::render_route;
@@ -366,14 +365,13 @@ pub async fn route_direct_internal(
     // - Otherwise the list already matches `round_trip` -- leave it alone.
     //
     // "Closed" cannot be decided from coordinates alone. `mode_for` (below)
-    // guards Direct-vs-Loop by comparing NAMES after `places::normalise`,
-    // never by coordinate, and `save_place_internal` (`places_cmd.rs`) keys
-    // the book on `normalised_name` alone -- it enforces no coordinate
-    // uniqueness. So two DIFFERENT book entries for one real address under
-    // different spellings (e.g. "Mlynske Nivy 14" and "Mlynske Nivy 14,
-    // Bratislava") can hold bit-identical coordinates and still reach this
-    // function in Direct mode: `mode_for` never sees them as the same place,
-    // because their names differ.
+    // guards Direct-vs-Loop by comparing PLACE IDS, never by coordinate, and
+    // the book keys a place on `normalised_name` (UNIQUE) through
+    // `create_place_internal` -- it enforces no coordinate uniqueness. So two
+    // DIFFERENT places for one real address under different names (e.g.
+    // "Mlynske Nivy 14" and "Mlynske Nivy 14, Bratislava") can hold
+    // bit-identical coordinates and still reach this function in Direct mode:
+    // `mode_for` never sees them as the same place, because their ids differ.
     //
     // A genuine closing point, by contrast, is always a CLONE of the first
     // waypoint -- see the `push` below -- so it carries the identical name
@@ -978,31 +976,21 @@ pub async fn collect_route_map_pages(
 // Route mode decision (Task 72, Phase 2)
 // ---------------------------------------------------------------------------
 
-/// Loop when the row names the same place twice, direct otherwise.
-///
-/// Compared after `places::normalise`, the same function the book keys on, so a
-/// row cannot be direct-mode here and collide onto one book entry there.
-fn mode_for(origin: &str, destination: &str) -> Result<RouteMode, String> {
-    let origin_key = normalise(origin);
-    let destination_key = normalise(destination);
-    if origin_key.is_empty() || destination_key.is_empty() {
-        return Err("A trip needs both an origin and a destination".to_string());
-    }
-
-    if origin_key == destination_key {
-        Ok(RouteMode::Loop)
+/// Loop when the row points at the same place twice, direct otherwise. Place
+/// ids decide it now; no string fold is involved.
+fn mode_for(trip: &Trip) -> RouteMode {
+    if trip.origin_place_id == trip.destination_place_id {
+        RouteMode::Loop
     } else {
-        Ok(RouteMode::Direct)
+        RouteMode::Direct
     }
 }
 
-/// The book's entry for `name`, or `None` when a human has not yet confirmed a
-/// coordinate for it (or no trip has ever named it at all).
-fn placed_endpoint(places: &[Place], name: &str) -> Option<Place> {
-    let key = normalise(name);
+/// The place `id` points at, when it has a coordinate.
+fn placed_endpoint(places: &[Place], id: Uuid) -> Option<Place> {
     places
         .iter()
-        .find(|p| p.normalised_name == key && p.lat.is_some() && p.lon.is_some())
+        .find(|p| p.id == id && p.lat.is_some() && p.lon.is_some())
         .cloned()
 }
 
@@ -1019,17 +1007,16 @@ pub fn start_route_for_trip_internal(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
 
-    let mode = mode_for(&trip.origin, &trip.destination)?;
+    let mode = mode_for(&trip);
 
-    // The book's own read path, so there is one place that knows how a trip's
-    // spelling becomes a book entry (list_places_internal folds spellings and
-    // joins the stored coordinate).
+    // The book's own read path, so the endpoints carry the same fields
+    // (`uses` included) as a row of the place list.
     let places = list_places_internal(db)?;
 
     Ok(RouteStart {
         mode,
-        origin: placed_endpoint(&places, &trip.origin),
-        destination: placed_endpoint(&places, &trip.destination),
+        origin: placed_endpoint(&places, trip.origin_place_id),
+        destination: placed_endpoint(&places, trip.destination_place_id),
     })
 }
 

@@ -53,6 +53,8 @@ pub async fn export_html_internal(
         vehicle_id: vehicle.id,
         start_datetime: first_record_date.and_hms_opt(0, 0, 0).unwrap(),
         end_datetime: None,
+        origin_place_id: uuid::Uuid::nil(),
+        destination_place_id: uuid::Uuid::nil(),
         origin: "-".to_string(),
         destination: "-".to_string(),
         distance_km: 0.0,
