@@ -493,6 +493,11 @@ const en = {
 
 	// Place book
 	places: {
+		markHome: 'Mark as home',
+		unmarkHome: 'Remove the home mark',
+		homeSet: 'Home is set',
+		homeCleared: 'The home mark is removed',
+		homeError: 'Could not set home: {error}',
 		title: 'Places',
 		placed: '{count}/{total} placed',
 		filterPlaceholder: 'Search...',

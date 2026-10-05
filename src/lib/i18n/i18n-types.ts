@@ -1611,6 +1611,27 @@ type RootTranslation = {
 	}
 	places: {
 		/**
+		 * O​z​n​a​č​i​ť​ ​a​k​o​ ​d​o​m​o​v
+		 */
+		markHome: string
+		/**
+		 * Z​r​u​š​i​ť​ ​o​z​n​a​č​e​n​i​e​ ​d​o​m​o​v​a
+		 */
+		unmarkHome: string
+		/**
+		 * D​o​m​o​v​ ​j​e​ ​n​a​s​t​a​v​e​n​ý
+		 */
+		homeSet: string
+		/**
+		 * O​z​n​a​č​e​n​i​e​ ​d​o​m​o​v​a​ ​j​e​ ​z​r​u​š​e​n​é
+		 */
+		homeCleared: string
+		/**
+		 * D​o​m​o​v​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​n​a​s​t​a​v​i​ť​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		homeError: RequiredParams<'error'>
+		/**
 		 * M​i​e​s​t​a
 		 */
 		title: string
@@ -3988,6 +4009,26 @@ export type TranslationFunctions = {
 		placeEndpoint: () => LocalizedString
 	}
 	places: {
+		/**
+		 * Označiť ako domov
+		 */
+		markHome: () => LocalizedString
+		/**
+		 * Zrušiť označenie domova
+		 */
+		unmarkHome: () => LocalizedString
+		/**
+		 * Domov je nastavený
+		 */
+		homeSet: () => LocalizedString
+		/**
+		 * Označenie domova je zrušené
+		 */
+		homeCleared: () => LocalizedString
+		/**
+		 * Domov sa nepodarilo nastaviť: {error}
+		 */
+		homeError: (arg: { error: string }) => LocalizedString
 		/**
 		 * Miesta
 		 */

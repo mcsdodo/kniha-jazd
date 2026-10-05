@@ -835,7 +835,8 @@
 			uses: 0,
 			lat: null,
 			lon: null,
-			source: null
+			source: null,
+			isHome: false
 		};
 	}
 

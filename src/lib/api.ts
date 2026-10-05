@@ -685,6 +685,10 @@ export async function setPlacePosition(id: string, lat: number, lon: number, sou
 	return await apiCall('set_place_position', { id, lat, lon, source });
 }
 
+export async function setHomePlace(id: string | null): Promise<void> {
+	return apiCall('set_home_place', { id });
+}
+
 export async function deletePlace(id: string): Promise<void> {
 	return await apiCall('delete_place', { id });
 }

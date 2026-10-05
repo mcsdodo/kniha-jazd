@@ -619,6 +619,7 @@ export interface Place {
 	lon: number | null;
 	source: PlaceSource | null;
 	uses: number;
+	isHome: boolean;
 }
 
 /** One geocoder match offered while placing. Mirrors the Rust `Candidate` —

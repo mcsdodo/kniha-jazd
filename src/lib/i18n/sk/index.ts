@@ -493,6 +493,11 @@ const sk = {
 
 	// Place book
 	places: {
+		markHome: 'Označiť ako domov',
+		unmarkHome: 'Zrušiť označenie domova',
+		homeSet: 'Domov je nastavený',
+		homeCleared: 'Označenie domova je zrušené',
+		homeError: 'Domov sa nepodarilo nastaviť: {error:string}',
 		title: 'Miesta',
 		placed: '{count:number}/{total:number} umiestnených',
 		filterPlaceholder: 'Hľadať...',

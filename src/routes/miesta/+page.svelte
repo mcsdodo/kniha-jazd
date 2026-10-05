@@ -6,6 +6,7 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import type { Place, PlaceSource } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
+	import { appModeStore } from '$lib/stores/appMode';
 
 	// Reference data: the place book. The backend already orders the list
 	// (unplaced first, then most-used, then by name) - render it in the order it
@@ -147,6 +148,18 @@
 		}
 	}
 
+	async function toggleHome(place: Place) {
+		const next = place.isHome ? null : place.id;
+		try {
+			await api.setHomePlace(next);
+			toast.success(next ? $LL.places.homeSet() : $LL.places.homeCleared());
+			await loadPlaces();
+		} catch (error) {
+			console.error('Failed to set home place:', error);
+			toast.error($LL.places.homeError({ error: String(error) }));
+		}
+	}
+
 	async function confirmDelete() {
 		const place = placeToDelete;
 		if (!place) return;
@@ -263,6 +276,30 @@
 						</span>
 					</div>
 					<div class="place-actions">
+						<button
+							type="button"
+							class="place-home-toggle"
+							class:is-home={place.isHome}
+							data-testid="place-home-toggle"
+							aria-pressed={place.isHome}
+							title={place.isHome ? $LL.places.unmarkHome() : $LL.places.markHome()}
+							aria-label={place.isHome ? $LL.places.unmarkHome() : $LL.places.markHome()}
+							disabled={$appModeStore.isReadOnly}
+							onclick={() => toggleHome(place)}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="18"
+								height="18"
+								viewBox="0 0 24 24"
+								fill={place.isHome ? 'currentColor' : 'none'}
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
+						</button>
 						{#if isPlaced(place)}
 							<span class="place-coords" data-testid="place-coords">
 								{formatCoordinates(place)}
@@ -458,6 +495,25 @@
 
 	.place-coords.missing {
 		color: var(--text-muted);
+	}
+
+	.place-home-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-secondary);
+		opacity: 0.5;
+		padding: 0.25rem;
+	}
+
+	.place-home-toggle:hover:not(:disabled),
+	.place-home-toggle.is-home {
+		opacity: 1;
+		color: var(--accent-primary);
+	}
+
+	.place-home-toggle:disabled {
+		cursor: not-allowed;
 	}
 
 	.button-small {
