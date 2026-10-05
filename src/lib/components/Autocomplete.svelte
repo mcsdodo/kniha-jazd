@@ -3,6 +3,9 @@
 	export let suggestions: string[] = [];
 	export let placeholder: string = '';
 	export let onSelect: (value: string) => void;
+	// Optional: the native change event, when the user leaves the field after
+	// typing. Typed text that is not picked from the list never calls onSelect.
+	export let onChange: ((value: string) => void) | undefined = undefined;
 	export let testId: string = '';
 
 	let showDropdown = false;
@@ -91,6 +94,7 @@
 		data-testid={testId || undefined}
 		on:keydown={handleKeydown}
 		on:blur={handleBlur}
+		on:change={() => onChange?.(value)}
 		on:focus={updateSuggestions}
 	/>
 	{#if showDropdown}

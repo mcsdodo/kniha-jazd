@@ -315,13 +315,31 @@
 	// list itself is managed on the Miesta tab.
 	$: locationSuggestions = places.map((p) => p.name).sort();
 
-	// The id of the place whose name equals `name` exactly, or ''. An exact match
-	// against the list the user picks from is not a fold: typed text in another
-	// case or spelling stays '' here and resolveEndpoints() asks find_place, so
-	// the fold stays in Rust (ADR-008). Computed on demand, never stored, so an
-	// id from an earlier pick cannot outlive the text it belonged to.
-	function exactPlaceId(name: string): string {
-		return places.find((p) => p.name === name)?.id ?? '';
+	// The id of the place for `name`, or ''. An exact name is looked up in the
+	// list the user picks from. Other text (another case, no diacritics) goes to
+	// find_place, so the fold stays in Rust (ADR-008). Computed on demand, never
+	// stored, so an id from an earlier pick cannot outlive the text it belonged
+	// to. A failed lookup is '': the fills it feeds are best-effort.
+	async function placeIdFor(name: string): Promise<string> {
+		const exact = places.find((p) => p.name === name);
+		if (exact) return exact.id;
+		if (name.trim() === '') return '';
+		try {
+			return (await findPlace(name))?.id ?? '';
+		} catch {
+			return '';
+		}
+	}
+
+	// Both endpoint ids, or null when the text changed during the lookup: an
+	// older answer must not fill the row for text the user has replaced.
+	async function endpointIds(): Promise<{ origin: string; destination: string } | null> {
+		const originText = formData.origin;
+		const destinationText = formData.destination;
+		const origin = await placeIdFor(originText);
+		const destination = await placeIdFor(destinationText);
+		if (formData.origin !== originText || formData.destination !== destinationText) return null;
+		return { origin, destination };
 	}
 
 	// Message shown under the row when a save is blocked on a place; '' hides it.
@@ -359,9 +377,10 @@
 	}
 
 	// Find matching route and auto-fill distance
-	function tryAutoFillDistance() {
-		const originPlaceId = exactPlaceId(formData.origin);
-		const destinationPlaceId = exactPlaceId(formData.destination);
+	async function tryAutoFillDistance() {
+		const ids = await endpointIds();
+		if (!ids) return;
+		const { origin: originPlaceId, destination: destinationPlaceId } = ids;
 		if (!originPlaceId || !destinationPlaceId) return;
 
 		const matchingRoute = routes.find(
@@ -437,8 +456,9 @@
 	// datetimes (jitter is applied in Rust per ADR-008).
 	async function tryInferTimes() {
 		if (!isNew || !vehicleId) return;
-		const originPlaceId = exactPlaceId(formData.origin);
-		const destinationPlaceId = exactPlaceId(formData.destination);
+		const ids = await endpointIds();
+		if (!ids) return;
+		const { origin: originPlaceId, destination: destinationPlaceId } = ids;
 		if (!originPlaceId || !destinationPlaceId) return;
 		const key = `${originPlaceId}\u241F${destinationPlaceId}`;
 		if (key === inferredKey) return;
@@ -485,6 +505,13 @@
 
 	function handleDestinationSelect(value: string) {
 		formData.destination = value;
+		tryAutoFillDistance();
+		tryInferTimes();
+	}
+
+	// Typed text the user did not pick from the list: the same fills, after the
+	// field loses focus.
+	function handlePlaceTyped() {
 		tryAutoFillDistance();
 		tryInferTimes();
 	}
@@ -712,6 +739,7 @@
 				suggestions={locationSuggestions}
 				placeholder={$LL.trips.originPlaceholder()}
 				onSelect={handleOriginSelect}
+				onChange={handlePlaceTyped}
 				testId="trip-origin"
 			/>
 		</td>
@@ -721,6 +749,7 @@
 				suggestions={locationSuggestions}
 				placeholder={$LL.trips.destinationPlaceholder()}
 				onSelect={handleDestinationSelect}
+				onChange={handlePlaceTyped}
 				testId="trip-destination"
 			/>
 		</td>
@@ -901,7 +930,9 @@
 		<tr class="place-error-row">
 			<td colspan="99">
 				<div class="place-error" data-testid="trip-place-error" role="alert">
-					{placeError} <a href="/miesta">{$LL.trips.unknownPlaceHint()}</a>
+					<!-- A new tab: leaving the page would lose the unsaved row. -->
+					{placeError}
+					<a href="/miesta" target="_blank" rel="noopener">{$LL.trips.unknownPlaceHint()}</a>
 				</div>
 			</td>
 		</tr>

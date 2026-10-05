@@ -122,8 +122,12 @@ end    = start + length
   existing places (see [place-book.md](./place-book.md)). A save resolves the typed text:
   an exact name uses that place; other text goes to `find_place`, which matches in Rust
   without case and diacritics. If no place matches, the save is blocked with a message
-  and a link to the Miesta tab. Distance auto-fill (the stored route km) matches on the
-  place IDs, like the time inference. A copied row carries the two place IDs.
+  and a link to the Miesta tab. The link opens in a new tab, so the unsaved row stays.
+  Distance auto-fill (the stored route km) matches on the place IDs, like the time
+  inference. Both run when the user picks a suggestion, and when the user leaves a field
+  after typing. Typed text resolves the same way as at save: an exact name, else
+  `find_place`. So "kosice" fills the km of "Košice". A copied row carries the two place
+  IDs.
 - **TripGrid.svelte** owns the copy handler (`handleCopy`, latched against an in-flight
   copy), the prefill SegmentedToggle and `defaultNewDate`.
 - **Settings** (`settings/+page.svelte`) owns the `infer_trip_times` checkbox.

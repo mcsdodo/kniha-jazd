@@ -163,6 +163,59 @@ describe('Tier 2: Route Autocomplete', () => {
       expect(parseFloat(odoValue)).toBe(10800);
     });
 
+    it('should auto-fill KM for typed text in another case and without diacritics', async () => {
+      // Code review 2026-10-05: auto-fill matched only the exact place name, so
+      // "kosice" for "Košice" filled nothing. The fold is in Rust (find_place).
+      const vehicleData = createTestIceVehicle({
+        name: 'Folded Name Test',
+        licensePlate: 'AUTO-003',
+        initialOdometer: 30000,
+      });
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+      const year = new Date().getFullYear();
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-01-10T08:00`,
+        origin: 'Žilina',
+        destination: 'Košice',
+        distanceKm: 250,
+        odometer: 30250,
+        purpose: 'Business trip',
+      });
+      await setActiveVehicle(vehicle.id as string);
+      await navigateTo('trips');
+      await waitForTripGrid();
+
+      const newTripBtn = await $('button.new-record');
+      await newTripBtn.waitForClickable({ timeout: 5000 });
+      await newTripBtn.click();
+      const editingRow = await $('tr.editing');
+      await editingRow.waitForDisplayed({ timeout: 10000 });
+
+      // Type the names, do not pick a suggestion, and leave each field.
+      const originInput = await $('[data-testid="trip-origin"]');
+      await originInput.click();
+      await originInput.setValue('ZILINA');
+      await browser.keys('Tab');
+      const destInput = await $('[data-testid="trip-destination"]');
+      await destInput.click();
+      await destInput.setValue('kosice');
+      await browser.keys('Tab');
+
+      const distanceInput = await $('[data-testid="trip-distance"]');
+      await browser.waitUntil(
+        async () => parseFloat(await distanceInput.getValue()) === 250,
+        { timeout: 5000, timeoutMsg: 'KM was not auto-filled for the folded names' }
+      );
+    });
+
     it('should NOT auto-fill KM if user already entered a distance', async () => {
       // Seed a vehicle
       const vehicleData = createTestIceVehicle({
