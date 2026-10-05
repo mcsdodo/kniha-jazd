@@ -14,7 +14,20 @@
 
 **Spec:** [01-task.md](./01-task.md). Read it before each task.
 
-**Depends on:** [Task 88: Places as Entities](../88-places-as-entities/01-task.md) and its [plan](../88-places-as-entities/02-plan.md). Start this plan only after 88 is merged to `main`. Task 0 checks the 88 interfaces that this plan uses. Do Task 0 again if 88 changed after this plan was written.
+**Depends on:** [Task 88: Places as Entities](../88-places-as-entities/01-task.md) and its [plan](../88-places-as-entities/02-plan.md). Phase A (see "Phases") does not depend on 88. Phase B starts only after 88 is merged to `main`; Task B0 checks the 88 interfaces that phase B uses.
+
+## Phases
+
+The work runs in two phases on the branch `feat/89-home-place-mcp`, created from `main`.
+
+| Phase | When | Tasks | Uses task 88? |
+|-------|------|-------|---------------|
+| **A** | Now, while task 88 runs in a parallel worktree and is not merged | A1, A2 | **No.** The code is the old string model: `Trip.origin` and `Trip.destination` are free text, and `places` is keyed by `normalised_name`. |
+| **B** | After 88 is merged to `main` and this branch is rebased on `main` | B0 to B6 | Yes |
+
+Each phase A task ends green on a branch from the current `main`. Phase A must not use any name from task 88: no `Trip.origin_place_id`, no `Trip::from_row`, no `ensure_place_for_test`, no `ensurePlace`, no `/miesta`.
+
+**Integration tests in phase A.** Task 88 runs in a parallel worktree, and both worktrees spawn `kniha-jazd-web` for the integration tests. The spawned port is 3457 by default, but [wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts) (lines 145-151) reads `WDIO_SERVER_PORT`: it passes the port to the spawned server as `PORT`, and `onPrepare` exports the matching `WDIO_SERVER_URL`, which [utils/db.ts](../../tests/integration/utils/db.ts) and `utils/mcp.ts` read. So in phase A, run every wdio command with `WDIO_SERVER_PORT=3467`. Each worktree also needs its own `npm run build` and `cargo build -p kniha-jazd-web`, because the config spawns the binary and serves `build/` from its own checkout.
 
 ## Global Constraints
 
@@ -28,7 +41,7 @@
 - Errors: a bad date, an unknown vehicle and "no home place" give `ErrorData::invalid_params` (JSON-RPC code -32602). A DB error or a join error gives `ErrorData::internal_error` (-32603).
 - The tools run DB work in `tokio::task::spawn_blocking`, the same as `rpc_handler` ([server/mod.rs:63](../../src-tauri/core/src/server/mod.rs#L63)).
 - No home place is an error, never an empty list. Error text: `Home place is not set. Mark a place as home on the Miesta page.`
-- `rmcp` 3.5.0 needs Rust 1.88 (`rust-version = "1.88"` in its `Cargo.toml`). Today [Dockerfile.web](../../Dockerfile.web) uses `rust:1.86-bookworm`, [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml) says `rust-version = "1.77.2"`, and [CONTRIBUTING.md](../../CONTRIBUTING.md) line 10 says `Rust 1.77+`. Task 4 changes all three.
+- `rmcp` 3.5.0 needs Rust 1.88 (`rust-version = "1.88"` in its `Cargo.toml`). Today [Dockerfile.web](../../Dockerfile.web) uses `rust:1.86-bookworm`, [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml) says `rust-version = "1.77.2"`, and [CONTRIBUTING.md](../../CONTRIBUTING.md) line 10 says `Rust 1.77+`. Task A2 changes all three.
 - All UI strings through i18n, Slovak first. Run `npm run i18n` after an edit of `src/lib/i18n/{sk,en}/index.ts`.
 - Prose in docs: ASD-STE100 Simplified Technical English. Keyboard-typable characters only (no em-dash, no arrow glyphs, no curly quotes). Slovak diacritics are allowed.
 - This repo is public. No homelab host, IP or real trip data in code, tests or docs.
@@ -36,15 +49,17 @@
 
 ## Review Focus
 
-1. **A chain away from home with no return leg, and then a new departure or a home -> home loop.** The user decided: the first chain is an incomplete journey (`complete = false`). A single-leg chain is still a day trip. Task 2 tests `broken_chain_is_incomplete_and_next_departure_starts_a_new_one`, `loop_after_open_chain_closes_it_as_incomplete` and `single_leg_then_loop_is_a_day_trip`.
-2. **A journey that started before `date_from` and ends inside the range.** A query that reads only the trips in the range misses it. Task 3 test `journey_that_starts_before_range_is_found`.
-3. **A vehicle ID that does not exist, or a malformed date, on the MCP surface.** The expected result is a clear error, not an empty list. Task 3 test `unknown_vehicle_is_an_error` and Task 4 test `malformed_date_is_invalid_params`.
-4. **An MCP client that sends a stale `Mcp-Session-Id` after a restart, or a `Host` header with the public name.** Both must get a normal answer. Task 4 test `stale_session_id_and_public_host_are_accepted`.
-5. **Two places marked as home at the same time** (a race or a direct SQL edit). The partial unique index must reject the second mark, and `set_home_place` must move the mark in one transaction. Task 1 tests `second_home_violates_unique_index` and `set_home_place_moves_the_mark`.
+1. **A chain away from home with no return leg, and then a new departure or a home -> home loop.** The user decided: the first chain is an incomplete journey (`complete = false`). A single-leg chain is still a day trip. Task A1 tests `broken_chain_is_incomplete_and_next_departure_starts_a_new_one`, `loop_after_open_chain_closes_it_as_incomplete` and `single_leg_then_loop_is_a_day_trip`.
+2. **A journey that started before `date_from` and ends inside the range.** A query that reads only the trips in the range misses it. Task B2 test `journey_that_starts_before_range_is_found`.
+3. **A vehicle ID that does not exist, or a malformed date, on the MCP surface.** The expected result is a clear error, not an empty list. Task B2 test `unknown_vehicle_is_an_error` and Task B3 test `malformed_date_is_invalid_params`.
+4. **An MCP client that sends a stale `Mcp-Session-Id` after a restart, or a `Host` header with the public name.** Both must get a normal answer. Task A2 test `stale_session_id_and_public_host_are_accepted`.
+5. **Two places marked as home at the same time** (a race or a direct SQL edit). The partial unique index must reject the second mark, and `set_home_place` must move the mark in one transaction. Task B1 tests `second_home_violates_unique_index` and `set_home_place_moves_the_mark`.
 
 ---
 
 ## File Structure
+
+Phase A touches only: `journeys/`, `mcp/`, `journeys_cmd.rs` (vehicles only), `lib.rs`, `commands_internal/mod.rs`, `server/mod.rs`, the Cargo files, `Dockerfile.web`, `CONTRIBUTING.md`, the image line of `CHANGELOG.md`, `utils/mcp.ts` and `mcp-endpoint.spec.ts`.
 
 | File | Responsibility |
 |------|----------------|
@@ -64,299 +79,20 @@
 | Create [docs/features/mcp-endpoint.md](../../docs/features/); modify [place-book.md](../../docs/features/place-book.md), other feature docs, [README.md](../../README.md), [README.en.md](../../README.en.md), [DECISIONS.md](../../DECISIONS.md), [CHANGELOG.md](../../CHANGELOG.md), [CLAUDE.md](../../CLAUDE.md), [rust-backend.md](../../.claude/rules/rust-backend.md) | Docs |
 
 ---
-
-### Task 0: Check the task 88 interfaces
-
-**Files:** none (read only).
-
-- [ ] **Step 1: Confirm that 88 is on `main`**
-
-Run: `ls src-tauri/core/migrations | grep places_as_entities`
-Expected: `2026-10-05-100000_places_as_entities`.
-
-- [ ] **Step 2: Confirm the interfaces this plan uses**
-
-Run:
-```bash
-grep -n "pub struct PlaceRow" -A10 src-tauri/core/src/models.rs
-grep -n "pub struct Place\b" -A12 src-tauri/core/src/models.rs
-grep -n "pub fn from_row" src-tauri/core/src/models.rs
-grep -n "origin_place_id\|destination_place_id" src-tauri/core/src/models.rs | head
-grep -n "fn place_names\|pub fn get_place\b\|pub fn get_place_by_key\|pub fn all_places\|pub fn place_uses\|pub fn get_trips_for_vehicle_in_year\|fn ensure_place_for_test\|fn create_trip_named_for_test" src-tauri/core/src/db.rs
-grep -n "pub fn get_vehicles_internal" src-tauri/core/src/commands_internal/vehicles.rs
-grep -n "export async function ensurePlace\|export function clearPlaceCache" tests/integration/utils/db.ts
-grep -n "onclick=\|on:click" src/routes/miesta/+page.svelte | head -3
-grep -n "data-testid=\"place-row\"\|data-place-id" src/routes/miesta/+page.svelte
-```
-Expected:
-- `PlaceRow { id: String, name: String, normalised_name: String, lat: Option<f64>, lon: Option<f64>, source: Option<String>, created_at: String }`, with `Queryable, Selectable`
-- `Place { id: Uuid, name, normalised_name, lat, lon, source: Option<PlaceSource>, uses: i64 }` with `#[serde(rename_all = "camelCase")]`, and `Place::from_row(row: PlaceRow, uses: i64) -> Self`
-- `Trip::from_row(row: TripRow, names: &HashMap<String, String>) -> Self`, and `Trip.origin_place_id: Uuid`, `Trip.destination_place_id: Uuid`, plus the display strings `origin` and `destination`
-- the private `fn place_names(conn: &mut SqliteConnection) -> QueryResult<HashMap<String, String>>` in `db.rs`
-- `#[cfg(test)] Database::ensure_place_for_test(&self, name: &str) -> Uuid`
-- `get_vehicles_internal(db: &Database) -> Result<Vec<Vehicle>, String>`
-- `ensurePlace(name: string): Promise<string>` and `clearPlaceCache()` in `utils/db.ts`
-- each Miesta row has `data-testid="place-row"` and `data-place-id`; note which event syntax the page uses (`onclick=` or `on:click`)
-
-If a name differs, use the real name in every task below. Do not change 88 code to fit this plan.
-
 ---
 
-### Task 1: Home mark on places (migration, DB, command)
+## Phase A: before task 88 is merged
 
-**Files:**
-- Create: [migrations/2026-10-05-110000_add_place_is_home/](../../src-tauri/core/migrations/) `up.sql`, `down.sql`
-- Modify: [schema.rs](../../src-tauri/core/src/schema.rs) (table `places`), [models.rs](../../src-tauri/core/src/models.rs) (`PlaceRow`, `Place`, `Place::from_row`), [db.rs](../../src-tauri/core/src/db.rs), [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs), [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs)
-- Test: [db_tests.rs](../../src-tauri/core/src/db_tests.rs), [places_cmd_tests.rs](../../src-tauri/core/src/commands_internal/places_cmd_tests.rs)
-
-**Interfaces:**
-- Consumes (from task 88): `PlaceRow`, `Place`, `Place::from_row`, `Database::all_places`, `Database::ensure_place_for_test`, `list_places_internal`.
-- Produces:
-  - `PlaceRow.is_home: bool` (last field), `Place.is_home: bool` (JSON `isHome`)
-  - `Database::get_home_place(&self) -> QueryResult<Option<PlaceRow>>`
-  - `Database::set_home_place(&self, id: Option<&str>) -> QueryResult<()>` (unknown ID: `Err(diesel::result::Error::NotFound)`)
-  - `set_home_place_internal(db: &Database, app_state: &AppState, id: Option<String>) -> Result<(), String>`
-  - RPC `set_home_place { id: string | null }`
-
-- [ ] **Step 1: Write the migration**
-
-`up.sql`:
-```sql
--- Task 89: one place can be the home of the logbook. The journey grouping
--- (journeys module) matches trip endpoints against it by place ID.
-ALTER TABLE places ADD COLUMN is_home BOOLEAN NOT NULL DEFAULT 0;
-
--- At most one home. A partial index ignores every row with is_home = 0.
-CREATE UNIQUE INDEX idx_places_single_home ON places(is_home) WHERE is_home = 1;
-```
-
-`down.sql`:
-```sql
-DROP INDEX IF EXISTS idx_places_single_home;
-ALTER TABLE places DROP COLUMN is_home;
-```
-
-- [ ] **Step 2: Add the column to `schema.rs` and the models**
-
-In `schema.rs`, table `places`, add `is_home -> Bool,` as the **last** column, with a comment like the ones on `trip_routes`: `PlaceRow` is `Queryable` and binds by position.
-
-In `models.rs`:
-- add `pub is_home: bool,` as the last field of `PlaceRow`;
-- add `pub is_home: bool,` to `Place`, after `source`;
-- in `Place::from_row`, set `is_home: row.is_home,`. Every path that builds a `Place` (`list_places_internal`, `create_place_internal`) then reports the mark.
-
-Do not add `is_home` to `NewPlaceRow`: the DB default `0` applies on insert.
-
-- [ ] **Step 3: Write the failing DB tests**
-
-Add to `db_tests.rs`:
-```rust
-// ============================================================================
-// Home mark (task 89)
-// ============================================================================
-
-#[test]
-fn home_place_is_none_by_default() {
-    let db = Database::in_memory().unwrap();
-    db.ensure_place_for_test("Home St 1, Hometown");
-    assert!(db.get_home_place().unwrap().is_none());
-}
-
-#[test]
-fn set_home_place_moves_the_mark() {
-    let db = Database::in_memory().unwrap();
-    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
-    let b = db.ensure_place_for_test("City A").to_string();
-
-    db.set_home_place(Some(&a)).unwrap();
-    assert_eq!(db.get_home_place().unwrap().unwrap().id, a);
-
-    db.set_home_place(Some(&b)).unwrap();
-    assert_eq!(db.get_home_place().unwrap().unwrap().id, b);
-    let homes = db.all_places().unwrap().into_iter().filter(|p| p.is_home).count();
-    assert_eq!(homes, 1);
-}
-
-#[test]
-fn set_home_place_none_clears_the_mark() {
-    let db = Database::in_memory().unwrap();
-    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
-    db.set_home_place(Some(&a)).unwrap();
-    db.set_home_place(None).unwrap();
-    assert!(db.get_home_place().unwrap().is_none());
-}
-
-#[test]
-fn set_home_place_unknown_id_fails_and_keeps_the_old_mark() {
-    let db = Database::in_memory().unwrap();
-    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
-    db.set_home_place(Some(&a)).unwrap();
-
-    let err = db.set_home_place(Some("no-such-id"));
-    assert!(matches!(err, Err(diesel::result::Error::NotFound)));
-    assert_eq!(db.get_home_place().unwrap().unwrap().id, a);
-}
-
-#[test]
-fn second_home_violates_unique_index() {
-    let db = Database::in_memory().unwrap();
-    db.ensure_place_for_test("Home St 1, Hometown");
-    db.ensure_place_for_test("City A");
-    let result = diesel::sql_query("UPDATE places SET is_home = 1")
-        .execute(&mut *db.connection());
-    assert!(result.is_err(), "the partial unique index must allow one home only");
-}
-```
-
-- [ ] **Step 4: Run the tests and see them fail**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core home_place`
-Expected: compile error, `no method named get_home_place` / `set_home_place`.
-
-- [ ] **Step 5: Implement the DB functions**
-
-In `db.rs`, in the place-book section:
-```rust
-    /// The place marked as home, if any (task 89). The partial unique index
-    /// `idx_places_single_home` guarantees at most one row.
-    pub fn get_home_place(&self) -> QueryResult<Option<PlaceRow>> {
-        let conn = &mut *self.conn.lock().unwrap();
-        places::table
-            .filter(places::is_home.eq(true))
-            .select(PlaceRow::as_select())
-            .first(conn)
-            .optional()
-    }
-
-    /// Move the home mark to `id`, or clear it with `None`. One transaction:
-    /// the old mark goes first, so the unique index never sees two homes.
-    /// An unknown ID rolls back and returns `NotFound`, so the old mark stays.
-    pub fn set_home_place(&self, id: Option<&str>) -> QueryResult<()> {
-        let conn = &mut *self.conn.lock().unwrap();
-        conn.transaction::<_, diesel::result::Error, _>(|tx| {
-            diesel::update(places::table.filter(places::is_home.eq(true)))
-                .set(places::is_home.eq(false))
-                .execute(tx)?;
-            if let Some(id) = id {
-                let changed = diesel::update(places::table.filter(places::id.eq(id)))
-                    .set(places::is_home.eq(true))
-                    .execute(tx)?;
-                if changed == 0 {
-                    return Err(diesel::result::Error::NotFound);
-                }
-            }
-            Ok(())
-        })
-    }
-```
-
-- [ ] **Step 6: Run the DB tests and see them pass**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core home_place`
-Expected: PASS, 4 tests.
-Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core second_home`
-Expected: PASS, 1 test.
-
-- [ ] **Step 7: Write the failing command tests**
-
-Add to `places_cmd_tests.rs`:
-```rust
-#[test]
-fn set_home_place_internal_marks_and_list_places_reports_it() {
-    let db = Database::in_memory().unwrap();
-    let app_state = AppState::new();
-    let id = db.ensure_place_for_test("Home St 1, Hometown");
-
-    set_home_place_internal(&db, &app_state, Some(id.to_string())).unwrap();
-
-    let places = list_places_internal(&db).unwrap();
-    let home: Vec<_> = places.iter().filter(|p| p.is_home).collect();
-    assert_eq!(home.len(), 1);
-    assert_eq!(home[0].id, id);
-}
-
-#[test]
-fn set_home_place_internal_unknown_id_is_an_error() {
-    let db = Database::in_memory().unwrap();
-    let app_state = AppState::new();
-    let err = set_home_place_internal(&db, &app_state, Some(uuid::Uuid::new_v4().to_string()));
-    assert_eq!(err.unwrap_err(), "Place not found");
-}
-
-#[test]
-fn set_home_place_internal_refuses_in_read_only_mode() {
-    let db = Database::in_memory().unwrap();
-    let app_state = AppState::new();
-    app_state.enable_read_only("test");
-    let id = db.ensure_place_for_test("Home St 1, Hometown");
-    assert!(set_home_place_internal(&db, &app_state, Some(id.to_string())).is_err());
-    assert!(db.get_home_place().unwrap().is_none());
-}
-```
-
-- [ ] **Step 8: Run them and see them fail**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core set_home_place_internal`
-Expected: compile error, `cannot find function set_home_place_internal`.
-
-- [ ] **Step 9: Implement the command and the dispatcher arm**
-
-In `places_cmd.rs`:
-```rust
-/// Mark a place as home, or clear the mark with `None` (task 89). The journey
-/// grouping and the MCP tool `list_journeys` read this mark.
-pub fn set_home_place_internal(
-    db: &Database,
-    app_state: &AppState,
-    id: Option<String>,
-) -> Result<(), String> {
-    check_read_only!(app_state);
-    match db.set_home_place(id.as_deref()) {
-        Ok(()) => Ok(()),
-        Err(diesel::result::Error::NotFound) => Err("Place not found".to_string()),
-        Err(e) => Err(e.to_string()),
-    }
-}
-```
-
-In `dispatcher.rs`, in the place-book section:
-```rust
-        "set_home_place" => {
-            #[derive(serde::Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                id: Option<String>,
-            }
-            let a: Args = parse_args(args)?;
-            crate::commands_internal::set_home_place_internal(&state.db, &state.app_state, a.id)?;
-            Ok(serde_json::to_value(()).unwrap())
-        }
-```
-
-- [ ] **Step 10: Run the whole backend suite**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --workspace`
-Expected: PASS, no failures. `test_migrated_schema_identical_to_fresh_schema` covers the new DDL. If a migration test lists the `places` columns, add `is_home` there.
-
-- [ ] **Step 11: Commit**
-
-```bash
-git add src-tauri/core/migrations/2026-10-05-110000_add_place_is_home src-tauri/core/src/schema.rs src-tauri/core/src/models.rs src-tauri/core/src/db.rs src-tauri/core/src/db_tests.rs src-tauri/core/src/commands_internal/places_cmd.rs src-tauri/core/src/commands_internal/places_cmd_tests.rs src-tauri/core/src/server/dispatcher.rs
-git commit -m "feat(places): mark one place as home"
-```
-
----
-
-### Task 2: Journey grouping (pure function)
+### Task A1: Journey grouping (pure function)
 
 **Files:**
 - Create: [journeys/mod.rs](../../src-tauri/core/src/), [journeys/tests.rs](../../src-tauri/core/src/)
 - Modify: [lib.rs](../../src-tauri/core/src/lib.rs) (add `pub mod journeys;`)
 
 **Interfaces:**
-- Consumes (from task 88): `Trip.origin_place_id`, `Trip.destination_place_id`, `Trip.destination` (display name).
+- Consumes: nothing. Phase A: do not import `crate::models::Trip`.
 - Produces:
-  - `pub struct Leg { id: Uuid, start: NaiveDateTime, odometer: f64, origin_place_id: Uuid, destination_place_id: Uuid, destination_name: String, distance_km: f64, purpose: String }` and `Leg::from_trip(&Trip) -> Leg`
+  - `pub struct Leg { id: Uuid, start: NaiveDateTime, odometer: f64, origin_place_id: Uuid, destination_place_id: Uuid, destination_name: String, distance_km: f64, purpose: String }` (Task B2 adds `Leg::from_trip`)
   - `pub struct Journey { vehicle_id: Uuid, start: NaiveDateTime, end: Option<NaiveDateTime>, nights: Option<i64>, total_km: f64, places: Vec<String>, purposes: Vec<String>, complete: bool, leg_ids: Vec<Uuid> }`
   - `pub fn group_journeys(vehicle_id: Uuid, legs: &[Leg], home: Uuid, round_trip_ids: &HashSet<Uuid>) -> Vec<Journey>`
   - `pub fn overlaps(journey: &Journey, from: NaiveDate, to: NaiveDate) -> bool`
@@ -376,8 +112,6 @@ use std::collections::HashSet;
 use chrono::{NaiveDate, NaiveDateTime};
 use uuid::Uuid;
 
-use crate::models::Trip;
-
 #[derive(Debug, Clone)]
 pub struct Leg {
     pub id: Uuid,
@@ -388,21 +122,6 @@ pub struct Leg {
     pub destination_name: String,
     pub distance_km: f64,
     pub purpose: String,
-}
-
-impl Leg {
-    pub fn from_trip(trip: &Trip) -> Self {
-        Self {
-            id: trip.id,
-            start: trip.start_datetime,
-            odometer: trip.odometer,
-            origin_place_id: trip.origin_place_id,
-            destination_place_id: trip.destination_place_id,
-            destination_name: trip.destination.clone(),
-            distance_km: trip.distance_km,
-            purpose: trip.purpose.clone(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -729,7 +448,7 @@ fn empty_purpose_is_not_listed() {
     assert_eq!(fx.run()[0].purposes, vec!["Return"]);
 }
 ```
-The case "home place not set" is a wrapper test in Task 3: the pure function always has a home ID.
+The case "home place not set" is a wrapper test in Task B2: the pure function always has a home ID.
 
 - [ ] **Step 3: Run the tests and see them fail**
 
@@ -846,22 +565,782 @@ git commit -m "feat(journeys): group trip legs into journeys away from home"
 
 ---
 
-### Task 3: DB range read and the read-only facade
+### Task A2: MCP skeleton at `/mcp` with `list_vehicles`
+
+**Files:**
+- Modify: [core/Cargo.toml](../../src-tauri/core/Cargo.toml), [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml) (`rust-version`), [Dockerfile.web](../../Dockerfile.web), [CONTRIBUTING.md](../../CONTRIBUTING.md), [CHANGELOG.md](../../CHANGELOG.md) (upgrade notes only)
+- Create: [mcp/mod.rs](../../src-tauri/core/src/), [mcp/tests.rs](../../src-tauri/core/src/), [commands_internal/journeys_cmd.rs](../../src-tauri/core/src/commands_internal/), [utils/mcp.ts](../../tests/integration/utils/), [tier2/mcp-endpoint.spec.ts](../../tests/integration/specs/tier2/)
+- Modify: [lib.rs](../../src-tauri/core/src/lib.rs) (`pub mod mcp;`), [commands_internal/mod.rs](../../src-tauri/core/src/commands_internal/mod.rs), [server/mod.rs](../../src-tauri/core/src/server/mod.rs)
+
+**Interfaces:**
+- Consumes: Task A1 `journeys/mod.rs` (only as a file for the source guard); existing `get_vehicles_internal(db: &Database) -> Result<Vec<Vehicle>, String>` ([vehicles.rs:10](../../src-tauri/core/src/commands_internal/vehicles.rs#L10)), `crate::db_tests::create_test_vehicle(name: &str) -> Vehicle`.
+- Produces:
+  - `pub enum ReadError { Invalid(String), Internal(String) }` (`Debug`, `Clone`, `PartialEq`)
+  - `#[derive(Clone)] pub struct LogbookReader` with `new(db: Arc<Database>) -> Self` and `vehicles(&self) -> Result<Vec<Vehicle>, ReadError>`. Task B2 adds `trips_in_range` and `journeys`.
+  - `pub fn mcp_service(db: Arc<Database>) -> StreamableHttpService<KnihaJazdMcp, NeverSessionManager>`, mounted at `/mcp` in both branches of `HttpServer::start`
+  - Tool `list_vehicles`. Task B3 adds `list_trips` and `list_journeys`.
+  - Integration helper `mcpRequest<T>(method, params?)`
+
+The `rmcp` API below was checked on 2026-10-05 against `rmcp` 3.5.0 with a probe server: `tools/list` without `initialize`, a stale `Mcp-Session-Id`, and a foreign `Host` header all return HTTP 200 with this config. An `async` tool with `spawn_blocking` works. `Err(ErrorData::invalid_params(..))` gives JSON-RPC code -32602, `Err(ErrorData::internal_error(..))` gives -32603. A missing argument gives a result with `isError: true`.
+
+- [ ] **Step 1: Add the dependencies and raise the Rust version**
+
+[core/Cargo.toml](../../src-tauri/core/Cargo.toml), under `[dependencies]`:
+```toml
+rmcp = { version = "3.5", default-features = false, features = ["server", "macros", "transport-streamable-http-server"] }
+schemars = "1"
+```
+- [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml): `rust-version = "1.88"` (was `"1.77.2"`).
+- [Dockerfile.web](../../Dockerfile.web): `FROM rust:1.88-bookworm AS rust-builder` (was `rust:1.86-bookworm`).
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) line 10: `- [Rust](https://rustup.rs/) 1.88+` (was `1.77+`).
+
+Run: `cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core`
+Expected: builds. `cargo tree --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core -i axum` shows one `axum v0.8.x` (rmcp uses `axum` only as a dev-dependency).
+
+- [ ] **Step 2: Write the failing Rust HTTP tests**
+
+`src-tauri/core/src/mcp/tests.rs`:
+```rust
+//! `/mcp` over real HTTP, through `HttpServer::start` (the same router the
+//! container serves), plus the read-only source guard.
+
+use std::sync::Arc;
+
+use serde_json::{json, Value};
+
+use crate::app_state::AppState;
+use crate::db::Database;
+use crate::server::HttpServer;
+
+async fn start(db: Arc<Database>) -> (String, tokio::sync::oneshot::Sender<()>) {
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let tmp = std::env::temp_dir();
+    let addr = HttpServer::start(db, Arc::new(AppState::new()), tmp.clone(), tmp, 0, false, rx)
+        .await
+        .unwrap();
+    (format!("http://{addr}/mcp"), tx)
+}
+
+async fn post(url: &str, body: Value, extra: &[(&str, &str)]) -> Value {
+    let mut req = reqwest::Client::new()
+        .post(url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream");
+    for (k, v) in extra {
+        req = req.header(*k, *v);
+    }
+    let resp = req.body(body.to_string()).send().await.unwrap();
+    assert_eq!(resp.status(), 200, "HTTP status");
+    resp.json().await.unwrap()
+}
+
+fn call(id: u32, name: &str, args: Value) -> Value {
+    json!({"jsonrpc": "2.0", "id": id, "method": "tools/call",
+           "params": {"name": name, "arguments": args}})
+}
+
+fn tool_names(body: &Value) -> Vec<String> {
+    let mut names: Vec<String> = body["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap().to_string())
+        .collect();
+    names.sort();
+    names
+}
+
+#[tokio::test]
+async fn tools_list_returns_the_read_only_tools() {
+    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
+
+    let body = post(&url, json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}), &[]).await;
+
+    // Phase A: one tool. Task B3 changes this to the three tools.
+    assert_eq!(tool_names(&body), vec!["list_vehicles"]);
+    for tool in body["result"]["tools"].as_array().unwrap() {
+        let description = tool["description"].as_str().unwrap();
+        assert!(description.contains("Read-only"), "{description}");
+    }
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn stale_session_id_and_public_host_are_accepted() {
+    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
+
+    let body = post(&url, call(4, "list_vehicles", json!({})),
+        &[("Mcp-Session-Id", "from-before-a-restart"), ("Host", "logbook.example.org")]).await;
+
+    assert_eq!(body["result"]["structuredContent"]["vehicles"], json!([]));
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn list_vehicles_returns_the_vehicle_fields() {
+    let db = Arc::new(Database::in_memory().unwrap());
+    let v = crate::db_tests::create_test_vehicle("Car");
+    db.create_vehicle(&v).unwrap();
+    let (url, stop) = start(db).await;
+
+    let body = post(&url, call(6, "list_vehicles", json!({})), &[]).await;
+
+    let vehicles = &body["result"]["structuredContent"]["vehicles"];
+    assert_eq!(vehicles[0]["id"], v.id.to_string());
+    assert_eq!(vehicles[0]["name"], "Car");
+    assert_eq!(vehicles[0]["license_plate"], v.license_plate);
+    assert_eq!(vehicles[0]["is_active"], v.is_active);
+    let _ = stop.send(());
+}
+
+#[test]
+fn mcp_read_path_has_no_write_access() {
+    // Read-only by construction (ADR "Read-only MCP endpoint"). The MCP module
+    // holds only a LogbookReader; these files must not name a write function,
+    // the raw connection, a restore, or raw SQL.
+    let sources = [
+        ("mcp/mod.rs", include_str!("mod.rs")),
+        ("commands_internal/journeys_cmd.rs", include_str!("../commands_internal/journeys_cmd.rs")),
+        ("journeys/mod.rs", include_str!("../journeys/mod.rs")),
+    ];
+    let banned = [
+        "check_read_only", "connection", "restore", "sql_query", "execute", "transaction",
+        "create_", "update_", "delete_", "save_", "set_", "upsert", "insert",
+    ];
+    for (file, source) in sources {
+        for word in banned {
+            assert!(!source.contains(word), "{file} must not contain `{word}`");
+        }
+    }
+}
+```
+
+- [ ] **Step 3: Write the integration helper and spec (test first)**
+
+`tests/integration/utils/mcp.ts`:
+```typescript
+/**
+ * Raw JSON-RPC calls to the read-only MCP endpoint (task 89).
+ *
+ * The endpoint is stateless, so no initialize call and no session ID are
+ * needed. It answers with application/json.
+ */
+
+const SERVER_URL = process.env.WDIO_SERVER_URL || 'http://localhost:3457';
+
+export interface McpResponse<T> {
+  jsonrpc: '2.0';
+  id: number;
+  result?: T;
+  error?: { code: number; message: string };
+}
+
+export async function mcpRequest<T>(
+  method: string,
+  params: Record<string, unknown> = {}
+): Promise<McpResponse<T>> {
+  const resp = await fetch(`${SERVER_URL}/mcp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+    },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  if (!resp.ok) {
+    throw new Error(`MCP '${method}' failed (${resp.status}): ${await resp.text()}`);
+  }
+  return (await resp.json()) as McpResponse<T>;
+}
+```
+`tests/integration/specs/tier2/mcp-endpoint.spec.ts`:
+```typescript
+/**
+ * Tier 2: Read-only MCP endpoint (task 89)
+ *
+ * Covers: the built image serves /mcp, and tools/list returns exactly the
+ * read-only tools. The tool results and the journey rules are covered by the
+ * Rust tests (mcp/tests.rs, journeys/tests.rs), not here.
+ */
+
+import { waitForAppReady } from '../../utils/app';
+import { mcpRequest } from '../../utils/mcp';
+
+interface ToolsList {
+  tools: { name: string; description: string }[];
+}
+
+/** Phase A of task 89 has one tool. Task B3 changes this to the three tools. */
+const EXPECTED_TOOLS = ['list_vehicles'];
+
+describe('MCP endpoint', () => {
+  beforeEach(async () => {
+    await waitForAppReady();
+  });
+
+  it('tools/list returns exactly the read-only tools', async () => {
+    const resp = await mcpRequest<ToolsList>('tools/list');
+
+    expect(resp.error).toBeUndefined();
+    const names = resp.result!.tools.map((t) => t.name).sort();
+    expect(names).toEqual(EXPECTED_TOOLS);
+  });
+});
+```
+
+- [ ] **Step 4: Create the stubs and see both tests fail**
+
+Add `pub mod mcp;` to `lib.rs` (after `pub mod journeys;`). Create `src-tauri/core/src/mcp/mod.rs` with only the test hook:
+```rust
+//! Read-only MCP endpoint (task 89).
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
+```
+Create `src-tauri/core/src/commands_internal/journeys_cmd.rs` as an empty file with one line: `//! Read-only logbook queries for the MCP endpoint (task 89).`
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core mcp::`
+Expected: `mcp_read_path_has_no_write_access` passes. The three HTTP tests fail with `assertion left == right failed: HTTP status` (left: 404).
+
+Run (note the port, see "Phases"):
+```bash
+npm run build && cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+WDIO_SERVER_PORT=3467 xvfb-run -a -s "-screen 0 1280x1024x24" npx wdio run tests/integration/wdio.server.conf.ts --spec tests/integration/specs/tier2/mcp-endpoint.spec.ts
+```
+Expected: FAIL. The SPA fallback answers `/mcp` with `index.html`, so `resp.json()` throws `Unexpected token '<'` (or `MCP 'tools/list' failed (405)` for a POST to the static service).
+
+- [ ] **Step 5: Implement the read-only facade (vehicles only)**
+
+Replace `src-tauri/core/src/commands_internal/journeys_cmd.rs`:
+```rust
+//! Read-only logbook queries for the MCP endpoint (task 89).
+//!
+//! `LogbookReader` is the only thing the `mcp` module holds. It keeps its
+//! `Database` private and exposes reads only, so the MCP module has no path
+//! to a write. The source guard in `mcp/tests.rs` checks this file too.
+
+use std::sync::Arc;
+
+use crate::commands_internal::get_vehicles_internal;
+use crate::db::Database;
+use crate::models::Vehicle;
+
+/// `Invalid`: the caller can fix it (bad range, unknown vehicle, no home).
+/// `Internal`: a DB error.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReadError {
+    Invalid(String),
+    Internal(String),
+}
+
+#[derive(Clone)]
+pub struct LogbookReader {
+    db: Arc<Database>,
+}
+
+impl LogbookReader {
+    pub fn new(db: Arc<Database>) -> Self {
+        Self { db }
+    }
+
+    pub fn vehicles(&self) -> Result<Vec<Vehicle>, ReadError> {
+        get_vehicles_internal(&self.db).map_err(ReadError::Internal)
+    }
+}
+```
+In `commands_internal/mod.rs` add:
+```rust
+pub mod journeys_cmd;
+pub use journeys_cmd::*;
+```
+
+- [ ] **Step 6: Implement the MCP server (one tool)**
+
+Replace `src-tauri/core/src/mcp/mod.rs`:
+```rust
+//! Read-only MCP endpoint at `/mcp` (task 89, ADR "Read-only MCP endpoint").
+//!
+//! Stateless streamable HTTP with `rmcp`: no session IDs, so a client that
+//! cached one keeps working after a restart. The tools call `LogbookReader`
+//! directly, not `/api/rpc`. This module never holds a `Database`; the test
+//! `mcp_read_path_has_no_write_access` checks the sources.
+
+use std::sync::Arc;
+
+use rmcp::handler::server::router::tool::ToolRouter;
+use rmcp::handler::server::wrapper::Json;
+use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
+use rmcp::transport::streamable_http_server::session::never::NeverSessionManager;
+use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
+use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData, ServerHandler};
+use serde::Serialize;
+
+use crate::commands_internal::{LogbookReader, ReadError};
+use crate::db::Database;
+
+// ---------------------------------------------------------------- outputs
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct VehicleOut {
+    pub id: String,
+    pub name: String,
+    pub license_plate: String,
+    /// True for the one vehicle that is selected in the app UI.
+    pub is_active: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct VehicleList {
+    pub vehicles: Vec<VehicleOut>,
+}
+
+fn to_error(e: ReadError) -> ErrorData {
+    match e {
+        ReadError::Invalid(m) => ErrorData::invalid_params(m, None),
+        ReadError::Internal(m) => ErrorData::internal_error(m, None),
+    }
+}
+
+/// Run a read on the blocking pool, the same as `rpc_handler` does for DB work.
+async fn blocking<T, F>(read: F) -> Result<T, ErrorData>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, ReadError> + Send + 'static,
+{
+    tokio::task::spawn_blocking(read)
+        .await
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?
+        .map_err(to_error)
+}
+
+// ---------------------------------------------------------------- server
+
+#[derive(Clone)]
+pub struct KnihaJazdMcp {
+    reader: LogbookReader,
+    tool_router: ToolRouter<Self>,
+}
+
+impl KnihaJazdMcp {
+    pub fn new(reader: LogbookReader) -> Self {
+        Self { reader, tool_router: Self::tool_router() }
+    }
+}
+
+#[tool_router]
+impl KnihaJazdMcp {
+    #[tool(description = "Read-only. Lists all vehicles of the logbook: id, name, license_plate, is_active (true for the vehicle selected in the app UI).")]
+    async fn list_vehicles(&self) -> Result<Json<VehicleList>, ErrorData> {
+        let reader = self.reader.clone();
+        let vehicles = blocking(move || reader.vehicles()).await?;
+        Ok(Json(VehicleList {
+            vehicles: vehicles
+                .into_iter()
+                .map(|v| VehicleOut {
+                    id: v.id.to_string(),
+                    name: v.name,
+                    license_plate: v.license_plate,
+                    is_active: v.is_active,
+                })
+                .collect(),
+        }))
+    }
+}
+
+#[tool_handler]
+impl ServerHandler for KnihaJazdMcp {
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(Implementation::new("kniha-jazd", env!("CARGO_PKG_VERSION")))
+            .with_instructions(
+                "Read-only access to a vehicle logbook (Kniha jázd). No tool can change data.",
+            )
+    }
+}
+
+/// The `/mcp` service. Stateless: no session store, no SSE keep-alive, JSON
+/// answers. The host check is off: behind a reverse proxy the Host header is
+/// the public name, and `/api/rpc` (which can write) has no host check either.
+pub fn mcp_service(db: Arc<Database>) -> StreamableHttpService<KnihaJazdMcp, NeverSessionManager> {
+    let reader = LogbookReader::new(db);
+    let config = StreamableHttpServerConfig::default()
+        .with_legacy_session_mode(false)
+        .with_json_response(true)
+        .with_sse_keep_alive(None)
+        .disable_allowed_hosts();
+    StreamableHttpService::new(
+        move || Ok(KnihaJazdMcp::new(reader.clone())),
+        Default::default(),
+        config,
+    )
+}
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
+```
+Check the guard words against this source before you run the test: `with_server_info`, `with_instructions`, `disable_allowed_hosts` and the comments contain none of them.
+
+- [ ] **Step 7: Mount `/mcp` in both router branches**
+
+In `server/mod.rs`, `HttpServer::start`, build the service once before the `if`:
+```rust
+        let mcp = crate::mcp::mcp_service(state.db.clone());
+```
+Then add `.nest_service("/mcp", mcp.clone())` after `.nest("/api", api_router)` in the SPA branch, and `.nest_service("/mcp", mcp)` in the `else` branch. The route must come before `.fallback_service(static_service)` in the chain, as `/api` does.
+
+- [ ] **Step 8: Run the tests and see them pass**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core mcp::`
+Expected: PASS, 4 tests.
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --workspace`
+Expected: PASS. The existing `spa_fallback_serves_index_html` test still passes.
+
+Run:
+```bash
+npm run build && cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
+WDIO_SERVER_PORT=3467 xvfb-run -a -s "-screen 0 1280x1024x24" npx wdio run tests/integration/wdio.server.conf.ts --spec tests/integration/specs/tier2/mcp-endpoint.spec.ts
+npm run typecheck:tests
+```
+Expected: 1 passing; 0 type errors.
+
+- [ ] **Step 9: Check the image build**
+
+Run: `docker build -f Dockerfile.web -t kniha-jazd-web:local .`
+Expected: the build succeeds on `rust:1.88-bookworm`.
+
+- [ ] **Step 10: Update the upgrade notes**
+
+The project rule is: a change to `Dockerfile.web` updates `### Pokyny k aktualizácii` in the same commit (project [CLAUDE.md](../../CLAUDE.md), "Release notes are the integrator contract"). In `## [Unreleased]` of [CHANGELOG.md](../../CHANGELOG.md), change only the image line:
+```markdown
+- **Obraz, zväzok, port:** nová cesta `/mcp` na tom istom porte (MCP len na čítanie, bez prihlásenia, ako `/api/rpc`). Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Obraz sa zostavuje s Rust 1.88.
+```
+Task B5 adds the user-visible entries.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add src-tauri/core/Cargo.toml src-tauri/Cargo.toml src-tauri/Cargo.lock Dockerfile.web CONTRIBUTING.md CHANGELOG.md src-tauri/core/src/lib.rs src-tauri/core/src/mcp src-tauri/core/src/commands_internal/journeys_cmd.rs src-tauri/core/src/commands_internal/mod.rs src-tauri/core/src/server/mod.rs tests/integration/utils/mcp.ts tests/integration/specs/tier2/mcp-endpoint.spec.ts
+git commit -m "feat(mcp): read-only MCP endpoint at /mcp with list_vehicles"
+```
+
+---
+
+## Phase B: after task 88 is merged
+
+### Task B0: Rebase on 88 and check its interfaces
+
+**Files:** none (read only).
+
+- [ ] **Step 1: Rebase the branch on `main` with 88**
+
+Run:
+```bash
+git fetch origin
+git checkout feat/89-home-place-mcp
+git rebase origin/main
+ls src-tauri/core/migrations | grep places_as_entities
+cargo test --manifest-path src-tauri/Cargo.toml --workspace
+```
+Expected: the rebase ends without conflicts (phase A touched no file that 88 rewrites, except maybe `CHANGELOG.md`: keep both upgrade-note lines in one block). The `ls` prints `2026-10-05-100000_places_as_entities`. All tests pass, also the phase A tests.
+
+- [ ] **Step 2: Confirm the interfaces this plan uses**
+
+Run:
+```bash
+grep -n "pub struct PlaceRow" -A10 src-tauri/core/src/models.rs
+grep -n "pub struct Place\b" -A12 src-tauri/core/src/models.rs
+grep -n "pub fn from_row" src-tauri/core/src/models.rs
+grep -n "origin_place_id\|destination_place_id" src-tauri/core/src/models.rs | head
+grep -n "fn place_names\|pub fn get_place\b\|pub fn get_place_by_key\|pub fn all_places\|pub fn place_uses\|pub fn get_trips_for_vehicle_in_year\|fn ensure_place_for_test\|fn create_trip_named_for_test" src-tauri/core/src/db.rs
+grep -n "pub fn get_vehicles_internal" src-tauri/core/src/commands_internal/vehicles.rs
+grep -n "export async function ensurePlace\|export function clearPlaceCache" tests/integration/utils/db.ts
+grep -n "onclick=\|on:click" src/routes/miesta/+page.svelte | head -3
+grep -n "data-testid=\"place-row\"\|data-place-id" src/routes/miesta/+page.svelte
+```
+Expected:
+- `PlaceRow { id: String, name: String, normalised_name: String, lat: Option<f64>, lon: Option<f64>, source: Option<String>, created_at: String }`, with `Queryable, Selectable`
+- `Place { id: Uuid, name, normalised_name, lat, lon, source: Option<PlaceSource>, uses: i64 }` with `#[serde(rename_all = "camelCase")]`, and `Place::from_row(row: PlaceRow, uses: i64) -> Self`
+- `Trip::from_row(row: TripRow, names: &HashMap<String, String>) -> Self`, and `Trip.origin_place_id: Uuid`, `Trip.destination_place_id: Uuid`, plus the display strings `origin` and `destination`
+- the private `fn place_names(conn: &mut SqliteConnection) -> QueryResult<HashMap<String, String>>` in `db.rs`
+- `#[cfg(test)] Database::ensure_place_for_test(&self, name: &str) -> Uuid`
+- `get_vehicles_internal(db: &Database) -> Result<Vec<Vehicle>, String>`
+- `ensurePlace(name: string): Promise<string>` and `clearPlaceCache()` in `utils/db.ts`
+- each Miesta row has `data-testid="place-row"` and `data-place-id`; note which event syntax the page uses (`onclick=` or `on:click`)
+
+If a name differs, use the real name in every task below. Do not change 88 code to fit this plan.
+
+---
+
+### Task B1: Home mark on places (migration, DB, command)
+
+**Files:**
+- Create: [migrations/2026-10-05-110000_add_place_is_home/](../../src-tauri/core/migrations/) `up.sql`, `down.sql`
+- Modify: [schema.rs](../../src-tauri/core/src/schema.rs) (table `places`), [models.rs](../../src-tauri/core/src/models.rs) (`PlaceRow`, `Place`, `Place::from_row`), [db.rs](../../src-tauri/core/src/db.rs), [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs), [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs)
+- Test: [db_tests.rs](../../src-tauri/core/src/db_tests.rs), [places_cmd_tests.rs](../../src-tauri/core/src/commands_internal/places_cmd_tests.rs)
+
+**Interfaces:**
+- Consumes (from task 88): `PlaceRow`, `Place`, `Place::from_row`, `Database::all_places`, `Database::ensure_place_for_test`, `list_places_internal`.
+- Produces:
+  - `PlaceRow.is_home: bool` (last field), `Place.is_home: bool` (JSON `isHome`)
+  - `Database::get_home_place(&self) -> QueryResult<Option<PlaceRow>>`
+  - `Database::set_home_place(&self, id: Option<&str>) -> QueryResult<()>` (unknown ID: `Err(diesel::result::Error::NotFound)`)
+  - `set_home_place_internal(db: &Database, app_state: &AppState, id: Option<String>) -> Result<(), String>`
+  - RPC `set_home_place { id: string | null }`
+
+- [ ] **Step 1: Write the migration**
+
+`up.sql`:
+```sql
+-- Task 89: one place can be the home of the logbook. The journey grouping
+-- (journeys module) matches trip endpoints against it by place ID.
+ALTER TABLE places ADD COLUMN is_home BOOLEAN NOT NULL DEFAULT 0;
+
+-- At most one home. A partial index ignores every row with is_home = 0.
+CREATE UNIQUE INDEX idx_places_single_home ON places(is_home) WHERE is_home = 1;
+```
+
+`down.sql`:
+```sql
+DROP INDEX IF EXISTS idx_places_single_home;
+ALTER TABLE places DROP COLUMN is_home;
+```
+
+- [ ] **Step 2: Add the column to `schema.rs` and the models**
+
+In `schema.rs`, table `places`, add `is_home -> Bool,` as the **last** column, with a comment like the ones on `trip_routes`: `PlaceRow` is `Queryable` and binds by position.
+
+In `models.rs`:
+- add `pub is_home: bool,` as the last field of `PlaceRow`;
+- add `pub is_home: bool,` to `Place`, after `source`;
+- in `Place::from_row`, set `is_home: row.is_home,`. Every path that builds a `Place` (`list_places_internal`, `create_place_internal`) then reports the mark.
+
+Do not add `is_home` to `NewPlaceRow`: the DB default `0` applies on insert.
+
+- [ ] **Step 3: Write the failing DB tests**
+
+Add to `db_tests.rs`:
+```rust
+// ============================================================================
+// Home mark (task 89)
+// ============================================================================
+
+#[test]
+fn home_place_is_none_by_default() {
+    let db = Database::in_memory().unwrap();
+    db.ensure_place_for_test("Home St 1, Hometown");
+    assert!(db.get_home_place().unwrap().is_none());
+}
+
+#[test]
+fn set_home_place_moves_the_mark() {
+    let db = Database::in_memory().unwrap();
+    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
+    let b = db.ensure_place_for_test("City A").to_string();
+
+    db.set_home_place(Some(&a)).unwrap();
+    assert_eq!(db.get_home_place().unwrap().unwrap().id, a);
+
+    db.set_home_place(Some(&b)).unwrap();
+    assert_eq!(db.get_home_place().unwrap().unwrap().id, b);
+    let homes = db.all_places().unwrap().into_iter().filter(|p| p.is_home).count();
+    assert_eq!(homes, 1);
+}
+
+#[test]
+fn set_home_place_none_clears_the_mark() {
+    let db = Database::in_memory().unwrap();
+    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
+    db.set_home_place(Some(&a)).unwrap();
+    db.set_home_place(None).unwrap();
+    assert!(db.get_home_place().unwrap().is_none());
+}
+
+#[test]
+fn set_home_place_unknown_id_fails_and_keeps_the_old_mark() {
+    let db = Database::in_memory().unwrap();
+    let a = db.ensure_place_for_test("Home St 1, Hometown").to_string();
+    db.set_home_place(Some(&a)).unwrap();
+
+    let err = db.set_home_place(Some("no-such-id"));
+    assert!(matches!(err, Err(diesel::result::Error::NotFound)));
+    assert_eq!(db.get_home_place().unwrap().unwrap().id, a);
+}
+
+#[test]
+fn second_home_violates_unique_index() {
+    let db = Database::in_memory().unwrap();
+    db.ensure_place_for_test("Home St 1, Hometown");
+    db.ensure_place_for_test("City A");
+    let result = diesel::sql_query("UPDATE places SET is_home = 1")
+        .execute(&mut *db.connection());
+    assert!(result.is_err(), "the partial unique index must allow one home only");
+}
+```
+
+- [ ] **Step 4: Run the tests and see them fail**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core home_place`
+Expected: compile error, `no method named get_home_place` / `set_home_place`.
+
+- [ ] **Step 5: Implement the DB functions**
+
+In `db.rs`, in the place-book section:
+```rust
+    /// The place marked as home, if any (task 89). The partial unique index
+    /// `idx_places_single_home` guarantees at most one row.
+    pub fn get_home_place(&self) -> QueryResult<Option<PlaceRow>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        places::table
+            .filter(places::is_home.eq(true))
+            .select(PlaceRow::as_select())
+            .first(conn)
+            .optional()
+    }
+
+    /// Move the home mark to `id`, or clear it with `None`. One transaction:
+    /// the old mark goes first, so the unique index never sees two homes.
+    /// An unknown ID rolls back and returns `NotFound`, so the old mark stays.
+    pub fn set_home_place(&self, id: Option<&str>) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        conn.transaction::<_, diesel::result::Error, _>(|tx| {
+            diesel::update(places::table.filter(places::is_home.eq(true)))
+                .set(places::is_home.eq(false))
+                .execute(tx)?;
+            if let Some(id) = id {
+                let changed = diesel::update(places::table.filter(places::id.eq(id)))
+                    .set(places::is_home.eq(true))
+                    .execute(tx)?;
+                if changed == 0 {
+                    return Err(diesel::result::Error::NotFound);
+                }
+            }
+            Ok(())
+        })
+    }
+```
+
+- [ ] **Step 6: Run the DB tests and see them pass**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core home_place`
+Expected: PASS, 4 tests.
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core second_home`
+Expected: PASS, 1 test.
+
+- [ ] **Step 7: Write the failing command tests**
+
+Add to `places_cmd_tests.rs`:
+```rust
+#[test]
+fn set_home_place_internal_marks_and_list_places_reports_it() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let id = db.ensure_place_for_test("Home St 1, Hometown");
+
+    set_home_place_internal(&db, &app_state, Some(id.to_string())).unwrap();
+
+    let places = list_places_internal(&db).unwrap();
+    let home: Vec<_> = places.iter().filter(|p| p.is_home).collect();
+    assert_eq!(home.len(), 1);
+    assert_eq!(home[0].id, id);
+}
+
+#[test]
+fn set_home_place_internal_unknown_id_is_an_error() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    let err = set_home_place_internal(&db, &app_state, Some(uuid::Uuid::new_v4().to_string()));
+    assert_eq!(err.unwrap_err(), "Place not found");
+}
+
+#[test]
+fn set_home_place_internal_refuses_in_read_only_mode() {
+    let db = Database::in_memory().unwrap();
+    let app_state = AppState::new();
+    app_state.enable_read_only("test");
+    let id = db.ensure_place_for_test("Home St 1, Hometown");
+    assert!(set_home_place_internal(&db, &app_state, Some(id.to_string())).is_err());
+    assert!(db.get_home_place().unwrap().is_none());
+}
+```
+
+- [ ] **Step 8: Run them and see them fail**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core set_home_place_internal`
+Expected: compile error, `cannot find function set_home_place_internal`.
+
+- [ ] **Step 9: Implement the command and the dispatcher arm**
+
+In `places_cmd.rs`:
+```rust
+/// Mark a place as home, or clear the mark with `None` (task 89). The journey
+/// grouping and the MCP tool `list_journeys` read this mark.
+pub fn set_home_place_internal(
+    db: &Database,
+    app_state: &AppState,
+    id: Option<String>,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    match db.set_home_place(id.as_deref()) {
+        Ok(()) => Ok(()),
+        Err(diesel::result::Error::NotFound) => Err("Place not found".to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+```
+
+In `dispatcher.rs`, in the place-book section:
+```rust
+        "set_home_place" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                id: Option<String>,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::set_home_place_internal(&state.db, &state.app_state, a.id)?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
+```
+
+- [ ] **Step 10: Run the whole backend suite**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml --workspace`
+Expected: PASS, no failures. `test_migrated_schema_identical_to_fresh_schema` covers the new DDL. If a migration test lists the `places` columns, add `is_home` there.
+
+- [ ] **Step 11: Update the upgrade notes**
+
+The project rule is: a migration updates `### Pokyny k aktualizácii` in the same commit. In `## [Unreleased]` of [CHANGELOG.md](../../CHANGELOG.md), add `places.is_home` to the migrations line (task 88 already has its own migration there; write "2 nové"):
+```markdown
+- **Migrácie databázy:** ... `places.is_home`: žiadne miesto nie je označené ako domov, kým ho používateľ neoznačí na karte Miesta. Návrat na starší obraz otvorí databázu len na čítanie.
+```
+
+- [ ] **Step 12: Commit**
+
+```bash
+git add src-tauri/core/migrations/2026-10-05-110000_add_place_is_home src-tauri/core/src/schema.rs src-tauri/core/src/models.rs src-tauri/core/src/db.rs src-tauri/core/src/db_tests.rs src-tauri/core/src/commands_internal/places_cmd.rs src-tauri/core/src/commands_internal/places_cmd_tests.rs src-tauri/core/src/server/dispatcher.rs CHANGELOG.md
+git commit -m "feat(places): mark one place as home"
+```
+
+---
+
+### Task B2: `Leg::from_trip`, DB range read and the rest of the facade
 
 **Files:**
 - Modify: [db.rs](../../src-tauri/core/src/db.rs) (`get_trips_for_vehicle_in_range`)
-- Create: [commands_internal/journeys_cmd.rs](../../src-tauri/core/src/commands_internal/), `journeys_cmd_tests.rs`
-- Modify: [commands_internal/mod.rs](../../src-tauri/core/src/commands_internal/mod.rs)
+- Modify: [journeys/mod.rs](../../src-tauri/core/src/) (`Leg::from_trip`), [commands_internal/journeys_cmd.rs](../../src-tauri/core/src/commands_internal/)
+- Create: `commands_internal/journeys_cmd_tests.rs`
 
 **Interfaces:**
-- Consumes: Task 1 `Database::get_home_place`; Task 2 `Leg::from_trip`, `group_journeys`, `overlaps`; from task 88 `place_names(conn)`, `Trip::from_row(row, &names)`, `Database::ensure_place_for_test`; existing `get_vehicles_internal(&Database)`, `Database::get_vehicle(&str)`, `get_trips_for_vehicle(&str)`, `get_route_maps_for_trips(&[String]) -> QueryResult<HashMap<String, RouteMap>>` (`RouteMap.round_trip: bool`).
+- Consumes: Task B1 `Database::get_home_place`; Task A1 `Leg`, `group_journeys`, `overlaps`; Task A2 `LogbookReader`, `ReadError`; from task 88 `place_names(conn)`, `Trip::from_row(row, &names)`, `Database::ensure_place_for_test`; existing `get_vehicles_internal(&Database)`, `Database::get_vehicle(&str)`, `get_trips_for_vehicle(&str)`, `get_route_maps_for_trips(&[String]) -> QueryResult<HashMap<String, RouteMap>>` (`RouteMap.round_trip: bool`).
 - Produces:
+  - `Leg::from_trip(trip: &Trip) -> Leg`
   - `Database::get_trips_for_vehicle_in_range(&self, vehicle_id: &str, from: NaiveDate, to: NaiveDate) -> QueryResult<Vec<Trip>>`, ordered by `start_datetime` ASC, then `odometer` ASC
   - `pub const HOME_NOT_SET: &str = "Home place is not set. Mark a place as home on the Miesta page.";`
-  - `pub enum ReadError { Invalid(String), Internal(String) }` (`Debug`, `PartialEq`)
   - `pub struct JourneyList { pub home_place: String, pub journeys: Vec<Journey> }`
-  - `#[derive(Clone)] pub struct LogbookReader` with `new(db: Arc<Database>) -> Self` and three methods:
-    - `vehicles(&self) -> Result<Vec<Vehicle>, ReadError>`
+  - Two more methods on `LogbookReader` (Task A2 has `new` and `vehicles`):
     - `trips_in_range(&self, from: NaiveDate, to: NaiveDate, vehicle_id: Option<&str>) -> Result<Vec<Trip>, ReadError>`
     - `journeys(&self, from: NaiveDate, to: NaiveDate, vehicle_id: Option<&str>) -> Result<JourneyList, ReadError>`
 
@@ -1031,9 +1510,27 @@ fn journeys_of_one_vehicle_only_when_vehicle_given() {
 ```
 `ensure_place_for_test` returns a `Uuid`. If task 88 changed `Vehicle::new_ice`, use the constructor that `db_tests.rs` uses.
 
-- [ ] **Step 2: Create the module with stubs, and register it**
+- [ ] **Step 2: Add `Leg::from_trip` and the facade stubs**
 
-`src-tauri/core/src/commands_internal/journeys_cmd.rs`:
+In `journeys/mod.rs`, add `use crate::models::Trip;` to the imports, and after `pub struct Leg { ... }`:
+```rust
+impl Leg {
+    pub fn from_trip(trip: &Trip) -> Self {
+        Self {
+            id: trip.id,
+            start: trip.start_datetime,
+            odometer: trip.odometer,
+            origin_place_id: trip.origin_place_id,
+            destination_place_id: trip.destination_place_id,
+            destination_name: trip.destination.clone(),
+            distance_km: trip.distance_km,
+            purpose: trip.purpose.clone(),
+        }
+    }
+}
+```
+
+Replace `src-tauri/core/src/commands_internal/journeys_cmd.rs` (it keeps the A2 `vehicles` body):
 ```rust
 //! Read-only logbook queries for the MCP endpoint (task 89).
 //!
@@ -1080,7 +1577,7 @@ impl LogbookReader {
     }
 
     pub fn vehicles(&self) -> Result<Vec<Vehicle>, ReadError> {
-        Err(ReadError::Internal("not implemented".into()))
+        get_vehicles_internal(&self.db).map_err(ReadError::Internal)
     }
 
     pub fn trips_in_range(
@@ -1106,11 +1603,7 @@ impl LogbookReader {
 #[path = "journeys_cmd_tests.rs"]
 mod tests;
 ```
-In `commands_internal/mod.rs` add:
-```rust
-pub mod journeys_cmd;
-pub use journeys_cmd::*;
-```
+`commands_internal/mod.rs` already has `pub mod journeys_cmd;` from Task A2.
 
 - [ ] **Step 3: Run the tests and see them fail**
 
@@ -1266,106 +1759,29 @@ Expected: PASS, 8 tests.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src-tauri/core/src/db.rs src-tauri/core/src/commands_internal/journeys_cmd.rs src-tauri/core/src/commands_internal/journeys_cmd_tests.rs src-tauri/core/src/commands_internal/mod.rs
+git add src-tauri/core/src/db.rs src-tauri/core/src/journeys/mod.rs src-tauri/core/src/commands_internal/journeys_cmd.rs src-tauri/core/src/commands_internal/journeys_cmd_tests.rs
 git commit -m "feat(journeys): read-only facade for trips and journeys in a date range"
 ```
 
 ---
 
-### Task 4: MCP endpoint at `/mcp`
+### Task B3: `list_trips` and `list_journeys` tools
 
 **Files:**
-- Modify: [core/Cargo.toml](../../src-tauri/core/Cargo.toml), [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml) (`rust-version`), [Dockerfile.web](../../Dockerfile.web), [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- Create: [mcp/mod.rs](../../src-tauri/core/src/), [mcp/tests.rs](../../src-tauri/core/src/), [utils/mcp.ts](../../tests/integration/utils/), [tier2/mcp-endpoint.spec.ts](../../tests/integration/specs/tier2/)
-- Modify: [lib.rs](../../src-tauri/core/src/lib.rs) (`pub mod mcp;`), [server/mod.rs](../../src-tauri/core/src/server/mod.rs)
+- Modify: [mcp/mod.rs](../../src-tauri/core/src/), [mcp/tests.rs](../../src-tauri/core/src/), [tier2/mcp-endpoint.spec.ts](../../tests/integration/specs/tier2/)
 
 **Interfaces:**
-- Consumes: Task 3 `LogbookReader`, `ReadError`, `JourneyList`, `HOME_NOT_SET`.
-- Produces:
-  - `pub fn mcp_service(db: Arc<Database>) -> StreamableHttpService<KnihaJazdMcp, NeverSessionManager>`
-  - Router: `/mcp` in both branches of `HttpServer::start`
-  - Tool names: `list_vehicles`, `list_trips`, `list_journeys`
-  - Integration helper `mcpRequest<T>(method, params?)`
+- Consumes: Task A2 `KnihaJazdMcp`, `mcp_service`, `blocking`, `to_error`, the test helpers `start`, `post`, `call`, `tool_names`; Task B2 `LogbookReader::trips_in_range`, `LogbookReader::journeys`, `HOME_NOT_SET`; from task 88 `Database::ensure_place_for_test`, `Trip.origin_place_id`, `Trip.destination_place_id`.
+- Produces: tools `list_trips(date_from, date_to, vehicle_id?)` and `list_journeys(date_from, date_to, vehicle_id?)`. With `list_vehicles` from A2, `tools/list` returns exactly three tools.
 
-The `rmcp` API below was checked on 2026-10-05 against `rmcp` 3.5.0 with a probe server: `tools/list` without `initialize`, a stale `Mcp-Session-Id`, and a foreign `Host` header all return HTTP 200 with this config. An `async` tool with `spawn_blocking` works. `Err(ErrorData::invalid_params(..))` gives JSON-RPC code -32602, `Err(ErrorData::internal_error(..))` gives -32603. A missing argument gives a result with `isError: true`.
+- [ ] **Step 1: Write the failing tests**
 
-- [ ] **Step 1: Add the dependencies and raise the Rust version**
-
-[core/Cargo.toml](../../src-tauri/core/Cargo.toml), under `[dependencies]`:
-```toml
-rmcp = { version = "3.5", default-features = false, features = ["server", "macros", "transport-streamable-http-server"] }
-schemars = "1"
-```
-- [src-tauri/Cargo.toml](../../src-tauri/Cargo.toml): `rust-version = "1.88"` (was `"1.77.2"`).
-- [Dockerfile.web](../../Dockerfile.web): `FROM rust:1.88-bookworm AS rust-builder` (was `rust:1.86-bookworm`).
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) line 10: `- [Rust](https://rustup.rs/) 1.88+` (was `1.77+`).
-
-Run: `cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core`
-Expected: builds. `cargo tree --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core -i axum` shows one `axum v0.8.x` (rmcp uses `axum` only as a dev-dependency).
-
-- [ ] **Step 2: Write the failing Rust HTTP tests**
-
-`src-tauri/core/src/mcp/tests.rs`:
+In `src-tauri/core/src/mcp/tests.rs`, change the assertion in `tools_list_returns_the_read_only_tools`:
 ```rust
-//! `/mcp` over real HTTP, through `HttpServer::start` (the same router the
-//! container serves), plus the read-only source guard.
-
-use std::sync::Arc;
-
-use serde_json::{json, Value};
-
-use crate::app_state::AppState;
-use crate::db::Database;
-use crate::server::HttpServer;
-
-async fn start(db: Arc<Database>) -> (String, tokio::sync::oneshot::Sender<()>) {
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    let tmp = std::env::temp_dir();
-    let addr = HttpServer::start(db, Arc::new(AppState::new()), tmp.clone(), tmp, 0, false, rx)
-        .await
-        .unwrap();
-    (format!("http://{addr}/mcp"), tx)
-}
-
-async fn post(url: &str, body: Value, extra: &[(&str, &str)]) -> Value {
-    let mut req = reqwest::Client::new()
-        .post(url)
-        .header("Content-Type", "application/json")
-        .header("Accept", "application/json, text/event-stream");
-    for (k, v) in extra {
-        req = req.header(*k, *v);
-    }
-    let resp = req.body(body.to_string()).send().await.unwrap();
-    assert_eq!(resp.status(), 200, "HTTP status");
-    resp.json().await.unwrap()
-}
-
-fn call(id: u32, name: &str, args: Value) -> Value {
-    json!({"jsonrpc": "2.0", "id": id, "method": "tools/call",
-           "params": {"name": name, "arguments": args}})
-}
-
-#[tokio::test]
-async fn tools_list_returns_exactly_three_read_only_tools() {
-    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
-
-    let body = post(&url, json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}), &[]).await;
-
-    let mut names: Vec<String> = body["result"]["tools"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|t| t["name"].as_str().unwrap().to_string())
-        .collect();
-    names.sort();
-    assert_eq!(names, vec!["list_journeys", "list_trips", "list_vehicles"]);
-    for tool in body["result"]["tools"].as_array().unwrap() {
-        let description = tool["description"].as_str().unwrap();
-        assert!(description.contains("Read-only"), "{description}");
-    }
-    let _ = stop.send(());
-}
-
+    assert_eq!(tool_names(&body), vec!["list_journeys", "list_trips", "list_vehicles"]);
+```
+and remove the comment line `// Phase A: one tool. Task B3 changes this to the three tools.` Then add these tests before `mcp_read_path_has_no_write_access`:
+```rust
 #[tokio::test]
 async fn list_journeys_without_home_is_invalid_params() {
     let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
@@ -1390,17 +1806,6 @@ async fn malformed_date_is_invalid_params() {
 
     assert_eq!(body["error"]["code"], -32602);
     assert!(body["error"]["message"].as_str().unwrap().contains("YYYY-MM-DD"));
-    let _ = stop.send(());
-}
-
-#[tokio::test]
-async fn stale_session_id_and_public_host_are_accepted() {
-    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
-
-    let body = post(&url, call(4, "list_vehicles", json!({})),
-        &[("Mcp-Session-Id", "from-before-a-restart"), ("Host", "logbook.example.org")]).await;
-
-    assert_eq!(body["result"]["structuredContent"]["vehicles"], json!([]));
     let _ = stop.send(());
 }
 
@@ -1433,119 +1838,18 @@ async fn list_trips_returns_place_names_and_minutes() {
     let _ = stop.send(());
 }
 
-#[test]
-fn mcp_read_path_has_no_write_access() {
-    // Read-only by construction (ADR "Read-only MCP endpoint"). The MCP module
-    // holds only a LogbookReader; these three files must not name a write
-    // function, the raw connection, a restore, or raw SQL.
-    let sources = [
-        ("mcp/mod.rs", include_str!("mod.rs")),
-        ("commands_internal/journeys_cmd.rs", include_str!("../commands_internal/journeys_cmd.rs")),
-        ("journeys/mod.rs", include_str!("../journeys/mod.rs")),
-    ];
-    let banned = [
-        "check_read_only", "connection", "restore", "sql_query", "execute", "transaction",
-        "create_", "update_", "delete_", "save_", "set_", "upsert", "insert",
-    ];
-    for (file, source) in sources {
-        for word in banned {
-            assert!(!source.contains(word), "{file} must not contain `{word}`");
-        }
-    }
-}
 ```
-
-- [ ] **Step 3: Write the integration helper and spec (test first)**
-
-`tests/integration/utils/mcp.ts`:
+In `tests/integration/specs/tier2/mcp-endpoint.spec.ts`, replace the constant and its comment:
 ```typescript
-/**
- * Raw JSON-RPC calls to the read-only MCP endpoint (task 89).
- *
- * The endpoint is stateless, so no initialize call and no session ID are
- * needed. It answers with application/json.
- */
-
-const SERVER_URL = process.env.WDIO_SERVER_URL || 'http://localhost:3457';
-
-export interface McpResponse<T> {
-  jsonrpc: '2.0';
-  id: number;
-  result?: T;
-  error?: { code: number; message: string };
-}
-
-export async function mcpRequest<T>(
-  method: string,
-  params: Record<string, unknown> = {}
-): Promise<McpResponse<T>> {
-  const resp = await fetch(`${SERVER_URL}/mcp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json, text/event-stream',
-    },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
-  if (!resp.ok) {
-    throw new Error(`MCP '${method}' failed (${resp.status}): ${await resp.text()}`);
-  }
-  return (await resp.json()) as McpResponse<T>;
-}
-```
-`tests/integration/specs/tier2/mcp-endpoint.spec.ts`:
-```typescript
-/**
- * Tier 2: Read-only MCP endpoint (task 89)
- *
- * Covers: the built image serves /mcp, and tools/list returns exactly the three
- * read-only tools. The tool results and the journey rules are covered by the
- * Rust tests (mcp/tests.rs, journeys/tests.rs), not here.
- */
-
-import { waitForAppReady } from '../../utils/app';
-import { mcpRequest } from '../../utils/mcp';
-
-interface ToolsList {
-  tools: { name: string; description: string }[];
-}
-
-describe('MCP endpoint', () => {
-  beforeEach(async () => {
-    await waitForAppReady();
-  });
-
-  it('tools/list returns exactly the three read-only tools', async () => {
-    const resp = await mcpRequest<ToolsList>('tools/list');
-
-    expect(resp.error).toBeUndefined();
-    const names = resp.result!.tools.map((t) => t.name).sort();
-    expect(names).toEqual(['list_journeys', 'list_trips', 'list_vehicles']);
-  });
-});
+const EXPECTED_TOOLS = ['list_journeys', 'list_trips', 'list_vehicles'];
 ```
 
-- [ ] **Step 4: Create the module stub and see both tests fail**
+- [ ] **Step 2: Run the tests and see them fail**
 
-Add `pub mod mcp;` to `lib.rs` (after `pub mod journeys;`). Create `src-tauri/core/src/mcp/mod.rs` with only the test hook:
-```rust
-//! Read-only MCP endpoint (task 89).
-
-#[cfg(test)]
-#[path = "tests.rs"]
-mod tests;
-```
 Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core mcp::`
-Expected: `mcp_read_path_has_no_write_access` passes. The five HTTP tests fail with `assertion left == right failed: HTTP status` (left: 404).
+Expected: FAIL. `tools_list_returns_the_read_only_tools` fails (left: `["list_vehicles"]`). The three new tests fail: a call to an unknown tool gives a JSON-RPC `error` with a different code and message, so `list_journeys_without_home_is_invalid_params` fails on the message and `list_trips_returns_place_names_and_minutes` fails on `trips[0]["start"]` (null).
 
-Run:
-```bash
-npm run build && cargo build --manifest-path src-tauri/Cargo.toml -p kniha-jazd-web
-xvfb-run -a -s "-screen 0 1280x1024x24" npx wdio run tests/integration/wdio.server.conf.ts --spec tests/integration/specs/tier2/mcp-endpoint.spec.ts
-```
-Expected: FAIL. The SPA fallback answers `/mcp` with `index.html`, so `resp.json()` throws `Unexpected token '<'` (or `MCP 'tools/list' failed (405)` for a POST to the static service).
-
-- [ ] **Step 5: Implement the MCP server**
+- [ ] **Step 3: Implement the two tools**
 
 Replace `src-tauri/core/src/mcp/mod.rs`:
 ```rust
@@ -1791,21 +2095,10 @@ mod tests;
 ```
 Check the guard words against this source before you run the test: `with_server_info`, `with_instructions`, `disable_allowed_hosts` and the comments contain none of them.
 
-- [ ] **Step 6: Mount `/mcp` in both router branches**
-
-In `server/mod.rs`, `HttpServer::start`, build the service once before the `if`:
-```rust
-        let mcp = crate::mcp::mcp_service(state.db.clone());
-```
-Then add `.nest_service("/mcp", mcp.clone())` after `.nest("/api", api_router)` in the SPA branch, and `.nest_service("/mcp", mcp)` in the `else` branch. The route must come before `.fallback_service(static_service)` in the chain, as `/api` does.
-
-- [ ] **Step 7: Run the tests and see them pass**
+- [ ] **Step 4: Run the tests and see them pass**
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml -p kniha-jazd-core mcp::`
-Expected: PASS, 6 tests.
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml --workspace`
-Expected: PASS. The existing `spa_fallback_serves_index_html` test still passes.
+Expected: PASS, 7 tests.
 
 Run:
 ```bash
@@ -1815,28 +2108,23 @@ npm run typecheck:tests
 ```
 Expected: 1 passing; 0 type errors.
 
-- [ ] **Step 8: Check the image build**
-
-Run: `docker build -f Dockerfile.web -t kniha-jazd-web:local .`
-Expected: the build succeeds on `rust:1.88-bookworm`.
-
-- [ ] **Step 9: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src-tauri/core/Cargo.toml src-tauri/Cargo.toml src-tauri/Cargo.lock Dockerfile.web CONTRIBUTING.md src-tauri/core/src/lib.rs src-tauri/core/src/mcp src-tauri/core/src/server/mod.rs tests/integration/utils/mcp.ts tests/integration/specs/tier2/mcp-endpoint.spec.ts
-git commit -m "feat(mcp): read-only MCP endpoint at /mcp"
+git add src-tauri/core/src/mcp tests/integration/specs/tier2/mcp-endpoint.spec.ts
+git commit -m "feat(mcp): list_trips and list_journeys tools"
 ```
 
 ---
 
-### Task 5: Home icon on the Miesta tab
+### Task B4: Home icon on the Miesta tab
 
 **Files:**
 - Modify: [types.ts](../../src/lib/types.ts) (`Place.isHome`), [api.ts](../../src/lib/api.ts) (`setHomePlace`), [miesta/+page.svelte](../../src/routes/), [sk/index.ts](../../src/lib/i18n/sk/index.ts), [en/index.ts](../../src/lib/i18n/en/index.ts)
 - Create: [tier2/home-place.spec.ts](../../tests/integration/specs/tier2/)
 
 **Interfaces:**
-- Consumes: Task 1 RPC `set_home_place { id: string | null }`, `list_places` with `isHome`; from task 88 the Miesta page, `data-testid="place-row"`, `data-place-id`, the tab link `a[href="/miesta"]`, `ensurePlace(name)`, and `seedTrip` that creates the places by name.
+- Consumes: Task B1 RPC `set_home_place { id: string | null }`, `list_places` with `isHome`; from task 88 the Miesta page, `data-testid="place-row"`, `data-place-id`, the tab link `a[href="/miesta"]`, `ensurePlace(name)`, and `seedTrip` that creates the places by name.
 - Produces: button `data-testid="place-home-toggle"` with `aria-pressed="true|false"` on each place row.
 
 - [ ] **Step 1: Write the failing integration test**
@@ -1966,7 +2254,7 @@ Expected: `src/lib/i18n/i18n-types.ts` regenerates with the five keys.
 
 - [ ] **Step 4: Add the button to each place row**
 
-In `src/routes/miesta/+page.svelte`, add the handler next to the other place handlers. Use the place-list reload function of the page (Task 0 Step 2 shows its name):
+In `src/routes/miesta/+page.svelte`, add the handler next to the other place handlers. Use the place-list reload function of the page (Task B0 Step 2 shows its name):
 ```typescript
 	async function toggleHome(place: Place) {
 		const next = place.isHome ? null : place.id;
@@ -1979,7 +2267,7 @@ In `src/routes/miesta/+page.svelte`, add the handler next to the other place han
 		}
 	}
 ```
-Import `appModeStore` from `$lib/stores/appMode` if the page does not import it. In the row markup (the element with `data-testid="place-row"`), add as the first action button. Use the event syntax that the page already uses (Task 0 Step 2): Svelte 5 rejects a mix of `onclick=` and `on:click` in one component. The example uses `onclick=`:
+Import `appModeStore` from `$lib/stores/appMode` if the page does not import it. In the row markup (the element with `data-testid="place-row"`), add as the first action button. Use the event syntax that the page already uses (Task B0 Step 2): Svelte 5 rejects a mix of `onclick=` and `on:click` in one component. The example uses `onclick=`:
 ```svelte
 <button
 	type="button"
@@ -2033,7 +2321,7 @@ git commit -m "feat(places): home icon on the Miesta tab"
 
 ---
 
-### Task 6: Decisions, changelog, feature docs, READMEs, project guides
+### Task B5: Decisions, changelog, feature docs, READMEs, project guides
 
 **Files:**
 - Modify: [DECISIONS.md](../../DECISIONS.md), [CHANGELOG.md](../../CHANGELOG.md), [README.md](../../README.md), [README.en.md](../../README.en.md), [CLAUDE.md](../../CLAUDE.md), [rust-backend.md](../../.claude/rules/rust-backend.md), [place-book.md](../../docs/features/place-book.md), [server-mode.md](../../docs/features/server-mode.md), other docs in [docs/features/](../../docs/features/) as found in Step 4
@@ -2041,7 +2329,7 @@ git commit -m "feat(places): home icon on the Miesta tab"
 
 - [ ] **Step 1: Record the decisions with `/decision`**
 
-Find the next free numbers (task 88 adds entries first):
+Take the numbers from `DECISIONS.md` at write time. Task 88 takes ADR-055, ADR-056 and BIZ-025, so expect ADR-057 and BIZ-026, but check:
 ```bash
 grep -o "^### ADR-[0-9]*" DECISIONS.md | sort -t- -k2 -n | tail -1
 grep -o "^### BIZ-[0-9]*" DECISIONS.md | sort -t- -k2 -n | tail -1
@@ -2060,16 +2348,7 @@ Run `/decision` two times:
 
 - [ ] **Step 2: Update the changelog with `/changelog`**
 
-In `## [Unreleased]`, change the upgrade-notes block:
-```markdown
-### Pokyny k aktualizácii
-- **Potrebný zásah:** nie
-- **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** 1 nová (`places.is_home`). Žiadne miesto nie je označené ako domov, kým ho používateľ neoznačí na karte Miesta. Návrat na starší obraz otvorí databázu len na čítanie.
-- **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** nová cesta `/mcp` na tom istom porte (MCP len na čítanie, bez prihlásenia, ako `/api/rpc`). Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Obraz sa zostavuje s Rust 1.88.
-```
-If task 88 already filled the block, merge the lines (for example "2 nové") and keep one block. Add entries under `### Pridané`:
+Task A2 already changed the image line, and Task B1 the migrations line, of `### Pokyny k aktualizácii`. Check that the block is still one block and complete. Add entries under `### Pridané`:
 ```markdown
 - **Domov na karte Miesta** - ikona domčeka pri mieste ho označí ako domov. Domov môže byť len jeden.
 - **MCP rozhranie len na čítanie (`/mcp`)** - AI asistent môže čítať vozidlá, jazdy a cesty mimo domova (`list_vehicles`, `list_trips`, `list_journeys`). Nič nemôže zmeniť.
@@ -2120,7 +2399,7 @@ git commit -m "docs: home place, journeys and the read-only MCP endpoint" -m "Fe
 
 ---
 
-### Task 7: Full verification
+### Task B6: Full verification
 
 - [ ] **Step 1: Run `/verify`**
 
@@ -2142,3 +2421,4 @@ RUN=$(gh run list --workflow test.yml --branch main --limit 1 --json databaseId 
 gh run view "$RUN" --json jobs --jq '.jobs[] | select(.name|test("Publish")) | "\(.name) \(.conclusion)"'
 ```
 Expected: `Publish main Docker Image success`. This repo does not deploy. The homelab side redeploys the stack.
+
