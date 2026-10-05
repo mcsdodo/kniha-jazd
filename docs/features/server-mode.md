@@ -47,6 +47,11 @@ the SvelteKit static build, then a `debian:bookworm-slim` runtime carrying only 
 binary, the SPA and `ca-certificates`. It declares a `/data` volume, exposes 3456 and
 has a `HEALTHCHECK` on `/health`.
 
+The image also serves `/mcp` on the same port: a read-only MCP endpoint with no auth, the
+same as `/api/rpc`. If a reverse proxy lets only some paths through, add `/mcp`. The
+host check of the endpoint is off, because the proxy sets the public name as the `Host`
+header. See [mcp-endpoint.md](./mcp-endpoint.md). The image builds with Rust 1.88.
+
 **Image channels:** two of them, with a hard ownership boundary (see
 [ADR-031](../../DECISIONS.md#adr-031-two-channels--main-moves-latest-is-cut)).
 
@@ -167,7 +172,7 @@ a scratch folder first, otherwise the binary falls back to `/data`.
 - Creates the data directory, opens the database, then starts the server on a tokio runtime
 
 **Server Module:** [server/mod.rs](../../src-tauri/core/src/server/mod.rs)
-- Axum router: `POST /api/rpc`, `GET /api/capabilities`, `GET /health`
+- Axum router: `POST /api/rpc`, `GET /api/capabilities`, `GET /health`, and `/mcp` (the read-only MCP endpoint, see [mcp-endpoint.md](./mcp-endpoint.md)). `/mcp` is mounted before the SPA fallback, in both router branches.
 - Static file serving for the SPA, with `index.html` as the SPA fallback. If `STATIC_DIR`
   has no `index.html` the fallback is skipped and only the API is served — which is
   exactly what local dev wants
@@ -270,6 +275,8 @@ This is not authentication — see ADR-017 and the tailnet-trust model in ADR-02
 
 - **Why no authentication?** -- Server is LAN-only (CORS-enforced). Target environment is a trusted home network or tailnet. Authentication would add significant complexity for minimal security benefit. (See ADR-017, ADR-024)
 
+- **Why is `/mcp` separate from `/api/rpc`?** -- `/api/rpc` accepts write commands. `/mcp` can only read: its module holds a read-only facade, and a source-guard test enforces it. It has no auth, the same as `/api/rpc`. (See ADR-057)
+
 - **Why one process?** -- One process owns one SQLite file. No IPC, no stale caches, and no second writer to coordinate with.
 
 - **Why are some capability flags permanently false?** -- `file_dialogs`, `updater`, `open_external` and `move_database` describe native affordances that only a desktop shell could provide. They are reported as `false` so the UI never offers them.
@@ -280,6 +287,7 @@ This is not authentication — see ADR-017 and the tailnet-trust model in ADR-02
 - ADR-016: _internal Extraction Pattern
 - ADR-017: LAN-Only CORS Without Authentication
 - ADR-024: Homelab server is the canonical deployment
+- ADR-057: Read-only MCP endpoint at `/mcp` ([mcp-endpoint.md](./mcp-endpoint.md))
 - ADR-008: All business logic in Rust backend (server mode relies on this)
 - [_tasks/_done/55-server-mode/](../../_tasks/_done/55-server-mode/): Original server-mode planning and design
 - [_tasks/_done/33-web-deployment/](../../_tasks/_done/33-web-deployment/): Headless and Docker deployment work

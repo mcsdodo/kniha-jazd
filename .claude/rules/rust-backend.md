@@ -72,7 +72,7 @@ Paths are relative to `src-tauri/core/src/` unless noted.
 
 | File | Purpose | When to Modify |
 |------|---------|----------------|
-| `server/mod.rs` | Axum router, `/api/rpc`, `/health`, CORS, static files | HTTP surface changes |
+| `server/mod.rs` | Axum router, `/api/rpc`, `/mcp`, `/health`, CORS, static files | HTTP surface changes |
 | `server/dispatcher.rs` | Sync command dispatch — one `match` arm per command in `dispatch_sync` | Registering a new command |
 | `server/dispatcher_async.rs` | Async command dispatch — one arm per command in `dispatch_async` | Registering a new async command |
 | `commands_internal/` | The `*_internal` functions the dispatcher calls | New frontend→backend calls |
@@ -83,6 +83,9 @@ Paths are relative to `src-tauri/core/src/` unless noted.
 | `calculations/phev.rs` | PHEV combined fuel + energy | Plug-in hybrid logic |
 | `suggestions.rs` | Compensation trip logic | Route matching, suggestions |
 | `db.rs` | SQLite CRUD operations | Schema changes, queries |
+| `journeys/mod.rs` | Journey grouping: legs to journeys away from home (pure, no DB) | Journey rules |
+| `commands_internal/journeys_cmd.rs` | `LogbookReader`: the three reads the MCP module may call | New MCP read |
+| `mcp/mod.rs` | Read-only MCP tools at `/mcp`. Never hold a `Database`; `mcp/tests.rs` has the source guard | MCP tools |
 | `app_state.rs` | Read-only mode, app mode | App state management |
 | `settings.rs` | Local settings + env overrides | User preferences, new env vars |
 | `paperless.rs` | Paperless-ngx client | Invoice source integration |

@@ -25,6 +25,8 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Návrh tankovania** - Automatický výpočet litrov pre dosiahnutie optimálnej spotreby
 - **Pamätanie trás** - Časté trasy sa automaticky dopĺňajú
 - **Miesta** - Karta s knihou miest: miesto pridáte (názov a bod na mape), premenujete (zmena platí pre všetky jazdy) alebo zmažete (len ak ho nepoužíva žiadna jazda). Jazda prijme len existujúce miesto, ponuka "Odkiaľ"/"Kam" je spoločná pre všetky vozidlá. Detaily nájdete v [docs/features/place-book.md](docs/features/place-book.md).
+- **Domov** - Ikonou domčeka na karte Miesta označíte jedno miesto ako domov. Označenie používa rozhranie MCP na zoskupenie jázd do ciest. Detaily nájdete v [docs/features/place-book.md](docs/features/place-book.md).
+- **MCP rozhranie len na čítanie** - Na adrese `/mcp` môže AI asistent čítať vozidlá, jazdy a cesty mimo domova (`list_vehicles`, `list_trips`, `list_journeys`). Rozhranie nič nezmení a nemá prihlásenie, rovnako ako `/api/rpc`. Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Detaily nájdete v [docs/features/mcp-endpoint.md](docs/features/mcp-endpoint.md).
 - **Mapy trás** - Ku každej jazde vygenerujete trasu po cestách z miesta odchodu do miesta príchodu (alebo okružnú, ak sú rovnaké), vyberiete si z alternatív, doladíte ju potiahnutím čiary a vzdialenosť zapíšete do jazdy. Uložené mapy sa pripoja do tlačového exportu. Detaily nájdete v [docs/features/route-maps.md](docs/features/route-maps.md).
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby

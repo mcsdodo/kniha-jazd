@@ -1,6 +1,6 @@
 **Date:** 2026-10-05
 **Subject:** Places as entities: a Miesta tab, trips and routes reference places by ID, only existing places on a trip
-**Status:** In Progress
+**Status:** Complete
 
 ## Goal
 

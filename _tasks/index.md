@@ -2,14 +2,12 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-10-05 (Tasks [88](88-places-as-entities/) and [89](89-home-place-mcp/) are planned. 89 depends on 88.)
+**Last updated:** 2026-10-05 (Tasks [88](88-places-as-entities/) and [89](89-home-place-mcp/) are complete.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 89 | [Home Place + MCP](89-home-place-mcp/) | 📋 Planning | Home mark on a place, journey grouping in core, read-only MCP at `/mcp` (stateless streamable HTTP, `rmcp`). Depends on 88 |
-| 88 | [Places As Entities](88-places-as-entities/) | 🟡 In Progress | Implemented on branch feat/88-places-as-entities; final review and merge pending. Places get an ID; trips and routes reference places by ID; Miesta tab; a trip accepts only an existing place. One-way migration |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
 | 57 | [Invoice to Trip](57-invoice-to-trip/) | 📋 Planning | Create trip from fuel invoice (mid-trip split helper) + origin auto-fill |
@@ -19,6 +17,8 @@ Quick overview of all tasks and their status.
 
 | # | Task | Completed |
 |---|------|-----------|
+| 89 | [Home Place + MCP](./89-home-place-mcp/) -- ✅ A home mark on a place, journey grouping in core, and a read-only MCP endpoint at `/mcp`; see [docs/features/mcp-endpoint.md](../docs/features/mcp-endpoint.md) and [BIZ-026](../DECISIONS.md#biz-026-journeys-away-from-home) | 2026-10-05 |
+| 88 | [Places As Entities](./88-places-as-entities/) -- ✅ Places get an ID; trips and routes reference places by ID; a trip accepts only an existing place; one-way migration; see [docs/features/place-book.md](../docs/features/place-book.md) | 2026-10-05 |
 | 87 | [Save And Apply Distance](./_done/87-save-and-apply-distance/) -- One "Uložiť a použiť vzdialenosť" button on `/mapa`: every save writes the route's whole-km distance to the trip in one transaction, in every mode (Loop too); supersedes the Direct-only scope of ADR-048 | 2026-09-29 |
 | 86 | [Route Provider Switch](./_done/86-route-provider-switch/) -- Select OSRM or Sygic per route on `/mapa`, stored in `trip_routes.provider` (Sygic has no D1 Visnove tunnel); see ADR-053 | 2026-09-29 |
 | 85 | [Route Avoid Tolls Per Country](./_done/85-route-avoid-tolls-per-country/) -- Per-country "avoid paid roads" checkboxes on `/mapa` (BA to Brno without CZ vignette roads); Sygic routing API when `SYGIC_API_KEY` is set, public OSRM otherwise | 2026-09-29 |

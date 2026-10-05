@@ -4,7 +4,7 @@
 
 ## User Flow
 
-1. User opens the **Trips** tab for a vehicle
+1. User opens the logbook for a vehicle (the main page, `/`: click the title in the header)
 2. Frontend calls `get_trip_grid_data(vehicle_id, year)`
 3. Backend returns pre-calculated `TripGridData` with:
    - All trips for the year (sorted by [`start_datetime` DESC](../../src-tauri/core/src/commands_internal/helpers.rs); the canonical `trip_order` comparator breaks ties by `created_at`, then `odometer`, then `id` — [ADR-044](../../DECISIONS.md))

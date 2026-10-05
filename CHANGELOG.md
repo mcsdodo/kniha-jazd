@@ -17,7 +17,7 @@ databázu len na čítanie.
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** áno. Pred nasadením urobte zálohu databázy. Aplikácia pred migráciou uloží aj vlastnú zálohu `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db`.
 - **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** 2 nové (`2026-10-05-100000_places_as_entities`, `2026-10-05-110000_add_place_is_home`). Druhá pridá stĺpec `places.is_home` a jedinečný čiastočný index, údaje nemení. Žiadne miesto nie je domov, kým ho používateľ neoznačí. Prvá: Miesta sú samostatné záznamy, jazdy a uložené trasy na ne odkazujú cez ID. Migrácia je jednosmerná: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len ručná obnova zálohy: zastavte kontajner, skopírujte `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db` cez `<DATA_DIR>/kniha-jazd.db` a spustite starší obraz.
+- **Migrácie databázy:** 2 nové. `2026-10-05-100000_places_as_entities`: miesta sú samostatné záznamy a jazdy aj uložené trasy na ne odkazujú cez ID. `2026-10-05-110000_add_place_is_home`: pridá stĺpec `places.is_home` a jedinečný čiastočný index, údaje nemení. Žiadne miesto nie je domov, kým ho používateľ neoznačí. Migrácie sú jednosmerné: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len ručná obnova zálohy: zastavte kontajner, skopírujte `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db` cez `<DATA_DIR>/kniha-jazd.db` a spustite starší obraz.
 - **Strata údajov:**
   - Rôzne zápisy jedného miesta (napr. "Kosice" a "Košice") sa zlúčia do jedného miesta s najčastejším zápisom. Ostatné zápisy sa stratia a každá jazda ukáže názov miesta.
   - Uložené trasy, ktoré sa po zlúčení zápisov miesta ocitnú na jednej dvojici miest, sa spoja do jednej trasy. Ostane trasa najnovšej jazdy na tej dvojici, inak prvá podľa `id`.
@@ -29,10 +29,10 @@ databázu len na čítanie.
 ### Pridané
 - **Karta Miesta** - zoznam všetkých miest s pridaním, premenovaním, určením polohy a zmazaním. Miesto sa dá zmazať, len ak ho nepoužíva žiadna jazda. Miesto bez polohy je označené "Treba doplniť polohu".
 - **Domov** - jedno miesto sa dá označiť ako domov ikonou domčeka na karte Miesta. Označenie sa dá presunúť na iné miesto.
-- **Rozhranie MCP len na čítanie** - na adrese `/mcp` môže AI asistent čítať vozidlá, jazdy a cesty v rozsahu dátumov. Cesta sa začína jazdou z domova a končí nasledujúcou jazdou späť domov. Rozhranie nič nezmení.
+- **Rozhranie MCP len na čítanie** - na adrese `/mcp` môže AI asistent čítať vozidlá, jazdy a cesty v rozsahu dátumov. Cesta sa začína jazdou z domova a končí nasledujúcou jazdou späť domov. Rozhranie nič nezmení. Má len tri nástroje: `list_vehicles`, `list_trips`, `list_journeys`. Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`.
 
 ### Zmenené
-- **Nadpis v hlavičke** - klik na názov aplikácie otvorí knihu jázd.
+- **Nadpis v hlavičke** - názov aplikácie je teraz odkaz na knihu jázd. Samostatná karta Kniha jázd zmizla.
 - **Jazda prijme len existujúce miesto** - pole Odkiaľ a Kam v jazde ponúka len miesta z karty Miesta. Neznámy text jazdu neuloží. Nové miesto najprv pridajte na karte Miesta.
 - **Premenovanie miesta platí pre všetky jazdy** - aj pre minulé roky, ktoré už boli vytlačené. Premenovanie na názov, ktorý už iné miesto má, skončí chybou. Miesta sa nezlučujú.
 - **Druh trasy podľa miesta** - mapa rozhodne medzi okružnou a priamou trasou podľa toho, či je začiatok a cieľ to isté miesto, nie podľa textu.

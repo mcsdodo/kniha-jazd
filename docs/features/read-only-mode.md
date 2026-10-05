@@ -86,7 +86,7 @@ note below the table). Grouped by module under
 | [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_paperless_invoice`, `unassign_paperless_invoice`, `revert_paperless_override` |
 | [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `save_ha_settings`, `save_paperless_settings` |
 | [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `save_trip_round_trip_route` (conditional: both take `dry_run`, see below), `delete_trip_route` |
-| [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `create_place`, `rename_place`, `set_place_position`, `delete_place` (see [place-book.md](./place-book.md)) |
+| [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `create_place`, `rename_place`, `set_place_position`, `set_home_place`, `delete_place` (see [place-book.md](./place-book.md)) |
 
 The **dry-run family** in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
 is conditional: `recalculate_odometers_internal`, `update_trip_cascade_internal`,
@@ -128,6 +128,12 @@ mode is ever armed for a different reason, that string needs revisiting.
 (see [server/mod.rs](../../src-tauri/core/src/server/mod.rs)). The UI does not use it — it
 reads the same state through `get_app_mode` — but it lets an operator check the mode with
 `curl`.
+
+### The MCP endpoint
+
+`/mcp` has no write tool, so it needs no guard. It reads in both modes. In read-only mode
+it still answers `list_vehicles`, `list_trips` and `list_journeys`. See
+[mcp-endpoint.md](./mcp-endpoint.md).
 
 ## Key Files
 
@@ -172,4 +178,5 @@ The app is primarily for Slovak users. Error messages use Slovak to match the UI
 ## Related
 
 - [ADR-012](../../DECISIONS.md): Forward-only migrations
+- [mcp-endpoint.md](./mcp-endpoint.md): the endpoint that works in read-only mode
 - [ADR-030](../../DECISIONS.md): Tauri desktop app removed; the container is the only target

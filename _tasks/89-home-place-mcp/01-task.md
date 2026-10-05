@@ -1,6 +1,6 @@
 **Date:** 2026-10-05
 **Subject:** Home place setting, journey grouping in core, and a read-only MCP endpoint at `/mcp`
-**Status:** Planning
+**Status:** Complete
 **Depends on:** [Task 88: Places as Entities](../88-places-as-entities/01-task.md). Write `02-plan.md` only after 88 is merged, because 88 moves the code this plan will cite.
 
 ## Goal

@@ -173,6 +173,9 @@ and a timestamp -- a few KB per trip. No image is stored anywhere; see
 [ADR-028](../../DECISIONS.md#adr-028-only-the-polyline-is-persisted-tiles-live-in-a-disposable-cache).
 `round_trip` is meaningful for Direct mode only -- a saved loop is always stored `false`,
 since a loop is already closed by construction.
+A saved map with `round_trip = true` also makes the trip a day trip in the journey
+grouping (the leg goes there and back on one row). See
+[mcp-endpoint.md](./mcp-endpoint.md).
 
 `turnaround_index` is where, in `waypoints`, the outbound leg ends and the return leg
 begins -- meaningful for a round trip only. `NULL` means "split at `length - 2`": every round

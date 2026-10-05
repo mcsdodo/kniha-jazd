@@ -37,13 +37,18 @@ Three things read the book:
 7. **Delete a place.** Click *Zmazať* and confirm. The button is disabled when a trip
    uses the place. The tooltip says how many times the place is used. Saved routes that
    point at the place go with it (see Delete rules below).
-8. **Fix a migrated place.** A place from an old database can have no position. The row
+8. **Mark the home place.** Click the house icon on a row. The icon is filled for the home
+   place and outlined for the others. A click on the home place removes the mark. A new
+   mark replaces the old one, because only one place can be home. The button has
+   `data-testid="place-home-toggle"` and `aria-pressed`. The journey grouping and the MCP
+   tool `list_journeys` read this mark. See [mcp-endpoint.md](./mcp-endpoint.md).
+9. **Fix a migrated place.** A place from an old database can have no position. The row
    shows a warning marker with the text *Treba doplniť polohu*. Set a position as in
    step 5.
 
 Settings has no place section. The Settings page and the Miesta tab are separate.
 
-**Read-only mode**: create, rename, set position and delete are blocked
+**Read-only mode**: create, rename, set position, delete and the home mark are blocked
 (`check_read_only!`). The list, `find_place` and the search still work.
 
 ## Technical Implementation
@@ -60,6 +65,11 @@ The `places` table:
 | `lat`, `lon` | Position. `NULL` only for a legacy place from the migration. |
 | `source` | `geocoder` or `manual`. `NULL` when there is no position. |
 | `created_at` | Creation time |
+| `is_home` | `BOOLEAN NOT NULL DEFAULT 0`. `1` for the home place (task 89). |
+
+The migration `2026-10-05-110000_add_place_is_home` adds `is_home` and the partial unique
+index `idx_places_single_home` (`WHERE is_home = 1`). The index allows at most one home.
+No place is home until the user marks one. The migration changes no data.
 
 `trips` and `routes` have `origin_place_id` and `destination_place_id` with a foreign key
 to `places(id)`. `routes` is `UNIQUE(vehicle_id, origin_place_id, destination_place_id)`.
@@ -93,11 +103,12 @@ The commands live in
 
 | Command | Args | Does |
 |---------|------|------|
-| `list_places` | none | All places with `uses`. Unplaced first, then `uses` descending, then name. |
+| `list_places` | none | All places with `uses` and `isHome`. Unplaced first, then `uses` descending, then name. |
 | `create_place` | `name`, `lat`, `lon`, `source` | Creates a place. Position required. Error if the key exists. |
 | `rename_place` | `id`, `name` | Changes `name` and `normalised_name`. Error if another place has the key. |
 | `set_place_position` | `id`, `lat`, `lon`, `source` | Sets the position. |
 | `delete_place` | `id` | Deletes the place only if no trip uses it. |
+| `set_home_place` | `id` or `null` | Moves the home mark to the place, or clears it with `null`. One transaction: the old mark goes first. Error if the place does not exist. Guarded by `check_read_only!`. |
 | `find_place` | `name` | Returns the place whose key equals `normalise(name)`, or nothing. |
 | `geocode_place` | `query` | Returns candidates. **Writes nothing.** |
 
@@ -203,6 +214,7 @@ Trip form (save)
 | [db.rs](../../src-tauri/core/src/db.rs) | `kj_normalise` registration, `delete_place_if_unused`, place queries |
 | [models.rs](../../src-tauri/core/src/models.rs) | `Place`, `PlaceRow`, `NewPlaceRow`, `PlaceSource` |
 | [migrations/2026-10-05-100000_places_as_entities](../../src-tauri/core/migrations/2026-10-05-100000_places_as_entities/up.sql) | The migration |
+| [migrations/2026-10-05-110000_add_place_is_home](../../src-tauri/core/migrations/2026-10-05-110000_add_place_is_home/up.sql) | The `is_home` column and the one-home index |
 | [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | The RPC arms |
 | [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | The `geocode_place` arm |
 | [miesta/+page.svelte](../../src/routes/miesta/+page.svelte) | The Miesta tab |
@@ -225,6 +237,10 @@ Trip form (save)
 - **Why does a trip accept only an existing place?** Typed text that matches no place
   was the source of duplicate spellings. The save is blocked and the message links to
   Miesta.
+- **Why one home place?** The journey grouping needs one start point. A partial unique
+  index enforces it in the database, and `set_home_place` clears the old mark first. The
+  match is by place ID, so a rename does not break it. See
+  [BIZ-026](../../DECISIONS.md#biz-026-journeys-away-from-home).
 - **Every place is confirmed by a human (ADR-032).** The app never accepts a geocoder
   answer without a click. A wrong pin shows up later as a wrong map on a legal document.
 - **The geocoder has no country filter (ADR-035).** Real logbooks name Czech and
@@ -242,7 +258,8 @@ Trip form (save)
   child rows) and the parse of a Nominatim answer (`wiremock`).
 - **Integration tests** ([places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts))
   own the UI flows: add, rename, delete, the disabled delete of a used place and the
-  trip form that accepts only an existing place.
+  trip form that accepts only an existing place. The home icon flow (mark, replace, reload)
+  is in the same spec.
 
 No test reaches Nominatim. What the geocoder answers for a real address is not this
 project's behaviour.
@@ -250,6 +267,8 @@ project's behaviour.
 ## Related
 
 - [ADR-055](../../DECISIONS.md#adr-055-places-are-entities-trips-and-routes-reference-them-by-id): Places are entities, trips and routes reference them by ID
+- [BIZ-026](../../DECISIONS.md#biz-026-journeys-away-from-home): Journeys away from home (the home mark)
+- [mcp-endpoint.md](./mcp-endpoint.md): the read-only MCP endpoint that reads the home mark
 - [ADR-032](../../DECISIONS.md): Places are placed by a human, never by a confidence heuristic
 - [ADR-033](../../DECISIONS.md): Aggregates over trips are computed, not stored
 - [ADR-034](../../DECISIONS.md): The display spelling (superseded by ADR-055: the name is stored)

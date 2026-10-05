@@ -1,6 +1,6 @@
 **Date:** 2026-10-05
 **Subject:** Implementation plan: home mark on places, journey grouping, read-only MCP endpoint
-**Status:** Planning
+**Status:** Complete
 
 # Home Place, Journeys and Read-Only MCP Implementation Plan
 

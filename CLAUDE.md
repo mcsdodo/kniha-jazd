@@ -43,7 +43,8 @@ All business logic and calculations live in Rust backend only (ADR-008):
 │               SvelteKit Frontend                │
 │        (Display only - no calculations)         │
 ├─────────────────────────────────────────────────┤
-│    HTTP  -  POST /api/rpc { command, args }     │
+│  HTTP  -  POST /api/rpc { command, args }       │
+│        and  /mcp (read-only MCP)                │
 ├─────────────────────────────────────────────────┤
 │  kniha-jazd-web  -  Axum server + static SPA    │
 ├─────────────────────────────────────────────────┤
@@ -57,9 +58,12 @@ All business logic and calculations live in Rust backend only (ADR-008):
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
 │  │    server    │  │  app_state   │  │   models   │
 │  └──────────────┘  └──────────────┘  └────────────┘
-│  ┌──────────────┐  ┌──────────────┐
-│  │    places    │  │  route_map   │
-│  └──────────────┘  └──────────────┘
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
+│  │    places    │  │  route_map   │  │  journeys  │
+│  └──────────────┘  └──────────────┘  └────────────┘
+│  ┌──────────────┐
+│  │     mcp      │
+│  └──────────────┘
 ├─────────────────────────────────────────────────┤
 │      SQLite Database  -  one /data volume       │
 └─────────────────────────────────────────────────┘

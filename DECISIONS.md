@@ -4,6 +4,51 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-05: Home Place and Read-Only MCP
+
+### ADR-057: A read-only MCP endpoint at `/mcp`, stateless and read-only by construction
+
+**Context:** An AI assistant must read the logbook to find business trips. `POST /api/rpc` has no auth and accepts write commands, so the assistant must not use it. [Task 89](./_tasks/89-home-place-mcp/01-task.md) adds a separate surface that can only read. See [ADR-008](#adr-008-remove-frontend-calculation-duplication) for the rule that logic stays in Rust.
+
+**Decision:**
+
+1. **Transport.** `/mcp` is served on the existing Axum server with `rmcp` 3.5, over streamable HTTP. The service is stateless: `legacy_session_mode(false)`, `NeverSessionManager`, `json_response(true)`, no SSE keep-alive. The router mounts `/mcp` before the SPA fallback, in both branches.
+2. **Read-only by construction.** The `mcp` module holds only a `LogbookReader` (`commands_internal/journeys_cmd.rs`). The reader keeps its `Database` private and has three reads. The test `mcp_read_path_has_no_write_access` reads the source of `mcp/` and `journeys_cmd.rs`. It accepts only the names in the allowlist `ALLOWED_READS`. A new function must be added to the list on purpose.
+3. **No auth**, the same as `/api/rpc`.
+4. **Host check off.** `rmcp` accepts only loopback `Host` headers by default. Behind a reverse proxy the host is the public name, so the default rejects every request. The service calls `disable_allowed_hosts()`. `/api/rpc` has no host check and can write, so a read-only `/mcp` adds no new risk.
+5. **`vehicle_id = None` means all vehicles.** `is_active` marks only the vehicle selected in the UI, so it is not a filter.
+6. **Output.** Each tool returns a JSON object (`vehicles`, `trips`, `home_place` with `journeys`), because MCP `structuredContent` must be an object.
+7. **Errors.** Bad input (a date that is not `YYYY-MM-DD`, `date_from` after `date_to`, an unknown vehicle) and "no home place" are `invalid_params`. A database error is `internal_error`.
+8. **Blocking work.** Each read runs in `tokio::task::spawn_blocking`, the same as `rpc_handler`.
+9. **Build.** `rmcp` 3.5 needs Rust 1.88. `Dockerfile.web`, the workspace `rust-version` and `CONTRIBUTING.md` use 1.88.
+
+**Reasoning:** A stateless service has no session ID to lose: a client that cached an ID keeps working after a restart. A guard that fails closed is more reliable than a review of each change, because the assistant must not be able to change a legal document. The tools call the core reads directly, so there is one code path and no write command is in reach.
+
+**Related:** [BIZ-026](#biz-026-journeys-away-from-home); [docs/features/mcp-endpoint.md](./docs/features/mcp-endpoint.md); [docs/features/server-mode.md](./docs/features/server-mode.md); [ADR-008](#adr-008-remove-frontend-calculation-duplication).
+
+### BIZ-026: Journeys away from home
+
+**Context:** The assistant needs journeys, not trip rows. A trip row is one leg. The app had no home place. [Task 89](./_tasks/89-home-place-mcp/01-task.md) adds one, on top of [task 88](./_tasks/88-places-as-entities/01-task.md).
+
+**Decision:**
+
+1. **Home.** One place can have `places.is_home = 1`. A partial unique index allows only one. A leg endpoint is home if its place ID is the ID of that place. The match is by ID, not by text.
+2. **Order.** The legs of one vehicle are sorted by `start_datetime`, then by `odometer`.
+3. **Start and end.** A journey starts at a leg from home to a place that is not home. It ends at the next leg from a place that is not home to home.
+4. **Day trip.** A single leg from home is never a journey if its saved map has `round_trip = true`, or if the next leg starts at home.
+5. **Loop.** A leg from home to home is never a journey.
+6. **Incomplete journey.** A chain with no return leg is incomplete (`complete = false`, `end = null`, `nights = null`). This happens when the chain is open after the last leg of the vehicle. It also happens when a chain of **two or more legs** meets a new leg from home (a new departure or a home to home loop). A **single leg** followed by a leg from home is a day trip. The user decided this on 2026-10-05.
+7. **Other legs.** Legs outside a chain are ignored.
+8. **Overlap.** The grouping reads all legs of the vehicle and filters the journeys after. A journey that overlaps the date range is returned, also when it starts before `date_from`. An incomplete journey is open towards the future.
+9. **No home place is an error**, not an empty list. An empty list would look like "nothing to check".
+10. **No accounting rule.** The app does not decide which journey needs a travel order. The consumer applies its own rule to `nights` and `total_km`.
+
+**Reasoning:** The home match by ID follows [ADR-055](#adr-055-places-are-entities-trips-and-routes-reference-them-by-id): a rename cannot break it. A round-trip map is a day trip because it goes there and back on one row. A chain of two or more legs is a real trip that lost its return leg, so the data must show it as incomplete and not hide it. An accounting rule changes by law and by firm, so it stays outside the app.
+
+**Related:** [ADR-057](#adr-057-a-read-only-mcp-endpoint-at-mcp-stateless-and-read-only-by-construction); [docs/features/mcp-endpoint.md](./docs/features/mcp-endpoint.md); [docs/features/place-book.md](./docs/features/place-book.md).
+
+---
+
 ## 2026-10-05: Places as Entities
 
 ### BIZ-025: A trip accepts only an existing place
