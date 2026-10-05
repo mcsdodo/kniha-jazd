@@ -78,6 +78,10 @@ type RootTranslation = {
 			 * N​a​s​t​a​v​e​n​i​a
 			 */
 			settings: string
+			/**
+			 * M​i​e​s​t​a
+			 */
+			places: string
 		}
 		/**
 		 * V​o​z​i​d​l​o​:
@@ -1625,7 +1629,7 @@ type RootTranslation = {
 		 */
 		filterPlaceholder: string
 		/**
-		 * Ž​i​a​d​n​e​ ​m​i​e​s​t​a​.​ ​Z​o​z​n​a​m​ ​s​a​ ​v​y​t​v​á​r​a​ ​z​ ​j​á​z​d​ ​—​ ​p​r​i​d​a​j​t​e​ ​p​r​v​ú​ ​j​a​z​d​u​ ​a​ ​j​e​j​ ​m​i​e​s​t​a​ ​s​a​ ​t​u​ ​z​o​b​r​a​z​i​a​.
+		 * Ž​i​a​d​n​e​ ​m​i​e​s​t​a​.​ ​P​r​i​d​a​j​t​e​ ​p​r​v​é​ ​m​i​e​s​t​o​ ​t​l​a​č​i​d​l​o​m​ ​v​y​š​š​i​e​.
 		 */
 		empty: string
 		/**
@@ -1674,27 +1678,74 @@ type RootTranslation = {
 		 */
 		save: string
 		/**
-		 * O​d​s​t​r​á​n​i​ť​ ​u​m​i​e​s​t​n​e​n​i​e
-		 */
-		clear: string
-		/**
 		 * M​i​e​s​t​o​ ​u​l​o​ž​e​n​é
 		 */
 		saved: string
 		/**
-		 * U​m​i​e​s​t​n​e​n​i​e​ ​o​d​s​t​r​á​n​e​n​é
+		 * P​r​i​d​a​ť​ ​m​i​e​s​t​o
 		 */
-		cleared: string
+		add: string
+		/**
+		 * N​á​z​o​v​ ​m​i​e​s​t​a
+		 */
+		addName: string
+		/**
+		 * Ď​a​l​e​j
+		 */
+		addNext: string
+		/**
+		 * P​r​e​m​e​n​o​v​a​ť
+		 */
+		rename: string
+		/**
+		 * U​l​o​ž​i​ť​ ​n​á​z​o​v
+		 */
+		renameSave: string
+		/**
+		 * M​i​e​s​t​o​ ​p​r​e​m​e​n​o​v​a​n​é
+		 */
+		renamed: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​p​r​e​m​e​n​o​v​a​ť​ ​m​i​e​s​t​o​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		renameError: RequiredParams<'error'>
+		/**
+		 * Z​m​a​z​a​ť
+		 */
+		'delete': string
+		/**
+		 * M​i​e​s​t​o​ ​z​m​a​z​a​n​é
+		 */
+		deleted: string
+		/**
+		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​z​m​a​z​a​ť​ ​m​i​e​s​t​o​:​ ​{​e​r​r​o​r​}
+		 * @param {string} error
+		 */
+		deleteError: RequiredParams<'error'>
+		/**
+		 * M​i​e​s​t​o​ ​j​e​ ​p​o​u​ž​i​t​é​ ​{​c​o​u​n​t​}​-​k​r​á​t​.
+		 * @param {number} count
+		 */
+		deleteInUse: RequiredParams<'count'>
+		/**
+		 * Z​m​a​z​a​ť​ ​m​i​e​s​t​o​?
+		 */
+		deleteConfirmTitle: string
+		/**
+		 * M​i​e​s​t​o​ ​"​{​n​a​m​e​}​"​ ​s​a​ ​z​m​a​ž​e​.
+		 * @param {string} name
+		 */
+		deleteConfirmMessage: RequiredParams<'name'>
+		/**
+		 * T​r​e​b​a​ ​d​o​p​l​n​i​ť​ ​p​o​l​o​h​u
+		 */
+		needsPosition: string
 		/**
 		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​u​l​o​ž​i​ť​ ​m​i​e​s​t​o​:​ ​{​e​r​r​o​r​}
 		 * @param {string} error
 		 */
 		saveError: RequiredParams<'error'>
-		/**
-		 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​o​d​s​t​r​á​n​i​ť​ ​u​m​i​e​s​t​n​e​n​i​e​:​ ​{​e​r​r​o​r​}
-		 * @param {string} error
-		 */
-		clearError: RequiredParams<'error'>
 	}
 	'export': {
 		/**
@@ -2456,6 +2507,10 @@ export type TranslationFunctions = {
 			 * Nastavenia
 			 */
 			settings: () => LocalizedString
+			/**
+			 * Miesta
+			 */
+			places: () => LocalizedString
 		}
 		/**
 		 * Vozidlo:
@@ -3954,7 +4009,7 @@ export type TranslationFunctions = {
 		 */
 		filterPlaceholder: () => LocalizedString
 		/**
-		 * Žiadne miesta. Zoznam sa vytvára z jázd — pridajte prvú jazdu a jej miesta sa tu zobrazia.
+		 * Žiadne miesta. Pridajte prvé miesto tlačidlom vyššie.
 		 */
 		empty: () => LocalizedString
 		/**
@@ -4002,25 +4057,69 @@ export type TranslationFunctions = {
 		 */
 		save: () => LocalizedString
 		/**
-		 * Odstrániť umiestnenie
-		 */
-		clear: () => LocalizedString
-		/**
 		 * Miesto uložené
 		 */
 		saved: () => LocalizedString
 		/**
-		 * Umiestnenie odstránené
+		 * Pridať miesto
 		 */
-		cleared: () => LocalizedString
+		add: () => LocalizedString
+		/**
+		 * Názov miesta
+		 */
+		addName: () => LocalizedString
+		/**
+		 * Ďalej
+		 */
+		addNext: () => LocalizedString
+		/**
+		 * Premenovať
+		 */
+		rename: () => LocalizedString
+		/**
+		 * Uložiť názov
+		 */
+		renameSave: () => LocalizedString
+		/**
+		 * Miesto premenované
+		 */
+		renamed: () => LocalizedString
+		/**
+		 * Nepodarilo sa premenovať miesto: {error}
+		 */
+		renameError: (arg: { error: string }) => LocalizedString
+		/**
+		 * Zmazať
+		 */
+		'delete': () => LocalizedString
+		/**
+		 * Miesto zmazané
+		 */
+		deleted: () => LocalizedString
+		/**
+		 * Nepodarilo sa zmazať miesto: {error}
+		 */
+		deleteError: (arg: { error: string }) => LocalizedString
+		/**
+		 * Miesto je použité {count}-krát.
+		 */
+		deleteInUse: (arg: { count: number }) => LocalizedString
+		/**
+		 * Zmazať miesto?
+		 */
+		deleteConfirmTitle: () => LocalizedString
+		/**
+		 * Miesto "{name}" sa zmaže.
+		 */
+		deleteConfirmMessage: (arg: { name: string }) => LocalizedString
+		/**
+		 * Treba doplniť polohu
+		 */
+		needsPosition: () => LocalizedString
 		/**
 		 * Nepodarilo sa uložiť miesto: {error}
 		 */
 		saveError: (arg: { error: string }) => LocalizedString
-		/**
-		 * Nepodarilo sa odstrániť umiestnenie: {error}
-		 */
-		clearError: (arg: { error: string }) => LocalizedString
 	}
 	'export': {
 		/**

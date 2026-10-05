@@ -23,12 +23,13 @@ export async function waitForAppReady(): Promise<void> {
 /**
  * Navigate to a specific page in the app
  */
-export async function navigateTo(path: 'trips' | 'settings' | 'doklady' | 'backups'): Promise<void> {
+export async function navigateTo(path: 'trips' | 'settings' | 'doklady' | 'backups' | 'miesta'): Promise<void> {
   const hrefs: Record<string, string> = {
     trips: '/',
     settings: '/settings',
     doklady: '/doklady',
-    backups: '/backups'
+    backups: '/backups',
+    miesta: '/miesta'
   };
 
   const link = await $(`a[href="${hrefs[path]}"]`);

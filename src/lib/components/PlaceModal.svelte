@@ -33,7 +33,7 @@
 	// What makes it a snapshot is that a $state(...) initialiser runs exactly
 	// once — untrack() adds no guarantee of its own, it only marks that
 	// once-only read as deliberate and silences `state_referenced_locally`.
-	// That once-only seeding is also why the settings page wraps this dialog in
+	// That once-only seeding is also why the Miesta page wraps this dialog in
 	// {#key}: a `place` swapped in under a live instance would leave the
 	// previous place's coordinate sitting here, under the new place's name.
 	let lat = $state<number | null>(untrack(() => place.lat ?? null));

@@ -127,6 +127,7 @@
 				<nav class="main-nav">
 					<a href="/" class="nav-link" class:active={$page.url.pathname === '/'}>{$LL.app.nav.logbook()}</a>
 					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<InvoiceIndicator /></a>
+					<a href="/miesta" class="nav-link" class:active={$page.url.pathname === '/miesta'} data-testid="nav-places">{$LL.app.nav.places()}</a>
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
 						{$LL.app.nav.settings()}
 					</a>
