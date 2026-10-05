@@ -36,7 +36,7 @@
 	// backend's `places::normalise` output - lowercased, diacritics folded,
 	// whitespace collapsed - so an ASCII query finds a name written with
 	// diacritics, which is the case that actually occurs: production data shows
-	// users type "Kosice", not "Košice" (see `normalize_location` in db.rs).
+	// users type "Kosice", not "Košice" (see the `normalisedName` field and `places::normalise`).
 	// Folding the needle here instead would mean a second, divergent
 	// copy of `normalise` in TypeScript, which ADR-008 forbids - so the needle
 	// stays unfolded and the two spellings are reached by two routes: a query

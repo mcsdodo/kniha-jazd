@@ -37,9 +37,6 @@ import { seedVehicle, seedTrip, setActiveVehicle, rpc, getTripGridData, ensurePl
 import { waitForTripGrid, TripGrid } from '../../utils/assertions';
 import { fillTripForm, fillField } from '../../utils/forms';
 
-/** What the map dialog renders for a pending pin with no coordinate (em dash). */
-const NO_COORDS = '\u2014';
-
 /**
  * The place the geocoder is asked about. Its fixture lives at
  * `data/geocoder/gamma warehouse, testville.json`; renaming one without the
@@ -366,7 +363,6 @@ describe('Tier 2: Place Book', () => {
       expect(await modal.getAttribute('data-place-source')).toBe('manual');
 
       const pinned = await $('[data-testid="place-modal-coords"]').getText();
-      expect(pinned).not.toBe(NO_COORDS);
       expect(pinned).toMatch(/^-?\d+\.\d{3}, -?\d+\.\d{3}$/);
 
       await (await $('[data-testid="place-modal-save"]')).click();
