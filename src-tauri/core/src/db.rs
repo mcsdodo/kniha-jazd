@@ -24,6 +24,21 @@ use uuid::Uuid;
 // Embed migrations at compile time
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
+diesel::define_sql_function! {
+    /// `places::normalise`, callable from SQL. The places migration
+    /// (2026-10-05-100000) keys trips onto places with it, and SQLite has no
+    /// function of its own that folds Slovak diacritics.
+    fn kj_normalise(x: diesel::sql_types::Text) -> diesel::sql_types::Text;
+}
+
+/// Set up one connection before anything runs on it: register the SQL
+/// functions the migrations need. Every path that opens a connection and
+/// migrates it must call this first, or a migration fails with
+/// "no such function".
+pub(crate) fn prepare_connection(conn: &mut SqliteConnection) -> QueryResult<()> {
+    kj_normalise_utils::register_impl(conn, |x: String| crate::places::normalise(&x))
+}
+
 // ============================================================================
 // Location Normalization
 // ============================================================================
@@ -61,6 +76,8 @@ impl Database {
 
         let path_str = path.to_str().unwrap_or("");
         let mut conn = SqliteConnection::establish(path_str)?;
+        prepare_connection(&mut conn)
+            .map_err(|e| diesel::ConnectionError::BadConnection(e.to_string()))?;
 
         // Safety net: snapshot the existing DB file before applying pending
         // migrations, so a failed or buggy migration can be recovered from.
@@ -121,6 +138,8 @@ impl Database {
     #[allow(dead_code)]
     pub fn in_memory() -> Result<Self, diesel::ConnectionError> {
         let mut conn = SqliteConnection::establish(":memory:")?;
+        prepare_connection(&mut conn)
+            .map_err(|e| diesel::ConnectionError::BadConnection(e.to_string()))?;
 
         // Run embedded migrations for tests
         conn.run_pending_migrations(MIGRATIONS)
@@ -164,6 +183,7 @@ impl Database {
             .to_str()
             .ok_or_else(|| "Invalid database path encoding".to_string())?;
         *conn = SqliteConnection::establish(path_str).map_err(|e| e.to_string())?;
+        prepare_connection(&mut conn).map_err(|e| e.to_string())?;
         conn.run_pending_migrations(MIGRATIONS)
             .map_err(|e| format!("Migrácia obnovenej zálohy zlyhala: {}", e))?;
         Ok(())
@@ -1339,6 +1359,7 @@ pub(crate) const MULTI_INVOICE_VERSION: &str = "2026-07-15";
 pub(crate) fn open_db_legacy_before(cutoff: &str) -> Database {
     let mut conn = SqliteConnection::establish(":memory:")
         .expect("Failed to open in-memory legacy database");
+    prepare_connection(&mut conn).expect("Failed to register SQL functions");
 
     // Create the __diesel_schema_migrations tracking table (run_migration
     // records into it but never creates it).

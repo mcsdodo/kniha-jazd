@@ -757,3 +757,46 @@ fn existing_route_maps_backfill_the_provider_they_can_be_proven_to_use() {
     assert_eq!(db.get_route_map("t2").unwrap().unwrap().provider, Some(RouteProviderKind::Sygic));
     assert_eq!(db.get_route_map("t3").unwrap().unwrap().provider, None);
 }
+
+// ============================================================================
+// Task 88 -- kj_normalise is available to SQL on every connection
+// ============================================================================
+
+#[derive(diesel::QueryableByName)]
+struct KjRow {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    v: String,
+}
+
+fn kj(db: &Database, input: &str) -> String {
+    let conn = &mut *db.connection();
+    diesel::sql_query("SELECT kj_normalise(?) AS v")
+        .bind::<diesel::sql_types::Text, _>(input)
+        .get_result::<KjRow>(conn)
+        .expect("kj_normalise must be registered")
+        .v
+}
+
+#[test]
+fn kj_normalise_matches_the_rust_fold_on_a_fresh_db() {
+    let db = Database::in_memory().unwrap();
+    assert_eq!(kj(&db, "  Hlavná 5,   Žilina "), crate::places::normalise("  Hlavná 5,   Žilina "));
+    assert_eq!(kj(&db, "Košice"), "kosice");
+}
+
+#[test]
+fn kj_normalise_is_registered_on_a_legacy_db() {
+    let db = open_db_legacy_before("2026-09-07");
+    assert_eq!(kj(&db, "Trenčín"), "trencin");
+}
+
+#[test]
+fn restore_registers_kj_normalise() {
+    let dir = tempfile::tempdir().unwrap();
+    let live = dir.path().join("live.db");
+    let backup = dir.path().join("backup.db");
+    let db = Database::new(live.clone()).unwrap();
+    std::fs::copy(&live, &backup).unwrap();
+    db.restore_from_file(&backup, &live).unwrap();
+    assert_eq!(kj(&db, "Žilina"), "zilina");
+}
