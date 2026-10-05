@@ -17,13 +17,21 @@ databázu len na čítanie.
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** áno. Pred nasadením urobte zálohu databázy. Aplikácia pred migráciou uloží aj vlastnú zálohu `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db`.
 - **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** 1 nová (`2026-10-05-100000_places_as_entities`). Miesta sú samostatné záznamy, jazdy a uložené trasy na ne odkazujú cez ID. Migrácia je jednosmerná: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len obnova zálohy.
+- **Migrácie databázy:** 1 nová (`2026-10-05-100000_places_as_entities`). Miesta sú samostatné záznamy, jazdy a uložené trasy na ne odkazujú cez ID. Migrácia je jednosmerná: starší obraz s takou databázou nepočíta a jazdy z nej nečaká načítať, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len obnova zálohy pred migráciou.
 - **Strata údajov:**
   - Rôzne zápisy jedného miesta (napr. "Kosice" a "Košice") sa zlúčia do jedného miesta s najčastejším zápisom. Ostatné zápisy sa stratia a každá jazda ukáže názov miesta.
   - Uložené trasy, ktoré nepoužíva žiadna jazda, sa zmažú. Doteraz sa nikde nezobrazovali.
   - Prázdny začiatok alebo cieľ jazdy dostane miesto `Neznáme miesto`.
   - Miesto jazdy bez súradníc sa stane miestom bez polohy, označeným "treba určiť polohu".
 - **Obraz, zväzok, port:** bez zmeny
+
+### Pridané
+- **Karta Miesta** - zoznam všetkých miest s pridaním, premenovaním, určením polohy a zmazaním. Miesto sa dá zmazať, len ak ho nepoužíva žiadna jazda. Miesto bez polohy je označené "treba určiť polohu".
+
+### Zmenené
+- **Jazda prijme len existujúce miesto** - pole Odkiaľ a Kam v jazde ponúka len miesta z karty Miesta. Neznámy text jazdu neuloží. Nové miesto najprv pridajte na karte Miesta.
+- **Premenovanie miesta platí pre všetky jazdy** - aj pre minulé roky, ktoré už boli vytlačené. Premenovanie na názov, ktorý už iné miesto má, skončí chybou. Miesta sa nezlučujú.
+- **Druh trasy podľa miesta** - mapa rozhodne medzi okružnou a priamou trasou podľa toho, či je začiatok a cieľ to isté miesto, nie podľa textu.
 
 ## [1.3.0] - 2026-10-02
 

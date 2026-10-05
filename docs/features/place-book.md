@@ -5,7 +5,7 @@
 A place is an entity. A trip and a saved route point at a place by ID
 (`origin_place_id`, `destination_place_id`). The free-text origin and destination columns
 do not exist any more. A read still returns the display names: the backend joins the
-place name onto the trip. See [ADR-055](../../DECISIONS.md) for the decision.
+place name onto the trip. See [ADR-055](../../DECISIONS.md#adr-055-places-are-entities-trips-and-routes-reference-them-by-id) for the decision.
 
 Three things read the book:
 
@@ -215,7 +215,7 @@ Trip form (save)
 
 - **Why entities?** A free-text place needed a fold (`normalise`) at every read, and a
   rename of a place was impossible. With an ID, a rename is one update and the match is
-  an equality. See ADR-055 in [DECISIONS.md](../../DECISIONS.md). It supersedes ADR-033
+  an equality. See ADR-055 in [DECISIONS.md](../../DECISIONS.md#adr-055-places-are-entities-trips-and-routes-reference-them-by-id). It supersedes ADR-033
   for places (the route counters stay derived) and ADR-034 (the display name is now the
   stored name).
 - **Why is a collision an error, not a merge?** A merge changes the trips of two places
@@ -249,7 +249,7 @@ project's behaviour.
 
 ## Related
 
-- [ADR-055](../../DECISIONS.md): Places are entities, trips and routes reference them by ID
+- [ADR-055](../../DECISIONS.md#adr-055-places-are-entities-trips-and-routes-reference-them-by-id): Places are entities, trips and routes reference them by ID
 - [ADR-032](../../DECISIONS.md): Places are placed by a human, never by a confidence heuristic
 - [ADR-033](../../DECISIONS.md): Aggregates over trips are computed, not stored
 - [ADR-034](../../DECISIONS.md): The display spelling (superseded by ADR-055: the name is stored)

@@ -4,6 +4,63 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-05: Places as Entities
+
+### BIZ-025: A trip accepts only an existing place
+
+**Context:** A trip held two free-text strings. Any typo made a new place. A rename touched one trip only. [Task 88](./_tasks/88-places-as-entities/01-task.md) makes a place a record.
+
+**Decision:**
+
+1. A trip stores `origin_place_id` and `destination_place_id`. The backend accepts only the ID of an existing place. An unknown ID is an error. The trip form offers only places from the Miesta tab.
+2. A rename changes `places.name` and applies to all trips, also in past years that were printed. The old text is not kept.
+3. A rename or add that gives a name with the same `normalised_name` as another place is an error. There is no merge.
+4. A delete needs zero trips that use the place. If a trip uses the place, the delete fails. The routes of a deleted place go with it.
+
+**Reasoning:** The logbook is legal evidence. One place must have one name in every row, and a person must choose a place on purpose. A silent merge could join two real places, so a collision is an error and the person decides. A rename that skips old years would show two names for one place. The name in a printed export can change after the print, and this is the accepted cost.
+
+**Related:** [ADR-055](#adr-055-places-are-entities-trips-and-routes-reference-them-by-id); [docs/features/place-book.md](./docs/features/place-book.md).
+
+### ADR-056: The places migration uses a SQLite function registered from Rust
+
+**Context:** The migration must group the old trip strings with the same fold that `places::normalise` uses. Plain SQL cannot do that fold. A second copy in SQL could drift from the Rust one.
+
+**Decision:**
+
+1. `db::prepare_connection` registers the SQL function `kj_normalise` on every connection, before the migrations run. It calls `places::normalise`. The migration is plain SQL and uses the function. Only the app can run it: `diesel migration run` from the CLI fails with "no such function: kj_normalise".
+2. Foreign keys are ON by default, because the bundled SQLite is built with `SQLITE_DEFAULT_FOREIGN_KEYS=1`. `DROP TABLE trips` would cascade into `trip_routes` and `paperless_trip_links`. The migration copies both into TEMP tables around the drop and copies them back. It never turns the pragma off.
+3. The place name is the spelling with most uses. A tie goes to the byte-wise smaller spelling. Places that no trip names stay as places.
+4. A route is kept only if a trip uses its place pair. Routes that no trip uses are dropped. If several routes collapse onto one place pair, the migration keeps the row with the exact strings of the latest trip on that pair, else the first by `id`.
+5. A blank origin or destination becomes the shared place `Neznáme miesto`. The trip keeps a target, and the migration does not drop it.
+6. The trip insert uses a LEFT JOIN. A key with no place gives NULL, and the NOT NULL column aborts the transaction. A trip is never dropped without notice.
+
+**Reasoning:** One fold in Rust means the migration and the app always agree on what is the same place. The TEMP copy is safer than a pragma change, because the pragma has no effect inside a transaction. The route rules keep the data that a trip can show and drop the rest, which no screen used. The migration is one-way, and `down.sql` cannot bring back the other spellings.
+
+**Related:** [ADR-055](#adr-055-places-are-entities-trips-and-routes-reference-them-by-id); [migrations.md](./.claude/rules/migrations.md); [CHANGELOG.md](./CHANGELOG.md) (upgrade notes).
+
+### ADR-055: Places are entities; trips and routes reference them by ID
+
+**Supersedes in part [ADR-033](#adr-033-aggregates-over-trips-are-computed-not-stored):** the place list is now a table, not a view of trip strings. The route counters (`usage_count`, `last_used`) stay derived.
+
+**Supersedes in part [ADR-034](#adr-034-the-book-displays-the-spelling-trips-already-use-not-the-geocoders):** the display name is the stored `places.name`. It is no longer copied from a trip.
+
+**Context:** The place list was computed from the strings in `trips.origin` and `trips.destination`. Coordinates lived in a side table keyed by a normalised string. Two folds existed: `normalise_location` and `places::normalise`. They could drift. A place could not carry more facts (task 89 adds `is_home`). [Task 88](./_tasks/88-places-as-entities/01-task.md).
+
+**Decision:**
+
+1. `places` has an `id`, a `name`, a unique `normalised_name`, `lat`, `lon`, `source` and `created_at`.
+2. `trips` and `routes` hold `origin_place_id` and `destination_place_id` with foreign keys to `places`. The text columns are gone.
+3. The route mode compares the two place IDs: equal is Loop, different is Direct. This replaces the string comparison of [ADR-037](#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust).
+4. `places::normalise` is the one fold. It is used for the uniqueness of `normalised_name` and by `find_place`.
+5. The route counters stay derived from trips, as [ADR-033](#adr-033-aggregates-over-trips-are-computed-not-stored) says.
+6. The place-book endpoints on the map (ADR-032, ADR-035) are unchanged: a human still places a place.
+
+**Reasoning:** One record per place gives one name, one position and one fold. A rename is one row update. The ID comparison removes the string fold from the route mode. A place can now get more facts without a new side table. The cost is a one-way migration ([ADR-056](#adr-056-the-places-migration-uses-a-sqlite-function-registered-from-rust)) and a rule that a trip needs an existing place ([BIZ-025](#biz-025-a-trip-accepts-only-an-existing-place)).
+
+**Related:** [ADR-032](#adr-032-places-are-placed-by-a-human-never-by-a-confidence-heuristic); [ADR-008](#adr-008-remove-frontend-calculation-duplication); [docs/features/place-book.md](./docs/features/place-book.md).
+
+---
+
 ## 2026-09-29: Save and Apply Distance
 
 ### ADR-054: A saved map always writes its whole-km distance to the trip
@@ -313,6 +370,8 @@ This book is legal evidence, and the spec requires the user to approve a change 
 
 ### ADR-037: The route mode comes from the trip's own text, decided in Rust
 
+**Amended by [ADR-055](#adr-055-places-are-entities-trips-and-routes-reference-them-by-id) (task 88):** `mode_for` now compares the place IDs of the trip, not the normalised text. The rest of this entry is the history of the first version.
+
 **Context:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) replaces the V1 loop-only generator, which drew a random genetic-algorithm loop sized to a trip's distance and ignored where the trip actually went -- a Bratislava-to-Trnava row got a loop that need not pass either place. The row already carries the two strings the trip was booked with, `origin` and `destination`.
 
 **Decision:** `mode_for` ([route_maps.rs](./src-tauri/core/src/commands_internal/route_maps.rs)) compares `normalise(origin) == normalise(destination)`: equal means `RouteMode::Loop` (unchanged V1 behaviour), different means `RouteMode::Direct`, a fresh A-to-B route. There is no toggle -- the frontend never inspects the two strings itself, it only renders whichever mode `start_route_for_trip` returns. An origin or destination that normalises to empty is an `Err`, surfaced as a visible error, never a silent loop.
@@ -406,6 +465,8 @@ Linux also buys a capability Windows cannot give: `--network=host`. Several inte
 
 ### ADR-033: Aggregates over trips are computed, not stored
 
+**Superseded in part by [ADR-055](#adr-055-places-are-entities-trips-and-routes-reference-them-by-id):** for places. The place list is now a table, and trips point to a place by ID. The route counters (`usage_count`, `last_used`) stay derived.
+
 **Context:** The Miesta section lists every place a trip refers to. It could equally be a stored list that `create_trip` / `update_trip` / `delete_trip` keep in step. The same question applies to [routes](./src-tauri/core/src/db.rs), whose `usage_count` and `last_used` are stored aggregates of exactly that kind ([task 76](./_tasks/76-route-usage-counter-drift/)).
 
 **Decision:** **Aggregates over trips are computed, not stored**, in both places.
@@ -418,6 +479,8 @@ Linux also buys a capability Windows cannot give: `--network=host`. Several inte
 The decisive evidence for `routes` specifically: the stored counter has **no observable effect today**. It is read in exactly one place — the `ORDER BY usage_count DESC` at `db.rs:477` — and [TripRow.svelte](./src/lib/components/TripRow.svelte) then flattens the result into a `Set` and re-sorts it alphabetically, discarding the ordering entirely. There is no behaviour to preserve, which is why deriving costs nothing and maintaining would mean holding three invariants forever to feed a value nobody reads.
 
 ### ADR-034: The book displays the spelling trips already use, not the geocoder's
+
+**Superseded in part by [ADR-055](#adr-055-places-are-entities-trips-and-routes-reference-them-by-id):** the display name is now the stored `places.name`. Trips no longer hold a spelling.
 
 **Context:** A geocoder returns an official rendering — full diacritics, canonical street form, country suffix. The logbook's own strings are plain ASCII and were normalised by a one-off cleanup on 2026-09-06.
 
