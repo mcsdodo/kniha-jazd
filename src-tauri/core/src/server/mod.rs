@@ -112,23 +112,26 @@ fn build_cors_layer() -> CorsLayer {
         ])
 }
 
+/// `http://host[:port]` and nothing after it, where the host is `localhost` or
+/// a loopback or RFC 1918 IPv4 address. The whole host must match: a prefix
+/// test let `http://localhost.evil.com` through.
 fn is_lan_origin(origin: &str) -> bool {
-    origin.starts_with("http://localhost")
-        || origin.starts_with("http://127.")
-        || origin.starts_with("http://10.")
-        || origin.starts_with("http://192.168.")
-        || is_rfc1918_172(origin)
-}
-
-fn is_rfc1918_172(origin: &str) -> bool {
-    if let Some(rest) = origin.strip_prefix("http://172.") {
-        if let Some(dot_pos) = rest.find('.') {
-            if let Ok(second_octet) = rest[..dot_pos].parse::<u8>() {
-                return (16..=31).contains(&second_octet);
+    let Some(authority) = origin.strip_prefix("http://") else {
+        return false;
+    };
+    let host = match authority.split_once(':') {
+        Some((host, port)) => {
+            if port.parse::<u16>().is_err() {
+                return false;
             }
+            host
         }
-    }
-    false
+        None => authority,
+    };
+    host == "localhost"
+        || host
+            .parse::<std::net::Ipv4Addr>()
+            .map_or(false, |ip| ip.is_loopback() || ip.is_private())
 }
 
 // ============================================================================
@@ -327,6 +330,25 @@ mod tests {
         assert!(!is_lan_origin("http://172.15.0.1:3456"));
         assert!(!is_lan_origin("http://172.32.0.1:3456"));
         assert!(!is_lan_origin("http://example.com"));
+    }
+
+    #[test]
+    fn lan_origin_needs_the_whole_host() {
+        // A prefix match let these through (code review, 2026-10-05).
+        assert!(!is_lan_origin("http://localhost.evil.com"));
+        assert!(!is_lan_origin("http://localhostevil.com"));
+        assert!(!is_lan_origin("http://10.evil.com"));
+        assert!(!is_lan_origin("http://127.0.0.1.evil.com"));
+        assert!(!is_lan_origin("http://192.168.0.1.nip.io:3456"));
+        assert!(!is_lan_origin("http://172.16.0.1.evil.com"));
+        assert!(!is_lan_origin("http://localhost@evil.com"));
+        assert!(!is_lan_origin("http://localhost:3456/x"));
+        assert!(!is_lan_origin("http://localhost:abc"));
+
+        assert!(is_lan_origin("http://localhost"));
+        assert!(is_lan_origin("http://localhost:5173"));
+        assert!(is_lan_origin("http://192.168.0.112:3456"));
+        assert!(is_lan_origin("http://10.1.2.3"));
     }
 
     #[tokio::test]

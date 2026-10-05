@@ -245,7 +245,11 @@ The CORS layer allows origins matching RFC 1918 private IP ranges:
 - `http://10.*.*.*:*`
 - `http://172.16-31.*.*:*`
 - `http://192.168.*.*:*`
-- `http://localhost:*` / `http://127.0.0.1:*`
+- `http://localhost:*` / `http://127.*.*.*:*`
+
+The whole host must match: the code parses it as `localhost` or an IPv4 address. An
+origin such as `http://localhost.evil.com` or `http://10.evil.com` is refused. The first
+version compared only the start of the string and let these through.
 
 Requests from public IPs or other origins are blocked by the browser's preflight check.
 This is not authentication — see ADR-017 and the tailnet-trust model in ADR-024.
