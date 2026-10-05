@@ -43,6 +43,9 @@ export interface Trip {
   endDatetime?: string; // ISO datetime (optional for backwards compat)
   origin: string;
   destination: string;
+  // Task 88: the backend returns the place ids with every trip
+  originPlaceId?: string;
+  destinationPlaceId?: string;
   distanceKm: number;
   odometer: number;
   purpose: string;

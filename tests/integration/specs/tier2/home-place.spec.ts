@@ -4,6 +4,7 @@
  * Covers the UI -> backend -> display flow of the home icon:
  * - A click on the home icon of a place marks it, and a reload keeps the mark
  * - A click on another place moves the mark
+ * - A click on the current home removes the mark
  *
  * NOT covered here: the one-home rule and the journey grouping. The Rust unit
  * tests own them (db_tests.rs, journeys/tests.rs).
@@ -75,5 +76,24 @@ describe('Home place mark', () => {
       { timeout: 5000, timeoutMsg: 'home mark did not move' }
     );
     expect(await (await homeToggle(homeId)).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('removes the mark when the current home is clicked', async () => {
+    const homeId = await ensurePlace(HOME);
+    await rpc('set_home_place', { id: homeId });
+    await openMiesta();
+    // The previous test can leave the page on /miesta, and the nav click does
+    // not reload it. Reload, so the page shows the mark set above.
+    await browser.refresh();
+    await $('[data-testid="place-row"]').waitForDisplayed({ timeout: 5000 });
+    expect(await (await homeToggle(homeId)).getAttribute('aria-pressed')).toBe('true');
+
+    await (await homeToggle(homeId)).click();
+    await browser.waitUntil(
+      async () => (await (await homeToggle(homeId)).getAttribute('aria-pressed')) === 'false',
+      { timeout: 5000, timeoutMsg: 'home mark was not removed' }
+    );
+    const places = await rpc<Array<{ isHome: boolean }>>('list_places', {});
+    expect(places.some((p) => p.isHome)).toBe(false);
   });
 });

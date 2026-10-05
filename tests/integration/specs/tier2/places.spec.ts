@@ -35,7 +35,7 @@ import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
 import { seedVehicle, seedTrip, setActiveVehicle, rpc, getTripGridData, ensurePlace } from '../../utils/db';
 import { waitForTripGrid, TripGrid } from '../../utils/assertions';
-import { fillTripForm, fillField } from '../../utils/forms';
+import { fillTripForm, fillField, fillNumericField } from '../../utils/forms';
 
 /**
  * The place the geocoder is asked about. Its fixture lives at
@@ -430,7 +430,7 @@ describe('Tier 2: Place Book', () => {
   });
 
   describe('Managing Places', () => {
-    it('should add a place, then offer it in the trip form', async () => {
+    it('should add a place, then pick it in the trip form and save a trip', async () => {
       await openPlacesPage();
       await (await $('[data-testid="place-add"]')).click();
       const nameInput = await $('[data-testid="place-add-name"]');
@@ -492,6 +492,25 @@ describe('Tier 2: Place Book', () => {
         offered.push((await suggestion.getText()).trim());
       }
       expect(offered).toContain(GEOCODED_PLACE);
+
+      // Pick it and save a trip: the saved trip points at the new place by id.
+      await suggestions[offered.indexOf(GEOCODED_PLACE)].click();
+      expect(await originInput.getValue()).toBe(GEOCODED_PLACE);
+      await fillField(TripGrid.tripForm.date, `${YEAR}-03-01T08:00`);
+      await fillField(TripGrid.tripForm.destination, GEOCODED_PLACE);
+      await fillNumericField(TripGrid.tripForm.distance, 5);
+      await fillField(TripGrid.tripForm.purpose, 'Business trip');
+      await (await $('tr.editing .icon-btn.save')).click();
+
+      const vehicleId = vehicle.id as string;
+      await browser.waitUntil(
+        async () => (await getTripGridData(vehicleId, YEAR)).trips.length === 1,
+        { timeout: 10000, timeoutMsg: 'the trip with the picked place was not saved' }
+      );
+      const saved = (await getTripGridData(vehicleId, YEAR)).trips[0];
+      expect(saved.originPlaceId).toBe(added!.id);
+      expect(saved.destinationPlaceId).toBe(added!.id);
+      expect(saved.origin).toBe(GEOCODED_PLACE);
     });
 
     it('should rename a place and show the new name in the trip grid', async () => {
