@@ -39,5 +39,5 @@ start.
 
 An operator who rolls *back* to an older image is the case [ADR-012](../../DECISIONS.md) refuses to support — the
 older binary will not recognise the newer migrations. `Database::check_migration_compatibility`
-exists to detect exactly that, but nothing currently calls it, so a rollback fails loudly at
-the query level rather than degrading to read-only.
+detects exactly that. At start, [main.rs](../../src-tauri/web/src/main.rs) calls it. If the database has unknown
+migrations, the server enters read-only mode. A query that needs a column from a removed schema can still fail.
