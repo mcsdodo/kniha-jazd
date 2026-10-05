@@ -959,6 +959,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Args {
+                // `deserialize_with` makes the key required: `{}` is an
+                // error, and only `{ "id": null }` clears the home.
+                #[serde(deserialize_with = "Option::deserialize")]
                 id: Option<String>,
             }
             let a: Args = parse_args(args)?;
@@ -1144,6 +1147,22 @@ mod tests {
         )
         .is_err());
         assert!(state.db.all_places().unwrap().len() == 1, "nothing was created");
+    }
+
+    #[test]
+    fn set_home_place_needs_the_id_key() {
+        // `{}` cleared the home without an error (code review, 2026-10-05).
+        // To clear it, send `{ "id": null }` on purpose.
+        let state = test_state();
+        let id = state.db.ensure_place_for_test("Home St 1, Hometown").to_string();
+        dispatch_sync("set_home_place", json!({ "id": id }), &state).unwrap();
+
+        let err = dispatch_sync("set_home_place", json!({}), &state).unwrap_err();
+        assert!(err.contains("id"), "got: {err}");
+        assert!(state.db.get_home_place().unwrap().is_some(), "home must stay set");
+
+        dispatch_sync("set_home_place", json!({ "id": null }), &state).unwrap();
+        assert!(state.db.get_home_place().unwrap().is_none());
     }
 
     #[test]
