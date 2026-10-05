@@ -1024,6 +1024,28 @@ fn route_map_cascades_when_trip_deleted() {
 }
 
 #[test]
+fn get_round_trip_ids_returns_only_round_trip_maps() {
+    let db = Database::in_memory().unwrap();
+    let round = seed_vehicle_and_trip(&db, 4);
+    let one_way = seed_vehicle_and_trip(&db, 5);
+    let no_map = seed_vehicle_and_trip(&db, 6);
+    let mut map = make_route_map(round.id, "round");
+    map.round_trip = true;
+    db.save_route_map(&map).unwrap();
+    db.save_route_map(&make_route_map(one_way.id, "one way")).unwrap();
+
+    let ids = db
+        .get_round_trip_ids(&[
+            round.id.to_string(),
+            one_way.id.to_string(),
+            no_map.id.to_string(),
+        ])
+        .unwrap();
+
+    assert_eq!(ids, vec![round.id.to_string()]);
+}
+
+#[test]
 fn get_route_maps_for_trips_returns_only_requested() {
     let db = Database::in_memory().unwrap();
     let with_map = seed_vehicle_and_trip(&db, 4);

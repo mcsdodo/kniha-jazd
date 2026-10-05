@@ -120,11 +120,10 @@ impl LogbookReader {
             let trip_ids: Vec<String> = trips.iter().map(|t| t.id.to_string()).collect();
             let round_trip_ids: HashSet<Uuid> = self
                 .db
-                .get_route_maps_for_trips(&trip_ids)
+                .get_round_trip_ids(&trip_ids)
                 .map_err(internal)?
-                .into_iter()
-                .filter(|(_, map)| map.round_trip)
-                .filter_map(|(id, _)| Uuid::parse_str(&id).ok())
+                .iter()
+                .filter_map(|id| Uuid::parse_str(id).ok())
                 .collect();
             let legs: Vec<Leg> = trips.iter().map(Leg::from_trip).collect();
             journeys.extend(

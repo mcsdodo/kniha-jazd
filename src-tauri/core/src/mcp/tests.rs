@@ -232,7 +232,7 @@ async fn list_trips_returns_place_names_and_minutes() {
 const ALLOWED_READS: &[&str] = &[
     // read functions
     "get_vehicles_internal", "get_vehicle", "get_trips_for_vehicle_in_range",
-    "get_trips_for_vehicle", "get_route_maps_for_trips", "get_home_place",
+    "get_trips_for_vehicle", "get_round_trip_ids", "get_home_place",
     // pure journey grouping (no database access)
     "group_journeys", "overlaps", "Journey", "Leg",
     // types and the reader itself

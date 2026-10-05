@@ -1246,6 +1246,17 @@ impl Database {
             .collect())
     }
 
+    /// The trips in `trip_ids` whose saved map is a round trip. Journey
+    /// grouping needs only this flag, so it does not load the geometry.
+    pub fn get_round_trip_ids(&self, trip_ids: &[String]) -> QueryResult<Vec<String>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        trip_routes::table
+            .filter(trip_routes::trip_id.eq_any(trip_ids))
+            .filter(trip_routes::round_trip.eq(true))
+            .select(trip_routes::trip_id)
+            .load(conn)
+    }
+
     // ========================================================================
     // Places -- an entity with an id, a name and a position (Task 88)
     // ========================================================================
