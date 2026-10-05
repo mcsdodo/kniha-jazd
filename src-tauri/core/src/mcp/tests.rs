@@ -120,35 +120,104 @@ fn names_after(source: &str, marker: &str) -> Vec<String> {
     names
 }
 
-/// Method names called on `db.` / `self.db.`.
-fn db_methods(source: &str) -> Vec<String> {
-    let mut methods = Vec::new();
-    for (pos, _) in source.match_indices("db.") {
-        let before = source[..pos].chars().next_back();
-        if before.map_or(false, |c| c.is_alphanumeric() || c == '_') {
-            continue; // part of a longer name such as `my_db.`
+/// Rule for the database handle. Every identifier `db` or `*_db` in the
+/// guarded files must be one of these, whitespace ignored, else the guard fails:
+///   - `use crate::db::Database;` (the module name)
+///   - `db: Arc<Database>` (field and parameter)
+///   - `Self { db }` (constructor)
+///   - `X::new(db)` (hand-off to the reader)
+///   - `allowed_fn(&self.db` (passed straight into an ALLOWED_READS function)
+///   - `db.allowed_method` where the method is in ALLOWED_READS
+/// An alias (`let d = &self.db;`), a `*_db` name or a chain on a new line
+/// matches none of these, so it fails closed, even if it only reads.
+fn db_violations(code: &str) -> Vec<String> {
+    let mut bad = Vec::new();
+    let mut i = 0;
+    let bytes = code.as_bytes();
+    while i < bytes.len() {
+        if !(bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+            i += 1;
+            continue;
         }
-        let ident: String = source[pos + 3..]
+        let start = i;
+        while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+            i += 1;
+        }
+        let ident = &code[start..i];
+        if !ident.ends_with("db") {
+            continue;
+        }
+        let before: String = code[..start].chars().filter(|c| !c.is_whitespace()).collect();
+        let after: String = code[i..].chars().filter(|c| !c.is_whitespace()).collect();
+        let method: String = after
+            .strip_prefix('.')
+            .unwrap_or("")
             .chars()
             .take_while(|c| c.is_alphanumeric() || *c == '_')
             .collect();
-        methods.push(ident);
+        let passed_to_read = before.strip_suffix("(&self.").map_or(false, |head| {
+            let name: String = head
+                .chars()
+                .rev()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+            ALLOWED_READS.contains(&name.as_str())
+        });
+        let ok = ident == "db"
+            && (after.starts_with(":Arc<Database>")
+                || (before.ends_with("crate::") && after.starts_with("::Database;"))
+                || (before.ends_with("Self{") && after.starts_with('}'))
+                || (before.ends_with("::new(") && after.starts_with(')'))
+                || passed_to_read
+                || (!method.is_empty() && ALLOWED_READS.contains(&method.as_str())));
+        if !ok {
+            let tail: String = after.chars().take(30).collect();
+            bad.push(format!("`{ident}` used as `...{tail}`"));
+        }
     }
-    methods
+    bad
+}
+
+/// Every `.rs` file the read path owns, except this test file.
+fn guarded_sources() -> Vec<(String, String)> {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().map_or(false, |e| e == "rs")
+                && path.file_name().map_or(false, |n| n != "tests.rs")
+            {
+                out.push(path);
+            }
+        }
+    }
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut paths = Vec::new();
+    walk(&src.join("mcp"), &mut paths);
+    walk(&src.join("journeys"), &mut paths);
+    paths.push(src.join("commands_internal/journeys_cmd.rs"));
+    paths
+        .into_iter()
+        .map(|p| (p.display().to_string(), std::fs::read_to_string(&p).unwrap()))
+        .collect()
 }
 
 #[test]
 fn mcp_read_path_has_no_write_access() {
     // Read-only by construction (ADR "Read-only MCP endpoint"). The MCP module
-    // holds only a LogbookReader. Check 1 is an allowlist: every `crate::` item
-    // and every `db.` method in these files must be in ALLOWED_READS. Check 2 is
-    // a denylist of words that must not appear at all.
-    let sources = [
-        ("mcp/mod.rs", include_str!("mod.rs")),
-        ("commands_internal/journeys_cmd.rs", include_str!("../commands_internal/journeys_cmd.rs")),
-        ("journeys/mod.rs", include_str!("../journeys/mod.rs")),
-    ];
-    for (file, source) in sources {
+    // holds only a LogbookReader. Checks, on every guarded file (see
+    // `guarded_sources`, so a new file in mcp/ cannot dodge them):
+    //  1. allowlist: every `crate::` item and every `db.` method is in ALLOWED_READS
+    //  2. every `db` / `*_db` identifier follows the rule in `db_violations`
+    //  3. no `Database::` / `Vehicle::` associated calls, no `use ... as ...`
+    //  4. denylist of words that must not appear at all
+    let sources = guarded_sources();
+    assert!(sources.len() >= 3, "guarded files not found");
+    for (file, source) in &sources {
         // Comment lines are prose, not calls.
         let code: String = source
             .lines()
@@ -158,21 +227,30 @@ fn mcp_read_path_has_no_write_access() {
         let source = code.as_str();
         assert!(!source.contains("::*"), "{file}: glob imports hide what is called");
         assert!(!source.contains("super::"), "{file}: use full `crate::` paths");
+        for line in source.lines().filter(|l| l.trim_start().starts_with("use ")) {
+            assert!(!line.contains(" as "), "{file}: `use ... as` hides a name: {line}");
+        }
+        for assoc in ["Database::", "Vehicle::"] {
+            for (pos, _) in source.match_indices(assoc) {
+                let before = source[..pos].chars().next_back();
+                let part_of_longer = before.map_or(false, |c| c.is_alphanumeric() || c == '_');
+                assert!(part_of_longer, "{file}: associated call `{assoc}...` is not allowed");
+            }
+        }
         let mut used = names_after(source, "crate::");
         used.extend(names_after(source, "commands_internal::"));
-        used.extend(db_methods(source));
         for name in used {
             assert!(
                 ALLOWED_READS.contains(&name.as_str()),
                 "{file} uses `{name}`, which is not in ALLOWED_READS"
             );
         }
-    }
-    let banned = [
-        "check_read_only", "connection", "restore", "sql_query", "execute", "transaction",
-        "create_", "update_", "delete_", "save_", "set_", "upsert", "insert",
-    ];
-    for (file, source) in sources {
+        let bad = db_violations(source);
+        assert!(bad.is_empty(), "{file}: db handle used outside the allowed forms: {bad:?}");
+        let banned = [
+            "check_read_only", "connection", "restore", "sql_query", "execute", "transaction",
+            "create_", "update_", "delete_", "save_", "set_", "upsert", "insert",
+        ];
         for word in banned {
             assert!(!source.contains(word), "{file} must not contain `{word}`");
         }
