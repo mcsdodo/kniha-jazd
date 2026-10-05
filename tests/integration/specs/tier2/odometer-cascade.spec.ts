@@ -770,9 +770,26 @@ describe('Odometer cascade on save', () => {
     // overlay and cancels; only the second reaches the row. This is what
     // makes an editor opened here safe, and it is the reason ADR-046 needs
     // no `cascadePending` term in `TripRow.handleEdit` -- see the ADR.
+    //
+    // The row's centre can sit under the dialog box itself, which stops the
+    // click (a click inside the dialog must not cancel). So aim at the
+    // row's date cell, at the left edge, and first prove that the point is
+    // on the overlay and not on the dialog.
     const rowC = await findRowByPurpose('Row C');
     expect(rowC).not.toBeNull();
-    await rowC!.doubleClick();
+    const target = await rowC!.$('.col-start-datetime');
+    const hit = await browser.execute((rowSel: string) => {
+      const row = Array.from(document.querySelectorAll(rowSel)).find(
+        (r) => r.querySelector('.col-purpose')?.textContent?.trim() === 'Row C'
+      );
+      const cell = row?.querySelector('.col-start-datetime');
+      if (!cell) return 'no cell';
+      const r = cell.getBoundingClientRect();
+      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return top?.className ?? 'nothing';
+    }, TRIP_ROW_SELECTOR);
+    expect(hit).toContain('modal-overlay');
+    await target.doubleClick();
     await browser.pause(500);
 
     // The cascade is off, and nothing was written: Row B is still there.
