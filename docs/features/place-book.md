@@ -246,8 +246,9 @@ Trip form (save)
   answer without a click. A wrong pin shows up later as a wrong map on a legal document.
 - **The geocoder has no country filter (ADR-035).** Real logbooks name Czech and
   Hungarian places.
-- **`normalise()` is not `db::normalize_location`.** The first makes a matching key. The
-  second only cleans the spaces of a spelling that is stored.
+- **`normalise()` is the only fold (ADR-055).** It makes the matching key. Task 88
+  removed `db::normalize_location`. The stored name only has its spaces collapsed, in
+  `name_and_key` ([places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs)).
 - **No rate limiter in the client.** One address at a time is submitted by a person, so
   the Nominatim limit of one request each second is met by the use itself.
 
