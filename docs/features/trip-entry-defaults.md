@@ -22,7 +22,7 @@ Three smaller features that together shape what a new trip row contains when it 
 1. Click the **copy icon** on any row. The row's controls are disabled while a copy or a
    new row is already pending, and copying is disabled while any row is open for editing.
 2. A new row opens at the top of the grid, in **edit mode**, seeded with the source's
-   origin, destination, purpose, distance and time-of-day.
+   origin place, destination place, purpose, distance and time-of-day.
 3. **Fuel, energy, other costs, notes and invoice links are not copied** -- a fill-up is a
    one-off event, not a property of a route; copying it would feed a fabricated fill-up
    into the consumption rate and the 20% margin.
@@ -39,8 +39,9 @@ Three smaller features that together shape what a new trip row contains when it 
 ### Time inference (opt-in)
 
 1. Enable *Automaticky vyplniť časy podľa poslednej trasy* in Settings. Default is OFF.
-2. On a **new** row only, once both origin and destination are chosen, the frontend asks
-   the backend for the most recent completed trip on that route.
+2. On a **new** row only, once both origin and destination are chosen (an exact place
+   name, so the row knows both place IDs), the frontend asks the backend for the most
+   recent completed trip on that route. The route is a pair of place IDs.
 3. If one exists, start/end times are suggested: the historical start plus a random
    -15 to +15 minute offset, and the historical duration scaled by 0.85-1.15, rounded to
    a minute. The suggestion fills the time fields.
@@ -72,7 +73,7 @@ target_date = resolve_copy_target_date(viewed_year, today):
 
 start_datetime = target_date + source's start HH:MM:SS
 end_datetime   = target_date + source's end time + (source_end.date - source_start.date) days
-copied: origin, destination, purpose, distance_km (only when 0 < km <= 9999)
+copied: origin_place_id, destination_place_id, purpose, distance_km (only when 0 < km <= 9999)
 not copied: fuel, energy, costs, notes, invoice links (the struct has no such fields)
 ```
 
@@ -93,7 +94,7 @@ The inference uses **no distance and no speed** -- the base is the most recent c
 trip's start time and duration on the same route:
 
 ```
-lookup: same vehicle + origin + destination, end_datetime set,
+lookup: same vehicle + origin_place_id + destination_place_id, end_datetime set,
         most recent by start_datetime
 base   = (start HH:MM, duration in minutes)
 start  = base_start + jitter.minutes()          where minutes() in [-15, 15]
@@ -102,7 +103,8 @@ end    = start + length
 ```
 
 - The DB lookup is `find_most_recent_trip_times_for_route` in
-  [db.rs](../../src-tauri/core/src/db.rs). No match -> `None` (no suggestion).
+  [db.rs](../../src-tauri/core/src/db.rs). It takes the two place IDs, so two spellings of
+  one place are one route. No match -> `None` (no suggestion).
 - Randomness is business logic and stays in Rust behind a `Jitter` trait
   ([ADR-014](../../DECISIONS.md)): production uses a thread RNG, tests inject a stub, so
   the pure `compute_inferred_times` rule is deterministic under test.
@@ -116,6 +118,12 @@ end    = start + length
 - **TripRow.svelte** owns the copy seed (`copyFrom`), the `odoFollowsKm` preview
   behaviour, the inference trigger (`tryInferTimes`, guarded by an `inferredKey` dedup so
   the same route pair is not re-inferred on every keystroke) and the undo toast.
+- **Place choice:** the origin and destination autocomplete offers the names of the
+  existing places (see [place-book.md](./place-book.md)). A save resolves the typed text:
+  an exact name uses that place; other text goes to `find_place`, which matches in Rust
+  without case and diacritics. If no place matches, the save is blocked with a message
+  and a link to the Miesta tab. Distance auto-fill (the stored route km) matches on the
+  place IDs, like the time inference. A copied row carries the two place IDs.
 - **TripGrid.svelte** owns the copy handler (`handleCopy`, latched against an in-flight
   copy), the prefill SegmentedToggle and `defaultNewDate`.
 - **Settings** (`settings/+page.svelte`) owns the `infer_trip_times` checkbox.
@@ -132,7 +140,7 @@ end    = start + length
 | [commands_internal/settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs) | `get/set_date_prefill_mode_internal`, `get/set_infer_trip_times_internal` |
 | [models.rs](../../src-tauri/core/src/models.rs) | `InferredTripTime`, `CopiedTripDefaults` |
 | [api.ts](../../src/lib/api.ts) | `getCopiedTripDefaults`, `getInferredTripTimeForRoute`, date-prefill and infer-trip-times wrappers |
-| [TripRow.svelte](../../src/lib/components/TripRow.svelte) | Copy seed, preview odometer, inference trigger + undo toast, overnight-span preservation |
+| [TripRow.svelte](../../src/lib/components/TripRow.svelte) | Copy seed, preview odometer, inference trigger + undo toast, overnight-span preservation, place choice and `find_place` on save |
 | [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Copy handler, prefill toggle, `defaultNewDate` |
 | [settings/+page.svelte](../../src/routes/settings/+page.svelte) | `infer_trip_times` checkbox |
 | [tests/integration/specs/tier2/copy-trip.spec.ts](../../tests/integration/specs/tier2/copy-trip.spec.ts) | Copy flow: prefill, empty fuel, ODO recalc, km replacement, overnight span, inference suppression |
@@ -176,6 +184,7 @@ wrong per-year, and the backend is the single implementation.
 - [BIZ-014](../../DECISIONS.md): opt-in auto-fill of trip start/end times
 - [ADR-014](../../DECISIONS.md): jitter stays in Rust; testability via the `Jitter` trait
 - [trip-odometer-cascade.md](./trip-odometer-cascade.md) -- the save the copied row runs through
+- [place-book.md](./place-book.md) -- the places that the trip form accepts
 - [_tasks/_done/56-smart-trip-defaults/](../../_tasks/_done/56-smart-trip-defaults/) -- time inference origin
 - [_tasks/_done/59-time-inference-toggle/](../../_tasks/_done/59-time-inference-toggle/) -- opt-in toggle + undo
 - [_tasks/_done/71-copy-trip-row/](../../_tasks/_done/71-copy-trip-row/) -- the copy feature

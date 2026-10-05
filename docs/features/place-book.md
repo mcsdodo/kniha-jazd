@@ -1,390 +1,259 @@
 # Feature: Place Book (Miesta)
 
-> Every place the logbook's trips name, listed once, each with a coordinate a human confirmed — the shared source for trip autocomplete and, later, route maps.
+> Every place a trip can name is a record with an ID, a name and a position. The Miesta tab manages the records. A trip accepts only a place that exists.
 
-Trips record `origin` and `destination` as free text. The place book sits beside them
-and points at them: it gives each distinct place string a latitude and longitude,
-confirmed once, in a **Miesta** section in Settings. Nothing about trips changes.
+A place is an entity. A trip and a saved route point at a place by ID
+(`origin_place_id`, `destination_place_id`). The free-text origin and destination columns
+do not exist any more. A read still returns the display names: the backend joins the
+place name onto the trip. See [ADR-055](../../DECISIONS.md) for the decision.
 
-Two things read the book:
+Three things read the book:
 
-- **Trip autocomplete** — the „Odkiaľ" / „Kam" suggestions used to come from the
-  per-vehicle `routes` table; they now come from the book, which spans every vehicle.
-- **Route maps** — a row can only be routed A→B once both endpoints have coordinates.
-  This is where they come from; see [route-maps.md](./route-maps.md) and
-  [task 72](../../_tasks/_done/72-route-map-origin-destination/).
+- **Trip form** - "Odkiaľ" and "Kam" accept only an existing place. See
+  [trip-entry-defaults.md](./trip-entry-defaults.md).
+- **Distance auto-fill and time inference** - both match a trip on place IDs.
+- **Route maps** - the endpoints of a route come from the book. See
+  [route-maps.md](./route-maps.md).
 
 ## User Flow
 
-1. **Open Settings → Miesta.** The list is already populated: it is derived from the
-   trips in the database, so no place has to be added by hand and none can be missed.
-2. **Read the counter.** The heading carries `N/M umiestnených` — how many of the
-   book's places already have a coordinate. It is the progress bar for the one pass
-   through the list.
-3. **Work top-down.** Unplaced places sort first (they are the work left to do), then
-   by how heavily they are used, then by name. An unplaced row is marked with a ⚠ and
-   shows `—` where its coordinates would be; a placed row shows them to three decimals
-   (~100 m — enough to recognise a place, short enough to read).
-4. **Filter** with the search box when looking for one particular place.
-5. **Click Upraviť** on a row. A dialog opens with a map and a search field
-   pre-filled with the place's own name, so walking the list is one click per row.
-6. **Search.** Submitting sends the query to Nominatim and returns at most five
-   candidates. Picking one drops the pin and centres the map on it.
-7. **Or place it by hand.** Clicking the map, or dragging the pin, sets the coordinate
-   directly — this is the path for a place the geocoder cannot find, and for
-   fine-tuning a candidate that landed close but not exactly.
-8. **Save.** Only now is anything written. The dialog holds a *pending* pin until
-   then; closing it discards the pin.
-9. **Remove a location** with the dialog's clear button — offered only for a place
-   that already has one. The place itself stays in the list (it is still named by
-   trips); it simply goes back to being unplaced.
+1. **Open the Miesta tab** (`/miesta` in the top navigation). The list shows every place
+   of every vehicle. The heading shows `N/M umiestnených`: how many places have a
+   position.
+2. **Read the order.** Places without a position come first. Then places with more
+   trips come first, then the name decides.
+3. **Filter** with the search box.
+4. **Add a place.** Click *Pridať miesto*, type the name and click *Ďalej*. A dialog with
+   a map opens. A name and a position are both required, so the place is saved only when
+   the user presses *Uložiť miesto*. If another place has the same normalised name, the
+   save fails with an error.
+5. **Set a position.** Click *Upraviť* on a row. The dialog opens with a search field
+   filled with the place name. Search (Nominatim returns at most five candidates), click
+   the map or drag the pin. Only *Uložiť miesto* writes the position.
+6. **Rename a place.** Click *Premenovať*, type the new name and save. The new name shows
+   on every trip of the place, also in the past years and in new prints. If another
+   place already has the same normalised name, the rename fails with an error. The app
+   does not merge two places.
+7. **Delete a place.** Click *Zmazať* and confirm. The button is disabled when a trip
+   uses the place. The tooltip says how many times the place is used. Saved routes that
+   point at the place go with it (see Delete rules below).
+8. **Fix a migrated place.** A place from an old database can have no position. The row
+   shows a warning marker with the text *Treba doplniť polohu*. Set a position as in
+   step 5.
 
-The place's own spelling never changes. What the geocoder calls the address is shown
-while choosing and then thrown away.
+Settings has no place section. The Settings page and the Miesta tab are separate.
 
-**Read-only mode**: saving and clearing are blocked (`check_read_only!`). Listing and
-searching still work.
+**Read-only mode**: create, rename, set position and delete are blocked
+(`check_read_only!`). The list, `find_place` and the search still work.
 
 ## Technical Implementation
 
-### The lookup key: `normalise()`
+### The data model
 
-One function decides what "the same place" means. It lowercases, folds diacritics,
-collapses whitespace and trims:
+The `places` table:
 
-```
-"  Hlavná  ulica 12, Košice " → "hlavna ulica 12, kosice"
-```
+| Column | Meaning |
+|--------|---------|
+| `id` | UUID, primary key |
+| `name` | The spelling shown to the user |
+| `normalised_name` | `normalise(name)`, `UNIQUE`. The identity of a place for matching. |
+| `lat`, `lon` | Position. `NULL` only for a legacy place from the migration. |
+| `source` | `geocoder` or `manual`. `NULL` when there is no position. |
+| `created_at` | Creation time |
 
-Digits and punctuation survive — they are what distinguishes one street number from
-another, and the book's entries are addresses.
+`trips` and `routes` have `origin_place_id` and `destination_place_id` with a foreign key
+to `places(id)`. `routes` is `UNIQUE(vehicle_id, origin_place_id, destination_place_id)`.
+`trip_routes` (the saved maps) and `paperless_trip_links` still point at the trip.
 
-The folding is a **closed table, not Unicode NFD**. NFD would pull in a dependency for
-a 44-letter problem, and being a one-liner in JavaScript it would invite the frontend
-to grow a second implementation that disagrees (ADR-008). The price is that a letter
-the table does not know keeps its accent and gets a key of its own — a duplicate row
-in the book, never a wrong coordinate.
+The `Place` model returned by the RPCs adds `uses`: how many trip endpoints point at the
+place. It is computed at read time with a query, not stored (ADR-033 still holds for the
+counter). A trip with the same place at both ends counts two.
 
-This is **not** [`db::normalize_location`](../../src-tauri/core/src/db.rs), which
-already existed. The two do different jobs: `normalize_location` only collapses
-whitespace and keeps case and diacritics, because it rewrites the string a *trip
-stores*; `normalise` throws that information away to make a *matching key*.
+### The matching key: `normalise()`
 
-### The derived list
-
-The `places` table holds one row per normalised name: the coordinate, plus the spelling
-that coordinate was confirmed under. Nothing reads the spelling back —
-`list_places_internal` takes every displayed name from the trips fold below — so
-`display_name` records what was on screen at save time and goes stale as soon as a new
-trip makes a different spelling lead the fold. It is a note, never the book's answer for
-how a place is spelled. What the table does **not** hold is a list of places (ADR-033);
-that is computed at read time:
+One function in [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs)
+decides what "the same place" means. It lowercases, folds diacritics, collapses white
+space and trims:
 
 ```
-raw = SELECT origin, COUNT(*) FROM trips GROUP BY origin
-      UNION ALL
-      SELECT destination, COUNT(*) FROM trips GROUP BY destination
-      (summed per raw spelling)
-
-for each (spelling, uses) in raw:
-    key = normalise(spelling)
-    skip if key is empty
-    fold onto the entry for key:
-        total += uses
-        if uses beats the leading spelling's own count: this spelling leads
-    left join the stored coordinate for key
-
-sort: unplaced first, then uses descending, then display name
+"  Hlavná  ulica 12, Košice " -> "hlavna ulica 12, kosice"
 ```
 
-The **join happens in Rust, not SQL**, because the key is `normalise()` and SQLite
-cannot call it. At tens of rows the cost is nil.
+Digits and punctuation stay: they tell one street number from another. The folding is a
+closed table, not Unicode NFD. A letter that the table does not know keeps its accent
+and gets its own key. The result is a duplicate place, never a wrong position.
 
-Two details in the fold are load-bearing:
-
-- The leading spelling is chosen against the leader's **own** count, never the running
-  total — the total has already absorbed other spellings, so it outgrows any single one
-  and would freeze the display on whichever spelling SQLite happened to return first.
-- Equal counts are settled on the spelling itself (byte-wise smaller wins), so row
-  order does not decide those either.
-
-`uses` counts trip **endpoints**, not trips: A → B adds one to each, and a trip whose
-origin and destination are the same place adds two to it. Hence the Slovak label
-„výskytov" (occurrences) rather than „jázd".
-
-### Geocoding
-
-Nominatim sits behind a `GeocodeProvider` trait, and the provider is a parameter rather
-than a hard-wired choice: `geocode_place_internal(provider: &dyn GeocodeProvider, query)`
-in [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) uses whatever
-it is handed, and the real one is constructed at the call site in
-[dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs)
-(`HttpGeocodeProvider::public()`) — the same seam `generate_route_internal` takes its
-`RouteProvider` through. A test can therefore stand in a fake and never touch a network
-stack at all. `HttpGeocodeProvider` asks the public instance for `format=jsonv2`,
-`limit=5`, `accept-language=sk`, with an identifying User-Agent (Nominatim's usage
-policy requires one; a generic or absent agent gets the whole application blocked
-rather than just one request). The timeout is 15 seconds — a person is watching a
-dialog for the answer, so a slow search is a stuck one.
-
-A row whose latitude or longitude will not parse is dropped, not the whole response:
-the candidates are independent alternatives, so one unreadable row costs that row and
-not the user's other four options. An empty answer is valid and already means "place it
-by hand".
-
-Deliberately absent: retries, caching, any country filter (ADR-035), and any rate
-limiter (see Design Decisions).
-
-**Mock mode** — `KNIHA_JAZD_MOCK_GEOCODER_DIR` points the provider at a directory of
-canned `jsonv2` bodies ([tests/integration/data/geocoder/](../../tests/integration/data/geocoder/)), filed under `normalise(query) + ".json"`. So
-`"Gamma Warehouse, Testville"` is answered by
-[gamma warehouse, testville.json](../../tests/integration/data/geocoder/gamma%20warehouse,%20testville.json). A
-missing file is an empty answer; a file that is present but unreadable is an error —
-a broken fixture must shout rather than quietly turn a test green. The integration
-harness sets the variable for you, both for the spawned server
-([wdio.server.conf.ts](../../tests/integration/wdio.server.conf.ts)) and for the
-container (`-e` flag in [test.yml](../../.github/workflows/test.yml)).
+The key is stored in `places.normalised_name`, so the unique index enforces it. The same
+function runs in the migration, through the SQL function `kj_normalise`.
 
 ### Backend (Rust)
 
-Four RPC commands, registered in
-[server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) except the one
-that awaits the network:
+The commands live in
+[commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs).
 
-| Command | Where | Args | Does |
-|---------|-------|------|------|
-| `list_places` | dispatcher | — | The derived list, ordered |
-| `geocode_place` | dispatcher_async | `query` | Candidates. **Writes nothing** |
-| `save_place` | dispatcher | `displayName`, `lat`, `lon`, `source` | Upserts the coordinate |
-| `clear_place` | dispatcher | `displayName` | Forgets it |
+| Command | Args | Does |
+|---------|------|------|
+| `list_places` | none | All places with `uses`. Unplaced first, then `uses` descending, then name. |
+| `create_place` | `name`, `lat`, `lon`, `source` | Creates a place. Position required. Error if the key exists. |
+| `rename_place` | `id`, `name` | Changes `name` and `normalised_name`. Error if another place has the key. |
+| `set_place_position` | `id`, `lat`, `lon`, `source` | Sets the position. |
+| `delete_place` | `id` | Deletes the place only if no trip uses it. |
+| `find_place` | `name` | Returns the place whose key equals `normalise(name)`, or nothing. |
+| `geocode_place` | `query` | Returns candidates. **Writes nothing.** |
 
-Looking and committing are separate calls on purpose: a geocode that saved its first
-guess would make that guess permanent before anyone saw it, and the whole point of the
-book is that no coordinate is stored without a human confirming it.
+`save_place` and `clear_place` do not exist any more. A place keeps its position: the
+user can change it, not remove it.
 
-`save_place` derives the key itself — not the caller, not the db layer — so a save and
-the list that reads it back can never disagree about what "the same place" is. It
-refuses an empty name: the read side has already decided an empty key is not a place,
-and storing one would leave a row no list can show. The guard cannot live in the
-caller, because `POST /api/rpc` is reachable without the UI.
+Details:
 
-`upsert_place` is a delete + insert in one transaction, the same shape
-`save_route_map` uses for the same "primary key that is not an id" problem. An
-`AsChangeset` update would not do: it reads `None` as "leave this column alone", so it
-could set a coordinate but never clear one, and the row would end up a merge of two
-answers rather than the latest one.
+- **Name rules.** The backend trims the name and collapses the spaces. A blank name is an
+  error.
+- **Rename.** A rename applies to all trips, because the trips hold the ID. A key that
+  another place holds is an error (`ensure_key_free`). The place that is renamed does
+  not collide with its own key, so a rename that changes only the case or the accents is
+  allowed.
+- **Delete rules.** `delete_place_if_unused` counts the trips that use the place. If the
+  count is more than zero, the command returns the error
+  `Miesto používa N jázd, nedá sa zmazať`. If no trip uses the place, the command deletes
+  the place and the routes that point at it.
+- **`find_place`.** The trip form calls it for typed text that does not match a name
+  exactly. A text that differs only in case, spaces or diacritics finds the place. The
+  fold stays in Rust (ADR-008): the frontend has no second copy of `normalise`.
+- **Geocoding.** `geocode_place` is unchanged. Looking and saving are separate calls, so
+  no position is stored before a human confirms it (ADR-032). Nominatim sits behind the
+  `GeocodeProvider` trait in [places/geocode.rs](../../src-tauri/core/src/places/geocode.rs).
+  The request has `format=jsonv2`, `limit=5`, `accept-language=sk`, an identifying
+  User-Agent and a 15 second timeout. There is no country filter (ADR-035).
+  `KNIHA_JAZD_MOCK_GEOCODER_DIR` points the provider at canned answers for the tests.
+  A row that Nominatim returns with a bad `lat` or `lon` is dropped, not the whole answer.
 
-`clear_place` on a place that was never placed is a **no-op, not an error** — the
-caller asked for the book to hold no coordinate for it, and it already holds none.
+### The migration
 
-`source` is `geocoder` or `manual` — recording whether a coordinate is a suggestion
-someone accepted or a pin someone dropped. An unrecognised string parses to `None`
-rather than panicking, so a row written by a newer build cannot crash an older one.
+The migration `2026-10-05-100000_places_as_entities`
+([up.sql](../../src-tauri/core/migrations/2026-10-05-100000_places_as_entities/up.sql))
+is plain SQL. It uses the SQL function `kj_normalise`. The function is registered from
+Rust in `db::prepare_connection`, before the migrations, on every connection that
+migrates, also on a restore. The `diesel migration run` command from the CLI fails with
+`no such function: kj_normalise`: only the app can run this migration.
+
+The rules:
+
+1. **One place for each key.** All spellings that give one `normalise()` key become one
+   place. The name is the spelling that trips use most. If the counts are equal, the
+   byte-wise smaller spelling wins.
+2. **Positions stay.** The place takes the position of the old `places` row with the same
+   key.
+3. **Unused places stay.** An old `places` row that no trip names stays as a place.
+4. **A blank endpoint** becomes the place `Neznáme miesto`, so the trip keeps a target.
+5. **A place without a position** is marked *Treba doplniť polohu* in the tab.
+6. **Routes.** The migration drops routes that no trip uses. If two routes of one vehicle
+   fall on one place pair, it keeps the route that the latest trip on that pair used by
+   exact spelling. If none matches, it keeps the first by `id`.
+7. **Child rows.** Foreign keys are ON. `DROP TABLE trips` would delete `trip_routes` and
+   `paperless_trip_links` rows by cascade. The migration copies both tables to TEMP
+   tables first and copies them back after the new `trips` table exists.
+
+The migration is **one-way for the app**. An image that is older than the migration opens
+the migrated database in read-only mode. See [read-only-mode.md](./read-only-mode.md).
 
 ### Frontend
 
-**Miesta section** — [src/routes/settings/+page.svelte](../../src/routes/settings/+page.svelte).
-Renders the list in the order it arrives and never re-sorts it (ADR-008). The filter
-matches against **both** spellings the row carries: a query typed with diacritics
-matches `displayName`, an ASCII one matches `normalisedName`. That asymmetry is
-deliberate — folding the needle in TypeScript would mean a second, divergent copy of
-`normalise`, which ADR-008 forbids. The case that actually occurs is the ASCII one:
-production data shows users type "Kosice", not "Košice".
+**Miesta tab** - [src/routes/miesta/+page.svelte](../../src/routes/miesta/+page.svelte).
+It shows the list in the order that the backend returns (ADR-008). The filter matches
+both `name` and `normalisedName`: a query with diacritics matches the name and an ASCII
+query matches the key. The tab never folds the query itself.
 
-**PlaceModal** — [src/lib/components/PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte).
-Leaflet is imported lazily (it touches `window` at import time), the pin is a `divIcon`
-so no image asset has to survive the bundler's URL rewriting, and tiles carry the
-attribution the OpenStreetMap tile policy requires. The pending coordinate is seeded
-from the prop exactly once and then free to diverge — a dialog that re-mirrored the
-prop would throw the user's edits away. The dialog imports **no write command at all**;
-it hands the confirmed coordinate back to the page, which owns the write. A geocoder
-answer therefore physically cannot reach the database before someone presses Save.
+**PlaceModal** - [src/lib/components/PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte).
+The dialog imports no write command. It gives the confirmed position to the page, and
+the page owns the write (`setPlacePosition` or `createPlace`). A geocoder answer cannot
+reach the database before the user presses save. The page wraps the dialog in
+`{#key ...}`, so a dialog never keeps the pin of a previous place.
 
-Because the seeding is once-only, the settings page wraps the dialog in
-`{#key place.normalisedName}`. The `{#if}` alone is not enough: nothing traps focus, so
-a keyboard user can tab to another row's edit button behind the open dialog, and the
-target would go straight from place A to place B without ever being null — leaving A's
-coordinate in the dialog under B's name, which is exactly the wrong-pin outcome ADR-032
-exists to prevent.
-
-**Trip autocomplete** — [TripGrid.svelte](../../src/lib/components/TripGrid.svelte)
-loads the book on mount and again after every trip write — create, update **and
-delete** — so a place just typed into a trip is offered on the next row without a page
-reload, and one whose last trip has gone stops being offered. (Only the book is
-reloaded on delete: a stale `routes` row merely feeds distance auto-fill, where a pair
-nobody drives simply never matches.)
-[TripRow.svelte](../../src/lib/components/TripRow.svelte) offers `displayName` (never
-`normalisedName`, which is a folded key and would be written verbatim into the trip),
-re-sorted alphabetically.
-[Autocomplete.svelte](../../src/lib/components/Autocomplete.svelte) is a custom dropdown
-— it filters the list client-side and renders it in whatever order it was handed — and
-the order the book arrives in is the Settings work queue (unplaced first, then by use),
-which is no order to look a place up in. `routes` is still passed to the row — it
-carries the per-vehicle kilometres for a known origin/destination pair — but it no
-longer feeds the suggestions.
+**Trip form** - [TripRow.svelte](../../src/lib/components/TripRow.svelte) offers the place
+names from `list_places`. [TripGrid.svelte](../../src/lib/components/TripGrid.svelte)
+loads the list on mount and after every trip write.
 
 ### Data Flow
 
 ```
-Settings → Miesta
-  │
-  ├─ list_places ──► dispatch_sync ──► list_places_internal
-  │                                      │
-  │                                      ├─ distinct_trip_places()   (SQL: trips)
-  │                                      ├─ all_places()             (SQL: places)
-  │                                      └─ fold on normalise(), join, sort  (Rust)
-  │                                                      │
-  │                            ◄─────────────────────────┘  Place[]
-  │
-  └─ open PlaceModal
-        │
-        ├─ geocode_place ─► dispatch_async ─► HttpGeocodeProvider ─► Nominatim
-        │                                     (or mock dir)
-        │                    ◄───────────────  Candidate[]     nothing written
-        │
-        │   user picks a candidate, clicks the map, or drags the pin
-        │   → pending {lat, lon, source} lives in the dialog only
-        │
-        └─ Save ─► save_place ─► save_place_internal ─► upsert places row
-                                  (check_read_only!, key = normalise(displayName))
-                        │
-                        └─► list_places again ─► list re-renders, counter ticks up
+Miesta tab
+  |
+  +- list_places -> list_places_internal -> places + uses (SQL), sort (Rust)
+  |
+  +- Pridat miesto: name -> PlaceModal
+  |     +- geocode_place -> Nominatim        nothing written
+  |     +- Save -> create_place (name, lat, lon, source)
+  |
+  +- Upravit: PlaceModal -> Save -> set_place_position
+  +- Premenovat: rename_place   (error on a key collision)
+  +- Zmazat: delete_place       (error if a trip uses the place)
+
+Trip form (save)
+  +- typed text equals a place name -> use that ID
+  +- else find_place(text) -> ID, or the save is blocked with a link to /miesta
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | `normalise()` — the one lookup key |
+| [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | `normalise()`, the matching key |
 | [places/geocode.rs](../../src-tauri/core/src/places/geocode.rs) | `GeocodeProvider` trait, Nominatim client, mock mode |
-| [commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `list_places_internal`, `geocode_place_internal`, `save_place_internal`, `clear_place_internal` |
-| [db.rs](../../src-tauri/core/src/db.rs) | `distinct_trip_places`, `all_places`, `upsert_place`, `delete_place` |
+| [commands_internal/places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | The place commands |
+| [db.rs](../../src-tauri/core/src/db.rs) | `kj_normalise` registration, `delete_place_if_unused`, place queries |
 | [models.rs](../../src-tauri/core/src/models.rs) | `Place`, `PlaceRow`, `NewPlaceRow`, `PlaceSource` |
-| [migrations/2026-09-07-100000_add_places](../../src-tauri/core/migrations/2026-09-07-100000_add_places/up.sql) | The `places` table |
-| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | `list_places`, `save_place`, `clear_place` arms |
-| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | `geocode_place` arm |
-| [settings/+page.svelte](../../src/routes/settings/+page.svelte) | Miesta section: list, counter, filter |
+| [migrations/2026-10-05-100000_places_as_entities](../../src-tauri/core/migrations/2026-10-05-100000_places_as_entities/up.sql) | The migration |
+| [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | The RPC arms |
+| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | The `geocode_place` arm |
+| [miesta/+page.svelte](../../src/routes/miesta/+page.svelte) | The Miesta tab |
 | [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) | Map dialog: search, candidates, draggable pin |
-| [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) / [TripRow.svelte](../../src/lib/components/TripRow.svelte) | Autocomplete fed from the book |
-| [types.ts](../../src/lib/types.ts) / [api.ts](../../src/lib/api.ts) | `Place`, `GeocodeCandidate`, `PlaceSource`; the four wrappers |
-| [places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts) | Tier 2 flows against a stubbed geocoder |
+| [TripRow.svelte](../../src/lib/components/TripRow.svelte) | Place choice and `find_place` on save |
+| [types.ts](../../src/lib/types.ts) / [api.ts](../../src/lib/api.ts) | `Place`, `PlaceSource`; the RPC wrappers |
+| [places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts) | Tier 2 flows |
 
 ## Design Decisions
 
-### Every place is confirmed by a human — no auto-accept, no confidence threshold (ADR-032)
-
-The brainstorm had proposed trusting the geocoder when its returned name equalled the
-query. Profiling the production database killed that outright: the book's entries are
-**street addresses**, not town names, and a geocoder's name for an address never equals
-the typed string. The rule could not fire.
-
-Rather than invent a replacement heuristic, there is none. Any threshold would be tuned
-to one geocoder's scoring and would break silently when the provider is swapped — which
-the `GeocodeProvider` trait exists to allow. Decisively: a wrong pin accepted silently
-does not announce itself. It surfaces later as a map of the wrong place on a document
-that is **legal evidence**. The cheapest way not to have that failure is to never guess.
-
-The cost is roughly fifteen minutes of clicking, once, on a closed list of 47 places
-that grows by a handful a year.
-
-### The list is derived from trips, never stored (ADR-033)
-
-A direct lesson from the `routes` table. Its stored `usage_count` was maintained by
-three write paths that all had to agree forever — and did not: the counter was **wrong
-in 52 of its 96 production rows** ([task 76](../../_tasks/_done/76-route-usage-counter-drift/)).
-`update_trip` counted a second time, deleting a trip never decremented, and rows
-outlived every trip that justified them.
-
-A derived list cannot drift. A place appears when a trip names it and disappears when
-the last one stops, at no cost at tens of rows and with no backfill migration.
-
-The accepted consequence: a `places` row whose trips are all deleted becomes an
-invisible orphan — its coordinates stay on disk but nothing lists them. That is a point
-nobody asks for, not a wrong answer.
-
-### `display_name` is the trip's own spelling, never the geocoder's (ADR-034)
-
-A geocoder returns an official rendering — full diacritics, canonical street form,
-country suffix. The logbook's strings are plain ASCII, made consistent by a one-off
-cleanup.
-
-The autocomplete offers `display_name`. If that were the geocoder's rendering, picking
-a suggestion would write a *new* string into the trip — one differing from every row
-already using the plain form — and the spelling fragmentation the cleanup had just
-removed would grow straight back, one autocomplete selection at a time. The book's job
-is to point at places, not to rename them.
-
-### The geocoder is not restricted by country (ADR-035)
-
-[Task 72](../../_tasks/_done/72-route-map-origin-destination/)'s earlier design pinned
-Nominatim to `countrycodes=sk`, assuming a Slovak logbook names Slovak places. The
-production data contradicts it: five of the 47 places are Czech or Hungarian, and a
-single Czech address accounts for **39 trips**. The restriction would fail those
-outright, leaving a pin-by-hand as the only route to the most-travelled foreign
-destination in the book.
-
-The usage obligations that actually matter — an identifying User-Agent and one request
-per second — are unaffected by dropping it.
-
-### The join happens in Rust, not SQL
-
-The list's key is `normalise()`, and SQLite cannot call it. So SQL groups the raw trip
-strings and Rust does the folding and the join. At tens of rows the cost is nil, and
-keeping the key in one language keeps ADR-008's "one implementation of the rule"
-intact.
-
-### `normalise()` is not `db::normalize_location`
-
-Two functions, two jobs, on purpose. `normalize_location` collapses whitespace but
-keeps case and diacritics, because it produces the **canonical spelling a trip stores**.
-`normalise` folds case and diacritics away, because it produces a **matching key**.
-Merging them would either put folded ASCII into trips or make the book blind to
-"Kosice" vs "Košice".
-
-### `uses` counts endpoints, not trips
-
-A → B contributes one use to each of A and B; a trip that starts and ends at the same
-place contributes two to it. The number answers "how much does this place appear in the
-book", which is what makes it a sensible sort key for the work queue. The Slovak label
-says „výskytov" rather than „jázd" for exactly this reason.
-
-### No rate limiter in the client
-
-Nominatim's usage policy caps requests at one per second. Placing is one address at a
-time, driven from the browser, submit-only (no keystroke starts a request), and
-persisted before the next begins — so the obligation is already met by the only thing
-that can pace it. A limiter in `HttpGeocodeProvider` would be machinery guarding a
-queue that never has two items in it.
+- **Why entities?** A free-text place needed a fold (`normalise`) at every read, and a
+  rename of a place was impossible. With an ID, a rename is one update and the match is
+  an equality. See ADR-055 in [DECISIONS.md](../../DECISIONS.md). It supersedes ADR-033
+  for places (the route counters stay derived) and ADR-034 (the display name is now the
+  stored name).
+- **Why is a collision an error, not a merge?** A merge changes the trips of two places
+  and cannot be undone. The user can see the other place and decide.
+- **Why can a place be deleted only if unused?** A delete of a used place would leave
+  trips without an endpoint. The tooltip tells the user how many trips use it.
+- **Why does a trip accept only an existing place?** Typed text that matches no place
+  was the source of duplicate spellings. The save is blocked and the message links to
+  Miesta.
+- **Every place is confirmed by a human (ADR-032).** The app never accepts a geocoder
+  answer without a click. A wrong pin shows up later as a wrong map on a legal document.
+- **The geocoder has no country filter (ADR-035).** Real logbooks name Czech and
+  Hungarian places.
+- **`normalise()` is not `db::normalize_location`.** The first makes a matching key. The
+  second only cleans the spaces of a spelling that is stored.
+- **No rate limiter in the client.** One address at a time is submitted by a person, so
+  the Nominatim limit of one request each second is met by the use itself.
 
 ## Testing
 
-- **Backend unit tests** own the logic: `places::normalise` and its folding table, how
-  the derived list folds spellings and orders itself, the display-name tiebreak,
-  save/clear semantics, the empty-name refusal, the read-only refusal, and how a
-  Nominatim `jsonv2` response is parsed into candidates (via `wiremock`).
+- **Backend unit tests** own the rules: `normalise` and its table, create, rename (also
+  the collision error), set position, delete (also the in-use error), `find_place`, the
+  read-only refusal, the migration cases (spelling fold, blank endpoint, route collapse,
+  child rows) and the parse of a Nominatim answer (`wiremock`).
 - **Integration tests** ([places.spec.ts](../../tests/integration/specs/tier2/places.spec.ts))
-  own the three UI flows and nothing else: a seeded trip's places turn up marked
-  unplaced; a coordinate confirmed in the dialog is stored and survives a reload; and a
-  place one vehicle used is offered in another vehicle's trip form — the behaviour the
-  old per-vehicle `routes` autocomplete could not provide, and the one worth pinning.
+  own the UI flows: add, rename, delete, the disabled delete of a used place and the
+  trip form that accepts only an existing place.
 
-Nothing in either layer reaches Nominatim. What the geocoder replies for a real address
-is Nominatim's property, not this codebase's, so no test asserts that a search finds the
-right place — only that the candidate a human picked travels from dialog to database to
-list.
-
-The spec shares one backend with the rest of tier 2 and the harness's `afterTest` reset
-does not clear the `places` table, so the spec clears its own place rows in
-`beforeEach` as well as `after` — a save from an earlier retry would otherwise still be
-on disk when the "unplaced" assertions run.
+No test reaches Nominatim. What the geocoder answers for a real address is not this
+project's behaviour.
 
 ## Related
 
+- [ADR-055](../../DECISIONS.md): Places are entities, trips and routes reference them by ID
 - [ADR-032](../../DECISIONS.md): Places are placed by a human, never by a confidence heuristic
 - [ADR-033](../../DECISIONS.md): Aggregates over trips are computed, not stored
-- [ADR-034](../../DECISIONS.md): The book displays the spelling trips already use, not the geocoder's
+- [ADR-034](../../DECISIONS.md): The display spelling (superseded by ADR-055: the name is stored)
 - [ADR-035](../../DECISIONS.md): The geocoder is not restricted by country
 - [ADR-008](../../DECISIONS.md): All business logic lives in the Rust backend
-- [_tasks/_done/75-place-book/](../../_tasks/_done/75-place-book/) — task, design and plan
-- [_tasks/_done/72-route-map-origin-destination/](../../_tasks/_done/72-route-map-origin-destination/) — the next reader of the book
-- [_tasks/_done/76-route-usage-counter-drift/](../../_tasks/_done/76-route-usage-counter-drift/) — the stored-counter drift that shaped ADR-033
+- [_tasks/88-places-as-entities/](../../_tasks/88-places-as-entities/): task and plan
+- [_tasks/_done/75-place-book/](../../_tasks/_done/75-place-book/): the first place book

@@ -174,10 +174,13 @@ Write commands fail in read-only mode with a user-facing error — see [read-onl
 The Settings UI ([settings/+page.svelte](../../src/routes/settings/+page.svelte)) loads both
 setting types and presents them in a unified interface. Its `onMount()` subscribes to the
 locale and theme stores, then sequentially awaits `getSettings()`, `loadBackups()`,
-`loadRetentionSettings()`, `checkVehiclesWithTrips()`, `loadPlaces()`, `getAppVersion()`,
+`loadRetentionSettings()`, `checkVehiclesWithTrips()`, `getAppVersion()`,
 `getInferTripTimes()`, `getHaSettings()` and `getPaperlessSettings()`, in that order. The
 last two each follow with a connection test when the integration is configured, and
 Paperless also loads its custom-field names.
+
+Settings has **no place section**. The place book has its own tab, Miesta (`/miesta`),
+described in [place-book.md](./place-book.md). It was a Settings section before task 88.
 
 It does **not** fetch the database location — `getDbLocation()` has no caller in the
 frontend. The `get_db_location` command still exists on the backend and is reachable over

@@ -13,6 +13,10 @@ server prints the unknown versions and calls `enable_read_only`. With versioned 
 tags, rolling back to an older tag is the realistic way to reach this, and it is more
 likely than anything the desktop app offered.
 
+A concrete case: the migration `2026-10-05-100000_places_as_entities` is one-way for the
+app (see [place-book.md](./place-book.md)). An image older than this migration that opens
+a migrated database finds an unknown migration, so it starts in read-only mode.
+
 Verified end to end: with a planted future migration, `/api/capabilities` reports
 `"read_only": true`, `get_app_mode` returns `ReadOnly` with the Slovak reason, and a
 write command is refused.
@@ -82,7 +86,7 @@ note below the table). Grouped by module under
 | [invoices.rs](../../src-tauri/core/src/commands_internal/invoices.rs) | `assign_paperless_invoice`, `unassign_paperless_invoice`, `revert_paperless_override` |
 | [integrations.rs](../../src-tauri/core/src/commands_internal/integrations.rs) | `save_ha_settings`, `save_paperless_settings` |
 | [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | `save_trip_route`, `save_trip_round_trip_route` (conditional: both take `dry_run`, see below), `delete_trip_route` |
-| [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `save_place`, `clear_place` (see [place-book.md](./place-book.md)) |
+| [places_cmd.rs](../../src-tauri/core/src/commands_internal/places_cmd.rs) | `create_place`, `rename_place`, `set_place_position`, `delete_place` (see [place-book.md](./place-book.md)) |
 
 The **dry-run family** in [trips.rs](../../src-tauri/core/src/commands_internal/trips.rs)
 is conditional: `recalculate_odometers_internal`, `update_trip_cascade_internal`,

@@ -24,7 +24,7 @@ discontinued — existing installs keep working but receive no further updates.
 - **Compensation trip suggestions** - How to get back under the limit
 - **Fill-up suggestions** - Automatic calculation of liters needed for optimal consumption
 - **Route memory** - Frequent routes auto-complete
-- **Places** - Every place your trips name, listed once; give each one a point on the map. The "Odkiaľ"/"Kam" suggestions are then shared across all vehicles. See [docs/features/place-book.md](docs/features/place-book.md).
+- **Places** - The Miesta tab holds the place book: add a place (name and a point on the map), rename it (the change applies to all trips) or delete it (only if no trip uses it). A trip accepts only an existing place, and the "Odkiaľ"/"Kam" suggestions are shared across all vehicles. See [docs/features/place-book.md](docs/features/place-book.md).
 - **Route maps** - Generate a road-following route for a trip, from its origin to its destination (or a loop when the two are the same), pick an alternative, drag the line to correct it, and write the distance back to the trip. Saved maps are appended to the printed export. See [docs/features/route-maps.md](docs/features/route-maps.md).
 - **Yearly overviews** - Each year = separate logbook
 - **Column visibility** - Customize the trip grid by hiding/showing columns

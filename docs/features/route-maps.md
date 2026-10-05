@@ -11,14 +11,15 @@ The commands are served over the HTTP API like every other command — see
    map-pin icon beside the existing insert-above and delete actions. The pin is outlined
    when the trip has no saved map and filled when it has one.
 2. **Click the pin.** A new browser tab opens at `/mapa?trip={id}`.
-3. **The backend decides the mode from the row's own text**, nothing the user picks: if
-   "Odkiaľ" and "Kam" name the same place, the map opens as a **loop** sized to the trip's
+3. **The backend decides the mode from the row's own places**, nothing the user picks: if
+   "Odkiaľ" and "Kam" point at the same place (the same place ID), the map opens as a **loop** sized to the trip's
    recorded distance (unchanged from V1); otherwise it opens as a **direct route** between
    the two. See [Two modes, chosen in Rust](#two-modes-chosen-in-rust).
 4. **A direct route needs both endpoints placed.** Endpoint coordinates come from the place
-   book ([Task 75](../../_tasks/_done/75-place-book/)), never from a fresh geocode. If either
-   endpoint has no saved coordinate yet, the shared place dialog opens right there on the
-   page; saving a pin resumes routing immediately, with no navigation away from the map. See
+   book ([Task 75](../../_tasks/_done/75-place-book/)), found by the trip's
+   `origin_place_id` and `destination_place_id`, never from a fresh geocode. A place from
+   an old database can have no position. If either endpoint has none, the shared place
+   dialog opens right there on the page; saving a pin resumes routing immediately, with no navigation away from the map. See
    [Endpoints come from the place book](#endpoints-come-from-the-place-book).
 5. **A direct route offers alternatives** when a leg has exactly two points: a row of up to
    three options, fastest first, each labelled with its deviation from the trip's recorded
@@ -48,10 +49,9 @@ The commands are served over the HTTP API like every other command — see
 
 **Failure cases:**
 
-- Origin or destination is blank → routing refuses with a visible error rather than
-  falling back to a loop; a trip missing either field is not one the map can draw.
-- Either endpoint has no place-book coordinate → the shared place dialog opens instead of
-  failing (step 4 above).
+- Either endpoint place has no position (a legacy place): the shared place dialog opens
+  instead of failing (step 4 above). A trip always has both places, so a blank endpoint
+  cannot occur any more.
 - The loop generator cannot reach the target within tolerance → the best attempt is drawn
   and the deviation percentage is flagged. See
   [Why short trips can miss target](#why-short-trips-can-legitimately-miss-target).
@@ -102,11 +102,11 @@ write-back described below; nothing is written while it is null.
 
 **Endpoint placement:** when `start_route_for_trip` reports an endpoint with no coordinate,
 the page renders [PlaceModal.svelte](../../src/lib/components/PlaceModal.svelte) -- the same
-dialog [the place book's Settings page](./place-book.md) uses -- in place, seeded with the
-trip's own origin or destination text. Saving a pin calls `savePlace` and re-runs the
+dialog [the Miesta tab](./place-book.md) uses -- in place, for the trip's origin or
+destination place. Saving a pin calls `setPlacePosition` with the place ID and re-runs the
 start-of-trip flow, which picks up the new coordinate and either asks for the other endpoint
 next or proceeds to route. The map page never writes anywhere else in the place book; it
-reuses the dialog's save contract exactly as Settings → Miesta does.
+reuses the dialog's save contract exactly as the Miesta tab does.
 
 **Alternatives and editing:** picking a row in the alternatives list only swaps which
 already-fetched `GeneratedRoute` is drawn -- no new request. Dragging the line calls the
@@ -124,7 +124,7 @@ a removal in the map tab updates the row icon without a reload.
 
 **API wrappers:** [src/lib/api.ts](../../src/lib/api.ts) -- `generateRoute`, `routeDirect`,
 `startRouteForTrip`, `getTripRoute`, `saveTripRoute`, `deleteTripRoute`, plus the place
-book's `savePlace` for the in-place dialog.
+book's `setPlacePosition` for the in-place dialog.
 
 ### Backend (Rust)
 
@@ -144,7 +144,7 @@ frontend draws a coordinate list and confirms it.
 | [tiles.rs](../../src-tauri/core/src/route_map/tiles.rs) | Web Mercator tile geometry plus the cache-first tile fetcher |
 | [render.rs](../../src-tauri/core/src/route_map/render.rs) | Composites tiles and strokes the route into a PNG |
 | [route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs) | The six commands, `mode_for`, waypoint-insertion geometry, plus export attachment assembly |
-| [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | The text normalisation `mode_for` and the place book both key on |
+| [places/normalise.rs](../../src-tauri/core/src/places/normalise.rs) | The text normalisation the place book keys on (`mode_for` compares place IDs and does not use it) |
 
 **Commands are dispatcher-only.** `generate_route` (Loop), `route_direct` (Direct, plus
 alternatives and edits) and `route_round_trip` (Direct round trip: two legs, one call each)
@@ -223,13 +223,13 @@ Direct mode -- endpoint lookup, alternatives, and editing:
 ```
 Row pin → /mapa?trip=id → start_route_for_trip
                             ↓
-        mode_for(origin, destination) → direct (normalise() differs)
+        mode_for(trip) -> direct (the two place IDs differ)
                             ↓
     each endpoint looked up in the place book (no geocode here) ──┐
                             ↓                                     │ missing coordinate
                     route_direct → OSRM /route                    ↓
                             ↓                          PlaceModal opens in place,
-       up to 3 alternatives, fastest first,            savePlace, then retry lookup
+       up to 3 alternatives, fastest first,            setPlacePosition, then retry lookup
        each labelled with its deviation %                        │
                             ↓ ←─────────────────────────────────┘
        Leaflet draws the active alternative
@@ -385,32 +385,32 @@ path calls directly.
 V1 always drew a loop from a home base, which matched the navigation-app test trips it was
 built against, where a loop is the correct route shape. [Task 72](../../_tasks/_done/72-route-map-origin-destination/)
 replaces that blanket rule: `mode_for` ([route_maps.rs](../../src-tauri/core/src/commands_internal/route_maps.rs))
-compares `normalise(origin)` against `normalise(destination)` -- equal means Loop, unchanged
-from V1; different means Direct, a fresh point-to-point route. See
+compares `origin_place_id` against `destination_place_id` -- equal means Loop, unchanged
+from V1; different means Direct, a fresh point-to-point route. Since [task 88](../../_tasks/88-places-as-entities/)
+the comparison is an ID equality: two spellings of one place are one place, so no string fold is involved. See
 [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust).
 
 The frontend never makes this comparison itself (ADR-008): the map page reads `mode` off
 whatever the backend already decided, whether that is a fresh `start_route_for_trip` call or
-a saved route's own stored `mode` column. An origin or destination that normalises to empty
-is a routing error, not a fallback to Loop -- a trip missing either field would otherwise draw
-a plausible-looking map for a journey nobody described.
+a saved route's own stored `mode` column. A trip always has both places, so
+a blank endpoint cannot reach the router. (The migration maps a blank endpoint to the place `Neznáme miesto`.)
 
 ### Endpoints come from the place book
 
-Direct mode needs coordinates for two free-text strings, and geocoding them on every map open
-would be slow, rate-limited, and non-deterministic -- the same place typed identically twice
+Direct mode needs coordinates for two places, and geocoding them on every map open
+would be slow, rate-limited, and non-deterministic -- the same place geocoded twice
 could resolve to two different pins. [Task 75](../../_tasks/_done/75-place-book/)'s place book
 already solves exactly this for a different feature (trip-entry autocomplete), so
-`start_route_for_trip` reads from it instead of calling a geocoder: `placed_endpoint` looks up
-`normalise(origin)` / `normalise(destination)` in the book and returns nothing when no human
-has confirmed a coordinate for that place yet
+`start_route_for_trip` reads from it instead of calling a geocoder: `placed_endpoint` finds
+`origin_place_id` / `destination_place_id` in the book and returns nothing when no human
+has confirmed a position for that place yet (only a legacy place from the migration can lack one)
 ([ADR-032](../../DECISIONS.md#adr-032-places-are-placed-by-a-human-never-by-a-confidence-heuristic)).
 
 A missing endpoint is not a routing failure. The map page opens the shared
 [PlaceModal](../../src/lib/components/PlaceModal.svelte) -- the same dialog
-[Settings → Miesta](./place-book.md) uses -- seeded with the trip's own text, right on the map
-page. Saving a pin writes to the same place book Settings edits, so placing an endpoint from
-the map also fixes every other trip already using that spelling.
+[Miesta tab](./place-book.md) uses -- right on the map
+page. Saving a pin writes to the same place the Miesta tab edits, so placing an endpoint from
+the map also fixes every other trip that uses the place.
 
 ### Alternatives are ordered by duration, never by deviation
 
@@ -561,7 +561,7 @@ saw it.
 - [ADR-053](../../DECISIONS.md#adr-053-the-page-picks-the-routing-provider-per-request-the-server-decides-what-exists): the page picks the routing provider per request; the server decides what exists
 - [ADR-047](../../DECISIONS.md#adr-047-a-round-trip-is-two-routing-requests-one-per-leg): a round trip is two routing requests, one per leg
 - [ADR-048](../../DECISIONS.md#adr-048-the-routed-distance-can-be-written-back-behind-the-warning-this-adr-asked-for): the routed distance can be written back, behind the warning this ADR asked for
-- [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust): the route mode comes from the trip's own text, decided in Rust
+- [ADR-037](../../DECISIONS.md#adr-037-the-route-mode-comes-from-the-trips-own-text-decided-in-rust): the route mode comes from the trip's own text, decided in Rust (since task 88 it compares place IDs)
 - [ADR-038](../../DECISIONS.md#adr-038-alternatives-are-ordered-by-duration-deviation-labels-never-reorders): alternatives are ordered by duration; deviation labels, never reorders
 - [ADR-039](../../DECISIONS.md#adr-039-distance_km-is-never-rewritten-from-a-routes-road-distance): `distance_km` is never rewritten from a route's road distance -- **superseded by ADR-048**
 - [ADR-040](../../DECISIONS.md#adr-040-the-waypoint-editor-is-mode-agnostic): the waypoint editor is mode-agnostic

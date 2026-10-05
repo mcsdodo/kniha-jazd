@@ -75,6 +75,11 @@ snapshot is an error, because a silently inconsistent "backup" is worse than non
 
 `restore_backup`:
 - Validates the filename (`validate_backup_filename`), then copies backup → current database
+- Reopens the file and runs the pending migrations (`Database::restore_from_file`). The
+  connection registers the SQL function `kj_normalise` first (`db::prepare_connection`),
+  because the places migration needs it. An old backup that holds trips with free-text
+  places becomes the new schema (places as entities, see [place-book.md](./place-book.md))
+  at restore time. The backup file itself does not change.
 - Blocked in read-only mode
 - Frontend triggers a page reload after success, so every view re-reads the restored database
 
