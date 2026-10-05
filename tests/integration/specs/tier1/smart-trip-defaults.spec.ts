@@ -22,6 +22,7 @@ import {
   getTripGridData,
   rpc,
 } from '../../utils/db';
+import { typePlaces } from '../../utils/forms';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { waitForTripGrid } from '../../utils/assertions';
 
@@ -150,6 +151,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
       // odometer as anchor + distance_km). km was never typed here, so it
       // is saved as 0 and the odometer is the anchor, untouched by the
       // typed-but-unsent 40000.
+      await typePlaces('Bratislava', 'Bratislava');
       await (await $('tr.editing .icon-btn.save')).click();
       await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
         timeout: 5000,
@@ -212,6 +214,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
       expect(parseFloat(await odoInput.getValue())).toBe(60200);
       expect(await distanceInput.getValue()).toBe(kmBefore);
 
+      await typePlaces('Bratislava', 'Bratislava');
       await (await $('tr.editing .icon-btn.save')).click();
       await browser.waitUntil(async () => !(await $('tr.editing').isExisting()), {
         timeout: 5000,

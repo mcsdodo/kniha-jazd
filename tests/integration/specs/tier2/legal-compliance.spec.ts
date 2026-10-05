@@ -11,7 +11,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, getTripGridData, rpc } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, getTripGridData, rpc, ensurePlace } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
 async function getHiddenColumns(): Promise<string[]> {
@@ -227,6 +227,9 @@ describe('Tier 2: Legal Compliance Columns', () => {
           input.dispatchEvent(new Event('change', { bubbles: true }));
         }
       }, '[data-testid="trip-end-datetime"]', `${today}T09:30`);
+
+      await ensurePlace('TestOrigin');
+      await ensurePlace('TestDestination');
 
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;

@@ -16,7 +16,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, ensurePlace } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
 // Visible (non-editing, non-synthetic) trip rows in the grid -- same
@@ -599,6 +599,8 @@ describe('Odometer cascade on save', () => {
 
     await setFieldByTestId('trip-start-datetime', dateAt(year, 61)); // 03-03
     await setFieldByTestId('trip-end-datetime', dateAt(year, 61));
+    await ensurePlace('Trnava');
+    await ensurePlace('Nitra');
     await setFieldByTestId('trip-origin', 'Trnava');
     await setFieldByTestId('trip-destination', 'Nitra');
     await setFieldByTestId('trip-distance', '15');
@@ -659,6 +661,8 @@ describe('Odometer cascade on save', () => {
     // stay a single silent write.
     await setFieldByTestId('trip-start-datetime', dateAt(year, 62)); // 03-04
     await setFieldByTestId('trip-end-datetime', dateAt(year, 62));
+    await ensurePlace('Nitra');
+    await ensurePlace('Zilina');
     await setFieldByTestId('trip-origin', 'Nitra');
     await setFieldByTestId('trip-destination', 'Zilina');
     await setFieldByTestId('trip-distance', '10');

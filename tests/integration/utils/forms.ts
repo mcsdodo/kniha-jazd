@@ -363,6 +363,31 @@ export interface TripFormOptions {
 }
 
 /**
+ * Type an origin and a destination into the open trip row. Both places are
+ * created first: a trip accepts only an existing place (BIZ-025, Task 88).
+ */
+export async function typePlaces(origin: string, destination: string): Promise<void> {
+  await ensurePlace(origin);
+  await ensurePlace(destination);
+  await browser.execute(
+    (o: string, d: string) => {
+      const set = (testId: string, value: string) => {
+        const input = document.querySelector(
+          `tr.editing [data-testid="${testId}"]`
+        ) as HTMLInputElement | null;
+        if (!input) return;
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      set('trip-origin', o);
+      set('trip-destination', d);
+    },
+    origin,
+    destination
+  );
+}
+
+/**
  * Fill all fields of a trip form
  */
 export async function fillTripForm(options: TripFormOptions): Promise<void> {

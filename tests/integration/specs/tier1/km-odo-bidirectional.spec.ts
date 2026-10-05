@@ -13,6 +13,7 @@ import {
   setActiveVehicle,
   getTripGridData,
   rpc,
+  ensurePlace,
 } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 import { SlovakCities, TripPurposes } from '../../fixtures/trips';
@@ -1273,6 +1274,9 @@ describe('Tier 1: KM ↔ ODO Bidirectional Calculation', () => {
         },
         { timeout: 10000, timeoutMsg: 'The new row did not open' }
       );
+
+      await ensurePlace(SlovakCities.trnava);
+      await ensurePlace(SlovakCities.nitra);
 
       // Type the text fields first. Typing does not auto-fill the distance --
       // only picking a suggestion does -- so the km typed below stands.

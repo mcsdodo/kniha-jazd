@@ -9,7 +9,7 @@
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc, ensurePlace } from '../../utils/db';
 import { waitForTripGrid } from '../../utils/assertions';
 
 async function resetHiddenColumns(): Promise<void> {
@@ -164,6 +164,9 @@ describe('Tier 2: Datetime Column', () => {
       }, '[data-testid="trip-end-datetime"]', `${today}T11:30`);
 
       // Origin
+      await ensurePlace('TestOrigin');
+      await ensurePlace('TestDestination');
+
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {

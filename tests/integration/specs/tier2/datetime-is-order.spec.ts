@@ -20,7 +20,7 @@
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid, resolveTripDialog } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, ensurePlace } from '../../utils/db';
 
 // Visible (non-editing, non-synthetic) trip rows in the grid.
 const TRIP_ROW_SELECTOR =
@@ -113,6 +113,8 @@ async function fillEditingRowAndSave(opts: {
   };
   await setFieldByTestId('trip-start-datetime', opts.startDatetime);
   await setFieldByTestId('trip-end-datetime', opts.endDatetime);
+  await ensurePlace(opts.origin);
+  await ensurePlace(opts.destination);
   await setFieldByTestId('trip-origin', opts.origin);
   await setFieldByTestId('trip-destination', opts.destination);
   await setFieldByTestId('trip-distance', opts.distanceKm);
