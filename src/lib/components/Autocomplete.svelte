@@ -78,6 +78,14 @@
 		}
 	}
 
+	// Take the value from the element: a change without an input event (the
+	// WebDriver clear, some browser autofills) leaves `value` stale, and the
+	// re-render after onChange would write the stale text back.
+	function handleChange(event: Event) {
+		value = (event.currentTarget as HTMLInputElement).value;
+		onChange?.(value);
+	}
+
 	function handleBlur() {
 		// Delay to allow click on dropdown
 		setTimeout(() => {
@@ -94,7 +102,7 @@
 		data-testid={testId || undefined}
 		on:keydown={handleKeydown}
 		on:blur={handleBlur}
-		on:change={() => onChange?.(value)}
+		on:change={handleChange}
 		on:focus={updateSuggestions}
 	/>
 	{#if showDropdown}
