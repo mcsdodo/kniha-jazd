@@ -15,9 +15,18 @@ databázu len na čítanie.
 ## [Unreleased]
 
 ### Pokyny k aktualizácii
-- **Potrebný zásah:** áno. Pred nasadením urobte zálohu databázy. Aplikácia pred migráciou uloží aj vlastnú zálohu `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db`.
+- **Potrebný zásah:** nie
 - **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** 2 nové. `2026-10-05-100000_places_as_entities`: miesta sú samostatné záznamy a jazdy aj uložené trasy na ne odkazujú cez ID. `2026-10-05-110000_add_place_is_home`: pridá stĺpec `places.is_home` a jedinečný čiastočný index, údaje nemení. Žiadne miesto nie je domov, kým ho používateľ neoznačí. Migrácie sú jednosmerné: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len ručná obnova zálohy: zastavte kontajner, skopírujte `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v*.db` cez `<DATA_DIR>/kniha-jazd.db` a spustite starší obraz.
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Obraz, zväzok, port:** bez zmeny
+
+## [2.0.0] - 2026-10-05
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** áno. Pred nasadením urobte zálohu databázy. Aplikácia pred migráciou uloží aj vlastnú zálohu `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v2.0.0.db`.
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** 2 nové. `2026-10-05-100000_places_as_entities`: miesta sú samostatné záznamy a jazdy aj uložené trasy na ne odkazujú cez ID. `2026-10-05-110000_add_place_is_home`: pridá stĺpec `places.is_home` a jedinečný čiastočný index, údaje nemení. Žiadne miesto nie je domov, kým ho používateľ neoznačí. Migrácie sú jednosmerné: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len ručná obnova zálohy: zastavte kontajner, skopírujte `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v2.0.0.db` cez `<DATA_DIR>/kniha-jazd.db` a spustite starší obraz.
 - **Strata údajov:**
   - Rôzne zápisy jedného miesta (napr. "Kosice" a "Košice") sa zlúčia do jedného miesta s najčastejším zápisom. Ostatné zápisy sa stratia a každá jazda ukáže názov miesta.
   - Uložené trasy, ktoré sa po zlúčení zápisov miesta ocitnú na jednej dvojici miest, sa spoja do jednej trasy. Ostane trasa najnovšej jazdy na tej dvojici, inak prvá podľa `id`.
