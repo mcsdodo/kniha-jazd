@@ -250,6 +250,37 @@ fn db_violations(code: &str) -> Vec<String> {
     bad
 }
 
+/// Rule for the `Database` type. Each `Database` word in the guarded files must
+/// be the import `crate::db::Database;` or the type of a binding named `db`
+/// (`db: Arc<Database>`), whitespace ignored. So every handle is named `db`,
+/// and `db_violations` checks every use of it. A handle with another name
+/// (`store: Arc<Database>`) fails here.
+fn database_violations(code: &str) -> Vec<String> {
+    let flat: String = code.chars().filter(|c| !c.is_whitespace()).collect();
+    let mut bad = Vec::new();
+    for (pos, _) in flat.match_indices("Database") {
+        let before = &flat[..pos];
+        let after = &flat[pos + "Database".len()..];
+        let prev = before.chars().next_back();
+        let next = after.chars().next();
+        let ident_char = |c: char| c.is_alphanumeric() || c == '_';
+        if prev.map_or(false, ident_char) || next.map_or(false, ident_char) {
+            continue; // part of a longer name
+        }
+        let ok = (before.ends_with("crate::db::") && after.starts_with(';'))
+            || (before.ends_with("db:Arc<") && after.starts_with('>')
+                && !before[..before.len() - "db:Arc<".len()]
+                    .chars()
+                    .next_back()
+                    .map_or(false, ident_char));
+        if !ok {
+            let head: String = before.chars().rev().take(20).collect::<Vec<_>>().into_iter().rev().collect();
+            bad.push(format!("`Database` used as `{head}Database...`"));
+        }
+    }
+    bad
+}
+
 /// Every `.rs` file the read path owns, except this test file.
 fn guarded_sources() -> Vec<(String, String)> {
     fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
@@ -281,7 +312,8 @@ fn mcp_read_path_has_no_write_access() {
     // holds only a LogbookReader. Checks, on every guarded file (see
     // `guarded_sources`, so a new file in mcp/ cannot dodge them):
     //  1. allowlist: every `crate::` item and every `db.` method is in ALLOWED_READS
-    //  2. every `db` / `*_db` identifier follows the rule in `db_violations`
+    //  2. every `db` / `*_db` identifier follows the rule in `db_violations`,
+    //     and every `Database` the rule in `database_violations`
     //  3. no `Database::` / `Vehicle::` associated calls, no `use ... as ...`
     //  4. denylist of words that must not appear at all
     let sources = guarded_sources();
@@ -316,12 +348,33 @@ fn mcp_read_path_has_no_write_access() {
         }
         let bad = db_violations(source);
         assert!(bad.is_empty(), "{file}: db handle used outside the allowed forms: {bad:?}");
+        let bad = database_violations(source);
+        assert!(bad.is_empty(), "{file}: Database type used outside the allowed forms: {bad:?}");
         let banned = [
             "check_read_only", "connection", "restore", "sql_query", "execute", "transaction",
             "create_", "update_", "delete_", "save_", "set_", "upsert", "insert",
+            "rename_", "mark_", "clear_", "remove_", "replace_", "reset_", "import_",
+            "recalculate",
         ];
         for word in banned {
             assert!(!source.contains(word), "{file} must not contain `{word}`");
         }
     }
+}
+
+#[test]
+fn guard_catches_a_database_handle_with_another_name() {
+    // Code review 2026-10-05: `db_violations` reads only names that end in
+    // `db`. A handle named `store` passed it, and so did any write method.
+    let bypass = "fn x(store: Arc<Database>) { store.rename_place(\"a\", \"b\") }";
+    assert!(db_violations(bypass).is_empty(), "the old check misses this");
+    assert!(!database_violations(bypass).is_empty());
+
+    let field_alias = "struct R { store: std::sync::Arc<Database> }";
+    assert!(!database_violations(field_alias).is_empty());
+
+    // The forms the reader really uses stay legal.
+    let reader = "use crate::db::Database;\nstruct R { db: Arc<Database>, }\n\
+                  fn new(db: Arc<Database>) -> Self { Self { db } }";
+    assert_eq!(database_violations(reader), Vec::<String>::new());
 }

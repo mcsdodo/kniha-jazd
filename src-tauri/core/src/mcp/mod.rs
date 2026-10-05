@@ -2,10 +2,9 @@
 //!
 //! Stateless streamable HTTP with `rmcp`: no session IDs, so a client that
 //! cached one keeps working after a restart. The tools call `LogbookReader`
-//! directly, not `/api/rpc`. This module never holds a `Database`; the test
+//! directly, not `/api/rpc`. This module never names `Database`: the server
+//! builds the reader and hands it in. The test
 //! `mcp_read_path_has_no_write_access` checks the sources.
-
-use std::sync::Arc;
 
 use chrono::{NaiveDate, NaiveDateTime};
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -17,7 +16,6 @@ use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData, ServerHandler};
 use serde::{Deserialize, Serialize};
 
 use crate::commands_internal::{LogbookReader, ReadError};
-use crate::db::Database;
 
 // ---------------------------------------------------------------- inputs
 
@@ -220,8 +218,7 @@ impl ServerHandler for KnihaJazdMcp {
 /// The `/mcp` service. Stateless: no session store, no SSE keep-alive, JSON
 /// answers. The host check is off: behind a reverse proxy the Host header is
 /// the public name, and `/api/rpc` (which can write) has no host check either.
-pub fn mcp_service(db: Arc<Database>) -> StreamableHttpService<KnihaJazdMcp, NeverSessionManager> {
-    let reader = LogbookReader::new(db);
+pub fn mcp_service(reader: LogbookReader) -> StreamableHttpService<KnihaJazdMcp, NeverSessionManager> {
     let config = StreamableHttpServerConfig::default()
         .with_legacy_session_mode(false)
         .with_json_response(true)

@@ -136,12 +136,15 @@ keeps working. The answer is a plain JSON body.
 
 ### Read-only rule
 
-The `mcp` module holds a `LogbookReader` and never a `Database`. The test
-`mcp_read_path_has_no_write_access` ([mcp/tests.rs](../../src-tauri/core/src/mcp/tests.rs))
-reads the source of `mcp/` and of `journeys_cmd.rs`. It accepts only the names in the
-allowlist `ALLOWED_READS` for each `crate::` item and each `db.` method. It also bans
-glob imports, `use ... as ...` and a list of write words. A new function must be added to
-the allowlist on purpose. A name that the guard cannot read fails the test.
+The `mcp` module holds a `LogbookReader` and never names `Database`: the server builds
+the reader and gives it to `mcp_service`. The test `mcp_read_path_has_no_write_access`
+([mcp/tests.rs](../../src-tauri/core/src/mcp/tests.rs)) reads the source of `mcp/` and of
+`journeys_cmd.rs`. It accepts only the names in the allowlist `ALLOWED_READS` for each
+`crate::` item and each `db.` method. The type `Database` may appear only in the import
+and as `db: Arc<Database>`, so every handle is named `db` and the method check sees each
+call on it. The test also bans glob imports, `use ... as ...` and a list of write words. A
+new function must be added to the allowlist on purpose. A `db` use that the guard cannot
+read fails the test.
 
 ### Host check and auth
 

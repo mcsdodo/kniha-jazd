@@ -160,7 +160,9 @@ impl HttpServer {
             .route("/capabilities", get(capabilities_handler));
 
         // Read-only MCP endpoint (task 89), mounted in both branches below
-        let mcp = crate::mcp::mcp_service(state.db.clone());
+        let mcp = crate::mcp::mcp_service(
+            crate::commands_internal::LogbookReader::new(state.db.clone()),
+        );
 
         // Build full app with static fallback
         let index_html = state.static_dir.join("index.html");

@@ -85,7 +85,7 @@ Paths are relative to `src-tauri/core/src/` unless noted.
 | `db.rs` | SQLite CRUD operations | Schema changes, queries |
 | `journeys/mod.rs` | Journey grouping: legs to journeys away from home (pure, no DB) | Journey rules |
 | `commands_internal/journeys_cmd.rs` | `LogbookReader`: the three reads the MCP module may call | New MCP read |
-| `mcp/mod.rs` | Read-only MCP tools at `/mcp`. Never hold a `Database`; `mcp/tests.rs` has the source guard | MCP tools |
+| `mcp/mod.rs` | Read-only MCP tools at `/mcp`. Never name `Database` (the server builds the `LogbookReader`); `mcp/tests.rs` has the source guard | MCP tools |
 | `app_state.rs` | Read-only mode, app mode | App state management |
 | `settings.rs` | Local settings + env overrides | User preferences, new env vars |
 | `paperless.rs` | Paperless-ngx client | Invoice source integration |

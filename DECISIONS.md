@@ -13,7 +13,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 **Decision:**
 
 1. **Transport.** `/mcp` is served on the existing Axum server with `rmcp` 3.5, over streamable HTTP. The service is stateless: `legacy_session_mode(false)`, `NeverSessionManager`, `json_response(true)`, no SSE keep-alive. The router mounts `/mcp` before the SPA fallback, in both branches.
-2. **Read-only by construction.** The `mcp` module holds only a `LogbookReader` (`commands_internal/journeys_cmd.rs`). The reader keeps its `Database` private and has three reads. The test `mcp_read_path_has_no_write_access` reads the source of `mcp/` and `journeys_cmd.rs`. It accepts only the names in the allowlist `ALLOWED_READS`. A new function must be added to the list on purpose.
+2. **Read-only by construction.** The `mcp` module holds only a `LogbookReader` (`commands_internal/journeys_cmd.rs`). The reader keeps its `Database` private and has three reads. The test `mcp_read_path_has_no_write_access` reads the source of `mcp/` and `journeys_cmd.rs`. It accepts only the names in the allowlist `ALLOWED_READS`. A new function must be added to the list on purpose. The type `Database` may appear only as the import and as `db: Arc<Database>`, so no handle can hide under another name (code review, 2026-10-05).
 3. **No auth**, the same as `/api/rpc`.
 4. **Host check off.** `rmcp` accepts only loopback `Host` headers by default. Behind a reverse proxy the host is the public name, so the default rejects every request. The service calls `disable_allowed_hosts()`. `/api/rpc` has no host check and can write, so a read-only `/mcp` adds no new risk.
 5. **`vehicle_id = None` means all vehicles.** `is_active` marks only the vehicle selected in the UI, so it is not a filter.
