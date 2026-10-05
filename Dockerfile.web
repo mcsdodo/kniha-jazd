@@ -1,7 +1,7 @@
 # =============================================================================
 # Stage 1: Build the Rust web binary
 # =============================================================================
-FROM rust:1.86-bookworm AS rust-builder
+FROM rust:1.88-bookworm AS rust-builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

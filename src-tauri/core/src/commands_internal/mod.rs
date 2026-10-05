@@ -48,3 +48,6 @@ pub use places_cmd::*;
 #[cfg(test)]
 #[path = "commands_tests.rs"]
 mod tests;
+
+pub mod journeys_cmd;
+pub use journeys_cmd::*;

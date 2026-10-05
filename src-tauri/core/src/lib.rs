@@ -14,6 +14,7 @@ pub mod db_location;
 pub mod export;
 pub mod invoice;
 pub mod journeys;
+pub mod mcp;
 pub mod models;
 pub mod paperless;
 pub mod places;

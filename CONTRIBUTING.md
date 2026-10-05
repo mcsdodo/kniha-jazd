@@ -7,7 +7,7 @@ Thanks for your interest in contributing to Kniha Jázd!
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+
-- [Rust](https://rustup.rs/) 1.77+
+- [Rust](https://rustup.rs/) 1.88+
 - [Docker](https://docs.docker.com/get-docker/) (to build or run the shipped image)
 - Chrome (for the integration tests)
 

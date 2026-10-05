@@ -159,6 +159,9 @@ impl HttpServer {
             .route("/rpc", post(rpc_handler))
             .route("/capabilities", get(capabilities_handler));
 
+        // Read-only MCP endpoint (task 89), mounted in both branches below
+        let mcp = crate::mcp::mcp_service(state.db.clone());
+
         // Build full app with static fallback
         let index_html = state.static_dir.join("index.html");
         let app = if index_html.exists() {
@@ -168,6 +171,7 @@ impl HttpServer {
             Router::new()
                 .route("/health", get(|| async { "ok" }))
                 .nest("/api", api_router)
+                .nest_service("/mcp", mcp.clone())
                 .fallback_service(static_service)
                 .layer(build_cors_layer())
                 .with_state(state)
@@ -186,6 +190,7 @@ impl HttpServer {
             Router::new()
                 .route("/health", get(|| async { "ok" }))
                 .nest("/api", api_router)
+                .nest_service("/mcp", mcp)
                 .layer(build_cors_layer())
                 .with_state(state)
         };

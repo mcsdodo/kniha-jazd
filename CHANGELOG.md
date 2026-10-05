@@ -24,7 +24,7 @@ databázu len na čítanie.
   - Uložené trasy, ktoré nepoužíva žiadna jazda, sa zmažú. Doteraz sa nikde nezobrazovali.
   - Prázdny začiatok alebo cieľ jazdy dostane miesto `Neznáme miesto`.
   - Miesto jazdy bez súradníc sa stane miestom bez polohy, označeným "Treba doplniť polohu".
-- **Obraz, zväzok, port:** bez zmeny
+- **Obraz, zväzok, port:** nová cesta `/mcp` na tom istom porte (MCP len na čítanie, bez prihlásenia, ako `/api/rpc`). Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Obraz sa zostavuje s Rust 1.88.
 
 ### Pridané
 - **Karta Miesta** - zoznam všetkých miest s pridaním, premenovaním, určením polohy a zmazaním. Miesto sa dá zmazať, len ak ho nepoužíva žiadna jazda. Miesto bez polohy je označené "Treba doplniť polohu".
