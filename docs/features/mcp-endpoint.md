@@ -156,11 +156,21 @@ an untrusted network.
 
 ### Errors
 
-| Case | Code |
-|------|------|
-| A date that is not `YYYY-MM-DD`, `date_from` after `date_to`, an unknown vehicle | `invalid_params` |
-| `list_journeys` and no home place (the message names the Miesta page) | `invalid_params` |
-| A database error | `internal_error` |
+A tool error is a **tool result** with `isError: true` and the message as text, not a
+JSON-RPC error (MCP spec, "Error Handling"). So the model reads the message and can fix
+the call. A JSON-RPC error is only for a protocol fault, for example an unknown tool or
+arguments that do not match the input schema.
+
+| Case | Message |
+|------|---------|
+| A date that is not `YYYY-MM-DD` | `date_from must be YYYY-MM-DD, got '...'` |
+| `date_from` after `date_to` | `date_from is after date_to` |
+| An unknown vehicle | `Vehicle not found` |
+| `list_journeys` and no home place | the message names the Miesta page |
+| A database error | `Internal error: ...` |
+
+The first version sent these as JSON-RPC error `-32602`. Some clients do not show a
+JSON-RPC error to the model, so the model never saw the hint about the Miesta page.
 
 "No home place" is an error and not an empty list. An empty list would look like
 "no journeys to check".
@@ -206,7 +216,7 @@ MCP client -> POST /mcp -> rmcp service -> tool -> spawn_blocking -> LogbookRead
 
 - **Backend unit tests** own the rules: [journeys/tests.rs](../../src-tauri/core/src/journeys/tests.rs)
   (every journey pattern), [mcp/tests.rs](../../src-tauri/core/src/mcp/tests.rs) (the tool
-  answers, the error codes, a stale session ID and a public host) and the source guard.
+  answers, the `initialize` handshake, the tool errors, a stale session ID and a public host) and the source guard.
 - **Integration test** ([mcp-endpoint.spec.ts](../../tests/integration/specs/tier2/mcp-endpoint.spec.ts))
   owns the HTTP path: `tools/list` returns the three tools.
 

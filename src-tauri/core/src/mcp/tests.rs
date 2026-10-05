@@ -36,6 +36,14 @@ fn call(id: u32, name: &str, args: Value) -> Value {
            "params": {"name": name, "arguments": args}})
 }
 
+/// A tool error is a result with `isError: true` and the message as text, so
+/// the model sees it (MCP spec, "Error Handling"). Not a JSON-RPC error.
+fn tool_error(body: &Value) -> String {
+    assert!(body.get("error").is_none(), "expected a tool result, got {body}");
+    assert_eq!(body["result"]["isError"], true, "{body}");
+    body["result"]["content"][0]["text"].as_str().unwrap().to_string()
+}
+
 fn tool_names(body: &Value) -> Vec<String> {
     let mut names: Vec<String> = body["result"]["tools"]
         .as_array()
@@ -57,6 +65,7 @@ async fn tools_list_returns_the_read_only_tools() {
     for tool in body["result"]["tools"].as_array().unwrap() {
         let description = tool["description"].as_str().unwrap();
         assert!(description.contains("Read-only"), "{description}");
+        assert!(tool["outputSchema"].is_object(), "{} has no outputSchema", tool["name"]);
     }
     let _ = stop.send(());
 }
@@ -90,40 +99,101 @@ async fn list_vehicles_returns_the_vehicle_fields() {
 }
 
 #[tokio::test]
-async fn list_journeys_without_home_is_invalid_params() {
+async fn initialize_handshake_answers_with_tools_capability() {
+    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
+
+    let body = post(&url, json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                   "clientInfo": {"name": "test", "version": "0"}}}), &[]).await;
+
+    assert!(body["result"]["capabilities"]["tools"].is_object(), "{body}");
+    assert_eq!(body["result"]["serverInfo"]["name"], "kniha-jazd");
+    assert!(body["result"]["instructions"].as_str().unwrap().contains("Read-only"));
+
+    let resp = reqwest::Client::new()
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json, text/event-stream")
+        .body(json!({"jsonrpc": "2.0", "method": "notifications/initialized"}).to_string())
+        .send()
+        .await
+        .unwrap();
+    assert!(resp.status().is_success(), "notification status {}", resp.status());
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn list_journeys_without_home_is_a_tool_error() {
     let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
 
     let body = post(&url, call(2, "list_journeys",
         json!({"date_from": "2026-01-01", "date_to": "2026-01-31"})), &[]).await;
 
-    assert_eq!(body["error"]["code"], -32602);
-    assert_eq!(
-        body["error"]["message"].as_str().unwrap(),
-        crate::commands_internal::HOME_NOT_SET
-    );
+    assert_eq!(tool_error(&body), crate::commands_internal::HOME_NOT_SET);
     let _ = stop.send(());
 }
 
 #[tokio::test]
-async fn malformed_date_is_invalid_params() {
+async fn malformed_date_is_a_tool_error() {
     let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
 
     let body = post(&url, call(3, "list_trips",
         json!({"date_from": "2026-1-1", "date_to": "2026-01-31"})), &[]).await;
 
-    assert_eq!(body["error"]["code"], -32602);
-    assert!(body["error"]["message"].as_str().unwrap().contains("YYYY-MM-DD"));
+    assert!(tool_error(&body).contains("YYYY-MM-DD"));
     let _ = stop.send(());
 }
 
 #[tokio::test]
-async fn unknown_vehicle_is_invalid_params() {
+async fn unknown_vehicle_is_a_tool_error() {
     let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
 
     let body = post(&url, call(7, "list_trips", json!({"date_from": "2026-01-01",
         "date_to": "2026-01-31", "vehicle_id": "no-such-vehicle"})), &[]).await;
 
-    assert_eq!(body["error"]["code"], -32602);
+    assert_eq!(tool_error(&body), "Vehicle not found");
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn list_journeys_returns_the_journey_fields() {
+    let db = Arc::new(Database::in_memory().unwrap());
+    let v = crate::models::Vehicle::new_ice("Car".into(), "TEST-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&v).unwrap();
+    let home = db.ensure_place_for_test("Home St 1, Hometown");
+    let a = db.ensure_place_for_test("City A");
+    db.set_home_place(Some(&home.to_string())).unwrap();
+    let mut leg = |day: u32, hour: u32, from, to, odo: f64, purpose: &str| {
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 3, day).unwrap();
+        let mut t = crate::models::Trip::test_ice_trip(date, 357.0, None, false);
+        t.vehicle_id = v.id;
+        t.start_datetime = date.and_hms_opt(hour, 15, 0).unwrap();
+        t.origin_place_id = from;
+        t.destination_place_id = to;
+        t.odometer = odo;
+        t.purpose = purpose.into();
+        db.create_trip(&t).unwrap();
+        t.id
+    };
+    let out = leg(2, 7, home, a, 10_357.0, "Customer visit");
+    let back = leg(4, 8, a, home, 10_714.0, "Return");
+    let (url, stop) = start(db).await;
+
+    let body = post(&url, call(8, "list_journeys",
+        json!({"date_from": "2026-03-01", "date_to": "2026-03-31"})), &[]).await;
+
+    let out_json = &body["result"]["structuredContent"];
+    assert_eq!(out_json["home_place"], "Home St 1, Hometown");
+    let j = &out_json["journeys"][0];
+    assert_eq!(j["vehicle_id"], v.id.to_string());
+    assert_eq!(j["start"], "2026-03-02T07:15");
+    assert_eq!(j["end"], "2026-03-04T08:15");
+    assert_eq!(j["nights"], 2);
+    assert_eq!(j["total_km"], 714.0);
+    assert_eq!(j["places"], json!(["City A"]));
+    assert_eq!(j["purposes"], json!(["Customer visit", "Return"]));
+    assert_eq!(j["complete"], true);
+    assert_eq!(j["leg_ids"], json!([out.to_string(), back.to_string()]));
     let _ = stop.send(());
 }
 

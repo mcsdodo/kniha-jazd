@@ -12,7 +12,7 @@ use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
 use rmcp::transport::streamable_http_server::session::never::NeverSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
-use rmcp::{schemars, tool, tool_handler, tool_router, ErrorData, ServerHandler};
+use rmcp::{schemars, tool, tool_handler, tool_router, ServerHandler};
 use serde::{Deserialize, Serialize};
 
 use crate::commands_internal::{LogbookReader, ReadError};
@@ -93,31 +93,29 @@ fn minute(dt: NaiveDateTime) -> String {
 }
 
 /// Strict YYYY-MM-DD: "2026-1-1" is refused, not read as January 1.
-fn parse_day(field: &str, value: &str) -> Result<NaiveDate, ErrorData> {
+fn parse_day(field: &str, value: &str) -> Result<NaiveDate, String> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d")
         .ok()
         .filter(|d| d.format("%Y-%m-%d").to_string() == value)
-        .ok_or_else(|| {
-            ErrorData::invalid_params(format!("{field} must be YYYY-MM-DD, got '{value}'"), None)
-        })
+        .ok_or_else(|| format!("{field} must be YYYY-MM-DD, got '{value}'"))
 }
 
-fn to_error(e: ReadError) -> ErrorData {
+fn to_error(e: ReadError) -> String {
     match e {
-        ReadError::Invalid(m) => ErrorData::invalid_params(m, None),
-        ReadError::Internal(m) => ErrorData::internal_error(m, None),
+        ReadError::Invalid(m) => m,
+        ReadError::Internal(m) => format!("Internal error: {m}"),
     }
 }
 
 /// Run a read on the blocking pool, the same as `rpc_handler` does for DB work.
-async fn blocking<T, F>(read: F) -> Result<T, ErrorData>
+async fn blocking<T, F>(read: F) -> Result<T, String>
 where
     T: Send + 'static,
     F: FnOnce() -> Result<T, ReadError> + Send + 'static,
 {
     tokio::task::spawn_blocking(read)
         .await
-        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?
+        .map_err(|e| format!("Internal error: {e}"))?
         .map_err(to_error)
 }
 
@@ -135,10 +133,15 @@ impl KnihaJazdMcp {
     }
 }
 
+// A tool returns `Err(String)` for a tool error. rmcp makes it a result with
+// `isError: true` and the message as text, so the model reads it and can fix
+// the call (MCP spec, "Error Handling"). JSON-RPC errors are for protocol
+// faults only. Write `Result<Json<T>, String>` in full: the `tool` macro reads
+// the output schema from that exact form, and a type alias hides it.
 #[tool_router]
 impl KnihaJazdMcp {
     #[tool(description = "Read-only. Lists all vehicles of the logbook: id, name, license_plate, is_active (true for the vehicle selected in the app UI).")]
-    async fn list_vehicles(&self) -> Result<Json<VehicleList>, ErrorData> {
+    async fn list_vehicles(&self) -> Result<Json<VehicleList>, String> {
         let reader = self.reader.clone();
         let vehicles = blocking(move || reader.vehicles()).await?;
         Ok(Json(VehicleList {
@@ -155,7 +158,7 @@ impl KnihaJazdMcp {
     }
 
     #[tool(description = "Read-only. Lists the trip rows (legs) whose start is between date_from and date_to (YYYY-MM-DD, both inclusive), sorted by start time. Without vehicle_id: all vehicles.")]
-    async fn list_trips(&self, Parameters(args): Parameters<RangeArgs>) -> Result<Json<TripList>, ErrorData> {
+    async fn list_trips(&self, Parameters(args): Parameters<RangeArgs>) -> Result<Json<TripList>, String> {
         let from = parse_day("date_from", &args.date_from)?;
         let to = parse_day("date_to", &args.date_to)?;
         let reader = self.reader.clone();
@@ -178,7 +181,7 @@ impl KnihaJazdMcp {
     }
 
     #[tool(description = "Read-only. Groups trip legs into journeys away from the home place and returns each journey that overlaps date_from..date_to (YYYY-MM-DD, both inclusive). Without vehicle_id: all vehicles. A journey starts at a leg from home and ends at the next leg back home. Single-leg day trips and home-to-home loops are not journeys. complete=false means no return leg exists: the car has not come back yet, or it left home again before a return leg was recorded. Error if no home place is set. The app applies no accounting rule: filter on nights and total_km yourself.")]
-    async fn list_journeys(&self, Parameters(args): Parameters<RangeArgs>) -> Result<Json<JourneyListOut>, ErrorData> {
+    async fn list_journeys(&self, Parameters(args): Parameters<RangeArgs>) -> Result<Json<JourneyListOut>, String> {
         let from = parse_day("date_from", &args.date_from)?;
         let to = parse_day("date_to", &args.date_to)?;
         let reader = self.reader.clone();

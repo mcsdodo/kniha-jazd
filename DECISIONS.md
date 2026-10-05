@@ -18,7 +18,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 4. **Host check off.** `rmcp` accepts only loopback `Host` headers by default. Behind a reverse proxy the host is the public name, so the default rejects every request. The service calls `disable_allowed_hosts()`. `/api/rpc` has no host check and can write, so a read-only `/mcp` adds no new risk.
 5. **`vehicle_id = None` means all vehicles.** `is_active` marks only the vehicle selected in the UI, so it is not a filter.
 6. **Output.** Each tool returns a JSON object (`vehicles`, `trips`, `home_place` with `journeys`), because MCP `structuredContent` must be an object.
-7. **Errors.** Bad input (a date that is not `YYYY-MM-DD`, `date_from` after `date_to`, an unknown vehicle) and "no home place" are `invalid_params`. A database error is `internal_error`.
+7. **Errors.** Bad input (a date that is not `YYYY-MM-DD`, `date_from` after `date_to`, an unknown vehicle), "no home place" and a database error are tool results with `isError: true` and the message as text. The model must read the message, for example the hint about the Miesta page, and some clients do not show a JSON-RPC error to the model. The first version used `invalid_params`; the code review of 2026-10-05 changed it. A JSON-RPC error is only for a protocol fault.
 8. **Blocking work.** Each read runs in `tokio::task::spawn_blocking`, the same as `rpc_handler`.
 9. **Build.** `rmcp` 3.5 needs Rust 1.88. `Dockerfile.web`, the workspace `rust-version` and `CONTRIBUTING.md` use 1.88.
 
