@@ -208,7 +208,12 @@
 				</button>
 				<button class="button-small" onclick={cancelAdd}>{$LL.common.cancel()}</button>
 			{:else}
-				<button class="button-small" data-testid="place-add" onclick={startAdd}>
+				<button
+					class="button-small"
+					data-testid="place-add"
+					disabled={$appModeStore.isReadOnly}
+					onclick={startAdd}
+				>
 					{$LL.places.add()}
 				</button>
 			{/if}
@@ -310,6 +315,7 @@
 						<button
 							class="button-small"
 							data-testid="place-edit"
+							disabled={$appModeStore.isReadOnly}
 							onclick={() => openEditPlace(place)}
 						>
 							{$LL.common.edit()}
@@ -317,6 +323,7 @@
 						<button
 							class="button-small"
 							data-testid="place-rename"
+							disabled={$appModeStore.isReadOnly}
 							onclick={() => startRename(place)}
 						>
 							{$LL.places.rename()}
@@ -324,7 +331,7 @@
 						<button
 							class="button-small"
 							data-testid="place-delete"
-							disabled={place.uses > 0}
+							disabled={$appModeStore.isReadOnly || place.uses > 0}
 							title={place.uses > 0 ? $LL.places.deleteInUse({ count: place.uses }) : ''}
 							onclick={() => (placeToDelete = place)}
 						>
