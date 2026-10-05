@@ -39,6 +39,9 @@ The tools call the core reads directly. They do not go through `/api/rpc`.
 Dates are `YYYY-MM-DD`. Both ends are inclusive. A date such as `2026-1-1` is an error.
 `vehicle_id` is optional. **If `vehicle_id` is missing, the tool covers all vehicles.**
 `is_active` is not a filter: it marks only the vehicle that is selected in the app UI.
+The date range has no upper limit: a range of many years returns the whole logbook. The
+logbook of one user is small, the tools only read, and a limit would force the model to
+page by year (decision of 2026-10-05).
 
 **`list_vehicles()`**
 
@@ -171,6 +174,10 @@ arguments that do not match the input schema.
 
 The first version sent these as JSON-RPC error `-32602`. Some clients do not show a
 JSON-RPC error to the model, so the model never saw the hint about the Miesta page.
+
+The home place can be deleted on the Miesta tab when no trip uses it. Then the home
+mark is gone with it, and `list_journeys` returns the "no home place" error until the
+user marks another place.
 
 "No home place" is an error and not an empty list. An empty list would look like
 "no journeys to check".
