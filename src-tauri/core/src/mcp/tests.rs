@@ -53,8 +53,7 @@ async fn tools_list_returns_the_read_only_tools() {
 
     let body = post(&url, json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}), &[]).await;
 
-    // Phase A: one tool. Task B3 changes this to the three tools.
-    assert_eq!(tool_names(&body), vec!["list_vehicles"]);
+    assert_eq!(tool_names(&body), vec!["list_journeys", "list_trips", "list_vehicles"]);
     for tool in body["result"]["tools"].as_array().unwrap() {
         let description = tool["description"].as_str().unwrap();
         assert!(description.contains("Read-only"), "{description}");
@@ -87,6 +86,73 @@ async fn list_vehicles_returns_the_vehicle_fields() {
     assert_eq!(vehicles[0]["name"], "Car");
     assert_eq!(vehicles[0]["license_plate"], v.license_plate);
     assert_eq!(vehicles[0]["is_active"], v.is_active);
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn list_journeys_without_home_is_invalid_params() {
+    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
+
+    let body = post(&url, call(2, "list_journeys",
+        json!({"date_from": "2026-01-01", "date_to": "2026-01-31"})), &[]).await;
+
+    assert_eq!(body["error"]["code"], -32602);
+    assert_eq!(
+        body["error"]["message"].as_str().unwrap(),
+        crate::commands_internal::HOME_NOT_SET
+    );
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn malformed_date_is_invalid_params() {
+    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
+
+    let body = post(&url, call(3, "list_trips",
+        json!({"date_from": "2026-1-1", "date_to": "2026-01-31"})), &[]).await;
+
+    assert_eq!(body["error"]["code"], -32602);
+    assert!(body["error"]["message"].as_str().unwrap().contains("YYYY-MM-DD"));
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn unknown_vehicle_is_invalid_params() {
+    let (url, stop) = start(Arc::new(Database::in_memory().unwrap())).await;
+
+    let body = post(&url, call(7, "list_trips", json!({"date_from": "2026-01-01",
+        "date_to": "2026-01-31", "vehicle_id": "no-such-vehicle"})), &[]).await;
+
+    assert_eq!(body["error"]["code"], -32602);
+    let _ = stop.send(());
+}
+
+#[tokio::test]
+async fn list_trips_returns_place_names_and_minutes() {
+    let db = Arc::new(Database::in_memory().unwrap());
+    let v = crate::models::Vehicle::new_ice("Car".into(), "TEST-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&v).unwrap();
+    let home = db.ensure_place_for_test("Home St 1, Hometown");
+    let a = db.ensure_place_for_test("City A");
+    let day = chrono::NaiveDate::from_ymd_opt(2026, 3, 2).unwrap();
+    let mut t = crate::models::Trip::test_ice_trip(day, 357.0, None, false);
+    t.vehicle_id = v.id;
+    t.start_datetime = day.and_hms_opt(7, 30, 0).unwrap();
+    t.origin_place_id = home;
+    t.destination_place_id = a;
+    t.purpose = "Customer visit".into();
+    db.create_trip(&t).unwrap();
+    let (url, stop) = start(db).await;
+
+    let body = post(&url, call(5, "list_trips",
+        json!({"date_from": "2026-03-01", "date_to": "2026-03-31"})), &[]).await;
+
+    let trips = &body["result"]["structuredContent"]["trips"];
+    assert_eq!(trips[0]["start"], "2026-03-02T07:30");
+    assert_eq!(trips[0]["origin"], "Home St 1, Hometown");
+    assert_eq!(trips[0]["destination"], "City A");
+    assert_eq!(trips[0]["distance_km"], 357.0);
+    assert_eq!(trips[0]["purpose"], "Customer visit");
     let _ = stop.send(());
 }
 

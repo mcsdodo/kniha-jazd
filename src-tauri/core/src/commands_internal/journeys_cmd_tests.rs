@@ -157,3 +157,26 @@ fn journeys_of_one_vehicle_only_when_vehicle_given() {
     assert_eq!(one.journeys.len(), 1);
     assert_eq!(one.journeys[0].vehicle_id, van.id);
 }
+
+#[test]
+fn journeys_with_the_same_start_sort_by_vehicle_id() {
+    let (db, reader) = setup();
+    // Name order is the opposite of id order, so only an id sort passes.
+    let mut ids = [Uuid::new_v4(), Uuid::new_v4()];
+    ids.sort();
+    let home = db.ensure_place_for_test("Home St 1, Hometown");
+    let a = db.ensure_place_for_test("City A");
+    db.set_home_place(Some(&home.to_string())).unwrap();
+    for (id, name) in [(ids[0], "Vehicle B"), (ids[1], "Vehicle A")] {
+        let mut v = Vehicle::new_ice(name.into(), "TEST-1".into(), 50.0, 6.5, 0.0);
+        v.id = id;
+        db.create_vehicle(&v).unwrap();
+        trip(&db, &v, "2026-06-01 07:00", 100.0, home, a, 50.0);
+        trip(&db, &v, "2026-06-02 07:00", 150.0, a, home, 50.0);
+    }
+
+    let list = reader.journeys(d("2026-06-01"), d("2026-06-30"), None).unwrap();
+
+    let got: Vec<Uuid> = list.journeys.iter().map(|j| j.vehicle_id).collect();
+    assert_eq!(got, ids.to_vec());
+}

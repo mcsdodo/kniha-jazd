@@ -133,7 +133,7 @@ impl LogbookReader {
                     .filter(|j| overlaps(j, from, to)),
             );
         }
-        journeys.sort_by(|a, b| a.start.cmp(&b.start));
+        journeys.sort_by(|a, b| a.start.cmp(&b.start).then(a.vehicle_id.cmp(&b.vehicle_id)));
         Ok(JourneyList {
             home_place: home.name,
             journeys,

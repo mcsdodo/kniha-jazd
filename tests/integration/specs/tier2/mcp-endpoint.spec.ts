@@ -13,8 +13,7 @@ interface ToolsList {
   tools: { name: string; description: string }[];
 }
 
-/** Phase A of task 89 has one tool. Task B3 changes this to the three tools. */
-const EXPECTED_TOOLS = ['list_vehicles'];
+const EXPECTED_TOOLS = ['list_journeys', 'list_trips', 'list_vehicles'];
 
 describe('MCP endpoint', () => {
   beforeEach(async () => {
