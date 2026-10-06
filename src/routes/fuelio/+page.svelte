@@ -3,7 +3,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { Map as LeafletMap, LayerGroup } from 'leaflet';
 	import * as api from '$lib/api';
-	import type { FuelioReport, FuelioRow } from '$lib/types';
+	import type { FuelioReport, FuelioRow, FuelioRowStatus } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
@@ -21,6 +21,8 @@
 	let minKm = $state(30);
 	let highwayOnly = $state(true);
 	let problemsOnly = $state(false);
+	let statusFilter = $state<FuelioRowStatus | 'all'>('all');
+	const STATUSES: FuelioRowStatus[] = ['matched', 'missing', 'noDrive'];
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
 
@@ -44,7 +46,8 @@
 			(r) =>
 				rowKm(r) >= (minKm || 0) &&
 				(!highwayOnly || r.isHighway) &&
-				(!problemsOnly || isProblem(r))
+				(!problemsOnly || isProblem(r)) &&
+				(statusFilter === 'all' || r.status === statusFilter)
 		)
 	);
 
@@ -168,6 +171,15 @@
 				</label>
 				<label><input type="checkbox" bind:checked={highwayOnly} /> {$LL.fuelio.highwayOnly()}</label>
 				<label><input type="checkbox" bind:checked={problemsOnly} /> {$LL.fuelio.problemsOnly()}</label>
+				<label>
+					{$LL.fuelio.col.status()}
+					<select class="text-input" bind:value={statusFilter} data-testid="fuelio-status-filter">
+						<option value="all">{$LL.fuelio.allStatuses()}</option>
+						{#each STATUSES as st}
+							<option value={st}>{$LL.fuelio.status[st]()}</option>
+						{/each}
+					</select>
+				</label>
 				<span class="muted small">{$LL.fuelio.shown({ count: rows.length })}</span>
 			</div>
 

@@ -504,6 +504,7 @@ const en = {
 		minKm: 'Min. km',
 		highwayOnly: 'Highway only (>= 30 km or >= 5 min above 100 km/h)',
 		problemsOnly: 'Problems only',
+		allStatuses: 'All',
 		shown: 'Shown: {count}',
 		col: {
 			status: 'Status',

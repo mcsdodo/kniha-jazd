@@ -504,6 +504,7 @@ const sk = {
 		minKm: 'Min. km',
 		highwayOnly: 'Len diaľnica (>= 30 km alebo >= 5 min nad 100 km/h)',
 		problemsOnly: 'Len problémy',
+		allStatuses: 'Všetky',
 		shown: 'Zobrazené: {count: number}',
 		col: {
 			status: 'Stav',
