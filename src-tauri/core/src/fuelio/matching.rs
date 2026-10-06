@@ -34,6 +34,8 @@ const FLAG_START_DIFF_MIN: i64 = 30;
 const FLAG_KM_DIFF_PCT: f64 = 10.0;
 const OFF_ROUTE_M: f64 = 500.0;
 const FLAG_OFF_ROUTE_PCT: f64 = 10.0;
+/// A partial match: at least this share of the track on the stored route.
+const PARTIAL_MIN_ON_ROUTE: f64 = 0.8;
 
 /// The trip data the matcher needs.
 #[derive(Debug, Clone)]
@@ -74,6 +76,9 @@ pub enum Flag {
     TimeDiffers,
     KmDiffers,
     DifferentRoute,
+    /// The drives cover only part of the trip (Fuelio did not record the
+    /// rest). The km difference then says how much is missing.
+    PartialGps,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -156,6 +161,50 @@ fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, u
     best.map(|(_, run)| run)
 }
 
+/// The best partial run for `trip`: unused drives that lie on its stored
+/// route, inside its time, with an end at one of its places. The run with the
+/// most km wins. `None` without a stored route.
+fn best_partial_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, usize)> {
+    let line = trip.route.as_ref()?;
+    let window = Duration::hours(MAX_START_DIFF_H);
+    let (from, to) = (trip.start - window, trip.end.unwrap_or(trip.start) + window);
+    let (_, max_stop) = run_rules(trip);
+    let at_place = |p: (f64, f64)| {
+        [trip.origin_point, trip.destination_point]
+            .iter()
+            .any(|place| place.is_some_and(|q| haversine_m(p, q) <= PLACE_RADIUS_M))
+    };
+    let mut best: Option<(f64, (usize, usize))> = None;
+    for i in 0..drives.len() {
+        if used[i] || drives[i].start < from || drives[i].start > to {
+            continue;
+        }
+        let mut km = 0.0;
+        for j in i..drives.len() {
+            if used[j]
+                || drives[j].start > to
+                || (j > i && minutes(drives[j - 1].end, drives[j].start) > max_stop)
+            {
+                break;
+            }
+            km += drives[j].km;
+            if trip.km > 0.0 && km > trip.km * KM_RATIO_MAX {
+                break;
+            }
+            let run = &drives[i..=j];
+            let track: Vec<(f64, f64)> = run.iter().flat_map(|d| d.track.iter().copied()).collect();
+            let on_route = 1.0 - off_route_share(&track, line, OFF_ROUTE_M);
+            if on_route >= PARTIAL_MIN_ON_ROUTE
+                && (at_place(run[0].start_point) || at_place(run[run.len() - 1].end_point))
+                && best.as_ref().is_none_or(|(k, _)| km > *k)
+            {
+                best = Some((km, (i, j)));
+            }
+        }
+    }
+    best.map(|(_, run)| run)
+}
+
 /// The GPS fields of a row, from a run of drives.
 fn gps_row(status: RowStatus, run: &[Drive]) -> CrosscheckRow {
     let km: f64 = run.iter().map(|d| d.km).sum();
@@ -181,10 +230,12 @@ fn gps_row(status: RowStatus, run: &[Drive]) -> CrosscheckRow {
     }
 }
 
-fn matched_row(trip: &TripRef, run: &[Drive]) -> CrosscheckRow {
+fn matched_row(trip: &TripRef, run: &[Drive], partial: bool) -> CrosscheckRow {
     let mut row = gps_row(RowStatus::Matched, run);
     let gps_km = row.gps_km.unwrap_or(0.0);
-    row.start_diff_min = Some(minutes(trip.start, run[0].start));
+    // A partial run that starts mid-trip says nothing about the start time.
+    row.start_diff_min = (!partial || near(run[0].start_point, trip.origin_point))
+        .then(|| minutes(trip.start, run[0].start));
     row.km_diff_pct = (trip.km > 0.0).then(|| (gps_km - trip.km) / trip.km * 100.0);
     row.off_route_pct = trip.route.as_ref().map(|line| {
         let track: Vec<(f64, f64)> = run.iter().flat_map(|d| d.track.iter().copied()).collect();
@@ -193,11 +244,14 @@ fn matched_row(trip: &TripRef, run: &[Drive]) -> CrosscheckRow {
     if row.start_diff_min.is_some_and(|m| m.abs() > FLAG_START_DIFF_MIN) {
         row.flags.push(Flag::TimeDiffers);
     }
-    if row.km_diff_pct.is_some_and(|p| p.abs() > FLAG_KM_DIFF_PCT) {
+    if !partial && row.km_diff_pct.is_some_and(|p| p.abs() > FLAG_KM_DIFF_PCT) {
         row.flags.push(Flag::KmDiffers);
     }
     if row.off_route_pct.is_some_and(|p| p > FLAG_OFF_ROUTE_PCT) {
         row.flags.push(Flag::DifferentRoute);
+    }
+    if partial {
+        row.flags.push(Flag::PartialGps);
     }
     with_trip(row, trip)
 }
@@ -244,16 +298,32 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
     let mut trips: Vec<&TripRef> = trips.iter().collect();
     trips.sort_by_key(|t| t.start);
     let mut used = vec![false; drives.len()];
-    let mut rows = Vec::new();
-    for trip in trips {
-        match best_run(trip, drives, &used) {
-            Some((i, j)) => {
+    // Pass 1: complete runs. Pass 2: partial runs for the trips left over, so
+    // a partial match never takes a drive that a complete match needs.
+    let mut runs: Vec<Option<((usize, usize), bool)>> = trips
+        .iter()
+        .map(|trip| {
+            let run = best_run(trip, drives, &used)?;
+            used[run.0..=run.1].iter_mut().for_each(|u| *u = true);
+            Some((run, false))
+        })
+        .collect();
+    for (trip, run) in trips.iter().zip(runs.iter_mut()) {
+        if run.is_none() {
+            if let Some((i, j)) = best_partial_run(trip, drives, &used) {
                 used[i..=j].iter_mut().for_each(|u| *u = true);
-                rows.push(matched_row(trip, &drives[i..=j]));
+                *run = Some(((i, j), true));
             }
-            None => rows.push(no_drive_row(trip)),
         }
     }
+    let mut rows: Vec<CrosscheckRow> = trips
+        .iter()
+        .zip(&runs)
+        .map(|(trip, run)| match run {
+            Some(((i, j), partial)) => matched_row(trip, &drives[*i..=*j], *partial),
+            None => no_drive_row(trip),
+        })
+        .collect();
     rows.extend(
         missing_chains(drives, &used)
             .iter()

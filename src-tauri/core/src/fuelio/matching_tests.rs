@@ -330,3 +330,83 @@ fn a_one_way_trip_does_not_join_drives_over_a_long_stop() {
     ];
     assert_eq!(find(&crosscheck(&trips, &drives), "t1").status, RowStatus::NoDrive);
 }
+
+// 2026-08-18: BA -> Brno -> BA is one logbook trip; Fuelio recorded only the
+// way back, starting 14 km past the Brno place. A partial match needs the
+// stored route.
+fn routed(t: TripRef, line: Vec<(f64, f64)>) -> TripRef {
+    TripRef { route: Some(line), ..t }
+}
+
+#[test]
+fn a_drive_on_the_stored_route_that_covers_part_of_the_trip_is_a_partial_match() {
+    let t = routed(
+        round_trip("t1", at(18, 8, 0), Some(at(18, 13, 0)), A, B, 148.0),
+        vec![A, B, A],
+    );
+    let back = drive("back", at(18, 8, 5), 112, B, A, 74.0);
+    let rows = crosscheck(&[t], &[back]);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].status, RowStatus::Matched);
+    assert_eq!(rows[0].drive_ids, vec!["back"]);
+    assert_eq!(rows[0].flags, vec![Flag::PartialGps]);
+    // The run does not start at the origin: no start time to compare.
+    assert_eq!(rows[0].start_diff_min, None);
+    assert!((rows[0].km_diff_pct.unwrap() + 50.0).abs() < 1e-9);
+}
+
+#[test]
+fn a_partial_match_that_starts_at_the_origin_keeps_the_time_difference() {
+    let t = routed(trip("t1", at(18, 8, 0), A, C, 148.0), vec![A, B, C]);
+    // Fuelio stopped recording halfway, 40 km before the destination.
+    let rows = crosscheck(&[t], &[drive("out", at(18, 8, 45), 50, A, (48.0, 21.45), 107.0)]);
+    assert_eq!(rows[0].flags, vec![Flag::TimeDiffers, Flag::PartialGps]);
+    assert_eq!(rows[0].start_diff_min, Some(45));
+}
+
+#[test]
+fn a_partial_match_needs_a_stored_route() {
+    let t = round_trip("t1", at(18, 8, 0), Some(at(18, 13, 0)), A, B, 148.0);
+    let rows = crosscheck(&[t], &[drive("back", at(18, 8, 5), 112, B, A, 74.0)]);
+    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+}
+
+#[test]
+fn a_partial_match_needs_the_track_on_the_stored_route() {
+    let t = routed(
+        round_trip("t1", at(18, 8, 0), Some(at(18, 13, 0)), A, B, 148.0),
+        vec![A, B, A],
+    );
+    let mut back = drive("back", at(18, 8, 5), 112, B, A, 74.0);
+    back.track = vec![B, (47.7, 20.8), (47.7, 20.5), (47.7, 20.2), A];
+    let rows = crosscheck(&[t], &[back]);
+    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+}
+
+#[test]
+fn a_partial_match_needs_an_end_at_a_trip_place() {
+    let t = routed(trip("t1", at(18, 8, 0), A, C, 148.0), vec![A, C]);
+    // On the route, but from 20.3 to 21.7: neither end is at A or C.
+    let mid = drive("mid", at(18, 8, 30), 60, (48.0, 20.3), (48.0, 21.7), 104.0);
+    let rows = crosscheck(&[t], &[mid]);
+    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+}
+
+#[test]
+fn a_partial_match_outside_the_trip_time_does_not_match() {
+    let t = routed(
+        round_trip("t1", at(18, 8, 0), Some(at(18, 13, 0)), A, B, 148.0),
+        vec![A, B, A],
+    );
+    let rows = crosscheck(&[t], &[drive("back", at(19, 9, 0), 112, B, A, 74.0)]);
+    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+}
+
+#[test]
+fn a_complete_match_of_a_later_trip_wins_over_a_partial_one() {
+    let early = routed(trip("early", at(18, 8, 0), A, C, 148.0), vec![A, B, C]);
+    let late = trip("late", at(18, 9, 0), A, B, 74.0);
+    let rows = crosscheck(&[early, late], &[drive("d1", at(18, 9, 0), 50, A, B, 74.0)]);
+    assert_eq!(find(&rows, "late").drive_ids, vec!["d1"]);
+    assert_eq!(find(&rows, "early").status, RowStatus::NoDrive);
+}

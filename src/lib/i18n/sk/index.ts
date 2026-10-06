@@ -526,6 +526,7 @@ const sk = {
 			timeDiffers: 'Iný čas',
 			kmDiffers: 'Iné km',
 			differentRoute: 'Iná trasa',
+			partialGps: 'Čiastočné GPS',
 		},
 		drives: 'jazdy: {count: number}',
 		offRoute: 'mimo trasy: {pct: number} %',

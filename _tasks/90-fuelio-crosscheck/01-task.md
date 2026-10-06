@@ -87,15 +87,24 @@ All logic is in a new core module [fuelio](../../src-tauri/core/src/fuelio/)
 
    If more than one run fits, the one with the start time nearest to the
    logbook time wins. A drive belongs to one trip only.
-3. **Missing.** Drives that no trip uses are joined into chains (gap of at
+3. **Partial match.** A second pass, after all complete matches, for the
+   trips left without drives. A run matches part of a trip if: the trip has
+   a stored route, >= 80% of the track is within 500 m of it, the drives
+   start between 12 hours before the trip start and 12 hours after the trip
+   end, the run starts or ends near one of the trip's places, and its km is
+   at most 150% of the trip km. The run with the most km wins. The row gets
+   the flag "partial GPS" instead of "km differs", and a start time
+   difference only if the run starts at the origin. Example: 2026-08-18
+   BA -> Brno -> BA, Fuelio recorded only the way back.
+4. **Missing.** Drives that no trip uses are joined into chains (gap of at
    most 60 minutes, next start within 2 km of the previous end). Each chain is
    a "missing in the logbook" row.
-4. **Highway flag.** A row is a highway row if GPS km >= 30 or minutes above
+5. **Highway flag.** A row is a highway row if GPS km >= 30 or minutes above
    100 km/h >= 5. The page filters by min km and by "highway only".
-5. **Route check.** For a matched trip with a stored route: the share of track
+6. **Route check.** For a matched trip with a stored route: the share of track
    points more than 500 m from the stored polyline. More than 10% is
    "different route".
-6. **Flags on a match:** start time differs by more than 30 minutes; km
+7. **Flags on a match:** start time differs by more than 30 minutes; km
    differs by more than 10%.
 
 RPC: `get_fuelio_crosscheck { vehicleId, year }` returns the rows, and

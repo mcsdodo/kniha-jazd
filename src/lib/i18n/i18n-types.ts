@@ -1731,6 +1731,10 @@ type RootTranslation = {
 			 * I​n​á​ ​t​r​a​s​a
 			 */
 			differentRoute: string
+			/**
+			 * Č​i​a​s​t​o​č​n​é​ ​G​P​S
+			 */
+			partialGps: string
 		}
 		/**
 		 * j​a​z​d​y​:​ ​{​c​o​u​n​t​}
@@ -4280,6 +4284,10 @@ export type TranslationFunctions = {
 			 * Iná trasa
 			 */
 			differentRoute: () => LocalizedString
+			/**
+			 * Čiastočné GPS
+			 */
+			partialGps: () => LocalizedString
 		}
 		/**
 		 * jazdy: {count}

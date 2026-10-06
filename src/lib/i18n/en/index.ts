@@ -526,6 +526,7 @@ const en = {
 			timeDiffers: 'Time differs',
 			kmDiffers: 'km differ',
 			differentRoute: 'Different route',
+			partialGps: 'Partial GPS',
 		},
 		drives: 'drives: {count}',
 		offRoute: 'off route: {pct} %',

@@ -649,7 +649,7 @@ export interface RouteStart {
 
 // Fuelio cross-check (Task 90). All values come from the backend (ADR-008).
 export type FuelioRowStatus = 'matched' | 'missing' | 'noDrive';
-export type FuelioFlag = 'timeDiffers' | 'kmDiffers' | 'differentRoute';
+export type FuelioFlag = 'timeDiffers' | 'kmDiffers' | 'differentRoute' | 'partialGps';
 
 export interface FuelioRow {
 	status: FuelioRowStatus;
