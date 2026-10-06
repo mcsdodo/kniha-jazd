@@ -8,6 +8,7 @@
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
 	import { toast } from '$lib/stores/toast';
+	import FuelioOverwriteModal from '$lib/components/FuelioOverwriteModal.svelte';
 
 	// Task 90 POC: read-only cross-check of Fuelio GPS drives against the
 	// logbook. The backend matches, measures and flags every row (ADR-008);
@@ -25,6 +26,7 @@
 	let shownStatuses = $state<FuelioRowStatus[]>([...STATUSES]);
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
+	let overwriting = $state<FuelioRow | null>(null);
 
 	let leaflet: typeof import('leaflet') | null = null;
 	let map: LeafletMap | null = null;
@@ -195,6 +197,7 @@
 								<th class="r">{$LL.fuelio.col.maxKmh()}</th>
 								<th>{$LL.fuelio.col.diff()}</th>
 								<th>{$LL.fuelio.col.flags()}</th>
+								<th></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -233,6 +236,18 @@
 											<span class="badge badge-flag">{$LL.fuelio.flag[f]()}</span>
 										{/each}
 									</td>
+									<td>
+										{#if r.tripId}
+											<button
+												class="overwrite-btn"
+												onclick={(e) => {
+													e.stopPropagation();
+													overwriting = r;
+												}}
+												data-testid="fuelio-overwrite">{$LL.fuelio.overwrite.button()}</button
+											>
+										{/if}
+									</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -261,6 +276,19 @@
 		{/if}
 	</section>
 </div>
+
+{#if overwriting && $activeVehicleStore}
+	<FuelioOverwriteModal
+		row={overwriting}
+		vehicleId={$activeVehicleStore.id}
+		year={$selectedYearStore}
+		onCancel={() => (overwriting = null)}
+		onDone={() => {
+			overwriting = null;
+			load($activeVehicleStore!.id, $selectedYearStore);
+		}}
+	/>
+{/if}
 
 <style>
 	.fuelio-page {
@@ -388,6 +416,19 @@
 		background: var(--warning-bg);
 		color: var(--warning-color);
 		margin: 0 0.2rem 0.2rem 0;
+	}
+	.overwrite-btn {
+		padding: 0.2rem 0.5rem;
+		font-size: 0.75rem;
+		border: 1px solid var(--border-input);
+		border-radius: 4px;
+		background: var(--btn-secondary-bg);
+		color: var(--text-primary);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.overwrite-btn:hover {
+		background: var(--btn-secondary-hover);
 	}
 	.map-panel {
 		position: sticky;

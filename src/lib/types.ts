@@ -655,6 +655,7 @@ export interface FuelioRow {
 	status: FuelioRowStatus;
 	tripId: string | null;
 	tripStart: string | null;
+	tripEnd: string | null;
 	origin: string | null;
 	destination: string | null;
 	tripKm: number | null;
@@ -676,6 +677,28 @@ export interface FuelioReport {
 	folderExists: boolean;
 	driveCount: number;
 	rows: FuelioRow[];
+}
+
+/** The trip fields that the Fuelio overwrite writes. */
+export interface FuelioFields {
+	start: boolean;
+	end: boolean;
+	distance: boolean;
+	route: boolean;
+}
+
+export interface FuelioApply {
+	tripId: string;
+	startBefore: string;
+	startAfter: string;
+	endBefore: string | null;
+	endAfter: string | null;
+	distanceBefore: number;
+	distanceAfter: number;
+	/** The odometer and margin plan, when the distance is selected. */
+	writeback: DistanceWriteback | null;
+	routeWritten: boolean;
+	applied: boolean;
 }
 
 export interface FuelioTrack {

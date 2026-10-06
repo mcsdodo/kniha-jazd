@@ -69,6 +69,7 @@ fn one_drive_matches_its_trip() {
     assert_eq!(r.drive_ids, vec!["d1".to_string()]);
     assert_eq!(r.start_diff_min, Some(10));
     assert!(r.flags.is_empty(), "{:?}", r.flags);
+    assert_eq!(r.trip_end, None);
 }
 
 #[test]
@@ -442,6 +443,7 @@ fn a_loose_match_can_use_the_trip_end_time() {
     t.end = Some(at(28, 18, 0));
     let rows = crosscheck(&[t], &[drive("d1", at(29, 5, 0), 50, C, B, 74.0)]);
     assert_eq!(rows[0].status, RowStatus::Matched);
+    assert_eq!(rows[0].trip_end, Some(at(28, 18, 0)));
 }
 
 #[test]

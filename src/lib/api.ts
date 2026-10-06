@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -704,4 +704,14 @@ export async function getFuelioCrosscheck(vehicleId: string, year: number): Prom
 
 export async function getFuelioTrack(driveIds: string[], tripId: string | null): Promise<FuelioTrack> {
 	return await apiCall('get_fuelio_track', { driveIds, tripId });
+}
+
+/** Overwrite trip fields with the GPS of its Fuelio drives. A dry run writes nothing. */
+export async function applyFuelioToTrip(
+	tripId: string,
+	driveIds: string[],
+	fields: FuelioFields,
+	dryRun: boolean
+): Promise<FuelioApply> {
+	return await apiCall('apply_fuelio_to_trip', { tripId, driveIds, fields, dryRun });
 }

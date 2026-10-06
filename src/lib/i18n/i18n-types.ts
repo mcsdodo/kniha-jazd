@@ -1746,6 +1746,68 @@ type RootTranslation = {
 		 * @param {number} pct
 		 */
 		offRoute: RequiredParams<'pct'>
+		overwrite: {
+			/**
+			 * P​r​e​p​í​s​a​ť
+			 */
+			button: string
+			/**
+			 * P​r​e​p​í​s​a​ť​ ​ú​d​a​j​m​i​ ​z​ ​F​u​e​l​i​o
+			 */
+			title: string
+			/**
+			 * V​y​b​e​r​t​e​,​ ​k​t​o​r​é​ ​ú​d​a​j​e​ ​j​a​z​d​y​ ​s​a​ ​n​a​h​r​a​d​i​a​ ​h​o​d​n​o​t​a​m​i​ ​z​ ​G​P​S​.
+			 */
+			intro: string
+			/**
+			 * Z​a​č​i​a​t​o​k
+			 */
+			start: string
+			/**
+			 * K​o​n​i​e​c
+			 */
+			end: string
+			/**
+			 * V​z​d​i​a​l​e​n​o​s​ť
+			 */
+			distance: string
+			/**
+			 * z​a​o​k​r​ú​h​l​i​ ​s​a​ ​n​a​ ​c​e​l​é​ ​k​m​;​ ​p​o​s​u​n​i​e​ ​t​a​c​h​o​m​e​t​e​r​ ​n​e​s​k​o​r​š​í​c​h​ ​j​á​z​d
+			 */
+			distanceNote: string
+			/**
+			 * T​r​a​s​a
+			 */
+			route: string
+			/**
+			 * G​P​S​ ​s​t​o​p​a​ ​s​a​ ​u​l​o​ž​í​ ​a​k​o​ ​t​r​a​s​a​ ​j​a​z​d​y​ ​a​ ​n​a​h​r​a​d​í​ ​u​l​o​ž​e​n​ú​ ​t​r​a​s​u
+			 */
+			routeNew: string
+			/**
+			 * G​P​S​ ​p​o​k​r​ý​v​a​ ​l​e​n​ ​č​a​s​ť​ ​j​a​z​d​y​.​ ​K​m​ ​a​ ​č​a​s​ ​z​ ​G​P​S​ ​a​s​i​ ​n​i​e​ ​s​ú​ ​c​e​l​á​ ​j​a​z​d​a​.
+			 */
+			partialWarning: string
+			/**
+			 * V​o​ľ​n​é​ ​s​p​á​r​o​v​a​n​i​e​:​ ​j​a​z​d​a​ ​F​u​e​l​i​o​ ​n​e​m​u​s​í​ ​b​y​ť​ ​t​á​t​o​ ​j​a​z​d​a​.
+			 */
+			looseWarning: string
+			/**
+			 * P​o​k​r​a​č​o​v​a​ť
+			 */
+			'continue': string
+			/**
+			 * Z​r​u​š​i​ť
+			 */
+			cancel: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​e​p​í​s​a​n​á​ ​ú​d​a​j​m​i​ ​z​ ​F​u​e​l​i​o​.
+			 */
+			done: string
+			/**
+			 * N​i​č​ ​s​a​ ​n​e​z​m​e​n​i​l​o​.
+			 */
+			nothing: string
+		}
 		/**
 		 * M​a​p​a
 		 */
@@ -4297,6 +4359,68 @@ export type TranslationFunctions = {
 		 * mimo trasy: {pct} %
 		 */
 		offRoute: (arg: { pct: number }) => LocalizedString
+		overwrite: {
+			/**
+			 * Prepísať
+			 */
+			button: () => LocalizedString
+			/**
+			 * Prepísať údajmi z Fuelio
+			 */
+			title: () => LocalizedString
+			/**
+			 * Vyberte, ktoré údaje jazdy sa nahradia hodnotami z GPS.
+			 */
+			intro: () => LocalizedString
+			/**
+			 * Začiatok
+			 */
+			start: () => LocalizedString
+			/**
+			 * Koniec
+			 */
+			end: () => LocalizedString
+			/**
+			 * Vzdialenosť
+			 */
+			distance: () => LocalizedString
+			/**
+			 * zaokrúhli sa na celé km; posunie tachometer neskorších jázd
+			 */
+			distanceNote: () => LocalizedString
+			/**
+			 * Trasa
+			 */
+			route: () => LocalizedString
+			/**
+			 * GPS stopa sa uloží ako trasa jazdy a nahradí uloženú trasu
+			 */
+			routeNew: () => LocalizedString
+			/**
+			 * GPS pokrýva len časť jazdy. Km a čas z GPS asi nie sú celá jazda.
+			 */
+			partialWarning: () => LocalizedString
+			/**
+			 * Voľné spárovanie: jazda Fuelio nemusí byť táto jazda.
+			 */
+			looseWarning: () => LocalizedString
+			/**
+			 * Pokračovať
+			 */
+			'continue': () => LocalizedString
+			/**
+			 * Zrušiť
+			 */
+			cancel: () => LocalizedString
+			/**
+			 * Jazda bola prepísaná údajmi z Fuelio.
+			 */
+			done: () => LocalizedString
+			/**
+			 * Nič sa nezmenilo.
+			 */
+			nothing: () => LocalizedString
+		}
 		/**
 		 * Mapa
 		 */

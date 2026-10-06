@@ -1043,6 +1043,27 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "apply_fuelio_to_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                drive_ids: Vec<String>,
+                fields: crate::commands_internal::FuelioFields,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::apply_fuelio_to_trip_internal(
+                &state.db,
+                &state.app_state,
+                &state.app_dir,
+                &a.trip_id,
+                &a.drive_ids,
+                a.fields,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         _ => Err(format!("Unknown command: {command}")),
     }
 }
@@ -1647,6 +1668,24 @@ mod tests {
             result.is_err(),
             "an omitted dryRun must be refused, not defaulted, on a write command"
         );
+    }
+
+    /// Task 90: the Fuelio overwrite writes trips, so an omitted `dryRun`
+    /// must fail closed too.
+    #[test]
+    fn apply_fuelio_to_trip_over_rpc_requires_dry_run_field() {
+        let state = test_state();
+        let result = dispatch_sync(
+            "apply_fuelio_to_trip",
+            json!({
+                "tripId": "x",
+                "driveIds": ["1"],
+                "fields": { "start": true, "end": false, "distance": false, "route": false }
+            }),
+            &state,
+        );
+        let err = result.unwrap_err();
+        assert!(err.contains("dryRun") || err.contains("dry_run"), "got: {err}");
     }
 
     // ------------------------------------------------------------------

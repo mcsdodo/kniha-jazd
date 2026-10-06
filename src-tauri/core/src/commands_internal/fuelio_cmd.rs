@@ -3,11 +3,17 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use chrono::Datelike;
-use serde::Serialize;
+use chrono::{Datelike, NaiveDateTime, Timelike, Utc};
+use serde::{Deserialize, Serialize};
 
+use crate::app_state::AppState;
+use crate::check_read_only;
+use crate::commands_internal::helpers::trip_order;
+use crate::commands_internal::route_maps::build_route_map;
+use crate::commands_internal::trips::plan_route_distance;
 use crate::db::Database;
-use crate::fuelio::{self, parse, CrosscheckRow, TripRef};
+use crate::fuelio::{self, parse, CrosscheckRow, Drive, TripRef};
+use crate::models::{DistanceWriteback, RouteMode, Waypoint};
 use crate::route_map::polyline;
 
 #[derive(Debug, Serialize)]
@@ -101,10 +107,7 @@ pub fn get_fuelio_track_internal(
     let folder = data_dir.join(fuelio::FOLDER_NAME);
     let mut gps = Vec::new();
     for id in drive_ids {
-        // The ID becomes a file name: digits only, so no path can escape the folder.
-        if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
-            return Err(format!("Invalid drive id: {id}"));
-        }
+        check_drive_id(id)?;
         let text = parse::read_data_file(&parse::data_file_path(&folder, id))?;
         gps.push(pairs(
             parse::parse_csv(&text)
@@ -121,6 +124,213 @@ pub fn get_fuelio_track_internal(
         None => None,
     };
     Ok(FuelioTrack { gps, route })
+}
+
+/// The trip fields that `apply_fuelio_to_trip` overwrites from the GPS.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct FuelioFields {
+    pub start: bool,
+    pub end: bool,
+    pub distance: bool,
+    pub route: bool,
+}
+
+/// What an overwrite does (dry run) or did.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FuelioApply {
+    pub trip_id: String,
+    pub start_before: NaiveDateTime,
+    pub start_after: NaiveDateTime,
+    pub end_before: Option<NaiveDateTime>,
+    pub end_after: Option<NaiveDateTime>,
+    pub distance_before: f64,
+    pub distance_after: f64,
+    /// The distance plan (odometer chain + margin), when the distance is selected.
+    pub writeback: Option<DistanceWriteback>,
+    pub route_written: bool,
+    pub applied: bool,
+}
+
+/// The drives of `drive_ids`, oldest first.
+fn load_drives(data_dir: &Path, drive_ids: &[String]) -> Result<Vec<Drive>, String> {
+    let folder = data_dir.join(fuelio::FOLDER_NAME);
+    let mut drives = Vec::new();
+    for id in drive_ids {
+        check_drive_id(id)?;
+        let text = parse::read_data_file(&parse::data_file_path(&folder, id))?;
+        drives.push(
+            parse::drive_from_fixes(id, &parse::parse_csv(&text))
+                .ok_or_else(|| format!("Drive {id} has fewer than two GPS fixes"))?,
+        );
+    }
+    drives.sort_by_key(|d| d.start);
+    Ok(drives)
+}
+
+/// A drive ID becomes a file name: digits only, so no path can escape the folder.
+fn check_drive_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("Invalid drive id: {id}"));
+    }
+    Ok(())
+}
+
+/// The logbook keeps whole minutes.
+fn to_minute(t: NaiveDateTime) -> NaiveDateTime {
+    t.with_second(0).and_then(|t| t.with_nanosecond(0)).unwrap_or(t)
+}
+
+/// Overwrite the selected fields of a trip with the values of its Fuelio
+/// drives (Task 90). A dry run plans and writes nothing.
+///
+/// - start / end: the GPS start and end, in whole minutes. A new start must not
+///   move the trip past another trip: the order is the odometer chain.
+/// - distance: the GPS km in whole km, through the same plan as the route
+///   distance write-back (task 87): the later odometers move, and the margin
+///   impact comes with the plan.
+/// - route: the GPS track becomes the trip's stored route (direct, no provider).
+///
+/// Everything selected is written in one transaction.
+pub fn apply_fuelio_to_trip_internal(
+    db: &Database,
+    app_state: &AppState,
+    data_dir: &Path,
+    trip_id: &str,
+    drive_ids: &[String],
+    fields: FuelioFields,
+    dry_run: bool,
+) -> Result<FuelioApply, String> {
+    if !(fields.start || fields.end || fields.distance || fields.route) {
+        return Err("Select at least one field to overwrite".into());
+    }
+    if drive_ids.is_empty() {
+        return Err("No Fuelio drive given".into());
+    }
+    let drives = load_drives(data_dir, drive_ids)?;
+    let (first, last) = (&drives[0], &drives[drives.len() - 1]);
+    let gps_km: f64 = drives.iter().map(|d| d.km).sum();
+
+    let existing = db
+        .get_trip(trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
+    let start = if fields.start { to_minute(first.start) } else { existing.start_datetime };
+    let end = if fields.end { Some(to_minute(last.end)) } else { existing.end_datetime };
+    if end.is_some_and(|e| e < start) {
+        return Err("The end would be before the start".into());
+    }
+
+    // The order guard: the distance plan and the odometer chain follow the
+    // stored order, so a new start must keep the trip in its place.
+    if start != existing.start_datetime {
+        if start.year() != existing.start_datetime.year() {
+            return Err("The new start is in another year; the trip order would change".into());
+        }
+        let mut trips = db
+            .get_trips_for_vehicle_in_year(&existing.vehicle_id.to_string(), start.year())
+            .map_err(|e| e.to_string())?;
+        trips.sort_by(trip_order);
+        let before: Vec<_> = trips.iter().map(|t| t.id).collect();
+        for t in trips.iter_mut().filter(|t| t.id == existing.id) {
+            t.start_datetime = start;
+        }
+        trips.sort_by(trip_order);
+        if trips.iter().map(|t| t.id).ne(before) {
+            return Err(
+                "The GPS start would move the trip past another trip; the trip order (the odometer chain) would change"
+                    .into(),
+            );
+        }
+    }
+
+    let plan = if fields.distance {
+        Some(plan_route_distance(db, trip_id, gps_km)?)
+    } else {
+        None
+    };
+    let mut trip = plan
+        .as_ref()
+        .and_then(|p| p.updated_trip())
+        .unwrap_or_else(|| existing.clone());
+    let shifts = plan.as_ref().map(|p| p.shifts()).unwrap_or_default();
+    trip.start_datetime = start;
+    trip.end_datetime = end;
+    let trip_changed = trip.start_datetime != existing.start_datetime
+        || trip.end_datetime != existing.end_datetime
+        || plan.as_ref().is_some_and(|p| p.changes_trip());
+    if trip_changed {
+        trip.updated_at = Utc::now();
+    }
+
+    let map = if fields.route {
+        let track: Vec<(f64, f64)> = drives.iter().flat_map(|d| d.track.iter().copied()).collect();
+        let point = |p: (f64, f64), name: &str| Waypoint {
+            lat: p.0,
+            lon: p.1,
+            name: Some(name.to_string()),
+            node_idx: None,
+        };
+        let mut map = build_route_map(
+            trip_id,
+            vec![
+                point(first.start_point, &existing.origin),
+                point(last.end_point, &existing.destination),
+            ],
+            polyline::encode(&track),
+            gps_km,
+            RouteMode::Direct,
+            false,
+            None,
+            Vec::new(),
+            None,
+        )?;
+        map.target_km = trip.distance_km;
+        Some(map)
+    } else {
+        None
+    };
+
+    let result = |applied: bool, saved: Option<crate::models::Trip>| FuelioApply {
+        trip_id: trip_id.to_string(),
+        start_before: existing.start_datetime,
+        start_after: trip.start_datetime,
+        end_before: existing.end_datetime,
+        end_after: trip.end_datetime,
+        distance_before: existing.distance_km,
+        distance_after: trip.distance_km,
+        writeback: None,
+        route_written: applied && fields.route,
+        applied,
+    }
+    .with_writeback(plan, saved);
+
+    if dry_run {
+        return Ok(result(false, None));
+    }
+    check_read_only!(app_state);
+    match &map {
+        Some(map) => db
+            .save_route_map_with_trip_distance(map, trip_changed.then_some(&trip), &shifts)
+            .map_err(|e| e.to_string())?,
+        None if trip_changed => db
+            .update_trip_with_odometer_shift(&trip, &shifts)
+            .map_err(|e| e.to_string())?,
+        None => {}
+    }
+    let saved = trip_changed.then(|| trip.clone());
+    Ok(result(true, saved))
+}
+
+impl FuelioApply {
+    fn with_writeback(
+        mut self,
+        plan: Option<crate::commands_internal::trips::RouteDistancePlan>,
+        saved: Option<crate::models::Trip>,
+    ) -> Self {
+        self.writeback = plan.map(|p| p.into_writeback(saved));
+        self
+    }
 }
 
 #[cfg(test)]

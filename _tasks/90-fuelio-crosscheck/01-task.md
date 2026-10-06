@@ -22,8 +22,23 @@ Read-only. Nothing writes to the logbook.
 - Show the time and km differences of a matched trip.
 - Show the GPS track next to the stored route on a map.
 
-Out of scope (later): add a trip from a drive, correct a trip, store the GPS
-track in the DB, an automatic Google Drive sync inside the app.
+Out of scope (later): add a trip from a drive, an automatic Google Drive sync
+inside the app.
+
+**Overwrite (added 2026-10-06).** A matched row has a "Prepísať" button. A
+popup selects which fields the GPS values replace: start, end, distance,
+route. `apply_fuelio_to_trip { tripId, driveIds, fields, dryRun }`:
+
+- start / end: the GPS start and end in whole minutes. A new start that moves
+  the trip past another trip is refused (the order is the odometer chain).
+- distance: the GPS km in whole km, through `plan_route_distance` (task 87),
+  so the later odometers move and the margin impact is in the plan. The page
+  shows `OdometerCascadeModal` (kind `writeback`) when the distance changes.
+- route: the GPS track becomes the stored route (`direct`, no provider,
+  waypoints at the GPS start and end).
+- Everything selected is written in one transaction; read-only mode blocks
+  the write, not the dry run. A complete match preselects all fields; a
+  partial or loose match preselects none and shows a warning.
 
 ## Data source
 

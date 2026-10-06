@@ -99,6 +99,7 @@ pub struct CrosscheckRow {
     pub status: RowStatus,
     pub trip_id: Option<String>,
     pub trip_start: Option<NaiveDateTime>,
+    pub trip_end: Option<NaiveDateTime>,
     pub origin: Option<String>,
     pub destination: Option<String>,
     pub trip_km: Option<f64>,
@@ -225,6 +226,7 @@ fn gps_row(status: RowStatus, run: &[Drive]) -> CrosscheckRow {
         status,
         trip_id: None,
         trip_start: None,
+        trip_end: None,
         origin: None,
         destination: None,
         trip_km: None,
@@ -271,6 +273,7 @@ fn matched_row(trip: &TripRef, run: &[Drive], partial: bool) -> CrosscheckRow {
 fn with_trip(mut row: CrosscheckRow, trip: &TripRef) -> CrosscheckRow {
     row.trip_id = Some(trip.id.clone());
     row.trip_start = Some(trip.start);
+    row.trip_end = trip.end;
     row.origin = Some(trip.origin.clone());
     row.destination = Some(trip.destination.clone());
     row.trip_km = Some(trip.km);

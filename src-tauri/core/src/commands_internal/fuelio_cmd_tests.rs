@@ -127,3 +127,141 @@ fn track_rejects_an_id_that_is_not_a_number() {
     let (db, dir, _, _) = setup();
     assert!(get_fuelio_track_internal(&db, dir.path(), &["../x".into()], None).is_err());
 }
+
+// ---------------------------------------------------------------------------
+// apply_fuelio_to_trip: overwrite trip fields from the GPS (Task 90)
+// ---------------------------------------------------------------------------
+
+use crate::app_state::AppState;
+
+fn dt(s: &str) -> NaiveDateTime {
+    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M").unwrap()
+}
+
+/// The setup trip with a consistent chain: 70 km at odometer 70, and a later
+/// trip of 10 km at odometer 80. The GPS drive says 17:29 to 18:19, 74 km.
+fn chain() -> (Database, tempfile::TempDir, Trip, Trip, Vec<String>) {
+    let (db, dir, v, mut t) = setup();
+    t.distance_km = 70.0;
+    t.odometer = 70.0;
+    db.update_trip(&t).unwrap();
+    let mut later = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2026, 9, 29).unwrap(), 10.0, None, false);
+    later.vehicle_id = v.id;
+    later.start_datetime = dt("2026-09-29 08:00");
+    later.odometer = 80.0;
+    later.origin_place_id = t.destination_place_id;
+    later.destination_place_id = t.origin_place_id;
+    db.create_trip(&later).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();
+    let ids = report.rows[0].drive_ids.clone();
+    (db, dir, t, later, ids)
+}
+
+fn all_fields() -> FuelioFields {
+    FuelioFields { start: true, end: true, distance: true, route: true }
+}
+
+#[test]
+fn apply_dry_run_previews_and_writes_nothing() {
+    let (db, dir, t, later, ids) = chain();
+    let state = AppState::new();
+    let r = apply_fuelio_to_trip_internal(&db, &state, dir.path(), &t.id.to_string(), &ids, all_fields(), true)
+        .unwrap();
+    assert!(!r.applied);
+    assert_eq!(r.start_after, dt("2026-09-28 17:29"));
+    assert_eq!(r.end_after, Some(dt("2026-09-28 18:19")));
+    assert_eq!(r.distance_after, 74.0);
+    let wb = r.writeback.unwrap();
+    assert_eq!(wb.plan.changes.len(), 1, "the later trip moves");
+    assert_eq!(db.get_trip(&t.id.to_string()).unwrap().unwrap().distance_km, 70.0);
+    assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 80.0);
+    assert!(db.get_route_map(&t.id.to_string()).unwrap().is_none());
+}
+
+#[test]
+fn apply_times_only_leaves_distance_and_odometers() {
+    let (db, dir, t, later, ids) = chain();
+    let fields = FuelioFields { start: true, end: true, distance: false, route: false };
+    let r = apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, fields, false)
+        .unwrap();
+    assert!(r.applied);
+    let saved = db.get_trip(&t.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.start_datetime, dt("2026-09-28 17:29"));
+    assert_eq!(saved.end_datetime, Some(dt("2026-09-28 18:19")));
+    assert_eq!(saved.distance_km, 70.0);
+    assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 80.0);
+    assert!(db.get_route_map(&t.id.to_string()).unwrap().is_none());
+}
+
+#[test]
+fn apply_distance_moves_the_later_odometers() {
+    let (db, dir, t, later, ids) = chain();
+    let fields = FuelioFields { start: false, end: false, distance: true, route: false };
+    apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, fields, false)
+        .unwrap();
+    let saved = db.get_trip(&t.id.to_string()).unwrap().unwrap();
+    assert_eq!(saved.distance_km, 74.0);
+    assert_eq!(saved.odometer, 74.0);
+    assert_eq!(saved.start_datetime, dt("2026-09-28 17:00"), "start not selected");
+    assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 84.0);
+}
+
+#[test]
+fn apply_route_only_saves_the_gps_track_and_keeps_the_distance() {
+    let (db, dir, t, _, ids) = chain();
+    let fields = FuelioFields { start: false, end: false, distance: false, route: true };
+    apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, fields, false)
+        .unwrap();
+    let map = db.get_route_map(&t.id.to_string()).unwrap().unwrap();
+    let line = crate::route_map::polyline::decode(&map.polyline);
+    assert_eq!(line.first(), Some(&(48.0, 20.0)));
+    assert_eq!(line.last(), Some(&(48.0, 21.0)));
+    assert_eq!(map.road_km, 74.0);
+    assert_eq!(map.mode, crate::models::RouteMode::Direct);
+    assert_eq!(map.provider, None);
+    assert_eq!(db.get_trip(&t.id.to_string()).unwrap().unwrap().distance_km, 70.0);
+}
+
+#[test]
+fn apply_all_fields_writes_them_together() {
+    let (db, dir, t, later, ids) = chain();
+    apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, all_fields(), false)
+        .unwrap();
+    let saved = db.get_trip(&t.id.to_string()).unwrap().unwrap();
+    assert_eq!((saved.start_datetime, saved.distance_km), (dt("2026-09-28 17:29"), 74.0));
+    assert!(db.get_route_map(&t.id.to_string()).unwrap().is_some());
+    assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 84.0);
+}
+
+#[test]
+fn apply_refuses_a_start_that_moves_the_trip_past_another() {
+    let (db, dir, t, _, ids) = chain();
+    // A trip at 17:15: the GPS start 17:29 would put our trip after it.
+    let mut between = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2026, 9, 28).unwrap(), 1.0, None, false);
+    between.vehicle_id = t.vehicle_id;
+    between.start_datetime = dt("2026-09-28 17:15");
+    between.odometer = 71.0;
+    between.origin_place_id = t.destination_place_id;
+    between.destination_place_id = t.destination_place_id;
+    db.create_trip(&between).unwrap();
+    let err = apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, all_fields(), true)
+        .unwrap_err();
+    assert!(err.contains("order"), "{err}");
+}
+
+#[test]
+fn apply_is_blocked_in_read_only_mode_but_a_dry_run_is_not() {
+    let (db, dir, t, _, ids) = chain();
+    let state = AppState::new();
+    state.enable_read_only("test");
+    assert!(apply_fuelio_to_trip_internal(&db, &state, dir.path(), &t.id.to_string(), &ids, all_fields(), true).is_ok());
+    assert!(apply_fuelio_to_trip_internal(&db, &state, dir.path(), &t.id.to_string(), &ids, all_fields(), false).is_err());
+}
+
+#[test]
+fn apply_needs_a_field_and_a_drive() {
+    let (db, dir, t, _, ids) = chain();
+    let none = FuelioFields { start: false, end: false, distance: false, route: false };
+    assert!(apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, none, true).is_err());
+    assert!(apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &[], all_fields(), true).is_err());
+}
