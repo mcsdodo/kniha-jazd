@@ -36,6 +36,32 @@
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
 	let overwriting = $state<FuelioRow | null>(null);
+	let syncing = $state(false);
+
+	async function syncDropbox() {
+		const vehicle = $activeVehicleStore;
+		const year = $selectedYearStore;
+		if (!vehicle) return;
+		syncing = true;
+		try {
+			const r = await api.syncFuelioDropbox(year);
+			const message = $LL.fuelio.sync.done({
+				year: r.year,
+				downloaded: r.downloaded,
+				total: r.inDropbox
+			});
+			if (r.failed.length > 0) {
+				toast.error(`${message} ${$LL.fuelio.sync.failed({ count: r.failed.length })}`);
+			} else {
+				toast.success(message);
+			}
+			await load(vehicle.id, year);
+		} catch (e) {
+			toast.error($LL.fuelio.sync.error({ error: String(e) }));
+		} finally {
+			syncing = false;
+		}
+	}
 
 	let leaflet: typeof import('leaflet') | null = null;
 	let map: LeafletMap | null = null;
@@ -174,6 +200,22 @@
 					- {$LL.fuelio.driveCount({ year: $selectedYearStore, count: report.driveCount })}
 				{/if}
 			</p>
+
+			{#if report.dropboxConfigured}
+				<div class="sync-bar">
+					<button
+						type="button"
+						class="sync-btn"
+						disabled={syncing}
+						onclick={syncDropbox}
+						data-testid="fuelio-sync-dropbox"
+						>{syncing
+							? $LL.fuelio.sync.running()
+							: $LL.fuelio.sync.button({ year: $selectedYearStore })}</button
+					>
+					<span class="muted small">{$LL.fuelio.sync.hint()}</span>
+				</div>
+			{/if}
 
 			<div class="filters">
 				<label>
@@ -360,6 +402,25 @@
 		border-radius: 4px;
 		background-color: var(--input-bg);
 		color: var(--text-primary);
+	}
+	.sync-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+	.sync-btn {
+		padding: 0.4rem 0.9rem;
+		border: none;
+		border-radius: 4px;
+		background: var(--btn-active-primary-bg);
+		color: var(--btn-active-primary-color);
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+	.sync-btn:disabled {
+		opacity: 0.6;
+		cursor: default;
 	}
 	.pills {
 		display: flex;

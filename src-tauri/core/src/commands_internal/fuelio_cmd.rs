@@ -24,6 +24,8 @@ pub struct FuelioReport {
     pub folder_exists: bool,
     /// Drives in the folder for the year.
     pub drive_count: usize,
+    /// The three Dropbox secrets are set: the page offers the sync.
+    pub dropbox_configured: bool,
     pub rows: Vec<CrosscheckRow>,
 }
 
@@ -93,6 +95,7 @@ pub fn get_fuelio_crosscheck_internal(
         folder: folder.display().to_string(),
         folder_exists: folder.is_dir(),
         drive_count: drives.len(),
+        dropbox_configured: crate::fuelio::dropbox::DropboxConfig::from_env().is_some(),
         rows: fuelio::crosscheck(&refs, &drives),
     })
 }
@@ -331,6 +334,22 @@ impl FuelioApply {
         self.writeback = plan.map(|p| p.into_writeback(saved));
         self
     }
+}
+
+/// Copy the Fuelio drives of `year` from Dropbox into `<DATA_DIR>/fuelio`.
+/// `config` is `None` when the Dropbox secrets are not set.
+pub async fn sync_fuelio_dropbox_internal(
+    config: Option<crate::fuelio::dropbox::DropboxConfig>,
+    data_dir: &Path,
+    year: i32,
+) -> Result<crate::fuelio::dropbox::SyncReport, String> {
+    use crate::fuelio::dropbox::{sync_year, DropboxStore};
+    let config = config.ok_or_else(|| {
+        "Dropbox is not configured: set DROPBOX_APP_KEY, DROPBOX_APP_SECRET and DROPBOX_REFRESH_TOKEN"
+            .to_string()
+    })?;
+    let store = DropboxStore::connect(config).await?;
+    sync_year(std::sync::Arc::new(store), &data_dir.join(fuelio::FOLDER_NAME), year).await
 }
 
 #[cfg(test)]

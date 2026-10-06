@@ -531,6 +531,14 @@ const sk = {
 		},
 		drives: 'jazdy: {count: number}',
 		offRoute: 'mimo trasy: {pct: number} %',
+		sync: {
+			button: 'Synchronizovať z Dropboxu ({year: number})',
+			running: 'Synchronizujem...',
+			hint: 'Stiahne jazdy Fuelio vybraného roka, ktoré tu ešte nie sú.',
+			done: 'Rok {year: number}: stiahnuté {downloaded: number} z {total: number} jázd v Dropboxe.',
+			failed: 'Nepodarilo sa stiahnuť: {count: number}.',
+			error: 'Synchronizácia z Dropboxu zlyhala: {error: string}',
+		},
 		overwrite: {
 			button: 'Prepísať',
 			title: 'Prepísať údajmi z Fuelio',

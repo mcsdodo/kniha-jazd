@@ -676,7 +676,17 @@ export interface FuelioReport {
 	folder: string;
 	folderExists: boolean;
 	driveCount: number;
+	/** The Dropbox secrets are set: the page offers the sync. */
+	dropboxConfigured: boolean;
 	rows: FuelioRow[];
+}
+
+export interface FuelioSyncReport {
+	year: number;
+	inDropbox: number;
+	downloaded: number;
+	alreadyLocal: number;
+	failed: string[];
 }
 
 /** The trip fields that the Fuelio overwrite writes. */

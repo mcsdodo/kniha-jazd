@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -714,4 +714,9 @@ export async function applyFuelioToTrip(
 	dryRun: boolean
 ): Promise<FuelioApply> {
 	return await apiCall('apply_fuelio_to_trip', { tripId, driveIds, fields, dryRun });
+}
+
+/** Copy the Fuelio drives of one year from Dropbox into the data folder. */
+export async function syncFuelioDropbox(year: number): Promise<FuelioSyncReport> {
+	return await apiCall('sync_fuelio_dropbox', { year });
 }

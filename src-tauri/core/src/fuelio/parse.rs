@@ -131,7 +131,7 @@ pub fn drive_from_fixes(id: &str, fixes: &[Fix]) -> Option<Drive> {
 /// The drive ID of a file name: `route-1790562640107.data` and the copies
 /// `route-1790562640107(1).data` / `route-1790562640107 (1).data` give
 /// `1790562640107`.
-fn drive_id(file_name: &str) -> Option<String> {
+pub(crate) fn drive_id(file_name: &str) -> Option<String> {
     let stem = file_name.strip_prefix("route-")?.strip_suffix(".data")?;
     let id: String = stem.chars().take_while(char::is_ascii_digit).collect();
     (!id.is_empty()).then_some(id)

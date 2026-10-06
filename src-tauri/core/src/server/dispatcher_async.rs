@@ -358,6 +358,29 @@ pub async fn dispatch_async(
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 
+        // ====================================================================
+        // Fuelio — async (Task 90, Dropbox download)
+        // ====================================================================
+        //
+        // Writes files into <DATA_DIR>/fuelio, not the database.
+        "sync_fuelio_dropbox" => {
+            #[derive(serde::Deserialize)]
+            struct Args {
+                year: i32,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::sync_fuelio_dropbox_internal(
+                crate::fuelio::dropbox::DropboxConfig::from_env(),
+                &state.app_dir,
+                a.year,
+            )
+            .await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+
         // Not an async command — let the caller fall through to sync dispatch.
         _ => None,
     }

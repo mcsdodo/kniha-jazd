@@ -265,3 +265,10 @@ fn apply_needs_a_field_and_a_drive() {
     assert!(apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &ids, none, true).is_err());
     assert!(apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &[], all_fields(), true).is_err());
 }
+
+#[tokio::test]
+async fn sync_without_dropbox_secrets_says_what_to_set() {
+    let dir = tempfile::tempdir().unwrap();
+    let err = sync_fuelio_dropbox_internal(None, dir.path(), 2026).await.unwrap_err();
+    assert!(err.contains("DROPBOX_REFRESH_TOKEN"), "{err}");
+}

@@ -1750,6 +1750,38 @@ type RootTranslation = {
 		 * @param {number} pct
 		 */
 		offRoute: RequiredParams<'pct'>
+		sync: {
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​o​v​a​ť​ ​z​ ​D​r​o​p​b​o​x​u​ ​(​{​y​e​a​r​}​)
+			 * @param {number} year
+			 */
+			button: RequiredParams<'year'>
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​u​j​e​m​.​.​.
+			 */
+			running: string
+			/**
+			 * S​t​i​a​h​n​e​ ​j​a​z​d​y​ ​F​u​e​l​i​o​ ​v​y​b​r​a​n​é​h​o​ ​r​o​k​a​,​ ​k​t​o​r​é​ ​t​u​ ​e​š​t​e​ ​n​i​e​ ​s​ú​.
+			 */
+			hint: string
+			/**
+			 * R​o​k​ ​{​y​e​a​r​}​:​ ​s​t​i​a​h​n​u​t​é​ ​{​d​o​w​n​l​o​a​d​e​d​}​ ​z​ ​{​t​o​t​a​l​}​ ​j​á​z​d​ ​v​ ​D​r​o​p​b​o​x​e​.
+			 * @param {number} downloaded
+			 * @param {number} total
+			 * @param {number} year
+			 */
+			done: RequiredParams<'downloaded' | 'total' | 'year'>
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​t​i​a​h​n​u​ť​:​ ​{​c​o​u​n​t​}​.
+			 * @param {number} count
+			 */
+			failed: RequiredParams<'count'>
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​á​c​i​a​ ​z​ ​D​r​o​p​b​o​x​u​ ​z​l​y​h​a​l​a​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			error: RequiredParams<'error'>
+		}
 		overwrite: {
 			/**
 			 * P​r​e​p​í​s​a​ť
@@ -4367,6 +4399,32 @@ export type TranslationFunctions = {
 		 * mimo trasy: {pct} %
 		 */
 		offRoute: (arg: { pct: number }) => LocalizedString
+		sync: {
+			/**
+			 * Synchronizovať z Dropboxu ({year})
+			 */
+			button: (arg: { year: number }) => LocalizedString
+			/**
+			 * Synchronizujem...
+			 */
+			running: () => LocalizedString
+			/**
+			 * Stiahne jazdy Fuelio vybraného roka, ktoré tu ešte nie sú.
+			 */
+			hint: () => LocalizedString
+			/**
+			 * Rok {year}: stiahnuté {downloaded} z {total} jázd v Dropboxe.
+			 */
+			done: (arg: { downloaded: number, total: number, year: number }) => LocalizedString
+			/**
+			 * Nepodarilo sa stiahnuť: {count}.
+			 */
+			failed: (arg: { count: number }) => LocalizedString
+			/**
+			 * Synchronizácia z Dropboxu zlyhala: {error}
+			 */
+			error: (arg: { error: string }) => LocalizedString
+		}
 		overwrite: {
 			/**
 			 * Prepísať

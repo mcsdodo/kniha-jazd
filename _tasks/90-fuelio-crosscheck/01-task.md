@@ -25,6 +25,20 @@ Read-only. Nothing writes to the logbook.
 Out of scope (later): add a trip from a drive, an automatic Google Drive sync
 inside the app.
 
+**Dropbox sync (added 2026-10-06).** With `DROPBOX_APP_KEY`,
+`DROPBOX_APP_SECRET` and `DROPBOX_REFRESH_TOKEN` set, the page shows "Sync
+from Dropbox (year)". `sync_fuelio_dropbox { year }` trades the refresh token
+for an access token, lists `FUELIO_DROPBOX_FOLDER` (default
+`/Apps/Fuelio/routes`, about 2000 entries per page), keeps the
+`route-<id>.data` files whose local start year is the selected year, and
+downloads only those missing from `<DATA_DIR>/fuelio` (8 at a time, temporary
+name then rename). No cursor: a full listing is a few calls and the year
+filter needs the names. Measured on the real account: 2024, 66 files, 13.8 s;
+a repeat sync 5 s (listing only). Fuelio stopped writing to Dropbox in June
+2024, so the 2026 drives come from Google Drive (rclone) until Fuelio backs
+up to Dropbox again. The Dropbox app needs "Full Dropbox" access, because
+Fuelio writes to its own app folder.
+
 **Overwrite (added 2026-10-06).** A matched row has a "Prepísať" button. A
 popup selects which fields the GPS values replace: start, end, distance,
 route. `apply_fuelio_to_trip { tripId, driveIds, fields, dryRun }`:

@@ -531,6 +531,14 @@ const en = {
 		},
 		drives: 'drives: {count}',
 		offRoute: 'off route: {pct} %',
+		sync: {
+			button: 'Sync from Dropbox ({year})',
+			running: 'Syncing...',
+			hint: 'Downloads the Fuelio drives of the selected year that are not here yet.',
+			done: 'Year {year}: downloaded {downloaded} of {total} drives in Dropbox.',
+			failed: 'Failed to download: {count}.',
+			error: 'The Dropbox sync failed: {error}',
+		},
 		overwrite: {
 			button: 'Overwrite',
 			title: 'Overwrite with Fuelio data',
