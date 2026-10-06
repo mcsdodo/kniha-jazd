@@ -79,6 +79,12 @@ All logic is in a new core module [fuelio](../../src-tauri/core/src/fuelio/)
    - starts within 12 hours of the logbook start,
    - has a GPS km between 50% and 150% of the trip km.
 
+   A round trip (the stored route has `round_trip`, or the origin is the
+   destination) must end back at the origin, and its stop at the turnaround
+   can last the whole trip (`end_datetime - start_datetime`, or 12 hours
+   without an end time). The turnaround point is not checked. Example:
+   2026-08-27 SNV -> Poprad -> SNV, two drives with a 3-hour stop.
+
    If more than one run fits, the one with the start time nearest to the
    logbook time wins. A drive belongs to one trip only.
 3. **Missing.** Drives that no trip uses are joined into chains (gap of at

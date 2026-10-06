@@ -16,6 +16,8 @@ use super::parse::Drive;
 const PLACE_RADIUS_M: f64 = 2_000.0;
 /// The longest stop inside one trip's run of drives.
 const MAX_STOP_IN_TRIP_MIN: i64 = 90;
+/// The longest stop at the turnaround of a round trip without an end time.
+const MAX_ROUND_TRIP_STOP_H: i64 = 12;
 /// The longest stop inside one missing chain.
 const MAX_STOP_IN_CHAIN_MIN: i64 = 60;
 /// How far the logbook start may be from the GPS start and still match.
@@ -38,6 +40,12 @@ const FLAG_OFF_ROUTE_PCT: f64 = 10.0;
 pub struct TripRef {
     pub id: String,
     pub start: NaiveDateTime,
+    pub end: Option<NaiveDateTime>,
+    /// Out and back to the origin (the stored route is a round trip, or the
+    /// origin is the destination). The drives must end at the origin, and the
+    /// stop at the turnaround can last the whole trip (2026-08-27: SNV ->
+    /// Poprad -> SNV with a 3-hour stop). The turnaround is not checked.
+    pub round_trip: bool,
     pub origin: String,
     pub destination: String,
     /// `None` when the place has no coordinates: that end is not checked.
@@ -101,12 +109,24 @@ fn minutes(a: NaiveDateTime, b: NaiveDateTime) -> i64 {
     (b - a).num_minutes()
 }
 
+/// Where the run of drives must end, and the longest stop inside it.
+fn run_rules(trip: &TripRef) -> (Option<(f64, f64)>, i64) {
+    if !trip.round_trip {
+        return (trip.destination_point, MAX_STOP_IN_TRIP_MIN);
+    }
+    let span = trip
+        .end
+        .map_or(MAX_ROUND_TRIP_STOP_H * 60, |end| minutes(trip.start, end));
+    (trip.origin_point, span.max(MAX_STOP_IN_TRIP_MIN))
+}
+
 /// The best run of unused drives for `trip`, as an index range.
 fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, usize)> {
     let window = Duration::hours(MAX_START_DIFF_H);
     let km_ok = |km: f64| {
         trip.km <= 0.0 || (km >= trip.km * KM_RATIO_MIN && km <= trip.km * KM_RATIO_MAX)
     };
+    let (end_point, max_stop) = run_rules(trip);
     let mut best: Option<((i64, f64), (usize, usize))> = None;
     for i in 0..drives.len() {
         let first = &drives[i];
@@ -118,14 +138,14 @@ fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, u
         }
         let mut km = 0.0;
         for j in i..drives.len() {
-            if used[j] || (j > i && minutes(drives[j - 1].end, drives[j].start) > MAX_STOP_IN_TRIP_MIN) {
+            if used[j] || (j > i && minutes(drives[j - 1].end, drives[j].start) > max_stop) {
                 break;
             }
             km += drives[j].km;
             if trip.km > 0.0 && km > trip.km * KM_RATIO_MAX {
                 break;
             }
-            if near(drives[j].end_point, trip.destination_point) && km_ok(km) {
+            if near(drives[j].end_point, end_point) && km_ok(km) {
                 let score = (minutes(trip.start, first.start).abs(), (km - trip.km).abs());
                 if best.as_ref().is_none_or(|(s, _)| score < *s) {
                     best = Some((score, (i, j)));

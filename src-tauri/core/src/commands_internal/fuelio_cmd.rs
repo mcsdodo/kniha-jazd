@@ -64,9 +64,12 @@ pub fn get_fuelio_crosscheck_internal(
         .into_iter()
         .map(|t| {
             let id = t.id.to_string();
+            let saved = routes.get(&id);
             TripRef {
-                route: routes
-                    .get(&id)
+                round_trip: saved.is_some_and(|r| r.round_trip)
+                    || t.origin_place_id == t.destination_place_id,
+                end: t.end_datetime,
+                route: saved
                     .map(|r| polyline::decode(&r.polyline))
                     .filter(|line| line.len() >= 2),
                 id,

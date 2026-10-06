@@ -35,6 +35,8 @@ fn trip(id: &str, start: NaiveDateTime, from: (f64, f64), to: (f64, f64), km: f6
     TripRef {
         id: id.into(),
         start,
+        end: None,
+        round_trip: false,
         origin: format!("{from:?}"),
         destination: format!("{to:?}"),
         origin_point: Some(from),
@@ -268,4 +270,63 @@ fn rows_come_out_in_time_order() {
         .map(|r| r.trip_id.clone().unwrap_or_else(|| r.drive_ids[0].clone()))
         .collect();
     assert_eq!(ids, vec!["early", "t1", "late"]);
+}
+
+fn round_trip(id: &str, start: NaiveDateTime, end: Option<NaiveDateTime>, from: (f64, f64), to: (f64, f64), km: f64) -> TripRef {
+    TripRef { end, round_trip: true, ..trip(id, start, from, to, km) }
+}
+
+// 2026-08-27: SNV -> Ganovce -> SNV is one logbook trip (15:00 to 19:16), and
+// Fuelio has the way out and the way back with a 3-hour stop in Poprad,
+// 3.5 km from the Ganovce place.
+#[test]
+fn a_round_trip_matches_the_way_out_and_back_over_a_long_stop() {
+    let turnaround = (48.03, 21.0); // about 3.3 km from B
+    let trips = [round_trip("t1", at(27, 15, 0), Some(at(27, 19, 16)), A, B, 88.0)];
+    let drives = [
+        drive("out", at(27, 14, 57), 44, A, turnaround, 45.0),
+        drive("back", at(27, 18, 36), 30, turnaround, A, 34.0),
+    ];
+    let rows = crosscheck(&trips, &drives);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].status, RowStatus::Matched);
+    assert_eq!(rows[0].drive_ids, vec!["out", "back"]);
+    assert_eq!(rows[0].flags, vec![Flag::KmDiffers]);
+}
+
+#[test]
+fn a_round_trip_without_an_end_time_allows_a_stop_up_to_12_hours() {
+    let trips = [round_trip("t1", at(27, 8, 0), None, A, B, 148.0)];
+    let drives = [
+        drive("out", at(27, 8, 0), 50, A, B, 74.0),
+        drive("back", at(27, 19, 0), 50, B, A, 74.0),
+    ];
+    assert_eq!(crosscheck(&trips, &drives)[0].drive_ids, vec!["out", "back"]);
+}
+
+#[test]
+fn a_round_trip_stop_longer_than_the_trip_does_not_join() {
+    let trips = [round_trip("t1", at(27, 8, 0), Some(at(27, 12, 0)), A, B, 148.0)];
+    let drives = [
+        drive("out", at(27, 8, 0), 50, A, B, 74.0),
+        drive("back", at(27, 18, 0), 50, B, A, 74.0),
+    ];
+    assert_eq!(crosscheck(&trips, &drives)[0].status, RowStatus::NoDrive);
+}
+
+#[test]
+fn a_round_trip_does_not_match_a_one_way_drive_to_its_destination() {
+    let trips = [round_trip("t1", at(27, 8, 0), None, A, B, 74.0)];
+    let rows = crosscheck(&trips, &[drive("d1", at(27, 8, 0), 50, A, B, 74.0)]);
+    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+}
+
+#[test]
+fn a_one_way_trip_does_not_join_drives_over_a_long_stop() {
+    let trips = [trip("t1", at(27, 8, 0), A, C, 148.0)];
+    let drives = [
+        drive("d1", at(27, 8, 0), 50, A, B, 74.0),
+        drive("d2", at(27, 11, 0), 50, B, C, 74.0),
+    ];
+    assert_eq!(find(&crosscheck(&trips, &drives), "t1").status, RowStatus::NoDrive);
 }
