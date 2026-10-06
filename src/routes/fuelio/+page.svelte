@@ -21,8 +21,8 @@
 	let minKm = $state(30);
 	let highwayOnly = $state(true);
 	let problemsOnly = $state(false);
-	let statusFilter = $state<FuelioRowStatus | 'all'>('all');
 	const STATUSES: FuelioRowStatus[] = ['matched', 'missing', 'noDrive'];
+	let shownStatuses = $state<FuelioRowStatus[]>([...STATUSES]);
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
 
@@ -47,7 +47,7 @@
 				rowKm(r) >= (minKm || 0) &&
 				(!highwayOnly || r.isHighway) &&
 				(!problemsOnly || isProblem(r)) &&
-				(statusFilter === 'all' || r.status === statusFilter)
+				shownStatuses.includes(r.status)
 		)
 	);
 
@@ -171,15 +171,12 @@
 				</label>
 				<label><input type="checkbox" bind:checked={highwayOnly} /> {$LL.fuelio.highwayOnly()}</label>
 				<label><input type="checkbox" bind:checked={problemsOnly} /> {$LL.fuelio.problemsOnly()}</label>
-				<label>
-					{$LL.fuelio.col.status()}
-					<select class="text-input" bind:value={statusFilter} data-testid="fuelio-status-filter">
-						<option value="all">{$LL.fuelio.allStatuses()}</option>
-						{#each STATUSES as st}
-							<option value={st}>{$LL.fuelio.status[st]()}</option>
-						{/each}
-					</select>
-				</label>
+				<fieldset class="status-filter" data-testid="fuelio-status-filter">
+					<legend>{$LL.fuelio.col.status()}:</legend>
+					{#each STATUSES as st}
+						<label><input type="checkbox" value={st} bind:group={shownStatuses} /> {$LL.fuelio.status[st]()}</label>
+					{/each}
+				</fieldset>
 				<span class="muted small">{$LL.fuelio.shown({ count: rows.length })}</span>
 			</div>
 
@@ -308,6 +305,18 @@
 		border-radius: 4px;
 		background-color: var(--input-bg);
 		color: var(--text-primary);
+	}
+	.status-filter {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		border: none;
+		padding: 0;
+		margin: 0;
+	}
+	.status-filter legend {
+		float: left;
+		padding: 0;
 	}
 	.km {
 		width: 5rem;

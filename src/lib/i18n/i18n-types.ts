@@ -1658,10 +1658,6 @@ type RootTranslation = {
 		 */
 		problemsOnly: string
 		/**
-		 * V​š​e​t​k​y
-		 */
-		allStatuses: string
-		/**
 		 * Z​o​b​r​a​z​e​n​é​:​ ​{​c​o​u​n​t​}
 		 * @param {number} count
 		 */
@@ -4215,10 +4211,6 @@ export type TranslationFunctions = {
 		 * Len problémy
 		 */
 		problemsOnly: () => LocalizedString
-		/**
-		 * Všetky
-		 */
-		allStatuses: () => LocalizedString
 		/**
 		 * Zobrazené: {count}
 		 */
