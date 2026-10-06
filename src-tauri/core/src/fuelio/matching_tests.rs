@@ -180,7 +180,7 @@ fn unused_drives_join_into_one_missing_row_over_a_short_stop() {
     ];
     let rows = crosscheck(&[], &drives);
     let ids: Vec<Vec<String>> = rows.iter().map(|r| r.drive_ids.clone()).collect();
-    assert_eq!(ids, vec![vec!["d1".to_string(), "d2".into()], vec!["d3".into()]]);
+    assert_eq!(ids, vec![vec!["d3".to_string()], vec!["d1".to_string(), "d2".into()]]);
     assert!(rows.iter().all(|r| r.status == RowStatus::Missing));
     assert!((rows[0].gps_km.unwrap() - 148.0).abs() < 1e-9);
 }
@@ -207,7 +207,8 @@ fn highway_is_long_or_fast() {
         ],
     );
     let hw: Vec<bool> = rows.iter().map(|r| r.is_highway).collect();
-    assert_eq!(hw, vec![true, true, false]);
+    // Newest first: short (29th), fast (28th), long (27th).
+    assert_eq!(hw, vec![false, true, true]);
 }
 
 #[test]
@@ -249,7 +250,7 @@ fn a_place_without_coordinates_matches_on_time_and_km() {
 }
 
 #[test]
-fn rows_come_out_in_gps_time_order() {
+fn rows_come_out_newest_first() {
     let rows = crosscheck(
         &[trip("t1", at(28, 12, 0), A, B, 74.0)],
         &[
@@ -258,9 +259,9 @@ fn rows_come_out_in_gps_time_order() {
             drive("late", at(29, 20, 0), 50, C, C, 74.0),
         ],
     );
-    // The missing rows and the matched row are merged by GPS time.
+    // The missing rows and the matched row are merged by GPS time, newest first.
     let ids: Vec<&str> = rows.iter().map(|r| r.drive_ids[0].as_str()).collect();
-    assert_eq!(ids, vec!["early", "mid", "late"]);
+    assert_eq!(ids, vec!["late", "mid", "early"]);
 }
 
 fn round_trip(id: &str, start: NaiveDateTime, end: Option<NaiveDateTime>, from: (f64, f64), to: (f64, f64), km: f64) -> TripRef {

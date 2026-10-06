@@ -380,7 +380,8 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
             None => rows.push(gps_row(RowStatus::Missing, &chain)),
         }
     }
-    rows.sort_by_key(|r| r.gps_start);
+    // Newest drive first: the page opens on the latest drives.
+    rows.sort_by_key(|r| std::cmp::Reverse(r.gps_start));
     rows
 }
 

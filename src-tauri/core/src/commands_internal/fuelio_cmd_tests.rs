@@ -5,6 +5,17 @@ use diesel::prelude::*;
 use std::io::Write;
 use uuid::Uuid;
 
+/// The drives of the matched row (the report is newest first).
+fn matched_ids(report: &FuelioReport) -> Vec<String> {
+    report
+        .rows
+        .iter()
+        .find(|r| r.status == crate::fuelio::RowStatus::Matched)
+        .unwrap()
+        .drive_ids
+        .clone()
+}
+
 fn place_at(db: &Database, name: &str, lat: f64, lon: f64) -> Uuid {
     let id = db.ensure_place_for_test(name);
     diesel::sql_query("UPDATE places SET lat = ?, lon = ? WHERE id = ?")
@@ -77,12 +88,13 @@ fn crosscheck_matches_the_trip_and_lists_the_other_drive_as_missing() {
     assert!(report.folder_exists);
     assert_eq!(report.drive_count, 2);
     assert_eq!(report.rows.len(), 2);
-    let matched = &report.rows[0];
+    // Newest first: the missing drive of the next day, then the match.
+    assert_eq!(report.rows[0].status, crate::fuelio::RowStatus::Missing);
+    let matched = &report.rows[1];
     assert_eq!(matched.status, crate::fuelio::RowStatus::Matched);
     assert_eq!(matched.trip_id, Some(t.id.to_string()));
     assert_eq!(matched.origin.as_deref(), Some("A"));
     assert_eq!(matched.start_diff_min, Some(29));
-    assert_eq!(report.rows[1].status, crate::fuelio::RowStatus::Missing);
 }
 
 #[test]
@@ -105,7 +117,7 @@ fn crosscheck_without_the_folder_reports_it() {
 fn track_returns_the_gps_points_and_the_stored_route() {
     let (db, dir, v, t) = setup();
     let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();
-    let ids = report.rows[0].drive_ids.clone();
+    let ids = matched_ids(&report);
     diesel::sql_query(
         "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, created_at) \
          VALUES (?, '[]', ?, 74, 74, '2026-01-01T00:00:00')",
@@ -153,7 +165,7 @@ fn chain() -> (Database, tempfile::TempDir, Trip, Trip, Vec<String>) {
     later.destination_place_id = t.origin_place_id;
     db.create_trip(&later).unwrap();
     let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();
-    let ids = report.rows[0].drive_ids.clone();
+    let ids = matched_ids(&report);
     (db, dir, t, later, ids)
 }
 
