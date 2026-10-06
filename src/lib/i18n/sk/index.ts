@@ -495,7 +495,7 @@ const sk = {
 	// Place book
 	fuelio: {
 		title: 'Fuelio - kontrola jázd',
-		intro: 'Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Len na čítanie.',
+		intro: 'Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Tlačidlo "Prepísať" nahradí údaje jazdy hodnotami z GPS.',
 		folder: 'Priečinok so súbormi Fuelio: {folder: string}',
 		noFolder: 'Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data).',
 		driveCount: 'Jazdy Fuelio v roku {year: number}: {count: number}',

@@ -1619,7 +1619,7 @@ type RootTranslation = {
 		 */
 		title: string
 		/**
-		 * J​a​z​d​y​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​a​ ​j​a​z​d​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​,​ ​k​u​ ​k​t​o​r​e​j​ ​p​a​t​r​i​a​.​ ​"​C​h​ý​b​a​ ​v​ ​k​n​i​h​e​"​ ​j​e​ ​j​a​z​d​a​ ​F​u​e​l​i​o​ ​b​e​z​ ​j​a​z​d​y​ ​v​ ​k​n​i​h​e​.​ ​L​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
+		 * J​a​z​d​y​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​a​ ​j​a​z​d​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​,​ ​k​u​ ​k​t​o​r​e​j​ ​p​a​t​r​i​a​.​ ​"​C​h​ý​b​a​ ​v​ ​k​n​i​h​e​"​ ​j​e​ ​j​a​z​d​a​ ​F​u​e​l​i​o​ ​b​e​z​ ​j​a​z​d​y​ ​v​ ​k​n​i​h​e​.​ ​T​l​a​č​i​d​l​o​ ​"​P​r​e​p​í​s​a​ť​"​ ​n​a​h​r​a​d​í​ ​ú​d​a​j​e​ ​j​a​z​d​y​ ​h​o​d​n​o​t​a​m​i​ ​z​ ​G​P​S​.
 		 */
 		intro: string
 		/**
@@ -4238,7 +4238,7 @@ export type TranslationFunctions = {
 		 */
 		title: () => LocalizedString
 		/**
-		 * Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Len na čítanie.
+		 * Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Tlačidlo "Prepísať" nahradí údaje jazdy hodnotami z GPS.
 		 */
 		intro: () => LocalizedString
 		/**
