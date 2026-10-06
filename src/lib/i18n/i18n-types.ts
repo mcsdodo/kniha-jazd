@@ -1650,9 +1650,13 @@ type RootTranslation = {
 		 */
 		minKm: string
 		/**
-		 * L​e​n​ ​d​i​a​ľ​n​i​c​a​ ​(​>​=​ ​3​0​ ​k​m​ ​a​l​e​b​o​ ​>​=​ ​5​ ​m​i​n​ ​n​a​d​ ​1​0​0​ ​k​m​/​h​)
+		 * L​e​n​ ​d​i​a​ľ​n​i​c​a
 		 */
 		highwayOnly: string
+		/**
+		 * J​a​z​d​a​ ​>​=​ ​3​0​ ​k​m​ ​a​l​e​b​o​ ​>​=​ ​5​ ​m​i​n​ ​n​a​d​ ​1​0​0​ ​k​m​/​h
+		 */
+		highwayHint: string
 		/**
 		 * L​e​n​ ​p​r​o​b​l​é​m​y
 		 */
@@ -4266,9 +4270,13 @@ export type TranslationFunctions = {
 		 */
 		minKm: () => LocalizedString
 		/**
-		 * Len diaľnica (>= 30 km alebo >= 5 min nad 100 km/h)
+		 * Len diaľnica
 		 */
 		highwayOnly: () => LocalizedString
+		/**
+		 * Jazda >= 30 km alebo >= 5 min nad 100 km/h
+		 */
+		highwayHint: () => LocalizedString
 		/**
 		 * Len problémy
 		 */

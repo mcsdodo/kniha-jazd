@@ -502,7 +502,8 @@ const sk = {
 		noVehicle: 'Vyberte vozidlo.',
 		loading: 'Načítavam...',
 		minKm: 'Min. km',
-		highwayOnly: 'Len diaľnica (>= 30 km alebo >= 5 min nad 100 km/h)',
+		highwayOnly: 'Len diaľnica',
+		highwayHint: 'Jazda >= 30 km alebo >= 5 min nad 100 km/h',
 		problemsOnly: 'Len problémy',
 		shown: 'Zobrazené: {count: number}',
 		col: {

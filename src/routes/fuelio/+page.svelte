@@ -19,11 +19,20 @@
 
 	let report = $state<FuelioReport | null>(null);
 	let loading = $state(false);
-	let minKm = $state(30);
-	let highwayOnly = $state(true);
+	// Empty: no km filter.
+	let minKm = $state<number | null>(null);
+	// Filter pills: a pill that is not selected does not filter. State pills
+	// combine with OR (none selected = every state); the groups with AND.
+	let highwayOnly = $state(false);
 	let problemsOnly = $state(false);
 	const STATUSES: FuelioRowStatus[] = ['matched', 'missing'];
-	let shownStatuses = $state<FuelioRowStatus[]>([...STATUSES]);
+	let selectedStatuses = $state<FuelioRowStatus[]>([]);
+
+	function toggleStatus(st: FuelioRowStatus) {
+		selectedStatuses = selectedStatuses.includes(st)
+			? selectedStatuses.filter((x) => x !== st)
+			: [...selectedStatuses, st];
+	}
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
 	let overwriting = $state<FuelioRow | null>(null);
@@ -49,7 +58,7 @@
 				rowKm(r) >= (minKm || 0) &&
 				(!highwayOnly || r.isHighway) &&
 				(!problemsOnly || isProblem(r)) &&
-				shownStatuses.includes(r.status)
+				(selectedStatuses.length === 0 || selectedStatuses.includes(r.status))
 		)
 	);
 
@@ -171,14 +180,32 @@
 					{$LL.fuelio.minKm()}
 					<input class="text-input km" type="number" min="0" bind:value={minKm} data-testid="fuelio-min-km" />
 				</label>
-				<label><input type="checkbox" bind:checked={highwayOnly} /> {$LL.fuelio.highwayOnly()}</label>
-				<label><input type="checkbox" bind:checked={problemsOnly} /> {$LL.fuelio.problemsOnly()}</label>
-				<fieldset class="status-filter" data-testid="fuelio-status-filter">
-					<legend>{$LL.fuelio.col.status()}:</legend>
+				<div class="pills" data-testid="fuelio-filter-pills">
 					{#each STATUSES as st}
-						<label><input type="checkbox" value={st} bind:group={shownStatuses} /> {$LL.fuelio.status[st]()}</label>
+						<button
+							type="button"
+							class="pill"
+							aria-pressed={selectedStatuses.includes(st)}
+							onclick={() => toggleStatus(st)}
+							data-testid="fuelio-pill-{st}">{$LL.fuelio.status[st]()}</button
+						>
 					{/each}
-				</fieldset>
+					<button
+						type="button"
+						class="pill"
+						aria-pressed={problemsOnly}
+						onclick={() => (problemsOnly = !problemsOnly)}
+						data-testid="fuelio-pill-problems">{$LL.fuelio.problemsOnly()}</button
+					>
+					<button
+						type="button"
+						class="pill"
+						aria-pressed={highwayOnly}
+						title={$LL.fuelio.highwayHint()}
+						onclick={() => (highwayOnly = !highwayOnly)}
+						data-testid="fuelio-pill-highway">{$LL.fuelio.highwayOnly()}</button
+					>
+				</div>
 				<span class="muted small">{$LL.fuelio.shown({ count: rows.length })}</span>
 			</div>
 
@@ -334,17 +361,28 @@
 		background-color: var(--input-bg);
 		color: var(--text-primary);
 	}
-	.status-filter {
+	.pills {
 		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-		border: none;
-		padding: 0;
-		margin: 0;
+		flex-wrap: wrap;
+		gap: 0.4rem;
 	}
-	.status-filter legend {
-		float: left;
-		padding: 0;
+	.pill {
+		padding: 0.25rem 0.75rem;
+		border: 1px solid var(--border-input);
+		border-radius: 999px;
+		background: var(--bg-surface);
+		color: var(--text-primary);
+		font-size: 0.8rem;
+		cursor: pointer;
+	}
+	.pill:hover {
+		background: var(--accent-primary-light-bg);
+	}
+	.pill[aria-pressed='true'] {
+		background: var(--btn-active-primary-bg);
+		border-color: var(--btn-active-primary-color);
+		color: var(--btn-active-primary-color);
+		font-weight: 600;
 	}
 	.km {
 		width: 5rem;

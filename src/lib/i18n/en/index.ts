@@ -502,7 +502,8 @@ const en = {
 		noVehicle: 'Select a vehicle.',
 		loading: 'Loading...',
 		minKm: 'Min. km',
-		highwayOnly: 'Highway only (>= 30 km or >= 5 min above 100 km/h)',
+		highwayOnly: 'Highway only',
+		highwayHint: 'A drive >= 30 km or >= 5 min above 100 km/h',
 		problemsOnly: 'Problems only',
 		shown: 'Shown: {count}',
 		col: {
