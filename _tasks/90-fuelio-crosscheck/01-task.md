@@ -64,6 +64,11 @@ Something outside the app (rclone, Syncthing) copies the folder to
 
 ## Design (approach A, approved 2026-10-06)
 
+**Fuelio is the reference (changed 2026-10-06).** Every row is a run of
+Fuelio drives. A logbook trip without a drive is no problem (Fuelio does not
+record every drive), so it has no row. The problem to find is a Fuelio
+highway drive that the logbook does not have, so the matching can be loose.
+
 All logic is in a new core module [fuelio](../../src-tauri/core/src/fuelio/)
 (ADR-008). The page only renders the result.
 
@@ -96,9 +101,14 @@ All logic is in a new core module [fuelio](../../src-tauri/core/src/fuelio/)
    the flag "partial GPS" instead of "km differs", and a start time
    difference only if the run starts at the origin. Example: 2026-08-18
    BA -> Brno -> BA, Fuelio recorded only the way back.
-4. **Missing.** Drives that no trip uses are joined into chains (gap of at
-   most 60 minutes, next start within 2 km of the previous end). Each chain is
-   a "missing in the logbook" row.
+4. **Loose match.** Drives that no trip uses are joined into chains (gap of
+   at most 60 minutes, next start within 2 km of the previous end). A chain
+   matches the nearest trip in time if: it starts between 12 hours before the
+   trip start and 12 hours after the trip end; a chain end is within 5 km of
+   a trip place, or >= 50% of the chain is within 1 km of the stored route;
+   and the trip's GPS km stays at most 150% of its km (so a second full drive
+   of the same route is still missing). Flag "loose match".
+   A chain that fits no trip is a "missing in the logbook" row.
 5. **Highway flag.** A row is a highway row if GPS km >= 30 or minutes above
    100 km/h >= 5. The page filters by min km and by "highway only".
 6. **Route check.** For a matched trip with a stored route: the share of track

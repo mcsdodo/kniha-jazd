@@ -1,10 +1,17 @@
 //! Drives against trips -> report rows (Task 90). Pure: no DB, no files.
 //!
+//! Fuelio is the reference: every row is a run of drives, and the question is
+//! "does the logbook have this drive?". A trip with no drive is no problem
+//! (Fuelio does not record every drive), so it has no row.
+//!
 //! One trip can be several drives: Fuelio splits a drive at a stop
-//! (2026-09-28: SNV -> BA was three drives). So a trip matches a *run* of
-//! consecutive drives that starts at its origin and ends at its destination.
-//! Trips are matched first, oldest first; the drives that no trip uses then
-//! join into "missing" chains.
+//! (2026-09-28: SNV -> BA was three drives). Three passes, strict first:
+//! 1. complete: a run from the trip's origin to its destination;
+//! 2. partial: a run on the trip's stored route that covers part of it;
+//! 3. loose: the drives left over join into chains, and a chain matches the
+//!    nearest trip in time that it touches (a place or the stored route).
+//!
+//! Only a chain that fits no trip, even loosely, is "missing".
 
 use chrono::{Duration, NaiveDateTime};
 use serde::Serialize;
@@ -36,6 +43,11 @@ const OFF_ROUTE_M: f64 = 500.0;
 const FLAG_OFF_ROUTE_PCT: f64 = 10.0;
 /// A partial match: at least this share of the track on the stored route.
 const PARTIAL_MIN_ON_ROUTE: f64 = 0.8;
+/// A loose match: a chain end this close to a trip place...
+const LOOSE_PLACE_RADIUS_M: f64 = 5_000.0;
+/// ...or at least this share of the chain this close to the stored route.
+const LOOSE_MIN_ON_ROUTE: f64 = 0.5;
+const LOOSE_ROUTE_M: f64 = 1_000.0;
 
 /// The trip data the matcher needs.
 #[derive(Debug, Clone)]
@@ -65,9 +77,6 @@ pub enum RowStatus {
     Matched,
     /// Drives with no logbook trip.
     Missing,
-    /// A logbook trip with no drive (Fuelio did not record, or the drive
-    /// does not fit).
-    NoDrive,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -79,6 +88,9 @@ pub enum Flag {
     /// The drives cover only part of the trip (Fuelio did not record the
     /// rest). The km difference then says how much is missing.
     PartialGps,
+    /// Only the loose pass found the trip: same time, and a place or the
+    /// stored route in common. Times, km and route are not compared.
+    LooseMatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -265,12 +277,37 @@ fn with_trip(mut row: CrosscheckRow, trip: &TripRef) -> CrosscheckRow {
     row
 }
 
-fn no_drive_row(trip: &TripRef) -> CrosscheckRow {
-    let mut row = gps_row(RowStatus::NoDrive, &[]);
-    row.gps_km = None;
-    row.fast_minutes = None;
-    row.max_kmh = None;
-    row.is_highway = trip.km >= HIGHWAY_MIN_KM;
+/// Does `chain` loosely fit `trip`? `taken_km`: the GPS km the trip has already.
+fn loose_fit(trip: &TripRef, chain: &[Drive], taken_km: f64) -> bool {
+    let window = Duration::hours(MAX_START_DIFF_H);
+    let start = chain[0].start;
+    if start < trip.start - window || start > trip.end.unwrap_or(trip.start) + window {
+        return false;
+    }
+    let km: f64 = chain.iter().map(|d| d.km).sum();
+    if trip.km > 0.0 && taken_km + km > trip.km * KM_RATIO_MAX {
+        return false;
+    }
+    let ends = [chain[0].start_point, chain[chain.len() - 1].end_point];
+    let at_place = ends.iter().any(|p| {
+        [trip.origin_point, trip.destination_point]
+            .iter()
+            .any(|q| q.is_some_and(|q| haversine_m(*p, q) <= LOOSE_PLACE_RADIUS_M))
+    });
+    at_place
+        || trip.route.as_ref().is_some_and(|line| {
+            let track: Vec<(f64, f64)> =
+                chain.iter().flat_map(|d| d.track.iter().copied()).collect();
+            1.0 - off_route_share(&track, line, LOOSE_ROUTE_M) >= LOOSE_MIN_ON_ROUTE
+        })
+}
+
+fn loose_row(trip: &TripRef, chain: &[Drive]) -> CrosscheckRow {
+    let mut row = gps_row(RowStatus::Matched, chain);
+    let gps_km = row.gps_km.unwrap_or(0.0);
+    row.start_diff_min = Some(minutes(trip.start, chain[0].start));
+    row.km_diff_pct = (trip.km > 0.0).then(|| (gps_km - trip.km) / trip.km * 100.0);
+    row.flags.push(Flag::LooseMatch);
     with_trip(row, trip)
 }
 
@@ -316,26 +353,31 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
             }
         }
     }
-    let mut rows: Vec<CrosscheckRow> = trips
-        .iter()
-        .zip(&runs)
-        .map(|(trip, run)| match run {
-            Some(((i, j), partial)) => matched_row(trip, &drives[*i..=*j], *partial),
-            None => no_drive_row(trip),
-        })
-        .collect();
-    rows.extend(
-        missing_chains(drives, &used)
+    let mut taken_km: Vec<f64> = vec![0.0; trips.len()];
+    let mut rows: Vec<CrosscheckRow> = Vec::new();
+    for (k, (trip, run)) in trips.iter().zip(&runs).enumerate() {
+        if let Some(((i, j), partial)) = run {
+            let row = matched_row(trip, &drives[*i..=*j], *partial);
+            taken_km[k] = row.gps_km.unwrap_or(0.0);
+            rows.push(row);
+        }
+    }
+    // Pass 3: loose. Each chain goes to the nearest trip in time that fits.
+    for chain in missing_chains(drives, &used) {
+        let best = trips
             .iter()
-            .map(|c| gps_row(RowStatus::Missing, c)),
-    );
-    // Trips first on a tie: a missing drive at the same minute reads as "next to" its trip.
-    rows.sort_by_key(|r| {
-        (
-            r.trip_start.or(r.gps_start),
-            r.status == RowStatus::Missing,
-        )
-    });
+            .enumerate()
+            .filter(|(k, trip)| loose_fit(trip, &chain, taken_km[*k]))
+            .min_by_key(|(_, trip)| minutes(trip.start, chain[0].start).abs());
+        match best {
+            Some((k, trip)) => {
+                taken_km[k] += chain.iter().map(|d| d.km).sum::<f64>();
+                rows.push(loose_row(trip, &chain));
+            }
+            None => rows.push(gps_row(RowStatus::Missing, &chain)),
+        }
+    }
+    rows.sort_by_key(|r| r.gps_start);
     rows
 }
 

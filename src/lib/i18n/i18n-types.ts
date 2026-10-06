@@ -1619,7 +1619,7 @@ type RootTranslation = {
 		 */
 		title: string
 		/**
-		 * P​o​r​o​v​n​a​n​i​e​ ​j​á​z​d​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​s​ ​k​n​i​h​o​u​ ​j​á​z​d​.​ ​L​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
+		 * J​a​z​d​y​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​a​ ​j​a​z​d​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​,​ ​k​u​ ​k​t​o​r​e​j​ ​p​a​t​r​i​a​.​ ​"​C​h​ý​b​a​ ​v​ ​k​n​i​h​e​"​ ​j​e​ ​j​a​z​d​a​ ​F​u​e​l​i​o​ ​b​e​z​ ​j​a​z​d​y​ ​v​ ​k​n​i​h​e​.​ ​L​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
 		 */
 		intro: string
 		/**
@@ -1713,10 +1713,6 @@ type RootTranslation = {
 			 * C​h​ý​b​a​ ​v​ ​k​n​i​h​e
 			 */
 			missing: string
-			/**
-			 * B​e​z​ ​G​P​S
-			 */
-			noDrive: string
 		}
 		flag: {
 			/**
@@ -1735,6 +1731,10 @@ type RootTranslation = {
 			 * Č​i​a​s​t​o​č​n​é​ ​G​P​S
 			 */
 			partialGps: string
+			/**
+			 * V​o​ľ​n​é​ ​s​p​á​r​o​v​a​n​i​e
+			 */
+			looseMatch: string
 		}
 		/**
 		 * j​a​z​d​y​:​ ​{​c​o​u​n​t​}
@@ -4176,7 +4176,7 @@ export type TranslationFunctions = {
 		 */
 		title: () => LocalizedString
 		/**
-		 * Porovnanie jázd, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd. Len na čítanie.
+		 * Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Len na čítanie.
 		 */
 		intro: () => LocalizedString
 		/**
@@ -4266,10 +4266,6 @@ export type TranslationFunctions = {
 			 * Chýba v knihe
 			 */
 			missing: () => LocalizedString
-			/**
-			 * Bez GPS
-			 */
-			noDrive: () => LocalizedString
 		}
 		flag: {
 			/**
@@ -4288,6 +4284,10 @@ export type TranslationFunctions = {
 			 * Čiastočné GPS
 			 */
 			partialGps: () => LocalizedString
+			/**
+			 * Voľné spárovanie
+			 */
+			looseMatch: () => LocalizedString
 		}
 		/**
 		 * jazdy: {count}

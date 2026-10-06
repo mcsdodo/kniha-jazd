@@ -495,7 +495,7 @@ const sk = {
 	// Place book
 	fuelio: {
 		title: 'Fuelio - kontrola jázd',
-		intro: 'Porovnanie jázd, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd. Len na čítanie.',
+		intro: 'Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Len na čítanie.',
 		folder: 'Priečinok so súbormi Fuelio: {folder: string}',
 		noFolder: 'Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data).',
 		driveCount: 'Jazdy Fuelio v roku {year: number}: {count: number}',
@@ -520,13 +520,13 @@ const sk = {
 		status: {
 			matched: 'Spárované',
 			missing: 'Chýba v knihe',
-			noDrive: 'Bez GPS',
 		},
 		flag: {
 			timeDiffers: 'Iný čas',
 			kmDiffers: 'Iné km',
 			differentRoute: 'Iná trasa',
 			partialGps: 'Čiastočné GPS',
+			looseMatch: 'Voľné spárovanie',
 		},
 		drives: 'jazdy: {count: number}',
 		offRoute: 'mimo trasy: {pct: number} %',

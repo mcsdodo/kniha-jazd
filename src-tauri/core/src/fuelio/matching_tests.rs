@@ -46,6 +46,12 @@ fn trip(id: &str, start: NaiveDateTime, from: (f64, f64), to: (f64, f64), km: f6
     }
 }
 
+/// True if a complete or partial match (not a loose one) took `trip_id`.
+fn strict(rows: &[CrosscheckRow], trip_id: &str) -> bool {
+    rows.iter()
+        .any(|r| r.trip_id.as_deref() == Some(trip_id) && !r.flags.contains(&Flag::LooseMatch))
+}
+
 fn find<'a>(rows: &'a [CrosscheckRow], trip_id: &str) -> &'a CrosscheckRow {
     rows.iter()
         .find(|r| r.trip_id.as_deref() == Some(trip_id))
@@ -120,9 +126,7 @@ fn a_km_difference_above_ten_percent_is_flagged() {
 fn a_drive_that_starts_elsewhere_does_not_match() {
     let trips = [trip("t1", at(28, 17, 0), A, B, 74.0)];
     let drives = [drive("d1", at(28, 17, 0), 50, C, B, 74.0)];
-    let rows = crosscheck(&trips, &drives);
-    let statuses: Vec<RowStatus> = rows.iter().map(|r| r.status).collect();
-    assert_eq!(statuses, vec![RowStatus::NoDrive, RowStatus::Missing]);
+    assert!(!strict(&crosscheck(&trips, &drives), "t1"));
 }
 
 #[test]
@@ -130,7 +134,7 @@ fn a_drive_more_than_12_hours_away_does_not_match() {
     let trips = [trip("t1", at(28, 6, 0), A, B, 74.0)];
     let drives = [drive("d1", at(28, 19, 0), 50, A, B, 74.0)];
     let rows = crosscheck(&trips, &drives);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -138,7 +142,7 @@ fn a_drive_with_half_the_km_does_not_match() {
     let trips = [trip("t1", at(28, 6, 0), A, A, 200.0)];
     let drives = [drive("d1", at(28, 6, 0), 20, A, A, 5.0)];
     let rows = crosscheck(&trips, &drives);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -162,7 +166,7 @@ fn a_drive_is_used_by_one_trip_only() {
     let drives = [drive("d1", at(28, 17, 0), 50, A, B, 74.0)];
     let rows = crosscheck(&trips, &drives);
     assert_eq!(find(&rows, "t1").status, RowStatus::Matched);
-    assert_eq!(find(&rows, "t2").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t2"));
 }
 
 #[test]
@@ -206,19 +210,6 @@ fn highway_is_long_or_fast() {
 }
 
 #[test]
-fn a_trip_without_a_drive_is_highway_by_its_logbook_km() {
-    let rows = crosscheck(
-        &[
-            trip("long", at(28, 10, 0), A, B, 74.0),
-            trip("short", at(28, 12, 0), A, A, 5.0),
-        ],
-        &[],
-    );
-    assert!(find(&rows, "long").is_highway);
-    assert!(!find(&rows, "short").is_highway);
-}
-
-#[test]
 fn a_track_off_the_stored_route_is_flagged_as_a_different_route() {
     let mut t = trip("t1", at(28, 17, 0), A, B, 74.0);
     t.route = Some(vec![A, B]);
@@ -257,19 +248,18 @@ fn a_place_without_coordinates_matches_on_time_and_km() {
 }
 
 #[test]
-fn rows_come_out_in_time_order() {
+fn rows_come_out_in_gps_time_order() {
     let rows = crosscheck(
         &[trip("t1", at(28, 12, 0), A, B, 74.0)],
         &[
-            drive("late", at(28, 20, 0), 50, C, B, 74.0),
-            drive("early", at(27, 9, 0), 50, C, B, 74.0),
+            drive("early", at(27, 9, 0), 50, C, C, 74.0),
+            drive("mid", at(28, 12, 30), 50, A, B, 74.0),
+            drive("late", at(29, 20, 0), 50, C, C, 74.0),
         ],
     );
-    let ids: Vec<String> = rows
-        .iter()
-        .map(|r| r.trip_id.clone().unwrap_or_else(|| r.drive_ids[0].clone()))
-        .collect();
-    assert_eq!(ids, vec!["early", "t1", "late"]);
+    // The missing rows and the matched row are merged by GPS time.
+    let ids: Vec<&str> = rows.iter().map(|r| r.drive_ids[0].as_str()).collect();
+    assert_eq!(ids, vec!["early", "mid", "late"]);
 }
 
 fn round_trip(id: &str, start: NaiveDateTime, end: Option<NaiveDateTime>, from: (f64, f64), to: (f64, f64), km: f64) -> TripRef {
@@ -311,14 +301,14 @@ fn a_round_trip_stop_longer_than_the_trip_does_not_join() {
         drive("out", at(27, 8, 0), 50, A, B, 74.0),
         drive("back", at(27, 18, 0), 50, B, A, 74.0),
     ];
-    assert_eq!(crosscheck(&trips, &drives)[0].status, RowStatus::NoDrive);
+    assert!(!strict(&crosscheck(&trips, &drives), "t1"));
 }
 
 #[test]
 fn a_round_trip_does_not_match_a_one_way_drive_to_its_destination() {
     let trips = [round_trip("t1", at(27, 8, 0), None, A, B, 74.0)];
     let rows = crosscheck(&trips, &[drive("d1", at(27, 8, 0), 50, A, B, 74.0)]);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -328,7 +318,7 @@ fn a_one_way_trip_does_not_join_drives_over_a_long_stop() {
         drive("d1", at(27, 8, 0), 50, A, B, 74.0),
         drive("d2", at(27, 11, 0), 50, B, C, 74.0),
     ];
-    assert_eq!(find(&crosscheck(&trips, &drives), "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&crosscheck(&trips, &drives), "t1"));
 }
 
 // 2026-08-18: BA -> Brno -> BA is one logbook trip; Fuelio recorded only the
@@ -368,7 +358,7 @@ fn a_partial_match_that_starts_at_the_origin_keeps_the_time_difference() {
 fn a_partial_match_needs_a_stored_route() {
     let t = round_trip("t1", at(18, 8, 0), Some(at(18, 13, 0)), A, B, 148.0);
     let rows = crosscheck(&[t], &[drive("back", at(18, 8, 5), 112, B, A, 74.0)]);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -380,7 +370,7 @@ fn a_partial_match_needs_the_track_on_the_stored_route() {
     let mut back = drive("back", at(18, 8, 5), 112, B, A, 74.0);
     back.track = vec![B, (47.7, 20.8), (47.7, 20.5), (47.7, 20.2), A];
     let rows = crosscheck(&[t], &[back]);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -389,7 +379,7 @@ fn a_partial_match_needs_an_end_at_a_trip_place() {
     // On the route, but from 20.3 to 21.7: neither end is at A or C.
     let mid = drive("mid", at(18, 8, 30), 60, (48.0, 20.3), (48.0, 21.7), 104.0);
     let rows = crosscheck(&[t], &[mid]);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -399,7 +389,7 @@ fn a_partial_match_outside_the_trip_time_does_not_match() {
         vec![A, B, A],
     );
     let rows = crosscheck(&[t], &[drive("back", at(19, 9, 0), 112, B, A, 74.0)]);
-    assert_eq!(find(&rows, "t1").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "t1"));
 }
 
 #[test]
@@ -408,5 +398,91 @@ fn a_complete_match_of_a_later_trip_wins_over_a_partial_one() {
     let late = trip("late", at(18, 9, 0), A, B, 74.0);
     let rows = crosscheck(&[early, late], &[drive("d1", at(18, 9, 0), 50, A, B, 74.0)]);
     assert_eq!(find(&rows, "late").drive_ids, vec!["d1"]);
-    assert_eq!(find(&rows, "early").status, RowStatus::NoDrive);
+    assert!(!strict(&rows, "early"));
+}
+
+// The loose pass: Fuelio is the reference. A drive is "missing" only if no
+// trip fits it even loosely.
+
+#[test]
+fn a_trip_without_a_drive_has_no_row() {
+    assert!(crosscheck(&[trip("t1", at(28, 10, 0), A, B, 74.0)], &[]).is_empty());
+}
+
+#[test]
+fn a_drive_that_ends_near_a_trip_place_matches_loosely() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    // Starts elsewhere, ends 4 km from B, two hours after the logbook time.
+    let rows = crosscheck(&trips, &[drive("d1", at(28, 10, 0), 50, C, (48.036, 21.0), 74.0)]);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].status, RowStatus::Matched);
+    assert_eq!(rows[0].trip_id.as_deref(), Some("t1"));
+    assert_eq!(rows[0].flags, vec![Flag::LooseMatch]);
+    assert_eq!(rows[0].start_diff_min, Some(120));
+}
+
+#[test]
+fn a_drive_on_the_stored_route_matches_loosely() {
+    let t = routed(trip("t1", at(28, 8, 0), A, C, 148.0), vec![A, B, C]);
+    let mid = drive("mid", at(28, 9, 0), 60, (48.0, 20.3), (48.0, 21.7), 104.0);
+    let rows = crosscheck(&[t], &[mid]);
+    assert_eq!(rows[0].flags, vec![Flag::LooseMatch]);
+}
+
+#[test]
+fn a_loose_match_needs_the_trip_time() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    let rows = crosscheck(&trips, &[drive("d1", at(28, 20, 30), 50, C, B, 74.0)]);
+    assert_eq!(rows[0].status, RowStatus::Missing);
+}
+
+#[test]
+fn a_loose_match_can_use_the_trip_end_time() {
+    let mut t = trip("t1", at(28, 8, 0), A, B, 74.0);
+    t.end = Some(at(28, 18, 0));
+    let rows = crosscheck(&[t], &[drive("d1", at(29, 5, 0), 50, C, B, 74.0)]);
+    assert_eq!(rows[0].status, RowStatus::Matched);
+}
+
+#[test]
+fn a_loose_match_needs_a_trip_place_or_the_stored_route() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    let rows = crosscheck(&trips, &[drive("d1", at(28, 8, 0), 50, C, (48.5, 22.0), 74.0)]);
+    assert_eq!(rows[0].status, RowStatus::Missing);
+}
+
+#[test]
+fn a_second_full_drive_on_a_matched_trip_is_missing() {
+    // The trip already has its 74 km; another 74 km would be 200%.
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    let drives = [
+        drive("d1", at(28, 8, 0), 50, A, B, 74.0),
+        drive("d2", at(28, 13, 0), 50, A, B, 74.0),
+    ];
+    let rows = crosscheck(&trips, &drives);
+    let d2 = rows.iter().find(|r| r.drive_ids == vec!["d2"]).unwrap();
+    assert_eq!(d2.status, RowStatus::Missing);
+}
+
+#[test]
+fn a_short_fragment_next_to_a_matched_trip_matches_loosely() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    let drives = [
+        drive("d1", at(28, 8, 0), 50, A, B, 70.0),
+        drive("frag", at(28, 12, 0), 10, B, (48.01, 21.0), 3.0),
+    ];
+    let rows = crosscheck(&trips, &drives);
+    let frag = rows.iter().find(|r| r.drive_ids == vec!["frag"]).unwrap();
+    assert_eq!(frag.trip_id.as_deref(), Some("t1"));
+    assert_eq!(frag.flags, vec![Flag::LooseMatch]);
+}
+
+#[test]
+fn a_loose_match_takes_the_trip_nearest_in_time() {
+    let trips = [
+        trip("far", at(28, 6, 0), A, B, 74.0),
+        trip("near", at(28, 11, 0), A, B, 74.0),
+    ];
+    let rows = crosscheck(&trips, &[drive("d1", at(28, 12, 0), 50, C, B, 74.0)]);
+    assert_eq!(rows[0].trip_id.as_deref(), Some("near"));
 }

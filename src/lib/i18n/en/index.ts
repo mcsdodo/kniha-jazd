@@ -495,7 +495,7 @@ const en = {
 	// Place book
 	fuelio: {
 		title: 'Fuelio - trip check',
-		intro: 'Compares the drives that the Fuelio app recorded (GPS) with the logbook. Read-only.',
+		intro: 'The drives that the Fuelio app recorded (GPS), and the logbook trip each one belongs to. "Missing in logbook" is a Fuelio drive with no logbook trip. Read-only.',
 		folder: 'Folder with the Fuelio files: {folder}',
 		noFolder: 'The folder does not exist. Copy the Fuelio backup (route-*.data) into it.',
 		driveCount: 'Fuelio drives in {year}: {count}',
@@ -520,13 +520,13 @@ const en = {
 		status: {
 			matched: 'Matched',
 			missing: 'Missing in logbook',
-			noDrive: 'No GPS',
 		},
 		flag: {
 			timeDiffers: 'Time differs',
 			kmDiffers: 'km differ',
 			differentRoute: 'Different route',
 			partialGps: 'Partial GPS',
+			looseMatch: 'Loose match',
 		},
 		drives: 'drives: {count}',
 		offRoute: 'off route: {pct} %',

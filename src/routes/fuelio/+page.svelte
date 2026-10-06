@@ -21,7 +21,7 @@
 	let minKm = $state(30);
 	let highwayOnly = $state(true);
 	let problemsOnly = $state(false);
-	const STATUSES: FuelioRowStatus[] = ['matched', 'missing', 'noDrive'];
+	const STATUSES: FuelioRowStatus[] = ['matched', 'missing'];
 	let shownStatuses = $state<FuelioRowStatus[]>([...STATUSES]);
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
@@ -383,10 +383,6 @@
 	.badge-missing {
 		background: var(--badge-danger-bg);
 		color: var(--badge-danger-color);
-	}
-	.badge-noDrive {
-		background: var(--bg-surface-alt);
-		color: var(--text-secondary);
 	}
 	.badge-flag {
 		background: var(--warning-bg);
