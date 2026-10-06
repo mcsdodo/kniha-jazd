@@ -19,7 +19,10 @@ databázu len na čítanie.
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Obraz, zväzok, port:** bez zmeny. Nová stránka `/fuelio` číta voliteľný priečinok `<DATA_DIR>/fuelio`. Ak neexistuje, stránka to len oznámi.
+
+### Pridané
+- **Fuelio - kontrola jázd (POC)** - nová stránka porovná jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd. Zálohu Fuelio (`route-*.data` z Google Drive) treba skopírovať do `<DATA_DIR>/fuelio`, napríklad cez rclone. Stránka ukáže jazdy bez záznamu v knihe, rozdiel v čase a km a jazdy, ktorých GPS stopa nejde po uloženej trase. Filter podľa km a "len diaľnica". Po kliknutí na riadok mapa ukáže GPS stopu a uloženú trasu. Len na čítanie.
 
 ## [2.0.0] - 2026-10-05
 

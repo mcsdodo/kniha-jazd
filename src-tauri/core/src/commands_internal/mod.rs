@@ -51,3 +51,6 @@ mod tests;
 
 pub mod journeys_cmd;
 pub use journeys_cmd::*;
+
+pub mod fuelio_cmd;
+pub use fuelio_cmd::*;

@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -695,4 +695,13 @@ export async function deletePlace(id: string): Promise<void> {
 
 export async function findPlace(name: string): Promise<Place | null> {
 	return await apiCall('find_place', { name });
+}
+
+// Fuelio cross-check (Task 90, read-only)
+export async function getFuelioCrosscheck(vehicleId: string, year: number): Promise<FuelioReport> {
+	return await apiCall('get_fuelio_crosscheck', { vehicleId, year });
+}
+
+export async function getFuelioTrack(driveIds: string[], tripId: string | null): Promise<FuelioTrack> {
+	return await apiCall('get_fuelio_track', { driveIds, tripId });
 }

@@ -78,6 +78,10 @@ type RootTranslation = {
 			 * M​i​e​s​t​a
 			 */
 			places: string
+			/**
+			 * F​u​e​l​i​o
+			 */
+			fuelio: string
 		}
 		/**
 		 * V​o​z​i​d​l​o​:
@@ -1609,6 +1613,156 @@ type RootTranslation = {
 		 */
 		placeEndpoint: string
 	}
+	fuelio: {
+		/**
+		 * F​u​e​l​i​o​ ​-​ ​k​o​n​t​r​o​l​a​ ​j​á​z​d
+		 */
+		title: string
+		/**
+		 * P​o​r​o​v​n​a​n​i​e​ ​j​á​z​d​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​s​ ​k​n​i​h​o​u​ ​j​á​z​d​.​ ​L​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.
+		 */
+		intro: string
+		/**
+		 * P​r​i​e​č​i​n​o​k​ ​s​o​ ​s​ú​b​o​r​m​i​ ​F​u​e​l​i​o​:​ ​{​f​o​l​d​e​r​}
+		 * @param {string} folder
+		 */
+		folder: RequiredParams<'folder'>
+		/**
+		 * P​r​i​e​č​i​n​o​k​ ​n​e​e​x​i​s​t​u​j​e​.​ ​S​k​o​p​í​r​u​j​t​e​ ​d​o​ň​ ​z​á​l​o​h​u​ ​F​u​e​l​i​o​ ​(​r​o​u​t​e​-​*​.​d​a​t​a​)​.
+		 */
+		noFolder: string
+		/**
+		 * J​a​z​d​y​ ​F​u​e​l​i​o​ ​v​ ​r​o​k​u​ ​{​y​e​a​r​}​:​ ​{​c​o​u​n​t​}
+		 * @param {number} count
+		 * @param {number} year
+		 */
+		driveCount: RequiredParams<'count' | 'year'>
+		/**
+		 * V​y​b​e​r​t​e​ ​v​o​z​i​d​l​o​.
+		 */
+		noVehicle: string
+		/**
+		 * N​a​č​í​t​a​v​a​m​.​.​.
+		 */
+		loading: string
+		/**
+		 * M​i​n​.​ ​k​m
+		 */
+		minKm: string
+		/**
+		 * L​e​n​ ​d​i​a​ľ​n​i​c​a​ ​(​>​=​ ​3​0​ ​k​m​ ​a​l​e​b​o​ ​>​=​ ​5​ ​m​i​n​ ​n​a​d​ ​1​0​0​ ​k​m​/​h​)
+		 */
+		highwayOnly: string
+		/**
+		 * L​e​n​ ​p​r​o​b​l​é​m​y
+		 */
+		problemsOnly: string
+		/**
+		 * Z​o​b​r​a​z​e​n​é​:​ ​{​c​o​u​n​t​}
+		 * @param {number} count
+		 */
+		shown: RequiredParams<'count'>
+		col: {
+			/**
+			 * S​t​a​v
+			 */
+			status: string
+			/**
+			 * K​n​i​h​a​ ​j​á​z​d
+			 */
+			logbook: string
+			/**
+			 * T​r​a​s​a
+			 */
+			route: string
+			/**
+			 * k​m​ ​(​k​n​i​h​a​)
+			 */
+			logbookKm: string
+			/**
+			 * G​P​S​ ​č​a​s
+			 */
+			gps: string
+			/**
+			 * k​m​ ​(​G​P​S​)
+			 */
+			gpsKm: string
+			/**
+			 * m​i​n​ ​>​ ​1​0​0
+			 */
+			fast: string
+			/**
+			 * m​a​x​ ​k​m​/​h
+			 */
+			maxKmh: string
+			/**
+			 * R​o​z​d​i​e​l
+			 */
+			diff: string
+			/**
+			 * U​p​o​z​o​r​n​e​n​i​a
+			 */
+			flags: string
+		}
+		status: {
+			/**
+			 * S​p​á​r​o​v​a​n​é
+			 */
+			matched: string
+			/**
+			 * C​h​ý​b​a​ ​v​ ​k​n​i​h​e
+			 */
+			missing: string
+			/**
+			 * B​e​z​ ​G​P​S
+			 */
+			noDrive: string
+		}
+		flag: {
+			/**
+			 * I​n​ý​ ​č​a​s
+			 */
+			timeDiffers: string
+			/**
+			 * I​n​é​ ​k​m
+			 */
+			kmDiffers: string
+			/**
+			 * I​n​á​ ​t​r​a​s​a
+			 */
+			differentRoute: string
+		}
+		/**
+		 * j​a​z​d​y​:​ ​{​c​o​u​n​t​}
+		 * @param {number} count
+		 */
+		drives: RequiredParams<'count'>
+		/**
+		 * m​i​m​o​ ​t​r​a​s​y​:​ ​{​p​c​t​}​ ​%
+		 * @param {number} pct
+		 */
+		offRoute: RequiredParams<'pct'>
+		/**
+		 * M​a​p​a
+		 */
+		mapTitle: string
+		/**
+		 * G​P​S​ ​(​F​u​e​l​i​o​)
+		 */
+		mapLegendGps: string
+		/**
+		 * U​l​o​ž​e​n​á​ ​t​r​a​s​a
+		 */
+		mapLegendRoute: string
+		/**
+		 * K​l​i​k​n​i​t​e​ ​n​a​ ​r​i​a​d​o​k​ ​s​o​ ​z​á​z​n​a​m​o​m​ ​G​P​S​.
+		 */
+		mapHint: string
+		/**
+		 * J​a​z​d​a​ ​n​e​m​á​ ​u​l​o​ž​e​n​ú​ ​t​r​a​s​u​.
+		 */
+		noRoute: string
+	}
 	places: {
 		/**
 		 * O​z​n​a​č​i​ť​ ​a​k​o​ ​d​o​m​o​v
@@ -2524,6 +2678,10 @@ export type TranslationFunctions = {
 			 * Miesta
 			 */
 			places: () => LocalizedString
+			/**
+			 * Fuelio
+			 */
+			fuelio: () => LocalizedString
 		}
 		/**
 		 * Vozidlo:
@@ -4007,6 +4165,150 @@ export type TranslationFunctions = {
 		 * Umiestniť miesto
 		 */
 		placeEndpoint: () => LocalizedString
+	}
+	fuelio: {
+		/**
+		 * Fuelio - kontrola jázd
+		 */
+		title: () => LocalizedString
+		/**
+		 * Porovnanie jázd, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd. Len na čítanie.
+		 */
+		intro: () => LocalizedString
+		/**
+		 * Priečinok so súbormi Fuelio: {folder}
+		 */
+		folder: (arg: { folder: string }) => LocalizedString
+		/**
+		 * Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data).
+		 */
+		noFolder: () => LocalizedString
+		/**
+		 * Jazdy Fuelio v roku {year}: {count}
+		 */
+		driveCount: (arg: { count: number, year: number }) => LocalizedString
+		/**
+		 * Vyberte vozidlo.
+		 */
+		noVehicle: () => LocalizedString
+		/**
+		 * Načítavam...
+		 */
+		loading: () => LocalizedString
+		/**
+		 * Min. km
+		 */
+		minKm: () => LocalizedString
+		/**
+		 * Len diaľnica (>= 30 km alebo >= 5 min nad 100 km/h)
+		 */
+		highwayOnly: () => LocalizedString
+		/**
+		 * Len problémy
+		 */
+		problemsOnly: () => LocalizedString
+		/**
+		 * Zobrazené: {count}
+		 */
+		shown: (arg: { count: number }) => LocalizedString
+		col: {
+			/**
+			 * Stav
+			 */
+			status: () => LocalizedString
+			/**
+			 * Kniha jázd
+			 */
+			logbook: () => LocalizedString
+			/**
+			 * Trasa
+			 */
+			route: () => LocalizedString
+			/**
+			 * km (kniha)
+			 */
+			logbookKm: () => LocalizedString
+			/**
+			 * GPS čas
+			 */
+			gps: () => LocalizedString
+			/**
+			 * km (GPS)
+			 */
+			gpsKm: () => LocalizedString
+			/**
+			 * min > 100
+			 */
+			fast: () => LocalizedString
+			/**
+			 * max km/h
+			 */
+			maxKmh: () => LocalizedString
+			/**
+			 * Rozdiel
+			 */
+			diff: () => LocalizedString
+			/**
+			 * Upozornenia
+			 */
+			flags: () => LocalizedString
+		}
+		status: {
+			/**
+			 * Spárované
+			 */
+			matched: () => LocalizedString
+			/**
+			 * Chýba v knihe
+			 */
+			missing: () => LocalizedString
+			/**
+			 * Bez GPS
+			 */
+			noDrive: () => LocalizedString
+		}
+		flag: {
+			/**
+			 * Iný čas
+			 */
+			timeDiffers: () => LocalizedString
+			/**
+			 * Iné km
+			 */
+			kmDiffers: () => LocalizedString
+			/**
+			 * Iná trasa
+			 */
+			differentRoute: () => LocalizedString
+		}
+		/**
+		 * jazdy: {count}
+		 */
+		drives: (arg: { count: number }) => LocalizedString
+		/**
+		 * mimo trasy: {pct} %
+		 */
+		offRoute: (arg: { pct: number }) => LocalizedString
+		/**
+		 * Mapa
+		 */
+		mapTitle: () => LocalizedString
+		/**
+		 * GPS (Fuelio)
+		 */
+		mapLegendGps: () => LocalizedString
+		/**
+		 * Uložená trasa
+		 */
+		mapLegendRoute: () => LocalizedString
+		/**
+		 * Kliknite na riadok so záznamom GPS.
+		 */
+		mapHint: () => LocalizedString
+		/**
+		 * Jazda nemá uloženú trasu.
+		 */
+		noRoute: () => LocalizedString
 	}
 	places: {
 		/**

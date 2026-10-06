@@ -646,3 +646,39 @@ export interface RouteStart {
 	origin: Place | null;
 	destination: Place | null;
 }
+
+// Fuelio cross-check (Task 90). All values come from the backend (ADR-008).
+export type FuelioRowStatus = 'matched' | 'missing' | 'noDrive';
+export type FuelioFlag = 'timeDiffers' | 'kmDiffers' | 'differentRoute';
+
+export interface FuelioRow {
+	status: FuelioRowStatus;
+	tripId: string | null;
+	tripStart: string | null;
+	origin: string | null;
+	destination: string | null;
+	tripKm: number | null;
+	driveIds: string[];
+	gpsStart: string | null;
+	gpsEnd: string | null;
+	gpsKm: number | null;
+	fastMinutes: number | null;
+	maxKmh: number | null;
+	isHighway: boolean;
+	startDiffMin: number | null;
+	kmDiffPct: number | null;
+	offRoutePct: number | null;
+	flags: FuelioFlag[];
+}
+
+export interface FuelioReport {
+	folder: string;
+	folderExists: boolean;
+	driveCount: number;
+	rows: FuelioRow[];
+}
+
+export interface FuelioTrack {
+	gps: [number, number][][];
+	route: [number, number][] | null;
+}

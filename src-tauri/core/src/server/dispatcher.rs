@@ -1008,6 +1008,41 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // ====================================================================
         // Unknown
         // ====================================================================
+        // ====================================================================
+        // Fuelio cross-check (Task 90, read-only)
+        // ====================================================================
+        "get_fuelio_crosscheck" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                year: i32,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_fuelio_crosscheck_internal(
+                &state.db,
+                &state.app_dir,
+                &a.vehicle_id,
+                a.year,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "get_fuelio_track" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                drive_ids: Vec<String>,
+                trip_id: Option<String>,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_fuelio_track_internal(
+                &state.db,
+                &state.app_dir,
+                &a.drive_ids,
+                a.trip_id.as_deref(),
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         _ => Err(format!("Unknown command: {command}")),
     }
 }
