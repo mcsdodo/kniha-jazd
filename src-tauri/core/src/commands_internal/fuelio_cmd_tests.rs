@@ -384,3 +384,45 @@ fn add_is_blocked_in_read_only_mode() {
     assert!(args(true).is_ok());
     assert!(args(false).is_err());
 }
+
+// The stored route is every GPS fix, not the 100 m thinned track: thinning
+// cut corners by up to 93 m (2026-10-07).
+
+/// A drive of 20 fixes about 11 m apart, on 2026-09-28 at 21:00 local.
+fn dense_drive(dir: &std::path::Path) -> String {
+    let t0 = NaiveDate::from_ymd_opt(2026, 9, 28)
+        .unwrap()
+        .and_hms_opt(19, 0, 0)
+        .unwrap()
+        .and_utc()
+        .timestamp_millis();
+    let rows: Vec<(i64, f64, f64, f64)> = (0..20)
+        .map(|i| (t0 + i * 1000, 48.0 + i as f64 * 0.0001, 21.0, if i == 0 { 0.0 } else { 11.1 }))
+        .collect();
+    write_drive(&dir.join(crate::fuelio::FOLDER_NAME), &t0.to_string(), &rows);
+    t0.to_string()
+}
+
+#[test]
+fn overwrite_stores_every_gps_fix_as_the_route() {
+    let (db, dir, t, _, _) = chain();
+    let id = dense_drive(dir.path());
+    let fields = FuelioFields { start: false, end: false, distance: false, route: true };
+    apply_fuelio_to_trip_internal(&db, &AppState::new(), dir.path(), &t.id.to_string(), &[id], fields, false)
+        .unwrap();
+    let map = db.get_route_map(&t.id.to_string()).unwrap().unwrap();
+    assert_eq!(crate::route_map::polyline::decode(&map.polyline).len(), 20);
+}
+
+#[test]
+fn add_stores_every_gps_fix_as_the_route() {
+    let (db, dir, t, _, _) = chain();
+    let id = dense_drive(dir.path());
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &t.destination_place_id.to_string(), &t.destination_place_id.to_string(), "x", true, false,
+    )
+    .unwrap();
+    let map = db.get_route_map(&r.trip.unwrap().id.to_string()).unwrap().unwrap();
+    assert_eq!(crate::route_map::polyline::decode(&map.polyline).len(), 20);
+}

@@ -171,6 +171,23 @@ fn load_drives(data_dir: &Path, drive_ids: &[String]) -> Result<Vec<Drive>, Stri
     Ok(drives)
 }
 
+/// Every GPS fix of `drive_ids`, oldest drive first: the geometry of a stored
+/// route. Not `Drive::track` (one point per 100 m): that cut corners by up to
+/// 93 m on the map (2026-10-07). A fix that repeats the previous one is dropped.
+fn full_track(data_dir: &Path, drives: &[Drive]) -> Result<Vec<(f64, f64)>, String> {
+    let folder = data_dir.join(fuelio::FOLDER_NAME);
+    let mut points: Vec<(f64, f64)> = Vec::new();
+    for d in drives {
+        let text = parse::read_data_file(&parse::data_file_path(&folder, &d.id))?;
+        for f in parse::parse_csv(&text) {
+            if points.last() != Some(&(f.lat, f.lon)) {
+                points.push((f.lat, f.lon));
+            }
+        }
+    }
+    Ok(points)
+}
+
 /// A drive ID becomes a file name: digits only, so no path can escape the folder.
 fn check_drive_id(id: &str) -> Result<(), String> {
     if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
@@ -267,7 +284,7 @@ pub fn apply_fuelio_to_trip_internal(
     }
 
     let map = if fields.route {
-        let track: Vec<(f64, f64)> = drives.iter().flat_map(|d| d.track.iter().copied()).collect();
+        let track = full_track(data_dir, &drives)?;
         let point = |p: (f64, f64), name: &str| Waypoint {
             lat: p.0,
             lon: p.1,
@@ -464,7 +481,7 @@ pub fn add_fuelio_trip_internal(
 
     let mut route_written = false;
     if let (Some(trip), true) = (&created.trip, with_route) {
-        let track: Vec<(f64, f64)> = drives.iter().flat_map(|d| d.track.iter().copied()).collect();
+        let track = full_track(data_dir, &drives)?;
         let point = |p: (f64, f64), name: &str| Waypoint {
             lat: p.0,
             lon: p.1,

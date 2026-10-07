@@ -169,3 +169,9 @@ trip's destination, to the SNV -> BA trip that arrived at 07:52 (the morning
 drives were not in Dropbox yet). Both passes now use 3 hours before the start
 to 3 hours after the end. The complete pass keeps +-12 hours: it needs both
 endpoints and 50-150% of the km, and a wrong logbook time is what it finds.
+
+**Route geometry (fixed 2026-10-07).** The overwrite and the add stored
+`Drive::track` (one point per 100 m) as the route. The line cut corners: up to
+40 m off the GPS in a city (7.10. Exnárova -> Mlynské Nivy) and 93 m on the
+highway (28.9. Zamarovce -> SNV). Both now store every GPS fix. The thinned
+track stays only in the "different route" check.
