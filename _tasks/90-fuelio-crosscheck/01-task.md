@@ -124,16 +124,18 @@ All logic is in a new core module [fuelio](../../src-tauri/core/src/fuelio/)
 3. **Partial match.** A second pass, after all complete matches, for the
    trips left without drives. A run matches part of a trip if: the trip has
    a stored route, >= 80% of the track is within 500 m of it, the drives
-   start between 12 hours before the trip start and 12 hours after the trip
-   end, the run starts or ends near one of the trip's places, and its km is
-   at most 150% of the trip km. The run with the most km wins. The row gets
+   start between 3 hours before the trip start and 3 hours after the trip
+   end (a trip without an end time ends 3 hours after its start), the run
+   starts or ends near one of the trip's places, and its km is at most 150%
+   of the trip km. The run with the most km wins. The row gets
    the flag "partial GPS" instead of "km differs", and a start time
    difference only if the run starts at the origin. Example: 2026-08-18
    BA -> Brno -> BA, Fuelio recorded only the way back.
 4. **Loose match.** Drives that no trip uses are joined into chains (gap of
    at most 60 minutes, next start within 2 km of the previous end). A chain
-   matches the nearest trip in time if: it starts between 12 hours before the
-   trip start and 12 hours after the trip end; a chain end is within 5 km of
+   matches the nearest trip in time if: it starts between 3 hours before the
+   trip start and 3 hours after the trip end (a trip without an end time ends
+   3 hours after its start); a chain end is within 5 km of
    a trip place, or >= 50% of the chain is within 1 km of the stored route;
    and the trip's GPS km stays at most 150% of its km (so a second full drive
    of the same route is still missing). Flag "loose match".
@@ -149,3 +151,10 @@ All logic is in a new core module [fuelio](../../src-tauri/core/src/fuelio/)
 RPC: `get_fuelio_crosscheck { vehicleId, year }` returns the rows, and
 `get_fuelio_track { driveIds, tripId? }` returns the GPS track and the
 stored route for the map.
+
+**Narrowed 2026-10-07.** The partial and loose passes used 12 hours around the
+trip. On 2026-10-06 that gave a 2.2 km city drive at 19:03, ending at the
+trip's destination, to the SNV -> BA trip that arrived at 07:52 (the morning
+drives were not in Dropbox yet). Both passes now use 3 hours before the start
+to 3 hours after the end. The complete pass keeps +-12 hours: it needs both
+endpoints and 50-150% of the km, and a wrong logbook time is what it finds.

@@ -442,7 +442,8 @@ fn a_loose_match_needs_the_trip_time() {
 fn a_loose_match_can_use_the_trip_end_time() {
     let mut t = trip("t1", at(28, 8, 0), A, B, 74.0);
     t.end = Some(at(28, 18, 0));
-    let rows = crosscheck(&[t], &[drive("d1", at(29, 5, 0), 50, C, B, 74.0)]);
+    // 2.5 h after the end: inside the 3 h window.
+    let rows = crosscheck(&[t], &[drive("d1", at(28, 20, 30), 50, C, B, 74.0)]);
     assert_eq!(rows[0].status, RowStatus::Matched);
     assert_eq!(rows[0].trip_end, Some(at(28, 18, 0)));
 }
@@ -488,4 +489,57 @@ fn a_loose_match_takes_the_trip_nearest_in_time() {
     ];
     let rows = crosscheck(&trips, &[drive("d1", at(28, 12, 0), 50, C, B, 74.0)]);
     assert_eq!(rows[0].trip_id.as_deref(), Some("near"));
+}
+
+// 2026-10-06: SNV -> BA 04:26 to 07:52. A 2.2 km drive in Bratislava at 19:03,
+// ending at the trip's destination, was loosely given to the trip.
+#[test]
+fn a_short_drive_at_the_destination_hours_after_the_trip_is_missing() {
+    let mut t = trip("t1", at(6, 4, 26), A, B, 148.0);
+    t.end = Some(at(6, 7, 52));
+    let drives = [
+        drive("morning", at(6, 4, 29), 207, A, B, 147.0),
+        drive("evening", at(6, 19, 3), 5, (48.01, 21.0), B, 2.2),
+    ];
+    let rows = crosscheck(&[t], &drives);
+    let evening = rows.iter().find(|r| r.drive_ids == vec!["evening"]).unwrap();
+    assert_eq!(evening.status, RowStatus::Missing);
+}
+
+#[test]
+fn a_loose_match_needs_a_start_within_3_hours_of_the_trip() {
+    let mut t = trip("t1", at(28, 8, 0), A, B, 74.0);
+    t.end = Some(at(28, 10, 0));
+    let rows = crosscheck(
+        &[t],
+        &[
+            drive("before", at(28, 4, 30), 20, C, B, 20.0),
+            drive("after", at(28, 13, 30), 20, C, B, 20.0),
+        ],
+    );
+    assert!(rows.iter().all(|r| r.status == RowStatus::Missing), "{rows:?}");
+}
+
+#[test]
+fn a_trip_without_an_end_time_ends_3_hours_after_its_start_for_the_loose_window() {
+    let t = trip("t1", at(28, 8, 0), A, B, 74.0);
+    let rows = crosscheck(
+        &[t],
+        &[
+            drive("in", at(28, 13, 30), 20, C, B, 20.0),
+            drive("out", at(28, 14, 30), 20, C, (48.0, 21.01), 20.0),
+        ],
+    );
+    let status = |id: &str| rows.iter().find(|r| r.drive_ids == vec![id.to_string()]).unwrap().status;
+    assert_eq!(status("in"), RowStatus::Matched);
+    assert_eq!(status("out"), RowStatus::Missing);
+}
+
+#[test]
+fn a_partial_match_needs_a_start_within_3_hours_of_the_trip() {
+    let mut t = routed(trip("t1", at(18, 8, 0), A, C, 148.0), vec![A, B, C]);
+    t.end = Some(at(18, 10, 0));
+    // On the route, ends at C, but 5 hours after the trip end.
+    let rows = crosscheck(&[t], &[drive("late", at(18, 15, 0), 60, B, C, 74.0)]);
+    assert_eq!(rows[0].status, RowStatus::Missing);
 }

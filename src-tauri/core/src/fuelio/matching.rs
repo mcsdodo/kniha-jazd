@@ -27,8 +27,14 @@ const MAX_STOP_IN_TRIP_MIN: i64 = 90;
 const MAX_ROUND_TRIP_STOP_H: i64 = 12;
 /// The longest stop inside one missing chain.
 const MAX_STOP_IN_CHAIN_MIN: i64 = 60;
-/// How far the logbook start may be from the GPS start and still match.
+/// How far the logbook start may be from the GPS start and still match
+/// completely. Wide, because a wrong logbook time is what the check finds.
 const MAX_START_DIFF_H: i64 = 12;
+/// The partial and loose passes take a drive only if it starts this close to
+/// the trip: from this long before its start to this long after its end.
+/// 12 hours gave a 2.2 km city drive at 19:03 to a trip that arrived at 07:52
+/// (2026-10-06).
+const SIDE_WINDOW_H: i64 = 3;
 /// The accepted GPS km, as a share of the logbook km.
 const KM_RATIO_MIN: f64 = 0.5;
 const KM_RATIO_MAX: f64 = 1.5;
@@ -127,6 +133,13 @@ fn minutes(a: NaiveDateTime, b: NaiveDateTime) -> i64 {
     (b - a).num_minutes()
 }
 
+/// Where a partial or loose run may start: [`SIDE_WINDOW_H`] around the trip.
+/// A trip without an end time counts as ending [`SIDE_WINDOW_H`] after its start.
+fn side_window(trip: &TripRef) -> (NaiveDateTime, NaiveDateTime) {
+    let pad = Duration::hours(SIDE_WINDOW_H);
+    (trip.start - pad, trip.end.unwrap_or(trip.start + pad) + pad)
+}
+
 /// Where the run of drives must end, and the longest stop inside it.
 fn run_rules(trip: &TripRef) -> (Option<(f64, f64)>, i64) {
     if !trip.round_trip {
@@ -179,8 +192,7 @@ fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, u
 /// most km wins. `None` without a stored route.
 fn best_partial_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, usize)> {
     let line = trip.route.as_ref()?;
-    let window = Duration::hours(MAX_START_DIFF_H);
-    let (from, to) = (trip.start - window, trip.end.unwrap_or(trip.start) + window);
+    let (from, to) = side_window(trip);
     let (_, max_stop) = run_rules(trip);
     let at_place = |p: (f64, f64)| {
         [trip.origin_point, trip.destination_point]
@@ -282,9 +294,9 @@ fn with_trip(mut row: CrosscheckRow, trip: &TripRef) -> CrosscheckRow {
 
 /// Does `chain` loosely fit `trip`? `taken_km`: the GPS km the trip has already.
 fn loose_fit(trip: &TripRef, chain: &[Drive], taken_km: f64) -> bool {
-    let window = Duration::hours(MAX_START_DIFF_H);
+    let (from, to) = side_window(trip);
     let start = chain[0].start;
-    if start < trip.start - window || start > trip.end.unwrap_or(trip.start) + window {
+    if start < from || start > to {
         return false;
     }
     let km: f64 = chain.iter().map(|d| d.km).sum();
