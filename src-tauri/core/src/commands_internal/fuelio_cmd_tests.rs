@@ -284,3 +284,103 @@ async fn sync_without_dropbox_secrets_says_what_to_set() {
     let err = sync_fuelio_dropbox_internal(None, dir.path(), 2026).await.unwrap_err();
     assert!(err.contains("DROPBOX_REFRESH_TOKEN"), "{err}");
 }
+
+// ---------------------------------------------------------------------------
+// add_fuelio_trip: a new trip from a "missing" drive (Task 90)
+// ---------------------------------------------------------------------------
+
+/// A drive B -> A on 2026-09-28 at 21:00 local (19:00 UTC), 74 km: between
+/// the setup trip (28th 17:00) and the later trip of `chain` (29th 08:00).
+fn evening_drive(dir: &std::path::Path) -> String {
+    let t0 = NaiveDate::from_ymd_opt(2026, 9, 28)
+        .unwrap()
+        .and_hms_opt(19, 0, 0)
+        .unwrap()
+        .and_utc()
+        .timestamp_millis();
+    write_drive(
+        &dir.join(crate::fuelio::FOLDER_NAME),
+        &t0.to_string(),
+        &[(t0, 48.0, 21.0, 0.0), (t0 + 3_090_000, 48.0, 20.0, 74_400.0)],
+    );
+    t0.to_string()
+}
+
+#[test]
+fn add_preview_offers_every_placed_place_nearest_first() {
+    let (db, dir, _, _, _) = chain();
+    let id = evening_drive(dir.path());
+    let p = get_fuelio_add_preview_internal(&db, dir.path(), &[id]).unwrap();
+    assert_eq!(p.start, dt("2026-09-28 21:00"));
+    assert_eq!(p.end, dt("2026-09-28 21:51"));
+    assert_eq!(p.distance_km, 74.0, "whole km of 74.4");
+    let names = |opts: &[PlaceOption]| opts.iter().map(|o| o.name.clone()).collect::<Vec<_>>();
+    assert_eq!(names(&p.origin), vec!["B", "A"]);
+    assert_eq!(names(&p.destination), vec!["A", "B"]);
+    assert!(p.origin[0].distance_m < 1.0);
+}
+
+#[test]
+fn add_dry_run_plans_the_insert_and_writes_nothing() {
+    let (db, dir, t, later, _) = chain();
+    let id = evening_drive(dir.path());
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, true,
+    )
+    .unwrap();
+    assert!(r.trip.is_none());
+    assert_eq!(r.plan.changes.len(), 1, "the later trip moves");
+    let trips = db.get_trips_for_vehicle_in_year(&t.vehicle_id.to_string(), 2026).unwrap();
+    assert_eq!(trips.len(), 2);
+    assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 80.0);
+}
+
+#[test]
+fn add_creates_the_trip_with_its_route_and_moves_the_later_odometers() {
+    let (db, dir, t, later, _) = chain();
+    let id = evening_drive(dir.path());
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, false,
+    )
+    .unwrap();
+    let new = r.trip.unwrap();
+    let saved = db.get_trip(&new.id.to_string()).unwrap().unwrap();
+    assert_eq!((saved.start_datetime, saved.end_datetime), (dt("2026-09-28 21:00"), Some(dt("2026-09-28 21:51"))));
+    assert_eq!((saved.distance_km, saved.odometer), (74.0, 144.0));
+    assert_eq!((saved.origin.as_str(), saved.destination.as_str(), saved.purpose.as_str()), ("B", "A", "Back"));
+    assert!(r.route_written);
+    let map = db.get_route_map(&new.id.to_string()).unwrap().unwrap();
+    assert_eq!(map.road_km, 74.4);
+    assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 154.0);
+}
+
+#[test]
+fn add_without_the_route_saves_no_route() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", false, false,
+    )
+    .unwrap();
+    assert!(!r.route_written);
+    assert!(db.get_route_map(&r.trip.unwrap().id.to_string()).unwrap().is_none());
+}
+
+#[test]
+fn add_is_blocked_in_read_only_mode() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    let state = AppState::new();
+    state.enable_read_only("test");
+    let args = |dry| {
+        add_fuelio_trip_internal(
+            &db, &state, dir.path(), &t.vehicle_id.to_string(), &[id.clone()],
+            &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, dry,
+        )
+    };
+    assert!(args(true).is_ok());
+    assert!(args(false).is_err());
+}

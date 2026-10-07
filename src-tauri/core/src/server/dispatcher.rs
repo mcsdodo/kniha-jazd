@@ -1064,6 +1064,47 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "get_fuelio_add_preview" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                drive_ids: Vec<String>,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_fuelio_add_preview_internal(
+                &state.db,
+                &state.app_dir,
+                &a.drive_ids,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "add_fuelio_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                drive_ids: Vec<String>,
+                origin_place_id: String,
+                destination_place_id: String,
+                purpose: String,
+                with_route: bool,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::add_fuelio_trip_internal(
+                &state.db,
+                &state.app_state,
+                &state.app_dir,
+                &a.vehicle_id,
+                &a.drive_ids,
+                &a.origin_place_id,
+                &a.destination_place_id,
+                &a.purpose,
+                a.with_route,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         _ => Err(format!("Unknown command: {command}")),
     }
 }
@@ -1681,6 +1722,21 @@ mod tests {
                 "tripId": "x",
                 "driveIds": ["1"],
                 "fields": { "start": true, "end": false, "distance": false, "route": false }
+            }),
+            &state,
+        );
+        let err = result.unwrap_err();
+        assert!(err.contains("dryRun") || err.contains("dry_run"), "got: {err}");
+    }
+
+    #[test]
+    fn add_fuelio_trip_over_rpc_requires_dry_run_field() {
+        let state = test_state();
+        let result = dispatch_sync(
+            "add_fuelio_trip",
+            json!({
+                "vehicleId": "x", "driveIds": ["1"], "originPlaceId": "a",
+                "destinationPlaceId": "b", "purpose": "", "withRoute": true
             }),
             &state,
         );

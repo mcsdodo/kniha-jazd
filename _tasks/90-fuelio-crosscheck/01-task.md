@@ -39,6 +39,17 @@ a repeat sync 5 s (listing only). Fuelio stopped writing to Dropbox in June
 up to Dropbox again. The Dropbox app needs "Full Dropbox" access, because
 Fuelio writes to its own app folder.
 
+**Add (added 2026-10-07).** A "missing" row has a "Pridať" button.
+`get_fuelio_add_preview { driveIds }` returns the GPS start and end (whole
+minutes), the km (whole km) and every placed place sorted by distance from
+the GPS start (origin) and the GPS end (destination); the popup preselects
+the nearest and shows each distance, so the user confirms the ends.
+`add_fuelio_trip { vehicleId, driveIds, originPlaceId, destinationPlaceId,
+purpose, withRoute, dryRun }` goes through `create_trip_cascade_internal`
+(the later odometers move; the page shows `OdometerCascadeModal` kind
+`insert` when they do), then saves the GPS track as the stored route. The
+route is a second write: if it fails, the trip stays and the error says so.
+
 **Overwrite (added 2026-10-06).** A matched row has a "Prepísať" button. A
 popup selects which fields the GPS values replace: start, end, distance,
 route. `apply_fuelio_to_trip { tripId, driveIds, fields, dryRun }`:

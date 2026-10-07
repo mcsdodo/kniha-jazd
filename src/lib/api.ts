@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -719,4 +719,30 @@ export async function applyFuelioToTrip(
 /** Copy the Fuelio drives of one year from Dropbox into the data folder. */
 export async function syncFuelioDropbox(year: number): Promise<FuelioSyncReport> {
 	return await apiCall('sync_fuelio_dropbox', { year });
+}
+
+/** The values and place choices for a new trip from Fuelio drives. */
+export async function getFuelioAddPreview(driveIds: string[]): Promise<FuelioAddPreview> {
+	return await apiCall('get_fuelio_add_preview', { driveIds });
+}
+
+/** Add a logbook trip from Fuelio drives. A dry run writes nothing. */
+export async function addFuelioTrip(
+	vehicleId: string,
+	driveIds: string[],
+	originPlaceId: string,
+	destinationPlaceId: string,
+	purpose: string,
+	withRoute: boolean,
+	dryRun: boolean
+): Promise<FuelioAdd> {
+	return await apiCall('add_fuelio_trip', {
+		vehicleId,
+		driveIds,
+		originPlaceId,
+		destinationPlaceId,
+		purpose,
+		withRoute,
+		dryRun
+	});
 }

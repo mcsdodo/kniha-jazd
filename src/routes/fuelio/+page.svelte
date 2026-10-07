@@ -9,6 +9,7 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import { toast } from '$lib/stores/toast';
 	import FuelioOverwriteModal from '$lib/components/FuelioOverwriteModal.svelte';
+	import FuelioAddModal from '$lib/components/FuelioAddModal.svelte';
 
 	// Task 90 POC: read-only cross-check of Fuelio GPS drives against the
 	// logbook. The backend matches, measures and flags every row (ADR-008);
@@ -36,6 +37,7 @@
 	let selected = $state<FuelioRow | null>(null);
 	let selectedHasRoute = $state<boolean | null>(null);
 	let overwriting = $state<FuelioRow | null>(null);
+	let adding = $state<FuelioRow | null>(null);
 	let syncing = $state(false);
 
 	async function syncDropbox() {
@@ -315,6 +317,15 @@
 												}}
 												data-testid="fuelio-overwrite">{$LL.fuelio.overwrite.button()}</button
 											>
+										{:else if r.status === 'missing'}
+											<button
+												class="overwrite-btn"
+												onclick={(e) => {
+													e.stopPropagation();
+													adding = r;
+												}}
+												data-testid="fuelio-add">{$LL.fuelio.add.button()}</button
+											>
 										{/if}
 									</td>
 								</tr>
@@ -345,6 +356,19 @@
 		{/if}
 	</section>
 </div>
+
+{#if adding && $activeVehicleStore}
+	<FuelioAddModal
+		row={adding}
+		vehicleId={$activeVehicleStore.id}
+		year={$selectedYearStore}
+		onCancel={() => (adding = null)}
+		onDone={() => {
+			adding = null;
+			load($activeVehicleStore!.id, $selectedYearStore);
+		}}
+	/>
+{/if}
 
 {#if overwriting && $activeVehicleStore}
 	<FuelioOverwriteModal

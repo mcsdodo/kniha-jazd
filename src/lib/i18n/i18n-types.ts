@@ -1782,6 +1782,78 @@ type RootTranslation = {
 			 */
 			error: RequiredParams<'error'>
 		}
+		add: {
+			/**
+			 * P​r​i​d​a​ť
+			 */
+			button: string
+			/**
+			 * P​r​i​d​a​ť​ ​j​a​z​d​u​ ​z​ ​F​u​e​l​i​o
+			 */
+			title: string
+			/**
+			 * D​o​ ​k​n​i​h​y​ ​j​á​z​d​ ​s​a​ ​z​a​p​í​š​e​ ​n​o​v​á​ ​j​a​z​d​a​ ​s​ ​t​ý​m​i​t​o​ ​ú​d​a​j​m​i​.​ ​S​k​o​n​t​r​o​l​u​j​t​e​ ​z​a​č​i​a​t​o​k​ ​a​ ​c​i​e​ľ​.
+			 */
+			intro: string
+			/**
+			 * Z​a​č​i​a​t​o​k
+			 */
+			start: string
+			/**
+			 * K​o​n​i​e​c
+			 */
+			end: string
+			/**
+			 * V​z​d​i​a​l​e​n​o​s​ť
+			 */
+			distance: string
+			/**
+			 * G​P​S​ ​{​g​p​s​}​ ​k​m​,​ ​z​a​o​k​r​ú​h​l​e​n​é​ ​n​a​ ​c​e​l​é​ ​k​m
+			 * @param {string} gps
+			 */
+			distanceNote: RequiredParams<'gps'>
+			/**
+			 * O​d​k​i​a​ľ
+			 */
+			origin: string
+			/**
+			 * K​a​m
+			 */
+			destination: string
+			/**
+			 * {​k​m​}​ ​k​m​ ​o​d​ ​G​P​S​ ​b​o​d​u
+			 * @param {string} km
+			 */
+			distanceFrom: RequiredParams<'km'>
+			/**
+			 * Ú​č​e​l
+			 */
+			purpose: string
+			/**
+			 * U​l​o​ž​i​ť​ ​G​P​S​ ​s​t​o​p​u​ ​a​k​o​ ​t​r​a​s​u​ ​j​a​z​d​y
+			 */
+			route: string
+			/**
+			 * Ž​i​a​d​n​e​ ​m​i​e​s​t​o​ ​n​e​m​á​ ​p​o​l​o​h​u​.​ ​D​o​p​l​ň​t​e​ ​p​o​l​o​h​u​ ​n​a​ ​s​t​r​á​n​k​e​ ​M​i​e​s​t​a​.
+			 */
+			noPlaces: string
+			/**
+			 * P​r​i​d​a​ť​ ​j​a​z​d​u
+			 */
+			'continue': string
+			/**
+			 * Z​r​u​š​i​ť
+			 */
+			cancel: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​ ​d​o​ ​k​n​i​h​y​ ​j​á​z​d​.
+			 */
+			done: string
+			/**
+			 * N​a​č​í​t​a​v​a​m​.​.​.
+			 */
+			loading: string
+		}
 		overwrite: {
 			/**
 			 * P​r​e​p​í​s​a​ť
@@ -4424,6 +4496,76 @@ export type TranslationFunctions = {
 			 * Synchronizácia z Dropboxu zlyhala: {error}
 			 */
 			error: (arg: { error: string }) => LocalizedString
+		}
+		add: {
+			/**
+			 * Pridať
+			 */
+			button: () => LocalizedString
+			/**
+			 * Pridať jazdu z Fuelio
+			 */
+			title: () => LocalizedString
+			/**
+			 * Do knihy jázd sa zapíše nová jazda s týmito údajmi. Skontrolujte začiatok a cieľ.
+			 */
+			intro: () => LocalizedString
+			/**
+			 * Začiatok
+			 */
+			start: () => LocalizedString
+			/**
+			 * Koniec
+			 */
+			end: () => LocalizedString
+			/**
+			 * Vzdialenosť
+			 */
+			distance: () => LocalizedString
+			/**
+			 * GPS {gps} km, zaokrúhlené na celé km
+			 */
+			distanceNote: (arg: { gps: string }) => LocalizedString
+			/**
+			 * Odkiaľ
+			 */
+			origin: () => LocalizedString
+			/**
+			 * Kam
+			 */
+			destination: () => LocalizedString
+			/**
+			 * {km} km od GPS bodu
+			 */
+			distanceFrom: (arg: { km: string }) => LocalizedString
+			/**
+			 * Účel
+			 */
+			purpose: () => LocalizedString
+			/**
+			 * Uložiť GPS stopu ako trasu jazdy
+			 */
+			route: () => LocalizedString
+			/**
+			 * Žiadne miesto nemá polohu. Doplňte polohu na stránke Miesta.
+			 */
+			noPlaces: () => LocalizedString
+			/**
+			 * Pridať jazdu
+			 */
+			'continue': () => LocalizedString
+			/**
+			 * Zrušiť
+			 */
+			cancel: () => LocalizedString
+			/**
+			 * Jazda bola pridaná do knihy jázd.
+			 */
+			done: () => LocalizedString
+			/**
+			 * Načítavam...
+			 */
+			loading: () => LocalizedString
 		}
 		overwrite: {
 			/**

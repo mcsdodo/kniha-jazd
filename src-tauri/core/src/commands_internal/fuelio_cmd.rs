@@ -336,6 +336,165 @@ impl FuelioApply {
     }
 }
 
+/// One place to offer for a new trip's end, with its distance from the GPS point.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceOption {
+    pub id: String,
+    pub name: String,
+    pub distance_m: f64,
+}
+
+/// What a new trip from Fuelio drives would get (Task 90).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FuelioAddPreview {
+    pub start: NaiveDateTime,
+    pub end: NaiveDateTime,
+    /// The GPS km in whole km: what the trip gets.
+    pub distance_km: f64,
+    pub gps_km: f64,
+    /// Every place with coordinates, nearest to the GPS start first.
+    pub origin: Vec<PlaceOption>,
+    /// Every place with coordinates, nearest to the GPS end first.
+    pub destination: Vec<PlaceOption>,
+}
+
+/// Every place with coordinates, nearest to `point` first.
+fn places_by_distance(db: &Database, point: (f64, f64)) -> Result<Vec<PlaceOption>, String> {
+    let mut options: Vec<PlaceOption> = db
+        .all_places()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .filter_map(|p| {
+            let at = (p.lat?, p.lon?);
+            Some(PlaceOption {
+                distance_m: fuelio::geo::haversine_m(point, at),
+                id: p.id,
+                name: p.name,
+            })
+        })
+        .collect();
+    options.sort_by(|a, b| a.distance_m.total_cmp(&b.distance_m));
+    Ok(options)
+}
+
+/// The values a new trip from `drive_ids` would get, and the places to choose
+/// its ends from.
+pub fn get_fuelio_add_preview_internal(
+    db: &Database,
+    data_dir: &Path,
+    drive_ids: &[String],
+) -> Result<FuelioAddPreview, String> {
+    if drive_ids.is_empty() {
+        return Err("No Fuelio drive given".into());
+    }
+    let drives = load_drives(data_dir, drive_ids)?;
+    let (first, last) = (&drives[0], &drives[drives.len() - 1]);
+    let gps_km: f64 = drives.iter().map(|d| d.km).sum();
+    Ok(FuelioAddPreview {
+        start: to_minute(first.start),
+        end: to_minute(last.end),
+        distance_km: crate::commands_internal::trips::logbook_km(gps_km),
+        gps_km,
+        origin: places_by_distance(db, first.start_point)?,
+        destination: places_by_distance(db, last.end_point)?,
+    })
+}
+
+/// What adding a trip did (or would do, on a dry run).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FuelioAdd {
+    /// The new trip; `None` on a dry run.
+    pub trip: Option<crate::models::Trip>,
+    /// The odometer plan of the insert (ADR-046).
+    pub plan: crate::models::CascadePlan,
+    pub route_written: bool,
+}
+
+/// Add a logbook trip from Fuelio drives (Task 90): the GPS start and end in
+/// whole minutes, the GPS km in whole km, the ends the user confirmed. Goes
+/// through the normal insert (`create_trip_cascade_internal`), so the later
+/// odometers move. With `with_route`, the GPS track becomes the trip's stored
+/// route afterwards.
+#[allow(clippy::too_many_arguments)]
+pub fn add_fuelio_trip_internal(
+    db: &Database,
+    app_state: &AppState,
+    data_dir: &Path,
+    vehicle_id: &str,
+    drive_ids: &[String],
+    origin_place_id: &str,
+    destination_place_id: &str,
+    purpose: &str,
+    with_route: bool,
+    dry_run: bool,
+) -> Result<FuelioAdd, String> {
+    if drive_ids.is_empty() {
+        return Err("No Fuelio drive given".into());
+    }
+    let drives = load_drives(data_dir, drive_ids)?;
+    let (first, last) = (&drives[0], &drives[drives.len() - 1]);
+    let gps_km: f64 = drives.iter().map(|d| d.km).sum();
+    let km = crate::commands_internal::trips::logbook_km(gps_km);
+    let fmt = |t: NaiveDateTime| to_minute(t).format("%Y-%m-%dT%H:%M").to_string();
+
+    let created = crate::commands_internal::trips::create_trip_cascade_internal(
+        db,
+        app_state,
+        vehicle_id.to_string(),
+        fmt(first.start),
+        fmt(last.end),
+        origin_place_id.to_string(),
+        destination_place_id.to_string(),
+        km,
+        purpose.to_string(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        dry_run,
+    )?;
+
+    let mut route_written = false;
+    if let (Some(trip), true) = (&created.trip, with_route) {
+        let track: Vec<(f64, f64)> = drives.iter().flat_map(|d| d.track.iter().copied()).collect();
+        let point = |p: (f64, f64), name: &str| Waypoint {
+            lat: p.0,
+            lon: p.1,
+            name: Some(name.to_string()),
+            node_idx: None,
+        };
+        let mut map = build_route_map(
+            &trip.id.to_string(),
+            vec![point(first.start_point, &trip.origin), point(last.end_point, &trip.destination)],
+            polyline::encode(&track),
+            gps_km,
+            RouteMode::Direct,
+            false,
+            None,
+            Vec::new(),
+            None,
+        )?;
+        map.target_km = trip.distance_km;
+        // A second write: the trip exists even if this one fails.
+        db.save_route_map(&map)
+            .map_err(|e| format!("The trip was added, but its route was not saved: {e}"))?;
+        route_written = true;
+    }
+    Ok(FuelioAdd {
+        trip: created.trip,
+        plan: created.plan,
+        route_written,
+    })
+}
+
 /// Copy the Fuelio drives of `year` from Dropbox into `<DATA_DIR>/fuelio`.
 /// `config` is `None` when the Dropbox secrets are not set.
 pub async fn sync_fuelio_dropbox_internal(

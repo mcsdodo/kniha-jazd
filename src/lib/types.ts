@@ -689,6 +689,31 @@ export interface FuelioSyncReport {
 	failed: string[];
 }
 
+export interface FuelioPlaceOption {
+	id: string;
+	name: string;
+	distanceM: number;
+}
+
+/** What a new trip from Fuelio drives would get. */
+export interface FuelioAddPreview {
+	start: string;
+	end: string;
+	/** Whole km: what the trip gets. */
+	distanceKm: number;
+	gpsKm: number;
+	/** Every placed place, nearest to the GPS start first. */
+	origin: FuelioPlaceOption[];
+	/** Every placed place, nearest to the GPS end first. */
+	destination: FuelioPlaceOption[];
+}
+
+export interface FuelioAdd {
+	trip: Trip | null;
+	plan: CascadePlan;
+	routeWritten: boolean;
+}
+
 /** The trip fields that the Fuelio overwrite writes. */
 export interface FuelioFields {
 	start: boolean;
