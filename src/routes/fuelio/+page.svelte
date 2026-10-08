@@ -340,7 +340,7 @@
 										{#if r.gpsStart}
 											{r.tripStart ? hm(r.gpsStart) : dt(r.gpsStart)} - {hm(r.gpsEnd)}
 											{#if r.driveIds.length > 1}
-												<span class="muted small">({$LL.fuelio.drives({ count: r.driveIds.length })})</span>
+												<br /><span class="muted small">({$LL.fuelio.drives({ count: r.driveIds.length })})</span>
 											{/if}
 										{/if}
 									</td>
@@ -532,13 +532,13 @@
 	}
 	.layout {
 		display: grid;
-		grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+		grid-template-columns: minmax(min-content, 3fr) minmax(320px, 2fr);
 		gap: 1rem;
 		align-items: start;
 	}
-	@media (max-width: 1100px) {
+	@media (max-width: 1350px) {
 		.layout {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 	.table-wrap {
