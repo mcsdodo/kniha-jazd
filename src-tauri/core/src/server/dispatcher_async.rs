@@ -230,6 +230,8 @@ pub async fn dispatch_async(
             #[serde(rename_all = "camelCase")]
             struct Args {
                 target_km: f64,
+                // Task 91: the loop starts at this trip's place.
+                trip_id: String,
                 // Task 85. Defaulted so a caller that predates it still routes.
                 #[serde(default)]
                 avoid: Vec<String>,
@@ -241,6 +243,16 @@ pub async fn dispatch_async(
                 Ok(a) => a,
                 Err(e) => return Some(Err(e)),
             };
+            // A DB read, done before any await.
+            let anchor = match crate::commands_internal::loop_anchor_internal(&state.db, &a.trip_id) {
+                Ok(Some(anchor)) => anchor,
+                Ok(None) => {
+                    return Some(Err(
+                        "The loop place has no position. Place it on the map first.".into(),
+                    ))
+                }
+                Err(e) => return Some(Err(e)),
+            };
             let requested = a.provider;
             let provider = match crate::route_map::avoid::normalise_avoid(a.avoid)
                 .and_then(|avoid| crate::route_map::route_provider(requested, avoid))
@@ -248,8 +260,12 @@ pub async fn dispatch_async(
                 Ok(p) => p,
                 Err(e) => return Some(Err(e)),
             };
-            let result =
-                crate::commands_internal::generate_route_internal(provider.as_ref(), a.target_km).await;
+            let result = crate::commands_internal::generate_route_internal(
+                provider.as_ref(),
+                &anchor,
+                a.target_km,
+            )
+            .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
         "route_direct" => {
@@ -468,6 +484,14 @@ mod tests {
             .expect("generate_route must be handled here, not by dispatch_sync")
             .unwrap_err();
         assert!(err.contains("targetKm"), "got: {err}");
+
+        // Task 91: the loop anchors at the trip's place, so the trip id is
+        // required too. serde reports one missing field at a time.
+        let err = dispatch_async("generate_route", json!({ "targetKm": 43.0 }), &state)
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(err.contains("tripId"), "got: {err}");
     }
 
     /// route_direct must be routed here (it awaits OSRM) and must take

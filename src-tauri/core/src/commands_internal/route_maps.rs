@@ -29,6 +29,8 @@ use crate::route_map::avoid::{merge_options, normalise_avoid};
 use crate::route_map::polyline::{decode, encode};
 use crate::route_map::render::render_route;
 use crate::route_map::tiles::TileFetcher;
+use crate::route_map::areas::{loop_area, LoopArea, NO_LOOP_CANDIDATES};
+use crate::route_map::dataset::Node;
 use crate::route_map::{
     generate_route_random, Dataset, FetchedRoute, RouteProvider, RouteProviderKind,
     RouteProvidersInfo, TOLERANCE,
@@ -262,14 +264,82 @@ fn waypoints_for(sequence: &[usize], ds: &Dataset) -> Result<Vec<Waypoint>, Stri
         .collect()
 }
 
-/// Propose a round trip of roughly `target_km`, with road-following geometry
-/// from `provider`. Persists NOTHING — the caller confirms with
-/// `save_trip_route_internal`.
+/// Where a loop starts and ends: the trip's origin place (task 91). A loop
+/// row has origin = destination, so the origin is enough.
+#[derive(Debug, Clone)]
+pub struct LoopAnchor {
+    pub lat: f64,
+    pub lon: f64,
+    pub name: String,
+}
+
+/// The trip's origin place as a loop anchor. `Ok(None)`: the place has no
+/// position. The page opens the place dialog before it asks to generate, so
+/// this is only a guard.
+pub fn loop_anchor_internal(db: &Database, trip_id: &str) -> Result<Option<LoopAnchor>, String> {
+    let trip = db
+        .get_trip(trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
+    let places = list_places_internal(db)?;
+    Ok(placed_endpoint(&places, trip.origin_place_id).and_then(|p| {
+        Some(LoopAnchor {
+            lat: p.lat?,
+            lon: p.lon?,
+            name: p.name,
+        })
+    }))
+}
+
+/// The candidate set for a loop around `anchor`. The home set is bundled with
+/// its matrix. Any other set starts at the anchor itself, so its matrix is
+/// fetched now, in one call.
+pub async fn loop_dataset(
+    provider: &dyn RouteProvider,
+    anchor: &LoopAnchor,
+) -> Result<Dataset, String> {
+    match loop_area(anchor.lat, anchor.lon) {
+        Some(LoopArea::Home) => Ok(Dataset::bundled()),
+        Some(LoopArea::Bratislava) => {
+            let (districts, version) = Dataset::bratislava_districts();
+            let start = Node {
+                idx: 0,
+                name: anchor.name.clone(),
+                lat: anchor.lat,
+                lon: anchor.lon,
+                kind: "home".into(),
+            };
+            let mut coords = vec![(anchor.lat, anchor.lon)];
+            coords.extend(districts.iter().map(|n| (n.lat, n.lon)));
+            let matrix = provider.table(&coords).await?;
+            Ok(Dataset::anchored(start, districts, matrix, version))
+        }
+        None => Err(format!(
+            "{NO_LOOP_CANDIDATES}: The loop generator has no candidate places near {} ({:.4}, {:.4}).",
+            anchor.name, anchor.lat, anchor.lon
+        )),
+    }
+}
+
+/// The version of the set a saved loop came from, found from its start
+/// point. `None` keeps the value from before task 91: every loop saved then
+/// started at home.
+fn loop_dataset_version(first: Option<&Waypoint>) -> Option<String> {
+    match first.and_then(|w| loop_area(w.lat, w.lon)) {
+        Some(LoopArea::Home) | None => Some(Dataset::bundled().version),
+        Some(LoopArea::Bratislava) => Some(Dataset::bratislava_districts().1),
+    }
+}
+
+/// Propose a round trip of roughly `target_km` that starts and ends at
+/// `anchor`, with road-following geometry from `provider`. Persists NOTHING —
+/// the caller confirms with `save_trip_route_internal`.
 pub async fn generate_route_internal(
     provider: &dyn RouteProvider,
+    anchor: &LoopAnchor,
     target_km: f64,
 ) -> Result<GeneratedRoute, String> {
-    let ds = Dataset::bundled();
+    let ds = loop_dataset(provider, anchor).await?;
     let result = generate_route_random(target_km, &ds);
     let waypoints = waypoints_for(&result.sequence, &ds)?;
 
@@ -714,6 +784,7 @@ pub(crate) fn build_route_map(
         RouteMode::Loop => false,
         RouteMode::Direct => round_trip,
     };
+    let loop_version = loop_dataset_version(waypoints.first());
 
     Ok(RouteMap {
         trip_id: trip_uuid,
@@ -723,8 +794,8 @@ pub(crate) fn build_route_map(
         road_km,
         mode,
         dataset_version: match mode {
-            // Only a loop actually used the bundled node set.
-            RouteMode::Loop => Some(Dataset::bundled().version),
+            // Only a loop actually used a bundled node set.
+            RouteMode::Loop => loop_version,
             RouteMode::Direct => None,
         },
         created_at: Utc::now(),

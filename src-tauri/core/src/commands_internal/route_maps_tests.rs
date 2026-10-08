@@ -13,12 +13,17 @@ use crate::commands_internal::build_trip_grid_data;
 use crate::route_map::{Dataset, FetchedRoute, RouteProvider};
 use chrono::NaiveDate;
 use uuid::Uuid;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::route_map::areas::{haversine_km, NO_LOOP_CANDIDATES};
 
 /// Geometry provider that never leaves the process.
 struct StubProvider {
     polyline: String,
     road_km: f64,
     duration_s: f64,
+    /// How often `table` ran. Counted so a test can see that the home set
+    /// needs no matrix call.
+    table_calls: AtomicUsize,
 }
 
 impl StubProvider {
@@ -29,6 +34,7 @@ impl StubProvider {
             polyline: encode(points),
             road_km,
             duration_s: 3600.0,
+            table_calls: AtomicUsize::new(0),
         }
     }
 }
@@ -47,6 +53,16 @@ impl RouteProvider for StubProvider {
             duration_s: self.duration_s,
             ..Default::default()
         })
+    }
+
+    /// Straight line x 1.3, offline. Overridden so no test reaches the
+    /// trait's default, the public OSRM server.
+    async fn table(&self, coords: &[(f64, f64)]) -> Result<Vec<Vec<f64>>, String> {
+        self.table_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(coords
+            .iter()
+            .map(|&a| coords.iter().map(|&b| haversine_km(a, b) * 1.3).collect())
+            .collect())
     }
 }
 
@@ -240,7 +256,7 @@ async fn generate_route_produces_a_home_loop_with_geometry() {
     let (points, _) = sample_geometry();
     let provider = StubProvider::encoding(&points, 117.2);
 
-    let route = generate_route_internal(&provider, 120.0).await.unwrap();
+    let route = generate_route_internal(&provider, &home_anchor(), 120.0).await.unwrap();
 
     let ds = Dataset::bundled();
     let home = &ds.nodes[0];
@@ -277,7 +293,7 @@ async fn generate_route_persists_nothing() {
     let (points, _) = sample_geometry();
     let provider = StubProvider::encoding(&points, 117.2);
 
-    generate_route_internal(&provider, 120.0).await.unwrap();
+    generate_route_internal(&provider, &home_anchor(), 120.0).await.unwrap();
 
     assert!(
         get_trip_route_internal(&db, trip.id.to_string())
@@ -2247,7 +2263,7 @@ async fn a_round_trip_reports_the_provider_that_routed_it() {
 #[tokio::test]
 async fn a_generated_loop_reports_the_provider_that_routed_it() {
     let p = mock_as(RouteProviderKind::Sygic);
-    let route = generate_route_internal(p.as_ref(), 60.0).await.unwrap();
+    let route = generate_route_internal(p.as_ref(), &home_anchor(), 60.0).await.unwrap();
     assert_eq!(route.provider, RouteProviderKind::Sygic);
 }
 
@@ -2540,4 +2556,107 @@ fn a_map_whose_trip_km_was_edited_later_is_not_in_sync() {
 
     let saved = get_trip_route_internal(&db, trip.id.to_string()).unwrap().unwrap();
     assert!(!saved.distance_in_sync);
+}
+
+// ---------------------------------------------------------------------------
+// Loop anchored at the trip's place (task 91)
+// ---------------------------------------------------------------------------
+
+fn home_anchor() -> LoopAnchor {
+    let n = &Dataset::bundled().nodes[0];
+    LoopAnchor { lat: n.lat, lon: n.lon, name: "Domov".into() }
+}
+
+fn ba_anchor() -> LoopAnchor {
+    LoopAnchor { lat: 48.1530, lon: 17.1200, name: "Kancelária BA".into() }
+}
+
+#[tokio::test]
+async fn a_home_anchor_uses_the_bundled_set_without_a_table_call() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 117.2);
+    let ds = loop_dataset(&provider, &home_anchor()).await.unwrap();
+    assert_eq!(ds.len(), 67);
+    assert_eq!(provider.table_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn a_bratislava_anchor_uses_the_districts_with_one_table_call() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 43.0);
+    let ds = loop_dataset(&provider, &ba_anchor()).await.unwrap();
+    assert_eq!(ds.len(), 18);
+    assert_eq!(ds.nodes[0].name, "Kancelária BA");
+    assert_eq!((ds.nodes[0].lat, ds.nodes[0].lon), (48.1530, 17.1200));
+    assert_eq!(ds.matrix.len(), 18);
+    assert_eq!(ds.version, Dataset::bratislava_districts().1);
+    assert_eq!(provider.table_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn an_anchor_outside_both_areas_is_refused_with_the_marker() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 43.0);
+    let zilina = LoopAnchor { lat: 49.2231, lon: 18.7394, name: "Žilina".into() };
+    let err = generate_route_internal(&provider, &zilina, 43.0).await.unwrap_err();
+    assert!(err.starts_with(NO_LOOP_CANDIDATES), "{err}");
+    assert_eq!(provider.table_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn a_bratislava_loop_starts_and_ends_at_the_anchor() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 43.0);
+    let route = generate_route_internal(&provider, &ba_anchor(), 43.0).await.unwrap();
+    let first = route.waypoints.first().unwrap();
+    let last = route.waypoints.last().unwrap();
+    assert_eq!((first.lat, first.lon), (48.1530, 17.1200));
+    assert_eq!((last.lat, last.lon), (48.1530, 17.1200));
+    assert_eq!(first.name.as_deref(), Some("Kancelária BA"));
+    assert!(route.waypoints.len() >= 3);
+    let vias = &route.waypoints[1..route.waypoints.len() - 1];
+    assert!(
+        vias.iter().all(|w| w.name.as_deref().unwrap_or("").starts_with("Bratislava-")),
+        "every via must be a district: {vias:?}"
+    );
+    assert_eq!(route.dataset_version, Some(Dataset::bratislava_districts().1));
+}
+
+#[tokio::test]
+async fn a_short_bratislava_target_still_returns_a_route() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 9.0);
+    let route = generate_route_internal(&provider, &ba_anchor(), 5.0).await.unwrap();
+    assert!(route.off_target, "9 km for a 5 km target is outside tolerance");
+}
+
+#[test]
+fn loop_anchor_comes_from_the_trip_origin_place() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Kancelária BA", "Kancelária BA");
+    db.set_place_position(&trip.origin_place_id.to_string(), 48.153, 17.12, "manual").unwrap();
+    let a = loop_anchor_internal(&db, &trip.id.to_string()).unwrap().unwrap();
+    assert_eq!((a.lat, a.lon, a.name.as_str()), (48.153, 17.12, "Kancelária BA"));
+}
+
+#[test]
+fn loop_anchor_of_an_unplaced_place_is_none() {
+    let db = Database::in_memory().unwrap();
+    db.ensure_unplaced_place_for_test("Nikde");
+    let trip = seed_trip_between(&db, "Nikde", "Nikde");
+    assert!(loop_anchor_internal(&db, &trip.id.to_string()).unwrap().is_none());
+}
+
+#[test]
+fn a_saved_bratislava_loop_records_the_bratislava_version() {
+    let start = Waypoint { lat: 48.153, lon: 17.12, name: Some("Kancelária BA".into()), node_idx: Some(0) };
+    let via = Waypoint { lat: 48.11097, lon: 17.11129, name: Some("Bratislava-Petržalka".into()), node_idx: Some(14) };
+    let map = build_route_map(
+        "00000000-0000-0000-0000-000000000001",
+        vec![start.clone(), via, start],
+        "x".into(),
+        43.0,
+        RouteMode::Loop,
+        false,
+        None,
+        vec![],
+        None,
+    )
+    .unwrap();
+    assert_eq!(map.dataset_version, Some(Dataset::bratislava_districts().1));
 }
