@@ -421,12 +421,16 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 trip_id: String,
                 year: i32,
+                // Absent means a plain copy, so older clients keep working.
+                #[serde(default)]
+                reversed: bool,
             }
             let a: Args = parse_args(args)?;
             let v = crate::commands_internal::get_copied_trip_defaults_internal(
                 &state.db,
                 a.trip_id,
                 a.year,
+                a.reversed,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }

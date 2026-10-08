@@ -36,6 +36,19 @@ Three smaller features that together shape what a new trip row contains when it 
 6. Edit and save as usual; the save runs the normal odometer-cascade check (see
    [trip-odometer-cascade.md](./trip-odometer-cascade.md)).
 
+### Copy a trip reversed (return leg)
+
+1. Click the **copy-reversed icon** (two looped arrows) next to the copy icon. The same
+   disable rules apply.
+2. The new row gets the swapped endpoints (B -> A) and the same distance. The purpose
+   gets the prefix `Kopírované: `. A purpose that already has the prefix does not get it
+   a second time. The prefix is saved data, so it stays Slovak in every UI language.
+3. The date follows the copy rule above. The times re-infer for the swapped place pair
+   when time inference is ON and there is history for B -> A. Otherwise the row keeps
+   the time-of-day of the source.
+4. The GPS route (`trip_routes`) is not copied. It is keyed by trip id, so no copy ever
+   carries it.
+
 ### Time inference (opt-in)
 
 1. Enable *Automaticky vyplniť časy podľa poslednej trasy* in Settings. Default is OFF.
@@ -48,7 +61,8 @@ Three smaller features that together shape what a new trip row contains when it 
 4. A 6-second toast with a **Vrátiť (Undo)** button appears; undoing restores the
    previous values and allows inference to re-trigger on the same row.
 5. Inference failure is silent (logged, never blocking). A copied row suppresses
-   inference for its own route -- the copy already carries the times.
+   inference for its own route -- the copy already carries the times. A reversed copy
+   does not: it runs inference once as it opens.
 
 ### Date prefill
 
@@ -80,6 +94,9 @@ not copied: fuel, energy, costs, notes, invoice links (the struct has no such fi
 - The `CopiedTripDefaults` struct *is* the exclusion contract: it has no fields for
   fuel, energy or costs, so the exclusion holds at compile time
   ([BIZ-024](../../DECISIONS.md)).
+- With `reversed: true` the command runs `compute_reversed_trip_defaults`: the same rule,
+  then the endpoints swap and the purpose gets `REVERSED_PURPOSE_PREFIX` (once). The
+  struct shape does not change, so the exclusion contract holds for the return leg too.
 - An implausible distance (over 9999 km) is not copied -- the field opens blank. This
   mirrors the autofill guard so a delta-accumulation bug cannot spread.
 - "Today" is the host's day (`Local::now()`), a known limitation in server mode where the
@@ -136,7 +153,7 @@ end    = start + length
 
 | File | Purpose |
 |------|---------|
-| [calculations/trip_copy.rs](../../src-tauri/core/src/calculations/trip_copy.rs) | Pure copy rule: `resolve_copy_target_date`, `compute_copied_trip_defaults`, `MAX_PLAUSIBLE_KM` |
+| [calculations/trip_copy.rs](../../src-tauri/core/src/calculations/trip_copy.rs) | Pure copy rule: `resolve_copy_target_date`, `compute_copied_trip_defaults`, `compute_reversed_trip_defaults`, `MAX_PLAUSIBLE_KM`, `REVERSED_PURPOSE_PREFIX` |
 | [calculations/time_inference.rs](../../src-tauri/core/src/calculations/time_inference.rs) | `Jitter` trait, `ThreadRngJitter`, `compute_inferred_times` |
 | [commands_internal/trips.rs](../../src-tauri/core/src/commands_internal/trips.rs) | `get_copied_trip_defaults_internal`, `get_inferred_trip_time_for_route_internal`, `inferred_trip_time_for_route` |
 | [db.rs](../../src-tauri/core/src/db.rs) | `find_most_recent_trip_times_for_route` |
@@ -147,7 +164,7 @@ end    = start + length
 | [TripRow.svelte](../../src/lib/components/TripRow.svelte) | Copy seed, preview odometer, inference trigger + undo toast, overnight-span preservation, place choice and `find_place` on save |
 | [TripGrid.svelte](../../src/lib/components/TripGrid.svelte) | Copy handler, prefill toggle, `defaultNewDate` |
 | [settings/+page.svelte](../../src/routes/settings/+page.svelte) | `infer_trip_times` checkbox |
-| [tests/integration/specs/tier2/copy-trip.spec.ts](../../tests/integration/specs/tier2/copy-trip.spec.ts) | Copy flow: prefill, empty fuel, ODO recalc, km replacement, overnight span, inference suppression |
+| [tests/integration/specs/tier2/copy-trip.spec.ts](../../tests/integration/specs/tier2/copy-trip.spec.ts) | Copy flow: prefill, empty fuel, ODO recalc, km replacement, overnight span, inference suppression, reversed copy without GPS |
 
 ## Design Decisions
 

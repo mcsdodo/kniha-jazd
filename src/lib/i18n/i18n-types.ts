@@ -510,6 +510,10 @@ type RootTranslation = {
 		 */
 		copyRecord: string
 		/**
+		 * K​o​p​í​r​o​v​a​ť​ ​o​p​a​č​n​ú​ ​t​r​a​s​u
+		 */
+		copyReversed: string
+		/**
 		 * O​d​s​t​r​á​n​i​ť​ ​z​á​z​n​a​m
 		 */
 		deleteRecord: string
@@ -3281,6 +3285,10 @@ export type TranslationFunctions = {
 		 * Kopírovať záznam
 		 */
 		copyRecord: () => LocalizedString
+		/**
+		 * Kopírovať opačnú trasu
+		 */
+		copyReversed: () => LocalizedString
 		/**
 		 * Odstrániť záznam
 		 */

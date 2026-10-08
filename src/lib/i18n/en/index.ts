@@ -161,6 +161,7 @@ const en = {
 		// Actions
 		insertAbove: 'Insert record above',
 		copyRecord: 'Copy record',
+		copyReversed: 'Copy reversed route',
 		deleteRecord: 'Delete record',
 		// Tooltip on every control that can shift the odometer of an open row
 		// (task 81, C1): copy, insert above, delete, new record.

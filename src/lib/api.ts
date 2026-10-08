@@ -408,9 +408,9 @@ export async function getInferredTripTimeForRoute(
 }
 
 export async function getCopiedTripDefaults(
-	tripId: string, year: number
+	tripId: string, year: number, reversed = false
 ): Promise<CopiedTripDefaults> {
-	return await apiCall('get_copied_trip_defaults', { tripId, year });
+	return await apiCall('get_copied_trip_defaults', { tripId, year, reversed });
 }
 
 // Hidden columns

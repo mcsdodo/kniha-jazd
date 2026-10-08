@@ -61,6 +61,7 @@
 	export let onInsertAbove: () => void = () => {};
 	// Copy (Task 71) - duplicates this row's route into a new today-dated row
 	export let onCopy: () => void = () => {};
+	export let onCopyReversed: () => void = () => {};
 	export let copyDisabled: boolean = false;
 	// True while ANOTHER row of the grid is open in its editor (task 81, C1).
 	// A cascade started from here -- insert-above, delete, or the save of a
@@ -80,6 +81,8 @@
 	// Set on a NEW row that was opened via another row's copy button. Seeds
 	// formData below; null for an ordinary new row.
 	export let copyFrom: CopiedTripDefaults | null = null;
+	// A reversed copy is the return leg, so the source's times rarely fit it.
+	export let copyReversed: boolean = false;
 	// Route map (Task 70)
 	export let hasRouteMap: boolean = false;
 	export let onOpenRouteMap: () => void = () => {};
@@ -265,6 +268,9 @@
 		if (isNew && !copyFrom) {
 			onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
 		}
+		if (isNew && copyFrom && copyReversed) {
+			tryInferTimes();
+		}
 	});
 
 	// Tracks the start value the current endDatetime was calculated against, so
@@ -445,7 +451,11 @@
 		// jitter never overwrites them. Picking a DIFFERENT route changes the
 		// key, so inference correctly resumes — and manualKmEdit stays false so
 		// tryAutoFillDistance replaces the seeded km to match.
-		inferredKey = `${copyFrom.originPlaceId}\u241F${copyFrom.destinationPlaceId}`;
+		// A reversed copy leaves the key empty: its times then re-infer for the
+		// swapped pair on mount, and the seeded ones stay only without history.
+		inferredKey = copyReversed
+			? ''
+			: `${copyFrom.originPlaceId}\u241F${copyFrom.destinationPlaceId}`;
 		// Populate the live consumption/zostatok preview, matching what
 		// tryAutoFillDistance does when it auto-fills km.
 		onPreviewRequest(formData.distanceKm ?? 0, null, formData.fullTank);
@@ -1070,6 +1080,19 @@
 					</svg>
 				</button>
 				<button
+					class="icon-btn copy-reversed"
+					on:click|stopPropagation={onCopyReversed}
+					disabled={copyDisabled}
+					title={copyDisabled ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.copyReversed()}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="17 1 21 5 17 9"></polyline>
+						<path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+						<polyline points="7 23 3 19 7 15"></polyline>
+						<path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+					</svg>
+				</button>
+				<button
 					class="icon-btn map"
 					class:has-map={hasRouteMap}
 					on:click|stopPropagation={onOpenRouteMap}
@@ -1237,7 +1260,8 @@
 		color: var(--accent-primary);
 	}
 
-	.icon-btn.copy:hover {
+	.icon-btn.copy:hover,
+	.icon-btn.copy-reversed:hover {
 		color: var(--accent-primary);
 	}
 

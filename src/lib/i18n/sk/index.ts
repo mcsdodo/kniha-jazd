@@ -161,6 +161,7 @@ const sk = {
 		// Actions
 		insertAbove: 'Vložiť záznam nad',
 		copyRecord: 'Kopírovať záznam',
+		copyReversed: 'Kopírovať opačnú trasu',
 		deleteRecord: 'Odstrániť záznam',
 		// Tooltip on every control that can shift the odometer of an open row
 		// (task 81, C1): kopírovanie, vloženie nad, odstránenie, nový záznam.

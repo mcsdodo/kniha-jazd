@@ -5716,7 +5716,8 @@ mod time_inference_tests {
         use crate::commands_internal::trips::get_copied_trip_defaults_internal;
         let (db, _vehicle_id) = test_db_with_completed_trip();
 
-        let result = get_copied_trip_defaults_internal(&db, Uuid::new_v4().to_string(), 2026);
+        let result =
+            get_copied_trip_defaults_internal(&db, Uuid::new_v4().to_string(), 2026, false);
 
         assert!(result.is_err(), "an unknown trip id must not silently succeed");
     }

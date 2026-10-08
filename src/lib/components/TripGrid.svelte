@@ -135,6 +135,9 @@
 	let insertDate: string | null = null;
 	// Copy source defaults (Task 71) - non-null only while a copied new row is open
 	let copyDefaults: CopiedTripDefaults | null = null;
+	// The open copy is a return leg: TripRow re-infers its times for the
+	// swapped place pair instead of keeping the source's.
+	let copyReversed = false;
 	// In-flight guard for the copy fetch (see handleCopy)
 	let copyPending = false;
 
@@ -314,7 +317,7 @@
 		showNewRow = true;
 	}
 
-	async function handleCopy(trip: Trip) {
+	async function handleCopy(trip: Trip, reversed = false) {
 		// showNewRow only flips after the await below, so without this latch a
 		// second click during the round-trip starts a concurrent fetch: the row
 		// mounts seeded from the first response while a later one overwrites
@@ -324,7 +327,8 @@
 		try {
 			// Fetch BEFORE opening the row: TripRow seeds formData at init, so
 			// copyDefaults must already be set when the component mounts.
-			copyDefaults = await getCopiedTripDefaults(trip.id, year);
+			copyDefaults = await getCopiedTripDefaults(trip.id, year, reversed);
+			copyReversed = reversed;
 			// Preview state belongs to whichever row was last active; the new
 			// row must not inherit it (handleSaveNew/handleCancelNew do the same).
 			previewData = null;
@@ -416,6 +420,7 @@
 		insertAtTripId = null;
 		insertDate = null;
 		copyDefaults = null;
+		copyReversed = false;
 		// Clear preview
 		previewData = null;
 		previewingTripId = null;
@@ -604,6 +609,7 @@
 		insertAtTripId = null;
 		insertDate = null;
 		copyDefaults = null;
+		copyReversed = false;
 		// Clear preview
 		previewData = null;
 		previewingTripId = null;
@@ -929,6 +935,7 @@
 						isNew={true}
 						defaultDate={defaultNewDate}
 						copyFrom={copyDefaults}
+						{copyReversed}
 						consumptionRate={sortedTrips.length > 0 ? consumptionRates.get(sortedTrips[0].id) || tpConsumption : tpConsumption}
 						fuelConsumed={0}
 						fuelRemaining={sortedTrips.length > 0 ? fuelRemaining.get(sortedTrips[0].id) || tankSize : tankSize}
@@ -1046,6 +1053,7 @@
 							cascadePending={pendingCascade !== null || cascadeArming}
 							onInsertAbove={() => handleInsertAbove(trip)}
 							onCopy={() => handleCopy(trip)}
+							onCopyReversed={() => handleCopy(trip, true)}
 							copyDisabled={showNewRow || copyPending || editingTripId !== null || cascadeArming}
 							otherRowEditing={editingTripId !== null}
 							newRowOpen={showNewRow}
