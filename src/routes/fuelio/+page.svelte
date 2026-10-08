@@ -365,7 +365,9 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each rows as r (r.tripId ?? r.driveIds.join('-'))}
+							<!-- Keyed by drives: a trip can have several rows (a match and a loose
+							     fragment), but each drive is in exactly one row. -->
+							{#each rows as r (r.driveIds.join('-'))}
 								<tr
 									class="status-{r.status}"
 									class:ignored={r.ignored}

@@ -262,10 +262,12 @@ deliberately sets them instead.
 The `DROPBOX_*` secrets are in that list. They turn Fuelio on, so a Fuelio UI spec
 belongs in `specs/env/`. It also needs drive files in `<DATA_DIR>/fuelio`, which a spec
 cannot write into the container: [fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs)
-writes two drives of the current year. `onPrepare` calls it for the spawned server, and
-the CI step `Start env-pinned container` runs it on `data-env/fuelio` before
-`docker run`. `resetDatabase` clears the database, not these files. The same fixture can
-carry future Prepísať / Pridať specs.
+writes three drives of the current year: two 22 km drives and a 3 km fragment that the
+default 15 km filter hides. `onPrepare` calls it for the spawned server, and the CI step
+`Start env-pinned container` runs it on `data-env/fuelio` before `docker run`.
+`resetDatabase` clears the database, not these files, so a spec seeds the trips and the
+places (with coordinates at the drive ends) it needs. A new drive changes the row count
+of every spec in `fuelio.spec.ts`: keep it under 15 km, or update the counts.
 
 ## SvelteKit Component Caching
 

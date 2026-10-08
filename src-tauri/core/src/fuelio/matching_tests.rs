@@ -481,6 +481,27 @@ fn a_short_fragment_next_to_a_matched_trip_matches_loosely() {
     assert_eq!(frag.flags, vec![Flag::LooseMatch]);
 }
 
+// The Fuelio page keys its rows by their drive IDs: every row has a drive,
+// and no drive is in two rows, even when one trip has two rows.
+#[test]
+fn every_drive_is_in_exactly_one_row() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    let drives = [
+        drive("d1", at(28, 8, 0), 50, A, B, 70.0),
+        drive("frag", at(28, 12, 0), 10, B, (48.01, 21.0), 3.0),
+        drive("d2", at(29, 8, 0), 50, C, B, 74.0),
+    ];
+    let rows = crosscheck(&trips, &drives);
+    assert_eq!(rows.iter().filter(|r| r.trip_id.as_deref() == Some("t1")).count(), 2);
+    assert!(rows.iter().all(|r| !r.drive_ids.is_empty()));
+    let mut ids: Vec<&str> = rows
+        .iter()
+        .flat_map(|r| r.drive_ids.iter().map(String::as_str))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, vec!["d1", "d2", "frag"]);
+}
+
 #[test]
 fn a_loose_match_takes_the_trip_nearest_in_time() {
     let trips = [

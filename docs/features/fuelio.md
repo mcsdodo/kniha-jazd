@@ -149,8 +149,8 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 | [commands_internal/fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs) | The commands, `require_fuelio_internal` |
 | [src/routes/fuelio/+page.svelte](../../src/routes/fuelio/+page.svelte) | Page, icon snippet, legend |
 | [migrations/2026-10-08-100000_fuelio_ignored_drives](../../src-tauri/core/migrations/2026-10-08-100000_fuelio_ignored_drives/up.sql) | The ignored drives, per vehicle (FK with `ON DELETE CASCADE`) |
-| [tests/integration/fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs) | Writes two drives of the current year for the env suite |
-| [tests/integration/specs/env/fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) | Rows, map, ignore / un-ignore flow |
+| [tests/integration/fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs) | Writes three drives of the current year for the env suite |
+| [tests/integration/specs/env/fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) | Rows, map, ignore / un-ignore, a trip with two rows, Prepísať and Pridať with the odometer dialog |
 | [tests/integration/specs/tier3/empty-states.spec.ts](../../tests/integration/specs/tier3/empty-states.spec.ts) | No Dropbox: no nav link, notice on `/fuelio` |
 | [tests/integration/specs/env/env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts) | Dummy `DROPBOX_*`: the nav link shows |
 

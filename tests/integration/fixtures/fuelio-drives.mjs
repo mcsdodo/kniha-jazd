@@ -1,13 +1,17 @@
 /**
- * Writes two Fuelio drives into a folder, in the format Fuelio backs up:
+ * Writes three Fuelio drives into a folder, in the format Fuelio backs up:
  * `route-<epoch ms>.data`, a zip with one headerless CSV `route-<epoch ms>.csv`
  * (timestamp ms, lat, lon, metres from the previous fix, speed m/s, altitude,
  * accuracy).
  *
  * The drives are dated 10 and 11 January of the CURRENT year, so the page shows
- * them with its default year and the fixture never goes stale. Each is about
- * 22 km, above the page's default 15 km filter. With no trips seeded, both are
- * "missing in the logbook".
+ * them with its default year and the fixture never goes stale. Two are about
+ * 22 km due north from (48.0, 17.0) to (48.2, 17.0), above the page's default
+ * 15 km filter. With no trips seeded, both are "missing in the logbook".
+ *
+ * The third is a 3 km fragment that starts at (48.2, 17.0) two hours after the
+ * first drive. The default 15 km filter hides it. With a trip on the first
+ * drive, it is a loose match of the same trip: one trip, two rows.
  *
  * Plain Node, no dependencies: CI runs it before `docker run` on Node 20
  * (`node tests/integration/fixtures/fuelio-drives.mjs data-env/fuelio`), and
@@ -59,25 +63,34 @@ function zipOne(name, data) {
   return Buffer.concat([local, nameBuf, data, central, nameBuf, end]);
 }
 
-/** About 22 km due north, one fix per 11.1 km (0.1 degree of latitude). */
-function driveCsv(startMs) {
+/**
+ * A drive due north from `lat0`, longitude 17.0, in `steps` fixes of
+ * `stepDeg` degrees of latitude (0.1 degree = 11.12 km), 20 m/s.
+ */
+function driveCsv(startMs, lat0, steps, stepDeg) {
+  const segM = Math.round(stepDeg * 111_200);
   const rows = [];
-  for (let i = 0; i <= 2; i++) {
-    const seg = i === 0 ? 0 : 11120;
-    rows.push(`${startMs + i * 556_000},${(48.0 + i * 0.1).toFixed(4)},17.0000,${seg},20.0,150,5`);
+  for (let i = 0; i <= steps; i++) {
+    const seg = i === 0 ? 0 : segM;
+    const t = startMs + i * Math.round((segM / 20) * 1000);
+    rows.push(`${t},${(lat0 + i * stepDeg).toFixed(4)},17.0000,${seg},20.0,150,5`);
   }
   return rows.join('\n') + '\n';
 }
 
-/** The epoch-ms IDs of the drives, oldest first. */
-export function fuelioDriveIds(year = new Date().getFullYear()) {
-  return [Date.UTC(year, 0, 10, 9, 0), Date.UTC(year, 0, 11, 9, 0)].map(String);
+/** The drives: epoch-ms ID (the start, UTC) and track, oldest first. */
+export function fuelioDrives(year = new Date().getFullYear()) {
+  return [
+    { id: String(Date.UTC(year, 0, 10, 9, 0)), lat0: 48.0, steps: 2, stepDeg: 0.1 },
+    { id: String(Date.UTC(year, 0, 10, 11, 0)), lat0: 48.2, steps: 1, stepDeg: 0.027 },
+    { id: String(Date.UTC(year, 0, 11, 9, 0)), lat0: 48.0, steps: 2, stepDeg: 0.1 },
+  ];
 }
 
 export function writeFuelioDrives(dir) {
   mkdirSync(dir, { recursive: true });
-  for (const id of fuelioDriveIds()) {
-    const csv = Buffer.from(driveCsv(Number(id)));
+  for (const { id, lat0, steps, stepDeg } of fuelioDrives()) {
+    const csv = Buffer.from(driveCsv(Number(id), lat0, steps, stepDeg));
     writeFileSync(join(dir, `route-${id}.data`), zipOne(`route-${id}.csv`, csv));
   }
 }
@@ -89,5 +102,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(1);
   }
   writeFuelioDrives(dir);
-  console.log(`Wrote ${fuelioDriveIds().length} Fuelio drives to ${dir}`);
+  console.log(`Wrote ${fuelioDrives().length} Fuelio drives to ${dir}`);
 }
