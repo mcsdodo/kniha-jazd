@@ -74,6 +74,8 @@ GPS fix per row: timestamp (ms UTC), lat, lon, distance from the previous fix (m
 (m/s), altitude, accuracy. [parse.rs](../../src-tauri/core/src/fuelio/parse.rs) reads it
 and computes the local start/end (Europe/Bratislava), GPS km, minutes above 100 km/h,
 max speed, and a track thinned to one point per 100 m. The scanner keeps one drive per ID.
+rclone and Drive leave copies such as `route-<id>(1).data`: the scan and every later read
+(`read_drive`) take the canonical file first, then a copy, and use the first one that reads.
 A drive belongs to the local year of the epoch in its file name, as in the sync. A page
 load skips the files of the other years before it unzips them.
 

@@ -152,9 +152,34 @@ pub(crate) fn read_data(content: impl Read + std::io::Seek) -> Result<String, St
     Ok(text)
 }
 
-/// The path of one drive's `.data` file in `dir`.
-pub fn data_file_path(dir: &Path, id: &str) -> std::path::PathBuf {
-    dir.join(format!("route-{id}.data"))
+/// The CSV text of drive `id`, from the first of `names` that reads: the
+/// canonical `route-<id>.data` first, then the copies by name. The scan and
+/// the readers use it, so both take the same file.
+fn read_first(dir: &Path, id: &str, mut names: Vec<String>) -> Result<String, String> {
+    let canonical = format!("route-{id}.data");
+    names.sort_by(|a, b| (a != &canonical, a).cmp(&(b != &canonical, b)));
+    let mut first_err = None;
+    for name in &names {
+        match read_data_file(&dir.join(name)) {
+            Ok(text) => return Ok(text),
+            Err(e) => {
+                first_err.get_or_insert(format!("{name}: {e}"));
+            }
+        }
+    }
+    Err(first_err.unwrap_or_else(|| format!("No file for drive {id}")))
+}
+
+/// The CSV text of drive `id` in `dir`: the canonical file, or a copy such as
+/// `route-<id>(1).data` when the canonical one is missing or broken.
+pub fn read_drive(dir: &Path, id: &str) -> Result<String, String> {
+    let names: Vec<String> = std::fs::read_dir(dir)
+        .map_err(|e| format!("{}: {e}", dir.display()))?
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| drive_id(n).as_deref() == Some(id))
+        .collect();
+    read_first(dir, id, names)
 }
 
 /// The year of a drive file: the local year of the epoch in its name (the
@@ -173,20 +198,23 @@ pub fn scan_year(dir: &Path, year: i32) -> Vec<Drive> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
-    let mut by_id: HashMap<String, Drive> = HashMap::new();
+    let mut names_by_id: HashMap<String, Vec<String>> = HashMap::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let Some(id) = drive_id(&name) else { continue };
-        if by_id.contains_key(&id) || file_year(&name) != Some(year) {
-            continue;
+        if file_year(&name) == Some(year) {
+            names_by_id.entry(id).or_default().push(name);
         }
-        match read_data_file(&entry.path()) {
+    }
+    let mut by_id: HashMap<String, Drive> = HashMap::new();
+    for (id, names) in names_by_id {
+        match read_first(dir, &id, names) {
             Ok(text) => {
                 if let Some(d) = drive_from_fixes(&id, &parse_csv(&text)) {
                     by_id.insert(id, d);
                 }
             }
-            Err(e) => log::warn!("fuelio: skip {name}: {e}"),
+            Err(e) => log::warn!("fuelio: skip drive {id}: {e}"),
         }
     }
     let mut drives: Vec<Drive> = by_id.into_values().collect();

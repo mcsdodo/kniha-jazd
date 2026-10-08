@@ -121,7 +121,7 @@ pub fn get_fuelio_track_internal(
     let mut gps = Vec::new();
     for id in drive_ids {
         check_drive_id(id)?;
-        let text = parse::read_data_file(&parse::data_file_path(&folder, id))?;
+        let text = parse::read_drive(&folder, id)?;
         gps.push(pairs(
             parse::parse_csv(&text)
                 .into_iter()
@@ -171,7 +171,7 @@ fn load_drives(data_dir: &Path, drive_ids: &[String]) -> Result<Vec<Drive>, Stri
     let mut drives = Vec::new();
     for id in drive_ids {
         check_drive_id(id)?;
-        let text = parse::read_data_file(&parse::data_file_path(&folder, id))?;
+        let text = parse::read_drive(&folder, id)?;
         drives.push(
             parse::drive_from_fixes(id, &parse::parse_csv(&text))
                 .ok_or_else(|| format!("Drive {id} has fewer than two GPS fixes"))?,
@@ -188,7 +188,7 @@ fn full_track(data_dir: &Path, drives: &[Drive]) -> Result<Vec<(f64, f64)>, Stri
     let folder = data_dir.join(fuelio::FOLDER_NAME);
     let mut points: Vec<(f64, f64)> = Vec::new();
     for d in drives {
-        let text = parse::read_data_file(&parse::data_file_path(&folder, &d.id))?;
+        let text = parse::read_drive(&folder, &d.id)?;
         for f in parse::parse_csv(&text) {
             if points.last() != Some(&(f.lat, f.lon)) {
                 points.push((f.lat, f.lon));

@@ -199,3 +199,42 @@ fn file_year_is_the_local_year_of_the_name() {
     assert_eq!(file_year("route-1767222005000(1).data"), Some(2026));
     assert_eq!(file_year("notes.txt"), None);
 }
+
+// rclone and Drive keep copies: a drive can exist only as a copy, or its
+// original can be broken. The readers must take the file that the scan took.
+#[test]
+fn read_drive_reads_a_copy_when_the_original_is_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    write_data_file(dir.path(), "1790866465210", CSV);
+    std::fs::rename(
+        dir.path().join("route-1790866465210.data"),
+        dir.path().join("route-1790866465210 (1).data"),
+    )
+    .unwrap();
+    assert_eq!(scan_year(dir.path(), 2026).len(), 1);
+    assert_eq!(read_drive(dir.path(), "1790866465210").unwrap(), CSV);
+}
+
+#[test]
+fn read_drive_skips_a_broken_original_for_a_good_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    write_data_file(dir.path(), "1790866465210", CSV);
+    std::fs::rename(
+        dir.path().join("route-1790866465210.data"),
+        dir.path().join("route-1790866465210(1).data"),
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("route-1790866465210.data"), "not a zip").unwrap();
+    assert_eq!(scan_year(dir.path(), 2026).len(), 1);
+    assert_eq!(read_drive(dir.path(), "1790866465210").unwrap(), CSV);
+}
+
+#[test]
+fn read_drive_prefers_the_original_and_fails_without_a_file() {
+    let dir = tempfile::tempdir().unwrap();
+    write_data_file(dir.path(), "1790866465210", CSV);
+    write_data_file(dir.path(), "1790866465210(1)", "1,2,3,4,5\n");
+    assert_eq!(read_drive(dir.path(), "1790866465210").unwrap(), CSV);
+    assert!(read_drive(dir.path(), "1790866497874").is_err());
+}
+
