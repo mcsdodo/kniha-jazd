@@ -611,7 +611,7 @@
 		color: var(--accent-success);
 	}
 	.status-icon-missing {
-		color: var(--badge-danger-color);
+		color: var(--accent-danger);
 	}
 	.flag-icon {
 		display: inline-flex;
