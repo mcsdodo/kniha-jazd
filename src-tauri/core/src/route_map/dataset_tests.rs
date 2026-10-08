@@ -1,4 +1,5 @@
 use super::*;
+use crate::route_map::dataset::Node;
 
 #[test]
 fn bundled_dataset_loads_67_nodes() {
@@ -29,4 +30,32 @@ fn dataset_distance_is_asymmetric_and_positive() {
 #[test]
 fn dataset_version_is_the_generation_date() {
     assert_eq!(Dataset::bundled().version, "2026-05-03");
+}
+
+#[test]
+fn bratislava_file_holds_the_17_districts() {
+    let (nodes, version) = Dataset::bratislava_districts();
+    assert_eq!(nodes.len(), 17);
+    assert_eq!(version, "2026-10-08");
+    assert!(nodes.iter().all(|n| n.kind == "district"));
+    let idx: Vec<usize> = nodes.iter().map(|n| n.idx).collect();
+    assert_eq!(idx, (1..=17).collect::<Vec<_>>());
+}
+
+#[test]
+fn an_anchored_dataset_puts_the_anchor_at_index_0() {
+    let (nodes, version) = Dataset::bratislava_districts();
+    let anchor = Node {
+        idx: 99,
+        name: "Kancelária".into(),
+        lat: 48.15,
+        lon: 17.11,
+        kind: "home".into(),
+    };
+    let n = nodes.len() + 1;
+    let ds = Dataset::anchored(anchor, nodes, vec![vec![1.0; n]; n], version);
+    assert_eq!(ds.len(), 18);
+    assert_eq!(ds.nodes[0].name, "Kancelária");
+    assert_eq!(ds.nodes[0].idx, 0, "the anchor is always index 0");
+    assert_eq!(ds.nodes[17].idx, 17);
 }

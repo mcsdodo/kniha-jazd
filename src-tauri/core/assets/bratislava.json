@@ -1,0 +1,126 @@
+{
+  "area": "Bratislava",
+  "source": "OpenStreetMap via Nominatim, the boundary=administrative point of each city district (mestská časť)",
+  "generatedAt": "2026-10-08",
+  "nodes": [
+    {
+      "idx": 1,
+      "name": "Bratislava-Staré Mesto",
+      "lat": 48.14059,
+      "lon": 17.11233,
+      "kind": "district"
+    },
+    {
+      "idx": 2,
+      "name": "Bratislava-Ružinov",
+      "lat": 48.14931,
+      "lon": 17.1645,
+      "kind": "district"
+    },
+    {
+      "idx": 3,
+      "name": "Bratislava-Vrakuňa",
+      "lat": 48.1452,
+      "lon": 17.20049,
+      "kind": "district"
+    },
+    {
+      "idx": 4,
+      "name": "Bratislava-Podunajské Biskupice",
+      "lat": 48.13004,
+      "lon": 17.20742,
+      "kind": "district"
+    },
+    {
+      "idx": 5,
+      "name": "Bratislava-Nové Mesto",
+      "lat": 48.16716,
+      "lon": 17.13835,
+      "kind": "district"
+    },
+    {
+      "idx": 6,
+      "name": "Bratislava-Rača",
+      "lat": 48.21179,
+      "lon": 17.15343,
+      "kind": "district"
+    },
+    {
+      "idx": 7,
+      "name": "Bratislava-Vajnory",
+      "lat": 48.20491,
+      "lon": 17.20658,
+      "kind": "district"
+    },
+    {
+      "idx": 8,
+      "name": "Bratislava-Karlova Ves",
+      "lat": 48.15924,
+      "lon": 17.05268,
+      "kind": "district"
+    },
+    {
+      "idx": 9,
+      "name": "Bratislava-Dúbravka",
+      "lat": 48.18709,
+      "lon": 17.0375,
+      "kind": "district"
+    },
+    {
+      "idx": 10,
+      "name": "Bratislava-Lamač",
+      "lat": 48.1912,
+      "lon": 17.05428,
+      "kind": "district"
+    },
+    {
+      "idx": 11,
+      "name": "Bratislava-Devín",
+      "lat": 48.17459,
+      "lon": 16.98261,
+      "kind": "district"
+    },
+    {
+      "idx": 12,
+      "name": "Bratislava-Devínska Nová Ves",
+      "lat": 48.20918,
+      "lon": 16.97389,
+      "kind": "district"
+    },
+    {
+      "idx": 13,
+      "name": "Bratislava-Záhorská Bystrica",
+      "lat": 48.23929,
+      "lon": 17.03834,
+      "kind": "district"
+    },
+    {
+      "idx": 14,
+      "name": "Bratislava-Petržalka",
+      "lat": 48.11097,
+      "lon": 17.11129,
+      "kind": "district"
+    },
+    {
+      "idx": 15,
+      "name": "Bratislava-Jarovce",
+      "lat": 48.06524,
+      "lon": 17.11294,
+      "kind": "district"
+    },
+    {
+      "idx": 16,
+      "name": "Bratislava-Rusovce",
+      "lat": 48.05265,
+      "lon": 17.14692,
+      "kind": "district"
+    },
+    {
+      "idx": 17,
+      "name": "Bratislava-Čunovo",
+      "lat": 48.02964,
+      "lon": 17.19957,
+      "kind": "district"
+    }
+  ]
+}

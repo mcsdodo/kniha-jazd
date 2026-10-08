@@ -1,5 +1,6 @@
 //! Generated trip route maps — GA route selection, OSRM geometry, tile rendering.
 
+pub mod areas;
 pub mod avoid;
 pub mod dataset;
 pub mod ga;
@@ -52,3 +53,7 @@ mod sygic_tests;
 #[cfg(test)]
 #[path = "provider_tests.rs"]
 mod provider_tests;
+
+#[cfg(test)]
+#[path = "areas_tests.rs"]
+mod areas_tests;
