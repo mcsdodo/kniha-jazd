@@ -502,12 +502,14 @@ export async function revertPaperlessOverride(docId: number): Promise<void> {
 }
 
 // Route map commands (Task 70)
+/** The loop starts and ends at the trip's own place (Task 91). */
 export async function generateRoute(
+	tripId: string,
 	targetKm: number,
 	avoid: string[] = [],
 	provider: RouteProviderKind | null = null
 ): Promise<GeneratedRoute> {
-	return await apiCall('generate_route', { targetKm, avoid, provider });
+	return await apiCall('generate_route', { tripId, targetKm, avoid, provider });
 }
 
 /** Which routing services the page may offer, and the server default (Task 86). */

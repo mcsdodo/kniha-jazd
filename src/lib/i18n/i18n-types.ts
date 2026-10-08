@@ -1563,6 +1563,10 @@ type RootTranslation = {
 		 */
 		providerNeedsSygic: string
 		/**
+		 * P​r​e​ ​t​o​t​o​ ​m​i​e​s​t​o​ ​g​e​n​e​r​á​t​o​r​ ​n​e​m​á​ ​k​a​n​d​i​d​á​t​o​v​.
+		 */
+		noLoopCandidates: string
+		/**
 		 * V​y​h​n​ú​ť​ ​s​a​ ​s​p​o​p​l​a​t​n​e​n​ý​m​ ​c​e​s​t​á​m
 		 */
 		avoidTolls: string
@@ -4334,6 +4338,10 @@ export type TranslationFunctions = {
 		 * Služba Sygic nie je na serveri nastavená. Vyberte OSRM.
 		 */
 		providerNeedsSygic: () => LocalizedString
+		/**
+		 * Pre toto miesto generátor nemá kandidátov.
+		 */
+		noLoopCandidates: () => LocalizedString
 		/**
 		 * Vyhnúť sa spoplatneným cestám
 		 */

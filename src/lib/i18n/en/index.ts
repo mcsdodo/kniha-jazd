@@ -475,6 +475,7 @@ const en = {
 			sygic: 'Sygic',
 		},
 		providerNeedsSygic: 'The server does not have the Sygic routing service set up. Select OSRM.',
+		noLoopCandidates: 'The loop generator has no candidate places near this place.',
 		avoidTolls: 'Avoid paid roads',
 		avoidTollsHint: 'The route avoids sections that need a vignette or a toll in that country.',
 		countries: {

@@ -803,6 +803,33 @@ describe('Tier 2: Route Map', () => {
       expect(await checkbox.isSelected()).toBe(false);
     });
 
+    // Task 91: a seeded place sits at 48.15, 17.11 (ensurePlace), inside the
+    // Bratislava area, and the mock router serves the distance table. So a
+    // same-place trip with no saved map generates a loop through districts.
+    it('generates a Bratislava loop with numbered vias', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-15T08:00',
+        endDatetime: '2026-03-15T09:00',
+        origin: 'Bratislava',
+        destination: 'Bratislava',
+        distanceKm: 43,
+        odometer: 50043,
+        purpose: 'Business trip',
+      });
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+
+      const nums: string[] = [];
+      for (const el of await $$('[data-test="route-map-canvas"] .wp-handle .wp-num').getElements()) {
+        nums.push(await el.getText());
+      }
+      expect(nums.length).toBeGreaterThan(0);
+      // One number per via, in travel order.
+      expect(nums).toEqual(nums.map((_, i) => String(i + 1)));
+    });
+
     it('still renders a saved loop route with the V1 controls', async () => {
       const trip = await seedTrip({
         vehicleId,

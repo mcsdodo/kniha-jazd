@@ -475,6 +475,7 @@ const sk = {
 			sygic: 'Sygic',
 		},
 		providerNeedsSygic: 'Služba Sygic nie je na serveri nastavená. Vyberte OSRM.',
+		noLoopCandidates: 'Pre toto miesto generátor nemá kandidátov.',
 		avoidTolls: 'Vyhnúť sa spoplatneným cestám',
 		avoidTollsHint: 'Trasa sa vyhne úsekom s povinnou diaľničnou známkou alebo mýtom v danej krajine.',
 		countries: {

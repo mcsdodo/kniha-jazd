@@ -472,8 +472,17 @@
 		skipFit = true;
 	}
 
-	/** Small circular handle. Endpoints are visually heavier than vias. */
-	function handleIcon(L: typeof import('leaflet'), endpoint: boolean) {
+	/** Small circular handle. Endpoints are visually heavier than vias. A via
+	 *  with `num` shows its position in the waypoint list (Task 91) -- the
+	 *  backend's order, only displayed here. */
+	function handleIcon(L: typeof import('leaflet'), endpoint: boolean, num?: number) {
+		if (!endpoint && num !== undefined) {
+			return L.divIcon({
+				className: 'wp-handle wp-numbered',
+				html: `<span class="wp-num">${num}</span>`,
+				iconSize: [18, 18]
+			});
+		}
 		return L.divIcon({
 			className: endpoint ? 'wp-handle wp-endpoint' : 'wp-handle',
 			iconSize: [endpoint ? 14 : 10, endpoint ? 14 : 10]
@@ -494,8 +503,9 @@
 		// saved row rather than from a routing result, and both of them still
 		// need handles -- otherwise a via on the way home has none.
 		if ((roundTripRoutes || savedLegGeometry) && baseWaypoints && baseInbound) {
-			drawLegHandles(baseWaypoints, 'outbound');
-			drawLegHandles(baseInbound, 'inbound');
+			// The return leg continues the numbers of the way out.
+			drawLegHandles(baseWaypoints, 'outbound', 0);
+			drawLegHandles(baseInbound, 'inbound', Math.max(baseWaypoints.length - 2, 0));
 			return;
 		}
 
@@ -505,7 +515,7 @@
 			const marker = leaflet!
 				.marker([wp.lat, wp.lon], {
 					draggable: true,
-					icon: handleIcon(leaflet!, endpoint)
+					icon: handleIcon(leaflet!, endpoint, i)
 				})
 				.addTo(map!);
 
@@ -539,7 +549,7 @@
 	 * would put two handles on one coordinate, and dragging the lower one
 	 * would silently be undone by the join.
 	 */
-	function drawLegHandles(points: Waypoint[], leg: Leg) {
+	function drawLegHandles(points: Waypoint[], leg: Leg, numOffset: number) {
 		const legs = (next: Waypoint[]): [Waypoint[], Waypoint[]] =>
 			leg === 'outbound' ? [next, currentInbound()] : [currentOutbound(), next];
 
@@ -548,7 +558,10 @@
 			if (leg === 'inbound' && endpoint) return;
 
 			const marker = leaflet!
-				.marker([wp.lat, wp.lon], { draggable: true, icon: handleIcon(leaflet!, endpoint) })
+				.marker([wp.lat, wp.lon], {
+					draggable: true,
+					icon: handleIcon(leaflet!, endpoint, numOffset + i)
+				})
 				.addTo(map!);
 
 			// ONE request, on release -- never during the drag.
@@ -854,6 +867,12 @@
 			mode = plan.mode;
 
 			if (plan.mode === 'loop') {
+				// The loop starts at this place (Task 91), so it needs a position.
+				if (!plan.origin) {
+					unplacedField = 'origin';
+					return;
+				}
+				unplacedField = null;
 				await runGenerate(trip.distanceKm);
 				return;
 			}
@@ -911,6 +930,14 @@
 	function isAvoidNeedsSygicError(e: unknown): boolean {
 		const msg = e instanceof Error ? e.message : String(e);
 		return msg.includes(AVOID_NEEDS_SYGIC);
+	}
+
+	/** Same string as `NO_LOOP_CANDIDATES` in src-tauri/core/src/route_map/areas.rs. */
+	const NO_LOOP_CANDIDATES = 'NO_LOOP_CANDIDATES';
+
+	function isNoLoopCandidatesError(e: unknown): boolean {
+		const msg = e instanceof Error ? e.message : String(e);
+		return msg.includes(NO_LOOP_CANDIDATES);
 	}
 
 	/** Same string as `PROVIDER_NEEDS_SYGIC` in src-tauri/core/src/route_map/provider.rs. */
@@ -978,7 +1005,7 @@
 		error = null;
 		savedNotice = false;
 		try {
-			generated = await generateRoute(targetKm, [], provider);
+			generated = await generateRoute(tripId, targetKm, [], provider);
 			provider = generated.provider;
 			routedAvoid = [];
 			avoidOptions = [];
@@ -987,7 +1014,13 @@
 			// Drop the previous proposal: leaving it would let the user save a
 			// stale route while an error banner is on screen.
 			generated = null;
-			error = $LL.routeMap.error();
+			if (isNoLoopCandidatesError(e)) {
+				// The place is outside every candidate area: a retry fails the same way.
+				error = $LL.routeMap.noLoopCandidates();
+				retryable = false;
+			} else {
+				error = $LL.routeMap.error();
+			}
 		} finally {
 			generating = false;
 		}
@@ -1135,7 +1168,18 @@
 	 *  box on a saved round trip, let the request fail (`runDirect`'s catch
 	 *  nulls `baseWaypoints`), then press Retry. */
 	function currentWaypoints(): Waypoint[] {
-		return baseWaypoints ?? savedLegs?.outbound ?? savedRoute?.waypoints ?? waypointsFromEndpoints();
+		// A fresh loop proposal has no `baseWaypoints` (that list is direct
+		// mode's), so its own waypoints come next -- before a saved route, which
+		// a regenerated loop replaces on screen. Without this a new loop drew no
+		// handles at all and could not be dragged (Task 91).
+		const loopProposal = mode === 'loop' ? generated?.waypoints : undefined;
+		return (
+			baseWaypoints ??
+			savedLegs?.outbound ??
+			loopProposal ??
+			savedRoute?.waypoints ??
+			waypointsFromEndpoints()
+		);
 	}
 
 	function handleRegenerate() {
@@ -1842,6 +1886,21 @@
 	   a thicker border, so the two ends of the trip read as fixed anchors. */
 	:global(.wp-endpoint) {
 		border-width: 3px;
+	}
+
+	/* A via with its number (Task 91), so the order is visible while editing. */
+	:global(.wp-numbered) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	:global(.wp-num) {
+		color: var(--bg-surface);
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 1;
+		user-select: none;
 	}
 
 	.button {
