@@ -59,7 +59,7 @@ a row, do not delete the row:
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 ```
 
 Rules for the rows:
@@ -77,7 +77,7 @@ Rules for the rows:
   uloží pred migráciou.`
 - **Strata údajov** - what is lost, and the export command to run **before** the
   upgrade.
-- **Obraz, zväzok, port** - changed `ENV`, `VOLUME`, `EXPOSE`, paths or tags.
+- **Image, volume, port** - changed `ENV`, `VOLUME`, `EXPOSE`, paths or tags.
 
 **Remove an env var in two steps.** First add a `### Zastarané` entry that names it, in
 one release. Remove it in a later release, and list it as `odstránená` in the block.
@@ -121,6 +121,9 @@ git commit -m "feat: {description}"
 **Don't:**
 - Put file names, function names or internal refactors in a user entry
 - Write in English (except technical terms)
+- Translate a technical term. Keep it in English: `image`, `volume`, `port`, `endpoint`,
+  `container`, `proxy`, `env var`. A made-up Slovak word (`obraz`, `zväzok`) makes the
+  reader guess what it means.
 - Use typographic characters: write `-` or `--` (not an em-dash), straight quotes `"`
   (not the Slovak typographic low and high quotes), and `...` (not an ellipsis glyph)
 
@@ -135,7 +138,7 @@ correct in a user entry when the user must type them.
 - **Premenné prostredia:** odstránená `GEMINI_API_KEY` (aplikácia ju ignoruje)
 - **Migrácie databázy:** 2 nové. Návrat na starší obraz otvorí databázu len na čítanie. ...
 - **Strata údajov:** tabuľka `receipts` sa zruší
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 
 Pred aktualizáciou:
 1. Vyexportujte doklady: `sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv`

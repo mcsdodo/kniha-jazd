@@ -154,6 +154,7 @@ These load automatically when working on matching files.
 - **Don't use `git add -A`** - only stage files from current session (except `/release`)
 - **Don't write tests for CRUD** - focus on business logic only
 - **Don't forget Slovak UI text** - all user-facing strings go through i18n
+- **Don't translate technical terms** - in Slovak text (UI strings, CHANGELOG, README.md) keep terms such as image, volume, port, endpoint, container and proxy in English. A translation like `obraz` or `zväzok` makes the reader guess.
 - **Don't hardcode year** - app supports year picker, use year parameter
 - **Don't use a relative path in a `.claude/settings.json` hook** - hooks run from the session cwd, which drifts into subfolders; anchor the command with `${CLAUDE_PROJECT_DIR:-.}` or the hook exits 127 and its gate silently does not run
 

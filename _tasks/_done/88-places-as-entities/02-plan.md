@@ -2171,7 +2171,7 @@ Under `[Unreleased]`, add the user-visible change (the Miesta tab, the trip-form
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** `2026-10-05-100000_places_as_entities` prestavia tabuľky `places`, `trips` a `routes`. Migrácia je jednosmerná: starší obraz otvorí aktualizovanú databázu len na čítanie.
 - **Strata údajov:** iné zápisy toho istého miesta sa stratia, každá jazda ukáže názov miesta (najčastejší zápis) a `down.sql` ich nevie vrátiť; uložené trasy, ktoré nepoužíva žiadna jazda, sa zahodia; prázdny začiatok alebo cieľ jazdy sa zmení na miesto `Neznáme miesto`; miesto jazdy bez súradníc dostane značku "treba doplniť polohu"
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 ```
 
 Decide **Potrebný zásah** and the major version with the rule in [CHANGELOG.md:8-13](../../../CHANGELOG.md): an update that drops data raises the major version. Ask the user before `/release` if the spellings loss counts as "drops data".

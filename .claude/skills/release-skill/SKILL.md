@@ -48,7 +48,7 @@ Then read `### Pokyny k aktualizácii` under `## [Unreleased]`
   count.
 - (b) lists a variable that the row `Premenné prostredia` does not name. Ignore
   `KNIHA_JAZD_MOCK_*`: they are test hooks, not integrator settings.
-- (c) shows a change that the row `Obraz, zväzok, port` does not describe.
+- (c) shows a change that the row `Image, volume, port` does not describe.
 - A migration contains `DROP` or `DELETE`, and the row `Strata údajov` says `žiadna`.
 
 Fix the block, commit it (`docs: add upgrade notes for vX.Y.Z`), and continue. This is
@@ -125,7 +125,7 @@ Example:
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 
 ## [1.1.0] - 2026-10-02
 

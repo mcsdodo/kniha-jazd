@@ -232,7 +232,7 @@ Use the five fields of the template in [CHANGELOG.md](../../../CHANGELOG.md):
   - Saved routes that no trip uses are dropped.
   - A blank trip endpoint becomes the place `Neznáme miesto`.
   - A trip place without coordinates becomes a place marked "needs a position".
-- **Obraz, zväzok, port:** no change.
+- **Image, volume, port:** no change.
 
 ## Done when
 
