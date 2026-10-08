@@ -1,0 +1,158 @@
+# Feature: Fuelio Cross-Check
+
+> Compares the drives that the Fuelio Android app recorded (GPS) with the logbook, finds
+> the drives the logbook does not have, and can correct a trip or add a missing one from
+> the GPS data.
+
+## User Flow
+
+1. **Setup.** The operator sets `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET` and
+   `DROPBOX_REFRESH_TOKEN`. Without all three, the nav has no "Fuelio" link, `/fuelio`
+   shows a notice, and every Fuelio command fails, even if `<DATA_DIR>/fuelio` holds
+   drives.
+2. **Sync.** On `/fuelio` the user clicks **Synchronizovať z Dropboxu (rok)**. The server
+   downloads the drives of the selected year that are not in `<DATA_DIR>/fuelio` yet.
+3. **Read the table.** One row per run of Fuelio drives (newest first):
+   - The **Stav** icon: green check = matched to a logbook trip, red exclamation mark =
+     missing in the logbook.
+   - Logbook time, route and km, next to GPS time, km, minutes above 100 km/h and max
+     speed, and the differences (start minutes, km %, off-route %).
+   - **Upozornenia** icons: time differs, km differ, different route, partial GPS, loose
+     match.
+   - A legend above the table explains every icon. Each icon also has a tooltip and an
+     `aria-label`.
+4. **Filter.** Min. km, the state pills (matched / missing), "Len problémy" and "Len
+   diaľnica" (GPS km >= 30 or >= 5 minutes above 100 km/h).
+5. **Map.** A click on a row shows the GPS track (red) and the stored route (blue).
+6. **Prepísať** (matched row). A popup selects which trip fields the GPS values replace:
+   start, end, distance, route. A distance change shows the odometer cascade confirmation
+   (the same one as on `/mapa`).
+7. **Pridať** (missing row). A popup proposes the origin and destination (the nearest
+   places to the GPS start and end, with their distance), the GPS times and km. The user
+   types the purpose and saves. A new trip that moves later odometers shows the insert
+   cascade confirmation.
+
+## Technical Implementation
+
+### Frontend
+- Page: [src/routes/fuelio/+page.svelte](../../src/routes/fuelio/+page.svelte) -- table,
+  filters, legend, Leaflet map. It only renders the report (ADR-008); the filters only
+  hide rows.
+- Popups: [FuelioOverwriteModal.svelte](../../src/lib/components/FuelioOverwriteModal.svelte),
+  [FuelioAddModal.svelte](../../src/lib/components/FuelioAddModal.svelte).
+- Nav: [src/routes/+layout.svelte](../../src/routes/+layout.svelte) asks
+  `is_fuelio_available` once at start and shows the link only on `true`.
+
+### Backend (Rust)
+| Command | What it does |
+|---------|--------------|
+| `is_fuelio_available` | `true` only when the three `DROPBOX_*` secrets are set |
+| `get_fuelio_crosscheck { vehicleId, year }` | Scans the folder, matches, returns the rows |
+| `get_fuelio_track { driveIds, tripId? }` | Full GPS track + stored route for the map |
+| `apply_fuelio_to_trip { tripId, driveIds, fields, dryRun }` | Prepísať, one transaction |
+| `get_fuelio_add_preview { driveIds }` | Times, km and the places sorted by distance |
+| `add_fuelio_trip { ..., withRoute, dryRun }` | Pridať, through `create_trip_cascade_internal` |
+| `sync_fuelio_dropbox { year }` | Async: Dropbox download (dispatcher_async) |
+
+Every sync command calls `require_fuelio_internal` after its argument parse, so a
+missing `dryRun` still fails first. Read-only mode blocks the writes, not the dry runs:
+`apply_fuelio_to_trip` calls `check_read_only!` itself, `add_fuelio_trip` through
+`create_trip_cascade_internal`.
+
+### Data source
+
+Fuelio writes each drive as `route-<epoch ms>.data`: a zip with one headerless CSV, one
+GPS fix per row: timestamp (ms UTC), lat, lon, distance from the previous fix (m), speed
+(m/s), altitude, accuracy. [parse.rs](../../src-tauri/core/src/fuelio/parse.rs) reads it
+and computes the local start/end (Europe/Bratislava), GPS km, minutes above 100 km/h,
+max speed, and a track thinned to one point per 100 m. The scanner keeps one drive per ID.
+
+### Matching ([matching.rs](../../src-tauri/core/src/fuelio/matching.rs))
+
+Fuelio is the reference: every row is a run of drives. A logbook trip without a drive is
+normal (Fuelio does not record every drive) and gets no row. Three passes, each one only
+on the drives and trips that the earlier passes left:
+
+1. **Complete.** A run of consecutive drives (gaps <= 90 min) that starts within 2 km of
+   the origin place, ends within 2 km of the destination, starts within 12 h of the
+   logbook start and has 50-150% of the trip km. A round trip must end at its origin, and
+   its stop at the turnaround can last the whole trip. If more runs fit, the nearest start
+   time wins. A drive belongs to one trip only.
+2. **Partial** (flag "Čiastočné GPS"). The trip has a stored route, >= 80% of the track is
+   within 500 m of it, the run starts or ends near a trip place, starts between 3 h before
+   the trip start and 3 h after its end, and has <= 150% of the trip km.
+3. **Loose** (flag "Voľné spárovanie"). The rest joins into chains (gap <= 60 min, next
+   start within 2 km of the previous end). A chain goes to the nearest trip in time inside
+   the same 3 h window if a chain end is within 5 km of a trip place or >= 50% of it is
+   within 1 km of the stored route, and the trip stays at <= 150% of its km.
+
+A chain that fits no trip is a **missing** row. Flags on a match: start differs by more
+than 30 min, km differ by more than 10%, more than 10% of the track is over 500 m from
+the stored route ("Iná trasa").
+
+### Writes
+- **Prepísať:** start and end in whole minutes (a start that moves the trip past another
+  trip is refused, because the order is the odometer chain); the distance in whole km
+  through `plan_route_distance`, so later odometers move; the route as the full GPS track
+  (`direct`, no provider). A complete match preselects every field; a partial or loose
+  match preselects none and warns.
+- **Pridať:** the trip goes through the normal create cascade, then the full GPS track is
+  saved as its route. The route is a second write: if it fails, the trip stays and the
+  error says so.
+- Both store **every GPS fix** as the route. The 100 m track cut corners (up to 93 m off
+  the road on the highway) and stays only in the "Iná trasa" check.
+
+### Dropbox sync ([dropbox.rs](../../src-tauri/core/src/fuelio/dropbox.rs))
+
+The refresh token buys an access token. The server lists `FUELIO_DROPBOX_FOLDER`
+(default `/Apps/Fuelio/routes`, 2000 entries per page), keeps the files whose start year
+(the epoch in the file name, in local time) is the selected year, and downloads only the missing ones, 8
+at a time, to a temporary name and then a rename. No cursor: a full listing is a few
+calls. The Dropbox app needs "Full Dropbox" access, because Fuelio writes to its own app
+folder.
+
+### Data Flow
+```
+Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
+                                           |
+/fuelio --get_fuelio_crosscheck--> scan + match (fuelio::) --> rows --> table + legend
+   |                                                     trips + places (db)
+   +-- row click  --get_fuelio_track------> GPS track + stored route --> map
+   +-- Prepísať   --apply_fuelio_to_trip--> dry run -> cascade modal -> write
+   +-- Pridať     --add_fuelio_trip-------> dry run -> cascade modal -> write
+```
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| [fuelio/parse.rs](../../src-tauri/core/src/fuelio/parse.rs) | Zip + CSV parse, drive stats, folder scan |
+| [fuelio/matching.rs](../../src-tauri/core/src/fuelio/matching.rs) | The three passes, flags, highway rule |
+| [fuelio/geo.rs](../../src-tauri/core/src/fuelio/geo.rs) | Haversine, distance to a polyline |
+| [fuelio/dropbox.rs](../../src-tauri/core/src/fuelio/dropbox.rs) | `DropboxConfig::from_env`, `sync_year` |
+| [commands_internal/fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs) | The commands, `require_fuelio_internal` |
+| [src/routes/fuelio/+page.svelte](../../src/routes/fuelio/+page.svelte) | Page, icon snippet, legend |
+| [tests/integration/specs/tier3/empty-states.spec.ts](../../tests/integration/specs/tier3/empty-states.spec.ts) | No Dropbox: no nav link, notice on `/fuelio` |
+| [tests/integration/specs/env/env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts) | Dummy `DROPBOX_*`: the nav link shows |
+
+## Design Decisions
+
+- **Why is Fuelio the reference, not the logbook?** The question is "which highway drive
+  is missing in the logbook". A trip without a drive is normal, so listing those would
+  only add noise.
+- **Why three passes?** The complete pass is strict on places and km and loose on time,
+  because a wrong logbook time is what it must find. The partial and loose passes are
+  loose on places and km, so they stay inside 3 h of the trip: with 12 h, an evening
+  city drive got joined to a morning trip.
+- **Why only Dropbox enables the feature?** The operator decides that Fuelio is part of
+  the deployment by setting the secrets. A folder that happens to exist in the volume
+  does not turn on a page that writes trips.
+- **Why whole minutes and whole km?** The logbook stores both that way; the GPS
+  precision does not survive the save anyway, and a whole-km distance follows ADR-054.
+
+## Related
+
+- ADR-008 (backend-only calculations), ADR-054 (whole-km distance writeback)
+- [trip-odometer-cascade.md](./trip-odometer-cascade.md) -- the cascade the writes use
+- [route-maps.md](./route-maps.md) -- stored routes, `plan_route_distance`
+- [_tasks/90-fuelio-crosscheck/](../../_tasks/90-fuelio-crosscheck/01-task.md) -- planning, measured facts from the production data
