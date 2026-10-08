@@ -134,7 +134,8 @@ frontend draws a coordinate list and confirms it.
 
 | Module | Responsibility |
 |---|---|
-| [dataset.rs](../../src-tauri/core/src/route_map/dataset.rs) | Loads the bundled 67-node settlement set and its 67×67 driving-distance matrix |
+| [dataset.rs](../../src-tauri/core/src/route_map/dataset.rs) | Loads the bundled 67-node settlement set and its 67×67 driving-distance matrix, and the Bratislava district set (task 91) |
+| [areas.rs](../../src-tauri/core/src/route_map/areas.rs) | Selects the loop candidate set from the trip's place: home, Bratislava, or none (task 91) |
 | [ga.rs](../../src-tauri/core/src/route_map/ga.rs) | Genetic algorithm picking the settlement sequence (Loop mode) |
 | [osrm.rs](../../src-tauri/core/src/route_map/osrm.rs) | Fetches road-following geometry and, for a plain two-point request, up to three alternatives -- behind a `RouteProvider` trait |
 | [sygic.rs](../../src-tauri/core/src/route_map/sygic.rs) | Sygic Routing API v3 client. Same trait as OSRM; adds `avoid` and returns the avoid options |
@@ -208,7 +209,9 @@ since been deleted.
 Loop mode -- generation and preview, unchanged from V1:
 
 ```
-Row pin → /mapa?trip=id → start_route_for_trip → mode: loop → generate_route
+Row pin → /mapa?trip=id → start_route_for_trip → mode: loop → generate_route(tripId)
+                            ↓
+       trip's origin place → areas.rs: home set | Bratislava set + OSRM /table | error
                             ↓
        genetic algorithm picks a settlement sequence (offline, matrix only)
                             ↓
@@ -311,7 +314,7 @@ design.
 | [src-tauri/core/src/models.rs](../../src-tauri/core/src/models.rs) | `Waypoint`, `RouteMap`, `RouteMode`, `RouteStart` |
 | [src-tauri/core/migrations/2026-09-07-110000_add_trip_route_mode/](../../src-tauri/core/migrations/2026-09-07-110000_add_trip_route_mode/) | Adds `trip_routes.mode`, defaulted to `loop` for every pre-existing row |
 | [src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/](../../src-tauri/core/migrations/2026-09-07-120000_add_trip_route_round_trip/) | Adds `trip_routes.round_trip` |
-| [src-tauri/core/assets/](../../src-tauri/core/assets/) | Bundled 67-node dataset and distance matrix |
+| [src-tauri/core/assets/](../../src-tauri/core/assets/) | Bundled 67-node dataset and distance matrix, and the 17 Bratislava districts (`bratislava.json`) |
 
 ## Design Decisions
 
@@ -334,7 +337,8 @@ routes (measured 188–200 distinct, depending on the target).
 Below roughly 30 km the dataset floors out. The nearest settlements quantise the shortest
 possible loop — the closest is a 2.8 km round trip, and the next is 10 km — so a 5 km target
 has nothing to reach it with, and targets in the 10–25 km range hit tolerance only sometimes.
-There is no algorithmic fix short of a denser dataset, so the map view **always shows the
+The Bratislava set (17 districts) has the same limit: targets below about 10 km can miss
+tolerance. There is no algorithmic fix short of a denser dataset, so the map view **always shows the
 deviation percentage** and highlights it when it exceeds tolerance, rather than silently
 presenting a route that does not match the trip.
 
@@ -438,11 +442,31 @@ either one. Dragging the line always ends by calling `route_direct`, which is al
 edited loop becomes a direct route: the moment a drag decides the shape, the result is a
 concrete road route, not a synthetic GA loop.
 
-This doubles as the interim answer to a deferred limitation: re-anchoring the genetic
-algorithm at an arbitrary point -- so a distant "Bratislava -- Bratislava" loop draws around the
-right town instead of the home base -- needs a distance matrix the app does not have. Until
-that exists, dragging a mis-anchored loop into shape is the escape hatch, and it needed no new
-mechanism: Direct mode's own editing needed exactly this already.
+Every via handle shows its number in the waypoint list (task 91), so the order stays
+visible while the user drags. The start and end point has no number. On a round trip the
+return leg continues the numbers of the way out. The numbers are only display: the order is
+the backend's.
+
+### A loop starts at the trip's place
+
+See [ADR-059](../../DECISIONS.md#adr-059-a-loop-starts-at-the-trips-place-candidate-sets-are-per-area)
+and [Task 91](../../_tasks/91-loop-generator-bratislava/01-task.md). Until task 91, the
+genetic algorithm always started at home node 0, so a "Bratislava -- Bratislava" loop was
+drawn around the home town. Now `generate_route` takes the `tripId`, and the backend reads
+the position of the trip's origin place. [areas.rs](../../src-tauri/core/src/route_map/areas.rs)
+selects the candidate set from that position:
+
+| Anchor | Candidate set | Matrix |
+|---|---|---|
+| <= 5 km from home node 0 | the bundled 67-node home set | bundled, offline |
+| <= 18 km from the Bratislava centre | the anchor at index 0 + the 17 city districts | one OSRM `/table` call |
+| any other place | none: error `NO_LOOP_CANDIDATES` | - |
+
+The anchor itself is index 0 of the Bratislava set, so the loop starts and ends at the place
+in the logbook, not at a district centre. The matrix always comes from OSRM, also when Sygic
+is selected; the final `/route` call uses the selected provider. If the place has no
+position, the page opens the place dialog before it asks to generate. A new area is a new
+candidate file in [assets/](../../src-tauri/core/assets/) plus one branch in `loop_area`.
 
 ### A map save writes its distance to the trip
 

@@ -19,6 +19,24 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 **Reasoning:** A list of trips without a drive would be long and say nothing. The greedy passes are simple to explain, and the real cases that set the 3-hour window are tests in `matching_tests.rs`.
 
+### ADR-059: A loop starts at the trip's place; candidate sets are per area
+
+**Context:** Loop mode always started at home node 0 of the bundled 67-node set. A "Bratislava -> Bratislava" trip got a loop around the home town. The genetic algorithm does not depend on the area: it needs points with the start at index 0 and a driving-distance matrix between them. [Task 91](./_tasks/91-loop-generator-bratislava/01-task.md).
+
+**Decision:**
+
+1. The loop anchor is the trip's origin place, with its position from the place book. A loop row has origin = destination.
+2. The anchor selects one candidate set by straight-line distance, in [areas.rs](./src-tauri/core/src/route_map/areas.rs): home node 0 within 5 km gives the bundled home set; the Bratislava centre within 18 km gives the 17 city districts. Any other place gives the `NO_LOOP_CANDIDATES` error.
+3. A non-home set has the anchor itself at index 0. Its matrix comes from one OSRM `/table` call at generation time (18 points), also when Sygic is the selected provider. A missing matrix cell is an error.
+4. No cache. One `/table` call costs about 0.3 s, and loop mode already needs OSRM for `/route`.
+5. A saved loop records the version of the set it came from, found from its start point.
+
+**Reasoning:** The real anchor makes the loop start and end at the place in the logbook, not at a district centre. Bundled points need no runtime dependency on Overpass, which returned 504 under load during the design. A national list of settlements was not needed: the user asked for Bratislava only. A new area is a new candidate file plus one branch in `loop_area`.
+
+**Related:** [ADR-040](#adr-040-the-waypoint-editor-is-mode-agnostic); [ADR-029](#adr-029-waypoints-persist-as-coordinates-not-dataset-indices); [docs/features/route-maps.md](./docs/features/route-maps.md).
+
+---
+
 ### ADR-058: Only the Dropbox secrets turn Fuelio on
 
 **Context:** The Fuelio page writes trips (Prepísať, Pridať). The drives come from Dropbox into `<DATA_DIR>/fuelio`.

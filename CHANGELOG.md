@@ -21,6 +21,13 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Pridané
+- **Okruh v Bratislave** - jazda s rovnakým začiatkom a cieľom v Bratislave vygeneruje na mape okruh cez mestské časti Bratislavy. Okruh začína a končí na mieste jazdy a jeho dĺžka zodpovedá km jazdy. Doteraz generátor vždy kreslil okruh okolo domova. Pre miesto mimo domova a Bratislavy mapa ukáže "Pre toto miesto generátor nemá kandidátov." Generátor pre Bratislavu potrebuje službu OSRM (`router.project-osrm.org`).
+- **Číslované body trasy** - každý medziľahlý bod trasy na mape má číslo podľa poradia, takže pri presúvaní bodov je poradie vidieť.
+
+### Opravené
+- **Presúvanie bodov nového okruhu** - novo vygenerovaný okruh má body, ktoré sa dajú presunúť. Doteraz ich mal len uložený okruh.
+
 ## [2.1.0] - 2026-10-08
 
 ### Pokyny k aktualizácii
