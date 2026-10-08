@@ -180,4 +180,13 @@ impl RouteProvider for MockRouteProvider {
     fn kind(&self) -> RouteProviderKind {
         self.kind
     }
+
+    /// Straight-line distance x 1.3: offline, and close enough for the
+    /// genetic algorithm to pick plausible stops (task 91).
+    async fn table(&self, coords: &[(f64, f64)]) -> Result<Vec<Vec<f64>>, String> {
+        Ok(coords
+            .iter()
+            .map(|&a| coords.iter().map(|&b| super::areas::haversine_km(a, b) * 1.3).collect())
+            .collect())
+    }
 }

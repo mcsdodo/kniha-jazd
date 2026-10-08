@@ -163,3 +163,15 @@ fn an_avoid_list_without_a_provider_is_refused_by_the_osrm_default() {
         .expect("the default is OSRM, and OSRM cannot avoid per country");
     assert!(err.starts_with(AVOID_NEEDS_SYGIC), "got: {err}");
 }
+
+#[tokio::test]
+async fn mock_table_is_straight_line_times_1_3() {
+    let p = build_provider(ProviderConfig::Mock, None, vec![]).unwrap();
+    let a = (48.1486, 17.1077);
+    let b = (48.3774, 17.5872);
+    let m = p.table(&[a, b]).await.unwrap();
+    assert_eq!(m[0][0], 0.0);
+    let want = crate::route_map::areas::haversine_km(a, b) * 1.3;
+    assert!((m[0][1] - want).abs() < 1e-9);
+    assert!((m[1][0] - want).abs() < 1e-9);
+}

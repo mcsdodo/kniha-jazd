@@ -3,7 +3,7 @@
 //! Every test runs against a `wiremock` server — nothing here ever touches the
 //! public OSRM instance or any other network host.
 
-use super::osrm::{HttpRouteProvider, RouteProvider};
+use super::osrm::{parse_table, HttpRouteProvider, RouteProvider};
 use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -360,4 +360,62 @@ async fn osrm_offers_no_avoid_values() {
         .await
         .unwrap();
     assert!(r.possible_avoids.is_empty());
+}
+
+// --- /table: the driving-distance matrix (task 91) ---
+
+#[test]
+fn parse_table_converts_metres_to_km() {
+    let m = parse_table(r#"{"code":"Ok","distances":[[0,1500.0],[2000.0,0]]}"#).unwrap();
+    assert_eq!(m, vec![vec![0.0, 1.5], vec![2.0, 0.0]]);
+}
+
+#[test]
+fn parse_table_rejects_a_null_cell() {
+    let e = parse_table(r#"{"code":"Ok","distances":[[0,null],[2000.0,0]]}"#).unwrap_err();
+    assert!(e.contains("no road"), "{e}");
+}
+
+#[test]
+fn parse_table_rejects_a_non_ok_code() {
+    let e = parse_table(r#"{"code":"TooBig","message":"Too many table coordinates"}"#)
+        .unwrap_err();
+    assert!(e.contains("TooBig"), "{e}");
+}
+
+#[tokio::test]
+async fn table_sends_lon_lat_and_asks_for_distances() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(
+            r"^/table/v1/driving/17\.100000,48\.100000;17\.200000,48\.200000$",
+        ))
+        .and(wiremock::matchers::query_param("annotations", "distance"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "code": "Ok",
+            "distances": [[0.0, 12000.0], [13000.0, 0.0]]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let provider = HttpRouteProvider::new(server.uri());
+    let m = provider.table(&[(48.1, 17.1), (48.2, 17.2)]).await.unwrap();
+
+    assert_eq!(m, vec![vec![0.0, 12.0], vec![13.0, 0.0]]);
+}
+
+#[tokio::test]
+async fn table_reports_an_http_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/table/v1/driving/.*"))
+        .respond_with(ResponseTemplate::new(429))
+        .mount(&server)
+        .await;
+
+    let provider = HttpRouteProvider::new(server.uri());
+    let e = provider.table(&[(48.1, 17.1), (48.2, 17.2)]).await.unwrap_err();
+
+    assert!(e.contains("429"), "{e}");
 }

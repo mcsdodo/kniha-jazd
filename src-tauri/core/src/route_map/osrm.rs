@@ -73,6 +73,13 @@ pub trait RouteProvider: Send + Sync {
         let _ = max;
         Ok(vec![self.fetch(coords).await?])
     }
+
+    /// Driving-distance matrix in km between all `coords` (`(lat, lon)`),
+    /// row = from, column = to (task 91). Defaulted to the public OSRM
+    /// server, so a provider with no matrix of its own (Sygic) uses OSRM.
+    async fn table(&self, coords: &[(f64, f64)]) -> Result<Vec<Vec<f64>>, String> {
+        HttpRouteProvider::public().table_matrix(coords).await
+    }
 }
 
 pub struct HttpRouteProvider {
@@ -132,6 +139,45 @@ impl HttpRouteProvider {
     }
 }
 
+/// Top level of an OSRM `/table` response. Only the fields we use are modelled.
+#[derive(Deserialize)]
+struct TableResponse {
+    code: String,
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default)]
+    distances: Option<Vec<Vec<Option<f64>>>>,
+}
+
+/// An OSRM `/table` body to a km matrix. A `null` cell (no road between two
+/// points) is an error: the genetic algorithm must never read it as 0 km.
+pub fn parse_table(body: &str) -> Result<Vec<Vec<f64>>, String> {
+    let r: TableResponse = serde_json::from_str(body)
+        .map_err(|e| format!("Could not read the distance table from the routing service: {e}"))?;
+    if r.code != "Ok" {
+        let detail = r.message.map(|m| format!(" ({m})")).unwrap_or_default();
+        return Err(format!(
+            "Routing service could not build a distance table: {}{}",
+            r.code, detail
+        ));
+    }
+    let rows = r
+        .distances
+        .ok_or("Routing service reported success but returned no distance table.")?;
+    rows.into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(|cell| {
+                    cell.map(|m| m / 1000.0).ok_or_else(|| {
+                        "The distance table has a pair of points with no road between them."
+                            .to_string()
+                    })
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// Top level of an OSRM `/route` response. Only the fields we use are modelled.
 #[derive(Deserialize)]
 struct OsrmResponse {
@@ -155,6 +201,42 @@ struct OsrmRoute {
 }
 
 impl HttpRouteProvider {
+    /// `/table` request URL for `coords`, with the same `lon,lat` flip as
+    /// [`Self::route_url`].
+    fn table_url(&self, coords: &[(f64, f64)]) -> String {
+        let points = coords
+            .iter()
+            .map(|(lat, lon)| format!("{lon:.6},{lat:.6}"))
+            .collect::<Vec<_>>()
+            .join(";");
+        format!("{}/table/v1/driving/{}?annotations=distance", self.base_url, points)
+    }
+
+    /// Driving-distance matrix in km from this server's `/table` service.
+    /// The public server accepts up to 100 points (measured 2026-10-08).
+    pub async fn table_matrix(&self, coords: &[(f64, f64)]) -> Result<Vec<Vec<f64>>, String> {
+        let client = self.client.as_ref().map_err(|e| e.clone())?;
+        let response = client.get(self.table_url(coords)).send().await.map_err(|e| {
+            format!(
+                "Could not reach the routing service at {}: {e}. Check your internet connection and try again.",
+                self.base_url
+            )
+        })?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format!(
+                "Routing service returned HTTP {} ({}). Try again in a moment.",
+                status.as_u16(),
+                status.canonical_reason().unwrap_or("unknown")
+            ));
+        }
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Could not read the routing service response: {e}"))?;
+        parse_table(&body)
+    }
+
     /// Issues the request and maps every `OsrmRoute` in the response to a
     /// [`FetchedRoute`], preserving OSRM's order. Shared by `fetch` and
     /// `fetch_alternatives` so every error branch (connection, non-2xx,
@@ -239,5 +321,11 @@ impl RouteProvider for HttpRouteProvider {
         }
 
         self.request(&self.route_url(coords, Some(max))).await
+    }
+
+    /// This server, not the public default: a custom `base_url` must also
+    /// serve the matrix.
+    async fn table(&self, coords: &[(f64, f64)]) -> Result<Vec<Vec<f64>>, String> {
+        self.table_matrix(coords).await
     }
 }
