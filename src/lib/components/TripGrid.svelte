@@ -1072,6 +1072,8 @@
 							otherInvoiceSum={gridData?.otherInvoiceSums?.[trip.id] ?? null}
 							fuelDatetimeWarning={gridData?.fuelDatetimeWarnings?.includes(trip.id) ?? false}
 							otherDatetimeWarning={gridData?.otherDatetimeWarnings?.includes(trip.id) ?? false}
+							fuelReceiptDatetimes={gridData?.fuelReceiptDatetimes?.[trip.id] ?? []}
+							otherReceiptDatetimes={gridData?.otherReceiptDatetimes?.[trip.id] ?? []}
 							fuelMismatchOverride={gridData?.fuelMismatchOverrides?.includes(trip.id) ?? false}
 							otherMismatchOverride={gridData?.otherMismatchOverrides?.includes(trip.id) ?? false}
 							previewData={previewingTripId === trip.id ? previewData : null}

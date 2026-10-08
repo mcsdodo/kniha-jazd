@@ -5,7 +5,7 @@
 use crate::commands_internal::statistics::{
     calculate_consumption_warnings, calculate_duplicate_datetime_warnings,
     calculate_odometer_span_warnings, calculate_odometer_spans,
-    calculate_energy_grid_data, calculate_invoice_datetime_warnings,
+    calculate_energy_grid_data, calculate_invoice_datetime_warnings, calculate_receipt_datetimes_outside,
     calculate_invoice_override_warnings, calculate_missing_receipts,
     calculate_other_invoice_sums, calculate_other_sum_mismatches,
     calculate_suggested_fillups, get_open_period_km,
@@ -5766,4 +5766,57 @@ fn update_trip_with_an_unknown_place_id_fails() {
     )
     .unwrap_err();
     assert!(err.starts_with("Miesto neexistuje"), "{err}");
+}
+
+// ========================================================================
+// The receipt times behind a datetime warning (calculate_receipt_datetimes_outside):
+// the tooltip names the receipt time and the trip time, not just "mismatch".
+// ========================================================================
+
+fn ndt(s: &str) -> NaiveDateTime {
+    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M").unwrap()
+}
+
+#[test]
+fn receipt_times_outside_the_trip_are_listed_per_type() {
+    // 2026-09-28: the trip was overwritten to 17:30-18:38, the fuel receipt is 18:43.
+    let trip = make_trip_with_datetime_range(ndt("2026-09-28 17:30"), Some(ndt("2026-09-28 18:38")));
+    let id = trip.id.to_string();
+    let links = vec![
+        make_paperless_link(trip.id, AssignmentType::Fuel, Some(ndt("2026-09-28 18:43")), false),
+        make_paperless_link(trip.id, AssignmentType::Other, Some(ndt("2026-09-28 18:00")), false),
+        make_paperless_link(trip.id, AssignmentType::Other, Some(ndt("2026-09-29 09:10")), false),
+    ];
+    let (fuel, other) = calculate_receipt_datetimes_outside(&[trip], &links);
+    assert_eq!(fuel.get(&id), Some(&vec![ndt("2026-09-28 18:43")]));
+    assert_eq!(other.get(&id), Some(&vec![ndt("2026-09-29 09:10")]), "18:00 is inside the trip");
+}
+
+#[test]
+fn a_trip_with_receipts_inside_or_without_a_time_has_no_entry() {
+    let trip = make_trip_with_datetime_range(ndt("2026-09-28 17:30"), Some(ndt("2026-09-28 18:38")));
+    let links = vec![
+        make_paperless_link(trip.id, AssignmentType::Fuel, Some(ndt("2026-09-28 18:00")), false),
+        make_paperless_link(trip.id, AssignmentType::Other, None, false),
+    ];
+    let (fuel, other) = calculate_receipt_datetimes_outside(&[trip], &links);
+    assert!(fuel.is_empty() && other.is_empty());
+}
+
+#[test]
+fn receipt_times_outside_match_the_warning_sets() {
+    let a = make_trip_with_datetime_range(ndt("2026-09-28 08:00"), Some(ndt("2026-09-28 09:00")));
+    let b = make_trip_with_datetime_range(ndt("2026-09-28 10:00"), None);
+    let links = vec![
+        make_paperless_link(a.id, AssignmentType::Fuel, Some(ndt("2026-09-28 09:30")), false),
+        make_paperless_link(b.id, AssignmentType::Fuel, Some(ndt("2026-09-28 10:00")), false),
+    ];
+    let trips = vec![a, b];
+    let (fuel_set, _) = calculate_invoice_datetime_warnings(&trips, &links);
+    let (fuel_map, _) = calculate_receipt_datetimes_outside(&trips, &links);
+    let mut keys: Vec<&String> = fuel_map.keys().collect();
+    let mut set: Vec<&String> = fuel_set.iter().collect();
+    keys.sort();
+    set.sort();
+    assert_eq!(keys, set);
 }

@@ -373,6 +373,8 @@ pub fn build_trip_grid_data(
             other_invoice_sums: HashMap::new(),
             fuel_datetime_warnings: HashSet::new(),
             other_datetime_warnings: HashSet::new(),
+            fuel_receipt_datetimes: HashMap::new(),
+            other_receipt_datetimes: HashMap::new(),
             duplicate_datetime_warnings: HashSet::new(),
             odometer_span_warnings: HashSet::new(),
             odometer_spans: HashMap::new(),
@@ -424,6 +426,8 @@ pub fn build_trip_grid_data(
     // Invoice datetime warnings per type (assigned invoice outside trip time range)
     let (fuel_datetime_warnings, other_datetime_warnings) =
         calculate_invoice_datetime_warnings(&trips, &links);
+    let (fuel_receipt_datetimes, other_receipt_datetimes) =
+        calculate_receipt_datetimes_outside(&trips, &links);
 
     // Trips sharing an exact start datetime (task 79)
     let duplicate_datetime_warnings = calculate_duplicate_datetime_warnings(&trips);
@@ -564,6 +568,8 @@ pub fn build_trip_grid_data(
         other_invoice_sums,
         fuel_datetime_warnings,
         other_datetime_warnings,
+        fuel_receipt_datetimes,
+        other_receipt_datetimes,
         duplicate_datetime_warnings,
         odometer_span_warnings,
         odometer_spans,
@@ -1426,6 +1432,39 @@ pub fn calculate_invoice_datetime_warnings(
                 AssignmentType::Fuel => fuel.insert(trip.id.to_string()),
             };
         }
+    }
+    (fuel, other)
+}
+
+/// The receipt times behind [`calculate_invoice_datetime_warnings`]: for each
+/// trip, the times of its assigned receipts that fall outside the trip, per
+/// type. The grid marks the trip's time cell and names these times, so the
+/// user sees which data disagrees (ADR-008: no frontend comparison).
+pub fn calculate_receipt_datetimes_outside(
+    trips: &[Trip],
+    links: &[PaperlessLink],
+) -> (
+    HashMap<String, Vec<NaiveDateTime>>,
+    HashMap<String, Vec<NaiveDateTime>>,
+) {
+    let mut fuel: HashMap<String, Vec<NaiveDateTime>> = HashMap::new();
+    let mut other: HashMap<String, Vec<NaiveDateTime>> = HashMap::new();
+    for trip in trips {
+        let trip_id = trip.id.to_string();
+        for link in links.iter().filter(|l| l.trip_id == trip_id) {
+            let Some(dt) = link.receipt_datetime else { continue };
+            if is_datetime_in_trip_range(dt, trip) {
+                continue;
+            }
+            let map = match link.assignment_type {
+                AssignmentType::Other => &mut other,
+                AssignmentType::Fuel => &mut fuel,
+            };
+            map.entry(trip_id.clone()).or_default().push(dt);
+        }
+    }
+    for times in fuel.values_mut().chain(other.values_mut()) {
+        times.sort();
     }
     (fuel, other)
 }

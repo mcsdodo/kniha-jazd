@@ -190,6 +190,8 @@ const en = {
 			missingOtherInvoice: 'Missing invoice for other costs',
 			otherSumMismatch: 'Other costs total does not match the sum of attached invoices ({total} € vs {sum} €)',
 			otherSumMismatchShort: 'other costs total does not match attached invoices',
+			fuelReceiptOutsideTrip: 'The fuel receipt time ({receipt}) is outside the trip time ({trip}).',
+			otherReceiptOutsideTrip: 'The other-costs receipt time ({receipt}) is outside the trip time ({trip}).',
 			dataMismatch: 'data mismatch',
 			userConfirmed: 'confirmed',
 			// Odometer chain warnings (Task 79)

@@ -599,6 +599,18 @@ type RootTranslation = {
 			 */
 			otherSumMismatchShort: string
 			/**
+			 * Č​a​s​ ​d​o​k​l​a​d​u​ ​o​ ​t​a​n​k​o​v​a​n​í​ ​(​{​r​e​c​e​i​p​t​}​)​ ​j​e​ ​m​i​m​o​ ​č​a​s​u​ ​j​a​z​d​y​ ​(​{​t​r​i​p​}​)​.
+			 * @param {string} receipt
+			 * @param {string} trip
+			 */
+			fuelReceiptOutsideTrip: RequiredParams<'receipt' | 'trip'>
+			/**
+			 * Č​a​s​ ​d​o​k​l​a​d​u​ ​k​ ​i​n​ý​m​ ​n​á​k​l​a​d​o​m​ ​(​{​r​e​c​e​i​p​t​}​)​ ​j​e​ ​m​i​m​o​ ​č​a​s​u​ ​j​a​z​d​y​ ​(​{​t​r​i​p​}​)​.
+			 * @param {string} receipt
+			 * @param {string} trip
+			 */
+			otherReceiptOutsideTrip: RequiredParams<'receipt' | 'trip'>
+			/**
 			 * n​e​s​ú​l​a​d​ ​ú​d​a​j​o​v
 			 */
 			dataMismatch: string
@@ -3370,6 +3382,14 @@ export type TranslationFunctions = {
 			 * suma iných nákladov nesedí so súčtom dokladov
 			 */
 			otherSumMismatchShort: () => LocalizedString
+			/**
+			 * Čas dokladu o tankovaní ({receipt}) je mimo času jazdy ({trip}).
+			 */
+			fuelReceiptOutsideTrip: (arg: { receipt: string, trip: string }) => LocalizedString
+			/**
+			 * Čas dokladu k iným nákladom ({receipt}) je mimo času jazdy ({trip}).
+			 */
+			otherReceiptOutsideTrip: (arg: { receipt: string, trip: string }) => LocalizedString
 			/**
 			 * nesúlad údajov
 			 */

@@ -248,6 +248,10 @@ export interface TripGridData {
 	otherInvoiceSums: Record<string, number>; // tripId -> attached Other invoice sum (EUR), only for mismatched trips
 	fuelDatetimeWarnings: string[]; // tripIds with Fuel invoice datetime outside trip range
 	otherDatetimeWarnings: string[]; // tripIds with Other invoice datetime outside trip range
+	/** Per trip in fuelDatetimeWarnings: the Fuel receipt times outside the trip. */
+	fuelReceiptDatetimes: Record<string, string[]>;
+	/** Per trip in otherDatetimeWarnings: the Other receipt times outside the trip. */
+	otherReceiptDatetimes: Record<string, string[]>;
 	duplicateDatetimeWarnings: string[]; // tripIds sharing an exact start datetime with another trip (Task 79)
 	odometerSpanWarnings: string[]; // tripIds whose odometer span differs from the recorded distance (Task 79)
 	odometerSpans: Record<string, number>; // tripId -> measured odometer span (km), only for flagged trips

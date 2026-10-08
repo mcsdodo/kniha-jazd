@@ -44,6 +44,22 @@
 		return `${day}.${month}. ${hours}:${minutes}`;
 	}
 
+	// A receipt time outside the trip, unless the user confirmed the mismatch.
+	$: fuelOutside = fuelDatetimeWarning && !fuelMismatchOverride ? fuelReceiptDatetimes : [];
+	$: otherOutside = otherDatetimeWarning && !otherMismatchOverride ? otherReceiptDatetimes : [];
+	$: receiptTimeWarning = fuelOutside.length > 0 || otherOutside.length > 0;
+	$: tripTimeText = trip
+		? `${formatDatetimeShort(trip.startDatetime)} - ${formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}`
+		: '';
+	$: receiptTimeTooltip = [
+		...fuelOutside.map((r) =>
+			$LL.trips.legend.fuelReceiptOutsideTrip({ receipt: formatDatetimeShort(r), trip: tripTimeText })
+		),
+		...otherOutside.map((r) =>
+			$LL.trips.legend.otherReceiptOutsideTrip({ receipt: formatDatetimeShort(r), trip: tripTimeText })
+		)
+	].join('\n');
+
 	// Format end datetime for display
 	function formatEndDatetimeShort(endDatetime: string | null | undefined, startDatetime: string): string {
 		// If no end datetime, show dash
@@ -105,6 +121,10 @@
 	export let otherDatetimeWarning: boolean = false;
 	export let fuelMismatchOverride: boolean = false;
 	export let otherMismatchOverride: boolean = false;
+	// The receipt times outside the trip (backend, ADR-008). A receipt time
+	// outside the trip marks the trip's time cell, the data that disagrees.
+	export let fuelReceiptDatetimes: string[] = [];
+	export let otherReceiptDatetimes: string[] = [];
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
@@ -955,14 +975,25 @@
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{tripNumber}</td>
 		{/if}
-		<td class="col-start-datetime">
+		<td
+			class="col-start-datetime"
+			class:receipt-time-warning={receiptTimeWarning && hiddenColumns.includes('time')}
+		>
 			{formatDatetimeShort(trip.startDatetime)}
 			{#if duplicateDatetimeWarning}
 				<span class="chain-indicator" title={$LL.trips.legend.duplicateDatetimeTooltip()}>⚠</span>
 			{/if}
+			{#if receiptTimeWarning && hiddenColumns.includes('time')}
+				<span class="chain-indicator" title={receiptTimeTooltip} data-testid="receipt-time-warning">⚠</span>
+			{/if}
 		</td>
 		{#if !hiddenColumns.includes('time')}
-			<td class="col-end-datetime">{formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}</td>
+			<td class="col-end-datetime" class:receipt-time-warning={receiptTimeWarning}>
+				{formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}
+				{#if receiptTimeWarning}
+					<span class="chain-indicator" title={receiptTimeTooltip} data-testid="receipt-time-warning">⚠</span>
+				{/if}
+			</td>
 		{/if}
 		<td class="col-origin">{trip.origin}</td>
 		<td class="col-destination">{trip.destination}</td>
@@ -995,8 +1026,6 @@
 					{/if}
 					{#if !hasMatchingFuelInvoice}
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingFuelInvoice()}>⚠</span>
-					{:else if fuelDatetimeWarning && !fuelMismatchOverride}
-						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
 			</td>
@@ -1046,8 +1075,6 @@
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingOtherInvoice()}>⚠</span>
 					{:else if otherSumMismatch}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.otherSumMismatch({ total: (trip.otherCostsEur ?? 0).toFixed(2), sum: (otherInvoiceSum ?? 0).toFixed(2) })}>⚠</span>
-					{:else if otherDatetimeWarning && !otherMismatchOverride}
-						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
 			</td>
@@ -1340,6 +1367,12 @@
 
 	/* Odometer chain warning - tied start datetime, or a span that
 	   contradicts the recorded distance (Task 79) */
+	.receipt-time-warning {
+		background-color: var(--warning-bg);
+		outline: 1px solid var(--warning-border);
+		outline-offset: -1px;
+	}
+
 	.chain-indicator {
 		margin-left: 0.25rem;
 		cursor: help;

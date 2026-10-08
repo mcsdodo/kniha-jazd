@@ -190,6 +190,8 @@ const sk = {
 			missingOtherInvoice: 'Chýba doklad k iným nákladom',
 			otherSumMismatch: 'Suma iných nákladov nesedí so súčtom priradených dokladov ({total:string} € vs {sum:string} €)',
 			otherSumMismatchShort: 'suma iných nákladov nesedí so súčtom dokladov',
+			fuelReceiptOutsideTrip: 'Čas dokladu o tankovaní ({receipt: string}) je mimo času jazdy ({trip: string}).',
+			otherReceiptOutsideTrip: 'Čas dokladu k iným nákladom ({receipt: string}) je mimo času jazdy ({trip: string}).',
 			dataMismatch: 'nesúlad údajov',
 			userConfirmed: 'potvrdené',
 			// Odometer chain warnings (Task 79)
