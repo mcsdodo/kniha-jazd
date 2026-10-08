@@ -18,6 +18,8 @@
 	const GPS_COLOR = '#d63031';
 	const ROUTE_COLOR = '#0984e3';
 
+	// null until the server answers; false: Dropbox is not configured, the page is off.
+	let available = $state<boolean | null>(null);
 	let report = $state<FuelioReport | null>(null);
 	let loading = $state(false);
 	// Empty: no km filter.
@@ -94,7 +96,7 @@
 	$effect(() => {
 		const vehicle = $activeVehicleStore;
 		const year = $selectedYearStore;
-		if (!vehicle) {
+		if (!vehicle || available !== true) {
 			report = null;
 			return;
 		}
@@ -114,6 +116,11 @@
 	}
 
 	onMount(async () => {
+		try {
+			available = await api.isFuelioAvailable();
+		} catch (e) {
+			toast.error(String(e));
+		}
 		leaflet = (await import('leaflet')).default;
 	});
 
@@ -208,7 +215,9 @@
 		<h2 class="heading">{$LL.fuelio.title()}</h2>
 		<p class="muted">{$LL.fuelio.intro()}</p>
 
-		{#if !$activeVehicleStore}
+		{#if available === false}
+			<p class="warn" data-testid="fuelio-not-configured">{$LL.fuelio.notConfigured()}</p>
+		{:else if !$activeVehicleStore}
 			<p>{$LL.fuelio.noVehicle()}</p>
 		{:else if loading && !report}
 			<p>{$LL.fuelio.loading()}</p>

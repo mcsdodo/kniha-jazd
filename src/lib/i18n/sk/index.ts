@@ -502,6 +502,7 @@ const sk = {
 		folder: 'Priečinok so súbormi Fuelio: {folder: string}',
 		noFolder: 'Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data).',
 		driveCount: 'Jazdy Fuelio v roku {year: number}: {count: number}',
+		notConfigured: 'Fuelio nie je nastavené. Nastavte premenné prostredia DROPBOX_APP_KEY, DROPBOX_APP_SECRET a DROPBOX_REFRESH_TOKEN.',
 		noVehicle: 'Vyberte vozidlo.',
 		loading: 'Načítavam...',
 		minKm: 'Min. km',

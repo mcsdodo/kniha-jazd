@@ -502,6 +502,7 @@ const en = {
 		folder: 'Folder with the Fuelio files: {folder}',
 		noFolder: 'The folder does not exist. Copy the Fuelio backup (route-*.data) into it.',
 		driveCount: 'Fuelio drives in {year}: {count}',
+		notConfigured: 'Fuelio is not set up. Set the environment variables DROPBOX_APP_KEY, DROPBOX_APP_SECRET and DROPBOX_REFRESH_TOKEN.',
 		noVehicle: 'Select a vehicle.',
 		loading: 'Loading...',
 		minKm: 'Min. km',

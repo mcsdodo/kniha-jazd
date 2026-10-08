@@ -716,6 +716,11 @@ export async function applyFuelioToTrip(
 	return await apiCall('apply_fuelio_to_trip', { tripId, driveIds, fields, dryRun });
 }
 
+/** True when the Fuelio folder exists or Dropbox is configured: the nav shows the page. */
+export async function isFuelioAvailable(): Promise<boolean> {
+	return await apiCall('is_fuelio_available', {});
+}
+
 /** Copy the Fuelio drives of one year from Dropbox into the data folder. */
 export async function syncFuelioDropbox(year: number): Promise<FuelioSyncReport> {
 	return await apiCall('sync_fuelio_dropbox', { year });

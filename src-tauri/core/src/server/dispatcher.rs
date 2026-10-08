@@ -9,6 +9,11 @@ fn parse_args<T: serde::de::DeserializeOwned>(args: Value) -> Result<T, String> 
     serde_json::from_value(args).map_err(|e| format!("Invalid args: {e}"))
 }
 
+/// The Fuelio commands work only when Dropbox is configured (Task 90).
+fn fuelio_configured() -> bool {
+    crate::fuelio::dropbox::DropboxConfig::from_env().is_some()
+}
+
 /// Dispatch a synchronous command by name.
 ///
 /// Returns `Ok(Value)` on success or `Err(message)` on failure.
@@ -1015,6 +1020,8 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // ====================================================================
         // Fuelio cross-check (Task 90, read-only)
         // ====================================================================
+        // Only the DROPBOX_* secrets set Fuelio up (a bare folder does not).
+        "is_fuelio_available" => Ok(serde_json::to_value(fuelio_configured()).unwrap()),
         "get_fuelio_crosscheck" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -1023,6 +1030,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 year: i32,
             }
             let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
             let v = crate::commands_internal::get_fuelio_crosscheck_internal(
                 &state.db,
                 &state.app_dir,
@@ -1039,6 +1047,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 trip_id: Option<String>,
             }
             let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
             let v = crate::commands_internal::get_fuelio_track_internal(
                 &state.db,
                 &state.app_dir,
@@ -1057,6 +1066,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 dry_run: bool,
             }
             let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
             let v = crate::commands_internal::apply_fuelio_to_trip_internal(
                 &state.db,
                 &state.app_state,
@@ -1075,6 +1085,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 drive_ids: Vec<String>,
             }
             let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
             let v = crate::commands_internal::get_fuelio_add_preview_internal(
                 &state.db,
                 &state.app_dir,
@@ -1095,6 +1106,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 dry_run: bool,
             }
             let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
             let v = crate::commands_internal::add_fuelio_trip_internal(
                 &state.db,
                 &state.app_state,
@@ -1731,6 +1743,27 @@ mod tests {
         );
         let err = result.unwrap_err();
         assert!(err.contains("dryRun") || err.contains("dry_run"), "got: {err}");
+    }
+
+    /// Task 90: a `<DATA_DIR>/fuelio` folder alone does not set Fuelio up.
+    /// Only the DROPBOX_* secrets do, so without them the commands refuse.
+    #[test]
+    fn fuelio_commands_over_rpc_are_refused_without_dropbox() {
+        if fuelio_configured() {
+            return; // a developer shell with real DROPBOX_* secrets
+        }
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(crate::fuelio::FOLDER_NAME)).unwrap();
+        let state = ServerState { app_dir: dir.path().to_path_buf(), ..test_state() };
+        let available = dispatch_sync("is_fuelio_available", json!({}), &state).unwrap();
+        assert_eq!(available, json!(false));
+        let err = dispatch_sync(
+            "get_fuelio_crosscheck",
+            json!({ "vehicleId": "x", "year": 2026 }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.contains("Dropbox is not configured"), "got: {err}");
     }
 
     #[test]

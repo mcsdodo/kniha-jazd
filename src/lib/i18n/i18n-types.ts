@@ -1654,6 +1654,10 @@ type RootTranslation = {
 		 */
 		driveCount: RequiredParams<'count' | 'year'>
 		/**
+		 * F​u​e​l​i​o​ ​n​i​e​ ​j​e​ ​n​a​s​t​a​v​e​n​é​.​ ​N​a​s​t​a​v​t​e​ ​p​r​e​m​e​n​n​é​ ​p​r​o​s​t​r​e​d​i​a​ ​D​R​O​P​B​O​X​_​A​P​P​_​K​E​Y​,​ ​D​R​O​P​B​O​X​_​A​P​P​_​S​E​C​R​E​T​ ​a​ ​D​R​O​P​B​O​X​_​R​E​F​R​E​S​H​_​T​O​K​E​N​.
+		 */
+		notConfigured: string
+		/**
 		 * V​y​b​e​r​t​e​ ​v​o​z​i​d​l​o​.
 		 */
 		noVehicle: string
@@ -4389,6 +4393,10 @@ export type TranslationFunctions = {
 		 * Jazdy Fuelio v roku {year}: {count}
 		 */
 		driveCount: (arg: { count: number, year: number }) => LocalizedString
+		/**
+		 * Fuelio nie je nastavené. Nastavte premenné prostredia DROPBOX_APP_KEY, DROPBOX_APP_SECRET a DROPBOX_REFRESH_TOKEN.
+		 */
+		notConfigured: () => LocalizedString
 		/**
 		 * Vyberte vozidlo.
 		 */

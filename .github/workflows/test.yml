@@ -280,6 +280,9 @@ jobs:
             -e PAPERLESS_API_TOKEN=env-pinned-paperless-token \
             -e PAPERLESS_ENABLED=true \
             -e KNIHA_JAZD_REVEAL_PIN=4269 \
+            -e DROPBOX_APP_KEY=env-pinned-dropbox-key \
+            -e DROPBOX_APP_SECRET=env-pinned-dropbox-secret \
+            -e DROPBOX_REFRESH_TOKEN=env-pinned-dropbox-token \
             kniha-jazd-web:test
 
       - name: Wait for server health

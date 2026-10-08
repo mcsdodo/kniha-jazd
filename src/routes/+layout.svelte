@@ -8,7 +8,7 @@
 	import { localeStore } from '$lib/stores/locale';
 	import { themeStore } from '$lib/stores/theme';
 	import { appModeStore } from '$lib/stores/appMode';
-	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
+	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, isFuelioAvailable } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 	import InvoiceIndicator from '$lib/components/InvoiceIndicator.svelte';
@@ -18,6 +18,7 @@
 
 	let availableYears = $state<number[]>([]);
 	let i18nReady = $state(false);
+	let fuelioAvailable = $state(false);
 
 	async function loadYears() {
 		if (!$activeVehicleStore) {
@@ -52,6 +53,11 @@
 
 		// Initialize app mode (check for read-only)
 		await appModeStore.refresh();
+
+		// The Fuelio page needs its folder or Dropbox; without both, hide it.
+		isFuelioAvailable()
+			.then((v) => (fuelioAvailable = v))
+			.catch((error) => console.error('Failed to check Fuelio:', error));
 
 		try {
 			// PRESERVE parallel loading for performance
@@ -127,7 +133,9 @@
 				<nav class="main-nav">
 					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<InvoiceIndicator /></a>
 					<a href="/miesta" class="nav-link" class:active={$page.url.pathname === '/miesta'} data-testid="nav-places">{$LL.app.nav.places()}</a>
-					<a href="/fuelio" class="nav-link" class:active={$page.url.pathname === '/fuelio'} data-testid="nav-fuelio">{$LL.app.nav.fuelio()}</a>
+					{#if fuelioAvailable}
+						<a href="/fuelio" class="nav-link" class:active={$page.url.pathname === '/fuelio'} data-testid="nav-fuelio">{$LL.app.nav.fuelio()}</a>
+					{/if}
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
 						{$LL.app.nav.settings()}
 					</a>

@@ -114,6 +114,17 @@ fn crosscheck_without_the_folder_reports_it() {
 }
 
 #[test]
+fn fuelio_is_refused_without_dropbox_even_with_the_folder() {
+    let err = require_fuelio_internal(false).unwrap_err();
+    assert!(err.contains("Dropbox is not configured"), "got: {err}");
+}
+
+#[test]
+fn fuelio_is_allowed_with_dropbox() {
+    assert!(require_fuelio_internal(true).is_ok());
+}
+
+#[test]
 fn track_returns_the_gps_points_and_the_stored_route() {
     let (db, dir, v, t) = setup();
     let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();

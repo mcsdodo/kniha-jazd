@@ -44,6 +44,17 @@ fn pairs(points: Vec<(f64, f64)>) -> Vec<[f64; 2]> {
 
 /// The cross-check of one vehicle's trips of `year` against the Fuelio
 /// drives that start in `year`.
+/// Fuelio is set up only through Dropbox. Without the DROPBOX_* secrets every
+/// Fuelio command is refused, even when `<DATA_DIR>/fuelio` holds drives.
+pub fn require_fuelio_internal(dropbox_configured: bool) -> Result<(), String> {
+    if dropbox_configured {
+        Ok(())
+    } else {
+        Err("Dropbox is not configured: set DROPBOX_APP_KEY, DROPBOX_APP_SECRET and DROPBOX_REFRESH_TOKEN"
+            .to_string())
+    }
+}
+
 pub fn get_fuelio_crosscheck_internal(
     db: &Database,
     data_dir: &Path,
@@ -520,10 +531,8 @@ pub async fn sync_fuelio_dropbox_internal(
     year: i32,
 ) -> Result<crate::fuelio::dropbox::SyncReport, String> {
     use crate::fuelio::dropbox::{sync_year, DropboxStore};
-    let config = config.ok_or_else(|| {
-        "Dropbox is not configured: set DROPBOX_APP_KEY, DROPBOX_APP_SECRET and DROPBOX_REFRESH_TOKEN"
-            .to_string()
-    })?;
+    require_fuelio_internal(config.is_some())?;
+    let config = config.expect("checked above");
     let store = DropboxStore::connect(config).await?;
     sync_year(std::sync::Arc::new(store), &data_dir.join(fuelio::FOLDER_NAME), year).await
 }
