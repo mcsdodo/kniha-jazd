@@ -1,6 +1,6 @@
 **Date:** 2026-10-08
 **Subject:** Loop generator around the trip's place, with Bratislava districts as the second candidate set, and numbered waypoints on the map
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 
