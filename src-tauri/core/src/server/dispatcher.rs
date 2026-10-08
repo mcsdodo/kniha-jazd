@@ -1022,6 +1022,25 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         // ====================================================================
         // Only the DROPBOX_* secrets set Fuelio up (a bare folder does not).
         "is_fuelio_available" => Ok(serde_json::to_value(fuelio_configured()).unwrap()),
+        "set_fuelio_drives_ignored" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                drive_ids: Vec<String>,
+                ignored: bool,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            crate::commands_internal::set_fuelio_drives_ignored_internal(
+                &state.db,
+                &state.app_state,
+                &a.vehicle_id,
+                &a.drive_ids,
+                a.ignored,
+            )?;
+            Ok(Value::Null)
+        }
         "get_fuelio_crosscheck" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -1760,6 +1779,13 @@ mod tests {
         let err = dispatch_sync(
             "get_fuelio_crosscheck",
             json!({ "vehicleId": "x", "year": 2026 }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.contains("Dropbox is not configured"), "got: {err}");
+        let err = dispatch_sync(
+            "set_fuelio_drives_ignored",
+            json!({ "vehicleId": "x", "driveIds": ["1"], "ignored": true }),
             &state,
         )
         .unwrap_err();

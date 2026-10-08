@@ -93,6 +93,8 @@
 }
 
 [data-theme="dark"] {
+    /* Native controls (scrollbars, date pickers) follow the dark theme */
+    color-scheme: dark;
     --bg-body: #121212;
     --bg-surface: #1e1e1e;
     --bg-surface-alt: #252525;

@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-06
 **Subject:** Read-only cross-check of Fuelio GPS drives against the logbook
-**Status:** In Progress
+**Status:** Complete - code, tests and docs done; release pending (see [docs/features/fuelio.md](../../docs/features/fuelio.md))
 
 ## Goal
 
@@ -12,7 +12,8 @@ each of them, with correct times and the correct route.
 
 ## Scope of the POC
 
-Read-only. Nothing writes to the logbook.
+Read-only at first. Later additions write: "Prepísať" and "Pridať" change the logbook,
+"Ignorovať" stores ignored drives (sections below).
 
 - List the Fuelio drives, with a filter by length.
 - Match each drive (or a run of drives split by a stop) to a logbook trip.
@@ -38,6 +39,15 @@ a repeat sync 5 s (listing only). Fuelio stopped writing to Dropbox in June
 2024, so the 2026 drives come from Google Drive (rclone) until Fuelio backs
 up to Dropbox again. The Dropbox app needs "Full Dropbox" access, because
 Fuelio writes to its own app folder.
+
+**Dropbox only (added 2026-10-08).** Fuelio is on only with the three `DROPBOX_*`
+secrets. Without them the nav hides the page, `/fuelio` shows a notice, and every
+Fuelio command fails, even if `<DATA_DIR>/fuelio` exists.
+
+**Ignore (added 2026-10-08).** A missing row has an "Ignorovať" button (a private drive,
+for example). Table `fuelio_ignored_drives (vehicle_id, drive_id)`; a missing row is
+ignored when all its drives are. The default view hides ignored rows; the "Ignorované"
+pill shows them and un-ignores. Default min. km is 15.
 
 **Add (added 2026-10-07).** A "missing" row has a "Pridať" button.
 `get_fuelio_add_preview { driveIds }` returns the GPS start and end (whole

@@ -102,12 +102,13 @@ pub fn get_fuelio_crosscheck_internal(
         })
         .collect();
 
+    let ignored = db.ignored_fuelio_drives(vehicle_id).map_err(|e| e.to_string())?;
     Ok(FuelioReport {
         folder: folder.display().to_string(),
         folder_exists: folder.is_dir(),
         drive_count: drives.len(),
         dropbox_configured: crate::fuelio::dropbox::DropboxConfig::from_env().is_some(),
-        rows: fuelio::crosscheck(&refs, &drives),
+        rows: mark_ignored(fuelio::crosscheck(&refs, &drives), &ignored),
     })
 }
 
@@ -200,6 +201,40 @@ fn full_track(data_dir: &Path, drives: &[Drive]) -> Result<Vec<(f64, f64)>, Stri
 }
 
 /// A drive ID becomes a file name: digits only, so no path can escape the folder.
+/// Only a missing row can be ignored, and only when the user ignored every one
+/// of its drives: a drive that a later sync adds to the chain shows it again.
+fn mark_ignored(
+    mut rows: Vec<fuelio::CrosscheckRow>,
+    ignored: &std::collections::HashSet<String>,
+) -> Vec<fuelio::CrosscheckRow> {
+    for row in &mut rows {
+        row.ignored = row.status == fuelio::RowStatus::Missing
+            && !row.drive_ids.is_empty()
+            && row.drive_ids.iter().all(|id| ignored.contains(id));
+    }
+    rows
+}
+
+/// Ignore the drives of a missing row (for example a private drive), or show
+/// them again. Ignored rows are hidden on the page unless the user asks.
+pub fn set_fuelio_drives_ignored_internal(
+    db: &Database,
+    app_state: &AppState,
+    vehicle_id: &str,
+    drive_ids: &[String],
+    ignored: bool,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    if drive_ids.is_empty() {
+        return Err("No drive selected".into());
+    }
+    for id in drive_ids {
+        check_drive_id(id)?;
+    }
+    db.set_fuelio_drives_ignored(vehicle_id, drive_ids, ignored)
+        .map_err(|e| e.to_string())
+}
+
 fn check_drive_id(id: &str) -> Result<(), String> {
     if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
         return Err(format!("Invalid drive id: {id}"));

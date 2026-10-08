@@ -1635,7 +1635,7 @@ type RootTranslation = {
 		 */
 		title: string
 		/**
-		 * J​a​z​d​y​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​a​ ​j​a​z​d​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​,​ ​k​u​ ​k​t​o​r​e​j​ ​p​a​t​r​i​a​.​ ​"​C​h​ý​b​a​ ​v​ ​k​n​i​h​e​"​ ​j​e​ ​j​a​z​d​a​ ​F​u​e​l​i​o​ ​b​e​z​ ​j​a​z​d​y​ ​v​ ​k​n​i​h​e​.​ ​T​l​a​č​i​d​l​o​ ​"​P​r​e​p​í​s​a​ť​"​ ​n​a​h​r​a​d​í​ ​ú​d​a​j​e​ ​j​a​z​d​y​ ​h​o​d​n​o​t​a​m​i​ ​z​ ​G​P​S​.
+		 * J​a​z​d​y​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​a​ ​j​a​z​d​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​,​ ​k​u​ ​k​t​o​r​e​j​ ​p​a​t​r​i​a​.​ ​I​k​o​n​y​ ​v​y​s​v​e​t​ľ​u​j​e​ ​l​e​g​e​n​d​a​ ​n​a​d​ ​t​a​b​u​ľ​k​o​u​.​ ​"​P​r​e​p​í​s​a​ť​"​ ​n​a​h​r​a​d​í​ ​ú​d​a​j​e​ ​j​a​z​d​y​ ​h​o​d​n​o​t​a​m​i​ ​z​ ​G​P​S​.​ ​"​P​r​i​d​a​ť​"​ ​z​a​p​í​š​e​ ​c​h​ý​b​a​j​ú​c​u​ ​j​a​z​d​u​ ​d​o​ ​k​n​i​h​y​.​ ​J​a​z​d​u​,​ ​k​t​o​r​á​ ​d​o​ ​k​n​i​h​y​ ​n​e​p​a​t​r​í​ ​(​n​a​p​r​.​ ​s​ú​k​r​o​m​n​ú​)​,​ ​s​k​r​y​j​e​ ​t​l​a​č​i​d​l​o​ ​s​ ​p​r​e​š​k​r​t​n​u​t​ý​m​ ​o​k​o​m​.
 		 */
 		intro: string
 		/**
@@ -1737,6 +1737,20 @@ type RootTranslation = {
 			 * C​h​ý​b​a​ ​v​ ​k​n​i​h​e
 			 */
 			missing: string
+			/**
+			 * I​g​n​o​r​o​v​a​n​é
+			 */
+			ignored: string
+		}
+		ignore: {
+			/**
+			 * I​g​n​o​r​o​v​a​ť​:​ ​j​a​z​d​a​ ​n​e​p​a​t​r​í​ ​d​o​ ​k​n​i​h​y​ ​j​á​z​d
+			 */
+			button: string
+			/**
+			 * Z​r​u​š​i​ť​ ​i​g​n​o​r​o​v​a​n​i​e
+			 */
+			undo: string
 		}
 		flag: {
 			/**
@@ -4378,7 +4392,7 @@ export type TranslationFunctions = {
 		 */
 		title: () => LocalizedString
 		/**
-		 * Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Tlačidlo "Prepísať" nahradí údaje jazdy hodnotami z GPS.
+		 * Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. Ikony vysvetľuje legenda nad tabuľkou. "Prepísať" nahradí údaje jazdy hodnotami z GPS. "Pridať" zapíše chýbajúcu jazdu do knihy. Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo s preškrtnutým okom.
 		 */
 		intro: () => LocalizedString
 		/**
@@ -4476,6 +4490,20 @@ export type TranslationFunctions = {
 			 * Chýba v knihe
 			 */
 			missing: () => LocalizedString
+			/**
+			 * Ignorované
+			 */
+			ignored: () => LocalizedString
+		}
+		ignore: {
+			/**
+			 * Ignorovať: jazda nepatrí do knihy jázd
+			 */
+			button: () => LocalizedString
+			/**
+			 * Zrušiť ignorovanie
+			 */
+			undo: () => LocalizedString
 		}
 		flag: {
 			/**

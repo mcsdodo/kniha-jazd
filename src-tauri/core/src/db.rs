@@ -9,7 +9,7 @@ use crate::models::{
     NewVehicleRow, PaperlessLink, PlaceRow, Route, RouteMap, RouteMapRow, RouteRow, Settings,
     SettingsRow, Trip, TripInvoiceCoverage, TripRow, Vehicle, VehicleRow,
 };
-use crate::schema::{places, routes, settings, trip_routes, trips, vehicles};
+use crate::schema::{fuelio_ignored_drives, places, routes, settings, trip_routes, trips, vehicles};
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
@@ -369,6 +369,48 @@ impl Database {
         diesel::delete(vehicles::table.filter(vehicles::id.eq(id))).execute(conn)?;
 
         Ok(())
+    }
+
+    // ========================================================================
+    // Fuelio ignored drives (Task 90)
+    // ========================================================================
+
+    /// The Fuelio drive IDs the user ignored for this vehicle.
+    pub fn ignored_fuelio_drives(&self, vehicle_id: &str) -> QueryResult<std::collections::HashSet<String>> {
+        let conn = &mut *self.conn.lock().unwrap();
+        let ids: Vec<String> = fuelio_ignored_drives::table
+            .filter(fuelio_ignored_drives::vehicle_id.eq(vehicle_id))
+            .select(fuelio_ignored_drives::drive_id)
+            .load(conn)?;
+        Ok(ids.into_iter().collect())
+    }
+
+    /// Mark the drives ignored (or not) for this vehicle, in one transaction.
+    /// Ignoring twice and un-ignoring an unknown drive change nothing.
+    pub fn set_fuelio_drives_ignored(&self, vehicle_id: &str, drive_ids: &[String], ignored: bool) -> QueryResult<()> {
+        let conn = &mut *self.conn.lock().unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.transaction(|conn| {
+            for id in drive_ids {
+                if ignored {
+                    diesel::insert_or_ignore_into(fuelio_ignored_drives::table)
+                        .values((
+                            fuelio_ignored_drives::vehicle_id.eq(vehicle_id),
+                            fuelio_ignored_drives::drive_id.eq(id),
+                            fuelio_ignored_drives::ignored_at.eq(&now),
+                        ))
+                        .execute(conn)?;
+                } else {
+                    diesel::delete(
+                        fuelio_ignored_drives::table
+                            .filter(fuelio_ignored_drives::vehicle_id.eq(vehicle_id))
+                            .filter(fuelio_ignored_drives::drive_id.eq(id)),
+                    )
+                    .execute(conn)?;
+                }
+            }
+            Ok(())
+        })
     }
 
     // ========================================================================

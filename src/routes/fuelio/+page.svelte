@@ -22,17 +22,24 @@
 	let available = $state<boolean | null>(null);
 	let report = $state<FuelioReport | null>(null);
 	let loading = $state(false);
-	// Empty: no km filter.
-	let minKm = $state<number | null>(null);
+	// Short city drives are not what the page is for: 15 km by default, empty = no filter.
+	let minKm = $state<number | null>(15);
 	// Filter pills: a pill that is not selected does not filter. State pills
-	// combine with OR (none selected = every state); the groups with AND.
+	// combine with OR; the groups with AND. With no state pill selected the page
+	// shows matched and missing rows: an ignored row needs its own pill.
 	let highwayOnly = $state(false);
 	let problemsOnly = $state(false);
-	const STATUSES: FuelioRowStatus[] = ['matched', 'missing'];
+	type RowState = FuelioRowStatus | 'ignored';
+	const STATUSES: RowState[] = ['matched', 'missing', 'ignored'];
 	const FLAGS: FuelioFlag[] = ['timeDiffers', 'kmDiffers', 'differentRoute', 'partialGps', 'looseMatch'];
-	let selectedStatuses = $state<FuelioRowStatus[]>([]);
+	let selectedStatuses = $state<RowState[]>([]);
 
-	function toggleStatus(st: FuelioRowStatus) {
+	// The backend sets `ignored` only on missing rows.
+	function rowState(r: FuelioRow): RowState {
+		return r.ignored ? 'ignored' : r.status;
+	}
+
+	function toggleStatus(st: RowState) {
 		selectedStatuses = selectedStatuses.includes(st)
 			? selectedStatuses.filter((x) => x !== st)
 			: [...selectedStatuses, st];
@@ -80,7 +87,7 @@
 	}
 
 	function isProblem(r: FuelioRow): boolean {
-		return r.status !== 'matched' || r.flags.length > 0;
+		return !r.ignored && (r.status !== 'matched' || r.flags.length > 0);
 	}
 
 	let rows = $derived(
@@ -89,7 +96,9 @@
 				rowKm(r) >= (minKm || 0) &&
 				(!highwayOnly || r.isHighway) &&
 				(!problemsOnly || isProblem(r)) &&
-				(selectedStatuses.length === 0 || selectedStatuses.includes(r.status))
+				(selectedStatuses.length === 0
+					? rowState(r) !== 'ignored'
+					: selectedStatuses.includes(rowState(r)))
 		)
 	);
 
@@ -122,7 +131,37 @@
 			toast.error(String(e));
 		}
 		leaflet = (await import('leaflet')).default;
+		// The report can arrive before Leaflet: draw the selected row now
+		if (selected) selectRow(selected);
 	});
+
+	// The map shows a shown row: the first one after a load, and the first one
+	// again when a filter hides the selected row.
+	$effect(() => {
+		if (selected && !rows.includes(selected)) selected = null;
+		if (!selected) selectFirst();
+	});
+
+	// The map is never empty while the table has a row with GPS.
+	function selectFirst() {
+		const first = rows.find((r) => r.driveIds.length > 0);
+		if (first) selectRow(first);
+	}
+
+	let ignoring = $state(false);
+	async function setIgnored(r: FuelioRow, ignored: boolean) {
+		const vehicle = $activeVehicleStore;
+		if (!vehicle || ignoring) return;
+		ignoring = true;
+		try {
+			await api.setFuelioDrivesIgnored(vehicle.id, r.driveIds, ignored);
+			await load(vehicle.id, $selectedYearStore);
+		} catch (e) {
+			toast.error(String(e));
+		} finally {
+			ignoring = false;
+		}
+	}
 
 	onDestroy(() => {
 		map?.remove();
@@ -192,8 +231,12 @@
 	}
 </script>
 
-{#snippet icon(key: FuelioRowStatus | FuelioFlag, size: number)}
-	{#if key === 'matched'}
+{#snippet icon(key: RowState | FuelioFlag | 'unignore', size: number)}
+	{#if key === 'ignored'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 11 8 11 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 1 12s4 8 11 8a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+	{:else if key === 'unignore'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+	{:else if key === 'matched'}
 		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
 	{:else if key === 'missing'}
 		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
@@ -223,11 +266,11 @@
 			<p>{$LL.fuelio.loading()}</p>
 		{:else if report}
 			<p class="muted small">
-				{$LL.fuelio.folder({ folder: report.folder })}
 				{#if !report.folderExists}
+					{$LL.fuelio.folder({ folder: report.folder })}
 					<strong class="warn">{$LL.fuelio.noFolder()}</strong>
 				{:else}
-					- {$LL.fuelio.driveCount({ year: $selectedYearStore, count: report.driveCount })}
+					{$LL.fuelio.driveCount({ year: $selectedYearStore, count: report.driveCount })}
 				{/if}
 			</p>
 
@@ -281,7 +324,7 @@
 				<span class="muted small">{$LL.fuelio.shown({ count: rows.length })}</span>
 			</div>
 
-			<div class="legend" data-testid="fuelio-legend">
+			<div class="icon-legend" data-testid="fuelio-legend">
 				<span class="legend-group">
 					<strong>{$LL.fuelio.col.status()}:</strong>
 					{#each STATUSES as st}
@@ -316,7 +359,6 @@
 								<th class="r">{$LL.fuelio.col.fast()}</th>
 								<th class="r">{$LL.fuelio.col.maxKmh()}</th>
 								<th>{$LL.fuelio.col.diff()}</th>
-								<th>{$LL.fuelio.col.flags()}</th>
 								<th></th>
 							</tr>
 						</thead>
@@ -324,6 +366,7 @@
 							{#each rows as r (r.tripId ?? r.driveIds.join('-'))}
 								<tr
 									class="status-{r.status}"
+									class:ignored={r.ignored}
 									class:clickable={r.driveIds.length > 0}
 									class:selected={selected === r}
 									onclick={() => selectRow(r)}
@@ -331,17 +374,28 @@
 								>
 									<td class="status-cell">
 										<span
-											class="status-icon status-icon-{r.status}"
+											class="status-icon status-icon-{rowState(r)}"
 											role="img"
-											aria-label={$LL.fuelio.status[r.status]()}
-											title={$LL.fuelio.status[r.status]()}
-											data-testid="fuelio-status-{r.status}"
+											aria-label={$LL.fuelio.status[rowState(r)]()}
+											title={$LL.fuelio.status[rowState(r)]()}
+											data-testid="fuelio-status-{rowState(r)}"
 										>
-												{@render icon(r.status, 18)}
+											{@render icon(rowState(r), 18)}
 										</span>
+										{#each r.flags as f}
+											<span
+												class="flag-icon"
+												role="img"
+												aria-label={$LL.fuelio.flag[f]()}
+												title={$LL.fuelio.flag[f]()}
+												data-testid="fuelio-flag-{f}"
+											>
+												{@render icon(f, 16)}
+											</span>
+										{/each}
 									</td>
 									<td class="nowrap">{dt(r.tripStart)}</td>
-									<td>
+									<td class="route">
 										{#if r.origin}{r.origin} &rarr; {r.destination}{/if}
 									</td>
 									<td class="r">{num(r.tripKm)}</td>
@@ -361,20 +415,7 @@
 										{#if r.kmDiffPct !== null}<br />{signed(r.kmDiffPct, 1, '%')}{/if}
 										{#if r.offRoutePct !== null}<br />{$LL.fuelio.offRoute({ pct: Math.round(r.offRoutePct) })}{/if}
 									</td>
-									<td>
-										{#each r.flags as f}
-											<span
-												class="flag-icon"
-												role="img"
-												aria-label={$LL.fuelio.flag[f]()}
-												title={$LL.fuelio.flag[f]()}
-												data-testid="fuelio-flag-{f}"
-											>
-													{@render icon(f, 16)}
-											</span>
-										{/each}
-									</td>
-									<td>
+									<td class="actions">
 										{#if r.tripId}
 											<button
 												class="overwrite-btn"
@@ -384,6 +425,18 @@
 												}}
 												data-testid="fuelio-overwrite">{$LL.fuelio.overwrite.button()}</button
 											>
+										{:else if r.ignored}
+											<button
+												class="icon-btn"
+												disabled={ignoring}
+												title={$LL.fuelio.ignore.undo()}
+												aria-label={$LL.fuelio.ignore.undo()}
+												onclick={(e) => {
+													e.stopPropagation();
+													setIgnored(r, false);
+												}}
+												data-testid="fuelio-unignore">{@render icon('unignore', 16)}</button
+											>
 										{:else if r.status === 'missing'}
 											<button
 												class="overwrite-btn"
@@ -392,6 +445,17 @@
 													adding = r;
 												}}
 												data-testid="fuelio-add">{$LL.fuelio.add.button()}</button
+											>
+											<button
+												class="icon-btn"
+												disabled={ignoring}
+												title={$LL.fuelio.ignore.button()}
+												aria-label={$LL.fuelio.ignore.button()}
+												onclick={(e) => {
+													e.stopPropagation();
+													setIgnored(r, true);
+												}}
+												data-testid="fuelio-ignore">{@render icon('ignored', 16)}</button
 											>
 										{/if}
 									</td>
@@ -417,7 +481,7 @@
 							{/if}
 						</p>
 					{/if}
-					<div class="map" bind:this={mapEl} data-testid="fuelio-map"></div>
+					<div class="map" class:hidden={!selected} bind:this={mapEl} data-testid="fuelio-map"></div>
 				</div>
 			</div>
 		{/if}
@@ -587,7 +651,7 @@
 	tr.selected {
 		background: var(--accent-primary-light-hover);
 	}
-	.legend {
+	.icon-legend {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem 1.5rem;
@@ -610,7 +674,10 @@
 		margin-right: 0;
 	}
 	.status-cell {
-		text-align: center;
+		white-space: nowrap;
+	}
+	.route {
+		min-width: 10rem;
 	}
 	.status-icon {
 		display: inline-flex;
@@ -621,6 +688,12 @@
 	}
 	.status-icon-missing {
 		color: var(--accent-danger);
+	}
+	.status-icon-ignored {
+		color: var(--text-secondary);
+	}
+	tr.ignored td {
+		color: var(--text-secondary);
 	}
 	.flag-icon {
 		display: inline-flex;
@@ -640,6 +713,28 @@
 	}
 	.overwrite-btn:hover {
 		background: var(--btn-secondary-hover);
+	}
+	.icon-btn {
+		display: inline-flex;
+		vertical-align: middle;
+		margin-left: 0.25rem;
+		padding: 0.2rem 0.3rem;
+		border: 1px solid var(--border-input);
+		border-radius: 4px;
+		background: var(--btn-secondary-bg);
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+	.icon-btn:hover {
+		background: var(--btn-secondary-hover);
+		color: var(--text-primary);
+	}
+	.icon-btn:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+	td.actions {
+		white-space: nowrap;
 	}
 	.map-panel {
 		position: sticky;
@@ -661,6 +756,9 @@
 		height: 0.25rem;
 		margin-right: 0.3rem;
 		vertical-align: middle;
+	}
+	.map.hidden {
+		display: none;
 	}
 	.map {
 		height: 60vh;

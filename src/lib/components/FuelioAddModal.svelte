@@ -272,6 +272,7 @@
 	}
 	select,
 	.text-input {
+		box-sizing: border-box;
 		width: 100%;
 		padding: 0.35rem 0.5rem;
 		border: 1px solid var(--border-input);

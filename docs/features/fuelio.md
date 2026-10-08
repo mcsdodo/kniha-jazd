@@ -13,21 +13,28 @@
 2. **Sync.** On `/fuelio` the user clicks **Synchronizovať z Dropboxu (rok)**. The server
    downloads the drives of the selected year that are not in `<DATA_DIR>/fuelio` yet.
 3. **Read the table.** One row per run of Fuelio drives (newest first):
-   - The **Stav** icon: green check = matched to a logbook trip, red exclamation mark =
-     missing in the logbook.
+   - The **Stav** column: green check = matched to a logbook trip, red exclamation mark =
+     missing in the logbook, crossed-out eye = ignored. The warning icons follow in the
+     same cell: time differs, km differ, different route, partial GPS, loose match.
    - Logbook time, route and km, next to GPS time, km, minutes above 100 km/h and max
      speed, and the differences (start minutes, km %, off-route %).
-   - **Upozornenia** icons: time differs, km differ, different route, partial GPS, loose
-     match.
    - A legend above the table explains every icon. Each icon also has a tooltip and an
      `aria-label`.
-4. **Filter.** Min. km, the state pills (matched / missing), "Len problémy" and "Len
-   diaľnica" (GPS km >= 30 or >= 5 minutes above 100 km/h).
-5. **Map.** A click on a row shows the GPS track (red) and the stored route (blue).
-6. **Prepísať** (matched row). A popup selects which trip fields the GPS values replace:
+4. **Filter.** Min. km (15 by default: the page is for long drives), the state pills
+   (matched / missing / ignored), "Len problémy" and "Len diaľnica" (GPS km >= 30 or >= 5
+   minutes above 100 km/h). With no state pill selected, the table shows matched and
+   missing rows; an ignored row shows only under its own pill. "Len problémy" never
+   counts an ignored row.
+5. **Map.** The map shows the selected row: the GPS track (red) and the stored route
+   (blue). After a load, and when a filter hides the selected row, the first shown row
+   is selected.
+6. **Ignorovať** (missing row, crossed-out eye button). The drive does not belong in the
+   logbook, for example a private drive. The row leaves the default view. Under the
+   "Ignorované" pill the eye button un-ignores it.
+7. **Prepísať** (matched row). A popup selects which trip fields the GPS values replace:
    start, end, distance, route. A distance change shows the odometer cascade confirmation
    (the same one as on `/mapa`).
-7. **Pridať** (missing row). A popup proposes the origin and destination (the nearest
+8. **Pridať** (missing row). A popup proposes the origin and destination (the nearest
    places to the GPS start and end, with their distance), the GPS times and km. The user
    types the purpose and saves. A new trip that moves later odometers shows the insert
    cascade confirmation.
@@ -52,6 +59,7 @@
 | `apply_fuelio_to_trip { tripId, driveIds, fields, dryRun }` | Prepísať, one transaction |
 | `get_fuelio_add_preview { driveIds }` | Times, km and the places sorted by distance |
 | `add_fuelio_trip { ..., withRoute, dryRun }` | Pridať, through `create_trip_cascade_internal` |
+| `set_fuelio_drives_ignored { vehicleId, driveIds, ignored }` | Ignore / un-ignore the drives of a row |
 | `sync_fuelio_dropbox { year }` | Async: Dropbox download (dispatcher_async) |
 
 Every sync command calls `require_fuelio_internal` after its argument parse, so a
@@ -86,7 +94,15 @@ on the drives and trips that the earlier passes left:
    the same 3 h window if a chain end is within 5 km of a trip place or >= 50% of it is
    within 1 km of the stored route, and the trip stays at <= 150% of its km.
 
-A chain that fits no trip is a **missing** row. Flags on a match: start differs by more
+A chain that fits no trip is a **missing** row.
+
+**Ignored rows.** The table `fuelio_ignored_drives (vehicle_id, drive_id)` holds the drives
+the user ignored. Matching does not read it: the ignored drives stay in the input, so a
+drive that later gets its trip is a normal match. After the match,
+`get_fuelio_crosscheck` sets `ignored` on a **missing** row only, and only when **every**
+drive of the row is ignored: a drive that a later sync adds to the chain shows the row
+again. `set_fuelio_drives_ignored` writes all drives of the row in one transaction; it is
+blocked in read-only mode and checks every drive ID. Flags on a match: start differs by more
 than 30 min, km differ by more than 10%, more than 10% of the track is over 500 m from
 the stored route ("Iná trasa").
 
@@ -132,6 +148,9 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 | [fuelio/dropbox.rs](../../src-tauri/core/src/fuelio/dropbox.rs) | `DropboxConfig::from_env`, `sync_year` |
 | [commands_internal/fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs) | The commands, `require_fuelio_internal` |
 | [src/routes/fuelio/+page.svelte](../../src/routes/fuelio/+page.svelte) | Page, icon snippet, legend |
+| [migrations/2026-10-08-100000_fuelio_ignored_drives](../../src-tauri/core/migrations/2026-10-08-100000_fuelio_ignored_drives/up.sql) | The ignored drives, per vehicle (FK with `ON DELETE CASCADE`) |
+| [tests/integration/fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs) | Writes two drives of the current year for the env suite |
+| [tests/integration/specs/env/fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) | Rows, map, ignore / un-ignore flow |
 | [tests/integration/specs/tier3/empty-states.spec.ts](../../tests/integration/specs/tier3/empty-states.spec.ts) | No Dropbox: no nav link, notice on `/fuelio` |
 | [tests/integration/specs/env/env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts) | Dummy `DROPBOX_*`: the nav link shows |
 
@@ -147,6 +166,10 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 - **Why only Dropbox enables the feature?** The operator decides that Fuelio is part of
   the deployment by setting the secrets. A folder that happens to exist in the volume
   does not turn on a page that writes trips.
+- **Why ignore per vehicle?** The drives folder is shared, the cross-check runs for one
+  vehicle. A drive that is "not a trip of this car" must not hide it for another vehicle.
+- **Why does the default view hide ignored rows?** The list must get shorter as the user
+  works through it. The "Ignorované" pill shows them, so an ignore can be undone.
 - **Why whole minutes and whole km?** The logbook stores both that way; the GPS
   precision does not survive the save anyway, and a whole-km distance follows ADR-054.
 

@@ -498,7 +498,7 @@ const sk = {
 	// Place book
 	fuelio: {
 		title: 'Fuelio - kontrola jázd',
-		intro: 'Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. "Chýba v knihe" je jazda Fuelio bez jazdy v knihe. Tlačidlo "Prepísať" nahradí údaje jazdy hodnotami z GPS.',
+		intro: 'Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. Ikony vysvetľuje legenda nad tabuľkou. "Prepísať" nahradí údaje jazdy hodnotami z GPS. "Pridať" zapíše chýbajúcu jazdu do knihy. Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo s preškrtnutým okom.',
 		folder: 'Priečinok so súbormi Fuelio: {folder: string}',
 		noFolder: 'Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data).',
 		driveCount: 'Jazdy Fuelio v roku {year: number}: {count: number}',
@@ -525,6 +525,11 @@ const sk = {
 		status: {
 			matched: 'Spárované',
 			missing: 'Chýba v knihe',
+			ignored: 'Ignorované',
+		},
+		ignore: {
+			button: 'Ignorovať: jazda nepatrí do knihy jázd',
+			undo: 'Zrušiť ignorovanie',
 		},
 		flag: {
 			timeDiffers: 'Iný čas',

@@ -674,6 +674,8 @@ export interface FuelioRow {
 	kmDiffPct: number | null;
 	offRoutePct: number | null;
 	flags: FuelioFlag[];
+	/** A missing row whose drives the user ignored (hidden unless the filter asks). */
+	ignored: boolean;
 }
 
 export interface FuelioReport {

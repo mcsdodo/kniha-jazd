@@ -237,6 +237,16 @@
 		border-bottom: 1px solid var(--border-default);
 		vertical-align: top;
 	}
+	/* The label and the two dates stay on one line each */
+	td:nth-child(-n + 2):not([colspan]),
+	td strong {
+		white-space: nowrap;
+	}
+	label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
 	.modal-actions {
 		display: flex;
 		gap: 0.5rem;

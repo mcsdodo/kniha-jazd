@@ -239,11 +239,14 @@
 		font-weight: 500;
 	}
 
+	/* Narrow windows wrap the header rows; no link is hidden */
 	.header-content {
 		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
 		justify-content: space-between;
 		align-items: center;
-		max-width: 1200px;
+		max-width: 1600px;
 		margin: 0 auto;
 	}
 
@@ -273,12 +276,14 @@
 
 	.header-left {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 2rem;
+		gap: 0.5rem 2rem;
 	}
 
 	.main-nav {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 	}
 
@@ -304,8 +309,9 @@
 
 	.header-right {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 1rem;
+		gap: 0.5rem 1rem;
 	}
 
 	.vehicle-selector {
@@ -333,6 +339,25 @@
 		font-size: 1rem;
 		cursor: pointer;
 		min-width: 200px;
+		max-width: 100%;
+	}
+
+	@media (max-width: 640px) {
+		header {
+			padding: 0.75rem 1rem;
+		}
+		.header-right,
+		.vehicle-selector {
+			width: 100%;
+			min-width: 0;
+		}
+		select {
+			min-width: 0;
+		}
+		.vehicle-selector select {
+			flex: 1;
+			width: 0;
+		}
 	}
 
 	select:focus {

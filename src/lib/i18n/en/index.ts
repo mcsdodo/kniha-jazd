@@ -498,7 +498,7 @@ const en = {
 	// Place book
 	fuelio: {
 		title: 'Fuelio - trip check',
-		intro: 'The drives that the Fuelio app recorded (GPS), and the logbook trip each one belongs to. "Missing in logbook" is a Fuelio drive with no logbook trip. "Overwrite" replaces trip data with the GPS values.',
+		intro: 'The drives that the Fuelio app recorded (GPS), and the logbook trip each one belongs to. The legend above the table explains the icons. "Overwrite" replaces trip data with the GPS values. "Add" writes a missing drive to the logbook. The crossed-out eye button hides a drive that does not belong in the logbook (for example a private drive).',
 		folder: 'Folder with the Fuelio files: {folder}',
 		noFolder: 'The folder does not exist. Copy the Fuelio backup (route-*.data) into it.',
 		driveCount: 'Fuelio drives in {year}: {count}',
@@ -525,6 +525,11 @@ const en = {
 		status: {
 			matched: 'Matched',
 			missing: 'Missing in logbook',
+			ignored: 'Ignored',
+		},
+		ignore: {
+			button: 'Ignore: the drive does not belong in the logbook',
+			undo: 'Un-ignore',
 		},
 		flag: {
 			timeDiffers: 'Time differs',

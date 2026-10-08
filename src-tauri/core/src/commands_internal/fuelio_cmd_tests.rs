@@ -437,3 +437,132 @@ fn add_stores_every_gps_fix_as_the_route() {
     let map = db.get_route_map(&r.trip.unwrap().id.to_string()).unwrap().unwrap();
     assert_eq!(crate::route_map::polyline::decode(&map.polyline).len(), 20);
 }
+
+// ---------------------------------------------------------------------------
+// Ignore a missing drive
+// ---------------------------------------------------------------------------
+
+fn missing_ids(report: &FuelioReport) -> Vec<String> {
+    report
+        .rows
+        .iter()
+        .find(|r| r.status == crate::fuelio::RowStatus::Missing)
+        .unwrap()
+        .drive_ids
+        .clone()
+}
+
+#[test]
+fn an_ignored_missing_drive_is_marked_ignored() {
+    let (db, dir, v, _) = setup();
+    let vid = v.id.to_string();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    assert!(report.rows.iter().all(|r| !r.ignored), "nothing is ignored at first");
+    let ids = missing_ids(&report);
+
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let missing = report.rows.iter().find(|r| r.drive_ids == ids).unwrap();
+    assert!(missing.ignored);
+    let matched = report.rows.iter().find(|r| r.status == crate::fuelio::RowStatus::Matched).unwrap();
+    assert!(!matched.ignored);
+
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, false).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    assert!(report.rows.iter().all(|r| !r.ignored), "un-ignore brings the row back");
+}
+
+#[test]
+fn an_ignored_drive_of_a_matched_trip_does_not_hide_the_match() {
+    let (db, dir, v, _) = setup();
+    let vid = v.id.to_string();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let ids = matched_ids(&report);
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let matched = report.rows.iter().find(|r| r.drive_ids == ids).unwrap();
+    assert_eq!(matched.status, crate::fuelio::RowStatus::Matched);
+    assert!(!matched.ignored, "only a missing row can be ignored");
+}
+
+#[test]
+fn a_missing_chain_with_a_new_drive_is_not_ignored() {
+    let (db, dir, v, _) = setup();
+    let vid = v.id.to_string();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let ids = missing_ids(&report);
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
+
+    // A later sync brings a drive that continues the ignored one (5 min later,
+    // from its end point), so both join one missing chain.
+    let first: i64 = ids[0].parse().unwrap();
+    let t2 = first + 600_000 + 300_000;
+    write_drive(
+        &dir.path().join(crate::fuelio::FOLDER_NAME),
+        &t2.to_string(),
+        &[(t2, 49.0, 19.2, 0.0), (t2 + 600_000, 49.0, 19.4, 15_000.0)],
+    );
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let chain = report.rows.iter().find(|r| r.drive_ids.contains(&ids[0])).unwrap();
+    assert_eq!(chain.drive_ids.len(), 2, "the new drive joins the chain");
+    assert!(!chain.ignored, "a row is ignored only when all its drives are");
+}
+
+#[test]
+fn ignoring_is_per_vehicle() {
+    let (db, dir, v, _) = setup();
+    let vid = v.id.to_string();
+    let other = Vehicle::new_ice("Other".into(), "TEST-2".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&other).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let ids = missing_ids(&report);
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &other.id.to_string(), &ids, true).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    assert!(report.rows.iter().all(|r| !r.ignored));
+}
+
+#[test]
+fn ignoring_twice_and_un_ignoring_an_unknown_drive_are_harmless() {
+    let (db, dir, v, _) = setup();
+    let vid = v.id.to_string();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let ids = missing_ids(&report);
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &["1".to_string()], false).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    assert!(report.rows.iter().find(|r| r.drive_ids == ids).unwrap().ignored);
+}
+
+#[test]
+fn ignore_is_blocked_in_read_only_mode() {
+    let (db, _, v, _) = setup();
+    let state = AppState::new();
+    state.enable_read_only("test");
+    let err = set_fuelio_drives_ignored_internal(&db, &state, &v.id.to_string(), &["1".to_string()], true)
+        .unwrap_err();
+    assert!(err.contains("len na čítanie"), "got: {err}");
+}
+
+#[test]
+fn ignore_rejects_a_bad_drive_id() {
+    let (db, _, v, _) = setup();
+    let err = set_fuelio_drives_ignored_internal(&db, &AppState::new(), &v.id.to_string(), &["../x".to_string()], true)
+        .unwrap_err();
+    assert!(!err.is_empty());
+    let none: Vec<String> = vec![];
+    assert!(set_fuelio_drives_ignored_internal(&db, &AppState::new(), &v.id.to_string(), &none, true).is_err());
+}
+
+#[test]
+fn deleting_the_vehicle_removes_its_ignored_drives() {
+    let (db, _, _, _) = setup();
+    // A vehicle with trips cannot be deleted (FK), so use one without
+    let other = Vehicle::new_ice("Other".into(), "TEST-2".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&other).unwrap();
+    let vid = other.id.to_string();
+    let ids = vec!["1790562640107".to_string()];
+    set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
+    db.delete_vehicle(&vid).unwrap();
+    assert!(db.ignored_fuelio_drives(&vid).unwrap().is_empty());
+}

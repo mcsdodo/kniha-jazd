@@ -721,6 +721,15 @@ export async function isFuelioAvailable(): Promise<boolean> {
 	return await apiCall('is_fuelio_available', {});
 }
 
+/** Ignore the drives of a missing row (for example a private drive), or show them again. */
+export async function setFuelioDrivesIgnored(
+	vehicleId: string,
+	driveIds: string[],
+	ignored: boolean
+): Promise<void> {
+	await apiCall('set_fuelio_drives_ignored', { vehicleId, driveIds, ignored });
+}
+
 /** Copy the Fuelio drives of one year from Dropbox into the data folder. */
 export async function syncFuelioDropbox(year: number): Promise<FuelioSyncReport> {
 	return await apiCall('sync_fuelio_dropbox', { year });

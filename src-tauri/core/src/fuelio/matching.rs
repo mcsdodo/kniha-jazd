@@ -123,6 +123,9 @@ pub struct CrosscheckRow {
     /// The share of track points off the stored route, in percent.
     pub off_route_pct: Option<f64>,
     pub flags: Vec<Flag>,
+    /// A missing row whose drives the user all ignored. Matching never sets
+    /// it: the command fills it from the database after `crosscheck`.
+    pub ignored: bool,
 }
 
 fn near(point: (f64, f64), place: Option<(f64, f64)>) -> bool {
@@ -253,6 +256,7 @@ fn gps_row(status: RowStatus, run: &[Drive]) -> CrosscheckRow {
         km_diff_pct: None,
         off_route_pct: None,
         flags: Vec::new(),
+        ignored: false,
     }
 }
 

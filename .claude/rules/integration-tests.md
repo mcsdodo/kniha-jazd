@@ -259,6 +259,14 @@ failing specs with "... is managed by the ... environment variable".
 runs; the `env` suite (`WDIO_ENV_PINNED=1`, `npm run test:integration:docker:env`)
 deliberately sets them instead.
 
+The `DROPBOX_*` secrets are in that list. They turn Fuelio on, so a Fuelio UI spec
+belongs in `specs/env/`. It also needs drive files in `<DATA_DIR>/fuelio`, which a spec
+cannot write into the container: [fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs)
+writes two drives of the current year. `onPrepare` calls it for the spawned server, and
+the CI step `Start env-pinned container` runs it on `data-env/fuelio` before
+`docker run`. `resetDatabase` clears the database, not these files. The same fixture can
+carry future Prepísať / Pridať specs.
+
 ## SvelteKit Component Caching
 
 **Problem:** Navigating to the same route doesn't remount the component. `onMount` only fires on first mount. If a test:

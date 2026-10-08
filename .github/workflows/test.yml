@@ -265,6 +265,8 @@ jobs:
       - name: Start env-pinned container
         run: |
           mkdir -p data-env
+          # Fuelio drives for specs/env/fuelio.spec.ts (Fuelio is on: DROPBOX_* below)
+          node tests/integration/fixtures/fuelio-drives.mjs data-env/fuelio
           docker run -d --name kniha-jazd-web-env \
             --network=host \
             -v "$PWD/data-env:/data" \
