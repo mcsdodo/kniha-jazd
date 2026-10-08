@@ -9,6 +9,11 @@ fn parse_args<T: serde::de::DeserializeOwned>(args: Value) -> Result<T, String> 
     serde_json::from_value(args).map_err(|e| format!("Invalid args: {e}"))
 }
 
+/// The Fuelio commands work only when Dropbox is configured (Task 90).
+fn fuelio_configured() -> bool {
+    crate::fuelio::dropbox::DropboxConfig::from_env().is_some()
+}
+
 /// Dispatch a synchronous command by name.
 ///
 /// Returns `Ok(Value)` on success or `Err(message)` on failure.
@@ -421,12 +426,16 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 trip_id: String,
                 year: i32,
+                // Absent means a plain copy, so older clients keep working.
+                #[serde(default)]
+                reversed: bool,
             }
             let a: Args = parse_args(args)?;
             let v = crate::commands_internal::get_copied_trip_defaults_internal(
                 &state.db,
                 a.trip_id,
                 a.year,
+                a.reversed,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
@@ -1005,6 +1014,129 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             Ok(serde_json::to_value(v).unwrap())
         }
 
+        // ====================================================================
+        // Fuelio (Task 90): cross-check, sync, and trip writes
+        // ====================================================================
+        // Only the DROPBOX_* secrets set Fuelio up (a bare folder does not).
+        "is_fuelio_available" => Ok(serde_json::to_value(fuelio_configured()).unwrap()),
+        "set_fuelio_drives_ignored" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                drive_ids: Vec<String>,
+                ignored: bool,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            crate::commands_internal::set_fuelio_drives_ignored_internal(
+                &state.db,
+                &state.app_state,
+                &a.vehicle_id,
+                &a.drive_ids,
+                a.ignored,
+            )?;
+            Ok(Value::Null)
+        }
+        "get_fuelio_crosscheck" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                year: i32,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            let v = crate::commands_internal::get_fuelio_crosscheck_internal(
+                &state.db,
+                &state.app_dir,
+                &a.vehicle_id,
+                a.year,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "get_fuelio_track" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                drive_ids: Vec<String>,
+                trip_id: Option<String>,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            let v = crate::commands_internal::get_fuelio_track_internal(
+                &state.db,
+                &state.app_dir,
+                &a.drive_ids,
+                a.trip_id.as_deref(),
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "apply_fuelio_to_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                drive_ids: Vec<String>,
+                fields: crate::commands_internal::FuelioFields,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            let v = crate::commands_internal::apply_fuelio_to_trip_internal(
+                &state.db,
+                &state.app_state,
+                &state.app_dir,
+                &a.trip_id,
+                &a.drive_ids,
+                a.fields,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "get_fuelio_add_preview" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                drive_ids: Vec<String>,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            let v = crate::commands_internal::get_fuelio_add_preview_internal(
+                &state.db,
+                &state.app_dir,
+                &a.drive_ids,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "add_fuelio_trip" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                drive_ids: Vec<String>,
+                origin_place_id: String,
+                destination_place_id: String,
+                purpose: String,
+                with_route: bool,
+                dry_run: bool,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            let v = crate::commands_internal::add_fuelio_trip_internal(
+                &state.db,
+                &state.app_state,
+                &state.app_dir,
+                &a.vehicle_id,
+                &a.drive_ids,
+                &a.origin_place_id,
+                &a.destination_place_id,
+                &a.purpose,
+                a.with_route,
+                a.dry_run,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         // ====================================================================
         // Unknown
         // ====================================================================
@@ -1612,6 +1744,67 @@ mod tests {
             result.is_err(),
             "an omitted dryRun must be refused, not defaulted, on a write command"
         );
+    }
+
+    /// Task 90: the Fuelio overwrite writes trips, so an omitted `dryRun`
+    /// must fail closed too.
+    #[test]
+    fn apply_fuelio_to_trip_over_rpc_requires_dry_run_field() {
+        let state = test_state();
+        let result = dispatch_sync(
+            "apply_fuelio_to_trip",
+            json!({
+                "tripId": "x",
+                "driveIds": ["1"],
+                "fields": { "start": true, "end": false, "distance": false, "route": false }
+            }),
+            &state,
+        );
+        let err = result.unwrap_err();
+        assert!(err.contains("dryRun") || err.contains("dry_run"), "got: {err}");
+    }
+
+    /// Task 90: a `<DATA_DIR>/fuelio` folder alone does not set Fuelio up.
+    /// Only the DROPBOX_* secrets do, so without them the commands refuse.
+    #[test]
+    fn fuelio_commands_over_rpc_are_refused_without_dropbox() {
+        if fuelio_configured() {
+            return; // a developer shell with real DROPBOX_* secrets
+        }
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(crate::fuelio::FOLDER_NAME)).unwrap();
+        let state = ServerState { app_dir: dir.path().to_path_buf(), ..test_state() };
+        let available = dispatch_sync("is_fuelio_available", json!({}), &state).unwrap();
+        assert_eq!(available, json!(false));
+        let err = dispatch_sync(
+            "get_fuelio_crosscheck",
+            json!({ "vehicleId": "x", "year": 2026 }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.contains("Dropbox is not configured"), "got: {err}");
+        let err = dispatch_sync(
+            "set_fuelio_drives_ignored",
+            json!({ "vehicleId": "x", "driveIds": ["1"], "ignored": true }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.contains("Dropbox is not configured"), "got: {err}");
+    }
+
+    #[test]
+    fn add_fuelio_trip_over_rpc_requires_dry_run_field() {
+        let state = test_state();
+        let result = dispatch_sync(
+            "add_fuelio_trip",
+            json!({
+                "vehicleId": "x", "driveIds": ["1"], "originPlaceId": "a",
+                "destinationPlaceId": "b", "purpose": "", "withRoute": true
+            }),
+            &state,
+        );
+        let err = result.unwrap_err();
+        assert!(err.contains("dryRun") || err.contains("dry_run"), "got: {err}");
     }
 
     // ------------------------------------------------------------------

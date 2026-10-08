@@ -370,6 +370,59 @@ describe('Tier 2: Paperless Integration', () => {
     expect(await $$('[data-test="paperless-row"]').length).toBe(0);
   });
 
+  // Task 90 follow-up: a receipt time outside the trip marks the trip's time
+  // cell (the data that disagrees) with a tooltip naming both times, not a
+  // generic "data mismatch" marker next to the liters.
+  it('a receipt time outside the trip marks the time cell', async () => {
+    const vehicle = await seedVehicle({
+      name: 'Receipt Time Car',
+      licensePlate: 'RCT-001',
+      initialOdometer: 10000,
+      tankSizeLiters: 60,
+      tpConsumption: 6.5,
+    });
+    const trip = await seedTrip({
+      vehicleId: vehicle.id as string,
+      startDatetime: `${year}-04-27T08:00`,
+      endDatetime: `${year}-04-27T09:30`,
+      origin: 'Bratislava',
+      destination: 'Nitra',
+      distanceKm: 60,
+      odometer: 10060,
+      purpose: 'Sluzobna cesta',
+      fuelLiters: 40,
+      fuelCostEur: 70,
+      fullTank: true,
+    });
+    await setActiveVehicle(vehicle.id as string);
+    await rpc<void>('save_paperless_settings', {
+      url: mockUrl,
+      token: MOCK_PAPERLESS_TOKEN,
+    });
+    await rpc<void>('assign_paperless_invoice', {
+      docId: 435,
+      tripId: trip.id,
+      vehicleId: vehicle.id,
+      assignmentType: 'Fuel',
+      mismatchOverride: false,
+    });
+
+    await navigateTo('doklady');
+    await navigateTo('trips');
+    const marker = await $('[data-testid="receipt-time-warning"]');
+    await marker.waitForDisplayed({ timeout: 10000 });
+    const title = (await marker.getAttribute('title')) ?? '';
+    expect(title).toContain('27.04. 08:00 - 27.04. 09:30');
+    expect(title.toLowerCase()).toContain('receipt');
+    // The marker sits in a time cell, and the fuel column has no generic marker.
+    const cellClass = await browser.execute(
+      () =>
+        document.querySelector('[data-testid="receipt-time-warning"]')?.closest('td')?.className ?? ''
+    );
+    expect(cellClass).toMatch(/col-(start|end)-datetime/);
+    expect(await $('.col-fuel-liters .receipt-indicator.mismatch').isExisting()).toBe(false);
+  });
+
   it('override assignment shows a chip that can be cleared', async () => {
     const vehicle = await seedVehicle({
       name: 'Override Test Car',

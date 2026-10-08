@@ -696,7 +696,7 @@ pub fn get_trip_route_internal(
 /// and throws it away. `target_km` is set to `road_km` here and overwritten
 /// with the committed trip km on commit.
 #[allow(clippy::too_many_arguments)]
-fn build_route_map(
+pub(crate) fn build_route_map(
     trip_id: &str,
     waypoints: Vec<Waypoint>,
     polyline: String,

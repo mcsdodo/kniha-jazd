@@ -4,6 +4,31 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-08: Fuelio Cross-Check
+
+### BIZ-027: Fuelio drives are the reference of the cross-check
+
+**Context:** [Task 90](./_tasks/90-fuelio-crosscheck/01-task.md) compares the GPS drives of the Fuelio app with the logbook. The question is "which drive is missing in the logbook".
+
+**Decision:**
+
+1. **Fuelio is the reference.** Each row is a run of drives. A logbook trip without a drive is not listed, because that is normal (Fuelio does not record every drive).
+2. **Three passes:** complete runs first, then partial runs, then loose matches for the drives that are left. The partial and loose passes stay within 3 hours of the trip. One trip can get two rows (a match and a loose fragment). Each drive is in exactly one row.
+3. **A drive belongs to the local year of the epoch in its file name.** The page and the Dropbox sync use the same rule. Each year is checked alone: a drive on 31 December cannot match a trip on 1 January (a known limit).
+4. The thresholds are the constants in `fuelio/matching.rs`. [docs/features/fuelio.md](./docs/features/fuelio.md) explains them. They were tuned on the production data.
+
+**Reasoning:** A list of trips without a drive would be long and say nothing. The greedy passes are simple to explain, and the real cases that set the 3-hour window are tests in `matching_tests.rs`.
+
+### ADR-058: Only the Dropbox secrets turn Fuelio on
+
+**Context:** The Fuelio page writes trips (Prepísať, Pridať). The drives come from Dropbox into `<DATA_DIR>/fuelio`.
+
+**Decision:** Fuelio is on only when `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET` and `DROPBOX_REFRESH_TOKEN` are all set. Without them, the nav hides the page and the server refuses every Fuelio command, even when `<DATA_DIR>/fuelio` holds drives. `FUELIO_DROPBOX_FOLDER` is optional; empty means `/Apps/Fuelio/routes`.
+
+**Reasoning:** The operator decides that Fuelio is part of a deployment by setting the secrets. A folder that happens to exist in the volume must not turn on a page that writes trips.
+
+**Related:** [BIZ-027](#biz-027-fuelio-drives-are-the-reference-of-the-cross-check); [docs/features/fuelio.md](./docs/features/fuelio.md).
+
 ## 2026-10-05: Home Place and Read-Only MCP
 
 ### ADR-057: A read-only MCP endpoint at `/mcp`, stateless and read-only by construction

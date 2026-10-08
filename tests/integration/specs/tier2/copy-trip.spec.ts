@@ -8,15 +8,16 @@
  * - The button is disabled while a new row is open
  * - Changing the route replaces the copied KM (regression)
  * - Editing the start time preserves an overnight span (regression)
+ * - Copy reversed swaps the endpoints, marks the purpose, and leaves the GPS
  *
- * The date-resolution and day-offset rules are backend-owned and exhaustively
+ * The date-resolution, day-offset and reversal rules are backend-owned and exhaustively
  * covered in src-tauri/core/src/calculations/trip_copy.rs — do not retest here.
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { waitForTripGrid } from '../../utils/assertions';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, seedTrip, setActiveVehicle, rpc } from '../../utils/db';
+import { seedVehicle, seedTrip, setActiveVehicle, rpc, getTripGridData } from '../../utils/db';
 
 /** Set an input's value and fire input+change, which setValue does not do. */
 async function setFieldByTestId(testId: string, value: string): Promise<void> {
@@ -59,7 +60,17 @@ async function selectFromAutocomplete(inputTestId: string, value: string): Promi
 const YEAR = new Date().getFullYear();
 const LAST_ODO = 50527;
 
+/** Canned Bratislava -> Trnava route (see route-map.spec.ts); presence only. */
+const CANNED_POLYLINE = 'w_{dHcjlgBg}L{pd@wv]_bw@';
+const CANNED_WAYPOINTS = [
+  { lat: 48.1486, lon: 17.1077, name: 'Bratislava' },
+  { lat: 48.3774, lon: 17.5872, name: 'Trnava' },
+];
+
 describe('Tier 2: Copy Trip Row', () => {
+  let vehicleId: string;
+  let trnavaTripId: string;
+
   beforeEach(async () => {
     await waitForAppReady();
     await ensureLanguage('en');
@@ -75,7 +86,7 @@ describe('Tier 2: Copy Trip Row', () => {
       tankSizeLiters: 50,
       tpConsumption: 6.5,
     });
-    const vehicleId = vehicle.id as string;
+    vehicleId = vehicle.id as string;
     await setActiveVehicle(vehicleId);
 
     // Registers the Bratislava->Kosice route at 400 km, so changing a copied
@@ -104,7 +115,7 @@ describe('Tier 2: Copy Trip Row', () => {
     });
 
     // Newest trip — the default copy source for most tests.
-    await seedTrip({
+    const trnava = await seedTrip({
       vehicleId,
       startDatetime: `${YEAR}-01-20T08:30`,
       endDatetime: `${YEAR}-01-20T09:15`,
@@ -114,6 +125,7 @@ describe('Tier 2: Copy Trip Row', () => {
       odometer: LAST_ODO,
       purpose: 'Client visit',
     });
+    trnavaTripId = trnava.id as string;
 
     await navigateTo('trips');
     await waitForTripGrid();
@@ -234,6 +246,40 @@ describe('Tier 2: Copy Trip Row', () => {
     expect(newEnd.slice(0, 10)).not.toBe(shifted.slice(0, 10));
   });
 
+  it('should copy reversed: swapped endpoints, same KM, marked purpose, no GPS', async () => {
+    // The source carries a GPS route; the return leg must not inherit it.
+    await rpc<null>('save_trip_route', {
+      tripId: trnavaTripId,
+      waypoints: CANNED_WAYPOINTS,
+      polyline: CANNED_POLYLINE,
+      roadKm: 47,
+      mode: 'loop',
+      dryRun: false,
+    });
+
+    const reverseBtn = await $('.icon-btn.copy-reversed');
+    expect(await reverseBtn.isExisting()).toBe(true);
+    await reverseBtn.click();
+    await browser.pause(700);
+
+    const editingRow = await $('tr.editing');
+    expect(await (await editingRow.$('[data-testid="trip-origin"]')).getValue()).toBe('Trnava');
+    expect(await (await editingRow.$('[data-testid="trip-destination"]')).getValue()).toBe('Bratislava');
+    expect(await (await editingRow.$('[data-testid="trip-distance"]')).getValue()).toBe('47');
+    expect(await (await editingRow.$('[data-testid="trip-purpose"]')).getValue()).toBe(
+      'Kopírované: Client visit'
+    );
+
+    await (await editingRow.$('.icon-btn.save')).click();
+    await browser.pause(1500);
+
+    const grid = await getTripGridData(vehicleId, YEAR);
+    const returnLeg = grid.trips.find((t) => t.origin === 'Trnava' && t.destination === 'Bratislava');
+    expect(returnLeg).toBeDefined();
+    const route = await rpc<unknown>('get_trip_route', { tripId: returnLeg!.id });
+    expect(route).toBeNull();
+  });
+
   // The copied times are explicit user intent, so the Task 56 / BIZ-014 time
   // inference must not jitter them away. Inference only fires from the
   // autocomplete onSelect handlers, so the path that matters is re-selecting
@@ -265,6 +311,34 @@ describe('Tier 2: Copy Trip Row', () => {
 
       expect(await startInput.getValue()).toBe(beforeStart);
       expect(await endInput.getValue()).toBe(beforeEnd);
+    });
+
+    it('should re-infer the times of a reversed copy from the B->A history', async () => {
+      // An older return leg, so the Trnava trip stays the newest row and
+      // keeps the first copy-reversed button.
+      await seedTrip({
+        vehicleId,
+        startDatetime: `${YEAR}-01-05T17:00`,
+        endDatetime: `${YEAR}-01-05T17:40`,
+        origin: 'Trnava',
+        destination: 'Bratislava',
+        distanceKm: 47,
+        odometer: 50047,
+        purpose: 'Return',
+      });
+      await navigateTo('trips');
+      await waitForTripGrid();
+      await browser.pause(500);
+
+      await (await $('.icon-btn.copy-reversed')).click();
+      await browser.pause(1000);
+
+      // 17:00 +- 15 min jitter, never the source's 08:30.
+      const start = await (await $('[data-testid="trip-start-datetime"]')).getValue();
+      const [hh, mm] = start.slice(11, 16).split(':').map(Number);
+      const minutes = hh * 60 + mm;
+      expect(minutes).toBeGreaterThanOrEqual(16 * 60 + 45);
+      expect(minutes).toBeLessThanOrEqual(17 * 60 + 15);
     });
   });
 });

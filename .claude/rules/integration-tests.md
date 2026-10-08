@@ -10,12 +10,12 @@ Lessons learned from debugging flaky integration tests. Follow these patterns to
 
 ## Purpose
 
-**Integration Tests (WebdriverIO + Chrome) - UI flow verification (152 tests):**
+**Integration Tests (WebdriverIO + Chrome) - UI flow verification (188 tests in the tiers, 10 in the env suite):**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol, driving a real
   browser against the `kniha-jazd-web` HTTP server
 - **Purpose**: Verify UI correctly invokes backend and displays results
 - **NOT for**: Re-testing calculation logic (that's backend's job - see `.claude/rules/rust-backend.md`)
-- **Tiered execution**: Tier 1 (`tier1` + `existing`, 48 tests) for quick checks, all
+- **Tiered execution**: Tier 1 (`tier1` + `existing`, 56 tests) for quick checks, all
   tiers on CI; the `env` suite runs separately because its fixture env vars pin
   settings app-wide
 - DB seeding via `POST /api/rpc` (no direct DB access)
@@ -258,6 +258,16 @@ failing specs with "... is managed by the ... environment variable".
 `wdio.server.conf.ts` blanks every overridable variable (`SCRUBBED_ENV`) for normal
 runs; the `env` suite (`WDIO_ENV_PINNED=1`, `npm run test:integration:docker:env`)
 deliberately sets them instead.
+
+The `DROPBOX_*` secrets are in that list. They turn Fuelio on, so a Fuelio UI spec
+belongs in `specs/env/`. It also needs drive files in `<DATA_DIR>/fuelio`, which a spec
+cannot write into the container: [fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs)
+writes three drives of the current year: two 22 km drives and a 3 km fragment that the
+default 15 km filter hides. `onPrepare` calls it for the spawned server, and the CI step
+`Start env-pinned container` runs it on `data-env/fuelio` before `docker run`.
+`resetDatabase` clears the database, not these files, so a spec seeds the trips and the
+places (with coordinates at the drive ends) it needs. A new drive changes the row count
+of every spec in `fuelio.spec.ts`: keep it under 15 km, or update the counts.
 
 ## SvelteKit Component Caching
 

@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -408,9 +408,9 @@ export async function getInferredTripTimeForRoute(
 }
 
 export async function getCopiedTripDefaults(
-	tripId: string, year: number
+	tripId: string, year: number, reversed = false
 ): Promise<CopiedTripDefaults> {
-	return await apiCall('get_copied_trip_defaults', { tripId, year });
+	return await apiCall('get_copied_trip_defaults', { tripId, year, reversed });
 }
 
 // Hidden columns
@@ -695,4 +695,68 @@ export async function deletePlace(id: string): Promise<void> {
 
 export async function findPlace(name: string): Promise<Place | null> {
 	return await apiCall('find_place', { name });
+}
+
+// Fuelio cross-check (Task 90, read-only)
+export async function getFuelioCrosscheck(vehicleId: string, year: number): Promise<FuelioReport> {
+	return await apiCall('get_fuelio_crosscheck', { vehicleId, year });
+}
+
+export async function getFuelioTrack(driveIds: string[], tripId: string | null): Promise<FuelioTrack> {
+	return await apiCall('get_fuelio_track', { driveIds, tripId });
+}
+
+/** Overwrite trip fields with the GPS of its Fuelio drives. A dry run writes nothing. */
+export async function applyFuelioToTrip(
+	tripId: string,
+	driveIds: string[],
+	fields: FuelioFields,
+	dryRun: boolean
+): Promise<FuelioApply> {
+	return await apiCall('apply_fuelio_to_trip', { tripId, driveIds, fields, dryRun });
+}
+
+/** True when the Fuelio folder exists or Dropbox is configured: the nav shows the page. */
+export async function isFuelioAvailable(): Promise<boolean> {
+	return await apiCall('is_fuelio_available', {});
+}
+
+/** Ignore the drives of a missing row (for example a private drive), or show them again. */
+export async function setFuelioDrivesIgnored(
+	vehicleId: string,
+	driveIds: string[],
+	ignored: boolean
+): Promise<void> {
+	await apiCall('set_fuelio_drives_ignored', { vehicleId, driveIds, ignored });
+}
+
+/** Copy the Fuelio drives of one year from Dropbox into the data folder. */
+export async function syncFuelioDropbox(year: number): Promise<FuelioSyncReport> {
+	return await apiCall('sync_fuelio_dropbox', { year });
+}
+
+/** The values and place choices for a new trip from Fuelio drives. */
+export async function getFuelioAddPreview(driveIds: string[]): Promise<FuelioAddPreview> {
+	return await apiCall('get_fuelio_add_preview', { driveIds });
+}
+
+/** Add a logbook trip from Fuelio drives. A dry run writes nothing. */
+export async function addFuelioTrip(
+	vehicleId: string,
+	driveIds: string[],
+	originPlaceId: string,
+	destinationPlaceId: string,
+	purpose: string,
+	withRoute: boolean,
+	dryRun: boolean
+): Promise<FuelioAdd> {
+	return await apiCall('add_fuelio_trip', {
+		vehicleId,
+		driveIds,
+		originPlaceId,
+		destinationPlaceId,
+		purpose,
+		withRoute,
+		dryRun
+	});
 }

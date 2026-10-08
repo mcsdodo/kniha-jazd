@@ -267,6 +267,8 @@ machine.
 | `PORT` | `3456` | HTTP listen port |
 | `SYGIC_API_KEY` | unset | If set, `/mapa` offers Sygic next to OSRM (the default stays OSRM, ADR-053); a Sygic route shows the "avoid paid roads" checkboxes. If unset, public OSRM only. |
 | `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
+| `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` | unset | All three set: the Fuelio page and its nav link exist, and `/fuelio` offers "Sync from Dropbox", which copies the Fuelio drives of the selected year into `<DATA_DIR>/fuelio`. The Dropbox app needs "Full Dropbox" access and the scopes `files.metadata.read` + `files.content.read`. Unset: the nav hides Fuelio and every Fuelio command fails, even if `<DATA_DIR>/fuelio` exists. |
+| `FUELIO_DROPBOX_FOLDER` | `/Apps/Fuelio/routes` | The Dropbox folder with the Fuelio route files |
 | `KNIHA_JAZD_MOCK_ROUTER` | unset | Any non-empty value: an offline mock computes all routes. For the integration tests only. Never set it on a live instance. |
 
 - **Docker:** `docker-compose.web.yml` mounts the host's `./data` at `/data`; backups

@@ -161,4 +161,9 @@ describe('Env-managed settings', () => {
     const errorToast = await $('.toast-error');
     expect(await errorToast.isExisting()).toBe(false);
   });
+
+  it('shows the Fuelio nav link when Dropbox is configured', async () => {
+    expect(await rpc<boolean>('is_fuelio_available')).toBe(true);
+    await $('[data-testid="nav-fuelio"]').waitForDisplayed({ timeout: 5000 });
+  });
 });

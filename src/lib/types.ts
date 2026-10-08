@@ -248,6 +248,10 @@ export interface TripGridData {
 	otherInvoiceSums: Record<string, number>; // tripId -> attached Other invoice sum (EUR), only for mismatched trips
 	fuelDatetimeWarnings: string[]; // tripIds with Fuel invoice datetime outside trip range
 	otherDatetimeWarnings: string[]; // tripIds with Other invoice datetime outside trip range
+	/** Per trip in fuelDatetimeWarnings: the Fuel receipt times outside the trip. */
+	fuelReceiptDatetimes: Record<string, string[]>;
+	/** Per trip in otherDatetimeWarnings: the Other receipt times outside the trip. */
+	otherReceiptDatetimes: Record<string, string[]>;
 	duplicateDatetimeWarnings: string[]; // tripIds sharing an exact start datetime with another trip (Task 79)
 	odometerSpanWarnings: string[]; // tripIds whose odometer span differs from the recorded distance (Task 79)
 	odometerSpans: Record<string, number>; // tripId -> measured odometer span (km), only for flagged trips
@@ -645,4 +649,102 @@ export interface RouteStart {
 	mode: RouteMode;
 	origin: Place | null;
 	destination: Place | null;
+}
+
+// Fuelio cross-check (Task 90). All values come from the backend (ADR-008).
+export type FuelioRowStatus = 'matched' | 'missing';
+export type FuelioFlag = 'timeDiffers' | 'kmDiffers' | 'differentRoute' | 'partialGps' | 'looseMatch';
+
+export interface FuelioRow {
+	status: FuelioRowStatus;
+	tripId: string | null;
+	tripStart: string | null;
+	tripEnd: string | null;
+	origin: string | null;
+	destination: string | null;
+	tripKm: number | null;
+	driveIds: string[];
+	gpsStart: string | null;
+	gpsEnd: string | null;
+	gpsKm: number | null;
+	fastMinutes: number | null;
+	maxKmh: number | null;
+	isHighway: boolean;
+	startDiffMin: number | null;
+	kmDiffPct: number | null;
+	offRoutePct: number | null;
+	flags: FuelioFlag[];
+	/** A missing row whose drives the user ignored (hidden unless the filter asks). */
+	ignored: boolean;
+}
+
+export interface FuelioReport {
+	folder: string;
+	folderExists: boolean;
+	driveCount: number;
+	/** The Dropbox secrets are set: the page offers the sync. */
+	dropboxConfigured: boolean;
+	rows: FuelioRow[];
+}
+
+export interface FuelioSyncReport {
+	year: number;
+	inDropbox: number;
+	downloaded: number;
+	alreadyLocal: number;
+	failed: string[];
+}
+
+export interface FuelioPlaceOption {
+	id: string;
+	name: string;
+	distanceM: number;
+}
+
+/** What a new trip from Fuelio drives would get. */
+export interface FuelioAddPreview {
+	start: string;
+	end: string;
+	/** Whole km: what the trip gets. */
+	distanceKm: number;
+	gpsKm: number;
+	/** Every placed place, nearest to the GPS start first. */
+	origin: FuelioPlaceOption[];
+	/** Every placed place, nearest to the GPS end first. */
+	destination: FuelioPlaceOption[];
+}
+
+export interface FuelioAdd {
+	trip: Trip | null;
+	plan: CascadePlan;
+	routeWritten: boolean;
+	/** The trip was added, but its route was not saved: why. */
+	routeError: string | null;
+}
+
+/** The trip fields that the Fuelio overwrite writes. */
+export interface FuelioFields {
+	start: boolean;
+	end: boolean;
+	distance: boolean;
+	route: boolean;
+}
+
+export interface FuelioApply {
+	tripId: string;
+	startBefore: string;
+	startAfter: string;
+	endBefore: string | null;
+	endAfter: string | null;
+	distanceBefore: number;
+	distanceAfter: number;
+	/** The odometer and margin plan, when the distance is selected. */
+	writeback: DistanceWriteback | null;
+	routeWritten: boolean;
+	applied: boolean;
+}
+
+export interface FuelioTrack {
+	gps: [number, number][][];
+	route: [number, number][] | null;
 }

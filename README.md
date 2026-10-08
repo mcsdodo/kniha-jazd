@@ -28,6 +28,7 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Domov** - Ikonou domčeka na karte Miesta označíte jedno miesto ako domov. Označenie používa rozhranie MCP na zoskupenie jázd do ciest. Detaily nájdete v [docs/features/place-book.md](docs/features/place-book.md).
 - **MCP rozhranie len na čítanie** - Na adrese `/mcp` môže AI asistent čítať vozidlá, jazdy a cesty mimo domova (`list_vehicles`, `list_trips`, `list_journeys`). Rozhranie nič nezmení a nemá prihlásenie, rovnako ako `/api/rpc`. Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Detaily nájdete v [docs/features/mcp-endpoint.md](docs/features/mcp-endpoint.md).
 - **Mapy trás** - Ku každej jazde vygenerujete trasu po cestách z miesta odchodu do miesta príchodu (alebo okružnú, ak sú rovnaké), vyberiete si z alternatív, doladíte ju potiahnutím čiary a vzdialenosť zapíšete do jazdy. Uložené mapy sa pripoja do tlačového exportu. Detaily nájdete v [docs/features/route-maps.md](docs/features/route-maps.md).
+- **Fuelio - kontrola jázd** (voliteľné, potrebuje Dropbox) - Porovná jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd a nájde jazdy, ktoré v knihe chýbajú. Spárovanú jazdu opraví podľa GPS, chýbajúcu pridá, súkromnú ignoruje. Detaily nájdete v [docs/features/fuelio.md](docs/features/fuelio.md).
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby
 - **Zálohovanie a obnova** - Automatická záloha pred migráciou databázy, správa záloh
@@ -68,6 +69,15 @@ Mapa trás štandardne používa verejný server OSRM. Ak nastavíte `SYGIC_API_
 | `SYGIC_API_KEY` | nenastavená | Ak je nastavená, stránka Mapa ponúkne Sygic ako druhú službu (predvolená ostáva OSRM). Bez nej sa používa len verejný OSRM a výber sa nezobrazí. |
 | `SYGIC_REFERER` | nenastavená | Hlavička `Referer` pre kľúč Sygic s obmedzením na referer |
 | `KNIHA_JAZD_MOCK_ROUTER` | nenastavená | Len pre integračné testy. Na produkcii ju nenastavujte. |
+
+### Fuelio: synchronizácia z Dropboxu (voliteľné)
+
+Stránka Fuelio a jej položka v menu sú dostupné, len ak sú nastavené všetky tri premenné `DROPBOX_*`. Bez nich ich aplikácia skryje a príkazy Fuelio odmietne, aj keď priečinok `<DATA_DIR>/fuelio` existuje. Aplikácia v Dropboxe potrebuje prístup "Full Dropbox" a oprávnenia `files.metadata.read` a `files.content.read`.
+
+| Premenná | Predvolene | Účel |
+|----------|------------|------|
+| `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` | nenastavená | Všetky tri: zapnú stránku Fuelio a tlačidlo "Synchronizovať z Dropboxu", ktoré stiahne jazdy vybraného roka do `<DATA_DIR>/fuelio`. |
+| `FUELIO_DROPBOX_FOLDER` | `/Apps/Fuelio/routes` | Priečinok v Dropboxe so súbormi jázd Fuelio |
 
 ### Verzie image-u
 

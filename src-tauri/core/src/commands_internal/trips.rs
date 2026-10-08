@@ -2,7 +2,9 @@
 
 use crate::app_state::AppState;
 use crate::calculations::time_inference::{compute_inferred_times, Jitter, ThreadRngJitter};
-use crate::calculations::trip_copy::compute_copied_trip_defaults;
+use crate::calculations::trip_copy::{
+    compute_copied_trip_defaults, compute_reversed_trip_defaults,
+};
 use crate::check_read_only;
 use crate::commands_internal::{
     calculate_trip_numbers, get_year_start_odometer, parse_iso_datetime, period_margin_impact,
@@ -1119,7 +1121,8 @@ pub fn inferred_trip_time_for_route(
 
 /// Seed values for a row copied from an existing trip.
 ///
-/// Thin wrapper around [`compute_copied_trip_defaults`]: supplies the DB read
+/// Thin wrapper around [`compute_copied_trip_defaults`] (or, with `reversed`,
+/// [`compute_reversed_trip_defaults`]): supplies the DB read
 /// and the clock so the rule itself stays pure and unit-testable.
 ///
 /// `Local` is the *host's* timezone. On the desktop that is the user's calendar
@@ -1132,11 +1135,17 @@ pub fn get_copied_trip_defaults_internal(
     db: &Database,
     trip_id: String,
     year: i32,
+    reversed: bool,
 ) -> Result<CopiedTripDefaults, String> {
     let source = db
         .get_trip(&trip_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Trip not found: {}", trip_id))?;
 
-    compute_copied_trip_defaults(&source, year, Local::now().date_naive())
+    let today = Local::now().date_naive();
+    if reversed {
+        compute_reversed_trip_defaults(&source, year, today)
+    } else {
+        compute_copied_trip_defaults(&source, year, today)
+    }
 }

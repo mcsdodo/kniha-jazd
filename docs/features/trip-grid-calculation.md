@@ -212,7 +212,9 @@ itself and silence the span warnings (see [trip-odometer-cascade.md](./trip-odom
 - Invoice-datetime warnings (`fuelDatetimeWarnings` / `otherDatetimeWarnings`) flag a trip
   whose **assigned** invoice carries a datetime outside the trip's start-end range. All
   invoices of a trip are checked, not only the first, and the warning is split by
-  assignment type.
+  assignment type. `fuelReceiptDatetimes` / `otherReceiptDatetimes` carry the receipt
+  times that are outside the trip, so the time cell can name the receipt and its time
+  without a frontend comparison.
 
 ### Month-End Summary Rows
 

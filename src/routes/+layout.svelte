@@ -8,7 +8,7 @@
 	import { localeStore } from '$lib/stores/locale';
 	import { themeStore } from '$lib/stores/theme';
 	import { appModeStore } from '$lib/stores/appMode';
-	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips } from '$lib/api';
+	import { getVehicles, getActiveVehicle, setActiveVehicle, getYearsWithTrips, isFuelioAvailable } from '$lib/api';
 	import Toast from '$lib/components/Toast.svelte';
 	import GlobalConfirm from '$lib/components/GlobalConfirm.svelte';
 	import InvoiceIndicator from '$lib/components/InvoiceIndicator.svelte';
@@ -18,6 +18,7 @@
 
 	let availableYears = $state<number[]>([]);
 	let i18nReady = $state(false);
+	let fuelioAvailable = $state(false);
 
 	async function loadYears() {
 		if (!$activeVehicleStore) {
@@ -52,6 +53,11 @@
 
 		// Initialize app mode (check for read-only)
 		await appModeStore.refresh();
+
+		// The Fuelio page needs its folder or Dropbox; without both, hide it.
+		isFuelioAvailable()
+			.then((v) => (fuelioAvailable = v))
+			.catch((error) => console.error('Failed to check Fuelio:', error));
 
 		try {
 			// PRESERVE parallel loading for performance
@@ -127,6 +133,9 @@
 				<nav class="main-nav">
 					<a href="/doklady" class="nav-link" class:active={$page.url.pathname === '/doklady'}>{$LL.app.nav.receipts()}<InvoiceIndicator /></a>
 					<a href="/miesta" class="nav-link" class:active={$page.url.pathname === '/miesta'} data-testid="nav-places">{$LL.app.nav.places()}</a>
+					{#if fuelioAvailable}
+						<a href="/fuelio" class="nav-link" class:active={$page.url.pathname === '/fuelio'} data-testid="nav-fuelio">{$LL.app.nav.fuelio()}</a>
+					{/if}
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
 						{$LL.app.nav.settings()}
 					</a>
@@ -230,11 +239,14 @@
 		font-weight: 500;
 	}
 
+	/* Narrow windows wrap the header rows; no link is hidden */
 	.header-content {
 		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
 		justify-content: space-between;
 		align-items: center;
-		max-width: 1200px;
+		max-width: 1600px;
 		margin: 0 auto;
 	}
 
@@ -264,12 +276,14 @@
 
 	.header-left {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 2rem;
+		gap: 0.5rem 2rem;
 	}
 
 	.main-nav {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 	}
 
@@ -295,8 +309,9 @@
 
 	.header-right {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 1rem;
+		gap: 0.5rem 1rem;
 	}
 
 	.vehicle-selector {
@@ -324,6 +339,25 @@
 		font-size: 1rem;
 		cursor: pointer;
 		min-width: 200px;
+		max-width: 100%;
+	}
+
+	@media (max-width: 640px) {
+		header {
+			padding: 0.75rem 1rem;
+		}
+		.header-right,
+		.vehicle-selector {
+			width: 100%;
+			min-width: 0;
+		}
+		select {
+			min-width: 0;
+		}
+		.vehicle-selector select {
+			flex: 1;
+			width: 0;
+		}
 	}
 
 	select:focus {

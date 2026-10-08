@@ -78,6 +78,10 @@ type RootTranslation = {
 			 * M​i​e​s​t​a
 			 */
 			places: string
+			/**
+			 * F​u​e​l​i​o
+			 */
+			fuelio: string
 		}
 		/**
 		 * V​o​z​i​d​l​o​:
@@ -506,6 +510,10 @@ type RootTranslation = {
 		 */
 		copyRecord: string
 		/**
+		 * K​o​p​í​r​o​v​a​ť​ ​o​p​a​č​n​ú​ ​t​r​a​s​u
+		 */
+		copyReversed: string
+		/**
 		 * O​d​s​t​r​á​n​i​ť​ ​z​á​z​n​a​m
 		 */
 		deleteRecord: string
@@ -590,6 +598,18 @@ type RootTranslation = {
 			 * s​u​m​a​ ​i​n​ý​c​h​ ​n​á​k​l​a​d​o​v​ ​n​e​s​e​d​í​ ​s​o​ ​s​ú​č​t​o​m​ ​d​o​k​l​a​d​o​v
 			 */
 			otherSumMismatchShort: string
+			/**
+			 * Č​a​s​ ​d​o​k​l​a​d​u​ ​o​ ​t​a​n​k​o​v​a​n​í​ ​(​{​r​e​c​e​i​p​t​}​)​ ​j​e​ ​m​i​m​o​ ​č​a​s​u​ ​j​a​z​d​y​ ​(​{​t​r​i​p​}​)​.
+			 * @param {string} receipt
+			 * @param {string} trip
+			 */
+			fuelReceiptOutsideTrip: RequiredParams<'receipt' | 'trip'>
+			/**
+			 * Č​a​s​ ​d​o​k​l​a​d​u​ ​k​ ​i​n​ý​m​ ​n​á​k​l​a​d​o​m​ ​(​{​r​e​c​e​i​p​t​}​)​ ​j​e​ ​m​i​m​o​ ​č​a​s​u​ ​j​a​z​d​y​ ​(​{​t​r​i​p​}​)​.
+			 * @param {string} receipt
+			 * @param {string} trip
+			 */
+			otherReceiptOutsideTrip: RequiredParams<'receipt' | 'trip'>
 			/**
 			 * n​e​s​ú​l​a​d​ ​ú​d​a​j​o​v
 			 */
@@ -1609,6 +1629,363 @@ type RootTranslation = {
 		 */
 		placeEndpoint: string
 	}
+	fuelio: {
+		/**
+		 * F​u​e​l​i​o​ ​-​ ​k​o​n​t​r​o​l​a​ ​j​á​z​d
+		 */
+		title: string
+		/**
+		 * J​a​z​d​y​,​ ​k​t​o​r​é​ ​z​a​z​n​a​m​e​n​a​l​a​ ​a​p​l​i​k​á​c​i​a​ ​F​u​e​l​i​o​ ​(​G​P​S​)​,​ ​a​ ​j​a​z​d​a​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​,​ ​k​u​ ​k​t​o​r​e​j​ ​p​a​t​r​i​a​.​ ​I​k​o​n​y​ ​v​y​s​v​e​t​ľ​u​j​e​ ​l​e​g​e​n​d​a​ ​n​a​d​ ​t​a​b​u​ľ​k​o​u​.​ ​"​P​r​e​p​í​s​a​ť​"​ ​n​a​h​r​a​d​í​ ​ú​d​a​j​e​ ​j​a​z​d​y​ ​h​o​d​n​o​t​a​m​i​ ​z​ ​G​P​S​.​ ​"​P​r​i​d​a​ť​"​ ​z​a​p​í​š​e​ ​c​h​ý​b​a​j​ú​c​u​ ​j​a​z​d​u​ ​d​o​ ​k​n​i​h​y​.​ ​J​a​z​d​u​,​ ​k​t​o​r​á​ ​d​o​ ​k​n​i​h​y​ ​n​e​p​a​t​r​í​ ​(​n​a​p​r​.​ ​s​ú​k​r​o​m​n​ú​)​,​ ​s​k​r​y​j​e​ ​t​l​a​č​i​d​l​o​ ​s​ ​p​r​e​š​k​r​t​n​u​t​ý​m​ ​o​k​o​m​.
+		 */
+		intro: string
+		/**
+		 * P​r​i​e​č​i​n​o​k​ ​s​o​ ​s​ú​b​o​r​m​i​ ​F​u​e​l​i​o​:​ ​{​f​o​l​d​e​r​}
+		 * @param {string} folder
+		 */
+		folder: RequiredParams<'folder'>
+		/**
+		 * P​r​i​e​č​i​n​o​k​ ​n​e​e​x​i​s​t​u​j​e​.​ ​S​k​o​p​í​r​u​j​t​e​ ​d​o​ň​ ​z​á​l​o​h​u​ ​F​u​e​l​i​o​ ​(​r​o​u​t​e​-​*​.​d​a​t​a​)​.
+		 */
+		noFolder: string
+		/**
+		 * J​a​z​d​y​ ​F​u​e​l​i​o​ ​v​ ​r​o​k​u​ ​{​y​e​a​r​}​:​ ​{​c​o​u​n​t​}
+		 * @param {number} count
+		 * @param {number} year
+		 */
+		driveCount: RequiredParams<'count' | 'year'>
+		/**
+		 * F​u​e​l​i​o​ ​n​i​e​ ​j​e​ ​n​a​s​t​a​v​e​n​é​.​ ​N​a​s​t​a​v​t​e​ ​p​r​e​m​e​n​n​é​ ​p​r​o​s​t​r​e​d​i​a​ ​D​R​O​P​B​O​X​_​A​P​P​_​K​E​Y​,​ ​D​R​O​P​B​O​X​_​A​P​P​_​S​E​C​R​E​T​ ​a​ ​D​R​O​P​B​O​X​_​R​E​F​R​E​S​H​_​T​O​K​E​N​.
+		 */
+		notConfigured: string
+		/**
+		 * V​y​b​e​r​t​e​ ​v​o​z​i​d​l​o​.
+		 */
+		noVehicle: string
+		/**
+		 * N​a​č​í​t​a​v​a​m​.​.​.
+		 */
+		loading: string
+		/**
+		 * M​i​n​.​ ​k​m
+		 */
+		minKm: string
+		/**
+		 * L​e​n​ ​d​i​a​ľ​n​i​c​a
+		 */
+		highwayOnly: string
+		/**
+		 * J​a​z​d​a​ ​>​=​ ​3​0​ ​k​m​ ​a​l​e​b​o​ ​>​=​ ​5​ ​m​i​n​ ​n​a​d​ ​1​0​0​ ​k​m​/​h
+		 */
+		highwayHint: string
+		/**
+		 * L​e​n​ ​p​r​o​b​l​é​m​y
+		 */
+		problemsOnly: string
+		/**
+		 * Z​o​b​r​a​z​e​n​é​:​ ​{​c​o​u​n​t​}
+		 * @param {number} count
+		 */
+		shown: RequiredParams<'count'>
+		col: {
+			/**
+			 * S​t​a​v
+			 */
+			status: string
+			/**
+			 * K​n​i​h​a​ ​j​á​z​d
+			 */
+			logbook: string
+			/**
+			 * T​r​a​s​a
+			 */
+			route: string
+			/**
+			 * k​m​ ​(​k​n​i​h​a​)
+			 */
+			logbookKm: string
+			/**
+			 * G​P​S​ ​č​a​s
+			 */
+			gps: string
+			/**
+			 * k​m​ ​(​G​P​S​)
+			 */
+			gpsKm: string
+			/**
+			 * m​i​n​ ​>​ ​1​0​0
+			 */
+			fast: string
+			/**
+			 * m​a​x​ ​k​m​/​h
+			 */
+			maxKmh: string
+			/**
+			 * R​o​z​d​i​e​l
+			 */
+			diff: string
+			/**
+			 * U​p​o​z​o​r​n​e​n​i​a
+			 */
+			flags: string
+		}
+		status: {
+			/**
+			 * S​p​á​r​o​v​a​n​é
+			 */
+			matched: string
+			/**
+			 * C​h​ý​b​a​ ​v​ ​k​n​i​h​e
+			 */
+			missing: string
+			/**
+			 * I​g​n​o​r​o​v​a​n​é
+			 */
+			ignored: string
+		}
+		ignore: {
+			/**
+			 * I​g​n​o​r​o​v​a​ť​:​ ​j​a​z​d​a​ ​n​e​p​a​t​r​í​ ​d​o​ ​k​n​i​h​y​ ​j​á​z​d
+			 */
+			button: string
+			/**
+			 * Z​r​u​š​i​ť​ ​i​g​n​o​r​o​v​a​n​i​e
+			 */
+			undo: string
+		}
+		flag: {
+			/**
+			 * I​n​ý​ ​č​a​s
+			 */
+			timeDiffers: string
+			/**
+			 * I​n​é​ ​k​m
+			 */
+			kmDiffers: string
+			/**
+			 * I​n​á​ ​t​r​a​s​a
+			 */
+			differentRoute: string
+			/**
+			 * Č​i​a​s​t​o​č​n​é​ ​G​P​S
+			 */
+			partialGps: string
+			/**
+			 * V​o​ľ​n​é​ ​s​p​á​r​o​v​a​n​i​e
+			 */
+			looseMatch: string
+		}
+		/**
+		 * j​a​z​d​y​:​ ​{​c​o​u​n​t​}
+		 * @param {number} count
+		 */
+		drives: RequiredParams<'count'>
+		/**
+		 * m​i​m​o​ ​t​r​a​s​y​:​ ​{​p​c​t​}​ ​%
+		 * @param {number} pct
+		 */
+		offRoute: RequiredParams<'pct'>
+		/**
+		 * {​v​a​l​u​e​}​ ​m​i​n
+		 * @param {string} value
+		 */
+		diffMinutes: RequiredParams<'value'>
+		/**
+		 * {​v​a​l​u​e​}​ ​%
+		 * @param {string} value
+		 */
+		diffPercent: RequiredParams<'value'>
+		sync: {
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​o​v​a​ť​ ​z​ ​D​r​o​p​b​o​x​u​ ​(​{​y​e​a​r​}​)
+			 * @param {number} year
+			 */
+			button: RequiredParams<'year'>
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​u​j​e​m​.​.​.
+			 */
+			running: string
+			/**
+			 * S​t​i​a​h​n​e​ ​j​a​z​d​y​ ​F​u​e​l​i​o​ ​v​y​b​r​a​n​é​h​o​ ​r​o​k​a​,​ ​k​t​o​r​é​ ​t​u​ ​e​š​t​e​ ​n​i​e​ ​s​ú​.
+			 */
+			hint: string
+			/**
+			 * R​o​k​ ​{​y​e​a​r​}​:​ ​s​t​i​a​h​n​u​t​é​ ​{​d​o​w​n​l​o​a​d​e​d​}​ ​z​ ​{​t​o​t​a​l​}​ ​j​á​z​d​ ​v​ ​D​r​o​p​b​o​x​e​.
+			 * @param {number} downloaded
+			 * @param {number} total
+			 * @param {number} year
+			 */
+			done: RequiredParams<'downloaded' | 'total' | 'year'>
+			/**
+			 * N​e​p​o​d​a​r​i​l​o​ ​s​a​ ​s​t​i​a​h​n​u​ť​:​ ​{​c​o​u​n​t​}​.
+			 * @param {number} count
+			 */
+			failed: RequiredParams<'count'>
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​á​c​i​a​ ​z​ ​D​r​o​p​b​o​x​u​ ​z​l​y​h​a​l​a​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			error: RequiredParams<'error'>
+		}
+		add: {
+			/**
+			 * P​r​i​d​a​ť
+			 */
+			button: string
+			/**
+			 * P​r​i​d​a​ť​ ​j​a​z​d​u​ ​z​ ​F​u​e​l​i​o
+			 */
+			title: string
+			/**
+			 * D​o​ ​k​n​i​h​y​ ​j​á​z​d​ ​s​a​ ​z​a​p​í​š​e​ ​n​o​v​á​ ​j​a​z​d​a​ ​s​ ​t​ý​m​i​t​o​ ​ú​d​a​j​m​i​.​ ​S​k​o​n​t​r​o​l​u​j​t​e​ ​z​a​č​i​a​t​o​k​ ​a​ ​c​i​e​ľ​.
+			 */
+			intro: string
+			/**
+			 * Z​a​č​i​a​t​o​k
+			 */
+			start: string
+			/**
+			 * K​o​n​i​e​c
+			 */
+			end: string
+			/**
+			 * V​z​d​i​a​l​e​n​o​s​ť
+			 */
+			distance: string
+			/**
+			 * G​P​S​ ​{​g​p​s​}​ ​k​m​,​ ​z​a​o​k​r​ú​h​l​e​n​é​ ​n​a​ ​c​e​l​é​ ​k​m
+			 * @param {string} gps
+			 */
+			distanceNote: RequiredParams<'gps'>
+			/**
+			 * O​d​k​i​a​ľ
+			 */
+			origin: string
+			/**
+			 * K​a​m
+			 */
+			destination: string
+			/**
+			 * {​k​m​}​ ​k​m​ ​o​d​ ​G​P​S​ ​b​o​d​u
+			 * @param {string} km
+			 */
+			distanceFrom: RequiredParams<'km'>
+			/**
+			 * Ú​č​e​l
+			 */
+			purpose: string
+			/**
+			 * U​l​o​ž​i​ť​ ​G​P​S​ ​s​t​o​p​u​ ​a​k​o​ ​t​r​a​s​u​ ​j​a​z​d​y
+			 */
+			route: string
+			/**
+			 * Ž​i​a​d​n​e​ ​m​i​e​s​t​o​ ​n​e​m​á​ ​p​o​l​o​h​u​.​ ​D​o​p​l​ň​t​e​ ​p​o​l​o​h​u​ ​n​a​ ​s​t​r​á​n​k​e​ ​M​i​e​s​t​a​.
+			 */
+			noPlaces: string
+			/**
+			 * P​r​i​d​a​ť​ ​j​a​z​d​u
+			 */
+			'continue': string
+			/**
+			 * Z​r​u​š​i​ť
+			 */
+			cancel: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​ ​d​o​ ​k​n​i​h​y​ ​j​á​z​d​.
+			 */
+			done: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​,​ ​a​l​e​ ​j​e​j​ ​t​r​a​s​a​ ​s​a​ ​n​e​u​l​o​ž​i​l​a​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			routeFailed: RequiredParams<'error'>
+			/**
+			 * N​a​č​í​t​a​v​a​m​.​.​.
+			 */
+			loading: string
+		}
+		overwrite: {
+			/**
+			 * P​r​e​p​í​s​a​ť
+			 */
+			button: string
+			/**
+			 * P​r​e​p​í​s​a​ť​ ​ú​d​a​j​m​i​ ​z​ ​F​u​e​l​i​o
+			 */
+			title: string
+			/**
+			 * V​y​b​e​r​t​e​,​ ​k​t​o​r​é​ ​ú​d​a​j​e​ ​j​a​z​d​y​ ​s​a​ ​n​a​h​r​a​d​i​a​ ​h​o​d​n​o​t​a​m​i​ ​z​ ​G​P​S​.
+			 */
+			intro: string
+			/**
+			 * Z​a​č​i​a​t​o​k
+			 */
+			start: string
+			/**
+			 * K​o​n​i​e​c
+			 */
+			end: string
+			/**
+			 * V​z​d​i​a​l​e​n​o​s​ť
+			 */
+			distance: string
+			/**
+			 * z​a​o​k​r​ú​h​l​i​ ​s​a​ ​n​a​ ​c​e​l​é​ ​k​m​;​ ​p​o​s​u​n​i​e​ ​t​a​c​h​o​m​e​t​e​r​ ​n​e​s​k​o​r​š​í​c​h​ ​j​á​z​d
+			 */
+			distanceNote: string
+			/**
+			 * T​r​a​s​a
+			 */
+			route: string
+			/**
+			 * G​P​S​ ​s​t​o​p​a​ ​s​a​ ​u​l​o​ž​í​ ​a​k​o​ ​t​r​a​s​a​ ​j​a​z​d​y​ ​a​ ​n​a​h​r​a​d​í​ ​u​l​o​ž​e​n​ú​ ​t​r​a​s​u
+			 */
+			routeNew: string
+			/**
+			 * G​P​S​ ​p​o​k​r​ý​v​a​ ​l​e​n​ ​č​a​s​ť​ ​j​a​z​d​y​.​ ​K​m​ ​a​ ​č​a​s​ ​z​ ​G​P​S​ ​a​s​i​ ​n​i​e​ ​s​ú​ ​c​e​l​á​ ​j​a​z​d​a​.
+			 */
+			partialWarning: string
+			/**
+			 * V​o​ľ​n​é​ ​s​p​á​r​o​v​a​n​i​e​:​ ​j​a​z​d​a​ ​F​u​e​l​i​o​ ​n​e​m​u​s​í​ ​b​y​ť​ ​t​á​t​o​ ​j​a​z​d​a​.
+			 */
+			looseWarning: string
+			/**
+			 * P​o​k​r​a​č​o​v​a​ť
+			 */
+			'continue': string
+			/**
+			 * Z​r​u​š​i​ť
+			 */
+			cancel: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​e​p​í​s​a​n​á​ ​ú​d​a​j​m​i​ ​z​ ​F​u​e​l​i​o​.
+			 */
+			done: string
+			/**
+			 * N​i​č​ ​s​a​ ​n​e​z​m​e​n​i​l​o​.
+			 */
+			nothing: string
+		}
+		/**
+		 * M​a​p​a
+		 */
+		mapTitle: string
+		/**
+		 * G​P​S​ ​(​F​u​e​l​i​o​)
+		 */
+		mapLegendGps: string
+		/**
+		 * U​l​o​ž​e​n​á​ ​t​r​a​s​a
+		 */
+		mapLegendRoute: string
+		/**
+		 * K​l​i​k​n​i​t​e​ ​n​a​ ​r​i​a​d​o​k​ ​s​o​ ​z​á​z​n​a​m​o​m​ ​G​P​S​.
+		 */
+		mapHint: string
+		/**
+		 * J​a​z​d​a​ ​n​e​m​á​ ​u​l​o​ž​e​n​ú​ ​t​r​a​s​u​.
+		 */
+		noRoute: string
+	}
 	places: {
 		/**
 		 * O​z​n​a​č​i​ť​ ​a​k​o​ ​d​o​m​o​v
@@ -2524,6 +2901,10 @@ export type TranslationFunctions = {
 			 * Miesta
 			 */
 			places: () => LocalizedString
+			/**
+			 * Fuelio
+			 */
+			fuelio: () => LocalizedString
 		}
 		/**
 		 * Vozidlo:
@@ -2950,6 +3331,10 @@ export type TranslationFunctions = {
 		 */
 		copyRecord: () => LocalizedString
 		/**
+		 * Kopírovať opačnú trasu
+		 */
+		copyReversed: () => LocalizedString
+		/**
 		 * Odstrániť záznam
 		 */
 		deleteRecord: () => LocalizedString
@@ -3030,6 +3415,14 @@ export type TranslationFunctions = {
 			 * suma iných nákladov nesedí so súčtom dokladov
 			 */
 			otherSumMismatchShort: () => LocalizedString
+			/**
+			 * Čas dokladu o tankovaní ({receipt}) je mimo času jazdy ({trip}).
+			 */
+			fuelReceiptOutsideTrip: (arg: { receipt: string, trip: string }) => LocalizedString
+			/**
+			 * Čas dokladu k iným nákladom ({receipt}) je mimo času jazdy ({trip}).
+			 */
+			otherReceiptOutsideTrip: (arg: { receipt: string, trip: string }) => LocalizedString
 			/**
 			 * nesúlad údajov
 			 */
@@ -4007,6 +4400,346 @@ export type TranslationFunctions = {
 		 * Umiestniť miesto
 		 */
 		placeEndpoint: () => LocalizedString
+	}
+	fuelio: {
+		/**
+		 * Fuelio - kontrola jázd
+		 */
+		title: () => LocalizedString
+		/**
+		 * Jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), a jazda v knihe jázd, ku ktorej patria. Ikony vysvetľuje legenda nad tabuľkou. "Prepísať" nahradí údaje jazdy hodnotami z GPS. "Pridať" zapíše chýbajúcu jazdu do knihy. Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo s preškrtnutým okom.
+		 */
+		intro: () => LocalizedString
+		/**
+		 * Priečinok so súbormi Fuelio: {folder}
+		 */
+		folder: (arg: { folder: string }) => LocalizedString
+		/**
+		 * Priečinok neexistuje. Skopírujte doň zálohu Fuelio (route-*.data).
+		 */
+		noFolder: () => LocalizedString
+		/**
+		 * Jazdy Fuelio v roku {year}: {count}
+		 */
+		driveCount: (arg: { count: number, year: number }) => LocalizedString
+		/**
+		 * Fuelio nie je nastavené. Nastavte premenné prostredia DROPBOX_APP_KEY, DROPBOX_APP_SECRET a DROPBOX_REFRESH_TOKEN.
+		 */
+		notConfigured: () => LocalizedString
+		/**
+		 * Vyberte vozidlo.
+		 */
+		noVehicle: () => LocalizedString
+		/**
+		 * Načítavam...
+		 */
+		loading: () => LocalizedString
+		/**
+		 * Min. km
+		 */
+		minKm: () => LocalizedString
+		/**
+		 * Len diaľnica
+		 */
+		highwayOnly: () => LocalizedString
+		/**
+		 * Jazda >= 30 km alebo >= 5 min nad 100 km/h
+		 */
+		highwayHint: () => LocalizedString
+		/**
+		 * Len problémy
+		 */
+		problemsOnly: () => LocalizedString
+		/**
+		 * Zobrazené: {count}
+		 */
+		shown: (arg: { count: number }) => LocalizedString
+		col: {
+			/**
+			 * Stav
+			 */
+			status: () => LocalizedString
+			/**
+			 * Kniha jázd
+			 */
+			logbook: () => LocalizedString
+			/**
+			 * Trasa
+			 */
+			route: () => LocalizedString
+			/**
+			 * km (kniha)
+			 */
+			logbookKm: () => LocalizedString
+			/**
+			 * GPS čas
+			 */
+			gps: () => LocalizedString
+			/**
+			 * km (GPS)
+			 */
+			gpsKm: () => LocalizedString
+			/**
+			 * min > 100
+			 */
+			fast: () => LocalizedString
+			/**
+			 * max km/h
+			 */
+			maxKmh: () => LocalizedString
+			/**
+			 * Rozdiel
+			 */
+			diff: () => LocalizedString
+			/**
+			 * Upozornenia
+			 */
+			flags: () => LocalizedString
+		}
+		status: {
+			/**
+			 * Spárované
+			 */
+			matched: () => LocalizedString
+			/**
+			 * Chýba v knihe
+			 */
+			missing: () => LocalizedString
+			/**
+			 * Ignorované
+			 */
+			ignored: () => LocalizedString
+		}
+		ignore: {
+			/**
+			 * Ignorovať: jazda nepatrí do knihy jázd
+			 */
+			button: () => LocalizedString
+			/**
+			 * Zrušiť ignorovanie
+			 */
+			undo: () => LocalizedString
+		}
+		flag: {
+			/**
+			 * Iný čas
+			 */
+			timeDiffers: () => LocalizedString
+			/**
+			 * Iné km
+			 */
+			kmDiffers: () => LocalizedString
+			/**
+			 * Iná trasa
+			 */
+			differentRoute: () => LocalizedString
+			/**
+			 * Čiastočné GPS
+			 */
+			partialGps: () => LocalizedString
+			/**
+			 * Voľné spárovanie
+			 */
+			looseMatch: () => LocalizedString
+		}
+		/**
+		 * jazdy: {count}
+		 */
+		drives: (arg: { count: number }) => LocalizedString
+		/**
+		 * mimo trasy: {pct} %
+		 */
+		offRoute: (arg: { pct: number }) => LocalizedString
+		/**
+		 * {value} min
+		 */
+		diffMinutes: (arg: { value: string }) => LocalizedString
+		/**
+		 * {value} %
+		 */
+		diffPercent: (arg: { value: string }) => LocalizedString
+		sync: {
+			/**
+			 * Synchronizovať z Dropboxu ({year})
+			 */
+			button: (arg: { year: number }) => LocalizedString
+			/**
+			 * Synchronizujem...
+			 */
+			running: () => LocalizedString
+			/**
+			 * Stiahne jazdy Fuelio vybraného roka, ktoré tu ešte nie sú.
+			 */
+			hint: () => LocalizedString
+			/**
+			 * Rok {year}: stiahnuté {downloaded} z {total} jázd v Dropboxe.
+			 */
+			done: (arg: { downloaded: number, total: number, year: number }) => LocalizedString
+			/**
+			 * Nepodarilo sa stiahnuť: {count}.
+			 */
+			failed: (arg: { count: number }) => LocalizedString
+			/**
+			 * Synchronizácia z Dropboxu zlyhala: {error}
+			 */
+			error: (arg: { error: string }) => LocalizedString
+		}
+		add: {
+			/**
+			 * Pridať
+			 */
+			button: () => LocalizedString
+			/**
+			 * Pridať jazdu z Fuelio
+			 */
+			title: () => LocalizedString
+			/**
+			 * Do knihy jázd sa zapíše nová jazda s týmito údajmi. Skontrolujte začiatok a cieľ.
+			 */
+			intro: () => LocalizedString
+			/**
+			 * Začiatok
+			 */
+			start: () => LocalizedString
+			/**
+			 * Koniec
+			 */
+			end: () => LocalizedString
+			/**
+			 * Vzdialenosť
+			 */
+			distance: () => LocalizedString
+			/**
+			 * GPS {gps} km, zaokrúhlené na celé km
+			 */
+			distanceNote: (arg: { gps: string }) => LocalizedString
+			/**
+			 * Odkiaľ
+			 */
+			origin: () => LocalizedString
+			/**
+			 * Kam
+			 */
+			destination: () => LocalizedString
+			/**
+			 * {km} km od GPS bodu
+			 */
+			distanceFrom: (arg: { km: string }) => LocalizedString
+			/**
+			 * Účel
+			 */
+			purpose: () => LocalizedString
+			/**
+			 * Uložiť GPS stopu ako trasu jazdy
+			 */
+			route: () => LocalizedString
+			/**
+			 * Žiadne miesto nemá polohu. Doplňte polohu na stránke Miesta.
+			 */
+			noPlaces: () => LocalizedString
+			/**
+			 * Pridať jazdu
+			 */
+			'continue': () => LocalizedString
+			/**
+			 * Zrušiť
+			 */
+			cancel: () => LocalizedString
+			/**
+			 * Jazda bola pridaná do knihy jázd.
+			 */
+			done: () => LocalizedString
+			/**
+			 * Jazda bola pridaná, ale jej trasa sa neuložila: {error}
+			 */
+			routeFailed: (arg: { error: string }) => LocalizedString
+			/**
+			 * Načítavam...
+			 */
+			loading: () => LocalizedString
+		}
+		overwrite: {
+			/**
+			 * Prepísať
+			 */
+			button: () => LocalizedString
+			/**
+			 * Prepísať údajmi z Fuelio
+			 */
+			title: () => LocalizedString
+			/**
+			 * Vyberte, ktoré údaje jazdy sa nahradia hodnotami z GPS.
+			 */
+			intro: () => LocalizedString
+			/**
+			 * Začiatok
+			 */
+			start: () => LocalizedString
+			/**
+			 * Koniec
+			 */
+			end: () => LocalizedString
+			/**
+			 * Vzdialenosť
+			 */
+			distance: () => LocalizedString
+			/**
+			 * zaokrúhli sa na celé km; posunie tachometer neskorších jázd
+			 */
+			distanceNote: () => LocalizedString
+			/**
+			 * Trasa
+			 */
+			route: () => LocalizedString
+			/**
+			 * GPS stopa sa uloží ako trasa jazdy a nahradí uloženú trasu
+			 */
+			routeNew: () => LocalizedString
+			/**
+			 * GPS pokrýva len časť jazdy. Km a čas z GPS asi nie sú celá jazda.
+			 */
+			partialWarning: () => LocalizedString
+			/**
+			 * Voľné spárovanie: jazda Fuelio nemusí byť táto jazda.
+			 */
+			looseWarning: () => LocalizedString
+			/**
+			 * Pokračovať
+			 */
+			'continue': () => LocalizedString
+			/**
+			 * Zrušiť
+			 */
+			cancel: () => LocalizedString
+			/**
+			 * Jazda bola prepísaná údajmi z Fuelio.
+			 */
+			done: () => LocalizedString
+			/**
+			 * Nič sa nezmenilo.
+			 */
+			nothing: () => LocalizedString
+		}
+		/**
+		 * Mapa
+		 */
+		mapTitle: () => LocalizedString
+		/**
+		 * GPS (Fuelio)
+		 */
+		mapLegendGps: () => LocalizedString
+		/**
+		 * Uložená trasa
+		 */
+		mapLegendRoute: () => LocalizedString
+		/**
+		 * Kliknite na riadok so záznamom GPS.
+		 */
+		mapHint: () => LocalizedString
+		/**
+		 * Jazda nemá uloženú trasu.
+		 */
+		noRoute: () => LocalizedString
 	}
 	places: {
 		/**

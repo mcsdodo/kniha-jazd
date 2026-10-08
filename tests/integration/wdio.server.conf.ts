@@ -2,6 +2,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { mkdtempSync, rmSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
+import { writeFuelioDrives } from './fixtures/fuelio-drives.mjs';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -30,6 +31,10 @@ const ENV_PINNED_FIXTURE: Record<string, string> = {
   PAPERLESS_API_TOKEN: 'env-pinned-paperless-token',
   PAPERLESS_ENABLED: 'true',
   KNIHA_JAZD_REVEAL_PIN: '4269',
+  // Dummy Dropbox secrets: they only switch the Fuelio nav link on. No spec syncs.
+  DROPBOX_APP_KEY: 'env-pinned-dropbox-key',
+  DROPBOX_APP_SECRET: 'env-pinned-dropbox-secret',
+  DROPBOX_REFRESH_TOKEN: 'env-pinned-dropbox-token',
 };
 
 /**
@@ -305,6 +310,11 @@ export const config: any = {
     // Spawned-server mode: create temp data dir, launch binary, wait for HTTP
     testDataDir = mkdtempSync(join(tmpdir(), 'kniha-jazd-server-test-'));
     process.env.KNIHA_JAZD_DATA_DIR = testDataDir;
+    if (ENV_PINNED) {
+      // The env suite has DROPBOX_* set, so Fuelio is on: give it drives to show.
+      // CI does the same for the container (step `Start env-pinned container`).
+      writeFuelioDrives(join(testDataDir, 'fuelio'));
+    }
 
     const binaryPath = getBinaryPath();
     console.log(`Starting web server binary: ${binaryPath}`);

@@ -74,6 +74,37 @@ pub fn compute_copied_trip_defaults(
     })
 }
 
+/// Prefix a reversed copy puts on the purpose. It is saved logbook data, not
+/// UI text, so it stays Slovak whatever the UI language is.
+pub const REVERSED_PURPOSE_PREFIX: &str = "Kopírované: ";
+
+/// Build the seed values for the return leg of `source`: the same date and
+/// distance rules as [`compute_copied_trip_defaults`], with the endpoints
+/// swapped and the purpose marked as copied.
+///
+/// The times still come from the source. The new row re-infers them for the
+/// swapped place pair, and keeps these only when there is no history.
+pub fn compute_reversed_trip_defaults(
+    source: &Trip,
+    year: i32,
+    today: NaiveDate,
+) -> Result<CopiedTripDefaults, String> {
+    let copy = compute_copied_trip_defaults(source, year, today)?;
+    let purpose = if copy.purpose.starts_with(REVERSED_PURPOSE_PREFIX) {
+        copy.purpose
+    } else {
+        format!("{}{}", REVERSED_PURPOSE_PREFIX, copy.purpose)
+    };
+    Ok(CopiedTripDefaults {
+        origin_place_id: copy.destination_place_id,
+        destination_place_id: copy.origin_place_id,
+        origin: copy.destination,
+        destination: copy.origin,
+        purpose,
+        ..copy
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +301,61 @@ mod tests {
             9999.0,
             "the bound itself is plausible"
         );
+    }
+
+    #[test]
+    fn reversed_copy_swaps_the_endpoints_and_keeps_the_km() {
+        let source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        let origin_id = Uuid::new_v4();
+        let destination_id = Uuid::new_v4();
+        let source = Trip {
+            origin_place_id: origin_id,
+            destination_place_id: destination_id,
+            ..source
+        };
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        let result = compute_reversed_trip_defaults(&source, 2026, today).unwrap();
+
+        assert_eq!(result.origin, "Trnava");
+        assert_eq!(result.destination, "Bratislava");
+        assert_eq!(result.origin_place_id, destination_id);
+        assert_eq!(result.destination_place_id, origin_id);
+        assert_eq!(result.distance_km, 47.0);
+    }
+
+    #[test]
+    fn reversed_copy_marks_the_purpose_as_copied() {
+        let source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        let result = compute_reversed_trip_defaults(&source, 2026, today).unwrap();
+
+        assert_eq!(result.purpose, "Kopírované: služobná cesta");
+    }
+
+    #[test]
+    fn reversed_copy_of_a_copy_does_not_stack_the_prefix() {
+        // Reversing the return leg again gives the outbound leg: the purpose
+        // must not grow to "Kopírované: Kopírované: ...".
+        let mut source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        source.purpose = "Kopírované: služobná cesta".to_string();
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        let result = compute_reversed_trip_defaults(&source, 2026, today).unwrap();
+
+        assert_eq!(result.purpose, "Kopírované: služobná cesta");
+    }
+
+    #[test]
+    fn reversed_copy_keeps_the_date_rule_and_the_distance_guard() {
+        let mut source = make_source(dt(2026, 3, 20, 8, 30), Some(dt(2026, 3, 20, 9, 15)));
+        source.distance_km = 50_000.0;
+        let today = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+
+        let result = compute_reversed_trip_defaults(&source, 2025, today).unwrap();
+
+        assert_eq!(result.start_datetime, "2025-12-31T08:30:00");
+        assert_eq!(result.distance_km, 0.0, "corruption must not propagate");
     }
 }

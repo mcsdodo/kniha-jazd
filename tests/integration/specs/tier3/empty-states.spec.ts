@@ -4,11 +4,12 @@
  * Tests the application behavior when there's no data:
  * - No vehicles (fresh install)
  * - No trips for a vehicle
+ * - No Fuelio setup (no folder, no Dropbox)
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { seedVehicle, getVehicles, getTripGridData } from '../../utils/db';
+import { seedVehicle, getVehicles, getTripGridData, rpc } from '../../utils/db';
 import { createTestIceVehicle } from '../../fixtures/vehicles';
 
 describe('Tier 3: Empty States', () => {
@@ -108,6 +109,25 @@ describe('Tier 3: Empty States', () => {
 
       // The page should be in a valid state - not empty
       expect(pageText.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('No Fuelio Setup', () => {
+    // CI and the spawned server set no DROPBOX_* secrets (the harness blanks
+    // them). The env suite (env-managed-settings.spec.ts) covers the other side.
+    it('hides the Fuelio nav link without Dropbox', async () => {
+      expect(await rpc<boolean>('is_fuelio_available')).toBe(false);
+      await navigateTo('trips');
+      // The layout loads the flag after start: give it time, then check
+      await browser.pause(500);
+      expect(await $('[data-testid="nav-places"]').isDisplayed()).toBe(true);
+      expect(await $('[data-testid="nav-fuelio"]').isExisting()).toBe(false);
+    });
+
+    it('shows a notice instead of the Fuelio page on a direct URL', async () => {
+      await browser.url('/fuelio');
+      await $('[data-testid="fuelio-not-configured"]').waitForDisplayed({ timeout: 5000 });
+      expect(await $('[data-testid="fuelio-table"]').isExisting()).toBe(false);
     });
   });
 });

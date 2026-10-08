@@ -44,6 +44,22 @@
 		return `${day}.${month}. ${hours}:${minutes}`;
 	}
 
+	// A receipt time outside the trip, unless the user confirmed the mismatch.
+	$: fuelOutside = fuelDatetimeWarning && !fuelMismatchOverride ? fuelReceiptDatetimes : [];
+	$: otherOutside = otherDatetimeWarning && !otherMismatchOverride ? otherReceiptDatetimes : [];
+	$: receiptTimeWarning = fuelOutside.length > 0 || otherOutside.length > 0;
+	$: tripTimeText = trip
+		? `${formatDatetimeShort(trip.startDatetime)} - ${formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}`
+		: '';
+	$: receiptTimeTooltip = [
+		...fuelOutside.map((r) =>
+			$LL.trips.legend.fuelReceiptOutsideTrip({ receipt: formatDatetimeShort(r), trip: tripTimeText })
+		),
+		...otherOutside.map((r) =>
+			$LL.trips.legend.otherReceiptOutsideTrip({ receipt: formatDatetimeShort(r), trip: tripTimeText })
+		)
+	].join('\n');
+
 	// Format end datetime for display
 	function formatEndDatetimeShort(endDatetime: string | null | undefined, startDatetime: string): string {
 		// If no end datetime, show dash
@@ -61,6 +77,7 @@
 	export let onInsertAbove: () => void = () => {};
 	// Copy (Task 71) - duplicates this row's route into a new today-dated row
 	export let onCopy: () => void = () => {};
+	export let onCopyReversed: () => void = () => {};
 	export let copyDisabled: boolean = false;
 	// True while ANOTHER row of the grid is open in its editor (task 81, C1).
 	// A cascade started from here -- insert-above, delete, or the save of a
@@ -80,6 +97,8 @@
 	// Set on a NEW row that was opened via another row's copy button. Seeds
 	// formData below; null for an ordinary new row.
 	export let copyFrom: CopiedTripDefaults | null = null;
+	// A reversed copy is the return leg, so the source's times rarely fit it.
+	export let copyReversed: boolean = false;
 	// Route map (Task 70)
 	export let hasRouteMap: boolean = false;
 	export let onOpenRouteMap: () => void = () => {};
@@ -102,6 +121,10 @@
 	export let otherDatetimeWarning: boolean = false;
 	export let fuelMismatchOverride: boolean = false;
 	export let otherMismatchOverride: boolean = false;
+	// The receipt times outside the trip (backend, ADR-008). A receipt time
+	// outside the trip marks the trip's time cell, the data that disagrees.
+	export let fuelReceiptDatetimes: string[] = [];
+	export let otherReceiptDatetimes: string[] = [];
 	// Live preview props
 	export let previewData: PreviewResult | null = null;
 	export let onPreviewRequest: (km: number, fuel: number | null, fullTank: boolean) => void = () => {};
@@ -264,6 +287,9 @@
 	onMount(() => {
 		if (isNew && !copyFrom) {
 			onPreviewRequest(formData.distanceKm ?? 0, formData.fuelLiters, formData.fullTank);
+		}
+		if (isNew && copyFrom && copyReversed) {
+			tryInferTimes();
 		}
 	});
 
@@ -445,7 +471,11 @@
 		// jitter never overwrites them. Picking a DIFFERENT route changes the
 		// key, so inference correctly resumes — and manualKmEdit stays false so
 		// tryAutoFillDistance replaces the seeded km to match.
-		inferredKey = `${copyFrom.originPlaceId}\u241F${copyFrom.destinationPlaceId}`;
+		// A reversed copy leaves the key empty: its times then re-infer for the
+		// swapped pair on mount, and the seeded ones stay only without history.
+		inferredKey = copyReversed
+			? ''
+			: `${copyFrom.originPlaceId}\u241F${copyFrom.destinationPlaceId}`;
 		// Populate the live consumption/zostatok preview, matching what
 		// tryAutoFillDistance does when it auto-fills km.
 		onPreviewRequest(formData.distanceKm ?? 0, null, formData.fullTank);
@@ -945,14 +975,25 @@
 		{#if !hiddenColumns.includes('tripNumber')}
 			<td class="col-trip-number number">{tripNumber}</td>
 		{/if}
-		<td class="col-start-datetime">
+		<td
+			class="col-start-datetime"
+			class:receipt-time-warning={receiptTimeWarning && hiddenColumns.includes('time')}
+		>
 			{formatDatetimeShort(trip.startDatetime)}
 			{#if duplicateDatetimeWarning}
 				<span class="chain-indicator" title={$LL.trips.legend.duplicateDatetimeTooltip()}>⚠</span>
 			{/if}
+			{#if receiptTimeWarning && hiddenColumns.includes('time')}
+				<span class="chain-indicator" title={receiptTimeTooltip} data-testid="receipt-time-warning">⚠</span>
+			{/if}
 		</td>
 		{#if !hiddenColumns.includes('time')}
-			<td class="col-end-datetime">{formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}</td>
+			<td class="col-end-datetime" class:receipt-time-warning={receiptTimeWarning}>
+				{formatEndDatetimeShort(trip.endDatetime, trip.startDatetime)}
+				{#if receiptTimeWarning}
+					<span class="chain-indicator" title={receiptTimeTooltip} data-testid="receipt-time-warning">⚠</span>
+				{/if}
+			</td>
 		{/if}
 		<td class="col-origin">{trip.origin}</td>
 		<td class="col-destination">{trip.destination}</td>
@@ -985,8 +1026,6 @@
 					{/if}
 					{#if !hasMatchingFuelInvoice}
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingFuelInvoice()}>⚠</span>
-					{:else if fuelDatetimeWarning && !fuelMismatchOverride}
-						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
 			</td>
@@ -1036,8 +1075,6 @@
 						<span class="receipt-indicator missing" title={$LL.trips.legend.missingOtherInvoice()}>⚠</span>
 					{:else if otherSumMismatch}
 						<span class="receipt-indicator mismatch" title={$LL.trips.legend.otherSumMismatch({ total: (trip.otherCostsEur ?? 0).toFixed(2), sum: (otherInvoiceSum ?? 0).toFixed(2) })}>⚠</span>
-					{:else if otherDatetimeWarning && !otherMismatchOverride}
-						<span class="receipt-indicator mismatch" title={$LL.trips.legend.dataMismatch()}>⚠</span>
 					{/if}
 				{/if}
 			</td>
@@ -1067,6 +1104,19 @@
 					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
 						<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+					</svg>
+				</button>
+				<button
+					class="icon-btn copy-reversed"
+					on:click|stopPropagation={onCopyReversed}
+					disabled={copyDisabled}
+					title={copyDisabled ? $LL.trips.actionBlockedWhileEditing() : $LL.trips.copyReversed()}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<polyline points="17 1 21 5 17 9"></polyline>
+						<path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+						<polyline points="7 23 3 19 7 15"></polyline>
+						<path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
 					</svg>
 				</button>
 				<button
@@ -1237,7 +1287,8 @@
 		color: var(--accent-primary);
 	}
 
-	.icon-btn.copy:hover {
+	.icon-btn.copy:hover,
+	.icon-btn.copy-reversed:hover {
 		color: var(--accent-primary);
 	}
 
@@ -1316,6 +1367,12 @@
 
 	/* Odometer chain warning - tied start datetime, or a span that
 	   contradicts the recorded distance (Task 79) */
+	.receipt-time-warning {
+		background-color: var(--warning-bg);
+		outline: 1px solid var(--warning-border);
+		outline-offset: -1px;
+	}
+
 	.chain-indicator {
 		margin-left: 0.25rem;
 		cursor: help;

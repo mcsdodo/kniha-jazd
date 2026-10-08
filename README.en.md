@@ -28,6 +28,7 @@ discontinued — existing installs keep working but receive no further updates.
 - **Home** - The house icon on the Miesta tab marks one place as home. The MCP endpoint uses the mark to group trips into journeys. See [docs/features/place-book.md](docs/features/place-book.md).
 - **Read-only MCP endpoint** - At `/mcp`, an AI assistant can read vehicles, trips and journeys away from home (`list_vehicles`, `list_trips`, `list_journeys`). It cannot change anything. It has no auth, the same as `/api/rpc`. If a reverse proxy lets only some paths through, add `/mcp`. See [docs/features/mcp-endpoint.md](docs/features/mcp-endpoint.md).
 - **Route maps** - Generate a road-following route for a trip, from its origin to its destination (or a loop when the two are the same), pick an alternative, drag the line to correct it, and write the distance back to the trip. Saved maps are appended to the printed export. See [docs/features/route-maps.md](docs/features/route-maps.md).
+- **Fuelio trip check** (optional, needs Dropbox) - Compares the drives that the Fuelio app recorded (GPS) with the logbook and finds the drives the logbook does not have. Corrects a matched trip from the GPS data, adds a missing one, ignores a private one. See [docs/features/fuelio.md](docs/features/fuelio.md).
 - **Yearly overviews** - Each year = separate logbook
 - **Column visibility** - Customize the trip grid by hiding/showing columns
 - **Backup and restore** - Automatic backup before database migrations, backup management
@@ -68,6 +69,15 @@ The route map uses the public OSRM server by default. If you set `SYGIC_API_KEY`
 | `SYGIC_API_KEY` | unset | If set, the Map page offers Sygic as a second service (the default stays OSRM). If unset, only public OSRM is used and the select is hidden. |
 | `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
 | `KNIHA_JAZD_MOCK_ROUTER` | unset | For the integration tests only. Do not set it on a live instance. |
+
+### Fuelio: Dropbox sync (optional)
+
+The Fuelio page and its nav link exist only when all three `DROPBOX_*` variables are set. Without them the app hides the page and refuses the Fuelio commands, even if `<DATA_DIR>/fuelio` exists. The Dropbox app needs "Full Dropbox" access and the scopes `files.metadata.read` and `files.content.read`.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` | unset | All three: turn on the Fuelio page and "Sync from Dropbox", which downloads the drives of the selected year into `<DATA_DIR>/fuelio`. |
+| `FUELIO_DROPBOX_FOLDER` | `/Apps/Fuelio/routes` | The Dropbox folder with the Fuelio route files |
 
 ### Image channels
 

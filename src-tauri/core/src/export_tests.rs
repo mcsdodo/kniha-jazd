@@ -64,6 +64,8 @@ fn empty_grid_data(trips: Vec<Trip>) -> TripGridData {
         odometer_span_warnings: HashSet::new(),
         odometer_spans: HashMap::new(),
         other_datetime_warnings: HashSet::new(),
+        fuel_receipt_datetimes: HashMap::new(),
+        other_receipt_datetimes: HashMap::new(),
         fuel_mismatch_overrides: HashSet::new(),
         other_mismatch_overrides: HashSet::new(),
         year_start_odometer: 10000.0,

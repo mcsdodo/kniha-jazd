@@ -1119,16 +1119,26 @@ fn restore_of_an_old_backup_runs_the_places_migration() {
 
 const ADD_PLACE_IS_HOME: &str = "2026-10-05-110000";
 
+/// Revert the newest migrations, one by one, up to and including `version`.
+/// A later migration must not break a test of an earlier one.
+fn revert_down_to(db: &Database, version: &str) {
+    let conn = &mut *db.connection();
+    let want = version.replace('-', "");
+    for _ in 0..20 {
+        let reverted = conn.revert_last_migration(crate::db::MIGRATIONS).unwrap();
+        if reverted.to_string().replace('-', "").starts_with(&want) {
+            return;
+        }
+    }
+    panic!("migration {version} not found in the last 20");
+}
+
 #[test]
 fn add_place_is_home_down_then_up_again() {
     let db = Database::in_memory().unwrap();
     let id = db.ensure_place_for_test("City A").to_string();
     db.set_home_place(Some(&id)).unwrap();
-    {
-        let conn = &mut *db.connection();
-        let reverted = conn.revert_last_migration(crate::db::MIGRATIONS).unwrap();
-        assert!(reverted.to_string().replace('-', "").starts_with(&ADD_PLACE_IS_HOME.replace('-', "")));
-    }
+    revert_down_to(&db, ADD_PLACE_IS_HOME);
     {
         let conn = &mut *db.connection();
         let left: Result<usize, _> = diesel::sql_query("SELECT is_home FROM places").execute(conn);
@@ -1140,4 +1150,31 @@ fn add_place_is_home_down_then_up_again() {
     assert!(!rows[0].is_home, "the mark is not kept: the column is new again");
     db.set_home_place(Some(&id)).unwrap();
     assert!(db.get_home_place().unwrap().is_some());
+}
+
+// ============================================================================
+// Fuelio ignored drives (task 90)
+// ============================================================================
+
+const FUELIO_IGNORED_DRIVES: &str = "2026-10-08-100000";
+
+#[test]
+fn fuelio_ignored_drives_down_then_up_again() {
+    let db = Database::in_memory().unwrap();
+    let mut v = crate::models::Vehicle::new_ice("Car".into(), "MIG-1".into(), 50.0, 6.5, 0.0);
+    v.is_active = true;
+    db.create_vehicle(&v).unwrap();
+    let vid = v.id.to_string();
+    db.set_fuelio_drives_ignored(&vid, &["1".to_string()], true).unwrap();
+    revert_down_to(&db, FUELIO_IGNORED_DRIVES);
+    {
+        let conn = &mut *db.connection();
+        let left: Result<usize, _> =
+            diesel::sql_query("SELECT drive_id FROM fuelio_ignored_drives").execute(conn);
+        assert!(left.is_err(), "down.sql must drop the table");
+        conn.run_pending_migrations(crate::db::MIGRATIONS).unwrap();
+    }
+    assert!(db.ignored_fuelio_drives(&vid).unwrap().is_empty(), "the table is new again");
+    db.set_fuelio_drives_ignored(&vid, &["1".to_string()], true).unwrap();
+    assert_eq!(db.ignored_fuelio_drives(&vid).unwrap().len(), 1);
 }

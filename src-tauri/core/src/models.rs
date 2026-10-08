@@ -461,6 +461,11 @@ pub struct TripGridData {
     pub fuel_datetime_warnings: HashSet<String>,
     /// Trip IDs where an assigned Other invoice datetime is outside trip range
     pub other_datetime_warnings: HashSet<String>,
+    /// For each trip in `fuel_datetime_warnings`: the Fuel receipt times outside
+    /// the trip, so the grid can name them (ADR-008: no frontend comparison)
+    pub fuel_receipt_datetimes: HashMap<String, Vec<NaiveDateTime>>,
+    /// The same for `other_datetime_warnings` and Other receipts
+    pub other_receipt_datetimes: HashMap<String, Vec<NaiveDateTime>>,
     /// Trip IDs that share their exact start datetime with another trip.
     /// The grid tie-breaks such rows by `created_at` (data-entry order), which
     /// is not travel order, so the derived starting odometer can chain wrong

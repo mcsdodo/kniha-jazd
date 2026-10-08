@@ -12,6 +12,7 @@ pub mod constants;
 pub mod db;
 pub mod db_location;
 pub mod export;
+pub mod fuelio;
 pub mod invoice;
 pub mod journeys;
 pub mod mcp;

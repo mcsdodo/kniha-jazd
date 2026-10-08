@@ -16,10 +16,19 @@ databázu len na čítanie.
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
-- **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** žiadne
+- **Premenné prostredia:** nové, voliteľné: `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` a `FUELIO_DROPBOX_FOLDER` (predvolene `/Apps/Fuelio/routes`). Stránka `/fuelio` a jej položka v menu sú dostupné, len ak sú nastavené všetky tri premenné `DROPBOX_*`. Bez nich sa nič nemení: menu stránku neukáže a server príkazy Fuelio odmietne.
+- **Migrácie databázy:** jedna, `2026-10-08-100000_fuelio_ignored_drives`: nová tabuľka `fuelio_ignored_drives` (jazdy Fuelio, ktoré používateľ ignoruje). Existujúce údaje sa nemenia. Starší obraz otvorí aktualizovanú databázu len na čítanie.
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Obraz, zväzok, port:** bez zmeny. Nová stránka `/fuelio` číta priečinok `<DATA_DIR>/fuelio`, ktorý plní synchronizácia z Dropboxu. Samotný priečinok bez premenných `DROPBOX_*` stránku nezapne.
+
+### Pridané
+- **Fuelio - kontrola jázd (POC)** - nová stránka porovná jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd. Stránka potrebuje Dropbox (premenné `DROPBOX_*`), inak ju menu neukáže. Jazdy Fuelio (`route-*.data`) stiahne do `<DATA_DIR>/fuelio` synchronizácia z Dropboxu. Každý riadok je jazda Fuelio a jazda v knihe, ku ktorej patrí. Hlavný výstup sú jazdy Fuelio, ktoré v knihe chýbajú. Jazda v knihe bez záznamu Fuelio sa nezobrazí. Stránka ukáže aj rozdiel v čase a km a jazdy, ktorých GPS stopa nejde po uloženej trase. Jazdu, z ktorej Fuelio zaznamenalo len časť (napr. len cestu späť), spáruje s uloženou trasou a označí "Čiastočné GPS". Jazdu Fuelio, ktorá sa nedá spárovať presne, priradí k jazde v knihe v rovnakom čase a na rovnakom mieste alebo trase a označí "Voľné spárovanie". Tlačidlo "Prepísať" pri spárovanej jazde nahradí vybrané údaje jazdy hodnotami z GPS: začiatok, koniec, vzdialenosť (celé km, posunie tachometer neskorších jázd, s rovnakým potvrdením ako na stránke Mapa) a trasu. Tlačidlo "Pridať" pri jazde, ktorá v knihe chýba, ju zapíše ako novú jazdu: čas a km z GPS, začiatok a cieľ sa navrhnú podľa najbližšieho miesta (dajú sa zmeniť), účel sa doplní ručne, GPS stopa sa uloží ako trasa. Tlačidlo "Synchronizovať z Dropboxu" stiahne jazdy Fuelio vybraného roka, ktoré v `<DATA_DIR>/fuelio` ešte nie sú (potrebné premenné `DROPBOX_*`). Filter podľa km (predvolene od 15 km), stavu a "len diaľnica". Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo "Ignorovať" (preškrtnuté oko). Ignorované jazdy ukáže filter "Ignorované" a tam sa ignorovanie dá zrušiť. Ignorovanie platí pre vybrané vozidlo. Mapa ukazuje vybraný riadok, po načítaní prvý riadok. Stav a upozornenia sú ikony v stĺpci Stav. Legenda nad tabuľkou vysvetľuje každú ikonu. Ak dáte myš na ikonu, ukáže sa jej názov.
+- **Kopírovanie opačnej trasy** - pri každej jazde je nové tlačidlo, ktoré vytvorí novú jazdu so zamenenými miestami (cesta späť). Dátum a vzdialenosť sa preberú ako pri kopírovaní, účel dostane predponu "Kopírované: ". GPS trasa sa nekopíruje. Ak je zapnuté automatické vypĺňanie časov, časy sa dopočítajú podľa predchádzajúcich jázd na opačnej trase.
+
+### Zmenené
+- **Hlavička na úzkej obrazovke** - ak sa položky menu, vozidlo a rok nezmestia do jedného riadku, hlavička sa zalomí do viacerých riadkov. Doteraz bola stránka v úzkom okne širšia ako okno.
+- **Tmavý režim** - posuvníky a ďalšie prvky prehliadača majú tmavú farbu.
+- **Čas dokladu mimo jazdy** - ak je čas priradeného dokladu (tankovanie alebo iné náklady) mimo času jazdy, kniha jázd zvýrazní bunku s časom jazdy a ⚠ v nej povie, ktorý doklad a ktorý čas nesedia, napr. "Čas dokladu o tankovaní (28.09. 18:43) je mimo času jazdy (28.09. 17:30 - 28.09. 18:38)." Doteraz bol pri litroch len všeobecný ⚠ "nesúlad údajov".
 
 ## [2.0.0] - 2026-10-05
 

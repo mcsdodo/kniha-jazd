@@ -155,4 +155,13 @@ diesel::joinable!(trips -> vehicles (vehicle_id));
 diesel::joinable!(paperless_trip_links -> trips (trip_id));
 diesel::joinable!(trip_routes -> trips (trip_id));
 
-diesel::allow_tables_to_appear_in_same_query!(paperless_trip_links, places, routes, settings, trip_routes, trips, vehicles,);
+diesel::table! {
+    // Migration 2026-10-08-100000_fuelio_ignored_drives (Task 90).
+    fuelio_ignored_drives (vehicle_id, drive_id) {
+        vehicle_id -> Text,
+        drive_id -> Text,
+        ignored_at -> Text,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(fuelio_ignored_drives, paperless_trip_links, places, routes, settings, trip_routes, trips, vehicles,);

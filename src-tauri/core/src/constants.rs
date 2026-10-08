@@ -79,6 +79,15 @@ pub mod env_vars {
     /// Set to any non-empty value to route with a fixed, offline mock
     /// (integration tests). Wins over `SYGIC_API_KEY`.
     pub const MOCK_ROUTER: &str = "KNIHA_JAZD_MOCK_ROUTER";
+
+    /// Dropbox app key, app secret and the user's refresh token (Task 90).
+    /// All three set: the Fuelio page offers a sync from Dropbox.
+    pub const DROPBOX_APP_KEY: &str = "DROPBOX_APP_KEY";
+    pub const DROPBOX_APP_SECRET: &str = "DROPBOX_APP_SECRET";
+    pub const DROPBOX_REFRESH_TOKEN: &str = "DROPBOX_REFRESH_TOKEN";
+
+    /// The Dropbox folder with the Fuelio route files. Default `/Apps/Fuelio/routes`.
+    pub const FUELIO_DROPBOX_FOLDER: &str = "FUELIO_DROPBOX_FOLDER";
 }
 
 /// Default values
