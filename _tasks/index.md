@@ -8,6 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 91 | [Loop Generator Bratislava](91-loop-generator-bratislava/) | 📋 Planning | The loop starts at the trip's place; Bratislava districts are the second candidate set (OSRM `/table` matrix); numbered vias on `/mapa` |
 | 90 | [Fuelio Cross-Check](90-fuelio-crosscheck/) | 🟡 In Progress | POC: read-only list of Fuelio GPS drives matched to logbook trips; flags missing trips, time/km differences and a different route |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |
 | 82 | [Integration DB Reset](82-integration-db-reset/) | 📋 Planning | One guarded backend command resets every table + local.settings.json; correctness, not speed. [Task 83](_done/83-integration-test-sharding/) shipped without it, so the order risk is live on `main` |
