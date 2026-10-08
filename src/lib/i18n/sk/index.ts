@@ -540,6 +540,8 @@ const sk = {
 		},
 		drives: 'jazdy: {count: number}',
 		offRoute: 'mimo trasy: {pct: number} %',
+		diffMinutes: '{value: string} min',
+		diffPercent: '{value: string} %',
 		sync: {
 			button: 'Synchronizovať z Dropboxu ({year: number})',
 			running: 'Synchronizujem...',
@@ -565,6 +567,7 @@ const sk = {
 			continue: 'Pridať jazdu',
 			cancel: 'Zrušiť',
 			done: 'Jazda bola pridaná do knihy jázd.',
+			routeFailed: 'Jazda bola pridaná, ale jej trasa sa neuložila: {error: string}',
 			loading: 'Načítavam...',
 		},
 		overwrite: {

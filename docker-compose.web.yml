@@ -13,9 +13,11 @@ services:
       - DATABASE_PATH=/data/kniha-jazd.db
       - KNIHA_JAZD_DATA_DIR=/data
       - PORT=3456
-      # Optional: the Fuelio page's "Sync from Dropbox" (Task 90). Compose
-      # fills these from .env; unset, the page hides the button.
+      # Optional: the Fuelio page (Task 90). Compose fills these from .env.
+      # Without the three DROPBOX_* secrets, Fuelio is off (no nav link).
+      # An empty FUELIO_DROPBOX_FOLDER means /Apps/Fuelio/routes.
       - DROPBOX_APP_KEY=${DROPBOX_APP_KEY:-}
       - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET:-}
       - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN:-}
+      - FUELIO_DROPBOX_FOLDER=${FUELIO_DROPBOX_FOLDER:-}
     restart: unless-stopped

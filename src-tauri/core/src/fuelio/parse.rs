@@ -140,7 +140,12 @@ pub(crate) fn drive_id(file_name: &str) -> Option<String> {
 /// The CSV text inside a `.data` zip (its first file).
 pub fn read_data_file(path: &Path) -> Result<String, String> {
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let mut zip = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+    read_data(file)
+}
+
+/// The CSV text inside `.data` content (a zip, its first file).
+pub(crate) fn read_data(content: impl Read + std::io::Seek) -> Result<String, String> {
+    let mut zip = zip::ZipArchive::new(content).map_err(|e| e.to_string())?;
     let mut entry = zip.by_index(0).map_err(|e| e.to_string())?;
     let mut text = String::new();
     entry.read_to_string(&mut text).map_err(|e| e.to_string())?;
@@ -152,9 +157,19 @@ pub fn data_file_path(dir: &Path, id: &str) -> std::path::PathBuf {
     dir.join(format!("route-{id}.data"))
 }
 
-/// Every drive in `dir`, one per ID, oldest first. A file that does not
-/// parse is skipped with a log line; a missing folder gives no drives.
-pub fn scan_dir(dir: &Path) -> Vec<Drive> {
+/// The year of a drive file: the local year of the epoch in its name (the
+/// drive start, a few seconds before the first fix). The page and the sync
+/// both use it, so a drive is in exactly one year.
+pub(crate) fn file_year(file_name: &str) -> Option<i32> {
+    let ms: i64 = drive_id(file_name)?.parse().ok()?;
+    Some(utc_ms_to_local(ms).year())
+}
+
+/// Every drive of `year` in `dir`, one per ID, oldest first. The year comes
+/// from the file name, so the files of the other years are not read. A file
+/// that does not parse is skipped with a log line; a missing folder gives no
+/// drives.
+pub fn scan_year(dir: &Path, year: i32) -> Vec<Drive> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -162,7 +177,7 @@ pub fn scan_dir(dir: &Path) -> Vec<Drive> {
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let Some(id) = drive_id(&name) else { continue };
-        if by_id.contains_key(&id) {
+        if by_id.contains_key(&id) || file_year(&name) != Some(year) {
             continue;
         }
         match read_data_file(&entry.path()) {

@@ -86,9 +86,15 @@
 		busy = true;
 		error = null;
 		try {
-			await call(false);
+			const r = await call(false);
 			plan = null;
-			toast.success($LL.fuelio.add.done());
+			// The trip exists even when its route failed: close and reload, so a
+			// second click cannot add it again.
+			if (r.routeError) {
+				toast.error($LL.fuelio.add.routeFailed({ error: r.routeError }));
+			} else {
+				toast.success($LL.fuelio.add.done());
+			}
 			onDone();
 		} catch (e) {
 			plan = null;

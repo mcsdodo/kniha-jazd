@@ -718,6 +718,8 @@ export interface FuelioAdd {
 	trip: Trip | null;
 	plan: CascadePlan;
 	routeWritten: boolean;
+	/** The trip was added, but its route was not saved: why. */
+	routeError: string | null;
 }
 
 /** The trip fields that the Fuelio overwrite writes. */

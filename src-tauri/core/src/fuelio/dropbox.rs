@@ -2,7 +2,7 @@
 //!
 //! Fuelio backs up its drives to Dropbox (`/Apps/Fuelio/routes`). The sync
 //! copies the `route-<id>.data` files of one year into `<DATA_DIR>/fuelio`,
-//! the folder that [`super::scan_dir`] reads. Only files that are not there
+//! the folder that [`super::scan_year`] reads. Only files that are not there
 //! yet are downloaded, so a repeat sync costs one listing (a few calls).
 //!
 //! The API calls sit behind [`RouteStore`] so the sync can be tested without
@@ -13,10 +13,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 
-use super::parse::{drive_id, utc_ms_to_local};
+use super::parse::{drive_id, file_year, read_data};
 use crate::constants::env_vars;
 
 const API_URL: &str = "https://api.dropboxapi.com";
@@ -30,13 +29,25 @@ const PARALLEL_DOWNLOADS: usize = 8;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// The Dropbox app and the user's grant. All three secrets are required.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DropboxConfig {
     pub app_key: String,
     pub app_secret: String,
     pub refresh_token: String,
     /// The Dropbox folder with the route files, without a trailing slash.
     pub folder: String,
+}
+
+/// No secret in a log line: `Debug` shows the app key and the folder only.
+impl std::fmt::Debug for DropboxConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DropboxConfig")
+            .field("app_key", &self.app_key)
+            .field("app_secret", &"<redacted>")
+            .field("refresh_token", &"<redacted>")
+            .field("folder", &self.folder)
+            .finish()
+    }
 }
 
 impl DropboxConfig {
@@ -209,6 +220,8 @@ pub struct SyncReport {
 /// Download the `route-<id>.data` files of `year` that `dir` does not have.
 /// The year is the local start year of the drive, as on the page. A file is
 /// written to a temporary name first, so a failed download leaves nothing.
+/// A body that does not open as a Fuelio file is not saved either: the next
+/// sync tries it again.
 pub async fn sync_year(store: Arc<dyn RouteStore>, dir: &Path, year: i32) -> Result<SyncReport, String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
     let wanted: Vec<String> = store
@@ -216,10 +229,8 @@ pub async fn sync_year(store: Arc<dyn RouteStore>, dir: &Path, year: i32) -> Res
         .await?
         .into_iter()
         .filter(|name| {
-            drive_id(name)
-                .filter(|id| name == &format!("route-{id}.data"))
-                .and_then(|id| id.parse::<i64>().ok())
-                .is_some_and(|ms| utc_ms_to_local(ms).year() == year)
+            drive_id(name).is_some_and(|id| name == &format!("route-{id}.data"))
+                && file_year(name) == Some(year)
         })
         .collect();
     let (have, missing): (Vec<_>, Vec<_>) = wanted.iter().cloned().partition(|n| dir.join(n).exists());
@@ -238,6 +249,8 @@ pub async fn sync_year(store: Arc<dyn RouteStore>, dir: &Path, year: i32) -> Res
         while let Some(joined) = tasks.join_next().await {
             let (name, result) = joined.map_err(|e| format!("Download task failed: {e}"))?;
             let written = result.and_then(|bytes| {
+                read_data(std::io::Cursor::new(&bytes))
+                    .map_err(|e| format!("not a Fuelio file: {e}"))?;
                 let tmp = dir.join(format!(".{name}.part"));
                 std::fs::write(&tmp, bytes)
                     .and_then(|_| std::fs::rename(&tmp, dir.join(&name)))

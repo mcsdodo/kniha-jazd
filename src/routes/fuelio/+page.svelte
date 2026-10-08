@@ -11,9 +11,9 @@
 	import FuelioOverwriteModal from '$lib/components/FuelioOverwriteModal.svelte';
 	import FuelioAddModal from '$lib/components/FuelioAddModal.svelte';
 
-	// Task 90 POC: read-only cross-check of Fuelio GPS drives against the
-	// logbook. The backend matches, measures and flags every row (ADR-008);
-	// this page only filters the rows for display and draws the map.
+	// Task 90: cross-check of Fuelio GPS drives against the logbook. The
+	// backend matches, measures and flags every row, and writes the trips
+	// (ADR-008); this page only filters the rows for display and draws the map.
 
 	const GPS_COLOR = '#d63031';
 	const ROUTE_COLOR = '#0984e3';
@@ -112,15 +112,20 @@
 		load(vehicle.id, year);
 	});
 
+	// A fast vehicle or year switch starts a second load: only the newest
+	// load may set the report, so an older response cannot overwrite it.
+	let loadSeq = 0;
 	async function load(vehicleId: string, year: number) {
+		const seq = ++loadSeq;
 		loading = true;
 		selected = null;
 		try {
-			report = await api.getFuelioCrosscheck(vehicleId, year);
+			const r = await api.getFuelioCrosscheck(vehicleId, year);
+			if (seq === loadSeq) report = r;
 		} catch (e) {
-			toast.error(String(e));
+			if (seq === loadSeq) toast.error(String(e));
 		} finally {
-			loading = false;
+			if (seq === loadSeq) loading = false;
 		}
 	}
 
@@ -227,9 +232,8 @@
 	function num(n: number | null, digits = 0): string {
 		return n === null ? '' : n.toFixed(digits);
 	}
-	function signed(n: number | null, digits: number, unit: string): string {
-		if (n === null) return '';
-		return `${n > 0 ? '+' : ''}${n.toFixed(digits)} ${unit}`;
+	function signed(n: number, digits: number): string {
+		return `${n > 0 ? '+' : ''}${n.toFixed(digits)}`;
 	}
 </script>
 
@@ -415,8 +419,8 @@
 									<td class="r">{num(r.fastMinutes)}</td>
 									<td class="r">{num(r.maxKmh)}</td>
 									<td class="nowrap small">
-										{signed(r.startDiffMin, 0, 'min')}
-										{#if r.kmDiffPct !== null}<br />{signed(r.kmDiffPct, 1, '%')}{/if}
+										{#if r.startDiffMin !== null}{$LL.fuelio.diffMinutes({ value: signed(r.startDiffMin, 0) })}{/if}
+										{#if r.kmDiffPct !== null}<br />{$LL.fuelio.diffPercent({ value: signed(r.kmDiffPct, 1) })}{/if}
 										{#if r.offRoutePct !== null}<br />{$LL.fuelio.offRoute({ pct: Math.round(r.offRoutePct) })}{/if}
 									</td>
 									<td class="actions">

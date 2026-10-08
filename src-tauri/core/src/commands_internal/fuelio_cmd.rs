@@ -1,4 +1,5 @@
-//! Fuelio cross-check commands (Task 90, POC). Read-only.
+//! Fuelio commands (Task 90): the cross-check, the map track, the Dropbox
+//! sync, and the writes (overwrite a trip, add a trip, ignore a drive).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -42,8 +43,6 @@ fn pairs(points: Vec<(f64, f64)>) -> Vec<[f64; 2]> {
     points.into_iter().map(|(a, b)| [a, b]).collect()
 }
 
-/// The cross-check of one vehicle's trips of `year` against the Fuelio
-/// drives that start in `year`.
 /// Fuelio is set up only through Dropbox. Without the DROPBOX_* secrets every
 /// Fuelio command is refused, even when `<DATA_DIR>/fuelio` holds drives.
 pub fn require_fuelio_internal(dropbox_configured: bool) -> Result<(), String> {
@@ -55,6 +54,8 @@ pub fn require_fuelio_internal(dropbox_configured: bool) -> Result<(), String> {
     }
 }
 
+/// The cross-check of one vehicle's trips of `year` against the Fuelio
+/// drives that start in `year`.
 pub fn get_fuelio_crosscheck_internal(
     db: &Database,
     data_dir: &Path,
@@ -62,10 +63,7 @@ pub fn get_fuelio_crosscheck_internal(
     year: i32,
 ) -> Result<FuelioReport, String> {
     let folder = data_dir.join(fuelio::FOLDER_NAME);
-    let drives: Vec<_> = fuelio::scan_dir(&folder)
-        .into_iter()
-        .filter(|d| d.start.year() == year)
-        .collect();
+    let drives = fuelio::scan_year(&folder, year);
 
     let trips = db
         .get_trips_for_vehicle_in_year(vehicle_id, year)
@@ -200,7 +198,6 @@ fn full_track(data_dir: &Path, drives: &[Drive]) -> Result<Vec<(f64, f64)>, Stri
     Ok(points)
 }
 
-/// A drive ID becomes a file name: digits only, so no path can escape the folder.
 /// Only a missing row can be ignored, and only when the user ignored every one
 /// of its drives: a drive that a later sync adds to the chain shows it again.
 fn mark_ignored(
@@ -235,6 +232,7 @@ pub fn set_fuelio_drives_ignored_internal(
         .map_err(|e| e.to_string())
 }
 
+/// A drive ID becomes a file name: digits only, so no path can escape the folder.
 fn check_drive_id(id: &str) -> Result<(), String> {
     if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
         return Err(format!("Invalid drive id: {id}"));
@@ -474,6 +472,9 @@ pub struct FuelioAdd {
     /// The odometer plan of the insert (ADR-046).
     pub plan: crate::models::CascadePlan,
     pub route_written: bool,
+    /// The trip was added, but its route was not saved: why. Not an `Err`,
+    /// because the trip exists and a retry would add it again.
+    pub route_error: Option<String>,
 }
 
 /// Add a logbook trip from Fuelio drives (Task 90): the GPS start and end in
@@ -526,36 +527,51 @@ pub fn add_fuelio_trip_internal(
     )?;
 
     let mut route_written = false;
+    let mut route_error = None;
     if let (Some(trip), true) = (&created.trip, with_route) {
-        let track = full_track(data_dir, &drives)?;
-        let point = |p: (f64, f64), name: &str| Waypoint {
-            lat: p.0,
-            lon: p.1,
-            name: Some(name.to_string()),
-            node_idx: None,
-        };
-        let mut map = build_route_map(
-            &trip.id.to_string(),
-            vec![point(first.start_point, &trip.origin), point(last.end_point, &trip.destination)],
-            polyline::encode(&track),
-            gps_km,
-            RouteMode::Direct,
-            false,
-            None,
-            Vec::new(),
-            None,
-        )?;
-        map.target_km = trip.distance_km;
         // A second write: the trip exists even if this one fails.
-        db.save_route_map(&map)
-            .map_err(|e| format!("The trip was added, but its route was not saved: {e}"))?;
-        route_written = true;
+        match save_gps_route(db, data_dir, &drives, trip, gps_km) {
+            Ok(()) => route_written = true,
+            Err(e) => route_error = Some(e),
+        }
     }
     Ok(FuelioAdd {
         trip: created.trip,
         plan: created.plan,
         route_written,
+        route_error,
     })
+}
+
+/// Save the full GPS track of `drives` as the stored route of a new `trip`.
+fn save_gps_route(
+    db: &Database,
+    data_dir: &Path,
+    drives: &[Drive],
+    trip: &crate::models::Trip,
+    gps_km: f64,
+) -> Result<(), String> {
+    let (first, last) = (&drives[0], &drives[drives.len() - 1]);
+    let track = full_track(data_dir, drives)?;
+    let point = |p: (f64, f64), name: &str| Waypoint {
+        lat: p.0,
+        lon: p.1,
+        name: Some(name.to_string()),
+        node_idx: None,
+    };
+    let mut map = build_route_map(
+        &trip.id.to_string(),
+        vec![point(first.start_point, &trip.origin), point(last.end_point, &trip.destination)],
+        polyline::encode(&track),
+        gps_km,
+        RouteMode::Direct,
+        false,
+        None,
+        Vec::new(),
+        None,
+    )?;
+    map.target_km = trip.distance_km;
+    db.save_route_map(&map).map_err(|e| e.to_string())
 }
 
 /// Copy the Fuelio drives of `year` from Dropbox into `<DATA_DIR>/fuelio`.

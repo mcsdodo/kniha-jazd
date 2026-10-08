@@ -104,6 +104,42 @@ fn crosscheck_uses_only_the_drives_of_the_year() {
     assert!(report.rows.is_empty());
 }
 
+// A known limit: each year is checked alone. A drive that starts on 31
+// December cannot match a trip that the logbook starts on 1 January.
+#[test]
+fn a_drive_and_a_trip_on_both_sides_of_new_year_do_not_match() {
+    let (db, dir, v, _) = setup();
+    let a = place_at(&db, "A", 48.0, 20.0);
+    let b = place_at(&db, "B", 48.0, 21.0);
+    let mut t = Trip::test_ice_trip(NaiveDate::from_ymd_opt(2027, 1, 1).unwrap(), 74.0, None, false);
+    t.vehicle_id = v.id;
+    t.start_datetime =
+        NaiveDateTime::parse_from_str("2027-01-01 00:05", "%Y-%m-%d %H:%M").unwrap();
+    t.origin_place_id = a;
+    t.destination_place_id = b;
+    db.create_trip(&t).unwrap();
+    // 2026-12-31 22:50 UTC = 23:50 CET.
+    let t0 = NaiveDate::from_ymd_opt(2026, 12, 31)
+        .unwrap()
+        .and_hms_opt(22, 50, 0)
+        .unwrap()
+        .and_utc()
+        .timestamp_millis();
+    let fuelio = dir.path().join(crate::fuelio::FOLDER_NAME);
+    write_drive(
+        &fuelio,
+        &t0.to_string(),
+        &[(t0, 48.0, 20.0, 0.0), (t0 + 3_000_000, 48.0, 21.0, 74_000.0)],
+    );
+
+    let vid = v.id.to_string();
+    let old = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let row = old.rows.iter().find(|r| r.drive_ids == vec![t0.to_string()]).unwrap();
+    assert_eq!(row.status, crate::fuelio::RowStatus::Missing);
+    let new = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2027).unwrap();
+    assert!(new.rows.is_empty());
+}
+
 #[test]
 fn crosscheck_without_the_folder_reports_it() {
     let (db, _, v, _) = setup();
@@ -367,6 +403,29 @@ fn add_creates_the_trip_with_its_route_and_moves_the_later_odometers() {
     assert_eq!(db.get_trip(&later.id.to_string()).unwrap().unwrap().odometer, 154.0);
 }
 
+// The trip exists once the insert is done: a failed route save must not look
+// like a failed add, or a second click adds the trip again.
+#[test]
+fn add_with_a_failed_route_save_returns_the_trip_and_the_route_error() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    diesel::sql_query(
+        "CREATE TRIGGER no_routes BEFORE INSERT ON trip_routes BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+    )
+    .execute(&mut *db.connection())
+    .unwrap();
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, false,
+    )
+    .unwrap();
+    assert!(r.trip.is_some());
+    assert!(!r.route_written);
+    assert!(r.route_error.as_deref().is_some_and(|e| e.contains("disk full")), "{:?}", r.route_error);
+    let trips = db.get_trips_for_vehicle_in_year(&t.vehicle_id.to_string(), 2026).unwrap();
+    assert_eq!(trips.len(), 3);
+}
+
 #[test]
 fn add_without_the_route_saves_no_route() {
     let (db, dir, t, _, _) = chain();
@@ -377,6 +436,7 @@ fn add_without_the_route_saves_no_route() {
     )
     .unwrap();
     assert!(!r.route_written);
+    assert!(r.route_error.is_none());
     assert!(db.get_route_map(&r.trip.unwrap().id.to_string()).unwrap().is_none());
 }
 

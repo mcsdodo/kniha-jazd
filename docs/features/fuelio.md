@@ -74,6 +74,8 @@ GPS fix per row: timestamp (ms UTC), lat, lon, distance from the previous fix (m
 (m/s), altitude, accuracy. [parse.rs](../../src-tauri/core/src/fuelio/parse.rs) reads it
 and computes the local start/end (Europe/Bratislava), GPS km, minutes above 100 km/h,
 max speed, and a track thinned to one point per 100 m. The scanner keeps one drive per ID.
+A drive belongs to the local year of the epoch in its file name, as in the sync. A page
+load skips the files of the other years before it unzips them.
 
 ### Matching ([matching.rs](../../src-tauri/core/src/fuelio/matching.rs))
 
@@ -113,8 +115,9 @@ the stored route ("Iná trasa").
   (`direct`, no provider). A complete match preselects every field; a partial or loose
   match preselects none and warns.
 - **Pridať:** the trip goes through the normal create cascade, then the full GPS track is
-  saved as its route. The route is a second write: if it fails, the trip stays and the
-  error says so.
+  saved as its route. The route is a second write: if it fails, the trip stays, the
+  command still succeeds with `routeError`, and the dialog closes with an error toast.
+  So a second click cannot add the trip again.
 - Both store **every GPS fix** as the route. The 100 m track cut corners (up to 93 m off
   the road on the highway) and stays only in the "Iná trasa" check.
 
@@ -123,7 +126,8 @@ the stored route ("Iná trasa").
 The refresh token buys an access token. The server lists `FUELIO_DROPBOX_FOLDER`
 (default `/Apps/Fuelio/routes`, 2000 entries per page), keeps the files whose start year
 (the epoch in the file name, in local time) is the selected year, and downloads only the missing ones, 8
-at a time, to a temporary name and then a rename. No cursor: a full listing is a few
+at a time, to a temporary name and then a rename. A body that does not open as a zip is
+not saved and counts as failed, so the next sync downloads it again. No cursor: a full listing is a few
 calls. The Dropbox app needs "Full Dropbox" access, because Fuelio writes to its own app
 folder.
 
@@ -154,6 +158,15 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 | [tests/integration/specs/tier3/empty-states.spec.ts](../../tests/integration/specs/tier3/empty-states.spec.ts) | No Dropbox: no nav link, notice on `/fuelio` |
 | [tests/integration/specs/env/env-managed-settings.spec.ts](../../tests/integration/specs/env/env-managed-settings.spec.ts) | Dummy `DROPBOX_*`: the nav link shows |
 
+## Known Limits
+
+- **New Year:** each year is checked alone. A drive that starts on 31 December cannot
+  match a trip that starts on 1 January: the drive is "missing" in the old year, and the
+  trip has no drive in the new year (`a_drive_and_a_trip_on_both_sides_of_new_year_do_not_match`).
+- **Load time:** a page load parses every drive of the year and compares each candidate
+  run with the stored route. With full-fix routes (every GPS fix), a long highway trip
+  costs more than before. Not measured on the production data.
+
 ## Design Decisions
 
 - **Why is Fuelio the reference, not the logbook?** The question is "which highway drive
@@ -175,7 +188,7 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 
 ## Related
 
-- ADR-008 (backend-only calculations), ADR-054 (whole-km distance writeback)
+- ADR-008 (backend-only calculations), ADR-054 (whole-km distance writeback), BIZ-027 (Fuelio is the reference), ADR-058 (the Dropbox gate)
 - [trip-odometer-cascade.md](./trip-odometer-cascade.md) -- the cascade the writes use
 - [route-maps.md](./route-maps.md) -- stored routes, `plan_route_distance`
 - [_tasks/90-fuelio-crosscheck/](../../_tasks/90-fuelio-crosscheck/01-task.md) -- planning, measured facts from the production data

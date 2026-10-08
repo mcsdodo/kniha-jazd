@@ -1015,10 +1015,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
         }
 
         // ====================================================================
-        // Unknown
-        // ====================================================================
-        // ====================================================================
-        // Fuelio cross-check (Task 90, read-only)
+        // Fuelio (Task 90): cross-check, sync, and trip writes
         // ====================================================================
         // Only the DROPBOX_* secrets set Fuelio up (a bare folder does not).
         "is_fuelio_available" => Ok(serde_json::to_value(fuelio_configured()).unwrap()),
@@ -1140,6 +1137,9 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        // ====================================================================
+        // Unknown
+        // ====================================================================
         _ => Err(format!("Unknown command: {command}")),
     }
 }

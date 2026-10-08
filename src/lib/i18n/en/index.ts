@@ -540,6 +540,8 @@ const en = {
 		},
 		drives: 'drives: {count}',
 		offRoute: 'off route: {pct} %',
+		diffMinutes: '{value} min',
+		diffPercent: '{value} %',
 		sync: {
 			button: 'Sync from Dropbox ({year})',
 			running: 'Syncing...',
@@ -565,6 +567,7 @@ const en = {
 			continue: 'Add trip',
 			cancel: 'Cancel',
 			done: 'The trip was added to the logbook.',
+			routeFailed: 'The trip was added, but its route was not saved: {error}',
 			loading: 'Loading...',
 		},
 		overwrite: {

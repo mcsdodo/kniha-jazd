@@ -1784,6 +1784,16 @@ type RootTranslation = {
 		 * @param {number} pct
 		 */
 		offRoute: RequiredParams<'pct'>
+		/**
+		 * {​v​a​l​u​e​}​ ​m​i​n
+		 * @param {string} value
+		 */
+		diffMinutes: RequiredParams<'value'>
+		/**
+		 * {​v​a​l​u​e​}​ ​%
+		 * @param {string} value
+		 */
+		diffPercent: RequiredParams<'value'>
 		sync: {
 			/**
 			 * S​y​n​c​h​r​o​n​i​z​o​v​a​ť​ ​z​ ​D​r​o​p​b​o​x​u​ ​(​{​y​e​a​r​}​)
@@ -1883,6 +1893,11 @@ type RootTranslation = {
 			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​ ​d​o​ ​k​n​i​h​y​ ​j​á​z​d​.
 			 */
 			done: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​,​ ​a​l​e​ ​j​e​j​ ​t​r​a​s​a​ ​s​a​ ​n​e​u​l​o​ž​i​l​a​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			routeFailed: RequiredParams<'error'>
 			/**
 			 * N​a​č​í​t​a​v​a​m​.​.​.
 			 */
@@ -4535,6 +4550,14 @@ export type TranslationFunctions = {
 		 * mimo trasy: {pct} %
 		 */
 		offRoute: (arg: { pct: number }) => LocalizedString
+		/**
+		 * {value} min
+		 */
+		diffMinutes: (arg: { value: string }) => LocalizedString
+		/**
+		 * {value} %
+		 */
+		diffPercent: (arg: { value: string }) => LocalizedString
 		sync: {
 			/**
 			 * Synchronizovať z Dropboxu ({year})
@@ -4626,6 +4649,10 @@ export type TranslationFunctions = {
 			 * Jazda bola pridaná do knihy jázd.
 			 */
 			done: () => LocalizedString
+			/**
+			 * Jazda bola pridaná, ale jej trasa sa neuložila: {error}
+			 */
+			routeFailed: (arg: { error: string }) => LocalizedString
 			/**
 			 * Načítavam...
 			 */

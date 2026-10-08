@@ -1,4 +1,4 @@
-//! Fuelio cross-check (Task 90, POC): compare the drives that the Fuelio
+//! Fuelio cross-check (Task 90): compare the drives that the Fuelio
 //! Android app recorded with the logbook trips.
 //!
 //! Fuelio backs up each drive to Google Drive as `route-<epoch ms>.data`, a zip
@@ -18,7 +18,7 @@ pub mod matching;
 pub mod parse;
 
 pub use matching::{crosscheck, CrosscheckRow, Flag, RowStatus, TripRef};
-pub use parse::{scan_dir, Drive};
+pub use parse::{scan_year, Drive};
 
 /// The folder below the data directory that holds the Fuelio files.
 pub const FOLDER_NAME: &str = "fuelio";

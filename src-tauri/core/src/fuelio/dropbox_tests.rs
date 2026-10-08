@@ -28,6 +28,18 @@ fn config_takes_a_folder_override() {
     assert_eq!(DropboxConfig::from_lookup(env(&pairs)).unwrap().folder, "/Fuelio/routes");
 }
 
+// docker-compose passes `FUELIO_DROPBOX_FOLDER=` when the var is unset.
+#[test]
+fn config_reads_an_empty_folder_as_the_default() {
+    let pairs = [
+        ("DROPBOX_APP_KEY", "k"),
+        ("DROPBOX_APP_SECRET", "s"),
+        ("DROPBOX_REFRESH_TOKEN", "r"),
+        ("FUELIO_DROPBOX_FOLDER", ""),
+    ];
+    assert_eq!(DropboxConfig::from_lookup(env(&pairs)).unwrap().folder, DEFAULT_FOLDER);
+}
+
 fn config() -> DropboxConfig {
     DropboxConfig {
         app_key: "key".into(),
@@ -129,6 +141,15 @@ impl RouteStore for FakeStore {
     }
 }
 
+/// A Fuelio `.data` body: a zip with one CSV.
+fn data(csv: &str) -> Vec<u8> {
+    use std::io::Write;
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    zip.start_file("route.csv", zip::write::SimpleFileOptions::default()).unwrap();
+    zip.write_all(csv.as_bytes()).unwrap();
+    zip.finish().unwrap().into_inner()
+}
+
 // 2026-09-28 02:30 UTC and 2025-06-01: one drive per year.
 const D2026: &str = "route-1790562640107.data";
 const D2025: &str = "route-1748736000000.data";
@@ -140,9 +161,9 @@ async fn sync_downloads_only_the_missing_drives_of_the_year() {
     std::fs::write(dir.path().join(have), b"old").unwrap();
     let store = Arc::new(FakeStore {
         files: vec![
-            (D2026.into(), b"new".to_vec()),
-            (have.into(), b"remote".to_vec()),
-            (D2025.into(), b"other year".to_vec()),
+            (D2026.into(), data("new")),
+            (have.into(), data("remote")),
+            (D2025.into(), data("other year")),
             ("route-1790562640107.route".into(), b"polyline".to_vec()),
         ],
         broken: vec![],
@@ -154,7 +175,7 @@ async fn sync_downloads_only_the_missing_drives_of_the_year() {
     assert_eq!((r.in_dropbox, r.downloaded, r.already_local), (2, 1, 1));
     assert!(r.failed.is_empty());
     assert_eq!(*store.downloads.lock().unwrap(), vec![D2026.to_string()]);
-    assert_eq!(std::fs::read(dir.path().join(D2026)).unwrap(), b"new");
+    assert_eq!(std::fs::read(dir.path().join(D2026)).unwrap(), data("new"));
     assert_eq!(std::fs::read(dir.path().join(have)).unwrap(), b"old", "a local file is kept");
     assert!(!dir.path().join(D2025).exists());
 }
@@ -163,7 +184,7 @@ async fn sync_downloads_only_the_missing_drives_of_the_year() {
 async fn sync_reports_a_failed_download_and_keeps_the_rest() {
     let dir = tempfile::tempdir().unwrap();
     let store = Arc::new(FakeStore {
-        files: vec![(D2026.into(), b"ok".to_vec())],
+        files: vec![(D2026.into(), data("ok"))],
         broken: vec!["route-1790566554295.data".into()],
         downloads: Default::default(),
     });
@@ -183,7 +204,33 @@ async fn sync_reports_a_failed_download_and_keeps_the_rest() {
 async fn sync_creates_the_folder() {
     let dir = tempfile::tempdir().unwrap();
     let target = dir.path().join("fuelio");
-    let store = Arc::new(FakeStore { files: vec![(D2026.into(), b"x".to_vec())], broken: vec![], downloads: Default::default() });
+    let store = Arc::new(FakeStore {
+        files: vec![(D2026.into(), data("x"))],
+        broken: vec![],
+        downloads: Default::default(),
+    });
     sync_year(store, &target, 2026).await.unwrap();
     assert!(target.join(D2026).exists());
+}
+
+// A body that is not a zip (an error page, a cut download) is not saved: the
+// next sync downloads the file again.
+#[tokio::test]
+async fn sync_does_not_save_a_body_that_is_not_a_fuelio_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(FakeStore {
+        files: vec![(D2026.into(), b"<html>error</html>".to_vec())],
+        broken: vec![],
+        downloads: Default::default(),
+    });
+    let r = sync_year(store, dir.path(), 2026).await.unwrap();
+    assert_eq!((r.downloaded, r.failed.clone()), (0, vec![D2026.to_string()]));
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn config_debug_hides_the_secrets() {
+    let shown = format!("{:?}", config());
+    assert!(shown.contains("key") && shown.contains("/Apps/Fuelio/routes"), "{shown}");
+    assert!(!shown.contains("secret\"") && !shown.contains("refresh\""), "{shown}");
 }

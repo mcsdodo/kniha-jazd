@@ -149,7 +149,7 @@ fn scan_dir_reads_data_files_sorted_by_start() {
     std::fs::write(dir.path().join("route-1790866465210.route"), "aaa").unwrap();
     std::fs::write(dir.path().join("notes.txt"), "x").unwrap();
 
-    let drives = scan_dir(dir.path());
+    let drives = scan_year(dir.path(), 2026);
     let ids: Vec<&str> = drives.iter().map(|d| d.id.as_str()).collect();
     assert_eq!(ids, vec!["1790866465210", "1790866497874"]);
 }
@@ -161,13 +161,41 @@ fn scan_dir_keeps_one_drive_per_id() {
     write_data_file(dir.path(), "1790866465210", CSV);
     let copy = dir.path().join("route-1790866465210(1).data");
     std::fs::copy(dir.path().join("route-1790866465210.data"), copy).unwrap();
-    assert_eq!(scan_dir(dir.path()).len(), 1);
+    assert_eq!(scan_year(dir.path(), 2026).len(), 1);
 }
 
 #[test]
 fn scan_dir_skips_a_broken_file_and_a_missing_folder() {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("route-1.data"), "not a zip").unwrap();
-    assert!(scan_dir(dir.path()).is_empty());
-    assert!(scan_dir(&dir.path().join("nope")).is_empty());
+    std::fs::write(dir.path().join("route-1790866465210.data"), "not a zip").unwrap();
+    assert!(scan_year(dir.path(), 2026).is_empty());
+    assert!(scan_year(&dir.path().join("nope"), 2026).is_empty());
+}
+
+// The year comes from the file name, before the file is read: a page load
+// does not unzip the drives of the other years. The sync uses the same rule.
+#[test]
+fn scan_year_takes_the_year_from_the_file_name() {
+    let dir = tempfile::tempdir().unwrap();
+    write_data_file(dir.path(), "1790866465210", CSV); // 2026-10-01
+    // Named 2025-12-31 23:59:58 local, first fix 2026-01-01 00:00:05 local
+    write_data_file(
+        dir.path(),
+        "1767221998000",
+        "1767222005000,48.9,20.5,0,10,0,0\n1767222015000,48.91,20.5,1100,10,0,0\n",
+    );
+
+    let ids = |year| -> Vec<String> {
+        scan_year(dir.path(), year).into_iter().map(|d| d.id).collect()
+    };
+    assert_eq!(ids(2026), vec!["1790866465210"]);
+    assert_eq!(ids(2025), vec!["1767221998000"]);
+}
+
+#[test]
+fn file_year_is_the_local_year_of_the_name() {
+    assert_eq!(file_year("route-1767221998000.data"), Some(2025));
+    assert_eq!(file_year("route-1767222005000.data"), Some(2026));
+    assert_eq!(file_year("route-1767222005000(1).data"), Some(2026));
+    assert_eq!(file_year("notes.txt"), None);
 }
