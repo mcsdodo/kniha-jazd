@@ -6,20 +6,29 @@ Formát je založený na [Keep a Changelog](https://keepachangelog.com/sk/1.1.0/
 a projekt používa [Semantic Versioning](https://semver.org/lang/cs/).
 
 Každé vydanie od 1.0.0 (pri 1.0.0 doplnený dodatočne) začína blokom **Pokyny k aktualizácii** pre toho, kto
-prevádzkuje Docker obraz `ghcr.io/mcsdodo/kniha-jazd-web`. Blok uvádza zmenené
-premenné prostredia, migrácie databázy, stratu údajov a zmeny obrazu. Hlavná
+prevádzkuje Docker image `ghcr.io/mcsdodo/kniha-jazd-web`. Blok uvádza zmenené
+premenné prostredia, migrácie databázy, stratu údajov a zmeny image. Hlavná
 verzia sa zvýši, ak aktualizácia vyžaduje zásah do existujúcej konfigurácie alebo
-zahodí údaje. Každá migrácia je jednosmerná: starší obraz otvorí aktualizovanú
+zahodí údaje. Každá migrácia je jednosmerná: starší image otvorí aktualizovanú
 databázu len na čítanie.
 
 ## [Unreleased]
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
-- **Premenné prostredia:** nové, voliteľné: `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` a `FUELIO_DROPBOX_FOLDER` (predvolene `/Apps/Fuelio/routes`). Stránka `/fuelio` a jej položka v menu sú dostupné, len ak sú nastavené všetky tri premenné `DROPBOX_*`. Bez nich sa nič nemení: menu stránku neukáže a server príkazy Fuelio odmietne.
-- **Migrácie databázy:** jedna, `2026-10-08-100000_fuelio_ignored_drives`: nová tabuľka `fuelio_ignored_drives` (jazdy Fuelio, ktoré používateľ ignoruje). Existujúce údaje sa nemenia. Starší obraz otvorí aktualizovanú databázu len na čítanie.
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** obraz, zväzok a port bez zmeny. Nová stránka `/fuelio` číta priečinok `<DATA_DIR>/fuelio`, ktorý plní synchronizácia z Dropboxu. Samotný priečinok bez premenných `DROPBOX_*` stránku nezapne. Príklad `docker-compose.web.yml` odovzdá kontajneru štyri nové premenné z `.env` (prázdna hodnota znamená nenastavená).
+- **Image, volume, port:** bez zmeny
+
+## [2.1.0] - 2026-10-08
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** nové, voliteľné: `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` a `FUELIO_DROPBOX_FOLDER` (predvolene `/Apps/Fuelio/routes`). Stránka `/fuelio` a jej položka v menu sú dostupné, len ak sú nastavené všetky tri premenné `DROPBOX_*`. Bez nich sa nič nemení: menu stránku neukáže a server príkazy Fuelio odmietne.
+- **Migrácie databázy:** jedna, `2026-10-08-100000_fuelio_ignored_drives`: nová tabuľka `fuelio_ignored_drives` (jazdy Fuelio, ktoré používateľ ignoruje). Existujúce údaje sa nemenia. Starší image otvorí aktualizovanú databázu len na čítanie.
+- **Strata údajov:** žiadna
+- **Image, volume, port:** image, volume a port bez zmeny. Nová stránka `/fuelio` číta priečinok `<DATA_DIR>/fuelio`, ktorý plní synchronizácia z Dropboxu. Samotný priečinok bez premenných `DROPBOX_*` stránku nezapne. Príklad `docker-compose.web.yml` odovzdá kontajneru štyri nové premenné z `.env` (prázdna hodnota znamená nenastavená).
 
 ### Pridané
 - **Fuelio - kontrola jázd (POC)** - nová stránka porovná jazdy, ktoré zaznamenala aplikácia Fuelio (GPS), s knihou jázd. Stránka potrebuje Dropbox (premenné `DROPBOX_*`), inak ju menu neukáže. Jazdy Fuelio (`route-*.data`) stiahne do `<DATA_DIR>/fuelio` synchronizácia z Dropboxu. Každý riadok je jazda Fuelio a jazda v knihe, ku ktorej patrí. Hlavný výstup sú jazdy Fuelio, ktoré v knihe chýbajú. Jazda v knihe bez záznamu Fuelio sa nezobrazí. Stránka ukáže aj rozdiel v čase a km a jazdy, ktorých GPS stopa nejde po uloženej trase. Jazdu, z ktorej Fuelio zaznamenalo len časť (napr. len cestu späť), spáruje s uloženou trasou a označí "Čiastočné GPS". Jazdu Fuelio, ktorá sa nedá spárovať presne, priradí k jazde v knihe v rovnakom čase a na rovnakom mieste alebo trase a označí "Voľné spárovanie". Tlačidlo "Prepísať" pri spárovanej jazde nahradí vybrané údaje jazdy hodnotami z GPS: začiatok, koniec, vzdialenosť (celé km, posunie tachometer neskorších jázd, s rovnakým potvrdením ako na stránke Mapa) a trasu. Tlačidlo "Pridať" pri jazde, ktorá v knihe chýba, ju zapíše ako novú jazdu: čas a km z GPS, začiatok a cieľ sa navrhnú podľa najbližšieho miesta (dajú sa zmeniť), účel sa doplní ručne, GPS stopa sa uloží ako trasa. Tlačidlo "Synchronizovať z Dropboxu" stiahne jazdy Fuelio vybraného roka, ktoré v `<DATA_DIR>/fuelio` ešte nie sú (potrebné premenné `DROPBOX_*`). Filter podľa km (predvolene od 15 km), stavu a "len diaľnica". Jazdu, ktorá do knihy nepatrí (napr. súkromnú), skryje tlačidlo "Ignorovať" (preškrtnuté oko). Ignorované jazdy ukáže filter "Ignorované" a tam sa ignorovanie dá zrušiť. Ignorovanie platí pre vybrané vozidlo. Mapa ukazuje vybraný riadok, po načítaní prvý riadok. Stav a upozornenia sú ikony v stĺpci Stav. Legenda nad tabuľkou vysvetľuje každú ikonu. Ak dáte myš na ikonu, ukáže sa jej názov.
@@ -35,7 +44,7 @@ databázu len na čítanie.
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** áno. Pred nasadením urobte zálohu databázy. Aplikácia pred migráciou uloží aj vlastnú zálohu `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v2.0.0.db`.
 - **Premenné prostredia:** bez zmeny
-- **Migrácie databázy:** 2 nové. `2026-10-05-100000_places_as_entities`: miesta sú samostatné záznamy a jazdy aj uložené trasy na ne odkazujú cez ID. `2026-10-05-110000_add_place_is_home`: pridá stĺpec `places.is_home` a jedinečný čiastočný index, údaje nemení. Žiadne miesto nie je domov, kým ho používateľ neoznačí. Migrácie sú jednosmerné: starší obraz otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len ručná obnova zálohy: zastavte kontajner, skopírujte `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v2.0.0.db` cez `<DATA_DIR>/kniha-jazd.db` a spustite starší obraz.
+- **Migrácie databázy:** 2 nové. `2026-10-05-100000_places_as_entities`: miesta sú samostatné záznamy a jazdy aj uložené trasy na ne odkazujú cez ID. `2026-10-05-110000_add_place_is_home`: pridá stĺpec `places.is_home` a jedinečný čiastočný index, údaje nemení. Žiadne miesto nie je domov, kým ho používateľ neoznačí. Migrácie sú jednosmerné: starší image otvorí databázu len na čítanie a jazdy v nej nenačíta, lebo stĺpce `origin` a `destination` už neexistujú. Späť vedie len ručná obnova zálohy: zastavte kontajner, skopírujte `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v2.0.0.db` cez `<DATA_DIR>/kniha-jazd.db` a spustite starší image.
 - **Strata údajov:**
   - Rôzne zápisy jedného miesta (napr. "Kosice" a "Košice") sa zlúčia do jedného miesta s najčastejším zápisom. Ostatné zápisy sa stratia a každá jazda ukáže názov miesta.
   - Uložené trasy, ktoré sa po zlúčení zápisov miesta ocitnú na jednej dvojici miest, sa spoja do jednej trasy. Ostane trasa najnovšej jazdy na tej dvojici, inak prvá podľa `id`.
@@ -43,7 +52,7 @@ databázu len na čítanie.
   - Prázdny začiatok alebo cieľ jazdy dostane miesto `Neznáme miesto`.
   - Uložená trasa s prázdnym začiatkom alebo cieľom sa zmaže. Jazda ostane a dostane `Neznáme miesto`.
   - Miesto jazdy bez súradníc sa stane miestom bez polohy, označeným "Treba doplniť polohu".
-- **Obraz, zväzok, port:** nová cesta `/mcp` na tom istom porte (MCP len na čítanie, bez prihlásenia, ako `/api/rpc`). Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Obraz sa zostavuje s Rust 1.88.
+- **Image, volume, port:** nová cesta `/mcp` na tom istom porte (MCP len na čítanie, bez prihlásenia, ako `/api/rpc`). Ak reverzná proxy prepúšťa len vybrané cesty, pridajte `/mcp`. Image sa zostavuje s Rust 1.88.
 
 ### Pridané
 - **Karta Miesta** - zoznam všetkých miest s pridaním, premenovaním, určením polohy a zmazaním. Miesto sa dá zmazať, len ak ho nepoužíva žiadna jazda. Miesto bez polohy je označené "Treba doplniť polohu".
@@ -66,7 +75,7 @@ databázu len na čítanie.
 - **Premenné prostredia:** bez zmeny
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 
 ### Zmenené
 - **Home Assistant: zrozumiteľnejšie rozdiely** - rozdiel tachometra teraz hovorí "X km chýba v knihe jázd" alebo "Y km treba najazdiť". Pri zostatku paliva sa namiesto reálnej hodnoty zobrazí, koľko "treba dotankovať" (alebo o koľko litrov je v nádrži viac), aby reálny stav sedel s vypočítaným zostatkom.
@@ -79,9 +88,9 @@ databázu len na čítanie.
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
 - **Premenné prostredia:** bez novej premennej. Zmena správania: `SYGIC_API_KEY` už nemení predvolenú službu. Predvolene trasy počíta OSRM aj s kľúčom; Sygic sa vyberá na stránke Mapa.
-- **Migrácie databázy:** 1 nová (`trip_routes.provider`). Uloženým trasám doplní službu, ktorá ich vypočítala, ak sa dá dokázať: trasy uložené pred 2026-09-29 07:39 UTC dostanú OSRM, trasy s vyhnutím sa spoplatneným cestám dostanú Sygic, ostatné ostanú bez údaja. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.2.0.db`, ktorú aplikácia uloží pred migráciou.
+- **Migrácie databázy:** 1 nová (`trip_routes.provider`). Uloženým trasám doplní službu, ktorá ich vypočítala, ak sa dá dokázať: trasy uložené pred 2026-09-29 07:39 UTC dostanú OSRM, trasy s vyhnutím sa spoplatneným cestám dostanú Sygic, ostatné ostanú bez údaja. Návrat na starší image otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.2.0.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 
 ### Pridané
 - **Výber služby na výpočet trasy** - na stránke Mapa pribudol výber "Smerovanie: OSRM (OpenStreetMap) / Sygic". Zobrazí sa, ak server má nastavené `SYGIC_API_KEY`. Zmena pri priamej trase trasu hneď prepočíta. Pri okružnej trase platí pre ďalšie "Regenerovať". Predvolená služba je teraz OSRM, aj keď server má `SYGIC_API_KEY`: mapa Sygic ešte nemá tunel Višňové, preto trasy cez Žilinu počítala inak. Sygic vyberte, ak sa chcete vyhnúť spoplatneným cestám. Uložená trasa si pamätá službu, ktorá ju vypočítala, a po otvorení ju znova vyberie. Prepnutie na OSRM zruší vyhnutie sa spoplatneným cestám, lebo OSRM ho nepozná.
@@ -95,15 +104,15 @@ databázu len na čítanie.
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
 - **Premenné prostredia:** pridaná `SYGIC_API_KEY` (voliteľná; s ňou počíta mapy trás služba Sygic Routing API a mapa ponúkne vyhnúť sa spoplatneným cestám po krajinách, bez nej mapa ďalej používa verejný OSRM); pridaná `SYGIC_REFERER` (voliteľná; hlavička `Referer` pre kľúč Sygic s obmedzením na referer); pridaná `KNIHA_JAZD_MOCK_ROUTER` (len pre integračné testy, na produkcii nenastavovať)
-- **Migrácie databázy:** 1 nová. Návrat na starší obraz otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.1.0.db`, ktorú aplikácia uloží pred migráciou.
+- **Migrácie databázy:** 1 nová. Návrat na starší image otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.1.0.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** žiadna
-- **Obraz, zväzok, port:** bez zmeny
+- **Image, volume, port:** bez zmeny
 
 ### Pridané
 - **Vyhnúť sa spoplatneným cestám po krajinách** - na stránke Mapa pri priamej trase (aj pri ceste tam a späť) zaškrtnete krajinu, napríklad CZ, a trasa sa prepočíta bez jej spoplatnených ciest. Cesty ostatných krajín ostanú. Voľba je dostupná, ak server má nastavené `SYGIC_API_KEY`. Uložená trasa si pamätá zaškrtnuté krajiny.
 
 ### Opravené
-- **Obnovenie zálohy zo staršej verzie aplikácie** - po obnovení takej zálohy (napríklad automatickej zálohy pred migráciou) aplikácia zlyhávala s chybou databázy, kým sa server nereštartoval. Obnovená databáza sa teraz hneď aktualizuje na aktuálnu verziu. Zálohu z novšej verzie aplikácie (napríklad po návrate na starší obraz) aplikácia neobnoví a vysvetlí prečo. Neobnoví ani súbor, ktorý nie je platná záloha knihy jázd. Obnovenie zálohy tiež už nemôže naraziť na zápis, ktorý práve prebieha.
+- **Obnovenie zálohy zo staršej verzie aplikácie** - po obnovení takej zálohy (napríklad automatickej zálohy pred migráciou) aplikácia zlyhávala s chybou databázy, kým sa server nereštartoval. Obnovená databáza sa teraz hneď aktualizuje na aktuálnu verziu. Zálohu z novšej verzie aplikácie (napríklad po návrate na starší image) aplikácia neobnoví a vysvetlí prečo. Neobnoví ani súbor, ktorý nie je platná záloha knihy jázd. Obnovenie zálohy tiež už nemôže naraziť na zápis, ktorý práve prebieha.
 
 ## [1.0.0] - 2026-09-12
 
@@ -114,7 +123,7 @@ Tento blok bol doplnený dodatočne, po vydaní 1.0.0.
 - **Premenné prostredia:** odstránená `GEMINI_API_KEY` (aplikácia ju ignoruje)
 - **Migrácie databázy:** 7 nových. Návrat na 0.44.0 otvorí databázu len na čítanie. Späť vedie záloha `<DATA_DIR>/backups/kniha-jazd-backup-*-pre-migration-v1.0.0.db`, ktorú aplikácia uloží pred migráciou.
 - **Strata údajov:** tabuľka `receipts` (miestne doklady) sa zruší. Doklady priradené k jazde ostanú ako odkazy na Paperless, ostatné sa zahodia.
-- **Obraz, zväzok, port:** bez zmeny. Ak ste do kontajnera pripájali priečinok s dokladmi, aplikácia ho už nečíta.
+- **Image, volume, port:** bez zmeny. Ak ste do kontajnera pripájali priečinok s dokladmi, aplikácia ho už nečíta.
 
 Pred aktualizáciou:
 1. Ak ešte potrebujete miestne doklady, vyexportujte ich: `sqlite3 -header -csv data/kniha-jazd.db "SELECT * FROM receipts;" > receipts.csv`
@@ -157,7 +166,7 @@ Po aktualizácii:
 
 ### Pridané
 - **Kopírovanie záznamu** — pri každom zázname pribudla ikona kopírovania, ktorá vytvorí nový riadok s dnešným dátumom a rovnakou trasou, počtom kilometrov, účelom a časom odchodu aj príchodu. ODO sa dopočíta z predchádzajúceho stavu. Palivo, energia ani náklady sa nekopírujú — tankovanie je jednorazová udalosť, nie vlastnosť trasy. Nový riadok sa otvorí v režime úprav, takže sa dá pred uložením doladiť. Ak je zobrazený iný rok než aktuálny, záznam dostane 31.12. daného roka (pri budúcom roku 1.1.), aby zostal viditeľný v otvorenej knihe.
-- **Priebežný obraz `:main`** — vetva `main` sa po každom úspešnom teste automaticky publikuje ako `ghcr.io/mcsdodo/kniha-jazd-web:main`, takže je možné vyskúšať najnovšie zmeny ešte pred vydaním. Konkrétny commit sa dá pripnúť tagom `:main-<sha>`. Tag `:latest` naďalej znamená posledné vydanie.
+- **Priebežný image `:main`** — vetva `main` sa po každom úspešnom teste automaticky publikuje ako `ghcr.io/mcsdodo/kniha-jazd-web:main`, takže je možné vyskúšať najnovšie zmeny ešte pred vydaním. Konkrétny commit sa dá pripnúť tagom `:main-<sha>`. Tag `:latest` naďalej znamená posledné vydanie.
 
 ### Odstránené
 - **Desktopová aplikácia sa končí** — ďalej sa vyvíja a vydáva len webová verzia bežiaca v Dockeri, ktorú otvoríš v prehliadači na adrese svojho homelabu. Nové inštalátory ani automatické aktualizácie už nebudú; existujúca desktopová inštalácia bude fungovať ďalej, ale žiadnu ďalšiu aktualizáciu nedostane a nové funkcie do nej nepribudnú. Údaje zostávajú v tvojej databáze — prenesieš ich tak, že súbor skopíruješ do priečinka `/data` serverovej inštancie, prípadne obnovíš zo zálohy.
@@ -166,8 +175,8 @@ Po aktualizácii:
 
 ### Opravené
 - **Export z prehliadača nerešpektoval nastavenia knihy** — vytlačená kniha jázd ignorovala skryté stĺpce aj zvolené zoradenie a chýbal v nej úvodný riadok „Prvý záznam" so stavom tachometra na začiatku roka. Export z prehliadača teraz zodpovedá tomu, čo vidíš na obrazovke.
-- **Verzia aplikácie sa v prehliadači nezobrazovala** — nastavenia ju ukazovali len v desktopovej aplikácii. Teraz je viditeľná aj vo webovej verzii, takže je zrejmé, ktorý obraz beží.
-- **Ochrana pred starším obrazom sa v serverovej verzii neuplatňovala** — ak databázu upravila novšia verzia aplikácie, staršia ju predtým otvorila a zapisovala do nej. Teraz sa v takom prípade spustí režim len na čítanie a zápis sa odmietne, takže sa návratom na starší obraz nedá poškodiť kniha jázd.
+- **Verzia aplikácie sa v prehliadači nezobrazovala** — nastavenia ju ukazovali len v desktopovej aplikácii. Teraz je viditeľná aj vo webovej verzii, takže je zrejmé, ktorý image beží.
+- **Ochrana pred starším image sa v serverovej verzii neuplatňovala** — ak databázu upravila novšia verzia aplikácie, staršia ju predtým otvorila a zapisovala do nej. Teraz sa v takom prípade spustí režim len na čítanie a zápis sa odmietne, takže sa návratom na starší image nedá poškodiť kniha jázd.
 
 ## [0.43.0] - 2026-08-10
 
