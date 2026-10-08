@@ -3,7 +3,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { Map as LeafletMap, LayerGroup } from 'leaflet';
 	import * as api from '$lib/api';
-	import type { FuelioReport, FuelioRow, FuelioRowStatus } from '$lib/types';
+	import type { FuelioFlag, FuelioReport, FuelioRow, FuelioRowStatus } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { selectedYearStore } from '$lib/stores/year';
@@ -27,6 +27,7 @@
 	let highwayOnly = $state(false);
 	let problemsOnly = $state(false);
 	const STATUSES: FuelioRowStatus[] = ['matched', 'missing'];
+	const FLAGS: FuelioFlag[] = ['timeDiffers', 'kmDiffers', 'differentRoute', 'partialGps', 'looseMatch'];
 	let selectedStatuses = $state<FuelioRowStatus[]>([]);
 
 	function toggleStatus(st: FuelioRowStatus) {
@@ -184,6 +185,24 @@
 	}
 </script>
 
+{#snippet icon(key: FuelioRowStatus | FuelioFlag, size: number)}
+	{#if key === 'matched'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+	{:else if key === 'missing'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+	{:else if key === 'timeDiffers'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+	{:else if key === 'kmDiffers'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+	{:else if key === 'differentRoute'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>
+	{:else if key === 'partialGps'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.75 7.09a3 3 0 0 1 2.16 2.16"/><path d="M17.072 17.072c-1.634 2.17-3.527 3.912-4.471 4.727a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 1.432-4.568"/><path d="m2 2 20 20"/><path d="M8.475 2.818A8 8 0 0 1 20 10c0 1.183-.31 2.377-.81 3.533"/><path d="M9.13 9.13a3 3 0 0 0 3.74 3.74"/></svg>
+	{:else if key === 'looseMatch'}
+		<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/><line x1="8" x2="8" y1="2" y2="5"/><line x1="2" x2="5" y1="8" y2="8"/><line x1="16" x2="16" y1="19" y2="22"/><line x1="19" x2="22" y1="16" y2="16"/></svg>
+	{/if}
+{/snippet}
+
 <div class="fuelio-page">
 	<section class="fuelio-section">
 		<h2 class="heading">{$LL.fuelio.title()}</h2>
@@ -253,6 +272,27 @@
 				<span class="muted small">{$LL.fuelio.shown({ count: rows.length })}</span>
 			</div>
 
+			<div class="legend" data-testid="fuelio-legend">
+				<span class="legend-group">
+					<strong>{$LL.fuelio.col.status()}:</strong>
+					{#each STATUSES as st}
+						<span class="legend-item">
+							<span class="status-icon status-icon-{st}">{@render icon(st, 16)}</span>
+							{$LL.fuelio.status[st]()}
+						</span>
+					{/each}
+				</span>
+				<span class="legend-group">
+					<strong>{$LL.fuelio.col.flags()}:</strong>
+					{#each FLAGS as f}
+						<span class="legend-item">
+							<span class="flag-icon">{@render icon(f, 16)}</span>
+							{$LL.fuelio.flag[f]()}
+						</span>
+					{/each}
+				</span>
+			</div>
+
 			<div class="layout">
 				<div class="table-wrap">
 					<table data-testid="fuelio-table">
@@ -288,11 +328,7 @@
 											title={$LL.fuelio.status[r.status]()}
 											data-testid="fuelio-status-{r.status}"
 										>
-											{#if r.status === 'matched'}
-												<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-											{:else}
-												<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-											{/if}
+												{@render icon(r.status, 18)}
 										</span>
 									</td>
 									<td class="nowrap">{dt(r.tripStart)}</td>
@@ -325,17 +361,7 @@
 												title={$LL.fuelio.flag[f]()}
 												data-testid="fuelio-flag-{f}"
 											>
-												{#if f === 'timeDiffers'}
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-												{:else if f === 'kmDiffers'}
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
-												{:else if f === 'differentRoute'}
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>
-												{:else if f === 'partialGps'}
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.75 7.09a3 3 0 0 1 2.16 2.16"/><path d="M17.072 17.072c-1.634 2.17-3.527 3.912-4.471 4.727a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 1.432-4.568"/><path d="m2 2 20 20"/><path d="M8.475 2.818A8 8 0 0 1 20 10c0 1.183-.31 2.377-.81 3.533"/><path d="M9.13 9.13a3 3 0 0 0 3.74 3.74"/></svg>
-												{:else}
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18.84 12.25 1.72-1.71h-.02a5.004 5.004 0 0 0-.12-7.07 5.006 5.006 0 0 0-6.95 0l-1.72 1.71"/><path d="m5.17 11.75-1.71 1.71a5.004 5.004 0 0 0 .12 7.07 5.006 5.006 0 0 0 6.95 0l1.71-1.71"/><line x1="8" x2="8" y1="2" y2="5"/><line x1="2" x2="5" y1="8" y2="8"/><line x1="16" x2="16" y1="19" y2="22"/><line x1="19" x2="22" y1="16" y2="16"/></svg>
-												{/if}
+													{@render icon(f, 16)}
 											</span>
 										{/each}
 									</td>
@@ -551,6 +577,28 @@
 	}
 	tr.selected {
 		background: var(--accent-primary-light-hover);
+	}
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem 1.5rem;
+		margin-bottom: 0.75rem;
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+	}
+	.legend-group {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.3rem 0.8rem;
+	}
+	.legend-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+	.legend-item .flag-icon {
+		margin-right: 0;
 	}
 	.status-cell {
 		text-align: center;
