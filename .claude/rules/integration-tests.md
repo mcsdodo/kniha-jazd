@@ -10,12 +10,12 @@ Lessons learned from debugging flaky integration tests. Follow these patterns to
 
 ## Purpose
 
-**Integration Tests (WebdriverIO + Chrome) - UI flow verification (152 tests):**
+**Integration Tests (WebdriverIO + Chrome) - UI flow verification (188 tests in the tiers, 10 in the env suite):**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol, driving a real
   browser against the `kniha-jazd-web` HTTP server
 - **Purpose**: Verify UI correctly invokes backend and displays results
 - **NOT for**: Re-testing calculation logic (that's backend's job - see `.claude/rules/rust-backend.md`)
-- **Tiered execution**: Tier 1 (`tier1` + `existing`, 48 tests) for quick checks, all
+- **Tiered execution**: Tier 1 (`tier1` + `existing`, 56 tests) for quick checks, all
   tiers on CI; the `env` suite runs separately because its fixture env vars pin
   settings app-wide
 - DB seeding via `POST /api/rpc` (no direct DB access)

@@ -188,6 +188,8 @@
 		selectedHasRoute = null;
 		try {
 			const track = await api.getFuelioTrack(r.driveIds, r.tripId);
+			// A newer selection (or a reload) won the race: do not draw this one
+			if (selected !== r) return;
 			selectedHasRoute = track.route !== null;
 			ensureMap();
 			if (!map || !leaflet || !layers) return;
