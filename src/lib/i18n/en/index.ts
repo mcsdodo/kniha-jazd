@@ -474,6 +474,7 @@ const en = {
 		pinOrigin: 'Route start',
 		pinDestination: 'Route end',
 		pinStartFinish: 'Loop start and end',
+		pointNumber: 'Point {num}',
 		roundTrip: 'Round trip',
 		roundTripHint: 'The route continues back to the starting point.',
 		provider: 'Routing',

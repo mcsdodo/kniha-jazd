@@ -4,6 +4,22 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-09: Route Map Editing
+
+### ADR-060: An edited loop stays a loop (amends ADR-040)
+
+**Context:** [ADR-040](#adr-040-the-waypoint-editor-is-mode-agnostic) made `reroute()` set `mode = 'direct'` on the first edit, so an edited loop became a direct route. The page then sent the closed loop list to `route_direct` with `round_trip: false`, and the [ADR-041](#adr-041-round-trip-normalisation-is-symmetric-and-lives-entirely-in-rust) normaliser cut the closing point: a dragged loop ended at its last via. A loop has no resolved endpoints, so the "endpoint missing" banner also appeared. A patch that ticked "tam a späť" kept the line closed, but Prepočítať, Save, reopen and Retry then turned the loop into a two-leg A -> last via -> A round trip, or failed with "A round trip needs two different endpoints".
+
+**Options considered:**
+1. Edited loop = direct + round trip. Every later step (two-leg Prepočítať, turnaround on reopen, Retry) needs a loop special case.
+2. Edited loop stays a loop. Only the edit request is new.
+
+**Decision:** Option 2. A drag, insert or remove on a loop keeps `mode = 'loop'`. The page sends the OPEN line to `route_direct` with `roundTrip: true`, and the backend appends the way back to the start. The proposal keeps `mode: 'loop'`, so Save stores a loop (closed list, `round_trip` false), and the page keeps the loop controls. Retry after a failed edit repeats the edit. The handles get roles: pin A = the origin (a loop's start and end, drawn once), pin B = the destination or the turnaround, numbered circles = vias. A moved via loses its name and dataset node; a moved endpoint keeps the trip place name, and a save never writes the trip's places or the place book.
+
+**Reasoning:** The escape hatch of ADR-040 still works (drag a loop into shape), but the result keeps its shape through every later step. Option 1 put the meaning "this round trip is really a loop" into a checkbox that has a different meaning (two legs, a turnaround), and each of the five bugs the review found came from that mismatch.
+
+---
+
 ## 2026-10-08: Fuelio Cross-Check
 
 ### BIZ-027: Fuelio drives are the reference of the cross-check
@@ -494,7 +510,7 @@ This book is legal evidence, and the spec requires the user to approve a change 
 
 **Context:** [Task 72](./_tasks/_done/72-route-map-origin-destination/) also deferred re-anchoring the genetic algorithm at an arbitrary geocoded point, so a distant Loop row (a "Bratislava -- Bratislava" trip that actually visited a distant town) still loops around the home base -- doing better needs a distance matrix the app does not have. Something still has to make that recoverable without one.
 
-**Decision:** `insert_waypoint` and the drag-to-edit flow in `route_direct_internal` know nothing about how the route was produced. A route is just an ordered list of `{lat, lon}` waypoints; dragging the line inserts a new point into that list by nearest-vertex geometry against whichever polyline is currently drawn, whether that polyline came from the genetic algorithm (Loop) or from geocoded endpoints (Direct). The frontend's `reroute()` sets `mode = 'direct'` the moment an edit happens: editing produces a concrete road route, so an edited loop becomes a direct route, which is the escape hatch itself.
+**Decision:** `insert_waypoint` and the drag-to-edit flow in `route_direct_internal` know nothing about how the route was produced. A route is just an ordered list of `{lat, lon}` waypoints; dragging the line inserts a new point into that list by nearest-vertex geometry against whichever polyline is currently drawn, whether that polyline came from the genetic algorithm (Loop) or from geocoded endpoints (Direct). The frontend's `reroute()` sets `mode = 'direct'` the moment an edit happens: editing produces a concrete road route, so an edited loop becomes a direct route, which is the escape hatch itself. **Amended by [ADR-060](#adr-060-an-edited-loop-stays-a-loop-amends-adr-040):** an edited loop now stays a loop.
 
 **Reasoning:** Building a distance matrix good enough to re-anchor the GA is real work with no clear payoff size (how often does a Loop row's home base genuinely need to move?). A mode-agnostic editor sidesteps the question: a user who notices a loop passing nowhere near the right town can already drag it there today, one via point at a time, using the same mechanism Direct mode's own editing needed anyway. The interim answer costs nothing extra to have built, because it was going to be built for Direct mode regardless.
 

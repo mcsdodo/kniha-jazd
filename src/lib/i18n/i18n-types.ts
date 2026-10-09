@@ -1565,6 +1565,11 @@ type RootTranslation = {
 		 */
 		pinStartFinish: string
 		/**
+		 * B​o​d​ ​{​n​u​m​}
+		 * @param {number} num
+		 */
+		pointNumber: RequiredParams<'num'>
+		/**
 		 * C​e​s​t​a​ ​t​a​m​ ​a​ ​s​p​ä​ť
 		 */
 		roundTrip: string
@@ -4384,6 +4389,10 @@ export type TranslationFunctions = {
 		 * Začiatok a koniec okruhu
 		 */
 		pinStartFinish: () => LocalizedString
+		/**
+		 * Bod {num}
+		 */
+		pointNumber: (arg: { num: number }) => LocalizedString
 		/**
 		 * Cesta tam a späť
 		 */

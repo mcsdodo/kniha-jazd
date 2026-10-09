@@ -293,15 +293,43 @@ async function dragHandle(selector: string, dx: number, dy: number): Promise<voi
     .perform();
 }
 
-/** Wait until a drag's re-route finished: direct mode, nothing in flight. */
-async function waitForReroute(): Promise<void> {
+/**
+ * Drag a handle and wait until the re-route finished. The mock router gives
+ * every route the same km, so the signal is the page itself: the dragged
+ * marker is replaced (the edit started) and no request is in flight.
+ */
+async function dragAndWait(selector: string, dx: number, dy: number): Promise<void> {
+  // Mark the current markers in the page: a wdio element would look its
+  // selector up again and find the new marker.
+  await browser.execute((sel: string) => {
+    document.querySelectorAll(sel).forEach((el) => el.setAttribute('data-old', '1'));
+  }, selector);
+  await dragHandle(selector, dx, dy);
   await browser.waitUntil(
     async () => {
-      const btn = await $('[data-test="recalculate-btn"]');
-      return (await btn.isExisting()) && (await btn.isEnabled());
+      const redrawn = await browser.execute(
+        (sel: string) => document.querySelectorAll(`${sel}[data-old]`).length === 0,
+        selector
+      );
+      if (!redrawn) return false;
+      const status = $('[data-test="route-map-status"]');
+      return !(await status.isExisting());
     },
     { timeout: 10000, timeoutMsg: 'the drag did not re-route the map' }
   );
+}
+
+/** Save and apply; confirm the odometer dialog if the km change. */
+async function saveAndApply(): Promise<void> {
+  await $('[data-test="save-apply-btn"]').click();
+  const notice = $('[data-test="saved-notice"]');
+  const modal = $('[data-testid="cascade-modal"]');
+  await browser.waitUntil(async () => (await notice.isExisting()) || (await modal.isExisting()), {
+    timeout: 5000,
+    timeoutMsg: 'the save showed neither the dialog nor the notice',
+  });
+  if (await modal.isExisting()) await $('[data-testid="cascade-confirm"]').click();
+  await notice.waitForDisplayed({ timeout: 5000 });
 }
 
 /** Wait until the map view has either rendered a loaded route or reported an
@@ -644,10 +672,12 @@ describe('Tier 2: Route Map', () => {
       await openMap(trip.id as string);
       await waitForMapOutcome('route');
 
-      // Four stops: the turnaround is stored once, not twice.
+      // Four stops: the turnaround is stored once, not twice. The return
+      // via has no name, so it shows the number of its pin.
       const stopsText = await $('[data-test="stops"]').getText();
-      expect(stopsText).toContain('(3)');
-      expect(stopsText).toContain('Bratislava → Trnava → Bratislava');
+      expect(stopsText).toContain('(4)');
+      expect(stopsText).toContain('Bratislava → Trnava → Point 1 → Bratislava');
+      expect(await viaNumbers()).toEqual(['1']);
 
       const checkbox = await $('[data-test="round-trip-checkbox"]');
       expect(await checkbox.isSelected()).toBe(true);
@@ -894,16 +924,37 @@ describe('Tier 2: Route Map', () => {
       expect(await pinCount('wp-destination')).toBe(0);
       const before = await viaNumbers();
       expect(before.length).toBeGreaterThan(0);
+      // The stop list: start, the vias in order, the start again.
+      const stopsBefore = (await $('[data-test="stops"]').getText()).split(' → ');
+      const firstVia = stopsBefore[1];
 
-      await dragHandle('[data-test="route-map-canvas"] .wp-numbered', 40, 30);
-      await waitForReroute();
+      await dragAndWait('[data-test="route-map-canvas"] .wp-numbered', 40, 30);
+
+      // The moved via is no longer at its district: the list must not keep the name.
+      const stopsAfter = (await $('[data-test="stops"]').getText()).split(' → ');
+      expect(stopsAfter.length).toBe(stopsBefore.length);
+      expect(stopsAfter[1]).not.toContain(firstVia);
+      expect(stopsAfter[1]).toBe('Point 1');
 
       expect(await $('[data-test="endpoint-missing"]').isExisting()).toBe(false);
       expect(await $('[data-test="route-map-error"]').isExisting()).toBe(false);
-      // Still a loop: the last via did not turn into a destination.
+      // Still a loop: the last via did not turn into a destination, and the
+      // page keeps the loop controls (no one-way or round-trip controls).
       expect(await pinCount('wp-start-finish')).toBe(1);
       expect(await pinCount('wp-destination')).toBe(0);
       expect(await viaNumbers()).toEqual(before);
+      expect(await $('[data-test="regenerate-btn"]').isDisplayed()).toBe(true);
+      expect(await $('[data-test="round-trip-checkbox"]').isExisting()).toBe(false);
+
+      // Saved and opened again, it is the same loop.
+      await saveAndApply();
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      expect(await $('[data-test="regenerate-btn"]').isDisplayed()).toBe(true);
+      expect(await pinCount('wp-start-finish')).toBe(1);
+      expect(await pinCount('wp-destination')).toBe(0);
+      expect(await viaNumbers()).toEqual(before);
+      expect((await $('[data-test="stops"]').getText()).split(' → ')[1]).toBe('Point 1');
     });
 
     it('moves the start pin of a loop', async () => {
@@ -922,8 +973,7 @@ describe('Tier 2: Route Map', () => {
       await waitForMapOutcome('route');
       const before = await viaNumbers();
 
-      await dragHandle('[data-test="route-map-canvas"] .wp-start-finish', -40, 30);
-      await waitForReroute();
+      await dragAndWait('[data-test="route-map-canvas"] .wp-start-finish', -40, 30);
 
       expect(await $('[data-test="endpoint-missing"]').isExisting()).toBe(false);
       expect(await pinCount('wp-start-finish')).toBe(1);

@@ -444,9 +444,10 @@ route with an inserted via, and a round trip's own closing leg, therefore shows
 See [ADR-040](../../DECISIONS.md#adr-040-the-waypoint-editor-is-mode-agnostic).
 `insert_waypoint` and the drag-to-edit flow operate on an ordered `{lat, lon}` list and a
 polyline, with no idea whether the genetic algorithm or a pair of geocoded endpoints produced
-either one. Dragging the line always ends by calling `route_direct`, which is also why an
-edited loop becomes a direct route: the moment a drag decides the shape, the result is a
-concrete road route, not a synthetic GA loop.
+either one. Dragging the line always ends by calling `route_direct`. An edited loop stays a
+loop ([ADR-060](../../DECISIONS.md#adr-060-an-edited-loop-stays-a-loop-amends-adr-040)): the
+page sends the open line with `roundTrip: true`, the backend adds the way back, and Save
+stores `mode: 'loop'`. Before 2026-10-09 the edit switched the page to direct mode.
 
 Every via handle shows its number in the waypoint list (task 91), so the order stays
 visible while the user drags. On a round trip the return leg continues the numbers of the
@@ -457,11 +458,15 @@ for the end (the turnaround of a round trip). A loop has one green A pin for its
 its end: its closing point is the start again, so the map draws it once, and a drag moves
 both ends. Every pin and every via can be dragged in every mode.
 
-An edited loop stays a loop. The page sends the OPEN line with `roundTrip: true`, and
-`route_direct` adds the way back. A closed list with `roundTrip: false` loses its closing
-point in the normaliser (ADR-041), so before 2026-10-09 a dragged loop ended at its last
-via, and the page also showed the "endpoint missing" banner: a loop has no resolved
-endpoints, and the banner now reads the list on screen instead.
+Before ADR-060 a dragged loop went to `route_direct` closed, with `roundTrip: false`. The
+normaliser (ADR-041) cut the closing point, so the loop ended at its last via, and the page
+showed the "endpoint missing" banner: a loop has no resolved endpoints. The banner now reads
+the list on screen.
+
+On a round trip that is not shown as two legs (a failed leg request, a saved row with no
+turnaround), an edit on the plain handles goes to the two legs, so the way back keeps its
+vias. A dragged via loses its name and dataset node, because they named its old position;
+the stop list shows such a point as "Bod N", the number of its pin.
 
 A moved endpoint changes only the route line. The save writes the map, the trip km and the
 odometers; it never writes the trip's places or the place book

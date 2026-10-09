@@ -124,6 +124,9 @@
 	 *  falls back to them. A null stop count lets the backend pick 1 to 5. */
 	let loopKm = $state<number | null>(null);
 	let loopStops = $state<number | null>(null);
+	/** True after the user dragged, inserted or removed a point of the loop
+	 *  on screen: Retry repeats that edit, not a new random loop. */
+	let loopEdited = $state(false);
 	const LOOP_STOP_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 	let saving = $state(false);
 	let removing = $state(false);
@@ -242,15 +245,34 @@
 	 *  `mode === 'direct'`, so a saved loop route's own multi-stop waypoint
 	 *  list never lights them up. */
 	let hasVias = $derived((displayRoute?.waypoints.length ?? 0) > 2);
-	let stopNames = $derived(
-		roundTripRoutes
+	/** Every point of the route on screen, in order. A point without a name
+	 *  (a moved or inserted via) shows the number of its pin, so the list
+	 *  and the map count the same points. Vias are numbered as the pins
+	 *  number them: in order, the turnaround of a round trip not counted. */
+	let stopNames = $derived.by(() => {
+		const points = roundTripRoutes
 			? [...roundTripRoutes.outboundWaypoints, ...roundTripRoutes.inboundWaypoints.slice(1)]
-					.map((w) => w.name)
-					.filter((name): name is string => !!name)
-			: displayRoute
-				? displayRoute.waypoints.map((w) => w.name).filter((name): name is string => !!name)
-				: []
-	);
+			: (displayRoute?.waypoints ?? []);
+		const last = points.length - 1;
+		// A reopened round trip has no routing result yet: its legs come
+		// from the saved row.
+		const outbound = roundTripRoutes
+			? roundTripRoutes.outboundWaypoints
+			: !generated
+				? savedLegs?.outbound
+				: undefined;
+		const turnaround = outbound ? outbound.length - 1 : -1;
+		let via = 0;
+		return points.map((w, i) => {
+			const endpoint = i === 0 || i === last || i === turnaround;
+			if (!endpoint) via++;
+			if (w.name) return w.name;
+			if (!endpoint) return $LL.routeMap.pointNumber({ num: via });
+			return i === 0 || (i === last && isClosed(points))
+				? $LL.routeMap.pinOrigin()
+				: $LL.routeMap.pinDestination();
+		});
+	});
 	/** The pair currently on screen, as the backend measured it. Null unless a
 	 *  round trip has actually been routed. */
 	let combinedSelection = $derived(
@@ -518,6 +540,15 @@
 		return wp.name ? `${what}: ${wp.name}` : what;
 	}
 
+	/** A waypoint at its dragged position. A via loses its name and dataset
+	 *  node: they described the old position (a district, a town), so the
+	 *  stop list would name a place the route no longer visits. An endpoint
+	 *  keeps its name: it stays the trip's place, only the line moves. */
+	function moved(p: Waypoint, at: { lat: number; lng: number }, role: HandleRole): Waypoint {
+		if (role !== 'via') return { ...p, lat: at.lat, lon: at.lng };
+		return { lat: at.lat, lon: at.lng };
+	}
+
 	/** True if the list ends where it starts (a generated loop). */
 	function isClosed(points: Waypoint[]): boolean {
 		const first = points[0];
@@ -545,12 +576,11 @@
 			return;
 		}
 
-		// A loop (generated, or an edited one routed as a closed round trip)
-		// returns to its start. Its closing point is the start again: draw it
-		// once, as the start pin, so a drag moves both ends together. Every
-		// other point of a loop is a via -- it has no destination.
+		// A loop returns to its start. Its closing point is the start again:
+		// draw it once, as the start pin, so a drag moves both ends together.
+		// Every other point of a loop is a via -- it has no destination.
 		const shown = currentWaypoints();
-		const loop = mode === 'loop' || roundTrip || isClosed(shown);
+		const loop = mode === 'loop';
 		const points = isClosed(shown) ? shown.slice(0, -1) : shown;
 		points.forEach((wp, i) => {
 			const role: HandleRole =
@@ -573,20 +603,15 @@
 			// service is capped at a request a second, and mid-drag routing
 			// would spend that budget on frames nobody sees.
 			marker.on('dragend', () => {
-				const { lat, lng } = marker.getLatLng();
-				const next = points.map((p, j) => (j === i ? { ...p, lat, lon: lng } : p));
-				void reroute(next, undefined, loop);
+				const next = points.map((p, j) => (j === i ? moved(p, marker.getLatLng(), role) : p));
+				void reroute(next);
 			});
 
 			// Clicking a via removes it. Endpoints are not removable -- that
 			// would change where the journey started or ended.
 			if (role === 'via') {
 				marker.on('click', () => {
-					void reroute(
-						points.filter((_, j) => j !== i),
-						undefined,
-						loop
-					);
+					void reroute(points.filter((_, j) => j !== i));
 				});
 			}
 
@@ -622,8 +647,7 @@
 
 			// ONE request, on release -- never during the drag.
 			marker.on('dragend', () => {
-				const { lat, lng } = marker.getLatLng();
-				const next = points.map((p, j) => (j === i ? { ...p, lat, lon: lng } : p));
+				const next = points.map((p, j) => (j === i ? moved(p, marker.getLatLng(), role) : p));
 				const [outbound, inbound] = legs(next);
 				void rerouteLegs(outbound, inbound);
 			});
@@ -712,8 +736,7 @@
 					}
 					const polyline = generated?.polyline ?? savedRoute?.polyline ?? '';
 					const shown = currentWaypoints();
-					const loop = mode === 'loop' || roundTrip || isClosed(shown);
-					void reroute(isClosed(shown) ? shown.slice(0, -1) : shown, { lat, lon: lng, polyline }, loop);
+					void reroute(isClosed(shown) ? shown.slice(0, -1) : shown, { lat, lon: lng, polyline });
 				});
 			} else {
 				ghost.setLatLng(e.latlng);
@@ -762,26 +785,63 @@
 	 * is an ordered waypoint list either way, which is what lets a
 	 * mis-anchored loop be dragged into shape.
 	 *
-	 * `loop`: the edited route returns to its start. `waypoints` is then the
-	 * OPEN line (no closing point) and the request asks for the way back. A
-	 * closed list with `round_trip: false` lost its closing point in Rust's
-	 * normaliser, so a dragged loop ended at its last via.
+	 * `waypoints` is always the OPEN line: a loop's closing point is not in it.
+	 * - Loop: stays a loop (runLoopEdit). Before 2026-10-09 an edited loop
+	 *   became a direct route, and a closed list with `round_trip: false`
+	 *   lost its closing point in Rust's normaliser: the loop ended at its
+	 *   last via.
+	 * - Round trip without its two legs on screen (a failed leg request, a
+	 *   saved row with no turnaround): the edit goes to the legs, so the way
+	 *   back keeps its vias.
+	 * - One-way: route_direct.
 	 */
-	async function reroute(waypoints: Waypoint[], insert?: InsertPoint, loop = false) {
+	async function reroute(waypoints: Waypoint[], insert?: InsertPoint) {
 		if (!trip) return;
 		// The map already shows the dragged position (the handle followed the
 		// pointer); re-fitting bounds on top of that would re-zoom the map for
 		// a result the user is already looking at.
 		skipFit = true;
-		// Editing produces a concrete road route, so an edited loop becomes a
-		// direct route -- which is exactly the escape hatch the design wants.
-		// It stays a round trip: the checkbox shows it, and runDirect closes it.
-		const wasLoop = mode === 'loop';
+		if (mode === 'loop') {
+			await runLoopEdit(waypoints, insert);
+			return;
+		}
 		mode = 'direct';
-		if (loop) roundTrip = true;
+		if (roundTrip) {
+			const legInsert = insert ? { ...insert, leg: 'outbound' as const } : undefined;
+			await rerouteLegs(waypoints, currentInbound(), legInsert);
+			return;
+		}
 		roundTripRoutes = null;
 		baseInbound = null;
-		await runDirect(waypoints, wasLoop || loop ? loopTargetKm() : trip.distanceKm, insert);
+		await runDirect(waypoints, trip.distanceKm, insert);
+	}
+
+	/** Routes an edited loop: the open line, plus the way back to its start.
+	 *  The result stays a loop proposal (mode 'loop'), so Save stores a loop
+	 *  and the page keeps the loop controls. On failure the edited list stays
+	 *  on screen, and Retry sends it again. */
+	async function runLoopEdit(open: Waypoint[], insert?: InsertPoint) {
+		generating = true;
+		error = null;
+		savedNotice = false;
+		loopEdited = true;
+		baseWaypoints = open;
+		try {
+			const routes = await routeDirect(open, loopTargetKm(), insert, true, [], provider);
+			if (routes.length === 0) throw new Error('no routes returned');
+			generated = { ...routes[0], mode: 'loop' };
+			provider = routes[0].provider;
+			alternatives = [];
+			routedAvoid = [];
+			// The backend appended the closing point; keep the open line.
+			baseWaypoints = routes[0].waypoints.slice(0, -1);
+		} catch (e) {
+			console.error('Failed to route the edited loop:', e);
+			generated = null;
+			showRouteError(e);
+		} finally {
+			generating = false;
+		}
 	}
 
 	// The trip comes from the vehicle the layout activates, which is populated
@@ -845,30 +905,36 @@
 	async function loadRoute() {
 		savedRoute = await getTripRoute(tripId);
 		if (savedRoute) {
-			mode = savedRoute.mode;
-			// Restores the checkbox to what was actually saved (Task 20) --
-			// without this, Prepočítať would silently hand back a one-way
-			// route for a trip the user already marked as a round trip.
-			roundTrip = savedRoute.roundTrip;
-			avoid = [...savedRoute.avoid];
-			avoidOptions = [...savedRoute.avoid];
-			routedAvoid = [...savedRoute.avoid];
-			provider = savedRoute.provider ?? defaultProvider;
-			const legs = savedRoute.roundTrip ? splitSavedLegs(savedRoute) : null;
-			savedLegs = legs;
-			rehydrateEndpoints(savedRoute, legs);
-			if (legs) {
-				baseWaypoints = legs.outbound;
-				baseInbound = legs.inbound;
-			} else {
-				baseWaypoints = savedRoute.roundTrip
-					? savedRoute.waypoints.slice(0, -1)
-					: savedRoute.waypoints;
-				baseInbound = null;
-			}
+			adoptSavedRoute(savedRoute);
 			return;
 		}
 		await startForTrip();
+	}
+
+	/** Puts a saved route on screen as the base of every next edit: its mode,
+	 *  its checkbox, its legs and its point lists. After a save too, so the
+	 *  lists match the row just written, not the one loaded before it. */
+	function adoptSavedRoute(route: RouteMap) {
+		mode = route.mode;
+		// Restores the checkbox to what was actually saved (Task 20) --
+		// without this, Prepočítať would silently hand back a one-way
+		// route for a trip the user already marked as a round trip.
+		roundTrip = route.roundTrip;
+		avoid = [...route.avoid];
+		avoidOptions = [...route.avoid];
+		routedAvoid = [...route.avoid];
+		provider = route.provider ?? defaultProvider;
+		loopEdited = false;
+		const legs = route.roundTrip ? splitSavedLegs(route) : null;
+		savedLegs = legs;
+		rehydrateEndpoints(route, legs);
+		if (legs) {
+			baseWaypoints = legs.outbound;
+			baseInbound = legs.inbound;
+		} else {
+			baseWaypoints = route.roundTrip ? route.waypoints.slice(0, -1) : route.waypoints;
+			baseInbound = null;
+		}
 	}
 
 	/**
@@ -1073,6 +1139,9 @@
 		try {
 			generated = await generateRoute(tripId, targetKm, [], provider, loopStops);
 			provider = generated.provider;
+			// The new loop replaces any edited or saved point list on screen.
+			baseWaypoints = null;
+			loopEdited = false;
 			routedAvoid = [];
 			avoidOptions = [];
 		} catch (e) {
@@ -1190,8 +1259,12 @@
 		} catch (e) {
 			console.error('Failed to route the round trip:', e);
 			// Same rule as the other two modes: drop the proposal so an error
-			// banner can never have a saveable route sitting behind it.
+			// banner can never have a saveable route sitting behind it. That
+			// includes a one-way proposal from before the tick: Save would
+			// store it as a round trip.
 			roundTripRoutes = null;
+			generated = null;
+			alternatives = [];
 			showRouteError(e);
 		} finally {
 			generating = false;
@@ -1272,7 +1345,8 @@
 		error = null;
 		if (trip) {
 			if (mode === 'loop') {
-				void runGenerate(loopTargetKm());
+				if (loopEdited && baseWaypoints) void runLoopEdit(baseWaypoints);
+				else void runGenerate(loopTargetKm());
 			} else if (mode === 'direct') {
 				if (roundTrip) {
 					void runRoundTrip(currentOutbound(), currentInbound(), trip.distanceKm);
@@ -1374,6 +1448,7 @@
 				trip = trips.find((t) => t.id === tripId) ?? trip;
 			}
 			savedRoute = await getTripRoute(tripId);
+			if (savedRoute) adoptSavedRoute(savedRoute);
 			generated = null;
 			// The alternatives panel guards on `alternatives.length`, not on
 			// `generated`: leaving it populated would show the picker (and its

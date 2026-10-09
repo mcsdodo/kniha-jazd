@@ -474,6 +474,7 @@ const sk = {
 		pinOrigin: 'Začiatok trasy',
 		pinDestination: 'Koniec trasy',
 		pinStartFinish: 'Začiatok a koniec okruhu',
+		pointNumber: 'Bod {num: number}',
 		roundTrip: 'Cesta tam a späť',
 		roundTripHint: 'Trasa povedie z cieľa späť do miesta odchodu.',
 		provider: 'Smerovanie',

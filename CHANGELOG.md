@@ -29,7 +29,8 @@ databázu len na čítanie.
 - **Fuelio: nastaviteľné spájanie jázd** - nad tabuľkou na stránke Fuelio sú dve nové polia: najdlhšia prestávka (predvolene 60 min) a najväčšia vzdialenosť (predvolene 2 km), pri ktorých sa dve jazdy Fuelio spoja do jedného riadku. Jazdu, ktorú Fuelio rozdelilo pri dlhšej zastávke, tak spojíte a tlačidlom "Pridať" zapíšete ako jednu jazdu. Vyššia prestávka platí aj pre jazdy, ktoré patria k jazde v knihe (tie sa spoja vždy pri prestávke do 90 min).
 
 ### Opravené
-- **Presunutý bod okruhu** - po presunutí bodu okruhu stránka mapy zobrazila chybu "Miesto odchodu alebo príchodu nie je umiestnené na mape." a okruh skončil v poslednom bode, bez cesty späť na začiatok. Teraz okruh zostane uzavretý a chyba sa nezobrazí.
+- **Upravený okruh zostane okruhom** - po presunutí, pridaní alebo odstránení bodu okruhu stránka mapy zobrazila chybu "Miesto odchodu alebo príchodu nie je umiestnené na mape." a okruh skončil v poslednom bode, bez cesty späť na začiatok. Teraz okruh zostane uzavretý, chyba sa nezobrazí, stránka ponechá ovládanie okruhu a uloží ho ako okruh. Presunutý bod už nemá meno pôvodného miesta: zoznam zastávok ho ukáže ako "Bod N".
+- **Cesta tam a späť a body trasy** - ak zlyhala trasa po zaškrtnutí "Cesta tam a späť", tlačidlo uložiť mohlo uložiť jednosmernú trasu ako cestu tam a späť. Úprava bodu, keď cesta tam a späť nebola zobrazená ako dve časti, stratila body cesty späť. Po uložení stránka pracovala so starým zoznamom bodov. Všetko je opravené.
 - **Presúvanie bodov nového okruhu** - novo vygenerovaný okruh má body, ktoré sa dajú presunúť. Doteraz ich mal len uložený okruh.
 
 ## [2.1.0] - 2026-10-08
