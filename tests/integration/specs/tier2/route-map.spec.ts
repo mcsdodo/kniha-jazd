@@ -830,6 +830,40 @@ describe('Tier 2: Route Map', () => {
       expect(nums).toEqual(nums.map((_, i) => String(i + 1)));
     });
 
+    it('generates the loop again with the km and stop count from the toolbar', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-16T08:00',
+        endDatetime: '2026-03-16T09:00',
+        origin: 'Bratislava',
+        destination: 'Bratislava',
+        distanceKm: 43,
+        odometer: 50043,
+        purpose: 'Business trip',
+      });
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      expect(await $('[data-test="loop-km"]').getValue()).toBe('43');
+
+      // Atomic: setValue would fire one change per typed character.
+      await browser.execute(() => {
+        const km = document.querySelector('[data-test="loop-km"]') as HTMLInputElement;
+        km.value = '60';
+        km.dispatchEvent(new Event('input', { bubbles: true }));
+        const stops = document.querySelector('[data-test="loop-stops"]') as HTMLSelectElement;
+        stops.selectedIndex = 4; // Auto, 1, 2, 3, 4
+        stops.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      await browser.waitUntil(
+        async () => (await $('[data-test="target-km"]').getText()) === '60.0 km',
+        { timeout: 10000, timeoutMsg: 'the loop was not generated for 60 km' }
+      );
+      const nums = await $$('[data-test="route-map-canvas"] .wp-handle .wp-num').getElements();
+      expect(nums.length).toBe(4);
+    });
+
     it('still renders a saved loop route with the V1 controls', async () => {
       const trip = await seedTrip({
         vehicleId,

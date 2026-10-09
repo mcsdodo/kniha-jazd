@@ -232,6 +232,10 @@ pub async fn dispatch_async(
                 target_km: f64,
                 // Task 91: the loop starts at this trip's place.
                 trip_id: String,
+                // A fixed stop count from the page; absent = 1 to 5, the
+                // algorithm picks.
+                #[serde(default)]
+                stops: Option<usize>,
                 // Task 85. Defaulted so a caller that predates it still routes.
                 #[serde(default)]
                 avoid: Vec<String>,
@@ -264,6 +268,7 @@ pub async fn dispatch_async(
                 provider.as_ref(),
                 &anchor,
                 a.target_km,
+                a.stops,
             )
             .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))

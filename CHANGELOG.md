@@ -24,6 +24,7 @@ databázu len na čítanie.
 ### Pridané
 - **Okruh v Bratislave** - jazda s rovnakým začiatkom a cieľom v Bratislave vygeneruje na mape okruh cez mestské časti Bratislavy. Okruh začína a končí na mieste jazdy a jeho dĺžka zodpovedá km jazdy. Doteraz generátor vždy kreslil okruh okolo domova. Pre miesto mimo domova a Bratislavy mapa ukáže "Pre toto miesto generátor nemá kandidátov." Generátor pre Bratislavu potrebuje službu OSRM (`router.project-osrm.org`).
 - **Číslované body trasy** - každý medziľahlý bod trasy na mape má číslo podľa poradia, takže pri presúvaní bodov je poradie vidieť.
+- **Okruh: km a počet zastávok** - na mape okruhu sú vedľa tlačidla "Generovať znova" dve nové polia: "Km okruhu" (predvolene km jazdy) a "Zastávky" ("Auto" alebo pevný počet 1 až 10). Zmena poľa vygeneruje okruh znova. Uložená trasa zapíše do jazdy km nakreslenej trasy.
 - **Fuelio: nastaviteľné spájanie jázd** - nad tabuľkou na stránke Fuelio sú dve nové polia: najdlhšia prestávka (predvolene 60 min) a najväčšia vzdialenosť (predvolene 2 km), pri ktorých sa dve jazdy Fuelio spoja do jedného riadku. Jazdu, ktorú Fuelio rozdelilo pri dlhšej zastávke, tak spojíte a tlačidlom "Pridať" zapíšete ako jednu jazdu. Vyššia prestávka platí aj pre jazdy, ktoré patria k jazde v knihe (tie sa spoja vždy pri prestávke do 90 min).
 
 ### Opravené

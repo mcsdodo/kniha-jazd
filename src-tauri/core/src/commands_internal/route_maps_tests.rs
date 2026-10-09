@@ -256,7 +256,7 @@ async fn generate_route_produces_a_home_loop_with_geometry() {
     let (points, _) = sample_geometry();
     let provider = StubProvider::encoding(&points, 117.2);
 
-    let route = generate_route_internal(&provider, &home_anchor(), 120.0).await.unwrap();
+    let route = generate_route_internal(&provider, &home_anchor(), 120.0, None).await.unwrap();
 
     let ds = Dataset::bundled();
     let home = &ds.nodes[0];
@@ -293,7 +293,7 @@ async fn generate_route_persists_nothing() {
     let (points, _) = sample_geometry();
     let provider = StubProvider::encoding(&points, 117.2);
 
-    generate_route_internal(&provider, &home_anchor(), 120.0).await.unwrap();
+    generate_route_internal(&provider, &home_anchor(), 120.0, None).await.unwrap();
 
     assert!(
         get_trip_route_internal(&db, trip.id.to_string())
@@ -2263,7 +2263,7 @@ async fn a_round_trip_reports_the_provider_that_routed_it() {
 #[tokio::test]
 async fn a_generated_loop_reports_the_provider_that_routed_it() {
     let p = mock_as(RouteProviderKind::Sygic);
-    let route = generate_route_internal(p.as_ref(), &home_anchor(), 60.0).await.unwrap();
+    let route = generate_route_internal(p.as_ref(), &home_anchor(), 60.0, None).await.unwrap();
     assert_eq!(route.provider, RouteProviderKind::Sygic);
 }
 
@@ -2595,7 +2595,7 @@ async fn a_bratislava_anchor_uses_the_districts_with_one_table_call() {
 async fn an_anchor_outside_both_areas_is_refused_with_the_marker() {
     let provider = StubProvider::encoding(&sample_geometry().0, 43.0);
     let zilina = LoopAnchor { lat: 49.2231, lon: 18.7394, name: "Žilina".into() };
-    let err = generate_route_internal(&provider, &zilina, 43.0).await.unwrap_err();
+    let err = generate_route_internal(&provider, &zilina, 43.0, None).await.unwrap_err();
     assert!(err.starts_with(NO_LOOP_CANDIDATES), "{err}");
     assert_eq!(provider.table_calls.load(Ordering::SeqCst), 0);
 }
@@ -2603,7 +2603,7 @@ async fn an_anchor_outside_both_areas_is_refused_with_the_marker() {
 #[tokio::test]
 async fn a_bratislava_loop_starts_and_ends_at_the_anchor() {
     let provider = StubProvider::encoding(&sample_geometry().0, 43.0);
-    let route = generate_route_internal(&provider, &ba_anchor(), 43.0).await.unwrap();
+    let route = generate_route_internal(&provider, &ba_anchor(), 43.0, None).await.unwrap();
     let first = route.waypoints.first().unwrap();
     let last = route.waypoints.last().unwrap();
     assert_eq!((first.lat, first.lon), (48.1530, 17.1200));
@@ -2619,9 +2619,30 @@ async fn a_bratislava_loop_starts_and_ends_at_the_anchor() {
 }
 
 #[tokio::test]
+async fn a_loop_with_a_fixed_stop_count_has_that_many_vias() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 60.0);
+    let route = generate_route_internal(&provider, &ba_anchor(), 60.0, Some(4)).await.unwrap();
+    assert_eq!(route.waypoints.len(), 4 + 2);
+    assert_eq!(route.target_km, 60.0);
+}
+
+#[tokio::test]
+async fn a_loop_refuses_a_bad_stop_count_or_target() {
+    let provider = StubProvider::encoding(&sample_geometry().0, 60.0);
+    let a = ba_anchor();
+    for stops in [Some(0), Some(MAX_FIXED_STOPS + 1)] {
+        assert!(generate_route_internal(&provider, &a, 60.0, stops).await.is_err(), "{stops:?}");
+    }
+    for km in [0.0, -5.0, f64::NAN] {
+        assert!(generate_route_internal(&provider, &a, km, None).await.is_err(), "{km}");
+    }
+    assert_eq!(provider.table_calls.load(Ordering::SeqCst), 0, "validate before any routing call");
+}
+
+#[tokio::test]
 async fn a_short_bratislava_target_still_returns_a_route() {
     let provider = StubProvider::encoding(&sample_geometry().0, 9.0);
-    let route = generate_route_internal(&provider, &ba_anchor(), 5.0).await.unwrap();
+    let route = generate_route_internal(&provider, &ba_anchor(), 5.0, None).await.unwrap();
     assert!(route.off_target, "9 km for a 5 km target is outside tolerance");
 }
 

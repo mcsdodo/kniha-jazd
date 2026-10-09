@@ -38,6 +38,10 @@ The commands are served over the HTTP API like every other command — see
 8. **"Generovať znova" / "Prepočítať"** produces a different route for the same target
    (loop) or re-routes the current waypoint list (direct). **Nothing is persisted until
    "Uložiť a použiť vzdialenosť"** -- the user can retry until a route looks right.
+   In loop mode two fields sit next to the button: **"Km okruhu"** (the target, the trip
+   km by default) and **"Zastávky"** ("Auto" or a fixed count 1 to 10). A change generates
+   the loop again. The save then writes the km of the drawn route to the trip, as in
+   step 9, not the typed target.
 9. **"Uložiť a použiť vzdialenosť"** saves the route and writes its distance, in whole km,
    to the trip. It works the same in every mode. If the trip km changes, a confirmation
    modal shows the change first. The save tells the logbook tab to fill in that row's pin,
@@ -264,12 +268,14 @@ Export for print → assemble the printed table's rows (record no., trip id)
 
 ```
 chromosome = 1..5 distinct settlements between two home visits
+             (a fixed count n from the page: exactly n, at most every candidate)
 fitness    = 1 / (1 + |loop distance - target km|)
 repeat 100 generations over a population of 50:
     carry the 2 fittest forward unchanged
     fill the rest by: tournament-select 2 parents (sample 3, keep the fittest)
-                      order crossover, capped at 5 stops
+                      order crossover, capped at 5 stops (or n)
                       with p=0.25 insert / remove / swap one stop
+                      (fixed n: replace / swap, so the count never changes)
 return the fittest chromosome as home → stops → home
 ```
 

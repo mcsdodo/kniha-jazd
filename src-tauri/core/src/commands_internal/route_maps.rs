@@ -33,7 +33,7 @@ use crate::route_map::areas::{loop_area, LoopArea, NO_LOOP_CANDIDATES};
 use crate::route_map::dataset::Node;
 use crate::route_map::{
     generate_route_random, Dataset, FetchedRoute, RouteProvider, RouteProviderKind,
-    RouteProvidersInfo, TOLERANCE,
+    RouteProvidersInfo, MAX_FIXED_STOPS, TOLERANCE,
 };
 
 /// A freshly generated route. Not persisted — see the module docs.
@@ -338,9 +338,20 @@ pub async fn generate_route_internal(
     provider: &dyn RouteProvider,
     anchor: &LoopAnchor,
     target_km: f64,
+    stops: Option<usize>,
 ) -> Result<GeneratedRoute, String> {
+    // The page lets the user type both values: check them before any call.
+    if !(target_km > 0.0) || !target_km.is_finite() {
+        return Err(format!("The loop target must be more than 0 km, got {target_km}."));
+    }
+    if stops.is_some_and(|n| !(1..=MAX_FIXED_STOPS).contains(&n)) {
+        return Err(format!(
+            "The stop count must be 1 to {MAX_FIXED_STOPS}, got {}.",
+            stops.unwrap_or_default()
+        ));
+    }
     let ds = loop_dataset(provider, anchor).await?;
-    let result = generate_route_random(target_km, &ds);
+    let result = generate_route_random(target_km, &ds, stops);
     let waypoints = waypoints_for(&result.sequence, &ds)?;
 
     let coords: Vec<(f64, f64)> = waypoints.iter().map(|w| (w.lat, w.lon)).collect();

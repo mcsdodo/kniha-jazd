@@ -37,8 +37,11 @@ const MUT: f64 = 0.25;
 const ELITE: usize = 2;
 /// Population members sampled per tournament selection.
 const TOUR: usize = 3;
-/// Maximum intermediate stops between the two home visits.
+/// Maximum intermediate stops between the two home visits, when the user
+/// does not fix the count.
 const MAX_STOPS: usize = 5;
+/// The largest stop count the user may fix on the map page.
+pub const MAX_FIXED_STOPS: usize = 10;
 
 /// Source of randomness for route generation. Production uses
 /// [`ThreadRouteRng`]; tests use [`SeededRouteRng`] to get reproducible runs.
@@ -89,8 +92,34 @@ pub struct RouteResult {
 }
 
 /// Intermediate stops of a route: unique node indices in `1..ds.len()`,
-/// between 1 and [`MAX_STOPS`] of them. The two home visits are implicit.
+/// as many as [`StopRange`] allows. The two home visits are implicit.
 type Stops = Vec<usize>;
+
+/// How many stops a chromosome may have, both ends included.
+#[derive(Clone, Copy)]
+struct StopRange {
+    min: usize,
+    max: usize,
+}
+
+impl StopRange {
+    /// `None`: 1..=[`MAX_STOPS`], the algorithm picks. `Some(n)`: exactly
+    /// `n`, at most every candidate of `ds`.
+    fn new(stops: Option<usize>, ds: &Dataset) -> Self {
+        let candidates = ds.len() - 1;
+        match stops {
+            None => Self { min: 1, max: MAX_STOPS.min(candidates) },
+            Some(n) => {
+                let n = n.clamp(1, candidates);
+                Self { min: n, max: n }
+            }
+        }
+    }
+
+    fn is_fixed(self) -> bool {
+        self.min == self.max
+    }
+}
 
 /// Driving distance of the loop `HOME -> stops -> HOME`.
 fn total_km(stops: &[usize], ds: &Dataset) -> f64 {
@@ -113,9 +142,9 @@ fn random_stop(ds: &Dataset, rng: &mut dyn RouteRng) -> usize {
     1 + rng.below(ds.len() - 1)
 }
 
-/// A random chromosome: 1..=[`MAX_STOPS`] distinct stops.
-fn random_stops(ds: &Dataset, rng: &mut dyn RouteRng) -> Stops {
-    let k = 1 + rng.below(MAX_STOPS);
+/// A random chromosome: a count of distinct stops inside `range`.
+fn random_stops(ds: &Dataset, range: StopRange, rng: &mut dyn RouteRng) -> Stops {
+    let k = range.min + rng.below(range.max - range.min + 1);
     let mut stops = Stops::with_capacity(k);
     while stops.len() < k {
         let stop = random_stop(ds, rng);
@@ -141,11 +170,12 @@ fn tournament<'a>(pop: &'a [Stops], fits: &[f64], rng: &mut dyn RouteRng) -> &'a
 }
 
 /// Order crossover: a random contiguous slice of `a`, then the entries of `b`
-/// not already present, capped at [`MAX_STOPS`].
+/// not already present, capped at `range.max`. Both parents hold at least
+/// `range.min` distinct stops, so the child does too.
 ///
 /// The empty-parent guards are defensive: every chromosome carries at least one
 /// stop, so in practice neither branch is taken.
-fn crossover(a: &[usize], b: &[usize], rng: &mut dyn RouteRng) -> Stops {
+fn crossover(a: &[usize], b: &[usize], range: StopRange, rng: &mut dyn RouteRng) -> Stops {
     if a.is_empty() {
         return b.to_vec();
     }
@@ -156,29 +186,41 @@ fn crossover(a: &[usize], b: &[usize], rng: &mut dyn RouteRng) -> Stops {
     let end = start + rng.below(a.len() - start);
     let mut child: Stops = a[start..=end].to_vec();
     for &stop in b {
-        if child.len() < MAX_STOPS && !child.contains(&stop) {
+        if child.len() < range.max && !child.contains(&stop) {
             child.push(stop);
         }
     }
     child
 }
 
-/// With probability [`MUT`], insert, remove or swap a stop.
-fn mutate(mut stops: Stops, ds: &Dataset, rng: &mut dyn RouteRng) -> Stops {
+/// A random node that is not home and not in `stops`. `stops` must leave at
+/// least one candidate free.
+fn unused_stop(stops: &[usize], ds: &Dataset, rng: &mut dyn RouteRng) -> usize {
+    loop {
+        let candidate = random_stop(ds, rng);
+        if !stops.contains(&candidate) {
+            return candidate;
+        }
+    }
+}
+
+/// With probability [`MUT`], insert, remove or swap a stop. With a fixed
+/// count, the insert becomes a replace: insert and remove would change the
+/// count, and a swap alone never brings in a new stop.
+fn mutate(mut stops: Stops, ds: &Dataset, range: StopRange, rng: &mut dyn RouteRng) -> Stops {
     if rng.unit() > MUT {
         return stops;
     }
     let op = rng.unit();
-    if op < 0.34 && stops.len() < MAX_STOPS {
-        let stop = loop {
-            let candidate = random_stop(ds, rng);
-            if !stops.contains(&candidate) {
-                break candidate;
-            }
-        };
+    if op < 0.34 && stops.len() < range.max {
+        let stop = unused_stop(&stops, ds, rng);
         let at = rng.below(stops.len() + 1);
         stops.insert(at, stop);
-    } else if op < 0.67 && stops.len() > 1 {
+    } else if op < 0.34 && range.is_fixed() && stops.len() < ds.len() - 1 {
+        let stop = unused_stop(&stops, ds, rng);
+        let at = rng.below(stops.len());
+        stops[at] = stop;
+    } else if op < 0.67 && stops.len() > range.min {
         let at = rng.below(stops.len());
         stops.remove(at);
     } else if stops.len() >= 2 {
@@ -204,12 +246,21 @@ fn fittest(fits: &[f64]) -> usize {
 /// allows. The returned sequence starts and ends at home and visits each
 /// intermediate node at most once.
 ///
+/// `stops`: `None` lets the algorithm pick 1..=5 stops; `Some(n)` gives
+/// exactly `n`, or every candidate if the dataset has fewer.
+///
 /// `ds` must hold at least two nodes (home plus one candidate stop), which the
 /// bundled dataset always does.
-pub fn generate_route(target_km: f64, ds: &Dataset, rng: &mut impl RouteRng) -> RouteResult {
+pub fn generate_route(
+    target_km: f64,
+    ds: &Dataset,
+    stops: Option<usize>,
+    rng: &mut impl RouteRng,
+) -> RouteResult {
     let rng: &mut dyn RouteRng = rng;
+    let range = StopRange::new(stops, ds);
 
-    let mut pop: Vec<Stops> = (0..POP).map(|_| random_stops(ds, rng)).collect();
+    let mut pop: Vec<Stops> = (0..POP).map(|_| random_stops(ds, range, rng)).collect();
     let mut fits: Vec<f64> = pop.iter().map(|c| fitness(c, ds, target_km)).collect();
 
     for _ in 0..GENS {
@@ -220,8 +271,8 @@ pub fn generate_route(target_km: f64, ds: &Dataset, rng: &mut impl RouteRng) -> 
         while next.len() < POP {
             let a = tournament(&pop, &fits, rng);
             let b = tournament(&pop, &fits, rng);
-            let child = crossover(a, b, rng);
-            next.push(mutate(child, ds, rng));
+            let child = crossover(a, b, range, rng);
+            next.push(mutate(child, ds, range, rng));
         }
 
         pop = next;
@@ -241,6 +292,6 @@ pub fn generate_route(target_km: f64, ds: &Dataset, rng: &mut impl RouteRng) -> 
 }
 
 /// [`generate_route`] with production randomness.
-pub fn generate_route_random(target_km: f64, ds: &Dataset) -> RouteResult {
-    generate_route(target_km, ds, &mut ThreadRouteRng)
+pub fn generate_route_random(target_km: f64, ds: &Dataset, stops: Option<usize>) -> RouteResult {
+    generate_route(target_km, ds, stops, &mut ThreadRouteRng)
 }

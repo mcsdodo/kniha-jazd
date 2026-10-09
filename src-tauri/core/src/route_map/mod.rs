@@ -13,7 +13,8 @@ pub mod tiles;
 
 pub use dataset::Dataset;
 pub use ga::{
-    generate_route, generate_route_random, RouteResult, RouteRng, ThreadRouteRng, TOLERANCE,
+    generate_route, generate_route_random, RouteResult, RouteRng, ThreadRouteRng, MAX_FIXED_STOPS,
+    TOLERANCE,
 };
 pub use osrm::{FetchedRoute, HttpRouteProvider, RouteProvider};
 pub use provider::{route_provider, RouteProviderKind, RouteProvidersInfo};

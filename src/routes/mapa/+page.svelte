@@ -120,6 +120,11 @@
 
 	let loading = $state(true);
 	let generating = $state(false);
+	/** The loop generator's inputs. The km start at the trip's km; empty or 0
+	 *  falls back to them. A null stop count lets the backend pick 1 to 5. */
+	let loopKm = $state<number | null>(null);
+	let loopStops = $state<number | null>(null);
+	const LOOP_STOP_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 	let saving = $state(false);
 	let removing = $state(false);
 	let error = $state<string | null>(null);
@@ -736,6 +741,7 @@
 			const trips = await getTrips(vehicleId);
 			yearTrips = trips;
 			trip = trips.find((t) => t.id === tripId) ?? null;
+			loopKm = trip?.distanceKm ?? null;
 			if (!trip) {
 				// Not a generation failure — nothing was generated. Retrying would
 				// fail identically forever, so this branch offers no retry.
@@ -873,7 +879,7 @@
 					return;
 				}
 				unplacedField = null;
-				await runGenerate(trip.distanceKm);
+				await runGenerate(loopTargetKm());
 				return;
 			}
 
@@ -1005,7 +1011,7 @@
 		error = null;
 		savedNotice = false;
 		try {
-			generated = await generateRoute(tripId, targetKm, [], provider);
+			generated = await generateRoute(tripId, targetKm, [], provider, loopStops);
 			provider = generated.provider;
 			routedAvoid = [];
 			avoidOptions = [];
@@ -1182,10 +1188,15 @@
 		);
 	}
 
+	/** The km the loop generator aims at: the field, or the trip's km. */
+	function loopTargetKm(): number {
+		return loopKm && loopKm > 0 ? loopKm : (trip?.distanceKm ?? 0);
+	}
+
 	function handleRegenerate() {
 		if (!trip) return;
 		if (mode === 'loop') {
-			void runGenerate(trip.distanceKm);
+			void runGenerate(loopTargetKm());
 		} else if (mode === 'direct') {
 			if (roundTrip) {
 				void runRoundTrip(currentOutbound(), currentInbound(), trip.distanceKm);
@@ -1201,7 +1212,7 @@
 		error = null;
 		if (trip) {
 			if (mode === 'loop') {
-				void runGenerate(trip.distanceKm);
+				void runGenerate(loopTargetKm());
 			} else if (mode === 'direct') {
 				if (roundTrip) {
 					void runRoundTrip(currentOutbound(), currentInbound(), trip.distanceKm);
@@ -1401,6 +1412,28 @@
 			</label>
 		{/if}
 		{#if mode === 'loop'}
+			<label class="loop-label" title={$LL.routeMap.loopKmHint()}>
+				{$LL.routeMap.loopKm()}:
+				<input
+					class="loop-km"
+					type="number"
+					min="1"
+					step="1"
+					data-test="loop-km"
+					bind:value={loopKm}
+					onchange={handleRegenerate}
+					disabled={busy || !trip}
+				/>
+			</label>
+			<label class="loop-label" title={$LL.routeMap.loopStopsHint()}>
+				{$LL.routeMap.loopStops()}:
+				<select data-test="loop-stops" bind:value={loopStops} onchange={handleRegenerate} disabled={busy || !trip}>
+					<option value={null}>{$LL.routeMap.loopStopsAuto()}</option>
+					{#each LOOP_STOP_CHOICES as n (n)}
+						<option value={n}>{n}</option>
+					{/each}
+				</select>
+			</label>
 			<button
 				class="button"
 				data-test="regenerate-btn"
@@ -1684,6 +1717,17 @@
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 		flex-wrap: wrap;
+	}
+
+	.loop-label {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		color: var(--text-primary);
+	}
+
+	.loop-km {
+		width: 5rem;
 	}
 
 	.round-trip-label {

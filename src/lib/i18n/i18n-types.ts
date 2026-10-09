@@ -1433,6 +1433,26 @@ type RootTranslation = {
 		 */
 		regenerate: string
 		/**
+		 * K​m​ ​o​k​r​u​h​u
+		 */
+		loopKm: string
+		/**
+		 * D​ĺ​ž​k​a​,​ ​k​t​o​r​ú​ ​g​e​n​e​r​á​t​o​r​ ​h​ľ​a​d​á​.​ ​P​r​e​d​v​o​l​e​n​e​ ​k​m​ ​j​a​z​d​y​.​ ​U​l​o​ž​e​n​á​ ​t​r​a​s​a​ ​z​a​p​í​š​e​ ​d​o​ ​j​a​z​d​y​ ​k​m​ ​t​r​a​s​y​.
+		 */
+		loopKmHint: string
+		/**
+		 * Z​a​s​t​á​v​k​y
+		 */
+		loopStops: string
+		/**
+		 * P​o​č​e​t​ ​b​o​d​o​v​,​ ​c​e​z​ ​k​t​o​r​é​ ​o​k​r​u​h​ ​v​e​d​i​e​.​ ​"​A​u​t​o​"​:​ ​g​e​n​e​r​á​t​o​r​ ​v​y​b​e​r​i​e​ ​1​ ​a​ž​ ​5​.
+		 */
+		loopStopsHint: string
+		/**
+		 * A​u​t​o
+		 */
+		loopStopsAuto: string
+		/**
 		 * U​l​o​ž​i​ť​ ​a​ ​p​o​u​ž​i​ť​ ​v​z​d​i​a​l​e​n​o​s​ť
 		 */
 		saveAndApply: string
@@ -4220,6 +4240,26 @@ export type TranslationFunctions = {
 		 * Generovať znova
 		 */
 		regenerate: () => LocalizedString
+		/**
+		 * Km okruhu
+		 */
+		loopKm: () => LocalizedString
+		/**
+		 * Dĺžka, ktorú generátor hľadá. Predvolene km jazdy. Uložená trasa zapíše do jazdy km trasy.
+		 */
+		loopKmHint: () => LocalizedString
+		/**
+		 * Zastávky
+		 */
+		loopStops: () => LocalizedString
+		/**
+		 * Počet bodov, cez ktoré okruh vedie. "Auto": generátor vyberie 1 až 5.
+		 */
+		loopStopsHint: () => LocalizedString
+		/**
+		 * Auto
+		 */
+		loopStopsAuto: () => LocalizedString
 		/**
 		 * Uložiť a použiť vzdialenosť
 		 */
