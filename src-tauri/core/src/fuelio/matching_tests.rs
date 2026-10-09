@@ -31,6 +31,15 @@ fn drive(id: &str, start: NaiveDateTime, mins: i64, from: (f64, f64), to: (f64, 
     }
 }
 
+/// The report with the default merge rules (the page's start values).
+fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
+    super::crosscheck(trips, drives, MergeRules::default())
+}
+
+fn rules(max_gap_min: i64, max_jump_m: f64) -> MergeRules {
+    MergeRules { max_gap_min, max_jump_m }
+}
+
 fn trip(id: &str, start: NaiveDateTime, from: (f64, f64), to: (f64, f64), km: f64) -> TripRef {
     TripRef {
         id: id.into(),
@@ -563,4 +572,77 @@ fn a_partial_match_needs_a_start_within_3_hours_of_the_trip() {
     // On the route, ends at C, but 5 hours after the trip end.
     let rows = crosscheck(&[t], &[drive("late", at(18, 15, 0), 60, B, C, 74.0)]);
     assert_eq!(rows[0].status, RowStatus::Missing);
+}
+
+// Merge rules from the page (2026-10-09): the user can join a drive that
+// Fuelio split over a longer stop, then import it as one trip.
+
+#[test]
+fn merge_rules_default_to_60_minutes_and_2_km() {
+    let r = MergeRules::default();
+    assert_eq!(r.max_gap_min, 60);
+    assert!((r.max_jump_m - 2_000.0).abs() < 1e-9);
+}
+
+#[test]
+fn missing_drives_join_over_a_longer_stop_when_the_gap_is_raised() {
+    let drives = [
+        drive("d1", at(28, 10, 0), 50, A, B, 74.0),
+        // 70 minutes after d1 ends.
+        drive("d2", at(28, 12, 0), 50, B, C, 74.0),
+    ];
+    assert_eq!(crosscheck(&[], &drives).len(), 2);
+    let rows = super::crosscheck(&[], &drives, rules(70, 2_000.0));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].drive_ids, vec!["d1", "d2"]);
+    assert_eq!(rows[0].status, RowStatus::Missing);
+}
+
+#[test]
+fn missing_drives_join_over_a_larger_jump_when_the_distance_is_raised() {
+    // GPS fixed late: d2 starts about 3.7 km east of where d1 ended.
+    let drives = [
+        drive("d1", at(28, 10, 0), 50, A, B, 74.0),
+        drive("d2", at(28, 11, 0), 50, (48.0, 21.05), C, 70.0),
+    ];
+    assert_eq!(crosscheck(&[], &drives).len(), 2);
+    let rows = super::crosscheck(&[], &drives, rules(60, 5_000.0));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].drive_ids, vec!["d1", "d2"]);
+}
+
+#[test]
+fn a_raised_gap_joins_a_one_way_trip_split_by_a_long_stop() {
+    // The stop is 130 minutes: over the fixed 90 for a trip.
+    let trips = [trip("t1", at(27, 8, 0), A, C, 148.0)];
+    let drives = [
+        drive("d1", at(27, 8, 0), 50, A, B, 74.0),
+        drive("d2", at(27, 11, 0), 50, B, C, 74.0),
+    ];
+    let rows = super::crosscheck(&trips, &drives, rules(130, 2_000.0));
+    assert!(strict(&rows, "t1"));
+    assert_eq!(find(&rows, "t1").drive_ids, vec!["d1", "d2"]);
+}
+
+#[test]
+fn a_gap_below_90_minutes_keeps_90_for_a_trip() {
+    // The stop is 80 minutes; a gap of 0 must not split the trip.
+    let trips = [trip("t1", at(27, 8, 0), A, C, 148.0)];
+    let drives = [
+        drive("d1", at(27, 8, 0), 50, A, B, 74.0),
+        drive("d2", at(27, 10, 10), 50, B, C, 74.0),
+    ];
+    let rows = super::crosscheck(&trips, &drives, rules(0, 2_000.0));
+    assert!(strict(&rows, "t1"));
+    assert_eq!(find(&rows, "t1").drive_ids, vec!["d1", "d2"]);
+}
+
+#[test]
+fn a_gap_of_zero_keeps_every_missing_drive_alone() {
+    let drives = [
+        drive("d1", at(28, 10, 0), 50, A, B, 74.0),
+        drive("d2", at(28, 10, 55), 50, B, C, 74.0),
+    ];
+    assert_eq!(crosscheck(&[], &drives).len(), 1);
+    assert_eq!(super::crosscheck(&[], &drives, rules(0, 2_000.0)).len(), 2);
 }

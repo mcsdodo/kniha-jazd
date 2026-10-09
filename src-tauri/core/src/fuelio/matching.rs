@@ -21,11 +21,12 @@ use super::parse::Drive;
 
 /// A drive end this close to a place counts as "at" the place.
 const PLACE_RADIUS_M: f64 = 2_000.0;
-/// The longest stop inside one trip's run of drives.
+/// The longest stop inside one trip's run of drives, at least. A larger
+/// [`MergeRules::max_gap_min`] raises it.
 const MAX_STOP_IN_TRIP_MIN: i64 = 90;
 /// The longest stop at the turnaround of a round trip without an end time.
 const MAX_ROUND_TRIP_STOP_H: i64 = 12;
-/// The longest stop inside one missing chain.
+/// The default longest stop inside one missing chain.
 const MAX_STOP_IN_CHAIN_MIN: i64 = 60;
 /// How far the logbook start may be from the GPS start and still match
 /// completely. Wide, because a wrong logbook time is what the check finds.
@@ -128,6 +129,24 @@ pub struct CrosscheckRow {
     pub ignored: bool,
 }
 
+/// When two drives join one row. The user sets both values on the page, so a
+/// drive that Fuelio split over a longer stop can be imported as one trip.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MergeRules {
+    /// The longest stop between two drives of a chain. A trip's run allows
+    /// this or [`MAX_STOP_IN_TRIP_MIN`], whichever is longer.
+    pub max_gap_min: i64,
+    /// The largest distance from the end of a drive to the start of the next
+    /// drive of a chain.
+    pub max_jump_m: f64,
+}
+
+impl Default for MergeRules {
+    fn default() -> Self {
+        Self { max_gap_min: MAX_STOP_IN_CHAIN_MIN, max_jump_m: PLACE_RADIUS_M }
+    }
+}
+
 fn near(point: (f64, f64), place: Option<(f64, f64)>) -> bool {
     place.is_none_or(|p| haversine_m(point, p) <= PLACE_RADIUS_M)
 }
@@ -144,23 +163,24 @@ fn side_window(trip: &TripRef) -> (NaiveDateTime, NaiveDateTime) {
 }
 
 /// Where the run of drives must end, and the longest stop inside it.
-fn run_rules(trip: &TripRef) -> (Option<(f64, f64)>, i64) {
+fn run_rules(trip: &TripRef, rules: MergeRules) -> (Option<(f64, f64)>, i64) {
+    let max_stop = rules.max_gap_min.max(MAX_STOP_IN_TRIP_MIN);
     if !trip.round_trip {
-        return (trip.destination_point, MAX_STOP_IN_TRIP_MIN);
+        return (trip.destination_point, max_stop);
     }
     let span = trip
         .end
         .map_or(MAX_ROUND_TRIP_STOP_H * 60, |end| minutes(trip.start, end));
-    (trip.origin_point, span.max(MAX_STOP_IN_TRIP_MIN))
+    (trip.origin_point, span.max(max_stop))
 }
 
 /// The best run of unused drives for `trip`, as an index range.
-fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, usize)> {
+fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool], rules: MergeRules) -> Option<(usize, usize)> {
     let window = Duration::hours(MAX_START_DIFF_H);
     let km_ok = |km: f64| {
         trip.km <= 0.0 || (km >= trip.km * KM_RATIO_MIN && km <= trip.km * KM_RATIO_MAX)
     };
-    let (end_point, max_stop) = run_rules(trip);
+    let (end_point, max_stop) = run_rules(trip, rules);
     let mut best: Option<((i64, f64), (usize, usize))> = None;
     for i in 0..drives.len() {
         let first = &drives[i];
@@ -193,10 +213,15 @@ fn best_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, u
 /// The best partial run for `trip`: unused drives that lie on its stored
 /// route, inside its time, with an end at one of its places. The run with the
 /// most km wins. `None` without a stored route.
-fn best_partial_run(trip: &TripRef, drives: &[Drive], used: &[bool]) -> Option<(usize, usize)> {
+fn best_partial_run(
+    trip: &TripRef,
+    drives: &[Drive],
+    used: &[bool],
+    rules: MergeRules,
+) -> Option<(usize, usize)> {
     let line = trip.route.as_ref()?;
     let (from, to) = side_window(trip);
-    let (_, max_stop) = run_rules(trip);
+    let (_, max_stop) = run_rules(trip, rules);
     let at_place = |p: (f64, f64)| {
         [trip.origin_point, trip.destination_point]
             .iter()
@@ -331,12 +356,12 @@ fn loose_row(trip: &TripRef, chain: &[Drive]) -> CrosscheckRow {
 }
 
 /// Unused drives -> runs of drives with short stops at the same place.
-fn missing_chains(drives: &[Drive], used: &[bool]) -> Vec<Vec<Drive>> {
+fn missing_chains(drives: &[Drive], used: &[bool], rules: MergeRules) -> Vec<Vec<Drive>> {
     let mut chains: Vec<Vec<Drive>> = Vec::new();
     for (d, _) in drives.iter().zip(used).filter(|(_, u)| !**u) {
         let joins = chains.last().and_then(|c| c.last()).is_some_and(|prev| {
-            minutes(prev.end, d.start) <= MAX_STOP_IN_CHAIN_MIN
-                && haversine_m(prev.end_point, d.start_point) <= PLACE_RADIUS_M
+            minutes(prev.end, d.start) <= rules.max_gap_min
+                && haversine_m(prev.end_point, d.start_point) <= rules.max_jump_m
         });
         if joins {
             chains.last_mut().unwrap().push(d.clone());
@@ -349,8 +374,8 @@ fn missing_chains(drives: &[Drive], used: &[bool]) -> Vec<Vec<Drive>> {
 
 /// The cross-check report: one row per trip and one per missing chain, in
 /// time order. `drives` must be sorted by start (as [`super::scan_dir`]
-/// returns them).
-pub fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
+/// returns them). `rules` decide when two drives join one row.
+pub fn crosscheck(trips: &[TripRef], drives: &[Drive], rules: MergeRules) -> Vec<CrosscheckRow> {
     let mut trips: Vec<&TripRef> = trips.iter().collect();
     trips.sort_by_key(|t| t.start);
     let mut used = vec![false; drives.len()];
@@ -359,14 +384,14 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
     let mut runs: Vec<Option<((usize, usize), bool)>> = trips
         .iter()
         .map(|trip| {
-            let run = best_run(trip, drives, &used)?;
+            let run = best_run(trip, drives, &used, rules)?;
             used[run.0..=run.1].iter_mut().for_each(|u| *u = true);
             Some((run, false))
         })
         .collect();
     for (trip, run) in trips.iter().zip(runs.iter_mut()) {
         if run.is_none() {
-            if let Some((i, j)) = best_partial_run(trip, drives, &used) {
+            if let Some((i, j)) = best_partial_run(trip, drives, &used, rules) {
                 used[i..=j].iter_mut().for_each(|u| *u = true);
                 *run = Some(((i, j), true));
             }
@@ -382,7 +407,7 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
         }
     }
     // Pass 3: loose. Each chain goes to the nearest trip in time that fits.
-    for chain in missing_chains(drives, &used) {
+    for chain in missing_chains(drives, &used, rules) {
         let best = trips
             .iter()
             .enumerate()

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import 'leaflet/dist/leaflet.css';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import type { Map as LeafletMap, LayerGroup } from 'leaflet';
 	import * as api from '$lib/api';
 	import type { FuelioFlag, FuelioReport, FuelioRow, FuelioRowStatus } from '$lib/types';
@@ -24,6 +24,11 @@
 	let loading = $state(false);
 	// Short city drives are not what the page is for: 15 km by default, empty = no filter.
 	let minKm = $state<number | null>(15);
+	// When two drives join one row (the backend rules; its defaults are 60 min
+	// and 2 km). Raise them to join a drive that Fuelio split, then "Pridať" it
+	// as one trip. A change loads the report again; empty = the default.
+	let mergeGapMin = $state<number | null>(60);
+	let mergeJumpKm = $state<number | null>(2);
 	// Filter pills: a pill that is not selected does not filter. State pills
 	// combine with OR; the groups with AND. With no state pill selected the page
 	// shows matched and missing rows: an ignored row needs its own pill.
@@ -120,13 +125,20 @@
 		loading = true;
 		selected = null;
 		try {
-			const r = await api.getFuelioCrosscheck(vehicleId, year);
+			// untrack: the load effect must not run again on each keystroke.
+			const merge = untrack(() => ({ maxGapMin: mergeGapMin, maxJumpKm: mergeJumpKm }));
+			const r = await api.getFuelioCrosscheck(vehicleId, year, merge);
 			if (seq === loadSeq) report = r;
 		} catch (e) {
 			if (seq === loadSeq) toast.error(String(e));
 		} finally {
 			if (seq === loadSeq) loading = false;
 		}
+	}
+
+	function reloadMerge() {
+		const vehicle = $activeVehicleStore;
+		if (vehicle && available === true) load(vehicle.id, $selectedYearStore);
 	}
 
 	onMount(async () => {
@@ -301,6 +313,30 @@
 					{$LL.fuelio.minKm()}
 					<input class="text-input km" type="number" min="0" bind:value={minKm} data-testid="fuelio-min-km" />
 				</label>
+				<label title={$LL.fuelio.mergeHint()}>
+					{$LL.fuelio.mergeGap()}
+					<input
+						class="text-input km"
+						type="number"
+						min="0"
+						step="5"
+						bind:value={mergeGapMin}
+						onchange={reloadMerge}
+						data-testid="fuelio-merge-gap"
+					/>
+				</label>
+				<label title={$LL.fuelio.mergeHint()}>
+					{$LL.fuelio.mergeJump()}
+					<input
+						class="text-input km"
+						type="number"
+						min="0"
+						step="0.5"
+						bind:value={mergeJumpKm}
+						onchange={reloadMerge}
+						data-testid="fuelio-merge-jump"
+					/>
+				</label>
 				<div class="pills" data-testid="fuelio-filter-pills">
 					{#each STATUSES as st}
 						<button
@@ -411,7 +447,9 @@
 										{#if r.gpsStart}
 											{r.tripStart ? hm(r.gpsStart) : dt(r.gpsStart)} - {hm(r.gpsEnd)}
 											{#if r.driveIds.length > 1}
-												<br /><span class="muted small">({$LL.fuelio.drives({ count: r.driveIds.length })})</span>
+												<br /><span class="muted small" data-testid="fuelio-drive-count"
+													>({$LL.fuelio.drives({ count: r.driveIds.length })})</span
+												>
 											{/if}
 										{/if}
 									</td>

@@ -3,6 +3,7 @@ use crate::models::{Trip, Vehicle};
 use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use std::io::Write;
+use crate::fuelio::MergeRules;
 use uuid::Uuid;
 
 /// The drives of the matched row (the report is newest first).
@@ -84,7 +85,7 @@ fn setup() -> (Database, tempfile::TempDir, Vehicle, Trip) {
 #[test]
 fn crosscheck_matches_the_trip_and_lists_the_other_drive_as_missing() {
     let (db, dir, v, t) = setup();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026, MergeRules::default()).unwrap();
     assert!(report.folder_exists);
     assert_eq!(report.drive_count, 2);
     assert_eq!(report.rows.len(), 2);
@@ -100,7 +101,7 @@ fn crosscheck_matches_the_trip_and_lists_the_other_drive_as_missing() {
 #[test]
 fn crosscheck_uses_only_the_drives_of_the_year() {
     let (db, dir, v, _) = setup();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2025).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2025, MergeRules::default()).unwrap();
     assert!(report.rows.is_empty());
 }
 
@@ -133,10 +134,10 @@ fn a_drive_and_a_trip_on_both_sides_of_new_year_do_not_match() {
     );
 
     let vid = v.id.to_string();
-    let old = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let old = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let row = old.rows.iter().find(|r| r.drive_ids == vec![t0.to_string()]).unwrap();
     assert_eq!(row.status, crate::fuelio::RowStatus::Missing);
-    let new = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2027).unwrap();
+    let new = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2027, MergeRules::default()).unwrap();
     assert!(new.rows.is_empty());
 }
 
@@ -144,7 +145,7 @@ fn a_drive_and_a_trip_on_both_sides_of_new_year_do_not_match() {
 fn crosscheck_without_the_folder_reports_it() {
     let (db, _, v, _) = setup();
     let empty = tempfile::tempdir().unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, empty.path(), &v.id.to_string(), 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, empty.path(), &v.id.to_string(), 2026, MergeRules::default()).unwrap();
     assert!(!report.folder_exists);
     assert_eq!(report.drive_count, 0);
 }
@@ -163,7 +164,7 @@ fn fuelio_is_allowed_with_dropbox() {
 #[test]
 fn track_returns_the_gps_points_and_the_stored_route() {
     let (db, dir, v, t) = setup();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026, MergeRules::default()).unwrap();
     let ids = matched_ids(&report);
     diesel::sql_query(
         "INSERT INTO trip_routes (trip_id, waypoints, polyline, target_km, road_km, created_at) \
@@ -211,7 +212,7 @@ fn chain() -> (Database, tempfile::TempDir, Trip, Trip, Vec<String>) {
     later.origin_place_id = t.destination_place_id;
     later.destination_place_id = t.origin_place_id;
     db.create_trip(&later).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &v.id.to_string(), 2026, MergeRules::default()).unwrap();
     let ids = matched_ids(&report);
     (db, dir, t, later, ids)
 }
@@ -516,19 +517,19 @@ fn missing_ids(report: &FuelioReport) -> Vec<String> {
 fn an_ignored_missing_drive_is_marked_ignored() {
     let (db, dir, v, _) = setup();
     let vid = v.id.to_string();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     assert!(report.rows.iter().all(|r| !r.ignored), "nothing is ignored at first");
     let ids = missing_ids(&report);
 
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let missing = report.rows.iter().find(|r| r.drive_ids == ids).unwrap();
     assert!(missing.ignored);
     let matched = report.rows.iter().find(|r| r.status == crate::fuelio::RowStatus::Matched).unwrap();
     assert!(!matched.ignored);
 
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, false).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     assert!(report.rows.iter().all(|r| !r.ignored), "un-ignore brings the row back");
 }
 
@@ -536,10 +537,10 @@ fn an_ignored_missing_drive_is_marked_ignored() {
 fn an_ignored_drive_of_a_matched_trip_does_not_hide_the_match() {
     let (db, dir, v, _) = setup();
     let vid = v.id.to_string();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let ids = matched_ids(&report);
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let matched = report.rows.iter().find(|r| r.drive_ids == ids).unwrap();
     assert_eq!(matched.status, crate::fuelio::RowStatus::Matched);
     assert!(!matched.ignored, "only a missing row can be ignored");
@@ -549,7 +550,7 @@ fn an_ignored_drive_of_a_matched_trip_does_not_hide_the_match() {
 fn a_missing_chain_with_a_new_drive_is_not_ignored() {
     let (db, dir, v, _) = setup();
     let vid = v.id.to_string();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let ids = missing_ids(&report);
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
 
@@ -562,7 +563,7 @@ fn a_missing_chain_with_a_new_drive_is_not_ignored() {
         &t2.to_string(),
         &[(t2, 49.0, 19.2, 0.0), (t2 + 600_000, 49.0, 19.4, 15_000.0)],
     );
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let chain = report.rows.iter().find(|r| r.drive_ids.contains(&ids[0])).unwrap();
     assert_eq!(chain.drive_ids.len(), 2, "the new drive joins the chain");
     assert!(!chain.ignored, "a row is ignored only when all its drives are");
@@ -574,10 +575,10 @@ fn ignoring_is_per_vehicle() {
     let vid = v.id.to_string();
     let other = Vehicle::new_ice("Other".into(), "TEST-2".into(), 50.0, 6.5, 0.0);
     db.create_vehicle(&other).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let ids = missing_ids(&report);
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &other.id.to_string(), &ids, true).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     assert!(report.rows.iter().all(|r| !r.ignored));
 }
 
@@ -585,12 +586,12 @@ fn ignoring_is_per_vehicle() {
 fn ignoring_twice_and_un_ignoring_an_unknown_drive_are_harmless() {
     let (db, dir, v, _) = setup();
     let vid = v.id.to_string();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     let ids = missing_ids(&report);
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &["1".to_string()], false).unwrap();
-    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026).unwrap();
+    let report = get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, MergeRules::default()).unwrap();
     assert!(report.rows.iter().find(|r| r.drive_ids == ids).unwrap().ignored);
 }
 
@@ -625,4 +626,16 @@ fn deleting_the_vehicle_removes_its_ignored_drives() {
     set_fuelio_drives_ignored_internal(&db, &AppState::new(), &vid, &ids, true).unwrap();
     db.delete_vehicle(&vid).unwrap();
     assert!(db.ignored_fuelio_drives(&vid).unwrap().is_empty());
+}
+
+#[test]
+fn crosscheck_refuses_negative_merge_rules() {
+    let (db, dir, v, _) = setup();
+    let vid = v.id.to_string();
+    let gap = MergeRules { max_gap_min: -1, ..MergeRules::default() };
+    assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, gap).is_err());
+    let jump = MergeRules { max_jump_m: -1.0, ..MergeRules::default() };
+    assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, jump).is_err());
+    let nan = MergeRules { max_jump_m: f64::NAN, ..MergeRules::default() };
+    assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, nan).is_err());
 }

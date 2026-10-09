@@ -83,6 +83,25 @@ describe('Fuelio page (Dropbox configured)', () => {
     await $('[data-testid="fuelio-map"]').waitForDisplayed({ timeout: 5000 });
   });
 
+  it('joins a split drive into one row when the merge gap is raised', async () => {
+    // The 3 km fragment starts about 100 min after the first drive ends:
+    // over the default 60 min, so the two drives are separate rows.
+    await waitForRows(2, 'default merge gap');
+    expect(await $('[data-testid="fuelio-drive-count"]').isExisting()).toBe(false);
+
+    await browser.execute((sel: string) => {
+      const input = document.querySelector(sel) as HTMLInputElement;
+      input.value = '120';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, '[data-testid="fuelio-merge-gap"]');
+
+    const count = $('[data-testid="fuelio-drive-count"]');
+    await count.waitForDisplayed({ timeout: 5000 });
+    expect(await count.getText()).toBe('(drives: 2)');
+    await waitForRows(2, 'joined drive and the drive of the next day');
+  });
+
   it('hides an ignored drive, shows it under the Ignored pill, and un-ignores it', async () => {
     await waitForRows(2, 'before ignore');
 

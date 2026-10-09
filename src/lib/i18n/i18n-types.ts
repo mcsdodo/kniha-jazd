@@ -1674,6 +1674,18 @@ type RootTranslation = {
 		 */
 		minKm: string
 		/**
+		 * S​p​o​j​i​ť​ ​p​r​i​ ​p​r​e​s​t​á​v​k​e​ ​d​o​ ​(​m​i​n​)
+		 */
+		mergeGap: string
+		/**
+		 * a​ ​v​z​d​i​a​l​e​n​o​s​t​i​ ​d​o​ ​(​k​m​)
+		 */
+		mergeJump: string
+		/**
+		 * F​u​e​l​i​o​ ​r​o​z​d​e​l​í​ ​j​a​z​d​u​ ​p​r​i​ ​z​a​s​t​á​v​k​e​.​ ​D​v​e​ ​j​a​z​d​y​ ​s​a​ ​s​p​o​j​a​ ​d​o​ ​j​e​d​n​é​h​o​ ​r​i​a​d​k​u​,​ ​a​k​ ​d​r​u​h​á​ ​z​a​č​n​e​ ​n​a​j​v​i​a​c​ ​o​ ​t​o​ľ​k​o​ ​m​i​n​ú​t​ ​a​ ​k​i​l​o​m​e​t​r​o​v​ ​o​d​ ​k​o​n​c​a​ ​p​r​v​e​j​.​ ​J​a​z​d​a​,​ ​k​t​o​r​á​ ​p​a​t​r​í​ ​k​ ​j​a​z​d​e​ ​v​ ​k​n​i​h​e​,​ ​s​a​ ​s​p​o​j​í​ ​v​ž​d​y​ ​p​r​i​ ​p​r​e​s​t​á​v​k​e​ ​d​o​ ​9​0​ ​m​i​n​.
+		 */
+		mergeHint: string
+		/**
 		 * L​e​n​ ​d​i​a​ľ​n​i​c​a
 		 */
 		highwayOnly: string
@@ -4446,6 +4458,18 @@ export type TranslationFunctions = {
 		 * Min. km
 		 */
 		minKm: () => LocalizedString
+		/**
+		 * Spojiť pri prestávke do (min)
+		 */
+		mergeGap: () => LocalizedString
+		/**
+		 * a vzdialenosti do (km)
+		 */
+		mergeJump: () => LocalizedString
+		/**
+		 * Fuelio rozdelí jazdu pri zastávke. Dve jazdy sa spoja do jedného riadku, ak druhá začne najviac o toľko minút a kilometrov od konca prvej. Jazda, ktorá patrí k jazde v knihe, sa spojí vždy pri prestávke do 90 min.
+		 */
+		mergeHint: () => LocalizedString
 		/**
 		 * Len diaľnica
 		 */

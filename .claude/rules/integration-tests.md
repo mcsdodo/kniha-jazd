@@ -10,7 +10,7 @@ Lessons learned from debugging flaky integration tests. Follow these patterns to
 
 ## Purpose
 
-**Integration Tests (WebdriverIO + Chrome) - UI flow verification (188 tests in the tiers, 10 in the env suite):**
+**Integration Tests (WebdriverIO + Chrome) - UI flow verification (188 tests in the tiers, 14 in the env suite):**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol, driving a real
   browser against the `kniha-jazd-web` HTTP server
 - **Purpose**: Verify UI correctly invokes backend and displays results
@@ -265,6 +265,8 @@ cannot write into the container: [fixtures/fuelio-drives.mjs](../../tests/integr
 writes three drives of the current year: two 22 km drives and a 3 km fragment that the
 default 15 km filter hides. `onPrepare` calls it for the spawned server, and the CI step
 `Start env-pinned container` runs it on `data-env/fuelio` before `docker run`.
+The fragment starts about 100 min after the first drive ends, at its end point: the
+default 60 min merge gap keeps it apart, a gap of 120 joins it (`(drives: 2)`).
 `resetDatabase` clears the database, not these files, so a spec seeds the trips and the
 places (with coordinates at the drive ends) it needs. A new drive changes the row count
 of every spec in `fuelio.spec.ts`: keep it under 15 km, or update the counts.

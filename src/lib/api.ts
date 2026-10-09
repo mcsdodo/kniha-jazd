@@ -700,8 +700,23 @@ export async function findPlace(name: string): Promise<Place | null> {
 }
 
 // Fuelio cross-check (Task 90, read-only)
-export async function getFuelioCrosscheck(vehicleId: string, year: number): Promise<FuelioReport> {
-	return await apiCall('get_fuelio_crosscheck', { vehicleId, year });
+/** When two drives join one row. A null value uses the backend default. */
+export interface FuelioMergeRules {
+	maxGapMin: number | null;
+	maxJumpKm: number | null;
+}
+
+export async function getFuelioCrosscheck(
+	vehicleId: string,
+	year: number,
+	merge: FuelioMergeRules
+): Promise<FuelioReport> {
+	return await apiCall('get_fuelio_crosscheck', {
+		vehicleId,
+		year,
+		maxGapMin: merge.maxGapMin ?? undefined,
+		maxJumpKm: merge.maxJumpKm ?? undefined,
+	});
 }
 
 export async function getFuelioTrack(driveIds: string[], tripId: string | null): Promise<FuelioTrack> {

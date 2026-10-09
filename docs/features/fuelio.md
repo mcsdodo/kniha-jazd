@@ -25,6 +25,10 @@
    minutes above 100 km/h). With no state pill selected, the table shows matched and
    missing rows; an ignored row shows only under its own pill. "Len problémy" never
    counts an ignored row.
+   Two more fields set when drives join one row: the longest stop (60 min by default)
+   and the largest distance (2 km by default) from the end of a drive to the start of
+   the next. A change loads the report again. Raise them to join a drive that Fuelio
+   split at a long stop, then "Pridať" adds it as one trip.
 5. **Map.** The map shows the selected row: the GPS track (red) and the stored route
    (blue). After a load, and when a filter hides the selected row, the first shown row
    is selected.
@@ -99,6 +103,12 @@ on the drives and trips that the earlier passes left:
    within 1 km of the stored route, and the trip stays at <= 150% of its km.
 
 A chain that fits no trip is a **missing** row.
+
+**Merge rules (`MergeRules`).** The page sends `maxGapMin` and `maxJumpKm` with
+`get_fuelio_crosscheck`; absent values use the defaults 60 min and 2 km, and a negative
+value is an error. They replace the gap and the distance of the pass 3 chains. The
+passes 1 and 2 use the gap or 90 min, whichever is longer, so a small value never
+splits a trip. A round trip keeps its own longer stop rule.
 
 **Ignored rows.** The table `fuelio_ignored_drives (vehicle_id, drive_id)` holds the drives
 the user ignored. Matching does not read it: the ignored drives stay in the input, so a

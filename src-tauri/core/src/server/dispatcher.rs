@@ -1044,14 +1044,23 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 vehicle_id: String,
                 year: i32,
+                // The merge rules from the page; absent = the defaults.
+                max_gap_min: Option<i64>,
+                max_jump_km: Option<f64>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            let default = crate::fuelio::MergeRules::default();
+            let rules = crate::fuelio::MergeRules {
+                max_gap_min: a.max_gap_min.unwrap_or(default.max_gap_min),
+                max_jump_m: a.max_jump_km.map_or(default.max_jump_m, |km| km * 1000.0),
+            };
             let v = crate::commands_internal::get_fuelio_crosscheck_internal(
                 &state.db,
                 &state.app_dir,
                 &a.vehicle_id,
                 a.year,
+                rules,
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }

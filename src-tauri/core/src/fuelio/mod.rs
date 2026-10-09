@@ -17,7 +17,7 @@ pub mod geo;
 pub mod matching;
 pub mod parse;
 
-pub use matching::{crosscheck, CrosscheckRow, Flag, RowStatus, TripRef};
+pub use matching::{crosscheck, CrosscheckRow, Flag, MergeRules, RowStatus, TripRef};
 pub use parse::{scan_year, Drive};
 
 /// The folder below the data directory that holds the Fuelio files.

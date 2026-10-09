@@ -13,7 +13,7 @@ use crate::commands_internal::helpers::trip_order;
 use crate::commands_internal::route_maps::build_route_map;
 use crate::commands_internal::trips::plan_route_distance;
 use crate::db::Database;
-use crate::fuelio::{self, parse, CrosscheckRow, Drive, TripRef};
+use crate::fuelio::{self, parse, CrosscheckRow, Drive, MergeRules, TripRef};
 use crate::models::{DistanceWriteback, RouteMode, Waypoint};
 use crate::route_map::polyline;
 
@@ -55,13 +55,17 @@ pub fn require_fuelio_internal(dropbox_configured: bool) -> Result<(), String> {
 }
 
 /// The cross-check of one vehicle's trips of `year` against the Fuelio
-/// drives that start in `year`.
+/// drives that start in `year`. `rules` decide when two drives join one row.
 pub fn get_fuelio_crosscheck_internal(
     db: &Database,
     data_dir: &Path,
     vehicle_id: &str,
     year: i32,
+    rules: MergeRules,
 ) -> Result<FuelioReport, String> {
+    if rules.max_gap_min < 0 || !(rules.max_jump_m >= 0.0) {
+        return Err("The merge gap and distance must not be negative".into());
+    }
     let folder = data_dir.join(fuelio::FOLDER_NAME);
     let drives = fuelio::scan_year(&folder, year);
 
@@ -106,7 +110,7 @@ pub fn get_fuelio_crosscheck_internal(
         folder_exists: folder.is_dir(),
         drive_count: drives.len(),
         dropbox_configured: crate::fuelio::dropbox::DropboxConfig::from_env().is_some(),
-        rows: mark_ignored(fuelio::crosscheck(&refs, &drives), &ignored),
+        rows: mark_ignored(fuelio::crosscheck(&refs, &drives, rules), &ignored),
     })
 }
 
