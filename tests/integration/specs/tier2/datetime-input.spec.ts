@@ -82,7 +82,10 @@ describe('Tier 2: Typed datetime in the trip editor', () => {
     await browser.pause(300);
     // The editor is still open: the save was blocked.
     expect(await (await $(START)).isExisting()).toBe(true);
-    expect(await (await $(START)).getValue()).toBe('32.13 2500');
+    // The invalid text stays (free text keeps "2500", part-by-part shows
+    // "25:00"; which one depends on the focus path), still marked invalid.
+    expect(await (await $(START)).getValue()).toMatch(/^32\.13 25:?00$/);
+    expect(await (await $(START)).getAttribute('aria-invalid')).toBe('true');
   });
 
   it('hides the calendar button when the setting is off', async () => {
