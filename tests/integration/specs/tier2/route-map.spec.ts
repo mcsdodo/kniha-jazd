@@ -265,6 +265,45 @@ async function handleCounts(): Promise<{ handles: number; endpoints: number }> {
   return { handles: handles.length, endpoints: endpoints.length };
 }
 
+/** The via numbers on the map, in the order Leaflet drew them. */
+async function viaNumbers(): Promise<string[]> {
+  const nums: string[] = [];
+  for (const el of await $$('[data-test="route-map-canvas"] .wp-handle .wp-num').getElements()) {
+    nums.push(await el.getText());
+  }
+  return nums;
+}
+
+/** How many pins of one role (`wp-origin`, `wp-destination`, `wp-start-finish`) the map shows. */
+async function pinCount(role: string): Promise<number> {
+  return (await $$(`[data-test="route-map-canvas"] .${role}`).getElements()).length;
+}
+
+/** Drag a map handle by an offset in pixels, with real pointer events. */
+async function dragHandle(selector: string, dx: number, dy: number): Promise<void> {
+  const el = await $(selector);
+  await el.waitForDisplayed({ timeout: 5000 });
+  await browser
+    .action('pointer')
+    .move({ origin: el })
+    .down()
+    .move({ origin: 'pointer', x: Math.round(dx / 2), y: Math.round(dy / 2), duration: 100 })
+    .move({ origin: 'pointer', x: dx - Math.round(dx / 2), y: dy - Math.round(dy / 2), duration: 100 })
+    .up()
+    .perform();
+}
+
+/** Wait until a drag's re-route finished: direct mode, nothing in flight. */
+async function waitForReroute(): Promise<void> {
+  await browser.waitUntil(
+    async () => {
+      const btn = await $('[data-test="recalculate-btn"]');
+      return (await btn.isExisting()) && (await btn.isEnabled());
+    },
+    { timeout: 10000, timeoutMsg: 'the drag did not re-route the map' }
+  );
+}
+
 /** Wait until the map view has either rendered a loaded route or reported an
  *  error -- whichever this fixture is expected to reach without a network
  *  call. Polls instead of pausing so a slow render never turns into flake. */
@@ -510,6 +549,12 @@ describe('Tier 2: Route Map', () => {
 
       const deviationText = await $('[data-test="deviation"]').getText();
       expect(deviationText).toMatch(/%/);
+
+      // A one-way route: an origin pin, a destination pin, one numbered via.
+      expect(await pinCount('wp-origin')).toBe(1);
+      expect(await pinCount('wp-destination')).toBe(1);
+      expect(await pinCount('wp-start-finish')).toBe(0);
+      expect(await viaNumbers()).toEqual(['1']);
 
       // Loop-only control is absent; direct-mode's own control is present.
       expect(await $('[data-test="regenerate-btn"]').isExisting()).toBe(false);
@@ -828,6 +873,61 @@ describe('Tier 2: Route Map', () => {
       expect(nums.length).toBeGreaterThan(0);
       // One number per via, in travel order.
       expect(nums).toEqual(nums.map((_, i) => String(i + 1)));
+    });
+
+    it('keeps a dragged loop closed, with one start pin and no endpoint warning', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-17T08:00',
+        endDatetime: '2026-03-17T09:00',
+        origin: 'Bratislava',
+        destination: 'Bratislava',
+        distanceKm: 43,
+        odometer: 50043,
+        purpose: 'Business trip',
+      });
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      // A loop starts and ends at one place: one pin, never two on one spot.
+      expect(await pinCount('wp-start-finish')).toBe(1);
+      expect(await pinCount('wp-destination')).toBe(0);
+      const before = await viaNumbers();
+      expect(before.length).toBeGreaterThan(0);
+
+      await dragHandle('[data-test="route-map-canvas"] .wp-numbered', 40, 30);
+      await waitForReroute();
+
+      expect(await $('[data-test="endpoint-missing"]').isExisting()).toBe(false);
+      expect(await $('[data-test="route-map-error"]').isExisting()).toBe(false);
+      // Still a loop: the last via did not turn into a destination.
+      expect(await pinCount('wp-start-finish')).toBe(1);
+      expect(await pinCount('wp-destination')).toBe(0);
+      expect(await viaNumbers()).toEqual(before);
+    });
+
+    it('moves the start pin of a loop', async () => {
+      const trip = await seedTrip({
+        vehicleId,
+        startDatetime: '2026-03-18T08:00',
+        endDatetime: '2026-03-18T09:00',
+        origin: 'Bratislava',
+        destination: 'Bratislava',
+        distanceKm: 43,
+        odometer: 50043,
+        purpose: 'Business trip',
+      });
+
+      await openMap(trip.id as string);
+      await waitForMapOutcome('route');
+      const before = await viaNumbers();
+
+      await dragHandle('[data-test="route-map-canvas"] .wp-start-finish', -40, 30);
+      await waitForReroute();
+
+      expect(await $('[data-test="endpoint-missing"]').isExisting()).toBe(false);
+      expect(await pinCount('wp-start-finish')).toBe(1);
+      expect(await viaNumbers()).toEqual(before);
     });
 
     it('generates the loop again with the km and stop count from the toolbar', async () => {

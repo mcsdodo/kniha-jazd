@@ -2681,3 +2681,45 @@ fn a_saved_bratislava_loop_records_the_bratislava_version() {
     .unwrap();
     assert_eq!(map.dataset_version, Some(Dataset::bratislava_districts().1));
 }
+
+/// A route whose start and end the user dragged away from the places is a
+/// GPS line only: the save writes the map and the km, never the trip's
+/// places or the place book (2026-10-09).
+#[test]
+fn a_save_with_moved_endpoints_keeps_the_trip_places() {
+    let db = Database::in_memory().unwrap();
+    let trip = seed_trip_between(&db, "Office, City A", "Depot, City B");
+    db.set_place_position(&trip.origin_place_id.to_string(), 48.1, 17.1, "manual").unwrap();
+    db.set_place_position(&trip.destination_place_id.to_string(), 48.4, 17.6, "manual").unwrap();
+    let moved = vec![
+        Waypoint { lat: 48.12, lon: 17.15, name: Some("Office, City A".into()), node_idx: None },
+        Waypoint { lat: 48.38, lon: 17.55, name: Some("Depot, City B".into()), node_idx: None },
+    ];
+    let (_, encoded) = sample_geometry();
+    save_trip_route_internal(
+        &db,
+        &AppState::new(),
+        trip.id.to_string(),
+        moved,
+        encoded,
+        trip.distance_km,
+        RouteMode::Direct,
+        false,
+        vec![],
+        None,
+        false,
+    )
+    .unwrap();
+
+    let after = db.get_trip(&trip.id.to_string()).unwrap().unwrap();
+    assert_eq!(after.origin_place_id, trip.origin_place_id);
+    assert_eq!(after.destination_place_id, trip.destination_place_id);
+    assert_eq!((after.origin.as_str(), after.destination.as_str()), ("Office, City A", "Depot, City B"));
+    let places = db.all_places().unwrap();
+    let pos = |id: Uuid| {
+        let p = places.iter().find(|p| p.id == id.to_string()).unwrap();
+        (p.lat, p.lon)
+    };
+    assert_eq!(pos(trip.origin_place_id), (Some(48.1), Some(17.1)));
+    assert_eq!(pos(trip.destination_place_id), (Some(48.4), Some(17.6)));
+}

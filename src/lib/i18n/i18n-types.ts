@@ -1553,6 +1553,18 @@ type RootTranslation = {
 		 */
 		removeWaypoint: string
 		/**
+		 * Z​a​č​i​a​t​o​k​ ​t​r​a​s​y
+		 */
+		pinOrigin: string
+		/**
+		 * K​o​n​i​e​c​ ​t​r​a​s​y
+		 */
+		pinDestination: string
+		/**
+		 * Z​a​č​i​a​t​o​k​ ​a​ ​k​o​n​i​e​c​ ​o​k​r​u​h​u
+		 */
+		pinStartFinish: string
+		/**
 		 * C​e​s​t​a​ ​t​a​m​ ​a​ ​s​p​ä​ť
 		 */
 		roundTrip: string
@@ -4360,6 +4372,18 @@ export type TranslationFunctions = {
 		 * Odstrániť zastávku
 		 */
 		removeWaypoint: () => LocalizedString
+		/**
+		 * Začiatok trasy
+		 */
+		pinOrigin: () => LocalizedString
+		/**
+		 * Koniec trasy
+		 */
+		pinDestination: () => LocalizedString
+		/**
+		 * Začiatok a koniec okruhu
+		 */
+		pinStartFinish: () => LocalizedString
 		/**
 		 * Cesta tam a späť
 		 */

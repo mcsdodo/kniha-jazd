@@ -449,9 +449,24 @@ edited loop becomes a direct route: the moment a drag decides the shape, the res
 concrete road route, not a synthetic GA loop.
 
 Every via handle shows its number in the waypoint list (task 91), so the order stays
-visible while the user drags. The start and end point has no number. On a round trip the
-return leg continues the numbers of the way out. The numbers are only display: the order is
-the backend's.
+visible while the user drags. On a round trip the return leg continues the numbers of the
+way out. The numbers are only display: the order is the backend's.
+
+The endpoints are pins, not numbered circles: a green **A** for the start and a red **B**
+for the end (the turnaround of a round trip). A loop has one green A pin for its start and
+its end: its closing point is the start again, so the map draws it once, and a drag moves
+both ends. Every pin and every via can be dragged in every mode.
+
+An edited loop stays a loop. The page sends the OPEN line with `roundTrip: true`, and
+`route_direct` adds the way back. A closed list with `roundTrip: false` loses its closing
+point in the normaliser (ADR-041), so before 2026-10-09 a dragged loop ended at its last
+via, and the page also showed the "endpoint missing" banner: a loop has no resolved
+endpoints, and the banner now reads the list on screen instead.
+
+A moved endpoint changes only the route line. The save writes the map, the trip km and the
+odometers; it never writes the trip's places or the place book
+(`a_save_with_moved_endpoints_keeps_the_trip_places`). "Generovať znova" still starts the
+loop at the place, not at a moved pin.
 
 ### A loop starts at the trip's place
 

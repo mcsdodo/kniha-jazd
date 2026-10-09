@@ -10,7 +10,7 @@ Lessons learned from debugging flaky integration tests. Follow these patterns to
 
 ## Purpose
 
-**Integration Tests (WebdriverIO + Chrome) - UI flow verification (189 tests in the tiers, 14 in the env suite):**
+**Integration Tests (WebdriverIO + Chrome) - UI flow verification (191 tests in the tiers, 14 in the env suite):**
 - `tests/integration/` - Full app E2E tests via WebDriver protocol, driving a real
   browser against the `kniha-jazd-web` HTTP server
 - **Purpose**: Verify UI correctly invokes backend and displays results

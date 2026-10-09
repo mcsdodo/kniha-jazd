@@ -277,10 +277,10 @@
 	/** Direct mode cannot route until the book holds a coordinate for both
 	 *  ends. Dismissing the place dialog with Escape leaves them unresolved,
 	 *  and without this the Recalculate button stayed enabled and its click
-	 *  dead-ended in Rust's own "a route needs a start and an end". */
-	let endpointsMissing = $derived(
-		mode === 'direct' && (!resolvedOrigin || !resolvedDestination)
-	);
+	 *  dead-ended in Rust's own "a route needs a start and an end".
+	 *  Read off the list on screen, not the place book: a dragged loop has
+	 *  no resolved endpoints, and its banner was a false alarm. */
+	let endpointsMissing = $derived(mode === 'direct' && currentWaypoints().length < 2);
 	let busy = $derived(loading || generating || saving || removing);
 
 	type SaveCall = (dryRun: boolean) => Promise<DistanceWriteback>;
@@ -477,21 +477,52 @@
 		skipFit = true;
 	}
 
-	/** Small circular handle. Endpoints are visually heavier than vias. A via
-	 *  with `num` shows its position in the waypoint list (Task 91) -- the
-	 *  backend's order, only displayed here. */
-	function handleIcon(L: typeof import('leaflet'), endpoint: boolean, num?: number) {
-		if (!endpoint && num !== undefined) {
+	/** What a handle stands for. A loop has no destination: its start pin is
+	 *  also its finish. */
+	type HandleRole = 'origin' | 'destination' | 'startFinish' | 'via';
+
+	/** A pin for an endpoint (A, B; a loop's start and finish is one A pin),
+	 *  a numbered circle for a via, a plain dot for the ghost. A via's number
+	 *  is its position in the waypoint list (Task 91) -- the backend's order,
+	 *  only displayed here. */
+	function handleIcon(L: typeof import('leaflet'), role: HandleRole | null, num?: number) {
+		if (role === 'via' && num !== undefined) {
 			return L.divIcon({
 				className: 'wp-handle wp-numbered',
 				html: `<span class="wp-num">${num}</span>`,
 				iconSize: [18, 18]
 			});
 		}
-		return L.divIcon({
-			className: endpoint ? 'wp-handle wp-endpoint' : 'wp-handle',
-			iconSize: [endpoint ? 14 : 10, endpoint ? 14 : 10]
-		});
+		if (role && role !== 'via') {
+			const cls = { origin: 'wp-origin', destination: 'wp-destination', startFinish: 'wp-start-finish' }[role];
+			const label = role === 'destination' ? 'B' : 'A';
+			return L.divIcon({
+				className: `wp-handle wp-endpoint wp-pin ${cls}`,
+				html: `<span class="wp-pin-body"><span class="wp-pin-label">${label}</span></span>`,
+				iconSize: [24, 24],
+				// The tip of the pin, under the body.
+				iconAnchor: [12, 30]
+			});
+		}
+		return L.divIcon({ className: 'wp-handle', iconSize: [10, 10] });
+	}
+
+	/** The tooltip of a handle: its role, and the place name if it has one. */
+	function handleTooltip(role: HandleRole, wp: Waypoint): string {
+		if (role === 'via') return $LL.routeMap.removeWaypoint();
+		const what = {
+			origin: $LL.routeMap.pinOrigin(),
+			destination: $LL.routeMap.pinDestination(),
+			startFinish: $LL.routeMap.pinStartFinish()
+		}[role];
+		return wp.name ? `${what}: ${wp.name}` : what;
+	}
+
+	/** True if the list ends where it starts (a generated loop). */
+	function isClosed(points: Waypoint[]): boolean {
+		const first = points[0];
+		const last = points[points.length - 1];
+		return points.length > 2 && first.lat === last.lat && first.lon === last.lon;
 	}
 
 	/**
@@ -514,15 +545,29 @@
 			return;
 		}
 
-		const points = currentWaypoints();
+		// A loop (generated, or an edited one routed as a closed round trip)
+		// returns to its start. Its closing point is the start again: draw it
+		// once, as the start pin, so a drag moves both ends together. Every
+		// other point of a loop is a via -- it has no destination.
+		const shown = currentWaypoints();
+		const loop = mode === 'loop' || roundTrip || isClosed(shown);
+		const points = isClosed(shown) ? shown.slice(0, -1) : shown;
 		points.forEach((wp, i) => {
-			const endpoint = i === 0 || i === points.length - 1;
+			const role: HandleRole =
+				i === 0
+					? loop
+						? 'startFinish'
+						: 'origin'
+					: !loop && i === points.length - 1
+						? 'destination'
+						: 'via';
 			const marker = leaflet!
 				.marker([wp.lat, wp.lon], {
 					draggable: true,
-					icon: handleIcon(leaflet!, endpoint, i)
+					icon: handleIcon(leaflet!, role, i)
 				})
 				.addTo(map!);
+			marker.bindTooltip(handleTooltip(role, wp));
 
 			// ONE request, on release. Never during the drag: the routing
 			// service is capped at a request a second, and mid-drag routing
@@ -530,15 +575,18 @@
 			marker.on('dragend', () => {
 				const { lat, lng } = marker.getLatLng();
 				const next = points.map((p, j) => (j === i ? { ...p, lat, lon: lng } : p));
-				void reroute(next);
+				void reroute(next, undefined, loop);
 			});
 
 			// Clicking a via removes it. Endpoints are not removable -- that
 			// would change where the journey started or ended.
-			if (!endpoint) {
-				marker.bindTooltip($LL.routeMap.removeWaypoint());
+			if (role === 'via') {
 				marker.on('click', () => {
-					void reroute(points.filter((_, j) => j !== i));
+					void reroute(
+						points.filter((_, j) => j !== i),
+						undefined,
+						loop
+					);
 				});
 			}
 
@@ -561,13 +609,16 @@
 		points.forEach((wp, i) => {
 			const endpoint = i === 0 || i === points.length - 1;
 			if (leg === 'inbound' && endpoint) return;
+			// The outbound leg runs origin -> destination (the turnaround).
+			const role: HandleRole = !endpoint ? 'via' : i === 0 ? 'origin' : 'destination';
 
 			const marker = leaflet!
 				.marker([wp.lat, wp.lon], {
 					draggable: true,
-					icon: handleIcon(leaflet!, endpoint, numOffset + i)
+					icon: handleIcon(leaflet!, role, numOffset + i)
 				})
 				.addTo(map!);
+			marker.bindTooltip(handleTooltip(role, wp));
 
 			// ONE request, on release -- never during the drag.
 			marker.on('dragend', () => {
@@ -578,7 +629,6 @@
 			});
 
 			if (!endpoint) {
-				marker.bindTooltip($LL.routeMap.removeWaypoint());
 				marker.on('click', () => {
 					const [outbound, inbound] = legs(points.filter((_, j) => j !== i));
 					void rerouteLegs(outbound, inbound);
@@ -610,7 +660,7 @@
 			}
 			if (!ghost) {
 				ghost = leaflet!
-					.marker(e.latlng, { draggable: true, icon: handleIcon(leaflet!, false) })
+					.marker(e.latlng, { draggable: true, icon: handleIcon(leaflet!, null) })
 					.addTo(map!);
 				ghostOwner = layer;
 				// Armed on `mousedown`, ahead of Leaflet's own `dragstart`:
@@ -661,7 +711,9 @@
 						return;
 					}
 					const polyline = generated?.polyline ?? savedRoute?.polyline ?? '';
-					void reroute(currentWaypoints(), { lat, lon: lng, polyline });
+					const shown = currentWaypoints();
+					const loop = mode === 'loop' || roundTrip || isClosed(shown);
+					void reroute(isClosed(shown) ? shown.slice(0, -1) : shown, { lat, lon: lng, polyline }, loop);
 				});
 			} else {
 				ghost.setLatLng(e.latlng);
@@ -709,8 +761,13 @@
 	 * Re-route through an edited waypoint list. Works in BOTH modes: a route
 	 * is an ordered waypoint list either way, which is what lets a
 	 * mis-anchored loop be dragged into shape.
+	 *
+	 * `loop`: the edited route returns to its start. `waypoints` is then the
+	 * OPEN line (no closing point) and the request asks for the way back. A
+	 * closed list with `round_trip: false` lost its closing point in Rust's
+	 * normaliser, so a dragged loop ended at its last via.
 	 */
-	async function reroute(waypoints: Waypoint[], insert?: InsertPoint) {
+	async function reroute(waypoints: Waypoint[], insert?: InsertPoint, loop = false) {
 		if (!trip) return;
 		// The map already shows the dragged position (the handle followed the
 		// pointer); re-fitting bounds on top of that would re-zoom the map for
@@ -718,10 +775,13 @@
 		skipFit = true;
 		// Editing produces a concrete road route, so an edited loop becomes a
 		// direct route -- which is exactly the escape hatch the design wants.
+		// It stays a round trip: the checkbox shows it, and runDirect closes it.
+		const wasLoop = mode === 'loop';
 		mode = 'direct';
+		if (loop) roundTrip = true;
 		roundTripRoutes = null;
 		baseInbound = null;
-		await runDirect(waypoints, trip.distanceKm, insert);
+		await runDirect(waypoints, wasLoop || loop ? loopTargetKm() : trip.distanceKm, insert);
 	}
 
 	// The trip comes from the vehicle the layout activates, which is populated
@@ -1717,6 +1777,43 @@
 		gap: 0.5rem;
 		margin-bottom: 1rem;
 		flex-wrap: wrap;
+	}
+
+	/* Endpoint pins: A = origin (and a loop's start and finish), B = destination.
+	   Leaflet positions the marker root with a transform, so the pin shape is
+	   on an inner element. */
+	:global(.wp-handle.wp-pin) {
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		border-radius: 0;
+	}
+
+	:global(.wp-pin-body) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 50% 50% 50% 0;
+		transform: rotate(-45deg);
+		border: 2px solid var(--bg-surface);
+		box-shadow: 0 1px 4px var(--shadow-default);
+		box-sizing: border-box;
+		background: var(--accent-success);
+	}
+
+	:global(.wp-destination .wp-pin-body) {
+		background: var(--accent-danger);
+	}
+
+	:global(.wp-pin-label) {
+		transform: rotate(45deg);
+		color: #fff;
+		font-size: 12px;
+		font-weight: 700;
+		line-height: 1;
+		user-select: none;
 	}
 
 	.loop-label {
