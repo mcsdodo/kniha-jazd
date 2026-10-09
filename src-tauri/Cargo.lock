@@ -1033,7 +1033,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd-core"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1064,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "kniha-jazd-web"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "kniha-jazd-core",
  "tokio",
