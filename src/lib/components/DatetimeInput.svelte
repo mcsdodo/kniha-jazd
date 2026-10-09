@@ -1,9 +1,25 @@
 <script lang="ts">
 	// Typed start/end of a trip in the edit row: "DD.MM HH:MM", the year comes
 	// from the value the field holds. `value` stays "YYYY-MM-DDTHH:MM".
+	//
+	// Keyboard: like the native input, it edits one part at a time (day,
+	// month, hour, minute). Tab / Shift+Tab move between the parts and leave
+	// the field after the last one; arrows up/down change the selected part.
+	// Typing "9.10 1430" still works: a separator or a full part moves on.
 	import { createEventDispatcher } from 'svelte';
 	import LL from '$lib/i18n/i18n-svelte';
-	import { formatDatetimeInput, parseDatetimeInput } from '$lib/datetimeInput';
+	import {
+		formatDatetimeInput,
+		parseDatetimeInput,
+		SEGMENT_RANGES,
+		segmentAt,
+		startSegments,
+		segmentText,
+		moveSegment,
+		typeKey,
+		stepSegment,
+		type SegmentState
+	} from '$lib/datetimeInput';
 
 	export let value: string;
 	// Set for the END of a trip: gives the year and the lower limit.
@@ -23,6 +39,12 @@
 	// leave 15:00 behind as the time.
 	let base = value;
 	let pickerInput: HTMLInputElement;
+	let input: HTMLInputElement;
+	// Part-by-part editing state while focused. Null = free text (the text is
+	// invalid, or a paste or a script wrote it): `handleInput` parses it then.
+	let segments: SegmentState | null = null;
+	// Set on mousedown: the click then selects the part under the pointer.
+	let pointerFocus = false;
 
 	// Other code also writes the value (end follows start, copy row, time
 	// inference). Show it, unless the user types in this field now.
@@ -41,12 +63,113 @@
 		dispatch('change', next);
 	}
 
-	function handleFocus() {
-		focused = true;
-		base = value;
+	function selectSegment() {
+		if (!segments || !input || document.activeElement !== input) return;
+		const [from, to] = SEGMENT_RANGES[segments.seg];
+		input.setSelectionRange(from, to);
 	}
 
+	function applySegments(next: SegmentState) {
+		segments = next;
+		text = segmentText(next);
+		// Write the DOM now, so the selection below applies to the new text.
+		input.value = text;
+		const parsed = parseDatetimeInput(text, next.base, start);
+		invalid = parsed === null;
+		if (parsed) commit(parsed);
+		selectSegment();
+	}
+
+	function handleFocus(event: FocusEvent) {
+		focused = true;
+		base = value;
+		if (invalid) {
+			segments = null;
+			return;
+		}
+		// Shift+Tab from a later field selects the last part, as the native input does.
+		const from = event.relatedTarget;
+		const fromLater =
+			from instanceof Node && (from.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+		segments = startSegments(value, fromLater ? 3 : 0);
+		text = segmentText(segments);
+		input.value = text;
+		if (!pointerFocus) selectSegment();
+	}
+
+	function handleMouseDown() {
+		pointerFocus = true;
+	}
+
+	function handleClick() {
+		pointerFocus = false;
+		if (!segments) return;
+		// A drag selection is the user's own; leave it.
+		if (input.selectionStart !== input.selectionEnd) return;
+		segments = moveSegment(segments, segmentAt(input.selectionStart ?? 0));
+		selectSegment();
+	}
+
+	function handleKeydown(event: KeyboardEvent) {
+		if (!segments) return;
+		// Mobile keyboards send "Unidentified": let the text go to handleInput.
+		if (event.isComposing || event.key === 'Unidentified') return;
+		if (event.ctrlKey || event.metaKey || event.altKey) return;
+		const key = event.key;
+		const allSelected = input.selectionStart === 0 && input.selectionEnd === input.value.length;
+
+		if (key === 'Tab') {
+			const next = segments.seg + (event.shiftKey ? -1 : 1);
+			if (next < 0 || next > 3) return; // leave the field
+			event.preventDefault();
+			segments = moveSegment(segments, next);
+			selectSegment();
+		} else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+			event.preventDefault();
+			segments = moveSegment(segments, segments.seg + (key === 'ArrowLeft' ? -1 : 1));
+			selectSegment();
+		} else if (key === 'ArrowUp' || key === 'ArrowDown') {
+			event.preventDefault();
+			applySegments(stepSegment(segments, key === 'ArrowUp' ? 1 : -1));
+		} else if (key === 'Backspace' || key === 'Delete') {
+			// Everything selected: switch to free text. Else start the part again.
+			if (allSelected) {
+				segments = null;
+				return;
+			}
+			event.preventDefault();
+			segments = { ...segments, buffer: '' };
+			selectSegment();
+		} else if (key.length === 1) {
+			event.preventDefault();
+			const from = allSelected ? moveSegment(segments, 0) : segments;
+			applySegments(typeKey(from, key));
+		}
+	}
+
+	// Paste: parse the whole text, then go on part by part.
+	function handlePaste(event: ClipboardEvent) {
+		const pasted = event.clipboardData?.getData('text') ?? '';
+		event.preventDefault();
+		const parsed = parseDatetimeInput(pasted, base, start);
+		if (parsed) {
+			commit(parsed);
+			invalid = false;
+			segments = startSegments(parsed, 0);
+			text = segmentText(segments);
+			input.value = text;
+			selectSegment();
+		} else {
+			invalid = true;
+			segments = null;
+			text = pasted;
+		}
+	}
+
+	// Free text: typing when the text was invalid, a mobile keyboard, or a
+	// script that sets the value and dispatches `input`.
 	function handleInput() {
+		segments = null;
 		const parsed = parseDatetimeInput(text, focused ? base : value, start);
 		invalid = parsed === null;
 		if (parsed) commit(parsed);
@@ -60,6 +183,8 @@
 
 	function handleBlur() {
 		focused = false;
+		segments = null;
+		pointerFocus = false;
 		handleChange();
 	}
 
@@ -87,7 +212,12 @@
 		autocomplete="off"
 		placeholder="DD.MM HH:MM"
 		bind:value={text}
+		bind:this={input}
 		on:focus={handleFocus}
+		on:mousedown={handleMouseDown}
+		on:click={handleClick}
+		on:keydown={handleKeydown}
+		on:paste={handlePaste}
 		on:input={handleInput}
 		on:change={handleChange}
 		on:blur={handleBlur}

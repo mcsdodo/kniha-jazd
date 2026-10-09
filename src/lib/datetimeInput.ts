@@ -120,3 +120,114 @@ function parseTyped(
 
 	return build(year, month, day, hour, minute);
 }
+
+// ============================================================================
+// Part-by-part editing ("DD.MM HH:MM" as four parts, like the native input)
+// ============================================================================
+
+/** Text range of each part in "DD.MM HH:MM": day, month, hour, minute. */
+export const SEGMENT_RANGES: ReadonlyArray<readonly [number, number]> = [
+	[0, 2],
+	[3, 5],
+	[6, 8],
+	[9, 11]
+];
+
+// A first digit above this cannot start a 2-digit value, so the part is complete.
+const FIRST_DIGIT_MAX = [3, 1, 2, 5];
+const SEPARATORS = new Set(['.', ':', ' ', ',', '/', '-']);
+
+export interface SegmentState {
+	/** day, month, hour, minute. Can be out of range while the user types. */
+	parts: [number, number, number, number];
+	/** The selected part, 0 to 3. */
+	seg: number;
+	/** Digits typed into the selected part so far. */
+	buffer: string;
+	/**
+	 * Digits typed from the day part with no separator, or null. 3 or 4 such
+	 * digits are a time ("1430"), and the date stays as in `base`.
+	 */
+	run: string | null;
+	/** The value when the edit started: gives the date for a time alone. */
+	base: string;
+}
+
+/** The part that holds a caret position. */
+export function segmentAt(pos: number): number {
+	if (pos <= 2) return 0;
+	if (pos <= 5) return 1;
+	if (pos <= 8) return 2;
+	return 3;
+}
+
+export function startSegments(value: string, seg = 0): SegmentState {
+	const p = isoParts(value);
+	return {
+		parts: p ? [p.day, p.month, p.hour, p.minute] : [1, 1, 0, 0],
+		seg,
+		buffer: '',
+		run: seg === 0 ? '' : null,
+		base: value
+	};
+}
+
+export function segmentText(s: SegmentState): string {
+	const [day, month, hour, minute] = s.parts;
+	return `${pad(day)}.${pad(month)} ${pad(hour)}:${pad(minute)}`;
+}
+
+export function moveSegment(s: SegmentState, seg: number): SegmentState {
+	const next = Math.min(Math.max(seg, 0), 3);
+	return { ...s, seg: next, buffer: '', run: next === 0 ? '' : null };
+}
+
+/** One typed character: a digit fills the part, a separator ends it. */
+export function typeKey(s: SegmentState, key: string): SegmentState {
+	if (SEPARATORS.has(key)) {
+		// "14:" from the day part: the digits were the hour.
+		if (key === ':' && s.run && s.run.length <= 2) {
+			return asTime(s, Number(s.run), 0);
+		}
+		if (s.buffer === '') return { ...s, run: null };
+		return { ...s, seg: Math.min(s.seg + 1, 3), buffer: '', run: null };
+	}
+	if (!/^\d$/.test(key)) return s;
+
+	const run = s.run === null ? null : s.run + key;
+	if (run !== null && run.length >= 3) {
+		if (run.length > 4) return s;
+		return { ...asTime(s, Number(run.slice(0, -2)), Number(run.slice(-2))), run };
+	}
+
+	const buffer = s.buffer + key;
+	const parts: SegmentState['parts'] = [...s.parts];
+	parts[s.seg] = Number(buffer);
+	const complete = buffer.length === 2 || Number(key) > FIRST_DIGIT_MAX[s.seg];
+	if (!complete) return { ...s, parts, buffer, run };
+	return { ...s, parts, seg: Math.min(s.seg + 1, 3), buffer: '', run };
+}
+
+function asTime(s: SegmentState, hour: number, minute: number): SegmentState {
+	const b = isoParts(s.base);
+	const [day, month] = b ? [b.day, b.month] : [s.parts[0], s.parts[1]];
+	return { ...s, parts: [day, month, hour, minute], seg: 3, buffer: '', run: null };
+}
+
+/** Arrow up/down: change the selected part by one, wrap inside its range. */
+export function stepSegment(s: SegmentState, delta: number): SegmentState {
+	const year = isoParts(s.base)?.year ?? 2000;
+	const month = Math.min(Math.max(s.parts[1], 1), 12);
+	const [lo, hi] = [
+		[1, daysInMonth(year, month)],
+		[1, 12],
+		[0, 23],
+		[0, 59]
+	][s.seg];
+	let v = s.parts[s.seg] + delta;
+	if (v > hi) v = lo;
+	if (v < lo) v = hi;
+	const parts: SegmentState['parts'] = [...s.parts];
+	parts[s.seg] = v;
+	return { ...s, parts, buffer: '', run: null };
+}

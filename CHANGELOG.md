@@ -22,7 +22,7 @@ databázu len na čítanie.
 - **Image, volume, port:** bez zmeny
 
 ### Pridané
-- **Rýchle zadanie dátumu a času jazdy** - začiatok a koniec jazdy v úprave riadku sa dajú napísať ako text, napríklad "9.10 1430" alebo "9.10 14.30". Samotný čas ponechá dátum, samotný dátum ponechá čas. Rok sa berie z vybraného roka. Koniec jazdy preberie rok začiatku, pri začiatku v decembri a konci v januári nasledujúci rok. Neplatný text alebo koniec pred začiatkom sa označí červeno a riadok sa neuloží.
+- **Rýchle zadanie dátumu a času jazdy** - začiatok a koniec jazdy v úprave riadku majú tvar "DD.MM HH:MM" a dajú sa napísať, napríklad "9.10 1430". Ako pri natívnom poli sa upravuje po častiach: Tab presúva medzi dňom, mesiacom, hodinou a minútami, šípky hore a dole menia vybranú časť. "1430" alebo "14:30" na začiatku poľa zmení iba čas. Rok sa berie z vybraného roka. Koniec jazdy preberie rok začiatku, pri začiatku v decembri a konci v januári nasledujúci rok. Neplatný text alebo koniec pred začiatkom sa označí červeno a riadok sa neuloží.
 - **Výber dátumu a času** - vedľa začiatku a konca je tlačidlo s kalendárom. V Nastaveniach ho vypnete voľbou "Zobraziť výber dátumu a času" (predvolene zapnuté).
 
 ## [2.2.0] - 2026-10-09
