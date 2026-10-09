@@ -147,7 +147,7 @@ describe('Tier 2: Copy Trip Row', () => {
     expect(await (await editingRow.$('[data-testid="trip-purpose"]')).getValue()).toBe('Client visit');
 
     // Time-of-day carries over from the source row; the date is today's.
-    const start = await (await editingRow.$('[data-testid="trip-start-datetime"]')).getValue();
+    const start = await (await editingRow.$('[data-testid="trip-start-datetime"]')).getAttribute('data-value');
     expect(start).toContain('08:30');
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -227,8 +227,8 @@ describe('Tier 2: Copy Trip Row', () => {
 
     const startInput = await $('[data-testid="trip-start-datetime"]');
     const endInput = await $('[data-testid="trip-end-datetime"]');
-    const seededStart = await startInput.getValue();
-    const seededEnd = await endInput.getValue();
+    const seededStart = await startInput.getAttribute('data-value');
+    const seededEnd = await endInput.getAttribute('data-value');
     expect(seededStart).toContain('22:00');
     expect(seededEnd).toContain('02:00');
     // Seeded end is already on the following day.
@@ -241,7 +241,7 @@ describe('Tier 2: Copy Trip Row', () => {
 
     // Duration preserved (4h): the end moves back 15 min and STAYS on the
     // following day rather than collapsing onto the start.
-    const newEnd = await endInput.getValue();
+    const newEnd = await endInput.getAttribute('data-value');
     expect(newEnd).toContain('01:45');
     expect(newEnd.slice(0, 10)).not.toBe(shifted.slice(0, 10));
   });
@@ -300,8 +300,8 @@ describe('Tier 2: Copy Trip Row', () => {
 
       const startInput = await $('[data-testid="trip-start-datetime"]');
       const endInput = await $('[data-testid="trip-end-datetime"]');
-      const beforeStart = await startInput.getValue();
-      const beforeEnd = await endInput.getValue();
+      const beforeStart = await startInput.getAttribute('data-value');
+      const beforeEnd = await endInput.getAttribute('data-value');
       expect(beforeStart).toContain('08:30');
 
       // Would trigger tryInferTimes() and jitter the times, were the copied
@@ -309,8 +309,8 @@ describe('Tier 2: Copy Trip Row', () => {
       await selectFromAutocomplete('trip-destination', 'Trnava');
       await browser.pause(700);
 
-      expect(await startInput.getValue()).toBe(beforeStart);
-      expect(await endInput.getValue()).toBe(beforeEnd);
+      expect(await startInput.getAttribute('data-value')).toBe(beforeStart);
+      expect(await endInput.getAttribute('data-value')).toBe(beforeEnd);
     });
 
     it('should re-infer the times of a reversed copy from the B->A history', async () => {
@@ -334,7 +334,7 @@ describe('Tier 2: Copy Trip Row', () => {
       await browser.pause(1000);
 
       // 17:00 +- 15 min jitter, never the source's 08:30.
-      const start = await (await $('[data-testid="trip-start-datetime"]')).getValue();
+      const start = await (await $('[data-testid="trip-start-datetime"]')).getAttribute('data-value');
       const [hh, mm] = start.slice(11, 16).split(':').map(Number);
       const minutes = hh * 60 + mm;
       expect(minutes).toBeGreaterThanOrEqual(16 * 60 + 45);

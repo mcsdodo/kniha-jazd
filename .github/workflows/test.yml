@@ -54,6 +54,26 @@ jobs:
       - name: Type-check tests/integration
         run: npm run typecheck:tests
 
+  # Frontend unit tests (node:test). Node 24 strips the TypeScript types
+  # itself, so the job needs no npm ci and no build. Runs in seconds.
+  unit-tests:
+    name: Unit Tests (node:test)
+    needs: check-changes
+    if: github.event_name == 'pull_request' || needs.check-changes.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run unit tests
+        run: npm run test:unit
+
   # Backend tests - fast, run on all platforms.
   # The matrix stays at three platforms on purpose: the crate still has
   # platform-conditional code (DB path resolution, hostname, the
@@ -342,6 +362,7 @@ jobs:
     needs:
       - backend-tests
       - typecheck-tests
+      - unit-tests
       - integration-build-docker
       - integration-test-docker
       - integration-test-docker-env

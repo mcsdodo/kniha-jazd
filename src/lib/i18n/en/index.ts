@@ -118,6 +118,7 @@ const en = {
 		// Time inference toast
 		timeInferenceApplied: 'Times filled from last route',
 		timeInferenceUndo: 'Undo',
+		pickDatetime: 'Pick date and time',
 		emptyState: 'No records. Click "New record" to add a trip.',
 		// Column headers
 		columns: {
@@ -298,6 +299,8 @@ const en = {
 		themeLabel: 'Theme',
 		themeSystem: 'System default',
 		themeLight: 'Light',
+		showDatetimePickerLabel: 'Show datetime picker',
+		showDatetimePickerDescription: 'In the trip editor, show a calendar button next to the start and end. You can always type the date and time, for example 9.10 1430.',
 		themeDark: 'Dark',
 		// Secret reveal (PIN-gated over the network)
 		revealPinTitle: 'Enter PIN',

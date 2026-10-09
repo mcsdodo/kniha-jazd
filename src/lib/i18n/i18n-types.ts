@@ -364,6 +364,10 @@ type RootTranslation = {
 		 */
 		timeInferenceUndo: string
 		/**
+		 * V​y​b​r​a​ť​ ​d​á​t​u​m​ ​a​ ​č​a​s
+		 */
+		pickDatetime: string
+		/**
 		 * Ž​i​a​d​n​e​ ​z​á​z​n​a​m​y​.​ ​K​l​i​k​n​i​t​e​ ​n​a​ ​"​N​o​v​ý​ ​z​á​z​n​a​m​"​ ​p​r​e​ ​p​r​i​d​a​n​i​e​ ​j​a​z​d​y​.
 		 */
 		emptyState: string
@@ -976,6 +980,14 @@ type RootTranslation = {
 		 * S​v​e​t​l​á
 		 */
 		themeLight: string
+		/**
+		 * Z​o​b​r​a​z​i​ť​ ​v​ý​b​e​r​ ​d​á​t​u​m​u​ ​a​ ​č​a​s​u
+		 */
+		showDatetimePickerLabel: string
+		/**
+		 * V​ ​ú​p​r​a​v​e​ ​j​a​z​d​y​ ​z​o​b​r​a​z​í​ ​v​e​d​ľ​a​ ​z​a​č​i​a​t​k​u​ ​a​ ​k​o​n​c​a​ ​t​l​a​č​i​d​l​o​ ​s​ ​k​a​l​e​n​d​á​r​o​m​.​ ​D​á​t​u​m​ ​a​ ​č​a​s​ ​m​ô​ž​e​t​e​ ​v​ž​d​y​ ​n​a​p​í​s​a​ť​ ​a​j​ ​p​r​i​a​m​o​,​ ​n​a​p​r​í​k​l​a​d​ ​9​.​1​0​ ​1​4​3​0​.
+		 */
+		showDatetimePickerDescription: string
 		/**
 		 * T​m​a​v​á
 		 */
@@ -3238,6 +3250,10 @@ export type TranslationFunctions = {
 		 */
 		timeInferenceUndo: () => LocalizedString
 		/**
+		 * Vybrať dátum a čas
+		 */
+		pickDatetime: () => LocalizedString
+		/**
 		 * Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.
 		 */
 		emptyState: () => LocalizedString
@@ -3819,6 +3835,14 @@ export type TranslationFunctions = {
 		 * Svetlá
 		 */
 		themeLight: () => LocalizedString
+		/**
+		 * Zobraziť výber dátumu a času
+		 */
+		showDatetimePickerLabel: () => LocalizedString
+		/**
+		 * V úprave jazdy zobrazí vedľa začiatku a konca tlačidlo s kalendárom. Dátum a čas môžete vždy napísať aj priamo, napríklad 9.10 1430.
+		 */
+		showDatetimePickerDescription: () => LocalizedString
 		/**
 		 * Tmavá
 		 */

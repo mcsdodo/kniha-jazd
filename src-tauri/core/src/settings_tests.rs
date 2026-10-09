@@ -97,6 +97,7 @@ fn test_save_preserves_all_fields() {
         backup_retention: None,
         date_prefill_mode: Some(DatePrefillMode::Today),
         infer_trip_times: Some(false),
+        show_datetime_picker: Some(false),
         hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
         ha_url: Some("http://ha.local:8123".to_string()),
         ha_api_token: Some("token123".to_string()),
@@ -124,6 +125,7 @@ fn test_save_preserves_all_fields() {
     assert_eq!(loaded.ha_url, Some("http://ha.local:8123".to_string()));
     assert_eq!(loaded.ha_api_token, Some("token123".to_string()));
     assert_eq!(loaded.infer_trip_times, Some(false));
+    assert_eq!(loaded.show_datetime_picker, Some(false));
 }
 
 #[test]
@@ -345,6 +347,31 @@ fn test_set_infer_trip_times_internal_round_trip() {
 
     set_infer_trip_times_internal(&app_dir, false).unwrap();
     assert!(!get_infer_trip_times_internal(&app_dir).unwrap());
+}
+
+// show_datetime_picker tests
+#[test]
+fn test_get_show_datetime_picker_internal_default_is_true() {
+    use crate::commands_internal::settings_cmd::get_show_datetime_picker_internal;
+    let dir = tempdir().unwrap();
+    let result = get_show_datetime_picker_internal(&dir.path().to_path_buf()).unwrap();
+    assert!(result, "default must be ON (the picker stays for existing users)");
+}
+
+#[test]
+fn test_set_show_datetime_picker_internal_round_trip() {
+    use crate::commands_internal::settings_cmd::{
+        get_show_datetime_picker_internal, set_show_datetime_picker_internal,
+    };
+    let dir = tempdir().unwrap();
+    let app_dir = dir.path().to_path_buf();
+
+    set_show_datetime_picker_internal(&app_dir, false).unwrap();
+    assert!(!get_show_datetime_picker_internal(&app_dir).unwrap());
+    assert_eq!(LocalSettings::load(&app_dir).show_datetime_picker, Some(false));
+
+    set_show_datetime_picker_internal(&app_dir, true).unwrap();
+    assert!(get_show_datetime_picker_internal(&app_dir).unwrap());
 }
 
 // ============================================================================

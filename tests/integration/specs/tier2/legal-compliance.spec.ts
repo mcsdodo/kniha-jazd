@@ -174,7 +174,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       await newRecordBtn.click();
       await browser.pause(300);
 
-      // Check that end datetime input exists (now datetime-local type)
+      // Check that end datetime input exists
       const endTimeInput = await $('[data-testid="trip-end-datetime"]');
       expect(await endTimeInput.isExisting()).toBe(true);
 
@@ -190,7 +190,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       }, '[data-testid="trip-end-datetime"]', `${today}T17:30`);
 
       // Verify the datetime was set
-      const timeValue = await endTimeInput.getValue();
+      const timeValue = await endTimeInput.getAttribute('data-value');
       expect(timeValue).toBe(`${today}T17:30`);
     });
 
@@ -208,7 +208,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
       const today = new Date().toISOString().split('T')[0];
 
       // Fill required fields using atomic method
-      // Note: trip-start-datetime is datetime-local type, requires YYYY-MM-DDTHH:MM format
+      // The typed start/end field also accepts the ISO form YYYY-MM-DDTHH:MM
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {
@@ -218,7 +218,7 @@ describe('Tier 2: Legal Compliance Columns', () => {
         }
       }, '[data-testid="trip-start-datetime"]', `${today}T08:00`);
 
-      // Set end datetime (also datetime-local format)
+      // Set end datetime (ISO form)
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {

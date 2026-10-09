@@ -318,7 +318,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
 
       // Capture pre-inference start datetime so we can detect the change.
       const startInput = await $('[data-testid="trip-start-datetime"]');
-      const beforeStart = await startInput.getValue();
+      const beforeStart = await startInput.getAttribute('data-value');
 
       // Pick origin then destination — second selection triggers tryInferTimes.
       await selectFromAutocomplete('trip-origin', 'Bratislava');
@@ -328,9 +328,9 @@ describe('Tier 1: Smart Trip Defaults', () => {
       // Allow the async invoke to resolve and Svelte to re-render.
       await browser.pause(500);
 
-      const afterStart = await startInput.getValue();
+      const afterStart = await startInput.getAttribute('data-value');
       const endInput = await $('[data-testid="trip-end-datetime"]');
-      const afterEnd = await endInput.getValue();
+      const afterEnd = await endInput.getAttribute('data-value');
 
       // Start time must have been changed by inference (jittered around 09:30).
       expect(afterStart).not.toBe(beforeStart);
@@ -416,7 +416,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
       );
 
       const startInput = await $('[data-testid="trip-start-datetime"]');
-      const beforeStart = await startInput.getValue();
+      const beforeStart = await startInput.getAttribute('data-value');
 
       // Trigger a "change" to origin/destination (here just re-select the same
       // values via the autocomplete) — for an existing row this must NOT call
@@ -426,7 +426,7 @@ describe('Tier 1: Smart Trip Defaults', () => {
       await selectFromAutocomplete('trip-destination', 'Nitra');
       await browser.pause(500);
 
-      const afterStart = await startInput.getValue();
+      const afterStart = await startInput.getAttribute('data-value');
       expect(afterStart).toBe(beforeStart);
     });
   });

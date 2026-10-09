@@ -3,6 +3,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { getInferredTripTimeForRoute, findPlace } from '$lib/api';
 	import Autocomplete from './Autocomplete.svelte';
+	import DatetimeInput from './DatetimeInput.svelte';
 	import { toast } from '$lib/stores/toast';
 	import LL from '$lib/i18n/i18n-svelte';
 
@@ -134,6 +135,11 @@
 
 	// Hidden columns
 	export let hiddenColumns: string[] = [];
+	// Calendar button next to the typed start/end (Settings > Appearance)
+	export let showDatetimePicker: boolean = true;
+	// Set by DatetimeInput while its typed text is not valid; blocks the save.
+	let startInvalid = false;
+	let endInvalid = false;
 
 	// Legal compliance (2026)
 	export let tripNumber: number = 0;
@@ -647,6 +653,10 @@
 	}
 
 	async function doSave() {
+		// A start/end text that does not parse keeps its red border; the
+		// model still holds the last valid value, so a save would not write
+		// what the user sees.
+		if (startInvalid || endInvalid) return;
 		// Ids come from the typed text at save time, never from an earlier pick.
 		// An endpoint that matches no place aborts the save and sets placeError.
 		if (!(await resolveEndpoints())) return;
@@ -745,21 +755,22 @@
 			<td class="col-trip-number number">{isNew ? '-' : tripNumber}</td>
 		{/if}
 		<td class="col-start-datetime">
-			<input
-				type="datetime-local"
+			<DatetimeInput
 				bind:value={formData.startDatetime}
+				bind:invalid={startInvalid}
 				on:change={handleStartDatetimeChange}
-				data-testid="trip-start-datetime"
-				required
+				showPicker={showDatetimePicker}
+				testid="trip-start-datetime"
 			/>
 		</td>
 		{#if !hiddenColumns.includes('time')}
 			<td class="col-end-datetime">
-				<input
-					type="datetime-local"
+				<DatetimeInput
 					bind:value={formData.endDatetime}
-					data-testid="trip-end-datetime"
-					required
+					bind:invalid={endInvalid}
+					start={formData.startDatetime}
+					showPicker={showDatetimePicker}
+					testid="trip-end-datetime"
 				/>
 			</td>
 		{/if}

@@ -417,7 +417,7 @@ export async function fillTripForm(options: TripFormOptions): Promise<void> {
   });
 
   // Fill basic fields
-  // Note: datetime-local input requires format "YYYY-MM-DDTHH:MM"
+  // The typed start field accepts the ISO form "YYYY-MM-DDTHH:MM"
   await fillField(TripGrid.tripForm.date, startDatetime);
   // The place must exist when the form looks it up at save time (Task 88).
   await ensurePlace(origin);

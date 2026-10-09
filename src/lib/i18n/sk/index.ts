@@ -118,6 +118,7 @@ const sk = {
 		// Time inference toast
 		timeInferenceApplied: 'Časy doplnené z poslednej trasy',
 		timeInferenceUndo: 'Vrátiť',
+		pickDatetime: 'Vybrať dátum a čas',
 		emptyState: 'Žiadne záznamy. Kliknite na "Nový záznam" pre pridanie jazdy.',
 		// Column headers
 		columns: {
@@ -298,6 +299,8 @@ const sk = {
 		themeLabel: 'Téma',
 		themeSystem: 'Podľa systému',
 		themeLight: 'Svetlá',
+		showDatetimePickerLabel: 'Zobraziť výber dátumu a času',
+		showDatetimePickerDescription: 'V úprave jazdy zobrazí vedľa začiatku a konca tlačidlo s kalendárom. Dátum a čas môžete vždy napísať aj priamo, napríklad 9.10 1430.',
 		themeDark: 'Tmavá',
 		// Secret reveal (PIN-gated over the network)
 		revealPinTitle: 'Zadajte PIN',

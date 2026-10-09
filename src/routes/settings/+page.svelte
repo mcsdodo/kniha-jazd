@@ -11,7 +11,7 @@
 	import type { Locales } from '$lib/i18n/i18n-types';
 	import { themeStore } from '$lib/stores/theme';
 	import type { ThemeMode } from '$lib/api';
-	import { getAppVersion, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
+	import { getAppVersion, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getShowDatetimePicker, setShowDatetimePicker, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
 	import type { PaperlessCustomFieldInfo, SecretField } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 
@@ -43,6 +43,7 @@
 
 	// Time inference toggle (default OFF until loaded)
 	let inferTripTimes = false;
+	let showDatetimePicker = true;
 
 	// ── Secret reveal ────────────────────────────────────────────────────────
 	// Secrets never arrive with the settings; each reveal is a separate backend
@@ -441,6 +442,12 @@
 		await themeStore.change(theme);
 	}
 
+	async function handleShowDatetimePickerChange(event: Event) {
+		const checkbox = event.target as HTMLInputElement;
+		showDatetimePicker = checkbox.checked;
+		await setShowDatetimePicker(showDatetimePicker);
+	}
+
 	async function handleInferTripTimesChange(event: Event) {
 		const checkbox = event.target as HTMLInputElement;
 		inferTripTimes = checkbox.checked;
@@ -511,6 +518,7 @@
 
 			// Load time-inference toggle
 			inferTripTimes = await getInferTripTimes();
+			showDatetimePicker = await getShowDatetimePicker();
 
 			// Load Home Assistant settings
 			const haSettings = await getHaSettings();
@@ -896,6 +904,20 @@
 						</label>
 					</div>
 				</fieldset>
+				<div class="form-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							checked={showDatetimePicker}
+							on:change={handleShowDatetimePickerChange}
+							data-testid="show-datetime-picker-toggle"
+						/>
+						{$LL.settings.showDatetimePickerLabel()}
+					</label>
+					<small class="hint">
+						{$LL.settings.showDatetimePickerDescription()}
+					</small>
+				</div>
 			</div>
 		</section>
 

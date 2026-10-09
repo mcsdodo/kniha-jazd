@@ -143,7 +143,7 @@ describe('Tier 2: Datetime Column', () => {
       // Fill in required fields using atomic method
       const today = new Date().toISOString().split('T')[0];
 
-      // Start datetime (datetime-local format: YYYY-MM-DDTHH:MM)
+      // Start datetime (ISO form: YYYY-MM-DDTHH:MM)
       await browser.execute((sel: string, newValue: string) => {
         const input = document.querySelector(sel) as HTMLInputElement;
         if (input) {

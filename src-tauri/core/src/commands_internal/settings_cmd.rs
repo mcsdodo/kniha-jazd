@@ -131,6 +131,22 @@ pub fn set_infer_trip_times_internal(app_dir: &Path, enabled: bool) -> Result<()
 }
 
 // ============================================================================
+// Datetime Picker Toggle
+// ============================================================================
+
+pub fn get_show_datetime_picker_internal(app_dir: &Path) -> Result<bool, String> {
+    let settings = LocalSettings::load(app_dir);
+    // Default ON: only Some(false) hides the picker button in the trip editor.
+    Ok(settings.show_datetime_picker.unwrap_or(true))
+}
+
+pub fn set_show_datetime_picker_internal(app_dir: &Path, enabled: bool) -> Result<(), String> {
+    let mut settings = LocalSettings::load(app_dir);
+    settings.show_datetime_picker = Some(enabled);
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+// ============================================================================
 // Database Location
 // ============================================================================
 

@@ -154,8 +154,8 @@ describe('Tier 2: Time Inference Toggle + Toast + Undo', () => {
     await browser.pause(800);
 
     // Backend returned None, so typed times must still be intact.
-    const startVal = await $('[data-testid="trip-start-datetime"]').getValue();
-    const endVal = await $('[data-testid="trip-end-datetime"]').getValue();
+    const startVal = await $('[data-testid="trip-start-datetime"]').getAttribute('data-value');
+    const endVal = await $('[data-testid="trip-end-datetime"]').getAttribute('data-value');
     expect(startVal).toBe(TYPED_START);
     expect(endVal).toBe(TYPED_END);
 
@@ -190,7 +190,7 @@ describe('Tier 2: Time Inference Toggle + Toast + Undo', () => {
 
     // Start datetime should no longer be the user's typed value
     // (backend supplied a different time; jitter means we don't pin exact).
-    const startVal = await $('[data-testid="trip-start-datetime"]').getValue();
+    const startVal = await $('[data-testid="trip-start-datetime"]').getAttribute('data-value');
     expect(startVal).not.toBe(TYPED_START);
     expect(startVal.startsWith(ROW_DATE)).toBe(true); // Same row date
   });
@@ -218,8 +218,8 @@ describe('Tier 2: Time Inference Toggle + Toast + Undo', () => {
     await browser.pause(300);
 
     // Typed values must be restored.
-    const startVal = await $('[data-testid="trip-start-datetime"]').getValue();
-    const endVal = await $('[data-testid="trip-end-datetime"]').getValue();
+    const startVal = await $('[data-testid="trip-start-datetime"]').getAttribute('data-value');
+    const endVal = await $('[data-testid="trip-end-datetime"]').getAttribute('data-value');
     expect(startVal).toBe(TYPED_START);
     expect(endVal).toBe(TYPED_END);
   });

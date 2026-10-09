@@ -357,6 +357,15 @@ export async function setInferTripTimes(enabled: boolean): Promise<void> {
 	return apiCall('set_infer_trip_times', { enabled });
 }
 
+// Datetime picker button in the trip editor (default ON)
+export async function getShowDatetimePicker(): Promise<boolean> {
+	return apiCall<boolean>('get_show_datetime_picker');
+}
+
+export async function setShowDatetimePicker(enabled: boolean): Promise<void> {
+	return apiCall('set_show_datetime_picker', { enabled });
+}
+
 // Home Assistant settings — shape lives in types.ts (HaSettings) so the page and
 // the API wrapper can't drift apart.
 export async function getHaSettings(): Promise<HaSettings> {

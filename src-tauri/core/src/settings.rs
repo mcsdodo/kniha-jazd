@@ -58,6 +58,7 @@ pub struct LocalSettings {
     pub backup_retention: Option<BackupRetention>, // Backup retention settings for auto-cleanup
     pub date_prefill_mode: Option<DatePrefillMode>, // Date prefill for new trip entries
     pub infer_trip_times: Option<bool>, // None = OFF (default)
+    pub show_datetime_picker: Option<bool>, // None = ON (default)
     pub hidden_columns: Option<Vec<String>>, // Hidden trip grid columns (e.g., ["time", "fuelConsumed"])
     // Home Assistant integration
     pub ha_url: Option<String>, // Home Assistant URL (e.g., "http://homeassistant.local:8123")

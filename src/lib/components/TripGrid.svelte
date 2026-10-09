@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Trip, Route, Place, TripGridData, PreviewResult, VehicleType, SuggestedFillup, MonthEndRow, CopiedTripDefaults, CascadePlan } from '$lib/types';
 	import { DatePrefillMode } from '$lib/types';
-	import { updateTripCascade, createTripCascade, deleteTripCascade, getRoutes, getPurposes, listPlaces, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults } from '$lib/api';
+	import { updateTripCascade, createTripCascade, deleteTripCascade, getRoutes, getPurposes, listPlaces, getTripGridData, previewTripCalculation, calculateMagicFillLiters, getDatePrefillMode, setDatePrefillMode, getHiddenColumns, getCopiedTripDefaults, getShowDatetimePicker } from '$lib/api';
 	import TripRow from './TripRow.svelte';
 	import SegmentedToggle from './SegmentedToggle.svelte';
 	import ColumnVisibilityDropdown from './ColumnVisibilityDropdown.svelte';
@@ -221,6 +221,8 @@
 
 	// Hidden columns state
 	let hiddenColumns: string[] = [];
+	// Picker button next to the typed start/end in the editor (Settings > Appearance)
+	let showDatetimePicker = true;
 
 	onMount(async () => {
 		await loadRoutes();
@@ -237,6 +239,11 @@
 			hiddenColumns = await getHiddenColumns();
 		} catch (error) {
 			console.error('Failed to load hidden columns:', error);
+		}
+		try {
+			showDatetimePicker = await getShowDatetimePicker();
+		} catch (error) {
+			console.error('Failed to load datetime picker preference:', error);
 		}
 		// Track route maps saved or removed in the map tab, so the pin does not go
 		// stale while both tabs are open. Both directions matter: without the
@@ -951,6 +958,7 @@
 						onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, null, km, fuel, fullTank)}
 						onMagicFill={handleMagicFill}
 						{hiddenColumns}
+						{showDatetimePicker}
 					/>
 				{/if}
 				<!-- Display rows: trips + month-end rows, sorted chronologically -->
@@ -982,6 +990,7 @@
 							onPreviewRequest={(km, fuel, fullTank) => handlePreviewRequest(null, insertAtTripId, km, fuel, fullTank)}
 							onMagicFill={handleMagicFill}
 							{hiddenColumns}
+							{showDatetimePicker}
 						/>
 					{/if}
 					{#if isFirstRecord(trip)}
@@ -1081,6 +1090,7 @@
 							suggestedFillup={suggestedFillup.get(trip.id) ?? null}
 							onMagicFill={handleMagicFill}
 							{hiddenColumns}
+							{showDatetimePicker}
 							tripNumber={tripNumbers.get(trip.id) ?? 0}
 							odoStart={odometerStart.get(trip.id) ?? 0}
 							{driverName}

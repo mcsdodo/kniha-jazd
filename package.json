@@ -13,13 +13,14 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"typecheck:tests": "tsc --noEmit -p tests/integration/tsconfig.json",
 		"test:backend": "cargo test --manifest-path src-tauri/Cargo.toml --workspace",
+		"test:unit": "node --test \"src/**/*.test.ts\" \"tests/integration/utils/*.test.ts\"",
 		"test:integration": "wdio run tests/integration/wdio.server.conf.ts",
 		"test:integration:tier1": "cross-env TIER=1 npm run test:integration",
 		"test:integration:tier2": "cross-env TIER=2 PARALLEL_TIERS=true npm run test:integration",
 		"test:integration:tier3": "cross-env TIER=3 PARALLEL_TIERS=true npm run test:integration",
 		"test:integration:docker": "cross-env WDIO_EXTERNAL_SERVER=1 npm run test:integration",
 		"test:integration:docker:env": "cross-env WDIO_ENV_PINNED=1 npm run test:integration:docker",
-		"test:all": "npm run test:backend && npm run test:integration"
+		"test:all": "npm run test:backend && npm run test:unit && npm run test:integration"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
