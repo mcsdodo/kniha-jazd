@@ -4,6 +4,22 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-12: Fuelio Timer Sync
+
+### ADR-061: The server syncs Fuelio from Dropbox on a timer
+
+**Context:** The Fuelio files reached `<DATA_DIR>/fuelio` only when the user clicked "Synchronizovať z Dropboxu". The user wants the sync to run on its own when Dropbox is set.
+
+**Options considered:**
+1. A cron job outside the app that calls `sync_fuelio_dropbox` - each operator must set it up.
+2. A timer in the server process, on by default, with an env var for the period.
+
+**Decision:** Option 2. If the three `DROPBOX_*` secrets are set, `spawn_periodic_sync` syncs at start and then every `FUELIO_SYNC_INTERVAL_MINUTES` (default 60; `0` = off; blank or bad = 60). It syncs the current local year, and in January also the last year. The timer starts in `web/src/main.rs`, not in `HttpServer::start`. A process-wide mutex in `sync_year` lets one sync run at a time, so the button waits for a timer sync. A failed timer sync writes a line to stderr and the timer continues.
+
+**Reasoning:** A repeat sync costs one listing, so 60 minutes is cheap and keeps the page current. A drive of 31 December can reach Dropbox in January, and a sync of the current year only would never copy it. The server tests call `HttpServer::start`, so a timer there would start in each test. Without the mutex, the button and the timer download the same files twice and can report false failures from the shared `.part` name. The app has no logger, so `log::warn!` output goes nowhere. The env-pinned integration suite sets the interval to `0`, because its dummy secrets must not reach the real Dropbox.
+
+---
+
 ## 2026-10-09: Route Map Editing
 
 ### ADR-060: An edited loop stays a loop (amends ADR-040)
