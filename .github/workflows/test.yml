@@ -305,6 +305,7 @@ jobs:
             -e DROPBOX_APP_KEY=env-pinned-dropbox-key \
             -e DROPBOX_APP_SECRET=env-pinned-dropbox-secret \
             -e DROPBOX_REFRESH_TOKEN=env-pinned-dropbox-token \
+            -e FUELIO_SYNC_INTERVAL_MINUTES=0 \
             kniha-jazd-web:test
 
       - name: Wait for server health

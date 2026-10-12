@@ -20,4 +20,6 @@ services:
       - DROPBOX_APP_SECRET=${DROPBOX_APP_SECRET:-}
       - DROPBOX_REFRESH_TOKEN=${DROPBOX_REFRESH_TOKEN:-}
       - FUELIO_DROPBOX_FOLDER=${FUELIO_DROPBOX_FOLDER:-}
+      # Minutes between two syncs from Dropbox. Empty means 60, 0 means off.
+      - FUELIO_SYNC_INTERVAL_MINUTES=${FUELIO_SYNC_INTERVAL_MINUTES:-}
     restart: unless-stopped

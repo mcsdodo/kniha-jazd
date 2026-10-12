@@ -78,6 +78,7 @@ The Fuelio page and its nav link exist only when all three `DROPBOX_*` variables
 |----------|---------|---------|
 | `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` | unset | All three: turn on the Fuelio page and "Sync from Dropbox", which downloads the drives of the selected year into `<DATA_DIR>/fuelio`. |
 | `FUELIO_DROPBOX_FOLDER` | `/Apps/Fuelio/routes` | The Dropbox folder with the Fuelio route files |
+| `FUELIO_SYNC_INTERVAL_MINUTES` | `60` | Minutes between two automatic syncs from Dropbox. The server syncs the drives of the current year at start and then at this interval, in January also the drives of the last year. `0` turns the automatic sync off; the button stays. |
 
 ### Image channels
 

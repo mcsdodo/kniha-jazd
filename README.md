@@ -78,6 +78,7 @@ Stránka Fuelio a jej položka v menu sú dostupné, len ak sú nastavené všet
 |----------|------------|------|
 | `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` | nenastavená | Všetky tri: zapnú stránku Fuelio a tlačidlo "Synchronizovať z Dropboxu", ktoré stiahne jazdy vybraného roka do `<DATA_DIR>/fuelio`. |
 | `FUELIO_DROPBOX_FOLDER` | `/Apps/Fuelio/routes` | Priečinok v Dropboxe so súbormi jázd Fuelio |
+| `FUELIO_SYNC_INTERVAL_MINUTES` | `60` | Počet minút medzi dvoma automatickými synchronizáciami z Dropboxu. Server synchronizuje jazdy aktuálneho roka pri štarte a potom v tomto intervale, v januári aj jazdy minulého roka. `0` vypne automatickú synchronizáciu, tlačidlo zostane. |
 
 ### Verzie image-u
 

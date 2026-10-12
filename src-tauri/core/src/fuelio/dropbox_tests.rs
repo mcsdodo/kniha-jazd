@@ -234,3 +234,80 @@ fn config_debug_hides_the_secrets() {
     assert!(shown.contains("key") && shown.contains("/Apps/Fuelio/routes"), "{shown}");
     assert!(!shown.contains("secret\"") && !shown.contains("refresh\""), "{shown}");
 }
+
+// The button and the timer can sync at the same moment. The second sync must
+// see the files of the first, not download them again.
+#[tokio::test]
+async fn two_syncs_at_the_same_time_download_a_file_once() {
+    struct SlowStore(FakeStore);
+    #[async_trait::async_trait]
+    impl RouteStore for SlowStore {
+        async fn list_names(&self) -> Result<Vec<String>, String> {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            self.0.list_names().await
+        }
+        async fn download(&self, name: &str) -> Result<Vec<u8>, String> {
+            self.0.download(name).await
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(SlowStore(FakeStore {
+        files: vec![(D2026.into(), data("x"))],
+        broken: vec![],
+        downloads: Default::default(),
+    }));
+    let (a, b) = tokio::join!(
+        sync_year(store.clone(), dir.path(), 2026),
+        sync_year(store.clone(), dir.path(), 2026)
+    );
+    let (a, b) = (a.unwrap(), b.unwrap());
+    assert_eq!(store.0.downloads.lock().unwrap().len(), 1);
+    assert_eq!((a.downloaded + b.downloaded, a.already_local + b.already_local), (1, 1));
+    assert!(a.failed.is_empty() && b.failed.is_empty());
+}
+
+fn interval(pairs: &[(&str, &str)]) -> Option<Duration> {
+    sync_interval_from_lookup(env(pairs))
+}
+
+#[test]
+fn the_timer_syncs_every_hour_by_default() {
+    assert_eq!(interval(&[]), Some(Duration::from_secs(3600)));
+    // docker-compose passes `FUELIO_SYNC_INTERVAL_MINUTES=` when the var is unset.
+    assert_eq!(interval(&[("FUELIO_SYNC_INTERVAL_MINUTES", "")]), Some(Duration::from_secs(3600)));
+    assert_eq!(interval(&[("FUELIO_SYNC_INTERVAL_MINUTES", "soon")]), Some(Duration::from_secs(3600)));
+}
+
+#[test]
+fn the_timer_takes_minutes_and_zero_switches_it_off() {
+    assert_eq!(interval(&[("FUELIO_SYNC_INTERVAL_MINUTES", " 15 ")]), Some(Duration::from_secs(900)));
+    assert_eq!(interval(&[("FUELIO_SYNC_INTERVAL_MINUTES", "0")]), None);
+}
+
+fn day(y: i32, m: u32, d: u32) -> chrono::NaiveDate {
+    chrono::NaiveDate::from_ymd_opt(y, m, d).unwrap()
+}
+
+// A drive of 31 December can reach Dropbox in January.
+#[test]
+fn the_timer_syncs_the_last_year_too_in_january() {
+    assert_eq!(years_to_sync(day(2026, 1, 1)), vec![2025, 2026]);
+    assert_eq!(years_to_sync(day(2026, 1, 31)), vec![2025, 2026]);
+    assert_eq!(years_to_sync(day(2026, 2, 1)), vec![2026]);
+    assert_eq!(years_to_sync(day(2026, 12, 31)), vec![2026]);
+}
+
+#[tokio::test]
+async fn a_timer_sync_in_january_gets_the_drives_of_both_years() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Arc::new(FakeStore {
+        files: vec![(D2026.into(), data("a")), (D2025.into(), data("b"))],
+        broken: vec![],
+        downloads: Default::default(),
+    });
+    let reports = sync_years(store, dir.path(), day(2026, 1, 10)).await;
+    let years: Vec<(i32, usize)> =
+        reports.into_iter().map(|r| r.map(|r| (r.year, r.downloaded)).unwrap()).collect();
+    assert_eq!(years, vec![(2025, 1), (2026, 1)]);
+    assert!(dir.path().join(D2025).exists() && dir.path().join(D2026).exists());
+}

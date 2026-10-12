@@ -88,6 +88,9 @@ pub mod env_vars {
 
     /// The Dropbox folder with the Fuelio route files. Default `/Apps/Fuelio/routes`.
     pub const FUELIO_DROPBOX_FOLDER: &str = "FUELIO_DROPBOX_FOLDER";
+
+    /// Minutes between two timer syncs from Dropbox. Default 60, `0` = off.
+    pub const FUELIO_SYNC_INTERVAL_MINUTES: &str = "FUELIO_SYNC_INTERVAL_MINUTES";
 }
 
 /// Default values

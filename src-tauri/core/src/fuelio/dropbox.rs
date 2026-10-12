@@ -8,14 +8,17 @@
 //! The API calls sit behind [`RouteStore`] so the sync can be tested without
 //! the network. [`DropboxStore`] is the real client: it trades the refresh
 //! token for one short-lived access token per sync.
+//!
+//! [`spawn_periodic_sync`] runs the sync on a timer, so the folder is current
+//! without the button. `FUELIO_SYNC_INTERVAL_MINUTES` sets the period.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use super::parse::{drive_id, file_year, read_data};
+use super::parse::{drive_id, file_year, read_data, utc_ms_to_local};
 use crate::constants::env_vars;
 
 const API_URL: &str = "https://api.dropboxapi.com";
@@ -27,6 +30,10 @@ const PAGE_LIMIT: u32 = 2000;
 /// Downloads at the same time. A route file is a few KB.
 const PARALLEL_DOWNLOADS: usize = 8;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// The timer period when `FUELIO_SYNC_INTERVAL_MINUTES` is unset.
+const DEFAULT_SYNC_MINUTES: u64 = 60;
+/// One sync at a time: the button and the timer write the same files.
+static SYNC_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// The Dropbox app and the user's grant. All three secrets are required.
 #[derive(Clone)]
@@ -223,6 +230,7 @@ pub struct SyncReport {
 /// A body that does not open as a Fuelio file is not saved either: the next
 /// sync tries it again.
 pub async fn sync_year(store: Arc<dyn RouteStore>, dir: &Path, year: i32) -> Result<SyncReport, String> {
+    let _one_at_a_time = SYNC_LOCK.lock().await;
     std::fs::create_dir_all(dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
     let wanted: Vec<String> = store
         .list_names()
@@ -276,6 +284,82 @@ pub async fn sync_year(store: Arc<dyn RouteStore>, dir: &Path, year: i32) -> Res
         already_local: have.len(),
         failed,
     })
+}
+
+/// The timer period. `None` when `FUELIO_SYNC_INTERVAL_MINUTES` is `0`. An
+/// unset, blank or bad value gives the default. Pure: `lookup` stands in for
+/// `std::env::var`.
+pub fn sync_interval_from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Option<Duration> {
+    let minutes = lookup(env_vars::FUELIO_SYNC_INTERVAL_MINUTES)
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(DEFAULT_SYNC_MINUTES);
+    (minutes > 0).then(|| Duration::from_secs(minutes * 60))
+}
+
+/// The years a timer sync copies on `today`. In January it also copies the
+/// last year: a drive of 31 December can reach Dropbox later.
+pub fn years_to_sync(today: chrono::NaiveDate) -> Vec<i32> {
+    use chrono::Datelike;
+    if today.month() == 1 {
+        vec![today.year() - 1, today.year()]
+    } else {
+        vec![today.year()]
+    }
+}
+
+/// One timer sync: [`sync_year`] for each of [`years_to_sync`].
+pub async fn sync_years(
+    store: Arc<dyn RouteStore>,
+    dir: &Path,
+    today: chrono::NaiveDate,
+) -> Vec<Result<SyncReport, String>> {
+    let mut reports = Vec::new();
+    for year in years_to_sync(today) {
+        reports.push(sync_year(store.clone(), dir, year).await);
+    }
+    reports
+}
+
+/// Start the timer sync into `<data_dir>/fuelio`, if the Dropbox secrets are
+/// set and the period is not `0`. The first sync starts at once. A failed sync
+/// writes a line to stderr and the timer continues. Call inside the runtime.
+pub fn spawn_periodic_sync(data_dir: PathBuf) {
+    let Some(config) = DropboxConfig::from_env() else {
+        return;
+    };
+    let Some(every) = sync_interval_from_lookup(|k| std::env::var(k).ok()) else {
+        println!("Fuelio: timer sync from Dropbox is off ({}=0)", env_vars::FUELIO_SYNC_INTERVAL_MINUTES);
+        return;
+    };
+    println!("Fuelio: sync from Dropbox every {} min", every.as_secs() / 60);
+    let dir = data_dir.join(super::FOLDER_NAME);
+    tokio::spawn(async move {
+        let mut ticks = tokio::time::interval(every);
+        ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticks.tick().await;
+            let store = match DropboxStore::connect(config.clone()).await {
+                Ok(store) => Arc::new(store),
+                Err(e) => {
+                    eprintln!("Fuelio timer sync: {e}");
+                    continue;
+                }
+            };
+            let today = utc_ms_to_local(chrono::Utc::now().timestamp_millis()).date();
+            for report in sync_years(store, &dir, today).await {
+                match report {
+                    Ok(r) if r.downloaded > 0 || !r.failed.is_empty() => println!(
+                        "Fuelio timer sync {}: {} downloaded, {} failed",
+                        r.year,
+                        r.downloaded,
+                        r.failed.len()
+                    ),
+                    Ok(_) => {}
+                    Err(e) => eprintln!("Fuelio timer sync: {e}"),
+                }
+            }
+        }
+    });
 }
 
 #[cfg(test)]

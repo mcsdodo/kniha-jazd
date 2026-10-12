@@ -76,7 +76,7 @@ fn main() {
         let addr = HttpServer::start(
             db,
             app_state,
-            data_dir,
+            data_dir.clone(),
             static_dir,
             port,
             true,
@@ -86,6 +86,7 @@ fn main() {
         .expect("Failed to start server");
 
         println!("Kniha Jázd server running at http://{addr}");
+        kniha_jazd_core::fuelio::dropbox::spawn_periodic_sync(data_dir);
         println!("Press Ctrl+C to stop.");
 
         wait_for_shutdown_signal().await;

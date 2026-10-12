@@ -24,7 +24,7 @@ rand = "0.8"
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "blocking"], default-features = false }
 base64 = "0.22"
 log = "0.4"
-tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "net", "signal", "sync"] }
+tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
 url = "2"
 urlencoding = "2"
 axum = "0.8"

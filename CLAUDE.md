@@ -270,6 +270,7 @@ machine.
 | `SYGIC_REFERER` | unset | `Referer` header for a Sygic key with a referer restriction |
 | `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN` | unset | All three set: the Fuelio page and its nav link exist, and `/fuelio` offers "Sync from Dropbox", which copies the Fuelio drives of the selected year into `<DATA_DIR>/fuelio`. The Dropbox app needs "Full Dropbox" access and the scopes `files.metadata.read` + `files.content.read`. Unset: the nav hides Fuelio and every Fuelio command fails, even if `<DATA_DIR>/fuelio` exists. |
 | `FUELIO_DROPBOX_FOLDER` | `/Apps/Fuelio/routes` | The Dropbox folder with the Fuelio route files |
+| `FUELIO_SYNC_INTERVAL_MINUTES` | `60` | With the three `DROPBOX_*` secrets set, the server syncs the Fuelio drives of the current year from Dropbox at start and then at this period (in January, also the last year). `0` = off; the button stays. |
 | `KNIHA_JAZD_MOCK_ROUTER` | unset | Any non-empty value: an offline mock computes all routes. For the integration tests only. Never set it on a live instance. |
 
 - **Docker:** `docker-compose.web.yml` mounts the host's `./data` at `/data`; backups

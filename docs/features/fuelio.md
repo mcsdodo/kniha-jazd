@@ -12,6 +12,9 @@
    drives.
 2. **Sync.** On `/fuelio` the user clicks **Synchronizovať z Dropboxu (rok)**. The server
    downloads the drives of the selected year that are not in `<DATA_DIR>/fuelio` yet.
+   The server also runs this sync on its own: at start, and then every
+   `FUELIO_SYNC_INTERVAL_MINUTES` (default 60, `0` = off). So the button is necessary only
+   for an older year or for a drive that must show at once.
 3. **Read the table.** One row per run of Fuelio drives (newest first):
    - The **Stav** column: green check = matched to a logbook trip, red exclamation mark =
      missing in the logbook, crossed-out eye = ignored. The warning icons follow in the
@@ -142,6 +145,14 @@ at a time, to a temporary name and then a rename. A body that does not open as a
 not saved and counts as failed, so the next sync downloads it again. No cursor: a full listing is a few
 calls. The Dropbox app needs "Full Dropbox" access, because Fuelio writes to its own app
 folder.
+
+The timer sync (`spawn_periodic_sync`, started from `web/src/main.rs`, not from
+`HttpServer::start`, so the server tests start no timer) syncs the current local year, and
+in January also the last year: a drive of 31 December can reach Dropbox in January. A
+failed timer sync writes a line to stderr (the app has no logger) and the timer continues.
+A static mutex in `sync_year` lets one sync run at a time, so the button and the timer
+do not download the same file twice. The env-pinned integration suite sets the interval
+to `0`, because its dummy secrets must not reach the real Dropbox.
 
 ### Data Flow
 ```

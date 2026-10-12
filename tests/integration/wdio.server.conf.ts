@@ -35,6 +35,8 @@ const ENV_PINNED_FIXTURE: Record<string, string> = {
   DROPBOX_APP_KEY: 'env-pinned-dropbox-key',
   DROPBOX_APP_SECRET: 'env-pinned-dropbox-secret',
   DROPBOX_REFRESH_TOKEN: 'env-pinned-dropbox-token',
+  // The dummy secrets must not reach the real Dropbox: no timer sync.
+  FUELIO_SYNC_INTERVAL_MINUTES: '0',
 };
 
 /**
