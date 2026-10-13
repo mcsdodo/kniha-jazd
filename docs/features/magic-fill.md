@@ -28,7 +28,7 @@ target_rate = tp_consumption × random(1.05, 1.20)
 suggested_liters = (total_km × target_rate) / 100
 ```
 
-Results are rounded to 2 decimals.
+The result is capped near the tank size (BIZ-028): if it is above 96% of `tank_size_liters`, it becomes a random value from 90% to 96% of the tank. `cap_fillup_liters()` does this for Magic Fill and for "Návrh tankovania". Without a tank size there is no cap. Results are rounded to 2 decimals.
 
 **Example:**
 - TP consumption: 5.0 L/100km
@@ -151,6 +151,10 @@ Provides natural variation in consumption rates, avoiding suspiciously consisten
 - Looks realistic (not exactly TP rate every time)
 - Safe margin from legal limit
 - Mimics real-world driving variation
+
+### Why a Cap Below the Tank Size?
+
+On a long period, `km x TP x 1.05` can be more than the tank holds (1234 km at TP 5.1 needs 66.08 L for a 66 L tank). A full tank fill-up almost never happens, so the cap is a realistic band of 90% to 96% of the tank, not the tank size. Near the cap, the rate can drop below 105% of TP. See BIZ-028.
 
 ### Why Auto-Check Full Tank?
 

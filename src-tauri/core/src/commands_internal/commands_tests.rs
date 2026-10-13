@@ -8,7 +8,7 @@ use crate::commands_internal::statistics::{
     calculate_energy_grid_data, calculate_invoice_datetime_warnings, calculate_receipt_datetimes_outside,
     calculate_invoice_override_warnings, calculate_missing_receipts,
     calculate_other_invoice_sums, calculate_other_sum_mismatches,
-    calculate_suggested_fillups, get_open_period_km,
+    calculate_suggested_fillups, cap_fillup_liters, get_open_period_km,
     has_any_period_over_limit, period_margin_impact, preview_anchor,
 };
 use crate::commands_internal::helpers::trip_order;
@@ -3037,7 +3037,7 @@ fn test_suggested_fillup_open_period() {
     ];
 
     let tp_consumption = 6.0; // 6 l/100km
-    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption, None);
 
     // Both trips should have suggestions
     assert_eq!(suggestions.len(), 2);
@@ -3074,7 +3074,7 @@ fn test_suggested_fillup_closed_period_no_suggestions() {
     ];
 
     let tp_consumption = 6.0;
-    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption, None);
 
     // Only second trip should have suggestion (first closed the period)
     assert_eq!(suggestions.len(), 1);
@@ -3093,7 +3093,7 @@ fn test_suggested_fillup_consumption_rate_calculation() {
     )];
 
     let tp_consumption = 5.0; // 5 l/100km
-    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, _legend) = calculate_suggested_fillups(&trips, tp_consumption, None);
 
     let suggestion = suggestions.get(&trips[0].id.to_string()).unwrap();
     // consumption_rate = liters / km * 100
@@ -3105,7 +3105,7 @@ fn test_suggested_fillup_consumption_rate_calculation() {
 #[test]
 fn test_suggested_fillup_empty_trips() {
     let trips: Vec<Trip> = vec![];
-    let (suggestions, legend) = calculate_suggested_fillups(&trips, 6.0);
+    let (suggestions, legend) = calculate_suggested_fillups(&trips, 6.0, None);
     assert!(suggestions.is_empty());
     assert!(legend.is_none());
 }
@@ -3139,7 +3139,7 @@ fn test_legend_suggested_fillup_returns_most_recent() {
     let trips = vec![trip1.clone(), trip2.clone(), trip3.clone()];
 
     let tp_consumption = 6.0;
-    let (suggestions, legend) = calculate_suggested_fillups(&trips, tp_consumption);
+    let (suggestions, legend) = calculate_suggested_fillups(&trips, tp_consumption, None);
 
     // All 3 trips should have suggestions
     assert_eq!(suggestions.len(), 3);
@@ -3166,10 +3166,87 @@ fn test_legend_suggested_fillup_none_when_closed() {
         true,
     );
 
-    let (suggestions, legend) = calculate_suggested_fillups(&[trip], 6.0);
+    let (suggestions, legend) = calculate_suggested_fillups(&[trip], 6.0, None);
 
     assert!(suggestions.is_empty()); // No open period
     assert!(legend.is_none());
+}
+
+// Fill-up cap near the tank size (BIZ-028)
+// Mercedes case from prod: tank 66 L, TP 5.1, open period 1234 km.
+// ceiling = 0.96 * 66 = 63.36 L, band floor = 0.90 * 66 = 59.4 L.
+
+#[test]
+fn test_cap_fillup_below_ceiling_unchanged() {
+    assert_eq!(cap_fillup_liters(50.0, Some(66.0), 0.5), 50.0);
+    assert_eq!(cap_fillup_liters(63.36, Some(66.0), 0.0), 63.36);
+}
+
+#[test]
+fn test_cap_fillup_above_ceiling_maps_into_band() {
+    assert!((cap_fillup_liters(70.0, Some(66.0), 0.0) - 59.4).abs() < 1e-9);
+    assert!((cap_fillup_liters(70.0, Some(66.0), 1.0) - 63.36).abs() < 1e-9);
+    assert!((cap_fillup_liters(70.0, Some(66.0), 0.5) - 61.38).abs() < 1e-9);
+}
+
+#[test]
+fn test_cap_fillup_without_tank_size_unchanged() {
+    assert_eq!(cap_fillup_liters(120.0, None, 0.5), 120.0);
+    assert_eq!(cap_fillup_liters(120.0, Some(0.0), 0.5), 120.0);
+}
+
+#[test]
+fn test_suggested_fillup_capped_near_tank_size() {
+    let trips = vec![make_trip_for_magic_fill(
+        NaiveDate::from_ymd_opt(2026, 10, 9).unwrap(),
+        1234.0,
+        None,
+        false,
+    )];
+    // Raw range 66.08 to 75.52 L - always above the 66 L tank
+    let (suggestions, legend) = calculate_suggested_fillups(&trips, 5.1, Some(66.0));
+    let s = suggestions.get(&trips[0].id.to_string()).unwrap();
+    assert!(s.liters >= 59.4 && s.liters <= 63.36, "liters {}", s.liters);
+    let expected_rate = ((s.liters / 1234.0) * 100.0 * 100.0).round() / 100.0;
+    assert!((s.consumption_rate - expected_rate).abs() < 0.01);
+    assert_eq!(legend.unwrap().liters, s.liters);
+}
+
+#[test]
+fn test_suggested_fillup_cap_applies_per_trip() {
+    // 400 km stays under the ceiling, 400 + 834 km goes over it
+    let trips = vec![
+        make_trip_for_magic_fill(NaiveDate::from_ymd_opt(2026, 10, 9).unwrap(), 400.0, None, false),
+        make_trip_for_magic_fill(NaiveDate::from_ymd_opt(2026, 10, 10).unwrap(), 834.0, None, false),
+    ];
+    let (suggestions, _) = calculate_suggested_fillups(&trips, 5.1, Some(66.0));
+    let first = suggestions.get(&trips[0].id.to_string()).unwrap();
+    assert!(first.liters >= 21.42 && first.liters <= 24.48, "liters {}", first.liters);
+    let second = suggestions.get(&trips[1].id.to_string()).unwrap();
+    assert!(second.liters >= 59.4 && second.liters <= 63.36, "liters {}", second.liters);
+}
+
+#[test]
+fn test_magic_fill_capped_near_tank_size() {
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+    let vehicle = crate::models::Vehicle::new_ice(
+        "Test Car".to_string(),
+        "BA123XY".to_string(),
+        66.0,
+        5.1,
+        0.0,
+    );
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+    let liters = crate::commands_internal::calculate_magic_fill_liters_internal(
+        &db,
+        vehicle.id.to_string(),
+        2026,
+        1234.0,
+        None,
+    )
+    .unwrap();
+    assert!(liters >= 59.4 && liters <= 63.36, "liters {}", liters);
 }
 
 // ========================================================================

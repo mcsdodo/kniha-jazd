@@ -410,7 +410,7 @@ pub struct TripStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SuggestedFillup {
-    /// Suggested liters to fill (targets 105-120% of TP rate)
+    /// Suggested liters to fill (targets 105-120% of TP rate, capped near the tank size)
     pub liters: f64,
     /// Resulting consumption rate if this fillup is used (l/100km)
     pub consumption_rate: f64,

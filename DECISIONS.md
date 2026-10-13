@@ -4,6 +4,22 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-13: Fill-up Cap Near the Tank Size
+
+### BIZ-028: A suggested fill-up stays below the tank size
+
+**Context:** "Návrh tankovania" and Magic Fill suggest `km x TP x random(1.05, 1.20) / 100` liters. Nothing limits the result. On prod, the Mercedes (tank 66 L, TP 5.1) had an open period of 1234 km, so each suggestion was 66.08 to 75.52 L, which is more than the tank holds. The 105% floor is not possible for a period this long: 66 L over 1234 km is at most 104.9% of TP. Of 76 real full-tank fill-ups, the maximum was 65.49 L and only 13 were 64 L or more.
+
+**Decision:** `cap_fillup_liters` in `commands_internal/statistics.rs` applies to both suggestions:
+
+1. If the raw suggestion is <= 96% of `tank_size_liters`, it does not change.
+2. If it is more, the suggestion is a random value from 90% to 96% of the tank (59.4 to 63.36 L for 66 L). The rate is calculated from the capped liters.
+3. If the vehicle has no tank size, there is no cap.
+
+**Reasoning:** A full 66 L fill-up almost never happens, so the ceiling is a realistic fill, not the tank size. The band keeps the values different each time, the same as the random multiplier. The fractions of the tank work for each vehicle. Near the cap the rate can drop below 105% of TP, or below TP. That is legal (BIZ-003 limits only the 120% side) and matches the data: the car drove the period on one tank.
+
+---
+
 ## 2026-10-12: Fuelio Timer Sync
 
 ### ADR-061: The server syncs Fuelio from Dropbox on a timer

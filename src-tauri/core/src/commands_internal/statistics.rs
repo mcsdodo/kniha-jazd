@@ -516,7 +516,7 @@ pub fn build_trip_grid_data(
 
     // Calculate suggested fillup for trips in open period (ICE + PHEV only)
     let (suggested_fillup, legend_suggested_fillup) = if vehicle.vehicle_type.uses_fuel() {
-        calculate_suggested_fillups(&chronological, tp_consumption)
+        calculate_suggested_fillups(&chronological, tp_consumption, vehicle.tank_size_liters)
     } else {
         (HashMap::new(), None)
     };
@@ -624,14 +624,38 @@ pub fn get_open_period_km(chronological: &[Trip], stop_at_trip_id: Option<&Uuid>
     km_in_period
 }
 
+/// A suggested fill-up above this fraction of the tank is not realistic (BIZ-028).
+pub const FILLUP_CEILING_FRACTION: f64 = 0.96;
+/// Lowest fraction of the tank for a suggestion that went over the ceiling (BIZ-028).
+pub const FILLUP_BAND_FLOOR_FRACTION: f64 = 0.90;
+
+/// Cap a suggested fill-up near the tank size (BIZ-028).
+/// If `raw` is above `FILLUP_CEILING_FRACTION * tank`, the result moves into the band
+/// `FILLUP_BAND_FLOOR_FRACTION * tank ..= FILLUP_CEILING_FRACTION * tank`.
+/// `band_position` (0.0 to 1.0) picks the point in the band. No tank size = no cap.
+pub fn cap_fillup_liters(raw: f64, tank_size: Option<f64>, band_position: f64) -> f64 {
+    let tank = match tank_size {
+        Some(t) if t > 0.0 => t,
+        _ => return raw,
+    };
+    let ceiling = tank * FILLUP_CEILING_FRACTION;
+    if raw <= ceiling {
+        return raw;
+    }
+    let floor = tank * FILLUP_BAND_FLOOR_FRACTION;
+    floor + (ceiling - floor) * band_position.clamp(0.0, 1.0)
+}
+
 /// Calculate suggested fillup for all trips in open periods.
 /// Returns:
 /// - HashMap from trip ID to SuggestedFillup (for magic button per-trip)
 /// - Option<SuggestedFillup> for the legend (most recent trip's suggestion)
-/// Uses random multiplier 1.05-1.20 (same as magic fill).
+/// Uses random multiplier 1.05-1.20 (same as magic fill), capped near the tank size
+/// by `cap_fillup_liters`.
 pub fn calculate_suggested_fillups(
     chronological: &[Trip],
     tp_consumption: f64,
+    tank_size: Option<f64>,
 ) -> (HashMap<String, SuggestedFillup>, Option<SuggestedFillup>) {
     use rand::Rng;
 
@@ -642,6 +666,7 @@ pub fn calculate_suggested_fillups(
     // (provides consistency within a single data load)
     let target_multiplier = rng.gen_range(1.05..=1.20);
     let target_rate = tp_consumption * target_multiplier;
+    let band_position: f64 = rng.gen_range(0.0..=1.0);
 
     // First pass: find the index where the open period starts
     // (after the last full tank, or from the beginning if no full tanks)
@@ -662,7 +687,11 @@ pub fn calculate_suggested_fillups(
 
         if cumulative_km > 0.0 {
             // Calculate liters: liters = km * rate / 100
-            let suggested_liters = (cumulative_km * target_rate) / 100.0;
+            let suggested_liters = cap_fillup_liters(
+                (cumulative_km * target_rate) / 100.0,
+                tank_size,
+                band_position,
+            );
             let rounded_liters = (suggested_liters * 100.0).round() / 100.0;
 
             // Calculate resulting consumption rate
@@ -691,7 +720,8 @@ pub fn calculate_suggested_fillups(
 }
 
 /// Calculate suggested fuel liters for magic fill feature.
-/// Returns liters that would result in 105-120% of TP consumption rate.
+/// Returns liters that would result in 105-120% of TP consumption rate,
+/// capped near the tank size by `cap_fillup_liters`.
 pub fn calculate_magic_fill_liters_internal(
     db: &Database,
     vehicle_id: String,
@@ -746,7 +776,11 @@ pub fn calculate_magic_fill_liters_internal(
     let target_rate = tp_consumption * target_multiplier;
 
     // Calculate liters: liters = km * rate / 100
-    let suggested_liters = (total_km * target_rate) / 100.0;
+    let suggested_liters = cap_fillup_liters(
+        (total_km * target_rate) / 100.0,
+        vehicle.tank_size_liters,
+        rng.gen_range(0.0..=1.0),
+    );
 
     // Round to 2 decimal places
     Ok((suggested_liters * 100.0).round() / 100.0)

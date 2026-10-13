@@ -26,6 +26,9 @@ databázu len na čítanie.
 - **Rýchle zadanie dátumu a času jazdy** - začiatok a koniec jazdy v úprave riadku majú tvar "DD.MM HH:MM" a dajú sa napísať, napríklad "9.10 1430". Ako pri natívnom poli sa upravuje po častiach: Tab presúva medzi dňom, mesiacom, hodinou a minútami, šípky hore a dole menia vybranú časť. "1430" alebo "14:30" na začiatku poľa zmení iba čas. Rok sa berie z vybraného roka. Koniec jazdy preberie rok začiatku, pri začiatku v decembri a konci v januári nasledujúci rok. Neplatný text alebo koniec pred začiatkom sa označí červeno a riadok sa neuloží.
 - **Výber dátumu a času** - vedľa začiatku a konca je tlačidlo s kalendárom. V Nastaveniach ho vypnete voľbou "Zobraziť výber dátumu a času" (predvolene zapnuté).
 
+### Opravené
+- **Návrh tankovania väčší ako nádrž** - pri dlhom období od posledného plnenia nádrže navrhoval "Návrh tankovania" a Magic Fill viac litrov, než sa zmestí do nádrže (napríklad 70 L do 66 L nádrže). Ak návrh prekročí 96 % objemu nádrže, aplikácia teraz navrhne náhodnú hodnotu medzi 90 % a 96 % objemu (pri 66 L nádrži 59,4 až 63,4 L). Spotreba sa vtedy môže dostať pod 105 % normy z TP.
+
 ## [2.2.0] - 2026-10-09
 
 ### Pokyny k aktualizácii
