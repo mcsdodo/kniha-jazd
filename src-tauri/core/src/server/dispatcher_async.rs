@@ -850,6 +850,94 @@ mod tests {
         );
     }
 
+    /// With the `export_normalized` setting ON, the export is always ascending
+    /// and shows every column. The backend decides this, so whatever the grid
+    /// sends (hidden columns, desc) has no effect.
+    #[tokio::test]
+    async fn export_html_normalized_setting_overrides_view_args() {
+        use crate::models::{Settings, Trip};
+        use chrono::{NaiveDate, Utc};
+
+        let dir = tempfile::tempdir().unwrap();
+        let db = std::sync::Arc::new(crate::db::Database::in_memory().unwrap());
+
+        let vehicle =
+            crate::models::Vehicle::new_ice("Test".into(), "BA-123AB".into(), 50.0, 6.5, 10_000.0);
+        db.create_vehicle(&vehicle).unwrap();
+        db.save_settings(&Settings::default()).unwrap();
+
+        let make_trip = |day: u32, destination: &str, odo: f64| Trip {
+            origin_place_id: uuid::Uuid::nil(),
+            destination_place_id: uuid::Uuid::nil(),
+            id: uuid::Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            start_datetime: NaiveDate::from_ymd_opt(2026, 3, day)
+                .unwrap()
+                .and_hms_opt(8, 0, 0)
+                .unwrap(),
+            end_datetime: None,
+            origin: "Bratislava".into(),
+            destination: destination.into(),
+            distance_km: 60.0,
+            odometer: odo,
+            purpose: "test".into(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        db.create_trip(&db.with_places_for_test(&make_trip(1, "TRNAVA", 10_060.0))).unwrap();
+        db.create_trip(&db.with_places_for_test(&make_trip(2, "KOSICE", 10_120.0))).unwrap();
+
+        crate::commands_internal::settings_cmd::set_export_normalized_internal(dir.path(), true)
+            .unwrap();
+
+        let state = ServerState {
+            db,
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: dir.path().to_path_buf(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        // Same marker trick as the test above: "time" renders `col_end_datetime`.
+        let mut labels = serde_json::to_value(crate::export::sample_export_labels()).unwrap();
+        labels["col_end_datetime"] = serde_json::json!("CAS-MARKER");
+
+        let html = dispatch_async(
+            "export_html",
+            serde_json::json!({
+                "vehicleId": vehicle.id.to_string(),
+                "year": 2026,
+                "labels": labels,
+                "hiddenColumns": ["time", "fuelConsumed", "fuelRemaining", "otherCosts", "otherCostsNote"],
+                "sortDirection": "desc"
+            }),
+            &state,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let html = html.as_str().unwrap();
+
+        assert!(
+            html.contains("CAS-MARKER"),
+            "normalized export must show every column - hiddenColumns was applied"
+        );
+        let trnava = html.find("TRNAVA").expect("TRNAVA missing");
+        let kosice = html.find("KOSICE").expect("KOSICE missing");
+        assert!(
+            trnava < kosice,
+            "normalized export must be ascending - sortDirection=desc was applied"
+        );
+    }
+
     /// geocode_place must be routed here (it awaits Nominatim) and must take
     /// `query`, the name `src/lib/api.ts` sends. Bad args fail during parsing,
     /// so this pins both without touching the network.

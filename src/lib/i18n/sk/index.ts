@@ -295,7 +295,12 @@ const sk = {
 		languageSection: 'Jazyk',
 		language: 'Jazyk aplikácie',
 		// Appearance section
+		preferencesSection: 'Predvoľby',
 		appearanceSection: 'Vzhľad',
+		newEntriesSubsection: 'Nové záznamy',
+		exportSubsection: 'Export',
+		exportNormalizedLabel: 'Tlačiť knihu jázd vždy v jednotnom tvare',
+		exportNormalizedDescription: 'Export bude vždy vzostupne (najstaršia jazda hore) a so všetkými stĺpcami, bez ohľadu na zoradenie a skryté stĺpce v tabuľke. Ak je vypnuté, export sa riadi zobrazením tabuľky.',
 		themeLabel: 'Téma',
 		themeSystem: 'Podľa systému',
 		themeLight: 'Svetlá',

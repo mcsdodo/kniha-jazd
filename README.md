@@ -32,7 +32,7 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Ročné prehľady** - Každý rok = samostatná kniha jázd
 - **Skrývateľné stĺpce** - Prispôsobenie tabuľky jázd podľa potreby
 - **Zálohovanie a obnova** - Automatická záloha pred migráciou databázy, správa záloh
-- **Export** - HTML náhľad s tlačou do PDF (Ctrl+P), rešpektuje skryté stĺpce
+- **Export** - HTML náhľad s tlačou do PDF (Ctrl+P), riadi sa zoradením a skrytými stĺpcami v tabuľke. Nastavenie *Predvoľby > Export* ho prepne na jednotný tvar: vždy vzostupne a so všetkými stĺpcami.
 - **Doklady (Paperless-ngx)** - Doklady sa preberajú z vášho Paperless-ngx a priraďujú sa k jazdám; Paperless-ngx je jediný zdroj dokladov
 - **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
 - **Prístup z prehliadača** - Telefón, tablet aj počítač pristupujú k tej istej inštancii v lokálnej sieti

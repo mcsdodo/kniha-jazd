@@ -366,6 +366,15 @@ export async function setShowDatetimePicker(enabled: boolean): Promise<void> {
 	return apiCall('set_show_datetime_picker', { enabled });
 }
 
+// Export always ascending with all columns, ignoring the grid view (default OFF)
+export async function getExportNormalized(): Promise<boolean> {
+	return apiCall<boolean>('get_export_normalized');
+}
+
+export async function setExportNormalized(enabled: boolean): Promise<void> {
+	return apiCall('set_export_normalized', { enabled });
+}
+
 // Home Assistant settings — shape lives in types.ts (HaSettings) so the page and
 // the API wrapper can't drift apart.
 export async function getHaSettings(): Promise<HaSettings> {

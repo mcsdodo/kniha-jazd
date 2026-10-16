@@ -25,6 +25,15 @@ pub async fn export_html_internal(
     hidden_columns: Vec<String>,
     sort_direction: String,
 ) -> Result<String, String> {
+    // The normalized setting wins over the view the grid sends, so a printed
+    // logbook does not depend on how the user last sorted or trimmed the grid.
+    let (hidden_columns, sort_direction) =
+        if super::settings_cmd::get_export_normalized_internal(app_dir)? {
+            (Vec::new(), "asc".to_string())
+        } else {
+            (hidden_columns, sort_direction)
+        };
+
     let vehicle = db
         .get_vehicle(&vehicle_id)
         .map_err(|e| e.to_string())?

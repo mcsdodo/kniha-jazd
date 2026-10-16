@@ -11,7 +11,7 @@
 	import type { Locales } from '$lib/i18n/i18n-types';
 	import { themeStore } from '$lib/stores/theme';
 	import type { ThemeMode } from '$lib/api';
-	import { getAppVersion, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getShowDatetimePicker, setShowDatetimePicker, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
+	import { getAppVersion, getHaSettings, saveHaSettings, testHaConnection, fetchHaOdo, getInferTripTimes, setInferTripTimes, getShowDatetimePicker, setShowDatetimePicker, getExportNormalized, setExportNormalized, getPaperlessSettings, savePaperlessSettings, testPaperlessConnection, listPaperlessCustomFields, revealSecret } from '$lib/api';
 	import type { PaperlessCustomFieldInfo, SecretField } from '$lib/types';
 	import type { HaSettings } from '$lib/types';
 
@@ -43,6 +43,7 @@
 
 	// Time inference toggle (default OFF until loaded)
 	let inferTripTimes = false;
+	let exportNormalized = false;
 	let showDatetimePicker = true;
 
 	// ── Secret reveal ────────────────────────────────────────────────────────
@@ -454,6 +455,12 @@
 		await setInferTripTimes(inferTripTimes);
 	}
 
+	async function handleExportNormalizedChange(event: Event) {
+		const checkbox = event.target as HTMLInputElement;
+		exportNormalized = checkbox.checked;
+		await setExportNormalized(exportNormalized);
+	}
+
 	// Backup state
 	let backups: BackupInfo[] = [];
 	let loadingBackups = false;
@@ -518,6 +525,7 @@
 
 			// Load time-inference toggle
 			inferTripTimes = await getInferTripTimes();
+			exportNormalized = await getExportNormalized();
 			showDatetimePicker = await getShowDatetimePicker();
 
 			// Load Home Assistant settings
@@ -865,10 +873,11 @@
 			</div>
 		</section>
 
-		<!-- Appearance Section -->
-		<section class="settings-section">
-			<h2>{$LL.settings.appearanceSection()}</h2>
+		<!-- Preferences Section: appearance, new entries, export -->
+		<section class="settings-section" id="preferences">
+			<h2>{$LL.settings.preferencesSection()}</h2>
 			<div class="section-content">
+				<h3 class="subsection-title">{$LL.settings.appearanceSection()}</h3>
 				<fieldset class="theme-fieldset">
 					<legend>{$LL.settings.themeLabel()}</legend>
 					<div class="theme-options">
@@ -916,6 +925,37 @@
 					</label>
 					<small class="hint">
 						{$LL.settings.showDatetimePickerDescription()}
+					</small>
+				</div>
+
+				<h3 class="subsection-title">{$LL.settings.newEntriesSubsection()}</h3>
+				<div class="form-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							checked={inferTripTimes}
+							on:change={handleInferTripTimesChange}
+						/>
+						{$LL.settings.inferTripTimesLabel()}
+					</label>
+					<small class="hint">
+						{$LL.settings.inferTripTimesDescription()}
+					</small>
+				</div>
+
+				<h3 class="subsection-title">{$LL.settings.exportSubsection()}</h3>
+				<div class="form-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							checked={exportNormalized}
+							on:change={handleExportNormalizedChange}
+							data-testid="export-normalized-toggle"
+						/>
+						{$LL.settings.exportNormalizedLabel()}
+					</label>
+					<small class="hint">
+						{$LL.settings.exportNormalizedDescription()}
 					</small>
 				</div>
 			</div>
@@ -1345,19 +1385,6 @@
 					</small>
 				</div>
 
-				<div class="form-group">
-					<label class="checkbox-label">
-						<input
-							type="checkbox"
-							checked={inferTripTimes}
-							on:change={handleInferTripTimesChange}
-						/>
-						{$LL.settings.inferTripTimesLabel()}
-					</label>
-					<small class="hint">
-						{$LL.settings.inferTripTimesDescription()}
-					</small>
-				</div>
 			</div>
 		</section>
 
@@ -1864,6 +1891,16 @@
 		background: var(--bg-surface-alt);
 		border-radius: 8px;
 		border: 1px solid var(--border-default);
+	}
+
+	.subsection-title {
+		margin: 0.5rem 0 0 0;
+		font-size: 0.95rem;
+		color: var(--text-secondary);
+	}
+
+	.subsection-title:first-child {
+		margin-top: 0;
 	}
 
 	.retention-settings h4 {

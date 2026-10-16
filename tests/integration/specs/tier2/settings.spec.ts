@@ -4,6 +4,7 @@
  * Tests the settings functionality including:
  * - Saving company information (name and ICO)
  * - Switching language and verifying UI updates
+ * - Persisting the normalized-export checkbox (export logic: Rust tests)
  */
 
 import { waitForAppReady, navigateTo } from '../../utils/app';
@@ -127,6 +128,35 @@ describe('Tier 2: Settings', () => {
         expect(text).toContain(testCompanyName);
         expect(text).toContain(testCompanyIco);
       }
+    });
+  });
+
+  describe('Export Settings', () => {
+    after(async () => {
+      await rpc<void>('set_export_normalized', { enabled: false });
+    });
+
+    it('should persist the normalized-export checkbox to the backend', async () => {
+      await rpc<void>('set_export_normalized', { enabled: false });
+
+      await navigateTo('settings');
+      const toggle = await $('[data-testid="export-normalized-toggle"]');
+      await toggle.waitForDisplayed({ timeout: 5000 });
+      expect(await toggle.isSelected()).toBe(false);
+
+      await toggle.click();
+      await browser.waitUntil(
+        async () => (await rpc<boolean>('get_export_normalized')) === true,
+        { timeout: 5000, timeoutMsg: 'set_export_normalized was not called with true' }
+      );
+
+      // A reload must read the saved value back from the backend.
+      await browser.refresh();
+      await waitForAppReady();
+      await navigateTo('settings');
+      const reloaded = await $('[data-testid="export-normalized-toggle"]');
+      await reloaded.waitForDisplayed({ timeout: 5000 });
+      expect(await reloaded.isSelected()).toBe(true);
     });
   });
 

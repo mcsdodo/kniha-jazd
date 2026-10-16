@@ -965,9 +965,29 @@ type RootTranslation = {
 		 */
 		language: string
 		/**
+		 * P​r​e​d​v​o​ľ​b​y
+		 */
+		preferencesSection: string
+		/**
 		 * V​z​h​ľ​a​d
 		 */
 		appearanceSection: string
+		/**
+		 * N​o​v​é​ ​z​á​z​n​a​m​y
+		 */
+		newEntriesSubsection: string
+		/**
+		 * E​x​p​o​r​t
+		 */
+		exportSubsection: string
+		/**
+		 * T​l​a​č​i​ť​ ​k​n​i​h​u​ ​j​á​z​d​ ​v​ž​d​y​ ​v​ ​j​e​d​n​o​t​n​o​m​ ​t​v​a​r​e
+		 */
+		exportNormalizedLabel: string
+		/**
+		 * E​x​p​o​r​t​ ​b​u​d​e​ ​v​ž​d​y​ ​v​z​o​s​t​u​p​n​e​ ​(​n​a​j​s​t​a​r​š​i​a​ ​j​a​z​d​a​ ​h​o​r​e​)​ ​a​ ​s​o​ ​v​š​e​t​k​ý​m​i​ ​s​t​ĺ​p​c​a​m​i​,​ ​b​e​z​ ​o​h​ľ​a​d​u​ ​n​a​ ​z​o​r​a​d​e​n​i​e​ ​a​ ​s​k​r​y​t​é​ ​s​t​ĺ​p​c​e​ ​v​ ​t​a​b​u​ľ​k​e​.​ ​A​k​ ​j​e​ ​v​y​p​n​u​t​é​,​ ​e​x​p​o​r​t​ ​s​a​ ​r​i​a​d​i​ ​z​o​b​r​a​z​e​n​í​m​ ​t​a​b​u​ľ​k​y​.
+		 */
+		exportNormalizedDescription: string
 		/**
 		 * T​é​m​a
 		 */
@@ -3820,9 +3840,29 @@ export type TranslationFunctions = {
 		 */
 		language: () => LocalizedString
 		/**
+		 * Predvoľby
+		 */
+		preferencesSection: () => LocalizedString
+		/**
 		 * Vzhľad
 		 */
 		appearanceSection: () => LocalizedString
+		/**
+		 * Nové záznamy
+		 */
+		newEntriesSubsection: () => LocalizedString
+		/**
+		 * Export
+		 */
+		exportSubsection: () => LocalizedString
+		/**
+		 * Tlačiť knihu jázd vždy v jednotnom tvare
+		 */
+		exportNormalizedLabel: () => LocalizedString
+		/**
+		 * Export bude vždy vzostupne (najstaršia jazda hore) a so všetkými stĺpcami, bez ohľadu na zoradenie a skryté stĺpce v tabuľke. Ak je vypnuté, export sa riadi zobrazením tabuľky.
+		 */
+		exportNormalizedDescription: () => LocalizedString
 		/**
 		 * Téma
 		 */

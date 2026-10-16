@@ -32,7 +32,7 @@ discontinued — existing installs keep working but receive no further updates.
 - **Yearly overviews** - Each year = separate logbook
 - **Column visibility** - Customize the trip grid by hiding/showing columns
 - **Backup and restore** - Automatic backup before database migrations, backup management
-- **Export** - HTML preview with print-to-PDF (Ctrl+P), respects hidden columns
+- **Export** - HTML preview with print-to-PDF (Ctrl+P), follows the sort order and hidden columns of the table. The setting *Preferences > Export* switches it to a standard layout: always ascending, with all columns.
 - **Invoices (Paperless-ngx)** - Invoices are pulled from your Paperless-ngx and assigned to trips; Paperless-ngx is the only invoice source
 - **Home Assistant integration** - Display ODO and fuel level from HA, push suggested fill-up to HA sensor
 - **Browser access** - Phone, tablet and desktop all reach the same instance over the local network

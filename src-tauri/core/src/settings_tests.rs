@@ -99,6 +99,7 @@ fn test_save_preserves_all_fields() {
         infer_trip_times: Some(false),
         show_datetime_picker: Some(false),
         hidden_columns: Some(vec!["time".to_string(), "fuelConsumed".to_string()]),
+        export_normalized: Some(true),
         ha_url: Some("http://ha.local:8123".to_string()),
         ha_api_token: Some("token123".to_string()),
         paperless_url: None,
@@ -126,6 +127,7 @@ fn test_save_preserves_all_fields() {
     assert_eq!(loaded.ha_api_token, Some("token123".to_string()));
     assert_eq!(loaded.infer_trip_times, Some(false));
     assert_eq!(loaded.show_datetime_picker, Some(false));
+    assert_eq!(loaded.export_normalized, Some(true));
 }
 
 #[test]
@@ -347,6 +349,30 @@ fn test_set_infer_trip_times_internal_round_trip() {
 
     set_infer_trip_times_internal(&app_dir, false).unwrap();
     assert!(!get_infer_trip_times_internal(&app_dir).unwrap());
+}
+
+// export_normalized tests
+#[test]
+fn test_get_export_normalized_internal_default_is_false() {
+    use crate::commands_internal::settings_cmd::get_export_normalized_internal;
+    let dir = tempdir().unwrap();
+    let result = get_export_normalized_internal(&dir.path().to_path_buf()).unwrap();
+    assert!(!result, "default must be OFF - the export follows the app view");
+}
+
+#[test]
+fn test_set_export_normalized_internal_round_trip() {
+    use crate::commands_internal::settings_cmd::{
+        get_export_normalized_internal, set_export_normalized_internal,
+    };
+    let dir = tempdir().unwrap();
+    let app_dir = dir.path().to_path_buf();
+
+    set_export_normalized_internal(&app_dir, true).unwrap();
+    assert!(get_export_normalized_internal(&app_dir).unwrap());
+
+    set_export_normalized_internal(&app_dir, false).unwrap();
+    assert!(!get_export_normalized_internal(&app_dir).unwrap());
 }
 
 // show_datetime_picker tests

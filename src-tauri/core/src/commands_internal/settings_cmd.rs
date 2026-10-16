@@ -131,6 +131,23 @@ pub fn set_infer_trip_times_internal(app_dir: &Path, enabled: bool) -> Result<()
 }
 
 // ============================================================================
+// Export Normalization Toggle
+// ============================================================================
+
+/// ON: the printed logbook is always ascending (oldest first) with all columns,
+/// whatever the grid view sends. OFF (default): the export follows the view.
+pub fn get_export_normalized_internal(app_dir: &Path) -> Result<bool, String> {
+    let settings = LocalSettings::load(app_dir);
+    Ok(settings.export_normalized.unwrap_or(false))
+}
+
+pub fn set_export_normalized_internal(app_dir: &Path, enabled: bool) -> Result<(), String> {
+    let mut settings = LocalSettings::load(app_dir);
+    settings.export_normalized = Some(enabled);
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+// ============================================================================
 // Datetime Picker Toggle
 // ============================================================================
 

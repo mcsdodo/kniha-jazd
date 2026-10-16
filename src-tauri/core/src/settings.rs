@@ -60,6 +60,7 @@ pub struct LocalSettings {
     pub infer_trip_times: Option<bool>, // None = OFF (default)
     pub show_datetime_picker: Option<bool>, // None = ON (default)
     pub hidden_columns: Option<Vec<String>>, // Hidden trip grid columns (e.g., ["time", "fuelConsumed"])
+    pub export_normalized: Option<bool>, // None = OFF: export follows the grid view
     // Home Assistant integration
     pub ha_url: Option<String>, // Home Assistant URL (e.g., "http://homeassistant.local:8123")
     pub ha_api_token: Option<String>, // Long-lived access token

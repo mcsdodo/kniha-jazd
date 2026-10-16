@@ -295,7 +295,12 @@ const en = {
 		languageSection: 'Language',
 		language: 'Application language',
 		// Appearance section
+		preferencesSection: 'Preferences',
 		appearanceSection: 'Appearance',
+		newEntriesSubsection: 'New entries',
+		exportSubsection: 'Export',
+		exportNormalizedLabel: 'Always print the logbook in a standard layout',
+		exportNormalizedDescription: 'The export is always ascending (oldest trip on top) and shows all columns, whatever the sort order and hidden columns in the table. If off, the export follows the table view.',
 		themeLabel: 'Theme',
 		themeSystem: 'System default',
 		themeLight: 'Light',
