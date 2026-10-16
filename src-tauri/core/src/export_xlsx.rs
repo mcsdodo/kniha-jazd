@@ -72,7 +72,7 @@ fn write_logbook(ws: &mut Worksheet, data: &ExportData) -> Result<(), XlsxError>
 
     // Header block, in the printout order: label in A, value in B.
     let mut row: u32 = 2;
-    let mut text_item = |ws: &mut Worksheet, row: &mut u32, label: &str, value: &str| {
+    let text_item = |ws: &mut Worksheet, row: &mut u32, label: &str, value: &str| {
         ws.write_string_with_format(*row, 0, label, &bold)?;
         ws.write_string(*row, 1, value)?;
         *row += 1;
@@ -84,7 +84,7 @@ fn write_logbook(ws: &mut Worksheet, data: &ExportData) -> Result<(), XlsxError>
     text_item(ws, &mut row, &l.header_license_plate, &v.license_plate)?;
 
     // The printout prints the specs with `{}`, so General keeps their decimals.
-    let mut spec = |ws: &mut Worksheet, row: &mut u32, label: &str, value: Option<f64>, unit: &str| {
+    let spec = |ws: &mut Worksheet, row: &mut u32, label: &str, value: Option<f64>, unit: &str| {
         ws.write_string_with_format(*row, 0, label, &bold)?;
         ws.write_number_with_format(
             *row,
