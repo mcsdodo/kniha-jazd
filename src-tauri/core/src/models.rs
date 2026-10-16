@@ -398,6 +398,10 @@ pub struct TripStats {
     pub avg_consumption_rate: f64, // Average: total_fuel / total_km * 100
     pub last_consumption_rate: f64, // From last fill-up period (for margin calculation)
     pub margin_percent: Option<f64>, // None if no fill-up yet
+    /// Year fuel / year km as % of TP: the export footer's "Odchýlka od TP".
+    /// None without fuel or TP. The headline shows this; the legal check
+    /// (`margin_percent`, `is_over_limit`) stays per fill-up period.
+    pub overall_deviation_percent: Option<f64>,
     pub is_over_limit: bool,
     pub total_km: f64,
     pub total_fuel_liters: f64,

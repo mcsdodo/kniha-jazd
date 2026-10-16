@@ -6,6 +6,18 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ## 2026-10-16: Excel Export
 
+### BIZ-029: The 20 % limit applies to each fill-up period; the headline shows the year
+
+**Context:** The app headline "Odchýlka" showed the worst fill-up period as % above TP (19.97 % for a real year). The export footer "Odchýlka od TP" showed the year average as % of TP (115.2 % for the same year). Commit `8ab4816` (2026-01-21) moved the headline to the worst period with the note "each window is separately auditable", but no decision entry recorded the rule, and BIZ-003 does not say per period or per year.
+
+**Decision:**
+- Legally, EACH fill-up period must stay within 120 % of TP (confirmed by the user). The over-limit warning, the compensation banner and the suggestions keep the worst period (`margin_percent`, `is_over_limit`).
+- The headline value is the year as a whole: `TripStats.overall_deviation_percent`, computed by `ExportTotals::calculate`, so the app and both exports show the same number. The headline keeps the warning style from the per-period check.
+
+**Reasoning:** The per-period rule is what the law checks, so the warning must not weaken to an average. The headline is a summary of the year, and the printout already summarizes the year. One function for both values keeps them equal.
+
+---
+
 ### ADR-062: The xlsx export shares one table model with the printout and has no formulas
 
 **Context:** A tax audit (daňová kontrola) can ask for the logbook in a form that an auditor can sort, filter and sum. The print export ([Task 92](./_tasks/92-excel-export/)) gives only HTML for a PDF. The Excel file is legal evidence too, so it must not show a value, a row or a total that the printout does not show.

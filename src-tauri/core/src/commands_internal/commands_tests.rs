@@ -5897,3 +5897,44 @@ fn receipt_times_outside_match_the_warning_sets() {
     set.sort();
     assert_eq!(keys, set);
 }
+
+/// The headline shows the year as a whole, the same value as the export
+/// footer ("Odchýlka od TP", ExportTotals). The legal check stays per
+/// fill-up period: margin_percent and is_over_limit use the worst period.
+#[test]
+fn trip_stats_overall_deviation_is_the_export_value() {
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+    let vehicle =
+        crate::models::Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 50.0, 5.0, 0.0);
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+    // Period 1: 6.0 L / 100 km = 120 % of TP (margin 20 %).
+    // Period 2: 4.5 L / 100 km.  Year: 10.5 L / 200 km = 5.25 = 105 % of TP.
+    for (day, liters, odo) in [(1, 6.0, 100.0), (2, 4.5, 200.0)] {
+        let mut trip = make_trip_with_fuel(NaiveDate::from_ymd_opt(2026, 3, day).unwrap(), liters, 10.0);
+        trip.vehicle_id = vehicle.id;
+        trip.odometer = odo;
+        db.create_trip(&db.with_places_for_test(&trip)).expect("Failed to create trip");
+    }
+
+    let stats = calculate_trip_stats_internal(&db, vehicle.id.to_string(), 2026).unwrap();
+
+    let overall = stats.overall_deviation_percent.expect("a year with fuel has a value");
+    assert!((overall - 105.0).abs() < 1e-9, "overall = {overall}");
+    let worst = stats.margin_percent.expect("worst period margin");
+    assert!((worst - 20.0).abs() < 1e-9, "worst = {worst}");
+}
+
+#[test]
+fn trip_stats_overall_deviation_is_none_without_fuel() {
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+    let vehicle =
+        crate::models::Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 50.0, 5.0, 0.0);
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+    let mut trip = make_trip_without_fuel(NaiveDate::from_ymd_opt(2026, 3, 1).unwrap());
+    trip.vehicle_id = vehicle.id;
+    db.create_trip(&db.with_places_for_test(&trip)).expect("Failed to create trip");
+
+    let stats = calculate_trip_stats_internal(&db, vehicle.id.to_string(), 2026).unwrap();
+    assert_eq!(stats.overall_deviation_percent, None);
+}

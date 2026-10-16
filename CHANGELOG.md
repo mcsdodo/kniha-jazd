@@ -29,6 +29,7 @@ databázu len na čítanie.
 - **Výber dátumu a času** - vedľa začiatku a konca je tlačidlo s kalendárom. V Nastaveniach ho vypnete voľbou "Zobraziť výber dátumu a času" (predvolene zapnuté).
 
 ### Zmenené
+- **Odchýlka v hlavičke za celý rok** - hodnota "Odchýlka" nad tabuľkou ukazuje celý rok, rovnako ako "Odchýlka od TP" v exporte (napríklad 115,2 % z TP). Predtým ukazovala najhoršie obdobie medzi tankovaniami ako % nad TP (napríklad 20,0 %). Kontrola zákonného limitu 20 % zostáva pre každé obdobie zvlášť: varovanie a návrh kompenzačných jázd sa nemenia.
 - **Sekcia "Predvoľby" v Nastaveniach** - sekcia "Vzhľad" sa volá "Predvoľby" a má tri časti: "Vzhľad", "Nové záznamy" a "Export". Voľba "Automaticky vyplniť časy podľa poslednej trasy" sa presunula z časti "Nastavenia spoločnosti" do časti "Nové záznamy".
 
 ### Opravené

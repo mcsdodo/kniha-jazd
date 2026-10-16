@@ -222,4 +222,71 @@ describe('Tier 1: Consumption & Margin Warnings', () => {
       }
     });
   });
+
+  describe('Headline deviation', () => {
+    /**
+     * The headline shows the whole year, the same "% of TP" value as the
+     * export footer. The legal check stays per fill-up period, so a year whose
+     * average is fine still gets the warning style when one period is over.
+     * The arithmetic is proven in Rust (trip_stats_overall_deviation_*).
+     */
+    it('shows the overall year value with the per-period warning', async () => {
+      const vehicleData = createTestIceVehicle({
+        name: 'Headline Deviation Vehicle',
+        licensePlate: 'HDV-001',
+        initialOdometer: 30000,
+        tpConsumption: 5.0,
+        tankSizeLiters: 50,
+      });
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+      const year = new Date().getFullYear();
+
+      // Period 1: 6.5 L / 100 km = 130 % of TP (over the limit).
+      // Period 2: 4.5 L / 100 km. Year: 11 L / 200 km = 5.5 = 110 % of TP.
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-03-01T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 100,
+        odometer: 30100,
+        purpose: TripPurposes.business,
+        fuelLiters: 6.5,
+        fuelCostEur: 10,
+        fullTank: true,
+      });
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-03-02T08:00`,
+        origin: SlovakCities.trnava,
+        destination: SlovakCities.bratislava,
+        distanceKm: 100,
+        odometer: 30200,
+        purpose: TripPurposes.business,
+        fuelLiters: 4.5,
+        fuelCostEur: 7,
+        fullTank: true,
+      });
+      await setActiveVehicle(vehicle.id as string);
+
+      const value = await $('[data-testid="headline-deviation"]');
+      await value.waitForDisplayed({
+        timeout: 10000,
+        timeoutMsg: 'The headline deviation never appeared',
+      });
+      await browser.waitUntil(async () => (await value.getText()) === '110.0%', {
+        timeout: 10000,
+        timeoutMsg: `Headline deviation should be the year value 110.0%, got ${await value.getText()}`,
+      });
+      const item = await value.parentElement();
+      expect(await item.getAttribute('class')).toContain('warning');
+    });
+  });
 });

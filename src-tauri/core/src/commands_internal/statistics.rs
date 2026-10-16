@@ -74,6 +74,7 @@ pub fn calculate_trip_stats_internal(
             avg_consumption_rate: 0.0,
             last_consumption_rate: 0.0,
             margin_percent: None,
+            overall_deviation_percent: None,
             is_over_limit: false,
             total_km: 0.0,
             total_fuel_liters: 0.0,
@@ -174,11 +175,19 @@ pub fn calculate_trip_stats_internal(
         None
     };
 
+    // The same value the export footer prints, from the same function.
+    let overall_deviation_percent = if total_fuel > 0.0 && tp_consumption > 0.0 {
+        Some(crate::export::ExportTotals::calculate(&trips, tp_consumption, 0.0).deviation_percent)
+    } else {
+        None
+    };
+
     Ok(TripStats {
         fuel_remaining_liters: current_fuel,
         avg_consumption_rate,
         last_consumption_rate,
         margin_percent: display_margin,
+        overall_deviation_percent,
         is_over_limit,
         total_km,
         total_fuel_liters: total_fuel,

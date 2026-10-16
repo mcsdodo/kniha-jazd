@@ -320,10 +320,13 @@
 						<span class="label">{$LL.stats.consumption()}</span>
 						<span class="value">{stats.avgConsumptionRate.toFixed(2)} L/100km</span>
 					</div>
-					{#if stats.marginPercent !== null}
+					{#if stats.overallDeviationPercent !== null}
+						<!-- The year as a whole (the export value); the warning stays per fill-up period. -->
 						<div class="info-item" class:warning={stats.isOverLimit}>
 							<span class="label">{$LL.stats.deviation()}</span>
-							<span class="value">{stats.marginPercent.toFixed(1)}%</span>
+							<span class="value" data-testid="headline-deviation"
+								>{stats.overallDeviationPercent.toFixed(1)}%</span
+							>
 						</div>
 					{/if}
 					{#if haOdoCache}

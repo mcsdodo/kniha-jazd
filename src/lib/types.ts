@@ -166,7 +166,9 @@ export interface TripStats {
 	fuelRemainingLiters: number;
 	avgConsumptionRate: number; // Average: total_fuel / total_km * 100
 	lastConsumptionRate: number; // From last fill-up period (for margin)
-	marginPercent: number | null; // null if no fill-up yet
+	marginPercent: number | null; // worst fill-up period, % above TP; null if no fill-up yet
+	/** Year fuel / year km as % of TP, the export footer's value; null without fuel. */
+	overallDeviationPercent: number | null;
 	isOverLimit: boolean;
 	totalKm: number;
 	totalFuelLiters: number;
