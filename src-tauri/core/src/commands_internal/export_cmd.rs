@@ -25,6 +25,31 @@ pub async fn export_html_internal(
     hidden_columns: Vec<String>,
     sort_direction: String,
 ) -> Result<String, String> {
+    let data = build_export_data(
+        db,
+        app_dir,
+        vehicle_id,
+        year,
+        labels,
+        hidden_columns,
+        sort_direction,
+    )
+    .await?;
+    generate_html(data)
+}
+
+/// Build everything one export renders: settings, grid, the synthetic first
+/// record, totals and the route-map pages. The HTML and the xlsx export both
+/// start here, so they cannot see different data.
+pub async fn build_export_data(
+    db: &Database,
+    app_dir: &Path,
+    vehicle_id: String,
+    year: i32,
+    labels: ExportLabels,
+    hidden_columns: Vec<String>,
+    sort_direction: String,
+) -> Result<ExportData, String> {
     // The normalized setting wins over the view the grid sends, so a printed
     // logbook does not depend on how the user last sorted or trimmed the grid.
     let (hidden_columns, sort_direction) =
@@ -118,5 +143,5 @@ pub async fn export_html_internal(
         route_maps: map_pages,
     };
 
-    generate_html(export_data)
+    Ok(export_data)
 }
