@@ -4,6 +4,30 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-16: Excel Export
+
+### ADR-062: The xlsx export shares one table model with the printout and has no formulas
+
+**Context:** A tax audit (daňová kontrola) can ask for the logbook in a form that an auditor can sort, filter and sum. The print export ([Task 92](./_tasks/92-excel-export/)) gives only HTML for a PDF. The Excel file is legal evidence too, so it must not show a value, a row or a total that the printout does not show.
+
+**Options considered:**
+1. Excel formulas for the totals and the consumption - the auditor sees how a number comes about.
+2. Fixed values from the backend, with number formats - the file shows only what the backend calculated.
+3. A second, separate xlsx renderer that copies the column rules of `generate_html`.
+4. One shared table model (`export_table.rs`) that both renderers read.
+
+**Decision:**
+- Option 2: no formulas. A number cell holds the exact backend value; its number format shows the decimals of the printout. So SUM over a column matches the footer total. The user chose exact values over rounded values.
+- Option 4: `build_export_table` decides the columns, the row order and the typed cells (`CellValue`). `generate_html` and `generate_xlsx` only render it. `build_export_data` builds the `ExportData` for both commands, so the settings (`export_normalized`, hidden columns, sort direction) apply the same way.
+- The route maps go on sheet 2, with the same "Príloha č. N - záznam č. M" heading and the OSM attribution.
+- `export_xlsx` returns `{ fileName, base64 }` over the existing JSON-RPC. There is no binary HTTP route.
+
+**Reasoning:** The backend calculates the consumption per fill-up period (ADR-008). A formula that the auditor reads differently from the app gives two values for one fact in a legal record. Two renderers with their own column rules drift: the print export guards each hideable column in three places today, and the model removes that. Golden files pin the printed HTML byte for byte, so the refactor could not change the printout. Base64 over JSON-RPC is the same path that already carries the map images of the HTML export, so a new route gives nothing.
+
+**Trade-offs accepted:** The auditor can see more decimals in the formula bar than the printout shows. A year with many maps gives a large file (about 700 KB per map).
+
+---
+
 ## 2026-10-13: Fill-up Cap Near the Tank Size
 
 ### BIZ-028: A suggested fill-up stays below the tank size
