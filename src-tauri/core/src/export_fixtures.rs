@@ -6,6 +6,7 @@ use super::*;
 use crate::models::MonthEndRow;
 use chrono::{NaiveDate, NaiveDateTime, TimeZone, Utc};
 use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
 
 fn at(month: u32, day: u32, hour: u32, minute: u32) -> NaiveDateTime {
     NaiveDate::from_ymd_opt(2026, month, day)
