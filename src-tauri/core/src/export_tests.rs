@@ -252,3 +252,36 @@ fn the_trip_table_gains_no_column() {
     assert!(headers_without > 0, "sanity: the table must have headers");
     assert_eq!(headers_without, with.matches("<th").count());
 }
+
+/// Compare a rendered document with its recorded golden file. With
+/// `UPDATE_GOLDEN=1` the test records the file instead. The golden files
+/// pin the printout byte for byte, so a refactor of `generate_html` cannot
+/// change what is printed without a visible diff.
+fn assert_golden(name: &str, html: &str) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src/testdata")
+        .join(name);
+    if std::env::var_os("UPDATE_GOLDEN").is_some() {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, html).unwrap();
+        return;
+    }
+    let golden = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("missing golden file {}: {e}", path.display()));
+    assert!(
+        golden == html,
+        "{name} differs from the printed golden output"
+    );
+}
+
+#[test]
+fn golden_html_ice() {
+    let html = generate_html(super::fixtures::ice_export_data()).unwrap();
+    assert_golden("export_golden_ice.html", &html);
+}
+
+#[test]
+fn golden_html_phev() {
+    let html = generate_html(super::fixtures::phev_export_data()).unwrap();
+    assert_golden("export_golden_phev.html", &html);
+}

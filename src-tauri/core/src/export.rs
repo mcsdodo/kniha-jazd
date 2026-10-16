@@ -1255,5 +1255,9 @@ pub(crate) fn sample_export_labels() -> ExportLabels {
 }
 
 #[cfg(test)]
+#[path = "export_fixtures.rs"]
+pub(crate) mod fixtures;
+
+#[cfg(test)]
 #[path = "export_tests.rs"]
 mod tests;

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <title>page_title - BA 123/AB - 2026</title>
+  <style>
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 10mm;
+      }
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.3;
+      padding: 15px;
+      max-width: 297mm;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .header-section {
+      flex: 1;
+    }
+
+    .header-section p {
+      margin: 2px 0;
+    }
+
+    .label {
+      font-weight: bold;
+      color: #555;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      text-align: left;
+    }
+
+    th {
+      background: #e8e8e8;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    tr.month-end-synthetic {
+      background: #e8eef4;
+      font-style: italic;
+      border-left: 3px solid #6b8cae;
+      border-bottom: 2px solid #ccd6e0;
+    }
+
+    tr.month-end-trip {
+      background: #e8f4fc;
+      border-bottom: 2px solid #4a90d9;
+    }
+
+    .footer {
+      margin-top: 15px;
+      padding: 10px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .footer-item {
+      text-align: center;
+    }
+
+    .footer-value {
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .footer-label {
+      font-size: 9px;
+      color: #666;
+    }
+
+    .print-hint {
+      text-align: center;
+      margin-top: 20px;
+      color: #999;
+      font-size: 10px;
+    }
+
+    @media print {
+      .print-hint {
+        display: none;
+      }
+    }
+
+    .map-page {
+      page-break-before: always;
+      text-align: center;
+    }
+
+    .map-page img {
+      max-width: 100%;
+      max-height: 170mm;
+    }
+
+    .map-attribution {
+      font-size: 9px;
+      color: #666;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>page_title</h1>
+
+  <div class="header">
+    <div class="header-section">
+      <p><span class="label">header_company</span> Firma &amp; Syn s.r.o.</p>
+      <p><span class="label">header_ico</span> 12345678</p>
+    </div>
+    <div class="header-section">
+      <p><span class="label">header_vehicle</span> Škoda Octavia</p>
+      <p><span class="label">header_license_plate</span> BA 123/AB</p>
+    </div>
+    <div class="header-section">
+      <p><span class="label">header_tank_size</span> 50 L</p>
+      <p><span class="label">header_tp_consumption</span> 6.5 l/100km</p>
+    </div>
+    <div class="header-section">
+      <p><span class="label">header_year</span> 2026</p>
+      <p><span class="label">header_vin</span> TMBJJ7NE0K0123456</p>
+      <p><span class="label">header_driver</span> Ján Novák</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>col_trip_number</th>
+        <th>col_start_datetime</th>
+        <th>col_end_datetime</th>
+        <th>col_driver</th>
+        <th>col_origin</th>
+        <th>col_destination</th>
+        <th>col_purpose</th>
+        <th>col_km</th>
+        <th>col_odo_start</th>
+        <th>col_odo</th>
+        <th>col_fuel_liters</th>
+        <th>col_fuel_cost</th>
+        <th>col_remaining</th>
+        <th>col_consumption</th>
+        <th>col_other_costs</th>
+        <th>col_note</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td class="num">3</td>
+          <td>03.02. 10:00</td>
+          <td>03.02. 11:05</td>
+          <td>Ján Novák</td>
+          <td>Nitra</td>
+          <td>Bratislava</td>
+          <td>služobná cesta</td>
+          <td class="num">92</td>
+          <td class="num">10115</td>
+          <td class="num">10207</td>
+          <td class="num"></td>
+          <td class="num"></td>
+          <td class="num">50.0</td>
+          <td class="num">6.10</td>
+          <td class="num"></td>
+          <td></td>
+        </tr>
+        <tr class="month-end-synthetic">
+          <td></td>
+          <td>31.01. -</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td class="num">10115</td>
+          <td class="num">10115</td>
+          <td></td>
+          <td></td>
+          <td class="num">55.6</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="num">2</td>
+          <td>20.01. 07:15</td>
+          <td>20.01. -</td>
+          <td>Ján Novák</td>
+          <td>Trnava</td>
+          <td>Nitra</td>
+          <td>služobná cesta</td>
+          <td class="num">55</td>
+          <td class="num">10060</td>
+          <td class="num">10115</td>
+          <td class="num">12.35</td>
+          <td class="num">20.99</td>
+          <td class="num">55.6</td>
+          <td class="num">5.88</td>
+          <td class="num"></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td class="num">1</td>
+          <td>05.01. 08:00</td>
+          <td>05.01. 09:30</td>
+          <td>Ján Novák</td>
+          <td>Bratislava</td>
+          <td>Trnava</td>
+          <td>služobná cesta</td>
+          <td class="num">60</td>
+          <td class="num">10000</td>
+          <td class="num">10060</td>
+          <td class="num"></td>
+          <td class="num"></td>
+          <td class="num">46.5</td>
+          <td class="num">5.88</td>
+          <td class="num">3.50</td>
+          <td>parkovné &amp; &lt;diaľnica&gt;</td>
+        </tr>
+        <tr class="month-end-synthetic">
+          <td class="num"></td>
+          <td>01.01. 00:00</td>
+          <td>01.01. -</td>
+          <td>Ján Novák</td>
+          <td>-</td>
+          <td>-</td>
+          <td>Prvý záznam</td>
+          <td class="num">0</td>
+          <td class="num">10000</td>
+          <td class="num">10000</td>
+          <td class="num"></td>
+          <td class="num"></td>
+          <td class="num">50.0</td>
+          <td class="num">0.00</td>
+          <td class="num"></td>
+          <td></td>
+        </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="footer-grid">
+      <div class="footer-item">
+        <div class="footer-value">207 km</div>
+        <div class="footer-label">footer_total_km</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">12.35 L / 20.99 €</div>
+        <div class="footer-label">footer_total_fuel</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">3.50 €</div>
+        <div class="footer-label">footer_other_costs</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">5.96 l/100km</div>
+        <div class="footer-label">footer_avg_consumption</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">91.8%</div>
+        <div class="footer-label">footer_deviation</div>
+      </div>
+      <div class="footer-item">
+        <div class="footer-value">6.5 l/100km</div>
+        <div class="footer-label">footer_tp_norm</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="print-hint">print_hint</p>
+
+  <div class="map-page">
+    <h2>Príloha č. 1 — záznam č. 2</h2>
+    <img src="data:image/png;base64,iVBORw0KGgo=" alt="">
+    <p class="map-attribution">© OpenStreetMap contributors</p>
+  </div>
+</body>
+</html>
