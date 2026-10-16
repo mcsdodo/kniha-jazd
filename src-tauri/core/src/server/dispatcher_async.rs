@@ -220,6 +220,35 @@ pub async fn dispatch_async(
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
 
+        "export_xlsx" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                year: i32,
+                labels: crate::export::ExportLabels,
+                #[serde(default)]
+                hidden_columns: Vec<String>,
+                #[serde(default = "default_sort_direction")]
+                sort_direction: String,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::export_xlsx_internal(
+                &state.db,
+                &state.app_dir,
+                a.vehicle_id,
+                a.year,
+                a.labels,
+                a.hidden_columns,
+                a.sort_direction,
+            )
+            .await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
+
         // ====================================================================
         // Route maps -- async (2, OSRM geometry fetch)
         // ====================================================================
@@ -848,6 +877,91 @@ mod tests {
             ascending.contains(r#"<div class="footer-value">120 km</div>"#),
             "total distance should be 120 km - the synthetic row must contribute none"
         );
+    }
+
+    /// export_xlsx returns a named xlsx file and honours the same view
+    /// arguments as export_html (it shares build_export_data).
+    #[tokio::test]
+    async fn export_xlsx_returns_a_named_xlsx_file() {
+        use crate::models::{Settings, Trip};
+        use base64::Engine;
+        use calamine::{open_workbook_from_rs, Reader, Xlsx};
+        use chrono::{NaiveDate, Utc};
+
+        let dir = tempfile::tempdir().unwrap();
+        let db = std::sync::Arc::new(crate::db::Database::in_memory().unwrap());
+        let vehicle =
+            crate::models::Vehicle::new_ice("Test".into(), "BA-123AB".into(), 50.0, 6.5, 10_000.0);
+        db.create_vehicle(&vehicle).unwrap();
+        db.save_settings(&Settings::default()).unwrap();
+        let trip = Trip {
+            origin_place_id: uuid::Uuid::nil(),
+            destination_place_id: uuid::Uuid::nil(),
+            id: uuid::Uuid::new_v4(),
+            vehicle_id: vehicle.id,
+            start_datetime: NaiveDate::from_ymd_opt(2026, 3, 1)
+                .unwrap()
+                .and_hms_opt(8, 0, 0)
+                .unwrap(),
+            end_datetime: None,
+            origin: "Bratislava".into(),
+            destination: "TRNAVA".into(),
+            distance_km: 60.0,
+            odometer: 10_060.0,
+            purpose: "test".into(),
+            fuel_liters: None,
+            fuel_cost_eur: None,
+            full_tank: false,
+            energy_kwh: None,
+            energy_cost_eur: None,
+            full_charge: false,
+            soc_override_percent: None,
+            other_costs_eur: None,
+            other_costs_note: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        db.create_trip(&db.with_places_for_test(&trip)).unwrap();
+        let state = ServerState {
+            db,
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: dir.path().to_path_buf(),
+            static_dir: std::env::temp_dir(),
+        };
+
+        let mut labels = serde_json::to_value(crate::export::sample_export_labels()).unwrap();
+        labels["col_end_datetime"] = serde_json::json!("CAS-MARKER");
+        let result = dispatch_async(
+            "export_xlsx",
+            serde_json::json!({
+                "vehicleId": vehicle.id.to_string(),
+                "year": 2026,
+                "labels": labels,
+                "hiddenColumns": ["time"],
+                "sortDirection": "desc"
+            }),
+            &state,
+        )
+        .await
+        .expect("export_xlsx must be handled here")
+        .unwrap();
+
+        assert_eq!(result["fileName"], "kniha-jazd-BA-123AB-2026.xlsx");
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(result["base64"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(&bytes[..2], b"PK", "an xlsx file is a zip");
+
+        let mut book: Xlsx<_> = open_workbook_from_rs(std::io::Cursor::new(bytes)).unwrap();
+        let range = book.worksheet_range("Kniha jázd").unwrap();
+        let has_marker = range
+            .used_cells()
+            .any(|(_, _, v)| *v == calamine::Data::String("CAS-MARKER".into()));
+        assert!(!has_marker, "hiddenColumns was ignored - the time column is in the file");
+        let has_trip = range
+            .used_cells()
+            .any(|(_, _, v)| *v == calamine::Data::String("TRNAVA".into()));
+        assert!(has_trip, "the trip must be in the file");
     }
 
     /// With the `export_normalized` setting ON, the export is always ascending

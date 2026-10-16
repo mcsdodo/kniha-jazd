@@ -5,6 +5,9 @@ use std::path::Path;
 use crate::commands_internal::{route_maps, statistics};
 use crate::db::Database;
 use crate::export::{generate_html, ExportData, ExportLabels, ExportTotals};
+use crate::export_xlsx::generate_xlsx;
+use base64::Engine;
+use serde::Serialize;
 use crate::route_map::tiles::CachedTileFetcher;
 
 /// Generate the printed logbook HTML.
@@ -36,6 +39,59 @@ pub async fn export_html_internal(
     )
     .await?;
     generate_html(data)
+}
+
+/// A downloadable file over JSON-RPC: the name the browser saves it as and
+/// the bytes as base64.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportFile {
+    pub file_name: String,
+    pub base64: String,
+}
+
+/// Generate the logbook as an xlsx file. It uses the same data, settings and
+/// arguments as the printout (`export_html_internal`).
+pub async fn export_xlsx_internal(
+    db: &Database,
+    app_dir: &Path,
+    vehicle_id: String,
+    year: i32,
+    labels: ExportLabels,
+    hidden_columns: Vec<String>,
+    sort_direction: String,
+) -> Result<ExportFile, String> {
+    let data = build_export_data(
+        db,
+        app_dir,
+        vehicle_id,
+        year,
+        labels,
+        hidden_columns,
+        sort_direction,
+    )
+    .await?;
+    let bytes = generate_xlsx(&data)?;
+    Ok(ExportFile {
+        file_name: xlsx_file_name(&data.vehicle.license_plate, year),
+        base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+    })
+}
+
+/// `kniha-jazd-<plate>-<year>.xlsx`; a plate character that is not an ASCII
+/// letter, digit, `-` or `_` becomes `-`, so the name is safe on every OS.
+fn xlsx_file_name(license_plate: &str, year: i32) -> String {
+    let plate: String = license_plate
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("kniha-jazd-{plate}-{year}.xlsx")
 }
 
 /// Build everything one export renders: settings, grid, the synthetic first
@@ -144,4 +200,18 @@ pub async fn build_export_data(
     };
 
     Ok(export_data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn xlsx_file_name_replaces_unsafe_characters() {
+        assert_eq!(
+            xlsx_file_name("BA 123/AB", 2026),
+            "kniha-jazd-BA-123-AB-2026.xlsx"
+        );
+        assert_eq!(xlsx_file_name("BA-123AB", 2026), "kniha-jazd-BA-123AB-2026.xlsx");
+    }
 }
