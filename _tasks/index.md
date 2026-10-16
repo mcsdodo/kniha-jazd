@@ -8,7 +8,7 @@ Quick overview of all tasks and their status.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 92 | [Excel Export](92-excel-export/) | 📋 Planning | `.xlsx` export for a tax audit: the same header, rows, totals and settings as the print export; route maps on sheet 2; exact values, shown rounded; no formulas |
+| 92 | [Excel Export](92-excel-export/) | ✅ Complete | `.xlsx` export for a tax audit: the same header, rows, totals and settings as the print export; route maps on sheet 2; exact values, shown rounded; no formulas |
 | 91 | [Loop Generator Bratislava](91-loop-generator-bratislava/) | ✅ Complete | The loop starts at the trip's place; Bratislava districts are the second candidate set (OSRM `/table` matrix); numbered vias on `/mapa` |
 | 90 | [Fuelio Cross-Check](90-fuelio-crosscheck/) | 🟡 In Progress | POC: read-only list of Fuelio GPS drives matched to logbook trips; flags missing trips, time/km differences and a different route |
 | 84 | [Paperless-Only Invoices](84-paperless-only-invoices/) | 🟡 In Progress | Implemented on branch `feat/84-paperless-only-invoices`; removes local receipts + Gemini OCR, makes Paperless the only invoice source, drops the `receipts` table. Not merged yet |

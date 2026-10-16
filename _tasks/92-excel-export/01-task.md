@@ -1,6 +1,6 @@
 **Date:** 2026-10-16
 **Subject:** Export the logbook to Excel (`.xlsx`) next to the print export
-**Status:** Planning
+**Status:** Complete
 
 ## Goal
 
