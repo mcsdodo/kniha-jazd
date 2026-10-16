@@ -214,7 +214,12 @@
 				await getHiddenColumns(),
 				exportSortDirection
 			);
-			const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
+			// A plain loop into a preallocated array: Uint8Array.from(str, fn)
+			// first builds a list of every character, and with route maps the
+			// file is 100+ MB, which crashes the tab.
+			const binary = atob(file.base64);
+			const bytes = new Uint8Array(binary.length);
+			for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 			const blob = new Blob([bytes], {
 				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 			});
