@@ -206,3 +206,23 @@ fn every_row_has_one_cell_per_column() {
         }
     }
 }
+
+/// The printout rounds the way a spreadsheet shows a number format: first to
+/// 15 significant digits, then half away from zero. So a cell of the xlsx
+/// file shows the same text as the printout, also at a tie.
+#[test]
+fn display_rounds_like_a_spreadsheet() {
+    let shown = |value: f64, decimals: usize| CellValue::Number { value, decimals }.display();
+    assert_eq!(shown(40.25, 1), "40.3");
+    assert_eq!(shown(12.5, 0), "13");
+    assert_eq!(shown(2.5, 0), "3");
+    assert_eq!(shown(0.125, 2), "0.13");
+    assert_eq!(shown(1.005, 2), "1.01");
+    assert_eq!(shown(2.675, 2), "2.68");
+    assert_eq!(shown(9.825, 2), "9.83");
+    assert_eq!(shown(150.0 * 6.55 / 100.0, 2), "9.83");
+    assert_eq!(shown(-2.5, 0), "-3");
+    assert_eq!(shown(-0.0001, 2), "0.00");
+    assert_eq!(shown(12.3456, 2), "12.35");
+    assert_eq!(shown(10115.0, 0), "10115");
+}

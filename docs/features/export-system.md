@@ -163,7 +163,7 @@ the synthetic first record, the totals and the route-map pages.
 **Sheet 1** (`sheet_logbook`, "Kniha jázd"):
 - The header items as label/value rows, in the printout order.
 - The trip table: a number cell holds the exact backend value, and its number format
-  shows the printout decimals (`0`, `0.0`, `0.00`). A date is a date cell shown as
+  shows the printout decimals (`0`, `0.0`, `0.00`). The printout rounds with `format_decimals` (15 significant digits, then half away from zero), so a cell and the printout show the same text, also at a tie such as 40.25. A date is a date cell shown as
   `dd.mm. hh:mm`; a printout cell with a dash (`"20.01. -"`) is text. The first record
   and the month-end rows have the printout's blue-grey fill.
 - Frozen header row, autofilter, A4 landscape, 1 page wide, header row repeated on

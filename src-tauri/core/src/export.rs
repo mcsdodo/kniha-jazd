@@ -1,6 +1,6 @@
 //! HTML export functionality for Kniha jázd
 
-use crate::export_table::{build_export_table, CellValue, RowKind};
+use crate::export_table::{build_export_table, format_decimals, CellValue, RowKind};
 use crate::models::{Settings, Trip, TripGridData, Vehicle, VehicleType};
 use serde::{Deserialize, Serialize};
 
@@ -336,122 +336,122 @@ pub fn generate_html(data: ExportData) -> Result<String, String> {
     let footer_items = match vehicle_type {
         VehicleType::Ice => format!(
             r#"      <div class="footer-item">
-        <div class="footer-value">{:.0} km</div>
+        <div class="footer-value">{} km</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} L / {:.2} €</div>
+        <div class="footer-value">{} L / {} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} €</div>
+        <div class="footer-value">{} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} l/100km</div>
+        <div class="footer-value">{} l/100km</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.1}%</div>
+        <div class="footer-value">{}%</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
         <div class="footer-value">{} l/100km</div>
         <div class="footer-label">{}</div>
       </div>"#,
-            data.totals.total_km,
+            format_decimals(data.totals.total_km, 0),
             html_escape(&l.footer_total_km),
-            data.totals.total_fuel_liters,
-            data.totals.total_fuel_cost,
+            format_decimals(data.totals.total_fuel_liters, 2),
+            format_decimals(data.totals.total_fuel_cost, 2),
             html_escape(&l.footer_total_fuel),
-            data.totals.total_other_costs,
+            format_decimals(data.totals.total_other_costs, 2),
             html_escape(&l.footer_other_costs),
-            data.totals.avg_consumption,
+            format_decimals(data.totals.avg_consumption, 2),
             html_escape(&l.footer_avg_consumption),
-            data.totals.deviation_percent,
+            format_decimals(data.totals.deviation_percent, 1),
             html_escape(&l.footer_deviation),
             data.vehicle.tp_consumption.unwrap_or(0.0),
             html_escape(&l.footer_tp_norm),
         ),
         VehicleType::Bev => format!(
             r#"      <div class="footer-item">
-        <div class="footer-value">{:.0} km</div>
+        <div class="footer-value">{} km</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} kWh / {:.2} €</div>
+        <div class="footer-value">{} kWh / {} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} €</div>
+        <div class="footer-value">{} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} kWh/100km</div>
+        <div class="footer-value">{} kWh/100km</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.1}%</div>
+        <div class="footer-value">{}%</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
         <div class="footer-value">{} kWh/100km</div>
         <div class="footer-label">{}</div>
       </div>"#,
-            data.totals.total_km,
+            format_decimals(data.totals.total_km, 0),
             html_escape(&l.footer_total_km),
-            data.totals.total_energy_kwh,
-            data.totals.total_energy_cost,
+            format_decimals(data.totals.total_energy_kwh, 2),
+            format_decimals(data.totals.total_energy_cost, 2),
             html_escape(&l.footer_total_energy),
-            data.totals.total_other_costs,
+            format_decimals(data.totals.total_other_costs, 2),
             html_escape(&l.footer_other_costs),
-            data.totals.avg_energy_rate,
+            format_decimals(data.totals.avg_energy_rate, 2),
             html_escape(&l.footer_avg_energy_rate),
-            data.totals.energy_deviation_percent,
+            format_decimals(data.totals.energy_deviation_percent, 1),
             html_escape(&l.footer_deviation),
             data.vehicle.baseline_consumption_kwh.unwrap_or(0.0),
             html_escape(&l.footer_baseline_norm),
         ),
         VehicleType::Phev => format!(
             r#"      <div class="footer-item">
-        <div class="footer-value">{:.0} km</div>
+        <div class="footer-value">{} km</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} L / {:.2} €</div>
+        <div class="footer-value">{} L / {} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} kWh / {:.2} €</div>
+        <div class="footer-value">{} kWh / {} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} €</div>
+        <div class="footer-value">{} €</div>
         <div class="footer-label">{}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.2} l/100km / {:.2} kWh/100km</div>
+        <div class="footer-value">{} l/100km / {} kWh/100km</div>
         <div class="footer-label">{} / {}</div>
       </div>
       <div class="footer-item">
-        <div class="footer-value">{:.1}%</div>
+        <div class="footer-value">{}%</div>
         <div class="footer-label">{}</div>
       </div>"#,
-            data.totals.total_km,
+            format_decimals(data.totals.total_km, 0),
             html_escape(&l.footer_total_km),
-            data.totals.total_fuel_liters,
-            data.totals.total_fuel_cost,
+            format_decimals(data.totals.total_fuel_liters, 2),
+            format_decimals(data.totals.total_fuel_cost, 2),
             html_escape(&l.footer_total_fuel),
-            data.totals.total_energy_kwh,
-            data.totals.total_energy_cost,
+            format_decimals(data.totals.total_energy_kwh, 2),
+            format_decimals(data.totals.total_energy_cost, 2),
             html_escape(&l.footer_total_energy),
-            data.totals.total_other_costs,
+            format_decimals(data.totals.total_other_costs, 2),
             html_escape(&l.footer_other_costs),
-            data.totals.avg_consumption,
-            data.totals.avg_energy_rate,
+            format_decimals(data.totals.avg_consumption, 2),
+            format_decimals(data.totals.avg_energy_rate, 2),
             html_escape(&l.footer_avg_consumption),
             html_escape(&l.footer_avg_energy_rate),
-            data.totals.deviation_percent,
+            format_decimals(data.totals.deviation_percent, 1),
             html_escape(&l.footer_deviation),
         ),
     };

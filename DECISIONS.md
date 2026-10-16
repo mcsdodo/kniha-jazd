@@ -17,14 +17,15 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 4. One shared table model (`export_table.rs`) that both renderers read.
 
 **Decision:**
-- Option 2: no formulas. A number cell holds the exact backend value; its number format shows the decimals of the printout. So SUM over a column matches the footer total. The user chose exact values over rounded values.
+- Option 2: no formulas. A number cell holds the exact backend value; its number format shows the decimals of the printout. So SUM over a column adds the exact values, not the rounded texts. The user chose exact values over rounded values.
+- The printout rounds the way a spreadsheet shows a number format (`format_decimals`: 15 significant digits, then half away from zero). Rust's `{:.N}` rounds ties to even, so 40.25 printed as "40.2" while the cell showed "40.3". At such a tie the printout now shows the same text as the cell.
 - Option 4: `build_export_table` decides the columns, the row order and the typed cells (`CellValue`). `generate_html` and `generate_xlsx` only render it. `build_export_data` builds the `ExportData` for both commands, so the settings (`export_normalized`, hidden columns, sort direction) apply the same way.
 - The route maps go on sheet 2, with the same "Príloha č. N - záznam č. M" heading and the OSM attribution.
 - `export_xlsx` returns `{ fileName, base64 }` over the existing JSON-RPC. There is no binary HTTP route.
 
 **Reasoning:** The backend calculates the consumption per fill-up period (ADR-008). A formula that the auditor reads differently from the app gives two values for one fact in a legal record. Two renderers with their own column rules drift: the print export guards each hideable column in three places today, and the model removes that. Golden files pin the printed HTML byte for byte, so the refactor could not change the printout. Base64 over JSON-RPC is the same path that already carries the map images of the HTML export, so a new route gives nothing.
 
-**Trade-offs accepted:** The auditor can see more decimals in the formula bar than the printout shows. A year with many maps gives a large file (about 700 KB per map).
+**Trade-offs accepted:** The auditor can see more decimals in the formula bar than the printout shows. SUM over the fuel or cost column is not always the footer total: `ExportTotals` skips rows with 0 km, but the table shows their liters and costs. The printout had the same difference before this change. A printout made before this change can differ in the last digit at a tie value. A year with many maps gives a large file (about 700 KB per map).
 
 ---
 

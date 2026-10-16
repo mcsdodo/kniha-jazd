@@ -83,7 +83,7 @@ The auditor can then sort, filter and sum the data, and also print the file.
 | Level | Option 2: plain values + frozen header + autofilter + print setup. No formulas |
 | Attachments | On sheet 2 |
 | Header and settings | The same as the print export, the same settings |
-| Exact values | A number cell holds the exact backend value. Its number format shows it rounded, the same as the printout. So SUM over a column matches the footer total. The auditor can see more decimals in the formula bar; the user accepted this |
+| Exact values | A number cell holds the exact backend value. Its number format shows it rounded, the same as the printout. SUM over a column adds the exact values (a 0 km row with fuel is in the SUM but not in the footer total, see ADR-062). The auditor can see more decimals in the formula bar; the user accepted this |
 
 ## Calls made by the assistant (check these)
 

@@ -26,10 +26,26 @@ impl CellValue {
         match self {
             CellValue::Empty => String::new(),
             CellValue::Text(text) => text.clone(),
-            CellValue::Number { value, decimals } => format!("{:.*}", decimals, value),
+            CellValue::Number { value, decimals } => format_decimals(*value, *decimals),
             CellValue::DateTime(dt) => dt.format(date_formats::DISPLAY_DATE_TIME).to_string(),
         }
     }
+}
+
+/// Format `value` with `decimals` decimals the way a spreadsheet shows it
+/// with a number format: first round to 15 significant digits, then round
+/// half away from zero. Rust's `{:.N}` rounds the exact binary value with
+/// ties to even (40.25 -> "40.2"), which a spreadsheet shows as "40.3". The
+/// printout and the xlsx file must show the same text, so both use this.
+pub fn format_decimals(value: f64, decimals: usize) -> String {
+    let fifteen_digits = |v: f64| -> f64 {
+        format!("{:.14e}", v).parse().unwrap_or(v)
+    };
+    let scale = 10f64.powi(decimals as i32);
+    let rounded = fifteen_digits(fifteen_digits(value) * scale).round() / scale;
+    // Avoid "-0.00" for a value that rounds to zero.
+    let rounded = if rounded == 0.0 { 0.0 } else { rounded };
+    format!("{:.*}", decimals, rounded)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

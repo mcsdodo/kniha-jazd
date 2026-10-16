@@ -285,3 +285,15 @@ fn golden_html_phev() {
     let html = generate_html(super::fixtures::phev_export_data()).unwrap();
     assert_golden("export_golden_phev.html", &html);
 }
+
+#[test]
+fn footer_rounds_like_a_spreadsheet() {
+    // 40.25 L is a tie at 1 decimal and 2.5 km at 0 decimals: the footer
+    // must show what the xlsx footer cell shows.
+    let mut data = sample_export_data();
+    data.totals.total_km = 12.5;
+    data.totals.deviation_percent = 40.25;
+    let html = generate_html(data).unwrap();
+    assert!(html.contains(r#"<div class="footer-value">13 km</div>"#));
+    assert!(html.contains(r#"<div class="footer-value">40.3%</div>"#));
+}
