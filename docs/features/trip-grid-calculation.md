@@ -282,7 +282,8 @@ Important nuance: the UI and backend treat compliance as **per fill-up window** 
 
 If the vehicle is over limit, the header shows a compensation warning driven by `calculate_trip_stats`:
 
-- The displayed deviation uses the **worst** closed period (worst margin), not the yearly average.
+- The banner's deviation uses the **worst** closed period (worst margin), not the yearly average.
+- The headline "Odchýlka" is different: it shows the whole year as % of TP (`overall_deviation_percent`), the same value as the export footer. Only its warning style comes from the per-period check ([BIZ-029](../../DECISIONS.md)).
 - `buffer_km` is computed to target an 18% margin (safe buffer under the 20% legal limit), and the UI renders it as “additional km needed”.
 
 ### Estimated vs Calculated Rates
