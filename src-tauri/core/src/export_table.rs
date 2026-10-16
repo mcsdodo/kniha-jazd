@@ -183,8 +183,13 @@ fn opt_num(value: Option<f64>, decimals: usize) -> CellValue {
     value.map_or(CellValue::Empty, |v| num(v, decimals))
 }
 
+/// An empty text is an empty cell, so the xlsx file has no "" strings.
 fn text(s: &str) -> CellValue {
-    CellValue::Text(s.to_string())
+    if s.is_empty() {
+        CellValue::Empty
+    } else {
+        CellValue::Text(s.to_string())
+    }
 }
 
 fn trip_cell(data: &ExportData, trip: &Trip, col: Col) -> CellValue {

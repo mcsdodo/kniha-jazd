@@ -65,6 +65,19 @@ pub struct ExportLabels {
     // Route map attachment pages ("Príloha č. {n}", "záznam č. {row}")
     pub attachment_heading: String,
     pub record_reference: String,
+    // xlsx sheet names. A caller of export_html may omit them.
+    #[serde(default = "default_sheet_logbook")]
+    pub sheet_logbook: String,
+    #[serde(default = "default_sheet_attachments")]
+    pub sheet_attachments: String,
+}
+
+fn default_sheet_logbook() -> String {
+    "Kniha jázd".to_string()
+}
+
+fn default_sheet_attachments() -> String {
+    "Prílohy".to_string()
 }
 
 /// One appended A4-landscape attachment page. Carries only its attachment
@@ -726,6 +739,8 @@ pub(crate) fn sample_export_labels() -> ExportLabels {
         print_hint: String::new(),
         attachment_heading: "Príloha č.".to_string(),
         record_reference: "záznam č.".to_string(),
+        sheet_logbook: default_sheet_logbook(),
+        sheet_attachments: default_sheet_attachments(),
     }
 }
 

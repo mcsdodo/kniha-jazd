@@ -13,6 +13,7 @@ pub mod db;
 pub mod db_location;
 pub mod export;
 pub mod export_table;
+pub mod export_xlsx;
 pub mod fuelio;
 pub mod invoice;
 pub mod journeys;
