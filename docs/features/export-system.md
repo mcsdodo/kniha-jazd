@@ -1,6 +1,6 @@
 # Feature: Export System
 
-> Print-ready HTML export of the vehicle trip logbook with vehicle-type-specific templates (ICE/BEV/PHEV), calculated totals, and i18n support.
+> Print-ready HTML export and an Excel (`.xlsx`) export of the vehicle trip logbook, with vehicle-type-specific templates (ICE/BEV/PHEV), calculated totals, and i18n support.
 
 ## User Flow
 
@@ -140,16 +140,56 @@ Labels include:
 
 **Translation location:** the `export:` key in [sk/index.ts](../../src/lib/i18n/sk/index.ts) and [en/index.ts](../../src/lib/i18n/en/index.ts). Labels cover page title, headers, column names, footer labels, and print hints.
 
+### Excel Export
+
+The "Export do Excelu" button next to "Export pre tlač" downloads
+`kniha-jazd-<license plate>-<year>.xlsx`. It is for a tax audit: the auditor gets the
+same record as the printout, with real number cells to sort, filter and sum
+([ADR-062](../../DECISIONS.md), [Task 92](../../_tasks/92-excel-export/)).
+
+**One model, two renderers.** `build_export_table` in
+[export_table.rs](../../src-tauri/core/src/export_table.rs) decides the columns (vehicle
+type and hidden columns), the row order (trips and month-end rows by sort key, in the
+sort direction) and a typed value for each cell: empty, text, number with the decimals
+of the printout, or date-time. `generate_html` and `generate_xlsx`
+([export_xlsx.rs](../../src-tauri/core/src/export_xlsx.rs)) only render that model. Golden
+files in `src-tauri/core/src/testdata/` pin the printed HTML byte for byte.
+
+**One data path.** `build_export_data` in
+[export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) builds the
+`ExportData` for `export_html` and `export_xlsx` alike: the `export_normalized` setting,
+the synthetic first record, the totals and the route-map pages.
+
+**Sheet 1** (`sheet_logbook`, "Kniha jázd"):
+- The header items as label/value rows, in the printout order.
+- The trip table: a number cell holds the exact backend value, and its number format
+  shows the printout decimals (`0`, `0.0`, `0.00`). A date is a date cell shown as
+  `dd.mm. hh:mm`; a printout cell with a dash (`"20.01. -"`) is text. The first record
+  and the month-end rows have the printout's blue-grey fill.
+- Frozen header row, autofilter, A4 landscape, 1 page wide, header row repeated on
+  each printed page.
+- The footer totals, one value per row (`"X L / Y €"` becomes two rows with the same
+  label). Units sit in the number format. The deviation is `112.3` shown as `112.3%`.
+  No formulas: every total is the `ExportTotals` value.
+
+**Sheet 2** (`sheet_attachments`, "Prílohy"), only when maps exist: per map the
+heading "Príloha č. N — záznam č. M", the PNG, the OSM attribution, and a page break.
+
+**Transport.** `export_xlsx` returns `{ fileName, base64 }` over JSON-RPC. The page decodes
+it into a `Blob` and clicks a temporary `<a download>`.
+
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | [export.rs](../../src-tauri/core/src/export.rs) | Core export logic: `ExportTotals`, `generate_html()`, column rendering |
 | [commands_internal/export_cmd.rs](../../src-tauri/core/src/commands_internal/export_cmd.rs) | `export_html_internal`: synthetic first record, totals, hidden columns, sort direction, route-map pages |
-| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | The `export_html` RPC arm (async — it awaits route-map tile fetches) |
+| [export_table.rs](../../src-tauri/core/src/export_table.rs) | Shared table model: columns, row order, typed cells |
+| [export_xlsx.rs](../../src-tauri/core/src/export_xlsx.rs) | `generate_xlsx()`: the two sheets |
+| [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | The `export_html` and `export_xlsx` RPC arms (async — they await route-map tile fetches) |
 | [types.ts](../../src/lib/types.ts) | TypeScript `ExportLabels` interface |
-| [api.ts](../../src/lib/api.ts) | Frontend API: `exportHtml()` |
-| [+page.svelte](../../src/routes/+page.svelte) | Export button handler, label construction |
+| [api.ts](../../src/lib/api.ts) | Frontend API: `exportHtml()`, `exportXlsx()` |
+| [+page.svelte](../../src/routes/+page.svelte) | Export button handlers, `buildExportLabels()` |
 | [sk/index.ts](../../src/lib/i18n/sk/index.ts) | Slovak translation strings |
 | [en.ts](../../src/lib/i18n/en/index.ts) | English translation strings |
 

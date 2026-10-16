@@ -22,6 +22,7 @@ databázu len na čítanie.
 - **Image, volume, port:** bez zmeny
 
 ### Pridané
+- **Export do Excelu** - vedľa tlačidla "Export pre tlač" je tlačidlo "Export do Excelu". Súbor xlsx má rovnakú hlavičku, riadky, súčty a nastavenia ako tlačový export. Mapy trás sú na druhom liste "Prílohy".
 - **Jednotný tvar exportu** - v Nastaveniach, v časti "Predvoľby > Export", je voľba "Tlačiť knihu jázd vždy v jednotnom tvare" (predvolene vypnutá). Keď je zapnutá, export je vždy vzostupne (najstaršia jazda hore) a so všetkými stĺpcami, bez ohľadu na zoradenie a skryté stĺpce v tabuľke. Keď je vypnutá, export sa riadi zobrazením tabuľky ako doteraz.
 - **Automatická synchronizácia Fuelio** - ak je Dropbox nastavený, server stiahne nové jazdy Fuelio aktuálneho roka sám, pri štarte a potom každých 60 minút. V januári stiahne aj jazdy minulého roka. Interval nastavíte premennou `FUELIO_SYNC_INTERVAL_MINUTES`, hodnota `0` automatickú synchronizáciu vypne. Tlačidlo "Synchronizovať z Dropboxu" zostáva.
 - **Rýchle zadanie dátumu a času jazdy** - začiatok a koniec jazdy v úprave riadku majú tvar "DD.MM HH:MM" a dajú sa napísať, napríklad "9.10 1430". Ako pri natívnom poli sa upravuje po častiach: Tab presúva medzi dňom, mesiacom, hodinou a minútami, šípky hore a dole menia vybranú časť. "1430" alebo "14:30" na začiatku poľa zmení iba čas. Rok sa berie z vybraného roka. Koniec jazdy preberie rok začiatku, pri začiatku v decembri a konci v januári nasledujúci rok. Neplatný text alebo koniec pred začiatkom sa označí červeno a riadok sa neuloží.

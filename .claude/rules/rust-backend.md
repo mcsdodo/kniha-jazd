@@ -90,6 +90,8 @@ Paths are relative to `src-tauri/core/src/` unless noted.
 | `settings.rs` | Local settings + env overrides | User preferences, new env vars |
 | `paperless.rs` | Paperless-ngx client | Invoice source integration |
 | `export.rs` | HTML/PDF generation | Report format changes |
+| `export_table.rs` | Shared export table model (columns, rows, typed cells) for HTML and xlsx | Export columns or cell values |
+| `export_xlsx.rs` | xlsx export (sheet 1 logbook, sheet 2 route maps) | Excel layout |
 | `models.rs` | Data structures | Adding fields to Trip/Vehicle |
 | `schema.rs` | Diesel ORM schema | After DB migrations |
 | `../../web/src/main.rs` | Env var wiring + server start | New process-level config |
