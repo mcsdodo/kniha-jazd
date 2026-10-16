@@ -35,6 +35,7 @@ const sk = {
 	home: {
 		activeVehicle: 'Aktívne vozidlo',
 		exportForPrint: 'Export pre tlač',
+		exportToExcel: 'Export do Excelu',
 		exporting: 'Exportujem...',
 		noVehicle: 'Žiadne vozidlo',
 		noVehicleDescription: 'Prosím, vyberte vozidlo z hlavného menu alebo ho vytvorte v nastaveniach.',
@@ -715,6 +716,8 @@ const sk = {
 		// placeholder before Rust saw it. Rust appends the number itself.
 		attachmentHeading: 'Príloha č.',
 		recordReference: 'záznam č.',
+		sheetLogbook: 'Kniha jázd',
+		sheetAttachments: 'Prílohy',
 	},
 
 	// Home Assistant section

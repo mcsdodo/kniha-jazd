@@ -355,6 +355,15 @@ export interface ExportLabels {
 	print_hint: string;
 	attachment_heading: string;
 	record_reference: string;
+	// xlsx sheet names
+	sheet_logbook: string;
+	sheet_attachments: string;
+}
+
+/** A file the backend builds for download (export_xlsx). */
+export interface ExportFile {
+	fileName: string;
+	base64: string;
 }
 
 /**

@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, ExportFile, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -299,6 +299,17 @@ export async function exportHtml(
 	sortDirection: string
 ): Promise<string> {
 	return await apiCall('export_html', { vehicleId, year, labels, hiddenColumns, sortDirection });
+}
+
+// Export - returns the xlsx file as base64 with its file name
+export async function exportXlsx(
+	vehicleId: string,
+	year: number,
+	labels: ExportLabels,
+	hiddenColumns: string[],
+	sortDirection: string
+): Promise<ExportFile> {
+	return await apiCall('export_xlsx', { vehicleId, year, labels, hiddenColumns, sortDirection });
 }
 
 // Live Preview

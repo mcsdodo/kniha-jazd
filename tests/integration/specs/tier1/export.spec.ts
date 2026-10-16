@@ -33,6 +33,9 @@ import { testCompanySettings } from '../../fixtures/scenarios';
 /** Export trigger on the home page. */
 const EXPORT_BTN = 'button.export-btn';
 
+/** Excel export trigger on the home page. */
+const EXPORT_XLSX_BTN = 'button.export-xlsx-btn';
+
 /**
  * The trip-number header doubles as the sort control, and its arrow is the only
  * rendered state — 'desc' (newest first) is the grid's default. The direction
@@ -518,6 +521,105 @@ describe('Tier 1: Export', () => {
       expect(oldestFirst.text.indexOf(SlovakCities.trnava)).toBeLessThan(
         oldestFirst.text.indexOf(SlovakCities.kosice)
       );
+    });
+  });
+
+  describe('Excel Export', () => {
+    /**
+     * The xlsx content (columns, values, totals, sheets) is proven in Rust
+     * (`export_xlsx_tests.rs`, `export_xlsx_returns_a_named_xlsx_file`). This
+     * test owns the wiring: the button calls export_xlsx and the browser gets a
+     * named xlsx file. The download itself is caught at the anchor click, so no
+     * file lands on disk.
+     */
+    it('downloads the logbook as an xlsx file', async () => {
+      await seedSettings({
+        companyName: testCompanySettings.companyName,
+        companyIco: testCompanySettings.companyIco,
+        bufferTripPurpose: testCompanySettings.bufferTripPurpose,
+      });
+      const vehicleData = createTestIceVehicle({
+        name: 'Excel Export Vehicle',
+        licensePlate: 'XLS-001',
+        initialOdometer: 70000,
+        tpConsumption: 7.0,
+        tankSizeLiters: 50,
+      });
+      const vehicle = await seedVehicle({
+        name: vehicleData.name,
+        licensePlate: vehicleData.licensePlate,
+        initialOdometer: vehicleData.initialOdometer,
+        vehicleType: vehicleData.vehicleType,
+        tankSizeLiters: vehicleData.tankSizeLiters,
+        tpConsumption: vehicleData.tpConsumption,
+      });
+      const year = new Date().getFullYear();
+      await seedTrip({
+        vehicleId: vehicle.id as string,
+        startDatetime: `${year}-04-01T08:00`,
+        origin: SlovakCities.bratislava,
+        destination: SlovakCities.trnava,
+        distanceKm: 65,
+        odometer: 70065,
+        purpose: TripPurposes.business,
+      });
+      await setActiveVehicle(vehicle.id as string);
+      await waitForTripGrid();
+
+      // Catch the download: record the anchor's file name and blob URL
+      // instead of letting Chrome save the file.
+      await browser.execute(() => {
+        const w = window as unknown as { __downloads: { name: string; href: string }[] };
+        w.__downloads = [];
+        const original = HTMLAnchorElement.prototype.click;
+        HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+          if (this.download) {
+            w.__downloads.push({ name: this.download, href: this.href });
+            return;
+          }
+          return original.call(this);
+        };
+      });
+
+      const button = await $(EXPORT_XLSX_BTN);
+      await button.waitForDisplayed({
+        timeout: 10000,
+        timeoutMsg: `Excel export button (${EXPORT_XLSX_BTN}) never appeared`,
+      });
+      await browser.waitUntil(async () => button.isEnabled(), {
+        timeout: 10000,
+        timeoutMsg: 'Excel export button stayed disabled',
+      });
+      await button.click();
+
+      await browser.waitUntil(
+        async () =>
+          browser.execute(
+            () => (window as unknown as { __downloads: unknown[] }).__downloads.length === 1
+          ),
+        { timeout: 20000, timeoutMsg: 'Excel export started no download' }
+      );
+
+      const download = (await browser.executeAsync(
+        (done: (r: { name: string; size: number; magic: string }) => void) => {
+          const d = (window as unknown as { __downloads: { name: string; href: string }[] })
+            .__downloads[0];
+          fetch(d.href)
+            .then((r) => r.arrayBuffer())
+            .then((buf) => {
+              const bytes = new Uint8Array(buf);
+              done({
+                name: d.name,
+                size: bytes.length,
+                magic: String.fromCharCode(bytes[0], bytes[1]),
+              });
+            });
+        }
+      )) as { name: string; size: number; magic: string };
+
+      expect(download.name).toBe(`kniha-jazd-XLS-001-${year}.xlsx`);
+      expect(download.magic).toBe('PK');
+      expect(download.size).toBeGreaterThan(1000);
     });
   });
 });

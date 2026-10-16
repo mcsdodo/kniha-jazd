@@ -110,6 +110,10 @@ type RootTranslation = {
 		 */
 		exportForPrint: string
 		/**
+		 * E​x​p​o​r​t​ ​d​o​ ​E​x​c​e​l​u
+		 */
+		exportToExcel: string
+		/**
 		 * E​x​p​o​r​t​u​j​e​m​.​.​.
 		 */
 		exporting: string
@@ -2411,6 +2415,14 @@ type RootTranslation = {
 		 * z​á​z​n​a​m​ ​č​.
 		 */
 		recordReference: string
+		/**
+		 * K​n​i​h​a​ ​j​á​z​d
+		 */
+		sheetLogbook: string
+		/**
+		 * P​r​í​l​o​h​y
+		 */
+		sheetAttachments: string
 	}
 	homeAssistant: {
 		/**
@@ -3017,6 +3029,10 @@ export type TranslationFunctions = {
 		 * Export pre tlač
 		 */
 		exportForPrint: () => LocalizedString
+		/**
+		 * Export do Excelu
+		 */
+		exportToExcel: () => LocalizedString
 		/**
 		 * Exportujem...
 		 */
@@ -5241,6 +5257,14 @@ export type TranslationFunctions = {
 		 * záznam č.
 		 */
 		recordReference: () => LocalizedString
+		/**
+		 * Kniha jázd
+		 */
+		sheetLogbook: () => LocalizedString
+		/**
+		 * Prílohy
+		 */
+		sheetAttachments: () => LocalizedString
 	}
 	homeAssistant: {
 		/**

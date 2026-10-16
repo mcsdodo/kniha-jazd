@@ -3,7 +3,7 @@
 	import { selectedYearStore } from '$lib/stores/year';
 	import TripGrid from '$lib/components/TripGrid.svelte';
 	import CompensationBanner from '$lib/components/CompensationBanner.svelte';
-	import { getTripsForYear, calculateTripStats, exportHtml, testHaConnection, getHiddenColumns } from '$lib/api';
+	import { getTripsForYear, calculateTripStats, exportHtml, exportXlsx, testHaConnection, getHiddenColumns } from '$lib/api';
 	import type { Trip, TripStats, ExportLabels } from '$lib/types';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from '$lib/stores/toast';
@@ -11,6 +11,7 @@
 	import { haStore } from '$lib/stores/homeAssistant';
 
 	let exporting = false;
+	let exportingXlsx = false;
 
 	// Home Assistant state
 	let haConnected = false;
@@ -112,6 +113,66 @@
 		loadTrips(true);
 	}
 
+	// Export labels from the translations (the printout and the xlsx file share them)
+	function buildExportLabels(): ExportLabels {
+		return {
+			lang: $locale,
+			page_title: $LL.export.pageTitle(),
+			header_company: $LL.export.headerCompany(),
+			header_ico: $LL.export.headerIco(),
+			header_vehicle: $LL.export.headerVehicle(),
+			header_license_plate: $LL.export.headerLicensePlate(),
+			header_tank_size: $LL.export.headerTankSize(),
+			header_tp_consumption: $LL.export.headerTpConsumption(),
+			header_year: $LL.export.headerYear(),
+			// BEV header labels
+			header_battery_capacity: $LL.export.headerBatteryCapacity(),
+			header_baseline_consumption: $LL.export.headerBaselineConsumption(),
+			// VIN and Driver
+			header_vin: $LL.export.headerVin(),
+			header_driver: $LL.export.headerDriver(),
+			// Legal compliance columns (2026)
+			col_trip_number: $LL.export.colTripNumber(),
+			col_start_datetime: $LL.export.colStartDatetime(),
+			col_end_datetime: $LL.export.colEndDatetime(),
+			col_time: $LL.export.colTime(),
+			col_driver: $LL.export.colDriver(),
+			col_odo_start: $LL.export.colOdoStart(),
+			col_origin: $LL.export.colOrigin(),
+			col_destination: $LL.export.colDestination(),
+			col_purpose: $LL.export.colPurpose(),
+			col_km: $LL.export.colKm(),
+			col_odo: $LL.export.colOdo(),
+			col_fuel_liters: $LL.export.colFuelLiters(),
+			col_fuel_cost: $LL.export.colFuelCost(),
+			col_fuel_consumed: $LL.export.colFuelConsumed(),
+			col_other_costs: $LL.export.colOtherCosts(),
+			col_note: $LL.export.colNote(),
+			col_remaining: $LL.export.colRemaining(),
+			col_consumption: $LL.export.colConsumption(),
+			// BEV column labels
+			col_energy_kwh: $LL.export.colEnergyKwh(),
+			col_energy_cost: $LL.export.colEnergyCost(),
+			col_battery_remaining: $LL.export.colBatteryRemaining(),
+			col_energy_rate: $LL.export.colEnergyRate(),
+			footer_total_km: $LL.export.footerTotalKm(),
+			footer_total_fuel: $LL.export.footerTotalFuel(),
+			footer_other_costs: $LL.export.footerOtherCosts(),
+			footer_avg_consumption: $LL.export.footerAvgConsumption(),
+			footer_deviation: $LL.export.footerDeviation(),
+			footer_tp_norm: $LL.export.footerTpNorm(),
+			// BEV footer labels
+			footer_total_energy: $LL.export.footerTotalEnergy(),
+			footer_avg_energy_rate: $LL.export.footerAvgEnergyRate(),
+			footer_baseline_norm: $LL.export.footerBaselineNorm(),
+			print_hint: $LL.export.printHint(),
+			attachment_heading: $LL.export.attachmentHeading(),
+			record_reference: $LL.export.recordReference(),
+			sheet_logbook: $LL.export.sheetLogbook(),
+			sheet_attachments: $LL.export.sheetAttachments()
+		};
+	}
+
 	async function handleExport() {
 		if (!$activeVehicleStore || exporting) return;
 
@@ -121,61 +182,7 @@
 			// Fetch latest hidden columns (may have changed since page load)
 			const currentHiddenColumns = await getHiddenColumns();
 
-			// Build export labels from translations
-			const labels: ExportLabels = {
-				lang: $locale,
-				page_title: $LL.export.pageTitle(),
-				header_company: $LL.export.headerCompany(),
-				header_ico: $LL.export.headerIco(),
-				header_vehicle: $LL.export.headerVehicle(),
-				header_license_plate: $LL.export.headerLicensePlate(),
-				header_tank_size: $LL.export.headerTankSize(),
-				header_tp_consumption: $LL.export.headerTpConsumption(),
-				header_year: $LL.export.headerYear(),
-				// BEV header labels
-				header_battery_capacity: $LL.export.headerBatteryCapacity(),
-				header_baseline_consumption: $LL.export.headerBaselineConsumption(),
-				// VIN and Driver
-				header_vin: $LL.export.headerVin(),
-				header_driver: $LL.export.headerDriver(),
-				// Legal compliance columns (2026)
-				col_trip_number: $LL.export.colTripNumber(),
-				col_start_datetime: $LL.export.colStartDatetime(),
-				col_end_datetime: $LL.export.colEndDatetime(),
-				col_time: $LL.export.colTime(),
-				col_driver: $LL.export.colDriver(),
-				col_odo_start: $LL.export.colOdoStart(),
-				col_origin: $LL.export.colOrigin(),
-				col_destination: $LL.export.colDestination(),
-				col_purpose: $LL.export.colPurpose(),
-				col_km: $LL.export.colKm(),
-				col_odo: $LL.export.colOdo(),
-				col_fuel_liters: $LL.export.colFuelLiters(),
-				col_fuel_cost: $LL.export.colFuelCost(),
-				col_fuel_consumed: $LL.export.colFuelConsumed(),
-				col_other_costs: $LL.export.colOtherCosts(),
-				col_note: $LL.export.colNote(),
-				col_remaining: $LL.export.colRemaining(),
-				col_consumption: $LL.export.colConsumption(),
-				// BEV column labels
-				col_energy_kwh: $LL.export.colEnergyKwh(),
-				col_energy_cost: $LL.export.colEnergyCost(),
-				col_battery_remaining: $LL.export.colBatteryRemaining(),
-				col_energy_rate: $LL.export.colEnergyRate(),
-				footer_total_km: $LL.export.footerTotalKm(),
-				footer_total_fuel: $LL.export.footerTotalFuel(),
-				footer_other_costs: $LL.export.footerOtherCosts(),
-				footer_avg_consumption: $LL.export.footerAvgConsumption(),
-				footer_deviation: $LL.export.footerDeviation(),
-				footer_tp_norm: $LL.export.footerTpNorm(),
-				// BEV footer labels
-				footer_total_energy: $LL.export.footerTotalEnergy(),
-				footer_avg_energy_rate: $LL.export.footerAvgEnergyRate(),
-				footer_baseline_norm: $LL.export.footerBaselineNorm(),
-				print_hint: $LL.export.printHint(),
-				attachment_heading: $LL.export.attachmentHeading(),
-				record_reference: $LL.export.recordReference()
-			};
+			const labels = buildExportLabels();
 
 			const html = await exportHtml(
 				$activeVehicleStore.id,
@@ -194,6 +201,37 @@
 			exporting = false;
 		}
 	}
+
+	async function handleExportXlsx() {
+		if (!$activeVehicleStore || exporting || exportingXlsx) return;
+
+		try {
+			exportingXlsx = true;
+			const file = await exportXlsx(
+				$activeVehicleStore.id,
+				$selectedYearStore,
+				buildExportLabels(),
+				await getHiddenColumns(),
+				exportSortDirection
+			);
+			const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
+			const blob = new Blob([bytes], {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+			});
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = file.fileName;
+			link.click();
+			// Give the browser time to start the download before the URL goes.
+			setTimeout(() => URL.revokeObjectURL(url), 60_000);
+		} catch (error) {
+			console.error('Excel export failed:', error);
+			toast.error($LL.toast.errorExport({ error: String(error) }));
+		} finally {
+			exportingXlsx = false;
+		}
+	}
 </script>
 
 <div class="main-page">
@@ -202,9 +240,22 @@
 			<div class="vehicle-header">
 				<div class="header-row">
 					<h2>{$LL.home.activeVehicle()}</h2>
-					<button class="export-btn" onclick={handleExport} disabled={exporting || trips.length === 0}>
-						{exporting ? $LL.home.exporting() : $LL.home.exportForPrint()}
-					</button>
+					<div class="export-actions">
+						<button
+							class="export-btn"
+							onclick={handleExport}
+							disabled={exporting || exportingXlsx || trips.length === 0}
+						>
+							{exporting ? $LL.home.exporting() : $LL.home.exportForPrint()}
+						</button>
+						<button
+							class="export-btn export-xlsx-btn"
+							onclick={handleExportXlsx}
+							disabled={exporting || exportingXlsx || trips.length === 0}
+						>
+							{exportingXlsx ? $LL.home.exporting() : $LL.home.exportToExcel()}
+						</button>
+					</div>
 				</div>
 			</div>
 			<!-- Row 1: Static vehicle info -->
@@ -353,6 +404,11 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+	}
+
+	.export-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.export-btn {

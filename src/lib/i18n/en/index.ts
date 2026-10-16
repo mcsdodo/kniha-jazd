@@ -35,6 +35,7 @@ const en = {
 	home: {
 		activeVehicle: 'Active vehicle',
 		exportForPrint: 'Export for print',
+		exportToExcel: 'Export to Excel',
 		exporting: 'Exporting...',
 		noVehicle: 'No vehicle',
 		noVehicleDescription: 'Please select a vehicle from the main menu or create one in settings.',
@@ -715,6 +716,8 @@ const en = {
 		// placeholder before Rust saw it. Rust appends the number itself.
 		attachmentHeading: 'Attachment no.',
 		recordReference: 'record no.',
+		sheetLogbook: 'Logbook',
+		sheetAttachments: 'Attachments',
 	},
 
 	// Home Assistant section
