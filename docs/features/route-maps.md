@@ -49,7 +49,8 @@ The commands are served over the HTTP API like every other command — see
    confirmation. It does not change the trip km. See
    [A map save writes its distance to the trip](#a-map-save-writes-its-distance-to-the-trip).
 10. **"Export pre tlač"** appends one A4-landscape page per saved map after the trip table,
-    each headed `Príloha č. N — záznam č. X`.
+    each headed `Príloha č. N — záznam č. X`. **"Export do Excelu"** puts the same maps, with
+    the same headings, on the sheet "Prílohy" (see [export-system.md](./export-system.md#excel-export)).
 
 **Failure cases:**
 
@@ -300,8 +301,8 @@ land colour rather than a black hole.
 Two constraints come straight from the
 [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/): tiles are
 fetched at most two at a time, and every request carries a User-Agent identifying this
-application by name and version. Attribution is a caption in the export HTML next to the
-image rather than text baked into the pixels — the rasteriser renders no text at all, by
+application by name and version. Attribution is a caption next to the image (in the export HTML
+and on the xlsx sheet "Prílohy") rather than text baked into the pixels — the rasteriser renders no text at all, by
 design.
 
 ## Key Files

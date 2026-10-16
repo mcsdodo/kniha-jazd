@@ -112,7 +112,7 @@ Stored in the `settings` table of `kniha-jazd.db`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `Uuid` | Unique identifier |
-| `company_name` | `String` | Company name printed in the HTML export header |
+| `company_name` | `String` | Company name in the header of the HTML and xlsx exports |
 | `company_ico` | `String` | Company identification number (IČO) |
 | `buffer_trip_purpose` | `String` | Default purpose text for buffer trips |
 | `updated_at` | `DateTime<Utc>` | Last modification timestamp |
