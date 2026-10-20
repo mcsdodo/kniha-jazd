@@ -16,6 +16,15 @@ databázu len na čítanie.
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Image, volume, port:** bez zmeny
+
+## [2.3.0] - 2026-10-20
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
 - **Premenné prostredia:** nová voliteľná `FUELIO_SYNC_INTERVAL_MINUTES` (predvolene `60`, `0` = vypnuté). So všetkými tromi `DROPBOX_*` server po aktualizácii synchronizuje jazdy Fuelio z Dropboxu sám, bez zásahu. Kto to nechce, nastaví `FUELIO_SYNC_INTERVAL_MINUTES=0`.
 - **Migrácie databázy:** žiadne
 - **Strata údajov:** žiadna
