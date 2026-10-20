@@ -11,7 +11,7 @@ use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::db::Database;
 use crate::models::{Settings, Theme};
-use crate::settings::{DatePrefillMode, LocalSettings};
+use crate::settings::{DatePrefillMode, FuelioFilters, LocalSettings};
 use chrono::Utc;
 
 // ============================================================================
@@ -160,6 +160,33 @@ pub fn get_show_datetime_picker_internal(app_dir: &Path) -> Result<bool, String>
 pub fn set_show_datetime_picker_internal(app_dir: &Path, enabled: bool) -> Result<(), String> {
     let mut settings = LocalSettings::load(app_dir);
     settings.show_datetime_picker = Some(enabled);
+    settings.save(app_dir).map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Fuelio Page Filters
+// ============================================================================
+
+/// Short city drives are not what the Fuelio page is for.
+const FUELIO_DEFAULT_MIN_KM: f64 = 15.0;
+
+/// The saved filters, or the defaults if none were saved. A saved `None`
+/// stays `None`: the user cleared that input.
+pub fn get_fuelio_filters_internal(app_dir: &Path) -> Result<FuelioFilters, String> {
+    let settings = LocalSettings::load(app_dir);
+    Ok(settings.fuelio_filters.unwrap_or_else(|| {
+        let merge = crate::fuelio::MergeRules::default();
+        FuelioFilters {
+            min_km: Some(FUELIO_DEFAULT_MIN_KM),
+            merge_gap_min: Some(merge.max_gap_min),
+            merge_jump_km: Some(merge.max_jump_m / 1000.0),
+        }
+    }))
+}
+
+pub fn set_fuelio_filters_internal(app_dir: &Path, filters: FuelioFilters) -> Result<(), String> {
+    let mut settings = LocalSettings::load(app_dir);
+    settings.fuelio_filters = Some(filters);
     settings.save(app_dir).map_err(|e| e.to_string())
 }
 

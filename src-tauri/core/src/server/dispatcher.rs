@@ -637,6 +637,19 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             crate::commands_internal::settings_cmd::set_show_datetime_picker_internal(&state.app_dir, a.enabled)?;
             Ok(serde_json::to_value(()).unwrap())
         }
+        "get_fuelio_filters" => {
+            let v = crate::commands_internal::settings_cmd::get_fuelio_filters_internal(&state.app_dir)?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        "set_fuelio_filters" => {
+            #[derive(serde::Deserialize)]
+            struct Args {
+                filters: crate::settings::FuelioFilters,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::settings_cmd::set_fuelio_filters_internal(&state.app_dir, a.filters)?;
+            Ok(serde_json::to_value(()).unwrap())
+        }
         "get_db_location" => {
             let v = crate::commands_internal::settings_cmd::get_db_location_internal(&state.app_state)?;
             Ok(serde_json::to_value(v).unwrap())

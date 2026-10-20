@@ -50,6 +50,16 @@ pub enum DatePrefillMode {
     Today, // Prefill with today's date
 }
 
+/// The filters of the Fuelio page. A `None` field is an empty input: no
+/// min-km filter, or the backend merge default.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FuelioFilters {
+    pub min_km: Option<f64>,
+    pub merge_gap_min: Option<i64>,
+    pub merge_jump_km: Option<f64>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalSettings {
     pub theme: Option<String>,            // "system" | "light" | "dark"
@@ -61,6 +71,7 @@ pub struct LocalSettings {
     pub show_datetime_picker: Option<bool>, // None = ON (default)
     pub hidden_columns: Option<Vec<String>>, // Hidden trip grid columns (e.g., ["time", "fuelConsumed"])
     pub export_normalized: Option<bool>, // None = OFF: export follows the grid view
+    pub fuelio_filters: Option<FuelioFilters>, // None = the defaults of the Fuelio page
     // Home Assistant integration
     pub ha_url: Option<String>, // Home Assistant URL (e.g., "http://homeassistant.local:8123")
     pub ha_api_token: Option<String>, // Long-lived access token

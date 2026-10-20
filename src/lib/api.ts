@@ -750,6 +750,21 @@ export async function getFuelioCrosscheck(
 	});
 }
 
+/** The filters of the Fuelio page, saved on the server. A null value is an empty input. */
+export interface FuelioFilters {
+	minKm: number | null;
+	mergeGapMin: number | null;
+	mergeJumpKm: number | null;
+}
+
+export async function getFuelioFilters(): Promise<FuelioFilters> {
+	return await apiCall('get_fuelio_filters');
+}
+
+export async function setFuelioFilters(filters: FuelioFilters): Promise<void> {
+	return await apiCall('set_fuelio_filters', { filters });
+}
+
 export async function getFuelioTrack(driveIds: string[], tripId: string | null): Promise<FuelioTrack> {
 	return await apiCall('get_fuelio_track', { driveIds, tripId });
 }

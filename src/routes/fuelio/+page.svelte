@@ -22,13 +22,14 @@
 	let available = $state<boolean | null>(null);
 	let report = $state<FuelioReport | null>(null);
 	let loading = $state(false);
-	// Short city drives are not what the page is for: 15 km by default, empty = no filter.
-	let minKm = $state<number | null>(15);
-	// When two drives join one row (the backend rules; its defaults are 60 min
-	// and 2 km). Raise them to join a drive that Fuelio split, then "Pridať" it
-	// as one trip. A change loads the report again; empty = the default.
-	let mergeGapMin = $state<number | null>(60);
-	let mergeJumpKm = $state<number | null>(2);
+	// The three inputs are saved on the server; onMount reads them (and their
+	// defaults) before the first load. Min km: empty = no filter.
+	let minKm = $state<number | null>(null);
+	// When two drives join one row. Raise them to join a drive that Fuelio
+	// split, then "Pridať" it as one trip. A change loads the report again;
+	// empty = the backend default.
+	let mergeGapMin = $state<number | null>(null);
+	let mergeJumpKm = $state<number | null>(null);
 	// Filter pills: a pill that is not selected does not filter. State pills
 	// combine with OR; the groups with AND. With no state pill selected the page
 	// shows matched and missing rows: an ignored row needs its own pill.
@@ -136,14 +137,36 @@
 		}
 	}
 
+	// An empty number input binds as undefined: save it as null.
+	function saveFilters() {
+		api
+			.setFuelioFilters({
+				minKm: minKm ?? null,
+				mergeGapMin: mergeGapMin ?? null,
+				mergeJumpKm: mergeJumpKm ?? null
+			})
+			.catch((e) => toast.error(String(e)));
+	}
+
 	function reloadMerge() {
+		saveFilters();
 		const vehicle = $activeVehicleStore;
 		if (vehicle && available === true) load(vehicle.id, $selectedYearStore);
 	}
 
 	onMount(async () => {
 		try {
-			available = await api.isFuelioAvailable();
+			// The filters first: the load effect starts when `available` is set.
+			const [isAvailable, filters] = await Promise.all([
+				api.isFuelioAvailable(),
+				api.getFuelioFilters().catch(() => null)
+			]);
+			if (filters) {
+				minKm = filters.minKm;
+				mergeGapMin = filters.mergeGapMin;
+				mergeJumpKm = filters.mergeJumpKm;
+			}
+			available = isAvailable;
 		} catch (e) {
 			toast.error(String(e));
 		}
@@ -311,7 +334,14 @@
 			<div class="filters">
 				<label>
 					{$LL.fuelio.minKm()}
-					<input class="text-input km" type="number" min="0" bind:value={minKm} data-testid="fuelio-min-km" />
+					<input
+						class="text-input km"
+						type="number"
+						min="0"
+						bind:value={minKm}
+						onchange={saveFilters}
+						data-testid="fuelio-min-km"
+					/>
 				</label>
 				<label title={$LL.fuelio.mergeHint()}>
 					{$LL.fuelio.mergeGap()}

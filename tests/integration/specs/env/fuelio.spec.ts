@@ -72,6 +72,9 @@ describe('Fuelio page (Dropbox configured)', () => {
     });
     vehicleId = vehicle.id as string;
     await setActiveVehicle(vehicleId);
+    // The page saves its filters in the settings file, which outlives the
+    // database reset: start each test from the defaults.
+    await rpc('set_fuelio_filters', { filters: { minKm: 15, mergeGapMin: 60, mergeJumpKm: 2 } });
     // A fresh load: the layout reads the active vehicle on start
     await browser.url('/fuelio');
     await $('[data-testid="fuelio-table"]').waitForDisplayed({ timeout: 10000 });
@@ -100,6 +103,30 @@ describe('Fuelio page (Dropbox configured)', () => {
     await count.waitForDisplayed({ timeout: 5000 });
     expect(await count.getText()).toBe('(drives: 2)');
     await waitForRows(2, 'joined drive and the drive of the next day');
+  });
+
+  it('remembers the filters after a reload', async () => {
+    await waitForRows(2, 'default filters');
+    for (const [sel, value] of [
+      ['fuelio-min-km', '0'],
+      ['fuelio-merge-gap', '120'],
+      ['fuelio-merge-jump', '3'],
+    ]) {
+      const input = $(`[data-testid="${sel}"]`);
+      await input.clearValue();
+      await input.setValue(value);
+      // setValue fires input, not change: the page saves on change.
+      await browser.keys('Tab');
+    }
+    await $('[data-testid="fuelio-drive-count"]').waitForDisplayed({ timeout: 5000 });
+
+    await browser.refresh();
+    await $('[data-testid="fuelio-table"]').waitForDisplayed({ timeout: 10000 });
+    expect(await $('[data-testid="fuelio-min-km"]').getValue()).toBe('0');
+    expect(await $('[data-testid="fuelio-merge-gap"]').getValue()).toBe('120');
+    expect(await $('[data-testid="fuelio-merge-jump"]').getValue()).toBe('3');
+    // The first report after the reload already uses the saved merge gap.
+    await $('[data-testid="fuelio-drive-count"]').waitForDisplayed({ timeout: 5000 });
   });
 
   it('hides an ignored drive, shows it under the Ignored pill, and un-ignores it', async () => {

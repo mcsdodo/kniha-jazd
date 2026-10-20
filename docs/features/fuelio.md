@@ -32,6 +32,11 @@
    and the largest distance (2 km by default) from the end of a drive to the start of
    the next. A change loads the report again. Raise them to join a drive that Fuelio
    split at a long stop, then "Pridať" adds it as one trip.
+   The server saves these three fields (min km, longest stop, largest distance) in
+   `local.settings.json` (`fuelio_filters`, commands `get_fuelio_filters` /
+   `set_fuelio_filters` in
+   [settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs)), so they stay after a reload and on each device. The pills
+   are not saved. An empty field stays empty.
 5. **Map.** The map shows the selected row: the GPS track (red) and the stored route
    (blue). After a load, and when a filter hides the selected row, the first shown row
    is selected.
