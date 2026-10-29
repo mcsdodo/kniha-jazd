@@ -21,6 +21,15 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+## [2.3.1] - 2026-10-29
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Image, volume, port:** bez zmeny
+
 ### Opravené
 - **Potrebné km pri prekročení limitu** - upozornenie na prekročenie limitu teraz počíta potrebné km pre najhoršie obdobie medzi tankovaniami. Predtým ich mohol skryť dobrý priemer za celý rok, a upozornenie ukázalo 0 km.
 
