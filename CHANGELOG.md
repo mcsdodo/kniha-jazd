@@ -21,6 +21,15 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+## [2.5.0] - 2026-10-29
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Image, volume, port:** bez zmeny
+
 ### Zmenené
 - **Voľné spárovanie vo Fuelio** - voľne spárovaná jazda teraz musí pokryť aspoň zadaný podiel km jazdy z knihy. Podiel sa nastavuje v novom poli na stránke Fuelio, predvolene 50 %; hodnota 0 vráti staré správanie. Riadok s voľným spárovaním teraz ponúka aj tlačidlo "Pridať". Staré uložené nastavenia sa načítajú bez zásahu.
 
