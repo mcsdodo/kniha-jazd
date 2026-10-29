@@ -21,6 +21,9 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Opravené
+- **Potrebné km pri prekročení limitu** - upozornenie na prekročenie limitu teraz počíta potrebné km pre najhoršie obdobie medzi tankovaniami. Predtým ich mohol skryť dobrý priemer za celý rok, a upozornenie ukázalo 0 km.
+
 ## [2.3.0] - 2026-10-20
 
 ### Pokyny k aktualizácii

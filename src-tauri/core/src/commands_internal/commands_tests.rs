@@ -5925,6 +5925,37 @@ fn trip_stats_overall_deviation_is_the_export_value() {
     assert!((worst - 20.0).abs() < 1e-9, "worst = {worst}");
 }
 
+/// The banner says how many km the over-limit period needs. A year average
+/// under the target must not hide one bad period between good ones.
+#[test]
+fn trip_stats_buffer_km_is_for_the_worst_period() {
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+    let vehicle =
+        crate::models::Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 50.0, 5.0, 0.0);
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+    // Periods: 5.0, 7.5 (50 % over TP), 5.0 L / 100 km.
+    // Year: 107.5 L / 2100 km = 5.12 L / 100 km, under the 18 % target.
+    for (day, km, liters, odo) in [
+        (1, 1000.0, 50.0, 1000.0),
+        (2, 100.0, 7.5, 1100.0),
+        (3, 1000.0, 50.0, 2100.0),
+    ] {
+        let mut trip = make_trip_with_fuel(NaiveDate::from_ymd_opt(2026, 3, day).unwrap(), liters, 10.0);
+        trip.vehicle_id = vehicle.id;
+        trip.distance_km = km;
+        trip.odometer = odo;
+        db.create_trip(&db.with_places_for_test(&trip)).expect("Failed to create trip");
+    }
+
+    let stats = calculate_trip_stats_internal(&db, vehicle.id.to_string(), 2026).unwrap();
+
+    assert!(stats.is_over_limit);
+    // 7.5 L at 5.0 * 1.18 = 5.9 L / 100 km needs 127.12 km; the period has 100 km.
+    let expected = 7.5 * 100.0 / 5.9 - 100.0;
+    assert!((stats.buffer_km - expected).abs() < 1e-9, "buffer_km = {}", stats.buffer_km);
+}
+
 #[test]
 fn trip_stats_overall_deviation_is_none_without_fuel() {
     let db = crate::db::Database::in_memory().expect("Failed to create database");

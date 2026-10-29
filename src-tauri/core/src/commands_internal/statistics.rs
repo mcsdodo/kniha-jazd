@@ -150,22 +150,24 @@ pub fn calculate_trip_stats_internal(
     // Check if over legal limit - ANY fill-up window must be within 120% of TP
     // (not just the average, since each window is separately auditable)
     // Use the WORST window's margin for display (that's what triggers the warning)
-    let (worst_rate, worst_margin, is_over_limit) = if total_fuel > 0.0 {
-        get_worst_period_stats(&trips, tp_consumption)
+    let worst = if total_fuel > 0.0 {
+        Some(get_worst_period_stats(&trips, tp_consumption))
     } else {
-        (0.0, 0.0, false)
+        None
     };
+    let (worst_rate, worst_margin, is_over_limit) = worst
+        .as_ref()
+        .map_or((0.0, 0.0, false), |w| (w.rate, w.margin, w.is_over_limit));
 
-    // Calculate buffer km needed to reach 18% target margin for the worst period
+    // Calculate buffer km needed to reach 18% target margin for the worst period.
+    // Use that period's own fuel/km: the year totals can be under the target
+    // while one period is far over, and then they give 0 km.
     const TARGET_MARGIN: f64 = 0.18; // 18% - safe buffer below 20% legal limit
-    let buffer_km = if is_over_limit {
-        // Use worst period's fuel/km for buffer calculation
-        // Since we track the worst rate, we can derive the needed buffer
-        // Buffer = how much more km needed to bring worst_rate down to target
-        // For simplicity, use closed totals (conservative estimate)
-        calculate_buffer_km(closed_fuel, closed_km, tp_consumption, TARGET_MARGIN)
-    } else {
-        0.0
+    let buffer_km = match &worst {
+        Some(w) if w.is_over_limit => {
+            calculate_buffer_km(w.fuel_liters, w.km, tp_consumption, TARGET_MARGIN)
+        }
+        _ => 0.0,
     };
 
     // Show the WORST window's margin (not average) - that's what triggers warnings
@@ -865,17 +867,32 @@ pub fn calculate_period_rates(
     (rates, estimated)
 }
 
-/// Find the worst (highest) fill-up period's consumption rate and margin.
-/// Returns (worst_rate, worst_margin, is_over_limit) for the period with highest consumption.
+/// The worst (highest-rate) closed fill-up period.
+struct WorstPeriod {
+    rate: f64,
+    margin: f64,
+    is_over_limit: bool,
+    fuel_liters: f64,
+    km: f64,
+}
+
+/// Find the worst (highest) fill-up period's consumption rate and margin,
+/// with the fuel and km of that period.
 /// This is stricter than checking the average - for legal compliance,
 /// each fill-up window must be within the limit, not just the total average.
-fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, bool) {
+fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> WorstPeriod {
+    let mut worst = WorstPeriod {
+        rate: 0.0,
+        margin: 0.0,
+        is_over_limit: false,
+        fuel_liters: 0.0,
+        km: 0.0,
+    };
     if tp_consumption <= 0.0 {
-        return (0.0, 0.0, false);
+        return worst;
     }
 
     let limit = tp_consumption * 1.2; // 120% of TP
-    let mut worst_rate = 0.0;
     let mut km_in_period = 0.0;
     let mut fuel_in_period = 0.0;
 
@@ -889,8 +906,10 @@ fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, boo
                 // Calculate rate when period closes (full tank fillup)
                 if trip.full_tank && km_in_period > 0.0 {
                     let rate = (fuel_in_period / km_in_period) * 100.0;
-                    if rate > worst_rate {
-                        worst_rate = rate;
+                    if rate > worst.rate {
+                        worst.rate = rate;
+                        worst.fuel_liters = fuel_in_period;
+                        worst.km = km_in_period;
                     }
                     // Reset for next period
                     km_in_period = 0.0;
@@ -900,17 +919,15 @@ fn get_worst_period_stats(trips: &[Trip], tp_consumption: f64) -> (f64, f64, boo
         }
     }
 
-    let worst_margin = calculate_margin_percent(worst_rate, tp_consumption);
-    let is_over_limit = worst_rate > limit;
-
-    (worst_rate, worst_margin, is_over_limit)
+    worst.margin = calculate_margin_percent(worst.rate, tp_consumption);
+    worst.is_over_limit = worst.rate > limit;
+    worst
 }
 
 /// Check if any closed fill-up period exceeds the legal consumption limit.
 /// Returns true if ANY period's consumption rate is > 120% of TP.
 pub fn has_any_period_over_limit(trips: &[Trip], tp_consumption: f64) -> bool {
-    let (_, _, is_over) = get_worst_period_stats(trips, tp_consumption);
-    is_over
+    get_worst_period_stats(trips, tp_consumption).is_over_limit
 }
 
 /// What setting `trip_id`'s distance to `new_distance_km` would do to the
