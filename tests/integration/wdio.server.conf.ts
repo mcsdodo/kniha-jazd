@@ -53,6 +53,9 @@ const SCRUBBED_ENV: Record<string, string> = Object.fromEntries(
   Object.keys(ENV_PINNED_FIXTURE).map((key) => [key, ''])
 );
 
+/** Spec files that open a popup window; see `beforeSession`. */
+const CLASSIC_SPECS = ['/tier1/export.spec.ts'];
+
 /** Every tier folder, enumerated so `./specs/env/**` is never picked up by accident. */
 const TIER_SPECS = [
   './specs/tier1/**/*.spec.ts',
@@ -357,6 +360,19 @@ export const config: any = {
     // Wait for HTTP server to be ready
     await waitForUrl(`${SERVER_URL}/health`, 30000);
     console.log('Server is ready');
+  },
+
+  /**
+   * Specs that read a window.open() popup run on WebDriver Classic. With Chrome
+   * 156 (CI installs "stable"), the first BiDi command in such a popup never
+   * returns: wdio sends its polyfill while the popup is still about:blank, and
+   * every later command waits behind that call. Not suite-wide: the pointer
+   * drags in route-map.spec.ts land elsewhere under Classic.
+   */
+  beforeSession: function (_config: unknown, capabilities: Record<string, unknown>, specs: string[]) {
+    if (specs.some((spec) => CLASSIC_SPECS.some((name) => spec.endsWith(name)))) {
+      capabilities['wdio:enforceWebDriverClassic'] = true;
+    }
   },
 
   /**
