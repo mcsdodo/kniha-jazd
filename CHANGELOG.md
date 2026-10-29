@@ -21,6 +21,12 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Zmenené
+- **Voľné spárovanie vo Fuelio** - voľne spárovaná jazda teraz musí pokryť aspoň zadaný podiel km jazdy z knihy. Podiel sa nastavuje v novom poli na stránke Fuelio, predvolene 50 %; hodnota 0 vráti staré správanie. Riadok s voľným spárovaním teraz ponúka aj tlačidlo "Pridať". Staré uložené nastavenia sa načítajú bez zásahu.
+
+### Opravené
+- **Fuelio po zmazaní jazdy** - jazda z Fuelio, ktorá po zmazaní svojej jazdy v knihe padla voľne k inej jazde, sa teraz dá znova pridať: krátka jazda je "chýbajúca" a voľne spárovaný riadok má tlačidlo "Pridať".
+
 ## [2.4.0] - 2026-10-29
 
 ### Pokyny k aktualizácii

@@ -731,10 +731,14 @@ export async function findPlace(name: string): Promise<Place | null> {
 }
 
 // Fuelio cross-check (Task 90, read-only)
-/** When two drives join one row. A null value uses the backend default. */
+/**
+ * When two drives join one row, and the share of the trip km a loose match
+ * needs. A null value uses the backend default.
+ */
 export interface FuelioMergeRules {
 	maxGapMin: number | null;
 	maxJumpKm: number | null;
+	looseMinKmPct: number | null;
 }
 
 export async function getFuelioCrosscheck(
@@ -747,6 +751,7 @@ export async function getFuelioCrosscheck(
 		year,
 		maxGapMin: merge.maxGapMin ?? undefined,
 		maxJumpKm: merge.maxJumpKm ?? undefined,
+		looseMinKmPct: merge.looseMinKmPct ?? undefined,
 	});
 }
 
@@ -755,6 +760,7 @@ export interface FuelioFilters {
 	minKm: number | null;
 	mergeGapMin: number | null;
 	mergeJumpKm: number | null;
+	looseMinKmPct: number | null;
 }
 
 export async function getFuelioFilters(): Promise<FuelioFilters> {

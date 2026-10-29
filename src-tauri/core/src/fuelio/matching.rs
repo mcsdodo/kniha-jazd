@@ -9,7 +9,8 @@
 //! 1. complete: a run from the trip's origin to its destination;
 //! 2. partial: a run on the trip's stored route that covers part of it;
 //! 3. loose: the drives left over join into chains, and a chain matches the
-//!    nearest trip in time that it touches (a place or the stored route).
+//!    nearest trip in time that it touches (a place or the stored route) and
+//!    that it covers by [`MergeRules::loose_min_km_pct`] of the km.
 //!
 //! Only a chain that fits no trip, even loosely, is "missing".
 
@@ -55,6 +56,8 @@ const LOOSE_PLACE_RADIUS_M: f64 = 5_000.0;
 /// ...or at least this share of the chain this close to the stored route.
 const LOOSE_MIN_ON_ROUTE: f64 = 0.5;
 const LOOSE_ROUTE_M: f64 = 1_000.0;
+/// The default of [`MergeRules::loose_min_km_pct`].
+const LOOSE_MIN_KM_PCT: f64 = 50.0;
 
 /// The trip data the matcher needs.
 #[derive(Debug, Clone)]
@@ -129,8 +132,9 @@ pub struct CrosscheckRow {
     pub ignored: bool,
 }
 
-/// When two drives join one row. The user sets both values on the page, so a
-/// drive that Fuelio split over a longer stop can be imported as one trip.
+/// When two drives join one row, and how much of a trip a loose chain must
+/// be. The user sets the values on the page, so a drive that Fuelio split over
+/// a longer stop can be imported as one trip.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MergeRules {
     /// The longest stop between two drives of a chain. A trip's run allows
@@ -139,11 +143,19 @@ pub struct MergeRules {
     /// The largest distance from the end of a drive to the start of the next
     /// drive of a chain.
     pub max_jump_m: f64,
+    /// A loose chain has at least this share of the trip km, in percent. 0 =
+    /// no minimum. Without it, a 3 km city drive near home went loosely to
+    /// any trip that starts at home (2026-10-29).
+    pub loose_min_km_pct: f64,
 }
 
 impl Default for MergeRules {
     fn default() -> Self {
-        Self { max_gap_min: MAX_STOP_IN_CHAIN_MIN, max_jump_m: PLACE_RADIUS_M }
+        Self {
+            max_gap_min: MAX_STOP_IN_CHAIN_MIN,
+            max_jump_m: PLACE_RADIUS_M,
+            loose_min_km_pct: LOOSE_MIN_KM_PCT,
+        }
     }
 }
 
@@ -322,14 +334,17 @@ fn with_trip(mut row: CrosscheckRow, trip: &TripRef) -> CrosscheckRow {
 }
 
 /// Does `chain` loosely fit `trip`? `taken_km`: the GPS km the trip has already.
-fn loose_fit(trip: &TripRef, chain: &[Drive], taken_km: f64) -> bool {
+fn loose_fit(trip: &TripRef, chain: &[Drive], taken_km: f64, rules: MergeRules) -> bool {
     let (from, to) = side_window(trip);
     let start = chain[0].start;
     if start < from || start > to {
         return false;
     }
     let km: f64 = chain.iter().map(|d| d.km).sum();
-    if trip.km > 0.0 && taken_km + km > trip.km * KM_RATIO_MAX {
+    if trip.km > 0.0
+        && (taken_km + km > trip.km * KM_RATIO_MAX
+            || km < trip.km * rules.loose_min_km_pct / 100.0)
+    {
         return false;
     }
     let ends = [chain[0].start_point, chain[chain.len() - 1].end_point];
@@ -411,7 +426,7 @@ pub fn crosscheck(trips: &[TripRef], drives: &[Drive], rules: MergeRules) -> Vec
         let best = trips
             .iter()
             .enumerate()
-            .filter(|(k, trip)| loose_fit(trip, &chain, taken_km[*k]))
+            .filter(|(k, trip)| loose_fit(trip, &chain, taken_km[*k], rules))
             .min_by_key(|(_, trip)| minutes(trip.start, chain[0].start).abs());
         match best {
             Some((k, trip)) => {

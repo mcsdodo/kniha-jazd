@@ -30,6 +30,9 @@
 	// empty = the backend default.
 	let mergeGapMin = $state<number | null>(null);
 	let mergeJumpKm = $state<number | null>(null);
+	// A loose match needs at least this % of the trip km. Lower it to see
+	// short fragments next to their trip; empty = the backend default.
+	let looseMinKmPct = $state<number | null>(null);
 	// Filter pills: a pill that is not selected does not filter. State pills
 	// combine with OR; the groups with AND. With no state pill selected the page
 	// shows matched and missing rows: an ignored row needs its own pill.
@@ -127,7 +130,11 @@
 		selected = null;
 		try {
 			// untrack: the load effect must not run again on each keystroke.
-			const merge = untrack(() => ({ maxGapMin: mergeGapMin, maxJumpKm: mergeJumpKm }));
+			const merge = untrack(() => ({
+				maxGapMin: mergeGapMin,
+				maxJumpKm: mergeJumpKm,
+				looseMinKmPct
+			}));
 			const r = await api.getFuelioCrosscheck(vehicleId, year, merge);
 			if (seq === loadSeq) report = r;
 		} catch (e) {
@@ -143,7 +150,8 @@
 			.setFuelioFilters({
 				minKm: minKm ?? null,
 				mergeGapMin: mergeGapMin ?? null,
-				mergeJumpKm: mergeJumpKm ?? null
+				mergeJumpKm: mergeJumpKm ?? null,
+				looseMinKmPct: looseMinKmPct ?? null
 			})
 			.catch((e) => toast.error(String(e)));
 	}
@@ -165,6 +173,7 @@
 				minKm = filters.minKm;
 				mergeGapMin = filters.mergeGapMin;
 				mergeJumpKm = filters.mergeJumpKm;
+				looseMinKmPct = filters.looseMinKmPct;
 			}
 			available = isAvailable;
 		} catch (e) {
@@ -367,6 +376,18 @@
 						data-testid="fuelio-merge-jump"
 					/>
 				</label>
+				<label title={$LL.fuelio.looseMinHint()}>
+					{$LL.fuelio.looseMin()}
+					<input
+						class="text-input km"
+						type="number"
+						min="0"
+						step="10"
+						bind:value={looseMinKmPct}
+						onchange={reloadMerge}
+						data-testid="fuelio-loose-min"
+					/>
+				</label>
 				<div class="pills" data-testid="fuelio-filter-pills">
 					{#each STATUSES as st}
 						<button
@@ -501,6 +522,17 @@
 												}}
 												data-testid="fuelio-overwrite">{$LL.fuelio.overwrite.button()}</button
 											>
+											<!-- A loose match may be another drive: it can also be added. -->
+											{#if r.flags.includes('looseMatch')}
+												<button
+													class="overwrite-btn"
+													onclick={(e) => {
+														e.stopPropagation();
+														adding = r;
+													}}
+													data-testid="fuelio-add">{$LL.fuelio.add.button()}</button
+												>
+											{/if}
 										{:else if r.ignored}
 											<button
 												class="icon-btn"

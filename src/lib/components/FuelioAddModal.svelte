@@ -7,7 +7,7 @@
 	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
 	import Autocomplete from './Autocomplete.svelte';
 
-	// Task 90: add a logbook trip from a "missing" Fuelio row. The backend
+	// Task 90: add a logbook trip from a "missing" or loose Fuelio row. The backend
 	// computes the values and the place order (ADR-008); this dialog lets the
 	// user confirm the two ends and the purpose, and shows the odometer plan.
 

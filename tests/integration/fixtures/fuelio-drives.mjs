@@ -11,7 +11,8 @@
  *
  * The third is a 3 km fragment that starts at (48.2, 17.0) two hours after the
  * first drive. The default 15 km filter hides it. With a trip on the first
- * drive, it is a loose match of the same trip: one trip, two rows.
+ * drive and a loose minimum of 0% (the default 50% is above its 3 of 22 km),
+ * it is a loose match of the same trip: one trip, two rows.
  *
  * Plain Node, no dependencies: CI runs it before `docker run` on Node 20
  * (`node tests/integration/fixtures/fuelio-drives.mjs data-env/fuelio`), and

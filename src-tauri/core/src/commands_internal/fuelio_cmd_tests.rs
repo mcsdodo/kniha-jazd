@@ -638,4 +638,8 @@ fn crosscheck_refuses_negative_merge_rules() {
     assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, jump).is_err());
     let nan = MergeRules { max_jump_m: f64::NAN, ..MergeRules::default() };
     assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, nan).is_err());
+    let share = MergeRules { loose_min_km_pct: -1.0, ..MergeRules::default() };
+    assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, share).is_err());
+    let share_nan = MergeRules { loose_min_km_pct: f64::NAN, ..MergeRules::default() };
+    assert!(get_fuelio_crosscheck_internal(&db, dir.path(), &vid, 2026, share_nan).is_err());
 }

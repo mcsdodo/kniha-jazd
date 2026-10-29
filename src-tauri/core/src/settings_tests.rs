@@ -407,10 +407,15 @@ fn test_get_fuelio_filters_internal_default() {
     use crate::commands_internal::settings_cmd::get_fuelio_filters_internal;
     let dir = tempdir().unwrap();
     let f = get_fuelio_filters_internal(&dir.path().to_path_buf()).unwrap();
-    // The merge defaults come from the backend rules: 60 min and 2 km.
+    // The merge defaults come from the backend rules: 60 min, 2 km and 50%.
     assert_eq!(
         f,
-        FuelioFilters { min_km: Some(15.0), merge_gap_min: Some(60), merge_jump_km: Some(2.0) }
+        FuelioFilters {
+            min_km: Some(15.0),
+            merge_gap_min: Some(60),
+            merge_jump_km: Some(2.0),
+            loose_min_km_pct: Some(50.0),
+        }
     );
 }
 
@@ -423,7 +428,12 @@ fn test_set_fuelio_filters_internal_round_trip_keeps_cleared_values() {
     let app_dir = dir.path().to_path_buf();
 
     // An empty input on the page is null: it must not come back as the default.
-    let f = FuelioFilters { min_km: None, merge_gap_min: Some(30), merge_jump_km: None };
+    let f = FuelioFilters {
+        min_km: None,
+        merge_gap_min: Some(30),
+        merge_jump_km: None,
+        loose_min_km_pct: Some(20.0),
+    };
     set_fuelio_filters_internal(&app_dir, f.clone()).unwrap();
     assert_eq!(get_fuelio_filters_internal(&app_dir).unwrap(), f);
     assert_eq!(LocalSettings::load(&app_dir).fuelio_filters, Some(f));
@@ -436,10 +446,22 @@ fn test_fuelio_filters_json_is_camel_case() {
     fs::write(&path, r#"{"fuelio_filters": {"minKm": 5, "mergeGapMin": 120, "mergeJumpKm": 0.5}}"#)
         .unwrap();
     let loaded = LocalSettings::load(&dir.path().to_path_buf());
+    // A file saved before the loose minimum existed shows the default on the
+    // page, not an empty field.
     assert_eq!(
         loaded.fuelio_filters,
-        Some(FuelioFilters { min_km: Some(5.0), merge_gap_min: Some(120), merge_jump_km: Some(0.5) })
+        Some(FuelioFilters {
+            min_km: Some(5.0),
+            merge_gap_min: Some(120),
+            merge_jump_km: Some(0.5),
+            loose_min_km_pct: Some(50.0),
+        })
     );
+
+    // A field the user cleared stays empty.
+    fs::write(&path, r#"{"fuelio_filters": {"minKm": 5, "looseMinKmPct": null}}"#).unwrap();
+    let loaded = LocalSettings::load(&dir.path().to_path_buf());
+    assert_eq!(loaded.fuelio_filters.unwrap().loose_min_km_pct, None);
 }
 
 // ============================================================================

@@ -37,6 +37,24 @@ async function setMinKm(km: number): Promise<void> {
   await input.setValue(String(km));
 }
 
+async function looseCount(): Promise<number> {
+  return (await $$('[data-testid="fuelio-flag-looseMatch"]').getElements()).length;
+}
+
+/** A merge input: one atomic change, so the page loads the report once. */
+async function setMergeInput(testId: string, value: string): Promise<void> {
+  await browser.execute(
+    (sel: string, v: string) => {
+      const input = document.querySelector(sel) as HTMLInputElement;
+      input.value = v;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    `[data-testid="${testId}"]`,
+    value
+  );
+}
+
 /** The places at the two ends of the fixture's 22 km drives. */
 async function seedPlaces(): Promise<void> {
   await rpc('create_place', { name: 'Fuelio South', lat: 48.0, lon: 17.0, source: 'manual' });
@@ -74,7 +92,9 @@ describe('Fuelio page (Dropbox configured)', () => {
     await setActiveVehicle(vehicleId);
     // The page saves its filters in the settings file, which outlives the
     // database reset: start each test from the defaults.
-    await rpc('set_fuelio_filters', { filters: { minKm: 15, mergeGapMin: 60, mergeJumpKm: 2 } });
+    await rpc('set_fuelio_filters', {
+      filters: { minKm: 15, mergeGapMin: 60, mergeJumpKm: 2, looseMinKmPct: 50 },
+    });
     // A fresh load: the layout reads the active vehicle on start
     await browser.url('/fuelio');
     await $('[data-testid="fuelio-table"]').waitForDisplayed({ timeout: 10000 });
@@ -92,12 +112,7 @@ describe('Fuelio page (Dropbox configured)', () => {
     await waitForRows(2, 'default merge gap');
     expect(await $('[data-testid="fuelio-drive-count"]').isExisting()).toBe(false);
 
-    await browser.execute((sel: string) => {
-      const input = document.querySelector(sel) as HTMLInputElement;
-      input.value = '120';
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, '[data-testid="fuelio-merge-gap"]');
+    await setMergeInput('fuelio-merge-gap', '120');
 
     const count = $('[data-testid="fuelio-drive-count"]');
     await count.waitForDisplayed({ timeout: 5000 });
@@ -111,6 +126,7 @@ describe('Fuelio page (Dropbox configured)', () => {
       ['fuelio-min-km', '0'],
       ['fuelio-merge-gap', '120'],
       ['fuelio-merge-jump', '3'],
+      ['fuelio-loose-min', '20'],
     ]) {
       const input = $(`[data-testid="${sel}"]`);
       await input.clearValue();
@@ -125,6 +141,7 @@ describe('Fuelio page (Dropbox configured)', () => {
     expect(await $('[data-testid="fuelio-min-km"]').getValue()).toBe('0');
     expect(await $('[data-testid="fuelio-merge-gap"]').getValue()).toBe('120');
     expect(await $('[data-testid="fuelio-merge-jump"]').getValue()).toBe('3');
+    expect(await $('[data-testid="fuelio-loose-min"]').getValue()).toBe('20');
     // The first report after the reload already uses the saved merge gap.
     await $('[data-testid="fuelio-drive-count"]').waitForDisplayed({ timeout: 5000 });
   });
@@ -154,7 +171,7 @@ describe('Fuelio page (Dropbox configured)', () => {
       await $('[data-testid="fuelio-table"]').waitForDisplayed({ timeout: 10000 });
     }
 
-    it('keeps both rows of a trip that has a match and a loose fragment', async () => {
+    async function seedFirstTrip(): Promise<void> {
       await seedPlaces();
       await seedTrip({
         vehicleId,
@@ -166,14 +183,25 @@ describe('Fuelio page (Dropbox configured)', () => {
         odometer: 10022,
         purpose: 'trip',
       });
+    }
+
+    it('keeps both rows of a trip that has a match and a loose fragment', async () => {
+      await seedFirstTrip();
       await reload();
 
       // The 3 km fragment is under the default 15 km filter
       await waitForRows(2, 'default 15 km filter');
       await setMinKm(0);
       await waitForRows(3, 'no km filter');
+      // 3 km is under the default loose minimum of 50% of the 22 km trip
+      expect(await statusCount('matched')).toBe(1);
+      expect(await looseCount()).toBe(0);
+      await setMergeInput('fuelio-loose-min', '0');
+      await browser.waitUntil(async () => (await looseCount()) === 1, {
+        timeout: 5000,
+        timeoutMsg: 'a loose minimum of 0 did not match the fragment loosely',
+      });
       expect(await statusCount('matched')).toBe(2);
-      expect((await $$('[data-testid="fuelio-flag-looseMatch"]').getElements()).length).toBe(1);
 
       // A filter change must keep each row once: no lost and no stale rows
       await setMinKm(15);
@@ -182,6 +210,39 @@ describe('Fuelio page (Dropbox configured)', () => {
       await waitForRows(3, 'no km filter again');
       expect(await statusCount('matched')).toBe(2);
       expect(await statusCount('missing')).toBe(1);
+    });
+
+    it('adds a loosely matched drive as its own trip', async () => {
+      await rpc('set_fuelio_filters', {
+        filters: { minKm: 0, mergeGapMin: 60, mergeJumpKm: 2, looseMinKmPct: 0 },
+      });
+      await seedFirstTrip();
+      await reload();
+      await browser.waitUntil(async () => (await looseCount()) === 1, {
+        timeout: 5000,
+        timeoutMsg: 'the fragment is not a loose match',
+      });
+
+      // The loose row (flag -> cell -> row) offers "Add" next to "Overwrite"
+      const looseRow = $('[data-testid="fuelio-flag-looseMatch"]').parentElement().parentElement();
+      await looseRow.$('[data-testid="fuelio-overwrite"]').waitForExist({ timeout: 5000 });
+      await looseRow.$('[data-testid="fuelio-add"]').click();
+      await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
+      await browser.waitUntil(
+        async () => (await $('[data-testid="fuelio-add-origin"]').getValue()) !== '',
+        { timeout: 5000, timeoutMsg: 'the add preview did not preselect a place' }
+      );
+      await $('[data-testid="fuelio-add-purpose"]').setValue('fragment');
+      await $('[data-testid="fuelio-add-continue"]').click();
+
+      await browser.waitUntil(async () => (await looseCount()) === 0, {
+        timeout: 5000,
+        timeoutMsg: 'the added drive is still a loose match of the first trip',
+      });
+      const grid = await getTripGridData(vehicleId, YEAR);
+      expect(grid.trips.length).toBe(2);
+      expect(grid.trips.some((t) => t.purpose === 'fragment')).toBe(true);
+      expect(await $('.toast-error').isExisting()).toBe(false);
     });
 
     it('overwrites a trip from its GPS drive and moves the later odometer', async () => {

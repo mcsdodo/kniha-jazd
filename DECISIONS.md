@@ -4,6 +4,24 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-10-29: Fuelio Loose Match
+
+### BIZ-030: A loose match needs a share of the trip km (amends BIZ-027)
+
+**Context:** The loose pass of [BIZ-027](#biz-027-fuelio-drives-are-the-reference-of-the-cross-check) accepted any chain that touched a trip place within 3 h, up to 150% of the trip km. Home is a place of most trips, and the 5 km radius covers the whole home town. On the production data, 40 of 44 loose matches were city drives of about 3 km. A 96.6 km drive home went to the 218 km trip before it, which had a complete match already. A loose row had only "Prepísať", so the user could not add that drive again after deleting its trip.
+
+**Options considered:**
+1. "Pridať" on a loose row only - fixes the add, but the wrong matches stay.
+2. Skip trips that have a complete match - removes only 4 of the 44 loose matches.
+3. A minimum share of the trip km - removes 40 of the 44.
+4. Remove the loose pass.
+
+**Decision:** Options 1 and 3. A loose chain must have at least `MergeRules::loose_min_km_pct` of the trip km (default 50%, `0` = no minimum). The user sets the value on the Fuelio page; the server saves it with the other filters (`looseMinKmPct`). A loose row also offers "Pridať". "One trip can get two rows" in BIZ-027 is now true only with a low share.
+
+**Reasoning:** A real fragment of a trip is a large part of it (a split drive, GPS that started late). A short drive that only starts near a trip place is a separate drive. The right share depends on how the user drives, so it is a page field. "Pridať" on a loose row keeps a way out when the heuristic is wrong.
+
+---
+
 ## 2026-10-16: Excel Export
 
 ### BIZ-029: The 20 % limit applies to each fill-up period; the headline shows the year
@@ -98,7 +116,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 **Decision:**
 
 1. **Fuelio is the reference.** Each row is a run of drives. A logbook trip without a drive is not listed, because that is normal (Fuelio does not record every drive).
-2. **Three passes:** complete runs first, then partial runs, then loose matches for the drives that are left. The partial and loose passes stay within 3 hours of the trip. One trip can get two rows (a match and a loose fragment). Each drive is in exactly one row.
+2. **Three passes:** complete runs first, then partial runs, then loose matches for the drives that are left. The partial and loose passes stay within 3 hours of the trip. One trip can get two rows (a match and a loose fragment). A loose match needs a share of the trip km since BIZ-030. Each drive is in exactly one row.
 3. **A drive belongs to the local year of the epoch in its file name.** The page and the Dropbox sync use the same rule. Each year is checked alone: a drive on 31 December cannot match a trip on 1 January (a known limit).
 4. The thresholds are the constants in `fuelio/matching.rs`. [docs/features/fuelio.md](./docs/features/fuelio.md) explains them. They were tuned on the production data.
 

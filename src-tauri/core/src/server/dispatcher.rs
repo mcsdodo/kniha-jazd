@@ -1088,6 +1088,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
                 // The merge rules from the page; absent = the defaults.
                 max_gap_min: Option<i64>,
                 max_jump_km: Option<f64>,
+                loose_min_km_pct: Option<f64>,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
@@ -1095,6 +1096,7 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let rules = crate::fuelio::MergeRules {
                 max_gap_min: a.max_gap_min.unwrap_or(default.max_gap_min),
                 max_jump_m: a.max_jump_km.map_or(default.max_jump_m, |km| km * 1000.0),
+                loose_min_km_pct: a.loose_min_km_pct.unwrap_or(default.loose_min_km_pct),
             };
             let v = crate::commands_internal::get_fuelio_crosscheck_internal(
                 &state.db,

@@ -180,6 +180,7 @@ pub fn get_fuelio_filters_internal(app_dir: &Path) -> Result<FuelioFilters, Stri
             min_km: Some(FUELIO_DEFAULT_MIN_KM),
             merge_gap_min: Some(merge.max_gap_min),
             merge_jump_km: Some(merge.max_jump_m / 1000.0),
+            loose_min_km_pct: Some(merge.loose_min_km_pct),
         }
     }))
 }

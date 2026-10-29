@@ -58,6 +58,14 @@ pub struct FuelioFilters {
     pub min_km: Option<f64>,
     pub merge_gap_min: Option<i64>,
     pub merge_jump_km: Option<f64>,
+    /// Absent in a file saved before it existed: the backend default, so the
+    /// page shows the value it uses. A saved `null` stays `None`.
+    #[serde(default = "default_loose_min_km_pct")]
+    pub loose_min_km_pct: Option<f64>,
+}
+
+fn default_loose_min_km_pct() -> Option<f64> {
+    Some(crate::fuelio::MergeRules::default().loose_min_km_pct)
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

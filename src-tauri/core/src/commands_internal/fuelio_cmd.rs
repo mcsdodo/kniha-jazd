@@ -63,8 +63,8 @@ pub fn get_fuelio_crosscheck_internal(
     year: i32,
     rules: MergeRules,
 ) -> Result<FuelioReport, String> {
-    if rules.max_gap_min < 0 || !(rules.max_jump_m >= 0.0) {
-        return Err("The merge gap and distance must not be negative".into());
+    if rules.max_gap_min < 0 || !(rules.max_jump_m >= 0.0) || !(rules.loose_min_km_pct >= 0.0) {
+        return Err("The merge gap, distance and loose km share must not be negative".into());
     }
     let folder = data_dir.join(fuelio::FOLDER_NAME);
     let drives = fuelio::scan_year(&folder, year);

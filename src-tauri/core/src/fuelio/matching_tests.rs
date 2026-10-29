@@ -37,7 +37,12 @@ fn crosscheck(trips: &[TripRef], drives: &[Drive]) -> Vec<CrosscheckRow> {
 }
 
 fn rules(max_gap_min: i64, max_jump_m: f64) -> MergeRules {
-    MergeRules { max_gap_min, max_jump_m }
+    MergeRules { max_gap_min, max_jump_m, ..MergeRules::default() }
+}
+
+/// The default rules with a loose minimum of `pct` percent of the trip km.
+fn loose_min(pct: f64) -> MergeRules {
+    MergeRules { loose_min_km_pct: pct, ..MergeRules::default() }
 }
 
 fn trip(id: &str, start: NaiveDateTime, from: (f64, f64), to: (f64, f64), km: f64) -> TripRef {
@@ -477,8 +482,10 @@ fn a_second_full_drive_on_a_matched_trip_is_missing() {
     assert_eq!(d2.status, RowStatus::Missing);
 }
 
+// A loose chain must have a minimum share of the trip km (2026-10-29): a
+// 3 km city drive near home went loosely to every trip that starts at home.
 #[test]
-fn a_short_fragment_next_to_a_matched_trip_matches_loosely() {
+fn a_short_fragment_next_to_a_matched_trip_is_missing() {
     let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
     let drives = [
         drive("d1", at(28, 8, 0), 50, A, B, 70.0),
@@ -486,8 +493,47 @@ fn a_short_fragment_next_to_a_matched_trip_matches_loosely() {
     ];
     let rows = crosscheck(&trips, &drives);
     let frag = rows.iter().find(|r| r.drive_ids == vec!["frag"]).unwrap();
+    assert_eq!(frag.status, RowStatus::Missing);
+}
+
+#[test]
+fn a_loose_minimum_of_zero_takes_a_short_fragment() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    let drives = [
+        drive("d1", at(28, 8, 0), 50, A, B, 70.0),
+        drive("frag", at(28, 12, 0), 10, B, (48.01, 21.0), 3.0),
+    ];
+    let rows = super::crosscheck(&trips, &drives, loose_min(0.0));
+    let frag = rows.iter().find(|r| r.drive_ids == vec!["frag"]).unwrap();
     assert_eq!(frag.trip_id.as_deref(), Some("t1"));
     assert_eq!(frag.flags, vec![Flag::LooseMatch]);
+}
+
+#[test]
+fn a_loose_chain_with_the_minimum_share_matches() {
+    let trips = [trip("t1", at(28, 8, 0), A, B, 74.0)];
+    // Exactly 50% of the trip km.
+    let rows = crosscheck(&trips, &[drive("d1", at(28, 9, 0), 30, C, B, 37.0)]);
+    assert_eq!(rows[0].flags, vec![Flag::LooseMatch]);
+    let rows = super::crosscheck(&trips, &[drive("d1", at(28, 9, 0), 30, C, B, 37.0)], loose_min(51.0));
+    assert_eq!(rows[0].status, RowStatus::Missing);
+}
+
+// 2026-10-29: the user deleted the trip Ivachnová -> SNV (96.6 km, 12:19).
+// Its drive went loosely to the trip before it, Drevoma -> Ivachnová (218 km,
+// 09:34 to 12:05), which had a complete match already. So the page offered
+// no "Pridať" for it.
+#[test]
+fn a_drive_home_after_a_matched_trip_is_missing() {
+    let mut t = trip("t1", at(29, 9, 34), A, C, 218.0);
+    t.end = Some(at(29, 12, 5));
+    let drives = [
+        drive("there", at(29, 9, 34), 151, A, C, 218.1),
+        drive("home", at(29, 12, 19), 52, C, B, 96.6),
+    ];
+    let rows = crosscheck(&[t], &drives);
+    let home = rows.iter().find(|r| r.drive_ids == vec!["home"]).unwrap();
+    assert_eq!(home.status, RowStatus::Missing);
 }
 
 // The Fuelio page keys its rows by their drive IDs: every row has a drive,
@@ -500,7 +546,7 @@ fn every_drive_is_in_exactly_one_row() {
         drive("frag", at(28, 12, 0), 10, B, (48.01, 21.0), 3.0),
         drive("d2", at(29, 8, 0), 50, C, B, 74.0),
     ];
-    let rows = crosscheck(&trips, &drives);
+    let rows = super::crosscheck(&trips, &drives, loose_min(0.0));
     assert_eq!(rows.iter().filter(|r| r.trip_id.as_deref() == Some("t1")).count(), 2);
     assert!(rows.iter().all(|r| !r.drive_ids.is_empty()));
     let mut ids: Vec<&str> = rows
@@ -556,8 +602,8 @@ fn a_trip_without_an_end_time_ends_3_hours_after_its_start_for_the_loose_window(
     let rows = crosscheck(
         &[t],
         &[
-            drive("in", at(28, 13, 30), 20, C, B, 20.0),
-            drive("out", at(28, 14, 30), 20, C, (48.0, 21.01), 20.0),
+            drive("in", at(28, 13, 30), 20, C, B, 40.0),
+            drive("out", at(28, 14, 30), 20, C, (48.0, 21.01), 40.0),
         ],
     );
     let status = |id: &str| rows.iter().find(|r| r.drive_ids == vec![id.to_string()]).unwrap().status;
@@ -578,10 +624,11 @@ fn a_partial_match_needs_a_start_within_3_hours_of_the_trip() {
 // Fuelio split over a longer stop, then import it as one trip.
 
 #[test]
-fn merge_rules_default_to_60_minutes_and_2_km() {
+fn merge_rules_default_to_60_minutes_2_km_and_a_loose_minimum_of_50_percent() {
     let r = MergeRules::default();
     assert_eq!(r.max_gap_min, 60);
     assert!((r.max_jump_m - 2_000.0).abs() < 1e-9);
+    assert!((r.loose_min_km_pct - 50.0).abs() < 1e-9);
 }
 
 #[test]

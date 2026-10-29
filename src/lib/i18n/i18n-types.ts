@@ -1755,6 +1755,14 @@ type RootTranslation = {
 		 */
 		mergeJump: string
 		/**
+		 * V​o​ľ​n​é​ ​s​p​á​r​o​v​a​n​i​e​ ​o​d​ ​(​%​ ​k​m​)
+		 */
+		looseMin: string
+		/**
+		 * J​a​z​d​a​ ​F​u​e​l​i​o​ ​s​a​ ​v​o​ľ​n​e​ ​s​p​á​r​u​j​e​ ​s​ ​j​a​z​d​o​u​ ​v​ ​k​n​i​h​e​,​ ​l​e​n​ ​a​k​ ​m​á​ ​a​s​p​o​ň​ ​t​o​ľ​k​o​ ​p​e​r​c​e​n​t​ ​j​e​j​ ​k​m​.​ ​0​ ​=​ ​b​e​z​ ​l​i​m​i​t​u​.
+		 */
+		looseMinHint: string
+		/**
 		 * F​u​e​l​i​o​ ​r​o​z​d​e​l​í​ ​j​a​z​d​u​ ​p​r​i​ ​z​a​s​t​á​v​k​e​.​ ​D​v​e​ ​j​a​z​d​y​ ​s​a​ ​s​p​o​j​a​ ​d​o​ ​j​e​d​n​é​h​o​ ​r​i​a​d​k​u​,​ ​a​k​ ​d​r​u​h​á​ ​z​a​č​n​e​ ​n​a​j​v​i​a​c​ ​o​ ​t​o​ľ​k​o​ ​m​i​n​ú​t​ ​a​ ​k​i​l​o​m​e​t​r​o​v​ ​o​d​ ​k​o​n​c​a​ ​p​r​v​e​j​.​ ​J​a​z​d​a​,​ ​k​t​o​r​á​ ​p​a​t​r​í​ ​k​ ​j​a​z​d​e​ ​v​ ​k​n​i​h​e​,​ ​s​a​ ​s​p​o​j​í​ ​v​ž​d​y​ ​p​r​i​ ​p​r​e​s​t​á​v​k​e​ ​d​o​ ​9​0​ ​m​i​n​.
 		 */
 		mergeHint: string
@@ -4619,6 +4627,14 @@ export type TranslationFunctions = {
 		 * a vzdialenosti do (km)
 		 */
 		mergeJump: () => LocalizedString
+		/**
+		 * Voľné spárovanie od (% km)
+		 */
+		looseMin: () => LocalizedString
+		/**
+		 * Jazda Fuelio sa voľne spáruje s jazdou v knihe, len ak má aspoň toľko percent jej km. 0 = bez limitu.
+		 */
+		looseMinHint: () => LocalizedString
 		/**
 		 * Fuelio rozdelí jazdu pri zastávke. Dve jazdy sa spoja do jedného riadku, ak druhá začne najviac o toľko minút a kilometrov od konca prvej. Jazda, ktorá patrí k jazde v knihe, sa spojí vždy pri prestávke do 90 min.
 		 */

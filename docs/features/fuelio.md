@@ -32,7 +32,11 @@
    and the largest distance (2 km by default) from the end of a drive to the start of
    the next. A change loads the report again. Raise them to join a drive that Fuelio
    split at a long stop, then "Pridať" adds it as one trip.
-   The server saves these three fields (min km, longest stop, largest distance) in
+   One more field sets the share of the trip km that a loose match needs (50% by
+   default, `0` = no minimum). A change loads the report again. Lower it to see short
+   fragments next to their trip.
+   The server saves these four fields (min km, longest stop, largest distance, loose
+   km share) in
    `local.settings.json` (`fuelio_filters`, commands `get_fuelio_filters` /
    `set_fuelio_filters` in
    [settings_cmd.rs](../../src-tauri/core/src/commands_internal/settings_cmd.rs)), so they stay after a reload and on each device. The pills
@@ -46,7 +50,8 @@
 7. **Prepísať** (matched row). A popup selects which trip fields the GPS values replace:
    start, end, distance, route. A distance change shows the odometer cascade confirmation
    (the same one as on `/mapa`).
-8. **Pridať** (missing row). A popup proposes the origin and destination (the nearest
+8. **Pridať** (missing row, and a loose row next to "Prepísať": a loose match can be a
+   different drive, for example the drive back after a trip). A popup proposes the origin and destination (the nearest
    places to the GPS start and end, with their distance), the GPS times and km. The user
    types the purpose and saves. A new trip that moves later odometers shows the insert
    cascade confirmation.
@@ -108,13 +113,17 @@ on the drives and trips that the earlier passes left:
 3. **Loose** (flag "Voľné spárovanie"). The rest joins into chains (gap <= 60 min, next
    start within 2 km of the previous end). A chain goes to the nearest trip in time inside
    the same 3 h window if a chain end is within 5 km of a trip place or >= 50% of it is
-   within 1 km of the stored route, and the trip stays at <= 150% of its km.
+   within 1 km of the stored route, the chain has at least the loose km share of the trip
+   km (`MergeRules::loose_min_km_pct`, 50% by default, set on the page), and the trip
+   stays at <= 150% of its km.
 
 A chain that fits no trip is a **missing** row.
 
 **Merge rules (`MergeRules`).** The page sends `maxGapMin` and `maxJumpKm` with
 `get_fuelio_crosscheck`; absent values use the defaults 60 min and 2 km, and a negative
-value is an error. They replace the gap and the distance of the pass 3 chains. The
+value is an error. They replace the gap and the distance of the pass 3 chains.
+`looseMinKmPct` (default 50) is the loose km share of pass 3; a negative value is an
+error too. The
 passes 1 and 2 use the gap or 90 min, whichever is longer, so a small value never
 splits a trip. A round trip keeps its own longer stop rule.
 
@@ -204,6 +213,12 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
   because a wrong logbook time is what it must find. The partial and loose passes are
   loose on places and km, so they stay inside 3 h of the trip: with 12 h, an evening
   city drive got joined to a morning trip.
+- **Why a minimum km share for a loose match?** Home is a place of most trips, and the
+  5 km radius covers the whole home town. Without the share, on the production data 40
+  of 44 loose matches were 3 km city drives near home, and a 97 km drive back home went
+  to the 218 km trip before it, which had a complete match already (2026-10-29). Each
+  such drive had no "Pridať". The share is a page field because the right value depends
+  on how the user drives.
 - **Why only Dropbox enables the feature?** The operator decides that Fuelio is part of
   the deployment by setting the secrets. A folder that happens to exist in the volume
   does not turn on a page that writes trips.
