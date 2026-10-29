@@ -233,7 +233,13 @@ describe('Fuelio page (Dropbox configured)', () => {
         async () => (await $('[data-testid="fuelio-add-origin"]').getValue()) !== '',
         { timeout: 5000, timeoutMsg: 'the add preview did not preselect a place' }
       );
-      await $('[data-testid="fuelio-add-purpose"]').setValue('from Fuelio');
+      // The purpose offers the purposes of earlier trips, as in the logbook grid
+      const purposeInput = await $('[data-testid="fuelio-add-purpose"]');
+      await purposeInput.setValue('lat');
+      const suggestion = await purposeInput.parentElement().$('.dropdown .suggestion');
+      await suggestion.waitForDisplayed({ timeout: 5000 });
+      expect(await suggestion.getText()).toBe('later');
+      await suggestion.click();
       await $('[data-testid="fuelio-add-continue"]').click();
       await $('[data-testid="cascade-modal"]').waitForDisplayed({ timeout: 5000 });
       await $('[data-testid="cascade-confirm"]').click();
@@ -251,6 +257,7 @@ describe('Fuelio page (Dropbox configured)', () => {
       expect(added.origin).toBe('Fuelio South');
       expect(added.destination).toBe('Fuelio North');
       expect(added.distanceKm).toBe(22);
+      expect(added.purpose).toBe('later');
       expect(later.odometer).toBe(10044);
       expect(await $('.toast-error').isExisting()).toBe(false);
     });

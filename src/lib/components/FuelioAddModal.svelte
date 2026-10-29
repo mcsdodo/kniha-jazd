@@ -5,6 +5,7 @@
 	import LL from '$lib/i18n/i18n-svelte';
 	import { toast } from '$lib/stores/toast';
 	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
+	import Autocomplete from './Autocomplete.svelte';
 
 	// Task 90: add a logbook trip from a "missing" Fuelio row. The backend
 	// computes the values and the place order (ADR-008); this dialog lets the
@@ -23,6 +24,7 @@
 	let originId = $state('');
 	let destinationId = $state('');
 	let purpose = $state('');
+	let purposeSuggestions = $state<string[]>([]);
 	let withRoute = $state(true);
 	let busy = $state(false);
 	let error = $state<string | null>(null);
@@ -30,6 +32,12 @@
 	let yearTrips = $state<Trip[]>([]);
 
 	onMount(async () => {
+		// The same purpose list as the logbook grid. Without it the field stays a
+		// plain text field, so a failure does not block the dialog.
+		api.getPurposes(vehicleId).then(
+			(p) => (purposeSuggestions = p),
+			(e) => console.error('Failed to load purposes:', e)
+		);
 		try {
 			preview = await api.getFuelioAddPreview(row.driveIds);
 			// The backend sorts nearest first: preselect the nearest place.
@@ -187,13 +195,15 @@
 						<tr>
 							<td><label for="fuelio-add-purpose">{$LL.fuelio.add.purpose()}</label></td>
 							<td>
-								<input
-									id="fuelio-add-purpose"
-									class="text-input"
-									type="text"
-									bind:value={purpose}
-									data-testid="fuelio-add-purpose"
-								/>
+								<div class="purpose">
+									<Autocomplete
+										id="fuelio-add-purpose"
+										bind:value={purpose}
+										suggestions={purposeSuggestions}
+										onSelect={(v) => (purpose = v)}
+										testId="fuelio-add-purpose"
+									/>
+								</div>
 							</td>
 						</tr>
 						<tr>
@@ -277,7 +287,7 @@
 		width: 1%;
 	}
 	select,
-	.text-input {
+	.purpose :global(input) {
 		box-sizing: border-box;
 		width: 100%;
 		padding: 0.35rem 0.5rem;

@@ -21,6 +21,9 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Zmenené
+- **Účel pri pridaní jazdy z Fuelio** - pole Účel v dialógu pridania jazdy teraz ponúka účely z predchádzajúcich jázd, rovnako ako v knihe jázd.
+
 ## [2.3.1] - 2026-10-29
 
 ### Pokyny k aktualizácii

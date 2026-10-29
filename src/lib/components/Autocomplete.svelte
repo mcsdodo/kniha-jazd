@@ -7,6 +7,8 @@
 	// typing. Typed text that is not picked from the list never calls onSelect.
 	export let onChange: ((value: string) => void) | undefined = undefined;
 	export let testId: string = '';
+	// Optional: the input id, so a <label for> can point at it.
+	export let id: string | undefined = undefined;
 
 	let showDropdown = false;
 	let filteredSuggestions: string[] = [];
@@ -97,6 +99,7 @@
 <div class="autocomplete">
 	<input
 		type="text"
+		{id}
 		bind:value
 		{placeholder}
 		data-testid={testId || undefined}
