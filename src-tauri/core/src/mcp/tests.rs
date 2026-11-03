@@ -172,6 +172,8 @@ async fn list_journeys_returns_the_journey_fields() {
         t.destination_place_id = to;
         t.odometer = odo;
         t.purpose = purpose.into();
+        // Arrival 4 h 25 min after the start, so the end crosses no midnight.
+        t.end_datetime = Some(date.and_hms_opt(hour + 4, 40, 0).unwrap());
         db.create_trip(&t).unwrap();
         t.id
     };
@@ -187,7 +189,8 @@ async fn list_journeys_returns_the_journey_fields() {
     let j = &out_json["journeys"][0];
     assert_eq!(j["vehicle_id"], v.id.to_string());
     assert_eq!(j["start"], "2026-03-02T07:15");
-    assert_eq!(j["end"], "2026-03-04T08:15");
+    // The end is the arrival of the return leg, not its start.
+    assert_eq!(j["end"], "2026-03-04T12:40");
     assert_eq!(j["nights"], 2);
     assert_eq!(j["total_km"], 714.0);
     assert_eq!(j["places"], json!(["City A"]));

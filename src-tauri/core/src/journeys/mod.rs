@@ -15,6 +15,8 @@ use crate::models::Trip;
 pub struct Leg {
     pub id: Uuid,
     pub start: NaiveDateTime,
+    /// Arrival time (trip `end_datetime`), if the trip has one.
+    pub end: Option<NaiveDateTime>,
     pub odometer: f64,
     pub origin_place_id: Uuid,
     pub destination_place_id: Uuid,
@@ -30,6 +32,7 @@ impl Leg {
         Self {
             id: trip.id,
             start: trip.start_datetime,
+            end: trip.end_datetime,
             odometer: trip.odometer,
             origin_place_id: trip.origin_place_id,
             destination_place_id: trip.destination_place_id,
@@ -61,7 +64,8 @@ pub struct Journey {
 ///
 /// Rules (BIZ entry "Journeys away from home"):
 /// 1. A journey starts at a leg home -> not home.
-/// 2. It ends at the next leg not home -> home.
+/// 2. It ends at the next leg not home -> home. `end` is the arrival of that
+///    leg (`end_datetime`), or its start if it has no end time.
 /// 3. A home -> X leg is a day trip if it has a round-trip map, or if the next
 ///    leg starts at home (a departure or a loop).
 /// 4. A home -> home leg is never a journey.
@@ -121,7 +125,10 @@ fn build(
     broken_at: Option<NaiveDateTime>,
 ) -> Journey {
     let start = chain[0].start;
-    let end = complete.then(|| chain[chain.len() - 1].start);
+    // The end is the arrival home: the end of the return leg. If that leg has
+    // no end time, its start is the best value (operator decision 2026-11-03).
+    let last = chain[chain.len() - 1];
+    let end = complete.then(|| last.end.unwrap_or(last.start));
     let nights = end.map(|e| (e.date() - start.date()).num_days());
 
     let mut places: Vec<String> = Vec::new();

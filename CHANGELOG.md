@@ -21,6 +21,9 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Opravené
+- **Koniec cesty v MCP** - `list_journeys` teraz vracia ako koniec cesty čas príchodu domov (koniec poslednej jazdy), nie jej začiatok. Cesta s návratom po polnoci tak má správny dátum konca a o jednu noc viac. Ak posledná jazda nemá čas konca, koncom zostáva jej začiatok.
+
 ## [2.5.0] - 2026-10-29
 
 ### Pokyny k aktualizácii

@@ -75,7 +75,7 @@ the range.
 | Field | Value |
 |-------|-------|
 | `start` | Start of the first leg |
-| `end` | Start of the return leg, or `null` if the journey is incomplete |
+| `end` | Arrival of the return leg (its `end_datetime`), or `null` if the journey is incomplete. If the return leg has no end time, `end` is its start. |
 | `nights` | Calendar days between the start date and the end date, or `null` |
 | `total_km` | Sum of `distance_km` of all legs |
 | `places` | The distinct destinations in order, without home |
@@ -90,7 +90,8 @@ runs for each vehicle. It sorts the legs by `start_datetime`, then by `odometer`
 
 1. A leg endpoint is home if its place ID is the ID of the home place.
 2. A journey starts at a leg from home to a place that is not home.
-3. A journey ends at the next leg from a place that is not home to home.
+3. A journey ends at the next leg from a place that is not home to home. The `end` is the
+   arrival of that leg (its `end_datetime`). If the leg has no end time, the `end` is its start.
 4. A single leg from home is a **day trip**, and it is not a journey. This is true if its
    saved map has `round_trip = true`, or if the next leg starts at home.
 5. A leg from home to home is never a journey.

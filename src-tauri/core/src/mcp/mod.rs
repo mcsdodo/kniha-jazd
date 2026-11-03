@@ -70,7 +70,8 @@ pub struct JourneyOut {
     pub vehicle_id: String,
     /// Start of the first leg, YYYY-MM-DDTHH:MM.
     pub start: String,
-    /// Start of the return leg, or null if the journey is incomplete.
+    /// Arrival of the return leg (its end time, or its start if the trip has
+    /// no end time), or null if the journey is incomplete.
     pub end: Option<String>,
     /// Calendar days between the start date and the end date, or null.
     pub nights: Option<i64>,
@@ -180,7 +181,7 @@ impl KnihaJazdMcp {
         }))
     }
 
-    #[tool(description = "Read-only. Groups trip legs into journeys away from the home place and returns each journey that overlaps date_from..date_to (YYYY-MM-DD, both inclusive). Without vehicle_id: all vehicles. A journey starts at a leg from home and ends at the next leg back home. Single-leg day trips and home-to-home loops are not journeys. complete=false means no return leg exists: the car has not come back yet, or it left home again before a return leg was recorded. Error if no home place is set. The app applies no accounting rule: filter on nights and total_km yourself.")]
+    #[tool(description = "Read-only. Groups trip legs into journeys away from the home place and returns each journey that overlaps date_from..date_to (YYYY-MM-DD, both inclusive). Without vehicle_id: all vehicles. A journey starts at a leg from home and ends at the next leg back home. start is the start of the first leg; end is the arrival time of the return leg (its start if the trip has no end time); nights counts calendar days from the start date to the end date. Single-leg day trips and home-to-home loops are not journeys. complete=false means no return leg exists: the car has not come back yet, or it left home again before a return leg was recorded. Error if no home place is set. The app applies no accounting rule: filter on nights and total_km yourself.")]
     async fn list_journeys(&self, Parameters(args): Parameters<RangeArgs>) -> Result<Json<JourneyListOut>, String> {
         let from = parse_day("date_from", &args.date_from)?;
         let to = parse_day("date_to", &args.date_to)?;

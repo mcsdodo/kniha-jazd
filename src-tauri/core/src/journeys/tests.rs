@@ -36,6 +36,7 @@ impl Fixture {
         let leg = Leg {
             id,
             start: NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H:%M").unwrap(),
+            end: None,
             odometer: self.odometer,
             origin_place_id: self.place(from),
             destination_place_id: self.place(to),
@@ -45,6 +46,11 @@ impl Fixture {
         };
         self.legs.push(leg);
         id
+    }
+
+    /// Set the arrival time (trip `end_datetime`) of the last added leg.
+    fn arrive(&mut self, at: &str) {
+        self.legs.last_mut().unwrap().end = Some(dt(at));
     }
 
     fn round_trip(&mut self, leg_id: Uuid) {
@@ -88,6 +94,43 @@ fn trip_with_local_legs_and_return_two_days_later() {
     assert_eq!(j.leg_ids[4], back_id);
     assert_eq!(j.purposes, vec!["Customer visit", "Meeting", "Return"]);
     assert_eq!(j.vehicle_id, fx.vehicle_id);
+}
+
+#[test]
+fn end_is_the_arrival_of_the_return_leg_across_midnight() {
+    // Operator decision 2026-11-03: the end is the arrival home, not the start
+    // of the return leg. The travel order of such a case says 10.03. to 13.03.
+    let mut fx = Fixture::new();
+    fx.leg("2026-03-10 05:00", HOME, "City A", 420.0, "Customer visit");
+    fx.arrive("2026-03-10 09:30");
+    fx.leg("2026-03-12 22:25", "City A", HOME, 420.0, "Return");
+    fx.arrive("2026-03-13 00:41");
+
+    let journeys = fx.run();
+
+    assert_eq!(journeys.len(), 1);
+    let j = &journeys[0];
+    assert!(j.complete);
+    assert_eq!(j.start, dt("2026-03-10 05:00"));
+    assert_eq!(j.end, Some(dt("2026-03-13 00:41")));
+    assert_eq!(j.nights, Some(3));
+    // The journey now also covers the arrival day.
+    assert!(overlaps(j, d("2026-03-13"), d("2026-03-13")));
+    assert!(!overlaps(j, d("2026-03-14"), d("2026-03-31")));
+}
+
+#[test]
+fn end_falls_back_to_the_start_of_the_return_leg_without_arrival() {
+    let mut fx = Fixture::new();
+    fx.leg("2026-03-10 05:00", HOME, "City A", 420.0, "Customer visit");
+    fx.arrive("2026-03-10 09:30");
+    fx.leg("2026-03-12 22:25", "City A", HOME, 420.0, "Return");
+
+    let journeys = fx.run();
+
+    assert_eq!(journeys.len(), 1);
+    assert_eq!(journeys[0].end, Some(dt("2026-03-12 22:25")));
+    assert_eq!(journeys[0].nights, Some(2));
 }
 
 #[test]

@@ -180,7 +180,7 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 1. **Home.** One place can have `places.is_home = 1`. A partial unique index allows only one. A leg endpoint is home if its place ID is the ID of that place. The match is by ID, not by text.
 2. **Order.** The legs of one vehicle are sorted by `start_datetime`, then by `odometer`.
-3. **Start and end.** A journey starts at a leg from home to a place that is not home. It ends at the next leg from a place that is not home to home.
+3. **Start and end.** A journey starts at a leg from home to a place that is not home. It ends at the next leg from a place that is not home to home. The journey `start` is the start of the first leg. The journey `end` is the arrival of the return leg (its `end_datetime`). If the return leg has no end time, the `end` is its start. `nights` is the count of calendar days from the start date to the end date. The first version used the start of the return leg as the `end`. The operator corrected this on 2026-11-03: the end must be the arrival home, because the travel order uses it. A return leg that arrived after midnight had one night too few.
 4. **Day trip.** A single leg from home is never a journey if its saved map has `round_trip = true`, or if the next leg starts at home.
 5. **Loop.** A leg from home to home is never a journey.
 6. **Incomplete journey.** A chain with no return leg is incomplete (`complete = false`, `end = null`, `nights = null`). This happens when the chain is open after the last leg of the vehicle. It also happens when a chain of **two or more legs** meets a new leg from home (a new departure or a home to home loop). A **single leg** followed by a leg from home is a day trip. The user decided this on 2026-10-05.
