@@ -8,14 +8,19 @@
 	import { toast } from '$lib/stores/toast';
 	import OdometerCascadeModal from '$lib/components/OdometerCascadeModal.svelte';
 	import Autocomplete from '$lib/components/Autocomplete.svelte';
-	import MobilePlacePicker, { type PlacePickerOption } from '$lib/components/mobile/MobilePlacePicker.svelte';
+	import MobilePlacePicker, {
+		type PickedPosition,
+		type PlacePickerOption
+	} from '$lib/components/mobile/MobilePlacePicker.svelte';
 
-	// Task 93: add a trip by hand on the phone. The end is now, the destination
-	// comes from the phone GPS, the user types the km. The backend computes the
-	// start from the route drive time (ADR-008). For a new place there is no
-	// route before the save, so the user types the start.
+	// Task 93: add a trip by hand on the phone. Top to bottom: Odkiaľ, Kam,
+	// then the times and the km. Each end is an existing place or a new place
+	// with a position (phone GPS or address search). The end time starts at
+	// now and the user can change it. With both ends known, the backend
+	// computes the route: it fills the km and the start (ADR-008). The user
+	// can change both.
 
-	// "Now" as a datetime-local value: local time, "YYYY-MM-DDTHH:MM".
+	// A datetime-local value: local time, "YYYY-MM-DDTHH:MM".
 	function nowLocal(): string {
 		const d = new Date();
 		const p = (n: number) => String(n).padStart(2, '0');
@@ -24,18 +29,22 @@
 
 	let end = $state(nowLocal());
 	let start = $state('');
-	// True while `start` holds the backend estimate, not a typed value.
+	// True while `start` holds the route estimate, not a typed value.
 	let startFromEstimate = $state(false);
 	let km = $state<number | null>(null);
+	// True while `km` holds the route km, not a typed value.
+	let kmFromEstimate = $state(false);
 	let purpose = $state('');
 	let purposeSuggestions = $state<string[]>([]);
 	let allPlaces = $state<PlacePickerOption[]>([]);
 	let placesError = $state<string | null>(null);
 
 	let origin = $state<FuelioAddEnd>({ placeId: null, newPlaceName: null });
-	let originPos = $state<{ lat: number; lon: number } | null>(null);
+	let originPos = $state<PickedPosition | null>(null);
 	let destination = $state<FuelioAddEnd>({ placeId: null, newPlaceName: null });
-	let destinationPos = $state<{ lat: number; lon: number } | null>(null);
+	let destinationPos = $state<PickedPosition | null>(null);
+	// The origin the backend suggested: the destination of the last trip.
+	let defaultOriginId = $state<string | null>(null);
 
 	let estimate = $state<ManualTripEstimate | null>(null);
 	let estimating = $state(false);
@@ -69,31 +78,53 @@
 		);
 	});
 
-	// One end for the route estimate: the existing place, or the GPS point of a
+	// The origin default follows the end time. It replaces only an empty
+	// origin or the old default, never a place the user chose.
+	let defaultsSeq = 0;
+	$effect(() => {
+		const vehicle = $activeVehicleStore;
+		const e = end;
+		if (!vehicle || !e) return;
+		const seq = ++defaultsSeq;
+		api.getManualTripDefaults(vehicle.id, e).then(
+			(d) => {
+				if (seq !== defaultsSeq) return;
+				const untouched =
+					(origin.placeId === null && origin.newPlaceName === null) ||
+					(origin.placeId !== null && origin.placeId === defaultOriginId);
+				defaultOriginId = d.originPlaceId;
+				if (untouched && d.originPlaceId) {
+					origin = { placeId: d.originPlaceId, newPlaceName: null };
+				}
+			},
+			(err) => console.error('Failed to load the trip defaults:', err)
+		);
+	});
+
+	// One end for the route estimate: the existing place, or the position of a
 	// new place. Null when the end has neither yet.
-	function estimateEnd(
-		v: FuelioAddEnd,
-		pos: { lat: number; lon: number } | null
-	): api.EstimateEnd | null {
+	function estimateEnd(v: FuelioAddEnd, pos: PickedPosition | null): api.EstimateEnd | null {
 		if (v.placeId) return { placeId: v.placeId };
 		if (v.newPlaceName !== null && pos) return { lat: pos.lat, lon: pos.lon };
 		return null;
 	}
 
-	// The start from the route, when both ends are known (a place or a GPS
-	// point). Only the newest request may set it: a datetime-local input fires
-	// per field.
+	let originEnd = $derived(estimateEnd(origin, originPos));
+	let destinationEnd = $derived(estimateEnd(destination, destinationPos));
+
+	// The route, when both ends are known. Only the newest request may set the
+	// values: a datetime-local input fires per field.
 	let estimateSeq = 0;
 	$effect(() => {
-		const o = estimateEnd(origin, originPos);
-		const d = estimateEnd(destination, destinationPos);
+		const o = originEnd;
+		const d = destinationEnd;
 		const e = end;
 		const seq = ++estimateSeq;
 		if (!o || !d || !e) {
 			untrack(() => {
 				estimate = null;
 				estimating = false;
-				dropEstimatedStart();
+				dropEstimated();
 			});
 			return;
 		}
@@ -103,57 +134,67 @@
 				if (seq !== estimateSeq) return;
 				estimating = false;
 				estimate = r;
-				if (r.startDatetime) {
+				dropEstimated();
+				if (r.startDatetime && (startFromEstimate || !start)) {
 					start = r.startDatetime;
 					startFromEstimate = true;
-				} else {
-					dropEstimatedStart();
+				}
+				if (r.distanceKm != null && (kmFromEstimate || km === null)) {
+					km = r.distanceKm;
+					kmFromEstimate = true;
 				}
 			},
 			(err) => {
 				if (seq !== estimateSeq) return;
 				estimating = false;
-				estimate = { routeKm: null, durationMin: null, startDatetime: null, error: String(err) };
-				dropEstimatedStart();
+				estimate = {
+					routeKm: null,
+					distanceKm: null,
+					durationMin: null,
+					startDatetime: null,
+					error: String(err)
+				};
+				dropEstimated();
 			}
 		);
 	});
 
-	// An old estimate does not fit new ends: clear it, the user types the start.
-	// A start the user typed stays.
-	function dropEstimatedStart() {
+	// An old estimate does not fit new ends: clear it. A typed value stays.
+	function dropEstimated() {
 		if (startFromEstimate) {
 			start = '';
 			startFromEstimate = false;
 		}
+		if (kmFromEstimate) {
+			km = null;
+			kmFromEstimate = false;
+		}
 	}
-
-	let hasNewEnd = $derived(origin.newPlaceName !== null || destination.newPlaceName !== null);
 
 	function chosen(v: FuelioAddEnd): boolean {
 		return !!v.placeId || !!v.newPlaceName?.trim();
 	}
 
 	function validate(): string | null {
-		if (!end) return $LL.mobile.add.missingEnd();
-		if (!chosen(destination)) return $LL.mobile.add.missingDestination();
 		if (!chosen(origin)) return $LL.mobile.add.missingOrigin();
+		if (!chosen(destination)) return $LL.mobile.add.missingDestination();
 		if ((!origin.placeId && !originPos) || (!destination.placeId && !destinationPos)) {
 			return $LL.mobile.add.noPosition();
 		}
+		if (!end) return $LL.mobile.add.missingEnd();
 		if (!start) return $LL.mobile.add.missingStart();
 		if (km === null || km === undefined || Number.isNaN(km)) return $LL.mobile.add.missingDistance();
 		return null;
 	}
 
 	// An existing place id, or the id of the new place (created once).
-	async function placeId(v: FuelioAddEnd, pos: { lat: number; lon: number } | null): Promise<string> {
+	async function placeId(v: FuelioAddEnd, pos: PickedPosition | null): Promise<string> {
 		if (v.placeId) return v.placeId;
 		const name = v.newPlaceName!.trim();
 		const key = name.toLowerCase();
 		const known = created.get(key);
 		if (known) return known;
-		const place = await api.createPlace(name, pos!.lat, pos!.lon, 'manual');
+		const place = await api.createPlace(name, pos!.lat, pos!.lon, pos!.source);
 		created.set(key, place.id);
 		return place.id;
 	}
@@ -193,9 +234,8 @@
 		busy = true;
 		formError = null;
 		try {
-			// Destination first: it is the GPS end and the usual new place.
-			const destinationId = await placeId(destination, destinationPos);
 			const originId = await placeId(origin, originPos);
+			const destinationId = await placeId(destination, destinationPos);
 			ids = { origin: originId, destination: destinationId };
 			const dry = await call(true);
 			if (dry.plan.changes.length > 0 || dry.plan.nextYearChainBreaks) {
@@ -238,75 +278,100 @@
 		<p class="muted">{$LL.mobile.add.noVehicle()}</p>
 	{:else}
 		<section class="form">
-			<div class="field-group">
-				<label for="m-nova-end">{$LL.mobile.add.end()}</label>
-				<input id="m-nova-end" type="datetime-local" class="field" bind:value={end} data-testid="m-nova-end" />
-			</div>
-
 			{#if placesError}
 				<p class="error" role="alert">{$LL.mobile.add.loadError({ error: placesError })}</p>
 			{/if}
 
+			<MobilePlacePicker
+				testId="m-nova-origin"
+				label={$LL.mobile.add.origin()}
+				options={allPlaces}
+				locate
+				selectNote={origin.placeId !== null && origin.placeId === defaultOriginId
+					? $LL.mobile.add.lastDestination()
+					: ''}
+				bind:value={origin}
+				bind:position={originPos}
+			/>
 			<MobilePlacePicker
 				testId="m-nova-destination"
 				label={$LL.mobile.add.destination()}
 				options={allPlaces}
 				locate
 				autoLocate
-				newHint={$LL.mobile.add.picker.pinGps()}
 				bind:value={destination}
 				bind:position={destinationPos}
 			/>
-			<MobilePlacePicker
-				testId="m-nova-origin"
-				label={$LL.mobile.add.origin()}
-				options={allPlaces}
-				locate
-				newHint={$LL.mobile.add.picker.pinGps()}
-				bind:value={origin}
-				bind:position={originPos}
-			/>
 
-			<div class="field-group">
-				<label for="m-nova-km">{$LL.mobile.add.distance()}</label>
-				<input
-					id="m-nova-km"
-					type="number"
-					inputmode="decimal"
-					min="0"
-					step="any"
-					class="field"
-					bind:value={km}
-					data-testid="m-nova-km"
-				/>
-				{#if estimate?.routeKm != null}
-					<p class="muted small" data-testid="m-nova-route-km">
-						{$LL.mobile.add.routeHint({ km: estimate.routeKm.toFixed(1) })}
-					</p>
-				{/if}
-			</div>
-
-			<div class="field-group">
-				<label for="m-nova-start">{$LL.mobile.add.start()}</label>
-				<input
-					id="m-nova-start"
-					type="datetime-local"
-					class="field"
-					bind:value={start}
-					oninput={() => (startFromEstimate = false)}
-					data-testid="m-nova-start"
-				/>
-				<p class="muted small" data-testid="m-nova-start-hint">
-					{#if !estimateEnd(origin, originPos) || !estimateEnd(destination, destinationPos)}
-						{hasNewEnd ? $LL.mobile.add.startNewPlace() : $LL.mobile.add.startNeedsPlaces()}
+			<div class="box" data-testid="m-nova-times">
+				<p class="muted small" data-testid="m-nova-route">
+					{#if !originEnd || !destinationEnd}
+						{$LL.mobile.add.startNeedsPlaces()}
 					{:else if estimating}
 						{$LL.mobile.add.estimating()}
 					{:else if estimate?.error}
 						<span class="error">{$LL.mobile.add.estimateFailed({ error: estimate.error })}</span>
-					{:else if estimate?.durationMin != null && startFromEstimate}
-						{$LL.mobile.add.startFromRoute({ min: estimate.durationMin })}
+					{:else if estimate?.routeKm != null && estimate.durationMin != null}
+						{$LL.mobile.add.routeSummary({
+							km: estimate.routeKm.toFixed(1),
+							min: estimate.durationMin
+						})}
 					{/if}
 				</p>
+
+				<div class="field-group">
+					<label for="m-nova-end">{$LL.mobile.add.end()}</label>
+					<div class="row">
+						<input
+							id="m-nova-end"
+							type="datetime-local"
+							class="field"
+							bind:value={end}
+							data-testid="m-nova-end"
+						/>
+						<button
+							type="button"
+							class="secondary"
+							onclick={() => (end = nowLocal())}
+							data-testid="m-nova-end-now">{$LL.mobile.add.now()}</button
+						>
+					</div>
+				</div>
+
+				<div class="field-group">
+					<label for="m-nova-start">{$LL.mobile.add.start()}</label>
+					<input
+						id="m-nova-start"
+						type="datetime-local"
+						class="field"
+						bind:value={start}
+						oninput={() => (startFromEstimate = false)}
+						data-testid="m-nova-start"
+					/>
+					{#if startFromEstimate && estimate?.durationMin != null}
+						<p class="muted small" data-testid="m-nova-start-hint">
+							{$LL.mobile.add.startFromRoute({ min: estimate.durationMin })}
+						</p>
+					{/if}
+				</div>
+
+				<div class="field-group">
+					<label for="m-nova-km">{$LL.mobile.add.distance()}</label>
+					<input
+						id="m-nova-km"
+						type="number"
+						inputmode="decimal"
+						min="0"
+						step="any"
+						class="field"
+						bind:value={km}
+						oninput={() => (kmFromEstimate = false)}
+						data-testid="m-nova-km"
+					/>
+					{#if kmFromEstimate}
+						<p class="muted small" data-testid="m-nova-km-hint">{$LL.mobile.add.kmFromRoute()}</p>
+					{/if}
+				</div>
 			</div>
 
 			<div class="field-group purpose">
@@ -397,6 +462,32 @@
 		color: var(--text-primary);
 		/* 16px stops the iOS zoom on focus */
 		font-size: 1rem;
+	}
+	.box {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border: 1px solid var(--border-default);
+		border-radius: 8px;
+	}
+	.row {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.row .field {
+		flex: 1;
+		min-width: 0;
+	}
+	.secondary {
+		min-height: 44px;
+		padding: 0.4rem 0.9rem;
+		border: 1px solid var(--border-input);
+		border-radius: 6px;
+		background: var(--btn-secondary-bg);
+		color: var(--text-primary);
+		font-size: 0.95rem;
+		cursor: pointer;
 	}
 	.muted {
 		color: var(--text-secondary);

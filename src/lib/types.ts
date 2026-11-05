@@ -753,13 +753,21 @@ export interface NearbyPlaces {
  * the start time.
  */
 export interface ManualTripEstimate {
-	/** Route km from the routing service, for a hint only. */
+	/** Route km from the routing service, for a hint. */
 	routeKm: number | null;
+	/** The route km rounded as a trip distance, to prefill the km field. */
+	distanceKm: number | null;
 	/** Route drive time in whole minutes. */
 	durationMin: number | null;
 	/** endDatetime minus the drive time, "YYYY-MM-DDTHH:MM". */
 	startDatetime: string | null;
 	error: string | null;
+}
+
+/** Task 93: the defaults of the phone manual-entry page. */
+export interface ManualTripDefaults {
+	/** The destination of the last trip before the end time, or null. */
+	originPlaceId: string | null;
 }
 
 export interface FuelioAdd {

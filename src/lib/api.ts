@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, ExportFile, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd, FuelioAddEnd, NearbyPlaces, ManualTripEstimate } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, ExportFile, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd, FuelioAddEnd, NearbyPlaces, ManualTripEstimate, ManualTripDefaults } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -848,6 +848,17 @@ export type EstimateEnd = { placeId: string } | { lat: number; lon: number };
  * that ends at `endDatetime` ("YYYY-MM-DDTHH:MM"). The backend computes the
  * start (ADR-008). A failed route is not an error: the fields are null.
  */
+/**
+ * Task 93: the defaults of the phone manual-entry page. The backend picks the
+ * origin: the destination of the last trip before endDatetime (ADR-008).
+ */
+export async function getManualTripDefaults(
+	vehicleId: string,
+	endDatetime: string
+): Promise<ManualTripDefaults> {
+	return await apiCall('get_manual_trip_defaults', { vehicleId, endDatetime });
+}
+
 export async function getManualTripEstimate(
 	origin: EstimateEnd,
 	destination: EstimateEnd,

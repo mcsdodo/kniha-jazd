@@ -2476,13 +2476,9 @@ type RootTranslation = {
 			 */
 			startFromRoute: RequiredParams<'min'>
 			/**
-			 * Z​a​č​i​a​t​o​k​ ​s​a​ ​v​y​p​o​č​í​t​a​,​ ​k​e​ď​ ​v​y​b​e​r​i​e​t​e​ ​o​b​e​ ​m​i​e​s​t​a​.
+			 * K​m​ ​a​ ​z​a​č​i​a​t​o​k​ ​s​a​ ​v​y​p​o​č​í​t​a​j​ú​ ​p​o​d​ľ​a​ ​t​r​a​s​y​,​ ​k​e​ď​ ​m​a​j​ú​ ​o​b​e​ ​m​i​e​s​t​a​ ​p​o​l​o​h​u​.
 			 */
 			startNeedsPlaces: string
-			/**
-			 * Z​a​d​a​j​t​e​ ​z​a​č​i​a​t​o​k​:​ ​n​o​v​é​ ​m​i​e​s​t​o​ ​z​a​t​i​a​ľ​ ​n​e​m​á​ ​G​P​S​ ​p​o​l​o​h​u​.
-			 */
-			startNewPlace: string
 			/**
 			 * P​o​č​í​t​a​m​ ​t​r​a​s​u​.​.​.
 			 */
@@ -2525,9 +2521,27 @@ type RootTranslation = {
 			 */
 			missingDistance: string
 			/**
-			 * N​o​v​é​ ​m​i​e​s​t​o​ ​n​e​m​á​ ​p​o​l​o​h​u​ ​G​P​S​.​ ​S​t​l​a​č​t​e​ ​M​o​j​a​ ​p​o​l​o​h​a​.
+			 * N​o​v​é​ ​m​i​e​s​t​o​ ​n​e​m​á​ ​p​o​l​o​h​u​.​ ​S​t​l​a​č​t​e​ ​M​o​j​a​ ​p​o​l​o​h​a​ ​a​l​e​b​o​ ​H​ľ​a​d​a​ť​ ​a​d​r​e​s​u​.
 			 */
 			noPosition: string
+			/**
+			 * T​e​r​a​z
+			 */
+			now: string
+			/**
+			 * C​i​e​ľ​ ​p​o​s​l​e​d​n​e​j​ ​j​a​z​d​y​.
+			 */
+			lastDestination: string
+			/**
+			 * P​o​d​ľ​a​ ​t​r​a​s​y​:​ ​{​k​m​}​ ​k​m​,​ ​{​m​i​n​}​ ​m​i​n
+			 * @param {string} km
+			 * @param {number} min
+			 */
+			routeSummary: RequiredParams<'km' | 'min'>
+			/**
+			 * p​o​d​ľ​a​ ​t​r​a​s​y​,​ ​m​ô​ž​e​t​e​ ​p​r​e​p​í​s​a​ť
+			 */
+			kmFromRoute: string
 			picker: {
 				/**
 				 * V​y​b​e​r​t​e​ ​m​i​e​s​t​o
@@ -2602,9 +2616,52 @@ type RootTranslation = {
 				 */
 				pinFuelioEnd: string
 				/**
-				 * P​o​l​o​h​a​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​:​ ​m​o​j​a​ ​p​o​l​o​h​a​ ​G​P​S​.
+				 * +​ ​N​o​v​é​ ​m​i​e​s​t​o
 				 */
-				pinGps: string
+				newPlace: string
+				/**
+				 * H​ľ​a​d​a​ť​ ​a​d​r​e​s​u
+				 */
+				searchAddress: string
+				/**
+				 * A​d​r​e​s​a​ ​a​l​e​b​o​ ​n​á​z​o​v
+				 */
+				addressPlaceholder: string
+				/**
+				 * H​ľ​a​d​a​ť
+				 */
+				search: string
+				/**
+				 * H​ľ​a​d​á​m​.​.​.
+				 */
+				searching: string
+				/**
+				 * A​d​r​e​s​a​ ​s​a​ ​n​e​n​a​š​l​a​.
+				 */
+				noResults: string
+				/**
+				 * H​ľ​a​d​a​n​i​e​ ​z​l​y​h​a​l​o​:​ ​{​e​r​r​o​r​}
+				 * @param {string} error
+				 */
+				searchError: RequiredParams<'error'>
+				/**
+				 * P​o​l​o​h​a​:​ ​m​o​j​a​ ​p​o​l​o​h​a​ ​G​P​S​ ​(​p​r​e​s​n​o​s​ť​ ​{​m​}​ ​m​)
+				 * @param {number} m
+				 */
+				positionGps: RequiredParams<'m'>
+				/**
+				 * P​o​l​o​h​a​:​ ​m​o​j​a​ ​p​o​l​o​h​a​ ​G​P​S
+				 */
+				positionGpsPlain: string
+				/**
+				 * P​o​l​o​h​a​:​ ​{​l​a​b​e​l​}
+				 * @param {string} label
+				 */
+				positionAddress: RequiredParams<'label'>
+				/**
+				 * N​o​v​é​ ​m​i​e​s​t​o​ ​e​š​t​e​ ​n​e​m​á​ ​p​o​l​o​h​u​.
+				 */
+				positionNone: string
 			}
 		}
 	}
@@ -5836,13 +5893,9 @@ export type TranslationFunctions = {
 			 */
 			startFromRoute: (arg: { min: number }) => LocalizedString
 			/**
-			 * Začiatok sa vypočíta, keď vyberiete obe miesta.
+			 * Km a začiatok sa vypočítajú podľa trasy, keď majú obe miesta polohu.
 			 */
 			startNeedsPlaces: () => LocalizedString
-			/**
-			 * Zadajte začiatok: nové miesto zatiaľ nemá GPS polohu.
-			 */
-			startNewPlace: () => LocalizedString
 			/**
 			 * Počítam trasu...
 			 */
@@ -5884,9 +5937,25 @@ export type TranslationFunctions = {
 			 */
 			missingDistance: () => LocalizedString
 			/**
-			 * Nové miesto nemá polohu GPS. Stlačte Moja poloha.
+			 * Nové miesto nemá polohu. Stlačte Moja poloha alebo Hľadať adresu.
 			 */
 			noPosition: () => LocalizedString
+			/**
+			 * Teraz
+			 */
+			now: () => LocalizedString
+			/**
+			 * Cieľ poslednej jazdy.
+			 */
+			lastDestination: () => LocalizedString
+			/**
+			 * Podľa trasy: {km} km, {min} min
+			 */
+			routeSummary: (arg: { km: string, min: number }) => LocalizedString
+			/**
+			 * podľa trasy, môžete prepísať
+			 */
+			kmFromRoute: () => LocalizedString
 			picker: {
 				/**
 				 * Vyberte miesto
@@ -5957,9 +6026,49 @@ export type TranslationFunctions = {
 				 */
 				pinFuelioEnd: () => LocalizedString
 				/**
-				 * Poloha nového miesta: moja poloha GPS.
+				 * + Nové miesto
 				 */
-				pinGps: () => LocalizedString
+				newPlace: () => LocalizedString
+				/**
+				 * Hľadať adresu
+				 */
+				searchAddress: () => LocalizedString
+				/**
+				 * Adresa alebo názov
+				 */
+				addressPlaceholder: () => LocalizedString
+				/**
+				 * Hľadať
+				 */
+				search: () => LocalizedString
+				/**
+				 * Hľadám...
+				 */
+				searching: () => LocalizedString
+				/**
+				 * Adresa sa nenašla.
+				 */
+				noResults: () => LocalizedString
+				/**
+				 * Hľadanie zlyhalo: {error}
+				 */
+				searchError: (arg: { error: string }) => LocalizedString
+				/**
+				 * Poloha: moja poloha GPS (presnosť {m} m)
+				 */
+				positionGps: (arg: { m: number }) => LocalizedString
+				/**
+				 * Poloha: moja poloha GPS
+				 */
+				positionGpsPlain: () => LocalizedString
+				/**
+				 * Poloha: {label}
+				 */
+				positionAddress: (arg: { label: string }) => LocalizedString
+				/**
+				 * Nové miesto ešte nemá polohu.
+				 */
+				positionNone: () => LocalizedString
 			}
 		}
 	}
