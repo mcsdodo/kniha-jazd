@@ -54,3 +54,6 @@ pub use journeys_cmd::*;
 
 pub mod fuelio_cmd;
 pub use fuelio_cmd::*;
+
+pub mod mobile;
+pub use mobile::*;

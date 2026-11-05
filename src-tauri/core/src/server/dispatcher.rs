@@ -1167,26 +1167,51 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             struct Args {
                 vehicle_id: String,
                 drive_ids: Vec<String>,
-                origin_place_id: String,
-                destination_place_id: String,
+                // Task 93: per end, a place id or a new place name.
+                #[serde(default)]
+                origin_place_id: Option<String>,
+                #[serde(default)]
+                destination_place_id: Option<String>,
+                #[serde(default)]
+                new_origin_name: Option<String>,
+                #[serde(default)]
+                new_destination_name: Option<String>,
                 purpose: String,
                 with_route: bool,
                 dry_run: bool,
             }
             let a: Args = parse_args(args)?;
             crate::commands_internal::require_fuelio_internal(fuelio_configured())?;
+            use crate::commands_internal::TripEnd;
+            let origin = TripEnd::from_args(a.origin_place_id, a.new_origin_name)
+                .map_err(|e| format!("Origin: {e}"))?;
+            let destination = TripEnd::from_args(a.destination_place_id, a.new_destination_name)
+                .map_err(|e| format!("Destination: {e}"))?;
             let v = crate::commands_internal::add_fuelio_trip_internal(
                 &state.db,
                 &state.app_state,
                 &state.app_dir,
                 &a.vehicle_id,
                 &a.drive_ids,
-                &a.origin_place_id,
-                &a.destination_place_id,
+                &origin,
+                &destination,
                 &a.purpose,
                 a.with_route,
                 a.dry_run,
             )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
+        // ====================================================================
+        // Phone pages (Task 93). Not Fuelio: the manual flow uses it too.
+        // ====================================================================
+        "get_places_near" => {
+            #[derive(serde::Deserialize)]
+            struct Args {
+                lat: f64,
+                lon: f64,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_places_near_internal(&state.db, a.lat, a.lon)?;
             Ok(serde_json::to_value(v).unwrap())
         }
         // ====================================================================
@@ -1847,16 +1872,29 @@ mod tests {
     #[test]
     fn add_fuelio_trip_over_rpc_requires_dry_run_field() {
         let state = test_state();
+        // Task 93: each end is a place id or a new name; both are optional
+        // keys, so only `dryRun` can fail the parse here.
         let result = dispatch_sync(
             "add_fuelio_trip",
             json!({
                 "vehicleId": "x", "driveIds": ["1"], "originPlaceId": "a",
-                "destinationPlaceId": "b", "purpose": "", "withRoute": true
+                "newDestinationName": "Chata", "purpose": "", "withRoute": true
             }),
             &state,
         );
         let err = result.unwrap_err();
         assert!(err.contains("dryRun") || err.contains("dry_run"), "got: {err}");
+    }
+
+    /// Task 93: the manual phone flow needs the nearby places without Fuelio.
+    #[test]
+    fn get_places_near_over_rpc_works_without_dropbox() {
+        let state = test_state();
+        let v = dispatch_sync("get_places_near", json!({ "lat": 48.1, "lon": 17.1 }), &state)
+            .unwrap();
+        assert_eq!(v, json!({ "places": [], "preselectId": null }));
+        let err = dispatch_sync("get_places_near", json!({ "lat": 48.1 }), &state).unwrap_err();
+        assert!(err.contains("lon"), "got: {err}");
     }
 
     // ------------------------------------------------------------------

@@ -151,6 +151,8 @@
 					<a href="/settings" class="nav-link" class:active={$page.url.pathname === '/settings'}>
 						{$LL.app.nav.settings()}
 					</a>
+					<!-- Task 93: on a narrow screen, a link to the phone pages -->
+					<a href="/m" class="nav-link phone-link" data-testid="nav-mobile">{$LL.mobile.home.phoneLink()}</a>
 				</nav>
 			</div>
 			<div class="header-right">
@@ -374,6 +376,14 @@
 			flex: 1;
 			width: 0;
 		}
+		.main-nav .phone-link {
+			display: inline-block;
+		}
+	}
+
+	/* The phone link shows only under 640px (see the media query above). */
+	.phone-link {
+		display: none;
 	}
 
 	select:focus {

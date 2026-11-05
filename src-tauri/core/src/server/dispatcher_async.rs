@@ -342,6 +342,57 @@ pub async fn dispatch_async(
             .await;
             Some(result.map(|v| serde_json::to_value(v).unwrap()))
         }
+        // Task 93: the start time of a manual trip from the phone.
+        "get_manual_trip_estimate" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                // Per end: a place id, or both lat and lon (a new place at
+                // the phone GPS point has no id yet).
+                #[serde(default)]
+                origin_place_id: Option<String>,
+                #[serde(default)]
+                origin_lat: Option<f64>,
+                #[serde(default)]
+                origin_lon: Option<f64>,
+                #[serde(default)]
+                destination_place_id: Option<String>,
+                #[serde(default)]
+                destination_lat: Option<f64>,
+                #[serde(default)]
+                destination_lon: Option<f64>,
+                end_datetime: String,
+            }
+            let a: Args = match parse_args(args) {
+                Ok(a) => a,
+                Err(e) => return Some(Err(e)),
+            };
+            use crate::commands_internal::EstimateEnd;
+            let ends = EstimateEnd::from_args(a.origin_place_id, a.origin_lat, a.origin_lon)
+                .map_err(|e| format!("Origin: {e}"))
+                .and_then(|o| {
+                    EstimateEnd::from_args(a.destination_place_id, a.destination_lat, a.destination_lon)
+                        .map_err(|e| format!("Destination: {e}"))
+                        .map(|d| (o, d))
+                });
+            let (origin, destination) = match ends {
+                Ok(ends) => ends,
+                Err(e) => return Some(Err(e)),
+            };
+            let provider = match crate::route_map::route_provider(None, vec![]) {
+                Ok(p) => p,
+                Err(e) => return Some(Err(e)),
+            };
+            let result = crate::commands_internal::get_manual_trip_estimate_internal(
+                &state.db,
+                provider.as_ref(),
+                &origin,
+                &destination,
+                &a.end_datetime,
+            )
+            .await;
+            Some(result.map(|v| serde_json::to_value(v).unwrap()))
+        }
         "route_round_trip" => {
             #[derive(serde::Deserialize)]
             #[serde(rename_all = "camelCase")]
@@ -1069,5 +1120,60 @@ mod tests {
             .expect("geocode_place must be handled here, not by dispatch_sync")
             .unwrap_err();
         assert!(err.contains("query"), "got: {err}");
+    }
+
+    /// Task 93: get_manual_trip_estimate awaits the router, so it must be
+    /// routed here. A bad end or an unknown place fails before any provider
+    /// is called, so this needs no network.
+    #[tokio::test]
+    async fn get_manual_trip_estimate_is_an_async_command_taking_two_places_and_an_end() {
+        let state = ServerState {
+            db: std::sync::Arc::new(crate::db::Database::in_memory().unwrap()),
+            app_state: std::sync::Arc::new(crate::app_state::AppState::new()),
+            app_dir: std::env::temp_dir(),
+            static_dir: std::env::temp_dir(),
+        };
+        let call = |args: Value| dispatch_async("get_manual_trip_estimate", args, &state);
+
+        let err = call(json!({})).await.expect("handled here, not by dispatch_sync").unwrap_err();
+        assert!(err.contains("endDatetime"), "got: {err}");
+        let end = "2026-11-05T12:00";
+        // Per end: a place id, or both lat and lon.
+        let err = call(json!({ "destinationPlaceId": "b", "endDatetime": end }))
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(err.starts_with("Origin:"), "got: {err}");
+        let err = call(json!({
+            "originPlaceId": "a", "destinationLat": 48.1, "endDatetime": end
+        }))
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(err.starts_with("Destination:"), "got: {err}");
+        let err = call(json!({
+            "originPlaceId": "a", "originLat": 48.1, "originLon": 17.1,
+            "destinationLat": 48.7, "destinationLon": 21.2, "endDatetime": end
+        }))
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(err.contains("not both"), "got: {err}");
+        // A point end parses: the unknown origin place fails next.
+        let err = call(json!({
+            "originPlaceId": "a", "destinationLat": 48.7, "destinationLon": 21.2,
+            "endDatetime": end
+        }))
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(err.contains("Miesto neexistuje: a"), "got: {err}");
+        let err = call(json!({
+            "originPlaceId": "a", "destinationPlaceId": "b", "endDatetime": "2026-11-05T12:00"
+        }))
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(err.contains("Miesto neexistuje"), "got: {err}");
     }
 }

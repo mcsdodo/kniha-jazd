@@ -10,11 +10,12 @@ use serde::{Deserialize, Serialize};
 use crate::app_state::AppState;
 use crate::check_read_only;
 use crate::commands_internal::helpers::trip_order;
+use crate::commands_internal::places_cmd::{create_place_internal, ensure_key_free, name_and_key};
 use crate::commands_internal::route_maps::build_route_map;
 use crate::commands_internal::trips::plan_route_distance;
 use crate::db::Database;
 use crate::fuelio::{self, parse, CrosscheckRow, Drive, MergeRules, TripRef};
-use crate::models::{DistanceWriteback, RouteMode, Waypoint};
+use crate::models::{DistanceWriteback, PlaceSource, RouteMode, Waypoint};
 use crate::route_map::polyline;
 
 #[derive(Debug, Serialize)]
@@ -401,6 +402,10 @@ impl FuelioApply {
     }
 }
 
+/// A dialog preselects a place only this close to the GPS point (Task 93).
+/// The matcher radii in `fuelio::matching` are a different rule.
+pub const PLACE_PRESELECT_RADIUS_M: f64 = 300.0;
+
 /// One place to offer for a new trip's end, with its distance from the GPS point.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -423,10 +428,22 @@ pub struct FuelioAddPreview {
     pub origin: Vec<PlaceOption>,
     /// Every place with coordinates, nearest to the GPS end first.
     pub destination: Vec<PlaceOption>,
+    /// The place the dialog preselects for the origin (Task 93), or `None`.
+    pub origin_preselect_id: Option<String>,
+    pub destination_preselect_id: Option<String>,
+}
+
+/// The nearest of `options` (nearest first), if it is within
+/// [`PLACE_PRESELECT_RADIUS_M`].
+pub(crate) fn preselect_id(options: &[PlaceOption]) -> Option<String> {
+    options
+        .first()
+        .filter(|o| o.distance_m <= PLACE_PRESELECT_RADIUS_M)
+        .map(|o| o.id.clone())
 }
 
 /// Every place with coordinates, nearest to `point` first.
-fn places_by_distance(db: &Database, point: (f64, f64)) -> Result<Vec<PlaceOption>, String> {
+pub(crate) fn places_by_distance(db: &Database, point: (f64, f64)) -> Result<Vec<PlaceOption>, String> {
     let mut options: Vec<PlaceOption> = db
         .all_places()
         .map_err(|e| e.to_string())?
@@ -457,13 +474,17 @@ pub fn get_fuelio_add_preview_internal(
     let drives = load_drives(data_dir, drive_ids)?;
     let (first, last) = (&drives[0], &drives[drives.len() - 1]);
     let gps_km: f64 = drives.iter().map(|d| d.km).sum();
+    let origin = places_by_distance(db, first.start_point)?;
+    let destination = places_by_distance(db, last.end_point)?;
     Ok(FuelioAddPreview {
         start: to_minute(first.start),
         end: to_minute(last.end),
         distance_km: crate::commands_internal::trips::logbook_km(gps_km),
         gps_km,
-        origin: places_by_distance(db, first.start_point)?,
-        destination: places_by_distance(db, last.end_point)?,
+        origin_preselect_id: preselect_id(&origin),
+        destination_preselect_id: preselect_id(&destination),
+        origin,
+        destination,
     })
 }
 
@@ -481,11 +502,77 @@ pub struct FuelioAdd {
     pub route_error: Option<String>,
 }
 
+/// One end of a new trip from Fuelio drives (Task 93): an existing place, or
+/// the name of a new place at the GPS point.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TripEnd {
+    Place(String),
+    /// The name, trimmed and with single spaces.
+    New(String),
+}
+
+impl TripEnd {
+    /// Exactly one of the two must be set. A blank value counts as not set.
+    pub fn from_args(place_id: Option<String>, new_name: Option<String>) -> Result<Self, String> {
+        let set = |v: Option<String>| v.filter(|v| !v.trim().is_empty());
+        match (set(place_id), set(new_name)) {
+            (Some(id), None) => Ok(Self::Place(id)),
+            (None, Some(name)) => Ok(Self::New(name_and_key(&name)?.0)),
+            (Some(_), Some(_)) => Err("Give a place id or a new place name, not both".into()),
+            (None, None) => Err("Give a place id or a new place name".into()),
+        }
+    }
+}
+
+/// Refuse a new name that the place book has, and two new ends with the
+/// same name. Writes nothing.
+fn check_new_names(db: &Database, origin: &TripEnd, destination: &TripEnd) -> Result<(), String> {
+    let mut keys = Vec::new();
+    for end in [origin, destination] {
+        if let TripEnd::New(name) = end {
+            let (name, key) = name_and_key(name)?;
+            ensure_key_free(db, &key, None)?;
+            if keys.contains(&key) {
+                return Err(format!("Nové miesto začiatku aj cieľa má rovnaký názov: {name}"));
+            }
+            keys.push(key);
+        }
+    }
+    Ok(())
+}
+
+/// The place id of one end. A new end gets its place at `point` on a real
+/// run only. A dry run gets an empty id: `create_trip_cascade_internal`
+/// returns its plan before it reads the place ids.
+fn end_place_id(
+    db: &Database,
+    app_state: &AppState,
+    end: &TripEnd,
+    point: (f64, f64),
+    dry_run: bool,
+    created: &mut Vec<String>,
+) -> Result<String, String> {
+    match end {
+        TripEnd::Place(id) => Ok(id.clone()),
+        TripEnd::New(_) if dry_run => Ok(String::new()),
+        TripEnd::New(name) => {
+            let place =
+                create_place_internal(db, app_state, name.clone(), point.0, point.1, PlaceSource::Manual)?;
+            let id = place.id.to_string();
+            created.push(id.clone());
+            Ok(id)
+        }
+    }
+}
+
 /// Add a logbook trip from Fuelio drives (Task 90): the GPS start and end in
 /// whole minutes, the GPS km in whole km, the ends the user confirmed. Goes
 /// through the normal insert (`create_trip_cascade_internal`), so the later
 /// odometers move. With `with_route`, the GPS track becomes the trip's stored
 /// route afterwards.
+///
+/// Task 93: a new end becomes a manual place at the GPS start (origin) or the
+/// GPS end (destination). If the insert fails, the new places are deleted.
 #[allow(clippy::too_many_arguments)]
 pub fn add_fuelio_trip_internal(
     db: &Database,
@@ -493,8 +580,8 @@ pub fn add_fuelio_trip_internal(
     data_dir: &Path,
     vehicle_id: &str,
     drive_ids: &[String],
-    origin_place_id: &str,
-    destination_place_id: &str,
+    origin: &TripEnd,
+    destination: &TripEnd,
     purpose: &str,
     with_route: bool,
     dry_run: bool,
@@ -502,33 +589,53 @@ pub fn add_fuelio_trip_internal(
     if drive_ids.is_empty() {
         return Err("No Fuelio drive given".into());
     }
+    if !dry_run {
+        check_read_only!(app_state);
+    }
     let drives = load_drives(data_dir, drive_ids)?;
     let (first, last) = (&drives[0], &drives[drives.len() - 1]);
     let gps_km: f64 = drives.iter().map(|d| d.km).sum();
     let km = crate::commands_internal::trips::logbook_km(gps_km);
     let fmt = |t: NaiveDateTime| to_minute(t).format("%Y-%m-%dT%H:%M").to_string();
+    check_new_names(db, origin, destination)?;
 
-    let created = crate::commands_internal::trips::create_trip_cascade_internal(
-        db,
-        app_state,
-        vehicle_id.to_string(),
-        fmt(first.start),
-        fmt(last.end),
-        origin_place_id.to_string(),
-        destination_place_id.to_string(),
-        km,
-        purpose.to_string(),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        dry_run,
-    )?;
+    let mut new_places = Vec::new();
+    let result = (|| -> Result<_, String> {
+        let origin_id = end_place_id(db, app_state, origin, first.start_point, dry_run, &mut new_places)?;
+        let destination_id =
+            end_place_id(db, app_state, destination, last.end_point, dry_run, &mut new_places)?;
+        crate::commands_internal::trips::create_trip_cascade_internal(
+            db,
+            app_state,
+            vehicle_id.to_string(),
+            fmt(first.start),
+            fmt(last.end),
+            origin_id,
+            destination_id,
+            km,
+            purpose.to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            dry_run,
+        )
+    })();
+    let created = match result {
+        Ok(created) => created,
+        Err(e) => {
+            // A place the trip uses is not deleted (the insert went through).
+            for id in &new_places {
+                let _ = db.delete_place_if_unused(id);
+            }
+            return Err(e);
+        }
+    };
 
     let mut route_written = false;
     let mut route_error = None;

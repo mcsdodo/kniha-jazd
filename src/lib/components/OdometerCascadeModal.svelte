@@ -358,4 +358,33 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+
+	/* Task 93: phone width. A sheet at the bottom, full width, big buttons. */
+	@media (max-width: 600px) {
+		.modal-overlay {
+			align-items: flex-end;
+		}
+		.modal {
+			box-sizing: border-box;
+			width: 100%;
+			max-width: none;
+			max-height: 90vh;
+			overflow-y: auto;
+			padding: 1rem 16px;
+			border-radius: 12px 12px 0 0;
+		}
+		.modal-actions .button-small {
+			flex: 1;
+			min-height: 44px;
+			font-size: 1rem;
+		}
+		.changes th,
+		.changes td {
+			padding: 0.25rem;
+			font-size: 0.85rem;
+		}
+		.changes .route {
+			max-width: 9rem;
+		}
+	}
 </style>

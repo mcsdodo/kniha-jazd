@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as api from '$lib/api';
-	import type { CascadePlan, FuelioAddPreview, FuelioRow, Trip } from '$lib/types';
+	import type { CascadePlan, FuelioAddEnd, FuelioAddPreview, FuelioRow, Trip } from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { toast } from '$lib/stores/toast';
 	import OdometerCascadeModal from './OdometerCascadeModal.svelte';
@@ -21,8 +21,12 @@
 	let { row, vehicleId, year, onDone, onCancel }: Props = $props();
 
 	let preview = $state<FuelioAddPreview | null>(null);
+	// A place id, or NEW_PLACE: a new place at the GPS point (Task 93).
+	const NEW_PLACE = '__new__';
 	let originId = $state('');
 	let destinationId = $state('');
+	let originName = $state('');
+	let destinationName = $state('');
 	let purpose = $state('');
 	let purposeSuggestions = $state<string[]>([]);
 	let withRoute = $state(true);
@@ -40,9 +44,10 @@
 		);
 		try {
 			preview = await api.getFuelioAddPreview(row.driveIds);
-			// The backend sorts nearest first: preselect the nearest place.
-			originId = preview.origin[0]?.id ?? '';
-			destinationId = preview.destination[0]?.id ?? '';
+			// The backend preselects a place within its radius (Task 93). No
+			// place there: no guess, the user names a new place or picks one.
+			originId = preview.originPreselectId ?? NEW_PLACE;
+			destinationId = preview.destinationPreselectId ?? NEW_PLACE;
 		} catch (e) {
 			error = String(e);
 		}
@@ -59,12 +64,19 @@
 		return (m / 1000).toFixed(m < 10000 ? 2 : 0);
 	}
 
+	function end(id: string, name: string): FuelioAddEnd {
+		return id === NEW_PLACE ? { placeId: null, newPlaceName: name.trim() } : { placeId: id, newPlaceName: null };
+	}
+	function chosen(id: string, name: string): boolean {
+		return id === NEW_PLACE ? name.trim() !== '' : id !== '';
+	}
+
 	function call(dryRun: boolean) {
 		return api.addFuelioTrip(
 			vehicleId,
 			row.driveIds,
-			originId,
-			destinationId,
+			end(originId, originName),
+			end(destinationId, destinationName),
 			purpose,
 			withRoute,
 			dryRun
@@ -168,12 +180,27 @@
 							<td><label for="fuelio-add-origin">{$LL.fuelio.add.origin()}</label></td>
 							<td>
 								<select id="fuelio-add-origin" bind:value={originId} data-testid="fuelio-add-origin">
+									<option value={NEW_PLACE}>{$LL.fuelio.add.newPlace()}</option>
 									{#each preview.origin as p (p.id)}
 										<option value={p.id}
 											>{p.name} - {$LL.fuelio.add.distanceFrom({ km: km(p.distanceM) })}</option
 										>
 									{/each}
 								</select>
+								{#if originId === NEW_PLACE}
+									<input
+										class="new-name"
+										type="text"
+										bind:value={originName}
+										placeholder={$LL.fuelio.add.newPlaceName()}
+										aria-label={$LL.fuelio.add.newPlaceName()}
+										data-testid="fuelio-add-origin-new-name"
+									/>
+									<span class="muted hint"
+										>{preview.originPreselectId === null ? $LL.fuelio.add.noNearby() : ''}
+										{$LL.fuelio.add.newPlaceAtStart()}</span
+									>
+								{/if}
 							</td>
 						</tr>
 						<tr>
@@ -184,12 +211,27 @@
 									bind:value={destinationId}
 									data-testid="fuelio-add-destination"
 								>
+									<option value={NEW_PLACE}>{$LL.fuelio.add.newPlace()}</option>
 									{#each preview.destination as p (p.id)}
 										<option value={p.id}
 											>{p.name} - {$LL.fuelio.add.distanceFrom({ km: km(p.distanceM) })}</option
 										>
 									{/each}
 								</select>
+								{#if destinationId === NEW_PLACE}
+									<input
+										class="new-name"
+										type="text"
+										bind:value={destinationName}
+										placeholder={$LL.fuelio.add.newPlaceName()}
+										aria-label={$LL.fuelio.add.newPlaceName()}
+										data-testid="fuelio-add-destination-new-name"
+									/>
+									<span class="muted hint"
+										>{preview.destinationPreselectId === null ? $LL.fuelio.add.noNearby() : ''}
+										{$LL.fuelio.add.newPlaceAtEnd()}</span
+									>
+								{/if}
 							</td>
 						</tr>
 						<tr>
@@ -226,7 +268,10 @@
 				<button class="button-small" onclick={onCancel}>{$LL.fuelio.add.cancel()}</button>
 				<button
 					class="button-small primary"
-					disabled={!preview || !originId || !destinationId || busy}
+					disabled={!preview ||
+						!chosen(originId, originName) ||
+						!chosen(destinationId, destinationName) ||
+						busy}
 					onclick={proceed}
 					data-testid="fuelio-add-continue">{$LL.fuelio.add.continue()}</button
 				>
@@ -287,6 +332,7 @@
 		width: 1%;
 	}
 	select,
+	.new-name,
 	.purpose :global(input) {
 		box-sizing: border-box;
 		width: 100%;
@@ -296,6 +342,14 @@
 		background: var(--input-bg);
 		color: var(--text-primary);
 		font-size: 0.875rem;
+	}
+	.new-name {
+		margin-top: 0.35rem;
+	}
+	.hint {
+		display: block;
+		font-size: 0.8rem;
+		margin-top: 0.2rem;
 	}
 	.modal-actions {
 		display: flex;

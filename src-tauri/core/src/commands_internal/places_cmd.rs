@@ -54,7 +54,7 @@ fn place_by_id(db: &Database, id: &str) -> Result<Place, String> {
 }
 
 /// The trimmed name and its key, or the error for a blank name.
-fn name_and_key(name: &str) -> Result<(String, String), String> {
+pub(crate) fn name_and_key(name: &str) -> Result<(String, String), String> {
     let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
     let key = normalise(&name);
     if key.is_empty() {
@@ -65,7 +65,7 @@ fn name_and_key(name: &str) -> Result<(String, String), String> {
 
 /// Refuse a key that another place already holds. `except` is the place
 /// being renamed: its own key is not a collision.
-fn ensure_key_free(db: &Database, key: &str, except: Option<&str>) -> Result<(), String> {
+pub(crate) fn ensure_key_free(db: &Database, key: &str, except: Option<&str>) -> Result<(), String> {
     match db.get_place_by_key(key).map_err(|e| e.to_string())? {
         Some(other) if Some(other.id.as_str()) != except => {
             Err(format!("Miesto s týmto názvom už existuje: {}", other.name))

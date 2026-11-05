@@ -228,10 +228,19 @@ describe('Fuelio page (Dropbox configured)', () => {
       await looseRow.$('[data-testid="fuelio-overwrite"]').waitForExist({ timeout: 5000 });
       await looseRow.$('[data-testid="fuelio-add"]').click();
       await $('[data-testid="fuelio-add-modal"]').waitForDisplayed({ timeout: 5000 });
+      // The fragment starts at "Fuelio North": the origin is preselected.
       await browser.waitUntil(
-        async () => (await $('[data-testid="fuelio-add-origin"]').getValue()) !== '',
+        async () => {
+          const v = await $('[data-testid="fuelio-add-origin"]').getValue();
+          return v !== '' && v !== '__new__';
+        },
         { timeout: 5000, timeoutMsg: 'the add preview did not preselect a place' }
       );
+      // It ends about 3 km from any place, outside the 300 m preselect radius
+      // (Task 93): no guess, the dialog asks for the name of a new place.
+      await $('[data-testid="fuelio-add-destination-new-name"]').waitForDisplayed({ timeout: 5000 });
+      expect(await $('[data-testid="fuelio-add-destination"]').getValue()).toBe('__new__');
+      await $('[data-testid="fuelio-add-destination-new-name"]').setValue('Fragment end');
       await $('[data-testid="fuelio-add-purpose"]').setValue('fragment');
       await $('[data-testid="fuelio-add-continue"]').click();
 
@@ -241,7 +250,8 @@ describe('Fuelio page (Dropbox configured)', () => {
       });
       const grid = await getTripGridData(vehicleId, YEAR);
       expect(grid.trips.length).toBe(2);
-      expect(grid.trips.some((t) => t.purpose === 'fragment')).toBe(true);
+      const added = grid.trips.find((t) => t.purpose === 'fragment');
+      expect(added?.destination).toBe('Fragment end');
       expect(await $('.toast-error').isExisting()).toBe(false);
     });
 

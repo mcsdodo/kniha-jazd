@@ -840,15 +840,26 @@ export async function getPlacesNear(lat: number, lon: number): Promise<NearbyPla
 	return await apiCall('get_places_near', { lat, lon });
 }
 
+/** One end of a route estimate: an existing place, or a GPS point (a new place). */
+export type EstimateEnd = { placeId: string } | { lat: number; lon: number };
+
 /**
- * Route km and drive time between two places, and the start time of a trip
+ * Route km and drive time between two ends, and the start time of a trip
  * that ends at `endDatetime` ("YYYY-MM-DDTHH:MM"). The backend computes the
  * start (ADR-008). A failed route is not an error: the fields are null.
  */
 export async function getManualTripEstimate(
-	originPlaceId: string,
-	destinationPlaceId: string,
+	origin: EstimateEnd,
+	destination: EstimateEnd,
 	endDatetime: string
 ): Promise<ManualTripEstimate> {
-	return await apiCall('get_manual_trip_estimate', { originPlaceId, destinationPlaceId, endDatetime });
+	const end = (e: EstimateEnd, prefix: 'origin' | 'destination') =>
+		'placeId' in e
+			? { [`${prefix}PlaceId`]: e.placeId }
+			: { [`${prefix}Lat`]: e.lat, [`${prefix}Lon`]: e.lon };
+	return await apiCall('get_manual_trip_estimate', {
+		...end(origin, 'origin'),
+		...end(destination, 'destination'),
+		endDatetime
+	});
 }

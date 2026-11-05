@@ -366,6 +366,58 @@ fn add_preview_offers_every_placed_place_nearest_first() {
     assert_eq!(names(&p.origin), vec!["B", "A"]);
     assert_eq!(names(&p.destination), vec!["A", "B"]);
     assert!(p.origin[0].distance_m < 1.0);
+    assert_eq!(p.origin_preselect_id.as_deref(), Some(p.origin[0].id.as_str()));
+    assert_eq!(p.destination_preselect_id.as_deref(), Some(p.destination[0].id.as_str()));
+}
+
+/// `(lat, lon)` about `m` metres north of `from`, checked with the same
+/// distance fn the preselect uses.
+fn north_of(from: (f64, f64), m: f64) -> (f64, f64) {
+    let to = (from.0 + m / 111_194.93, from.1);
+    let d = crate::fuelio::geo::haversine_m(from, to);
+    assert!((d - m).abs() < 0.5, "fixture is {d} m, not {m} m");
+    to
+}
+
+/// A drive at 21:00 local on 2026-09-28 from `start` to `end`, 74 km.
+fn drive_between(dir: &std::path::Path, start: (f64, f64), end: (f64, f64)) -> String {
+    let t0 = NaiveDate::from_ymd_opt(2026, 9, 28)
+        .unwrap()
+        .and_hms_opt(19, 0, 0)
+        .unwrap()
+        .and_utc()
+        .timestamp_millis();
+    write_drive(
+        &dir.join(crate::fuelio::FOLDER_NAME),
+        &t0.to_string(),
+        &[(t0, start.0, start.1, 0.0), (t0 + 3_090_000, end.0, end.1, 74_400.0)],
+    );
+    t0.to_string()
+}
+
+// Task 93: the backend preselects a place only within 300 m of the GPS point.
+#[test]
+fn add_preview_preselects_only_a_place_within_300_m() {
+    let (db, dir, t, _, _) = chain();
+    // B is at (48, 21), A at (48, 20).
+    let id = drive_between(dir.path(), north_of((48.0, 21.0), 299.0), north_of((48.0, 20.0), 301.0));
+    let p = get_fuelio_add_preview_internal(&db, dir.path(), &[id]).unwrap();
+    assert_eq!(p.origin_preselect_id, Some(t.destination_place_id.to_string()), "B is 299 m away");
+    assert_eq!(p.destination_preselect_id, None, "A is 301 m away");
+    assert_eq!(p.destination[0].id, t.origin_place_id.to_string(), "A is still offered first");
+}
+
+#[test]
+fn add_preview_without_places_preselects_nothing() {
+    let (_, dir, _, _, _) = chain();
+    let id = evening_drive(dir.path());
+    let empty = Database::in_memory().unwrap();
+    let p = get_fuelio_add_preview_internal(&empty, dir.path(), &[id]).unwrap();
+    assert!(p.origin.is_empty() && p.destination.is_empty());
+    // The keys are always there: the page reads `null`, not a missing key.
+    let json = serde_json::to_value(&p).unwrap();
+    assert!(json["originPreselectId"].is_null() && json["destinationPreselectId"].is_null(), "{json}");
+    assert!(json.as_object().unwrap().contains_key("originPreselectId"));
 }
 
 #[test]
@@ -374,7 +426,7 @@ fn add_dry_run_plans_the_insert_and_writes_nothing() {
     let id = evening_drive(dir.path());
     let r = add_fuelio_trip_internal(
         &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
-        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, true,
+        &at(t.destination_place_id), &at(t.origin_place_id), "Back", true, true,
     )
     .unwrap();
     assert!(r.trip.is_none());
@@ -390,7 +442,7 @@ fn add_creates_the_trip_with_its_route_and_moves_the_later_odometers() {
     let id = evening_drive(dir.path());
     let r = add_fuelio_trip_internal(
         &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
-        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, false,
+        &at(t.destination_place_id), &at(t.origin_place_id), "Back", true, false,
     )
     .unwrap();
     let new = r.trip.unwrap();
@@ -417,7 +469,7 @@ fn add_with_a_failed_route_save_returns_the_trip_and_the_route_error() {
     .unwrap();
     let r = add_fuelio_trip_internal(
         &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
-        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, false,
+        &at(t.destination_place_id), &at(t.origin_place_id), "Back", true, false,
     )
     .unwrap();
     assert!(r.trip.is_some());
@@ -433,7 +485,7 @@ fn add_without_the_route_saves_no_route() {
     let id = evening_drive(dir.path());
     let r = add_fuelio_trip_internal(
         &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
-        &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", false, false,
+        &at(t.destination_place_id), &at(t.origin_place_id), "Back", false, false,
     )
     .unwrap();
     assert!(!r.route_written);
@@ -450,11 +502,142 @@ fn add_is_blocked_in_read_only_mode() {
     let args = |dry| {
         add_fuelio_trip_internal(
             &db, &state, dir.path(), &t.vehicle_id.to_string(), &[id.clone()],
-            &t.destination_place_id.to_string(), &t.origin_place_id.to_string(), "Back", true, dry,
+            &at(t.destination_place_id), &at(t.origin_place_id), "Back", true, dry,
         )
     };
     assert!(args(true).is_ok());
     assert!(args(false).is_err());
+    let new_end = |dry| {
+        add_fuelio_trip_internal(
+            &db, &state, dir.path(), &t.vehicle_id.to_string(), &[id.clone()],
+            &new("Chata"), &at(t.origin_place_id), "Back", true, dry,
+        )
+    };
+    assert!(new_end(true).is_ok());
+    assert!(new_end(false).is_err());
+    assert_eq!(db.all_places().unwrap().len(), 2, "no new place in read-only mode");
+}
+
+// ---------------------------------------------------------------------------
+// Add with a new place per end (Task 93)
+// ---------------------------------------------------------------------------
+
+fn at(id: Uuid) -> TripEnd {
+    TripEnd::Place(id.to_string())
+}
+
+fn new(name: &str) -> TripEnd {
+    TripEnd::from_args(None, Some(name.to_string())).unwrap()
+}
+
+#[test]
+fn a_trip_end_is_exactly_one_of_a_place_and_a_new_name() {
+    let s = |v: &str| Some(v.to_string());
+    assert_eq!(TripEnd::from_args(s("id-1"), None), Ok(TripEnd::Place("id-1".into())));
+    assert_eq!(TripEnd::from_args(None, s("  Chata  pod lesom ")), Ok(TripEnd::New("Chata pod lesom".into())));
+    // A blank value counts as not set.
+    assert_eq!(TripEnd::from_args(s("id-1"), s("  ")), Ok(TripEnd::Place("id-1".into())));
+    assert_eq!(TripEnd::from_args(s(""), s("Chata")), Ok(TripEnd::New("Chata".into())));
+    assert!(TripEnd::from_args(None, None).is_err());
+    assert!(TripEnd::from_args(s(" "), s(" ")).is_err());
+    assert!(TripEnd::from_args(s("id-1"), s("Chata")).is_err());
+}
+
+#[test]
+fn add_dry_run_with_new_places_plans_the_insert_and_creates_nothing() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &new("Chata"), &new("Chalupa"), "Back", true, true,
+    )
+    .unwrap();
+    assert!(r.trip.is_none());
+    assert_eq!(r.plan.changes.len(), 1, "the later trip moves");
+    assert_eq!(db.all_places().unwrap().len(), 2);
+}
+
+#[test]
+fn add_refuses_a_new_name_that_the_place_book_has() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    for dry in [true, false] {
+        let err = add_fuelio_trip_internal(
+            &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id.clone()],
+            &at(t.destination_place_id), &new(" b "), "Back", true, dry,
+        )
+        .unwrap_err();
+        assert!(err.contains("už existuje"), "dry {dry}: {err}");
+    }
+    assert_eq!(db.get_trips_for_vehicle_in_year(&t.vehicle_id.to_string(), 2026).unwrap().len(), 2);
+}
+
+#[test]
+fn add_refuses_two_new_ends_with_the_same_name() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    for dry in [true, false] {
+        let err = add_fuelio_trip_internal(
+            &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id.clone()],
+            &new("Chatá"), &new("chata"), "Back", true, dry,
+        )
+        .unwrap_err();
+        assert!(err.contains("rovnaký názov"), "dry {dry}: {err}");
+    }
+    assert_eq!(db.all_places().unwrap().len(), 2);
+}
+
+#[test]
+fn add_creates_the_new_places_at_the_gps_ends() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path()); // from (48, 21) to (48, 20)
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &new("Chata"), &new("Chalupa"), "Back", false, false,
+    )
+    .unwrap();
+    let trip = r.trip.unwrap();
+    assert_eq!((trip.origin.as_str(), trip.destination.as_str()), ("Chata", "Chalupa"));
+    let origin = db.get_place(&trip.origin_place_id.to_string()).unwrap().unwrap();
+    let destination = db.get_place(&trip.destination_place_id.to_string()).unwrap().unwrap();
+    assert_eq!((origin.name.as_str(), origin.lat, origin.lon), ("Chata", Some(48.0), Some(21.0)));
+    assert_eq!((destination.name.as_str(), destination.lat, destination.lon), ("Chalupa", Some(48.0), Some(20.0)));
+    assert_eq!(origin.source.as_deref(), Some("manual"));
+}
+
+#[test]
+fn add_with_one_new_end_keeps_the_other_place() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    let r = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &at(t.destination_place_id), &new("Chalupa"), "Back", false, false,
+    )
+    .unwrap();
+    let trip = r.trip.unwrap();
+    assert_eq!(trip.origin_place_id, t.destination_place_id);
+    assert_eq!(trip.destination.as_str(), "Chalupa");
+    assert_eq!(db.all_places().unwrap().len(), 3);
+}
+
+// The new places exist only for the trip: a failed insert must not leave
+// them in the place book.
+#[test]
+fn add_with_a_failed_insert_leaves_no_new_place() {
+    let (db, dir, t, _, _) = chain();
+    let id = evening_drive(dir.path());
+    diesel::sql_query(
+        "CREATE TRIGGER no_trips BEFORE INSERT ON trips BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+    )
+    .execute(&mut *db.connection())
+    .unwrap();
+    let err = add_fuelio_trip_internal(
+        &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
+        &new("Chata"), &new("Chalupa"), "Back", true, false,
+    )
+    .unwrap_err();
+    assert!(err.contains("disk full"), "{err}");
+    assert_eq!(db.all_places().unwrap().len(), 2);
 }
 
 // The stored route is every GPS fix, not the 100 m thinned track: thinning
@@ -492,7 +675,7 @@ fn add_stores_every_gps_fix_as_the_route() {
     let id = dense_drive(dir.path());
     let r = add_fuelio_trip_internal(
         &db, &AppState::new(), dir.path(), &t.vehicle_id.to_string(), &[id],
-        &t.destination_place_id.to_string(), &t.destination_place_id.to_string(), "x", true, false,
+        &at(t.destination_place_id), &at(t.destination_place_id), "x", true, false,
     )
     .unwrap();
     let map = db.get_route_map(&r.trip.unwrap().id.to_string()).unwrap().unwrap();

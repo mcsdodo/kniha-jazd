@@ -1999,6 +1999,26 @@ type RootTranslation = {
 			 * N​a​č​í​t​a​v​a​m​.​.​.
 			 */
 			loading: string
+			/**
+			 * +​ ​N​o​v​é​ ​m​i​e​s​t​o​ ​t​u
+			 */
+			newPlace: string
+			/**
+			 * N​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a
+			 */
+			newPlaceName: string
+			/**
+			 * N​o​v​é​ ​m​i​e​s​t​o​ ​s​a​ ​v​y​t​v​o​r​í​ ​v​ ​b​o​d​e​ ​z​a​č​i​a​t​k​u​ ​G​P​S​ ​j​a​z​d​y​.
+			 */
+			newPlaceAtStart: string
+			/**
+			 * N​o​v​é​ ​m​i​e​s​t​o​ ​s​a​ ​v​y​t​v​o​r​í​ ​v​ ​b​o​d​e​ ​k​o​n​c​a​ ​G​P​S​ ​j​a​z​d​y​.
+			 */
+			newPlaceAtEnd: string
+			/**
+			 * Ž​i​a​d​n​e​ ​z​n​á​m​e​ ​m​i​e​s​t​o​ ​n​a​b​l​í​z​k​u​.​ ​Z​a​d​a​j​t​e​ ​n​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​ ​a​l​e​b​o​ ​v​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​z​o​ ​z​o​z​n​a​m​u​.
+			 */
+			noNearby: string
 		}
 		overwrite: {
 			/**
@@ -2089,18 +2109,503 @@ type RootTranslation = {
 			 * K​n​i​h​a​ ​j​á​z​d
 			 */
 			title: string
+			/**
+			 * P​r​i​d​a​ť​ ​z​ ​F​u​e​l​i​o
+			 */
+			addFuelio: string
+			/**
+			 * J​a​z​d​a​ ​p​o​d​ľ​a​ ​G​P​S​ ​z​á​z​n​a​m​u
+			 */
+			addFuelioHint: string
+			/**
+			 * P​r​i​d​a​ť​ ​r​u​č​n​e
+			 */
+			addManual: string
+			/**
+			 * K​o​n​i​e​c​ ​t​e​r​a​z​,​ ​c​i​e​ľ​ ​p​o​d​ľ​a​ ​m​o​j​e​j​ ​p​o​l​o​h​y
+			 */
+			addManualHint: string
+			/**
+			 * V​š​e​t​k​y​ ​j​a​z​d​y
+			 */
+			allTrips: string
+			/**
+			 * {​y​e​a​r​}​:​ ​{​c​o​u​n​t​}​ ​{​{​j​a​z​d​a​|​j​a​z​d​y​|​j​á​z​d​}​}​,​ ​{​k​m​}​ ​k​m
+			 * @param {number} count
+			 * @param {string} km
+			 * @param {number} year
+			 */
+			allTripsHint: RequiredParams<'count' | 'km' | 'year'>
+			/**
+			 * O​t​v​o​r​i​ť​ ​t​a​b​u​ľ​k​u​ ​(​P​C​)
+			 */
+			openPc: string
+			/**
+			 * N​a​č​í​t​a​v​a​ ​s​a​.​.​.
+			 */
+			loading: string
+			/**
+			 * N​i​e​ ​j​e​ ​v​y​b​r​a​n​é​ ​ž​i​a​d​n​e​ ​v​o​z​i​d​l​o​.
+			 */
+			noVehicle: string
+			/**
+			 * O​t​v​o​r​i​ť​ ​n​a​s​t​a​v​e​n​i​a
+			 */
+			goToSettings: string
+			/**
+			 * Ú​d​a​j​e​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​n​a​č​í​t​a​ť​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			loadError: RequiredParams<'error'>
+			/**
+			 * M​o​b​i​l​n​á​ ​v​e​r​z​i​a
+			 */
+			phoneLink: string
 		}
 		trips: {
 			/**
 			 * J​a​z​d​y
 			 */
 			title: string
+			/**
+			 * S​p​ä​ť
+			 */
+			back: string
+			/**
+			 * R​o​k
+			 */
+			yearLabel: string
+			/**
+			 * N​a​č​í​t​a​v​a​ ​s​a​.​.​.
+			 */
+			loading: string
+			/**
+			 * J​a​z​d​y​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​n​a​č​í​t​a​ť​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			loadError: RequiredParams<'error'>
+			/**
+			 * V​ ​r​o​k​u​ ​{​y​e​a​r​}​ ​n​i​e​ ​s​ú​ ​ž​i​a​d​n​e​ ​j​a​z​d​y​.
+			 * @param {number} year
+			 */
+			empty: RequiredParams<'year'>
+			/**
+			 * S​p​o​t​r​e​b​a​ ​{​r​a​t​e​}​ ​l​/​1​0​0​ ​k​m
+			 * @param {string} rate
+			 */
+			consumption: RequiredParams<'rate'>
+			/**
+			 * T​P​ ​{​t​p​}​,​ ​{​m​a​r​g​i​n​}​ ​%
+			 * @param {string} margin
+			 * @param {string} tp
+			 */
+			tpMargin: RequiredParams<'margin' | 'tp'>
+			/**
+			 * T​P​ ​{​t​p​}​,​ ​b​e​z​ ​t​a​n​k​o​v​a​n​i​a
+			 * @param {string} tp
+			 */
+			tpNoFillup: RequiredParams<'tp'>
+			/**
+			 * N​a​j​h​o​r​š​i​e​ ​o​b​d​o​b​i​e​ ​m​e​d​z​i​ ​t​a​n​k​o​v​a​n​i​a​m​i​,​ ​l​i​m​i​t​ ​+​2​0​ ​%​.
+			 */
+			marginHint: string
+			/**
+			 * {​k​m​}​ ​k​m
+			 * @param {string} km
+			 */
+			totalKm: RequiredParams<'km'>
+			/**
+			 * z​o​s​t​a​t​o​k​ ​{​l​i​t​e​r​s​}​ ​l
+			 * @param {string} liters
+			 */
+			remaining: RequiredParams<'liters'>
+			/**
+			 * o​d​c​h​ý​l​k​a​ ​z​a​ ​r​o​k​ ​{​p​e​r​c​e​n​t​}​ ​%
+			 * @param {string} percent
+			 */
+			deviation: RequiredParams<'percent'>
+			/**
+			 * t​a​c​h​.​ ​{​k​m​}
+			 * @param {string} km
+			 */
+			odometer: RequiredParams<'km'>
+			/**
+			 * T​a​n​k​o​v​a​n​i​e​ ​{​l​i​t​e​r​s​}​ ​l
+			 * @param {string} liters
+			 */
+			fillup: RequiredParams<'liters'>
+			/**
+			 * p​l​n​á
+			 */
+			fillupFull: string
+			/**
+			 * č​i​a​s​t​o​č​n​á
+			 */
+			fillupPartial: string
+			/**
+			 * N​a​b​í​j​a​n​i​e​ ​{​k​w​h​}​ ​k​W​h
+			 * @param {string} kwh
+			 */
+			charge: RequiredParams<'kwh'>
+			/**
+			 * p​l​n​é
+			 */
+			chargeFull: string
+			/**
+			 * č​i​a​s​t​o​č​n​é
+			 */
+			chargePartial: string
+			/**
+			 * n​a​d​ ​l​i​m​i​t​o​m
+			 */
+			overLimit: string
+			/**
+			 * c​h​ý​b​a​ ​d​o​k​l​a​d
+			 */
+			missingInvoice: string
+			detail: {
+				/**
+				 * J​a​z​d​y
+				 */
+				back: string
+				/**
+				 * J​a​z​d​a​ ​č​.​ ​{​n​u​m​b​e​r​}
+				 * @param {number} number
+				 */
+				tripNumber: RequiredParams<'number'>
+				/**
+				 * T​r​a​s​a
+				 */
+				route: string
+				/**
+				 * Ú​č​e​l
+				 */
+				purpose: string
+				/**
+				 * T​a​c​h​o​m​e​t​e​r​ ​n​a​ ​z​a​č​i​a​t​k​u
+				 */
+				odometerStart: string
+				/**
+				 * T​a​c​h​o​m​e​t​e​r​ ​n​a​ ​k​o​n​c​i
+				 */
+				odometerEnd: string
+				/**
+				 * S​p​o​t​r​e​b​a
+				 */
+				consumption: string
+				/**
+				 * Z​o​s​t​a​t​o​k​ ​p​a​l​i​v​a
+				 */
+				fuelRemaining: string
+				/**
+				 * S​p​o​t​r​e​b​a​ ​e​n​e​r​g​i​e
+				 */
+				energyRate: string
+				/**
+				 * S​t​a​v​ ​b​a​t​é​r​i​e
+				 */
+				battery: string
+				/**
+				 * T​a​n​k​o​v​a​n​i​e
+				 */
+				fillup: string
+				/**
+				 * N​a​b​í​j​a​n​i​e
+				 */
+				charge: string
+				/**
+				 * M​n​o​ž​s​t​v​o
+				 */
+				amount: string
+				/**
+				 * C​e​n​a
+				 */
+				cost: string
+				/**
+				 * p​l​n​á​ ​n​á​d​r​ž
+				 */
+				fullTank: string
+				/**
+				 * p​l​n​é​ ​n​a​b​i​t​i​e
+				 */
+				fullCharge: string
+				/**
+				 * I​n​é​ ​n​á​k​l​a​d​y
+				 */
+				otherCosts: string
+				/**
+				 * P​o​z​n​á​m​k​a
+				 */
+				otherNote: string
+				/**
+				 * D​o​k​l​a​d​y
+				 */
+				invoices: string
+				/**
+				 * D​o​k​l​a​d​y​ ​s​a​ ​n​a​č​í​t​a​v​a​j​ú​.​.​.
+				 */
+				invoicesLoading: string
+				/**
+				 * D​o​k​l​a​d​y​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​n​a​č​í​t​a​ť​.
+				 */
+				invoicesError: string
+				/**
+				 * K​ ​j​a​z​d​e​ ​n​i​e​ ​j​e​ ​p​r​i​r​a​d​e​n​ý​ ​ž​i​a​d​n​y​ ​d​o​k​l​a​d​.
+				 */
+				noInvoices: string
+				/**
+				 * U​p​o​z​o​r​n​e​n​i​a
+				 */
+				warnings: string
+				/**
+				 * S​p​o​t​r​e​b​a​ ​v​ ​t​o​m​t​o​ ​o​b​d​o​b​í​ ​j​e​ ​v​y​š​š​i​a​ ​a​k​o​ ​1​2​0​ ​%​ ​T​P​.
+				 */
+				overLimit: string
+				/**
+				 * T​r​a​s​a​ ​s​a​ ​n​a​č​í​t​a​v​a​.​.​.
+				 */
+				mapLoading: string
+				/**
+				 * T​r​a​s​u​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​n​a​č​í​t​a​ť​.
+				 */
+				mapError: string
+				/**
+				 * L​e​n​ ​n​a​ ​č​í​t​a​n​i​e​.​ ​J​a​z​d​u​ ​u​p​r​a​v​í​t​e​ ​v​ ​t​a​b​u​ľ​k​e​ ​n​a​ ​P​C​.
+				 */
+				readOnly: string
+			}
 		}
 		add: {
 			/**
 			 * N​o​v​á​ ​j​a​z​d​a
 			 */
 			title: string
+			/**
+			 * <​ ​S​p​ä​ť
+			 */
+			back: string
+			/**
+			 * J​a​z​d​y​ ​z​ ​F​u​e​l​i​o
+			 */
+			fuelioTitle: string
+			/**
+			 * J​a​z​d​y​ ​z​ ​F​u​e​l​i​o​,​ ​k​t​o​r​é​ ​n​i​e​ ​s​ú​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​.​ ​N​a​j​n​o​v​š​i​e​ ​h​o​r​e​.
+			 */
+			fuelioIntro: string
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​u​j​e​m​ ​s​ ​D​r​o​p​b​o​x​.​.​.
+			 */
+			syncing: string
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​o​v​a​n​é​ ​o​ ​{​t​i​m​e​}
+			 * @param {string} time
+			 */
+			synced: RequiredParams<'time'>
+			/**
+			 * N​e​s​t​i​a​h​n​u​t​é​ ​s​ú​b​o​r​y​:​ ​{​c​o​u​n​t​}
+			 * @param {number} count
+			 */
+			syncFailedFiles: RequiredParams<'count'>
+			/**
+			 * S​y​n​c​h​r​o​n​i​z​á​c​i​a​ ​s​ ​D​r​o​p​b​o​x​ ​z​l​y​h​a​l​a​:​ ​{​e​r​r​o​r​}​.​ ​Z​o​b​r​a​z​u​j​ú​ ​s​a​ ​l​o​k​á​l​n​e​ ​ú​d​a​j​e​.
+			 * @param {string} error
+			 */
+			syncError: RequiredParams<'error'>
+			/**
+			 * N​a​č​í​t​a​v​a​m​.​.​.
+			 */
+			loading: string
+			/**
+			 * N​a​č​í​t​a​n​i​e​ ​z​l​y​h​a​l​o​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			loadError: RequiredParams<'error'>
+			/**
+			 * V​š​e​t​k​y​ ​j​a​z​d​y​ ​z​ ​F​u​e​l​i​o​ ​s​ú​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​.
+			 */
+			noMissing: string
+			/**
+			 * P​r​i​d​a​ť
+			 */
+			addButton: string
+			/**
+			 * N​i​e​ ​j​e​ ​v​y​b​r​a​n​é​ ​v​o​z​i​d​l​o​.​ ​V​y​b​e​r​t​e​ ​h​o​ ​v​ ​k​n​i​h​e​ ​j​á​z​d​ ​n​a​ ​P​C​.
+			 */
+			noVehicle: string
+			/**
+			 * G​P​S​ ​{​k​m​}​ ​k​m
+			 * @param {string} km
+			 */
+			gpsNote: RequiredParams<'km'>
+			/**
+			 * O​d​k​i​a​ľ
+			 */
+			origin: string
+			/**
+			 * K​a​m
+			 */
+			destination: string
+			/**
+			 * Ú​č​e​l
+			 */
+			purpose: string
+			/**
+			 * U​l​o​ž​i​ť​ ​G​P​S​ ​t​r​a​s​u
+			 */
+			route: string
+			/**
+			 * Z​a​č​i​a​t​o​k
+			 */
+			start: string
+			/**
+			 * K​o​n​i​e​c
+			 */
+			end: string
+			/**
+			 * V​z​d​i​a​l​e​n​o​s​ť​ ​(​k​m​)
+			 */
+			distance: string
+			/**
+			 * t​r​a​s​a​:​ ​{​k​m​}​ ​k​m
+			 * @param {string} km
+			 */
+			routeHint: RequiredParams<'km'>
+			/**
+			 * k​o​n​i​e​c​ ​-​ ​{​m​i​n​}​ ​m​i​n​ ​j​a​z​d​y​ ​p​o​d​ľ​a​ ​t​r​a​s​y
+			 * @param {number} min
+			 */
+			startFromRoute: RequiredParams<'min'>
+			/**
+			 * Z​a​č​i​a​t​o​k​ ​s​a​ ​v​y​p​o​č​í​t​a​,​ ​k​e​ď​ ​v​y​b​e​r​i​e​t​e​ ​o​b​e​ ​m​i​e​s​t​a​.
+			 */
+			startNeedsPlaces: string
+			/**
+			 * Z​a​d​a​j​t​e​ ​z​a​č​i​a​t​o​k​:​ ​n​o​v​é​ ​m​i​e​s​t​o​ ​z​a​t​i​a​ľ​ ​n​e​m​á​ ​G​P​S​ ​p​o​l​o​h​u​.
+			 */
+			startNewPlace: string
+			/**
+			 * P​o​č​í​t​a​m​ ​t​r​a​s​u​.​.​.
+			 */
+			estimating: string
+			/**
+			 * T​r​a​s​a​ ​s​a​ ​n​e​d​á​ ​v​y​p​o​č​í​t​a​ť​:​ ​{​e​r​r​o​r​}​.​ ​Z​a​d​a​j​t​e​ ​z​a​č​i​a​t​o​k​.
+			 * @param {string} error
+			 */
+			estimateFailed: RequiredParams<'error'>
+			/**
+			 * U​l​o​ž​i​ť​ ​j​a​z​d​u
+			 */
+			save: string
+			/**
+			 * U​k​l​a​d​á​m​.​.​.
+			 */
+			saving: string
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​.
+			 */
+			done: string
+			/**
+			 * Z​a​d​a​j​t​e​ ​k​o​n​i​e​c​ ​j​a​z​d​y​.
+			 */
+			missingEnd: string
+			/**
+			 * Z​a​d​a​j​t​e​ ​z​a​č​i​a​t​o​k​ ​j​a​z​d​y​.
+			 */
+			missingStart: string
+			/**
+			 * V​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​O​d​k​i​a​ľ​ ​a​l​e​b​o​ ​z​a​d​a​j​t​e​ ​n​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​.
+			 */
+			missingOrigin: string
+			/**
+			 * V​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​K​a​m​ ​a​l​e​b​o​ ​z​a​d​a​j​t​e​ ​n​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​.
+			 */
+			missingDestination: string
+			/**
+			 * Z​a​d​a​j​t​e​ ​v​z​d​i​a​l​e​n​o​s​ť​ ​v​ ​k​m​.
+			 */
+			missingDistance: string
+			/**
+			 * N​o​v​é​ ​m​i​e​s​t​o​ ​n​e​m​á​ ​p​o​l​o​h​u​ ​G​P​S​.​ ​S​t​l​a​č​t​e​ ​M​o​j​a​ ​p​o​l​o​h​a​.
+			 */
+			noPosition: string
+			picker: {
+				/**
+				 * V​y​b​e​r​t​e​ ​m​i​e​s​t​o
+				 */
+				placeholder: string
+				/**
+				 * +​ ​N​o​v​é​ ​m​i​e​s​t​o​ ​t​u
+				 */
+				newHere: string
+				/**
+				 * N​á​z​o​v​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a
+				 */
+				newName: string
+				/**
+				 * V​y​b​r​a​ť​ ​e​x​i​s​t​u​j​ú​c​e​ ​m​i​e​s​t​o
+				 */
+				pickExisting: string
+				/**
+				 * Ž​i​a​d​n​e​ ​z​n​á​m​e​ ​m​i​e​s​t​o​ ​n​a​b​l​í​z​k​u​.
+				 */
+				noNearby: string
+				/**
+				 * M​o​j​a​ ​p​o​l​o​h​a
+				 */
+				myLocation: string
+				/**
+				 * Z​i​s​ť​u​j​e​m​ ​p​o​l​o​h​u​.​.​.
+				 */
+				locating: string
+				/**
+				 * M​i​e​s​t​a​ ​p​o​d​ľ​a​ ​p​o​l​o​h​y​ ​G​P​S​ ​(​p​r​e​s​n​o​s​ť​ ​{​m​}​ ​m​)
+				 * @param {number} m
+				 */
+				located: RequiredParams<'m'>
+				/**
+				 * {​m​}​ ​m
+				 * @param {number} m
+				 */
+				distM: RequiredParams<'m'>
+				/**
+				 * {​k​m​}​ ​k​m
+				 * @param {string} km
+				 */
+				distKm: RequiredParams<'km'>
+				/**
+				 * P​o​l​o​h​a​ ​n​i​e​ ​j​e​ ​d​o​s​t​u​p​n​á​:​ ​s​t​r​á​n​k​a​ ​p​o​t​r​e​b​u​j​e​ ​H​T​T​P​S​.​ ​V​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​z​o​ ​z​o​z​n​a​m​u​.
+				 */
+				insecure: string
+				/**
+				 * P​o​l​o​h​a​ ​n​i​e​ ​j​e​ ​d​o​s​t​u​p​n​á​:​ ​p​r​e​h​l​i​a​d​a​č​ ​n​e​m​á​ ​p​o​v​o​l​e​n​i​e​.​ ​P​o​v​o​ľ​t​e​ ​p​o​l​o​h​u​ ​p​r​e​ ​t​ú​t​o​ ​s​t​r​á​n​k​u​ ​a​l​e​b​o​ ​v​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​z​o​ ​z​o​z​n​a​m​u​.
+				 */
+				denied: string
+				/**
+				 * P​o​l​o​h​a​ ​n​i​e​ ​j​e​ ​d​o​s​t​u​p​n​á​.​ ​S​k​ú​s​t​e​ ​t​o​ ​z​n​o​v​a​ ​a​l​e​b​o​ ​v​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​z​o​ ​z​o​z​n​a​m​u​.
+				 */
+				unavailable: string
+				/**
+				 * P​o​l​o​h​a​ ​n​e​p​r​i​š​l​a​ ​v​č​a​s​.​ ​S​k​ú​s​t​e​ ​t​o​ ​z​n​o​v​a​ ​a​l​e​b​o​ ​v​y​b​e​r​t​e​ ​m​i​e​s​t​o​ ​z​o​ ​z​o​z​n​a​m​u​.
+				 */
+				timeout: string
+				/**
+				 * M​i​e​s​t​a​ ​v​ ​o​k​o​l​í​ ​s​a​ ​n​e​p​o​d​a​r​i​l​o​ ​n​a​č​í​t​a​ť​:​ ​{​e​r​r​o​r​}
+				 * @param {string} error
+				 */
+				nearError: RequiredParams<'error'>
+				/**
+				 * P​o​l​o​h​a​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​:​ ​z​a​č​i​a​t​o​k​ ​G​P​S​ ​j​a​z​d​y​.
+				 */
+				pinFuelioStart: string
+				/**
+				 * P​o​l​o​h​a​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​:​ ​k​o​n​i​e​c​ ​G​P​S​ ​j​a​z​d​y​.
+				 */
+				pinFuelioEnd: string
+				/**
+				 * P​o​l​o​h​a​ ​n​o​v​é​h​o​ ​m​i​e​s​t​a​:​ ​m​o​j​a​ ​p​o​l​o​h​a​ ​G​P​S​.
+				 */
+				pinGps: string
+			}
 		}
 	}
 	places: {
@@ -4878,6 +5383,26 @@ export type TranslationFunctions = {
 			 * Načítavam...
 			 */
 			loading: () => LocalizedString
+			/**
+			 * + Nové miesto tu
+			 */
+			newPlace: () => LocalizedString
+			/**
+			 * Názov nového miesta
+			 */
+			newPlaceName: () => LocalizedString
+			/**
+			 * Nové miesto sa vytvorí v bode začiatku GPS jazdy.
+			 */
+			newPlaceAtStart: () => LocalizedString
+			/**
+			 * Nové miesto sa vytvorí v bode konca GPS jazdy.
+			 */
+			newPlaceAtEnd: () => LocalizedString
+			/**
+			 * Žiadne známe miesto nablízku. Zadajte názov nového miesta alebo vyberte miesto zo zoznamu.
+			 */
+			noNearby: () => LocalizedString
 		}
 		overwrite: {
 			/**
@@ -4968,18 +5493,474 @@ export type TranslationFunctions = {
 			 * Kniha jázd
 			 */
 			title: () => LocalizedString
+			/**
+			 * Pridať z Fuelio
+			 */
+			addFuelio: () => LocalizedString
+			/**
+			 * Jazda podľa GPS záznamu
+			 */
+			addFuelioHint: () => LocalizedString
+			/**
+			 * Pridať ručne
+			 */
+			addManual: () => LocalizedString
+			/**
+			 * Koniec teraz, cieľ podľa mojej polohy
+			 */
+			addManualHint: () => LocalizedString
+			/**
+			 * Všetky jazdy
+			 */
+			allTrips: () => LocalizedString
+			/**
+			 * {year}: {count} {{jazda|jazdy|jázd}}, {km} km
+			 */
+			allTripsHint: (arg: { count: number, km: string, year: number }) => LocalizedString
+			/**
+			 * Otvoriť tabuľku (PC)
+			 */
+			openPc: () => LocalizedString
+			/**
+			 * Načítava sa...
+			 */
+			loading: () => LocalizedString
+			/**
+			 * Nie je vybrané žiadne vozidlo.
+			 */
+			noVehicle: () => LocalizedString
+			/**
+			 * Otvoriť nastavenia
+			 */
+			goToSettings: () => LocalizedString
+			/**
+			 * Údaje sa nepodarilo načítať: {error}
+			 */
+			loadError: (arg: { error: string }) => LocalizedString
+			/**
+			 * Mobilná verzia
+			 */
+			phoneLink: () => LocalizedString
 		}
 		trips: {
 			/**
 			 * Jazdy
 			 */
 			title: () => LocalizedString
+			/**
+			 * Späť
+			 */
+			back: () => LocalizedString
+			/**
+			 * Rok
+			 */
+			yearLabel: () => LocalizedString
+			/**
+			 * Načítava sa...
+			 */
+			loading: () => LocalizedString
+			/**
+			 * Jazdy sa nepodarilo načítať: {error}
+			 */
+			loadError: (arg: { error: string }) => LocalizedString
+			/**
+			 * V roku {year} nie sú žiadne jazdy.
+			 */
+			empty: (arg: { year: number }) => LocalizedString
+			/**
+			 * Spotreba {rate} l/100 km
+			 */
+			consumption: (arg: { rate: string }) => LocalizedString
+			/**
+			 * TP {tp}, {margin} %
+			 */
+			tpMargin: (arg: { margin: string, tp: string }) => LocalizedString
+			/**
+			 * TP {tp}, bez tankovania
+			 */
+			tpNoFillup: (arg: { tp: string }) => LocalizedString
+			/**
+			 * Najhoršie obdobie medzi tankovaniami, limit +20 %.
+			 */
+			marginHint: () => LocalizedString
+			/**
+			 * {km} km
+			 */
+			totalKm: (arg: { km: string }) => LocalizedString
+			/**
+			 * zostatok {liters} l
+			 */
+			remaining: (arg: { liters: string }) => LocalizedString
+			/**
+			 * odchýlka za rok {percent} %
+			 */
+			deviation: (arg: { percent: string }) => LocalizedString
+			/**
+			 * tach. {km}
+			 */
+			odometer: (arg: { km: string }) => LocalizedString
+			/**
+			 * Tankovanie {liters} l
+			 */
+			fillup: (arg: { liters: string }) => LocalizedString
+			/**
+			 * plná
+			 */
+			fillupFull: () => LocalizedString
+			/**
+			 * čiastočná
+			 */
+			fillupPartial: () => LocalizedString
+			/**
+			 * Nabíjanie {kwh} kWh
+			 */
+			charge: (arg: { kwh: string }) => LocalizedString
+			/**
+			 * plné
+			 */
+			chargeFull: () => LocalizedString
+			/**
+			 * čiastočné
+			 */
+			chargePartial: () => LocalizedString
+			/**
+			 * nad limitom
+			 */
+			overLimit: () => LocalizedString
+			/**
+			 * chýba doklad
+			 */
+			missingInvoice: () => LocalizedString
+			detail: {
+				/**
+				 * Jazdy
+				 */
+				back: () => LocalizedString
+				/**
+				 * Jazda č. {number}
+				 */
+				tripNumber: (arg: { number: number }) => LocalizedString
+				/**
+				 * Trasa
+				 */
+				route: () => LocalizedString
+				/**
+				 * Účel
+				 */
+				purpose: () => LocalizedString
+				/**
+				 * Tachometer na začiatku
+				 */
+				odometerStart: () => LocalizedString
+				/**
+				 * Tachometer na konci
+				 */
+				odometerEnd: () => LocalizedString
+				/**
+				 * Spotreba
+				 */
+				consumption: () => LocalizedString
+				/**
+				 * Zostatok paliva
+				 */
+				fuelRemaining: () => LocalizedString
+				/**
+				 * Spotreba energie
+				 */
+				energyRate: () => LocalizedString
+				/**
+				 * Stav batérie
+				 */
+				battery: () => LocalizedString
+				/**
+				 * Tankovanie
+				 */
+				fillup: () => LocalizedString
+				/**
+				 * Nabíjanie
+				 */
+				charge: () => LocalizedString
+				/**
+				 * Množstvo
+				 */
+				amount: () => LocalizedString
+				/**
+				 * Cena
+				 */
+				cost: () => LocalizedString
+				/**
+				 * plná nádrž
+				 */
+				fullTank: () => LocalizedString
+				/**
+				 * plné nabitie
+				 */
+				fullCharge: () => LocalizedString
+				/**
+				 * Iné náklady
+				 */
+				otherCosts: () => LocalizedString
+				/**
+				 * Poznámka
+				 */
+				otherNote: () => LocalizedString
+				/**
+				 * Doklady
+				 */
+				invoices: () => LocalizedString
+				/**
+				 * Doklady sa načítavajú...
+				 */
+				invoicesLoading: () => LocalizedString
+				/**
+				 * Doklady sa nepodarilo načítať.
+				 */
+				invoicesError: () => LocalizedString
+				/**
+				 * K jazde nie je priradený žiadny doklad.
+				 */
+				noInvoices: () => LocalizedString
+				/**
+				 * Upozornenia
+				 */
+				warnings: () => LocalizedString
+				/**
+				 * Spotreba v tomto období je vyššia ako 120 % TP.
+				 */
+				overLimit: () => LocalizedString
+				/**
+				 * Trasa sa načítava...
+				 */
+				mapLoading: () => LocalizedString
+				/**
+				 * Trasu sa nepodarilo načítať.
+				 */
+				mapError: () => LocalizedString
+				/**
+				 * Len na čítanie. Jazdu upravíte v tabuľke na PC.
+				 */
+				readOnly: () => LocalizedString
+			}
 		}
 		add: {
 			/**
 			 * Nová jazda
 			 */
 			title: () => LocalizedString
+			/**
+			 * < Späť
+			 */
+			back: () => LocalizedString
+			/**
+			 * Jazdy z Fuelio
+			 */
+			fuelioTitle: () => LocalizedString
+			/**
+			 * Jazdy z Fuelio, ktoré nie sú v knihe jázd. Najnovšie hore.
+			 */
+			fuelioIntro: () => LocalizedString
+			/**
+			 * Synchronizujem s Dropbox...
+			 */
+			syncing: () => LocalizedString
+			/**
+			 * Synchronizované o {time}
+			 */
+			synced: (arg: { time: string }) => LocalizedString
+			/**
+			 * Nestiahnuté súbory: {count}
+			 */
+			syncFailedFiles: (arg: { count: number }) => LocalizedString
+			/**
+			 * Synchronizácia s Dropbox zlyhala: {error}. Zobrazujú sa lokálne údaje.
+			 */
+			syncError: (arg: { error: string }) => LocalizedString
+			/**
+			 * Načítavam...
+			 */
+			loading: () => LocalizedString
+			/**
+			 * Načítanie zlyhalo: {error}
+			 */
+			loadError: (arg: { error: string }) => LocalizedString
+			/**
+			 * Všetky jazdy z Fuelio sú v knihe jázd.
+			 */
+			noMissing: () => LocalizedString
+			/**
+			 * Pridať
+			 */
+			addButton: () => LocalizedString
+			/**
+			 * Nie je vybrané vozidlo. Vyberte ho v knihe jázd na PC.
+			 */
+			noVehicle: () => LocalizedString
+			/**
+			 * GPS {km} km
+			 */
+			gpsNote: (arg: { km: string }) => LocalizedString
+			/**
+			 * Odkiaľ
+			 */
+			origin: () => LocalizedString
+			/**
+			 * Kam
+			 */
+			destination: () => LocalizedString
+			/**
+			 * Účel
+			 */
+			purpose: () => LocalizedString
+			/**
+			 * Uložiť GPS trasu
+			 */
+			route: () => LocalizedString
+			/**
+			 * Začiatok
+			 */
+			start: () => LocalizedString
+			/**
+			 * Koniec
+			 */
+			end: () => LocalizedString
+			/**
+			 * Vzdialenosť (km)
+			 */
+			distance: () => LocalizedString
+			/**
+			 * trasa: {km} km
+			 */
+			routeHint: (arg: { km: string }) => LocalizedString
+			/**
+			 * koniec - {min} min jazdy podľa trasy
+			 */
+			startFromRoute: (arg: { min: number }) => LocalizedString
+			/**
+			 * Začiatok sa vypočíta, keď vyberiete obe miesta.
+			 */
+			startNeedsPlaces: () => LocalizedString
+			/**
+			 * Zadajte začiatok: nové miesto zatiaľ nemá GPS polohu.
+			 */
+			startNewPlace: () => LocalizedString
+			/**
+			 * Počítam trasu...
+			 */
+			estimating: () => LocalizedString
+			/**
+			 * Trasa sa nedá vypočítať: {error}. Zadajte začiatok.
+			 */
+			estimateFailed: (arg: { error: string }) => LocalizedString
+			/**
+			 * Uložiť jazdu
+			 */
+			save: () => LocalizedString
+			/**
+			 * Ukladám...
+			 */
+			saving: () => LocalizedString
+			/**
+			 * Jazda bola pridaná.
+			 */
+			done: () => LocalizedString
+			/**
+			 * Zadajte koniec jazdy.
+			 */
+			missingEnd: () => LocalizedString
+			/**
+			 * Zadajte začiatok jazdy.
+			 */
+			missingStart: () => LocalizedString
+			/**
+			 * Vyberte miesto Odkiaľ alebo zadajte názov nového miesta.
+			 */
+			missingOrigin: () => LocalizedString
+			/**
+			 * Vyberte miesto Kam alebo zadajte názov nového miesta.
+			 */
+			missingDestination: () => LocalizedString
+			/**
+			 * Zadajte vzdialenosť v km.
+			 */
+			missingDistance: () => LocalizedString
+			/**
+			 * Nové miesto nemá polohu GPS. Stlačte Moja poloha.
+			 */
+			noPosition: () => LocalizedString
+			picker: {
+				/**
+				 * Vyberte miesto
+				 */
+				placeholder: () => LocalizedString
+				/**
+				 * + Nové miesto tu
+				 */
+				newHere: () => LocalizedString
+				/**
+				 * Názov nového miesta
+				 */
+				newName: () => LocalizedString
+				/**
+				 * Vybrať existujúce miesto
+				 */
+				pickExisting: () => LocalizedString
+				/**
+				 * Žiadne známe miesto nablízku.
+				 */
+				noNearby: () => LocalizedString
+				/**
+				 * Moja poloha
+				 */
+				myLocation: () => LocalizedString
+				/**
+				 * Zisťujem polohu...
+				 */
+				locating: () => LocalizedString
+				/**
+				 * Miesta podľa polohy GPS (presnosť {m} m)
+				 */
+				located: (arg: { m: number }) => LocalizedString
+				/**
+				 * {m} m
+				 */
+				distM: (arg: { m: number }) => LocalizedString
+				/**
+				 * {km} km
+				 */
+				distKm: (arg: { km: string }) => LocalizedString
+				/**
+				 * Poloha nie je dostupná: stránka potrebuje HTTPS. Vyberte miesto zo zoznamu.
+				 */
+				insecure: () => LocalizedString
+				/**
+				 * Poloha nie je dostupná: prehliadač nemá povolenie. Povoľte polohu pre túto stránku alebo vyberte miesto zo zoznamu.
+				 */
+				denied: () => LocalizedString
+				/**
+				 * Poloha nie je dostupná. Skúste to znova alebo vyberte miesto zo zoznamu.
+				 */
+				unavailable: () => LocalizedString
+				/**
+				 * Poloha neprišla včas. Skúste to znova alebo vyberte miesto zo zoznamu.
+				 */
+				timeout: () => LocalizedString
+				/**
+				 * Miesta v okolí sa nepodarilo načítať: {error}
+				 */
+				nearError: (arg: { error: string }) => LocalizedString
+				/**
+				 * Poloha nového miesta: začiatok GPS jazdy.
+				 */
+				pinFuelioStart: () => LocalizedString
+				/**
+				 * Poloha nového miesta: koniec GPS jazdy.
+				 */
+				pinFuelioEnd: () => LocalizedString
+				/**
+				 * Poloha nového miesta: moja poloha GPS.
+				 */
+				pinGps: () => LocalizedString
+			}
 		}
 	}
 	places: {
