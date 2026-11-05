@@ -46,6 +46,20 @@ Three things read the book:
    shows a warning marker with the text *Treba doplniť polohu*. Set a position as in
    step 5.
 
+Two flows outside the Miesta tab also create a place (Task 93). In both, the user types
+the name, and the position comes from a GPS point or a tapped address result:
+
+- **Fuelio Pridať** (the PC dialog and the phone page `/m/fuelio`). "+ Nové miesto tu"
+  creates the place at the GPS start or the GPS end of the drive, with source `manual`.
+  The place is created in the same command as the trip. If the trip insert fails, the
+  place is deleted. See [fuelio.md](./fuelio.md).
+- **Manual trip on the phone** (`/m/nova`). "+ Nové miesto" takes the position from
+  "Moja poloha" (the phone GPS, source `manual`) or from "Hľadať adresu"
+  (`geocode_place`, source `geocoder`). The page calls `create_place` when the user saves
+  the trip. See [mobile.md](./mobile.md).
+
+The same name rules apply: a name that the book has is refused.
+
 Settings has no place section. The Settings page and the Miesta tab are separate.
 
 **Read-only mode**: create, rename, set position, delete and the home mark are blocked
@@ -111,6 +125,7 @@ The commands live in
 | `set_home_place` | `id` or `null` | Moves the home mark to the place, or clears it with `null`. One transaction: the old mark goes first. Error if the place does not exist. Guarded by `check_read_only!`. |
 | `find_place` | `name` | Returns the place whose key equals `normalise(name)`, or nothing. |
 | `geocode_place` | `query` | Returns candidates. **Writes nothing.** |
+| `get_places_near` | `lat`, `lon` | Every place with a position, nearest first, with the distance in metres, and `preselectId`: the nearest place within 300 m, or `null`. **Writes nothing.** In [commands_internal/mobile.rs](../../src-tauri/core/src/commands_internal/mobile.rs), for the phone pages. |
 
 `save_place` and `clear_place` do not exist any more. A place keeps its position: the
 user can change it, not remove it.
@@ -202,6 +217,16 @@ Miesta tab
 Trip form (save)
   +- typed text equals a place name -> use that ID
   +- else find_place(text) -> ID, or the save is blocked with a link to /miesta
+
+Fuelio Pridat (PC and phone)
+  +- add_fuelio_trip(newOriginName / newDestinationName)
+        -> create_place at the GPS start / end (manual), then the trip
+        -> insert fails: delete_place_if_unused
+
+Phone manual trip (/m/nova)
+  +- Moja poloha -> get_places_near(lat, lon)    nothing written
+  +- Hladat adresu -> geocode_place              nothing written
+  +- Ulozit jazdu -> create_place (manual or geocoder), then the trip
 ```
 
 ## Key Files
@@ -272,6 +297,8 @@ project's behaviour.
 - [ADR-055](../../DECISIONS.md#adr-055-places-are-entities-trips-and-routes-reference-them-by-id): Places are entities, trips and routes reference them by ID
 - [BIZ-026](../../DECISIONS.md#biz-026-journeys-away-from-home): Journeys away from home (the home mark)
 - [mcp-endpoint.md](./mcp-endpoint.md): the read-only MCP endpoint that reads the home mark
+- [mobile.md](./mobile.md): the phone pages, which create places from the GPS or an address
+- [fuelio.md](./fuelio.md): Fuelio Pridať, which creates a place at a GPS point
 - [ADR-032](../../DECISIONS.md): Places are placed by a human, never by a confidence heuristic
 - [ADR-033](../../DECISIONS.md): Aggregates over trips are computed, not stored
 - [ADR-034](../../DECISIONS.md): The display spelling (superseded by ADR-055: the name is stored)

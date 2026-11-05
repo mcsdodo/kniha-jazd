@@ -52,9 +52,15 @@
    (the same one as on `/mapa`).
 8. **Pridať** (missing row, and a loose row next to "Prepísať": a loose match can be a
    different drive, for example the drive back after a trip). A popup proposes the origin and destination (the nearest
-   places to the GPS start and end, with their distance), the GPS times and km. The user
-   types the purpose and saves. A new trip that moves later odometers shows the insert
-   cascade confirmation.
+   places to the GPS start and end, with their distance), the GPS times and km. A place
+   within 300 m of the GPS point is selected. Without such a place, the dialog does not
+   guess: the end opens on **+ Nové miesto tu** with a name field. This option is always
+   in the list, also when a place is selected. The user types a name, and the new place
+   gets the GPS start (origin) or the GPS end (destination). The user types the
+   purpose and saves. A new trip that moves later odometers shows the insert cascade
+   confirmation.
+9. **Phone.** `/m/fuelio` lists the missing drives of the current year and adds them
+   with the same command. See [mobile.md](./mobile.md).
 
 ## Technical Implementation
 
@@ -74,8 +80,8 @@
 | `get_fuelio_crosscheck { vehicleId, year }` | Scans the folder, matches, returns the rows |
 | `get_fuelio_track { driveIds, tripId? }` | Full GPS track + stored route for the map |
 | `apply_fuelio_to_trip { tripId, driveIds, fields, dryRun }` | Prepísať, one transaction |
-| `get_fuelio_add_preview { driveIds }` | Times, km and the places sorted by distance |
-| `add_fuelio_trip { ..., withRoute, dryRun }` | Pridať, through `create_trip_cascade_internal` |
+| `get_fuelio_add_preview { driveIds }` | Times, km, the places sorted by distance, and `originPreselectId` / `destinationPreselectId` (a place within 300 m, or `null`) |
+| `add_fuelio_trip { vehicleId, driveIds, originPlaceId \| newOriginName, destinationPlaceId \| newDestinationName, purpose, withRoute, dryRun }` | Pridať, through `create_trip_cascade_internal`. Per end, exactly one of the place id and the new name |
 | `set_fuelio_drives_ignored { vehicleId, driveIds, ignored }` | Ignore / un-ignore the drives of a row |
 | `sync_fuelio_dropbox { year }` | Async: Dropbox download (dispatcher_async) |
 
@@ -147,6 +153,16 @@ the stored route ("Iná trasa").
   saved as its route. The route is a second write: if it fails, the trip stays, the
   command still succeeds with `routeError`, and the dialog closes with an error toast.
   So a second click cannot add the trip again.
+- **New places in Pridať** ([fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs)):
+  - The preselect is the nearest place, if it is within `PLACE_PRESELECT_RADIUS_M`
+    (300 m, `preselect_id`). The matcher radii are a different rule.
+  - A new end (`TripEnd::New`) is checked first (`check_new_names`): a name that the
+    place book has is refused, and two new ends with the same name are refused.
+  - A dry run creates no place. It checks the names only and returns the plan.
+  - A real run creates each new place at the GPS start or end with source `manual`
+    (`end_place_id`), then inserts the trip.
+  - If the insert fails, the new places are deleted (`delete_place_if_unused`), so a
+    failed add leaves no new place.
 - Both store **every GPS fix** as the route. The 100 m track cut corners (up to 93 m off
   the road on the highway) and stays only in the "Iná trasa" check.
 
@@ -189,6 +205,8 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
 | [fuelio/dropbox.rs](../../src-tauri/core/src/fuelio/dropbox.rs) | `DropboxConfig::from_env`, `sync_year` |
 | [commands_internal/fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs) | The commands, `require_fuelio_internal` |
 | [src/routes/fuelio/+page.svelte](../../src/routes/fuelio/+page.svelte) | Page, icon snippet, legend |
+| [FuelioAddModal.svelte](../../src/lib/components/FuelioAddModal.svelte) | The Pridať dialog: the backend preselect, the "+ Nové miesto tu" option |
+| [src/routes/m/fuelio/+page.svelte](../../src/routes/m/fuelio/+page.svelte) | The phone list and add panel, see [mobile.md](./mobile.md) |
 | [migrations/2026-10-08-100000_fuelio_ignored_drives](../../src-tauri/core/migrations/2026-10-08-100000_fuelio_ignored_drives/up.sql) | The ignored drives, per vehicle (FK with `ON DELETE CASCADE`) |
 | [tests/integration/fixtures/fuelio-drives.mjs](../../tests/integration/fixtures/fuelio-drives.mjs) | Writes three drives of the current year for the env suite |
 | [tests/integration/specs/env/fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) | Rows, map, ignore / un-ignore, a trip with two rows, Prepísať and Pridať with the odometer dialog |
@@ -226,12 +244,18 @@ Dropbox --sync_fuelio_dropbox--> <DATA_DIR>/fuelio/route-*.data
   vehicle. A drive that is "not a trip of this car" must not hide it for another vehicle.
 - **Why does the default view hide ignored rows?** The list must get shorter as the user
   works through it. The "Ignorované" pill shows them, so an ignore can be undone.
+- **Why 300 m for the preselect?** In a city, the 2 km of the matcher covers many
+  addresses, and a wrong preselect is worse than a name field. "+ Nové miesto tu" stays
+  available, because a place within 300 m can still be the wrong address. See
+  [BIZ-031](../../DECISIONS.md#biz-031-a-new-trip-preselects-a-place-only-within-300-m-and-a-new-place-is-always-offered).
 - **Why whole minutes and whole km?** The logbook stores both that way; the GPS
   precision does not survive the save anyway, and a whole-km distance follows ADR-054.
 
 ## Related
 
-- ADR-008 (backend-only calculations), ADR-054 (whole-km distance writeback), BIZ-027 (Fuelio is the reference), ADR-058 (the Dropbox gate)
+- ADR-008 (backend-only calculations), ADR-054 (whole-km distance writeback), BIZ-027 (Fuelio is the reference), ADR-058 (the Dropbox gate), [BIZ-031](../../DECISIONS.md#biz-031-a-new-trip-preselects-a-place-only-within-300-m-and-a-new-place-is-always-offered) (the 300 m preselect)
+- [mobile.md](./mobile.md) -- the phone pages, also the phone Fuelio list
+- [place-book.md](./place-book.md) -- the places that Pridať creates
 - [trip-odometer-cascade.md](./trip-odometer-cascade.md) -- the cascade the writes use
 - [route-maps.md](./route-maps.md) -- stored routes, `plan_route_distance`
 - [_tasks/90-fuelio-crosscheck/](../../_tasks/90-fuelio-crosscheck/01-task.md) -- planning, measured facts from the production data

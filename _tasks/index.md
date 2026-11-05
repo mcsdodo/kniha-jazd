@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-10-05 (Tasks [88](./_done/88-places-as-entities/) and [89](./_done/89-home-place-mcp/) are archived.)
+**Last updated:** 2026-11-05 (Task [93](./93-mobile-ui/) added.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 93 | [Mobile UI](93-mobile-ui/) | 🟡 In Progress | Phone pages under `/m`: trip list with read-only detail, add from Fuelio with the GPS map, add by hand with GPS or address places; branch `feat/93-mobile-ui`, not merged; see [docs/features/mobile.md](../docs/features/mobile.md) |
 | 92 | [Excel Export](92-excel-export/) | ✅ Complete | `.xlsx` export for a tax audit: the same header, rows, totals and settings as the print export; route maps on sheet 2; exact values, shown rounded; no formulas |
 | 91 | [Loop Generator Bratislava](91-loop-generator-bratislava/) | ✅ Complete | The loop starts at the trip's place; Bratislava districts are the second candidate set (OSRM `/table` matrix); numbered vias on `/mapa` |
 | 90 | [Fuelio Cross-Check](90-fuelio-crosscheck/) | 🟡 In Progress | POC: read-only list of Fuelio GPS drives matched to logbook trips; flags missing trips, time/km differences and a different route |

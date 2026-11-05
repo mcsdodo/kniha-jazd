@@ -36,6 +36,7 @@ discontinued — existing installs keep working but receive no further updates.
 - **Invoices (Paperless-ngx)** - Invoices are pulled from your Paperless-ngx and assigned to trips; Paperless-ngx is the only invoice source
 - **Home Assistant integration** - Display ODO and fuel level from HA, push suggested fill-up to HA sensor
 - **Browser access** - Phone, tablet and desktop all reach the same instance over the local network
+- **Phone version** - At `/m`: the trip list with a detail view, add a trip from Fuelio, and add a trip by hand with the GPS position. See [docs/features/mobile.md](docs/features/mobile.md) for details.
 - **Docker deployment** - One container, one `/data` volume, for always-on devices (NAS, Raspberry Pi). See [docs/features/server-mode.md](docs/features/server-mode.md) for details.
 
 ## Installation
@@ -119,6 +120,8 @@ For each trip enter:
 - Origin - Destination
 - Kilometers (or calculated from ODO)
 - Purpose
+
+On a phone, add a trip at `/m`. The GPS position works only over HTTPS.
 
 ### 3. Fill-ups
 

@@ -4,6 +4,30 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-11-05: Phone Pages (Task 93)
+
+### BIZ-032: The phone manual entry fills the origin, the start and the km
+
+**Context:** On the phone, a trip is usually typed at its end, in the car. The first version of [/m/nova](./src/routes/m/nova/+page.svelte) asked for the end time, then "Kam", then "Odkiaľ", and the user typed the km. "Moja poloha" on "Odkiaľ" gave the wrong point, because the phone is at the destination. A new "Odkiaľ" place had no position, so the route and the start time did not work for it.
+
+**Decision:**
+- The page asks "Odkiaľ" first, then "Kam". Both ends use the same picker: an existing place, or a new place. A new place gets its position from the phone GPS (source `manual`) or from an address search (source `geocoder`). Without a position, the trip cannot be saved.
+- "Odkiaľ" starts with the destination of the vehicle's last trip that starts before the end time (`get_manual_trip_defaults` in [mobile.rs](./src-tauri/core/src/commands_internal/mobile.rs); equal starts: the higher odometer is the later trip). A place that the user chose stays when the end time changes.
+- "Koniec" starts at now. The user can set another time; "Teraz" sets now again.
+- When both ends have a position, the backend computes the route (`get_manual_trip_estimate`). It fills "Začiatok" (the end minus the drive time) and the km, rounded with `trips::logbook_km` like a Fuelio drive. A value that the user typed stays.
+
+**Reasoning:** Each trip usually starts where the last one ended, so the origin is known in most cases. The route km and the drive time are the best values that the app has; the user corrects them when the real drive was different. Two sources for a position cover both cases: the user is at the place now, or the place is somewhere else.
+
+### BIZ-031: A new trip preselects a place only within 300 m, and a new place is always offered
+
+**Context:** The Fuelio "Pridať" dialog preselected the nearest place, at any distance. In a city, the nearest place is often a different address in the same street. The user then saved a trip to the wrong place, or did not see that the drive ended at a place that is not in the book.
+
+**Decision:** For a new trip from a Fuelio drive (PC and phone) and on the phone manual page, the backend preselects the nearest place only if it is within 300 m of the GPS point (`PLACE_PRESELECT_RADIUS_M` and `preselect_id` in [fuelio_cmd.rs](./src-tauri/core/src/commands_internal/fuelio_cmd.rs)). If no place is that close, the end opens as a new place. "+ Nové miesto tu" is always offered, also when a place matched. A new place gets the typed name and the GPS start or end of the drive as its position (source `manual`). If the trip insert fails, `add_fuelio_trip` removes the new places again.
+
+**Reasoning:** 300 m is larger than the GPS error at a parked car and smaller than the distance between two addresses in most streets. The 2 km place radius of the cross-check (`PLACE_RADIUS_M` in [matching.rs](./src-tauri/core/src/fuelio/matching.rs), [BIZ-027](#biz-027-fuelio-drives-are-the-reference-of-the-cross-check)) is a match tolerance, not a place identity. In a city, a second address can be within 300 m of a known place, so the user must be able to add a new place also when one matched.
+
+---
+
 ## 2026-10-29: Fuelio Loose Match
 
 ### BIZ-030: A loose match needs a share of the trip km (amends BIZ-027)

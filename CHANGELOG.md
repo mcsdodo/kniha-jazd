@@ -21,6 +21,13 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Pridané
+- **Verzia pre telefón** - Na adrese `/m` je jednoduchá verzia pre telefón: zoznam jázd s detailom len na čítanie a mapou trasy, pridanie jazdy z Fuelio s mapou GPS stopy a ručné pridanie jazdy. Pri ručnom pridaní je "Odkiaľ" cieľ poslednej jazdy, "Kam" je podľa polohy GPS, koniec je teraz (dá sa zmeniť) a trasa doplní začiatok a km. Poloha GPS funguje len cez HTTPS.
+- **Nové miesto pri pridaní jazdy** - Dialóg "Pridať" na stránke Fuelio a stránky pre telefón ponúkajú "+ Nové miesto tu": zadáte názov a miesto dostane polohu bodu GPS. Na telefóne môže nové miesto dostať polohu aj z hľadania adresy.
+
+### Zmenené
+- **Predvolené miesto v dialógu "Pridať" (Fuelio)** - Dialóg vopred vyberie len miesto do 300 m od začiatku alebo konca GPS jazdy. Ak také miesto nie je, ponúkne nové miesto namiesto najbližšieho vzdialeného miesta.
+
 ### Opravené
 - **Koniec cesty v MCP** - `list_journeys` teraz vracia ako koniec cesty čas príchodu domov (koniec poslednej jazdy), nie jej začiatok. Cesta s návratom po polnoci tak má správny dátum konca a o jednu noc viac. Ak posledná jazda nemá čas konca, koncom zostáva jej začiatok.
 

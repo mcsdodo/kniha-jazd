@@ -36,6 +36,7 @@ udržiavaná — nainštalované kópie zostávajú funkčné, ale nedostanú ď
 - **Doklady (Paperless-ngx)** - Doklady sa preberajú z vášho Paperless-ngx a priraďujú sa k jazdám; Paperless-ngx je jediný zdroj dokladov
 - **Home Assistant integrácia** - Zobrazenie ODO a hladiny paliva z HA, odosielanie návrhu tankovania do HA senzora
 - **Prístup z prehliadača** - Telefón, tablet aj počítač pristupujú k tej istej inštancii v lokálnej sieti
+- **Verzia pre telefón** - Na adrese `/m`: zoznam jázd s detailom, pridanie jazdy z Fuelio a ručné pridanie jazdy s polohou GPS. Detaily nájdete v [docs/features/mobile.md](docs/features/mobile.md).
 - **Docker nasadenie** - Jeden container, jeden `/data` volume, pre vždy-zapnuté zariadenia (NAS, Raspberry Pi). Detaily nájdete v [docs/features/server-mode.md](docs/features/server-mode.md).
 
 ## Inštalácia
@@ -119,6 +120,8 @@ Pre každú jazdu zadajte:
 - Odkiaľ - Kam
 - Počet km (alebo sa vypočíta z ODO)
 - Účel jazdy
+
+Na telefóne pridáte jazdu na adrese `/m`. Poloha GPS funguje len cez HTTPS.
 
 ### 3. Tankovanie
 
