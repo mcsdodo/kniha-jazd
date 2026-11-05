@@ -21,7 +21,7 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
-## [2.7.0] - 2026-11-05
+## [2.7.1] - 2026-11-05
 
 ### Pokyny k aktualizácii
 - **Potrebný zásah:** nie
@@ -32,6 +32,10 @@ databázu len na čítanie.
 
 ### Pridané
 - **Štatistiky na úvodnej stránke telefónu** - Úvodná stránka `/m` ukazuje štatistiky roka ako stránka na PC: najazdené km, PHM, zostatok, priemernú spotrebu a odchýlku, s Home Assistant aj reálne ODO a palivo. Ukazuje aj návrhy: upozornenie na prekročený limit s potrebnými km a návrh tankovania.
+
+## [2.7.0] - 2026-11-05
+
+Vydanie zlyhalo v CI na chybe testu, image `v2.7.0` ani `latest` sa nepublikoval. Rovnaké zmeny sú vo verzii 2.7.1.
 
 ## [2.6.0] - 2026-11-05
 
