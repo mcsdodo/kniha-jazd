@@ -22,4 +22,7 @@ services:
       - FUELIO_DROPBOX_FOLDER=${FUELIO_DROPBOX_FOLDER:-}
       # Minutes between two syncs from Dropbox. Empty means 60, 0 means off.
       - FUELIO_SYNC_INTERVAL_MINUTES=${FUELIO_SYNC_INTERVAL_MINUTES:-}
+      # Optional: Sygic routing next to OSRM on /mapa and /m/nova. Unset = OSRM only.
+      - SYGIC_API_KEY=${SYGIC_API_KEY:-}
+      - SYGIC_REFERER=${SYGIC_REFERER:-}
     restart: unless-stopped

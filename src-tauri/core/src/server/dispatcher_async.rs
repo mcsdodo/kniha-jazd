@@ -362,6 +362,9 @@ pub async fn dispatch_async(
                 #[serde(default)]
                 destination_lon: Option<f64>,
                 end_datetime: String,
+                // Task 94. Absent means the server default, as `route_direct`.
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
             }
             let a: Args = match parse_args(args) {
                 Ok(a) => a,
@@ -379,7 +382,7 @@ pub async fn dispatch_async(
                 Ok(ends) => ends,
                 Err(e) => return Some(Err(e)),
             };
-            let provider = match crate::route_map::route_provider(None, vec![]) {
+            let provider = match crate::route_map::route_provider(a.provider, vec![]) {
                 Ok(p) => p,
                 Err(e) => return Some(Err(e)),
             };

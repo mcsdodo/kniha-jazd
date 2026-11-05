@@ -226,7 +226,13 @@ async fn estimate_routes_from_origin_to_destination() {
         json,
         serde_json::json!({
             "routeKm": 398.4, "distanceKm": 398.0, "durationMin": 236,
-            "startDatetime": "2026-11-05T08:04", "error": null
+            "startDatetime": "2026-11-05T08:04", "error": null,
+            "provider": "osrm",
+            "routes": [{
+                "routeKm": 398.4, "distanceKm": 398.0, "durationMin": 236,
+                "startDatetime": "2026-11-05T08:04",
+                "roadKm": 398.36, "polyline": "", "coordinates": []
+            }]
         })
     );
 }
@@ -242,6 +248,7 @@ async fn estimate_with_a_failed_route_is_not_an_err() {
         .unwrap();
     assert_eq!((r.route_km, r.duration_min, r.start_datetime), (None, None, None));
     assert_eq!(r.distance_km, None);
+    assert!(r.routes.is_empty());
     assert!(r.error.as_deref().is_some_and(|e| e.contains("OSRM timeout")), "{:?}", r.error);
 }
 
@@ -363,4 +370,169 @@ fn defaults_reject_a_bad_end() {
     let db = Database::in_memory().unwrap();
     let v = vehicle(&db);
     assert!(get_manual_trip_defaults_internal(&db, &v.id.to_string(), "5.11.2026").is_err());
+}
+
+// ---------------------------------------------------------------------------
+// Route alternatives on the phone (Task 94)
+// ---------------------------------------------------------------------------
+
+/// A router that answers `fetch_alternatives` with fixed routes, in the
+/// order given, and says it is `kind`.
+struct Alternatives {
+    routes: Vec<FetchedRoute>,
+    kind: crate::route_map::RouteProviderKind,
+    asked_max: Mutex<Vec<usize>>,
+}
+
+#[async_trait::async_trait]
+impl RouteProvider for Alternatives {
+    fn kind(&self) -> crate::route_map::RouteProviderKind {
+        self.kind
+    }
+
+    async fn fetch(&self, _coords: &[(f64, f64)]) -> Result<FetchedRoute, String> {
+        unreachable!("the estimate asks for alternatives")
+    }
+
+    async fn fetch_alternatives(&self, _coords: &[(f64, f64)], max: usize) -> Result<Vec<FetchedRoute>, String> {
+        self.asked_max.lock().unwrap().push(max);
+        Ok(self.routes.clone())
+    }
+}
+
+fn fetched(road_km: f64, duration_s: f64, polyline: &str) -> FetchedRoute {
+    FetchedRoute { road_km, duration_s, polyline: polyline.into(), ..Default::default() }
+}
+
+#[tokio::test]
+async fn estimate_lists_every_alternative_in_the_router_order() {
+    let db = Database::in_memory().unwrap();
+    let a = place(&db, "A", HERE);
+    let b = place(&db, "B", THERE);
+    let one = crate::route_map::polyline::encode(&[HERE, THERE]);
+    let router = Alternatives {
+        // The router lists the fastest first; the shorter one is second.
+        routes: vec![fetched(23.84, 1860.0, &one), fetched(21.2, 2280.0, "")],
+        kind: crate::route_map::RouteProviderKind::Sygic,
+        asked_max: Mutex::new(Vec::new()),
+    };
+    let r = get_manual_trip_estimate_internal(&db, &router, &pl(&a), &pl(&b), "2026-11-05T15:30")
+        .await
+        .unwrap();
+    assert_eq!(r.provider, Some(crate::route_map::RouteProviderKind::Sygic));
+    assert_eq!(r.routes.len(), 2);
+    let (first, second) = (&r.routes[0], &r.routes[1]);
+    assert_eq!((first.route_km, first.distance_km, first.duration_min), (23.8, 24.0, 31));
+    assert_eq!(first.start_datetime, "2026-11-05T14:59");
+    assert_eq!(first.road_km, 23.84);
+    assert_eq!(first.polyline, one);
+    assert_eq!(first.coordinates.len(), 2);
+    assert_eq!((second.route_km, second.distance_km, second.duration_min), (21.2, 21.0, 38));
+    assert_eq!(second.start_datetime, "2026-11-05T14:52");
+    // The old fields copy the first route, so an old page still works.
+    assert_eq!(r.route_km, Some(23.8));
+    assert_eq!(r.distance_km, Some(24.0));
+    assert_eq!(r.duration_min, Some(31));
+    assert_eq!(r.start_datetime.as_deref(), Some("2026-11-05T14:59"));
+    assert_eq!(*router.asked_max.lock().unwrap(), vec![3]);
+}
+
+#[tokio::test]
+async fn estimate_with_no_route_from_the_router_is_a_failed_route() {
+    let db = Database::in_memory().unwrap();
+    let a = place(&db, "A", HERE);
+    let b = place(&db, "B", THERE);
+    let router = Alternatives {
+        routes: vec![],
+        kind: crate::route_map::RouteProviderKind::Osrm,
+        asked_max: Mutex::new(Vec::new()),
+    };
+    let r = get_manual_trip_estimate_internal(&db, &router, &pl(&a), &pl(&b), "2026-11-05T15:30")
+        .await
+        .unwrap();
+    assert!(r.routes.is_empty());
+    assert_eq!(r.route_km, None);
+    assert!(r.error.is_some());
+}
+
+/// A trip from `from` to `to` with `km`, through the normal create path.
+fn manual_trip(db: &Database, v: &crate::models::Vehicle, from: &str, to: &str, km: f64) -> String {
+    crate::commands_internal::create_trip_cascade_internal(
+        db,
+        &AppState::new(),
+        v.id.to_string(),
+        "2026-11-05T14:59".into(),
+        "2026-11-05T15:30".into(),
+        from.into(),
+        to.into(),
+        km,
+        "služobná cesta".into(),
+        None, None, None, None, None, None, None, None, None,
+        false,
+    )
+    .unwrap()
+    .trip
+    .unwrap()
+    .id
+    .to_string()
+}
+
+#[test]
+fn saved_route_uses_the_trip_places_and_keeps_the_trip_km() {
+    let db = Database::in_memory().unwrap();
+    let v = vehicle(&db);
+    let a = place(&db, "Domov", HERE);
+    let b = place(&db, "Kancelária", THERE);
+    // The user typed 25 km over a 23.84 km route.
+    let trip_id = manual_trip(&db, &v, &a, &b, 25.0);
+    save_manual_trip_route_internal(
+        &db,
+        &AppState::new(),
+        &trip_id,
+        "poly".into(),
+        23.84,
+        Some(crate::route_map::RouteProviderKind::Sygic),
+    )
+    .unwrap();
+
+    let map = db.get_route_map(&trip_id).unwrap().expect("a route row");
+    assert_eq!(map.polyline, "poly");
+    assert_eq!(map.road_km, 23.84);
+    // The target is what the trip measures, so the map shows the deviation.
+    assert_eq!(map.target_km, 25.0);
+    assert_eq!(map.mode, crate::models::RouteMode::Direct);
+    assert!(!map.round_trip);
+    assert_eq!(map.provider, Some(crate::route_map::RouteProviderKind::Sygic));
+    let points: Vec<(f64, f64, Option<String>)> =
+        map.waypoints.iter().map(|w| (w.lat, w.lon, w.name.clone())).collect();
+    assert_eq!(
+        points,
+        vec![(HERE.0, HERE.1, Some("Domov".into())), (THERE.0, THERE.1, Some("Kancelária".into()))]
+    );
+    // The trip itself does not change.
+    assert_eq!(db.get_trip(&trip_id).unwrap().unwrap().distance_km, 25.0);
+}
+
+#[test]
+fn saved_route_needs_a_known_trip_and_a_writable_book() {
+    let db = Database::in_memory().unwrap();
+    let err = save_manual_trip_route_internal(
+        &db,
+        &AppState::new(),
+        &uuid::Uuid::new_v4().to_string(),
+        "poly".into(),
+        1.0,
+        None,
+    )
+    .unwrap_err();
+    assert!(err.contains("Trip not found"), "{err}");
+
+    let v = vehicle(&db);
+    let a = place(&db, "A", HERE);
+    let b = place(&db, "B", THERE);
+    let trip_id = manual_trip(&db, &v, &a, &b, 10.0);
+    let read_only = AppState::new();
+    read_only.enable_read_only("newer database");
+    assert!(save_manual_trip_route_internal(&db, &read_only, &trip_id, "poly".into(), 10.0, None).is_err());
+    assert!(db.get_route_map(&trip_id).unwrap().is_none());
 }

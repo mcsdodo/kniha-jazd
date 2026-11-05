@@ -2542,6 +2542,39 @@ type RootTranslation = {
 			 * p​o​d​ľ​a​ ​t​r​a​s​y​,​ ​m​ô​ž​e​t​e​ ​p​r​e​p​í​s​a​ť
 			 */
 			kmFromRoute: string
+			providerShort: {
+				/**
+				 * O​S​R​M
+				 */
+				osrm: string
+				/**
+				 * S​y​g​i​c
+				 */
+				sygic: string
+			}
+			/**
+			 * A​l​t​e​r​n​a​t​í​v​n​e​ ​t​r​a​s​y
+			 */
+			alternatives: string
+			/**
+			 * {​n​}​:​ ​{​k​m​}​ ​k​m​,​ ​{​m​i​n​}​ ​m​i​n
+			 * @param {string} km
+			 * @param {number} min
+			 * @param {number} n
+			 */
+			alternative: RequiredParams<'km' | 'min' | 'n'>
+			/**
+			 * P​o​d​ľ​a​ ​t​r​a​s​y​ ​{​n​}​:​ ​{​k​m​}​ ​k​m​,​ ​{​m​i​n​}​ ​m​i​n
+			 * @param {string} km
+			 * @param {number} min
+			 * @param {number} n
+			 */
+			routeNumber: RequiredParams<'km' | 'min' | 'n'>
+			/**
+			 * J​a​z​d​a​ ​b​o​l​a​ ​p​r​i​d​a​n​á​,​ ​a​l​e​ ​j​e​j​ ​t​r​a​s​a​ ​s​a​ ​n​e​u​l​o​ž​i​l​a​:​ ​{​e​r​r​o​r​}
+			 * @param {string} error
+			 */
+			routeNotSaved: RequiredParams<'error'>
 			picker: {
 				/**
 				 * V​y​b​e​r​t​e​ ​m​i​e​s​t​o
@@ -5956,6 +5989,32 @@ export type TranslationFunctions = {
 			 * podľa trasy, môžete prepísať
 			 */
 			kmFromRoute: () => LocalizedString
+			providerShort: {
+				/**
+				 * OSRM
+				 */
+				osrm: () => LocalizedString
+				/**
+				 * Sygic
+				 */
+				sygic: () => LocalizedString
+			}
+			/**
+			 * Alternatívne trasy
+			 */
+			alternatives: () => LocalizedString
+			/**
+			 * {n}: {km} km, {min} min
+			 */
+			alternative: (arg: { km: string, min: number, n: number }) => LocalizedString
+			/**
+			 * Podľa trasy {n}: {km} km, {min} min
+			 */
+			routeNumber: (arg: { km: string, min: number, n: number }) => LocalizedString
+			/**
+			 * Jazda bola pridaná, ale jej trasa sa neuložila: {error}
+			 */
+			routeNotSaved: (arg: { error: string }) => LocalizedString
 			picker: {
 				/**
 				 * Vyberte miesto

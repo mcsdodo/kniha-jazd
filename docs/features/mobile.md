@@ -106,6 +106,21 @@ estimate of a manual trip, and the origin default of a manual trip.
 7. If the route fails, the box shows the error, and the user types both values.
 8. Type the purpose and press **Uložiť jazdu**. The page has no fuel fields.
 
+Task 94 adds the route itself:
+
+9. Between **Kam** and the times, a map shows the route: the chosen route in blue, the
+   other alternatives in grey. Pinch and drag work.
+10. If the router gives 2 or more routes, chips list them, fastest first:
+    "1: 23.8 km, 31 min". A tap on a chip or on a grey line chooses that route. The box
+    then says "Podľa trasy 2: ...", and **Začiatok** and the km take the values of that
+    route (a typed value stays). A new end time keeps the chosen route.
+11. If the server has 2 or more routing services (a `SYGIC_API_KEY` is set), an
+    **OSRM | Sygic** switch shows above the map, with no title. It starts at the server
+    default (OSRM, ADR-053). A switch asks for the route again and chooses route 1.
+12. **Uložiť jazdu** also saves the chosen route as the trip's route, so the trip detail
+    shows its map. If only the route save fails, the trip stays, and a message says
+    that the route was not saved.
+
 ### 7. "+ Nové miesto" open
 
 1. Type the name of the new place.
@@ -177,7 +192,8 @@ None needs Fuelio.
 |---------|------|------|
 | `get_places_near` | `lat`, `lon` | Every place with a position, nearest first, and `preselectId`: the nearest place within 300 m, or `null`. Sync, [dispatcher.rs:1207](../../src-tauri/core/src/server/dispatcher.rs). |
 | `get_manual_trip_defaults` | `vehicleId`, `endDatetime` | `originPlaceId`: the destination of the latest trip of the vehicle that starts before the end. On the same start, the higher odometer counts as later. `null` without such a trip. A bad datetime is an error. Sync, [dispatcher.rs:1217](../../src-tauri/core/src/server/dispatcher.rs). |
-| `get_manual_trip_estimate` | per end `originPlaceId` or `originLat` + `originLon` (the same for `destination`), `endDatetime` | Routes from the origin to the destination. Returns `routeKm` (1 decimal), `distanceKm` (whole km, `logbook_km`), `durationMin`, `startDatetime` (the end minus the drive time) and `error`. A failed route or a place without a position is not an error: the numbers are `null` and `error` says why. An unknown place id or a bad datetime is an error. Async, [dispatcher_async.rs:346](../../src-tauri/core/src/server/dispatcher_async.rs). |
+| `get_manual_trip_estimate` | per end `originPlaceId` or `originLat` + `originLon` (the same for `destination`), `endDatetime`, `provider?` (Task 94; absent = the server default) | Routes from the origin to the destination, up to 3 alternatives (`MAX_ALTERNATIVES`). Returns `routes[]` in the router order (fastest first), each with `routeKm` (1 decimal), `distanceKm` (whole km, `logbook_km`), `durationMin`, `startDatetime` (the end minus its drive time), `roadKm`, `polyline` and `coordinates`; and `provider`, the service that routed. The top-level `routeKm`, `distanceKm`, `durationMin`, `startDatetime` copy `routes[0]`, and `error` says why a route failed. A failed route or a place without a position is not an error: `routes` is empty and the numbers are `null`. An unknown place id, a bad datetime or a Sygic request without a key (`PROVIDER_NEEDS_SYGIC`) is an error. Async, [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs). |
+| `save_manual_trip_route` | `tripId`, `polyline`, `roadKm`, `provider?` | Task 94. Stores the chosen route as the trip's `trip_routes` row: direct, one way, the waypoints from the trip's two places (not from the browser), `target_km` = the trip km. The trip does not change, so a typed km shows as a deviation on the map. Writes: `check_read_only!`. Sync, [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs). |
 
 The 300 m radius is `PLACE_PRESELECT_RADIUS_M` in
 [fuelio_cmd.rs:407](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs).
@@ -189,8 +205,10 @@ Each end takes a place id or the name of a new place: `originPlaceId` or
 `newOriginName`, `destinationPlaceId` or `newDestinationName`. Exactly one per end
 (`TripEnd::from_args`). See [fuelio.md](./fuelio.md) for the write.
 
-The manual trip has no new write command. The page calls `create_place` for a new end,
-then `create_trip_cascade` with a dry run first, as the PC page does.
+The manual trip uses no new trip write. The page calls `create_place` for a new end,
+then `create_trip_cascade` with a dry run first, as the PC page does. After the commit
+it calls `save_manual_trip_route` with the chosen route (Task 94): a second write, as
+with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
 
 ### Data Flow
 
@@ -199,13 +217,17 @@ then `create_trip_cascade` with a dry run first, as the PC page does.
   open  -> get_manual_trip_defaults(vehicle, end)      -> Odkiaľ = last destination
         -> phone GPS -> get_places_near(lat, lon)      -> Kam = place within 300 m,
                                                           or a new place at the point
+        -> get_route_providers                         -> OSRM | Sygic switch (2+ only)
   both ends known (place id or point)
-        -> get_manual_trip_estimate(ends, end)         -> Začiatok, km (if not typed)
+        -> get_manual_trip_estimate(ends, end, provider)
+                                                       -> map + chips, Začiatok, km
+  tap a chip or a grey line                            -> Začiatok, km of that route
   Uložiť jazdu
         -> create_place (each new end, once)
         -> create_trip_cascade(dryRun)                 -> later trips move?
              yes -> odometer dialog -> create_trip_cascade
              no  -> create_trip_cascade
+        -> save_manual_trip_route(trip, chosen route)  -> trip detail shows the map
 
 /m/fuelio
   open  -> get_fuelio_crosscheck (local)  |  sync_fuelio_dropbox(year)
@@ -223,11 +245,12 @@ then `create_trip_cascade` with a dry run first, as the PC page does.
 | [src/routes/m/](../../src/routes/m/) | The four phone pages |
 | [src/lib/components/mobile/](../../src/lib/components/mobile/) | Place picker, maps, trip card and detail, bar, vehicle gate |
 | [OdometerCascadeModal.svelte](../../src/lib/components/OdometerCascadeModal.svelte) | The odometer dialog; a `max-width: 600px` block for the phone |
-| [commands_internal/mobile.rs](../../src-tauri/core/src/commands_internal/mobile.rs) | `get_places_near`, `get_manual_trip_defaults`, `get_manual_trip_estimate` |
+| [commands_internal/mobile.rs](../../src-tauri/core/src/commands_internal/mobile.rs) | `get_places_near`, `get_manual_trip_defaults`, `get_manual_trip_estimate`, `save_manual_trip_route` |
+| [RoutePickerMap.svelte](../../src/lib/components/mobile/RoutePickerMap.svelte) | Task 94: the route alternatives on one map; a tap on a grey line chooses it |
 | [commands_internal/fuelio_cmd.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd.rs) | `PLACE_PRESELECT_RADIUS_M`, `places_by_distance`, `TripEnd`, the new places of the Fuelio add |
 | [server/dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) | Sync arms |
 | [server/dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) | The `get_manual_trip_estimate` arm |
-| [src/lib/api.ts](../../src/lib/api.ts) / [src/lib/types.ts](../../src/lib/types.ts) | `getPlacesNear`, `getManualTripDefaults`, `getManualTripEstimate`, `addFuelioTrip`; `NearbyPlaces`, `ManualTripDefaults`, `ManualTripEstimate`, `FuelioAddEnd` |
+| [src/lib/api.ts](../../src/lib/api.ts) / [src/lib/types.ts](../../src/lib/types.ts) | `getPlacesNear`, `getManualTripDefaults`, `getManualTripEstimate`, `saveManualTripRoute`, `addFuelioTrip`; `NearbyPlaces`, `ManualTripDefaults`, `ManualTripEstimate`, `ManualRoute`, `FuelioAddEnd` |
 
 ## Design Decisions
 
@@ -248,6 +271,14 @@ then `create_trip_cascade` with a dry run first, as the PC page does.
 - **Why does a new place need a position?** Without a position, there is no route, and
   the start and the km must be typed. The position comes from the GPS or from a tapped
   address result, so a human confirms it (ADR-032).
+- **Why does the browser send only the polyline and the km of the chosen route?** The
+  waypoints of the stored route are the trip's two places, which the backend already
+  has. The browser only says which route the router gave (Task 94).
+- **Why does the route save not change the trip km?** The user can type a km that is
+  not the route km. The typed km is what the book holds; the map shows the difference,
+  as on `/mapa`.
+- **Why no title on the OSRM | Sygic switch?** The two names say what it is. A Slovak
+  title such as "Smerovanie" did not read well.
 - **Why no fuel fields?** Fuel comes from Paperless invoices on the PC page.
 - **Why does the Fuelio list show the local drives first?** The sync can take seconds. A
   drive that is already local must not wait for Dropbox.
@@ -257,15 +288,17 @@ then `create_trip_cascade` with a dry run first, as the PC page does.
 - **Backend unit tests:**
   - [mobile_tests.rs](../../src-tauri/core/src/commands_internal/mobile_tests.rs) -- the
     300 m preselect, the estimate (place to point, failed route, place without a
-    position, unknown place, bad end), the start time across midnight, and the origin
-    default (latest earlier trip, same start, other vehicles).
+    position, unknown place, bad end, every alternative in the router order, no route),
+    the start time across midnight, the origin default (latest earlier trip, same
+    start, other vehicles), and the route save (the trip places, the trip km kept,
+    unknown trip, read-only).
   - [fuelio_cmd_tests.rs](../../src-tauri/core/src/commands_internal/fuelio_cmd_tests.rs)
     -- the add preview preselect, and the new places of the Fuelio add (dry run, same
     name twice, GPS ends, failed insert).
   - [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) and
     [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) -- the
     argument parse of the new commands.
-- **Integration tests:** [mobile-home-stats.spec.ts](../../tests/integration/specs/tier2/mobile-home-stats.spec.ts) checks the stats card, the compensation banner and the suggested fill-up on `/m`. The specs for the other `/m` flows are not written yet.
+- **Integration tests:** [mobile-home-stats.spec.ts](../../tests/integration/specs/tier2/mobile-home-stats.spec.ts) checks the stats card, the compensation banner and the suggested fill-up on `/m`. [mobile-manual-route.spec.ts](../../tests/integration/specs/tier2/mobile-manual-route.spec.ts) (Task 94) sets the browser GPS at a place, so "Kam" selects it, then checks the map, the km of the mock OSRM route, the switch to Sygic, and the stored route after the save. The mock router gives one route per service, so the chip tap is not covered there; the backend tests cover the alternatives. The specs for the other `/m` flows are not written yet.
   [fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) types a new place
   name in the PC Fuelio dialog. The spec is changed for the 300 m preselect, but it was
   not run after the change.

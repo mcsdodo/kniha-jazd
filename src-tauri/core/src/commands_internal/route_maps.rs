@@ -176,7 +176,7 @@ impl From<RouteMap> for SavedRouteMap {
 
 /// Polyline5 -> `[lat, lon]` pairs. `decode` never panics; malformed input
 /// simply yields the prefix that parsed cleanly.
-fn decode_coordinates(polyline: &str) -> Vec<[f64; 2]> {
+pub(crate) fn decode_coordinates(polyline: &str) -> Vec<[f64; 2]> {
     to_pairs(&decode(polyline))
 }
 
@@ -377,7 +377,7 @@ pub async fn generate_route_internal(
 
 /// How many routes to offer. Three is what a navigation app shows and what
 /// fits a panel; more is noise nobody reads.
-const MAX_ALTERNATIVES: usize = 3;
+pub(crate) const MAX_ALTERNATIVES: usize = 3;
 
 /// A point the user dragged off `polyline`, to be placed into the waypoint
 /// list before routing.

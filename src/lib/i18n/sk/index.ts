@@ -739,6 +739,14 @@ const sk = {
 			lastDestination: 'Cieľ poslednej jazdy.',
 			routeSummary: 'Podľa trasy: {km:string} km, {min:number} min',
 			kmFromRoute: 'podľa trasy, môžete prepísať',
+			providerShort: {
+				osrm: 'OSRM',
+				sygic: 'Sygic',
+			},
+			alternatives: 'Alternatívne trasy',
+			alternative: '{n:number}: {km:string} km, {min:number} min',
+			routeNumber: 'Podľa trasy {n:number}: {km:string} km, {min:number} min',
+			routeNotSaved: 'Jazda bola pridaná, ale jej trasa sa neuložila: {error:string}',
 			picker: {
 				placeholder: 'Vyberte miesto',
 				newHere: '+ Nové miesto tu',

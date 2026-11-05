@@ -844,11 +844,6 @@ export async function getPlacesNear(lat: number, lon: number): Promise<NearbyPla
 export type EstimateEnd = { placeId: string } | { lat: number; lon: number };
 
 /**
- * Route km and drive time between two ends, and the start time of a trip
- * that ends at `endDatetime` ("YYYY-MM-DDTHH:MM"). The backend computes the
- * start (ADR-008). A failed route is not an error: the fields are null.
- */
-/**
  * Task 93: the defaults of the phone manual-entry page. The backend picks the
  * origin: the destination of the last trip before endDatetime (ADR-008).
  */
@@ -859,10 +854,18 @@ export async function getManualTripDefaults(
 	return await apiCall('get_manual_trip_defaults', { vehicleId, endDatetime });
 }
 
+/**
+ * Route alternatives between two ends (Task 94: all of them, fastest first),
+ * each with its own km and start time for a trip that ends at `endDatetime`
+ * ("YYYY-MM-DDTHH:MM"). The backend computes them (ADR-008). A failed route
+ * is not an error: `routes` is empty and `error` says why. `provider` null =
+ * the server default.
+ */
 export async function getManualTripEstimate(
 	origin: EstimateEnd,
 	destination: EstimateEnd,
-	endDatetime: string
+	endDatetime: string,
+	provider: RouteProviderKind | null = null
 ): Promise<ManualTripEstimate> {
 	const end = (e: EstimateEnd, prefix: 'origin' | 'destination') =>
 		'placeId' in e
@@ -871,6 +874,21 @@ export async function getManualTripEstimate(
 	return await apiCall('get_manual_trip_estimate', {
 		...end(origin, 'origin'),
 		...end(destination, 'destination'),
-		endDatetime
+		endDatetime,
+		provider
 	});
+}
+
+/**
+ * Task 94: store the route alternative the user chose as the route of a trip
+ * that was just added by hand. The backend takes the waypoints from the
+ * trip's places; the trip km does not change.
+ */
+export async function saveManualTripRoute(
+	tripId: string,
+	polyline: string,
+	roadKm: number,
+	provider: RouteProviderKind | null
+): Promise<void> {
+	await apiCall('save_manual_trip_route', { tripId, polyline, roadKm, provider });
 }

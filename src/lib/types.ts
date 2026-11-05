@@ -762,6 +762,27 @@ export interface ManualTripEstimate {
 	/** endDatetime minus the drive time, "YYYY-MM-DDTHH:MM". */
 	startDatetime: string | null;
 	error: string | null;
+	/** Task 94: the service that routed; null when no route was asked for. */
+	provider: RouteProviderKind | null;
+	/** Task 94: every alternative, fastest first. The fields above copy routes[0]. */
+	routes: ManualRoute[];
+}
+
+/** Task 94: one route alternative of a manual phone trip. */
+export interface ManualRoute {
+	/** Route km, 1 decimal, for the chip. */
+	routeKm: number;
+	/** The route km rounded as a trip distance. */
+	distanceKm: number;
+	durationMin: number;
+	/** endDatetime minus this route's drive time, "YYYY-MM-DDTHH:MM". */
+	startDatetime: string;
+	/** Exact route km; sent back to save the route. */
+	roadKm: number;
+	/** Encoded polyline5; sent back to save the route. */
+	polyline: string;
+	/** Decoded [lat, lon] pairs for L.polyline. */
+	coordinates: [number, number][];
 }
 
 /** Task 93: the defaults of the phone manual-entry page. */

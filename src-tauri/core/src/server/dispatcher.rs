@@ -1229,6 +1229,29 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             )?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        // Task 94: the route the user chose on the phone, stored after the
+        // trip commit. A second write: the trip stays if it fails.
+        "save_manual_trip_route" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                trip_id: String,
+                polyline: String,
+                road_km: f64,
+                #[serde(default)]
+                provider: Option<crate::route_map::RouteProviderKind>,
+            }
+            let a: Args = parse_args(args)?;
+            crate::commands_internal::save_manual_trip_route_internal(
+                &state.db,
+                &state.app_state,
+                &a.trip_id,
+                a.polyline,
+                a.road_km,
+                a.provider,
+            )?;
+            Ok(serde_json::Value::Null)
+        }
         // ====================================================================
         // Unknown
         // ====================================================================
@@ -1926,6 +1949,22 @@ mod tests {
         let err = dispatch_sync("get_manual_trip_defaults", json!({ "vehicleId": "x" }), &state)
             .unwrap_err();
         assert!(err.contains("endDatetime"), "got: {err}");
+    }
+
+    /// Task 94: the phone route save takes camelCase args.
+    #[test]
+    fn save_manual_trip_route_over_rpc_takes_camel_case_args() {
+        let state = test_state();
+        let err = dispatch_sync(
+            "save_manual_trip_route",
+            json!({ "tripId": uuid::Uuid::new_v4().to_string(), "polyline": "p", "roadKm": 1.0, "provider": "osrm" }),
+            &state,
+        )
+        .unwrap_err();
+        assert!(err.contains("Trip not found"), "got: {err}");
+        let err = dispatch_sync("save_manual_trip_route", json!({ "tripId": "x", "polyline": "p" }), &state)
+            .unwrap_err();
+        assert!(err.contains("roadKm"), "got: {err}");
     }
 
     // ------------------------------------------------------------------

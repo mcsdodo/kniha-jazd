@@ -738,6 +738,14 @@ const en = {
 			lastDestination: 'The destination of the last trip.',
 			routeSummary: 'By the route: {km} km, {min} min',
 			kmFromRoute: 'from the route, you can change it',
+			providerShort: {
+				osrm: 'OSRM',
+				sygic: 'Sygic',
+			},
+			alternatives: 'Route alternatives',
+			alternative: '{n}: {km} km, {min} min',
+			routeNumber: 'By route {n}: {km} km, {min} min',
+			routeNotSaved: 'The trip was added, but its route was not saved: {error}',
 			picker: {
 				placeholder: 'Select a place',
 				newHere: '+ New place here',

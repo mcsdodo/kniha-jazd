@@ -7,7 +7,11 @@ use serde::Serialize;
 use crate::commands_internal::fuelio_cmd::{places_by_distance, preselect_id, PlaceOption};
 use crate::commands_internal::helpers::parse_iso_datetime;
 use crate::db::Database;
-use crate::route_map::RouteProvider;
+use crate::app_state::AppState;
+use crate::check_read_only;
+use crate::commands_internal::route_maps::{build_route_map, decode_coordinates, MAX_ALTERNATIVES};
+use crate::models::{RouteMode, Waypoint};
+use crate::route_map::{RouteProvider, RouteProviderKind};
 
 /// The places near a phone GPS point, nearest first.
 #[derive(Debug, Serialize)]
@@ -58,6 +62,10 @@ pub fn get_manual_trip_defaults_internal(
 /// What the router gives for a manual trip. The numbers are `None` when the
 /// route fails; `error` then says why, and the page lets the user type the
 /// start time.
+///
+/// Task 94: `routes` holds every alternative, in the order the router sent
+/// them (fastest first). The top-level numbers copy `routes[0]`, so a page
+/// that predates the alternatives still works.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManualTripEstimate {
@@ -70,6 +78,28 @@ pub struct ManualTripEstimate {
     /// "YYYY-MM-DDTHH:MM".
     pub start_datetime: Option<String>,
     pub error: Option<String>,
+    /// The service that routed. `None` when no route was asked for.
+    pub provider: Option<RouteProviderKind>,
+    pub routes: Vec<ManualRoute>,
+}
+
+/// One route alternative of a manual trip, with its own trip km and start.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualRoute {
+    /// Route km, 1 decimal.
+    pub route_km: f64,
+    /// The route km in whole km (`logbook_km`).
+    pub distance_km: f64,
+    pub duration_min: i64,
+    /// "YYYY-MM-DDTHH:MM": the end minus the drive time.
+    pub start_datetime: String,
+    /// The exact route km. The page sends it back to save the route.
+    pub road_km: f64,
+    /// Encoded polyline5. The page sends it back to save the route.
+    pub polyline: String,
+    /// Decoded `[lat, lon]` pairs, ready for L.polyline.
+    pub coordinates: Vec<[f64; 2]>,
 }
 
 impl ManualTripEstimate {
@@ -80,6 +110,8 @@ impl ManualTripEstimate {
             duration_min: None,
             start_datetime: None,
             error: Some(error),
+            provider: None,
+            routes: Vec::new(),
         }
     }
 }
@@ -149,18 +181,89 @@ pub async fn get_manual_trip_estimate_internal(
         Ok(points) => points,
         Err(e) => return Ok(ManualTripEstimate::failed(e)),
     };
-    let route = match provider.fetch(&points).await {
-        Ok(route) => route,
+    let fetched = match provider.fetch_alternatives(&points, MAX_ALTERNATIVES).await {
+        Ok(fetched) => fetched,
         Err(e) => return Ok(ManualTripEstimate::failed(e)),
     };
-    let (minutes, start) = start_before(end, route.duration_s);
+    let routes: Vec<ManualRoute> = fetched
+        .into_iter()
+        .map(|route| {
+            let (minutes, start) = start_before(end, route.duration_s);
+            ManualRoute {
+                route_km: (route.road_km * 10.0).round() / 10.0,
+                distance_km: crate::commands_internal::trips::logbook_km(route.road_km),
+                duration_min: minutes,
+                start_datetime: start,
+                road_km: route.road_km,
+                coordinates: decode_coordinates(&route.polyline),
+                polyline: route.polyline,
+            }
+        })
+        .collect();
+    let Some(first) = routes.first().cloned() else {
+        return Ok(ManualTripEstimate::failed("The router returned no route".into()));
+    };
     Ok(ManualTripEstimate {
-        route_km: Some((route.road_km * 10.0).round() / 10.0),
-        distance_km: Some(crate::commands_internal::trips::logbook_km(route.road_km)),
-        duration_min: Some(minutes),
-        start_datetime: Some(start),
+        route_km: Some(first.route_km),
+        distance_km: Some(first.distance_km),
+        duration_min: Some(first.duration_min),
+        start_datetime: Some(first.start_datetime),
         error: None,
+        provider: Some(provider.kind()),
+        routes,
     })
+}
+
+/// Task 94: store the route the user chose on the phone as the route of a
+/// trip that was just added by hand.
+///
+/// The waypoints come from the trip's own places, not from the browser. The
+/// trip km does not change: `target_km` is the trip km, so a typed km shows
+/// as a deviation on the map, as on `/mapa`. A second write after the trip
+/// commit, as with the GPS route of a Fuelio trip: if it fails, the trip
+/// stays.
+pub fn save_manual_trip_route_internal(
+    db: &Database,
+    app_state: &AppState,
+    trip_id: &str,
+    polyline: String,
+    road_km: f64,
+    provider: Option<RouteProviderKind>,
+) -> Result<(), String> {
+    check_read_only!(app_state);
+    let trip = db
+        .get_trip(trip_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Trip not found: {trip_id}"))?;
+    let point = |id: &uuid::Uuid, name: &str| -> Result<Waypoint, String> {
+        let place = db
+            .get_place(&id.to_string())
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Miesto neexistuje: {id}"))?;
+        match (place.lat, place.lon) {
+            (Some(lat), Some(lon)) => {
+                Ok(Waypoint { lat, lon, name: Some(name.to_string()), node_idx: None })
+            }
+            _ => Err(format!("Miesto nemá polohu: {}", place.name)),
+        }
+    };
+    let waypoints = vec![
+        point(&trip.origin_place_id, &trip.origin)?,
+        point(&trip.destination_place_id, &trip.destination)?,
+    ];
+    let mut map = build_route_map(
+        trip_id,
+        waypoints,
+        polyline,
+        road_km,
+        RouteMode::Direct,
+        false,
+        None,
+        Vec::new(),
+        provider,
+    )?;
+    map.target_km = trip.distance_km;
+    db.save_route_map(&map).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

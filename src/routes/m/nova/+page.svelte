@@ -2,12 +2,20 @@
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import * as api from '$lib/api';
-	import type { CascadePlan, FuelioAddEnd, ManualTripEstimate, Trip } from '$lib/types';
+	import type {
+		CascadePlan,
+		FuelioAddEnd,
+		ManualRoute,
+		ManualTripEstimate,
+		RouteProviderKind,
+		Trip
+	} from '$lib/types';
 	import LL from '$lib/i18n/i18n-svelte';
 	import { activeVehicleStore } from '$lib/stores/vehicles';
 	import { toast } from '$lib/stores/toast';
 	import OdometerCascadeModal from '$lib/components/OdometerCascadeModal.svelte';
 	import Autocomplete from '$lib/components/Autocomplete.svelte';
+	import RoutePickerMap from '$lib/components/mobile/RoutePickerMap.svelte';
 	import MobilePlacePicker, {
 		type PickedPosition,
 		type PlacePickerOption
@@ -19,6 +27,10 @@
 	// now and the user can change it. With both ends known, the backend
 	// computes the route: it fills the km and the start (ADR-008). The user
 	// can change both.
+	//
+	// Task 94: the backend sends every route alternative. The map and the
+	// chips show them; the chosen one fills the km and the start, and is
+	// saved as the trip's route. With 2+ routing services the user picks one.
 
 	// A datetime-local value: local time, "YYYY-MM-DDTHH:MM".
 	function nowLocal(): string {
@@ -48,6 +60,13 @@
 
 	let estimate = $state<ManualTripEstimate | null>(null);
 	let estimating = $state(false);
+	// The index of the chosen alternative in estimate.routes.
+	let activeRoute = $state(0);
+	// The routing services the server offers, and the one the next request
+	// uses. Null until get_route_providers answers: then the server default.
+	let providers = $state<RouteProviderKind[]>([]);
+	let provider = $state<RouteProviderKind | null>(null);
+	let chosenRoute = $derived<ManualRoute | null>(estimate?.routes?.[activeRoute] ?? null);
 
 	let busy = $state(false);
 	let formError = $state<string | null>(null);
@@ -65,6 +84,13 @@
 				.sort((a, b) => a.name.localeCompare(b.name, 'sk'));
 		} catch (e) {
 			placesError = String(e);
+		}
+		try {
+			const info = await api.getRouteProviders();
+			providers = info.available;
+			provider ??= info.default;
+		} catch (e) {
+			console.error('Failed to load route providers:', e);
 		}
 	});
 
@@ -115,10 +141,14 @@
 	// The route, when both ends are known. Only the newest request may set the
 	// values: a datetime-local input fires per field.
 	let estimateSeq = 0;
+	// The ends and the service of the routes on screen. A new end time keeps
+	// the chosen alternative; new ends or a new service select route 1.
+	let routesKey = '';
 	$effect(() => {
 		const o = originEnd;
 		const d = destinationEnd;
 		const e = end;
+		const p = provider;
 		const seq = ++estimateSeq;
 		if (!o || !d || !e) {
 			untrack(() => {
@@ -129,20 +159,17 @@
 			return;
 		}
 		untrack(() => (estimating = true));
-		api.getManualTripEstimate(o, d, e).then(
+		const key = JSON.stringify([o, d, p]);
+		api.getManualTripEstimate(o, d, e, p).then(
 			(r) => {
 				if (seq !== estimateSeq) return;
 				estimating = false;
 				estimate = r;
+				const keep = key === routesKey && activeRoute < (r.routes?.length ?? 0);
+				routesKey = key;
+				if (!keep) activeRoute = 0;
 				dropEstimated();
-				if (r.startDatetime && (startFromEstimate || !start)) {
-					start = r.startDatetime;
-					startFromEstimate = true;
-				}
-				if (r.distanceKm != null && (kmFromEstimate || km === null)) {
-					km = r.distanceKm;
-					kmFromEstimate = true;
-				}
+				fillFromRoute();
 			},
 			(err) => {
 				if (seq !== estimateSeq) return;
@@ -152,12 +179,35 @@
 					distanceKm: null,
 					durationMin: null,
 					startDatetime: null,
-					error: String(err)
+					error: String(err),
+					provider: null,
+					routes: []
 				};
 				dropEstimated();
 			}
 		);
 	});
+
+	// The chosen route fills the start and the km. A typed value stays.
+	function fillFromRoute() {
+		const r = chosenRoute;
+		const startValue = r?.startDatetime ?? estimate?.startDatetime ?? null;
+		const kmValue = r?.distanceKm ?? estimate?.distanceKm ?? null;
+		if (startValue && (startFromEstimate || !start)) {
+			start = startValue;
+			startFromEstimate = true;
+		}
+		if (kmValue != null && (kmFromEstimate || km === null)) {
+			km = kmValue;
+			kmFromEstimate = true;
+		}
+	}
+
+	function selectRoute(index: number) {
+		if (index === activeRoute) return;
+		activeRoute = index;
+		fillFromRoute();
+	}
 
 	// An old estimate does not fit new ends: clear it. A typed value stays.
 	function dropEstimated() {
@@ -255,8 +305,22 @@
 		busy = true;
 		formError = null;
 		try {
-			await call(false);
+			const result = await call(false);
 			plan = null;
+			const route = chosenRoute;
+			if (result.trip && route) {
+				try {
+					await api.saveManualTripRoute(
+						result.trip.id,
+						route.polyline,
+						route.roadKm,
+						estimate?.provider ?? null
+					);
+				} catch (e) {
+					// The trip is in the book; only its map is missing.
+					toast.error($LL.mobile.add.routeNotSaved({ error: String(e) }));
+				}
+			}
 			toast.success($LL.mobile.add.done());
 			await goto('/m');
 		} catch (e) {
@@ -303,6 +367,48 @@
 				bind:position={destinationPos}
 			/>
 
+			{#if providers.length > 1}
+				<div class="field-group">
+					<div class="seg" role="group" data-testid="m-nova-provider">
+						{#each providers as value (value)}
+							<button
+								type="button"
+								class:on={(provider ?? providers[0]) === value}
+								aria-pressed={(provider ?? providers[0]) === value}
+								onclick={() => (provider = value)}
+								data-testid="m-nova-provider-{value}">{$LL.mobile.add.providerShort[value]()}</button
+							>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if estimate && estimate.routes.length > 0 && originEnd && destinationEnd}
+				<RoutePickerMap routes={estimate.routes} active={activeRoute} onSelect={selectRoute} />
+				{#if estimate.routes.length > 1}
+					<div class="field-group">
+						<span class="label">{$LL.mobile.add.alternatives()}</span>
+						<div class="chips" data-testid="m-nova-alternatives">
+							{#each estimate.routes as route, i (i)}
+								<button
+									type="button"
+									class="chip"
+									class:on={i === activeRoute}
+									aria-pressed={i === activeRoute}
+									onclick={() => selectRoute(i)}
+									data-testid="m-nova-alternative-{i + 1}"
+									>{$LL.mobile.add.alternative({
+										n: i + 1,
+										km: route.routeKm.toFixed(1),
+										min: route.durationMin
+									})}</button
+								>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			{/if}
+
 			<div class="box" data-testid="m-nova-times">
 				<p class="muted small" data-testid="m-nova-route">
 					{#if !originEnd || !destinationEnd}
@@ -311,6 +417,17 @@
 						{$LL.mobile.add.estimating()}
 					{:else if estimate?.error}
 						<span class="error">{$LL.mobile.add.estimateFailed({ error: estimate.error })}</span>
+					{:else if chosenRoute}
+						{(estimate?.routes.length ?? 0) > 1
+							? $LL.mobile.add.routeNumber({
+									n: activeRoute + 1,
+									km: chosenRoute.routeKm.toFixed(1),
+									min: chosenRoute.durationMin
+								})
+							: $LL.mobile.add.routeSummary({
+									km: chosenRoute.routeKm.toFixed(1),
+									min: chosenRoute.durationMin
+								})}
 					{:else if estimate?.routeKm != null && estimate.durationMin != null}
 						{$LL.mobile.add.routeSummary({
 							km: estimate.routeKm.toFixed(1),
@@ -348,9 +465,11 @@
 						oninput={() => (startFromEstimate = false)}
 						data-testid="m-nova-start"
 					/>
-					{#if startFromEstimate && estimate?.durationMin != null}
+					{#if startFromEstimate && (chosenRoute?.durationMin ?? estimate?.durationMin) != null}
 						<p class="muted small" data-testid="m-nova-start-hint">
-							{$LL.mobile.add.startFromRoute({ min: estimate.durationMin })}
+							{$LL.mobile.add.startFromRoute({
+								min: (chosenRoute?.durationMin ?? estimate?.durationMin)!
+							})}
 						</p>
 					{/if}
 				</div>
@@ -462,6 +581,52 @@
 		color: var(--text-primary);
 		/* 16px stops the iOS zoom on focus */
 		font-size: 1rem;
+	}
+	.label {
+		font-weight: 600;
+		font-size: 0.95rem;
+	}
+	.seg {
+		display: flex;
+		border: 1px solid var(--border-input);
+		border-radius: 6px;
+		overflow: hidden;
+	}
+	.seg button {
+		flex: 1;
+		min-height: 40px;
+		border: none;
+		background: var(--btn-secondary-bg);
+		color: var(--text-primary);
+		font-size: 0.95rem;
+		cursor: pointer;
+	}
+	.seg button + button {
+		border-left: 1px solid var(--border-input);
+	}
+	.seg button.on,
+	.chip.on {
+		background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+		color: var(--accent-primary);
+		font-weight: 700;
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.chip {
+		min-height: 40px;
+		padding: 0.35rem 0.9rem;
+		border: 1px solid var(--border-input);
+		border-radius: 999px;
+		background: var(--btn-secondary-bg);
+		color: var(--text-primary);
+		font-size: 0.9rem;
+		cursor: pointer;
+	}
+	.chip.on {
+		border-color: var(--accent-primary);
 	}
 	.box {
 		display: flex;
