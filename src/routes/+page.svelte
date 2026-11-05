@@ -319,7 +319,7 @@
 						<span class="value">{stats.avgConsumptionRate.toFixed(2)} L/100km</span>
 					</div>
 					{#if stats.overallDeviationPercent !== null}
-						<!-- The year as a whole (the export value); the warning stays per fill-up period. -->
+						<!-- The year as a whole, from the closed periods (BIZ-033); the warning stays per fill-up period. -->
 						<div class="info-item" class:warning={stats.isOverLimit}>
 							<span class="label">{$LL.stats.deviation()}</span>
 							<span class="value" data-testid="headline-deviation"

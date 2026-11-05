@@ -39,8 +39,10 @@ estimate of a manual trip, and the origin default of a manual trip.
 ### 2. All trips (`/m/jazdy`)
 
 1. A year picker loads the trips of one year.
-2. A summary card shows the values of the PC page: the consumption, the TP rate with
-   the margin, the km and the fuel remaining.
+2. A summary card shows the values of the PC page: the consumption of the closed
+   periods, the year deviation as % of TP, the km and the fuel remaining. If a period
+   between fill-ups is over 120 % of TP, the deviation pill turns orange and a warning
+   line shows. The card has no worst-period value ([BIZ-033](../../DECISIONS.md#biz-033-the-app-shows-the-year-deviation-from-the-closed-periods)).
 3. The trips show newest first, with a header per month. A card shows the day and
    times, the km, the route, the purpose and the odometer.
 4. A card with a fill-up shows the liters and the rate of that fill-up period. A rate

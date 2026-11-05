@@ -2200,20 +2200,20 @@ type RootTranslation = {
 			 */
 			consumption: RequiredParams<'rate'>
 			/**
-			 * T​P​ ​{​t​p​}​,​ ​{​m​a​r​g​i​n​}​ ​%
-			 * @param {string} margin
+			 * {​p​e​r​c​e​n​t​}​ ​%​ ​z​ ​T​P​ ​{​t​p​}
+			 * @param {string} percent
 			 * @param {string} tp
 			 */
-			tpMargin: RequiredParams<'margin' | 'tp'>
+			yearDeviation: RequiredParams<'percent' | 'tp'>
 			/**
 			 * T​P​ ​{​t​p​}​,​ ​b​e​z​ ​t​a​n​k​o​v​a​n​i​a
 			 * @param {string} tp
 			 */
 			tpNoFillup: RequiredParams<'tp'>
 			/**
-			 * N​a​j​h​o​r​š​i​e​ ​o​b​d​o​b​i​e​ ​m​e​d​z​i​ ​t​a​n​k​o​v​a​n​i​a​m​i​,​ ​l​i​m​i​t​ ​+​2​0​ ​%​.
+			 * S​p​o​t​r​e​b​a​ ​v​ ​n​i​e​k​t​o​r​o​m​ ​o​b​d​o​b​í​ ​m​e​d​z​i​ ​t​a​n​k​o​v​a​n​i​a​m​i​ ​j​e​ ​v​y​š​š​i​a​ ​a​k​o​ ​1​2​0​ ​%​ ​T​P​.
 			 */
-			marginHint: string
+			periodOverLimit: string
 			/**
 			 * {​k​m​}​ ​k​m
 			 * @param {string} km
@@ -2224,11 +2224,6 @@ type RootTranslation = {
 			 * @param {string} liters
 			 */
 			remaining: RequiredParams<'liters'>
-			/**
-			 * o​d​c​h​ý​l​k​a​ ​z​a​ ​r​o​k​ ​{​p​e​r​c​e​n​t​}​ ​%
-			 * @param {string} percent
-			 */
-			deviation: RequiredParams<'percent'>
 			/**
 			 * t​a​c​h​.​ ​{​k​m​}
 			 * @param {string} km
@@ -5638,17 +5633,17 @@ export type TranslationFunctions = {
 			 */
 			consumption: (arg: { rate: string }) => LocalizedString
 			/**
-			 * TP {tp}, {margin} %
+			 * {percent} % z TP {tp}
 			 */
-			tpMargin: (arg: { margin: string, tp: string }) => LocalizedString
+			yearDeviation: (arg: { percent: string, tp: string }) => LocalizedString
 			/**
 			 * TP {tp}, bez tankovania
 			 */
 			tpNoFillup: (arg: { tp: string }) => LocalizedString
 			/**
-			 * Najhoršie obdobie medzi tankovaniami, limit +20 %.
+			 * Spotreba v niektorom období medzi tankovaniami je vyššia ako 120 % TP.
 			 */
-			marginHint: () => LocalizedString
+			periodOverLimit: () => LocalizedString
 			/**
 			 * {km} km
 			 */
@@ -5657,10 +5652,6 @@ export type TranslationFunctions = {
 			 * zostatok {liters} l
 			 */
 			remaining: (arg: { liters: string }) => LocalizedString
-			/**
-			 * odchýlka za rok {percent} %
-			 */
-			deviation: (arg: { percent: string }) => LocalizedString
 			/**
 			 * tach. {km}
 			 */

@@ -177,9 +177,12 @@ pub fn calculate_trip_stats_internal(
         None
     };
 
-    // The same value the export footer prints, from the same function.
-    let overall_deviation_percent = if total_fuel > 0.0 && tp_consumption > 0.0 {
-        Some(crate::export::ExportTotals::calculate(&trips, tp_consumption, 0.0).deviation_percent)
+    // The year as a whole, on the same base as avg_consumption_rate: the
+    // closed periods only. The km after the last fill-up have no fuel yet, so
+    // their consumption is not known (BIZ-033). The export footer keeps
+    // year fuel / year km, so a reader can check it against its printed totals.
+    let overall_deviation_percent = if closed_km > 0.0 && tp_consumption > 0.0 {
+        Some(avg_consumption_rate / tp_consumption * 100.0)
     } else {
         None
     };

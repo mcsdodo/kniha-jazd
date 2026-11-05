@@ -5898,11 +5898,12 @@ fn receipt_times_outside_match_the_warning_sets() {
     assert_eq!(keys, set);
 }
 
-/// The headline shows the year as a whole, the same value as the export
-/// footer ("Odchýlka od TP", ExportTotals). The legal check stays per
-/// fill-up period: margin_percent and is_over_limit use the worst period.
+/// The headline shows the year as a whole. With closed periods only, it is
+/// the same value as the export footer ("Odchýlka od TP", ExportTotals). The
+/// legal check stays per fill-up period: margin_percent and is_over_limit use
+/// the worst period.
 #[test]
-fn trip_stats_overall_deviation_is_the_export_value() {
+fn trip_stats_overall_deviation_is_the_year_value() {
     let db = crate::db::Database::in_memory().expect("Failed to create database");
     let vehicle =
         crate::models::Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 50.0, 5.0, 0.0);
@@ -5954,6 +5955,38 @@ fn trip_stats_buffer_km_is_for_the_worst_period() {
     // 7.5 L at 5.0 * 1.18 = 5.9 L / 100 km needs 127.12 km; the period has 100 km.
     let expected = 7.5 * 100.0 / 5.9 - 100.0;
     assert!((stats.buffer_km - expected).abs() < 1e-9, "buffer_km = {}", stats.buffer_km);
+}
+
+/// The km after the last fill-up have no fuel yet, so their consumption is
+/// not known. The overall value uses the closed periods only, the same base
+/// as avg_consumption_rate (BIZ-033). With all km it was too low.
+#[test]
+fn trip_stats_overall_deviation_leaves_out_the_open_period() {
+    let db = crate::db::Database::in_memory().expect("Failed to create database");
+    let vehicle =
+        crate::models::Vehicle::new("Test Car".to_string(), "BA123XY".to_string(), 50.0, 5.0, 0.0);
+    db.create_vehicle(&vehicle).expect("Failed to create vehicle");
+
+    // Closed: 6.0 + 4.5 L / 200 km = 5.25 L / 100 km = 105 % of TP.
+    // Open: 100 km after the last fill-up. With all km: 10.5 / 300 = 70 %.
+    for (day, liters, odo) in [(1, 6.0, 100.0), (2, 4.5, 200.0)] {
+        let mut trip = make_trip_with_fuel(NaiveDate::from_ymd_opt(2026, 3, day).unwrap(), liters, 10.0);
+        trip.vehicle_id = vehicle.id;
+        trip.odometer = odo;
+        db.create_trip(&db.with_places_for_test(&trip)).expect("Failed to create trip");
+    }
+    let mut open = make_trip_without_fuel(NaiveDate::from_ymd_opt(2026, 3, 3).unwrap());
+    open.vehicle_id = vehicle.id;
+    open.distance_km = 100.0;
+    open.odometer = 300.0;
+    db.create_trip(&db.with_places_for_test(&open)).expect("Failed to create trip");
+
+    let stats = calculate_trip_stats_internal(&db, vehicle.id.to_string(), 2026).unwrap();
+
+    let overall = stats.overall_deviation_percent.expect("closed periods give a value");
+    assert!((overall - 105.0).abs() < 1e-9, "overall = {overall}");
+    let from_rate = stats.avg_consumption_rate / 5.0 * 100.0;
+    assert!((overall - from_rate).abs() < 1e-9, "overall {overall} != rate-based {from_rate}");
 }
 
 #[test]

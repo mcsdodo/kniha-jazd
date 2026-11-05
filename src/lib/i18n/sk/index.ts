@@ -651,12 +651,12 @@ const sk = {
 			empty: 'V roku {year:number} nie sú žiadne jazdy.',
 			// Summary card (values from calculate_trip_stats)
 			consumption: 'Spotreba {rate:string} l/100 km',
-			tpMargin: 'TP {tp:string}, {margin:string} %',
+			// The year from the closed periods, as % of TP (BIZ-033)
+			yearDeviation: '{percent:string} % z TP {tp:string}',
 			tpNoFillup: 'TP {tp:string}, bez tankovania',
-			marginHint: 'Najhoršie obdobie medzi tankovaniami, limit +20 %.',
+			periodOverLimit: 'Spotreba v niektorom období medzi tankovaniami je vyššia ako 120 % TP.',
 			totalKm: '{km:string} km',
 			remaining: 'zostatok {liters:string} l',
-			deviation: 'odchýlka za rok {percent:string} %',
 			// Trip card
 			odometer: 'tach. {km:string}',
 			fillup: 'Tankovanie {liters:string} l',

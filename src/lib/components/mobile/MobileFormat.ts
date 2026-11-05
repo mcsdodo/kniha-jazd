@@ -75,11 +75,6 @@ export function fixed(n: number, digits = 1): string {
 	return n.toFixed(digits);
 }
 
-/** A backend percent with its sign, for example "+13.0". */
-export function signedPercent(n: number): string {
-	return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
-}
-
 function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);
 }

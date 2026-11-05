@@ -22,7 +22,7 @@
 	import TripCard from '$lib/components/mobile/TripCard.svelte';
 	import TripDetail from '$lib/components/mobile/TripDetail.svelte';
 	import { buildTripLookup, type InvoiceState } from '$lib/components/mobile/TripLookup';
-	import { fixed, monthKey, monthLabel, signedPercent, whole } from '$lib/components/mobile/MobileFormat';
+	import { fixed, monthKey, monthLabel, whole } from '$lib/components/mobile/MobileFormat';
 
 	let years = $state<number[]>([new Date().getFullYear()]);
 	let grid = $state<TripGridData | null>(null);
@@ -171,23 +171,31 @@
 							>{$LL.mobile.trips.consumption({ rate: fixed(stats.avgConsumptionRate, 2) })}</span
 						>
 						{#if tp !== null}
+							<!-- The year as % of TP (BIZ-033). The warning style comes from
+							     the per-period check: one period over the limit is enough. -->
 							<span
 								class="pill"
 								class:ok={!stats.isOverLimit}
 								class:warn={stats.isOverLimit}
-								data-testid="mobile-summary-margin"
-								>{stats.marginPercent !== null
-									? $LL.mobile.trips.tpMargin({ tp: fixed(tp, 1), margin: signedPercent(stats.marginPercent) })
+								data-testid="mobile-summary-deviation"
+								>{stats.overallDeviationPercent !== null
+									? $LL.mobile.trips.yearDeviation({
+											percent: fixed(stats.overallDeviationPercent, 1),
+											tp: fixed(tp, 1)
+										})
 									: $LL.mobile.trips.tpNoFillup({ tp: fixed(tp, 1) })}</span
 							>
 						{/if}
 					</div>
 					<div class="meta">
 						{$LL.mobile.trips.totalKm({ km: whole(stats.totalKm, $locale) })},
-						{$LL.mobile.trips.remaining({ liters: fixed(stats.fuelRemainingLiters, 1) })}{#if stats.overallDeviationPercent !== null},
-							{$LL.mobile.trips.deviation({ percent: fixed(stats.overallDeviationPercent, 1) })}{/if}
+						{$LL.mobile.trips.remaining({ liters: fixed(stats.fuelRemainingLiters, 1) })}
 					</div>
-					<div class="meta small">{$LL.mobile.trips.marginHint()}</div>
+					{#if stats.isOverLimit}
+						<div class="meta small warn-text" data-testid="mobile-summary-period-over">
+							{$LL.mobile.trips.periodOverLimit()}
+						</div>
+					{/if}
 				{:else}
 					<div class="top">
 						<span>{$LL.mobile.trips.totalKm({ km: whole(stats.totalKm, $locale) })}</span>
@@ -281,6 +289,11 @@
 
 	.meta.small {
 		font-size: 0.8rem;
+	}
+
+	.warn-text {
+		color: var(--warning-color);
+		font-weight: 600;
 	}
 
 	.pill {

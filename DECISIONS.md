@@ -4,6 +4,22 @@ Architecture Decision Records (ADRs) and business logic decisions. **Newest firs
 
 ---
 
+## 2026-11-05: Year Deviation Base
+
+### BIZ-033: The app shows the year deviation from the closed periods (amends BIZ-029)
+
+**Context:** [BIZ-029](#biz-029-the-20--limit-applies-to-each-fill-up-period-the-headline-shows-the-year) made the app headline "Odchýlka" the export footer value: year fuel / year km as % of TP. "Spotreba" next to it uses the closed fill-up periods only (`avg_consumption_rate`), because the km after the last fill-up have no fuel yet and their consumption is not known. So the two values had different bases. On the production data of 2026-11-05: "Spotreba" 5.88 l/100 km, but the deviation 114.3 % came from 1110.23 l / 19 043 km = 5.83. The open km lower the deviation. The phone trip list also showed the worst period as a pill with the hint "Najhoršie obdobie medzi tankovaniami", which the user read as the explanation of the year value.
+
+**Decision:**
+- The user tracks two things: each fill-up period must stay within 120 % of TP (a warning when one does not), and the year overall. The worst period as a number of its own is not shown.
+- `TripStats.overall_deviation_percent` = `avg_consumption_rate / TP x 100`, from the closed periods only. None without a closed period. The PC headline, the phone start page and the phone trip list show it.
+- The phone trip list shows the year deviation in the pill and a warning line when a period is over the limit. The worst-period pill and its hint are removed.
+- The export footer does not change: it keeps year fuel / year km from its printed totals.
+
+**Reasoning:** The year value and "Spotreba" must use one base, or the page shows two numbers that do not agree. The closed periods are the only base with known consumption. The export footer is a different case: it prints the year km and fuel, and an auditor must be able to recompute its average from those two printed totals. So the app and the export differ while the year has an open period. If the last trip of the year is a full fill-up, they are equal.
+
+---
+
 ## 2026-11-05: Phone Pages (Task 93)
 
 ### BIZ-032: The phone manual entry fills the origin, the start and the km

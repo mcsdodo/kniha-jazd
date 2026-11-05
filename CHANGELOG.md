@@ -21,6 +21,10 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Zmenené
+- **Odchýlka za rok** - Odchýlka v hlavičke na PC a na stránkach pre telefón sa teraz počíta z uzavretých období medzi tankovaniami, rovnako ako spotreba vedľa nej. Km po poslednom tankovaní ešte nemajú palivo, preto odchýlku už neznižujú. Päta exportu sa nemení: počíta sa z vytlačených súčtov km a paliva.
+- **Súhrn v zozname jázd na telefóne** - Namiesto najhoršieho obdobia medzi tankovaniami ukazuje odchýlku za rok v % z TP. Ak je niektoré obdobie nad 120 % TP, súhrn ukáže upozornenie.
+
 ## [2.7.1] - 2026-11-05
 
 ### Pokyny k aktualizácii

@@ -158,7 +158,7 @@
 					<span class="end" data-testid="mobile-stat-remaining">
 						{fixed(st.fuelRemainingLiters, 1)} l
 						{#if ha.fuelRefill !== null}
-							<small class="muted"
+							<small class="ha-fuel" data-testid="mobile-stat-ha-fuel"
 								>{ha.fuelRefill >= 0
 									? $LL.homeAssistant.fuelToRefill({ liters: fixed(ha.fuelRefill, 1) })
 									: $LL.homeAssistant.fuelSurplus({ liters: fixed(Math.abs(ha.fuelRefill), 1) })}</small
@@ -184,7 +184,7 @@
 						<span class="end">
 							{whole(ha.odo, $locale)} km
 							{#if ha.odoDelta !== null}
-								<small
+								<small class="delta" class:warning={ha.odoWarning}
 									>{whole(Math.abs(ha.odoDelta), $locale)}
 									{ha.odoDelta < 0
 										? $LL.homeAssistant.deltaToDrive()
@@ -304,14 +304,20 @@
 		color: var(--text-secondary);
 	}
 
-	.row.warning,
-	.row.warning small {
+	/* The same colors as the PC stats row: the refill text is always orange;
+	   the ODO difference turns orange at the warning; a warning colors the
+	   value, not the label. */
+	.row small.ha-fuel {
+		color: var(--accent-warning);
+	}
+
+	.row small.delta.warning {
 		color: var(--accent-warning);
 		font-weight: 600;
 	}
 
-	.muted {
-		color: var(--text-secondary);
+	.row.warning > span:last-child {
+		color: var(--accent-warning);
 	}
 
 	.suggestion {

@@ -651,12 +651,11 @@ const en = {
 			empty: 'There are no trips in {year}.',
 			// Summary card (values from calculate_trip_stats)
 			consumption: 'Consumption {rate} l/100 km',
-			tpMargin: 'TP {tp}, {margin} %',
+			yearDeviation: '{percent} % of TP {tp}',
 			tpNoFillup: 'TP {tp}, no fill-up',
-			marginHint: 'The worst period between fill-ups, limit +20 %.',
+			periodOverLimit: 'The consumption of a period between fill-ups is over 120 % of TP.',
 			totalKm: '{km} km',
 			remaining: '{liters} l remaining',
-			deviation: 'deviation for the year {percent} %',
 			// Trip card
 			odometer: 'odo. {km}',
 			fillup: 'Fill-up {liters} l',
