@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The stored route of one trip as a small, fixed map (Task 93). The backend
+	// The stored route of one trip as a small map (Task 93). The backend
 	// sends the route already decoded to [lat, lon] pairs.
 	import 'leaflet/dist/leaflet.css';
 	import { onDestroy, onMount, tick } from 'svelte';
@@ -31,15 +31,9 @@
 			// The map needs its container in the DOM with a size.
 			await tick();
 			if (destroyed || !mapEl) return;
-			map = leaflet.map(mapEl, {
-				dragging: false,
-				touchZoom: false,
-				scrollWheelZoom: false,
-				doubleClickZoom: false,
-				boxZoom: false,
-				keyboard: false,
-				zoomControl: false
-			});
+			// Pinch zoom and drag help to see the route in detail. The scroll
+			// wheel stays off, so the page still scrolls.
+			map = leaflet.map(mapEl, { scrollWheelZoom: false, zoomControl: false });
 			leaflet
 				.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 					maxZoom: 19,
@@ -76,7 +70,7 @@
 
 <style>
 	.map {
-		height: 170px;
+		height: 220px;
 		border-radius: 8px;
 		border: 1px solid var(--border-default);
 		overflow: hidden;
