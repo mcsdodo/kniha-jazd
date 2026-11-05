@@ -56,20 +56,25 @@
 		});
 	});
 
+	// The local drives show at once. The sync then runs behind the list: it
+	// downloads only the files that are not local yet, and the list loads
+	// again only if a new file came. The list never goes blank for the sync.
 	async function syncThenLoad(vehicleId: string) {
 		syncing = true;
 		syncError = null;
+		const local = load(vehicleId);
 		try {
 			const r = await api.syncFuelioDropbox(year);
 			syncFailed = r.failed.length;
 			syncedAt = new Date().toTimeString().slice(0, 5);
+			await local;
+			if (r.downloaded > 0) await load(vehicleId);
 		} catch (e) {
 			// The local drives still show.
 			syncError = String(e);
 		} finally {
 			syncing = false;
 		}
-		await load(vehicleId);
 	}
 
 	// Only the newest load may set the rows.
@@ -286,7 +291,7 @@
 		{/if}
 
 		{#if rows === null}
-			{#if loading || syncing}
+			{#if loading}
 				<p class="muted">{$LL.mobile.add.loading()}</p>
 			{/if}
 		{:else if rows.length === 0}
