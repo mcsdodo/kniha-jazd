@@ -1,7 +1,7 @@
 // API wrapper for backend commands
 
 import { apiCall } from './api-adapter';
-import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, ExportFile, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd } from './types';
+import type { Vehicle, Trip, Route, Settings, TripStats, BackupInfo, BackupType, CleanupPreview, CleanupResult, BackupRetention, TripGridData, ExportLabels, ExportFile, PreviewResult, VehicleType, TripForAssignment, DatePrefillMode, InferredTripTime, CopiedTripDefaults, HaSettings, SecretField, PaperlessSettings, PaperlessCustomFieldInfo, PaperlessInvoiceRow, GeneratedRoute, RouteMap, Place, GeocodeCandidate, PlaceSource, Waypoint, RouteStart, InsertPoint, LegInsertPoint, RoundTripRoutes, RouteProviderKind, RouteProvidersInfo, CascadePlan, CascadeResult, DistanceWriteback, FuelioReport, FuelioTrack, FuelioFields, FuelioApply, FuelioSyncReport, FuelioAddPreview, FuelioAdd, FuelioAddEnd, NearbyPlaces, ManualTripEstimate } from './types';
 
 // Vehicle commands
 export async function getVehicles(): Promise<Vehicle[]> {
@@ -813,19 +813,42 @@ export async function getFuelioAddPreview(driveIds: string[]): Promise<FuelioAdd
 export async function addFuelioTrip(
 	vehicleId: string,
 	driveIds: string[],
-	originPlaceId: string,
-	destinationPlaceId: string,
+	origin: FuelioAddEnd,
+	destination: FuelioAddEnd,
 	purpose: string,
 	withRoute: boolean,
 	dryRun: boolean
 ): Promise<FuelioAdd> {
+	// Task 93: each end is an existing place id or a new place name. The
+	// backend creates a new place at the GPS point, on a real run only.
 	return await apiCall('add_fuelio_trip', {
 		vehicleId,
 		driveIds,
-		originPlaceId,
-		destinationPlaceId,
+		originPlaceId: origin.placeId,
+		destinationPlaceId: destination.placeId,
+		newOriginName: origin.newPlaceName,
+		newDestinationName: destination.newPlaceName,
 		purpose,
 		withRoute,
 		dryRun
 	});
+}
+
+// Mobile pages (Task 93)
+/** The places near a phone GPS point, nearest first, with the preselect (backend rule). */
+export async function getPlacesNear(lat: number, lon: number): Promise<NearbyPlaces> {
+	return await apiCall('get_places_near', { lat, lon });
+}
+
+/**
+ * Route km and drive time between two places, and the start time of a trip
+ * that ends at `endDatetime` ("YYYY-MM-DDTHH:MM"). The backend computes the
+ * start (ADR-008). A failed route is not an error: the fields are null.
+ */
+export async function getManualTripEstimate(
+	originPlaceId: string,
+	destinationPlaceId: string,
+	endDatetime: string
+): Promise<ManualTripEstimate> {
+	return await apiCall('get_manual_trip_estimate', { originPlaceId, destinationPlaceId, endDatetime });
 }

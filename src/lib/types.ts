@@ -723,6 +723,43 @@ export interface FuelioAddPreview {
 	origin: FuelioPlaceOption[];
 	/** Every placed place, nearest to the GPS end first. */
 	destination: FuelioPlaceOption[];
+	/** Task 93: the nearest place within PLACE_PRESELECT_RADIUS_M of the GPS start, or null. */
+	originPreselectId: string | null;
+	/** Task 93: the nearest place within PLACE_PRESELECT_RADIUS_M of the GPS end, or null. */
+	destinationPreselectId: string | null;
+}
+
+/**
+ * Task 93: one end of a new trip from Fuelio drives. Give exactly one of the
+ * two: an existing place, or the name of a new place that the backend creates
+ * at the GPS start (origin) or GPS end (destination) of the drives.
+ */
+export interface FuelioAddEnd {
+	placeId: string | null;
+	newPlaceName: string | null;
+}
+
+/** Task 93: the places near a phone GPS point, nearest first. */
+export interface NearbyPlaces {
+	places: FuelioPlaceOption[];
+	/** The nearest place within PLACE_PRESELECT_RADIUS_M, or null. */
+	preselectId: string | null;
+}
+
+/**
+ * Task 93: what the route calculation gives for a manual trip that ends at
+ * `endDatetime`. The fields are null when the route fails (for example a place
+ * without coordinates); `error` then says why and the page lets the user type
+ * the start time.
+ */
+export interface ManualTripEstimate {
+	/** Route km from the routing service, for a hint only. */
+	routeKm: number | null;
+	/** Route drive time in whole minutes. */
+	durationMin: number | null;
+	/** endDatetime minus the drive time, "YYYY-MM-DDTHH:MM". */
+	startDatetime: string | null;
+	error: string | null;
 }
 
 export interface FuelioAdd {

@@ -2083,6 +2083,26 @@ type RootTranslation = {
 		 */
 		noRoute: string
 	}
+	mobile: {
+		home: {
+			/**
+			 * K​n​i​h​a​ ​j​á​z​d
+			 */
+			title: string
+		}
+		trips: {
+			/**
+			 * J​a​z​d​y
+			 */
+			title: string
+		}
+		add: {
+			/**
+			 * N​o​v​á​ ​j​a​z​d​a
+			 */
+			title: string
+		}
+	}
 	places: {
 		/**
 		 * O​z​n​a​č​i​ť​ ​a​k​o​ ​d​o​m​o​v
@@ -4941,6 +4961,26 @@ export type TranslationFunctions = {
 		 * Jazda nemá uloženú trasu.
 		 */
 		noRoute: () => LocalizedString
+	}
+	mobile: {
+		home: {
+			/**
+			 * Kniha jázd
+			 */
+			title: () => LocalizedString
+		}
+		trips: {
+			/**
+			 * Jazdy
+			 */
+			title: () => LocalizedString
+		}
+		add: {
+			/**
+			 * Nová jazda
+			 */
+			title: () => LocalizedString
+		}
 	}
 	places: {
 		/**

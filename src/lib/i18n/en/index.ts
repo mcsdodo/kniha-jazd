@@ -617,6 +617,20 @@ const en = {
 		mapHint: 'Click a row with a GPS record.',
 		noRoute: 'The trip has no stored route.',
 	},
+	// Task 93: the phone pages under /m. Each agent owns one sub-object.
+	mobile: {
+		// Owner: the trip list agent (start page, list, detail).
+		home: {
+			title: 'Logbook',
+		},
+		trips: {
+			title: 'Trips',
+		},
+		// Owner: the add-flows agent (Fuelio list, add from Fuelio, manual add, place picker).
+		add: {
+			title: 'New trip',
+		},
+	},
 	places: {
 		markHome: 'Mark as home',
 		unmarkHome: 'Remove the home mark',

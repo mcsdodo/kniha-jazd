@@ -617,6 +617,20 @@ const sk = {
 		mapHint: 'Kliknite na riadok so záznamom GPS.',
 		noRoute: 'Jazda nemá uloženú trasu.',
 	},
+	// Task 93: the phone pages under /m. Each agent owns one sub-object.
+	mobile: {
+		// Owner: the trip list agent (start page, list, detail).
+		home: {
+			title: 'Kniha jázd',
+		},
+		trips: {
+			title: 'Jazdy',
+		},
+		// Owner: the add-flows agent (Fuelio list, add from Fuelio, manual add, place picker).
+		add: {
+			title: 'Nová jazda',
+		},
+	},
 	places: {
 		markHome: 'Označiť ako domov',
 		unmarkHome: 'Zrušiť označenie domova',

@@ -19,6 +19,9 @@
 	let availableYears = $state<number[]>([]);
 	let i18nReady = $state(false);
 	let fuelioAvailable = $state(false);
+	// Task 93: the phone pages under /m bring their own small header. They keep
+	// the startup above (i18n, theme, vehicle, year), but not the PC header.
+	let isMobile = $derived($page.url.pathname === '/m' || $page.url.pathname.startsWith('/m/'));
 
 	async function loadYears() {
 		if (!$activeVehicleStore) {
@@ -124,7 +127,16 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-{#if i18nReady}
+{#if i18nReady && isMobile}
+<div class="app-mobile">
+	{#if $appModeStore.isReadOnly}
+		<div class="read-only-banner">
+			<span class="banner-text">{$LL.settings.readOnlyBanner()}</span>
+		</div>
+	{/if}
+	{@render children()}
+</div>
+{:else if i18nReady}
 <div class="app">
 	<header>
 		<div class="header-content">
@@ -205,6 +217,10 @@
 	:global(input), :global(select), :global(textarea) {
 		color: var(--text-primary);
 		background-color: var(--input-bg);
+	}
+
+	.app-mobile {
+		min-height: 100%;
 	}
 
 	.app {
