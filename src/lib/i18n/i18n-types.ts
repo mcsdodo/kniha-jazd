@@ -2161,6 +2161,11 @@ type RootTranslation = {
 			 * M​o​b​i​l​n​á​ ​v​e​r​z​i​a
 			 */
 			phoneLink: string
+			/**
+			 * Š​t​a​t​i​s​t​i​k​y​ ​{​y​e​a​r​}
+			 * @param {number} year
+			 */
+			statsTitle: RequiredParams<'year'>
 		}
 		trips: {
 			/**
@@ -5598,6 +5603,10 @@ export type TranslationFunctions = {
 			 * Mobilná verzia
 			 */
 			phoneLink: () => LocalizedString
+			/**
+			 * Štatistiky {year}
+			 */
+			statsTitle: (arg: { year: number }) => LocalizedString
 		}
 		trips: {
 			/**

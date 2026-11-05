@@ -144,6 +144,8 @@ export interface TripGridData {
   tripNumbers: Record<string, number>; // Trip sequence numbers (1-based)
   odometerStart: Record<string, number>; // Odometer at trip start
   monthEndRows: MonthEndRow[]; // Synthetic rows for all closed months
+  // The suggested fill-up of the open period, for the legend (Task 93 phone stats)
+  legendSuggestedFillup: { liters: number; consumptionRate: number } | null;
 }
 
 /**

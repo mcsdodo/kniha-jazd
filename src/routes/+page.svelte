@@ -9,6 +9,7 @@
 	import { toast } from '$lib/stores/toast';
 	import LL, { locale } from '$lib/i18n/i18n-svelte';
 	import { haStore } from '$lib/stores/homeAssistant';
+	import { haReadings } from '$lib/haReadings';
 
 	let exporting = false;
 	let exportingXlsx = false;
@@ -51,18 +52,15 @@
 		haStore.stopPeriodicRefresh();
 	}
 
-	// Calculate delta from real ODO vs highest logged ODO
+	// Real ODO vs the highest logged ODO, and the real fuel level in liters.
+	// One helper for this page and the phone start page (haReadings.ts).
 	$: haOdoCache = $activeVehicleStore ? $haStore.cache.get($activeVehicleStore.id) : null;
 	$: maxLoggedOdo = trips.length > 0 ? Math.max(...trips.map(t => t.odometer)) : null;
-	$: haOdoDelta = haOdoCache && maxLoggedOdo !== null ? haOdoCache.value - maxLoggedOdo : null;
-	$: haOdoWarning = haOdoDelta !== null && haOdoDelta >= 50;
-
-	// HA fuel level: convert percentage to liters (ADR-013: display formatting in frontend)
-	$: haFuelPercent = haOdoCache?.fuelLevelPercent ?? null;
-	$: haFuelRefill = stats && haFuelLiters !== null ? stats.fuelRemainingLiters - haFuelLiters : 0;
-	$: haFuelLiters = haFuelPercent !== null && $activeVehicleStore?.tankSizeLiters
-		? (haFuelPercent * $activeVehicleStore.tankSizeLiters / 100)
-		: null;
+	$: ha = haReadings(haOdoCache, maxLoggedOdo, stats?.fuelRemainingLiters ?? null, $activeVehicleStore?.tankSizeLiters);
+	$: haOdoDelta = ha.odoDelta;
+	$: haOdoWarning = ha.odoWarning;
+	$: haFuelLiters = ha.fuelLiters;
+	$: haFuelRefill = ha.fuelRefill ?? 0;
 
 	// Format staleness (time since fetch)
 	function formatStaleness(fetchedAt: number): string {

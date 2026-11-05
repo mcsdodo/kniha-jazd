@@ -640,6 +640,7 @@ const en = {
 			loadError: 'Could not load the data: {error}',
 			// The link in the PC header on a narrow screen
 			phoneLink: 'Phone version',
+			statsTitle: 'Stats {year}',
 		},
 		trips: {
 			title: 'Trips',

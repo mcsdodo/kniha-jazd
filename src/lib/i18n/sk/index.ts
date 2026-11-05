@@ -640,6 +640,7 @@ const sk = {
 			loadError: 'Údaje sa nepodarilo načítať: {error:string}',
 			// The link in the PC header on a narrow screen
 			phoneLink: 'Mobilná verzia',
+			statsTitle: 'Štatistiky {year:number}',
 		},
 		trips: {
 			title: 'Jazdy',

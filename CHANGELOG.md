@@ -21,6 +21,9 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+### Pridané
+- **Štatistiky na úvodnej stránke telefónu** - Úvodná stránka `/m` ukazuje štatistiky roka ako stránka na PC: najazdené km, PHM, zostatok, priemernú spotrebu a odchýlku, s Home Assistant aj reálne ODO a palivo. Ukazuje aj návrhy: upozornenie na prekročený limit s potrebnými km a návrh tankovania.
+
 ## [2.6.0] - 2026-11-05
 
 ### Pokyny k aktualizácii

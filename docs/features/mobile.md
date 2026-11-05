@@ -24,7 +24,17 @@ estimate of a manual trip, and the origin default of a manual trip.
    - **Pridať ručne**.
    - **Všetky jazdy**, with the count and the km of the selected year.
 4. In read-only mode, the two add buttons do not show.
-5. **Otvoriť tabuľku (PC)** opens the PC page.
+5. Under the buttons, a card shows the year stats of the PC page: the km, the fuel
+   (liters and EUR), the fuel remaining, the average consumption and the deviation of
+   the year. The vehicle settings row of the PC page (name, plate, tank, TP) is not on
+   the phone.
+6. With Home Assistant set, the card also shows the real odometer with the km that are
+   missing in the book, and the liters to refill. The PC page and the phone use one
+   helper for these values, [haReadings.ts](../../src/lib/haReadings.ts).
+7. The suggestions of the PC page show too: the compensation banner when the year is
+   over the limit, and the suggested fill-up of the open period ("Návrh tankovania",
+   `legendSuggestedFillup` of `get_trip_grid_data`).
+8. **Otvoriť tabuľku (PC)** opens the PC page.
 
 ### 2. All trips (`/m/jazdy`)
 
@@ -124,7 +134,7 @@ estimate of a manual trip, and the origin default of a manual trip.
   PC header, but keeps the startup (vehicle, read-only mode) and the read-only banner.
   The PC nav link `nav-mobile` is at line 155. It shows only at 640 px or less.
 - **Pages:**
-  - [src/routes/m/+page.svelte](../../src/routes/m/+page.svelte) -- start page.
+  - [src/routes/m/+page.svelte](../../src/routes/m/+page.svelte) -- start page: the buttons, and the year stats from `calculate_trip_stats` and `get_trip_grid_data` (the suggested fill-up) with [CompensationBanner.svelte](../../src/lib/components/CompensationBanner.svelte).
     It calls `getTripsForYear`, `calculateTripStats` and `isFuelioAvailable`.
   - [src/routes/m/jazdy/+page.svelte](../../src/routes/m/jazdy/+page.svelte) -- list and
     detail. It loads `get_trip_grid_data` and `calculate_trip_stats` for the year. The
@@ -207,6 +217,7 @@ then `create_trip_cascade` with a dry run first, as the PC page does.
 | File | Purpose |
 |------|---------|
 | [src/routes/+layout.svelte](../../src/routes/+layout.svelte) | The `/m` branch without the PC header; the `nav-mobile` link |
+| [src/lib/haReadings.ts](../../src/lib/haReadings.ts) | The Home Assistant readings next to the year stats, for the PC page and the phone start page |
 | [src/routes/m/](../../src/routes/m/) | The four phone pages |
 | [src/lib/components/mobile/](../../src/lib/components/mobile/) | Place picker, maps, trip card and detail, bar, vehicle gate |
 | [OdometerCascadeModal.svelte](../../src/lib/components/OdometerCascadeModal.svelte) | The odometer dialog; a `max-width: 600px` block for the phone |
@@ -252,7 +263,7 @@ then `create_trip_cascade` with a dry run first, as the PC page does.
   - [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) and
     [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) -- the
     argument parse of the new commands.
-- **Integration tests:** the WebdriverIO specs for the `/m` flows are not written yet.
+- **Integration tests:** [mobile-home-stats.spec.ts](../../tests/integration/specs/tier2/mobile-home-stats.spec.ts) checks the stats card, the compensation banner and the suggested fill-up on `/m`. The specs for the other `/m` flows are not written yet.
   [fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) types a new place
   name in the PC Fuelio dialog. The spec is changed for the 300 m preselect, but it was
   not run after the change.
