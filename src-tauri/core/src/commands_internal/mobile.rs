@@ -1,5 +1,5 @@
-//! The phone pages under /m (Task 93): the places near a GPS point, and the
-//! route estimate of a manual trip. Neither needs Fuelio.
+//! The phone pages under /m (Task 93): the places near a GPS point, the
+//! route estimate of a manual trip, and its origin default. None needs Fuelio.
 
 use chrono::{Duration, NaiveDateTime};
 use serde::Serialize;
@@ -23,14 +23,49 @@ pub fn get_places_near_internal(db: &Database, lat: f64, lon: f64) -> Result<Nea
     Ok(NearbyPlaces { preselect_id: preselect_id(&places), places })
 }
 
+/// The prefilled values of a manual trip on the phone.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManualTripDefaults {
+    /// The destination of the latest trip of the vehicle that starts before
+    /// the end: a trip usually starts where the one before it ended. `None`
+    /// without such a trip.
+    pub origin_place_id: Option<String>,
+}
+
+/// The defaults for a manual trip of `vehicle_id` that ends at `end_datetime`
+/// ("YYYY-MM-DDTHH:MM", seconds optional). A trip that starts at or after
+/// the end does not count. On the same start, the higher odometer is the
+/// later trip (the chain order of the book).
+pub fn get_manual_trip_defaults_internal(
+    db: &Database,
+    vehicle_id: &str,
+    end_datetime: &str,
+) -> Result<ManualTripDefaults, String> {
+    let end = parse_iso_datetime(end_datetime)?;
+    let trips = db.get_trips_for_vehicle(vehicle_id).map_err(|e| e.to_string())?;
+    let latest = trips
+        .iter()
+        .filter(|t| t.start_datetime < end)
+        .max_by(|a, b| {
+            a.start_datetime
+                .cmp(&b.start_datetime)
+                .then(a.odometer.total_cmp(&b.odometer))
+        });
+    Ok(ManualTripDefaults { origin_place_id: latest.map(|t| t.destination_place_id.to_string()) })
+}
+
 /// What the router gives for a manual trip. The numbers are `None` when the
 /// route fails; `error` then says why, and the page lets the user type the
 /// start time.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManualTripEstimate {
-    /// Route km, 1 decimal. A hint only: the user types the trip km.
+    /// Route km, 1 decimal.
     pub route_km: Option<f64>,
+    /// The route km in whole km, as a routed trip gets it (`logbook_km`).
+    /// The page fills the trip km with it; the user can change it.
+    pub distance_km: Option<f64>,
     pub duration_min: Option<i64>,
     /// "YYYY-MM-DDTHH:MM".
     pub start_datetime: Option<String>,
@@ -39,7 +74,13 @@ pub struct ManualTripEstimate {
 
 impl ManualTripEstimate {
     fn failed(error: String) -> Self {
-        Self { route_km: None, duration_min: None, start_datetime: None, error: Some(error) }
+        Self {
+            route_km: None,
+            distance_km: None,
+            duration_min: None,
+            start_datetime: None,
+            error: Some(error),
+        }
     }
 }
 
@@ -115,6 +156,7 @@ pub async fn get_manual_trip_estimate_internal(
     let (minutes, start) = start_before(end, route.duration_s);
     Ok(ManualTripEstimate {
         route_km: Some((route.road_km * 10.0).round() / 10.0),
+        distance_km: Some(crate::commands_internal::trips::logbook_km(route.road_km)),
         duration_min: Some(minutes),
         start_datetime: Some(start),
         error: None,

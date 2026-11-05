@@ -215,6 +215,8 @@ async fn estimate_routes_from_origin_to_destination() {
         .await
         .unwrap();
     assert_eq!(r.route_km, Some(398.4));
+    // The trip km: the route km rounded like a routed or GPS trip distance.
+    assert_eq!(r.distance_km, Some(398.0));
     assert_eq!(r.duration_min, Some(236));
     assert_eq!(r.start_datetime.as_deref(), Some("2026-11-05T08:04"));
     assert_eq!(r.error, None);
@@ -223,7 +225,7 @@ async fn estimate_routes_from_origin_to_destination() {
     assert_eq!(
         json,
         serde_json::json!({
-            "routeKm": 398.4, "durationMin": 236,
+            "routeKm": 398.4, "distanceKm": 398.0, "durationMin": 236,
             "startDatetime": "2026-11-05T08:04", "error": null
         })
     );
@@ -239,6 +241,7 @@ async fn estimate_with_a_failed_route_is_not_an_err() {
         .await
         .unwrap();
     assert_eq!((r.route_km, r.duration_min, r.start_datetime), (None, None, None));
+    assert_eq!(r.distance_km, None);
     assert!(r.error.as_deref().is_some_and(|e| e.contains("OSRM timeout")), "{:?}", r.error);
 }
 
@@ -273,4 +276,91 @@ async fn estimate_rejects_a_bad_end_and_an_unknown_place() {
         .unwrap_err();
     assert!(err.contains("no-such-id"), "{err}");
     assert!(stub.asked.lock().unwrap().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// get_manual_trip_defaults
+// ---------------------------------------------------------------------------
+
+fn vehicle(db: &Database) -> crate::models::Vehicle {
+    let v = crate::models::Vehicle::new_ice("Car".into(), "TEST-1".into(), 50.0, 6.5, 0.0);
+    db.create_vehicle(&v).unwrap();
+    v
+}
+
+/// A trip of `v` that starts at `at` ("YYYY-MM-DD HH:MM") and ends at `to`.
+fn trip_to(db: &Database, v: &crate::models::Vehicle, at: &str, odo: f64, to: &str) {
+    let mut t = crate::models::Trip::test_ice_trip(
+        chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+        10.0,
+        None,
+        false,
+    );
+    t.vehicle_id = v.id;
+    t.start_datetime = NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H:%M").unwrap();
+    t.odometer = odo;
+    t.origin_place_id = uuid::Uuid::parse_str(&place(db, &format!("From {at} {odo}"), HERE)).unwrap();
+    t.destination_place_id = uuid::Uuid::parse_str(to).unwrap();
+    db.create_trip(&t).unwrap();
+}
+
+#[test]
+fn defaults_origin_is_the_destination_of_the_latest_earlier_trip() {
+    let db = Database::in_memory().unwrap();
+    let v = vehicle(&db);
+    let office = place(&db, "Office", north_of(HERE, 1000.0));
+    let shop = place(&db, "Shop", north_of(HERE, 2000.0));
+    trip_to(&db, &v, "2026-11-05 08:00", 100.0, &office);
+    trip_to(&db, &v, "2026-11-05 12:00", 110.0, &shop);
+    let r = get_manual_trip_defaults_internal(&db, &v.id.to_string(), "2026-11-05T15:30").unwrap();
+    assert_eq!(r.origin_place_id, Some(shop));
+}
+
+#[test]
+fn defaults_ignore_trips_that_start_at_or_after_the_end() {
+    let db = Database::in_memory().unwrap();
+    let v = vehicle(&db);
+    let office = place(&db, "Office", north_of(HERE, 1000.0));
+    let shop = place(&db, "Shop", north_of(HERE, 2000.0));
+    let later = place(&db, "Later", north_of(HERE, 3000.0));
+    trip_to(&db, &v, "2026-11-05 08:00", 100.0, &office);
+    trip_to(&db, &v, "2026-11-05 15:30", 110.0, &shop);
+    trip_to(&db, &v, "2026-11-06 09:00", 120.0, &later);
+    // Seconds are accepted too.
+    let r =
+        get_manual_trip_defaults_internal(&db, &v.id.to_string(), "2026-11-05T15:30:00").unwrap();
+    assert_eq!(r.origin_place_id, Some(office));
+}
+
+#[test]
+fn defaults_on_the_same_start_take_the_higher_odometer() {
+    let db = Database::in_memory().unwrap();
+    let v = vehicle(&db);
+    let first = place(&db, "First", north_of(HERE, 1000.0));
+    let second = place(&db, "Second", north_of(HERE, 2000.0));
+    trip_to(&db, &v, "2026-11-05 08:00", 120.0, &second);
+    trip_to(&db, &v, "2026-11-05 08:00", 110.0, &first);
+    let r = get_manual_trip_defaults_internal(&db, &v.id.to_string(), "2026-11-05T15:30").unwrap();
+    assert_eq!(r.origin_place_id, Some(second));
+}
+
+#[test]
+fn defaults_ignore_other_vehicles_and_give_none_without_an_earlier_trip() {
+    let db = Database::in_memory().unwrap();
+    let v = vehicle(&db);
+    let other = vehicle(&db);
+    let office = place(&db, "Office", north_of(HERE, 1000.0));
+    trip_to(&db, &other, "2026-11-05 08:00", 100.0, &office);
+    let r = get_manual_trip_defaults_internal(&db, &v.id.to_string(), "2026-11-05T15:30").unwrap();
+    assert_eq!(r.origin_place_id, None);
+    let unknown =
+        get_manual_trip_defaults_internal(&db, "no-such-vehicle", "2026-11-05T15:30").unwrap();
+    assert_eq!(unknown.origin_place_id, None);
+}
+
+#[test]
+fn defaults_reject_a_bad_end() {
+    let db = Database::in_memory().unwrap();
+    let v = vehicle(&db);
+    assert!(get_manual_trip_defaults_internal(&db, &v.id.to_string(), "5.11.2026").is_err());
 }

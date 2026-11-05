@@ -1214,6 +1214,21 @@ pub fn dispatch_sync(command: &str, args: Value, state: &ServerState) -> Result<
             let v = crate::commands_internal::get_places_near_internal(&state.db, a.lat, a.lon)?;
             Ok(serde_json::to_value(v).unwrap())
         }
+        "get_manual_trip_defaults" => {
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                vehicle_id: String,
+                end_datetime: String,
+            }
+            let a: Args = parse_args(args)?;
+            let v = crate::commands_internal::get_manual_trip_defaults_internal(
+                &state.db,
+                &a.vehicle_id,
+                &a.end_datetime,
+            )?;
+            Ok(serde_json::to_value(v).unwrap())
+        }
         // ====================================================================
         // Unknown
         // ====================================================================
@@ -1895,6 +1910,22 @@ mod tests {
         assert_eq!(v, json!({ "places": [], "preselectId": null }));
         let err = dispatch_sync("get_places_near", json!({ "lat": 48.1 }), &state).unwrap_err();
         assert!(err.contains("lon"), "got: {err}");
+    }
+
+    /// Task 93: the origin default of the manual phone flow, camelCase both ways.
+    #[test]
+    fn get_manual_trip_defaults_over_rpc_takes_camel_case_args() {
+        let state = test_state();
+        let v = dispatch_sync(
+            "get_manual_trip_defaults",
+            json!({ "vehicleId": "x", "endDatetime": "2026-11-05T15:30" }),
+            &state,
+        )
+        .unwrap();
+        assert_eq!(v, json!({ "originPlaceId": null }));
+        let err = dispatch_sync("get_manual_trip_defaults", json!({ "vehicleId": "x" }), &state)
+            .unwrap_err();
+        assert!(err.contains("endDatetime"), "got: {err}");
     }
 
     // ------------------------------------------------------------------
