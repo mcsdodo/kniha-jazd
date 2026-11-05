@@ -21,6 +21,15 @@ databázu len na čítanie.
 - **Strata údajov:** žiadna
 - **Image, volume, port:** bez zmeny
 
+## [2.6.0] - 2026-11-05
+
+### Pokyny k aktualizácii
+- **Potrebný zásah:** nie
+- **Premenné prostredia:** bez zmeny
+- **Migrácie databázy:** žiadne
+- **Strata údajov:** žiadna
+- **Image, volume, port:** bez zmeny
+
 ### Pridané
 - **Verzia pre telefón** - Na adrese `/m` je jednoduchá verzia pre telefón: zoznam jázd s detailom len na čítanie a mapou trasy, pridanie jazdy z Fuelio s mapou GPS stopy a ručné pridanie jazdy. Pri ručnom pridaní je "Odkiaľ" cieľ poslednej jazdy, "Kam" je podľa polohy GPS, koniec je teraz (dá sa zmeniť) a trasa doplní začiatok a km. Poloha GPS funguje len cez HTTPS.
 - **Nové miesto pri pridaní jazdy** - Dialóg "Pridať" na stránke Fuelio a stránky pre telefón ponúkajú "+ Nové miesto tu": zadáte názov a miesto dostane polohu bodu GPS. Na telefóne môže nové miesto dostať polohu aj z hľadania adresy.
