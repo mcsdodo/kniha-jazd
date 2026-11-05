@@ -8,6 +8,7 @@
 	import OdometerCascadeModal from '$lib/components/OdometerCascadeModal.svelte';
 	import Autocomplete from '$lib/components/Autocomplete.svelte';
 	import MobilePlacePicker from '$lib/components/mobile/MobilePlacePicker.svelte';
+	import FuelioTrackMap from '$lib/components/mobile/FuelioTrackMap.svelte';
 
 	// Task 93: the Fuelio drives without a trip, on the phone. The backend syncs,
 	// matches and writes (ADR-008); this page lists the missing rows and runs the
@@ -225,6 +226,8 @@
 					<strong>{preview.distanceKm} km</strong>
 					<span class="muted">({$LL.mobile.add.gpsNote({ km: preview.gpsKm.toFixed(1) })})</span>
 				</div>
+
+				<FuelioTrackMap driveIds={adding.driveIds} />
 
 				<MobilePlacePicker
 					testId="m-fuelio-origin"
