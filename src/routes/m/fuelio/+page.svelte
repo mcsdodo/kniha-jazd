@@ -86,7 +86,13 @@
 				looseMinKmPct: filters?.looseMinKmPct ?? null
 			});
 			// The backend sorts newest first.
-			if (seq === loadSeq) rows = r.rows.filter((row) => row.status === 'missing' && !row.ignored);
+			// The saved min-km filter of the PC page hides short fragments here
+			// too. Display filtering only, the same rule as /fuelio.
+			const minKm = filters?.minKm || 0;
+			if (seq === loadSeq)
+				rows = r.rows.filter(
+					(row) => row.status === 'missing' && !row.ignored && (row.gpsKm ?? 0) >= minKm
+				);
 		} catch (e) {
 			if (seq === loadSeq) loadError = String(e);
 		} finally {
