@@ -22,6 +22,7 @@ databázu len na čítanie.
 - **Image, volume, port:** bez zmeny
 
 ### Pridané
+- **Miesta na telefóne** - Nová stránka `/m/miesta` ukazuje zoznam miest s hľadaním (nájde aj názvy s diakritikou, keď napíšete text bez nej). Miesto môžete premenovať, umiestniť (hľadaním adresy, ťuknutím na mapu, posunom špendlíka alebo tlačidlom Moja poloha), označiť ako domov alebo zmazať, ak ho nepoužíva žiadna jazda. Nové miesto pridáte tlačidlom Pridať miesto. Na úvodnej stránke `/m` je tlačidlo Miesta.
 - **Trasa pri ručnom pridaní jazdy na telefóne** - Stránka `/m/nova` ukazuje trasu medzi miestami Odkiaľ a Kam na mape. Ak smerovanie ponúkne viac trás, ukáže ich ako tlačidlá (najrýchlejšia prvá). Ťuknutie na tlačidlo alebo na sivú čiaru vyberie trasu a začiatok a km sa prepočítajú podľa nej. Ak má server `SYGIC_API_KEY`, nad mapou je prepínač OSRM a Sygic. Uložená jazda dostane vybranú trasu, takže detail jazdy ukazuje jej mapu.
 
 ### Zmenené

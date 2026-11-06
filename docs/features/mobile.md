@@ -1,6 +1,6 @@
 # Feature: Phone Pages (/m)
 
-> Phone pages under `/m`: see the trips of a year, open one trip, add a trip from a Fuelio drive, and add a trip by hand.
+> Phone pages under `/m`: see the trips of a year, open one trip, add a trip from a Fuelio drive, add a trip by hand, and edit the places.
 
 The PC page copies the layout of the legal export, so it is too wide for a phone. The
 phone pages do not replace it. They cover the tasks that happen away from the desk: a
@@ -18,11 +18,12 @@ estimate of a manual trip, and the origin default of a manual trip.
 1. Open `/m`. On a narrow screen (640 px or less), the PC header has the link
    **Mobilná verzia** to this page.
 2. The bar shows the active vehicle.
-3. Three buttons:
+3. Four buttons:
    - **Pridať z Fuelio** -- only when the three `DROPBOX_*` secrets are set
      (`is_fuelio_available`).
    - **Pridať ručne**.
    - **Všetky jazdy**, with the count and the km of the selected year.
+   - **Miesta**, with the hint "Názov, poloha a domov". It also shows in read-only mode.
 4. In read-only mode, the two add buttons do not show.
 5. Under the buttons, a card shows the year stats of the PC page: the km, the fuel
    (liters and EUR), the fuel remaining, the average consumption and the deviation of
@@ -142,6 +143,42 @@ Task 94 adds the route itself:
 2. **Uložiť a posunúť** saves the trip. **Zrušiť** saves no trip.
 3. A trip that ends now is usually the last trip, so the dialog does not open.
 
+### 9. Places (`/m/miesta`)
+
+Task 96. The page has no new backend command. It uses the commands of the PC Miesta page.
+
+1. The list shows the places in the backend order. A card shows the name, the house icon
+   for the home place, the uses, and the position with 5 decimals.
+2. The search box filters the list. A query without diacritics also finds a name with
+   diacritics.
+3. **Pridať miesto** opens an empty edit screen. It does not show in read-only mode.
+4. A tap on a card opens the edit screen. It is a history entry, so the phone back
+   gesture closes it.
+5. The edit screen has:
+   - the name;
+   - the position: an address search (`geocode_place`), a tap on the map or a drag of
+     the pin (source `manual`), or **Moja poloha** (the phone GPS, source `manual`);
+   - **Označiť ako domov**;
+   - **Uložiť miesto**;
+   - **Zmazať**, only for an existing place.
+6. **Zmazať** asks a confirm question first. If a trip uses the place, the button is
+   disabled and the note says "Miesto je použité {n}-krát."
+7. In read-only mode, the screen has no save and no delete, and the map takes no input.
+
+The save order of an existing place:
+
+```
+re-read the place with list_places
+rename          if the name changed
+set position    if the position changed
+set home mark   if the home mark changed
+stop at the first error; keep the screen open and show the error
+```
+
+A new place: `create_place`, then `set_home_place` if the box is checked. After a
+successful create, the screen always closes. If only the home mark fails, the error shows
+on the list, and the place stays.
+
 ## Technical Implementation
 
 ### Frontend
@@ -167,11 +204,15 @@ Task 94 adds the route itself:
     (`getManualTripEstimate`) follow the end time and the two ends. Only the newest
     request may set a value. `placeId()` (line 191) creates a new place once per name,
     so a second save after a cancelled odometer dialog does not create it again.
+  - [src/routes/m/miesta/+page.svelte](../../src/routes/m/miesta/+page.svelte) -- Task 96:
+    the place list, the search, and the shallow-routing entry of the edit screen. It
+    calls `listPlaces`, `createPlace`, `updatePlace`, `deletePlace` and `setHomePlace`.
 - **Components** in [src/lib/components/mobile/](../../src/lib/components/mobile/):
   - [MobilePlacePicker.svelte](../../src/lib/components/mobile/MobilePlacePicker.svelte) -- one end of a trip. Fuelio mode (no `locate`): a new
     place gets the GPS point of the drive. Manual mode (`locate`): `locate_()` (line
     148) reads the phone GPS and calls `getPlacesNear`; `search()` (line 195) calls
     `geocodePlace`; `pickCandidate()` sets a `geocoder` position.
+  - [PlaceEditor.svelte](../../src/lib/components/mobile/PlaceEditor.svelte) and [PlacePinMap.svelte](../../src/lib/components/mobile/PlacePinMap.svelte) -- Task 96: the edit screen, and the map with one pin (a tap or a drag calls `onpick`).
   - [FuelioTrackMap.svelte](../../src/lib/components/mobile/FuelioTrackMap.svelte) -- the GPS track of the drives (`get_fuelio_track`).
   - [TripRouteMap.svelte](../../src/lib/components/mobile/TripRouteMap.svelte) -- the stored route of a trip (`get_trip_route`).
   - [TripCard.svelte](../../src/lib/components/mobile/TripCard.svelte), [TripDetail.svelte](../../src/lib/components/mobile/TripDetail.svelte), [TripLookup.ts](../../src/lib/components/mobile/TripLookup.ts) -- the list card, the detail,
@@ -242,7 +283,7 @@ with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
 |------|---------|
 | [src/routes/+layout.svelte](../../src/routes/+layout.svelte) | The `/m` branch without the PC header; the `nav-mobile` link |
 | [src/lib/haReadings.ts](../../src/lib/haReadings.ts) | The Home Assistant readings next to the year stats, for the PC page and the phone start page |
-| [src/routes/m/](../../src/routes/m/) | The four phone pages |
+| [src/routes/m/](../../src/routes/m/) | The five phone pages |
 | [src/lib/components/mobile/](../../src/lib/components/mobile/) | Place picker, maps, trip card and detail, bar, vehicle gate |
 | [OdometerCascadeModal.svelte](../../src/lib/components/OdometerCascadeModal.svelte) | The odometer dialog; a `max-width: 600px` block for the phone |
 | [commands_internal/mobile.rs](../../src-tauri/core/src/commands_internal/mobile.rs) | `get_places_near`, `get_manual_trip_defaults`, `get_manual_trip_estimate`, `save_manual_trip_route` |
@@ -279,6 +320,13 @@ with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
   as on `/mapa`.
 - **Why no title on the OSRM | Sygic switch?** The two names say what it is. A Slovak
   title such as "Smerovanie" did not read well.
+- **Why does the save stop at the first error?** The three writes are separate commands.
+  A stop keeps the screen open with the typed values, so the user can fix the cause and
+  save again. The fresh `list_places` row makes the second save write only what is still
+  different.
+- **Why no calculation or new command for places?** ADR-008: the page only shows and
+  sends. A human sets the position by a tap, a drag, the GPS or a chosen result
+  (ADR-032). The list shows the stored name (ADR-034).
 - **Why no fuel fields?** Fuel comes from Paperless invoices on the PC page.
 - **Why does the Fuelio list show the local drives first?** The sync can take seconds. A
   drive that is already local must not wait for Dropbox.
@@ -298,7 +346,7 @@ with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
   - [dispatcher.rs](../../src-tauri/core/src/server/dispatcher.rs) and
     [dispatcher_async.rs](../../src-tauri/core/src/server/dispatcher_async.rs) -- the
     argument parse of the new commands.
-- **Integration tests:** [mobile-home-stats.spec.ts](../../tests/integration/specs/tier2/mobile-home-stats.spec.ts) checks the stats card, the compensation banner and the suggested fill-up on `/m`. [mobile-manual-route.spec.ts](../../tests/integration/specs/tier2/mobile-manual-route.spec.ts) (Task 94) sets the browser GPS at a place, so "Kam" selects it, then checks the map, the km of the mock OSRM route, the switch to Sygic, and the stored route after the save. The mock router gives one route per service, so the chip tap is not covered there; the backend tests cover the alternatives. The specs for the other `/m` flows are not written yet.
+- **Integration tests:** [mobile-home-stats.spec.ts](../../tests/integration/specs/tier2/mobile-home-stats.spec.ts) checks the stats card, the compensation banner and the suggested fill-up on `/m`. [mobile-manual-route.spec.ts](../../tests/integration/specs/tier2/mobile-manual-route.spec.ts) (Task 94) sets the browser GPS at a place, so "Kam" selects it, then checks the map, the km of the mock OSRM route, the switch to Sygic, and the stored route after the save. The mock router gives one route per service, so the chip tap is not covered there; the backend tests cover the alternatives. [mobile-places.spec.ts](../../tests/integration/specs/tier2/mobile-places.spec.ts) (Task 96, 14 tests) covers the list, the search, create, edit, the home mark, the delete and its guard. The specs for the other `/m` flows are not written yet.
   [fuelio.spec.ts](../../tests/integration/specs/env/fuelio.spec.ts) types a new place
   name in the PC Fuelio dialog. The spec is changed for the 300 m preselect, but it was
   not run after the change.
@@ -312,6 +360,7 @@ with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
   message, and the user picks from the list or uses the address search.
 - **Not tested on a real phone:** the back gesture from the detail, and the odometer
   dialog at phone width. A headless browser checked the pages.
+- **Places spec gaps (Task 96):** no spec starts the server in read-only mode, and no spec drags the pin. The tap test covers the same `onpick` path.
 
 ## Related
 
@@ -319,6 +368,7 @@ with the GPS route of a Fuelio trip, so a failed route save keeps the trip.
 - [place-book.md](./place-book.md) -- places, sources, the geocoder
 - [trip-odometer-cascade.md](./trip-odometer-cascade.md) -- the odometer dialog
 - [route-maps.md](./route-maps.md) -- stored routes, the route provider
-- ADR-008 (backend-only calculations), ADR-032 (a human places a place), ADR-054 (whole-km distance)
+- ADR-008 (backend-only calculations), ADR-032 (a human places a place), ADR-034, ADR-054 (whole-km distance)
 - [BIZ-031](../../DECISIONS.md#biz-031-a-new-trip-preselects-a-place-only-within-300-m-and-a-new-place-is-always-offered), [BIZ-032](../../DECISIONS.md#biz-032-the-phone-manual-entry-fills-the-origin-the-start-and-the-km)
+- [_tasks/96-mobile-places/](../../_tasks/96-mobile-places/01-task.md) -- planning of the places editor
 - [_tasks/93-mobile-ui/](../../_tasks/93-mobile-ui/01-task.md) -- planning
