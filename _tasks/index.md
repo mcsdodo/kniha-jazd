@@ -2,12 +2,13 @@
 
 Quick overview of all tasks and their status.
 
-**Last updated:** 2026-11-06 (Task [95](./95-ui-mockups/) added.)
+**Last updated:** 2026-11-06 (Task [96](./96-mobile-places/) added.)
 
 ## Active Tasks
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
+| 96 | [Mobile Places](96-mobile-places/) | 📋 Planning | `/m/miesta`: place list with search, edit screen (name, position by search, map tap or GPS, home mark, delete), new place; frontend only; mockup: screens 1, 10-12 of [docs/mockups/mobil.html](../docs/mockups/mobil.html) |
 | 95 | [UI Mockups](95-ui-mockups/) | 🟡 In Progress | Mockup-first workflow for UI changes (`/mockup` skill, mockup files in [docs/mockups/](../docs/mockups/README.md), drift check in `/verify`); mockups of all PC pages, each published as a private claude.ai artifact |
 | 94 | [Mobile Route Alternatives](94-mobile-route-alternatives/) | 🟡 In Progress | `/m/nova`: route map, route alternatives (chips + tap on the map), OSRM / Sygic switch, the chosen route saved with the trip; branch `feat/mobile-route-alternatives` |
 | 93 | [Mobile UI](93-mobile-ui/) | 🟡 In Progress | Phone pages under `/m`: trip list with read-only detail, add from Fuelio with the GPS map, add by hand with GPS or address places; branch `feat/93-mobile-ui`, not merged; see [docs/features/mobile.md](../docs/features/mobile.md) |
