@@ -50,6 +50,8 @@
 	let searching = $state(false);
 	let searched = $state(false);
 	let searchFailed = $state(false);
+	// A new place copies the name into the search box until the user types there.
+	let queryTouched = false;
 
 	let locating = $state(false);
 	let geoError = $state<string | null>(null);
@@ -141,6 +143,9 @@
 			type="text"
 			class="input"
 			bind:value={name}
+			oninput={() => {
+				if (!place && !queryTouched) query = name;
+			}}
 			disabled={readOnly}
 			data-testid="m-place-name"
 		/>
@@ -153,6 +158,7 @@
 				type="text"
 				class="input grow"
 				bind:value={query}
+				oninput={() => (queryTouched = true)}
 				placeholder={$LL.places.searchPlaceholder()}
 				aria-label={$LL.places.searchPlaceholder()}
 				disabled={readOnly}

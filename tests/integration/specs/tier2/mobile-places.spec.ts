@@ -7,7 +7,7 @@
 
 import { waitForAppReady } from '../../utils/app';
 import { ensureLanguage } from '../../utils/language';
-import { ensurePlace, rpc, seedVehicle, setActiveVehicle } from '../../utils/db';
+import { ensurePlace, rpc, seedVehicle, seedTrip, setActiveVehicle } from '../../utils/db';
 
 interface Place {
   id: string;
@@ -32,6 +32,11 @@ const SPEC_PLACES = [
   'Xi Gate, Testville',
   'Omicron Pier, Testville',
   'Pi Dock, Testville',
+  'Pi Corner, Testville',
+  'Rho Shed, Testville',
+  'Sigma Yard, Testville',
+  'Sigma Far, Testville',
+  'Gamma Warehouse, Testville',
 ];
 
 async function forgetSpecPlaces(): Promise<void> {
@@ -221,5 +226,81 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
       timeout: 5000,
       timeoutMsg: 'the map did not pan back to zoom 15',
     });
+  });
+
+  it('adds a new place with a pin from the map', async () => {
+    await browser.url('/m/miesta');
+    await (await $('[data-testid="m-miesta-add"]')).click();
+    await expect($('[data-testid="m-place-save"]')).toBeDisabled();
+    await (await $('[data-testid="m-place-name"]')).setValue('Pi Corner, Testville');
+    await expect($('[data-testid="m-place-search"]')).toHaveValue('Pi Corner, Testville');
+    await expect($('[data-testid="m-place-save"]')).toBeDisabled(); // no pin yet
+    const map = await waitForLeaflet('m-place-map');
+    await map.click({ x: 100, y: 60 });
+    await (await $('[data-testid="m-place-save"]')).click();
+    await cardByName('Pi Corner, Testville');
+    const found = await rpc<Place | null>('find_place', { name: 'Pi Corner, Testville' });
+    expect(found?.source).toBe('manual');
+  });
+
+  it('adds a new place at the first pin from a search', async () => {
+    await browser.url('/m/miesta');
+    await (await $('[data-testid="m-miesta-add"]')).click();
+    const map = await waitForLeaflet('m-place-map');
+    await (await $('[data-testid="m-place-name"]')).setValue('Gamma Warehouse, Testville');
+    await (await $('[data-testid="m-place-search-btn"]')).click();
+    const first = await $('[data-testid="m-place-candidate"]');
+    await first.waitForDisplayed({ timeout: 10000 });
+    await first.click();
+    await browser.waitUntil(async () => (await map.getAttribute('data-zoom')) === '15', {
+      timeout: 5000,
+      timeoutMsg: 'the map did not pan to zoom 15 for the first pin',
+    });
+    await (await $('[data-testid="m-place-save"]')).click();
+    const card = await cardByName('Gamma Warehouse, Testville');
+    expect(await card.$('[data-testid="m-miesta-card-coords"]').getText()).toBe('48.50000, 17.25000');
+  });
+
+  it('keeps save disabled for a blank name', async () => {
+    await browser.url('/m/miesta');
+    await (await $('[data-testid="m-miesta-add"]')).click();
+    await (await $('[data-testid="m-place-name"]')).setValue('   ');
+    const map = await waitForLeaflet('m-place-map');
+    await map.click({ x: 100, y: 60 });
+    await expect($('[data-testid="m-place-save"]')).toBeDisabled();
+  });
+
+  it('deletes an unused place after the question', async () => {
+    const id = await ensurePlace('Rho Shed, Testville');
+    await openEditor(id);
+    await (await $('[data-testid="m-place-delete"]')).click();
+    const confirm = await $('.modal-actions button:last-child');
+    await confirm.waitForClickable({ timeout: 5000 });
+    await confirm.click();
+    await $('[data-testid="m-place-editor"]').waitForDisplayed({ reverse: true, timeout: 10000 });
+    expect(await rpc<Place | null>('find_place', { name: 'Rho Shed, Testville' })).toBeNull();
+  });
+
+  it('disables delete for a place that a trip uses', async () => {
+    const vehicle = await seedVehicle({
+      name: 'Phone Places In Use',
+      licensePlate: 'MOB-097',
+      initialOdometer: 1000,
+      vehicleType: 'Ice',
+      tankSizeLiters: 50,
+      tpConsumption: 7.0,
+    });
+    await seedTrip({
+      vehicleId: vehicle.id as string,
+      startDatetime: '2026-03-02T08:00',
+      origin: 'Sigma Yard, Testville',
+      destination: 'Sigma Far, Testville',
+      distanceKm: 10,
+      odometer: 1010,
+      purpose: 'Test',
+    });
+    await openEditor(await ensurePlace('Sigma Yard, Testville'));
+    await expect($('[data-testid="m-place-delete"]')).toBeDisabled();
+    await expect($('[data-testid="m-place-in-use"]')).toHaveText(expect.stringContaining('1 time'));
   });
 });

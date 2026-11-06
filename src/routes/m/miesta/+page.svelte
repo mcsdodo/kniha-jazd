@@ -5,11 +5,19 @@
 	import { onMount } from 'svelte';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { listPlaces, renamePlace, setPlacePosition, setHomePlace } from '$lib/api';
+	import {
+		listPlaces,
+		renamePlace,
+		setPlacePosition,
+		setHomePlace,
+		createPlace,
+		deletePlace
+	} from '$lib/api';
 	import { toast } from '$lib/stores/toast';
 	import type { Place } from '$lib/types';
 	import { appModeStore } from '$lib/stores/appMode';
 	import LL from '$lib/i18n/i18n-svelte';
+	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import MobileBar from '$lib/components/mobile/MobileBar.svelte';
 	import { coords5 } from '$lib/components/mobile/MobileFormat';
 	import PlaceEditor, { type PlaceDraft } from '$lib/components/mobile/PlaceEditor.svelte';
@@ -39,9 +47,21 @@
 	// the back gesture closes the edit screen.
 	let editId = $derived((page.state as { placeId?: string }).placeId ?? null);
 	let editPlace = $derived(editId ? (places.find((p) => p.id === editId) ?? null) : null);
+	let isNew = $derived((page.state as { newPlace?: boolean }).newPlace === true);
+	let placeToDelete = $state<Place | null>(null);
 
 	function openEditor(placeId: string) {
 		pushState('', { placeId });
+	}
+
+	function openNew() {
+		pushState('', { newPlace: true });
+	}
+
+	// Leave the edit screen after a write. If the user already made the back
+	// gesture while the write ran, a second back would leave the list.
+	function leaveEditor(stillOpen: () => boolean) {
+		if (stillOpen()) history.back();
 	}
 
 	function closeEditor() {
@@ -84,9 +104,50 @@
 				return;
 			}
 		}
-		history.back();
+		leaveEditor(() => (page.state as { placeId?: string }).placeId === id);
 		await loadPlaces();
 		toast.success($LL.places.saved());
+	}
+
+	// Create a new place. After a successful create the screen always closes.
+	async function saveNew(draft: PlaceDraft) {
+		let created: Place;
+		try {
+			created = await createPlace(draft.name.trim(), draft.lat, draft.lon, draft.source);
+		} catch (error) {
+			toast.error($LL.places.saveError({ error: String(error) }));
+			return;
+		}
+		let homeFailed: string | null = null;
+		if (draft.isHome) {
+			try {
+				await setHomePlace(created.id);
+			} catch (error) {
+				homeFailed = String(error);
+			}
+		}
+		leaveEditor(() => (page.state as { newPlace?: boolean }).newPlace === true);
+		await loadPlaces();
+		if (homeFailed !== null) {
+			toast.error($LL.places.homeError({ error: homeFailed }));
+		} else {
+			toast.success($LL.places.saved());
+		}
+	}
+
+	async function confirmDelete() {
+		const target = placeToDelete;
+		placeToDelete = null;
+		if (!target) return;
+		try {
+			await deletePlace(target.id);
+		} catch (error) {
+			toast.error($LL.places.deleteError({ error: String(error) }));
+			return;
+		}
+		leaveEditor(() => (page.state as { placeId?: string }).placeId === target.id);
+		await loadPlaces();
+		toast.success($LL.places.deleted());
 	}
 
 	onMount(loadPlaces);
@@ -115,9 +176,12 @@
 			place={editPlace}
 			readOnly={$appModeStore.isReadOnly}
 			onsave={(draft) => saveExisting(editPlace.id, draft)}
-			ondelete={() => {}}
+			ondelete={() => (placeToDelete = editPlace)}
 		/>
 	{/key}
+{:else if isNew}
+	<MobileBar title={$LL.places.add()} onback={closeEditor} backLabel={$LL.places.title()} />
+	<PlaceEditor place={null} readOnly={$appModeStore.isReadOnly} onsave={saveNew} ondelete={() => {}} />
 {:else}
 <MobileBar title={$LL.places.title()} backHref="/m" backLabel={$LL.mobile.places.back()} />
 
@@ -130,7 +194,9 @@
 		data-testid="m-miesta-filter"
 	/>
 	{#if !$appModeStore.isReadOnly}
-		<button type="button" class="add" data-testid="m-miesta-add">{$LL.places.add()}</button>
+		<button type="button" class="add" onclick={openNew}
+			data-testid="m-miesta-add"
+		>{$LL.places.add()}</button>
 	{/if}
 
 	{#if loadError}
@@ -177,6 +243,18 @@
 		</div>
 	{/each}
 </div>
+{/if}
+
+{#if placeToDelete}
+	<ConfirmModal
+		title={$LL.places.deleteConfirmTitle()}
+		message={$LL.places.deleteConfirmMessage({ name: placeToDelete.name })}
+		confirmText={$LL.places.delete()}
+		cancelText={$LL.common.cancel()}
+		danger={true}
+		onConfirm={confirmDelete}
+		onCancel={() => (placeToDelete = null)}
+	/>
 {/if}
 
 <style>
