@@ -3,12 +3,16 @@
 	// database, not to a vehicle, so there is no vehicle gate. The values
 	// come from the backend (ADR-008).
 	import { onMount } from 'svelte';
-	import { listPlaces } from '$lib/api';
+	import { pushState } from '$app/navigation';
+	import { page } from '$app/state';
+	import { listPlaces, renamePlace, setPlacePosition, setHomePlace } from '$lib/api';
+	import { toast } from '$lib/stores/toast';
 	import type { Place } from '$lib/types';
 	import { appModeStore } from '$lib/stores/appMode';
 	import LL from '$lib/i18n/i18n-svelte';
 	import MobileBar from '$lib/components/mobile/MobileBar.svelte';
 	import { coords5 } from '$lib/components/mobile/MobileFormat';
+	import PlaceEditor, { type PlaceDraft } from '$lib/components/mobile/PlaceEditor.svelte';
 
 	// The backend orders the list (unplaced first, then most-used, then by
 	// name). Render it in the order it arrives.
@@ -31,6 +35,60 @@
 			: places
 	);
 
+	// The open place lives in the history state of a shallow-routing entry, so
+	// the back gesture closes the edit screen.
+	let editId = $derived((page.state as { placeId?: string }).placeId ?? null);
+	let editPlace = $derived(editId ? (places.find((p) => p.id === editId) ?? null) : null);
+
+	function openEditor(placeId: string) {
+		pushState('', { placeId });
+	}
+
+	function closeEditor() {
+		history.back();
+	}
+
+	// Write the changes of an existing place, step by step. The first error
+	// stops the chain and keeps the screen open.
+	async function saveExisting(id: string, draft: PlaceDraft) {
+		let current: Place | undefined;
+		try {
+			current = (await listPlaces()).find((p) => p.id === id);
+			if (!current) throw new Error('place not found');
+		} catch (error) {
+			toast.error($LL.places.saveError({ error: String(error) }));
+			return;
+		}
+		const name = draft.name.trim();
+		if (name !== current.name) {
+			try {
+				await renamePlace(id, name);
+			} catch (error) {
+				toast.error($LL.places.renameError({ error: String(error) }));
+				return;
+			}
+		}
+		if (draft.lat !== current.lat || draft.lon !== current.lon || draft.source !== current.source) {
+			try {
+				await setPlacePosition(id, draft.lat, draft.lon, draft.source);
+			} catch (error) {
+				toast.error($LL.places.saveError({ error: String(error) }));
+				return;
+			}
+		}
+		if (draft.isHome !== current.isHome) {
+			try {
+				await setHomePlace(draft.isHome ? id : null);
+			} catch (error) {
+				toast.error($LL.places.homeError({ error: String(error) }));
+				return;
+			}
+		}
+		history.back();
+		await loadPlaces();
+		toast.success($LL.places.saved());
+	}
+
 	onMount(loadPlaces);
 
 	async function loadPlaces() {
@@ -46,6 +104,21 @@
 	}
 </script>
 
+{#if editId && editPlace}
+	<MobileBar
+		title={$LL.mobile.places.editTitle()}
+		onback={closeEditor}
+		backLabel={$LL.places.title()}
+	/>
+	{#key editPlace.id}
+		<PlaceEditor
+			place={editPlace}
+			readOnly={$appModeStore.isReadOnly}
+			onsave={(draft) => saveExisting(editPlace.id, draft)}
+			ondelete={() => {}}
+		/>
+	{/key}
+{:else}
 <MobileBar title={$LL.places.title()} backHref="/m" backLabel={$LL.mobile.places.back()} />
 
 <div class="body" data-testid="m-miesta">
@@ -69,7 +142,15 @@
 	{/if}
 
 	{#each visiblePlaces as place (place.id)}
-		<div class="card" data-testid="m-miesta-card" data-place-id={place.id}>
+		<div
+			class="card"
+			role="button"
+			tabindex="0"
+			onclick={() => openEditor(place.id)}
+			onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && openEditor(place.id)}
+			data-testid="m-miesta-card"
+			data-place-id={place.id}
+		>
 			<div class="name-row">
 				<span class="name" data-testid="m-miesta-card-name">{place.name}</span>
 				{#if place.isHome}
@@ -96,6 +177,7 @@
 		</div>
 	{/each}
 </div>
+{/if}
 
 <style>
 	.body {
@@ -135,6 +217,7 @@
 		border-radius: 12px;
 		background: var(--bg-surface);
 		box-sizing: border-box;
+		cursor: pointer;
 	}
 
 	.name-row {
