@@ -13,10 +13,10 @@ before the plan and the code. The steps are in the `mockup` skill
 ## View a mockup
 
 - **Owner:** open the artifact link in the table.
-- **Anybody else:** GitHub Pages serves this folder from `main`:
-  `https://mcsdodo.github.io/kniha-jazd/mockups/<file>`, for example
-  [jazdy.html](https://mcsdodo.github.io/kniha-jazd/mockups/jazdy.html). A file in a clone also
-  opens in a browser. In both cases the page nav links to the files next to it.
+- **Anybody else:** GitHub Pages serves this folder from `main`. Start at the index,
+  [mockups/](https://mcsdodo.github.io/kniha-jazd/mockups/) ([index.html](index.html)), which
+  links to each page. A file in a clone also opens in a browser. In both cases the page nav
+  links to the files next to it, and "All mockups" goes back to the index.
 - Pages serves `docs/` as plain files, without Jekyll ([docs/.nojekyll](../.nojekyll)).
 
 ## Registry

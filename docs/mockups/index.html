@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kniha jázd: UI mockups</title>
+<style>
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --page-bg: #e9edf0; --page-ink: #2c3e50; --page-muted: #6b7a80;
+  --bg-surface: #ffffff; --bg-header: #2c3e50; --border-default: #e0e0e0;
+  --accent-primary: #3498db; --shadow-default: rgba(0,0,0,0.1);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --page-bg: #0d0f10; --page-ink: #e0e0e0; --page-muted: #9aa4a8;
+  --bg-surface: #1e1e1e; --bg-header: #1e1e1e; --border-default: #333333;
+  --accent-primary: #5dade2; --shadow-default: rgba(0,0,0,0.3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.45; }
+main { max-width: 980px; margin: 0 auto; padding: 24px; }
+h1 { margin: 0 0 6px; font-size: 1.6rem; }
+p { margin: 4px 0; color: var(--page-muted); max-width: 80ch; }
+code { font-size: 0.9em; }
+a { color: var(--accent-primary); }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.themebtn { font: inherit; font-size: 0.85rem; border: 1px solid var(--page-muted); background: transparent; color: var(--page-ink); border-radius: 6px; padding: 3px 10px; cursor: pointer; white-space: nowrap; }
+h2 { margin: 28px 0 10px; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--page-muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.card { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 8px; background: var(--bg-surface); border: 1px solid var(--border-default); box-shadow: 0 2px 6px var(--shadow-default); color: inherit; text-decoration: none; }
+.card:hover { border-color: var(--accent-primary); }
+.card b { font-size: 1.05rem; color: var(--accent-primary); }
+.card .route { font-family: monospace; font-size: 0.85rem; color: var(--page-muted); }
+.card span { font-size: 0.9rem; color: var(--page-muted); }
+footer { margin-top: 32px; font-size: 0.85rem; color: var(--page-muted); }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>Kniha jázd: UI mockups</h1>
+      <p>Each page of the app as frames, one frame per screen state, with notes under each frame. The example data is invented. The UI text is Slovak, as in the app.</p>
+      <p>A change that the user will see is drawn here first, marked "Návrh (task NN)", before the code. The files are in <code>docs/mockups/</code> of the repo.</p>
+    </div>
+    <button class="themebtn" type="button" id="themebtn">Dark / light</button>
+  </div>
+
+  <h2>PC</h2>
+  <div class="grid">
+    <a class="card" href="jazdy.html"><b>Jazdy</b><span class="route">/</span><span>The trip logbook: the app header, the vehicle and year stats, the trip grid, the row editor, the odometer shift and the print export.</span></a>
+    <a class="card" href="doklady.html"><b>Doklady</b><span class="route">/doklady</span><span>The Paperless-ngx invoices of the year, and the dialog that assigns an invoice to a trip.</span></a>
+    <a class="card" href="fuelio.html"><b>Fuelio</b><span class="route">/fuelio</span><span>The GPS drives of the Fuelio app next to the logbook: the cross-check table, the map, and the dialogs to overwrite or add a trip.</span></a>
+    <a class="card" href="mapa.html"><b>Mapa</b><span class="route">/mapa?trip=&lt;id&gt;</span><span>The route map of one trip: direct, round trip and loop routes, the alternatives, and the distance write-back.</span></a>
+    <a class="card" href="miesta.html"><b>Miesta</b><span class="route">/miesta</span><span>The place book: add, rename, set the position on the map, set the home place, delete.</span></a>
+    <a class="card" href="nastavenia.html"><b>Nastavenia</b><span class="route">/settings</span><span>The settings: preferences, Home Assistant, Paperless-ngx, the vehicles, the company, and the database backups.</span></a>
+  </div>
+
+  <h2>Phone</h2>
+  <div class="grid">
+    <a class="card" href="mobil.html"><b>Mobil</b><span class="route">/m</span><span>The phone pages: the start page, the trip list and detail, add a trip from Fuelio or by hand, and the route choice.</span></a>
+  </div>
+
+  <footer>The registry of the mockups and the workflow are in <code>docs/mockups/README.md</code> in the repo.</footer>
+</main>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.setAttribute("data-theme", "dark"); } catch (e) {}
+  document.getElementById("themebtn").addEventListener("click", function () {
+    root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+</body>
+</html>

@@ -77,6 +77,8 @@ or revert the proposal commit). Then publish it.
 3. Add a row to the registry with the file, the link and the UUID from the publish result.
 4. Add the new page to the nav of the other files (`<a href="<artifact url>" data-file="<file>">`),
    and publish them.
+5. Add a card for the page to [docs/mockups/index.html](../../../docs/mockups/index.html), the
+   start page on GitHub Pages. The index has no artifact.
 
 ## Drawing rules
 
