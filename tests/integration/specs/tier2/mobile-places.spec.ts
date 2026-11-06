@@ -31,6 +31,7 @@ const SPEC_PLACES = [
   'Nu Gate, Testville',
   'Xi Gate, Testville',
   'Omicron Pier, Testville',
+  'Pi Dock, Testville',
 ];
 
 async function forgetSpecPlaces(): Promise<void> {
@@ -200,5 +201,25 @@ describe('Tier 2: Mobile places (/m/miesta)', () => {
     await browser.back();
     await $('[data-testid="m-place-editor"]').waitForDisplayed({ reverse: true, timeout: 10000 });
     await expect($('[data-testid="m-miesta"]')).toBeDisplayed();
+  });
+
+  it('pans the map to a geocoder result at zoom 15', async () => {
+    const id = await ensurePlace('Pi Dock, Testville');
+    await openEditor(id);
+    const map = await waitForLeaflet('m-place-map');
+    await (await $('.leaflet-control-zoom-out')).click();
+    await browser.waitUntil(async () => (await map.getAttribute('data-zoom')) === '14', {
+      timeout: 5000,
+      timeoutMsg: 'zoom out did not change data-zoom',
+    });
+    await (await $('[data-testid="m-place-search"]')).setValue('Gamma Warehouse, Testville');
+    await (await $('[data-testid="m-place-search-btn"]')).click();
+    const first = await $('[data-testid="m-place-candidate"]');
+    await first.waitForDisplayed({ timeout: 10000 });
+    await first.click();
+    await browser.waitUntil(async () => (await map.getAttribute('data-zoom')) === '15', {
+      timeout: 5000,
+      timeoutMsg: 'the map did not pan back to zoom 15',
+    });
   });
 });

@@ -8,10 +8,13 @@
 
 	let {
 		position,
-		onpick
+		onpick,
+		readOnly = false
 	}: {
 		position: { lat: number; lon: number } | null;
 		onpick: (lat: number, lon: number) => void;
+		/** No tap and no drag changes the position. */
+		readOnly?: boolean;
 	} = $props();
 
 	/** Roughly Slovakia: the view for a place with no position yet. */
@@ -22,6 +25,8 @@
 	let mapEl = $state<HTMLDivElement | null>(null);
 	let leafletReady = $state(false);
 	let mapReady = $state(false);
+	// The zoom level, shown as data-zoom for the integration test.
+	let zoom = $state<number | null>(null);
 
 	// Plain handles: Leaflet objects must not become effect dependencies.
 	let leaflet: typeof import('leaflet') | null = null;
@@ -59,7 +64,12 @@
 			attribution:
 				'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
+		zoom = map.getZoom();
+		map.on('zoomend', () => {
+			zoom = map?.getZoom() ?? null;
+		});
 		map.on('click', (event) => {
+			if (readOnly) return;
 			shownLat = event.latlng.lat;
 			shownLon = event.latlng.lng;
 			onpick(event.latlng.lat, event.latlng.lng);
@@ -86,7 +96,7 @@
 		}
 
 		if (!marker) {
-			marker = leaflet.marker([pinLat, pinLon], { icon: pinIcon, draggable: true }).addTo(map);
+			marker = leaflet.marker([pinLat, pinLon], { icon: pinIcon, draggable: !readOnly }).addTo(map);
 			marker.on('dragend', () => {
 				const moved = marker?.getLatLng();
 				if (!moved) return;
@@ -94,6 +104,11 @@
 				shownLon = moved.lng;
 				onpick(moved.lat, moved.lng);
 			});
+			// The first pin of a map that started without a position: a pin from
+			// outside (search, GPS) pans to it. A tap sets shownLat first, so it does not.
+			if (pinLat !== shownLat || pinLon !== shownLon) {
+				map.setView([pinLat, pinLon], PLACED_ZOOM);
+			}
 			shownLat = pinLat;
 			shownLon = pinLon;
 			return;
@@ -107,7 +122,7 @@
 	});
 </script>
 
-<div class="map" bind:this={mapEl} data-testid="m-place-map"></div>
+<div class="map" bind:this={mapEl} data-testid="m-place-map" data-zoom={zoom}></div>
 
 <style>
 	.map {

@@ -187,7 +187,7 @@
 			</ul>
 		{/if}
 
-		<PlacePinMap {position} {onpick} />
+		<PlacePinMap {position} {onpick} {readOnly} />
 		<p class="status" data-testid="m-place-position">
 			{#if pinnedByHand && lat !== null && lon !== null}
 				{$LL.mobile.places.positionManual({ coords: coords5(lat, lon) })}
@@ -223,11 +223,6 @@
 		>{$LL.places.save()}</button>
 
 		{#if place}
-			{#if place.uses > 0}
-				<p class="status" data-testid="m-place-in-use">
-					{$LL.places.deleteInUse({ count: place.uses })}
-				</p>
-			{/if}
 			<button
 				type="button"
 				class="btn danger"
@@ -235,6 +230,11 @@
 				onclick={ondelete}
 				data-testid="m-place-delete"
 			>{$LL.places.delete()}</button>
+			{#if place.uses > 0}
+				<p class="status" data-testid="m-place-in-use">
+					{$LL.places.deleteInUse({ count: place.uses })}
+				</p>
+			{/if}
 		{/if}
 	{/if}
 </div>
