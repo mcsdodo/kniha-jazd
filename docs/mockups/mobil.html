@@ -125,9 +125,9 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
 <body>
 <header class="page">
   <h1>Kniha jázd on the phone: current state</h1>
-  <p>Nine phone screens under <code>/m</code>, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each screen say what the screen does.</p>
+  <p>Twelve phone screens under <code>/m</code>, as they work on <code>main</code>. The example data is invented. The UI text is Slovak, as in the app. The notes under each screen say what the screen does.</p>
   <p>The source is <code>docs/mockups/mobil.html</code> in the repo. Its git history shows when the page changed.</p>
-  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. Task 96 has an open proposal: a places editor on the phone (screens 1, 10, 11 and 12).</p>
+  <p>An orange dashed box with the tag "Návrh (task NN)" marks a proposal that is not built yet. This page has no open proposal.</p>
   <p style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:0.9rem"><a style="color:var(--accent)" href="index.html">All mockups</a> <b>Mobil</b> <span style="color:var(--muted)">PC:</span> <a style="color:var(--accent)" href="jazdy.html">Jazdy</a><a style="color:var(--accent)" href="doklady.html">Doklady</a><a style="color:var(--accent)" href="fuelio.html">Fuelio</a><a style="color:var(--accent)" href="mapa.html">Mapa</a><a style="color:var(--accent)" href="miesta.html">Miesta</a><a style="color:var(--accent)" href="nastavenia.html">Nastavenia</a></p>
 </header>
 
@@ -142,9 +142,7 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
         <div class="big">Pridať z Fuelio<small>Jazda podľa GPS záznamu</small></div>
         <div class="big alt">Pridať ručne<small>Koniec teraz, cieľ podľa mojej polohy</small></div>
         <div class="big alt">Všetky jazdy<small>2026: 144 jázd, 19 043 km</small></div>
-        <div class="open"><span class="tag">Návrh (task 96)</span>
-          <div class="big alt">Miesta<small>Názov, poloha a domov</small></div>
-        </div>
+        <div class="big alt">Miesta<small>Názov, poloha a domov</small></div>
         <div class="card">
           <div class="lbl">Štatistiky 2026</div>
           <div class="kv"><span>Celkovo najazdené</span><span>19 043 km</span></div>
@@ -165,7 +163,7 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
       <li>The stats card has the year stats of the PC page, without the vehicle settings row (name, plate, tank, TP).</li>
       <li>With Home Assistant set, the card also shows the real odometer and the liters to refill.</li>
       <li>The suggestions: "Návrh tankovania" for the open period, and above the card the compensation banner when the year is over the limit.</li>
-      <li class="prop"><b>A new button "Miesta" opens the place list (screen 10).</b> The hint "Názov, poloha a domov" is a new label. The button shows also in read-only mode.</li>
+      <li>The button "Miesta" opens the place list (screen 10). The button shows also in read-only mode. Like the other buttons of this page, it shows only when a vehicle is selected.</li>
     </ul>
   </section>
 
@@ -468,10 +466,9 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
     </ul>
   </section>
 
-  <!-- 10. Place list (proposal, task 96) -->
+  <!-- 10. Place list (task 96) -->
   <section class="screen">
-    <h2><span class="tag" style="color:var(--warn)">Návrh (task 96)</span> 10. Places (/m/miesta)</h2>
-    <div class="open">
+    <h2>10. Places (/m/miesta)</h2>
     <div class="phone">
       <div class="bar"><span><span class="back">&lt; Späť</span> &nbsp;Miesta</span></div>
       <div class="body">
@@ -500,20 +497,19 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
         <div class="note">...</div>
       </div>
     </div>
-    </div>
     <ul class="ann">
-      <li class="prop"><b>The list of all places, one card per place.</b> The order comes from the backend (<code>list_places</code>): the most used first, then by name. The page does not sort.</li>
-      <li class="prop"><b>"Hľadať..." filters the cards by name while you type.</b> It is the filter of the PC Miesta page: "Kosice" also finds "Košice".</li>
-      <li class="prop"><b>A card shows the name, the number of uses and the position (5 decimals).</b> The position is on the second line, right of the uses, so that a long name does not wrap it. The PC Miesta page shows 3 decimals. The home place has the house icon. The bar has no "{n}/{total} umiestnených" counter and the card has no warning sign: since task 88 each new place gets a position, and the live data has no place without one.</li>
-      <li class="prop"><b>A tap on a card opens the edit screen (screen 11).</b> "Pridať miesto" opens the same screen with no name and no position (screen 12).</li>
-      <li class="prop">In read-only mode, "Pridať miesto" is hidden. A card opens the edit screen without the save and the delete buttons.</li>
+      <li>The list of all places, one card per place. The order comes from the backend (<code>list_places</code>): the most used first, then by name. The page does not sort.</li>
+      <li>"Hľadať..." filters the cards by name while you type. It is the filter of the PC Miesta page: "Kosice" also finds "Košice".</li>
+      <li>A card shows the name, the number of uses and the position (5 decimals). The position is on the second line, right of the uses, so that a long name does not wrap it. The PC Miesta page shows 3 decimals. The home place has the house icon. The bar has no "{n}/{total} umiestnených" counter and the card has no warning sign: since task 88 each new place gets a position, and the live data has no place without one.</li>
+      <li>A tap on a card opens the edit screen (screen 11). "Pridať miesto" opens the same screen with no name and no position (screen 12).</li>
+      <li>In read-only mode, "Pridať miesto" is hidden. A card opens the edit screen without the save and the delete buttons, and the map takes no input.</li>
+      <li>The edit screen opens over the list, at its own top. The back link or the phone back gesture closes it, and the list keeps its scroll position.</li>
     </ul>
   </section>
 
-  <!-- 11. Edit place: address search (proposal, task 96) -->
+  <!-- 11. Edit place: address search (task 96) -->
   <section class="screen">
-    <h2><span class="tag" style="color:var(--warn)">Návrh (task 96)</span> 11. Edit a place: search</h2>
-    <div class="open">
+    <h2>11. Edit a place: search</h2>
     <div class="phone">
       <div class="bar"><span><span class="back">&lt; Miesta</span> &nbsp;Upraviť miesto</span></div>
       <div class="body">
@@ -538,22 +534,20 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
         <span class="note">Miesto je použité 4-krát.</span>
       </div>
     </div>
-    </div>
     <ul class="ann">
-      <li class="prop"><b>The search box starts with the place name.</b> "Hľadať" asks the geocoder of the PC Miesta page (<code>geocode_place</code>). A tap on a result moves the pin there and zooms in.</li>
-      <li class="prop"><b>Nothing is saved until "Uložiť miesto".</b> A search result only moves the pin (ADR-032). The stored name stays the name in the field, never the address (ADR-034).</li>
-      <li class="prop">No result: "Nič sa nenašlo. Umiestnite špendlík na mape ručne." A failed search: "Vyhľadávanie zlyhalo. Skúste to znova."</li>
-      <li class="prop"><b>"Moja poloha" moves the pin to the GPS point of the phone</b>, as in the manual add page. The GPS errors of that page apply here too.</li>
-      <li class="prop"><b>"Uložiť miesto" writes only what changed</b>: the name (<code>rename_place</code>), the pin (<code>set_place_position</code>), the home mark (<code>set_home_place</code>). Then the list opens with the toast "Miesto uložené". A name that another place has fails with the backend message.</li>
-      <li class="prop">New labels: "Upraviť miesto", "Poloha", "Ťuknite na mapu alebo posuňte špendlík." and "Poloha: {lat}, {lon} (ručne)" (screen 12). The other labels are from the PC Miesta page and the manual add page.</li>
-      <li class="prop"><b>"Zmazať" works only for a place that no trip uses.</b> Otherwise it is disabled, and the line under it gives the count. It asks "Zmazať miesto?" first.</li>
+      <li>The search box starts with the place name. "Hľadať" asks the geocoder of the PC Miesta page (<code>geocode_place</code>). A tap on a result moves the pin there and zooms in.</li>
+      <li>Nothing is saved until "Uložiť miesto". A search result only moves the pin (ADR-032). The stored name stays the name in the field, never the address (ADR-034).</li>
+      <li>No result: "Nič sa nenašlo. Umiestnite špendlík na mape ručne." A failed search: "Vyhľadávanie zlyhalo. Skúste to znova."</li>
+      <li>"Moja poloha" moves the pin to the GPS point of the phone, as in the manual add page. The GPS errors of that page apply here too. While the GPS request runs, "Uložiť miesto" is disabled. A GPS answer that comes after a search pick or a map tap is ignored.</li>
+      <li>"Uložiť miesto" writes only what changed: the name (<code>rename_place</code>), the pin (<code>set_place_position</code>), the home mark (<code>set_home_place</code>). Then the list opens with the toast "Miesto uložené". A name that another place has fails with the backend message.</li>
+      <li>Under the map: after a tap, a drag or "Moja poloha", the line shows "Poloha: {lat}, {lon} (ručne)" with 5 decimals (screen 12). Otherwise it shows "Ťuknite na mapu alebo posuňte špendlík."</li>
+      <li>"Zmazať" works only for a place that no trip uses. Otherwise it is disabled, and the line under it gives the count. It asks "Zmazať miesto?" first.</li>
     </ul>
   </section>
 
-  <!-- 12. New place: pin on the map (proposal, task 96) -->
+  <!-- 12. New place: pin on the map (task 96) -->
   <section class="screen">
-    <h2><span class="tag" style="color:var(--warn)">Návrh (task 96)</span> 12. New place: pin on the map</h2>
-    <div class="open">
+    <h2>12. New place: pin on the map</h2>
     <div class="phone">
       <div class="bar"><span><span class="back">&lt; Miesta</span> &nbsp;Pridať miesto</span></div>
       <div class="body">
@@ -566,18 +560,18 @@ header.page p { margin: 0; color: var(--muted); max-width: 65ch; }
           <div class="two"><div class="input" id="a-search" style="flex:1"><span>Klient Trnava</span></div><div class="btn2" style="flex:none">Hľadať</div></div>
         </div>
         <div class="mapbox" style="height:220px"><svg viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true"><path d="M0,150 C60,140 110,170 170,150 S260,120 300,130" fill="none" stroke="#9aa4a8" stroke-opacity="0.6" stroke-width="6"/><path d="M120,0 C125,60 140,120 135,220" fill="none" stroke="#9aa4a8" stroke-opacity="0.6" stroke-width="4"/><path d="M0,60 L300,85" fill="none" stroke="#9aa4a8" stroke-opacity="0.4" stroke-width="3"/><circle cx="205" cy="95" r="9" fill="#d63031" stroke="#fff" stroke-width="3"/></svg></div>
-        <span class="note">Poloha: 48.377, 17.588 (ručne)</span>
+        <span class="note">Poloha: 48.37700, 17.58800 (ručne)</span>
         <div class="btns"><div>Moja poloha</div></div>
         <label style="display:flex;gap:8px;align-items:center;font-size:0.95rem"><span style="width:18px;height:18px;border:2px solid var(--line);border-radius:4px;display:inline-block"></span> Označiť ako domov</label>
         <div class="save">Uložiť miesto</div>
       </div>
     </div>
-    </div>
     <ul class="ann">
-      <li class="prop"><b>A tap on the map puts the pin there.</b> You can drag the pin. Pinch and drag move the map, as on the trip detail. A pin from a tap or a drag gets the source "manual".</li>
-      <li class="prop"><b>A new place needs a name and a position.</b> Until both exist, "Uložiť miesto" is disabled. The map starts at the view of Slovakia, as on the PC.</li>
-      <li class="prop"><b>"Uložiť miesto" creates the place (<code>create_place</code>)</b>, then marks it as home if the box is on. A new place has no "Zmazať".</li>
-      <li class="prop">The search box copies the name while you type it, until you change the search box yourself.</li>
+      <li>A tap on the map puts the pin there. You can drag the pin. Pinch and drag move the map, as on the trip detail. A pin from a tap or a drag gets the source "manual".</li>
+      <li>A new place needs a name and a position. Until both exist, "Uložiť miesto" is disabled. The map starts at the view of Slovakia, as on the PC.</li>
+      <li>"Uložiť miesto" creates the place (<code>create_place</code>), then marks it as home if the box is on. A new place has no "Zmazať".</li>
+      <li>After the place is created, the screen always closes. If the home mark fails, the place stays, and the list shows the error.</li>
+      <li>The search box copies the name while you type it, until you change the search box yourself.</li>
     </ul>
   </section>
 
